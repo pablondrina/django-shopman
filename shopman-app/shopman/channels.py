@@ -56,6 +56,10 @@ def ensure_channel(
     config["stock"] = {
         "hold_ttl": preset_config.get("stock_hold_ttl"),
     }
+    if "post_commit_directives" in preset_config:
+        config["post_commit_directives"] = preset_config["post_commit_directives"]
+    if "notification_template" in preset_config:
+        config["notification_template"] = preset_config["notification_template"]
     defaults["config"] = config
 
     channel, created = Channel.objects.update_or_create(

@@ -23,6 +23,8 @@ def pos(*, stock_hold_ttl=300, **overrides):
         "auto_confirm": True,
         "payment_mode": "counter",
         "stock_hold_ttl": stock_hold_ttl,
+        "post_commit_directives": ["stock.hold", "notification.send"],
+        "notification_template": "order_confirmed_pos",
         **overrides,
     }
     return validate_channel_config(config)
@@ -42,6 +44,8 @@ def remote(*, stock_hold_ttl=None, confirmation_timeout=600, **overrides):
         "payment_mode": "pix",
         "stock_hold_ttl": stock_hold_ttl,
         "confirmation_timeout": confirmation_timeout,
+        "post_commit_directives": ["stock.hold", "notification.send"],
+        "notification_template": "order_confirmed_remote",
         **overrides,
     }
     return validate_channel_config(config)
@@ -59,6 +63,8 @@ def marketplace(*, stock_hold_ttl=None, **overrides):
         "auto_confirm": True,
         "payment_mode": "external",
         "stock_hold_ttl": stock_hold_ttl,
+        "post_commit_directives": ["notification.send"],
+        "notification_template": "order_confirmed_marketplace",
         **overrides,
     }
     return validate_channel_config(config)

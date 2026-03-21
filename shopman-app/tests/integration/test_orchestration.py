@@ -44,6 +44,21 @@ class PresetValidationTest(TestCase):
         assert config["payment_mode"] == "external"
         assert config["stock_hold_ttl"] is None
 
+    def test_pos_preset_post_commit_directives(self):
+        config = presets.pos()
+        assert config["post_commit_directives"] == ["stock.hold", "notification.send"]
+        assert config["notification_template"] == "order_confirmed_pos"
+
+    def test_remote_preset_post_commit_directives(self):
+        config = presets.remote()
+        assert config["post_commit_directives"] == ["stock.hold", "notification.send"]
+        assert config["notification_template"] == "order_confirmed_remote"
+
+    def test_marketplace_preset_post_commit_directives(self):
+        config = presets.marketplace()
+        assert config["post_commit_directives"] == ["notification.send"]
+        assert config["notification_template"] == "order_confirmed_marketplace"
+
     def test_pos_preset_allows_overrides(self):
         config = presets.pos(stock_hold_ttl=60)
         assert config["stock_hold_ttl"] == 60
@@ -127,6 +142,8 @@ class EnsureChannelTest(TestCase):
         assert channel.config["payment"]["mode"] == "counter"
         assert channel.config["confirmation_flow"]["auto_confirm"] is True
         assert channel.config["stock"]["hold_ttl"] == 300
+        assert channel.config["post_commit_directives"] == ["stock.hold", "notification.send"]
+        assert channel.config["notification_template"] == "order_confirmed_pos"
 
     def test_creates_channel_from_remote_preset(self):
         preset_config = presets.remote()
@@ -139,6 +156,8 @@ class EnsureChannelTest(TestCase):
         assert channel.config["preset"] == "remote"
         assert channel.config["payment"]["mode"] == "pix"
         assert channel.config["confirmation_flow"]["timeout"] == 600
+        assert channel.config["post_commit_directives"] == ["stock.hold", "notification.send"]
+        assert channel.config["notification_template"] == "order_confirmed_remote"
 
     def test_creates_channel_from_marketplace_preset(self):
         preset_config = presets.marketplace()
@@ -151,6 +170,8 @@ class EnsureChannelTest(TestCase):
         assert channel.config["preset"] == "marketplace"
         assert channel.config["payment"]["mode"] == "external"
         assert channel.config["stock"]["hold_ttl"] is None
+        assert channel.config["post_commit_directives"] == ["notification.send"]
+        assert channel.config["notification_template"] == "order_confirmed_marketplace"
 
     def test_updates_existing_channel(self):
         preset_config = presets.pos()
