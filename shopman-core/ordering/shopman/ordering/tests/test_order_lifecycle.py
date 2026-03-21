@@ -1,0 +1,712 @@
+"""
+Testes abrangentes para Order lifecycle, status transitions e timestamps.
+Cobre cenários realistas de iFood, E-commerce e PDV.
+"""
+from __future__ import annotations
+
+from datetime import timedelta
+from decimal import Decimal
+from unittest.mock import patch
+
+from django.test import TestCase
+from django.utils import timezone
+
+from shopman.ordering.exceptions import InvalidTransition
+from shopman.ordering.models import Channel, Order, OrderEvent, OrderItem, Session
+
+
+class OrderTimestampTests(TestCase):
+    """Testes para timestamps de lifecycle do Order."""
+
+    def setUp(self) -> None:
+        self.channel = Channel.objects.create(ref="shop", name="Shop")
+        self.order = Order.objects.create(
+            ref="ORD-TS-001",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=10000,
+        )
+
+    def test_created_at_is_set_on_creation(self) -> None:
+        """created_at é definido automaticamente na criação."""
+        self.assertIsNotNone(self.order.created_at)
+
+    def test_confirmed_at_is_set_on_transition(self) -> None:
+        """confirmed_at é definido ao transicionar para confirmed."""
+        self.assertIsNone(self.order.confirmed_at)
+        self.order.transition_status(Order.STATUS_CONFIRMED, actor="test")
+        self.order.refresh_from_db()
+        self.assertIsNotNone(self.order.confirmed_at)
+
+    def test_processing_at_is_set_on_transition(self) -> None:
+        """processing_at é definido ao transicionar para processing."""
+        self.order.transition_status(Order.STATUS_CONFIRMED, actor="test")
+        self.assertIsNone(self.order.processing_at)
+        self.order.transition_status(Order.STATUS_PROCESSING, actor="test")
+        self.order.refresh_from_db()
+        self.assertIsNotNone(self.order.processing_at)
+
+    def test_ready_at_is_set_on_transition(self) -> None:
+        """ready_at é definido ao transicionar para ready."""
+        self.order.transition_status(Order.STATUS_CONFIRMED, actor="test")
+        self.order.transition_status(Order.STATUS_PROCESSING, actor="test")
+        self.assertIsNone(self.order.ready_at)
+        self.order.transition_status(Order.STATUS_READY, actor="test")
+        self.order.refresh_from_db()
+        self.assertIsNotNone(self.order.ready_at)
+
+    def test_dispatched_at_is_set_on_transition(self) -> None:
+        """dispatched_at é definido ao transicionar para dispatched."""
+        self.order.transition_status(Order.STATUS_CONFIRMED, actor="test")
+        self.order.transition_status(Order.STATUS_PROCESSING, actor="test")
+        self.order.transition_status(Order.STATUS_READY, actor="test")
+        self.assertIsNone(self.order.dispatched_at)
+        self.order.transition_status(Order.STATUS_DISPATCHED, actor="test")
+        self.order.refresh_from_db()
+        self.assertIsNotNone(self.order.dispatched_at)
+
+    def test_delivered_at_is_set_on_transition(self) -> None:
+        """delivered_at é definido ao transicionar para delivered."""
+        self.order.transition_status(Order.STATUS_CONFIRMED, actor="test")
+        self.order.transition_status(Order.STATUS_PROCESSING, actor="test")
+        self.order.transition_status(Order.STATUS_READY, actor="test")
+        self.order.transition_status(Order.STATUS_DISPATCHED, actor="test")
+        self.assertIsNone(self.order.delivered_at)
+        self.order.transition_status(Order.STATUS_DELIVERED, actor="test")
+        self.order.refresh_from_db()
+        self.assertIsNotNone(self.order.delivered_at)
+
+    def test_completed_at_is_set_on_transition(self) -> None:
+        """completed_at é definido ao transicionar para completed."""
+        self.order.transition_status(Order.STATUS_CONFIRMED, actor="test")
+        self.order.transition_status(Order.STATUS_PROCESSING, actor="test")
+        self.order.transition_status(Order.STATUS_READY, actor="test")
+        self.assertIsNone(self.order.completed_at)
+        self.order.transition_status(Order.STATUS_COMPLETED, actor="test")
+        self.order.refresh_from_db()
+        self.assertIsNotNone(self.order.completed_at)
+
+    def test_cancelled_at_is_set_on_cancellation(self) -> None:
+        """cancelled_at é definido ao cancelar."""
+        self.assertIsNone(self.order.cancelled_at)
+        self.order.transition_status(Order.STATUS_CANCELLED, actor="test")
+        self.order.refresh_from_db()
+        self.assertIsNotNone(self.order.cancelled_at)
+
+    def test_timestamp_not_overwritten_on_repeat_transition(self) -> None:
+        """Timestamp não é sobrescrito se já existe (edge case)."""
+        # Força o timestamp
+        original_time = timezone.now() - timedelta(hours=1)
+        self.order.confirmed_at = original_time
+        self.order.status = Order.STATUS_NEW
+        self.order.save()
+
+        # Transiciona novamente
+        self.order.transition_status(Order.STATUS_CONFIRMED, actor="test")
+        self.order.refresh_from_db()
+
+        # Deve manter o timestamp original
+        self.assertEqual(self.order.confirmed_at, original_time)
+
+    def test_timestamps_allow_duration_calculation(self) -> None:
+        """Timestamps permitem calcular duração entre estados."""
+        # Transiciona normalmente
+        self.order.transition_status(Order.STATUS_CONFIRMED, actor="test")
+        self.order.transition_status(Order.STATUS_PROCESSING, actor="test")
+        self.order.transition_status(Order.STATUS_READY, actor="test")
+
+        self.order.refresh_from_db()
+
+        # Verifica que podemos calcular a duração
+        prep_time = self.order.ready_at - self.order.processing_at
+        # A duração deve ser >= 0 (quase instantânea no teste)
+        self.assertGreaterEqual(prep_time.total_seconds(), 0)
+
+
+class IFoodChannelFlowTests(TestCase):
+    """Testes de fluxo realista para canal iFood."""
+
+    def setUp(self) -> None:
+        self.channel = Channel.objects.create(
+            ref="ifood",
+            name="iFood",
+            config={
+                "pricing_policy": "external",
+                "order_flow": {
+                    "transitions": {
+                        "new": ["confirmed", "cancelled"],
+                        "confirmed": ["processing", "cancelled"],
+                        "processing": ["ready", "cancelled"],
+                        "ready": ["dispatched"],
+                        "dispatched": ["delivered", "returned"],
+                        "delivered": ["completed", "returned"],
+                        "completed": [],
+                        "returned": ["completed"],
+                    },
+                    "terminal_statuses": ["completed", "cancelled"],
+                },
+                "auto_transitions": {
+                    "on_create": "confirmed",
+                },
+                "status_labels": {
+                    "new": "Recebido",
+                    "confirmed": "Aceito",
+                    "processing": "Em Preparo",
+                    "ready": "Pronto p/ Retirada",
+                    "dispatched": "Saiu p/ Entrega",
+                },
+            },
+        )
+
+    def test_ifood_happy_path_delivery(self) -> None:
+        """Fluxo completo de delivery iFood."""
+        order = Order.objects.create(
+            ref="IFOOD-001",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=5000,
+            external_ref="ifood-abc123",
+        )
+
+        # Pedido chega do iFood → auto-confirm
+        order.transition_status(Order.STATUS_CONFIRMED, actor="ifood-webhook")
+        self.assertEqual(order.status, Order.STATUS_CONFIRMED)
+
+        # Cozinha aceita
+        order.transition_status(Order.STATUS_PROCESSING, actor="kitchen")
+        self.assertEqual(order.status, Order.STATUS_PROCESSING)
+
+        # Pronto
+        order.transition_status(Order.STATUS_READY, actor="kitchen")
+        self.assertEqual(order.status, Order.STATUS_READY)
+
+        # Motoboy pegou
+        order.transition_status(Order.STATUS_DISPATCHED, actor="motoboy")
+        self.assertEqual(order.status, Order.STATUS_DISPATCHED)
+
+        # Entregue
+        order.transition_status(Order.STATUS_DELIVERED, actor="motoboy")
+        self.assertEqual(order.status, Order.STATUS_DELIVERED)
+
+        # Finalizado
+        order.transition_status(Order.STATUS_COMPLETED, actor="system")
+        self.assertEqual(order.status, Order.STATUS_COMPLETED)
+
+        # Verifica todos os timestamps
+        order.refresh_from_db()
+        self.assertIsNotNone(order.confirmed_at)
+        self.assertIsNotNone(order.processing_at)
+        self.assertIsNotNone(order.ready_at)
+        self.assertIsNotNone(order.dispatched_at)
+        self.assertIsNotNone(order.delivered_at)
+        self.assertIsNotNone(order.completed_at)
+
+    def test_ifood_cancellation_from_new(self) -> None:
+        """Cancelamento antes de aceitar."""
+        order = Order.objects.create(
+            ref="IFOOD-002",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=3000,
+        )
+
+        order.transition_status(Order.STATUS_CANCELLED, actor="customer")
+        self.assertEqual(order.status, Order.STATUS_CANCELLED)
+        self.assertIsNotNone(order.cancelled_at)
+
+    def test_ifood_cancellation_during_prep(self) -> None:
+        """Cancelamento durante preparo."""
+        order = Order.objects.create(
+            ref="IFOOD-003",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=4500,
+        )
+
+        order.transition_status(Order.STATUS_CONFIRMED, actor="ifood-webhook")
+        order.transition_status(Order.STATUS_PROCESSING, actor="kitchen")
+        order.transition_status(Order.STATUS_CANCELLED, actor="ifood-webhook")
+
+        self.assertEqual(order.status, Order.STATUS_CANCELLED)
+        self.assertIsNotNone(order.cancelled_at)
+
+    def test_ifood_return_after_delivery(self) -> None:
+        """Devolução após entrega."""
+        order = Order.objects.create(
+            ref="IFOOD-004",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=8000,
+        )
+
+        # Fluxo até entrega
+        order.transition_status(Order.STATUS_CONFIRMED, actor="ifood-webhook")
+        order.transition_status(Order.STATUS_PROCESSING, actor="kitchen")
+        order.transition_status(Order.STATUS_READY, actor="kitchen")
+        order.transition_status(Order.STATUS_DISPATCHED, actor="motoboy")
+        order.transition_status(Order.STATUS_DELIVERED, actor="motoboy")
+
+        # Devolução
+        order.transition_status(Order.STATUS_RETURNED, actor="customer-support")
+        self.assertEqual(order.status, Order.STATUS_RETURNED)
+
+        # Após resolver devolução, finaliza
+        order.transition_status(Order.STATUS_COMPLETED, actor="finance")
+        self.assertEqual(order.status, Order.STATUS_COMPLETED)
+
+    def test_ifood_cannot_skip_states(self) -> None:
+        """iFood não pode pular estados intermediários."""
+        order = Order.objects.create(
+            ref="IFOOD-005",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=2500,
+        )
+
+        # Não pode ir direto para ready
+        with self.assertRaises(InvalidTransition):
+            order.transition_status(Order.STATUS_READY, actor="test")
+
+        # Não pode ir direto para dispatched
+        with self.assertRaises(InvalidTransition):
+            order.transition_status(Order.STATUS_DISPATCHED, actor="test")
+
+
+class EcommerceChannelFlowTests(TestCase):
+    """Testes de fluxo realista para canal E-commerce."""
+
+    def setUp(self) -> None:
+        self.channel = Channel.objects.create(
+            ref="ecommerce",
+            name="Loja Virtual",
+            config={
+                "pricing_policy": "external",
+                "order_flow": {
+                    "transitions": {
+                        "new": ["confirmed", "cancelled"],
+                        "confirmed": ["processing", "cancelled"],
+                        "processing": ["ready", "cancelled"],
+                        "ready": ["dispatched", "completed"],  # pickup ou delivery
+                        "dispatched": ["delivered", "returned"],
+                        "delivered": ["completed", "returned"],
+                        "completed": [],
+                        "cancelled": [],
+                        "returned": ["completed"],
+                    },
+                    "terminal_statuses": ["completed", "cancelled"],
+                },
+            },
+        )
+
+    def test_ecommerce_delivery_flow(self) -> None:
+        """E-commerce com entrega."""
+        order = Order.objects.create(
+            ref="ECOM-001",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=15000,
+        )
+
+        # Cliente finaliza compra → pagamento OK → confirmed
+        order.transition_status(Order.STATUS_CONFIRMED, actor="payment-webhook")
+        order.transition_status(Order.STATUS_PROCESSING, actor="warehouse")
+        order.transition_status(Order.STATUS_READY, actor="warehouse")
+        order.transition_status(Order.STATUS_DISPATCHED, actor="correios")
+        order.transition_status(Order.STATUS_DELIVERED, actor="correios")
+        order.transition_status(Order.STATUS_COMPLETED, actor="system")
+
+        self.assertEqual(order.status, Order.STATUS_COMPLETED)
+
+    def test_ecommerce_pickup_flow(self) -> None:
+        """E-commerce com retirada na loja (sem dispatched)."""
+        order = Order.objects.create(
+            ref="ECOM-002",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=8000,
+        )
+
+        order.transition_status(Order.STATUS_CONFIRMED, actor="payment-webhook")
+        order.transition_status(Order.STATUS_PROCESSING, actor="store")
+        order.transition_status(Order.STATUS_READY, actor="store")
+        # Cliente retira → direto para completed (sem dispatched)
+        order.transition_status(Order.STATUS_COMPLETED, actor="store-clerk")
+
+        self.assertEqual(order.status, Order.STATUS_COMPLETED)
+        self.assertIsNone(order.dispatched_at)
+
+    def test_ecommerce_payment_timeout_cancellation(self) -> None:
+        """Cancelamento por timeout de pagamento."""
+        order = Order.objects.create(
+            ref="ECOM-003",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=12000,
+        )
+
+        # Pagamento não confirmado → cancela
+        order.transition_status(Order.STATUS_CANCELLED, actor="payment-timeout")
+        self.assertEqual(order.status, Order.STATUS_CANCELLED)
+
+
+class PDVChannelFlowTests(TestCase):
+    """Testes de fluxo realista para canal PDV (balcão)."""
+
+    def setUp(self) -> None:
+        self.channel = Channel.objects.create(
+            ref="pdv",
+            name="Balcão",
+            config={
+                "pricing_policy": "internal",
+                "order_flow": {
+                    "transitions": {
+                        "new": ["confirmed", "cancelled"],
+                        "confirmed": ["completed", "cancelled"],
+                        "completed": [],
+                        "cancelled": [],
+                    },
+                    "terminal_statuses": ["completed", "cancelled"],
+                },
+                "terminology": {
+                    "session": "Atendimento",
+                    "order": "Venda",
+                },
+            },
+        )
+
+    def test_pdv_quick_sale(self) -> None:
+        """Venda rápida no balcão."""
+        order = Order.objects.create(
+            ref="PDV-001",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=2500,
+        )
+
+        # Fluxo simplificado: new → confirmed → completed
+        order.transition_status(Order.STATUS_CONFIRMED, actor="cashier")
+        order.transition_status(Order.STATUS_COMPLETED, actor="cashier")
+
+        self.assertEqual(order.status, Order.STATUS_COMPLETED)
+        self.assertIsNotNone(order.confirmed_at)
+        self.assertIsNotNone(order.completed_at)
+
+    def test_pdv_cancelled_sale(self) -> None:
+        """Venda cancelada no balcão."""
+        order = Order.objects.create(
+            ref="PDV-002",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=1500,
+        )
+
+        order.transition_status(Order.STATUS_CANCELLED, actor="cashier")
+        self.assertEqual(order.status, Order.STATUS_CANCELLED)
+
+    def test_pdv_cannot_access_delivery_states(self) -> None:
+        """PDV não tem acesso a estados de delivery."""
+        order = Order.objects.create(
+            ref="PDV-003",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=3000,
+        )
+
+        order.transition_status(Order.STATUS_CONFIRMED, actor="cashier")
+
+        # Não pode ir para processing, ready, dispatched, etc.
+        with self.assertRaises(InvalidTransition):
+            order.transition_status(Order.STATUS_PROCESSING, actor="test")
+
+
+class OrderEventAuditTests(TestCase):
+    """Testes para auditoria de eventos do Order."""
+
+    def setUp(self) -> None:
+        self.channel = Channel.objects.create(ref="test", name="Test")
+        self.order = Order.objects.create(
+            ref="AUDIT-001",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=5000,
+        )
+
+    def test_transition_creates_status_changed_event(self) -> None:
+        """Transição cria evento status_changed."""
+        self.order.transition_status(Order.STATUS_CONFIRMED, actor="admin")
+
+        event = OrderEvent.objects.get(order=self.order)
+        self.assertEqual(event.type, "status_changed")
+        self.assertEqual(event.actor, "admin")
+        self.assertEqual(event.payload["old_status"], "new")
+        self.assertEqual(event.payload["new_status"], "confirmed")
+
+    def test_multiple_transitions_create_multiple_events(self) -> None:
+        """Múltiplas transições criam múltiplos eventos."""
+        self.order.transition_status(Order.STATUS_CONFIRMED, actor="admin")
+        self.order.transition_status(Order.STATUS_CANCELLED, actor="customer")
+
+        events = OrderEvent.objects.filter(order=self.order).order_by("created_at")
+        self.assertEqual(events.count(), 2)
+
+        self.assertEqual(events[0].payload["new_status"], "confirmed")
+        self.assertEqual(events[1].payload["new_status"], "cancelled")
+
+    def test_emit_event_creates_custom_event(self) -> None:
+        """emit_event cria evento customizado."""
+        event = self.order.emit_event(
+            event_type="note_added",
+            actor="support",
+            payload={"note": "Cliente solicitou entrega rápida"},
+        )
+
+        self.assertEqual(event.type, "note_added")
+        self.assertEqual(event.actor, "support")
+        self.assertEqual(event.payload["note"], "Cliente solicitou entrega rápida")
+
+    def test_events_maintain_chronological_order(self) -> None:
+        """Eventos mantêm ordem cronológica."""
+        self.order.emit_event("event_1", actor="a", payload={})
+        self.order.emit_event("event_2", actor="b", payload={})
+        self.order.emit_event("event_3", actor="c", payload={})
+
+        events = list(
+            OrderEvent.objects.filter(order=self.order).values_list("type", flat=True)
+        )
+        self.assertEqual(events, ["event_1", "event_2", "event_3"])
+
+
+class OrderItemTests(TestCase):
+    """Testes para OrderItem."""
+
+    def setUp(self) -> None:
+        self.channel = Channel.objects.create(ref="test", name="Test")
+        self.order = Order.objects.create(
+            ref="ITEM-001",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=10000,
+        )
+
+    def test_create_order_item(self) -> None:
+        """Cria item de pedido."""
+        item = OrderItem.objects.create(
+            order=self.order,
+            line_id="L-1",
+            sku="CROISSANT",
+            name="Croissant Simples",
+            qty=Decimal("2"),
+            unit_price_q=500,
+            line_total_q=1000,
+        )
+
+        self.assertEqual(item.sku, "CROISSANT")
+        self.assertEqual(item.qty, Decimal("2"))
+        self.assertEqual(item.line_total_q, 1000)
+
+    def test_order_items_relationship(self) -> None:
+        """Relacionamento order.items funciona."""
+        OrderItem.objects.create(
+            order=self.order,
+            line_id="L-1",
+            sku="ITEM1",
+            qty=Decimal("1"),
+            unit_price_q=1000,
+            line_total_q=1000,
+        )
+        OrderItem.objects.create(
+            order=self.order,
+            line_id="L-2",
+            sku="ITEM2",
+            qty=Decimal("2"),
+            unit_price_q=500,
+            line_total_q=1000,
+        )
+
+        self.assertEqual(self.order.items.count(), 2)
+
+    def test_order_item_with_meta(self) -> None:
+        """Item com metadados extras."""
+        item = OrderItem.objects.create(
+            order=self.order,
+            line_id="L-1",
+            sku="PIZZA",
+            name="Pizza Margherita",
+            qty=Decimal("1"),
+            unit_price_q=4500,
+            line_total_q=4500,
+            meta={
+                "extras": ["queijo extra", "sem cebola"],
+                "observations": "Bem assada",
+            },
+        )
+
+        self.assertEqual(item.meta["extras"], ["queijo extra", "sem cebola"])
+
+
+class EdgeCaseTests(TestCase):
+    """Testes para casos de borda e cenários extremos."""
+
+    def setUp(self) -> None:
+        self.channel = Channel.objects.create(ref="test", name="Test")
+
+    def test_order_with_zero_total(self) -> None:
+        """Order com total zero (promoção 100% off)."""
+        order = Order.objects.create(
+            ref="EDGE-001",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=0,
+        )
+
+        order.transition_status(Order.STATUS_CONFIRMED, actor="promo")
+        self.assertEqual(order.status, Order.STATUS_CONFIRMED)
+
+    def test_order_with_large_total(self) -> None:
+        """Order com valor muito alto."""
+        order = Order.objects.create(
+            ref="EDGE-002",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=99999999999,  # ~R$ 999 milhões
+        )
+
+        self.assertEqual(order.total_q, 99999999999)
+
+    def test_order_with_long_external_ref(self) -> None:
+        """Order com referência externa longa."""
+        order = Order.objects.create(
+            ref="EDGE-003",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=1000,
+            external_ref="x" * 128,  # max length
+        )
+
+        self.assertEqual(len(order.external_ref), 128)
+
+    def test_order_with_special_characters_in_handle(self) -> None:
+        """Order com caracteres especiais no handle."""
+        order = Order.objects.create(
+            ref="EDGE-004",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=1000,
+            handle_type="mesa",
+            handle_ref="Mesa #12 - João & Maria",
+        )
+
+        self.assertIn("João & Maria", str(order))
+
+    def test_concurrent_status_transitions(self) -> None:
+        """Simula transições quase simultâneas."""
+        order = Order.objects.create(
+            ref="EDGE-005",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=5000,
+        )
+
+        # Primeira transição
+        order.transition_status(Order.STATUS_CONFIRMED, actor="user1")
+
+        # Segunda transição do mesmo status (outro processo)
+        order2 = Order.objects.get(pk=order.pk)
+        order2.transition_status(Order.STATUS_PROCESSING, actor="user2")
+
+        # Ambas devem ter funcionado
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.STATUS_PROCESSING)
+
+    def test_empty_channel_config(self) -> None:
+        """Canal sem config usa defaults."""
+        empty_channel = Channel.objects.create(
+            ref="empty",
+            name="Empty Config",
+            config={},
+        )
+        order = Order.objects.create(
+            ref="EDGE-006",
+            channel=empty_channel,
+            status=Order.STATUS_NEW,
+            total_q=1000,
+        )
+
+        # Deve usar DEFAULT_TRANSITIONS
+        self.assertTrue(order.can_transition_to(Order.STATUS_CONFIRMED))
+        self.assertTrue(order.can_transition_to(Order.STATUS_CANCELLED))
+
+    def test_empty_channel_config_with_get_transitions(self) -> None:
+        """Canal com config vazio usa defaults (config={} é o default)."""
+        empty_config_channel = Channel.objects.create(
+            ref="empty_config",
+            name="Empty Config",
+            config={},  # Dict vazio é o default real
+        )
+
+        order = Order.objects.create(
+            ref="EDGE-007",
+            channel=empty_config_channel,
+            status=Order.STATUS_NEW,
+            total_q=1000,
+        )
+
+        # Deve usar DEFAULT_TRANSITIONS sem erro
+        transitions = order.get_transitions()
+        self.assertIsInstance(transitions, dict)
+        # Mesmo com config vazio, pode transicionar para confirmed/cancelled
+        self.assertTrue(order.can_transition_to(Order.STATUS_CONFIRMED))
+        self.assertTrue(order.can_transition_to(Order.STATUS_CANCELLED))
+
+
+class SessionToOrderFlowTests(TestCase):
+    """Testes de fluxo Session → Order."""
+
+    def setUp(self) -> None:
+        self.channel = Channel.objects.create(ref="flow", name="Flow Test")
+
+    def test_session_items_preserved_in_order_snapshot(self) -> None:
+        """Items da Session são preservados no snapshot do Order."""
+        session = Session.objects.create(
+            session_key="SESS-001",
+            channel=self.channel,
+            items=[
+                {"line_id": "L-1", "sku": "A", "qty": 2, "unit_price_q": 1000},
+                {"line_id": "L-2", "sku": "B", "qty": 1, "unit_price_q": 500},
+            ],
+        )
+
+        order = Order.objects.create(
+            ref="FLOW-001",
+            channel=self.channel,
+            session_key=session.session_key,
+            status=Order.STATUS_NEW,
+            total_q=2500,
+            snapshot={"items": session.items},
+        )
+
+        self.assertEqual(len(order.snapshot["items"]), 2)
+        self.assertEqual(order.snapshot["items"][0]["sku"], "A")
+
+    def test_session_handle_copied_to_order(self) -> None:
+        """Handle da Session é copiado para Order."""
+        session = Session.objects.create(
+            session_key="SESS-002",
+            channel=self.channel,
+            handle_type="comanda",
+            handle_ref="42",
+        )
+
+        order = Order.objects.create(
+            ref="FLOW-002",
+            channel=self.channel,
+            session_key=session.session_key,
+            handle_type=session.handle_type,
+            handle_ref=session.handle_ref,
+            status=Order.STATUS_NEW,
+            total_q=1000,
+        )
+
+        self.assertEqual(order.handle_type, "comanda")
+        self.assertEqual(order.handle_ref, "42")
+        self.assertIn("Comanda: 42", str(order))

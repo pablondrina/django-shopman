@@ -14,8 +14,7 @@ from django.utils import timezone
 from shopman.ordering import registry
 from shopman.ordering.exceptions import CommitError, IdempotencyCacheHit, SessionError, ValidationError
 from shopman.ordering.ids import generate_order_ref
-from shopman.ordering.models import IdempotencyKey, Order, OrderItem, Session
-from shopman.ordering.services.directive import DirectiveService
+from shopman.ordering.models import Directive, IdempotencyKey, Order, OrderItem, Session
 from shopman.utils.monetary import monetary_mult
 
 
@@ -45,17 +44,34 @@ class CommitService:
         idempotency_key: str,
         ctx: dict | None = None,
     ) -> dict:
+        """
+        Fecha uma sessão e cria um Order.
+
+        Args:
+            session_key: Chave da sessão
+            channel_ref: Código do canal
+            idempotency_key: Chave de idempotência
+            ctx: Contexto adicional
+
+        Returns:
+            dict com order_ref e dados do pedido
+
+        Raises:
+            CommitError: Se commit falhar
+            SessionError: Se sessão não encontrada
+        """
         ctx = ctx or {}
         idem_scope = f"commit:{channel_ref}"
 
-        # 1. Check/create idempotency key
+        # 1. Check/create idempotency key (outside main transaction)
         try:
             idem = CommitService._acquire_idempotency_lock(idem_scope, idempotency_key)
         except IdempotencyCacheHit as cache_hit:
+            # Cached response from previous successful commit
             return cache_hit.cached_response
 
         try:
-            # 2. Execute commit
+            # 2. Execute commit in atomic transaction
             response = CommitService._do_commit(
                 session_key=session_key,
                 channel_ref=channel_ref,
@@ -63,7 +79,7 @@ class CommitService:
                 ctx=ctx,
             )
 
-            # 3. Mark idempotency key as done
+            # 3. Mark idempotency key as done (outside transaction)
             idem.status = "done"
             idem.response_body = response
             idem.response_code = 201
@@ -72,11 +88,13 @@ class CommitService:
             return response
 
         except (CommitError, SessionError, ValidationError):
+            # Mark idempotency key as failed (persists even if transaction rolled back)
             idem.status = "failed"
             idem.save(update_fields=["status"])
             raise
 
         except Exception as e:
+            # Unexpected error - mark as failed and re-raise
             idem.status = "failed"
             idem.save(update_fields=["status"])
             logger.exception(f"Unexpected error in commit: {e}")
@@ -84,16 +102,28 @@ class CommitService:
 
     @staticmethod
     def _acquire_idempotency_lock(scope: str, key: str) -> IdempotencyKey:
+        """
+        Acquire idempotency lock for a commit operation.
+
+        Returns:
+            IdempotencyKey with status="in_progress"
+
+        Raises:
+            IdempotencyCacheHit: If key exists and has cached response (not an error)
+            CommitError: If key is already in progress
+        """
         with transaction.atomic():
             try:
                 idem = IdempotencyKey.objects.select_for_update(nowait=False).get(
                     scope=scope,
                     key=key,
                 )
+                # Key exists - check status
                 if idem.status == "done" and idem.response_body:
                     raise IdempotencyCacheHit(idem.response_body)
                 elif idem.status == "in_progress":
                     if idem.expires_at and idem.expires_at <= timezone.now():
+                        # Orphaned key — allow retry
                         idem.status = "in_progress"
                         idem.expires_at = timezone.now() + timedelta(hours=24)
                         idem.save(update_fields=["status", "expires_at"])
@@ -102,11 +132,13 @@ class CommitService:
                         code="in_progress",
                         message="Commit já está em andamento com esta chave",
                     )
+                # Status is "failed" - allow retry
                 idem.status = "in_progress"
                 idem.save(update_fields=["status"])
                 return idem
 
             except IdempotencyKey.DoesNotExist:
+                # Create new key
                 idem, created = IdempotencyKey.objects.get_or_create(
                     scope=scope,
                     key=key,
@@ -116,6 +148,7 @@ class CommitService:
                     },
                 )
                 if not created:
+                    # Race condition: another request created it - re-check with lock
                     idem = IdempotencyKey.objects.select_for_update().get(pk=idem.pk)
                     if idem.status == "done" and idem.response_body:
                         raise IdempotencyCacheHit(idem.response_body)
@@ -124,6 +157,7 @@ class CommitService:
                             code="in_progress",
                             message="Commit já está em andamento com esta chave",
                         )
+                    # Status is "failed" - allow retry
                     idem.status = "in_progress"
                     idem.save(update_fields=["status"])
                 return idem
@@ -136,6 +170,9 @@ class CommitService:
         idempotency_key: str,
         ctx: dict,
     ) -> dict:
+        """
+        Execute the actual commit logic in an atomic transaction.
+        """
         # Lock session
         try:
             session = Session.objects.select_for_update().get(
@@ -152,6 +189,7 @@ class CommitService:
 
         # Validate session is open
         if session.state == "committed":
+            # Return existing order (idempotency)
             order = Order.objects.filter(session_key=session_key, channel=channel).first()
             if order:
                 return {"order_ref": order.ref, "status": "already_committed"}
@@ -219,7 +257,7 @@ class CommitService:
         for validator in registry.get_validators(stage="commit"):
             validator.validate(channel=channel, session=session, ctx=ctx)
 
-        # Validate session has items
+        # H08: Validate session has items before commit
         if not session.items:
             raise CommitError(
                 code="empty_session",
@@ -227,7 +265,7 @@ class CommitService:
                 context={"session_key": session_key},
             )
 
-        # Build order.data from session.data
+        # Build order.data from session.data (key fields for handlers)
         order_data = {}
         session_data = session.data or {}
         for key in (
@@ -266,6 +304,7 @@ class CommitService:
         )
 
         for item in session.items:
+            # Usa line_total_q existente ou calcula se não existir
             line_total = item.get("line_total_q")
             if line_total is None:
                 line_total = monetary_mult(Decimal(str(item["qty"])), item.get("unit_price_q", 0))
@@ -281,7 +320,7 @@ class CommitService:
                 meta=item.get("meta", {}),
             )
 
-        # Create event
+        # Create event (via emit_event para seq automático)
         order.emit_event(
             event_type="created",
             actor=ctx.get("actor", "system"),
@@ -305,7 +344,6 @@ class CommitService:
 
         # Enqueue post-commit directives
         post_commit_directives = channel.config.get("post_commit_directives", [])
-        notification_template = channel.config.get("notification_template")
         stock_holds = None
         stock_check = checks.get("stock")
         if stock_check:
@@ -324,9 +362,56 @@ class CommitService:
                     {"sku": item["sku"], "qty": item["qty"]}
                     for item in session.items
                 ]
-            if topic == "notification.send" and notification_template:
-                payload["notification_template"] = notification_template
-            DirectiveService.enqueue(topic=topic, payload=payload)
+            if topic == "notification.send":
+                payload["template"] = "order_received"
+            if topic == "pix.generate":
+                payload["amount_q"] = order.total_q
+                pix_config = (channel.config or {}).get("pix", {})
+                if pix_config.get("timeout_minutes"):
+                    payload["pix_timeout_minutes"] = pix_config["timeout_minutes"]
+            Directive.objects.create(
+                topic=topic,
+                payload=payload,
+            )
+
+        # Preorder reminder: D-1 notification if delivery_date is future
+        if order_data.get("is_preorder") and order_data.get("delivery_date"):
+            from datetime import date as date_type, datetime as datetime_type, time as time_type
+
+            try:
+                delivery_dt = date_type.fromisoformat(order_data["delivery_date"])
+                reminder_date = delivery_dt - timedelta(days=1)
+                # Schedule reminder for 09:00 on D-1
+                reminder_at = datetime_type.combine(reminder_date, time_type(9, 0))
+                if timezone.is_naive(reminder_at):
+                    from datetime import timezone as dt_timezone
+                    # Use server timezone (BRT = UTC-3)
+                    reminder_at = timezone.make_aware(reminder_at)
+
+                customer_name = order_data.get("customer", {}).get("name", "")
+                time_slot = order_data.get("delivery_time_slot", "")
+                items_summary = ", ".join(
+                    f"{item.get('qty', '')}x {item.get('name', item.get('sku', ''))}"
+                    for item in session.items[:5]
+                )
+
+                Directive.objects.create(
+                    topic="notification.send",
+                    available_at=reminder_at,
+                    payload={
+                        "order_ref": order.ref,
+                        "template": "preorder_reminder",
+                        "context": {
+                            "customer_name": customer_name,
+                            "delivery_date": order_data["delivery_date"],
+                            "delivery_time_slot": time_slot,
+                            "items_summary": items_summary,
+                            "fulfillment_type": order_data.get("fulfillment_type", "pickup"),
+                        },
+                    },
+                )
+            except (ValueError, TypeError):
+                pass
 
         return {
             "order_ref": order.ref,
@@ -337,70 +422,13 @@ class CommitService:
         }
 
     @staticmethod
-    @transaction.atomic
-    def abandon(
-        session_key: str,
-        channel_ref: str,
-        ctx: dict | None = None,
-    ) -> dict:
-        """
-        Abandona uma sessão aberta, liberando handles e resources.
-
-        - Se já abandoned → noop (retorna status "already_abandoned").
-        - Se já committed → erro.
-        - Marca state="abandoned", registra evento no histórico,
-          e enqueue post_abandon_directives do channel config.
-        """
-        ctx = ctx or {}
-
-        try:
-            session = Session.objects.select_for_update().get(
-                session_key=session_key,
-                channel__ref=channel_ref,
-            )
-        except Session.DoesNotExist:
-            raise SessionError(
-                code="not_found",
-                message=f"Sessão não encontrada: {channel_ref}:{session_key}",
-            )
-
-        channel = session.channel
-
-        if session.state == "abandoned":
-            return {"session_key": session_key, "status": "already_abandoned"}
-
-        if session.state == "committed":
-            raise CommitError(
-                code="already_committed",
-                message="Sessão já foi fechada e não pode ser abandonada",
-            )
-
-        # Mark as abandoned
-        session.state = "abandoned"
-
-        # Emit history event
-        history = session.data.get("history", [])
-        history.append({
-            "event": "abandoned",
-            "actor": ctx.get("actor", "system"),
-            "at": timezone.now().isoformat(),
-        })
-        session.data = {**session.data, "history": history}
-        session.save()
-
-        # Enqueue post_abandon_directives
-        post_abandon_directives = channel.config.get("post_abandon_directives", [])
-        for topic in post_abandon_directives:
-            payload = {
-                "channel_ref": channel.ref,
-                "session_key": session.session_key,
-            }
-            DirectiveService.enqueue(topic=topic, payload=payload)
-
-        return {"session_key": session_key, "status": "abandoned"}
-
-    @staticmethod
     def _calculate_total(items: list[dict]) -> int:
+        """
+        Calcula total do pedido.
+
+        Usa line_total_q se existir (pode ter sido calculado com lógica
+        customizada como descontos). Se não existir, calcula qty * unit_price_q.
+        """
         total = 0
         for item in items:
             line_total = item.get("line_total_q")
@@ -414,6 +442,13 @@ class CommitService:
 
     @staticmethod
     def _parse_iso_datetime(value: str | None) -> datetime | None:
+        """
+        Parse ISO datetime string to timezone-aware datetime.
+
+        If the input has no timezone info, it's assumed to be in UTC
+        (not the server's local timezone) to ensure consistent behavior
+        regardless of server configuration.
+        """
         if not value:
             return None
         try:
@@ -421,6 +456,8 @@ class CommitService:
         except ValueError:
             return None
         if timezone.is_naive(dt):
+            # Assume UTC for naive datetimes (safer than assuming local TZ)
+            # Using datetime.timezone.utc (stdlib, no pytz needed)
             from datetime import timezone as dt_timezone
             dt = dt.replace(tzinfo=dt_timezone.utc)
         return dt

@@ -3,6 +3,9 @@ Signal-driven directive dispatch.
 
 Processes newly created directives immediately via post_save signal,
 with opportunistic retry of failed directives from the same topic.
+
+The process_directives --watch command remains as fallback for edge cases
+(worker crash, deploy gap, etc.) but is not required for normal operation.
 """
 from __future__ import annotations
 
@@ -22,6 +25,8 @@ OPPORTUNISTIC_RETRY_LIMIT = 3
 
 # Thread-local reentrancy guard: prevents cascading dispatch when a handler
 # creates new directives via Directive.objects.create() during execution.
+# Those child directives stay "queued" and are picked up by the poller or
+# the next signal-driven dispatch.
 _local = threading.local()
 
 
@@ -36,6 +41,9 @@ def _process_directive(directive) -> None:
 
     On success: marks as "done" (handler is responsible for setting status).
     On failure: marks as "queued" with backoff, or "failed" if max attempts reached.
+
+    Sets a thread-local reentrancy flag so that directives created by the
+    handler itself are not auto-dispatched (avoids cascading side-effects).
     """
     from shopman.ordering import registry
 
@@ -98,39 +106,14 @@ def _retry_failed_directives(topic: str) -> None:
         _process_directive(d)
 
 
-def dispatch_pending_directives() -> int:
-    """
-    Sweep all queued directives whose available_at has passed.
-
-    Returns the number of directives processed (regardless of outcome).
-    Safe to call from management commands, periodic tasks, or tests.
-    """
-    from shopman.ordering.models import Directive
-
-    now = timezone.now()
-    processed = 0
-
-    with transaction.atomic():
-        pending = list(
-            Directive.objects
-            .select_for_update(skip_locked=True)
-            .filter(status="queued", available_at__lte=now)
-            .order_by("available_at", "id")
-        )
-
-    for directive in pending:
-        _process_directive(directive)
-        processed += 1
-
-    return processed
-
-
 @receiver(post_save, dispatch_uid="ordering.directive_dispatch")
 def on_directive_post_save(sender, instance, created, **kwargs) -> None:
     """
     Auto-dispatch newly created directives.
 
     Only fires for Directive model, on creation, when status is "queued".
+    After processing the new directive, sweeps failed directives for the
+    same topic (opportunistic retry).
     """
     from shopman.ordering.models import Directive
 

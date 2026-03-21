@@ -5,7 +5,7 @@
 #   make test-utils  → roda testes do utils
 #   make install     → instala deps + apps em modo editável
 
-.PHONY: help install test test-utils lint clean
+.PHONY: help install test test-utils test-offering test-stocking test-crafting test-ordering lint clean
 
 help: ## Mostra este help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -19,23 +19,35 @@ install: ## Instala deps + apps da suite em modo editável
 		phonenumbers pytest pytest-django
 	# Instala cada app em modo editável
 	pip install -e shopman-core/utils
-	# pip install -e shopman-core/offering   # WP-1
-	# pip install -e shopman-core/stocking   # WP-2
-	# pip install -e shopman-core/crafting   # WP-3
-	# pip install -e shopman-core/attending  # WP-4
-	# pip install -e shopman-core/gating     # WP-4
+	pip install -e shopman-core/offering
+	pip install -e shopman-core/stocking
+	pip install -e shopman-core/crafting
+	# pip install -e shopman-core/attending  # WP-R2
+	# pip install -e shopman-core/gating     # WP-R2
 	pip install -e shopman-core/ordering
-	# pip install -e shopman-app             # WP-6
+	# pip install -e shopman-app             # WP-R3+
 	@echo "✓ Dependências instaladas"
 
 # ── Testes ────────────────────────────────────────────────────────────
 
-test: test-utils test-ordering ## Roda todos os testes
+test: test-utils test-offering test-stocking test-crafting test-ordering ## Roda todos os testes
 	@echo "✓ Todos os testes passaram"
 
 test-utils: ## Testes do shopman.utils
 	@echo "── Utils ──"
 	cd shopman-core/utils && python -m pytest -x -q
+
+test-offering: ## Testes do shopman.offering
+	@echo "── Offering ──"
+	cd shopman-core/offering && python -m pytest -x -q
+
+test-stocking: ## Testes do shopman.stocking
+	@echo "── Stocking ──"
+	cd shopman-core/stocking && python -m pytest -x -q
+
+test-crafting: ## Testes do shopman.crafting
+	@echo "── Crafting ──"
+	cd shopman-core/crafting && python -m pytest -x -q
 
 test-ordering: ## Testes do shopman.ordering
 	@echo "── Ordering ──"

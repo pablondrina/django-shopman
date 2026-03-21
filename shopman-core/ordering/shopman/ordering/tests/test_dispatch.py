@@ -1,56 +1,172 @@
-"""Testes do Dispatch do Ordering kernel."""
+"""Tests for signal-driven directive dispatch."""
+from __future__ import annotations
 
 from datetime import timedelta
-from unittest.mock import patch
 
-import pytest
 from django.test import TestCase
 from django.utils import timezone
 
 from shopman.ordering import registry
-from shopman.ordering.dispatch import dispatch_pending_directives, MAX_ATTEMPTS
-from shopman.ordering.models import Channel, Directive
+from shopman.ordering.models import Directive
 
 
 class SuccessHandler:
     topic = "test.success"
 
-    def handle(self, *, message, ctx):
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def handle(self, *, message: Directive, ctx: dict) -> None:
+        self.calls += 1
         message.status = "done"
-        message.save(update_fields=["status"])
+        message.save(update_fields=["status", "updated_at"])
 
 
 class FailHandler:
     topic = "test.fail"
 
-    def handle(self, *, message, ctx):
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def handle(self, *, message: Directive, ctx: dict) -> None:
+        self.calls += 1
         raise RuntimeError("boom")
 
 
-@pytest.mark.django_db
-class TestDispatch(TestCase):
-    def test_directive_auto_dispatched_on_create(self):
-        registry.register_directive_handler(SuccessHandler())
-        d = Directive.objects.create(topic="test.success", payload={"key": "val"})
-        d.refresh_from_db()
-        assert d.status == "done"
-        assert d.attempts == 1
+class FailOnceHandler:
+    """Fails on first call, succeeds on subsequent calls."""
+    topic = "test.fail_once"
 
-    def test_directive_no_handler_stays_queued(self):
-        d = Directive.objects.create(topic="no.handler", payload={})
-        d.refresh_from_db()
-        assert d.status == "queued"
-        assert d.attempts == 0
+    def __init__(self) -> None:
+        self.calls = 0
 
-    def test_directive_fail_retries(self):
-        registry.register_directive_handler(FailHandler())
-        d = Directive.objects.create(topic="test.fail", payload={})
-        d.refresh_from_db()
-        assert d.status == "queued"
-        assert d.attempts == 1
-        assert "boom" in d.last_error
+    def handle(self, *, message: Directive, ctx: dict) -> None:
+        self.calls += 1
+        if self.calls <= 1:
+            raise RuntimeError("transient failure")
+        message.status = "done"
+        message.save(update_fields=["status", "updated_at"])
 
-    def test_reentrancy_guard(self):
+
+class DirectiveDispatchTests(TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        registry.clear()
+        self.success_handler = SuccessHandler()
+        self.fail_handler = FailHandler()
+        registry.register_directive_handler(self.success_handler)
+        registry.register_directive_handler(self.fail_handler)
+
+    def tearDown(self) -> None:
+        registry.clear()
+        super().tearDown()
+
+    def test_directive_processed_automatically_on_create(self) -> None:
+        """Creating a queued directive triggers immediate processing."""
+        directive = Directive.objects.create(
+            topic="test.success",
+            payload={"key": "value"},
+        )
+        directive.refresh_from_db()
+        self.assertEqual(directive.status, "done")
+        self.assertEqual(self.success_handler.calls, 1)
+
+    def test_directive_not_dispatched_when_status_not_queued(self) -> None:
+        """Directives created with non-queued status are not dispatched."""
+        directive = Directive.objects.create(
+            topic="test.success",
+            payload={},
+            status="done",
+        )
+        directive.refresh_from_db()
+        self.assertEqual(directive.status, "done")
+        self.assertEqual(self.success_handler.calls, 0)
+
+    def test_failed_handler_marks_queued_with_backoff(self) -> None:
+        """A failing handler sets status=queued with backoff on first attempt."""
+        directive = Directive.objects.create(
+            topic="test.fail",
+            payload={},
+        )
+        directive.refresh_from_db()
+        self.assertEqual(directive.status, "queued")
+        self.assertEqual(directive.attempts, 1)
+        self.assertIn("boom", directive.last_error)
+        self.assertGreater(directive.available_at, timezone.now())
+
+    def test_failed_handler_marks_failed_after_max_attempts(self) -> None:
+        """After max attempts, directive is marked as failed."""
+        directive = Directive.objects.create(
+            topic="test.fail",
+            payload={},
+        )
+        # Simulate having reached max attempts - 1
+        directive.refresh_from_db()
+        directive.attempts = 4
+        directive.status = "queued"
+        directive.available_at = timezone.now() - timedelta(seconds=1)
+        directive.save(update_fields=["attempts", "status", "available_at", "updated_at"])
+
+        # Now process again via the dispatch function directly
+        from shopman.ordering.dispatch import _process_directive
+        _process_directive(directive)
+
+        directive.refresh_from_db()
+        self.assertEqual(directive.status, "failed")
+        self.assertEqual(directive.attempts, 5)
+
+    def test_no_handler_leaves_directive_queued(self) -> None:
+        """Directive with no registered handler stays queued."""
+        directive = Directive.objects.create(
+            topic="test.unregistered",
+            payload={},
+        )
+        directive.refresh_from_db()
+        # Status stays queued (signal fires but no handler)
+        self.assertEqual(directive.status, "queued")
+
+    def test_opportunistic_retry_picks_up_failed_directives(self) -> None:
+        """After processing a new directive, retries queued ones from same topic."""
+        # Use bulk_create to bypass post_save signal (no auto-dispatch)
+        old = Directive(
+            topic="test.success",
+            payload={"id": "old"},
+            status="queued",
+            attempts=1,
+            available_at=timezone.now() - timedelta(seconds=10),
+            last_error="previous failure",
+        )
+        Directive.objects.bulk_create([old])
+
+        # Create a new directive — triggers dispatch + opportunistic retry
+        new = Directive.objects.create(
+            topic="test.success",
+            payload={"id": "new"},
+        )
+
+        # New directive: processed immediately
+        new.refresh_from_db()
+        self.assertEqual(new.status, "done")
+
+        # Old directive: retried opportunistically
+        old.refresh_from_db()
+        self.assertEqual(old.status, "done")
+
+    def test_update_does_not_trigger_dispatch(self) -> None:
+        """Updating an existing directive does not re-trigger dispatch."""
+        directive = Directive.objects.create(
+            topic="test.success",
+            payload={},
+        )
+        initial_calls = self.success_handler.calls
+
+        # Update the directive
+        directive.last_error = "test"
+        directive.save(update_fields=["last_error"])
+
+        self.assertEqual(self.success_handler.calls, initial_calls)
+
+    def test_reentrancy_guard(self) -> None:
         """Handler that creates child directives should not cascade."""
         created_ids = []
 
@@ -77,46 +193,4 @@ class TestDispatch(TestCase):
 
         # Child should still be queued (reentrancy guard)
         child = Directive.objects.get(pk=created_ids[0])
-        assert child.status == "queued"
-
-    def test_directive_fails_after_max_attempts(self):
-        """After MAX_ATTEMPTS failures, directive is marked as 'failed'."""
-        registry.register_directive_handler(FailHandler())
-
-        # Create directive — first attempt happens automatically via signal
-        d = Directive.objects.create(topic="test.fail", payload={})
-        d.refresh_from_db()
-        assert d.status == "queued"
-        assert d.attempts == 1
-
-        # Simulate remaining attempts until MAX_ATTEMPTS
-        for attempt in range(2, MAX_ATTEMPTS + 1):
-            d.available_at = timezone.now() - timedelta(seconds=1)
-            d.save(update_fields=["available_at"])
-            dispatch_pending_directives()
-            d.refresh_from_db()
-
-        assert d.status == "failed"
-        assert d.attempts == MAX_ATTEMPTS
-        assert "boom" in d.last_error
-
-    def test_dispatch_pending_directives_sweep(self):
-        """dispatch_pending_directives() processes all queued directives."""
-        registry.register_directive_handler(SuccessHandler())
-
-        # Create directives with signal dispatch suppressed via reentrancy guard
-        now = timezone.now()
-        d1 = Directive(topic="test.success", payload={"n": 1}, available_at=now - timedelta(seconds=1))
-        d1.save()  # signal fires but handler succeeds, so this one is done
-
-        # Create a directive that won't auto-dispatch (future available_at)
-        d2 = Directive.objects.create(topic="test.success", payload={"n": 2})
-        d2.status = "queued"
-        d2.available_at = now - timedelta(seconds=1)
-        d2.save(update_fields=["status", "available_at"])
-
-        count = dispatch_pending_directives()
-
-        d2.refresh_from_db()
-        assert d2.status == "done"
-        assert count >= 1
+        self.assertEqual(child.status, "queued")

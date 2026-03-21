@@ -179,7 +179,6 @@ class TestCommitService(TestCase):
             name="PDV Directives",
             config={
                 "post_commit_directives": ["stock.hold", "notification.send"],
-                "notification_template": "order_confirmed_pos",
             },
         )
         Session.objects.create(
@@ -212,7 +211,7 @@ class TestCommitService(TestCase):
         notif_dir = directives[1]
         assert notif_dir.topic == "notification.send"
         assert notif_dir.status == "queued"
-        assert notif_dir.payload["notification_template"] == "order_confirmed_pos"
+        assert notif_dir.payload["template"] == "order_received"
 
     def test_commit_no_directives_when_config_empty(self):
         """Commit with no post_commit_directives does not enqueue anything."""
@@ -231,31 +230,6 @@ class TestCommitService(TestCase):
         directives = Directive.objects.filter(payload__order_ref=result["order_ref"])
         assert directives.count() == 0
 
-    def test_commit_notification_without_template(self):
-        """notification.send directive without notification_template omits that key."""
-        channel = Channel.objects.create(
-            ref="no-tpl",
-            name="No Template",
-            config={
-                "post_commit_directives": ["notification.send"],
-            },
-        )
-        Session.objects.create(
-            session_key="S-NOTPL-1",
-            channel=channel,
-            items=[{"sku": "A", "qty": 1, "unit_price_q": 500}],
-        )
-        result = CommitService.commit(
-            session_key="S-NOTPL-1",
-            channel_ref="no-tpl",
-            idempotency_key="IDEM-NOTPL-1",
-        )
-        notif = Directive.objects.get(
-            topic="notification.send",
-            payload__order_ref=result["order_ref"],
-        )
-        assert "notification_template" not in notif.payload
-
     def test_commit_marketplace_only_notification(self):
         """Marketplace preset: only notification.send, no stock.hold."""
         channel = Channel.objects.create(
@@ -263,7 +237,6 @@ class TestCommitService(TestCase):
             name="Marketplace",
             config={
                 "post_commit_directives": ["notification.send"],
-                "notification_template": "order_confirmed_marketplace",
             },
         )
         Session.objects.create(
@@ -281,95 +254,7 @@ class TestCommitService(TestCase):
         ))
         assert len(directives) == 1
         assert directives[0].topic == "notification.send"
-        assert directives[0].payload["notification_template"] == "order_confirmed_marketplace"
-
-
-@pytest.mark.django_db
-class TestAbandonService(TestCase):
-    def setUp(self):
-        self.channel = Channel.objects.create(ref="pos-abn", name="PDV Abandon")
-
-    def test_abandon_marks_session_abandoned(self):
-        Session.objects.create(
-            session_key="S-ABN-1",
-            channel=self.channel,
-            items=[{"sku": "A", "qty": 1, "unit_price_q": 500}],
-        )
-        result = CommitService.abandon(
-            session_key="S-ABN-1",
-            channel_ref="pos-abn",
-        )
-        assert result["status"] == "abandoned"
-        session = Session.objects.get(session_key="S-ABN-1", channel=self.channel)
-        assert session.state == "abandoned"
-
-    def test_abandon_emits_history_event(self):
-        Session.objects.create(
-            session_key="S-ABN-2",
-            channel=self.channel,
-        )
-        CommitService.abandon(
-            session_key="S-ABN-2",
-            channel_ref="pos-abn",
-            ctx={"actor": "operador"},
-        )
-        session = Session.objects.get(session_key="S-ABN-2", channel=self.channel)
-        history = session.data.get("history", [])
-        assert len(history) == 1
-        assert history[0]["event"] == "abandoned"
-        assert history[0]["actor"] == "operador"
-
-    def test_double_abandon_is_noop(self):
-        Session.objects.create(
-            session_key="S-ABN-3",
-            channel=self.channel,
-        )
-        r1 = CommitService.abandon(session_key="S-ABN-3", channel_ref="pos-abn")
-        r2 = CommitService.abandon(session_key="S-ABN-3", channel_ref="pos-abn")
-        assert r1["status"] == "abandoned"
-        assert r2["status"] == "already_abandoned"
-
-    def test_abandon_committed_session_raises(self):
-        Session.objects.create(
-            session_key="S-ABN-4",
-            channel=self.channel,
-            items=[{"sku": "A", "qty": 1, "unit_price_q": 500}],
-        )
-        CommitService.commit(
-            session_key="S-ABN-4",
-            channel_ref="pos-abn",
-            idempotency_key="IDEM-ABN-4",
-        )
-        with pytest.raises(CommitError, match="already_committed"):
-            CommitService.abandon(session_key="S-ABN-4", channel_ref="pos-abn")
-
-    def test_abandon_not_found_raises(self):
-        with pytest.raises(SessionError, match="not_found"):
-            CommitService.abandon(session_key="GHOST", channel_ref="pos-abn")
-
-    def test_abandon_enqueues_post_abandon_directives(self):
-        channel = Channel.objects.create(
-            ref="pos-abn-dir",
-            name="PDV Abandon Directives",
-            config={
-                "post_abandon_directives": ["stock.release"],
-            },
-        )
-        Session.objects.create(
-            session_key="S-ABN-5",
-            channel=channel,
-        )
-        result = CommitService.abandon(
-            session_key="S-ABN-5",
-            channel_ref="pos-abn-dir",
-        )
-        assert result["status"] == "abandoned"
-        directives = list(Directive.objects.filter(
-            payload__session_key="S-ABN-5",
-        ))
-        assert len(directives) == 1
-        assert directives[0].topic == "stock.release"
-        assert directives[0].payload["channel_ref"] == "pos-abn-dir"
+        assert directives[0].payload["template"] == "order_received"
 
 
 @pytest.mark.django_db
