@@ -33,7 +33,7 @@ from .serializers import (
 
 
 def _sku_exists(sku: str) -> bool:
-    """Check if SKU exists via offerman.Product."""
+    """Check if SKU exists via offering.Product."""
     from shopman.offering.models import Product
     return Product.objects.filter(sku=sku).exists()
 

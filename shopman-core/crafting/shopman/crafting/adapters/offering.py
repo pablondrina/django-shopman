@@ -1,17 +1,17 @@
 """
-Crafting Offerman Adapter — product/catalog information via Offerman.
+Crafting Offering Adapter — product/catalog information via Offering.
 
 Supports both new CatalogProtocol and legacy ProductInfoBackend.
 
 Usage:
-    from shopman.crafting.adapters.offerman import get_catalog_backend
+    from shopman.crafting.adapters.offering import get_catalog_backend
 
     backend = get_catalog_backend()
     info = backend.resolve("SKU-001")
 
 Settings:
     CRAFTING = {
-        "CATALOG_BACKEND": "offerman.adapters.catalog.OffermanCatalogBackend",
+        "CATALOG_BACKEND": "offering.adapters.catalog.OfferingCatalogBackend",
     }
 """
 
@@ -60,7 +60,7 @@ def get_catalog_backend():
                 if not backend_path:
                     raise ImproperlyConfigured(
                         "CRAFTING['CATALOG_BACKEND'] must be configured. "
-                        "Example: 'offerman.adapters.catalog.OffermanCatalogBackend'"
+                        "Example: 'offering.adapters.catalog.OfferingCatalogBackend'"
                     )
 
                 try:

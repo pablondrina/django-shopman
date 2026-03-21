@@ -3,7 +3,7 @@ Crafting Protocols (vNext).
 
 Defines interfaces for external integrations:
 - InventoryProtocol: stock management (Stocking)
-- CatalogProtocol: product/item information (Offerman)
+- CatalogProtocol: product/item information (Offering)
 - DemandProtocol: demand history and committed orders (Omniman)
 """
 

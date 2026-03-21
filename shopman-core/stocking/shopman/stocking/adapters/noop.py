@@ -29,7 +29,7 @@ class NoopSkuValidator:
 
     - Local development without a running catalog service
     - Unit/integration tests that don't need real SKU validation
-    - CI pipelines where Offerman is unavailable
+    - CI pipelines where Offering is unavailable
     """
 
     def validate_sku(self, sku: str) -> SkuValidationResult:

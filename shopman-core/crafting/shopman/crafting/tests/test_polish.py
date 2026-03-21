@@ -102,8 +102,8 @@ class TestStockingAdapterLogging:
         backend = StockingBackend()
 
         with patch(
-            "shopman.crafting.adapters.offerman.get_catalog_backend",
-            side_effect=ImportError("No module named 'offerman'"),
+            "shopman.crafting.adapters.offering.get_catalog_backend",
+            side_effect=ImportError("No module named 'offering'"),
         ), patch("shopman.crafting.adapters.stocking.logger") as mock_logger:
             result = backend._get_product("FARINHA")
 
@@ -124,7 +124,7 @@ class TestStockingAdapterLogging:
         mock_catalog.resolve.side_effect = RuntimeError("Database connection lost")
 
         with patch(
-            "shopman.crafting.adapters.offerman.get_catalog_backend",
+            "shopman.crafting.adapters.offering.get_catalog_backend",
             return_value=mock_catalog,
         ), patch("shopman.crafting.adapters.stocking.logger") as mock_logger:
             result = backend._get_product("FARINHA")

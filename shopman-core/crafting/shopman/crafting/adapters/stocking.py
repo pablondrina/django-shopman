@@ -67,7 +67,7 @@ class StockingBackend:
             return self._product_resolver(sku)
 
         try:
-            from shopman.crafting.adapters.offerman import get_catalog_backend
+            from shopman.crafting.adapters.offering import get_catalog_backend
 
             backend = get_catalog_backend()
             info = backend.resolve(sku)

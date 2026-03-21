@@ -1,5 +1,5 @@
 """
-Stocking Offerman Adapter — SKU validation via Offerman.
+Stocking Offering Adapter — SKU validation via Offering.
 
 This adapter loads the configured SkuValidator from settings.
 

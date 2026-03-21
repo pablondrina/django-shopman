@@ -7,7 +7,7 @@ without the required package installed.
 """
 
 from shopman.crafting.adapters.stocking import StockingBackend, get_stock_backend
-from shopman.crafting.adapters.offerman import (
+from shopman.crafting.adapters.offering import (
     get_catalog_backend,
     get_product_info_backend,
     reset_catalog_backend,
@@ -18,7 +18,7 @@ __all__ = [
     # Stocking adapters
     "StockingBackend",
     "get_stock_backend",
-    # Offerman/Catalog adapters
+    # Offering/Catalog adapters
     "get_catalog_backend",
     "get_product_info_backend",
     "reset_catalog_backend",
