@@ -1,2 +1,2 @@
-"""Craftsman migrations."""
+"""Crafting migrations."""
 

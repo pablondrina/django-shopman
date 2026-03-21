@@ -1,9 +1,9 @@
 """
-Craftsman API URLs (vNext).
+Crafting API URLs (vNext).
 
 Include this in your project's urlpatterns:
 
-    path('api/craftsman/', include('shopman.crafting.api.urls')),
+    path('api/crafting/', include('shopman.crafting.api.urls')),
 """
 
 from rest_framework.routers import DefaultRouter

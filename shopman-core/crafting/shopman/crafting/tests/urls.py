@@ -1,5 +1,5 @@
 """
-URL configuration for Craftsman tests.
+URL configuration for Crafting tests.
 """
 
 from django.urls import include, path

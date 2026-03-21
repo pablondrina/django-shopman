@@ -1,2 +1,2 @@
-"""Craftsman tests."""
+"""Crafting tests."""
 

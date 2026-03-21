@@ -1,5 +1,5 @@
 """
-Django Craftsman — Headless Micro-MRP Framework (vNext).
+Django Crafting — Headless Micro-MRP Framework (vNext).
 
 5 models, 4 verbs, 3 states. Cabe na cabeca.
 

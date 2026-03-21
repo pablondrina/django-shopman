@@ -2,7 +2,7 @@
 Stockman Backend — implements InventoryProtocol using Stockman's API.
 
 Vocabulary mapping:
-    Craftsman           →  Stockman
+    Crafting           →  Stockman
     ─────────────────────────────────
     available()         →  stock.available()
     reserve()           →  stock.hold()
@@ -311,7 +311,7 @@ class StockmanBackend:
                     reference=ref,
                     metadata={
                         "work_order_ref": ref,
-                        "source": "craftsman",
+                        "source": "crafting",
                         **(item.metadata or {}),
                     },
                 )

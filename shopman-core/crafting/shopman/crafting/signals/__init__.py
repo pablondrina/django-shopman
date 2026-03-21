@@ -1,5 +1,5 @@
 """
-Craftsman Signals.
+Crafting Signals.
 
 Single signal for all production state changes.
 Emitted on plan, adjust, close, void.

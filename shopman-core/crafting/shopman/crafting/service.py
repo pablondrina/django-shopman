@@ -1,5 +1,5 @@
 """
-Craftsman Service — Thin facade over focused service modules.
+Crafting Service — Thin facade over focused service modules.
 
 Usage:
     from shopman.crafting import craft, CraftError
@@ -22,7 +22,7 @@ from shopman.crafting.services.scheduling import CraftPlanning
 
 class Craft(CraftPlanning, CraftExecution, CraftQueries):
     """
-    Single interface for all Craftsman operations.
+    Single interface for all Crafting operations.
 
     Follows Stockman's mixin pattern:
         Stock = StockQueries + StockMovements + StockHolds + StockPlanning

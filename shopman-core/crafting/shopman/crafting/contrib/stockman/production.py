@@ -1,7 +1,7 @@
 """
 Production Backend Adapter (vNext).
 
-Implements Stockman's ProductionBackend protocol for Craftsman.
+Implements Stockman's ProductionBackend protocol for Crafting.
 This allows Stockman to request production when stock reaches reorder point.
 
 Uses craft.plan() and craft.void() instead of direct WorkOrder manipulation.
@@ -21,7 +21,7 @@ _lock = threading.Lock()
 _production_backend = None
 
 
-class CraftsmanProductionBackend:
+class CraftingProductionBackend:
     """
     Implements ProductionBackend for Stockman to request production.
 
@@ -238,13 +238,13 @@ class CraftsmanProductionBackend:
         return results
 
 
-def get_production_backend() -> CraftsmanProductionBackend:
+def get_production_backend() -> CraftingProductionBackend:
     """Get the production backend instance (singleton)."""
     global _production_backend
     if _production_backend is None:
         with _lock:
             if _production_backend is None:
-                _production_backend = CraftsmanProductionBackend()
+                _production_backend = CraftingProductionBackend()
     return _production_backend
 
 

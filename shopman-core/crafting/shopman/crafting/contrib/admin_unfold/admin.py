@@ -1,11 +1,11 @@
 """
-Craftsman Admin with Unfold theme (vNext).
+Crafting Admin with Unfold theme (vNext).
 
 Registers Unfold-styled admin classes for vNext models:
 - Recipe + RecipeItem inline
 - WorkOrder + WorkOrderItem + WorkOrderEvent inlines
 
-To use, add 'shopman.crafting.contrib.admin_unfold' to INSTALLED_APPS after 'craftsman'.
+To use, add 'shopman.crafting.contrib.admin_unfold' to INSTALLED_APPS after 'crafting'.
 """
 
 import logging

@@ -1,13 +1,13 @@
 """
-Load demo data for Craftsman vNext.
+Load demo data for Crafting vNext.
 
 Creates realistic production data for a bakery using the vNext API:
 - Recipes with RecipeItems (BOM)
 - WorkOrders via craft.plan() + craft.close()
 
 Usage:
-    python manage.py load_craftsman_demo
-    python manage.py load_craftsman_demo --clear
+    python manage.py load_crafting_demo
+    python manage.py load_crafting_demo --clear
 """
 
 import random
@@ -18,7 +18,7 @@ from django.core.management.base import BaseCommand
 
 
 class Command(BaseCommand):
-    help = "Carrega dados de demonstracao para o Craftsman vNext"
+    help = "Carrega dados de demonstracao para o Crafting vNext"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -31,7 +31,7 @@ class Command(BaseCommand):
         from shopman.crafting.models import Recipe, RecipeItem, WorkOrder, WorkOrderEvent, WorkOrderItem
 
         self.stdout.write("=" * 60)
-        self.stdout.write("Carregando dados de demonstracao do Craftsman vNext...")
+        self.stdout.write("Carregando dados de demonstracao do Crafting vNext...")
         self.stdout.write("=" * 60)
 
         if options["clear"]:

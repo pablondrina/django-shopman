@@ -21,7 +21,7 @@ class NoopDemandBackend:
     No-operation implementation of the DemandProtocol.
 
     Returns empty history and zero committed demand for every query.
-    Useful for development environments, standalone Craftsman setups,
+    Useful for development environments, standalone Crafting setups,
     or integration tests that should not depend on a real demand source.
     """
 

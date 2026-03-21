@@ -1,5 +1,5 @@
 """
-Craftsman Admin (vNext).
+Crafting Admin (vNext).
 
 Recipe + RecipeItem inline, WorkOrder + WorkOrderItem/Event inlines.
 """

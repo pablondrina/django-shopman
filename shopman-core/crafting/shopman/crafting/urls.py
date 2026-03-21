@@ -1,5 +1,5 @@
 """
-Craftsman URL Configuration.
+Crafting URL Configuration.
 """
 
 app_name = "crafting"

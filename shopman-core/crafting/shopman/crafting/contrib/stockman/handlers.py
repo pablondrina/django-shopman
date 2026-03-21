@@ -1,5 +1,5 @@
 """
-Stockman Signal Handlers for Craftsman (vNext).
+Stockman Signal Handlers for Crafting (vNext).
 
 Listens to the single `production_changed` signal and dispatches
 to appropriate Stockman actions:
@@ -8,7 +8,7 @@ to appropriate Stockman actions:
 - closed: No-op here (handled by InventoryProtocol in execution.py)
 - voided: Cancel planned Quant for the WorkOrder
 
-Registered by CraftsmanStockmanConfig.ready().
+Registered by CraftingStockmanConfig.ready().
 """
 
 from __future__ import annotations

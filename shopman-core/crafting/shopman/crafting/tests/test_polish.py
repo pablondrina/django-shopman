@@ -160,9 +160,9 @@ class TestProductionBackendExceptions:
 
     def test_create_wo_craft_error_logged_as_warning(self, db):
         """CraftError (business logic) is logged at warning level."""
-        from shopman.crafting.contrib.stockman.production import CraftsmanProductionBackend
+        from shopman.crafting.contrib.stockman.production import CraftingProductionBackend
 
-        backend = CraftsmanProductionBackend()
+        backend = CraftingProductionBackend()
 
         recipe = Recipe.objects.create(
             code="test-recipe",

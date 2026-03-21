@@ -1,5 +1,5 @@
 """
-Craftsman Services.
+Crafting Services.
 
 4 verbs: plan, adjust, close, void.
 3 queries: suggest, needs, expected.

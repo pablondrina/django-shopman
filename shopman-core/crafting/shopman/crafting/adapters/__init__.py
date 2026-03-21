@@ -1,5 +1,5 @@
 """
-Craftsman Adapters (vNext).
+Crafting Adapters (vNext).
 
 Implementations of protocols for external systems.
 Adapters use lazy imports — they only fail if you actually call them

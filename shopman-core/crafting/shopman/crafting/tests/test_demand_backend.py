@@ -1,7 +1,7 @@
 """
 Tests for shopman.crafting.contrib.demand — OmnimanDemandBackend.
 
-Since Omniman models aren't available in isolated craftsman tests,
+Since Omniman models aren't available in isolated crafting tests,
 we mock the backend methods for suggest() integration and test
 helper functions directly.
 """

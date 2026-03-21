@@ -1,1 +1,1 @@
-"""Craftsman Stockman management commands."""
+"""Crafting Stockman management commands."""

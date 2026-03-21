@@ -1,5 +1,5 @@
 """
-Craftsman Models.
+Crafting Models.
 
 Core: Recipe, RecipeItem, WorkOrder, WorkOrderItem, WorkOrderEvent, CodeSequence.
 """

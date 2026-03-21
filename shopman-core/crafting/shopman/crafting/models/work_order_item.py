@@ -6,11 +6,11 @@ All material traceability in pure SQL.
 
 Example queries:
     -- Flour efficiency in WO-142
-    SELECT kind, SUM(quantity) FROM craftsman_work_order_item
+    SELECT kind, SUM(quantity) FROM crafting_work_order_item
     WHERE work_order_id = 142 AND item_ref = 'farinha' GROUP BY kind;
 
     -- Total baguette waste this month
-    SELECT SUM(quantity) FROM craftsman_work_order_item
+    SELECT SUM(quantity) FROM crafting_work_order_item
     WHERE kind = 'waste' AND item_ref = 'baguete'
     AND recorded_at >= '2026-02-01';
 """

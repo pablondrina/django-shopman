@@ -1,5 +1,5 @@
 """
-Tests for Craftsman v0.2.2 changes.
+Tests for Crafting v0.2.2 changes.
 
 Covers:
 - B1 fix: old_quantity stale in adjust() audit trail

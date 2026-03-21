@@ -1,5 +1,5 @@
 """
-Craftsman Demand Backend — Omniman integration.
+Crafting Demand Backend — Omniman integration.
 
 Add 'shopman.crafting.contrib.demand' to INSTALLED_APPS to enable:
 - OmnimanDemandBackend implementing DemandProtocol

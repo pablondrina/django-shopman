@@ -1,2 +1,2 @@
-"""Craftsman management commands."""
+"""Crafting management commands."""
 

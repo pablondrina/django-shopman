@@ -1,5 +1,5 @@
 """
-Tests for Craftsman vNext — 4 verbs + 3 queries + invariants.
+Tests for Crafting vNext — 4 verbs + 3 queries + invariants.
 """
 
 import pytest

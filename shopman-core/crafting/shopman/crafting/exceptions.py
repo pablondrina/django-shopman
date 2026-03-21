@@ -1,7 +1,7 @@
 """
-Craftsman Exceptions.
+Crafting Exceptions.
 
-All craftsman errors are wrapped in CraftError for consistent handling.
+All crafting errors are wrapped in CraftError for consistent handling.
 """
 
 from shopman.utils.exceptions import BaseError
@@ -9,7 +9,7 @@ from shopman.utils.exceptions import BaseError
 
 class CraftError(BaseError):
     """
-    Base exception for all Craftsman errors.
+    Base exception for all Crafting errors.
 
     Usage:
         raise CraftError('INVALID_STATUS', current='pending', expected='open')

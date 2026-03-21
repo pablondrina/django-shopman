@@ -1,11 +1,11 @@
-"""Craftsman Stockman integration app configuration."""
+"""Crafting Stockman integration app configuration."""
 
 from django.apps import AppConfig
 from django.utils.translation import gettext_lazy as _
 
 
-class CraftsmanStockmanConfig(AppConfig):
-    """Registers Stockman signal handlers for Craftsman."""
+class CraftingStockmanConfig(AppConfig):
+    """Registers Stockman signal handlers for Crafting."""
 
     name = "shopman.crafting.contrib.stockman"
     label = "crafting_stockman"

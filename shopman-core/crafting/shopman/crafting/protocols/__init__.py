@@ -1,5 +1,5 @@
 """
-Craftsman Protocols (vNext).
+Crafting Protocols (vNext).
 
 Defines interfaces for external integrations:
 - InventoryProtocol: stock management (Stockman)
