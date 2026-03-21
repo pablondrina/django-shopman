@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # Third-party
     "taggit",
+    "rest_framework",
     # Shopman core apps
     "shopman.utils",
     "shopman.offering",

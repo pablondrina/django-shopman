@@ -10,7 +10,7 @@
 
 ## Estado Atual (2026-03-21)
 
-### Testes passando agora: 1.500
+### Testes passando agora: 1.766
 
 | App | Testes | Status |
 |-----|--------|--------|
@@ -21,9 +21,9 @@
 | shopman.ordering (ex-omniman kernel) | 216 | **Migrado** |
 | shopman.attending (ex-guestman) | 369 | **Migrado** |
 | shopman.gating (ex-doorman) | 152 | **Migrado** |
-| shopman (orquestrador) | 154 | **Migrado** (confirmation, stock, pricing, customer) |
+| shopman (orquestrador) | 420 | **Migrado** (confirmation, stock, pricing, customer, payment, notifications, fiscal, accounting, returns, webhook) |
 | Integration / Nelson | 0 | **Não migrado** |
-| **Total** | **1.500** | **Target: ~1.649** |
+| **Total** | **1.766** | **Target: ~1.649** |
 
 ### O que foi feito (WP-0 a WP-5 originais)
 
@@ -36,6 +36,7 @@
 - [x] WP-R1: completar ordering kernel + fix Makefile (216 testes, make test 5 apps)
 - [x] WP-R2: shopman.attending + shopman.gating (369 + 152 testes, make test 7 apps)
 - [x] WP-R3: orquestração — confirmation, stock, pricing, customer (154 testes, make test 8 apps)
+- [x] WP-R4: orquestração — payment, notifications, fiscal, accounting, returns, webhook (420 testes, make test 8 apps)
 
 ### O que DESVIOU do plano (WP-6 em diante)
 
@@ -73,17 +74,17 @@ Todos os arquivos kernel foram migrados. Arquivos que NÃO estão no kernel (cor
 | confirmation/ | 4 files | **Migrado** (WP-R3) |
 | stock/ | 5 files | **Migrado** (WP-R3) |
 | pricing/ | 3 files | **Migrado** (WP-R3) |
-| payment/ | 5 files | Não |
+| payment/ | 5 files | **Migrado** (WP-R4) |
 | customer/ | 4 files | **Migrado** (WP-R3) |
-| notifications/ | 4 files | **Parcial** (2 files em contrib/) |
-| fiscal/ | 2 files | Não |
-| accounting/ | 2 files | Não |
-| returns/ | 3 files | Não |
-| webhook/ | 5 files | Não |
+| notifications/ | 4 files | **Migrado** (WP-R4) |
+| fiscal/ | 2 files | **Migrado** (WP-R4) |
+| accounting/ | 2 files | **Migrado** (WP-R4) |
+| returns/ | 3 files | **Migrado** (WP-R4) |
+| webhook/ | 5 files | **Migrado** (WP-R4) |
 
-### Makefile — ATUALIZADO em WP-R3
+### Makefile — ATUALIZADO em WP-R4
 
-`make test` roda todos os 8 apps: utils, offering, stocking, crafting, ordering, attending, gating, shopman-app (1.500 testes).
+`make test` roda todos os 8 apps: utils, offering, stocking, crafting, ordering, attending, gating, shopman-app (1.766 testes).
 
 ---
 
