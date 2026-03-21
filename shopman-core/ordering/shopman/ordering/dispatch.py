@@ -98,6 +98,33 @@ def _retry_failed_directives(topic: str) -> None:
         _process_directive(d)
 
 
+def dispatch_pending_directives() -> int:
+    """
+    Sweep all queued directives whose available_at has passed.
+
+    Returns the number of directives processed (regardless of outcome).
+    Safe to call from management commands, periodic tasks, or tests.
+    """
+    from shopman.ordering.models import Directive
+
+    now = timezone.now()
+    processed = 0
+
+    with transaction.atomic():
+        pending = list(
+            Directive.objects
+            .select_for_update(skip_locked=True)
+            .filter(status="queued", available_at__lte=now)
+            .order_by("available_at", "id")
+        )
+
+    for directive in pending:
+        _process_directive(directive)
+        processed += 1
+
+    return processed
+
+
 @receiver(post_save, dispatch_uid="ordering.directive_dispatch")
 def on_directive_post_save(sender, instance, created, **kwargs) -> None:
     """
