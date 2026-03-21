@@ -6,7 +6,7 @@ import pytest
 from django.test import TestCase
 
 from shopman.ordering.exceptions import CommitError, SessionError, ValidationError
-from shopman.ordering.models import Channel, Order, OrderItem, Session
+from shopman.ordering.models import Channel, Directive, Order, OrderItem, Session
 from shopman.ordering.services import CommitService, ModifyService, SessionWriteService
 
 
@@ -171,6 +171,117 @@ class TestCommitService(TestCase):
         session.save()
         with pytest.raises(CommitError, match="blocking_issues"):
             CommitService.commit(session_key="S-5", channel_ref="pos", idempotency_key="IDEM-5")
+
+    def test_commit_enqueues_post_commit_directives(self):
+        """Commit with post_commit_directives enqueues the correct directives."""
+        channel = Channel.objects.create(
+            ref="pos-directives",
+            name="PDV Directives",
+            config={
+                "post_commit_directives": ["stock.hold", "notification.send"],
+                "notification_template": "order_confirmed_pos",
+            },
+        )
+        Session.objects.create(
+            session_key="S-DIR-1",
+            channel=channel,
+            items=[{"sku": "CROISSANT", "qty": 2, "unit_price_q": 1000}],
+        )
+        result = CommitService.commit(
+            session_key="S-DIR-1",
+            channel_ref="pos-directives",
+            idempotency_key="IDEM-DIR-1",
+        )
+        assert result["status"] == "committed"
+
+        directives = list(Directive.objects.filter(
+            payload__order_ref=result["order_ref"],
+        ).order_by("pk"))
+        assert len(directives) == 2
+
+        # stock.hold directive
+        stock_dir = directives[0]
+        assert stock_dir.topic == "stock.hold"
+        assert stock_dir.status == "queued"
+        assert stock_dir.payload["channel_ref"] == "pos-directives"
+        assert stock_dir.payload["rev"] == 0
+        assert len(stock_dir.payload["items"]) == 1
+        assert stock_dir.payload["items"][0]["sku"] == "CROISSANT"
+
+        # notification.send directive
+        notif_dir = directives[1]
+        assert notif_dir.topic == "notification.send"
+        assert notif_dir.status == "queued"
+        assert notif_dir.payload["notification_template"] == "order_confirmed_pos"
+
+    def test_commit_no_directives_when_config_empty(self):
+        """Commit with no post_commit_directives does not enqueue anything."""
+        channel = Channel.objects.create(ref="bare", name="Bare")
+        Session.objects.create(
+            session_key="S-BARE-1",
+            channel=channel,
+            items=[{"sku": "A", "qty": 1, "unit_price_q": 500}],
+        )
+        result = CommitService.commit(
+            session_key="S-BARE-1",
+            channel_ref="bare",
+            idempotency_key="IDEM-BARE-1",
+        )
+        assert result["status"] == "committed"
+        directives = Directive.objects.filter(payload__order_ref=result["order_ref"])
+        assert directives.count() == 0
+
+    def test_commit_notification_without_template(self):
+        """notification.send directive without notification_template omits that key."""
+        channel = Channel.objects.create(
+            ref="no-tpl",
+            name="No Template",
+            config={
+                "post_commit_directives": ["notification.send"],
+            },
+        )
+        Session.objects.create(
+            session_key="S-NOTPL-1",
+            channel=channel,
+            items=[{"sku": "A", "qty": 1, "unit_price_q": 500}],
+        )
+        result = CommitService.commit(
+            session_key="S-NOTPL-1",
+            channel_ref="no-tpl",
+            idempotency_key="IDEM-NOTPL-1",
+        )
+        notif = Directive.objects.get(
+            topic="notification.send",
+            payload__order_ref=result["order_ref"],
+        )
+        assert "notification_template" not in notif.payload
+
+    def test_commit_marketplace_only_notification(self):
+        """Marketplace preset: only notification.send, no stock.hold."""
+        channel = Channel.objects.create(
+            ref="mktplace",
+            name="Marketplace",
+            config={
+                "post_commit_directives": ["notification.send"],
+                "notification_template": "order_confirmed_marketplace",
+            },
+        )
+        Session.objects.create(
+            session_key="S-MKT-1",
+            channel=channel,
+            items=[{"sku": "PIZZA", "qty": 1, "unit_price_q": 3500}],
+        )
+        result = CommitService.commit(
+            session_key="S-MKT-1",
+            channel_ref="mktplace",
+            idempotency_key="IDEM-MKT-1",
+        )
+        directives = list(Directive.objects.filter(
+            payload__order_ref=result["order_ref"],
+        ))
+        assert len(directives) == 1
+        assert directives[0].topic == "notification.send"
+        assert directives[0].payload["notification_template"] == "order_confirmed_marketplace"
 
 
 @pytest.mark.django_db

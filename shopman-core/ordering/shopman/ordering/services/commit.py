@@ -14,7 +14,8 @@ from django.utils import timezone
 from shopman.ordering import registry
 from shopman.ordering.exceptions import CommitError, IdempotencyCacheHit, SessionError, ValidationError
 from shopman.ordering.ids import generate_order_ref
-from shopman.ordering.models import Directive, IdempotencyKey, Order, OrderItem, Session
+from shopman.ordering.models import IdempotencyKey, Order, OrderItem, Session
+from shopman.ordering.services.directive import DirectiveService
 from shopman.utils.monetary import monetary_mult
 
 
@@ -304,6 +305,7 @@ class CommitService:
 
         # Enqueue post-commit directives
         post_commit_directives = channel.config.get("post_commit_directives", [])
+        notification_template = channel.config.get("notification_template")
         stock_holds = None
         stock_check = checks.get("stock")
         if stock_check:
@@ -322,12 +324,9 @@ class CommitService:
                     {"sku": item["sku"], "qty": item["qty"]}
                     for item in session.items
                 ]
-            if topic == "notification.send":
-                payload["template"] = "order_received"
-            Directive.objects.create(
-                topic=topic,
-                payload=payload,
-            )
+            if topic == "notification.send" and notification_template:
+                payload["notification_template"] = notification_template
+            DirectiveService.enqueue(topic=topic, payload=payload)
 
         return {
             "order_ref": order.ref,
