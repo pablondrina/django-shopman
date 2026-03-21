@@ -10,7 +10,7 @@
 
 ## Estado Atual (2026-03-21)
 
-### Testes passando agora: 1.346
+### Testes passando agora: 1.500
 
 | App | Testes | Status |
 |-----|--------|--------|
@@ -21,9 +21,9 @@
 | shopman.ordering (ex-omniman kernel) | 216 | **Migrado** |
 | shopman.attending (ex-guestman) | 369 | **Migrado** |
 | shopman.gating (ex-doorman) | 152 | **Migrado** |
-| shopman (orquestrador) | 0 | **Parcial** |
+| shopman (orquestrador) | 154 | **Migrado** (confirmation, stock, pricing, customer) |
 | Integration / Nelson | 0 | **Não migrado** |
-| **Total** | **1.346** | **Target: ~1.649** |
+| **Total** | **1.500** | **Target: ~1.649** |
 
 ### O que foi feito (WP-0 a WP-5 originais)
 
@@ -35,6 +35,7 @@
 - [x] WP-5: shopman.ordering kernel (parcial)
 - [x] WP-R1: completar ordering kernel + fix Makefile (216 testes, make test 5 apps)
 - [x] WP-R2: shopman.attending + shopman.gating (369 + 152 testes, make test 7 apps)
+- [x] WP-R3: orquestração — confirmation, stock, pricing, customer (154 testes, make test 8 apps)
 
 ### O que DESVIOU do plano (WP-6 em diante)
 
@@ -69,20 +70,20 @@ Todos os arquivos kernel foram migrados. Arquivos que NÃO estão no kernel (cor
 
 | Módulo | Original (omniman/contrib/) | Migrado? |
 |--------|---------------------------|----------|
-| confirmation/ | 4 files | Não |
-| stock/ | 5 files | **Parcial** (2 files em contrib/) |
-| pricing/ | 3 files | Não |
+| confirmation/ | 4 files | **Migrado** (WP-R3) |
+| stock/ | 5 files | **Migrado** (WP-R3) |
+| pricing/ | 3 files | **Migrado** (WP-R3) |
 | payment/ | 5 files | Não |
-| customer/ | 4 files | Não |
+| customer/ | 4 files | **Migrado** (WP-R3) |
 | notifications/ | 4 files | **Parcial** (2 files em contrib/) |
 | fiscal/ | 2 files | Não |
 | accounting/ | 2 files | Não |
 | returns/ | 3 files | Não |
 | webhook/ | 5 files | Não |
 
-### Makefile — ATUALIZADO em WP-R2
+### Makefile — ATUALIZADO em WP-R3
 
-`make test` roda todos os 7 apps: utils, offering, stocking, crafting, ordering, attending, gating (1.346 testes).
+`make test` roda todos os 8 apps: utils, offering, stocking, crafting, ordering, attending, gating, shopman-app (1.500 testes).
 
 ---
 

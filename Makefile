@@ -5,7 +5,7 @@
 #   make test-utils  → roda testes do utils
 #   make install     → instala deps + apps em modo editável
 
-.PHONY: help install test test-utils test-offering test-stocking test-crafting test-ordering test-attending test-gating lint clean
+.PHONY: help install test test-utils test-offering test-stocking test-crafting test-ordering test-attending test-gating test-shopman-app lint clean
 
 help: ## Mostra este help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -25,12 +25,12 @@ install: ## Instala deps + apps da suite em modo editável
 	pip install -e shopman-core/attending
 	pip install -e shopman-core/gating
 	pip install -e shopman-core/ordering
-	# pip install -e shopman-app             # WP-R3+
+	pip install -e shopman-app
 	@echo "✓ Dependências instaladas"
 
 # ── Testes ────────────────────────────────────────────────────────────
 
-test: test-utils test-offering test-stocking test-crafting test-ordering test-attending test-gating ## Roda todos os testes
+test: test-utils test-offering test-stocking test-crafting test-ordering test-attending test-gating test-shopman-app ## Roda todos os testes
 	@echo "✓ Todos os testes passaram"
 
 test-utils: ## Testes do shopman.utils
@@ -60,6 +60,10 @@ test-attending: ## Testes do shopman.attending
 test-gating: ## Testes do shopman.gating
 	@echo "── Gating ──"
 	cd shopman-core/gating && python -m pytest -x -q
+
+test-shopman-app: ## Testes do shopman-app (orquestração)
+	@echo "── Shopman App ──"
+	cd shopman-app && python -m pytest -x -q
 
 # ── Qualidade ─────────────────────────────────────────────────────────
 
