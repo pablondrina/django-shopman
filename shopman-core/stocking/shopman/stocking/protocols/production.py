@@ -2,9 +2,9 @@
 Production Backend Protocol.
 
 Defines the interface for Stocking to interact with production systems
-(e.g., Craftsman) for requesting production when demand exceeds supply.
+(e.g., Crafting) for requesting production when demand exceeds supply.
 
-Vocabulary mapping (Stocking → Craftsman):
+Vocabulary mapping (Stocking → Crafting):
     request_production()  →  craft.plan() + craft.schedule()
     check_status()        →  WorkOrder.status
     cancel_request()      →  WorkOrder.cancel()
@@ -101,7 +101,7 @@ class ProductionBackend(Protocol):
     - A demanda excede o planejado
 
     Implementações:
-        - CraftsmanBackend: Usa craft.plan() + craft.schedule()
+        - CraftingBackend: Usa craft.plan() + craft.schedule()
         - MockProductionBackend: Para testes sem produção real
     """
 
@@ -112,7 +112,7 @@ class ProductionBackend(Protocol):
         """
         Solicita produção de um produto.
 
-        Fluxo típico no Craftsman:
+        Fluxo típico no Crafting:
         1. Encontra Recipe para o SKU
         2. Cria Plan com craft.plan()
         3. Aprova e agenda com craft.schedule()

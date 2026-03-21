@@ -1,5 +1,5 @@
 """
-Offering SKU Validator — Implements Stockman's SkuValidator protocol.
+Offering SKU Validator — Implements Stocking's SkuValidator protocol.
 """
 
 from __future__ import annotations
@@ -11,15 +11,15 @@ from typing import TYPE_CHECKING
 from django.db import models
 
 if TYPE_CHECKING:
-    from stockman.protocols.sku import SkuInfo, SkuValidationResult
+    from shopman.stocking.protocols.sku import SkuInfo, SkuValidationResult
 
 logger = logging.getLogger(__name__)
 
 
-def _stockman_protocols_available() -> bool:
-    """Check if Stockman protocols are available."""
+def _stocking_protocols_available() -> bool:
+    """Check if Stocking protocols are available."""
     try:
-        from stockman.protocols.sku import SkuInfo, SkuValidationResult
+        from shopman.stocking.protocols.sku import SkuInfo, SkuValidationResult
         return True
     except ImportError:
         return False
@@ -29,12 +29,12 @@ class OfferingSkuValidator:
     """
     SKU validator using Offering Product model.
 
-    Implements SkuValidator protocol from Stockman.
+    Implements SkuValidator protocol from Stocking.
     """
 
     def validate_sku(self, sku: str):
         """Validate if SKU exists and is active."""
-        from stockman.protocols.sku import SkuValidationResult
+        from shopman.stocking.protocols.sku import SkuValidationResult
         from shopman.offering.models import Product
 
         try:
@@ -57,7 +57,7 @@ class OfferingSkuValidator:
 
     def validate_skus(self, skus: list[str]) -> dict:
         """Validate multiple SKUs at once."""
-        from stockman.protocols.sku import SkuValidationResult
+        from shopman.stocking.protocols.sku import SkuValidationResult
         from shopman.offering.models import Product
 
         products = Product.objects.filter(sku__in=skus)
@@ -84,7 +84,7 @@ class OfferingSkuValidator:
 
     def get_sku_info(self, sku: str):
         """Get SKU information."""
-        from stockman.protocols.sku import SkuInfo
+        from shopman.stocking.protocols.sku import SkuInfo
         from shopman.offering.models import Product
 
         try:
@@ -110,7 +110,7 @@ class OfferingSkuValidator:
         include_inactive: bool = False,
     ) -> list:
         """Search SKUs by name or code."""
-        from stockman.protocols.sku import SkuInfo
+        from shopman.stocking.protocols.sku import SkuInfo
         from shopman.offering.models import Product
 
         qs = Product.objects.filter(

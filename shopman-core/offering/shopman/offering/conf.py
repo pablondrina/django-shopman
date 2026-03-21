@@ -5,7 +5,7 @@ Usage in settings.py:
     OFFERING = {
         "MAX_COLLECTION_DEPTH": 10,
         "BUNDLE_MAX_DEPTH": 5,
-        "COST_BACKEND": None,  # e.g. "craftsman.adapters.offering.CraftsmanCostBackend"
+        "COST_BACKEND": None,  # e.g. "shopman.crafting.adapters.offering.CraftingCostBackend"
     }
 """
 

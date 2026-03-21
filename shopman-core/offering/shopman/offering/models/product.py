@@ -81,7 +81,7 @@ class Product(models.Model):
         help_text=_("Preço base em centavos"),
     )
 
-    # Availability policy (used by Stockman)
+    # Availability policy (used by Stocking)
     availability_policy = models.CharField(
         _("política de disponibilidade"),
         max_length=20,
@@ -97,7 +97,7 @@ class Product(models.Model):
         help_text=_("Validade em dias. Vazio=não perecível, 0=mesmo dia"),
     )
 
-    # Production cycle in hours (how long to produce, used by Stockman/Craftsman for planning)
+    # Production cycle in hours (how long to produce, used by Stocking/Crafting for planning)
     production_cycle_hours = models.IntegerField(
         _("ciclo de produção (horas)"),
         null=True,
@@ -132,7 +132,7 @@ class Product(models.Model):
     is_batch_produced = models.BooleanField(
         _("produção em lote"),
         default=False,
-        help_text=_("Produzido em lotes (para Craftsman)"),
+        help_text=_("Produzido em lotes (para Crafting)"),
     )
 
     # Metadata
@@ -196,7 +196,7 @@ class Product(models.Model):
         Production cost in centavos, read from CostBackend.
 
         Replaces the old reference_cost_q field — cost is now owned by
-        the app that knows it (e.g. Craftsman), not stored on Product.
+        the app that knows it (e.g. Crafting), not stored on Product.
         """
         from shopman.offering.conf import get_cost_backend
 

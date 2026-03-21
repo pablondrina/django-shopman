@@ -314,9 +314,9 @@ class ProductAdmin(_ProductImportExportBase):
 
     @display(description=_("Estoque"))
     def stock_available_display(self, obj):
-        """Display available stock from Stockman (if available)."""
+        """Display available stock from Stocking (if available)."""
         try:
-            from stockman.models import Quant
+            from shopman.stocking.models import Quant
             from django.db.models import Sum
             total = (
                 Quant.objects

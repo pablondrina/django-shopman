@@ -1,5 +1,5 @@
 """
-Offering Product Info Adapter — Implements Craftsman's ProductInfoBackend protocol.
+Offering Product Info Adapter — Implements Crafting's ProductInfoBackend protocol.
 """
 
 from __future__ import annotations
@@ -9,15 +9,15 @@ import threading
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from craftsman.protocols.product import ProductInfo, SkuValidationResult
+    from shopman.crafting.protocols.catalog import ProductInfo, SkuValidationResult
 
 logger = logging.getLogger(__name__)
 
 
-def _craftsman_protocols_available() -> bool:
-    """Check if Craftsman protocols are available."""
+def _crafting_protocols_available() -> bool:
+    """Check if Crafting protocols are available."""
     try:
-        from craftsman.protocols.product import ProductInfo, SkuValidationResult
+        from shopman.crafting.protocols.catalog import ProductInfo, SkuValidationResult
         return True
     except ImportError:
         return False
@@ -27,12 +27,12 @@ class OfferingProductInfoBackend:
     """
     Product info backend using Offering Product model.
 
-    Implements ProductInfoBackend protocol from Craftsman.
+    Implements ProductInfoBackend protocol from Crafting.
     """
 
     def get_product_info(self, sku: str):
         """Get product information."""
-        from craftsman.protocols.product import ProductInfo
+        from shopman.crafting.protocols.catalog import ProductInfo
         from shopman.offering.models import Product
 
         try:
@@ -53,7 +53,7 @@ class OfferingProductInfoBackend:
 
     def validate_output_sku(self, sku: str):
         """Validate if SKU can be used as production output."""
-        from craftsman.protocols.product import SkuValidationResult
+        from shopman.crafting.protocols.catalog import SkuValidationResult
         from shopman.offering.models import Product
 
         try:
@@ -83,7 +83,7 @@ class OfferingProductInfoBackend:
 
     def get_product_infos(self, skus: list[str]) -> dict:
         """Get product information for multiple SKUs."""
-        from craftsman.protocols.product import ProductInfo
+        from shopman.crafting.protocols.catalog import ProductInfo
         from shopman.offering.models import Product
 
         products = Product.objects.filter(sku__in=skus).prefetch_related(
@@ -118,7 +118,7 @@ class OfferingProductInfoBackend:
         include_inactive: bool = False,
     ) -> list:
         """Search products by name or SKU."""
-        from craftsman.protocols.product import ProductInfo
+        from shopman.crafting.protocols.catalog import ProductInfo
         from shopman.offering.models import Product
         from django.db import models
 

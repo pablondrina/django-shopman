@@ -1,10 +1,10 @@
 """
-Craftsman Backend.
+Crafting Backend.
 
-Implements ProductionBackend using Craftsman's API (craft.*, work.*).
+Implements ProductionBackend using Crafting's API (craft.*, work.*).
 
 Vocabulary mapping:
-    Stocking                →  Craftsman
+    Stocking                →  Crafting
     ─────────────────────────────────────────
     request_production()    →  craft.plan() + craft.schedule()
     check_status()          →  WorkOrder.status
@@ -31,8 +31,8 @@ from shopman.stocking.protocols.production import (
 logger = logging.getLogger(__name__)
 
 
-def _craftsman_available() -> bool:
-    """Check if Craftsman is available."""
+def _crafting_available() -> bool:
+    """Check if Crafting is available."""
     try:
         from shopman.crafting.service import craft
 
@@ -42,7 +42,7 @@ def _craftsman_available() -> bool:
 
 
 def _map_workorder_status(status: str) -> ProductionStatusEnum:
-    """Map Craftsman WorkOrder status to ProductionStatusEnum."""
+    """Map Crafting WorkOrder status to ProductionStatusEnum."""
     mapping = {
         "pending": ProductionStatusEnum.PLANNED,
         "approved": ProductionStatusEnum.PLANNED,
@@ -54,9 +54,9 @@ def _map_workorder_status(status: str) -> ProductionStatusEnum:
     return mapping.get(status, ProductionStatusEnum.REQUESTED)
 
 
-class CraftsmanBackend:
+class CraftingBackend:
     """
-    Implementação do ProductionBackend usando a API do Craftsman.
+    Implementação do ProductionBackend usando a API do Crafting.
 
     Exemplo de uso:
         from shopman.stocking.adapters import get_production_backend
@@ -93,7 +93,7 @@ class CraftsmanBackend:
             return None
 
     def _get_craft(self):
-        """Get Craftsman service."""
+        """Get Crafting service."""
         from shopman.crafting.service import craft
 
         return craft
@@ -104,10 +104,10 @@ class CraftsmanBackend:
         request: ProductionRequest,
     ) -> ProductionResult:
         """Solicita produção usando craft.plan() + craft.schedule()."""
-        if not _craftsman_available():
+        if not _crafting_available():
             return ProductionResult(
                 success=False,
-                message="Craftsman not available",
+                message="Crafting not available",
             )
 
         craft = self._get_craft()
@@ -164,7 +164,7 @@ class CraftsmanBackend:
         request_id: str,
     ) -> ProductionStatus | None:
         """Verifica status de uma solicitação."""
-        if not _craftsman_available():
+        if not _crafting_available():
             return None
 
         try:
@@ -203,10 +203,10 @@ class CraftsmanBackend:
         reason: str = "cancelled",
     ) -> ProductionResult:
         """Cancela uma solicitação de produção."""
-        if not _craftsman_available():
+        if not _crafting_available():
             return ProductionResult(
                 success=False,
-                message="Craftsman not available",
+                message="Crafting not available",
             )
 
         try:
@@ -252,7 +252,7 @@ class CraftsmanBackend:
         target_date: date | None = None,
     ) -> list[ProductionStatus]:
         """Lista solicitações pendentes."""
-        if not _craftsman_available():
+        if not _crafting_available():
             return []
 
         try:
@@ -297,12 +297,12 @@ class CraftsmanBackend:
 
 
 _lock = threading.Lock()
-_backend_instance: CraftsmanBackend | None = None
+_backend_instance: CraftingBackend | None = None
 
 
 def get_production_backend(
     recipe_resolver: Callable[[str], Any] | None = None,
-) -> CraftsmanBackend:
+) -> CraftingBackend:
     """
     Get or create the production backend instance.
 
@@ -310,18 +310,18 @@ def get_production_backend(
         recipe_resolver: Optional custom recipe resolver
 
     Returns:
-        CraftsmanBackend instance
+        CraftingBackend instance
     """
     global _backend_instance
 
     if recipe_resolver:
         # Se passou resolver customizado, cria nova instância
-        return CraftsmanBackend(recipe_resolver=recipe_resolver)
+        return CraftingBackend(recipe_resolver=recipe_resolver)
 
     if _backend_instance is None:
         with _lock:
             if _backend_instance is None:  # double-checked
-                _backend_instance = CraftsmanBackend()
+                _backend_instance = CraftingBackend()
 
     return _backend_instance
 

@@ -17,7 +17,7 @@ class OfferingCatalogBackend:
     """
     CatalogBackend implementation using Offering's catalog service.
 
-    This adapter allows other apps (Omniman, Stockman) to use Offering
+    This adapter allows other apps (Ordering, Stocking) to use Offering
     as their catalog source without direct model access.
     """
 
