@@ -274,12 +274,12 @@ class TestStockRegistration(TestCase):
         registry.clear()
         # Reset the registration guard so register_stock_extensions() runs fresh
         import shopman.orchestration as orch
-        orch._stock_registered = False
+        orch._extensions_registered = False
 
     def tearDown(self):
         registry.clear()
         import shopman.orchestration as orch
-        orch._stock_registered = False
+        orch._extensions_registered = False
 
     def test_register_stock_extensions_adds_handler(self):
         register_stock_extensions()

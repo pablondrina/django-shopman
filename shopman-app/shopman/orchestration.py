@@ -18,27 +18,33 @@ from shopman.ordering import registry
 
 
 # ---------------------------------------------------------------------------
-# Stock integration — register handler + validator once
+# Extensions — register handlers, validators, etc. once
 # ---------------------------------------------------------------------------
 
-_stock_registered = False
+_extensions_registered = False
 
 
-def register_stock_extensions():
-    """Register stock directive handler and commit validator.
+def register_extensions():
+    """Register all shopman directive handlers and commit validators.
 
     Safe to call multiple times — registrations are idempotent.
     """
-    global _stock_registered
-    if _stock_registered:
+    global _extensions_registered
+    if _extensions_registered:
         return
 
     from shopman.contrib.stock_handler import StockHoldHandler
     from shopman.contrib.stock_validator import StockCheckValidator
+    from shopman.contrib.notification_handler import NotificationHandler
 
     registry.register_directive_handler(StockHoldHandler())
+    registry.register_directive_handler(NotificationHandler())
     registry.register_validator(StockCheckValidator())
-    _stock_registered = True
+    _extensions_registered = True
+
+
+# Backward-compat alias
+register_stock_extensions = register_extensions
 
 
 # ---------------------------------------------------------------------------
@@ -113,7 +119,7 @@ def setup_channels(channel_defs=None):
     list[tuple[Channel, bool]]
         List of (channel, created) tuples.
     """
-    register_stock_extensions()
+    register_extensions()
 
     defs = channel_defs if channel_defs is not None else DEFAULT_CHANNELS
     results = []
