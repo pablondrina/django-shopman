@@ -9,4 +9,4 @@ class ShopmanConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
 
     def ready(self):
-        pass  # Handler registration will be added in WP-6+
+        from shopman import orchestration  # noqa: F401 — trigger module-level side effects

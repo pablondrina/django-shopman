@@ -21,6 +21,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # Third-party
+    "taggit",
     # Shopman core apps
     "shopman.utils",
     "shopman.offering",
