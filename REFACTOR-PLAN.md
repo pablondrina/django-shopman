@@ -10,7 +10,7 @@
 
 ## Estado Atual (2026-03-21)
 
-### Testes passando agora: 1.766
+### Testes passando agora: 1.878
 
 | App | Testes | Status |
 |-----|--------|--------|
@@ -22,8 +22,9 @@
 | shopman.attending (ex-guestman) | 369 | **Migrado** |
 | shopman.gating (ex-doorman) | 152 | **Migrado** |
 | shopman (orquestrador) | 420 | **Migrado** (confirmation, stock, pricing, customer, payment, notifications, fiscal, accounting, returns, webhook) |
-| Integration / Nelson | 0 | **Não migrado** |
-| **Total** | **1.766** | **Target: ~1.649** |
+| Integration tests | 112 | **Migrado** (WP-R5: 8 cross-app test files + conftest) |
+| Nelson (demo app) | 18 | **Migrado** (WP-R5: modifiers + validators) |
+| **Total** | **1.878** | **Target: ~1.649** |
 
 ### O que foi feito (WP-0 a WP-5 originais)
 
@@ -37,6 +38,7 @@
 - [x] WP-R2: shopman.attending + shopman.gating (369 + 152 testes, make test 7 apps)
 - [x] WP-R3: orquestração — confirmation, stock, pricing, customer (154 testes, make test 8 apps)
 - [x] WP-R4: orquestração — payment, notifications, fiscal, accounting, returns, webhook (420 testes, make test 8 apps)
+- [x] WP-R5: integration tests + Nelson + finalização (1.878 testes, make test 8 apps)
 
 ### O que DESVIOU do plano (WP-6 em diante)
 
@@ -82,9 +84,11 @@ Todos os arquivos kernel foram migrados. Arquivos que NÃO estão no kernel (cor
 | returns/ | 3 files | **Migrado** (WP-R4) |
 | webhook/ | 5 files | **Migrado** (WP-R4) |
 
-### Makefile — ATUALIZADO em WP-R4
+### Makefile — ATUALIZADO em WP-R5
 
-`make test` roda todos os 8 apps: utils, offering, stocking, crafting, ordering, attending, gating, shopman-app (1.766 testes).
+`make test` roda todos os 8 apps: utils, offering, stocking, crafting, ordering, attending, gating, shopman-app (1.878 testes).
+
+Nelson (demo app) e integration tests rodam dentro do shopman-app.
 
 ---
 
