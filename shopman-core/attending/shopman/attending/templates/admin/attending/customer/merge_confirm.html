@@ -1,0 +1,48 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<h2>{{ title }}</h2>
+
+<div style="margin: 1em 0; padding: 1em; border: 2px solid #dca; background: #ffd;">
+    <p><strong>Atenção:</strong> Esta ação é irreversível. O cliente <em>source</em> será desativado e todos os seus dados serão migrados para o <em>target</em>.</p>
+</div>
+
+<table style="margin: 1em 0; border-collapse: collapse;">
+    <tr>
+        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #ccc;"></th>
+        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #ccc;">Source (será desativado)</th>
+        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #ccc;">Target (receberá dados)</th>
+    </tr>
+    <tr>
+        <td style="padding: 8px; font-weight: bold;">Código</td>
+        <td style="padding: 8px; color: #c44;">{{ source.ref }}</td>
+        <td style="padding: 8px; color: #4a4;">{{ target.ref }}</td>
+    </tr>
+    <tr>
+        <td style="padding: 8px; font-weight: bold;">Nome</td>
+        <td style="padding: 8px;">{{ source.name }}</td>
+        <td style="padding: 8px;">{{ target.name }}</td>
+    </tr>
+    <tr>
+        <td style="padding: 8px; font-weight: bold;">Telefone</td>
+        <td style="padding: 8px;">{{ source.phone }}</td>
+        <td style="padding: 8px;">{{ target.phone }}</td>
+    </tr>
+    <tr>
+        <td style="padding: 8px; font-weight: bold;">Email</td>
+        <td style="padding: 8px;">{{ source.email }}</td>
+        <td style="padding: 8px;">{{ target.email }}</td>
+    </tr>
+</table>
+
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="source" value="{{ source.pk }}">
+    <input type="hidden" name="target" value="{{ target.pk }}">
+    <input type="submit" name="confirm" value="Confirmar Merge" style="padding: 8px 16px; background: #c44; color: white; border: none; cursor: pointer;">
+    <a href="{% url 'admin:guestman_customer_changelist' %}" style="padding: 8px 16px; margin-left: 8px;">Cancelar</a>
+</form>
+{% endblock %}

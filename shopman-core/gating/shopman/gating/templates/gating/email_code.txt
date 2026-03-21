@@ -1,0 +1,5 @@
+{% load i18n %}{% blocktranslate with code=code ttl=ttl_minutes %}Your verification code is: {{ code }}
+
+This code expires in {{ ttl }} minutes.
+
+If you did not request this code, you can safely ignore this email.{% endblocktranslate %}

@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Link invalido</title>
+</head>
+<body>
+    <h1>Link invalido</h1>
+
+    <p>{{ error|default:"Este link expirou ou ja foi utilizado." }}</p>
+
+    <p><a href="{% url 'doorman:code-request' %}">Fazer login novamente</a></p>
+</body>
+</html>

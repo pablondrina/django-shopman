@@ -1,0 +1,30 @@
+{% load i18n %}<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% translate "Sign In via Email" %}</title>
+</head>
+<body>
+    <h1>{% translate "Sign In via Email" %}</h1>
+
+    {% if error %}
+    <p style="color: red;">{{ error }}</p>
+    {% endif %}
+
+    {% if sent %}
+    <p style="color: green;">{% translate "Check your email! We sent you a login link." %}</p>
+    {% else %}
+    <form method="post">
+        {% csrf_token %}
+        <label for="email">{% translate "Email:" %}</label>
+        <input type="email" id="email" name="email" value="{{ email|default:'' }}"
+               placeholder="you@example.com" required>
+        {% if next %}
+        <input type="hidden" name="next" value="{{ next }}">
+        {% endif %}
+        <button type="submit">{% translate "Send login link" %}</button>
+    </form>
+    {% endif %}
+</body>
+</html>
