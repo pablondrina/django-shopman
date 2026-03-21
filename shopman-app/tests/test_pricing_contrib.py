@@ -222,7 +222,7 @@ class SimplePricingBackendTests(TestCase):
         @dataclass
         class MockProduct:
             sku: str
-            price_q: int
+            base_price_q: int
 
         self.products = {
             "COFFEE": MockProduct("COFFEE", 500),
@@ -263,7 +263,7 @@ class ChannelPricingBackendTests(TestCase):
         @dataclass
         class MockProduct:
             sku: str
-            price_q: int
+            base_price_q: int
 
         @dataclass
         class MockListing:
@@ -320,7 +320,7 @@ class ChannelPricingBackendTests(TestCase):
 
     def test_works_without_listing_resolver(self) -> None:
         def product_resolver(sku: str):
-            return Mock(price_q=999)
+            return Mock(base_price_q=999)
 
         backend = ChannelPricingBackend(product_resolver=product_resolver)
         price = backend.get_price("ANY", self.standard_channel)

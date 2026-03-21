@@ -30,10 +30,12 @@ INSTALLED_APPS = [
     "shopman.stocking",
     "shopman.crafting",
     "shopman.ordering",
-    # "shopman.attending",  # TODO: WP pendente
-    # "shopman.gating",     # TODO: WP pendente
+    "shopman.attending",
+    "shopman.gating",
     # Shopman orchestrator
     "shopman",
+    # Nelson Boulangerie (demo app)
+    "nelson",
 ]
 
 MIDDLEWARE = [

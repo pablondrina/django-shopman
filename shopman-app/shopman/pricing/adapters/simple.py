@@ -23,7 +23,7 @@ class SimplePricingBackend:
     def get_price(self, sku: str, channel: Any) -> int | None:
         try:
             product = self.get_product(sku)
-            return product.price_q
+            return product.base_price_q
         except ObjectDoesNotExist:
             return None
         except Exception:
@@ -62,7 +62,7 @@ class ChannelPricingBackend:
         # Fallback para product
         try:
             product = self.get_product(sku)
-            return product.price_q
+            return product.base_price_q
         except ObjectDoesNotExist:
             return None
         except Exception:

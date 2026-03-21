@@ -178,7 +178,7 @@ class CustomerEnsureHandler:
         first_name, last_name = _split_name(name)
         code = f"MC-{uuid.uuid4().hex[:8].upper()}"
         customer = CustomerService.create(
-            code=code,
+            ref=code,
             first_name=first_name,
             last_name=last_name,
             phone=phone,
@@ -214,7 +214,7 @@ class CustomerEnsureHandler:
         first_name, last_name = _split_name(name)
         code = f"IF-{uuid.uuid4().hex[:8].upper()}"
         customer = CustomerService.create(
-            code=code,
+            ref=code,
             first_name=first_name or "iFood",
             last_name=last_name or f"#{ifood_order_id[:8]}",
             customer_type="individual",
@@ -261,7 +261,7 @@ class CustomerEnsureHandler:
             first_name, last_name = _split_name(name)
             code = f"CLI-{uuid.uuid4().hex[:8].upper()}"
             customer = CustomerService.create(
-                code=code,
+                ref=code,
                 first_name=first_name or "Cliente",
                 last_name=last_name or f"CPF {cpf_normalized[-4:]}",
                 document=cpf_normalized,
@@ -302,7 +302,7 @@ class CustomerEnsureHandler:
             first_name, last_name = _split_name(name)
             code = f"CLI-{uuid.uuid4().hex[:8].upper()}"
             customer = CustomerService.create(
-                code=code,
+                ref=code,
                 first_name=first_name,
                 last_name=last_name,
                 phone=phone,
