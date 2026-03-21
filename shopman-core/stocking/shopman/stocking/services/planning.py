@@ -13,7 +13,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.utils import timezone
 
-from shopman.stocking.conf import stockman_settings
+from shopman.stocking.conf import stocking_settings
 from shopman.stocking.exceptions import StockError
 from shopman.stocking.models.enums import HoldStatus
 from shopman.stocking.models.move import Move
@@ -136,7 +136,7 @@ class StockPlanning:
             materialized_hold_ids = []
             now = timezone.now()
             hold_ttl_minutes = getattr(
-                stockman_settings, 'MATERIALIZED_HOLD_TTL_MINUTES',
+                stocking_settings, 'MATERIALIZED_HOLD_TTL_MINUTES',
                 DEFAULT_MATERIALIZED_HOLD_TTL_MINUTES,
             )
             materialized_expires_at = now + timedelta(minutes=hold_ttl_minutes)

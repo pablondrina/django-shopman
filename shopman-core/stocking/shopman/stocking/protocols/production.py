@@ -1,10 +1,10 @@
 """
 Production Backend Protocol.
 
-Defines the interface for Stockman to interact with production systems
+Defines the interface for Stocking to interact with production systems
 (e.g., Craftsman) for requesting production when demand exceeds supply.
 
-Vocabulary mapping (Stockman → Craftsman):
+Vocabulary mapping (Stocking → Craftsman):
     request_production()  →  craft.plan() + craft.schedule()
     check_status()        →  WorkOrder.status
     cancel_request()      →  WorkOrder.cancel()
@@ -93,9 +93,9 @@ class ProductionResult:
 @runtime_checkable
 class ProductionBackend(Protocol):
     """
-    Interface para Stockman solicitar produção.
+    Interface para Stocking solicitar produção.
 
-    Este protocol permite que o Stockman dispare produção quando:
+    Este protocol permite que o Stocking dispare produção quando:
     - availability_policy é "planned_ok" ou "demand_ok"
     - Um Hold é criado para demanda futura
     - A demanda excede o planejado

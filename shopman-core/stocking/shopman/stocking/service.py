@@ -8,7 +8,7 @@ Usage:
     hold_id = stock.hold(5, croissant, friday)
     stock.available(croissant, friday)  # 45
 
-Implementation is split into modules under stockman/services/:
+Implementation is split into modules under stocking/services/:
     queries.py    — available, demand, committed, get_quant, list_quants
     movements.py  — receive, issue, adjust
     holds.py      — hold, confirm, release, fulfill, release_expired

@@ -1,4 +1,4 @@
-"""Tests for Django Stockman."""
+"""Tests for Django Stocking."""
 
 
 

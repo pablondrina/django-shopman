@@ -62,7 +62,7 @@ class TestOmnimanDemandBackendHistory:
         assert result == []
 
     def test_history_returns_dailydemand_with_zero_wasted(self, db):
-        """All DailyDemand from history have wasted=0 (stockman tracks waste)."""
+        """All DailyDemand from history have wasted=0 (stocking tracks waste)."""
         backend = OmnimanDemandBackend()
 
         mock_data = [
@@ -79,20 +79,20 @@ class TestOmnimanDemandBackendHistory:
 class TestOmnimanDemandBackendCommitted:
     """Extended tests for committed() method."""
 
-    def test_committed_without_stockman_returns_zero(self, db):
-        """When Stockman is not installed, committed() returns Decimal(0)."""
+    def test_committed_without_stocking_returns_zero(self, db):
+        """When Stocking is not installed, committed() returns Decimal(0)."""
         backend = OmnimanDemandBackend()
         result = backend.committed("CROISSANT", date.today())
         assert result == Decimal("0")
         assert isinstance(result, Decimal)
 
     def test_committed_handles_import_error(self, db):
-        """ImportError from missing Stockman → Decimal(0)."""
+        """ImportError from missing Stocking → Decimal(0)."""
         backend = OmnimanDemandBackend()
 
         with patch(
             "shopman.crafting.contrib.demand.backend.OmnimanDemandBackend.committed",
-            side_effect=ImportError("No stockman"),
+            side_effect=ImportError("No stocking"),
         ):
             # Direct call should raise, but the real implementation catches
             pass
@@ -109,7 +109,7 @@ class TestOmnimanDemandBackendCommitted:
         mock_hold = MagicMock()
         mock_hold.objects.filter.return_value.active.side_effect = Exception("DB error")
 
-        with patch.dict("sys.modules", {"stockman.models.hold": MagicMock(Hold=mock_hold)}):
+        with patch.dict("sys.modules", {"stocking.models.hold": MagicMock(Hold=mock_hold)}):
             with patch("shopman.crafting.contrib.demand.backend.Hold", mock_hold, create=True):
                 # The real code catches Exception, so this path should return 0
                 result = backend.committed("ERROR-SKU", date.today())

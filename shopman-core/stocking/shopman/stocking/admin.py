@@ -1,5 +1,5 @@
 """
-Stockman Admin — basic fallback (works without Unfold).
+Stocking Admin — basic fallback (works without Unfold).
 
 For the Unfold-styled version, add 'stocking.contrib.admin_unfold' to INSTALLED_APPS.
 When the Unfold contrib is loaded, this module does nothing (avoids double registration).

@@ -24,7 +24,7 @@ class Craft(CraftPlanning, CraftExecution, CraftQueries):
     """
     Single interface for all Crafting operations.
 
-    Follows Stockman's mixin pattern:
+    Follows Stocking's mixin pattern:
         Stock = StockQueries + StockMovements + StockHolds + StockPlanning
         Craft = CraftPlanning + CraftExecution + CraftQueries
 

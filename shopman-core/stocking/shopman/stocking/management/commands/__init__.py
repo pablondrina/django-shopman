@@ -1,4 +1,4 @@
-"""Stockman management commands."""
+"""Stocking management commands."""
 
 
 

@@ -3,7 +3,7 @@ Tests for v0.2.1 polish changes.
 
 Covers:
 - Recipe validation i18n fix (f-string → % formatting)
-- Stockman adapter logging on _get_product failure
+- Stocking adapter logging on _get_product failure
 - API endpoint exception handling (StaleRevision → 409, CraftError → 400)
 - Version alignment
 """
@@ -88,23 +88,23 @@ class TestRecipeValidationI18n:
 
 
 # ══════════════════════════════════════════════════════════════
-# STOCKMAN ADAPTER LOGGING
+# STOCKING ADAPTER LOGGING
 # ══════════════════════════════════════════════════════════════
 
 
-class TestStockmanAdapterLogging:
+class TestStockingAdapterLogging:
     """Test that _get_product logs errors instead of silencing them."""
 
     def test_get_product_logs_import_error(self):
         """ImportError is logged at debug level (catalog not installed)."""
-        from shopman.crafting.adapters.stockman import StockmanBackend
+        from shopman.crafting.adapters.stocking import StockingBackend
 
-        backend = StockmanBackend()
+        backend = StockingBackend()
 
         with patch(
             "shopman.crafting.adapters.offerman.get_catalog_backend",
             side_effect=ImportError("No module named 'offerman'"),
-        ), patch("shopman.crafting.adapters.stockman.logger") as mock_logger:
+        ), patch("shopman.crafting.adapters.stocking.logger") as mock_logger:
             result = backend._get_product("FARINHA")
 
         assert result is None
@@ -116,9 +116,9 @@ class TestStockmanAdapterLogging:
 
     def test_get_product_logs_runtime_error(self):
         """Runtime errors are logged at warning level with traceback."""
-        from shopman.crafting.adapters.stockman import StockmanBackend
+        from shopman.crafting.adapters.stocking import StockingBackend
 
-        backend = StockmanBackend()
+        backend = StockingBackend()
 
         mock_catalog = MagicMock()
         mock_catalog.resolve.side_effect = RuntimeError("Database connection lost")
@@ -126,7 +126,7 @@ class TestStockmanAdapterLogging:
         with patch(
             "shopman.crafting.adapters.offerman.get_catalog_backend",
             return_value=mock_catalog,
-        ), patch("shopman.crafting.adapters.stockman.logger") as mock_logger:
+        ), patch("shopman.crafting.adapters.stocking.logger") as mock_logger:
             result = backend._get_product("FARINHA")
 
         assert result is None
@@ -139,10 +139,10 @@ class TestStockmanAdapterLogging:
 
     def test_get_product_with_resolver(self):
         """Custom product_resolver bypasses catalog backend entirely."""
-        from shopman.crafting.adapters.stockman import StockmanBackend
+        from shopman.crafting.adapters.stocking import StockingBackend
 
         resolver = MagicMock(return_value="product-object")
-        backend = StockmanBackend(product_resolver=resolver)
+        backend = StockingBackend(product_resolver=resolver)
 
         result = backend._get_product("FARINHA")
 
@@ -160,7 +160,7 @@ class TestProductionBackendExceptions:
 
     def test_create_wo_craft_error_logged_as_warning(self, db):
         """CraftError (business logic) is logged at warning level."""
-        from shopman.crafting.contrib.stockman.production import CraftingProductionBackend
+        from shopman.crafting.contrib.stocking.production import CraftingProductionBackend
 
         backend = CraftingProductionBackend()
 
@@ -172,8 +172,8 @@ class TestProductionBackendExceptions:
         )
 
         # Plan with invalid quantity triggers CraftError
-        with patch("shopman.crafting.contrib.stockman.production.logger") as mock_logger:
-            # Mock the stockman import
+        with patch("shopman.crafting.contrib.stocking.production.logger") as mock_logger:
+            # Mock the stocking import
             mock_request = MagicMock()
             mock_request.sku = "test-product"
             mock_request.quantity = Decimal("-5")  # Invalid
@@ -183,9 +183,9 @@ class TestProductionBackendExceptions:
             mock_request.reference = None
 
             with patch(
-                "stockman.protocols.production.ProductionResult",
+                "shopman.stocking.protocols.production.ProductionResult",
             ) as MockResult, patch(
-                "stockman.protocols.production.ProductionStatusEnum",
+                "shopman.stocking.protocols.production.ProductionStatusEnum",
             ):
                 result = backend.request_production(mock_request)
 

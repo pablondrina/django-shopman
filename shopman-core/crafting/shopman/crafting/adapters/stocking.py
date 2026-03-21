@@ -1,8 +1,8 @@
 """
-Stockman Backend — implements InventoryProtocol using Stockman's API.
+Stocking Backend — implements InventoryProtocol using Stocking's API.
 
 Vocabulary mapping:
-    Crafting           →  Stockman
+    Crafting           →  Stocking
     ─────────────────────────────────
     available()         →  stock.available()
     reserve()           →  stock.hold()
@@ -35,8 +35,8 @@ from shopman.crafting.protocols.inventory import (
 logger = logging.getLogger(__name__)
 
 
-def _stockman_available() -> bool:
-    """Check if Stockman is available."""
+def _stocking_available() -> bool:
+    """Check if Stocking is available."""
     try:
         from shopman.stocking.service import stock  # noqa: F401
 
@@ -45,9 +45,9 @@ def _stockman_available() -> bool:
         return False
 
 
-class StockmanBackend:
+class StockingBackend:
     """
-    Implementação do InventoryProtocol usando a API do Stockman.
+    Implementação do InventoryProtocol usando a API do Stocking.
 
     Exemplo de uso:
         from shopman.crafting.adapters import get_stock_backend
@@ -82,7 +82,7 @@ class StockmanBackend:
         return None
 
     def _get_stock(self):
-        """Get Stockman service."""
+        """Get Stocking service."""
         from shopman.stocking.service import stock
 
         return stock
@@ -100,7 +100,7 @@ class StockmanBackend:
 
     def available(self, materials: list[MaterialNeed]) -> AvailabilityResult:
         """Verifica disponibilidade usando stock.available()."""
-        if not _stockman_available():
+        if not _stocking_available():
             return AvailabilityResult(
                 all_available=True,
                 materials=[
@@ -136,7 +136,7 @@ class StockmanBackend:
         metadata: dict[str, Any] | None = None,
     ) -> ReserveResult:
         """Reserva materiais usando stock.hold()."""
-        if not _stockman_available():
+        if not _stocking_available():
             return ReserveResult(
                 success=True,
                 holds=[
@@ -200,7 +200,7 @@ class StockmanBackend:
         ref: str,
     ) -> ConsumeResult:
         """Consome materiais reservados usando stock.fulfill()."""
-        if not _stockman_available():
+        if not _stocking_available():
             return ConsumeResult(success=True)
 
         stock = self._get_stock()
@@ -213,7 +213,7 @@ class StockmanBackend:
                 status__in=[HoldStatus.PENDING, HoldStatus.CONFIRMED],
             )
         except ImportError:
-            return ConsumeResult(success=False, message="Stockman not available")
+            return ConsumeResult(success=False, message="Stocking not available")
 
         consumed = []
         adjustments = []
@@ -248,7 +248,7 @@ class StockmanBackend:
         reason: str = "voided",
     ) -> ReleaseResult:
         """Libera materiais reservados usando stock.release()."""
-        if not _stockman_available():
+        if not _stocking_available():
             return ReleaseResult(success=True)
 
         stock = self._get_stock()
@@ -261,7 +261,7 @@ class StockmanBackend:
                 status__in=[HoldStatus.PENDING, HoldStatus.CONFIRMED],
             )
         except ImportError:
-            return ReleaseResult(success=False, message="Stockman not available")
+            return ReleaseResult(success=False, message="Stocking not available")
 
         released = []
         failed = []
@@ -287,7 +287,7 @@ class StockmanBackend:
         ref: str,
     ) -> ReceiveResult:
         """Registra output de produção usando stock.receive()."""
-        if not _stockman_available():
+        if not _stocking_available():
             return ReceiveResult(success=True, quant_id="mock:0")
 
         stock = self._get_stock()
@@ -329,22 +329,22 @@ class StockmanBackend:
 # ══════════════════════════════════════════════════════════════
 
 _lock = threading.Lock()
-_backend_instance: StockmanBackend | None = None
+_backend_instance: StockingBackend | None = None
 
 
 def get_stock_backend(
     product_resolver: Callable[[str], Any] | None = None,
-) -> StockmanBackend:
+) -> StockingBackend:
     """Get or create the stock backend instance."""
     global _backend_instance
 
     if product_resolver:
-        return StockmanBackend(product_resolver=product_resolver)
+        return StockingBackend(product_resolver=product_resolver)
 
     if _backend_instance is None:
         with _lock:
             if _backend_instance is None:
-                _backend_instance = StockmanBackend()
+                _backend_instance = StockingBackend()
 
     return _backend_instance
 

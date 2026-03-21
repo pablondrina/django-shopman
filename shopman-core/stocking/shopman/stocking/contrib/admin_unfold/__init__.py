@@ -1,4 +1,4 @@
-"""Stockman Admin with Unfold theme."""
+"""Stocking Admin with Unfold theme."""
 
 # Lazy imports to avoid circular dependencies
 # Import directly from shopman.utils when needed:

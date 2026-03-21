@@ -779,7 +779,7 @@ class TestInventoryWiring:
         from unittest.mock import MagicMock, patch
 
         mock_backend = MagicMock()
-        mock_backend.consume.side_effect = RuntimeError("Stockman down")
+        mock_backend.consume.side_effect = RuntimeError("Stocking down")
         mock_backend_class = MagicMock(return_value=mock_backend)
 
         settings.CRAFTING = {

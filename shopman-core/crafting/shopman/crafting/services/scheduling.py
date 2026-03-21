@@ -1,7 +1,7 @@
 """
 Planning service — plan and adjust operations.
 
-All methods are @classmethod (mixin pattern, like Stockman).
+All methods are @classmethod (mixin pattern, like Stocking).
 """
 
 import logging

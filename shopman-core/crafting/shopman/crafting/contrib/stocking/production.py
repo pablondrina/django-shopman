@@ -1,8 +1,8 @@
 """
 Production Backend Adapter (vNext).
 
-Implements Stockman's ProductionBackend protocol for Crafting.
-This allows Stockman to request production when stock reaches reorder point.
+Implements Stocking's ProductionBackend protocol for Crafting.
+This allows Stocking to request production when stock reaches reorder point.
 
 Uses craft.plan() and craft.void() instead of direct WorkOrder manipulation.
 """
@@ -23,10 +23,10 @@ _production_backend = None
 
 class CraftingProductionBackend:
     """
-    Implements ProductionBackend for Stockman to request production.
+    Implements ProductionBackend for Stocking to request production.
 
     Usage:
-        from shopman.crafting.contrib.stockman.production import get_production_backend
+        from shopman.crafting.contrib.stocking.production import get_production_backend
 
         backend = get_production_backend()
         result = backend.request_production(ProductionRequest(
@@ -105,7 +105,7 @@ class CraftingProductionBackend:
                 recipe,
                 qty,
                 date=target_date,
-                source_ref="stockman:reorder",
+                source_ref="stocking:reorder",
                 meta=metadata or {},
             )
 
@@ -180,7 +180,7 @@ class CraftingProductionBackend:
                         message=f"WorkOrder {request_id} not found",
                     )
 
-            craft.void(wo, reason=reason, actor="stockman:cancel")
+            craft.void(wo, reason=reason, actor="stocking:cancel")
             logger.info("Production request %s cancelled: %s", wo.code, reason)
 
             return ProductionResult(
@@ -212,7 +212,7 @@ class CraftingProductionBackend:
 
         qs = WorkOrder.objects.filter(
             status=WorkOrder.Status.OPEN,
-            source_ref__startswith="stockman:",
+            source_ref__startswith="stocking:",
         )
 
         if sku:

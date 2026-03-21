@@ -1,4 +1,4 @@
-"""Stockman Alerts dispatch app configuration."""
+"""Stocking Alerts dispatch app configuration."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from django.apps import AppConfig
 from django.utils.translation import gettext_lazy as _
 
 
-class StockmanAlertsConfig(AppConfig):
+class StockingAlertsConfig(AppConfig):
     """Signal-driven stock alert dispatch."""
 
     name = "shopman.stocking.contrib.alerts"

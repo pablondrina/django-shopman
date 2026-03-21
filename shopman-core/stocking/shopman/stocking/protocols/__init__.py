@@ -1,5 +1,5 @@
 """
-Stockman Protocols.
+Stocking Protocols.
 
 Defines interfaces for external system integration.
 """

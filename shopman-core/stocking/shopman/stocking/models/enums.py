@@ -1,5 +1,5 @@
 """
-Enums for Stockman models.
+Enums for Stocking models.
 """
 
 from django.db import models

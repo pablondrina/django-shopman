@@ -1,5 +1,5 @@
 """
-Stockman Models.
+Stocking Models.
 
 Core models for stock management:
 - Position: Where stock exists

@@ -134,19 +134,19 @@ class TestB1OldQuantityFix:
 
 
 # ══════════════════════════════════════════════════════════════
-# B2 FIX: receive() loop (stockman adapter)
+# B2 FIX: receive() loop (stocking adapter)
 # ══════════════════════════════════════════════════════════════
 
 
 class TestB2ReceiveLoopFix:
-    """Verify StockmanBackend.receive() processes all items, not just first."""
+    """Verify StockingBackend.receive() processes all items, not just first."""
 
     def test_receive_processes_multiple_items(self):
         """receive() should process all MaterialProduced items."""
-        from shopman.crafting.adapters.stockman import StockmanBackend
+        from shopman.crafting.adapters.stocking import StockingBackend
         from shopman.crafting.protocols.inventory import MaterialProduced, ReceiveResult
 
-        backend = StockmanBackend()
+        backend = StockingBackend()
 
         items = [
             MaterialProduced(sku="croissant", quantity=Decimal("50")),
@@ -165,7 +165,7 @@ class TestB2ReceiveLoopFix:
         with patch.object(backend, "_get_stock", return_value=mock_stock), \
              patch.object(backend, "_get_product", side_effect=[mock_product1, mock_product2]), \
              patch.object(backend, "_get_position", return_value=mock_position), \
-             patch("shopman.crafting.adapters.stockman._stockman_available", return_value=True):
+             patch("shopman.crafting.adapters.stocking._stocking_available", return_value=True):
             result = backend.receive(items, ref="WO-2026-00001")
 
         assert result.success is True

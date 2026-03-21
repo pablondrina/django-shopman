@@ -102,7 +102,7 @@ class TestCommittedMethod:
         from shopman.crafting.contrib.demand.backend import OmnimanDemandBackend
 
         backend = OmnimanDemandBackend()
-        # Without stockman installed, should return 0 gracefully
+        # Without stocking installed, should return 0 gracefully
         result = backend.committed("CROISSANT", date.today())
         assert isinstance(result, Decimal)
         assert result == Decimal("0")

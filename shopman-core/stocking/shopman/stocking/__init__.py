@@ -1,5 +1,5 @@
 """
-Django Stockman — Motor Unificado de Estoque.
+Django Stocking — Motor Unificado de Estoque.
 
 O parceiro de dança perfeito para o Django Salesman.
 

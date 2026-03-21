@@ -1,7 +1,7 @@
 """
 SKU Validation Protocol — Interface for catalog/product validation.
 
-Stockman defines this protocol, Offerman (or other catalog systems) implements it.
+Stocking defines this protocol, Offering (or other catalog systems) implements it.
 """
 
 from __future__ import annotations

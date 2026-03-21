@@ -4,7 +4,7 @@ Craftsman Backend.
 Implements ProductionBackend using Craftsman's API (craft.*, work.*).
 
 Vocabulary mapping:
-    Stockman                →  Craftsman
+    Stocking                →  Craftsman
     ─────────────────────────────────────────
     request_production()    →  craft.plan() + craft.schedule()
     check_status()          →  WorkOrder.status

@@ -1,1 +1,0 @@
-"""Crafting Stockman management commands."""

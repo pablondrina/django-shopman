@@ -1,10 +1,10 @@
 """
 Inventory Protocol — interface for Crafting to interact with stock systems.
 
-Defines how Crafting communicates with inventory (e.g., Stockman) for
+Defines how Crafting communicates with inventory (e.g., Stocking) for
 material reservation, consumption, release, and production receipt.
 
-Vocabulary mapping (Crafting → Stockman):
+Vocabulary mapping (Crafting → Stocking):
     reserve()   →  stock.hold()
     consume()   →  stock.fulfill()
     release()   →  stock.release()
@@ -81,7 +81,7 @@ class MaterialHold:
 
     sku: str
     quantity: Decimal
-    hold_id: str  # Formato: "hold:{pk}" (convenção Stockman)
+    hold_id: str  # Formato: "hold:{pk}" (convenção Stocking)
 
 
 @dataclass(frozen=True)
@@ -150,7 +150,7 @@ class InventoryProtocol(Protocol):
     Se configurado: close chama consume + receive. void chama release.
 
     Implementações:
-        - StockmanBackend: Usa a API do Stockman (stock.*)
+        - StockingBackend: Usa a API do Stocking (stock.*)
         - MockStockBackend: Para testes sem estoque real
     """
 

@@ -13,7 +13,7 @@ from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
-from shopman.stocking.conf import stockman_settings
+from shopman.stocking.conf import stocking_settings
 from shopman.stocking.exceptions import StockError
 from shopman.stocking.models.enums import HoldStatus
 from shopman.stocking.models.hold import Hold
@@ -286,7 +286,7 @@ class StockHolds:
         """
         now = timezone.now()
         total = 0
-        batch_size = stockman_settings.EXPIRED_BATCH_SIZE
+        batch_size = stocking_settings.EXPIRED_BATCH_SIZE
 
         while True:
             with transaction.atomic():

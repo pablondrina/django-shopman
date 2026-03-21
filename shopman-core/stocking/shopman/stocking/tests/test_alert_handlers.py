@@ -1,5 +1,5 @@
 """
-Tests for stockman.contrib.alerts — signal-driven alert dispatch.
+Tests for stocking.contrib.alerts — signal-driven alert dispatch.
 
 Uses transaction=True because the handler uses transaction.on_commit()
 to ensure Quant._quantity is updated before checking alerts.
@@ -124,7 +124,7 @@ class TestCooldown:
     def test_cooldown_prevents_re_dispatch(self, stocked_product, vitrine, alert, settings):
         """Alert within cooldown period does not dispatch notification."""
         product, quant = stocked_product
-        settings.STOCKMAN_ALERT_COOLDOWN_MINUTES = 60
+        settings.STOCKING_ALERT_COOLDOWN_MINUTES = 60
 
         # Simulate recent trigger
         alert.last_triggered_at = timezone.now() - timedelta(minutes=10)
@@ -137,7 +137,7 @@ class TestCooldown:
     def test_expired_cooldown_allows_dispatch(self, stocked_product, vitrine, alert, settings):
         """Alert past cooldown period dispatches notification."""
         product, quant = stocked_product
-        settings.STOCKMAN_ALERT_COOLDOWN_MINUTES = 60
+        settings.STOCKING_ALERT_COOLDOWN_MINUTES = 60
 
         # Simulate old trigger (past cooldown)
         alert.last_triggered_at = timezone.now() - timedelta(hours=2)
@@ -188,5 +188,5 @@ class TestAlertConf:
     def test_custom_cooldown(self, settings):
         from shopman.stocking.contrib.alerts.conf import get_alert_cooldown_minutes
 
-        settings.STOCKMAN_ALERT_COOLDOWN_MINUTES = 30
+        settings.STOCKING_ALERT_COOLDOWN_MINUTES = 30
         assert get_alert_cooldown_minutes() == 30

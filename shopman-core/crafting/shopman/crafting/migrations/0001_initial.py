@@ -60,7 +60,7 @@ class Migration(migrations.Migration):
                 ('started_at', models.DateTimeField(blank=True, null=True, verbose_name='Iniciada em')),
                 ('finished_at', models.DateTimeField(blank=True, null=True, verbose_name='Finalizada em')),
                 ('source_ref', models.CharField(blank=True, help_text="'order:789', 'forecast:Q1'", max_length=100, verbose_name='Origem')),
-                ('position_ref', models.CharField(blank=True, help_text="Ref da Position no Stockman (ex: 'producao')", max_length=100, verbose_name='Posição')),
+                ('position_ref', models.CharField(blank=True, help_text="Ref da Position no Stocking (ex: 'producao')", max_length=100, verbose_name='Posição')),
                 ('assigned_ref', models.CharField(blank=True, help_text="'user:joao'", max_length=100, verbose_name='Responsavel')),
                 ('meta', models.JSONField(blank=True, default=dict, verbose_name='Metadados')),
                 ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='Criado em')),

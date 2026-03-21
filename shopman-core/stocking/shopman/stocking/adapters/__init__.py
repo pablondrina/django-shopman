@@ -1,5 +1,5 @@
 """
-Stockman Adapters.
+Stocking Adapters.
 
 Implementations of protocols for external systems.
 """
