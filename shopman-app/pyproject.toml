@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shopman"
+version = "0.1.0"
+description = "Shopman — orchestrator for the Django Shopman commerce suite"
+license = "MIT"
+authors = [
+    {name = "Pablo Valentini", email = "pablondrina@gmail.com"}
+]
+requires-python = ">=3.11"
+dependencies = [
+    "Django>=5.2,<6.0",
+    "djangorestframework>=3.15,<4.0",
+    "shopman-utils>=0.3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-django",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["shopman*", "project*"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "project.settings"
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+select = ["E", "W", "F", "I", "B", "C4", "UP"]
+ignore = ["E501", "B008"]

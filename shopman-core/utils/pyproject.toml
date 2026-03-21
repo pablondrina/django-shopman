@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shopman-utils"
+version = "0.3.0"
+description = "Shared utilities for the Shopman suite"
+license = "MIT"
+authors = [
+    {name = "Pablo Valentini", email = "pablondrina@gmail.com"}
+]
+keywords = ["django", "shopman", "admin", "unfold"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 5.2",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "Django>=5.2,<6.0",
+    "phonenumbers>=8.13",
+]
+
+[project.optional-dependencies]
+unfold = [
+    "django-unfold>=0.80,<1.0",
+]
+dev = [
+    "pytest",
+    "pytest-django",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["shopman.utils*"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "utils_test_settings"
+pythonpath = ["."]
+testpaths = ["shopman/utils/tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+select = ["E", "W", "F", "I", "B", "C4", "UP"]
+ignore = ["E501", "B008"]
