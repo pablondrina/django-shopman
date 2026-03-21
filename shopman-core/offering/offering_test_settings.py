@@ -1,0 +1,45 @@
+"""
+Django settings for Offering tests.
+
+Minimal settings to run pytest with shopman.offering app.
+"""
+
+SECRET_KEY = "test-secret-key-for-offering-tests"
+
+DEBUG = True
+
+INSTALLED_APPS = [
+    "django.contrib.contenttypes",
+    "django.contrib.auth",
+    "taggit",
+    "simple_history",
+    "rest_framework",
+    "django_filters",
+    "shopman.offering",
+]
+
+ROOT_URLCONF = "shopman.offering.tests.urls"
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.SearchFilter",
+    ],
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 20,
+}
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": ":memory:",
+    }
+}
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+USE_TZ = True
+TIME_ZONE = "America/Sao_Paulo"

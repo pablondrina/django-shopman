@@ -1,0 +1,223 @@
+# Squashed migration: offerman 0001_initial + 0002_add_product_image_url + 0003_rename_shelf_life_hours_to_days
+
+import django.core.validators
+import django.db.models.deletion
+import simple_history.models
+import taggit.managers
+import uuid
+from decimal import Decimal
+from django.conf import settings
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    initial = True
+
+    dependencies = [
+        ('taggit', '0006_rename_taggeditem_content_type_object_id_taggit_tagg_content_8fc721_idx'),
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name='Listing',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('uuid', models.UUIDField(default=uuid.uuid4, editable=False, unique=True, verbose_name='UUID')),
+                ('code', models.SlugField(unique=True, verbose_name='código')),
+                ('name', models.CharField(max_length=100, verbose_name='nome')),
+                ('description', models.TextField(blank=True, verbose_name='descrição')),
+                ('valid_from', models.DateField(blank=True, null=True, verbose_name='válido de')),
+                ('valid_until', models.DateField(blank=True, null=True, verbose_name='válido até')),
+                ('priority', models.IntegerField(default=0, verbose_name='prioridade')),
+                ('is_active', models.BooleanField(default=True, verbose_name='ativo')),
+                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='criado em')),
+                ('updated_at', models.DateTimeField(auto_now=True, verbose_name='atualizado em')),
+            ],
+            options={
+                'verbose_name': 'Listagem',
+                'verbose_name_plural': 'Listagens',
+                'ordering': ['-priority', 'name'],
+            },
+        ),
+        migrations.CreateModel(
+            name='Collection',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('uuid', models.UUIDField(default=uuid.uuid4, editable=False, unique=True, verbose_name='UUID')),
+                ('slug', models.SlugField(unique=True, verbose_name='slug')),
+                ('name', models.CharField(max_length=100, verbose_name='nome')),
+                ('description', models.TextField(blank=True, verbose_name='descrição')),
+                ('valid_from', models.DateField(blank=True, null=True, verbose_name='válido de')),
+                ('valid_until', models.DateField(blank=True, null=True, verbose_name='válido até')),
+                ('sort_order', models.IntegerField(default=0, verbose_name='ordem')),
+                ('is_active', models.BooleanField(default=True, verbose_name='ativo')),
+                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='criado em')),
+                ('updated_at', models.DateTimeField(auto_now=True, verbose_name='atualizado em')),
+                ('parent', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='children', to='offering.collection', verbose_name='coleção pai')),
+            ],
+            options={
+                'verbose_name': 'Coleção',
+                'verbose_name_plural': 'Coleções',
+                'ordering': ['sort_order', 'name'],
+            },
+        ),
+        migrations.CreateModel(
+            name='HistoricalProduct',
+            fields=[
+                ('id', models.BigIntegerField(auto_created=True, blank=True, db_index=True, verbose_name='ID')),
+                ('uuid', models.UUIDField(db_index=True, default=uuid.uuid4, editable=False, verbose_name='UUID')),
+                ('sku', models.CharField(db_index=True, max_length=100, verbose_name='SKU')),
+                ('name', models.CharField(max_length=200, verbose_name='nome')),
+                ('short_description', models.CharField(blank=True, help_text='Descrição resumida para listagens (máx. 255 caracteres)', max_length=255, verbose_name='descrição curta')),
+                ('long_description', models.TextField(blank=True, help_text='Descrição completa do produto', verbose_name='descrição longa')),
+                ('unit', models.CharField(default='un', help_text='un, kg, lt, etc.', max_length=20, verbose_name='unidade')),
+                ('base_price_q', models.BigIntegerField(default=0, help_text='Preço base em centavos', validators=[django.core.validators.MinValueValidator(0)], verbose_name='preço base')),
+                ('availability_policy', models.CharField(choices=[('stock_only', 'Somente estoque'), ('planned_ok', 'Aceita planejado'), ('demand_ok', 'Aceita demanda')], default='planned_ok', max_length=20, verbose_name='política de disponibilidade')),
+                ('shelf_life_days', models.IntegerField(blank=True, help_text='Validade em dias', null=True, verbose_name='validade (dias)')),
+                ('production_cycle_hours', models.IntegerField(blank=True, help_text='Tempo de produção em horas (ex: 4h para croissant)', null=True, verbose_name='ciclo de produção (horas)')),
+                ('is_published', models.BooleanField(db_index=True, default=True, help_text='Publicado no catálogo (Não = oculto/descontinuado)', verbose_name='publicado')),
+                ('is_available', models.BooleanField(db_index=True, default=True, help_text='Disponível para venda (Não = insumo ou pausado)', verbose_name='disponível')),
+                ('image_url', models.URLField(blank=True, help_text='URL da imagem principal do produto (ex: Unsplash, Cloudinary, S3)', max_length=500, verbose_name='URL da imagem')),
+                ('is_batch_produced', models.BooleanField(default=False, help_text='Produzido em lotes (para Craftsman)', verbose_name='produção em lote')),
+                ('metadata', models.JSONField(blank=True, default=dict, verbose_name='metadados')),
+                ('created_at', models.DateTimeField(blank=True, editable=False, verbose_name='criado em')),
+                ('updated_at', models.DateTimeField(blank=True, editable=False, verbose_name='atualizado em')),
+                ('history_id', models.AutoField(primary_key=True, serialize=False)),
+                ('history_date', models.DateTimeField(db_index=True)),
+                ('history_change_reason', models.CharField(max_length=100, null=True)),
+                ('history_type', models.CharField(choices=[('+', 'Created'), ('~', 'Changed'), ('-', 'Deleted')], max_length=1)),
+                ('history_user', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL)),
+            ],
+            options={
+                'verbose_name': 'historical produto',
+                'verbose_name_plural': 'historical produtos',
+                'ordering': ('-history_date', '-history_id'),
+                'get_latest_by': ('history_date', 'history_id'),
+            },
+            bases=(simple_history.models.HistoricalChanges, models.Model),
+        ),
+        migrations.CreateModel(
+            name='Product',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('uuid', models.UUIDField(default=uuid.uuid4, editable=False, unique=True, verbose_name='UUID')),
+                ('sku', models.CharField(max_length=100, unique=True, verbose_name='SKU')),
+                ('name', models.CharField(max_length=200, verbose_name='nome')),
+                ('short_description', models.CharField(blank=True, help_text='Descrição resumida para listagens (máx. 255 caracteres)', max_length=255, verbose_name='descrição curta')),
+                ('long_description', models.TextField(blank=True, help_text='Descrição completa do produto', verbose_name='descrição longa')),
+                ('unit', models.CharField(default='un', help_text='un, kg, lt, etc.', max_length=20, verbose_name='unidade')),
+                ('base_price_q', models.BigIntegerField(default=0, help_text='Preço base em centavos', validators=[django.core.validators.MinValueValidator(0)], verbose_name='preço base')),
+                ('availability_policy', models.CharField(choices=[('stock_only', 'Somente estoque'), ('planned_ok', 'Aceita planejado'), ('demand_ok', 'Aceita demanda')], default='planned_ok', max_length=20, verbose_name='política de disponibilidade')),
+                ('shelf_life_days', models.IntegerField(blank=True, help_text='Validade em dias. Vazio=não perecível, 0=mesmo dia', null=True, verbose_name='validade (dias)')),
+                ('production_cycle_hours', models.IntegerField(blank=True, help_text='Tempo de produção em horas (ex: 4h para croissant)', null=True, verbose_name='ciclo de produção (horas)')),
+                ('is_published', models.BooleanField(db_index=True, default=True, help_text='Publicado no catálogo (Não = oculto/descontinuado)', verbose_name='publicado')),
+                ('is_available', models.BooleanField(db_index=True, default=True, help_text='Disponível para venda (Não = insumo ou pausado)', verbose_name='disponível')),
+                ('image_url', models.URLField(blank=True, help_text='URL da imagem principal do produto (ex: Unsplash, Cloudinary, S3)', max_length=500, verbose_name='URL da imagem')),
+                ('is_batch_produced', models.BooleanField(default=False, help_text='Produzido em lotes (para Craftsman)', verbose_name='produção em lote')),
+                ('metadata', models.JSONField(blank=True, default=dict, verbose_name='metadados')),
+                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='criado em')),
+                ('updated_at', models.DateTimeField(auto_now=True, verbose_name='atualizado em')),
+                ('keywords', taggit.managers.TaggableManager(blank=True, help_text='Tags para SEO e busca. Separe por vírgula.', through='taggit.TaggedItem', to='taggit.Tag', verbose_name='palavras-chave')),
+            ],
+            options={
+                'verbose_name': 'produto',
+                'verbose_name_plural': 'produtos',
+                'ordering': ['name'],
+            },
+        ),
+        migrations.CreateModel(
+            name='ListingItem',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('price_q', models.BigIntegerField(help_text='Preço em centavos', validators=[django.core.validators.MinValueValidator(0)], verbose_name='preço')),
+                ('min_qty', models.DecimalField(decimal_places=3, default=Decimal('1'), max_digits=10, verbose_name='quantidade mínima')),
+                ('is_published', models.BooleanField(default=True, verbose_name='publicado')),
+                ('is_available', models.BooleanField(default=True, verbose_name='disponível')),
+                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='criado em')),
+                ('updated_at', models.DateTimeField(auto_now=True, verbose_name='atualizado em')),
+                ('listing', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='items', to='offering.listing', verbose_name='listagem')),
+                ('product', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='listing_items', to='offering.product', verbose_name='produto')),
+            ],
+            options={
+                'verbose_name': 'Item de Listagem',
+                'verbose_name_plural': 'Itens de Listagem',
+                'ordering': ['listing', 'product__name'],
+            },
+        ),
+        migrations.CreateModel(
+            name='HistoricalListingItem',
+            fields=[
+                ('id', models.BigIntegerField(auto_created=True, blank=True, db_index=True, verbose_name='ID')),
+                ('price_q', models.BigIntegerField(help_text='Preço em centavos', validators=[django.core.validators.MinValueValidator(0)], verbose_name='preço')),
+                ('min_qty', models.DecimalField(decimal_places=3, default=Decimal('1'), max_digits=10, verbose_name='quantidade mínima')),
+                ('is_published', models.BooleanField(default=True, verbose_name='publicado')),
+                ('is_available', models.BooleanField(default=True, verbose_name='disponível')),
+                ('created_at', models.DateTimeField(blank=True, editable=False, verbose_name='criado em')),
+                ('updated_at', models.DateTimeField(blank=True, editable=False, verbose_name='atualizado em')),
+                ('history_id', models.AutoField(primary_key=True, serialize=False)),
+                ('history_date', models.DateTimeField(db_index=True)),
+                ('history_change_reason', models.CharField(max_length=100, null=True)),
+                ('history_type', models.CharField(choices=[('+', 'Created'), ('~', 'Changed'), ('-', 'Deleted')], max_length=1)),
+                ('history_user', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL)),
+                ('listing', models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='+', to='offering.listing', verbose_name='listagem')),
+                ('product', models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='+', to='offering.product', verbose_name='produto')),
+            ],
+            options={
+                'verbose_name': 'historical Item de Listagem',
+                'verbose_name_plural': 'historical Itens de Listagem',
+                'ordering': ('-history_date', '-history_id'),
+                'get_latest_by': ('history_date', 'history_id'),
+            },
+            bases=(simple_history.models.HistoricalChanges, models.Model),
+        ),
+        migrations.CreateModel(
+            name='CollectionItem',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('is_primary', models.BooleanField(default=False, help_text='Coleção principal para este produto', verbose_name='principal')),
+                ('sort_order', models.IntegerField(default=0, verbose_name='ordem')),
+                ('collection', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='items', to='offering.collection', verbose_name='coleção')),
+                ('product', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='collection_items', to='offering.product', verbose_name='produto')),
+            ],
+            options={
+                'verbose_name': 'Item de Coleção',
+                'verbose_name_plural': 'Itens de Coleção',
+                'ordering': ['sort_order'],
+            },
+        ),
+        migrations.CreateModel(
+            name='ProductComponent',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('qty', models.DecimalField(decimal_places=3, default=Decimal('1'), max_digits=10, validators=[django.core.validators.MinValueValidator(Decimal('0.001'))], verbose_name='quantidade')),
+                ('component', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='used_in_bundles', to='offering.product', verbose_name='componente')),
+                ('parent', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='components', to='offering.product', verbose_name='produto pai')),
+            ],
+            options={
+                'verbose_name': 'Componente de Produto',
+                'verbose_name_plural': 'Componentes de Produto',
+            },
+        ),
+        migrations.AddIndex(
+            model_name='product',
+            index=models.Index(fields=['is_published', 'is_available'], name='offering_pro_is_publ_idx'),
+        ),
+        migrations.AddConstraint(
+            model_name='listingitem',
+            constraint=models.UniqueConstraint(fields=('listing', 'product', 'min_qty'), name='unique_listing_product_min_qty'),
+        ),
+        migrations.AddConstraint(
+            model_name='collectionitem',
+            constraint=models.UniqueConstraint(fields=('collection', 'product'), name='unique_collection_product'),
+        ),
+        migrations.AddConstraint(
+            model_name='collectionitem',
+            constraint=models.UniqueConstraint(condition=models.Q(('is_primary', True)), fields=('product',), name='unique_primary_collection_per_product'),
+        ),
+        migrations.AddConstraint(
+            model_name='productcomponent',
+            constraint=models.UniqueConstraint(fields=('parent', 'component'), name='unique_parent_component'),
+        ),
+    ]
