@@ -285,6 +285,94 @@ class TestCommitService(TestCase):
 
 
 @pytest.mark.django_db
+class TestAbandonService(TestCase):
+    def setUp(self):
+        self.channel = Channel.objects.create(ref="pos-abn", name="PDV Abandon")
+
+    def test_abandon_marks_session_abandoned(self):
+        Session.objects.create(
+            session_key="S-ABN-1",
+            channel=self.channel,
+            items=[{"sku": "A", "qty": 1, "unit_price_q": 500}],
+        )
+        result = CommitService.abandon(
+            session_key="S-ABN-1",
+            channel_ref="pos-abn",
+        )
+        assert result["status"] == "abandoned"
+        session = Session.objects.get(session_key="S-ABN-1", channel=self.channel)
+        assert session.state == "abandoned"
+
+    def test_abandon_emits_history_event(self):
+        Session.objects.create(
+            session_key="S-ABN-2",
+            channel=self.channel,
+        )
+        CommitService.abandon(
+            session_key="S-ABN-2",
+            channel_ref="pos-abn",
+            ctx={"actor": "operador"},
+        )
+        session = Session.objects.get(session_key="S-ABN-2", channel=self.channel)
+        history = session.data.get("history", [])
+        assert len(history) == 1
+        assert history[0]["event"] == "abandoned"
+        assert history[0]["actor"] == "operador"
+
+    def test_double_abandon_is_noop(self):
+        Session.objects.create(
+            session_key="S-ABN-3",
+            channel=self.channel,
+        )
+        r1 = CommitService.abandon(session_key="S-ABN-3", channel_ref="pos-abn")
+        r2 = CommitService.abandon(session_key="S-ABN-3", channel_ref="pos-abn")
+        assert r1["status"] == "abandoned"
+        assert r2["status"] == "already_abandoned"
+
+    def test_abandon_committed_session_raises(self):
+        Session.objects.create(
+            session_key="S-ABN-4",
+            channel=self.channel,
+            items=[{"sku": "A", "qty": 1, "unit_price_q": 500}],
+        )
+        CommitService.commit(
+            session_key="S-ABN-4",
+            channel_ref="pos-abn",
+            idempotency_key="IDEM-ABN-4",
+        )
+        with pytest.raises(CommitError, match="already_committed"):
+            CommitService.abandon(session_key="S-ABN-4", channel_ref="pos-abn")
+
+    def test_abandon_not_found_raises(self):
+        with pytest.raises(SessionError, match="not_found"):
+            CommitService.abandon(session_key="GHOST", channel_ref="pos-abn")
+
+    def test_abandon_enqueues_post_abandon_directives(self):
+        channel = Channel.objects.create(
+            ref="pos-abn-dir",
+            name="PDV Abandon Directives",
+            config={
+                "post_abandon_directives": ["stock.release"],
+            },
+        )
+        Session.objects.create(
+            session_key="S-ABN-5",
+            channel=channel,
+        )
+        result = CommitService.abandon(
+            session_key="S-ABN-5",
+            channel_ref="pos-abn-dir",
+        )
+        assert result["status"] == "abandoned"
+        directives = list(Directive.objects.filter(
+            payload__session_key="S-ABN-5",
+        ))
+        assert len(directives) == 1
+        assert directives[0].topic == "stock.release"
+        assert directives[0].payload["channel_ref"] == "pos-abn-dir"
+
+
+@pytest.mark.django_db
 class TestSessionWriteService(TestCase):
     def setUp(self):
         self.channel = Channel.objects.create(ref="pos", name="PDV")

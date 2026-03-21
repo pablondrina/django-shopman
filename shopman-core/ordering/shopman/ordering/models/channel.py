@@ -10,6 +10,7 @@ KNOWN_CONFIG_KEYS = frozenset({
     "required_checks_on_commit",
     "checks",
     "post_commit_directives",
+    "post_abandon_directives",
     "notification_template",
     "order_flow",
     "notifications",

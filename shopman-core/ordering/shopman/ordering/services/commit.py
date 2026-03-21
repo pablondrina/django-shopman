@@ -337,6 +337,69 @@ class CommitService:
         }
 
     @staticmethod
+    @transaction.atomic
+    def abandon(
+        session_key: str,
+        channel_ref: str,
+        ctx: dict | None = None,
+    ) -> dict:
+        """
+        Abandona uma sessão aberta, liberando handles e resources.
+
+        - Se já abandoned → noop (retorna status "already_abandoned").
+        - Se já committed → erro.
+        - Marca state="abandoned", registra evento no histórico,
+          e enqueue post_abandon_directives do channel config.
+        """
+        ctx = ctx or {}
+
+        try:
+            session = Session.objects.select_for_update().get(
+                session_key=session_key,
+                channel__ref=channel_ref,
+            )
+        except Session.DoesNotExist:
+            raise SessionError(
+                code="not_found",
+                message=f"Sessão não encontrada: {channel_ref}:{session_key}",
+            )
+
+        channel = session.channel
+
+        if session.state == "abandoned":
+            return {"session_key": session_key, "status": "already_abandoned"}
+
+        if session.state == "committed":
+            raise CommitError(
+                code="already_committed",
+                message="Sessão já foi fechada e não pode ser abandonada",
+            )
+
+        # Mark as abandoned
+        session.state = "abandoned"
+
+        # Emit history event
+        history = session.data.get("history", [])
+        history.append({
+            "event": "abandoned",
+            "actor": ctx.get("actor", "system"),
+            "at": timezone.now().isoformat(),
+        })
+        session.data = {**session.data, "history": history}
+        session.save()
+
+        # Enqueue post_abandon_directives
+        post_abandon_directives = channel.config.get("post_abandon_directives", [])
+        for topic in post_abandon_directives:
+            payload = {
+                "channel_ref": channel.ref,
+                "session_key": session.session_key,
+            }
+            DirectiveService.enqueue(topic=topic, payload=payload)
+
+        return {"session_key": session_key, "status": "abandoned"}
+
+    @staticmethod
     def _calculate_total(items: list[dict]) -> int:
         total = 0
         for item in items:
