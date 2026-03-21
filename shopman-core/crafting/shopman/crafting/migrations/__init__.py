@@ -1,0 +1,2 @@
+"""Craftsman migrations."""
+

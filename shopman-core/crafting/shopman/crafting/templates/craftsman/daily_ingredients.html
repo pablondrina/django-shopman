@@ -1,0 +1,116 @@
+{% extends "admin/base_site.html" %}
+{% load i18n craftsman_filters %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="p-4">
+    <div class="mb-6 flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">
+            📦 {{ title }}
+        </h1>
+        
+        <div class="flex gap-4">
+            <!-- Date picker -->
+            <form method="get" class="flex gap-2">
+                <input 
+                    type="date" 
+                    name="date" 
+                    value="{{ target_date|date:'Y-m-d' }}"
+                    class="px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                    onchange="this.form.submit()"
+                >
+                
+                <!-- Category filter -->
+                <select 
+                    name="category" 
+                    class="px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                    onchange="this.form.submit()"
+                >
+                    <option value="">Todas as Categorias</option>
+                    {% for cat in all_categories %}
+                    <option value="{{ cat.name }}" {% if filter_category == cat.name %}selected{% endif %}>
+                        {{ cat.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+    </div>
+    
+    {% if not ingredients_by_category %}
+    <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6 text-center">
+        <p class="text-yellow-800 dark:text-yellow-200">
+            ⚠️ Nenhum insumo encontrado para esta data.
+        </p>
+        <p class="text-sm text-yellow-600 dark:text-yellow-400 mt-2">
+            Verifique se há receitas com itens cadastrados e planejamento para o dia.
+        </p>
+    </div>
+    {% else %}
+    
+    {% for category, items in ingredients_by_category.items %}
+    <div class="mb-8">
+        <h2 class="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200 border-b pb-2">
+            🏷️ {{ category }}
+        </h2>
+        
+        <div class="overflow-x-auto">
+            <table class="min-w-full bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow">
+                <thead class="bg-gray-100 dark:bg-gray-700">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600 dark:text-gray-200">
+                            Insumo
+                        </th>
+                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-600 dark:text-gray-200">
+                            Quantidade
+                        </th>
+                        <th class="px-4 py-3 text-center text-sm font-semibold text-gray-600 dark:text-gray-200">
+                            Unidade
+                        </th>
+                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600 dark:text-gray-200">
+                            Usado em
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for item in items %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td class="px-4 py-3 text-gray-800 dark:text-gray-200 font-medium">
+                            {{ item.item_name }}
+                        </td>
+                        <td class="px-4 py-3 text-right text-gray-800 dark:text-gray-200 font-mono">
+                            <span class="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
+                                {{ item.total_quantity|weight }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-center text-gray-600 dark:text-gray-400">
+                            {{ item.unit }}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                            {{ item.used_in|join:", " }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+    
+    {% endif %}
+    
+    <div class="mt-8 text-sm text-gray-500 dark:text-gray-400">
+        <p>
+            💡 <strong>Método do Coeficiente:</strong> 
+            As quantidades são calculadas multiplicando os ingredientes da receita base 
+            pelo coeficiente (demanda ÷ rendimento da receita).
+        </p>
+        <p class="mt-1">
+            <a href="http://techno.boulangerie.free.fr/" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">
+                Referência: Técnicas de Panificação Francesa
+            </a>
+        </p>
+    </div>
+</div>
+{% endblock %}

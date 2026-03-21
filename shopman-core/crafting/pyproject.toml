@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shopman-crafting"
+version = "0.3.0"
+description = "Shopman Crafting — Production Management (MRP)"
+requires-python = ">=3.12"
+dependencies = [
+    "Django>=5.2,<6.0",
+    "shopman-utils",
+]
+
+[project.optional-dependencies]
+api = [
+    "djangorestframework>=3.14",
+]
+unfold = [
+    "django-unfold>=0.80,<1.0",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-django>=4.5",
+    "djangorestframework>=3.14",
+]
+
+[tool.setuptools.packages.find]
+include = ["shopman.crafting*"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "crafting_test_settings"
+pythonpath = ["."]

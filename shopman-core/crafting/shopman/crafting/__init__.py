@@ -1,0 +1,33 @@
+"""
+Django Craftsman — Headless Micro-MRP Framework (vNext).
+
+5 models, 4 verbs, 3 states. Cabe na cabeca.
+
+Usage:
+    from shopman.crafting import craft, CraftError
+
+    wo = craft.plan(recipe, 100)
+    craft.close(wo, produced=95)
+
+    wo.produced      # 95
+    wo.loss          # 5
+    wo.yield_rate    # 0.95
+    wo.events.all()  # [planned, closed]
+
+Philosophy: SIREL (Simples, Robusto, Elegante)
+"""
+
+from shopman.crafting.exceptions import CraftError, StaleRevision
+
+
+def __getattr__(name):
+    """Lazy import to avoid AppRegistryNotReady errors."""
+    if name in ("craft", "Craft"):
+        from shopman.crafting.service import Craft
+
+        return Craft
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+__all__ = ["craft", "Craft", "CraftError", "StaleRevision"]
+__version__ = "0.2.2"
