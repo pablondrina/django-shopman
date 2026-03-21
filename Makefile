@@ -24,18 +24,22 @@ install: ## Instala deps + apps da suite em modo editável
 	# pip install -e shopman-core/crafting   # WP-3
 	# pip install -e shopman-core/attending  # WP-4
 	# pip install -e shopman-core/gating     # WP-4
-	# pip install -e shopman-core/ordering   # WP-5
+	pip install -e shopman-core/ordering
 	# pip install -e shopman-app             # WP-6
 	@echo "✓ Dependências instaladas"
 
 # ── Testes ────────────────────────────────────────────────────────────
 
-test: test-utils ## Roda todos os testes
+test: test-utils test-ordering ## Roda todos os testes
 	@echo "✓ Todos os testes passaram"
 
 test-utils: ## Testes do shopman.utils
 	@echo "── Utils ──"
 	cd shopman-core/utils && python -m pytest -x -q
+
+test-ordering: ## Testes do shopman.ordering
+	@echo "── Ordering ──"
+	cd shopman-core/ordering && python -m pytest -x -q
 
 # ── Qualidade ─────────────────────────────────────────────────────────
 

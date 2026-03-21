@@ -26,7 +26,7 @@ INSTALLED_APPS = [
     "shopman.offering",
     "shopman.stocking",
     "shopman.crafting",
-    # "shopman.ordering",   # TODO: WP pendente
+    "shopman.ordering",
     # "shopman.attending",  # TODO: WP pendente
     # "shopman.gating",     # TODO: WP pendente
     # Shopman orchestrator
