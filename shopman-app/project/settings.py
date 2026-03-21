@@ -21,10 +21,16 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    # Shopman core apps (added as migrated)
+    # Shopman core apps
     "shopman.utils",
-    # Shopman orchestrator (added in WP-6)
-    # "shopman",
+    "shopman.offering",
+    "shopman.stocking",
+    "shopman.crafting",
+    # "shopman.ordering",   # TODO: WP pendente
+    # "shopman.attending",  # TODO: WP pendente
+    # "shopman.gating",     # TODO: WP pendente
+    # Shopman orchestrator
+    "shopman",
 ]
 
 MIDDLEWARE = [
