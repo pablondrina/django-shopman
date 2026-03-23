@@ -1,5 +1,11 @@
+from .account import (
+    AccountView,
+    AddressCreateView,
+    AddressDeleteView,
+    AddressSetDefaultView,
+    AddressUpdateView,
+)
 from .auth import CustomerLookupView, RequestCodeView, VerifyCodeView
-from .catalog import MenuView, MenuSearchView, ProductDetailView
 from .cart import (
     AddToCartView,
     CartContentPartialView,
@@ -9,17 +15,12 @@ from .cart import (
     RemoveCartItemView,
     UpdateCartItemView,
 )
+from .catalog import MenuSearchView, MenuView, ProductDetailView
 from .checkout import CheckoutView, OrderConfirmationView
-from .payment import MockPaymentConfirmView, PaymentStatusView, PaymentView
-from .tracking import OrderStatusPartialView, OrderTrackingView
-from .account import (
-    AccountView,
-    AddressCreateView,
-    AddressDeleteView,
-    AddressSetDefaultView,
-    AddressUpdateView,
-)
 from .info import HowItWorksView, OrderHistoryView, SitemapView
+from .payment import MockPaymentConfirmView, PaymentStatusView, PaymentView
+from .pwa import OfflineView
+from .tracking import OrderStatusPartialView, OrderTrackingView
 
 __all__ = [
     "AccountView",
@@ -38,12 +39,14 @@ __all__ = [
     "MenuSearchView",
     "MenuView",
     "MockPaymentConfirmView",
+    "OfflineView",
     "OrderConfirmationView",
     "OrderHistoryView",
     "OrderStatusPartialView",
     "OrderTrackingView",
     "PaymentStatusView",
     "PaymentView",
+    "ProductDetailView",
     "RemoveCartItemView",
     "RequestCodeView",
     "SitemapView",

@@ -328,6 +328,18 @@
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('{% url "storefront:service_worker" %}', { scope: '/' })
+        .then(function(reg) {
+          reg.addEventListener('updatefound', function() {
+            var newWorker = reg.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', function() {
+                if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+                  window.location.reload();
+                }
+              });
+            }
+          });
+        })
         .catch(function() {});
     }
   </script>

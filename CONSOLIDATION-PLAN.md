@@ -169,89 +169,205 @@ Conteúdo:
 
 ---
 
-## WP-C4: Testes do Storefront
+## ~~WP-C4: Testes do Storefront~~ DONE
 
 **Por quê:** 28 views, zero testes. É o componente que o usuário final toca.
 
-**Após** WP-C2 (split), criar testes por módulo:
+**Resultado:** 103 testes em 7 arquivos + conftest com fixtures dedicadas.
 
 ```
-shopman-app/tests/test_web_catalog.py
-shopman-app/tests/test_web_cart.py
-shopman-app/tests/test_web_checkout.py
-shopman-app/tests/test_web_payment.py
-shopman-app/tests/test_web_tracking.py
-shopman-app/tests/test_web_account.py
-shopman-app/tests/test_web_auth.py
+shopman-app/tests/web/
+├── conftest.py             # Fixtures: product, collection, channel, order, customer, cart_session
+├── test_web_catalog.py     # MenuView, MenuSearchView, ProductDetailView (13 testes)
+├── test_web_cart.py        # CartView, AddToCart, UpdateCart, RemoveCart, Summary, FloatingBar (16 testes)
+├── test_web_checkout.py    # CheckoutView GET/POST, OrderConfirmationView (11 testes)
+├── test_web_payment.py     # PaymentView, PaymentStatusView, MockPaymentConfirmView (11 testes)
+├── test_web_tracking.py    # OrderTrackingView, OrderStatusPartialView (10 testes)
+├── test_web_account.py     # AccountView, AddressCRUD (20 testes)
+└── test_web_auth.py        # CustomerLookupView, RequestCodeView, VerifyCodeView (10 testes)
 ```
 
-**Padrão:** Django test client (`self.client.get/post`), fixtures do conftest existente.
-
-**Cobertura mínima por módulo:**
-- Happy path (GET retorna 200, POST redireciona)
-- Validação de input (telefone inválido, data passada, qty 0)
-- Edge cases (carrinho vazio no checkout, pedido inexistente no tracking)
-- HTMX partials (verifica que retorna fragmento HTML, não página inteira)
+**Cobertura:**
+- Happy path (GET 200, POST redirect)
+- Validação (telefone inválido, campos obrigatórios, qty 0)
+- Edge cases (carrinho vazio, pedido inexistente, produto indisponível)
+- HTMX partials (HX-Trigger, HX-Redirect, HX-Retarget)
+- State machine (transições de status válidas)
 
 ---
 
-## WP-C5: Logging + Coverage (prep para produção)
+## ~~WP-C5: Logging + Coverage (prep para produção)~~ DONE
 
 ### C5a: LOGGING dict em settings.py
 
-```python
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {"verbose": {"format": "%(asctime)s %(name)s %(levelname)s %(message)s"}},
-    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "verbose"}},
-    "root": {"handlers": ["console"], "level": "INFO"},
-    "loggers": {"shopman": {"level": "DEBUG", "propagate": True}},
-}
-```
-
-Simples, console-only. Produção vai configurar Sentry/ELK depois.
+Console-only, com loggers `shopman` e `channels` em DEBUG (dev) / INFO (prod).
+Nível configurável via `DJANGO_LOG_LEVEL` env var.
 
 ### C5b: Coverage config
 
-Adicionar em `shopman-app/pyproject.toml`:
-```toml
-[tool.coverage.run]
-source = ["shopman", "channels"]
-omit = ["*/migrations/*", "*/tests/*"]
-
-[tool.coverage.report]
-show_missing = true
-fail_under = 0  # sem gate por enquanto, só visibilidade
-```
-
-Adicionar `make coverage` no Makefile.
+`[tool.coverage.run]` e `[tool.coverage.report]` em `pyproject.toml`.
+`make coverage` no Makefile (pytest-cov, term-missing + HTML).
 
 ---
 
-## WP-C6: PWA melhoria (backlog)
+## ~~WP-C6: PWA melhoria~~ DONE
 
-**Não executar agora.** Registrar como item futuro.
+**Por quê:** O SW atual é minimalista — cache-first genérico, sem offline fallback, sem distinção entre rotas críticas (checkout) e navegáveis (menu). Para uma PWA de e-commerce funcionar bem em conexões instáveis (cenário real de padaria), precisa de estratégias de cache diferenciadas e fallback offline.
 
-Melhorias planejadas:
-- Offline fallback page (template estático quando sem rede)
-- Cache strategy inteligente (stale-while-revalidate para menu, network-first para checkout)
-- Push notifications (quando notifications backend estiver pronto)
-- Manifest e SW parametrizados pelo StorefrontConfig (depende de WP-C2b)
-- Ícones reais (não SVG genérico)
+**Estado atual** (pós WP-C2b):
+- `ManifestView` e `ServiceWorkerView` em `channels/web/views/pwa.py`, já parametrizados por `StorefrontConfig`
+- Ícones SVG genéricos (`icon-192.svg`, `icon-512.svg`) com tema bakery hardcoded
+- SW faz: install (precache /menu/ + manifest + icon), activate (limpa caches antigos), fetch (network-first HTML, cache-first /static/)
+- Sem fallback offline, sem push notifications, sem distinção de rota
+
+### C6a: Offline fallback page
+
+**Template:** `storefront/offline.html` — página estática com branding StorefrontConfig.
+
+```
+Conteúdo:
+- Logo/nome da loja (via context processor, mas precisa funcionar offline)
+- Mensagem: "Você está sem conexão. Verifique sua internet e tente novamente."
+- Botão "Tentar novamente" (window.location.reload)
+- Estilo inline (não depende de CSS externo)
+```
+
+**URL:** `path("offline/", OfflineView.as_view(), name="offline")` — view simples que renderiza o template.
+
+**SW:** Na install, precachar `/offline/`. No fetch handler HTML, fallback para `/offline/` quando network falha E não há cache.
+
+### C6b: Cache strategy por rota
+
+Substituir o fetch handler único por estratégias diferenciadas:
+
+| Rota | Estratégia | Razão |
+|------|-----------|-------|
+| `/menu/`, `/menu/search/`, `/produto/*` | **stale-while-revalidate** | Catálogo muda pouco; mostrar versão cached enquanto atualiza em background |
+| `/checkout/`, `/pagamento/*`, `/api/*` | **network-only** | Dados críticos (estoque, preço, pagamento) — nunca servir stale |
+| `/static/*` | **cache-first** | Assets versionados, imutáveis |
+| `/manifest.json`, `/sw.js` | **network-first** | Atualização de branding deve refletir rápido |
+| Demais HTML (`/carrinho/`, `/conta/*`, `/pedido/*`) | **network-first, fallback cache** | Preferir fresh, mas funcionar offline se já visitou |
+
+**Implementação no SW:**
+```javascript
+// Rotas categorizadas por prefixo
+const STALE_WHILE_REVALIDATE = ['/menu/', '/produto/'];
+const NETWORK_ONLY = ['/checkout/', '/pagamento/', '/api/'];
+const CACHE_FIRST = ['/static/'];
+
+// fetch handler com routing
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  if (event.request.method !== 'GET') return;
+
+  if (matchesAny(url.pathname, NETWORK_ONLY)) return; // browser default
+  if (matchesAny(url.pathname, CACHE_FIRST)) { /* cache-first logic */ }
+  if (matchesAny(url.pathname, STALE_WHILE_REVALIDATE)) { /* SWR logic */ }
+  // default: network-first com fallback
+});
+```
+
+### C6c: Push notifications (stub)
+
+**Não implementar o push completo agora** — o backend `shopman.notifications` ainda não tem canal push.
+
+**Preparar a infraestrutura no SW:**
+- Event listener `push` que mostra notificação via `self.registration.showNotification()`
+- Event listener `notificationclick` que abre a URL relevante (ex: tracking do pedido)
+- Ambos como stubs prontos para ativar quando o backend enviar payloads
+
+**No manifest:** Nenhuma mudança necessária — `display: standalone` já suporta push.
+
+**Nota:** Subscription (PushManager.subscribe) e envio (webpush server-side) ficam para quando `shopman.notifications` ganhar canal push. O SW apenas escuta.
+
+### C6d: Ícones reais (PNG)
+
+**Substituir SVGs genéricos por PNGs rasterizados** — SVG não é universalmente suportado em manifests PWA (iOS Safari ignora, Chrome prefere PNG para splash screen).
+
+**Arquivos novos:**
+```
+static/storefront/
+├── icon-192.png          # 192×192 PNG, fundo config.background_color, croissant/logo
+├── icon-512.png          # 512×512 PNG
+├── icon-maskable-512.png # 512×512 com safe zone para maskable icon
+├── icon-192.svg          # Manter para fallback/favicon
+└── icon-512.svg          # Manter
+```
+
+**Manifest atualizado:**
+```json
+{
+  "icons": [
+    {"src": "/static/storefront/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "/static/storefront/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "/static/storefront/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
+```
+
+**Nota:** Os PNGs devem ser criados manualmente (design) ou via script de geração. O WP-C6 prepara o manifest e referências; assets reais dependem de design.
+
+**Alternativa pragmática:** Se ícones PNG reais não estiverem disponíveis, manter SVGs e adicionar `"purpose": "any"` — funciona na maioria dos browsers modernos. Ícone maskable fica como TODO de design.
+
+### C6e: Manifest enriquecido
+
+Campos adicionais no `ManifestView`:
+
+```python
+manifest = {
+    # ... existentes (name, short_name, start_url, display, colors, icons)
+    "description": config.tagline or config.description[:100],
+    "orientation": "portrait",
+    "scope": "/",
+    "categories": ["food", "shopping"],
+    "lang": "pt-BR",
+    "dir": "ltr",
+    "prefer_related_applications": False,
+}
+```
+
+### Escopo de arquivos
+
+```
+Modificar:
+  channels/web/views/pwa.py        # SW reescrito com routing + offline + push stubs
+  channels/web/views/__init__.py   # Exportar OfflineView
+  channels/web/urls.py             # Rota /offline/
+  channels/web/templates/storefront/base.html  # SW registration com update handling
+
+Criar:
+  channels/web/templates/storefront/offline.html   # Página offline
+  channels/web/static/storefront/icon-192.png      # (placeholder ou TODO design)
+  channels/web/static/storefront/icon-maskable-512.png  # (placeholder ou TODO design)
+
+Manter:
+  channels/web/models.py           # StorefrontConfig sem mudanças
+  channels/web/static/storefront/icon-*.svg  # Preservar como fallback
+```
+
+### Testes
+
+```
+shopman-app/tests/web/test_web_pwa.py
+  - ManifestView: campos obrigatórios, icons com PNG, description, lang
+  - ServiceWorkerView: contém CACHE_NAME, offline fallback URL, push listeners
+  - OfflineView: GET 200, contém mensagem offline e botão retry
+  - Offline precached na STATIC_ASSETS do SW
+  - Network-only routes não aparecem no cache
+```
 
 ---
 
 ## Ordem de Execução
 
 ```
-WP-C1 (rename)           → Primeiro, porque muda imports em tudo
-WP-C2a (split views)     → Segundo, reorganiza antes de documentar
-WP-C2b (StorefrontConfig)→ Terceiro, branding configurável
-WP-C3 (docs)             → Quarto, documenta o estado final
-WP-C4 (testes storefront)→ Quinto, testa o estado consolidado
-WP-C5 (logging+coverage) → Sexto, instrumentação
-WP-C6 (PWA)              → Backlog
+WP-C1 (rename)           → DONE (e1144a2)
+WP-C2a (split views)     → DONE (bc9a88b)
+WP-C2b (StorefrontConfig)→ DONE (fdc196a)
+WP-C3 (docs)             → DONE (e102bf9)
+WP-C4 (testes storefront)→ DONE — 103 testes, 7 arquivos
+WP-C5 (logging+coverage) → DONE — LOGGING, pytest-cov, make coverage
+WP-C6 (PWA)              → DONE — offline fallback, cache routing, push stubs, PNG icons, 22 testes
 ```
 
 ## Verificação
