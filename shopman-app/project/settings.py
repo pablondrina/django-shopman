@@ -48,8 +48,8 @@ INSTALLED_APPS = [
     "shopman.gating.contrib.admin_unfold",
     # Shopman orchestrator
     "shopman",
-    "shopman.customer",
-    "shopman.stock",
+    "shopman.identification",
+    "shopman.inventory",
     "shopman.confirmation",
     "shopman.notifications",
     "shopman.payment",

@@ -1,5 +1,5 @@
 """
-Django AppConfig para stock.
+Django AppConfig para inventory (orquestrador de estoque).
 
 Registra:
 - StockHoldHandler (topic: stock.hold)
@@ -54,9 +54,9 @@ def _load_backend():
     return NoopStockBackend()
 
 
-class StockConfig(AppConfig):
-    name = "shopman.stock"
-    label = "shopman_stock"
+class InventoryConfig(AppConfig):
+    name = "shopman.inventory"
+    label = "shopman_inventory"
     verbose_name = _("Estoque")
 
     def ready(self):
@@ -69,7 +69,7 @@ class StockConfig(AppConfig):
             backend = _load_backend()
         except Exception:
             logger.warning(
-                "StockConfig: Could not load stock backend. "
+                "InventoryConfig: Could not load stock backend. "
                 "Stock handlers will NOT be registered.",
                 exc_info=True,
             )
@@ -93,7 +93,7 @@ class StockConfig(AppConfig):
             pass  # Already registered (reload)
 
         logger.info(
-            "StockConfig: Registered %d stock handlers with %s.",
+            "InventoryConfig: Registered %d stock handlers with %s.",
             len(handlers),
             type(backend).__name__,
         )
@@ -104,6 +104,6 @@ class StockConfig(AppConfig):
             connect_signals()
         except Exception:
             logger.debug(
-                "StockConfig: Could not connect stock signal receivers.",
+                "InventoryConfig: Could not connect stock signal receivers.",
                 exc_info=True,
             )

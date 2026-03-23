@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 
-from shopman.customer.protocols import (
+from shopman.identification.protocols import (
     CustomerContext,
     CustomerInfo,
     CustomerValidationResult,

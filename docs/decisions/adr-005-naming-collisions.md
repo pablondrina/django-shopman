@@ -1,45 +1,35 @@
-# ADR-005: Manter naming collisions stock/stocking e customer/attending
+# ADR-005: Resolver naming collisions stock/stocking e customer/attending
 
 ## Status
-Accepted (2026-03-23)
+Superseded (2026-03-23)
+
+Decisao original (Opcao B — manter nomes) foi revertida em favor de rename.
 
 ## Context
 
-O orchestrator (shopman-app) possui modulos que fazem bridge com apps do core:
+O orchestrator (shopman-app) possuia modulos com nomes semanticamente proximos das apps core:
 
-| Orchestrator module | Core app         | Papel                              |
-|---------------------|------------------|------------------------------------|
-| `shopman.stock`     | `shopman.stocking` | Reserva e commit de estoque via diretivas |
-| `shopman.customer`  | `shopman.attending` | Resolucao de clientes para pedidos   |
-
-Os nomes `stock` e `customer` sao semanticamente proximos de `stocking` e `attending`,
-o que pode causar confusao em novos desenvolvedores.
-
-## Options Considered
-
-### A. Renomear para nomes distintos
-- `shopman.stock` -> `shopman.stock_bridge` ou `shopman.inventory_directives`
-- `shopman.customer` -> `shopman.customer_bridge` ou `shopman.customer_resolver`
-- **Pro:** Elimina ambiguidade
-- **Con:** Churn em migracoes, imports, labels, testes. Migracao de DB (label muda).
-
-### B. Manter os nomes atuais com documentacao
-- **Pro:** Zero churn, nomes curtos, ja usados em testes e settings
-- **Con:** Ambiguidade permanece, mitigada apenas por documentacao
+| Orchestrator (antigo) | Orchestrator (novo) | Core app | Papel |
+|---|---|---|---|
+| `shopman.stock` | `shopman.inventory` | `shopman.stocking` | Reserva e commit de estoque via diretivas |
+| `shopman.customer` | `shopman.identification` | `shopman.attending` | Resolucao de clientes para pedidos |
 
 ## Decision
 
-**Opcao B** — Manter os nomes atuais.
+**Opcao A** — Renomear para nomes distintos.
+
+- `shopman.stock` → `shopman.inventory`
+- `shopman.customer` → `shopman.identification`
 
 Razoes:
-1. Os modulos do orchestrator sao THIN adapters (< 200 LOC cada). A chance de
-   confusao e baixa na pratica.
-2. O `label` no Django ja diferencia: `shopman_stock` vs `stocking`.
-3. Renomear agora causaria churn desproporcional ao beneficio.
-4. A documentacao (README.md, docs/architecture.md) ja explica a distincao.
+1. Projeto novo, sem legado. Nao ha motivo para manter ambiguidade.
+2. Todos os demais modulos do orchestrator (confirmation, pricing, payment, fiscal,
+   accounting, notifications, returns, webhook) ja possuem nomes distintos das apps core.
+3. Os modulos nao possuem migrations — rename tem zero impacto em DB.
+4. Consistencia com o padrao adotado no restante da refatoracao.
 
 ## Consequences
 
-- Manter a secao "Orchestrator vs Core" na documentacao de arquitetura.
-- Novos modulos do orchestrator devem evitar nomes que colidam com apps do core.
-- Se o projeto crescer significativamente, reconsiderar esta decisao.
+- Nomes do orchestrator agora sao inequivocos.
+- Novos modulos do orchestrator devem seguir o mesmo padrao: nomes que descrevem
+  a concern sem colidir com apps core.

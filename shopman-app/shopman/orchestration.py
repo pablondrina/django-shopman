@@ -5,7 +5,7 @@ Provides:
 - ``setup_channels`` helper for bootstrapping default channels
 
 Handler and validator registration is handled by each module's AppConfig.ready()
-(e.g. StockConfig, NotificationsConfig, PaymentConfig, ConfirmationConfig).
+(e.g. InventoryConfig, NotificationsConfig, PaymentConfig, ConfirmationConfig).
 """
 
 from __future__ import annotations

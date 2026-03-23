@@ -12,7 +12,7 @@ from decimal import Decimal
 
 from django.test import TestCase
 
-from shopman.stock.resolvers import StockIssueResolver
+from shopman.inventory.resolvers import StockIssueResolver
 from shopman.ordering.exceptions import IssueResolveError
 from shopman.ordering.models import Channel, Session
 
@@ -179,11 +179,11 @@ class StockProtocolTests(TestCase):
     """Tests for stock protocols."""
 
     def test_stock_backend_protocol_exists(self) -> None:
-        from shopman.stock.protocols import StockBackend
+        from shopman.inventory.protocols import StockBackend
         self.assertIsNotNone(StockBackend)
 
     def test_stock_backend_has_required_methods(self) -> None:
-        from shopman.stock.protocols import StockBackend
+        from shopman.inventory.protocols import StockBackend
 
         methods = [m for m in dir(StockBackend) if not m.startswith("_")]
         self.assertIn("check_availability", methods)

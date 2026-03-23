@@ -99,7 +99,7 @@ Emitido quando holds planejados são materializados (produção concluída, esto
 | **Payload** | `hold_ids` (list[str]), `sku` (str), `target_date` (date), `to_position` (Position) |
 
 **Receiver:** `_on_holds_materialized()` em `shopman-app/shopman/stock/receivers.py`
-Registrado por: `StockConfig.ready()` via `connect_signals()`
+Registrado por: `InventoryConfig.ready()` via `connect_signals()`
 
 **Efeito:** Auto-commit de sessões que estavam aguardando produção. Quando todos os holds de uma sessão são materializados, executa `CommitService.commit()` automaticamente.
 

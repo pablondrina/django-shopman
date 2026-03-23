@@ -25,7 +25,7 @@ def _stockman_available() -> bool:
 
 def connect_signals():
     """
-    Connect signal receivers. Called from StockConfig.ready().
+    Connect signal receivers. Called from InventoryConfig.ready().
     """
     if not _stockman_available():
         logger.debug("Stockman not installed, skipping holds_materialized receiver.")

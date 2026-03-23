@@ -18,8 +18,8 @@ from decimal import Decimal
 import pytest
 from django.utils import timezone
 
-from shopman.stock.adapters.stockman import StockmanBackend
-from shopman.stock.protocols import AvailabilityResult, HoldResult
+from shopman.inventory.adapters.stockman import StockmanBackend
+from shopman.inventory.protocols import AvailabilityResult, HoldResult
 
 
 pytestmark = pytest.mark.django_db
@@ -445,7 +445,7 @@ class TestProtocolCompliance:
 
     def test_implements_stock_backend_protocol(self, backend):
         """Should implement all StockBackend methods."""
-        from shopman.stock.protocols import StockBackend
+        from shopman.inventory.protocols import StockBackend
 
         assert isinstance(backend, StockBackend)
 

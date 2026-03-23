@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 import threading
 
-from shopman.customer.protocols import (
+from shopman.identification.protocols import (
     AddressInfo,
     CustomerBackend,
     CustomerContext,

@@ -20,11 +20,11 @@ from django.test import TestCase
 from django.utils import timezone
 
 from shopman.ordering import registry
-from shopman.customer.handlers import CustomerEnsureHandler
+from shopman.identification.handlers import CustomerEnsureHandler
 from shopman.notifications.handlers import NotificationSendHandler
 from shopman.payment.adapters.mock import MockPaymentBackend
-from shopman.stock.adapters.noop import NoopStockBackend
-from shopman.stock.handlers import StockCommitHandler, StockHoldHandler
+from shopman.inventory.adapters.noop import NoopStockBackend
+from shopman.inventory.handlers import StockCommitHandler, StockHoldHandler
 from shopman.ordering.ids import generate_idempotency_key
 from shopman.ordering.models import Channel, Directive, Order, Session
 from shopman.ordering.services.commit import CommitService

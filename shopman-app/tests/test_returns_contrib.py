@@ -18,7 +18,7 @@ from django.test import TestCase
 from shopman.payment.adapters.mock import MockPaymentBackend
 from shopman.returns.handlers import ReturnHandler
 from shopman.returns.service import ReturnResult, ReturnService
-from shopman.stock.adapters.noop import NoopStockBackend
+from shopman.inventory.adapters.noop import NoopStockBackend
 from shopman.ordering.exceptions import InvalidTransition
 from shopman.ordering.models import Channel, Directive, Order, OrderEvent, OrderItem
 

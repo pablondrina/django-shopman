@@ -11,7 +11,7 @@ from typing import Any, Callable
 
 from django.core.exceptions import ObjectDoesNotExist
 
-from shopman.stock.protocols import (
+from shopman.inventory.protocols import (
     Alternative,
     AvailabilityResult,
     HoldResult,

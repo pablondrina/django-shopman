@@ -11,7 +11,7 @@ from typing import Any
 
 from django.utils import timezone
 
-from shopman.stock.protocols import (
+from shopman.inventory.protocols import (
     Alternative,
     AvailabilityResult,
     HoldResult,

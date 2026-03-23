@@ -46,7 +46,7 @@ class ReturnsConfig(AppConfig):
         try:
             stock_backend = _load_backend(
                 "SHOPMAN_STOCK_BACKEND",
-                "shopman.stock.adapters.noop.NoopStockBackend",
+                "shopman.inventory.adapters.noop.NoopStockBackend",
             )
             payment_backend = _load_backend(
                 "SHOPMAN_PAYMENT_BACKEND",

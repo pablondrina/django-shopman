@@ -1,7 +1,7 @@
 """
 Commit-stage validator — blocks commit when stock check is required but missing or stale.
 
-Registered in stock/apps.py (StockConfig.ready).
+Registered in inventory/apps.py (InventoryConfig.ready).
 """
 
 from __future__ import annotations

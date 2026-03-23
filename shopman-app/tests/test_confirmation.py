@@ -28,8 +28,8 @@ from shopman.confirmation.service import (
     get_safety_margin,
     requires_manual_confirmation,
 )
-from shopman.stock.adapters.noop import NoopStockBackend
-from shopman.stock.handlers import StockHoldHandler, StockCommitHandler
+from shopman.inventory.adapters.noop import NoopStockBackend
+from shopman.inventory.handlers import StockHoldHandler, StockCommitHandler
 from shopman.ordering.models import Channel, Directive, Order
 from shopman.ordering import registry
 

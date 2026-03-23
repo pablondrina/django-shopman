@@ -18,11 +18,11 @@ from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
 
-from shopman.customer.handlers import CustomerEnsureHandler
+from shopman.identification.handlers import CustomerEnsureHandler
 from shopman.ordering.models import Channel, Directive, Order
 
 # Path prefix for patching handler internals
-_H = "shopman.customer.handlers"
+_H = "shopman.identification.handlers"
 
 
 def _make_channel(code: str, name: str, **config_overrides) -> Channel:

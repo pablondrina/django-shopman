@@ -1,5 +1,5 @@
 """
-Django AppConfig para customer.
+Django AppConfig para identification (orquestrador de identidade de cliente).
 
 Registra:
 - CustomerEnsureHandler no registry de diretivas
@@ -11,10 +11,10 @@ from django.apps import AppConfig
 from django.utils.translation import gettext_lazy as _
 
 
-class CustomerConfig(AppConfig):
-    name = "shopman.customer"
-    label = "shopman_customer"
-    verbose_name = _("Clientes")
+class IdentificationConfig(AppConfig):
+    name = "shopman.identification"
+    label = "shopman_identification"
+    verbose_name = _("Identificação")
 
     def ready(self):
         from shopman.ordering.registry import register_directive_handler

@@ -16,8 +16,8 @@ from unittest.mock import Mock
 from django.test import TestCase
 from django.utils import timezone
 
-from shopman.stock.handlers import StockCommitHandler, StockHoldHandler
-from shopman.stock.protocols import AvailabilityResult, HoldResult
+from shopman.inventory.handlers import StockCommitHandler, StockHoldHandler
+from shopman.inventory.protocols import AvailabilityResult, HoldResult
 from shopman.ordering.models import Channel, Directive, Session
 
 

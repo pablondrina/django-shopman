@@ -69,7 +69,7 @@ Toda comunicacao entre apps usa `typing.Protocol` (PEP 544) com `@runtime_checka
 ### Exemplo: Stock
 
 ```python
-# shopman-app/shopman/stock/protocols.py — consumidor define o contrato
+# shopman-app/shopman/inventory/protocols.py — consumidor define o contrato
 @runtime_checkable
 class StockBackend(Protocol):
     def check_availability(self, sku: str, quantity: Decimal, ...) -> AvailabilityResult: ...
@@ -77,26 +77,26 @@ class StockBackend(Protocol):
     def release_hold(self, hold_id: str) -> bool: ...
     def fulfill_hold(self, hold_id: str) -> bool: ...
 
-# shopman-app/shopman/stock/adapters/stockman.py — adapter que conecta ao stocking
+# shopman-app/shopman/inventory/adapters/stockman.py — adapter que conecta ao stocking
 class StockmanAdapter:
     def check_availability(self, sku, quantity, ...):
         # Delega para shopman.stocking.service
         ...
 
 # settings.py — ligacao via config
-SHOPMAN_STOCK_BACKEND = "shopman.stock.adapters.stockman.StockmanAdapter"
+SHOPMAN_STOCK_BACKEND = "shopman.inventory.adapters.stockman.StockmanAdapter"
 ```
 
 ### Protocols existentes
 
 | Protocol | Definido em | Adapters |
 |----------|-------------|----------|
-| `StockBackend` | `shopman.stock.protocols` | `adapters/stockman.py` (stocking), `noop` |
+| `StockBackend` | `shopman.inventory.protocols` | `adapters/stockman.py` (stocking), `noop` |
 | `PaymentBackend` | `shopman.ordering.protocols` | (configuravel) |
 | `FiscalBackend` | `shopman.ordering.protocols` | (configuravel) |
 | `AccountingBackend` | `shopman.ordering.protocols` | (configuravel) |
 | `NotificationBackend` | `shopman.notifications.protocols` | `console`, `manychat` |
-| `CustomerBackend` | `shopman.customer.protocols` | (configuravel) |
+| `CustomerBackend` | `shopman.identification.protocols` | (configuravel) |
 | `PricingBackend` | `shopman.pricing.protocols` | (configuravel) |
 
 ### Vantagens

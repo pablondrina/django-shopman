@@ -16,13 +16,13 @@ shopman-app/shopman/
 ├── presets.py                # pos(), remote(), marketplace()
 ├── apps.py                   # ShopmanConfig.ready()
 │
-├── stock/                    # Handlers de estoque
+├── inventory/                    # Handlers de estoque
 ├── confirmation/             # Confirmação otimista
 ├── notifications/            # Multi-backend de notificações
 ├── payment/                  # PIX, captura, reembolso
 ├── fiscal/                   # NFC-e
 ├── returns/                  # Devoluções
-├── customer/                 # Resolução de cliente
+├── identification/           # Resolução de cliente
 ├── pricing/                  # Modifiers de preço
 └── webhook/                  # API Manychat
 ```
@@ -187,7 +187,7 @@ Processamento paralelo de directives:
 
 ## Módulos em Detalhe
 
-### stock/
+### inventory/
 
 **StockHoldHandler** (topic: `stock.hold`):
 1. Agrega itens por SKU
@@ -252,7 +252,7 @@ Processamento paralelo de directives:
 2. Processa reembolso (pagamento + fiscal)
 3. Idempotente: verifica `refund_processed`
 
-### customer/
+### identification/
 
 **CustomerEnsureHandler** (topic: `customer.ensure`):
 - Cria/vincula cliente no Attending pós-commit

@@ -50,10 +50,10 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 | Adapter | Arquivo | Quando usar |
 |---------|---------|-------------|
-| `StockmanBackend` | `stock/adapters/stockman.py` | Integração com `shopman.stocking` (produção). Resolve SKU via `Product`, suporta holds planejados |
-| `NoopStockBackend` | `stock/adapters/noop.py` | Testes e desenvolvimento. Sempre reporta 999999 unidades disponíveis |
+| `StockmanBackend` | `inventory/adapters/stockman.py` | Integração com `shopman.stocking` (produção). Resolve SKU via `Product`, suporta holds planejados |
+| `NoopStockBackend` | `inventory/adapters/noop.py` | Testes e desenvolvimento. Sempre reporta 999999 unidades disponíveis |
 
-**Configuração:** `SHOPMAN_STOCK_BACKEND` ou auto-detecção em `StockConfig.ready()` — veja [settings.md](settings.md).
+**Configuração:** `SHOPMAN_STOCK_BACKEND` ou auto-detecção em `InventoryConfig.ready()` — veja [settings.md](settings.md).
 
 ---
 
@@ -82,7 +82,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 ## CustomerBackend
 
-**Definido em:** `shopman-app/shopman/customer/protocols.py`
+**Definido em:** `shopman-app/shopman/identification/protocols.py`
 **Guia:** [Attending — Clientes](../guides/attending.md)
 
 ### Dataclasses
@@ -108,8 +108,8 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 | Adapter | Arquivo | Quando usar |
 |---------|---------|-------------|
-| `GuestmanBackend` | `customer/adapters/guestman.py` | Integração com `shopman.attending`. Combina CustomerService + InsightService + PreferenceService |
-| `NoopCustomerBackend` | `customer/adapters/noop.py` | Testes. Retorna dados placeholder (ex.: "Guest {code}") |
+| `GuestmanBackend` | `identification/adapters/guestman.py` | Integração com `shopman.attending`. Combina CustomerService + InsightService + PreferenceService |
+| `NoopCustomerBackend` | `identification/adapters/noop.py` | Testes. Retorna dados placeholder (ex.: "Guest {code}") |
 
 ---
 

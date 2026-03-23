@@ -443,7 +443,7 @@ def _create_timeline_event(customer, order) -> None:
                     "total_q": order.total_q,
                     "items_count": order.items.count(),
                 },
-                created_by="shopman.customer.ensure",
+                created_by="shopman.identification.ensure",
             )
     except ImportError:
         pass  # timeline contrib not installed

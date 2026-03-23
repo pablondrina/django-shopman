@@ -319,7 +319,7 @@ result = CommitService.commit(
 
 ## 08:17 — Estoque reservado
 
-A directive `stock.hold` e processada. O handler `StockHoldHandler` (registrado em `shopman.stock.apps.StockConfig.ready()`) cria um `Hold` para cada item do pedido via `StockBackend.create_hold()`, reservando 3 croissants e 2 cafes. Isso evita que outro pedido venda os mesmos itens.
+A directive `stock.hold` e processada. O handler `StockHoldHandler` (registrado em `shopman.inventory.apps.InventoryConfig.ready()`) cria um `Hold` para cada item do pedido via `StockBackend.create_hold()`, reservando 3 croissants e 2 cafes. Isso evita que outro pedido venda os mesmos itens.
 
 ---
 
