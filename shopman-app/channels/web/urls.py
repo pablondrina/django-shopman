@@ -4,10 +4,14 @@ from django.urls import path
 from django.views.generic import TemplateView
 
 from . import views
+from .views.pwa import ManifestView, ServiceWorkerView
 
 app_name = "storefront"
 
 urlpatterns = [
+    # PWA
+    path("manifest.json", ManifestView.as_view(), name="manifest"),
+    path("sw.js", ServiceWorkerView.as_view(), name="service_worker"),
     # SEO
     path(
         "robots.txt",

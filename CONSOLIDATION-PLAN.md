@@ -101,7 +101,7 @@ channels/web/
 
 **Regra:** `urls.py` continua importando de `views` via `__init__.py`. Zero mudança nas URLs.
 
-### C2b: Branding via Admin (StorefrontConfig)
+### ~~C2b: Branding via Admin (StorefrontConfig)~~ DONE
 
 **Por quê:** "Nelson Boulangerie" está hardcoded em templates, manifest, sw.js. O usuário quer configuração via Admin — prático, flexível, protegido por permissões.
 

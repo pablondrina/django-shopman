@@ -12,3 +12,10 @@ def cart_count(request: HttpRequest) -> dict:
         "cart_count": cart["count"],
         "cart_subtotal_display": cart["subtotal_display"],
     }
+
+
+def storefront_config(request: HttpRequest) -> dict:
+    """Inject StorefrontConfig singleton into all templates as `storefront`."""
+    from .models import StorefrontConfig
+
+    return {"storefront": StorefrontConfig.load()}

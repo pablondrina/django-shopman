@@ -1,6 +1,20 @@
 from __future__ import annotations
 
-DEFAULT_DDD = "43"  # Londrina — Nelson Boulangerie
+_DEFAULT_DDD_FALLBACK = "43"
+
+
+def get_default_ddd() -> str:
+    """Get default DDD from StorefrontConfig, with fallback."""
+    try:
+        from .models import StorefrontConfig
+
+        return StorefrontConfig.load().default_ddd or _DEFAULT_DDD_FALLBACK
+    except Exception:
+        return _DEFAULT_DDD_FALLBACK
+
+
+# Kept for backwards compat — views should prefer get_default_ddd()
+DEFAULT_DDD = _DEFAULT_DDD_FALLBACK
 
 # Check if doorman is available for inline auth
 try:

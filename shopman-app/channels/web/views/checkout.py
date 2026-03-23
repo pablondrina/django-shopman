@@ -16,7 +16,7 @@ from shopman.ordering.models import Channel, Order
 from shopman.ordering.services.commit import CommitService
 
 from ..cart import CHANNEL_CODE, CartService
-from ..constants import DEFAULT_DDD, STOREFRONT_CHANNEL_REF
+from ..constants import STOREFRONT_CHANNEL_REF, get_default_ddd
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
@@ -60,7 +60,7 @@ class CheckoutView(View):
                     # Try with default DDD (Londrina)
                     digits = "".join(c for c in phone_raw if c.isdigit())
                     if 8 <= len(digits) <= 9:
-                        phone = normalize_phone(f"{DEFAULT_DDD}{digits}")
+                        phone = normalize_phone(f"{get_default_ddd()}{digits}")
                 if not phone:
                     errors["phone"] = "Telefone inválido. Informe com DDD, ex: (43) 99999-9999"
             except Exception:

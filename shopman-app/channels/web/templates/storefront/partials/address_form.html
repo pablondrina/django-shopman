@@ -55,7 +55,7 @@
     </div>
     <div>
       <label class="block text-xs font-medium text-bark mb-1">Cidade</label>
-      <input type="text" name="city" value="Londrina"
+      <input type="text" name="city" value="{{ storefront.default_city }}"
         class="w-full px-3 py-2 rounded-lg border border-cream-dark bg-white text-bark text-sm focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat">
     </div>
   </div>
@@ -63,7 +63,7 @@
   <div>
     <label class="block text-xs font-medium text-bark mb-1">Endereco formatado</label>
     <input type="text" name="formatted_address"
-      placeholder="Rua das Flores, 123 - Centro, Londrina"
+      placeholder="Rua das Flores, 123 - Centro, {{ storefront.default_city }}"
       class="w-full px-3 py-2 rounded-lg border border-cream-dark bg-white text-bark text-sm placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat">
     <p class="text-xs text-bark-light mt-1">Deixe em branco para gerar automaticamente dos campos acima</p>
     {% if form_errors.formatted_address %}

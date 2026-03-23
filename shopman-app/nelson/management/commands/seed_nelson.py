@@ -68,6 +68,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.MIGRATE_HEADING("\n🥐 Populando Nelson Boulangerie...\n"))
 
         self._create_superuser()
+        self._seed_storefront_config()
         products = self._seed_catalog()
         positions = self._seed_positions()
         self._seed_stock(products, positions)
@@ -79,6 +80,33 @@ class Command(BaseCommand):
         self._seed_stock_alerts(products, positions)
 
         self.stdout.write(self.style.SUCCESS("\n✅ Seed Nelson completo!\n"))
+
+    # ────────────────────────────────────────────────────────────────
+    # Storefront Config
+    # ────────────────────────────────────────────────────────────────
+
+    def _seed_storefront_config(self):
+        from channels.web.models import StorefrontConfig
+
+        _, created = StorefrontConfig.objects.get_or_create(
+            pk=1,
+            defaults={
+                "brand_name": "Nelson Boulangerie",
+                "short_name": "Nelson",
+                "tagline": "Padaria Artesanal",
+                "description": "Padaria artesanal premium.\nFermentação natural, tradição francesa e japonesa.",
+                "theme_color": "#C5A55A",
+                "background_color": "#F5F0EB",
+                "default_ddd": "43",
+                "default_city": "Londrina",
+                "location": "Londrina — PR",
+                "whatsapp_number": "5543999999999",
+            },
+        )
+        if created:
+            self.stdout.write("  ✅ StorefrontConfig criado")
+        else:
+            self.stdout.write("  ⏭️  StorefrontConfig ja existe")
 
     # ────────────────────────────────────────────────────────────────
     # Superuser
@@ -126,6 +154,11 @@ class Command(BaseCommand):
         # Attending
         for model in [ContactPoint, Customer, CustomerGroup]:
             model.objects.all().delete()
+
+        # Storefront
+        from channels.web.models import StorefrontConfig
+
+        StorefrontConfig.objects.all().delete()
 
         self.stdout.write("  ✅ Dados limpos")
 

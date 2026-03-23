@@ -4,20 +4,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Cardápio{% endblock %} — Nelson Boulangerie</title>
-  <meta name="description" content="{% block meta_description %}Padaria artesanal premium em Londrina. Fermentação natural, tradição francesa e japonesa.{% endblock %}">
-  <meta property="og:title" content="{% block og_title %}Nelson Boulangerie{% endblock %}">
-  <meta property="og:description" content="{% block og_description %}Padaria artesanal premium em Londrina. Fermentacao natural, tradicao francesa e japonesa.{% endblock %}">
+  <title>{% block title %}Cardápio{% endblock %} — {{ storefront.brand_name }}</title>
+  <meta name="description" content="{% block meta_description %}{{ storefront.tagline }} em {{ storefront.default_city }}. {{ storefront.description|truncatewords:20 }}{% endblock %}">
+  <meta property="og:title" content="{% block og_title %}{{ storefront.brand_name }}{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}{{ storefront.tagline }} em {{ storefront.default_city }}.{% endblock %}">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="pt_BR">
-  <meta property="og:site_name" content="Nelson Boulangerie">
+  <meta property="og:site_name" content="{{ storefront.brand_name }}">
   {% block og_image %}<meta property="og:image" content="{% static 'storefront/og-default.jpg' %}">{% endblock %}
   <meta name="twitter:card" content="summary_large_image">
   <link rel="canonical" href="{% block canonical %}{{ request.build_absolute_uri }}{% endblock %}">
 
   <!-- PWA -->
-  <link rel="manifest" href="{% static 'storefront/manifest.json' %}">
-  <meta name="theme-color" content="#C5A55A">
+  <link rel="manifest" href="{% url 'storefront:manifest' %}">
+  <meta name="theme-color" content="{{ storefront.theme_color }}">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="icon" href="{% static 'storefront/icon-192.svg' %}" type="image/svg+xml">
@@ -29,11 +29,11 @@
       theme: {
         extend: {
           colors: {
-            cream: '#F5F0EB',
+            cream: '{{ storefront.background_color }}',
             'cream-dark': '#EDE5DC',
             bark: '#3D2B1F',
             'bark-light': '#5C4033',
-            wheat: '#C5A55A',
+            wheat: '{{ storefront.theme_color }}',
             'wheat-dark': '#A8893D',
             'wheat-light': '#D4BA7A',
           },
@@ -59,11 +59,11 @@
       --header-height: 60px;
       --floating-bar-height: 56px;
       --safe-area-bottom: env(safe-area-inset-bottom, 0px);
-      --color-cream: #F5F0EB;
+      --color-cream: {{ storefront.background_color }};
       --color-cream-dark: #EDE5DC;
       --color-bark: #3D2B1F;
       --color-bark-light: #5C4033;
-      --color-wheat: #C5A55A;
+      --color-wheat: {{ storefront.theme_color }};
       --color-wheat-dark: #A8893D;
       --color-wheat-light: #D4BA7A;
       --radius-sm: 0.5rem;
@@ -189,8 +189,8 @@
       <a href="{% url 'storefront:menu' %}" class="flex items-center gap-2">
         <span class="text-2xl">🥐</span>
         <div>
-          <h1 class="font-serif text-xl font-bold text-bark leading-tight">Nelson Boulangerie</h1>
-          <p class="text-xs text-bark-light tracking-widest uppercase">Padaria Artesanal</p>
+          <h1 class="font-serif text-xl font-bold text-bark leading-tight">{{ storefront.brand_name }}</h1>
+          <p class="text-xs text-bark-light tracking-widest uppercase">{{ storefront.tagline }}</p>
         </div>
       </a>
 
@@ -232,7 +232,7 @@
   </header>
 
   <!-- HTMX global loading indicator -->
-  <div class="htmx-indicator fixed top-0 left-0 right-0 h-0.5 bg-wheat z-[60]" style="background: linear-gradient(90deg, #C5A55A 0%, #D4BA7A 50%, #C5A55A 100%); background-size: 200% 100%; animation: shimmer 1.5s infinite;">
+  <div class="htmx-indicator fixed top-0 left-0 right-0 h-0.5 bg-wheat z-[60]" style="background: linear-gradient(90deg, {{ storefront.theme_color }} 0%, #D4BA7A 50%, {{ storefront.theme_color }} 100%); background-size: 200% 100%; animation: shimmer 1.5s infinite;">
   </div>
 
   <!-- Main content -->
@@ -259,8 +259,8 @@
   <footer class="bg-bark text-cream/80 mt-auto">
     <div class="max-w-6xl mx-auto px-4 py-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
       <div>
-        <h3 class="font-serif text-lg font-bold text-cream mb-2">Nelson Boulangerie</h3>
-        <p class="text-sm leading-relaxed">Padaria artesanal premium.<br>Fermentação natural, tradição francesa e japonesa.</p>
+        <h3 class="font-serif text-lg font-bold text-cream mb-2">{{ storefront.brand_name }}</h3>
+        <p class="text-sm leading-relaxed">{{ storefront.description_html }}</p>
       </div>
       <div>
         <h4 class="font-bold text-cream mb-2">Horário</h4>
@@ -277,9 +277,9 @@
       </div>
       <div>
         <h4 class="font-bold text-cream mb-2">Contato</h4>
-        <p class="text-sm">Londrina — PR</p>
+        <p class="text-sm">{{ storefront.location }}</p>
         <p class="text-sm mt-1">
-          <a href="https://wa.me/5543999999999" class="hover:text-wheat-light transition-colors">WhatsApp</a>
+          <a href="{{ storefront.whatsapp_url }}" class="hover:text-wheat-light transition-colors">WhatsApp</a>
         </p>
         <p class="text-sm mt-1">
           <a href="#" class="hover:text-wheat-light transition-colors">Instagram</a>
@@ -287,7 +287,7 @@
       </div>
     </div>
     <div class="border-t border-cream/10 text-center py-4 text-xs text-cream/50">
-      &copy; Nelson Boulangerie — Todos os direitos reservados.
+      &copy; {{ storefront.brand_name }} — Todos os direitos reservados.
     </div>
   </footer>
 
@@ -327,7 +327,7 @@
   <!-- Service Worker registration -->
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('{% static "storefront/sw.js" %}', { scope: '/' })
+      navigator.serviceWorker.register('{% url "storefront:service_worker" %}', { scope: '/' })
         .catch(function() {});
     }
   </script>

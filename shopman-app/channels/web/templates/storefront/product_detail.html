@@ -1,8 +1,8 @@
 {% extends "storefront/base.html" %}
 
 {% block title %}{{ product.name }}{% endblock %}
-{% block meta_description %}{{ product.short_description|default:product.name }} — Nelson Boulangerie{% endblock %}
-{% block og_title %}{{ product.name }} — Nelson Boulangerie{% endblock %}
+{% block meta_description %}{{ product.short_description|default:product.name }} — {{ storefront.brand_name }}{% endblock %}
+{% block og_title %}{{ product.name }} — {{ storefront.brand_name }}{% endblock %}
 
 {% block content %}
 

@@ -10,7 +10,7 @@ from shopman.utils.monetary import format_money
 from shopman.utils.phone import normalize_phone
 from shopman.ordering.models import Order
 
-from ..constants import DEFAULT_DDD
+from ..constants import get_default_ddd
 from .tracking import STATUS_LABELS, STATUS_COLORS
 
 
@@ -111,7 +111,7 @@ class AccountView(View):
             digits = "".join(c for c in phone_raw if c.isdigit())
             if 8 <= len(digits) <= 9:
                 try:
-                    phone = normalize_phone(f"{DEFAULT_DDD}{digits}")
+                    phone = normalize_phone(f"{get_default_ddd()}{digits}")
                 except Exception:
                     pass
             if not phone:
