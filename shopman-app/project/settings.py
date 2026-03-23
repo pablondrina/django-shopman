@@ -10,9 +10,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-secret-key-not-for-production")
 
-DEBUG = True
+DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() in ("true", "1", "yes")
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",")
 
 INSTALLED_APPS = [
     # Unfold admin theme (MUST be before django.contrib.admin)
@@ -53,6 +53,8 @@ INSTALLED_APPS = [
     "shopman.confirmation",
     "shopman.notifications",
     "shopman.payment",
+    "shopman.accounting",
+    "shopman.fiscal",
     "shopman.returns",
     "shopman.webhook",
     # Channels
