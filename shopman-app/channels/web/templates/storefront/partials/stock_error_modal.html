@@ -1,0 +1,14 @@
+<div class="modal-overlay" onclick="if(event.target===this) dismissStockModal()">
+  <div class="modal-card text-center">
+    <div class="text-4xl mb-3">😔</div>
+    <h3 class="font-serif text-lg font-bold text-bark mb-2">{{ title }}</h3>
+    <p class="text-bark-light text-sm mb-6">{{ message }}</p>
+    <button
+      onclick="dismissStockModal()"
+      class="w-full py-3 rounded-lg text-sm font-medium bg-wheat text-white hover:bg-wheat-dark transition-colors"
+      style="min-height: var(--touch-min);"
+    >
+      Entendi
+    </button>
+  </div>
+</div>

@@ -1,0 +1,104 @@
+{% extends "storefront/base.html" %}
+
+{% block title %}Como Funciona{% endblock %}
+{% block meta_description %}Saiba como fazer seu pedido na Nelson Boulangerie. Escolha, monte, pague e receba.{% endblock %}
+
+{% block content %}
+
+<!-- Page header -->
+<div class="mb-10 text-center">
+  <h2 class="font-serif text-3xl font-bold text-bark">Como Funciona</h2>
+  <p class="text-bark-light mt-2 max-w-lg mx-auto">Fazer seu pedido na Nelson Boulangerie é simples e rápido. Veja o passo a passo:</p>
+</div>
+
+<!-- Steps -->
+<div class="max-w-2xl mx-auto mb-12">
+  <div class="space-y-0">
+
+    <!-- Step 1 -->
+    <div class="flex gap-4">
+      <div class="flex flex-col items-center">
+        <div class="w-10 h-10 rounded-full bg-wheat text-white font-bold flex items-center justify-center text-lg shrink-0">1</div>
+        <div class="w-0.5 flex-1 bg-cream-dark"></div>
+      </div>
+      <div class="pb-8">
+        <h3 class="font-serif text-xl font-bold text-bark mb-1">Escolha seus produtos</h3>
+        <p class="text-bark-light text-sm leading-relaxed">Navegue pelo nosso cardápio de pães artesanais, confeitaria e combos. Cada produto é feito com fermentação natural e ingredientes selecionados.</p>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="flex gap-4">
+      <div class="flex flex-col items-center">
+        <div class="w-10 h-10 rounded-full bg-wheat text-white font-bold flex items-center justify-center text-lg shrink-0">2</div>
+        <div class="w-0.5 flex-1 bg-cream-dark"></div>
+      </div>
+      <div class="pb-8">
+        <h3 class="font-serif text-xl font-bold text-bark mb-1">Monte seu pedido</h3>
+        <p class="text-bark-light text-sm leading-relaxed">Adicione os itens ao carrinho, escolha a quantidade e revise seu pedido. Informe seu telefone e endereço para entrega, ou opte por retirada na loja.</p>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="flex gap-4">
+      <div class="flex flex-col items-center">
+        <div class="w-10 h-10 rounded-full bg-wheat text-white font-bold flex items-center justify-center text-lg shrink-0">3</div>
+        <div class="w-0.5 flex-1 bg-cream-dark"></div>
+      </div>
+      <div class="pb-8">
+        <h3 class="font-serif text-xl font-bold text-bark mb-1">Pague via PIX</h3>
+        <p class="text-bark-light text-sm leading-relaxed">Pagamento rápido e seguro via PIX. Escaneie o QR Code ou copie o código para pagar pelo app do seu banco. A confirmação é instantânea.</p>
+      </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="flex gap-4">
+      <div class="flex flex-col items-center">
+        <div class="w-10 h-10 rounded-full bg-wheat text-white font-bold flex items-center justify-center text-lg shrink-0">4</div>
+      </div>
+      <div class="pb-8">
+        <h3 class="font-serif text-xl font-bold text-bark mb-1">Retire ou receba</h3>
+        <p class="text-bark-light text-sm leading-relaxed">Acompanhe seu pedido em tempo real. Retire na loja no horário combinado ou receba no conforto da sua casa.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Info cards -->
+<div class="max-w-2xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+  <div class="bg-white rounded-xl p-6 shadow-sm">
+    <div class="text-2xl mb-2">🕐</div>
+    <h4 class="font-serif font-bold text-bark mb-1">Encomendas</h4>
+    <p class="text-bark-light text-sm leading-relaxed">Pedidos para o dia seguinte devem ser feitos até as 18h. Encomendas com até 7 dias de antecedência.</p>
+  </div>
+  <div class="bg-white rounded-xl p-6 shadow-sm">
+    <div class="text-2xl mb-2">📱</div>
+    <h4 class="font-serif font-bold text-bark mb-1">Acompanhamento</h4>
+    <p class="text-bark-light text-sm leading-relaxed">Use seu telefone para consultar o status dos seus pedidos a qualquer momento.</p>
+  </div>
+  <div class="bg-white rounded-xl p-6 shadow-sm">
+    <div class="text-2xl mb-2">🚗</div>
+    <h4 class="font-serif font-bold text-bark mb-1">Entrega</h4>
+    <p class="text-bark-light text-sm leading-relaxed">Entregamos em Londrina. Você também pode retirar na loja no horário de funcionamento.</p>
+  </div>
+  <div class="bg-white rounded-xl p-6 shadow-sm">
+    <div class="text-2xl mb-2">🥐</div>
+    <h4 class="font-serif font-bold text-bark mb-1">Qualidade</h4>
+    <p class="text-bark-light text-sm leading-relaxed">Produção artesanal com fermentação natural. Cada pedido é preparado com cuidado e ingredientes selecionados.</p>
+  </div>
+</div>
+
+<!-- CTA -->
+<div class="text-center mb-8">
+  <a href="{% url 'storefront:menu' %}"
+     class="inline-flex items-center gap-2 px-8 py-3 bg-wheat text-white rounded-lg font-medium hover:bg-wheat-dark transition-colors"
+     style="min-height: var(--touch-min);">
+    Ver Cardápio
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+    </svg>
+  </a>
+</div>
+
+{% endblock %}

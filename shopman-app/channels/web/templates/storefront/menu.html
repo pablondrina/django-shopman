@@ -1,0 +1,87 @@
+{% extends "storefront/base.html" %}
+
+{% block title %}Cardápio{% endblock %}
+{% block meta_description %}Confira nosso cardápio de pães artesanais, confeitaria e combos.{% endblock %}
+
+{% block content %}
+
+<!-- Page header -->
+<div class="mb-8">
+  <h2 class="font-serif text-3xl font-bold text-bark">Cardápio</h2>
+  <p class="text-bark-light mt-1">Feito à mão, todo dia.</p>
+</div>
+
+<!-- Search bar -->
+<div class="mb-8">
+  <div class="relative max-w-md">
+    <input
+      type="search"
+      name="q"
+      placeholder="Buscar produto..."
+      class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-cream-dark bg-white text-bark placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition"
+      hx-get="{% url 'storefront:menu_search' %}"
+      hx-trigger="input changed delay:300ms, search"
+      hx-target="#search-results"
+      hx-indicator="#search-spinner"
+    >
+    <svg class="absolute left-3 top-3 w-5 h-5 text-bark-light/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+    </svg>
+    <span id="search-spinner" class="htmx-indicator absolute right-3 top-3 flex items-center gap-1.5 text-wheat text-sm">
+      <span class="search-spinner"></span>
+    </span>
+  </div>
+</div>
+
+<!-- Search results (HTMX target) -->
+<div id="search-results"></div>
+
+<!-- Collection filter pills -->
+{% if collections %}
+<div class="flex flex-wrap gap-2 mb-8">
+  <a
+    href="{% url 'storefront:menu' %}"
+    class="px-4 py-2.5 rounded-full text-sm font-medium transition-colors {% if not active_collection %}bg-wheat text-white{% else %}bg-white text-bark border border-cream-dark hover:border-wheat{% endif %}"
+  >
+    Todos
+  </a>
+  {% for col in collections %}
+  <a
+    href="{% url 'storefront:menu_collection' col.slug %}"
+    class="px-4 py-2.5 rounded-full text-sm font-medium transition-colors {% if active_collection and active_collection.slug == col.slug %}bg-wheat text-white{% else %}bg-white text-bark border border-cream-dark hover:border-wheat{% endif %}"
+  >
+    {{ col.name }}
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Product sections -->
+{% for section in sections %}
+<section class="mb-12">
+  {% if section.collection %}
+  <h3 class="font-serif text-2xl font-bold text-bark mb-4 pb-2 border-b border-cream-dark">
+    {{ section.collection.name }}
+  </h3>
+  {% if section.collection.description %}
+  <p class="text-bark-light mb-4 text-sm">{{ section.collection.description }}</p>
+  {% endif %}
+  {% else %}
+  <h3 class="font-serif text-2xl font-bold text-bark mb-4 pb-2 border-b border-cream-dark">
+    Outros
+  </h3>
+  {% endif %}
+
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    {% for item in section.products %}
+      {% include "storefront/partials/product_card.html" with item=item %}
+    {% endfor %}
+  </div>
+</section>
+{% empty %}
+<div class="text-center py-16">
+  <p class="text-bark-light text-lg">Nenhum produto encontrado.</p>
+</div>
+{% endfor %}
+
+{% endblock %}

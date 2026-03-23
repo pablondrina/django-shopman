@@ -5,7 +5,7 @@
 #   make test-utils  → roda testes do utils
 #   make install     → instala deps + apps em modo editável
 
-.PHONY: help install test test-utils test-offering test-stocking test-crafting test-ordering test-attending test-gating test-shopman-app lint clean
+.PHONY: help install test test-utils test-offering test-stocking test-crafting test-ordering test-attending test-gating test-shopman-app lint clean migrate run seed
 
 help: ## Mostra este help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -64,6 +64,19 @@ test-gating: ## Testes do shopman.gating
 test-shopman-app: ## Testes do shopman-app (orquestração)
 	@echo "── Shopman App ──"
 	cd shopman-app && python -m pytest -x -q
+
+# ── Server ────────────────────────────────────────────────────────────
+
+migrate: ## Cria/atualiza banco de dados
+	cd shopman-app && python manage.py migrate
+	@echo "✓ Migrações aplicadas"
+
+run: ## Sobe o servidor de desenvolvimento
+	cd shopman-app && python manage.py runserver
+
+seed: ## Popula banco com dados demo da Nelson Boulangerie
+	cd shopman-app && python manage.py seed_nelson
+	@echo "✓ Seed completo"
 
 # ── Qualidade ─────────────────────────────────────────────────────────
 

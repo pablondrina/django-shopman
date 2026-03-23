@@ -1,0 +1,27 @@
+{% if cart.items %}
+  <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+    <!-- Cart items -->
+    <div id="cart-items">
+      {% for item in cart.items %}
+        {% include "storefront/partials/cart_item.html" with item=item %}
+      {% endfor %}
+    </div>
+
+    <!-- Subtotal -->
+    {% include "storefront/partials/cart_subtotal.html" %}
+  </div>
+
+  <!-- Actions -->
+  <div class="mt-6 flex flex-col sm:flex-row gap-3 justify-end">
+    <a href="{% url 'storefront:menu' %}"
+       class="px-6 py-3 border border-cream-dark rounded-lg text-bark font-medium hover:bg-cream-dark transition-colors text-center">
+      Continuar Comprando
+    </a>
+    <a href="{% url 'storefront:checkout' %}"
+       class="px-6 py-3 bg-wheat text-white rounded-lg font-medium hover:bg-wheat-dark transition-colors text-center">
+      Finalizar Pedido
+    </a>
+  </div>
+{% else %}
+  {% include "storefront/partials/cart_empty.html" %}
+{% endif %}

@@ -1,0 +1,25 @@
+{% if hint %}
+<div class="mb-8 bg-white rounded-xl shadow-sm p-6 text-center">
+  <svg class="w-8 h-8 text-bark-light/40 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+  </svg>
+  <p class="text-bark-light text-sm">Digite pelo menos 2 caracteres para buscar</p>
+</div>
+{% elif items %}
+<div class="mb-8 bg-white rounded-xl shadow-md p-4">
+  <h4 class="font-serif text-lg font-bold text-bark mb-3">Resultados da busca</h4>
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    {% for item in items %}
+      {% include "storefront/partials/product_card.html" with item=item %}
+    {% endfor %}
+  </div>
+</div>
+{% elif query %}
+<div class="mb-8 bg-white rounded-xl shadow-sm p-6 text-center">
+  <svg class="w-10 h-10 text-bark-light/30 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+  </svg>
+  <p class="text-bark font-medium mb-1">Nenhum resultado para "{{ query }}"</p>
+  <p class="text-bark-light text-sm">Tente buscar com outros termos ou navegue pelo cardápio</p>
+</div>
+{% endif %}

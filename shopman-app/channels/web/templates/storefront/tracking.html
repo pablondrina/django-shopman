@@ -1,0 +1,62 @@
+{% extends "storefront/base.html" %}
+
+{% block title %}Pedido {{ order.ref }}{% endblock %}
+
+{% block content %}
+
+<div class="max-w-3xl mx-auto">
+
+  <!-- Header -->
+  <div class="text-center mb-8">
+    <span class="text-5xl block mb-3">📋</span>
+    <h2 class="font-serif text-2xl font-bold text-bark mb-1">Acompanhar Pedido</h2>
+    <p class="text-bark-light">
+      Referência: <span class="font-mono font-bold text-bark">{{ order.ref }}</span>
+    </p>
+  </div>
+
+  <!-- Status + Timeline (HTMX polling) -->
+  <div id="order-status-area"
+       hx-get="{% url 'storefront:order_status_partial' ref=order.ref %}"
+       hx-trigger="every 10s"
+       hx-swap="innerHTML">
+    {% include "storefront/partials/order_status.html" %}
+  </div>
+
+  <!-- Order items -->
+  <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+    <h3 class="font-serif text-lg font-bold text-bark mb-4">Itens do Pedido</h3>
+
+    <div class="space-y-3 mb-4">
+      {% for item in items %}
+      <div class="flex justify-between items-center text-sm border-b border-cream-dark/50 pb-3 last:border-b-0 last:pb-0">
+        <div class="flex-1 min-w-0 pr-3">
+          <p class="text-bark font-medium">{{ item.name }}</p>
+          <p class="text-bark-light">{{ item.qty|floatformat:"0" }}x {{ item.unit_price_display }}</p>
+        </div>
+        <p class="text-bark font-medium flex-shrink-0">{{ item.total_display }}</p>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="border-t border-cream-dark pt-3 flex justify-between items-center">
+      <span class="font-serif font-bold text-bark text-lg">Total</span>
+      <span class="text-xl font-bold text-wheat-dark">{{ total_display }}</span>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="flex flex-col sm:flex-row gap-3 justify-center">
+    <a href="{% url 'storefront:menu' %}"
+       class="px-6 py-3 bg-wheat text-white rounded-lg font-medium hover:bg-wheat-dark transition-colors text-center">
+      Voltar ao Cardápio
+    </a>
+    <a href="{% url 'storefront:order_history' %}"
+       class="px-6 py-3 border border-wheat text-wheat-dark rounded-lg font-medium hover:bg-wheat/10 transition-colors text-center">
+      Meus Pedidos
+    </a>
+  </div>
+
+</div>
+
+{% endblock %}

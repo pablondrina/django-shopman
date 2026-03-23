@@ -1,0 +1,19 @@
+<div class="p-4 rounded-lg bg-red-50 border border-red-200">
+  <p class="text-sm text-red-700 mb-3">{{ error_message }}</p>
+
+  {% if can_retry and phone %}
+  <button type="button"
+    hx-post="{% url 'storefront:request_code' %}"
+    hx-target="#auth-section"
+    hx-swap="innerHTML"
+    hx-vals='{"phone": "{{ phone }}"}'
+    hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+    class="w-full py-2.5 bg-wheat text-white rounded-lg font-medium text-sm hover:bg-wheat-dark transition-colors">
+    Tentar novamente
+  </button>
+  {% endif %}
+
+  <p class="text-xs text-red-500 mt-2 text-center">
+    A verificacao e opcional — voce pode continuar sem ela.
+  </p>
+</div>

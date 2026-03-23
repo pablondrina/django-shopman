@@ -1,0 +1,144 @@
+{% extends "storefront/base.html" %}
+
+{% block title %}Pagamento PIX — Pedido {{ order.ref }}{% endblock %}
+
+{% block content %}
+
+<div class="max-w-lg mx-auto">
+  <h2 class="font-serif text-3xl font-bold text-bark mb-2 text-center">Pagamento PIX</h2>
+  <p class="text-bark-light text-center mb-6">Pedido <strong>{{ order.ref }}</strong></p>
+
+  <div class="bg-white rounded-xl shadow-sm p-6 space-y-6">
+    <!-- Total -->
+    <div class="text-center">
+      <p class="text-sm text-bark-light">Valor a pagar</p>
+      <p class="text-3xl font-bold text-wheat-dark">{{ total_display }}</p>
+    </div>
+
+    {% if payment.qr_code %}
+    <!-- QR Code -->
+    <div class="flex justify-center">
+      {% if payment.qr_code|slice:":4" == "data" or payment.qr_code|slice:":4" == "http" %}
+      <img src="{{ payment.qr_code }}" alt="QR Code PIX" class="w-56 h-56 rounded-lg border border-cream-dark">
+      {% else %}
+      <div class="w-56 h-56 flex items-center justify-center bg-cream rounded-lg border border-cream-dark">
+        <p class="text-bark-light text-sm text-center px-4">QR Code gerado. Use o código abaixo para copiar e colar.</p>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if payment.copy_paste %}
+    <!-- Copy-paste code -->
+    <div>
+      <label class="block text-sm font-medium text-bark mb-1">PIX Copia e Cola</label>
+      <div class="relative">
+        <textarea
+          id="pix-code"
+          readonly
+          rows="3"
+          class="w-full px-4 py-2.5 rounded-lg border border-cream-dark bg-cream text-bark text-sm font-mono resize-none"
+        >{{ payment.copy_paste }}</textarea>
+        <button
+          type="button"
+          onclick="copyPixCode()"
+          class="absolute top-2 right-2 px-3 py-1 bg-wheat text-white text-xs rounded-md hover:bg-wheat-dark transition-colors"
+        >
+          Copiar
+        </button>
+      </div>
+      <p id="copy-feedback" class="mt-1 text-sm text-green-600 hidden">Copiado!</p>
+    </div>
+    {% endif %}
+
+    {% if payment.expires_at %}
+    <!-- Expiry timer -->
+    <div class="text-center">
+      <p class="text-sm text-bark-light">Expira em</p>
+      <p id="countdown" class="text-lg font-bold text-bark" data-expires="{{ payment.expires_at }}">--:--</p>
+    </div>
+    {% endif %}
+
+    <!-- Polling status -->
+    <div
+      id="payment-status"
+      hx-get="{% url 'storefront:payment_status_partial' ref=order.ref %}"
+      hx-trigger="every 5s"
+      hx-swap="innerHTML"
+    >
+      <div class="flex items-center justify-center space-x-2 py-3">
+        <div class="animate-spin w-4 h-4 border-2 border-wheat border-t-transparent rounded-full"></div>
+        <span class="text-sm text-bark-light">Aguardando pagamento...</span>
+      </div>
+    </div>
+
+    <!-- Manual recheck -->
+    <div class="text-center">
+      <button
+        type="button"
+        hx-get="{% url 'storefront:payment_status_partial' ref=order.ref %}"
+        hx-target="#payment-status"
+        hx-swap="innerHTML"
+        class="text-sm text-wheat-dark hover:text-wheat underline transition-colors"
+      >
+        Ja paguei — verificar agora
+      </button>
+    </div>
+
+    <!-- DEV: Mock payment confirmation -->
+    <div class="border-t border-cream-dark pt-4 mt-2">
+      <p class="text-xs text-bark-light text-center mb-2">Ambiente de desenvolvimento</p>
+      <form method="post" action="{% url 'storefront:mock_payment_confirm' ref=order.ref %}">
+        {% csrf_token %}
+        <button
+          type="submit"
+          class="w-full py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
+        >
+          Simular Pagamento PIX Confirmado
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% comment %}
+  DEBUG note: The debug context processor only injects 'debug' when
+  INTERNAL_IPS includes the request IP (default: only 127.0.0.1).
+  If the mock button doesn't appear, check INTERNAL_IPS in settings.
+{% endcomment %}
+
+<script>
+function copyPixCode() {
+  const textarea = document.getElementById('pix-code');
+  textarea.select();
+  navigator.clipboard.writeText(textarea.value).then(() => {
+    const feedback = document.getElementById('copy-feedback');
+    feedback.classList.remove('hidden');
+    setTimeout(() => feedback.classList.add('hidden'), 2000);
+  });
+}
+
+// Countdown timer
+(function() {
+  const el = document.getElementById('countdown');
+  if (!el) return;
+  const expiresAt = new Date(el.dataset.expires);
+
+  function update() {
+    const now = new Date();
+    const diff = Math.max(0, Math.floor((expiresAt - now) / 1000));
+    const min = Math.floor(diff / 60);
+    const sec = diff % 60;
+    el.textContent = min.toString().padStart(2, '0') + ':' + sec.toString().padStart(2, '0');
+    if (diff <= 0) {
+      el.textContent = 'Expirado';
+      el.classList.add('text-red-600');
+    } else {
+      requestAnimationFrame(() => setTimeout(update, 1000));
+    }
+  }
+  update();
+})();
+</script>
+
+{% endblock %}

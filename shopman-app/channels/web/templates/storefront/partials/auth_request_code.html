@@ -1,0 +1,17 @@
+<div class="p-4 rounded-lg bg-amber-50 border border-amber-200">
+  <p class="text-sm text-amber-800 mb-3">
+    Encontramos seu cadastro. Confirme sua identidade para agilizar o pedido.
+  </p>
+  <button type="button"
+    hx-post="{% url 'storefront:request_code' %}"
+    hx-target="#auth-section"
+    hx-swap="innerHTML"
+    hx-vals='{"phone": "{{ phone }}"}'
+    hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+    class="w-full py-2.5 bg-wheat text-white rounded-lg font-medium text-sm hover:bg-wheat-dark transition-colors">
+    Enviar codigo de verificacao
+  </button>
+  <p class="text-xs text-amber-600 mt-2 text-center">
+    Enviaremos um codigo de 6 digitos via WhatsApp
+  </p>
+</div>

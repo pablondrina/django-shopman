@@ -21,7 +21,7 @@ from django.utils.translation import gettext_lazy as _
 logger = logging.getLogger(__name__)
 
 # Skip registration if the Unfold contrib is installed (it will register its own admins)
-if not apps.is_installed('stocking.contrib.admin_unfold'):
+if not apps.is_installed('shopman.stocking.contrib.admin_unfold'):
     from shopman.stocking.models import Batch, Hold, HoldStatus, Move, Position, Quant, StockAlert
 
     # =========================================================================

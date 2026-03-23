@@ -1,0 +1,343 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Cardápio{% endblock %} — Nelson Boulangerie</title>
+  <meta name="description" content="{% block meta_description %}Padaria artesanal premium em Londrina. Fermentação natural, tradição francesa e japonesa.{% endblock %}">
+  <meta property="og:title" content="{% block og_title %}Nelson Boulangerie{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}Padaria artesanal premium em Londrina. Fermentacao natural, tradicao francesa e japonesa.{% endblock %}">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="Nelson Boulangerie">
+  {% block og_image %}<meta property="og:image" content="{% static 'storefront/og-default.jpg' %}">{% endblock %}
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="{% block canonical %}{{ request.build_absolute_uri }}{% endblock %}">
+
+  <!-- PWA -->
+  <link rel="manifest" href="{% static 'storefront/manifest.json' %}">
+  <meta name="theme-color" content="#C5A55A">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="icon" href="{% static 'storefront/icon-192.svg' %}" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="{% static 'storefront/icon-192.svg' %}">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cream: '#F5F0EB',
+            'cream-dark': '#EDE5DC',
+            bark: '#3D2B1F',
+            'bark-light': '#5C4033',
+            wheat: '#C5A55A',
+            'wheat-dark': '#A8893D',
+            'wheat-light': '#D4BA7A',
+          },
+          fontFamily: {
+            serif: ['Georgia', 'Cambria', 'Times New Roman', 'serif'],
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      },
+    }
+  </script>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      document.body.addEventListener('htmx:configRequest', function(event) {
+        event.detail.headers['X-CSRFToken'] = document.querySelector('meta[name="csrf-token"]').content;
+      });
+    });
+  </script>
+  <style>
+    :root {
+      --header-height: 60px;
+      --floating-bar-height: 56px;
+      --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+      --color-cream: #F5F0EB;
+      --color-cream-dark: #EDE5DC;
+      --color-bark: #3D2B1F;
+      --color-bark-light: #5C4033;
+      --color-wheat: #C5A55A;
+      --color-wheat-dark: #A8893D;
+      --color-wheat-light: #D4BA7A;
+      --radius-sm: 0.5rem;
+      --radius-md: 0.75rem;
+      --radius-lg: 1rem;
+      --shadow-sm: 0 1px 2px rgba(61,43,31,0.06);
+      --shadow-md: 0 4px 12px rgba(61,43,31,0.1);
+      --touch-min: 44px;
+    }
+
+    body { font-family: 'Inter', system-ui, sans-serif; }
+
+    /* Body padding when floating cart bar is visible */
+    body.has-floating-cart {
+      padding-bottom: calc(var(--floating-bar-height) + var(--safe-area-bottom));
+    }
+
+    /* HTMX loading indicator */
+    .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
+    .htmx-request .htmx-indicator { opacity: 1; }
+    .htmx-request.htmx-indicator { opacity: 1; }
+
+    /* Smooth HTMX swap transitions */
+    .htmx-swapping { opacity: 0; transition: opacity 150ms ease-out; }
+    .htmx-settling { opacity: 1; transition: opacity 150ms ease-in; }
+    .htmx-added { opacity: 0; }
+    .htmx-added.htmx-settling { opacity: 1; transition: opacity 300ms ease-in; }
+
+    /* Toast notification */
+    #toast {
+      transform: translateY(100%);
+      opacity: 0;
+      transition: all 300ms ease;
+    }
+    #toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    body.has-floating-cart #toast {
+      bottom: calc(var(--floating-bar-height) + var(--safe-area-bottom) + 1rem);
+    }
+
+    /* Loading spinner */
+    .spinner {
+      border: 2px solid var(--color-cream-dark);
+      border-top: 2px solid var(--color-wheat);
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      animation: spin 0.6s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Stock error modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      animation: fadeIn 200ms ease;
+    }
+    .modal-card {
+      background: white;
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      max-width: 24rem;
+      width: 100%;
+      box-shadow: var(--shadow-md);
+      animation: slideUp 200ms ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideUp { from { transform: translateY(1rem); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    /* Floating cart bar */
+    .floating-cart-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 40;
+      padding-bottom: var(--safe-area-bottom);
+      background: var(--color-bark);
+      box-shadow: 0 -2px 12px rgba(61,43,31,0.15);
+      animation: slideUp 200ms ease;
+    }
+
+    /* Search spinner */
+    .search-spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--color-cream-dark);
+      border-top-color: var(--color-wheat);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+    }
+
+    /* Availability badges */
+    .badge-available { background: #dcfce7; color: #166534; }
+    .badge-preparing { background: #fef3c7; color: #92400e; animation: pulse-badge 2s ease-in-out infinite; }
+    .badge-d1 { background: #fee2e2; color: #991b1b; }
+    .badge-sold-out { background: #e5e7eb; color: #374151; }
+    .badge-paused { background: #6b7280; color: #f9fafb; opacity: 0.8; }
+    .badge-planned { background: #dbeafe; color: #1e40af; }
+    @keyframes pulse-badge {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+  </style>
+</head>
+<body class="bg-cream text-bark min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="bg-white/80 backdrop-blur-sm border-b border-cream-dark sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <!-- Logo -->
+      <a href="{% url 'storefront:menu' %}" class="flex items-center gap-2">
+        <span class="text-2xl">🥐</span>
+        <div>
+          <h1 class="font-serif text-xl font-bold text-bark leading-tight">Nelson Boulangerie</h1>
+          <p class="text-xs text-bark-light tracking-widest uppercase">Padaria Artesanal</p>
+        </div>
+      </a>
+
+      <!-- Nav desktop -->
+      <nav class="hidden md:flex items-center gap-6">
+        <a href="{% url 'storefront:menu' %}" class="text-bark hover:text-wheat-dark font-medium transition-colors">Cardápio</a>
+        <a href="{% url 'storefront:order_history' %}" class="text-bark hover:text-wheat-dark font-medium transition-colors">Meus Pedidos</a>
+        <a href="{% url 'storefront:account' %}" class="text-bark hover:text-wheat-dark font-medium transition-colors">Minha Conta</a>
+        <a href="{% url 'storefront:cart' %}" class="relative text-bark hover:text-wheat-dark font-medium transition-colors"
+           hx-get="{% url 'storefront:cart_summary' %}" hx-trigger="cartUpdated from:body" hx-target="#cart-badge-desktop" hx-swap="innerHTML">
+          Carrinho
+          <span id="cart-badge-desktop">
+          {% if cart_count %}
+          <span class="absolute -top-2 -right-4 bg-wheat text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">{{ cart_count }}</span>
+          {% endif %}
+          </span>
+        </a>
+      </nav>
+
+      <!-- Mobile menu button -->
+      <button id="mobile-menu-btn" class="md:hidden p-2 text-bark hover:text-wheat-dark" onclick="document.getElementById('mobile-menu').classList.toggle('hidden')">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Mobile nav -->
+    <nav id="mobile-menu" class="hidden md:hidden border-t border-cream-dark px-4 py-3 space-y-2 bg-white">
+      <a href="{% url 'storefront:menu' %}" class="block text-bark hover:text-wheat-dark font-medium py-1">Cardápio</a>
+      <a href="{% url 'storefront:order_history' %}" class="block text-bark hover:text-wheat-dark font-medium py-1">Meus Pedidos</a>
+      <a href="{% url 'storefront:account' %}" class="block text-bark hover:text-wheat-dark font-medium py-1">Minha Conta</a>
+      <a href="{% url 'storefront:como_funciona' %}" class="block text-bark hover:text-wheat-dark font-medium py-1">Como Funciona</a>
+      <a href="{% url 'storefront:cart' %}" class="block text-bark hover:text-wheat-dark font-medium py-1">
+        Carrinho
+        {% if cart_count %}<span class="ml-1 bg-wheat text-white text-xs font-bold rounded-full px-2 py-0.5">{{ cart_count }}</span>{% endif %}
+      </a>
+    </nav>
+  </header>
+
+  <!-- HTMX global loading indicator -->
+  <div class="htmx-indicator fixed top-0 left-0 right-0 h-0.5 bg-wheat z-[60]" style="background: linear-gradient(90deg, #C5A55A 0%, #D4BA7A 50%, #C5A55A 100%); background-size: 200% 100%; animation: shimmer 1.5s infinite;">
+  </div>
+
+  <!-- Main content -->
+  <main class="flex-1 max-w-6xl mx-auto px-4 py-8 w-full">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Toast notification -->
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 bg-bark text-cream rounded-lg shadow-lg text-sm font-medium flex items-center gap-2">
+    <span id="toast-message"></span>
+  </div>
+
+  <!-- Floating cart bar (HTMX-updated) -->
+  <div id="floating-cart-bar"
+       hx-get="{% url 'storefront:floating_cart_bar' %}"
+       hx-trigger="cartUpdated from:body, load"
+       hx-swap="innerHTML">
+  </div>
+
+  <!-- Stock error modal container (OOB target) -->
+  <div id="stock-error-modal"></div>
+
+  <!-- Footer -->
+  <footer class="bg-bark text-cream/80 mt-auto">
+    <div class="max-w-6xl mx-auto px-4 py-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div>
+        <h3 class="font-serif text-lg font-bold text-cream mb-2">Nelson Boulangerie</h3>
+        <p class="text-sm leading-relaxed">Padaria artesanal premium.<br>Fermentação natural, tradição francesa e japonesa.</p>
+      </div>
+      <div>
+        <h4 class="font-bold text-cream mb-2">Horário</h4>
+        <p class="text-sm">Terça a Sábado: 7h — 19h</p>
+        <p class="text-sm">Domingo: 7h — 13h</p>
+        <p class="text-sm">Segunda: Fechado</p>
+      </div>
+      <div>
+        <h4 class="font-bold text-cream mb-2">Links</h4>
+        <p class="text-sm"><a href="{% url 'storefront:menu' %}" class="hover:text-wheat-light transition-colors">Cardápio</a></p>
+        <p class="text-sm mt-1"><a href="{% url 'storefront:como_funciona' %}" class="hover:text-wheat-light transition-colors">Como Funciona</a></p>
+        <p class="text-sm mt-1"><a href="{% url 'storefront:order_history' %}" class="hover:text-wheat-light transition-colors">Meus Pedidos</a></p>
+        <p class="text-sm mt-1"><a href="{% url 'storefront:account' %}" class="hover:text-wheat-light transition-colors">Minha Conta</a></p>
+      </div>
+      <div>
+        <h4 class="font-bold text-cream mb-2">Contato</h4>
+        <p class="text-sm">Londrina — PR</p>
+        <p class="text-sm mt-1">
+          <a href="https://wa.me/5543999999999" class="hover:text-wheat-light transition-colors">WhatsApp</a>
+        </p>
+        <p class="text-sm mt-1">
+          <a href="#" class="hover:text-wheat-light transition-colors">Instagram</a>
+        </p>
+      </div>
+    </div>
+    <div class="border-t border-cream/10 text-center py-4 text-xs text-cream/50">
+      &copy; Nelson Boulangerie — Todos os direitos reservados.
+    </div>
+  </footer>
+
+  <!-- Toast helper -->
+  <script>
+    function showToast(msg, duration) {
+      duration = duration || 2500;
+      var el = document.getElementById('toast');
+      document.getElementById('toast-message').textContent = msg;
+      el.classList.add('show');
+      setTimeout(function() { el.classList.remove('show'); }, duration);
+    }
+
+    // Show toast when item added via add-to-cart
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+      var path = evt.detail.pathInfo && evt.detail.pathInfo.requestPath;
+      if (path && path.includes('/cart/add/') && evt.detail.successful) {
+        showToast('Item adicionado ao carrinho!');
+      }
+    });
+
+    // Toggle body class based on floating cart bar visibility
+    var observer = new MutationObserver(function() {
+      var bar = document.getElementById('floating-cart-bar');
+      var hasContent = bar && bar.querySelector('.floating-cart-bar');
+      document.body.classList.toggle('has-floating-cart', !!hasContent);
+    });
+    observer.observe(document.getElementById('floating-cart-bar'), { childList: true, subtree: true });
+
+    // Dismiss stock error modal
+    function dismissStockModal() {
+      var modal = document.getElementById('stock-error-modal');
+      if (modal) modal.innerHTML = '';
+    }
+  </script>
+
+  <!-- Service Worker registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('{% static "storefront/sw.js" %}', { scope: '/' })
+        .catch(function() {});
+    }
+  </script>
+
+  <style>
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+  </style>
+
+</body>
+</html>

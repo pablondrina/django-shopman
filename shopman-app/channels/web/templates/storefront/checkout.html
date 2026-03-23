@@ -1,0 +1,482 @@
+{% extends "storefront/base.html" %}
+
+{% block title %}Finalizar Pedido{% endblock %}
+
+{% block content %}
+<!-- intl-tel-input: CSS + JS + utils bundled -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@24.6.0/build/css/intlTelInput.css">
+<script src="https://cdn.jsdelivr.net/npm/intl-tel-input@24.6.0/build/js/intlTelInputWithUtils.min.js"></script>
+<style>
+  .iti { width: 100%; }
+</style>
+
+<div class="mb-6">
+  <a href="{% url 'storefront:cart' %}" class="text-wheat-dark hover:text-wheat font-medium text-sm transition-colors">
+    &larr; Voltar ao carrinho
+  </a>
+</div>
+
+<h2 class="font-serif text-3xl font-bold text-bark mb-6">Finalizar Pedido</h2>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+  <!-- Order form -->
+  <div class="lg:col-span-2">
+    <form id="checkout-form" method="post" action="{% url 'storefront:checkout' %}" class="bg-white rounded-xl shadow-sm p-6 space-y-5">
+      {% csrf_token %}
+
+      {% if errors.stock %}
+      <div class="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+        {{ errors.stock }}
+      </div>
+      {% endif %}
+
+      <!-- Phone FIRST — it's the customer identifier -->
+      <div>
+        <label for="phone" class="block text-sm font-medium text-bark mb-1">Telefone *</label>
+        <input
+          type="tel"
+          id="phone"
+          value="{{ form_data.phone|default:'' }}"
+          required
+          class="w-full px-4 py-2.5 rounded-lg border {% if errors.phone %}border-red-400{% else %}border-cream-dark{% endif %} bg-white text-bark placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition"
+        >
+        <input type="hidden" id="phone_e164" name="phone" value="">
+        {% if errors.phone %}
+        <p id="phone-error" class="mt-1 text-sm text-red-500">{{ errors.phone }}</p>
+        {% endif %}
+        <div id="customer-recognized" class="hidden mt-2 p-3 rounded-lg bg-green-50 border border-green-200 text-green-800 text-sm">
+          Bem-vindo de volta, <strong id="customer-name-display"></strong>!
+        </div>
+        <!-- Inline auth section (Doorman) -->
+        <div id="auth-section" class="mt-3"></div>
+      </div>
+
+      <div>
+        <label for="name" class="block text-sm font-medium text-bark mb-1">Nome *</label>
+        <input
+          type="text"
+          id="name"
+          name="name"
+          value="{{ form_data.name|default:'' }}"
+          required
+          placeholder="Seu nome"
+          class="w-full px-4 py-2.5 rounded-lg border {% if errors.name %}border-red-400{% else %}border-cream-dark{% endif %} bg-white text-bark placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition"
+        >
+        {% if errors.name %}
+        <p class="mt-1 text-sm text-red-500">{{ errors.name }}</p>
+        {% endif %}
+      </div>
+
+      <div>
+        <label for="notes" class="block text-sm font-medium text-bark mb-1">Observacoes <span class="text-bark-light/50 font-normal">(opcional)</span></label>
+        <textarea
+          id="notes"
+          name="notes"
+          rows="3"
+          placeholder="Alguma observacao sobre seu pedido? Ex: sem gluten, embalagem para presente..."
+          class="w-full px-4 py-2.5 rounded-lg border border-cream-dark bg-white text-bark placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition resize-none"
+        >{{ form_data.notes|default:'' }}</textarea>
+      </div>
+
+      <!-- Fulfillment type -->
+      <div>
+        <label class="block text-sm font-medium text-bark mb-2">Como deseja receber?</label>
+        <div class="flex gap-4">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="fulfillment_type" value="pickup"
+              {% if form_data.fulfillment_type != "delivery" %}checked{% endif %}
+              class="text-wheat focus:ring-wheat"
+              onchange="document.getElementById('delivery-fields').classList.add('hidden')">
+            <span class="text-sm text-bark">Retirada na loja</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="fulfillment_type" value="delivery"
+              {% if form_data.fulfillment_type == "delivery" %}checked{% endif %}
+              class="text-wheat focus:ring-wheat"
+              onchange="document.getElementById('delivery-fields').classList.remove('hidden')">
+            <span class="text-sm text-bark">Delivery</span>
+          </label>
+        </div>
+        <div id="delivery-fields" class="{% if form_data.fulfillment_type != 'delivery' %}hidden{% endif %} mt-3">
+          <!-- Saved addresses (populated via JS when customer is recognized) -->
+          <div id="saved-addresses" class="hidden mb-3">
+            <div class="flex items-center justify-between mb-2">
+              <label class="block text-sm font-medium text-bark">Enderecos salvos</label>
+              <button type="button" onclick="openAddressDrawer()"
+                class="text-xs font-medium text-wheat-dark hover:text-wheat transition-colors">
+                Ver todos &rarr;
+              </button>
+            </div>
+            <!-- Selected address preview -->
+            <div id="selected-address-preview" class="hidden p-3 rounded-lg border border-wheat/30 bg-wheat/5 mb-2">
+              <div class="flex items-center justify-between">
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-bark" id="selected-address-label"></p>
+                  <p class="text-sm text-bark-light" id="selected-address-text"></p>
+                </div>
+                <button type="button" onclick="openAddressDrawer()"
+                  class="ml-3 text-xs font-medium text-wheat-dark hover:text-wheat transition-colors flex-shrink-0">
+                  Trocar
+                </button>
+              </div>
+            </div>
+            <button type="button" onclick="toggleNewAddress(true)"
+              id="btn-new-address"
+              class="text-sm font-medium text-wheat-dark hover:text-wheat transition-colors">
+              + Novo endereco
+            </button>
+          </div>
+          <div id="new-address-fields">
+            <label for="delivery_address" class="block text-sm font-medium text-bark mb-1">Endereco de entrega</label>
+            <textarea
+              id="delivery_address"
+              name="delivery_address"
+              rows="2"
+              placeholder="Rua, numero, bairro, complemento..."
+              class="w-full px-4 py-2.5 rounded-lg border border-cream-dark bg-white text-bark placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition resize-none"
+            >{{ form_data.delivery_address|default:'' }}</textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Delivery date: Para quando? -->
+      <div>
+        <label class="block text-sm font-medium text-bark mb-2">Para quando?</label>
+        <div class="flex gap-3 flex-wrap">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="delivery_date_option" value="today" checked
+              class="text-wheat focus:ring-wheat"
+              onchange="selectToday()">
+            <span class="text-sm text-bark">Hoje</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="delivery_date_option" value="tomorrow"
+              class="text-wheat focus:ring-wheat"
+              onchange="selectTomorrow()">
+            <span class="text-sm text-bark">Amanha</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="delivery_date_option" value="custom"
+              class="text-wheat focus:ring-wheat"
+              onchange="selectCustomDate()">
+            <span class="text-sm text-bark">Escolher data</span>
+          </label>
+        </div>
+        <div id="date-picker-wrap" class="hidden mt-2">
+          <input type="date" id="delivery_date" name="delivery_date"
+            value="{{ form_data.delivery_date|default:'' }}"
+            onchange="onDateChanged()"
+            class="px-4 py-2 rounded-lg border {% if errors.delivery_date %}border-red-400{% else %}border-cream-dark{% endif %} bg-white text-bark focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition">
+          {% if errors.delivery_date %}
+          <p class="mt-1 text-sm text-red-500">{{ errors.delivery_date }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Time slot selector (visible only for future dates) -->
+        <div id="time-slot-wrap" class="hidden mt-3">
+          <label class="block text-sm font-medium text-bark mb-2">Periodo preferido</label>
+          <div class="flex gap-3 flex-wrap">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="delivery_time_slot" value="manha"
+                {% if form_data.delivery_time_slot == "manha" %}checked{% endif %}
+                class="text-wheat focus:ring-wheat">
+              <span class="text-sm text-bark">Manha (06h-12h)</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="delivery_time_slot" value="tarde"
+                {% if form_data.delivery_time_slot == "tarde" %}checked{% endif %}
+                class="text-wheat focus:ring-wheat">
+              <span class="text-sm text-bark">Tarde (12h-18h)</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="delivery_time_slot" value="noite"
+                {% if form_data.delivery_time_slot == "noite" %}checked{% endif %}
+                class="text-wheat focus:ring-wheat">
+              <span class="text-sm text-bark">Noite (18h-21h)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Preorder banner -->
+        <div id="preorder-banner" class="hidden mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+          Encomenda programada &mdash; producao sob demanda
+        </div>
+      </div>
+
+      <button
+        type="submit"
+        class="w-full py-3 bg-wheat text-white rounded-lg font-medium text-lg hover:bg-wheat-dark transition-colors"
+      >
+        Confirmar Pedido
+      </button>
+    </form>
+  </div>
+
+  <!-- Order summary -->
+  <div>
+    <div class="bg-white rounded-xl shadow-sm p-6 sticky top-24">
+      <h3 class="font-serif text-lg font-bold text-bark mb-4">Resumo do Pedido</h3>
+
+      <div class="space-y-3 mb-4">
+        {% for item in cart.items %}
+        <div class="flex justify-between items-start text-sm">
+          <div class="flex-1 min-w-0 pr-3">
+            <p class="text-bark font-medium truncate">{{ item.name|default:item.sku }}</p>
+            <p class="text-bark-light">{{ item.qty|floatformat:"0" }}x {{ item.price_display }}</p>
+          </div>
+          <p class="text-bark font-medium flex-shrink-0">{{ item.total_display }}</p>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="border-t border-cream-dark pt-3 flex justify-between items-center">
+        <span class="font-serif font-bold text-bark">Total</span>
+        <span class="text-lg font-bold text-wheat-dark">{{ cart.subtotal_display }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Address drawer modal -->
+<div id="address-drawer" class="hidden fixed inset-0 z-[100]">
+  <div class="absolute inset-0 bg-black/50" onclick="closeAddressDrawer()"></div>
+  <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[70vh] overflow-y-auto animate-slide-up">
+    <div class="sticky top-0 bg-white border-b border-cream-dark px-5 py-4 flex items-center justify-between">
+      <h3 class="font-serif text-lg font-bold text-bark">Enderecos salvos</h3>
+      <button type="button" onclick="closeAddressDrawer()" class="p-1 text-bark-light hover:text-bark">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div id="address-drawer-list" class="p-5 space-y-3"></div>
+    <div class="px-5 pb-5">
+      <button type="button" onclick="closeAddressDrawer(); toggleNewAddress(true);"
+        class="w-full py-3 border-2 border-dashed border-cream-dark text-bark-light rounded-lg text-sm font-medium hover:border-wheat/50 hover:text-wheat-dark transition-colors">
+        + Novo endereco
+      </button>
+    </div>
+  </div>
+</div>
+<style>
+  @keyframes slideUpDrawer { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .animate-slide-up { animation: slideUpDrawer 200ms ease; }
+</style>
+
+<script>
+// ── Config ────────────────────────────────────────────────────
+const DEFAULT_DDD = '43';  // Londrina
+
+// ── intl-tel-input ────────────────────────────────────────────
+// Uses v24 WithUtils bundle — no async loading, isValidNumber() works immediately
+const phoneEl = document.getElementById('phone');
+const phoneHidden = document.getElementById('phone_e164');
+const nameEl = document.getElementById('name');
+let iti = null;
+let savedAddresses = [];  // Store addresses for drawer
+
+if (phoneEl && window.intlTelInput) {
+  iti = window.intlTelInput(phoneEl, {
+    initialCountry: 'br',
+    preferredCountries: ['br'],
+    nationalMode: true,
+    autoPlaceholder: 'aggressive',
+  });
+}
+
+// Get E.164 from the widget, inferring DDD if needed
+function getE164() {
+  if (!iti || !phoneEl.value.trim()) return '';
+  // If already valid, return directly
+  if (iti.isValidNumber()) return iti.getNumber();
+  // Try prepending default DDD for short numbers
+  const digits = phoneEl.value.replace(/\D/g, '');
+  if (digits.length >= 8 && digits.length <= 9) {
+    iti.setNumber(DEFAULT_DDD + digits);
+    if (iti.isValidNumber()) return iti.getNumber();
+  }
+  return '';
+}
+
+// ── Customer lookup ───────────────────────────────────────────
+let lookupTimer = null;
+
+function lookupCustomer() {
+  const e164 = getE164();
+  phoneHidden.value = e164;
+  if (!e164) return;
+
+  fetch(`{% url 'storefront:customer_lookup' %}?phone=${encodeURIComponent(e164)}`)
+    .then(r => r.json())
+    .then(data => {
+      const banner = document.getElementById('customer-recognized');
+      const savedAddrs = document.getElementById('saved-addresses');
+      const authSection = document.getElementById('auth-section');
+      if (!data.found) {
+        banner.classList.add('hidden');
+        savedAddrs.classList.add('hidden');
+        authSection.innerHTML = '';
+        savedAddresses = [];
+        return;
+      }
+      if (!nameEl.value.trim() && data.name) nameEl.value = data.name;
+      document.getElementById('customer-name-display').textContent = data.name || '';
+      banner.classList.remove('hidden');
+      if (data.addresses && data.addresses.length > 0) {
+        savedAddresses = data.addresses;
+        savedAddrs.classList.remove('hidden');
+        const defaultAddr = data.addresses.find(a => a.is_default);
+        if (defaultAddr) {
+          selectSavedAddress(defaultAddr);
+        }
+      }
+      // Show inline auth if available and not yet verified
+      if (data.can_verify) {
+        authSection.innerHTML = '<div class="p-4 rounded-lg bg-amber-50 border border-amber-200">' +
+          '<p class="text-sm text-amber-800 mb-3">Encontramos seu cadastro. Confirme sua identidade para agilizar o pedido.</p>' +
+          '<div hx-post="{% url "storefront:request_code" %}" hx-target="#auth-section" hx-swap="innerHTML" hx-vals=\'{"phone": "' + e164 + '"}\' hx-headers=\'{"X-CSRFToken": "' + document.querySelector('[name=csrfmiddlewaretoken]').value + '"}\'>' +
+          '<button type="button" class="w-full py-2.5 bg-wheat text-white rounded-lg font-medium text-sm hover:bg-wheat-dark transition-colors">' +
+          'Enviar codigo de verificacao</button></div>' +
+          '<p class="text-xs text-amber-600 mt-2 text-center">Enviaremos um codigo de 6 digitos via WhatsApp</p></div>';
+        htmx.process(authSection);
+      } else if (data.is_verified) {
+        authSection.innerHTML = '<div class="p-3 rounded-lg bg-green-50 border border-green-200 flex items-center gap-2">' +
+          '<svg class="w-5 h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+          '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>' +
+          '<span class="text-sm font-medium text-green-800">Identidade confirmada</span></div>';
+      } else {
+        authSection.innerHTML = '';
+      }
+    })
+    .catch(() => {});
+}
+
+function selectSavedAddress(addr) {
+  const complement = addr.complement ? ` (${addr.complement})` : '';
+  document.getElementById('delivery_address').value = addr.formatted_address + (addr.complement ? ' - ' + addr.complement : '');
+  document.getElementById('new-address-fields').classList.add('hidden');
+  document.getElementById('btn-new-address').classList.remove('hidden');
+  // Show preview
+  const preview = document.getElementById('selected-address-preview');
+  document.getElementById('selected-address-label').textContent = addr.label;
+  document.getElementById('selected-address-text').textContent = addr.formatted_address + complement;
+  preview.classList.remove('hidden');
+  closeAddressDrawer();
+}
+
+function toggleNewAddress(show) {
+  const fields = document.getElementById('new-address-fields');
+  const preview = document.getElementById('selected-address-preview');
+  fields.classList.toggle('hidden', !show);
+  if (show) {
+    preview.classList.add('hidden');
+    document.getElementById('delivery_address').value = '';
+    document.getElementById('delivery_address').focus();
+    document.getElementById('btn-new-address').classList.add('hidden');
+  }
+}
+
+function openAddressDrawer() {
+  const drawer = document.getElementById('address-drawer');
+  const list = document.getElementById('address-drawer-list');
+  list.innerHTML = '';
+  savedAddresses.forEach(function(addr) {
+    var complement = addr.complement ? ' (' + addr.complement + ')' : '';
+    var instructions = addr.delivery_instructions ? '<p class="text-xs text-bark-light mt-1 italic">' + addr.delivery_instructions + '</p>' : '';
+    var defaultBadge = addr.is_default ? '<span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-wheat/20 text-wheat-dark ml-2">Padrao</span>' : '';
+    var div = document.createElement('div');
+    div.className = 'p-4 rounded-lg border border-cream-dark hover:border-wheat/50 hover:bg-cream/30 cursor-pointer transition';
+    div.innerHTML = '<div class="flex items-center justify-between"><div class="flex-1 min-w-0">' +
+      '<div class="flex items-center mb-1"><span class="text-sm font-bold text-bark">' + addr.label + '</span>' + defaultBadge + '</div>' +
+      '<p class="text-sm text-bark">' + addr.formatted_address + complement + '</p>' +
+      instructions +
+      '</div><span class="ml-3 text-wheat-dark text-sm font-medium flex-shrink-0">Usar</span></div>';
+    div.addEventListener('click', function() { selectSavedAddress(addr); });
+    list.appendChild(div);
+  });
+  drawer.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeAddressDrawer() {
+  document.getElementById('address-drawer').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+// ── Phone events ──────────────────────────────────────────────
+if (phoneEl) {
+  phoneEl.addEventListener('blur', () => lookupCustomer());
+  phoneEl.addEventListener('input', () => {
+    clearTimeout(lookupTimer);
+    lookupTimer = setTimeout(() => {
+      if (phoneEl.value.replace(/\D/g, '').length >= 8) lookupCustomer();
+    }, 800);
+  });
+  document.getElementById('checkout-form').addEventListener('submit', () => {
+    phoneHidden.value = getE164();
+  });
+  // Auto-lookup if phone pre-filled (verified session)
+  {% if is_verified and form_data.phone %}
+  setTimeout(function() {
+    if (iti) iti.setNumber('{{ form_data.phone }}');
+    lookupCustomer();
+  }, 200);
+  {% endif %}
+}
+
+// ── Delivery date ─────────────────────────────────────────────
+const todayStr = new Date().toISOString().split('T')[0];
+
+function isFutureDate(dateStr) {
+  return dateStr && dateStr > todayStr;
+}
+
+function updatePreorderUI() {
+  const dateVal = document.getElementById('delivery_date').value;
+  const isFuture = isFutureDate(dateVal);
+  document.getElementById('time-slot-wrap').classList.toggle('hidden', !isFuture);
+  document.getElementById('preorder-banner').classList.toggle('hidden', !isFuture);
+}
+
+function selectToday() {
+  document.getElementById('delivery_date').value = '';
+  document.getElementById('date-picker-wrap').classList.add('hidden');
+  updatePreorderUI();
+}
+
+function selectTomorrow() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  document.getElementById('delivery_date').value = d.toISOString().split('T')[0];
+  document.getElementById('date-picker-wrap').classList.add('hidden');
+  updatePreorderUI();
+}
+
+function selectCustomDate() {
+  document.getElementById('date-picker-wrap').classList.remove('hidden');
+  updatePreorderUI();
+}
+
+function onDateChanged() {
+  updatePreorderUI();
+}
+
+// Set min/max on date picker
+(function() {
+  const input = document.getElementById('delivery_date');
+  if (!input) return;
+  const today = new Date();
+  const maxDate = new Date();
+  maxDate.setDate(today.getDate() + 7);
+  input.min = today.toISOString().split('T')[0];
+  input.max = maxDate.toISOString().split('T')[0];
+  if (input.value) {
+    updatePreorderUI();
+    if (isFutureDate(input.value)) {
+      document.getElementById('date-picker-wrap').classList.remove('hidden');
+    }
+  }
+})();
+</script>
+
+{% endblock %}

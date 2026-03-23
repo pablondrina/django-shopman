@@ -1,0 +1,177 @@
+{% extends "storefront/base.html" %}
+
+{% block title %}Minha Conta{% endblock %}
+
+{% block content %}
+
+<div class="max-w-3xl mx-auto">
+
+  <div class="text-center mb-8">
+    <span class="text-5xl block mb-3">👤</span>
+    <h2 class="font-serif text-2xl font-bold text-bark mb-1">Minha Conta</h2>
+    <p class="text-bark-light">Consulte seus dados pelo telefone</p>
+  </div>
+
+  <!-- Phone lookup form -->
+  <form method="post" action="{% url 'storefront:account' %}" class="bg-white rounded-xl shadow-sm p-6 mb-8">
+    {% csrf_token %}
+
+    <div class="flex flex-col sm:flex-row gap-3">
+      <div class="flex-1">
+        <label for="phone" class="block text-sm font-medium text-bark mb-1">Telefone <span class="text-bark-light/50 font-normal">(com DDD)</span></label>
+        <input
+          type="tel"
+          id="phone"
+          name="phone"
+          value="{{ phone_value|default:'' }}"
+          required
+          placeholder="(43) 99999-9999"
+          class="w-full px-4 py-2.5 rounded-lg border {% if errors.phone %}border-red-400{% else %}border-cream-dark{% endif %} bg-white text-bark placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition"
+        >
+        {% if errors.phone %}
+        <p class="mt-1 text-sm text-red-500">{{ errors.phone }}</p>
+        {% endif %}
+      </div>
+      <div class="sm:self-end">
+        <button type="submit"
+                class="w-full sm:w-auto px-6 py-2.5 bg-wheat text-white rounded-lg font-medium hover:bg-wheat-dark transition-colors">
+          Buscar
+        </button>
+      </div>
+    </div>
+  </form>
+
+  {% if not_found %}
+  <div class="text-center py-12">
+    <span class="text-5xl block mb-4">🔍</span>
+    <p class="text-bark-light text-lg">Nenhum cadastro encontrado para este telefone.</p>
+    <p class="text-bark-light/70 text-sm mt-1">Verifique se digitou o número correto.</p>
+  </div>
+  {% endif %}
+
+  {% if customer %}
+  <!-- Customer info -->
+  <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+    <h3 class="font-serif text-lg font-bold text-bark mb-4">Dados pessoais</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <p class="text-xs text-bark-light uppercase tracking-wider mb-1">Nome</p>
+        <p class="text-bark font-medium">{{ customer.name }}</p>
+      </div>
+      <div>
+        <p class="text-xs text-bark-light uppercase tracking-wider mb-1">Telefone</p>
+        <p class="text-bark font-medium">{{ customer.phone }}</p>
+      </div>
+      {% if customer.group %}
+      <div>
+        <p class="text-xs text-bark-light uppercase tracking-wider mb-1">Grupo</p>
+        <p class="text-bark font-medium">{{ customer.group.name }}</p>
+      </div>
+      {% endif %}
+      {% if customer.email %}
+      <div>
+        <p class="text-xs text-bark-light uppercase tracking-wider mb-1">Email</p>
+        <p class="text-bark font-medium">{{ customer.email }}</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Addresses -->
+  <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-serif text-lg font-bold text-bark">Enderecos</h3>
+      <button
+        type="button"
+        onclick="toggleAddressForm()"
+        class="text-sm font-medium text-wheat-dark hover:text-wheat transition-colors"
+      >
+        + Novo endereco
+      </button>
+    </div>
+
+    <!-- Add address form (hidden by default) -->
+    <div id="address-form-container" class="hidden mb-4">
+      {% include "storefront/partials/address_form.html" with customer=customer %}
+    </div>
+
+    <!-- Address list (HTMX target) -->
+    <div id="address-list">
+      {% include "storefront/partials/address_list.html" with addresses=addresses customer=customer %}
+    </div>
+  </div>
+
+  <!-- Recent orders -->
+  {% if orders %}
+  <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+    <h3 class="font-serif text-lg font-bold text-bark mb-4">Ultimos pedidos</h3>
+    <div class="space-y-3">
+      {% for order in orders %}
+      <a href="{% url 'storefront:order_tracking' ref=order.ref %}"
+         class="block p-4 rounded-lg border border-cream-dark hover:border-wheat/50 hover:bg-cream/30 transition">
+        <div class="flex items-center justify-between">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-3 mb-1">
+              <span class="font-mono font-bold text-bark text-sm">{{ order.ref }}</span>
+              <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold {{ order.status_color }}">
+                {{ order.status_label }}
+              </span>
+            </div>
+            <p class="text-bark-light text-sm">{{ order.created_at|date:"d/m/Y" }} as {{ order.created_at|time:"H:i" }}</p>
+          </div>
+          <div class="text-right flex-shrink-0 ml-4">
+            <p class="text-bark font-bold">{{ order.total_display }}</p>
+            <span class="text-wheat-dark text-xs">Ver detalhes &rarr;</span>
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Preferences -->
+  {% if preferences %}
+  <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+    <h3 class="font-serif text-lg font-bold text-bark mb-4">Preferencias</h3>
+    <div class="space-y-2">
+      {% for pref in preferences %}
+      <div class="flex items-center gap-3 p-3 rounded-lg bg-cream/50">
+        {% if pref.preference_type == "restriction" %}
+        <span class="text-red-500 text-lg">⚠️</span>
+        {% elif pref.preference_type == "inferred" %}
+        <span class="text-bark-light text-lg">🔮</span>
+        {% else %}
+        <span class="text-wheat text-lg">⭐</span>
+        {% endif %}
+        <div>
+          <p class="text-sm font-medium text-bark">
+            <span class="text-bark-light text-xs uppercase">{{ pref.category }}</span>
+            {{ pref.key|title }}
+          </p>
+          {% if pref.notes %}
+          <p class="text-xs text-bark-light">{{ pref.notes }}</p>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% endif %}
+
+</div>
+
+<script>
+function toggleAddressForm() {
+  const container = document.getElementById('address-form-container');
+  container.classList.toggle('hidden');
+  if (!container.classList.contains('hidden')) {
+    const firstInput = container.querySelector('input:not([type=hidden])');
+    if (firstInput) firstInput.focus();
+  }
+}
+</script>
+
+{% endblock %}

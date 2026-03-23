@@ -1,0 +1,141 @@
+{% extends "storefront/base.html" %}
+
+{% block title %}{{ product.name }}{% endblock %}
+{% block meta_description %}{{ product.short_description|default:product.name }} — Nelson Boulangerie{% endblock %}
+{% block og_title %}{{ product.name }} — Nelson Boulangerie{% endblock %}
+
+{% block content %}
+
+<div class="mb-6">
+  <a href="{% url 'storefront:menu' %}" class="text-wheat-dark hover:text-wheat font-medium text-sm transition-colors">
+    &larr; Voltar ao cardápio
+  </a>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+  <!-- Product image -->
+  {% load storefront_tags %}
+  <div class="aspect-square rounded-2xl overflow-hidden relative">
+    {% if product.image_url %}
+    <img src="{{ product.image_url }}" alt="{{ product.name }}"
+         class="w-full h-full object-cover">
+    {% else %}
+    <div class="w-full h-full bg-gradient-to-br from-cream-dark to-cream flex items-center justify-center">
+      <span class="text-8xl">{{ product.sku|product_emoji }}</span>
+    </div>
+    {% endif %}
+
+    <!-- Availability badge -->
+    {% if badge.label %}
+    <span class="absolute top-4 right-4 text-sm font-bold px-3 py-1 rounded-full {{ badge.css_class }}">
+      {{ badge.label }}
+    </span>
+    {% endif %}
+
+    {% if is_d1 %}
+    <span class="absolute top-4 left-4 bg-red-500 text-white text-sm font-bold px-3 py-1 rounded-full">
+      -50% Dia Anterior
+    </span>
+    {% endif %}
+  </div>
+
+  <!-- Product info -->
+  <div>
+    <h2 class="font-serif text-3xl font-bold text-bark">{{ product.name }}</h2>
+
+    {% if product.short_description %}
+    <p class="text-bark-light mt-2">{{ product.short_description }}</p>
+    {% endif %}
+
+    <!-- Price with D-1 discount -->
+    {% if is_d1 and d1_price_display %}
+    <div class="mt-4 flex items-center gap-3">
+      <p class="text-3xl font-bold text-red-600">{{ d1_price_display }}</p>
+      <p class="text-xl text-bark-light/50 line-through">{{ original_price_display }}</p>
+    </div>
+    <p class="text-sm text-bark-light mt-1">Produzido ontem — qualidade garantida, preço especial.</p>
+    {% elif price_display %}
+    <p class="text-3xl font-bold text-wheat-dark mt-4">{{ price_display }}</p>
+    {% endif %}
+
+    <!-- Availability detail -->
+    {% if badge.label == "Preparando..." %}
+    <div class="mt-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg">
+      <p class="text-amber-800 font-medium text-sm">Em preparo — logo estará disponível para retirada.</p>
+    </div>
+    {% elif badge.label == "Esgotado" %}
+    <div class="mt-4 px-4 py-2 bg-bark-light/10 rounded-lg">
+      <p class="text-bark-light font-medium">Esgotado no momento</p>
+    </div>
+    {% elif badge.label == "Em breve" %}
+    <div class="mt-4 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+      <p class="text-blue-800 font-medium text-sm">Produção planejada — disponível em breve.</p>
+    </div>
+    {% elif badge.label == "Indisponível" %}
+    <div class="mt-4 px-4 py-2 bg-bark-light/10 rounded-lg">
+      <p class="text-bark-light font-medium">Produto indisponível no momento</p>
+    </div>
+    {% endif %}
+
+    {% if product.long_description %}
+    <div class="mt-6 text-bark-light leading-relaxed prose prose-sm">
+      {{ product.long_description|linebreaks }}
+    </div>
+    {% endif %}
+
+    <!-- Quantity + Add to cart -->
+    {% if badge.can_add_to_cart %}
+    <div class="mt-8 flex items-center gap-4">
+      <div class="flex items-center border border-cream-dark rounded-lg overflow-hidden">
+        <button type="button" onclick="updateQty(-1)" class="px-3 py-2 text-bark hover:bg-cream-dark transition-colors" aria-label="Diminuir quantidade">-</button>
+        <input id="qty-input" type="number" value="1" min="1" max="99" class="w-14 text-center py-2 border-x border-cream-dark text-bark bg-white focus:outline-none" aria-label="Quantidade">
+        <button type="button" onclick="updateQty(1)" class="px-3 py-2 text-bark hover:bg-cream-dark transition-colors" aria-label="Aumentar quantidade">+</button>
+      </div>
+      <button
+        id="add-to-cart-btn"
+        class="flex-1 bg-wheat text-white py-2.5 px-6 rounded-lg font-medium hover:bg-wheat-dark transition-colors"
+        hx-post="{% url 'storefront:cart_add' %}"
+        hx-vals='js:{"sku": "{{ product.sku }}", "qty": document.getElementById("qty-input").value}'
+        hx-target="#cart-badge-desktop"
+        hx-swap="innerHTML"
+        hx-on::after-request="this.textContent = 'Adicionado!'; setTimeout(() => this.textContent = 'Adicionar ao Pedido', 1500)"
+      >
+        Adicionar ao Pedido
+      </button>
+    </div>
+    {% endif %}
+
+    <!-- Extra info -->
+    <div class="mt-8 space-y-2 text-sm text-bark-light">
+      {% if product.shelf_life_days != None %}
+      <div class="flex items-center gap-2">
+        <span aria-hidden="true">&#128336;</span>
+        <span>
+          Validade:
+          {% if product.shelf_life_days == 0 %}
+            Mesmo dia
+          {% elif product.shelf_life_days == 1 %}
+            1 dia
+          {% else %}
+            {{ product.shelf_life_days }} dias
+          {% endif %}
+        </span>
+      </div>
+      {% endif %}
+      <div class="flex items-center gap-2">
+        <span aria-hidden="true">&#128230;</span>
+        <span>Unidade: {{ product.get_unit_display|default:product.unit }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function updateQty(delta) {
+  const input = document.getElementById('qty-input');
+  const val = parseInt(input.value) + delta;
+  if (val >= 1 && val <= 99) input.value = val;
+}
+</script>
+
+{% endblock %}

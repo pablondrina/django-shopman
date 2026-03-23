@@ -1,0 +1,68 @@
+{% load storefront_tags %}
+<div class="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
+  <a href="{% url 'storefront:product_detail' item.product.sku %}">
+    <!-- Product image -->
+    <div class="aspect-square relative overflow-hidden">
+      {% if item.product.image_url %}
+      <img src="{{ item.product.image_url }}" alt="{{ item.product.name }}"
+           class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+           loading="lazy">
+      {% else %}
+      <div class="w-full h-full bg-gradient-to-br from-cream-dark to-cream flex items-center justify-center">
+        <span class="text-4xl">{{ item.product.sku|product_emoji }}</span>
+      </div>
+      {% endif %}
+
+      <!-- Availability badge -->
+      {% if item.badge.label %}
+      <span class="absolute top-2 right-2 text-xs font-bold px-2 py-0.5 rounded-full {{ item.badge.css_class }}">
+        {{ item.badge.label }}
+      </span>
+      {% endif %}
+
+      <!-- D-1 discount badge -->
+      {% if item.is_d1 %}
+      <span class="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+        -50%
+      </span>
+      {% endif %}
+    </div>
+
+    <!-- Info -->
+    <div class="p-3">
+      <h4 class="font-medium text-bark text-sm leading-tight group-hover:text-wheat-dark transition-colors">
+        {{ item.product.name }}
+      </h4>
+      {% if item.is_d1 and item.d1_price_display %}
+      <div class="mt-1 flex items-center gap-2">
+        <p class="text-wheat-dark font-bold">{{ item.d1_price_display }}</p>
+        <p class="text-bark-light/50 text-sm line-through">{{ item.original_price_display }}</p>
+      </div>
+      {% elif item.price_display %}
+      <p class="text-wheat-dark font-bold mt-1">{{ item.price_display }}</p>
+      {% endif %}
+    </div>
+  </a>
+
+  <!-- Add button -->
+  <div class="px-3 pb-3">
+    {% if item.badge.can_add_to_cart %}
+    <button
+      class="w-full py-2.5 rounded-lg text-sm font-medium transition-colors bg-wheat text-white hover:bg-wheat-dark" style="min-height: var(--touch-min);"
+      hx-post="{% url 'storefront:cart_add' %}"
+      hx-vals='{"sku": "{{ item.product.sku }}", "qty": "1"}'
+      hx-target="#cart-badge-desktop"
+      hx-swap="innerHTML"
+    >
+      Adicionar
+    </button>
+    {% else %}
+    <button
+      class="w-full py-2.5 rounded-lg text-sm font-medium bg-cream-dark text-bark-light/50 cursor-not-allowed" style="min-height: var(--touch-min);"
+      disabled
+    >
+      {% if item.badge.label == "Esgotado" %}Esgotado{% elif item.badge.label == "Em breve" %}Em breve{% else %}Indisponível{% endif %}
+    </button>
+    {% endif %}
+  </div>
+</div>

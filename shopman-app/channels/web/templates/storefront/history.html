@@ -1,0 +1,81 @@
+{% extends "storefront/base.html" %}
+
+{% block title %}Meus Pedidos{% endblock %}
+
+{% block content %}
+
+<div class="max-w-2xl mx-auto">
+
+  <div class="text-center mb-8">
+    <span class="text-5xl block mb-3">📦</span>
+    <h2 class="font-serif text-2xl font-bold text-bark mb-1">Meus Pedidos</h2>
+    <p class="text-bark-light">Consulte seus pedidos pelo telefone</p>
+  </div>
+
+  <!-- Phone lookup form -->
+  <form method="post" action="{% url 'storefront:order_history' %}" class="bg-white rounded-xl shadow-sm p-6 mb-8">
+    {% csrf_token %}
+
+    <div class="flex flex-col sm:flex-row gap-3">
+      <div class="flex-1">
+        <label for="phone" class="block text-sm font-medium text-bark mb-1">Telefone <span class="text-bark-light/50 font-normal">(com DDD)</span></label>
+        <input
+          type="tel"
+          id="phone"
+          name="phone"
+          value="{{ phone_value|default:'' }}"
+          required
+          placeholder="(43) 99999-9999"
+          class="w-full px-4 py-2.5 rounded-lg border {% if errors.phone %}border-red-400{% else %}border-cream-dark{% endif %} bg-white text-bark placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition"
+        >
+        {% if errors.phone %}
+        <p class="mt-1 text-sm text-red-500">{{ errors.phone }}</p>
+        {% endif %}
+      </div>
+      <div class="sm:self-end">
+        <button type="submit"
+                class="w-full sm:w-auto px-6 py-2.5 bg-wheat text-white rounded-lg font-medium hover:bg-wheat-dark transition-colors">
+          Buscar
+        </button>
+      </div>
+    </div>
+  </form>
+
+  <!-- Results -->
+  {% if orders is not None %}
+    {% if orders %}
+    <div class="space-y-3">
+      {% for order in orders %}
+      <a href="{% url 'storefront:order_tracking' ref=order.ref %}"
+         class="block bg-white rounded-xl shadow-sm p-5 hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-3 mb-1">
+              <span class="font-mono font-bold text-bark text-sm">{{ order.ref }}</span>
+              <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold {{ order.status_color }}">
+                {{ order.status_label }}
+              </span>
+            </div>
+            <p class="text-bark-light text-sm">{{ order.created_at|date:"d/m/Y" }} às {{ order.created_at|time:"H:i" }}</p>
+          </div>
+          <div class="text-right flex-shrink-0 ml-4">
+            <p class="text-bark font-bold">{{ order.total_display }}</p>
+            <span class="text-wheat-dark text-xs">Ver detalhes &rarr;</span>
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <!-- Empty state -->
+    <div class="text-center py-12">
+      <span class="text-5xl block mb-4">🔍</span>
+      <p class="text-bark-light text-lg">Nenhum pedido encontrado para este telefone.</p>
+      <p class="text-bark-light/70 text-sm mt-1">Verifique se digitou o número correto.</p>
+    </div>
+    {% endif %}
+  {% endif %}
+
+</div>
+
+{% endblock %}
