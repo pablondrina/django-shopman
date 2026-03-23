@@ -23,6 +23,7 @@ dependencies = [
 dev = [
     "pytest",
     "pytest-django",
+    "pytest-cov",
 ]
 
 [tool.setuptools.packages.find]
@@ -32,6 +33,27 @@ include = ["shopman*", "project*"]
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "project.settings"
 pythonpath = ["."]
+
+[tool.coverage.run]
+source = ["shopman", "channels", "nelson"]
+omit = [
+    "*/migrations/*",
+    "*/tests/*",
+    "*_test_settings*",
+    "manage.py",
+    "project/wsgi.py",
+    "project/asgi.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 0
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__",
+]
 
 [tool.ruff]
 line-length = 120
