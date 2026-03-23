@@ -71,7 +71,7 @@ Conforme feedback salvo: em renames, zerar TUDO — variáveis, strings, comment
 
 ## WP-C2: Storefront — split views.py + branding via Admin
 
-### C2a: Split views.py em módulos
+### ~~C2a: Split views.py em módulos~~ DONE
 
 **Por quê:** 1.357 linhas, 28 classes num único arquivo. Funcional, mas dificulta manutenção e testabilidade.
 
