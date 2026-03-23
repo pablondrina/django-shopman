@@ -134,7 +134,7 @@ class StorefrontConfig(models.Model):
 
 ---
 
-## WP-C3: Documentação — glossário, CLAUDE.md, OpenAPI
+## ~~WP-C3: Documentação — glossário, CLAUDE.md, OpenAPI~~ DONE
 
 ### C3a: Glossário consolidado
 

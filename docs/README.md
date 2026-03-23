@@ -58,6 +58,7 @@ Documentação de consulta rápida gerada a partir do código.
 | [Management Commands](reference/commands.md) | Comandos disponíveis com flags, exemplos e cron recomendado |
 | [Exceções e Erros](reference/errors.md) | Hierarquia de exceções, códigos de erro e quando ocorrem |
 | [Sinais (Signals)](reference/signals.md) | Sinais emitidos e consumidos por cada app, payload e fluxos |
+| [Glossário](reference/glossary.md) | Termos de domínio: Quant, Hold, Move, Session, Order, Channel, etc. |
 
 ---
 
@@ -67,9 +68,9 @@ Documentação de consulta rápida gerada a partir do código.
 shopman-core/                        shopman-app/
 ├── utils        (utilitários)       ├── shopman/           (orquestrador)
 ├── offering     (catálogo)          │   ├── confirmation/
-├── stocking     (estoque)           │   ├── stock/
+├── stocking     (estoque)           │   ├── inventory/
 ├── crafting     (produção)          │   ├── pricing/
-├── ordering     (pedidos)           │   ├── customer/
+├── ordering     (pedidos)           │   ├── identification/
 ├── attending    (clientes)          │   ├── notifications/
 └── gating       (autenticação)      │   ├── payment/
                                      │   ├── fiscal/

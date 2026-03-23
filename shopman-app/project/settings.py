@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     # Third-party
     "taggit",
     "rest_framework",
+    "drf_spectacular",
     "import_export",
     "unfold.contrib.import_export",
     # Shopman core apps
@@ -248,4 +249,17 @@ UNFOLD = {
             },
         ],
     },
+}
+
+# ── REST Framework ─────────────────────────────────────────────────
+
+REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Shopman API",
+    "DESCRIPTION": "API do Django Shopman — commerce suite modular.",
+    "VERSION": "0.1.0",
+    "SERVE_INCLUDE_SCHEMA": False,
 }
