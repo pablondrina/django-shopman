@@ -1,50 +1,17 @@
-"""Shopman orchestration — connects presets and business rules to the ordering kernel.
+"""Shopman orchestration — channel presets and provisioning.
 
-This module is imported by ShopmanConfig.ready() and is responsible for:
-- Registering channel presets as Channel provisioning helpers
-- Registering any shopman-level validators/modifiers/handlers with the ordering registry
-- Providing the ``setup_channels`` helper for bootstrapping default channels
+Provides:
+- Channel preset definitions (pos, remote, marketplace)
+- ``setup_channels`` helper for bootstrapping default channels
 
-The orchestrator does NOT register handlers at import time.  Registration
-happens lazily when ``setup_channels`` is called (e.g. via management command
-or data migration).
+Handler and validator registration is handled by each module's AppConfig.ready()
+(e.g. StockConfig, NotificationsConfig, PaymentConfig, ConfirmationConfig).
 """
 
 from __future__ import annotations
 
 from shopman import presets
 from shopman.channels import ensure_channel
-from shopman.ordering import registry
-
-
-# ---------------------------------------------------------------------------
-# Extensions — register handlers, validators, etc. once
-# ---------------------------------------------------------------------------
-
-_extensions_registered = False
-
-
-def register_extensions():
-    """Register all shopman directive handlers and commit validators.
-
-    Safe to call multiple times — registrations are idempotent.
-    """
-    global _extensions_registered
-    if _extensions_registered:
-        return
-
-    from shopman.contrib.stock_handler import StockHoldHandler
-    from shopman.contrib.stock_validator import StockCheckValidator
-    from shopman.contrib.notification_handler import NotificationHandler
-
-    registry.register_directive_handler(StockHoldHandler())
-    registry.register_directive_handler(NotificationHandler())
-    registry.register_validator(StockCheckValidator())
-    _extensions_registered = True
-
-
-# Backward-compat alias
-register_stock_extensions = register_extensions
 
 
 # ---------------------------------------------------------------------------
@@ -119,8 +86,6 @@ def setup_channels(channel_defs=None):
     list[tuple[Channel, bool]]
         List of (channel, created) tuples.
     """
-    register_extensions()
-
     defs = channel_defs if channel_defs is not None else DEFAULT_CHANNELS
     results = []
 

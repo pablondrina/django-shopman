@@ -1,7 +1,7 @@
 """
 Commit-stage validator — blocks commit when stock check is required but missing or stale.
 
-Registered in orchestration.py via ``register_stock_extensions()``.
+Registered in stock/apps.py (StockConfig.ready).
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ import logging
 
 from shopman.ordering.exceptions import ValidationError
 
-logger = logging.getLogger("shopman.contrib.stock")
+logger = logging.getLogger(__name__)
 
 
 class StockCheckValidator:

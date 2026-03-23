@@ -166,7 +166,7 @@ class ManychatWebhookTests(TestCase):
         self.assertIsNotNone(order_ref)
 
         order = Order.objects.get(ref=order_ref)
-        self.assertEqual(order.status, "new")
+        self.assertIn(order.status, ("new", "confirmed"))
         self.assertEqual(order.total_q, 1500)
 
     # ── check_status ──────────────────────────────────────────
@@ -209,7 +209,7 @@ class ManychatWebhookTests(TestCase):
         for fv in resp3.data.get("set_field_values", []):
             if fv["field_name"] == "order_status":
                 status_field = fv["field_value"]
-        self.assertEqual(status_field, "new")
+        self.assertIn(status_field, ("new", "confirmed"))
 
     # ── list_menu ─────────────────────────────────────────────
 

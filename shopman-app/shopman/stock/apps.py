@@ -60,9 +60,10 @@ class StockConfig(AppConfig):
     verbose_name = _("Estoque")
 
     def ready(self):
-        from shopman.ordering.registry import register_directive_handler
+        from shopman.ordering.registry import register_directive_handler, register_validator
 
         from .handlers import StockCommitHandler, StockHoldHandler
+        from .validator import StockCheckValidator
 
         try:
             backend = _load_backend()
@@ -84,6 +85,12 @@ class StockConfig(AppConfig):
                 register_directive_handler(handler)
             except ValueError:
                 pass  # Already registered (reload)
+
+        # Register commit validator
+        try:
+            register_validator(StockCheckValidator())
+        except ValueError:
+            pass  # Already registered (reload)
 
         logger.info(
             "StockConfig: Registered %d stock handlers with %s.",
