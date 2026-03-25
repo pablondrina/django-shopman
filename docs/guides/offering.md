@@ -167,12 +167,12 @@ doces = CatalogService.search(keywords=["doce", "sobremesa"])
 
 #### Canal
 
-**`CatalogService.get_available_products(listing_code)`** — Produtos disponíveis num canal.
+**`CatalogService.get_available_products(listing_ref)`** — Produtos disponíveis num canal.
 ```python
 menu_whatsapp = CatalogService.get_available_products("whatsapp")
 ```
 
-**`CatalogService.is_product_available(product, listing_code)`** — Verifica disponibilidade num canal.
+**`CatalogService.is_product_available(product, listing_ref)`** — Verifica disponibilidade num canal.
 
 ## Protocols
 
@@ -209,7 +209,7 @@ class CostBackend(Protocol):
 | Sinal | Quando | Payload |
 |-------|--------|---------|
 | `product_created` | Primeiro save de Product | `sender`, `instance`, `sku` |
-| `price_changed` | Alteração em ListingItem.price_q | `sender`, `instance`, `listing_code`, `sku`, `old_price_q`, `new_price_q` |
+| `price_changed` | Alteração em ListingItem.price_q | `sender`, `instance`, `listing_ref`, `sku`, `old_price_q`, `new_price_q` |
 
 ## Configuração
 

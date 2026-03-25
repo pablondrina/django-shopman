@@ -4,8 +4,6 @@ Django settings for the Shopman project (Nelson Boulangerie demo).
 
 import os
 
-from django.urls import reverse_lazy
-
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-secret-key-not-for-production")
@@ -38,30 +36,23 @@ INSTALLED_APPS = [
     "shopman.stocking",
     "shopman.crafting",
     "shopman.ordering",
-    "shopman.attending",
-    "shopman.gating",
+    "shopman.payments",
+    "shopman.customers",
+    "shopman.auth",
     # Shopman core Unfold contribs
     "shopman.offering.contrib.admin_unfold",
     "shopman.stocking.contrib.admin_unfold",
     "shopman.crafting.contrib.admin_unfold",
-    "shopman.attending.contrib.insights",
-    "shopman.attending.contrib.admin_unfold",
-    "shopman.gating.contrib.admin_unfold",
+    "shopman.customers.contrib.insights",
+    "shopman.customers.contrib.admin_unfold",
+    "shopman.auth.contrib.admin_unfold",
     # Shopman orchestrator
     "shopman",
-    "shopman.identification",
-    "shopman.inventory",
-    "shopman.confirmation",
-    "shopman.notifications",
-    "shopman.payment",
-    "shopman.accounting",
-    "shopman.fiscal",
-    "shopman.returns",
-    "shopman.webhook",
+    # Shop (identidade + regras)
+    "shop",
     # Channels
+    "channels",
     "channels.web",
-    # Nelson Boulangerie (demo app)
-    "nelson",
 ]
 
 MIDDLEWARE = [
@@ -87,7 +78,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "channels.web.context_processors.cart_count",
-                "channels.web.context_processors.storefront_config",
+                "shop.context_processors.shop",
             ],
         },
     },
@@ -110,15 +101,32 @@ USE_I18N = True
 USE_TZ = True
 
 # ── Unfold Admin ────────────────────────────────────────────────────
+# Branding, TABS and SIDEBAR moved to shop/admin.py.
+# We can't import from shop.admin at settings load time (AppRegistryNotReady),
+# so we use reverse_lazy here directly. The SITE_TITLE callable reads Shop.name.
+
+from django.urls import reverse_lazy  # noqa: E402
+
+
+def _unfold_site_title(request=None):
+    try:
+        from shop.models import Shop
+        shop = Shop.load()
+        return shop.name if shop else "Shopman"
+    except Exception:
+        return "Shopman"
+
 
 UNFOLD = {
-    "SITE_TITLE": "Nelson Boulangerie",
-    "SITE_HEADER": "Nelson Boulangerie",
-    "SITE_SUBHEADER": "Padaria Artesanal Premium",
-    "SITE_SYMBOL": "bakery_dining",
+    "SITE_TITLE": _unfold_site_title,
+    "SITE_HEADER": _unfold_site_title,
+    "SITE_SYMBOL": "storefront",
     "SHOW_HISTORY": True,
     "SHOW_VIEW_ON_SITE": False,
     "SHOW_BACK_BUTTON": True,
+    "STYLES": [
+        lambda request: "/static/shop/css/admin-fix.css",
+    ],
     "COLORS": {
         "primary": {
             "50": "rgb(245, 240, 235)",
@@ -187,6 +195,13 @@ UNFOLD = {
                 ],
             },
             {
+                "title": "Loja",
+                "separator": True,
+                "items": [
+                    {"title": "Configuração", "icon": "storefront", "link": reverse_lazy("admin:shop_shop_changelist")},
+                ],
+            },
+            {
                 "title": "Central Omnicanal",
                 "separator": True,
                 "collapsible": True,
@@ -234,8 +249,8 @@ UNFOLD = {
                 "separator": True,
                 "collapsible": True,
                 "items": [
-                    {"title": "Clientes", "icon": "people", "link": reverse_lazy("admin:attending_customer_changelist")},
-                    {"title": "Grupos", "icon": "groups", "link": reverse_lazy("admin:attending_customergroup_changelist")},
+                    {"title": "Clientes", "icon": "people", "link": reverse_lazy("admin:customers_customer_changelist")},
+                    {"title": "Grupos", "icon": "groups", "link": reverse_lazy("admin:customers_customergroup_changelist")},
                 ],
             },
             {
@@ -255,6 +270,9 @@ UNFOLD = {
 
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
 }
 
 SPECTACULAR_SETTINGS = {
@@ -303,3 +321,19 @@ LOGGING = {
         },
     },
 }
+
+# ── Security ──────────────────────────────────────────────────────────
+
+if not DEBUG:
+    assert SECRET_KEY != "dev-secret-key-not-for-production", (
+        "SECRET_KEY must be set in production (DJANGO_SECRET_KEY env var)"
+    )
+    assert ALLOWED_HOSTS != ["*"], (
+        "ALLOWED_HOSTS must be explicit in production (DJANGO_ALLOWED_HOSTS env var)"
+    )
+
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True

@@ -95,12 +95,12 @@ def _check_alerts_for_sku(sku: str) -> None:
 
 def _dispatch_notification(alert, available) -> None:
     """
-    Create a Directive for notification if Omniman is available.
+    Create a Directive for notification if Ordering is available.
 
-    Graceful: logs and returns if Omniman is not installed.
+    Graceful: logs and returns if Ordering is not installed.
     """
     try:
-        from omniman.models import Directive
+        from shopman.ordering.models import Directive
 
         position_str = alert.position.ref if alert.position else "all"
 
@@ -126,7 +126,7 @@ def _dispatch_notification(alert, available) -> None:
         )
 
     except ImportError:
-        logger.debug("Omniman not available, skipping alert dispatch for alert_id=%s", alert.pk)
+        logger.debug("Ordering not available, skipping alert dispatch for alert_id=%s", alert.pk)
     except Exception:
         logger.warning(
             "Failed to create Directive for alert_id=%s",

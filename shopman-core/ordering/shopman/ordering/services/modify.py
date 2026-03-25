@@ -97,16 +97,36 @@ class ModifyService:
         for op in ops:
             items, data = ModifyService._apply_op(items, data, op, session)
 
-        session.items = items
+        session.update_items(items)
         session.data = data
 
-        # 3. Run modifiers
-        for modifier in registry.get_modifiers():
-            modifier.apply(channel=channel, session=session, ctx=ctx)
+        # 3. Run modifiers (filtered by channel config)
+        rules = (channel.config or {}).get("rules", {})
+        allowed_modifiers = rules.get("modifiers")  # None = run all, [] = none
 
-        # 4. Run validators (stage="draft")
+        # Infrastructure modifiers (pricing.*) always run
+        INFRA_PREFIXES = ("pricing.",)
+
+        for modifier in registry.get_modifiers():
+            code = getattr(modifier, "code", "")
+            is_infra = any(code.startswith(p) for p in INFRA_PREFIXES)
+            if is_infra:
+                modifier.apply(channel=channel, session=session, ctx=ctx)
+            elif allowed_modifiers is None:
+                # No rules.modifiers key → run all (backward compat)
+                modifier.apply(channel=channel, session=session, ctx=ctx)
+            elif code in allowed_modifiers:
+                modifier.apply(channel=channel, session=session, ctx=ctx)
+
+        # 4. Run validators (stage="draft", filtered by channel config)
+        allowed_validators = rules.get("validators")  # None = run all, [] = none
+
         for validator in registry.get_validators(stage="draft"):
-            validator.validate(channel=channel, session=session, ctx=ctx)
+            code = getattr(validator, "code", "")
+            if allowed_validators is None:
+                validator.validate(channel=channel, session=session, ctx=ctx)
+            elif code in allowed_validators:
+                validator.validate(channel=channel, session=session, ctx=ctx)
 
         # 5. Increment rev
         session.rev += 1
@@ -118,21 +138,20 @@ class ModifyService:
         # 7. Save session
         session.save()
 
-        # 8. Enqueue directives
-        required_checks = channel.config.get("required_checks_on_commit", [])
-        checks_config = channel.config.get("checks", {})
-        for check_code in required_checks:
-            check_opts = checks_config.get(check_code, {})
-            topic = check_opts.get("directive_topic") or f"{check_code}.hold"
-            Directive.objects.create(
-                topic=topic,
-                payload={
-                    "session_key": session.session_key,
-                    "channel_ref": channel.ref,
-                    "rev": session.rev,
-                    "items": session.items,
-                },
-            )
+        # 8. Enqueue directives for active checks
+        check_codes = rules.get("checks", [])
+        for check_code in check_codes:
+            check = registry.get_check(check_code)
+            if check:
+                Directive.objects.create(
+                    topic=check.topic,
+                    payload={
+                        "session_key": session.session_key,
+                        "channel_ref": channel.ref,
+                        "rev": session.rev,
+                        "items": session.items,
+                    },
+                )
 
         return session
 
@@ -214,6 +233,8 @@ class ModifyService:
         for item in items:
             if item["line_id"] == line_id:
                 item["qty"] = qty
+                # Clear line_total_q so _normalize_items recalculates it
+                item.pop("line_total_q", None)
                 break
         else:
             raise ValidationError(code="unknown_line_id", message="line_id não encontrado")

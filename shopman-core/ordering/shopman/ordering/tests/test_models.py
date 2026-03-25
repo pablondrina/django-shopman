@@ -193,15 +193,15 @@ class TestFulfillment(TestCase):
         ff.save()
         assert ff.status == "in_progress"
 
-        ff.status = "shipped"
+        ff.status = "dispatched"
         ff.save()
-        assert ff.status == "shipped"
+        assert ff.status == "dispatched"
 
     def test_invalid_fulfillment_transition(self):
         ch = Channel.objects.create(ref="pos")
         order = Order.objects.create(ref="ORD-FF-002", channel=ch)
         ff = Fulfillment.objects.create(order=order)
-        ff.status = "delivered"  # Skip shipped
+        ff.status = "delivered"  # Skip dispatched
         with pytest.raises(InvalidTransition):
             ff.save()
 
@@ -212,3 +212,50 @@ class TestIdempotencyKey(TestCase):
         idem = IdempotencyKey.objects.create(scope="commit:pos", key="KEY-1")
         assert idem.status == "in_progress"
         assert str(idem) == "commit:pos:KEY-1"
+
+
+@pytest.mark.django_db
+class TestSessionItemsReadOnly(TestCase):
+    """WP-H2: Session.items é read-only, update_items() persiste imediatamente."""
+
+    def setUp(self):
+        self.channel = Channel.objects.create(ref="h2-test", name="H2")
+        self.session = Session.objects.create(
+            session_key="H2-001",
+            channel=self.channel,
+            items=[{"sku": "A", "qty": 1, "unit_price_q": 100}],
+        )
+
+    def test_items_property_has_no_setter(self):
+        """Atribuir a session.items levanta AttributeError."""
+        with pytest.raises(AttributeError):
+            self.session.items = [{"sku": "B", "qty": 1, "unit_price_q": 200}]
+
+    def test_update_items_persists_to_database(self):
+        """update_items() persiste imediatamente sem precisar de save()."""
+        self.session.update_items([
+            {"sku": "X", "qty": 3, "unit_price_q": 500},
+        ])
+
+        fresh = Session.objects.get(pk=self.session.pk)
+        assert len(fresh.items) == 1
+        assert fresh.items[0]["sku"] == "X"
+
+    def test_save_does_not_persist_stale_items_cache(self):
+        """save() não auto-persiste _items_cache (sem side effect oculto)."""
+        self.session._items_cache = self.session._normalize_items([
+            {"sku": "STALE", "qty": 1, "unit_price_q": 999},
+        ])
+        self.session.save()
+
+        fresh = Session.objects.get(pk=self.session.pk)
+        assert fresh.items[0]["sku"] == "A"
+
+    def test_update_items_invalidates_and_refreshes_cache(self):
+        """update_items() atualiza o cache interno."""
+        self.session.update_items([
+            {"sku": "NEW", "qty": 2, "unit_price_q": 300},
+        ])
+
+        assert len(self.session.items) == 1
+        assert self.session.items[0]["sku"] == "NEW"

@@ -5,11 +5,11 @@ from django.shortcuts import get_object_or_404, render
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
-
-from shopman.utils.monetary import format_money
 from shopman.offering.models import Collection, Product
+from shopman.utils.monetary import format_money
 
-from ._helpers import _annotate_products, _get_availability, _get_price_q, _availability_badge
+from . import _helpers
+from ._helpers import _annotate_products, _availability_badge, _get_availability, _get_price_q
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
@@ -99,13 +99,16 @@ class ProductDetailView(View):
         avail = _get_availability(product.sku)
         badge = _availability_badge(avail, product)
 
-        # D-1 discount
         d1_price_display = None
         original_price_display = None
         is_d1 = False
         if avail and badge["css_class"] == "badge-d1" and price_q:
             is_d1 = True
-            d1_price_q = price_q // 2
+            from shopman.utils.monetary import monetary_div
+
+            d1_pct = _helpers._d1_discount_percent()
+            discount_q = monetary_div(price_q * d1_pct, 100)
+            d1_price_q = price_q - discount_q
             d1_price_display = f"R$ {format_money(d1_price_q)}"
             original_price_display = f"R$ {format_money(price_q)}"
             price_q = d1_price_q

@@ -8,15 +8,16 @@ from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
-
-from shopman.utils.monetary import format_money
-from shopman.utils.phone import normalize_phone
 from shopman.ordering.ids import generate_idempotency_key
 from shopman.ordering.models import Channel, Order
 from shopman.ordering.services.commit import CommitService
+from shopman.utils.monetary import format_money
+from shopman.utils.phone import normalize_phone
 
-from ..cart import CHANNEL_CODE, CartService
-from ..constants import STOREFRONT_CHANNEL_REF, get_default_ddd
+from channels.topics import PIX_GENERATE, STOCK_HOLD
+
+from ..cart import CHANNEL_REF, CartService
+from ..constants import get_default_ddd
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
@@ -121,7 +122,7 @@ class CheckoutView(View):
             if chosen_date and chosen_date > today and "delivery_date" not in errors:
                 total_qty = sum(item["qty"] for item in cart["items"])
                 try:
-                    channel_obj = Channel.objects.get(ref=CHANNEL_CODE)
+                    channel_obj = Channel.objects.get(ref=CHANNEL_REF)
                     min_qty = (channel_obj.config or {}).get("preorder_min_quantity", 1)
                 except Channel.DoesNotExist:
                     min_qty = 1
@@ -157,7 +158,7 @@ class CheckoutView(View):
 
         ModifyService.modify_session(
             session_key=session_key,
-            channel_ref=CHANNEL_CODE,
+            channel_ref=CHANNEL_REF,
             ops=ops,
         )
 
@@ -165,7 +166,7 @@ class CheckoutView(View):
         from shopman.ordering.models import Directive as OmniDirective
 
         try:
-            channel_obj = Channel.objects.get(ref=CHANNEL_CODE)
+            channel_obj = Channel.objects.get(ref=CHANNEL_REF)
             required_checks = (channel_obj.config or {}).get("required_checks_on_commit", [])
 
             if "stock" in required_checks:
@@ -174,10 +175,10 @@ class CheckoutView(View):
 
                 omni_session = OmniSession.objects.get(session_key=session_key, state="open")
                 stock_directive = OmniDirective.objects.create(
-                    topic="stock.hold",
+                    topic=STOCK_HOLD,
                     payload={
                         "session_key": session_key,
-                        "channel_ref": CHANNEL_CODE,
+                        "channel_ref": CHANNEL_REF,
                         "rev": omni_session.rev,
                         "items": [
                             {"sku": item["sku"], "qty": item["qty"]}
@@ -203,7 +204,7 @@ class CheckoutView(View):
         idempotency_key = generate_idempotency_key()
         result = CommitService.commit(
             session_key=session_key,
-            channel_ref=CHANNEL_CODE,
+            channel_ref=CHANNEL_REF,
             idempotency_key=idempotency_key,
         )
 
@@ -225,13 +226,13 @@ class CheckoutView(View):
             pass
 
         # Clear cart from Django session
-        request.session.pop("omniman_session_key", None)
+        request.session.pop("cart_session_key", None)
 
         # If channel has pix.generate in directives, redirect to payment
         try:
-            channel = Channel.objects.get(ref=CHANNEL_CODE)
+            channel = Channel.objects.get(ref=CHANNEL_REF)
             directives = (channel.config or {}).get("post_commit_directives", [])
-            if "pix.generate" in directives:
+            if PIX_GENERATE in directives:
                 return redirect("storefront:order_payment", ref=order_ref)
         except Channel.DoesNotExist:
             pass

@@ -53,6 +53,7 @@ class Position(models.Model):
         default=dict,
         blank=True,
         verbose_name=_('Metadados'),
+        help_text=_('Metadados da posição. Ex: {"temperature": "ambiente", "capacity": 500}'),
     )
     
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('criado em'))

@@ -52,7 +52,7 @@ class Recipe(models.Model):
         default=list,
         blank=True,
         verbose_name=_("Etapas"),
-        help_text=_("['Mistura', 'Modelagem', 'Forno']"),
+        help_text=_('Etapas de produção. Ex: ["Mistura", "Fermentação", "Modelagem", "Forno"]'),
     )
     is_active = models.BooleanField(
         default=True,
@@ -62,6 +62,7 @@ class Recipe(models.Model):
         default=dict,
         blank=True,
         verbose_name=_("Metadados"),
+        help_text=_('Metadados da receita. Ex: {"prep_time_min": 30, "bake_temp_c": 220}'),
     )
     created_at = models.DateTimeField(
         auto_now_add=True,

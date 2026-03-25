@@ -3,25 +3,15 @@ from __future__ import annotations
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-# Keys recognised by the kernel. Anything else triggers a validation warning.
+# Keys recognised by ChannelConfig (7 aspects). Anything else triggers a validation warning.
 KNOWN_CONFIG_KEYS = frozenset({
-    "preset",
-    "icon",
-    "required_checks_on_commit",
-    "checks",
-    "post_commit_directives",
-    "post_abandon_directives",
-    "notification_template",
-    "order_flow",
-    "notifications",
-    "notification_routing",
-    "terminology",
-    "status_flow",
-    "confirmation_flow",
-    "stock",
+    "confirmation",
     "payment",
-    "opening_hours",
-    "safety_margin",
+    "stock",
+    "pipeline",
+    "notifications",
+    "rules",
+    "flow",
 })
 
 
@@ -29,17 +19,20 @@ class Channel(models.Model):
     """
     Canal de origem do pedido (PDV, e-commerce, iFood, etc.)
 
-    Config convencionais (não interpretadas pelo Kernel):
-    {
-      "icon": "point_of_sale",
-      "required_checks_on_commit": ["stock"],
-      "terminology": {"order": "Comanda", "order_plural": "Comandas"},
-      "status_flow": ["NEW", "IN_PROGRESS", "READY", "COMPLETED"]
-    }
+    Config segue o schema do ChannelConfig dataclass (7 aspectos):
+    confirmation, payment, stock, pipeline, notifications, rules, flow.
+    Use presets: pos(), remote(), marketplace() para templates comuns.
     """
 
     ref = models.CharField(_("código"), max_length=64, unique=True)
     name = models.CharField(_("nome"), max_length=128, blank=True, default="")
+    listing_ref = models.CharField(
+        _("listagem"),
+        max_length=50,
+        blank=True,
+        default="",
+        help_text=_("Ref da Listing que serve como catálogo deste canal"),
+    )
 
     pricing_policy = models.CharField(
         _("política de preço"),
@@ -55,7 +48,22 @@ class Channel(models.Model):
     )
 
     display_order = models.PositiveIntegerField(_("ordem de exibição"), default=0, db_index=True)
-    config = models.JSONField(_("configuração"), default=dict, blank=True)
+    config = models.JSONField(
+        _("configuração"),
+        default=dict,
+        blank=True,
+        help_text=_(
+            "ChannelConfig schema (7 aspectos). Chaves: "
+            "confirmation {mode, timeout_minutes}, "
+            "payment {method, timeout_minutes}, "
+            "stock {hold_ttl_minutes, safety_margin, planned_hold_ttl_hours}, "
+            "pipeline {on_commit, on_confirmed, on_cancelled, ...} (listas de topics), "
+            "notifications {backend, fallback, routing}, "
+            "rules {validators, modifiers, checks}, "
+            "flow {transitions, terminal_statuses, auto_transitions, auto_sync_fulfillment}. "
+            "Use presets: pos(), remote(), marketplace()."
+        ),
+    )
     is_active = models.BooleanField(_("ativo"), default=True)
 
     created_at = models.DateTimeField(_("criado em"), auto_now_add=True)

@@ -1,9 +1,10 @@
-"""Tests for signal-driven directive dispatch."""
+"""Tests for signal-driven directive dispatch with transaction safety."""
 from __future__ import annotations
 
 from datetime import timedelta
 
-from django.test import TestCase
+from django.db import transaction
+from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 
 from shopman.ordering import registry
@@ -62,32 +63,35 @@ class DirectiveDispatchTests(TestCase):
         super().tearDown()
 
     def test_directive_processed_automatically_on_create(self) -> None:
-        """Creating a queued directive triggers immediate processing."""
-        directive = Directive.objects.create(
-            topic="test.success",
-            payload={"key": "value"},
-        )
+        """Creating a queued directive triggers processing after commit."""
+        with self.captureOnCommitCallbacks(execute=True):
+            directive = Directive.objects.create(
+                topic="test.success",
+                payload={"key": "value"},
+            )
         directive.refresh_from_db()
         self.assertEqual(directive.status, "done")
         self.assertEqual(self.success_handler.calls, 1)
 
     def test_directive_not_dispatched_when_status_not_queued(self) -> None:
         """Directives created with non-queued status are not dispatched."""
-        directive = Directive.objects.create(
-            topic="test.success",
-            payload={},
-            status="done",
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            directive = Directive.objects.create(
+                topic="test.success",
+                payload={},
+                status="done",
+            )
         directive.refresh_from_db()
         self.assertEqual(directive.status, "done")
         self.assertEqual(self.success_handler.calls, 0)
 
     def test_failed_handler_marks_queued_with_backoff(self) -> None:
         """A failing handler sets status=queued with backoff on first attempt."""
-        directive = Directive.objects.create(
-            topic="test.fail",
-            payload={},
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            directive = Directive.objects.create(
+                topic="test.fail",
+                payload={},
+            )
         directive.refresh_from_db()
         self.assertEqual(directive.status, "queued")
         self.assertEqual(directive.attempts, 1)
@@ -96,10 +100,11 @@ class DirectiveDispatchTests(TestCase):
 
     def test_failed_handler_marks_failed_after_max_attempts(self) -> None:
         """After max attempts, directive is marked as failed."""
-        directive = Directive.objects.create(
-            topic="test.fail",
-            payload={},
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            directive = Directive.objects.create(
+                topic="test.fail",
+                payload={},
+            )
         # Simulate having reached max attempts - 1
         directive.refresh_from_db()
         directive.attempts = 4
@@ -117,10 +122,11 @@ class DirectiveDispatchTests(TestCase):
 
     def test_no_handler_leaves_directive_queued(self) -> None:
         """Directive with no registered handler stays queued."""
-        directive = Directive.objects.create(
-            topic="test.unregistered",
-            payload={},
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            directive = Directive.objects.create(
+                topic="test.unregistered",
+                payload={},
+            )
         directive.refresh_from_db()
         # Status stays queued (signal fires but no handler)
         self.assertEqual(directive.status, "queued")
@@ -139,10 +145,11 @@ class DirectiveDispatchTests(TestCase):
         Directive.objects.bulk_create([old])
 
         # Create a new directive — triggers dispatch + opportunistic retry
-        new = Directive.objects.create(
-            topic="test.success",
-            payload={"id": "new"},
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            new = Directive.objects.create(
+                topic="test.success",
+                payload={"id": "new"},
+            )
 
         # New directive: processed immediately
         new.refresh_from_db()
@@ -154,15 +161,17 @@ class DirectiveDispatchTests(TestCase):
 
     def test_update_does_not_trigger_dispatch(self) -> None:
         """Updating an existing directive does not re-trigger dispatch."""
-        directive = Directive.objects.create(
-            topic="test.success",
-            payload={},
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            directive = Directive.objects.create(
+                topic="test.success",
+                payload={},
+            )
         initial_calls = self.success_handler.calls
 
         # Update the directive
-        directive.last_error = "test"
-        directive.save(update_fields=["last_error"])
+        with self.captureOnCommitCallbacks(execute=True):
+            directive.last_error = "test"
+            directive.save(update_fields=["last_error"])
 
         self.assertEqual(self.success_handler.calls, initial_calls)
 
@@ -189,8 +198,118 @@ class DirectiveDispatchTests(TestCase):
         registry.register_directive_handler(ParentHandler())
         registry.register_directive_handler(ChildHandler())
 
-        Directive.objects.create(topic="parent", payload={})
+        with self.captureOnCommitCallbacks(execute=True):
+            Directive.objects.create(topic="parent", payload={})
 
         # Child should still be queued (reentrancy guard)
         child = Directive.objects.get(pk=created_ids[0])
         self.assertEqual(child.status, "queued")
+
+    def test_directive_processed_only_after_commit(self) -> None:
+        """Directive callback is deferred — not executed inside the transaction."""
+        with self.captureOnCommitCallbacks(execute=False) as callbacks:
+            directive = Directive.objects.create(
+                topic="test.success",
+                payload={},
+            )
+            # Before callbacks execute, directive is still queued
+            directive.refresh_from_db()
+            self.assertEqual(directive.status, "queued")
+            self.assertEqual(self.success_handler.calls, 0)
+
+        # Now execute the captured callbacks
+        for callback in callbacks:
+            callback()
+
+        directive.refresh_from_db()
+        self.assertEqual(directive.status, "done")
+        self.assertEqual(self.success_handler.calls, 1)
+
+    def test_refetch_ensures_fresh_state(self) -> None:
+        """on_commit callback re-fetches directive, skips if status changed."""
+        from shopman.ordering.dispatch import _on_commit_callback
+
+        with self.captureOnCommitCallbacks(execute=True):
+            directive = Directive.objects.create(
+                topic="test.success",
+                payload={},
+            )
+
+        # directive is now "done"; reset handler count
+        self.success_handler.calls = 0
+
+        # Manually invoke callback again — should skip because status != "queued"
+        _on_commit_callback(directive.pk, directive.topic)
+
+        self.assertEqual(self.success_handler.calls, 0)
+
+    def test_refetch_skips_deleted_directive(self) -> None:
+        """on_commit callback handles deleted directive gracefully."""
+        from shopman.ordering.dispatch import _on_commit_callback
+
+        # Use a non-existent pk
+        _on_commit_callback(999999, "test.success")
+        # No error raised, handler not called
+        self.assertEqual(self.success_handler.calls, 0)
+
+    def test_reentrancy_guard_with_on_commit(self) -> None:
+        """Child directives created during on_commit processing stay queued."""
+        child_ids = []
+
+        class SpawnerHandler:
+            topic = "spawner"
+
+            def handle(self, *, message, ctx):
+                child = Directive.objects.create(topic="spawned", payload={})
+                child_ids.append(child.pk)
+                message.status = "done"
+                message.save(update_fields=["status"])
+
+        class SpawnedHandler:
+            topic = "spawned"
+
+            def handle(self, *, message, ctx):
+                message.status = "done"
+                message.save(update_fields=["status"])
+
+        registry.register_directive_handler(SpawnerHandler())
+        registry.register_directive_handler(SpawnedHandler())
+
+        with self.captureOnCommitCallbacks(execute=True):
+            Directive.objects.create(topic="spawner", payload={})
+
+        # Parent processed, child stays queued (reentrancy guard)
+        self.assertTrue(len(child_ids) > 0)
+        child = Directive.objects.get(pk=child_ids[0])
+        self.assertEqual(child.status, "queued")
+
+
+class DirectiveRollbackTests(TransactionTestCase):
+    """Tests requiring real transaction rollback (TransactionTestCase)."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        registry.clear()
+        self.success_handler = SuccessHandler()
+        registry.register_directive_handler(self.success_handler)
+
+    def tearDown(self) -> None:
+        registry.clear()
+        super().tearDown()
+
+    def test_directive_not_processed_on_rollback(self) -> None:
+        """on_commit callbacks do not fire when the transaction is rolled back."""
+        try:
+            with transaction.atomic():
+                Directive.objects.create(
+                    topic="test.success",
+                    payload={"should": "rollback"},
+                )
+                raise Exception("force rollback")
+        except Exception:
+            pass
+
+        # Directive was rolled back — nothing in DB
+        self.assertEqual(Directive.objects.count(), 0)
+        # Handler was never called
+        self.assertEqual(self.success_handler.calls, 0)

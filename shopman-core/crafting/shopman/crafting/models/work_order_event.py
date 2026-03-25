@@ -45,6 +45,7 @@ class WorkOrderEvent(models.Model):
         default=dict,
         blank=True,
         verbose_name=_("Dados"),
+        help_text=_('Dados do evento. Ex: {"produced": 48, "waste": 2}'),
     )
     actor = models.CharField(
         max_length=100,

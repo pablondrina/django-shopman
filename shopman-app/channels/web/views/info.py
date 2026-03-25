@@ -3,13 +3,12 @@ from __future__ import annotations
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.views import View
-
-from shopman.utils.monetary import format_money
-from shopman.utils.phone import normalize_phone
 from shopman.offering.models import Collection, Product
 from shopman.ordering.models import Order
+from shopman.utils.monetary import format_money
+from shopman.utils.phone import normalize_phone
 
-from .tracking import STATUS_LABELS, STATUS_COLORS
+from .tracking import STATUS_COLORS, STATUS_LABELS
 
 
 class HowItWorksView(View):

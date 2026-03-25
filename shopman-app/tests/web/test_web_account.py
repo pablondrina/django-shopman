@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 from django.test import Client
-from shopman.attending.models import CustomerAddress
+from shopman.customers.models import CustomerAddress
 
 pytestmark = pytest.mark.django_db
 

@@ -25,7 +25,7 @@ Signals:
         Kwargs:
             sender: ListingItem class
             instance: The ListingItem instance
-            listing_code: str — the listing code
+            listing_ref: str — the listing code
             sku: str — the product SKU
             old_price_q: int — previous price in centavos
             new_price_q: int — new price in centavos

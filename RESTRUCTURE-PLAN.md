@@ -44,7 +44,7 @@ O que acontece: o registry recebe `ValueError` no segundo registro (mesmo topic)
 **1.3 Naming confusion**
 
 - `shopman.stock` (orquestrador) vs `shopman.stocking` (core) — dev novo confunde
-- `shopman.customer` (orquestrador) vs `shopman.attending` (core) — idem
+- `shopman.customer` (orquestrador) vs `shopman.customers` (core) — idem
 - `contrib/` contém handlers "legados" que fazem a mesma coisa que os módulos novos
 
 **1.4 Infraestrutura misturada com domínio**
@@ -239,8 +239,8 @@ docs/guides/
 ├── stocking.md          # Estoque, holds, moves, batches, planejamento
 ├── crafting.md          # Receitas, work orders, BOM, coef. français
 ├── ordering.md          # Pedidos, sessões, canais, directives, fulfillment
-├── attending.md         # Clientes, contatos, grupos, loyalty, consent
-├── gating.md            # Auth, OTP, device trust, bridge tokens
+├── customers.md         # Clientes, contatos, grupos, loyalty, consent
+├── auth.md            # Auth, OTP, device trust, bridge tokens
 └── orchestration.md     # Como os módulos se conectam, signal flow, presets
 ```
 
@@ -249,8 +249,8 @@ docs/guides/
 - `docs/guias/estoque.md` → `stocking.md`
 - `docs/guias/producao.md` → `crafting.md`
 - `docs/guias/ciclo-do-pedido.md` → `ordering.md`
-- `docs/guias/clientes.md` → `attending.md`
-- `docs/guias/autenticacao.md` → `gating.md`
+- `docs/guias/clientes.md` → `customers.md`
+- `docs/guias/autenticacao.md` → `auth.md`
 - Novo: `orchestration.md` (não existia na suite antiga)
 
 #### Regras:
@@ -350,7 +350,7 @@ Projeto: django-shopman (repo em /Users/pablovalentini/Dev/Claude/django-shopman
 Leia RESTRUCTURE-PLAN.md (seção WP-D1). Crie a documentação fundacional.
 
 Você tem acesso à suite antiga em /Users/pablovalentini/Dev/Claude/django-shopman-suite/ como referência.
-Os nomes mudaram: offerman→offering, stockman→stocking, omniman→ordering, craftsman→crafting, guestman→attending, doorman→gating, commons→utils.
+Os nomes mudaram: offerman→offering, stockman→stocking, omniman→ordering, craftsman→crafting, guestman→customers, doorman→auth, commons→utils.
 
 O que fazer:
 1. Criar README.md na raiz do repo com: visão geral, quickstart (make install/seed/run), estrutura do projeto, link para docs/
@@ -377,15 +377,15 @@ Projeto: django-shopman (repo em /Users/pablovalentini/Dev/Claude/django-shopman
 Leia RESTRUCTURE-PLAN.md (seção WP-D2). Crie os guias de domínio.
 
 Suite antiga em /Users/pablovalentini/Dev/Claude/django-shopman-suite/ como referência (docs/guias/).
-Mapa: offerman→offering, stockman→stocking, omniman→ordering, craftsman→crafting, guestman→attending, doorman→gating.
+Mapa: offerman→offering, stockman→stocking, omniman→ordering, craftsman→crafting, guestman→customers, doorman→auth.
 
-Para CADA guia (offering, stocking, crafting, ordering, attending, gating, orchestration):
+Para CADA guia (offering, stocking, crafting, ordering, customers, auth, orchestration):
 1. Ler os models.py, service.py, protocols.py do app correspondente no repo ATUAL
 2. Ler o guia equivalente na suite antiga como referência (NÃO como fonte de verdade)
 3. Escrever o guia com estrutura: Conceitos → Modelos → Serviços → Protocols → Exemplos
 4. Verificar cada exemplo de código contra o repo atual
 
-Ordem sugerida: offering → stocking → crafting → ordering → attending → gating → orchestration.
+Ordem sugerida: offering → stocking → crafting → ordering → customers → auth → orchestration.
 O último (orchestration.md) é NOVO — não existe na suite antiga. Documentar:
 - Como os módulos de shopman-app/shopman/ se conectam via signals e directives
 - O fluxo de um pedido do commit até a conclusão
@@ -408,7 +408,7 @@ Projeto: django-shopman (repo em /Users/pablovalentini/Dev/Claude/django-shopman
 Leia RESTRUCTURE-PLAN.md (seção WP-D3). Crie a documentação de referência técnica.
 
 Suite antiga em /Users/pablovalentini/Dev/Claude/django-shopman-suite/ como referência (docs/referencia/).
-Mapa: offerman→offering, stockman→stocking, omniman→ordering, craftsman→crafting, guestman→attending, doorman→gating.
+Mapa: offerman→offering, stockman→stocking, omniman→ordering, craftsman→crafting, guestman→customers, doorman→auth.
 
 Para CADA documento de referência:
 1. protocols.md — Ler TODOS os arquivos protocols.py do repo atual. Listar cada protocol, onde é definido, quais adapters existem.
@@ -439,7 +439,7 @@ Ao final, gere o commit message e um resumo do que foi feito nos 4 WPs.
 | stockman | shopman.stocking | stocking |
 | craftsman | shopman.crafting | crafting |
 | omniman | shopman.ordering | ordering |
-| guestman | shopman.attending | attending |
-| doorman | shopman.gating | gating |
+| guestman | shopman.customers | customers |
+| doorman | shopman.auth | auth |
 | omniman/contrib/* | shopman-app/shopman/* | shopman_* |
 | shopman-nelson | shopman-app/nelson | nelson |

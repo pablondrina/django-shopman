@@ -149,12 +149,12 @@ class TestCooldown:
 
 
 class TestDirectiveCreation:
-    """Alert dispatch creates Directive when Omniman is available."""
+    """Alert dispatch creates Directive when Ordering is available."""
 
-    @pytest.mark.skip(reason="Requires shopman.ordering (omniman) — not yet migrated")
+    @pytest.mark.skip(reason="Requires shopman.ordering — not yet migrated")
     def test_dispatch_creates_directive(self, stocked_product, vitrine, alert):
         """Triggered alert creates a Directive with notification.send topic."""
-        from omniman.models import Directive
+        from shopman.ordering.models import Directive
 
         product, quant = stocked_product
         stock.issue(Decimal("35"), quant, reason="Sale")
@@ -165,8 +165,8 @@ class TestDirectiveCreation:
         assert d.payload["event"] == "stock.alert.triggered"
         assert d.payload["context"]["alert_id"] == alert.pk
 
-    def test_dispatch_graceful_without_omniman(self, stocked_product, vitrine, alert):
-        """Without Omniman, dispatch logs and returns gracefully."""
+    def test_dispatch_graceful_without_ordering(self, stocked_product, vitrine, alert):
+        """Without Ordering, dispatch logs and returns gracefully."""
         product, quant = stocked_product
 
         with patch(

@@ -113,7 +113,7 @@ def listing(db):
     from shopman.offering.models import Listing
 
     return Listing.objects.create(
-        code="ifood",
+        ref="ifood",
         name="Preços iFood",
         is_active=True,
         priority=10,

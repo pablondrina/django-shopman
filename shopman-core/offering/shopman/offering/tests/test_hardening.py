@@ -214,7 +214,7 @@ class TestListingChannelOverride:
     def test_listing_overrides_base_price(self, product_a):
         """Listing item price takes precedence over base_price_q."""
         listing = Listing.objects.create(
-            code="ifood",
+            ref="ifood",
             name="iFood",
             is_active=True,
             priority=10,

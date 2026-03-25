@@ -16,9 +16,10 @@ from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
 
-from shopman.notifications.handlers import NotificationSendHandler, DEFAULT_ROUTING
-from shopman.notifications.protocols import NotificationResult
-from shopman.notifications.service import register_backend, _backends
+from channels.handlers.notification import NotificationSendHandler, DEFAULT_ROUTING
+from channels.protocols import NotificationResult
+from channels.notifications import register_backend, _backends
+from channels.topics import NOTIFICATION_SEND
 from shopman.ordering.models import Channel, Directive, Order
 
 
@@ -63,7 +64,7 @@ class NotificationSendHandlerRoutingTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             payload={"order_ref": order.ref, "template": "order_confirmed"},
         )
 
@@ -86,7 +87,7 @@ class NotificationSendHandlerRoutingTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             payload={"order_ref": order.ref, "template": "order_confirmed"},
         )
 
@@ -104,7 +105,7 @@ class NotificationSendHandlerRoutingTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             payload={"order_ref": order.ref, "template": "test"},
         )
 
@@ -121,7 +122,7 @@ class NotificationSendHandlerRoutingTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             payload={"order_ref": order.ref, "template": "order_confirmed"},
         )
 
@@ -139,7 +140,7 @@ class NotificationSendHandlerRoutingTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             payload={"order_ref": order.ref, "template": "order_confirmed"},
         )
 
@@ -178,7 +179,7 @@ class NotificationSendHandlerRecipientTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             payload={"order_ref": order.ref, "template": "test"},
         )
 
@@ -200,7 +201,7 @@ class NotificationSendHandlerRecipientTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             payload={"order_ref": order.ref, "template": "test"},
         )
 
@@ -222,7 +223,7 @@ class NotificationSendHandlerRecipientTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             payload={"order_ref": order.ref, "template": "test"},
         )
 
@@ -243,7 +244,7 @@ class NotificationSendHandlerRecipientTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             payload={"order_ref": order.ref, "template": "test"},
         )
 
@@ -267,7 +268,7 @@ class NotificationSendHandlerEdgeCaseTests(TestCase):
     def test_missing_order_ref_fails(self) -> None:
         """No order_ref in payload → failed."""
         directive = _create_directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             payload={"template": "test"},
         )
 
@@ -280,7 +281,7 @@ class NotificationSendHandlerEdgeCaseTests(TestCase):
     def test_order_not_found_fails(self) -> None:
         """Nonexistent order → failed."""
         directive = _create_directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             payload={"order_ref": "NONEXISTENT", "template": "test"},
         )
 
@@ -299,7 +300,7 @@ class NotificationSendHandlerEdgeCaseTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             payload={"order_ref": order.ref, "template": "payment.reminder"},
         )
 
@@ -324,7 +325,7 @@ class NotificationSendHandlerEdgeCaseTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             payload={"order_ref": order.ref, "template": "payment.reminder"},
         )
 
@@ -358,7 +359,7 @@ class NotificationSendHandlerEdgeCaseTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             payload={"order_ref": order.ref, "template": "order_confirmed"},
         )
 
@@ -390,7 +391,7 @@ class NotificationSendHandlerEdgeCaseTests(TestCase):
 
         # First attempt → queued
         directive = _create_directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             payload={"order_ref": order.ref, "template": "test"},
         )
 
@@ -420,7 +421,7 @@ class NotificationSendHandlerEdgeCaseTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             payload={"order_ref": order.ref, "template": "test"},
         )
         # Simulate 5 previous attempts
@@ -454,7 +455,7 @@ class NotificationSendHandlerEdgeCaseTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             payload={"order_ref": order.ref, "template": "payment_confirmed"},
         )
 
@@ -483,7 +484,7 @@ class NotificationSendHandlerEdgeCaseTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             payload={"order_ref": order.ref, "template": "test"},
         )
 

@@ -10,7 +10,7 @@ Itens de infra (Docker, CI, security hardening) ficam para véspera do deploy.
 
 ## ~~WP-C1: Rename orquestrador — stock → inventory, customer → identification~~ DONE (e1144a2)
 
-**Por quê:** Os nomes `stock` e `customer` colidem semanticamente com as apps core `stocking` e `attending`. Todos os demais módulos do orquestrador têm nomes distintos (confirmation, pricing, payment...). Projeto novo, sem legado — corrigir agora.
+**Por quê:** Os nomes `stock` e `customer` colidem semanticamente com as apps core `stocking` e `customers`. Todos os demais módulos do orquestrador têm nomes distintos (confirmation, pricing, payment...). Projeto novo, sem legado — corrigir agora.
 
 **ADR-005:** Será atualizado para Status: Superseded, com referência a esta decisão.
 

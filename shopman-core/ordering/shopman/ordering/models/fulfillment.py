@@ -8,20 +8,20 @@ class Fulfillment(models.Model):
     """
     Fulfillment de um pedido (ou parte dele).
 
-    Lifecycle: pending → in_progress → shipped → delivered (ou cancelled)
+    Lifecycle: pending → in_progress → dispatched → delivered (ou cancelled)
     """
 
     class Status(models.TextChoices):
         PENDING = "pending", _("pendente")
         IN_PROGRESS = "in_progress", _("em andamento")
-        SHIPPED = "shipped", _("enviado")
+        DISPATCHED = "dispatched", _("despachado")
         DELIVERED = "delivered", _("entregue")
         CANCELLED = "cancelled", _("cancelado")
 
     TRANSITIONS = {
         Status.PENDING: [Status.IN_PROGRESS, Status.CANCELLED],
-        Status.IN_PROGRESS: [Status.SHIPPED, Status.CANCELLED],
-        Status.SHIPPED: [Status.DELIVERED],
+        Status.IN_PROGRESS: [Status.DISPATCHED, Status.CANCELLED],
+        Status.DISPATCHED: [Status.DELIVERED],
         Status.DELIVERED: [],
         Status.CANCELLED: [],
     }
@@ -45,11 +45,14 @@ class Fulfillment(models.Model):
     tracking_url = models.URLField(_("URL de rastreio"), blank=True, default="")
     carrier = models.CharField(_("transportadora"), max_length=64, blank=True, default="")
     notes = models.TextField(_("observações"), blank=True, default="")
-    meta = models.JSONField(_("metadados"), default=dict, blank=True)
+    meta = models.JSONField(
+        _("metadados"), default=dict, blank=True,
+        help_text=_('Metadados de entrega. Ex: {"tracking_code": "BR123", "carrier": "correios"}'),
+    )
 
     created_at = models.DateTimeField(_("criado em"), auto_now_add=True)
     updated_at = models.DateTimeField(_("atualizado em"), auto_now=True)
-    shipped_at = models.DateTimeField(_("enviado em"), null=True, blank=True)
+    dispatched_at = models.DateTimeField(_("despachado em"), null=True, blank=True)
     delivered_at = models.DateTimeField(_("entregue em"), null=True, blank=True)
 
     class Meta:
@@ -80,6 +83,14 @@ class Fulfillment(models.Model):
                         "allowed_transitions": [str(s) for s in allowed],
                     },
                 )
+
+            # Auto-set timestamps on transition
+            from django.utils import timezone
+
+            if self.status == self.Status.DISPATCHED and not self.dispatched_at:
+                self.dispatched_at = timezone.now()
+            elif self.status == self.Status.DELIVERED and not self.delivered_at:
+                self.delivered_at = timezone.now()
 
         super().save(*args, **kwargs)
         self._original_status = self.status

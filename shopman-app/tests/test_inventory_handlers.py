@@ -16,8 +16,9 @@ from unittest.mock import Mock
 from django.test import TestCase
 from django.utils import timezone
 
-from shopman.inventory.handlers import StockCommitHandler, StockHoldHandler
-from shopman.inventory.protocols import AvailabilityResult, HoldResult
+from channels.handlers.stock import StockCommitHandler, StockHoldHandler
+from channels.protocols import AvailabilityResult, HoldResult
+from channels.topics import STOCK_COMMIT, STOCK_HOLD
 from shopman.ordering.models import Channel, Directive, Session
 
 
@@ -87,11 +88,11 @@ class StockHoldHandlerTests(TestCase):
         self.handler = StockHoldHandler(backend=self.backend)
 
     def test_handler_has_correct_topic(self) -> None:
-        self.assertEqual(self.handler.topic, "stock.hold")
+        self.assertEqual(self.handler.topic, STOCK_HOLD)
 
     def test_creates_holds_for_available_stock(self) -> None:
         directive = Directive.objects.create(
-            topic="stock.hold",
+            topic=STOCK_HOLD,
             payload={
                 "session_key": self.session.session_key,
                 "channel_ref": self.channel.ref,
@@ -108,7 +109,7 @@ class StockHoldHandlerTests(TestCase):
 
     def test_releases_previous_holds_before_creating_new(self) -> None:
         directive = Directive.objects.create(
-            topic="stock.hold",
+            topic=STOCK_HOLD,
             payload={
                 "session_key": self.session.session_key,
                 "channel_ref": self.channel.ref,
@@ -121,14 +122,13 @@ class StockHoldHandlerTests(TestCase):
         self.assertIn(self.session.session_key, self.backend.released_references)
 
     def test_aggregates_items_by_sku(self) -> None:
-        self.session.items = [
+        self.session.update_items([
             {"line_id": "L1", "sku": "SAME-SKU", "qty": 2, "unit_price_q": 100},
             {"line_id": "L2", "sku": "SAME-SKU", "qty": 3, "unit_price_q": 100},
-        ]
-        self.session.save()
+        ])
 
         directive = Directive.objects.create(
-            topic="stock.hold",
+            topic=STOCK_HOLD,
             payload={
                 "session_key": self.session.session_key,
                 "channel_ref": self.channel.ref,
@@ -151,7 +151,7 @@ class StockHoldHandlerTests(TestCase):
         }
 
         directive = Directive.objects.create(
-            topic="stock.hold",
+            topic=STOCK_HOLD,
             payload={
                 "session_key": self.session.session_key,
                 "channel_ref": self.channel.ref,
@@ -177,7 +177,7 @@ class StockHoldHandlerTests(TestCase):
         }
 
         directive = Directive.objects.create(
-            topic="stock.hold",
+            topic=STOCK_HOLD,
             payload={
                 "session_key": self.session.session_key,
                 "channel_ref": self.channel.ref,
@@ -197,7 +197,7 @@ class StockHoldHandlerTests(TestCase):
 
     def test_skip_when_session_not_found(self) -> None:
         directive = Directive.objects.create(
-            topic="stock.hold",
+            topic=STOCK_HOLD,
             payload={
                 "session_key": "NONEXISTENT",
                 "channel_ref": self.channel.ref,
@@ -214,7 +214,7 @@ class StockHoldHandlerTests(TestCase):
 
     def test_skip_when_rev_mismatch(self) -> None:
         directive = Directive.objects.create(
-            topic="stock.hold",
+            topic=STOCK_HOLD,
             payload={
                 "session_key": self.session.session_key,
                 "channel_ref": self.channel.ref,
@@ -234,7 +234,7 @@ class StockHoldHandlerTests(TestCase):
         self.session.save()
 
         directive = Directive.objects.create(
-            topic="stock.hold",
+            topic=STOCK_HOLD,
             payload={
                 "session_key": self.session.session_key,
                 "channel_ref": self.channel.ref,
@@ -256,7 +256,7 @@ class StockHoldHandlerTests(TestCase):
         )
 
         directive = Directive.objects.create(
-            topic="stock.hold",
+            topic=STOCK_HOLD,
             payload={
                 "session_key": self.session.session_key,
                 "channel_ref": self.channel.ref,
@@ -272,7 +272,7 @@ class StockHoldHandlerTests(TestCase):
 
     def test_stores_check_result_in_session(self) -> None:
         directive = Directive.objects.create(
-            topic="stock.hold",
+            topic=STOCK_HOLD,
             payload={
                 "session_key": self.session.session_key,
                 "channel_ref": self.channel.ref,
@@ -296,7 +296,7 @@ class StockHoldHandlerTests(TestCase):
         }
 
         directive = Directive.objects.create(
-            topic="stock.hold",
+            topic=STOCK_HOLD,
             payload={
                 "session_key": self.session.session_key,
                 "channel_ref": self.channel.ref,
@@ -344,11 +344,11 @@ class StockCommitHandlerTests(TestCase):
         self.handler = StockCommitHandler(backend=self.backend)
 
     def test_handler_has_correct_topic(self) -> None:
-        self.assertEqual(self.handler.topic, "stock.commit")
+        self.assertEqual(self.handler.topic, STOCK_COMMIT)
 
     def test_fulfills_holds_from_payload(self) -> None:
         directive = Directive.objects.create(
-            topic="stock.commit",
+            topic=STOCK_COMMIT,
             payload={
                 "holds": [
                     {"hold_id": "HOLD-001"},
@@ -368,7 +368,7 @@ class StockCommitHandlerTests(TestCase):
 
     def test_gets_holds_from_session_when_not_in_payload(self) -> None:
         directive = Directive.objects.create(
-            topic="stock.commit",
+            topic=STOCK_COMMIT,
             payload={
                 "session_key": self.session.session_key,
                 "channel_ref": self.channel.ref,
@@ -384,7 +384,7 @@ class StockCommitHandlerTests(TestCase):
 
     def test_handles_empty_holds(self) -> None:
         directive = Directive.objects.create(
-            topic="stock.commit",
+            topic=STOCK_COMMIT,
             payload={"holds": []},
         )
 
@@ -396,7 +396,7 @@ class StockCommitHandlerTests(TestCase):
 
     def test_handles_session_not_found(self) -> None:
         directive = Directive.objects.create(
-            topic="stock.commit",
+            topic=STOCK_COMMIT,
             payload={
                 "session_key": "NONEXISTENT",
                 "channel_ref": self.channel.ref,
@@ -410,7 +410,7 @@ class StockCommitHandlerTests(TestCase):
 
     def test_skips_holds_without_id(self) -> None:
         directive = Directive.objects.create(
-            topic="stock.commit",
+            topic=STOCK_COMMIT,
             payload={
                 "holds": [
                     {"hold_id": "HOLD-001"},

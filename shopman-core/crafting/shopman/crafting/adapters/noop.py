@@ -2,7 +2,7 @@
 Noop Demand Backend -- returns zero/empty for all demand queries.
 
 Use this adapter for development or testing when a real demand source
-(e.g. Omniman) is not available.
+(e.g. Ordering) is not available.
 
 Configuration:
     CRAFTING = {

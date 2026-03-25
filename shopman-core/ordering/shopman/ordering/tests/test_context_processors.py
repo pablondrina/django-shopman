@@ -20,8 +20,8 @@ class PendingDirectivesContextProcessorTests(TestCase):
         """Testa contagem zero quando não há diretivas pendentes."""
         request = self.factory.get("/admin/")
         context = pending_directives(request)
-        self.assertEqual(context["omniman_pending_directives_count"], 0)
-        self.assertFalse(context["omniman_has_pending_directives"])
+        self.assertEqual(context["ordering_pending_directives_count"], 0)
+        self.assertFalse(context["ordering_has_pending_directives"])
 
     def test_returns_correct_count_when_has_pending_directives(self) -> None:
         """Testa contagem correta quando há diretivas pendentes."""
@@ -36,5 +36,5 @@ class PendingDirectivesContextProcessorTests(TestCase):
 
         request = self.factory.get("/admin/")
         context = pending_directives(request)
-        self.assertEqual(context["omniman_pending_directives_count"], 3)
-        self.assertTrue(context["omniman_has_pending_directives"])
+        self.assertEqual(context["ordering_pending_directives_count"], 3)
+        self.assertTrue(context["ordering_has_pending_directives"])

@@ -3,10 +3,8 @@ from __future__ import annotations
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.views import View
-
-from shopman.utils.monetary import format_money
 from shopman.ordering.models import Order
-
+from shopman.utils.monetary import format_money
 
 STATUS_LABELS = {
     "new": "Recebido",

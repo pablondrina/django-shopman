@@ -60,7 +60,7 @@ class TestUpdateCartItemView:
     def test_update_qty(self, cart_session, channel, product):
         from shopman.ordering.models import Session
 
-        sk = cart_session.session["omniman_session_key"]
+        sk = cart_session.session["cart_session_key"]
         session = Session.objects.get(session_key=sk)
         line_id = session.items[0]["line_id"]
 
@@ -81,7 +81,7 @@ class TestRemoveCartItemView:
     def test_remove_item(self, cart_session, channel, product):
         from shopman.ordering.models import Session
 
-        sk = cart_session.session["omniman_session_key"]
+        sk = cart_session.session["cart_session_key"]
         session = Session.objects.get(session_key=sk)
         line_id = session.items[0]["line_id"]
 
@@ -92,7 +92,7 @@ class TestRemoveCartItemView:
     def test_remove_last_item_shows_empty(self, cart_session, channel, product):
         from shopman.ordering.models import Session
 
-        sk = cart_session.session["omniman_session_key"]
+        sk = cart_session.session["cart_session_key"]
         session = Session.objects.get(session_key=sk)
         line_id = session.items[0]["line_id"]
 

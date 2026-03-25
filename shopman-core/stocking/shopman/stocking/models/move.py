@@ -42,7 +42,10 @@ class Move(models.Model):
         verbose_name=_('Motivo'),
         help_text=_('Obrigatório. Ex: "Produção manhã", "Venda #123"'),
     )
-    metadata = models.JSONField(default=dict, blank=True, verbose_name=_('Metadados'))
+    metadata = models.JSONField(
+        default=dict, blank=True, verbose_name=_('Metadados'),
+        help_text=_('Metadados do movimento. Ex: {"reason_detail": "Ajuste de inventário"}'),
+    )
     
     timestamp = models.DateTimeField(default=timezone.now, db_index=True, verbose_name=_('Data/Hora'))
     user = models.ForeignKey(

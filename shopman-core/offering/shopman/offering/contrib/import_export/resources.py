@@ -32,13 +32,13 @@ class ProductResource(resources.ModelResource):
 class ListingItemResource(resources.ModelResource):
     """Resource for ListingItem import/export (bulk price updates).
 
-    Import ID fields: listing__code + product__sku (upsert by composite key).
+    Import ID fields: listing__ref + product__sku (upsert by composite key).
     """
 
-    listing_code = fields.Field(
-        column_name="listing__code",
+    listing_ref = fields.Field(
+        column_name="listing__ref",
         attribute="listing",
-        widget=ForeignKeyWidget(Listing, field="code"),
+        widget=ForeignKeyWidget(Listing, field="ref"),
     )
     product_sku = fields.Field(
         column_name="product__sku",
@@ -49,12 +49,12 @@ class ListingItemResource(resources.ModelResource):
     class Meta:
         model = ListingItem
         fields = (
-            "listing_code",
+            "listing_ref",
             "product_sku",
             "price_q",
             "min_qty",
             "is_published",
             "is_available",
         )
-        import_id_fields = ("listing_code", "product_sku")
+        import_id_fields = ("listing_ref", "product_sku")
         export_order = fields

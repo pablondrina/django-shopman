@@ -12,7 +12,7 @@ O orchestrator (shopman-app) possuia modulos com nomes semanticamente proximos d
 | Orchestrator (antigo) | Orchestrator (novo) | Core app | Papel |
 |---|---|---|---|
 | `shopman.stock` | `shopman.inventory` | `shopman.stocking` | Reserva e commit de estoque via diretivas |
-| `shopman.customer` | `shopman.identification` | `shopman.attending` | Resolucao de clientes para pedidos |
+| `shopman.customer` | `shopman.identification` | `shopman.customers` | Resolucao de clientes para pedidos |
 
 ## Decision
 

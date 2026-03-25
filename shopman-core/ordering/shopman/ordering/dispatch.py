@@ -1,8 +1,9 @@
 """
-Signal-driven directive dispatch.
+Signal-driven directive dispatch with transaction safety.
 
-Processes newly created directives immediately via post_save signal,
-with opportunistic retry of failed directives from the same topic.
+Processes newly created directives via post_save signal, but defers actual
+processing to transaction.on_commit() so that side effects (notifications,
+payment calls, etc.) only occur after the database transaction commits.
 
 The process_directives --watch command remains as fallback for edge cases
 (worker crash, deploy gap, etc.) but is not required for normal operation.
@@ -106,14 +107,41 @@ def _retry_failed_directives(topic: str) -> None:
         _process_directive(d)
 
 
+def _on_commit_callback(directive_pk: int, topic: str) -> None:
+    """
+    Callback executed after the transaction commits.
+
+    Re-fetches the directive by pk to get fresh post-commit state.
+    Skips processing if the directive no longer exists or is not "queued"
+    (e.g., rolled back or already processed by another worker).
+    """
+    from shopman.ordering.models import Directive
+
+    try:
+        directive = Directive.objects.get(pk=directive_pk)
+    except Directive.DoesNotExist:
+        logger.debug("Directive #%s not found post-commit (rolled back?), skipping.", directive_pk)
+        return
+
+    if directive.status != "queued":
+        logger.debug(
+            "Directive #%s status is %s post-commit, skipping.",
+            directive_pk, directive.status,
+        )
+        return
+
+    _process_directive(directive)
+    _retry_failed_directives(topic)
+
+
 @receiver(post_save, dispatch_uid="ordering.directive_dispatch")
 def on_directive_post_save(sender, instance, created, **kwargs) -> None:
     """
-    Auto-dispatch newly created directives.
+    Auto-dispatch newly created directives after transaction commit.
 
     Only fires for Directive model, on creation, when status is "queued".
-    After processing the new directive, sweeps failed directives for the
-    same topic (opportunistic retry).
+    Defers processing to transaction.on_commit() so side effects only occur
+    after the database transaction commits successfully.
     """
     from shopman.ordering.models import Directive
 
@@ -127,5 +155,4 @@ def on_directive_post_save(sender, instance, created, **kwargs) -> None:
     if getattr(_local, "dispatching", False):
         return
 
-    _process_directive(instance)
-    _retry_failed_directives(instance.topic)
+    transaction.on_commit(lambda: _on_commit_callback(instance.pk, instance.topic))

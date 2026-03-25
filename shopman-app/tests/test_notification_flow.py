@@ -14,10 +14,11 @@ from unittest.mock import MagicMock, patch
 from django.test import TestCase
 
 from shopman.ordering import registry
-from shopman.notifications.backends.manychat import ManychatBackend, ManychatConfig
-from shopman.notifications.handlers import NotificationSendHandler
-from shopman.notifications.protocols import NotificationResult
-from shopman.notifications.service import register_backend
+from channels.backends.notification_manychat import ManychatBackend, ManychatConfig
+from channels.handlers.notification import NotificationSendHandler
+from channels.protocols import NotificationResult
+from channels.notifications import register_backend
+from channels.topics import NOTIFICATION_SEND
 from shopman.ordering.models import Channel, Directive, Order, OrderItem
 
 
@@ -79,7 +80,7 @@ class NotificationSendHandlerTests(TestCase):
         """Directive notification.send → ManychatBackend.send() chamado."""
         # Create directive bypassing auto-dispatch by setting status directly
         d = Directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             status="running",
             payload={
                 "order_ref": self.order.ref,
@@ -104,7 +105,7 @@ class NotificationSendHandlerTests(TestCase):
     def test_handler_marks_done_on_success(self) -> None:
         """Handler marca directive como done quando backend retorna success."""
         d = Directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             status="running",
             payload={
                 "order_ref": self.order.ref,
@@ -122,7 +123,7 @@ class NotificationSendHandlerTests(TestCase):
     def test_handler_marks_failed_on_missing_order(self) -> None:
         """Handler marca directive como failed quando order não encontrada."""
         d = Directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             status="running",
             payload={
                 "order_ref": "NONEXISTENT",
@@ -146,7 +147,7 @@ class NotificationSendHandlerTests(TestCase):
         )
 
         d = Directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             status="running",
             attempts=1,
             payload={
@@ -170,7 +171,7 @@ class NotificationSendHandlerTests(TestCase):
         )
 
         d = Directive(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             status="running",
             attempts=5,
             payload={

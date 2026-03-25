@@ -14,12 +14,12 @@ class Listing(models.Model):
     """
     Product listing for a channel.
 
-    Convention: code = Channel.code (loose coupling)
+    Convention: ref = Channel.ref (loose coupling)
     """
 
     uuid = models.UUIDField(default=uuid_lib.uuid4, editable=False, unique=True, verbose_name=_("UUID"))
 
-    code = models.SlugField(max_length=50, unique=True, verbose_name=_("código"))
+    ref = models.SlugField(max_length=50, unique=True, verbose_name=_("referência"))
     name = models.CharField(max_length=100, verbose_name=_("nome"))
     description = models.TextField(blank=True, verbose_name=_("descrição"))
 
@@ -41,7 +41,7 @@ class Listing(models.Model):
         ordering = ["-priority", "name"]
 
     def __str__(self):
-        return f"{self.code} - {self.name}"
+        return f"{self.ref} - {self.name}"
 
     def is_valid(self, date=None) -> bool:
         """Check if listing is valid for a given date."""
@@ -108,7 +108,7 @@ class ListingItem(models.Model):
         ordering = ["listing", "product__name"]
 
     def __str__(self):
-        return f"{self.product.sku} @ {self.listing.code}"
+        return f"{self.product.sku} @ {self.listing.ref}"
 
     def save(self, *args, **kwargs):
         old_price_q = None
@@ -126,7 +126,7 @@ class ListingItem(models.Model):
             price_changed.send(
                 sender=self.__class__,
                 instance=self,
-                listing_code=self.listing.code,
+                listing_ref=self.listing.ref,
                 sku=self.product.sku,
                 old_price_q=old_price_q,
                 new_price_q=self.price_q,

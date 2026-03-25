@@ -2,7 +2,7 @@
 Phone normalization for the Shopman suite.
 
 Uses Google's libphonenumber for robust normalization and validation.
-Replaces the custom implementations in doorman/utils.py and guestman/utils.py.
+Replaces the custom implementations in auth/utils.py and customers/utils.py.
 
 Handles the known Manychat bug where Brazilian numbers are sent without
 the country code 55 (e.g., +43984049009 instead of +5543984049009).

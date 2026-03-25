@@ -1,7 +1,7 @@
 """
-Tests for shopman.crafting.contrib.demand — OmnimanDemandBackend.
+Tests for shopman.crafting.contrib.demand — OrderingDemandBackend.
 
-Since Omniman models aren't available in isolated crafting tests,
+Since Ordering models aren't available in isolated crafting tests,
 we mock the backend methods for suggest() integration and test
 helper functions directly.
 """
@@ -37,24 +37,24 @@ def recipe(db):
 
 
 class TestProtocolConformance:
-    """OmnimanDemandBackend satisfies DemandProtocol."""
+    """OrderingDemandBackend satisfies DemandProtocol (Ordering)."""
 
     def test_implements_protocol(self):
-        from shopman.crafting.contrib.demand.backend import OmnimanDemandBackend
+        from shopman.crafting.contrib.demand.backend import OrderingDemandBackend
 
-        backend = OmnimanDemandBackend()
+        backend = OrderingDemandBackend()
         assert isinstance(backend, DemandProtocol)
 
     def test_has_history_method(self):
-        from shopman.crafting.contrib.demand.backend import OmnimanDemandBackend
+        from shopman.crafting.contrib.demand.backend import OrderingDemandBackend
 
-        backend = OmnimanDemandBackend()
+        backend = OrderingDemandBackend()
         assert callable(getattr(backend, "history", None))
 
     def test_has_committed_method(self):
-        from shopman.crafting.contrib.demand.backend import OmnimanDemandBackend
+        from shopman.crafting.contrib.demand.backend import OrderingDemandBackend
 
-        backend = OmnimanDemandBackend()
+        backend = OrderingDemandBackend()
         assert callable(getattr(backend, "committed", None))
 
 
@@ -62,13 +62,13 @@ class TestProtocolConformance:
 
 
 class TestHistoryMethod:
-    """OmnimanDemandBackend.history() behavior."""
+    """OrderingDemandBackend.history() behavior (Ordering)."""
 
     def test_history_with_mocked_data(self, db):
         """history() converts ORM results to DailyDemand list."""
-        from shopman.crafting.contrib.demand.backend import OmnimanDemandBackend
+        from shopman.crafting.contrib.demand.backend import OrderingDemandBackend
 
-        backend = OmnimanDemandBackend()
+        backend = OrderingDemandBackend()
 
         mock_daily = [
             DailyDemand(date=date(2026, 3, 11), sold=Decimal("25"), wasted=Decimal("0")),
@@ -84,9 +84,9 @@ class TestHistoryMethod:
 
     def test_history_empty_for_unknown_sku(self, db):
         """history() returns [] when no orders match."""
-        from shopman.crafting.contrib.demand.backend import OmnimanDemandBackend
+        from shopman.crafting.contrib.demand.backend import OrderingDemandBackend
 
-        backend = OmnimanDemandBackend()
+        backend = OrderingDemandBackend()
 
         with patch.object(backend, "history", return_value=[]):
             result = backend.history("NONEXISTENT-SKU")
@@ -95,13 +95,13 @@ class TestHistoryMethod:
 
 
 class TestCommittedMethod:
-    """OmnimanDemandBackend.committed() behavior."""
+    """OrderingDemandBackend.committed() behavior (Ordering)."""
 
     def test_committed_returns_decimal(self, db):
         """committed() returns Decimal."""
-        from shopman.crafting.contrib.demand.backend import OmnimanDemandBackend
+        from shopman.crafting.contrib.demand.backend import OrderingDemandBackend
 
-        backend = OmnimanDemandBackend()
+        backend = OrderingDemandBackend()
         # Without stocking installed, should return 0 gracefully
         result = backend.committed("CROISSANT", date.today())
         assert isinstance(result, Decimal)
@@ -120,7 +120,7 @@ class TestSuggestWithDemandBackend:
         tomorrow = today + timedelta(days=1)
 
         settings.CRAFTING = {
-            "DEMAND_BACKEND": "shopman.crafting.contrib.demand.backend.OmnimanDemandBackend",
+            "DEMAND_BACKEND": "shopman.crafting.contrib.demand.backend.OrderingDemandBackend",
         }
 
         mock_history = [
@@ -129,11 +129,11 @@ class TestSuggestWithDemandBackend:
         ]
 
         with patch(
-            "shopman.crafting.contrib.demand.backend.OmnimanDemandBackend.history",
+            "shopman.crafting.contrib.demand.backend.OrderingDemandBackend.history",
             return_value=mock_history,
         ):
             with patch(
-                "shopman.crafting.contrib.demand.backend.OmnimanDemandBackend.committed",
+                "shopman.crafting.contrib.demand.backend.OrderingDemandBackend.committed",
                 return_value=Decimal("5"),
             ):
                 suggestions = craft.suggest(tomorrow)
@@ -152,11 +152,11 @@ class TestSuggestWithDemandBackend:
         tomorrow = date.today() + timedelta(days=1)
 
         settings.CRAFTING = {
-            "DEMAND_BACKEND": "shopman.crafting.contrib.demand.backend.OmnimanDemandBackend",
+            "DEMAND_BACKEND": "shopman.crafting.contrib.demand.backend.OrderingDemandBackend",
         }
 
         with patch(
-            "shopman.crafting.contrib.demand.backend.OmnimanDemandBackend.history",
+            "shopman.crafting.contrib.demand.backend.OrderingDemandBackend.history",
             return_value=[],
         ):
             suggestions = craft.suggest(tomorrow)
@@ -170,17 +170,17 @@ class TestSuggestWithDemandBackend:
         recipe.save()
 
         settings.CRAFTING = {
-            "DEMAND_BACKEND": "shopman.crafting.contrib.demand.backend.OmnimanDemandBackend",
+            "DEMAND_BACKEND": "shopman.crafting.contrib.demand.backend.OrderingDemandBackend",
         }
 
         with patch(
-            "shopman.crafting.contrib.demand.backend.OmnimanDemandBackend.history",
+            "shopman.crafting.contrib.demand.backend.OrderingDemandBackend.history",
             return_value=[
                 DailyDemand(date=date.today() - timedelta(days=7), sold=Decimal("50"), wasted=Decimal("0")),
             ],
         ):
             with patch(
-                "shopman.crafting.contrib.demand.backend.OmnimanDemandBackend.committed",
+                "shopman.crafting.contrib.demand.backend.OrderingDemandBackend.committed",
                 return_value=Decimal("0"),
             ):
                 suggestions = craft.suggest(tomorrow)
@@ -200,7 +200,7 @@ class TestSuggestWithDemandBackend:
         )
 
         settings.CRAFTING = {
-            "DEMAND_BACKEND": "shopman.crafting.contrib.demand.backend.OmnimanDemandBackend",
+            "DEMAND_BACKEND": "shopman.crafting.contrib.demand.backend.OrderingDemandBackend",
         }
 
         def mock_history(product_ref, **kwargs):
@@ -211,11 +211,11 @@ class TestSuggestWithDemandBackend:
             return []
 
         with patch(
-            "shopman.crafting.contrib.demand.backend.OmnimanDemandBackend.history",
+            "shopman.crafting.contrib.demand.backend.OrderingDemandBackend.history",
             side_effect=mock_history,
         ):
             with patch(
-                "shopman.crafting.contrib.demand.backend.OmnimanDemandBackend.committed",
+                "shopman.crafting.contrib.demand.backend.OrderingDemandBackend.committed",
                 return_value=Decimal("0"),
             ):
                 suggestions = craft.suggest(tomorrow)

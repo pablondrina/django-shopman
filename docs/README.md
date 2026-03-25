@@ -41,9 +41,9 @@ Cada guia segue a estrutura: Conceitos → Modelos → Serviços → Protocols �
 | [Stocking](guides/stocking.md) | `shopman.stocking` | Estoque, holds, moves, posições, planejamento |
 | [Crafting](guides/crafting.md) | `shopman.crafting` | Receitas, work orders, BOM, coeficiente francês |
 | [Ordering](guides/ordering.md) | `shopman.ordering` | Pedidos, sessões, canais, directives, fulfillment |
-| [Attending](guides/attending.md) | `shopman.attending` | Clientes, contatos, grupos, loyalty, consent, RFM |
-| [Gating](guides/gating.md) | `shopman.gating` | Auth OTP, device trust, bridge tokens, magic links |
-| [Orquestração](guides/orchestration.md) | `shopman-app/shopman` | Conexão entre módulos, signal flow, presets, backends |
+| [Customers](guides/customers.md) | `shopman.customers` | Clientes, contatos, grupos, loyalty, consent, RFM |
+| [Auth](guides/auth.md) | `shopman.auth` | Auth OTP, device trust, bridge tokens, magic links |
+| [Payments](guides/payments.md) | `shopman.payments` | Pagamentos, PIX, Stripe, intents, lifecycle |
 
 ---
 
@@ -54,7 +54,7 @@ Documentação de consulta rápida gerada a partir do código.
 | Documento | Conteúdo |
 |-----------|----------|
 | [Protocols e Adapters](reference/protocols.md) | Mapa de todos os protocols, dataclasses e adapters disponíveis |
-| [Configurações](reference/settings.md) | Settings por app (STOCKING, CRAFTING, GATING, SHOPMAN_*, etc.) com defaults |
+| [Configurações](reference/settings.md) | Settings por app (STOCKING, CRAFTING, AUTH, SHOPMAN_*, etc.) com defaults |
 | [Management Commands](reference/commands.md) | Comandos disponíveis com flags, exemplos e cron recomendado |
 | [Exceções e Erros](reference/errors.md) | Hierarquia de exceções, códigos de erro e quando ocorrem |
 | [Sinais (Signals)](reference/signals.md) | Sinais emitidos e consumidos por cada app, payload e fluxos |
@@ -66,19 +66,16 @@ Documentação de consulta rápida gerada a partir do código.
 
 ```
 shopman-core/                        shopman-app/
-├── utils        (utilitários)       ├── shopman/           (orquestrador)
-├── offering     (catálogo)          │   ├── confirmation/
-├── stocking     (estoque)           │   ├── inventory/
-├── crafting     (produção)          │   ├── pricing/
-├── ordering     (pedidos)           │   ├── identification/
-├── attending    (clientes)          │   ├── notifications/
-└── gating       (autenticação)      │   ├── payment/
-                                     │   ├── fiscal/
-                                     │   ├── accounting/
-                                     │   ├── returns/
-                                     │   └── webhook/
-                                     ├── nelson/            (demo app)
-                                     └── channels/          (canais)
+├── utils        (utilitários)       ├── shop/              (identidade + regras)
+├── offering     (catálogo)          ├── channels/          (orquestrador)
+├── stocking     (estoque)           │   ├── handlers/      (11 handlers)
+├── crafting     (produção)          │   ├── backends/      (17 backends)
+├── ordering     (pedidos)           │   ├── config.py      (ChannelConfig)
+├── customers    (clientes)          │   ├── presets.py     (pos, remote, marketplace)
+├── auth         (autenticação)      │   ├── hooks.py       (lifecycle dispatcher)
+└── payments     (pagamentos)        │   ├── setup.py       (registro centralizado)
+                                     │   └── web/           (storefront)
+                                     └── project/           (settings, urls)
 ```
 
 ---
@@ -94,5 +91,5 @@ Para quem conhece a suite antiga (`django-shopman-suite`):
 | stockman | shopman.stocking | `stocking` |
 | craftsman | shopman.crafting | `crafting` |
 | omniman | shopman.ordering | `ordering` |
-| guestman | shopman.attending | `attending` |
-| doorman | shopman.gating | `gating` |
+| guestman | shopman.customers | `customers` |
+| doorman | shopman.auth | `auth` |

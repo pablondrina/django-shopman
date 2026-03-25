@@ -5,29 +5,30 @@ Instruções para agentes de código que trabalham neste repositório.
 ## Estrutura do Projeto
 
 ```
-shopman-core/           7 apps pip-instaláveis (sem dependência entre si)
+shopman-core/           8 apps pip-instaláveis (sem dependência entre si)
 ├── utils/              Utilitários compartilhados (monetary, phone, admin)
 ├── offering/           Catálogo: produtos, preços, listings, coleções
 ├── stocking/           Estoque: quants, moves, holds, posições
 ├── crafting/           Produção: receitas, work orders, BOM
 ├── ordering/           Pedidos: sessions, orders, channels, directives
-├── attending/          Clientes: customers, contatos, grupos, endereços
-└── gating/             Auth: OTP, device trust, bridge tokens
+├── customers/          Clientes: customers, contatos, grupos, endereços
+├── auth/               Auth: OTP, device trust, bridge tokens
+└── payments/           Pagamentos: intents, transactions, service
 
-shopman-app/            Orquestrador + canais + demo
-├── shopman/            Orquestrador (conecta core apps via backends)
-│   ├── inventory/      Estoque → pedido
-│   ├── identification/ Cliente → pedido
-│   ├── confirmation/   Confirmação otimista
-│   ├── notifications/  Notificações
-│   ├── payment/        Pagamento (PIX)
-│   ├── pricing/        Precificação
-│   ├── accounting/     Contabilidade
-│   ├── fiscal/         Fiscal
-│   ├── returns/        Devoluções
-│   └── webhook/        Webhooks externos
-├── channels/web/       Storefront (Django templates + HTMX)
-└── nelson/             App demo "Nelson Boulangerie"
+shopman-app/            Orquestrador + canais
+├── shop/               Loja (singleton), promoções, cupons, seed
+├── channels/           Orquestrador (conecta core apps via handlers/backends)
+│   ├── handlers/       11 handlers (stock, payment, notification, etc.)
+│   ├── backends/       17 backends (stock, payment_*, notification_*, etc.)
+│   ├── config.py       ChannelConfig dataclass
+│   ├── presets.py      pos(), remote(), marketplace()
+│   ├── topics.py       Constantes de tópicos de directives
+│   ├── hooks.py        Lifecycle hooks (order_changed → pipeline)
+│   ├── setup.py        Registro centralizado de handlers e backends
+│   ├── protocols.py    Re-exporta protocols + define Stock/Customer/Notification
+│   ├── webhooks.py     Webhook Efi PIX
+│   └── web/            Storefront (Django templates + HTMX)
+└── project/            settings.py, urls.py, wsgi
 ```
 
 ## Convenções Ativas
@@ -36,6 +37,7 @@ shopman-app/            Orquestrador + canais + demo
 - **Centavos com `_q`**: Valores monetários são inteiros em centavos, sufixo `_q`. Ex: `price_q = 1500` → R$ 15,00.
 - **Confirmação otimista**: Pedido auto-confirma se operador não cancela dentro do prazo.
 - **Zero residuals em renames**: Ao renomear, zerar TUDO (variáveis, strings, comments, docstrings). Nada de `# formerly X`.
+- **Zero backward-compat aliases**: Projeto novo, do zero. Não há consumidores externos. Nunca criar aliases tipo `OldName = NewName`. Apagar o nome antigo completamente.
 - **Offering = somente produtos vendáveis**: Insumos ficam em Stocking/Crafting, nunca no Offering.
 
 ## Como Rodar

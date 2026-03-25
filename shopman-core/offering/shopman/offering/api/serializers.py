@@ -76,7 +76,7 @@ class CollectionDetailSerializer(CollectionSerializer):
 class ListingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Listing
-        fields = ["uuid", "code", "name", "description", "is_active", "priority"]
+        fields = ["uuid", "ref", "name", "description", "is_active", "priority"]
 
 
 class ListingItemSerializer(serializers.ModelSerializer):
@@ -94,4 +94,4 @@ class PriceResponseSerializer(serializers.Serializer):
     unit_price_q = serializers.IntegerField()
     total_q = serializers.IntegerField()
     currency = serializers.CharField()
-    listing_code = serializers.CharField(allow_null=True)
+    listing_ref = serializers.CharField(allow_null=True)

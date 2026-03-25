@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from django.http import HttpRequest, HttpResponse
+from django.conf import settings
+from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
-
-from shopman.utils.monetary import format_money
 from shopman.ordering.models import Order
+from shopman.utils.monetary import format_money
 
 
 class PaymentView(View):
@@ -30,8 +30,18 @@ class PaymentStatusView(View):
         order = get_object_or_404(Order, ref=ref)
         payment = order.data.get("payment", {})
 
-        # Check if payment was captured
+        # Check PaymentService for real-time status
+        intent_id = payment.get("intent_id")
         is_paid = payment.get("status") == "captured"
+
+        if not is_paid and intent_id:
+            from shopman.payments import PaymentError, PaymentService
+            try:
+                intent = PaymentService.get(intent_id)
+                is_paid = intent.status == "captured"
+            except PaymentError:
+                pass
+
         is_cancelled = order.status == "cancelled"
 
         if is_paid:
@@ -50,20 +60,34 @@ class MockPaymentConfirmView(View):
     """
     DEV ONLY: Simulate PIX payment confirmation.
 
-    Updates order.data["payment"]["status"] to "captured" and transitions
-    the order to "confirmed". In production this would be a webhook from
-    the payment gateway.
+    Uses PaymentService to transition intent through authorize → capture.
     """
 
     def post(self, request: HttpRequest, ref: str) -> HttpResponse:
+        if not settings.DEBUG:
+            raise Http404
+
+        from shopman.payments import PaymentError, PaymentService
+
         order = get_object_or_404(Order, ref=ref)
 
         payment = order.data.get("payment", {})
         if payment.get("status") == "captured":
-            # Already paid — redirect
             return redirect("storefront:order_tracking", ref=ref)
 
-        # Mark payment as captured
+        # Transition via PaymentService
+        intent_id = payment.get("intent_id")
+        if intent_id:
+            try:
+                intent = PaymentService.get(intent_id)
+                if intent.status == "pending":
+                    PaymentService.authorize(intent_id, gateway_id=f"mock_confirm_{intent_id}")
+                if intent.status in ("pending", "authorized"):
+                    PaymentService.capture(intent_id)
+            except PaymentError:
+                pass
+
+        # Mark payment as captured in order data
         payment["status"] = "captured"
         payment["captured_at"] = timezone.now().isoformat()
         order.data["payment"] = payment

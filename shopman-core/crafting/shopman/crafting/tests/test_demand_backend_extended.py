@@ -1,8 +1,8 @@
 """
-Extended tests for shopman.crafting.contrib.demand — OmnimanDemandBackend.
+Extended tests for shopman.crafting.contrib.demand — OrderingDemandBackend.
 
 Supplements test_demand_backend.py with:
-- history() ORM integration (with real Omniman models when available)
+- history() ORM integration (with real Ordering models when available)
 - committed() edge cases (no holds, mixed holds)
 - _sku_lookup helper
 - Error handling in committed()
@@ -16,16 +16,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from shopman.crafting.contrib.demand.backend import OmnimanDemandBackend, _django_weekday
+from shopman.crafting.contrib.demand.backend import OrderingDemandBackend, _django_weekday
 from shopman.crafting.protocols.demand import DailyDemand, DemandProtocol
 
 
-class TestOmnimanDemandBackendHistory:
+class TestOrderingDemandBackendHistory:
     """Extended tests for history() method."""
 
     def test_history_same_weekday_true_filters_by_weekday(self, db):
         """same_weekday=True only returns data for the same day of week."""
-        backend = OmnimanDemandBackend()
+        backend = OrderingDemandBackend()
 
         mock_data = [
             DailyDemand(date=date(2026, 3, 12), sold=Decimal("15"), wasted=Decimal("0")),
@@ -39,7 +39,7 @@ class TestOmnimanDemandBackendHistory:
 
     def test_history_same_weekday_false_returns_all_days(self, db):
         """same_weekday=False returns all days in the range."""
-        backend = OmnimanDemandBackend()
+        backend = OrderingDemandBackend()
 
         mock_data = [
             DailyDemand(date=date(2026, 3, 10), sold=Decimal("10"), wasted=Decimal("0")),
@@ -54,7 +54,7 @@ class TestOmnimanDemandBackendHistory:
 
     def test_history_custom_days_window(self, db):
         """history(days=7) uses a shorter window."""
-        backend = OmnimanDemandBackend()
+        backend = OrderingDemandBackend()
 
         with patch.object(backend, "history", return_value=[]):
             result = backend.history("CROISSANT", days=7)
@@ -63,7 +63,7 @@ class TestOmnimanDemandBackendHistory:
 
     def test_history_returns_dailydemand_with_zero_wasted(self, db):
         """All DailyDemand from history have wasted=0 (stocking tracks waste)."""
-        backend = OmnimanDemandBackend()
+        backend = OrderingDemandBackend()
 
         mock_data = [
             DailyDemand(date=date.today() - timedelta(days=7), sold=Decimal("50"), wasted=Decimal("0")),
@@ -76,22 +76,22 @@ class TestOmnimanDemandBackendHistory:
             assert dd.wasted == Decimal("0")
 
 
-class TestOmnimanDemandBackendCommitted:
+class TestOrderingDemandBackendCommitted:
     """Extended tests for committed() method."""
 
     def test_committed_without_stocking_returns_zero(self, db):
         """When Stocking is not installed, committed() returns Decimal(0)."""
-        backend = OmnimanDemandBackend()
+        backend = OrderingDemandBackend()
         result = backend.committed("CROISSANT", date.today())
         assert result == Decimal("0")
         assert isinstance(result, Decimal)
 
     def test_committed_handles_import_error(self, db):
         """ImportError from missing Stocking → Decimal(0)."""
-        backend = OmnimanDemandBackend()
+        backend = OrderingDemandBackend()
 
         with patch(
-            "shopman.crafting.contrib.demand.backend.OmnimanDemandBackend.committed",
+            "shopman.crafting.contrib.demand.backend.OrderingDemandBackend.committed",
             side_effect=ImportError("No stocking"),
         ):
             # Direct call should raise, but the real implementation catches
@@ -103,7 +103,7 @@ class TestOmnimanDemandBackendCommitted:
 
     def test_committed_handles_generic_exception(self, db):
         """Any exception inside committed() → Decimal(0) with warning."""
-        backend = OmnimanDemandBackend()
+        backend = OrderingDemandBackend()
 
         # Mock the Hold import to succeed but the query to fail
         mock_hold = MagicMock()
@@ -118,7 +118,7 @@ class TestOmnimanDemandBackendCommitted:
 
     def test_committed_for_future_date(self, db):
         """committed() accepts future dates (for production planning)."""
-        backend = OmnimanDemandBackend()
+        backend = OrderingDemandBackend()
         tomorrow = date.today() + timedelta(days=1)
         result = backend.committed("CROISSANT", tomorrow)
         assert isinstance(result, Decimal)
@@ -149,7 +149,7 @@ class TestDemandProtocolConformance:
 
     def test_backend_signature_matches_protocol(self):
         """Backend method signatures match DemandProtocol."""
-        backend = OmnimanDemandBackend()
+        backend = OrderingDemandBackend()
 
         import inspect
         history_sig = inspect.signature(backend.history)

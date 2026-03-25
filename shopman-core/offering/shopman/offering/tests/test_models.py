@@ -170,17 +170,17 @@ class TestProductComponent:
 class TestListing:
     def test_create_listing(self, db):
         listing = Listing.objects.create(
-            code="ifood",
+            ref="ifood",
             name="iFood",
         )
-        assert listing.code == "ifood"
+        assert listing.ref == "ifood"
         assert listing.is_active is True
 
     def test_is_valid(self, db):
         from datetime import date, timedelta
 
         listing = Listing.objects.create(
-            code="seasonal",
+            ref="seasonal",
             name="Seasonal",
             valid_from=date.today() - timedelta(days=1),
             valid_until=date.today() + timedelta(days=1),
@@ -191,13 +191,13 @@ class TestListing:
         assert listing.is_valid() is False
 
     def test_is_valid_inactive(self, db):
-        listing = Listing.objects.create(code="inactive", name="Inactive", is_active=False)
+        listing = Listing.objects.create(ref="inactive", name="Inactive", is_active=False)
         assert listing.is_valid() is False
 
 
 class TestListingItem:
     def test_create_item(self, db):
-        listing = Listing.objects.create(code="default", name="Default")
+        listing = Listing.objects.create(ref="default", name="Default")
         product = Product.objects.create(sku="PROD", name="Product")
 
         item = ListingItem.objects.create(
@@ -209,7 +209,7 @@ class TestListingItem:
         assert item.price == Decimal("6.00")
 
     def test_visibility_flags(self, db):
-        listing = Listing.objects.create(code="test", name="Test")
+        listing = Listing.objects.create(ref="test", name="Test")
         product = Product.objects.create(sku="PROD", name="Product")
 
         item = ListingItem.objects.create(

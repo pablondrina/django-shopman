@@ -202,39 +202,33 @@ class ChannelAdmin(ModelAdmin):
 
     @display(description=_("contrato do canal"))
     def config_flow_display(self, obj: Channel) -> str:
-        """Displays channel config as structured business contract cards."""
+        """Displays channel config as structured business contract cards (ChannelConfig schema)."""
         if not obj or not obj.config:
             return format_html('<span class="text-base-400">Sem configuração</span>')
 
         c = obj.config
-        sections = []
-
-        # Preset
-        preset = c.get("preset", "custom")
-        preset_labels = {"pos": "Point of Sale", "remote": "Remoto", "marketplace": "Marketplace"}
-        preset_label = preset_labels.get(preset, preset)
 
         # Confirmation
-        confirm = c.get("confirmation_flow", {})
-        if confirm.get("require_manual_confirmation"):
-            timeout = confirm.get("confirmation_timeout_minutes", 5)
-            confirm_text = f"Manual ({timeout} min para cancelar)"
-        else:
-            confirm_text = "Auto-confirm"
+        confirm = c.get("confirmation", {})
+        mode = confirm.get("mode", "immediate")
+        mode_labels = {"immediate": "Auto-confirm", "optimistic": "Otimista", "manual": "Manual"}
+        confirm_text = mode_labels.get(mode, mode)
+        if mode == "optimistic":
+            timeout = confirm.get("timeout_minutes", 5)
+            confirm_text += f" ({timeout} min)"
 
         # Payment
         payment = c.get("payment", {})
-        if payment.get("require_prepayment"):
-            method = (payment.get("method") or "pix").upper()
-            timeout = payment.get("timeout_minutes", 10)
-            payment_text = f"{method} ({timeout} min)"
-        else:
-            method = payment.get("method", "counter")
-            payment_text = f"{method} (sem pré-pagamento)"
+        method = payment.get("method", "counter")
+        method_labels = {"counter": "No caixa", "pix": "PIX", "external": "Externo (marketplace)"}
+        payment_text = method_labels.get(method, method)
+        if method == "pix":
+            timeout = payment.get("timeout_minutes", 15)
+            payment_text += f" ({timeout} min)"
 
         # Notifications
-        notif = c.get("notification_routing", {})
-        notif_backend = notif.get("backend", "none")
+        notif = c.get("notifications", {})
+        notif_backend = notif.get("backend", "console")
         notif_fallback = notif.get("fallback")
         if notif_backend == "none":
             notif_text = "Desativado"
@@ -244,25 +238,32 @@ class ChannelAdmin(ModelAdmin):
             notif_text = notif_backend
 
         # Stock
-        stock = c.get("stock", {})
-        hold_ttl = stock.get("checkout_hold_expiration_minutes", "default")
-        margin = stock.get("safety_margin_default", 0)
-        stock_text = f"Hold: {hold_ttl} min"
+        stock_cfg = c.get("stock", {})
+        hold_ttl = stock_cfg.get("hold_ttl_minutes")
+        margin = stock_cfg.get("safety_margin", 0)
+        stock_text = f"Hold: {hold_ttl or '∞'} min"
         if margin:
             stock_text += f" | Margem: {margin} un"
 
-        # Checks
-        checks = c.get("required_checks_on_commit", [])
+        # Pipeline — on_commit
+        pipeline = c.get("pipeline", {})
+        on_commit = pipeline.get("on_commit", [])
+        commit_text = " → ".join(on_commit) if on_commit else "Nenhuma"
+
+        # Pipeline — on_confirmed
+        on_confirmed = pipeline.get("on_confirmed", [])
+        confirmed_text = " → ".join(on_confirmed) if on_confirmed else "Nenhuma"
+
+        # Rules
+        rules = c.get("rules", {})
+        checks = rules.get("checks", [])
         checks_text = ", ".join(checks) if checks else "Nenhum"
+        modifiers = rules.get("modifiers", [])
+        modifiers_text = ", ".join(modifiers) if modifiers else "Nenhum"
 
-        # Post-commit
-        pcd = c.get("post_commit_directives", [])
-        pcd_text = " → ".join(pcd) if pcd else "Nenhuma"
-
-        # Auto-transitions
-        auto = c.get("order_flow", {}).get("auto_transitions", {})
-        auto_parts = [f"{k}: {v}" for k, v in auto.items()]
-        auto_text = ", ".join(auto_parts) if auto_parts else "Nenhuma"
+        # Flow
+        flow = c.get("flow", {})
+        auto_sync = "Sim" if flow.get("auto_sync_fulfillment") else "Nao"
 
         card_style = (
             "bg-base-50 dark:bg-base-800 border border-base-200 "
@@ -273,13 +274,9 @@ class ChannelAdmin(ModelAdmin):
 
         html = f"""
         <div class="space-y-3">
-            <div class="{card_style}">
-                <div class="{label_style}">Preset</div>
-                <div class="{value_style}">{preset_label}</div>
-            </div>
             <div class="grid grid-cols-2 gap-3">
                 <div class="{card_style}">
-                    <div class="{label_style}">Confirmacao</div>
+                    <div class="{label_style}">Confirmação</div>
                     <div class="{value_style}">{confirm_text}</div>
                 </div>
                 <div class="{card_style}">
@@ -287,7 +284,7 @@ class ChannelAdmin(ModelAdmin):
                     <div class="{value_style}">{payment_text}</div>
                 </div>
                 <div class="{card_style}">
-                    <div class="{label_style}">Notificacoes</div>
+                    <div class="{label_style}">Notificações</div>
                     <div class="{value_style}">{notif_text}</div>
                 </div>
                 <div class="{card_style}">
@@ -296,16 +293,26 @@ class ChannelAdmin(ModelAdmin):
                 </div>
             </div>
             <div class="{card_style}">
-                <div class="{label_style}">Pre-commit checks</div>
-                <div class="{value_style}">{checks_text}</div>
+                <div class="{label_style}">Pipeline: on_commit</div>
+                <div class="{value_style} font-mono text-xs">{commit_text}</div>
             </div>
             <div class="{card_style}">
-                <div class="{label_style}">Post-commit directives</div>
-                <div class="{value_style} font-mono text-xs">{pcd_text}</div>
+                <div class="{label_style}">Pipeline: on_confirmed</div>
+                <div class="{value_style} font-mono text-xs">{confirmed_text}</div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="{card_style}">
+                    <div class="{label_style}">Checks</div>
+                    <div class="{value_style}">{checks_text}</div>
+                </div>
+                <div class="{card_style}">
+                    <div class="{label_style}">Modifiers</div>
+                    <div class="{value_style}">{modifiers_text}</div>
+                </div>
             </div>
             <div class="{card_style}">
-                <div class="{label_style}">Auto-transitions</div>
-                <div class="{value_style}">{auto_text}</div>
+                <div class="{label_style}">Auto-sync fulfillment</div>
+                <div class="{value_style}">{auto_sync}</div>
             </div>
         </div>
         """
@@ -1485,7 +1492,7 @@ class FulfillmentAdmin(ModelAdmin):
         (_("Detalhes"), {"fields": ("notes", "meta"), "classes": ("tab",)}),
         (
             _("Datas"),
-            {"fields": ("created_at", "shipped_at", "delivered_at"), "classes": ("tab",)},
+            {"fields": ("created_at", "dispatched_at", "delivered_at"), "classes": ("tab",)},
         ),
     )
     readonly_fields = ("created_at",)

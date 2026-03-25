@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shopman-customers"
+version = "0.1.0"
+description = "Shopman Attending — Customer Management"
+requires-python = ">=3.12"
+dependencies = [
+    "Django>=5.2,<6.0",
+    "shopman-utils>=0.3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-django>=4.5",
+]
+
+[tool.setuptools.packages.find]
+include = ["shopman.customers*"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "customers_test_settings"
+pythonpath = ["."]

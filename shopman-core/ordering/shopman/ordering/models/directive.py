@@ -23,7 +23,10 @@ class Directive(models.Model):
         default="queued",
         db_index=True,
     )
-    payload = models.JSONField(_("payload"), default=dict, blank=True, encoder=DecimalEncoder)
+    payload = models.JSONField(
+        _("payload"), default=dict, blank=True, encoder=DecimalEncoder,
+        help_text=_('Dados da tarefa. Schema depende do topic. Ex: stock.hold → {"sku": "PAO-FRANCES", "qty": 10}'),
+    )
 
     attempts = models.IntegerField(_("tentativas"), default=0)
     available_at = models.DateTimeField(_("disponível em"), default=timezone.now, db_index=True)

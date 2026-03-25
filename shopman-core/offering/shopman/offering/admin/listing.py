@@ -17,7 +17,7 @@ class ListingItemInline(AutofillInlineMixin, admin.TabularInline):
 @admin.register(Listing)
 class ListingAdmin(admin.ModelAdmin):
     list_display = [
-        "code",
+        "ref",
         "name",
         "is_active",
         "valid_from",
@@ -26,13 +26,13 @@ class ListingAdmin(admin.ModelAdmin):
         "items_count",
     ]
     list_filter = ["is_active"]
-    search_fields = ["code", "name"]
+    search_fields = ["ref", "name"]
     list_editable = ["is_active", "priority"]
     ordering = ["-priority", "name"]
     inlines = [ListingItemInline]
 
     fieldsets = [
-        (None, {"fields": ("code", "name", "description")}),
+        (None, {"fields": ("ref", "name", "description")}),
         ("Validity", {"fields": ("valid_from", "valid_until")}),
         ("Settings", {"fields": ("priority", "is_active")}),
     ]

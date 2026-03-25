@@ -32,8 +32,8 @@ django-shopman/
 │   ├── stocking/           # Estoque: quants, moves, holds, alertas, planejamento
 │   ├── crafting/           # Producao: receitas, work orders, BOM, coef. francais
 │   ├── ordering/           # Pedidos: sessoes, canais, directives, fulfillment
-│   ├── attending/          # Clientes: contatos, grupos, insights RFM, enderecos
-│   └── gating/             # Auth: OTP, magic links, device trust, bridge tokens
+│   ├── customers/          # Clientes: contatos, grupos, insights RFM, enderecos
+│   └── auth/             # Auth: OTP, magic links, device trust, bridge tokens
 │
 ├── shopman-app/            # Projeto Django que orquestra tudo
 │   ├── project/            # settings.py, urls.py
@@ -70,8 +70,8 @@ Cada app e um pacote pip independente. Comunicacao entre apps via `typing.Protoc
 | **stocking** | Controle de estoque fisico | Quant, Move, Hold, Position, Batch |
 | **crafting** | Producao e receitas | Recipe, WorkOrder, WorkOrderItem |
 | **ordering** | Kernel de pedidos | Session, Order, Directive, Channel |
-| **attending** | Gestao de clientes | Customer, ContactPoint, CustomerGroup |
-| **gating** | Autenticacao e acesso | MagicCode, DeviceTrust, BridgeToken |
+| **customers** | Gestao de clientes | Customer, ContactPoint, CustomerGroup |
+| **auth** | Autenticacao e acesso | MagicCode, DeviceTrust, BridgeToken |
 
 ## Orquestrador (shopman-app)
 

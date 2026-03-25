@@ -63,7 +63,7 @@ class TestCatalogPrice:
     def test_price_from_listing(self, db):
         """Test price from listing."""
         product = Product.objects.create(sku="BAGUETE", name="Baguete", base_price_q=500)
-        listing = Listing.objects.create(code="ifood", name="iFood")
+        listing = Listing.objects.create(ref="ifood", name="iFood")
         ListingItem.objects.create(listing=listing, product=product, price_q=600)
 
         price = CatalogService.price("BAGUETE", channel="ifood")
@@ -197,7 +197,7 @@ class TestCatalogAvailability:
 
     def test_get_available_products(self, db):
         """Test getting available products for a listing."""
-        listing = Listing.objects.create(code="shop", name="Shop")
+        listing = Listing.objects.create(ref="shop", name="Shop")
         product1 = Product.objects.create(sku="P1", name="Product 1")
         product2 = Product.objects.create(sku="P2", name="Product 2", is_available=False)
 
@@ -211,7 +211,7 @@ class TestCatalogAvailability:
 
     def test_is_product_available(self, db):
         """Test checking product availability in listing."""
-        listing = Listing.objects.create(code="shop", name="Shop")
+        listing = Listing.objects.create(ref="shop", name="Shop")
         product = Product.objects.create(sku="P1", name="Product 1")
         ListingItem.objects.create(listing=listing, product=product, price_q=500)
 
@@ -220,7 +220,7 @@ class TestCatalogAvailability:
 
     def test_listing_item_visibility(self, db):
         """Test listing item visibility flags."""
-        listing = Listing.objects.create(code="shop", name="Shop")
+        listing = Listing.objects.create(ref="shop", name="Shop")
         product = Product.objects.create(sku="P1", name="Product 1")
         ListingItem.objects.create(
             listing=listing, product=product, price_q=500,
@@ -234,7 +234,7 @@ class TestCatalogAvailability:
         from datetime import date, timedelta
 
         listing = Listing.objects.create(
-            code="promo-old",
+            ref="promo-old",
             name="Old Promo",
             is_active=True,
             valid_until=date.today() - timedelta(days=1),
@@ -252,7 +252,7 @@ class TestCatalogAvailability:
         from datetime import date, timedelta
 
         listing = Listing.objects.create(
-            code="promo-future",
+            ref="promo-future",
             name="Future Promo",
             is_active=True,
             valid_from=date.today() + timedelta(days=1),
@@ -270,7 +270,7 @@ class TestCatalogAvailability:
         from datetime import date, timedelta
 
         listing = Listing.objects.create(
-            code="promo-active",
+            ref="promo-active",
             name="Active Promo",
             is_active=True,
             valid_from=date.today() - timedelta(days=1),
@@ -287,7 +287,7 @@ class TestCatalogAvailability:
     def test_listing_without_dates_includes_products(self, db):
         """Listing without date constraints (null) should return products."""
         listing = Listing.objects.create(
-            code="evergreen",
+            ref="evergreen",
             name="Evergreen",
             is_active=True,
         )
@@ -316,7 +316,7 @@ class TestCatalogPriceChannel:
     def test_price_with_channel_and_listing_item(self, db):
         """Channel-specific price overrides base price."""
         p = Product.objects.create(sku="CH-2", name="Product", base_price_q=500)
-        listing = Listing.objects.create(code="ifood", name="iFood")
+        listing = Listing.objects.create(ref="ifood", name="iFood")
         ListingItem.objects.create(listing=listing, product=p, price_q=700)
 
         assert CatalogService.price("CH-2", channel="ifood") == 700
@@ -324,7 +324,7 @@ class TestCatalogPriceChannel:
     def test_price_with_channel_no_item_fallback(self, db):
         """Channel exists but product not listed — fallback to base."""
         Product.objects.create(sku="CH-3", name="Product", base_price_q=500)
-        Listing.objects.create(code="ifood", name="iFood")
+        Listing.objects.create(ref="ifood", name="iFood")
 
         assert CatalogService.price("CH-3", channel="ifood") == 500
 
@@ -336,7 +336,7 @@ class TestCatalogPriceChannel:
     def test_price_with_tiered_pricing(self, db):
         """min_qty tiers select highest qualifying tier."""
         p = Product.objects.create(sku="CH-5", name="Product", base_price_q=500)
-        listing = Listing.objects.create(code="atacado", name="Wholesale")
+        listing = Listing.objects.create(ref="atacado", name="Wholesale")
         ListingItem.objects.create(listing=listing, product=p, price_q=500, min_qty=Decimal("1"))
         ListingItem.objects.create(listing=listing, product=p, price_q=400, min_qty=Decimal("10"))
         ListingItem.objects.create(listing=listing, product=p, price_q=350, min_qty=Decimal("50"))
@@ -356,13 +356,100 @@ class TestCatalogPriceChannel:
 
         p = Product.objects.create(sku="CH-6", name="Product", base_price_q=500)
         listing = Listing.objects.create(
-            code="promo",
+            ref="promo",
             name="Promo",
             valid_until=date.today() - timedelta(days=1),
         )
         ListingItem.objects.create(listing=listing, product=p, price_q=300)
 
         assert CatalogService.price("CH-6", channel="promo") == 500
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 4.1b — unit_price cascade (min_qty tiers)
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestCatalogUnitPriceCascade:
+    """Tests for CatalogService.unit_price() with min_qty cascading."""
+
+    def test_unit_price_no_listing_returns_base(self, db):
+        """Without a listing, unit_price returns base_price_q."""
+        Product.objects.create(sku="UP-1", name="Product", base_price_q=500)
+        assert CatalogService.unit_price("UP-1") == 500
+
+    def test_unit_price_single_tier(self, db):
+        """Single ListingItem (default min_qty=1) returns its price."""
+        p = Product.objects.create(sku="UP-2", name="Product", base_price_q=500)
+        listing = Listing.objects.create(ref="shop", name="Shop")
+        ListingItem.objects.create(listing=listing, product=p, price_q=450)
+
+        assert CatalogService.unit_price("UP-2", channel="shop") == 450
+
+    def test_unit_price_cascade_three_tiers(self, db):
+        """Three tiers: 1 un = R$5, 3+ = R$4, 10+ = R$3.50."""
+        p = Product.objects.create(sku="UP-3", name="Product", base_price_q=600)
+        listing = Listing.objects.create(ref="loja", name="Loja")
+        ListingItem.objects.create(listing=listing, product=p, price_q=500, min_qty=Decimal("1"))
+        ListingItem.objects.create(listing=listing, product=p, price_q=400, min_qty=Decimal("3"))
+        ListingItem.objects.create(listing=listing, product=p, price_q=350, min_qty=Decimal("10"))
+
+        # qty=1 → tier min_qty=1 → unit R$5.00
+        assert CatalogService.unit_price("UP-3", qty=Decimal("1"), channel="loja") == 500
+
+        # qty=2 → tier min_qty=1 → unit R$5.00
+        assert CatalogService.unit_price("UP-3", qty=Decimal("2"), channel="loja") == 500
+
+        # qty=3 → tier min_qty=3 → unit R$4.00
+        assert CatalogService.unit_price("UP-3", qty=Decimal("3"), channel="loja") == 400
+
+        # qty=5 → tier min_qty=3 → unit R$4.00
+        assert CatalogService.unit_price("UP-3", qty=Decimal("5"), channel="loja") == 400
+
+        # qty=10 → tier min_qty=10 → unit R$3.50
+        assert CatalogService.unit_price("UP-3", qty=Decimal("10"), channel="loja") == 350
+
+        # qty=15 → tier min_qty=10 → unit R$3.50
+        assert CatalogService.unit_price("UP-3", qty=Decimal("15"), channel="loja") == 350
+
+    def test_unit_price_qty_below_all_tiers_falls_back(self, db):
+        """Qty below all min_qty thresholds falls back to base_price_q."""
+        p = Product.objects.create(sku="UP-4", name="Product", base_price_q=600)
+        listing = Listing.objects.create(ref="atacado", name="Atacado")
+        # Only tier starts at min_qty=5
+        ListingItem.objects.create(listing=listing, product=p, price_q=400, min_qty=Decimal("5"))
+        ListingItem.objects.create(listing=listing, product=p, price_q=350, min_qty=Decimal("10"))
+
+        # qty=2 → no tier qualifies → fallback to base 600
+        assert CatalogService.unit_price("UP-4", qty=Decimal("2"), channel="atacado") == 600
+
+    def test_price_total_uses_cascaded_unit(self, db):
+        """CatalogService.price() computes total = unit_price * qty."""
+        p = Product.objects.create(sku="UP-5", name="Product", base_price_q=600)
+        listing = Listing.objects.create(ref="loja", name="Loja")
+        ListingItem.objects.create(listing=listing, product=p, price_q=500, min_qty=Decimal("1"))
+        ListingItem.objects.create(listing=listing, product=p, price_q=400, min_qty=Decimal("3"))
+
+        # qty=5 → tier 3+ → unit=400 → total=2000
+        assert CatalogService.price("UP-5", qty=Decimal("5"), channel="loja") == 2000
+
+    def test_unit_price_nonexistent_product(self, db):
+        """unit_price raises CatalogError for unknown SKU."""
+        with pytest.raises(CatalogError) as exc:
+            CatalogService.unit_price("NONEXISTENT")
+        assert exc.value.code == "SKU_NOT_FOUND"
+
+    def test_unit_price_invalid_quantity(self, db):
+        """unit_price raises CatalogError for qty <= 0."""
+        Product.objects.create(sku="UP-6", name="Product", base_price_q=500)
+        with pytest.raises(CatalogError) as exc:
+            CatalogService.unit_price("UP-6", qty=Decimal("0"))
+        assert exc.value.code == "INVALID_QUANTITY"
+
+    def test_unit_price_no_channel_with_qty(self, db):
+        """Without channel, unit_price always returns base_price_q regardless of qty."""
+        Product.objects.create(sku="UP-7", name="Product", base_price_q=500)
+        assert CatalogService.unit_price("UP-7", qty=Decimal("100")) == 500
 
 
 # ═══════════════════════════════════════════════════════════════════

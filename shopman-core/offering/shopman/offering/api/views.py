@@ -4,7 +4,7 @@ from decimal import Decimal, InvalidOperation
 
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.viewsets import ReadOnlyModelViewSet
 
@@ -27,7 +27,7 @@ from .serializers import (
 class ProductViewSet(ReadOnlyModelViewSet):
     """Read-only ViewSet for products."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     lookup_field = "sku"
     filterset_class = ProductFilter
     search_fields = ["name", "sku", "keywords__name"]
@@ -50,7 +50,7 @@ class ProductViewSet(ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        listing_code = request.query_params.get("listing_code")
+        listing_ref = request.query_params.get("listing_ref")
         qty_str = request.query_params.get("qty", "1")
 
         try:
@@ -72,7 +72,7 @@ class ProductViewSet(ReadOnlyModelViewSet):
                 sku,
                 qty=qty,
                 channel=channel_ref,
-                listing=listing_code,
+                listing=listing_ref,
             )
         except CatalogError as e:
             return Response({"detail": str(e)}, status=status.HTTP_404_NOT_FOUND)
@@ -87,7 +87,7 @@ class ProductViewSet(ReadOnlyModelViewSet):
                 "unit_price_q": unit_price_q,
                 "total_q": total_q,
                 "currency": "BRL",
-                "listing_code": listing_code or channel_ref,
+                "listing_ref": listing_ref or channel_ref,
             }
         ).data
         return Response(data)
@@ -96,7 +96,7 @@ class ProductViewSet(ReadOnlyModelViewSet):
 class CollectionViewSet(ReadOnlyModelViewSet):
     """Read-only ViewSet for collections."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     lookup_field = "slug"
     filterset_class = CollectionFilter
 
@@ -112,8 +112,8 @@ class CollectionViewSet(ReadOnlyModelViewSet):
 class ListingViewSet(ReadOnlyModelViewSet):
     """Read-only ViewSet for listings."""
 
-    permission_classes = [IsAuthenticated]
-    lookup_field = "code"
+    permission_classes = [AllowAny]
+    lookup_field = "ref"
     filterset_class = ListingFilter
 
     def get_serializer_class(self):
@@ -123,7 +123,7 @@ class ListingViewSet(ReadOnlyModelViewSet):
         return Listing.objects.filter(is_active=True)
 
     @action(detail=True, methods=["get"])
-    def items(self, request, code=None):
+    def items(self, request, ref=None):
         """List items in a listing."""
         listing_obj = self.get_object()
         queryset = ListingItem.objects.filter(listing=listing_obj).select_related("product")

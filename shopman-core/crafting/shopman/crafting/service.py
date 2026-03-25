@@ -20,18 +20,21 @@ from shopman.crafting.services.queries import CraftQueries
 from shopman.crafting.services.scheduling import CraftPlanning
 
 
-class Craft(CraftPlanning, CraftExecution, CraftQueries):
+class CraftService(CraftPlanning, CraftExecution, CraftQueries):
     """
     Single interface for all Crafting operations.
 
     Follows Stocking's mixin pattern:
-        Stock = StockQueries + StockMovements + StockHolds + StockPlanning
-        Craft = CraftPlanning + CraftExecution + CraftQueries
+        StockService = StockQueries + StockMovements + StockHolds + StockPlanning
+        CraftService = CraftPlanning + CraftExecution + CraftQueries
 
     Models encapsulate invariants. Services orchestrate effects.
     """
 
 
+# Backward-compatible aliases
+Craft = CraftService
+
 # Module-level alias — all methods are @classmethod.
 # Allows: from shopman.crafting.service import craft
-craft = Craft
+craft = CraftService

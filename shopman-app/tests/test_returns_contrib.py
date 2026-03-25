@@ -15,10 +15,11 @@ from unittest.mock import MagicMock, call
 
 from django.test import TestCase
 
-from shopman.payment.adapters.mock import MockPaymentBackend
-from shopman.returns.handlers import ReturnHandler
-from shopman.returns.service import ReturnResult, ReturnService
-from shopman.inventory.adapters.noop import NoopStockBackend
+from channels.backends.payment_mock import MockPaymentBackend
+from channels.handlers.returns import ReturnHandler
+from channels.handlers.returns import ReturnResult, ReturnService
+from channels.backends.stock import NoopStockBackend
+from channels.topics import RETURN_PROCESS
 from shopman.ordering.exceptions import InvalidTransition
 from shopman.ordering.models import Channel, Directive, Order, OrderEvent, OrderItem
 
@@ -119,7 +120,7 @@ class InitiateReturnTotalTests(ReturnServiceTestBase):
         )
 
         directive = Directive.objects.get(pk=result.directive_id)
-        self.assertEqual(directive.topic, "return.process")
+        self.assertEqual(directive.topic, RETURN_PROCESS)
         self.assertEqual(directive.payload["order_ref"], "ORD-RET-001")
         self.assertEqual(directive.payload["refund_total_q"], 5000)
 
@@ -388,7 +389,7 @@ class ReturnHandlerTests(ReturnServiceTestBase):
 
     def _make_directive(self, order, items_detail, refund_total_q, return_index=0):
         return Directive.objects.create(
-            topic="return.process",
+            topic=RETURN_PROCESS,
             payload={
                 "order_ref": order.ref,
                 "items": items_detail,
@@ -439,7 +440,7 @@ class ReturnHandlerTests(ReturnServiceTestBase):
 
         # Second call — should be idempotent
         directive2 = Directive.objects.create(
-            topic="return.process",
+            topic=RETURN_PROCESS,
             payload=directive.payload,
         )
         handler.handle(message=directive2, ctx={})
@@ -478,7 +479,7 @@ class ReturnHandlerTests(ReturnServiceTestBase):
     def test_handler_order_not_found(self) -> None:
         """Handler com order inexistente deve falhar."""
         directive = Directive.objects.create(
-            topic="return.process",
+            topic=RETURN_PROCESS,
             payload={
                 "order_ref": "NONEXISTENT",
                 "items": [],

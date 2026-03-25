@@ -15,14 +15,36 @@ from __future__ import annotations
 
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
-
 from shopman.ordering.models import Channel, Directive, Order
+
+from channels.topics import NOTIFICATION_SEND, STOCK_COMMIT
 
 
 def _make_whatsapp_channel(**overrides) -> Channel:
     """Cria canal WhatsApp com config completa para testes."""
     config = {
-        "order_flow": {
+        "confirmation": {
+            "mode": "optimistic",
+            "timeout_minutes": 5,
+        },
+        "payment": {
+            "method": "pix",
+            "timeout_minutes": 10,
+        },
+        "stock": {
+            "hold_ttl_minutes": 20,
+            "safety_margin": 2,
+        },
+        "pipeline": {
+            "on_commit": ["customer.ensure", "stock.hold"],
+            "on_confirmed": ["pix.generate", "notification.send:order_confirmed"],
+            "on_payment_confirmed": ["stock.commit", "notification.send:payment_confirmed"],
+            "on_cancelled": ["notification.send:order_cancelled"],
+        },
+        "notifications": {
+            "backend": "console",
+        },
+        "flow": {
             "initial_status": "new",
             "transitions": {
                 "new": ["confirmed", "cancelled"],
@@ -38,20 +60,6 @@ def _make_whatsapp_channel(**overrides) -> Channel:
             "auto_transitions": {
                 "on_payment_confirm": "confirmed",
             },
-        },
-        "confirmation_flow": {
-            "confirmation_timeout_minutes": 5,
-            "pix_payment_timeout_minutes": 10,
-            "require_manual_confirmation": True,
-        },
-        "stock": {
-            "checkout_hold_expiration_minutes": 20,
-            "safety_margin_default": 2,
-        },
-        "payment": {
-            "backend": "efi",
-            "method": "pix",
-            "require_prepayment": True,
         },
     }
     config.update(overrides.pop("config", {}))
@@ -252,7 +260,7 @@ class EfiPixWebhookProcessingTests(TestCase):
         )
 
         notif = Directive.objects.filter(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             payload__template="payment_confirmed",
         ).first()
         self.assertIsNotNone(notif)
@@ -274,10 +282,10 @@ class EfiPixWebhookProcessingTests(TestCase):
             format="json",
         )
 
-        commit = Directive.objects.filter(topic="stock.commit").first()
+        # Pipeline-driven: stock.commit created from on_payment_confirmed pipeline
+        commit = Directive.objects.filter(topic=STOCK_COMMIT).first()
         self.assertIsNotNone(commit)
         self.assertEqual(commit.payload["order_ref"], order.ref)
-        self.assertEqual(len(commit.payload["holds"]), 2)
 
     def test_idempotent_does_not_reprocess(self):
         """Segundo webhook para mesma order → skip (já captured)."""
@@ -292,8 +300,8 @@ class EfiPixWebhookProcessingTests(TestCase):
         )
 
         # Não deve criar directives duplicadas
-        self.assertEqual(Directive.objects.filter(topic="notification.send").count(), 0)
-        self.assertEqual(Directive.objects.filter(topic="stock.commit").count(), 0)
+        self.assertEqual(Directive.objects.filter(topic=NOTIFICATION_SEND).count(), 0)
+        self.assertEqual(Directive.objects.filter(topic=STOCK_COMMIT).count(), 0)
 
     def test_order_not_found_returns_200(self):
         """txid sem order correspondente → 200 (log warning, não falha)."""
@@ -404,14 +412,13 @@ class EfiPixWebhookE2ETests(TestCase):
         self.assertEqual(order.data["payment"]["paid_amount_q"], 3300)
 
         # Stock commit criado
-        stock_commit = Directive.objects.filter(topic="stock.commit").first()
+        stock_commit = Directive.objects.filter(topic=STOCK_COMMIT).first()
         self.assertIsNotNone(stock_commit, "Expected stock.commit directive")
         self.assertEqual(stock_commit.payload["order_ref"], "ORD-E2E-001")
-        self.assertEqual(len(stock_commit.payload["holds"]), 1)
 
         # Notification criada
         notif = Directive.objects.filter(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             payload__template="payment_confirmed",
         ).first()
         self.assertIsNotNone(notif, "Expected payment_confirmed notification")
@@ -436,15 +443,15 @@ class EfiPixWebhookE2ETests(TestCase):
         self.client.post(WEBHOOK_URL, data=payload, format="json")
 
         # Verifica directives criadas
-        notif_count = Directive.objects.filter(topic="notification.send").count()
-        commit_count = Directive.objects.filter(topic="stock.commit").count()
+        notif_count = Directive.objects.filter(topic=NOTIFICATION_SEND).count()
+        commit_count = Directive.objects.filter(topic=STOCK_COMMIT).count()
 
         # Segundo webhook (duplicata)
         self.client.post(WEBHOOK_URL, data=payload, format="json")
 
         # Mesma contagem (não duplicou)
-        self.assertEqual(Directive.objects.filter(topic="notification.send").count(), notif_count)
-        self.assertEqual(Directive.objects.filter(topic="stock.commit").count(), commit_count)
+        self.assertEqual(Directive.objects.filter(topic=NOTIFICATION_SEND).count(), notif_count)
+        self.assertEqual(Directive.objects.filter(topic=STOCK_COMMIT).count(), commit_count)
 
     def test_e2e_auto_transition_from_new(self):
         """

@@ -139,7 +139,7 @@ def combo(db, breads_collection, croissant, coffee):
 @pytest.fixture
 def ifood_listing(db):
     return Listing.objects.create(
-        code="ifood",
+        ref="ifood",
         name="iFood Prices",
         is_active=True,
         priority=10,
@@ -149,7 +149,7 @@ def ifood_listing(db):
 @pytest.fixture
 def balcao_listing(db):
     return Listing.objects.create(
-        code="balcao",
+        ref="balcao",
         name="Balcão",
         is_active=True,
         priority=0,
@@ -159,7 +159,7 @@ def balcao_listing(db):
 @pytest.fixture
 def inactive_listing(db):
     return Listing.objects.create(
-        code="promo-old",
+        ref="promo-old",
         name="Old Promo",
         is_active=False,
     )
@@ -336,7 +336,7 @@ class TestProductPrice:
     def test_price_from_explicit_listing(self, api_client, baguete, ifood_baguete):
         resp = api_client.get(
             f"/api/offering/products/{baguete.sku}/price/",
-            {"channel_ref": "balcao", "listing_code": "ifood"},
+            {"channel_ref": "balcao", "listing_ref": "ifood"},
         )
         assert resp.status_code == 200
         assert resp.data["unit_price_q"] == 600
@@ -424,13 +424,13 @@ class TestListingList:
     def test_list_active_listings(self, api_client, ifood_listing, balcao_listing):
         resp = api_client.get("/api/offering/listings/")
         assert resp.status_code == 200
-        codes = {pl["code"] for pl in resp.data["results"]}
+        codes = {pl["ref"] for pl in resp.data["results"]}
         assert "ifood" in codes
         assert "balcao" in codes
 
     def test_excludes_inactive_listings(self, api_client, ifood_listing, inactive_listing):
         resp = api_client.get("/api/offering/listings/")
-        codes = {pl["code"] for pl in resp.data["results"]}
+        codes = {pl["ref"] for pl in resp.data["results"]}
         assert "ifood" in codes
         assert "promo-old" not in codes
 
@@ -439,7 +439,7 @@ class TestListingItems:
     """GET /api/offering/listings/{code}/items/"""
 
     def test_list_items(self, api_client, ifood_listing, ifood_baguete, ifood_croissant):
-        resp = api_client.get(f"/api/offering/listings/{ifood_listing.code}/items/")
+        resp = api_client.get(f"/api/offering/listings/{ifood_listing.ref}/items/")
         assert resp.status_code == 200
         assert len(resp.data) == 2
         skus = {item["sku"] for item in resp.data}
@@ -447,7 +447,7 @@ class TestListingItems:
 
     def test_filter_items_by_sku(self, api_client, ifood_listing, ifood_baguete, ifood_croissant):
         resp = api_client.get(
-            f"/api/offering/listings/{ifood_listing.code}/items/",
+            f"/api/offering/listings/{ifood_listing.ref}/items/",
             {"sku": "BAGUETE"},
         )
         assert resp.status_code == 200
@@ -456,7 +456,7 @@ class TestListingItems:
         assert resp.data[0]["price_q"] == 600
 
     def test_item_serializer_fields(self, api_client, ifood_listing, ifood_baguete):
-        resp = api_client.get(f"/api/offering/listings/{ifood_listing.code}/items/")
+        resp = api_client.get(f"/api/offering/listings/{ifood_listing.ref}/items/")
         item = resp.data[0]
         expected = {"sku", "product_name", "price_q", "min_qty", "is_published", "is_available"}
         assert set(item.keys()) == expected
@@ -495,7 +495,7 @@ class TestReadOnly:
         assert resp.status_code == 405
 
     def test_listings_post_returns_405(self, api_client, ifood_listing):
-        resp = api_client.post("/api/offering/listings/", {"code": "new"})
+        resp = api_client.post("/api/offering/listings/", {"ref": "new"})
         assert resp.status_code == 405
 
 
@@ -505,27 +505,28 @@ class TestReadOnly:
 
 
 class TestAuthentication:
-    """All endpoints require authentication."""
+    """Offering endpoints are public (AllowAny) — catalog is accessible without auth."""
 
-    def test_products_requires_auth(self, anon_client, baguete):
+    def test_products_accessible_without_auth(self, anon_client, baguete):
         resp = anon_client.get("/api/offering/products/")
-        assert resp.status_code == 403
+        assert resp.status_code == 200
 
-    def test_product_detail_requires_auth(self, anon_client, baguete):
+    def test_product_detail_accessible_without_auth(self, anon_client, baguete):
         resp = anon_client.get(f"/api/offering/products/{baguete.sku}/")
-        assert resp.status_code == 403
+        assert resp.status_code == 200
 
-    def test_product_price_requires_auth(self, anon_client, baguete):
+    def test_product_price_accessible_without_auth(self, anon_client, baguete):
         resp = anon_client.get(
             f"/api/offering/products/{baguete.sku}/price/",
             {"channel_ref": "balcao"},
         )
-        assert resp.status_code == 403
+        # 400 because channel doesn't exist in this fixture, but NOT 403
+        assert resp.status_code != 403
 
-    def test_collections_requires_auth(self, anon_client, breads_collection):
+    def test_collections_accessible_without_auth(self, anon_client, breads_collection):
         resp = anon_client.get("/api/offering/collections/")
-        assert resp.status_code == 403
+        assert resp.status_code == 200
 
-    def test_listings_requires_auth(self, anon_client, ifood_listing):
+    def test_listings_accessible_without_auth(self, anon_client, ifood_listing):
         resp = anon_client.get("/api/offering/listings/")
-        assert resp.status_code == 403
+        assert resp.status_code == 200

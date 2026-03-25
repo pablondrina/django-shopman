@@ -77,8 +77,14 @@ class Order(models.Model):
         db_index=True,
     )
 
-    snapshot = models.JSONField(_("snapshot"), default=dict, blank=True, encoder=DecimalEncoder)
-    data = models.JSONField(_("dados extras"), default=dict, blank=True, encoder=DecimalEncoder)
+    snapshot = models.JSONField(
+        _("snapshot"), default=dict, blank=True, encoder=DecimalEncoder,
+        help_text=_("Snapshot selado do pedido no momento da criação. Não editar manualmente."),
+    )
+    data = models.JSONField(
+        _("dados extras"), default=dict, blank=True, encoder=DecimalEncoder,
+        help_text=_('Dados extras do pedido. Formato livre. Ex: {"notes": "Sem cebola", "delivery_address": "Rua X, 123"}'),
+    )
 
     currency = models.CharField(_("moeda"), max_length=3, default="BRL")
     total_q = models.BigIntegerField(_("total (q)"), default=0)
@@ -103,6 +109,7 @@ class Order(models.Model):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._original_status = self.status
+        self._transition_actor: str | None = None
 
     def __str__(self) -> str:
         if self.handle_ref and self.handle_type:
@@ -149,83 +156,74 @@ class Order(models.Model):
     }
 
     def save(self, *args, **kwargs):
-        if self.pk and self.status != self._original_status:
+        status_changed = self.pk and self.status != self._original_status
+        old_status = self._original_status
+
+        if status_changed:
             from shopman.ordering.exceptions import InvalidTransition
 
             transitions = self.get_transitions()
-            allowed = transitions.get(self._original_status, [])
+            allowed = transitions.get(old_status, [])
             if self.status not in allowed:
                 raise InvalidTransition(
                     code="invalid_transition",
-                    message=f"Transição {self._original_status} → {self.status} não permitida",
+                    message=f"Transição {old_status} → {self.status} não permitida",
                     context={
-                        "current_status": self._original_status,
+                        "current_status": old_status,
                         "requested_status": self.status,
                         "allowed_transitions": allowed,
                     },
                 )
 
+            ts_field = self.STATUS_TIMESTAMP_FIELDS.get(self.status)
+            if ts_field and getattr(self, ts_field) is None:
+                setattr(self, ts_field, timezone.now())
+
         super().save(*args, **kwargs)
         self._original_status = self.status
+
+        if status_changed:
+            actor = self._transition_actor or "direct"
+            self._transition_actor = None
+
+            self.emit_event(
+                event_type="status_changed",
+                actor=actor,
+                payload={
+                    "old_status": old_status,
+                    "new_status": self.status,
+                },
+            )
+
+            from shopman.ordering.signals import order_changed
+            order_changed.send(
+                sender=Order,
+                order=self,
+                event_type="status_changed",
+                actor=actor,
+            )
 
     @transaction.atomic
     def transition_status(self, new_status: str, actor: str = "system") -> None:
         """
         Transiciona o status do pedido validando regras do canal.
 
+        Usa select_for_update() para segurança concorrente.
+        O save() cuida de validação, timestamp, evento e signal.
+
         Raises:
             InvalidTransition: Se a transição não for permitida
         """
-        from shopman.ordering.exceptions import InvalidTransition
-
         order = Order.objects.select_for_update().get(pk=self.pk)
-
-        allowed = order.get_allowed_transitions()
-        if new_status not in allowed:
-            raise InvalidTransition(
-                code="invalid_transition",
-                message=f"Transição {order.status} → {new_status} não permitida",
-                context={
-                    "current_status": order.status,
-                    "requested_status": new_status,
-                    "allowed_transitions": allowed,
-                },
-            )
-
-        old_status = order.status
         order.status = new_status
+        order._transition_actor = actor
+        order.save()
 
-        update_fields = ["status", "updated_at"]
-        ts_field = self.STATUS_TIMESTAMP_FIELDS.get(new_status)
-        if ts_field and getattr(order, ts_field) is None:
-            setattr(order, ts_field, timezone.now())
-            update_fields.append(ts_field)
-
-        order.save(update_fields=update_fields)
-
-        # Refresh self from the locked row
-        self.status = order.status
-        self._original_status = order.status
-        for field in update_fields:
-            if field not in ("updated_at",):
-                setattr(self, field, getattr(order, field))
-
-        self.emit_event(
-            event_type="status_changed",
-            actor=actor,
-            payload={
-                "old_status": old_status,
-                "new_status": new_status,
-            },
-        )
-
-        from shopman.ordering.signals import order_changed
-        order_changed.send(
-            sender=Order,
-            order=self,
-            event_type="status_changed",
-            actor=actor,
-        )
+        # Sync self from the locked row
+        for field in self._meta.get_fields():
+            if hasattr(field, "attname"):
+                setattr(self, field.attname, getattr(order, field.attname))
+        self._original_status = order._original_status
 
     def emit_event(self, event_type: str, actor: str = "system", payload: dict | None = None) -> OrderEvent:
         """
@@ -262,7 +260,10 @@ class OrderItem(models.Model):
     unit_price_q = models.BigIntegerField(_("preço unitário (q)"))
     line_total_q = models.BigIntegerField(_("total da linha (q)"))
 
-    meta = models.JSONField(_("metadados"), default=dict, blank=True)
+    meta = models.JSONField(
+        _("metadados"), default=dict, blank=True,
+        help_text=_('Metadados do item. Ex: {"customization": "sem gluten", "gift_wrap": true}'),
+    )
 
     class Meta:
         app_label = "ordering"
@@ -295,7 +296,10 @@ class OrderEvent(models.Model):
     seq = models.PositiveIntegerField(_("sequência"), default=0)
     type = models.CharField(_("tipo"), max_length=64, db_index=True)
     actor = models.CharField(_("ator"), max_length=128)
-    payload = models.JSONField(_("payload"), default=dict)
+    payload = models.JSONField(
+        _("payload"), default=dict,
+        help_text=_('Dados do evento. Ex: {"new_status": "confirmed"} ou {"error": "motivo"}'),
+    )
 
     created_at = models.DateTimeField(_("criado em"), auto_now_add=True)
 

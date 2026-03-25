@@ -13,11 +13,11 @@ from decimal import Decimal
 
 import pytest
 
-from shopman.pricing.adapters.simple import (
+from channels.backends.pricing import (
     SimplePricingBackend,
     ChannelPricingBackend,
 )
-from shopman.pricing.protocols import PricingBackend
+from channels.protocols import PricingBackend
 
 
 pytestmark = pytest.mark.django_db
@@ -45,7 +45,7 @@ def get_listing_resolver():
     def resolver(sku: str, channel_ref: str):
         return ListingItem.objects.get(
             product__sku=sku,
-            listing__code=channel_ref,
+            listing__ref=channel_ref,
             listing__is_active=True,
         )
 

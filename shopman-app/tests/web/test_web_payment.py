@@ -53,7 +53,8 @@ class TestPaymentStatusView:
 
 
 class TestMockPaymentConfirmView:
-    def test_mock_confirm(self, client: Client, order_with_payment):
+    def test_mock_confirm(self, client: Client, order_with_payment, settings):
+        settings.DEBUG = True
         resp = client.post(f"/pedido/{order_with_payment.ref}/pagamento/mock-confirm/")
         assert resp.status_code == 302
         assert f"/pedido/{order_with_payment.ref}/" in resp.url
@@ -62,13 +63,15 @@ class TestMockPaymentConfirmView:
         assert order_with_payment.data["payment"]["status"] == "captured"
         assert order_with_payment.status == "confirmed"
 
-    def test_mock_confirm_already_paid(self, client: Client, order_paid):
+    def test_mock_confirm_already_paid(self, client: Client, order_paid, settings):
+        settings.DEBUG = True
         resp = client.post(f"/pedido/{order_paid.ref}/pagamento/mock-confirm/")
         assert resp.status_code == 302
 
-    def test_mock_confirm_requires_post(self, client: Client, order_with_payment):
-        resp = client.get(f"/pedido/{order_with_payment.ref}/pagamento/mock-confirm/")
-        assert resp.status_code == 405
+    def test_mock_confirm_blocked_in_production(self, client: Client, order_with_payment, settings):
+        settings.DEBUG = False
+        resp = client.post(f"/pedido/{order_with_payment.ref}/pagamento/mock-confirm/")
+        assert resp.status_code == 404
 
     def test_mock_confirm_not_found(self, client: Client):
         resp = client.post("/pedido/NOPE/pagamento/mock-confirm/")

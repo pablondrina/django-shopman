@@ -57,8 +57,8 @@ logger = logging.getLogger(__name__)
 
 # H26: Default pagination for list endpoints.
 # Uses CursorPagination for stable ordering with large datasets.
-class OmnimanCursorPagination(CursorPagination):
-    """Cursor-based pagination for Omniman API endpoints."""
+class OrderingCursorPagination(CursorPagination):
+    """Cursor-based pagination for Ordering API endpoints."""
 
     page_size = 25
     ordering = "-created_at"
@@ -136,7 +136,7 @@ class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
     queryset = Session.objects.select_related("channel").all()
     serializer_class = SessionSerializer
     permission_classes = get_ordering_setting("DEFAULT_PERMISSION_CLASSES")
-    pagination_class = OmnimanCursorPagination
+    pagination_class = OrderingCursorPagination
     throttle_classes = [AnonRateThrottle, UserRateThrottle]
 
     lookup_field = "session_key"
@@ -357,7 +357,7 @@ class OrderViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Order.objects.select_related("channel").all()
     serializer_class = OrderSerializer
     permission_classes = get_ordering_setting("DEFAULT_PERMISSION_CLASSES")
-    pagination_class = OmnimanCursorPagination
+    pagination_class = OrderingCursorPagination
     throttle_classes = [AnonRateThrottle, UserRateThrottle]
 
 
@@ -376,5 +376,5 @@ class DirectiveViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Directive.objects.all()
     serializer_class = DirectiveSerializer
     permission_classes = get_ordering_setting("ADMIN_PERMISSION_CLASSES")
-    pagination_class = OmnimanCursorPagination
+    pagination_class = OrderingCursorPagination
     throttle_classes = [AnonRateThrottle, UserRateThrottle]

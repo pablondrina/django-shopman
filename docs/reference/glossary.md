@@ -34,6 +34,7 @@ Termos de domínio usados no código e na documentação.
 | **OrderItem** | Linha do pedido com `qty`, `unit_price_q` (centavos), snapshot do SessionItem. |
 | **OrderEvent** | Log de auditoria de mudanças de status (who, when, from/to status, reason, metadata). |
 | **Channel** | Canal de venda de onde o pedido origina (PDV, e-commerce, iFood, WhatsApp). Tem `ref`, `pricing_policy`, `edit_policy`, `config` dict. |
+| **Fulfillment** | Registro de envio/entrega de um pedido. Status: `PENDING` → `IN_PROGRESS` → `DISPATCHED` → `DELIVERED` (ou `CANCELLED`). Tem `tracking_code`, `carrier`. |
 | **Directive** | Tarefa assíncrona at-least-once. Tem `topic`, `payload`, `attempts`, status: `queued` → `running` → `done`/`failed`. Substitui Celery. |
 
 ## Crafting (Produção)
@@ -44,7 +45,7 @@ Termos de domínio usados no código e na documentação.
 | **RecipeItem** | Ingrediente na receita. Usa coeficiente francês para escalar quantidades proporcionalmente ao batch. |
 | **WorkOrder** | Ordem de produção. Liga uma receita a uma quantidade planejada, data de produção, e status (`open` → `in_progress` → `done`). |
 
-## Attending (Clientes)
+## Customers (Clientes)
 
 | Termo | Definição |
 |-------|-----------|
@@ -53,7 +54,7 @@ Termos de domínio usados no código e na documentação.
 | **ContactPoint** | Ponto de contato do cliente (WhatsApp, email, etc.). `type` + `value_normalized`. |
 | **CustomerAddress** | Endereço de entrega com label, componentes estruturados, flag `is_default`. |
 
-## Gating (Autenticação)
+## Auth (Autenticação)
 
 | Termo | Definição |
 |-------|-----------|
@@ -62,14 +63,23 @@ Termos de domínio usados no código e na documentação.
 | **TrustedDevice** | Registro de confiança de dispositivo (fingerprint, IP, user agent, `last_used`, `expires_at`). |
 | **IdentityLink** | Mapeia usuário a múltiplas identidades (email, phone, social) com status de verificação. |
 
+## Payments (Pagamentos)
+
+| Termo | Definição |
+|-------|-----------|
+| **PaymentIntent** | Intenção de pagamento. Lifecycle: `pending` → `authorized` → `captured` (ou `failed`/`cancelled`). Tem `ref`, `order_ref`, `amount_q`, `gateway`. |
+| **PaymentTransaction** | Registro imutável de transação (captura, reembolso). Ligado a um Intent. |
+| **PaymentError** | Exceção base do payments core. Codes: `INTENT_NOT_FOUND`, `INVALID_TRANSITION`, `ALREADY_CAPTURED`, `AMOUNT_EXCEEDS_CAPTURED`, etc. |
+
 ## Orquestrador
 
 | Termo | Definição |
 |-------|-----------|
-| **inventory** | Módulo orquestrador de estoque (`shopman.inventory`). Conecta stocking core com o fluxo do pedido via backends. |
-| **identification** | Módulo orquestrador de identidade do cliente (`shopman.identification`). Conecta attending core com o fluxo do pedido. |
+| **Shop** | Model singleton em `shop/` com identidade, localização, branding e defaults de negócio do estabelecimento. Cascata: canal ← Shop ← hardcoded. |
+| **ChannelConfig** | Dataclass com 7 aspectos de configuração de canal (confirmation, payment, stock, pipeline, notifications, rules, flow). Cascata via `effective()`. |
+| **inventory** | Módulo orquestrador de estoque (`channels.handlers.stock`). Conecta stocking core com o fluxo do pedido via backends. |
+| **identification** | Módulo orquestrador de identidade do cliente (`channels.handlers.customer`). Conecta customers core com o fluxo do pedido. |
 | **confirmation** | Módulo orquestrador que lida com confirmação otimista de pedidos. Auto-confirma se operador não cancela dentro do prazo. |
-| **StorefrontConfig** | Model singleton em `channels.web` com branding configurável via Admin (nome, cores, DDD, WhatsApp). |
 
 ## Convenções
 

@@ -319,7 +319,7 @@ result = CommitService.commit(
 
 ## 08:17 — Estoque reservado
 
-A directive `stock.hold` e processada. O handler `StockHoldHandler` (registrado em `shopman.inventory.apps.InventoryConfig.ready()`) cria um `Hold` para cada item do pedido via `StockBackend.create_hold()`, reservando 3 croissants e 2 cafes. Isso evita que outro pedido venda os mesmos itens.
+A directive `stock.hold` e processada. O handler `StockHoldHandler` (registrado em `channels.setup.register_all()`) cria um `Hold` para cada item do pedido via `StockBackend.create_hold()`, reservando 3 croissants e 2 cafes. Isso evita que outro pedido venda os mesmos itens.
 
 ---
 
@@ -368,10 +368,10 @@ Cada transicao cria um `OrderEvent` com `type="status_changed"` e atualiza times
 
 Anais revisa o dia no dashboard e dispara atualizacao dos insights RFM dos clientes.
 
-**Codigo:** `shopman-core/attending/shopman/attending/contrib/insights/service.py`
+**Codigo:** `shopman-core/customers/shopman/customers/contrib/insights/service.py`
 
 ```python
-from shopman.attending.contrib.insights.service import InsightService
+from shopman.customers.contrib.insights.service import InsightService
 
 # Recalcular para um cliente especifico
 insight = InsightService.recalculate(customer_ref="CLI-001")
@@ -450,7 +450,7 @@ count = InsightService.recalculate_all()
                                                      payment.capture
 
 ┌──────────┐   recalculate()
-│ATTENDING │◄─────────────── fim do dia
+│CUSTOMERS │◄─────────────── fim do dia
 │ Insights │   RFM, churn,
 │ RFM/LTV  │   segmento, LTV
 └──────────┘

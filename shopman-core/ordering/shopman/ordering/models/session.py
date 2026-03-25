@@ -62,8 +62,7 @@ class SessionManager(models.Manager):
         with transaction.atomic():
             session = super().create(**kwargs)
             if items is not None:
-                session._items_cache = session._normalize_items(items)
-                session._persist_items(session._items_cache)
+                session.update_items(items)
         return session
 
     def get_or_create(self, defaults=None, **kwargs):
@@ -72,8 +71,7 @@ class SessionManager(models.Manager):
         with transaction.atomic():
             session, created = super().get_or_create(defaults=defaults, **kwargs)
             if created and items is not None:
-                session._items_cache = session._normalize_items(items)
-                session._persist_items(session._items_cache)
+                session.update_items(items)
         return session, created
 
 
@@ -123,9 +121,18 @@ class Session(models.Model):
 
     rev = models.IntegerField(_("revisão"), default=0, db_index=True)
 
-    data = models.JSONField(_("dados"), default=dict)
-    pricing = models.JSONField(_("precificação"), default=dict, blank=True)
-    pricing_trace = models.JSONField(_("trace de precificação"), default=list, blank=True)
+    data = models.JSONField(
+        _("dados"), default=dict,
+        help_text=_("Dados da sessão (checks, validações). Populado automaticamente pelo sistema."),
+    )
+    pricing = models.JSONField(
+        _("precificação"), default=dict, blank=True,
+        help_text=_("Resultado da precificação. Populado automaticamente pelos modifiers."),
+    )
+    pricing_trace = models.JSONField(
+        _("trace de precificação"), default=list, blank=True,
+        help_text=_("Trace de auditoria dos modifiers. Populado automaticamente."),
+    )
 
     commit_token = models.CharField(_("token de commit"), max_length=64, null=True, blank=True, db_index=True)
 
@@ -168,9 +175,11 @@ class Session(models.Model):
             self._items_cache = self._load_items_from_lines()
         return copy.deepcopy(getattr(self, "_items_cache", []))
 
-    @items.setter
-    def items(self, value: list[dict]):
-        self._items_cache = self._normalize_items(value or [])
+    def update_items(self, items: list[dict]) -> None:
+        """Normaliza e persiste items imediatamente."""
+        normalized = self._normalize_items(items or [])
+        self._persist_items(normalized)
+        self._items_cache = normalized
 
     def invalidate_items_cache(self) -> None:
         if hasattr(self, "_items_cache"):
@@ -181,10 +190,7 @@ class Session(models.Model):
         self.invalidate_items_cache()
 
     def save(self, *args, **kwargs):
-        items_snapshot = getattr(self, "_items_cache", None)
         super().save(*args, **kwargs)
-        if items_snapshot is not None:
-            self._persist_items(items_snapshot)
 
     # ------------------------------------------------------------------ internal
 
@@ -272,7 +278,10 @@ class SessionItem(models.Model):
     qty = models.DecimalField(_("quantidade"), max_digits=12, decimal_places=3)
     unit_price_q = models.BigIntegerField(_("preço unitário (q)"), default=0)
     line_total_q = models.BigIntegerField(_("total da linha (q)"), default=0)
-    meta = models.JSONField(_("metadados"), default=dict, blank=True)
+    meta = models.JSONField(
+        _("metadados"), default=dict, blank=True,
+        help_text=_('Metadados do item. Ex: {"customization": "extra queijo"}'),
+    )
     created_at = models.DateTimeField(_("criado em"), auto_now_add=True)
     updated_at = models.DateTimeField(_("atualizado em"), auto_now=True)
 

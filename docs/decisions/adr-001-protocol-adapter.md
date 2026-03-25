@@ -48,7 +48,7 @@ SHOPMAN_STOCK_BACKEND = "shopman.inventory.adapters.stockman.StockmanAdapter"
 ### Negativas
 
 - **Indireccao:** Mais arquivos (protocols.py, adapters/, conf.py). Requer navegar mais para entender o fluxo completo
-- **Duplicacao de dataclasses:** `CustomerInfo` existe em `shopman.identification.protocols` e em `shopman.attending.protocols`. A interface e identica mas sao classes distintas
+- **Duplicacao de dataclasses:** `CustomerInfo` existe em `shopman.identification.protocols` e em `shopman.customers.protocols`. A interface e identica mas sao classes distintas
 - **Config manual:** O settings.py do projeto precisa ligar todos os backends. Erro de configuracao so aparece em runtime
 
 ### Mitigacoes

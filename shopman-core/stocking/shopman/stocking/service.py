@@ -21,7 +21,7 @@ from shopman.stocking.services.planning import StockPlanning
 from shopman.stocking.services.queries import StockQueries
 
 
-class Stock(StockQueries, StockMovements, StockHolds, StockPlanning):
+class StockService(StockQueries, StockMovements, StockHolds, StockPlanning):
     """
     Single interface for all stock operations.
 
@@ -31,3 +31,7 @@ class Stock(StockQueries, StockMovements, StockHolds, StockPlanning):
     IMPORTANT: All state-changing methods use atomic transactions
     with appropriate locking. See each method's docstring.
     """
+
+
+# Backward-compatible alias
+Stock = StockService

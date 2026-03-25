@@ -5,18 +5,17 @@ from django.shortcuts import get_object_or_404, render
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
-
+from shopman.ordering.models import Order
 from shopman.utils.monetary import format_money
 from shopman.utils.phone import normalize_phone
-from shopman.ordering.models import Order
 
 from ..constants import get_default_ddd
-from .tracking import STATUS_LABELS, STATUS_COLORS
+from .tracking import STATUS_COLORS, STATUS_LABELS
 
 
 def _get_customer_from_session(request: HttpRequest):
     """Get customer from phone stored in request session."""
-    from shopman.attending.services import customer as customer_service
+    from shopman.customers.services import customer as customer_service
 
     phone = request.session.get("account_phone")
     if not phone:
@@ -47,7 +46,7 @@ class AccountView(View):
         # If phone already verified in session, skip the phone form
         verified_phone = request.session.get("storefront_verified_phone")
         if verified_phone:
-            from shopman.attending.services import customer as customer_service
+            from shopman.customers.services import customer as customer_service
 
             customer = customer_service.get_by_phone(verified_phone)
             if customer:
@@ -67,7 +66,7 @@ class AccountView(View):
 
         preferences = None
         try:
-            from shopman.attending.contrib.preferences.models import CustomerPreference
+            from shopman.customers.contrib.preferences.models import CustomerPreference
 
             prefs = CustomerPreference.objects.filter(customer=customer).order_by("category", "key")
             if prefs.exists():
@@ -122,7 +121,7 @@ class AccountView(View):
                     "phone_value": phone_raw,
                 })
 
-        from shopman.attending.services import customer as customer_service
+        from shopman.customers.services import customer as customer_service
 
         customer = customer_service.get_by_phone(phone)
         if not customer:
@@ -145,7 +144,7 @@ class AccountView(View):
         # Preferences (optional)
         preferences = None
         try:
-            from shopman.attending.contrib.preferences.models import CustomerPreference
+            from shopman.customers.contrib.preferences.models import CustomerPreference
 
             prefs = CustomerPreference.objects.filter(customer=customer).order_by("category", "key")
             if prefs.exists():
@@ -166,7 +165,7 @@ class AddressCreateView(View):
     """HTMX: create new address, return updated address list."""
 
     def post(self, request: HttpRequest) -> HttpResponse:
-        from shopman.attending.models import CustomerAddress
+        from shopman.customers.models import CustomerAddress
 
         phone = request.POST.get("customer_phone", "").strip()
         if not phone:
@@ -177,7 +176,7 @@ class AddressCreateView(View):
         except Exception:
             return HttpResponse("Telefone inválido.", status=400)
 
-        from shopman.attending.services import customer as customer_service
+        from shopman.customers.services import customer as customer_service
 
         customer = customer_service.get_by_phone(phone)
         if not customer:
@@ -239,7 +238,7 @@ class AddressUpdateView(View):
     """HTMX: update existing address, return updated item."""
 
     def post(self, request: HttpRequest, pk: int) -> HttpResponse:
-        from shopman.attending.models import CustomerAddress
+        from shopman.customers.models import CustomerAddress
 
         addr = get_object_or_404(CustomerAddress, pk=pk)
         customer = addr.customer
@@ -289,7 +288,7 @@ class AddressDeleteView(View):
     """HTMX: delete address, return updated list."""
 
     def post(self, request: HttpRequest, pk: int) -> HttpResponse:
-        from shopman.attending.models import CustomerAddress
+        from shopman.customers.models import CustomerAddress
 
         addr = get_object_or_404(CustomerAddress, pk=pk)
         customer = addr.customer
@@ -316,7 +315,7 @@ class AddressSetDefaultView(View):
     """HTMX: set address as default, return updated list."""
 
     def post(self, request: HttpRequest, pk: int) -> HttpResponse:
-        from shopman.attending.models import CustomerAddress
+        from shopman.customers.models import CustomerAddress
 
         addr = get_object_or_404(CustomerAddress, pk=pk)
         customer = addr.customer

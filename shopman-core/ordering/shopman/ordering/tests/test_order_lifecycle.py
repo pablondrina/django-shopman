@@ -710,3 +710,95 @@ class SessionToOrderFlowTests(TestCase):
         self.assertEqual(order.handle_type, "comanda")
         self.assertEqual(order.handle_ref, "42")
         self.assertIn("Comanda: 42", str(order))
+
+
+class OrderSaveIntegrityTests(TestCase):
+    """WP-H1: Testes de integridade garantida pelo save()."""
+
+    def setUp(self) -> None:
+        self.channel = Channel.objects.create(ref="h1-test", name="H1 Test")
+        self.order = Order.objects.create(
+            ref="H1-001",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=5000,
+        )
+
+    def test_direct_save_status_change_creates_event(self) -> None:
+        """Mudança de status via save() direto cria OrderEvent."""
+        self.order.status = Order.STATUS_CONFIRMED
+        self.order.save()
+
+        event = OrderEvent.objects.get(order=self.order)
+        self.assertEqual(event.type, "status_changed")
+        self.assertEqual(event.payload["old_status"], "new")
+        self.assertEqual(event.payload["new_status"], "confirmed")
+
+    def test_direct_save_status_change_sets_timestamp(self) -> None:
+        """Mudança de status via save() direto seta timestamp mecânico."""
+        self.assertIsNone(self.order.confirmed_at)
+        self.order.status = Order.STATUS_CONFIRMED
+        self.order.save()
+
+        self.order.refresh_from_db()
+        self.assertIsNotNone(self.order.confirmed_at)
+
+    def test_direct_save_status_change_sends_signal(self) -> None:
+        """Mudança de status via save() direto emite signal order_changed."""
+        from shopman.ordering.signals import order_changed
+
+        received = []
+
+        def handler(sender, order, event_type, actor, **kwargs):
+            received.append({"order": order, "event_type": event_type, "actor": actor})
+
+        order_changed.connect(handler)
+        try:
+            self.order.status = Order.STATUS_CONFIRMED
+            self.order.save()
+
+            self.assertEqual(len(received), 1)
+            self.assertEqual(received[0]["event_type"], "status_changed")
+            self.assertEqual(received[0]["order"].pk, self.order.pk)
+        finally:
+            order_changed.disconnect(handler)
+
+    def test_direct_save_status_change_actor_is_direct(self) -> None:
+        """Mudança de status via save() direto usa actor 'direct'."""
+        self.order.status = Order.STATUS_CONFIRMED
+        self.order.save()
+
+        event = OrderEvent.objects.get(order=self.order)
+        self.assertEqual(event.actor, "direct")
+
+    def test_transition_status_actor_is_preserved(self) -> None:
+        """transition_status() preserva o actor informado."""
+        self.order.transition_status(Order.STATUS_CONFIRMED, actor="admin-panel")
+
+        event = OrderEvent.objects.get(order=self.order)
+        self.assertEqual(event.actor, "admin-panel")
+
+    def test_save_without_status_change_no_side_effects(self) -> None:
+        """save() sem mudança de status não cria evento nem emite signal."""
+        from shopman.ordering.signals import order_changed
+
+        received = []
+
+        def handler(sender, **kwargs):
+            received.append(True)
+
+        order_changed.connect(handler)
+        try:
+            self.order.total_q = 9999
+            self.order.save()
+
+            self.assertEqual(OrderEvent.objects.filter(order=self.order).count(), 0)
+            self.assertEqual(len(received), 0)
+        finally:
+            order_changed.disconnect(handler)
+
+    def test_invalid_transition_via_direct_save_raises(self) -> None:
+        """Transição inválida via save() direto levanta InvalidTransition."""
+        self.order.status = Order.STATUS_READY  # new → ready não é permitido
+        with self.assertRaises(InvalidTransition):
+            self.order.save()

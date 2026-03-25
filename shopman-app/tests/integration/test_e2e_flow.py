@@ -20,11 +20,12 @@ from django.test import TestCase
 from django.utils import timezone
 
 from shopman.ordering import registry
-from shopman.identification.handlers import CustomerEnsureHandler
-from shopman.notifications.handlers import NotificationSendHandler
-from shopman.payment.adapters.mock import MockPaymentBackend
-from shopman.inventory.adapters.noop import NoopStockBackend
-from shopman.inventory.handlers import StockCommitHandler, StockHoldHandler
+from channels.handlers.customer import CustomerEnsureHandler
+from channels.handlers.notification import NotificationSendHandler
+from channels.backends.payment_mock import MockPaymentBackend
+from channels.backends.stock import NoopStockBackend
+from channels.handlers.stock import StockCommitHandler, StockHoldHandler
+from channels.topics import CUSTOMER_ENSURE, NOTIFICATION_SEND, PIX_GENERATE, STOCK_COMMIT
 from shopman.ordering.ids import generate_idempotency_key
 from shopman.ordering.models import Channel, Directive, Order, Session
 from shopman.ordering.services.commit import CommitService
@@ -36,13 +37,31 @@ def _make_web_channel(**overrides) -> Channel:
     config = {
         "required_checks_on_commit": [],
         "post_commit_directives": [
-            "customer.ensure",
-            "stock.commit",
-            "pix.generate",
-            "notification.send",
+            CUSTOMER_ENSURE,
+            STOCK_COMMIT,
+            PIX_GENERATE,
+            NOTIFICATION_SEND,
         ],
+        "confirmation": {
+            "mode": "optimistic",
+            "timeout_minutes": 5,
+        },
+        "payment": {
+            "method": "pix",
+            "timeout_minutes": 10,
+        },
+        "stock": {
+            "hold_ttl_minutes": 20,
+            "safety_margin": 2,
+        },
+        "pipeline": {
+            "on_commit": ["customer.ensure", "stock.hold"],
+            "on_confirmed": ["pix.generate", "notification.send:order_confirmed"],
+            "on_payment_confirmed": ["stock.commit", "notification.send:payment_confirmed"],
+            "on_cancelled": ["notification.send:order_cancelled"],
+        },
         "notifications": {"backend": "console"},
-        "order_flow": {
+        "flow": {
             "transitions": {
                 "new": ["confirmed", "cancelled"],
                 "confirmed": ["processing", "ready", "cancelled"],
@@ -78,10 +97,19 @@ def _make_balcao_channel() -> Channel:
         config={
             "required_checks_on_commit": [],
             "post_commit_directives": [
-                "customer.ensure",
-                "stock.commit",
+                CUSTOMER_ENSURE,
+                STOCK_COMMIT,
             ],
-            "order_flow": {
+            "confirmation": {
+                "mode": "immediate",
+                "timeout_minutes": 5,
+            },
+            "pipeline": {
+                "on_commit": ["customer.ensure"],
+                "on_confirmed": ["stock.commit", "notification.send:order_confirmed"],
+            },
+            "notifications": {"backend": "console"},
+            "flow": {
                 "transitions": {
                     "new": ["confirmed", "cancelled"],
                     "confirmed": ["processing", "ready", "cancelled"],
@@ -169,7 +197,7 @@ class _BaseE2ETestCase(TestCase):
             pass
 
         # Pix handlers need payment backend
-        from shopman.payment.handlers import PixGenerateHandler, PixTimeoutHandler
+        from channels.handlers.payment import PixGenerateHandler, PixTimeoutHandler
 
         try:
             registry.register_directive_handler(PixGenerateHandler(backend=self.payment_backend))
@@ -179,8 +207,8 @@ class _BaseE2ETestCase(TestCase):
 
         # Register console notification backend
         try:
-            from shopman.notifications.backends.console import ConsoleBackend
-            from shopman.notifications.service import register_backend
+            from channels.backends.notification_console import ConsoleBackend
+            from channels.notifications import register_backend
 
             register_backend("console", ConsoleBackend())
         except (ImportError, ValueError, AttributeError):
@@ -190,9 +218,9 @@ class _BaseE2ETestCase(TestCase):
         registry.clear()
         super().tearDown()
 
-    def _setup_attending(self):
-        """Create Attending customer group (needed for customer creation)."""
-        from shopman.attending.models import CustomerGroup
+    def _setup_customers(self):
+        """Create customer group (needed for customer creation)."""
+        from shopman.customers.models import CustomerGroup
 
         CustomerGroup.objects.get_or_create(
             ref="default",
@@ -210,7 +238,7 @@ class TestWebOrderPickupFullCycle(_BaseE2ETestCase):
     """
 
     def test_web_order_pickup_full_cycle(self):
-        self._setup_attending()
+        self._setup_customers()
         channel = _make_web_channel()
 
         # Create session with customer data
@@ -221,8 +249,9 @@ class TestWebOrderPickupFullCycle(_BaseE2ETestCase):
         session.data["fulfillment_type"] = "pickup"
         session.save(update_fields=["data"])
 
-        # Commit
-        result = _commit_session(session)
+        # Commit (captureOnCommitCallbacks fires directive handlers)
+        with self.captureOnCommitCallbacks(execute=True):
+            result = _commit_session(session)
         order_ref = result["order_ref"]
         order = Order.objects.get(ref=order_ref)
 
@@ -232,22 +261,22 @@ class TestWebOrderPickupFullCycle(_BaseE2ETestCase):
         self.assertEqual(order.handle_ref, "+5543999990001")
 
         # Verify customer.ensure directive was created
-        ensure_directives = Directive.objects.filter(topic="customer.ensure")
+        ensure_directives = Directive.objects.filter(topic=CUSTOMER_ENSURE)
         self.assertTrue(ensure_directives.exists())
 
-        # Verify customer was created in Attending
-        from shopman.attending.models import Customer
+        # Verify customer was created in Customers
+        from shopman.customers.models import Customer
 
         customer = Customer.objects.filter(phone="+5543999990001").first()
         self.assertIsNotNone(customer, "Customer should be created by CustomerEnsureHandler")
         self.assertEqual(customer.first_name, "João")
 
         # Verify pix.generate was created
-        pix_directives = Directive.objects.filter(topic="pix.generate")
+        pix_directives = Directive.objects.filter(topic=PIX_GENERATE)
         self.assertTrue(pix_directives.exists())
 
         # Verify stock.commit was created
-        commit_directives = Directive.objects.filter(topic="stock.commit")
+        commit_directives = Directive.objects.filter(topic=STOCK_COMMIT)
         self.assertTrue(commit_directives.exists())
 
         # Simulate payment confirmation
@@ -266,7 +295,7 @@ class TestWebOrderPickupFullCycle(_BaseE2ETestCase):
 
         # Verify notification directive for "ready" + pickup was created
         ready_notifications = Directive.objects.filter(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
         ).order_by("-id")
         # Should have at least one notification for ready status
         self.assertTrue(
@@ -285,7 +314,7 @@ class TestWebOrderDeliveryFullCycle(_BaseE2ETestCase):
     """
 
     def test_web_order_delivery_full_cycle(self):
-        self._setup_attending()
+        self._setup_customers()
         channel = _make_web_channel()
 
         session = _create_session_with_items(
@@ -296,7 +325,8 @@ class TestWebOrderDeliveryFullCycle(_BaseE2ETestCase):
         session.data["delivery_address"] = "Rua das Flores, 123 - Centro"
         session.save(update_fields=["data"])
 
-        result = _commit_session(session)
+        with self.captureOnCommitCallbacks(execute=True):
+            result = _commit_session(session)
         order = Order.objects.get(ref=result["order_ref"])
 
         # Verify delivery data stored
@@ -333,9 +363,9 @@ class TestExistingCustomerRecognized(_BaseE2ETestCase):
     """
 
     def test_existing_customer_recognized(self):
-        self._setup_attending()
-        from shopman.attending.models import Customer
-        from shopman.attending.services import customer as CustomerService
+        self._setup_customers()
+        from shopman.customers.models import Customer
+        from shopman.customers.services import customer as CustomerService
 
         # Pre-create customer
         existing = CustomerService.create(
@@ -354,7 +384,8 @@ class TestExistingCustomerRecognized(_BaseE2ETestCase):
         session.data["fulfillment_type"] = "pickup"
         session.save(update_fields=["data"])
 
-        result = _commit_session(session)
+        with self.captureOnCommitCallbacks(execute=True):
+            result = _commit_session(session)
         order = Order.objects.get(ref=result["order_ref"])
 
         # Customer should NOT be duplicated
@@ -363,7 +394,7 @@ class TestExistingCustomerRecognized(_BaseE2ETestCase):
         self.assertEqual(customers.first().ref, "EXIST-001")
 
         # Customer ensure should have linked the order
-        ensure_directive = Directive.objects.filter(topic="customer.ensure").first()
+        ensure_directive = Directive.objects.filter(topic=CUSTOMER_ENSURE).first()
         self.assertIsNotNone(ensure_directive)
         ensure_directive.refresh_from_db()
         self.assertEqual(ensure_directive.status, "done")
@@ -378,7 +409,7 @@ class TestPreorderFlow(_BaseE2ETestCase):
     """
 
     def test_preorder_with_future_date(self):
-        self._setup_attending()
+        self._setup_customers()
         channel = _make_web_channel()
         tomorrow = (date.today() + timedelta(days=1)).isoformat()
 
@@ -390,14 +421,15 @@ class TestPreorderFlow(_BaseE2ETestCase):
         session.data["delivery_date"] = tomorrow
         session.save(update_fields=["data"])
 
-        result = _commit_session(session)
+        with self.captureOnCommitCallbacks(execute=True):
+            result = _commit_session(session)
         order = Order.objects.get(ref=result["order_ref"])
 
         # Verify delivery_date stored on order
         self.assertEqual(order.data.get("delivery_date"), tomorrow)
 
         # Verify stock.commit directive was created
-        commit_directives = Directive.objects.filter(topic="stock.commit")
+        commit_directives = Directive.objects.filter(topic=STOCK_COMMIT)
         self.assertTrue(commit_directives.exists())
 
 
@@ -468,7 +500,8 @@ class TestBalcaoAnonymous(_BaseE2ETestCase):
             data={},
         )
 
-        result = _commit_session(session)
+        with self.captureOnCommitCallbacks(execute=True):
+            result = _commit_session(session)
         order = Order.objects.get(ref=result["order_ref"])
 
         # Order should work without customer (auto-confirmed: channel has no manual confirmation)
@@ -477,7 +510,7 @@ class TestBalcaoAnonymous(_BaseE2ETestCase):
         self.assertFalse(order.handle_ref)  # No customer identification
 
         # customer.ensure should succeed (skip gracefully for anonymous)
-        ensure_directive = Directive.objects.filter(topic="customer.ensure").first()
+        ensure_directive = Directive.objects.filter(topic=CUSTOMER_ENSURE).first()
         self.assertIsNotNone(ensure_directive)
         ensure_directive.refresh_from_db()
         self.assertEqual(ensure_directive.status, "done")
@@ -491,7 +524,7 @@ class TestBalcaoWithCPF(_BaseE2ETestCase):
     """
 
     def test_balcao_with_identification(self):
-        self._setup_attending()
+        self._setup_customers()
         channel = _make_balcao_channel()
 
         session = Session.objects.create(
@@ -518,14 +551,15 @@ class TestBalcaoWithCPF(_BaseE2ETestCase):
             },
         )
 
-        result = _commit_session(session)
+        with self.captureOnCommitCallbacks(execute=True):
+            result = _commit_session(session)
         order = Order.objects.get(ref=result["order_ref"])
 
         # Order should have handle_ref
         self.assertEqual(order.handle_ref, "+5543999990007")
 
         # Customer should be created
-        from shopman.attending.models import Customer
+        from shopman.customers.models import Customer
 
         customer = Customer.objects.filter(phone="+5543999990007").first()
         self.assertIsNotNone(customer, "Customer should be created for identified balcão order")

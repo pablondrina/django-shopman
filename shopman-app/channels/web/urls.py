@@ -33,6 +33,8 @@ urlpatterns = [
     path("cart/content/", views.CartContentPartialView.as_view(), name="cart_content"),
     path("cart/summary/", views.CartSummaryView.as_view(), name="cart_summary"),
     path("cart/floating-bar/", views.FloatingCartBarView.as_view(), name="floating_cart_bar"),
+    path("cart/coupon/", views.ApplyCouponView.as_view(), name="cart_apply_coupon"),
+    path("cart/coupon/remove/", views.RemoveCouponView.as_view(), name="cart_remove_coupon"),
     # Checkout
     path("checkout/", views.CheckoutView.as_view(), name="checkout"),
     path("checkout/customer-lookup/", views.CustomerLookupView.as_view(), name="customer_lookup"),

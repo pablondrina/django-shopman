@@ -16,17 +16,17 @@ from typing import Any
 from unittest.mock import Mock
 
 from django.test import TestCase
+from shopman.ordering.models import Channel, Session
 
-from shopman.pricing.adapters.simple import (
+from channels.backends.pricing import (
     ChannelPricingBackend,
     SimplePricingBackend,
 )
-from shopman.pricing.modifiers import (
+from channels.handlers.pricing import (
     ItemPricingModifier,
     SessionTotalModifier,
 )
-from shopman.pricing.protocols import PricingBackend
-from shopman.ordering.models import Channel, Session
+from channels.protocols import PricingBackend
 
 
 class MockPricingBackend:
@@ -35,7 +35,7 @@ class MockPricingBackend:
     def __init__(self, prices: dict[str, int] | None = None):
         self.prices = prices or {}
 
-    def get_price(self, sku: str, channel: Any) -> int | None:
+    def get_price(self, sku: str, channel: Any, qty: int = 1) -> int | None:
         return self.prices.get(sku)
 
 
@@ -151,6 +151,43 @@ class ItemPricingModifierTests(TestCase):
         self.modifier.apply(channel=self.channel, session=session, ctx={})
 
         self.assertEqual(items[0]["line_total_q"], 2331)
+
+    def test_cascade_pricing_with_qty_aware_backend(self) -> None:
+        """Backend returns different unit prices based on qty tier."""
+
+        class TieredBackend:
+            def get_price(self, sku, channel, qty=1):
+                # Simulates 1+ = 500, 3+ = 400, 10+ = 350
+                if qty >= 10:
+                    return 350
+                if qty >= 3:
+                    return 400
+                return 500
+
+        modifier = ItemPricingModifier(backend=TieredBackend())
+        session = Mock()
+        session.pricing_policy = "internal"
+        session.pricing_trace = []
+        items = [
+            {"line_id": "L1", "sku": "BREAD", "qty": 1},
+            {"line_id": "L2", "sku": "BREAD", "qty": 5},
+            {"line_id": "L3", "sku": "BREAD", "qty": 15},
+        ]
+        session.items = items
+
+        modifier.apply(channel=self.channel, session=session, ctx={})
+
+        # qty=1 → unit=500, total=500
+        self.assertEqual(items[0]["unit_price_q"], 500)
+        self.assertEqual(items[0]["line_total_q"], 500)
+
+        # qty=5 → unit=400, total=2000
+        self.assertEqual(items[1]["unit_price_q"], 400)
+        self.assertEqual(items[1]["line_total_q"], 2000)
+
+        # qty=15 → unit=350, total=5250
+        self.assertEqual(items[2]["unit_price_q"], 350)
+        self.assertEqual(items[2]["line_total_q"], 5250)
 
 
 class SessionTotalModifierTests(TestCase):
@@ -383,3 +420,106 @@ class PricingModifiersIntegrationTests(TestCase):
 
         self.assertEqual(session.pricing["total_q"], 2000)
         self.assertEqual(session.pricing["items_count"], 2)
+
+
+class CatalogPricingBackendCascadeTests(TestCase):
+    """Tests for CatalogPricingBackend with min_qty cascading."""
+
+    def setUp(self) -> None:
+        from shopman.offering.models import Listing, ListingItem, Product
+
+        self.product = Product.objects.create(sku="BREAD", name="Bread", base_price_q=600)
+        self.listing = Listing.objects.create(ref="shop", name="Shop")
+
+        # Tiers: 1+ = R$5.00, 3+ = R$4.00, 10+ = R$3.50
+        from decimal import Decimal
+
+        ListingItem.objects.create(
+            listing=self.listing, product=self.product, price_q=500, min_qty=Decimal("1")
+        )
+        ListingItem.objects.create(
+            listing=self.listing, product=self.product, price_q=400, min_qty=Decimal("3")
+        )
+        ListingItem.objects.create(
+            listing=self.listing, product=self.product, price_q=350, min_qty=Decimal("10")
+        )
+
+        self.channel = Mock(ref="shop")
+
+    def test_qty_1_returns_first_tier(self) -> None:
+        from channels.backends.pricing import CatalogPricingBackend
+
+        backend = CatalogPricingBackend()
+        price = backend.get_price("BREAD", self.channel, qty=1)
+        self.assertEqual(price, 500)
+
+    def test_qty_5_returns_second_tier(self) -> None:
+        from channels.backends.pricing import CatalogPricingBackend
+
+        backend = CatalogPricingBackend()
+        price = backend.get_price("BREAD", self.channel, qty=5)
+        self.assertEqual(price, 400)
+
+    def test_qty_15_returns_third_tier(self) -> None:
+        from channels.backends.pricing import CatalogPricingBackend
+
+        backend = CatalogPricingBackend()
+        price = backend.get_price("BREAD", self.channel, qty=15)
+        self.assertEqual(price, 350)
+
+    def test_qty_default_returns_first_tier(self) -> None:
+        from channels.backends.pricing import CatalogPricingBackend
+
+        backend = CatalogPricingBackend()
+        # Default qty=1
+        price = backend.get_price("BREAD", self.channel)
+        self.assertEqual(price, 500)
+
+    def test_no_channel_returns_base_price(self) -> None:
+        from channels.backends.pricing import CatalogPricingBackend
+
+        backend = CatalogPricingBackend()
+        price = backend.get_price("BREAD", None, qty=15)
+        self.assertEqual(price, 600)  # Falls back to base_price_q
+
+
+class OfferingBackendCascadeTests(TestCase):
+    """Tests for OfferingBackend with min_qty cascading."""
+
+    def setUp(self) -> None:
+        from decimal import Decimal
+
+        from shopman.offering.models import Listing, ListingItem, Product
+
+        self.product = Product.objects.create(sku="CAKE", name="Cake", base_price_q=1200)
+        self.listing = Listing.objects.create(ref="counter", name="Counter")
+
+        ListingItem.objects.create(
+            listing=self.listing, product=self.product, price_q=1000, min_qty=Decimal("1")
+        )
+        ListingItem.objects.create(
+            listing=self.listing, product=self.product, price_q=800, min_qty=Decimal("5")
+        )
+
+        self.channel = Mock(ref="counter", listing_ref="counter")
+
+    def test_qty_1_returns_first_tier(self) -> None:
+        from channels.backends.pricing import OfferingBackend
+
+        backend = OfferingBackend()
+        price = backend.get_price("CAKE", self.channel, qty=1)
+        self.assertEqual(price, 1000)
+
+    def test_qty_5_returns_second_tier(self) -> None:
+        from channels.backends.pricing import OfferingBackend
+
+        backend = OfferingBackend()
+        price = backend.get_price("CAKE", self.channel, qty=5)
+        self.assertEqual(price, 800)
+
+    def test_qty_default_returns_first_tier(self) -> None:
+        from channels.backends.pricing import OfferingBackend
+
+        backend = OfferingBackend()
+        price = backend.get_price("CAKE", self.channel)
+        self.assertEqual(price, 1000)

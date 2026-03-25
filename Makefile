@@ -5,7 +5,7 @@
 #   make test-utils  → roda testes do utils
 #   make install     → instala deps + apps em modo editável
 
-.PHONY: help install test test-utils test-offering test-stocking test-crafting test-ordering test-attending test-gating test-shopman-app lint clean migrate run seed coverage
+.PHONY: help install test test-utils test-offering test-stocking test-crafting test-ordering test-payments test-customers test-auth test-shopman-app lint clean migrate run seed coverage
 
 help: ## Mostra este help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -22,15 +22,16 @@ install: ## Instala deps + apps da suite em modo editável
 	pip install -e shopman-core/offering
 	pip install -e shopman-core/stocking
 	pip install -e shopman-core/crafting
-	pip install -e shopman-core/attending
-	pip install -e shopman-core/gating
+	pip install -e shopman-core/customers
+	pip install -e shopman-core/auth
 	pip install -e shopman-core/ordering
+	pip install -e shopman-core/payments
 	pip install -e shopman-app
 	@echo "✓ Dependências instaladas"
 
 # ── Testes ────────────────────────────────────────────────────────────
 
-test: test-utils test-offering test-stocking test-crafting test-ordering test-attending test-gating test-shopman-app ## Roda todos os testes
+test: test-utils test-offering test-stocking test-crafting test-ordering test-payments test-customers test-auth test-shopman-app ## Roda todos os testes
 	@echo "✓ Todos os testes passaram"
 
 test-utils: ## Testes do shopman.utils
@@ -53,13 +54,17 @@ test-ordering: ## Testes do shopman.ordering
 	@echo "── Ordering ──"
 	cd shopman-core/ordering && python -m pytest -x -q
 
-test-attending: ## Testes do shopman.attending
-	@echo "── Attending ──"
-	cd shopman-core/attending && python -m pytest -x -q
+test-payments: ## Testes do shopman.payments
+	@echo "── Payments ──"
+	cd shopman-core/payments && python -m pytest -x -q
 
-test-gating: ## Testes do shopman.gating
-	@echo "── Gating ──"
-	cd shopman-core/gating && python -m pytest -x -q
+test-customers: ## Testes do shopman.customers
+	@echo "── Customers ──"
+	cd shopman-core/customers && python -m pytest -x -q
+
+test-auth: ## Testes do shopman.auth
+	@echo "── Auth ──"
+	cd shopman-core/auth && python -m pytest -x -q
 
 test-shopman-app: ## Testes do shopman-app (orquestração)
 	@echo "── Shopman App ──"
@@ -75,7 +80,7 @@ run: ## Sobe o servidor de desenvolvimento
 	cd shopman-app && python manage.py runserver
 
 seed: ## Popula banco com dados demo da Nelson Boulangerie
-	cd shopman-app && python manage.py seed_nelson
+	cd shopman-app && python manage.py seed
 	@echo "✓ Seed completo"
 
 # ── Qualidade ─────────────────────────────────────────────────────────

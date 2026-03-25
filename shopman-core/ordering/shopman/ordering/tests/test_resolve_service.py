@@ -16,12 +16,20 @@ class ResolveServiceTests(TestCase):
         super().setUp()
         registry.clear()
         registry.register_issue_resolver(StockIssueResolver())
+
+        # Register mock stock check for ModifyService
+        class _MockStockCheck:
+            code = "stock"
+            topic = "stock.hold"
+            def validate(self, *, channel, session, ctx):
+                pass
+        registry.register_check(_MockStockCheck())
+
         self.channel = Channel.objects.create(
             ref="pos",
             name="POS",
             config={
-                "required_checks_on_commit": ["stock"],
-                "checks": {"stock": {"directive_topic": "stock.hold"}},
+                "rules": {"checks": ["stock"]},
             },
         )
 

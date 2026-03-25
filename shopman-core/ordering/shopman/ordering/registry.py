@@ -79,6 +79,23 @@ class IssueResolver(Protocol):
         ...
 
 
+@runtime_checkable
+class Check(Protocol):
+    """
+    Par directive + validator para verificações pré-commit.
+
+    O Check DECLARA o par. Não faz IO nem valida diretamente.
+    O ModifyService cria a directive (topic). O CommitService chama validate().
+    """
+
+    code: str
+    topic: str  # directive topic para a preparação (IO)
+
+    def validate(self, *, channel: Any, session: Any, ctx: dict) -> None:
+        """Gate puro — valida o resultado da preparação. Sem IO."""
+        ...
+
+
 # =============================================================================
 # REGISTRY
 # =============================================================================
@@ -103,6 +120,7 @@ class _Registry:
         self._modifiers: list[Modifier] = []
         self._directive_handlers: dict[str, DirectiveHandler] = {}
         self._issue_resolvers: dict[str, IssueResolver] = {}
+        self._checks: dict[str, Check] = {}
 
     # -------------------------------------------------------------------------
     # Validators
@@ -175,6 +193,26 @@ class _Registry:
             return dict(self._issue_resolvers)
 
     # -------------------------------------------------------------------------
+    # Checks
+    # -------------------------------------------------------------------------
+
+    def register_check(self, check: Check) -> None:
+        if not isinstance(check, Check):
+            raise TypeError(f"Expected Check protocol, got {type(check)}")
+        with self._lock:
+            if check.code in self._checks:
+                raise ValueError(f"Check '{check.code}' already registered")
+            self._checks[check.code] = check
+
+    def get_check(self, code: str) -> Check | None:
+        with self._lock:
+            return self._checks.get(code)
+
+    def get_checks(self) -> dict[str, Check]:
+        with self._lock:
+            return dict(self._checks)
+
+    # -------------------------------------------------------------------------
     # Utility
     # -------------------------------------------------------------------------
 
@@ -185,6 +223,7 @@ class _Registry:
             self._modifiers.clear()
             self._directive_handlers.clear()
             self._issue_resolvers.clear()
+            self._checks.clear()
 
 
 # Instância global do registry
@@ -201,5 +240,8 @@ get_directive_handlers = _registry.get_directive_handlers
 register_issue_resolver = _registry.register_issue_resolver
 get_issue_resolver = _registry.get_issue_resolver
 get_issue_resolvers = _registry.get_issue_resolvers
+register_check = _registry.register_check
+get_check = _registry.get_check
+get_checks = _registry.get_checks
 clear = _registry.clear
 reset = _registry.clear  # Alias para testes

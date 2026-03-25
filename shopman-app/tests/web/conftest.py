@@ -2,9 +2,28 @@
 from __future__ import annotations
 
 import pytest
-from shopman.attending.models import Customer, CustomerAddress
+from shopman.customers.models import Customer, CustomerAddress
 from shopman.offering.models import Collection, CollectionItem, Listing, ListingItem, Product
 from shopman.ordering.models import Channel, Order, OrderItem
+
+from shop.models import Shop
+
+
+@pytest.fixture(autouse=True)
+def shop_instance(db):
+    """Create a default Shop singleton for all web tests."""
+    return Shop.objects.create(
+        name="Nelson Boulangerie",
+        brand_name="Nelson Boulangerie",
+        short_name="Nelson",
+        tagline="Padaria Artesanal",
+        primary_color="#C5A55A",
+        background_color="#F5F0EB",
+        default_ddd="43",
+        city="Londrina",
+        state="PR",
+        whatsapp="5543999999999",
+    )
 
 # ── Offering ──────────────────────────────────────────────────────────
 
@@ -77,7 +96,7 @@ def collection_item(collection, product):
 @pytest.fixture
 def listing(db):
     return Listing.objects.create(
-        code="balcao", name="Balcão", is_active=True, priority=10,
+        ref="balcao", name="Balcão", is_active=True, priority=10,
     )
 
 
@@ -167,7 +186,7 @@ def order_items(order, product, croissant):
     return order
 
 
-# ── Attending ─────────────────────────────────────────────────────────
+# ── Customers ─────────────────────────────────────────────────────────
 
 
 @pytest.fixture

@@ -11,8 +11,8 @@ CONVENIENCE (helpers):
     CatalogService.search(...)   - Search products
 
 LISTING / CHANNEL (per-channel availability):
-    CatalogService.get_available_products(listing_code) - Products available in listing
-    CatalogService.is_product_available(product, listing_code) - Check availability
+    CatalogService.get_available_products(listing_ref) - Products available in listing
+    CatalogService.is_product_available(product, listing_ref) - Check availability
 """
 
 from decimal import ROUND_HALF_UP, Decimal
@@ -64,13 +64,19 @@ class CatalogService:
         return Product.objects.filter(sku=sku).first()
 
     @classmethod
-    def price(
+    def unit_price(
         cls,
         sku: str,
         qty: Decimal = Decimal("1"),
         channel: str | None = None,
         listing: str | None = None,
     ) -> int:
+        """
+        Return the per-unit price (in centavos) for the given qty tier.
+
+        Uses min_qty cascading: finds the ListingItem with the highest
+        min_qty that is <= qty. Falls back to base_price_q.
+        """
         if qty <= 0:
             raise CatalogError("INVALID_QUANTITY", sku=sku, qty=str(qty))
 
@@ -80,23 +86,34 @@ class CatalogService:
 
         effective_listing = listing or channel
         if effective_listing:
-            unit_price = cls._get_price_from_listing(product, effective_listing, qty)
-            if unit_price is not None:
-                return int(Decimal(str(unit_price * qty)).to_integral_value(rounding=ROUND_HALF_UP))
+            tier_price = cls._get_price_from_listing(product, effective_listing, qty)
+            if tier_price is not None:
+                return tier_price
 
-        return int(Decimal(str(product.base_price_q * qty)).to_integral_value(rounding=ROUND_HALF_UP))
+        return product.base_price_q
+
+    @classmethod
+    def price(
+        cls,
+        sku: str,
+        qty: Decimal = Decimal("1"),
+        channel: str | None = None,
+        listing: str | None = None,
+    ) -> int:
+        up = cls.unit_price(sku, qty=qty, channel=channel, listing=listing)
+        return int(Decimal(str(up * qty)).to_integral_value(rounding=ROUND_HALF_UP))
 
     @classmethod
     def _get_price_from_listing(
         cls,
         product: "Product",
-        listing_code: str,
+        listing_ref: str,
         qty: Decimal,
     ) -> int | None:
         try:
             from shopman.offering.models import Listing, ListingItem
 
-            listing = Listing.objects.filter(code=listing_code).first()
+            listing = Listing.objects.filter(ref=listing_ref).first()
             if not listing or not listing.is_valid():
                 return None
 
@@ -214,21 +231,21 @@ class CatalogService:
         )
 
     @classmethod
-    def get_available_products(cls, listing_code: str) -> models.QuerySet["Product"]:
+    def get_available_products(cls, listing_ref: str) -> models.QuerySet["Product"]:
         from shopman.offering.models import Product
 
         return Product.objects.filter(
             cls._listing_validity_q(),
             is_published=True,
             is_available=True,
-            listing_items__listing__code=listing_code,
+            listing_items__listing__ref=listing_ref,
             listing_items__listing__is_active=True,
             listing_items__is_published=True,
             listing_items__is_available=True,
         ).distinct()
 
     @classmethod
-    def is_product_available(cls, product: "Product", listing_code: str) -> bool:
+    def is_product_available(cls, product: "Product", listing_ref: str) -> bool:
         if not product.is_published or not product.is_available:
             return False
 
@@ -238,7 +255,7 @@ class CatalogService:
         return ListingItem.objects.filter(
             models.Q(listing__valid_from__isnull=True) | models.Q(listing__valid_from__lte=today),
             models.Q(listing__valid_until__isnull=True) | models.Q(listing__valid_until__gte=today),
-            listing__code=listing_code,
+            listing__ref=listing_ref,
             listing__is_active=True,
             product=product,
             is_published=True,

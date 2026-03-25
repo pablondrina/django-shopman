@@ -8,11 +8,13 @@ from .account import (
 from .auth import CustomerLookupView, RequestCodeView, VerifyCodeView
 from .cart import (
     AddToCartView,
+    ApplyCouponView,
     CartContentPartialView,
     CartSummaryView,
     CartView,
     FloatingCartBarView,
     RemoveCartItemView,
+    RemoveCouponView,
     UpdateCartItemView,
 )
 from .catalog import MenuSearchView, MenuView, ProductDetailView
@@ -25,6 +27,7 @@ from .tracking import OrderStatusPartialView, OrderTrackingView
 __all__ = [
     "AccountView",
     "AddToCartView",
+    "ApplyCouponView",
     "AddressCreateView",
     "AddressDeleteView",
     "AddressSetDefaultView",
@@ -48,6 +51,7 @@ __all__ = [
     "PaymentView",
     "ProductDetailView",
     "RemoveCartItemView",
+    "RemoveCouponView",
     "RequestCodeView",
     "SitemapView",
     "UpdateCartItemView",

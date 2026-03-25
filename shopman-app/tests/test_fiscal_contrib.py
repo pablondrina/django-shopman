@@ -17,9 +17,10 @@ from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
 
-from shopman.fiscal.backends.focus import FocusNFCeBackend
-from shopman.fiscal.backends.mock import MockFiscalBackend
-from shopman.fiscal.handlers import NFCeCancelHandler, NFCeEmitHandler
+from channels.backends.fiscal_focus import FocusNFCeBackend
+from channels.backends.fiscal_mock import MockFiscalBackend
+from channels.handlers.fiscal import NFCeCancelHandler, NFCeEmitHandler
+from channels.topics import FISCAL_CANCEL_NFCE, FISCAL_EMIT_NFCE
 from shopman.ordering.models import Channel, Directive, Order, Session
 from shopman.ordering.protocols import (
     FiscalBackend,
@@ -352,7 +353,7 @@ class FocusNFCeBackendTests(TestCase):
         self.assertEqual(item["pis_situacao_tributaria"], "01")
         self.assertEqual(item["cofins_situacao_tributaria"], "01")
 
-    @patch("shopman.fiscal.backends.focus.urlopen")
+    @patch("channels.backends.fiscal_focus.urlopen")
     def test_emit_success(self, mock_urlopen) -> None:
         """Should emit NFC-e and return authorized result."""
         # First call: POST emit (processando)
@@ -397,7 +398,7 @@ class FocusNFCeBackendTests(TestCase):
         self.assertEqual(result.access_key, "41260100000000000100650010000012341000012345")
         self.assertEqual(result.danfe_url, "/v2/nfce/ORD-001.pdf")
 
-    @patch("shopman.fiscal.backends.focus.urlopen")
+    @patch("channels.backends.fiscal_focus.urlopen")
     def test_emit_denied(self, mock_urlopen) -> None:
         """Should return denied result when Focus API rejects."""
         mock_response = MagicMock(
@@ -421,7 +422,7 @@ class FocusNFCeBackendTests(TestCase):
         self.assertFalse(result.success)
         self.assertEqual(result.status, "denied")
 
-    @patch("shopman.fiscal.backends.focus.urlopen")
+    @patch("channels.backends.fiscal_focus.urlopen")
     def test_emit_exception(self, mock_urlopen) -> None:
         """Should handle network errors gracefully."""
         mock_urlopen.side_effect = Exception("Connection timeout")
@@ -436,7 +437,7 @@ class FocusNFCeBackendTests(TestCase):
         self.assertEqual(result.status, "error")
         self.assertIn("Connection timeout", result.error_message)
 
-    @patch("shopman.fiscal.backends.focus.urlopen")
+    @patch("channels.backends.fiscal_focus.urlopen")
     def test_cancel_success(self, mock_urlopen) -> None:
         """Should cancel NFC-e successfully."""
         mock_response = MagicMock(
@@ -497,7 +498,7 @@ class NFCeEmitHandlerTests(TestCase):
     def test_emit_success_stores_metadata(self) -> None:
         """Should emit NFC-e and store access_key in Order.data."""
         directive = Directive.objects.create(
-            topic="fiscal.emit_nfce",
+            topic=FISCAL_EMIT_NFCE,
             payload={
                 "order_ref": "ORD-FISCAL-001",
                 "items": [{
@@ -527,7 +528,7 @@ class NFCeEmitHandlerTests(TestCase):
         self.order.save(update_fields=["data"])
 
         directive = Directive.objects.create(
-            topic="fiscal.emit_nfce",
+            topic=FISCAL_EMIT_NFCE,
             payload={
                 "order_ref": "ORD-FISCAL-001",
                 "items": [{"description": "A", "quantity": 1, "unit_price_q": 100, "total_q": 100}],
@@ -546,7 +547,7 @@ class NFCeEmitHandlerTests(TestCase):
     def test_emit_order_not_found(self) -> None:
         """Should fail directive when order doesn't exist."""
         directive = Directive.objects.create(
-            topic="fiscal.emit_nfce",
+            topic=FISCAL_EMIT_NFCE,
             payload={
                 "order_ref": "NONEXISTENT",
                 "items": [{"description": "A", "quantity": 1, "unit_price_q": 100, "total_q": 100}],
@@ -566,7 +567,7 @@ class NFCeEmitHandlerTests(TestCase):
         handler = NFCeEmitHandler(backend=backend)
 
         directive = Directive.objects.create(
-            topic="fiscal.emit_nfce",
+            topic=FISCAL_EMIT_NFCE,
             payload={
                 "order_ref": "ORD-FISCAL-001",
                 "items": [{"description": "A", "quantity": 1, "unit_price_q": 100, "total_q": 100}],
@@ -611,7 +612,7 @@ class NFCeCancelHandlerTests(TestCase):
     def test_cancel_success(self) -> None:
         """Should cancel NFC-e and update Order.data."""
         directive = Directive.objects.create(
-            topic="fiscal.cancel_nfce",
+            topic=FISCAL_CANCEL_NFCE,
             payload={
                 "order_ref": "ORD-CANCEL-001",
                 "reason": "Erro no pedido, cliente solicitou cancelamento",
@@ -633,7 +634,7 @@ class NFCeCancelHandlerTests(TestCase):
         self.order.save(update_fields=["data"])
 
         directive = Directive.objects.create(
-            topic="fiscal.cancel_nfce",
+            topic=FISCAL_CANCEL_NFCE,
             payload={
                 "order_ref": "ORD-CANCEL-001",
                 "reason": "Motivo com mais de 15 caracteres obrigatórios",
@@ -648,7 +649,7 @@ class NFCeCancelHandlerTests(TestCase):
     def test_cancel_order_not_found(self) -> None:
         """Should fail directive when order doesn't exist."""
         directive = Directive.objects.create(
-            topic="fiscal.cancel_nfce",
+            topic=FISCAL_CANCEL_NFCE,
             payload={
                 "order_ref": "NONEXISTENT",
                 "reason": "Motivo com mais de 15 caracteres obrigatórios",
@@ -667,7 +668,7 @@ class NFCeCancelHandlerTests(TestCase):
         handler = NFCeCancelHandler(backend=backend)
 
         directive = Directive.objects.create(
-            topic="fiscal.cancel_nfce",
+            topic=FISCAL_CANCEL_NFCE,
             payload={
                 "order_ref": "ORD-CANCEL-001",
                 "reason": "Motivo com mais de 15 caracteres obrigatórios",

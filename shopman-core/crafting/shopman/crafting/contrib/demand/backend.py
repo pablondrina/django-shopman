@@ -1,7 +1,7 @@
 """
-OmnimanDemandBackend — DemandProtocol implementation.
+OrderingDemandBackend — DemandProtocol implementation.
 
-Queries Omniman OrderItems for historical demand and Stocking Holds
+Queries Ordering OrderItems for historical demand and Stocking Holds
 for committed quantities.
 """
 
@@ -20,9 +20,9 @@ from shopman.crafting.protocols.demand import DailyDemand
 logger = logging.getLogger(__name__)
 
 
-class OmnimanDemandBackend:
+class OrderingDemandBackend:
     """
-    DemandProtocol implementation backed by Omniman orders.
+    DemandProtocol implementation backed by Ordering orders.
 
     history() → queries OrderItems from completed/delivered orders.
     committed() → sums active Holds from Stocking for a given SKU+date.
@@ -38,12 +38,12 @@ class OmnimanDemandBackend:
         same_weekday: bool = True,
     ) -> list[DailyDemand]:
         """
-        Return historical demand for a product based on Omniman orders.
+        Return historical demand for a product based on Ordering orders.
 
         Queries OrderItems where sku matches product_ref, from orders
         with status completed or delivered, grouped by date.
         """
-        from omniman.models import OrderItem
+        from shopman.ordering.models import OrderItem
 
         cutoff = timezone.now().date() - timedelta(days=days)
         today = timezone.now().date()

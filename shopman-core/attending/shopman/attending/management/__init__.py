@@ -1,1 +1,0 @@
-"""Attending management commands."""

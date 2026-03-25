@@ -22,12 +22,12 @@ from shopman.crafting.exceptions import CraftError, StaleRevision
 
 def __getattr__(name):
     """Lazy import to avoid AppRegistryNotReady errors."""
-    if name in ("craft", "Craft"):
-        from shopman.crafting.service import Craft
+    if name in ("craft", "Craft", "CraftService"):
+        from shopman.crafting.service import CraftService
 
-        return Craft
+        return CraftService
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = ["craft", "Craft", "CraftError", "StaleRevision"]
+__all__ = ["craft", "CraftService", "Craft", "CraftError", "StaleRevision"]
 __version__ = "0.2.2"

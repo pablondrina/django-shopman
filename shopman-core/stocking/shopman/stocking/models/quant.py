@@ -90,7 +90,10 @@ class Quant(models.Model):
         verbose_name=_('Quantidade'),
     )
 
-    metadata = models.JSONField(default=dict, blank=True, verbose_name=_('Metadados'))
+    metadata = models.JSONField(
+        default=dict, blank=True, verbose_name=_('Metadados'),
+        help_text=_('Metadados do quant. Ex: {"batch": "2024-01", "supplier": "Moinho SP"}'),
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('criado em'))
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_('atualizado em'))
 

@@ -1,36 +1,32 @@
 """
 Dedicated tests for payment handlers — edge cases, idempotency, and error paths.
 
-Extends test_payment_contrib.py with scenarios not covered there:
-- PaymentCaptureHandler: session fallback edge cases, capture failure, order not found
-- PaymentRefundHandler: already refunded idempotency, partial refund status, order not found
-- PixGenerateHandler: QR extraction from metadata vs client_secret, reminder timing, default timeout
-- PixTimeoutHandler: naive datetime handling, terminal order status, hold release, gateway cancel
+All backends now use PaymentService for persistence.
 """
 
 from __future__ import annotations
 
-import json
 from datetime import timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from django.test import TestCase
 from django.utils import timezone
+from shopman.ordering.models import Channel, Directive, Order, Session
 
-from shopman.payment.adapters.mock import MockPaymentBackend
-from shopman.payment.handlers import (
+from channels.backends.payment_mock import MockPaymentBackend
+from channels.handlers.payment import (
     PaymentCaptureHandler,
     PaymentRefundHandler,
     PixGenerateHandler,
     PixTimeoutHandler,
 )
-from shopman.payment.protocols import (
-    CaptureResult,
-    PaymentIntent,
-    PaymentStatus,
-    RefundResult,
+from channels.topics import (
+    NOTIFICATION_SEND,
+    PAYMENT_CAPTURE,
+    PAYMENT_REFUND,
+    PIX_GENERATE,
+    PIX_TIMEOUT,
 )
-from shopman.ordering.models import Channel, Directive, Order, Session
 
 
 def _create_directive(**kwargs) -> Directive:
@@ -41,7 +37,7 @@ def _create_directive(**kwargs) -> Directive:
 
 def _make_channel(**overrides) -> Channel:
     config = {
-        "order_flow": {
+        "flow": {
             "transitions": {
                 "new": ["confirmed", "cancelled"],
                 "confirmed": ["processing", "cancelled"],
@@ -53,7 +49,7 @@ def _make_channel(**overrides) -> Channel:
             "terminal_statuses": ["completed", "cancelled"],
         },
     }
-    defaults = dict(ref="test-ch", name="Test Channel", config=config)
+    defaults = {"ref": "test-ch", "name": "Test Channel", "config": config}
     defaults.update(overrides)
     return Channel.objects.create(**defaults)
 
@@ -73,25 +69,26 @@ class PaymentCaptureHandlerEdgeCaseTests(TestCase):
 
     def test_capture_failure_marks_directive_failed(self) -> None:
         """Backend capture failure → directive.status=failed with error details."""
-        # Create an intent that can't be captured (cancelled)
-        intent = self.backend.create_intent(1000, "BRL")
-        self.backend.cancel(intent.intent_id)
+        backend = MockPaymentBackend(auto_authorize=False)
+        intent = backend.create_intent(1000, "BRL", reference="ORD-FAIL")
+        backend.cancel(intent.intent_id)
 
+        handler = PaymentCaptureHandler(backend)
         directive = _create_directive(
-            topic="payment.capture",
+            topic=PAYMENT_CAPTURE,
             payload={"intent_id": intent.intent_id, "amount_q": 1000},
         )
 
-        self.handler.handle(message=directive, ctx={})
+        handler.handle(message=directive, ctx={})
 
         directive.refresh_from_db()
         self.assertEqual(directive.status, "failed")
-        self.assertIn("invalid_status", directive.last_error)
+        self.assertIn("invalid_transition", directive.last_error)
 
     def test_capture_session_not_found_falls_through(self) -> None:
         """Missing session with session_key → no intent_id → failed."""
         directive = _create_directive(
-            topic="payment.capture",
+            topic=PAYMENT_CAPTURE,
             payload={
                 "session_key": "NONEXISTENT",
                 "channel_ref": self.channel.ref,
@@ -114,7 +111,7 @@ class PaymentCaptureHandlerEdgeCaseTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="payment.capture",
+            topic=PAYMENT_CAPTURE,
             payload={
                 "session_key": "EMPTY-SESSION",
                 "channel_ref": self.channel.ref,
@@ -129,9 +126,9 @@ class PaymentCaptureHandlerEdgeCaseTests(TestCase):
 
     def test_capture_no_order_ref_still_succeeds(self) -> None:
         """Capture without order_ref → succeeds (no event emitted)."""
-        intent = self.backend.create_intent(2000, "BRL")
+        intent = self.backend.create_intent(2000, "BRL", reference="ORD-NOREF")
         directive = _create_directive(
-            topic="payment.capture",
+            topic=PAYMENT_CAPTURE,
             payload={"intent_id": intent.intent_id, "amount_q": 2000},
         )
 
@@ -143,9 +140,9 @@ class PaymentCaptureHandlerEdgeCaseTests(TestCase):
 
     def test_capture_order_not_found_still_succeeds(self) -> None:
         """Capture with nonexistent order_ref → succeeds (Order.DoesNotExist silenced)."""
-        intent = self.backend.create_intent(2000, "BRL")
+        intent = self.backend.create_intent(2000, "BRL", reference="ORD-NF")
         directive = _create_directive(
-            topic="payment.capture",
+            topic=PAYMENT_CAPTURE,
             payload={
                 "intent_id": intent.intent_id,
                 "order_ref": "NONEXISTENT-ORDER",
@@ -160,9 +157,9 @@ class PaymentCaptureHandlerEdgeCaseTests(TestCase):
 
     def test_capture_stores_transaction_id_in_payload(self) -> None:
         """Successful capture saves transaction_id back into directive.payload."""
-        intent = self.backend.create_intent(3000, "BRL")
+        intent = self.backend.create_intent(3000, "BRL", reference="ORD-TXN")
         directive = _create_directive(
-            topic="payment.capture",
+            topic=PAYMENT_CAPTURE,
             payload={"intent_id": intent.intent_id},
         )
 
@@ -185,8 +182,8 @@ class PaymentRefundHandlerEdgeCaseTests(TestCase):
         self.channel = _make_channel()
         self.backend = MockPaymentBackend()
         self.handler = PaymentRefundHandler(self.backend)
-        # Pre-create a captured intent
-        self.intent = self.backend.create_intent(5000, "BRL")
+        # Pre-create a captured intent via backend
+        self.intent = self.backend.create_intent(5000, "BRL", reference="ORD-RFND-EC")
         self.backend.capture(self.intent.intent_id)
 
     def test_refund_already_refunded_is_idempotent(self) -> None:
@@ -194,7 +191,7 @@ class PaymentRefundHandlerEdgeCaseTests(TestCase):
         self.backend.refund(self.intent.intent_id)
 
         directive = _create_directive(
-            topic="payment.refund",
+            topic=PAYMENT_REFUND,
             payload={"intent_id": self.intent.intent_id},
         )
 
@@ -204,10 +201,10 @@ class PaymentRefundHandlerEdgeCaseTests(TestCase):
         self.assertEqual(directive.status, "done")
 
     def test_refund_partial_then_full(self) -> None:
-        """Partial refund leaves status=captured; full refund sets status=refunded."""
+        """Partial refund then remainder refund."""
         # Partial refund
         d1 = _create_directive(
-            topic="payment.refund",
+            topic=PAYMENT_REFUND,
             payload={"intent_id": self.intent.intent_id, "amount_q": 2000},
         )
         self.handler.handle(message=d1, ctx={})
@@ -216,12 +213,11 @@ class PaymentRefundHandlerEdgeCaseTests(TestCase):
         self.assertEqual(d1.status, "done")
 
         status = self.backend.get_status(self.intent.intent_id)
-        self.assertEqual(status.status, "captured")  # Still captured
         self.assertEqual(status.refunded_q, 2000)
 
         # Second refund for remainder
         d2 = _create_directive(
-            topic="payment.refund",
+            topic=PAYMENT_REFUND,
             payload={"intent_id": self.intent.intent_id, "amount_q": 3000},
         )
         self.handler.handle(message=d2, ctx={})
@@ -235,7 +231,7 @@ class PaymentRefundHandlerEdgeCaseTests(TestCase):
     def test_refund_order_not_found_still_succeeds(self) -> None:
         """Refund with nonexistent order → succeeds (no event, Order.DoesNotExist silenced)."""
         directive = _create_directive(
-            topic="payment.refund",
+            topic=PAYMENT_REFUND,
             payload={
                 "intent_id": self.intent.intent_id,
                 "order_ref": "NONEXISTENT-ORDER",
@@ -250,7 +246,7 @@ class PaymentRefundHandlerEdgeCaseTests(TestCase):
     def test_refund_exceeds_amount_fails(self) -> None:
         """Refund amount > captured → failed."""
         directive = _create_directive(
-            topic="payment.refund",
+            topic=PAYMENT_REFUND,
             payload={"intent_id": self.intent.intent_id, "amount_q": 99999},
         )
 
@@ -258,12 +254,12 @@ class PaymentRefundHandlerEdgeCaseTests(TestCase):
 
         directive.refresh_from_db()
         self.assertEqual(directive.status, "failed")
-        self.assertIn("exceeds_captured", directive.last_error)
+        self.assertIn("amount_exceeds_captured", directive.last_error)
 
     def test_refund_stores_refund_id_in_payload(self) -> None:
         """Successful refund stores refund_id in directive.payload."""
         directive = _create_directive(
-            topic="payment.refund",
+            topic=PAYMENT_REFUND,
             payload={"intent_id": self.intent.intent_id},
         )
 
@@ -281,7 +277,7 @@ class PaymentRefundHandlerEdgeCaseTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="payment.refund",
+            topic=PAYMENT_REFUND,
             payload={
                 "intent_id": self.intent.intent_id,
                 "order_ref": order.ref,
@@ -316,14 +312,14 @@ class PixGenerateHandlerEdgeCaseTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="pix.generate",
+            topic=PIX_GENERATE,
             payload={"order_ref": order.ref, "amount_q": 5000, "pix_timeout_minutes": 20},
         )
 
         before = timezone.now()
         self.handler.handle(message=directive, ctx={})
 
-        reminder = Directive.objects.filter(topic="notification.send").first()
+        reminder = Directive.objects.filter(topic=NOTIFICATION_SEND).first()
         self.assertIsNotNone(reminder)
         self.assertEqual(reminder.payload["template"], "payment.reminder")
         # Reminder at 10 min (half of 20)
@@ -336,13 +332,13 @@ class PixGenerateHandlerEdgeCaseTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="pix.generate",
+            topic=PIX_GENERATE,
             payload={"order_ref": order.ref, "amount_q": 1000, "pix_timeout_minutes": 1},
         )
 
         self.handler.handle(message=directive, ctx={})
 
-        reminder = Directive.objects.filter(topic="notification.send").first()
+        reminder = Directive.objects.filter(topic=NOTIFICATION_SEND).first()
         self.assertIsNotNone(reminder)
 
     def test_pix_generate_default_timeout_10_minutes(self) -> None:
@@ -352,16 +348,14 @@ class PixGenerateHandlerEdgeCaseTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="pix.generate",
+            topic=PIX_GENERATE,
             payload={"order_ref": order.ref, "amount_q": 2000},
         )
 
-        before = timezone.now()
         self.handler.handle(message=directive, ctx={})
 
-        pix_timeout = Directive.objects.filter(topic="pix.timeout").first()
+        pix_timeout = Directive.objects.filter(topic=PIX_TIMEOUT).first()
         self.assertIsNotNone(pix_timeout)
-        # Expires ~10 minutes from now
         expires_at_str = pix_timeout.payload["expires_at"]
         self.assertIsNotNone(expires_at_str)
 
@@ -372,7 +366,7 @@ class PixGenerateHandlerEdgeCaseTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="pix.generate",
+            topic=PIX_GENERATE,
             payload={"order_ref": order.ref, "amount_q": 3000},
         )
 
@@ -380,7 +374,6 @@ class PixGenerateHandlerEdgeCaseTests(TestCase):
 
         order.refresh_from_db()
         payment = order.data.get("payment", {})
-        # MockPaymentBackend puts brcode/qrcode in client_secret JSON
         self.assertIsNotNone(payment.get("intent_id"))
         self.assertEqual(payment["method"], "pix")
 
@@ -391,7 +384,7 @@ class PixGenerateHandlerEdgeCaseTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="pix.generate",
+            topic=PIX_GENERATE,
             payload={"order_ref": order.ref, "amount_q": 4200, "pix_timeout_minutes": 15},
         )
 
@@ -411,7 +404,7 @@ class PixGenerateHandlerEdgeCaseTests(TestCase):
         )
 
         directive = _create_directive(
-            topic="pix.generate",
+            topic=PIX_GENERATE,
             payload={"order_ref": order.ref, "amount_q": 1500},
         )
 
@@ -419,7 +412,8 @@ class PixGenerateHandlerEdgeCaseTests(TestCase):
 
         directive.refresh_from_db()
         self.assertIn("intent_id", directive.payload)
-        self.assertTrue(directive.payload["intent_id"].startswith("mock_pi_"))
+        # Now returns PaymentService ref (PAY-xxx) instead of mock_pi_xxx
+        self.assertTrue(directive.payload["intent_id"].startswith("PAY-"))
 
 
 # ────────────────────────────────────────────────────────────────
@@ -439,10 +433,10 @@ class PixTimeoutHandlerEdgeCaseTests(TestCase):
         """Nonexistent order → done (not failed, order may have been deleted)."""
         expires_at = timezone.now() - timedelta(minutes=1)
         directive = _create_directive(
-            topic="pix.timeout",
+            topic=PIX_TIMEOUT,
             payload={
                 "order_ref": "NONEXISTENT",
-                "intent_id": "pi_fake",
+                "intent_id": "PAY-FAKE123",
                 "expires_at": expires_at.isoformat(),
             },
         )
@@ -454,7 +448,7 @@ class PixTimeoutHandlerEdgeCaseTests(TestCase):
 
     def test_timeout_order_already_cancelled_skips(self) -> None:
         """Already cancelled order → done, no extra transition."""
-        intent = self.backend.create_intent(2000, "BRL")
+        intent = self.backend.create_intent(2000, "BRL", reference="ORD-ALREADY-CANCEL")
         order = Order.objects.create(
             ref="ORD-ALREADY-CANCEL",
             channel=self.channel,
@@ -465,7 +459,7 @@ class PixTimeoutHandlerEdgeCaseTests(TestCase):
 
         expires_at = timezone.now() - timedelta(minutes=1)
         directive = _create_directive(
-            topic="pix.timeout",
+            topic=PIX_TIMEOUT,
             payload={
                 "order_ref": order.ref,
                 "intent_id": intent.intent_id,
@@ -483,7 +477,7 @@ class PixTimeoutHandlerEdgeCaseTests(TestCase):
 
     def test_timeout_order_completed_skips_cancellation(self) -> None:
         """Completed order → done, no cancellation."""
-        intent = self.backend.create_intent(2000, "BRL")
+        intent = self.backend.create_intent(2000, "BRL", reference="ORD-COMPLETED")
         order = Order.objects.create(
             ref="ORD-COMPLETED",
             channel=self.channel,
@@ -494,7 +488,7 @@ class PixTimeoutHandlerEdgeCaseTests(TestCase):
 
         expires_at = timezone.now() - timedelta(minutes=1)
         directive = _create_directive(
-            topic="pix.timeout",
+            topic=PIX_TIMEOUT,
             payload={
                 "order_ref": order.ref,
                 "intent_id": intent.intent_id,
@@ -512,7 +506,7 @@ class PixTimeoutHandlerEdgeCaseTests(TestCase):
 
     def test_timeout_sets_cancellation_reason(self) -> None:
         """Cancelled order has data['cancellation_reason']='pix_timeout'."""
-        intent = self.backend.create_intent(3000, "BRL")
+        intent = self.backend.create_intent(3000, "BRL", reference="ORD-REASON")
         order = Order.objects.create(
             ref="ORD-REASON",
             channel=self.channel,
@@ -523,7 +517,7 @@ class PixTimeoutHandlerEdgeCaseTests(TestCase):
 
         expires_at = timezone.now() - timedelta(minutes=1)
         directive = _create_directive(
-            topic="pix.timeout",
+            topic=PIX_TIMEOUT,
             payload={
                 "order_ref": order.ref,
                 "intent_id": intent.intent_id,
@@ -538,7 +532,7 @@ class PixTimeoutHandlerEdgeCaseTests(TestCase):
 
     def test_timeout_creates_payment_expired_notification(self) -> None:
         """Cancellation creates notification.send directive with payment_expired template."""
-        intent = self.backend.create_intent(3000, "BRL")
+        intent = self.backend.create_intent(3000, "BRL", reference="ORD-NOTIF")
         order = Order.objects.create(
             ref="ORD-NOTIF",
             channel=self.channel,
@@ -549,7 +543,7 @@ class PixTimeoutHandlerEdgeCaseTests(TestCase):
 
         expires_at = timezone.now() - timedelta(minutes=1)
         directive = _create_directive(
-            topic="pix.timeout",
+            topic=PIX_TIMEOUT,
             payload={
                 "order_ref": order.ref,
                 "intent_id": intent.intent_id,
@@ -560,7 +554,7 @@ class PixTimeoutHandlerEdgeCaseTests(TestCase):
         self.handler.handle(message=directive, ctx={})
 
         notif = Directive.objects.filter(
-            topic="notification.send",
+            topic=NOTIFICATION_SEND,
             payload__template="payment_expired",
         ).first()
         self.assertIsNotNone(notif)
@@ -568,7 +562,7 @@ class PixTimeoutHandlerEdgeCaseTests(TestCase):
 
     def test_timeout_cancels_intent_on_gateway(self) -> None:
         """Gateway intent is cancelled when order is cancelled."""
-        intent = self.backend.create_intent(3000, "BRL")
+        intent = self.backend.create_intent(3000, "BRL", reference="ORD-GW-CANCEL")
         order = Order.objects.create(
             ref="ORD-GW-CANCEL",
             channel=self.channel,
@@ -579,7 +573,7 @@ class PixTimeoutHandlerEdgeCaseTests(TestCase):
 
         expires_at = timezone.now() - timedelta(minutes=1)
         directive = _create_directive(
-            topic="pix.timeout",
+            topic=PIX_TIMEOUT,
             payload={
                 "order_ref": order.ref,
                 "intent_id": intent.intent_id,
@@ -596,10 +590,10 @@ class PixTimeoutHandlerEdgeCaseTests(TestCase):
         """Not-expired directive is requeued with available_at = expires_at."""
         expires_at = timezone.now() + timedelta(minutes=5)
         directive = _create_directive(
-            topic="pix.timeout",
+            topic=PIX_TIMEOUT,
             payload={
                 "order_ref": "ORD-REQUEUE",
-                "intent_id": "pi_test",
+                "intent_id": "PAY-REQUEUE123",
                 "expires_at": expires_at.isoformat(),
             },
         )
@@ -610,10 +604,10 @@ class PixTimeoutHandlerEdgeCaseTests(TestCase):
         self.assertNotEqual(directive.status, "done")
         self.assertIsNotNone(directive.available_at)
 
-    @patch("shopman.payment.handlers.release_holds_for_order")
+    @patch("channels.handlers.payment.release_holds_for_order")
     def test_timeout_releases_holds(self, mock_release) -> None:
         """Cancellation calls release_holds_for_order."""
-        intent = self.backend.create_intent(3000, "BRL")
+        intent = self.backend.create_intent(3000, "BRL", reference="ORD-HOLDS")
         order = Order.objects.create(
             ref="ORD-HOLDS",
             channel=self.channel,
@@ -624,7 +618,7 @@ class PixTimeoutHandlerEdgeCaseTests(TestCase):
 
         expires_at = timezone.now() - timedelta(minutes=1)
         directive = _create_directive(
-            topic="pix.timeout",
+            topic=PIX_TIMEOUT,
             payload={
                 "order_ref": order.ref,
                 "intent_id": intent.intent_id,
@@ -640,7 +634,7 @@ class PixTimeoutHandlerEdgeCaseTests(TestCase):
 
     def test_timeout_naive_datetime_handling(self) -> None:
         """Handler converts naive datetime to aware."""
-        intent = self.backend.create_intent(1000, "BRL")
+        intent = self.backend.create_intent(1000, "BRL", reference="ORD-NAIVE")
         order = Order.objects.create(
             ref="ORD-NAIVE",
             channel=self.channel,
@@ -649,12 +643,11 @@ class PixTimeoutHandlerEdgeCaseTests(TestCase):
             data={"payment": {"intent_id": intent.intent_id, "status": "pending"}},
         )
 
-        # Use naive datetime string (no timezone)
         from datetime import datetime
         naive_expired = datetime(2020, 1, 1, 0, 0, 0)
 
         directive = _create_directive(
-            topic="pix.timeout",
+            topic=PIX_TIMEOUT,
             payload={
                 "order_ref": order.ref,
                 "intent_id": intent.intent_id,
@@ -662,7 +655,6 @@ class PixTimeoutHandlerEdgeCaseTests(TestCase):
             },
         )
 
-        # Should not crash, and should cancel (naive 2020 < now)
         self.handler.handle(message=directive, ctx={})
 
         directive.refresh_from_db()

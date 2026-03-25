@@ -1,8 +1,22 @@
 """URL configuration for the Shopman project."""
 
+import logging
+
 from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+
+logger = logging.getLogger(__name__)
+
+
+def _include_optional(route: str, module: str):
+    """Include a URL module, logging a warning if it fails to import."""
+    try:
+        return [path(route, include(module))]
+    except ImportError:
+        logger.warning("Optional URL module %s not found, skipping.", module)
+        return []
+
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -15,44 +29,15 @@ urlpatterns = [
 
 # ── Core APIs ──────────────────────────────────────────────────────
 
-try:
-    urlpatterns += [path("api/ordering/", include("shopman.ordering.api.urls"))]
-except ImportError:
-    pass
+urlpatterns += _include_optional("api/ordering/", "shopman.ordering.api.urls")
+urlpatterns += _include_optional("api/offering/", "shopman.offering.api.urls")
+urlpatterns += _include_optional("api/stocking/", "shopman.stocking.api.urls")
+urlpatterns += _include_optional("api/crafting/", "shopman.crafting.api.urls")
+urlpatterns += _include_optional("api/customers/", "shopman.customers.api.urls")
+urlpatterns += _include_optional("api/auth/", "shopman.auth.api.urls")
+urlpatterns += _include_optional("api/payments/", "shopman.payments.api.urls")
 
-try:
-    urlpatterns += [path("api/offering/", include("shopman.offering.api.urls"))]
-except ImportError:
-    pass
+# ── Channels APIs ──────────────────────────────────────────────
 
-try:
-    urlpatterns += [path("api/stocking/", include("shopman.stocking.api.urls"))]
-except ImportError:
-    pass
-
-try:
-    urlpatterns += [path("api/crafting/", include("shopman.crafting.api.urls"))]
-except ImportError:
-    pass
-
-try:
-    urlpatterns += [path("api/attending/", include("shopman.attending.api.urls"))]
-except ImportError:
-    pass
-
-# ── Orchestrator APIs ──────────────────────────────────────────────
-
-try:
-    urlpatterns += [path("api/webhooks/", include("shopman.payment.urls"))]
-except ImportError:
-    pass
-
-try:
-    urlpatterns += [path("api/accounting/", include("shopman.accounting.api.urls"))]
-except ImportError:
-    pass
-
-try:
-    urlpatterns += [path("webhook/", include("shopman.webhook.urls"))]
-except ImportError:
-    pass
+urlpatterns += _include_optional("api/webhooks/", "channels.webhook_urls")
+urlpatterns += _include_optional("api/", "channels.api.urls")

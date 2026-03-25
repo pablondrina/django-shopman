@@ -13,9 +13,11 @@ Exception
 │   ├── StockError (stocking)
 │   ├── CraftError (crafting)
 │   │   └── StaleRevision
-│   ├── AttendingError (attending)
-│   └── GatingError (gating)
+│   ├── CustomersError (customers)
+│   └── AuthError (auth)
 │       └── GateError
+│
+├── PaymentError (payments)              # Base independente com code + context
 │
 ├── OrderingError (ordering)             # Base independente com code + context
 │   ├── ValidationError
@@ -112,9 +114,9 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 
 ---
 
-## AttendingError (Attending)
+## CustomersError (Customers)
 
-**Arquivo:** `shopman-core/attending/shopman/attending/exceptions.py`
+**Arquivo:** `shopman-core/customers/shopman/customers/exceptions.py`
 **Base:** `BaseError`
 
 | Código | Quando ocorre |
@@ -128,13 +130,13 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 | `LOYALTY_NOT_ENROLLED` | Cliente não está inscrito no programa de fidelidade |
 | `LOYALTY_INSUFFICIENT_POINTS` | Pontos insuficientes para resgate |
 
-**Guia:** [attending.md](../guides/attending.md)
+**Guia:** [customers.md](../guides/customers.md)
 
 ---
 
-## GatingError (Gating)
+## AuthError (Auth)
 
-**Arquivo:** `shopman-core/gating/shopman/gating/exceptions.py`
+**Arquivo:** `shopman-core/auth/shopman/auth/exceptions.py`
 **Base:** `BaseError`
 
 | Código | Quando ocorre |
@@ -144,9 +146,28 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 | `RATE_LIMIT` | Limite de taxa excedido (muitos códigos/tentativas) |
 | `GATE_FAILED` | Gate genérico falhou (via `GateError`) |
 
-**Subclasse:** `GateError(GatingError)` — levantada com `gate_name` e `code="GATE_FAILED"`. Usada pelos gates individuais.
+**Subclasse:** `GateError(AuthError)` — levantada com `gate_name` e `code="GATE_FAILED"`. Usada pelos gates individuais.
 
-**Guia:** [gating.md](../guides/gating.md)
+**Guia:** [auth.md](../guides/auth.md)
+
+---
+
+## PaymentError (Payments)
+
+**Arquivo:** `shopman-core/payments/shopman/payments/exceptions.py`
+**Base:** `Exception` (independente de `BaseError`)
+**Construtor:** `__init__(code, message, context=None)`
+**Serialização:** `.as_dict()` → `{"code": "...", "message": "...", "context": {...}}`
+
+| Código | Quando ocorre |
+|--------|--------------|
+| `INTENT_NOT_FOUND` | Intent não encontrado pelo ref |
+| `INVALID_TRANSITION` | Transição de status não permitida |
+| `ALREADY_CAPTURED` | Intent já foi capturado |
+| `ALREADY_REFUNDED` | Intent já foi totalmente reembolsado |
+| `AMOUNT_EXCEEDS_CAPTURED` | Refund maior que o capturado |
+| `CAPTURE_EXCEEDS_AUTHORIZED` | Capture maior que o autorizado |
+| `INTENT_EXPIRED` | Intent expirado |
 
 ---
 

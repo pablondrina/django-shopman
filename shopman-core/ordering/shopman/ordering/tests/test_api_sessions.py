@@ -94,11 +94,18 @@ class SessionApiTests(TestCase):
         self.assertEqual(r2.data["channel_ref"], "pos")
 
     def test_modify_increments_rev_clears_checks_issues_and_enqueues_directive(self) -> None:
+        # Register a mock stock check so ModifyService finds it via registry
+        class _MockStockCheck:
+            code = "stock"
+            topic = "stock.hold"
+            def validate(self, *, channel, session, ctx):
+                pass
+        registry.register_check(_MockStockCheck())
+
         self._mk_channel(
             ref="pos",
             config={
-                "required_checks_on_commit": ["stock"],
-                "checks": {"stock": {"directive_topic": "stock.hold"}},
+                "rules": {"checks": ["stock"]},
             },
         )
         s = self.client.post("/api/sessions", {"channel_ref": "pos"}, format="json").data

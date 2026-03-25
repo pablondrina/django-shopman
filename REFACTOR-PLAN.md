@@ -19,8 +19,8 @@
 | shopman.stocking (ex-stockman) | 157+1s | Migrado |
 | shopman.crafting (ex-craftsman) | 205 | Migrado |
 | shopman.ordering (ex-omniman kernel) | 216 | **Migrado** |
-| shopman.attending (ex-guestman) | 369 | **Migrado** |
-| shopman.gating (ex-doorman) | 152 | **Migrado** |
+| shopman.customers (ex-guestman) | 369 | **Migrado** |
+| shopman.auth (ex-doorman) | 152 | **Migrado** |
 | shopman (orquestrador) | 420 | **Migrado** (confirmation, stock, pricing, customer, payment, notifications, fiscal, accounting, returns, webhook) |
 | Integration tests | 112 | **Migrado** (WP-R5: 8 cross-app test files + conftest) |
 | Nelson (demo app) | 18 | **Migrado** (WP-R5: modifiers + validators) |
@@ -32,10 +32,10 @@
 - [x] WP-1: shopman.offering
 - [x] WP-2: shopman.stocking
 - [x] WP-3: shopman.crafting (com sub-WPs 3.1-3.4 de renaming)
-- [ ] ~~WP-4: attending + gating~~ — FOI PULADO, virou "shopman-app básico"
+- [ ] ~~WP-4: customers + auth~~ — FOI PULADO, virou "shopman-app básico"
 - [x] WP-5: shopman.ordering kernel (parcial)
 - [x] WP-R1: completar ordering kernel + fix Makefile (216 testes, make test 5 apps)
-- [x] WP-R2: shopman.attending + shopman.gating (369 + 152 testes, make test 7 apps)
+- [x] WP-R2: shopman.customers + shopman.auth (369 + 152 testes, make test 7 apps)
 - [x] WP-R3: orquestração — confirmation, stock, pricing, customer (154 testes, make test 8 apps)
 - [x] WP-R4: orquestração — payment, notifications, fiscal, accounting, returns, webhook (420 testes, make test 8 apps)
 - [x] WP-R5: integration tests + Nelson + finalização (1.878 testes, make test 8 apps)
@@ -86,7 +86,7 @@ Todos os arquivos kernel foram migrados. Arquivos que NÃO estão no kernel (cor
 
 ### Makefile — ATUALIZADO em WP-R5
 
-`make test` roda todos os 8 apps: utils, offering, stocking, crafting, ordering, attending, gating, shopman-app (1.878 testes).
+`make test` roda todos os 8 apps: utils, offering, stocking, crafting, ordering, customers, auth, shopman-app (1.878 testes).
 
 Nelson (demo app) e integration tests rodam dentro do shopman-app.
 
@@ -110,18 +110,18 @@ Nelson (demo app) e integration tests rodam dentro do shopman-app.
 
 **Verificação**: `make test` roda 5 apps, ~1.200+ testes
 
-### WP-R2: shopman.attending + shopman.gating (ex-guestman + doorman)
-**Escopo**: shopman-core/attending/ e shopman-core/gating/
+### WP-R2: shopman.customers + shopman.auth (ex-guestman + doorman)
+**Escopo**: shopman-core/customers/ e shopman-core/auth/
 
-1. Copiar `guestman/guestman/` → `shopman-core/attending/shopman/attending/`
-2. Copiar `doorman/doorman/` → `shopman-core/gating/shopman/gating/`
-3. Renomear: app_label="attending", app_label="gating"
+1. Copiar `guestman/guestman/` → `shopman-core/customers/shopman/customers/`
+2. Copiar `doorman/doorman/` → `shopman-core/auth/shopman/auth/`
+3. Renomear: app_label="customers", app_label="auth"
 4. Replace imports cruzados (adapters bidirecionais)
 5. Migrations zeradas
 6. Adaptar testes de ambos
 7. Adicionar ao Makefile
 
-**Target**: attending ~251 testes + gating ~152 testes
+**Target**: customers ~251 testes + auth ~152 testes
 **Verificação**: `make test` → ~1.600+ testes
 
 ### WP-R3: Orquestração — confirmation, stock, pricing, customer
@@ -173,7 +173,7 @@ Nelson (demo app) e integration tests rodam dentro do shopman-app.
 ```
 WP-R1 (completar ordering + fix Makefile)
   │
-  ├──► WP-R2 (attending + gating)
+  ├──► WP-R2 (customers + auth)
   │
   ├──► WP-R3 (confirmation, stock, pricing, customer)
   │

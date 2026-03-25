@@ -6,7 +6,7 @@ from django.http import HttpRequest, HttpResponse
 from django.views import View
 from django.views.generic import TemplateView
 
-from ..models import StorefrontConfig
+from shop.models import Shop
 
 
 class OfflineView(TemplateView):
@@ -16,10 +16,10 @@ class OfflineView(TemplateView):
 
 
 class ManifestView(View):
-    """Serve manifest.json with branding from StorefrontConfig."""
+    """Serve manifest.json with branding from Shop."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        config = StorefrontConfig.load()
+        config = Shop.load() or Shop()
         manifest = {
             "name": config.brand_name,
             "short_name": config.short_name,
@@ -63,7 +63,7 @@ class ServiceWorkerView(View):
     """Serve sw.js with route-based caching, offline fallback, and push stubs."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        config = StorefrontConfig.load()
+        config = Shop.load() or Shop()
         slug = config.short_name.lower().replace(" ", "-")
         cache_name = f"{slug}-v2"
 

@@ -109,7 +109,7 @@ class ListingAdmin(_ListingExportBase):
     resource_classes = [ListingItemResource]
 
     list_display = [
-        "code",
+        "ref",
         "name",
         "is_active_badge",
         "valid_from",
@@ -118,13 +118,13 @@ class ListingAdmin(_ListingExportBase):
         "items_count",
     ]
     list_filter = ["is_active"]
-    search_fields = ["code", "name"]
+    search_fields = ["ref", "name"]
     list_editable = ["priority"]
     ordering = ["-priority", "name"]
     inlines = [ListingItemInline]
 
     fieldsets = [
-        (None, {"fields": ("code", "name", "description")}),
+        (None, {"fields": ("ref", "name", "description")}),
         ("Validity", {"fields": ("valid_from", "valid_until")}),
         ("Settings", {"fields": ("priority", "is_active")}),
     ]

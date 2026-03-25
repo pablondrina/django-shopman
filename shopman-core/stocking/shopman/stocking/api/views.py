@@ -170,7 +170,7 @@ def _get_safety_margin(channel_ref: str | None) -> int:
     """Get safety_margin from Channel.config, default 0."""
     if not channel_ref:
         return 0
-    from omniman.models import Channel
+    from shopman.ordering.models import Channel
     try:
         channel = Channel.objects.get(ref=channel_ref)
         return int(channel.config.get("safety_margin", 0))

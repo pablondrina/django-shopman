@@ -25,7 +25,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('uuid', models.UUIDField(default=uuid.uuid4, editable=False, unique=True, verbose_name='UUID')),
-                ('code', models.SlugField(unique=True, verbose_name='código')),
+                ('ref', models.SlugField(unique=True, verbose_name='código')),
                 ('name', models.CharField(max_length=100, verbose_name='nome')),
                 ('description', models.TextField(blank=True, verbose_name='descrição')),
                 ('valid_from', models.DateField(blank=True, null=True, verbose_name='válido de')),

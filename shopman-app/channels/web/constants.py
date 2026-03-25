@@ -4,11 +4,12 @@ _DEFAULT_DDD_FALLBACK = "43"
 
 
 def get_default_ddd() -> str:
-    """Get default DDD from StorefrontConfig, with fallback."""
+    """Get default DDD from Shop, with fallback."""
     try:
-        from .models import StorefrontConfig
+        from shop.models import Shop
 
-        return StorefrontConfig.load().default_ddd or _DEFAULT_DDD_FALLBACK
+        shop = Shop.load()
+        return shop.default_ddd if shop else _DEFAULT_DDD_FALLBACK
     except Exception:
         return _DEFAULT_DDD_FALLBACK
 
@@ -16,22 +17,24 @@ def get_default_ddd() -> str:
 # Kept for backwards compat — views should prefer get_default_ddd()
 DEFAULT_DDD = _DEFAULT_DDD_FALLBACK
 
-# Check if doorman is available for inline auth
+# Check if auth is available for inline auth
 try:
     from django.apps import apps as _apps
 
-    _apps.get_app_config("shopman.gating")
-    HAS_DOORMAN = True
+    _apps.get_app_config("shopman_auth")
+    HAS_AUTH = True
 except LookupError:
-    HAS_DOORMAN = False
+    HAS_AUTH = False
 
-# Check if stockman availability API is available
+
+# Check if stocking availability API is available
 try:
     from shopman.stocking.api.views import _availability_for_sku, _get_safety_margin  # noqa: F401
 
-    HAS_STOCKMAN = True
+    HAS_STOCKING = True
 except ImportError:
-    HAS_STOCKMAN = False
+    HAS_STOCKING = False
 
-LISTING_CODES = ("balcao", "whatsapp")
+
+LISTING_REFS = ("balcao", "whatsapp")
 STOREFRONT_CHANNEL_REF = "web"

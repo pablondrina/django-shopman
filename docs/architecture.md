@@ -1,59 +1,63 @@
 # Arquitetura — Django Shopman
 
-## Visao Geral
+## Visão Geral
 
-Django Shopman e composto por **7 apps core** independentes e um **orquestrador** que os conecta para cenarios de negocio concretos. Cada app e um pacote pip instalavel separadamente.
+Django Shopman é composto por **8 apps core** independentes e um **orquestrador** (`channels/`) que os conecta para cenários de negócio concretos. Cada app core é um pacote pip instalável separadamente.
 
 ## Diagrama de Camadas
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         PROJETO DJANGO                              │
-│                     (shopman-app/project/)                           │
-│                   settings.py · urls.py · wsgi                      │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │                   ORQUESTRADOR (shopman-app/shopman/)         │  │
-│  │                                                               │  │
-│  │  orchestration.py    presets.py    channels.py    config.py   │  │
-│  │                                                               │  │
-│  │  ┌─────────┐ ┌──────────┐ ┌──────────────┐ ┌─────────────┐  │  │
-│  │  │  stock   │ │ payment  │ │notifications │ │  customer   │  │  │
-│  │  │ handler  │ │ handler  │ │   handler    │ │  handler    │  │  │
-│  │  │ adapter  │ │ adapter  │ │   backend    │ │  adapter    │  │  │
-│  │  └────┬─────┘ └────┬─────┘ └──────┬───────┘ └──────┬──────┘  │  │
-│  │       │             │              │                │          │  │
-│  │  ┌────┴──┐ ┌───────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ │  │
-│  │  │pricing│ │fiscal │ │accounting│ │  returns │ │ webhook  │ │  │
-│  │  └───────┘ └───────┘ └──────────┘ └──────────┘ └──────────┘ │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│         │            │            │            │            │        │
-│     Protocol     Protocol     Protocol     Protocol     Protocol    │
-│         │            │            │            │            │        │
-├─────────┴────────────┴────────────┴────────────┴────────────┴───────┤
-│                                                                     │
-│  ┌─────────────────────── CORE APPS ─────────────────────────────┐  │
-│  │                    (shopman-core/*)                            │  │
-│  │                                                               │  │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐            │  │
-│  │  │offering │ │stocking │ │crafting │ │ordering │            │  │
-│  │  │catalogo │ │estoque  │ │producao │ │pedidos  │            │  │
-│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘            │  │
-│  │                                                               │  │
-│  │  ┌──────────┐ ┌─────────┐ ┌─────────┐                       │  │
-│  │  │attending │ │ gating  │ │  utils  │                       │  │
-│  │  │clientes  │ │  auth   │ │ comum   │                       │  │
-│  │  └──────────┘ └─────────┘ └─────────┘                       │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│                                                                     │
-├─────────────────────────────────────────────────────────────────────┤
-│              CANAIS DE VENDA (shopman-app/channels/)                 │
-│                    web · (futuros: pos, api)                        │
-├─────────────────────────────────────────────────────────────────────┤
-│              APP DEMO (shopman-app/nelson/)                          │
-│              Nelson Boulangerie — seed, modifiers, validators       │
-└─────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                         PROJETO DJANGO                               │
+│                     (shopman-app/project/)                            │
+│                   settings.py · urls.py · wsgi                       │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌──────────────────────────────────────────────────────────────┐    │
+│  │              SHOP (shopman-app/shop/)                        │    │
+│  │         Shop (singleton), Promotion, Coupon                  │    │
+│  │         Configuração global + defaults de canal              │    │
+│  └──────────────────────────────────────────────────────────────┘    │
+│                                                                      │
+│  ┌──────────────────────────────────────────────────────────────┐    │
+│  │            CHANNELS — Orquestrador (shopman-app/channels/)   │    │
+│  │                                                              │    │
+│  │  config.py   presets.py   topics.py   hooks.py   setup.py   │    │
+│  │                                                              │    │
+│  │  handlers/                    backends/                      │    │
+│  │  ├── stock.py                 ├── stock.py                   │    │
+│  │  ├── payment.py               ├── payment_mock.py            │    │
+│  │  ├── notification.py          ├── payment_efi.py             │    │
+│  │  ├── confirmation.py          ├── payment_stripe.py          │    │
+│  │  ├── customer.py              ├── notification_*.py          │    │
+│  │  ├── fiscal.py                ├── customer.py                │    │
+│  │  ├── accounting.py            ├── pricing.py                 │    │
+│  │  ├── returns.py               ├── fiscal_*.py                │    │
+│  │  ├── fulfillment.py           └── accounting_*.py            │    │
+│  │  ├── pricing.py                                              │    │
+│  │  └── _stock_receivers.py                                     │    │
+│  └────────────┬────────┬────────┬────────┬────────┬─────────────┘    │
+│           Protocol  Protocol  Protocol  Protocol  Protocol           │
+├───────────────┴────────┴────────┴────────┴────────┴──────────────────┤
+│                                                                      │
+│  ┌─────────────────────── CORE APPS ──────────────────────────────┐  │
+│  │                    (shopman-core/*)                             │  │
+│  │                                                                │  │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐          │  │
+│  │  │ offering │ │ stocking │ │ crafting │ │ ordering │          │  │
+│  │  │ catálogo │ │ estoque  │ │ produção │ │ pedidos  │          │  │
+│  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘          │  │
+│  │                                                                │  │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐          │  │
+│  │  │customers │ │   auth   │ │ payments │ │  utils   │          │  │
+│  │  │ clientes │ │   auth   │ │  pagam.  │ │  comum   │          │  │
+│  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘          │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+├──────────────────────────────────────────────────────────────────────┤
+│              CANAIS DE VENDA (shopman-app/channels/)                  │
+│                    web · (futuros: pos, api)                         │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Protocol/Adapter Pattern
@@ -69,35 +73,35 @@ Toda comunicacao entre apps usa `typing.Protocol` (PEP 544) com `@runtime_checka
 ### Exemplo: Stock
 
 ```python
-# shopman-app/shopman/inventory/protocols.py — consumidor define o contrato
+# shopman-app/channels/protocols.py — consumidor define o contrato
 @runtime_checkable
 class StockBackend(Protocol):
     def check_availability(self, sku: str, quantity: Decimal, ...) -> AvailabilityResult: ...
     def create_hold(self, sku: str, quantity: Decimal, ...) -> HoldResult: ...
-    def release_hold(self, hold_id: str) -> bool: ...
-    def fulfill_hold(self, hold_id: str) -> bool: ...
+    def release_hold(self, hold_id: str) -> None: ...
+    def fulfill_hold(self, hold_id: str) -> None: ...
 
-# shopman-app/shopman/inventory/adapters/stockman.py — adapter que conecta ao stocking
-class StockmanAdapter:
+# shopman-app/channels/backends/stock.py — adapter que conecta ao stocking
+class StockingBackend:
     def check_availability(self, sku, quantity, ...):
         # Delega para shopman.stocking.service
         ...
 
-# settings.py — ligacao via config
-SHOPMAN_STOCK_BACKEND = "shopman.inventory.adapters.stockman.StockmanAdapter"
+# settings.py — ligação via config
+SHOPMAN_STOCK_BACKEND = "channels.backends.stock.StockingBackend"
 ```
 
 ### Protocols existentes
 
 | Protocol | Definido em | Adapters |
 |----------|-------------|----------|
-| `StockBackend` | `shopman.inventory.protocols` | `adapters/stockman.py` (stocking), `noop` |
-| `PaymentBackend` | `shopman.ordering.protocols` | (configuravel) |
-| `FiscalBackend` | `shopman.ordering.protocols` | (configuravel) |
-| `AccountingBackend` | `shopman.ordering.protocols` | (configuravel) |
-| `NotificationBackend` | `shopman.notifications.protocols` | `console`, `manychat` |
-| `CustomerBackend` | `shopman.identification.protocols` | (configuravel) |
-| `PricingBackend` | `shopman.pricing.protocols` | (configuravel) |
+| `StockBackend` | `channels.protocols` | `StockingBackend`, `NoopStockBackend` |
+| `PaymentBackend` | `shopman.payments.protocols` | `MockPaymentBackend`, `EfiPixBackend`, `StripeBackend` |
+| `FiscalBackend` | `shopman.ordering.protocols` | `MockFiscalBackend`, `FocusBackend` |
+| `AccountingBackend` | `shopman.ordering.protocols` | `MockAccountingBackend`, `ContaazulBackend` |
+| `NotificationBackend` | `channels.protocols` | `ConsoleBackend`, `ManychatBackend`, `EmailBackend`, `SmsBackend`, `WebhookBackend`, `WhatsappBackend` |
+| `CustomerBackend` | `channels.protocols` | `CustomersBackend`, `NoopCustomerBackend` |
+| `PricingBackend` | `channels.protocols` | `CatalogPricingBackend` |
 
 ### Vantagens
 
@@ -106,25 +110,26 @@ SHOPMAN_STOCK_BACKEND = "shopman.inventory.adapters.stockman.StockmanAdapter"
 - **Testabilidade:** mocks implementam o mesmo Protocol, sem dependencias externas
 - **Sem dependencias circulares:** cada app depende apenas de `utils`
 
-## Mapa de Dependencias
+## Mapa de Dependências
 
 ```
 utils ← offering
 utils ← stocking
-utils ← crafting  ← (protocols: stocking, offering)
+utils ← crafting   ← (protocols: stocking, offering)
 utils ← ordering
-utils ← attending ← (protocols: ordering)
-utils ← gating    ← (protocols: attending)
+utils ← customers  ← (protocols: ordering)
+utils ← auth       ← (protocols: customers)
+utils ← payments
 ```
 
-Setas indicam dependencia de pacote. Dependencias via Protocol (runtime) sao indicadas entre parenteses — nao criam acoplamento de pacote.
+Setas indicam dependência de pacote. Dependências via Protocol (runtime) são indicadas entre parênteses — não criam acoplamento de pacote.
 
 ## Orquestrador — Fluxo de um Pedido
 
 ```
 1. Session criada (modify_session)
    │
-2. Modifiers rodam (pricing, taxes)
+2. Modifiers rodam (ItemPricingModifier, SessionTotalModifier, promoções)
    │
 3. Validators de draft rodam
    │
@@ -132,26 +137,41 @@ Setas indicam dependencia de pacote. Dependencias via Protocol (runtime) sao ind
    │
    ├── Validators de commit rodam (StockCheckValidator, etc.)
    ├── Order criada com snapshot dos itens
-   ├── Directives enfileiradas:
-   │     ├── stock.hold     → StockHoldHandler → StockBackend.create_hold()
-   │     ├── notification.send → NotificationSendHandler → NotificationBackend.send()
-   │     ├── payment.capture → PaymentHandler → PaymentBackend.capture()
-   │     └── fiscal.emit    → FiscalHandler → FiscalBackend.emit()
+   ├── order_changed signal (event_type="created")
+   │     └── on_order_lifecycle() lê ChannelConfig.pipeline
    │
-5. Directives processadas (sincrono ou via process_directives)
+   ├── Directives enfileiradas conforme pipeline do canal:
+   │     ├── customer.ensure   → CustomerEnsureHandler
+   │     ├── stock.hold        → StockHoldHandler → StockBackend.create_hold()
+   │     ├── notification.send → NotificationSendHandler → NotificationBackend.send()
+   │     └── ...
+   │
+5. Confirmação (conforme modo do canal):
+   │  ├── immediate → auto-confirma
+   │  ├── optimistic → confirmation.timeout directive
+   │  └── manual → aguarda operador
+   │
+6. Pós-confirmação (se PIX):
+   │  └── pix.generate → PixGenerateHandler → PaymentBackend.create_intent()
+   │       └── pix.timeout directive agendada
+   │
+7. Pagamento confirmado (webhook):
+      └── stock.commit, notification.send, fulfillment.create
 ```
 
 ## Presets de Canal
 
-Cada canal de venda tem um preset que configura o comportamento do pipeline:
+Cada canal de venda tem um preset (`channels/presets.py`) que configura o comportamento do pipeline via `ChannelConfig`:
 
-| Preset | Confirmacao | Pagamento | Stock Hold TTL | Directives pos-commit |
-|--------|-------------|-----------|----------------|----------------------|
-| `pos()` | Auto (operador presente) | `counter` (sincrono) | 300s | stock.hold, notification.send |
-| `remote()` | Auto (otimista, 10min timeout) | `pix` (assincrono) | sem expiracao | stock.hold, notification.send |
-| `marketplace()` | Auto (ja confirmado) | `external` (ja pago) | sem expiracao | notification.send |
+| Preset | Confirmação | Pagamento | Stock Hold TTL | Pipeline on_commit | Pipeline on_confirmed |
+|--------|-------------|-----------|----------------|--------------------|-----------------------|
+| `pos()` | immediate | `counter` | 5 min | customer.ensure | stock.commit, notification |
+| `remote()` | optimistic (10 min) | `pix` (15 min) | 30 min | customer.ensure, stock.hold | pix.generate, notification |
+| `marketplace()` | immediate | `external` (pré-pago) | — | customer.ensure | stock.commit |
 
-Presets sao definidos em `shopman-app/shopman/presets.py` e registrados em `shopman-app/shopman/orchestration.py`.
+A configuração cascateia: `Channel.config` → `Shop.defaults` → `ChannelConfig.defaults()`.
+
+Veja [guia de pagamentos](guides/payments.md) para o fluxo PIX completo.
 
 ## Mapa de Nomes (suite antiga → repo novo)
 
@@ -164,5 +184,6 @@ Para quem conhece a suite antiga (`django-shopman-suite`):
 | stockman | shopman.stocking | stocking |
 | craftsman | shopman.crafting | crafting |
 | omniman | shopman.ordering | ordering |
-| guestman | shopman.attending | attending |
-| doorman | shopman.gating | gating |
+| guestman | shopman.customers | customers |
+| doorman | shopman.auth | auth |
+| *(novo)* | shopman.payments | payments |

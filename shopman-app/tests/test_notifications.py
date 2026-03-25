@@ -15,13 +15,13 @@ from urllib.error import URLError, HTTPError
 
 from django.test import TestCase, override_settings
 
-from shopman.notifications.backends.console import ConsoleBackend
-from shopman.notifications.backends.email import EmailBackend
-from shopman.notifications.backends.sms import TwilioSMSBackend
-from shopman.notifications.backends.webhook import WebhookBackend
-from shopman.notifications.backends.whatsapp import WhatsAppBackend
-from shopman.notifications.protocols import NotificationResult
-from shopman.notifications import service
+from channels.backends.notification_console import ConsoleBackend
+from channels.backends.notification_email import EmailBackend
+from channels.backends.notification_sms import TwilioSMSBackend
+from channels.backends.notification_webhook import WebhookBackend
+from channels.backends.notification_whatsapp import WhatsAppBackend
+from channels.protocols import NotificationResult
+from channels import notifications as service
 
 
 class NotificationServiceTests(TestCase):
@@ -181,7 +181,7 @@ class ConsoleBackendTests(TestCase):
 
         # ConsoleBackend uses logger.info, not stdout
         with patch(
-            "shopman.notifications.backends.console.logger"
+            "channels.backends.notification_console.logger"
         ) as mock_logger:
             backend.send(
                 event="order.shipped",
@@ -231,7 +231,7 @@ class WebhookBackendTests(TestCase):
         self.assertEqual(backend.headers, {"Authorization": "Bearer token"})
         self.assertEqual(backend.timeout, 30)
 
-    @patch("shopman.notifications.backends.webhook.urlopen")
+    @patch("channels.backends.notification_webhook.urlopen")
     def test_send_success(self, mock_urlopen) -> None:
         """Should return success when webhook call succeeds."""
         mock_response = MagicMock()
@@ -251,7 +251,7 @@ class WebhookBackendTests(TestCase):
         self.assertEqual(result.message_id, "webhook_200")
         mock_urlopen.assert_called_once()
 
-    @patch("shopman.notifications.backends.webhook.urlopen")
+    @patch("channels.backends.notification_webhook.urlopen")
     def test_send_http_error(self, mock_urlopen) -> None:
         """Should handle HTTP errors gracefully."""
         mock_urlopen.side_effect = HTTPError(
@@ -268,7 +268,7 @@ class WebhookBackendTests(TestCase):
         self.assertFalse(result.success)
         self.assertIn("500", result.error)
 
-    @patch("shopman.notifications.backends.webhook.urlopen")
+    @patch("channels.backends.notification_webhook.urlopen")
     def test_send_url_error(self, mock_urlopen) -> None:
         """Should handle URL errors (network issues)."""
         mock_urlopen.side_effect = URLError("Connection refused")
@@ -279,7 +279,7 @@ class WebhookBackendTests(TestCase):
         self.assertFalse(result.success)
         self.assertIn("Connection refused", result.error)
 
-    @patch("shopman.notifications.backends.webhook.urlopen")
+    @patch("channels.backends.notification_webhook.urlopen")
     def test_send_unexpected_error(self, mock_urlopen) -> None:
         """Should handle unexpected exceptions."""
         mock_urlopen.side_effect = RuntimeError("Unexpected error")
@@ -311,7 +311,7 @@ class EmailBackendTests(TestCase):
         self.assertEqual(backend.from_email, "custom@example.com")
         self.assertEqual(backend.subject_prefix, "[Test]")
 
-    @patch("shopman.notifications.backends.email.send_mail")
+    @patch("channels.backends.notification_email.send_mail")
     def test_send_success(self, mock_send_mail) -> None:
         """Should return success when email is sent."""
         mock_send_mail.return_value = 1
@@ -327,7 +327,7 @@ class EmailBackendTests(TestCase):
         self.assertEqual(result.message_id, "email_customer@example.com")
         mock_send_mail.assert_called_once()
 
-    @patch("shopman.notifications.backends.email.send_mail")
+    @patch("channels.backends.notification_email.send_mail")
     def test_send_handles_exception(self, mock_send_mail) -> None:
         """Should return error when send_mail fails."""
         mock_send_mail.side_effect = Exception("SMTP connection failed")
@@ -452,7 +452,7 @@ class TwilioSMSBackendTests(TestCase):
         self.assertEqual(backend.from_number, "+15551234567")
         self.assertIn("ACtest123", backend.url)
 
-    @patch("shopman.notifications.backends.sms.urlopen")
+    @patch("channels.backends.notification_sms.urlopen")
     def test_send_success(self, mock_urlopen) -> None:
         """Should return success when Twilio call succeeds."""
         mock_response = MagicMock()
@@ -475,7 +475,7 @@ class TwilioSMSBackendTests(TestCase):
         self.assertTrue(result.success)
         self.assertEqual(result.message_id, "SM123")
 
-    @patch("shopman.notifications.backends.sms.urlopen")
+    @patch("channels.backends.notification_sms.urlopen")
     def test_send_http_error(self, mock_urlopen) -> None:
         """Should handle Twilio HTTP errors."""
         mock_error = HTTPError(
@@ -501,7 +501,7 @@ class TwilioSMSBackendTests(TestCase):
         self.assertFalse(result.success)
         self.assertIn("400", result.error)
 
-    @patch("shopman.notifications.backends.sms.urlopen")
+    @patch("channels.backends.notification_sms.urlopen")
     def test_send_exception(self, mock_urlopen) -> None:
         """Should handle unexpected errors."""
         mock_urlopen.side_effect = Exception("Network error")
@@ -585,7 +585,7 @@ class WhatsAppBackendTests(TestCase):
         self.assertIn("123456", backend.url)
         self.assertIn("v18.0", backend.url)
 
-    @patch("shopman.notifications.backends.whatsapp.urlopen")
+    @patch("channels.backends.notification_whatsapp.urlopen")
     def test_send_success(self, mock_urlopen) -> None:
         """Should return success when Meta API call succeeds."""
         mock_response = MagicMock()
@@ -607,7 +607,7 @@ class WhatsAppBackendTests(TestCase):
         self.assertTrue(result.success)
         self.assertEqual(result.message_id, "wamid.123")
 
-    @patch("shopman.notifications.backends.whatsapp.urlopen")
+    @patch("channels.backends.notification_whatsapp.urlopen")
     def test_send_http_error(self, mock_urlopen) -> None:
         """Should handle Meta API HTTP errors."""
         mock_error = HTTPError(
@@ -632,7 +632,7 @@ class WhatsAppBackendTests(TestCase):
         self.assertFalse(result.success)
         self.assertIn("400", result.error)
 
-    @patch("shopman.notifications.backends.whatsapp.urlopen")
+    @patch("channels.backends.notification_whatsapp.urlopen")
     def test_send_exception(self, mock_urlopen) -> None:
         """Should handle unexpected errors."""
         mock_urlopen.side_effect = Exception("Network timeout")

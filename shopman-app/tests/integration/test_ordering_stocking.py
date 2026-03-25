@@ -1,7 +1,7 @@
 """
 Integration tests: Ordering <-> Stocking
 
-Tests the StockmanBackend adapter that connects Ordering's stock module
+Tests the StockingBackend adapter that connects Ordering's stock module
 to Stocking's inventory management.
 
 Covers:
@@ -18,8 +18,8 @@ from decimal import Decimal
 import pytest
 from django.utils import timezone
 
-from shopman.inventory.adapters.stockman import StockmanBackend
-from shopman.inventory.protocols import AvailabilityResult, HoldResult
+from channels.backends.stock import StockingBackend
+from channels.protocols import AvailabilityResult, HoldResult
 
 
 pytestmark = pytest.mark.django_db
@@ -42,8 +42,8 @@ def get_product_resolver():
 
 @pytest.fixture
 def backend():
-    """Create StockmanBackend instance."""
-    return StockmanBackend(product_resolver=get_product_resolver())
+    """Create StockingBackend instance."""
+    return StockingBackend(product_resolver=get_product_resolver())
 
 
 # =============================================================================
@@ -52,7 +52,7 @@ def backend():
 
 
 class TestCheckAvailability:
-    """Tests for StockmanBackend.check_availability()."""
+    """Tests for StockingBackend.check_availability()."""
 
     def test_no_stock_returns_zero_available(self, backend, product, today):
         """Without stock, available_qty should be 0."""
@@ -145,7 +145,7 @@ class TestCheckAvailability:
 
 
 class TestCreateHold:
-    """Tests for StockmanBackend.create_hold()."""
+    """Tests for StockingBackend.create_hold()."""
 
     def test_create_hold_success(self, backend, product, position_loja, today):
         """Should successfully create hold when stock available."""
@@ -250,7 +250,7 @@ class TestCreateHold:
 
 
 class TestReleaseHold:
-    """Tests for StockmanBackend.release_hold()."""
+    """Tests for StockingBackend.release_hold()."""
 
     def test_release_hold_success(self, backend, product, position_loja, today):
         """Should release hold and restore availability."""
@@ -317,7 +317,7 @@ class TestReleaseHold:
 
 
 class TestFulfillHold:
-    """Tests for StockmanBackend.fulfill_hold()."""
+    """Tests for StockingBackend.fulfill_hold()."""
 
     def test_fulfill_hold_removes_stock(self, backend, product, position_loja, today):
         """Fulfilling hold should remove stock permanently."""
@@ -358,7 +358,7 @@ class TestFulfillHold:
 
 
 class TestReleaseHoldsForReference:
-    """Tests for StockmanBackend.release_holds_for_reference()."""
+    """Tests for StockingBackend.release_holds_for_reference()."""
 
     def test_release_multiple_holds_by_reference(
         self, backend, product, position_loja, today
@@ -441,11 +441,11 @@ class TestReleaseHoldsForReference:
 
 
 class TestProtocolCompliance:
-    """Tests that StockmanBackend implements StockBackend protocol."""
+    """Tests that StockingBackend implements StockBackend protocol."""
 
     def test_implements_stock_backend_protocol(self, backend):
         """Should implement all StockBackend methods."""
-        from shopman.inventory.protocols import StockBackend
+        from channels.protocols import StockBackend
 
         assert isinstance(backend, StockBackend)
 

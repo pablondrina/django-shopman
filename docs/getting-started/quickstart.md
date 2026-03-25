@@ -72,7 +72,7 @@ No admin voce encontra:
 - **Stocking:** Quants, Moves, Holds, Positions, Alerts
 - **Crafting:** Recipes, Work Orders
 - **Ordering:** Sessions, Orders, Directives, Channels
-- **Attending:** Customers, Contacts, Groups
+- **Customers:** Customers, Contacts, Groups
 
 ### Storefront
 

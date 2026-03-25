@@ -130,7 +130,7 @@ def combo(db, collection, croissant, coffee):
 def listing(db):
     """Create a test listing."""
     return Listing.objects.create(
-        code="ifood",
+        ref="ifood",
         name="iFood Prices",
         is_active=True,
         priority=10,

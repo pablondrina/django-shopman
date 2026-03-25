@@ -3,10 +3,9 @@ from __future__ import annotations
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.views import View
-
 from shopman.utils.phone import normalize_phone
 
-from ..constants import HAS_DOORMAN
+from ..constants import HAS_AUTH
 
 
 class CustomerLookupView(View):
@@ -26,7 +25,7 @@ class CustomerLookupView(View):
         verified_phone = request.session.get("storefront_verified_phone")
         is_verified = verified_phone == phone
 
-        from shopman.attending.services import customer as customer_service
+        from shopman.customers.services import customer as customer_service
 
         customer = customer_service.get_by_phone(phone)
         if not customer:
@@ -48,7 +47,7 @@ class CustomerLookupView(View):
             "name": customer.name,
             "phone": customer.phone,
             "addresses": addresses,
-            "can_verify": HAS_DOORMAN and not is_verified,
+            "can_verify": HAS_AUTH and not is_verified,
             "is_verified": is_verified,
         })
 
@@ -57,7 +56,7 @@ class RequestCodeView(View):
     """HTMX: request magic code for phone verification during checkout."""
 
     def post(self, request: HttpRequest) -> HttpResponse:
-        if not HAS_DOORMAN:
+        if not HAS_AUTH:
             return HttpResponse("")
 
         phone_raw = request.POST.get("phone", "").strip()
@@ -73,7 +72,7 @@ class RequestCodeView(View):
                 "error_message": "Telefone inválido.",
             })
 
-        from shopman.gating.services.verification import VerificationService
+        from shopman.auth.services.verification import VerificationService
 
         ip = request.META.get("REMOTE_ADDR")
         result = VerificationService.request_code(
@@ -108,7 +107,7 @@ class VerifyCodeView(View):
     """HTMX: verify magic code for phone during checkout."""
 
     def post(self, request: HttpRequest) -> HttpResponse:
-        if not HAS_DOORMAN:
+        if not HAS_AUTH:
             return HttpResponse("")
 
         phone_raw = request.POST.get("phone", "").strip()
@@ -127,7 +126,7 @@ class VerifyCodeView(View):
                 "error_message": "Telefone inválido.",
             })
 
-        from shopman.gating.services.verification import VerificationService
+        from shopman.auth.services.verification import VerificationService
 
         result = VerificationService.verify_for_login(
             target_value=phone,
@@ -136,7 +135,7 @@ class VerifyCodeView(View):
         )
 
         if not result.success:
-            # Translate Doorman error messages to PT-BR
+            # Translate Auth error messages to PT-BR
             _error_translations = {
                 "Incorrect code.": "Código incorreto.",
                 "Code expired. Please request a new one.": "Código expirado. Solicite um novo.",

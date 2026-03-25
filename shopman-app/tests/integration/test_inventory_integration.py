@@ -10,7 +10,7 @@ Tests cover:
 import pytest
 from django.test import TestCase
 
-from shopman.inventory.validator import StockCheckValidator
+from channels.handlers.stock import StockCheckValidator
 from shopman.ordering import registry
 from shopman.ordering.exceptions import ValidationError
 from shopman.ordering.models import Channel, Session

@@ -12,9 +12,9 @@
 | [`load_crafting_demo`](#load_crafting_demo) | crafting | Seed | Carrega dados demo de produção |
 | [`process_directives`](#process_directives) | ordering | Worker | Processa fila de directives |
 | [`cleanup_idempotency_keys`](#cleanup_idempotency_keys) | ordering | Manutenção | Remove chaves de idempotência antigas |
-| [`attending_cleanup`](#attending_cleanup) | attending | Manutenção | Remove eventos processados antigos |
-| [`gating_cleanup`](#gating_cleanup) | gating | Manutenção | Remove tokens/códigos expirados |
-| [`seed_nelson`](#seed_nelson) | nelson | Seed | Popula banco com dados da Nelson Boulangerie |
+| [`customers_cleanup`](#customers_cleanup) | customers | Manutenção | Remove eventos processados antigos |
+| [`auth_cleanup`](#auth_cleanup) | auth | Manutenção | Remove tokens/códigos expirados |
+| [`seed`](#seed) | shop | Seed | Popula banco com dados da Nelson Boulangerie |
 
 ---
 
@@ -126,12 +126,12 @@ python manage.py cleanup_idempotency_keys --days 3 --include-in-progress
 
 ---
 
-### attending_cleanup
+### customers_cleanup
 
-**App:** `shopman.attending`
-**Arquivo:** `shopman-core/attending/shopman/attending/management/commands/attending_cleanup.py`
+**App:** `shopman.customers` (app label: `customers`)
+**Arquivo:** `shopman-core/customers/shopman/customers/management/commands/customers_cleanup.py`
 
-Remove ProcessedEvent mais antigos que o threshold configurado (`ATTENDING.EVENT_CLEANUP_DAYS`, default 90 dias).
+Remove ProcessedEvent mais antigos que o threshold configurado (`CUSTOMERS.EVENT_CLEANUP_DAYS`, default 90 dias).
 
 | Flag | Default | Descrição |
 |------|---------|-----------|
@@ -140,20 +140,20 @@ Remove ProcessedEvent mais antigos que o threshold configurado (`ATTENDING.EVENT
 
 ```bash
 # Preview com default da config
-python manage.py attending_cleanup --dry-run
+python manage.py customers_cleanup --dry-run
 
 # Cleanup com threshold custom
-python manage.py attending_cleanup --days 30
+python manage.py customers_cleanup --days 30
 ```
 
 **Recomendação:** Executar via cron semanalmente.
 
 ---
 
-### gating_cleanup
+### auth_cleanup
 
-**App:** `shopman.gating`
-**Arquivo:** `shopman-core/gating/shopman/gating/management/commands/gating_cleanup.py`
+**App:** `shopman.auth` (app label: `auth`)
+**Arquivo:** `shopman-core/auth/shopman/auth/management/commands/auth_cleanup.py`
 
 Limpa artefatos de autenticação expirados: BridgeTokens, MagicCodes e TrustedDevices.
 
@@ -164,23 +164,23 @@ Limpa artefatos de autenticação expirados: BridgeTokens, MagicCodes e TrustedD
 
 ```bash
 # Preview
-python manage.py gating_cleanup --dry-run
+python manage.py auth_cleanup --dry-run
 
 # Cleanup padrão
-python manage.py gating_cleanup
+python manage.py auth_cleanup
 
 # Cleanup conservador
-python manage.py gating_cleanup --days 30
+python manage.py auth_cleanup --days 30
 ```
 
 **Recomendação:** Executar via cron diariamente.
 
 ---
 
-### seed_nelson
+### seed
 
-**App:** `nelson`
-**Arquivo:** `shopman-app/nelson/management/commands/seed_nelson.py`
+**App:** `shop`
+**Arquivo:** `shopman-app/shop/management/commands/seed.py`
 
 Popula o banco com dados completos da Nelson Boulangerie: catálogo (13 produtos + 1 bundle), estoque (3 posições), receitas (6 com BOM), clientes (7), canais (5), pedidos (105+), sessões abertas (3), alertas de estoque (7), e superuser admin.
 
@@ -190,10 +190,10 @@ Popula o banco com dados completos da Nelson Boulangerie: catálogo (13 produtos
 
 ```bash
 # Popular banco
-python manage.py seed_nelson
+python manage.py seed
 
 # Resetar e popular do zero
-python manage.py seed_nelson --flush
+python manage.py seed --flush
 ```
 
 **Variável de ambiente:** `ADMIN_PASSWORD` — senha do superuser (default: `"admin"`).
@@ -210,10 +210,10 @@ python manage.py seed_nelson --flush
 0 3 * * * cd /app && python manage.py cleanup_idempotency_keys
 
 # Limpar tokens de auth (diário, 3h)
-5 3 * * * cd /app && python manage.py gating_cleanup
+5 3 * * * cd /app && python manage.py auth_cleanup
 
 # Limpar eventos processados (semanal, domingo 4h)
-0 4 * * 0 cd /app && python manage.py attending_cleanup
+0 4 * * 0 cd /app && python manage.py customers_cleanup
 
 # Worker de directives (systemd/supervisor, não cron)
 # python manage.py process_directives --watch

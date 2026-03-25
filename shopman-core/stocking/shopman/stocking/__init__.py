@@ -15,8 +15,14 @@ Uso:
 def __getattr__(name):
     """Lazy import to avoid circular imports during app loading."""
     if name == 'stock':
-        from shopman.stocking.service import Stock
-        return Stock
+        from shopman.stocking.service import StockService
+        return StockService
+    elif name == 'StockService':
+        from shopman.stocking.service import StockService
+        return StockService
+    elif name == 'Stock':
+        from shopman.stocking.service import StockService
+        return StockService
     elif name == 'StockError':
         from shopman.stocking.exceptions import StockError
         return StockError
@@ -49,6 +55,8 @@ def __getattr__(name):
 
 __all__ = [
     'stock',
+    'StockService',
+    'Stock',
     'StockError',
     'Position',
     'Quant',

@@ -5,7 +5,7 @@ Covers:
 - PART A: WhatsApp/Manychat subscriber recognition and creation
 - PART B: PDV/Balcão anonymous, CPF-only, and phone-identified
 - PART D: iFood customer handling
-- Edge cases: Guestman not installed
+- Edge cases: Customers app not installed
 
 Note: Notification routing tests (PART C) are deferred to WP-R4
 when the notifications module is migrated.
@@ -18,11 +18,12 @@ from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
 
-from shopman.identification.handlers import CustomerEnsureHandler
+from channels.handlers.customer import CustomerEnsureHandler
+from channels.topics import CUSTOMER_ENSURE, NOTIFICATION_SEND
 from shopman.ordering.models import Channel, Directive, Order
 
 # Path prefix for patching handler internals
-_H = "shopman.identification.handlers"
+_H = "channels.handlers.customer"
 
 
 def _make_channel(code: str, name: str, **config_overrides) -> Channel:
@@ -33,7 +34,7 @@ def _make_channel(code: str, name: str, **config_overrides) -> Channel:
             "edit_policy": "open",
             "config": {
                 "notification_routing": {"backend": "none"},
-                "post_commit_directives": ["customer.ensure"],
+                "post_commit_directives": [CUSTOMER_ENSURE],
             },
         },
         "whatsapp": {
@@ -41,7 +42,7 @@ def _make_channel(code: str, name: str, **config_overrides) -> Channel:
             "edit_policy": "open",
             "config": {
                 "notification_routing": {"backend": "manychat", "fallback": "sms"},
-                "post_commit_directives": ["customer.ensure", "notification.send"],
+                "post_commit_directives": [CUSTOMER_ENSURE, NOTIFICATION_SEND],
             },
         },
         "ifood": {
@@ -49,7 +50,7 @@ def _make_channel(code: str, name: str, **config_overrides) -> Channel:
             "edit_policy": "locked",
             "config": {
                 "notification_routing": {"backend": "none"},
-                "post_commit_directives": ["customer.ensure"],
+                "post_commit_directives": [CUSTOMER_ENSURE],
             },
         },
     }
@@ -96,7 +97,7 @@ def _make_order(channel, *, handle_type=None, handle_ref=None, customer_data=Non
 def _make_directive(order_ref: str) -> Directive:
     """Create a customer.ensure directive for testing."""
     d = Directive(
-        topic="customer.ensure",
+        topic=CUSTOMER_ENSURE,
         status="running",
         payload={"order_ref": order_ref},
     )
@@ -143,7 +144,7 @@ class WhatsAppSubscriberRecognizedTests(TestCase):
     @patch(f"{_H}._maybe_update_name")
     @patch(f"{_H}._find_by_identifier")
     @patch(f"{_H}._identifiers_available", return_value=True)
-    @patch(f"{_H}._guestman_available", return_value=True)
+    @patch(f"{_H}._customers_available", return_value=True)
     def test_whatsapp_subscriber_recognized(
         self, mock_avail, mock_id_avail, mock_find, mock_update_name, mock_timeline, mock_insights,
     ):
@@ -180,7 +181,7 @@ class WhatsAppNewSubscriberCreatedTests(TestCase):
     @patch(f"{_H}._add_identifier")
     @patch(f"{_H}._find_by_identifier", return_value=None)
     @patch(f"{_H}._identifiers_available", return_value=True)
-    @patch(f"{_H}._guestman_available", return_value=True)
+    @patch(f"{_H}._customers_available", return_value=True)
     def test_whatsapp_new_subscriber_created(
         self, mock_avail, mock_id_avail, mock_find, mock_add_id, mock_timeline, mock_insights,
     ):
@@ -223,7 +224,7 @@ class BalcaoAnonymousTests(TestCase):
         self.channel = _make_channel("balcao", "Balcão")
         self.handler = CustomerEnsureHandler()
 
-    @patch(f"{_H}._guestman_available", return_value=True)
+    @patch(f"{_H}._customers_available", return_value=True)
     def test_balcao_anonymous(self, mock_avail):
         order = _make_order(
             self.channel,
@@ -253,7 +254,7 @@ class BalcaoCpfOnlyTests(TestCase):
     @patch(f"{_H}._add_identifier")
     @patch(f"{_H}._find_by_identifier", return_value=None)
     @patch(f"{_H}._identifiers_available", return_value=True)
-    @patch(f"{_H}._guestman_available", return_value=True)
+    @patch(f"{_H}._customers_available", return_value=True)
     def test_balcao_cpf_only(
         self, mock_avail, mock_id_avail, mock_find_id, mock_add_id, mock_timeline, mock_insights,
     ):
@@ -307,7 +308,7 @@ class BalcaoPhoneIdentifiedTests(TestCase):
     @patch(f"{_H}._update_insights")
     @patch(f"{_H}._create_timeline_event")
     @patch(f"{_H}._maybe_update_name")
-    @patch(f"{_H}._guestman_available", return_value=True)
+    @patch(f"{_H}._customers_available", return_value=True)
     def test_balcao_phone_identified(self, mock_avail, mock_update_name, mock_timeline, mock_insights):
         mock_customer = _mock_customer("CLI-PHONE123", "Carlos")
         svc = _mock_svc(get_by_phone=mock_customer)
@@ -346,7 +347,7 @@ class IFoodCustomerHandlingTests(TestCase):
     @patch(f"{_H}._add_identifier")
     @patch(f"{_H}._find_by_identifier", return_value=None)
     @patch(f"{_H}._identifiers_available", return_value=True)
-    @patch(f"{_H}._guestman_available", return_value=True)
+    @patch(f"{_H}._customers_available", return_value=True)
     def test_ifood_new_customer_created(
         self, mock_avail, mock_id_avail, mock_find_id, mock_add_id, mock_timeline, mock_insights,
     ):
@@ -383,7 +384,7 @@ class IFoodCustomerHandlingTests(TestCase):
     @patch(f"{_H}._maybe_update_name")
     @patch(f"{_H}._find_by_identifier")
     @patch(f"{_H}._identifiers_available", return_value=True)
-    @patch(f"{_H}._guestman_available", return_value=True)
+    @patch(f"{_H}._customers_available", return_value=True)
     def test_ifood_existing_customer_linked(
         self, mock_avail, mock_id_avail, mock_find_id, mock_update_name, mock_timeline, mock_insights,
     ):
@@ -415,14 +416,14 @@ class IFoodCustomerHandlingTests(TestCase):
 # ======================================================================
 
 
-class GuestmanNotInstalledTests(TestCase):
+class CustomersNotInstalledTests(TestCase):
 
     def setUp(self) -> None:
         self.channel = _make_channel("whatsapp", "WhatsApp")
         self.handler = CustomerEnsureHandler()
 
-    @patch(f"{_H}._guestman_available", return_value=False)
-    def test_guestman_not_installed_skips_gracefully(self, mock_avail):
+    @patch(f"{_H}._customers_available", return_value=False)
+    def test_customers_not_installed_skips_gracefully(self, mock_avail):
         order = _make_order(
             self.channel,
             handle_type="manychat",

@@ -3,54 +3,52 @@ from __future__ import annotations
 from decimal import Decimal
 
 from django.http import HttpRequest
-
-from shopman.utils.monetary import format_money
 from shopman.ordering.ids import generate_session_key
 from shopman.ordering.models import Channel, Session
 from shopman.ordering.services.modify import ModifyService
+from shopman.utils.monetary import format_money
 
-
-CHANNEL_CODE = "web"
+CHANNEL_REF = "web"
 
 
 class CartService:
-    """Manages Omniman sessions linked to Django visitor sessions."""
+    """Manages Ordering sessions linked to Django visitor sessions."""
 
     @staticmethod
     def _get_channel() -> Channel:
-        return Channel.objects.get(ref=CHANNEL_CODE)
+        return Channel.objects.get(ref=CHANNEL_REF)
 
     @staticmethod
     def _get_session_key(request: HttpRequest) -> str | None:
-        return request.session.get("omniman_session_key")
+        return request.session.get("cart_session_key")
 
     @staticmethod
     def _get_or_create_session(request: HttpRequest) -> tuple[Session, str]:
-        """Return (omniman_session, session_key). Creates if needed."""
-        session_key = request.session.get("omniman_session_key")
+        """Return (ordering_session, session_key). Creates if needed."""
+        session_key = request.session.get("cart_session_key")
         channel = CartService._get_channel()
 
         if session_key:
             try:
-                omniman_session = Session.objects.get(
+                ordering_session = Session.objects.get(
                     session_key=session_key,
                     channel=channel,
                     state="open",
                 )
-                return omniman_session, session_key
+                return ordering_session, session_key
             except Session.DoesNotExist:
                 pass
 
         # Create new session
         session_key = generate_session_key()
-        omniman_session = Session.objects.create(
+        ordering_session = Session.objects.create(
             session_key=session_key,
             channel=channel,
             pricing_policy=channel.pricing_policy,
             edit_policy=channel.edit_policy,
         )
-        request.session["omniman_session_key"] = session_key
-        return omniman_session, session_key
+        request.session["cart_session_key"] = session_key
+        return ordering_session, session_key
 
     @staticmethod
     def add_item(request: HttpRequest, sku: str, qty: int, unit_price_q: int) -> Session:
@@ -63,13 +61,13 @@ class CartService:
             new_qty = int(Decimal(str(existing["qty"]))) + qty
             return ModifyService.modify_session(
                 session_key=session_key,
-                channel_ref=CHANNEL_CODE,
+                channel_ref=CHANNEL_REF,
                 ops=[{"op": "set_qty", "line_id": existing["line_id"], "qty": new_qty}],
             )
 
         return ModifyService.modify_session(
             session_key=session_key,
-            channel_ref=CHANNEL_CODE,
+            channel_ref=CHANNEL_REF,
             ops=[{"op": "add_line", "sku": sku, "qty": qty, "unit_price_q": unit_price_q}],
         )
 
@@ -81,7 +79,7 @@ class CartService:
             raise ValueError("No active cart")
         return ModifyService.modify_session(
             session_key=session_key,
-            channel_ref=CHANNEL_CODE,
+            channel_ref=CHANNEL_REF,
             ops=[{"op": "set_qty", "line_id": line_id, "qty": qty}],
         )
 
@@ -93,7 +91,7 @@ class CartService:
             raise ValueError("No active cart")
         return ModifyService.modify_session(
             session_key=session_key,
-            channel_ref=CHANNEL_CODE,
+            channel_ref=CHANNEL_REF,
             ops=[{"op": "remove_line", "line_id": line_id}],
         )
 
@@ -112,7 +110,7 @@ class CartService:
                 state="open",
             )
         except Session.DoesNotExist:
-            request.session.pop("omniman_session_key", None)
+            request.session.pop("cart_session_key", None)
             return {"items": [], "subtotal_q": 0, "subtotal_display": "R$ 0,00", "count": 0}
 
         items = session.items
@@ -133,6 +131,84 @@ class CartService:
         }
 
     @staticmethod
+    def apply_coupon(request: HttpRequest, code: str) -> dict:
+        """Validate and apply a coupon code to the cart session."""
+        from shop.models import Coupon
+
+        session_key = CartService._get_session_key(request)
+        if not session_key:
+            return {"ok": False, "error": "no_cart"}
+
+        code = code.strip().upper()
+
+        try:
+            coupon = Coupon.objects.select_related("promotion").get(code=code, is_active=True)
+        except Coupon.DoesNotExist:
+            return {"ok": False, "error": "invalid_coupon"}
+
+        if not coupon.is_available:
+            return {"ok": False, "error": "coupon_exhausted"}
+
+        from django.utils import timezone as tz
+
+        promo = coupon.promotion
+        now = tz.now()
+        if not promo.is_active or now < promo.valid_from or now > promo.valid_until:
+            return {"ok": False, "error": "coupon_expired"}
+
+        # Store coupon in session data and re-run modifiers
+        channel = CartService._get_channel()
+        try:
+            session = Session.objects.get(session_key=session_key, channel=channel, state="open")
+        except Session.DoesNotExist:
+            return {"ok": False, "error": "no_cart"}
+
+        data = session.data or {}
+        data["coupon_code"] = code
+        session.data = data
+        session.save(update_fields=["data"])
+
+        # Re-run modify to trigger CouponModifier
+        ModifyService.modify_session(
+            session_key=session_key,
+            channel_ref=CHANNEL_REF,
+            ops=[],
+        )
+
+        return {"ok": True, "code": code, "promotion": promo.name}
+
+    @staticmethod
+    def remove_coupon(request: HttpRequest) -> dict:
+        """Remove coupon from cart session."""
+        session_key = CartService._get_session_key(request)
+        if not session_key:
+            return {"ok": False, "error": "no_cart"}
+
+        channel = CartService._get_channel()
+        try:
+            session = Session.objects.get(session_key=session_key, channel=channel, state="open")
+        except Session.DoesNotExist:
+            return {"ok": False, "error": "no_cart"}
+
+        data = session.data or {}
+        data.pop("coupon_code", None)
+        session.data = data
+        session.save(update_fields=["data"])
+
+        # Re-run modify to clear coupon pricing
+        ModifyService.modify_session(
+            session_key=session_key,
+            channel_ref=CHANNEL_REF,
+            ops=[],
+        )
+
+        if not session.pricing:
+            session.pricing = {}
+        session.pricing.pop("coupon", None)
+
+        return {"ok": True}
+
+    @staticmethod
     def clear(request: HttpRequest) -> None:
         """Abandon the current session."""
         session_key = CartService._get_session_key(request)
@@ -151,4 +227,4 @@ class CartService:
         except Session.DoesNotExist:
             pass
 
-        request.session.pop("omniman_session_key", None)
+        request.session.pop("cart_session_key", None)

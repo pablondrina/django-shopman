@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.views import View
-
 from shopman.offering.models import Product
 
 from ..cart import CartService
@@ -111,3 +110,24 @@ class FloatingCartBarView(View):
 
     def get(self, request: HttpRequest) -> HttpResponse:
         return render(request, "storefront/partials/floating_cart_bar.html")
+
+
+class ApplyCouponView(View):
+    """HTMX/JSON: apply a coupon code to the cart."""
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        code = request.POST.get("code", "").strip()
+        if not code:
+            return JsonResponse({"ok": False, "error": "empty_code"}, status=400)
+
+        result = CartService.apply_coupon(request, code)
+        status = 200 if result["ok"] else 400
+        return JsonResponse(result, status=status)
+
+
+class RemoveCouponView(View):
+    """HTMX/JSON: remove coupon from the cart."""
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        result = CartService.remove_coupon(request)
+        return JsonResponse(result)

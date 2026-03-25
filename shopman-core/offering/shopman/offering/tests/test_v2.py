@@ -152,15 +152,15 @@ class TestPriceChangedSignal:
     def test_signal_emitted_on_price_change(self, db):
         from shopman.offering.signals import price_changed
 
-        listing = Listing.objects.create(code="sig-listing", name="Test")
+        listing = Listing.objects.create(ref="sig-listing", name="Test")
         product = Product.objects.create(sku="SIG-P1", name="Product")
         item = ListingItem.objects.create(listing=listing, product=product, price_q=500)
 
         received = []
 
-        def handler(sender, instance, listing_code, sku, old_price_q, new_price_q, **kwargs):
+        def handler(sender, instance, listing_ref, sku, old_price_q, new_price_q, **kwargs):
             received.append({
-                "listing_code": listing_code,
+                "listing_ref": listing_ref,
                 "sku": sku,
                 "old_price_q": old_price_q,
                 "new_price_q": new_price_q,
@@ -174,14 +174,14 @@ class TestPriceChangedSignal:
             assert received[0]["old_price_q"] == 500
             assert received[0]["new_price_q"] == 600
             assert received[0]["sku"] == "SIG-P1"
-            assert received[0]["listing_code"] == "sig-listing"
+            assert received[0]["listing_ref"] == "sig-listing"
         finally:
             price_changed.disconnect(handler)
 
     def test_signal_not_emitted_when_price_unchanged(self, db):
         from shopman.offering.signals import price_changed
 
-        listing = Listing.objects.create(code="sig-listing2", name="Test")
+        listing = Listing.objects.create(ref="sig-listing2", name="Test")
         product = Product.objects.create(sku="SIG-P2", name="Product")
         item = ListingItem.objects.create(listing=listing, product=product, price_q=500)
 
@@ -202,7 +202,7 @@ class TestPriceChangedSignal:
     def test_signal_not_emitted_on_create(self, db):
         from shopman.offering.signals import price_changed
 
-        listing = Listing.objects.create(code="sig-listing3", name="Test")
+        listing = Listing.objects.create(ref="sig-listing3", name="Test")
         product = Product.objects.create(sku="SIG-P3", name="Product")
 
         received = []

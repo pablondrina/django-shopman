@@ -107,7 +107,7 @@ class TestListingItemResource:
         resource = ListingItemResource()
         dataset = resource.export()
         assert len(dataset) == 1
-        assert "listing__code" in dataset.headers
+        assert "listing__ref" in dataset.headers
         assert "product__sku" in dataset.headers
         assert "price_q" in dataset.headers
 
@@ -116,7 +116,7 @@ class TestListingItemResource:
         resource = ListingItemResource()
         dataset = resource.export()
         expected_headers = {
-            "listing__code", "product__sku", "price_q",
+            "listing__ref", "product__sku", "price_q",
             "min_qty", "is_published", "is_available",
         }
         assert set(dataset.headers) == expected_headers
@@ -124,8 +124,8 @@ class TestListingItemResource:
     def test_import_new_listing_item(self, db, listing, croissant, csv_format):
         """Import a new listing item via CSV."""
         csv_data = (
-            "listing__code,product__sku,price_q,min_qty,is_published,is_available\r\n"
-            f"{listing.code},{croissant.sku},1000,1.000,1,1\r\n"
+            "listing__ref,product__sku,price_q,min_qty,is_published,is_available\r\n"
+            f"{listing.ref},{croissant.sku},1000,1.000,1,1\r\n"
         )
         resource = ListingItemResource()
         dataset = csv_format.create_dataset(StringIO(csv_data))
@@ -140,8 +140,8 @@ class TestListingItemResource:
         old_price = listing_item.price_q
         new_price = old_price + 200
         csv_data = (
-            "listing__code,product__sku,price_q,min_qty,is_published,is_available\r\n"
-            f"{listing_item.listing.code},{listing_item.product.sku},{new_price},"
+            "listing__ref,product__sku,price_q,min_qty,is_published,is_available\r\n"
+            f"{listing_item.listing.ref},{listing_item.product.sku},{new_price},"
             f"{listing_item.min_qty},1,1\r\n"
         )
         resource = ListingItemResource()
