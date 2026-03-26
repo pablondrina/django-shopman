@@ -1,3 +1,4 @@
+{% load storefront_tags %}
 {% if devices %}
 <div class="space-y-3">
   {% for device in devices %}
@@ -16,9 +17,15 @@
           <span class="ml-1 inline-block px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-700">Este dispositivo</span>
           {% endif %}
         </p>
-        <p class="text-xs text-bark-light">
-          {% if device.last_used_at %}Último uso: {{ device.last_used_at|date:"d/m/Y H:i" }}{% else %}Nunca usado{% endif %}
-        </p>
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-bark-light">
+          {% if device.last_used_at %}
+          <span>Último uso: {{ device.last_used_at|date:"d/m/Y" }} às {{ device.last_used_at|time:"H:i" }}</span>
+          {% endif %}
+          <span>Registrado em {{ device.created_at|date:"d/m/Y" }}</span>
+          {% if device.ip_address %}
+          <span>IP: {{ device.ip_address|mask_ip }}</span>
+          {% endif %}
+        </div>
       </div>
     </div>
     <button
@@ -27,7 +34,7 @@
       hx-target="#device-{{ device.id }}"
       hx-swap="outerHTML"
       hx-confirm="Revogar acesso deste dispositivo?"
-      class="text-sm text-red-500 hover:text-red-700 font-medium transition-colors"
+      class="text-sm text-red-500 hover:text-red-700 font-medium transition-colors flex-shrink-0 ml-3"
     >
       Revogar
     </button>
@@ -51,5 +58,5 @@
 {% endif %}
 
 {% else %}
-<p class="text-bark-light text-sm text-center py-4">Nenhum dispositivo confiável registrado.</p>
+<p class="text-bark-light text-sm text-center py-4">Nenhum dispositivo registrado ainda. Após fazer login com código de verificação, seu dispositivo aparecerá aqui.</p>
 {% endif %}

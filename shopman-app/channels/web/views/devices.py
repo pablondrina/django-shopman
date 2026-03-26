@@ -54,9 +54,10 @@ class DeviceListView(View):
             if d.is_valid:
                 device_list.append({
                     "id": str(d.id),
-                    "label": d.label,
+                    "label": d.label.replace(" / ", " no ") if d.label else "",
                     "created_at": d.created_at,
                     "last_used_at": d.last_used_at,
+                    "ip_address": d.ip_address or "",
                     "is_current": current_hash is not None and d.token_hash == current_hash,
                 })
 

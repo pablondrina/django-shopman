@@ -1,3 +1,4 @@
+{% load storefront_tags %}
 <div id="profile-section">
   <div class="flex items-center justify-between mb-4">
     <h3 class="font-serif text-lg font-bold text-bark">Dados pessoais</h3>
@@ -18,7 +19,7 @@
     </div>
     <div>
       <p class="text-xs text-bark-light uppercase tracking-wider mb-1">Telefone</p>
-      <p class="text-bark font-medium">{{ customer.phone }}</p>
+      <p class="text-bark font-medium">{{ customer.phone|format_phone }}</p>
     </div>
     {% if customer.email %}
     <div>
@@ -30,12 +31,6 @@
     <div>
       <p class="text-xs text-bark-light uppercase tracking-wider mb-1">Data de nascimento</p>
       <p class="text-bark font-medium">{{ customer.birthday|date:"d/m/Y" }}</p>
-    </div>
-    {% endif %}
-    {% if customer.group %}
-    <div>
-      <p class="text-xs text-bark-light uppercase tracking-wider mb-1">Grupo</p>
-      <p class="text-bark font-medium">{{ customer.group.name }}</p>
     </div>
     {% endif %}
   </div>

@@ -1,4 +1,5 @@
 {% extends "storefront/base.html" %}
+{% load storefront_tags %}
 
 {% block title %}Minha Conta{% endblock %}
 
@@ -6,93 +7,32 @@
 
 <div class="max-w-3xl mx-auto">
 
+  {% if customer %}
+  {# ── Authenticated: show full account ── #}
+
   <div class="text-center mb-8">
     <span class="text-5xl block mb-3">👤</span>
-    <h2 class="font-serif text-2xl font-bold text-bark mb-1">Minha Conta</h2>
-    <p class="text-bark-light">Consulte seus dados pelo telefone</p>
+    <h2 class="font-serif text-2xl font-bold text-bark mb-1">
+      {% if customer.name %}Olá, {{ customer.first_name }}!{% else %}Minha Conta{% endif %}
+    </h2>
+    <p class="text-bark-light">{{ customer.phone|format_phone }}</p>
   </div>
 
-  <!-- Phone lookup form -->
-  <form method="post" action="{% url 'storefront:account' %}" class="bg-white rounded-xl shadow-sm p-6 mb-8">
-    {% csrf_token %}
-
-    <div class="flex flex-col sm:flex-row gap-3">
-      <div class="flex-1">
-        <label for="phone" class="block text-sm font-medium text-bark mb-1">Telefone <span class="text-bark-light/50 font-normal">(com DDD)</span></label>
-        <input
-          type="tel"
-          id="phone"
-          name="phone"
-          value="{{ phone_value|default:'' }}"
-          required
-          placeholder="(43) 99999-9999"
-          class="w-full px-4 py-2.5 rounded-lg border {% if errors.phone %}border-red-400{% else %}border-cream-dark{% endif %} bg-white text-bark placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition"
-        >
-        {% if errors.phone %}
-        <p class="mt-1 text-sm text-red-500">{{ errors.phone }}</p>
-        {% endif %}
-      </div>
-      <div class="sm:self-end">
-        <button type="submit"
-                class="w-full sm:w-auto px-6 py-2.5 bg-wheat text-white rounded-lg font-medium hover:bg-wheat-dark transition-colors">
-          Buscar
-        </button>
-      </div>
-    </div>
-  </form>
-
-  {% if not_found %}
-  <div class="text-center py-12">
-    <span class="text-5xl block mb-4">🔍</span>
-    <p class="text-bark-light text-lg">Nenhum cadastro encontrado para este telefone.</p>
-    <p class="text-bark-light/70 text-sm mt-1">Verifique se digitou o numero correto.</p>
-  </div>
-  {% endif %}
-
-  {% if needs_verification %}
-  <!-- OTP verification required before showing account data -->
-  <div class="bg-white rounded-xl shadow-sm p-6 mb-8">
-    <div class="text-center mb-4">
-      <span class="text-4xl block mb-2">🔐</span>
-      <h3 class="font-serif text-lg font-bold text-bark mb-1">
-        Ola{% if customer_name %}, {{ customer_name }}{% endif %}!
-      </h3>
-      <p class="text-bark-light">Confirme sua identidade para acessar sua conta.</p>
-    </div>
-
-    <div id="auth-section">
-      {% include "storefront/partials/auth_request_code.html" with phone=phone_value %}
-    </div>
-  </div>
-
-  <script>
-  document.body.addEventListener('htmx:afterSwap', function(evt) {
-    if (evt.detail.target.id === 'auth-section') {
-      var html = evt.detail.target.innerHTML;
-      if (html.indexOf('Identidade confirmada') !== -1) {
-        setTimeout(function() { window.location.reload(); }, 800);
-      }
-    }
-  });
-  </script>
-  {% endif %}
-
-  {% if customer %}
-  <!-- Customer info (editable via HTMX) -->
+  <!-- Dados pessoais (editable via HTMX) -->
   <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
     {% include "storefront/partials/profile_display.html" with customer=customer %}
   </div>
 
-  <!-- Addresses -->
+  <!-- Endereços -->
   <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
     <div class="flex items-center justify-between mb-4">
-      <h3 class="font-serif text-lg font-bold text-bark">Enderecos</h3>
+      <h3 class="font-serif text-lg font-bold text-bark">Endereços</h3>
       <button
         type="button"
         onclick="toggleAddressForm()"
         class="text-sm font-medium text-wheat-dark hover:text-wheat transition-colors"
       >
-        + Novo endereco
+        + Novo endereço
       </button>
     </div>
 
@@ -107,7 +47,6 @@
     </div>
   </div>
 
-  <!-- Loyalty -->
   {% if loyalty_account %}
   <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
     <h3 class="font-serif text-lg font-bold text-bark mb-4">Fidelidade</h3>
@@ -173,10 +112,10 @@
   </div>
   {% endif %}
 
-  <!-- Recent orders -->
+  <!-- Últimos pedidos -->
   {% if orders %}
   <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
-    <h3 class="font-serif text-lg font-bold text-bark mb-4">Ultimos pedidos</h3>
+    <h3 class="font-serif text-lg font-bold text-bark mb-4">Últimos pedidos</h3>
     <div class="space-y-3">
       {% for order in orders %}
       <a href="{% url 'storefront:order_tracking' ref=order.ref %}"
@@ -189,7 +128,7 @@
                 {{ order.status_label }}
               </span>
             </div>
-            <p class="text-bark-light text-sm">{{ order.created_at|date:"d/m/Y" }} as {{ order.created_at|time:"H:i" }}</p>
+            <p class="text-bark-light text-sm">{{ order.created_at|date:"d/m/Y" }} às {{ order.created_at|time:"H:i" }}</p>
           </div>
           <div class="text-right flex-shrink-0 ml-4">
             <p class="text-bark font-bold">{{ order.total_display }}</p>
@@ -202,9 +141,10 @@
   </div>
   {% endif %}
 
-  <!-- Trusted devices -->
+  <!-- Dispositivos confiáveis -->
   <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
     <h3 class="font-serif text-lg font-bold text-bark mb-4">Dispositivos confiáveis</h3>
+    <p class="text-xs text-bark-light mb-4">Dispositivos que podem acessar sua conta sem código de verificação.</p>
     <div id="device-list-container"
          hx-get="{% url 'storefront:device_list' %}"
          hx-trigger="load"
@@ -213,10 +153,10 @@
     </div>
   </div>
 
-  <!-- Preferences -->
+  <!-- Preferências -->
   {% if preferences %}
   <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
-    <h3 class="font-serif text-lg font-bold text-bark mb-4">Preferencias</h3>
+    <h3 class="font-serif text-lg font-bold text-bark mb-4">Preferências</h3>
     <div class="space-y-2">
       {% for pref in preferences %}
       <div class="flex items-center gap-3 p-3 rounded-lg bg-cream/50">
@@ -242,6 +182,80 @@
   </div>
   {% endif %}
 
+  {% else %}
+  {# ── Not authenticated: login flow ── #}
+
+  <div class="text-center mb-8">
+    <span class="text-5xl block mb-3">👤</span>
+    <h2 class="font-serif text-2xl font-bold text-bark mb-1">Acesse sua conta</h2>
+    <p class="text-bark-light">Informe seu telefone para continuar</p>
+  </div>
+
+  <!-- Phone login form -->
+  <form method="post" action="{% url 'storefront:account' %}" class="bg-white rounded-xl shadow-sm p-6 mb-8">
+    {% csrf_token %}
+
+    <div class="flex flex-col sm:flex-row gap-3">
+      <div class="flex-1">
+        <label for="phone" class="block text-sm font-medium text-bark mb-1">Telefone <span class="text-bark-light/50 font-normal">(com DDD)</span></label>
+        <input
+          type="tel"
+          id="phone"
+          name="phone"
+          value="{{ phone_value|default:'' }}"
+          required
+          placeholder="(43) 99999-9999"
+          class="w-full px-4 py-2.5 rounded-lg border {% if errors.phone %}border-red-400{% else %}border-cream-dark{% endif %} bg-white text-bark placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition"
+        >
+        {% if errors.phone %}
+        <p class="mt-1 text-sm text-red-500">{{ errors.phone }}</p>
+        {% endif %}
+      </div>
+      <div class="sm:self-end">
+        <button type="submit"
+                class="w-full sm:w-auto px-6 py-2.5 bg-wheat text-white rounded-lg font-medium hover:bg-wheat-dark transition-colors">
+          Continuar
+        </button>
+      </div>
+    </div>
+  </form>
+
+  {% if not_found %}
+  <div class="text-center py-12">
+    <span class="text-5xl block mb-4">🔍</span>
+    <p class="text-bark-light text-lg">Não encontramos uma conta com este telefone.</p>
+    <p class="text-bark-light/70 text-sm mt-2">Verifique se digitou o número correto, ou faça seu primeiro pedido para criar sua conta.</p>
+  </div>
+  {% endif %}
+
+  {% if needs_verification %}
+  <!-- OTP verification required before showing account data -->
+  <div class="bg-white rounded-xl shadow-sm p-6 mb-8">
+    <div class="text-center mb-4">
+      <span class="text-4xl block mb-2">🔐</span>
+      <h3 class="font-serif text-lg font-bold text-bark mb-1">
+        Olá{% if customer_name %}, {{ customer_name }}{% endif %}!
+      </h3>
+      <p class="text-bark-light">Para sua segurança, confirme seu telefone.</p>
+    </div>
+
+    <div id="auth-section">
+      {% include "storefront/partials/auth_request_code.html" with phone=phone_value %}
+    </div>
+  </div>
+
+  <script>
+  document.body.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt.detail.target.id === 'auth-section') {
+      var html = evt.detail.target.innerHTML;
+      if (html.indexOf('Identidade confirmada') !== -1) {
+        setTimeout(function() { window.location.reload(); }, 800);
+      }
+    }
+  });
+  </script>
+  {% endif %}
+
   {% endif %}
 
 </div>
@@ -249,6 +263,7 @@
 <script>
 function toggleAddressForm() {
   const container = document.getElementById('address-form-container');
+  if (!container) return;
   container.classList.toggle('hidden');
   if (!container.classList.contains('hidden')) {
     const firstInput = container.querySelector('input:not([type=hidden])');

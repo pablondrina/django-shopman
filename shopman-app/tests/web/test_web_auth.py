@@ -425,9 +425,9 @@ class TestAccountOTPGate:
         """POST with valid phone shows OTP request form, not account data."""
         response = client.post("/minha-conta/", {"phone": customer.phone})
         content = response.content.decode()
-        assert "Confirme sua identidade" in content
+        assert "confirme seu telefone" in content
         # Must NOT contain address or order data
-        assert "Enderecos" not in content
+        assert "Endereços" not in content
         assert "Ultimos pedidos" not in content
 
 

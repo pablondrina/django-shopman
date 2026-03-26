@@ -72,9 +72,9 @@ class TestAccountViewPost:
         assert resp.context.get("needs_verification") is True
         assert resp.context["customer"] is None
         content = resp.content.decode()
-        assert "Confirme sua identidade" in content
+        assert "confirme seu telefone" in content
         # Must NOT show sensitive data
-        assert "Enderecos" not in content
+        assert "Endereços" not in content
         assert "Ultimos pedidos" not in content
 
     def test_lookup_with_verified_session_shows_data(self, client: Client, customer):
