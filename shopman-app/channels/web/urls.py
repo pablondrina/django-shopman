@@ -33,6 +33,7 @@ urlpatterns = [
     path("cart/content/", views.CartContentPartialView.as_view(), name="cart_content"),
     path("cart/summary/", views.CartSummaryView.as_view(), name="cart_summary"),
     path("cart/floating-bar/", views.FloatingCartBarView.as_view(), name="floating_cart_bar"),
+    path("cart/check/", views.CartCheckView.as_view(), name="cart_check"),
     path("cart/coupon/", views.ApplyCouponView.as_view(), name="cart_apply_coupon"),
     path("cart/coupon/remove/", views.RemoveCouponView.as_view(), name="cart_remove_coupon"),
     # Checkout
@@ -56,6 +57,13 @@ urlpatterns = [
     path("minha-conta/enderecos/<int:pk>/", views.AddressUpdateView.as_view(), name="address_update"),
     path("minha-conta/enderecos/<int:pk>/delete/", views.AddressDeleteView.as_view(), name="address_delete"),
     path("minha-conta/enderecos/<int:pk>/default/", views.AddressSetDefaultView.as_view(), name="address_set_default"),
+    # Auth
+    path("auth/bridge/<str:token>/", views.BridgeLoginView.as_view(), name="bridge_login"),
+    path("auth/device-check/", views.DeviceCheckLoginView.as_view(), name="device_check_login"),
+    # Device management
+    path("auth/devices/", views.DeviceListView.as_view(), name="device_list"),
+    path("auth/devices/<uuid:device_id>/", views.DeviceRevokeView.as_view(), name="device_revoke"),
+    path("auth/devices/revoke-all/", views.DeviceRevokeAllView.as_view(), name="device_revoke_all"),
     # Info pages
     path("como-funciona/", views.HowItWorksView.as_view(), name="como_funciona"),
 ]

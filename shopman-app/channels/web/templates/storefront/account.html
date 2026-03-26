@@ -45,8 +45,36 @@
   <div class="text-center py-12">
     <span class="text-5xl block mb-4">🔍</span>
     <p class="text-bark-light text-lg">Nenhum cadastro encontrado para este telefone.</p>
-    <p class="text-bark-light/70 text-sm mt-1">Verifique se digitou o número correto.</p>
+    <p class="text-bark-light/70 text-sm mt-1">Verifique se digitou o numero correto.</p>
   </div>
+  {% endif %}
+
+  {% if needs_verification %}
+  <!-- OTP verification required before showing account data -->
+  <div class="bg-white rounded-xl shadow-sm p-6 mb-8">
+    <div class="text-center mb-4">
+      <span class="text-4xl block mb-2">🔐</span>
+      <h3 class="font-serif text-lg font-bold text-bark mb-1">
+        Ola{% if customer_name %}, {{ customer_name }}{% endif %}!
+      </h3>
+      <p class="text-bark-light">Confirme sua identidade para acessar sua conta.</p>
+    </div>
+
+    <div id="auth-section">
+      {% include "storefront/partials/auth_request_code.html" with phone=phone_value %}
+    </div>
+  </div>
+
+  <script>
+  document.body.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt.detail.target.id === 'auth-section') {
+      var html = evt.detail.target.innerHTML;
+      if (html.indexOf('Identidade confirmada') !== -1) {
+        setTimeout(function() { window.location.reload(); }, 800);
+      }
+    }
+  });
+  </script>
   {% endif %}
 
   {% if customer %}
@@ -101,6 +129,72 @@
     </div>
   </div>
 
+  <!-- Loyalty -->
+  {% if loyalty_account %}
+  <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+    <h3 class="font-serif text-lg font-bold text-bark mb-4">Fidelidade</h3>
+
+    <div class="flex flex-wrap items-center gap-4 mb-4">
+      <!-- Tier badge -->
+      <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold
+        {% if loyalty_account.tier == 'platinum' %}bg-gray-200 text-gray-700
+        {% elif loyalty_account.tier == 'gold' %}bg-yellow-100 text-yellow-800
+        {% elif loyalty_account.tier == 'silver' %}bg-gray-100 text-gray-600
+        {% else %}bg-orange-100 text-orange-800{% endif %}">
+        {% if loyalty_account.tier == 'platinum' %}💎
+        {% elif loyalty_account.tier == 'gold' %}🥇
+        {% elif loyalty_account.tier == 'silver' %}🥈
+        {% else %}🥉{% endif %}
+        {{ loyalty_account.get_tier_display }}
+      </span>
+
+      <!-- Points -->
+      <div class="flex items-baseline gap-1">
+        <span class="text-2xl font-bold text-bark">{{ loyalty_account.points_balance }}</span>
+        <span class="text-bark-light text-sm">pontos disponíveis</span>
+      </div>
+    </div>
+
+    <!-- Stamps progress -->
+    {% if loyalty_account.stamps_target > 0 %}
+    <div class="mb-4">
+      <div class="flex items-center justify-between text-sm mb-1.5">
+        <span class="text-bark-light">Cartela de carimbos</span>
+        <span class="text-bark font-medium">{{ loyalty_account.stamps_current }} de {{ loyalty_account.stamps_target }}</span>
+      </div>
+      <div class="w-full bg-cream rounded-full h-3">
+        <div class="bg-wheat rounded-full h-3 transition-all" style="width: {{ loyalty_account.stamps_progress_percent }}%"></div>
+      </div>
+      {% if loyalty_account.stamps_completed > 0 %}
+      <p class="text-xs text-bark-light mt-1">{{ loyalty_account.stamps_completed }} cartela{{ loyalty_account.stamps_completed|pluralize:"s" }} completa{{ loyalty_account.stamps_completed|pluralize:"s" }}</p>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Recent transactions -->
+    {% if loyalty_transactions %}
+    <div class="border-t border-cream-dark pt-3">
+      <p class="text-xs text-bark-light uppercase tracking-wider mb-2">Últimas movimentações</p>
+      <div class="space-y-2">
+        {% for tx in loyalty_transactions %}
+        <div class="flex items-center justify-between text-sm">
+          <div class="flex items-center gap-2">
+            {% if tx.points > 0 %}
+            <span class="text-green-600 font-medium">+{{ tx.points }}</span>
+            {% else %}
+            <span class="text-red-500 font-medium">{{ tx.points }}</span>
+            {% endif %}
+            <span class="text-bark-light">{{ tx.description }}</span>
+          </div>
+          <span class="text-bark-light/70 text-xs">{{ tx.created_at|date:"d/m" }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
   <!-- Recent orders -->
   {% if orders %}
   <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
@@ -129,6 +223,17 @@
     </div>
   </div>
   {% endif %}
+
+  <!-- Trusted devices -->
+  <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+    <h3 class="font-serif text-lg font-bold text-bark mb-4">Dispositivos confiáveis</h3>
+    <div id="device-list-container"
+         hx-get="{% url 'storefront:device_list' %}"
+         hx-trigger="load"
+         hx-swap="innerHTML">
+      <p class="text-bark-light text-sm text-center py-4">Carregando...</p>
+    </div>
+  </div>
 
   <!-- Preferences -->
   {% if preferences %}

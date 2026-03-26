@@ -2,37 +2,37 @@
 
 ## Visão Geral
 
-O app `shopman.auth` implementa autenticação passwordless com três fluxos de login (OTP, Bridge Token, Magic Link), confiança de dispositivo e rate limiting. Não depende de senhas — a identidade é verificada via código enviado por WhatsApp/SMS/Email.
+O app `shopman.auth` implementa autenticação passwordless com três fluxos de login (OTP, Access Link, Email Access Link), confiança de dispositivo e rate limiting. Não depende de senhas — a identidade é verificada via código enviado por WhatsApp/SMS/Email.
 
 ## Conceitos
 
-### OTP (Magic Code)
+### OTP (VerificationCode)
 Código de verificação enviado por WhatsApp/SMS/Email. Hash HMAC-SHA256 no banco (nunca plaintext). TTL de 10 minutos, máximo 5 tentativas.
 
-### Bridge Token
+### Access Link
 Token para transição chat→web (ex: Manychat → checkout web). TTL curto (5 min), uso único com janela de reuso de 60s para browser prefetch.
 
-### Magic Link
-Link de login por email com Bridge Token embutido. TTL de 15 minutos.
+### Email Access Link
+Link de login por email com Access Link embutido. TTL de 15 minutos.
 
 ### Dispositivo Confiável (`TrustedDevice`)
 Cookie seguro que permite pular OTP em logins futuros. TTL de 30 dias.
 
-### Identity Link
+### CustomerUser
 Mapeamento Django User ↔ Customer (Customers). Desacopla autenticação de gestão de clientes.
 
 ### Gates (Validações)
 Regras de segurança com códigos:
-- **G7** — Validade do Bridge Token
-- **G8** — Validade do Magic Code
+- **G7** — Validade do Access Link
+- **G8** — Validade do VerificationCode
 - **G9** — Rate limit por target (phone/email)
 - **G10** — Rate limit por IP
 - **G11** — Cooldown entre códigos
-- **G12** — Rate limit de Magic Links
+- **G12** — Rate limit de Access Links por email
 
 ## Modelos
 
-### MagicCode
+### VerificationCode
 
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
@@ -48,7 +48,7 @@ Regras de segurança com códigos:
 | `ip_address` | GenericIPAddressField(null) | IP do solicitante |
 | `customer_id` | UUIDField(null) | UUID do cliente (set após verificação) |
 
-### BridgeToken
+### AccessLink
 
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
@@ -75,7 +75,7 @@ Regras de segurança com códigos:
 | `last_used_at` | DateTimeField(null) | Último uso |
 | `is_active` | BooleanField | Ativo |
 
-### IdentityLink
+### CustomerUser
 
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
@@ -85,13 +85,13 @@ Regras de segurança com códigos:
 
 ## Serviços
 
-### VerificationService (OTP)
+### AuthService (OTP)
 
 ```python
-from shopman.auth.services.verification import VerificationService
+from shopman.auth.services.verification import AuthService
 
 # Solicitar código
-result = VerificationService.request_code(
+result = AuthService.request_code(
     target_value="+5511999999999",
     purpose="login",
     delivery_method="whatsapp",
@@ -100,7 +100,7 @@ result = VerificationService.request_code(
 # CodeRequestResult(success=True, code_id=UUID(...), expires_at=...)
 
 # Verificar código
-result = VerificationService.verify_for_login(
+result = AuthService.verify_for_login(
     target_value="+5511999999999",
     code_input="123456",
 )
@@ -120,13 +120,13 @@ Pipeline do `verify_for_login`:
 3. Resolve/cria Customer via CustomerResolver
 4. Marca como VERIFIED
 
-### AuthBridgeService (Bridge Token)
+### AccessLinkService
 
 ```python
-from shopman.auth.services.auth_bridge import AuthBridgeService
+from shopman.auth.services.access_link import AccessLinkService
 
 # Criar token (ex: chamado pelo Manychat)
-result = AuthBridgeService.create_token(
+result = AccessLinkService.create_token(
     customer=customer_info,
     audience="web_checkout",
     source="manychat",
@@ -134,7 +134,7 @@ result = AuthBridgeService.create_token(
 # TokenResult(success=True, token="abc123...", url="https://shop.com/auth/bridge/?token=abc123...")
 
 # Exchange (no web, quando usuário clica no link)
-result = AuthBridgeService.exchange(
+result = AccessLinkService.exchange(
     token_str="abc123...",
     request=http_request,
 )
@@ -142,23 +142,22 @@ result = AuthBridgeService.exchange(
 ```
 
 Pipeline do `exchange`:
-1. Busca BridgeToken
+1. Busca AccessLink
 2. Aplica G7 (validade, audience)
 3. Resolve Customer via CustomerResolver
-4. Get/create Django User + IdentityLink
+4. Get/create Django User + CustomerUser
 5. Preserva session keys (ex: carrinho)
 6. `django.contrib.auth.login()`
 
-### MagicLinkService
+### AccessLinkService (email)
 
 ```python
-from shopman.auth.services.magic_link import MagicLinkService
+from shopman.auth.services.access_link import AccessLinkService
 
-result = MagicLinkService.send_magic_link(
+result = AccessLinkService.send_access_link(
     email="maria@email.com",
     ip_address="177.100.0.1",
 )
-# MagicLinkResult(success=True)
 # → Envia email com link de exchange (TTL: 15 min)
 ```
 
@@ -210,7 +209,7 @@ Chave Django settings: `AUTH`
 
 | Setting | Default | Descrição |
 |---------|---------|-----------|
-| `BRIDGE_TOKEN_TTL_MINUTES` | 5 | TTL do Bridge Token |
+| `BRIDGE_TOKEN_TTL_MINUTES` | 5 | TTL do Access Link |
 | `MAGIC_CODE_TTL_MINUTES` | 10 | TTL do código OTP |
 | `MAGIC_CODE_MAX_ATTEMPTS` | 5 | Máximo de tentativas |
 | `CODE_RATE_LIMIT_MAX` | 5 | Máx. códigos por janela |
@@ -220,8 +219,7 @@ Chave Django settings: `AUTH`
 | `CUSTOMER_RESOLVER_CLASS` | AttendingCustomerResolver | Resolver de clientes |
 | `DEVICE_TRUST_ENABLED` | True | Habilitar confiança de dispositivo |
 | `DEVICE_TRUST_TTL_DAYS` | 30 | TTL do cookie |
-| `MAGIC_LINK_ENABLED` | True | Habilitar Magic Link |
-| `MAGIC_LINK_TTL_MINUTES` | 15 | TTL do Magic Link |
+| `ACCESS_LINK_ENABLED` | True | Habilitar Access Link por email |
 | `AUTO_CREATE_CUSTOMER` | True | Criar cliente automaticamente no login |
 | `USE_HTTPS` | True | Usar HTTPS nas URLs |
 
@@ -232,7 +230,7 @@ Chave Django settings: `AUTH`
 | Hash HMAC-SHA256 | Códigos e tokens nunca armazenados em plaintext |
 | Comparação timing-safe | `hmac.compare_digest()` previne timing attacks |
 | Cookie seguro | HttpOnly, Secure (prod), SameSite=Lax |
-| Rate limiting | G9 (target), G10 (IP), G11 (cooldown), G12 (magic link) |
+| Rate limiting | G9 (target), G10 (IP), G11 (cooldown), G12 (access link) |
 | Reuso de token | G7 permite 60s para browser prefetch |
 | Desacoplamento | CustomerResolver desacopla do Customers |
 | Preservação de sessão | Session keys preservadas no login (carrinho) |
@@ -242,17 +240,17 @@ Chave Django settings: `AUTH`
 ### Fluxo OTP completo
 
 ```python
-from shopman.auth.services.verification import VerificationService
+from shopman.auth.services.verification import AuthService
 from shopman.auth.services.device_trust import DeviceTrustService
 
 # 1. Solicitar código
-result = VerificationService.request_code(
+result = AuthService.request_code(
     target_value="+5511999999999",
     delivery_method="whatsapp",
 )
 
 # 2. Verificar (usuário digita o código)
-verify = VerificationService.verify_for_login(
+verify = AuthService.verify_for_login(
     target_value="+5511999999999",
     code_input="123456",
 )
@@ -264,10 +262,10 @@ if verify.success:
 ### Fluxo Manychat → Web
 
 ```python
-from shopman.auth.services.auth_bridge import AuthBridgeService
+from shopman.auth.services.access_link import AccessLinkService
 
 # No Manychat (bot cria link para checkout)
-token_result = AuthBridgeService.create_token(
+token_result = AccessLinkService.create_token(
     customer=customer_info,
     audience="web_checkout",
     source="manychat",
@@ -275,7 +273,7 @@ token_result = AuthBridgeService.create_token(
 # → Envia token_result.url ao usuário no WhatsApp
 
 # No Web (usuário clica no link)
-auth_result = AuthBridgeService.exchange(
+auth_result = AccessLinkService.exchange(
     token_str=request.GET["token"],
     request=request,
 )

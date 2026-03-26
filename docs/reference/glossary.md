@@ -58,10 +58,10 @@ Termos de domínio usados no código e na documentação.
 
 | Termo | Definição |
 |-------|-----------|
-| **BridgeToken** | Token para criar sessão web a partir de chat. Audience-scoped, single-use, TTL curto (5min). Fluxo: Manychat → backend → customer → exchange. |
-| **MagicCode** | Código OTP de 6 dígitos para verificação. Hash HMAC, entrega via SMS/WhatsApp, TTL configurável. |
+| **AccessLink** | Token para criar sessão web a partir de chat ou email. Audience-scoped, single-use, TTL curto (5min). Fluxo: Manychat → backend → customer → exchange. |
+| **VerificationCode** | Código OTP de 6 dígitos para verificação. Hash HMAC, entrega via SMS/WhatsApp, TTL configurável. |
 | **TrustedDevice** | Registro de confiança de dispositivo (fingerprint, IP, user agent, `last_used`, `expires_at`). |
-| **IdentityLink** | Mapeia usuário a múltiplas identidades (email, phone, social) com status de verificação. |
+| **CustomerUser** | Mapeia Django User ↔ Customer (1:1). Desacopla autenticação de gestão de clientes. |
 
 ## Payments (Pagamentos)
 

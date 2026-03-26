@@ -6,21 +6,21 @@
 
 ## Visão Geral
 
-O projeto define **17 sinais custom** do Django. Destes, **3 estão ativamente conectados** a receivers, e **14 estão definidos** para uso por extensões e integrações futuras.
+O projeto define **17 sinais custom** do Django. Destes, **5 estão ativamente conectados** a receivers no orquestrador (`channels/`), e **12 estão definidos** para uso por extensões e integrações futuras.
 
 | Sinal | Módulo | Status | Receivers |
 |-------|--------|--------|-----------|
 | [`product_created`](#product_created) | offering | Disponível | — |
 | [`price_changed`](#price_changed) | offering | Disponível | — |
-| [`production_changed`](#production_changed) | crafting | **Ativo** | crafting→stocking |
+| [`production_changed`](#production_changed) | crafting | **Ativo** | crafting→stocking, channels→stock (voided) |
 | [`customer_created`](#customer_created) | customers | Disponível | — |
 | [`customer_updated`](#customer_updated) | customers | Disponível | — |
-| [`holds_materialized`](#holds_materialized) | stocking | **Ativo** | stock→ordering |
-| [`order_changed`](#order_changed) | ordering | **Ativo** | confirmation hooks |
+| [`holds_materialized`](#holds_materialized) | stocking | **Ativo** | channels→auto-commit |
+| [`order_changed`](#order_changed) | ordering | **Ativo** | channels→lifecycle pipeline |
 | [`customer_authenticated`](#customer_authenticated) | auth | Disponível | — |
-| [`bridge_token_created`](#bridge_token_created) | auth | Disponível | — |
-| [`magic_code_sent`](#magic_code_sent) | auth | Disponível | — |
-| [`magic_code_verified`](#magic_code_verified) | auth | Disponível | — |
+| [`access_link_created`](#access_link_created) | auth | Disponível | — |
+| [`verification_code_sent`](#verification_code_sent) | auth | Disponível | — |
+| [`verification_code_verified`](#verification_code_verified) | auth | Disponível | — |
 | [`device_trusted`](#device_trusted) | auth | Disponível | — |
 | [`payment_authorized`](#payment_authorized) | payments | Disponível | — |
 | [`payment_captured`](#payment_captured) | payments | Disponível | — |
@@ -29,6 +29,17 @@ O projeto define **17 sinais custom** do Django. Destes, **3 estão ativamente c
 | [`payment_refunded`](#payment_refunded) | payments | Disponível | — |
 
 Além dos sinais custom, o projeto usa **2 sinais built-in** do Django (`post_save`) para dispatch de directives e alertas de estoque.
+
+### Conexões ativas (resumo)
+
+| Signal | Conectado em | Receiver | Efeito |
+|--------|-------------|----------|--------|
+| `order_changed` | `ChannelsConfig.ready()` | `hooks.on_order_lifecycle` | Lê pipeline do canal, cria directives |
+| `holds_materialized` | `setup._register_stock_signals()` | `_stock_receivers.on_holds_materialized` | Auto-commit de sessões aguardando produção |
+| `production_changed` | `setup._register_stock_signals()` | `_stock_receivers.on_production_voided` | Libera demand holds quando produção é anulada |
+| `production_changed` | `CraftingStockingConfig.ready()` | `crafting.contrib.stocking.handlers` | Gerencia quants planejados/realizados |
+| `post_save(Directive)` | `OrderingConfig.ready()` | `ordering.dispatch` | Auto-despacha directive para handler |
+| `post_save(Move)` | `StockingAlertsConfig.ready()` | `alerts.handlers` | Verifica alertas de estoque baixo |
 
 ---
 
@@ -109,7 +120,7 @@ Registrado por: `ChannelsConfig.ready()` via `setup.register_all()` → `_regist
 
 **Efeito:** Auto-commit de sessões que estavam aguardando produção. Quando todos os holds de uma sessão são materializados, executa `CommitService.commit()` automaticamente.
 
-**Guia:** [stocking.md](../guides/stocking.md), [orchestration.md](../guides/orchestration.md)
+**Guia:** [stocking.md](../guides/stocking.md), [channels.md](../guides/channels.md)
 
 ---
 
@@ -139,7 +150,7 @@ Emitido quando um `Order` é criado ou muda de status.
   - Se `confirmation.mode == "optimistic"` → cria directive `confirmation.timeout`
 - `"status_changed"` → executa pipeline do novo status (ex: `on_confirmed` → `pix.generate`)
 
-**Guia:** [ordering.md](../guides/ordering.md), [orchestration.md](../guides/orchestration.md)
+**Guia:** [ordering.md](../guides/ordering.md), [channels.md](../guides/channels.md)
 
 ---
 
@@ -183,42 +194,42 @@ Emitido após autenticação bem-sucedida via Auth.
 |-------|-------|
 | **Sender** | *(contexto Auth)* |
 | **Payload** | `customer` (AuthCustomerInfo), `user` (User), `method` (str), `request` (HttpRequest) |
-| **Methods** | `"bridge_token"`, `"magic_code"` |
+| **Methods** | `"access_link"`, `"verification_code"` |
 | **Receivers** | Nenhum conectado |
 
-#### bridge_token_created
+#### access_link_created
 
-Emitido após criação de bridge token via `AuthBridgeService.create_token()`.
+Emitido após criação de access link via `AccessLinkService.create_token()`.
 
 | Campo | Valor |
 |-------|-------|
 | **Sender** | *(contexto Auth)* |
-| **Payload** | `token` (BridgeToken), `customer` (AuthCustomerInfo), `audience` (str), `source` (str) |
+| **Payload** | `token` (AccessLink), `customer` (AuthCustomerInfo), `audience` (str), `source` (str) |
 | **Audiences** | `"web_checkout"`, `"web_account"`, etc. |
 | **Sources** | `"manychat"`, `"internal"`, `"api"` |
 | **Receivers** | Nenhum conectado |
 
-#### magic_code_sent
+#### verification_code_sent
 
-Emitido após envio de código de verificação via `VerificationService.request_code()`.
+Emitido após envio de código de verificação via `AuthService.request_code()`.
 
 | Campo | Valor |
 |-------|-------|
 | **Sender** | *(contexto Auth)* |
-| **Payload** | `code` (MagicCode), `target_value` (str), `delivery_method` (str) |
+| **Payload** | `code` (VerificationCode), `target_value` (str), `delivery_method` (str) |
 | **Delivery methods** | `"whatsapp"`, `"sms"`, `"email"` |
 | **Receivers** | Nenhum conectado |
 
 **Nota:** `code.code_hash` é HMAC — o código raw não é preservado no sinal.
 
-#### magic_code_verified
+#### verification_code_verified
 
-Emitido após verificação bem-sucedida via `VerificationService.verify_for_login()`.
+Emitido após verificação bem-sucedida via `AuthService.verify_for_login()`.
 
 | Campo | Valor |
 |-------|-------|
 | **Sender** | *(contexto Auth)* |
-| **Payload** | `code` (MagicCode), `customer` (AuthCustomerInfo), `purpose` (str) |
+| **Payload** | `code` (VerificationCode), `customer` (AuthCustomerInfo), `purpose` (str) |
 | **Purposes** | `"login"`, `"verify_contact"` |
 | **Receivers** | Nenhum conectado |
 

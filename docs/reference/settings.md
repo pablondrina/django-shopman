@@ -183,9 +183,9 @@
 | `TEMPLATE_CODE_REQUEST` | str | `"auth/code_request.html"` |
 | `TEMPLATE_CODE_VERIFY` | str | `"auth/code_verify.html"` |
 | `TEMPLATE_BRIDGE_INVALID` | str | `"auth/bridge_invalid.html"` |
-| `TEMPLATE_MAGIC_LINK_REQUEST` | str | `"auth/magic_link_request.html"` |
-| `TEMPLATE_MAGIC_LINK_EMAIL_TXT` | str | `"auth/email_magic_link.txt"` |
-| `TEMPLATE_MAGIC_LINK_EMAIL_HTML` | str | `"auth/email_magic_link.html"` |
+| `TEMPLATE_ACCESS_LINK_REQUEST` | str | `"auth/access_link_request.html"` |
+| `TEMPLATE_ACCESS_LINK_EMAIL_TXT` | str | `"auth/email_access_link.txt"` |
+| `TEMPLATE_ACCESS_LINK_EMAIL_HTML` | str | `"auth/email_access_link.html"` |
 
 **Guia:** [auth.md](../guides/auth.md)
 
@@ -213,7 +213,7 @@ Settings flat no `settings.py` do Django (sem dict wrapper).
 | `SHOPMAN_ACCOUNTING_BACKEND` | str | *(sem default)* | Backend de contabilidade. Se ausente, handler de accounting não é registrado |
 | `SHOPMAN_NOTIFICATIONS` | str | `"console"` | Backend padrão de notificações |
 
-**Guia:** [orchestration.md](../guides/orchestration.md)
+**Guia:** [channels.md](../guides/channels.md)
 
 ### Webhook
 
@@ -259,11 +259,17 @@ A loja é configurada via Admin — não há settings no `settings.py`. O model 
 
 ### Cascata de Configuração de Canal
 
+**`ChannelConfig` é o mecanismo primário de configuração de canais.** Substitui o antigo `settings.CONFIRMATION_FLOW`.
+
 ```
 ChannelConfig efetivo = Channel.config ← Shop.defaults ← ChannelConfig.defaults()
 ```
 
-Cada campo de `ChannelConfig` é resolvido na ordem: canal específico → defaults da loja → defaults hardcoded. Veja `ChannelConfig.effective()`.
+Cada campo de `ChannelConfig` é resolvido na ordem: canal específico → defaults da loja → defaults hardcoded. Veja `ChannelConfig.effective()` em `channels/config.py`.
+
+O módulo `channels/confirmation.py` mantém fallback legado para `settings.CONFIRMATION_FLOW`, mas o caminho principal é via `ChannelConfig.effective()`.
+
+**Guia:** [channels.md](../guides/channels.md)
 
 ### ChannelConfig — Estrutura
 

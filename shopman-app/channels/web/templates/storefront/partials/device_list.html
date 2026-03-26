@@ -1,0 +1,55 @@
+{% if devices %}
+<div class="space-y-3">
+  {% for device in devices %}
+  <div class="flex items-center justify-between p-3 rounded-lg bg-cream/50" id="device-{{ device.id }}">
+    <div class="flex items-center gap-3">
+      <span class="text-xl">
+        {% if "iPhone" in device.label or "Android" in device.label %}📱
+        {% elif "Mac" in device.label %}💻
+        {% elif "Windows" in device.label %}🖥️
+        {% else %}🌐{% endif %}
+      </span>
+      <div>
+        <p class="text-sm font-medium text-bark">
+          {{ device.label|default:"Dispositivo desconhecido" }}
+          {% if device.is_current %}
+          <span class="ml-1 inline-block px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-700">Este dispositivo</span>
+          {% endif %}
+        </p>
+        <p class="text-xs text-bark-light">
+          {% if device.last_used_at %}Último uso: {{ device.last_used_at|date:"d/m/Y H:i" }}{% else %}Nunca usado{% endif %}
+        </p>
+      </div>
+    </div>
+    <button
+      type="button"
+      hx-delete="{% url 'storefront:device_revoke' device_id=device.id %}"
+      hx-target="#device-{{ device.id }}"
+      hx-swap="outerHTML"
+      hx-confirm="Revogar acesso deste dispositivo?"
+      class="text-sm text-red-500 hover:text-red-700 font-medium transition-colors"
+    >
+      Revogar
+    </button>
+  </div>
+  {% endfor %}
+</div>
+
+{% if devices|length > 1 %}
+<div class="mt-4 text-center">
+  <button
+    type="button"
+    hx-delete="{% url 'storefront:device_revoke_all' %}"
+    hx-target="#device-list-container"
+    hx-swap="innerHTML"
+    hx-confirm="Revogar TODOS os dispositivos? Você precisará fazer login novamente."
+    class="text-sm text-red-500 hover:text-red-700 font-medium transition-colors"
+  >
+    Revogar todos os dispositivos
+  </button>
+</div>
+{% endif %}
+
+{% else %}
+<p class="text-bark-light text-sm text-center py-4">Nenhum dispositivo confiável registrado.</p>
+{% endif %}

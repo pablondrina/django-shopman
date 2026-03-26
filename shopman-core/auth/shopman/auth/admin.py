@@ -3,6 +3,7 @@ Auth Django Admin configuration.
 """
 
 from django.contrib import admin
+from django.utils import timezone
 from django.utils.html import format_html
 
 from .models import AccessLink, CustomerUser, VerificationCode, TrustedDevice
@@ -113,6 +114,25 @@ class AccessLinkAdmin(admin.ModelAdmin):
 # ===========================================
 
 
+class VerificationCodeExpiredFilter(admin.SimpleListFilter):
+    title = "expired"
+    parameter_name = "is_expired"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("yes", "Expired"),
+            ("no", "Not expired"),
+        ]
+
+    def queryset(self, request, queryset):
+        now = timezone.now()
+        if self.value() == "yes":
+            return queryset.filter(expires_at__lt=now)
+        if self.value() == "no":
+            return queryset.filter(expires_at__gte=now)
+        return queryset
+
+
 @admin.register(VerificationCode)
 class VerificationCodeAdmin(admin.ModelAdmin):
     list_display = [
@@ -124,7 +144,7 @@ class VerificationCodeAdmin(admin.ModelAdmin):
         "attempts_display",
         "created_at",
     ]
-    list_filter = ["status", "purpose", "delivery_method"]
+    list_filter = ["status", "purpose", "delivery_method", VerificationCodeExpiredFilter]
     search_fields = ["target_value", "customer_id"]
     readonly_fields = [
         "id",
@@ -152,6 +172,8 @@ class VerificationCodeAdmin(admin.ModelAdmin):
         ("Security", {"fields": ["attempts", "max_attempts", "ip_address"]}),
         ("Result", {"fields": ["customer_id"]}),
     ]
+
+    actions = ["expire_selected"]
 
     def target_masked(self, obj):
         value = obj.target_value
@@ -200,6 +222,13 @@ class VerificationCodeAdmin(admin.ModelAdmin):
 
     code_hash_short.short_description = "Code Hash"
 
+    @admin.action(description="Expire selected codes")
+    def expire_selected(self, request, queryset):
+        count = queryset.filter(
+            status__in=["pending", "sent"],
+        ).update(status="expired")
+        self.message_user(request, f"{count} code(s) expired.")
+
     def has_add_permission(self, request):
         return False
 
@@ -212,6 +241,25 @@ class VerificationCodeAdmin(admin.ModelAdmin):
 # ===========================================
 
 
+class TrustedDeviceExpiredFilter(admin.SimpleListFilter):
+    title = "expired"
+    parameter_name = "is_expired"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("yes", "Expired"),
+            ("no", "Not expired"),
+        ]
+
+    def queryset(self, request, queryset):
+        now = timezone.now()
+        if self.value() == "yes":
+            return queryset.filter(expires_at__lt=now)
+        if self.value() == "no":
+            return queryset.filter(expires_at__gte=now)
+        return queryset
+
+
 @admin.register(TrustedDevice)
 class TrustedDeviceAdmin(admin.ModelAdmin):
     list_display = [
@@ -222,7 +270,7 @@ class TrustedDeviceAdmin(admin.ModelAdmin):
         "last_used_at",
         "created_at",
     ]
-    list_filter = ["is_active"]
+    list_filter = ["is_active", TrustedDeviceExpiredFilter]
     search_fields = ["customer_id", "label"]
     readonly_fields = [
         "id",
@@ -245,7 +293,7 @@ class TrustedDeviceAdmin(admin.ModelAdmin):
         ("Lifecycle", {"fields": ["created_at", "expires_at", "last_used_at", "is_active"]}),
     ]
 
-    actions = ["revoke_selected"]
+    actions = ["revoke_selected", "revoke_all_for_customer"]
 
     def token_hash_short(self, obj):
         return obj.token_hash[:12] + "..."
@@ -271,6 +319,18 @@ class TrustedDeviceAdmin(admin.ModelAdmin):
     def revoke_selected(self, request, queryset):
         count = queryset.filter(is_active=True).update(is_active=False)
         self.message_user(request, f"{count} device(s) revoked.")
+
+    @admin.action(description="Revoke ALL devices for selected customers")
+    def revoke_all_for_customer(self, request, queryset):
+        customer_ids = set(queryset.values_list("customer_id", flat=True))
+        count = TrustedDevice.objects.filter(
+            customer_id__in=customer_ids,
+            is_active=True,
+        ).update(is_active=False)
+        self.message_user(
+            request,
+            f"{count} device(s) revoked across {len(customer_ids)} customer(s).",
+        )
 
     def has_add_permission(self, request):
         return False

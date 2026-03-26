@@ -71,7 +71,7 @@ Cada app e um pacote pip independente. Comunicacao entre apps via `typing.Protoc
 | **crafting** | Producao e receitas | Recipe, WorkOrder, WorkOrderItem |
 | **ordering** | Kernel de pedidos | Session, Order, Directive, Channel |
 | **customers** | Gestao de clientes | Customer, ContactPoint, CustomerGroup |
-| **auth** | Autenticacao e acesso | MagicCode, DeviceTrust, BridgeToken |
+| **auth** | Autenticacao e acesso | VerificationCode, TrustedDevice, AccessLink |
 
 ## Orquestrador (shopman-app)
 

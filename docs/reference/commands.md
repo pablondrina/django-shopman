@@ -155,7 +155,7 @@ python manage.py customers_cleanup --days 30
 **App:** `shopman.auth` (app label: `auth`)
 **Arquivo:** `shopman-core/auth/shopman/auth/management/commands/auth_cleanup.py`
 
-Limpa artefatos de autenticação expirados: BridgeTokens, MagicCodes e TrustedDevices.
+Limpa artefatos de autenticação expirados: AccessLinks, VerificationCodes e TrustedDevices.
 
 | Flag | Default | Descrição |
 |------|---------|-----------|

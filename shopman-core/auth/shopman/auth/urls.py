@@ -8,6 +8,7 @@ Include in your project's urls.py:
 from django.urls import path
 
 from .views.access_link import AccessLinkCreateView, AccessLinkExchangeView
+from .views.devices import DeviceListView, DeviceRevokeView
 from .views.health import HealthCheckView
 from .views.access_link_request import AccessLinkRequestView
 from .views.logout import LogoutView
@@ -24,6 +25,9 @@ urlpatterns = [
     path("code/verify/", VerificationCodeVerifyView.as_view(), name="code-verify"),
     # Access Link (login via email - one click)
     path("access-link/", AccessLinkRequestView.as_view(), name="access-link"),
+    # Devices
+    path("devices/", DeviceListView.as_view(), name="device-list"),
+    path("devices/<uuid:device_id>/", DeviceRevokeView.as_view(), name="device-revoke"),
     # Logout
     path("logout/", LogoutView.as_view(), name="logout"),
     # Health check (load balancers, Kubernetes probes)
