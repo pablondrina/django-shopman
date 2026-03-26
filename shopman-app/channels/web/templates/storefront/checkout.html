@@ -22,7 +22,7 @@
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
   <!-- Order form -->
   <div class="lg:col-span-2">
-    <form id="checkout-form" method="post" action="{% url 'storefront:checkout' %}" class="bg-white rounded-xl shadow-sm p-6 space-y-5">
+    <form id="checkout-form" method="post" action="{% url 'storefront:checkout' %}" class="bg-white rounded-xl shadow-sm p-6 space-y-6">
       {% csrf_token %}
 
       {% if errors.stock %}
@@ -39,24 +39,24 @@
 
       {% if is_verified %}
       {# ── LOGGED IN: clean, minimal ── #}
-
-      <!-- Discreet customer identification -->
-      <div class="flex items-center justify-between p-3 rounded-lg bg-cream/50">
-        <div class="flex items-center gap-3">
-          <span class="text-lg">👤</span>
-          <div class="text-sm">
-            <span class="font-medium text-bark">{{ customer_info.name|default:"Cliente" }}</span>
-            <span class="text-bark-light ml-2">{{ customer_info.phone|format_phone }}</span>
+      <div>
+        <div class="flex items-center justify-between p-3 rounded-lg bg-cream/50">
+          <div class="flex items-center gap-3">
+            <span class="text-lg">👤</span>
+            <div class="text-sm">
+              <span class="font-medium text-bark">{{ customer_info.name|default:"Cliente" }}</span>
+              <span class="text-bark-light ml-2">{{ customer_info.phone|format_phone }}</span>
+            </div>
           </div>
+          <a href="{% url 'shopman_auth:logout' %}" class="text-xs text-bark-light hover:text-red-500 transition-colors"
+             onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+            Trocar conta
+          </a>
         </div>
-        <a href="{% url 'shopman_auth:logout' %}" class="text-xs text-bark-light hover:text-red-500 transition-colors"
-           onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
-          Trocar conta
-        </a>
         <form id="logout-form" method="post" action="{% url 'shopman_auth:logout' %}" class="hidden">{% csrf_token %}</form>
+        <input type="hidden" name="phone" value="{{ form_data.phone }}">
+        <input type="hidden" name="name" value="{{ form_data.name }}">
       </div>
-      <input type="hidden" name="phone" value="{{ form_data.phone }}">
-      <input type="hidden" name="name" value="{{ form_data.name }}">
 
       {% else %}
       {# ── ANONYMOUS: full identification ── #}
