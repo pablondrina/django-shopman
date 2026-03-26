@@ -147,29 +147,46 @@ class AuthService:
         )
 
         # Send raw code (not the HMAC)
-        _sender = sender or adapter
-        try:
-            sent = _sender.send_code(target_value, raw_code, delivery_method)
-            if sent:
-                code.mark_sent()
-            else:
+        if sender:
+            # Custom sender provided (e.g. tests) — bypass fallback chain
+            try:
+                sent = sender.send_code(target_value, raw_code, delivery_method)
+                actual_method = delivery_method
+                if not sent:
+                    return CodeRequestResult(
+                        success=False, error="Failed to send code.",
+                        error_code=ErrorCode.SEND_FAILED,
+                    )
+            except Exception:
+                logger.exception("Send failed", extra={"target": target_value})
+                return CodeRequestResult(
+                    success=False, error="Error sending code.",
+                    error_code=ErrorCode.SEND_FAILED,
+                )
+        else:
+            # Use adapter's fallback chain
+            sent, actual_method = adapter.send_code_with_fallback(
+                target_value, raw_code,
+            )
+            if not sent:
                 return CodeRequestResult(
                     success=False, error="Failed to send code.",
                     error_code=ErrorCode.SEND_FAILED,
                 )
-        except Exception:
-            logger.exception("Send failed", extra={"target": target_value})
-            return CodeRequestResult(
-                success=False, error="Error sending code.",
-                error_code=ErrorCode.SEND_FAILED,
-            )
+
+        # Record actual delivery method used (may differ from requested)
+        if actual_method != delivery_method:
+            code.delivery_method = actual_method
+            code.save(update_fields=["delivery_method"])
+
+        code.mark_sent()
 
         # Signal
         verification_code_sent.send(
             sender=cls,
             code=code,
             target_value=target_value,
-            delivery_method=delivery_method,
+            delivery_method=actual_method,
         )
 
         logger.info("Code sent", extra={"target": target_value, "purpose": purpose})

@@ -92,7 +92,7 @@ class DefaultAuthAdapter:
 
     def send_code(self, target: str, code: str, method: str) -> bool:
         """
-        Send a verification code.
+        Send a verification code via a single method.
 
         Args:
             target: Phone (E.164) or email.
@@ -103,6 +103,77 @@ class DefaultAuthAdapter:
             True if sent successfully.
         """
         return self.sender.send_code(target, code, method)
+
+    def send_code_with_fallback(self, target: str, code: str) -> tuple[bool, str]:
+        """
+        Send a verification code, iterating through the delivery chain.
+
+        Tries each sender in DELIVERY_CHAIN order. Falls back to the next
+        sender on failure. If DELIVERY_CHAIN is empty, uses the default
+        MESSAGE_SENDER_CLASS with method "whatsapp".
+
+        Args:
+            target: Phone (E.164) or email.
+            code: The raw OTP code.
+
+        Returns:
+            (success, method_used) — method_used is the delivery method
+            that succeeded, or the last one attempted on failure.
+        """
+        chain = self.get_delivery_chain(target)
+        if not chain:
+            # Backward compat: no chain configured, use default sender
+            method = "whatsapp"
+            success = self.send_code(target, code, method)
+            return success, method
+
+        for method in chain:
+            sender = self._get_chain_sender(method)
+            if sender is None:
+                logger.warning(
+                    "No sender configured for method %s, skipping", method
+                )
+                continue
+            try:
+                success = sender.send_code(target, code, method)
+                if success:
+                    logger.info(
+                        "Code sent via %s", method,
+                        extra={"target": target, "method": method},
+                    )
+                    return True, method
+                logger.warning(
+                    "Sender %s returned False, trying next", method,
+                    extra={"target": target},
+                )
+            except Exception:
+                logger.exception(
+                    "Sender %s failed with exception, trying next", method,
+                    extra={"target": target},
+                )
+
+        # Chain exhausted
+        last_method = chain[-1] if chain else "unknown"
+        logger.error(
+            "Delivery chain exhausted, all senders failed",
+            extra={"target": target, "chain": chain},
+        )
+        return False, last_method
+
+    def _get_chain_sender(self, method: str):
+        """Get the sender instance for a delivery chain method."""
+        from django.utils.module_loading import import_string
+
+        senders_map = auth_settings.DELIVERY_SENDERS
+        cls_path = senders_map.get(method)
+        if not cls_path:
+            return None
+        # Cache sender instances
+        cache_attr = f"_chain_sender_{method}"
+        if not hasattr(self, cache_attr):
+            cls = import_string(cls_path)
+            setattr(self, cache_attr, cls())
+        return getattr(self, cache_attr)
 
     def send_access_link(self, channel: str, customer: AuthCustomerInfo, url: str) -> bool:
         """
@@ -168,9 +239,10 @@ class DefaultAuthAdapter:
         """
         Get the delivery chain for a target.
 
-        Default: single method from settings. AUTH-3 will add fallback chain.
+        Returns DELIVERY_CHAIN from settings, or empty list if not configured
+        (which triggers backward-compat single-sender mode).
         """
-        return ["whatsapp"]
+        return list(auth_settings.DELIVERY_CHAIN)
 
     # ===========================================
     # Lifecycle hooks

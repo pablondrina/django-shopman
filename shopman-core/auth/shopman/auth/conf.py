@@ -30,8 +30,15 @@ class AuthSettings:
     CODE_RATE_LIMIT_MAX: int = 5
     MAGIC_CODE_COOLDOWN_SECONDS: int = 60
 
-    # Sender
+    # Sender (shortcut — equivalent to a single-item DELIVERY_CHAIN)
     MESSAGE_SENDER_CLASS: str = "shopman.auth.senders.ConsoleSender"
+
+    # Delivery fallback chain: ordered list of methods to try when sending codes.
+    # Empty = use MESSAGE_SENDER_CLASS as single sender (backward compat).
+    DELIVERY_CHAIN: list[str] = field(default_factory=list)
+
+    # Map of method → sender class for the delivery chain.
+    DELIVERY_SENDERS: dict[str, str] = field(default_factory=dict)
 
     # WhatsApp Cloud API
     WHATSAPP_ACCESS_TOKEN: str = ""
