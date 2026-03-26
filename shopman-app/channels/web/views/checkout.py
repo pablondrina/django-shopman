@@ -74,8 +74,6 @@ class CheckoutView(View):
         notes = request.POST.get("notes", "").strip()
 
         errors = {}
-        if not name:
-            errors["name"] = "Nome é obrigatório."
         if not phone_raw:
             errors["phone"] = "Telefone é obrigatório."
         else:
@@ -91,6 +89,14 @@ class CheckoutView(View):
             except Exception:
                 errors["phone"] = "Telefone inválido. Informe com DDD, ex: (43) 99999-9999"
 
+        # Name required only for new customers (existing ones already have it)
+        if not errors and not name:
+            from shopman.customers.services import customer as cs_check
+
+            existing = cs_check.get_by_phone(phone) if phone else None
+            if not existing or not existing.first_name:
+                errors["name"] = "Nome é obrigatório."
+
         if errors:
             return render(request, "storefront/checkout.html", {
                 "cart": cart,
@@ -98,6 +104,14 @@ class CheckoutView(View):
                 "form_data": {"name": name, "phone": phone_raw, "notes": notes},
                 "payment_methods": self._get_payment_methods(),
             })
+
+        # Resolve name: use form input, or fall back to existing customer name
+        if not name:
+            from shopman.customers.services import customer as cs_name
+
+            existing = cs_name.get_by_phone(phone)
+            if existing and existing.first_name:
+                name = existing.name
 
         session_key = cart["session_key"]
 
@@ -277,15 +291,24 @@ class CheckoutView(View):
         except Order.DoesNotExist:
             pass
 
-        # Persist customer name if new (first_name empty)
-        customer_info = getattr(request, "customer", None)
-        if customer_info and name:
-            from shopman.customers.services import customer as customer_service
+        # Ensure customer exists and has a name
+        from shopman.customers.services import customer as customer_service
 
-            customer_obj = customer_service.get_by_uuid(customer_info.uuid)
-            if customer_obj and not customer_obj.first_name:
+        customer_obj = customer_service.get_by_phone(phone)
+        if customer_obj:
+            # Update name if empty
+            if name and not customer_obj.first_name:
                 customer_obj.first_name = name
                 customer_obj.save(update_fields=["first_name"])
+        else:
+            # Create customer for first-time anonymous checkout
+            import uuid as uuid_lib
+
+            customer_obj = customer_service.create(
+                ref=f"WEB-{str(uuid_lib.uuid4())[:8].upper()}",
+                first_name=name,
+                phone=phone,
+            )
 
         # Clear cart from Django session
         request.session.pop("cart_session_key", None)
