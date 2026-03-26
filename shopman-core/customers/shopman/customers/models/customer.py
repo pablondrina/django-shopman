@@ -67,6 +67,9 @@ class Customer(models.Model):
         help_text=_("CPF ou CNPJ (apenas números)"),
     )
 
+    # Birthday
+    birthday = models.DateField(_("data de nascimento"), null=True, blank=True)
+
     # Primary contact
     email = models.EmailField(_("email"), blank=True, db_index=True)
     phone = models.CharField(_("telefone"), max_length=20, blank=True, db_index=True)
@@ -108,6 +111,13 @@ class Customer(models.Model):
             models.Index(fields=["document"]),
             models.Index(fields=["phone"]),
             models.Index(fields=["email"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["phone"],
+                name="unique_customer_phone",
+                condition=~models.Q(phone=""),
+            ),
         ]
 
     def __str__(self):

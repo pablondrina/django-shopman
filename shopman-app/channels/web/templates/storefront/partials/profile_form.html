@@ -1,0 +1,88 @@
+<div id="profile-section">
+  <div class="flex items-center justify-between mb-4">
+    <h3 class="font-serif text-lg font-bold text-bark">Editar dados</h3>
+    <button
+      type="button"
+      hx-get="{% url 'storefront:profile_display' %}"
+      hx-target="#profile-section"
+      hx-swap="outerHTML"
+      class="text-sm font-medium text-bark-light hover:text-bark transition-colors"
+    >
+      Cancelar
+    </button>
+  </div>
+
+  <form
+    hx-post="{% url 'storefront:profile_update' %}"
+    hx-target="#profile-section"
+    hx-swap="outerHTML"
+    class="space-y-4"
+  >
+    {% csrf_token %}
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label for="first_name" class="block text-sm font-medium text-bark mb-1">Nome</label>
+        <input
+          type="text"
+          id="first_name"
+          name="first_name"
+          value="{{ customer.first_name|default:'' }}"
+          class="w-full px-4 py-2.5 rounded-lg border {% if errors.first_name %}border-red-400{% else %}border-cream-dark{% endif %} bg-white text-bark focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition"
+          placeholder="Seu nome"
+        >
+        {% if errors.first_name %}
+        <p class="mt-1 text-sm text-red-500">{{ errors.first_name }}</p>
+        {% endif %}
+      </div>
+
+      <div>
+        <label for="last_name" class="block text-sm font-medium text-bark mb-1">Sobrenome</label>
+        <input
+          type="text"
+          id="last_name"
+          name="last_name"
+          value="{{ customer.last_name|default:'' }}"
+          class="w-full px-4 py-2.5 rounded-lg border border-cream-dark bg-white text-bark focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition"
+          placeholder="Seu sobrenome"
+        >
+      </div>
+
+      <div>
+        <label for="email" class="block text-sm font-medium text-bark mb-1">Email</label>
+        <input
+          type="email"
+          id="email"
+          name="email"
+          value="{{ customer.email|default:'' }}"
+          class="w-full px-4 py-2.5 rounded-lg border border-cream-dark bg-white text-bark focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition"
+          placeholder="seu@email.com"
+        >
+      </div>
+
+      <div>
+        <label for="birthday" class="block text-sm font-medium text-bark mb-1">Data de nascimento</label>
+        <input
+          type="date"
+          id="birthday"
+          name="birthday"
+          value="{{ customer.birthday|date:'Y-m-d' }}"
+          class="w-full px-4 py-2.5 rounded-lg border border-cream-dark bg-white text-bark focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition"
+        >
+      </div>
+    </div>
+
+    <div class="pt-2">
+      <p class="text-xs text-bark-light mb-3">
+        Telefone: <span class="font-medium">{{ customer.phone }}</span>
+        <span class="text-bark-light/50">(nao editavel)</span>
+      </p>
+      <button
+        type="submit"
+        class="px-6 py-2.5 bg-wheat text-white rounded-lg font-medium hover:bg-wheat-dark transition-colors"
+      >
+        Salvar
+      </button>
+    </div>
+  </form>
+</div>

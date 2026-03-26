@@ -1,0 +1,42 @@
+<div id="profile-section">
+  <div class="flex items-center justify-between mb-4">
+    <h3 class="font-serif text-lg font-bold text-bark">Dados pessoais</h3>
+    <button
+      type="button"
+      hx-get="{% url 'storefront:profile_edit' %}"
+      hx-target="#profile-section"
+      hx-swap="outerHTML"
+      class="text-sm font-medium text-wheat-dark hover:text-wheat transition-colors"
+    >
+      Editar
+    </button>
+  </div>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div>
+      <p class="text-xs text-bark-light uppercase tracking-wider mb-1">Nome</p>
+      <p class="text-bark font-medium">{{ customer.name|default:"—" }}</p>
+    </div>
+    <div>
+      <p class="text-xs text-bark-light uppercase tracking-wider mb-1">Telefone</p>
+      <p class="text-bark font-medium">{{ customer.phone }}</p>
+    </div>
+    {% if customer.email %}
+    <div>
+      <p class="text-xs text-bark-light uppercase tracking-wider mb-1">Email</p>
+      <p class="text-bark font-medium">{{ customer.email }}</p>
+    </div>
+    {% endif %}
+    {% if customer.birthday %}
+    <div>
+      <p class="text-xs text-bark-light uppercase tracking-wider mb-1">Data de nascimento</p>
+      <p class="text-bark font-medium">{{ customer.birthday|date:"d/m/Y" }}</p>
+    </div>
+    {% endif %}
+    {% if customer.group %}
+    <div>
+      <p class="text-xs text-bark-light uppercase tracking-wider mb-1">Grupo</p>
+      <p class="text-bark font-medium">{{ customer.group.name }}</p>
+    </div>
+    {% endif %}
+  </div>
+</div>

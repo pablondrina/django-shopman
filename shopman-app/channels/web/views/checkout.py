@@ -248,6 +248,16 @@ class CheckoutView(View):
         except Order.DoesNotExist:
             pass
 
+        # Persist customer name if new (first_name empty)
+        customer_info = getattr(request, "customer", None)
+        if customer_info and name:
+            from shopman.customers.services import customer as customer_service
+
+            customer_obj = customer_service.get_by_uuid(customer_info.uuid)
+            if customer_obj and not customer_obj.first_name:
+                customer_obj.first_name = name
+                customer_obj.save(update_fields=["first_name"])
+
         # Clear cart from Django session
         request.session.pop("cart_session_key", None)
 

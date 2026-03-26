@@ -284,6 +284,74 @@ class AddressDeleteView(View):
         })
 
 
+class ProfileDisplayView(View):
+    """HTMX: return profile display partial (read-only)."""
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        customer = get_authenticated_customer(request)
+        if not customer:
+            return HttpResponse("Autenticação necessária.", status=401)
+        return render(request, "storefront/partials/profile_display.html", {
+            "customer": customer,
+        })
+
+
+class ProfileEditView(View):
+    """HTMX: return profile edit form partial."""
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        customer = get_authenticated_customer(request)
+        if not customer:
+            return HttpResponse("Autenticação necessária.", status=401)
+        return render(request, "storefront/partials/profile_form.html", {
+            "customer": customer,
+        })
+
+
+class ProfileUpdateView(View):
+    """HTMX: update customer profile, return display partial."""
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        customer = get_authenticated_customer(request)
+        if not customer:
+            return HttpResponse("Autenticação necessária.", status=401)
+
+        first_name = request.POST.get("first_name", "").strip()
+        last_name = request.POST.get("last_name", "").strip()
+        email = request.POST.get("email", "").strip()
+        birthday_raw = request.POST.get("birthday", "").strip()
+
+        errors = {}
+        if not first_name:
+            errors["first_name"] = "Nome é obrigatório."
+
+        if errors:
+            return render(request, "storefront/partials/profile_form.html", {
+                "customer": customer,
+                "errors": errors,
+            })
+
+        customer.first_name = first_name
+        customer.last_name = last_name
+        customer.email = email
+
+        if birthday_raw:
+            from datetime import date as date_type
+
+            try:
+                customer.birthday = date_type.fromisoformat(birthday_raw)
+            except ValueError:
+                pass
+        else:
+            customer.birthday = None
+
+        customer.save(update_fields=["first_name", "last_name", "email", "birthday"])
+
+        return render(request, "storefront/partials/profile_display.html", {
+            "customer": customer,
+        })
+
+
 class AddressSetDefaultView(View):
     """HTMX: set address as default, return updated list."""
 

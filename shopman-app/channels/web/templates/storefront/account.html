@@ -78,31 +78,9 @@
   {% endif %}
 
   {% if customer %}
-  <!-- Customer info -->
+  <!-- Customer info (editable via HTMX) -->
   <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
-    <h3 class="font-serif text-lg font-bold text-bark mb-4">Dados pessoais</h3>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div>
-        <p class="text-xs text-bark-light uppercase tracking-wider mb-1">Nome</p>
-        <p class="text-bark font-medium">{{ customer.name }}</p>
-      </div>
-      <div>
-        <p class="text-xs text-bark-light uppercase tracking-wider mb-1">Telefone</p>
-        <p class="text-bark font-medium">{{ customer.phone }}</p>
-      </div>
-      {% if customer.group %}
-      <div>
-        <p class="text-xs text-bark-light uppercase tracking-wider mb-1">Grupo</p>
-        <p class="text-bark font-medium">{{ customer.group.name }}</p>
-      </div>
-      {% endif %}
-      {% if customer.email %}
-      <div>
-        <p class="text-xs text-bark-light uppercase tracking-wider mb-1">Email</p>
-        <p class="text-bark font-medium">{{ customer.email }}</p>
-      </div>
-      {% endif %}
-    </div>
+    {% include "storefront/partials/profile_display.html" with customer=customer %}
   </div>
 
   <!-- Addresses -->

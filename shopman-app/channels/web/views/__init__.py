@@ -4,6 +4,9 @@ from .account import (
     AddressDeleteView,
     AddressSetDefaultView,
     AddressUpdateView,
+    ProfileDisplayView,
+    ProfileEditView,
+    ProfileUpdateView,
 )
 from .auth import AccessLinkLoginView, CustomerLookupView, DeviceCheckLoginView, RequestCodeView, VerifyCodeView
 from .cart import (
@@ -58,6 +61,9 @@ __all__ = [
     "PaymentStatusView",
     "PaymentView",
     "ProductDetailView",
+    "ProfileDisplayView",
+    "ProfileEditView",
+    "ProfileUpdateView",
     "RemoveCartItemView",
     "RemoveCouponView",
     "RequestCodeView",

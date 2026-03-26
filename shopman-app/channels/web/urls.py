@@ -57,6 +57,9 @@ urlpatterns = [
     path("minha-conta/enderecos/<int:pk>/", views.AddressUpdateView.as_view(), name="address_update"),
     path("minha-conta/enderecos/<int:pk>/delete/", views.AddressDeleteView.as_view(), name="address_delete"),
     path("minha-conta/enderecos/<int:pk>/default/", views.AddressSetDefaultView.as_view(), name="address_set_default"),
+    path("minha-conta/perfil/", views.ProfileUpdateView.as_view(), name="profile_update"),
+    path("minha-conta/perfil/display/", views.ProfileDisplayView.as_view(), name="profile_display"),
+    path("minha-conta/perfil/edit/", views.ProfileEditView.as_view(), name="profile_edit"),
     # Auth
     path("auth/access/<str:token>/", views.AccessLinkLoginView.as_view(), name="access_link_login"),
     path("auth/device-check/", views.DeviceCheckLoginView.as_view(), name="device_check_login"),
