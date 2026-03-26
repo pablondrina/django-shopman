@@ -17,6 +17,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from ..conf import auth_settings, get_adapter, get_auth_settings
+from ..error_codes import ErrorCode
 from ..protocols.customer import AuthCustomerInfo
 from ..exceptions import GateError
 from ..gates import Gates
@@ -42,6 +43,7 @@ class TokenResult:
     url: str | None = None
     expires_at: str | None = None
     error: str | None = None
+    error_code: ErrorCode | None = None
 
 
 @dataclass
@@ -53,6 +55,7 @@ class AuthResult:
     customer: AuthCustomerInfo | None = None
     created_user: bool = False
     error: str | None = None
+    error_code: ErrorCode | None = None
 
 
 @dataclass
@@ -61,6 +64,7 @@ class AccessLinkEmailResult:
 
     success: bool
     error: str | None = None
+    error_code: ErrorCode | None = None
 
 
 class AccessLinkService:
@@ -178,22 +182,28 @@ class AccessLinkService:
             token = AccessLink.objects.get(token=token_str)
         except AccessLink.DoesNotExist:
             logger.warning("Invalid token", extra={"token": token_str[:8]})
-            return AuthResult(success=False, error="Invalid token.")
+            return AuthResult(success=False, error="Invalid token.", error_code=ErrorCode.TOKEN_INVALID)
 
         # G7: Validate
         try:
             Gates.access_link_validity(token, required_audience)
         except GateError as e:
-            return AuthResult(success=False, error=e.message)
+            return AuthResult(success=False, error=e.message, error_code=ErrorCode.TOKEN_EXPIRED)
 
         # Fetch customer info via adapter
         adapter = get_adapter()
         customer = adapter.resolve_customer_by_uuid(token.customer_id)
         if not customer:
-            return AuthResult(success=False, error="Customer not found.")
+            return AuthResult(
+                success=False, error="Customer not found.",
+                error_code=ErrorCode.ACCOUNT_NOT_FOUND,
+            )
 
         if not customer.is_active:
-            return AuthResult(success=False, error="Account inactive.")
+            return AuthResult(
+                success=False, error="Account inactive.",
+                error_code=ErrorCode.ACCOUNT_INACTIVE,
+            )
 
         # Get or create User
         user, created_user = cls._get_or_create_user(customer)
@@ -280,11 +290,17 @@ class AccessLinkService:
             AccessLinkEmailResult with success status.
         """
         if not get_auth_settings().ACCESS_LINK_ENABLED:
-            return AccessLinkEmailResult(success=False, error="Access links are disabled.")
+            return AccessLinkEmailResult(
+                success=False, error="Access links are disabled.",
+                error_code=ErrorCode.ACCESS_LINK_DISABLED,
+            )
 
         email = email.strip().lower()
         if not email or "@" not in email:
-            return AccessLinkEmailResult(success=False, error="Invalid email address.")
+            return AccessLinkEmailResult(
+                success=False, error="Invalid email address.",
+                error_code=ErrorCode.INVALID_EMAIL,
+            )
 
         # G12: Rate limit by email
         settings = get_auth_settings()
@@ -298,6 +314,7 @@ class AccessLinkService:
             return AccessLinkEmailResult(
                 success=False,
                 error="Too many attempts. Please wait a few minutes.",
+                error_code=ErrorCode.EMAIL_RATE_LIMIT,
             )
 
         # G10: Rate limit by IP (reuse existing gate)
@@ -308,6 +325,7 @@ class AccessLinkService:
                 return AccessLinkEmailResult(
                     success=False,
                     error="Too many attempts from this location.",
+                    error_code=ErrorCode.IP_RATE_LIMIT,
                 )
 
         # Find customer by email
@@ -319,14 +337,19 @@ class AccessLinkService:
                 return AccessLinkEmailResult(
                     success=False,
                     error="Account not found. Please contact support.",
+                    error_code=ErrorCode.ACCOUNT_NOT_FOUND,
                 )
             return AccessLinkEmailResult(
                 success=False,
                 error="Account not found for this email.",
+                error_code=ErrorCode.ACCOUNT_NOT_FOUND,
             )
 
         if not customer.is_active:
-            return AccessLinkEmailResult(success=False, error="Account inactive.")
+            return AccessLinkEmailResult(
+                success=False, error="Account inactive.",
+                error_code=ErrorCode.ACCOUNT_INACTIVE,
+            )
 
         # Create access link with email login TTL
         ttl = auth_settings.ACCESS_LINK_TTL_MINUTES
@@ -339,12 +362,18 @@ class AccessLinkService:
         )
 
         if not token_result.success:
-            return AccessLinkEmailResult(success=False, error="Failed to create login link.")
+            return AccessLinkEmailResult(
+                success=False, error="Failed to create login link.",
+                error_code=ErrorCode.SEND_FAILED,
+            )
 
         # Send email with the access link URL
         sent = cls._send_access_link_email(email, token_result.url, ttl, sender)
         if not sent:
-            return AccessLinkEmailResult(success=False, error="Failed to send email.")
+            return AccessLinkEmailResult(
+                success=False, error="Failed to send email.",
+                error_code=ErrorCode.SEND_FAILED,
+            )
 
         logger.info(
             "Access link sent",

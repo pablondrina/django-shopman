@@ -101,6 +101,31 @@ def get_auth_settings() -> AuthSettings:
     return AuthSettings(**user_settings)
 
 
+def validate_settings() -> list[str]:
+    """
+    Validate auth settings. Returns list of error messages (empty = valid).
+
+    Called during AppConfig.ready() to fail fast on misconfiguration.
+    """
+    errors = []
+    s = get_auth_settings()
+
+    if s.BRIDGE_TOKEN_TTL_MINUTES <= 0:
+        errors.append("AUTH.BRIDGE_TOKEN_TTL_MINUTES must be > 0")
+    if s.MAGIC_CODE_TTL_MINUTES <= 0:
+        errors.append("AUTH.MAGIC_CODE_TTL_MINUTES must be > 0")
+    if s.MAGIC_CODE_MAX_ATTEMPTS <= 0:
+        errors.append("AUTH.MAGIC_CODE_MAX_ATTEMPTS must be > 0")
+    if s.CODE_RATE_LIMIT_MAX <= 0:
+        errors.append("AUTH.CODE_RATE_LIMIT_MAX must be > 0")
+    if s.ACCESS_LINK_TTL_MINUTES <= 0:
+        errors.append("AUTH.ACCESS_LINK_TTL_MINUTES must be > 0")
+    if s.DEVICE_TRUST_TTL_DAYS <= 0:
+        errors.append("AUTH.DEVICE_TRUST_TTL_DAYS must be > 0")
+
+    return errors
+
+
 class _LazySettings:
     """Lazy proxy that re-reads settings on every attribute access.
 

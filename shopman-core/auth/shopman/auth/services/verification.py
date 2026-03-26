@@ -13,6 +13,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from ..conf import auth_settings, get_adapter
+from ..error_codes import ErrorCode
 from ..protocols.customer import AuthCustomerInfo
 from ..exceptions import GateError
 from ..gates import Gates
@@ -35,6 +36,7 @@ class CodeRequestResult:
     code_id: str | None = None
     expires_at: str | None = None
     error: str | None = None
+    error_code: ErrorCode | None = None
 
 
 @dataclass
@@ -45,6 +47,7 @@ class VerifyResult:
     customer: AuthCustomerInfo | None = None
     created_customer: bool = False
     error: str | None = None
+    error_code: ErrorCode | None = None
     attempts_remaining: int | None = None
 
 
@@ -97,6 +100,7 @@ class AuthService:
             return CodeRequestResult(
                 success=False,
                 error="Too many attempts. Please wait a few minutes.",
+                error_code=ErrorCode.RATE_LIMIT,
             )
 
         # G11: Cooldown between code sends
@@ -109,6 +113,7 @@ class AuthService:
             return CodeRequestResult(
                 success=False,
                 error="Please wait before requesting a new code.",
+                error_code=ErrorCode.COOLDOWN,
             )
 
         # G10: Rate limit by IP
@@ -119,6 +124,7 @@ class AuthService:
                 return CodeRequestResult(
                     success=False,
                     error="Too many attempts from this location.",
+                    error_code=ErrorCode.IP_RATE_LIMIT,
                 )
 
         # Invalidate previous codes
@@ -147,10 +153,16 @@ class AuthService:
             if sent:
                 code.mark_sent()
             else:
-                return CodeRequestResult(success=False, error="Failed to send code.")
+                return CodeRequestResult(
+                    success=False, error="Failed to send code.",
+                    error_code=ErrorCode.SEND_FAILED,
+                )
         except Exception:
             logger.exception("Send failed", extra={"target": target_value})
-            return CodeRequestResult(success=False, error="Error sending code.")
+            return CodeRequestResult(
+                success=False, error="Error sending code.",
+                error_code=ErrorCode.SEND_FAILED,
+            )
 
         # Signal
         verification_code_sent.send(
@@ -202,6 +214,7 @@ class AuthService:
             return VerifyResult(
                 success=False,
                 error="Code expired. Please request a new one.",
+                error_code=ErrorCode.CODE_EXPIRED,
             )
 
         # Verify code via HMAC comparison
@@ -213,6 +226,7 @@ class AuthService:
             return VerifyResult(
                 success=False,
                 error="Incorrect code.",
+                error_code=ErrorCode.CODE_INVALID,
                 attempts_remaining=code.attempts_remaining,
             )
 
@@ -226,6 +240,7 @@ class AuthService:
                 return VerifyResult(
                     success=False,
                     error="Account not found. Please contact support.",
+                    error_code=ErrorCode.ACCOUNT_NOT_FOUND,
                 )
 
             customer = adapter.create_customer_for_phone(target_value)
