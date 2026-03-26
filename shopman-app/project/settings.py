@@ -43,7 +43,9 @@ INSTALLED_APPS = [
     "shopman.offering.contrib.admin_unfold",
     "shopman.stocking.contrib.admin_unfold",
     "shopman.crafting.contrib.admin_unfold",
+    "shopman.stocking.contrib.alerts",
     "shopman.customers.contrib.insights",
+    "shopman.customers.contrib.loyalty",
     "shopman.customers.contrib.admin_unfold",
     "shopman.auth.contrib.admin_unfold",
     # Shopman orchestrator
@@ -61,7 +63,13 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "shopman.auth.middleware.AuthCustomerMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+]
+
+AUTHENTICATION_BACKENDS = [
+    "shopman.auth.backends.PhoneOTPBackend",
+    "django.contrib.auth.backends.ModelBackend",
 ]
 
 ROOT_URLCONF = "project.urls"
@@ -69,7 +77,7 @@ ROOT_URLCONF = "project.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [os.path.join(BASE_DIR, "shop", "templates")],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -121,6 +129,7 @@ UNFOLD = {
     "SITE_TITLE": _unfold_site_title,
     "SITE_HEADER": _unfold_site_title,
     "SITE_SYMBOL": "storefront",
+    "DASHBOARD_CALLBACK": "shop.dashboard.dashboard_callback",
     "SHOW_HISTORY": True,
     "SHOW_VIEW_ON_SITE": False,
     "SHOW_BACK_BUTTON": True,
@@ -266,6 +275,18 @@ UNFOLD = {
     },
 }
 
+# ── Email ──────────────────────────────────────────────────────────
+
+EMAIL_BACKEND = os.environ.get(
+    "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
+)
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() in ("true", "1")
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@shopman.local")
+
 # ── REST Framework ─────────────────────────────────────────────────
 
 REST_FRAMEWORK = {
@@ -273,6 +294,12 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "120/minute",
+    },
 }
 
 SPECTACULAR_SETTINGS = {
@@ -280,6 +307,16 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "API do Django Shopman — commerce suite modular.",
     "VERSION": "0.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
+}
+
+# ── Logging ────────────────────────────────────────────────────────────
+
+# ── Crafting (micro-MRP integration) ──────────────────────────────
+
+CRAFTING = {
+    "INVENTORY_BACKEND": "shopman.crafting.adapters.stocking.StockingBackend",
+    "DEMAND_BACKEND": "shopman.crafting.contrib.demand.backend.OrderingDemandBackend",
+    "CATALOG_BACKEND": "shopman.offering.adapters.catalog_backend.OfferingCatalogBackend",
 }
 
 # ── Logging ────────────────────────────────────────────────────────────

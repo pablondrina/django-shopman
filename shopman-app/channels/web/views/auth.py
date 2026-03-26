@@ -323,6 +323,23 @@ class DeviceCheckLoginView(View):
 
         if DeviceTrustService.check_device_trust(request, customer.uuid):
             _set_auth_session(request, customer, phone)
+
+            # AUTH-6A: Dual write — also set request.user via Django login
+            from django.contrib.auth import login
+
+            from shopman.auth.protocols.customer import AuthCustomerInfo
+            from shopman.auth.services._user_bridge import get_or_create_user_for_customer
+
+            customer_info = AuthCustomerInfo(
+                uuid=customer.uuid,
+                name=customer.name,
+                phone=customer.phone,
+                email=getattr(customer, "email", None) or None,
+                is_active=True,
+            )
+            user, _ = get_or_create_user_for_customer(customer_info)
+            login(request, user, backend="shopman.auth.backends.PhoneOTPBackend")
+
             return JsonResponse({"trusted": True, "name": customer.name})
 
         return JsonResponse({"trusted": False})
