@@ -12,13 +12,12 @@ from django.contrib.auth import login
 from django.db import transaction
 from django.utils import timezone
 
-from ..conf import auth_settings, get_customer_resolver, get_auth_settings
+from ..conf import auth_settings, get_adapter
 from ..protocols.customer import AuthCustomerInfo
 from ..exceptions import GateError
 from ..gates import Gates
 from ..models import VerificationCode
 from ..signals import verification_code_sent, verification_code_verified
-from ..utils import normalize_phone
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -84,7 +83,8 @@ class AuthService:
             CodeRequestResult with code_id and expiration
         """
         # Normalize target
-        target_value = normalize_phone(target_value)
+        adapter = get_adapter()
+        target_value = adapter.normalize_phone(target_value)
 
         # G9: Rate limit by target
         try:
@@ -141,9 +141,9 @@ class AuthService:
         )
 
         # Send raw code (not the HMAC)
-        sender = sender or cls._get_default_sender()
+        _sender = sender or adapter
         try:
-            sent = sender.send_code(target_value, raw_code, delivery_method)
+            sent = _sender.send_code(target_value, raw_code, delivery_method)
             if sent:
                 code.mark_sent()
             else:
@@ -193,7 +193,8 @@ class AuthService:
         Returns:
             VerifyResult with customer
         """
-        target_value = normalize_phone(target_value)
+        adapter = get_adapter()
+        target_value = adapter.normalize_phone(target_value)
 
         # Find valid code
         code = cls._get_valid_code(target_value, VerificationCode.Purpose.LOGIN)
@@ -208,26 +209,26 @@ class AuthService:
 
         if not verify_code(code.code_hash, code_input):
             code.record_attempt()
+            adapter.on_login_failed(request, target_value, "incorrect_code")
             return VerifyResult(
                 success=False,
                 error="Incorrect code.",
                 attempts_remaining=code.attempts_remaining,
             )
 
-        # Get or create Customer via resolver
-        resolver = get_customer_resolver()
-        customer = resolver.get_by_phone(target_value)
+        # Get or create Customer via adapter
+        customer = adapter.resolve_customer_by_phone(target_value)
         created = False
 
         if not customer:
-            # H03: Respect AUTO_CREATE_CUSTOMER setting
-            if not get_auth_settings().AUTO_CREATE_CUSTOMER:
+            if not adapter.should_auto_create_customer():
+                adapter.on_login_failed(request, target_value, "account_not_found")
                 return VerifyResult(
                     success=False,
                     error="Account not found. Please contact support.",
                 )
 
-            customer = resolver.create_for_phone(target_value)
+            customer = adapter.create_customer_for_phone(target_value)
             created = True
 
         # Mark code verified
@@ -278,14 +279,6 @@ class AuthService:
             ).latest("created_at")
         except VerificationCode.DoesNotExist:
             return None
-
-    @classmethod
-    def _get_default_sender(cls):
-        """Get the default message sender from settings."""
-        from django.utils.module_loading import import_string
-
-        sender_class = import_string(auth_settings.MESSAGE_SENDER_CLASS)
-        return sender_class()
 
     @classmethod
     def cleanup_expired_codes(cls, days: int = 7) -> int:

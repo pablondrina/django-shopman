@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from django.test import RequestFactory, override_settings
 
-from shopman.auth.models import AccessLink
 from shopman.auth.services.access_link import AccessLinkService
 from shopman.auth.views.access_link_request import AccessLinkRequestView
 
@@ -57,8 +56,9 @@ class TestAccessLinkEmailService:
             uuid=customer.uuid, name="Inactive", phone=None,
             email=customer.email, is_active=False,
         )
-        with patch("shopman.auth.services.access_link.get_customer_resolver") as mock_resolver:
-            mock_resolver.return_value.get_by_email.return_value = inactive
+        with patch("shopman.auth.services.access_link.get_adapter") as mock_get:
+            mock_get.return_value.resolve_customer_by_email.return_value = inactive
+            mock_get.return_value.should_auto_create_customer.return_value = True
             result = AccessLinkService.send_access_link(customer.email)
         assert not result.success
         assert "inactive" in result.error.lower()

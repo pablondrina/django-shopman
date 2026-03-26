@@ -16,7 +16,7 @@ from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
 
-from ..conf import auth_settings, get_customer_resolver, get_auth_settings
+from ..conf import auth_settings, get_adapter, get_auth_settings
 from ..protocols.customer import AuthCustomerInfo
 from ..exceptions import GateError
 from ..gates import Gates
@@ -186,9 +186,9 @@ class AccessLinkService:
         except GateError as e:
             return AuthResult(success=False, error=e.message)
 
-        # Fetch customer info via resolver
-        resolver = get_customer_resolver()
-        customer = resolver.get_by_uuid(token.customer_id)
+        # Fetch customer info via adapter
+        adapter = get_adapter()
+        customer = adapter.resolve_customer_by_uuid(token.customer_id)
         if not customer:
             return AuthResult(success=False, error="Customer not found.")
 
@@ -232,6 +232,9 @@ class AccessLinkService:
             method="access_link",
             request=request,
         )
+
+        # Adapter hook
+        adapter.on_customer_authenticated(request, customer, user, "access_link")
 
         logger.info(
             "Token exchanged",
@@ -308,11 +311,11 @@ class AccessLinkService:
                 )
 
         # Find customer by email
-        resolver = get_customer_resolver()
-        customer = resolver.get_by_email(email)
+        adapter = get_adapter()
+        customer = adapter.resolve_customer_by_email(email)
 
         if not customer:
-            if not get_auth_settings().AUTO_CREATE_CUSTOMER:
+            if not adapter.should_auto_create_customer():
                 return AccessLinkEmailResult(
                     success=False,
                     error="Account not found. Please contact support.",
@@ -390,6 +393,58 @@ class AccessLinkService:
             return False
 
     # ===========================================
+    # Create and Send (unified channel delivery)
+    # ===========================================
+
+    @classmethod
+    def create_and_send(
+        cls,
+        customer: AuthCustomerInfo,
+        channel: str = "email",
+        audience: str = AccessLink.Audience.WEB_GENERAL,
+        ttl_minutes: int | None = None,
+    ) -> AccessLinkEmailResult:
+        """
+        Create an access link and send it via the specified channel.
+
+        Unified method that covers email, whatsapp, sms, and api delivery.
+        Internally creates AccessLink + builds URL + calls adapter.send_access_link().
+
+        Args:
+            customer: Target customer.
+            channel: Delivery channel (email, whatsapp, sms, api).
+            audience: Token audience.
+            ttl_minutes: TTL override.
+
+        Returns:
+            AccessLinkEmailResult with success status.
+        """
+        ttl = ttl_minutes or auth_settings.ACCESS_LINK_TTL_MINUTES
+        token_result = cls.create_token(
+            customer=customer,
+            audience=audience,
+            source=AccessLink.Source.INTERNAL,
+            ttl_minutes=ttl,
+            metadata={"method": "access_link", "channel": channel},
+        )
+
+        if not token_result.success:
+            return AccessLinkEmailResult(success=False, error="Failed to create login link.")
+
+        adapter = get_adapter()
+        sent = adapter.send_access_link(channel, customer, token_result.url)
+        if not sent:
+            return AccessLinkEmailResult(success=False, error=f"Failed to send via {channel}.")
+
+        logger.info(
+            "Access link sent via %s",
+            channel,
+            extra={"customer_id": str(customer.uuid), "channel": channel},
+        )
+
+        return AccessLinkEmailResult(success=True)
+
+    # ===========================================
     # Utilities
     # ===========================================
 
@@ -406,8 +461,8 @@ class AccessLinkService:
         """
         try:
             link = CustomerUser.objects.get(user=user)
-            resolver = get_customer_resolver()
-            return resolver.get_by_uuid(link.customer_id)
+            adapter = get_adapter()
+            return adapter.resolve_customer_by_uuid(link.customer_id)
         except CustomerUser.DoesNotExist:
             return None
 

@@ -85,17 +85,16 @@ class TestVerificationCodeRequestViewForm:
         assert response.status_code == 200  # re-renders form
 
     @patch("shopman.auth.views.verification_code.redirect", side_effect=_fake_redirect)
-    @patch("shopman.auth.services.verification.AuthService._get_default_sender")
-    def test_post_valid_phone_redirects(self, mock_sender, mock_redirect):
+    def test_post_valid_phone_redirects(self, mock_redirect):
         sender = FakeSender()
-        mock_sender.return_value = sender
 
         request = _make_request(
             "post",
             data="phone=41999999999",
             content_type="application/x-www-form-urlencoded",
         )
-        response = VerificationCodeRequestView.as_view()(request)
+        with patch("shopman.auth.adapter.DefaultAuthAdapter.send_code", sender.send_code):
+            response = VerificationCodeRequestView.as_view()(request)
 
         assert response.status_code == 302
         assert sender.last_code is not None
@@ -119,14 +118,13 @@ class TestVerificationCodeRequestViewJSON:
         response = VerificationCodeRequestView.as_view()(request)
         assert response.status_code == 400
 
-    @patch("shopman.auth.services.verification.AuthService._get_default_sender")
-    def test_json_valid_phone_returns_success(self, mock_sender):
+    def test_json_valid_phone_returns_success(self):
         sender = FakeSender()
-        mock_sender.return_value = sender
 
         body = json.dumps({"phone": "41999999999"})
         request = _make_request("post", data=body, content_type="application/json")
-        response = VerificationCodeRequestView.as_view()(request)
+        with patch("shopman.auth.adapter.DefaultAuthAdapter.send_code", sender.send_code):
+            response = VerificationCodeRequestView.as_view()(request)
 
         assert response.status_code == 200
         data = json.loads(response.content)
@@ -248,8 +246,7 @@ class TestFullFlow:
     """End-to-end flow: request code -> verify -> session created."""
 
     @_PATCH_BUILD_URL
-    @patch("shopman.auth.services.verification.AuthService._get_default_sender")
-    def test_full_flow_json(self, mock_sender, _mock_url):
+    def test_full_flow_json(self, _mock_url):
         """Request code via JSON, then verify via JSON."""
         from shopman.customers.models import Customer
 
@@ -261,12 +258,12 @@ class TestFullFlow:
         )
 
         sender = FakeSender()
-        mock_sender.return_value = sender
 
         # Step 1: Request code
         body = json.dumps({"phone": "41888888888"})
         request1 = _make_request("post", data=body, content_type="application/json")
-        response1 = VerificationCodeRequestView.as_view()(request1)
+        with patch("shopman.auth.adapter.DefaultAuthAdapter.send_code", sender.send_code):
+            response1 = VerificationCodeRequestView.as_view()(request1)
 
         assert response1.status_code == 200
         raw_code = sender.last_code

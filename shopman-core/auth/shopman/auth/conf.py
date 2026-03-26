@@ -70,6 +70,9 @@ class AuthSettings:
     # Customer resolver (Protocol-based decoupling from Customers)
     CUSTOMER_RESOLVER_CLASS: str = "shopman.customers.adapters.auth.CustomerResolver"
 
+    # Adapter (single point of customization, like allauth's DefaultAccountAdapter)
+    AUTH_ADAPTER: str = "shopman.auth.adapter.DefaultAuthAdapter"
+
     # Device Trust
     # When True, after OTP verification the user can trust their device
     # to skip OTP on subsequent logins.
@@ -134,3 +137,28 @@ def reset_customer_resolver():
     """Reset cached resolver. For testing."""
     global _customer_resolver
     _customer_resolver = None
+
+
+# Auth adapter (singleton, thread-safe)
+_adapter = None
+_adapter_lock = threading.Lock()
+
+
+def get_adapter():
+    """Get the configured auth adapter (singleton)."""
+    global _adapter
+    if _adapter is None:
+        with _adapter_lock:
+            if _adapter is None:
+                from django.utils.module_loading import import_string
+
+                s = get_auth_settings()
+                cls = import_string(s.AUTH_ADAPTER)
+                _adapter = cls()
+    return _adapter
+
+
+def reset_adapter():
+    """Reset cached adapter. For testing."""
+    global _adapter
+    _adapter = None
