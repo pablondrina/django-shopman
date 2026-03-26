@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from django.urls import path
-from django.views.generic import TemplateView
+from django.views.generic import RedirectView, TemplateView
 
 from . import views
 from .views.pwa import ManifestView, OfflineView, ServiceWorkerView
@@ -9,6 +9,8 @@ from .views.pwa import ManifestView, OfflineView, ServiceWorkerView
 app_name = "storefront"
 
 urlpatterns = [
+    # Root → Menu
+    path("", RedirectView.as_view(pattern_name="storefront:menu", permanent=False), name="home"),
     # PWA
     path("manifest.json", ManifestView.as_view(), name="manifest"),
     path("sw.js", ServiceWorkerView.as_view(), name="service_worker"),
