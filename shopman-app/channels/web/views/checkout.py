@@ -41,11 +41,26 @@ class CheckoutView(View):
         # Pre-fill from authenticated customer (middleware)
         customer_info = getattr(request, "customer", None)
         if customer_info is not None:
+            from shopman.customers.services import customer as customer_service
+
+            customer_obj = customer_service.get_by_uuid(customer_info.uuid)
             ctx["form_data"] = {
                 "phone": customer_info.phone or "",
                 "name": customer_info.name or "",
             }
             ctx["is_verified"] = True
+            ctx["customer_info"] = customer_info
+            if customer_obj:
+                addresses = list(
+                    customer_obj.addresses.order_by("-is_default", "label").values(
+                        "id", "formatted_address", "complement",
+                        "delivery_instructions", "is_default",
+                    )
+                )
+                # Add display_label
+                for addr in addresses:
+                    addr["label"] = customer_obj.addresses.get(id=addr["id"]).display_label
+                ctx["saved_addresses"] = addresses
 
         return render(request, "storefront/checkout.html", ctx)
 
@@ -102,6 +117,20 @@ class CheckoutView(View):
 
         fulfillment_type = request.POST.get("fulfillment_type", "pickup")
         delivery_address = request.POST.get("delivery_address", "").strip()
+
+        # Resolve saved address if selected
+        saved_address_id = request.POST.get("saved_address_id", "").strip()
+        if saved_address_id and fulfillment_type == "delivery" and not delivery_address:
+            from shopman.customers.models import CustomerAddress
+
+            try:
+                addr = CustomerAddress.objects.get(id=int(saved_address_id))
+                parts = [addr.formatted_address]
+                if addr.complement:
+                    parts.append(f"- {addr.complement}")
+                delivery_address = " ".join(parts)
+            except (CustomerAddress.DoesNotExist, ValueError):
+                pass
         delivery_date = request.POST.get("delivery_date", "").strip()
         delivery_time_slot = request.POST.get("delivery_time_slot", "").strip()
 
