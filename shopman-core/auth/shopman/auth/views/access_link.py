@@ -26,7 +26,7 @@ class AccessLinkCreateView(View):
     """
     Create an access link.
 
-    POST /doorman/bridge-tokens
+    POST /auth/access/create/
 
     Request body:
     {
@@ -48,7 +48,7 @@ class AccessLinkCreateView(View):
     def post(self, request):
         # Authenticate via API key (H05)
         settings = get_auth_settings()
-        api_key = settings.BRIDGE_TOKEN_API_KEY
+        api_key = settings.ACCESS_LINK_API_KEY
         if api_key:
             auth_header = request.META.get("HTTP_AUTHORIZATION", "")
             x_api_key = request.META.get("HTTP_X_API_KEY", "")
@@ -102,16 +102,16 @@ class AccessLinkExchangeView(View):
     """
     Exchange an access link for a session.
 
-    GET /doorman/bridge/exchange?t=TOKEN
+    GET /auth/access/?t=TOKEN
 
     On success: Redirects to LOGIN_REDIRECT_URL
-    On failure: Renders bridge_invalid.html
+    On failure: Renders access_link_invalid.html
     """
 
     def get_template_name(self):
         """Get template name from settings."""
         settings = get_auth_settings()
-        return settings.TEMPLATE_BRIDGE_INVALID
+        return settings.TEMPLATE_ACCESS_LINK_INVALID
 
     def get(self, request):
         settings = get_auth_settings()

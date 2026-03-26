@@ -306,7 +306,7 @@ class TestAccessLinkCreateViewEdges:
         ):
             return view(request)
 
-    @override_settings(AUTH={"BRIDGE_TOKEN_API_KEY": ""})
+    @override_settings(AUTH={"ACCESS_LINK_API_KEY": ""})
     def test_create_invalid_json(self):
         """Invalid JSON should return 400."""
         factory = RequestFactory()
@@ -318,13 +318,13 @@ class TestAccessLinkCreateViewEdges:
         response = AccessLinkCreateView.as_view()(request)
         assert response.status_code == 400
 
-    @override_settings(AUTH={"BRIDGE_TOKEN_API_KEY": ""})
+    @override_settings(AUTH={"ACCESS_LINK_API_KEY": ""})
     def test_create_missing_customer_id(self):
         """Missing customer_id should return 400."""
         response = self._post_create({})
         assert response.status_code == 400
 
-    @override_settings(AUTH={"BRIDGE_TOKEN_API_KEY": ""})
+    @override_settings(AUTH={"ACCESS_LINK_API_KEY": ""})
     def test_create_customer_not_found(self):
         """Non-existent customer_id should return 404."""
         import uuid
@@ -332,7 +332,7 @@ class TestAccessLinkCreateViewEdges:
         response = self._post_create({"customer_id": str(uuid.uuid4())})
         assert response.status_code == 404
 
-    @override_settings(AUTH={"BRIDGE_TOKEN_API_KEY": ""})
+    @override_settings(AUTH={"ACCESS_LINK_API_KEY": ""})
     def test_create_customer_inactive(self, customer):
         """Inactive customer should return 400."""
         from shopman.auth.protocols.customer import AuthCustomerInfo

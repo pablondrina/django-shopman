@@ -49,7 +49,7 @@ TEMPLATES = [
 # Auth settings
 AUTH = {
     "MESSAGE_SENDER_CLASS": "shopman.auth.senders.LogSender",
-    "BRIDGE_TOKEN_API_KEY": "",
+    "ACCESS_LINK_API_KEY": "",
     "AUTO_CREATE_CUSTOMER": True,
     "USE_HTTPS": False,
     "DEFAULT_DOMAIN": "testserver",

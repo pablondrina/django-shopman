@@ -135,7 +135,7 @@ class TestAccessLinkLoginView:
             expires_at=timezone.now() + timedelta(minutes=5),
         )
 
-        response = client.get(f"/auth/bridge/{token.token}/")
+        response = client.get(f"/auth/access/{token.token}/")
 
         assert response.status_code == 302
         # Django auth user should be set
@@ -151,14 +151,14 @@ class TestAccessLinkLoginView:
             expires_at=timezone.now() - timedelta(minutes=1),
         )
 
-        response = client.get(f"/auth/bridge/{token.token}/")
+        response = client.get(f"/auth/access/{token.token}/")
 
         assert response.status_code == 200
         assert client.session.get("_auth_user_id") is None
 
     def test_access_link_invalid_returns_error(self, client: Client):
         """Non-existent access link renders error."""
-        response = client.get("/auth/bridge/nonexistent-token/")
+        response = client.get("/auth/access/nonexistent-token/")
 
         assert response.status_code == 200
         assert client.session.get("_auth_user_id") is None
@@ -174,7 +174,7 @@ class TestAccessLinkLoginView:
         token.used_at = timezone.now() - timedelta(minutes=5)
         token.save()
 
-        response = client.get(f"/auth/bridge/{token.token}/")
+        response = client.get(f"/auth/access/{token.token}/")
 
         assert response.status_code == 200
         assert client.session.get("_auth_user_id") is None
@@ -188,7 +188,7 @@ class TestAccessLinkLoginView:
             expires_at=timezone.now() + timedelta(minutes=5),
         )
 
-        response = client.get(f"/auth/bridge/{token.token}/?next=/minha-conta/")
+        response = client.get(f"/auth/access/{token.token}/?next=/minha-conta/")
 
         assert response.status_code == 302
         assert response.url == "/minha-conta/"

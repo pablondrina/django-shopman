@@ -24,7 +24,7 @@ from django.utils import timezone
 from shopman.crafting.models import Recipe, RecipeItem, WorkOrder
 
 # ── Customers (clientes) ─────────────────────────────────────────────
-from shopman.customers.models import ContactPoint, Customer, CustomerGroup
+from shopman.customers.models import ContactPoint, Customer, CustomerAddress, CustomerGroup
 
 # ── Offering (catalogo) ──────────────────────────────────────────────
 from shopman.offering.models import (
@@ -40,11 +40,16 @@ from shopman.offering.models import (
 from shopman.ordering.models import (
     Channel,
     Directive,
+    Fulfillment,
+    FulfillmentItem,
     Order,
     OrderEvent,
     OrderItem,
     Session,
 )
+
+# ── Payments ─────────────────────────────────────────────────────────
+from shopman.payments.models import PaymentIntent, PaymentTransaction
 
 # ── Stocking (estoque) ──────────────────────────────────────────────
 from shopman.stocking import stock
@@ -54,7 +59,7 @@ from shopman.stocking.models import Position, PositionKind, StockAlert
 from channels.presets import marketplace, pos, remote
 
 # ── Shop ─────────────────────────────────────────────────────────────
-from shop.models import Shop
+from shop.models import Coupon, Promotion, Shop
 
 
 class Command(BaseCommand):
@@ -80,10 +85,16 @@ class Command(BaseCommand):
         self._seed_stock(products, positions)
         self._seed_recipes()
         customers = self._seed_customers()
+        self._seed_addresses(customers)
         channels = self._seed_channels()
         self._seed_orders(products, customers, channels)
         self._seed_sessions(channels)
         self._seed_stock_alerts(products, positions)
+        self._seed_promotions()
+        self._seed_payments()
+        self._seed_fulfillments()
+        self._seed_directives()
+        self._seed_loyalty(customers)
 
         self.stdout.write(self.style.SUCCESS("\n✅ Seed Nelson completo!\n"))
 
@@ -92,7 +103,7 @@ class Command(BaseCommand):
     # ────────────────────────────────────────────────────────────────
 
     def _seed_shop(self):
-        _, created = Shop.objects.get_or_create(
+        _, created = Shop.objects.update_or_create(
             pk=1,
             defaults={
                 "name": "Nelson Boulangerie",
@@ -103,15 +114,29 @@ class Command(BaseCommand):
                 "description": "Segue rigorosamente as normas da panificação artesanal francesa.",
                 "primary_color": "#C5A55A",
                 "background_color": "#F5F0EB",
-                "address": "Av. Madre Leônia Milito, 446",
+                "formatted_address": "Av. Madre Leônia Milito, 446 - Bela Suíça, Londrina - PR, 86050-270",
+                "route": "Av. Madre Leônia Milito",
+                "street_number": "446",
+                "neighborhood": "Bela Suíça",
                 "city": "Londrina",
-                "state": "PR",
+                "state_code": "PR",
                 "postal_code": "86050-270",
+                "country": "Brasil",
+                "country_code": "BR",
+                "latitude": -23.3045,
+                "longitude": -51.1628,
                 "phone": "554333231997",
+                "email": "contato@nelsonboulangerie.com.br",
                 "default_ddd": "43",
                 "website": "http://www.nelsonboulangerie.com.br",
                 "instagram": "@nelsonboulangerie",
                 "whatsapp": "554333231997",
+                "social_links": [
+                    "https://wa.me/554333231997",
+                    "https://instagram.com/nelsonboulangerie",
+                    "https://www.facebook.com/nelsonboulangerie",
+                    "http://www.nelsonboulangerie.com.br",
+                ],
                 "opening_hours": {
                     "monday":    {"open": "09:00", "close": "18:00"},
                     "tuesday":   {"open": "09:00", "close": "18:00"},
@@ -125,10 +150,7 @@ class Command(BaseCommand):
                 },
             },
         )
-        if created:
-            self.stdout.write("  ✅ Shop criado")
-        else:
-            self.stdout.write("  ⏭️  Shop ja existe")
+        self.stdout.write("  ✅ Shop criado" if created else "  ✅ Shop atualizado")
 
     # ────────────────────────────────────────────────────────────────
     # Superuser
@@ -153,8 +175,12 @@ class Command(BaseCommand):
     def _flush(self):
         self.stdout.write("  Limpando dados anteriores...")
 
+        # Payments
+        for model in [PaymentTransaction, PaymentIntent]:
+            model.objects.all().delete()
+
         # Ordering
-        for model in [Directive, OrderEvent, OrderItem, Order, Session, Channel]:
+        for model in [FulfillmentItem, Fulfillment, Directive, OrderEvent, OrderItem, Order, Session, Channel]:
             model.objects.all().delete()
 
         # Offering
@@ -174,10 +200,12 @@ class Command(BaseCommand):
             model.objects.all().delete()
 
         # Customers
-        for model in [ContactPoint, Customer, CustomerGroup]:
+        for model in [CustomerAddress, ContactPoint, Customer, CustomerGroup]:
             model.objects.all().delete()
 
         # Shop
+        Coupon.objects.all().delete()
+        Promotion.objects.all().delete()
         Shop.objects.all().delete()
 
         self.stdout.write("  ✅ Dados limpos")
@@ -476,7 +504,10 @@ class Command(BaseCommand):
                     quantity=qty,
                 )
 
-        # Work orders
+        # Work orders — use CraftService to exercise the full signal chain
+        # (production_changed → planned quants → inventory protocol)
+        from shopman.crafting.service import CraftService as craft
+
         today = date.today()
         tomorrow = today + timedelta(days=1)
 
@@ -485,43 +516,45 @@ class Command(BaseCommand):
         recipe_baguete = Recipe.objects.get(code="baguete")
         recipe_sourdough = Recipe.objects.get(code="sourdough")
 
-        # Today: 2 done + 1 open
-        for recipe, qty, status in [
-            (recipe_pao, Decimal("100"), WorkOrder.Status.DONE),
-            (recipe_croissant, Decimal("48"), WorkOrder.Status.DONE),
-            (recipe_baguete, Decimal("20"), WorkOrder.Status.OPEN),
-        ]:
-            WorkOrder.objects.get_or_create(
-                recipe=recipe,
-                scheduled_date=today,
-                defaults={
-                    "output_ref": recipe.output_ref,
-                    "quantity": qty,
-                    "produced": qty if status == WorkOrder.Status.DONE else None,
-                    "status": status,
-                    "started_at": timezone.now() if status != WorkOrder.Status.OPEN else None,
-                    "finished_at": timezone.now() if status == WorkOrder.Status.DONE else None,
-                },
-            )
+        wo_count = 0
 
-        # Tomorrow: 4 open
+        # Today: 2 closed (via craft.plan + craft.close) + 1 open
+        for recipe, qty, should_close in [
+            (recipe_pao, Decimal("100"), True),
+            (recipe_croissant, Decimal("48"), True),
+            (recipe_baguete, Decimal("20"), False),
+        ]:
+            existing = WorkOrder.objects.filter(
+                recipe=recipe, scheduled_date=today,
+            ).first()
+            if existing:
+                wo_count += 1
+                continue
+
+            wo = craft.plan(recipe, quantity=qty, date=today)
+            if should_close:
+                produced = int(qty * Decimal("0.95"))
+                craft.close(wo, produced=produced, actor="seed")
+            wo_count += 1
+
+        # Tomorrow: 4 open (via craft.plan → creates planned quants)
         for recipe, qty in [
             (recipe_pao, Decimal("150")),
             (recipe_croissant, Decimal("96")),
             (recipe_baguete, Decimal("40")),
             (recipe_sourdough, Decimal("16")),
         ]:
-            WorkOrder.objects.get_or_create(
-                recipe=recipe,
-                scheduled_date=tomorrow,
-                defaults={
-                    "output_ref": recipe.output_ref,
-                    "quantity": qty,
-                    "status": WorkOrder.Status.OPEN,
-                },
-            )
+            existing = WorkOrder.objects.filter(
+                recipe=recipe, scheduled_date=tomorrow,
+            ).first()
+            if existing:
+                wo_count += 1
+                continue
 
-        self.stdout.write(f"  ✅ {len(recipes_data)} receitas, 7 ordens de producao")
+            craft.plan(recipe, quantity=qty, date=tomorrow)
+            wo_count += 1
+
+        self.stdout.write(f"  ✅ {len(recipes_data)} receitas, {wo_count} ordens de producao")
 
     # ────────────────────────────────────────────────────────────────
     # Clientes (Customers)
@@ -796,3 +829,429 @@ class Command(BaseCommand):
                 )
 
         self.stdout.write(f"  ✅ {len(alerts_data)} alertas configurados")
+
+    # ────────────────────────────────────────────────────────────────
+    # Enderecos de clientes (Customers)
+    # ────────────────────────────────────────────────────────────────
+
+    def _seed_addresses(self, customers):
+        self.stdout.write("  📍 Enderecos de clientes...")
+
+        addresses_data = [
+            ("CLI-001", [
+                {"label": "home", "formatted_address": "Rua Augusta, 1200, Apto 42 - Consolacao, Sao Paulo - SP, 01304-001",
+                 "route": "Rua Augusta", "street_number": "1200", "complement": "Apto 42",
+                 "neighborhood": "Consolacao", "city": "Sao Paulo", "state": "Sao Paulo",
+                 "state_code": "SP", "postal_code": "01304-001",
+                 "latitude": Decimal("-23.5535000"), "longitude": Decimal("-46.6564000"), "is_default": True},
+                {"label": "work", "formatted_address": "Av. Paulista, 900, Sala 301 - Bela Vista, Sao Paulo - SP, 01310-100",
+                 "route": "Av. Paulista", "street_number": "900", "complement": "Sala 301",
+                 "neighborhood": "Bela Vista", "city": "Sao Paulo", "state": "Sao Paulo",
+                 "state_code": "SP", "postal_code": "01310-100",
+                 "latitude": Decimal("-23.5629000"), "longitude": Decimal("-46.6544000"), "is_default": False},
+            ]),
+            ("CLI-002", [
+                {"label": "work", "formatted_address": "Rua Oscar Freire, 379 - Jardins, Sao Paulo - SP, 01426-001",
+                 "route": "Rua Oscar Freire", "street_number": "379", "complement": "",
+                 "neighborhood": "Jardins", "city": "Sao Paulo", "state": "Sao Paulo",
+                 "state_code": "SP", "postal_code": "01426-001",
+                 "latitude": Decimal("-23.5634000"), "longitude": Decimal("-46.6694000"), "is_default": True},
+            ]),
+            ("CLI-003", [
+                {"label": "home", "formatted_address": "Rua Voluntarios da Patria, 450, Bl A Apto 12 - Santana, Sao Paulo - SP, 02011-000",
+                 "route": "Rua Voluntarios da Patria", "street_number": "450", "complement": "Bl A Apto 12",
+                 "neighborhood": "Santana", "city": "Sao Paulo", "state": "Sao Paulo",
+                 "state_code": "SP", "postal_code": "02011-000",
+                 "latitude": Decimal("-23.5012000"), "longitude": Decimal("-46.6289000"), "is_default": True},
+            ]),
+            ("CLI-004", [
+                {"label": "work", "formatted_address": "Rua Haddock Lobo, 595 - Cerqueira Cesar, Sao Paulo - SP, 01414-001",
+                 "route": "Rua Haddock Lobo", "street_number": "595", "complement": "",
+                 "neighborhood": "Cerqueira Cesar", "city": "Sao Paulo", "state": "Sao Paulo",
+                 "state_code": "SP", "postal_code": "01414-001",
+                 "latitude": Decimal("-23.5621000"), "longitude": Decimal("-46.6672000"), "is_default": True},
+            ]),
+            ("CLI-005", [
+                {"label": "home", "formatted_address": "Rua Bela Cintra, 1100, Apto 8 - Consolacao, Sao Paulo - SP, 01415-001",
+                 "route": "Rua Bela Cintra", "street_number": "1100", "complement": "Apto 8",
+                 "neighborhood": "Consolacao", "city": "Sao Paulo", "state": "Sao Paulo",
+                 "state_code": "SP", "postal_code": "01415-001",
+                 "latitude": Decimal("-23.5560000"), "longitude": Decimal("-46.6615000"), "is_default": True},
+                {"label": "other", "label_custom": "Casa da mae",
+                 "formatted_address": "Rua Pamplona, 200 - Jardim Paulista, Sao Paulo - SP, 01405-000",
+                 "route": "Rua Pamplona", "street_number": "200", "complement": "",
+                 "neighborhood": "Jardim Paulista", "city": "Sao Paulo", "state": "Sao Paulo",
+                 "state_code": "SP", "postal_code": "01405-000",
+                 "latitude": Decimal("-23.5650000"), "longitude": Decimal("-46.6560000"), "is_default": False},
+            ]),
+            ("CLI-006", [
+                {"label": "home", "formatted_address": "Rua da Consolacao, 2300 - Consolacao, Sao Paulo - SP, 01301-100",
+                 "route": "Rua da Consolacao", "street_number": "2300", "complement": "",
+                 "neighborhood": "Consolacao", "city": "Sao Paulo", "state": "Sao Paulo",
+                 "state_code": "SP", "postal_code": "01301-100",
+                 "latitude": Decimal("-23.5510000"), "longitude": Decimal("-46.6580000"), "is_default": True},
+            ]),
+            ("CLI-007", [
+                {"label": "work", "formatted_address": "Av. Brigadeiro Faria Lima, 1811 - Jardim Paulistano, Sao Paulo - SP, 01452-001",
+                 "route": "Av. Brigadeiro Faria Lima", "street_number": "1811", "complement": "",
+                 "neighborhood": "Jardim Paulistano", "city": "Sao Paulo", "state": "Sao Paulo",
+                 "state_code": "SP", "postal_code": "01452-001",
+                 "latitude": Decimal("-23.5710000"), "longitude": Decimal("-46.6870000"), "is_default": True},
+            ]),
+        ]
+
+        count = 0
+        for ref, addrs in addresses_data:
+            if ref not in customers:
+                continue
+            customer = customers[ref]
+            for addr in addrs:
+                label_custom = addr.pop("label_custom", "")
+                _, created = CustomerAddress.objects.get_or_create(
+                    customer=customer,
+                    formatted_address=addr["formatted_address"],
+                    defaults={
+                        "label": addr["label"],
+                        "label_custom": label_custom,
+                        "route": addr["route"],
+                        "street_number": addr["street_number"],
+                        "complement": addr["complement"],
+                        "neighborhood": addr["neighborhood"],
+                        "city": addr["city"],
+                        "state": addr["state"],
+                        "state_code": addr["state_code"],
+                        "postal_code": addr["postal_code"],
+                        "latitude": addr["latitude"],
+                        "longitude": addr["longitude"],
+                        "is_default": addr["is_default"],
+                    },
+                )
+                if created:
+                    count += 1
+
+        self.stdout.write(f"  ✅ {count} enderecos de clientes")
+
+    # ────────────────────────────────────────────────────────────────
+    # Promotions e Coupons (Shop)
+    # ────────────────────────────────────────────────────────────────
+
+    def _seed_promotions(self):
+        self.stdout.write("  🏷️  Promotions e coupons...")
+
+        now = timezone.now()
+
+        # Promotion 1: Semana do Pao — 15% off paes artesanais
+        promo_paes, _ = Promotion.objects.update_or_create(
+            name="Semana do Pao",
+            defaults={
+                "type": Promotion.PERCENT,
+                "value": 15,
+                "valid_from": now,
+                "valid_until": now + timedelta(days=7),
+                "collections": ["paes-artesanais"],
+                "is_active": True,
+            },
+        )
+
+        # Promotion 2: Delivery Desconto — R$5 off apenas em pedidos delivery
+        promo_delivery, _ = Promotion.objects.update_or_create(
+            name="Delivery Desconto",
+            defaults={
+                "type": Promotion.FIXED,
+                "value": 500,
+                "valid_from": now,
+                "valid_until": now + timedelta(days=30),
+                "fulfillment_types": ["delivery"],
+                "is_active": True,
+            },
+        )
+
+        # Promotion for NELSON10 coupon (10% off geral)
+        promo_nelson10, _ = Promotion.objects.update_or_create(
+            name="Desconto Nelson 10%",
+            defaults={
+                "type": Promotion.PERCENT,
+                "value": 10,
+                "valid_from": now,
+                "valid_until": now + timedelta(days=30),
+                "is_active": True,
+            },
+        )
+
+        # Promotion for PRIMEIRACOMPRA coupon (R$5 off, min R$30)
+        promo_primeira, _ = Promotion.objects.update_or_create(
+            name="Primeira Compra",
+            defaults={
+                "type": Promotion.FIXED,
+                "value": 500,
+                "valid_from": now,
+                "valid_until": now + timedelta(days=30),
+                "min_order_q": 3000,
+                "is_active": True,
+            },
+        )
+
+        # Promotion for FUNCIONARIO coupon (20% off)
+        promo_funcionario, _ = Promotion.objects.update_or_create(
+            name="Desconto Funcionario",
+            defaults={
+                "type": Promotion.PERCENT,
+                "value": 20,
+                "valid_from": now,
+                "valid_until": now + timedelta(days=365),
+                "is_active": True,
+            },
+        )
+
+        # Coupons
+        Coupon.objects.update_or_create(
+            code="NELSON10",
+            defaults={"promotion": promo_nelson10, "max_uses": 1, "is_active": True},
+        )
+        Coupon.objects.update_or_create(
+            code="PRIMEIRACOMPRA",
+            defaults={"promotion": promo_primeira, "max_uses": 1, "is_active": True},
+        )
+        Coupon.objects.update_or_create(
+            code="FUNCIONARIO",
+            defaults={"promotion": promo_funcionario, "max_uses": 0, "is_active": True},
+        )
+
+        self.stdout.write("  ✅ 5 promotions, 3 coupons")
+
+    # ────────────────────────────────────────────────────────────────
+    # Payments (PaymentIntent + PaymentTransaction)
+    # ────────────────────────────────────────────────────────────────
+
+    def _seed_payments(self):
+        self.stdout.write("  💳 Payments...")
+
+        orders = Order.objects.filter(status__in=["completed", "delivered"])
+        count = 0
+
+        for i, order in enumerate(orders):
+            # Skip if already has payment
+            if PaymentIntent.objects.filter(order_ref=order.ref).exists():
+                continue
+
+            method = PaymentIntent.Method.PIX if i % 10 < 7 else PaymentIntent.Method.CARD
+            gateway = "efi" if method == PaymentIntent.Method.PIX else "stripe"
+            intent_ref = f"PI-{uuid.uuid4().hex[:12].upper()}"
+
+            intent = PaymentIntent(
+                ref=intent_ref,
+                order_ref=order.ref,
+                method=method,
+                status=PaymentIntent.Status.CAPTURED,
+                amount_q=order.total_q,
+                gateway=gateway,
+                gateway_id=f"gw-{uuid.uuid4().hex[:16]}",
+                captured_at=order.created_at + timedelta(minutes=5),
+            )
+            intent.save()
+
+            PaymentTransaction.objects.create(
+                intent=intent,
+                type=PaymentTransaction.Type.CAPTURE,
+                amount_q=order.total_q,
+                gateway_id=intent.gateway_id,
+            )
+            count += 1
+
+        self.stdout.write(f"  ✅ {count} payment intents + transactions")
+
+    # ────────────────────────────────────────────────────────────────
+    # Fulfillments
+    # ────────────────────────────────────────────────────────────────
+
+    def _seed_fulfillments(self):
+        self.stdout.write("  📦 Fulfillments...")
+
+        count = 0
+
+        # Completed/delivered orders: fulfilled
+        for order in Order.objects.filter(status__in=["completed", "delivered"]):
+            if Fulfillment.objects.filter(order=order).exists():
+                continue
+
+            is_delivery = order.channel.ref in ("delivery", "whatsapp", "web")
+
+            if is_delivery:
+                tracking_code = f"BR{uuid.uuid4().hex[:12].upper()}"
+                fulfillment = Fulfillment(
+                    order=order,
+                    status=Fulfillment.Status.DELIVERED,
+                    tracking_code=tracking_code,
+                    carrier="correios",
+                    dispatched_at=order.created_at + timedelta(minutes=10),
+                    delivered_at=order.created_at + timedelta(hours=2),
+                )
+            else:
+                fulfillment = Fulfillment(
+                    order=order,
+                    status=Fulfillment.Status.DELIVERED,
+                    delivered_at=order.created_at + timedelta(minutes=15),
+                )
+
+            # Bypass transition validation for seed
+            fulfillment.save()
+
+            # Create FulfillmentItems
+            for item in order.items.all():
+                FulfillmentItem.objects.create(
+                    fulfillment=fulfillment,
+                    order_item=item,
+                    qty=item.qty,
+                )
+
+            count += 1
+
+        # Processing orders: fulfillment in progress
+        for order in Order.objects.filter(status="processing"):
+            if Fulfillment.objects.filter(order=order).exists():
+                continue
+
+            is_delivery = order.channel.ref in ("delivery", "whatsapp", "web")
+
+            fulfillment = Fulfillment(
+                order=order,
+                status=Fulfillment.Status.IN_PROGRESS,
+            )
+            if is_delivery:
+                fulfillment.carrier = "correios"
+
+            fulfillment.save()
+            count += 1
+
+        self.stdout.write(f"  ✅ {count} fulfillments")
+
+    # ────────────────────────────────────────────────────────────────
+    # Directives
+    # ────────────────────────────────────────────────────────────────
+
+    def _seed_directives(self):
+        self.stdout.write("  📋 Directives...")
+
+        from channels.topics import (
+            FULFILLMENT_CREATE,
+            NOTIFICATION_SEND,
+            PAYMENT_CAPTURE,
+            STOCK_HOLD,
+        )
+
+        count = 0
+        for order in Order.objects.filter(status__in=["completed", "delivered", "processing", "confirmed"]):
+            if Directive.objects.filter(payload__order_ref=order.ref).exists():
+                continue
+
+            is_terminal = order.status in ("completed", "delivered")
+            directive_status = "done" if is_terminal else "queued"
+            base_time = order.created_at
+
+            # stock.hold
+            Directive.objects.create(
+                topic=STOCK_HOLD,
+                status=directive_status,
+                payload={"order_ref": order.ref},
+                available_at=base_time,
+            )
+
+            # payment.capture (for completed/delivered)
+            if is_terminal:
+                Directive.objects.create(
+                    topic=PAYMENT_CAPTURE,
+                    status="done",
+                    payload={"order_ref": order.ref},
+                    available_at=base_time + timedelta(minutes=1),
+                )
+
+            # notification.send
+            Directive.objects.create(
+                topic=NOTIFICATION_SEND,
+                status=directive_status,
+                payload={"order_ref": order.ref, "template": "order_confirmed"},
+                available_at=base_time + timedelta(minutes=2),
+            )
+
+            # fulfillment.create (for completed/delivered)
+            if is_terminal:
+                Directive.objects.create(
+                    topic=FULFILLMENT_CREATE,
+                    status="done",
+                    payload={"order_ref": order.ref},
+                    available_at=base_time + timedelta(minutes=3),
+                )
+
+            count += 1
+
+        self.stdout.write(f"  ✅ Directives para {count} pedidos")
+
+    # ────────────────────────────────────────────────────────────────
+    # Loyalty (fidelidade)
+    # ────────────────────────────────────────────────────────────────
+
+    def _seed_loyalty(self, customers):
+        self.stdout.write("  🎖️  Loyalty...")
+
+        try:
+            from shopman.customers.contrib.loyalty.service import LoyaltyService
+        except ImportError:
+            self.stdout.write("  ⏭️  Loyalty app nao instalado")
+            return
+
+        loyalty_data = [
+            # (customer_ref, points_to_earn, stamps, tier_desc, redeem_points)
+            ("CLI-001", 350, 7, "frequente", 100),
+            ("CLI-002", 200, 4, "atacado", 0),
+            ("CLI-003", 120, 3, "regular", 0),
+            ("CLI-004", 80, 2, "cafe", 0),
+            ("CLI-005", 45, 1, "novo", 0),
+        ]
+
+        count = 0
+        for ref, points, stamps, _desc, redeem in loyalty_data:
+            if ref not in customers:
+                continue
+
+            account = LoyaltyService.enroll(ref)
+            if account.lifetime_points > 0:
+                count += 1
+                continue
+
+            # Earn points in batches to simulate history
+            batch_size = points // 3 or 1
+            remaining = points
+            order_num = 1
+            while remaining > 0:
+                earn = min(batch_size, remaining)
+                LoyaltyService.earn_points(
+                    customer_ref=ref,
+                    points=earn,
+                    description=f"Pedido #{order_num}",
+                    reference=f"seed:order-{order_num}",
+                    created_by="seed",
+                )
+                remaining -= earn
+                order_num += 1
+
+            # Add stamps
+            for i in range(stamps):
+                LoyaltyService.add_stamp(
+                    customer_ref=ref,
+                    description=f"Compra #{i + 1}",
+                    reference=f"seed:stamp-{i + 1}",
+                )
+
+            # Redeem points (if specified)
+            if redeem > 0:
+                LoyaltyService.redeem_points(
+                    customer_ref=ref,
+                    points=redeem,
+                    description="Resgate de pontos",
+                    reference="seed:redeem-1",
+                    created_by="seed",
+                )
+
+            count += 1
+
+        self.stdout.write(f"  ✅ {count} contas de fidelidade")

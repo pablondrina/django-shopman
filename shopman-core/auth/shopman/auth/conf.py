@@ -3,7 +3,7 @@ Auth configuration.
 
 Usage in settings.py:
     AUTH = {
-        "BRIDGE_TOKEN_TTL_MINUTES": 5,
+        "ACCESS_LINK_EXCHANGE_TTL_MINUTES": 5,
         "MAGIC_CODE_TTL_MINUTES": 10,
         "MESSAGE_SENDER_CLASS": "shopman.auth.senders.ConsoleSender",
     }
@@ -20,8 +20,8 @@ from django.conf import settings
 class AuthSettings:
     """Auth configuration settings."""
 
-    # Bridge Token
-    BRIDGE_TOKEN_TTL_MINUTES: int = 5
+    # Access Link (chat → web exchange, short-lived)
+    ACCESS_LINK_EXCHANGE_TTL_MINUTES: int = 5
 
     # Magic Code
     MAGIC_CODE_TTL_MINUTES: int = 10
@@ -55,11 +55,11 @@ class AuthSettings:
     # Hosts allowed in `next` parameter redirects (empty = same-host only)
     ALLOWED_REDIRECT_HOSTS: set[str] = field(default_factory=set)
 
-    # Bridge Token API (H05)
-    # Shared secret for authenticating bridge token creation requests.
-    # When set, POST /bridge/create/ requires Authorization: Bearer <key>
+    # Access Link API (H05)
+    # Shared secret for authenticating access link creation requests.
+    # When set, POST /auth/access/create/ requires Authorization: Bearer <key>
     # or X-Api-Key: <key> header. Leave empty to skip auth (dev only).
-    BRIDGE_TOKEN_API_KEY: str = ""
+    ACCESS_LINK_API_KEY: str = ""
 
     # Customer auto-creation (H03)
     # When True, verify_for_login() creates a new Customer if phone not found.
@@ -96,7 +96,7 @@ class AuthSettings:
     # Templates (override in your project)
     TEMPLATE_CODE_REQUEST: str = "auth/code_request.html"
     TEMPLATE_CODE_VERIFY: str = "auth/code_verify.html"
-    TEMPLATE_BRIDGE_INVALID: str = "auth/bridge_invalid.html"
+    TEMPLATE_ACCESS_LINK_INVALID: str = "auth/access_link_invalid.html"
     TEMPLATE_ACCESS_LINK_REQUEST: str = "auth/access_link_request.html"
     TEMPLATE_ACCESS_LINK_EMAIL_TXT: str = "auth/email_access_link.txt"
     TEMPLATE_ACCESS_LINK_EMAIL_HTML: str = "auth/email_access_link.html"
@@ -117,8 +117,8 @@ def validate_settings() -> list[str]:
     errors = []
     s = get_auth_settings()
 
-    if s.BRIDGE_TOKEN_TTL_MINUTES <= 0:
-        errors.append("AUTH.BRIDGE_TOKEN_TTL_MINUTES must be > 0")
+    if s.ACCESS_LINK_EXCHANGE_TTL_MINUTES <= 0:
+        errors.append("AUTH.ACCESS_LINK_EXCHANGE_TTL_MINUTES must be > 0")
     if s.MAGIC_CODE_TTL_MINUTES <= 0:
         errors.append("AUTH.MAGIC_CODE_TTL_MINUTES must be > 0")
     if s.MAGIC_CODE_MAX_ATTEMPTS <= 0:

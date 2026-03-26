@@ -244,10 +244,10 @@ def test_validate_settings_defaults_pass():
     assert errors == []
 
 
-@override_settings(AUTH={"BRIDGE_TOKEN_TTL_MINUTES": 0})
-def test_validate_settings_invalid_bridge_ttl():
+@override_settings(AUTH={"ACCESS_LINK_EXCHANGE_TTL_MINUTES": 0})
+def test_validate_settings_invalid_exchange_ttl():
     errors = validate_settings()
-    assert any("BRIDGE_TOKEN_TTL_MINUTES" in e for e in errors)
+    assert any("ACCESS_LINK_EXCHANGE_TTL_MINUTES" in e for e in errors)
 
 
 @override_settings(AUTH={"MAGIC_CODE_TTL_MINUTES": -1})

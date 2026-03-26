@@ -238,10 +238,10 @@ class VerifyCodeView(View):
         return response
 
 
-class BridgeLoginView(View):
+class AccessLinkLoginView(View):
     """Consume an access link and create an authenticated session.
 
-    URL: /auth/bridge/<token>/
+    URL: /auth/access/<token>/
     Flow: WhatsApp link → this view → session created → redirect
     """
 
@@ -260,7 +260,7 @@ class BridgeLoginView(View):
 
         if not result.success:
             logger.warning("Access link exchange failed: %s", result.error)
-            return render(request, "storefront/bridge_invalid.html", {
+            return render(request, "storefront/access_link_invalid.html", {
                 "error": result.error,
             })
 

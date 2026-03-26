@@ -24,11 +24,11 @@ class AuthConfig(AppConfig):
 
         if not settings.DEBUG:
             ds = get_auth_settings()
-            if not ds.BRIDGE_TOKEN_API_KEY:
+            if not ds.ACCESS_LINK_API_KEY:
                 raise ImproperlyConfigured(
-                    "AUTH['BRIDGE_TOKEN_API_KEY'] must be set in production. "
-                    "The bridge token creation endpoint would be unauthenticated. "
+                    "AUTH['ACCESS_LINK_API_KEY'] must be set in production. "
+                    "The access link creation endpoint would be unauthenticated. "
                     "Set a strong random key, or if you intentionally don't use "
-                    "bridge token creation, set AUTH['BRIDGE_TOKEN_API_KEY'] "
+                    "access link creation, set AUTH['ACCESS_LINK_API_KEY'] "
                     "to any non-empty value."
                 )

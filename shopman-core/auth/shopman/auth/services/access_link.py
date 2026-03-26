@@ -101,7 +101,7 @@ class AccessLinkService:
         Returns:
             TokenResult with token and URL
         """
-        ttl = ttl_minutes or auth_settings.BRIDGE_TOKEN_TTL_MINUTES
+        ttl = ttl_minutes or auth_settings.ACCESS_LINK_EXCHANGE_TTL_MINUTES
         expires_at = timezone.now() + timedelta(minutes=ttl)
 
         token = AccessLink.objects.create(
@@ -146,7 +146,7 @@ class AccessLinkService:
         except Exception:
             domain = auth_settings.DEFAULT_DOMAIN
 
-        path = reverse("shopman_auth:bridge-exchange")
+        path = reverse("shopman_auth:access-exchange")
         protocol = "https" if auth_settings.USE_HTTPS else "http"
 
         return f"{protocol}://{domain}{path}?t={token}"

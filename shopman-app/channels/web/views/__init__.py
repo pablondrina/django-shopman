@@ -5,7 +5,7 @@ from .account import (
     AddressSetDefaultView,
     AddressUpdateView,
 )
-from .auth import BridgeLoginView, CustomerLookupView, DeviceCheckLoginView, RequestCodeView, VerifyCodeView
+from .auth import AccessLinkLoginView, CustomerLookupView, DeviceCheckLoginView, RequestCodeView, VerifyCodeView
 from .cart import (
     AddToCartView,
     ApplyCouponView,
@@ -29,7 +29,7 @@ from .tracking import OrderStatusPartialView, OrderTrackingView
 __all__ = [
     "AccountView",
     "AddToCartView",
-    "BridgeLoginView",
+    "AccessLinkLoginView",
     "ApplyCouponView",
     "AddressCreateView",
     "AddressDeleteView",

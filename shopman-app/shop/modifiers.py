@@ -8,12 +8,16 @@ Modifiers follow the Ordering Modifier protocol:
 
 Execution order:
   10  pricing.item          — base price from backend (qty-aware)
-  15  shop.d1_discount      — D-1 markdown
-  20  shop.promotion        — auto-promotions
-  25  shop.coupon           — coupon discount
+  15  shop.d1_discount      — D-1 markdown (priority, skips other discounts)
+  20  shop.discount         — promotions + coupons (maior desconto ganha)
   50  pricing.session_total — recalculate total
   60  shop.employee_discount
   65  shop.happy_hour
+
+Discount policy — "maior desconto ganha":
+  Per item, only ONE discount applies (the best one).
+  D-1 has absolute priority and prevents all other discounts.
+  Employee and HappyHour are post-pricing and mutually exclusive.
 """
 from __future__ import annotations
 
@@ -81,34 +85,68 @@ class D1DiscountModifier:
             session.update_items(items)
 
 
-class PromotionModifier:
+class DiscountModifier:
     """
-    Aplica promoções ativas automaticamente.
+    Desconto unificado — promoções automáticas + cupom.
 
-    Busca promoções válidas (is_active, dentro do período) e aplica a
-    de maior desconto para cada item que atenda os critérios (SKU ou coleção).
+    Política: "maior desconto ganha" por item.
+    Para cada item elegível, coleta candidatos (promoções ativas + cupom),
+    calcula o desconto de cada sobre o preço BASE, e aplica apenas o maior.
+
+    Não se aplica a itens com D-1 (prioridade absoluta).
     """
 
-    code = "shop.promotion"
+    code = "shop.discount"
     order = 20
 
     def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
-        from shop.models import Promotion
+        from shop.models import Coupon, Promotion
+
+        # Inject fulfillment_type from session data into ctx for matching
+        fulfillment_type = (session.data or {}).get("fulfillment_type", "")
+        if fulfillment_type:
+            ctx.setdefault("fulfillment_type", fulfillment_type)
 
         now = timezone.now()
+
+        # Collect active AUTO-promotions (exclude coupon-only promotions)
         promotions = list(
             Promotion.objects.filter(
                 is_active=True,
                 valid_from__lte=now,
                 valid_until__gte=now,
+            ).exclude(
+                coupons__isnull=False,
             )
         )
-        if not promotions:
+
+        # Collect coupon (if applied)
+        coupon_code = (session.data or {}).get("coupon_code")
+        coupon_promo = None
+        if coupon_code:
+            try:
+                coupon = Coupon.objects.select_related("promotion").get(
+                    code=coupon_code, is_active=True,
+                )
+                if coupon.is_available:
+                    promo = coupon.promotion
+                    if promo.is_active and promo.valid_from <= now <= promo.valid_until:
+                        coupon_promo = promo
+            except Coupon.DoesNotExist:
+                pass
+
+        if not promotions and not coupon_promo:
+            if not session.pricing:
+                session.pricing = {}
+            session.pricing.pop("coupon", None)
+            session.pricing.pop("discount", None)
             return
 
         items = session.items or []
         session_total = sum(item.get("line_total_q", 0) for item in items)
         modified = False
+        total_coupon_discount_q = 0
+        discounts_applied = []  # Persisted in session.pricing
 
         for item in items:
             sku = item.get("sku", "")
@@ -116,41 +154,90 @@ class PromotionModifier:
             if not price_q:
                 continue
 
-            # Skip items already discounted by D-1
+            # D-1 items skip all other discounts
             applied = item.get("modifiers_applied", [])
             if any(m.get("type") == "d1_discount" for m in applied):
                 continue
 
+            # Find best discount candidate
             best_discount_q = 0
-            best_promo = None
+            best_source = None  # (type, name)
 
+            # Evaluate auto-promotions
             for promo in promotions:
                 if promo.min_order_q and session_total < promo.min_order_q:
                     continue
                 if not self._matches(promo, sku, ctx):
                     continue
-
                 discount_q = self._calc_discount(promo, price_q)
                 if discount_q > best_discount_q:
                     best_discount_q = discount_q
-                    best_promo = promo
+                    best_source = ("promotion", promo.name, promo.pk)
 
-            if best_promo and best_discount_q > 0:
+            # Evaluate coupon
+            if coupon_promo:
+                if not (coupon_promo.min_order_q and session_total < coupon_promo.min_order_q):
+                    if self._matches(coupon_promo, sku, ctx):
+                        coupon_discount_q = self._calc_discount(coupon_promo, price_q)
+                        if coupon_discount_q >= best_discount_q:
+                            best_discount_q = coupon_discount_q
+                            best_source = ("coupon", coupon_code, None)
+
+            # Apply winner
+            if best_source and best_discount_q > 0:
                 item["unit_price_q"] = price_q - best_discount_q
                 item["line_total_q"] = item["unit_price_q"] * int(item.get("qty", 1))
-                item.setdefault("modifiers_applied", []).append({
-                    "type": "promotion",
-                    "promotion_id": best_promo.pk,
-                    "promotion_name": best_promo.name,
+
+                source_type, source_name, source_id = best_source
+                modifier_info = {
+                    "type": source_type,
+                    "name": source_name,
+                    "original_price_q": price_q,
                     "discount_q": best_discount_q,
-                })
+                }
+                if source_id:
+                    modifier_info["promotion_id"] = source_id
+                item.setdefault("modifiers_applied", []).append(modifier_info)
                 modified = True
+
+                qty = int(item.get("qty", 1))
+                discounts_applied.append({
+                    "sku": sku,
+                    "type": source_type,
+                    "name": source_name,
+                    "original_price_q": price_q,
+                    "discount_q": best_discount_q,
+                    "qty": qty,
+                })
+                if source_type == "coupon":
+                    total_coupon_discount_q += best_discount_q * qty
 
         if modified:
             session.update_items(items)
 
+        # Persist discount info in session.pricing (items lose extra fields on save)
+        if not session.pricing:
+            session.pricing = {}
+        session.pricing["discount"] = {
+            "total_discount_q": sum(d["discount_q"] * d["qty"] for d in discounts_applied),
+            "items": discounts_applied,
+        }
+        if coupon_code:
+            session.pricing["coupon"] = {
+                "code": coupon_code,
+                "discount_q": total_coupon_discount_q,
+            }
+        else:
+            session.pricing.pop("coupon", None)
+
     @staticmethod
     def _matches(promo: Any, sku: str, ctx: dict) -> bool:
+        if promo.fulfillment_types:
+            fulfillment_type = ctx.get("fulfillment_type", "")
+            if not fulfillment_type:
+                return False
+            if fulfillment_type not in promo.fulfillment_types:
+                return False
         if promo.skus and sku not in promo.skus:
             return False
         if promo.collections:
@@ -166,83 +253,9 @@ class PromotionModifier:
         return min(promo.value, price_q)
 
 
-class CouponModifier:
-    """
-    Aplica desconto de cupom.
-
-    Lê session.data["coupon_code"], busca Coupon + Promotion vinculada,
-    e aplica o desconto nos itens elegíveis.
-    """
-
-    code = "shop.coupon"
-    order = 25
-
-    def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
-        coupon_code = (session.data or {}).get("coupon_code")
-        if not coupon_code:
-            return
-
-        from shop.models import Coupon
-
-        try:
-            coupon = Coupon.objects.select_related("promotion").get(
-                code=coupon_code,
-                is_active=True,
-            )
-        except Coupon.DoesNotExist:
-            return
-
-        if not coupon.is_available:
-            return
-
-        promo = coupon.promotion
-        now = timezone.now()
-        if not promo.is_active or now < promo.valid_from or now > promo.valid_until:
-            return
-
-        items = session.items or []
-        session_total = sum(item.get("line_total_q", 0) for item in items)
-        if promo.min_order_q and session_total < promo.min_order_q:
-            return
-
-        total_discount_q = 0
-        modified = False
-
-        for item in items:
-            sku = item.get("sku", "")
-            price_q = item.get("unit_price_q", 0)
-            if not price_q:
-                continue
-
-            # Skip items already discounted by D-1
-            applied = item.get("modifiers_applied", [])
-            if any(m.get("type") == "d1_discount" for m in applied):
-                continue
-
-            if not PromotionModifier._matches(promo, sku, ctx):
-                continue
-
-            discount_q = PromotionModifier._calc_discount(promo, price_q)
-            if discount_q > 0:
-                item["unit_price_q"] = price_q - discount_q
-                item["line_total_q"] = item["unit_price_q"] * int(item.get("qty", 1))
-                item.setdefault("modifiers_applied", []).append({
-                    "type": "coupon",
-                    "coupon_code": coupon_code,
-                    "discount_q": discount_q,
-                })
-                total_discount_q += discount_q * int(item.get("qty", 1))
-                modified = True
-
-        if modified:
-            session.update_items(items)
-
-        if not session.pricing:
-            session.pricing = {}
-        session.pricing["coupon"] = {
-            "code": coupon_code,
-            "discount_q": total_discount_q,
-        }
+# Keep old names as aliases for backward compatibility in tests
+PromotionModifier = DiscountModifier
+CouponModifier = DiscountModifier
 
 
 class EmployeeDiscountModifier:

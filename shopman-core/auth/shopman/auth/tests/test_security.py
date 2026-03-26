@@ -175,13 +175,13 @@ class TestAccessLinkCreateAuth:
         ):
             return view(request)
 
-    @override_settings(AUTH={"BRIDGE_TOKEN_API_KEY": TEST_API_KEY})
+    @override_settings(AUTH={"ACCESS_LINK_API_KEY": TEST_API_KEY})
     def test_create_without_key_returns_401(self, customer):
         """POST without API key must return 401."""
         response = self._post_create({"customer_id": str(customer.uuid)})
         assert response.status_code == 401
 
-    @override_settings(AUTH={"BRIDGE_TOKEN_API_KEY": TEST_API_KEY})
+    @override_settings(AUTH={"ACCESS_LINK_API_KEY": TEST_API_KEY})
     def test_create_with_wrong_key_returns_401(self, customer):
         """POST with wrong API key must return 401."""
         response = self._post_create(
@@ -190,7 +190,7 @@ class TestAccessLinkCreateAuth:
         )
         assert response.status_code == 401
 
-    @override_settings(AUTH={"BRIDGE_TOKEN_API_KEY": TEST_API_KEY})
+    @override_settings(AUTH={"ACCESS_LINK_API_KEY": TEST_API_KEY})
     def test_create_with_bearer_key_returns_200(self, customer):
         """POST with correct Bearer key must succeed."""
         response = self._post_create(
@@ -202,7 +202,7 @@ class TestAccessLinkCreateAuth:
         assert "token" in data
         assert "url" in data
 
-    @override_settings(AUTH={"BRIDGE_TOKEN_API_KEY": TEST_API_KEY})
+    @override_settings(AUTH={"ACCESS_LINK_API_KEY": TEST_API_KEY})
     def test_create_with_x_api_key_returns_200(self, customer):
         """POST with X-Api-Key header must succeed."""
         response = self._post_create(
@@ -211,7 +211,7 @@ class TestAccessLinkCreateAuth:
         )
         assert response.status_code == 200
 
-    @override_settings(AUTH={"BRIDGE_TOKEN_API_KEY": ""})
+    @override_settings(AUTH={"ACCESS_LINK_API_KEY": ""})
     def test_create_without_configured_key_allows_access(self, customer):
         """POST without configured API key must allow access (dev mode)."""
         response = self._post_create({"customer_id": str(customer.uuid)})

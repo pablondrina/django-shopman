@@ -17,9 +17,9 @@ from .views.verification_code import VerificationCodeRequestView, VerificationCo
 app_name = "shopman_auth"
 
 urlpatterns = [
-    # Access Link (link de acesso do Manychat)
-    path("bridge/", AccessLinkExchangeView.as_view(), name="bridge-exchange"),
-    path("bridge/create/", AccessLinkCreateView.as_view(), name="bridge-create"),
+    # Access Link (link de acesso do Manychat / chat → web)
+    path("access/", AccessLinkExchangeView.as_view(), name="access-exchange"),
+    path("access/create/", AccessLinkCreateView.as_view(), name="access-create"),
     # Verification Code (login externo via OTP)
     path("code/request/", VerificationCodeRequestView.as_view(), name="code-request"),
     path("code/verify/", VerificationCodeVerifyView.as_view(), name="code-verify"),

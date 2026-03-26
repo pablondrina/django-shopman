@@ -21,7 +21,7 @@ def default_expiry():
     """Default expiration time for access links."""
     from ..conf import auth_settings
 
-    return timezone.now() + timedelta(minutes=auth_settings.BRIDGE_TOKEN_TTL_MINUTES)
+    return timezone.now() + timedelta(minutes=auth_settings.ACCESS_LINK_EXCHANGE_TTL_MINUTES)
 
 
 class AccessLink(models.Model):
@@ -29,10 +29,10 @@ class AccessLink(models.Model):
     Token for creating web session from chat or email.
 
     Flow:
-    1. Manychat/backend calls POST /auth/bridge-tokens
+    1. Manychat/backend calls POST /auth/access/create/
     2. Receives URL with token
     3. Sends to customer
-    4. Customer clicks -> GET /auth/bridge/exchange?t=...
+    4. Customer clicks -> GET /auth/access/?t=...
     5. Auth validates, creates session, redirects
 
     Security:
