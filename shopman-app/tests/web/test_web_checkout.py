@@ -20,11 +20,19 @@ class TestCheckoutGet:
         resp = cart_session.get("/checkout/")
         assert resp.status_code == 200
 
-    def test_checkout_prefills_verified_phone(self, cart_session):
-        session = cart_session.session
-        session["storefront_verified_phone"] = "5543999990001"
-        session["storefront_verified_name"] = "João"
-        session.save()
+    def test_checkout_prefills_verified_phone(self, cart_session, customer):
+        from shopman.auth.protocols.customer import AuthCustomerInfo
+        from shopman.auth.services._user_bridge import get_or_create_user_for_customer
+
+        info = AuthCustomerInfo(
+            uuid=customer.uuid,
+            name=customer.name,
+            phone=customer.phone,
+            email=None,
+            is_active=True,
+        )
+        user, _ = get_or_create_user_for_customer(info)
+        cart_session.force_login(user, backend="shopman.auth.backends.PhoneOTPBackend")
 
         resp = cart_session.get("/checkout/")
         assert resp.status_code == 200

@@ -1,7 +1,6 @@
-"""Tests for AUTH-6A: Dual Write — verify login() is called alongside session keys.
+"""Tests for AUTH-6B: Verify Django auth is set by all login flows.
 
-Zero behavior change: existing session-based auth continues working.
-New: request.user.is_authenticated is also True after OTP/device-trust login.
+After cutover: session keys removed, only Django auth remains.
 """
 from __future__ import annotations
 
@@ -9,41 +8,11 @@ import pytest
 from django.contrib.auth.models import User
 from django.test import Client
 
-from channels.web.views.auth import (
-    SESSION_CUSTOMER_UUID,
-    SESSION_VERIFIED,
-    SESSION_VERIFIED_PHONE,
-)
-
 pytestmark = pytest.mark.django_db
 
 
-class TestVerifyCodeDualWrite:
-    """VerifyCodeView sets both session keys AND request.user."""
-
-    def test_verify_code_sets_session_keys(self, client: Client, customer):
-        """Session keys still set after OTP verification (backward compat)."""
-        from shopman.auth.models import VerificationCode
-        from shopman.auth.models.verification_code import generate_raw_code
-
-        raw_code, hmac_digest = generate_raw_code()
-        VerificationCode.objects.create(
-            code_hash=hmac_digest,
-            target_value=customer.phone,
-            purpose="login",
-            status="sent",
-        )
-
-        resp = client.post("/checkout/verify-code/", {
-            "phone": customer.phone,
-            "code": raw_code,
-        })
-        assert resp.status_code == 200
-
-        session = client.session
-        assert session.get(SESSION_CUSTOMER_UUID) == str(customer.uuid)
-        assert session.get(SESSION_VERIFIED) is True
-        assert session.get(SESSION_VERIFIED_PHONE) == customer.phone
+class TestVerifyCodeAuth:
+    """VerifyCodeView sets request.user via Django auth."""
 
     def test_verify_code_sets_django_user(self, client: Client, customer):
         """request.user is authenticated after OTP verification."""
@@ -76,8 +45,8 @@ class TestVerifyCodeDualWrite:
         assert link.customer_id == customer.uuid
 
 
-class TestDeviceCheckDualWrite:
-    """DeviceCheckLoginView sets both session keys AND request.user."""
+class TestDeviceCheckAuth:
+    """DeviceCheckLoginView sets request.user via Django auth."""
 
     def _trust_device(self, client: Client, customer):
         """Simulate trusting a device by creating a device and setting cookie."""
@@ -88,17 +57,6 @@ class TestDeviceCheckDualWrite:
         )
         from shopman.auth.conf import auth_settings
         client.cookies[auth_settings.DEVICE_TRUST_COOKIE_NAME] = raw_token
-
-    def test_device_check_sets_session_keys(self, client: Client, customer):
-        """Session keys set after device trust login."""
-        self._trust_device(client, customer)
-        resp = client.post("/auth/device-check/", {"phone": customer.phone})
-        data = resp.json()
-        assert data["trusted"] is True
-
-        session = client.session
-        assert session.get(SESSION_CUSTOMER_UUID) == str(customer.uuid)
-        assert session.get(SESSION_VERIFIED) is True
 
     def test_device_check_sets_django_user(self, client: Client, customer):
         """request.user is authenticated after device trust login."""

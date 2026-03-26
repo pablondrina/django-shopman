@@ -12,12 +12,6 @@ from ..constants import HAS_AUTH
 
 logger = logging.getLogger("shopman.web.auth")
 
-# Session keys for storefront auth
-SESSION_CUSTOMER_UUID = "storefront_customer_uuid"
-SESSION_VERIFIED = "storefront_verified"
-SESSION_VERIFIED_PHONE = "storefront_verified_phone"
-SESSION_VERIFIED_NAME = "storefront_verified_name"
-
 # Rate limit settings
 RATE_LIMIT_REQUEST_CODE_MAX = 3
 RATE_LIMIT_REQUEST_CODE_WINDOW = 600  # 10 min
@@ -25,27 +19,19 @@ RATE_LIMIT_VERIFY_CODE_MAX = 5
 RATE_LIMIT_VERIFY_CODE_WINDOW = 600  # 10 min
 
 
-def _set_auth_session(request: HttpRequest, customer, phone: str) -> None:
-    """Set session vars after successful authentication."""
-    request.session[SESSION_CUSTOMER_UUID] = str(customer.uuid)
-    request.session[SESSION_VERIFIED] = True
-    request.session[SESSION_VERIFIED_PHONE] = phone
-    request.session[SESSION_VERIFIED_NAME] = customer.name or ""
-
-
 def get_authenticated_customer(request: HttpRequest):
-    """Get customer from session if authenticated.
+    """Get customer from authenticated request.
 
+    Reads from request.customer (set by AuthCustomerMiddleware).
     Returns the Customer model instance or None.
     """
-    customer_uuid = request.session.get(SESSION_CUSTOMER_UUID)
-    verified = request.session.get(SESSION_VERIFIED, False)
-    if not customer_uuid or not verified:
+    customer_info = getattr(request, "customer", None)
+    if customer_info is None:
         return None
 
     from shopman.customers.services import customer as customer_service
 
-    return customer_service.get_by_uuid(customer_uuid)
+    return customer_service.get_by_uuid(customer_info.uuid)
 
 
 def _check_rate_limit(key: str, max_requests: int, window: int) -> bool:
@@ -71,9 +57,9 @@ class CustomerLookupView(View):
         except Exception:
             return JsonResponse({"found": False})
 
-        # Check if already verified in this session
-        verified_phone = request.session.get(SESSION_VERIFIED_PHONE)
-        is_verified = verified_phone == phone
+        # Check if authenticated for this phone
+        customer_info = getattr(request, "customer", None)
+        is_verified = customer_info is not None and customer_info.phone == phone
 
         from shopman.customers.services import customer as customer_service
 
@@ -81,7 +67,7 @@ class CustomerLookupView(View):
         if not customer:
             return JsonResponse({"found": False, "can_verify": False})
 
-        # Only expose PII (name, addresses) if session is verified for this phone
+        # Only expose PII (name, addresses) if verified for this phone
         if is_verified:
             addresses = []
             for addr in customer.addresses.order_by("-is_default", "label"):
@@ -235,9 +221,7 @@ class VerifyCodeView(View):
                 "error_message": error_msg,
             })
 
-        # Set session-based auth
-        _set_auth_session(request, result.customer, phone)
-
+        # Django auth already called by verify_for_login(request=request)
         # Trust device (set cookie for skip-OTP on next visit)
         response = render(request, "storefront/partials/auth_confirmed.html", {
             "phone": phone,
@@ -280,14 +264,7 @@ class BridgeLoginView(View):
                 "error": result.error,
             })
 
-        # Set storefront session vars from the authenticated customer
-        if result.customer:
-            phone = result.customer.phone or ""
-            request.session[SESSION_CUSTOMER_UUID] = str(result.customer.uuid)
-            request.session[SESSION_VERIFIED] = True
-            request.session[SESSION_VERIFIED_PHONE] = phone
-            request.session[SESSION_VERIFIED_NAME] = result.customer.name or ""
-
+        # Django auth already called by AccessLinkService.exchange(request=request)
         # Redirect based on token audience or next param
         next_url = safe_redirect_url(request.GET.get("next"), request)
         return redirect(next_url)
@@ -322,11 +299,8 @@ class DeviceCheckLoginView(View):
         from shopman.auth.services.device_trust import DeviceTrustService
 
         if DeviceTrustService.check_device_trust(request, customer.uuid):
-            _set_auth_session(request, customer, phone)
-
-            # AUTH-6A: Dual write — also set request.user via Django login
+            # Django login
             from django.contrib.auth import login
-
             from shopman.auth.protocols.customer import AuthCustomerInfo
             from shopman.auth.services._user_bridge import get_or_create_user_for_customer
 

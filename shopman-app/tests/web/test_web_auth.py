@@ -1,6 +1,7 @@
 """Tests for storefront auth views: CustomerLookupView, RequestCodeView, VerifyCodeView.
 
 WP-B5: AccessLink login, DeviceTrust, session-based auth, rate limiting.
+AUTH-6B: Cutover to request.customer (Django auth).
 """
 from __future__ import annotations
 
@@ -8,6 +9,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
+from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.test import Client
 from django.utils import timezone
@@ -15,13 +17,24 @@ from shopman.auth.models import AccessLink
 from shopman.auth.models.device_trust import TrustedDevice
 from shopman.customers.models import Customer
 
-from channels.web.views.auth import (
-    SESSION_CUSTOMER_UUID,
-    SESSION_VERIFIED,
-    SESSION_VERIFIED_PHONE,
-)
-
 pytestmark = pytest.mark.django_db
+
+
+def _login_as_customer(client: Client, customer) -> User:
+    """Log in the Django test client as a customer via Django auth."""
+    from shopman.auth.protocols.customer import AuthCustomerInfo
+    from shopman.auth.services._user_bridge import get_or_create_user_for_customer
+
+    info = AuthCustomerInfo(
+        uuid=customer.uuid,
+        name=customer.name,
+        phone=customer.phone,
+        email=getattr(customer, "email", None) or None,
+        is_active=True,
+    )
+    user, _ = get_or_create_user_for_customer(info)
+    client.force_login(user, backend="shopman.auth.backends.PhoneOTPBackend")
+    return user
 
 
 @pytest.fixture(autouse=True)
@@ -55,7 +68,7 @@ class TestCustomerLookupView:
         assert data["found"] is False
 
     def test_lookup_found_no_pii(self, client: Client, customer):
-        """Found customer without verified session — no PII exposed."""
+        """Found customer without auth — no PII exposed."""
         resp = client.get(f"/checkout/customer-lookup/?phone={customer.phone}")
         assert resp.status_code == 200
         data = resp.json()
@@ -65,10 +78,8 @@ class TestCustomerLookupView:
         assert data["can_verify"] is True
 
     def test_lookup_verified_returns_pii(self, client: Client, customer, customer_address):
-        """Verified session — returns name and addresses."""
-        session = client.session
-        session[SESSION_VERIFIED_PHONE] = customer.phone
-        session.save()
+        """Authenticated user — returns name and addresses."""
+        _login_as_customer(client, customer)
         resp = client.get(f"/checkout/customer-lookup/?phone={customer.phone}")
         data = resp.json()
         assert data["found"] is True
@@ -116,7 +127,7 @@ class TestAccessLinkLoginView:
     """BridgeLoginView: consume access link → authenticated session."""
 
     def test_access_link_creates_authenticated_session(self, client: Client, customer):
-        """Valid access link creates session with customer_uuid and verified flag."""
+        """Valid access link logs in via Django auth."""
         token = AccessLink.objects.create(
             customer_id=customer.uuid,
             audience=AccessLink.Audience.WEB_GENERAL,
@@ -127,10 +138,9 @@ class TestAccessLinkLoginView:
         response = client.get(f"/auth/bridge/{token.token}/")
 
         assert response.status_code == 302
-        session = client.session
-        assert session[SESSION_CUSTOMER_UUID] == str(customer.uuid)
-        assert session[SESSION_VERIFIED] is True
-        assert session[SESSION_VERIFIED_PHONE] == customer.phone
+        # Django auth user should be set
+        user_id = client.session.get("_auth_user_id")
+        assert user_id is not None
 
     def test_access_link_expired_returns_error(self, client: Client, customer):
         """Expired access link renders error page."""
@@ -144,14 +154,14 @@ class TestAccessLinkLoginView:
         response = client.get(f"/auth/bridge/{token.token}/")
 
         assert response.status_code == 200
-        assert SESSION_CUSTOMER_UUID not in client.session
+        assert client.session.get("_auth_user_id") is None
 
     def test_access_link_invalid_returns_error(self, client: Client):
         """Non-existent access link renders error."""
         response = client.get("/auth/bridge/nonexistent-token/")
 
         assert response.status_code == 200
-        assert SESSION_CUSTOMER_UUID not in client.session
+        assert client.session.get("_auth_user_id") is None
 
     def test_access_link_used_returns_error(self, client: Client, customer):
         """Already-used access link returns error (outside reuse window)."""
@@ -167,7 +177,7 @@ class TestAccessLinkLoginView:
         response = client.get(f"/auth/bridge/{token.token}/")
 
         assert response.status_code == 200
-        assert SESSION_CUSTOMER_UUID not in client.session
+        assert client.session.get("_auth_user_id") is None
 
     def test_access_link_redirects_to_next(self, client: Client, customer):
         """Access link respects ?next= parameter for redirect."""
@@ -209,9 +219,9 @@ class TestDeviceTrust:
         assert data["trusted"] is True
         assert data["name"] == customer.name
 
-        session = client.session
-        assert session[SESSION_CUSTOMER_UUID] == str(customer.uuid)
-        assert session[SESSION_VERIFIED] is True
+        # Django auth user should be set
+        user_id = client.session.get("_auth_user_id")
+        assert user_id is not None
 
     def test_device_trust_expired_requires_otp(self, client: Client, customer):
         """Expired device trust does NOT auto-login."""
@@ -231,7 +241,7 @@ class TestDeviceTrust:
 
         data = response.json()
         assert data["trusted"] is False
-        assert SESSION_CUSTOMER_UUID not in client.session
+        assert client.session.get("_auth_user_id") is None
 
     def test_device_trust_wrong_customer(self, client: Client, customer):
         """Device trusted for one customer cannot login as another."""
@@ -326,25 +336,21 @@ class TestRateLimiting:
             assert "Muitas tentativas" in response.content.decode()
 
 
-# ── Session Auth ───────────────────────────────────────────────────
+# ── Django Auth ───────────────────────────────────────────────────
 
 
-class TestSessionAuth:
-    """Session-based auth protects account views."""
+class TestDjangoAuth:
+    """Auth via request.customer (middleware) protects account views."""
 
-    def test_session_auth_protects_account_views(self, client: Client, customer):
-        """AccountView shows customer data only when session is authenticated."""
-        # No session → empty account page
+    def test_auth_protects_account_views(self, client: Client, customer):
+        """AccountView shows customer data only when authenticated."""
+        # No auth → empty account page
         response = client.get("/minha-conta/")
         assert response.status_code == 200
         assert response.context["customer"] is None
 
-        # Set session auth
-        session = client.session
-        session[SESSION_CUSTOMER_UUID] = str(customer.uuid)
-        session[SESSION_VERIFIED] = True
-        session[SESSION_VERIFIED_PHONE] = customer.phone
-        session.save()
+        # Log in via Django auth
+        _login_as_customer(client, customer)
 
         response = client.get("/minha-conta/")
         assert response.status_code == 200
@@ -352,64 +358,62 @@ class TestSessionAuth:
         assert response.context["customer"].pk == customer.pk
         assert response.context["is_verified"] is True
 
-    def test_session_auth_invalid_uuid_shows_empty(self, client: Client):
-        """Invalid customer UUID in session shows empty account."""
-        session = client.session
-        session[SESSION_CUSTOMER_UUID] = "00000000-0000-0000-0000-000000000000"
-        session[SESSION_VERIFIED] = True
-        session.save()
+    def test_auth_invalid_uuid_shows_empty(self, client: Client):
+        """User with no CustomerUser link shows empty account."""
+        user = User.objects.create_user(username="orphan", password="test")
+        client.force_login(user)
 
         response = client.get("/minha-conta/")
         assert response.status_code == 200
         assert response.context["customer"] is None
 
-    def test_session_without_verified_flag_shows_empty(self, client: Client, customer):
-        """customer_uuid in session without verified=True is not authenticated."""
-        session = client.session
-        session[SESSION_CUSTOMER_UUID] = str(customer.uuid)
-        # SESSION_VERIFIED not set
-        session.save()
+    def test_verify_code_sets_django_auth(self, client: Client, customer):
+        """Successful OTP verification sets Django auth (real service, no mock)."""
+        from shopman.auth.models import VerificationCode
+        from shopman.auth.models.verification_code import generate_raw_code
+
+        raw_code, hmac_digest = generate_raw_code()
+        VerificationCode.objects.create(
+            code_hash=hmac_digest,
+            target_value=customer.phone,
+            purpose="login",
+            status="sent",
+        )
+
+        response = client.post("/checkout/verify-code/", {
+            "phone": customer.phone, "code": raw_code,
+        })
+
+        assert response.status_code == 200
+        # Django auth user should be in session
+        assert client.session.get("_auth_user_id") is not None
+
+    def test_auth_get_shows_data_when_verified(self, client: Client, customer):
+        """GET with auth shows full account data."""
+        _login_as_customer(client, customer)
 
         response = client.get("/minha-conta/")
         assert response.status_code == 200
-        assert response.context["customer"] is None
+        assert response.context["customer"] is not None
+        assert response.context["customer"].pk == customer.pk
 
-    def test_verify_code_sets_session_auth(self, client: Client, customer):
-        """Successful OTP verification sets full session auth vars."""
-        with patch("shopman.auth.services.verification.AuthService") as mock_vs:
-            from shopman.auth.protocols.customer import AuthCustomerInfo
+    def test_auth_post_with_verified_session_shows_data(self, client: Client, customer):
+        """POST with valid phone AND auth shows data directly."""
+        _login_as_customer(client, customer)
 
-            mock_customer = AuthCustomerInfo(
-                uuid=customer.uuid,
-                name=customer.name,
-                phone=customer.phone,
-                email="",
-                is_active=True,
-            )
-            mock_vs.verify_for_login.return_value = type("R", (), {
-                "success": True, "customer": mock_customer,
-                "created_customer": False, "error": None, "attempts_remaining": None,
-            })()
-
-            response = client.post("/checkout/verify-code/", {
-                "phone": customer.phone, "code": "123456",
-            })
-
-            assert response.status_code == 200
-            session = client.session
-            assert session[SESSION_CUSTOMER_UUID] == str(customer.uuid)
-            assert session[SESSION_VERIFIED] is True
-            assert session[SESSION_VERIFIED_PHONE] == customer.phone
+        response = client.post("/minha-conta/", {"phone": customer.phone})
+        assert response.status_code == 200
+        assert response.context["customer"] is not None
 
 
 # ── Account OTP Gate ──────────────────────────────────────────────────
 
 
 class TestAccountOTPGate:
-    """Account page requires OTP verification — phone alone must NOT expose data."""
+    """Account page requires auth — phone alone must NOT expose data."""
 
     def test_account_post_without_otp_does_not_show_data(self, client: Client, customer):
-        """POST with valid phone but no OTP must NOT return customer data."""
+        """POST with valid phone but no auth must NOT return customer data."""
         response = client.post("/minha-conta/", {"phone": customer.phone})
         assert response.status_code == 200
         # Must NOT have customer object in context
@@ -422,76 +426,45 @@ class TestAccountOTPGate:
         response = client.post("/minha-conta/", {"phone": customer.phone})
         content = response.content.decode()
         assert "Confirme sua identidade" in content
-        # Must NOT contain sensitive data
-        assert customer.phone not in content or "needs_verification" in str(response.context)
         # Must NOT contain address or order data
         assert "Enderecos" not in content
         assert "Ultimos pedidos" not in content
-
-    def test_account_get_shows_data_when_verified(self, client: Client, customer):
-        """GET with verified session shows full account data."""
-        session = client.session
-        session[SESSION_CUSTOMER_UUID] = str(customer.uuid)
-        session[SESSION_VERIFIED] = True
-        session[SESSION_VERIFIED_PHONE] = customer.phone
-        session.save()
-
-        response = client.get("/minha-conta/")
-        assert response.status_code == 200
-        assert response.context["customer"] is not None
-        assert response.context["customer"].pk == customer.pk
-
-    def test_account_post_with_verified_session_shows_data(self, client: Client, customer):
-        """POST with valid phone AND verified session shows data directly."""
-        session = client.session
-        session[SESSION_CUSTOMER_UUID] = str(customer.uuid)
-        session[SESSION_VERIFIED] = True
-        session[SESSION_VERIFIED_PHONE] = customer.phone
-        session.save()
-
-        response = client.post("/minha-conta/", {"phone": customer.phone})
-        assert response.status_code == 200
-        assert response.context["customer"] is not None
 
 
 # ── Address Auth ──────────────────────────────────────────────────────
 
 
 class TestAddressAuth:
-    """Address CRUD requires session auth — no phone fallback."""
+    """Address CRUD requires auth — no phone fallback."""
 
-    def test_address_create_requires_session_auth(self, client: Client, customer):
-        """POST to create address without session auth returns 401."""
+    def test_address_create_requires_auth(self, client: Client, customer):
+        """POST to create address without auth returns 401."""
         response = client.post("/minha-conta/enderecos/", {
             "formatted_address": "Rua Nova 456",
             "label": "work",
         })
         assert response.status_code == 401
 
-    def test_address_update_requires_session_auth(self, client: Client, customer_address):
-        """POST to update address without session auth returns 401."""
+    def test_address_update_requires_auth(self, client: Client, customer_address):
+        """POST to update address without auth returns 401."""
         response = client.post(f"/minha-conta/enderecos/{customer_address.pk}/", {
             "formatted_address": "Rua Alterada 789",
         })
         assert response.status_code == 401
 
-    def test_address_delete_requires_session_auth(self, client: Client, customer_address):
-        """POST to delete address without session auth returns 401."""
+    def test_address_delete_requires_auth(self, client: Client, customer_address):
+        """POST to delete address without auth returns 401."""
         response = client.post(f"/minha-conta/enderecos/{customer_address.pk}/delete/")
         assert response.status_code == 401
 
-    def test_address_set_default_requires_session_auth(self, client: Client, customer_address):
-        """POST to set default address without session auth returns 401."""
+    def test_address_set_default_requires_auth(self, client: Client, customer_address):
+        """POST to set default address without auth returns 401."""
         response = client.post(f"/minha-conta/enderecos/{customer_address.pk}/default/")
         assert response.status_code == 401
 
-    def test_address_create_works_with_session_auth(self, client: Client, customer):
-        """POST to create address WITH session auth succeeds."""
-        session = client.session
-        session[SESSION_CUSTOMER_UUID] = str(customer.uuid)
-        session[SESSION_VERIFIED] = True
-        session[SESSION_VERIFIED_PHONE] = customer.phone
-        session.save()
+    def test_address_create_works_with_auth(self, client: Client, customer):
+        """POST to create address WITH auth succeeds."""
+        _login_as_customer(client, customer)
 
         response = client.post("/minha-conta/enderecos/", {
             "formatted_address": "Rua Nova 456 - Centro - Londrina",

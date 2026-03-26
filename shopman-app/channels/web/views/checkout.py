@@ -14,7 +14,8 @@ from shopman.ordering.services.commit import CommitService
 from shopman.utils.monetary import format_money
 from shopman.utils.phone import normalize_phone
 
-from channels.topics import PIX_GENERATE, STOCK_HOLD
+from channels.config import ChannelConfig
+from channels.topics import STOCK_HOLD
 
 from ..cart import CHANNEL_REF, CartService
 from ..constants import get_default_ddd
@@ -31,11 +32,19 @@ class CheckoutView(View):
 
         ctx: dict = {"cart": cart}
 
-        # Pre-fill from verified session
-        verified_phone = request.session.get("storefront_verified_phone")
-        if verified_phone:
-            verified_name = request.session.get("storefront_verified_name", "")
-            ctx["form_data"] = {"phone": verified_phone, "name": verified_name}
+        # Payment methods from channel config
+        ctx["payment_methods"] = self._get_payment_methods()
+
+        # Cutoff info for preorder
+        ctx["cutoff_info"] = self._get_cutoff_info()
+
+        # Pre-fill from authenticated customer (middleware)
+        customer_info = getattr(request, "customer", None)
+        if customer_info is not None:
+            ctx["form_data"] = {
+                "phone": customer_info.phone or "",
+                "name": customer_info.name or "",
+            }
             ctx["is_verified"] = True
 
         return render(request, "storefront/checkout.html", ctx)
@@ -72,6 +81,7 @@ class CheckoutView(View):
                 "cart": cart,
                 "errors": errors,
                 "form_data": {"name": name, "phone": phone_raw, "notes": notes},
+                "payment_methods": self._get_payment_methods(),
             })
 
         session_key = cart["session_key"]
@@ -139,6 +149,7 @@ class CheckoutView(View):
                         "delivery_time_slot": delivery_time_slot,
                         "fulfillment_type": fulfillment_type,
                     },
+                    "payment_methods": self._get_payment_methods(),
                 })
 
         ops = [
@@ -196,6 +207,7 @@ class CheckoutView(View):
                         "cart": cart,
                         "errors": {"stock": " | ".join(stock_errors) or "Estoque insuficiente para um ou mais itens."},
                         "form_data": {"name": name, "phone": phone_raw, "notes": notes},
+                        "payment_methods": self._get_payment_methods(),
                     })
         except Channel.DoesNotExist:
             pass
@@ -208,7 +220,16 @@ class CheckoutView(View):
             idempotency_key=idempotency_key,
         )
 
-        # Store fulfillment data on order (also in order.data for handlers)
+        # Determine chosen payment method
+        payment_methods = self._get_payment_methods()
+        if len(payment_methods) > 1:
+            chosen_method = request.POST.get("payment_method", payment_methods[0])
+            if chosen_method not in payment_methods:
+                chosen_method = payment_methods[0]
+        else:
+            chosen_method = payment_methods[0] if payment_methods else "counter"
+
+        # Store fulfillment data + payment method on order
         order_ref = result["order_ref"]
         try:
             order = Order.objects.get(ref=order_ref)
@@ -221,6 +242,8 @@ class CheckoutView(View):
                 order.data["delivery_time_slot"] = delivery_time_slot
             if notes:
                 order.data["order_notes"] = notes
+            if chosen_method in ("pix", "card"):
+                order.data["payment"] = {"method": chosen_method}
             order.save(update_fields=["data", "updated_at"])
         except Order.DoesNotExist:
             pass
@@ -228,16 +251,48 @@ class CheckoutView(View):
         # Clear cart from Django session
         request.session.pop("cart_session_key", None)
 
-        # If channel has pix.generate in directives, redirect to payment
-        try:
-            channel = Channel.objects.get(ref=CHANNEL_REF)
-            directives = (channel.config or {}).get("post_commit_directives", [])
-            if PIX_GENERATE in directives:
-                return redirect("storefront:order_payment", ref=order_ref)
-        except Channel.DoesNotExist:
-            pass
+        # Redirect to payment page for PIX or card
+        if chosen_method in ("pix", "card"):
+            return redirect("storefront:order_payment", ref=order_ref)
 
         return redirect("storefront:order_tracking", ref=order_ref)
+
+
+    @staticmethod
+    def _get_payment_methods() -> list[str]:
+        """Read available payment methods from channel config."""
+        try:
+            channel = Channel.objects.get(ref=CHANNEL_REF)
+            config = ChannelConfig.effective(channel)
+            return config.payment.available_methods
+        except Channel.DoesNotExist:
+            return ["counter"]
+
+    @staticmethod
+    def _get_cutoff_info() -> dict | None:
+        """Return cutoff info for preorder delivery."""
+        try:
+            channel = Channel.objects.get(ref=CHANNEL_REF)
+            cutoff_hour = (channel.config or {}).get("cutoff_hour", 18)
+        except Channel.DoesNotExist:
+            cutoff_hour = 18
+
+        now = timezone.localtime()
+        past_cutoff = now.hour >= cutoff_hour
+
+        if past_cutoff:
+            # Next available delivery is day after tomorrow
+            next_date = (now + timedelta(days=2)).strftime("%d/%m")
+            return {
+                "past_cutoff": True,
+                "cutoff_hour": cutoff_hour,
+                "message": f"Pedidos para amanhã encerrados. Próxima entrega: {next_date}",
+            }
+        return {
+            "past_cutoff": False,
+            "cutoff_hour": cutoff_hour,
+            "message": f"Pedidos até {cutoff_hour}h para entrega amanhã",
+        }
 
 
 class OrderConfirmationView(View):

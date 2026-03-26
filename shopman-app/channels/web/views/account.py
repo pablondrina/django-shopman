@@ -10,17 +10,22 @@ from shopman.utils.monetary import format_money
 from shopman.utils.phone import normalize_phone
 
 from ..constants import get_default_ddd
+from .auth import get_authenticated_customer
 from .tracking import STATUS_COLORS, STATUS_LABELS
 
 
-def _get_customer_from_session(request: HttpRequest):
-    """Get customer from phone stored in request session."""
-    from shopman.customers.services import customer as customer_service
+def _get_loyalty_data(customer):
+    """Fetch loyalty account and recent transactions if loyalty is installed."""
+    try:
+        from shopman.customers.contrib.loyalty.service import LoyaltyService
 
-    phone = request.session.get("account_phone")
-    if not phone:
-        return None
-    return customer_service.get_by_phone(phone)
+        account = LoyaltyService.get_account(customer.ref)
+        if account:
+            transactions = LoyaltyService.get_transactions(customer.ref, limit=5)
+            return account, transactions
+    except Exception:
+        pass
+    return None, []
 
 
 def _enrich_orders(orders) -> list[dict]:
@@ -40,17 +45,13 @@ def _enrich_orders(orders) -> list[dict]:
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
 class AccountView(View):
-    """Account page: phone lookup → customer info + addresses + orders."""
+    """Account page: session-based auth → customer info + addresses + orders."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        # If phone already verified in session, skip the phone form
-        verified_phone = request.session.get("storefront_verified_phone")
-        if verified_phone:
-            from shopman.customers.services import customer as customer_service
-
-            customer = customer_service.get_by_phone(verified_phone)
-            if customer:
-                return self._render_account(request, customer, verified_phone)
+        customer = get_authenticated_customer(request)
+        if customer:
+            phone = customer.phone
+            return self._render_account(request, customer, phone)
         return render(request, "storefront/account.html", {"customer": None})
 
     def _render_account(self, request: HttpRequest, customer, phone: str) -> HttpResponse:
@@ -74,11 +75,15 @@ class AccountView(View):
         except Exception:
             pass
 
+        loyalty_account, loyalty_transactions = _get_loyalty_data(customer)
+
         return render(request, "storefront/account.html", {
             "customer": customer,
             "addresses": addresses,
             "orders": enriched_orders,
             "preferences": preferences,
+            "loyalty_account": loyalty_account,
+            "loyalty_transactions": loyalty_transactions,
             "phone_value": phone,
             "is_verified": True,
         })
@@ -131,33 +136,17 @@ class AccountView(View):
                 "phone_value": phone_raw,
             })
 
-        # Build context
-        addresses = customer.addresses.order_by("-is_default", "label")
+        # If already verified in this session for this phone, show data
+        auth_customer = get_authenticated_customer(request)
+        if auth_customer and auth_customer.pk == customer.pk:
+            return self._render_account(request, customer, phone)
 
-        orders = Order.objects.filter(
-            handle_type="phone",
-            handle_ref=phone,
-        ).order_by("-created_at")[:10]
-
-        enriched_orders = _enrich_orders(orders)
-
-        # Preferences (optional)
-        preferences = None
-        try:
-            from shopman.customers.contrib.preferences.models import CustomerPreference
-
-            prefs = CustomerPreference.objects.filter(customer=customer).order_by("category", "key")
-            if prefs.exists():
-                preferences = prefs
-        except Exception:
-            pass
-
+        # Customer found but NOT verified — require OTP before showing data
         return render(request, "storefront/account.html", {
-            "customer": customer,
-            "addresses": addresses,
-            "orders": enriched_orders,
-            "preferences": preferences,
-            "phone_value": phone_raw,
+            "customer": None,
+            "needs_verification": True,
+            "customer_name": customer.first_name or customer.name,
+            "phone_value": phone,
         })
 
 
@@ -167,20 +156,9 @@ class AddressCreateView(View):
     def post(self, request: HttpRequest) -> HttpResponse:
         from shopman.customers.models import CustomerAddress
 
-        phone = request.POST.get("customer_phone", "").strip()
-        if not phone:
-            return HttpResponse("Telefone não informado.", status=400)
-
-        try:
-            phone = normalize_phone(phone)
-        except Exception:
-            return HttpResponse("Telefone inválido.", status=400)
-
-        from shopman.customers.services import customer as customer_service
-
-        customer = customer_service.get_by_phone(phone)
+        customer = get_authenticated_customer(request)
         if not customer:
-            return HttpResponse("Cliente não encontrado.", status=404)
+            return HttpResponse("Autenticação necessária.", status=401)
 
         label = request.POST.get("label", "home")
         label_custom = request.POST.get("label_custom", "").strip()
@@ -240,18 +218,15 @@ class AddressUpdateView(View):
     def post(self, request: HttpRequest, pk: int) -> HttpResponse:
         from shopman.customers.models import CustomerAddress
 
+        auth_customer = get_authenticated_customer(request)
+        if not auth_customer:
+            return HttpResponse("Autenticação necessária.", status=401)
+
         addr = get_object_or_404(CustomerAddress, pk=pk)
         customer = addr.customer
 
-        # Verify phone matches
-        phone = request.POST.get("customer_phone", "").strip()
-        if phone:
-            try:
-                phone = normalize_phone(phone)
-            except Exception:
-                phone = ""
-            if phone != customer.phone:
-                return HttpResponse("Acesso não autorizado.", status=403)
+        if auth_customer.pk != customer.pk:
+            return HttpResponse("Acesso não autorizado.", status=403)
 
         addr.label = request.POST.get("label", addr.label)
         addr.label_custom = request.POST.get("label_custom", "").strip()
@@ -290,17 +265,15 @@ class AddressDeleteView(View):
     def post(self, request: HttpRequest, pk: int) -> HttpResponse:
         from shopman.customers.models import CustomerAddress
 
+        auth_customer = get_authenticated_customer(request)
+        if not auth_customer:
+            return HttpResponse("Autenticação necessária.", status=401)
+
         addr = get_object_or_404(CustomerAddress, pk=pk)
         customer = addr.customer
 
-        phone = request.POST.get("customer_phone", "").strip()
-        if phone:
-            try:
-                phone = normalize_phone(phone)
-            except Exception:
-                phone = ""
-            if phone != customer.phone:
-                return HttpResponse("Acesso não autorizado.", status=403)
+        if auth_customer.pk != customer.pk:
+            return HttpResponse("Acesso não autorizado.", status=403)
 
         addr.delete()
 
@@ -317,17 +290,15 @@ class AddressSetDefaultView(View):
     def post(self, request: HttpRequest, pk: int) -> HttpResponse:
         from shopman.customers.models import CustomerAddress
 
+        auth_customer = get_authenticated_customer(request)
+        if not auth_customer:
+            return HttpResponse("Autenticação necessária.", status=401)
+
         addr = get_object_or_404(CustomerAddress, pk=pk)
         customer = addr.customer
 
-        phone = request.POST.get("customer_phone", "").strip()
-        if phone:
-            try:
-                phone = normalize_phone(phone)
-            except Exception:
-                phone = ""
-            if phone != customer.phone:
-                return HttpResponse("Acesso não autorizado.", status=403)
+        if auth_customer.pk != customer.pk:
+            return HttpResponse("Acesso não autorizado.", status=403)
 
         addr.is_default = True
         addr.save()  # save() handles unsetting other defaults
