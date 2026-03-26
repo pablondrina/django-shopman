@@ -14,11 +14,11 @@ Dispatched when a Customer successfully authenticates via Auth.
 Kwargs:
     customer (AuthCustomerInfo): The authenticated customer.
     user (django.contrib.auth.models.User): The Django User created/linked.
-    method (str): Authentication method — "bridge_token" or "magic_code".
+    method (str): Authentication method — "access_link" or "verification_code".
     request (HttpRequest): The Django request that triggered authentication.
 
 When emitted:
-    After successful BridgeToken exchange (AuthBridgeService.exchange).
+    After successful AccessLink exchange (AccessLinkService.exchange).
 
 Example::
 
@@ -30,60 +30,60 @@ Example::
         logger.info(f"Customer {customer.uuid} logged in via {method}")
 """
 
-bridge_token_created = Signal()
+access_link_created = Signal()
 """
-Dispatched when a BridgeToken is created.
+Dispatched when an AccessLink is created.
 
 Kwargs:
-    token (BridgeToken): The created token instance.
+    token (AccessLink): The created token instance.
     customer (AuthCustomerInfo): The target customer.
     audience (str): Token audience (web_checkout, web_account, etc.).
     source (str): Token source (manychat, internal, api).
 
 When emitted:
-    After AuthBridgeService.create_token() successfully creates a token.
+    After AccessLinkService.create_token() successfully creates a token.
 
 Example::
 
-    @receiver(bridge_token_created)
+    @receiver(access_link_created)
     def on_token(sender, token, customer, audience, source, **kwargs):
-        analytics.track("bridge_token_created", customer_id=str(customer.uuid))
+        analytics.track("access_link_created", customer_id=str(customer.uuid))
 """
 
-magic_code_sent = Signal()
+verification_code_sent = Signal()
 """
-Dispatched when a MagicCode is sent to the customer.
+Dispatched when a VerificationCode is sent to the customer.
 
 Kwargs:
-    code (MagicCode): The MagicCode instance (code_hash is HMAC, not raw).
+    code (VerificationCode): The VerificationCode instance (code_hash is HMAC, not raw).
     target_value (str): Phone (E.164) or email the code was sent to.
     delivery_method (str): How it was sent — "whatsapp", "sms", or "email".
 
 When emitted:
-    After VerificationService.request_code() successfully sends the code.
+    After AuthService.request_code() successfully sends the code.
 
 Example::
 
-    @receiver(magic_code_sent)
+    @receiver(verification_code_sent)
     def on_code_sent(sender, code, target_value, delivery_method, **kwargs):
         logger.info(f"Code sent to {target_value} via {delivery_method}")
 """
 
-magic_code_verified = Signal()
+verification_code_verified = Signal()
 """
-Dispatched when a MagicCode is successfully verified.
+Dispatched when a VerificationCode is successfully verified.
 
 Kwargs:
-    code (MagicCode): The verified MagicCode instance.
+    code (VerificationCode): The verified VerificationCode instance.
     customer (AuthCustomerInfo): The customer who verified.
     purpose (str): Code purpose — "login" or "verify_contact".
 
 When emitted:
-    After VerificationService.verify_for_login() succeeds.
+    After AuthService.verify_for_login() succeeds.
 
 Example::
 
-    @receiver(magic_code_verified)
+    @receiver(verification_code_verified)
     def on_verified(sender, code, customer, purpose, **kwargs):
         if purpose == "login":
             logger.info(f"Customer {customer.uuid} verified via OTP")

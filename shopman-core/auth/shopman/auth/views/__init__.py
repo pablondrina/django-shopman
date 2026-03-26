@@ -2,14 +2,14 @@
 Auth views.
 """
 
-from .bridge import BridgeTokenCreateView, BridgeTokenExchangeView
-from .magic_code import MagicCodeRequestView, MagicCodeVerifyView
-from .magic_link import MagicLinkRequestView
+from .access_link import AccessLinkCreateView, AccessLinkExchangeView
+from .access_link_request import AccessLinkRequestView
+from .verification_code import VerificationCodeRequestView, VerificationCodeVerifyView
 
 __all__ = [
-    "BridgeTokenCreateView",
-    "BridgeTokenExchangeView",
-    "MagicCodeRequestView",
-    "MagicCodeVerifyView",
-    "MagicLinkRequestView",
+    "AccessLinkCreateView",
+    "AccessLinkExchangeView",
+    "AccessLinkRequestView",
+    "VerificationCodeRequestView",
+    "VerificationCodeVerifyView",
 ]

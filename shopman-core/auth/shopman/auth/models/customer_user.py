@@ -1,5 +1,5 @@
 """
-IdentityLink model - Links Customer (Customers) to User (Django auth).
+CustomerUser model - Links Customer (Customers) to User (Django auth).
 """
 
 from django.conf import settings
@@ -7,7 +7,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 
-class IdentityLink(models.Model):
+class CustomerUser(models.Model):
     """
     Link between Customer (Customers) and User (Django auth).
 
@@ -21,7 +21,7 @@ class IdentityLink(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="shopman_auth_identity_link",
+        related_name="shopman_auth_customer_user",
         verbose_name=_("usuário"),
     )
 
@@ -36,7 +36,6 @@ class IdentityLink(models.Model):
 
     created_at = models.DateTimeField(_("criado em"), auto_now_add=True)
 
-    # D3: Metadata for device info, login source, etc.
     metadata = models.JSONField(
         _("metadados"),
         default=dict,
@@ -45,7 +44,7 @@ class IdentityLink(models.Model):
     )
 
     class Meta:
-        db_table = "shopman_auth_identity_link"
+        db_table = "shopman_auth_customer_user"
         verbose_name = _("perfil de usuário")
         verbose_name_plural = _("perfis de usuário")
 

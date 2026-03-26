@@ -1,5 +1,5 @@
 """
-Magic code views.
+Verification code views.
 """
 
 import json
@@ -11,17 +11,17 @@ from django.utils.translation import gettext_lazy as _
 from django.views import View
 
 from ..conf import get_auth_settings
-from ..models import BridgeToken, MagicCode
-from ..services.auth_bridge import AuthBridgeService
-from ..services.verification import VerificationService
+from ..models import AccessLink, VerificationCode
+from ..services.access_link import AccessLinkService
+from ..services.verification import AuthService
 from ..utils import get_client_ip, normalize_phone, safe_redirect_url
 
-logger = logging.getLogger("shopman.auth.views.magic_code")
+logger = logging.getLogger("shopman.auth.views.verification_code")
 
 
-class MagicCodeRequestView(View):
+class VerificationCodeRequestView(View):
     """
-    Request a magic code.
+    Request a verification code.
 
     GET /doorman/code/request
         Renders code_request.html form
@@ -80,9 +80,9 @@ class MagicCodeRequestView(View):
 
         # Request code
         settings = get_auth_settings()
-        result = VerificationService.request_code(
+        result = AuthService.request_code(
             target_value=phone,
-            purpose=MagicCode.Purpose.LOGIN,
+            purpose=VerificationCode.Purpose.LOGIN,
             ip_address=get_client_ip(request, settings.TRUSTED_PROXY_DEPTH),
         )
 
@@ -111,9 +111,9 @@ class MagicCodeRequestView(View):
         return redirect("shopman_auth:code-verify")
 
 
-class MagicCodeVerifyView(View):
+class VerificationCodeVerifyView(View):
     """
-    Verify a magic code.
+    Verify a verification code.
 
     GET /doorman/code/verify
         Renders code_verify.html form
@@ -170,7 +170,7 @@ class MagicCodeVerifyView(View):
         phone = normalize_phone(phone) or phone
 
         # Verify code
-        result = VerificationService.verify_for_login(phone, code, request)
+        result = AuthService.verify_for_login(phone, code, request)
 
         if not result.success:
             if is_json:
@@ -191,12 +191,12 @@ class MagicCodeVerifyView(View):
                 },
             )
 
-        # Create session via bridge token
-        token_result = AuthBridgeService.create_token(
+        # Create session via access link
+        token_result = AccessLinkService.create_token(
             customer=result.customer,
-            source=BridgeToken.Source.INTERNAL,
+            source=AccessLink.Source.INTERNAL,
         )
-        AuthBridgeService.exchange(
+        AccessLinkService.exchange(
             token_result.token,
             request,
             preserve_session_keys=settings.PRESERVE_SESSION_KEYS,

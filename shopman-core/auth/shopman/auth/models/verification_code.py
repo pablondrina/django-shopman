@@ -1,5 +1,5 @@
 """
-MagicCode model - OTP code for verification.
+VerificationCode model - OTP code for verification.
 """
 
 import hashlib
@@ -45,7 +45,7 @@ def verify_code(stored_digest: str, code_input: str) -> bool:
 
 
 def default_code_expiry():
-    """Default expiration time for magic codes."""
+    """Default expiration time for verification codes."""
     from ..conf import auth_settings
 
     return timezone.now() + timedelta(minutes=auth_settings.MAGIC_CODE_TTL_MINUTES)
@@ -56,7 +56,7 @@ def _default_max_attempts():
     return auth_settings.MAGIC_CODE_MAX_ATTEMPTS
 
 
-class MagicCode(models.Model):
+class VerificationCode(models.Model):
     """
     OTP code for verification.
 
@@ -140,7 +140,7 @@ class MagicCode(models.Model):
     )
 
     class Meta:
-        db_table = "shopman_auth_magic_code"
+        db_table = "shopman_auth_verification_code"
         verbose_name = _("código de verificação")
         verbose_name_plural = _("códigos de verificação")
         ordering = ["-created_at"]
@@ -175,7 +175,7 @@ class MagicCode(models.Model):
         """Record a failed verification attempt (atomic increment)."""
         from django.db.models import F
 
-        MagicCode.objects.filter(pk=self.pk).update(attempts=F("attempts") + 1)
+        VerificationCode.objects.filter(pk=self.pk).update(attempts=F("attempts") + 1)
         self.refresh_from_db(fields=["attempts"])
         if self.attempts >= self.max_attempts:
             self.status = self.Status.FAILED

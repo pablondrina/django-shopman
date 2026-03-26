@@ -15,8 +15,8 @@ from ..conf import auth_settings, get_customer_resolver, get_auth_settings
 from ..protocols.customer import AuthCustomerInfo
 from ..exceptions import GateError
 from ..gates import Gates
-from ..models import MagicCode
-from ..signals import magic_code_sent, magic_code_verified
+from ..models import VerificationCode
+from ..signals import verification_code_sent, verification_code_verified
 from ..utils import normalize_phone
 
 if TYPE_CHECKING:
@@ -64,8 +64,8 @@ class AuthService:
     def request_code(
         cls,
         target_value: str,
-        purpose: str = MagicCode.Purpose.LOGIN,
-        delivery_method: str = MagicCode.DeliveryMethod.WHATSAPP,
+        purpose: str = VerificationCode.Purpose.LOGIN,
+        delivery_method: str = VerificationCode.DeliveryMethod.WHATSAPP,
         ip_address: str | None = None,
         sender: "MessageSenderProtocol | None" = None,
     ) -> CodeRequestResult:
@@ -121,17 +121,17 @@ class AuthService:
                 )
 
         # Invalidate previous codes
-        MagicCode.objects.filter(
+        VerificationCode.objects.filter(
             target_value=target_value,
             purpose=purpose,
-            status__in=[MagicCode.Status.PENDING, MagicCode.Status.SENT],
-        ).update(status=MagicCode.Status.EXPIRED)
+            status__in=[VerificationCode.Status.PENDING, VerificationCode.Status.SENT],
+        ).update(status=VerificationCode.Status.EXPIRED)
 
         # Create code — store HMAC, send raw
-        from ..models.magic_code import generate_raw_code
+        from ..models.verification_code import generate_raw_code
 
         raw_code, hmac_digest = generate_raw_code()
-        code = MagicCode.objects.create(
+        code = VerificationCode.objects.create(
             code_hash=hmac_digest,
             target_value=target_value,
             purpose=purpose,
@@ -152,7 +152,7 @@ class AuthService:
             return CodeRequestResult(success=False, error="Error sending code.")
 
         # Signal
-        magic_code_sent.send(
+        verification_code_sent.send(
             sender=cls,
             code=code,
             target_value=target_value,
@@ -195,7 +195,7 @@ class AuthService:
         target_value = normalize_phone(target_value)
 
         # Find valid code
-        code = cls._get_valid_code(target_value, MagicCode.Purpose.LOGIN)
+        code = cls._get_valid_code(target_value, VerificationCode.Purpose.LOGIN)
         if not code:
             return VerifyResult(
                 success=False,
@@ -203,7 +203,7 @@ class AuthService:
             )
 
         # Verify code via HMAC comparison
-        from ..models.magic_code import verify_code
+        from ..models.verification_code import verify_code
 
         if not verify_code(code.code_hash, code_input):
             code.record_attempt()
@@ -233,11 +233,11 @@ class AuthService:
         code.mark_verified(customer.uuid)
 
         # Signal
-        magic_code_verified.send(
+        verification_code_verified.send(
             sender=cls,
             code=code,
             customer=customer,
-            purpose=MagicCode.Purpose.LOGIN,
+            purpose=VerificationCode.Purpose.LOGIN,
         )
 
         logger.info(
@@ -259,16 +259,16 @@ class AuthService:
     # ===========================================
 
     @classmethod
-    def _get_valid_code(cls, target_value: str, purpose: str) -> MagicCode | None:
+    def _get_valid_code(cls, target_value: str, purpose: str) -> VerificationCode | None:
         """Get the most recent valid code for target and purpose."""
         try:
-            return MagicCode.objects.filter(
+            return VerificationCode.objects.filter(
                 target_value=target_value,
                 purpose=purpose,
-                status__in=[MagicCode.Status.PENDING, MagicCode.Status.SENT],
+                status__in=[VerificationCode.Status.PENDING, VerificationCode.Status.SENT],
                 expires_at__gt=timezone.now(),
             ).latest("created_at")
-        except MagicCode.DoesNotExist:
+        except VerificationCode.DoesNotExist:
             return None
 
     @classmethod
@@ -293,11 +293,7 @@ class AuthService:
         from datetime import timedelta
 
         cutoff = timezone.now() - timedelta(days=days)
-        deleted, _ = MagicCode.objects.filter(
+        deleted, _ = VerificationCode.objects.filter(
             expires_at__lt=cutoff,
         ).delete()
         return deleted
-
-
-# Backward-compatible alias
-VerificationService = AuthService

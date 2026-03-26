@@ -2,15 +2,12 @@
 Auth services.
 """
 
-from .auth_bridge import AuthBridgeService
+from .access_link import AccessLinkService
 from .device_trust import DeviceTrustService
-from .magic_link import MagicLinkService
-from .verification import AuthService, VerificationService
+from .verification import AuthService
 
 __all__ = [
-    "AuthBridgeService",
+    "AccessLinkService",
     "AuthService",
     "DeviceTrustService",
-    "MagicLinkService",
-    "VerificationService",
 ]

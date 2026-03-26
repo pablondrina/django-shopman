@@ -1,5 +1,5 @@
 """
-Magic link views — email-based one-click login.
+Access link request views — email-based one-click login.
 """
 
 import json
@@ -11,20 +11,20 @@ from django.utils.translation import gettext_lazy as _
 from django.views import View
 
 from ..conf import get_auth_settings
-from ..services.magic_link import MagicLinkService
+from ..services.access_link import AccessLinkService
 from ..utils import get_client_ip
 
-logger = logging.getLogger("shopman.auth.views.magic_link")
+logger = logging.getLogger("shopman.auth.views.access_link")
 
 
-class MagicLinkRequestView(View):
+class AccessLinkRequestView(View):
     """
-    Request a magic link via email.
+    Request an access link via email.
 
-    GET /doorman/magic-link/
-        Renders magic_link_request.html form
+    GET /doorman/access-link/
+        Renders access_link_request.html form
 
-    POST /doorman/magic-link/
+    POST /doorman/access-link/
         Form data: email=...
         JSON data: {"email": "..."}
 
@@ -34,10 +34,10 @@ class MagicLinkRequestView(View):
 
     def get_template_name(self):
         settings = get_auth_settings()
-        return settings.TEMPLATE_MAGIC_LINK_REQUEST
+        return settings.TEMPLATE_ACCESS_LINK_REQUEST
 
     def get(self, request):
-        if not get_auth_settings().MAGIC_LINK_ENABLED:
+        if not get_auth_settings().ACCESS_LINK_ENABLED:
             return render(
                 request,
                 self.get_template_name(),
@@ -49,9 +49,9 @@ class MagicLinkRequestView(View):
     def post(self, request):
         template_name = self.get_template_name()
 
-        if not get_auth_settings().MAGIC_LINK_ENABLED:
+        if not get_auth_settings().ACCESS_LINK_ENABLED:
             return JsonResponse(
-                {"error": "Magic links are disabled."}, status=400
+                {"error": "Access links are disabled."}, status=400
             )
 
         # Parse input
@@ -73,10 +73,10 @@ class MagicLinkRequestView(View):
                 return JsonResponse({"error": error}, status=400)
             return render(request, template_name, {"error": error, "email": email})
 
-        # Send magic link
+        # Send access link
         settings = get_auth_settings()
         ip_address = get_client_ip(request, settings.TRUSTED_PROXY_DEPTH)
-        result = MagicLinkService.send_magic_link(email, ip_address=ip_address)
+        result = AccessLinkService.send_access_link(email, ip_address=ip_address)
 
         if not result.success:
             is_rate_limit = "Too many" in (result.error or "")

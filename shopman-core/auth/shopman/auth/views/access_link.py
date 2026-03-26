@@ -1,5 +1,5 @@
 """
-Bridge token views.
+Access link views.
 """
 
 import json
@@ -14,17 +14,17 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
 from ..conf import get_customer_resolver, get_auth_settings
-from ..models import BridgeToken
-from ..services.auth_bridge import AuthBridgeService
+from ..models import AccessLink
+from ..services.access_link import AccessLinkService
 from ..utils import safe_redirect_url
 
-logger = logging.getLogger("shopman.auth.views.bridge")
+logger = logging.getLogger("shopman.auth.views.access_link")
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class BridgeTokenCreateView(View):
+class AccessLinkCreateView(View):
     """
-    Create a bridge token.
+    Create an access link.
 
     POST /doorman/bridge-tokens
 
@@ -81,10 +81,10 @@ class BridgeTokenCreateView(View):
             return JsonResponse({"error": "Customer inactive"}, status=400)
 
         # Create token
-        result = AuthBridgeService.create_token(
+        result = AccessLinkService.create_token(
             customer=customer,
-            audience=data.get("audience", BridgeToken.Audience.WEB_GENERAL),
-            source=data.get("source", BridgeToken.Source.MANYCHAT),
+            audience=data.get("audience", AccessLink.Audience.WEB_GENERAL),
+            source=data.get("source", AccessLink.Source.MANYCHAT),
             ttl_minutes=data.get("ttl_minutes"),
             metadata=data.get("metadata"),
         )
@@ -98,9 +98,9 @@ class BridgeTokenCreateView(View):
         )
 
 
-class BridgeTokenExchangeView(View):
+class AccessLinkExchangeView(View):
     """
-    Exchange a bridge token for a session.
+    Exchange an access link for a session.
 
     GET /doorman/bridge/exchange?t=TOKEN
 
@@ -123,7 +123,7 @@ class BridgeTokenExchangeView(View):
                 {"error": str(_("Token não informado."))},
             )
 
-        result = AuthBridgeService.exchange(
+        result = AccessLinkService.exchange(
             token,
             request,
             preserve_session_keys=settings.PRESERVE_SESSION_KEYS,

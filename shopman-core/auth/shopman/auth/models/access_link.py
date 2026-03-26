@@ -1,5 +1,5 @@
 """
-BridgeToken model - Token for creating web session from chat.
+AccessLink model - Token for creating web session from chat or email.
 """
 
 import secrets
@@ -18,15 +18,15 @@ def generate_token() -> str:
 
 
 def default_expiry():
-    """Default expiration time for bridge tokens."""
+    """Default expiration time for access links."""
     from ..conf import auth_settings
 
     return timezone.now() + timedelta(minutes=auth_settings.BRIDGE_TOKEN_TTL_MINUTES)
 
 
-class BridgeToken(models.Model):
+class AccessLink(models.Model):
     """
-    Token for creating web session from chat.
+    Token for creating web session from chat or email.
 
     Flow:
     1. Manychat/backend calls POST /auth/bridge-tokens
@@ -101,12 +101,12 @@ class BridgeToken(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="shopman_auth_bridge_tokens",
+        related_name="shopman_auth_access_links",
         verbose_name=_("usuário"),
     )
 
     class Meta:
-        db_table = "shopman_auth_bridge_token"
+        db_table = "shopman_auth_access_link"
         verbose_name = _("link de acesso")
         verbose_name_plural = _("links de acesso")
         ordering = ["-created_at"]
@@ -117,7 +117,7 @@ class BridgeToken(models.Model):
 
     def __str__(self):
         status = "used" if self.used_at else ("expired" if self.is_expired else "valid")
-        return f"Bridge {self.token[:8]}... ({status})"
+        return f"AccessLink {self.token[:8]}... ({status})"
 
     @property
     def is_expired(self) -> bool:

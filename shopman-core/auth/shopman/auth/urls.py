@@ -7,22 +7,22 @@ Include in your project's urls.py:
 
 from django.urls import path
 
-from .views.bridge import BridgeTokenCreateView, BridgeTokenExchangeView
+from .views.access_link import AccessLinkCreateView, AccessLinkExchangeView
 from .views.health import HealthCheckView
-from .views.magic_code import MagicCodeRequestView, MagicCodeVerifyView
-from .views.magic_link import MagicLinkRequestView
+from .views.access_link_request import AccessLinkRequestView
+from .views.verification_code import VerificationCodeRequestView, VerificationCodeVerifyView
 
 app_name = "shopman_auth"
 
 urlpatterns = [
-    # Bridge Token (link magico do Manychat)
-    path("bridge/", BridgeTokenExchangeView.as_view(), name="bridge-exchange"),
-    path("bridge/create/", BridgeTokenCreateView.as_view(), name="bridge-create"),
-    # Magic Code (login externo via OTP)
-    path("code/request/", MagicCodeRequestView.as_view(), name="code-request"),
-    path("code/verify/", MagicCodeVerifyView.as_view(), name="code-verify"),
-    # Magic Link (login via email - one click)
-    path("magic-link/", MagicLinkRequestView.as_view(), name="magic-link"),
+    # Access Link (link de acesso do Manychat)
+    path("bridge/", AccessLinkExchangeView.as_view(), name="bridge-exchange"),
+    path("bridge/create/", AccessLinkCreateView.as_view(), name="bridge-create"),
+    # Verification Code (login externo via OTP)
+    path("code/request/", VerificationCodeRequestView.as_view(), name="code-request"),
+    path("code/verify/", VerificationCodeVerifyView.as_view(), name="code-verify"),
+    # Access Link (login via email - one click)
+    path("access-link/", AccessLinkRequestView.as_view(), name="access-link"),
     # Health check (load balancers, Kubernetes probes)
     path("health/", HealthCheckView.as_view(), name="health"),
 ]

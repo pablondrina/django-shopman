@@ -1,12 +1,12 @@
 """
 Auth Gates - Validation rules.
 
-G7: BridgeTokenValidity - Token is valid for exchange
-G8: MagicCodeValidity - Code is valid for verification
+G7: AccessLinkValidity - Token is valid for exchange
+G8: VerificationCodeValidity - Code is valid for verification
 G9: RateLimit - Rate limiting for code requests
 G10: IPRateLimit - Rate limiting by IP address
 G11: CodeCooldown - Minimum time between code sends
-G12: MagicLinkRateLimit - Rate limiting for magic link requests
+G12: AccessLinkRateLimit - Rate limiting for access link requests
 """
 
 from dataclasses import dataclass
@@ -15,7 +15,7 @@ from datetime import timedelta
 from django.utils import timezone
 
 from .exceptions import GateError
-from .models import BridgeToken, MagicCode
+from .models import AccessLink, VerificationCode
 
 
 @dataclass
@@ -31,23 +31,23 @@ class Gates:
     """Auth validation gates."""
 
     # ===========================================
-    # G7: Bridge Token Validity
+    # G7: Access Link Validity
     # ===========================================
 
     # Janela de reuso do token (segundos) - para lidar com prefetch de navegadores
-    BRIDGE_TOKEN_REUSE_WINDOW_SECONDS = 60
+    ACCESS_LINK_REUSE_WINDOW_SECONDS = 60
 
     @classmethod
-    def bridge_token_validity(
+    def access_link_validity(
         cls,
-        token: BridgeToken,
+        token: AccessLink,
         required_audience: str | None = None,
     ) -> GateResult:
         """
         G7: Token is valid for exchange.
 
         Args:
-            token: BridgeToken instance
+            token: AccessLink instance
             required_audience: If set, token must have this audience
 
         Raises:
@@ -55,65 +55,65 @@ class Gates:
         """
         if token.used_at:
             # Permite reuso dentro da janela (para lidar com prefetch de navegadores)
-            reuse_window = timedelta(seconds=cls.BRIDGE_TOKEN_REUSE_WINDOW_SECONDS)
+            reuse_window = timedelta(seconds=cls.ACCESS_LINK_REUSE_WINDOW_SECONDS)
             if timezone.now() - token.used_at > reuse_window:
-                raise GateError("G7_BridgeTokenValidity", "Token already used.")
+                raise GateError("G7_AccessLinkValidity", "Token already used.")
 
         if token.is_expired:
-            raise GateError("G7_BridgeTokenValidity", "Token expired.")
+            raise GateError("G7_AccessLinkValidity", "Token expired.")
 
         if required_audience and token.audience != required_audience:
             raise GateError(
-                "G7_BridgeTokenValidity",
+                "G7_AccessLinkValidity",
                 f"Wrong audience: expected {required_audience}",
             )
 
-        return GateResult(True, "G7_BridgeTokenValidity")
+        return GateResult(True, "G7_AccessLinkValidity")
 
     @classmethod
-    def check_bridge_token_validity(
+    def check_access_link_validity(
         cls,
-        token: BridgeToken,
+        token: AccessLink,
         required_audience: str | None = None,
     ) -> bool:
         """Check without raising (returns bool)."""
         try:
-            cls.bridge_token_validity(token, required_audience)
+            cls.access_link_validity(token, required_audience)
             return True
         except GateError:
             return False
 
     # ===========================================
-    # G8: Magic Code Validity
+    # G8: Verification Code Validity
     # ===========================================
 
     @classmethod
-    def magic_code_validity(cls, code: MagicCode) -> GateResult:
+    def verification_code_validity(cls, code: VerificationCode) -> GateResult:
         """
         G8: Code is valid for verification.
 
         Args:
-            code: MagicCode instance
+            code: VerificationCode instance
 
         Raises:
             GateError: If code is invalid
         """
         if not code.is_valid:
             if code.is_expired:
-                raise GateError("G8_MagicCodeValidity", "Code expired.")
+                raise GateError("G8_VerificationCodeValidity", "Code expired.")
             if code.attempts >= code.max_attempts:
-                raise GateError("G8_MagicCodeValidity", "Max attempts exceeded.")
-            if code.status == MagicCode.Status.VERIFIED:
-                raise GateError("G8_MagicCodeValidity", "Code already verified.")
-            raise GateError("G8_MagicCodeValidity", "Code invalid.")
+                raise GateError("G8_VerificationCodeValidity", "Max attempts exceeded.")
+            if code.status == VerificationCode.Status.VERIFIED:
+                raise GateError("G8_VerificationCodeValidity", "Code already verified.")
+            raise GateError("G8_VerificationCodeValidity", "Code invalid.")
 
-        return GateResult(True, "G8_MagicCodeValidity")
+        return GateResult(True, "G8_VerificationCodeValidity")
 
     @classmethod
-    def check_magic_code_validity(cls, code: MagicCode) -> bool:
+    def check_verification_code_validity(cls, code: VerificationCode) -> bool:
         """Check without raising (returns bool)."""
         try:
-            cls.magic_code_validity(code)
+            cls.verification_code_validity(code)
             return True
         except GateError:
             return False
@@ -142,7 +142,7 @@ class Gates:
         """
         window_start = timezone.now() - timedelta(minutes=window_minutes)
 
-        count = MagicCode.objects.filter(
+        count = VerificationCode.objects.filter(
             target_value=key,
             created_at__gte=window_start,
         ).count()
@@ -196,7 +196,7 @@ class Gates:
 
         window_start = timezone.now() - timedelta(minutes=window_minutes)
 
-        count = MagicCode.objects.filter(
+        count = VerificationCode.objects.filter(
             ip_address=ip_address,
             created_at__gte=window_start,
         ).count()
@@ -233,7 +233,7 @@ class Gates:
             GateError: If cooldown period not elapsed
         """
         last_code = (
-            MagicCode.objects.filter(target_value=target_value)
+            VerificationCode.objects.filter(target_value=target_value)
             .order_by("-created_at")
             .first()
         )
@@ -250,20 +250,20 @@ class Gates:
         return GateResult(True, "G11_CodeCooldown")
 
     # ===========================================
-    # G12: Magic Link Rate Limit
+    # G12: Access Link Rate Limit
     # ===========================================
 
     @classmethod
-    def magic_link_rate_limit(
+    def access_link_rate_limit(
         cls,
         email: str,
         max_requests: int,
         window_minutes: int,
     ) -> GateResult:
         """
-        G12: Rate limiting for magic link requests per email.
+        G12: Rate limiting for access link requests per email.
 
-        Prevents email bombing by limiting how many magic links
+        Prevents email bombing by limiting how many access links
         can be sent to the same address within a time window.
 
         Args:
@@ -276,22 +276,22 @@ class Gates:
         """
         window_start = timezone.now() - timedelta(minutes=window_minutes)
 
-        count = BridgeToken.objects.filter(
-            metadata__method="magic_link",
+        count = AccessLink.objects.filter(
+            metadata__method="access_link",
             metadata__email=email,
             created_at__gte=window_start,
         ).count()
 
         if count >= max_requests:
             raise GateError(
-                "G12_MagicLinkRateLimit",
+                "G12_AccessLinkRateLimit",
                 f"Rate limit: {count}/{max_requests} in {window_minutes}min.",
             )
 
-        return GateResult(True, "G12_MagicLinkRateLimit")
+        return GateResult(True, "G12_AccessLinkRateLimit")
 
     @classmethod
-    def check_magic_link_rate_limit(
+    def check_access_link_rate_limit(
         cls,
         email: str,
         max_requests: int,
@@ -299,7 +299,7 @@ class Gates:
     ) -> bool:
         """Check without raising (returns bool)."""
         try:
-            cls.magic_link_rate_limit(email, max_requests, window_minutes)
+            cls.access_link_rate_limit(email, max_requests, window_minutes)
             return True
         except GateError:
             return False

@@ -2,14 +2,14 @@
 Auth models.
 """
 
-from .bridge_token import BridgeToken
+from .access_link import AccessLink
+from .customer_user import CustomerUser
 from .device_trust import TrustedDevice
-from .identity_link import IdentityLink
-from .magic_code import MagicCode
+from .verification_code import VerificationCode
 
 __all__ = [
-    "BridgeToken",
-    "IdentityLink",
-    "MagicCode",
+    "AccessLink",
+    "CustomerUser",
+    "VerificationCode",
     "TrustedDevice",
 ]

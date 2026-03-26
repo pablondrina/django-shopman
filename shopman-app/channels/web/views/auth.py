@@ -1,11 +1,61 @@
 from __future__ import annotations
 
+import logging
+
+from django.core.cache import cache
 from django.http import HttpRequest, HttpResponse, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.views import View
 from shopman.utils.phone import normalize_phone
 
 from ..constants import HAS_AUTH
+
+logger = logging.getLogger("shopman.web.auth")
+
+# Session keys for storefront auth
+SESSION_CUSTOMER_UUID = "storefront_customer_uuid"
+SESSION_VERIFIED = "storefront_verified"
+SESSION_VERIFIED_PHONE = "storefront_verified_phone"
+SESSION_VERIFIED_NAME = "storefront_verified_name"
+
+# Rate limit settings
+RATE_LIMIT_REQUEST_CODE_MAX = 3
+RATE_LIMIT_REQUEST_CODE_WINDOW = 600  # 10 min
+RATE_LIMIT_VERIFY_CODE_MAX = 5
+RATE_LIMIT_VERIFY_CODE_WINDOW = 600  # 10 min
+
+
+def _set_auth_session(request: HttpRequest, customer, phone: str) -> None:
+    """Set session vars after successful authentication."""
+    request.session[SESSION_CUSTOMER_UUID] = str(customer.uuid)
+    request.session[SESSION_VERIFIED] = True
+    request.session[SESSION_VERIFIED_PHONE] = phone
+    request.session[SESSION_VERIFIED_NAME] = customer.name or ""
+
+
+def get_authenticated_customer(request: HttpRequest):
+    """Get customer from session if authenticated.
+
+    Returns the Customer model instance or None.
+    """
+    customer_uuid = request.session.get(SESSION_CUSTOMER_UUID)
+    verified = request.session.get(SESSION_VERIFIED, False)
+    if not customer_uuid or not verified:
+        return None
+
+    from shopman.customers.services import customer as customer_service
+
+    return customer_service.get_by_uuid(customer_uuid)
+
+
+def _check_rate_limit(key: str, max_requests: int, window: int) -> bool:
+    """Check rate limit using Django cache. Returns True if allowed."""
+    cache_key = f"rl:{key}"
+    count = cache.get(cache_key, 0)
+    if count >= max_requests:
+        return False
+    cache.set(cache_key, count + 1, window)
+    return True
 
 
 class CustomerLookupView(View):
@@ -22,7 +72,7 @@ class CustomerLookupView(View):
             return JsonResponse({"found": False})
 
         # Check if already verified in this session
-        verified_phone = request.session.get("storefront_verified_phone")
+        verified_phone = request.session.get(SESSION_VERIFIED_PHONE)
         is_verified = verified_phone == phone
 
         from shopman.customers.services import customer as customer_service
@@ -31,29 +81,40 @@ class CustomerLookupView(View):
         if not customer:
             return JsonResponse({"found": False, "can_verify": False})
 
-        addresses = []
-        for addr in customer.addresses.order_by("-is_default", "label"):
-            addresses.append({
-                "id": addr.id,
-                "label": addr.display_label,
-                "formatted_address": addr.formatted_address,
-                "complement": addr.complement or "",
-                "delivery_instructions": addr.delivery_instructions or "",
-                "is_default": addr.is_default,
+        # Only expose PII (name, addresses) if session is verified for this phone
+        if is_verified:
+            addresses = []
+            for addr in customer.addresses.order_by("-is_default", "label"):
+                addresses.append({
+                    "id": addr.id,
+                    "label": addr.display_label,
+                    "formatted_address": addr.formatted_address,
+                    "complement": addr.complement or "",
+                    "delivery_instructions": addr.delivery_instructions or "",
+                    "is_default": addr.is_default,
+                })
+            return JsonResponse({
+                "found": True,
+                "name": customer.name,
+                "phone": customer.phone,
+                "addresses": addresses,
+                "can_verify": False,
+                "is_verified": True,
             })
 
+        # Not verified — only confirm existence, no PII
         return JsonResponse({
             "found": True,
-            "name": customer.name,
-            "phone": customer.phone,
-            "addresses": addresses,
-            "can_verify": HAS_AUTH and not is_verified,
-            "is_verified": is_verified,
+            "name": "",
+            "phone": "",
+            "addresses": [],
+            "can_verify": HAS_AUTH,
+            "is_verified": False,
         })
 
 
 class RequestCodeView(View):
-    """HTMX: request magic code for phone verification during checkout."""
+    """HTMX: request verification code for phone verification during checkout."""
 
     def post(self, request: HttpRequest) -> HttpResponse:
         if not HAS_AUTH:
@@ -72,10 +133,22 @@ class RequestCodeView(View):
                 "error_message": "Telefone inválido.",
             })
 
-        from shopman.auth.services.verification import VerificationService
+        # Rate limit: max 3 requests per phone per 10 min
+        if not _check_rate_limit(
+            f"req_code:{phone}",
+            RATE_LIMIT_REQUEST_CODE_MAX,
+            RATE_LIMIT_REQUEST_CODE_WINDOW,
+        ):
+            return render(request, "storefront/partials/auth_error.html", {
+                "error_message": "Muitas tentativas. Aguarde alguns minutos.",
+                "phone": phone,
+                "can_retry": False,
+            })
+
+        from shopman.auth.services.verification import AuthService
 
         ip = request.META.get("REMOTE_ADDR")
-        result = VerificationService.request_code(
+        result = AuthService.request_code(
             target_value=phone,
             purpose="login",
             delivery_method="whatsapp",
@@ -104,7 +177,7 @@ class RequestCodeView(View):
 
 
 class VerifyCodeView(View):
-    """HTMX: verify magic code for phone during checkout."""
+    """HTMX: verify verification code for phone during checkout."""
 
     def post(self, request: HttpRequest) -> HttpResponse:
         if not HAS_AUTH:
@@ -126,9 +199,21 @@ class VerifyCodeView(View):
                 "error_message": "Telefone inválido.",
             })
 
-        from shopman.auth.services.verification import VerificationService
+        # Rate limit: max 5 verify attempts per phone per 10 min
+        if not _check_rate_limit(
+            f"verify_code:{phone}",
+            RATE_LIMIT_VERIFY_CODE_MAX,
+            RATE_LIMIT_VERIFY_CODE_WINDOW,
+        ):
+            return render(request, "storefront/partials/auth_error.html", {
+                "error_message": "Muitas tentativas. Aguarde alguns minutos.",
+                "phone": phone,
+                "can_retry": False,
+            })
 
-        result = VerificationService.verify_for_login(
+        from shopman.auth.services.verification import AuthService
+
+        result = AuthService.verify_for_login(
             target_value=phone,
             code_input=code_input,
             request=request,
@@ -150,11 +235,94 @@ class VerifyCodeView(View):
                 "error_message": error_msg,
             })
 
-        # Mark session as verified
-        request.session["storefront_verified_phone"] = phone
-        if result.customer:
-            request.session["storefront_verified_name"] = result.customer.name or ""
+        # Set session-based auth
+        _set_auth_session(request, result.customer, phone)
 
-        return render(request, "storefront/partials/auth_confirmed.html", {
+        # Trust device (set cookie for skip-OTP on next visit)
+        response = render(request, "storefront/partials/auth_confirmed.html", {
             "phone": phone,
         })
+
+        from shopman.auth.services.device_trust import DeviceTrustService
+
+        DeviceTrustService.trust_device(
+            response=response,
+            customer_id=result.customer.uuid,
+            request=request,
+        )
+
+        return response
+
+
+class BridgeLoginView(View):
+    """Consume an access link and create an authenticated session.
+
+    URL: /auth/bridge/<token>/
+    Flow: WhatsApp link → this view → session created → redirect
+    """
+
+    def get(self, request: HttpRequest, token: str) -> HttpResponse:
+        if not HAS_AUTH:
+            return redirect("/")
+
+        from shopman.auth.services.access_link import AccessLinkService
+        from shopman.auth.utils import safe_redirect_url
+
+        result = AccessLinkService.exchange(
+            token_str=token,
+            request=request,
+            preserve_session_keys=["cart"],
+        )
+
+        if not result.success:
+            logger.warning("Access link exchange failed: %s", result.error)
+            return render(request, "storefront/bridge_invalid.html", {
+                "error": result.error,
+            })
+
+        # Set storefront session vars from the authenticated customer
+        if result.customer:
+            phone = result.customer.phone or ""
+            request.session[SESSION_CUSTOMER_UUID] = str(result.customer.uuid)
+            request.session[SESSION_VERIFIED] = True
+            request.session[SESSION_VERIFIED_PHONE] = phone
+            request.session[SESSION_VERIFIED_NAME] = result.customer.name or ""
+
+        # Redirect based on token audience or next param
+        next_url = safe_redirect_url(request.GET.get("next"), request)
+        return redirect(next_url)
+
+
+class DeviceCheckLoginView(View):
+    """Check if device is trusted and auto-login if so.
+
+    Called from account page to attempt skip-OTP login.
+    Returns JSON for HTMX consumption.
+    """
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        if not HAS_AUTH:
+            return JsonResponse({"trusted": False})
+
+        phone_raw = request.POST.get("phone", "").strip()
+        if not phone_raw:
+            return JsonResponse({"trusted": False})
+
+        try:
+            phone = normalize_phone(phone_raw)
+        except Exception:
+            return JsonResponse({"trusted": False})
+
+        from shopman.customers.services import customer as customer_service
+
+        customer = customer_service.get_by_phone(phone)
+        if not customer:
+            return JsonResponse({"trusted": False})
+
+        from shopman.auth.services.device_trust import DeviceTrustService
+
+        if DeviceTrustService.check_device_trust(request, customer.uuid):
+            _set_auth_session(request, customer, phone)
+            return JsonResponse({"trusted": True, "name": customer.name})
+
+        return JsonResponse({"trusted": False})

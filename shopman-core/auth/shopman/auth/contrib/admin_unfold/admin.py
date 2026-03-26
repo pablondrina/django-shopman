@@ -14,11 +14,11 @@ from unfold.decorators import display
 from shopman_commons.contrib.admin_unfold.badges import unfold_badge
 from shopman_commons.contrib.admin_unfold.base import BaseModelAdmin
 
-from shopman.auth.models import BridgeToken, IdentityLink, MagicCode, TrustedDevice
+from shopman.auth.models import AccessLink, CustomerUser, VerificationCode, TrustedDevice
 
 
 # Unregister basic admins
-for model in [IdentityLink, BridgeToken, MagicCode, TrustedDevice]:
+for model in [CustomerUser, AccessLink, VerificationCode, TrustedDevice]:
     try:
         admin.site.unregister(model)
     except admin.sites.NotRegistered:
@@ -26,12 +26,12 @@ for model in [IdentityLink, BridgeToken, MagicCode, TrustedDevice]:
 
 
 # =============================================================================
-# IDENTITY LINK ADMIN
+# CUSTOMER USER ADMIN
 # =============================================================================
 
 
-@admin.register(IdentityLink)
-class IdentityLinkAdmin(BaseModelAdmin):
+@admin.register(CustomerUser)
+class CustomerUserAdmin(BaseModelAdmin):
     list_display = ["id", "user", "customer_id_short", "created_at"]
     search_fields = ["user__username", "customer_id"]
     readonly_fields = ["user", "customer_id", "created_at", "metadata"]
@@ -54,12 +54,12 @@ class IdentityLinkAdmin(BaseModelAdmin):
 
 
 # =============================================================================
-# BRIDGE TOKEN ADMIN
+# ACCESS LINK ADMIN
 # =============================================================================
 
 
-@admin.register(BridgeToken)
-class BridgeTokenAdmin(BaseModelAdmin):
+@admin.register(AccessLink)
+class AccessLinkAdmin(BaseModelAdmin):
     list_display = [
         "token_short",
         "customer_id_short",
@@ -139,12 +139,12 @@ class BridgeTokenAdmin(BaseModelAdmin):
 
 
 # =============================================================================
-# MAGIC CODE ADMIN
+# VERIFICATION CODE ADMIN
 # =============================================================================
 
 
-@admin.register(MagicCode)
-class MagicCodeAdmin(BaseModelAdmin):
+@admin.register(VerificationCode)
+class VerificationCodeAdmin(BaseModelAdmin):
     list_display = [
         "code_hash_short",
         "target_masked",

@@ -26,8 +26,8 @@ class TestGatingExceptions:
         assert err.message == "My custom error"
 
     def test_gate_error_preserves_gate_name(self):
-        err = GateError("G7_BridgeTokenValidity", "Token expired.")
-        assert err.gate_name == "G7_BridgeTokenValidity"
+        err = GateError("G7_AccessLinkValidity", "Token expired.")
+        assert err.gate_name == "G7_AccessLinkValidity"
         assert err.code == "GATE_FAILED"
         assert err.message == "Token expired."
 

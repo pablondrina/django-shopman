@@ -9,13 +9,13 @@ Usage:
 
 from django.core.management.base import BaseCommand
 
-from shopman.auth.services.auth_bridge import AuthBridgeService
+from shopman.auth.services.access_link import AccessLinkService
 from shopman.auth.services.device_trust import DeviceTrustService
-from shopman.auth.services.verification import VerificationService
+from shopman.auth.services.verification import AuthService
 
 
 class Command(BaseCommand):
-    help = "Clean up expired bridge tokens, magic codes, and device trusts."
+    help = "Clean up expired access links, verification codes, and device trusts."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -39,25 +39,25 @@ class Command(BaseCommand):
 
             from django.utils import timezone
 
-            from shopman.auth.models import BridgeToken, MagicCode, TrustedDevice
+            from shopman.auth.models import AccessLink, VerificationCode, TrustedDevice
 
             cutoff = timezone.now() - timedelta(days=days)
-            tokens_count = BridgeToken.objects.filter(expires_at__lt=cutoff).count()
-            codes_count = MagicCode.objects.filter(expires_at__lt=cutoff).count()
+            tokens_count = AccessLink.objects.filter(expires_at__lt=cutoff).count()
+            codes_count = VerificationCode.objects.filter(expires_at__lt=cutoff).count()
             devices_count = TrustedDevice.objects.filter(expires_at__lt=cutoff).count()
 
-            self.stdout.write(f"Would delete {tokens_count} expired tokens")
-            self.stdout.write(f"Would delete {codes_count} expired codes")
+            self.stdout.write(f"Would delete {tokens_count} expired access links")
+            self.stdout.write(f"Would delete {codes_count} expired verification codes")
             self.stdout.write(f"Would delete {devices_count} expired device trusts")
             return
 
-        tokens_deleted = AuthBridgeService.cleanup_expired_tokens(days=days)
-        codes_deleted = VerificationService.cleanup_expired_codes(days=days)
+        tokens_deleted = AccessLinkService.cleanup_expired_tokens(days=days)
+        codes_deleted = AuthService.cleanup_expired_codes(days=days)
         devices_deleted = DeviceTrustService.cleanup(days=days)
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Cleaned up {tokens_deleted} tokens, {codes_deleted} codes, "
+                f"Cleaned up {tokens_deleted} access links, {codes_deleted} verification codes, "
                 f"and {devices_deleted} device trusts (older than {days} days)"
             )
         )

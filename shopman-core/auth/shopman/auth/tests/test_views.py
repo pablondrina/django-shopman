@@ -17,17 +17,17 @@ from django.contrib.sessions.backends.db import SessionStore
 from django.http import HttpResponseRedirect
 from django.test import RequestFactory, override_settings
 
-from shopman.auth.models import MagicCode
-from shopman.auth.models.magic_code import generate_raw_code
-from shopman.auth.services.auth_bridge import AuthBridgeService
-from shopman.auth.views.bridge import BridgeTokenCreateView
+from shopman.auth.models import VerificationCode
+from shopman.auth.models.verification_code import generate_raw_code
+from shopman.auth.services.access_link import AccessLinkService
+from shopman.auth.views.access_link import AccessLinkCreateView
 from shopman.auth.views.health import HealthCheckView
-from shopman.auth.views.magic_code import MagicCodeRequestView, MagicCodeVerifyView
+from shopman.auth.views.verification_code import VerificationCodeRequestView, VerificationCodeVerifyView
 
 # Patch _build_url globally for all verify-success tests since
 # auth URLs are not registered in the test project.
 _PATCH_BUILD_URL = patch.object(
-    AuthBridgeService, "_build_url", return_value="https://test.local/auth/bridge/?t=mock"
+    AccessLinkService, "_build_url", return_value="https://test.local/auth/access-link/?t=mock"
 )
 
 
@@ -62,17 +62,17 @@ def _make_request(method="get", path="/", data=None, content_type=None, session=
 
 
 # ===================================================
-# MagicCodeRequestView
+# VerificationCodeRequestView
 # ===================================================
 
 
 @pytest.mark.django_db
-class TestMagicCodeRequestViewForm:
+class TestVerificationCodeRequestViewForm:
     """Test code request view with form POST."""
 
     def test_get_renders_template(self):
         request = _make_request("get")
-        response = MagicCodeRequestView.as_view()(request)
+        response = VerificationCodeRequestView.as_view()(request)
         assert response.status_code == 200
 
     def test_post_empty_phone_returns_error(self):
@@ -81,11 +81,11 @@ class TestMagicCodeRequestViewForm:
             data="phone=",
             content_type="application/x-www-form-urlencoded",
         )
-        response = MagicCodeRequestView.as_view()(request)
+        response = VerificationCodeRequestView.as_view()(request)
         assert response.status_code == 200  # re-renders form
 
-    @patch("shopman.auth.views.magic_code.redirect", side_effect=_fake_redirect)
-    @patch("shopman.auth.services.verification.VerificationService._get_default_sender")
+    @patch("shopman.auth.views.verification_code.redirect", side_effect=_fake_redirect)
+    @patch("shopman.auth.services.verification.AuthService._get_default_sender")
     def test_post_valid_phone_redirects(self, mock_sender, mock_redirect):
         sender = FakeSender()
         mock_sender.return_value = sender
@@ -95,7 +95,7 @@ class TestMagicCodeRequestViewForm:
             data="phone=41999999999",
             content_type="application/x-www-form-urlencoded",
         )
-        response = MagicCodeRequestView.as_view()(request)
+        response = VerificationCodeRequestView.as_view()(request)
 
         assert response.status_code == 302
         assert sender.last_code is not None
@@ -105,28 +105,28 @@ class TestMagicCodeRequestViewForm:
 
 
 @pytest.mark.django_db
-class TestMagicCodeRequestViewJSON:
+class TestVerificationCodeRequestViewJSON:
     """Test code request view with JSON POST."""
 
     def test_json_empty_phone_returns_400(self):
         body = json.dumps({"phone": ""})
         request = _make_request("post", data=body, content_type="application/json")
-        response = MagicCodeRequestView.as_view()(request)
+        response = VerificationCodeRequestView.as_view()(request)
         assert response.status_code == 400
 
     def test_json_invalid_json_returns_400(self):
         request = _make_request("post", data="not json", content_type="application/json")
-        response = MagicCodeRequestView.as_view()(request)
+        response = VerificationCodeRequestView.as_view()(request)
         assert response.status_code == 400
 
-    @patch("shopman.auth.services.verification.VerificationService._get_default_sender")
+    @patch("shopman.auth.services.verification.AuthService._get_default_sender")
     def test_json_valid_phone_returns_success(self, mock_sender):
         sender = FakeSender()
         mock_sender.return_value = sender
 
         body = json.dumps({"phone": "41999999999"})
         request = _make_request("post", data=body, content_type="application/json")
-        response = MagicCodeRequestView.as_view()(request)
+        response = VerificationCodeRequestView.as_view()(request)
 
         assert response.status_code == 200
         data = json.loads(response.content)
@@ -135,18 +135,18 @@ class TestMagicCodeRequestViewJSON:
 
 
 # ===================================================
-# MagicCodeVerifyView
+# VerificationCodeVerifyView
 # ===================================================
 
 
 @pytest.mark.django_db
-class TestMagicCodeVerifyViewForm:
+class TestVerificationCodeVerifyViewForm:
     """Test code verify view with form POST."""
 
-    @patch("shopman.auth.views.magic_code.redirect", side_effect=_fake_redirect)
+    @patch("shopman.auth.views.verification_code.redirect", side_effect=_fake_redirect)
     def test_get_without_session_phone_redirects(self, mock_redirect):
         request = _make_request("get")
-        response = MagicCodeVerifyView.as_view()(request)
+        response = VerificationCodeVerifyView.as_view()(request)
         assert response.status_code == 302  # redirect to code-request
 
     def test_get_with_session_phone_renders(self):
@@ -154,7 +154,7 @@ class TestMagicCodeVerifyViewForm:
         session["auth_phone"] = "+5541999999999"
         session.save()
         request = _make_request("get", session=session)
-        response = MagicCodeVerifyView.as_view()(request)
+        response = VerificationCodeVerifyView.as_view()(request)
         assert response.status_code == 200
 
     def test_post_missing_code_returns_error(self):
@@ -163,47 +163,47 @@ class TestMagicCodeVerifyViewForm:
             data="phone=%2B5541999999999&code=",
             content_type="application/x-www-form-urlencoded",
         )
-        response = MagicCodeVerifyView.as_view()(request)
+        response = VerificationCodeVerifyView.as_view()(request)
         assert response.status_code == 200  # re-renders form with error
 
     def test_post_wrong_code_returns_error(self):
         raw_code, hmac_digest = generate_raw_code()
-        MagicCode.objects.create(
+        VerificationCode.objects.create(
             code_hash=hmac_digest,
             target_value="+5541999999999",
-            purpose=MagicCode.Purpose.LOGIN,
-            status=MagicCode.Status.SENT,
+            purpose=VerificationCode.Purpose.LOGIN,
+            status=VerificationCode.Status.SENT,
         )
         request = _make_request(
             "post",
             data="phone=%2B5541999999999&code=000000",
             content_type="application/x-www-form-urlencoded",
         )
-        response = MagicCodeVerifyView.as_view()(request)
+        response = VerificationCodeVerifyView.as_view()(request)
         assert response.status_code == 200  # re-renders form
 
 
 @pytest.mark.django_db
-class TestMagicCodeVerifyViewJSON:
+class TestVerificationCodeVerifyViewJSON:
     """Test code verify view with JSON POST."""
 
     def test_json_missing_fields_returns_400(self):
         body = json.dumps({"phone": "", "code": ""})
         request = _make_request("post", data=body, content_type="application/json")
-        response = MagicCodeVerifyView.as_view()(request)
+        response = VerificationCodeVerifyView.as_view()(request)
         assert response.status_code == 400
 
     def test_json_wrong_code_returns_400(self):
         raw_code, hmac_digest = generate_raw_code()
-        MagicCode.objects.create(
+        VerificationCode.objects.create(
             code_hash=hmac_digest,
             target_value="+5541999999999",
-            purpose=MagicCode.Purpose.LOGIN,
-            status=MagicCode.Status.SENT,
+            purpose=VerificationCode.Purpose.LOGIN,
+            status=VerificationCode.Status.SENT,
         )
         body = json.dumps({"phone": "+5541999999999", "code": "000000"})
         request = _make_request("post", data=body, content_type="application/json")
-        response = MagicCodeVerifyView.as_view()(request)
+        response = VerificationCodeVerifyView.as_view()(request)
 
         assert response.status_code == 400
         data = json.loads(response.content)
@@ -222,15 +222,15 @@ class TestMagicCodeVerifyViewJSON:
         )
 
         raw_code, hmac_digest = generate_raw_code()
-        MagicCode.objects.create(
+        VerificationCode.objects.create(
             code_hash=hmac_digest,
             target_value="+5541999999999",
-            purpose=MagicCode.Purpose.LOGIN,
-            status=MagicCode.Status.SENT,
+            purpose=VerificationCode.Purpose.LOGIN,
+            status=VerificationCode.Status.SENT,
         )
         body = json.dumps({"phone": "+5541999999999", "code": raw_code})
         request = _make_request("post", data=body, content_type="application/json")
-        response = MagicCodeVerifyView.as_view()(request)
+        response = VerificationCodeVerifyView.as_view()(request)
 
         assert response.status_code == 200
         data = json.loads(response.content)
@@ -248,7 +248,7 @@ class TestFullFlow:
     """End-to-end flow: request code -> verify -> session created."""
 
     @_PATCH_BUILD_URL
-    @patch("shopman.auth.services.verification.VerificationService._get_default_sender")
+    @patch("shopman.auth.services.verification.AuthService._get_default_sender")
     def test_full_flow_json(self, mock_sender, _mock_url):
         """Request code via JSON, then verify via JSON."""
         from shopman.customers.models import Customer
@@ -266,7 +266,7 @@ class TestFullFlow:
         # Step 1: Request code
         body = json.dumps({"phone": "41888888888"})
         request1 = _make_request("post", data=body, content_type="application/json")
-        response1 = MagicCodeRequestView.as_view()(request1)
+        response1 = VerificationCodeRequestView.as_view()(request1)
 
         assert response1.status_code == 200
         raw_code = sender.last_code
@@ -275,7 +275,7 @@ class TestFullFlow:
         # Step 2: Verify code
         body2 = json.dumps({"phone": "+5541888888888", "code": raw_code})
         request2 = _make_request("post", data=body2, content_type="application/json")
-        response2 = MagicCodeVerifyView.as_view()(request2)
+        response2 = VerificationCodeVerifyView.as_view()(request2)
 
         assert response2.status_code == 200
         data = json.loads(response2.content)
@@ -284,15 +284,15 @@ class TestFullFlow:
 
 
 # ===================================================
-# BridgeTokenCreateView edge cases
+# AccessLinkCreateView edge cases
 # ===================================================
 
 TEST_API_KEY = "test-auth-api-key-2026"
 
 
 @pytest.mark.django_db
-class TestBridgeTokenCreateViewEdges:
-    """Edge case tests for BridgeTokenCreateView."""
+class TestAccessLinkCreateViewEdges:
+    """Edge case tests for AccessLinkCreateView."""
 
     def _post_create(self, data, headers=None):
         factory = RequestFactory()
@@ -300,12 +300,12 @@ class TestBridgeTokenCreateViewEdges:
         kwargs = {"content_type": "application/json"}
         if headers:
             kwargs.update(headers)
-        request = factory.post("/auth/bridge/create/", body, **kwargs)
-        view = BridgeTokenCreateView.as_view()
+        request = factory.post("/auth/access-link/create/", body, **kwargs)
+        view = AccessLinkCreateView.as_view()
         with patch.object(
-            AuthBridgeService,
+            AccessLinkService,
             "_build_url",
-            return_value="https://test.local/auth/bridge/?t=mock",
+            return_value="https://test.local/auth/access-link/?t=mock",
         ):
             return view(request)
 
@@ -314,11 +314,11 @@ class TestBridgeTokenCreateViewEdges:
         """Invalid JSON should return 400."""
         factory = RequestFactory()
         request = factory.post(
-            "/auth/bridge/create/",
+            "/auth/access-link/create/",
             "not-json",
             content_type="application/json",
         )
-        response = BridgeTokenCreateView.as_view()(request)
+        response = AccessLinkCreateView.as_view()(request)
         assert response.status_code == 400
 
     @override_settings(AUTH={"BRIDGE_TOKEN_API_KEY": ""})
@@ -344,7 +344,7 @@ class TestBridgeTokenCreateViewEdges:
             uuid=customer.uuid, name="Inactive", phone=customer.phone,
             email=customer.email, is_active=False,
         )
-        with patch("shopman.auth.views.bridge.get_customer_resolver") as mock_resolver:
+        with patch("shopman.auth.views.access_link.get_customer_resolver") as mock_resolver:
             mock_resolver.return_value.get_by_uuid.return_value = inactive
             response = self._post_create({"customer_id": str(customer.uuid)})
         assert response.status_code == 400

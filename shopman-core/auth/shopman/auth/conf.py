@@ -76,19 +76,19 @@ class AuthSettings:
     DEVICE_TRUST_TTL_DAYS: int = 30
     DEVICE_TRUST_COOKIE_NAME: str = "shopman_auth_dt"
 
-    # Magic Link (email-based one-click login)
-    MAGIC_LINK_ENABLED: bool = True
-    MAGIC_LINK_TTL_MINUTES: int = 15
-    MAGIC_LINK_RATE_LIMIT_MAX: int = 5
-    MAGIC_LINK_RATE_LIMIT_WINDOW_MINUTES: int = 15
+    # Access Link email login (one-click login via email)
+    ACCESS_LINK_ENABLED: bool = True
+    ACCESS_LINK_TTL_MINUTES: int = 15
+    ACCESS_LINK_RATE_LIMIT_MAX: int = 5
+    ACCESS_LINK_RATE_LIMIT_WINDOW_MINUTES: int = 15
 
     # Templates (override in your project)
     TEMPLATE_CODE_REQUEST: str = "auth/code_request.html"
     TEMPLATE_CODE_VERIFY: str = "auth/code_verify.html"
     TEMPLATE_BRIDGE_INVALID: str = "auth/bridge_invalid.html"
-    TEMPLATE_MAGIC_LINK_REQUEST: str = "auth/magic_link_request.html"
-    TEMPLATE_MAGIC_LINK_EMAIL_TXT: str = "auth/email_magic_link.txt"
-    TEMPLATE_MAGIC_LINK_EMAIL_HTML: str = "auth/email_magic_link.html"
+    TEMPLATE_ACCESS_LINK_REQUEST: str = "auth/access_link_request.html"
+    TEMPLATE_ACCESS_LINK_EMAIL_TXT: str = "auth/email_access_link.txt"
+    TEMPLATE_ACCESS_LINK_EMAIL_HTML: str = "auth/email_access_link.html"
 
 
 def get_auth_settings() -> AuthSettings:

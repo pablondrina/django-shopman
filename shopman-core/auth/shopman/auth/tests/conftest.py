@@ -7,8 +7,8 @@ from django.utils import timezone
 
 from shopman.customers.models import Customer
 
-from shopman.auth.models import BridgeToken, MagicCode
-from shopman.auth.models.magic_code import generate_raw_code
+from shopman.auth.models import AccessLink, VerificationCode
+from shopman.auth.models.verification_code import generate_raw_code
 
 
 TEST_API_KEY = "test-auth-api-key-2026"
@@ -39,36 +39,36 @@ def other_customer(db):
 
 
 @pytest.fixture
-def bridge_token(customer):
-    """Create a valid bridge token."""
-    return BridgeToken.objects.create(
+def access_link(customer):
+    """Create a valid access link."""
+    return AccessLink.objects.create(
         customer_id=customer.uuid,
-        audience=BridgeToken.Audience.WEB_GENERAL,
-        source=BridgeToken.Source.MANYCHAT,
+        audience=AccessLink.Audience.WEB_GENERAL,
+        source=AccessLink.Source.MANYCHAT,
     )
 
 
 @pytest.fixture
-def expired_bridge_token(customer):
-    """Create an expired bridge token."""
-    return BridgeToken.objects.create(
+def expired_access_link(customer):
+    """Create an expired access link."""
+    return AccessLink.objects.create(
         customer_id=customer.uuid,
         expires_at=timezone.now() - timedelta(minutes=1),
     )
 
 
 @pytest.fixture
-def magic_code(db):
-    """Create a valid magic code.
+def verification_code(db):
+    """Create a valid verification code.
 
     The raw 6-digit code is stored as ``code._raw_code`` so tests
     can pass it to ``verify_for_login`` while the DB stores the HMAC.
     """
     raw_code, hmac_digest = generate_raw_code()
-    code = MagicCode.objects.create(
+    code = VerificationCode.objects.create(
         code_hash=hmac_digest,
         target_value="+5541999999999",
-        purpose=MagicCode.Purpose.LOGIN,
+        purpose=VerificationCode.Purpose.LOGIN,
     )
     code.mark_sent()
     code._raw_code = raw_code
@@ -76,10 +76,10 @@ def magic_code(db):
 
 
 @pytest.fixture
-def expired_magic_code(db):
-    """Create an expired magic code."""
-    return MagicCode.objects.create(
+def expired_verification_code(db):
+    """Create an expired verification code."""
+    return VerificationCode.objects.create(
         target_value="+5541999999999",
-        purpose=MagicCode.Purpose.LOGIN,
+        purpose=VerificationCode.Purpose.LOGIN,
         expires_at=timezone.now() - timedelta(minutes=1),
     )

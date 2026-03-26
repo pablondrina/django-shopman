@@ -1,10 +1,9 @@
 """
 Integration test: Customers <-> Auth.
 
-Tests the flow: identity link -> login.
+Tests the flow: customer user -> login.
 """
 
-import pytest
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
@@ -15,7 +14,7 @@ class TestCustomersAuthIntegration(TestCase):
     """Integration between Customers and Auth."""
 
     def setUp(self):
-        from shopman.customers.models import Customer, ContactPoint
+        from shopman.customers.models import ContactPoint, Customer
 
         self.customer = Customer.objects.create(
             ref="GD-INT-001",
@@ -34,16 +33,16 @@ class TestCustomersAuthIntegration(TestCase):
             verification_method="otp_whatsapp",
         )
 
-    def test_identity_link_uses_customer_uuid(self):
-        """IdentityLink references customer by UUID, not FK."""
-        from shopman.auth.models import IdentityLink
+    def test_customer_user_uses_customer_uuid(self):
+        """CustomerUser references customer by UUID, not FK."""
+        from shopman.auth.models import CustomerUser
 
         user = User.objects.create_user(
             username="gd_test_user",
             password="testpass",
         )
 
-        link = IdentityLink.objects.create(
+        link = CustomerUser.objects.create(
             user=user,
             customer_id=self.customer.uuid,
         )
@@ -53,13 +52,13 @@ class TestCustomersAuthIntegration(TestCase):
         # Decoupled: no FK relationship
         assert not hasattr(link, "customer")
 
-    def test_identity_link_one_to_one(self):
-        """Each user has at most one IdentityLink."""
-        from shopman.auth.models import IdentityLink
+    def test_customer_user_one_to_one(self):
+        """Each user has at most one CustomerUser."""
         from django.db import IntegrityError
+        from shopman.auth.models import CustomerUser
 
         user = User.objects.create_user(username="gd_unique_user")
-        IdentityLink.objects.create(user=user, customer_id=self.customer.uuid)
+        CustomerUser.objects.create(user=user, customer_id=self.customer.uuid)
 
         # Cannot create second link for same user
         from shopman.customers.models import Customer
@@ -70,20 +69,20 @@ class TestCustomersAuthIntegration(TestCase):
         )
 
         with self.assertRaises(IntegrityError):
-            IdentityLink.objects.create(user=user, customer_id=other_customer.uuid)
+            CustomerUser.objects.create(user=user, customer_id=other_customer.uuid)
 
-    def test_customer_uuid_unique_in_identity_link(self):
-        """Each customer_id has at most one IdentityLink."""
-        from shopman.auth.models import IdentityLink
+    def test_customer_uuid_unique_in_customer_user(self):
+        """Each customer_id has at most one CustomerUser."""
         from django.db import IntegrityError
+        from shopman.auth.models import CustomerUser
 
         user1 = User.objects.create_user(username="gd_user_1")
         user2 = User.objects.create_user(username="gd_user_2")
 
-        IdentityLink.objects.create(user=user1, customer_id=self.customer.uuid)
+        CustomerUser.objects.create(user=user1, customer_id=self.customer.uuid)
 
         with self.assertRaises(IntegrityError):
-            IdentityLink.objects.create(user=user2, customer_id=self.customer.uuid)
+            CustomerUser.objects.create(user=user2, customer_id=self.customer.uuid)
 
     def test_verified_contact_for_login(self):
         """Only verified contacts should be used for authentication."""
@@ -100,11 +99,11 @@ class TestCustomersAuthIntegration(TestCase):
         assert verified.value_normalized == "+5541999998888"
         assert verified.verification_method == "otp_whatsapp"
 
-    def test_magic_code_links_to_customer_uuid(self):
-        """MagicCode stores customer_id after verification."""
-        from shopman.auth.models import MagicCode
+    def test_verification_code_links_to_customer_uuid(self):
+        """VerificationCode stores customer_id after verification."""
+        from shopman.auth.models import VerificationCode
 
-        code = MagicCode.objects.create(
+        code = VerificationCode.objects.create(
             target_value="+5541999998888",
             purpose="login",
             status="verified",

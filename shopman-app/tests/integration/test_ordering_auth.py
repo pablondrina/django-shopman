@@ -4,9 +4,7 @@ Integration test: Ordering <-> Auth.
 Tests the flow: auth -> session.
 """
 
-from unittest.mock import patch, MagicMock
 
-import pytest
 from django.test import TestCase
 
 
@@ -33,11 +31,11 @@ class TestOrderingAuthIntegration(TestCase):
             edit_policy="open",
         )
 
-    def test_bridge_token_can_reference_customer(self):
-        """BridgeToken stores customer_id matching Customers customer."""
-        from shopman.auth.models import BridgeToken
+    def test_access_link_can_reference_customer(self):
+        """AccessLink stores customer_id matching Customers customer."""
+        from shopman.auth.models import AccessLink
 
-        token = BridgeToken.objects.create(
+        token = AccessLink.objects.create(
             customer_id=self.customer.uuid,
             audience="web_checkout",
             source="manychat",
@@ -46,10 +44,10 @@ class TestOrderingAuthIntegration(TestCase):
         assert token.customer_id == self.customer.uuid
         assert token.is_valid
 
-    def test_identity_link_connects_user_to_customer(self):
-        """IdentityLink connects Django User to Customer."""
+    def test_customer_user_connects_user_to_customer(self):
+        """CustomerUser connects Django User to Customer."""
         from django.contrib.auth import get_user_model
-        from shopman.auth.models import IdentityLink
+        from shopman.auth.models import CustomerUser
 
         User = get_user_model()
         user = User.objects.create_user(
@@ -57,7 +55,7 @@ class TestOrderingAuthIntegration(TestCase):
             password="testpass",
         )
 
-        link = IdentityLink.objects.create(
+        link = CustomerUser.objects.create(
             user=user,
             customer_id=self.customer.uuid,
         )

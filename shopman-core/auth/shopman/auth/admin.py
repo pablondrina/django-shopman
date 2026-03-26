@@ -5,16 +5,16 @@ Auth Django Admin configuration.
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import BridgeToken, IdentityLink, MagicCode, TrustedDevice
+from .models import AccessLink, CustomerUser, VerificationCode, TrustedDevice
 
 
 # ===========================================
-# IdentityLink
+# CustomerUser
 # ===========================================
 
 
-@admin.register(IdentityLink)
-class IdentityLinkAdmin(admin.ModelAdmin):
+@admin.register(CustomerUser)
+class CustomerUserAdmin(admin.ModelAdmin):
     list_display = ["id", "user_link", "customer_id_short", "created_at"]
     search_fields = ["user__username", "customer_id"]
     readonly_fields = ["user", "customer_id", "created_at", "metadata"]
@@ -42,12 +42,12 @@ class IdentityLinkAdmin(admin.ModelAdmin):
 
 
 # ===========================================
-# BridgeToken
+# AccessLink
 # ===========================================
 
 
-@admin.register(BridgeToken)
-class BridgeTokenAdmin(admin.ModelAdmin):
+@admin.register(AccessLink)
+class AccessLinkAdmin(admin.ModelAdmin):
     list_display = [
         "token_short",
         "customer_id_short",
@@ -109,12 +109,12 @@ class BridgeTokenAdmin(admin.ModelAdmin):
 
 
 # ===========================================
-# MagicCode
+# VerificationCode
 # ===========================================
 
 
-@admin.register(MagicCode)
-class MagicCodeAdmin(admin.ModelAdmin):
+@admin.register(VerificationCode)
+class VerificationCodeAdmin(admin.ModelAdmin):
     list_display = [
         "code_hash_short",
         "target_masked",

@@ -1,5 +1,7 @@
 """
-AuthBridgeService - Bridge token authentication.
+AccessLinkService - Access link authentication.
+
+Handles both chat-to-web tokens and email-based access links.
 """
 
 from __future__ import annotations
@@ -14,17 +16,19 @@ from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
 
-from ..conf import auth_settings, get_customer_resolver
+from ..conf import auth_settings, get_customer_resolver, get_auth_settings
 from ..protocols.customer import AuthCustomerInfo
 from ..exceptions import GateError
 from ..gates import Gates
-from ..models import BridgeToken, IdentityLink
-from ..signals import bridge_token_created, customer_authenticated
+from ..models import AccessLink, CustomerUser
+from ..signals import access_link_created, customer_authenticated
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
 
-logger = logging.getLogger("shopman.auth.auth_bridge")
+    from ..senders import MessageSenderProtocol
+
+logger = logging.getLogger("shopman.auth.access_link")
 User = get_user_model()
 
 
@@ -50,12 +54,20 @@ class AuthResult:
     error: str | None = None
 
 
-class AuthBridgeService:
-    """
-    Bridge token authentication service.
+@dataclass
+class AccessLinkEmailResult:
+    """Result of access link email request."""
 
-    Creates tokens for chat-to-web authentication and
-    handles token exchange for Django session creation.
+    success: bool
+    error: str | None = None
+
+
+class AccessLinkService:
+    """
+    Access link authentication service.
+
+    Creates tokens for chat-to-web authentication and email-based
+    access links, and handles token exchange for Django session creation.
     """
 
     # ===========================================
@@ -66,13 +78,13 @@ class AuthBridgeService:
     def create_token(
         cls,
         customer: AuthCustomerInfo,
-        audience: str = BridgeToken.Audience.WEB_GENERAL,
-        source: str = BridgeToken.Source.MANYCHAT,
+        audience: str = AccessLink.Audience.WEB_GENERAL,
+        source: str = AccessLink.Source.MANYCHAT,
         ttl_minutes: int | None = None,
         metadata: dict | None = None,
     ) -> TokenResult:
         """
-        Create a BridgeToken for Customer.
+        Create an AccessLink for Customer.
 
         Args:
             customer: Customer from Customers
@@ -87,7 +99,7 @@ class AuthBridgeService:
         ttl = ttl_minutes or auth_settings.BRIDGE_TOKEN_TTL_MINUTES
         expires_at = timezone.now() + timedelta(minutes=ttl)
 
-        token = BridgeToken.objects.create(
+        token = AccessLink.objects.create(
             customer_id=customer.uuid,
             audience=audience,
             source=source,
@@ -98,7 +110,7 @@ class AuthBridgeService:
         url = cls._build_url(token.token)
 
         # Signal
-        bridge_token_created.send(
+        access_link_created.send(
             sender=cls,
             token=token,
             customer=customer,
@@ -107,7 +119,7 @@ class AuthBridgeService:
         )
 
         logger.info(
-            "Bridge token created",
+            "Access link created",
             extra={"customer_id": str(customer.uuid), "audience": audience},
         )
 
@@ -162,14 +174,14 @@ class AuthBridgeService:
         """
         # Find token
         try:
-            token = BridgeToken.objects.get(token=token_str)
-        except BridgeToken.DoesNotExist:
+            token = AccessLink.objects.get(token=token_str)
+        except AccessLink.DoesNotExist:
             logger.warning("Invalid token", extra={"token": token_str[:8]})
             return AuthResult(success=False, error="Invalid token.")
 
         # G7: Validate
         try:
-            Gates.bridge_token_validity(token, required_audience)
+            Gates.access_link_validity(token, required_audience)
         except GateError as e:
             return AuthResult(success=False, error=e.message)
 
@@ -216,7 +228,7 @@ class AuthBridgeService:
             sender=cls,
             customer=customer,
             user=user,
-            method="bridge_token",
+            method="access_link",
             request=request,
         )
 
@@ -253,11 +265,11 @@ class AuthBridgeService:
 
         # Check existing link
         try:
-            link = IdentityLink.objects.select_related("user").get(
+            link = CustomerUser.objects.select_related("user").get(
                 customer_id=customer.uuid,
             )
             return link.user, False
-        except IdentityLink.DoesNotExist:
+        except CustomerUser.DoesNotExist:
             pass
 
         # Create User
@@ -274,11 +286,11 @@ class AuthBridgeService:
 
         # Create link — retry on concurrent creation
         try:
-            IdentityLink.objects.create(user=user, customer_id=customer.uuid)
+            CustomerUser.objects.create(user=user, customer_id=customer.uuid)
         except IntegrityError:
             # Another request already created the link; use that one
             user.delete()
-            link = IdentityLink.objects.select_related("user").get(
+            link = CustomerUser.objects.select_related("user").get(
                 customer_id=customer.uuid,
             )
             return link.user, False
@@ -289,6 +301,141 @@ class AuthBridgeService:
         )
 
         return user, True
+
+    # ===========================================
+    # Access Link Email (email-based one-click login)
+    # ===========================================
+
+    @classmethod
+    def send_access_link(
+        cls,
+        email: str,
+        ip_address: str | None = None,
+        sender: "MessageSenderProtocol | None" = None,
+    ) -> AccessLinkEmailResult:
+        """
+        Send an access link to the given email address.
+
+        Args:
+            email: Customer email address.
+            ip_address: Client IP for rate limiting.
+            sender: Custom sender (default: EmailSender via Django templates).
+
+        Returns:
+            AccessLinkEmailResult with success status.
+        """
+        if not get_auth_settings().ACCESS_LINK_ENABLED:
+            return AccessLinkEmailResult(success=False, error="Access links are disabled.")
+
+        email = email.strip().lower()
+        if not email or "@" not in email:
+            return AccessLinkEmailResult(success=False, error="Invalid email address.")
+
+        # G12: Rate limit by email
+        settings = get_auth_settings()
+        try:
+            Gates.access_link_rate_limit(
+                email=email,
+                max_requests=settings.ACCESS_LINK_RATE_LIMIT_MAX,
+                window_minutes=settings.ACCESS_LINK_RATE_LIMIT_WINDOW_MINUTES,
+            )
+        except GateError:
+            return AccessLinkEmailResult(
+                success=False,
+                error="Too many attempts. Please wait a few minutes.",
+            )
+
+        # G10: Rate limit by IP (reuse existing gate)
+        if ip_address:
+            try:
+                Gates.ip_rate_limit(ip_address)
+            except GateError:
+                return AccessLinkEmailResult(
+                    success=False,
+                    error="Too many attempts from this location.",
+                )
+
+        # Find customer by email
+        resolver = get_customer_resolver()
+        customer = resolver.get_by_email(email)
+
+        if not customer:
+            if not get_auth_settings().AUTO_CREATE_CUSTOMER:
+                return AccessLinkEmailResult(
+                    success=False,
+                    error="Account not found. Please contact support.",
+                )
+            return AccessLinkEmailResult(
+                success=False,
+                error="Account not found for this email.",
+            )
+
+        if not customer.is_active:
+            return AccessLinkEmailResult(success=False, error="Account inactive.")
+
+        # Create access link with email login TTL
+        ttl = auth_settings.ACCESS_LINK_TTL_MINUTES
+        token_result = cls.create_token(
+            customer=customer,
+            audience=AccessLink.Audience.WEB_GENERAL,
+            source=AccessLink.Source.INTERNAL,
+            ttl_minutes=ttl,
+            metadata={"method": "access_link", "email": email},
+        )
+
+        if not token_result.success:
+            return AccessLinkEmailResult(success=False, error="Failed to create login link.")
+
+        # Send email with the access link URL
+        sent = cls._send_access_link_email(email, token_result.url, ttl, sender)
+        if not sent:
+            return AccessLinkEmailResult(success=False, error="Failed to send email.")
+
+        logger.info(
+            "Access link sent",
+            extra={"email": email, "customer_id": str(customer.uuid)},
+        )
+
+        return AccessLinkEmailResult(success=True)
+
+    @classmethod
+    def _send_access_link_email(
+        cls,
+        email: str,
+        url: str,
+        ttl_minutes: int,
+        sender: "MessageSenderProtocol | None" = None,
+    ) -> bool:
+        """Send the access link email using Django templates."""
+        from django.core.mail import EmailMultiAlternatives
+        from django.template.loader import render_to_string
+        from django.utils.translation import gettext as _
+
+        context = {"url": url, "ttl_minutes": ttl_minutes, "email": email}
+
+        try:
+            subject = _("Your login link")
+            text_body = render_to_string(
+                auth_settings.TEMPLATE_ACCESS_LINK_EMAIL_TXT, context
+            )
+            html_body = render_to_string(
+                auth_settings.TEMPLATE_ACCESS_LINK_EMAIL_HTML, context
+            )
+
+            msg = EmailMultiAlternatives(
+                subject=subject,
+                body=text_body,
+                from_email=None,  # DEFAULT_FROM_EMAIL
+                to=[email],
+            )
+            msg.attach_alternative(html_body, "text/html")
+            msg.send(fail_silently=False)
+
+            logger.info("Access link email sent", extra={"email": email})
+            return True
+        except Exception:
+            logger.exception("Access link email send failed", extra={"email": email})
+            return False
 
     # ===========================================
     # Utilities
@@ -306,10 +453,10 @@ class AuthBridgeService:
             AuthCustomerInfo or None
         """
         try:
-            link = IdentityLink.objects.get(user=user)
+            link = CustomerUser.objects.get(user=user)
             resolver = get_customer_resolver()
             return resolver.get_by_uuid(link.customer_id)
-        except IdentityLink.DoesNotExist:
+        except CustomerUser.DoesNotExist:
             return None
 
     @classmethod
@@ -324,11 +471,11 @@ class AuthBridgeService:
             User or None
         """
         try:
-            link = IdentityLink.objects.select_related("user").get(
+            link = CustomerUser.objects.select_related("user").get(
                 customer_id=customer.uuid,
             )
             return link.user
-        except IdentityLink.DoesNotExist:
+        except CustomerUser.DoesNotExist:
             return None
 
     @classmethod
@@ -343,7 +490,7 @@ class AuthBridgeService:
             Number of deleted tokens
         """
         cutoff = timezone.now() - timedelta(days=days)
-        deleted, _ = BridgeToken.objects.filter(
+        deleted, _ = AccessLink.objects.filter(
             expires_at__lt=cutoff,
         ).delete()
         return deleted
