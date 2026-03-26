@@ -389,9 +389,12 @@ function lookupCustomer() {
         if (!nameEl.value.trim()) nameEl.focus();
         return;
       }
-      // Existing customer — fill name, hide name field
+      // Existing customer — fill name if available, or wait for OTP
       if (data.name) {
         nameEl.value = data.name;
+        nameSection.classList.add('hidden');
+      } else if (data.can_verify || data.is_verified) {
+        // Will get name after OTP + reload — don't show name field
         nameSection.classList.add('hidden');
       } else {
         nameSection.classList.remove('hidden');
@@ -459,6 +462,16 @@ function closeAddressDrawer() {
   var el = document.getElementById('address-drawer');
   if (el) { el.classList.add('hidden'); document.body.style.overflow = ''; }
 }
+
+// Reload page after OTP confirmation (switches to logged-in mode)
+document.body.addEventListener('htmx:afterSwap', function(evt) {
+  if (evt.detail.target.id === 'auth-section') {
+    var html = evt.detail.target.innerHTML;
+    if (html.indexOf('Identidade confirmada') !== -1) {
+      setTimeout(function() { window.location.reload(); }, 800);
+    }
+  }
+});
 
 if (phoneEl) {
   phoneEl.addEventListener('blur', () => lookupCustomer());
