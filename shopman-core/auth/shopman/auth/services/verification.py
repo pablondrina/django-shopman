@@ -8,6 +8,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from django.contrib.auth import login
 from django.db import transaction
 from django.utils import timezone
 
@@ -231,6 +232,13 @@ class AuthService:
 
         # Mark code verified
         code.mark_verified(customer.uuid)
+
+        # Django login if request provided
+        if request is not None:
+            from ._user_bridge import get_or_create_user_for_customer
+
+            user, _ = get_or_create_user_for_customer(customer)
+            login(request, user, backend="shopman.auth.backends.PhoneOTPBackend")
 
         # Signal
         verification_code_verified.send(

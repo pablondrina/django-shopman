@@ -10,6 +10,7 @@ from django.urls import path
 from .views.access_link import AccessLinkCreateView, AccessLinkExchangeView
 from .views.health import HealthCheckView
 from .views.access_link_request import AccessLinkRequestView
+from .views.logout import LogoutView
 from .views.verification_code import VerificationCodeRequestView, VerificationCodeVerifyView
 
 app_name = "shopman_auth"
@@ -23,6 +24,8 @@ urlpatterns = [
     path("code/verify/", VerificationCodeVerifyView.as_view(), name="code-verify"),
     # Access Link (login via email - one click)
     path("access-link/", AccessLinkRequestView.as_view(), name="access-link"),
+    # Logout
+    path("logout/", LogoutView.as_view(), name="logout"),
     # Health check (load balancers, Kubernetes probes)
     path("health/", HealthCheckView.as_view(), name="health"),
 ]

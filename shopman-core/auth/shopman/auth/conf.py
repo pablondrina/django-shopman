@@ -42,6 +42,7 @@ class AuthSettings:
     DEFAULT_DOMAIN: str = "localhost:8000"
     USE_HTTPS: bool = True
     LOGIN_REDIRECT_URL: str = "/"
+    LOGOUT_REDIRECT_URL: str = "/"
 
     # Redirect safety (H02)
     # Hosts allowed in `next` parameter redirects (empty = same-host only)

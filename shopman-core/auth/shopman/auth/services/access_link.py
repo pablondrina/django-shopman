@@ -22,6 +22,7 @@ from ..exceptions import GateError
 from ..gates import Gates
 from ..models import AccessLink, CustomerUser
 from ..signals import access_link_created, customer_authenticated
+from ._user_bridge import get_or_create_user_for_customer
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -250,57 +251,8 @@ class AccessLinkService:
 
     @classmethod
     def _get_or_create_user(cls, customer: AuthCustomerInfo) -> tuple[User, bool]:
-        """
-        Get or create User for Customer.
-
-        Handles concurrent creation via IntegrityError retry.
-
-        Args:
-            customer: Customer from Customers
-
-        Returns:
-            (User, created) tuple
-        """
-        from django.db import IntegrityError
-
-        # Check existing link
-        try:
-            link = CustomerUser.objects.select_related("user").get(
-                customer_id=customer.uuid,
-            )
-            return link.user, False
-        except CustomerUser.DoesNotExist:
-            pass
-
-        # Create User
-        username = f"customer_{str(customer.uuid).replace('-', '')[:12]}"
-        user = User.objects.create_user(username=username)
-
-        # Set name from customer
-        if customer.name:
-            parts = customer.name.split(" ", 1)
-            user.first_name = parts[0]
-            if len(parts) > 1:
-                user.last_name = parts[1]
-            user.save(update_fields=["first_name", "last_name"])
-
-        # Create link — retry on concurrent creation
-        try:
-            CustomerUser.objects.create(user=user, customer_id=customer.uuid)
-        except IntegrityError:
-            # Another request already created the link; use that one
-            user.delete()
-            link = CustomerUser.objects.select_related("user").get(
-                customer_id=customer.uuid,
-            )
-            return link.user, False
-
-        logger.info(
-            "User created for customer",
-            extra={"customer_id": str(customer.uuid), "user_id": user.id},
-        )
-
-        return user, True
+        """Delegate to shared _user_bridge."""
+        return get_or_create_user_for_customer(customer)
 
     # ===========================================
     # Access Link Email (email-based one-click login)
