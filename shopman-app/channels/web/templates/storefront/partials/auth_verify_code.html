@@ -1,6 +1,6 @@
 <div class="p-4 rounded-lg bg-blue-50 border border-blue-200">
   <p class="text-sm text-blue-800 mb-3">
-    Enviamos um codigo para seu WhatsApp. Digite abaixo:
+    Enviamos um código para seu WhatsApp. Digite abaixo:
   </p>
 
   {% if error_message %}
@@ -37,7 +37,7 @@
       hx-vals='{"phone": "{{ phone }}"}'
       hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
       class="text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors">
-      Reenviar codigo (<span id="resend-timer">60</span>s)
+      Reenviar código (<span id="resend-timer">60</span>s)
     </button>
   </div>
 </div>
@@ -54,7 +54,7 @@
       clearInterval(interval);
       if (btnEl) {
         btnEl.disabled = false;
-        btnEl.textContent = 'Reenviar codigo';
+        btnEl.textContent = 'Reenviar código';
       }
     }
   }, 1000);

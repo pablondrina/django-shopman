@@ -1,4 +1,5 @@
 {% extends "storefront/base.html" %}
+{% load storefront_tags %}
 
 {% block title %}Meus Pedidos{% endblock %}
 
@@ -6,13 +7,58 @@
 
 <div class="max-w-2xl mx-auto">
 
+  {% if orders is not None and is_verified %}
+  {# ── Authenticated: show orders directly ── #}
+
   <div class="text-center mb-8">
     <span class="text-5xl block mb-3">📦</span>
     <h2 class="font-serif text-2xl font-bold text-bark mb-1">Meus Pedidos</h2>
-    <p class="text-bark-light">Consulte seus pedidos pelo telefone</p>
+    <p class="text-bark-light">{{ phone_value|format_phone }}</p>
   </div>
 
-  <!-- Phone lookup form -->
+  {% if orders %}
+  <div class="space-y-3">
+    {% for order in orders %}
+    <a href="{% url 'storefront:order_tracking' ref=order.ref %}"
+       class="block bg-white rounded-xl shadow-sm p-5 hover:shadow-md transition-shadow">
+      <div class="flex items-center justify-between">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-3 mb-1">
+            <span class="font-mono font-bold text-bark text-sm">{{ order.ref }}</span>
+            <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold {{ order.status_color }}">
+              {{ order.status_label }}
+            </span>
+          </div>
+          <p class="text-bark-light text-sm">{{ order.created_at|date:"d/m/Y" }} às {{ order.created_at|time:"H:i" }}</p>
+        </div>
+        <div class="text-right flex-shrink-0 ml-4">
+          <p class="text-bark font-bold">{{ order.total_display }}</p>
+          <span class="text-wheat-dark text-xs">Ver detalhes &rarr;</span>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-center py-12">
+    <span class="text-5xl block mb-4">📦</span>
+    <p class="text-bark-light text-lg">Você ainda não fez nenhum pedido.</p>
+    <a href="{% url 'storefront:menu' %}" class="inline-block mt-4 px-6 py-2.5 bg-wheat text-white rounded-lg font-medium hover:bg-wheat-dark transition-colors">
+      Ver cardápio
+    </a>
+  </div>
+  {% endif %}
+
+  {% else %}
+  {# ── Not authenticated: login flow ── #}
+
+  <div class="text-center mb-8">
+    <span class="text-5xl block mb-3">📦</span>
+    <h2 class="font-serif text-2xl font-bold text-bark mb-1">Meus Pedidos</h2>
+    <p class="text-bark-light">Informe seu telefone para ver seus pedidos</p>
+  </div>
+
+  <!-- Phone login form -->
   <form method="post" action="{% url 'storefront:order_history' %}" class="bg-white rounded-xl shadow-sm p-6 mb-8">
     {% csrf_token %}
 
@@ -35,45 +81,47 @@
       <div class="sm:self-end">
         <button type="submit"
                 class="w-full sm:w-auto px-6 py-2.5 bg-wheat text-white rounded-lg font-medium hover:bg-wheat-dark transition-colors">
-          Buscar
+          Continuar
         </button>
       </div>
     </div>
   </form>
 
-  <!-- Results -->
-  {% if orders is not None %}
-    {% if orders %}
-    <div class="space-y-3">
-      {% for order in orders %}
-      <a href="{% url 'storefront:order_tracking' ref=order.ref %}"
-         class="block bg-white rounded-xl shadow-sm p-5 hover:shadow-md transition-shadow">
-        <div class="flex items-center justify-between">
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-3 mb-1">
-              <span class="font-mono font-bold text-bark text-sm">{{ order.ref }}</span>
-              <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold {{ order.status_color }}">
-                {{ order.status_label }}
-              </span>
-            </div>
-            <p class="text-bark-light text-sm">{{ order.created_at|date:"d/m/Y" }} às {{ order.created_at|time:"H:i" }}</p>
-          </div>
-          <div class="text-right flex-shrink-0 ml-4">
-            <p class="text-bark font-bold">{{ order.total_display }}</p>
-            <span class="text-wheat-dark text-xs">Ver detalhes &rarr;</span>
-          </div>
-        </div>
-      </a>
-      {% endfor %}
+  {% if not_found %}
+  <div class="text-center py-12">
+    <span class="text-5xl block mb-4">🔍</span>
+    <p class="text-bark-light text-lg">Não encontramos uma conta com este telefone.</p>
+    <p class="text-bark-light/70 text-sm mt-2">Verifique se digitou o número correto.</p>
+  </div>
+  {% endif %}
+
+  {% if needs_verification %}
+  <div class="bg-white rounded-xl shadow-sm p-6 mb-8">
+    <div class="text-center mb-4">
+      <span class="text-4xl block mb-2">🔐</span>
+      <h3 class="font-serif text-lg font-bold text-bark mb-1">
+        Olá{% if customer_name %}, {{ customer_name }}{% endif %}!
+      </h3>
+      <p class="text-bark-light">Para sua segurança, confirme seu telefone.</p>
     </div>
-    {% else %}
-    <!-- Empty state -->
-    <div class="text-center py-12">
-      <span class="text-5xl block mb-4">🔍</span>
-      <p class="text-bark-light text-lg">Nenhum pedido encontrado para este telefone.</p>
-      <p class="text-bark-light/70 text-sm mt-1">Verifique se digitou o número correto.</p>
+
+    <div id="auth-section">
+      {% include "storefront/partials/auth_request_code.html" with phone=phone_value %}
     </div>
-    {% endif %}
+  </div>
+
+  <script>
+  document.body.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt.detail.target.id === 'auth-section') {
+      var html = evt.detail.target.innerHTML;
+      if (html.indexOf('Identidade confirmada') !== -1) {
+        setTimeout(function() { window.location.reload(); }, 800);
+      }
+    }
+  });
+  </script>
+  {% endif %}
+
   {% endif %}
 
 </div>

@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import uuid
 
+from django.core.cache import cache
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.views import View
@@ -16,6 +17,31 @@ from django.views import View
 from ..constants import HAS_AUTH
 
 logger = logging.getLogger("shopman.web.devices")
+
+
+def _geolocate_ip(ip: str) -> str:
+    """Resolve IP to city/region via ip-api.com (cached 24h). Returns '' on failure."""
+    if not ip or ip.startswith("127.") or ip.startswith("10.") or ip == "::1":
+        return ""
+    cache_key = f"geo:{ip}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+    try:
+        import json
+        import urllib.request
+
+        url = f"http://ip-api.com/json/{ip}?fields=city,regionName,country&lang=pt-BR"
+        with urllib.request.urlopen(url, timeout=2) as resp:
+            data = json.loads(resp.read())
+        if data.get("city"):
+            location = f"{data['city']}, {data.get('regionName', '')}"
+            cache.set(cache_key, location, 86400)
+            return location
+    except Exception:
+        pass
+    cache.set(cache_key, "", 3600)  # Cache failures for 1h
+    return ""
 
 
 def _get_customer_id(request: HttpRequest) -> uuid.UUID | None:
@@ -52,12 +78,13 @@ class DeviceListView(View):
         device_list = []
         for d in devices:
             if d.is_valid:
+                location = _geolocate_ip(d.ip_address) if d.ip_address else ""
                 device_list.append({
                     "id": str(d.id),
                     "label": d.label.replace(" / ", " no ") if d.label else "",
                     "created_at": d.created_at,
                     "last_used_at": d.last_used_at,
-                    "ip_address": d.ip_address or "",
+                    "location": location,
                     "is_current": current_hash is not None and d.token_hash == current_hash,
                 })
 

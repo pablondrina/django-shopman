@@ -1,11 +1,13 @@
 {% extends "storefront/base.html" %}
 
-{% block title %}Pagamento PIX — Pedido {{ order.ref }}{% endblock %}
+{% block title %}Pagamento — Pedido {{ order.ref }}{% endblock %}
 
 {% block content %}
 
 <div class="max-w-lg mx-auto">
-  <h2 class="font-serif text-3xl font-bold text-bark mb-2 text-center">Pagamento PIX</h2>
+  <h2 class="font-serif text-3xl font-bold text-bark mb-2 text-center">
+    {% if method == "card" %}Pagamento com Cartão{% else %}Pagamento PIX{% endif %}
+  </h2>
   <p class="text-bark-light text-center mb-6">Pedido <strong>{{ order.ref }}</strong></p>
 
   <div class="bg-white rounded-xl shadow-sm p-6 space-y-6">
@@ -15,6 +17,29 @@
       <p class="text-3xl font-bold text-wheat-dark">{{ total_display }}</p>
     </div>
 
+    {% if method == "card" %}
+    <!-- ═══ CARD (Stripe Elements) ═══ -->
+    <div id="card-payment-section">
+      <div id="stripe-payment-element" class="mb-4">
+        <!-- Stripe Payment Element mounts here -->
+      </div>
+      <div id="card-error" class="hidden text-sm text-red-600 mb-3"></div>
+      <button
+        id="card-submit-btn"
+        type="button"
+        onclick="submitCardPayment()"
+        class="w-full py-3 bg-wheat text-white rounded-lg font-medium text-lg hover:bg-wheat-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Pagar {{ total_display }}
+      </button>
+      <div id="card-processing" class="hidden flex items-center justify-center space-x-2 py-3 mt-3">
+        <div class="animate-spin w-4 h-4 border-2 border-wheat border-t-transparent rounded-full"></div>
+        <span class="text-sm text-bark-light">Processando pagamento...</span>
+      </div>
+    </div>
+
+    {% else %}
+    <!-- ═══ PIX ═══ -->
     {% if payment.qr_code %}
     <!-- QR Code -->
     <div class="flex justify-center">
@@ -58,8 +83,9 @@
       <p id="countdown" class="text-lg font-bold text-bark" data-expires="{{ payment.expires_at }}">--:--</p>
     </div>
     {% endif %}
+    {% endif %}
 
-    <!-- Polling status -->
+    <!-- Polling status (both methods) -->
     <div
       id="payment-status"
       hx-get="{% url 'storefront:payment_status_partial' ref=order.ref %}"
@@ -94,20 +120,15 @@
           type="submit"
           class="w-full py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
         >
-          Simular Pagamento PIX Confirmado
+          Simular Pagamento {% if method == "card" %}Cartão{% else %}PIX{% endif %} Confirmado
         </button>
       </form>
     </div>
   </div>
 </div>
 
-{% comment %}
-  DEBUG note: The debug context processor only injects 'debug' when
-  INTERNAL_IPS includes the request IP (default: only 127.0.0.1).
-  If the mock button doesn't appear, check INTERNAL_IPS in settings.
-{% endcomment %}
-
 <script>
+{% if method == "pix" %}
 function copyPixCode() {
   const textarea = document.getElementById('pix-code');
   textarea.select();
@@ -139,6 +160,64 @@ function copyPixCode() {
   }
   update();
 })();
+{% endif %}
+
+{% if method == "card" %}
+// Stripe Elements integration
+(function() {
+  const clientSecret = '{{ payment.client_secret|default:"" }}';
+  if (!clientSecret) {
+    document.getElementById('card-error').textContent = 'Erro ao inicializar pagamento. Tente novamente.';
+    document.getElementById('card-error').classList.remove('hidden');
+    return;
+  }
+
+  const script = document.createElement('script');
+  script.src = 'https://js.stripe.com/v3/';
+  script.onload = function() {
+    const stripeKey = document.querySelector('meta[name="stripe-publishable-key"]');
+    if (!stripeKey) {
+      document.getElementById('card-error').textContent = 'Stripe nao configurado.';
+      document.getElementById('card-error').classList.remove('hidden');
+      return;
+    }
+
+    const stripe = Stripe(stripeKey.content);
+    const elements = stripe.elements({ clientSecret: clientSecret });
+    const paymentElement = elements.create('payment');
+    paymentElement.mount('#stripe-payment-element');
+
+    window._stripeInstance = stripe;
+    window._stripeElements = elements;
+  };
+  document.head.appendChild(script);
+})();
+
+function submitCardPayment() {
+  const btn = document.getElementById('card-submit-btn');
+  const processing = document.getElementById('card-processing');
+  const errorEl = document.getElementById('card-error');
+
+  btn.disabled = true;
+  processing.classList.remove('hidden');
+  errorEl.classList.add('hidden');
+
+  window._stripeInstance.confirmPayment({
+    elements: window._stripeElements,
+    confirmParams: {
+      return_url: window.location.origin + '/pedido/{{ order.ref }}/',
+    },
+  }).then(function(result) {
+    if (result.error) {
+      errorEl.textContent = result.error.message;
+      errorEl.classList.remove('hidden');
+      btn.disabled = false;
+      processing.classList.add('hidden');
+    }
+    // If successful, Stripe redirects to return_url
+  });
+}
+{% endif %}
 </script>
 
 {% endblock %}

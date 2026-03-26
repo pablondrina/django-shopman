@@ -68,12 +68,12 @@
       </div>
 
       <div>
-        <label for="notes" class="block text-sm font-medium text-bark mb-1">Observacoes <span class="text-bark-light/50 font-normal">(opcional)</span></label>
+        <label for="notes" class="block text-sm font-medium text-bark mb-1">Observações <span class="text-bark-light/50 font-normal">(opcional)</span></label>
         <textarea
           id="notes"
           name="notes"
           rows="3"
-          placeholder="Alguma observacao sobre seu pedido? Ex: sem gluten, embalagem para presente..."
+          placeholder="Alguma observação sobre seu pedido? Ex: sem glúten, embalagem para presente..."
           class="w-full px-4 py-2.5 rounded-lg border border-cream-dark bg-white text-bark placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition resize-none"
         >{{ form_data.notes|default:'' }}</textarea>
       </div>
@@ -101,7 +101,7 @@
           <!-- Saved addresses (populated via JS when customer is recognized) -->
           <div id="saved-addresses" class="hidden mb-3">
             <div class="flex items-center justify-between mb-2">
-              <label class="block text-sm font-medium text-bark">Enderecos salvos</label>
+              <label class="block text-sm font-medium text-bark">Endereços salvos</label>
               <button type="button" onclick="openAddressDrawer()"
                 class="text-xs font-medium text-wheat-dark hover:text-wheat transition-colors">
                 Ver todos &rarr;
@@ -123,21 +123,31 @@
             <button type="button" onclick="toggleNewAddress(true)"
               id="btn-new-address"
               class="text-sm font-medium text-wheat-dark hover:text-wheat transition-colors">
-              + Novo endereco
+              + Novo endereço
             </button>
           </div>
           <div id="new-address-fields">
-            <label for="delivery_address" class="block text-sm font-medium text-bark mb-1">Endereco de entrega</label>
+            <label for="delivery_address" class="block text-sm font-medium text-bark mb-1">Endereço de entrega</label>
             <textarea
               id="delivery_address"
               name="delivery_address"
               rows="2"
-              placeholder="Rua, numero, bairro, complemento..."
+              placeholder="Rua, número, bairro, complemento..."
               class="w-full px-4 py-2.5 rounded-lg border border-cream-dark bg-white text-bark placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition resize-none"
             >{{ form_data.delivery_address|default:'' }}</textarea>
           </div>
         </div>
       </div>
+
+      <!-- Cutoff info -->
+      {% if cutoff_info %}
+      <div class="p-3 rounded-lg text-sm flex items-center gap-2 {% if cutoff_info.past_cutoff %}bg-amber-50 border border-amber-200 text-amber-800{% else %}bg-blue-50 border border-blue-200 text-blue-800{% endif %}">
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        {{ cutoff_info.message }}
+      </div>
+      {% endif %}
 
       <!-- Delivery date: Para quando? -->
       <div>
@@ -153,7 +163,7 @@
             <input type="radio" name="delivery_date_option" value="tomorrow"
               class="text-wheat focus:ring-wheat"
               onchange="selectTomorrow()">
-            <span class="text-sm text-bark">Amanha</span>
+            <span class="text-sm text-bark">Amanhã</span>
           </label>
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="radio" name="delivery_date_option" value="custom"
@@ -174,13 +184,13 @@
 
         <!-- Time slot selector (visible only for future dates) -->
         <div id="time-slot-wrap" class="hidden mt-3">
-          <label class="block text-sm font-medium text-bark mb-2">Periodo preferido</label>
+          <label class="block text-sm font-medium text-bark mb-2">Período preferido</label>
           <div class="flex gap-3 flex-wrap">
             <label class="flex items-center gap-2 cursor-pointer">
               <input type="radio" name="delivery_time_slot" value="manha"
                 {% if form_data.delivery_time_slot == "manha" %}checked{% endif %}
                 class="text-wheat focus:ring-wheat">
-              <span class="text-sm text-bark">Manha (06h-12h)</span>
+              <span class="text-sm text-bark">Manhã (06h-12h)</span>
             </label>
             <label class="flex items-center gap-2 cursor-pointer">
               <input type="radio" name="delivery_time_slot" value="tarde"
@@ -199,9 +209,28 @@
 
         <!-- Preorder banner -->
         <div id="preorder-banner" class="hidden mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
-          Encomenda programada &mdash; producao sob demanda
+          Encomenda programada &mdash; produção sob demanda
         </div>
       </div>
+
+      {% if payment_methods|length > 1 %}
+      <!-- Payment method selector -->
+      <div>
+        <label class="block text-sm font-medium text-bark mb-2">Forma de pagamento</label>
+        <div class="flex gap-4">
+          {% for method in payment_methods %}
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="payment_method" value="{{ method }}"
+              {% if forloop.first %}checked{% endif %}
+              class="text-wheat focus:ring-wheat">
+            <span class="text-sm text-bark">
+              {% if method == "pix" %}PIX{% elif method == "card" %}Cartão{% elif method == "counter" %}No caixa{% else %}{{ method }}{% endif %}
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
 
       <button
         type="submit"
@@ -222,16 +251,32 @@
         <div class="flex justify-between items-start text-sm">
           <div class="flex-1 min-w-0 pr-3">
             <p class="text-bark font-medium truncate">{{ item.name|default:item.sku }}</p>
-            <p class="text-bark-light">{{ item.qty|floatformat:"0" }}x {{ item.price_display }}</p>
+            <p class="text-bark-light">
+              {{ item.qty|floatformat:"0" }}x
+              {% if item.original_price_display %}<span class="line-through text-bark-light/50">{{ item.original_price_display }}</span>{% endif %}
+              {{ item.price_display }}
+            </p>
           </div>
           <p class="text-bark font-medium flex-shrink-0">{{ item.total_display }}</p>
         </div>
         {% endfor %}
       </div>
 
-      <div class="border-t border-cream-dark pt-3 flex justify-between items-center">
-        <span class="font-serif font-bold text-bark">Total</span>
-        <span class="text-lg font-bold text-wheat-dark">{{ cart.subtotal_display }}</span>
+      <div class="border-t border-cream-dark pt-3 space-y-2 text-sm">
+        {% if cart.has_discount %}
+        <div class="flex justify-between text-bark-light">
+          <span>Subtotal</span>
+          <span class="line-through">{{ cart.original_subtotal_display }}</span>
+        </div>
+        <div class="flex justify-between text-green-600">
+          <span>Descontos</span>
+          <span>-{{ cart.total_discount_display }}</span>
+        </div>
+        {% endif %}
+        <div class="flex justify-between items-center {% if cart.has_discount %}pt-2 border-t border-cream-dark{% endif %}">
+          <span class="font-serif font-bold text-bark">Total</span>
+          <span class="text-lg font-bold text-wheat-dark">{{ cart.subtotal_display }}</span>
+        </div>
       </div>
     </div>
   </div>
@@ -242,7 +287,7 @@
   <div class="absolute inset-0 bg-black/50" onclick="closeAddressDrawer()"></div>
   <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[70vh] overflow-y-auto animate-slide-up">
     <div class="sticky top-0 bg-white border-b border-cream-dark px-5 py-4 flex items-center justify-between">
-      <h3 class="font-serif text-lg font-bold text-bark">Enderecos salvos</h3>
+      <h3 class="font-serif text-lg font-bold text-bark">Endereços salvos</h3>
       <button type="button" onclick="closeAddressDrawer()" class="p-1 text-bark-light hover:text-bark">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -253,7 +298,7 @@
     <div class="px-5 pb-5">
       <button type="button" onclick="closeAddressDrawer(); toggleNewAddress(true);"
         class="w-full py-3 border-2 border-dashed border-cream-dark text-bark-light rounded-lg text-sm font-medium hover:border-wheat/50 hover:text-wheat-dark transition-colors">
-        + Novo endereco
+        + Novo endereço
       </button>
     </div>
   </div>
@@ -336,8 +381,8 @@ function lookupCustomer() {
           '<p class="text-sm text-amber-800 mb-3">Encontramos seu cadastro. Confirme sua identidade para agilizar o pedido.</p>' +
           '<div hx-post="{% url "storefront:request_code" %}" hx-target="#auth-section" hx-swap="innerHTML" hx-vals=\'{"phone": "' + e164 + '"}\' hx-headers=\'{"X-CSRFToken": "' + document.querySelector('[name=csrfmiddlewaretoken]').value + '"}\'>' +
           '<button type="button" class="w-full py-2.5 bg-wheat text-white rounded-lg font-medium text-sm hover:bg-wheat-dark transition-colors">' +
-          'Enviar codigo de verificacao</button></div>' +
-          '<p class="text-xs text-amber-600 mt-2 text-center">Enviaremos um codigo de 6 digitos via WhatsApp</p></div>';
+          'Enviar código de verificação</button></div>' +
+          '<p class="text-xs text-amber-600 mt-2 text-center">Enviaremos um código de 6 dígitos via WhatsApp</p></div>';
         htmx.process(authSection);
       } else if (data.is_verified) {
         authSection.innerHTML = '<div class="p-3 rounded-lg bg-green-50 border border-green-200 flex items-center gap-2">' +
@@ -383,7 +428,7 @@ function openAddressDrawer() {
   savedAddresses.forEach(function(addr) {
     var complement = addr.complement ? ' (' + addr.complement + ')' : '';
     var instructions = addr.delivery_instructions ? '<p class="text-xs text-bark-light mt-1 italic">' + addr.delivery_instructions + '</p>' : '';
-    var defaultBadge = addr.is_default ? '<span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-wheat/20 text-wheat-dark ml-2">Padrao</span>' : '';
+    var defaultBadge = addr.is_default ? '<span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-wheat/20 text-wheat-dark ml-2">Padrão</span>' : '';
     var div = document.createElement('div');
     div.className = 'p-4 rounded-lg border border-cream-dark hover:border-wheat/50 hover:bg-cream/30 cursor-pointer transition';
     div.innerHTML = '<div class="flex items-center justify-between"><div class="flex-1 min-w-0">' +
