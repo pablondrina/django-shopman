@@ -48,12 +48,11 @@
               <span class="text-bark-light ml-2">{{ customer_info.phone|format_phone }}</span>
             </div>
           </div>
-          <a href="{% url 'shopman_auth:logout' %}" class="text-xs text-bark-light hover:text-red-500 transition-colors"
+          <a href="#" class="text-xs text-bark-light hover:text-red-500 transition-colors"
              onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
             Trocar conta
           </a>
         </div>
-        <form id="logout-form" method="post" action="{% url 'shopman_auth:logout' %}" class="hidden">{% csrf_token %}</form>
         <input type="hidden" name="phone" value="{{ form_data.phone }}">
         <input type="hidden" name="name" value="{{ form_data.name }}">
       </div>
@@ -491,5 +490,9 @@ function onDateChanged() { updatePreorderUI(); }
   if (input.value) { updatePreorderUI(); if (isFutureDate(input.value)) document.getElementById('date-picker-wrap').classList.remove('hidden'); }
 })();
 </script>
+
+{% if is_verified %}
+<form id="logout-form" method="post" action="{% url 'shopman_auth:logout' %}" class="hidden">{% csrf_token %}</form>
+{% endif %}
 
 {% endblock %}
