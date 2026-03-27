@@ -80,6 +80,10 @@ AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
 ]
 
+AUTH = {
+    "PRESERVE_SESSION_KEYS": ["cart_session_key"],
+}
+
 ROOT_URLCONF = "project.urls"
 
 TEMPLATES = [

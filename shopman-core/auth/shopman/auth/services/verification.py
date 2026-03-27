@@ -270,8 +270,20 @@ class AuthService:
         if request is not None:
             from ._user_bridge import get_or_create_user_for_customer
 
+            # Preserve session keys across login (login flushes session)
+            preserved = {}
+            preserve_keys = auth_settings.PRESERVE_SESSION_KEYS
+            if preserve_keys and hasattr(request, "session"):
+                for key in preserve_keys:
+                    if key in request.session:
+                        preserved[key] = request.session[key]
+
             user, _ = get_or_create_user_for_customer(customer)
             login(request, user, backend="shopman.auth.backends.PhoneOTPBackend")
+
+            # Restore preserved keys
+            for key, val in preserved.items():
+                request.session[key] = val
 
         # Signal
         verification_code_verified.send(
