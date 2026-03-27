@@ -125,56 +125,70 @@
 **Arquivo:** `shopman-core/auth/shopman/auth/conf.py`
 **Dict:** `AUTH = {}`
 
-### Tokens e Códigos
+### Access Link (chat → web)
 
 | Setting | Tipo | Default | Descrição |
 |---------|------|---------|-----------|
-| `BRIDGE_TOKEN_TTL_MINUTES` | int | `5` | TTL do Bridge Token |
-| `BRIDGE_TOKEN_API_KEY` | str | `""` | **Obrigatório em produção.** Shared secret para endpoint de bridge token |
-| `MAGIC_CODE_TTL_MINUTES` | int | `10` | TTL do código de verificação |
+| `ACCESS_LINK_EXCHANGE_TTL_MINUTES` | int | `5` | TTL do access link (Manychat/API) |
+| `ACCESS_LINK_API_KEY` | str | `""` | **Obrigatório em produção.** Shared secret para `POST /auth/access/create/` |
+
+### Access Link (email login)
+
+| Setting | Tipo | Default | Descrição |
+|---------|------|---------|-----------|
+| `ACCESS_LINK_ENABLED` | bool | `True` | Habilita login por email (one-click) |
+| `ACCESS_LINK_TTL_MINUTES` | int | `15` | TTL do access link por email |
+| `ACCESS_LINK_RATE_LIMIT_MAX` | int | `5` | Máx. access links por janela |
+| `ACCESS_LINK_RATE_LIMIT_WINDOW_MINUTES` | int | `15` | Janela de rate limit |
+
+### Código de Verificação (OTP)
+
+| Setting | Tipo | Default | Descrição |
+|---------|------|---------|-----------|
+| `MAGIC_CODE_TTL_MINUTES` | int | `10` | TTL do código OTP |
 | `MAGIC_CODE_MAX_ATTEMPTS` | int | `5` | Máx. tentativas de verificação |
 | `MAGIC_CODE_COOLDOWN_SECONDS` | int | `60` | Cooldown entre pedidos de código |
-| `MAGIC_LINK_ENABLED` | bool | `True` | Habilita magic link por email |
-| `MAGIC_LINK_TTL_MINUTES` | int | `15` | TTL do magic link |
-| `MAGIC_LINK_RATE_LIMIT_MAX` | int | `5` | Máx. magic links por janela |
-| `MAGIC_LINK_RATE_LIMIT_WINDOW_MINUTES` | int | `15` | Janela de rate limit de magic links |
-
-### Rate Limiting
-
-| Setting | Tipo | Default | Descrição |
-|---------|------|---------|-----------|
-| `CODE_RATE_LIMIT_WINDOW_MINUTES` | int | `15` | Janela de rate limit para códigos |
 | `CODE_RATE_LIMIT_MAX` | int | `5` | Máx. códigos por janela |
+| `CODE_RATE_LIMIT_WINDOW_MINUTES` | int | `15` | Janela de rate limit |
 
 ### Device Trust
 
 | Setting | Tipo | Default | Descrição |
 |---------|------|---------|-----------|
-| `DEVICE_TRUST_ENABLED` | bool | `True` | Habilita feature de device trust |
-| `DEVICE_TRUST_TTL_DAYS` | int | `30` | TTL do cookie de device trust |
-| `DEVICE_TRUST_COOKIE_NAME` | str | `"auth_dt"` | Nome do cookie |
+| `DEVICE_TRUST_ENABLED` | bool | `True` | Habilita confiança de dispositivo |
+| `DEVICE_TRUST_TTL_DAYS` | int | `30` | TTL do cookie (dias) |
+| `DEVICE_TRUST_COOKIE_NAME` | str | `"shopman_auth_dt"` | Nome do cookie |
+
+### Delivery (envio de códigos)
+
+| Setting | Tipo | Default | Descrição |
+|---------|------|---------|-----------|
+| `MESSAGE_SENDER_CLASS` | str | `"...ConsoleSender"` | Sender padrão. **Não usar em produção** (boot check impede). |
+| `DELIVERY_CHAIN` | list | `[]` | Cadeia de fallback: `["whatsapp", "sms", "email"]` |
+| `DELIVERY_SENDERS` | dict | `{}` | Map método → classe sender para a chain |
+| `WHATSAPP_ACCESS_TOKEN` | str | `""` | Token da WhatsApp Cloud API |
+| `WHATSAPP_PHONE_ID` | str | `""` | Phone ID do WhatsApp Cloud |
+| `WHATSAPP_CODE_TEMPLATE` | str | `"verification_code"` | Nome do template WhatsApp |
 
 ### Integração
 
 | Setting | Tipo | Default | Descrição |
 |---------|------|---------|-----------|
-| `MESSAGE_SENDER_CLASS` | str | `"shopman.auth.senders.ConsoleSender"` | Backend de envio de mensagens (WhatsApp/SMS) |
-| `CUSTOMER_RESOLVER_CLASS` | str | `"shopman.customers.adapters.auth.CustomersResolver"` | Resolver de customer para login |
-| `AUTO_CREATE_CUSTOMER` | bool | `True` | Criar customer automaticamente no login |
-| `WHATSAPP_ACCESS_TOKEN` | str | `""` | Token da WhatsApp Cloud API |
-| `WHATSAPP_PHONE_ID` | str | `""` | Phone ID do WhatsApp Cloud |
-| `WHATSAPP_CODE_TEMPLATE` | str | `"verification_code"` | Nome do template WhatsApp |
+| `CUSTOMER_RESOLVER_CLASS` | str | `"...CustomersResolver"` | Resolver de customer para login |
+| `AUTH_ADAPTER` | str | `"...DefaultAuthAdapter"` | Adapter (ponto de customização) |
+| `AUTO_CREATE_CUSTOMER` | bool | `True` | Criar customer automaticamente no primeiro login |
+| `PRESERVE_SESSION_KEYS` | list \| None | `None` | Keys da sessão a preservar no login (ex: `["cart_session_key"]`) |
 
 ### URLs e Segurança
 
 | Setting | Tipo | Default | Descrição |
 |---------|------|---------|-----------|
-| `DEFAULT_DOMAIN` | str | `"localhost:8000"` | Domínio padrão para URLs geradas |
-| `USE_HTTPS` | bool | `True` | Usar HTTPS nas URLs |
+| `DEFAULT_DOMAIN` | str | `"localhost:8000"` | Domínio para URLs geradas. **Não usar localhost em produção** (boot check impede). |
+| `USE_HTTPS` | bool | `True` | Usar HTTPS nas URLs geradas |
 | `LOGIN_REDIRECT_URL` | str | `"/"` | Redirecionamento pós-login |
+| `LOGOUT_REDIRECT_URL` | str | `"/"` | Redirecionamento pós-logout |
 | `ALLOWED_REDIRECT_HOSTS` | set | `set()` | Hosts permitidos no parâmetro `next` |
-| `TRUSTED_PROXY_DEPTH` | int | `1` | Profundidade de X-Forwarded-For |
-| `PRESERVE_SESSION_KEYS` | list \| None | `None` | Keys da sessão a preservar no login |
+| `TRUSTED_PROXY_DEPTH` | int | `1` | Profundidade de X-Forwarded-For para IP |
 
 ### Templates
 
@@ -182,10 +196,32 @@
 |---------|------|---------|
 | `TEMPLATE_CODE_REQUEST` | str | `"auth/code_request.html"` |
 | `TEMPLATE_CODE_VERIFY` | str | `"auth/code_verify.html"` |
-| `TEMPLATE_BRIDGE_INVALID` | str | `"auth/bridge_invalid.html"` |
+| `TEMPLATE_ACCESS_LINK_INVALID` | str | `"auth/access_link_invalid.html"` |
 | `TEMPLATE_ACCESS_LINK_REQUEST` | str | `"auth/access_link_request.html"` |
 | `TEMPLATE_ACCESS_LINK_EMAIL_TXT` | str | `"auth/email_access_link.txt"` |
 | `TEMPLATE_ACCESS_LINK_EMAIL_HTML` | str | `"auth/email_access_link.html"` |
+
+### Boot Checks (produção)
+
+O app **recusa iniciar** com `DEBUG=False` se:
+- `ACCESS_LINK_API_KEY` está vazio
+- `MESSAGE_SENDER_CLASS` é `ConsoleSender`
+- `DEFAULT_DOMAIN` contém "localhost"
+
+### Exemplo de configuração para produção
+
+```python
+# settings.py
+AUTH = {
+    "ACCESS_LINK_API_KEY": os.environ["AUTH_ACCESS_LINK_API_KEY"],
+    "DEFAULT_DOMAIN": os.environ.get("AUTH_DEFAULT_DOMAIN", "shop.example.com"),
+    "USE_HTTPS": True,
+    "PRESERVE_SESSION_KEYS": ["cart_session_key"],
+    "MESSAGE_SENDER_CLASS": "shopman.auth.senders.WhatsAppCloudAPISender",
+    "WHATSAPP_ACCESS_TOKEN": os.environ["WHATSAPP_ACCESS_TOKEN"],
+    "WHATSAPP_PHONE_ID": os.environ["WHATSAPP_PHONE_ID"],
+}
+```
 
 **Guia:** [auth.md](../guides/auth.md)
 
