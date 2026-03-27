@@ -44,6 +44,149 @@ def _check_rate_limit(key: str, max_requests: int, window: int) -> bool:
     return True
 
 
+def _normalize_phone_with_ddd(phone_raw: str) -> str:
+    """Normalize phone, trying default DDD for short numbers."""
+    from ..constants import get_default_ddd
+
+    phone = normalize_phone(phone_raw)
+    if not phone:
+        digits = "".join(c for c in phone_raw if c.isdigit())
+        if 8 <= len(digits) <= 9:
+            phone = normalize_phone(f"{get_default_ddd()}{digits}")
+    return phone
+
+
+class LoginView(View):
+    """Dedicated login page: phone → OTP → logged in → redirect to ?next="""
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        next_url = request.GET.get("next", "")
+        step = request.GET.get("step", "")
+
+        # Name step for new customers (after OTP)
+        if step == "name":
+            phone = request.session.get("login_phone", "")
+            return render(request, "storefront/login.html", {
+                "step": "name",
+                "phone_value": phone,
+                "next": next_url,
+            })
+
+        # Already logged in → redirect
+        if getattr(request, "customer", None) is not None:
+            return redirect(next_url or "/")
+
+        return render(request, "storefront/login.html", {
+            "step": "phone",
+            "next": next_url,
+        })
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        next_url = request.GET.get("next", request.POST.get("next", ""))
+        step = request.POST.get("step", "phone")
+
+        if step == "phone":
+            return self._handle_phone(request, next_url)
+        elif step == "name":
+            return self._handle_name(request, next_url)
+
+        return redirect("storefront:login")
+
+    def _handle_phone(self, request, next_url):
+        phone_raw = request.POST.get("phone", "").strip()
+        if not phone_raw:
+            return render(request, "storefront/login.html", {
+                "step": "phone",
+                "error": "Telefone é obrigatório.",
+                "next": next_url,
+            })
+
+        try:
+            phone = _normalize_phone_with_ddd(phone_raw)
+        except Exception:
+            phone = ""
+
+        if not phone:
+            return render(request, "storefront/login.html", {
+                "step": "phone",
+                "error": "Telefone inválido. Informe com DDD, ex: (43) 99999-9999",
+                "phone_value": phone_raw,
+                "next": next_url,
+            })
+
+        # Check if customer exists
+        from shopman.customers.services import customer as customer_service
+
+        customer = customer_service.get_by_phone(phone)
+
+        # Send OTP code
+        if not _check_rate_limit(f"login_req:{phone}", RATE_LIMIT_REQUEST_CODE_MAX, RATE_LIMIT_REQUEST_CODE_WINDOW):
+            return render(request, "storefront/login.html", {
+                "step": "phone",
+                "error": "Muitas tentativas. Aguarde alguns minutos.",
+                "phone_value": phone_raw,
+                "next": next_url,
+            })
+
+        if HAS_AUTH:
+            from shopman.auth.services.verification import AuthService
+
+            result = AuthService.request_code(
+                target_value=phone,
+                purpose="login",
+                delivery_method="whatsapp",
+                ip_address=request.META.get("REMOTE_ADDR"),
+            )
+
+            if not result.success:
+                return render(request, "storefront/login.html", {
+                    "step": "phone",
+                    "error": "Erro ao enviar código. Tente novamente.",
+                    "phone_value": phone_raw,
+                    "next": next_url,
+                })
+
+        # Store phone in session for the name step (new customers)
+        request.session["login_phone"] = phone
+        request.session["login_is_new"] = customer is None
+
+        return render(request, "storefront/login.html", {
+            "step": "code",
+            "phone_value": phone,
+            "customer_name": customer.first_name if customer else "",
+            "is_new_customer": customer is None,
+            "redirect_url": next_url or "/",
+            "next": next_url,
+        })
+
+    def _handle_name(self, request, next_url):
+        """After OTP for new customers: save name and redirect."""
+        phone = request.session.get("login_phone", "")
+        name = request.POST.get("name", "").strip()
+
+        if not name:
+            return render(request, "storefront/login.html", {
+                "step": "name",
+                "phone_value": phone,
+                "error": "Nome é obrigatório.",
+                "next": next_url,
+            })
+
+        # Update customer name
+        from shopman.customers.services import customer as customer_service
+
+        customer_obj = customer_service.get_by_phone(phone)
+        if customer_obj and not customer_obj.first_name:
+            customer_obj.first_name = name
+            customer_obj.save(update_fields=["first_name"])
+
+        # Clean up session
+        request.session.pop("login_phone", None)
+        request.session.pop("login_is_new", None)
+
+        return redirect(next_url or "/")
+
+
 class CustomerLookupView(View):
     """HTMX/JSON: lookup customer by phone, return name + saved addresses."""
 

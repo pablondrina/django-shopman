@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.views import View
 from shopman.offering.models import Collection, Product
 from shopman.ordering.models import Order
 from shopman.utils.monetary import format_money
-from shopman.utils.phone import normalize_phone
 
 from .auth import get_authenticated_customer
 from .tracking import STATUS_COLORS, STATUS_LABELS
@@ -24,73 +23,12 @@ class OrderHistoryView(View):
 
     def get(self, request: HttpRequest) -> HttpResponse:
         customer = get_authenticated_customer(request)
-        if customer:
-            phone = customer.phone
-            orders = self._get_orders(phone)
-            return render(request, "storefront/history.html", {
-                "orders": orders,
-                "phone_value": phone,
-                "is_verified": True,
-            })
-        return render(request, "storefront/history.html", {"orders": None})
-
-    def post(self, request: HttpRequest) -> HttpResponse:
-        phone_raw = request.POST.get("phone", "").strip()
-        errors = {}
-
-        if not phone_raw:
-            errors["phone"] = "Telefone é obrigatório."
-            return render(request, "storefront/history.html", {
-                "orders": None,
-                "errors": errors,
-                "phone_value": phone_raw,
-            })
-
-        try:
-            phone = normalize_phone(phone_raw)
-        except Exception:
-            errors["phone"] = "Telefone inválido. Use formato com DDD, ex: (43) 99999-9999"
-            return render(request, "storefront/history.html", {
-                "orders": None,
-                "errors": errors,
-                "phone_value": phone_raw,
-            })
-
-        if not phone:
-            errors["phone"] = "Telefone inválido."
-            return render(request, "storefront/history.html", {
-                "orders": None,
-                "errors": errors,
-                "phone_value": phone_raw,
-            })
-
-        # If already verified for this phone, show orders directly
-        customer = get_authenticated_customer(request)
-        if customer and customer.phone == phone:
-            orders = self._get_orders(phone)
-            return render(request, "storefront/history.html", {
-                "orders": orders,
-                "phone_value": phone_raw,
-                "is_verified": True,
-            })
-
-        # Check if customer exists
-        from shopman.customers.services import customer as customer_service
-
-        found = customer_service.get_by_phone(phone)
-        if not found:
-            return render(request, "storefront/history.html", {
-                "orders": None,
-                "not_found": True,
-                "phone_value": phone_raw,
-            })
-
-        # Customer exists but not verified — require OTP
+        if not customer:
+            return redirect("/login/?next=/meus-pedidos/")
+        orders = self._get_orders(customer.phone)
         return render(request, "storefront/history.html", {
-            "orders": None,
-            "needs_verification": True,
-            "customer_name": found.first_name or found.name,
-            "phone_value": phone,
+            "orders": orders,
+            "phone_value": customer.phone,
         })
 
     @staticmethod

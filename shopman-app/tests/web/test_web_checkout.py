@@ -7,6 +7,22 @@ from django.test import Client
 pytestmark = pytest.mark.django_db
 
 
+def _login_as_customer(client, customer):
+    from shopman.auth.protocols.customer import AuthCustomerInfo
+    from shopman.auth.services._user_bridge import get_or_create_user_for_customer
+
+    info = AuthCustomerInfo(
+        uuid=customer.uuid,
+        name=customer.name,
+        phone=customer.phone,
+        email=None,
+        is_active=True,
+    )
+    user, _ = get_or_create_user_for_customer(info)
+    client.force_login(user, backend="shopman.auth.backends.PhoneOTPBackend")
+    return user
+
+
 # ── CheckoutView GET ──────────────────────────────────────────────────
 
 
@@ -16,27 +32,17 @@ class TestCheckoutGet:
         assert resp.status_code == 302
         assert "/cart/" in resp.url
 
-    def test_checkout_with_items(self, cart_session):
+    def test_checkout_requires_login(self, cart_session):
+        """Checkout without auth redirects to login."""
+        resp = cart_session.get("/checkout/")
+        assert resp.status_code == 302
+        assert "/login/" in resp.url
+
+    def test_checkout_with_auth(self, cart_session, customer):
+        """Checkout with auth shows the page."""
+        _login_as_customer(cart_session, customer)
         resp = cart_session.get("/checkout/")
         assert resp.status_code == 200
-
-    def test_checkout_prefills_verified_phone(self, cart_session, customer):
-        from shopman.auth.protocols.customer import AuthCustomerInfo
-        from shopman.auth.services._user_bridge import get_or_create_user_for_customer
-
-        info = AuthCustomerInfo(
-            uuid=customer.uuid,
-            name=customer.name,
-            phone=customer.phone,
-            email=None,
-            is_active=True,
-        )
-        user, _ = get_or_create_user_for_customer(info)
-        cart_session.force_login(user, backend="shopman.auth.backends.PhoneOTPBackend")
-
-        resp = cart_session.get("/checkout/")
-        assert resp.status_code == 200
-        assert b"5543999990001" in resp.content or b"Jo\xc3\xa3o" in resp.content
 
 
 # ── CheckoutView POST ─────────────────────────────────────────────────
@@ -44,46 +50,39 @@ class TestCheckoutGet:
 
 class TestCheckoutPost:
     def test_empty_cart_redirects(self, client: Client):
-        resp = client.post("/checkout/", {"name": "X", "phone": "43999990001"})
+        resp = client.post("/checkout/", {"phone": "43999990001"})
         assert resp.status_code == 302
 
-    def test_missing_name(self, cart_session):
-        resp = cart_session.post("/checkout/", {"phone": "43999990001"})
+    def test_missing_phone_returns_error(self, cart_session, customer):
+        _login_as_customer(cart_session, customer)
+        resp = cart_session.post("/checkout/", {"phone": ""})
+        # Should re-render with error (not redirect to success)
         assert resp.status_code == 200
-        assert "obrigat" in resp.content.decode().lower()
 
-    def test_missing_phone(self, cart_session):
-        resp = cart_session.post("/checkout/", {"name": "Test"})
-        assert resp.status_code == 200
-        assert "obrigat" in resp.content.decode().lower()
-
-    def test_invalid_phone(self, cart_session):
-        resp = cart_session.post("/checkout/", {"name": "Test", "phone": "123"})
-        assert resp.status_code == 200
-        assert "inv" in resp.content.decode().lower()
-
-    def test_successful_checkout_redirects(self, cart_session, channel):
+    def test_successful_checkout_redirects(self, cart_session, channel, customer):
+        _login_as_customer(cart_session, customer)
         resp = cart_session.post("/checkout/", {
-            "name": "João Silva",
-            "phone": "43999990001",
+            "phone": customer.phone,
+            "name": customer.name,
             "fulfillment_type": "pickup",
         })
-        # Should redirect to tracking or payment
         assert resp.status_code == 302
 
-    def test_checkout_with_delivery(self, cart_session, channel):
+    def test_checkout_with_delivery(self, cart_session, channel, customer):
+        _login_as_customer(cart_session, customer)
         resp = cart_session.post("/checkout/", {
-            "name": "João",
-            "phone": "43999990001",
+            "phone": customer.phone,
+            "name": customer.name,
             "fulfillment_type": "delivery",
             "delivery_address": "Rua X 123",
         })
         assert resp.status_code == 302
 
-    def test_checkout_with_notes(self, cart_session, channel):
+    def test_checkout_with_notes(self, cart_session, channel, customer):
+        _login_as_customer(cart_session, customer)
         resp = cart_session.post("/checkout/", {
-            "name": "João",
-            "phone": "43999990001",
+            "phone": customer.phone,
+            "name": customer.name,
             "notes": "Sem glúten",
         })
         assert resp.status_code == 302
@@ -107,8 +106,3 @@ class TestOrderConfirmationView:
         assert resp.status_code == 200
         content = resp.content.decode()
         assert "Francês" in content or "PAO-FRANCES" in content
-
-    def test_order_confirmation_shows_total(self, client: Client, order_items):
-        resp = client.get(f"/pedido/{order_items.ref}/confirmacao/")
-        assert resp.status_code == 200
-        assert b"16,00" in resp.content

@@ -343,11 +343,10 @@ class TestDjangoAuth:
     """Auth via request.customer (middleware) protects account views."""
 
     def test_auth_protects_account_views(self, client: Client, customer):
-        """AccountView shows customer data only when authenticated."""
-        # No auth → empty account page
+        """AccountView redirects to login when not authenticated."""
         response = client.get("/minha-conta/")
-        assert response.status_code == 200
-        assert response.context["customer"] is None
+        assert response.status_code == 302
+        assert "/login/" in response.url
 
         # Log in via Django auth
         _login_as_customer(client, customer)
@@ -356,16 +355,14 @@ class TestDjangoAuth:
         assert response.status_code == 200
         assert response.context["customer"] is not None
         assert response.context["customer"].pk == customer.pk
-        assert response.context["is_verified"] is True
 
-    def test_auth_invalid_uuid_shows_empty(self, client: Client):
-        """User with no CustomerUser link shows empty account."""
+    def test_auth_invalid_uuid_redirects(self, client: Client):
+        """User with no CustomerUser link redirects to login."""
         user = User.objects.create_user(username="orphan", password="test")
         client.force_login(user)
 
         response = client.get("/minha-conta/")
-        assert response.status_code == 200
-        assert response.context["customer"] is None
+        assert response.status_code == 302
 
     def test_verify_code_sets_django_auth(self, client: Client, customer):
         """Successful OTP verification sets Django auth (real service, no mock)."""
@@ -397,38 +394,11 @@ class TestDjangoAuth:
         assert response.context["customer"] is not None
         assert response.context["customer"].pk == customer.pk
 
-    def test_auth_post_with_verified_session_shows_data(self, client: Client, customer):
-        """POST with valid phone AND auth shows data directly."""
-        _login_as_customer(client, customer)
-
+    def test_auth_post_redirects_to_login(self, client: Client, customer):
+        """POST without auth redirects to login."""
         response = client.post("/minha-conta/", {"phone": customer.phone})
-        assert response.status_code == 200
-        assert response.context["customer"] is not None
-
-
-# ── Account OTP Gate ──────────────────────────────────────────────────
-
-
-class TestAccountOTPGate:
-    """Account page requires auth — phone alone must NOT expose data."""
-
-    def test_account_post_without_otp_does_not_show_data(self, client: Client, customer):
-        """POST with valid phone but no auth must NOT return customer data."""
-        response = client.post("/minha-conta/", {"phone": customer.phone})
-        assert response.status_code == 200
-        # Must NOT have customer object in context
-        assert response.context["customer"] is None
-        # Must show verification prompt
-        assert response.context.get("needs_verification") is True
-
-    def test_account_post_shows_verification_prompt(self, client: Client, customer):
-        """POST with valid phone shows OTP request form, not account data."""
-        response = client.post("/minha-conta/", {"phone": customer.phone})
-        content = response.content.decode()
-        assert "confirme seu telefone" in content
-        # Must NOT contain address or order data
-        assert "Endereços" not in content
-        assert "Ultimos pedidos" not in content
+        assert response.status_code == 302
+        assert "/login/" in response.url
 
 
 # ── Address Auth ──────────────────────────────────────────────────────

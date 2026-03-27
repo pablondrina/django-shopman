@@ -30,6 +30,11 @@ class CheckoutView(View):
         if not cart["items"]:
             return redirect("storefront:cart")
 
+        # Require login before checkout
+        customer_info = getattr(request, "customer", None)
+        if customer_info is None:
+            return redirect("/login/?next=/checkout/")
+
         ctx: dict = {"cart": cart}
 
         # Payment methods from channel config

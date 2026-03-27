@@ -7,9 +7,6 @@
 
 <div class="max-w-3xl mx-auto">
 
-  {% if customer %}
-  {# ── Authenticated: show full account ── #}
-
   <div class="text-center mb-8">
     <span class="text-5xl block mb-3">👤</span>
     <h2 class="font-serif text-2xl font-bold text-bark mb-1">
@@ -36,12 +33,10 @@
       </button>
     </div>
 
-    <!-- Add address form (hidden by default) -->
     <div id="address-form-container" class="hidden mb-4">
       {% include "storefront/partials/address_form.html" with customer=customer %}
     </div>
 
-    <!-- Address list (HTMX target) -->
     <div id="address-list">
       {% include "storefront/partials/address_list.html" with addresses=addresses customer=customer %}
     </div>
@@ -52,7 +47,6 @@
     <h3 class="font-serif text-lg font-bold text-bark mb-4">Fidelidade</h3>
 
     <div class="flex flex-wrap items-center gap-4 mb-4">
-      <!-- Tier badge -->
       <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold
         {% if loyalty_account.tier == 'platinum' %}bg-gray-200 text-gray-700
         {% elif loyalty_account.tier == 'gold' %}bg-yellow-100 text-yellow-800
@@ -64,15 +58,12 @@
         {% else %}🥉{% endif %}
         {{ loyalty_account.get_tier_display }}
       </span>
-
-      <!-- Points -->
       <div class="flex items-baseline gap-1">
         <span class="text-2xl font-bold text-bark">{{ loyalty_account.points_balance }}</span>
         <span class="text-bark-light text-sm">pontos disponíveis</span>
       </div>
     </div>
 
-    <!-- Stamps progress -->
     {% if loyalty_account.stamps_target > 0 %}
     <div class="mb-4">
       <div class="flex items-center justify-between text-sm mb-1.5">
@@ -88,7 +79,6 @@
     </div>
     {% endif %}
 
-    <!-- Recent transactions -->
     {% if loyalty_transactions %}
     <div class="border-t border-cream-dark pt-3">
       <p class="text-xs text-bark-light uppercase tracking-wider mb-2">Últimas movimentações</p>
@@ -112,7 +102,6 @@
   </div>
   {% endif %}
 
-  <!-- Últimos pedidos -->
   {% if orders %}
   <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
     <h3 class="font-serif text-lg font-bold text-bark mb-4">Últimos pedidos</h3>
@@ -153,7 +142,6 @@
     </div>
   </div>
 
-  <!-- Preferências -->
   {% if preferences %}
   <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
     <h3 class="font-serif text-lg font-bold text-bark mb-4">Preferências</h3>
@@ -182,83 +170,19 @@
   </div>
   {% endif %}
 
-  {% else %}
-  {# ── Not authenticated: login flow ── #}
-
-  <div class="text-center mb-8">
-    <span class="text-5xl block mb-3">👤</span>
-    <h2 class="font-serif text-2xl font-bold text-bark mb-1">Acesse sua conta</h2>
-    <p class="text-bark-light">Informe seu telefone para continuar</p>
+  <!-- Sair -->
+  <div class="text-center mt-8 mb-4">
+    <a href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();"
+       class="text-sm text-bark-light hover:text-red-500 transition-colors">
+      Sair da conta
+    </a>
   </div>
-
-  <!-- Phone login form -->
-  <form method="post" action="{% url 'storefront:account' %}" class="bg-white rounded-xl shadow-sm p-6 mb-8">
-    {% csrf_token %}
-
-    <div class="flex flex-col sm:flex-row gap-3">
-      <div class="flex-1">
-        <label for="phone" class="block text-sm font-medium text-bark mb-1">Telefone <span class="text-bark-light/50 font-normal">(com DDD)</span></label>
-        <input
-          type="tel"
-          id="phone"
-          name="phone"
-          value="{{ phone_value|default:'' }}"
-          required
-          placeholder="(43) 99999-9999"
-          class="w-full px-4 py-2.5 rounded-lg border {% if errors.phone %}border-red-400{% else %}border-cream-dark{% endif %} bg-white text-bark placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition"
-        >
-        {% if errors.phone %}
-        <p class="mt-1 text-sm text-red-500">{{ errors.phone }}</p>
-        {% endif %}
-      </div>
-      <div class="sm:self-end">
-        <button type="submit"
-                class="w-full sm:w-auto px-6 py-2.5 bg-wheat text-white rounded-lg font-medium hover:bg-wheat-dark transition-colors">
-          Continuar
-        </button>
-      </div>
-    </div>
-  </form>
-
-  {% if not_found %}
-  <div class="text-center py-12">
-    <span class="text-5xl block mb-4">🔍</span>
-    <p class="text-bark-light text-lg">Não encontramos uma conta com este telefone.</p>
-    <p class="text-bark-light/70 text-sm mt-2">Verifique se digitou o número correto, ou faça seu primeiro pedido para criar sua conta.</p>
-  </div>
-  {% endif %}
-
-  {% if needs_verification %}
-  <!-- OTP verification required before showing account data -->
-  <div class="bg-white rounded-xl shadow-sm p-6 mb-8">
-    <div class="text-center mb-4">
-      <span class="text-4xl block mb-2">🔐</span>
-      <h3 class="font-serif text-lg font-bold text-bark mb-1">
-        Olá{% if customer_name %}, {{ customer_name }}{% endif %}!
-      </h3>
-      <p class="text-bark-light">Para sua segurança, confirme seu telefone.</p>
-    </div>
-
-    <div id="auth-section">
-      {% include "storefront/partials/auth_request_code.html" with phone=phone_value %}
-    </div>
-  </div>
-
-  <script>
-  document.body.addEventListener('htmx:afterSwap', function(evt) {
-    if (evt.detail.target.id === 'auth-section') {
-      var html = evt.detail.target.innerHTML;
-      if (html.indexOf('Identidade confirmada') !== -1) {
-        setTimeout(function() { window.location.reload(); }, 800);
-      }
-    }
-  });
-  </script>
-  {% endif %}
-
-  {% endif %}
 
 </div>
+
+<form id="logout-form" method="post" action="{% url 'shopman_auth:logout' %}" class="hidden">
+  {% csrf_token %}
+</form>
 
 <script>
 function toggleAddressForm() {

@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
 from shopman.ordering.models import Order
 from shopman.utils.monetary import format_money
-from shopman.utils.phone import normalize_phone
 
-from ..constants import get_default_ddd
 from .auth import get_authenticated_customer
 from .tracking import STATUS_COLORS, STATUS_LABELS
 
@@ -49,10 +47,9 @@ class AccountView(View):
 
     def get(self, request: HttpRequest) -> HttpResponse:
         customer = get_authenticated_customer(request)
-        if customer:
-            phone = customer.phone
-            return self._render_account(request, customer, phone)
-        return render(request, "storefront/account.html", {"customer": None})
+        if not customer:
+            return redirect("/login/?next=/minha-conta/")
+        return self._render_account(request, customer, customer.phone)
 
     def _render_account(self, request: HttpRequest, customer, phone: str) -> HttpResponse:
         """Render account page with customer data."""
@@ -89,65 +86,8 @@ class AccountView(View):
         })
 
     def post(self, request: HttpRequest) -> HttpResponse:
-        phone_raw = request.POST.get("phone", "").strip()
-        errors = {}
-
-        if not phone_raw:
-            errors["phone"] = "Telefone é obrigatório."
-            return render(request, "storefront/account.html", {
-                "customer": None,
-                "errors": errors,
-                "phone_value": phone_raw,
-            })
-
-        try:
-            phone = normalize_phone(phone_raw)
-        except Exception:
-            errors["phone"] = "Telefone inválido. Use formato com DDD, ex: (43) 99999-9999"
-            return render(request, "storefront/account.html", {
-                "customer": None,
-                "errors": errors,
-                "phone_value": phone_raw,
-            })
-
-        if not phone:
-            # Try with default DDD
-            digits = "".join(c for c in phone_raw if c.isdigit())
-            if 8 <= len(digits) <= 9:
-                try:
-                    phone = normalize_phone(f"{get_default_ddd()}{digits}")
-                except Exception:
-                    pass
-            if not phone:
-                errors["phone"] = "Telefone inválido. Use formato com DDD, ex: (43) 99999-9999"
-                return render(request, "storefront/account.html", {
-                    "customer": None,
-                    "errors": errors,
-                    "phone_value": phone_raw,
-                })
-
-        from shopman.customers.services import customer as customer_service
-
-        customer = customer_service.get_by_phone(phone)
-        if not customer:
-            return render(request, "storefront/account.html", {
-                "customer": None,
-                "not_found": True,
-                "phone_value": phone_raw,
-            })
-
-        # If already verified in this session for this phone, show data
-        auth_customer = get_authenticated_customer(request)
-        if auth_customer and auth_customer.pk == customer.pk:
-            return self._render_account(request, customer, phone)
-
-        # Customer found but NOT verified — require OTP before showing data
-        return render(request, "storefront/account.html", {
-            "customer": None,
-            "needs_verification": True,
-            "customer_name": customer.first_name or customer.name,
-            "phone_value": phone,
-        })
+        # POST no longer needed — login handles authentication
+        return redirect("/login/?next=/minha-conta/")
 
 
 class AddressCreateView(View):

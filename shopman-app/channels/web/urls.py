@@ -63,6 +63,7 @@ urlpatterns = [
     path("minha-conta/perfil/display/", views.ProfileDisplayView.as_view(), name="profile_display"),
     path("minha-conta/perfil/edit/", views.ProfileEditView.as_view(), name="profile_edit"),
     # Auth
+    path("login/", views.LoginView.as_view(), name="login"),
     path("auth/access/<str:token>/", views.AccessLinkLoginView.as_view(), name="access_link_login"),
     path("auth/device-check/", views.DeviceCheckLoginView.as_view(), name="device_check_login"),
     # Device management

@@ -7,9 +7,6 @@
 
 <div class="max-w-2xl mx-auto">
 
-  {% if orders is not None and is_verified %}
-  {# ── Authenticated: show orders directly ── #}
-
   <div class="text-center mb-8">
     <span class="text-5xl block mb-3">📦</span>
     <h2 class="font-serif text-2xl font-bold text-bark mb-1">Meus Pedidos</h2>
@@ -47,81 +44,6 @@
       Ver cardápio
     </a>
   </div>
-  {% endif %}
-
-  {% else %}
-  {# ── Not authenticated: login flow ── #}
-
-  <div class="text-center mb-8">
-    <span class="text-5xl block mb-3">📦</span>
-    <h2 class="font-serif text-2xl font-bold text-bark mb-1">Meus Pedidos</h2>
-    <p class="text-bark-light">Informe seu telefone para ver seus pedidos</p>
-  </div>
-
-  <!-- Phone login form -->
-  <form method="post" action="{% url 'storefront:order_history' %}" class="bg-white rounded-xl shadow-sm p-6 mb-8">
-    {% csrf_token %}
-
-    <div class="flex flex-col sm:flex-row gap-3">
-      <div class="flex-1">
-        <label for="phone" class="block text-sm font-medium text-bark mb-1">Telefone <span class="text-bark-light/50 font-normal">(com DDD)</span></label>
-        <input
-          type="tel"
-          id="phone"
-          name="phone"
-          value="{{ phone_value|default:'' }}"
-          required
-          placeholder="(43) 99999-9999"
-          class="w-full px-4 py-2.5 rounded-lg border {% if errors.phone %}border-red-400{% else %}border-cream-dark{% endif %} bg-white text-bark placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition"
-        >
-        {% if errors.phone %}
-        <p class="mt-1 text-sm text-red-500">{{ errors.phone }}</p>
-        {% endif %}
-      </div>
-      <div class="sm:self-end">
-        <button type="submit"
-                class="w-full sm:w-auto px-6 py-2.5 bg-wheat text-white rounded-lg font-medium hover:bg-wheat-dark transition-colors">
-          Continuar
-        </button>
-      </div>
-    </div>
-  </form>
-
-  {% if not_found %}
-  <div class="text-center py-12">
-    <span class="text-5xl block mb-4">🔍</span>
-    <p class="text-bark-light text-lg">Não encontramos uma conta com este telefone.</p>
-    <p class="text-bark-light/70 text-sm mt-2">Verifique se digitou o número correto.</p>
-  </div>
-  {% endif %}
-
-  {% if needs_verification %}
-  <div class="bg-white rounded-xl shadow-sm p-6 mb-8">
-    <div class="text-center mb-4">
-      <span class="text-4xl block mb-2">🔐</span>
-      <h3 class="font-serif text-lg font-bold text-bark mb-1">
-        Olá{% if customer_name %}, {{ customer_name }}{% endif %}!
-      </h3>
-      <p class="text-bark-light">Para sua segurança, confirme seu telefone.</p>
-    </div>
-
-    <div id="auth-section">
-      {% include "storefront/partials/auth_request_code.html" with phone=phone_value %}
-    </div>
-  </div>
-
-  <script>
-  document.body.addEventListener('htmx:afterSwap', function(evt) {
-    if (evt.detail.target.id === 'auth-section') {
-      var html = evt.detail.target.innerHTML;
-      if (html.indexOf('Identidade confirmada') !== -1) {
-        setTimeout(function() { window.location.reload(); }, 800);
-      }
-    }
-  });
-  </script>
-  {% endif %}
-
   {% endif %}
 
 </div>

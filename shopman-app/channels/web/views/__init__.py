@@ -8,7 +8,14 @@ from .account import (
     ProfileEditView,
     ProfileUpdateView,
 )
-from .auth import AccessLinkLoginView, CustomerLookupView, DeviceCheckLoginView, RequestCodeView, VerifyCodeView
+from .auth import (
+    AccessLinkLoginView,
+    CustomerLookupView,
+    DeviceCheckLoginView,
+    LoginView,
+    RequestCodeView,
+    VerifyCodeView,
+)
 from .cart import (
     AddToCartView,
     ApplyCouponView,
@@ -51,6 +58,7 @@ __all__ = [
     "FloatingCartBarView",
     "HowItWorksView",
     "MenuSearchView",
+    "LoginView",
     "MenuView",
     "MockPaymentConfirmView",
     "OfflineView",

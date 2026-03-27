@@ -4,12 +4,6 @@
 {% block title %}Finalizar Pedido{% endblock %}
 
 {% block content %}
-{% if not is_verified %}
-<!-- intl-tel-input: only needed for anonymous checkout -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@24.6.0/build/css/intlTelInput.css">
-<script src="https://cdn.jsdelivr.net/npm/intl-tel-input@24.6.0/build/js/intlTelInputWithUtils.min.js"></script>
-<style>.iti { width: 100%; }</style>
-{% endif %}
 
 <div class="mb-6">
   <a href="{% url 'storefront:cart' %}" class="text-wheat-dark hover:text-wheat font-medium text-sm transition-colors">
@@ -37,8 +31,7 @@
       </div>
       {% endif %}
 
-      {% if is_verified %}
-      {# ── LOGGED IN: clean, minimal ── #}
+      <!-- Customer bar -->
       <div>
         <div class="flex items-center justify-between p-3 rounded-lg bg-cream/50">
           <div class="flex items-center gap-3">
@@ -56,46 +49,6 @@
         <input type="hidden" name="phone" value="{{ form_data.phone }}">
         <input type="hidden" name="name" value="{{ form_data.name }}">
       </div>
-
-      {% else %}
-      {# ── ANONYMOUS: full identification ── #}
-
-      <!-- Phone -->
-      <div>
-        <label for="phone" class="block text-sm font-medium text-bark mb-1">Telefone *</label>
-        <input
-          type="tel"
-          id="phone"
-          value="{{ form_data.phone|default:'' }}"
-          required
-          class="w-full px-4 py-2.5 rounded-lg border {% if errors.phone %}border-red-400{% else %}border-cream-dark{% endif %} bg-white text-bark placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition"
-        >
-        <input type="hidden" id="phone_e164" name="phone" value="">
-        {% if errors.phone %}
-        <p id="phone-error" class="mt-1 text-sm text-red-500">{{ errors.phone }}</p>
-        {% endif %}
-        <div id="customer-recognized" class="hidden mt-2 p-3 rounded-lg bg-green-50 border border-green-200 text-green-800 text-sm">
-          Bem-vindo de volta, <strong id="customer-name-display"></strong>!
-        </div>
-        <div id="auth-section" class="mt-3"></div>
-      </div>
-
-      <!-- Name (hidden until phone is validated; shown for new customers) -->
-      <div id="name-section" class="{% if not errors.name %}hidden{% endif %}">
-        <label for="name" class="block text-sm font-medium text-bark mb-1">Nome *</label>
-        <input
-          type="text"
-          id="name"
-          name="name"
-          value="{{ form_data.name|default:'' }}"
-          placeholder="Seu nome completo"
-          class="w-full px-4 py-2.5 rounded-lg border {% if errors.name %}border-red-400{% else %}border-cream-dark{% endif %} bg-white text-bark placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition"
-        >
-        {% if errors.name %}
-        <p class="mt-1 text-sm text-red-500">{{ errors.name }}</p>
-        {% endif %}
-      </div>
-      {% endif %}
 
       <!-- Fulfillment type -->
       <div>
@@ -312,182 +265,6 @@
   </div>
 </div>
 
-{% if not is_verified %}
-{# ── Address drawer + phone JS: only for anonymous ── #}
-<div id="address-drawer" class="hidden fixed inset-0 z-[100]">
-  <div class="absolute inset-0 bg-black/50" onclick="closeAddressDrawer()"></div>
-  <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[70vh] overflow-y-auto animate-slide-up">
-    <div class="sticky top-0 bg-white border-b border-cream-dark px-5 py-4 flex items-center justify-between">
-      <h3 class="font-serif text-lg font-bold text-bark">Endereços salvos</h3>
-      <button type="button" onclick="closeAddressDrawer()" class="p-1 text-bark-light hover:text-bark">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
-      </button>
-    </div>
-    <div id="address-drawer-list" class="p-5 space-y-3"></div>
-    <div class="px-5 pb-5">
-      <button type="button" onclick="closeAddressDrawer(); toggleNewAddress(true);"
-        class="w-full py-3 border-2 border-dashed border-cream-dark text-bark-light rounded-lg text-sm font-medium hover:border-wheat/50 hover:text-wheat-dark transition-colors">
-        + Novo endereço
-      </button>
-    </div>
-  </div>
-</div>
-<style>
-  @keyframes slideUpDrawer { from { transform: translateY(100%); } to { transform: translateY(0); } }
-  .animate-slide-up { animation: slideUpDrawer 200ms ease; }
-</style>
-
-<script>
-const DEFAULT_DDD = '{{ storefront.default_ddd }}';
-const phoneEl = document.getElementById('phone');
-const phoneHidden = document.getElementById('phone_e164');
-const nameEl = document.getElementById('name');
-let iti = null;
-let savedAddresses = [];
-
-if (phoneEl && window.intlTelInput) {
-  iti = window.intlTelInput(phoneEl, {
-    initialCountry: 'br',
-    preferredCountries: ['br'],
-    nationalMode: true,
-    autoPlaceholder: 'aggressive',
-  });
-}
-
-function getE164() {
-  if (!iti || !phoneEl.value.trim()) return '';
-  if (iti.isValidNumber()) return iti.getNumber();
-  const digits = phoneEl.value.replace(/\D/g, '');
-  if (digits.length >= 8 && digits.length <= 9) {
-    iti.setNumber(DEFAULT_DDD + digits);
-    if (iti.isValidNumber()) return iti.getNumber();
-  }
-  return '';
-}
-
-let lookupTimer = null;
-
-function lookupCustomer() {
-  const e164 = getE164();
-  phoneHidden.value = e164;
-  if (!e164) return;
-
-  fetch(`{% url 'storefront:customer_lookup' %}?phone=${encodeURIComponent(e164)}`)
-    .then(r => r.json())
-    .then(data => {
-      const banner = document.getElementById('customer-recognized');
-      const authSection = document.getElementById('auth-section');
-      const nameSection = document.getElementById('name-section');
-      if (!data.found) {
-        banner.classList.add('hidden');
-        authSection.innerHTML = '';
-        savedAddresses = [];
-        // New customer — show name field
-        nameSection.classList.remove('hidden');
-        if (!nameEl.value.trim()) nameEl.focus();
-        return;
-      }
-      // Existing customer — fill name if available, or wait for OTP
-      if (data.name) {
-        nameEl.value = data.name;
-        nameSection.classList.add('hidden');
-      } else if (data.can_verify || data.is_verified) {
-        // Will get name after OTP + reload — don't show name field
-        nameSection.classList.add('hidden');
-      } else {
-        nameSection.classList.remove('hidden');
-      }
-      document.getElementById('customer-name-display').textContent = data.name || '';
-      banner.classList.remove('hidden');
-      if (data.addresses && data.addresses.length > 0) {
-        savedAddresses = data.addresses;
-        const defaultAddr = data.addresses.find(a => a.is_default);
-        if (defaultAddr) selectSavedAddress(defaultAddr);
-      }
-      if (data.can_verify) {
-        authSection.innerHTML = '<div class="p-4 rounded-lg bg-amber-50 border border-amber-200">' +
-          '<p class="text-sm text-amber-800 mb-3">Confirme sua identidade para acessar seus endereços salvos.</p>' +
-          '<div hx-post="{% url "storefront:request_code" %}" hx-target="#auth-section" hx-swap="innerHTML" hx-vals=\'{"phone": "' + e164 + '"}\' hx-headers=\'{"X-CSRFToken": "' + document.querySelector('[name=csrfmiddlewaretoken]').value + '"}\'>' +
-          '<button type="button" class="w-full py-2.5 bg-wheat text-white rounded-lg font-medium text-sm hover:bg-wheat-dark transition-colors">' +
-          'Enviar código de verificação</button></div></div>';
-        htmx.process(authSection);
-      } else if (data.is_verified) {
-        authSection.innerHTML = '<div class="p-3 rounded-lg bg-green-50 border border-green-200 flex items-center gap-2">' +
-          '<svg class="w-5 h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
-          '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>' +
-          '<span class="text-sm font-medium text-green-800">Identidade confirmada</span></div>';
-      } else {
-        authSection.innerHTML = '';
-      }
-    })
-    .catch(() => {});
-}
-
-function selectSavedAddress(addr) {
-  document.getElementById('delivery_address').value = addr.formatted_address + (addr.complement ? ' - ' + addr.complement : '');
-  closeAddressDrawer();
-}
-
-function toggleNewAddress(show) {
-  const fields = document.getElementById('new-address-fields');
-  fields.classList.toggle('hidden', !show);
-  if (show) {
-    document.getElementById('delivery_address').value = '';
-    document.getElementById('delivery_address').focus();
-  }
-}
-
-function openAddressDrawer() {
-  const drawer = document.getElementById('address-drawer');
-  const list = document.getElementById('address-drawer-list');
-  list.innerHTML = '';
-  savedAddresses.forEach(function(addr) {
-    var complement = addr.complement ? ' (' + addr.complement + ')' : '';
-    var div = document.createElement('div');
-    div.className = 'p-4 rounded-lg border border-cream-dark hover:border-wheat/50 hover:bg-cream/30 cursor-pointer transition';
-    div.innerHTML = '<div class="flex items-center justify-between"><div class="flex-1 min-w-0">' +
-      '<span class="text-sm font-bold text-bark">' + addr.label + '</span>' +
-      '<p class="text-sm text-bark mt-1">' + addr.formatted_address + complement + '</p>' +
-      '</div><span class="ml-3 text-wheat-dark text-sm font-medium flex-shrink-0">Usar</span></div>';
-    div.addEventListener('click', function() { selectSavedAddress(addr); });
-    list.appendChild(div);
-  });
-  drawer.classList.remove('hidden');
-  document.body.style.overflow = 'hidden';
-}
-
-function closeAddressDrawer() {
-  var el = document.getElementById('address-drawer');
-  if (el) { el.classList.add('hidden'); document.body.style.overflow = ''; }
-}
-
-// Reload page after OTP confirmation (switches to logged-in mode)
-document.body.addEventListener('htmx:afterSwap', function(evt) {
-  if (evt.detail.target.id === 'auth-section') {
-    var html = evt.detail.target.innerHTML;
-    if (html.indexOf('Identidade confirmada') !== -1) {
-      setTimeout(function() { window.location.reload(); }, 800);
-    }
-  }
-});
-
-if (phoneEl) {
-  phoneEl.addEventListener('blur', () => lookupCustomer());
-  phoneEl.addEventListener('input', () => {
-    clearTimeout(lookupTimer);
-    lookupTimer = setTimeout(() => {
-      if (phoneEl.value.replace(/\D/g, '').length >= 8) lookupCustomer();
-    }, 800);
-  });
-  document.getElementById('checkout-form').addEventListener('submit', () => {
-    phoneHidden.value = getE164();
-  });
-}
-</script>
-{% endif %}
-
 <script>
 // ── Delivery date (always needed) ─────────────────────────────
 const todayStr = new Date().toISOString().split('T')[0];
@@ -516,7 +293,7 @@ function onDateChanged() { updatePreorderUI(); }
 {% if is_verified %}
 <form id="logout-form" method="post" action="{% url 'shopman_auth:logout' %}" class="hidden">
   {% csrf_token %}
-  <input type="hidden" name="next" value="{% url 'storefront:checkout' %}">
+  <input type="hidden" name="next" value="/login/?next={% url 'storefront:checkout' %}">
 </form>
 {% endif %}
 

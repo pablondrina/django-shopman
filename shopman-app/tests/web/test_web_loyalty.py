@@ -183,11 +183,11 @@ class TestAccountLoyaltyUI:
         assert "Fidelidade" in content
         assert "pontos disponíveis" in content
 
-    def test_account_shows_loyalty_via_verified_post(self, client, loyalty_customer, loyalty_account):
-        """Loyalty section should appear when authenticated and POST matches."""
+    def test_account_shows_loyalty_via_get(self, client, loyalty_customer, loyalty_account):
+        """Loyalty section should appear when authenticated via GET."""
         _login_as_customer(client, loyalty_customer)
 
-        response = client.post("/minha-conta/", {"phone": loyalty_customer.phone})
+        response = client.get("/minha-conta/")
         assert response.status_code == 200
         content = response.content.decode()
         assert "Fidelidade" in content

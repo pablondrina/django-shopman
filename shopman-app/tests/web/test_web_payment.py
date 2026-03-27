@@ -14,6 +14,15 @@ from channels.topics import CARD_CREATE
 pytestmark = pytest.mark.django_db
 
 
+def _login_as_customer(client, customer):
+    from shopman.auth.protocols.customer import AuthCustomerInfo
+    from shopman.auth.services._user_bridge import get_or_create_user_for_customer
+
+    info = AuthCustomerInfo(uuid=customer.uuid, name=customer.name, phone=customer.phone, email=None, is_active=True)
+    user, _ = get_or_create_user_for_customer(info)
+    client.force_login(user, backend="shopman.auth.backends.PhoneOTPBackend")
+
+
 # ── PaymentView ───────────────────────────────────────────────────────
 
 
@@ -115,7 +124,8 @@ class TestPaymentConfig:
 
 
 class TestCheckoutPaymentSelector:
-    def test_checkout_shows_method_selector_when_multiple(self, client: Client, channel, product):
+    def test_checkout_shows_method_selector_when_multiple(self, client: Client, channel, product, customer):
+        _login_as_customer(client, customer)
         channel.config = ChannelConfig(
             payment=ChannelConfig.Payment(method=["pix", "card"]),
         ).to_dict()
@@ -129,7 +139,8 @@ class TestCheckoutPaymentSelector:
         assert 'value="pix"' in content
         assert 'value="card"' in content
 
-    def test_checkout_hides_selector_when_single_method(self, client: Client, channel, product):
+    def test_checkout_hides_selector_when_single_method(self, client: Client, channel, product, customer):
+        _login_as_customer(client, customer)
         channel.config = ChannelConfig(
             payment=ChannelConfig.Payment(method="pix"),
         ).to_dict()

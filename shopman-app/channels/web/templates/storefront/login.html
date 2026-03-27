@@ -1,0 +1,130 @@
+{% extends "storefront/base.html" %}
+{% load storefront_tags %}
+
+{% block title %}Entrar{% endblock %}
+
+{% block content %}
+
+<div class="max-w-md mx-auto mt-8">
+
+  <div class="text-center mb-8">
+    <span class="text-5xl block mb-3">🔐</span>
+    <h2 class="font-serif text-2xl font-bold text-bark mb-1">Entrar na sua conta</h2>
+    <p class="text-bark-light">Use seu telefone para acessar</p>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm p-6">
+
+    {% if step == "phone" %}
+    {# ── Step 1: Phone ── #}
+    <form method="post" action="{% url 'storefront:login' %}{% if next %}?next={{ next|urlencode }}{% endif %}">
+      {% csrf_token %}
+      <input type="hidden" name="step" value="phone">
+
+      <div class="mb-4">
+        <label for="phone" class="block text-sm font-medium text-bark mb-1">Telefone <span class="text-bark-light/50 font-normal">(com DDD)</span></label>
+        <input
+          type="tel"
+          id="phone"
+          name="phone"
+          value="{{ phone_value|default:'' }}"
+          required
+          autofocus
+          placeholder="(43) 99999-9999"
+          class="w-full px-4 py-2.5 rounded-lg border {% if error %}border-red-400{% else %}border-cream-dark{% endif %} bg-white text-bark placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition"
+        >
+        {% if error %}
+        <p class="mt-1 text-sm text-red-500">{{ error }}</p>
+        {% endif %}
+      </div>
+
+      <button type="submit"
+        class="w-full py-2.5 bg-wheat text-white rounded-lg font-medium hover:bg-wheat-dark transition-colors">
+        Continuar
+      </button>
+    </form>
+
+    {% elif step == "code" %}
+    {# ── Step 2: OTP ── #}
+    <div class="text-center mb-4">
+      <p class="text-sm text-bark-light">
+        {% if customer_name %}Olá, <strong class="text-bark">{{ customer_name }}</strong>! {% endif %}Enviamos um código para
+      </p>
+      <p class="text-sm font-medium text-bark">{{ phone_value|format_phone }}</p>
+    </div>
+
+    {% if error %}
+    <div class="mb-3 p-2 rounded bg-red-50 border border-red-200 text-red-700 text-sm">
+      {{ error }}
+    </div>
+    {% endif %}
+
+    <div id="auth-section">
+      {% include "storefront/partials/auth_verify_code.html" with phone=phone_value %}
+    </div>
+
+    <div class="mt-4 text-center">
+      <a href="{% url 'storefront:login' %}{% if next %}?next={{ next|urlencode }}{% endif %}"
+         class="text-sm text-bark-light hover:text-bark transition-colors">
+        &larr; Usar outro telefone
+      </a>
+    </div>
+
+    <script>
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+      if (evt.detail.target.id === 'auth-section') {
+        var html = evt.detail.target.innerHTML;
+        if (html.indexOf('Identidade confirmada') !== -1) {
+          setTimeout(function() {
+            {% if is_new_customer %}
+            window.location.href = '{% url "storefront:login" %}?step=name{% if next %}&next={{ next|urlencode }}{% endif %}';
+            {% else %}
+            window.location.href = '{{ redirect_url|default:"/" }}';
+            {% endif %}
+          }, 800);
+        }
+      }
+    });
+    </script>
+
+    {% elif step == "name" %}
+    {# ── Step 3: Name (new customer only) ── #}
+    <div class="text-center mb-4">
+      <p class="text-sm text-bark-light">Bem-vindo! Como podemos te chamar?</p>
+      <p class="text-sm font-medium text-bark">{{ phone_value|format_phone }}</p>
+    </div>
+
+    <form method="post" action="{% url 'storefront:login' %}{% if next %}?next={{ next|urlencode }}{% endif %}">
+      {% csrf_token %}
+      <input type="hidden" name="step" value="name">
+      <input type="hidden" name="phone" value="{{ phone_value }}">
+
+      <div class="mb-4">
+        <label for="name" class="block text-sm font-medium text-bark mb-1">Seu nome</label>
+        <input
+          type="text"
+          id="name"
+          name="name"
+          required
+          autofocus
+          placeholder="Nome completo"
+          class="w-full px-4 py-2.5 rounded-lg border border-cream-dark bg-white text-bark placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition"
+        >
+        {% if error %}
+        <p class="mt-1 text-sm text-red-500">{{ error }}</p>
+        {% endif %}
+      </div>
+
+      <button type="submit"
+        class="w-full py-2.5 bg-wheat text-white rounded-lg font-medium hover:bg-wheat-dark transition-colors">
+        Continuar
+      </button>
+    </form>
+
+    {% endif %}
+
+  </div>
+
+</div>
+
+{% endblock %}
