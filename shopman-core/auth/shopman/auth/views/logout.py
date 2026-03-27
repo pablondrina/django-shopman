@@ -23,8 +23,11 @@ class LogoutView(View):
     """POST-only logout: clears session + device trust cookie."""
 
     def post(self, request):
-        # Build response first so we can delete cookies on it
-        redirect_url = auth_settings.LOGOUT_REDIRECT_URL
+        # Redirect to ?next= if provided, otherwise default
+        from ..utils import safe_redirect_url
+
+        next_url = request.POST.get("next") or request.GET.get("next")
+        redirect_url = safe_redirect_url(next_url, request) if next_url else auth_settings.LOGOUT_REDIRECT_URL
         response = HttpResponseRedirect(redirect_url)
 
         # Clear device trust cookie

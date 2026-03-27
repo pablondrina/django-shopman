@@ -514,7 +514,10 @@ function onDateChanged() { updatePreorderUI(); }
 </script>
 
 {% if is_verified %}
-<form id="logout-form" method="post" action="{% url 'shopman_auth:logout' %}" class="hidden">{% csrf_token %}</form>
+<form id="logout-form" method="post" action="{% url 'shopman_auth:logout' %}" class="hidden">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{% url 'storefront:checkout' %}">
+</form>
 {% endif %}
 
 {% endblock %}
