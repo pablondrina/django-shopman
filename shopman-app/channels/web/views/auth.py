@@ -94,6 +94,10 @@ class LoginView(View):
 
     def _handle_phone(self, request, next_url):
         phone_raw = request.POST.get("phone", "").strip()
+        delivery_method = request.POST.get("delivery_method", "whatsapp")
+        if delivery_method not in ("whatsapp", "sms"):
+            delivery_method = "whatsapp"
+
         if not phone_raw:
             return render(request, "storefront/login.html", {
                 "step": "phone",
@@ -134,7 +138,7 @@ class LoginView(View):
             result = AuthService.request_code(
                 target_value=phone,
                 purpose="login",
-                delivery_method="whatsapp",
+                delivery_method=delivery_method,
                 ip_address=request.META.get("REMOTE_ADDR"),
             )
 
@@ -155,6 +159,7 @@ class LoginView(View):
             "phone_value": phone,
             "customer_name": customer.first_name if customer else "",
             "is_new_customer": customer is None,
+            "delivery_method": delivery_method,
             "redirect_url": next_url or "/",
             "next": next_url,
         })

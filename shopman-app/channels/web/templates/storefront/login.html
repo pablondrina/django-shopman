@@ -10,7 +10,7 @@
   <div class="text-center mb-8">
     <span class="text-5xl block mb-3">🔐</span>
     <h2 class="font-serif text-2xl font-bold text-bark mb-1">Entrar na sua conta</h2>
-    <p class="text-bark-light">Use seu telefone para acessar</p>
+    <p class="text-bark-light">Enviaremos um código de verificação para seu celular</p>
   </div>
 
   <div class="bg-white rounded-xl shadow-sm p-6">
@@ -20,6 +20,7 @@
     <form method="post" action="{% url 'storefront:login' %}{% if next %}?next={{ next|urlencode }}{% endif %}">
       {% csrf_token %}
       <input type="hidden" name="step" value="phone">
+      <input type="hidden" name="delivery_method" value="whatsapp" id="delivery-method">
 
       <div class="mb-4">
         <label for="phone" class="block text-sm font-medium text-bark mb-1">Telefone <span class="text-bark-light/50 font-normal">(com DDD)</span></label>
@@ -40,15 +41,22 @@
 
       <button type="submit"
         class="w-full py-2.5 bg-wheat text-white rounded-lg font-medium hover:bg-wheat-dark transition-colors">
-        Continuar
+        Enviar código via WhatsApp
       </button>
+
+      <p class="text-center mt-3">
+        <button type="submit" onclick="document.getElementById('delivery-method').value='sms'"
+          class="text-xs text-bark-light hover:text-bark transition-colors">
+          Prefere receber por SMS?
+        </button>
+      </p>
     </form>
 
     {% elif step == "code" %}
     {# ── Step 2: OTP ── #}
     <div class="text-center mb-4">
       <p class="text-sm text-bark-light">
-        {% if customer_name %}Olá, <strong class="text-bark">{{ customer_name }}</strong>! {% endif %}Enviamos um código para
+        {% if customer_name %}Olá, <strong class="text-bark">{{ customer_name }}</strong>! {% endif %}Enviamos um código via <strong class="text-bark">{% if delivery_method == "sms" %}SMS{% else %}WhatsApp{% endif %}</strong> para
       </p>
       <p class="text-sm font-medium text-bark">{{ phone_value|format_phone }}</p>
     </div>
