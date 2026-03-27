@@ -195,19 +195,40 @@
       </a>
 
       <!-- Nav desktop -->
-      <nav class="hidden md:flex items-center gap-6">
+      <nav class="hidden md:flex items-center gap-5">
         <a href="{% url 'storefront:menu' %}" class="text-bark hover:text-wheat-dark font-medium transition-colors">Cardápio</a>
-        <a href="{% url 'storefront:order_history' %}" class="text-bark hover:text-wheat-dark font-medium transition-colors">Meus Pedidos</a>
-        <a href="{% url 'storefront:account' %}" class="text-bark hover:text-wheat-dark font-medium transition-colors">Minha Conta</a>
         <a href="{% url 'storefront:cart' %}" class="relative text-bark hover:text-wheat-dark font-medium transition-colors"
            hx-get="{% url 'storefront:cart_summary' %}" hx-trigger="cartUpdated from:body" hx-target="#cart-badge-desktop" hx-swap="innerHTML">
-          Carrinho
+          🛒 Carrinho
           <span id="cart-badge-desktop">
           {% if cart_count %}
           <span class="absolute -top-2 -right-4 bg-wheat text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">{{ cart_count }}</span>
           {% endif %}
           </span>
         </a>
+
+        {% if request.user.is_authenticated and customer_name %}
+        <!-- User dropdown -->
+        <div class="relative" id="user-dropdown-container">
+          <button onclick="document.getElementById('user-dropdown').classList.toggle('hidden')"
+            class="flex items-center gap-1.5 text-bark hover:text-wheat-dark font-medium transition-colors">
+            <span class="text-sm">👤</span>
+            <span>{{ customer_name }}</span>
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div id="user-dropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-cream-dark py-1 z-50">
+            <a href="{% url 'storefront:account' %}" class="block px-4 py-2 text-sm text-bark hover:bg-cream transition-colors">Minha Conta</a>
+            <a href="{% url 'storefront:order_history' %}" class="block px-4 py-2 text-sm text-bark hover:bg-cream transition-colors">Meus Pedidos</a>
+            <div class="border-t border-cream-dark my-1"></div>
+            <a href="#" onclick="event.preventDefault(); document.getElementById('nav-logout-form').submit();"
+               class="block px-4 py-2 text-sm text-bark-light hover:text-red-500 hover:bg-cream transition-colors">Sair</a>
+          </div>
+        </div>
+        {% else %}
+        <a href="{% url 'storefront:login' %}" class="text-bark hover:text-wheat-dark font-medium transition-colors">Entrar</a>
+        {% endif %}
       </nav>
 
       <!-- Mobile menu button -->
@@ -219,21 +240,52 @@
     </div>
 
     <!-- Mobile nav -->
-    <nav id="mobile-menu" class="hidden md:hidden border-t border-cream-dark px-4 py-3 space-y-2 bg-white">
-      <a href="{% url 'storefront:menu' %}" class="block text-bark hover:text-wheat-dark font-medium py-1">Cardápio</a>
-      <a href="{% url 'storefront:order_history' %}" class="block text-bark hover:text-wheat-dark font-medium py-1">Meus Pedidos</a>
-      <a href="{% url 'storefront:account' %}" class="block text-bark hover:text-wheat-dark font-medium py-1">Minha Conta</a>
-      <a href="{% url 'storefront:como_funciona' %}" class="block text-bark hover:text-wheat-dark font-medium py-1">Como Funciona</a>
-      <a href="{% url 'storefront:cart' %}" class="block text-bark hover:text-wheat-dark font-medium py-1">
-        Carrinho
+    <nav id="mobile-menu" class="hidden md:hidden border-t border-cream-dark px-4 py-3 space-y-1 bg-white">
+      <a href="{% url 'storefront:menu' %}" class="block text-bark hover:text-wheat-dark font-medium py-2">Cardápio</a>
+      <a href="{% url 'storefront:cart' %}" class="block text-bark hover:text-wheat-dark font-medium py-2">
+        🛒 Carrinho
         {% if cart_count %}<span class="ml-1 bg-wheat text-white text-xs font-bold rounded-full px-2 py-0.5">{{ cart_count }}</span>{% endif %}
       </a>
+      <a href="{% url 'storefront:como_funciona' %}" class="block text-bark-light hover:text-wheat-dark text-sm py-2">Como Funciona</a>
+      <div class="border-t border-cream-dark my-1"></div>
+      {% if request.user.is_authenticated and customer_name %}
+      <div class="py-2">
+        <p class="text-xs text-bark-light uppercase tracking-wider mb-1">👤 {{ customer_name }}</p>
+        <a href="{% url 'storefront:account' %}" class="block text-bark hover:text-wheat-dark font-medium py-1.5 pl-2">Minha Conta</a>
+        <a href="{% url 'storefront:order_history' %}" class="block text-bark hover:text-wheat-dark font-medium py-1.5 pl-2">Meus Pedidos</a>
+        <a href="#" onclick="event.preventDefault(); document.getElementById('nav-logout-form').submit();"
+           class="block text-bark-light hover:text-red-500 font-medium py-1.5 pl-2">Sair</a>
+      </div>
+      {% else %}
+      <a href="{% url 'storefront:login' %}" class="block text-wheat-dark hover:text-wheat font-medium py-2">Entrar</a>
+      {% endif %}
     </nav>
   </header>
+
+  <!-- Logout form (shared by nav dropdowns) -->
+  {% if request.user.is_authenticated %}
+  <form id="nav-logout-form" method="post" action="{% url 'shopman_auth:logout' %}" class="hidden">{% csrf_token %}</form>
+  {% endif %}
+
+  <!-- Close dropdown on outside click -->
+  <script>
+  document.addEventListener('click', function(e) {
+    var dd = document.getElementById('user-dropdown');
+    var container = document.getElementById('user-dropdown-container');
+    if (dd && container && !container.contains(e.target)) dd.classList.add('hidden');
+  });
+  </script>
 
   <!-- HTMX global loading indicator -->
   <div class="htmx-indicator fixed top-0 left-0 right-0 h-0.5 bg-wheat z-[60]" style="background: linear-gradient(90deg, {{ storefront.theme_color }} 0%, #D4BA7A 50%, {{ storefront.theme_color }} 100%); background-size: 200% 100%; animation: shimmer 1.5s infinite;">
   </div>
+
+  <!-- Shop status banner -->
+  {% if shop_status.message %}
+  <div class="text-center text-sm py-1.5 font-medium {% if shop_status.is_open %}bg-green-50 text-green-800{% else %}bg-red-50 text-red-800{% endif %}">
+    {{ shop_status.message }}
+  </div>
+  {% endif %}
 
   <!-- Main content -->
   <main class="flex-1 max-w-6xl mx-auto px-4 py-8 w-full">
@@ -264,26 +316,57 @@
       </div>
       <div>
         <h4 class="font-bold text-cream mb-2">Horário</h4>
-        <p class="text-sm">Terça a Sábado: 7h — 19h</p>
-        <p class="text-sm">Domingo: 7h — 13h</p>
-        <p class="text-sm">Segunda: Fechado</p>
+        {% for entry in opening_hours_display %}
+        <p class="text-sm">{{ entry.label }}: {{ entry.hours }}</p>
+        {% empty %}
+        <p class="text-sm">Consulte nossos horários</p>
+        {% endfor %}
       </div>
       <div>
         <h4 class="font-bold text-cream mb-2">Links</h4>
         <p class="text-sm"><a href="{% url 'storefront:menu' %}" class="hover:text-wheat-light transition-colors">Cardápio</a></p>
         <p class="text-sm mt-1"><a href="{% url 'storefront:como_funciona' %}" class="hover:text-wheat-light transition-colors">Como Funciona</a></p>
+        {% if request.user.is_authenticated %}
         <p class="text-sm mt-1"><a href="{% url 'storefront:order_history' %}" class="hover:text-wheat-light transition-colors">Meus Pedidos</a></p>
         <p class="text-sm mt-1"><a href="{% url 'storefront:account' %}" class="hover:text-wheat-light transition-colors">Minha Conta</a></p>
+        {% else %}
+        <p class="text-sm mt-1"><a href="{% url 'storefront:login' %}" class="hover:text-wheat-light transition-colors">Entrar</a></p>
+        {% endif %}
       </div>
       <div>
         <h4 class="font-bold text-cream mb-2">Contato</h4>
-        <p class="text-sm">{{ storefront.location }}</p>
-        <p class="text-sm mt-1">
-          <a href="{{ storefront.whatsapp_url }}" class="hover:text-wheat-light transition-colors">WhatsApp</a>
+        {% if storefront.full_address %}
+        {% if storefront.maps_url %}
+        <a href="{{ storefront.maps_url }}" target="_blank" rel="noopener"
+           class="text-sm hover:text-wheat-light transition-colors block">{{ storefront.full_address }}</a>
+        {% else %}
+        <p class="text-sm whitespace-pre-line">{{ storefront.full_address }}</p>
+        {% endif %}
+        {% endif %}
+        {% if storefront.phone %}
+        <p class="text-sm mt-2">
+          <a href="{{ storefront.phone_url }}" class="hover:text-wheat-light transition-colors">
+            {{ storefront.phone_display }}
+          </a>
         </p>
+        {% endif %}
+        {% if storefront.email %}
         <p class="text-sm mt-1">
-          <a href="#" class="hover:text-wheat-light transition-colors">Instagram</a>
+          <a href="mailto:{{ storefront.email }}" class="hover:text-wheat-light transition-colors">
+            {{ storefront.email }}
+          </a>
         </p>
+        {% endif %}
+        {% if storefront.social_links_resolved %}
+        <div class="flex gap-3 mt-3">
+          {% for link in storefront.social_links_resolved %}
+          <a href="{{ link.url }}" target="_blank" rel="noopener" title="{{ link.label }}"
+             class="text-cream/70 hover:text-wheat-light transition-colors">
+            {{ link.icon_svg|safe }}
+          </a>
+          {% endfor %}
+        </div>
+        {% endif %}
       </div>
     </div>
     <div class="border-t border-cream/10 text-center py-4 text-xs text-cream/50">
