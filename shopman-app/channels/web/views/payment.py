@@ -10,16 +10,19 @@ from shopman.utils.monetary import format_money
 
 
 class PaymentView(View):
-    """PIX payment page — shows QR code, copy-paste code, and expiry timer."""
+    """Payment page — PIX (QR code) or Card (Stripe Elements)."""
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
         order = get_object_or_404(Order, ref=ref)
         payment = order.data.get("payment", {})
+        method = payment.get("method", "pix")
 
         return render(request, "storefront/payment.html", {
             "order": order,
             "payment": payment,
+            "method": method,
             "total_display": f"R$ {format_money(order.total_q)}",
+            "debug": settings.DEBUG,
         })
 
 
@@ -39,8 +42,12 @@ class PaymentStatusView(View):
             try:
                 intent = PaymentService.get(intent_id)
                 is_paid = intent.status == "captured"
-            except PaymentError:
-                pass
+            except PaymentError as exc:
+                import logging
+                logging.getLogger("shopman.web.payment").warning(
+                    "Payment status check failed: %s", exc,
+                    extra={"intent_id": intent_id, "order_ref": ref},
+                )
 
         is_cancelled = order.status == "cancelled"
 
@@ -64,6 +71,7 @@ class MockPaymentConfirmView(View):
     """
 
     def post(self, request: HttpRequest, ref: str) -> HttpResponse:
+        # URL only registered in DEBUG mode (urls.py), but belt-and-suspenders:
         if not settings.DEBUG:
             raise Http404
 
@@ -84,8 +92,12 @@ class MockPaymentConfirmView(View):
                     PaymentService.authorize(intent_id, gateway_id=f"mock_confirm_{intent_id}")
                 if intent.status in ("pending", "authorized"):
                     PaymentService.capture(intent_id)
-            except PaymentError:
-                pass
+            except PaymentError as exc:
+                import logging
+                logging.getLogger("shopman.web.payment").warning(
+                    "Mock payment transition failed: %s", exc,
+                    extra={"intent_id": intent_id, "order_ref": ref},
+                )
 
         # Mark payment as captured in order data
         payment["status"] = "captured"
@@ -94,14 +106,15 @@ class MockPaymentConfirmView(View):
         order.save(update_fields=["data", "updated_at"])
 
         # Emit payment event
+        method = payment.get("method", "pix")
         order.emit_event(
             event_type="payment.captured",
             actor="mock_payment",
-            payload={"method": "pix", "amount_q": payment.get("amount_q", order.total_q)},
+            payload={"method": method, "amount_q": payment.get("amount_q", order.total_q)},
         )
 
         # Transition to confirmed (if still new)
         if order.status == "new":
-            order.transition_status("confirmed", actor="payment.pix")
+            order.transition_status("confirmed", actor=f"payment.{method}")
 
         return redirect("storefront:order_tracking", ref=ref)

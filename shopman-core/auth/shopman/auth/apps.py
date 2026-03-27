@@ -24,6 +24,7 @@ class AuthConfig(AppConfig):
 
         if not settings.DEBUG:
             ds = get_auth_settings()
+
             if not ds.ACCESS_LINK_API_KEY:
                 raise ImproperlyConfigured(
                     "AUTH['ACCESS_LINK_API_KEY'] must be set in production. "
@@ -31,4 +32,20 @@ class AuthConfig(AppConfig):
                     "Set a strong random key, or if you intentionally don't use "
                     "access link creation, set AUTH['ACCESS_LINK_API_KEY'] "
                     "to any non-empty value."
+                )
+
+            # ConsoleSender must not be used in production
+            if ds.MESSAGE_SENDER_CLASS == "shopman.auth.senders.ConsoleSender":
+                raise ImproperlyConfigured(
+                    "AUTH['MESSAGE_SENDER_CLASS'] is set to ConsoleSender. "
+                    "This prints OTP codes to stdout and must NOT be used in "
+                    "production. Configure a real sender (WhatsApp, SMS, Email) "
+                    "or set AUTH['DELIVERY_CHAIN']."
+                )
+
+            # DEFAULT_DOMAIN must not be localhost
+            if "localhost" in ds.DEFAULT_DOMAIN or "127.0.0.1" in ds.DEFAULT_DOMAIN:
+                raise ImproperlyConfigured(
+                    f"AUTH['DEFAULT_DOMAIN'] is '{ds.DEFAULT_DOMAIN}'. "
+                    "Set it to your production domain (e.g. 'shop.example.com')."
                 )

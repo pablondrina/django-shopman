@@ -47,6 +47,7 @@ urlpatterns = [
     # Payment
     path("pedido/<str:ref>/pagamento/", views.PaymentView.as_view(), name="order_payment"),
     path("pedido/<str:ref>/pagamento/status/", views.PaymentStatusView.as_view(), name="payment_status_partial"),
+    # Mock payment (view guards with DEBUG check — 404 in production)
     path("pedido/<str:ref>/pagamento/mock-confirm/", views.MockPaymentConfirmView.as_view(), name="mock_payment_confirm"),
     # Tracking
     path("pedido/<str:ref>/", views.OrderTrackingView.as_view(), name="order_tracking"),

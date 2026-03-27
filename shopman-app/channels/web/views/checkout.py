@@ -297,6 +297,7 @@ class CheckoutView(View):
             pass
 
         # Ensure customer exists and has a name
+        from django.db import IntegrityError
         from shopman.customers.services import customer as customer_service
 
         customer_obj = customer_service.get_by_phone(phone)
@@ -306,14 +307,18 @@ class CheckoutView(View):
                 customer_obj.first_name = name
                 customer_obj.save(update_fields=["first_name"])
         else:
-            # Create customer for first-time anonymous checkout
+            # Create customer for first-time checkout
             import uuid as uuid_lib
 
-            customer_obj = customer_service.create(
-                ref=f"WEB-{str(uuid_lib.uuid4())[:8].upper()}",
-                first_name=name,
-                phone=phone,
-            )
+            try:
+                customer_obj = customer_service.create(
+                    ref=f"WEB-{str(uuid_lib.uuid4())[:8].upper()}",
+                    first_name=name,
+                    phone=phone,
+                )
+            except IntegrityError:
+                # Race condition: customer was created between get and create
+                customer_obj = customer_service.get_by_phone(phone)
 
         # Clear cart from Django session
         request.session.pop("cart_session_key", None)

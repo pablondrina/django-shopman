@@ -108,6 +108,7 @@ class LoginView(View):
         try:
             phone = _normalize_phone_with_ddd(phone_raw)
         except Exception:
+            logger.warning("Phone normalization failed", extra={"phone_raw": phone_raw})
             phone = ""
 
         if not phone:
@@ -203,6 +204,7 @@ class CustomerLookupView(View):
         try:
             phone = normalize_phone(phone_raw)
         except Exception:
+            logger.warning("Phone normalization failed in lookup", extra={"phone_raw": phone_raw})
             return JsonResponse({"found": False})
 
         # Check if authenticated for this phone
@@ -263,6 +265,7 @@ class RequestCodeView(View):
         try:
             phone = normalize_phone(phone_raw)
         except Exception:
+            logger.warning("Phone normalization failed", extra={"phone_raw": phone_raw})
             return render(request, "storefront/partials/auth_error.html", {
                 "error_message": "Telefone inválido.",
             })
@@ -329,6 +332,7 @@ class VerifyCodeView(View):
         try:
             phone = normalize_phone(phone_raw)
         except Exception:
+            logger.warning("Phone normalization failed", extra={"phone_raw": phone_raw})
             return render(request, "storefront/partials/auth_error.html", {
                 "error_message": "Telefone inválido.",
             })
@@ -436,6 +440,7 @@ class DeviceCheckLoginView(View):
         try:
             phone = normalize_phone(phone_raw)
         except Exception:
+            logger.warning("Phone normalization failed in device check", extra={"phone_raw": phone_raw})
             return JsonResponse({"trusted": False})
 
         from shopman.customers.services import customer as customer_service

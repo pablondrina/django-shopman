@@ -82,6 +82,8 @@ AUTHENTICATION_BACKENDS = [
 
 AUTH = {
     "PRESERVE_SESSION_KEYS": ["cart_session_key"],
+    "DEFAULT_DOMAIN": os.environ.get("AUTH_DEFAULT_DOMAIN", "localhost:8000"),
+    "USE_HTTPS": not DEBUG,
 }
 
 ROOT_URLCONF = "project.urls"
