@@ -33,8 +33,20 @@ class LogoutView(View):
         # Clear device trust cookie
         DeviceTrustService.revoke_device(request, response)
 
+        # Preserve session keys across logout (logout flushes session)
+        preserved = {}
+        preserve_keys = auth_settings.PRESERVE_SESSION_KEYS
+        if preserve_keys and hasattr(request, "session"):
+            for key in preserve_keys:
+                if key in request.session:
+                    preserved[key] = request.session[key]
+
         # Django logout (flushes session)
         logout(request)
+
+        # Restore preserved keys
+        for key, val in preserved.items():
+            request.session[key] = val
 
         logger.info("User logged out")
 
