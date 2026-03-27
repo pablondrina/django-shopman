@@ -166,7 +166,7 @@ class AuthService:
         else:
             # Use adapter's fallback chain
             sent, actual_method = adapter.send_code_with_fallback(
-                target_value, raw_code,
+                target_value, raw_code, preferred_method=delivery_method,
             )
             if not sent:
                 return CodeRequestResult(

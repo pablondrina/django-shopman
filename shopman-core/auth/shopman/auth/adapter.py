@@ -104,17 +104,20 @@ class DefaultAuthAdapter:
         """
         return self.sender.send_code(target, code, method)
 
-    def send_code_with_fallback(self, target: str, code: str) -> tuple[bool, str]:
+    def send_code_with_fallback(
+        self, target: str, code: str, preferred_method: str = "whatsapp",
+    ) -> tuple[bool, str]:
         """
         Send a verification code, iterating through the delivery chain.
 
         Tries each sender in DELIVERY_CHAIN order. Falls back to the next
         sender on failure. If DELIVERY_CHAIN is empty, uses the default
-        MESSAGE_SENDER_CLASS with method "whatsapp".
+        MESSAGE_SENDER_CLASS with the preferred method.
 
         Args:
             target: Phone (E.164) or email.
             code: The raw OTP code.
+            preferred_method: Preferred delivery method (whatsapp, sms, email).
 
         Returns:
             (success, method_used) — method_used is the delivery method
@@ -122,10 +125,9 @@ class DefaultAuthAdapter:
         """
         chain = self.get_delivery_chain(target)
         if not chain:
-            # Backward compat: no chain configured, use default sender
-            method = "whatsapp"
-            success = self.send_code(target, code, method)
-            return success, method
+            # No chain configured, use default sender with preferred method
+            success = self.send_code(target, code, preferred_method)
+            return success, preferred_method
 
         for method in chain:
             sender = self._get_chain_sender(method)
