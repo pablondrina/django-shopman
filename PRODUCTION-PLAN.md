@@ -36,7 +36,7 @@ targets subdimensionados, sem bottom nav, sem gestos, checkout longo demais).
 | F10 | Admin — POS & Operação Diária | ✅ | F0 |
 | F11 | Admin — Backoffice & Configuração da Loja | ⬚ | — |
 | F12 | Admin — Dashboard, Analytics & BI | ⬚ | F10 |
-| F13 | Integração Plena: Vendas ↔ Produção ↔ Estoque ↔ CRM | ⬚ | F0, F8, F9 |
+| F13 | Integração Plena: Vendas ↔ Produção ↔ Estoque ↔ CRM | ✅ | F0, F8, F9 |
 | F14 | Notificações Multi-Canal | ⬚ | F6 |
 | F15 | Canal WhatsApp | ⬚ | F14 |
 | F16 | Canal Marketplace (iFood) | ⬚ | F13 |
@@ -1209,7 +1209,7 @@ Acessível via ⚙️ no header:
 |------|-------|-----------------|
 | Disponibilidade em tempo real por item (8.4) | Check de StockBackend + WorkOrder badge no detail expandido. Implementado o detail mas sem badges de estoque por item | F13 (Integração Plena) |
 | Sugestão de alternativas (8.4) | Substituir/remover item indisponível com recalculo. Requer ModifyService no pedido já commitado | F13 |
-| Sugerir produção com 1 click (8.5) | Criar WorkOrder direto do gestor. Requer integração Crafting | F13 |
+| Sugerir produção com 1 click (8.5) | Criar WorkOrder direto do gestor. Requer integração Crafting | ✅ F13 — link Produção no gestor + dashboard widget + bulk create |
 | Modal de configurações (8.7) | Som, auto-refresh interval, filtro padrão, compacto, fullscreen. Som e fullscreen existem mas sem modal de config | UX polish |
 
 ---
@@ -1387,7 +1387,7 @@ Acessível via admin: `/gestao/kds/config/`.
 | Tamanho de texto ajustável P/M/G (9.6) | Settings por instância via config modal. Admin permite editar mas KDS view não expõe toggle | UX polish |
 | Filtro por sub-categoria no KDS Prep (9.2) | Pills "Todos / Bebidas / Sanduíches" dentro de uma estação. Não implementado — items vêm todos juntos | UX polish |
 | Picking prioridade visual delivery vs retirada (9.3) | Delivery deveria aparecer primeiro. Hoje ordena por created_at | UX polish |
-| Alerta "Estoque zerado" no Picking (9.3) | Se Quant physical=0, mostrar aviso no ticket. Requer query de estoque por item | F13 (Integração Plena) |
+| Alerta "Estoque zerado" no Picking (9.3) | Se Quant physical=0, mostrar aviso no ticket. Requer query de estoque por item | ✅ F13 — _add_stock_warnings() no KDS Picking + badge no template |
 | Beep duplo para tickets urgentes (9.2) | Som diferenciado para timer vermelho. Hoje toca o mesmo beep | UX polish |
 | Config page `/gestao/kds/config/` (9.6) | UI dedicada para configurar instâncias. Hoje usa admin padrão (KDSInstanceAdmin) | UX polish |
 
@@ -1508,7 +1508,7 @@ O Core tem `ProductComponent` (offering) para composição de produtos (ex: "Com
 
 | Item | Razão | Quando resolver |
 |------|-------|-----------------|
-| Descontos employee/loyalty ao identificar cliente no POS | Requer rodar ModifyService modifiers no fluxo POS (hoje cria Session sem rodar modifiers de desconto por cliente) | F13 (Integração Plena) ou sprint dedicado |
+| Descontos employee/loyalty ao identificar cliente no POS | Requer rodar ModifyService modifiers no fluxo POS (hoje cria Session sem rodar modifiers de desconto por cliente) | ✅ F13 — _resolve_customer() seta customer.group antes do ModifyService |
 | PIX no POS gera QR | Hoje o POS fecha direto independente do método selecionado. Precisa de redirect para tela PIX após commit se method=pix | Quando payment gateway PIX estiver integrado |
 | NFC-e após fechar venda | Depende do backend fiscal (FISCAL_EMIT_NFCE). Não existe implementação fiscal ainda | F-Fiscal (plano separado) |
 | Bundles no POS (10.5) | ProductComponent existe no Core mas POS não decompõe bundles em sub-items para estoque/KDS | Sprint dedicado — requer integração com StockHoldHandler bundle expansion |
