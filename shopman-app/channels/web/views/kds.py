@@ -41,6 +41,10 @@ def _enrich_ticket(ticket, instance) -> dict:
     delivery_method = order.data.get("delivery_method", "")
     fulfillment_icon = "\U0001f697" if delivery_method == "delivery" else "\U0001f3ea"
 
+    items = ticket.items
+    if instance.type == "picking":
+        items = _add_stock_warnings(items)
+
     return {
         "pk": ticket.pk,
         "order_ref": order.ref,
@@ -52,10 +56,59 @@ def _enrich_ticket(ticket, instance) -> dict:
         "created_at": ticket.created_at,
         "elapsed_seconds": int(elapsed),
         "timer_class": timer_class,
-        "items": ticket.items,
+        "items": items,
         "status": ticket.status,
         "ticket": ticket,
     }
+
+
+def _add_stock_warnings(items: list[dict]) -> list[dict]:
+    """Add stock_warning to items where physical stock is low or zero."""
+    try:
+        from shopman.stocking.models import Quant, StockAlert
+    except ImportError:
+        return items
+
+    from decimal import Decimal
+
+    from django.db.models import Q, Sum
+    from django.db.models.functions import Coalesce
+
+    skus = [item["sku"] for item in items if item.get("sku")]
+    if not skus:
+        return items
+
+    # Bulk-query physical stock per SKU
+    quant_qs = (
+        Quant.objects.filter(
+            sku__in=skus,
+        ).filter(
+            Q(target_date__isnull=True) | Q(target_date__lte=timezone.now().date()),
+        ).values("sku").annotate(
+            total=Coalesce(Sum("_quantity"), Decimal("0")),
+        )
+    )
+    stock_by_sku = {row["sku"]: row["total"] for row in quant_qs}
+
+    # Bulk-query alert minimums
+    alert_mins = {}
+    for alert in StockAlert.objects.filter(sku__in=skus, is_active=True):
+        alert_mins[alert.sku] = alert.min_quantity
+
+    enriched = []
+    for item in items:
+        item = dict(item)  # shallow copy to avoid mutating JSONField
+        sku = item.get("sku", "")
+        available = stock_by_sku.get(sku, Decimal("0"))
+
+        if available <= 0:
+            item["stock_warning"] = "Sem estoque"
+        elif sku in alert_mins and available < alert_mins[sku]:
+            item["stock_warning"] = f"Últimas {int(available)} un."
+
+        enriched.append(item)
+
+    return enriched
 
 
 def _enrich_expedition_order(order) -> dict:

@@ -330,6 +330,24 @@ class StockCommitHandler:
             message.status = "done"
         message.save(update_fields=["status", "last_error", "updated_at"])
 
+        # Check stock alerts for fulfilled SKUs
+        fulfilled_skus = {
+            h["sku"] for h in holds
+            if h.get("hold_id") and not h.get("is_planned") and h.get("sku")
+        }
+        if fulfilled_skus:
+            self._check_stock_alerts(fulfilled_skus)
+
+    def _check_stock_alerts(self, skus: set[str]) -> None:
+        """Check stock alerts for recently fulfilled SKUs."""
+        try:
+            from channels.handlers.stock_alerts import check_and_alert
+
+            for sku in skus:
+                check_and_alert(sku=sku)
+        except Exception:
+            logger.debug("StockCommitHandler: stock alert check failed", exc_info=True)
+
 
 class StockCheck:
     """Check de estoque: reserva durante modify, valida no commit."""

@@ -79,6 +79,11 @@
       &#x26a0; {{ item.notes }}
     </div>
     {% endif %}
+    {% if item.stock_warning %}
+    <div style="font-size: 0.75rem; padding-left: 1.75rem; margin-top: -0.25rem; color: {% if item.stock_warning == 'Sem estoque' %}var(--kds-danger, #ef4444){% else %}var(--kds-warning){% endif %}; font-weight: 600;">
+      &#x1f4e6; {{ item.stock_warning }}
+    </div>
+    {% endif %}
     {% endfor %}
   </div>
 

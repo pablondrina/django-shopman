@@ -65,6 +65,7 @@ def dashboard_callback(request, context):
 
     d1_stock = _d1_stock()
     operator_alerts = _operator_alerts()
+    suggestions = _production_suggestions(today + timedelta(days=1))
 
     context.update({
         # KPI cards
@@ -92,6 +93,9 @@ def dashboard_callback(request, context):
         # Operator alerts
         "operator_alerts": operator_alerts["items"],
         "table_operator_alerts": _build_operator_alerts_table(operator_alerts["items"]),
+        # Production suggestions
+        "production_suggestions": suggestions,
+        "table_sugestao_producao": _build_suggestions_table(suggestions),
     })
     return context
 
@@ -514,6 +518,60 @@ def _build_operator_alerts_table(alerts):
         ])
     return {
         "headers": ["Severidade", "Mensagem", "Pedido", "Data"],
+        "rows": rows,
+    }
+
+
+# ── Production Suggestions ──────────────────────────────────────────
+
+
+def _production_suggestions(target_date):
+    """Fetch production suggestions for target_date via CraftService.suggest()."""
+    try:
+        from shopman.crafting.service import CraftService as craft
+    except ImportError:
+        return []
+
+    try:
+        suggestions = craft.suggest(date=target_date)
+    except Exception:
+        return []
+
+    rows = []
+    for s in suggestions:
+        basis = s.basis or {}
+        rows.append({
+            "recipe_code": s.recipe.code,
+            "recipe_name": s.recipe.name,
+            "output_ref": s.recipe.output_ref,
+            "quantity": s.quantity,
+            "avg_demand": basis.get("avg_demand", Decimal("0")),
+            "committed": basis.get("committed", Decimal("0")),
+            "safety_pct": basis.get("safety_pct", Decimal("0")),
+            "sample_size": basis.get("sample_size", 0),
+        })
+    return rows
+
+
+def _build_suggestions_table(suggestions):
+    """Production suggestions table for dashboard."""
+    rows = []
+    for s in suggestions:
+        avg = s["avg_demand"]
+        safety = s["safety_pct"]
+        rows.append([
+            s["recipe_name"],
+            s["output_ref"],
+            format_html(
+                '<span class="font-medium">{}</span>',
+                str(s["quantity"]),
+            ),
+            f"{avg:.1f}",
+            f"{safety:.0%}" if safety else "—",
+        ])
+
+    return {
+        "headers": ["Receita", "Produto", "Sugerido", "Média", "Margem"],
         "rows": rows,
     }
 

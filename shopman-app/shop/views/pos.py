@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
 from shopman.offering.models import Collection, Product
@@ -22,6 +22,18 @@ def _staff_required(request):
     if not request.user.is_staff:
         return redirect(f"/admin/login/?next={request.path}")
     return None
+
+
+def _resolve_customer(phone: str):
+    """Look up customer by phone for modifier discounts."""
+    try:
+        from shopman.customers.models import Customer
+        from shopman.utils.phone import normalize_phone
+
+        normalized = normalize_phone(phone)
+        return Customer.objects.select_related("group").filter(phone=normalized).first()
+    except Exception:
+        return None
 
 
 def _load_products():
@@ -191,6 +203,14 @@ def pos_close(request: HttpRequest) -> HttpResponse:
         ops.append({"op": "set_data", "path": "customer.name", "value": customer_name})
     if customer_phone:
         ops.append({"op": "set_data", "path": "customer.phone", "value": customer_phone})
+
+    # Resolve customer for modifier discounts (employee, loyalty)
+    if customer_phone:
+        customer_obj = _resolve_customer(customer_phone)
+        if customer_obj:
+            ops.append({"op": "set_data", "path": "customer.ref", "value": customer_obj.ref})
+            if customer_obj.group_id:
+                ops.append({"op": "set_data", "path": "customer.group", "value": customer_obj.group.ref})
 
     ops.append({"op": "set_data", "path": "payment.method", "value": payment_method})
     ops.append({"op": "set_data", "path": "origin_channel", "value": "pos"})

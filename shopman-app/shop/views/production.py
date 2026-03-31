@@ -1,13 +1,14 @@
-"""Quick production registration — admin custom view."""
+"""Quick production registration + bulk create — admin custom views."""
 
 from __future__ import annotations
 
+import json
 import logging
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
-from django.http import HttpResponseRedirect
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from shopman.crafting.models import Recipe, WorkOrder
@@ -154,3 +155,95 @@ def _render(request, admin_site):
         "today": today,
     }
     return TemplateResponse(request, TEMPLATE, context)
+
+
+# ── Bulk Create (from dashboard suggestions) ────────────────────────
+
+
+def bulk_create_work_orders(request: HttpRequest) -> HttpResponse:
+    """POST /gestao/producao/criar/ — bulk create WorkOrders from suggestions.
+
+    Expects JSON body: {"date": "YYYY-MM-DD", "orders": [{"recipe_code": "...", "quantity": N}, ...]}
+    Returns HTMX partial with result summary.
+    """
+    if not request.user.is_staff:
+        return HttpResponse("Unauthorized", status=403)
+
+    if request.method != "POST":
+        return HttpResponse("Method not allowed", status=405)
+
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return HttpResponse(
+            '<div class="text-red-600">Dados inválidos</div>',
+            status=400,
+        )
+
+    target_date_str = body.get("date")
+    orders_data = body.get("orders", [])
+
+    if not orders_data:
+        return HttpResponse(
+            '<div class="text-red-600">Nenhuma ordem informada</div>',
+            status=422,
+        )
+
+    # Parse target date (default: tomorrow)
+    try:
+        target_date = date.fromisoformat(target_date_str) if target_date_str else date.today() + timedelta(days=1)
+    except (ValueError, TypeError):
+        target_date = date.today() + timedelta(days=1)
+
+    # Resolve default position
+    default_pos = Position.objects.filter(is_default=True).first()
+    position_ref = default_pos.ref if default_pos else ""
+
+    created = []
+    errors = []
+
+    for entry in orders_data:
+        recipe_code = entry.get("recipe_code", "")
+        try:
+            quantity = Decimal(str(entry.get("quantity", 0)))
+            if quantity <= 0:
+                continue
+        except (InvalidOperation, TypeError):
+            errors.append(f"{recipe_code}: quantidade inválida")
+            continue
+
+        try:
+            recipe = Recipe.objects.get(code=recipe_code, is_active=True)
+        except Recipe.DoesNotExist:
+            errors.append(f"{recipe_code}: receita não encontrada")
+            continue
+
+        try:
+            wo = CraftPlanning.plan(
+                recipe,
+                quantity,
+                date=target_date,
+                position_ref=position_ref,
+                source_ref="dashboard_suggestion",
+            )
+            created.append(f"{recipe.output_ref} × {quantity} ({wo.code})")
+        except Exception as exc:
+            errors.append(f"{recipe_code}: {exc}")
+            logger.exception("bulk_create_work_orders failed for %s", recipe_code)
+
+    parts = []
+    if created:
+        items_html = "".join(f"<li>{c}</li>" for c in created)
+        parts.append(
+            f'<div class="text-green-700 mb-2">'
+            f'{len(created)} ordem(ns) criada(s) para {target_date}:'
+            f'<ul class="list-disc ml-4 mt-1">{items_html}</ul></div>'
+        )
+    if errors:
+        items_html = "".join(f"<li>{e}</li>" for e in errors)
+        parts.append(
+            f'<div class="text-red-600">'
+            f'Erros:<ul class="list-disc ml-4 mt-1">{items_html}</ul></div>'
+        )
+
+    return HttpResponse("".join(parts))

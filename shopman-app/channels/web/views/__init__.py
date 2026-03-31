@@ -53,6 +53,7 @@ from .pedidos import (
 )
 from .tracking import OrderCancelView, OrderStatusPartialView, OrderTrackingView, ReorderView
 from shop.views.pos import pos_close, pos_customer_lookup, pos_view
+from shop.views.production import bulk_create_work_orders
 from .kds import (
     KDSDisplayView,
     KDSExpeditionActionView,
@@ -131,4 +132,5 @@ __all__ = [
     "pos_close",
     "pos_customer_lookup",
     "pos_view",
+    "bulk_create_work_orders",
 ]
