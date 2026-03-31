@@ -67,7 +67,8 @@ class ItemPricingModifierTests(TestCase):
         self.assertEqual(items[1]["unit_price_q"], 1000)
         self.assertEqual(items[1]["line_total_q"], 1000)
 
-    def test_skip_items_with_existing_price(self) -> None:
+    def test_resets_price_from_backend_for_internal(self) -> None:
+        """Internal pricing always re-resolves from backend, even if price exists."""
         session = Mock()
         session.pricing_policy = "internal"
         session.pricing_trace = []
@@ -76,8 +77,9 @@ class ItemPricingModifierTests(TestCase):
 
         self.modifier.apply(channel=self.channel, session=session, ctx={})
 
-        self.assertEqual(items[0]["unit_price_q"], 999)
-        self.assertEqual(items[0]["line_total_q"], 1998)
+        # Backend returns 500 for COFFEE, overriding the 999
+        self.assertEqual(items[0]["unit_price_q"], 500)
+        self.assertEqual(items[0]["line_total_q"], 1000)
 
     def test_skip_when_pricing_policy_external(self) -> None:
         session = Mock()

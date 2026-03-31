@@ -1,9 +1,9 @@
 {% if addresses %}
 <div class="space-y-3">
   {% for addr in addresses %}
-  <div id="address-item-{{ addr.pk }}" class="relative p-4 rounded-lg border {% if addr.is_default %}border-wheat/50 bg-wheat/5{% else %}border-cream-dark{% endif %} transition">
-    <!-- Edit form (hidden by default) -->
-    <div id="address-edit-{{ addr.pk }}" class="hidden">
+  <div id="address-item-{{ addr.pk }}" x-data="{ editing: false }" class="relative p-4 rounded-lg border {% if addr.is_default %}border-primary/50 bg-primary/5{% else %}border-border{% endif %} transition">
+    <!-- Edit form -->
+    <div x-show="editing" x-cloak>
       <form
         hx-post="{% url 'storefront:address_update' pk=addr.pk %}"
         hx-target="#address-list"
@@ -15,76 +15,76 @@
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs font-medium text-bark mb-1">Rótulo</label>
-            <select name="label" class="w-full px-3 py-2 rounded-lg border border-cream-dark bg-white text-bark text-sm focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat">
+            <label class="block text-xs font-medium text-foreground mb-1">Rótulo</label>
+            <select name="label" class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
               <option value="home" {% if addr.label == "home" %}selected{% endif %}>Casa</option>
               <option value="work" {% if addr.label == "work" %}selected{% endif %}>Trabalho</option>
               <option value="other" {% if addr.label == "other" %}selected{% endif %}>Outro</option>
             </select>
           </div>
           <div>
-            <label class="block text-xs font-medium text-bark mb-1">Rótulo personalizado</label>
+            <label class="block text-xs font-medium text-foreground mb-1">Rótulo personalizado</label>
             <input type="text" name="label_custom" value="{{ addr.label_custom }}"
               placeholder="Ex: Casa da vovó"
-              class="w-full px-3 py-2 rounded-lg border border-cream-dark bg-white text-bark text-sm placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat">
+              class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm placeholder-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
           </div>
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-bark mb-1">Rua</label>
+          <label class="block text-xs font-medium text-foreground mb-1">Rua</label>
           <input type="text" name="route" value="{{ addr.route }}"
-            class="w-full px-3 py-2 rounded-lg border border-cream-dark bg-white text-bark text-sm focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat">
+            class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs font-medium text-bark mb-1">Número</label>
+            <label class="block text-xs font-medium text-foreground mb-1">Número</label>
             <input type="text" name="street_number" value="{{ addr.street_number }}"
-              class="w-full px-3 py-2 rounded-lg border border-cream-dark bg-white text-bark text-sm focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat">
+              class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
           </div>
           <div>
-            <label class="block text-xs font-medium text-bark mb-1">Complemento</label>
+            <label class="block text-xs font-medium text-foreground mb-1">Complemento</label>
             <input type="text" name="complement" value="{{ addr.complement }}"
               placeholder="Apto, bloco..."
-              class="w-full px-3 py-2 rounded-lg border border-cream-dark bg-white text-bark text-sm placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat">
+              class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm placeholder-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs font-medium text-bark mb-1">Bairro</label>
+            <label class="block text-xs font-medium text-foreground mb-1">Bairro</label>
             <input type="text" name="neighborhood" value="{{ addr.neighborhood }}"
-              class="w-full px-3 py-2 rounded-lg border border-cream-dark bg-white text-bark text-sm focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat">
+              class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
           </div>
           <div>
-            <label class="block text-xs font-medium text-bark mb-1">Cidade</label>
+            <label class="block text-xs font-medium text-foreground mb-1">Cidade</label>
             <input type="text" name="city" value="{{ addr.city }}"
-              class="w-full px-3 py-2 rounded-lg border border-cream-dark bg-white text-bark text-sm focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat">
+              class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
           </div>
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-bark mb-1">Endereço formatado</label>
+          <label class="block text-xs font-medium text-foreground mb-1">Endereço formatado</label>
           <input type="text" name="formatted_address" value="{{ addr.formatted_address }}"
-            class="w-full px-3 py-2 rounded-lg border border-cream-dark bg-white text-bark text-sm focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat">
+            class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-bark mb-1">Instruções de entrega</label>
+          <label class="block text-xs font-medium text-foreground mb-1">Instruções de entrega</label>
           <textarea name="delivery_instructions" rows="2"
             placeholder="Instruções para o entregador..."
-            class="w-full px-3 py-2 rounded-lg border border-cream-dark bg-white text-bark text-sm placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat resize-none"
+            class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm placeholder-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary resize-none"
           >{{ addr.delivery_instructions }}</textarea>
         </div>
 
         <div class="flex gap-2">
           <button type="submit"
-            class="px-4 py-2 bg-wheat text-white rounded-lg text-sm font-medium hover:bg-wheat-dark transition-colors">
+            class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors">
             Salvar
           </button>
           <button type="button"
-            onclick="toggleEditAddress({{ addr.pk }})"
-            class="px-4 py-2 bg-cream-dark text-bark rounded-lg text-sm font-medium hover:bg-cream transition-colors">
+            @click="editing = false"
+            class="px-4 py-2 bg-muted text-foreground rounded-lg text-sm font-medium hover:bg-surface-hover transition-colors">
             Cancelar
           </button>
         </div>
@@ -92,21 +92,21 @@
     </div>
 
     <!-- Display mode -->
-    <div id="address-display-{{ addr.pk }}">
+    <div x-show="!editing">
       <div class="flex items-start justify-between">
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-1">
-            <span class="text-sm font-bold text-bark">{{ addr.display_label }}</span>
+            <span class="text-sm font-bold text-foreground">{{ addr.display_label }}</span>
             {% if addr.is_default %}
-            <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-wheat/20 text-wheat-dark">Padrão</span>
+            <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/20 text-primary">Padrão</span>
             {% endif %}
           </div>
-          <p class="text-sm text-bark">{{ addr.formatted_address }}</p>
+          <p class="text-sm text-foreground">{{ addr.formatted_address }}</p>
           {% if addr.complement %}
-          <p class="text-sm text-bark-light">{{ addr.complement }}</p>
+          <p class="text-sm text-muted-foreground">{{ addr.complement }}</p>
           {% endif %}
           {% if addr.delivery_instructions %}
-          <p class="text-xs text-bark-light mt-1 italic">{{ addr.delivery_instructions }}</p>
+          <p class="text-xs text-muted-foreground mt-1 italic">{{ addr.delivery_instructions }}</p>
           {% endif %}
         </div>
         <div class="flex items-center gap-1 ml-3 flex-shrink-0">
@@ -116,7 +116,7 @@
             {% csrf_token %}
             <input type="hidden" name="customer_phone" value="{{ customer.phone }}">
             <button type="submit" title="Marcar como padrão"
-              class="p-1.5 rounded-lg text-bark-light hover:text-wheat-dark hover:bg-cream transition">
+              class="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-surface-hover transition">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
               </svg>
@@ -124,9 +124,9 @@
           </form>
           {% endif %}
           <button type="button"
-            onclick="toggleEditAddress({{ addr.pk }})"
+            @click="editing = true"
             title="Editar"
-            class="p-1.5 rounded-lg text-bark-light hover:text-wheat-dark hover:bg-cream transition">
+            class="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-surface-hover transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
             </svg>
@@ -137,7 +137,7 @@
             {% csrf_token %}
             <input type="hidden" name="customer_phone" value="{{ customer.phone }}">
             <button type="submit" title="Excluir"
-              class="p-1.5 rounded-lg text-bark-light hover:text-red-500 hover:bg-red-50 transition">
+              class="p-1.5 rounded-lg text-muted-foreground hover:text-error hover:bg-error-light transition">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
               </svg>
@@ -150,14 +150,7 @@
   {% endfor %}
 </div>
 
-<script>
-function toggleEditAddress(pk) {
-  var editEl = document.getElementById('address-edit-' + pk);
-  var displayEl = document.getElementById('address-display-' + pk);
-  editEl.classList.toggle('hidden');
-  displayEl.classList.toggle('hidden');
-}
-</script>
+<!-- Alpine x-data="{ editing: false }" on each address item -->
 {% else %}
-<p class="text-bark-light text-sm text-center py-4">Nenhum endereço cadastrado.</p>
+<p class="text-muted-foreground text-sm text-center py-4">Nenhum endereço cadastrado.</p>
 {% endif %}

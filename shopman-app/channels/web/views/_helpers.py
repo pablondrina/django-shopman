@@ -110,8 +110,12 @@ def _d1_discount_percent() -> int:
     return D1_DISCOUNT_PERCENT
 
 
-def _annotate_products(products: list[Product], listing_ref: str | None = None) -> list[dict]:
-    """Build template-ready list with price, availability, D-1 info, and promotion badge."""
+def _annotate_products(
+    products: list[Product],
+    listing_ref: str | None = None,
+    popular_skus: set[str] | None = None,
+) -> list[dict]:
+    """Build template-ready list with price, availability, D-1 info, promotion badge, and popular flag."""
     if listing_ref is None:
         listing_ref = _get_channel_listing_ref()
     d1_pct = _d1_discount_percent()
@@ -151,6 +155,7 @@ def _annotate_products(products: list[Product], listing_ref: str | None = None) 
             "badge": badge,
             "availability": avail,
             "promo_badge": promo_badge,
+            "is_popular": popular_skus is not None and p.sku in popular_skus,
         })
     return result
 
@@ -283,6 +288,268 @@ def _format_opening_hours() -> list[dict]:
         result.append({"label": label, "hours": hours})
 
     return result
+
+
+COLLECTION_EMOJIS: dict[str, str] = {
+    "paes": "\U0001f956",       # 🥖
+    "pao": "\U0001f956",
+    "confeitaria": "\U0001f9c1",  # 🧁
+    "doces": "\U0001f370",      # 🍰
+    "cafes": "\u2615",          # ☕
+    "cafe": "\u2615",
+    "bebidas": "\U0001f964",    # 🥤
+    "combos": "\U0001f4e6",     # 📦
+    "salgados": "\U0001f950",   # 🥐
+    "lanches": "\U0001f96a",    # 🥪
+    "especiais": "\u2b50",      # ⭐
+}
+
+
+def _collection_emoji(slug: str) -> str:
+    """Return emoji prefix for a collection slug, or empty string."""
+    if not slug:
+        return ""
+    slug_lower = slug.lower()
+    for key, emoji in COLLECTION_EMOJIS.items():
+        if key in slug_lower:
+            return emoji
+    return ""
+
+
+def _popular_skus(limit: int = 5) -> set[str]:
+    """Aggregate favorite SKUs across all customer insights."""
+    try:
+        from shopman.customers.contrib.insights.models import CustomerInsight
+
+        insights = CustomerInsight.objects.exclude(favorite_products=[]).values_list(
+            "favorite_products", flat=True
+        )[:200]
+        sku_counts: dict[str, int] = {}
+        for favorites in insights:
+            if not favorites:
+                continue
+            for fav in favorites:
+                sku = fav.get("sku", "") if isinstance(fav, dict) else str(fav)
+                if sku:
+                    sku_counts[sku] = sku_counts.get(sku, 0) + fav.get("qty", 1) if isinstance(fav, dict) else sku_counts.get(sku, 0) + 1
+        if not sku_counts:
+            return set()
+        sorted_skus = sorted(sku_counts, key=sku_counts.get, reverse=True)
+        return set(sorted_skus[:limit])
+    except Exception:
+        return set()
+
+
+def _hero_data(listing_ref: str | None = None) -> dict | None:
+    """
+    Build hero section data: featured promotion or most popular product.
+
+    Returns dict with keys: product, price_display, promo, image_url, badge
+    or None if no suitable hero found.
+    """
+    try:
+        from shop.models import Promotion
+
+        now = timezone.now()
+        promo = (
+            Promotion.objects.filter(
+                is_active=True,
+                valid_from__lte=now,
+                valid_until__gte=now,
+            )
+            .order_by("-valid_from")
+            .first()
+        )
+
+        if promo and promo.skus:
+            # Feature the first SKU of the promotion
+            from shopman.offering.models import Product as Prod
+
+            product = Prod.objects.filter(sku=promo.skus[0], is_published=True).first()
+            if product:
+                price_q = _get_price_q(product, listing_ref=listing_ref)
+                if promo.type == "percent":
+                    discount_label = f"{promo.value}% OFF"
+                else:
+                    discount_label = f"R$ {format_money(promo.value)} OFF"
+                return {
+                    "product": product,
+                    "price_display": f"R$ {format_money(price_q)}" if price_q else None,
+                    "promo_name": promo.name,
+                    "discount_label": discount_label,
+                    "image_url": product.image_url,
+                    "sku": product.sku,
+                }
+
+        # Fallback: most popular product
+        popular = _popular_skus(limit=1)
+        if popular:
+            from shopman.offering.models import Product as Prod
+
+            sku = next(iter(popular))
+            product = Prod.objects.filter(sku=sku, is_published=True).first()
+            if product:
+                price_q = _get_price_q(product, listing_ref=listing_ref)
+                return {
+                    "product": product,
+                    "price_display": f"R$ {format_money(price_q)}" if price_q else None,
+                    "promo_name": None,
+                    "discount_label": None,
+                    "image_url": product.image_url,
+                    "sku": product.sku,
+                }
+    except Exception:
+        pass
+    return None
+
+
+def _min_order_progress(subtotal_q: int, channel_ref: str = STOREFRONT_CHANNEL_REF) -> dict | None:
+    """
+    Calculate minimum order progress bar data.
+
+    Returns dict with: minimum_q, remaining_q, percent, remaining_display, minimum_display
+    or None if no minimum order configured or already met.
+    """
+    minimum_q = 0
+    try:
+        from shopman.ordering.models import Channel
+
+        from channels.config import ChannelConfig
+
+        channel = Channel.objects.filter(ref=channel_ref).first()
+        if channel:
+            config = ChannelConfig.effective(channel)
+            if "shop.minimum_order" in config.rules.validators:
+                raw = (channel.config or {}).get("rules", {}).get("minimum_order_q")
+                if raw:
+                    minimum_q = int(raw)
+                else:
+                    from shop.models import Shop
+
+                    shop = Shop.load()
+                    if shop and shop.defaults:
+                        raw = shop.defaults.get("rules", {}).get("minimum_order_q")
+                        if raw:
+                            minimum_q = int(raw)
+                    if not minimum_q:
+                        from shop.validators import MINIMUM_ORDER_Q
+
+                        minimum_q = MINIMUM_ORDER_Q
+    except Exception:
+        pass
+
+    if not minimum_q or subtotal_q >= minimum_q:
+        return None
+
+    remaining_q = minimum_q - subtotal_q
+    percent = int(min(subtotal_q * 100 / minimum_q, 100)) if minimum_q else 0
+    return {
+        "minimum_q": minimum_q,
+        "remaining_q": remaining_q,
+        "percent": percent,
+        "remaining_display": f"R$ {format_money(remaining_q)}",
+        "minimum_display": f"R$ {format_money(minimum_q)}",
+    }
+
+
+def _upsell_suggestion(cart_skus: set[str], listing_ref: str | None = None) -> dict | None:
+    """
+    Return a single upsell product suggestion not already in the cart.
+
+    Returns annotated product dict or None.
+    """
+    popular = _popular_skus(limit=10)
+    candidates = [sku for sku in popular if sku not in cart_skus]
+    if not candidates:
+        return None
+
+    from shopman.offering.models import Product as Prod
+
+    for sku in candidates:
+        product = Prod.objects.filter(sku=sku, is_published=True, is_available=True).first()
+        if product:
+            price_q = _get_price_q(product, listing_ref=listing_ref)
+            return {
+                "product": product,
+                "price_display": f"R$ {format_money(price_q)}" if price_q else None,
+                "sku": product.sku,
+            }
+    return None
+
+
+def _cross_sell_products(sku: str, listing_ref: str | None = None, limit: int = 3) -> list[dict]:
+    """
+    Find products frequently bought together with the given SKU.
+
+    Aggregates favorite_products from customers who have this SKU in their favorites.
+    Returns annotated product dicts.
+    """
+    try:
+        from shopman.customers.contrib.insights.models import CustomerInsight
+        from shopman.offering.models import Product as Prod
+
+        # Find customers who have this SKU in favorites
+        insights = CustomerInsight.objects.filter(
+            favorite_products__contains=[{"sku": sku}],
+        ).values_list("favorite_products", flat=True)[:100]
+
+        if not insights.exists():
+            # Fallback: try text-based contains (JSONField varies by DB)
+            insights = CustomerInsight.objects.exclude(
+                favorite_products=[],
+            ).values_list("favorite_products", flat=True)[:100]
+
+        companion_counts: dict[str, int] = {}
+        for favorites in insights:
+            if not favorites:
+                continue
+            has_sku = any(
+                (f.get("sku") if isinstance(f, dict) else str(f)) == sku
+                for f in favorites
+            )
+            if not has_sku:
+                continue
+            for fav in favorites:
+                fav_sku = fav.get("sku") if isinstance(fav, dict) else str(fav)
+                if fav_sku and fav_sku != sku:
+                    qty = fav.get("qty", 1) if isinstance(fav, dict) else 1
+                    companion_counts[fav_sku] = companion_counts.get(fav_sku, 0) + qty
+
+        if not companion_counts:
+            return []
+
+        top_skus = sorted(companion_counts, key=companion_counts.get, reverse=True)[:limit]
+        products = list(Prod.objects.filter(sku__in=top_skus, is_published=True))
+        if not products:
+            return []
+        return _annotate_products(products, listing_ref=listing_ref)
+    except Exception:
+        return []
+
+
+def _allergen_info(product: Product) -> dict | None:
+    """
+    Extract allergen and dietary info from product.metadata.
+
+    Returns dict with keys: allergens (list), dietary_info (list), serves (str|None)
+    or None if no info available.
+    """
+    meta = getattr(product, "metadata", None)
+    if not meta or not isinstance(meta, dict):
+        return None
+
+    allergens = meta.get("allergens", [])
+    dietary = meta.get("dietary_info", [])
+    serves = meta.get("serves")
+
+    if not allergens and not dietary and not serves:
+        return None
+
+    return {
+        "allergens": allergens if isinstance(allergens, list) else [],
+        "dietary_info": dietary if isinstance(dietary, list) else [],
+        "serves": str(serves) if serves else None,
+    }
 
 
 CARRIER_TRACKING_URLS: dict[str, str] = {

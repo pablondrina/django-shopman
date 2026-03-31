@@ -244,6 +244,11 @@ class DiscountModifier:
             item_collections = ctx.get("sku_collections", {}).get(sku, [])
             if not any(c in promo.collections for c in item_collections):
                 return False
+        if promo.customer_segments:
+            customer_segment = ctx.get("customer_segment", "")
+            customer_group = ctx.get("customer_group", "")
+            if customer_segment not in promo.customer_segments and customer_group not in promo.customer_segments:
+                return False
         return True
 
     @staticmethod
@@ -252,10 +257,6 @@ class DiscountModifier:
             return monetary_div(price_q * promo.value, 100)
         return min(promo.value, price_q)
 
-
-# Keep old names as aliases for backward compatibility in tests
-PromotionModifier = DiscountModifier
-CouponModifier = DiscountModifier
 
 
 class EmployeeDiscountModifier:
@@ -274,6 +275,7 @@ class EmployeeDiscountModifier:
             return
 
         items = session.items or []
+        modified = False
         for item in items:
             original_q = item.get("unit_price_q", 0)
             discount_q = monetary_div(original_q * EMPLOYEE_DISCOUNT_PERCENT, 100)
@@ -282,6 +284,10 @@ class EmployeeDiscountModifier:
             item.setdefault("modifiers_applied", []).append(
                 {"type": "employee_discount", "discount_percent": EMPLOYEE_DISCOUNT_PERCENT}
             )
+            modified = True
+
+        if modified:
+            session.update_items(items)
 
 
 class HappyHourModifier:
@@ -311,6 +317,7 @@ class HappyHourModifier:
             return
 
         items = session.items or []
+        modified = False
         for item in items:
             # Skip if employee discount already applied
             applied = item.get("modifiers_applied", [])
@@ -324,3 +331,7 @@ class HappyHourModifier:
             item.setdefault("modifiers_applied", []).append(
                 {"type": "happy_hour", "discount_percent": self.discount_percent}
             )
+            modified = True
+
+        if modified:
+            session.update_items(items)

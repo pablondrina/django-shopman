@@ -6,28 +6,28 @@
 {% block content %}
 
 <!-- Page header -->
-<div class="mb-8">
-  <h2 class="font-serif text-3xl font-bold text-bark">Cardápio</h2>
-  <p class="text-bark-light mt-1">Feito à mão, todo dia.</p>
+<div class="mb-6">
+  <h2 class="text-h1 text-foreground">Cardápio</h2>
+  <p class="text-muted-foreground mt-1">Feito à mão, todo dia.</p>
 </div>
 
 <!-- Search bar -->
-<div class="mb-8">
+<div class="mb-6">
   <div class="relative max-w-md">
     <input
       type="search"
       name="q"
       placeholder="Buscar produto..."
-      class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-cream-dark bg-white text-bark placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition"
+      class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
       hx-get="{% url 'storefront:menu_search' %}"
       hx-trigger="input changed delay:300ms, search"
       hx-target="#search-results"
       hx-indicator="#search-spinner"
     >
-    <svg class="absolute left-3 top-3 w-5 h-5 text-bark-light/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg class="absolute left-3 top-3 w-5 h-5 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
     </svg>
-    <span id="search-spinner" class="htmx-indicator absolute right-3 top-3 flex items-center gap-1.5 text-wheat text-sm">
+    <span id="search-spinner" class="htmx-indicator absolute right-3 top-3 flex items-center gap-1.5 text-primary text-sm">
       <span class="search-spinner"></span>
     </span>
   </div>
@@ -36,52 +36,122 @@
 <!-- Search results (HTMX target) -->
 <div id="search-results"></div>
 
-<!-- Collection filter pills -->
+<!-- Hero banner -->
+{% include "storefront/partials/hero_banner.html" %}
+
+<!-- Active promotions — horizontal scroll -->
+{% if promotions %}
+<div class="mb-6 -mx-4">
+  <div class="flex gap-3 px-4 overflow-x-auto pb-2 snap-x snap-mandatory promo-scroll">
+    {% for promo in promotions %}
+    <div class="snap-start shrink-0 p-4 rounded-xl bg-gradient-to-r from-accent/10 to-accent/5 border border-accent/20" style="min-width:15rem">
+      <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-accent text-accent-foreground mb-1.5">{{ promo.discount_label }}</span>
+      <p class="font-heading font-bold text-foreground text-sm leading-tight">{{ promo.name }}</p>
+    </div>
+    {% endfor %}
+    <div class="shrink-0 w-px"></div>
+  </div>
+</div>
+<style>
+.promo-scroll{-webkit-overflow-scrolling:touch;-ms-overflow-style:none;scrollbar-width:none}
+.promo-scroll::-webkit-scrollbar{display:none}
+</style>
+{% endif %}
+
+<!-- Collection filter pills (sticky) -->
 {% if collections %}
-<div class="flex flex-wrap gap-2 mb-8">
-  <a
-    href="{% url 'storefront:menu' %}"
-    class="px-4 py-2.5 rounded-full text-sm font-medium transition-colors {% if not active_collection %}bg-wheat text-white{% else %}bg-white text-bark border border-cream-dark hover:border-wheat{% endif %}"
-  >
-    Todos
-  </a>
-  {% for col in collections %}
-  <a
-    href="{% url 'storefront:menu_collection' col.slug %}"
-    class="px-4 py-2.5 rounded-full text-sm font-medium transition-colors {% if active_collection and active_collection.slug == col.slug %}bg-wheat text-white{% else %}bg-white text-bark border border-cream-dark hover:border-wheat{% endif %}"
-  >
-    {{ col.name }}
-  </a>
-  {% endfor %}
+<div id="collection-pills" class="sticky bg-background/95 backdrop-blur-sm z-30 -mx-4 px-4 py-3 mb-6 border-b border-border/30" style="top: var(--header-height, 60px);">
+  <div class="flex gap-2 overflow-x-auto promo-scroll">
+    <a
+      href="{% url 'storefront:menu' %}"
+      data-collection="all"
+      class="pill shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors {% if not active_collection %}bg-accent text-accent-foreground{% else %}bg-surface text-foreground border border-border hover:border-accent{% endif %}"
+    >
+      Todos
+    </a>
+    {% for col in collections %}
+    <a
+      href="{% url 'storefront:menu_collection' col.slug %}"
+      data-collection="{{ col.slug }}"
+      class="pill shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors {% if active_collection and active_collection.slug == col.slug %}bg-accent text-accent-foreground{% else %}bg-surface text-foreground border border-border hover:border-accent{% endif %}"
+    >
+      {% with emoji=collection_emojis|default_if_none:"" %}{% if emoji %}{% for slug, em in collection_emojis.items %}{% if slug == col.slug and em %}{{ em }} {% endif %}{% endfor %}{% endif %}{% endwith %}{{ col.name }}
+    </a>
+    {% endfor %}
+  </div>
 </div>
 {% endif %}
 
 <!-- Product sections -->
 {% for section in sections %}
-<section class="mb-12">
+<section id="section-{{ section.collection.slug|default:'outros' }}" class="mb-12 scroll-mt-32">
   {% if section.collection %}
-  <h3 class="font-serif text-2xl font-bold text-bark mb-4 pb-2 border-b border-cream-dark">
+  <h3 class="text-h2 text-foreground mb-4 pb-2 border-b border-border">
     {{ section.collection.name }}
   </h3>
   {% if section.collection.description %}
-  <p class="text-bark-light mb-4 text-sm">{{ section.collection.description }}</p>
+  <p class="text-muted-foreground mb-4 text-sm">{{ section.collection.description }}</p>
   {% endif %}
   {% else %}
-  <h3 class="font-serif text-2xl font-bold text-bark mb-4 pb-2 border-b border-cream-dark">
+  <h3 class="text-h2 text-foreground mb-4 pb-2 border-b border-border">
     Outros
   </h3>
   {% endif %}
 
   <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
     {% for item in section.products %}
+      {% if forloop.first and section.products|length > 2 %}
+      {# Featured first product: 2x wide card #}
+      <div class="col-span-2 row-span-1">
+        {% include "storefront/partials/product_card.html" with item=item featured=True %}
+      </div>
+      {% else %}
       {% include "storefront/partials/product_card.html" with item=item %}
+      {% endif %}
     {% endfor %}
   </div>
 </section>
 {% empty %}
 <div class="text-center py-16">
-  <p class="text-bark-light text-lg">Nenhum produto encontrado.</p>
+  <svg class="w-20 h-20 mx-auto mb-4 text-muted-foreground/15" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="15" y="20" width="70" height="55" rx="8"/>
+    <path d="M15 38h70"/>
+    <path d="M35 55h30M40 65h20" class="text-muted-foreground/20"/>
+  </svg>
+  <p class="text-muted-foreground text-lg">Nenhum produto encontrado.</p>
 </div>
 {% endfor %}
+
+{% if not active_collection and collections %}
+<!-- Scroll-spy: highlight active collection pill on scroll -->
+<script>
+(function() {
+  var sections = document.querySelectorAll('section[id^="section-"]');
+  var pills = document.querySelectorAll('#collection-pills .pill');
+  if (!sections.length || !pills.length) return;
+
+  var observer = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        var slug = entry.target.id.replace('section-', '');
+        pills.forEach(function(pill) {
+          var isActive = pill.getAttribute('data-collection') === slug;
+          if (isActive) {
+            pill.classList.add('bg-accent', 'text-accent-foreground');
+            pill.classList.remove('bg-surface', 'text-foreground', 'border', 'border-border');
+            pill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          } else {
+            pill.classList.remove('bg-accent', 'text-accent-foreground');
+            pill.classList.add('bg-surface', 'text-foreground', 'border', 'border-border');
+          }
+        });
+      }
+    });
+  }, { rootMargin: '-30% 0px -60% 0px', threshold: 0 });
+
+  sections.forEach(function(s) { observer.observe(s); });
+})();
+</script>
+{% endif %}
 
 {% endblock %}

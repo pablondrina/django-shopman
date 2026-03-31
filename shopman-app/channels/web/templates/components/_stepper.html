@@ -1,0 +1,83 @@
+{% comment %}Quantity stepper. Required: value, name. Optional: min, max, step, label. Alpine long-press, 48px touch.{% endcomment %}
+
+{% with min_val=min|default:"0" max_val=max|default:"99" step_val=step|default:"1" lbl=label|default:"Quantidade" %}
+
+<div
+  x-data="{
+    qty: {{ value|default:1 }},
+    min: {{ min_val }},
+    max: {{ max_val }},
+    step: {{ step_val }},
+    _interval: null,
+    decrement() { if (this.qty > this.min) this.qty = Math.max(this.min, this.qty - this.step); },
+    increment() { if (this.qty < this.max) this.qty = Math.min(this.max, this.qty + this.step); },
+    startRepeat(fn) {
+      fn.call(this);
+      var self = this;
+      this._interval = setTimeout(function() {
+        self._interval = setInterval(function() { fn.call(self); }, 120);
+      }, 500);
+    },
+    stopRepeat() { clearTimeout(this._interval); clearInterval(this._interval); this._interval = null; }
+  }"
+  class="inline-flex items-center gap-1 select-none"
+  role="group"
+  aria-label="{{ lbl }}"
+>
+  {# Decrement button #}
+  <button
+    type="button"
+    class="flex items-center justify-center rounded-lg border border-border bg-surface hover:bg-surface-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+    style="width: 48px; height: 48px;"
+    :disabled="qty <= min"
+    @mousedown="startRepeat(decrement)"
+    @mouseup="stopRepeat()"
+    @mouseleave="stopRepeat()"
+    @touchstart.prevent="startRepeat(decrement)"
+    @touchend="stopRepeat()"
+    aria-label="Diminuir quantidade"
+  >
+    <svg class="w-6 h-6 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/>
+    </svg>
+  </button>
+
+  {# Value display + hidden input #}
+  <input
+    type="number"
+    name="{{ name }}"
+    :value="qty"
+    x-model.number="qty"
+    :min="min"
+    :max="max"
+    :step="step"
+    class="w-12 text-center text-body font-semibold text-foreground bg-transparent border-none focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+    style="min-height: 48px;"
+    role="spinbutton"
+    :aria-valuenow="qty"
+    :aria-valuemin="min"
+    :aria-valuemax="max"
+    aria-label="{{ lbl }}"
+    inputmode="numeric"
+  >
+
+  {# Increment button #}
+  <button
+    type="button"
+    class="flex items-center justify-center rounded-lg border border-border bg-surface hover:bg-surface-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+    style="width: 48px; height: 48px;"
+    :disabled="qty >= max"
+    @mousedown="startRepeat(increment)"
+    @mouseup="stopRepeat()"
+    @mouseleave="stopRepeat()"
+    @touchstart.prevent="startRepeat(increment)"
+    @touchend="stopRepeat()"
+    aria-label="Aumentar quantidade"
+  >
+    <svg class="w-6 h-6 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+  </button>
+</div>
+
+{% endwith %}

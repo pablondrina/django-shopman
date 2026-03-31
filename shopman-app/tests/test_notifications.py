@@ -529,7 +529,7 @@ class TwilioSMSBackendTests(TestCase):
         )
 
         message = backend._build_message(
-            "order.confirmed",
+            "order_confirmed",
             {"order_ref": "ORD-123", "total": "R$ 50,00"},
         )
 

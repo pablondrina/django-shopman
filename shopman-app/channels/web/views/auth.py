@@ -45,15 +45,24 @@ def _check_rate_limit(key: str, max_requests: int, window: int) -> bool:
 
 
 def _normalize_phone_with_ddd(phone_raw: str) -> str:
-    """Normalize phone, trying default DDD for short numbers."""
+    """
+    Normalize phone to E.164 via libphonenumber.
+
+    Single fallback: if input has 8-9 digits (no DDD), prepend the shop's default DDD.
+    Everything else is handled by normalize_phone / libphonenumber — no heuristics.
+    """
     from ..constants import get_default_ddd
 
     phone = normalize_phone(phone_raw)
-    if not phone:
-        digits = "".join(c for c in phone_raw if c.isdigit())
-        if 8 <= len(digits) <= 9:
-            phone = normalize_phone(f"{get_default_ddd()}{digits}")
-    return phone
+    if phone:
+        return phone
+
+    # Only fallback: short number without DDD
+    digits = "".join(c for c in phone_raw if c.isdigit())
+    if 8 <= len(digits) <= 9:
+        return normalize_phone(f"{get_default_ddd()}{digits}")
+
+    return ""
 
 
 class LoginView(View):
@@ -62,6 +71,26 @@ class LoginView(View):
     def get(self, request: HttpRequest) -> HttpResponse:
         next_url = request.GET.get("next", "")
         step = request.GET.get("step", "")
+
+        # Post-login: server decides based on real state (not stale session flag)
+        if step == "post-login":
+            phone = request.session.get("login_phone", "")
+            if phone:
+                from shopman.customers.services import customer as customer_service
+
+                customer = customer_service.get_by_phone(phone)
+                if customer and customer.first_name:
+                    # Existing customer with name → done
+                    request.session.pop("login_phone", None)
+                    request.session.pop("login_is_new", None)
+                    return redirect(next_url or "/")
+                # New or nameless customer → ask for name
+                return render(request, "storefront/login.html", {
+                    "step": "name",
+                    "phone_value": phone,
+                    "next": next_url,
+                })
+            return redirect(next_url or "/")
 
         # Name step for new customers (after OTP)
         if step == "name":
@@ -143,25 +172,33 @@ class LoginView(View):
                 ip_address=request.META.get("REMOTE_ADDR"),
             )
 
+            # WhatsApp failed → auto-fallback to SMS
+            if not result.success and delivery_method == "whatsapp":
+                logger.info("WhatsApp delivery failed for %s, falling back to SMS", phone)
+                delivery_method = "sms"
+                result = AuthService.request_code(
+                    target_value=phone,
+                    purpose="login",
+                    delivery_method="sms",
+                    ip_address=request.META.get("REMOTE_ADDR"),
+                )
+
             if not result.success:
                 return render(request, "storefront/login.html", {
                     "step": "phone",
-                    "error": "Erro ao enviar código. Tente novamente.",
+                    "error": "Não foi possível enviar o código. Verifique o número e tente novamente.",
                     "phone_value": phone_raw,
                     "next": next_url,
                 })
 
-        # Store phone in session for the name step (new customers)
+        # Store phone in session for post-login name step
         request.session["login_phone"] = phone
-        request.session["login_is_new"] = customer is None
 
         return render(request, "storefront/login.html", {
             "step": "code",
             "phone_value": phone,
             "customer_name": customer.first_name if customer else "",
-            "is_new_customer": customer is None,
             "delivery_method": delivery_method,
-            "redirect_url": next_url or "/",
             "next": next_url,
         })
 
@@ -188,7 +225,6 @@ class LoginView(View):
 
         # Clean up session
         request.session.pop("login_phone", None)
-        request.session.pop("login_is_new", None)
 
         return redirect(next_url or "/")
 

@@ -18,8 +18,10 @@ from __future__ import annotations
 
 from channels.config import ChannelConfig
 from channels.topics import (
+    CHECKOUT_INFER_DEFAULTS,
     CUSTOMER_ENSURE,
     FULFILLMENT_CREATE,
+    LOYALTY_EARN,
     NOTIFICATION_SEND,
     PIX_GENERATE,
     STOCK_COMMIT,
@@ -35,6 +37,7 @@ def pos() -> dict:
     Pipeline:
       on_commit:     customer.ensure
       on_confirmed:  stock.commit → notification (order_confirmed)
+      on_processing: notification (order_processing)
       on_cancelled:  notification (order_cancelled)
 
     Confirmação: immediate (auto-confirma no commit)
@@ -48,9 +51,11 @@ def pos() -> dict:
         pipeline=ChannelConfig.Pipeline(
             on_commit=[CUSTOMER_ENSURE],
             on_confirmed=[STOCK_COMMIT, f"{NOTIFICATION_SEND}:order_confirmed"],
+            on_processing=[f"{NOTIFICATION_SEND}:order_processing"],
+            on_completed=[LOYALTY_EARN],
             on_cancelled=[f"{NOTIFICATION_SEND}:order_cancelled"],
         ),
-        notifications=ChannelConfig.Notifications(backend="console"),
+        notifications=ChannelConfig.Notifications(backend="console", fallback_chain=[]),
         rules=ChannelConfig.Rules(
             validators=["business_hours"],
             modifiers=["shop.employee_discount"],
@@ -66,36 +71,44 @@ def remote() -> dict:
       on_commit:             customer.ensure → stock.hold
       on_confirmed:          pix.generate → notification (order_confirmed)
       on_payment_confirmed:  stock.commit → notification (payment_confirmed)
+      on_processing:         notification (order_processing)
       on_ready:              fulfillment.create → notification (order_ready)
       on_dispatched:         notification (order_dispatched)
       on_delivered:          notification (order_delivered)
       on_cancelled:          stock.release → notification (order_cancelled)
 
-    Confirmação: optimistic (10 min timeout, auto-confirma se operador não cancela)
+    Confirmação: optimistic (5 min timeout, auto-confirma se operador não cancela)
     Pagamento:   pix (15 min timeout, webhook Efi/Stripe)
     Stock:       hold 30 min + planned holds 48h + safety margin 10 unidades
     Fulfillment: auto_sync_fulfillment ativado (fulfillment → order status)
     """
     return ChannelConfig(
-        confirmation=ChannelConfig.Confirmation(mode="optimistic", timeout_minutes=10),
-        payment=ChannelConfig.Payment(method="pix", timeout_minutes=15),
-        stock=ChannelConfig.Stock(hold_ttl_minutes=30, safety_margin=10, planned_hold_ttl_hours=48),
+        confirmation=ChannelConfig.Confirmation(mode="optimistic", timeout_minutes=5),
+        payment=ChannelConfig.Payment(method=["pix", "card"], timeout_minutes=15),
+        stock=ChannelConfig.Stock(
+            hold_ttl_minutes=30,
+            safety_margin=10,
+            planned_hold_ttl_hours=48,
+            allowed_positions=["estoque", "vitrine", "producao"],
+        ),
         pipeline=ChannelConfig.Pipeline(
-            on_commit=[CUSTOMER_ENSURE, STOCK_HOLD],
+            on_commit=[CUSTOMER_ENSURE, STOCK_HOLD, CHECKOUT_INFER_DEFAULTS],
             on_confirmed=[PIX_GENERATE, f"{NOTIFICATION_SEND}:order_confirmed"],
             on_payment_confirmed=[STOCK_COMMIT, f"{NOTIFICATION_SEND}:payment_confirmed"],
+            on_processing=[f"{NOTIFICATION_SEND}:order_processing"],
             on_ready=[FULFILLMENT_CREATE, f"{NOTIFICATION_SEND}:order_ready"],
             on_dispatched=[f"{NOTIFICATION_SEND}:order_dispatched"],
             on_delivered=[f"{NOTIFICATION_SEND}:order_delivered"],
+            on_completed=[LOYALTY_EARN],
             on_cancelled=[STOCK_RELEASE, f"{NOTIFICATION_SEND}:order_cancelled"],
         ),
         notifications=ChannelConfig.Notifications(
-            backend="email",
-            routing={"payment_reminder": "manychat"},
+            backend="manychat",
+            fallback_chain=["sms", "email"],
         ),
         rules=ChannelConfig.Rules(
             validators=["business_hours", "min_order"],
-            modifiers=["shop.happy_hour"],
+            modifiers=["shop.discount", "shop.happy_hour"],
             checks=["stock"],
         ),
         flow=ChannelConfig.Flow(auto_sync_fulfillment=True),
@@ -122,6 +135,6 @@ def marketplace() -> dict:
             on_commit=[CUSTOMER_ENSURE],
             on_confirmed=[STOCK_COMMIT],
         ),
-        notifications=ChannelConfig.Notifications(backend="none"),
+        notifications=ChannelConfig.Notifications(backend="none", fallback_chain=[]),
         rules=ChannelConfig.Rules(validators=[], modifiers=[]),
     ).to_dict()

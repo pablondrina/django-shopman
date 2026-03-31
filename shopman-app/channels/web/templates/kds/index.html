@@ -1,0 +1,35 @@
+{% extends "kds/base.html" %}
+{% block title %}KDS — {{ shop.brand_name|default:shop.name }}{% endblock %}
+
+{% block body %}
+<header class="kds-header">
+  <h1>{{ shop.brand_name|default:shop.name }} — KDS</h1>
+</header>
+
+<main class="kds-main">
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; max-width: 1000px; margin: 0 auto;">
+    {% for entry in instances %}
+    <a href="/kds/{{ entry.instance.ref }}/"
+       style="display: block; background: var(--kds-surface); border: 1px solid var(--kds-border); border-radius: var(--kds-radius); padding: 1.5rem; text-decoration: none; color: inherit; transition: border-color 0.15s;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+        <span style="font-size: 1.5rem;">
+          {% if entry.instance.type == "prep" %}&#x1f373;{% elif entry.instance.type == "picking" %}&#x1f4e6;{% else %}&#x1f69a;{% endif %}
+        </span>
+        {% if entry.pending_count > 0 %}
+        <span style="background: var(--kds-late); color: #1a1a2e; font-size: 0.75rem; font-weight: 700; padding: 0.125rem 0.5rem; border-radius: 999px;">
+          {{ entry.pending_count }}
+        </span>
+        {% endif %}
+      </div>
+      <h2 style="font-size: 1.125rem; font-weight: 600; margin: 0 0 0.25rem;">{{ entry.instance.name }}</h2>
+      <p style="font-size: 0.8125rem; color: var(--kds-text-muted); margin: 0;">{{ entry.instance.get_type_display }}</p>
+    </a>
+    {% empty %}
+    <div style="text-align: center; padding: 4rem 1rem; color: var(--kds-text-muted); grid-column: 1 / -1;">
+      <p style="font-size: 1.125rem;">Nenhuma estação KDS configurada.</p>
+      <p style="font-size: 0.875rem;">Configure estações no admin.</p>
+    </div>
+    {% endfor %}
+  </div>
+</main>
+{% endblock %}

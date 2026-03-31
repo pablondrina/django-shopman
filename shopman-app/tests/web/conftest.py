@@ -18,11 +18,10 @@ def shop_instance(db):
         short_name="Nelson",
         tagline="Padaria Artesanal",
         primary_color="#C5A55A",
-        background_color="#F5F0EB",
+        
         default_ddd="43",
         city="Londrina",
-        state="PR",
-        whatsapp="5543999999999",
+        state_code="PR",
     )
 
 # ── Offering ──────────────────────────────────────────────────────────
@@ -115,6 +114,7 @@ def channel(db):
     return Channel.objects.create(
         ref="web",
         name="Loja Online",
+        listing_ref="balcao",
         pricing_policy="external",
         edit_policy="open",
         config={},

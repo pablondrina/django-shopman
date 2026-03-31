@@ -18,9 +18,11 @@ from shopman.ordering.models import Directive
 from shopman.payments.protocols import PaymentBackend
 
 from channels.topics import (
+    CARD_CREATE,
     NOTIFICATION_SEND,
     PAYMENT_CAPTURE,
     PAYMENT_REFUND,
+    PAYMENT_TIMEOUT,
     PIX_GENERATE,
     PIX_TIMEOUT,
 )
@@ -164,7 +166,6 @@ class PixGenerateHandler:
 
         payload = message.payload
         order_ref = payload["order_ref"]
-        amount_q = payload["amount_q"]
         pix_timeout = payload.get("pix_timeout_minutes", 10)
 
         try:
@@ -175,10 +176,19 @@ class PixGenerateHandler:
             message.save(update_fields=["status", "last_error", "updated_at"])
             return
 
+        # Skip if order uses a different payment method
+        chosen_method = order.data.get("payment", {}).get("method")
+        if chosen_method and chosen_method != "pix":
+            message.status = "done"
+            message.save(update_fields=["status", "updated_at"])
+            return
+
         if order.data.get("payment", {}).get("intent_id"):
             message.status = "done"
             message.save(update_fields=["status", "updated_at"])
             return
+
+        amount_q = payload.get("amount_q") or order.total_q
 
         # Create intent via backend (gateway + PaymentService)
         intent = self.backend.create_intent(
@@ -295,4 +305,109 @@ class PixTimeoutHandler:
         message.save(update_fields=["status", "updated_at"])
 
 
-__all__ = ["PaymentCaptureHandler", "PaymentRefundHandler", "PixGenerateHandler", "PixTimeoutHandler"]
+class PaymentTimeoutHandler:
+    """Cancela pedido se pagamento (card, etc) não for capturado em tempo. Topic: payment.timeout"""
+
+    topic = PAYMENT_TIMEOUT
+
+    def __init__(self, backend: PaymentBackend):
+        self.backend = backend
+
+    def handle(self, *, message: Directive, ctx: dict) -> None:
+        from shopman.ordering.models import Order
+
+        payload = message.payload
+        order_ref = payload["order_ref"]
+        expires_at = datetime.fromisoformat(payload["expires_at"])
+        method = payload.get("method", "card")
+
+        if not timezone.is_aware(expires_at):
+            expires_at = timezone.make_aware(expires_at)
+
+        if timezone.now() < expires_at:
+            message.available_at = expires_at
+            message.save(update_fields=["available_at", "updated_at"])
+            return
+
+        try:
+            order = Order.objects.select_related("channel").get(ref=order_ref)
+        except Order.DoesNotExist:
+            message.status = "done"
+            message.save(update_fields=["status", "updated_at"])
+            return
+
+        payment = order.data.get("payment", {})
+        if payment.get("status") == "captured":
+            message.status = "done"
+            message.save(update_fields=["status", "updated_at"])
+            return
+
+        # Order still unpaid after timeout — cancel
+        if order.status not in (Order.Status.CANCELLED, Order.Status.COMPLETED):
+            order.transition_status(Order.Status.CANCELLED, actor=f"{method}.timeout")
+            order.data["cancellation_reason"] = f"{method}_timeout"
+            order.save(update_fields=["data", "updated_at"])
+            release_holds_for_order(order)
+
+            Directive.objects.create(
+                topic=NOTIFICATION_SEND,
+                payload={
+                    "order_ref": order_ref,
+                    "template": "payment_expired",
+                    "reason": f"O prazo para pagamento por {method} expirou.",
+                },
+            )
+
+        message.status = "done"
+        message.save(update_fields=["status", "updated_at"])
+
+
+class CardCreateHandler:
+    """Cria PaymentIntent Stripe para pagamento com cartão. Topic: card.create"""
+
+    topic = CARD_CREATE
+
+    def __init__(self, backend: PaymentBackend):
+        self.backend = backend
+
+    def handle(self, *, message: Directive, ctx: dict) -> None:
+        from shopman.ordering.models import Order
+
+        payload = message.payload
+        order_ref = payload["order_ref"]
+
+        try:
+            order = Order.objects.get(ref=order_ref)
+        except Order.DoesNotExist:
+            message.status = "failed"
+            message.last_error = "Order not found"
+            message.save(update_fields=["status", "last_error", "updated_at"])
+            return
+
+        if order.data.get("payment", {}).get("intent_id"):
+            message.status = "done"
+            message.save(update_fields=["status", "updated_at"])
+            return
+
+        amount_q = payload.get("amount_q") or order.total_q
+
+        intent = self.backend.create_intent(
+            amount_q=amount_q, currency="BRL", reference=order_ref,
+            metadata={"method": "card"},
+        )
+
+        order.data["payment"] = {
+            "intent_id": intent.intent_id,
+            "status": intent.status,
+            "amount_q": amount_q,
+            "method": "card",
+            "client_secret": intent.client_secret,
+        }
+        order.save(update_fields=["data", "updated_at"])
+
+        message.status = "done"
+        message.payload["intent_id"] = intent.intent_id
+        message.save(update_fields=["status", "payload", "updated_at"])
+
+
+__all__ = ["CardCreateHandler", "PaymentCaptureHandler", "PaymentRefundHandler", "PixGenerateHandler", "PixTimeoutHandler"]

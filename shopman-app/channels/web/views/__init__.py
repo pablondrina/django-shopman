@@ -1,9 +1,15 @@
+from .bridge import BridgeTokenView
+from .home import HomeView
 from .account import (
+    AccountDeleteView,
     AccountView,
     AddressCreateView,
     AddressDeleteView,
     AddressSetDefaultView,
     AddressUpdateView,
+    DataExportView,
+    FoodPreferenceToggleView,
+    NotificationPrefsToggleView,
     ProfileDisplayView,
     ProfileEditView,
     ProfileUpdateView,
@@ -21,22 +27,45 @@ from .cart import (
     ApplyCouponView,
     CartCheckView,
     CartContentPartialView,
+    CartDrawerContentView,
     CartSummaryView,
     CartView,
     FloatingCartBarView,
+    QuickAddView,
     RemoveCartItemView,
     RemoveCouponView,
     UpdateCartItemView,
 )
 from .catalog import MenuSearchView, MenuView, ProductDetailView
-from .checkout import CheckoutView, OrderConfirmationView
+from .checkout import CepLookupView, CheckoutView, OrderConfirmationView
 from .devices import DeviceListView, DeviceRevokeAllView, DeviceRevokeView
 from .info import HowItWorksView, OrderHistoryView, SitemapView
 from .payment import MockPaymentConfirmView, PaymentStatusView, PaymentView
 from .pwa import OfflineView
-from .tracking import OrderStatusPartialView, OrderTrackingView
+from .pedidos import (
+    GestorPedidosView,
+    OrderListPartialView,
+    PedidoAdvanceView,
+    PedidoConfirmView,
+    PedidoDetailPartialView,
+    PedidoNotesView,
+    PedidoRejectView,
+)
+from .tracking import OrderCancelView, OrderStatusPartialView, OrderTrackingView, ReorderView
+from shop.views.pos import pos_close, pos_customer_lookup, pos_view
+from .kds import (
+    KDSDisplayView,
+    KDSExpeditionActionView,
+    KDSIndexView,
+    KDSTicketCheckItemView,
+    KDSTicketDoneView,
+    KDSTicketListPartialView,
+)
 
 __all__ = [
+    "BridgeTokenView",
+    "HomeView",
+    "AccountDeleteView",
     "AccountView",
     "AddToCartView",
     "AccessLinkLoginView",
@@ -48,20 +77,27 @@ __all__ = [
     "CartCheckView",
     "CartContentPartialView",
     "CartSummaryView",
+    "CartDrawerContentView",
+    "CepLookupView",
     "CartView",
+    "QuickAddView",
     "CheckoutView",
     "CustomerLookupView",
+    "DataExportView",
     "DeviceCheckLoginView",
     "DeviceListView",
     "DeviceRevokeAllView",
     "DeviceRevokeView",
     "FloatingCartBarView",
+    "FoodPreferenceToggleView",
     "HowItWorksView",
     "MenuSearchView",
+    "NotificationPrefsToggleView",
     "LoginView",
     "MenuView",
     "MockPaymentConfirmView",
     "OfflineView",
+    "OrderCancelView",
     "OrderConfirmationView",
     "OrderHistoryView",
     "OrderStatusPartialView",
@@ -72,10 +108,27 @@ __all__ = [
     "ProfileDisplayView",
     "ProfileEditView",
     "ProfileUpdateView",
+    "ReorderView",
+    "GestorPedidosView",
+    "OrderListPartialView",
+    "PedidoAdvanceView",
+    "PedidoConfirmView",
+    "PedidoDetailPartialView",
+    "PedidoNotesView",
+    "PedidoRejectView",
     "RemoveCartItemView",
     "RemoveCouponView",
     "RequestCodeView",
     "SitemapView",
     "UpdateCartItemView",
     "VerifyCodeView",
+    "KDSDisplayView",
+    "KDSExpeditionActionView",
+    "KDSIndexView",
+    "KDSTicketCheckItemView",
+    "KDSTicketDoneView",
+    "KDSTicketListPartialView",
+    "pos_close",
+    "pos_customer_lookup",
+    "pos_view",
 ]

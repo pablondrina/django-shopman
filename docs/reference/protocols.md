@@ -11,8 +11,8 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 | Protocol | Módulo | Adapters | Métodos |
 |----------|--------|----------|---------|
-| [`StockBackend`](#stockbackend) | shopman-app/channels/protocols | StockmanBackend, NoopStockBackend | 7 |
-| [`PricingBackend`](#pricingbackend) | shopman-app/channels/protocols | OffermanPricingBackend, SimplePricingBackend, ChannelPricingBackend | 1 |
+| [`StockBackend`](#stockbackend) | shopman-app/channels/protocols | StockingBackend, NoopStockBackend | 7 |
+| [`PricingBackend`](#pricingbackend) | shopman-app/channels/protocols | OfferingBackend, SimplePricingBackend, ChannelPricingBackend, CatalogPricingBackend | 1 |
 | [`CustomerBackend`](#customerbackend) | shopman-app/channels/protocols | CustomersBackend, NoopCustomerBackend | 5 |
 | [`NotificationBackend`](#notificationbackend) | shopman-app/channels/protocols | ConsoleBackend, ManychatBackend, EmailBackend, SmsBackend, WebhookBackend, WhatsappBackend | 1 |
 | [`PaymentBackend`](#paymentbackend) | shopman-core/payments/protocols | MockPaymentBackend, StripeBackend, EfiPixBackend | 6 |
@@ -24,7 +24,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 ## StockBackend
 
 **Definido em:** `shopman-app/channels/protocols.py`
-**Guia:** [Orquestração — Stock](../guides/orchestration.md)
+**Guia:** [Orquestração — Stock](../guides/channels.md)
 
 ### Dataclasses
 
@@ -50,7 +50,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 | Adapter | Arquivo | Quando usar |
 |---------|---------|-------------|
-| `StockmanBackend` | `channels/backends/stock.py` | Integração com `shopman.stocking` (produção). Resolve SKU via `Product`, suporta holds planejados |
+| `StockingBackend` | `channels/backends/stock.py` | Integração com `shopman.stocking` (produção). Resolve SKU via `Product`, suporta holds planejados |
 | `NoopStockBackend` | `channels/backends/stock.py` | Testes e desenvolvimento. Sempre reporta 999999 unidades disponíveis |
 
 **Configuração:** `SHOPMAN_STOCK_BACKEND` ou auto-detecção em `ChannelsConfig.ready()` — veja [settings.md](settings.md).
@@ -72,11 +72,12 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 | Adapter | Arquivo | Quando usar |
 |---------|---------|-------------|
-| `OffermanPricingBackend` | `channels/backends/pricing.py` | Integração com `shopman.offering`. Usa `CatalogService.price()` |
+| `OfferingBackend` | `channels/backends/pricing.py` | Integração com `shopman.offering`. Usa `CatalogService.price()` |
 | `SimplePricingBackend` | `channels/backends/pricing.py` | Lê direto de `Product.base_price_q` |
 | `ChannelPricingBackend` | `channels/backends/pricing.py` | Tenta `ChannelListing.price_q` do canal, fallback para `base_price_q` |
+| `CatalogPricingBackend` | `channels/backends/pricing.py` | Combina CatalogService + ChannelListing com fallback |
 
-**Nota:** `OffermanPricingBackend` também expõe `OffermanCatalogBackend` com métodos extras: `get_product`, `validate_sku`, `expand_bundle`, `is_bundle`, `search_products`.
+**Nota:** `OfferingBackend` também expõe métodos de catálogo: `get_product`, `validate_sku`, `expand_bundle`, `is_bundle`, `search_products`.
 
 ---
 
@@ -116,7 +117,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 ## NotificationBackend
 
 **Definido em:** `shopman-app/channels/protocols.py`
-**Guia:** [Orquestração — Notificações](../guides/orchestration.md)
+**Guia:** [Orquestração — Notificações](../guides/channels.md)
 
 ### Dataclasses
 
@@ -186,7 +187,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 ## FiscalBackend
 
 **Definido em:** `shopman-core/ordering/shopman/ordering/protocols.py`
-**Guia:** [Orquestração — Fiscal](../guides/orchestration.md)
+**Guia:** [Orquestração — Fiscal](../guides/channels.md)
 
 ### Dataclasses
 

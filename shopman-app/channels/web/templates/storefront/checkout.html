@@ -5,44 +5,85 @@
 
 {% block content %}
 
+{% if google_maps_api_key %}
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places"></script>
+{% endif %}
+
 <div class="mb-6">
-  <a href="{% url 'storefront:cart' %}" class="text-wheat-dark hover:text-wheat font-medium text-sm transition-colors">
-    &larr; Voltar ao carrinho
+  <a href="{% url 'storefront:menu' %}" class="text-secondary hover:text-secondary-hover font-medium text-sm transition-colors">
+    &larr; Voltar ao cardápio
   </a>
 </div>
 
-<h2 class="font-serif text-3xl font-bold text-bark mb-6">Finalizar Pedido</h2>
+<h2 class="text-h1 text-foreground mb-4">Finalizar Pedido</h2>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<div x-data="checkoutPage()" x-init="init()">
+
+<!-- Visual stepper (Alpine reactive) -->
+<div class="flex items-center justify-center gap-0 mb-8">
+  <div class="flex items-center gap-2">
+    <span class="w-8 h-8 rounded-full text-sm font-bold flex items-center justify-center transition-colors" :class="step >= 1 ? 'bg-primary text-white' : 'bg-surface text-muted-foreground ring-1 ring-border'">1</span>
+    <span class="text-sm font-medium hidden sm:inline" :class="step >= 1 ? 'text-foreground' : 'text-muted-foreground'">Entrega</span>
+  </div>
+  <div class="w-8 sm:w-16 h-0.5 bg-border mx-1"><div class="h-full bg-primary transition-all duration-300" :style="'width:' + (step >= 2 ? '100' : '0') + '%'"></div></div>
+  <div class="flex items-center gap-2">
+    <span class="w-8 h-8 rounded-full text-sm font-bold flex items-center justify-center transition-colors" :class="step >= 2 ? 'bg-primary text-white' : 'bg-surface text-muted-foreground ring-1 ring-border'">2</span>
+    <span class="text-sm font-medium hidden sm:inline" :class="step >= 2 ? 'text-foreground' : 'text-muted-foreground'">Pagamento</span>
+  </div>
+  <div class="w-8 sm:w-16 h-0.5 bg-border mx-1"><div class="h-full bg-primary transition-all duration-300" :style="'width:' + (step >= 3 ? '100' : '0') + '%'"></div></div>
+  <div class="flex items-center gap-2">
+    <span class="w-8 h-8 rounded-full text-sm font-bold flex items-center justify-center transition-colors" :class="step >= 3 ? 'bg-primary text-white' : 'bg-surface text-muted-foreground ring-1 ring-border'">3</span>
+    <span class="text-sm font-medium hidden sm:inline" :class="step >= 3 ? 'text-foreground' : 'text-muted-foreground'">Confirmar</span>
+  </div>
+</div>
+
+<!-- Mobile order summary (accordion) -->
+<details class="lg:hidden bg-surface rounded-xl shadow-sm mb-6 overflow-hidden">
+  <summary class="px-5 py-4 flex items-center justify-between cursor-pointer">
+    <span class="font-heading font-bold text-foreground">Resumo ({{ cart.items|length }} {{ cart.items|length|pluralize:"item,itens" }})</span>
+    <span class="text-lg font-bold text-primary">{{ cart.subtotal_display }}</span>
+  </summary>
+  <div class="px-5 pb-4 border-t border-border/30 pt-3 space-y-2 max-h-[50vh] overflow-y-auto">
+    {% for item in cart.items %}
+    <div class="flex justify-between text-sm">
+      <span class="text-foreground truncate pr-2">{{ item.qty|floatformat:"0" }}x {{ item.name|default:item.sku }}</span>
+      <span class="text-foreground font-medium flex-shrink-0">{{ item.total_display }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</details>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
   <!-- Order form -->
   <div class="lg:col-span-2">
-    <form id="checkout-form" method="post" action="{% url 'storefront:checkout' %}" class="bg-white rounded-xl shadow-sm p-6 space-y-6">
+    <form id="checkout-form" method="post" action="{% url 'storefront:checkout' %}" class="bg-surface rounded-xl shadow-sm p-4 sm:p-6 space-y-6"
+      @submit.prevent="showConfirmModal()">
       {% csrf_token %}
 
       {% if errors.stock %}
-      <div class="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+      <div class="p-3 rounded-lg bg-error-light border border-error text-error text-sm">
         {{ errors.stock }}
       </div>
       {% endif %}
 
       {% if errors.min_quantity %}
-      <div class="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+      <div class="p-3 rounded-lg bg-error-light border border-error text-error text-sm">
         {{ errors.min_quantity }}
       </div>
       {% endif %}
 
       <!-- Customer bar -->
       <div>
-        <div class="flex items-center justify-between p-3 rounded-lg bg-cream/50">
+        <div class="flex items-center justify-between p-3 rounded-lg bg-background/50">
           <div class="flex items-center gap-3">
             <span class="text-lg">👤</span>
             <div class="text-sm">
-              <span class="font-medium text-bark">{{ customer_info.name|default:"Cliente" }}</span>
-              <span class="text-bark-light ml-2">{{ customer_info.phone|format_phone }}</span>
+              <span class="font-medium text-foreground">{{ customer_info.name|default:"Cliente" }}</span>
+              <span class="text-muted-foreground ml-2">{{ customer_info.phone|format_phone }}</span>
             </div>
           </div>
-          <a href="#" class="text-xs text-bark-light hover:text-red-500 transition-colors"
-             onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+          <a href="#" class="text-xs text-muted-foreground hover:text-error transition-colors"
+             @click.prevent="$refs.logoutForm && $refs.logoutForm.submit()">
             Trocar conta
           </a>
         </div>
@@ -52,69 +93,62 @@
 
       <!-- Fulfillment type -->
       <div>
-        <label class="block text-sm font-medium text-bark mb-2">Como deseja receber?</label>
+        <label class="block text-sm font-medium text-foreground mb-2">Como deseja receber?</label>
         <div class="flex gap-4">
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="radio" name="fulfillment_type" value="pickup"
-              {% if form_data.fulfillment_type != "delivery" %}checked{% endif %}
-              class="text-wheat focus:ring-wheat"
-              onchange="document.getElementById('delivery-fields').classList.add('hidden')">
-            <span class="text-sm text-bark">Retirada na loja</span>
+              {% if form_data.fulfillment_type == "delivery" or checkout_defaults.fulfillment_type == "delivery" %}{% else %}checked{% endif %}
+              class="text-primary focus:ring-primary"
+              @change="fulfillment = 'pickup'">
+            <span class="text-sm text-foreground">Retirada na loja</span>
           </label>
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="radio" name="fulfillment_type" value="delivery"
-              {% if form_data.fulfillment_type == "delivery" %}checked{% endif %}
-              class="text-wheat focus:ring-wheat"
-              onchange="document.getElementById('delivery-fields').classList.remove('hidden')">
-            <span class="text-sm text-bark">Delivery</span>
+              {% if form_data.fulfillment_type == "delivery" or checkout_defaults.fulfillment_type == "delivery" %}checked{% endif %}
+              class="text-primary focus:ring-primary"
+              @change="fulfillment = 'delivery'">
+            <span class="text-sm text-foreground">Entrega</span>
           </label>
         </div>
-        <div id="delivery-fields" class="{% if form_data.fulfillment_type != 'delivery' %}hidden{% endif %} mt-3">
+        <div x-show="fulfillment === 'delivery'" x-cloak class="mt-3">
           {% if saved_addresses %}
           <!-- Saved addresses (server-rendered for logged-in users) -->
           <div class="mb-3">
-            <label class="block text-sm font-medium text-bark mb-2">Endereços salvos</label>
+            <label class="block text-sm font-medium text-foreground mb-2">Endereços salvos</label>
             <div class="space-y-2">
               {% for addr in saved_addresses %}
-              <label class="flex items-start gap-3 p-3 rounded-lg border border-cream-dark hover:border-wheat/50 cursor-pointer transition">
+              <label class="flex items-start gap-3 p-3 rounded-lg border border-border hover:border-primary/50 cursor-pointer transition">
                 <input type="radio" name="saved_address_id" value="{{ addr.id }}"
-                  {% if addr.is_default %}checked{% endif %}
-                  class="text-wheat focus:ring-wheat mt-0.5"
-                  onchange="document.getElementById('new-address-fields').classList.add('hidden')">
+                  {% if checkout_defaults.delivery_address_id == addr.id %}checked{% elif not checkout_defaults.delivery_address_id and addr.is_default %}checked{% endif %}
+                  class="text-primary focus:ring-primary mt-0.5"
+                  @change="newAddress = false">
                 <div>
-                  <span class="text-sm font-medium text-bark">{{ addr.label }}</span>
-                  {% if addr.is_default %}<span class="ml-1 text-xs text-wheat-dark">(padrão)</span>{% endif %}
-                  <p class="text-sm text-bark-light">{{ addr.formatted_address }}{% if addr.complement %} - {{ addr.complement }}{% endif %}</p>
+                  <span class="text-sm font-medium text-foreground">{{ addr.label }}</span>
+                  {% if addr.is_default %}<span class="ml-1 text-xs text-primary">(padrão)</span>{% endif %}
+                  <p class="text-sm text-muted-foreground">{{ addr.formatted_address }}{% if addr.complement %} - {{ addr.complement }}{% endif %}</p>
                 </div>
               </label>
               {% endfor %}
-              <label class="flex items-center gap-3 p-3 rounded-lg border border-dashed border-cream-dark hover:border-wheat/50 cursor-pointer transition">
+              <label class="flex items-center gap-3 p-3 rounded-lg border border-dashed border-border hover:border-primary/50 cursor-pointer transition">
                 <input type="radio" name="saved_address_id" value=""
-                  class="text-wheat focus:ring-wheat"
-                  onchange="document.getElementById('new-address-fields').classList.remove('hidden'); document.getElementById('delivery_address').focus();">
-                <span class="text-sm text-wheat-dark font-medium">Outro endereço</span>
+                  class="text-primary focus:ring-primary"
+                  @change="newAddress = true; $nextTick(() => $refs.deliveryAddress && $refs.deliveryAddress.focus())">
+                <span class="text-sm text-primary font-medium">Outro endereço</span>
               </label>
             </div>
           </div>
-          <div id="new-address-fields" class="hidden">
+          <div x-show="newAddress" x-cloak>
           {% else %}
-          <div id="new-address-fields">
+          <div x-show="newAddress">
           {% endif %}
-            <label for="delivery_address" class="block text-sm font-medium text-bark mb-1">Endereço de entrega</label>
-            <textarea
-              id="delivery_address"
-              name="delivery_address"
-              rows="2"
-              placeholder="Rua, número, bairro, complemento..."
-              class="w-full px-4 py-2.5 rounded-lg border border-cream-dark bg-white text-bark placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition resize-none"
-            >{{ form_data.delivery_address|default:'' }}</textarea>
+            {% include "storefront/partials/checkout_address.html" %}
           </div>
         </div>
       </div>
 
       <!-- Cutoff info -->
       {% if cutoff_info %}
-      <div class="p-3 rounded-lg text-sm flex items-center gap-2 {% if cutoff_info.past_cutoff %}bg-amber-50 border border-amber-200 text-amber-800{% else %}bg-blue-50 border border-blue-200 text-blue-800{% endif %}">
+      <div class="p-3 rounded-lg text-sm flex items-center gap-2 {% if cutoff_info.past_cutoff %}bg-warning-light border border-warning text-warning-foreground{% else %}bg-info-light border border-info text-info-foreground{% endif %}">
         <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
@@ -124,77 +158,76 @@
 
       <!-- Para quando? -->
       <div>
-        <label class="block text-sm font-medium text-bark mb-2">Para quando?</label>
+        <label class="block text-sm font-medium text-foreground mb-2">Para quando?</label>
         <div class="flex gap-3 flex-wrap">
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="radio" name="delivery_date_option" value="today" checked
-              class="text-wheat focus:ring-wheat"
-              onchange="selectToday()">
-            <span class="text-sm text-bark">Hoje</span>
+              class="text-primary focus:ring-primary"
+              @change="selectDate('today')">
+            <span class="text-sm text-foreground">Hoje</span>
           </label>
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="radio" name="delivery_date_option" value="tomorrow"
-              class="text-wheat focus:ring-wheat"
-              onchange="selectTomorrow()">
-            <span class="text-sm text-bark">Amanhã</span>
+              class="text-primary focus:ring-primary"
+              @change="selectDate('tomorrow')">
+            <span class="text-sm text-foreground">Amanhã</span>
           </label>
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="radio" name="delivery_date_option" value="custom"
-              class="text-wheat focus:ring-wheat"
-              onchange="selectCustomDate()">
-            <span class="text-sm text-bark">Escolher data</span>
+              class="text-primary focus:ring-primary"
+              @change="selectDate('custom')">
+            <span class="text-sm text-foreground">Escolher data</span>
           </label>
         </div>
-        <div id="date-picker-wrap" class="hidden mt-2">
-          <input type="date" id="delivery_date" name="delivery_date"
+        <div x-show="dateOption === 'custom'" x-cloak class="mt-2">
+          <input type="date" name="delivery_date" x-model="deliveryDate" x-ref="dateInput"
             value="{{ form_data.delivery_date|default:'' }}"
-            onchange="onDateChanged()"
-            class="px-4 py-2 rounded-lg border {% if errors.delivery_date %}border-red-400{% else %}border-cream-dark{% endif %} bg-white text-bark focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition">
+            class="px-4 py-2 rounded-lg border {% if errors.delivery_date %}border-error{% else %}border-border{% endif %} bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition">
           {% if errors.delivery_date %}
-          <p class="mt-1 text-sm text-red-500">{{ errors.delivery_date }}</p>
+          <p class="mt-1 text-sm text-error">{{ errors.delivery_date }}</p>
           {% endif %}
         </div>
 
-        <div id="time-slot-wrap" class="hidden mt-3">
-          <label class="block text-sm font-medium text-bark mb-2">Período preferido</label>
+        <div x-show="isFutureDate" x-cloak class="mt-3">
+          <label class="block text-sm font-medium text-foreground mb-2">Período preferido</label>
           <div class="flex gap-3 flex-wrap">
             <label class="flex items-center gap-2 cursor-pointer">
               <input type="radio" name="delivery_time_slot" value="manha"
-                {% if form_data.delivery_time_slot == "manha" %}checked{% endif %}
-                class="text-wheat focus:ring-wheat">
-              <span class="text-sm text-bark">Manhã (06h-12h)</span>
+                {% if form_data.delivery_time_slot == "manha" or checkout_defaults.delivery_time_slot == "manha" %}checked{% endif %}
+                class="text-primary focus:ring-primary">
+              <span class="text-sm text-foreground">Manhã (06h-12h)</span>
             </label>
             <label class="flex items-center gap-2 cursor-pointer">
               <input type="radio" name="delivery_time_slot" value="tarde"
-                {% if form_data.delivery_time_slot == "tarde" %}checked{% endif %}
-                class="text-wheat focus:ring-wheat">
-              <span class="text-sm text-bark">Tarde (12h-18h)</span>
+                {% if form_data.delivery_time_slot == "tarde" or checkout_defaults.delivery_time_slot == "tarde" %}checked{% endif %}
+                class="text-primary focus:ring-primary">
+              <span class="text-sm text-foreground">Tarde (12h-18h)</span>
             </label>
             <label class="flex items-center gap-2 cursor-pointer">
               <input type="radio" name="delivery_time_slot" value="noite"
-                {% if form_data.delivery_time_slot == "noite" %}checked{% endif %}
-                class="text-wheat focus:ring-wheat">
-              <span class="text-sm text-bark">Noite (18h-21h)</span>
+                {% if form_data.delivery_time_slot == "noite" or checkout_defaults.delivery_time_slot == "noite" %}checked{% endif %}
+                class="text-primary focus:ring-primary">
+              <span class="text-sm text-foreground">Noite (18h-21h)</span>
             </label>
           </div>
         </div>
 
-        <div id="preorder-banner" class="hidden mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+        <div x-show="isFutureDate" x-cloak class="mt-3 p-3 rounded-lg bg-warning-light border border-warning text-warning-foreground text-sm">
           Encomenda programada &mdash; produção sob demanda
         </div>
       </div>
 
       {% if payment_methods|length > 1 %}
       <!-- Forma de pagamento -->
-      <div>
-        <label class="block text-sm font-medium text-bark mb-2">Forma de pagamento</label>
+      <div @change="advanceStep(2)">
+        <label class="block text-sm font-medium text-foreground mb-2">Forma de pagamento</label>
         <div class="flex gap-4">
           {% for method in payment_methods %}
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="radio" name="payment_method" value="{{ method }}"
-              {% if forloop.first %}checked{% endif %}
-              class="text-wheat focus:ring-wheat">
-            <span class="text-sm text-bark">
+              {% if checkout_defaults.payment_method == method %}checked{% elif not checkout_defaults.payment_method and forloop.first %}checked{% endif %}
+              class="text-primary focus:ring-primary">
+            <span class="text-sm text-foreground">
               {% if method == "pix" %}PIX{% elif method == "card" %}Cartão{% elif method == "counter" %}No caixa{% else %}{{ method }}{% endif %}
             </span>
           </label>
@@ -205,93 +238,195 @@
 
       <!-- Observações (right before submit) -->
       <div>
-        <label for="notes" class="block text-sm font-medium text-bark mb-1">Observações <span class="text-bark-light/50 font-normal">(opcional)</span></label>
+        <label for="notes" class="block text-sm font-medium text-foreground mb-1">Observações <span class="text-muted-foreground/50 font-normal">(opcional)</span></label>
         <textarea
           id="notes"
           name="notes"
+          x-autogrow
           rows="2"
           placeholder="Ex: sem glúten, embalagem para presente..."
-          class="w-full px-4 py-2.5 rounded-lg border border-cream-dark bg-white text-bark placeholder-bark-light/50 focus:outline-none focus:ring-2 focus:ring-wheat focus:border-wheat transition resize-none"
-        >{{ form_data.notes|default:'' }}</textarea>
+          class="w-full px-4 py-2.5 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition resize-none"
+        >{% firstof form_data.notes checkout_defaults.order_notes '' %}</textarea>
+      </div>
+
+      <!-- Save as default -->
+      <div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" name="save_as_default" value="1"
+            class="rounded text-primary focus:ring-primary">
+          <span class="text-sm text-muted-foreground">Salvar como padr&atilde;o para pr&oacute;ximos pedidos</span>
+        </label>
       </div>
 
       <button
         type="submit"
-        class="w-full py-3 bg-wheat text-white rounded-lg font-medium text-lg hover:bg-wheat-dark transition-colors"
+        class="w-full py-3 bg-primary text-white rounded-lg font-medium text-lg hover:bg-primary-hover transition-colors"
       >
-        Confirmar Pedido
+        Revisar e Confirmar
       </button>
     </form>
   </div>
 
+  <!-- Confirmation modal (Alpine) -->
+  <template x-if="showModal">
+    <div class="modal-overlay" @click.self="showModal = false; step = 2" @keydown.escape.window="showModal = false; step = 2">
+      <div class="modal-card max-w-lg max-h-[85vh] overflow-y-auto" @click.stop>
+        <h3 class="text-h3 text-foreground mb-4">Confirmar Pedido?</h3>
+        <div class="space-y-3 mb-4 text-sm">
+          <div class="flex justify-between py-1.5 border-b border-border/30">
+            <span class="text-muted-foreground">Itens</span>
+            <span class="text-foreground font-medium">{{ cart.items|length }} {{ cart.items|length|pluralize:"item,itens" }}</span>
+          </div>
+          <div class="flex justify-between py-1.5 border-b border-border/30">
+            <span class="text-muted-foreground">Recebimento</span>
+            <span class="text-foreground font-medium" x-text="fulfillment === 'delivery' ? 'Delivery' : 'Retirada na loja'"></span>
+          </div>
+          <div class="flex justify-between py-1.5 border-b border-border/30">
+            <span class="text-muted-foreground">Pagamento</span>
+            <span class="text-foreground font-medium" x-text="paymentLabel"></span>
+          </div>
+          <div class="flex justify-between py-1.5">
+            <span class="font-heading font-bold text-foreground">Total</span>
+            <span class="text-lg font-bold text-primary">{{ cart.subtotal_display }}</span>
+          </div>
+        </div>
+        <div class="border-t border-border pt-4 flex gap-3">
+          <button type="button" @click="showModal = false; step = 2" class="flex-1 py-2.5 border border-secondary text-secondary rounded-lg font-medium hover:bg-secondary/10 transition-colors">
+            Voltar
+          </button>
+          <button type="button" @click="confirmOrder()" :disabled="submitting" class="flex-1 py-2.5 bg-primary text-white rounded-lg font-medium hover:bg-primary-hover transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+            <span x-show="!submitting">Confirmar Pedido</span>
+            <span x-show="submitting" x-cloak class="flex items-center justify-center gap-2">
+              <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+              Processando&hellip;
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+
   <!-- Order summary -->
   <div>
-    <div class="bg-white rounded-xl shadow-sm p-6 sticky top-24">
-      <h3 class="font-serif text-lg font-bold text-bark mb-4">Resumo do Pedido</h3>
+    <div class="bg-surface rounded-xl shadow-sm p-6 sticky top-24">
+      <h3 class="text-h4 text-foreground mb-4">Resumo do Pedido</h3>
 
       <div class="space-y-3 mb-4">
         {% for item in cart.items %}
         <div class="flex justify-between items-start text-sm">
           <div class="flex-1 min-w-0 pr-3">
-            <p class="text-bark font-medium truncate">{{ item.name|default:item.sku }}</p>
-            <p class="text-bark-light">
+            <p class="text-foreground font-medium truncate">{{ item.name|default:item.sku }}</p>
+            <p class="text-muted-foreground">
               {{ item.qty|floatformat:"0" }}x
-              {% if item.original_price_display %}<span class="line-through text-bark-light/50">{{ item.original_price_display }}</span>{% endif %}
+              {% if item.original_price_display %}<span class="line-through text-muted-foreground/50">{{ item.original_price_display }}</span>{% endif %}
               {{ item.price_display }}
             </p>
           </div>
-          <p class="text-bark font-medium flex-shrink-0">{{ item.total_display }}</p>
+          <p class="text-foreground font-medium flex-shrink-0">{{ item.total_display }}</p>
         </div>
         {% endfor %}
       </div>
 
-      <div class="border-t border-cream-dark pt-3 space-y-2 text-sm">
+      <div class="border-t border-border pt-3 space-y-2 text-sm">
         {% if cart.has_discount %}
-        <div class="flex justify-between text-bark-light">
+        <div class="flex justify-between text-muted-foreground">
           <span>Subtotal</span>
           <span class="line-through">{{ cart.original_subtotal_display }}</span>
         </div>
-        <div class="flex justify-between text-green-600">
+        <div class="flex justify-between text-success">
           <span>Descontos</span>
           <span>-{{ cart.total_discount_display }}</span>
         </div>
         {% endif %}
-        <div class="flex justify-between items-center {% if cart.has_discount %}pt-2 border-t border-cream-dark{% endif %}">
-          <span class="font-serif font-bold text-bark">Total</span>
-          <span class="text-lg font-bold text-wheat-dark">{{ cart.subtotal_display }}</span>
+        <div class="flex justify-between items-center {% if cart.has_discount %}pt-2 border-t border-border{% endif %}">
+          <span class="font-heading font-bold text-foreground">Total</span>
+          <span class="text-lg font-bold text-primary">{{ cart.subtotal_display }}</span>
         </div>
       </div>
     </div>
   </div>
 </div>
 
+</div><!-- /x-data checkoutPage -->
+
 <script>
-// ── Delivery date (always needed) ─────────────────────────────
-const todayStr = new Date().toISOString().split('T')[0];
-function isFutureDate(d) { return d && d > todayStr; }
-function updatePreorderUI() {
-  var el = document.getElementById('delivery_date');
-  if (!el) return;
-  var f = isFutureDate(el.value);
-  document.getElementById('time-slot-wrap').classList.toggle('hidden', !f);
-  document.getElementById('preorder-banner').classList.toggle('hidden', !f);
+function checkoutPage() {
+  var todayStr = new Date().toISOString().split('T')[0];
+  var tomorrowDate = new Date();
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  var tomorrowStr = tomorrowDate.toISOString().split('T')[0];
+  var maxDate = new Date();
+  maxDate.setDate(maxDate.getDate() + 7);
+  var maxStr = maxDate.toISOString().split('T')[0];
+
+  return {
+    // State
+    step: 1,
+    fulfillment: '{% firstof form_data.fulfillment_type checkout_defaults.fulfillment_type "pickup" %}',
+    newAddress: {% if saved_addresses %}false{% else %}true{% endif %},
+    dateOption: 'today',
+    deliveryDate: '{{ form_data.delivery_date|default:"" }}',
+    showModal: false,
+    submitting: false,
+
+    // Computed
+    get isFutureDate() {
+      return this.deliveryDate && this.deliveryDate > todayStr;
+    },
+    get paymentLabel() {
+      var form = document.getElementById('checkout-form');
+      if (!form) return 'No caixa';
+      var fd = new FormData(form);
+      var m = fd.get('payment_method') || 'counter';
+      return m === 'pix' ? 'PIX' : m === 'card' ? 'Cartão' : 'No caixa';
+    },
+
+    // Methods
+    init() {
+      // Set date input constraints
+      this.$nextTick(() => {
+        var input = this.$refs.dateInput;
+        if (input) { input.min = todayStr; input.max = maxStr; }
+        // Restore state if form was re-rendered with errors
+        if (this.deliveryDate) {
+          this.dateOption = this.deliveryDate === tomorrowStr ? 'tomorrow' : 'custom';
+        }
+      });
+    },
+
+    selectDate(option) {
+      this.dateOption = option;
+      if (option === 'today') { this.deliveryDate = ''; }
+      else if (option === 'tomorrow') { this.deliveryDate = tomorrowStr; }
+      // 'custom' just shows the date picker, user fills in
+    },
+
+    advanceStep(n) {
+      if (n > this.step) this.step = n;
+    },
+
+    showConfirmModal() {
+      this.step = 3;
+      this.showModal = true;
+    },
+
+    confirmOrder() {
+      if (this.submitting) return;
+      this.submitting = true;
+      var form = document.getElementById('checkout-form');
+      // Bypass the @submit.prevent by removing Alpine's listener temporarily
+      // and submitting natively
+      var clone = form.cloneNode(false);
+      while (form.firstChild) clone.appendChild(form.firstChild);
+      form.parentNode.replaceChild(clone, form);
+      clone.submit();
+    }
+  };
 }
-function selectToday() { document.getElementById('delivery_date').value = ''; document.getElementById('date-picker-wrap').classList.add('hidden'); updatePreorderUI(); }
-function selectTomorrow() { var d = new Date(); d.setDate(d.getDate()+1); document.getElementById('delivery_date').value = d.toISOString().split('T')[0]; document.getElementById('date-picker-wrap').classList.add('hidden'); updatePreorderUI(); }
-function selectCustomDate() { document.getElementById('date-picker-wrap').classList.remove('hidden'); updatePreorderUI(); }
-function onDateChanged() { updatePreorderUI(); }
-(function() {
-  var input = document.getElementById('delivery_date');
-  if (!input) return;
-  var today = new Date(); var max = new Date(); max.setDate(today.getDate()+7);
-  input.min = today.toISOString().split('T')[0];
-  input.max = max.toISOString().split('T')[0];
-  if (input.value) { updatePreorderUI(); if (isFutureDate(input.value)) document.getElementById('date-picker-wrap').classList.remove('hidden'); }
-})();
 </script>
 
 {% if is_verified %}
-<form id="logout-form" method="post" action="{% url 'shopman_auth:logout' %}" class="hidden">
+<form x-ref="logoutForm" method="post" action="{% url 'shopman_auth:logout' %}" class="hidden">
   {% csrf_token %}
   <input type="hidden" name="next" value="/login/?next={% url 'storefront:checkout' %}">
 </form>

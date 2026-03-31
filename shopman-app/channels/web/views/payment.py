@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from django.conf import settings
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -7,6 +9,8 @@ from django.utils import timezone
 from django.views import View
 from shopman.ordering.models import Order
 from shopman.utils.monetary import format_money
+
+logger = logging.getLogger("shopman.web.payment")
 
 
 class PaymentView(View):
@@ -16,6 +20,14 @@ class PaymentView(View):
         order = get_object_or_404(Order, ref=ref)
         payment = order.data.get("payment", {})
         method = payment.get("method", "pix")
+
+        # If already paid, redirect to tracking
+        if payment.get("status") == "captured":
+            return redirect("storefront:order_tracking", ref=ref)
+
+        # If order is cancelled, redirect to tracking (shows cancelled state)
+        if order.status == "cancelled":
+            return redirect("storefront:order_tracking", ref=ref)
 
         return render(request, "storefront/payment.html", {
             "order": order,
@@ -43,15 +55,24 @@ class PaymentStatusView(View):
                 intent = PaymentService.get(intent_id)
                 is_paid = intent.status == "captured"
             except PaymentError as exc:
-                import logging
-                logging.getLogger("shopman.web.payment").warning(
+                logger.warning(
                     "Payment status check failed: %s", exc,
                     extra={"intent_id": intent_id, "order_ref": ref},
                 )
 
         is_cancelled = order.status == "cancelled"
 
+        # Check if PIX expired
+        is_expired = False
+        expires_at_str = payment.get("expires_at")
+        if expires_at_str and not is_paid and not is_cancelled:
+            from django.utils.dateparse import parse_datetime
+            expires_at = parse_datetime(expires_at_str)
+            if expires_at and timezone.now() > expires_at:
+                is_expired = True
+
         if is_paid:
+            # Payment confirmed — redirect to tracking
             response = HttpResponse("")
             response["HX-Redirect"] = f"/pedido/{order.ref}/"
             return response
@@ -60,6 +81,7 @@ class PaymentStatusView(View):
             "order": order,
             "payment": payment,
             "is_cancelled": is_cancelled,
+            "is_expired": is_expired,
         })
 
 
@@ -93,8 +115,7 @@ class MockPaymentConfirmView(View):
                 if intent.status in ("pending", "authorized"):
                     PaymentService.capture(intent_id)
             except PaymentError as exc:
-                import logging
-                logging.getLogger("shopman.web.payment").warning(
+                logger.warning(
                     "Mock payment transition failed: %s", exc,
                     extra={"intent_id": intent_id, "order_ref": ref},
                 )

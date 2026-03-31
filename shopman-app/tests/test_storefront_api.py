@@ -23,11 +23,10 @@ def shop_instance(db):
         short_name="Nelson",
         tagline="Padaria Artesanal",
         primary_color="#C5A55A",
-        background_color="#F5F0EB",
+        
         default_ddd="43",
         city="Londrina",
         state_code="PR",
-        whatsapp="5543999999999",
     )
 
 

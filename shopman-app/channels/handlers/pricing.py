@@ -13,7 +13,13 @@ from channels.protocols import PricingBackend
 
 
 class ItemPricingModifier:
-    """Modifier que aplica preços e calcula totais de linha. Ordem: 10"""
+    """
+    Modifier que aplica preços e calcula totais de linha. Ordem: 10.
+
+    Para internal pricing: sempre re-resolve o preço do backend a cada run,
+    garantindo que discount modifiers partam do preço base correto.
+    Limpa modifiers_applied para que discounts sejam recalculados do zero.
+    """
 
     code = "pricing.item"
     order = 10
@@ -22,28 +28,51 @@ class ItemPricingModifier:
         self.backend = backend
 
     def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
-        if session.pricing_policy != "internal":
-            return
-
         items = session.items
         trace = []
         modified = False
 
+        customer = ctx.get("customer")
         for item in items:
-            if item.get("unit_price_q") is None:
-                sku = item["sku"]
+            sku = item["sku"]
+
+            # Always clear discount state — modifiers recalculate each run
+            if item.pop("modifiers_applied", None):
+                modified = True
+
+            if session.pricing_policy == "internal":
+                # Always re-resolve price from backend
                 qty_val = int(item.get("qty", 1))
-                price = self.backend.get_price(sku, channel, qty=qty_val)
+                kwargs = {"qty": qty_val}
+                if customer is not None:
+                    kwargs["customer"] = customer
+                price = self.backend.get_price(sku, channel, **kwargs)
                 if price is not None:
-                    item["unit_price_q"] = price
-                    modified = True
-                    trace.append({"line_id": item["line_id"], "sku": sku, "price_q": price, "source": "internal"})
+                    if item.get("unit_price_q") != price:
+                        item["unit_price_q"] = price
+                        modified = True
+                        trace.append({
+                            "line_id": item["line_id"],
+                            "sku": sku,
+                            "price_q": price,
+                            "source": "internal",
+                        })
+            else:
+                # External: restore base price if it was modified by discounts
+                base = item.get("_base_price_q")
+                if base is not None:
+                    if item.get("unit_price_q") != base:
+                        item["unit_price_q"] = base
+                        modified = True
+                else:
+                    # First run — save current price as base
+                    item["_base_price_q"] = item.get("unit_price_q", 0)
 
             from shopman.utils.monetary import monetary_mult
 
             qty = Decimal(str(item.get("qty", 0)))
-            price = item.get("unit_price_q", 0)
-            calculated_total = monetary_mult(qty, price)
+            unit_price = item.get("unit_price_q", 0)
+            calculated_total = monetary_mult(qty, unit_price)
 
             if item.get("line_total_q") != calculated_total:
                 item["line_total_q"] = calculated_total

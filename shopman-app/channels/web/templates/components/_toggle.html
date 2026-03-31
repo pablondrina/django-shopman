@@ -1,0 +1,43 @@
+{% comment %}Toggle switch. Required: name, label_on, label_off. Optional: checked, x_model, disabled. 48px touch.{% endcomment %}
+
+{% with is_checked=checked|default:False %}
+
+<div
+  x-data="{ on: {{ is_checked|yesno:'true,false' }} }"
+  class="w-full"
+>
+  <button
+    type="button"
+    role="switch"
+    :aria-checked="on.toString()"
+    @click="on = !on"
+    class="
+      w-full rounded-lg border border-border flex items-center transition-colors
+      focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2
+      {% if disabled %}opacity-50 cursor-not-allowed{% endif %}
+    "
+    style="min-height: 48px;"
+    {% if disabled %}disabled{% endif %}
+  >
+    {# Off label #}
+    <span
+      class="flex-1 text-center py-3 px-4 text-body font-medium rounded-lg transition-colors"
+      :class="!on ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'"
+    >
+      {{ label_off }}
+    </span>
+
+    {# On label #}
+    <span
+      class="flex-1 text-center py-3 px-4 text-body font-medium rounded-lg transition-colors"
+      :class="on ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'"
+    >
+      {{ label_on }}
+    </span>
+  </button>
+
+  {# Hidden input for form submission #}
+  <input type="hidden" name="{{ name }}" :value="on ? '1' : '0'">
+</div>
+
+{% endwith %}

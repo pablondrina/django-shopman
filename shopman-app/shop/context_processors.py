@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from django.conf import settings
 from django.http import HttpRequest
 
 
@@ -21,4 +22,5 @@ def shop(request: HttpRequest) -> dict:
         "shop_status": _shop_status(),
         "opening_hours_display": _format_opening_hours(),
         "customer_name": customer_name,
+        "google_maps_api_key": settings.GOOGLE_MAPS_API_KEY,
     }

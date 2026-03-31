@@ -44,6 +44,7 @@ Cada guia segue a estrutura: Conceitos → Modelos → Serviços → Protocols �
 | [Customers](guides/customers.md) | `shopman.customers` | Clientes, contatos, grupos, loyalty, consent, RFM |
 | [Auth](guides/auth.md) | `shopman.auth` | Auth OTP, device trust, bridge tokens, magic links |
 | [Payments](guides/payments.md) | `shopman.payments` | Pagamentos, PIX, Stripe, intents, lifecycle |
+| [Channels](guides/channels.md) | `shopman-app/channels` | Orquestrador: ChannelConfig, presets, handlers, backends, pipeline |
 
 ---
 
@@ -59,6 +60,7 @@ Documentação de consulta rápida gerada a partir do código.
 | [Exceções e Erros](reference/errors.md) | Hierarquia de exceções, códigos de erro e quando ocorrem |
 | [Sinais (Signals)](reference/signals.md) | Sinais emitidos e consumidos por cada app, payload e fluxos |
 | [Glossário](reference/glossary.md) | Termos de domínio: Quant, Hold, Move, Session, Order, Channel, etc. |
+| [Data Schemas](reference/data-schemas.md) | Inventário de chaves em Session.data, Order.data, Directive.payload |
 
 ---
 
@@ -68,7 +70,7 @@ Documentação de consulta rápida gerada a partir do código.
 shopman-core/                        shopman-app/
 ├── utils        (utilitários)       ├── shop/              (identidade + regras)
 ├── offering     (catálogo)          ├── channels/          (orquestrador)
-├── stocking     (estoque)           │   ├── handlers/      (11 handlers)
+├── stocking     (estoque)           │   ├── handlers/      (15 handlers)
 ├── crafting     (produção)          │   ├── backends/      (17 backends)
 ├── ordering     (pedidos)           │   ├── config.py      (ChannelConfig)
 ├── customers    (clientes)          │   ├── presets.py     (pos, remote, marketplace)
@@ -77,6 +79,15 @@ shopman-core/                        shopman-app/
                                      │   └── web/           (storefront)
                                      └── project/           (settings, urls)
 ```
+
+---
+
+## Roadmap e Planos
+
+| Documento | Descrição |
+|-----------|-----------|
+| [ROADMAP.md](ROADMAP.md) | Próximos passos (P1-P6) e nice-to-haves |
+| [plans/completed/](plans/completed/) | Planos de execução concluídos (Refactor, Consolidation, Hardening, Bridge) |
 
 ---
 

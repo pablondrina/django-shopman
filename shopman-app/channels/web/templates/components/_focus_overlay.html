@@ -1,0 +1,98 @@
+{# Focus overlay: fullscreen immersive context (search, etc). Primary bg, white text. #}
+
+<div x-data="focusOverlay()"
+     @open-focus.window="open($event.detail.id, $event.detail.content)"
+     @open-search.window="open('search')"
+     @close-focus.window="close()"
+     @keydown.escape.window="isOpen && close()"
+     x-show="isOpen"
+     x-transition:enter="transition ease-out duration-200"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-150"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     x-cloak
+     class="fixed inset-0 z-[55] bg-primary text-white flex flex-col"
+     data-swipe-dismiss
+     role="dialog"
+     aria-modal="true"
+     :aria-label="title">
+
+  {# Header with close button #}
+  <div class="flex items-center justify-between px-4 py-3 shrink-0">
+    <h2 class="text-h4 font-heading" x-text="title"></h2>
+    <button @click="close()"
+            class="p-2.5 hover:bg-white/10 rounded-lg transition-colors"
+            style="min-height:var(--touch-min);min-width:var(--touch-min)"
+            aria-label="Fechar">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
+  </div>
+
+  {# Content area #}
+  <div class="flex-1 overflow-y-auto px-4 pb-8" id="focus-overlay-content">
+    {# Search mode #}
+    <template x-if="mode === 'search'">
+      <div>
+        <div class="relative mb-6">
+          <input type="search"
+                 x-ref="searchInput"
+                 placeholder="O que você procura?"
+                 class="w-full bg-white/10 text-white placeholder-white/60 rounded-xl px-4 py-3.5 text-base border border-white/20 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
+                 style="min-height: var(--touch-min); font-size: 16px;"
+                 hx-get="{% url 'storefront:menu_search' %}"
+                 hx-trigger="keyup changed delay:300ms"
+                 hx-target="#focus-search-results"
+                 hx-swap="innerHTML"
+                 name="q"
+                 autocomplete="off">
+          <svg class="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+        </div>
+        <div id="focus-search-results"></div>
+      </div>
+    </template>
+
+    {# Generic content mode #}
+    <template x-if="mode === 'content'">
+      <div x-html="dynamicContent"></div>
+    </template>
+  </div>
+</div>
+
+<script>
+function focusOverlay() {
+  return {
+    isOpen: false,
+    mode: 'search',
+    title: 'Buscar',
+    dynamicContent: '',
+    open(id, content) {
+      if (id === 'search') {
+        this.mode = 'search';
+        this.title = 'Buscar';
+      } else {
+        this.mode = 'content';
+        this.title = id || '';
+        this.dynamicContent = content || '';
+      }
+      this.isOpen = true;
+      document.body.style.overflow = 'hidden';
+      if (id === 'search') {
+        this.$nextTick(() => {
+          var input = this.$refs.searchInput;
+          if (input) input.focus();
+        });
+      }
+    },
+    close() {
+      this.isOpen = false;
+      document.body.style.overflow = '';
+    }
+  };
+}
+</script>

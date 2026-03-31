@@ -1,0 +1,82 @@
+{# ── Brazilian Phone Input: 🇧🇷 +55 prefix, mask, inline validation (Alpine) ── #}
+{# Usage: {% include "storefront/partials/phone_input.html" with field_id="phone" field_name="phone" value=phone_value error=error autofocus=True %} #}
+
+<div x-data="phoneMask('{{ value|default:'' }}')" x-init="init()">
+  <label for="{{ field_id|default:'phone' }}" class="block text-sm font-medium text-foreground mb-1">
+    Telefone
+  </label>
+  <div class="flex items-stretch">
+    <div class="flex items-center gap-1.5 px-3 bg-background/50 border border-r-0 {% if error %}border-error{% else %}border-border{% endif %} rounded-l-lg text-sm text-muted-foreground select-none">
+      <span class="text-base leading-none">🇧🇷</span>
+      <span class="font-medium">+55</span>
+    </div>
+    <input
+      type="tel"
+      id="{{ field_id|default:'phone' }}"
+      name="{{ field_name|default:'phone' }}"
+      x-ref="input"
+      x-model="display"
+      @input="onInput()"
+      @paste="onPaste()"
+      required
+      {% if autofocus %}autofocus{% endif %}
+      inputmode="numeric"
+      placeholder="(43) 99999-9999"
+      maxlength="16"
+      autocomplete="tel-national"
+      class="flex-1 px-4 py-2.5 border {% if error %}border-error{% else %}border-border{% endif %} rounded-r-lg bg-input text-foreground placeholder-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition font-mono tracking-wide"
+    >
+  </div>
+  <!-- Feedback -->
+  <div x-show="feedback" x-cloak class="mt-1 text-xs" :class="feedbackClass" x-html="feedback"></div>
+  {% if error %}
+  <p class="mt-1 text-sm text-error">{{ error }}</p>
+  {% endif %}
+</div>
+
+<script>
+function phoneMask(initialValue) {
+  var checkIcon = '<svg class="w-3 h-3 inline" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>';
+  function mask(value) {
+    var d = value.replace(/\D/g, '').slice(0, 11);
+    if (!d) return '';
+    if (d.length <= 2) return '(' + d;
+    if (d.length <= 6) return '(' + d.slice(0,2) + ') ' + d.slice(2);
+    if (d.length <= 10) return '(' + d.slice(0,2) + ') ' + d.slice(2, d.length-4) + '-' + d.slice(d.length-4);
+    return '(' + d.slice(0,2) + ') ' + d.slice(2,7) + '-' + d.slice(7);
+  }
+  return {
+    display: initialValue ? mask(initialValue) : '',
+    feedback: '',
+    feedbackClass: '',
+    init() { if (this.display) this.validate(); },
+    get digits() { return this.display.replace(/\D/g, ''); },
+    onInput() {
+      var pos = this.$refs.input.selectionStart, old = this.display.length;
+      this.display = mask(this.display);
+      var delta = this.display.length - old;
+      this.$nextTick(() => this.$refs.input.setSelectionRange(Math.max(0, pos+delta), Math.max(0, pos+delta)));
+      this.validate();
+    },
+    onPaste() { this.$nextTick(() => { this.display = mask(this.display); this.validate(); }); },
+    validate() {
+      var d = this.digits, len = d.length;
+      if (!len) { this.feedback = ''; return; }
+      if (len < 2) { this.setInfo('DDD + n\u00famero'); return; }
+      var ddd = parseInt(d.slice(0,2));
+      if (ddd < 11) { this.setError('DDD inv\u00e1lido'); return; }
+      if (len < 10) { this.setInfo((10-len) + '+ d\u00edgitos restantes'); return; }
+      if (len === 10) { this.setOk('Fixo \u2014 DDD ' + d.slice(0,2)); return; }
+      if (len === 11) {
+        if (d[2] === '9') this.setOk('Celular \u2014 DDD ' + d.slice(0,2));
+        else this.setError('Celular deve come\u00e7ar com 9 ap\u00f3s o DDD');
+        return;
+      }
+      this.setError('N\u00famero longo demais');
+    },
+    setOk(t) { this.feedbackClass = 'text-success flex items-center gap-1'; this.feedback = checkIcon + ' ' + t; },
+    setError(t) { this.feedbackClass = 'text-error'; this.feedback = t; },
+    setInfo(t) { this.feedbackClass = 'text-muted-foreground/60'; this.feedback = t; },
+  };
+}
+</script>

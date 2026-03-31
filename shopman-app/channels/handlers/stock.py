@@ -35,9 +35,28 @@ class StockHoldHandler:
         from shopman.ordering.models import Session
 
         payload = message.payload
-        session_key = payload["session_key"]
-        channel_ref = payload["channel_ref"]
-        expected_rev = payload["rev"]
+        session_key = payload.get("session_key")
+        channel_ref = payload.get("channel_ref")
+
+        # Lifecycle pipeline may only pass order_ref — resolve session from order
+        if not session_key and payload.get("order_ref"):
+            from shopman.ordering.models import Order
+
+            try:
+                order = Order.objects.get(ref=payload["order_ref"])
+                session_key = order.session_key
+                channel_ref = channel_ref or order.channel.ref
+            except Order.DoesNotExist:
+                pass
+
+        if not session_key or not channel_ref:
+            message.status = "done"
+            message.last_error = "No session_key available — skipping stock hold."
+            message.save(update_fields=["status", "last_error", "updated_at"])
+            logger.info("StockHoldHandler: skipping directive %s — no session_key", message.pk)
+            return
+
+        expected_rev = payload.get("rev")
 
         try:
             session = Session.objects.select_related("channel").get(
@@ -49,11 +68,13 @@ class StockHoldHandler:
             message.save(update_fields=["status", "last_error", "updated_at"])
             return
 
-        if session.rev != expected_rev:
+        if expected_rev is not None and session.rev != expected_rev:
             message.status = "failed"
             message.last_error = f"Stale directive: expected rev {expected_rev}, found {session.rev}"
             message.save(update_fields=["status", "last_error", "updated_at"])
             return
+        if expected_rev is None:
+            expected_rev = session.rev
 
         if session.state != "open":
             message.status = "done"
@@ -80,6 +101,9 @@ class StockHoldHandler:
             if target_date:
                 check_kwargs["target_date"] = target_date
                 check_kwargs["safety_margin"] = self._get_safety_margin(session.channel)
+            allowed_positions = self._get_allowed_positions(session.channel)
+            if allowed_positions is not None:
+                check_kwargs["allowed_positions"] = allowed_positions
             availability = self.backend.check_availability(**check_kwargs)
             check_result["items"].append({
                 "sku": sku, "qty": float(qty),
@@ -138,6 +162,10 @@ class StockHoldHandler:
         message.payload["holds"] = check_result.get("holds", [])
         message.save(update_fields=["status", "last_error", "payload", "updated_at"])
 
+    def _get_allowed_positions(self, channel) -> list[str] | None:
+        config = channel.config or {}
+        return config.get("stock", {}).get("allowed_positions")
+
     def _get_safety_margin(self, channel) -> int:
         from channels.confirmation import get_safety_margin
 
@@ -176,11 +204,31 @@ class StockHoldHandler:
             sku = item["sku"]
             qty = Decimal(str(item["qty"]))
             line_id = item["line_id"]
-            if sku not in aggregated:
-                aggregated[sku] = {"qty": Decimal("0"), "line_ids": []}
-            aggregated[sku]["qty"] += qty
-            aggregated[sku]["line_ids"].append(line_id)
+
+            # Bundle expansion: reserve components, not the bundle itself
+            expanded = self._expand_bundle(sku, qty)
+            if expanded:
+                for comp in expanded:
+                    comp_sku = comp["sku"]
+                    if comp_sku not in aggregated:
+                        aggregated[comp_sku] = {"qty": Decimal("0"), "line_ids": []}
+                    aggregated[comp_sku]["qty"] += comp["qty"]
+                    aggregated[comp_sku]["line_ids"].append(line_id)
+            else:
+                if sku not in aggregated:
+                    aggregated[sku] = {"qty": Decimal("0"), "line_ids": []}
+                aggregated[sku]["qty"] += qty
+                aggregated[sku]["line_ids"].append(line_id)
         return aggregated
+
+    def _expand_bundle(self, sku: str, qty: Decimal) -> list[dict] | None:
+        """Expand bundle into components. Returns None if not a bundle."""
+        try:
+            from shopman.offering.service import CatalogService
+
+            return CatalogService.expand(sku, qty)
+        except Exception:
+            return None
 
     def _build_issue(self, *, sku, line_id, requested_qty, available_qty, message, session_rev) -> dict:
         alternatives_data: list[dict] = []

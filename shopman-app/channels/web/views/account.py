@@ -12,6 +12,14 @@ from .auth import get_authenticated_customer
 from .tracking import STATUS_COLORS, STATUS_LABELS
 
 
+TAB_OPTIONS = [
+    ("perfil", "Perfil"),
+    ("pedidos", "Pedidos"),
+    ("fidelidade", "Fidelidade"),
+    ("config", "Configurações"),
+]
+
+
 def _get_loyalty_data(customer):
     """Fetch loyalty account and recent transactions if loyalty is installed."""
     try:
@@ -26,6 +34,31 @@ def _get_loyalty_data(customer):
     return None, []
 
 
+def _get_notification_prefs(customer) -> list[dict]:
+    """Build notification preference list from ConsentService."""
+    channels = [
+        ("whatsapp", "WhatsApp", "Receber atualizações de pedidos via WhatsApp"),
+        ("email", "Email", "Receber novidades e promoções por email"),
+        ("sms", "SMS", "Receber notificações por SMS"),
+        ("push", "Push", "Notificações push no navegador"),
+    ]
+    prefs = []
+    try:
+        from shopman.customers.contrib.consent.service import ConsentService
+
+        for channel, label, description in channels:
+            enabled = ConsentService.has_consent(customer.ref, channel)
+            prefs.append({
+                "key": channel,
+                "label": label,
+                "description": description,
+                "enabled": enabled,
+            })
+    except Exception:
+        pass
+    return prefs
+
+
 def _enrich_orders(orders) -> list[dict]:
     """Build enriched order list with display info."""
     enriched = []
@@ -36,7 +69,7 @@ def _enrich_orders(orders) -> list[dict]:
             "total_display": f"R$ {format_money(order.total_q)}",
             "status": order.status,
             "status_label": STATUS_LABELS.get(order.status, order.status),
-            "status_color": STATUS_COLORS.get(order.status, "bg-gray-100 text-gray-800"),
+            "status_color": STATUS_COLORS.get(order.status, "bg-muted text-muted-foreground"),
         })
     return enriched
 
@@ -74,6 +107,28 @@ class AccountView(View):
 
         loyalty_account, loyalty_transactions = _get_loyalty_data(customer)
 
+        # Stamps range for grid (2 rows × 5 cols = 10)
+        stamps_range = []
+        if loyalty_account and loyalty_account.stamps_target > 0:
+            stamps_range = list(range(1, loyalty_account.stamps_target + 1))
+
+        notification_prefs = _get_notification_prefs(customer)
+
+        # Food preference options with active state
+        active_food_keys = set()
+        try:
+            from shopman.customers.contrib.preferences.models import CustomerPreference
+            active_food_keys = set(
+                CustomerPreference.objects.filter(
+                    customer=customer, category="alimentar",
+                ).values_list("key", flat=True)
+            )
+        except Exception:
+            pass
+        food_pref_options = [
+            (key, label, key in active_food_keys) for key, label in FOOD_PREFERENCE_OPTIONS
+        ]
+
         return render(request, "storefront/account.html", {
             "customer": customer,
             "addresses": addresses,
@@ -81,6 +136,10 @@ class AccountView(View):
             "preferences": preferences,
             "loyalty_account": loyalty_account,
             "loyalty_transactions": loyalty_transactions,
+            "stamps_range": stamps_range,
+            "notification_prefs": notification_prefs,
+            "food_pref_options": food_pref_options,
+            "tab_options": TAB_OPTIONS,
             "phone_value": phone,
             "is_verified": True,
         })
@@ -316,3 +375,258 @@ class AddressSetDefaultView(View):
             "addresses": addresses,
             "customer": customer,
         })
+
+
+class NotificationPrefsToggleView(View):
+    """HTMX: toggle a notification consent channel (ConsentService)."""
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        customer = get_authenticated_customer(request)
+        if not customer:
+            return HttpResponse("", status=401)
+
+        channel = request.POST.get("channel", "")
+        if not channel:
+            return HttpResponse("", status=400)
+
+        from shopman.customers.contrib.consent.service import ConsentService
+
+        if ConsentService.has_consent(customer.ref, channel):
+            ConsentService.revoke_consent(customer.ref, channel)
+        else:
+            ip = request.META.get("REMOTE_ADDR", "")
+            ConsentService.grant_consent(
+                customer.ref, channel,
+                source="storefront_settings",
+                legal_basis="consent",
+                ip_address=ip,
+            )
+
+        prefs = _get_notification_prefs(customer)
+        html_parts = []
+        for pref in prefs:
+            checked = "checked" if pref["enabled"] else ""
+            html_parts.append(
+                f'<label class="flex items-center justify-between py-2 cursor-pointer">'
+                f'<div><p class="text-sm font-medium text-foreground">{pref["label"]}</p>'
+                f'<p class="text-xs text-muted-foreground">{pref["description"]}</p></div>'
+                f'<div class="relative inline-flex cursor-pointer">'
+                f'<input type="hidden" name="channel" value="{pref["key"]}">'
+                f'<button type="button" hx-post="/minha-conta/notificacoes/" '
+                f'hx-vals=\'{{"channel": "{pref["key"]}"}}\' '
+                f'hx-target="#notification-prefs" hx-swap="innerHTML" '
+                f'class="w-11 h-6 rounded-full transition-colors '
+                f'{"bg-primary" if pref["enabled"] else "bg-border"}" '
+                f'style="min-height:24px">'
+                f'<span class="block w-5 h-5 bg-white rounded-full shadow transform transition-transform '
+                f'{"translate-x-5" if pref["enabled"] else "translate-x-0.5"}" '
+                f'style="margin-top:2px"></span>'
+                f'</button></div></label>'
+            )
+        return HttpResponse("".join(html_parts))
+
+
+FOOD_PREFERENCE_OPTIONS = [
+    ("sem_gluten", "Sem Glúten"),
+    ("sem_lactose", "Sem Lactose"),
+    ("vegano", "Vegano"),
+    ("vegetariano", "Vegetariano"),
+    ("sem_acucar", "Sem Açúcar"),
+    ("sem_nozes", "Sem Nozes"),
+    ("organico", "Orgânico"),
+    ("integral", "Integral"),
+]
+
+
+class FoodPreferenceToggleView(View):
+    """HTMX: toggle a food preference tag (PreferenceService)."""
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        customer = get_authenticated_customer(request)
+        if not customer:
+            return HttpResponse("", status=401)
+
+        key = request.POST.get("key", "")
+        if not key:
+            return HttpResponse("", status=400)
+
+        from shopman.customers.contrib.preferences.service import PreferenceService
+
+        existing = PreferenceService.get_preference(customer.ref, "alimentar", key)
+        if existing is not None:
+            PreferenceService.delete_preference(customer.ref, "alimentar", key)
+        else:
+            PreferenceService.set_preference(
+                customer.ref, "alimentar", key, value=True,
+                preference_type="restriction", source="storefront_settings",
+            )
+
+        # Return updated tags
+        from shopman.customers.contrib.preferences.models import CustomerPreference
+        active_keys = set(
+            CustomerPreference.objects.filter(
+                customer=customer, category="alimentar",
+            ).values_list("key", flat=True)
+        )
+
+        html_parts = []
+        for opt_key, opt_label in FOOD_PREFERENCE_OPTIONS:
+            active = opt_key in active_keys
+            cls = "bg-primary text-white" if active else "bg-background text-muted-foreground border border-border"
+            html_parts.append(
+                f'<button type="button" '
+                f'hx-post="/minha-conta/preferencias/" '
+                f'hx-vals=\'{{"key": "{opt_key}"}}\' '
+                f'hx-target="#food-prefs" hx-swap="innerHTML" '
+                f'class="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium '
+                f'transition-colors {cls}" '
+                f'style="min-height:var(--touch-min)">'
+                f'{opt_label}</button>'
+            )
+        return HttpResponse("".join(html_parts))
+
+
+class DataExportView(View):
+    """LGPD: export all customer data as JSON download."""
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        import json
+
+        from django.http import JsonResponse
+
+        customer = get_authenticated_customer(request)
+        if not customer:
+            return redirect("/login/?next=/minha-conta/")
+
+        data = {
+            "customer": {
+                "ref": customer.ref,
+                "first_name": customer.first_name,
+                "last_name": customer.last_name,
+                "phone": customer.phone,
+                "email": customer.email,
+                "birthday": str(customer.birthday) if customer.birthday else None,
+                "created_at": customer.created_at.isoformat(),
+            },
+            "addresses": list(
+                customer.addresses.values(
+                    "label", "formatted_address", "route", "street_number",
+                    "neighborhood", "city", "complement", "delivery_instructions",
+                    "is_default",
+                )
+            ),
+        }
+
+        # Orders
+        orders = Order.objects.filter(
+            handle_type="phone", handle_ref=customer.phone,
+        ).order_by("-created_at")[:100]
+        data["orders"] = [
+            {
+                "ref": o.ref,
+                "status": o.status,
+                "total_q": o.total_q,
+                "created_at": o.created_at.isoformat(),
+                "items": list(o.items.values("sku", "name", "qty", "unit_price_q", "line_total_q")),
+            }
+            for o in orders
+        ]
+
+        # Preferences
+        try:
+            from shopman.customers.contrib.preferences.models import CustomerPreference
+            data["preferences"] = list(
+                CustomerPreference.objects.filter(customer=customer).values(
+                    "category", "key", "value", "preference_type",
+                )
+            )
+        except Exception:
+            data["preferences"] = []
+
+        # Consent
+        try:
+            from shopman.customers.contrib.consent.models import CommunicationConsent
+            data["consents"] = list(
+                CommunicationConsent.objects.filter(customer=customer).values(
+                    "channel", "status", "consented_at", "revoked_at",
+                )
+            )
+        except Exception:
+            data["consents"] = []
+
+        # Loyalty
+        try:
+            from shopman.customers.contrib.loyalty.service import LoyaltyService
+            account = LoyaltyService.get_account(customer.ref)
+            if account:
+                data["loyalty"] = {
+                    "tier": account.tier,
+                    "points_balance": account.points_balance,
+                    "lifetime_points": account.lifetime_points,
+                    "stamps_current": account.stamps_current,
+                }
+                txns = LoyaltyService.get_transactions(customer.ref, limit=100)
+                data["loyalty"]["transactions"] = [
+                    {
+                        "type": t.transaction_type,
+                        "points": t.points,
+                        "description": t.description,
+                        "created_at": t.created_at.isoformat(),
+                    }
+                    for t in txns
+                ]
+        except Exception:
+            pass
+
+        response = JsonResponse(data, json_dumps_params={"ensure_ascii": False, "indent": 2})
+        response["Content-Disposition"] = f'attachment; filename="meus-dados-{customer.ref}.json"'
+        return response
+
+
+class AccountDeleteView(View):
+    """LGPD: anonymize customer data and deactivate account."""
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        customer = get_authenticated_customer(request)
+        if not customer:
+            return HttpResponse("", status=401)
+
+        import hashlib
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        # Anonymize personal data
+        original_ref = customer.ref
+        customer.first_name = "Anonimizado"
+        customer.last_name = ""
+        customer.email = ""
+        phone_hash = hashlib.sha256(customer.phone.encode()).hexdigest()[:12]
+        customer.phone = ""
+        customer.birthday = None
+        customer.notes = ""
+        customer.is_active = False
+        customer.save()
+
+        # Revoke all consents
+        try:
+            from shopman.customers.contrib.consent.service import ConsentService
+            for channel in ("whatsapp", "email", "sms", "push"):
+                try:
+                    ConsentService.revoke_consent(original_ref, channel)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # Delete addresses
+        customer.addresses.all().delete()
+
+        # Clear session
+        request.session.flush()
+
+        logger.info("account_deleted customer=%s phone_hash=%s", original_ref, phone_hash)
+
+        response = HttpResponse("")
+        response["HX-Redirect"] = "/"
+        return response

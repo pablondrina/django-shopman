@@ -27,6 +27,8 @@ def register_all() -> None:
     _register_accounting_handler()
     _register_return_handler()
     _register_fulfillment_handler()
+    _register_loyalty_handler()
+    _register_checkout_defaults_handler()
     _register_pricing_modifiers()
     _register_checks()
     _register_stock_validator()
@@ -51,8 +53,10 @@ def _register_stock_handlers() -> None:
 
 def _register_payment_handlers() -> None:
     from channels.handlers.payment import (
+        CardCreateHandler,
         PaymentCaptureHandler,
         PaymentRefundHandler,
+        PaymentTimeoutHandler,
         PixGenerateHandler,
         PixTimeoutHandler,
     )
@@ -62,8 +66,10 @@ def _register_payment_handlers() -> None:
         return
 
     for handler in [
+        CardCreateHandler(backend=backend),
         PaymentCaptureHandler(backend=backend),
         PaymentRefundHandler(backend=backend),
+        PaymentTimeoutHandler(backend=backend),
         PixGenerateHandler(backend=backend),
         PixTimeoutHandler(backend=backend),
     ]:
@@ -86,6 +92,26 @@ def _register_notification_handlers() -> None:
         pass
 
     register_backend("console", ConsoleBackend())
+
+    # Email backend
+    from channels.backends.notification_email import EmailBackend
+
+    register_backend("email", EmailBackend())
+
+    # SMS if configured (Twilio)
+    twilio_sid = getattr(settings, "TWILIO_ACCOUNT_SID", "")
+    if twilio_sid:
+        try:
+            from channels.backends.notification_sms import TwilioSMSBackend
+
+            sms_backend = TwilioSMSBackend(
+                account_sid=twilio_sid,
+                auth_token=getattr(settings, "TWILIO_AUTH_TOKEN", ""),
+                from_number=getattr(settings, "TWILIO_FROM_NUMBER", ""),
+            )
+            register_backend("sms", sms_backend)
+        except Exception:
+            logger.debug("channels.setup: SMS backend not available", exc_info=True)
 
     # Manychat if configured
     api_token = getattr(settings, "MANYCHAT_API_TOKEN", "")
@@ -185,23 +211,41 @@ def _register_fulfillment_handler() -> None:
             pass
 
 
+def _register_loyalty_handler() -> None:
+    try:
+        from channels.handlers.loyalty import LoyaltyEarnHandler
+
+        registry.register_directive_handler(LoyaltyEarnHandler())
+        logger.info("channels.setup: Registered loyalty handler.")
+    except (ImportError, ValueError):
+        logger.debug("channels.setup: Loyalty handler not available")
+
+
+def _register_checkout_defaults_handler() -> None:
+    try:
+        from channels.handlers.checkout_defaults import CheckoutInferDefaultsHandler
+
+        registry.register_directive_handler(CheckoutInferDefaultsHandler())
+        logger.info("channels.setup: Registered checkout defaults handler.")
+    except (ImportError, ValueError):
+        logger.debug("channels.setup: Checkout defaults handler not available")
+
+
 def _register_pricing_modifiers() -> None:
-    from channels.backends.pricing import CatalogPricingBackend
+    from channels.backends.pricing import OfferingBackend
     from channels.handlers.pricing import ItemPricingModifier, SessionTotalModifier
     from shop.modifiers import (
-        CouponModifier,
         D1DiscountModifier,
+        DiscountModifier,
         EmployeeDiscountModifier,
         HappyHourModifier,
-        PromotionModifier,
     )
 
-    backend = CatalogPricingBackend()
+    backend = OfferingBackend()
     modifiers = [
         ItemPricingModifier(backend=backend),
         D1DiscountModifier(),
-        PromotionModifier(),
-        CouponModifier(),
+        DiscountModifier(),
         SessionTotalModifier(),
         EmployeeDiscountModifier(),
         HappyHourModifier(),
@@ -226,35 +270,9 @@ def _register_checks() -> None:
 
 def _register_stock_validator() -> None:
     """Registra StockCheckValidator (valida checks no commit)."""
+    from channels.handlers.stock import StockCheckValidator
+
     try:
-
-        class StockCheckValidator:
-            code = "stock_check"
-            stage = "commit"
-
-            def validate(self, *, channel, session, ctx):
-                required_checks = channel.config.get("required_checks_on_commit", [])
-                if "stock" not in required_checks:
-                    return
-                if not session.items:
-                    return
-                checks = (session.data or {}).get("checks", {})
-                stock_check = checks.get("stock")
-                if not stock_check:
-                    from shopman.ordering.exceptions import ValidationError
-
-                    raise ValidationError(code="missing_stock_check", message="Stock check obrigatório para este canal")
-                if stock_check.get("rev") != session.rev:
-                    from shopman.ordering.exceptions import ValidationError
-
-                    raise ValidationError(code="stale_stock_check", message="Stock check desatualizado")
-                result = stock_check.get("result", {})
-                holds = result.get("holds", [])
-                if not holds:
-                    from shopman.ordering.exceptions import ValidationError
-
-                    raise ValidationError(code="no_holds", message="Nenhuma reserva de estoque encontrada")
-
         registry.register_validator(StockCheckValidator())
     except (ValueError, TypeError):
         pass
@@ -279,6 +297,12 @@ def _register_stock_signals() -> None:
 
         production_changed.connect(on_production_voided, weak=False)
         logger.info("channels.setup: Connected production_changed receiver (voided).")
+
+        # Import core-level handler — the @receiver decorator auto-connects
+        # planned/adjusted/closed/voided → Stocking quant management
+        import shopman.crafting.contrib.stocking.handlers  # noqa: F401
+
+        logger.info("channels.setup: Loaded crafting→stocking signal handlers.")
     except ImportError:
         logger.debug("channels.setup: crafting signals not available")
 

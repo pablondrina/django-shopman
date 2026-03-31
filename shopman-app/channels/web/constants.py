@@ -36,5 +36,4 @@ except ImportError:
     HAS_STOCKING = False
 
 
-LISTING_REFS = ("balcao", "whatsapp")
 STOREFRONT_CHANNEL_REF = "web"

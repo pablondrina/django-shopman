@@ -1,9 +1,9 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-br"{% if storefront.color_mode == "dark" %} class="dark"{% endif %}>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{% block title %}Cardápio{% endblock %} — {{ storefront.brand_name }}</title>
   <meta name="description" content="{% block meta_description %}{{ storefront.tagline }} em {{ storefront.default_city }}. {{ storefront.description|truncatewords:20 }}{% endblock %}">
   <meta property="og:title" content="{% block og_title %}{{ storefront.brand_name }}{% endblock %}">
@@ -15,37 +15,21 @@
   <meta name="twitter:card" content="summary_large_image">
   <link rel="canonical" href="{% block canonical %}{{ request.build_absolute_uri }}{% endblock %}">
 
-  <!-- PWA -->
+  {# PWA + Status Bar #}
   <link rel="manifest" href="{% url 'storefront:manifest' %}">
   <meta name="theme-color" content="{{ storefront.theme_color }}">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="{{ storefront.theme_color_dark|default:storefront.theme_color }}">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="icon" href="{% static 'storefront/icon-192.svg' %}" type="image/svg+xml">
   <link rel="apple-touch-icon" href="{% static 'storefront/icon-192.svg' %}">
 
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            cream: '{{ storefront.background_color }}',
-            'cream-dark': '#EDE5DC',
-            bark: '#3D2B1F',
-            'bark-light': '#5C4033',
-            wheat: '{{ storefront.theme_color }}',
-            'wheat-dark': '#A8893D',
-            'wheat-light': '#D4BA7A',
-          },
-          fontFamily: {
-            serif: ['Georgia', 'Cambria', 'Times New Roman', 'serif'],
-            sans: ['Inter', 'system-ui', 'sans-serif'],
-          },
-        },
-      },
-    }
-  </script>
+  {# Design Tokens + Fonts + Tailwind + Alpine #}
+  {% include "storefront/partials/_design_tokens.html" %}
+
+  {# HTMX #}
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+
   <meta name="csrf-token" content="{{ csrf_token }}">
   <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -54,305 +38,99 @@
       });
     });
   </script>
+
+  {# Safe area CSS variables #}
   <style>
     :root {
-      --header-height: 60px;
-      --floating-bar-height: 56px;
+      --safe-area-top: env(safe-area-inset-top, 0px);
       --safe-area-bottom: env(safe-area-inset-bottom, 0px);
-      --color-cream: {{ storefront.background_color }};
-      --color-cream-dark: #EDE5DC;
-      --color-bark: #3D2B1F;
-      --color-bark-light: #5C4033;
-      --color-wheat: {{ storefront.theme_color }};
-      --color-wheat-dark: #A8893D;
-      --color-wheat-light: #D4BA7A;
-      --radius-sm: 0.5rem;
-      --radius-md: 0.75rem;
-      --radius-lg: 1rem;
-      --shadow-sm: 0 1px 2px rgba(61,43,31,0.06);
-      --shadow-md: 0 4px 12px rgba(61,43,31,0.1);
-      --touch-min: 44px;
+      --header-height: 56px;
+      --bottom-nav-height: 56px;
     }
-
-    body { font-family: 'Inter', system-ui, sans-serif; }
-
-    /* Body padding when floating cart bar is visible */
-    body.has-floating-cart {
-      padding-bottom: calc(var(--floating-bar-height) + var(--safe-area-bottom));
+    /* Bottom nav spacing on mobile */
+    @media (max-width: 767px) {
+      #main-content { padding-bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom) + 1rem); }
     }
-
-    /* HTMX loading indicator */
-    .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
-    .htmx-request .htmx-indicator { opacity: 1; }
-    .htmx-request.htmx-indicator { opacity: 1; }
-
-    /* Smooth HTMX swap transitions */
+    /* SPA-like transitions */
     .htmx-swapping { opacity: 0; transition: opacity 150ms ease-out; }
     .htmx-settling { opacity: 1; transition: opacity 150ms ease-in; }
-    .htmx-added { opacity: 0; }
-    .htmx-added.htmx-settling { opacity: 1; transition: opacity 300ms ease-in; }
-
-    /* Toast notification */
-    #toast {
-      transform: translateY(100%);
-      opacity: 0;
-      transition: all 300ms ease;
-    }
-    #toast.show {
-      transform: translateY(0);
-      opacity: 1;
-    }
-    body.has-floating-cart #toast {
-      bottom: calc(var(--floating-bar-height) + var(--safe-area-bottom) + 1rem);
-    }
-
-    /* Loading spinner */
-    .spinner {
-      border: 2px solid var(--color-cream-dark);
-      border-top: 2px solid var(--color-wheat);
-      border-radius: 50%;
-      width: 18px;
-      height: 18px;
-      animation: spin 0.6s linear infinite;
-      display: inline-block;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* Stock error modal */
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      z-index: 100;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 1rem;
-      animation: fadeIn 200ms ease;
-    }
-    .modal-card {
-      background: white;
-      border-radius: var(--radius-lg);
-      padding: 1.5rem;
-      max-width: 24rem;
-      width: 100%;
-      box-shadow: var(--shadow-md);
-      animation: slideUp 200ms ease;
-    }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes slideUp { from { transform: translateY(1rem); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-    /* Floating cart bar */
-    .floating-cart-bar {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      z-index: 40;
-      padding-bottom: var(--safe-area-bottom);
-      background: var(--color-bark);
-      box-shadow: 0 -2px 12px rgba(61,43,31,0.15);
-      animation: slideUp 200ms ease;
-    }
-
-    /* Search spinner */
-    .search-spinner {
-      width: 16px;
-      height: 16px;
-      border: 2px solid var(--color-cream-dark);
-      border-top-color: var(--color-wheat);
-      border-radius: 50%;
-      animation: spin 0.6s linear infinite;
-      display: inline-block;
-      vertical-align: middle;
-    }
-
-    /* Availability badges */
-    .badge-available { background: #dcfce7; color: #166534; }
-    .badge-preparing { background: #fef3c7; color: #92400e; animation: pulse-badge 2s ease-in-out infinite; }
-    .badge-d1 { background: #fee2e2; color: #991b1b; }
-    .badge-sold-out { background: #e5e7eb; color: #374151; }
-    .badge-paused { background: #6b7280; color: #f9fafb; opacity: 0.8; }
-    .badge-planned { background: #dbeafe; color: #1e40af; }
-    @keyframes pulse-badge {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
-    }
   </style>
+  {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-cream text-bark min-h-screen flex flex-col">
+<body x-data class="bg-background text-foreground min-h-screen flex flex-col">
 
-  <!-- Header -->
-  <header class="bg-white/80 backdrop-blur-sm border-b border-cream-dark sticky top-0 z-50">
-    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-      <!-- Logo -->
-      <a href="{% url 'storefront:menu' %}" class="flex items-center gap-2">
-        <span class="text-2xl">🥐</span>
-        <div>
-          <h1 class="font-serif text-xl font-bold text-bark leading-tight">{{ storefront.brand_name }}</h1>
-          <p class="text-xs text-bark-light tracking-widest uppercase">{{ storefront.tagline }}</p>
-        </div>
-      </a>
+  {# Skip to content (a11y) #}
+  <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-primary focus:text-white focus:rounded-lg focus:text-sm focus:font-medium">
+    Pular para o conteúdo
+  </a>
 
-      <!-- Nav desktop -->
-      <nav class="hidden md:flex items-center gap-5">
-        <a href="{% url 'storefront:menu' %}" class="text-bark hover:text-wheat-dark font-medium transition-colors">Cardápio</a>
-        <a href="{% url 'storefront:cart' %}" class="relative text-bark hover:text-wheat-dark font-medium transition-colors"
-           hx-get="{% url 'storefront:cart_summary' %}" hx-trigger="cartUpdated from:body" hx-target="#cart-badge-desktop" hx-swap="innerHTML">
-          🛒 Carrinho
-          <span id="cart-badge-desktop">
-          {% if cart_count %}
-          <span class="absolute -top-2 -right-4 bg-wheat text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">{{ cart_count }}</span>
-          {% endif %}
-          </span>
-        </a>
+  {# Header #}
+  {% include "components/_header.html" %}
 
-        {% if request.user.is_authenticated and customer_name %}
-        <!-- User dropdown -->
-        <div class="relative" id="user-dropdown-container">
-          <button onclick="document.getElementById('user-dropdown').classList.toggle('hidden')"
-            class="flex items-center gap-1.5 text-bark hover:text-wheat-dark font-medium transition-colors">
-            <span class="text-sm">👤</span>
-            <span>{{ customer_name }}</span>
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-            </svg>
-          </button>
-          <div id="user-dropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-cream-dark py-1 z-50">
-            <a href="{% url 'storefront:account' %}" class="block px-4 py-2 text-sm text-bark hover:bg-cream transition-colors">Minha Conta</a>
-            <a href="{% url 'storefront:order_history' %}" class="block px-4 py-2 text-sm text-bark hover:bg-cream transition-colors">Meus Pedidos</a>
-            <div class="border-t border-cream-dark my-1"></div>
-            <a href="#" onclick="event.preventDefault(); document.getElementById('nav-logout-form').submit();"
-               class="block px-4 py-2 text-sm text-bark-light hover:text-red-500 hover:bg-cream transition-colors">Sair</a>
-          </div>
-        </div>
-        {% else %}
-        <a href="{% url 'storefront:login' %}" class="text-bark hover:text-wheat-dark font-medium transition-colors">Entrar</a>
-        {% endif %}
-      </nav>
-
-      <!-- Mobile menu button -->
-      <button id="mobile-menu-btn" class="md:hidden p-2 text-bark hover:text-wheat-dark" onclick="document.getElementById('mobile-menu').classList.toggle('hidden')">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-        </svg>
-      </button>
-    </div>
-
-    <!-- Mobile nav -->
-    <nav id="mobile-menu" class="hidden md:hidden border-t border-cream-dark px-4 py-3 space-y-1 bg-white">
-      <a href="{% url 'storefront:menu' %}" class="block text-bark hover:text-wheat-dark font-medium py-2">Cardápio</a>
-      <a href="{% url 'storefront:cart' %}" class="block text-bark hover:text-wheat-dark font-medium py-2">
-        🛒 Carrinho
-        {% if cart_count %}<span class="ml-1 bg-wheat text-white text-xs font-bold rounded-full px-2 py-0.5">{{ cart_count }}</span>{% endif %}
-      </a>
-      <a href="{% url 'storefront:como_funciona' %}" class="block text-bark-light hover:text-wheat-dark text-sm py-2">Como Funciona</a>
-      <div class="border-t border-cream-dark my-1"></div>
-      {% if request.user.is_authenticated and customer_name %}
-      <div class="py-2">
-        <p class="text-xs text-bark-light uppercase tracking-wider mb-1">👤 {{ customer_name }}</p>
-        <a href="{% url 'storefront:account' %}" class="block text-bark hover:text-wheat-dark font-medium py-1.5 pl-2">Minha Conta</a>
-        <a href="{% url 'storefront:order_history' %}" class="block text-bark hover:text-wheat-dark font-medium py-1.5 pl-2">Meus Pedidos</a>
-        <a href="#" onclick="event.preventDefault(); document.getElementById('nav-logout-form').submit();"
-           class="block text-bark-light hover:text-red-500 font-medium py-1.5 pl-2">Sair</a>
-      </div>
-      {% else %}
-      <a href="{% url 'storefront:login' %}" class="block text-wheat-dark hover:text-wheat font-medium py-2">Entrar</a>
-      {% endif %}
-    </nav>
-  </header>
-
-  <!-- Logout form (shared by nav dropdowns) -->
-  {% if request.user.is_authenticated %}
-  <form id="nav-logout-form" method="post" action="{% url 'shopman_auth:logout' %}" class="hidden">{% csrf_token %}</form>
-  {% endif %}
-
-  <!-- Close dropdown on outside click -->
-  <script>
-  document.addEventListener('click', function(e) {
-    var dd = document.getElementById('user-dropdown');
-    var container = document.getElementById('user-dropdown-container');
-    if (dd && container && !container.contains(e.target)) dd.classList.add('hidden');
-  });
-  </script>
-
-  <!-- HTMX global loading indicator -->
-  <div class="htmx-indicator fixed top-0 left-0 right-0 h-0.5 bg-wheat z-[60]" style="background: linear-gradient(90deg, {{ storefront.theme_color }} 0%, #D4BA7A 50%, {{ storefront.theme_color }} 100%); background-size: 200% 100%; animation: shimmer 1.5s infinite;">
+  {# HTMX global loading indicator #}
+  <div class="htmx-indicator fixed top-0 left-0 right-0 h-0.5 z-[60]" style="background: linear-gradient(90deg, oklch(var(--primary)) 0%, oklch(var(--ring)) 50%, oklch(var(--primary)) 100%); background-size: 200% 100%; animation: shimmer 1.5s infinite;">
   </div>
 
-  <!-- Shop status banner -->
+  {# Shop status banner #}
   {% if shop_status.message %}
-  <div class="text-center text-sm py-1.5 font-medium {% if shop_status.is_open %}bg-green-50 text-green-800{% else %}bg-red-50 text-red-800{% endif %}">
+  <div class="text-center text-sm py-1.5 font-medium {% if shop_status.is_open %}bg-success-light text-success-foreground{% else %}bg-error-light text-error-foreground{% endif %}">
     {{ shop_status.message }}
   </div>
   {% endif %}
 
-  <!-- Main content -->
-  <main class="flex-1 max-w-6xl mx-auto px-4 py-8 w-full">
+  {# Main content — HTMX swap target #}
+  <main id="main-content"
+        class="flex-1 max-w-6xl mx-auto px-4 py-6 w-full"
+        hx-history-elt>
     {% block content %}{% endblock %}
   </main>
 
-  <!-- Toast notification -->
-  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 bg-bark text-cream rounded-lg shadow-lg text-sm font-medium flex items-center gap-2">
-    <span id="toast-message"></span>
-  </div>
-
-  <!-- Floating cart bar (HTMX-updated) -->
-  <div id="floating-cart-bar"
-       hx-get="{% url 'storefront:floating_cart_bar' %}"
-       hx-trigger="cartUpdated from:body, load"
-       hx-swap="innerHTML">
-  </div>
-
-  <!-- Stock error modal container (OOB target) -->
-  <div id="stock-error-modal"></div>
-
-  <!-- Footer -->
-  <footer class="bg-bark text-cream/80 mt-auto">
-    <div class="max-w-6xl mx-auto px-4 py-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+  {# Footer (hidden on mobile when bottom nav visible, shown on desktop) #}
+  <footer class="bg-accent text-accent-foreground mt-auto border-t-4 border-primary {% block footer_class %}hidden md:block{% endblock %}">
+    <div class="max-w-6xl mx-auto px-4 py-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
       <div>
-        <h3 class="font-serif text-lg font-bold text-cream mb-2">{{ storefront.brand_name }}</h3>
-        <p class="text-sm leading-relaxed">{{ storefront.description_html }}</p>
+        <h3 class="text-h4 mb-2">{{ storefront.brand_name }}</h3>
+        <p class="text-sm leading-relaxed opacity-80">{{ storefront.description_html }}</p>
       </div>
       <div>
-        <h4 class="font-bold text-cream mb-2">Horário</h4>
+        <h4 class="font-bold mb-2">Horário</h4>
         {% for entry in opening_hours_display %}
-        <p class="text-sm">{{ entry.label }}: {{ entry.hours }}</p>
+        <p class="text-sm opacity-80">{{ entry.label }}: {{ entry.hours }}</p>
         {% empty %}
-        <p class="text-sm">Consulte nossos horários</p>
+        <p class="text-sm opacity-80">Consulte nossos horários</p>
         {% endfor %}
       </div>
       <div>
-        <h4 class="font-bold text-cream mb-2">Links</h4>
-        <p class="text-sm"><a href="{% url 'storefront:menu' %}" class="hover:text-wheat-light transition-colors">Cardápio</a></p>
-        <p class="text-sm mt-1"><a href="{% url 'storefront:como_funciona' %}" class="hover:text-wheat-light transition-colors">Como Funciona</a></p>
+        <h4 class="font-bold mb-2">Links</h4>
+        <p class="text-sm"><a href="{% url 'storefront:menu' %}" class="opacity-80 hover:text-primary transition-colors">Cardápio</a></p>
+        <p class="text-sm mt-1"><a href="{% url 'storefront:como_funciona' %}" class="opacity-80 hover:text-primary transition-colors">Como Funciona</a></p>
         {% if request.user.is_authenticated %}
-        <p class="text-sm mt-1"><a href="{% url 'storefront:order_history' %}" class="hover:text-wheat-light transition-colors">Meus Pedidos</a></p>
-        <p class="text-sm mt-1"><a href="{% url 'storefront:account' %}" class="hover:text-wheat-light transition-colors">Minha Conta</a></p>
+        <p class="text-sm mt-1"><a href="{% url 'storefront:order_history' %}" class="opacity-80 hover:text-primary transition-colors">Meus Pedidos</a></p>
+        <p class="text-sm mt-1"><a href="{% url 'storefront:account' %}" class="opacity-80 hover:text-primary transition-colors">Minha Conta</a></p>
         {% else %}
-        <p class="text-sm mt-1"><a href="{% url 'storefront:login' %}" class="hover:text-wheat-light transition-colors">Entrar</a></p>
+        <p class="text-sm mt-1"><a href="{% url 'storefront:login' %}" class="opacity-80 hover:text-primary transition-colors">Entrar</a></p>
         {% endif %}
       </div>
       <div>
-        <h4 class="font-bold text-cream mb-2">Contato</h4>
+        <h4 class="font-bold mb-2">Contato</h4>
         {% if storefront.full_address %}
         {% if storefront.maps_url %}
         <a href="{{ storefront.maps_url }}" target="_blank" rel="noopener"
-           class="text-sm hover:text-wheat-light transition-colors block">{{ storefront.full_address }}</a>
+           class="text-sm opacity-80 hover:text-primary transition-colors block">{{ storefront.full_address }}</a>
         {% else %}
-        <p class="text-sm whitespace-pre-line">{{ storefront.full_address }}</p>
+        <p class="text-sm opacity-80 whitespace-pre-line">{{ storefront.full_address }}</p>
         {% endif %}
         {% endif %}
         {% if storefront.phone %}
         <p class="text-sm mt-2">
-          <a href="{{ storefront.phone_url }}" class="hover:text-wheat-light transition-colors">
+          <a href="{{ storefront.phone_url }}" class="opacity-80 hover:text-primary transition-colors">
             {{ storefront.phone_display }}
           </a>
         </p>
         {% endif %}
         {% if storefront.email %}
         <p class="text-sm mt-1">
-          <a href="mailto:{{ storefront.email }}" class="hover:text-wheat-light transition-colors">
+          <a href="mailto:{{ storefront.email }}" class="opacity-80 hover:text-primary transition-colors">
             {{ storefront.email }}
           </a>
         </p>
@@ -361,7 +139,7 @@
         <div class="flex gap-3 mt-3">
           {% for link in storefront.social_links_resolved %}
           <a href="{{ link.url }}" target="_blank" rel="noopener" title="{{ link.label }}"
-             class="text-cream/70 hover:text-wheat-light transition-colors">
+             class="opacity-60 hover:text-primary transition-colors">
             {{ link.icon_svg|safe }}
           </a>
           {% endfor %}
@@ -369,45 +147,344 @@
         {% endif %}
       </div>
     </div>
-    <div class="border-t border-cream/10 text-center py-4 text-xs text-cream/50">
+    <div class="border-t border-accent-foreground/10 text-center py-4 text-xs opacity-40">
       &copy; {{ storefront.brand_name }} — Todos os direitos reservados.
     </div>
   </footer>
 
-  <!-- Toast helper -->
+  {# Logout form (shared by nav dropdowns) #}
+  {% if request.user.is_authenticated %}
+  <form id="nav-logout-form" method="post" action="{% url 'shopman_auth:logout' %}" class="hidden">{% csrf_token %}</form>
+  {% endif %}
+
+  {# Toast (Alpine store) #}
+  <div x-data @toast.window="$store.toast.show($event.detail.message, $event.detail.type)" role="status" :aria-live="$store.toast.type === 'error' ? 'assertive' : 'polite'"
+       x-show="$store.toast.visible"
+       x-transition:enter="transition ease-out duration-300"
+       x-transition:enter-start="opacity-0 translate-y-4"
+       x-transition:enter-end="opacity-100 translate-y-0"
+       x-transition:leave="transition ease-in duration-200"
+       x-transition:leave-start="opacity-100 translate-y-0"
+       x-transition:leave-end="opacity-0 translate-y-4"
+       x-cloak
+       @click="$store.toast.dismiss()"
+       class="fixed left-1/2 -translate-x-1/2 z-50 px-5 py-3 bg-foreground text-background rounded-xl shadow-lg text-sm font-medium flex items-center gap-2.5 cursor-pointer"
+       style="bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom) + 1.5rem)">
+    <span x-html="$store.toast.icon" class="toast-icon"></span>
+    <span x-text="$store.toast.message"></span>
+  </div>
+
+  {# Cart Drawer (Alpine) #}
+  <div x-data="cartDrawer()" @open-cart-drawer.window="open()" @keydown.escape.window="isOpen && close()">
+    {# Backdrop #}
+    <div x-show="isOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" x-cloak
+         @click="close()" class="fixed inset-0 bg-black/40 z-50"></div>
+    {# Panel #}
+    <div x-show="isOpen" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full" x-cloak
+         class="fixed top-0 right-0 w-full max-w-sm sm:max-w-md md:max-w-lg bg-surface z-50 shadow-2xl flex flex-col" style="height:100dvh">
+      {# Header #}
+      <div class="flex items-center justify-between px-4 py-3 border-b border-border">
+        <h3 class="text-h4 text-foreground">Carrinho</h3>
+        <button @click="close()" class="p-2.5 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-surface-hover" style="min-height:var(--touch-min);min-width:var(--touch-min)" aria-label="Fechar carrinho">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      {# Content (HTMX-loaded) #}
+      <div id="cart-drawer-content" class="flex-1 flex flex-col overflow-hidden"
+           hx-get="{% url 'storefront:cart_drawer' %}"
+           hx-trigger="open-cart-drawer from:window, cartUpdated from:body"
+           hx-swap="innerHTML">
+      </div>
+    </div>
+  </div>
+
+  {# Stock error modal container (OOB target) #}
+  <div id="stock-error-modal"></div>
+
+  {# Confirmation bottom sheet (global) #}
+  <div x-data @keydown.escape.window="$store.confirm.cancel()">
+    {# Backdrop #}
+    <div x-show="$store.confirm.open" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         x-cloak @click="$store.confirm.cancel()"
+         class="fixed inset-0 bg-black/50 z-[60]"></div>
+    {# Sheet #}
+    <div x-show="$store.confirm.open" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-y-full" x-transition:enter-end="translate-y-0"
+         x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-y-0" x-transition:leave-end="translate-y-full"
+         x-cloak @click.stop
+         class="fixed bottom-0 left-0 right-0 z-[60] bg-surface rounded-t-2xl shadow-xl"
+         style="padding-bottom: var(--safe-area-bottom)">
+      <div class="flex justify-center pt-3 pb-2"><div class="w-10 h-1 rounded-full bg-border"></div></div>
+      <div class="px-6 pb-6 pt-2 text-center">
+        <p class="text-foreground font-semibold text-base mb-2" x-text="$store.confirm.title"></p>
+        <p class="text-muted-foreground text-sm mb-6" x-text="$store.confirm.message" x-show="$store.confirm.message"></p>
+        <div class="flex gap-3">
+          <button type="button" @click="$store.confirm.cancel()"
+                  class="flex-1 py-3.5 border border-border rounded-lg text-foreground font-medium hover:bg-surface-hover transition-colors"
+                  style="min-height:var(--touch-min)">
+            Cancelar
+          </button>
+          <button type="button" @click="$store.confirm.proceed()"
+                  class="flex-1 py-3.5 rounded-lg font-medium transition-colors"
+                  style="min-height:var(--touch-min)"
+                  :class="$store.confirm.destructive ? 'bg-error text-white hover:bg-error/90' : 'bg-primary text-white hover:bg-primary-hover'"
+                  x-text="$store.confirm.confirmLabel">
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# Focus Overlay #}
+  {% include "components/_focus_overlay.html" %}
+
+  {# Cart Added Confirmation #}
+  {% include "components/_cart_added_confirmation.html" %}
+
+  {# Floating Cart Button — mobile #}
+  {% include "components/_floating_cart_button.html" %}
+
+  {# Bottom Navigation Bar — mobile #}
+  {% include "components/_bottom_nav.html" %}
+
+  {# Alpine Stores & Components #}
   <script>
-    function showToast(msg, duration) {
-      duration = duration || 2500;
-      var el = document.getElementById('toast');
-      document.getElementById('toast-message').textContent = msg;
-      el.classList.add('show');
-      setTimeout(function() { el.classList.remove('show'); }, duration);
+    // Toast icons
+    var _TOAST_ICONS = {
+      success: '<svg class="toast-icon" viewBox="0 0 20 20" fill="currentColor" style="color:oklch(var(--success))"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>',
+      warning: '<svg class="toast-icon" viewBox="0 0 20 20" fill="currentColor" style="color:oklch(var(--warning))"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.168 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>',
+      error: '<svg class="toast-icon" viewBox="0 0 20 20" fill="currentColor" style="color:oklch(var(--error))"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd"/></svg>'
+    };
+
+    // ── Alpine Stores ──
+    document.addEventListener('alpine:init', function() {
+      // Toast store
+      Alpine.store('toast', {
+        message: '', type: 'success', icon: '', visible: false, _timer: null,
+        show(msg, type, duration) {
+          type = type || 'success'; duration = duration || 2500;
+          if (this._timer) clearTimeout(this._timer);
+          this.message = msg;
+          this.type = type;
+          this.icon = _TOAST_ICONS[type] || _TOAST_ICONS.success;
+          this.visible = true;
+          var self = this;
+          this._timer = setTimeout(function() { self.visible = false; self._timer = null; }, duration);
+        },
+        dismiss() { if (this._timer) clearTimeout(this._timer); this.visible = false; }
+      });
+
+      // Mobile menu store (legacy — kept for compat, bottom nav replaces mobile menu)
+      Alpine.store('mobileMenu', {
+        open: false,
+        toggle() { this.open ? this.close() : this._open(); },
+        _open() { this.open = true; document.body.style.overflow = 'hidden'; },
+        close() { this.open = false; document.body.style.overflow = ''; }
+      });
+
+      // Confirmation bottom sheet store
+      Alpine.store('confirm', {
+        open: false, title: '', message: '', confirmLabel: 'Confirmar', destructive: false, _onConfirm: null,
+        show(opts) {
+          this.title = opts.title || 'Confirmar?';
+          this.message = opts.message || '';
+          this.confirmLabel = opts.confirmLabel || 'Confirmar';
+          this.destructive = opts.destructive || false;
+          this._onConfirm = opts.onConfirm || null;
+          this.open = true;
+          document.body.style.overflow = 'hidden';
+        },
+        proceed() {
+          this.open = false;
+          document.body.style.overflow = '';
+          if (this._onConfirm) this._onConfirm();
+          this._onConfirm = null;
+        },
+        cancel() {
+          this.open = false;
+          document.body.style.overflow = '';
+          this._onConfirm = null;
+        }
+      });
+    });
+
+    // ── Textarea auto-grow directive ──
+    document.addEventListener('alpine:init', function() {
+      Alpine.directive('autogrow', function(el) {
+        var minH = el.rows ? (el.rows * 1.6 + 1.25) + 'em' : '4em';
+        el.style.minHeight = minH;
+        function resize() { el.style.height = 'auto'; el.style.height = Math.max(el.scrollHeight, el.offsetHeight) + 'px'; }
+        el.addEventListener('input', resize);
+      });
+    });
+
+    // ── Cart Drawer component ──
+    function cartDrawer() {
+      return {
+        isOpen: false,
+        open() {
+          this.isOpen = true;
+          document.body.style.overflow = 'hidden';
+        },
+        close() {
+          this.isOpen = false;
+          document.body.style.overflow = '';
+        }
+      };
     }
 
-    // Show toast when item added via add-to-cart
-    document.body.addEventListener('htmx:afterRequest', function(evt) {
-      var path = evt.detail.pathInfo && evt.detail.pathInfo.requestPath;
-      if (path && path.includes('/cart/add/') && evt.detail.successful) {
-        showToast('Item adicionado ao carrinho!');
+    // ── Global functions ──
+    function showToast(msg, type, duration) {
+      if (typeof Alpine !== 'undefined' && Alpine.store('toast')) {
+        Alpine.store('toast').show(msg, type, duration);
       }
-    });
-
-    // Toggle body class based on floating cart bar visibility
-    var observer = new MutationObserver(function() {
-      var bar = document.getElementById('floating-cart-bar');
-      var hasContent = bar && bar.querySelector('.floating-cart-bar');
-      document.body.classList.toggle('has-floating-cart', !!hasContent);
-    });
-    observer.observe(document.getElementById('floating-cart-bar'), { childList: true, subtree: true });
-
-    // Dismiss stock error modal
+    }
+    function openCartDrawer() {
+      window.dispatchEvent(new CustomEvent('open-cart-drawer'));
+    }
+    if (new URLSearchParams(window.location.search).has('open_cart')) {
+      document.addEventListener('alpine:init', function() { setTimeout(openCartDrawer, 100); });
+      history.replaceState(null, '', window.location.pathname);
+    }
+    function closeCartDrawer() {
+      window.dispatchEvent(new CustomEvent('close-cart-drawer'));
+    }
     function dismissStockModal() {
       var modal = document.getElementById('stock-error-modal');
       if (modal) modal.innerHTML = '';
     }
+
+    // ── Badge animation ──
+    function animateBadge() {
+      document.querySelectorAll('#cart-badge-header .rounded-full').forEach(function(badge) {
+        badge.classList.remove('animate-pop');
+        void badge.offsetWidth;
+        badge.classList.add('animate-pop');
+      });
+    }
+
+    // ── HTMX integration: add-to-cart → badge + confirmation ──
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+      var path = evt.detail.pathInfo && evt.detail.pathInfo.requestPath;
+      if (path && (path.includes('/cart/add/') || path.includes('/cart/quick-add/') || path.includes('/carrinho/')) && evt.detail.successful && evt.detail.requestConfig.verb === 'post') {
+        animateBadge();
+        if (navigator.vibrate) navigator.vibrate(30);
+        // Dispatch cart-item-added for mobile confirmation
+        var itemName = '';
+        try {
+          var resp = evt.detail.xhr.getResponseHeader('X-Cart-Item-Name');
+          if (resp) itemName = resp;
+        } catch(e) {}
+        window.dispatchEvent(new CustomEvent('cart-item-added', { detail: { name: itemName } }));
+        // Update floating cart button count
+        window.dispatchEvent(new CustomEvent('cart-count-updated', { detail: { count: parseInt(document.querySelector('#cart-badge-header .rounded-full')?.textContent || '0') + 1 } }));
+        // Desktop: open drawer
+        if (window.innerWidth >= 768) openCartDrawer();
+      }
+    });
+    document.body.addEventListener('cartUpdated', animateBadge);
   </script>
 
-  <!-- Service Worker registration -->
+  {# HTMX focus management (a11y) #}
+  <script>
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+      var target = evt.detail.target;
+      if (target && target.id && target.id !== 'cart-badge-header' && target.id !== 'floating-cart-bar') {
+        var focusable = target.querySelector('[tabindex="-1"], h1, h2, h3, a, button, input, select, textarea');
+        if (focusable) focusable.focus({ preventScroll: true });
+      }
+    });
+  </script>
+
+  {# HTMX global error handling #}
+  <script>
+    (function() {
+      var _retryCount = {};
+      var MAX_RETRIES = 1;
+
+      function clientErrorMessage(status) {
+        var msgs = {
+          400: 'Dados inválidos. Verifique e tente novamente.',
+          403: 'Você não tem permissão para esta ação.',
+          404: 'Conteúdo não encontrado.',
+          408: 'A requisição demorou demais. Tente novamente.',
+          409: 'Este item foi atualizado. Atualize a página.',
+          422: 'Dados inválidos. Verifique e tente novamente.',
+          429: 'Muitas requisições. Aguarde um momento.'
+        };
+        return msgs[status] || 'Algo não funcionou. Tente novamente.';
+      }
+
+      function retryKey(evt) {
+        var cfg = evt.detail.requestConfig || evt.detail;
+        return (cfg.verb || 'GET') + ':' + (cfg.path || cfg.pathInfo && cfg.pathInfo.requestPath || '');
+      }
+
+      document.body.addEventListener('htmx:responseError', function(evt) {
+        var status = evt.detail.xhr && evt.detail.xhr.status;
+        if (!status) return;
+
+        if (status >= 400 && status < 500) {
+          showToast(clientErrorMessage(status), 'warning', 3500);
+        } else if (status >= 500) {
+          var key = retryKey(evt);
+          var count = _retryCount[key] || 0;
+
+          if (count < MAX_RETRIES) {
+            _retryCount[key] = count + 1;
+            showToast('Algo deu errado. Tentando novamente…', 'warning', 2000);
+            var elt = evt.detail.elt;
+            if (elt && typeof htmx !== 'undefined') {
+              setTimeout(function() { htmx.trigger(elt, 'htmx:retry'); }, 1500);
+            }
+          } else {
+            _retryCount[key] = 0;
+            showToast('Algo deu errado. Tente novamente em instantes.', 'error', 4000);
+          }
+        }
+      });
+
+      document.body.addEventListener('htmx:sendError', function() {
+        showToast('Sem conexão. Verifique sua internet.', 'error', 4000);
+      });
+
+      document.body.addEventListener('htmx:timeout', function(evt) {
+        var key = retryKey(evt);
+        var count = _retryCount[key] || 0;
+        if (count < MAX_RETRIES) {
+          _retryCount[key] = count + 1;
+          showToast('Requisição lenta. Tentando novamente…', 'warning', 2000);
+          var elt = evt.detail.elt;
+          if (elt && typeof htmx !== 'undefined') {
+            setTimeout(function() { htmx.trigger(elt, 'htmx:retry'); }, 1500);
+          }
+        } else {
+          _retryCount[key] = 0;
+          showToast('Requisição expirou. Tente novamente.', 'error', 4000);
+        }
+      });
+
+      document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.successful) {
+          var key = retryKey(evt);
+          delete _retryCount[key];
+        }
+      });
+
+      document.addEventListener('DOMContentLoaded', function() {
+        if (typeof htmx !== 'undefined') {
+          htmx.config.timeout = 15000;
+        }
+      });
+    })();
+  </script>
+
+  {# Gestures #}
+  <script src="{% static 'storefront/js/gestures.js' %}"></script>
+
+  {# Service Worker registration #}
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('{% url "storefront:service_worker" %}', { scope: '/' })
@@ -426,13 +503,6 @@
         .catch(function() {});
     }
   </script>
-
-  <style>
-    @keyframes shimmer {
-      0% { background-position: -200% 0; }
-      100% { background-position: 200% 0; }
-    }
-  </style>
 
 </body>
 </html>

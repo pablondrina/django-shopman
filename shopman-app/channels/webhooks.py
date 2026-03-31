@@ -145,13 +145,17 @@ class EfiPixWebhookView(APIView):
 
         expected_token = _get_efi_webhook_setting("WEBHOOK_TOKEN")
         if not expected_token:
-            return True
+            logger.error("EfiPixWebhook: WEBHOOK_TOKEN not configured — rejecting request")
+            return False
 
         token = request.META.get("HTTP_X_EFI_WEBHOOK_TOKEN", "")
         if not token:
             token = request.query_params.get("token", "")
 
-        return bool(token and hmac.compare_digest(token, expected_token))
+        if not token:
+            return False
+
+        return hmac.compare_digest(token, expected_token)
 
     @staticmethod
     def _get_client_ip(request: Request) -> str:

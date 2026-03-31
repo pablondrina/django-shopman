@@ -102,14 +102,14 @@ class DeviceRevokeView(View):
 
         customer_id = _get_customer_id(request)
         if customer_id is None:
-            return HttpResponse('<p class="text-sm text-red-500">Autenticação necessária.</p>')
+            return HttpResponse('<p class="text-sm text-error">Autenticação necessária.</p>')
 
         from shopman.auth.models.device_trust import TrustedDevice
 
         try:
             device_uuid = uuid.UUID(str(device_id))
         except ValueError:
-            return HttpResponse('<p class="text-sm text-red-500">ID inválido.</p>')
+            return HttpResponse('<p class="text-sm text-error">ID inválido.</p>')
 
         try:
             device = TrustedDevice.objects.get(
@@ -136,7 +136,7 @@ class DeviceRevokeAllView(View):
 
         customer_id = _get_customer_id(request)
         if customer_id is None:
-            return HttpResponse('<p class="text-sm text-red-500">Autenticação necessária.</p>')
+            return HttpResponse('<p class="text-sm text-error">Autenticação necessária.</p>')
 
         from shopman.auth.conf import auth_settings
         from shopman.auth.services.device_trust import DeviceTrustService

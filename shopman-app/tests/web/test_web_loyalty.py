@@ -193,16 +193,17 @@ class TestAccountLoyaltyUI:
         assert "Fidelidade" in content
 
     def test_account_hides_loyalty_if_not_enrolled(self, client, customer):
-        """No loyalty section if customer has no loyalty account."""
+        """No loyalty content if customer has no loyalty account (tab still visible)."""
         _login_as_customer(client, customer)
 
         response = client.get("/minha-conta/")
         assert response.status_code == 200
         content = response.content.decode()
-        assert "Fidelidade" not in content
+        # Tab label always present, but no points/tier content
+        assert "pontos disponíveis" not in content
 
     def test_account_hides_loyalty_if_not_installed(self, client, customer):
-        """Loyalty section should not appear if loyalty app is not installed."""
+        """No loyalty content if loyalty app is not installed."""
         with patch(
             "channels.web.views.account._get_loyalty_data",
             return_value=(None, []),
@@ -212,4 +213,4 @@ class TestAccountLoyaltyUI:
             response = client.get("/minha-conta/")
             assert response.status_code == 200
             content = response.content.decode()
-            assert "Fidelidade" not in content
+            assert "pontos disponíveis" not in content

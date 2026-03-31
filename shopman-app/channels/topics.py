@@ -15,6 +15,8 @@ PAYMENT_CAPTURE = "payment.capture"
 PAYMENT_REFUND = "payment.refund"
 PIX_GENERATE = "pix.generate"
 PIX_TIMEOUT = "pix.timeout"
+PAYMENT_TIMEOUT = "payment.timeout"
+CARD_CREATE = "card.create"
 
 # Notification
 NOTIFICATION_SEND = "notification.send"
@@ -35,6 +37,12 @@ FISCAL_CANCEL_NFCE = "fiscal.cancel_nfce"
 
 # Accounting
 ACCOUNTING_CREATE_PAYABLE = "accounting.create_payable"
+
+# Loyalty
+LOYALTY_EARN = "loyalty.earn"
+
+# Checkout defaults
+CHECKOUT_INFER_DEFAULTS = "checkout.infer_defaults"
 
 # Returns
 RETURN_PROCESS = "return.process"

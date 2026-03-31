@@ -1,0 +1,93 @@
+{% load static storefront_tags %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}Gestor de Pedidos{% endblock %}</title>
+
+  {# Design tokens (OKLCH, fonts, typography) #}
+  {% include "storefront/partials/_design_tokens.html" %}
+
+  {# HTMX #}
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+
+  <style>
+    body {
+      font-family: var(--font-body);
+      background: var(--background);
+      color: var(--foreground);
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .gestor-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .gestor-header h1 {
+      font-family: var(--font-heading);
+      font-size: var(--text-h4);
+      margin: 0;
+      white-space: nowrap;
+    }
+    .gestor-clock {
+      font-size: var(--text-body-sm);
+      color: var(--foreground-muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .gestor-actions {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .gestor-actions button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1.25rem;
+      padding: 0.25rem;
+      border-radius: var(--radius-md);
+      color: var(--foreground-muted);
+      min-width: var(--touch-min);
+      min-height: var(--touch-min);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .gestor-actions button:hover {
+      background: var(--surface-hover);
+    }
+    .gestor-main {
+      flex: 1;
+      padding: 1rem;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  {# HTMX CSRF #}
+  <script>
+    document.addEventListener('htmx:configRequest', function(e) {
+      var csrfToken = '{{ csrf_token }}';
+      if (csrfToken) {
+        e.detail.headers['X-CSRFToken'] = csrfToken;
+      }
+    });
+  </script>
+
+  {% block body %}{% endblock %}
+</body>
+</html>

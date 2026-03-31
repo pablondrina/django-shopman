@@ -1,47 +1,143 @@
 {% extends "storefront/base.html" %}
 
-{% block title %}Pedido {{ order.ref }}{% endblock %}
+{% block title %}Pedido Confirmado — {{ order.ref }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* CSS-only confetti animation */
+  .confetti-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; overflow: hidden; }
+  .confetti-piece {
+    position: absolute;
+    width: 8px;
+    height: 16px;
+    top: -20px;
+    opacity: 0;
+    animation: confetti-fall 2s ease-out forwards;
+  }
+  @keyframes confetti-fall {
+    0% { opacity: 1; transform: translateY(0) rotate(0deg) scale(1); }
+    100% { opacity: 0; transform: translateY(100vh) rotate(720deg) scale(0.5); }
+  }
+  .confetti-piece:nth-child(1)  { left:  5%; animation-delay: 0.0s; background: oklch(var(--primary)); }
+  .confetti-piece:nth-child(2)  { left: 15%; animation-delay: 0.1s; background: oklch(var(--success)); border-radius: 50%; width: 10px; height: 10px; }
+  .confetti-piece:nth-child(3)  { left: 25%; animation-delay: 0.2s; background: oklch(var(--warning)); }
+  .confetti-piece:nth-child(4)  { left: 35%; animation-delay: 0.15s; background: oklch(var(--ring)); border-radius: 50%; width: 6px; height: 6px; }
+  .confetti-piece:nth-child(5)  { left: 45%; animation-delay: 0.3s; background: oklch(var(--primary)); }
+  .confetti-piece:nth-child(6)  { left: 55%; animation-delay: 0.05s; background: oklch(var(--success)); }
+  .confetti-piece:nth-child(7)  { left: 65%; animation-delay: 0.25s; background: oklch(var(--warning)); border-radius: 50%; width: 8px; height: 8px; }
+  .confetti-piece:nth-child(8)  { left: 75%; animation-delay: 0.1s; background: oklch(var(--ring)); }
+  .confetti-piece:nth-child(9)  { left: 85%; animation-delay: 0.35s; background: oklch(var(--primary)); border-radius: 50%; width: 12px; height: 12px; }
+  .confetti-piece:nth-child(10) { left: 95%; animation-delay: 0.2s; background: oklch(var(--success)); }
+  .confetti-piece:nth-child(11) { left: 10%; animation-delay: 0.4s; background: oklch(var(--warning)); width: 6px; height: 12px; }
+  .confetti-piece:nth-child(12) { left: 50%; animation-delay: 0.45s; background: oklch(var(--primary)); border-radius: 50%; width: 10px; height: 10px; }
+</style>
+{% endblock %}
 
 {% block content %}
 
+{# Confetti (auto-removes after animation) #}
+<div class="confetti-container" x-data x-init="setTimeout(() => $el.remove(), 2500)">
+  <div class="confetti-piece"></div>
+  <div class="confetti-piece"></div>
+  <div class="confetti-piece"></div>
+  <div class="confetti-piece"></div>
+  <div class="confetti-piece"></div>
+  <div class="confetti-piece"></div>
+  <div class="confetti-piece"></div>
+  <div class="confetti-piece"></div>
+  <div class="confetti-piece"></div>
+  <div class="confetti-piece"></div>
+  <div class="confetti-piece"></div>
+  <div class="confetti-piece"></div>
+</div>
+
 <div class="max-w-2xl mx-auto text-center">
-  <span class="text-6xl block mb-4">✅</span>
-  <h2 class="font-serif text-3xl font-bold text-bark mb-2">Pedido Confirmado!</h2>
-  <p class="text-bark-light mb-2">Seu pedido foi recebido com sucesso.</p>
-  <p class="text-sm text-bark-light mb-8">
-    Referência: <span class="font-mono font-bold text-bark">{{ order.ref }}</span>
+  {# Success icon #}
+  <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-success/10 flex items-center justify-center">
+    <svg class="w-10 h-10 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+    </svg>
+  </div>
+
+  <h2 class="font-heading text-[28px] text-foreground mb-2">Pedido confirmado!</h2>
+  <p class="text-muted-foreground mb-2">Seu pedido foi recebido com sucesso.</p>
+  <p class="text-sm text-muted-foreground mb-8">
+    Referência:
+    <span class="inline-flex items-center gap-1.5" x-data="{ copied: false }">
+      <code class="font-mono font-bold text-foreground text-base bg-background px-2 py-0.5 rounded">{{ order.ref }}</code>
+      <button type="button"
+              @click="navigator.clipboard.writeText('{{ order.ref }}'); copied = true; setTimeout(() => copied = false, 2000)"
+              class="p-1 text-muted-foreground hover:text-primary transition-colors"
+              :aria-label="copied ? 'Copiado' : 'Copiar referência'">
+        <svg x-show="!copied" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+        </svg>
+        <svg x-show="copied" x-cloak class="w-4 h-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+        </svg>
+      </button>
+    </span>
   </p>
 
-  <!-- Order details -->
-  <div class="bg-white rounded-xl shadow-sm p-6 text-left mb-8">
-    <h3 class="font-serif text-lg font-bold text-bark mb-4">Itens do Pedido</h3>
+  {% if eta %}
+  <div class="bg-surface rounded-xl shadow-sm p-4 mb-6 inline-block">
+    <p class="text-sm text-muted-foreground">Previsão</p>
+    <p class="text-foreground font-medium">Pronto às {{ eta }}</p>
+  </div>
+  {% endif %}
 
-    <div class="space-y-3 mb-4">
-      {% for item in items %}
-      <div class="flex justify-between items-center text-sm border-b border-cream-dark/50 pb-3 last:border-b-0 last:pb-0">
-        <div class="flex-1 min-w-0 pr-3">
-          <p class="text-bark font-medium">{{ item.name }}</p>
-          <p class="text-bark-light">{{ item.qty|floatformat:"0" }}x {{ item.unit_price_display }}</p>
+  {# Order items (collapsible) #}
+  <div class="bg-surface rounded-xl shadow-sm p-6 text-left mb-8" x-data="{ open: false }">
+    <button type="button" @click="open = !open"
+            class="w-full flex items-center justify-between text-left">
+      <h3 class="text-h4 text-foreground">Resumo do Pedido</h3>
+      <svg class="w-5 h-5 text-muted-foreground transition-transform" :class="open && 'rotate-180'"
+           fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </button>
+
+    <div x-show="open" x-collapse x-cloak>
+      <div class="space-y-3 mt-4 mb-4">
+        {% for item in items %}
+        <div class="flex justify-between items-center text-sm border-b border-border/50 pb-3 last:border-b-0 last:pb-0">
+          <div class="flex-1 min-w-0 pr-3">
+            <p class="text-foreground font-medium">{{ item.name }}</p>
+            <p class="text-muted-foreground">{{ item.qty|floatformat:"0" }}x {{ item.unit_price_display }}</p>
+          </div>
+          <p class="text-foreground font-medium flex-shrink-0">{{ item.total_display }}</p>
         </div>
-        <p class="text-bark font-medium flex-shrink-0">{{ item.total_display }}</p>
+        {% endfor %}
       </div>
-      {% endfor %}
-    </div>
 
-    <div class="border-t border-cream-dark pt-3 flex justify-between items-center">
-      <span class="font-serif font-bold text-bark text-lg">Total</span>
-      <span class="text-xl font-bold text-wheat-dark">{{ total_display }}</span>
+      <div class="border-t border-border pt-3 flex justify-between items-center">
+        <span class="font-heading font-bold text-foreground text-lg">Total</span>
+        <span class="text-xl font-bold text-primary">{{ total_display }}</span>
+      </div>
     </div>
   </div>
 
+  {# Actions #}
   <div class="flex flex-col sm:flex-row gap-3 justify-center">
     <a href="{% url 'storefront:order_tracking' ref=order.ref %}"
-       class="inline-block px-6 py-3 bg-wheat text-white rounded-lg font-medium hover:bg-wheat-dark transition-colors">
-      Acompanhar Pedido
+       class="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-primary text-white rounded-lg font-medium hover:bg-primary-hover transition-colors"
+       style="min-height: var(--touch-min)">
+      Acompanhar pedido
     </a>
+    {% if share_url %}
+    <button type="button"
+            x-data
+            @click="window.open('https://wa.me/?text=' + encodeURIComponent('Fiz um pedido! Referência: {{ order.ref }} — Acompanhe: {{ share_url }}'), '_blank')"
+            class="inline-flex items-center justify-center gap-2 px-6 py-3.5 border border-border text-foreground rounded-lg font-medium hover:bg-surface-hover transition-colors"
+            style="min-height: var(--touch-min)">
+      <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.955 9.955 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a8 8 0 01-4.243-1.214l-.257-.153-2.874.854.854-2.874-.153-.257A8 8 0 1112 20z"/></svg>
+      Compartilhar
+    </button>
+    {% endif %}
     <a href="{% url 'storefront:menu' %}"
-       class="inline-block px-6 py-3 border border-wheat text-wheat-dark rounded-lg font-medium hover:bg-wheat/10 transition-colors">
-      Voltar ao Cardápio
+       class="inline-flex items-center justify-center px-6 py-3.5 border border-border text-foreground rounded-lg font-medium hover:bg-surface-hover transition-colors"
+       style="min-height: var(--touch-min)">
+      Voltar ao cardápio
     </a>
   </div>
 </div>

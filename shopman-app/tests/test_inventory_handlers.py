@@ -475,3 +475,139 @@ class StockAggregationTests(TestCase):
         self.assertEqual(result["B"]["qty"], Decimal("5"))
         self.assertEqual(result["A"]["line_ids"], ["L1", "L3"])
         self.assertEqual(result["B"]["line_ids"], ["L2", "L4"])
+
+
+class D1PositionFilteringTests(TestCase):
+    """Tests for D-1 position filtering via allowed_positions."""
+
+    def test_remote_channel_excludes_d1_position(self):
+        """remote() preset has allowed_positions that excludes 'ontem'."""
+        from channels.presets import remote
+
+        config = remote()
+        allowed = config["stock"]["allowed_positions"]
+        self.assertIsNotNone(allowed)
+        self.assertNotIn("ontem", allowed)
+        self.assertIn("vitrine", allowed)
+        self.assertIn("producao", allowed)
+
+    def test_pos_channel_sees_d1_position(self):
+        """pos() preset has allowed_positions=None — all positions visible."""
+        from channels.presets import pos
+
+        config = pos()
+        allowed = config["stock"].get("allowed_positions")
+        self.assertIsNone(allowed)
+
+    def test_marketplace_channel_has_no_position_restriction(self):
+        """marketplace() preset has allowed_positions=None — default."""
+        from channels.presets import marketplace
+
+        config = marketplace()
+        allowed = config["stock"].get("allowed_positions")
+        self.assertIsNone(allowed)
+
+    def test_stock_config_allowed_positions_default_none(self):
+        """StockConfig.allowed_positions defaults to None."""
+        from channels.config import ChannelConfig
+
+        stock = ChannelConfig.Stock()
+        self.assertIsNone(stock.allowed_positions)
+
+    def test_handler_passes_allowed_positions_to_backend(self):
+        """StockHoldHandler passes allowed_positions from channel config."""
+        channel = Channel.objects.create(
+            ref="d1-test-channel",
+            name="D1 Test",
+            config={"stock": {"allowed_positions": ["vitrine", "producao"]}},
+        )
+        session = Session.objects.create(
+            session_key="D1-TEST-SESSION",
+            channel=channel,
+            state="open",
+            rev=1,
+            items=[{"line_id": "L1", "sku": "PAO", "qty": 1, "unit_price_q": 500}],
+        )
+
+        check_calls = []
+
+        class CapturingBackend:
+            def check_availability(self, **kwargs):
+                check_calls.append(kwargs)
+                return AvailabilityResult(available=True, available_qty=Decimal("10"))
+
+            def create_hold(self, **kwargs):
+                return HoldResult(
+                    success=True,
+                    hold_id="HOLD-D1",
+                    expires_at=timezone.now() + timedelta(minutes=15),
+                )
+
+            def release_holds_for_reference(self, reference):
+                return 0
+
+            def get_alternatives(self, sku, qty):
+                return []
+
+        handler = StockHoldHandler(backend=CapturingBackend())
+        directive = Directive.objects.create(
+            topic=STOCK_HOLD,
+            payload={
+                "session_key": session.session_key,
+                "channel_ref": channel.ref,
+                "rev": 1,
+            },
+        )
+        handler.handle(message=directive, ctx={})
+
+        self.assertEqual(len(check_calls), 1)
+        self.assertEqual(check_calls[0]["allowed_positions"], ["vitrine", "producao"])
+
+    def test_handler_omits_allowed_positions_when_none(self):
+        """StockHoldHandler does not pass allowed_positions when None (pos channel)."""
+        channel = Channel.objects.create(
+            ref="pos-d1-test",
+            name="POS D1 Test",
+            config={"stock": {}},
+        )
+        session = Session.objects.create(
+            session_key="POS-D1-SESSION",
+            channel=channel,
+            state="open",
+            rev=1,
+            items=[{"line_id": "L1", "sku": "PAO", "qty": 1, "unit_price_q": 500}],
+        )
+
+        check_calls = []
+
+        class CapturingBackend:
+            def check_availability(self, **kwargs):
+                check_calls.append(kwargs)
+                return AvailabilityResult(available=True, available_qty=Decimal("10"))
+
+            def create_hold(self, **kwargs):
+                return HoldResult(
+                    success=True,
+                    hold_id="HOLD-POS",
+                    expires_at=timezone.now() + timedelta(minutes=15),
+                )
+
+            def release_holds_for_reference(self, reference):
+                return 0
+
+            def get_alternatives(self, sku, qty):
+                return []
+
+        handler = StockHoldHandler(backend=CapturingBackend())
+        directive = Directive.objects.create(
+            topic=STOCK_HOLD,
+            payload={
+                "session_key": session.session_key,
+                "channel_ref": channel.ref,
+                "rev": 1,
+            },
+        )
+        handler.handle(message=directive, ctx={})
+
+        self.assertEqual(len(check_calls), 1)
+        self.assertNotIn("allowed_positions", check_calls[0])

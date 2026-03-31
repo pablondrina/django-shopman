@@ -1,0 +1,11 @@
+{% extends "notifications/email/base.html" %}
+
+{% block content %}
+<h2>Pedido Pronto</h2>
+<p>Ola{{ customer_name_greeting|default:"" }}!</p>
+<p>Seu pedido esta pronto para retirada.</p>
+<div class="highlight">
+  <strong>Pedido:</strong> {{ order_ref }}
+</div>
+<p>Obrigado!</p>
+{% endblock %}

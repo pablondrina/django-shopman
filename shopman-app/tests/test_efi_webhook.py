@@ -131,14 +131,14 @@ class EfiPixWebhookAuthTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
 
-    def test_no_token_configured_allows_all(self):
-        """Sem SHOPMAN_EFI_WEBHOOK configurado → auth desabilitada (dev mode)."""
+    def test_no_token_configured_rejects(self):
+        """Sem WEBHOOK_TOKEN configurado → rejeita request (segurança)."""
         response = self.client.post(
             WEBHOOK_URL,
             data={"pix": [{"txid": "nonexistent", "endToEndId": "E123", "valor": "10.00"}]},
             format="json",
         )
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 401)
 
     @override_settings(SHOPMAN_EFI_WEBHOOK={"SKIP_SIGNATURE": True, "WEBHOOK_TOKEN": "secret"})
     def test_skip_signature_bypasses_auth(self):
@@ -163,6 +163,7 @@ class EfiPixWebhookHealthCheckTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
 
+@override_settings(SHOPMAN_EFI_WEBHOOK={"SKIP_SIGNATURE": True})
 class EfiPixWebhookPayloadTests(TestCase):
     """Testes de validação de payload."""
 
@@ -197,6 +198,7 @@ class EfiPixWebhookPayloadTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
 
+@override_settings(SHOPMAN_EFI_WEBHOOK={"SKIP_SIGNATURE": True})
 class EfiPixWebhookProcessingTests(TestCase):
     """Testes de processamento de pagamento."""
 
@@ -340,6 +342,7 @@ class EfiPixWebhookProcessingTests(TestCase):
         self.assertEqual(order2.data["payment"]["status"], "captured")
 
 
+@override_settings(SHOPMAN_EFI_WEBHOOK={"SKIP_SIGNATURE": True})
 class EfiPixWebhookE2ETests(TestCase):
     """
     Testes E2E: simula fluxo completo webhook EFI → transição + directives.

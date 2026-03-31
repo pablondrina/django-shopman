@@ -23,7 +23,7 @@ Não adianta ativar BridgeToken se o seed não cria tokens de exemplo.
 
 ---
 
-## WP-B1: Limpeza de Resíduos
+## WP-B1: Limpeza de Resíduos ✅ DONE
 
 Corrigir lixo acumulado das iterações de desenvolvimento.
 
@@ -74,7 +74,7 @@ Corrigir lixo acumulado das iterações de desenvolvimento.
 
 ---
 
-## WP-B2: Modifiers e Validators Config-Driven
+## WP-B2: Modifiers e Validators Config-Driven ✅ DONE
 
 Fechar o loop: ChannelConfig.rules declara quais modifiers/validators ativar,
 mas o mecanismo de filtragem não existe. Hoje TODOS os modifiers registrados rodam sempre.
@@ -135,7 +135,7 @@ Para isso funcionar, ModifyService precisa filtrar modifiers/validators pelo que
 
 ---
 
-## WP-B3: Pricing Cascade Completa
+## WP-B3: Pricing Cascade Completa ✅ DONE
 
 O HARDENING-PLAN definiu uma cascata de preços: grupo do cliente → listing do canal → preço base.
 Verificar e completar a implementação.
@@ -169,7 +169,7 @@ Verificar e completar a implementação.
 
 ---
 
-## WP-B4: Integração Crafting ↔ App
+## WP-B4: Integração Crafting ↔ App ✅ DONE
 
 O Core de Crafting é um micro-MRP completo. O App quase não o usa.
 Fechar os loops operacionais.
@@ -211,7 +211,7 @@ O App hoje só conecta signal `production_changed` → StockingBackend e `holds_
 
 ---
 
-## WP-B5: Auth Completo no Storefront
+## WP-B5: Auth Completo no Storefront ✅ DONE
 
 BridgeToken e DeviceTrust estão no Core mas não no App.
 
@@ -253,7 +253,7 @@ BridgeToken e DeviceTrust estão no Core mas não no App.
 
 ---
 
-## WP-B6: Fulfillment, Bundles e Stock Alerts
+## WP-B6: Fulfillment, Bundles e Stock Alerts ✅ DONE
 
 Fechar loops operacionais menores.
 
@@ -285,7 +285,7 @@ Fechar loops operacionais menores.
 
 ---
 
-## WP-B7: Documentação Atualizada
+## WP-B7: Documentação Atualizada ✅ DONE
 
 Alinhar docs com o estado real pós-hardening + bridge.
 

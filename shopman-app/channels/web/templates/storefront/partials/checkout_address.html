@@ -1,0 +1,368 @@
+{# ── Checkout Address Component ── #}
+{# Google Places autocomplete + CEP lookup → structured fields + map confirmation #}
+{# Alpine component: checkoutAddress() — defined inline below #}
+
+<div x-data="checkoutAddress()" x-init="init()"
+     @cep-found.window="handleCepResult($event.detail)"
+     class="space-y-4">
+
+  {# ══════ Mode: SEARCH (Google Places autocomplete) ══════ #}
+  <div x-show="mode === 'search'" x-transition>
+    <label class="block text-sm font-medium text-foreground mb-1">Endereço de entrega</label>
+    <div class="relative">
+      <input x-ref="placesInput" type="text"
+             placeholder="Buscar endereço..."
+             class="w-full px-4 py-2.5 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition pl-10">
+      <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+      </svg>
+    </div>
+    <p class="mt-2 text-sm">
+      <button type="button" @click="mode = 'cep'; $nextTick(() => $refs.cepInput.focus())"
+              class="text-secondary hover:text-secondary-hover transition-colors">
+        Ou buscar por CEP
+      </button>
+    </p>
+    <template x-if="!hasPlacesApi">
+      <p class="mt-1 text-xs text-muted-foreground">
+        <button type="button" @click="mode = 'cep'; $nextTick(() => $refs.cepInput.focus())"
+                class="text-primary hover:underline">Buscar por CEP</button>
+      </p>
+    </template>
+  </div>
+
+  {# ══════ Mode: CEP ══════ #}
+  <div x-show="mode === 'cep'" x-transition>
+    <label class="block text-sm font-medium text-foreground mb-1">CEP</label>
+    <div class="flex gap-2 items-start">
+      <input x-ref="cepInput" type="text" placeholder="00000-000" maxlength="9" inputmode="numeric"
+             class="w-40 px-4 py-2.5 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+             hx-get="{% url 'storefront:cep_lookup' %}" hx-trigger="input changed delay:500ms" hx-target="#checkout-cep-result" name="cep">
+      <span id="checkout-cep-result" class="flex-1 self-center"></span>
+    </div>
+    <p class="mt-2 text-sm">
+      <button type="button" @click="mode = 'search'; $nextTick(() => initPlacesAutocomplete())"
+              class="text-secondary hover:text-secondary-hover transition-colors"
+              x-show="hasPlacesApi">
+        Buscar por endereço
+      </button>
+    </p>
+  </div>
+
+  {# ══════ Mode: FIELDS (structured form + map) ══════ #}
+  <div x-show="mode === 'fields'" x-transition class="space-y-3">
+    <div class="flex items-center justify-between mb-1">
+      <span class="text-sm font-medium text-foreground">Endereço</span>
+      <button type="button" @click="resetAddress()" class="text-xs text-secondary hover:text-secondary-hover transition-colors">
+        Buscar outro
+      </button>
+    </div>
+
+    {# Row 1: Logradouro + Número #}
+    <div class="grid grid-cols-3 gap-3">
+      <div class="col-span-2">
+        <label class="block text-xs font-medium text-foreground mb-1">Logradouro</label>
+        <input type="text" x-model="route" x-ref="routeInput"
+               class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-foreground mb-1">Número *</label>
+        <input type="text" x-model="streetNumber" x-ref="streetNumberInput" inputmode="numeric"
+               placeholder="123"
+               class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm placeholder-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+      </div>
+    </div>
+
+    {# Row 2: Complemento + Bairro #}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs font-medium text-foreground mb-1">Complemento</label>
+        <input type="text" x-model="complement" x-ref="complementInput"
+               placeholder="Apto, bloco..."
+               class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm placeholder-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-foreground mb-1">Bairro</label>
+        <input type="text" x-model="neighborhood"
+               class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+      </div>
+    </div>
+
+    {# Row 3: Cidade + UF + CEP #}
+    <div class="grid grid-cols-5 gap-3">
+      <div class="col-span-2">
+        <label class="block text-xs font-medium text-foreground mb-1">Cidade</label>
+        <input type="text" x-model="city"
+               class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-foreground mb-1">UF</label>
+        <input type="text" x-model="stateCode" maxlength="2"
+               class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary uppercase">
+      </div>
+      <div class="col-span-2">
+        <label class="block text-xs font-medium text-foreground mb-1">CEP</label>
+        <input type="text" x-model="postalCode" maxlength="9"
+               class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+      </div>
+    </div>
+
+    {# Ponto de referência #}
+    <div>
+      <label class="block text-xs font-medium text-foreground mb-1">Ponto de referência / instruções</label>
+      <input type="text" x-model="deliveryInstructions" x-ref="instructionsInput"
+             placeholder="Próximo ao mercado, portão verde..."
+             class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm placeholder-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+    </div>
+
+    {# Mapa com pin arrastável #}
+    <div x-show="latitude && longitude" x-transition class="rounded-lg overflow-hidden border border-border">
+      <div x-ref="mapContainer" style="height: 200px; width: 100%"></div>
+    </div>
+    <div x-show="!latitude && !longitude && route" class="text-center py-3">
+      <button type="button" @click="geocodeAndShowMap()"
+              class="text-sm text-primary hover:text-primary-hover transition-colors flex items-center gap-1.5 mx-auto">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        Confirmar no mapa
+      </button>
+    </div>
+
+    {# Botão confirmar #}
+    <button type="button" @click="confirmAddress()"
+            class="w-full py-2.5 bg-primary text-white rounded-lg font-medium text-sm hover:bg-primary-hover transition-colors"
+            style="min-height: var(--touch-min)"
+            :disabled="!route || !streetNumber"
+            :class="(!route || !streetNumber) && 'opacity-50 cursor-not-allowed'">
+      Confirmar endereço
+    </button>
+  </div>
+
+  {# ══════ Mode: CONFIRMED (summary) ══════ #}
+  <div x-show="mode === 'confirmed'" x-transition>
+    <div class="p-3 rounded-lg bg-surface border border-border">
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-foreground" x-text="buildFormattedAddress()"></p>
+          <p x-show="complement" class="text-sm text-muted-foreground" x-text="complement"></p>
+          <p x-show="deliveryInstructions" class="text-xs text-muted-foreground mt-1 italic" x-text="deliveryInstructions"></p>
+        </div>
+        <button type="button" @click="mode = 'fields'" class="text-xs text-secondary hover:text-secondary-hover transition-colors flex-shrink-0 mt-0.5">
+          Alterar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {# ══════ Hidden inputs for form submission ══════ #}
+  <input type="hidden" name="addr_route" :value="route">
+  <input type="hidden" name="addr_street_number" :value="streetNumber">
+  <input type="hidden" name="addr_complement" :value="complement">
+  <input type="hidden" name="addr_neighborhood" :value="neighborhood">
+  <input type="hidden" name="addr_city" :value="city">
+  <input type="hidden" name="addr_state_code" :value="stateCode">
+  <input type="hidden" name="addr_postal_code" :value="postalCode">
+  <input type="hidden" name="addr_place_id" :value="placeId">
+  <input type="hidden" name="addr_latitude" :value="latitude || ''">
+  <input type="hidden" name="addr_longitude" :value="longitude || ''">
+  <input type="hidden" name="addr_formatted_address" :value="buildFormattedAddress()">
+  <input type="hidden" name="addr_delivery_instructions" :value="deliveryInstructions">
+  <input type="hidden" name="addr_is_verified" :value="isVerified ? 'true' : ''">
+  {# Backward compat: delivery_address as flat string #}
+  <input type="hidden" name="delivery_address" :value="buildFullAddress()">
+</div>
+
+<script>
+function checkoutAddress() {
+  return {
+    mode: 'search',
+    hasPlacesApi: false,
+
+    // Address fields (match CustomerAddress model)
+    route: '', streetNumber: '', complement: '', neighborhood: '',
+    city: '', stateCode: '', postalCode: '', placeId: '',
+    latitude: null, longitude: null,
+    formattedAddress: '', deliveryInstructions: '', isVerified: false,
+
+    // Google objects (non-reactive)
+    _autocomplete: null, _map: null, _marker: null, _source: null,
+
+    init() {
+      this.hasPlacesApi = typeof google !== 'undefined' && google.maps && google.maps.places;
+      if (this.hasPlacesApi) {
+        this.$nextTick(() => this.initPlacesAutocomplete());
+      } else {
+        this.mode = 'cep';
+      }
+    },
+
+    initPlacesAutocomplete() {
+      if (!this.hasPlacesApi || !this.$refs.placesInput) return;
+      if (this._autocomplete) return; // already initialized
+
+      this._autocomplete = new google.maps.places.Autocomplete(this.$refs.placesInput, {
+        componentRestrictions: { country: 'br' },
+        fields: ['address_components', 'geometry', 'place_id', 'formatted_address'],
+        types: ['address'],
+      });
+
+      this._autocomplete.addListener('place_changed', () => {
+        var place = this._autocomplete.getPlace();
+        if (!place || !place.address_components) return;
+        this._source = 'places';
+        this.parsePlaceResult(place);
+        this.mode = 'fields';
+        this.$nextTick(() => {
+          this.initMap();
+          this.smartFocus();
+        });
+      });
+    },
+
+    parsePlaceResult(place) {
+      // Reset
+      this.route = ''; this.streetNumber = ''; this.neighborhood = '';
+      this.city = ''; this.stateCode = ''; this.postalCode = '';
+
+      var components = place.address_components || [];
+      for (var i = 0; i < components.length; i++) {
+        var c = components[i];
+        var types = c.types;
+        if (types.indexOf('route') !== -1) this.route = c.long_name;
+        else if (types.indexOf('street_number') !== -1) this.streetNumber = c.long_name;
+        else if (types.indexOf('sublocality_level_1') !== -1) this.neighborhood = c.long_name;
+        else if (types.indexOf('sublocality') !== -1 && !this.neighborhood) this.neighborhood = c.long_name;
+        else if (types.indexOf('administrative_area_level_2') !== -1) this.city = c.long_name;
+        else if (types.indexOf('administrative_area_level_1') !== -1) this.stateCode = c.short_name;
+        else if (types.indexOf('postal_code') !== -1) this.postalCode = c.long_name;
+      }
+
+      this.placeId = place.place_id || '';
+      this.formattedAddress = place.formatted_address || '';
+      this.isVerified = true;
+
+      if (place.geometry && place.geometry.location) {
+        this.latitude = place.geometry.location.lat();
+        this.longitude = place.geometry.location.lng();
+      }
+    },
+
+    handleCepResult(detail) {
+      this._source = 'cep';
+      this.route = detail.route || '';
+      this.neighborhood = detail.neighborhood || '';
+      this.city = detail.city || '';
+      this.stateCode = detail.stateCode || '';
+      this.postalCode = detail.postalCode || '';
+      this.streetNumber = '';
+      this.complement = '';
+      this.placeId = '';
+      this.latitude = null;
+      this.longitude = null;
+      this.isVerified = false;
+      this.mode = 'fields';
+      this.$nextTick(() => this.smartFocus());
+    },
+
+    smartFocus() {
+      if (this._source === 'cep' || !this.streetNumber) {
+        // CEP or Places without number → focus number
+        this.$refs.streetNumberInput && this.$refs.streetNumberInput.focus();
+      } else if (!this.complement) {
+        // Places with number, no complement → focus complement
+        this.$refs.complementInput && this.$refs.complementInput.focus();
+      } else {
+        // Everything filled → focus instructions
+        this.$refs.instructionsInput && this.$refs.instructionsInput.focus();
+      }
+    },
+
+    initMap() {
+      if (!this.hasPlacesApi || !this.latitude || !this.longitude) return;
+      if (!this.$refs.mapContainer) return;
+
+      var center = { lat: parseFloat(this.latitude), lng: parseFloat(this.longitude) };
+      this._map = new google.maps.Map(this.$refs.mapContainer, {
+        center: center,
+        zoom: 17,
+        disableDefaultUI: true,
+        zoomControl: true,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+      });
+
+      var self = this;
+      this._marker = new google.maps.Marker({
+        map: this._map,
+        position: center,
+        draggable: true,
+        animation: google.maps.Animation.DROP,
+      });
+
+      this._marker.addListener('dragend', function() {
+        var pos = self._marker.getPosition();
+        self.latitude = pos.lat();
+        self.longitude = pos.lng();
+      });
+    },
+
+    geocodeAndShowMap() {
+      if (!this.hasPlacesApi) return;
+      var address = this.buildFormattedAddress();
+      if (!address) return;
+
+      var geocoder = new google.maps.Geocoder();
+      var self = this;
+      geocoder.geocode({ address: address, componentRestrictions: { country: 'BR' } }, function(results, status) {
+        if (status === 'OK' && results[0]) {
+          self.latitude = results[0].geometry.location.lat();
+          self.longitude = results[0].geometry.location.lng();
+          self.$nextTick(() => self.initMap());
+        }
+      });
+    },
+
+    confirmAddress() {
+      this.formattedAddress = this.buildFormattedAddress();
+      this.mode = 'confirmed';
+    },
+
+    resetAddress() {
+      this.route = ''; this.streetNumber = ''; this.complement = '';
+      this.neighborhood = ''; this.city = ''; this.stateCode = '';
+      this.postalCode = ''; this.placeId = '';
+      this.latitude = null; this.longitude = null;
+      this.formattedAddress = ''; this.deliveryInstructions = '';
+      this.isVerified = false;
+      this._autocomplete = null; this._map = null; this._marker = null;
+      this.mode = 'search';
+      this.$nextTick(() => {
+        if (this.hasPlacesApi) this.initPlacesAutocomplete();
+        else this.mode = 'cep';
+      });
+    },
+
+    buildFormattedAddress() {
+      var parts = [];
+      if (this.route) {
+        var street = this.route;
+        if (this.streetNumber) street += ', ' + this.streetNumber;
+        parts.push(street);
+      }
+      if (this.neighborhood) parts.push(this.neighborhood);
+      if (this.city && this.stateCode) parts.push(this.city + '/' + this.stateCode);
+      else if (this.city) parts.push(this.city);
+      return parts.join(' - ');
+    },
+
+    buildFullAddress() {
+      var addr = this.buildFormattedAddress();
+      if (this.complement) addr += ' - ' + this.complement;
+      return addr;
+    },
+  };
+}
+</script>

@@ -41,11 +41,13 @@ class CartService:
 
         # Create new session
         session_key = generate_session_key()
+        origin_channel = request.session.get("origin_channel", "web")
         ordering_session = Session.objects.create(
             session_key=session_key,
             channel=channel,
             pricing_policy=channel.pricing_policy,
             edit_policy=channel.edit_policy,
+            data={"origin_channel": origin_channel},
         )
         request.session["cart_session_key"] = session_key
         return ordering_session, session_key
@@ -117,10 +119,51 @@ class CartService:
         subtotal_q = sum(item.get("line_total_q", 0) for item in items)
         count = sum(int(Decimal(str(item.get("qty", 0)))) for item in items)
 
-        # Enrich items with display info
+        # Enrich items with product name and display info
+        from shopman.offering.models import Product
+
+        skus = [item.get("sku", "") for item in items]
+        products_by_sku = {
+            p.sku: p
+            for p in Product.objects.filter(sku__in=skus).only("sku", "name")
+        }
         for item in items:
+            product = products_by_sku.get(item.get("sku", ""))
+            if product and not item.get("name"):
+                item["name"] = product.name
             item["price_display"] = f"R$ {format_money(item.get('unit_price_q', 0))}"
             item["total_display"] = f"R$ {format_money(item.get('line_total_q', 0))}"
+
+        # Read discount info from session.pricing (persisted by DiscountModifier)
+        pricing = session.pricing or {}
+        discount_data = pricing.get("discount", {})
+        total_discount_q = discount_data.get("total_discount_q", 0)
+        discount_items = {d["sku"]: d for d in discount_data.get("items", [])}
+
+        # Enrich items with discount transparency
+        for item in items:
+            sku = item.get("sku", "")
+            disc = discount_items.get(sku)
+            if disc:
+                item["original_price_display"] = f"R$ {format_money(disc['original_price_q'])}"
+                item["discount_label"] = disc.get("name", "")
+
+        # Coupon info
+        coupon_info = None
+        coupon_data = pricing.get("coupon")
+        data = session.data or {}
+        coupon_code = data.get("coupon_code")
+
+        if coupon_code and coupon_data:
+            coupon_discount_q = coupon_data.get("discount_q", 0)
+            coupon_info = {
+                "code": coupon_code,
+                "discount_q": coupon_discount_q,
+                "discount_display": f"R$ {format_money(coupon_discount_q)}",
+            }
+
+        # Compute original subtotal (before any discounts)
+        original_subtotal_q = subtotal_q + total_discount_q
 
         return {
             "items": items,
@@ -128,6 +171,12 @@ class CartService:
             "subtotal_display": f"R$ {format_money(subtotal_q)}",
             "count": count,
             "session_key": session_key,
+            "coupon": coupon_info,
+            "has_discount": total_discount_q > 0,
+            "total_discount_q": total_discount_q,
+            "total_discount_display": f"R$ {format_money(total_discount_q)}",
+            "original_subtotal_q": original_subtotal_q,
+            "original_subtotal_display": f"R$ {format_money(original_subtotal_q)}",
         }
 
     @staticmethod
@@ -168,7 +217,7 @@ class CartService:
         session.data = data
         session.save(update_fields=["data"])
 
-        # Re-run modify to trigger CouponModifier
+        # Re-run modify to trigger DiscountModifier (coupon)
         ModifyService.modify_session(
             session_key=session_key,
             channel_ref=CHANNEL_REF,

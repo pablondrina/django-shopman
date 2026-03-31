@@ -1,0 +1,58 @@
+function kdsDisplay() {
+  var ref = '{{ instance.ref }}';
+  return {
+    soundEnabled: sessionStorage.getItem('kds_sound_' + ref) !== 'false',
+    previousCount: 0,
+    clock: '',
+
+    init() {
+      this.previousCount = document.querySelectorAll('[data-kds-ticket]').length;
+      this.updateClock();
+      setInterval(() => this.updateClock(), 1000);
+
+      document.addEventListener('htmx:afterSwap', (e) => {
+        if (e.detail.target.id === 'ticket-grid') {
+          var newCount = e.detail.target.querySelectorAll('[data-kds-ticket]').length;
+          if (newCount > this.previousCount && this.soundEnabled) {
+            this.playSound();
+          }
+          this.previousCount = newCount;
+        }
+      });
+    },
+
+    updateClock() {
+      var now = new Date();
+      this.clock = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    },
+
+    toggleSound() {
+      this.soundEnabled = !this.soundEnabled;
+      sessionStorage.setItem('kds_sound_' + ref, this.soundEnabled ? 'true' : 'false');
+    },
+
+    playSound() {
+      try {
+        var ctx = new (window.AudioContext || window.webkitAudioContext)();
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 1046;
+        osc.type = 'sine';
+        gain.gain.value = 0.4;
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+        osc.stop(ctx.currentTime + 0.2);
+      } catch (e) {}
+    },
+
+    toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    }
+  }
+}

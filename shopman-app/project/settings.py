@@ -3,8 +3,13 @@ Django settings for the Shopman project (Nelson Boulangerie demo).
 """
 
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+load_dotenv(Path(BASE_DIR) / ".env")
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-secret-key-not-for-production")
 
@@ -54,6 +59,7 @@ INSTALLED_APPS = [
     "shopman.stocking.contrib.alerts",
     "shopman.customers.contrib.insights",
     "shopman.customers.contrib.loyalty",
+    "shopman.customers.contrib.preferences",
     "shopman.customers.contrib.admin_unfold",
     "shopman.auth.contrib.admin_unfold",
     # Shopman orchestrator
@@ -116,6 +122,12 @@ DATABASES = {
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 STATIC_URL = "/static/"
+
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_URL = "/media/"
+
+# ── Google Maps ──────────────────────────────────────────────────────
+GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
 
 LANGUAGE_CODE = "pt-br"
 TIME_ZONE = "America/Sao_Paulo"
@@ -259,10 +271,22 @@ UNFOLD = {
                 ],
             },
             {
-                "title": "Producao",
+                "title": "Operacao",
                 "separator": True,
                 "collapsible": True,
                 "items": [
+                    {
+                        "title": "Registro Rápido",
+                        "icon": "add_circle",
+                        "link": reverse_lazy("admin:shop_production"),
+                        "permission": lambda request: request.user.has_perm("crafting.add_workorder"),
+                    },
+                    {
+                        "title": "Fechamento",
+                        "icon": "point_of_sale",
+                        "link": reverse_lazy("admin:shop_closing"),
+                        "permission": lambda request: request.user.has_perm("shop.add_dayclosing"),
+                    },
                     {"title": "Receitas", "icon": "menu_book", "link": reverse_lazy("admin:crafting_recipe_changelist")},
                     {"title": "Ordens de Producao", "icon": "manufacturing", "link": reverse_lazy("admin:crafting_workorder_changelist")},
                 ],
@@ -324,6 +348,12 @@ SPECTACULAR_SETTINGS = {
 }
 
 # ── Logging ────────────────────────────────────────────────────────────
+
+# ── Offering ──────────────────────────────────────────────────────
+
+OFFERING = {
+    "COST_BACKEND": "channels.backends.cost.CraftingCostBackend",
+}
 
 # ── Crafting (micro-MRP integration) ──────────────────────────────
 

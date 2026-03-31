@@ -1,0 +1,117 @@
+{% extends "pedidos/base.html" %}
+{% block title %}Gestor de Pedidos — {{ shop.name|default:"Loja" }}{% endblock %}
+
+{% block body %}
+<div x-data="gestorPedidos()" x-init="init()">
+
+  {# ── Header ── #}
+  <header class="gestor-header">
+    <h1>{{ shop.name|default:"Loja" }} — Pedidos</h1>
+    <span class="gestor-clock" x-text="clock" x-init="
+      setInterval(() => {
+        clock = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
+      }, 1000);
+      clock = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
+    "></span>
+    <div class="gestor-actions">
+      <button @click="toggleSound()" :title="soundEnabled ? 'Desativar som' : 'Ativar som'">
+        <span x-text="soundEnabled ? '\uD83D\uDD0A' : '\uD83D\uDD07'"></span>
+      </button>
+      <button @click="toggleFullscreen()" title="Tela cheia">
+        <span>&#x26F6;</span>
+      </button>
+    </div>
+  </header>
+
+  {# ── Filter pills ── #}
+  <nav style="padding: 0.75rem 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; border-bottom: 1px solid var(--border);">
+    <button
+      @click="setFilter('all')"
+      :class="filter === 'all' ? 'pill-active' : 'pill'"
+    >
+      Todos (<span id="count-all">{{ counts.all }}</span>)
+    </button>
+    <button
+      @click="setFilter('new')"
+      :class="filter === 'new' ? 'pill-active' : 'pill'"
+    >
+      Aguardando (<span id="count-new">{{ counts.new }}</span>)
+    </button>
+    <button
+      @click="setFilter('confirmed')"
+      :class="filter === 'confirmed' ? 'pill-active' : 'pill'"
+    >
+      Confirmados (<span id="count-confirmed">{{ counts.confirmed }}</span>)
+    </button>
+    <button
+      @click="setFilter('processing')"
+      :class="filter === 'processing' ? 'pill-active' : 'pill'"
+    >
+      Preparando (<span id="count-processing">{{ counts.processing }}</span>)
+    </button>
+    <button
+      @click="setFilter('ready')"
+      :class="filter === 'ready' ? 'pill-active' : 'pill'"
+    >
+      Prontos (<span id="count-ready">{{ counts.ready }}</span>)
+    </button>
+  </nav>
+
+  {# ── Order grid (HTMX polling) ── #}
+  <main class="gestor-main">
+    <div
+      id="order-grid"
+      hx-get="/pedidos/list/"
+      hx-trigger="every 5s"
+      hx-target="#order-grid"
+      hx-swap="innerHTML"
+      hx-vals='js:{"filter": Alpine.$data(document.querySelector("[x-data]")).filter}'
+    >
+      {% include "pedidos/partials/order_list.html" %}
+    </div>
+  </main>
+
+</div>
+
+<style>
+  .pill, .pill-active {
+    padding: 0.375rem 0.75rem;
+    border-radius: var(--radius-full);
+    font-size: var(--text-body-sm);
+    font-weight: 500;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.15s;
+    min-height: var(--touch-min);
+    display: inline-flex;
+    align-items: center;
+  }
+  .pill {
+    background: var(--surface);
+    color: var(--foreground-muted);
+  }
+  .pill:hover {
+    background: var(--surface-hover);
+  }
+  .pill-active {
+    background: var(--primary);
+    color: var(--primary-foreground);
+    border-color: var(--primary);
+  }
+  .order-grid-inner {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1rem;
+  }
+  .empty-state {
+    text-align: center;
+    padding: 4rem 1rem;
+    color: var(--foreground-muted);
+    font-size: var(--text-body-lg);
+  }
+</style>
+
+<script>
+  {% include "pedidos/partials/pedidos_js.html" %}
+</script>
+{% endblock %}

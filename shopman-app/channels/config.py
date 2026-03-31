@@ -38,11 +38,21 @@ class ChannelConfig:
 
     @dataclass
     class Payment:
-        method: str = "counter"
+        method: str | list[str] = "counter"
+        # str or list[str]:
         # "counter"  — no caixa/entrega
         # "pix"      — PIX com QR code
+        # "card"     — cartão via Stripe
         # "external" — já pago (marketplace)
+        # ["pix", "card"] — múltiplos métodos (cliente escolhe)
         timeout_minutes: int = 15  # só para method=pix
+
+        @property
+        def available_methods(self) -> list[str]:
+            """Always returns a list of payment methods."""
+            if isinstance(self.method, list):
+                return self.method
+            return [self.method]
 
     # ── 3. Estoque ──
 
@@ -51,6 +61,7 @@ class ChannelConfig:
         hold_ttl_minutes: int | None = None  # None = sem expiração
         safety_margin: int = 0
         planned_hold_ttl_hours: int = 48  # TTL for planned holds (fermata timeout)
+        allowed_positions: list[str] | None = None  # None = all saleable positions
 
     # ── 4. Pipeline ──
 
@@ -79,9 +90,10 @@ class ChannelConfig:
 
     @dataclass
     class Notifications:
-        backend: str = "console"
-        # "console" | "email" | "manychat" | "sms" | "webhook" | "none"
-        fallback: str | None = None
+        backend: str = "manychat"
+        # "manychat" | "email" | "console" | "sms" | "webhook" | "none"
+        # Prioridade phone-first (Brasil): manychat (WhatsApp) > sms > email > console
+        fallback_chain: list[str] = field(default_factory=lambda: ["sms", "email"])
         routing: dict[str, str] | None = None
 
     # ── 6. Regras ──
@@ -175,9 +187,11 @@ class ChannelConfig:
             raise ValueError(f"confirmation.mode inválido: {self.confirmation.mode}")
         if self.confirmation.mode == "optimistic" and self.confirmation.timeout_minutes <= 0:
             raise ValueError("timeout_minutes deve ser > 0 para mode=optimistic")
-        if self.payment.method not in ("counter", "pix", "external"):
-            raise ValueError(f"payment.method inválido: {self.payment.method}")
-        if self.payment.method == "pix" and self.payment.timeout_minutes <= 0:
+        valid_methods = {"counter", "pix", "card", "external"}
+        for m in self.payment.available_methods:
+            if m not in valid_methods:
+                raise ValueError(f"payment.method inválido: {m}")
+        if "pix" in self.payment.available_methods and self.payment.timeout_minutes <= 0:
             raise ValueError("timeout_minutes deve ser > 0 para method=pix")
 
 

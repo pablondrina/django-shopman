@@ -17,3 +17,5 @@ htmlcov/
 .venv/
 venv/
 .claude/
+node_modules/
+shopman-app/channels/web/static/storefront/css/output.css

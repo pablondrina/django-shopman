@@ -1,13 +1,13 @@
 {% if hint %}
-<div class="mb-8 bg-white rounded-xl shadow-sm p-6 text-center">
-  <svg class="w-8 h-8 text-bark-light/40 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<div class="mb-8 bg-surface rounded-xl shadow-sm p-6 text-center">
+  <svg class="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
   </svg>
-  <p class="text-bark-light text-sm">Digite pelo menos 2 caracteres para buscar</p>
+  <p class="text-muted-foreground text-sm">Digite pelo menos 2 caracteres para buscar</p>
 </div>
 {% elif items %}
-<div class="mb-8 bg-white rounded-xl shadow-md p-4">
-  <h4 class="font-serif text-lg font-bold text-bark mb-3">Resultados da busca</h4>
+<div class="mb-8 bg-surface rounded-xl shadow-md p-4">
+  <h4 class="text-h4 text-foreground mb-3">Resultados da busca</h4>
   <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
     {% for item in items %}
       {% include "storefront/partials/product_card.html" with item=item %}
@@ -15,11 +15,23 @@
   </div>
 </div>
 {% elif query %}
-<div class="mb-8 bg-white rounded-xl shadow-sm p-6 text-center">
-  <svg class="w-10 h-10 text-bark-light/30 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+<div class="mb-8 bg-surface rounded-xl shadow-sm p-8 text-center">
+  <svg class="w-20 h-20 mx-auto mb-4 text-muted-foreground/15" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="42" cy="42" r="26"/>
+    <path d="M60 60l22 22" stroke-width="3"/>
+    <path d="M34 38h16M34 48h10" class="text-muted-foreground/25"/>
   </svg>
-  <p class="text-bark font-medium mb-1">Nenhum resultado para "{{ query }}"</p>
-  <p class="text-bark-light text-sm">Tente buscar com outros termos ou navegue pelo cardápio</p>
+  <p class="text-foreground font-medium mb-1">Nenhum resultado para "{{ query }}"</p>
+  <p class="text-muted-foreground text-sm">Tente buscar com outros termos ou navegue pelo cardápio</p>
 </div>
+{% if popular_fallback %}
+<div class="mb-8 bg-surface rounded-xl shadow-sm p-4" aria-live="polite">
+  <h4 class="text-h4 text-foreground mb-3">Populares</h4>
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    {% for item in popular_fallback %}
+      {% include "storefront/partials/product_card.html" with item=item %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
 {% endif %}

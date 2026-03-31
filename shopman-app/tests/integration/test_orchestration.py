@@ -28,8 +28,8 @@ class PresetValidationTest(TestCase):
     def test_remote_preset_returns_valid_config(self):
         config = presets.remote()
         assert config["confirmation"]["mode"] == "optimistic"
-        assert config["confirmation"]["timeout_minutes"] == 10
-        assert config["payment"]["method"] == "pix"
+        assert config["confirmation"]["timeout_minutes"] == 5
+        assert config["payment"]["method"] == ["pix", "card"]
         assert config["stock"]["hold_ttl_minutes"] == 30
 
     def test_marketplace_preset_returns_valid_config(self):
@@ -132,7 +132,7 @@ class ChannelCreationTest(TestCase):
     def test_create_channel_with_remote_preset(self):
         config = presets.remote()
         channel = Channel.objects.create(ref="test-remote", name="Test Remote", config=config)
-        assert channel.config["payment"]["method"] == "pix"
+        assert channel.config["payment"]["method"] == ["pix", "card"]
 
     def test_create_channel_with_listing_ref(self):
         config = presets.pos()

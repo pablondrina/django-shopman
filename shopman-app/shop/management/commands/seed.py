@@ -59,7 +59,7 @@ from shopman.stocking.models import Position, PositionKind, StockAlert
 from channels.presets import marketplace, pos, remote
 
 # ── Shop ─────────────────────────────────────────────────────────────
-from shop.models import Coupon, Promotion, Shop
+from shop.models import Coupon, KDSInstance, Promotion, Shop
 
 
 class Command(BaseCommand):
@@ -95,6 +95,7 @@ class Command(BaseCommand):
         self._seed_fulfillments()
         self._seed_directives()
         self._seed_loyalty(customers)
+        self._seed_kds()
 
         self.stdout.write(self.style.SUCCESS("\n✅ Seed Nelson completo!\n"))
 
@@ -113,7 +114,10 @@ class Command(BaseCommand):
                 "tagline": "Padaria Artesanal",
                 "description": "Segue rigorosamente as normas da panificação artesanal francesa.",
                 "primary_color": "#C5A55A",
-                "background_color": "#F5F0EB",
+                "secondary_color": "#2C1810",
+                "accent_color": "#8B4513",
+                "neutral_color": "#F5E6D3",
+                "neutral_dark_color": "#1A0F0A",
                 "formatted_address": "Av. Madre Leônia Milito, 446 - Bela Suíça, Londrina - PR, 86050-270",
                 "route": "Av. Madre Leônia Milito",
                 "street_number": "446",
@@ -128,9 +132,6 @@ class Command(BaseCommand):
                 "phone": "554333231997",
                 "email": "contato@nelsonboulangerie.com.br",
                 "default_ddd": "43",
-                "website": "http://www.nelsonboulangerie.com.br",
-                "instagram": "@nelsonboulangerie",
-                "whatsapp": "554333231997",
                 "social_links": [
                     "https://wa.me/554333231997",
                     "https://instagram.com/nelsonboulangerie",
@@ -203,6 +204,12 @@ class Command(BaseCommand):
         for model in [CustomerAddress, ContactPoint, Customer, CustomerGroup]:
             model.objects.all().delete()
 
+        # KDS
+        from shop.models import KDSTicket
+
+        KDSTicket.objects.all().delete()
+        KDSInstance.objects.all().delete()
+
         # Shop
         Coupon.objects.all().delete()
         Promotion.objects.all().delete()
@@ -255,7 +262,7 @@ class Command(BaseCommand):
             sku="COMBO-MANHA",
             defaults={
                 "name": "Combo Cafe da Manha",
-                "short_description": "Croissant + Cafe Espresso (economia de R$ 2,80)",
+                "short_description": "Croissant + Cafe Espresso (economia de R$ 2,90)",
                 "base_price_q": 1290,
                 "unit": "un",
                 "is_published": True,
@@ -264,6 +271,13 @@ class Command(BaseCommand):
             },
         )
         products["COMBO-MANHA"] = combo
+
+        # D-1 eligible: breads that can be sold next day at discount
+        d1_skus = ["PAO-FRANCES", "BAGUETE", "FOCACCIA", "CIABATTA"]
+        for sku in d1_skus:
+            p = products[sku]
+            p.metadata["allows_next_day_sale"] = True
+            p.save(update_fields=["metadata"])
 
         # Bundle components
         ProductComponent.objects.filter(parent=combo).delete()
@@ -288,22 +302,30 @@ class Command(BaseCommand):
             defaults={"name": "Combos", "is_active": True, "sort_order": 4},
         )
 
-        # Collection items
+        # Collection items (first collection per product = is_primary)
         CollectionItem.objects.filter(collection__in=[col_paes, col_confeitaria, col_bebidas, col_combos]).delete()
 
         paes_skus = ["PAO-FRANCES", "BAGUETE", "FOCACCIA", "CIABATTA", "SOURDOUGH"]
         for i, sku in enumerate(paes_skus):
-            CollectionItem.objects.create(collection=col_paes, product=products[sku], sort_order=i)
+            CollectionItem.objects.create(
+                collection=col_paes, product=products[sku], sort_order=i, is_primary=True,
+            )
 
         confeitaria_skus = ["CROISSANT", "PAIN-CHOCOLAT", "BRIOCHE", "DANISH"]
         for i, sku in enumerate(confeitaria_skus):
-            CollectionItem.objects.create(collection=col_confeitaria, product=products[sku], sort_order=i)
+            CollectionItem.objects.create(
+                collection=col_confeitaria, product=products[sku], sort_order=i, is_primary=True,
+            )
 
         bebidas_skus = ["CAFE-ESPRESSO", "CAFE-LATTE", "SUCO-LARANJA"]
         for i, sku in enumerate(bebidas_skus):
-            CollectionItem.objects.create(collection=col_bebidas, product=products[sku], sort_order=i)
+            CollectionItem.objects.create(
+                collection=col_bebidas, product=products[sku], sort_order=i, is_primary=True,
+            )
 
-        CollectionItem.objects.create(collection=col_combos, product=products["COMBO-MANHA"], sort_order=0)
+        CollectionItem.objects.create(
+            collection=col_combos, product=products["COMBO-MANHA"], sort_order=0, is_primary=True,
+        )
 
         # Listings
         balcao, _ = Listing.objects.update_or_create(
@@ -324,7 +346,9 @@ class Command(BaseCommand):
         )
 
         # Listing items (all products in all listings)
-        markup_map = {"balcao": 0, "delivery": 0, "ifood": 30, "web": 0}
+        # iFood uses pricing_policy="external" (marketplace defines prices),
+        # so its listing prices are reference-only. No markup applied.
+        markup_map = {"balcao": 0, "delivery": 0, "ifood": 0, "web": 0}
         for listing_obj in [balcao, delivery, ifood, web]:
             ListingItem.objects.filter(listing=listing_obj).delete()
             markup = Decimal(markup_map[listing_obj.ref]) / 100
@@ -353,6 +377,7 @@ class Command(BaseCommand):
             ("deposito", "Deposito", PositionKind.PHYSICAL, False),
             ("vitrine", "Vitrine / Exposicao", PositionKind.PHYSICAL, True),
             ("producao", "Area de Producao", PositionKind.PHYSICAL, False),
+            ("ontem", "Vitrine D-1 (ontem)", PositionKind.PHYSICAL, True),
         ]:
             p, _ = Position.objects.update_or_create(
                 ref=ref,
@@ -364,7 +389,7 @@ class Command(BaseCommand):
             )
             positions[ref] = p
 
-        self.stdout.write("  ✅ 3 posicoes")
+        self.stdout.write("  ✅ 4 posicoes")
         return positions
 
     def _seed_stock(self, products, positions):
@@ -839,64 +864,64 @@ class Command(BaseCommand):
 
         addresses_data = [
             ("CLI-001", [
-                {"label": "home", "formatted_address": "Rua Augusta, 1200, Apto 42 - Consolacao, Sao Paulo - SP, 01304-001",
-                 "route": "Rua Augusta", "street_number": "1200", "complement": "Apto 42",
-                 "neighborhood": "Consolacao", "city": "Sao Paulo", "state": "Sao Paulo",
-                 "state_code": "SP", "postal_code": "01304-001",
-                 "latitude": Decimal("-23.5535000"), "longitude": Decimal("-46.6564000"), "is_default": True},
-                {"label": "work", "formatted_address": "Av. Paulista, 900, Sala 301 - Bela Vista, Sao Paulo - SP, 01310-100",
-                 "route": "Av. Paulista", "street_number": "900", "complement": "Sala 301",
-                 "neighborhood": "Bela Vista", "city": "Sao Paulo", "state": "Sao Paulo",
-                 "state_code": "SP", "postal_code": "01310-100",
-                 "latitude": Decimal("-23.5629000"), "longitude": Decimal("-46.6544000"), "is_default": False},
+                {"label": "home", "formatted_address": "Rua Belo Horizonte, 540, Apto 12 - Centro, Londrina - PR, 86020-060",
+                 "route": "Rua Belo Horizonte", "street_number": "540", "complement": "Apto 12",
+                 "neighborhood": "Centro", "city": "Londrina", "state": "Parana",
+                 "state_code": "PR", "postal_code": "86020-060",
+                 "latitude": Decimal("-23.3103000"), "longitude": Decimal("-51.1628000"), "is_default": True},
+                {"label": "work", "formatted_address": "Av. Higienopolis, 350, Sala 201 - Higienopolis, Londrina - PR, 86020-080",
+                 "route": "Av. Higienopolis", "street_number": "350", "complement": "Sala 201",
+                 "neighborhood": "Higienopolis", "city": "Londrina", "state": "Parana",
+                 "state_code": "PR", "postal_code": "86020-080",
+                 "latitude": Decimal("-23.3065000"), "longitude": Decimal("-51.1650000"), "is_default": False},
             ]),
             ("CLI-002", [
-                {"label": "work", "formatted_address": "Rua Oscar Freire, 379 - Jardins, Sao Paulo - SP, 01426-001",
-                 "route": "Rua Oscar Freire", "street_number": "379", "complement": "",
-                 "neighborhood": "Jardins", "city": "Sao Paulo", "state": "Sao Paulo",
-                 "state_code": "SP", "postal_code": "01426-001",
-                 "latitude": Decimal("-23.5634000"), "longitude": Decimal("-46.6694000"), "is_default": True},
+                {"label": "work", "formatted_address": "Rua Marselha, 191 - Jardim Piza, Londrina - PR, 86041-140",
+                 "route": "Rua Marselha", "street_number": "191", "complement": "",
+                 "neighborhood": "Jardim Piza", "city": "Londrina", "state": "Parana",
+                 "state_code": "PR", "postal_code": "86041-140",
+                 "latitude": Decimal("-23.2960000"), "longitude": Decimal("-51.1520000"), "is_default": True},
             ]),
             ("CLI-003", [
-                {"label": "home", "formatted_address": "Rua Voluntarios da Patria, 450, Bl A Apto 12 - Santana, Sao Paulo - SP, 02011-000",
-                 "route": "Rua Voluntarios da Patria", "street_number": "450", "complement": "Bl A Apto 12",
-                 "neighborhood": "Santana", "city": "Sao Paulo", "state": "Sao Paulo",
-                 "state_code": "SP", "postal_code": "02011-000",
-                 "latitude": Decimal("-23.5012000"), "longitude": Decimal("-46.6289000"), "is_default": True},
+                {"label": "home", "formatted_address": "Rua Paranagua, 800, Bl B Apto 5 - Centro, Londrina - PR, 86020-030",
+                 "route": "Rua Paranagua", "street_number": "800", "complement": "Bl B Apto 5",
+                 "neighborhood": "Centro", "city": "Londrina", "state": "Parana",
+                 "state_code": "PR", "postal_code": "86020-030",
+                 "latitude": Decimal("-23.3080000"), "longitude": Decimal("-51.1595000"), "is_default": True},
             ]),
             ("CLI-004", [
-                {"label": "work", "formatted_address": "Rua Haddock Lobo, 595 - Cerqueira Cesar, Sao Paulo - SP, 01414-001",
-                 "route": "Rua Haddock Lobo", "street_number": "595", "complement": "",
-                 "neighborhood": "Cerqueira Cesar", "city": "Sao Paulo", "state": "Sao Paulo",
-                 "state_code": "SP", "postal_code": "01414-001",
-                 "latitude": Decimal("-23.5621000"), "longitude": Decimal("-46.6672000"), "is_default": True},
+                {"label": "work", "formatted_address": "Av. Madre Leonia Milito, 900 - Bela Suica, Londrina - PR, 86050-270",
+                 "route": "Av. Madre Leonia Milito", "street_number": "900", "complement": "",
+                 "neighborhood": "Bela Suica", "city": "Londrina", "state": "Parana",
+                 "state_code": "PR", "postal_code": "86050-270",
+                 "latitude": Decimal("-23.3040000"), "longitude": Decimal("-51.1630000"), "is_default": True},
             ]),
             ("CLI-005", [
-                {"label": "home", "formatted_address": "Rua Bela Cintra, 1100, Apto 8 - Consolacao, Sao Paulo - SP, 01415-001",
-                 "route": "Rua Bela Cintra", "street_number": "1100", "complement": "Apto 8",
-                 "neighborhood": "Consolacao", "city": "Sao Paulo", "state": "Sao Paulo",
-                 "state_code": "SP", "postal_code": "01415-001",
-                 "latitude": Decimal("-23.5560000"), "longitude": Decimal("-46.6615000"), "is_default": True},
+                {"label": "home", "formatted_address": "Rua Santos, 450, Apto 3 - Centro, Londrina - PR, 86020-040",
+                 "route": "Rua Santos", "street_number": "450", "complement": "Apto 3",
+                 "neighborhood": "Centro", "city": "Londrina", "state": "Parana",
+                 "state_code": "PR", "postal_code": "86020-040",
+                 "latitude": Decimal("-23.3115000"), "longitude": Decimal("-51.1610000"), "is_default": True},
                 {"label": "other", "label_custom": "Casa da mae",
-                 "formatted_address": "Rua Pamplona, 200 - Jardim Paulista, Sao Paulo - SP, 01405-000",
-                 "route": "Rua Pamplona", "street_number": "200", "complement": "",
-                 "neighborhood": "Jardim Paulista", "city": "Sao Paulo", "state": "Sao Paulo",
-                 "state_code": "SP", "postal_code": "01405-000",
-                 "latitude": Decimal("-23.5650000"), "longitude": Decimal("-46.6560000"), "is_default": False},
+                 "formatted_address": "Rua Pernambuco, 120 - Centro, Londrina - PR, 86020-120",
+                 "route": "Rua Pernambuco", "street_number": "120", "complement": "",
+                 "neighborhood": "Centro", "city": "Londrina", "state": "Parana",
+                 "state_code": "PR", "postal_code": "86020-120",
+                 "latitude": Decimal("-23.3090000"), "longitude": Decimal("-51.1575000"), "is_default": False},
             ]),
             ("CLI-006", [
-                {"label": "home", "formatted_address": "Rua da Consolacao, 2300 - Consolacao, Sao Paulo - SP, 01301-100",
-                 "route": "Rua da Consolacao", "street_number": "2300", "complement": "",
-                 "neighborhood": "Consolacao", "city": "Sao Paulo", "state": "Sao Paulo",
-                 "state_code": "SP", "postal_code": "01301-100",
-                 "latitude": Decimal("-23.5510000"), "longitude": Decimal("-46.6580000"), "is_default": True},
+                {"label": "home", "formatted_address": "Av. Juscelino Kubitschek, 1200 - Ipiranga, Londrina - PR, 86010-540",
+                 "route": "Av. Juscelino Kubitschek", "street_number": "1200", "complement": "",
+                 "neighborhood": "Ipiranga", "city": "Londrina", "state": "Parana",
+                 "state_code": "PR", "postal_code": "86010-540",
+                 "latitude": Decimal("-23.3150000"), "longitude": Decimal("-51.1500000"), "is_default": True},
             ]),
             ("CLI-007", [
-                {"label": "work", "formatted_address": "Av. Brigadeiro Faria Lima, 1811 - Jardim Paulistano, Sao Paulo - SP, 01452-001",
-                 "route": "Av. Brigadeiro Faria Lima", "street_number": "1811", "complement": "",
-                 "neighborhood": "Jardim Paulistano", "city": "Sao Paulo", "state": "Sao Paulo",
-                 "state_code": "SP", "postal_code": "01452-001",
-                 "latitude": Decimal("-23.5710000"), "longitude": Decimal("-46.6870000"), "is_default": True},
+                {"label": "work", "formatted_address": "Av. Ayrton Senna, 600 - Gleba Palhano, Londrina - PR, 86050-460",
+                 "route": "Av. Ayrton Senna", "street_number": "600", "complement": "",
+                 "neighborhood": "Gleba Palhano", "city": "Londrina", "state": "Parana",
+                 "state_code": "PR", "postal_code": "86050-460",
+                 "latitude": Decimal("-23.3280000"), "longitude": Decimal("-51.1870000"), "is_default": True},
             ]),
         ]
 
@@ -991,7 +1016,7 @@ class Command(BaseCommand):
             },
         )
 
-        # Promotion for FUNCIONARIO coupon (20% off)
+        # Promotion for FUNCIONARIO coupon (20% off, restricted to staff group)
         promo_funcionario, _ = Promotion.objects.update_or_create(
             name="Desconto Funcionario",
             defaults={
@@ -999,6 +1024,7 @@ class Command(BaseCommand):
                 "value": 20,
                 "valid_from": now,
                 "valid_until": now + timedelta(days=365),
+                "customer_segments": ["staff"],
                 "is_active": True,
             },
         )
@@ -1255,3 +1281,74 @@ class Command(BaseCommand):
             count += 1
 
         self.stdout.write(f"  ✅ {count} contas de fidelidade")
+
+    # ────────────────────────────────────────────────────────────────
+    # KDS (Kitchen Display System)
+    # ────────────────────────────────────────────────────────────────
+
+    def _seed_kds(self):
+        self.stdout.write("  🖥️  KDS...")
+
+        # Get collections
+        col_paes = Collection.objects.filter(slug="paes-artesanais").first()
+        col_confeitaria = Collection.objects.filter(slug="confeitaria").first()
+        col_bebidas = Collection.objects.filter(slug="bebidas").first()
+
+        # KDS Pães — Prep: pães artesanais (todos têm receita)
+        kds_paes, _ = KDSInstance.objects.update_or_create(
+            ref="paes",
+            defaults={
+                "name": "Pães",
+                "type": "prep",
+                "target_time_minutes": 15,
+                "sound_enabled": True,
+                "is_active": True,
+            },
+        )
+        kds_paes.collections.clear()
+        if col_paes:
+            kds_paes.collections.add(col_paes)
+
+        # KDS Cafés — Prep: bebidas (café espresso, latte, suco)
+        kds_cafes, _ = KDSInstance.objects.update_or_create(
+            ref="cafes",
+            defaults={
+                "name": "Cafés",
+                "type": "prep",
+                "target_time_minutes": 5,
+                "sound_enabled": True,
+                "is_active": True,
+            },
+        )
+        kds_cafes.collections.clear()
+        if col_bebidas:
+            kds_cafes.collections.add(col_bebidas)
+
+        # KDS Lanches — Picking: confeitaria & folhados (croissant, brioche, danish)
+        kds_lanches, _ = KDSInstance.objects.update_or_create(
+            ref="lanches",
+            defaults={
+                "name": "Lanches",
+                "type": "picking",
+                "target_time_minutes": 8,
+                "sound_enabled": True,
+                "is_active": True,
+            },
+        )
+        kds_lanches.collections.clear()
+        if col_confeitaria:
+            kds_lanches.collections.add(col_confeitaria)
+
+        # KDS Expedição — mostra pedidos prontos (READY)
+        KDSInstance.objects.update_or_create(
+            ref="expedicao",
+            defaults={
+                "name": "Expedição",
+                "type": "expedition",
+                "target_time_minutes": 5,
+                "sound_enabled": True,
+                "is_active": True,
+            },
+        )
+
+        self.stdout.write("  ✅ 4 estações KDS (Pães, Cafés, Lanches, Expedição)")

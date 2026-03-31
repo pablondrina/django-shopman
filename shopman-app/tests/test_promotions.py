@@ -3,8 +3,8 @@ Tests for WP-S6 — Pricing Avançado.
 
 Covers:
 - D1DiscountModifier
-- PromotionModifier
-- CouponModifier
+- DiscountModifier (promotions)
+- DiscountModifier (coupons)
 - Promotion / Coupon models
 - Coupon cart endpoint
 - Qty-aware pricing
@@ -18,7 +18,12 @@ from django.test import TestCase
 from django.utils import timezone
 
 from shop.models import Coupon, Promotion
-from shop.modifiers import CouponModifier, D1DiscountModifier, PromotionModifier
+from shop.modifiers import (
+    D1DiscountModifier,
+    DiscountModifier,
+    EmployeeDiscountModifier,
+    HappyHourModifier,
+)
 
 # ── Helpers ──
 
@@ -103,10 +108,10 @@ class D1DiscountModifierTests(TestCase):
         self.assertEqual(m.order, 15)
 
 
-# ── PromotionModifier ──
+# ── DiscountModifier (promotions) ──
 
 
-class PromotionModifierTests(TestCase):
+class DiscountModifierPromotionTests(TestCase):
 
     def setUp(self):
         now = timezone.now()
@@ -133,19 +138,19 @@ class PromotionModifierTests(TestCase):
         session = _mock_session(items)
         channel = _mock_channel()
 
-        PromotionModifier().apply(channel=channel, session=session, ctx={})
+        DiscountModifier().apply(channel=channel, session=session, ctx={})
 
         self.assertEqual(items[0]["unit_price_q"], 900)
         applied = items[0]["modifiers_applied"]
         self.assertEqual(applied[0]["type"], "promotion")
-        self.assertEqual(applied[0]["promotion_name"], "Summer 10%")
+        self.assertEqual(applied[0]["name"], "Summer 10%")
 
     def test_applies_fixed_discount_to_matching_sku(self):
         items = [{"sku": "BREAD", "qty": 2, "unit_price_q": 500}]
         session = _mock_session(items)
         channel = _mock_channel()
 
-        PromotionModifier().apply(channel=channel, session=session, ctx={})
+        DiscountModifier().apply(channel=channel, session=session, ctx={})
 
         # Fixed R$2 off is better than 10% (50 centavos) for a R$5 item
         self.assertEqual(items[0]["unit_price_q"], 300)
@@ -158,7 +163,7 @@ class PromotionModifierTests(TestCase):
 
         # Only promo_pct applies to CAKE (no SKU restriction)
         # promo_fixed only targets BREAD
-        PromotionModifier().apply(channel=channel, session=session, ctx={})
+        DiscountModifier().apply(channel=channel, session=session, ctx={})
 
         self.assertEqual(items[0]["unit_price_q"], 1800)
 
@@ -172,7 +177,7 @@ class PromotionModifierTests(TestCase):
         session = _mock_session(items)
         channel = _mock_channel()
 
-        PromotionModifier().apply(channel=channel, session=session, ctx={})
+        DiscountModifier().apply(channel=channel, session=session, ctx={})
 
         self.assertEqual(items[0]["unit_price_q"], 1000)
 
@@ -186,7 +191,7 @@ class PromotionModifierTests(TestCase):
         session = _mock_session(items)
         channel = _mock_channel()
 
-        PromotionModifier().apply(channel=channel, session=session, ctx={})
+        DiscountModifier().apply(channel=channel, session=session, ctx={})
 
         self.assertEqual(items[0]["unit_price_q"], 500)
 
@@ -198,7 +203,7 @@ class PromotionModifierTests(TestCase):
         session = _mock_session(items)
         channel = _mock_channel()
 
-        PromotionModifier().apply(channel=channel, session=session, ctx={})
+        DiscountModifier().apply(channel=channel, session=session, ctx={})
 
         # promo_pct blocked by min_order; promo_fixed doesn't match COFFEE
         self.assertEqual(items[0]["unit_price_q"], 1000)
@@ -211,7 +216,7 @@ class PromotionModifierTests(TestCase):
         session = _mock_session(items)
         channel = _mock_channel()
 
-        PromotionModifier().apply(channel=channel, session=session, ctx={})
+        DiscountModifier().apply(channel=channel, session=session, ctx={})
 
         self.assertEqual(items[0]["unit_price_q"], 1000)
 
@@ -232,21 +237,21 @@ class PromotionModifierTests(TestCase):
         channel = _mock_channel()
         ctx = {"sku_collections": {"MUFFIN": ["bakery", "sweets"]}}
 
-        PromotionModifier().apply(channel=channel, session=session, ctx=ctx)
+        DiscountModifier().apply(channel=channel, session=session, ctx=ctx)
 
         # 15% is better than 10%
         self.assertEqual(items[0]["unit_price_q"], 680)
 
     def test_code_and_order(self):
-        m = PromotionModifier()
-        self.assertEqual(m.code, "shop.promotion")
+        m = DiscountModifier()
+        self.assertEqual(m.code, "shop.discount")
         self.assertEqual(m.order, 20)
 
 
-# ── CouponModifier ──
+# ── DiscountModifier (coupons) ──
 
 
-class CouponModifierTests(TestCase):
+class DiscountModifierCouponTests(TestCase):
 
     def setUp(self):
         now = timezone.now()
@@ -271,13 +276,13 @@ class CouponModifierTests(TestCase):
         session = _mock_session(items, data={"coupon_code": "SAVE20"})
         channel = _mock_channel()
 
-        CouponModifier().apply(channel=channel, session=session, ctx={})
+        DiscountModifier().apply(channel=channel, session=session, ctx={})
 
         self.assertEqual(items[0]["unit_price_q"], 800)
         self.assertEqual(items[0]["line_total_q"], 1600)
         applied = items[0]["modifiers_applied"]
         self.assertEqual(applied[0]["type"], "coupon")
-        self.assertEqual(applied[0]["coupon_code"], "SAVE20")
+        self.assertEqual(applied[0]["name"], "SAVE20")
 
         self.assertEqual(session.pricing["coupon"]["code"], "SAVE20")
         self.assertEqual(session.pricing["coupon"]["discount_q"], 400)  # 200 * 2 qty
@@ -287,7 +292,7 @@ class CouponModifierTests(TestCase):
         session = _mock_session(items)
         channel = _mock_channel()
 
-        CouponModifier().apply(channel=channel, session=session, ctx={})
+        DiscountModifier().apply(channel=channel, session=session, ctx={})
 
         self.assertEqual(items[0]["unit_price_q"], 1000)
 
@@ -296,7 +301,7 @@ class CouponModifierTests(TestCase):
         session = _mock_session(items, data={"coupon_code": "INVALID"})
         channel = _mock_channel()
 
-        CouponModifier().apply(channel=channel, session=session, ctx={})
+        DiscountModifier().apply(channel=channel, session=session, ctx={})
 
         self.assertEqual(items[0]["unit_price_q"], 1000)
 
@@ -308,7 +313,7 @@ class CouponModifierTests(TestCase):
         session = _mock_session(items, data={"coupon_code": "SAVE20"})
         channel = _mock_channel()
 
-        CouponModifier().apply(channel=channel, session=session, ctx={})
+        DiscountModifier().apply(channel=channel, session=session, ctx={})
 
         self.assertEqual(items[0]["unit_price_q"], 1000)
 
@@ -320,7 +325,7 @@ class CouponModifierTests(TestCase):
         session = _mock_session(items, data={"coupon_code": "SAVE20"})
         channel = _mock_channel()
 
-        CouponModifier().apply(channel=channel, session=session, ctx={})
+        DiscountModifier().apply(channel=channel, session=session, ctx={})
 
         self.assertEqual(items[0]["unit_price_q"], 1000)
 
@@ -332,7 +337,7 @@ class CouponModifierTests(TestCase):
         session = _mock_session(items, data={"coupon_code": "SAVE20"})
         channel = _mock_channel()
 
-        CouponModifier().apply(channel=channel, session=session, ctx={})
+        DiscountModifier().apply(channel=channel, session=session, ctx={})
 
         self.assertEqual(items[0]["unit_price_q"], 1000)
 
@@ -344,7 +349,7 @@ class CouponModifierTests(TestCase):
         session = _mock_session(items, data={"coupon_code": "SAVE20"})
         channel = _mock_channel()
 
-        CouponModifier().apply(channel=channel, session=session, ctx={})
+        DiscountModifier().apply(channel=channel, session=session, ctx={})
 
         self.assertEqual(items[0]["unit_price_q"], 800)
 
@@ -356,14 +361,14 @@ class CouponModifierTests(TestCase):
         session = _mock_session(items, data={"coupon_code": "SAVE20"})
         channel = _mock_channel()
 
-        CouponModifier().apply(channel=channel, session=session, ctx={})
+        DiscountModifier().apply(channel=channel, session=session, ctx={})
 
         self.assertEqual(items[0]["unit_price_q"], 500)
 
     def test_code_and_order(self):
-        m = CouponModifier()
-        self.assertEqual(m.code, "shop.coupon")
-        self.assertEqual(m.order, 25)
+        m = DiscountModifier()
+        self.assertEqual(m.code, "shop.discount")
+        self.assertEqual(m.order, 20)
 
 
 # ── Model tests ──
@@ -438,6 +443,101 @@ class CouponModelTests(TestCase):
             code="OFF", promotion=promo, max_uses=0, is_active=False,
         )
         self.assertFalse(coupon.is_available)
+
+
+# ── EmployeeDiscountModifier ──
+
+
+class EmployeeDiscountModifierTests(TestCase):
+
+    def test_employee_discount_persists_on_session(self):
+        """Bug 1 fix: verify update_items is called so changes are persisted."""
+        items = [{"sku": "BREAD", "qty": 2, "unit_price_q": 1000}]
+        session = _mock_session(items, data={"customer": {"group": "staff"}})
+        channel = _mock_channel()
+
+        EmployeeDiscountModifier().apply(channel=channel, session=session, ctx={})
+
+        session.update_items.assert_called_once_with(items)
+        self.assertEqual(items[0]["unit_price_q"], 800)
+        self.assertEqual(items[0]["line_total_q"], 1600)
+        applied = items[0]["modifiers_applied"]
+        self.assertEqual(len(applied), 1)
+        self.assertEqual(applied[0]["type"], "employee_discount")
+        self.assertEqual(applied[0]["discount_percent"], 20)
+
+    def test_skips_non_staff(self):
+        items = [{"sku": "BREAD", "qty": 1, "unit_price_q": 1000}]
+        session = _mock_session(items, data={"customer": {"group": "regular"}})
+        channel = _mock_channel()
+
+        EmployeeDiscountModifier().apply(channel=channel, session=session, ctx={})
+
+        session.update_items.assert_not_called()
+        self.assertEqual(items[0]["unit_price_q"], 1000)
+
+    def test_skips_when_no_customer_data(self):
+        items = [{"sku": "BREAD", "qty": 1, "unit_price_q": 1000}]
+        session = _mock_session(items)
+        channel = _mock_channel()
+
+        EmployeeDiscountModifier().apply(channel=channel, session=session, ctx={})
+
+        session.update_items.assert_not_called()
+
+
+# ── HappyHourModifier ──
+
+
+class HappyHourModifierTests(TestCase):
+
+    def test_happy_hour_discount_persists_on_session(self):
+        """Bug 2 fix: verify update_items is called so changes are persisted."""
+        from datetime import time
+
+        items = [{"sku": "BREAD", "qty": 1, "unit_price_q": 1000}]
+        session = _mock_session(items)
+        channel = _mock_channel()
+
+        # Force time window to always match
+        modifier = HappyHourModifier(start=time(0, 0), end=time(23, 59))
+        modifier.apply(channel=channel, session=session, ctx={})
+
+        session.update_items.assert_called_once_with(items)
+        self.assertEqual(items[0]["unit_price_q"], 900)
+        self.assertEqual(items[0]["line_total_q"], 900)
+        applied = items[0]["modifiers_applied"]
+        self.assertEqual(len(applied), 1)
+        self.assertEqual(applied[0]["type"], "happy_hour")
+        self.assertEqual(applied[0]["discount_percent"], 10)
+
+    def test_skips_outside_happy_hour(self):
+        from datetime import time
+
+        items = [{"sku": "BREAD", "qty": 1, "unit_price_q": 1000}]
+        session = _mock_session(items)
+        channel = _mock_channel()
+
+        # Time window that never matches (past midnight micro-window)
+        modifier = HappyHourModifier(start=time(0, 0), end=time(0, 0))
+        modifier.apply(channel=channel, session=session, ctx={})
+
+        session.update_items.assert_not_called()
+        self.assertEqual(items[0]["unit_price_q"], 1000)
+
+    def test_skips_items_with_employee_discount(self):
+        from datetime import time
+
+        items = [{"sku": "BREAD", "qty": 1, "unit_price_q": 800,
+                  "modifiers_applied": [{"type": "employee_discount"}]}]
+        session = _mock_session(items)
+        channel = _mock_channel()
+
+        modifier = HappyHourModifier(start=time(0, 0), end=time(23, 59))
+        modifier.apply(channel=channel, session=session, ctx={})
+
+        session.update_items.assert_not_called()
+        self.assertEqual(items[0]["unit_price_q"], 800)
 
 
 # ── Qty-aware pricing ──

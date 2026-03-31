@@ -1,0 +1,34 @@
+{% comment %}Floating action button. Required: label. Optional: url, hx_post, icon, variant. Fixed bottom, 48px touch.{% endcomment %}
+
+{% with btn_variant=variant|default:"primary" %}
+
+<div class="fixed bottom-0 left-0 right-0 z-40 px-4 pb-4 pt-2 bg-gradient-to-t from-background via-background/90 to-transparent pointer-events-none"
+     style="padding-bottom: calc(1rem + var(--safe-area-bottom));">
+  {% if url %}
+  <a href="{{ url }}"
+  {% elif hx_post %}
+  <button type="button" hx-post="{{ hx_post }}"
+    {% if hx_target %}hx-target="{{ hx_target }}"{% endif %}
+    {% if hx_swap %}hx-swap="{{ hx_swap }}"{% endif %}
+  {% else %}
+  <button type="button"
+  {% endif %}
+    class="
+      pointer-events-auto w-full touch-target flex items-center justify-center gap-2 py-3.5 px-6
+      text-body font-semibold rounded-xl shadow-lg transition-colors
+      {% if btn_variant == 'primary' %}bg-primary text-primary-foreground hover:bg-primary-hover{% endif %}
+      {% if btn_variant == 'secondary' %}bg-secondary text-secondary-foreground hover:bg-secondary-hover{% endif %}
+      {% if btn_variant == 'danger' %}bg-error text-white hover:bg-error/90{% endif %}
+    "
+    {% if aria_label %}aria-label="{{ aria_label }}"{% endif %}
+  >
+    {% if icon %}<span class="w-5 h-5 flex-shrink-0">{{ icon|safe }}</span>{% endif %}
+    {{ label }}
+  {% if url %}
+  </a>
+  {% else %}
+  </button>
+  {% endif %}
+</div>
+
+{% endwith %}

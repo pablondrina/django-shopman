@@ -1,34 +1,42 @@
 {% load storefront_tags %}
-<div id="cart-item-{{ item.line_id }}" class="px-6 py-4 flex items-center gap-4 border-b border-cream-dark/50 last:border-b-0">
+<div id="cart-item-{{ item.line_id }}" class="px-6 py-4 flex items-center gap-4 border-b border-border/50 last:border-b-0">
   <!-- Product emoji -->
-  <div class="w-14 h-14 bg-gradient-to-br from-cream-dark to-cream rounded-lg flex items-center justify-center flex-shrink-0">
+  <div class="w-14 h-14 bg-gradient-to-br from-border to-background rounded-lg flex items-center justify-center flex-shrink-0">
     <span class="text-2xl">{{ item.sku|product_emoji }}</span>
   </div>
 
   <!-- Product info -->
   <div class="flex-1 min-w-0">
-    <h4 class="font-medium text-bark text-sm truncate">{{ item.name|default:item.sku }}</h4>
-    <p class="text-wheat-dark text-sm font-medium">{{ item.price_display }}</p>
+    <h4 class="font-medium text-foreground text-sm truncate">{{ item.name|default:item.sku }}</h4>
+    {% if item.original_price_display %}
+    <p class="text-sm">
+      <span class="line-through text-muted-foreground/50">{{ item.original_price_display }}</span>
+      <span class="text-primary font-medium">{{ item.price_display }}</span>
+      <span class="text-xs text-success font-medium">{{ item.discount_label }}</span>
+    </p>
+    {% else %}
+    <p class="text-primary text-sm font-medium">{{ item.price_display }}</p>
+    {% endif %}
   </div>
 
   <!-- Quantity controls -->
-  <div class="flex items-center border border-cream-dark rounded-lg overflow-hidden">
+  <div class="flex items-center border border-border rounded-lg overflow-hidden">
     {% if item.qty > 1 %}
     <button
       type="button"
-      class="px-2.5 py-1.5 text-bark hover:bg-cream-dark transition-colors text-sm"
+      class="px-2.5 py-1.5 text-foreground hover:bg-muted transition-colors text-sm"
       hx-post="{% url 'storefront:cart_update' %}"
       hx-vals='{"line_id": "{{ item.line_id }}", "qty": "{{ item.qty|add:"-1" }}"}'
       hx-target="#cart-item-{{ item.line_id }}"
       hx-swap="outerHTML"
     >-</button>
     {% else %}
-    <button type="button" class="px-2.5 py-1.5 text-bark-light/30 cursor-not-allowed text-sm" disabled>-</button>
+    <button type="button" class="px-2.5 py-1.5 text-muted-foreground/30 cursor-not-allowed text-sm" disabled>-</button>
     {% endif %}
-    <span class="w-10 text-center py-1.5 border-x border-cream-dark text-bark text-sm bg-white">{{ item.qty|floatformat:"0" }}</span>
+    <span class="w-10 text-center py-1.5 border-x border-border text-foreground text-sm bg-surface">{{ item.qty|floatformat:"0" }}</span>
     <button
       type="button"
-      class="px-2.5 py-1.5 text-bark hover:bg-cream-dark transition-colors text-sm"
+      class="px-2.5 py-1.5 text-foreground hover:bg-muted transition-colors text-sm"
       hx-post="{% url 'storefront:cart_update' %}"
       hx-vals='{"line_id": "{{ item.line_id }}", "qty": "{{ item.qty|add:"1" }}"}'
       hx-target="#cart-item-{{ item.line_id }}"
@@ -38,13 +46,13 @@
 
   <!-- Line total -->
   <div class="text-right w-24 flex-shrink-0">
-    <p class="font-bold text-bark text-sm">{{ item.total_display }}</p>
+    <p class="font-bold text-foreground text-sm">{{ item.total_display }}</p>
   </div>
 
   <!-- Remove button -->
   <button
     type="button"
-    class="text-bark-light/50 hover:text-red-500 transition-colors p-1 flex-shrink-0"
+    class="text-muted-foreground/50 hover:text-error transition-colors p-1 flex-shrink-0"
     hx-post="{% url 'storefront:cart_remove' %}"
     hx-vals='{"line_id": "{{ item.line_id }}"}'
     hx-target="#cart-item-{{ item.line_id }}"

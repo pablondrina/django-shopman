@@ -1,0 +1,180 @@
+<div
+  data-order-card
+  data-ref="{{ o.ref }}"
+  x-data="{ expanded: false, rejectMode: false, rejectReason: '' }"
+  style="
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  "
+>
+  {# ── Card header ── #}
+  <div
+    @click="expanded = !expanded"
+    style="
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      gap: 0.5rem;
+    "
+  >
+    <div style="display: flex; align-items: center; gap: 0.5rem; min-width: 0;">
+      <span style="font-size: 1.25rem;">{{ o.channel_badge }}</span>
+      <span style="font-weight: 600; font-size: var(--text-body-sm);">{{ o.ref }}</span>
+      <span class="{{ o.status_color }}" style="
+        font-size: var(--text-caption);
+        padding: 0.125rem 0.5rem;
+        border-radius: var(--radius-full);
+        white-space: nowrap;
+      ">{{ o.status_label }}</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0;">
+      <span
+        class="{{ o.timer_class }}"
+        style="font-size: var(--text-caption); font-variant-numeric: tabular-nums;"
+        x-data="{ elapsed: {{ o.elapsed_seconds }} }"
+        x-init="setInterval(() => elapsed++, 1000)"
+        x-text="Math.floor(elapsed / 60) + ':' + String(elapsed % 60).padStart(2, '0')"
+      ></span>
+    </div>
+  </div>
+
+  {# ── Card body ── #}
+  <div style="padding: 0 1rem 0.75rem;">
+    {% if o.customer_name %}
+    <div style="font-size: var(--text-body-sm); font-weight: 500; margin-bottom: 0.25rem;">
+      {{ o.customer_name }}
+    </div>
+    {% endif %}
+    <div style="font-size: var(--text-caption); color: var(--foreground-muted); margin-bottom: 0.25rem;">
+      {{ o.items_summary }}{% if o.items_count > 3 %} (+{{ o.items_count|add:"-3" }}){% endif %}
+    </div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
+      <span style="font-size: var(--text-caption); color: var(--foreground-muted);">
+        {{ o.fulfillment_type }}
+      </span>
+      <span style="font-weight: 600; font-size: var(--text-body-sm);">
+        {{ o.total_display }}
+      </span>
+    </div>
+  </div>
+
+  {# ── Action buttons ── #}
+  <div style="padding: 0 1rem 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+    {% if o.can_confirm %}
+      <button
+        hx-post="/pedidos/{{ o.ref }}/confirm/"
+        hx-target="closest [data-order-card]"
+        hx-swap="outerHTML"
+        style="
+          flex: 1;
+          padding: 0.5rem 1rem;
+          background: var(--success);
+          color: var(--success-foreground);
+          border: none;
+          border-radius: var(--radius-md);
+          font-size: var(--text-body-sm);
+          font-weight: 600;
+          cursor: pointer;
+          min-height: var(--touch-min);
+        "
+      >Confirmar &#x2713;</button>
+      <button
+        @click="rejectMode = !rejectMode"
+        style="
+          padding: 0.5rem 1rem;
+          background: var(--error-light);
+          color: var(--error-foreground);
+          border: none;
+          border-radius: var(--radius-md);
+          font-size: var(--text-body-sm);
+          font-weight: 600;
+          cursor: pointer;
+          min-height: var(--touch-min);
+        "
+      >Rejeitar &#x2717;</button>
+    {% endif %}
+
+    {% if o.can_advance %}
+      <button
+        hx-post="/pedidos/{{ o.ref }}/advance/"
+        hx-target="closest [data-order-card]"
+        hx-swap="outerHTML"
+        style="
+          flex: 1;
+          padding: 0.5rem 1rem;
+          background: var(--primary);
+          color: var(--primary-foreground);
+          border: none;
+          border-radius: var(--radius-md);
+          font-size: var(--text-body-sm);
+          font-weight: 600;
+          cursor: pointer;
+          min-height: var(--touch-min);
+        "
+      >{{ o.next_action_label }}</button>
+    {% endif %}
+  </div>
+
+  {# ── Reject form (inline) ── #}
+  <div x-show="rejectMode" x-cloak style="padding: 0 1rem 0.75rem;">
+    <textarea
+      x-model="rejectReason"
+      placeholder="Motivo da rejeição..."
+      rows="2"
+      style="
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        font-size: var(--text-body-sm);
+        font-family: var(--font-body);
+        background: var(--input);
+        color: var(--foreground);
+        resize: vertical;
+        box-sizing: border-box;
+      "
+    ></textarea>
+    <button
+      @click="
+        if (!rejectReason.trim()) return;
+        var form = new FormData();
+        form.append('reason', rejectReason);
+        htmx.ajax('POST', '/pedidos/{{ o.ref }}/reject/', {
+          target: $el.closest('[data-order-card]'),
+          swap: 'outerHTML',
+          values: { reason: rejectReason }
+        });
+      "
+      style="
+        margin-top: 0.5rem;
+        width: 100%;
+        padding: 0.5rem;
+        background: var(--error);
+        color: white;
+        border: none;
+        border-radius: var(--radius-md);
+        font-size: var(--text-body-sm);
+        font-weight: 600;
+        cursor: pointer;
+        min-height: var(--touch-min);
+      "
+    >Confirmar Rejeição</button>
+  </div>
+
+  {# ── Expanded detail (accordion) ── #}
+  <div x-show="expanded" x-cloak>
+    <div
+      hx-get="/pedidos/{{ o.ref }}/detail/"
+      hx-trigger="intersect once"
+      hx-swap="innerHTML"
+      style="border-top: 1px solid var(--border); padding: 0.75rem 1rem;"
+    >
+      <span style="font-size: var(--text-caption); color: var(--foreground-muted);">Carregando...</span>
+    </div>
+  </div>
+</div>

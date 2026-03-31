@@ -1,0 +1,57 @@
+function gestorPedidos() {
+  return {
+    filter: sessionStorage.getItem('gestor_filter') || 'all',
+    soundEnabled: sessionStorage.getItem('gestor_sound') !== 'false',
+    previousCount: 0,
+    clock: '',
+
+    init() {
+      this.previousCount = document.querySelectorAll('[data-order-card]').length;
+
+      document.addEventListener('htmx:afterSwap', (e) => {
+        if (e.detail.target.id === 'order-grid') {
+          var newCount = e.detail.target.querySelectorAll('[data-order-card]').length;
+          if (newCount > this.previousCount && this.soundEnabled) {
+            this.playSound();
+          }
+          this.previousCount = newCount;
+        }
+      });
+    },
+
+    setFilter(f) {
+      this.filter = f;
+      sessionStorage.setItem('gestor_filter', f);
+      htmx.ajax('GET', '/pedidos/list/?filter=' + f, {target: '#order-grid', swap: 'innerHTML'});
+    },
+
+    toggleSound() {
+      this.soundEnabled = !this.soundEnabled;
+      sessionStorage.setItem('gestor_sound', this.soundEnabled ? 'true' : 'false');
+    },
+
+    playSound() {
+      try {
+        var ctx = new (window.AudioContext || window.webkitAudioContext)();
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 880;
+        osc.type = 'sine';
+        gain.gain.value = 0.3;
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+        osc.stop(ctx.currentTime + 0.3);
+      } catch (e) {}
+    },
+
+    toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    }
+  }
+}

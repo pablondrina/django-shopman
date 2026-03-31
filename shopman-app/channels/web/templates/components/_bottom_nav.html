@@ -1,0 +1,50 @@
+{# Bottom nav: mobile 3-tab bar (Cardápio, Pedidos, Conta). Fixed bottom, 56px + safe area. #}
+
+<nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface border-t border-border"
+     style="padding-bottom: env(safe-area-inset-bottom, 0px);"
+     aria-label="Navegação principal"
+     x-data="{ active: '{{ active_tab|default:'menu' }}' }">
+
+  <div class="flex items-stretch justify-around h-14">
+
+    {# Cardápio #}
+    <a href="{% url 'storefront:menu' %}"
+       class="flex flex-col items-center justify-center flex-1 gap-0.5 text-xs transition-colors"
+       :class="active === 'menu' ? 'text-primary font-semibold' : 'text-muted-foreground'"
+       @click="active = 'menu'">
+      {# Icon: filled when active, outline when inactive #}
+      <svg class="w-5 h-5" :fill="active === 'menu' ? 'currentColor' : 'none'" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+      </svg>
+      <span>Cardápio</span>
+    </a>
+
+    {# Pedidos #}
+    <a href="{% url 'storefront:order_history' %}"
+       class="relative flex flex-col items-center justify-center flex-1 gap-0.5 text-xs transition-colors"
+       :class="active === 'orders' ? 'text-primary font-semibold' : 'text-muted-foreground'"
+       @click="active = 'orders'">
+      <svg class="w-5 h-5" :fill="active === 'orders' ? 'currentColor' : 'none'" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+      </svg>
+      <span>Pedidos</span>
+      {# Active orders badge (HTMX polling) #}
+      <span id="orders-badge"
+            hx-get="{% url 'storefront:order_history' %}?badge_only=1"
+            hx-trigger="every 30s"
+            hx-swap="innerHTML"></span>
+    </a>
+
+    {# Conta #}
+    <a href="{% if request.user.is_authenticated %}{% url 'storefront:account' %}{% else %}{% url 'storefront:login' %}{% endif %}"
+       class="flex flex-col items-center justify-center flex-1 gap-0.5 text-xs transition-colors"
+       :class="active === 'account' ? 'text-primary font-semibold' : 'text-muted-foreground'"
+       @click="active = 'account'">
+      <svg class="w-5 h-5" :fill="active === 'account' ? 'currentColor' : 'none'" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+      </svg>
+      <span>{% if request.user.is_authenticated %}Conta{% else %}Entrar{% endif %}</span>
+    </a>
+
+  </div>
+</nav>

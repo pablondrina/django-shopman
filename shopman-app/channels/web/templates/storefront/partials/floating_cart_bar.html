@@ -1,21 +1,21 @@
 {% if cart_count and cart_count > 0 %}
 <div class="floating-cart-bar">
   <div class="max-w-6xl mx-auto px-4">
-    <a href="{% url 'storefront:cart' %}"
-       class="flex items-center justify-between py-3" style="min-height: var(--touch-min);">
+    <button @click="openCartDrawer()"
+       class="w-full flex items-center justify-between py-3" style="min-height: var(--touch-min);">
       <div class="flex items-center gap-3">
-        <span class="bg-wheat text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">{{ cart_count }}</span>
-        <span class="text-cream text-sm font-medium">
+        <span class="bg-primary text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">{{ cart_count }}</span>
+        <span class="text-background text-sm font-medium">
           {{ cart_count }} {{ cart_count|pluralize:"item,itens" }}
         </span>
       </div>
       <div class="flex items-center gap-3">
-        <span class="text-cream font-bold">{{ cart_subtotal_display }}</span>
-        <span class="bg-wheat text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-wheat-dark transition-colors" style="min-height: var(--touch-min); display: flex; align-items: center;">
+        <span class="text-background font-bold">{{ cart_subtotal_display }}</span>
+        <span class="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors" style="min-height: var(--touch-min); display: flex; align-items: center;">
           Ver Carrinho
         </span>
       </div>
-    </a>
+    </button>
   </div>
 </div>
 {% endif %}

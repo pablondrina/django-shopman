@@ -1,9 +1,26 @@
 from __future__ import annotations
 
+import os
+
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
 from django.db import models
 
+from .fonts import BODY_FONTS, HEADING_FONTS
+
 SHOP_CACHE_KEY = "shop_singleton"
+LOGO_ALLOWED_EXTENSIONS = {".svg", ".png", ".jpg", ".jpeg", ".webp"}
+LOGO_MAX_SIZE_BYTES = 2 * 1024 * 1024  # 2 MB
+
+
+def validate_logo(value):
+    """Validate logo file: extension and size."""
+    ext = os.path.splitext(value.name)[1].lower()
+    if ext not in LOGO_ALLOWED_EXTENSIONS:
+        allowed = ", ".join(sorted(LOGO_ALLOWED_EXTENSIONS))
+        raise ValidationError(f"Formato não suportado ({ext}). Use: {allowed}")
+    if value.size > LOGO_MAX_SIZE_BYTES:
+        raise ValidationError(f"Arquivo muito grande ({value.size // 1024}KB). Máximo: 2MB.")
 SHOP_CACHE_TTL = 60  # seconds
 
 
@@ -56,14 +73,62 @@ class Shop(models.Model):
     short_name = models.CharField("nome curto (PWA)", max_length=30, blank=True)
     tagline = models.CharField("tagline", max_length=200, blank=True)
     description = models.TextField("descrição", blank=True)
-    primary_color = models.CharField("cor primária", max_length=7, default="#9E833E")
-    background_color = models.CharField("cor de fundo", max_length=7, default="#F5F0EB")
-    logo_url = models.URLField("logo", max_length=500, blank=True)
+    primary_color = models.CharField("cor primária", max_length=9, default="#9E833E")
+    logo = models.FileField(
+        "logotipo", upload_to="branding/", blank=True,
+        validators=[validate_logo],
+        help_text="SVG, PNG, JPG ou WebP. Máximo 2MB. Exibido com altura de 40px no header.",
+    )
 
-    # ── Redes e contatos ──
-    website = models.URLField("site", blank=True)
-    instagram = models.CharField("Instagram", max_length=100, blank=True)
-    whatsapp = models.CharField("WhatsApp", max_length=20, blank=True)
+    # ── Paleta de Cores (OKLCH) ──
+    secondary_color = models.CharField(
+        "cor secundária", max_length=9, blank=True, default="",
+        help_text="Cor de apoio. Vazio = derivada automaticamente (hue +120° da primária)",
+    )
+    accent_color = models.CharField(
+        "cor de destaque", max_length=9, blank=True, default="",
+        help_text="Cor de destaque/CTA. Vazio = derivada automaticamente (hue -60° da primária)",
+    )
+    neutral_color = models.CharField(
+        "tom neutro (claro)", max_length=9, blank=True, default="",
+        help_text="Fundo da página no modo claro. Superfícies clareiam para branco. Vazio = creme derivado da primária.",
+    )
+    neutral_dark_color = models.CharField(
+        "tom neutro (escuro)", max_length=9, blank=True, default="",
+        help_text="Fundo da página no modo escuro. Superfícies escurecem para preto. Vazio = derivado do tom claro.",
+    )
+    COLOR_MODE_CHOICES = [
+        ("light", "Claro"),
+        ("dark", "Escuro"),
+        ("auto", "Automático (sistema do usuário)"),
+    ]
+    color_mode = models.CharField(
+        "modo de cor", max_length=10, default="light", choices=COLOR_MODE_CHOICES,
+        help_text="Automático respeita a preferência de tema do sistema do usuário",
+    )
+
+    # ── Tipografia & Forma ──
+    heading_font = models.CharField(
+        "fonte de títulos", max_length=100, default="Playfair Display",
+        choices=HEADING_FONTS,
+    )
+    body_font = models.CharField(
+        "fonte de corpo", max_length=100, default="Inter",
+        choices=BODY_FONTS,
+    )
+    RADIUS_CHOICES = [
+        ("square",  "Quadrado (0px)"),
+        ("soft",    "Suave (4px)"),
+        ("default", "Padrão (8px)"),
+        ("strong",  "Forte (16px)"),
+        ("round",   "Redondo (9999px)"),
+    ]
+    border_radius = models.CharField(
+        "arredondamento", max_length=20, default="default", choices=RADIUS_CHOICES,
+        help_text="Define o arredondamento dos cantos de botões, cards e inputs",
+    )
+
+    # ── Redes sociais ──
     social_links = models.JSONField(
         "redes sociais",
         default=list,
@@ -117,7 +182,12 @@ class Shop(models.Model):
 
     @property
     def theme_color(self) -> str:
-        return self.primary_color
+        return self.primary_color or "#9E833E"
+
+    @property
+    def background_color(self) -> str:
+        """Hex background color (derived from OKLCH neutral scale). Used by PWA manifest."""
+        return self.design_tokens.get("background_hex", "#F5F0EB")
 
     @property
     def default_city(self) -> str:
@@ -128,14 +198,6 @@ class Shop(models.Model):
         if self.city and self.state_code:
             return f"{self.city} — {self.state_code}"
         return self.city or self.state_code or ""
-
-    @property
-    def whatsapp_number(self) -> str:
-        return self.whatsapp
-
-    @property
-    def whatsapp_url(self) -> str:
-        return f"https://wa.me/{self.whatsapp}" if self.whatsapp else "#"
 
     @property
     def phone_display(self) -> str:
@@ -203,25 +265,49 @@ class Shop(models.Model):
 
         Each dict: {url, platform, label, icon_svg}
         Auto-detects platform from URL domain.
-        Falls back to old fields (website, instagram, whatsapp) if social_links is empty.
         """
-        urls = self.social_links if self.social_links else []
-
-        # Fallback: build from legacy fields if social_links not configured
-        if not urls:
-            if self.whatsapp:
-                urls.append(f"https://wa.me/{self.whatsapp}")
-            if self.instagram:
-                handle = self.instagram.lstrip("@")
-                urls.append(f"https://instagram.com/{handle}")
-            if self.website:
-                urls.append(self.website)
-
+        urls = self.social_links or []
         return [_resolve_social_link(url) for url in urls if url]
 
     @property
     def description_html(self) -> str:
         return self.description.replace("\n", "<br>")
+
+    @property
+    def design_tokens(self) -> dict:
+        """Return complete design token dict for template rendering.
+
+        Uses OKLCH color space to generate 12-step scales from seed colors.
+        Includes light mode tokens, dark mode tokens, and hex fallbacks.
+        """
+        from .colors import generate_design_tokens
+
+        radius_map = {
+            "square":  {"sm": "0px",    "md": "0px",    "lg": "0px",    "xl": "0px"},
+            "soft":    {"sm": "2px",    "md": "4px",    "lg": "6px",    "xl": "8px"},
+            "default": {"sm": "4px",    "md": "8px",    "lg": "12px",   "xl": "16px"},
+            "strong":  {"sm": "8px",    "md": "16px",   "lg": "20px",   "xl": "24px"},
+            "round":   {"sm": "9999px", "md": "9999px", "lg": "9999px", "xl": "9999px"},
+        }
+        radii = radius_map.get(self.border_radius, radius_map["default"])
+
+        tokens = generate_design_tokens(
+            primary_hex=self.primary_color or "#9E833E",
+            secondary_hex=self.secondary_color or "",
+            accent_hex=self.accent_color or "",
+            neutral_hex=self.neutral_color or "",
+            neutral_dark_hex=self.neutral_dark_color or "",
+            color_mode=self.color_mode or "light",
+        )
+        tokens.update({
+            "heading_font": self.heading_font or "Playfair Display",
+            "body_font": self.body_font or "Inter",
+            "radius_sm": radii["sm"],
+            "radius_md": radii["md"],
+            "radius_lg": radii["lg"],
+            "radius_xl": radii["xl"],
+        })
+        return tokens
 
 
 # ── Social link detection ──
@@ -326,6 +412,12 @@ class Promotion(models.Model):
         blank=True,
         help_text='Tipos de entrega (vazio = todos). Ex: ["delivery", "pickup"]',
     )
+    customer_segments = models.JSONField(
+        "segmentos de cliente",
+        default=list,
+        blank=True,
+        help_text='Segmentos RFM para targeting (vazio = todos). Ex: ["champions", "loyal"]',
+    )
     is_active = models.BooleanField("ativa", default=True)
 
     class Meta:
@@ -365,3 +457,145 @@ class Coupon(models.Model):
     @property
     def is_available(self) -> bool:
         return self.is_active and (self.max_uses == 0 or self.uses_count < self.max_uses)
+
+
+class OperatorAlert(models.Model):
+    """Alerta operacional — falhas, estoque baixo, pagamentos pendentes."""
+
+    TYPE_CHOICES = [
+        ("notification_failed", "Notificação falhou"),
+        ("payment_failed", "Pagamento falhou"),
+        ("stock_discrepancy", "Discrepância de estoque"),
+        ("payment_after_cancel", "Pagamento após cancelamento"),
+        ("stock_low", "Estoque baixo"),
+    ]
+    SEVERITY_CHOICES = [
+        ("warning", "Aviso"),
+        ("error", "Erro"),
+        ("critical", "Crítico"),
+    ]
+
+    type = models.CharField("tipo", max_length=30, choices=TYPE_CHOICES)
+    severity = models.CharField("severidade", max_length=10, choices=SEVERITY_CHOICES, default="warning")
+    message = models.TextField("mensagem")
+    order_ref = models.CharField("ref do pedido", max_length=50, blank=True)
+    acknowledged = models.BooleanField("reconhecido", default=False)
+    created_at = models.DateTimeField("criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "alerta operacional"
+        verbose_name_plural = "alertas operacionais"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"[{self.get_severity_display()}] {self.message[:80]}"
+
+
+class DayClosing(models.Model):
+    """Registro de fechamento do dia (auditoria)."""
+
+    date = models.DateField("data", unique=True)
+    closed_by = models.ForeignKey(
+        "auth.User",
+        on_delete=models.PROTECT,
+        verbose_name="fechado por",
+    )
+    closed_at = models.DateTimeField("fechado em", auto_now_add=True)
+    notes = models.TextField("observações", blank=True)
+    data = models.JSONField(
+        "snapshot",
+        default=list,
+        blank=True,
+        help_text="Lista de dicts: [{sku, qty_remaining, qty_d1, qty_loss}]",
+    )
+
+    class Meta:
+        verbose_name = "fechamento do dia"
+        verbose_name_plural = "fechamentos do dia"
+        ordering = ["-date"]
+
+    def __str__(self):
+        return f"Fechamento {self.date}"
+
+
+# ---------------------------------------------------------------------------
+# KDS (Kitchen Display System)
+# ---------------------------------------------------------------------------
+
+
+class KDSInstance(models.Model):
+    """Estação KDS: Prep (preparo), Picking (separação) ou Expedition (despacho)."""
+
+    TYPE_CHOICES = [
+        ("prep", "Preparo"),
+        ("picking", "Separação"),
+        ("expedition", "Expedição"),
+    ]
+
+    ref = models.SlugField("ref", max_length=50, unique=True)
+    name = models.CharField("nome", max_length=200)
+    type = models.CharField("tipo", max_length=20, choices=TYPE_CHOICES)
+    collections = models.ManyToManyField(
+        "offering.Collection",
+        blank=True,
+        verbose_name="coleções",
+        help_text="Categorias de produto que esta estação processa. Vazio = catch-all.",
+    )
+    target_time_minutes = models.PositiveIntegerField(
+        "tempo alvo (min)", default=10,
+        help_text="Timer fica amarelo após este tempo, vermelho após 2x.",
+    )
+    sound_enabled = models.BooleanField("som ativo", default=True)
+    is_active = models.BooleanField("ativa", default=True)
+    config = models.JSONField(
+        "configurações", default=dict, blank=True,
+        help_text="text_size, dark_mode, refresh_interval, etc.",
+    )
+
+    class Meta:
+        verbose_name = "instância KDS"
+        verbose_name_plural = "instâncias KDS"
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_type_display()})"
+
+
+class KDSTicket(models.Model):
+    """Ticket despachado para uma estação KDS com items de um pedido."""
+
+    STATUS_CHOICES = [
+        ("pending", "Pendente"),
+        ("in_progress", "Em andamento"),
+        ("done", "Concluído"),
+    ]
+
+    order = models.ForeignKey(
+        "ordering.Order",
+        on_delete=models.CASCADE,
+        related_name="kds_tickets",
+        verbose_name="pedido",
+    )
+    kds_instance = models.ForeignKey(
+        KDSInstance,
+        on_delete=models.CASCADE,
+        related_name="tickets",
+        verbose_name="estação KDS",
+    )
+    items = models.JSONField(
+        "items", default=list,
+        help_text='[{"sku", "name", "qty", "notes", "checked": false}]',
+    )
+    status = models.CharField(
+        "status", max_length=20, choices=STATUS_CHOICES, default="pending",
+    )
+    created_at = models.DateTimeField("criado em", auto_now_add=True)
+    completed_at = models.DateTimeField("concluído em", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "ticket KDS"
+        verbose_name_plural = "tickets KDS"
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"KDS #{self.pk} — {self.order.ref} → {self.kds_instance.ref}"

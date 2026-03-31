@@ -62,8 +62,8 @@ def expired_coupon(expired_promotion):
 
 
 class TestCartShowsCouponInput:
-    def test_cart_shows_coupon_input_field(self, cart_session):
-        resp = cart_session.get("/cart/")
+    def test_cart_drawer_shows_coupon_input_field(self, cart_session):
+        resp = cart_session.get("/cart/drawer/")
         content = resp.content.decode()
         assert resp.status_code == 200
         assert 'name="code"' in content
@@ -74,10 +74,10 @@ class TestCartShowsCouponInput:
 
 
 class TestApplyCoupon:
-    def test_apply_valid_coupon_refreshes_page(self, cart_session, coupon):
+    def test_apply_valid_coupon_triggers_cart_updated(self, cart_session, coupon):
         resp = cart_session.post("/cart/coupon/", {"code": "TESTE10"})
         assert resp.status_code == 200
-        assert resp.headers.get("HX-Refresh") == "true"
+        assert "cartUpdated" in resp.headers.get("HX-Trigger", "")
 
     def test_apply_valid_coupon_stores_in_session(self, cart_session, coupon):
         from shopman.ordering.models import Session
@@ -110,11 +110,11 @@ class TestApplyCoupon:
 
 
 class TestRemoveCoupon:
-    def test_remove_coupon_refreshes_page(self, cart_session, coupon):
+    def test_remove_coupon_triggers_cart_updated(self, cart_session, coupon):
         cart_session.post("/cart/coupon/", {"code": "TESTE10"})
         resp = cart_session.post("/cart/coupon/remove/")
         assert resp.status_code == 200
-        assert resp.headers.get("HX-Refresh") == "true"
+        assert "cartUpdated" in resp.headers.get("HX-Trigger", "")
 
     def test_remove_coupon_clears_session_data(self, cart_session, coupon):
         from shopman.ordering.models import Session
@@ -130,7 +130,7 @@ class TestRemoveCoupon:
 
 
 class TestCartBreakdown:
-    def test_cart_breakdown_with_discount(self, cart_session, coupon):
+    def test_cart_drawer_breakdown_with_discount(self, cart_session, coupon):
         from shopman.ordering.models import Session
 
         cart_session.post("/cart/coupon/", {"code": "TESTE10"})
@@ -138,12 +138,12 @@ class TestCartBreakdown:
         session = Session.objects.get(session_key=sk)
         # Coupon was stored in session
         assert session.data.get("coupon_code") == "TESTE10"
-        # Cart page renders successfully
-        resp = cart_session.get("/cart/")
+        # Cart drawer renders successfully
+        resp = cart_session.get("/cart/drawer/")
         assert resp.status_code == 200
 
-    def test_cart_breakdown_without_discount(self, cart_session):
-        resp = cart_session.get("/cart/")
+    def test_cart_drawer_breakdown_without_discount(self, cart_session):
+        resp = cart_session.get("/cart/drawer/")
         assert resp.status_code == 200
         content = resp.content.decode()
         assert "Desconto" not in content

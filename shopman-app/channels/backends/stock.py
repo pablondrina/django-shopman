@@ -39,6 +39,7 @@ class StockingBackend:
         quantity: Decimal,
         target_date: date | None = None,
         safety_margin: int = 0,
+        allowed_positions: list[str] | None = None,
     ) -> AvailabilityResult:
         if not _stocking_available():
             raise ImportError("Stocking não está instalado.")
@@ -54,7 +55,12 @@ class StockingBackend:
                 message=f"Produto não encontrado: {sku}",
             )
 
-        available = stock.available(product, target_date=target_date)
+        if allowed_positions is not None:
+            available = self._available_at_positions(
+                sku, product, target_date, allowed_positions,
+            )
+        else:
+            available = stock.available(product, target_date=target_date)
 
         # Apply safety margin for planned stock (advance orders)
         if target_date and target_date > date.today() and safety_margin > 0:
@@ -65,6 +71,23 @@ class StockingBackend:
             available_qty=Decimal(str(available)),
             message=None if quantity <= available else f"Disponível: {available}",
         )
+
+    @staticmethod
+    def _available_at_positions(
+        sku: str,
+        product,
+        target_date: date | None,
+        position_refs: list[str],
+    ) -> Decimal:
+        """Sum availability across specific positions only."""
+        from shopman.stocking.service import Stock as stock
+        from shopman.stocking.models import Position
+
+        total = Decimal("0")
+        positions = Position.objects.filter(ref__in=position_refs)
+        for pos in positions:
+            total += stock.available(product, target_date=target_date, position=pos)
+        return total
 
     def create_hold(
         self,

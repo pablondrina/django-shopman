@@ -1,0 +1,11 @@
+{% if orders %}
+<div class="order-grid-inner">
+  {% for o in orders %}
+    {% include "pedidos/partials/card.html" %}
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  Nenhum pedido ativo
+</div>
+{% endif %}

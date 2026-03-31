@@ -29,11 +29,12 @@ Django Shopman é composto por **8 apps core** independentes e um **orquestrador
 │  │  ├── payment.py               ├── payment_mock.py            │    │
 │  │  ├── notification.py          ├── payment_efi.py             │    │
 │  │  ├── confirmation.py          ├── payment_stripe.py          │    │
-│  │  ├── customer.py              ├── notification_*.py          │    │
+│  │  ├── customer.py              ├── notification_*.py (6)      │    │
 │  │  ├── fiscal.py                ├── customer.py                │    │
 │  │  ├── accounting.py            ├── pricing.py                 │    │
 │  │  ├── returns.py               ├── fiscal_*.py                │    │
 │  │  ├── fulfillment.py           └── accounting_*.py            │    │
+│  │  ├── loyalty.py                                              │    │
 │  │  ├── pricing.py                                              │    │
 │  │  └── _stock_receivers.py                                     │    │
 │  └────────────┬────────┬────────┬────────┬────────┬─────────────┘    │
@@ -56,7 +57,7 @@ Django Shopman é composto por **8 apps core** independentes e um **orquestrador
 │                                                                      │
 ├──────────────────────────────────────────────────────────────────────┤
 │              CANAIS DE VENDA (shopman-app/channels/)                  │
-│                    web · (futuros: pos, api)                         │
+│                    web · api · (futuro: pos)                         │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -95,13 +96,13 @@ SHOPMAN_STOCK_BACKEND = "channels.backends.stock.StockingBackend"
 
 | Protocol | Definido em | Adapters |
 |----------|-------------|----------|
-| `StockBackend` | `channels.protocols` | `StockingBackend`, `NoopStockBackend` |
+| `StockBackend` | `channels/protocols` | `StockingBackend`, `NoopStockBackend` |
 | `PaymentBackend` | `shopman.payments.protocols` | `MockPaymentBackend`, `EfiPixBackend`, `StripeBackend` |
 | `FiscalBackend` | `shopman.ordering.protocols` | `MockFiscalBackend`, `FocusBackend` |
 | `AccountingBackend` | `shopman.ordering.protocols` | `MockAccountingBackend`, `ContaazulBackend` |
 | `NotificationBackend` | `channels.protocols` | `ConsoleBackend`, `ManychatBackend`, `EmailBackend`, `SmsBackend`, `WebhookBackend`, `WhatsappBackend` |
 | `CustomerBackend` | `channels.protocols` | `CustomersBackend`, `NoopCustomerBackend` |
-| `PricingBackend` | `channels.protocols` | `CatalogPricingBackend` |
+| `PricingBackend` | `channels.protocols` | `OfferingBackend`, `CatalogPricingBackend`, `ChannelPricingBackend` |
 
 ### Vantagens
 
@@ -156,7 +157,7 @@ Setas indicam dependência de pacote. Dependências via Protocol (runtime) são 
    │       └── pix.timeout directive agendada
    │
 7. Pagamento confirmado (webhook):
-      └── stock.commit, notification.send, fulfillment.create
+      └── stock.commit, notification.send, fulfillment.create, loyalty.earn
 ```
 
 ## Presets de Canal
@@ -165,8 +166,8 @@ Cada canal de venda tem um preset (`channels/presets.py`) que configura o compor
 
 | Preset | Confirmação | Pagamento | Stock Hold TTL | Pipeline on_commit | Pipeline on_confirmed |
 |--------|-------------|-----------|----------------|--------------------|-----------------------|
-| `pos()` | immediate | `counter` | 5 min | customer.ensure | stock.commit, notification |
-| `remote()` | optimistic (10 min) | `pix` (15 min) | 30 min | customer.ensure, stock.hold | pix.generate, notification |
+| `pos()` | immediate | `counter` | 5 min | customer.ensure | stock.commit, notification, loyalty.earn |
+| `remote()` | optimistic (10 min) | `pix` (15 min) | 30 min | customer.ensure, stock.hold | pix.generate, notification, loyalty.earn |
 | `marketplace()` | immediate | `external` (pré-pago) | — | customer.ensure | stock.commit |
 
 A configuração cascateia: `Channel.config` → `Shop.defaults` → `ChannelConfig.defaults()`.

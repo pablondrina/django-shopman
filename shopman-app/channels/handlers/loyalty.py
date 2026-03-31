@@ -1,0 +1,98 @@
+"""
+Loyalty handler — awards points when an order is completed.
+"""
+
+from __future__ import annotations
+
+import logging
+
+from shopman.ordering.models import Directive
+
+from channels.topics import LOYALTY_EARN
+
+logger = logging.getLogger(__name__)
+
+
+class LoyaltyEarnHandler:
+    """Awards loyalty points on order completion. Topic: loyalty.earn"""
+
+    topic = LOYALTY_EARN
+
+    def handle(self, *, message: Directive, ctx: dict) -> None:
+        from shopman.ordering.models import Order
+
+        payload = message.payload
+        order_ref = payload.get("order_ref")
+
+        if not order_ref:
+            message.status = "failed"
+            message.last_error = "missing order_ref"
+            message.save(update_fields=["status", "last_error", "updated_at"])
+            return
+
+        try:
+            order = Order.objects.get(ref=order_ref)
+        except Order.DoesNotExist:
+            message.status = "failed"
+            message.last_error = f"Order not found: {order_ref}"
+            message.save(update_fields=["status", "last_error", "updated_at"])
+            return
+
+        # Need a customer handle to find the customer
+        if not order.handle_ref:
+            logger.debug("loyalty.earn: no handle_ref on order %s, skipping", order_ref)
+            message.status = "completed"
+            message.save(update_fields=["status", "updated_at"])
+            return
+
+        # Find customer by phone
+        try:
+            from shopman.customers.services import customer as customer_service
+
+            customer = customer_service.get_by_phone(order.handle_ref)
+        except Exception:
+            customer = None
+
+        if not customer:
+            logger.debug("loyalty.earn: no customer for handle_ref=%s, skipping", order.handle_ref)
+            message.status = "completed"
+            message.save(update_fields=["status", "updated_at"])
+            return
+
+        # Calculate points: 1 point per R$ 1,00 (100 centavos)
+        points = order.total_q // 100
+        if points <= 0:
+            message.status = "completed"
+            message.save(update_fields=["status", "updated_at"])
+            return
+
+        try:
+            from shopman.customers.contrib.loyalty.service import LoyaltyService
+
+            # Enroll if not yet enrolled (idempotent)
+            LoyaltyService.enroll(customer.ref)
+
+            # Award points
+            LoyaltyService.earn_points(
+                customer_ref=customer.ref,
+                points=points,
+                description=f"Pedido {order.ref}",
+                reference=f"order:{order.ref}",
+                created_by="system",
+            )
+
+            logger.info("loyalty.earn: +%d points for %s (order %s)", points, customer.ref, order_ref)
+
+            message.status = "completed"
+            message.save(update_fields=["status", "updated_at"])
+
+        except Exception:
+            logger.exception("loyalty.earn: failed for order %s", order_ref)
+            attempts = (message.attempts or 0) + 1
+            message.attempts = attempts
+            if attempts >= 3:
+                message.status = "failed"
+                message.last_error = "max retries exceeded"
+            else:
+                message.status = "queued"
+            message.save(update_fields=["status", "last_error", "attempts", "updated_at"])
