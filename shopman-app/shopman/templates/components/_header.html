@@ -1,0 +1,88 @@
+{# Header: sticky, shadow-on-scroll, mobile Logo+Search+Cart, desktop full nav. #}
+{% load static %}
+
+<header
+  role="banner"
+  x-data="{ scrolled: false }"
+  @scroll.window.throttle.100ms="scrolled = window.scrollY > 4"
+  class="w-full border-b border-border bg-background text-foreground sticky top-0 z-50 transition-shadow duration-200"
+  :class="scrolled && 'shadow-md'"
+  style="height: var(--header-height, 56px);"
+>
+  <div class="max-w-6xl mx-auto px-4 h-full flex items-center justify-between gap-2">
+
+    {# Logo + ícone storefront + nome — sempre visível (nunca hidden sm: só; mobile sem logo precisa do texto) #}
+    <a href="{% url 'storefront:home' %}" class="flex items-center gap-2 min-w-0 flex-1 sm:flex-initial pr-2">
+      {% if storefront.logo.name %}
+      <img src="{{ storefront.logo.url }}" alt=""
+           class="h-8 w-auto max-w-[100px] sm:max-w-[120px] object-contain shrink-0">
+      {% endif %}
+      <span class="material-symbols-rounded icon-header text-foreground shrink-0" aria-hidden="true">storefront</span>
+      <span class="font-heading font-semibold leading-tight truncate min-w-0" style="font-size: var(--text-h4); letter-spacing: var(--tracking-h4);">{{ storefront.brand_name }}</span>
+    </a>
+
+    {# Desktop nav #}
+    <nav class="hidden md:flex items-center gap-5" aria-label="Navegação principal">
+      <a href="{% url 'storefront:menu' %}" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Cardápio</a>
+      <a href="{% url 'storefront:como_funciona' %}" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Como Funciona</a>
+
+      {% if request.user.is_authenticated and customer_name %}
+      <div x-data="{ open: false }" @click.away="open = false" class="relative">
+        <button @click="open = !open" :aria-expanded="open"
+                class="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg px-1 -mx-1">
+          <span class="text-sm">{{ customer_name }}</span>
+          <svg class="w-3.5 h-3.5 transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div x-show="open" x-transition x-cloak
+             class="absolute right-0 mt-2 w-48 bg-surface rounded-xl shadow-lg border border-border py-1 z-50">
+          <a href="{% url 'storefront:account' %}" class="block px-4 py-3 text-sm text-foreground hover:bg-surface-hover transition-colors">Minha Conta</a>
+          <a href="{% url 'storefront:order_history' %}" class="block px-4 py-3 text-sm text-foreground hover:bg-surface-hover transition-colors">Meus Pedidos</a>
+          <div class="border-t border-border my-1"></div>
+          <button type="submit" form="nav-logout-form"
+                  class="block w-full text-left px-4 py-2 text-sm text-muted-foreground hover:text-error hover:bg-surface-hover transition-colors">
+            Sair
+          </button>
+        </div>
+      </div>
+      {% else %}
+      <span aria-hidden="true" class="hidden w-px h-4 mx-1 bg-border md:block"></span>
+      <a href="{% url 'storefront:login' %}" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Entrar</a>
+      {% endif %}
+    </nav>
+
+    {# Mobile: search + cart badge #}
+    <div class="flex items-center gap-1">
+      {# Search icon — opens focus overlay #}
+      <button type="button"
+              @click="$dispatch('open-search')"
+              class="p-2.5 hover:text-primary md:hidden transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg"
+              style="min-height:var(--touch-min);min-width:var(--touch-min)"
+              aria-label="Buscar">
+        <span class="material-symbols-rounded icon-header text-foreground" aria-hidden="true">search</span>
+      </button>
+
+      {# Carrinho — badge: tokens + classes .cart-notification-* (Oxbow Notification.astro xs) #}
+      <button type="button"
+              @click="openCartDrawer()"
+              class="inline-flex shrink-0 items-center justify-center p-2.5 hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg"
+              style="min-height:var(--touch-min);min-width:var(--touch-min)"
+              aria-label="Carrinho"
+              hx-get="{% url 'storefront:cart_summary' %}"
+              hx-trigger="cartUpdated from:body"
+              hx-target="#cart-badge-header"
+              hx-swap="innerHTML">
+        <span class="relative inline-flex h-6 w-6 shrink-0 items-center justify-center" aria-hidden="true">
+          <span class="material-symbols-rounded icon-header text-foreground">shopping_cart</span>
+          <span id="cart-badge-header" class="cart-notification-anchor" aria-live="polite" aria-atomic="true">
+            {% if cart_count %}
+            <span class="cart-notification-pill rounded-full">{{ cart_count }}</span>
+            {% endif %}
+          </span>
+        </span>
+      </button>
+    </div>
+
+  </div>
+</header>

@@ -133,7 +133,7 @@ class EmailSender:
 
         from .conf import auth_settings
 
-        ttl = auth_settings.MAGIC_CODE_TTL_MINUTES
+        ttl = auth_settings.ACCESS_CODE_TTL_MINUTES
         context = {"code": code, "ttl_minutes": ttl}
 
         try:

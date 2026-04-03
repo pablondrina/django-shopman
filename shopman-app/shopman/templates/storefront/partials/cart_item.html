@@ -1,0 +1,143 @@
+{% comment %}
+Linha de item do carrinho — drawer (compact) ou página cheia.
+Controles: Material Symbols Rounded (add / remove / delete).
+{% endcomment %}
+{% load storefront_tags %}
+
+{% with item_id=compact|yesno:"drawer-item,cart-item" %}
+<div id="{{ item_id }}-{{ item.line_id }}"
+     class="{% if compact %}px-3 py-3{% else %}px-5 py-5 sm:px-6{% endif %} border-b border-border/60 last:border-b-0 bg-surface/30 hover:bg-surface/60 transition-colors">
+
+  {% if compact %}
+  {# ── Drawer: coluna — hierarquia clara em telas estreitas ── #}
+  <div class="flex gap-3">
+    <div class="w-11 h-11 shrink-0 rounded-xl bg-gradient-to-br from-border/80 to-muted/50 border border-border/60 flex items-center justify-center text-primary shadow-sm">
+      {{ item.sku|product_icon:"icon-sm" }}
+    </div>
+    <div class="flex-1 min-w-0 flex flex-col gap-2">
+      <div class="flex justify-between gap-2 items-start">
+        <div class="min-w-0">
+          <p class="font-semibold text-foreground text-sm leading-snug">{{ item.name|default:item.sku }}</p>
+          {% if item.original_price_display %}
+          <p class="text-xs text-muted-foreground mt-0.5">
+            <span class="line-through opacity-70">{{ item.original_price_display }}</span>
+            <span class="text-primary font-medium ml-1">{{ item.price_display }}</span>
+            {% if item.discount_label %}<span class="text-success font-medium ml-1">{{ item.discount_label }}</span>{% endif %}
+          </p>
+          {% else %}
+          <p class="text-xs text-muted-foreground mt-0.5">{{ item.price_display }} <span class="text-muted-foreground/70">cada</span></p>
+          {% endif %}
+        </div>
+        <button type="button"
+                class="shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                @click="$store.confirm.show({
+                  title: 'Remover {{ item.name|default:item.sku|escapejs }}?',
+                  confirmLabel: 'Remover',
+                  destructive: true,
+                  onConfirm: function() { htmx.ajax('POST', '{% url "storefront:cart_remove" %}', { swap: 'none', values: { line_id: '{{ item.line_id }}' } }); }
+                })"
+                aria-label="Remover {{ item.name|default:item.sku }}">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">delete_outline</span>
+        </button>
+      </div>
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        {# Mesmo padrão do PDP (product_detail): gap-1, botões rounded-xl separados, centro só número #}
+        <div class="inline-flex items-center gap-1 select-none" role="group" aria-label="Quantidade">
+          {% if item.qty > 1 %}
+          <button type="button"
+                  class="flex items-center justify-center w-11 h-11 rounded-xl border border-border bg-background hover:bg-surface-hover active:bg-muted/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 disabled:cursor-not-allowed"
+                  hx-post="{% url 'storefront:cart_update' %}"
+                  hx-vals='{"line_id": "{{ item.line_id }}", "qty": "{{ item.qty|add:"-1" }}", "compact": "1"}'
+                  hx-swap="none"
+                  aria-label="Diminuir quantidade">
+            <span class="material-symbols-rounded text-lg text-foreground" aria-hidden="true">remove</span>
+          </button>
+          {% else %}
+          <button type="button" disabled class="flex items-center justify-center w-11 h-11 rounded-xl border border-border bg-background opacity-40 cursor-not-allowed" aria-label="Quantidade mínima">
+            <span class="material-symbols-rounded text-lg text-foreground" aria-hidden="true">remove</span>
+          </button>
+          {% endif %}
+          <span class="flex w-10 items-center justify-center text-body font-semibold tabular-nums text-foreground min-h-[2.75rem]" aria-label="Quantidade: {{ item.qty|floatformat:'0' }}">{{ item.qty|floatformat:"0" }}</span>
+          <button type="button"
+                  class="flex items-center justify-center w-11 h-11 rounded-xl border border-border bg-background hover:bg-surface-hover active:bg-muted/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  hx-post="{% url 'storefront:cart_update' %}"
+                  hx-vals='{"line_id": "{{ item.line_id }}", "qty": "{{ item.qty|add:"1" }}", "compact": "1"}'
+                  hx-swap="none"
+                  aria-label="Aumentar quantidade">
+            <span class="material-symbols-rounded text-lg text-foreground" aria-hidden="true">add</span>
+          </button>
+        </div>
+        <p class="text-base font-bold text-foreground tabular-nums shrink-0">{{ item.total_display }}</p>
+      </div>
+    </div>
+  </div>
+
+  {% else %}
+  {# ── Página do carrinho: linha horizontal ── #}
+  <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+    <div class="flex gap-4 flex-1 min-w-0 items-center">
+      <div class="w-14 h-14 shrink-0 rounded-xl bg-gradient-to-br from-border/80 to-muted/50 border border-border/60 flex items-center justify-center text-primary shadow-sm">
+        {{ item.sku|product_icon:"icon-product-line" }}
+      </div>
+      <div class="min-w-0 flex-1">
+        <p class="font-semibold text-foreground text-body leading-snug">{{ item.name|default:item.sku }}</p>
+        {% if item.original_price_display %}
+        <p class="text-body-sm mt-1">
+          <span class="line-through text-muted-foreground/60">{{ item.original_price_display }}</span>
+          <span class="text-primary font-medium ml-1">{{ item.price_display }}</span>
+          {% if item.discount_label %}<span class="text-success text-caption font-medium ml-1">{{ item.discount_label }}</span>{% endif %}
+        </p>
+        {% else %}
+        <p class="text-body-sm text-muted-foreground mt-1">{{ item.price_display }} <span class="text-muted-foreground/70">un.</span></p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between sm:justify-end gap-4 sm:gap-5 flex-wrap sm:flex-nowrap">
+      <div class="inline-flex items-center gap-1 select-none" role="group" aria-label="Quantidade">
+        {% if item.qty > 1 %}
+        <button type="button"
+                class="flex items-center justify-center w-12 h-12 rounded-xl border border-border bg-surface hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                hx-post="{% url 'storefront:cart_update' %}"
+                hx-vals='{"line_id": "{{ item.line_id }}", "qty": "{{ item.qty|add:"-1" }}"}'
+                hx-target="#cart-item-{{ item.line_id }}"
+                hx-swap="outerHTML"
+                aria-label="Diminuir quantidade">
+          <span class="material-symbols-rounded text-xl text-foreground" aria-hidden="true">remove</span>
+        </button>
+        {% else %}
+        <button type="button" disabled class="flex items-center justify-center w-12 h-12 rounded-xl border border-border bg-surface opacity-40 cursor-not-allowed" aria-label="Quantidade mínima">
+          <span class="material-symbols-rounded text-xl text-foreground" aria-hidden="true">remove</span>
+        </button>
+        {% endif %}
+        <span class="flex w-12 items-center justify-center text-body font-semibold tabular-nums text-foreground" style="min-height:var(--touch-min)">{{ item.qty|floatformat:"0" }}</span>
+        <button type="button"
+                class="flex items-center justify-center w-12 h-12 rounded-xl border border-border bg-surface hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                hx-post="{% url 'storefront:cart_update' %}"
+                hx-vals='{"line_id": "{{ item.line_id }}", "qty": "{{ item.qty|add:"1" }}"}'
+                hx-target="#cart-item-{{ item.line_id }}"
+                hx-swap="outerHTML"
+                aria-label="Aumentar quantidade">
+          <span class="material-symbols-rounded text-xl text-foreground" aria-hidden="true">add</span>
+        </button>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <p class="text-body-lg font-bold text-foreground tabular-nums min-w-[5rem] text-right">{{ item.total_display }}</p>
+        <button type="button"
+                class="p-2 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                @click="$store.confirm.show({
+                  title: 'Remover {{ item.name|default:item.sku|escapejs }}?',
+                  confirmLabel: 'Remover',
+                  destructive: true,
+                  onConfirm: function() { htmx.ajax('POST', '{% url "storefront:cart_remove" %}', { swap: 'none', values: { line_id: '{{ item.line_id }}' } }); }
+                })"
+                aria-label="Remover {{ item.name|default:item.sku }}">
+          <span class="material-symbols-rounded icon-md" aria-hidden="true">delete_outline</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endwith %}

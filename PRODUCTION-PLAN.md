@@ -34,14 +34,14 @@ targets subdimensionados, sem bottom nav, sem gestos, checkout longo demais).
 | F8 | Gestor de Pedidos — Painel do Operador | ✅ | F0 |
 | F9 | KDS — Kitchen Display System | ✅ | F8 |
 | F10 | Admin — POS & Operação Diária | ✅ | F0 |
-| F11 | Admin — Backoffice & Configuração da Loja | ⬚ | — |
-| F12 | Admin — Dashboard, Analytics & BI | ⬚ | F10 |
+| F11 | Admin — Backoffice & Configuração da Loja | ✅ | — |
+| F12 | Admin — Dashboard, Analytics & BI | ✅ | F10 |
 | F13 | Integração Plena: Vendas ↔ Produção ↔ Estoque ↔ CRM | ✅ | F0, F8, F9 |
-| F14 | Notificações Multi-Canal | ⬚ | F6 |
-| F15 | Canal WhatsApp | ⬚ | F14 |
-| F16 | Canal Marketplace (iFood) | ⬚ | F13 |
-| F17 | Testes E2E & Stress de Fluxos | ⬚ | Todos |
-| F18 | Schema Governance — JSONField Docs & Validação | ⬚ | — |
+| F14 | Notificações Multi-Canal | ✅ | F6 |
+| F15 | Canal WhatsApp | ✅ | F14 |
+| F16 | Canal Marketplace (iFood) | ✅ | F13 |
+| F17 | Testes E2E & Stress de Fluxos | ✅ | Todos |
+| F18 | Schema Governance — JSONField Docs & Validação | ✅ | — |
 
 ### Dívidas Técnicas (cross-WP)
 
@@ -52,6 +52,9 @@ targets subdimensionados, sem bottom nav, sem gestos, checkout longo demais).
 | `:hx-vals` Alpine binding incompatível com HTMX | Alpine `defer` resolve binding depois do HTMX processar | ✅ Corrigido → `hx-vals="js:..."` + teste de regressão |
 | `_design_tokens.html` inclui Alpine — views standalone precisam de `_design_tokens_no_alpine.html` | KDS e POS precisam controlar ordem de carregamento do Alpine | ✅ Resolvido — partial separado criado |
 | `is_primary` ausente nos CollectionItems do seed | KDS dispatch precisa de primary collection para rotear items | ✅ Corrigido no seed |
+| Notificações WhatsApp-first caem silenciosamente no email | ManychatBackend não registrado sem MANYCHAT_API_TOKEN, sem warning | ✅ Corrigido — `_warn_unconfigured_backends()` emite WARNING na inicialização |
+| AccessLink expirado redireciona silenciosamente para /menu/ | AccessTokenView fazia redirect cego em qualquer falha | ✅ Corrigido — página de erro elegante com mensagens diferenciadas por tipo (expirado/usado/inválido) |
+| Dual dispatch: CommitService + hooks.py criavam directives duplicadas | `post_commit_directives` (Core) + `pipeline.on_commit` (App) | ✅ Eliminado — removido `post_commit_directives` do CommitService, hooks.py é o único dispatcher |
 
 ---
 
@@ -1595,61 +1598,66 @@ Benchmark: Take.app (wizard simples, preview da loja). Aproveitar Unfold admin c
 
 ---
 
-## WP-F12: Admin — Dashboard, Analytics & BI
+## WP-F12: Admin — Dashboard, Analytics & BI ✅
 
 **Objetivo**: Dashboard operacional rico + dados prontos para BI externo.
 Usa plenamente: DayClosing, StockAlerts, Order data, Customer insights, LoyaltyService.
 
-### 12.1 Dashboard Operacional — Upgrade
+**Status**: Concluído. 31 testes dedicados + 1437 app tests passando.
 
-Sobre o existente (493 linhas), adicionar:
+### 12.1 Dashboard Operacional — Upgrade ✅
 
-- **KPIs com comparação**: valor + variação vs. ontem/semana passada. Seta verde/vermelha.
-  - Pedidos hoje, ticket médio, receita, tempo médio de preparo.
-- **Pedidos pendentes de ação**: card alerta "X pedidos aguardando confirmação" → link direto.
-- **Alertas do sistema**: widget com OperatorAlerts (F0.4) não lidos.
-- **Gráfico de vendas por hora**: barras por hora do dia (útil para padaria ver pico).
-- **Auto-refresh**: HTMX polling a cada 60s nos widgets dinâmicos.
+- **KPIs com comparação**: pedidos + receita com variação % vs ontem e vs semana. Seta verde/vermelha.
+- **Alertas operacionais**: OperatorAlerts não lidos exibidos no dashboard (tabela com severidade).
+- **Sugestões de produção**: tabela com sugestões do CraftService para amanhã.
+- **Pedidos recentes**: tabela com últimos 10 pedidos.
+- **Auto-refresh**: HTMX polling a cada 60s nos KPI cards via endpoint parcial.
+- **Quick links**: atalhos visuais para todas as 6 views de analytics.
 
-### 12.2 Analytics Views
+### 12.2 Analytics Views ✅
 
-- **Vendas por período**: filtro data range + gráfico de linha + tabela.
-  - Métricas: pedidos, receita, ticket médio, cancelamentos.
-  - Breakdown por canal (web, WhatsApp, POS, iFood).
-- **Top produtos**: ranking por quantidade vendida e por receita. Período selecionável.
-- **Clientes**: RFM segmentation (usa `customers.contrib.insights`).
-  - Tabela: top clientes por valor, frequência, recência.
-  - Insights automáticos: "15 clientes não compram há 30 dias".
-- **Estoque**: alertas de mínimo (usa `StockAlerts`), produtos mais movimentados.
-- **Produção**: eficiência (WorkOrders completados vs. planejados), desperdício (sobras do DayClosing).
-- **Loyalty**: pontos emitidos, resgatados, tier distribution.
+6 views dentro do Unfold admin, todas com filtro por período + gráficos Chart.js + tabelas:
 
-### 12.3 Export para BI
+- **Vendas por período** (`analytics/sales/`): receita diária (line), receita por canal (bar), tabelas por canal e status.
+- **Top produtos** (`analytics/products/`): ranking por receita (top 10 bar) e por quantidade. SKU + nome + pedidos.
+- **Clientes RFM** (`analytics/customers/`): distribuição de segmentos (bar), top LTV, clientes em risco de churn.
+  Usa `customers.contrib.insights.CustomerInsight` do Core.
+- **Estoque** (`analytics/stock/`): alertas ativos com deficit, status (bar), SKUs mais movimentados por período.
+- **Produção** (`analytics/production/`): OPs por dia (stacked bar), perda/D-1 trend (line), rendimento por produto, stats de DayClosing.
+- **Fidelidade** (`analytics/loyalty/`): distribuição por tier (bar), pontos emitidos vs resgatados (line), resumo do período.
 
-- **Endpoints API** para cada analytics view (JSON):
-  - `GET /api/analytics/sales/?from=&to=` → vendas por período.
-  - `GET /api/analytics/products/?from=&to=` → top produtos.
-  - `GET /api/analytics/customers/rfm/` → segmentação RFM.
-  - `GET /api/analytics/stock/alerts/` → alertas de estoque.
-- **CSV export**: botão em cada view de analytics.
-- **Dados estruturados**: Orders com `snapshot` (items, pricing, customer), DayClosing,
-  Moves, WorkOrders — tudo queryable para Metabase/Power BI via PostgreSQL direto.
+### 12.3 Export para BI ✅
+
+- **Endpoints API JSON** (IsAdminUser):
+  - `GET /api/analytics/sales/?start=&end=` — totais, por canal, diário.
+  - `GET /api/analytics/products/?start=&end=` — top 50 produtos por receita.
+  - `GET /api/analytics/customers/rfm/` — segmentos + at-risk.
+  - `GET /api/analytics/stock/alerts/` — alertas com deficit.
+- **CSV export**: botão em cada view de analytics (BOM UTF-8 para Excel).
 
 ### Arquivos
 
-- `shop/dashboard.py` — expandir widgets.
-- `channels/web/views/analytics.py` — novo.
-- `channels/api/analytics.py` — novo: endpoints JSON.
-- `channels/web/templates/admin/analytics/` — novo.
+- `shop/dashboard.py` — KPIs com comparação semanal + `dashboard_kpis_context()` + `_pct_badge()`.
+- `shop/views/analytics.py` — 6 views + HTMX KPI partial.
+- `shop/templates/admin/index.html` — dashboard com HTMX auto-refresh, alertas, sugestões, quick links.
+- `shop/templates/admin/shop/analytics_base.html` — template base com filtro de período e CSV.
+- `shop/templates/admin/shop/analytics_*.html` — 6 templates de analytics.
+- `shop/templates/admin/shop/partials/dashboard_kpis.html` — partial HTMX.
+- `channels/api/analytics.py` — 4 API views DRF.
+- `project/settings.py` — sidebar Analytics no Unfold.
+- `shop/admin.py` — URLs de analytics + dashboard KPIs no ShopAdmin.
 
-### Testes
+### Testes (31)
 
-- `test_dashboard_kpis_with_comparison` — variação calculada.
-- `test_analytics_sales_by_period` — vendas por data range.
-- `test_analytics_top_products` — ranking correto.
-- `test_analytics_rfm_segments` — segmentos calculados.
-- `test_analytics_api_json` — endpoint retorna JSON válido.
-- `test_analytics_csv_export` — CSV com headers corretos.
+- `tests/test_f12_analytics.py`:
+  - Dashboard: comparação semanal, partial HTMX, links de analytics.
+  - Sales: página, filtro por data, CSV, totais.
+  - Products: página, CSV, ranking.
+  - Customers: RFM page, CSV.
+  - Stock: page, CSV.
+  - Production: page, WOs, DayClosing, CSV.
+  - Loyalty: page, accounts, CSV.
+  - API: sales, products, customers/rfm, stock/alerts, auth checks.
 
 ---
 
@@ -1745,92 +1753,165 @@ Garantir que todas as entidades relevantes têm campos para análise:
 
 ---
 
-## WP-F14: Notificações Multi-Canal
+## WP-F14: Notificações Multi-Canal ✅
 
 **Objetivo**: Cliente nunca no escuro. Cada evento relevante gera notificação no canal certo.
 
-### 14.1 Email Templates Completos
+**Status**: Concluido. 1302 testes passando (+32 novos).
 
-Todos os eventos com template HTML branded:
+### 14.1 NotificationTemplate — Conteudo Centralizado, WhatsApp-first ✅
 
-| Evento | Template | Status |
-|--------|----------|--------|
-| order_placed | Pedido recebido + link tracking | ✅ Existe |
-| order_confirmed | Confirmado + estimativa tempo | ✅ Existe |
-| order_processing | Em preparo | ✅ Existe |
-| order_ready | Pronto! | ✅ Existe |
-| order_dispatched | Saiu para entrega | ⬚ Criar |
-| order_delivered | Entregue + pedir avaliação | ⬚ Criar |
-| order_cancelled | Cancelado + info reembolso | ⬚ Criar |
-| payment_confirmed | Pagamento recebido | ⬚ Criar |
-| payment_refunded | Reembolso processado | ⬚ Criar |
-| loyalty_earned | Pontos ganhos + saldo | ⬚ Criar |
+Model `NotificationTemplate` editavel via Unfold admin. Conteudo escrito WhatsApp-first
+(texto simples com emojis e {placeholders}). Cada backend adapta o formato.
 
-Design: logo, cores da loja, CTA button, footer, plain text fallback, responsivo (< 600px).
+**Arquitetura**:
+- `channels/template_resolver.py` — resolver central: DB > cache 5min > FALLBACK_TEMPLATES
+- `shop/models.NotificationTemplate` — event, subject, body, is_active (migration 0016)
+- `notifications/email/generic.html` — template HTML generico que renderiza body do DB
+- Backends refatorados: EmailBackend, ManychatBackend, SMSBackend, ConsoleBackend, WebhookBackend
+- Dicts hardcoded renomeados para FALLBACK_* (ultimo recurso)
 
-### 14.2 WhatsApp Notifications
+| Evento | Subject | Status |
+|--------|---------|--------|
+| order_confirmed | Pedido {order_ref} confirmado | ✅ |
+| order_processing | Pedido {order_ref} em preparo | ✅ |
+| order_ready | Pedido {order_ref} pronto para retirada | ✅ |
+| order_dispatched | Pedido {order_ref} saiu para entrega | ✅ |
+| order_delivered | Pedido {order_ref} entregue | ✅ |
+| order_cancelled | Pedido {order_ref} cancelado | ✅ |
+| payment_confirmed | Pagamento do pedido {order_ref} confirmado | ✅ |
+| payment_expired | Pagamento do pedido {order_ref} expirado | ✅ |
+| payment_refunded | Reembolso do pedido {order_ref} processado | ✅ |
+| loyalty_earned | Voce ganhou pontos de fidelidade! | ✅ |
+| stock_alert | Alerta de estoque: {sku} | ✅ |
+
+### 14.2 WhatsApp Notifications ✅
 
 - Via ManychatBackend (existente) ou WhatsApp Business API.
-- Mensagens para: order_placed, order_ready, payment_confirmed.
-- Link de tracking no corpo.
+- Mensagens vem do template_resolver (WhatsApp-first body).
+- Pipeline remoto configura todas as fases com notificacao.
 
-### 14.3 Notification Preferences
+### 14.3 Notification Preferences ✅
 
-- Em Conta > Config: toggles por canal × tipo.
-- Respeitar sempre: não enviar se desativado.
-- Default: tudo ativo (opt-out).
+- Em Conta > Config: toggles por canal x tipo (whatsapp, email, sms, push).
+- Modelo opt-out: default tudo ativo, cliente desativa explicitamente.
+- NotificationSendHandler verifica ConsentService antes de enviar.
+- Backend x canal mapping: manychat/whatsapp → whatsapp, email → email, sms → sms.
+- Se opted out de um canal, handler pula para o proximo na fallback chain.
 
 ### Arquivos
 
-- `channels/templates/notifications/` — 6 novos templates.
-- `shopman/backends/notification_email.py` — registrar novos eventos.
-- `channels/web/views/account.py` — notification preferences.
+- `shop/models.py` — NotificationTemplate model.
+- `shop/migrations/0016_notificationtemplate.py` — migracao.
+- `shop/admin.py` — NotificationTemplateAdmin (Unfold).
+- `channels/template_resolver.py` — NOVO: resolver central + FALLBACK_TEMPLATES.
+- `channels/templates/notifications/email/generic.html` — NOVO: template HTML generico.
+- `channels/templates/notifications/email/` — 6 templates HTML especificos (fallback).
+- `channels/backends/notification_email.py` — refatorado para usar resolver.
+- `channels/backends/notification_manychat.py` — refatorado para usar resolver.
+- `channels/backends/notification_sms.py` — refatorado para usar resolver.
+- `channels/backends/notification_console.py` — inclui body resolvido no log.
+- `channels/backends/notification_webhook.py` — inclui body no payload JSON.
+- `channels/handlers/notification.py` — _is_opted_out + _resolve_customer_ref + consent check.
+- `channels/web/views/account.py` — opt-out model na UI.
+- `shop/management/commands/seed.py` — _seed_notification_templates.
 
 ### Testes
 
-- `test_email_order_cancelled_sent` — email enviado.
-- `test_whatsapp_order_ready_sent` — WhatsApp enviado.
-- `test_notification_preference_respected` — desativado não envia.
+- `tests/test_notification_templates.py` — 17 testes do resolver + model + backends. ✅
+- `tests/test_f14_notifications.py` — 15 testes de templates, dispatch, preferences. ✅
+- Testes existentes atualizados para dicts renomeados (FALLBACK_*). ✅
 
 ---
 
-## WP-F15: Canal WhatsApp
+## WP-F15: Canal WhatsApp ✅
 
 **Objetivo**: Pedido via WhatsApp fluido. Link para cardápio web → checkout → notificações
-no chat. Preset `whatsapp()` configurado.
+no chat. Preset `whatsapp()` configurado. Integração ManyChat funcional.
 
-### 15.1 Preset
+### 15.1 Preset ✅
 
 - `whatsapp()` em `presets.py`:
-  - Confirmation: optimistic.
-  - Payment: PIX (link).
-  - Notifications: WhatsApp.
-  - Pipeline: stock → payment → notification.
+  - Confirmation: optimistic (5 min).
+  - Payment: PIX + card (15 min timeout).
+  - Notifications: backend "whatsapp" (fallback), primary via ManyChat.
+  - Fallback chain: ["manychat", "sms", "email"].
+  - Pipeline: stock → payment → notification (idêntico ao remote()).
+- `WhatsAppBackend` refatorado: usa `template_resolver` central, dois modos (text/template).
+- Backend registrado em `setup.py` via `SHOPMAN_WHATSAPP` settings.
+- Seed atualizado: canal "whatsapp" usa `whatsapp()` preset.
 
-### 15.2 Flow
+### 15.2 Flow ✅
 
-1. Cliente envia msg / clica link → redirect para storefront mobile com `?channel=whatsapp`.
-2. Checkout marca `channel=whatsapp`.
-3. Confirmações e updates via WhatsApp.
-4. PIX: link de pagamento enviado no chat.
+1. `ChannelParamMiddleware` captura `?channel=whatsapp` de qualquer URL → `origin_channel`.
+2. `AccessTokenView` (`/access/?t=TOKEN`) autentica via AccessLink + seta `origin_channel`.
+3. `ManychatAccessView` (`/api/webhooks/manychat/access/`):
+   - ManyChat chama com dados do subscriber (phone, name, manychat_id).
+   - Busca customer: ExternalIdentity → ContactPoint → phone legado → cria se não existe.
+   - Cria ContactPoint WhatsApp + ExternalIdentity ManyChat.
+   - Retorna `access_url` com token para ManyChat enviar ao cliente.
+   - Funciona **com ou sem phone** (manychat_id é suficiente).
+4. `CartService._get_or_create_session()` propaga `origin_channel` para `Session.data`.
+5. `NotificationSendHandler` roteia notificações pelo backend correto via `origin_channel`.
 
-### 15.3 Bot Simples
+### 15.3 Bot Simples ✅
 
-- Webhook para mensagens incoming.
-- Respostas automáticas: "Oi! Acesse nosso cardápio: [link]", "Status do seu pedido: [link]".
-- FAQ: horário, endereço, cardápio.
+- `WhatsAppWebhookView` em `webhooks.py` (Meta Cloud API format):
+  - GET: verificação webhook (hub.mode=subscribe, hub.verify_token).
+  - POST: mensagens incoming → respostas automáticas.
+  - Respostas: saudação, status, cardápio, horário, endereço, ajuda.
+- URL: `api/webhooks/whatsapp/`.
+- Nota: para ManyChat, o bot é configurado no ManyChat Flow Builder (não neste webhook).
+
+### 15.4 Fixes durante testes ✅
+
+- **Checkout phone-missing**: customer autenticado sem phone agora vê campo de telefone visível
+  com mensagem "Precisamos do seu telefone para atualizações do pedido".
+- **Checkout customer resolution**: usa customer autenticado primeiro (não só busca por phone),
+  atualiza phone + cria ContactPoint WhatsApp no checkout.
+- **CSRF após access token**: `rotate_token()` após login evita 403 no primeiro POST.
+- **Rename**: `BridgeTokenView` → `AccessTokenView`, `bridge.py` → `access.py`,
+  `/bridge/` → `/access/`, `ManychatBridgeView` → `ManychatAccessView`.
+  Conceito unificado: tudo é AccessLink. Sem "bridge" no vocabulário.
 
 ### Arquivos
 
-- `shopman/presets.py` — `whatsapp()`.
-- `shopman/webhooks.py` — WhatsApp webhook.
-- `shopman/backends/notification_whatsapp.py` — expandir.
+- `channels/presets.py` — `whatsapp()` preset.
+- `channels/webhooks.py` — `WhatsAppWebhookView`, `ManychatAccessView`.
+- `channels/webhook_urls.py` — rotas `/whatsapp/` e `/manychat/access/`.
+- `channels/backends/notification_whatsapp.py` — `WhatsAppBackend` + `WhatsAppConfig`.
+- `channels/setup.py` — registro do backend via `SHOPMAN_WHATSAPP`.
+- `channels/web/views/access.py` — `AccessTokenView` (ex-BridgeTokenView).
+- `channels/web/views/checkout.py` — fix phone-missing + ContactPoint.
+- `shop/middleware.py` — `ChannelParamMiddleware`.
+- `project/settings.py` — middleware + `MANYCHAT_API_TOKEN` + `SHOPMAN_WHATSAPP`.
 
-### Testes
+### Configuração (settings.py)
 
-- `test_whatsapp_preset_configured`.
-- `test_whatsapp_order_receives_notification`.
-- `test_whatsapp_webhook_parses_message`.
+```python
+MANYCHAT_API_TOKEN = os.environ.get("MANYCHAT_API_TOKEN", "")
+
+SHOPMAN_WHATSAPP = {
+    "VERIFY_TOKEN": "...",            # Webhook verification token
+    "STOREFRONT_URL": "https://...",  # Base URL for links in auto-replies
+    # Meta Cloud API (opcional — ManyChat é o backend primário)
+    # "PHONE_NUMBER_ID": "...",
+    # "ACCESS_TOKEN": "...",
+}
+```
+
+### Testes (30 testes)
+
+- `test_f15_whatsapp.py`: preset, middleware, webhook, backend.
+
+### Dívidas identificadas durante F15
+
+1. **Gestor de Pedidos**: UX amadora, sem hierarquia, operador pode confirmar sem pagamento.
+   Avaliar migrar para Admin/Unfold ou redesenhar. Novo WP necessário.
+2. **Auditoria de pipelines**: mapear todas as combinações canal × pagamento × confirmação.
+   Identificar guards faltantes e transições inválidas.
+3. **Omotenashi UX**: timer transparente, copy acolhedora, feedback claro no tracking.
+   Planejado em F6.1 e F8.3, não implementado ainda.
 
 ---
 
@@ -1905,8 +1986,20 @@ Edge cases:
 
 ### Arquivos
 
-- `tests/e2e/` — novo diretório com Playwright.
-- `tests/load/locustfile.py` — cenários de carga.
+- `tests/e2e/conftest.py` — fixtures Playwright (base_url).
+- `tests/e2e/test_storefront_e2e.py` — 10 flows (5 happy + 5 edge) + navigation tests.
+- `tests/load/locustfile.py` — 5 user profiles (Browsing, Checkout, Payment, Operator, KDS).
+- `tests/integration/test_f17_flow_integrity.py` — 18 flow integrity tests (Django TestCase).
+
+### Resultado
+
+- **17.3 Flow Integrity**: 18 testes — ciclo pickup, delivery, KDS routing, cancel pre/post payment,
+  race condition (payment after cancel), cancel from multiple statuses, terminal status guard,
+  loyalty earn/redeem/insufficient, production plan/close/stock, suggest, full production-to-sale,
+  idempotency, snapshot, multiple orders independence.
+- **17.1 Playwright**: 10 E2E flows + 7 navigation tests. Requer `make run` + `pytest-playwright`.
+- **17.2 Locust**: 5 user profiles com weights realistas. Requer `locust` + `make run`.
+- **1406 app tests passing** (+ 25 skipped).
 
 ---
 
@@ -2006,20 +2099,20 @@ Cada chave documentada com: tipo, quem escreve, quem lê, quando, exemplo.
   propagar uma nova chave, adicione-a nessa lista. Não invente fluxos paralelos.
 - **Nenhum handler escreve em chave que outro handler lê** sem contrato documentado.
 
-### 18.3 Validação Futura (pós-MVP)
+### 18.3 Testes de Governança ✅
 
-Quando o projeto amadurecer, considerar:
-- Pydantic/dataclass validators nos services de write/commit.
-- JSON Schema formal no `Channel.config` (já tem ChannelConfig dataclass com `validate()`).
-- Testes que verificam que nenhuma chave não-documentada aparece nos JSONFields.
+24 testes em `tests/test_schema_governance.py`:
+
+- `TestCommitPropagatesDocumentedKeys` (5 testes) — CommitService copia exatamente as chaves documentadas, não propaga system keys (checks, issues, availability, coupon_code), computa is_preorder corretamente.
+- `TestOrderSnapshotSchema` (2 testes) — snapshot contém exatamente {items, data, pricing, rev}, data espelha session.data.
+- `TestChannelConfigValidation` (7 testes) — validate() rejeita mode/method inválidos, exige timeout positivo.
+- `TestChannelConfigSerialization` (3 testes) — roundtrip to_dict/from_dict, ignora campos desconhecidos, presets usam só os 7 aspectos documentados.
+- `TestDeepMerge` (4 testes) — override scalar, herança de chaves ausentes, lista substitui (não concatena).
+- `TestChannelConfigEffective` (3 testes) — cascata com override, config vazio herda defaults, preset aplica corretamente.
 
 ### Arquivos
 
-- `docs/reference/data-schemas.md` — novo, referência de schemas.
-- `CLAUDE.md` — atualizado com regras de integridade do Core.
-- `PRODUCTION-PLAN.md` — princípio 1 expandido.
-
-### Testes
-
-- `test_commit_propagates_documented_keys` — verifica que CommitService copia exatamente as chaves documentadas.
-- `test_no_undocumented_keys_in_order_data` — fixture que cria order via commit e verifica que todas as chaves em order.data estão na lista documentada.
+- `docs/reference/data-schemas.md` — referência completa de schemas (Session.data, Order.data, Order.snapshot, Directive.payload por topic, Channel.config 7 aspectos + legado).
+- `tests/test_schema_governance.py` — 24 testes de governança.
+- `CLAUDE.md` — regras de integridade do Core (pré-existente).
+- `PRODUCTION-PLAN.md` — F18 marcado como ✅.

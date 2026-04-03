@@ -1,0 +1,334 @@
+{% extends "storefront/base.html" %}
+{% load storefront_tags %}
+
+{% block title %}{{ product.name }}{% endblock %}
+{% block meta_description %}{{ product.short_description|default:product.name }} — {{ storefront.brand_name }}{% endblock %}
+{% block og_title %}{{ product.name }} — {{ storefront.brand_name }}{% endblock %}
+
+{% block extra_head %}
+{% json_ld_product product price_q=price_q badge=badge %}
+{% endblock %}
+
+{% block content %}
+
+<!-- Breadcrumb -->
+<nav aria-label="Breadcrumb" class="mb-6">
+  <ol role="list" class="flex items-center space-x-2">
+    <li>
+      <a href="{% url 'storefront:menu' %}" class="text-xs flex items-center font-medium gap-2 text-muted-foreground hover:text-foreground transition-colors">
+        Card&aacute;pio
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6"/></svg>
+      </a>
+    </li>
+    {% if breadcrumb_collection %}
+    <li>
+      <a href="{% url 'storefront:menu_collection' breadcrumb_collection.slug %}" class="text-xs flex items-center font-medium gap-2 text-muted-foreground hover:text-foreground transition-colors">
+        {{ breadcrumb_collection.name }}
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6"/></svg>
+      </a>
+    </li>
+    {% endif %}
+    <li>
+      <span class="text-xs flex items-center font-medium text-foreground" aria-current="page">{{ product.name }}</span>
+    </li>
+  </ol>
+</nav>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+  <!-- Product image -->
+  <div class="aspect-square rounded-2xl overflow-hidden relative">
+    {% if product.image_url %}
+    <img src="{{ product.image_url }}" alt="{{ product.name }}"
+         class="w-full h-full object-cover">
+    {% else %}
+    <div class="w-full h-full bg-gradient-to-br from-border to-background flex items-center justify-center text-primary">
+      {{ product.sku|product_icon:"icon-product-hero" }}
+    </div>
+    {% endif %}
+
+    <!-- Availability badge — só quando há label (sem chip quando estoque normal) -->
+    {% if badge.label %}
+    <span class="absolute top-4 right-4 z-20 rounded-full font-bold
+      {% if badge.css_class == 'badge-available' %}text-xs px-2 py-0.5 bg-muted text-muted-foreground
+      {% elif badge.css_class == 'badge-preparing' %}text-sm px-3 py-1.5 shadow-md ring-1 ring-black/5 bg-warning-light text-warning-foreground
+      {% elif badge.css_class == 'badge-d1' %}text-sm px-3 py-1.5 shadow-md ring-1 ring-black/5 bg-error-light text-error-foreground
+      {% elif badge.css_class == 'badge-sold-out' %}text-sm px-3 py-1.5 shadow-md ring-1 ring-black/5 bg-muted text-muted-foreground
+      {% elif badge.css_class == 'badge-paused' %}text-sm px-3 py-1.5 shadow-md ring-1 ring-black/5 bg-muted text-muted-foreground
+      {% elif badge.css_class == 'badge-planned' %}text-sm px-3 py-1.5 shadow-md ring-1 ring-black/5 bg-info-light text-foreground
+      {% else %}{{ badge.css_class }}{% endif %}">
+      {{ badge.label }}
+    </span>
+    {% endif %}
+
+    {% if is_d1 %}
+    <span class="absolute top-4 left-4 badge-d1 text-sm font-bold px-3 py-1 rounded-full">
+      -{{ d1_pct }}% Dia Anterior
+    </span>
+    {% elif has_promo_price and promo_badge %}
+    <span class="absolute top-4 left-4 bg-foreground text-background text-sm font-bold px-3 py-1 rounded-full">
+      {{ promo_badge.label }}
+    </span>
+    {% endif %}
+  </div>
+
+  <!-- Product info -->
+  <div>
+    <div class="flex items-start justify-between gap-3">
+      <h1 class="text-h1 text-foreground">{{ product.name }}</h1>
+      <!-- Share button -->
+      <button @click="shareProduct()" class="flex-shrink-0 p-2 rounded-xl text-muted-foreground hover:text-primary hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Compartilhar">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+        </svg>
+      </button>
+    </div>
+
+    {% if product.short_description %}
+    <p class="text-muted-foreground mt-2">{{ product.short_description }}</p>
+    {% endif %}
+
+    <!-- Serving info -->
+    {% if allergen.serves %}
+    <div class="mt-2 inline-flex items-center gap-1.5 text-sm text-muted-foreground bg-background/50 px-3 py-1 rounded-full">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Serve {{ allergen.serves }} pessoa{{ allergen.serves|add:"0"|pluralize:"s" }}
+    </div>
+    {% endif %}
+
+    <!-- Price: D-1, promoção automática, ou lista -->
+    {% if is_d1 and d1_price_display %}
+    <div class="mt-4 flex items-center gap-3 flex-wrap">
+      <p class="text-3xl font-bold text-error">{{ d1_price_display }}</p>
+      <p class="text-xl text-muted-foreground/50 line-through">{{ original_price_display }}</p>
+    </div>
+    <p class="text-sm text-muted-foreground mt-1">Produzido ontem — qualidade garantida, pre&ccedil;o especial.</p>
+    {% elif has_promo_price and promo_price_display %}
+    <div class="mt-4 flex items-center gap-3 flex-wrap">
+      <p class="text-3xl font-bold text-primary">{{ promo_price_display }}</p>
+      <p class="text-xl text-muted-foreground/50 line-through">{{ promo_original_price_display }}</p>
+    </div>
+    {% if promo_badge %}
+    <p class="text-sm text-muted-foreground mt-1">Pre&ccedil;o promocional: {{ promo_badge.label }} em rela&ccedil;&atilde;o ao pre&ccedil;o de lista.</p>
+    {% endif %}
+    {% elif price_display %}
+    <p class="text-3xl font-bold text-primary mt-4">{{ price_display }}</p>
+    {% endif %}
+
+    <!-- Availability detail -->
+    {% if badge.label == "Preparando..." %}
+    <div class="mt-4 px-4 py-3 bg-warning/10 border border-warning/30 rounded-xl">
+      <p class="text-warning-foreground font-medium text-sm">Em preparo — logo estar&aacute; dispon&iacute;vel para retirada.</p>
+    </div>
+    {% elif badge.label == "Em breve" %}
+    <div class="mt-4 px-4 py-2 bg-info/10 border border-info/30 rounded-xl">
+      <p class="text-foreground font-medium text-sm">Produ&ccedil;&atilde;o planejada — dispon&iacute;vel em breve.</p>
+    </div>
+    {% elif badge.label == "Indisponível" %}
+    <div class="mt-4 px-4 py-2 bg-muted-foreground/10 rounded-xl">
+      <p class="text-muted-foreground font-medium">Produto indispon&iacute;vel no momento</p>
+    </div>
+    {% endif %}
+
+    <!-- Bundle components (mini cards) -->
+    {% if components %}
+    <div class="mt-6">
+      <h3 class="text-sm font-bold text-foreground mb-3">Contém:</h3>
+      <div class="flex gap-3 overflow-x-auto pb-1 promo-scroll">
+        {% for comp in components %}
+        <div class="flex-shrink-0 flex items-center gap-2 bg-background/50 rounded-lg px-3 py-2 border border-border/30">
+          <span class="text-primary">{{ comp.sku|default:comp.name|product_icon:"icon-sm" }}</span>
+          <div>
+            <p class="text-sm font-medium text-foreground leading-tight">{{ comp.name }}</p>
+            <p class="text-xs text-muted-foreground">{{ comp.qty|floatformat:"0" }}x</p>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if product.long_description %}
+    <div class="mt-6 text-muted-foreground leading-relaxed prose prose-sm">
+      {{ product.long_description|linebreaks }}
+    </div>
+    {% endif %}
+
+    <!-- Allergens / Dietary accordion -->
+    {% if allergen and allergen.allergens or allergen and allergen.dietary_info %}
+    <details class="mt-6 bg-background/30 rounded-xl border border-border/30 overflow-hidden">
+      <summary class="px-4 py-3 cursor-pointer text-sm font-bold text-foreground hover:bg-surface-hover/50 transition-colors flex items-center gap-2">
+        <svg class="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Informa&ccedil;&otilde;es Nutricionais
+      </summary>
+      <div class="px-4 py-3 border-t border-border/30 space-y-3">
+        {% if allergen.allergens %}
+        <div>
+          <p class="text-overline text-muted-foreground font-bold mb-1">Al&eacute;rgenos</p>
+          <div class="flex flex-wrap gap-1.5">
+            {% for a in allergen.allergens %}
+            <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-error-light text-error border border-error">{{ a }}</span>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+        {% if allergen.dietary_info %}
+        <div>
+          <p class="text-overline text-muted-foreground font-bold mb-1">Informa&ccedil;&otilde;es Diet&eacute;ticas</p>
+          <div class="flex flex-wrap gap-1.5">
+            {% for d in allergen.dietary_info %}
+            <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-light text-success border border-success">{{ d }}</span>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </details>
+    {% endif %}
+
+    <!-- Quantity + Add to cart (Alpine) -->
+    {% if badge.can_add_to_cart %}
+    <div x-data="productQty({{ available_qty|default:'null' }})" x-ref="addToCart">
+      <div x-show="warning" x-cloak class="mt-4 px-4 py-2 bg-warning/10 border border-warning/30 rounded-xl">
+        <p class="text-warning-foreground font-medium text-sm" x-text="warning"></p>
+      </div>
+      <!-- Desktop: inline controls (hidden on mobile) -->
+      <div class="mt-8 hidden md:flex items-center gap-4">
+        <div class="inline-flex items-center gap-1 select-none" role="group" aria-label="Quantidade">
+          <button type="button" @click="dec()" :disabled="qty <= 1" class="flex items-center justify-center w-12 h-12 rounded-xl border border-border bg-surface hover:bg-surface-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Diminuir quantidade">
+            <svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>
+          </button>
+          <input x-model.number="qty" type="number" min="1" max="99" role="spinbutton" :aria-valuenow="qty" aria-valuemin="1" aria-valuemax="99" aria-label="Quantidade" inputmode="numeric" class="w-12 text-center text-body font-semibold text-foreground bg-transparent border-none focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" style="min-height:var(--touch-min)">
+          <button type="button" @click="inc()" :disabled="qty >= 99" class="flex items-center justify-center w-12 h-12 rounded-xl border border-border bg-surface hover:bg-surface-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Aumentar quantidade">
+            <svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          </button>
+        </div>
+        <button
+          class="btn-add flex-1 bg-primary text-primary-foreground py-2.5 px-6 rounded-xl font-medium hover:bg-primary-hover transition-all flex items-center justify-center gap-1.5 shadow-sm hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          data-add-label="Adicionar ao Pedido"
+          hx-post="{% url 'storefront:cart_add' %}"
+          hx-vals="js:{sku: '{{ product.sku }}', qty: String(document.querySelector('[x-ref=addToCart] input[type=number]')?.value || 1)}"
+          hx-target="#cart-badge-header"
+          hx-swap="innerHTML"
+          hx-on::before-request="this.classList.add('btn-add-loading'); this.innerHTML='<span class=\'spinner\'></span> Adicionando...'"
+          hx-on::after-request="(function(b,e){e=e||window.event;var ok=!!(e.detail&&e.detail.successful);b.classList.remove('btn-add-loading');var lab=b.getAttribute('data-add-label')||'Adicionar ao Pedido';if(!ok){b.innerHTML=lab;return;}b.classList.add('btn-add-success');b.innerHTML='Adicionado!';var c=b.closest('[x-data]');if(c&&c._x_dataStack)c._x_dataStack[0].qty=1;setTimeout(function(){b.classList.remove('btn-add-success');b.innerHTML=lab;},1500)})(this,event)"
+        >
+          Adicionar ao Pedido
+        </button>
+      </div>
+      <!-- Mobile: sticky footer bar (visible only on small screens) -->
+      <div class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface border-t border-border px-4 py-3 shadow-lg" style="padding-bottom: calc(0.75rem + var(--safe-area-bottom))">
+        <div class="flex items-center gap-3">
+          <div class="inline-flex items-center gap-1 select-none flex-shrink-0" role="group" aria-label="Quantidade">
+            <button type="button" @click="dec()" :disabled="qty <= 1" class="flex items-center justify-center w-11 h-11 rounded-xl border border-border bg-background hover:bg-surface-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Diminuir quantidade">
+              <svg class="w-4 h-4 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>
+            </button>
+            <input x-model.number="qty" type="number" min="1" max="99" role="spinbutton" :aria-valuenow="qty" aria-valuemin="1" aria-valuemax="99" aria-label="Quantidade" inputmode="numeric" class="w-10 text-center text-body font-semibold text-foreground bg-transparent border-none focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" style="min-height:var(--touch-min)">
+            <button type="button" @click="inc()" :disabled="qty >= 99" class="flex items-center justify-center w-11 h-11 rounded-xl border border-border bg-background hover:bg-surface-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Aumentar quantidade">
+              <svg class="w-4 h-4 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            </button>
+          </div>
+          <button
+            class="btn-add flex-1 bg-primary text-primary-foreground py-3 px-4 rounded-xl font-medium hover:bg-primary-hover transition-all flex items-center justify-center gap-1.5 shadow-sm hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            style="min-height:var(--touch-min)"
+            data-add-label="Adicionar ao Pedido — {{ price_display }}"
+            hx-post="{% url 'storefront:cart_add' %}"
+            hx-vals="js:{sku: '{{ product.sku }}', qty: String(document.querySelector('[x-ref=addToCart] input[type=number]')?.value || 1)}"
+            hx-target="#cart-badge-header"
+            hx-swap="innerHTML"
+            hx-on::before-request="this.classList.add('btn-add-loading'); this.innerHTML='<span class=\'spinner\'></span> Adicionando...'"
+            hx-on::after-request="(function(b,e){e=e||window.event;var ok=!!(e.detail&&e.detail.successful);b.classList.remove('btn-add-loading');var lab=b.getAttribute('data-add-label')||'Adicionar ao Pedido';if(!ok){b.innerHTML=lab;return;}b.classList.add('btn-add-success');b.innerHTML='Adicionado!';var c=b.closest('[x-data]');if(c&&c._x_dataStack)c._x_dataStack[0].qty=1;setTimeout(function(){b.classList.remove('btn-add-success');b.innerHTML=lab;},1500)})(this,event)"
+          >
+            Adicionar ao Pedido — {{ price_display }}
+          </button>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Extra info -->
+    <div class="mt-8 space-y-2 text-sm text-muted-foreground">
+      {% if product.shelf_life_days != None %}
+      <div class="flex items-center gap-2">
+        <span aria-hidden="true">&#128336;</span>
+        <span>
+          Validade:
+          {% if product.shelf_life_days == 0 %}
+            Mesmo dia
+          {% elif product.shelf_life_days == 1 %}
+            1 dia
+          {% else %}
+            {{ product.shelf_life_days }} dias
+          {% endif %}
+        </span>
+      </div>
+      {% endif %}
+      <div class="flex items-center gap-2">
+        <span aria-hidden="true">&#128230;</span>
+        <span>Unidade: {{ product.get_unit_display|default:product.unit }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if cross_sell %}
+<!-- Cross-sell: "Compre junto" -->
+<div class="mt-12">
+  <h3 class="text-h2 text-foreground mb-2">Compre Junto</h3>
+  <p class="text-muted-foreground text-sm mb-6">Quem levou {{ product.name }} tamb&eacute;m gostou</p>
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+    {% for item in cross_sell %}
+      {% include "storefront/partials/product_card.html" with item=item %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if alternatives %}
+<!-- Alternatives section -->
+<div class="mt-12">
+  <h3 class="text-h2 text-foreground mb-6">Produtos Similares</h3>
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+    {% for item in alternatives %}
+      {% include "storefront/partials/product_card.html" with item=item %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<script>
+function productQty(availableQty) {
+  return {
+    qty: 1,
+    maxQty: availableQty,
+    get warning() {
+      if (this.maxQty === null) return '';
+      if (this.qty > this.maxQty) {
+        return this.maxQty > 0
+          ? 'Dispon\u00edvel: ' + this.maxQty + ' unidade' + (this.maxQty !== 1 ? 's' : '')
+          : 'Estoque esgotado no momento.';
+      }
+      return '';
+    },
+    inc() { if (this.qty < 99) this.qty++; },
+    dec() { if (this.qty > 1) this.qty--; },
+  };
+}
+function shareProduct() {
+  var url = window.location.href;
+  var title = '{{ product.name|escapejs }} \u2014 {{ storefront.brand_name|escapejs }}';
+  if (navigator.share) {
+    navigator.share({ title: title, url: url }).catch(function() {});
+  } else {
+    navigator.clipboard.writeText(url).then(function() {
+      showToast('Link copiado!', 'success');
+    }).catch(function() {});
+  }
+}
+</script>
+<style>
+.promo-scroll{-webkit-overflow-scrolling:touch;-ms-overflow-style:none;scrollbar-width:none}
+.promo-scroll::-webkit-scrollbar{display:none}
+@media (max-width: 767px) { body { padding-bottom: calc(80px + var(--safe-area-bottom)); } }
+</style>
+
+{% endblock %}

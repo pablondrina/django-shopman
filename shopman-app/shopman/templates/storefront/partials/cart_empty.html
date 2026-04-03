@@ -1,0 +1,10 @@
+<div class="text-center py-16 px-4 rounded-2xl border border-dashed border-border bg-muted/20">
+  <span class="material-symbols-rounded icon-display text-muted-foreground/40 mx-auto block mb-4" aria-hidden="true">shopping_cart</span>
+  <h3 class="text-h3 text-foreground mb-2">Seu carrinho está vazio</h3>
+  <p class="text-body-sm text-muted-foreground mb-6 max-w-sm mx-auto">Explore o cardápio e monte seu pedido.</p>
+  <a href="{% url 'storefront:menu' %}"
+     class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-semibold text-body-sm hover:bg-primary-hover transition-colors shadow-sm">
+    <span class="material-symbols-rounded icon-sm" aria-hidden="true">restaurant_menu</span>
+    Ver cardápio
+  </a>
+</div>

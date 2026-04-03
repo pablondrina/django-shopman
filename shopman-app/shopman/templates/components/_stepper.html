@@ -1,0 +1,94 @@
+{% comment %}
+Quantity stepper with long-press acceleration.
+Required: value, name. Optional: min, max, step, label, compact, aria_label,
+hx_post, hx_target, hx_swap, hx_trigger, hx_vals.
+ARIA: role=spinbutton, aria-valuenow/min/max.
+{% endcomment %}
+
+{% with min_val=min|default:"0" max_val=max|default:"99" step_val=step|default:"1" lbl=aria_label|default:label|default:"Quantidade" btn_sz=compact|yesno:"36px,48px" icon_sz=compact|yesno:"w-4 h-4,w-6 h-6" %}
+
+<div
+  x-data="{
+    qty: {{ value|default:1 }},
+    min: {{ min_val }},
+    max: {{ max_val }},
+    step: {{ step_val }},
+    _timer: null, _accel: 0,
+    decrement() { if (this.qty > this.min) this.qty = Math.max(this.min, this.qty - this.step); },
+    increment() { if (this.qty < this.max) this.qty = Math.min(this.max, this.qty + this.step); },
+    startRepeat(fn) {
+      fn.call(this); this._accel = 0;
+      var self = this;
+      this._timer = setTimeout(function tick() {
+        fn.call(self); self._accel++;
+        var delay = self._accel > 10 ? 60 : self._accel > 5 ? 90 : 120;
+        self._timer = setTimeout(tick, delay);
+      }, 400);
+    },
+    stopRepeat() { clearTimeout(this._timer); this._timer = null; this._accel = 0; }
+  }"
+  class="inline-flex items-center {% if compact %}gap-0.5{% else %}gap-1{% endif %} select-none"
+  role="group"
+  aria-label="{{ lbl }}"
+>
+  {# Decrement #}
+  <button
+    type="button"
+    class="flex items-center justify-center rounded-xl border border-border bg-surface hover:bg-surface-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    style="width: {{ btn_sz }}; height: {{ btn_sz }};"
+    :disabled="qty <= min"
+    @mousedown="startRepeat(decrement)"
+    @mouseup="stopRepeat()"
+    @mouseleave="stopRepeat()"
+    @touchstart.prevent="startRepeat(decrement)"
+    @touchend="stopRepeat()"
+    aria-label="Diminuir quantidade"
+  >
+    <svg class="{{ icon_sz }} text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/>
+    </svg>
+  </button>
+
+  {# Value display + hidden input #}
+  <input
+    type="number"
+    name="{{ name }}"
+    :value="qty"
+    x-model.number="qty"
+    :min="min"
+    :max="max"
+    :step="step"
+    class="{% if compact %}w-8{% else %}w-12{% endif %} text-center text-body font-semibold text-foreground bg-transparent border-none focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+    style="min-height: {{ btn_sz }};"
+    role="spinbutton"
+    :aria-valuenow="qty"
+    :aria-valuemin="min"
+    :aria-valuemax="max"
+    aria-label="{{ lbl }}"
+    inputmode="numeric"
+    {% if hx_post %}hx-post="{{ hx_post }}" hx-trigger="{{ hx_trigger|default:'change delay:300ms' }}"{% endif %}
+    {% if hx_target %}hx-target="{{ hx_target }}"{% endif %}
+    {% if hx_swap %}hx-swap="{{ hx_swap }}"{% endif %}
+    {% if hx_vals %}hx-vals="{{ hx_vals }}"{% endif %}
+  >
+
+  {# Increment #}
+  <button
+    type="button"
+    class="flex items-center justify-center rounded-xl border border-border bg-surface hover:bg-surface-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    style="width: {{ btn_sz }}; height: {{ btn_sz }};"
+    :disabled="qty >= max"
+    @mousedown="startRepeat(increment)"
+    @mouseup="stopRepeat()"
+    @mouseleave="stopRepeat()"
+    @touchstart.prevent="startRepeat(increment)"
+    @touchend="stopRepeat()"
+    aria-label="Aumentar quantidade"
+  >
+    <svg class="{{ icon_sz }} text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+  </button>
+</div>
+
+{% endwith %}

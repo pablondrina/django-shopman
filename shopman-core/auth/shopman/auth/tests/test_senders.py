@@ -97,7 +97,15 @@ class TestEmailSender:
 
 
 class TestWhatsAppCloudAPISender:
-    """Tests for WhatsAppCloudAPISender."""
+    """Tests for WhatsAppCloudAPISender.
+
+    Requires httpx (optional dependency). WhatsApp OTP delivery in production
+    uses ManyChat, not the Meta Cloud API directly. This sender exists as a
+    fallback option but is not actively used. Tests are skipped when httpx
+    is not installed.
+    """
+
+    httpx = pytest.importorskip("httpx")
 
     @override_settings(AUTH={
         "WHATSAPP_ACCESS_TOKEN": "test-token",

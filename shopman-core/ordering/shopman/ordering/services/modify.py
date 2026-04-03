@@ -215,6 +215,8 @@ class ModifyService:
         }
         if "unit_price_q" in op:
             line["unit_price_q"] = int(op["unit_price_q"])
+        if op.get("is_d1"):
+            line["is_d1"] = True
         items.append(line)
         return items, data
 

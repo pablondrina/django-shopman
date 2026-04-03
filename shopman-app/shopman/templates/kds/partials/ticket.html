@@ -1,0 +1,108 @@
+{% if is_expedition %}
+{# ── Expedition card (order-based) ── #}
+<div class="kds-ticket" data-kds-ticket style="background: var(--kds-surface); border: 1px solid var(--kds-border); border-radius: var(--kds-radius); padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <div>
+      <span class="material-symbols-rounded icon-kds-xs" style="color: var(--kds-text-muted);" aria-hidden="true">{{ t.channel_icon }}</span>
+      <strong style="font-size: 1rem;">#{{ t.ref }}</strong>
+    </div>
+    <span style="font-size: 0.8125rem; color: var(--kds-text-muted); display: inline-flex; align-items: center; gap: 0.25rem;">
+      <span class="material-symbols-rounded icon-kds-sm" aria-hidden="true">{{ t.fulfillment_icon }}</span>
+      {{ t.fulfillment_label }}
+    </span>
+  </div>
+
+  {% if t.customer_name %}
+  <div style="font-size: 0.875rem; color: var(--kds-text-muted);">{{ t.customer_name }}</div>
+  {% endif %}
+
+  <div style="font-size: 0.875rem;">
+    {{ t.items_count }} item{{ t.items_count|pluralize:"s" }} &middot; {{ t.total_display }}
+  </div>
+
+  <div style="display: flex; gap: 0.5rem; margin-top: auto;">
+    {% if t.is_delivery %}
+    <button hx-post="/kds/expedition/{{ t.pk }}/action/"
+            hx-vals='{"action": "dispatch"}'
+            hx-target="closest .kds-ticket"
+            hx-swap="outerHTML"
+            hx-confirm="Despachar pedido #{{ t.ref }}?"
+            style="flex: 1; padding: 0.75rem; background: var(--kds-accent); color: #fff; border: none; border-radius: var(--kds-radius); font-size: 1rem; font-weight: 700; cursor: pointer; min-height: var(--kds-touch); display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;">
+      <span class="material-symbols-rounded icon-kds-lg" aria-hidden="true">local_shipping</span>
+      DESPACHAR
+    </button>
+    {% else %}
+    <button hx-post="/kds/expedition/{{ t.pk }}/action/"
+            hx-vals='{"action": "complete"}'
+            hx-target="closest .kds-ticket"
+            hx-swap="outerHTML"
+            hx-confirm="Entregar pedido #{{ t.ref }}?"
+            style="flex: 1; padding: 0.75rem; background: var(--kds-ok); color: #1a1a2e; border: none; border-radius: var(--kds-radius); font-size: 1rem; font-weight: 700; cursor: pointer; min-height: var(--kds-touch); display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;">
+      <span class="material-symbols-rounded icon-kds-lg" aria-hidden="true">check_circle</span>
+      ENTREGAR
+    </button>
+    {% endif %}
+  </div>
+</div>
+
+{% else %}
+{# ── Prep / Picking ticket card ── #}
+<div class="kds-ticket" data-kds-ticket
+     x-data="{ elapsed: {{ t.elapsed_seconds }} }"
+     x-init="setInterval(() => elapsed++, 1000)"
+     style="background: var(--kds-surface); border: 1px solid var(--kds-border); border-radius: var(--kds-radius); padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+
+  {# Header: order ref + time #}
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <div>
+      <span class="material-symbols-rounded icon-kds-xs" style="color: var(--kds-text-muted);" aria-hidden="true">{{ t.channel_icon }}</span>
+      <strong style="font-size: 1rem;">#{{ t.order_ref }}</strong>
+    </div>
+    <span :class="elapsed < {{ instance.target_time_minutes }}*60 ? 'timer-ok' : (elapsed < {{ instance.target_time_minutes }}*120 ? 'timer-warning' : 'timer-late')"
+          style="font-size: 0.875rem; font-weight: 600; font-variant-numeric: tabular-nums;"
+          x-text="Math.floor(elapsed/60) + ':' + String(Math.floor(elapsed%60)).padStart(2,'0')">
+    </span>
+  </div>
+
+  {% if t.customer_name %}
+  <div style="font-size: 0.8125rem; color: var(--kds-text-muted); display: flex; align-items: center; gap: 0.25rem;">
+    <span class="material-symbols-rounded icon-kds-sm" aria-hidden="true">{{ t.fulfillment_icon }}</span>
+    {{ t.customer_name }}
+  </div>
+  {% endif %}
+
+  {# Items with checkboxes #}
+  <div style="border-top: 1px solid var(--kds-border); padding-top: 0.5rem; display: flex; flex-direction: column; gap: 0.375rem;">
+    {% for item in t.items %}
+    <div style="display: flex; align-items: center; gap: 0.5rem; min-height: var(--kds-touch); cursor: pointer;{% if item.checked %} opacity: 0.5; text-decoration: line-through;{% endif %}"
+         hx-post="/kds/ticket/{{ t.pk }}/check/"
+         hx-vals='{"index": "{{ forloop.counter0 }}"}'
+         hx-target="closest .kds-ticket"
+         hx-swap="outerHTML">
+      <span class="material-symbols-rounded icon-kds-md" aria-hidden="true">{% if item.checked %}check_box{% else %}check_box_outline_blank{% endif %}</span>
+      <span style="font-size: 1rem; flex: 1;">{{ item.qty }}&times; {{ item.name }}</span>
+    </div>
+    {% if item.notes %}
+    <div style="font-size: 0.75rem; color: var(--kds-warning); padding-left: 1.75rem; margin-top: -0.25rem; display: flex; align-items: flex-start; gap: 0.25rem;">
+      <span class="material-symbols-rounded icon-kds-sm shrink-0" aria-hidden="true">warning</span>
+      {{ item.notes }}
+    </div>
+    {% endif %}
+    {% if item.stock_warning %}
+    <div style="font-size: 0.75rem; padding-left: 1.75rem; margin-top: -0.25rem; color: {% if item.stock_warning == 'Sem estoque' %}var(--kds-danger, #ef4444){% else %}var(--kds-warning){% endif %}; font-weight: 600; display: flex; align-items: center; gap: 0.25rem;">
+      <span class="material-symbols-rounded icon-kds-sm shrink-0" aria-hidden="true">inventory_2</span>
+      {{ item.stock_warning }}
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+
+  {# PRONTO button #}
+  <button hx-post="/kds/ticket/{{ t.pk }}/done/"
+          hx-target="closest .kds-ticket"
+          hx-swap="outerHTML"
+          style="margin-top: auto; padding: 0.75rem; background: var(--kds-ok); color: #1a1a2e; border: none; border-radius: var(--kds-radius); font-size: 1rem; font-weight: 700; cursor: pointer; min-height: var(--kds-touch); width: 100%;">
+    PRONTO
+  </button>
+</div>
+{% endif %}

@@ -79,16 +79,16 @@ shopman-app/node_modules/.package-lock.json: shopman-app/package.json
 	@echo "✓ node_modules pronto"
 
 css: shopman-app/node_modules/.package-lock.json ## Build CSS (Tailwind local, minificado)
-	cd shopman-app && npx tailwindcss -i ./static/src/input.css -o ./channels/web/static/storefront/css/output.css --minify
-	@echo "✓ CSS compilado (~$$(du -h shopman-app/channels/web/static/storefront/css/output.css | cut -f1))"
+	cd shopman-app && npx tailwindcss -i ./static/src/input.css -o ./shopman/static/storefront/css/output.css --minify
+	@echo "✓ CSS compilado (~$$(du -h shopman-app/shopman/static/storefront/css/output.css | cut -f1))"
 
 css-watch: shopman-app/node_modules/.package-lock.json ## CSS watch mode (dev)
-	cd shopman-app && npx tailwindcss -i ./static/src/input.css -o ./channels/web/static/storefront/css/output.css --watch
+	cd shopman-app && npx tailwindcss -i ./static/src/input.css -o ./shopman/static/storefront/css/output.css --watch
 
 fonts: ## Baixa fontes WOFF2 para self-hosting (Inter + Playfair Display)
 	@echo "── Baixando fontes ──"
-	@mkdir -p shopman-app/channels/web/static/storefront/fonts
-	@cd shopman-app/channels/web/static/storefront/fonts && \
+	@mkdir -p shopman-app/shopman/static/storefront/fonts
+	@cd shopman-app/shopman/static/storefront/fonts && \
 		curl -sLO "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfMZhrib2Bg-4.woff2" && mv UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfMZhrib2Bg-4.woff2 inter-latin-400.woff2 && \
 		curl -sLO "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuI6fMZhrib2Bg-4.woff2" && mv UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuI6fMZhrib2Bg-4.woff2 inter-latin-500.woff2 && \
 		curl -sLO "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuGKYMZhrib2Bg-4.woff2" && mv UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuGKYMZhrib2Bg-4.woff2 inter-latin-600.woff2 && \
@@ -99,7 +99,7 @@ fonts: ## Baixa fontes WOFF2 para self-hosting (Inter + Playfair Display)
 		curl -sLO "https://fonts.gstatic.com/s/playfairdisplay/v37/nuFRD-vYSZviVYUb_rj3ij__anPXDTnCjmHKM4nYO7KN_qiTbtbK-F2rA0s.woff2" && mv nuFRD-vYSZviVYUb_rj3ij__anPXDTnCjmHKM4nYO7KN_qiTbtbK-F2rA0s.woff2 playfair-display-latin-400-italic.woff2 && \
 		curl -sLO "https://fonts.gstatic.com/s/playfairdisplay/v37/nuFRD-vYSZviVYUb_rj3ij__anPXDTnCjmHKM4nYO7KN_giUbtbK-F2rA0s.woff2" && mv nuFRD-vYSZviVYUb_rj3ij__anPXDTnCjmHKM4nYO7KN_giUbtbK-F2rA0s.woff2 playfair-display-latin-600-italic.woff2
 	@echo "✓ Fontes baixadas"
-	@ls -la shopman-app/channels/web/static/storefront/fonts/*.woff2 2>/dev/null | wc -l | xargs -I{} echo "  {} arquivos woff2"
+	@ls -la shopman-app/shopman/static/storefront/fonts/*.woff2 2>/dev/null | wc -l | xargs -I{} echo "  {} arquivos woff2"
 
 # ── Server ────────────────────────────────────────────────────────────
 
@@ -107,14 +107,15 @@ migrate: ## Cria/atualiza banco de dados
 	cd shopman-app && python manage.py migrate
 	@echo "✓ Migrações aplicadas"
 
-run: css ## Sobe o servidor de desenvolvimento (build CSS primeiro)
+run: css ## Sobe servidor + directive worker
+	cd shopman-app && python manage.py process_directives --watch &
 	cd shopman-app && python manage.py runserver
 
-dev: shopman-app/node_modules/.package-lock.json ## Dev: CSS watch + server em paralelo
-	@echo "── Dev mode: CSS watch + Django server ──"
-	@echo "  CSS watch em background, servidor em foreground."
+dev: shopman-app/node_modules/.package-lock.json ## Dev: CSS watch + directive worker + server
+	@echo "── Dev mode: CSS watch + directive worker + Django server ──"
 	@echo "  Ctrl+C para parar tudo."
-	cd shopman-app && npx tailwindcss -i ./static/src/input.css -o ./channels/web/static/storefront/css/output.css --watch &
+	cd shopman-app && npx tailwindcss -i ./static/src/input.css -o ./shopman/static/storefront/css/output.css --watch &
+	cd shopman-app && python manage.py process_directives --watch &
 	cd shopman-app && python manage.py runserver
 
 seed: ## Popula banco com dados demo da Nelson Boulangerie

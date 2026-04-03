@@ -11,8 +11,8 @@ the Unfold versions.
 from django.contrib import admin
 from unfold.decorators import display
 
-from shopman_commons.contrib.admin_unfold.badges import unfold_badge
-from shopman_commons.contrib.admin_unfold.base import BaseModelAdmin
+from shopman.utils.contrib.admin_unfold.badges import unfold_badge
+from shopman.utils.contrib.admin_unfold.base import BaseModelAdmin
 
 from shopman.auth.models import AccessLink, CustomerUser, VerificationCode, TrustedDevice
 

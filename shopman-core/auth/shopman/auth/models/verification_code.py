@@ -48,12 +48,12 @@ def default_code_expiry():
     """Default expiration time for verification codes."""
     from ..conf import auth_settings
 
-    return timezone.now() + timedelta(minutes=auth_settings.MAGIC_CODE_TTL_MINUTES)
+    return timezone.now() + timedelta(minutes=auth_settings.ACCESS_CODE_TTL_MINUTES)
 
 
 def _default_max_attempts():
     from shopman.auth.conf import auth_settings
-    return auth_settings.MAGIC_CODE_MAX_ATTEMPTS
+    return auth_settings.ACCESS_CODE_MAX_ATTEMPTS
 
 
 class VerificationCode(models.Model):

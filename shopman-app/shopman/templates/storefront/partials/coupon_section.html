@@ -1,0 +1,36 @@
+<div id="{% firstof coupon_target_id 'coupon-section' %}">
+  {% if coupon %}
+  {# Coupon applied #}
+  <div class="flex items-center justify-between p-3 rounded-xl bg-success/10 border border-success/30">
+    <div class="flex items-center gap-2 text-sm text-foreground">
+      <svg class="w-5 h-5 text-success flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <span>Cupom <strong>{{ coupon.code }}</strong> aplicado!{% if coupon.discount_q %} <span class="text-success font-medium">-{{ coupon.discount_display }}</span>{% endif %}</span>
+    </div>
+    <form hx-post="{% url 'storefront:cart_remove_coupon' %}" hx-target="{% firstof coupon_target '#coupon-section' %}" hx-swap="outerHTML">
+      {% csrf_token %}
+      <button type="submit" class="text-sm font-medium text-error hover:underline transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-1">
+        Remover
+      </button>
+    </form>
+  </div>
+  {% else %}
+  {# Coupon input #}
+  <form hx-post="{% url 'storefront:cart_apply_coupon' %}" hx-target="{% firstof coupon_target '#coupon-section' %}" hx-swap="outerHTML" class="flex gap-2">
+    {% csrf_token %}
+    <input
+      type="text"
+      name="code"
+      placeholder="Código do cupom"
+      class="flex-1 px-4 py-2.5 rounded-xl border border-border bg-input text-foreground placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-transparent transition text-sm uppercase"
+    >
+    <button type="submit" class="px-4 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary-hover transition-colors flex-shrink-0 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+      Aplicar
+    </button>
+  </form>
+  {% if coupon_error %}
+  <p class="mt-2 text-sm text-error" role="alert">{{ coupon_error }}</p>
+  {% endif %}
+  {% endif %}
+</div>

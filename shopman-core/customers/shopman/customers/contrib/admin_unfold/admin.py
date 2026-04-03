@@ -19,8 +19,8 @@ from django.utils.translation import gettext_lazy as _
 from unfold.contrib.filters.admin.dropdown_filters import ChoicesDropdownFilter
 from unfold.decorators import display
 
-from shopman_commons.contrib.admin_unfold.badges import unfold_badge
-from shopman_commons.contrib.admin_unfold.base import BaseModelAdmin, BaseTabularInline
+from shopman.utils.contrib.admin_unfold.badges import unfold_badge
+from shopman.utils.contrib.admin_unfold.base import BaseModelAdmin, BaseTabularInline
 from shopman.customers.models import (
     Customer,
     CustomerGroup,

@@ -35,7 +35,7 @@ DJANGO_SETTINGS_MODULE = "project.settings"
 pythonpath = ["."]
 
 [tool.coverage.run]
-source = ["shopman", "channels", "nelson"]
+source = ["shopman"]
 omit = [
     "*/migrations/*",
     "*/tests/*",

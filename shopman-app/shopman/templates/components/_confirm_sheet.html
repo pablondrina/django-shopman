@@ -1,0 +1,91 @@
+{# Confirmação global — $store.confirm (show / proceed / cancel / close). Bottom sheet + focus trap. #}
+<div
+  x-data="confirmSheetChrome()"
+  @keydown.escape.window="$store.confirm.open && $store.confirm.cancel()"
+  x-effect="$store.confirm.open ? trapFocus($refs.confirmPanel) : releaseFocus()"
+>
+  <div
+    x-show="$store.confirm.open"
+    x-transition:enter="transition ease-out duration-200"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition ease-in duration-150"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+    x-cloak
+    @click="$store.confirm.cancel()"
+    class="fixed inset-0 bg-black/50 z-[60]"
+    aria-hidden="true"
+  ></div>
+
+  <div
+    x-ref="confirmPanel"
+    x-show="$store.confirm.open"
+    x-transition:enter="transition ease-out duration-300"
+    x-transition:enter-start="translate-y-full"
+    x-transition:enter-end="translate-y-0"
+    x-transition:leave="transition ease-in duration-200"
+    x-transition:leave-start="translate-y-0"
+    x-transition:leave-end="translate-y-full"
+    x-cloak
+    @click.stop
+    @keydown.tab="
+      var focusable = [...$el.querySelectorAll('button, [href], input:not([type=hidden]), select, textarea, [tabindex]:not([tabindex=\"-1\"])')];
+      if (!focusable.length) return;
+      var first = focusable[0], last = focusable[focusable.length - 1];
+      if ($event.shiftKey && document.activeElement === first) { $event.preventDefault(); last.focus(); }
+      else if (!$event.shiftKey && document.activeElement === last) { $event.preventDefault(); first.focus(); }
+    "
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="confirm-sheet-title"
+    class="fixed bottom-0 left-0 right-0 z-[60] bg-surface rounded-t-2xl shadow-xl"
+    style="padding-bottom: var(--safe-area-bottom)"
+  >
+    <div class="flex justify-center pt-3 pb-2" aria-hidden="true">
+      <div class="w-10 h-1 rounded-full bg-border"></div>
+    </div>
+    <div class="px-6 pb-6 pt-2 text-center">
+      <p id="confirm-sheet-title" class="text-foreground font-semibold text-base mb-2" x-text="$store.confirm.title"></p>
+      <p class="text-muted-foreground text-sm mb-6" x-text="$store.confirm.message" x-show="$store.confirm.message"></p>
+      <div class="flex gap-3">
+        <button
+          type="button"
+          @click="$store.confirm.cancel()"
+          class="flex-1 py-3.5 border border-border rounded-lg text-foreground font-medium hover:bg-surface-hover transition-colors"
+          style="min-height:var(--touch-min)"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          @click="$store.confirm.proceed()"
+          class="flex-1 py-3.5 rounded-lg font-medium transition-colors"
+          style="min-height:var(--touch-min)"
+          :class="$store.confirm.destructive ? 'bg-error text-white hover:bg-error/90' : 'bg-primary text-primary-foreground hover:bg-primary-hover'"
+          x-text="$store.confirm.confirmLabel"
+        ></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function confirmSheetChrome() {
+  return {
+    _prevFocus: null,
+    trapFocus(el) {
+      this._prevFocus = document.activeElement;
+      this.$nextTick(function () {
+        var first = el.querySelector(
+          'button:not([disabled]), [href], input:not([type=hidden]), select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (first) first.focus();
+      });
+    },
+    releaseFocus() {
+      if (this._prevFocus && this._prevFocus.focus) this._prevFocus.focus();
+    },
+  };
+}
+</script>

@@ -46,7 +46,13 @@ def _product_is_orderable(sku: str) -> bool:
     ).exists()
 
 
-def _availability_for_sku(sku: str, position=None, safety_margin: int = 0) -> dict:
+def _availability_for_sku(
+    sku: str,
+    position=None,
+    safety_margin: int = 0,
+    *,
+    allowed_positions: list[str] | None = None,
+) -> dict:
     """
     Build availability dict for a SKU with breakdown.
 
@@ -60,6 +66,10 @@ def _availability_for_sku(sku: str, position=None, safety_margin: int = 0) -> di
 
     If product is paused (is_available=False or is_published=False),
     returns zeros for orderable/available — stock may exist but is not for sale.
+
+    ``allowed_positions``: when not None, only quants at those position refs are
+    considered (e.g. remote channels exclude ``ontem`` so D-1 leftovers there are
+    invisible online). Ignored when ``position`` is set (single-position query).
     """
     from shopman.stocking.models import Batch
 
@@ -102,6 +112,8 @@ def _availability_for_sku(sku: str, position=None, safety_margin: int = 0) -> di
 
     if position:
         quants = quants.filter(position=position)
+    elif allowed_positions is not None:
+        quants = quants.filter(position__ref__in=allowed_positions)
 
     ready = Decimal("0")
     in_production = Decimal("0")
@@ -178,6 +190,31 @@ def _get_safety_margin(channel_ref: str | None) -> int:
         return 0
 
 
+def _get_allowed_positions(channel_ref: str | None) -> list[str] | None:
+    """stock.allowed_positions from Channel.config. None = todas as posições."""
+    if not channel_ref:
+        return None
+    from shopman.ordering.models import Channel
+    try:
+        channel = Channel.objects.get(ref=channel_ref)
+        return (channel.config or {}).get("stock", {}).get("allowed_positions")
+    except Channel.DoesNotExist:
+        return None
+
+
+def availability_scope_for_channel(channel_ref: str | None) -> dict[str, int | list[str] | None]:
+    """Único ponto para margem + posições ao calcular disponibilidade por canal.
+
+    O catálogo (o que o canal “oferece”) vem da Listagem vinculada ao canal; estes
+    parâmetros só restringem **de quais posições físicas** o estoque conta para esse
+    canal (ex.: remoto sem ``ontem`` para D-1 só no balcão).
+    """
+    return {
+        "safety_margin": _get_safety_margin(channel_ref),
+        "allowed_positions": _get_allowed_positions(channel_ref),
+    }
+
+
 class AvailabilityView(APIView):
     """GET availability for a single SKU."""
 
@@ -203,9 +240,15 @@ class AvailabilityView(APIView):
             position = Position.objects.filter(ref=position_ref).first()
 
         channel_ref = request.query_params.get("channel_ref")
-        safety_margin = _get_safety_margin(channel_ref)
+        scope = availability_scope_for_channel(channel_ref)
+        allowed_positions = None if position else scope["allowed_positions"]
 
-        data = _availability_for_sku(sku, position=position, safety_margin=safety_margin)
+        data = _availability_for_sku(
+            sku,
+            position=position,
+            safety_margin=scope["safety_margin"],
+            allowed_positions=allowed_positions,
+        )
         serializer = AvailabilitySerializer(data)
         return Response(serializer.data)
 
@@ -225,7 +268,7 @@ class BulkAvailabilityView(APIView):
 
         skus = [s.strip() for s in skus_param.split(",") if s.strip()]
         channel_ref = request.query_params.get("channel_ref")
-        safety_margin = _get_safety_margin(channel_ref)
+        scope = availability_scope_for_channel(channel_ref)
         results = []
 
         zero_breakdown = {"ready": Decimal("0"), "in_production": Decimal("0"), "d1": Decimal("0")}
@@ -242,7 +285,11 @@ class BulkAvailabilityView(APIView):
                     "is_paused": False,
                 })
                 continue
-            data = _availability_for_sku(sku, safety_margin=safety_margin)
+            data = _availability_for_sku(
+                sku,
+                safety_margin=scope["safety_margin"],
+                allowed_positions=scope["allowed_positions"],
+            )
             results.append({
                 "sku": data["sku"],
                 "total_available": data["total_available"],

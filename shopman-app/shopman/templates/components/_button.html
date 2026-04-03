@@ -1,0 +1,98 @@
+{% comment %}
+Button / link component. Renders <a> when href is set, <button> otherwise.
+Variants: primary, secondary, outline, ghost, destructive.
+Sizes: sm, md, lg.
+Params: variant, size, disabled, loading, icon_only, type, href, label, icon,
+        full_width, hx_post, hx_get, hx_delete, hx_target, hx_swap, hx_indicator,
+        hx_disabled_elt, hx_confirm, hx_vals, x_click, css_class, aria_label.
+{% endcomment %}
+
+{% with v=variant|default:"primary" sz=size|default:"md" btn_type=type|default:"button" %}
+
+{% if href %}
+<a
+  href="{{ href }}"
+  class="
+    inline-flex items-center justify-center gap-2 font-medium rounded-xl
+    transition-all duration-150 select-none
+    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+    {% if sz == 'sm' %}py-2 px-3 text-body-sm{% elif sz == 'lg' %}py-4 px-6 text-body-lg{% else %}py-3 px-4 text-body{% endif %}
+    {% if icon_only %}{% if sz == 'sm' %}!p-2{% elif sz == 'lg' %}!p-4{% else %}!p-3{% endif %}{% endif %}
+    {% if full_width %}w-full{% endif %}
+    {% if v == 'primary' %}bg-primary text-primary-foreground hover:bg-primary-hover shadow-sm hover:shadow-md
+    {% elif v == 'secondary' %}bg-secondary text-secondary-foreground hover:bg-secondary-hover
+    {% elif v == 'outline' %}border border-border bg-transparent text-foreground hover:bg-surface-hover
+    {% elif v == 'ghost' %}bg-transparent text-foreground hover:bg-surface-hover
+    {% elif v == 'destructive' %}bg-error text-white hover:bg-error/90 shadow-sm
+    {% endif %}
+    {% if disabled %}opacity-50 pointer-events-none{% endif %}
+    {{ css_class }}
+  "
+  {% if disabled %}aria-disabled="true" tabindex="-1"{% endif %}
+  {% if aria_label %}aria-label="{{ aria_label }}"{% endif %}
+>
+  {% if icon %}<span class="flex-shrink-0 {% if sz == 'sm' %}w-4 h-4{% elif sz == 'lg' %}w-6 h-6{% else %}w-5 h-5{% endif %}">{{ icon|safe }}</span>{% endif %}
+  {% if label and not icon_only %}<span>{{ label }}</span>{% endif %}
+</a>
+{% else %}
+<button
+  type="{{ btn_type }}"
+  class="
+    touch-target inline-flex items-center justify-center gap-2 font-medium rounded-xl
+    transition-all duration-150 select-none
+    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+    {% if sz == 'sm' %}py-2 px-3 text-body-sm{% elif sz == 'lg' %}py-4 px-6 text-body-lg{% else %}py-3 px-4 text-body{% endif %}
+    {% if icon_only %}{% if sz == 'sm' %}!p-2{% elif sz == 'lg' %}!p-4{% else %}!p-3{% endif %}{% endif %}
+    {% if full_width %}w-full{% endif %}
+    {% if v == 'primary' %}bg-primary text-primary-foreground hover:bg-primary-hover shadow-sm hover:shadow-md
+    {% elif v == 'secondary' %}bg-secondary text-secondary-foreground hover:bg-secondary-hover
+    {% elif v == 'outline' %}border border-border bg-transparent text-foreground hover:bg-surface-hover
+    {% elif v == 'ghost' %}bg-transparent text-foreground hover:bg-surface-hover
+    {% elif v == 'destructive' %}bg-error text-white hover:bg-error/90 shadow-sm
+    {% endif %}
+    {% if disabled %}opacity-50 cursor-not-allowed{% endif %}
+    {{ css_class }}
+  "
+  {% if disabled %}disabled aria-disabled="true"{% endif %}
+  {% if hx_post %}hx-post="{{ hx_post }}"{% endif %}
+  {% if hx_get %}hx-get="{{ hx_get }}"{% endif %}
+  {% if hx_delete %}hx-delete="{{ hx_delete }}"{% endif %}
+  {% if hx_target %}hx-target="{{ hx_target }}"{% endif %}
+  {% if hx_swap %}hx-swap="{{ hx_swap }}"{% endif %}
+  {% if hx_indicator %}hx-indicator="{{ hx_indicator }}"{% endif %}
+  {% if hx_disabled_elt %}hx-disabled-elt="{{ hx_disabled_elt }}"{% endif %}
+  {% if hx_confirm %}hx-confirm="{{ hx_confirm }}"{% endif %}
+  {% if hx_vals %}hx-vals="{{ hx_vals }}"{% endif %}
+  {% if x_click %}@click="{{ x_click }}"{% endif %}
+  {% if aria_label %}aria-label="{{ aria_label }}"{% endif %}
+>
+  {# Loading spinner (shown via HTMX htmx-request class) #}
+  {% if loading %}
+  <span class="htmx-indicator">
+    <svg class="animate-spin {% if sz == 'sm' %}w-4 h-4{% elif sz == 'lg' %}w-6 h-6{% else %}w-5 h-5{% endif %}" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+    </svg>
+  </span>
+  {% endif %}
+
+  {# Icon #}
+  {% if icon %}
+  <span class="flex-shrink-0 {% if sz == 'sm' %}w-4 h-4{% elif sz == 'lg' %}w-6 h-6{% else %}w-5 h-5{% endif %}">{{ icon|safe }}</span>
+  {% endif %}
+
+  {# Label #}
+  {% if label and not icon_only %}
+  <span>
+    {% if loading %}
+    <span class="htmx-request:hidden">{{ label }}</span>
+    <span class="hidden htmx-request:inline">{{ loading }}</span>
+    {% else %}
+    {{ label }}
+    {% endif %}
+  </span>
+  {% endif %}
+</button>
+{% endif %}
+
+{% endwith %}

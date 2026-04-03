@@ -172,49 +172,8 @@ class TestCommitService(TestCase):
         with pytest.raises(CommitError, match="blocking_issues"):
             CommitService.commit(session_key="S-5", channel_ref="pos", idempotency_key="IDEM-5")
 
-    def test_commit_enqueues_post_commit_directives(self):
-        """Commit with post_commit_directives enqueues the correct directives."""
-        channel = Channel.objects.create(
-            ref="pos-directives",
-            name="PDV Directives",
-            config={
-                "post_commit_directives": ["stock.hold", "notification.send"],
-            },
-        )
-        Session.objects.create(
-            session_key="S-DIR-1",
-            channel=channel,
-            items=[{"sku": "CROISSANT", "qty": 2, "unit_price_q": 1000}],
-        )
-        result = CommitService.commit(
-            session_key="S-DIR-1",
-            channel_ref="pos-directives",
-            idempotency_key="IDEM-DIR-1",
-        )
-        assert result["status"] == "committed"
-
-        directives = list(Directive.objects.filter(
-            payload__order_ref=result["order_ref"],
-        ).order_by("pk"))
-        assert len(directives) == 2
-
-        # stock.hold directive
-        stock_dir = directives[0]
-        assert stock_dir.topic == "stock.hold"
-        assert stock_dir.status == "queued"
-        assert stock_dir.payload["channel_ref"] == "pos-directives"
-        assert stock_dir.payload["rev"] == 0
-        assert len(stock_dir.payload["items"]) == 1
-        assert stock_dir.payload["items"][0]["sku"] == "CROISSANT"
-
-        # notification.send directive
-        notif_dir = directives[1]
-        assert notif_dir.topic == "notification.send"
-        assert notif_dir.status == "queued"
-        assert notif_dir.payload["template"] == "order_received"
-
-    def test_commit_no_directives_when_config_empty(self):
-        """Commit with no post_commit_directives does not enqueue anything."""
+    def test_commit_no_directives_from_core(self):
+        """CommitService does not create directives — that's hooks.py's job."""
         channel = Channel.objects.create(ref="bare", name="Bare")
         Session.objects.create(
             session_key="S-BARE-1",
@@ -230,14 +189,12 @@ class TestCommitService(TestCase):
         directives = Directive.objects.filter(payload__order_ref=result["order_ref"])
         assert directives.count() == 0
 
-    def test_commit_marketplace_only_notification(self):
-        """Marketplace preset: only notification.send, no stock.hold."""
+    def test_commit_marketplace_no_directives(self):
+        """Marketplace channel: CommitService creates no directives."""
         channel = Channel.objects.create(
             ref="mktplace",
             name="Marketplace",
-            config={
-                "post_commit_directives": ["notification.send"],
-            },
+            config={},
         )
         Session.objects.create(
             session_key="S-MKT-1",
@@ -252,9 +209,7 @@ class TestCommitService(TestCase):
         directives = list(Directive.objects.filter(
             payload__order_ref=result["order_ref"],
         ))
-        assert len(directives) == 1
-        assert directives[0].topic == "notification.send"
-        assert directives[0].payload["template"] == "order_received"
+        assert len(directives) == 0
 
 
 @pytest.mark.django_db

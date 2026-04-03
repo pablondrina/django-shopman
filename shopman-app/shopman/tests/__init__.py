@@ -1,0 +1,1 @@
+"""Shopman tests."""

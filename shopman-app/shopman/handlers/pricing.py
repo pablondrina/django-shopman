@@ -1,0 +1,106 @@
+"""
+Pricing modifiers — precificação de itens e totais.
+
+Inline de shopman.pricing.modifiers.
+"""
+
+from __future__ import annotations
+
+from decimal import Decimal
+from typing import Any
+
+from shopman.protocols import PricingBackend
+
+
+class ItemPricingModifier:
+    """
+    Modifier que aplica preços e calcula totais de linha. Ordem: 10.
+
+    Para internal pricing: sempre re-resolve o preço do backend a cada run,
+    garantindo que discount modifiers partam do preço base correto.
+    Limpa modifiers_applied para que discounts sejam recalculados do zero.
+    """
+
+    code = "pricing.item"
+    order = 10
+
+    def __init__(self, backend: PricingBackend):
+        self.backend = backend
+
+    def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
+        items = session.items
+        trace = []
+        modified = False
+
+        customer = ctx.get("customer")
+        for item in items:
+            sku = item["sku"]
+
+            # Always clear discount state — modifiers recalculate each run
+            if item.pop("modifiers_applied", None):
+                modified = True
+
+            if session.pricing_policy == "internal":
+                # Always re-resolve price from backend
+                qty_val = int(item.get("qty", 1))
+                kwargs = {"qty": qty_val}
+                if customer is not None:
+                    kwargs["customer"] = customer
+                price = self.backend.get_price(sku, channel, **kwargs)
+                if price is not None:
+                    if item.get("unit_price_q") != price:
+                        item["unit_price_q"] = price
+                        modified = True
+                        trace.append({
+                            "line_id": item["line_id"],
+                            "sku": sku,
+                            "price_q": price,
+                            "source": "internal",
+                        })
+            else:
+                # External: restore base price if it was modified by discounts
+                base = item.get("_base_price_q")
+                if base is not None:
+                    if item.get("unit_price_q") != base:
+                        item["unit_price_q"] = base
+                        modified = True
+                else:
+                    # First run — save current price as base
+                    item["_base_price_q"] = item.get("unit_price_q", 0)
+
+            from shopman.utils.monetary import monetary_mult
+
+            qty = Decimal(str(item.get("qty", 0)))
+            unit_price = item.get("unit_price_q", 0)
+            calculated_total = monetary_mult(qty, unit_price)
+
+            if item.get("line_total_q") != calculated_total:
+                item["line_total_q"] = calculated_total
+                modified = True
+
+        if modified:
+            session.update_items(items)
+
+        if trace:
+            if not session.pricing_trace:
+                session.pricing_trace = []
+            session.pricing_trace.extend(trace)
+
+
+class SessionTotalModifier:
+    """Modifier que calcula total da sessão. Ordem: 50"""
+
+    code = "pricing.session_total"
+    order = 50
+
+    def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
+        total = sum(item.get("line_total_q", 0) for item in session.items)
+
+        if not session.pricing:
+            session.pricing = {}
+
+        session.pricing["total_q"] = total
+        session.pricing["items_count"] = len(session.items)
+
+
+__all__ = ["ItemPricingModifier", "SessionTotalModifier"]

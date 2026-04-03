@@ -1,0 +1,77 @@
+{% load storefront_tags %}
+<div id="profile-section">
+  <div class="flex items-center justify-between mb-4">
+    <h3 class="text-h4 text-foreground">Editar dados</h3>
+    <button
+      type="button"
+      hx-get="{% url 'storefront:profile_display' %}"
+      hx-target="#profile-section"
+      hx-swap="outerHTML"
+      class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+    >
+      Cancelar
+    </button>
+  </div>
+
+  <form
+    hx-post="{% url 'storefront:profile_update' %}"
+    hx-target="#profile-section"
+    hx-swap="outerHTML"
+    class="space-y-4"
+  >
+    {% csrf_token %}
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label for="first_name" class="block text-sm font-medium text-foreground mb-1">Como quer ser chamado?</label>
+        <input
+          type="text"
+          id="first_name"
+          name="first_name"
+          value="{{ customer.first_name|default:'' }}"
+          class="w-full px-4 py-2.5 rounded-lg border {% if errors.first_name %}border-error{% else %}border-border{% endif %} bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+          placeholder="Ex: Ana, Jr, Dona Maria..."
+        >
+        {% if errors.first_name %}
+        <p class="mt-1 text-sm text-error">{{ errors.first_name }}</p>
+        {% endif %}
+      </div>
+
+      <div>
+        <label for="email" class="block text-sm font-medium text-foreground mb-1">Email</label>
+        <input
+          type="email"
+          id="email"
+          name="email"
+          value="{{ customer.email|default:'' }}"
+          class="w-full px-4 py-2.5 rounded-lg border border-border bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+          placeholder="seu@email.com"
+        >
+      </div>
+
+      <div>
+        <label for="birthday" class="block text-sm font-medium text-foreground mb-1">Data de nascimento</label>
+        <input
+          type="date"
+          id="birthday"
+          name="birthday"
+          value="{{ customer.birthday|date:'Y-m-d' }}"
+          class="w-full px-4 py-2.5 rounded-lg border border-border bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+        >
+      </div>
+    </div>
+
+    <div class="pt-2">
+      <p class="text-xs text-muted-foreground mb-3">
+        Telefone: <span class="font-medium">{{ customer.phone|format_phone }}</span>
+        <span class="text-muted-foreground/50">(não editável)</span>
+      </p>
+      <button
+        type="submit"
+        class="px-6 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary-hover transition-colors"
+      >
+        Salvar
+      </button>
+    </div>
+  </form>
+</div>

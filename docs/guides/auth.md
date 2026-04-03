@@ -209,12 +209,12 @@ Chave Django settings: `AUTH`
 
 | Setting | Default | Descrição |
 |---------|---------|-----------|
-| `BRIDGE_TOKEN_TTL_MINUTES` | 5 | TTL do Access Link |
-| `MAGIC_CODE_TTL_MINUTES` | 10 | TTL do código OTP |
-| `MAGIC_CODE_MAX_ATTEMPTS` | 5 | Máximo de tentativas |
-| `CODE_RATE_LIMIT_MAX` | 5 | Máx. códigos por janela |
-| `CODE_RATE_LIMIT_WINDOW_MINUTES` | 15 | Janela de rate limit |
-| `MAGIC_CODE_COOLDOWN_SECONDS` | 60 | Cooldown entre códigos |
+| `ACCESS_LINK_EXCHANGE_TTL_MINUTES` | 5 | TTL do Access Link |
+| `ACCESS_CODE_TTL_MINUTES` | 10 | TTL do código OTP |
+| `ACCESS_CODE_MAX_ATTEMPTS` | 5 | Máximo de tentativas |
+| `ACCESS_CODE_RATE_LIMIT_MAX` | 5 | Máx. códigos por janela |
+| `ACCESS_CODE_RATE_LIMIT_WINDOW_MINUTES` | 15 | Janela de rate limit |
+| `ACCESS_CODE_COOLDOWN_SECONDS` | 60 | Cooldown entre códigos |
 | `MESSAGE_SENDER_CLASS` | ConsoleSender | Classe de envio |
 | `CUSTOMER_RESOLVER_CLASS` | AttendingCustomerResolver | Resolver de clientes |
 | `DEVICE_TRUST_ENABLED` | True | Habilitar confiança de dispositivo |

@@ -1,0 +1,114 @@
+{% load storefront_tags %}
+
+{% if cart.items %}
+{# Progresso pedido mínimo #}
+{% if min_order_progress %}
+{% include "storefront/partials/min_order_progress.html" with progress=min_order_progress %}
+{% endif %}
+
+{# Itens — lista alinhada ao PDP (cards com respiro, sem “barra” única de qty) #}
+<div class="flex-1 overflow-y-auto px-3 sm:px-4 py-2">
+  <p class="text-overline text-muted-foreground px-1 pt-1 pb-2 tracking-wide">Seu pedido</p>
+  <div class="rounded-xl border border-border/80 bg-background/50 overflow-hidden shadow-sm ring-1 ring-black/[0.04]">
+    {% for item in cart.items %}
+    {% include "storefront/partials/cart_item.html" with item=item compact=True %}
+    {% endfor %}
+  </div>
+</div>
+
+{# Cupom #}
+<div class="border-t border-border px-4 py-3 bg-muted/20">
+  {% include "storefront/partials/coupon_section.html" with coupon=cart.coupon %}
+</div>
+
+{# Totais #}
+<div class="border-t border-border px-4 py-4 space-y-2 bg-surface">
+  {% if cart.has_discount %}
+  <div class="flex justify-between text-body-sm text-muted-foreground">
+    <span>Antes dos descontos</span>
+    <span class="line-through tabular-nums">{{ cart.original_subtotal_display }}</span>
+  </div>
+  {% if cart.discount_lines %}
+    {% for row in cart.discount_lines %}
+    <div class="flex justify-between text-body-sm gap-2">
+      <span class="text-muted-foreground truncate pr-2 min-w-0" title="{{ row.label }}">{{ row.label }}</span>
+      <span class="text-success font-medium tabular-nums shrink-0">-{{ row.amount_display }}</span>
+    </div>
+    {% endfor %}
+  {% else %}
+  <div class="flex justify-between text-body-sm text-success font-medium">
+    <span>Descontos</span>
+    <span class="tabular-nums">-{{ cart.total_discount_display }}</span>
+  </div>
+  {% endif %}
+  {% endif %}
+  <div class="flex justify-between items-baseline gap-3 {% if cart.has_discount %}pt-2 border-t border-border{% endif %}">
+    <span class="font-heading text-h4 text-foreground">Total</span>
+    <span class="text-xl font-bold text-primary tabular-nums">{{ cart.subtotal_display }}</span>
+  </div>
+</div>
+
+{# Upsell #}
+{% if upsell %}
+<div class="border-t border-border px-4 py-3 bg-accent/5">
+  <p class="text-caption font-semibold text-muted-foreground uppercase tracking-wide mb-2">Sugestão</p>
+  <div class="flex items-center gap-3">
+    <div class="w-11 h-11 bg-gradient-to-br from-border to-background rounded-xl border border-border/60 flex items-center justify-center flex-shrink-0 text-primary shadow-sm">
+      {{ upsell.sku|product_icon:"icon-sm" }}
+    </div>
+    <div class="flex-1 min-w-0">
+      <p class="text-body-sm font-semibold text-foreground truncate">{{ upsell.product.name }}</p>
+      {% if upsell.price_display %}
+      <p class="text-caption text-primary font-bold tabular-nums">{{ upsell.price_display }}</p>
+      {% endif %}
+    </div>
+    <button
+      type="button"
+      class="shrink-0 inline-flex items-center gap-1 px-3 py-2 rounded-xl text-caption font-semibold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring shadow-sm"
+      hx-post="{% url 'storefront:cart_add' %}"
+      hx-vals='{"sku": "{{ upsell.sku }}", "qty": "1"}'
+      hx-target="#cart-badge-header"
+      hx-swap="innerHTML"
+      aria-label="Adicionar {{ upsell.product.name }} ao carrinho"
+    >
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true">add</span>
+      Add
+    </button>
+  </div>
+</div>
+{% endif %}
+
+{# Ações #}
+<div class="border-t border-border px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] space-y-2 bg-surface">
+  {% if min_order_progress %}
+  <span class="block w-full py-3.5 px-3 bg-muted text-muted-foreground rounded-xl font-medium text-center text-body-sm cursor-not-allowed border border-border/50">
+    Faltam {{ min_order_progress.remaining_display }} para o pedido m&iacute;nimo
+  </span>
+  {% else %}
+  <a href="{% url 'storefront:checkout' %}"
+     class="flex items-center justify-center gap-2 w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-semibold text-body-sm hover:bg-primary-hover transition-colors shadow-md hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+    <span class="material-symbols-rounded icon-md" aria-hidden="true">payments</span>
+    Finalizar pedido
+  </a>
+  {% endif %}
+  <a href="{% url 'storefront:menu' %}"
+     @click="closeCartDrawer()"
+     class="flex items-center justify-center gap-1.5 w-full text-center text-body-sm text-muted-foreground hover:text-foreground py-2 transition-colors">
+    <span class="material-symbols-rounded icon-sm" aria-hidden="true">arrow_back</span>
+    Continuar comprando
+  </a>
+</div>
+
+{% else %}
+{# Vazio #}
+<div class="flex-1 flex flex-col items-center justify-center px-6 py-16 text-center">
+  <span class="material-symbols-rounded icon-display text-muted-foreground/35 mb-4" aria-hidden="true">shopping_cart</span>
+  <p class="font-heading text-h4 text-foreground mb-1">Carrinho vazio</p>
+  <p class="text-body-sm text-muted-foreground mb-6 max-w-xs">Adicione itens do card&aacute;pio para montar seu pedido.</p>
+  <a href="{% url 'storefront:menu' %}" @click="closeCartDrawer()"
+     class="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-body-sm hover:bg-primary-hover transition-colors shadow-sm hover:shadow-md">
+    <span class="material-symbols-rounded icon-sm" aria-hidden="true">restaurant_menu</span>
+    Ver card&aacute;pio
+  </a>
+</div>
+{% endif %}

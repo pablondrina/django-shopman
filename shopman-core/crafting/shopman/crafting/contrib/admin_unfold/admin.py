@@ -23,13 +23,13 @@ from unfold.decorators import action, display
 from unfold.enums import ActionVariant
 from unfold.sections import TableSection
 
-from shopman_commons.contrib.admin_unfold.badges import unfold_badge, unfold_badge_numeric
-from shopman_commons.contrib.admin_unfold.base import (
+from shopman.utils.contrib.admin_unfold.badges import unfold_badge, unfold_badge_numeric
+from shopman.utils.contrib.admin_unfold.base import (
     BaseModelAdmin,
     BaseStackedInline,
     BaseTabularInline,
 )
-from shopman_commons.formatting import format_quantity
+from shopman.utils.formatting import format_quantity
 
 from shopman.crafting.models import (
     Recipe,

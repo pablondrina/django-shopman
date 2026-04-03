@@ -64,11 +64,6 @@ INSTALLED_APPS = [
     "shopman.auth.contrib.admin_unfold",
     # Shopman orchestrator
     "shopman",
-    # Shop (identidade + regras)
-    "shop",
-    # Channels
-    "channels",
-    "channels.web",
 ]
 
 MIDDLEWARE = [
@@ -79,6 +74,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "shopman.auth.middleware.AuthCustomerMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    "shopman.middleware.ChannelParamMiddleware",
+    "shopman.middleware.OnboardingMiddleware",
 ]
 
 AUTHENTICATION_BACKENDS = [
@@ -90,6 +87,8 @@ AUTH = {
     "PRESERVE_SESSION_KEYS": ["cart_session_key"],
     "DEFAULT_DOMAIN": os.environ.get("AUTH_DEFAULT_DOMAIN", "localhost:8000"),
     "USE_HTTPS": not DEBUG,
+    # OTP delivery: WhatsApp (via ManyChat) → SMS → email
+    # Configured dynamically below after MANYCHAT_API_TOKEN is read
 }
 
 ROOT_URLCONF = "project.urls"
@@ -97,7 +96,7 @@ ROOT_URLCONF = "project.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [os.path.join(BASE_DIR, "shop", "templates")],
+        "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -105,8 +104,8 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "channels.web.context_processors.cart_count",
-                "shop.context_processors.shop",
+                "shopman.context_processors.shop",
+                "shopman.context_processors.cart_count",
             ],
         },
     },
@@ -129,22 +128,61 @@ MEDIA_URL = "/media/"
 # ── Google Maps ──────────────────────────────────────────────────────
 GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
 
+# ── Manychat (WhatsApp via ManyChat) ────────────────────────────────
+MANYCHAT_API_TOKEN = os.environ.get("MANYCHAT_API_TOKEN", "")
+MANYCHAT_WEBHOOK_SECRET = os.environ.get("MANYCHAT_WEBHOOK_SECRET", "")
+MANYCHAT_OTP_FLOW_NS = os.environ.get("MANYCHAT_OTP_FLOW_NS", "")
+MANYCHAT_FLOW_MAP = {
+    # Mapeia eventos de notificação → ManyChat flow namespace.
+    # Se vazio, ManychatBackend envia mensagem texto direta (sem flow).
+    # Para usar flows, configure no ManyChat e mapeie aqui:
+    # "order_confirmed": "content20250401120000_123456",
+    # "payment_confirmed": "content20250401120000_234567",
+}
+
+# ── WhatsApp (Meta Cloud API + Bot F15) ─────────────────────────────
+SHOPMAN_WHATSAPP = {
+    "VERIFY_TOKEN": os.environ.get("WHATSAPP_VERIFY_TOKEN", ""),
+    "STOREFRONT_URL": os.environ.get("WHATSAPP_STOREFRONT_URL", ""),
+    # Meta Cloud API (opcional — ManyChat é o backend primário)
+    # "PHONE_NUMBER_ID": os.environ.get("WHATSAPP_PHONE_NUMBER_ID", ""),
+    # "ACCESS_TOKEN": os.environ.get("WHATSAPP_ACCESS_TOKEN", ""),
+    # "MODE": "text",
+}
+
+# ── iFood (Marketplace F16) ────────────────────────────────────────
+SHOPMAN_IFOOD = {
+    "WEBHOOK_TOKEN": os.environ.get("IFOOD_WEBHOOK_TOKEN", ""),
+    "SKIP_SIGNATURE": os.environ.get("IFOOD_SKIP_SIGNATURE", "true").lower() in ("true", "1"),
+    "MERCHANT_ID": os.environ.get("IFOOD_MERCHANT_ID", ""),
+}
+
+# ── OTP Delivery Chain (depends on MANYCHAT_API_TOKEN above) ──────
+if MANYCHAT_API_TOKEN:
+    AUTH.update({
+        "DELIVERY_CHAIN": ["whatsapp", "sms", "email"] if not DEBUG else ["whatsapp", "sms", "console"],
+        "DELIVERY_SENDERS": {
+            "whatsapp": "shopman.adapters.otp_manychat.ManychatOTPSender",
+            "sms": "shopman.auth.senders.SMSSender",
+            "email": "shopman.auth.senders.EmailSender",
+            "console": "shopman.auth.senders.ConsoleSender",
+        },
+    })
+
 LANGUAGE_CODE = "pt-br"
 TIME_ZONE = "America/Sao_Paulo"
 USE_I18N = True
 USE_TZ = True
 
 # ── Unfold Admin ────────────────────────────────────────────────────
-# Branding, TABS and SIDEBAR moved to shop/admin.py.
-# We can't import from shop.admin at settings load time (AppRegistryNotReady),
-# so we use reverse_lazy here directly. The SITE_TITLE callable reads Shop.name.
+# SITE_TITLE callable reads Shop.name via model import (lazy).
 
 from django.urls import reverse_lazy  # noqa: E402
 
 
 def _unfold_site_title(request=None):
     try:
-        from shop.models import Shop
+        from shopman.models import Shop
         shop = Shop.load()
         return shop.name if shop else "Shopman"
     except Exception:
@@ -155,13 +193,11 @@ UNFOLD = {
     "SITE_TITLE": _unfold_site_title,
     "SITE_HEADER": _unfold_site_title,
     "SITE_SYMBOL": "storefront",
-    "DASHBOARD_CALLBACK": "shop.dashboard.dashboard_callback",
+    "DASHBOARD_CALLBACK": "shopman.admin.dashboard.dashboard_callback",
     "SHOW_HISTORY": True,
     "SHOW_VIEW_ON_SITE": False,
     "SHOW_BACK_BUTTON": True,
-    "STYLES": [
-        lambda request: "/static/shop/css/admin-fix.css",
-    ],
+    "STYLES": [],
     "COLORS": {
         "primary": {
             "50": "rgb(245, 240, 235)",
@@ -233,7 +269,7 @@ UNFOLD = {
                 "title": "Loja",
                 "separator": True,
                 "items": [
-                    {"title": "Configuração", "icon": "storefront", "link": reverse_lazy("admin:shop_shop_changelist")},
+                    {"title": "Configuração", "icon": "storefront", "link": reverse_lazy("admin:shopman_shop_changelist")},
                 ],
             },
             {
@@ -244,7 +280,6 @@ UNFOLD = {
                     {"title": "Canais", "icon": "network_node", "link": reverse_lazy("admin:ordering_channel_changelist")},
                     {"title": "Sessoes", "icon": "note_alt", "link": reverse_lazy("admin:ordering_session_changelist")},
                     {"title": "Pedidos", "icon": "assignment", "link": reverse_lazy("admin:ordering_order_changelist")},
-                    {"title": "Diretivas", "icon": "conversion_path", "link": reverse_lazy("admin:ordering_directive_changelist")},
                 ],
             },
             {
@@ -271,24 +306,28 @@ UNFOLD = {
                 ],
             },
             {
+                "title": "Regras",
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {"title": "Regras", "icon": "tune", "link": reverse_lazy("admin:shopman_ruleconfig_changelist")},
+                    {"title": "Promoções", "icon": "sell", "link": reverse_lazy("admin:shopman_promotion_changelist")},
+                    {"title": "Cupons", "icon": "confirmation_number", "link": reverse_lazy("admin:shopman_coupon_changelist")},
+                ],
+            },
+            {
                 "title": "Operacao",
                 "separator": True,
                 "collapsible": True,
                 "items": [
-                    {
-                        "title": "Registro Rápido",
-                        "icon": "add_circle",
-                        "link": reverse_lazy("admin:shop_production"),
-                        "permission": lambda request: request.user.has_perm("crafting.add_workorder"),
-                    },
-                    {
-                        "title": "Fechamento",
-                        "icon": "point_of_sale",
-                        "link": reverse_lazy("admin:shop_closing"),
-                        "permission": lambda request: request.user.has_perm("shop.add_dayclosing"),
-                    },
+                    {"title": "Registro Rápido", "icon": "add_circle", "link": reverse_lazy("admin:shop_production")},
+                    {"title": "Fechamento", "icon": "point_of_sale", "link": reverse_lazy("admin:shop_closing")},
                     {"title": "Receitas", "icon": "menu_book", "link": reverse_lazy("admin:crafting_recipe_changelist")},
                     {"title": "Ordens de Producao", "icon": "manufacturing", "link": reverse_lazy("admin:crafting_workorder_changelist")},
+                    {"title": "Alertas", "icon": "warning", "link": reverse_lazy("admin:shopman_operatoralert_changelist")},
+                    {"title": "KDS", "icon": "kitchen", "link": reverse_lazy("admin:shopman_kdsinstance_changelist")},
+                    {"title": "Diretivas", "icon": "conversion_path", "link": reverse_lazy("admin:ordering_directive_changelist")},
+                    {"title": "Fechamento Diário", "icon": "event_available", "link": reverse_lazy("admin:shopman_dayclosing_changelist")},
                 ],
             },
             {
@@ -352,7 +391,8 @@ SPECTACULAR_SETTINGS = {
 # ── Offering ──────────────────────────────────────────────────────
 
 OFFERING = {
-    "COST_BACKEND": "channels.backends.cost.CraftingCostBackend",
+    # TODO WP-R2: restore cost backend adapter
+    "COST_BACKEND": None,
 }
 
 # ── Crafting (micro-MRP integration) ──────────────────────────────
@@ -362,6 +402,23 @@ CRAFTING = {
     "DEMAND_BACKEND": "shopman.crafting.contrib.demand.backend.OrderingDemandBackend",
     "CATALOG_BACKEND": "shopman.offering.adapters.catalog_backend.OfferingCatalogBackend",
 }
+
+# ── Shopman Adapters ──────────────────────────────────────────────────
+
+SHOPMAN_PAYMENT_ADAPTERS = {
+    "pix": "shopman.adapters.payment_mock",
+    "card": "shopman.adapters.payment_mock",
+    "counter": None,
+    "external": None,
+}
+
+SHOPMAN_NOTIFICATION_ADAPTERS = {
+    "console": "shopman.adapters.notification_console",
+}
+
+SHOPMAN_STOCK_ADAPTER = "shopman.adapters.stock_internal"
+
+SHOPMAN_FISCAL_ADAPTER = None
 
 # ── Logging ────────────────────────────────────────────────────────────
 
@@ -391,11 +448,6 @@ LOGGING = {
             "propagate": False,
         },
         "shopman": {
-            "handlers": ["console"],
-            "level": "DEBUG" if DEBUG else "INFO",
-            "propagate": False,
-        },
-        "channels": {
             "handlers": ["console"],
             "level": "DEBUG" if DEBUG else "INFO",
             "propagate": False,

@@ -3,17 +3,30 @@ Manychat Subscriber Resolver — Resolve recipient → subscriber_id.
 
 Usado pelo ManychatBackend (ordering) para converter phone/email/ref
 em Manychat subscriber_id para envio de mensagens outbound.
+
+Estratégia de resolução (em ordem):
+1. Numérico direto → subscriber_id
+2. DB: CustomerIdentifier(MANYCHAT) via phone/email/ref
+3. API fallback: GET /fb/subscriber/findBySystemField (phone)
+   → persiste como CustomerIdentifier para próximas chamadas
 """
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import TYPE_CHECKING
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 if TYPE_CHECKING:
     from shopman.customers.models import Customer
 
 logger = logging.getLogger(__name__)
+
+# ManyChat API base URL
+_API_BASE = "https://api.manychat.com/fb"
+_API_TIMEOUT = 10
 
 
 class ManychatSubscriberResolver:
@@ -23,12 +36,8 @@ class ManychatSubscriberResolver:
     Usa CustomerIdentifier (contrib/identifiers) para mapear
     phone/email/ref → MANYCHAT subscriber_id.
 
-    Ordem de tentativa:
-    1. Numérico direto → subscriber_id
-    2. Phone E.164 (+55...) → CustomerIdentifier(PHONE) → Customer
-       → CustomerIdentifier(MANYCHAT) → subscriber_id
-    3. Customer code (MC-...) → Customer → CustomerIdentifier(MANYCHAT)
-    4. Email → CustomerIdentifier(EMAIL) → MANYCHAT
+    Se não encontrar no banco, consulta a API do ManyChat via
+    findBySystemField (phone) e persiste o resultado.
     """
 
     @classmethod
@@ -46,16 +55,23 @@ class ManychatSubscriberResolver:
             return int(recipient)
 
         customer = cls._find_customer(recipient)
-        if not customer:
-            logger.debug(f"Manychat resolver: customer not found for {recipient[:20]}")
-            return None
 
-        subscriber_id = cls._get_manychat_id(customer)
-        if subscriber_id is None:
-            logger.debug(
-                f"Manychat resolver: no MANYCHAT identifier for customer {customer.ref}"
-            )
-        return subscriber_id
+        # Fast path: customer exists and has MANYCHAT identifier
+        if customer:
+            subscriber_id = cls._get_manychat_id(customer)
+            if subscriber_id is not None:
+                return subscriber_id
+
+        # API fallback: lookup subscriber by phone via ManyChat API
+        if recipient.startswith("+"):
+            subscriber_id = cls._lookup_by_phone_api(recipient)
+            if subscriber_id is not None and customer:
+                cls._persist_manychat_id(customer, subscriber_id)
+            return subscriber_id
+
+        if not customer:
+            logger.debug("Manychat resolver: customer not found for %s", recipient[:20])
+        return None
 
     @classmethod
     def _find_customer(cls, recipient: str) -> Customer | None:
@@ -67,7 +83,6 @@ class ManychatSubscriberResolver:
         from shopman.customers.models import Customer
 
         if recipient.startswith("+"):
-            # Phone → busca por identifier
             try:
                 ident = CustomerIdentifier.objects.select_related("customer").get(
                     identifier_type=IdentifierType.PHONE,
@@ -76,16 +91,17 @@ class ManychatSubscriberResolver:
                 )
                 return ident.customer
             except CustomerIdentifier.DoesNotExist:
-                return None
+                # Also try direct phone field on Customer
+                return Customer.objects.filter(
+                    phone=recipient, is_active=True,
+                ).first()
 
         if recipient.startswith("MC-"):
-            # Customer code
             return Customer.objects.filter(
-                ref=recipient, is_active=True
+                ref=recipient, is_active=True,
             ).first()
 
         if "@" in recipient:
-            # Email
             try:
                 ident = CustomerIdentifier.objects.select_related("customer").get(
                     identifier_type=IdentifierType.EMAIL,
@@ -114,3 +130,67 @@ class ManychatSubscriberResolver:
             return int(ident.identifier_value)
         except (CustomerIdentifier.DoesNotExist, ValueError):
             return None
+
+    @classmethod
+    def _lookup_by_phone_api(cls, phone: str) -> int | None:
+        """Consulta ManyChat API para encontrar subscriber por telefone.
+
+        GET /fb/subscriber/findBySystemField?field=whatsapp_phone&value=<phone>
+        """
+        from django.conf import settings
+
+        api_token = getattr(settings, "MANYCHAT_API_TOKEN", "")
+        if not api_token:
+            return None
+
+        # ManyChat expects phone without + prefix for WhatsApp lookup
+        phone_value = phone.lstrip("+")
+
+        url = (
+            f"{_API_BASE}/subscriber/findBySystemField"
+            f"?field=whatsapp_phone&value={phone_value}"
+        )
+        request = Request(url, headers={
+            "Authorization": f"Bearer {api_token}",
+            "Accept": "application/json",
+        })
+
+        try:
+            with urlopen(request, timeout=_API_TIMEOUT) as response:
+                data = json.loads(response.read().decode("utf-8"))
+                if data.get("status") == "success":
+                    subscriber = data.get("data", {})
+                    subscriber_id = subscriber.get("id")
+                    if subscriber_id:
+                        logger.info(
+                            "Manychat resolver: found subscriber %s for phone %s via API",
+                            subscriber_id, phone[:8],
+                        )
+                        return int(subscriber_id)
+        except HTTPError as e:
+            if e.code == 404:
+                logger.debug("Manychat resolver: subscriber not found for phone %s", phone[:8])
+            else:
+                logger.warning("Manychat resolver: API error %d for phone %s", e.code, phone[:8])
+        except (URLError, ValueError, Exception):
+            logger.debug("Manychat resolver: API call failed for phone %s", phone[:8], exc_info=True)
+
+        return None
+
+    @classmethod
+    def _persist_manychat_id(cls, customer: Customer, subscriber_id: int) -> None:
+        """Persiste o subscriber_id como CustomerIdentifier para evitar future API calls."""
+        from shopman.customers.contrib.identifiers.models import (
+            CustomerIdentifier,
+            IdentifierType,
+        )
+
+        CustomerIdentifier.objects.get_or_create(
+            customer=customer,
+            identifier_type=IdentifierType.MANYCHAT,
+            defaults={
+                "identifier_value": str(subscriber_id),
+                "is_primary": True,
+                "source_system": "manychat_api_lookup",
+            },
+        )

@@ -93,8 +93,8 @@ class AuthService:
         try:
             Gates.rate_limit(
                 key=target_value,
-                max_requests=auth_settings.CODE_RATE_LIMIT_MAX,
-                window_minutes=auth_settings.CODE_RATE_LIMIT_WINDOW_MINUTES,
+                max_requests=auth_settings.ACCESS_CODE_RATE_LIMIT_MAX,
+                window_minutes=auth_settings.ACCESS_CODE_RATE_LIMIT_WINDOW_MINUTES,
             )
         except GateError:
             return CodeRequestResult(
@@ -107,7 +107,7 @@ class AuthService:
         try:
             Gates.code_cooldown(
                 target_value=target_value,
-                cooldown_seconds=auth_settings.MAGIC_CODE_COOLDOWN_SECONDS,
+                cooldown_seconds=auth_settings.ACCESS_CODE_COOLDOWN_SECONDS,
             )
         except GateError:
             return CodeRequestResult(

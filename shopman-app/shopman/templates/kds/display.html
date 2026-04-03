@@ -1,0 +1,43 @@
+{% extends "kds/base.html" %}
+{% block title %}{{ instance.name }} — KDS{% endblock %}
+
+{% block body %}
+<div x-data="kdsDisplay()" x-init="init()">
+
+  <header class="kds-header">
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <a href="/kds/" style="color: var(--kds-text-muted); text-decoration: none; font-size: 1.25rem;" title="Voltar">&larr;</a>
+      <h1 style="display: flex; align-items: center; gap: 0.5rem;">
+        <span class="material-symbols-rounded icon-kds-lg" aria-hidden="true">{% if instance.type == "prep" %}skillet{% elif instance.type == "picking" %}inventory_2{% else %}local_shipping{% endif %}</span>
+        {{ instance.name }}
+        <span style="font-size: 0.75rem; font-weight: 400; color: var(--kds-text-muted);">({{ instance.get_type_display }})</span>
+      </h1>
+    </div>
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <span class="kds-clock" x-text="clock"></span>
+      <div class="kds-actions">
+        <button type="button" @click="toggleSound()" :title="soundEnabled ? 'Som ativo' : 'Som desativado'">
+          <span class="material-symbols-rounded icon-kds-lg" x-text="soundEnabled ? 'volume_up' : 'volume_off'"></span>
+        </button>
+        <button type="button" @click="toggleFullscreen()" title="Tela cheia"><span class="material-symbols-rounded icon-kds-lg" aria-hidden="true">open_in_full</span></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="kds-main">
+    <div id="ticket-grid"
+         hx-get="/kds/{{ instance.ref }}/tickets/"
+         hx-trigger="every 5s"
+         hx-target="#ticket-grid"
+         hx-swap="innerHTML">
+      {% include "kds/partials/ticket_list.html" %}
+    </div>
+  </main>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<script>
+  {% include "kds/partials/kds_js.html" %}
+</script>
+{% endblock %}

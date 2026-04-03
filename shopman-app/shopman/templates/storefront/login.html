@@ -1,0 +1,100 @@
+{% extends "storefront/base.html" %}
+{% load storefront_tags %}
+
+{% block title %}Entrar{% endblock %}
+
+{% block content %}
+
+{# Layout alinhado aos padrões Oxbow: card com borda, raio xl, sombra md, tipografia por tokens #}
+<div class="max-w-md mx-auto px-4 mt-6 sm:mt-10">
+
+  <div class="text-center mb-8">
+    <h1 class="font-heading text-h2 text-foreground tracking-tight">Entrar na sua conta</h1>
+    <p class="text-body-sm text-muted-foreground mt-2 max-w-sm mx-auto leading-relaxed">
+      Enviaremos um código de verificação para seu celular
+    </p>
+  </div>
+
+  <div class="rounded-2xl border border-border bg-card text-card-foreground shadow-md p-6 sm:p-8">
+
+    {% if step == "phone" %}
+    {# ── Step 1: Phone ── #}
+    <form method="post" action="{% url 'storefront:login' %}{% if next %}?next={{ next|urlencode }}{% endif %}" x-data="{ method: 'whatsapp' }" class="space-y-6">
+      {% csrf_token %}
+      <input type="hidden" name="step" value="phone">
+      <input type="hidden" name="delivery_method" :value="method">
+
+      <div>
+        {% include "storefront/partials/phone_input.html" with field_id="phone" field_name="phone" value=phone_value error=error autofocus=True %}
+      </div>
+
+      {% include "components/_button.html" with type="submit" variant="primary" label="Enviar código via WhatsApp" full_width=True %}
+
+      <p class="text-center">
+        {% include "components/_button.html" with type="submit" variant="ghost" size="sm" label="Prefere receber por SMS?" x_click="method = 'sms'" css_class="text-xs text-muted-foreground" %}
+      </p>
+    </form>
+
+    {% elif step == "code" %}
+    {# ── Step 2: OTP ── #}
+    <div class="text-center mb-6 space-y-1">
+      <p class="text-body-sm text-muted-foreground leading-relaxed">
+        {% if customer_name %}Olá, <strong class="text-foreground font-medium">{{ customer_name }}</strong>! {% endif %}Enviamos um código via <strong class="text-foreground">{% if delivery_method == "sms" %}SMS{% else %}WhatsApp{% endif %}</strong> para
+      </p>
+      <p class="text-body font-medium text-foreground tabular-nums">{{ phone_value|format_phone }}</p>
+    </div>
+
+    {% if error %}
+    <div class="mb-4 p-3 rounded-xl bg-error-light border border-error/80 text-error text-body-sm" role="alert">
+      {{ error }}
+    </div>
+    {% endif %}
+
+    <div id="auth-section">
+      {% include "storefront/partials/auth_verify_code.html" with phone=phone_value %}
+    </div>
+
+    <div class="mt-6 text-center">
+      <a href="{% url 'storefront:login' %}{% if next %}?next={{ next|urlencode }}{% endif %}"
+         class="text-body-sm text-muted-foreground hover:text-foreground transition-colors">
+        &larr; Usar outro telefone
+      </a>
+    </div>
+
+    <script>
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+      if (evt.detail.target.id === 'auth-section') {
+        var html = evt.detail.target.innerHTML;
+        if (html.indexOf('Identidade confirmada') !== -1) {
+          setTimeout(function() {
+            window.location.href = '{% url "storefront:login" %}?step=post-login{% if next %}&next={{ next|urlencode }}{% endif %}';
+          }, 800);
+        }
+      }
+    });
+    </script>
+
+    {% elif step == "name" %}
+    {# ── Step 3: Name (new customer only) ── #}
+    <div class="text-center mb-6 space-y-1">
+      <p class="text-body-sm text-muted-foreground">Bem-vindo! Como podemos te chamar?</p>
+      <p class="text-body-sm font-medium text-foreground tabular-nums">{{ phone_value|format_phone }}</p>
+    </div>
+
+    <form method="post" action="{% url 'storefront:login' %}{% if next %}?next={{ next|urlencode }}{% endif %}" class="space-y-6">
+      {% csrf_token %}
+      <input type="hidden" name="step" value="name">
+      <input type="hidden" name="phone" value="{{ phone_value }}">
+
+      {% include "components/_input.html" with id="name" name="name" label="Como quer ser chamado?" placeholder="Ex: Ana, Jr, Dona Maria..." required=True autofocus=True error=error %}
+
+      {% include "components/_button.html" with type="submit" variant="primary" label="Continuar" full_width=True %}
+    </form>
+
+    {% endif %}
+
+  </div>
+
+</div>
+
+{% endblock %}

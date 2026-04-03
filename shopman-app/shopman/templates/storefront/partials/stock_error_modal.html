@@ -1,0 +1,16 @@
+<div class="modal-overlay" @click.self="dismissStockModal()">
+  <div class="modal-card text-center">
+    <div class="flex justify-center mb-3">
+      <span class="material-symbols-rounded icon-xl text-warning" aria-hidden="true">sentiment_dissatisfied</span>
+    </div>
+    <h3 class="text-h4 text-foreground mb-2">{{ title }}</h3>
+    <p class="text-muted-foreground text-sm mb-6">{{ message }}</p>
+    <button
+      @click="dismissStockModal()"
+      class="w-full py-3 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
+      style="min-height: var(--touch-min);"
+    >
+      Entendi
+    </button>
+  </div>
+</div>

@@ -11,10 +11,10 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 | Protocol | Módulo | Adapters | Métodos |
 |----------|--------|----------|---------|
-| [`StockBackend`](#stockbackend) | shopman-app/channels/protocols | StockingBackend, NoopStockBackend | 7 |
-| [`PricingBackend`](#pricingbackend) | shopman-app/channels/protocols | OfferingBackend, SimplePricingBackend, ChannelPricingBackend, CatalogPricingBackend | 1 |
-| [`CustomerBackend`](#customerbackend) | shopman-app/channels/protocols | CustomersBackend, NoopCustomerBackend | 5 |
-| [`NotificationBackend`](#notificationbackend) | shopman-app/channels/protocols | ConsoleBackend, ManychatBackend, EmailBackend, SmsBackend, WebhookBackend, WhatsappBackend | 1 |
+| [`StockBackend`](#stockbackend) | shopman-app/shopman/protocols | StockingBackend, NoopStockBackend | 7 |
+| [`PricingBackend`](#pricingbackend) | shopman-app/shopman/protocols | OfferingBackend, SimplePricingBackend, ChannelPricingBackend, CatalogPricingBackend | 1 |
+| [`CustomerBackend`](#customerbackend) | shopman-app/shopman/protocols | CustomersBackend, NoopCustomerBackend | 5 |
+| [`NotificationBackend`](#notificationbackend) | shopman-app/shopman/protocols | ConsoleBackend, ManychatBackend, EmailBackend, SmsBackend, WebhookBackend, WhatsappBackend | 1 |
 | [`PaymentBackend`](#paymentbackend) | shopman-core/payments/protocols | MockPaymentBackend, StripeBackend, EfiPixBackend | 6 |
 | [`FiscalBackend`](#fiscalbackend) | shopman-core/ordering/protocols | MockFiscalBackend, FocusBackend | 3 |
 | [`AccountingBackend`](#accountingbackend) | shopman-core/ordering/protocols | MockAccountingBackend, ContaazulBackend | 6 |
@@ -23,8 +23,8 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 ## StockBackend
 
-**Definido em:** `shopman-app/channels/protocols.py`
-**Guia:** [Orquestração — Stock](../guides/channels.md)
+**Definido em:** `shopman-app/shopman/protocols.py`
+**Guia:** [Orquestração — Stock](../guides/flows.md)
 
 ### Dataclasses
 
@@ -59,7 +59,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 ## PricingBackend
 
-**Definido em:** `shopman-app/channels/protocols.py`
+**Definido em:** `shopman-app/shopman/protocols.py`
 **Guia:** [Offering — Preços](../guides/offering.md)
 
 ### Métodos
@@ -83,7 +83,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 ## CustomerBackend
 
-**Definido em:** `shopman-app/channels/protocols.py`
+**Definido em:** `shopman-app/shopman/protocols.py`
 **Guia:** [Customers — Clientes](../guides/customers.md)
 
 ### Dataclasses
@@ -116,8 +116,8 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 ## NotificationBackend
 
-**Definido em:** `shopman-app/channels/protocols.py`
-**Guia:** [Orquestração — Notificações](../guides/channels.md)
+**Definido em:** `shopman-app/shopman/protocols.py`
+**Guia:** [Orquestração — Notificações](../guides/flows.md)
 
 ### Dataclasses
 
@@ -149,7 +149,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 ## PaymentBackend
 
 **Definido em:** `shopman-core/payments/shopman/payments/protocols.py`
-**Re-exportado em:** `shopman-app/channels/protocols.py`
+**Re-exportado em:** `shopman-app/shopman/protocols.py`
 **Guia:** [Ordering — Pagamentos](../guides/ordering.md)
 
 ### Dataclasses
@@ -187,7 +187,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 ## FiscalBackend
 
 **Definido em:** `shopman-core/ordering/shopman/ordering/protocols.py`
-**Guia:** [Orquestração — Fiscal](../guides/channels.md)
+**Guia:** [Orquestração — Fiscal](../guides/flows.md)
 
 ### Dataclasses
 

@@ -15,29 +15,44 @@ shopman-core/           8 apps pip-instaláveis (sem dependência entre si)
 ├── auth/               Auth: OTP, device trust, bridge tokens, magic links
 └── payments/           Pagamentos: intents, transactions, service
 
-shopman-app/            Orquestrador + canais
-├── shop/               Loja (singleton), promoções, cupons, modifiers, validators
-│   ├── models.py       Shop, Promotion, Coupon
-│   ├── modifiers.py    D1, Promotion, Coupon, Employee, HappyHour modifiers
-│   ├── validators.py   BusinessHours, MinimumOrder validators
-│   ├── dashboard.py    Dashboard admin (KPIs, charts, tables, D-1 stock)
-│   └── admin.py        Admin para Shop, Promotion, Coupon
-├── channels/           Orquestrador (conecta core apps via handlers/backends)
-│   ├── config.py       ChannelConfig dataclass (7 aspectos)
-│   ├── presets.py      pos(), remote(), marketplace()
-│   ├── topics.py       Constantes canônicas de tópicos de directives
-│   ├── hooks.py        Lifecycle dispatcher (order_changed → pipeline → directives)
-│   ├── setup.py        Registro centralizado de handlers, backends, signals
-│   ├── protocols.py    Contratos: Stock, Customer, Notification, Pricing backends
-│   ├── confirmation.py Helpers de confirmação + cascata
-│   ├── notifications.py Registry + dispatch de notificações
-│   ├── webhooks.py     Webhook Efi PIX
-│   ├── handlers/       17 handlers + 6 modifiers (stock, payment, notification, loyalty, fulfillment, etc.)
+shopman-app/            Orquestrador (app único: shopman/)
+├── shopman/            Orquestração — Flows, Services, Adapters, Rules
+│   ├── flows.py        BaseFlow → Local/Remote/Marketplace + dispatch()
+│   ├── services/       11 services (stock, payment, customer, checkout, pricing, etc.)
+│   ├── adapters/       8 adapters (payment_efi, payment_stripe, notification_*, stock_internal, etc.)
+│   ├── rules/          engine.py, pricing.py, validation.py — regras configuráveis via admin
+│   ├── models/         Shop, Promotion, Coupon, RuleConfig, OperatorAlert, KDS*, DayClosing
+│   ├── handlers/       16 directive handlers (stock, payment, notification, fulfillment, etc.)
 │   ├── backends/       16 backends (stock, payment_*, notification_*, pricing, etc.)
-│   ├── api/            API REST (DRF)
-│   └── web/            Storefront (Django templates + HTMX)
+│   ├── setup.py        register_all() — registro centralizado de handlers
+│   ├── config.py       ChannelConfig dataclass (7 aspectos)
+│   ├── protocols.py    Contratos (StockBackend, NotificationBackend, etc.)
+│   ├── topics.py       Constantes de tópicos de directives
+│   ├── notifications.py Registry + dispatch de notificações
+│   ├── confirmation.py Helpers de confirmação
+│   ├── modifiers.py    D1, Discount, Employee, HappyHour modifiers
+│   ├── webhooks/       efi.py, stripe.py
+│   ├── admin/          shop, orders, alerts, kds, closing, rules, dashboard, widgets
+│   ├── web/            Storefront (Django templates + HTMX)
+│   │   ├── views/      19 módulos (catalog, cart, checkout, tracking, auth, kds, pedidos, pos, etc.)
+│   │   ├── cart.py     CartService
+│   │   ├── urls.py     Todas as URLs
+│   │   └── templates/  78 templates (storefront, kds, pedidos, pos, components)
+│   ├── api/            API REST (DRF) — views, serializers, catalog, account, tracking
+│   ├── context_processors.py  shop() + cart_count()
+│   ├── middleware.py   ChannelParamMiddleware, OnboardingMiddleware
+│   ├── management/commands/   seed, cleanup_d1, cleanup_stale_sessions, suggest_production
+│   ├── apps.py         ShopmanConfig (signal wiring + handler registration + rules boot)
+│   └── tests/          7 test modules + web/ + integration/ + e2e/
 └── project/            settings.py, urls.py, wsgi
 ```
+
+### Conceitos Primários
+
+- **Flows** (`flows.py`): Coordenação de lifecycle. `BaseFlow` → `LocalFlow` → `RemoteFlow` → `MarketplaceFlow`. Signal `order_changed` → `dispatch()` → `Flow.on_<phase>()` → services.
+- **Services** (`services/`): Lógica de negócio. Cada service usa Core services (StockService, PaymentService, CatalogService, etc.) via adapters.
+- **Adapters** (`adapters/`): Swappable via settings. `get_adapter("payment", method="pix")` → `payment_efi`.
+- **Rules** (`rules/`): Regras configuráveis via admin com `RuleConfig` no DB. Engine avalia rules ativas por contexto.
 
 ## Convenções Ativas
 
@@ -56,10 +71,10 @@ shopman-app/            Orquestrador + canais
 ## Como Rodar
 
 ```bash
-make test              # Todos os ~2.444 testes (1.532 core + 912 app)
+make test              # Todos os testes (~1.901: 1.531 core + 370 app)
 make test-offering     # Apenas offering
 make test-stocking     # Apenas stocking
-make test-shopman-app  # Orquestrador + nelson + integration
+make test-shopman-app  # Orquestrador + integration + e2e
 make lint              # Ruff
 make run               # Dev server (localhost:8000)
 make seed              # Popular banco com dados Nelson Boulangerie
@@ -104,15 +119,16 @@ Antes de alterar qualquer coisa no Core, **compreenda como ele já resolve o pro
 ## Referências
 
 - [docs/reference/data-schemas.md](docs/reference/data-schemas.md) — **Obrigatório**: inventário de chaves em Session.data, Order.data, Directive.payload
+- [docs/guides/flows.md](docs/guides/flows.md) — Guia da arquitetura: Flows, Services, Adapters, Rules
 - [PRODUCTION-PLAN.md](PRODUCTION-PLAN.md) — Plano de produção: WP-F0 a WP-F18 (UX, operação, canais, governance)
 - [EVOLUTION-PLAN.md](EVOLUTION-PLAN.md) — Plano completo: WP-E1 a WP-E6 (disponibilidade, loyalty, cartão, dashboard, notificações, API)
 - [docs/ROADMAP.md](docs/ROADMAP.md) — Visão geral de próximos passos e ideias futuras
 - [docs/](docs/README.md) — Documentação completa (guias, ADRs, referência técnica)
-- [docs/guides/channels.md](docs/guides/channels.md) — Guia do orquestrador (ChannelConfig, presets, handlers)
 - [docs/reference/glossary.md](docs/reference/glossary.md) — Glossário de termos de domínio
 
 ### Planos Completos (arquivo)
 
 Todos os planos de execução foram concluídos e arquivados em `docs/plans/completed/`:
 - REFACTOR-PLAN (WP-0 a WP-R5), CONSOLIDATION-PLAN (C1-C6),
-  HARDENING-PLAN (H0-H5), BRIDGE-PLAN (B1-B7), RESTRUCTURE-PLAN, WORKPACKAGES
+  HARDENING-PLAN (H0-H5), BRIDGE-PLAN (B1-B7), RESTRUCTURE-PLAN, WORKPACKAGES,
+  RESTRUCTURE-APP-PLAN (WP-R0 a WP-R9)

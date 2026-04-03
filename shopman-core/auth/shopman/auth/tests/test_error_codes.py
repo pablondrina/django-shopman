@@ -250,22 +250,22 @@ def test_validate_settings_invalid_exchange_ttl():
     assert any("ACCESS_LINK_EXCHANGE_TTL_MINUTES" in e for e in errors)
 
 
-@override_settings(AUTH={"MAGIC_CODE_TTL_MINUTES": -1})
+@override_settings(AUTH={"ACCESS_CODE_TTL_MINUTES": -1})
 def test_validate_settings_invalid_code_ttl():
     errors = validate_settings()
-    assert any("MAGIC_CODE_TTL_MINUTES" in e for e in errors)
+    assert any("ACCESS_CODE_TTL_MINUTES" in e for e in errors)
 
 
-@override_settings(AUTH={"MAGIC_CODE_MAX_ATTEMPTS": 0})
+@override_settings(AUTH={"ACCESS_CODE_MAX_ATTEMPTS": 0})
 def test_validate_settings_invalid_max_attempts():
     errors = validate_settings()
-    assert any("MAGIC_CODE_MAX_ATTEMPTS" in e for e in errors)
+    assert any("ACCESS_CODE_MAX_ATTEMPTS" in e for e in errors)
 
 
-@override_settings(AUTH={"CODE_RATE_LIMIT_MAX": 0})
+@override_settings(AUTH={"ACCESS_CODE_RATE_LIMIT_MAX": 0})
 def test_validate_settings_invalid_rate_limit():
     errors = validate_settings()
-    assert any("CODE_RATE_LIMIT_MAX" in e for e in errors)
+    assert any("ACCESS_CODE_RATE_LIMIT_MAX" in e for e in errors)
 
 
 @override_settings(AUTH={"ACCESS_LINK_TTL_MINUTES": -5})

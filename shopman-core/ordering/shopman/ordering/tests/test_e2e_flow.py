@@ -29,8 +29,7 @@ class EndToEndFlowTests(TestCase):
             edit_policy="open",
             config={
                 "required_checks_on_commit": [],  # Sem checks obrigatórios para simplificar
-                "post_commit_directives": [],
-            },
+                            },
         )
 
     def test_complete_flow_from_session_to_completed_order(self) -> None:
@@ -185,8 +184,7 @@ class EndToEndFlowTests(TestCase):
             edit_policy="open",
             config={
                 "required_checks_on_commit": [],
-                "post_commit_directives": [],
-            },
+                            },
         )
 
         session_key = generate_session_key()

@@ -1,0 +1,100 @@
+<form
+  hx-post="{% url 'storefront:address_create' %}"
+  hx-target="#address-list"
+  hx-swap="innerHTML"
+  class="p-4 rounded-lg border border-primary/30 bg-primary/5 space-y-3"
+>
+  {% csrf_token %}
+  <input type="hidden" name="customer_phone" value="{{ customer.phone }}">
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div>
+      <label class="block text-xs font-medium text-foreground mb-1">Rótulo</label>
+      <select name="label" class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+        <option value="home">Casa</option>
+        <option value="work">Trabalho</option>
+        <option value="other">Outro</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-foreground mb-1">Rótulo personalizado</label>
+      <input type="text" name="label_custom"
+        placeholder="Ex: Casa da vovó"
+        class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm placeholder-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+    </div>
+  </div>
+
+  <div>
+    <label class="block text-xs font-medium text-foreground mb-1">Rua *</label>
+    <input type="text" name="route" required
+      placeholder="Nome da rua"
+      class="w-full px-3 py-2 rounded-lg border {% if form_errors.formatted_address %}border-error{% else %}border-border{% endif %} bg-input text-foreground text-sm placeholder-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div>
+      <label class="block text-xs font-medium text-foreground mb-1">Número</label>
+      <input type="text" name="street_number"
+        placeholder="123"
+        class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm placeholder-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-foreground mb-1">Complemento</label>
+      <input type="text" name="complement"
+        placeholder="Apto, bloco..."
+        class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm placeholder-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div>
+      <label class="block text-xs font-medium text-foreground mb-1">Bairro</label>
+      <input type="text" name="neighborhood"
+        placeholder="Centro"
+        class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm placeholder-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-foreground mb-1">Cidade</label>
+      <input type="text" name="city" value="{{ storefront.default_city }}"
+        class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+    </div>
+  </div>
+
+  <div>
+    <label class="block text-xs font-medium text-foreground mb-1">Endereço formatado</label>
+    <input type="text" name="formatted_address"
+      placeholder="Rua das Flores, 123 - Centro, {{ storefront.default_city }}"
+      class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm placeholder-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary">
+    <p class="text-xs text-muted-foreground mt-1">Deixe em branco para gerar automaticamente dos campos acima</p>
+    {% if form_errors.formatted_address %}
+    <p class="mt-1 text-xs text-error">{{ form_errors.formatted_address }}</p>
+    {% endif %}
+  </div>
+
+  <div>
+    <label class="block text-xs font-medium text-foreground mb-1">Instruções de entrega</label>
+    <textarea name="delivery_instructions" rows="2"
+      placeholder="Instruções para o entregador..."
+      class="w-full px-3 py-2 rounded-lg border border-border bg-input text-foreground text-sm placeholder-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary resize-none"
+    ></textarea>
+  </div>
+
+  <div class="flex items-center gap-3">
+    <label class="flex items-center gap-2 cursor-pointer">
+      <input type="checkbox" name="is_default" class="text-primary focus:ring-primary rounded">
+      <span class="text-sm text-foreground">Endereço padrão</span>
+    </label>
+  </div>
+
+  <div class="flex gap-2">
+    <button type="submit"
+      class="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors">
+      Adicionar
+    </button>
+    <button type="button"
+      @click="showAddressForm = false"
+      class="px-4 py-2 bg-muted text-foreground rounded-lg text-sm font-medium hover:bg-surface-hover transition-colors">
+      Cancelar
+    </button>
+  </div>
+</form>

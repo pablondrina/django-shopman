@@ -343,38 +343,6 @@ class CommitService:
         session.commit_token = idempotency_key
         session.save()
 
-        # Enqueue post-commit directives
-        post_commit_directives = channel.config.get("post_commit_directives", [])
-        stock_holds = None
-        stock_check = checks.get("stock")
-        if stock_check:
-            stock_holds = (stock_check.get("result") or {}).get("holds")
-        for topic in post_commit_directives:
-            payload = {
-                "order_ref": order.ref,
-                "channel_ref": channel.ref,
-                "session_key": session.session_key,
-            }
-            if topic == "stock.commit" and stock_holds:
-                payload["holds"] = stock_holds
-            if topic == "stock.hold":
-                payload["rev"] = session.rev
-                payload["items"] = [
-                    {"sku": item["sku"], "qty": item["qty"]}
-                    for item in session.items
-                ]
-            if topic == "notification.send":
-                payload["template"] = "order_received"
-            if topic == "pix.generate":
-                payload["amount_q"] = order.total_q
-                pix_config = (channel.config or {}).get("pix", {})
-                if pix_config.get("timeout_minutes"):
-                    payload["pix_timeout_minutes"] = pix_config["timeout_minutes"]
-            Directive.objects.create(
-                topic=topic,
-                payload=payload,
-            )
-
         # Preorder reminder: D-1 notification if delivery_date is future
         if order_data.get("is_preorder") and order_data.get("delivery_date"):
             from datetime import date as date_type, datetime as datetime_type, time as time_type

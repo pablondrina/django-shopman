@@ -107,8 +107,8 @@
 
   /* Selection color */
   ::selection {
-    background: oklch(var(--primary));
-    color: oklch(var(--primary-foreground));
+    background: rgb(var(--primary));
+    color: rgb(var(--primary-foreground));
   }
 
   /* Smooth scroll */
@@ -120,8 +120,8 @@
   /* Body baseline */
   body {
     font-family: var(--font-body);
-    color: oklch(var(--foreground));
-    background: oklch(var(--background));
+    color: rgb(var(--foreground));
+    background: rgb(var(--background));
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -171,14 +171,14 @@
     --surface-hover: var(--_inv-surface-hover);
     --muted: var(--_inv-muted);
     --border: var(--_inv-border);
-    color: oklch(var(--foreground));
-    background: oklch(var(--background));
+    color: rgb(var(--foreground));
+    background: rgb(var(--background));
   }
 
   /* Spinner */
   .spinner {
-    border: 2px solid oklch(var(--border));
-    border-top: 2px solid oklch(var(--primary));
+    border: 2px solid rgb(var(--border));
+    border-top: 2px solid rgb(var(--primary));
     border-radius: 50%;
     width: 18px;
     height: 18px;
@@ -190,8 +190,8 @@
   .search-spinner {
     width: 16px;
     height: 16px;
-    border: 2px solid oklch(var(--border));
-    border-top-color: oklch(var(--primary));
+    border: 2px solid rgb(var(--border));
+    border-top-color: rgb(var(--primary));
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
     display: inline-block;
@@ -224,7 +224,7 @@
     animation: fadeIn 200ms ease;
   }
   .modal-card {
-    background: oklch(var(--surface));
+    background: rgb(var(--surface));
     border-radius: var(--radius-lg);
     padding: 1.5rem;
     max-width: 24rem;
@@ -237,20 +237,21 @@
   }
 
   /* Availability badges */
-  .badge-available { background: oklch(var(--success-light)); color: oklch(var(--success-foreground)); }
-  .badge-preparing { background: oklch(var(--warning-light)); color: oklch(var(--warning-foreground)); animation: pulse-badge 2s ease-in-out infinite; }
-  .badge-d1 { background: oklch(var(--error-light)); color: oklch(var(--error-foreground)); }
-  .badge-sold-out { background: oklch(var(--muted)); color: oklch(var(--foreground-muted)); }
-  .badge-paused { background: oklch(var(--foreground-muted)); color: oklch(var(--background)); opacity: 0.8; }
-  .badge-planned { background: oklch(var(--info-light)); color: oklch(var(--info-foreground)); }
+  /* Fundos *-light: texto com --foreground (tokens *-foreground do Oxbow são para botão sólido, não para tint) */
+  .badge-available { background: var(--success-light); color: rgb(var(--foreground)); }
+  .badge-preparing { background: var(--warning-light); color: rgb(var(--warning-foreground)); animation: pulse-badge 2s ease-in-out infinite; }
+  .badge-d1 { background: var(--error-light); color: rgb(var(--foreground)); }
+  .badge-sold-out { background: rgb(var(--muted)); color: rgb(var(--foreground-muted)); }
+  .badge-paused { background: rgb(var(--foreground-muted)); color: rgb(var(--background)); opacity: 0.8; }
+  .badge-planned { background: var(--info-light); color: rgb(var(--foreground)); }
 
   /* Button loading/success states */
   .btn-add-loading { pointer-events: none; opacity: 0.8; }
-  .btn-add-success { background: oklch(var(--success)) !important; pointer-events: none; }
+  .btn-add-success { background: rgb(var(--success)) !important; pointer-events: none; }
 
   /* Skeleton shimmer for loading placeholders */
   .skeleton {
-    background: linear-gradient(90deg, oklch(var(--muted)) 25%, oklch(var(--surface)) 50%, oklch(var(--muted)) 75%);
+    background: linear-gradient(90deg, rgb(var(--muted)) 25%, rgb(var(--surface)) 50%, rgb(var(--muted)) 75%);
     background-size: 200% 100%;
     animation: skeleton-shimmer 1.5s ease-in-out infinite;
     border-radius: var(--radius-sm);

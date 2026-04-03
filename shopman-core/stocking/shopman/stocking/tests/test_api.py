@@ -121,6 +121,35 @@ class AvailabilityTests(StockingAPITestBase):
         assert Decimal(data["total_available"]) == Decimal("0.000")
         assert Decimal(data["total_reserved"]) == Decimal("0.000")
 
+    def test_availability_allowed_positions_excludes_d1_on_ontem(self):
+        """Canais remotos: breakdown sem quants em posições fora da lista (ex.: D-1 só em ontem)."""
+        from shopman.stocking.api.views import _availability_for_sku
+
+        ontem, _ = Position.objects.get_or_create(
+            ref="ontem",
+            defaults={
+                "name": "Vitrine D-1 (ontem)",
+                "kind": PositionKind.PHYSICAL,
+                "is_saleable": True,
+            },
+        )
+        StockMovements.receive(
+            Decimal("5"),
+            self.product.sku,
+            position=ontem,
+            batch="D-1",
+            reason="Sobra D-1",
+        )
+        full = _availability_for_sku(self.product.sku)
+        assert full["breakdown"]["d1"] == Decimal("5")
+
+        filtered = _availability_for_sku(
+            self.product.sku,
+            allowed_positions=["vitrine", "deposito"],
+        )
+        assert filtered["breakdown"]["d1"] == Decimal("0")
+        assert filtered["total_available"] == Decimal("0")
+
 
 class BulkAvailabilityTests(StockingAPITestBase):
     """Tests for GET /api/stocking/availability/bulk/"""

@@ -1,0 +1,91 @@
+{% comment %}
+Radio cards component with keyboard navigation.
+Options: [{"value": "pix", "title": "PIX", "subtitle": "...", "icon": "<svg...>"}].
+Required: name, options. Optional: selected, x_model, legend, cols (1/2/3).
+ARIA: role=radiogroup, role=radio, aria-checked, arrow key navigation.
+{% endcomment %}
+
+<fieldset
+  x-data="{
+    selected: '{{ selected|default:"" }}',
+    options: {{ options|length }},
+    navigate(ev) {
+      var cards = [...this.$el.querySelectorAll('[role=radio]')];
+      var idx = cards.indexOf(ev.target);
+      if (idx < 0) return;
+      var next;
+      if (ev.key === 'ArrowDown' || ev.key === 'ArrowRight') next = (idx + 1) % cards.length;
+      else if (ev.key === 'ArrowUp' || ev.key === 'ArrowLeft') next = (idx - 1 + cards.length) % cards.length;
+      else return;
+      ev.preventDefault();
+      cards[next].focus();
+      cards[next].click();
+    }
+  }"
+  role="radiogroup"
+  {% if legend %}aria-label="{{ legend }}"{% endif %}
+  @keydown.arrow-up="navigate($event)"
+  @keydown.arrow-down="navigate($event)"
+  @keydown.arrow-left="navigate($event)"
+  @keydown.arrow-right="navigate($event)"
+  class="{% if cols == '2' %}grid grid-cols-2 gap-2{% elif cols == '3' %}grid grid-cols-3 gap-2{% else %}space-y-2{% endif %}"
+>
+  {% if legend %}
+  <legend class="text-body-sm font-medium text-foreground mb-2 {% if cols %}col-span-full{% endif %}">{{ legend }}</legend>
+  {% endif %}
+
+  {% for option in options %}
+  <div
+    role="radio"
+    :aria-checked="selected === '{{ option.value }}' ? 'true' : 'false'"
+    :tabindex="selected === '{{ option.value }}' || (selected === '' && {{ forloop.first|yesno:'true,false' }}) ? '0' : '-1'"
+    @click="selected = '{{ option.value }}'"
+    @keydown.space.prevent="selected = '{{ option.value }}'"
+    @keydown.enter.prevent="selected = '{{ option.value }}'"
+    class="
+      flex items-center gap-3 w-full px-4 rounded-xl border cursor-pointer transition-all
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1
+    "
+    :class="selected === '{{ option.value }}'
+      ? 'border-primary bg-primary/5 shadow-sm'
+      : 'border-border bg-surface hover:bg-surface-hover'"
+    style="min-height: 56px;"
+  >
+    {# Hidden radio for form submission #}
+    <input
+      type="radio"
+      name="{{ name }}"
+      value="{{ option.value }}"
+      x-model="selected"
+      class="sr-only"
+      tabindex="-1"
+      {% if option.value == selected %}checked{% endif %}
+    >
+
+    {# Radio indicator #}
+    <span
+      class="flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors"
+      :class="selected === '{{ option.value }}' ? 'border-primary' : 'border-border'"
+      aria-hidden="true"
+    >
+      <span
+        class="w-2.5 h-2.5 rounded-full bg-primary transition-transform"
+        :class="selected === '{{ option.value }}' ? 'scale-100' : 'scale-0'"
+      ></span>
+    </span>
+
+    {# Icon (optional) #}
+    {% if option.icon %}
+    <span class="flex-shrink-0 w-6 h-6 text-foreground" aria-hidden="true">{{ option.icon|safe }}</span>
+    {% endif %}
+
+    {# Text #}
+    <span class="flex-1 py-3">
+      <span class="block text-body font-medium text-foreground">{{ option.title }}</span>
+      {% if option.subtitle %}
+      <span class="block text-body-sm text-muted-foreground">{{ option.subtitle }}</span>
+      {% endif %}
+    </span>
+  </div>
+  {% endfor %}
+</fieldset>

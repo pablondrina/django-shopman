@@ -34,8 +34,7 @@ class PreorderCommitTests(TestCase):
             name="Balcao",
             config={
                 "required_checks_on_commit": [],
-                "post_commit_directives": [],
-            },
+                            },
             is_active=True,
         )
 
@@ -129,8 +128,7 @@ class PreorderReminderDirectiveTests(TestCase):
             name="WhatsApp",
             config={
                 "required_checks_on_commit": [],
-                "post_commit_directives": [],
-            },
+                            },
             is_active=True,
         )
 
@@ -218,8 +216,7 @@ class PreorderCutoffValidationTests(TestCase):
             name="Balcao",
             config={
                 "required_checks_on_commit": [],
-                "post_commit_directives": [],
-            },
+                            },
             is_active=True,
         )
 

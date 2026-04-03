@@ -44,7 +44,8 @@ Cada guia segue a estrutura: Conceitos → Modelos → Serviços → Protocols �
 | [Customers](guides/customers.md) | `shopman.customers` | Clientes, contatos, grupos, loyalty, consent, RFM |
 | [Auth](guides/auth.md) | `shopman.auth` | Auth OTP, device trust, bridge tokens, magic links |
 | [Payments](guides/payments.md) | `shopman.payments` | Pagamentos, PIX, Stripe, intents, lifecycle |
-| [Channels](guides/channels.md) | `shopman-app/channels` | Orquestrador: ChannelConfig, presets, handlers, backends, pipeline |
+| [Flows](guides/flows.md) | `shopman-app/shopman` | Orquestrador: Flows, Services, Adapters, Rules, lifecycle |
+| [Fechamento do dia](guides/day-closing.md) | `shopman` | Sobras, não vendidos, D-1 em `ontem`, às cegas vs vendas |
 
 ---
 

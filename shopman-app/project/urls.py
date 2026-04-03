@@ -25,8 +25,7 @@ urlpatterns = [
     # OpenAPI
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
-    # Storefront (web channel)
-    path("", include("channels.web.urls")),
+    path("", include("shopman.web.urls")),
 ]
 
 # ── Core APIs ──────────────────────────────────────────────────────
@@ -40,10 +39,8 @@ urlpatterns += _include_optional("api/auth/", "shopman.auth.api.urls")
 urlpatterns += _include_optional("auth/", "shopman.auth.urls")
 urlpatterns += _include_optional("api/payments/", "shopman.payments.api.urls")
 
-# ── Channels APIs ──────────────────────────────────────────────
-
-urlpatterns += _include_optional("api/webhooks/", "channels.webhook_urls")
-urlpatterns += _include_optional("api/", "channels.api.urls")
+urlpatterns += _include_optional("api/webhooks/", "shopman.webhooks.urls")
+urlpatterns += _include_optional("api/", "shopman.api.urls")
 
 # ── Media files (dev only) ────────────────────────────────────────
 

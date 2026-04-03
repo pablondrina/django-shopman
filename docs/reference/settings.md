@@ -145,11 +145,11 @@
 
 | Setting | Tipo | Default | Descrição |
 |---------|------|---------|-----------|
-| `MAGIC_CODE_TTL_MINUTES` | int | `10` | TTL do código OTP |
-| `MAGIC_CODE_MAX_ATTEMPTS` | int | `5` | Máx. tentativas de verificação |
-| `MAGIC_CODE_COOLDOWN_SECONDS` | int | `60` | Cooldown entre pedidos de código |
-| `CODE_RATE_LIMIT_MAX` | int | `5` | Máx. códigos por janela |
-| `CODE_RATE_LIMIT_WINDOW_MINUTES` | int | `15` | Janela de rate limit |
+| `ACCESS_CODE_TTL_MINUTES` | int | `10` | TTL do código OTP |
+| `ACCESS_CODE_MAX_ATTEMPTS` | int | `5` | Máx. tentativas de verificação |
+| `ACCESS_CODE_COOLDOWN_SECONDS` | int | `60` | Cooldown entre pedidos de código |
+| `ACCESS_CODE_RATE_LIMIT_MAX` | int | `5` | Máx. códigos por janela |
+| `ACCESS_CODE_RATE_LIMIT_WINDOW_MINUTES` | int | `15` | Janela de rate limit |
 
 ### Device Trust
 
@@ -249,7 +249,7 @@ Settings flat no `settings.py` do Django (sem dict wrapper).
 | `SHOPMAN_ACCOUNTING_BACKEND` | str | *(sem default)* | Backend de contabilidade. Se ausente, handler de accounting não é registrado |
 | `SHOPMAN_NOTIFICATIONS` | str | `"console"` | Backend padrão de notificações |
 
-**Guia:** [channels.md](../guides/channels.md)
+**Guia:** [flows.md](../guides/flows.md)
 
 ### Webhook
 
@@ -274,7 +274,7 @@ Settings flat usados pela integração ManyChat:
 
 ## Shop (Loja)
 
-**App:** `shopman-app/shop/`
+**App:** `shopman-app/shopman/`
 **Model:** `Shop` (singleton via `Shop.load()`)
 
 A loja é configurada via Admin — não há settings no `settings.py`. O model `Shop` armazena:
@@ -301,11 +301,11 @@ A loja é configurada via Admin — não há settings no `settings.py`. O model 
 ChannelConfig efetivo = Channel.config ← Shop.defaults ← ChannelConfig.defaults()
 ```
 
-Cada campo de `ChannelConfig` é resolvido na ordem: canal específico → defaults da loja → defaults hardcoded. Veja `ChannelConfig.effective()` em `channels/config.py`.
+Cada campo de `ChannelConfig` é resolvido na ordem: canal específico → defaults da loja → defaults hardcoded. Veja `ChannelConfig.effective()` em `shopman/config.py`.
 
-O módulo `channels/confirmation.py` mantém fallback legado para `settings.CONFIRMATION_FLOW`, mas o caminho principal é via `ChannelConfig.effective()`.
+O módulo `shopman/confirmation.py` mantém fallback legado para `settings.CONFIRMATION_FLOW`, mas o caminho principal é via `ChannelConfig.effective()`.
 
-**Guia:** [channels.md](../guides/channels.md)
+**Guia:** [flows.md](../guides/flows.md)
 
 ### ChannelConfig — Estrutura
 

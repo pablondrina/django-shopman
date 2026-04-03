@@ -1,0 +1,69 @@
+{% if cart.items %}
+  <div class="rounded-2xl border border-border/80 bg-surface shadow-sm overflow-hidden">
+    <div class="px-4 py-3 border-b border-border/60 bg-muted/15">
+      <h2 class="text-h3 text-foreground flex items-center gap-2">
+        <span class="material-symbols-rounded icon-md text-primary" aria-hidden="true">shopping_bag</span>
+        Itens
+      </h2>
+    </div>
+    <div id="cart-items">
+      {% for item in cart.items %}
+        {% include "storefront/partials/cart_item.html" with item=item %}
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="mt-4">
+    {% include "storefront/partials/coupon_section.html" with coupon=cart.coupon %}
+  </div>
+
+  <div class="mt-4 rounded-2xl border border-border/80 bg-surface shadow-sm p-6">
+    <div class="space-y-2">
+      {% if cart.has_discount %}
+      <div class="flex justify-between text-body-sm text-muted-foreground">
+        <span>Antes dos descontos</span>
+        <span class="line-through tabular-nums">{{ cart.original_subtotal_display }}</span>
+      </div>
+      {% if cart.discount_lines %}
+        {% for row in cart.discount_lines %}
+        <div class="flex justify-between text-body-sm gap-2">
+          <span class="text-muted-foreground truncate pr-2 min-w-0" title="{{ row.label }}">{{ row.label }}</span>
+          <span class="text-success font-medium tabular-nums shrink-0">-{{ row.amount_display }}</span>
+        </div>
+        {% endfor %}
+      {% else %}
+      <div class="flex justify-between text-body-sm text-success font-medium">
+        <span>Descontos</span>
+        <span class="tabular-nums">-{{ cart.total_discount_display }}</span>
+      </div>
+      {% endif %}
+      {% endif %}
+      <div class="flex justify-between items-baseline gap-3 {% if cart.has_discount %}pt-3 border-t border-border{% endif %}">
+        <span class="font-heading text-h4 text-foreground">Total</span>
+        <span class="text-xl font-bold text-primary tabular-nums">{{ cart.subtotal_display }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-6 flex flex-col sm:flex-row gap-3 justify-end">
+    <a href="{% url 'storefront:menu' %}"
+       class="inline-flex items-center justify-center gap-2 px-6 py-3 border border-border text-foreground rounded-xl font-semibold text-body-sm hover:bg-surface-hover transition-colors text-center">
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true">arrow_back</span>
+      Continuar comprando
+    </a>
+    {% if minimum_order_warning %}
+    <span class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-muted text-muted-foreground rounded-xl font-medium text-center cursor-not-allowed border border-border/50">
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true">lock</span>
+      Finalizar pedido
+    </span>
+    {% else %}
+    <a href="{% url 'storefront:checkout' %}"
+       class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-semibold text-body-sm hover:bg-primary-hover transition-colors text-center shadow-md hover:shadow-lg">
+      <span class="material-symbols-rounded icon-md" aria-hidden="true">payments</span>
+      Finalizar pedido
+    </a>
+    {% endif %}
+  </div>
+{% else %}
+  {% include "storefront/partials/cart_empty.html" %}
+{% endif %}

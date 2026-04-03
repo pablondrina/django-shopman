@@ -1,0 +1,9 @@
+{% if items %}
+<div class="grid grid-cols-2 gap-4">
+  {% for item in items %}
+    {% include "storefront/partials/product_card.html" with item=item %}
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-center text-muted-foreground text-sm py-6">Nenhum produto no momento.</p>
+{% endif %}

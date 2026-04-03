@@ -115,12 +115,12 @@ Emitido quando holds planejados são materializados (produção concluída, esto
 | **Sender** | *(evento de domínio)* |
 | **Payload** | `hold_ids` (list[str]), `sku` (str), `target_date` (date), `to_position` (Position) |
 
-**Receiver:** `on_holds_materialized()` em `shopman-app/channels/handlers/_stock_receivers.py`
-Registrado por: `ChannelsConfig.ready()` via `setup.register_all()` → `_register_stock_signals()`
+**Receiver:** `on_holds_materialized()` em `shopman-app/shopman/handlers/_stock_receivers.py`
+Registrado por: `ShopmanConfig.ready()` via `setup.register_all()` → `_register_stock_signals()`
 
 **Efeito:** Auto-commit de sessões que estavam aguardando produção. Quando todos os holds de uma sessão são materializados, executa `CommitService.commit()` automaticamente.
 
-**Guia:** [stocking.md](../guides/stocking.md), [channels.md](../guides/channels.md)
+**Guia:** [stocking.md](../guides/stocking.md), [flows.md](../guides/flows.md)
 
 ---
 
@@ -138,19 +138,19 @@ Emitido quando um `Order` é criado ou muda de status.
 | **Payload** | `order` (Order), `event_type` (str), `actor` (str) |
 | **Event types** | `"created"`, `"status_changed"`, etc. |
 
-**Receivers:** Conectados em `ChannelsConfig.ready()`
+**Receivers:** Conectados em `ShopmanConfig.ready()`
 
 | Receiver | Arquivo |
 |----------|---------|
-| `on_order_lifecycle()` | `channels/hooks.py` — lê `ChannelConfig.pipeline` e cria Directives por evento |
+| `on_order_changed()` | `shopman/apps.py` → `flows.dispatch()` — resolve Flow class e chama `on_<phase>()` |
 
 **Efeitos por `event_type`:**
-- `"created"` → `on_order_lifecycle()` executa `pipeline.on_commit` (ex: `customer.ensure`, `stock.hold`)
-  - Se `confirmation.mode == "immediate"` → auto-confirma
-  - Se `confirmation.mode == "optimistic"` → cria directive `confirmation.timeout`
-- `"status_changed"` → executa pipeline do novo status (ex: `on_confirmed` → `pix.generate`)
+- `"created"` → `dispatch(order, "on_commit")` → `Flow.on_commit()` (customer.ensure, stock.hold, confirmation)
+  - Se `confirmation_mode == "immediate"` → auto-confirma
+  - Se `confirmation_mode == "optimistic"` → cria directive `confirmation.timeout`
+- `"status_changed"` → `dispatch(order, f"on_{status}")` → Flow method correspondente
 
-**Guia:** [ordering.md](../guides/ordering.md), [channels.md](../guides/channels.md)
+**Guia:** [ordering.md](../guides/ordering.md), [flows.md](../guides/flows.md)
 
 ---
 

@@ -4,7 +4,7 @@ Auth configuration.
 Usage in settings.py:
     AUTH = {
         "ACCESS_LINK_EXCHANGE_TTL_MINUTES": 5,
-        "MAGIC_CODE_TTL_MINUTES": 10,
+        "ACCESS_CODE_TTL_MINUTES": 10,  # verification code TTL
         "MESSAGE_SENDER_CLASS": "shopman.auth.senders.ConsoleSender",
     }
 """
@@ -23,12 +23,12 @@ class AuthSettings:
     # Access Link (chat → web exchange, short-lived)
     ACCESS_LINK_EXCHANGE_TTL_MINUTES: int = 5
 
-    # Magic Code
-    MAGIC_CODE_TTL_MINUTES: int = 10
-    MAGIC_CODE_MAX_ATTEMPTS: int = 5
-    CODE_RATE_LIMIT_WINDOW_MINUTES: int = 15
-    CODE_RATE_LIMIT_MAX: int = 5
-    MAGIC_CODE_COOLDOWN_SECONDS: int = 60
+    # Verification Code
+    ACCESS_CODE_TTL_MINUTES: int = 10
+    ACCESS_CODE_MAX_ATTEMPTS: int = 5
+    ACCESS_CODE_RATE_LIMIT_WINDOW_MINUTES: int = 15
+    ACCESS_CODE_RATE_LIMIT_MAX: int = 5
+    ACCESS_CODE_COOLDOWN_SECONDS: int = 60
 
     # Sender (shortcut — equivalent to a single-item DELIVERY_CHAIN)
     MESSAGE_SENDER_CLASS: str = "shopman.auth.senders.ConsoleSender"
@@ -119,12 +119,12 @@ def validate_settings() -> list[str]:
 
     if s.ACCESS_LINK_EXCHANGE_TTL_MINUTES <= 0:
         errors.append("AUTH.ACCESS_LINK_EXCHANGE_TTL_MINUTES must be > 0")
-    if s.MAGIC_CODE_TTL_MINUTES <= 0:
-        errors.append("AUTH.MAGIC_CODE_TTL_MINUTES must be > 0")
-    if s.MAGIC_CODE_MAX_ATTEMPTS <= 0:
-        errors.append("AUTH.MAGIC_CODE_MAX_ATTEMPTS must be > 0")
-    if s.CODE_RATE_LIMIT_MAX <= 0:
-        errors.append("AUTH.CODE_RATE_LIMIT_MAX must be > 0")
+    if s.ACCESS_CODE_TTL_MINUTES <= 0:
+        errors.append("AUTH.ACCESS_CODE_TTL_MINUTES must be > 0")
+    if s.ACCESS_CODE_MAX_ATTEMPTS <= 0:
+        errors.append("AUTH.ACCESS_CODE_MAX_ATTEMPTS must be > 0")
+    if s.ACCESS_CODE_RATE_LIMIT_MAX <= 0:
+        errors.append("AUTH.ACCESS_CODE_RATE_LIMIT_MAX must be > 0")
     if s.ACCESS_LINK_TTL_MINUTES <= 0:
         errors.append("AUTH.ACCESS_LINK_TTL_MINUTES must be > 0")
     if s.DEVICE_TRUST_TTL_DAYS <= 0:

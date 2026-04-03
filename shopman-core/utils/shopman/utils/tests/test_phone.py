@@ -38,6 +38,22 @@ class TestNormalizePhoneBrazilian:
         """43-98404-9009 → +5543984049009"""
         assert normalize_phone("43-98404-9009") == "+5543984049009"
 
+    def test_ios_autofill_zero_ddd(self):
+        """(043) 98404-9009 → +5543984049009 (iOS autofill adds zero to DDD)."""
+        assert normalize_phone("(043) 98404-9009") == "+5543984049009"
+
+    def test_ios_autofill_zero_ddd_same_as_without(self):
+        """(043) and (43) must resolve to the same E.164 number."""
+        assert normalize_phone("(043) 98404-9009") == normalize_phone("(43) 98404-9009")
+
+    def test_zero_prefix_ddd_sao_paulo(self):
+        """(011) 99988-7766 → +5511999887766"""
+        assert normalize_phone("(011) 99988-7766") == "+5511999887766"
+
+    def test_zero_prefix_ddd_rio(self):
+        """(021) 99988-7766 → +5521999887766"""
+        assert normalize_phone("(021) 99988-7766") == "+5521999887766"
+
 
 class TestNormalizePhoneManychat:
     """Manychat bug: +DDD9XXXXXXXX missing country code 55."""

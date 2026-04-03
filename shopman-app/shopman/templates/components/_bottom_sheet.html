@@ -1,0 +1,109 @@
+{% comment %}
+Bottom sheet / modal with focus trap.
+Required: store_name (Alpine store key). Optional: title, show_handle, max_width, inner_template.
+- inner_template: path to a partial included as body (use with {% include ... %} from caller).
+- Or extend this template and override {% block sheet_content %} (no inner_template).
+Mobile: bottom sheet. Desktop: centered modal.
+ARIA: role=dialog, aria-modal, focus trap, ESC closes.
+{% endcomment %}
+
+{% with handle=show_handle|default:"true" mw=max_width|default:"28rem" %}
+
+<div
+  x-data="{
+    _prevFocus: null,
+    trapFocus(el) {
+      this._prevFocus = document.activeElement;
+      this.$nextTick(function() {
+        var first = el.querySelector('button, [href], input:not([type=hidden]), select, textarea, [tabindex]:not([tabindex=\"-1\"])');
+        if (first) first.focus();
+      });
+    },
+    releaseFocus() {
+      if (this._prevFocus && this._prevFocus.focus) this._prevFocus.focus();
+    }
+  }"
+  @keydown.escape.window="$store.{{ store_name }}.open && ($store.{{ store_name }}.close(), releaseFocus())"
+  x-effect="$store.{{ store_name }}.open ? trapFocus($refs.sheet_{{ store_name }}) : releaseFocus()"
+>
+  {# Backdrop #}
+  <div
+    x-show="$store.{{ store_name }}.open"
+    x-transition:enter="transition ease-out duration-200"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition ease-in duration-150"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+    x-cloak
+    @click="$store.{{ store_name }}.close(); releaseFocus()"
+    class="fixed inset-0 bg-black/50 z-[60]"
+    aria-hidden="true"
+  ></div>
+
+  {# Sheet / Modal #}
+  <div
+    x-ref="sheet_{{ store_name }}"
+    x-show="$store.{{ store_name }}.open"
+    x-transition:enter="transition ease-out duration-300"
+    x-transition:enter-start="translate-y-full md:translate-y-0 md:scale-95 md:opacity-0"
+    x-transition:enter-end="translate-y-0 md:scale-100 md:opacity-100"
+    x-transition:leave="transition ease-in duration-200"
+    x-transition:leave-start="translate-y-0 md:scale-100 md:opacity-100"
+    x-transition:leave-end="translate-y-full md:translate-y-0 md:scale-95 md:opacity-0"
+    x-cloak
+    @click.stop
+    @keydown.tab="
+      var focusable = [...$el.querySelectorAll('button, [href], input:not([type=hidden]), select, textarea, [tabindex]:not([tabindex=\"-1\"])')];
+      if (!focusable.length) return;
+      var first = focusable[0], last = focusable[focusable.length - 1];
+      if ($event.shiftKey && document.activeElement === first) { $event.preventDefault(); last.focus(); }
+      else if (!$event.shiftKey && document.activeElement === last) { $event.preventDefault(); first.focus(); }
+    "
+    data-swipe-dismiss
+    role="dialog"
+    aria-modal="true"
+    {% if title %}aria-label="{{ title }}"{% endif %}
+    class="
+      fixed z-[60] bg-surface shadow-xl overflow-auto
+      bottom-0 left-0 right-0 rounded-t-2xl max-h-[85vh]
+      md:bottom-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2
+      md:rounded-xl md:max-h-[80vh] md:w-full
+    "
+    style="padding-bottom: var(--safe-area-bottom); max-width: {{ mw }};"
+  >
+    {# Handle (mobile) #}
+    {% if handle == "true" %}
+    <div class="flex justify-center pt-3 pb-1 md:hidden" aria-hidden="true">
+      <div class="w-10 h-1 rounded-full bg-border"></div>
+    </div>
+    {% endif %}
+
+    {# Header #}
+    {% if title %}
+    <div class="flex items-center justify-between px-5 py-3 border-b border-border">
+      <h3 class="text-h4 text-foreground">{{ title }}</h3>
+      <button
+        @click="$store.{{ store_name }}.close(); releaseFocus()"
+        class="p-2.5 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-surface-hover touch-target"
+        aria-label="Fechar"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    {% endif %}
+
+    {# Content slot #}
+    <div class="px-5 py-4">
+      {% if inner_template %}
+        {% include inner_template %}
+      {% else %}
+        {% block sheet_content %}{% endblock %}
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% endwith %}

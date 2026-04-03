@@ -1,0 +1,27 @@
+{# Floating cart button: mobile FAB above bottom nav. Visible when cart has items. #}
+
+<div x-data="{ count: {{ cart_count|default:0 }} }"
+     x-show="count > 0"
+     x-transition:enter="transition ease-out duration-200"
+     x-transition:enter-start="opacity-0 scale-75"
+     x-transition:enter-end="opacity-100 scale-100"
+     x-transition:leave="transition ease-in duration-150"
+     x-transition:leave-start="opacity-100 scale-100"
+     x-transition:leave-end="opacity-0 scale-75"
+     x-cloak
+     @cart-count-updated.window="count = $event.detail.count"
+     class="md:hidden fixed z-40 right-4"
+     style="bottom: calc(72px + env(safe-area-inset-bottom, 0px));">
+
+  <button type="button"
+          @click="openCartDrawer()"
+          class="relative w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl flex items-center justify-center hover:bg-primary-hover transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          aria-label="Abrir carrinho">
+    <span class="relative inline-flex h-7 w-7 items-center justify-center" aria-hidden="true">
+      <span class="material-symbols-rounded text-[1.75rem] leading-none">shopping_cart</span>
+      <span x-show="count > 0" class="cart-notification-anchor">
+        <span class="cart-notification-pill cart-notification-pill--error rounded-full" x-text="count"></span>
+      </span>
+    </span>
+  </button>
+</div>
