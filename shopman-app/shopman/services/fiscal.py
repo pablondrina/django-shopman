@@ -1,17 +1,16 @@
 """
 Fiscal (NFC-e) service.
 
-Adapter: get_adapter("fiscal") → fiscal_focus / fiscal_mock
-
 ASYNC — creates Directives for later processing.
+Smart no-op when fiscal_pool is empty (no backend configured).
 """
 
 from __future__ import annotations
 
 import logging
 
-from shopman.adapters import get_adapter
-from shopman.ordering.models import Directive
+from shopman import directives
+from shopman.fiscal import fiscal_pool
 
 logger = logging.getLogger(__name__)
 
@@ -20,27 +19,22 @@ def emit(order) -> None:
     """
     Schedule NFC-e emission for the order.
 
-    Smart no-op if fiscal adapter is None (not configured).
+    Smart no-op if no fiscal backend is configured.
     Creates a Directive with topic="fiscal.emit".
 
     ASYNC — retry-safe.
     """
-    adapter = get_adapter("fiscal")
-    if adapter is None:
+    if not fiscal_pool.get_backend():
         return
 
-    # Idempotent: skip if already emitted
     if (order.data or {}).get("nfce_access_key"):
         return
 
-    Directive.objects.create(
-        topic="fiscal.emit",
-        payload={
-            "order_ref": order.ref,
-            "items": _build_fiscal_items(order),
-            "payment": (order.data or {}).get("payment", {}),
-            "customer": (order.data or {}).get("customer", {}),
-        },
+    directives.queue(
+        "fiscal.emit", order,
+        items=_build_fiscal_items(order),
+        payment=(order.data or {}).get("payment", {}),
+        customer=(order.data or {}).get("customer", {}),
     )
 
     logger.info("fiscal.emit: queued for order %s", order.ref)
@@ -50,13 +44,12 @@ def cancel(order) -> None:
     """
     Schedule NFC-e cancellation for the order.
 
-    Smart no-op if fiscal adapter is None or NFC-e was never emitted.
+    Smart no-op if no fiscal backend is configured or NFC-e was never emitted.
     Creates a Directive with topic="fiscal.cancel".
 
     ASYNC — retry-safe.
     """
-    adapter = get_adapter("fiscal")
-    if adapter is None:
+    if not fiscal_pool.get_backend():
         return
 
     if not (order.data or {}).get("nfce_access_key"):
@@ -65,12 +58,9 @@ def cancel(order) -> None:
     if (order.data or {}).get("nfce_cancelled"):
         return
 
-    Directive.objects.create(
-        topic="fiscal.cancel",
-        payload={
-            "order_ref": order.ref,
-            "reason": (order.data or {}).get("cancellation_reason", "cancelled"),
-        },
+    directives.queue(
+        "fiscal.cancel", order,
+        reason=(order.data or {}).get("cancellation_reason", "cancelled"),
     )
 
     logger.info("fiscal.cancel: queued for order %s", order.ref)

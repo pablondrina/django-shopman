@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from shopman.ordering.models import Directive
+from shopman.omniman.models import Directive
 
 # ── helpers ──
 
@@ -131,19 +131,16 @@ class TestStockService:
 
         mock_stock.release.assert_called_once_with("hold:1")
 
-    @patch("shopman.services.stock.get_adapter")
-    def test_revert_calls_adapter(self, mock_get_adapter):
+    @patch("shopman.services.stock.StockMovements")
+    def test_revert_calls_core(self, mock_movements):
         from shopman.services.stock import revert
-
-        adapter = MagicMock()
-        mock_get_adapter.return_value = adapter
 
         item = _make_item()
         order = _make_order(items_list=[item])
 
         revert(order)
 
-        adapter.receive_return.assert_called_once()
+        mock_movements.receive.assert_called_once()
 
     def test_hold_skips_empty_items(self):
         from shopman.services.stock import hold
@@ -160,42 +157,42 @@ class TestStockService:
 
 class TestPaymentService:
 
-    @patch("shopman.services.payment.get_adapter")
-    def test_initiate_pix(self, mock_get_adapter):
+    @patch("shopman.services.payment.payment_methods_pool")
+    def test_initiate_pix(self, mock_pool):
         from shopman.services.payment import initiate
 
-        adapter = MagicMock()
+        method = MagicMock()
         intent = MagicMock()
         intent.intent_id = "INT-001"
         intent.status = "pending"
         intent.metadata = {"qrcode": "QR123", "brcode": "PIX123"}
         intent.client_secret = None
         intent.expires_at = None
-        adapter.create_intent.return_value = intent
-        mock_get_adapter.return_value = adapter
+        method.create_intent.return_value = intent
+        mock_pool.get_method.return_value = method
 
         order = _make_order(data={"payment": {"method": "pix"}}, total_q=5000)
 
         initiate(order)
 
-        adapter.create_intent.assert_called_once()
+        method.create_intent.assert_called_once()
         assert order.data["payment"]["intent_id"] == "INT-001"
         assert order.data["payment"]["qr_code"] == "QR123"
         order.save.assert_called()
 
-    @patch("shopman.services.payment.get_adapter")
-    def test_initiate_card(self, mock_get_adapter):
+    @patch("shopman.services.payment.payment_methods_pool")
+    def test_initiate_card(self, mock_pool):
         from shopman.services.payment import initiate
 
-        adapter = MagicMock()
+        method = MagicMock()
         intent = MagicMock()
         intent.intent_id = "INT-002"
         intent.status = "pending"
         intent.metadata = None
         intent.client_secret = "cs_test_123"
         intent.expires_at = None
-        adapter.create_intent.return_value = intent
-        mock_get_adapter.return_value = adapter
+        method.create_intent.return_value = intent
+        mock_pool.get_method.return_value = method
 
         order = _make_order(data={"payment": {"method": "card"}}, total_q=5000)
 
@@ -217,41 +214,41 @@ class TestPaymentService:
         initiate(order)
         order.save.assert_not_called()
 
-    @patch("shopman.services.payment.get_adapter")
-    def test_refund_smart_noop(self, mock_get_adapter):
+    @patch("shopman.services.payment.payment_methods_pool")
+    def test_refund_smart_noop(self, mock_pool):
         from shopman.services.payment import refund
 
         order = _make_order(data={})
         refund(order)
-        mock_get_adapter.assert_not_called()
+        mock_pool.get_method.assert_not_called()
 
-    @patch("shopman.services.payment.get_adapter")
-    def test_refund_with_intent(self, mock_get_adapter):
+    @patch("shopman.services.payment.payment_methods_pool")
+    def test_refund_with_intent(self, mock_pool):
         from shopman.services.payment import refund
 
-        adapter = MagicMock()
+        method = MagicMock()
         result = MagicMock()
         result.success = True
-        adapter.refund.return_value = result
-        mock_get_adapter.return_value = adapter
+        method.refund.return_value = result
+        mock_pool.get_method.return_value = method
 
         order = _make_order(data={"payment": {"method": "pix", "intent_id": "INT-001", "status": "captured"}})
 
         refund(order)
 
-        adapter.refund.assert_called_once()
+        method.refund.assert_called_once()
         assert order.data["payment"]["status"] == "refunded"
 
-    @patch("shopman.services.payment.get_adapter")
-    def test_capture(self, mock_get_adapter):
+    @patch("shopman.services.payment.payment_methods_pool")
+    def test_capture(self, mock_pool):
         from shopman.services.payment import capture
 
-        adapter = MagicMock()
+        method = MagicMock()
         result = MagicMock()
         result.success = True
         result.transaction_id = "TXN-001"
-        adapter.capture.return_value = result
-        mock_get_adapter.return_value = adapter
+        method.capture.return_value = result
+        mock_pool.get_method.return_value = method
 
         order = _make_order(data={"payment": {"method": "pix", "intent_id": "INT-001", "status": "authorized"}})
 
@@ -378,11 +375,11 @@ class TestLoyaltyService:
 class TestFiscalService:
 
     @pytest.mark.django_db
-    @patch("shopman.services.fiscal.get_adapter")
-    def test_emit_creates_directive(self, mock_get_adapter):
+    @patch("shopman.services.fiscal.fiscal_pool")
+    def test_emit_creates_directive(self, mock_pool):
         from shopman.services.fiscal import emit
 
-        mock_get_adapter.return_value = MagicMock()
+        mock_pool.get_backend.return_value = MagicMock()
 
         item = _make_item()
         order = _make_order(data={}, items_list=[item])
@@ -394,11 +391,11 @@ class TestFiscalService:
         assert directive.topic == "fiscal.emit"
 
     @pytest.mark.django_db
-    @patch("shopman.services.fiscal.get_adapter")
-    def test_emit_noop_without_adapter(self, mock_get_adapter):
+    @patch("shopman.services.fiscal.fiscal_pool")
+    def test_emit_noop_without_backend(self, mock_pool):
         from shopman.services.fiscal import emit
 
-        mock_get_adapter.return_value = None
+        mock_pool.get_backend.return_value = None
 
         order = _make_order()
         emit(order)
@@ -406,11 +403,11 @@ class TestFiscalService:
         assert Directive.objects.count() == 0
 
     @pytest.mark.django_db
-    @patch("shopman.services.fiscal.get_adapter")
-    def test_emit_idempotent(self, mock_get_adapter):
+    @patch("shopman.services.fiscal.fiscal_pool")
+    def test_emit_idempotent(self, mock_pool):
         from shopman.services.fiscal import emit
 
-        mock_get_adapter.return_value = MagicMock()
+        mock_pool.get_backend.return_value = MagicMock()
 
         order = _make_order(data={"nfce_access_key": "KEY123"})
         emit(order)
@@ -418,11 +415,11 @@ class TestFiscalService:
         assert Directive.objects.count() == 0
 
     @pytest.mark.django_db
-    @patch("shopman.services.fiscal.get_adapter")
-    def test_cancel_creates_directive(self, mock_get_adapter):
+    @patch("shopman.services.fiscal.fiscal_pool")
+    def test_cancel_creates_directive(self, mock_pool):
         from shopman.services.fiscal import cancel
 
-        mock_get_adapter.return_value = MagicMock()
+        mock_pool.get_backend.return_value = MagicMock()
 
         order = _make_order(data={"nfce_access_key": "KEY123"})
         cancel(order)
@@ -432,35 +429,16 @@ class TestFiscalService:
         assert directive.topic == "fiscal.cancel"
 
     @pytest.mark.django_db
-    @patch("shopman.services.fiscal.get_adapter")
-    def test_cancel_noop_without_nfce(self, mock_get_adapter):
+    @patch("shopman.services.fiscal.fiscal_pool")
+    def test_cancel_noop_without_nfce(self, mock_pool):
         from shopman.services.fiscal import cancel
 
-        mock_get_adapter.return_value = MagicMock()
+        mock_pool.get_backend.return_value = MagicMock()
 
         order = _make_order(data={})
         cancel(order)
 
         assert Directive.objects.count() == 0
-
-
-# ══════════════════════════════════════════════════════════════════════
-# services/pricing.py
-# ══════════════════════════════════════════════════════════════════════
-
-
-class TestPricingService:
-
-    @patch("shopman.services.pricing.CatalogService")
-    def test_resolve_delegates_to_catalog(self, mock_catalog):
-        from shopman.services.pricing import resolve
-
-        mock_catalog.price.return_value = 1500
-
-        result = resolve("PAO-001", qty=5, channel="web")
-
-        mock_catalog.price.assert_called_once_with("PAO-001", qty=Decimal("5"), channel="web")
-        assert result == 1500
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -483,7 +461,7 @@ class TestCancellationService:
         assert result is True
 
     def test_cancel_skips_already_cancelled(self):
-        from shopman.ordering.models import Order
+        from shopman.omniman.models import Order
         from shopman.services.cancellation import cancel
 
         order = _make_order(status=Order.Status.CANCELLED)
@@ -494,7 +472,7 @@ class TestCancellationService:
         assert result is False
 
     def test_cancel_skips_completed(self):
-        from shopman.ordering.models import Order
+        from shopman.omniman.models import Order
         from shopman.services.cancellation import cancel
 
         order = _make_order(status=Order.Status.COMPLETED)
@@ -531,7 +509,7 @@ class TestKDSService:
 
     @patch("shopman.models.KDSTicket")
     @patch("shopman.models.KDSInstance")
-    @patch("shopman.offering.models.CollectionItem")
+    @patch("shopman.offerman.models.CollectionItem")
     @patch("shopman.services.kds._get_prep_skus")
     def test_dispatch_creates_tickets(self, mock_prep, mock_ci, mock_kds_inst, mock_ticket_cls):
         """Test that dispatch routes items to correct KDS instances."""
@@ -551,7 +529,7 @@ class TestKDSService:
     @pytest.mark.django_db
     def test_on_all_tickets_done_transitions_to_ready(self):
         from shopman.models import KDSInstance, KDSTicket
-        from shopman.ordering.models import Channel, Order
+        from shopman.omniman.models import Channel, Order
 
         channel = Channel.objects.create(ref="kds-test", name="KDS Test")
         order = Order.objects.create(
@@ -571,7 +549,7 @@ class TestKDSService:
     @pytest.mark.django_db
     def test_on_all_tickets_done_noop_if_not_all_done(self):
         from shopman.models import KDSInstance, KDSTicket
-        from shopman.ordering.models import Channel, Order
+        from shopman.omniman.models import Channel, Order
 
         channel = Channel.objects.create(ref="kds-test2", name="KDS Test 2")
         order = Order.objects.create(
@@ -651,17 +629,15 @@ class TestCustomerService:
     @patch("shopman.services.customer._update_insights")
     @patch("shopman.services.customer._create_timeline_event")
     @patch("shopman.services.customer._save_delivery_address")
-    @patch("shopman.services.customer._get_customer_service")
+    @patch("shopman.services.customer.customer_resolver_pool")
     @patch("shopman.services.customer._customers_available", return_value=True)
-    def test_ensure_phone_strategy(self, mock_avail, mock_svc_fn, mock_addr, mock_timeline, mock_insights):
+    def test_ensure_phone_strategy(self, mock_avail, mock_pool, mock_addr, mock_timeline, mock_insights):
         from shopman.services.customer import ensure
 
-        svc = MagicMock()
-        customer = MagicMock()
-        customer.ref = "CLI-001"
-        customer.first_name = "João"
-        svc.get_by_phone.return_value = customer
-        mock_svc_fn.return_value = svc
+        resolver = MagicMock()
+        resolver.resolve.return_value = {"found": True, "customer_ref": "CLI-001", "created": False}
+        mock_pool.get_resolver.return_value = None
+        mock_pool.get_default.return_value = resolver
 
         order = _make_order(
             handle_ref="+5543999999999",
@@ -689,7 +665,6 @@ class TestNoForbiddenImports:
         "shopman.services.fulfillment",
         "shopman.services.loyalty",
         "shopman.services.fiscal",
-        "shopman.services.pricing",
         "shopman.services.cancellation",
         "shopman.services.kds",
         "shopman.services.checkout",
