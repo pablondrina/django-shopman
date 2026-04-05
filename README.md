@@ -1,13 +1,39 @@
 # Django Shopman
 
-Sistema modular de gestao comercial para pequenos negocios (padarias, confeitarias, cafes).
-Construido com Django 5.2+, arquitetura Protocol/Adapter, e foco em simplicidade operacional.
+Framework modular de comércio omnichannel para Django. Projetado para padarias, confeitarias, cafés e pequenos negócios que operam em múltiplos canais (balcão, delivery, WhatsApp, marketplaces).
+
+Construído com Django 5.2+, arquitetura Protocol/Adapter, e foco em simplicidade operacional.
+
+## Ecossistema
+
+O Shopman é composto por **3 camadas**:
+
+| Camada | Pip package | Descrição |
+|--------|-------------|-----------|
+| **Framework** | `django-shopman` | Orquestrador que integra os core apps via Flows, Services e Adapters |
+| **Core Apps** | `shopman-*` | 8 pacotes pip independentes, cada um com domínio próprio |
+| **Instância** | — | Configuração específica do negócio (ex: Nelson Boulangerie) |
+
+### Core Apps
+
+Cada app é um pacote pip independente. Comunicação entre apps via `typing.Protocol` — zero imports diretos.
+
+| App | Pip Package | Namespace | Domínio | Modelos Principais |
+|-----|-------------|-----------|---------|-------------------|
+| **Utils** | `shopman-utils` | `shopman.utils` | Monetário, formatting, phone | — |
+| **Offerman** | `shopman-offerman` | `shopman.offerman` | Catálogo de produtos | Product, Listing, Collection, Bundle |
+| **Stockman** | `shopman-stockman` | `shopman.stockman` | Estoque físico | Quant, Move, Hold, Position, Batch |
+| **Craftsman** | `shopman-craftsman` | `shopman.craftsman` | Produção e receitas | Recipe, WorkOrder, WorkOrderItem |
+| **Omniman** | `shopman-omniman` | `shopman.omniman` | Pedidos omnichannel | Session, Order, Directive, Channel |
+| **Guestman** | `shopman-guestman` | `shopman.guestman` | CRM e clientes | Customer, ContactPoint, CustomerGroup |
+| **Doorman** | `shopman-doorman` | `shopman.doorman` | Auth e acesso | VerificationCode, TrustedDevice, AccessLink |
+| **Payman** | `shopman-payman` | `shopman.payman` | Pagamentos | PaymentIntent, PaymentTransaction |
 
 ## Quickstart
 
 ```bash
 # 1. Clonar e instalar
-git clone <repo-url> django-shopman
+git clone https://github.com/pablondrina/django-shopman.git
 cd django-shopman
 make install
 
@@ -17,91 +43,128 @@ make seed
 
 # 3. Subir servidor
 make run
-# → http://localhost:8000/admin/  (admin/admin)
+# → http://localhost:8000/        (storefront)
+# → http://localhost:8000/admin/  (admin — admin/admin)
+# → http://localhost:8000/pedidos/ (gestor de pedidos)
+# → http://localhost:8000/kds/     (kitchen display)
 ```
-
-Veja [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md) para detalhes.
 
 ## Estrutura do Projeto
 
 ```
 django-shopman/
-├── packages/               # 8 apps Django independentes (pip-instalaveis)
-│   ├── utils/              # Utilitarios compartilhados (monetary, formatting)  [shopman-utils]
-│   ├── offerman/           # Catalogo: produtos, listings, precos por canal      [shopman-offerman]
-│   ├── stockman/           # Estoque: quants, moves, holds, alertas, planejamento [shopman-stockman]
-│   ├── craftsman/          # Producao: receitas, work orders, BOM                [shopman-craftsman]
-│   ├── omniman/            # Pedidos: sessoes, canais, directives, fulfillment   [shopman-omniman]
-│   ├── guestman/           # Clientes: contatos, grupos, insights RFM            [shopman-guestman]
-│   ├── doorman/            # Auth: OTP, magic links, device trust                [shopman-doorman]
-│   └── payman/             # Pagamentos: intents, transactions                   [shopman-payman]
+├── packages/                   # 8 apps pip-instaláveis (sem dependência entre si)
+│   ├── utils/                  # shopman-utils — Monetário, formatting, phone
+│   ├── offerman/               # shopman-offerman — Catálogo
+│   ├── stockman/               # shopman-stockman — Estoque
+│   ├── craftsman/              # shopman-craftsman — Produção
+│   ├── omniman/                # shopman-omniman — Pedidos
+│   ├── guestman/               # shopman-guestman — CRM
+│   ├── doorman/                # shopman-doorman — Auth
+│   └── payman/                 # shopman-payman — Pagamentos
 │
-├── framework/              # Framework Django Shopman  [django-shopman]
-│   ├── project/            # settings.py, urls.py
-│   └── shopman/            # Orquestrador: conecta core apps via handlers
+├── framework/                  # Framework orquestrador (django-shopman)
+│   ├── project/                # settings.py, urls.py, wsgi.py
+│   └── shopman/                # App Django: Flows, Services, Adapters, Handlers
+│       ├── flows.py            # BaseFlow → Local/Remote/Marketplace + dispatch()
+│       ├── services/           # Lógica de negócio (stock, payment, checkout, etc.)
+│       ├── adapters/           # Integrações swappable (EFI, Stripe, ManyChat, etc.)
+│       ├── handlers/           # Directive handlers (stock, payment, notification, etc.)
+│       ├── models/             # Shop, Promotion, Coupon, KDS, DayClosing
+│       ├── web/                # Storefront (Django templates + HTMX + Alpine.js)
+│       ├── api/                # API REST (DRF + drf-spectacular)
+│       └── admin/              # Admin Unfold (dashboard, pedidos, alertas, KDS)
 │
-├── instances/              # Instancias Django (nao sao pip packages)
-│   └── nelson/             # Nelson Boulangerie (futuro repo shopman-nelson)
+├── instances/                  # Instâncias (configuração por negócio)
+│   └── nelson/                 # Nelson Boulangerie (demo)
 │
-├── docs/                   # Documentacao
-│   ├── architecture.md     # Diagrama de camadas e Protocol/Adapter
-│   ├── getting-started/    # Quickstart e tutorial
-│   └── decisions/          # ADRs (Architecture Decision Records)
+├── docs/                       # Documentação completa
+│   ├── guides/                 # Flows, auth, repo workflow, etc.
+│   ├── reference/              # Data schemas, protocols, glossário
+│   └── decisions/              # ADRs (Architecture Decision Records)
 │
-└── Makefile                # install, test, migrate, run, seed, lint, clean
+└── Makefile                    # install, test, migrate, run, seed, lint
 ```
-
-## Packages Core (packages/)
-
-Cada app e um pacote pip independente. Comunicacao entre apps via `typing.Protocol` — zero imports diretos.
-
-| Package | Pip | Descricao | Modelos Principais |
-|---------|-----|-----------|-------------------|
-| **utils** | shopman-utils | Monetario (`_q` centavos), formatting, phone | — |
-| **offerman** | shopman-offerman | Catalogo de produtos vendaveis | Product, Listing, Collection |
-| **stockman** | shopman-stockman | Controle de estoque fisico | Quant, Move, Hold, Position, Batch |
-| **craftsman** | shopman-craftsman | Producao e receitas | Recipe, WorkOrder, WorkOrderItem |
-| **omniman** | shopman-omniman | Kernel de pedidos | Session, Order, Directive, Channel |
-| **guestman** | shopman-guestman | Gestao de clientes | Customer, ContactPoint, CustomerGroup |
-| **doorman** | shopman-doorman | Autenticacao e acesso | VerificationCode, TrustedDevice, AccessLink |
-| **payman** | shopman-payman | Pagamentos | PaymentIntent, Transaction |
 
 ## Framework (framework/)
 
-O `framework/` conecta os core apps para cenarios de negocio concretos:
+O framework conecta os core apps para cenários de negócio concretos:
 
-- **Presets de canal:** `pos()`, `remote()`, `marketplace()` — configuram comportamento por canal de venda
-- **Handlers de directive:** `stock.hold`, `notification.send`, `payment.capture` — processam tarefas pos-commit
-- **Protocol/Adapter:** cada integracao (estoque, pagamento, fiscal) e substituivel sem alterar o core
+- **Flows:** Coordenação de lifecycle. `BaseFlow` → `LocalFlow` → `RemoteFlow` → `MarketplaceFlow`. Signal `order_changed` → `dispatch()` → `Flow.on_<phase>()`.
+- **Services:** Lógica de negócio. Cada service opera sobre Core services via adapters.
+- **Adapters:** Integrações externas swappable via settings. `get_adapter("payment", method="pix")` → `payment_efi`.
+- **Presets de canal:** `pos()`, `remote()`, `marketplace()` — configuram comportamento por canal.
+- **Directive handlers:** Processamento assíncrono pós-commit (stock.hold, notification.send, payment.capture).
 
-## Comandos Uteis
+## Features
+
+- **Storefront mobile-first** — HTMX + Alpine.js, PWA-ready
+- **Checkout com PIX** — QR code, polling, auto-confirmação
+- **Gestor de pedidos** — painel operador com timer, confirmação otimista, despacho KDS
+- **KDS** — Kitchen Display System com múltiplas instâncias (prep, picking, expedição)
+- **POS** — Ponto de venda integrado
+- **Dashboard** — KPIs, charts, alertas de estoque, fechamento de caixa
+- **Auth OTP** — WhatsApp-first com fallback SMS, magic links, device trust
+- **Multi-canal** — balcão, delivery, WhatsApp, marketplace (iFood)
+- **Notificações** — email, WhatsApp (ManyChat), console, SMS
+- **Produção** — receitas, work orders, BOM, sugestão automática
+- **Loyalty** — pontos, stamps, tiers (Bronze → Platinum)
+- **Import/Export** — produtos e preços via CSV/Excel
+
+## Comandos
 
 ```bash
-make install         # Instala dependencias + packages em modo editavel
-make test            # Roda todos os ~1500 testes
-make migrate         # Aplica migracoes
-make seed            # Popula com dados demo (Nelson Boulangerie)
-make run             # Sobe servidor de desenvolvimento
-make lint            # Ruff check
-make clean           # Limpa caches
+make install          # Instala dependências + packages em modo editável
+make test             # Roda todos os ~1.900 testes
+make test-offerman    # Testes de um core app específico
+make test-shopman-app # Testes do framework
+make migrate          # Aplica migrações
+make seed             # Popula com dados demo (Nelson Boulangerie)
+make run              # Sobe servidor (localhost:8000)
+make lint             # Ruff check
 ```
 
-## Convencoes
+## Convenções
 
-- **Valores monetarios:** `int` em centavos com sufixo `_q` (ex: `base_price_q = 1050` → R$ 10,50)
-- **Identificadores:** `ref` (nao `code`). Excecao: `Product.sku`
-- **Confirmacao:** Otimista — pedido e auto-confirmado se operador nao cancela no timeout
-- **Comunicacao entre apps:** `typing.Protocol` + adapters, sem imports diretos
+- **Valores monetários:** `int` em centavos com sufixo `_q` (ex: `base_price_q = 1050` → R$ 10,50)
+- **Identificadores:** `ref` (não `code`). Exceção: `Product.sku`
+- **Confirmação:** Otimista — pedido auto-confirma se operador não cancela no timeout
+- **Frontend:** HTMX ↔ servidor, Alpine.js ↔ DOM. Nunca `onclick`, `getElementById`, etc.
+- **Comunicação entre apps:** `typing.Protocol` + adapters, sem imports diretos
 
-## Documentacao
+## Repos
 
-- [Arquitetura](docs/architecture.md) — diagrama de camadas, Protocol/Adapter, dependencias
-- [Quickstart](docs/getting-started/quickstart.md) — instalacao passo a passo
-- [Um Dia na Padaria](docs/getting-started/dia-na-padaria.md) — tutorial narrativo completo
-- [ADRs](docs/decisions/) — decisoes arquiteturais
+| Repo | Descrição |
+|------|-----------|
+| [django-shopman](https://github.com/pablondrina/django-shopman) | Monorepo (este repo) |
+| [shopman-omniman](https://github.com/pablondrina/shopman-omniman) | Core: Pedidos |
+| [shopman-stockman](https://github.com/pablondrina/shopman-stockman) | Core: Estoque |
+| [shopman-craftsman](https://github.com/pablondrina/shopman-craftsman) | Core: Produção |
+| [shopman-offerman](https://github.com/pablondrina/shopman-offerman) | Core: Catálogo |
+| [shopman-guestman](https://github.com/pablondrina/shopman-guestman) | Core: CRM |
+| [shopman-doorman](https://github.com/pablondrina/shopman-doorman) | Core: Auth |
+| [shopman-payman](https://github.com/pablondrina/shopman-payman) | Core: Pagamentos |
+| [shopman-utils](https://github.com/pablondrina/shopman-utils) | Core: Utilitários |
+| [shopman-nelson](https://github.com/pablondrina/shopman-nelson) | Instância: Nelson Boulangerie |
+
+## Documentação
+
+- [Arquitetura](docs/architecture.md) — diagrama de camadas, Protocol/Adapter
+- [Quickstart](docs/getting-started/quickstart.md) — instalação passo a passo
+- [Um Dia na Padaria](docs/getting-started/dia-na-padaria.md) — tutorial narrativo
+- [Flows](docs/guides/flows.md) — guia de Flows, Services, Adapters
+- [Auth](docs/guides/auth.md) — autenticação OTP e device trust
+- [Repo Workflow](docs/guides/repo-workflow.md) — como manter monorepo e repos sincronizados
+- [Data Schemas](docs/reference/data-schemas.md) — chaves em Session.data, Order.data
+- [Glossário](docs/reference/glossary.md) — termos de domínio
+- [ADRs](docs/decisions/) — decisões arquiteturais
 
 ## Requisitos
 
 - Python 3.11+
 - Django 5.2+
 - SQLite (dev) / PostgreSQL (prod)
+
+## Licença
+
+MIT — Pablo Valentini
