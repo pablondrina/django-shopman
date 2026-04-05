@@ -3,13 +3,13 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "shopman-auth"
+name = "shopman-doorman"
 version = "0.1.0"
 description = "Shopman Gating — Phone-First Authentication"
 requires-python = ">=3.12"
 dependencies = [
     "Django>=5.2,<6.0",
-    "shopman-customers>=0.1.0",
+    "shopman-guestman>=0.1.0",
 ]
 
 [project.optional-dependencies]

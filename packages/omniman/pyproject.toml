@@ -3,27 +3,24 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "shopman-payments"
+name = "shopman-omniman"
 version = "0.1.0"
-description = "Shopman Payments — Payment Intents & Transactions"
+description = "Shopman Ordering — Omnichannel Order Kernel"
 requires-python = ">=3.12"
 dependencies = [
     "Django>=5.2,<6.0",
-    "shopman-utils",
+    "shopman-utils>=0.3.0",
 ]
 
 [project.optional-dependencies]
-unfold = [
-    "django-unfold>=0.80,<1.0",
-]
 dev = [
     "pytest>=8.0",
     "pytest-django>=4.5",
 ]
 
 [tool.setuptools.packages.find]
-include = ["shopman.payments*"]
+include = ["shopman.ordering*"]
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "payments_test_settings"
+DJANGO_SETTINGS_MODULE = "ordering_test_settings"
 pythonpath = ["."]

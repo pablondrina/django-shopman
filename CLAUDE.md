@@ -5,17 +5,17 @@ Instruções para agentes de código que trabalham neste repositório.
 ## Estrutura do Projeto
 
 ```
-shopman-core/           8 apps pip-instaláveis (sem dependência entre si)
-├── utils/              Utilitários compartilhados (monetary, phone, admin)
-├── offering/           Catálogo: produtos, preços, listings, coleções, bundles
-├── stocking/           Estoque: quants, moves, holds, posições, alertas, planejamento
-├── crafting/           Produção: receitas, work orders, BOM, sugestão
-├── ordering/           Pedidos: sessions, orders, channels, directives, fulfillment
-├── customers/          Clientes: customers, contatos, grupos, loyalty, RFM
-├── auth/               Auth: OTP, device trust, bridge tokens, magic links
-└── payments/           Pagamentos: intents, transactions, service
+packages/               8 apps pip-instaláveis (sem dependência entre si)
+├── utils/              Utilitários compartilhados (monetary, phone, admin)          [shopman-utils]
+├── offerman/           Catálogo: produtos, preços, listings, coleções, bundles      [shopman-offerman]
+├── stockman/           Estoque: quants, moves, holds, posições, alertas, planejamento [shopman-stockman]
+├── craftsman/          Produção: receitas, work orders, BOM, sugestão               [shopman-craftsman]
+├── omniman/            Pedidos: sessions, orders, channels, directives, fulfillment [shopman-omniman]
+├── guestman/           Clientes: customers, contatos, grupos, loyalty, RFM          [shopman-guestman]
+├── doorman/            Auth: OTP, device trust, bridge tokens, magic links          [shopman-doorman]
+└── payman/             Pagamentos: intents, transactions, service                   [shopman-payman]
 
-shopman-app/            Orquestrador (app único: shopman/)
+framework/              Orquestrador (app único: shopman/)  [django-shopman]
 ├── shopman/            Orquestração — Flows, Services, Adapters, Rules
 │   ├── flows.py        BaseFlow → Local/Remote/Marketplace + dispatch()
 │   ├── services/       11 services (stock, payment, customer, checkout, pricing, etc.)
@@ -44,7 +44,11 @@ shopman-app/            Orquestrador (app único: shopman/)
 │   ├── management/commands/   seed, cleanup_d1, cleanup_stale_sessions, suggest_production
 │   ├── apps.py         ShopmanConfig (signal wiring + handler registration + rules boot)
 │   └── tests/          7 test modules + web/ + integration/ + e2e/
-└── project/            settings.py, urls.py, wsgi
+├── project/            settings.py, urls.py, wsgi
+└── manage.py
+
+instances/              Instâncias Django (não são pip packages)
+└── nelson/             Nelson Boulangerie (futuro repo shopman-nelson)
 ```
 
 ### Conceitos Primários
@@ -71,10 +75,10 @@ shopman-app/            Orquestrador (app único: shopman/)
 ## Como Rodar
 
 ```bash
-make test              # Todos os testes (~1.901: 1.531 core + 370 app)
-make test-offering     # Apenas offering
-make test-stocking     # Apenas stocking
-make test-shopman-app  # Orquestrador + integration + e2e
+make test              # Todos os testes (~1.901: 1.531 core + 370 framework)
+make test-offerman     # Apenas offerman (offering)
+make test-stockman     # Apenas stockman (stocking)
+make test-framework    # Orquestrador + integration + e2e
 make lint              # Ruff
 make run               # Dev server (localhost:8000)
 make seed              # Popular banco com dados Nelson Boulangerie
@@ -83,7 +87,7 @@ make migrate           # Migrações
 
 ## Core é Sagrado — Regras de Integridade
 
-O `shopman-core/` é um conjunto de 8 apps pip-instaláveis, muito bem desenhado, robusto e flexível.
+O `packages/` é um conjunto de 8 apps pip-instaláveis, muito bem desenhado, robusto e flexível.
 Antes de alterar qualquer coisa no Core, **compreenda como ele já resolve o problema**.
 
 1. **Não adicionar campos a modelos do Core sem necessidade comprovada.** Os modelos `Session`, `Order`,
@@ -110,7 +114,7 @@ Antes de alterar qualquer coisa no Core, **compreenda como ele já resolve o pro
 
 ## O Que NÃO Fazer
 
-- **Não alterar o Core sem entender como ele já funciona** — leia services, handlers, e testes primeiro.
+- **Não alterar os packages do Core sem entender como eles já funcionam** — leia services, handlers, e testes primeiro.
 - **Não inventar features** durante migração ou refatoração.
 - **Não usar jargão inventado** — nomes devem ser descritivos e auto-explicativos.
 - **Não deixar resíduos** em renames (migrações serão resetadas no projeto novo).

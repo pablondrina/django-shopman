@@ -26,30 +26,22 @@ Veja [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md) pa
 
 ```
 django-shopman/
-├── shopman-core/           # 7 apps Django independentes (pip-instalaveis)
-│   ├── utils/              # Utilitarios compartilhados (monetary, formatting)
-│   ├── offering/           # Catalogo: produtos, listings, precos por canal
-│   ├── stocking/           # Estoque: quants, moves, holds, alertas, planejamento
-│   ├── crafting/           # Producao: receitas, work orders, BOM, coef. francais
-│   ├── ordering/           # Pedidos: sessoes, canais, directives, fulfillment
-│   ├── customers/          # Clientes: contatos, grupos, insights RFM, enderecos
-│   └── auth/             # Auth: OTP, magic links, device trust, bridge tokens
+├── packages/               # 8 apps Django independentes (pip-instalaveis)
+│   ├── utils/              # Utilitarios compartilhados (monetary, formatting)  [shopman-utils]
+│   ├── offerman/           # Catalogo: produtos, listings, precos por canal      [shopman-offerman]
+│   ├── stockman/           # Estoque: quants, moves, holds, alertas, planejamento [shopman-stockman]
+│   ├── craftsman/          # Producao: receitas, work orders, BOM                [shopman-craftsman]
+│   ├── omniman/            # Pedidos: sessoes, canais, directives, fulfillment   [shopman-omniman]
+│   ├── guestman/           # Clientes: contatos, grupos, insights RFM            [shopman-guestman]
+│   ├── doorman/            # Auth: OTP, magic links, device trust                [shopman-doorman]
+│   └── payman/             # Pagamentos: intents, transactions                   [shopman-payman]
 │
-├── shopman-app/            # Projeto Django que orquestra tudo
+├── framework/              # Framework Django Shopman  [django-shopman]
 │   ├── project/            # settings.py, urls.py
-│   ├── shopman/            # Orquestrador: conecta core apps via handlers
-│   │   ├── stock/          # Hold/commit de estoque via StockBackend
-│   │   ├── payment/        # Pagamento via PaymentBackend
-│   │   ├── notifications/  # Notificacoes via NotificationBackend
-│   │   ├── customer/       # Resolucao de clientes via CustomerBackend
-│   │   ├── pricing/        # Precos via PricingBackend
-│   │   ├── confirmation/   # Confirmacao otimista de pedidos
-│   │   ├── fiscal/         # Emissao fiscal via FiscalBackend
-│   │   ├── accounting/     # Contabilidade via AccountingBackend
-│   │   ├── returns/        # Devoluções e estornos
-│   │   └── webhook/        # Webhooks de entrada (pagamento, marketplace)
-│   ├── channels/           # Canais de venda (web storefront)
-│   └── nelson/             # App demo: Nelson Boulangerie
+│   └── shopman/            # Orquestrador: conecta core apps via handlers
+│
+├── instances/              # Instancias Django (nao sao pip packages)
+│   └── nelson/             # Nelson Boulangerie (futuro repo shopman-nelson)
 │
 ├── docs/                   # Documentacao
 │   ├── architecture.md     # Diagrama de camadas e Protocol/Adapter
@@ -59,23 +51,24 @@ django-shopman/
 └── Makefile                # install, test, migrate, run, seed, lint, clean
 ```
 
-## Apps Core (shopman-core)
+## Packages Core (packages/)
 
 Cada app e um pacote pip independente. Comunicacao entre apps via `typing.Protocol` — zero imports diretos.
 
-| App | Descricao | Modelos Principais |
-|-----|-----------|--------------------|
-| **utils** | Monetario (`_q` centavos), formatting, phone | — |
-| **offering** | Catalogo de produtos vendaveis | Product, Listing, Collection |
-| **stocking** | Controle de estoque fisico | Quant, Move, Hold, Position, Batch |
-| **crafting** | Producao e receitas | Recipe, WorkOrder, WorkOrderItem |
-| **ordering** | Kernel de pedidos | Session, Order, Directive, Channel |
-| **customers** | Gestao de clientes | Customer, ContactPoint, CustomerGroup |
-| **auth** | Autenticacao e acesso | VerificationCode, TrustedDevice, AccessLink |
+| Package | Pip | Descricao | Modelos Principais |
+|---------|-----|-----------|-------------------|
+| **utils** | shopman-utils | Monetario (`_q` centavos), formatting, phone | — |
+| **offerman** | shopman-offerman | Catalogo de produtos vendaveis | Product, Listing, Collection |
+| **stockman** | shopman-stockman | Controle de estoque fisico | Quant, Move, Hold, Position, Batch |
+| **craftsman** | shopman-craftsman | Producao e receitas | Recipe, WorkOrder, WorkOrderItem |
+| **omniman** | shopman-omniman | Kernel de pedidos | Session, Order, Directive, Channel |
+| **guestman** | shopman-guestman | Gestao de clientes | Customer, ContactPoint, CustomerGroup |
+| **doorman** | shopman-doorman | Autenticacao e acesso | VerificationCode, TrustedDevice, AccessLink |
+| **payman** | shopman-payman | Pagamentos | PaymentIntent, Transaction |
 
-## Orquestrador (shopman-app)
+## Framework (framework/)
 
-O `shopman-app` conecta os core apps para cenarios de negocio concretos:
+O `framework/` conecta os core apps para cenarios de negocio concretos:
 
 - **Presets de canal:** `pos()`, `remote()`, `marketplace()` — configuram comportamento por canal de venda
 - **Handlers de directive:** `stock.hold`, `notification.send`, `payment.capture` — processam tarefas pos-commit
@@ -84,7 +77,7 @@ O `shopman-app` conecta os core apps para cenarios de negocio concretos:
 ## Comandos Uteis
 
 ```bash
-make install         # Instala dependencias + apps em modo editavel
+make install         # Instala dependencias + packages em modo editavel
 make test            # Roda todos os ~1500 testes
 make migrate         # Aplica migracoes
 make seed            # Popula com dados demo (Nelson Boulangerie)

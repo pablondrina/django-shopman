@@ -3,31 +3,30 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "shopman-crafting"
-version = "0.3.0"
-description = "Shopman Crafting — Production Management (MRP)"
+name = "shopman-guestman"
+version = "0.1.0"
+description = "Shopman Attending — Customer Management"
 requires-python = ">=3.12"
 dependencies = [
     "Django>=5.2,<6.0",
-    "shopman-utils",
+    "shopman-utils>=0.3.0",
 ]
 
 [project.optional-dependencies]
 api = [
     "djangorestframework>=3.14",
-]
-unfold = [
-    "django-unfold>=0.80,<1.0",
+    "django-filter>=23.0",
 ]
 dev = [
     "pytest>=8.0",
     "pytest-django>=4.5",
     "djangorestframework>=3.14",
+    "django-filter>=23.0",
 ]
 
 [tool.setuptools.packages.find]
-include = ["shopman.crafting*"]
+include = ["shopman.customers*"]
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "crafting_test_settings"
+DJANGO_SETTINGS_MODULE = "customers_test_settings"
 pythonpath = ["."]

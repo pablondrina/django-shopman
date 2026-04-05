@@ -26,8 +26,8 @@ make install
 
 O `make install` instala:
 - Django 5.2+, DRF, django-filter, phonenumbers, pytest
-- Cada app core (`shopman-core/*`) em modo editavel (`pip install -e`)
-- O projeto orquestrador (`shopman-app`) em modo editavel
+- Cada package core (`packages/*`) em modo editavel (`pip install -e`)
+- O framework orquestrador (`framework/`) em modo editavel
 
 ## Banco de Dados
 
@@ -36,7 +36,7 @@ O `make install` instala:
 make migrate
 ```
 
-Usa SQLite por default (`db.sqlite3` em `shopman-app/`). Para PostgreSQL, configure `DATABASES` em `shopman-app/project/settings.py`.
+Usa SQLite por default (`db.sqlite3` em `framework/`). Para PostgreSQL, configure `DATABASES` em `framework/project/settings.py`.
 
 ## Seed — Nelson Boulangerie
 
@@ -82,7 +82,7 @@ Acesse http://localhost:8000/ para o storefront web (canal `channels.web`).
 
 ```bash
 make test            # Roda todos os ~1500 testes (8 suites)
-make test-offering   # Roda testes de um app especifico
+make test-offerman   # Roda testes de um package especifico
 make lint            # Ruff check em todo o projeto
 make clean           # Remove __pycache__ e *.pyc
 make help            # Lista todos os targets disponiveis
