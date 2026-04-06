@@ -658,7 +658,7 @@ Design tokens do storefront para badges.
 
 ---
 
-### WP-R15: POS Resumo de Turno
+### ✅ WP-R15: POS Resumo de Turno
 
 **Objetivo:** Operador precisa saber quantas vendas fez e total.
 

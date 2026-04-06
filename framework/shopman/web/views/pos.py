@@ -294,7 +294,7 @@ def pos_close(request: HttpRequest) -> HttpResponse:
     total_display = f"R$ {format_money(result['total_q'])}"
 
     # Return HTML partial with data attributes for Alpine to read
-    return HttpResponse(
+    response = HttpResponse(
         f'<div id="pos-result" '
         f'data-order-ref="{result["order_ref"]}" '
         f'data-total-display="{total_display}" '
@@ -302,6 +302,42 @@ def pos_close(request: HttpRequest) -> HttpResponse:
         f'Pedido {result["order_ref"]} &mdash; {total_display}'
         f'</div>'
     )
+    # Trigger shift summary refresh via HTMX event
+    response["HX-Trigger"] = "posOrderCreated"
+    return response
+
+
+@require_GET
+def pos_shift_summary(request: HttpRequest) -> HttpResponse:
+    """GET /gestao/pos/shift-summary/ — HTMX partial: today's shift totals."""
+    denied = _staff_required(request)
+    if denied:
+        return HttpResponse("", status=403)
+
+    from django.db.models import Sum
+    from django.utils import timezone
+
+    from shopman.ordering.models import Order
+
+    today = timezone.localdate()
+    qs = Order.objects.filter(
+        channel__ref="balcao",
+        created_at__date=today,
+    ).exclude(status="cancelled")
+
+    shift_count = qs.count()
+    shift_total_q = qs.aggregate(t=Sum("total_q"))["t"] or 0
+
+    last_order = qs.order_by("-created_at").first()
+    last_ref = last_order.ref if last_order else ""
+    last_total_display = format_money(last_order.total_q) if last_order else ""
+
+    return render(request, "pos/partials/shift_summary.html", {
+        "shift_count": shift_count,
+        "shift_total_display": format_money(shift_total_q),
+        "last_ref": last_ref,
+        "last_total_display": last_total_display,
+    })
 
 
 @require_POST
