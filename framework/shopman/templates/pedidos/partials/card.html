@@ -119,6 +119,67 @@
         "
       >{{ o.next_action_label }}</button>
     {% endif %}
+
+    {% if o.payment_method == "dinheiro" or o.payment_method == "counter" %}
+      {% if o.payment_status != "captured" %}
+        <button
+          x-data="{ confirming: false }"
+          @click="confirming = !confirming"
+          x-show="!confirming"
+          hx-post="/pedidos/{{ o.ref }}/mark-paid/"
+          hx-target="closest [data-order-card]"
+          hx-swap="outerHTML"
+          x-on:click.stop="confirming = true"
+          style="
+            flex: 1;
+            padding: 0.5rem 1rem;
+            background: var(--success-light, #dcfce7);
+            color: var(--success-foreground, #166534);
+            border: 1px solid var(--success, #22c55e);
+            border-radius: var(--radius-md);
+            font-size: var(--text-body-sm);
+            font-weight: 600;
+            cursor: pointer;
+            min-height: var(--touch-min);
+          "
+        ><span class="material-symbols-rounded icon-sm" style="vertical-align: middle;" aria-hidden="true">payments</span> Marcar Pago</button>
+        <button
+          x-data="{ confirming: false }"
+          x-show="confirming"
+          x-cloak
+          hx-post="/pedidos/{{ o.ref }}/mark-paid/"
+          hx-target="closest [data-order-card]"
+          hx-swap="outerHTML"
+          style="
+            flex: 1;
+            padding: 0.5rem 1rem;
+            background: var(--success);
+            color: var(--success-foreground);
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: var(--text-body-sm);
+            font-weight: 600;
+            cursor: pointer;
+            min-height: var(--touch-min);
+          "
+        ><span class="material-symbols-rounded icon-sm" style="vertical-align: middle;" aria-hidden="true">check_circle</span> Confirmar Pagamento</button>
+      {% else %}
+        <span style="
+          padding: 0.375rem 0.75rem;
+          background: var(--success-light, #dcfce7);
+          color: var(--success-foreground, #166534);
+          border-radius: var(--radius-md);
+          font-size: var(--text-caption);
+          font-weight: 600;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.25rem;
+        ">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">check_circle</span>
+          Pago
+        </span>
+      {% endif %}
+    {% endif %}
   </div>
 
   {# ── Reject form (inline) ── #}

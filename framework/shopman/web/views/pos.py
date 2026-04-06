@@ -225,33 +225,117 @@ def pos_close(request: HttpRequest) -> HttpResponse:
             ops=ops,
             ctx={"actor": f"pos:{request.user.username}"},
         )
+    except Exception as e:
+        _msg = str(e).lower()
+        if "insuficiente" in _msg or "estoque" in _msg or "stock" in _msg or "unavailable" in _msg:
+            error_msg = f"Produto indispon&iacute;vel: {e}"
+        else:
+            error_msg = f"Erro ao montar pedido: {e}"
+        logger.warning("pos_close modify_failed: %s", e, exc_info=True)
+        return HttpResponse(
+            f'<div id="pos-result" class="pos-error" '
+            f'style="background:var(--error-light);color:rgb(var(--error-foreground))">'
+            f'{error_msg}</div>',
+            status=422,
+        )
 
+    try:
         result = CommitService.commit(
             session_key=session_key,
             channel_ref="balcao",
             idempotency_key=generate_idempotency_key(),
             ctx={"actor": f"pos:{request.user.username}"},
         )
-
-        logger.info("pos_close order=%s total=%s", result["order_ref"], result["total_q"])
-
-        total_display = f"R$ {format_money(result['total_q'])}"
-
-        # Return HTML partial with data attributes for Alpine to read
-        return HttpResponse(
-            f'<div id="pos-result" '
-            f'data-order-ref="{result["order_ref"]}" '
-            f'data-total-display="{total_display}" '
-            f'class="pos-success">'
-            f'Pedido {result["order_ref"]} &mdash; {total_display}'
-            f'</div>'
-        )
-
     except Exception as e:
-        logger.exception("pos_close failed")
+        logger.exception("pos_close commit_failed")
         return HttpResponse(
-            f'<div id="pos-result" class="pos-success" '
+            f'<div id="pos-result" class="pos-error" '
             f'style="background:var(--error-light);color:rgb(var(--error-foreground))">'
-            f'Erro: {e}</div>',
+            f'Erro ao finalizar: {e}</div>',
             status=400,
         )
+
+    logger.info("pos_close order=%s total=%s", result["order_ref"], result["total_q"])
+
+    total_display = f"R$ {format_money(result['total_q'])}"
+
+    # Return HTML partial with data attributes for Alpine to read
+    return HttpResponse(
+        f'<div id="pos-result" '
+        f'data-order-ref="{result["order_ref"]}" '
+        f'data-total-display="{total_display}" '
+        f'class="pos-success">'
+        f'Pedido {result["order_ref"]} &mdash; {total_display}'
+        f'</div>'
+    )
+
+
+@require_POST
+def pos_cancel_last(request: HttpRequest) -> HttpResponse:
+    """POST /gestao/pos/cancel-last/ — HTMX: cancel the last POS order (within 5 min)."""
+    denied = _staff_required(request)
+    if denied:
+        return HttpResponse("Unauthorized", status=403)
+
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from shopman.ordering.models import Order
+    from shopman.services.cancellation import cancel
+
+    order_ref = request.POST.get("order_ref", "").strip()
+    if not order_ref:
+        return HttpResponse(
+            '<div id="pos-cancel-result" class="pos-error" '
+            'style="background:var(--error-light);color:rgb(var(--error-foreground))">'
+            'Refer&ecirc;ncia do pedido n&atilde;o informada</div>',
+            status=422,
+        )
+
+    try:
+        order = Order.objects.get(ref=order_ref)
+    except Order.DoesNotExist:
+        return HttpResponse(
+            f'<div id="pos-cancel-result" class="pos-error" '
+            f'style="background:var(--error-light);color:rgb(var(--error-foreground))">'
+            f'Pedido {order_ref} n&atilde;o encontrado</div>',
+            status=404,
+        )
+
+    # Only allow cancellation within 5 minutes of creation
+    age = timezone.now() - order.created_at
+    if age > timedelta(minutes=5):
+        return HttpResponse(
+            f'<div id="pos-cancel-result" class="pos-error" '
+            f'style="background:var(--error-light);color:rgb(var(--error-foreground))">'
+            f'Pedido {order_ref} criado h&aacute; mais de 5 minutos — cancelamento n&atilde;o permitido</div>',
+            status=422,
+        )
+
+    if order.status not in ("new", "confirmed"):
+        return HttpResponse(
+            f'<div id="pos-cancel-result" class="pos-error" '
+            f'style="background:var(--error-light);color:rgb(var(--error-foreground))">'
+            f'Pedido {order_ref} n&atilde;o pode ser cancelado (status: {order.status})</div>',
+            status=422,
+        )
+
+    try:
+        cancel(order, reason="pos_operator", actor=f"pos:{request.user.username}")
+    except Exception as e:
+        logger.exception("pos_cancel_last failed for order %s", order_ref)
+        return HttpResponse(
+            f'<div id="pos-cancel-result" class="pos-error" '
+            f'style="background:var(--error-light);color:rgb(var(--error-foreground))">'
+            f'Erro ao cancelar: {e}</div>',
+            status=400,
+        )
+
+    logger.info("pos_cancel_last order=%s operator=%s", order_ref, request.user.username)
+
+    return HttpResponse(
+        f'<div id="pos-cancel-result" class="pos-success" '
+        f'style="background:var(--success-light,#dcfce7);color:var(--success-foreground,#166534)">'
+        f'Venda {order_ref} cancelada com sucesso</div>'
+    )

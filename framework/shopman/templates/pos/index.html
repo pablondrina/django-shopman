@@ -262,6 +262,36 @@
                 hx-indicator=".pos-close-btn">
           FECHAR VENDA
         </button>
+
+        {# Cart clear + cancel last sale buttons #}
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+          <button
+            @click="cart = []; document.getElementById('pos-result').innerHTML = ''"
+            :disabled="cart.length === 0"
+            style="
+              flex: 1; padding: 0.5rem;
+              background: var(--surface); color: var(--foreground-muted);
+              border: 1px solid var(--border); border-radius: var(--radius-md);
+              font-size: 0.8125rem; cursor: pointer;
+            "
+            title="Limpar carrinho (Esc)"
+          >Limpar (Esc)</button>
+          <button
+            x-show="lastOrderRef"
+            x-cloak
+            hx-post="/gestao/pos/cancel-last/"
+            hx-vals="js:{order_ref: lastOrderRef}"
+            hx-target="#pos-cancel-result"
+            hx-swap="innerHTML"
+            style="
+              flex: 1; padding: 0.5rem;
+              background: var(--error-light, #fee2e2); color: var(--error-foreground, #991b1b);
+              border: 1px solid var(--error, #ef4444); border-radius: var(--radius-md);
+              font-size: 0.8125rem; cursor: pointer;
+            "
+          >Cancelar Última</button>
+        </div>
+        <div id="pos-cancel-result"></div>
       </div>
     </div>
   </main>

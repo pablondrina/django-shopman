@@ -120,6 +120,8 @@ def _enrich_order(order: Order) -> dict:
         "next_status": NEXT_STATUS_MAP.get(order.status, ""),
         "next_action_label": NEXT_ACTION_LABELS.get(order.status, ""),
         "order": order,
+        "payment_method": order.data.get("payment", {}).get("method", ""),
+        "payment_status": order.data.get("payment", {}).get("status", ""),
     }
 
 
@@ -334,3 +336,36 @@ class PedidoNotesView(View):
         order.save(update_fields=["data", "updated_at"])
 
         return HttpResponse('<span class="text-success text-caption">Salvo</span>')
+
+
+class PedidoMarkPaidView(View):
+    """POST /pedidos/<ref>/mark-paid/ — operador confirma recebimento manual (dinheiro/counter)."""
+
+    def post(self, request: HttpRequest, ref: str) -> HttpResponse:
+        denied = _staff_required(request)
+        if denied:
+            return denied
+
+        order = get_object_or_404(Order, ref=ref)
+
+        payment_data = order.data.get("payment", {})
+        if payment_data.get("status") == "captured":
+            # Already marked — idempotent, return updated card
+            enriched = _enrich_order(order)
+            return render(request, "pedidos/partials/card.html", {"o": enriched})
+
+        payment_data["status"] = "captured"
+        payment_data["marked_paid_by"] = request.user.username
+        order.data["payment"] = payment_data
+        order.save(update_fields=["data", "updated_at"])
+
+        if order.status == "new":
+            order.transition_status("confirmed", actor=f"operator:{request.user.username}")
+
+        logger.info("mark_paid order=%s operator=%s", order.ref, request.user.username)
+
+        from shopman.flows import dispatch
+        dispatch(order, "on_paid")
+
+        enriched = _enrich_order(order)
+        return render(request, "pedidos/partials/card.html", {"o": enriched})

@@ -98,10 +98,12 @@ urlpatterns = [
     path("pedidos/<str:ref>/reject/", views.GestorOrderRejectView.as_view(), name="gestor_reject"),
     path("pedidos/<str:ref>/advance/", views.PedidoAdvanceView.as_view(), name="gestor_advance"),
     path("pedidos/<str:ref>/notes/", views.PedidoNotesView.as_view(), name="gestor_notes"),
+    path("pedidos/<str:ref>/mark-paid/", views.PedidoMarkPaidView.as_view(), name="gestor_mark_paid"),
     # Operator: POS (Balcao)
     path("gestao/pos/", views.pos_view, name="pos"),
     path("gestao/pos/customer-lookup/", views.pos_customer_lookup, name="pos_customer_lookup"),
     path("gestao/pos/close/", views.pos_close, name="pos_close"),
+    path("gestao/pos/cancel-last/", views.pos_cancel_last, name="pos_cancel_last"),
     # Operator: Production
     path("gestao/producao/criar/", views.bulk_create_work_orders, name="bulk_create_work_orders"),
     # Operator: KDS (Kitchen Display System)
