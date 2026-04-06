@@ -222,24 +222,37 @@ class CartService:
                 "discount_display": f"R$ {format_money(coupon_discount_q)}",
             }
 
+        # Aggregate discounts from session.pricing: DiscountModifier + D-1/employee/happy_hour
+        _PRICING_MODIFIER_KEYS = ("d1_discount", "employee_discount", "happy_hour")
+        modifier_total_q = sum(
+            int((pricing.get(key) or {}).get("total_discount_q", 0))
+            for key in _PRICING_MODIFIER_KEYS
+        )
+        total_discount_q += modifier_total_q
+
         # Compute original subtotal (before any discounts)
         original_subtotal_q = subtotal_q + total_discount_q
 
-        # Uma linha por origem (promoção ou cupom) para transparência no carrinho
+        # Uma linha por origem para transparência no carrinho
         discount_lines: list[dict] = []
+        agg: dict[str, int] = defaultdict(int)
         raw_items = discount_data.get("items") or []
-        if raw_items:
-            agg: dict[str, int] = defaultdict(int)
-            for d in raw_items:
-                amt = int(d.get("discount_q", 0)) * int(d.get("qty", 0))
-                if amt <= 0:
-                    continue
-                raw_name = (d.get("name") or "").strip() or "Promoção"
-                if d.get("type") == "coupon":
-                    label = f"Cupom {raw_name}"
-                else:
-                    label = raw_name
-                agg[label] += amt
+        for d in raw_items:
+            amt = int(d.get("discount_q", 0)) * int(d.get("qty", 0))
+            if amt <= 0:
+                continue
+            raw_name = (d.get("name") or "").strip() or "Promoção"
+            if d.get("type") == "coupon":
+                label = f"Cupom {raw_name}"
+            else:
+                label = raw_name
+            agg[label] += amt
+        for key in _PRICING_MODIFIER_KEYS:
+            mod_data = pricing.get(key) or {}
+            amt = int(mod_data.get("total_discount_q", 0))
+            if amt > 0:
+                agg[mod_data.get("label", key)] += amt
+        if agg:
             discount_lines = [
                 {
                     "label": lab,

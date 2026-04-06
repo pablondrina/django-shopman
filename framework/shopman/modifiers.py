@@ -86,6 +86,19 @@ class D1DiscountModifier:
 
         if modified:
             session.update_items(items)
+            total_discount_q = sum(
+                (m["original_price_q"] - item.get("unit_price_q", 0)) * int(item.get("qty", 1))
+                for item in items
+                for m in item.get("modifiers_applied", [])
+                if m.get("type") == "d1_discount"
+            )
+            pricing = session.pricing or {}
+            if total_discount_q > 0:
+                pricing["d1_discount"] = {"total_discount_q": total_discount_q, "label": "D-1"}
+            else:
+                pricing.pop("d1_discount", None)
+            session.pricing = pricing
+            session.save(update_fields=["pricing"])
 
 
 class DiscountModifier:
@@ -319,6 +332,19 @@ class EmployeeDiscountModifier:
 
         if modified:
             session.update_items(items)
+            total_discount_q = sum(
+                monetary_div(item.get("unit_price_q", 0) * EMPLOYEE_DISCOUNT_PERCENT, 100 - EMPLOYEE_DISCOUNT_PERCENT)
+                * int(item.get("qty", 1))
+                for item in items
+                if any(m.get("type") == "employee_discount" for m in item.get("modifiers_applied", []))
+            )
+            pricing = session.pricing or {}
+            if total_discount_q > 0:
+                pricing["employee_discount"] = {"total_discount_q": total_discount_q, "label": "Desconto funcionário"}
+            else:
+                pricing.pop("employee_discount", None)
+            session.pricing = pricing
+            session.save(update_fields=["pricing"])
 
 
 class HappyHourModifier:
@@ -381,6 +407,19 @@ class HappyHourModifier:
 
         if modified:
             session.update_items(items)
+            total_discount_q = sum(
+                monetary_div(item.get("unit_price_q", 0) * self.discount_percent, 100 - self.discount_percent)
+                * int(item.get("qty", 1))
+                for item in items
+                if any(m.get("type") == "happy_hour" for m in item.get("modifiers_applied", []))
+            )
+            pricing = session.pricing or {}
+            if total_discount_q > 0:
+                pricing["happy_hour"] = {"total_discount_q": total_discount_q, "label": "Happy Hour"}
+            else:
+                pricing.pop("happy_hour", None)
+            session.pricing = pricing
+            session.save(update_fields=["pricing"])
 
 
 class DeliveryFeeModifier:

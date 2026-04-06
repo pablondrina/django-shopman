@@ -397,7 +397,7 @@ Não alterar o modifier — só adicionar indicação visual.
 
 ---
 
-### WP-R9: Discount Transparency no Cart
+### ✅ WP-R9: Discount Transparency no Cart
 
 **Objetivo:** Cliente deve ver exatamente por que o preço mudou.
 
