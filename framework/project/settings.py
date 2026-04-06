@@ -11,10 +11,13 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 load_dotenv(Path(BASE_DIR) / ".env")
 
+# ⚠️ PRODUÇÃO: Definir via DJANGO_SECRET_KEY env var. NUNCA usar o default.
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-secret-key-not-for-production")
 
+# ⚠️ PRODUÇÃO: Definir DJANGO_DEBUG=false
 DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() in ("true", "1", "yes")
 
+# ⚠️ PRODUÇÃO: Restringir a domínios reais. "*" é apenas para desenvolvimento.
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",")
 
 CSRF_TRUSTED_ORIGINS = [
@@ -115,6 +118,7 @@ TEMPLATES = [
     },
 ]
 
+# ⚠️ PRODUÇÃO: Usar PostgreSQL. SQLite não suporta concorrência.
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
