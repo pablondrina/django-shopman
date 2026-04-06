@@ -880,11 +880,19 @@ Não substituir todos os 42 de uma vez — focar nos hot paths (checkout, cart, 
 
 ---
 
-### WP-R20: Migration Audit + Missing Migrations
+### WP-R20: Migration Audit + Missing Migrations ✓ AUDITADO 2026-04-06
 
 **Objetivo:** Garantir que o schema está correto após reestruturações.
 
 **Done:** `makemigrations --check` passa, todas as migrations aplicadas.
+
+**Resultado da auditoria (2026-04-06):**
+- `makemigrations --check --dry-run --skip-checks` → **No changes detected**
+- `showmigrations | grep "[ ]"` → **nenhuma migration pendente**
+- Shop.formatted_address, latitude, longitude, place_id → cobertos em `0001_initial`
+- DeliveryZone (WP-R1) → coberto em `0004_deliveryzone`
+- CashRegisterSession + CashMovement (WP-R16) → cobertos em `0005_cash_register`
+- Schema 100% sincronizado com os modelos
 
 **Prompt:**
 ```
