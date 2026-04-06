@@ -5,6 +5,9 @@
 #   make test-utils  → roda testes do utils
 #   make install     → instala deps + apps em modo editável
 
+# Python: usa venv se existir, senão o do PATH
+PYTHON := $(shell [ -f .venv/bin/python ] && echo $(CURDIR)/.venv/bin/python || echo python)
+
 .PHONY: help install test test-utils test-offerman test-stockman test-craftsman test-omniman test-payman test-guestman test-doorman test-framework lint clean migrate run dev seed coverage css css-watch fonts
 
 help: ## Mostra este help
@@ -14,19 +17,22 @@ help: ## Mostra este help
 # ── Setup ─────────────────────────────────────────────────────────────
 
 install: ## Instala deps + apps da suite em modo editável
-	pip install --upgrade pip
-	pip install Django "djangorestframework>=3.15" "django-filter" \
+	$(PYTHON) -m pip install --upgrade pip
+	$(PYTHON) -m pip install Django "djangorestframework>=3.15" "django-filter" \
+		"django-csp>=4.0,<5.0" \
+		"django-ratelimit>=4.1,<5.0" \
+		"django-redis>=5.4,<6.0" \
 		phonenumbers pytest pytest-django
 	# Instala cada app em modo editável
-	pip install -e packages/utils
-	pip install -e packages/offerman
-	pip install -e packages/stockman
-	pip install -e packages/craftsman
-	pip install -e packages/guestman
-	pip install -e packages/doorman
-	pip install -e packages/omniman
-	pip install -e packages/payman
-	pip install -e framework
+	$(PYTHON) -m pip install -e packages/utils
+	$(PYTHON) -m pip install -e packages/offerman
+	$(PYTHON) -m pip install -e packages/stockman
+	$(PYTHON) -m pip install -e packages/craftsman
+	$(PYTHON) -m pip install -e packages/guestman
+	$(PYTHON) -m pip install -e packages/doorman
+	$(PYTHON) -m pip install -e packages/omniman
+	$(PYTHON) -m pip install -e packages/payman
+	$(PYTHON) -m pip install -e framework
 	@echo "✓ Dependências instaladas"
 
 # ── Testes ────────────────────────────────────────────────────────────
@@ -36,39 +42,39 @@ test: test-utils test-offerman test-stockman test-craftsman test-omniman test-pa
 
 test-utils: ## Testes do shopman.utils
 	@echo "── Utils ──"
-	cd packages/utils && python -m pytest -x -q
+	cd packages/utils && $(PYTHON) -m pytest -x -q
 
 test-offerman: ## Testes do shopman.offering
 	@echo "── Offerman ──"
-	cd packages/offerman && python -m pytest -x -q
+	cd packages/offerman && $(PYTHON) -m pytest -x -q
 
 test-stockman: ## Testes do shopman.stocking
 	@echo "── Stockman ──"
-	cd packages/stockman && python -m pytest -x -q
+	cd packages/stockman && $(PYTHON) -m pytest -x -q
 
 test-craftsman: ## Testes do shopman.crafting
 	@echo "── Craftsman ──"
-	cd packages/craftsman && python -m pytest -x -q
+	cd packages/craftsman && $(PYTHON) -m pytest -x -q
 
 test-omniman: ## Testes do shopman.ordering
 	@echo "── Omniman ──"
-	cd packages/omniman && python -m pytest -x -q
+	cd packages/omniman && $(PYTHON) -m pytest -x -q
 
 test-payman: ## Testes do shopman.payments
 	@echo "── Payman ──"
-	cd packages/payman && python -m pytest -x -q
+	cd packages/payman && $(PYTHON) -m pytest -x -q
 
 test-guestman: ## Testes do shopman.customers
 	@echo "── Guestman ──"
-	cd packages/guestman && python -m pytest -x -q
+	cd packages/guestman && $(PYTHON) -m pytest -x -q
 
 test-doorman: ## Testes do shopman.auth
 	@echo "── Doorman ──"
-	cd packages/doorman && python -m pytest -x -q
+	cd packages/doorman && $(PYTHON) -m pytest -x -q
 
 test-framework: ## Testes do framework (orquestração)
 	@echo "── Framework ──"
-	cd framework && python -m pytest -x -q
+	cd framework && $(PYTHON) -m pytest -x -q
 
 # ── CSS & Frontend ───────────────────────────────────────────────────
 # npm é invisível — tudo via make. node_modules instala sob demanda.
@@ -104,29 +110,29 @@ fonts: ## Baixa fontes WOFF2 para self-hosting (Inter + Playfair Display)
 # ── Server ────────────────────────────────────────────────────────────
 
 migrate: ## Cria/atualiza banco de dados
-	cd framework && python manage.py migrate
+	cd framework && $(PYTHON) manage.py migrate
 	@echo "✓ Migrações aplicadas"
 
 run: css ## Sobe servidor + directive worker
-	cd framework && python manage.py process_directives --watch &
-	cd framework && python manage.py runserver
+	cd framework && $(PYTHON) manage.py process_directives --watch &
+	cd framework && $(PYTHON) manage.py runserver
 
 dev: framework/node_modules/.package-lock.json ## Dev: CSS watch + directive worker + server
 	@echo "── Dev mode: CSS watch + directive worker + Django server ──"
 	@echo "  Ctrl+C para parar tudo."
 	cd framework && npx tailwindcss -i ./static/src/input.css -o ./shopman/static/storefront/css/output.css --watch &
-	cd framework && python manage.py process_directives --watch &
-	cd framework && python manage.py runserver
+	cd framework && $(PYTHON) manage.py process_directives --watch &
+	cd framework && $(PYTHON) manage.py runserver
 
 seed: ## Popula banco com dados demo da Nelson Boulangerie
-	cd framework && python manage.py seed
+	cd framework && $(PYTHON) manage.py seed
 	@echo "✓ Seed completo"
 
 # ── Qualidade ─────────────────────────────────────────────────────────
 
 coverage: ## Roda testes do framework com cobertura
 	@echo "── Coverage ──"
-	cd framework && python -m pytest --cov --cov-report=term-missing --cov-report=html:htmlcov -q
+	cd framework && $(PYTHON) -m pytest --cov --cov-report=term-missing --cov-report=html:htmlcov -q
 	@echo "✓ Relatório HTML em framework/htmlcov/index.html"
 
 lint: ## Ruff check
