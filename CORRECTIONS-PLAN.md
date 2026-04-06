@@ -17,17 +17,17 @@
 
 | Fase | WP | Área | Status | Deps |
 |------|-----|------|--------|------|
-| **1 — Safety** | C1 | Eliminar 42 except Exception silenciosos | ⬚ | — |
-| | C2 | Thread safety EFI + limpeza de alias + coverage baseline | ⬚ | — |
+| **1 — Safety** | C1 | Eliminar 42 except Exception silenciosos | ✅ | — |
+| | C2 | Thread safety EFI + limpeza de alias + coverage baseline | ✅ | — |
 | | C3 | Rate Limiting (OTP, login, checkout) | ✅ | — |
-| | C4 | Security Headers (CSP, HSTS) | ⬚ | — |
-| **2 — Robustez** | C5 | N+1 queries no storefront (batch) | ⬚ | — |
-| | C6 | Testes de concorrência (stock, payment, WO) | ⬚ | — |
-| | C7 | Payman — expandir cobertura de testes | ⬚ | — |
-| | C8 | Checkout dedup (CommitService como fonte única) | ⬚ | — |
-| **3 — Clareza** | C9 | Documentação: status.md + README + hierarquia | ⬚ | — |
-| | C10 | ManyChat templates → NotificationTemplate (DB) | ⬚ | — |
-| | C11 | Configurabilidade (HappyHour, PIX expiry, ProcessedEvent TTL) | ⬚ | — |
+| | C4 | Security Headers (CSP, HSTS) | ✅ | — |
+| **2 — Robustez** | C5 | N+1 queries no storefront (batch) | ✅ | — |
+| | C6 | Testes de concorrência (stock, payment, WO) | ✅ | — |
+| | C7 | Payman — expandir cobertura de testes | ✅ | — |
+| | C8 | Checkout dedup (CommitService como fonte única) | ✅ | — |
+| **3 — Clareza** | C9 | Documentação: status.md + README + hierarquia | ✅ | — |
+| | C10 | ManyChat templates → NotificationTemplate (DB) | ✅ | — |
+| | C11 | Configurabilidade (HappyHour, PIX expiry, ProcessedEvent TTL) | ✅ | — |
 
 **Ordem:** Fase 1 primeiro (WPs paralelos). Fase 2 e 3 podem rodar em paralelo após Fase 1.
 **Relação com outros planos:**
