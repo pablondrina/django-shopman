@@ -14,7 +14,7 @@ from unfold.widgets import UnfoldAdminColorInputWidget
 
 from shopman.admin.widgets import FontPreviewWidget
 from shopman.colors import oklch_to_hex
-from shopman.models import Shop
+from shopman.models import NotificationTemplate, Shop
 
 
 class ShopForm(forms.ModelForm):
@@ -267,3 +267,13 @@ class ShopAdmin(ModelAdmin):
         if obj:
             return self.changeform_view(request, str(obj.pk), extra_context=extra_context)
         return super().changelist_view(request, extra_context=extra_context)
+
+
+@admin.register(NotificationTemplate)
+class NotificationTemplateAdmin(ModelAdmin):
+    list_display = ("event", "subject", "is_active")
+    list_filter = ("is_active",)
+    search_fields = ("event", "subject", "body")
+    list_editable = ("is_active",)
+    fields = ("event", "subject", "body", "is_active")
+    readonly_fields = ("event",)

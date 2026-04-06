@@ -9,4 +9,4 @@ from shopman.admin.orders import (  # noqa: F401
     SupplierFilter,
 )
 from shopman.admin.rules import CouponAdmin, PromotionAdmin, RuleConfigAdmin  # noqa: F401
-from shopman.admin.shop import ShopAdmin  # noqa: F401
+from shopman.admin.shop import NotificationTemplateAdmin, ShopAdmin  # noqa: F401

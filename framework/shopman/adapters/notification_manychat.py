@@ -101,23 +101,59 @@ def _api_call(endpoint: str, payload: dict, config: dict) -> dict:
 
 
 def _build_message(template: str, context: dict) -> str:
-    """Build message from template + context."""
+    """Build message from template + context.
+
+    Resolution order:
+    1. NotificationTemplate DB record (event=template, is_active=True) → body field
+    2. MESSAGE_TEMPLATES hardcoded fallback
+    3. Generic fallback with order_ref
+    """
     ctx = dict(context)
     ctx["customer_name_greeting"] = (
         f", {ctx['customer_name']}" if ctx.get("customer_name") else ""
     )
 
+    # 1. Try DB template
+    tpl_body = _load_db_template(template)
+    if tpl_body:
+        try:
+            return tpl_body.format_map(_SafeFormatMap(ctx))
+        except Exception:
+            pass
+
+    # 2. Hardcoded fallback
     tpl = MESSAGE_TEMPLATES.get(template)
     if tpl:
         try:
-            return tpl.format(**ctx)
-        except KeyError:
+            return tpl.format_map(_SafeFormatMap(ctx))
+        except Exception:
             pass
 
+    # 3. Generic fallback
     order_ref = context.get("order_ref", "")
     if order_ref:
         return f"Notificacao: {template} — Pedido {order_ref}"
     return f"Notificacao: {template}"
+
+
+class _SafeFormatMap(dict):
+    """dict subclass that returns '{key}' for missing keys instead of raising KeyError."""
+
+    def __missing__(self, key: str) -> str:
+        return f"{{{key}}}"
+
+
+def _load_db_template(event: str) -> str | None:
+    """Return the body of an active NotificationTemplate for the given event, or None."""
+    try:
+        from shopman.models import NotificationTemplate
+
+        obj = NotificationTemplate.objects.filter(event=event, is_active=True).first()
+        if obj:
+            return obj.body
+    except Exception:
+        pass
+    return None
 
 
 def send(recipient: str, template: str, context: dict | None = None, **config) -> bool:
