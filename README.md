@@ -1,5 +1,11 @@
 # Django Shopman
 
+![Python](https://img.shields.io/badge/python-≥3.12-blue)
+![Django](https://img.shields.io/badge/django-≥5.2-green)
+![License](https://img.shields.io/badge/license-MIT-yellow)
+![Release](https://img.shields.io/github/v/release/pablondrina/django-shopman?include_prereleases&label=release)
+![Tests](https://img.shields.io/badge/tests-~1.900-brightgreen)
+
 Django Shopman é um framework de commerce operations para pequenos negócios com operação física e remota — padarias, confeitarias, cafés, food service. Não é um e-commerce genérico; é uma base opinativa e modular para casos operacionais densos: catálogo com produção própria, estoque vivo, múltiplos canais (balcão, web, WhatsApp, marketplace), KDS, e gestão integrada.
 
 Construído com Django 5.2+, arquitetura Protocol/Adapter, e foco em simplicidade operacional.
