@@ -28,6 +28,7 @@ from ._helpers import (
     _get_channel_listing_ref,
     _get_price_q,
     _hero_data,
+    _is_happy_hour_active,
     _popular_skus,
     _storefront_session_pricing_hints,
 )
@@ -106,6 +107,8 @@ class MenuView(View):
         # Ícones Material Symbols por coleção (slug → ligature name)
         collection_icons = {col.slug: _collection_icon(col.slug) for col in collections}
 
+        happy_hour_info = _is_happy_hour_active()
+
         return render(request, "storefront/menu.html", {
             "sections": sections,
             "collections": collections,
@@ -113,6 +116,7 @@ class MenuView(View):
             "promotions": promotions,
             "hero": hero,
             "collection_icons": collection_icons,
+            "happy_hour_info": happy_hour_info,
         })
 
     def _availability_preview(self, request: HttpRequest, listing_ref: str | None) -> HttpResponse:

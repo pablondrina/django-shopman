@@ -355,7 +355,7 @@ Mínimo de mudanças. Não alterar o service — só consumir os dados que já e
 
 ---
 
-### WP-R8: Happy Hour Badge
+### ✅ WP-R8: Happy Hour Badge
 
 **Objetivo:** Cliente deve saber que está em happy hour. Hoje o desconto aplica silenciosamente.
 

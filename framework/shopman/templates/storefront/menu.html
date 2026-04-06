@@ -6,6 +6,16 @@
 
 {% block content %}
 
+{% if happy_hour_info.active %}
+<!-- Happy Hour banner -->
+<div class="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-warning/10 border border-warning/30 text-warning-foreground" role="status" aria-live="polite">
+  <span class="material-symbols-rounded shrink-0" aria-hidden="true">schedule</span>
+  <p class="text-body-sm font-semibold">
+    Happy Hour até {{ happy_hour_info.end }} &mdash; {{ happy_hour_info.discount_percent }}% de desconto em tudo
+  </p>
+</div>
+{% endif %}
+
 <!-- Page header -->
 <div class="mb-6">
   <h1 class="text-h1 text-foreground">Cardápio</h1>

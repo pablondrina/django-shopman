@@ -795,6 +795,35 @@ def _allergen_info(product: Product) -> dict | None:
     }
 
 
+def _is_happy_hour_active() -> dict:
+    """Return happy hour status and config for the storefront channel.
+
+    Returns dict with keys: active (bool), discount_percent (int), end_hour (str).
+    """
+    from django.conf import settings
+
+    try:
+        raw_start = getattr(settings, "SHOPMAN_HAPPY_HOUR_START", "16:00")
+        raw_end = getattr(settings, "SHOPMAN_HAPPY_HOUR_END", "18:00")
+        discount_percent = getattr(settings, "SHOPMAN_HAPPY_HOUR_DISCOUNT_PERCENT", 10)
+
+        sh, sm = map(int, raw_start.split(":"))
+        eh, em = map(int, raw_end.split(":"))
+        start = time(sh, sm)
+        end = time(eh, em)
+        now = timezone.localtime().time()
+        active = start <= now < end
+        return {
+            "active": active,
+            "discount_percent": discount_percent,
+            "start": raw_start,
+            "end": raw_end,
+        }
+    except Exception as e:
+        logger.warning("happy_hour_check_failed: %s", e, exc_info=True)
+        return {"active": False, "discount_percent": 0, "start": "16:00", "end": "18:00"}
+
+
 CARRIER_TRACKING_URLS: dict[str, str] = {
     "correios": "https://rastreamento.correios.com.br/?objetos={code}",
     "jadlog": "https://www.jadlog.com.br/tracking?code={code}",
