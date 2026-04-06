@@ -25,7 +25,6 @@ from typing import Protocol, runtime_checkable
 from shopman.payments.protocols import (  # noqa: F401
     CaptureResult,
     GatewayIntent,
-    GatewayIntent as PaymentIntent,  # Backward compat alias
     PaymentBackend,
     PaymentStatus,
     RefundResult,

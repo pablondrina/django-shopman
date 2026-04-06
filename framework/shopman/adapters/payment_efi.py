@@ -18,6 +18,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from django.conf import settings
+from django.core.cache import cache
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -25,8 +26,8 @@ logger = logging.getLogger(__name__)
 SANDBOX_URL = "https://pix-h.api.efipay.com.br"
 PRODUCTION_URL = "https://pix.api.efipay.com.br"
 
-_access_token: str | None = None
-_token_expires = None
+_EFI_TOKEN_CACHE_KEY = "efi_access_token"
+_EFI_TOKEN_TTL = 3300  # 55 min — EFI tokens last 1h
 
 
 def _get_config() -> dict:
@@ -40,11 +41,10 @@ def _get_base_url() -> str:
 
 
 def _get_access_token() -> str:
-    """Obtain or renew access token."""
-    global _access_token, _token_expires
-
-    if _access_token and _token_expires and timezone.now() < _token_expires:
-        return _access_token
+    """Obtain or renew access token. Token is cached — thread-safe across workers."""
+    token = cache.get(_EFI_TOKEN_CACHE_KEY)
+    if token:
+        return token
 
     config = _get_config()
     client_id = config["client_id"]
@@ -68,9 +68,9 @@ def _get_access_token() -> str:
 
     with urlopen(request, context=context, timeout=30) as response:
         result = json.loads(response.read().decode())
-        _access_token = result["access_token"]
-        _token_expires = timezone.now() + timedelta(seconds=result["expires_in"] - 60)
-        return _access_token
+        token = result["access_token"]
+        cache.set(_EFI_TOKEN_CACHE_KEY, token, timeout=_EFI_TOKEN_TTL)
+        return token
 
 
 def _request(method: str, path: str, payload: dict | None = None) -> dict:

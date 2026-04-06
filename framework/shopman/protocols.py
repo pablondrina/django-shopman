@@ -26,9 +26,6 @@ from shopman.payments.protocols import (  # noqa: F401
     PaymentStatus,
     RefundResult,
 )
-from shopman.payments.protocols import (
-    GatewayIntent as PaymentIntent,  # Backward compat alias
-)
 
 # ── Stock (inline — era shopman.inventory.protocols) ──
 
@@ -221,7 +218,7 @@ __all__ = [
     "Alternative",
     # Payment
     "PaymentBackend",
-    "PaymentIntent",
+    "GatewayIntent",
     "CaptureResult",
     "RefundResult",
     "PaymentStatus",
