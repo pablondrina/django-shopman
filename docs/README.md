@@ -4,6 +4,19 @@
 
 ---
 
+## Hierarquia de Documentos
+
+| Documento | Papel |
+|-----------|-------|
+| [`README.md`](../README.md) | Visão geral + entrada rápida (quickstart, caminhos de uso, ecossistema) |
+| [`docs/status.md`](status.md) | Estado factual — o que funciona, versões, contagem de testes real |
+| [`docs/architecture.md`](architecture.md) | Verdade arquitetural — camadas, Protocol/Adapter, dependências |
+| [`CORRECTIONS-PLAN.md`](../CORRECTIONS-PLAN.md) | Roadmap ativo de correções (gaps de segurança, robustez, UX) |
+| [`READINESS-PLAN.md`](../READINESS-PLAN.md) | Roadmap ativo de prontidão para produção (UX, features, infra) |
+| [`docs/plans/completed/`](plans/completed/) | Arquivo de planos de execução concluídos |
+
+---
+
 ## Início Rápido
 
 | Documento | Descrição |

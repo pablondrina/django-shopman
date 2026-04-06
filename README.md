@@ -49,6 +49,17 @@ make run
 # → http://localhost:8000/kds/     (kitchen display)
 ```
 
+## Caminhos de Uso
+
+| Objetivo | Caminho |
+|----------|---------|
+| Estudar a arquitetura | Ler [`docs/architecture.md`](docs/architecture.md) e [`docs/guides/flows.md`](docs/guides/flows.md) |
+| Rodar a demo | `make install && make migrate && make seed && make run` |
+| Ver o que funciona hoje | [`docs/status.md`](docs/status.md) — estado factual por módulo |
+| Usar como base do seu negócio | Fork, criar instância em `instances/`, configurar `Shop` no admin |
+| Adotar um core app isolado | `pip install shopman-stockman` (quando publicado no PyPI) |
+| Contribuir ou corrigir | Ver [`CORRECTIONS-PLAN.md`](CORRECTIONS-PLAN.md) para gaps ativos |
+
 ## Estrutura do Projeto
 
 ```
@@ -161,9 +172,12 @@ make lint             # Ruff check
 
 ## Requisitos
 
-- Python 3.11+
-- Django 5.2+
-- SQLite (dev) / PostgreSQL (prod)
+| Requisito | Versão |
+|-----------|--------|
+| Python | ≥ 3.11 |
+| Django | ≥ 5.2, < 6.0 |
+| Node.js | ≥ 18 (build Tailwind CSS) |
+| Banco de dados | SQLite (dev) / PostgreSQL (prod recomendado) |
 
 ## Licença
 
