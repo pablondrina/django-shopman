@@ -168,7 +168,10 @@ class CartService:
                 scope = availability_scope_for_channel(STOREFRONT_CHANNEL_REF)
                 avail_map = _availability_for_skus(skus, **scope)
         except Exception:
-            pass
+            import logging
+            logging.getLogger(__name__).warning(
+                "cart.get_cart: availability check failed for skus=%s", skus, exc_info=True
+            )
 
         for item in items:
             product = products_by_sku.get(item.get("sku", ""))

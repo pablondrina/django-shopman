@@ -114,8 +114,13 @@ class CheckoutView(View):
         if getattr(request, "limited", False):
             return render(request, "storefront/partials/rate_limited.html", status=429)
 
+        pre_cart_key = request.session.get("cart_session_key")
         cart = CartService.get_cart(request)
         if not cart["items"]:
+            # Detect expired session: key existed but session is gone
+            if pre_cart_key and not request.session.get("cart_session_key"):
+                from django.contrib import messages
+                messages.warning(request, "Seu carrinho expirou. Adicione os itens novamente.")
             return redirect("storefront:cart")
 
         name = request.POST.get("name", "").strip()
@@ -138,7 +143,7 @@ class CheckoutView(View):
                     errors["phone"] = (
                         "Telefone inválido. Informe com DDD, ex: (43) 99999-9999"
                     )
-            except Exception as e:
+            except (ValueError, TypeError) as e:
                 logger.warning("phone_normalization_failed: %s", e, exc_info=True)
                 errors["phone"] = (
                     "Telefone inválido. Informe com DDD, ex: (43) 99999-9999"
@@ -205,6 +210,10 @@ class CheckoutView(View):
 
         chosen_method = self._resolve_payment_method(request)
 
+        # Task 4: Payment method unavailable (e.g. channel removed "pix" after cart was filled)
+        if not self._payment_method_available(chosen_method):
+            errors["payment_method"] = "Método de pagamento indisponível. Selecione outro."
+
         minimum_order_warning = _min_order_progress(cart["subtotal_q"])
         if minimum_order_warning:
             errors["minimum_order"] = (
@@ -221,6 +230,9 @@ class CheckoutView(View):
         )
         if address_errors:
             errors.update(address_errors)
+
+        # Task 3: Repricing warning (non-blocking — inform user, don't block checkout)
+        repricing_warnings = self._check_repricing(cart)
 
         # Estoque: sempre no servidor (WP-S3 — não depender só do flag `stock_checked` do cliente)
         stock_errors, stock_check_unavailable = self._check_cart_stock(request, cart)
@@ -253,6 +265,7 @@ class CheckoutView(View):
                         "delivery_instructions", ""
                     ),
                 },
+                repricing_warnings=repricing_warnings,
             )
 
         # ── Preorder validation ──
@@ -551,6 +564,53 @@ class CheckoutView(View):
             errors["payment_method"] = "Selecione uma forma de pagamento."
         return errors
 
+    def _payment_method_available(self, method: str) -> bool:
+        """Return True if method is currently offered by the channel."""
+        return method in self._get_payment_methods()
+
+    def _check_repricing(self, cart: dict) -> list[dict]:
+        """Compare cart item prices against current catalog prices.
+
+        Returns a list of non-blocking warnings for items repriced >5% since
+        they were added to cart. The checkout is allowed to proceed regardless.
+        """
+        items = cart.get("items", [])
+        if not items:
+            return []
+
+        from shopman.offering.models import Product
+
+        skus = [item.get("sku", "") for item in items if item.get("sku")]
+        if not skus:
+            return []
+
+        products_by_sku = {p.sku: p for p in Product.objects.filter(sku__in=skus).only("sku", "name", "base_price_q")}
+        warnings = []
+        for item in items:
+            sku = item.get("sku", "")
+            product = products_by_sku.get(sku)
+            if not product:
+                continue
+            cart_price = int(item.get("unit_price_q", 0))
+            current_price = int(product.base_price_q)
+            if cart_price <= 0 or current_price <= 0:
+                continue
+            # Calculate divergence relative to current (catalog) price
+            divergence = abs(current_price - cart_price) / current_price
+            if divergence > 0.05:
+                from shopman.utils.monetary import format_money
+                warnings.append({
+                    "sku": sku,
+                    "name": product.name or sku,
+                    "cart_price_display": f"R$ {format_money(cart_price)}",
+                    "current_price_display": f"R$ {format_money(current_price)}",
+                    "message": (
+                        f"O preço de {product.name or sku} mudou para "
+                        f"R$ {format_money(current_price)}. Deseja continuar?"
+                    ),
+                })
+        return warnings
+
     def _check_cart_stock(self, request: HttpRequest, cart: dict) -> tuple[list[dict], bool]:
         """Check cart items against live stock. Returns (warnings, service_unavailable).
 
@@ -619,7 +679,7 @@ class CheckoutView(View):
             for hold in holds:
                 held[hold.sku] = held.get(hold.sku, 0) + int(hold.quantity)
             return held
-        except (ImportError, Exception):
+        except Exception:
             return {}
 
     def _render_with_errors(
@@ -631,6 +691,7 @@ class CheckoutView(View):
         phone_raw,
         notes,
         extra_form_data=None,
+        repricing_warnings=None,
     ):
         form_data = {"name": name, "phone": phone_raw, "notes": notes}
         if extra_form_data:
@@ -638,6 +699,8 @@ class CheckoutView(View):
         ctx = self._checkout_page_context(request, cart)
         ctx["errors"] = errors
         ctx["form_data"] = form_data
+        if repricing_warnings:
+            ctx["repricing_warnings"] = repricing_warnings
         return render(request, "storefront/checkout.html", ctx)
 
 
