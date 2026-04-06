@@ -25,6 +25,7 @@ import logging
 from datetime import time
 from typing import Any
 
+from django.conf import settings
 from django.utils import timezone
 
 from shopman.utils.monetary import monetary_div
@@ -333,10 +334,20 @@ class HappyHourModifier:
         self,
         *,
         discount_percent: int = HAPPY_HOUR_DISCOUNT_PERCENT,
-        start: time = HAPPY_HOUR_START,
-        end: time = HAPPY_HOUR_END,
+        start: time | None = None,
+        end: time | None = None,
     ):
         self.discount_percent = discount_percent
+
+        if start is None:
+            raw = getattr(settings, "SHOPMAN_HAPPY_HOUR_START", "16:00")
+            h, m = map(int, raw.split(":"))
+            start = time(h, m)
+        if end is None:
+            raw = getattr(settings, "SHOPMAN_HAPPY_HOUR_END", "18:00")
+            h, m = map(int, raw.split(":"))
+            end = time(h, m)
+
         self.start = start
         self.end = end
 

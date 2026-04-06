@@ -116,7 +116,8 @@ def create_intent(order_ref: str, amount_q: int, method: str = "pix", **config) 
         raise ValueError("EFI adapter only supports PIX")
 
     efi_config = _get_config()
-    expires_at = timezone.now() + timedelta(hours=1)
+    pix_expiry_seconds = getattr(settings, "SHOPMAN_PIX_EXPIRY_SECONDS", 3600)
+    expires_at = timezone.now() + timedelta(seconds=pix_expiry_seconds)
 
     db_intent = PaymentService.create_intent(
         order_ref=order_ref,
@@ -131,7 +132,7 @@ def create_intent(order_ref: str, amount_q: int, method: str = "pix", **config) 
     valor = f"{amount_q / 100:.2f}"
 
     payload = {
-        "calendario": {"expiracao": 3600},
+        "calendario": {"expiracao": pix_expiry_seconds},
         "valor": {"original": valor},
         "chave": efi_config.get("pix_key"),
         "infoAdicionais": [
