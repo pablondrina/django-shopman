@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # Third-party
+    "csp",
     "taggit",
     "rest_framework",
     "drf_spectacular",
@@ -69,12 +70,14 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "csp.middleware.CSPMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "shopman.auth.middleware.AuthCustomerMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "shopman.middleware.ChannelParamMiddleware",
     "shopman.middleware.OnboardingMiddleware",
 ]
@@ -458,6 +461,58 @@ LOGGING = {
 
 # ── Security ──────────────────────────────────────────────────────────
 
+# Headers always active (safe in dev too)
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+
+# Content Security Policy (django-csp v4 format)
+# CDN audit:
+#   HTMX        → unpkg.com
+#   Alpine.js   → cdn.jsdelivr.net
+#   Fonts/Icons → fonts.googleapis.com, fonts.gstatic.com
+#   Maps        → maps.googleapis.com
+#   Stripe      → js.stripe.com, api.stripe.com
+#   ViaCEP      → viacep.com.br
+CONTENT_SECURITY_POLICY = {
+    "DIRECTIVES": {
+        "default-src": ["'self'"],
+        "script-src": [
+            "'self'",
+            "'unsafe-eval'",  # Alpine.js requires eval
+            "https://unpkg.com",
+            "https://cdn.jsdelivr.net",
+            "https://maps.googleapis.com",
+            "https://js.stripe.com",
+        ],
+        "style-src": [
+            "'self'",
+            "'unsafe-inline'",  # Tailwind + design tokens inline
+            "https://fonts.googleapis.com",
+        ],
+        "img-src": ["'self'", "data:", "https:", "blob:"],
+        "font-src": ["'self'", "https://fonts.gstatic.com"],
+        "connect-src": [
+            "'self'",
+            "https://maps.googleapis.com",
+            "https://api.stripe.com",
+            "https://viacep.com.br",
+        ],
+        "frame-src": ["https://js.stripe.com"],
+    },
+}
+
+if DEBUG:
+    # Relax CSP in development: allow inline scripts (HTMX config snippets, debug toolbar)
+    # and local WebSocket for hot reload / ngrok tunnels.
+    _csp_directives = CONTENT_SECURITY_POLICY["DIRECTIVES"]
+    _csp_directives["script-src"] = list(_csp_directives["script-src"]) + ["'unsafe-inline'"]
+    _csp_directives["connect-src"] = list(_csp_directives["connect-src"]) + ["ws://localhost:*"]
+
+# PERMISSIONS_POLICY requires the separate django-permissions-policy package.
+# Not configured here to avoid a broken/ignored setting.
+# Install django-permissions-policy and add PermissionsPolicyMiddleware to enable it.
+
 if not DEBUG:
     assert SECRET_KEY != "dev-secret-key-not-for-production", (
         "SECRET_KEY must be set in production (DJANGO_SECRET_KEY env var)"
@@ -467,7 +522,8 @@ if not DEBUG:
     )
 
     SECURE_BROWSER_XSS_FILTER = True
-    SECURE_CONTENT_TYPE_NOSNIFF = True
-    X_FRAME_OPTIONS = "DENY"
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
