@@ -573,7 +573,7 @@ Modal com design tokens (bg-surface, border, rounded-xl).
 
 ---
 
-### WP-R13: POS Atalhos de Teclado
+### ✅ WP-R13: POS Atalhos de Teclado
 
 **Objetivo:** Velocidade. Operador não deve precisar do mouse para operações comuns.
 
