@@ -159,6 +159,16 @@ class Command(BaseCommand):
                 },
                 "defaults": {
                     "notifications": {"backend": "console"},
+                    "pickup_slots": [
+                        {"ref": "slot-09", "label": "A partir das 09h", "starts_at": "09:00"},
+                        {"ref": "slot-12", "label": "A partir das 12h", "starts_at": "12:00"},
+                        {"ref": "slot-15", "label": "A partir das 15h", "starts_at": "15:00"},
+                    ],
+                    "pickup_slot_config": {
+                        "rounding_minutes": 30,
+                        "history_days": 30,
+                        "fallback_slot": "slot-09",
+                    },
                 },
             },
         )
@@ -620,6 +630,109 @@ class Command(BaseCommand):
                     ("INS-SAL", Decimal("0.080")),
                 ],
             },
+            {
+                "code": "pao-integral",
+                "name": "Pão Integral",
+                "output_ref": "PAO-INTEGRAL",
+                "batch_size": Decimal("60"),
+                "items": [
+                    ("INS-FARINHA-INT", Decimal("4.000")),
+                    ("INS-AGUA", Decimal("2.800")),
+                    ("INS-FERMENTO-NAT", Decimal("1.000")),
+                    ("INS-SAL", Decimal("0.080")),
+                ],
+            },
+            {
+                "code": "ciabatta",
+                "name": "Ciabatta",
+                "output_ref": "CIABATTA",
+                "batch_size": Decimal("15"),
+                "items": [
+                    ("INS-FARINHA-T55", Decimal("3.000")),
+                    ("INS-AGUA", Decimal("2.400")),
+                    ("INS-AZEITE", Decimal("0.150")),
+                    ("INS-FERMENTO-NAT", Decimal("0.900")),
+                    ("INS-SAL", Decimal("0.060")),
+                ],
+            },
+            {
+                "code": "pao-queijo",
+                "name": "Pão de Queijo",
+                "output_ref": "PAO-QUEIJO",
+                "batch_size": Decimal("80"),
+                "items": [
+                    ("INS-POLVILHO", Decimal("2.000")),
+                    ("INS-QUEIJO-MINAS", Decimal("1.000")),
+                    ("INS-LEITE", Decimal("0.800")),
+                    ("INS-OVOS", Decimal("0.400")),
+                    ("INS-SAL", Decimal("0.040")),
+                ],
+            },
+            {
+                "code": "brioche",
+                "name": "Brioche",
+                "output_ref": "BRIOCHE",
+                "batch_size": Decimal("24"),
+                "items": [
+                    ("INS-FARINHA-T45", Decimal("2.000")),
+                    ("INS-MANTEIGA-FR", Decimal("1.000")),
+                    ("INS-OVOS", Decimal("0.500")),
+                    ("INS-ACUCAR", Decimal("0.300")),
+                    ("INS-FERMENTO-BIO", Decimal("0.080")),
+                    ("INS-SAL", Decimal("0.040")),
+                ],
+            },
+            {
+                "code": "bolo-chocolate",
+                "name": "Bolo de Chocolate",
+                "output_ref": "BOLO-CHOCOLATE",
+                "batch_size": Decimal("4"),
+                "items": [
+                    ("INS-FARINHA-T45", Decimal("1.200")),
+                    ("INS-CHOCOLATE-70", Decimal("0.600")),
+                    ("INS-MANTEIGA-FR", Decimal("0.400")),
+                    ("INS-ACUCAR", Decimal("0.500")),
+                    ("INS-OVOS", Decimal("0.600")),
+                    ("INS-LEITE", Decimal("0.300")),
+                ],
+            },
+            {
+                "code": "bolo-cenoura",
+                "name": "Bolo de Cenoura",
+                "output_ref": "BOLO-CENOURA",
+                "batch_size": Decimal("4"),
+                "items": [
+                    ("INS-FARINHA-T45", Decimal("1.000")),
+                    ("INS-ACUCAR", Decimal("0.400")),
+                    ("INS-OVOS", Decimal("0.400")),
+                    ("INS-CENOURA", Decimal("0.600")),
+                    ("INS-CHOCOLATE-70", Decimal("0.200")),
+                ],
+            },
+            {
+                "code": "brigadeiro",
+                "name": "Brigadeiro",
+                "output_ref": "BRIGADEIRO",
+                "batch_size": Decimal("100"),
+                "items": [
+                    ("INS-LEITE-COND", Decimal("1.200")),
+                    ("INS-CHOCOLATE-70", Decimal("0.300")),
+                    ("INS-MANTEIGA-FR", Decimal("0.060")),
+                ],
+            },
+            {
+                "code": "brownie",
+                "name": "Brownie",
+                "output_ref": "BROWNIE",
+                "batch_size": Decimal("20"),
+                "items": [
+                    ("INS-CHOCOLATE-70", Decimal("0.400")),
+                    ("INS-MANTEIGA-FR", Decimal("0.300")),
+                    ("INS-ACUCAR", Decimal("0.300")),
+                    ("INS-FARINHA-T45", Decimal("0.200")),
+                    ("INS-OVOS", Decimal("0.300")),
+                ],
+            },
         ]
 
         for rd in recipes_data:
@@ -641,24 +754,56 @@ class Command(BaseCommand):
 
         # Work orders — use CraftService to exercise the full signal chain
         # (production_changed → planned quants → inventory protocol)
+        #
+        # Nelson's production schedule (realistic):
+        #   PAO-FRANCES:   start 04:00, finish ~05:30  → slot-09
+        #   PAO-INTEGRAL:  start 04:00, finish ~06:00  → slot-09
+        #   BAGUETE:       start 04:30, finish ~06:30  → slot-09
+        #   CIABATTA:      start 05:00, finish ~07:00  → slot-09
+        #   CROISSANT:     start 05:00, finish ~07:30  → slot-09
+        #   PAO-QUEIJO:    start 06:00, finish ~07:00  → slot-09
+        #   SOURDOUGH:     start 03:00, finish ~09:00  → slot-09
+        #   BRIOCHE:       start 05:30, finish ~08:30  → slot-09
+        #   FOCACCIA:      start 07:00, finish ~10:00  → slot-12
+        #   BOLO-CHOCOLATE: start 08:00, finish ~11:30 → slot-12
+        #   BOLO-CENOURA:  start 08:00, finish ~11:00  → slot-12
+        #   BRIGADEIRO:    start 10:00, finish ~13:30   → slot-15
+        #   BROWNIE:       start 09:00, finish ~14:00   → slot-15
         from shopman.crafting.service import CraftService as craft
 
         today = date.today()
         tomorrow = today + timedelta(days=1)
+        tz_info = timezone.get_current_timezone()
 
-        recipe_pao = Recipe.objects.get(code="pao-frances")
-        recipe_croissant = Recipe.objects.get(code="croissant")
-        recipe_baguete = Recipe.objects.get(code="baguete")
-        recipe_sourdough = Recipe.objects.get(code="sourdough")
+        # Production schedule: (recipe_code, qty, start_hour, start_min, finish_hour, finish_min)
+        PRODUCTION_SCHEDULE = [
+            ("pao-frances",  Decimal("100"), 4, 0,  5, 30),
+            ("croissant",    Decimal("48"),  5, 0,  7, 30),
+            ("baguete",      Decimal("20"),  4, 30, 6, 30),
+        ]
+
+        # Typical finish times per SKU (for historical WOs — covers ALL products)
+        TYPICAL_FINISH = {
+            "PAO-FRANCES":    (5, 30),
+            "PAO-INTEGRAL":   (6, 0),
+            "BAGUETE":        (6, 30),
+            "CIABATTA":       (7, 0),
+            "CROISSANT":      (7, 30),
+            "PAO-QUEIJO":     (7, 0),
+            "SOURDOUGH":      (9, 0),
+            "BRIOCHE":        (8, 30),
+            "FOCACCIA":       (10, 0),
+            "BOLO-CHOCOLATE": (11, 30),
+            "BOLO-CENOURA":   (11, 0),
+            "BRIGADEIRO":     (13, 30),
+            "BROWNIE":        (14, 0),
+        }
 
         wo_count = 0
 
         # Today: 2 closed (via craft.plan + craft.close) + 1 open
-        for recipe, qty, should_close in [
-            (recipe_pao, Decimal("100"), True),
-            (recipe_croissant, Decimal("48"), True),
-            (recipe_baguete, Decimal("20"), False),
-        ]:
+        for code, qty, sh, sm, fh, fm in PRODUCTION_SCHEDULE:
+            recipe = Recipe.objects.get(code=code)
             existing = WorkOrder.objects.filter(
                 recipe=recipe, scheduled_date=today,
             ).first()
@@ -667,18 +812,27 @@ class Command(BaseCommand):
                 continue
 
             wo = craft.plan(recipe, quantity=qty, date=today)
+            should_close = code != "baguete"  # baguete still in production
             if should_close:
                 produced = int(qty * Decimal("0.95"))
                 craft.close(wo, produced=produced, actor="seed")
+            # Set realistic timestamps
+            start_dt = datetime.combine(today, time(sh, sm), tzinfo=tz_info)
+            finish_dt = datetime.combine(today, time(fh, fm), tzinfo=tz_info) if should_close else None
+            WorkOrder.objects.filter(pk=wo.pk).update(
+                started_at=start_dt,
+                **({"finished_at": finish_dt} if finish_dt else {}),
+            )
             wo_count += 1
 
         # Tomorrow: 4 open (via craft.plan → creates planned quants)
-        for recipe, qty in [
-            (recipe_pao, Decimal("150")),
-            (recipe_croissant, Decimal("96")),
-            (recipe_baguete, Decimal("40")),
-            (recipe_sourdough, Decimal("16")),
+        for code, qty in [
+            ("pao-frances", Decimal("150")),
+            ("croissant", Decimal("96")),
+            ("baguete", Decimal("40")),
+            ("sourdough", Decimal("16")),
         ]:
+            recipe = Recipe.objects.get(code=code)
             existing = WorkOrder.objects.filter(
                 recipe=recipe, scheduled_date=tomorrow,
             ).first()
@@ -689,7 +843,48 @@ class Command(BaseCommand):
             craft.plan(recipe, quantity=qty, date=tomorrow)
             wo_count += 1
 
-        self.stdout.write(f"  ✅ {len(recipes_data)} receitas, {wo_count} ordens de producao")
+        # Historical production (last 7 days) — one WO per product per day
+        # This feeds the pickup slot service's median calculation
+        recipes_by_output = {r.output_ref: r for r in Recipe.objects.all()}
+        history_count = 0
+        for days_ago in range(1, 8):
+            wo_date = today - timedelta(days=days_ago)
+            # Skip Sundays (Nelson doesn't open)
+            if wo_date.weekday() == 6:
+                continue
+            for sku, (fh, fm) in TYPICAL_FINISH.items():
+                recipe = recipes_by_output.get(sku)
+                if not recipe:
+                    continue
+                if WorkOrder.objects.filter(recipe=recipe, scheduled_date=wo_date).exists():
+                    continue
+                # Add ±15min jitter to make data realistic
+                jitter = random.randint(-15, 15)
+                finish_minutes = fh * 60 + fm + jitter
+                finish_h = max(0, min(23, finish_minutes // 60))
+                finish_m = max(0, min(59, finish_minutes % 60))
+                start_h = max(0, finish_h - 2)  # ~2h before finish
+                qty = recipe.batch_size or Decimal("20")
+                produced = int(qty * Decimal(str(random.uniform(0.90, 0.98))))
+
+                wo = WorkOrder.objects.create(
+                    recipe=recipe,
+                    output_ref=sku,
+                    quantity=qty,
+                    produced=Decimal(str(produced)),
+                    status="done",
+                    scheduled_date=wo_date,
+                    started_at=datetime.combine(wo_date, time(start_h, 0), tzinfo=tz_info),
+                    finished_at=datetime.combine(wo_date, time(finish_h, finish_m), tzinfo=tz_info),
+                    position_ref=recipe.output_ref,
+                )
+                history_count += 1
+            wo_count += 1
+
+        self.stdout.write(
+            f"  ✅ {len(recipes_data)} receitas, {wo_count} ordens de producao"
+            f" + {history_count} historico (pickup slots)"
+        )
 
     # ────────────────────────────────────────────────────────────────
     # Clientes (Customers)

@@ -44,6 +44,15 @@ class CheckoutView(View):
             "cutoff_info": self._get_cutoff_info(),
             "minimum_order_warning": _min_order_progress(cart["subtotal_q"]),
         }
+
+        # Pickup slots — dynamic from Shop.defaults + production history
+        try:
+            from shopman.services.pickup_slots import annotate_slots_for_checkout
+
+            cart_skus = [item["sku"] for item in cart.get("items", []) if item.get("sku")]
+            ctx.update(annotate_slots_for_checkout(cart_skus))
+        except Exception as e:
+            logger.warning("pickup_slots_failed: %s", e, exc_info=True)
         customer_info = getattr(request, "customer", None)
         ctx["customer_info"] = customer_info
         ctx["is_verified"] = customer_info is not None

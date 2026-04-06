@@ -219,23 +219,33 @@
           {% endif %}
         </div>
 
-        <div x-show="isFutureDate" x-cloak class="mt-3">
-          <label class="block text-sm font-medium text-foreground mb-2">Período preferido</label>
+        {% if pickup_slots %}
+        <div class="mt-3">
+          <label class="block text-sm font-medium text-foreground mb-2">Horário para retirada</label>
           <div class="flex gap-3 flex-wrap">
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name="delivery_time_slot" value="manha"
-                {% if form_data.delivery_time_slot == "manha" or checkout_defaults.delivery_time_slot == "manha" %}checked{% endif %}
-                class="text-primary focus:ring-primary">
-              <span class="text-sm text-foreground">Manhã (09h-12h)</span>
+            {% for slot in pickup_slots %}
+            <label class="flex items-center gap-2 cursor-pointer"
+              :class="{ 'opacity-40 pointer-events-none': !isSlotAvailable('{{ slot.starts_at }}') }">
+              <input type="radio" name="delivery_time_slot" value="{{ slot.ref }}"
+                :disabled="!isSlotAvailable('{{ slot.starts_at }}')"
+                {% if form_data.delivery_time_slot == slot.ref %}checked{% endif %}
+                class="text-primary focus:ring-primary disabled:opacity-40">
+              <span class="text-sm text-foreground">{{ slot.label }}</span>
+              {% if slot.ref == earliest_slot_ref %}
+              <span class="text-xs px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium"
+                x-show="dateOption === 'today'"
+                x-cloak>mais cedo</span>
+              {% endif %}
             </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name="delivery_time_slot" value="tarde"
-                {% if form_data.delivery_time_slot == "tarde" or checkout_defaults.delivery_time_slot == "tarde" %}checked{% endif %}
-                class="text-primary focus:ring-primary">
-              <span class="text-sm text-foreground">Tarde (12h-18h)</span>
-            </label>
+            {% endfor %}
           </div>
+          {% if bottleneck_sku and ready_times %}
+          <p class="mt-1.5 text-xs text-muted-foreground" x-show="dateOption === 'today'" x-cloak>
+            Horário baseado no tempo de produção dos itens do carrinho
+          </p>
+          {% endif %}
         </div>
+        {% endif %}
 
         <div x-show="isFutureDate" x-cloak class="mt-3 p-3 rounded-lg bg-warning-light border border-warning text-warning-foreground text-sm">
           Encomenda programada &mdash; produção sob demanda
@@ -455,6 +465,7 @@ function checkoutPage() {
         if (this.deliveryDate) {
           this.dateOption = this.deliveryDate === tomorrowStr ? 'tomorrow' : 'custom';
         }
+        this.autoSelectSlot();
         this.focusFirstError();
       });
     },
@@ -500,11 +511,38 @@ function checkoutPage() {
       return true;
     },
 
+    isSlotAvailable(startsAt) {
+      // For future dates, all slots are available
+      if (this.isFutureDate) return true;
+      // For today: slot is available if its start time hasn't passed
+      if (this.dateOption !== 'today') return true;
+      var now = new Date();
+      var parts = startsAt.split(':');
+      var slotMinutes = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+      var nowMinutes = now.getHours() * 60 + now.getMinutes();
+      return slotMinutes > nowMinutes;
+    },
+
+    autoSelectSlot() {
+      // Auto-select earliest available slot if none is selected
+      this.$nextTick(() => {
+        var radios = document.querySelectorAll('input[name="delivery_time_slot"]');
+        var anyChecked = false;
+        radios.forEach(function(r) { if (r.checked && !r.disabled) anyChecked = true; });
+        if (!anyChecked) {
+          radios.forEach(function(r) {
+            if (!r.disabled && !anyChecked) { r.checked = true; anyChecked = true; }
+          });
+        }
+      });
+    },
+
     selectDate(option) {
       this.dateOption = option;
       if (option === 'today') { this.deliveryDate = ''; }
       else if (option === 'tomorrow') { this.deliveryDate = tomorrowStr; }
       // 'custom' just shows the date picker, user fills in
+      this.autoSelectSlot();
     },
 
     advanceStep(n) {
