@@ -8,14 +8,14 @@
 
 - Configurações são lidas via dicts no `settings.py` do Django (ex.: `STOCKING = {"HOLD_TTL_MINUTES": 30}`)
 - Cada app core usa um padrão de `conf.py` com lazy proxy ou função `get_setting()`
-- Settings do orquestrador (shopman-app) usam prefixo `SHOPMAN_*` como settings flat
+- Settings do orquestrador (framework) usam prefixo `SHOPMAN_*` como settings flat
 - Valores monetários são sempre em **centavos** (inteiro) — veja [ADR-002](../decisions/adr-002-centavos.md)
 
 ---
 
 ## Offering (Catálogo)
 
-**Arquivo:** `shopman-core/offering/shopman/offering/conf.py`
+**Arquivo:** `packages/offerman/shopman/offering/conf.py`
 **Dict:** `OFFERING = {}`
 
 | Setting | Tipo | Default | Descrição |
@@ -30,7 +30,7 @@
 
 ## Stocking (Estoque)
 
-**Arquivo:** `shopman-core/stocking/shopman/stocking/conf.py`
+**Arquivo:** `packages/stockman/shopman/stocking/conf.py`
 **Dict:** `STOCKING = {}`
 
 | Setting | Tipo | Default | Descrição |
@@ -44,7 +44,7 @@
 
 ### Stocking — Alertas
 
-**Arquivo:** `shopman-core/stocking/shopman/stocking/contrib/alerts/conf.py`
+**Arquivo:** `packages/stockman/shopman/stocking/contrib/alerts/conf.py`
 **Dict:** `STOCKING_ALERTS = {}` ou settings flat
 
 | Setting | Tipo | Default | Descrição |
@@ -55,7 +55,7 @@
 
 ## Crafting (Produção)
 
-**Arquivo:** `shopman-core/crafting/shopman/crafting/conf.py`
+**Arquivo:** `packages/craftsman/shopman/crafting/conf.py`
 **Dict:** `CRAFTING = {}` ou settings flat `CRAFTING_*`
 
 | Setting | Tipo | Default | Descrição |
@@ -73,7 +73,7 @@
 
 ## Ordering (Pedidos)
 
-**Arquivo:** `shopman-core/ordering/shopman/ordering/conf.py`
+**Arquivo:** `packages/omniman/shopman/ordering/conf.py`
 **Dict:** `ORDERING = {}`
 
 | Setting | Tipo | Default | Descrição |
@@ -87,7 +87,7 @@
 
 ## Customers (Clientes)
 
-**Arquivo:** `shopman-core/customers/shopman/customers/conf.py`
+**Arquivo:** `packages/guestman/shopman/customers/conf.py`
 **Dict:** `CUSTOMERS = {}`
 
 | Setting | Tipo | Default | Descrição |
@@ -100,7 +100,7 @@
 
 ### Customers — Insights (RFM)
 
-**Arquivo:** `shopman-core/customers/shopman/customers/contrib/insights/conf.py`
+**Arquivo:** `packages/guestman/shopman/customers/contrib/insights/conf.py`
 **Dict:** `CUSTOMERS_INSIGHTS = {}` ou settings flat
 
 | Setting | Tipo | Default | Descrição |
@@ -111,7 +111,7 @@
 
 ### Customers — Loyalty
 
-**Arquivo:** `shopman-core/customers/shopman/customers/contrib/loyalty/conf.py`
+**Arquivo:** `packages/guestman/shopman/customers/contrib/loyalty/conf.py`
 **Dict:** `CUSTOMERS_LOYALTY = {}` ou settings flat
 
 | Setting | Tipo | Default | Descrição |
@@ -122,7 +122,7 @@
 
 ## Auth (Autenticação)
 
-**Arquivo:** `shopman-core/auth/shopman/auth/conf.py`
+**Arquivo:** `packages/doorman/shopman/auth/conf.py`
 **Dict:** `AUTH = {}`
 
 ### Access Link (chat → web)
@@ -231,11 +231,11 @@ AUTH = {
 
 O payments core não tem `conf.py` próprio — configuração é feita via settings do orquestrador (`SHOPMAN_PAYMENT_BACKEND`) e via `ChannelConfig.payment`.
 
-Veja [Shopman-App — Orquestrador](#shopman-app--orquestrador) para `SHOPMAN_PAYMENT_BACKEND`.
+Veja [Shopman — Orquestrador](#shopman--orquestrador) para `SHOPMAN_PAYMENT_BACKEND`.
 
 ---
 
-## Shopman-App — Orquestrador
+## Shopman — Orquestrador
 
 Settings flat no `settings.py` do Django (sem dict wrapper).
 
@@ -274,7 +274,7 @@ Settings flat usados pela integração ManyChat:
 
 ## Shop (Loja)
 
-**App:** `shopman-app/shopman/`
+**App:** `framework/shopman/`
 **Model:** `Shop` (singleton via `Shop.load()`)
 
 A loja é configurada via Admin — não há settings no `settings.py`. O model `Shop` armazena:

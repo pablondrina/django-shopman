@@ -11,19 +11,19 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 | Protocol | Módulo | Adapters | Métodos |
 |----------|--------|----------|---------|
-| [`StockBackend`](#stockbackend) | shopman-app/shopman/protocols | StockingBackend, NoopStockBackend | 7 |
-| [`PricingBackend`](#pricingbackend) | shopman-app/shopman/protocols | OfferingBackend, SimplePricingBackend, ChannelPricingBackend, CatalogPricingBackend | 1 |
-| [`CustomerBackend`](#customerbackend) | shopman-app/shopman/protocols | CustomersBackend, NoopCustomerBackend | 5 |
-| [`NotificationBackend`](#notificationbackend) | shopman-app/shopman/protocols | ConsoleBackend, ManychatBackend, EmailBackend, SmsBackend, WebhookBackend, WhatsappBackend | 1 |
-| [`PaymentBackend`](#paymentbackend) | shopman-core/payments/protocols | MockPaymentBackend, StripeBackend, EfiPixBackend | 6 |
-| [`FiscalBackend`](#fiscalbackend) | shopman-core/ordering/protocols | MockFiscalBackend, FocusBackend | 3 |
-| [`AccountingBackend`](#accountingbackend) | shopman-core/ordering/protocols | MockAccountingBackend, ContaazulBackend | 6 |
+| [`StockBackend`](#stockbackend) | framework/shopman/protocols | StockingBackend, NoopStockBackend | 7 |
+| [`PricingBackend`](#pricingbackend) | framework/shopman/protocols | OfferingBackend, SimplePricingBackend, ChannelPricingBackend, CatalogPricingBackend | 1 |
+| [`CustomerBackend`](#customerbackend) | framework/shopman/protocols | CustomersBackend, NoopCustomerBackend | 5 |
+| [`NotificationBackend`](#notificationbackend) | framework/shopman/protocols | ConsoleBackend, ManychatBackend, EmailBackend, SmsBackend, WebhookBackend, WhatsappBackend | 1 |
+| [`PaymentBackend`](#paymentbackend) | packages/payman/shopman/payments/protocols | MockPaymentBackend, StripeBackend, EfiPixBackend | 6 |
+| [`FiscalBackend`](#fiscalbackend) | packages/omniman/shopman/ordering/protocols | MockFiscalBackend, FocusBackend | 3 |
+| [`AccountingBackend`](#accountingbackend) | packages/omniman/shopman/ordering/protocols | MockAccountingBackend, ContaazulBackend | 6 |
 
 ---
 
 ## StockBackend
 
-**Definido em:** `shopman-app/shopman/protocols.py`
+**Definido em:** `framework/shopman/protocols.py`
 **Guia:** [Orquestração — Stock](../guides/flows.md)
 
 ### Dataclasses
@@ -50,16 +50,16 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 | Adapter | Arquivo | Quando usar |
 |---------|---------|-------------|
-| `StockingBackend` | `channels/backends/stock.py` | Integração com `shopman.stocking` (produção). Resolve SKU via `Product`, suporta holds planejados |
-| `NoopStockBackend` | `channels/backends/stock.py` | Testes e desenvolvimento. Sempre reporta 999999 unidades disponíveis |
+| `StockingBackend` | `shopman/backends/stock.py` | Integração com `shopman.stocking` (produção). Resolve SKU via `Product`, suporta holds planejados |
+| `NoopStockBackend` | `shopman/backends/stock.py` | Testes e desenvolvimento. Sempre reporta 999999 unidades disponíveis |
 
-**Configuração:** `SHOPMAN_STOCK_BACKEND` ou auto-detecção em `ChannelsConfig.ready()` — veja [settings.md](settings.md).
+**Configuração:** `SHOPMAN_STOCK_BACKEND` ou auto-detecção em `ShopmanConfig.ready()` — veja [settings.md](settings.md).
 
 ---
 
 ## PricingBackend
 
-**Definido em:** `shopman-app/shopman/protocols.py`
+**Definido em:** `framework/shopman/protocols.py`
 **Guia:** [Offering — Preços](../guides/offering.md)
 
 ### Métodos
@@ -72,10 +72,10 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 | Adapter | Arquivo | Quando usar |
 |---------|---------|-------------|
-| `OfferingBackend` | `channels/backends/pricing.py` | Integração com `shopman.offering`. Usa `CatalogService.price()` |
-| `SimplePricingBackend` | `channels/backends/pricing.py` | Lê direto de `Product.base_price_q` |
-| `ChannelPricingBackend` | `channels/backends/pricing.py` | Tenta `ChannelListing.price_q` do canal, fallback para `base_price_q` |
-| `CatalogPricingBackend` | `channels/backends/pricing.py` | Combina CatalogService + ChannelListing com fallback |
+| `OfferingBackend` | `shopman/backends/pricing.py` | Integração com `shopman.offering`. Usa `CatalogService.price()` |
+| `SimplePricingBackend` | `shopman/backends/pricing.py` | Lê direto de `Product.base_price_q` |
+| `ChannelPricingBackend` | `shopman/backends/pricing.py` | Tenta `ChannelListing.price_q` do canal, fallback para `base_price_q` |
+| `CatalogPricingBackend` | `shopman/backends/pricing.py` | Combina CatalogService + ChannelListing com fallback |
 
 **Nota:** `OfferingBackend` também expõe métodos de catálogo: `get_product`, `validate_sku`, `expand_bundle`, `is_bundle`, `search_products`.
 
@@ -83,7 +83,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 ## CustomerBackend
 
-**Definido em:** `shopman-app/shopman/protocols.py`
+**Definido em:** `framework/shopman/protocols.py`
 **Guia:** [Customers — Clientes](../guides/customers.md)
 
 ### Dataclasses
@@ -109,14 +109,14 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 | Adapter | Arquivo | Quando usar |
 |---------|---------|-------------|
-| `CustomersBackend` | `channels/backends/customer.py` | Integração com `shopman.customers`. Combina CustomerService + InsightService + PreferenceService |
-| `NoopCustomerBackend` | `channels/backends/customer.py` | Testes. Retorna dados placeholder (ex.: "Guest {code}") |
+| `CustomersBackend` | `shopman/backends/customer.py` | Integração com `shopman.customers`. Combina CustomerService + InsightService + PreferenceService |
+| `NoopCustomerBackend` | `shopman/backends/customer.py` | Testes. Retorna dados placeholder (ex.: "Guest {code}") |
 
 ---
 
 ## NotificationBackend
 
-**Definido em:** `shopman-app/shopman/protocols.py`
+**Definido em:** `framework/shopman/protocols.py`
 **Guia:** [Orquestração — Notificações](../guides/flows.md)
 
 ### Dataclasses
@@ -135,21 +135,21 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 | Adapter | Arquivo | Quando usar |
 |---------|---------|-------------|
-| `ConsoleBackend` | `channels/backends/notification_console.py` | Desenvolvimento. Loga no console |
-| `ManychatBackend` | `channels/backends/notification_manychat.py` | Produção. Envia via ManyChat API (WhatsApp) |
-| `EmailBackend` | `channels/backends/notification_email.py` | Produção. Envia via Django email |
-| `SmsBackend` | `channels/backends/notification_sms.py` | Produção. Envia via SMS |
-| `WebhookBackend` | `channels/backends/notification_webhook.py` | Integração. Envia eventos via webhook HTTP |
-| `WhatsappBackend` | `channels/backends/notification_whatsapp.py` | Produção. Envia via WhatsApp Cloud API |
+| `ConsoleBackend` | `shopman/backends/notification_console.py` | Desenvolvimento. Loga no console |
+| `ManychatBackend` | `shopman/backends/notification_manychat.py` | Produção. Envia via ManyChat API (WhatsApp) |
+| `EmailBackend` | `shopman/backends/notification_email.py` | Produção. Envia via Django email |
+| `SmsBackend` | `shopman/backends/notification_sms.py` | Produção. Envia via SMS |
+| `WebhookBackend` | `shopman/backends/notification_webhook.py` | Integração. Envia eventos via webhook HTTP |
+| `WhatsappBackend` | `shopman/backends/notification_whatsapp.py` | Produção. Envia via WhatsApp Cloud API |
 
-**Configuração:** Registrado em `ChannelsConfig.ready()`. Routing por canal via `ChannelConfig.notifications.routing`. ManychatBackend ativado se `MANYCHAT_API_TOKEN` estiver definido.
+**Configuração:** Registrado em `ShopmanConfig.ready()`. Routing por canal via `ChannelConfig.notifications.routing`. ManychatBackend ativado se `MANYCHAT_API_TOKEN` estiver definido.
 
 ---
 
 ## PaymentBackend
 
-**Definido em:** `shopman-core/payments/shopman/payments/protocols.py`
-**Re-exportado em:** `shopman-app/shopman/protocols.py`
+**Definido em:** `packages/payman/shopman/payments/protocols.py`
+**Re-exportado em:** `framework/shopman/protocols.py`
 **Guia:** [Ordering — Pagamentos](../guides/ordering.md)
 
 ### Dataclasses
@@ -176,9 +176,9 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 | Adapter | Arquivo | Quando usar |
 |---------|---------|-------------|
-| `MockPaymentBackend` | `channels/backends/payment_mock.py` | Testes. Simula fluxo completo com PIX mockado. `auto_authorize=True`, `fail_rate=0.0` |
-| `StripeBackend` | `channels/backends/payment_stripe.py` | Produção (cartão). Requer `pip install stripe`. Suporta webhook verification |
-| `EfiPixBackend` | `channels/backends/payment_efi.py` | Produção (PIX). Integra com Efi (Gerencianet). Requer certificado PFX/PEM |
+| `MockPaymentBackend` | `shopman/backends/payment_mock.py` | Testes. Simula fluxo completo com PIX mockado. `auto_authorize=True`, `fail_rate=0.0` |
+| `StripeBackend` | `shopman/backends/payment_stripe.py` | Produção (cartão). Requer `pip install stripe`. Suporta webhook verification |
+| `EfiPixBackend` | `shopman/backends/payment_efi.py` | Produção (PIX). Integra com Efi (Gerencianet). Requer certificado PFX/PEM |
 
 **Configuração:** `SHOPMAN_PAYMENT_BACKEND` — veja [settings.md](settings.md).
 
@@ -186,7 +186,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 ## FiscalBackend
 
-**Definido em:** `shopman-core/ordering/shopman/ordering/protocols.py`
+**Definido em:** `packages/omniman/shopman/ordering/protocols.py`
 **Guia:** [Orquestração — Fiscal](../guides/flows.md)
 
 ### Dataclasses
@@ -208,8 +208,8 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 | Adapter | Arquivo | Quando usar |
 |---------|---------|-------------|
-| `MockFiscalBackend` | `channels/backends/fiscal_mock.py` | Testes e desenvolvimento. Simula emissão com dados fictícios |
-| `FocusBackend` | `channels/backends/fiscal_focus.py` | Produção. Integra com Focus NFe para emissão NFC-e/NF-e real |
+| `MockFiscalBackend` | `shopman/backends/fiscal_mock.py` | Testes e desenvolvimento. Simula emissão com dados fictícios |
+| `FocusBackend` | `shopman/backends/fiscal_focus.py` | Produção. Integra com Focus NFe para emissão NFC-e/NF-e real |
 
 **Configuração:** `SHOPMAN_FISCAL_BACKEND` — veja [settings.md](settings.md). Se ausente, handlers fiscais não são registrados.
 
@@ -217,7 +217,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 ## AccountingBackend
 
-**Definido em:** `shopman-core/ordering/shopman/ordering/protocols.py`
+**Definido em:** `packages/omniman/shopman/ordering/protocols.py`
 **Guia:** [Ordering](../guides/ordering.md)
 
 ### Dataclasses
@@ -244,7 +244,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 | Adapter | Arquivo | Quando usar |
 |---------|---------|-------------|
-| `MockAccountingBackend` | `channels/backends/accounting_mock.py` | Testes e desenvolvimento. Simula lançamentos com dados fictícios |
-| `ContaazulBackend` | `channels/backends/accounting_contaazul.py` | Produção. Integra com Conta Azul para lançamentos contábeis |
+| `MockAccountingBackend` | `shopman/backends/accounting_mock.py` | Testes e desenvolvimento. Simula lançamentos com dados fictícios |
+| `ContaazulBackend` | `shopman/backends/accounting_contaazul.py` | Produção. Integra com Conta Azul para lançamentos contábeis |
 
 **Configuração:** `SHOPMAN_ACCOUNTING_BACKEND` — veja [settings.md](settings.md). Se ausente, handler de contabilidade não é registrado.

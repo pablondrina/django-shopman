@@ -6,7 +6,7 @@
 
 ## Visão Geral
 
-O projeto define **17 sinais custom** do Django. Destes, **5 estão ativamente conectados** a receivers no orquestrador (`channels/`), e **12 estão definidos** para uso por extensões e integrações futuras.
+O projeto define **17 sinais custom** do Django. Destes, **5 estão ativamente conectados** a receivers no orquestrador (`shopman/`), e **12 estão definidos** para uso por extensões e integrações futuras.
 
 | Sinal | Módulo | Status | Receivers |
 |-------|--------|--------|-----------|
@@ -34,7 +34,7 @@ Além dos sinais custom, o projeto usa **2 sinais built-in** do Django (`post_sa
 
 | Signal | Conectado em | Receiver | Efeito |
 |--------|-------------|----------|--------|
-| `order_changed` | `ChannelsConfig.ready()` | `hooks.on_order_lifecycle` | Lê pipeline do canal, cria directives |
+| `order_changed` | `ShopmanConfig.ready()` | `hooks.on_order_lifecycle` | Lê pipeline do canal, cria directives |
 | `holds_materialized` | `setup._register_stock_signals()` | `_stock_receivers.on_holds_materialized` | Auto-commit de sessões aguardando produção |
 | `production_changed` | `setup._register_stock_signals()` | `_stock_receivers.on_production_voided` | Libera demand holds quando produção é anulada |
 | `production_changed` | `CraftingStockingConfig.ready()` | `crafting.contrib.stocking.handlers` | Gerencia quants planejados/realizados |
@@ -47,7 +47,7 @@ Além dos sinais custom, o projeto usa **2 sinais built-in** do Django (`post_sa
 
 ### Offering
 
-**Arquivo:** `shopman-core/offering/shopman/offering/signals/__init__.py`
+**Arquivo:** `packages/offerman/shopman/offering/signals/__init__.py`
 
 #### product_created
 
@@ -75,7 +75,7 @@ Emitido quando o preço de um `ListingItem` muda.
 
 ### Crafting
 
-**Arquivo:** `shopman-core/crafting/shopman/crafting/signals/__init__.py`
+**Arquivo:** `packages/craftsman/shopman/crafting/signals/__init__.py`
 
 #### production_changed
 
@@ -89,7 +89,7 @@ Emitido quando o estado de produção muda (planejar, ajustar, fechar, anular wo
 
 **Receivers:**
 1. `handle_production_changed()` em `crafting/contrib/stocking/handlers.py` — Registrado por `CraftingStockingConfig.ready()`
-2. `on_production_voided()` em `channels/handlers/_stock_receivers.py` — Registrado por `setup.register_all()`. Libera demand holds quando produção é anulada
+2. `on_production_voided()` em `shopman/handlers/_stock_receivers.py` — Registrado por `setup.register_all()`. Libera demand holds quando produção é anulada
 
 | Action | Efeito no Stocking |
 |--------|-------------------|
@@ -104,7 +104,7 @@ Emitido quando o estado de produção muda (planejar, ajustar, fechar, anular wo
 
 ### Stocking
 
-**Arquivo:** `shopman-core/stocking/shopman/stocking/signals.py`
+**Arquivo:** `packages/stockman/shopman/stocking/signals.py`
 
 #### holds_materialized
 
@@ -115,7 +115,7 @@ Emitido quando holds planejados são materializados (produção concluída, esto
 | **Sender** | *(evento de domínio)* |
 | **Payload** | `hold_ids` (list[str]), `sku` (str), `target_date` (date), `to_position` (Position) |
 
-**Receiver:** `on_holds_materialized()` em `shopman-app/shopman/handlers/_stock_receivers.py`
+**Receiver:** `on_holds_materialized()` em `framework/shopman/handlers/_stock_receivers.py`
 Registrado por: `ShopmanConfig.ready()` via `setup.register_all()` → `_register_stock_signals()`
 
 **Efeito:** Auto-commit de sessões que estavam aguardando produção. Quando todos os holds de uma sessão são materializados, executa `CommitService.commit()` automaticamente.
@@ -126,7 +126,7 @@ Registrado por: `ShopmanConfig.ready()` via `setup.register_all()` → `_registe
 
 ### Ordering
 
-**Arquivo:** `shopman-core/ordering/shopman/ordering/signals.py`
+**Arquivo:** `packages/omniman/shopman/ordering/signals.py`
 
 #### order_changed
 
@@ -156,7 +156,7 @@ Emitido quando um `Order` é criado ou muda de status.
 
 ### Customers
 
-**Arquivo:** `shopman-core/customers/shopman/customers/signals/__init__.py`
+**Arquivo:** `packages/guestman/shopman/customers/signals/__init__.py`
 
 #### customer_created
 
@@ -184,7 +184,7 @@ Emitido por `CustomerService.update()` após atualização de cliente.
 
 ### Auth
 
-**Arquivo:** `shopman-core/auth/shopman/auth/signals.py`
+**Arquivo:** `packages/doorman/shopman/auth/signals.py`
 
 #### customer_authenticated
 
@@ -249,7 +249,7 @@ Emitido após criação de dispositivo confiável via `DeviceTrustService.trust_
 
 ### Payments
 
-**Arquivo:** `shopman-core/payments/shopman/payments/signals/__init__.py`
+**Arquivo:** `packages/payman/shopman/payments/signals/__init__.py`
 
 #### payment_authorized
 
@@ -307,7 +307,7 @@ Emitido quando um reembolso é registrado.
 
 ### post_save — Directive Dispatch
 
-**Arquivo:** `shopman-core/ordering/shopman/ordering/dispatch.py`
+**Arquivo:** `packages/omniman/shopman/ordering/dispatch.py`
 **Registrado por:** `OrderingConfig.ready()`
 **dispatch_uid:** `"ordering.directive_dispatch"`
 
@@ -315,7 +315,7 @@ Quando uma `Directive` é criada (`created=True`), auto-despacha para o handler 
 
 ### post_save — Stock Alerts
 
-**Arquivo:** `shopman-core/stocking/shopman/stocking/contrib/alerts/handlers.py`
+**Arquivo:** `packages/stockman/shopman/stocking/contrib/alerts/handlers.py`
 **Registrado por:** `StockingAlertsConfig.ready()`
 **Sender:** `Move`
 

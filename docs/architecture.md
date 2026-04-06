@@ -2,25 +2,25 @@
 
 ## Visão Geral
 
-Django Shopman é composto por **8 apps core** independentes e um **orquestrador** (`channels/`) que os conecta para cenários de negócio concretos. Cada app core é um pacote pip instalável separadamente.
+Django Shopman é composto por **8 apps core** independentes e um **orquestrador** (`shopman/`) que os conecta para cenários de negócio concretos. Cada app core é um pacote pip instalável separadamente.
 
 ## Diagrama de Camadas
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │                         PROJETO DJANGO                               │
-│                     (shopman-app/project/)                            │
+│                     (framework/project/)                              │
 │                   settings.py · urls.py · wsgi                       │
 ├──────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐    │
-│  │              SHOP (shopman-app/shop/)                        │    │
+│  │              SHOP (framework/shopman/)                       │    │
 │  │         Shop (singleton), Promotion, Coupon                  │    │
 │  │         Configuração global + defaults de canal              │    │
 │  └──────────────────────────────────────────────────────────────┘    │
 │                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐    │
-│  │            CHANNELS — Orquestrador (shopman-app/channels/)   │    │
+│  │            SHOPMAN — Orquestrador (framework/shopman/)        │    │
 │  │                                                              │    │
 │  │  config.py   presets.py   topics.py   hooks.py   setup.py   │    │
 │  │                                                              │    │
@@ -42,7 +42,7 @@ Django Shopman é composto por **8 apps core** independentes e um **orquestrador
 ├───────────────┴────────┴────────┴────────┴────────┴──────────────────┤
 │                                                                      │
 │  ┌─────────────────────── CORE APPS ──────────────────────────────┐  │
-│  │                    (shopman-core/*)                             │  │
+│  │                    (packages/*)                                 │  │
 │  │                                                                │  │
 │  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐          │  │
 │  │  │ offering │ │ stocking │ │ crafting │ │ ordering │          │  │
@@ -56,7 +56,7 @@ Django Shopman é composto por **8 apps core** independentes e um **orquestrador
 │  └────────────────────────────────────────────────────────────────┘  │
 │                                                                      │
 ├──────────────────────────────────────────────────────────────────────┤
-│              CANAIS DE VENDA (shopman-app/channels/)                  │
+│              CANAIS DE VENDA (framework/shopman/web/)                 │
 │                    web · api · (futuro: pos)                         │
 └──────────────────────────────────────────────────────────────────────┘
 ```
@@ -74,7 +74,7 @@ Toda comunicacao entre apps usa `typing.Protocol` (PEP 544) com `@runtime_checka
 ### Exemplo: Stock
 
 ```python
-# shopman-app/channels/protocols.py — consumidor define o contrato
+# framework/shopman/protocols.py — consumidor define o contrato
 @runtime_checkable
 class StockBackend(Protocol):
     def check_availability(self, sku: str, quantity: Decimal, ...) -> AvailabilityResult: ...
@@ -82,7 +82,7 @@ class StockBackend(Protocol):
     def release_hold(self, hold_id: str) -> None: ...
     def fulfill_hold(self, hold_id: str) -> None: ...
 
-# shopman-app/channels/backends/stock.py — adapter que conecta ao stocking
+# framework/shopman/backends/stock.py — adapter que conecta ao stocking
 class StockingBackend:
     def check_availability(self, sku, quantity, ...):
         # Delega para shopman.stocking.service
@@ -96,7 +96,7 @@ SHOPMAN_STOCK_BACKEND = "channels.backends.stock.StockingBackend"
 
 | Protocol | Definido em | Adapters |
 |----------|-------------|----------|
-| `StockBackend` | `channels/protocols` | `StockingBackend`, `NoopStockBackend` |
+| `StockBackend` | `shopman/protocols` | `StockingBackend`, `NoopStockBackend` |
 | `PaymentBackend` | `shopman.payments.protocols` | `MockPaymentBackend`, `EfiPixBackend`, `StripeBackend` |
 | `FiscalBackend` | `shopman.ordering.protocols` | `MockFiscalBackend`, `FocusBackend` |
 | `AccountingBackend` | `shopman.ordering.protocols` | `MockAccountingBackend`, `ContaazulBackend` |
@@ -162,7 +162,7 @@ Setas indicam dependência de pacote. Dependências via Protocol (runtime) são 
 
 ## Presets de Canal
 
-Cada canal de venda tem um preset (`channels/presets.py`) que configura o comportamento do pipeline via `ChannelConfig`:
+Cada canal de venda tem um preset (`shopman/presets.py`) que configura o comportamento do pipeline via `ChannelConfig`:
 
 | Preset | Confirmação | Pagamento | Stock Hold TTL | Pipeline on_commit | Pipeline on_confirmed |
 |--------|-------------|-----------|----------------|--------------------|-----------------------|

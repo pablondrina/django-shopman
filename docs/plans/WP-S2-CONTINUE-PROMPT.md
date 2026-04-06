@@ -83,7 +83,7 @@ Font: Inter (sans), LTRemark (serif), Geist Mono (mono)
 5. Remoção via `$store.confirm`, qty via stepper, modais via bottom_sheet
 
 ## Verificação
-1. `make test-shopman-app` verde
+1. `make test-framework` verde
 2. `make run` → navegar todas as páginas
 3. ARIA: Chrome Accessibility panel
 4. Dark mode: `document.documentElement.classList.toggle('dark')`

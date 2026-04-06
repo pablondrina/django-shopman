@@ -57,7 +57,7 @@ Cada guia segue a estrutura: Conceitos → Modelos → Serviços → Protocols �
 | [Customers](guides/customers.md) | `shopman.customers` | Clientes, contatos, grupos, loyalty, consent, RFM |
 | [Auth](guides/auth.md) | `shopman.auth` | Auth OTP, device trust, bridge tokens, magic links |
 | [Payments](guides/payments.md) | `shopman.payments` | Pagamentos, PIX, Stripe, intents, lifecycle |
-| [Flows](guides/flows.md) | `shopman-app/shopman` | Orquestrador: Flows, Services, Adapters, Rules, lifecycle |
+| [Flows](guides/flows.md) | `framework/shopman` | Orquestrador: Flows, Services, Adapters, Rules, lifecycle |
 | [Fechamento do dia](guides/day-closing.md) | `shopman` | Sobras, não vendidos, D-1 em `ontem`, às cegas vs vendas |
 
 ---
@@ -81,16 +81,15 @@ Documentação de consulta rápida gerada a partir do código.
 ## Mapa de Apps
 
 ```
-shopman-core/                        shopman-app/
-├── utils        (utilitários)       ├── shop/              (identidade + regras)
-├── offering     (catálogo)          ├── channels/          (orquestrador)
-├── stocking     (estoque)           │   ├── handlers/      (15 handlers)
-├── crafting     (produção)          │   ├── backends/      (17 backends)
-├── ordering     (pedidos)           │   ├── config.py      (ChannelConfig)
-├── customers    (clientes)          │   ├── presets.py     (pos, remote, marketplace)
-├── auth         (autenticação)      │   ├── hooks.py       (lifecycle dispatcher)
-└── payments     (pagamentos)        │   ├── setup.py       (registro centralizado)
-                                     │   └── web/           (storefront)
+packages/                            framework/
+├── utils        (utilitários)       ├── shopman/           (orquestrador)
+├── offerman     (catálogo)          │   ├── handlers/      (16 handlers)
+├── stockman     (estoque)           │   ├── backends/      (16 backends)
+├── craftsman    (produção)          │   ├── config.py      (ChannelConfig)
+├── omniman      (pedidos)           │   ├── services/      (11 services)
+├── guestman     (clientes)          │   ├── flows.py       (lifecycle dispatcher)
+├── doorman      (autenticação)      │   ├── setup.py       (registro centralizado)
+└── payman       (pagamentos)        │   └── web/           (storefront)
                                      └── project/           (settings, urls)
 ```
 

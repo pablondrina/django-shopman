@@ -39,7 +39,7 @@ Exception
 
 ## BaseError (Utils)
 
-**Arquivo:** `shopman-core/utils/shopman/utils/exceptions.py`
+**Arquivo:** `packages/utils/shopman/utils/exceptions.py`
 
 Classe base que todas as exceções de domínio dos core apps herdam. Oferece serialização via `as_dict()`.
 
@@ -52,7 +52,7 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 
 ## CatalogError (Offering)
 
-**Arquivo:** `shopman-core/offering/shopman/offering/exceptions.py`
+**Arquivo:** `packages/offerman/shopman/offering/exceptions.py`
 **Base:** `BaseError`
 **Propriedade:** `.sku` — extrai SKU dos dados
 
@@ -72,7 +72,7 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 
 ## StockError (Stocking)
 
-**Arquivo:** `shopman-core/stocking/shopman/stocking/exceptions.py`
+**Arquivo:** `packages/stockman/shopman/stocking/exceptions.py`
 **Base:** `BaseError`
 **Propriedades:** `.available`, `.requested` — quantidades para erros de insuficiência
 
@@ -95,7 +95,7 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 
 ## CraftError (Crafting)
 
-**Arquivo:** `shopman-core/crafting/shopman/crafting/exceptions.py`
+**Arquivo:** `packages/craftsman/shopman/crafting/exceptions.py`
 **Base:** `BaseError`
 
 | Código | Quando ocorre |
@@ -116,7 +116,7 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 
 ## CustomersError (Customers)
 
-**Arquivo:** `shopman-core/customers/shopman/customers/exceptions.py`
+**Arquivo:** `packages/guestman/shopman/customers/exceptions.py`
 **Base:** `BaseError`
 
 | Código | Quando ocorre |
@@ -136,7 +136,7 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 
 ## AuthError (Auth)
 
-**Arquivo:** `shopman-core/auth/shopman/auth/exceptions.py`
+**Arquivo:** `packages/doorman/shopman/auth/exceptions.py`
 **Base:** `BaseError`
 
 | Código | Quando ocorre |
@@ -154,7 +154,7 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 
 ## PaymentError (Payments)
 
-**Arquivo:** `shopman-core/payments/shopman/payments/exceptions.py`
+**Arquivo:** `packages/payman/shopman/payments/exceptions.py`
 **Base:** `Exception` (independente de `BaseError`)
 **Construtor:** `__init__(code, message, context=None)`
 **Serialização:** `.as_dict()` → `{"code": "...", "message": "...", "context": {...}}`
@@ -173,7 +173,7 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 
 ## OrderingError (Ordering)
 
-**Arquivo:** `shopman-core/ordering/shopman/ordering/exceptions.py`
+**Arquivo:** `packages/omniman/shopman/ordering/exceptions.py`
 **Base:** `Exception` (independente de `BaseError`)
 **Construtor:** `__init__(code, message, context=None)`
 
@@ -245,7 +245,7 @@ Não é erro — controle de fluxo. Contém `cached_response` com resultado ante
 
 ## RefError (Ordering — Refs)
 
-**Arquivo:** `shopman-core/ordering/shopman/ordering/contrib/refs/exceptions.py`
+**Arquivo:** `packages/omniman/shopman/ordering/contrib/refs/exceptions.py`
 **Base:** `Exception`
 
 | Exceção | Quando ocorre |

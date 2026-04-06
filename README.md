@@ -128,7 +128,7 @@ O framework conecta os core apps para cenários de negócio concretos:
 make install          # Instala dependências + packages em modo editável
 make test             # Roda todos os ~1.900 testes
 make test-offerman    # Testes de um core app específico
-make test-shopman-app # Testes do framework
+make test-framework    # Testes do framework
 make migrate          # Aplica migrações
 make seed             # Popula com dados demo (Nelson Boulangerie)
 make run              # Sobe servidor (localhost:8000)

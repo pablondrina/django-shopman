@@ -7,7 +7,7 @@ Decisao original (Opcao B — manter nomes) foi revertida em favor de rename.
 
 ## Context
 
-O orchestrator (shopman-app) possuia modulos com nomes semanticamente proximos das apps core:
+O orchestrator (framework/shopman) possuia modulos com nomes semanticamente proximos das apps core:
 
 | Orchestrator (antigo) | Orchestrator (novo) | Core app | Papel |
 |---|---|---|---|

@@ -34,7 +34,7 @@ Pierre acessa http://localhost:8000/admin/. O dashboard mostra:
 
 Pierre quer saber o que produzir hoje. O sistema analisa vendas passadas e sugere quantidades.
 
-**Codigo:** `shopman-core/crafting/shopman/crafting/services/queries.py`
+**Codigo:** `packages/craftsman/shopman/crafting/services/queries.py`
 
 ```python
 from shopman.crafting.services.queries import CraftQueries
@@ -57,7 +57,7 @@ suggestions = CraftQueries.suggest(date=date.today())
 **Config via settings:**
 
 ```python
-# shopman-core/crafting/shopman/crafting/conf.py
+# packages/craftsman/shopman/crafting/conf.py
 CRAFTING = {
     "DEMAND_BACKEND": "shopman.crafting.contrib.demand.backend.OrderingDemandBackend",
     "SAFETY_STOCK_PERCENT": 0.10,  # 10% margem
@@ -72,7 +72,7 @@ CRAFTING = {
 
 Com as sugestoes em maos, Pierre cria ordens de producao.
 
-**Codigo:** `shopman-core/crafting/shopman/crafting/services/scheduling.py`
+**Codigo:** `packages/craftsman/shopman/crafting/services/scheduling.py`
 
 ```python
 from shopman.crafting.services.scheduling import CraftPlanning
@@ -111,7 +111,7 @@ wos = CraftPlanning.plan([
 
 Etienne verifica os alertas de estoque baixo.
 
-**Codigo:** `shopman-core/stocking/shopman/stocking/services/alerts.py`
+**Codigo:** `packages/stockman/shopman/stocking/services/alerts.py`
 
 ```python
 from shopman.stocking.services.alerts import check_alerts
@@ -143,7 +143,7 @@ triggered = check_alerts()
 
 Pierre fechou os croissants. 48 planejados, 46 sairam (2 de perda).
 
-**Codigo:** `shopman-core/crafting/shopman/crafting/services/execution.py`
+**Codigo:** `packages/craftsman/shopman/crafting/services/execution.py`
 
 ```python
 from shopman.crafting.services.execution import CraftExecution
@@ -190,7 +190,7 @@ CraftExecution.close(wo, produced=46, consumed=[
 
 Apos a producao, o estoque da vitrine e atualizado.
 
-**Codigo:** `shopman-core/stocking/shopman/stocking/services/movements.py`
+**Codigo:** `packages/stockman/shopman/stocking/services/movements.py`
 
 ```python
 from shopman.stocking.services.movements import StockMovements
@@ -231,7 +231,7 @@ Maria Santos envia mensagem no WhatsApp: "Quero 3 croissants e 2 cafes".
 
 O agente Nice interage com a API do ordering. Primeiro, abre uma sessao:
 
-**Codigo:** `shopman-core/ordering/shopman/ordering/services/modify.py`
+**Codigo:** `packages/omniman/shopman/ordering/services/modify.py`
 
 ```python
 from shopman.ordering.services.modify import ModifyService
@@ -271,7 +271,7 @@ session = ModifyService.modify_session(
 
 O operador ve a sessao no admin e confirma (via `SessionAdmin` action).
 
-**Codigo:** `shopman-core/ordering/shopman/ordering/services/commit.py`
+**Codigo:** `packages/omniman/shopman/ordering/services/commit.py`
 
 ```python
 from shopman.ordering.services.commit import CommitService
@@ -368,7 +368,7 @@ Cada transicao cria um `OrderEvent` com `type="status_changed"` e atualiza times
 
 Anais revisa o dia no dashboard e dispara atualizacao dos insights RFM dos clientes.
 
-**Codigo:** `shopman-core/customers/shopman/customers/contrib/insights/service.py`
+**Codigo:** `packages/guestman/shopman/customers/contrib/insights/service.py`
 
 ```python
 from shopman.customers.contrib.insights.service import InsightService

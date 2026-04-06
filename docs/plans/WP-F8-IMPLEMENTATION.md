@@ -6,7 +6,7 @@ F0-F7 (storefront completo) estão ✅. F8 é o primeiro WP do lado operador: um
 (`/pedidos/`) onde o operador gerencia o ciclo de vida dos pedidos de todos os canais.
 Benchmark: iFood para Restaurantes. NÃO é KDS — é gestão macro.
 
-**Pré-requisito**: venv funcional (`source .venv/bin/activate && make test-shopman-app` deve passar).
+**Pré-requisito**: venv funcional (`source .venv/bin/activate && make test-framework` deve passar).
 
 ---
 
@@ -14,28 +14,28 @@ Benchmark: iFood para Restaurantes. NÃO é KDS — é gestão macro.
 
 | Arquivo | Tipo | Descrição |
 |---------|------|-----------|
-| `channels/web/views/pedidos.py` | View | GestorPedidosView + partials + actions |
-| `channels/web/templates/pedidos/base.html` | Template | Base standalone (não herda storefront) |
-| `channels/web/templates/pedidos/index.html` | Template | Layout principal (extends pedidos/base.html) |
-| `channels/web/templates/pedidos/partials/card.html` | Template | Card de pedido |
-| `channels/web/templates/pedidos/partials/detail.html` | Template | Card expandido (accordion) |
-| `channels/web/templates/pedidos/partials/order_list.html` | Template | Container dos cards (HTMX target) |
-| `channels/web/static/storefront/js/pedidos.js` | JS | Timer, som, fullscreen, sessionStorage |
+| `shopman/web/views/pedidos.py` | View | GestorPedidosView + partials + actions |
+| `shopman/web/templates/pedidos/base.html` | Template | Base standalone (não herda storefront) |
+| `shopman/web/templates/pedidos/index.html` | Template | Layout principal (extends pedidos/base.html) |
+| `shopman/web/templates/pedidos/partials/card.html` | Template | Card de pedido |
+| `shopman/web/templates/pedidos/partials/detail.html` | Template | Card expandido (accordion) |
+| `shopman/web/templates/pedidos/partials/order_list.html` | Template | Container dos cards (HTMX target) |
+| `shopman/web/static/storefront/js/pedidos.js` | JS | Timer, som, fullscreen, sessionStorage |
 | `tests/test_f8_gestor_pedidos.py` | Test | ~12 testes |
 
 ## Arquivos a modificar
 
 | Arquivo | Mudança |
 |---------|---------|
-| `channels/web/urls.py` | Adicionar rotas `/pedidos/*` |
-| `channels/web/views/__init__.py` | Exportar novas views |
-| `channels/topics.py` | (NÃO adicionar KDS topic — defer para F9) |
+| `shopman/web/urls.py` | Adicionar rotas `/pedidos/*` |
+| `shopman/web/views/__init__.py` | Exportar novas views |
+| `shopman/topics.py` | (NÃO adicionar KDS topic — defer para F9) |
 
 ---
 
 ## Implementação passo a passo
 
-### Step 1: View principal (`channels/web/views/pedidos.py`)
+### Step 1: View principal (`shopman/web/views/pedidos.py`)
 
 **Auth**: Usar `request.user.is_staff` check manual (mesmo padrão de `shop/views/production.py`).
 Se não autenticado → redirect para `/admin/login/?next=/pedidos/`.
@@ -132,7 +132,7 @@ class OrderListPartialView(View):
 ### Step 3: URLs
 
 ```python
-# Em channels/web/urls.py, adicionar:
+# Em shopman/web/urls.py, adicionar:
 # Operator dashboard
 path("pedidos/", views.GestorPedidosView.as_view(), name="gestor_pedidos"),
 path("pedidos/list/", views.OrderListPartialView.as_view(), name="gestor_list_partial"),
@@ -202,7 +202,7 @@ Expandido dentro do card:
 - Mini-timeline (reusa `_build_tracking_context` de tracking.py)
 - Campo motivo (textarea, só aparece ao clicar "Rejeitar")
 
-**Stock check**: Usar `StockBackend` do channels/backends/stock.py:
+**Stock check**: Usar `StockBackend` do shopman/backends/stock.py:
 ```python
 from channels.backends.stock import StockBackend
 backend = StockBackend()
@@ -299,16 +299,16 @@ class TestGestorDetail(TestCase):
 | Auth staff | `request.user.is_staff` check manual | `shop/views/production.py:24` |
 | Order transitions | `order.transition_status(status, actor)` | `ordering/models/order.py:206` |
 | Order events | `order.emit_event(type, actor, payload)` | `ordering/models/order.py:228` |
-| Stock check | `StockBackend().check_availability(sku, qty)` → `AvailabilityResult` | `channels/backends/stock.py:36` |
+| Stock check | `StockBackend().check_availability(sku, qty)` → `AvailabilityResult` | `shopman/backends/stock.py:36` |
 | WorkOrder check | `WorkOrder.objects.filter(output_ref=sku, status="open")` | `crafting/models/work_order.py` |
 | Recipe check | `Recipe.objects.filter(output_ref=sku, is_active=True)` | `crafting/models/recipe.py` |
 | Release holds | `release_holds_for_order(order)` | `ordering/holds.py` |
-| Directive creation | `Directive.objects.create(topic=..., payload=...)` | `channels/hooks.py:38` |
+| Directive creation | `Directive.objects.create(topic=..., payload=...)` | `shopman/flows.py:38` |
 | HTMX partial swap | `hx-get`, `hx-target`, `hx-swap="innerHTML"` | `tracking.html`, `payment.html` |
 | Alpine state | `x-data="componentName()"` com function no `<script>` | `payment.html`, `product_detail.html` |
 | Timer Alpine | Countdown com `setInterval`, cores por threshold | `order_status.html` (confirmTimer) |
 | Bottom sheet | Inline Alpine com fixed overlay + swipe-dismiss | `tracking.html` (cancel modal) |
-| Status labels/colors | Dicts `STATUS_LABELS`, `STATUS_COLORS` | `channels/web/views/tracking.py:18` |
+| Status labels/colors | Dicts `STATUS_LABELS`, `STATUS_COLORS` | `shopman/web/views/tracking.py:18` |
 | `data` JSONField | Extensão via `order.data["key"]` — consultar `docs/reference/data-schemas.md` | `CLAUDE.md` |
 
 ## O que NÃO fazer no F8
@@ -323,7 +323,7 @@ class TestGestorDetail(TestCase):
 
 ```bash
 source .venv/bin/activate
-make test-shopman-app  # deve passar TODOS os 1156+ testes existentes + novos F8
+make test-framework  # deve passar TODOS os 1156+ testes existentes + novos F8
 ```
 
 Testar manualmente:

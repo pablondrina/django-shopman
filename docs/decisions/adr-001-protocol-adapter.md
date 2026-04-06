@@ -21,12 +21,12 @@ Toda comunicacao entre apps usa `typing.Protocol` (PEP 544) com `@runtime_checka
 3. A ligacao e feita via settings (dotted path) ou registry (`AppConfig.ready()`)
 
 ```python
-# shopman-app/shopman/stock/protocols.py — consumidor define o contrato
+# framework/shopman/protocols.py — consumidor define o contrato
 @runtime_checkable
 class StockBackend(Protocol):
     def check_availability(self, sku: str, quantity: Decimal, ...) -> AvailabilityResult: ...
 
-# shopman-app/shopman/stock/adapters/stockman.py — adapter que conecta ao stocking
+# framework/shopman/backends/stock.py — adapter que conecta ao stocking
 class StockmanAdapter:
     def check_availability(self, sku: str, quantity: Decimal, ...) -> AvailabilityResult:
         return StockService.check(sku, quantity)

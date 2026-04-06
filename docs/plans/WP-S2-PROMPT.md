@@ -18,7 +18,7 @@ Copy-paste e adaptação em Django templates. Sem libs externas (convenção do 
 
 ### Fase 1: Primitivos (Penguin-inspired)
 
-Reescrever do zero cada arquivo em `shopman-app/shopman/templates/components/`.
+Reescrever do zero cada arquivo em `framework/shopman/templates/components/`.
 
 | # | Componente | Arquivo | Params | ARIA |
 |---|-----------|---------|--------|------|
@@ -37,7 +37,7 @@ Reescrever do zero cada arquivo em `shopman-app/shopman/templates/components/`.
 
 ### Fase 2: E-commerce (Oxbow-inspired)
 
-Reescrever em `shopman-app/shopman/templates/storefront/partials/`.
+Reescrever em `framework/shopman/templates/storefront/partials/`.
 
 | # | Componente | Arquivo | Descrição |
 |---|-----------|---------|-----------|
@@ -108,7 +108,7 @@ Reescrever em `shopman-app/shopman/templates/storefront/partials/`.
 
 ## Verificação
 
-1. `make test-shopman-app` verde
+1. `make test-framework` verde
 2. `make seed && make run` → navegar: home → menu → product detail → add → cart drawer → remove → checkout
 3. ARIA: Chrome DevTools → Accessibility panel, tab through interativos
 4. Dark mode: `document.documentElement.classList.toggle('dark')` no console
