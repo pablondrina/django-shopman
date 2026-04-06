@@ -617,7 +617,7 @@ Puro Alpine.js, sem libs externas.
 
 ---
 
-### WP-R14: POS Badge D-1 + Employee Discount
+### ✅ WP-R14: POS Badge D-1 + Employee Discount
 
 **Objetivo:** Operador precisa ver D-1 e desconto staff.
 

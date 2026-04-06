@@ -304,7 +304,15 @@
                  hx-target="#pos-customer-result"
                  hx-swap="innerHTML"
                  hx-include="[name='phone']">
-          <div id="pos-customer-result" class="text-xs text-primary font-semibold mt-1 min-h-[1rem]">
+          <div id="pos-customer-result" class="text-xs text-primary font-semibold mt-1 min-h-[1rem]"
+               @htmx:after-swap.camel="
+                 var span = $el.querySelector('[data-customer-group]');
+                 if (span) {
+                   customerName = span.dataset.customerName || '';
+                   customerGroup = span.dataset.customerGroup || '';
+                 } else {
+                   customerGroup = '';
+                 }">
             <span x-show="!customerPhone" x-cloak class="text-muted-foreground">Cliente avulso</span>
           </div>
         </div>

@@ -39,7 +39,7 @@ def _resolve_customer(phone: str):
 
 
 def _load_products():
-    """Load products with prices for the POS grid."""
+    """Load products with prices and D-1 flags for the POS grid."""
     products = []
     try:
         from shopman.offering.models import ListingItem
@@ -69,13 +69,21 @@ def _load_products():
 
 
 def _product_dict(product, price_q):
+    from shopman.web.views._helpers import _line_item_is_d1
+
     ci = product.collection_items.filter(is_primary=True).select_related("collection").first()
+    try:
+        is_d1 = _line_item_is_d1(product, listing_ref="balcao")
+    except Exception as e:
+        logger.debug("pos_d1_check_failed sku=%s: %s", product.sku, e)
+        is_d1 = False
     return {
         "sku": product.sku,
         "name": product.name,
         "price_q": price_q,
         "price_display": f"R$ {format_money(price_q)}",
         "collection_slug": ci.collection.slug if ci else "",
+        "is_d1": is_d1,
     }
 
 
@@ -123,25 +131,30 @@ def pos_customer_lookup(request: HttpRequest) -> HttpResponse:
 
     phone = request.POST.get("phone", "").strip()
     if not phone:
-        return HttpResponse('<span style="opacity:0.5">Cliente avulso</span>')
+        return HttpResponse('<span class="text-muted-foreground">Cliente avulso</span>')
 
     try:
         from shopman.customers.models import Customer
         from shopman.utils.phone import normalize_phone
 
         normalized = normalize_phone(phone)
-        customer = Customer.objects.filter(phone=normalized).first()
+        customer = Customer.objects.select_related("group").filter(phone=normalized).first()
         if customer:
             name = f"{customer.first_name} {customer.last_name}".strip()
+            group_ref = customer.group.ref if customer.group_id else ""
+            staff_badge = ' &nbsp;<span class="text-xs text-info-foreground font-bold">(staff)</span>' if group_ref == "staff" else ""
             return HttpResponse(
-                f'<span data-customer-name="{name}" '
-                f'data-customer-ref="{customer.ref}">'
-                f'{name} ({customer.ref})</span>'
+                f'<span class="text-primary font-semibold" '
+                f'data-customer-name="{name}" '
+                f'data-customer-ref="{customer.ref}" '
+                f'data-customer-group="{group_ref}">'
+                f'{name}{staff_badge}'
+                f'</span>'
             )
     except Exception:
         logger.exception("pos_customer_lookup failed")
 
-    return HttpResponse('<span style="opacity:0.5">Cliente n&atilde;o encontrado</span>')
+    return HttpResponse('<span class="text-muted-foreground">Cliente n&atilde;o encontrado</span>')
 
 
 @require_POST
