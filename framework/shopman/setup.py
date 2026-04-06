@@ -214,10 +214,11 @@ def _register_fulfillment_handler() -> None:
 
 def _register_loyalty_handler() -> None:
     try:
-        from shopman.handlers.loyalty import LoyaltyEarnHandler
+        from shopman.handlers.loyalty import LoyaltyEarnHandler, LoyaltyRedeemHandler
 
         registry.register_directive_handler(LoyaltyEarnHandler())
-        logger.info("shopman.setup: Registered loyalty handler.")
+        registry.register_directive_handler(LoyaltyRedeemHandler())
+        logger.info("shopman.setup: Registered loyalty handlers.")
     except (ImportError, ValueError):
         logger.debug("shopman.setup: Loyalty handler not available")
 
@@ -241,6 +242,7 @@ def _register_pricing_modifiers() -> None:
         DiscountModifier,
         EmployeeDiscountModifier,
         HappyHourModifier,
+        LoyaltyRedeemModifier,
     )
 
     backend = OfferingBackend()
@@ -252,6 +254,7 @@ def _register_pricing_modifiers() -> None:
         EmployeeDiscountModifier(),
         HappyHourModifier(),
         DeliveryFeeModifier(),
+        LoyaltyRedeemModifier(),
     ]
     for modifier in modifiers:
         try:

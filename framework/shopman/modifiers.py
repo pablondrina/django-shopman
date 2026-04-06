@@ -14,6 +14,7 @@ Execution order:
   60  shop.employee_discount
   65  shop.happy_hour
   70  shop.delivery_fee     — taxa de entrega por zona (só delivery)
+  80  shop.loyalty_redeem   — loyalty points redemption (post-pricing)
 
 Discount policy — "maior desconto ganha":
   Per item, only ONE discount applies (the best one).
@@ -469,3 +470,67 @@ class DeliveryFeeModifier:
         new_data.pop("delivery_zone_error", None)
         session.data = new_data
         session.save(update_fields=["data"])
+
+
+class LoyaltyRedeemModifier:
+    """
+    Apply loyalty points redemption as a discount.
+
+    Reads session.data["loyalty"]["redeem_points_q"] (centavos to redeem).
+    Clamps to min(balance, subtotal) to never make total negative.
+    Writes discount summary to session.pricing["loyalty_redeem"].
+    """
+
+    code = "shop.loyalty_redeem"
+    order = 80  # After all other discounts and delivery fee
+
+    def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
+        loyalty_data = (session.data or {}).get("loyalty", {})
+        redeem_q = int(loyalty_data.get("redeem_points_q", 0))
+        if redeem_q <= 0:
+            pricing = session.pricing or {}
+            pricing.pop("loyalty_redeem", None)
+            session.pricing = pricing
+            session.save(update_fields=["pricing"])
+            return
+
+        items = session.items or []
+        subtotal_q = sum(item.get("line_total_q", 0) for item in items)
+
+        # Clamp: never redeem more than the order total
+        redeem_q = min(redeem_q, subtotal_q)
+        if redeem_q <= 0:
+            return
+
+        # Distribute the redemption proportionally across items
+        remaining = redeem_q
+        modified = False
+        for i, item in enumerate(items):
+            line_total = item.get("line_total_q", 0)
+            if line_total <= 0:
+                continue
+            is_last = i == len(items) - 1
+            if is_last:
+                item_share = remaining
+            else:
+                item_share = monetary_div(redeem_q * line_total, subtotal_q)
+            item_share = min(item_share, line_total)
+            if item_share > 0:
+                qty = int(item.get("qty", 1)) or 1
+                per_unit = item_share // qty
+                item["unit_price_q"] = max(0, item.get("unit_price_q", 0) - per_unit)
+                item["line_total_q"] = max(0, line_total - item_share)
+                remaining -= item_share
+                modified = True
+
+        if modified:
+            session.update_items(items)
+
+        # Persist for cart transparency
+        pricing = session.pricing or {}
+        pricing["loyalty_redeem"] = {
+            "total_discount_q": redeem_q,
+            "label": "Resgate de pontos",
+        }
+        session.pricing = pricing
+        session.save(update_fields=["pricing"])

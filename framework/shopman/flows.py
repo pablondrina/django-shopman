@@ -94,9 +94,10 @@ class BaseFlow:
     """Full lifecycle — 10 phases."""
 
     def on_commit(self, order):
-        """Order created: ensure customer, hold stock, handle confirmation."""
+        """Order created: ensure customer, hold stock, handle confirmation, redeem loyalty."""
         customer.ensure(order)
         stock.hold(order)
+        loyalty.redeem(order)
         self.handle_confirmation(order)
 
     def handle_confirmation(self, order):

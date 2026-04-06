@@ -79,6 +79,19 @@ class CheckoutView(View):
             except Exception as e:
                 logger.warning("checkout_defaults_failed: %s", e, exc_info=True)
 
+            # Loyalty balance for points redemption
+            try:
+                from shopman.customers.contrib.loyalty.service import LoyaltyService
+                from shopman.utils.monetary import format_money
+
+                balance = LoyaltyService.get_balance(customer_obj.ref)
+                ctx["loyalty_balance"] = balance
+                ctx["loyalty_value_display"] = f"R$ {format_money(balance)}" if balance > 0 else None
+            except Exception as e:
+                logger.warning("loyalty_balance_failed: %s", e, exc_info=True)
+                ctx["loyalty_balance"] = 0
+                ctx["loyalty_value_display"] = None
+
         return ctx
 
     def get(self, request: HttpRequest) -> HttpResponse:
@@ -281,6 +294,26 @@ class CheckoutView(View):
             checkout_data["delivery_time_slot"] = delivery_time_slot
         if chosen_method in ("pix", "card"):
             checkout_data["payment"] = {"method": chosen_method}
+
+        # Loyalty redemption
+        use_loyalty = request.POST.get("use_loyalty") == "true"
+        if use_loyalty:
+            customer_info = getattr(request, "customer", None)
+            if customer_info:
+                try:
+                    from shopman.customers.contrib.loyalty.service import LoyaltyService
+                    from shopman.ordering.models import Session as OrderingSession
+                    balance = LoyaltyService.get_balance_by_uuid(customer_info.uuid) if hasattr(LoyaltyService, "get_balance_by_uuid") else 0
+                    if balance <= 0:
+                        # Fallback: get customer ref and use get_balance
+                        from shopman.customers.services import customer as customer_service
+                        customer_obj = customer_service.get_by_uuid(customer_info.uuid)
+                        if customer_obj:
+                            balance = LoyaltyService.get_balance(customer_obj.ref)
+                    if balance > 0:
+                        checkout_data["loyalty"] = {"redeem_points_q": balance}
+                except Exception as e:
+                    logger.warning("loyalty_redeem_failed: %s", e, exc_info=True)
 
         idempotency_key = generate_idempotency_key()
         try:

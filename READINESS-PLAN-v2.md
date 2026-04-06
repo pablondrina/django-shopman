@@ -430,7 +430,7 @@ Mínimo de mudanças. Ler antes de alterar.
 
 ---
 
-### WP-R10: Loyalty no Checkout
+### ✅ WP-R10: Loyalty no Checkout
 
 **Objetivo:** Cliente com pontos deve poder resgatar no checkout.
 

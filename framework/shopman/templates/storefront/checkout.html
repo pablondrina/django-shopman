@@ -270,6 +270,35 @@
       </div>
       {% endif %}
 
+      {% if loyalty_balance > 0 %}
+      <!-- Loyalty points redemption -->
+      <div class="p-4 rounded-xl bg-primary/5 border border-primary/20"
+           x-data="{ useLoyalty: false }">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <p class="text-sm font-semibold text-foreground">Resgatar pontos</p>
+            <p class="text-xs text-muted-foreground mt-0.5">
+              Você tem <strong>{{ loyalty_balance }} pontos</strong>
+              {% if loyalty_value_display %}({{ loyalty_value_display }}){% endif %}
+            </p>
+          </div>
+          <button type="button"
+                  class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  :class="useLoyalty ? 'bg-primary' : 'bg-muted'"
+                  @click="useLoyalty = !useLoyalty"
+                  role="switch"
+                  :aria-checked="useLoyalty.toString()">
+            <span class="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform"
+                  :class="useLoyalty ? 'translate-x-6' : 'translate-x-1'"></span>
+          </button>
+        </div>
+        <p x-show="useLoyalty" class="mt-2 text-xs text-primary font-medium">
+          {% if loyalty_value_display %}{{ loyalty_value_display }} serão descontados no total.{% endif %}
+        </p>
+        <input type="hidden" name="use_loyalty" :value="useLoyalty ? 'true' : 'false'">
+      </div>
+      {% endif %}
+
       <div>
         <label class="block text-sm font-medium text-foreground mb-2">Cupom de desconto</label>
         {% include "storefront/partials/coupon_section.html" with coupon=cart.coupon coupon_target="#checkout-coupon-section" coupon_target_id="checkout-coupon-section" %}

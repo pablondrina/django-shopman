@@ -40,6 +40,7 @@ ACCOUNTING_CREATE_PAYABLE = "accounting.create_payable"
 
 # Loyalty
 LOYALTY_EARN = "loyalty.earn"
+LOYALTY_REDEEM = "loyalty.redeem"
 
 # Checkout defaults
 CHECKOUT_INFER_DEFAULTS = "checkout.infer_defaults"

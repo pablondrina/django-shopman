@@ -1,5 +1,5 @@
 """
-Loyalty handler — awards points when an order is completed.
+Loyalty handlers — earn points on completion, redeem points on commit.
 """
 
 from __future__ import annotations
@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 
 from shopman.ordering.models import Directive
-from shopman.topics import LOYALTY_EARN
+from shopman.topics import LOYALTY_EARN, LOYALTY_REDEEM
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +87,76 @@ class LoyaltyEarnHandler:
 
         except Exception:
             logger.exception("loyalty.earn: failed for order %s", order_ref)
+            attempts = (message.attempts or 0) + 1
+            message.attempts = attempts
+            if attempts >= 3:
+                message.status = "failed"
+                message.last_error = "max retries exceeded"
+            else:
+                message.status = "queued"
+            message.save(update_fields=["status", "last_error", "attempts", "updated_at"])
+
+
+class LoyaltyRedeemHandler:
+    """Redeems loyalty points on order commit. Topic: loyalty.redeem"""
+
+    topic = LOYALTY_REDEEM
+
+    def handle(self, *, message: Directive, ctx: dict) -> None:
+        payload = message.payload
+        order_ref = payload.get("order_ref")
+        points = int(payload.get("points", 0))
+
+        if not order_ref or points <= 0:
+            message.status = "completed"
+            message.save(update_fields=["status", "updated_at"])
+            return
+
+        try:
+            from shopman.ordering.models import Order
+            order = Order.objects.get(ref=order_ref)
+        except Order.DoesNotExist:
+            message.status = "failed"
+            message.last_error = f"Order not found: {order_ref}"
+            message.save(update_fields=["status", "last_error", "updated_at"])
+            return
+
+        if not order.handle_ref:
+            logger.debug("loyalty.redeem: no handle_ref on order %s, skipping", order_ref)
+            message.status = "completed"
+            message.save(update_fields=["status", "updated_at"])
+            return
+
+        try:
+            from shopman.customers.services import customer as customer_service
+            customer = customer_service.get_by_phone(order.handle_ref)
+        except Exception:
+            customer = None
+
+        if not customer:
+            logger.debug("loyalty.redeem: no customer for handle_ref=%s, skipping", order.handle_ref)
+            message.status = "completed"
+            message.save(update_fields=["status", "updated_at"])
+            return
+
+        try:
+            from shopman.customers.contrib.loyalty.service import LoyaltyService
+
+            LoyaltyService.redeem_points(
+                customer_ref=customer.ref,
+                points=points,
+                description=f"Resgate pedido {order_ref}",
+                reference=f"order:{order_ref}",
+                created_by="system",
+            )
+
+            logger.info("loyalty.redeem: -%d points for %s (order %s)", points, customer.ref, order_ref)
+
+            message.status = "completed"
+            message.save(update_fields=["status", "updated_at"])
+
+        except Exception:
+            logger.exception("loyalty.redeem: failed for order %s", order_ref)
             attempts = (message.attempts or 0) + 1
             message.attempts = attempts
             if attempts >= 3:
