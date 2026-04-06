@@ -223,7 +223,7 @@ class CheckoutView(View):
             errors.update(address_errors)
 
         # Estoque: sempre no servidor (WP-S3 — não depender só do flag `stock_checked` do cliente)
-        stock_errors = self._check_cart_stock(request, cart)
+        stock_errors, stock_check_unavailable = self._check_cart_stock(request, cart)
         if stock_errors:
             errors["stock"] = stock_errors[0]["message"]
 
@@ -280,6 +280,8 @@ class CheckoutView(View):
             "customer": {"name": name, "phone": phone},
             "fulfillment_type": fulfillment_type,
         }
+        if stock_check_unavailable:
+            checkout_data["stock_check_unavailable"] = True
         if notes:
             checkout_data["order_notes"] = notes
         if fulfillment_type == "delivery" and delivery_address:
@@ -402,6 +404,17 @@ class CheckoutView(View):
 
         # Redirect to payment or tracking
         if chosen_method in ("pix", "card"):
+            # If payment initiation failed (gateway down), redirect to tracking with a message
+            try:
+                from shopman.ordering.models import Order as _Order
+                _order = _Order.objects.get(ref=order_ref)
+                _payment_status = (_order.data or {}).get("payment", {}).get("status")
+                if _payment_status == "pending_retry":
+                    from django.contrib import messages
+                    messages.warning(request, "Pagamento será processado em breve. Acompanhe seu pedido.")
+                    return redirect("storefront:order_tracking", ref=order_ref)
+            except Exception:
+                pass
             return redirect("storefront:order_payment", ref=order_ref)
         return redirect("storefront:order_tracking", ref=order_ref)
 
@@ -538,21 +551,30 @@ class CheckoutView(View):
             errors["payment_method"] = "Selecione uma forma de pagamento."
         return errors
 
-    def _check_cart_stock(self, request: HttpRequest, cart: dict) -> list[dict]:
+    def _check_cart_stock(self, request: HttpRequest, cart: dict) -> tuple[list[dict], bool]:
+        """Check cart items against live stock. Returns (warnings, service_unavailable).
+
+        service_unavailable=True means ALL availability checks failed (stock service down).
+        In that case warnings is empty and checkout is allowed to proceed (graceful degradation).
+        """
         from decimal import Decimal
 
         items = cart.get("items", [])
         if not items:
-            return []
+            return [], False
 
         session_held = self._get_session_held_qty(request)
         warnings = []
+        checked = 0
+        skipped = 0
         for item in items:
             sku = item.get("sku", "")
             qty = int(Decimal(str(item.get("qty", 0))))
             avail = _get_availability(sku)
             if avail is None:
+                skipped += 1
                 continue
+            checked += 1
             breakdown = avail.get("breakdown", {})
             ready = breakdown.get("ready", Decimal("0"))
             in_prod = breakdown.get("in_production", Decimal("0"))
@@ -575,7 +597,14 @@ class CheckoutView(View):
                         "message": message,
                     }
                 )
-        return warnings
+
+        service_unavailable = skipped > 0 and checked == 0
+        if service_unavailable:
+            logger.warning(
+                "checkout.stock_check_unavailable: %d item(s) skipped, service may be down",
+                skipped,
+            )
+        return warnings, service_unavailable
 
     @staticmethod
     def _get_session_held_qty(request: HttpRequest) -> dict[str, int]:

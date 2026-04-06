@@ -41,12 +41,28 @@ def initiate(order) -> None:
         return
 
     amount_q = order.total_q
-    intent = adapter.create_intent(
-        amount_q=amount_q,
-        currency="BRL",
-        reference=order.ref,
-        metadata={"method": method},
-    )
+    try:
+        intent = adapter.create_intent(
+            amount_q=amount_q,
+            currency="BRL",
+            reference=order.ref,
+            metadata={"method": method},
+        )
+    except Exception as exc:
+        logger.error(
+            "payment.initiate: create_intent failed for order %s method=%s: %s",
+            order.ref,
+            method,
+            exc,
+        )
+        order.data["payment"] = {
+            "method": method,
+            "status": "pending_retry",
+            "amount_q": amount_q,
+            "error": str(exc)[:200],
+        }
+        order.save(update_fields=["data", "updated_at"])
+        return
 
     # Build payment data to save
     result = {
