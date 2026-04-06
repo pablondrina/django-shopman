@@ -65,7 +65,8 @@ def _build_ops_from_data(data: dict) -> list[dict]:
     # Standard checkout fields stored in session.data
     data_fields = [
         "customer", "fulfillment_type", "delivery_address",
-        "delivery_date", "delivery_time_slot", "order_notes",
+        "delivery_address_structured", "delivery_date",
+        "delivery_time_slot", "order_notes",
         "payment",
     ]
 

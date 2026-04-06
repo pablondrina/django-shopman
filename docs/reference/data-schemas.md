@@ -25,6 +25,8 @@ O Core não impõe schema — a governança é por convenção documentada aqui.
 | `coupon_code` | `string` | CartService.apply_coupon | CouponModifier, CartService.get_cart_summary | Código do cupom aplicado (uppercase) |
 | `availability` | `dict` | StockCheckHandler (via checks) | D1DiscountModifier | Mapa SKU → `{is_d1: bool}`. Flag D-1 por produto |
 | `outside_business_hours` | `bool` | BusinessHoursRule (validation) | CheckoutView, CommitService | `True` se pedido feito fora do horário. Não bloqueia checkout — apenas flag informativa |
+| `delivery_address_structured` | `dict` | CheckoutView (`set_data`) | CommitService | Endereço estruturado do Google Places: `{route, street_number, complement, neighborhood, city, state_code, postal_code, place_id, formatted_address, delivery_instructions, is_verified, latitude, longitude}` |
+| `payment` | `dict` | CheckoutView (`set_data`), POS, API | CommitService, hooks, handlers | Dados de pagamento iniciais: `{method}`. Enriquecido por handlers pós-commit (intent_id, status, etc.) |
 
 ### Chaves de sistema (geridas pelo Core)
 
@@ -38,7 +40,8 @@ O Core não impõe schema — a governança é por convenção documentada aqui.
 O `ModifyService` aceita operações `set_data` nas seguintes paths:
 `customer`, `delivery`, `payment`, `notes`, `meta`, `extra`, `custom`, `tags`,
 `discounts`, `fees`, `tip`, `coupon`, `source`, `operator`, `table`, `tab`,
-`fulfillment_type`, `delivery_address`, `delivery_date`, `delivery_time_slot`, `order_notes`.
+`fulfillment_type`, `delivery_address`, `delivery_address_structured`,
+`delivery_date`, `delivery_time_slot`, `order_notes`.
 
 Paths **proibidas** (geridas pelo sistema): `checks`, `issues`, `state`, `status`,
 `rev`, `session_key`, `channel`, `items`, `pricing`, `pricing_trace`, `__`.
@@ -82,8 +85,9 @@ A lista de chaves propagadas está explícita em `commit.py`, método `_do_commi
 ```python
 for key in (
     "customer", "fulfillment_type", "delivery_address",
-    "delivery_date", "delivery_time_slot", "order_notes",
-    "origin_channel",
+    "delivery_address_structured", "delivery_date",
+    "delivery_time_slot", "order_notes",
+    "origin_channel", "payment",
 ):
 ```
 
@@ -99,7 +103,7 @@ for key in (
 
 | Chave | Tipo | Escrito por | Lido por | Descrição |
 |-------|------|-------------|----------|-----------|
-| `payment` | `dict` | PaymentHandler, CheckoutView, webhooks, hooks | Muitos (ver abaixo) | Dados de pagamento (ver detalhamento) |
+| `payment` | `dict` | CommitService (propagado de Session.data), PaymentHandler, webhooks, hooks | Muitos (ver abaixo) | Dados de pagamento (ver detalhamento). `{method}` propagado pelo CommitService; enriquecido por handlers pós-commit (intent_id, status, etc.) |
 | `customer_ref` | `string` | CustomerIdentificationHandler | CheckoutInferDefaultsHandler | Ref do Customer criado/encontrado |
 | `fulfillment_created` | `bool` | FulfillmentCreateHandler | FulfillmentCreateHandler (idempotência) | Flag: Fulfillment object criado |
 | `cancellation_reason` | `string` | PixTimeoutHandler, PaymentTimeoutHandler, ConfirmationTimeoutHandler, OrderCancelView, GestorOrderRejectView | hooks._on_cancelled | Motivo: `"pix_timeout"`, `"card_timeout"`, `"confirmation_timeout"`, `"customer_requested"`, texto livre |
@@ -114,16 +118,6 @@ for key in (
 | `nfce_cancellation_protocol` | `string` | NFCeCancelHandler | — | Protocolo de cancelamento |
 | `session_key` | `string` | hooks._on_cancelled | hooks._on_cancelled | Chave de sessão original (referência para release holds) |
 
-### Chaves escritas pós-commit pelo CheckoutView
-
-| Chave | Tipo | Escrito por | Descrição |
-|-------|------|-------------|-----------|
-| `delivery_address_structured` | `dict` | CheckoutView.post | Endereço estruturado do Google Places: `{route, street_number, complement, neighborhood, city, state_code, postal_code, place_id, formatted_address, delivery_instructions, is_verified, latitude, longitude}` |
-| `fulfillment_type` | `string` | CheckoutView.post | Re-escrito pós-commit (redundância com CommitService) |
-| `delivery_address` | `string` | CheckoutView.post | Re-escrito pós-commit (redundância com CommitService) |
-| `delivery_date` | `string` | CheckoutView.post | Re-escrito pós-commit (redundância com CommitService) |
-| `delivery_time_slot` | `string` | CheckoutView.post | Re-escrito pós-commit (redundância com CommitService) |
-| `order_notes` | `string` | CheckoutView.post | Re-escrito pós-commit (redundância com CommitService) |
 
 ### Chaves lidas por views (convenience — fallback para vazio)
 
@@ -153,7 +147,7 @@ for key in (
 
 | Sub-chave | Tipo | Escrito por | Descrição |
 |-----------|------|-------------|-----------|
-| `method` | `string` | CheckoutView, PixGenerateHandler, CardCreateHandler | `"pix"`, `"card"`, `"counter"`, `"external"` |
+| `method` | `string` | CheckoutView (via Session.data → CommitService), PixGenerateHandler, CardCreateHandler | `"pix"`, `"card"`, `"counter"`, `"external"` |
 | `intent_id` | `string` | PixGenerateHandler, CardCreateHandler | ID do intent no gateway |
 | `status` | `string` | PixGenerateHandler, hooks.on_payment_confirmed | `"pending"`, `"captured"`, `"refunded"`, `"expired"`, `"failed"` |
 | `amount_q` | `int` | PixGenerateHandler, CardCreateHandler | Valor em centavos |
@@ -603,7 +597,7 @@ Estas chaves são lidas diretamente de `channel.config` como dict bruto, sem pas
 4. **Nenhum handler lê chave de outro handler** sem contrato documentado aqui.
 5. **Nome da chave**: snake_case, descritivo, sem prefixo redundante (ex: `origin_channel`, não `session_origin_channel`).
 6. **Tipo**: consistente. Valores monetários sempre `_q` (int centavos). Datas sempre ISO string.
-7. **CommitService propaga exatamente estas chaves**: `customer`, `fulfillment_type`, `delivery_address`, `delivery_date`, `delivery_time_slot`, `order_notes`, `origin_channel`. Mais `is_preorder` (computado).
+7. **CommitService propaga exatamente estas chaves**: `customer`, `fulfillment_type`, `delivery_address`, `delivery_address_structured`, `delivery_date`, `delivery_time_slot`, `order_notes`, `origin_channel`, `payment`. Mais `is_preorder` (computado).
 8. **Order.snapshot é imutável**. Nunca editar após o commit. Contém `items`, `data`, `pricing`, `rev`.
 9. **Directive.payload varia por topic**. Cada handler documenta as chaves que lê e escreve na sua seção acima.
 10. **Channel.config usa ChannelConfig dataclass**. Chaves fora do schema devem ser documentadas na seção "Chaves legadas".

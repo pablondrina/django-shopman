@@ -16,7 +16,7 @@ from django_ratelimit.decorators import ratelimit
 logger = logging.getLogger(__name__)
 
 from shopman.ordering.ids import generate_idempotency_key
-from shopman.ordering.models import Channel, Order
+from shopman.ordering.models import Channel
 from shopman.services.checkout_defaults import CheckoutDefaultsService
 from shopman.utils.phone import normalize_phone
 
@@ -271,10 +271,16 @@ class CheckoutView(View):
             checkout_data["order_notes"] = notes
         if fulfillment_type == "delivery" and delivery_address:
             checkout_data["delivery_address"] = delivery_address
+            if addr_data.get("formatted_address"):
+                checkout_data["delivery_address_structured"] = {
+                    k: v for k, v in addr_data.items() if v
+                }
         if delivery_date:
             checkout_data["delivery_date"] = delivery_date
         if delivery_time_slot:
             checkout_data["delivery_time_slot"] = delivery_time_slot
+        if chosen_method in ("pix", "card"):
+            checkout_data["payment"] = {"method": chosen_method}
 
         idempotency_key = generate_idempotency_key()
         result = checkout_process(
@@ -283,29 +289,7 @@ class CheckoutView(View):
             data=checkout_data,
             idempotency_key=idempotency_key,
         )
-
-        # ── Post-commit: enrich order data ──
         order_ref = result["order_ref"]
-        try:
-            order = Order.objects.get(ref=order_ref)
-            order.data["fulfillment_type"] = fulfillment_type
-            if fulfillment_type == "delivery" and delivery_address:
-                order.data["delivery_address"] = delivery_address
-                if addr_data.get("formatted_address"):
-                    order.data["delivery_address_structured"] = {
-                        k: v for k, v in addr_data.items() if v
-                    }
-            if delivery_date:
-                order.data["delivery_date"] = delivery_date
-            if delivery_time_slot:
-                order.data["delivery_time_slot"] = delivery_time_slot
-            if notes:
-                order.data["order_notes"] = notes
-            if chosen_method in ("pix", "card"):
-                order.data["payment"] = {"method": chosen_method}
-            order.save(update_fields=["data", "updated_at"])
-        except Order.DoesNotExist:
-            pass
 
         # ── Ensure customer exists ──
         from django.db import IntegrityError

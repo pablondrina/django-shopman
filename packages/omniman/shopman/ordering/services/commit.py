@@ -270,8 +270,9 @@ class CommitService:
         session_data = session.data or {}
         for key in (
             "customer", "fulfillment_type", "delivery_address",
-            "delivery_date", "delivery_time_slot", "order_notes",
-            "origin_channel",
+            "delivery_address_structured", "delivery_date",
+            "delivery_time_slot", "order_notes",
+            "origin_channel", "payment",
         ):
             if key in session_data:
                 order_data[key] = session_data[key]
