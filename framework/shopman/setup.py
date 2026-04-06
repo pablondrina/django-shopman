@@ -237,6 +237,7 @@ def _register_pricing_modifiers() -> None:
     from shopman.handlers.pricing import ItemPricingModifier, SessionTotalModifier
     from shopman.modifiers import (
         D1DiscountModifier,
+        DeliveryFeeModifier,
         DiscountModifier,
         EmployeeDiscountModifier,
         HappyHourModifier,
@@ -250,6 +251,7 @@ def _register_pricing_modifiers() -> None:
         SessionTotalModifier(),
         EmployeeDiscountModifier(),
         HappyHourModifier(),
+        DeliveryFeeModifier(),
     ]
     for modifier in modifiers:
         try:
@@ -275,6 +277,14 @@ def _register_stock_validator() -> None:
 
     try:
         registry.register_validator(StockCheckValidator())
+    except (ValueError, TypeError):
+        pass
+
+    # Delivery zone — bloqueia commit quando endereço não atendido
+    from shopman.rules.validation import DeliveryZoneRule
+
+    try:
+        registry.register_validator(DeliveryZoneRule())
     except (ValueError, TypeError):
         pass
 

@@ -27,6 +27,8 @@ O Core não impõe schema — a governança é por convenção documentada aqui.
 | `outside_business_hours` | `bool` | BusinessHoursRule (validation) | CheckoutView, CommitService | `True` se pedido feito fora do horário. Não bloqueia checkout — apenas flag informativa |
 | `delivery_address_structured` | `dict` | CheckoutView (`set_data`) | CommitService | Endereço estruturado do Google Places: `{route, street_number, complement, neighborhood, city, state_code, postal_code, place_id, formatted_address, delivery_instructions, is_verified, latitude, longitude}` |
 | `payment` | `dict` | CheckoutView (`set_data`), POS, API | CommitService, hooks, handlers | Dados de pagamento iniciais: `{method}`. Enriquecido por handlers pós-commit (intent_id, status, etc.) |
+| `delivery_fee_q` | `int` | DeliveryFeeModifier (via `session.save`) | CommitService, CartService, tracking view | Taxa de entrega em centavos. 0 = grátis. Só presente quando `fulfillment_type == "delivery"` e zona encontrada |
+| `delivery_zone_error` | `bool` | DeliveryFeeModifier (via `session.save`) | DeliveryZoneRule validator | `True` quando endereço de entrega não está coberto por nenhuma DeliveryZone ativa. Bloqueia commit |
 
 ### Chaves de sistema (geridas pelo Core)
 
@@ -88,10 +90,17 @@ for key in (
     "delivery_address_structured", "delivery_date",
     "delivery_time_slot", "order_notes",
     "origin_channel", "payment",
+    "delivery_fee_q",
 ):
 ```
 
 **Para adicionar uma nova chave ao fluxo Session→Order, adicione-a nessa lista.**
+
+### Chaves adicionadas por modifiers pré-commit (Session.data → Order.data)
+
+| Chave | Tipo | Escrito por | Descrição |
+|-------|------|-------------|-----------|
+| `delivery_fee_q` | `int` | DeliveryFeeModifier | Taxa de entrega em centavos. 0 = grátis |
 
 ### Chaves computadas pelo CommitService
 
@@ -597,7 +606,7 @@ Estas chaves são lidas diretamente de `channel.config` como dict bruto, sem pas
 4. **Nenhum handler lê chave de outro handler** sem contrato documentado aqui.
 5. **Nome da chave**: snake_case, descritivo, sem prefixo redundante (ex: `origin_channel`, não `session_origin_channel`).
 6. **Tipo**: consistente. Valores monetários sempre `_q` (int centavos). Datas sempre ISO string.
-7. **CommitService propaga exatamente estas chaves**: `customer`, `fulfillment_type`, `delivery_address`, `delivery_address_structured`, `delivery_date`, `delivery_time_slot`, `order_notes`, `origin_channel`, `payment`. Mais `is_preorder` (computado).
+7. **CommitService propaga exatamente estas chaves**: `customer`, `fulfillment_type`, `delivery_address`, `delivery_address_structured`, `delivery_date`, `delivery_time_slot`, `order_notes`, `origin_channel`, `payment`, `delivery_fee_q`. Mais `is_preorder` (computado).
 8. **Order.snapshot é imutável**. Nunca editar após o commit. Contém `items`, `data`, `pricing`, `rev`.
 9. **Directive.payload varia por topic**. Cada handler documenta as chaves que lê e escreve na sua seção acima.
 10. **Channel.config usa ChannelConfig dataclass**. Chaves fora do schema devem ser documentadas na seção "Chaves legadas".

@@ -42,9 +42,15 @@
   </div>
   {% endif %}
   {% endif %}
-  <div class="flex justify-between items-baseline gap-3 {% if cart.has_discount %}pt-2 border-t border-border{% endif %}">
+  {% if cart.delivery_fee_display %}
+  <div class="flex justify-between text-body-sm text-muted-foreground">
+    <span>Taxa de entrega</span>
+    <span class="tabular-nums {% if cart.delivery_fee_q == 0 %}text-success font-medium{% endif %}">{{ cart.delivery_fee_display }}</span>
+  </div>
+  {% endif %}
+  <div class="flex justify-between items-baseline gap-3 {% if cart.has_discount or cart.delivery_fee_display %}pt-2 border-t border-border{% endif %}">
     <span class="font-heading text-h4 text-foreground">Total</span>
-    <span class="text-xl font-bold text-primary tabular-nums">{{ cart.subtotal_display }}</span>
+    <span class="text-xl font-bold text-primary tabular-nums">{% if cart.delivery_fee_display %}{{ cart.grand_total_display }}{% else %}{{ cart.subtotal_display }}{% endif %}</span>
   </div>
 </div>
 

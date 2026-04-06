@@ -90,6 +90,34 @@ class BusinessHoursRule:
         return None
 
 
+class DeliveryZoneRule:
+    """Bloqueia checkout quando o endereço de entrega está fora das zonas cobertas.
+
+    Ativado apenas quando fulfillment_type == "delivery" e
+    session.data["delivery_zone_error"] é True (setado pelo DeliveryFeeModifier).
+    """
+
+    code = "shop.delivery_zone"
+    label = "Zona de Entrega"
+    rule_type = "validator"
+    stage = "commit"
+    default_params = {}
+
+    def validate(self, *, channel: Any, session: Any, ctx: dict) -> None:
+        from shopman.ordering.exceptions import ValidationError as OrderingValidationError
+
+        session_data = getattr(session, "data", None) or {}
+        fulfillment_type = session_data.get("fulfillment_type", "")
+        if fulfillment_type != "delivery":
+            return
+
+        if session_data.get("delivery_zone_error"):
+            raise OrderingValidationError(
+                code="delivery_zone_not_covered",
+                message="Não entregamos neste endereço ainda.",
+            )
+
+
 class MinimumOrderRule:
     """Minimum order value for delivery orders.
 

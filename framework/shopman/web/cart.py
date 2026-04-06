@@ -221,6 +221,15 @@ class CartService:
                 for lab, q in sorted(agg.items(), key=lambda x: -x[1])
             ]
 
+        # Delivery fee (set by DeliveryFeeModifier when fulfillment_type == "delivery")
+        delivery_fee_q = data.get("delivery_fee_q")
+        delivery_fee_display = None
+        if delivery_fee_q is not None:
+            delivery_fee_display = "Grátis" if delivery_fee_q == 0 else f"R$ {format_money(delivery_fee_q)}"
+
+        # Grand total (subtotal + delivery fee)
+        grand_total_q = subtotal_q + (delivery_fee_q or 0)
+
         return {
             "items": items,
             "subtotal_q": subtotal_q,
@@ -234,6 +243,10 @@ class CartService:
             "original_subtotal_q": original_subtotal_q,
             "original_subtotal_display": f"R$ {format_money(original_subtotal_q)}",
             "discount_lines": discount_lines,
+            "delivery_fee_q": delivery_fee_q,
+            "delivery_fee_display": delivery_fee_display,
+            "grand_total_q": grand_total_q,
+            "grand_total_display": f"R$ {format_money(grand_total_q)}",
         }
 
     @staticmethod

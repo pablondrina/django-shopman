@@ -283,12 +283,40 @@ class CheckoutView(View):
             checkout_data["payment"] = {"method": chosen_method}
 
         idempotency_key = generate_idempotency_key()
-        result = checkout_process(
-            session_key=session_key,
-            channel_ref=CHANNEL_REF,
-            data=checkout_data,
-            idempotency_key=idempotency_key,
-        )
+        try:
+            result = checkout_process(
+                session_key=session_key,
+                channel_ref=CHANNEL_REF,
+                data=checkout_data,
+                idempotency_key=idempotency_key,
+            )
+        except Exception as exc:
+            # Map ordering ValidationError to user-visible checkout error
+            from shopman.ordering.exceptions import ValidationError as OrderingValidationError
+
+            if isinstance(exc, OrderingValidationError):
+                field = "delivery_address" if exc.code == "delivery_zone_not_covered" else "checkout"
+                errors[field] = exc.message
+                return self._render_with_errors(
+                    request, cart, errors, name, phone_raw, notes,
+                    extra_form_data={
+                        "delivery_date": delivery_date,
+                        "delivery_time_slot": delivery_time_slot,
+                        "fulfillment_type": fulfillment_type,
+                        "delivery_address": delivery_address,
+                        "saved_address_id": saved_address_id,
+                        "payment_method": chosen_method,
+                        "addr_route": addr_data.get("route", ""),
+                        "addr_street_number": addr_data.get("street_number", ""),
+                        "addr_complement": addr_data.get("complement", ""),
+                        "addr_neighborhood": addr_data.get("neighborhood", ""),
+                        "addr_city": addr_data.get("city", ""),
+                        "addr_state_code": addr_data.get("state_code", ""),
+                        "addr_postal_code": addr_data.get("postal_code", ""),
+                        "addr_delivery_instructions": addr_data.get("delivery_instructions", ""),
+                    },
+                )
+            raise
         order_ref = result["order_ref"]
 
         # ── Ensure customer exists ──

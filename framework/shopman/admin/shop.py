@@ -14,7 +14,16 @@ from unfold.widgets import UnfoldAdminColorInputWidget
 
 from shopman.admin.widgets import FontPreviewWidget
 from shopman.colors import oklch_to_hex
-from shopman.models import NotificationTemplate, Shop
+from shopman.models import DeliveryZone, NotificationTemplate, Shop
+
+
+class DeliveryZoneInline(admin.TabularInline):
+    model = DeliveryZone
+    extra = 0
+    fields = ("name", "zone_type", "match_value", "fee_q", "sort_order", "is_active")
+    ordering = ("zone_type", "sort_order", "name")
+    verbose_name = "zona de entrega"
+    verbose_name_plural = "zonas de entrega"
 
 
 class ShopForm(forms.ModelForm):
@@ -59,6 +68,7 @@ def _token_value_to_hex(val: str) -> str:
 class ShopAdmin(ModelAdmin):
     form = ShopForm
     readonly_fields = ("color_preview", "storefront_preview")
+    inlines = [DeliveryZoneInline]
 
     def get_urls(self):
         from shopman.web.views.closing import closing_view

@@ -194,6 +194,13 @@ def _build_tracking_context(order: Order) -> dict:
         prep_minutes = getattr(shop, "prep_time_minutes", None) or 30
         eta = tz.localtime(order.created_at) + tz.timedelta(minutes=prep_minutes)
 
+    # Delivery fee from order.data (propagated by CommitService)
+    order_data = order.data or {}
+    delivery_fee_q = order_data.get("delivery_fee_q")
+    delivery_fee_display = None
+    if delivery_fee_q is not None:
+        delivery_fee_display = "Grátis" if delivery_fee_q == 0 else f"R$ {format_money(delivery_fee_q)}"
+
     return {
         "order": order,
         "status_label": STATUS_LABELS.get(order.status, order.status),
@@ -201,6 +208,8 @@ def _build_tracking_context(order: Order) -> dict:
         "timeline": timeline,
         "items": items,
         "total_display": f"R$ {format_money(order.total_q)}",
+        "delivery_fee_q": delivery_fee_q,
+        "delivery_fee_display": delivery_fee_display,
         "delivery_fulfillments": delivery_fulfillments,
         "pickup_fulfillments": pickup_fulfillments,
         "pickup": pickup,

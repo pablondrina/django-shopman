@@ -77,6 +77,7 @@ class Command(BaseCommand):
 
         self._create_superuser()
         self._seed_shop()
+        self._seed_delivery_zones()
         products = self._seed_catalog()
         positions = self._seed_positions()
         self._seed_stock(products, positions)
@@ -151,6 +152,59 @@ class Command(BaseCommand):
             },
         )
         self.stdout.write("  ✅ Shop criado" if created else "  ✅ Shop atualizado")
+
+    # ────────────────────────────────────────────────────────────────
+    # Delivery Zones
+    # ────────────────────────────────────────────────────────────────
+
+    def _seed_delivery_zones(self):
+        from shopman.models import DeliveryZone
+
+        shop = Shop.objects.get(pk=1)
+        # Londrina — CEP prefixes: 860xx e 861xx (regiao metropolitana)
+        # https://www.correios.com.br/ — Londrina PR: 86000-000 a 86099-999, 86100-000 a 86199-999
+        zones = [
+            {
+                "name": "Londrina Centro e Norte",
+                "zone_type": DeliveryZone.ZONE_TYPE_CEP_PREFIX,
+                "match_value": "860",
+                "fee_q": 600,   # R$ 6,00
+                "sort_order": 10,
+            },
+            {
+                "name": "Londrina Sul e Leste",
+                "zone_type": DeliveryZone.ZONE_TYPE_CEP_PREFIX,
+                "match_value": "861",
+                "fee_q": 800,   # R$ 8,00
+                "sort_order": 20,
+            },
+            {
+                "name": "Bairro Bela Suíça (grátis)",
+                "zone_type": DeliveryZone.ZONE_TYPE_NEIGHBORHOOD,
+                "match_value": "Bela Suíça",
+                "fee_q": 0,     # entrega grátis
+                "sort_order": 5,
+            },
+            {
+                "name": "Cambé e Ibiporã",
+                "zone_type": DeliveryZone.ZONE_TYPE_CEP_PREFIX,
+                "match_value": "862",
+                "fee_q": 1200,  # R$ 12,00
+                "sort_order": 30,
+            },
+        ]
+        created_count = 0
+        for data in zones:
+            _, created = DeliveryZone.objects.update_or_create(
+                shop=shop,
+                name=data["name"],
+                defaults={k: v for k, v in data.items() if k != "name"},
+            )
+            if created:
+                created_count += 1
+        self.stdout.write(
+            f"  ✅ Zonas de entrega: {len(zones)} configuradas ({created_count} novas)"
+        )
 
     # ────────────────────────────────────────────────────────────────
     # Superuser

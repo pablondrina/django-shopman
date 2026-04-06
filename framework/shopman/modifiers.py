@@ -13,6 +13,7 @@ Execution order:
   50  pricing.session_total — recalculate total
   60  shop.employee_discount
   65  shop.happy_hour
+  70  shop.delivery_fee     — taxa de entrega por zona (só delivery)
 
 Discount policy — "maior desconto ganha":
   Per item, only ONE discount applies (the best one).
@@ -380,3 +381,52 @@ class HappyHourModifier:
 
         if modified:
             session.update_items(items)
+
+
+class DeliveryFeeModifier:
+    """
+    Taxa de entrega calculada por zona (DeliveryZone).
+
+    Só se aplica quando fulfillment_type == "delivery".
+    Lê postal_code e neighborhood de session.data["delivery_address_structured"].
+    Busca a DeliveryZone ativa de maior prioridade que coincide com o endereço.
+
+    Se nenhuma zona coincidir → seta session.data["delivery_zone_error"] = True.
+    Se zona encontrada → seta session.data["delivery_fee_q"] = zone.fee_q.
+    fee_q == 0 → entrega grátis (sem erro).
+    """
+
+    code = "shop.delivery_fee"
+    order = 70
+
+    def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
+        from shopman.models import DeliveryZone
+
+        data = session.data or {}
+        fulfillment_type = data.get("fulfillment_type", "")
+        if fulfillment_type != "delivery":
+            return
+
+        addr_structured = data.get("delivery_address_structured") or {}
+        postal_code = (addr_structured.get("postal_code") or "").strip()
+        neighborhood = (addr_structured.get("neighborhood") or "").strip()
+
+        if not postal_code and not neighborhood:
+            # Endereço ainda não preenchido (pré-checkout) — não calcular taxa
+            return
+
+        zone = DeliveryZone.match(postal_code=postal_code, neighborhood=neighborhood)
+
+        if zone is None:
+            # Endereço fora da área de entrega
+            new_data = {**data, "delivery_zone_error": True}
+            new_data.pop("delivery_fee_q", None)
+            session.data = new_data
+            session.save(update_fields=["data"])
+            return
+
+        # Zona encontrada — gravar taxa e limpar eventual erro anterior
+        new_data = {**data, "delivery_fee_q": zone.fee_q}
+        new_data.pop("delivery_zone_error", None)
+        session.data = new_data
+        session.save(update_fields=["data"])
