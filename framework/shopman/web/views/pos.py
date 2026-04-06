@@ -33,7 +33,8 @@ def _resolve_customer(phone: str):
 
         normalized = normalize_phone(phone)
         return Customer.objects.select_related("group").filter(phone=normalized).first()
-    except Exception:
+    except Exception as e:
+        logger.warning("pos_resolve_customer_failed phone=%s: %s", phone, e, exc_info=True)
         return None
 
 
@@ -57,8 +58,8 @@ def _load_products():
             p = li.product
             price_q = li.price_q if li.price_q else p.base_price_q
             products.append(_product_dict(p, price_q))
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("pos_load_products_listing_failed: %s", e, exc_info=True)
 
     if not products:
         for p in Product.objects.filter(is_published=True, is_available=True).order_by("name"):

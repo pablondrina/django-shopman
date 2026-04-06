@@ -102,7 +102,7 @@ class BridgeTokenView(View):
                     return "instagram"
                 if meta.get("channel") == "whatsapp":
                     return "whatsapp"
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("bridge_resolve_origin_failed: %s", e, exc_info=True)
 
         return SOURCE_TO_ORIGIN.get(source, "web")

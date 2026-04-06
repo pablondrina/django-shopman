@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 
 from django.http import HttpRequest, HttpResponse
@@ -10,6 +11,8 @@ from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
+
+logger = logging.getLogger(__name__)
 
 from shopman.ordering.ids import generate_idempotency_key
 from shopman.ordering.models import Channel, Order
@@ -71,8 +74,8 @@ class CheckoutView(View):
                 )
                 if checkout_defaults:
                     ctx["checkout_defaults"] = checkout_defaults
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("checkout_defaults_failed: %s", e, exc_info=True)
 
         return ctx
 
@@ -117,7 +120,8 @@ class CheckoutView(View):
                     errors["phone"] = (
                         "Telefone inválido. Informe com DDD, ex: (43) 99999-9999"
                     )
-            except Exception:
+            except Exception as e:
+                logger.warning("phone_normalization_failed: %s", e, exc_info=True)
                 errors["phone"] = (
                     "Telefone inválido. Informe com DDD, ex: (43) 99999-9999"
                 )
@@ -340,8 +344,8 @@ class CheckoutView(View):
                     data=defaults_data,
                     source=f"order:{order_ref}",
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("save_checkout_defaults_failed order=%s: %s", order_ref, e, exc_info=True)
 
         # Clear cart
         request.session.pop("cart_session_key", None)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import time
 
 from django.http import HttpRequest
@@ -10,6 +11,8 @@ from shopman.utils.monetary import format_money
 
 from ..constants import HAS_STOCKING, STOREFRONT_CHANNEL_REF
 
+logger = logging.getLogger(__name__)
+
 
 def _get_channel_listing_ref() -> str | None:
     """Ref da Listagem do canal web (`Channel.listing_ref`) — catálogo e preço ofertados."""
@@ -18,7 +21,8 @@ def _get_channel_listing_ref() -> str | None:
 
         channel = Channel.objects.filter(ref=STOREFRONT_CHANNEL_REF).first()
         return channel.listing_ref if channel else None
-    except Exception:
+    except Exception as e:
+        logger.warning("channel_listing_ref_failed: %s", e, exc_info=True)
         return None
 
 
@@ -63,7 +67,8 @@ def _get_availability(sku: str) -> dict | None:
             safety_margin=scope["safety_margin"],
             allowed_positions=scope["allowed_positions"],
         )
-    except Exception:
+    except Exception as e:
+        logger.warning("availability_lookup_failed sku=%s: %s", sku, e, exc_info=True)
         return None
 
 
@@ -145,7 +150,8 @@ def _storefront_session_pricing_hints(request: HttpRequest | None) -> tuple[str,
         ft = (sess.data or {}).get("fulfillment_type") or ""
         total = sum(int(line.get("line_total_q", 0) or 0) for line in (sess.items or []))
         return ft, total
-    except Exception:
+    except Exception as e:
+        logger.warning("session_pricing_hints_failed: %s", e, exc_info=True)
         return "", 0
 
 
@@ -176,8 +182,8 @@ def _d1_discount_percent() -> int:
         channel = Channel.objects.filter(ref=STOREFRONT_CHANNEL_REF).first()
         if channel and channel.config:
             return channel.config.get("rules", {}).get("d1_discount_percent", D1_DISCOUNT_PERCENT)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("d1_discount_percent_failed: %s", e, exc_info=True)
     return D1_DISCOUNT_PERCENT
 
 
@@ -509,7 +515,8 @@ def _popular_skus(limit: int = 5) -> set[str]:
             return set()
         sorted_skus = sorted(sku_counts, key=sku_counts.get, reverse=True)
         return set(sorted_skus[:limit])
-    except Exception:
+    except Exception as e:
+        logger.warning("popular_skus_failed: %s", e, exc_info=True)
         return set()
 
 
@@ -554,7 +561,8 @@ def _hero_data(listing_ref: str | None = None, request: HttpRequest | None = Non
                             "collection__slug", flat=True,
                         ),
                     )
-                except Exception:
+                except Exception as e:
+                    logger.warning("hero_data_collections_failed: %s", e, exc_info=True)
                     cols = []
                 ft_hint, sub_hint = _storefront_session_pricing_hints(request) if request else ("", 0)
                 disc_q, _ = _best_auto_promotion_discount_q(
@@ -592,8 +600,8 @@ def _hero_data(listing_ref: str | None = None, request: HttpRequest | None = Non
                     "image_url": product.image_url,
                     "sku": product.sku,
                 }
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("hero_data_failed: %s", e, exc_info=True)
     return None
 
 
@@ -626,8 +634,8 @@ def _min_order_progress(subtotal_q: int, channel_ref: str = STOREFRONT_CHANNEL_R
                             minimum_q = int(raw)
                     if not minimum_q:
                         minimum_q = MINIMUM_ORDER_Q
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("min_order_progress_failed: %s", e, exc_info=True)
 
     if not minimum_q or subtotal_q >= minimum_q:
         return None
@@ -719,7 +727,8 @@ def _cross_sell_products(
         if not products:
             return []
         return _annotate_products(products, listing_ref=listing_ref, request=request)
-    except Exception:
+    except Exception as e:
+        logger.warning("cross_sell_products_failed sku=%s: %s", sku, e, exc_info=True)
         return []
 
 

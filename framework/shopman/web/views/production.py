@@ -60,6 +60,7 @@ def production_void_view(request, admin_site):
     except WorkOrder.DoesNotExist:
         messages.error(request, "Ordem não encontrada.")
     except Exception as exc:
+        logger.warning("production_void_failed wo_id=%s: %s", wo_id, exc, exc_info=True)
         messages.error(request, f"Erro ao estornar: {exc}")
 
     return HttpResponseRedirect(reverse("admin:shop_production"))

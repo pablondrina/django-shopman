@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
@@ -7,6 +9,8 @@ from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
+
+logger = logging.getLogger(__name__)
 
 from shopman.offering.models import Collection, Product
 from shopman.offering.service import CatalogService
@@ -147,7 +151,8 @@ class MenuView(View):
                     "value": p.value,
                 })
             return result
-        except Exception:
+        except Exception as e:
+            logger.warning("active_promotions_failed: %s", e, exc_info=True)
             return []
 
 
@@ -225,7 +230,8 @@ def _load_alternatives(sku: str, listing_ref: str | None, request: HttpRequest |
         return _annotate_products(candidates, listing_ref=listing_ref, request=request)
     except ImportError:
         return []
-    except Exception:
+    except Exception as e:
+        logger.warning("load_alternatives_failed sku=%s: %s", sku, e, exc_info=True)
         return []
 
 
@@ -283,7 +289,8 @@ class ProductDetailView(View):
                         "collection__slug", flat=True,
                     ),
                 )
-            except Exception:
+            except Exception as e:
+                logger.warning("product_collections_failed sku=%s: %s", product.sku, e, exc_info=True)
                 cols = []
             disc_q, promo = _best_auto_promotion_discount_q(
                 product.sku,
@@ -308,8 +315,8 @@ class ProductDetailView(View):
         if product.is_bundle:
             try:
                 components = CatalogService.expand(product.sku)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("bundle_expand_failed sku=%s: %s", product.sku, e, exc_info=True)
 
         # Alternatives when sold out or paused
         alternatives = []
@@ -332,8 +339,8 @@ class ProductDetailView(View):
             ci = CollectionItem.objects.filter(product=product).select_related("collection").first()
             if ci and ci.collection.is_active:
                 breadcrumb_collection = ci.collection
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("breadcrumb_collection_failed sku=%s: %s", product.sku, e, exc_info=True)
 
         # Available quantity for JS notice
         available_qty = _extract_available_qty(avail)

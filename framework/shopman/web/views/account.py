@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import logging
+
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
+
+logger = logging.getLogger(__name__)
 
 from shopman.ordering.models import Order
 from shopman.utils.monetary import format_money
@@ -29,8 +33,8 @@ def _get_loyalty_data(customer):
         if account:
             transactions = LoyaltyService.get_transactions(customer.ref, limit=5)
             return account, transactions
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("loyalty_data_failed customer=%s: %s", customer.ref, e, exc_info=True)
     return None, []
 
 
@@ -54,8 +58,8 @@ def _get_notification_prefs(customer) -> list[dict]:
                 "description": description,
                 "enabled": enabled,
             })
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("notification_prefs_failed customer=%s: %s", customer.ref, e, exc_info=True)
     return prefs
 
 
@@ -102,8 +106,8 @@ class AccountView(View):
             prefs = CustomerPreference.objects.filter(customer=customer).order_by("category", "key")
             if prefs.exists():
                 preferences = prefs
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("customer_preferences_failed: %s", e, exc_info=True)
 
         loyalty_account, loyalty_transactions = _get_loyalty_data(customer)
 
@@ -123,8 +127,8 @@ class AccountView(View):
                     customer=customer, category="alimentar",
                 ).values_list("key", flat=True)
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("food_preferences_failed: %s", e, exc_info=True)
         food_pref_options = [
             (key, label, key in active_food_keys) for key, label in FOOD_PREFERENCE_OPTIONS
         ]
@@ -539,7 +543,8 @@ class DataExportView(View):
                     "category", "key", "value", "preference_type",
                 )
             )
-        except Exception:
+        except Exception as e:
+            logger.warning("data_export_preferences_failed: %s", e, exc_info=True)
             data["preferences"] = []
 
         # Consent
@@ -550,7 +555,8 @@ class DataExportView(View):
                     "channel", "status", "consented_at", "revoked_at",
                 )
             )
-        except Exception:
+        except Exception as e:
+            logger.warning("data_export_consents_failed: %s", e, exc_info=True)
             data["consents"] = []
 
         # Loyalty
@@ -574,8 +580,8 @@ class DataExportView(View):
                     }
                     for t in txns
                 ]
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("data_export_loyalty_failed: %s", e, exc_info=True)
 
         response = JsonResponse(data, json_dumps_params={"ensure_ascii": False, "indent": 2})
         response["Content-Disposition"] = f'attachment; filename="meus-dados-{customer.ref}.json"'
@@ -591,9 +597,6 @@ class AccountDeleteView(View):
             return HttpResponse("", status=401)
 
         import hashlib
-        import logging
-
-        logger = logging.getLogger(__name__)
 
         # Anonymize personal data
         original_ref = customer.ref
@@ -613,10 +616,10 @@ class AccountDeleteView(View):
             for channel in ("whatsapp", "email", "sms", "push"):
                 try:
                     ConsentService.revoke_consent(original_ref, channel)
-                except Exception:
-                    pass
-        except Exception:
-            pass
+                except Exception as e:
+                    logger.warning("consent_revoke_failed channel=%s: %s", channel, e, exc_info=True)
+        except Exception as e:
+            logger.warning("consent_revoke_import_failed: %s", e, exc_info=True)
 
         # Delete addresses
         customer.addresses.all().delete()
