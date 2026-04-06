@@ -223,7 +223,7 @@ class CartService:
             }
 
         # Aggregate discounts from session.pricing: DiscountModifier + D-1/employee/happy_hour
-        _PRICING_MODIFIER_KEYS = ("d1_discount", "employee_discount", "happy_hour", "loyalty_redeem")
+        _PRICING_MODIFIER_KEYS = ("d1_discount", "employee_discount", "happy_hour", "loyalty_redeem", "manual_discount")
         modifier_total_q = sum(
             int((pricing.get(key) or {}).get("total_discount_q", 0))
             for key in _PRICING_MODIFIER_KEYS

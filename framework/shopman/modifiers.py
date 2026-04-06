@@ -534,3 +534,67 @@ class LoyaltyRedeemModifier:
         }
         session.pricing = pricing
         session.save(update_fields=["pricing"])
+
+
+class ManualDiscountModifier:
+    """
+    Desconto manual aplicado pelo operador no POS.
+
+    Lê session.data["manual_discount"]["discount_q"] (centavos) e
+    session.data["manual_discount"]["reason"] (motivo).
+    Aplica proporcionalmentenos itens e persiste em session.pricing["manual_discount"].
+
+    Ordem 85: após loyalty (80), só POS usa este modifier.
+    """
+
+    code = "shop.manual_discount"
+    order = 85
+
+    def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
+        manual = (session.data or {}).get("manual_discount") or {}
+        discount_q = int(manual.get("discount_q", 0))
+        reason = str(manual.get("reason", "") or "")
+
+        pricing = session.pricing or {}
+
+        if discount_q <= 0:
+            pricing.pop("manual_discount", None)
+            session.pricing = pricing
+            session.save(update_fields=["pricing"])
+            return
+
+        items = session.items or []
+        subtotal_q = sum(item.get("line_total_q", 0) for item in items)
+        discount_q = min(discount_q, subtotal_q)
+        if discount_q <= 0:
+            return
+
+        remaining = discount_q
+        modified = False
+        for i, item in enumerate(items):
+            line_total = item.get("line_total_q", 0)
+            if line_total <= 0:
+                continue
+            is_last = i == len(items) - 1
+            if is_last:
+                item_share = remaining
+            else:
+                item_share = monetary_div(discount_q * line_total, subtotal_q)
+            item_share = min(item_share, line_total)
+            if item_share > 0:
+                qty = int(item.get("qty", 1)) or 1
+                per_unit = item_share // qty
+                item["unit_price_q"] = max(0, item.get("unit_price_q", 0) - per_unit)
+                item["line_total_q"] = max(0, line_total - item_share)
+                remaining -= item_share
+                modified = True
+
+        if modified:
+            session.update_items(items)
+
+        pricing["manual_discount"] = {
+            "total_discount_q": discount_q,
+            "label": f"Desconto ({reason})" if reason else "Desconto manual",
+        }
+        session.pricing = pricing
+        session.save(update_fields=["pricing"])

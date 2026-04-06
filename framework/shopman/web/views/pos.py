@@ -200,14 +200,20 @@ def pos_close(request: HttpRequest) -> HttpResponse:
         handle_ref=customer_phone or f"pos:{request.user.username}",
     )
 
+    manual_discount = body.get("manual_discount") or {}
+
     ops = []
     for item in items:
-        ops.append({
+        op = {
             "op": "add_line",
             "sku": item["sku"],
             "qty": int(item.get("qty", 1)),
             "unit_price_q": int(item["unit_price_q"]),
-        })
+        }
+        note = str(item.get("note", "") or "").strip()
+        if note:
+            op["meta"] = {"note": note}
+        ops.append(op)
 
     if customer_name:
         ops.append({"op": "set_data", "path": "customer.name", "value": customer_name})
@@ -225,6 +231,13 @@ def pos_close(request: HttpRequest) -> HttpResponse:
     ops.append({"op": "set_data", "path": "payment.method", "value": payment_method})
     ops.append({"op": "set_data", "path": "origin_channel", "value": "pos"})
     ops.append({"op": "set_data", "path": "fulfillment_type", "value": "pickup"})
+
+    # Manual discount (operator-applied, with reason)
+    if manual_discount and int(manual_discount.get("discount_q", 0)) > 0:
+        ops.append({"op": "set_data", "path": "manual_discount.type", "value": manual_discount.get("type", "percent")})
+        ops.append({"op": "set_data", "path": "manual_discount.value", "value": manual_discount.get("value", 0)})
+        ops.append({"op": "set_data", "path": "manual_discount.discount_q", "value": int(manual_discount.get("discount_q", 0))})
+        ops.append({"op": "set_data", "path": "manual_discount.reason", "value": manual_discount.get("reason", "")})
 
     try:
         ModifyService.modify_session(

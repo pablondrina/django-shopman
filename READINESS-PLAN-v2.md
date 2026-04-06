@@ -529,7 +529,7 @@ NÃO adicionar libs externas.
 
 ---
 
-### WP-R12: POS Desconto Manual + Obs por Item
+### ✅ WP-R12: POS Desconto Manual + Obs por Item
 
 **Objetivo:** Operador precisa poder dar desconto e anotar observações.
 

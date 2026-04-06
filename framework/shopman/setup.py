@@ -243,6 +243,7 @@ def _register_pricing_modifiers() -> None:
         EmployeeDiscountModifier,
         HappyHourModifier,
         LoyaltyRedeemModifier,
+        ManualDiscountModifier,
     )
 
     backend = OfferingBackend()
@@ -255,6 +256,7 @@ def _register_pricing_modifiers() -> None:
         HappyHourModifier(),
         DeliveryFeeModifier(),
         LoyaltyRedeemModifier(),
+        ManualDiscountModifier(),
     ]
     for modifier in modifiers:
         try:

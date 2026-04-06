@@ -69,6 +69,7 @@ def _build_ops_from_data(data: dict) -> list[dict]:
         "delivery_time_slot", "order_notes",
         "payment",
         "loyalty",
+        "manual_discount",
     ]
 
     for field in data_fields:
