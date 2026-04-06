@@ -285,8 +285,12 @@
 
 {% if alternatives %}
 <!-- Alternatives section -->
-<div class="mt-12">
-  <h3 class="text-h2 text-foreground mb-6">Produtos Similares</h3>
+<div class="mt-12 p-6 rounded-2xl bg-warning-light/20 border border-warning/20">
+  <div class="flex items-center gap-2 mb-4">
+    <span class="material-symbols-rounded text-warning-foreground" aria-hidden="true">swap_horiz</span>
+    <h3 class="text-h3 text-foreground">Veja alternativas</h3>
+  </div>
+  <p class="text-body-sm text-muted-foreground mb-6">Este produto está indisponível. Confira opções similares:</p>
   <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
     {% for item in alternatives %}
       {% include "storefront/partials/product_card.html" with item=item %}

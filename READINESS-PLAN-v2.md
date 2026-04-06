@@ -275,7 +275,7 @@ Design tokens do storefront. Alpine para estado local, HTMX para server calls.
 
 ## P1 — CUSTOMER EXPERIENCE (backend pronto, falta UI)
 
-### WP-R6: Alternativas Quando Esgotado
+### ✅ WP-R6: Alternativas Quando Esgotado
 
 **Objetivo:** Não perder a venda quando item esgotado. Backend `find_alternatives()` pronto.
 

@@ -72,6 +72,23 @@ Controles: Material Symbols Rounded (add / remove / delete).
     </div>
   </div>
 
+  {% if compact and item.is_unavailable %}
+  <div class="mt-2 flex items-center justify-between gap-2 px-1 py-1.5 rounded-lg bg-destructive/10 border border-destructive/20"
+       id="unavail-{{ item.line_id }}">
+    <div class="flex items-center gap-1.5 text-xs text-destructive font-medium min-w-0">
+      <span class="material-symbols-rounded shrink-0" style="font-size:14px" aria-hidden="true">warning</span>
+      <span class="truncate">Estoque insuficiente</span>
+    </div>
+    <button type="button"
+            class="shrink-0 text-xs text-primary font-semibold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring whitespace-nowrap"
+            hx-get="{% url 'storefront:cart_alternatives' item.sku %}"
+            hx-target="#unavail-{{ item.line_id }}"
+            hx-swap="outerHTML">
+      Ver alternativas
+    </button>
+  </div>
+  {% endif %}
+
   {% else %}
   {# ── Página do carrinho: linha horizontal ── #}
   <div class="flex flex-col sm:flex-row sm:items-center gap-4">

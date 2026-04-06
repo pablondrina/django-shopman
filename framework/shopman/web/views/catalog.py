@@ -249,6 +249,18 @@ def _extract_available_qty(avail: dict | None) -> int | None:
     return int(total)
 
 
+class CartAlternativesView(View):
+    """HTMX partial: alternatives for an out-of-stock cart item."""
+
+    def get(self, request: HttpRequest, sku: str) -> HttpResponse:
+        listing_ref = _get_channel_listing_ref()
+        alternatives = _load_alternatives(sku, listing_ref, request=request)
+        return render(request, "storefront/partials/cart_alternatives.html", {
+            "sku": sku,
+            "alternatives": alternatives,
+        })
+
+
 class ProductDetailView(View):
     """Product detail page."""
 

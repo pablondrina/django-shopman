@@ -155,12 +155,40 @@ class CartService:
             p.sku: p
             for p in Product.objects.filter(sku__in=skus).only("sku", "name")
         }
+
+        # Batch availability check to flag unavailable items
+        avail_map: dict[str, dict | None] = {}
+        try:
+            from shopman.web.constants import HAS_STOCKING, STOREFRONT_CHANNEL_REF
+            if HAS_STOCKING:
+                from shopman.stocking.api.views import (
+                    _availability_for_skus,
+                    availability_scope_for_channel,
+                )
+                scope = availability_scope_for_channel(STOREFRONT_CHANNEL_REF)
+                avail_map = _availability_for_skus(skus, **scope)
+        except Exception:
+            pass
+
         for item in items:
             product = products_by_sku.get(item.get("sku", ""))
             if product and not item.get("name"):
                 item["name"] = product.name
             item["price_display"] = f"R$ {format_money(item.get('unit_price_q', 0))}"
             item["total_display"] = f"R$ {format_money(item.get('line_total_q', 0))}"
+            # Flag if current qty exceeds available stock
+            avail = avail_map.get(item.get("sku", ""))
+            if avail is not None:
+                breakdown = avail.get("breakdown", {})
+                from decimal import Decimal as _D
+                total_avail = (
+                    breakdown.get("ready", _D("0"))
+                    + breakdown.get("in_production", _D("0"))
+                    + breakdown.get("d1", _D("0"))
+                )
+                item["is_unavailable"] = int(total_avail) < int(Decimal(str(item.get("qty", 0))))
+            else:
+                item["is_unavailable"] = False
 
         # Read discount info from session.pricing (persisted by DiscountModifier)
         pricing = session.pricing or {}

@@ -44,6 +44,7 @@ urlpatterns = [
     path("cart/quick-add/<str:sku>/", views.QuickAddView.as_view(), name="cart_quick_add"),
     path("cart/coupon/", views.ApplyCouponView.as_view(), name="cart_apply_coupon"),
     path("cart/coupon/remove/", views.RemoveCouponView.as_view(), name="cart_remove_coupon"),
+    path("cart/alternatives/<str:sku>/", views.CartAlternativesView.as_view(), name="cart_alternatives"),
     # Checkout
     path("checkout/", views.CheckoutView.as_view(), name="checkout"),
     path(
