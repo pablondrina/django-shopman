@@ -260,14 +260,52 @@ def _annotate_products(
     from shopman.utils.monetary import monetary_div
 
     skus = [p.sku for p in products]
+
+    # ── Batch: collections per SKU ────────────────────────────────────────────
     sku_collections: dict[str, list[str]] = {}
     for ci in CollectionItem.objects.filter(product__sku__in=skus).select_related("collection"):
         sku_collections.setdefault(ci.product.sku, []).append(ci.collection.slug)
 
+    # ── Batch: prices — one query for all SKUs ────────────────────────────────
+    price_map: dict[str, int] = {}
+    if listing_ref:
+        for item in (
+            ListingItem.objects.filter(
+                listing__ref=listing_ref,
+                listing__is_active=True,
+                product__sku__in=skus,
+                is_published=True,
+                is_available=True,
+            )
+            .select_related("product")
+            .order_by("-min_qty")
+        ):
+            # setdefault keeps the first (highest-priority) price per SKU
+            # because queryset is ordered by -min_qty (highest tier first)
+            price_map.setdefault(item.product.sku, item.price_q)
+
+    # ── Batch: availability — one call for all SKUs ───────────────────────────
+    avail_map: dict[str, dict | None] = {}
+    if HAS_STOCKING:
+        try:
+            from shopman.stocking.api.views import (
+                _availability_for_skus,
+                availability_scope_for_channel,
+            )
+
+            scope = availability_scope_for_channel(STOREFRONT_CHANNEL_REF)
+            avail_map = _availability_for_skus(skus, **scope)
+        except Exception as e:
+            logger.warning("batch_availability_failed: %s", e, exc_info=True)
+
     result = []
     for p in products:
-        base_q = _get_price_q(p, listing_ref=listing_ref)
-        avail = _get_availability(p.sku)
+        # Price: batch map first, fall back to base_price_q (same as _get_price_q)
+        base_q = price_map.get(p.sku) if listing_ref else None
+        if base_q is None:
+            base_q = p.base_price_q
+
+        avail = avail_map.get(p.sku)
         badge = _availability_badge(avail, p)
         cols = sku_collections.get(p.sku, [])
 
