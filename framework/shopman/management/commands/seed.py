@@ -305,20 +305,62 @@ class Command(BaseCommand):
     def _seed_catalog(self):
         self.stdout.write("  📦 Catalogo...")
 
+        # (sku, name, short_desc, price_q, unit, shelf_life, available, image, weight_g, storage_tip)
         products_data = [
-            # (sku, name, short_description, base_price_q, unit, shelf_life_days, is_available, image_url)
-            ("PAO-FRANCES", "Pao Frances Artesanal", "Fermentacao natural, crosta crocante", 150, "un", 0, True, "https://images.unsplash.com/photo-1549931319-a545dcf3bc73?w=400&q=80"),
-            ("BAGUETE", "Baguete Tradicional", "Receita francesa classica, 60cm", 850, "un", 0, True, "https://images.unsplash.com/photo-1568471173242-461f0a730452?w=400&q=80"),
-            ("CROISSANT", "Croissant Manteiga", "Folhado com manteiga francesa, 72h de fermentacao", 890, "un", 1, True, "https://images.unsplash.com/photo-1623334044303-241021148842?w=400&q=80"),
-            ("PAIN-CHOCOLAT", "Pain au Chocolat", "Folhado com chocolate belga 70%", 1090, "un", 1, True, "https://images.unsplash.com/photo-1530610476181-d83430b64dcd?w=400&q=80"),
-            ("BRIOCHE", "Brioche Nanterre", "Brioche classico, massa amanteigada", 990, "un", 2, True, "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&q=80"),
-            ("FOCACCIA", "Focaccia Alecrim", "Azeite extra-virgem e alecrim fresco", 1490, "un", 0, True, "https://images.unsplash.com/photo-1586444248902-2f64eddc13df?w=400&q=80"),
-            ("CIABATTA", "Ciabatta Italiana", "Massa hidratada, miolo aerado", 750, "un", 0, True, "https://images.unsplash.com/photo-1608198093002-ad4e005484ec?w=400&q=80"),
-            ("SOURDOUGH", "Sourdough Integral", "Levain natural, farinha integral organica", 1690, "un", 3, True, "https://images.unsplash.com/photo-1589367920969-ab8e050bbb04?w=400&q=80"),
-            ("DANISH", "Danish de Frutas", "Folhado com creme e frutas da estacao", 1290, "un", 1, True, "https://images.unsplash.com/photo-1509365390695-33aee754301f?w=400&q=80"),
-            ("CAFE-ESPRESSO", "Cafe Espresso", "Blend especial, torra media", 690, "un", 0, True, "https://images.unsplash.com/photo-1510707577719-ae7c14805e3a?w=400&q=80"),
-            ("CAFE-LATTE", "Cafe Latte", "Espresso com leite vaporizado", 990, "un", 0, True, "https://images.unsplash.com/photo-1534778101976-62847782c213?w=400&q=80"),
-            ("SUCO-LARANJA", "Suco de Laranja Natural", "Laranja pera, sem acucar", 890, "un", 0, True, "https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=400&q=80"),
+            ("PAO-FRANCES", "Pao Frances Artesanal", "Fermentacao natural, crosta crocante", 150, "un", 0, True,
+             "https://images.unsplash.com/photo-1549931319-a545dcf3bc73?w=400&q=80",
+             50, "Congele em ate 2h para manter a crocancia por ate 30 dias"),
+            ("BAGUETE", "Baguete Tradicional", "Receita francesa classica, 60cm", 850, "un", 0, True,
+             "https://images.unsplash.com/photo-1568471173242-461f0a730452?w=400&q=80",
+             250, "Congele inteira ou em pedacos. Reaqueça direto do freezer a 200°C por 8min"),
+            ("CROISSANT", "Croissant Manteiga", "Folhado com manteiga francesa, 72h de fermentacao", 890, "un", 1, True,
+             "https://images.unsplash.com/photo-1623334044303-241021148842?w=400&q=80",
+             80, "Reaqueça no forno a 180°C por 5min para recuperar a crocancia"),
+            ("PAIN-CHOCOLAT", "Pain au Chocolat", "Folhado com chocolate belga 70%", 1090, "un", 1, True,
+             "https://images.unsplash.com/photo-1530610476181-d83430b64dcd?w=400&q=80",
+             90, "Reaqueça no forno a 180°C por 5min. Evite micro-ondas"),
+            ("BRIOCHE", "Brioche Nanterre", "Brioche classico, massa amanteigada", 990, "un", 2, True,
+             "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&q=80",
+             350, "Mantenha em saco plastico fechado. Congela bem por ate 30 dias"),
+            ("FOCACCIA", "Focaccia Alecrim", "Azeite extra-virgem e alecrim fresco", 1490, "un", 0, True,
+             "https://images.unsplash.com/photo-1586444248902-2f64eddc13df?w=400&q=80",
+             300, "Congele em porcoes. Reaqueça a 200°C por 5min com um fio de azeite"),
+            ("CIABATTA", "Ciabatta Italiana", "Massa hidratada, miolo aerado", 750, "un", 0, True,
+             "https://images.unsplash.com/photo-1608198093002-ad4e005484ec?w=400&q=80",
+             200, "Congele no mesmo dia. Reaqueça a 200°C por 8min"),
+            ("SOURDOUGH", "Sourdough Integral", "Levain natural, farinha integral organica", 1690, "un", 3, True,
+             "https://images.unsplash.com/photo-1589367920969-ab8e050bbb04?w=400&q=80",
+             500, "Guarde em saco de pano. Dura ate 5 dias em temperatura ambiente"),
+            ("PAO-INTEGRAL", "Pao Integral", "Farinha integral organica, rico em fibras", 200, "un", 1, True,
+             "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&q=80",
+             60, "Congele em ate 2h para manter por ate 30 dias"),
+            ("PAO-QUEIJO", "Pao de Queijo", "Receita mineira com queijo minas artesanal", 350, "un", 0, True,
+             "https://images.unsplash.com/photo-1598733596988-5aa4decbd202?w=400&q=80",
+             40, "Melhor consumido quente. Congele cru para assar quando quiser"),
+            ("BOLO-CHOCOLATE", "Bolo de Chocolate", "Massa fofinha com ganache de chocolate 70%", 4500, "un", 3, True,
+             "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&q=80",
+             800, "Conserve na geladeira por ate 3 dias. Retire 30min antes de servir"),
+            ("BOLO-CENOURA", "Bolo de Cenoura", "Com cobertura de chocolate", 3500, "un", 3, True,
+             "https://images.unsplash.com/photo-1621303837174-89787a7d4729?w=400&q=80",
+             700, "Conserve na geladeira. A cobertura mantem melhor em temperatura ambiente"),
+            ("BRIGADEIRO", "Brigadeiro Artesanal", "Chocolate 70%, granulado belga", 250, "un", 5, True,
+             "https://images.unsplash.com/photo-1598569304780-5765fd040981?w=400&q=80",
+             25, "Conserve na geladeira por ate 5 dias"),
+            ("BROWNIE", "Brownie", "Chocolate 70%, nozes, textura fudgy", 690, "un", 3, True,
+             "https://images.unsplash.com/photo-1607920591413-4ec007e70023?w=400&q=80",
+             100, "Conserve em recipiente fechado. Congela bem por ate 60 dias"),
+            ("DANISH", "Danish de Frutas", "Folhado com creme e frutas da estacao", 1290, "un", 1, True,
+             "https://images.unsplash.com/photo-1509365390695-33aee754301f?w=400&q=80",
+             120, "Consuma no dia. Reaqueça no forno a 180°C por 5min"),
+            ("CAFE-ESPRESSO", "Cafe Espresso", "Blend especial, torra media", 690, "un", None, True,
+             "https://images.unsplash.com/photo-1510707577719-ae7c14805e3a?w=400&q=80",
+             None, ""),
+            ("CAFE-LATTE", "Cafe Latte", "Espresso com leite vaporizado", 990, "un", None, True,
+             "https://images.unsplash.com/photo-1534778101976-62847782c213?w=400&q=80",
+             None, ""),
+            ("SUCO-LARANJA", "Suco de Laranja Natural", "Laranja pera, sem acucar", 890, "un", None, True,
+             "https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=400&q=80",
+             300, ""),
         ]
 
         # Keywords by product (for find_alternatives and search)
@@ -331,6 +373,12 @@ class Command(BaseCommand):
             "FOCACCIA": ["pao", "italiano", "ervas", "salgado", "artesanal"],
             "CIABATTA": ["pao", "italiano", "artesanal", "salgado", "crocante"],
             "SOURDOUGH": ["pao", "fermentacao-natural", "artesanal", "salgado", "rustico"],
+            "PAO-INTEGRAL": ["pao", "integral", "fibra", "artesanal", "salgado", "saudavel"],
+            "PAO-QUEIJO": ["pao-de-queijo", "queijo", "mineiro", "lanche", "salgado"],
+            "BOLO-CHOCOLATE": ["bolo", "chocolate", "doce", "confeitaria", "festa"],
+            "BOLO-CENOURA": ["bolo", "cenoura", "chocolate", "doce", "confeitaria"],
+            "BRIGADEIRO": ["doce", "chocolate", "brasileiro", "festa", "confeitaria"],
+            "BROWNIE": ["doce", "chocolate", "nozes", "confeitaria", "americano"],
             "DANISH": ["folhado", "doce", "frutas", "cafe-da-manha", "dinamarques"],
             "CAFE-ESPRESSO": ["cafe", "bebida", "quente", "espresso"],
             "CAFE-LATTE": ["cafe", "bebida", "quente", "leite", "cremoso"],
@@ -338,7 +386,7 @@ class Command(BaseCommand):
         }
 
         products = {}
-        for sku, name, desc, price_q, unit, shelf_life, available, image in products_data:
+        for sku, name, desc, price_q, unit, shelf_life, available, image, weight_g, storage in products_data:
             p, _ = Product.objects.update_or_create(
                 sku=sku,
                 defaults={
@@ -350,6 +398,8 @@ class Command(BaseCommand):
                     "is_published": True,
                     "is_available": available,
                     "image_url": image,
+                    "unit_weight_g": weight_g,
+                    "storage_tip": storage,
                 },
             )
             if sku in keywords_map:
@@ -405,13 +455,13 @@ class Command(BaseCommand):
         # Collection items (first collection per product = is_primary)
         CollectionItem.objects.filter(collection__in=[col_paes, col_confeitaria, col_bebidas, col_combos]).delete()
 
-        paes_skus = ["PAO-FRANCES", "BAGUETE", "FOCACCIA", "CIABATTA", "SOURDOUGH"]
+        paes_skus = ["PAO-FRANCES", "PAO-INTEGRAL", "BAGUETE", "FOCACCIA", "CIABATTA", "SOURDOUGH", "PAO-QUEIJO"]
         for i, sku in enumerate(paes_skus):
             CollectionItem.objects.create(
                 collection=col_paes, product=products[sku], sort_order=i, is_primary=True,
             )
 
-        confeitaria_skus = ["CROISSANT", "PAIN-CHOCOLAT", "BRIOCHE", "DANISH"]
+        confeitaria_skus = ["CROISSANT", "PAIN-CHOCOLAT", "BRIOCHE", "DANISH", "BOLO-CHOCOLATE", "BOLO-CENOURA", "BRIGADEIRO", "BROWNIE"]
         for i, sku in enumerate(confeitaria_skus):
             CollectionItem.objects.create(
                 collection=col_confeitaria, product=products[sku], sort_order=i, is_primary=True,
@@ -462,7 +512,7 @@ class Command(BaseCommand):
                     is_available=product.is_available,
                 )
 
-        self.stdout.write(f"  ✅ {len(products)} produtos, 4 colecoes, 4 listagens")
+        self.stdout.write(f"  ✅ {len(products)} produtos ({Product.objects.filter(unit_weight_g__isnull=False).count()} com peso), 4 colecoes, 4 listagens")
         return products
 
     # ────────────────────────────────────────────────────────────────

@@ -31,6 +31,7 @@ urlpatterns = [
     path("menu/search/", views.MenuSearchView.as_view(), name="menu_search"),
     path("menu/<slug:collection>/", views.MenuView.as_view(), name="menu_collection"),
     path("produto/<str:sku>/", views.ProductDetailView.as_view(), name="product_detail"),
+    path("conservacao/", views.ConservacaoView.as_view(), name="conservacao"),
     # Cart
     path("cart/", views.CartView.as_view(), name="cart"),
     path("cart/add/", views.AddToCartView.as_view(), name="cart_add"),

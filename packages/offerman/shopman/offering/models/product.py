@@ -73,6 +73,22 @@ class Product(models.Model):
         help_text=_("un, kg, lt, etc."),
     )
 
+    # Weight per unit in grams (for display: "~150g a unidade")
+    unit_weight_g = models.PositiveIntegerField(
+        _("peso por unidade (g)"),
+        null=True,
+        blank=True,
+        help_text=_("Peso aproximado por unidade em gramas. Ex: 150 para pão francês"),
+    )
+
+    # Storage tip (short text for conservation guidance)
+    storage_tip = models.CharField(
+        _("dica de conservação"),
+        max_length=300,
+        blank=True,
+        help_text=_("Breve dica de conservação exibida na página do produto"),
+    )
+
     # Base price (in cents)
     base_price_q = models.BigIntegerField(
         _("preço base"),

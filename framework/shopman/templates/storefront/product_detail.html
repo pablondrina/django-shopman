@@ -245,28 +245,37 @@
     </div>
     {% endif %}
 
-    <!-- Extra info -->
-    <div class="mt-8 space-y-2 text-sm text-muted-foreground">
-      {% if product.shelf_life_days != None %}
-      <div class="flex items-center gap-2">
-        <span aria-hidden="true">&#128336;</span>
-        <span>
-          Validade:
+    <!-- Unit weight (near price, inline) -->
+    {% if product.unit_weight_g %}
+    <p class="text-sm text-muted-foreground mt-1.5">~{{ product.unit_weight_g }}g a unidade</p>
+    {% endif %}
+
+    <!-- Conservation & freshness -->
+    {% if product.shelf_life_days != None %}
+    <div class="mt-6 p-4 rounded-xl bg-surface border border-border/30">
+      <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 text-primary flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <div class="text-sm">
           {% if product.shelf_life_days == 0 %}
-            Mesmo dia
+          <p class="text-foreground font-medium">Melhor consumido no mesmo dia</p>
           {% elif product.shelf_life_days == 1 %}
-            1 dia
+          <p class="text-foreground font-medium">Melhor consumido em at&eacute; 1 dia</p>
           {% else %}
-            {{ product.shelf_life_days }} dias
+          <p class="text-foreground font-medium">Conserva bem por {{ product.shelf_life_days }} dias</p>
           {% endif %}
-        </span>
-      </div>
-      {% endif %}
-      <div class="flex items-center gap-2">
-        <span aria-hidden="true">&#128230;</span>
-        <span>Unidade: {{ product.get_unit_display|default:product.unit }}</span>
+          {% if product.storage_tip %}
+          <p class="text-muted-foreground mt-1">{{ product.storage_tip }}</p>
+          {% endif %}
+          <a href="{% url 'storefront:conservacao' %}" class="inline-flex items-center gap-1 text-primary hover:text-primary-hover mt-1.5 font-medium transition-colors">
+            Dicas de conserva&ccedil;&atilde;o
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </a>
+        </div>
       </div>
     </div>
+    {% endif %}
   </div>
 </div>
 

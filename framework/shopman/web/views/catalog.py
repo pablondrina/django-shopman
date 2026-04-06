@@ -382,3 +382,10 @@ class ProductDetailView(View):
             "breadcrumb_collection": breadcrumb_collection,
             "available_qty": available_qty,
         })
+
+
+class ConservacaoView(View):
+    """Static page: storage and conservation tips."""
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        return render(request, "storefront/conservacao.html")

@@ -241,8 +241,10 @@ class ProductAdmin(_ProductImportExportBase):
             {
                 "fields": (
                     "unit",
+                    "unit_weight_g",
                     "availability_policy",
                     "shelf_life_days",
+                    "storage_tip",
                     "is_perishable",
                     "production_cycle_hours",
                     "is_batch_produced",
