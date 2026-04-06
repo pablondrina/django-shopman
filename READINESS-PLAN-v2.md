@@ -479,7 +479,7 @@ Não alterar o Core loyalty — adicionar modifier e handler no framework.
 
 ## P2 — POS PRODUCTION-READY
 
-### WP-R11: POS Design Tokens + Layout
+### ✅ WP-R11: POS Design Tokens + Layout
 
 **Objetivo:** POS reutiliza design tokens do storefront. Layout otimizado para velocidade.
 

@@ -82,6 +82,13 @@ def _product_dict(product, price_q):
 # ── Views ───────────────────────────────────────────────────────────
 
 
+_PAYMENT_METHODS = [
+    ("dinheiro", "Dinheiro"),
+    ("pix", "PIX"),
+    ("cartao", "Cartão"),
+]
+
+
 @require_GET
 def pos_view(request: HttpRequest) -> HttpResponse:
     """GET /gestao/pos/ — main POS page."""
@@ -103,6 +110,7 @@ def pos_view(request: HttpRequest) -> HttpResponse:
         "products": products,
         "collections": collections,
         "shop": shop,
+        "payment_methods": _PAYMENT_METHODS,
     })
 
 
