@@ -29,7 +29,7 @@ except LookupError:
 
 # Check if stocking availability API is available
 try:
-    from shopman.stocking.api.views import _availability_for_sku, _get_safety_margin  # noqa: F401
+    from shopman.stocking.services.availability import availability_for_sku  # noqa: F401
 
     HAS_STOCKING = True
 except ImportError:

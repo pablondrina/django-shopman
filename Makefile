@@ -8,6 +8,9 @@
 # Python: usa venv se existir, senão o do PATH
 PYTHON := $(shell [ -f .venv/bin/python ] && echo $(CURDIR)/.venv/bin/python || echo python)
 
+# Python: usa venv se existir, senao o do PATH
+PYTHON := $(shell [ -f .venv/bin/python ] && echo $(CURDIR)/.venv/bin/python || echo python)
+
 .PHONY: help install test test-utils test-offerman test-stockman test-craftsman test-omniman test-payman test-guestman test-doorman test-framework lint clean migrate run dev seed coverage css css-watch fonts
 
 help: ## Mostra este help

@@ -227,14 +227,18 @@ function checkoutAddress() {
         types: ['address'],
       };
 
-      // Proximity bias: prefer results near the shop location
+      // Proximity restriction: constrain results to area near the shop
       if (shopLat && shopLng) {
-        options.locationBias = new google.maps.Circle({
-          center: { lat: parseFloat(shopLat), lng: parseFloat(shopLng) },
-          radius: 30000,
-        });
+        var lat = parseFloat(shopLat);
+        var lng = parseFloat(shopLng);
+        var delta = 0.45; // ~50km
+        options.bounds = new google.maps.LatLngBounds(
+          { lat: lat - delta, lng: lng - delta },
+          { lat: lat + delta, lng: lng + delta }
+        );
+        options.strictBounds = true;
       } else if (shopCity) {
-        // Fallback: restrict to city/state text bias
+        // Fallback: text-based bias (weaker)
         options.locationBias = [shopCity, shopState, 'Brasil'].filter(Boolean).join(', ');
       }
 

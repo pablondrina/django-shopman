@@ -59,10 +59,13 @@ def _get_availability(sku: str) -> dict | None:
     if not HAS_STOCKING:
         return None
     try:
-        from shopman.stocking.api.views import _availability_for_sku, availability_scope_for_channel
+        from shopman.stocking.services.availability import (
+            availability_for_sku,
+            availability_scope_for_channel,
+        )
 
         scope = availability_scope_for_channel(STOREFRONT_CHANNEL_REF)
-        return _availability_for_sku(
+        return availability_for_sku(
             sku,
             safety_margin=scope["safety_margin"],
             allowed_positions=scope["allowed_positions"],
@@ -288,13 +291,13 @@ def _annotate_products(
     avail_map: dict[str, dict | None] = {}
     if HAS_STOCKING:
         try:
-            from shopman.stocking.api.views import (
-                _availability_for_skus,
+            from shopman.stocking.services.availability import (
+                availability_for_skus,
                 availability_scope_for_channel,
             )
 
             scope = availability_scope_for_channel(STOREFRONT_CHANNEL_REF)
-            avail_map = _availability_for_skus(skus, **scope)
+            avail_map = availability_for_skus(skus, **scope)
         except Exception as e:
             logger.warning("batch_availability_failed: %s", e, exc_info=True)
 

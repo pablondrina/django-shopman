@@ -126,6 +126,32 @@ DATABASES = {
     }
 }
 
+# Cache: django-ratelimit exige backend compartilhado (Redis/Memcached), não LocMem.
+# Dev sem Redis: LocMem + checks silenciados (rate limit só no processo atual).
+# Produção: defina REDIS_URL (ex.: redis://127.0.0.1:6379/1).
+_redis_url = os.environ.get("REDIS_URL", "").strip()
+if _redis_url:
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": _redis_url,
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            },
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        }
+    }
+    if DEBUG:
+        SILENCED_SYSTEM_CHECKS = [
+            "django_ratelimit.E003",
+            "django_ratelimit.W001",
+        ]
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 STATIC_URL = "/static/"
@@ -431,6 +457,11 @@ SHOPMAN_NOTIFICATION_ADAPTERS = {
 SHOPMAN_STOCK_ADAPTER = "shopman.adapters.stock_internal"
 
 SHOPMAN_FISCAL_ADAPTER = None
+
+# ── Happy Hour ("Hora da Xepa") ───────────────────────────────────────
+SHOPMAN_HAPPY_HOUR_START = "17:30"
+SHOPMAN_HAPPY_HOUR_END = "18:00"
+HAPPY_HOUR_DISCOUNT_PERCENT = 25
 
 # ── Logging ────────────────────────────────────────────────────────────
 

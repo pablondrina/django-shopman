@@ -226,19 +226,13 @@
               <input type="radio" name="delivery_time_slot" value="manha"
                 {% if form_data.delivery_time_slot == "manha" or checkout_defaults.delivery_time_slot == "manha" %}checked{% endif %}
                 class="text-primary focus:ring-primary">
-              <span class="text-sm text-foreground">Manhã (06h-12h)</span>
+              <span class="text-sm text-foreground">Manhã (09h-12h)</span>
             </label>
             <label class="flex items-center gap-2 cursor-pointer">
               <input type="radio" name="delivery_time_slot" value="tarde"
                 {% if form_data.delivery_time_slot == "tarde" or checkout_defaults.delivery_time_slot == "tarde" %}checked{% endif %}
                 class="text-primary focus:ring-primary">
               <span class="text-sm text-foreground">Tarde (12h-18h)</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name="delivery_time_slot" value="noite"
-                {% if form_data.delivery_time_slot == "noite" or checkout_defaults.delivery_time_slot == "noite" %}checked{% endif %}
-                class="text-primary focus:ring-primary">
-              <span class="text-sm text-foreground">Noite (18h-21h)</span>
             </label>
           </div>
         </div>

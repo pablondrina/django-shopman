@@ -161,12 +161,12 @@ class CartService:
         try:
             from shopman.web.constants import HAS_STOCKING, STOREFRONT_CHANNEL_REF
             if HAS_STOCKING:
-                from shopman.stocking.api.views import (
-                    _availability_for_skus,
+                from shopman.stocking.services.availability import (
+                    availability_for_skus,
                     availability_scope_for_channel,
                 )
                 scope = availability_scope_for_channel(STOREFRONT_CHANNEL_REF)
-                avail_map = _availability_for_skus(skus, **scope)
+                avail_map = availability_for_skus(skus, **scope)
         except Exception:
             import logging
             logging.getLogger(__name__).warning(

@@ -37,8 +37,8 @@ logger = logging.getLogger(__name__)
 # ── Configurable defaults ──────────────────────────────────────────
 D1_DISCOUNT_PERCENT = 50
 EMPLOYEE_DISCOUNT_PERCENT = 20
-HAPPY_HOUR_DISCOUNT_PERCENT = 10
-HAPPY_HOUR_START = time(16, 0)
+HAPPY_HOUR_DISCOUNT_PERCENT = 25
+HAPPY_HOUR_START = time(17, 30)
 HAPPY_HOUR_END = time(18, 0)
 
 

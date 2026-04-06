@@ -13,7 +13,7 @@ from __future__ import annotations
 import os
 import random
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from django.contrib.auth.models import User
@@ -27,7 +27,16 @@ from shopman.crafting.models import Recipe, RecipeItem, WorkOrder
 from shopman.customers.models import ContactPoint, Customer, CustomerAddress, CustomerGroup
 
 # ── Shopman (orchestrator) ────────────────────────────────────────────
-from shopman.models import Coupon, KDSInstance, Promotion, RuleConfig, Shop
+from shopman.models import (
+    CashMovement,
+    CashRegisterSession,
+    Coupon,
+    DayClosing,
+    KDSInstance,
+    Promotion,
+    RuleConfig,
+    Shop,
+)
 
 # ── Offering (catalogo) ──────────────────────────────────────────────
 from shopman.offering.models import (
@@ -96,6 +105,8 @@ class Command(BaseCommand):
         self._seed_loyalty(customers)
         self._seed_notification_templates()
         self._seed_rule_configs()
+        self._seed_day_closing()
+        self._seed_cash_register()
 
         self.stdout.write(self.style.SUCCESS("\n✅ Seed Nelson completo!\n"))
 
@@ -263,6 +274,13 @@ class Command(BaseCommand):
         KDSTicket.objects.all().delete()
         KDSInstance.objects.all().delete()
 
+        # Cash register
+        CashMovement.objects.all().delete()
+        CashRegisterSession.objects.all().delete()
+
+        # Day closing
+        DayClosing.objects.all().delete()
+
         # Shop
         Coupon.objects.all().delete()
         Promotion.objects.all().delete()
@@ -293,6 +311,22 @@ class Command(BaseCommand):
             ("SUCO-LARANJA", "Suco de Laranja Natural", "Laranja pera, sem acucar", 890, "un", 0, True, "https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=400&q=80"),
         ]
 
+        # Keywords by product (for find_alternatives and search)
+        keywords_map = {
+            "PAO-FRANCES": ["pao", "frances", "trigo", "artesanal", "salgado"],
+            "BAGUETE": ["pao", "frances", "trigo", "artesanal", "salgado", "crocante"],
+            "CROISSANT": ["folhado", "manteiga", "doce", "frances", "cafe-da-manha"],
+            "PAIN-CHOCOLAT": ["folhado", "chocolate", "doce", "frances", "cafe-da-manha"],
+            "BRIOCHE": ["pao", "doce", "manteiga", "frances", "macio"],
+            "FOCACCIA": ["pao", "italiano", "ervas", "salgado", "artesanal"],
+            "CIABATTA": ["pao", "italiano", "artesanal", "salgado", "crocante"],
+            "SOURDOUGH": ["pao", "fermentacao-natural", "artesanal", "salgado", "rustico"],
+            "DANISH": ["folhado", "doce", "frutas", "cafe-da-manha", "dinamarques"],
+            "CAFE-ESPRESSO": ["cafe", "bebida", "quente", "espresso"],
+            "CAFE-LATTE": ["cafe", "bebida", "quente", "leite", "cremoso"],
+            "SUCO-LARANJA": ["suco", "bebida", "frio", "natural", "laranja"],
+        }
+
         products = {}
         for sku, name, desc, price_q, unit, shelf_life, available, image in products_data:
             p, _ = Product.objects.update_or_create(
@@ -308,6 +342,8 @@ class Command(BaseCommand):
                     "image_url": image,
                 },
             )
+            if sku in keywords_map:
+                p.keywords.add(*keywords_map[sku])
             products[sku] = p
 
         # Bundle: Combo Cafe da Manha
@@ -323,6 +359,7 @@ class Command(BaseCommand):
                 "image_url": "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&q=80",
             },
         )
+        combo.keywords.add("combo", "cafe-da-manha", "promocao")
         products["COMBO-MANHA"] = combo
 
         # D-1 eligible: breads that can be sold next day at discount
@@ -401,7 +438,7 @@ class Command(BaseCommand):
         # Listing items (all products in all listings)
         # iFood uses pricing_policy="external" (marketplace defines prices),
         # so its listing prices are reference-only. No markup applied.
-        markup_map = {"balcao": 0, "delivery": 0, "ifood": 0, "web": 0}
+        markup_map = {"balcao": 0, "delivery": 0, "ifood": 30, "web": 0}
         for listing_obj in [balcao, delivery, ifood, web]:
             ListingItem.objects.filter(listing=listing_obj).delete()
             markup = Decimal(markup_map[listing_obj.ref]) / 100
@@ -473,7 +510,24 @@ class Command(BaseCommand):
                     reason=f"Estoque inicial seed Nelson: {sku}",
                 )
 
-        self.stdout.write(f"  ✅ Estoque para {len(stock_data)} produtos")
+        # D-1 stock (yesterday's leftovers in "ontem" position)
+        d1_position = positions["ontem"]
+        d1_items = [
+            ("PAO-FRANCES", 10),
+            ("BAGUETE", 3),
+            ("FOCACCIA", 2),
+            ("CIABATTA", 1),
+        ]
+        for sku, qty in d1_items:
+            if sku in products:
+                stock.receive(
+                    quantity=Decimal(str(qty)),
+                    sku=sku,
+                    position=d1_position,
+                    reason=f"D-1 sobras seed Nelson: {sku}",
+                )
+
+        self.stdout.write(f"  ✅ Estoque para {len(stock_data)} produtos + {len(d1_items)} D-1")
 
     # ────────────────────────────────────────────────────────────────
     # Receitas (Crafting)
@@ -1513,8 +1567,8 @@ class Command(BaseCommand):
             {
                 "code": "happy_hour",
                 "rule_path": "shopman.rules.pricing.HappyHourRule",
-                "label": "Happy Hour",
-                "params": {"discount_percent": 10, "start": "16:00", "end": "18:00"},
+                "label": "Hora da Xepa",
+                "params": {"discount_percent": 25, "start": "17:30", "end": "18:00"},
                 "priority": 65,
             },
             {
@@ -1528,7 +1582,7 @@ class Command(BaseCommand):
                 "code": "minimum_order",
                 "rule_path": "shopman.rules.validation.MinimumOrderRule",
                 "label": "Pedido Mínimo Delivery",
-                "params": {"minimum_q": 1000},
+                "params": {"minimum_q": 2500},
                 "priority": 20,
             },
         ]
@@ -1549,3 +1603,86 @@ class Command(BaseCommand):
                 count += 1
 
         self.stdout.write(f"  ✅ {len(RULE_CONFIGS)} rule configs ({count} novos)")
+
+    # ────────────────────────────────────────────────────────────────
+    # DayClosing (fechamento do dia)
+    # ────────────────────────────────────────────────────────────────
+
+    def _seed_day_closing(self):
+        self.stdout.write("  📊 Fechamento do dia...")
+
+        yesterday = timezone.localdate() - timedelta(days=1)
+        admin = User.objects.filter(is_superuser=True).first()
+        if not admin:
+            self.stdout.write("  ⏭️  Sem superuser, pulando DayClosing")
+            return
+
+        _, created = DayClosing.objects.update_or_create(
+            date=yesterday,
+            defaults={
+                "closed_by": admin,
+                "notes": "Fechamento automatico (seed)",
+                "data": [
+                    {"sku": "PAO-FRANCES", "qty_remaining": 15, "qty_d1": 10, "qty_loss": 5},
+                    {"sku": "BAGUETE", "qty_remaining": 3, "qty_d1": 3, "qty_loss": 0},
+                    {"sku": "FOCACCIA", "qty_remaining": 2, "qty_d1": 2, "qty_loss": 0},
+                    {"sku": "CIABATTA", "qty_remaining": 1, "qty_d1": 1, "qty_loss": 0},
+                ],
+            },
+        )
+        self.stdout.write("  ✅ DayClosing criado" if created else "  ✅ DayClosing atualizado")
+
+    # ────────────────────────────────────────────────────────────────
+    # CashRegisterSession (caixa)
+    # ────────────────────────────────────────────────────────────────
+
+    def _seed_cash_register(self):
+        self.stdout.write("  💵 Sessoes de caixa...")
+
+        admin = User.objects.filter(is_superuser=True).first()
+        if not admin:
+            self.stdout.write("  ⏭️  Sem superuser, pulando CashRegister")
+            return
+
+        yesterday = timezone.localdate() - timedelta(days=1)
+        yesterday_open = timezone.make_aware(datetime.combine(yesterday, time(8, 30)))
+        yesterday_close = timezone.make_aware(datetime.combine(yesterday, time(18, 15)))
+
+        # Yesterday's closed session
+        session_yesterday, _ = CashRegisterSession.objects.update_or_create(
+            operator=admin,
+            opened_at=yesterday_open,
+            defaults={
+                "status": "closed",
+                "closed_at": yesterday_close,
+                "opening_amount_q": 20000,   # R$ 200 fundo de troco
+                "closing_amount_q": 89200,   # R$ 892 (reported)
+                "expected_amount_q": 89500,  # R$ 895 (calculated)
+                "difference_q": -300,        # -R$ 3,00 (small shortage)
+                "notes": "Dia tranquilo, faltou R$3 no caixa.",
+            },
+        )
+
+        # Sangria
+        CashMovement.objects.update_or_create(
+            session=session_yesterday,
+            movement_type="sangria",
+            defaults={
+                "amount_q": 30000,  # R$ 300
+                "reason": "Retirada para deposito",
+                "created_at": timezone.make_aware(datetime.combine(yesterday, time(14, 0))),
+            },
+        )
+
+        # Today's open session
+        today_open = timezone.make_aware(datetime.combine(timezone.localdate(), time(8, 45)))
+        CashRegisterSession.objects.update_or_create(
+            operator=admin,
+            opened_at=today_open,
+            defaults={
+                "status": "open",
+                "opening_amount_q": 20000,  # R$ 200 fundo de troco
+            },
+        )
+
+        self.stdout.write("  ✅ 2 sessoes de caixa (ontem fechada + hoje aberta)")

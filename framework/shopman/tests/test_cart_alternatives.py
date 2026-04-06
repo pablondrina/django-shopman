@@ -105,6 +105,15 @@ class CartItemUnavailableFlagTests(TestCase):
             is_published=True,
             is_available=True,
         )
+        # Ensure stock exists so is_unavailable defaults to False
+        try:
+            from shopman.stocking.models import Position, Quant
+            pos, _ = Position.objects.get_or_create(
+                ref="vitrine", defaults={"name": "Vitrine", "kind": "PHYSICAL", "is_saleable": True}
+            )
+            Quant.objects.create(sku="CART-SKU", position=pos, _quantity=100)
+        except Exception:
+            pass  # Stocking not installed
 
     def _add_to_cart(self, qty: int = 1) -> None:
         self.client.post("/cart/add/", {"sku": self.product.sku, "qty": str(qty)})
