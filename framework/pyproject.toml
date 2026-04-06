@@ -23,6 +23,7 @@ dependencies = [
     "shopman-guestman>=0.1.0",
     "shopman-doorman>=0.1.0",
     "shopman-payman>=0.1.0",
+    "django-ratelimit>=4.1,<5.0",
 ]
 
 [project.optional-dependencies]

@@ -2,22 +2,17 @@ from __future__ import annotations
 
 import logging
 
-from django.core.cache import cache
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
+from django.utils.decorators import method_decorator
 from django.views import View
+from django_ratelimit.decorators import ratelimit
 
 from shopman.utils.phone import normalize_phone
 
 from ..constants import HAS_AUTH
 
 logger = logging.getLogger("shopman.web.auth")
-
-# Rate limit settings
-RATE_LIMIT_REQUEST_CODE_MAX = 3
-RATE_LIMIT_REQUEST_CODE_WINDOW = 600  # 10 min
-RATE_LIMIT_VERIFY_CODE_MAX = 5
-RATE_LIMIT_VERIFY_CODE_WINDOW = 600  # 10 min
 
 
 def get_authenticated_customer(request: HttpRequest):
@@ -33,16 +28,6 @@ def get_authenticated_customer(request: HttpRequest):
     from shopman.customers.services import customer as customer_service
 
     return customer_service.get_by_uuid(customer_info.uuid)
-
-
-def _check_rate_limit(key: str, max_requests: int, window: int) -> bool:
-    """Check rate limit using Django cache. Returns True if allowed."""
-    cache_key = f"rl:{key}"
-    count = cache.get(cache_key, 0)
-    if count >= max_requests:
-        return False
-    cache.set(cache_key, count + 1, window)
-    return True
 
 
 def _normalize_phone_with_ddd(phone_raw: str) -> str:
@@ -155,14 +140,6 @@ class LoginView(View):
         customer = customer_service.get_by_phone(phone)
 
         # Send OTP code
-        if not _check_rate_limit(f"login_req:{phone}", RATE_LIMIT_REQUEST_CODE_MAX, RATE_LIMIT_REQUEST_CODE_WINDOW):
-            return render(request, "storefront/login.html", {
-                "step": "phone",
-                "error": "Muitas tentativas. Aguarde alguns minutos.",
-                "phone_value": phone_raw,
-                "next": next_url,
-            })
-
         if HAS_AUTH:
             from shopman.auth.services.verification import AuthService
 
@@ -286,12 +263,16 @@ class CustomerLookupView(View):
         })
 
 
+@method_decorator(ratelimit(key="post:phone", rate="5/m", method="POST", block=False), name="post")
 class RequestCodeView(View):
     """HTMX: request verification code for phone verification during checkout."""
 
     def post(self, request: HttpRequest) -> HttpResponse:
         if not HAS_AUTH:
             return HttpResponse("")
+
+        if getattr(request, "limited", False):
+            return render(request, "storefront/partials/rate_limited.html", status=429)
 
         phone_raw = request.POST.get("phone", "").strip()
         if not phone_raw:
@@ -305,18 +286,6 @@ class RequestCodeView(View):
             logger.warning("Phone normalization failed", extra={"phone_raw": phone_raw})
             return render(request, "storefront/partials/auth_error.html", {
                 "error_message": "Telefone inválido.",
-            })
-
-        # Rate limit: max 3 requests per phone per 10 min
-        if not _check_rate_limit(
-            f"req_code:{phone}",
-            RATE_LIMIT_REQUEST_CODE_MAX,
-            RATE_LIMIT_REQUEST_CODE_WINDOW,
-        ):
-            return render(request, "storefront/partials/auth_error.html", {
-                "error_message": "Muitas tentativas. Aguarde alguns minutos.",
-                "phone": phone,
-                "can_retry": False,
             })
 
         from shopman.auth.services.verification import AuthService
@@ -350,12 +319,16 @@ class RequestCodeView(View):
         })
 
 
+@method_decorator(ratelimit(key="post:phone", rate="10/m", method="POST", block=False), name="post")
 class VerifyCodeView(View):
     """HTMX: verify verification code for phone during checkout."""
 
     def post(self, request: HttpRequest) -> HttpResponse:
         if not HAS_AUTH:
             return HttpResponse("")
+
+        if getattr(request, "limited", False):
+            return render(request, "storefront/partials/rate_limited.html", status=429)
 
         phone_raw = request.POST.get("phone", "").strip()
         code_input = request.POST.get("code", "").strip()
@@ -372,18 +345,6 @@ class VerifyCodeView(View):
             logger.warning("Phone normalization failed", extra={"phone_raw": phone_raw})
             return render(request, "storefront/partials/auth_error.html", {
                 "error_message": "Telefone inválido.",
-            })
-
-        # Rate limit: max 5 verify attempts per phone per 10 min
-        if not _check_rate_limit(
-            f"verify_code:{phone}",
-            RATE_LIMIT_VERIFY_CODE_MAX,
-            RATE_LIMIT_VERIFY_CODE_WINDOW,
-        ):
-            return render(request, "storefront/partials/auth_error.html", {
-                "error_message": "Muitas tentativas. Aguarde alguns minutos.",
-                "phone": phone,
-                "can_retry": False,
             })
 
         from shopman.auth.services.verification import AuthService

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from django.utils.decorators import method_decorator
+from django_ratelimit.decorators import ratelimit
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -120,6 +122,7 @@ class CartItemView(APIView):
         return Response(data)
 
 
+@method_decorator(ratelimit(key="user_or_ip", rate="3/m", method="POST", block=False), name="post")
 class CheckoutView(APIView):
     """
     POST /api/checkout/
@@ -130,6 +133,12 @@ class CheckoutView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        if getattr(request, "limited", False):
+            return Response(
+                {"detail": "Muitas tentativas. Aguarde alguns minutos."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
         serializer = CheckoutSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 

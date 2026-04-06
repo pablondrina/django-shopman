@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django_ratelimit.decorators import ratelimit
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ from .tracking import CepLookupView, OrderConfirmationView  # noqa: F401
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
+@method_decorator(ratelimit(key="user_or_ip", rate="3/m", method="POST", block=False), name="post")
 class CheckoutView(View):
     """Checkout: review order and submit.
 
@@ -96,6 +98,9 @@ class CheckoutView(View):
         return render(request, "storefront/checkout.html", ctx)
 
     def post(self, request: HttpRequest) -> HttpResponse:
+        if getattr(request, "limited", False):
+            return render(request, "storefront/partials/rate_limited.html", status=429)
+
         cart = CartService.get_cart(request)
         if not cart["items"]:
             return redirect("storefront:cart")

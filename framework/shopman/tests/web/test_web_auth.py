@@ -11,7 +11,7 @@ from unittest.mock import patch
 import pytest
 from django.contrib.auth.models import User
 from django.core.cache import cache
-from django.test import Client
+from django.test import Client, override_settings
 from django.utils import timezone
 
 from shopman.auth.models import AccessLink
@@ -297,10 +297,11 @@ class TestDeviceTrust:
 
 
 class TestRateLimiting:
-    """Rate limiting on auth endpoints."""
+    """Rate limiting on auth endpoints using django-ratelimit."""
 
+    @override_settings(RATELIMIT_ENABLE=True)
     def test_rate_limit_blocks_excessive_code_requests(self, client: Client, customer):
-        """RequestCodeView blocks after 3 requests in 10 min window."""
+        """RequestCodeView blocks after 5 requests/min with HTTP 429."""
         phone = customer.phone
 
         with patch("shopman.auth.services.verification.AuthService") as mock_vs:
@@ -308,32 +309,33 @@ class TestRateLimiting:
                 "success": True, "code_id": "x", "expires_at": "x",
             })()
 
-            for _ in range(3):
+            for _ in range(5):
                 client.post("/checkout/request-code/", {"phone": phone})
 
             mock_vs.request_code.reset_mock()
             response = client.post("/checkout/request-code/", {"phone": phone})
 
-            assert response.status_code == 200
+            assert response.status_code == 429
             assert "Muitas tentativas" in response.content.decode()
 
+    @override_settings(RATELIMIT_ENABLE=True)
     def test_rate_limit_blocks_excessive_verify_attempts(self, client: Client, customer):
-        """VerifyCodeView blocks after 5 attempts in 10 min window."""
+        """VerifyCodeView blocks after 10 requests/min with HTTP 429."""
         phone = customer.phone
 
         with patch("shopman.auth.services.verification.AuthService") as mock_vs:
             mock_vs.verify_for_login.return_value = type("R", (), {
                 "success": False, "error": "Incorrect code.",
-                "attempts_remaining": 4, "customer": None,
+                "attempts_remaining": 9, "customer": None,
             })()
 
-            for _ in range(5):
+            for _ in range(10):
                 client.post("/checkout/verify-code/", {"phone": phone, "code": "000000"})
 
             mock_vs.verify_for_login.reset_mock()
             response = client.post("/checkout/verify-code/", {"phone": phone, "code": "000000"})
 
-            assert response.status_code == 200
+            assert response.status_code == 429
             assert "Muitas tentativas" in response.content.decode()
 
 

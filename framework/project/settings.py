@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "import_export",
     "unfold.contrib.import_export",
+    "django_ratelimit",
     # Shopman core apps
     "shopman.utils",
     "shopman.offering",

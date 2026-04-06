@@ -5,11 +5,20 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+from django.core.cache import cache
 
 from shopman.customers.models import Customer, CustomerAddress
 from shopman.models import Shop
 from shopman.offering.models import Collection, CollectionItem, Listing, ListingItem, Product
 from shopman.ordering.models import Channel, Order, OrderItem
+
+
+@pytest.fixture(autouse=True)
+def _clear_rate_limit_cache():
+    """Reset rate limit counters before each test to prevent bleed between tests."""
+    cache.clear()
+    yield
+    cache.clear()
 
 
 @pytest.fixture(autouse=True)
