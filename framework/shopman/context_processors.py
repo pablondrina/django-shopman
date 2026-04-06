@@ -36,6 +36,7 @@ def shop(request: HttpRequest) -> dict:
         "storefront": shop_instance,
         "customer_name": customer_name,
         "google_maps_api_key": settings.GOOGLE_MAPS_API_KEY,
+        "stripe_publishable_key": getattr(settings, "STRIPE_PUBLISHABLE_KEY", ""),
         "shop_location": shop_location,
     }
 

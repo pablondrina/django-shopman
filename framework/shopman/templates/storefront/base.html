@@ -31,6 +31,7 @@
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
 
   <meta name="csrf-token" content="{{ csrf_token }}">
+  {% if stripe_publishable_key %}<meta name="stripe-publishable-key" content="{{ stripe_publishable_key }}">{% endif %}
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       document.body.addEventListener('htmx:configRequest', function(event) {

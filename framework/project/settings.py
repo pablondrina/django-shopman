@@ -132,6 +132,10 @@ MEDIA_URL = "/media/"
 # ── Google Maps ──────────────────────────────────────────────────────
 GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
 
+# ── Stripe ────────────────────────────────────────────────────────────
+STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
+
 # ── Manychat (WhatsApp via ManyChat) ────────────────────────────────
 MANYCHAT_API_TOKEN = os.environ.get("MANYCHAT_API_TOKEN", "")
 MANYCHAT_WEBHOOK_SECRET = os.environ.get("MANYCHAT_WEBHOOK_SECRET", "")
