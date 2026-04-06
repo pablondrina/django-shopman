@@ -1,6 +1,7 @@
-"""Shopman models — Shop, rules, alerts, KDS, closing, delivery."""
+"""Shopman models — Shop, rules, alerts, KDS, closing, delivery, cash register."""
 
 from .alerts import OperatorAlert
+from .cash_register import CashMovement, CashRegisterSession
 from .closing import DayClosing
 from .delivery import DeliveryZone
 from .kds import KDSInstance, KDSTicket
@@ -18,4 +19,6 @@ __all__ = [
     "KDSTicket",
     "DayClosing",
     "DeliveryZone",
+    "CashRegisterSession",
+    "CashMovement",
 ]

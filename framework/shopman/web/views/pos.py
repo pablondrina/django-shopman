@@ -104,7 +104,13 @@ def pos_view(request: HttpRequest) -> HttpResponse:
     if denied:
         return denied
 
-    from shopman.models import Shop
+    from shopman.models import CashRegisterSession, Shop
+
+    shop = Shop.load()
+    cash_session = CashRegisterSession.get_open_for_operator(request.user)
+
+    if not cash_session:
+        return render(request, "pos/cash_open.html", {"shop": shop})
 
     products = _load_products()
     collections = list(
@@ -112,13 +118,13 @@ def pos_view(request: HttpRequest) -> HttpResponse:
         .order_by("sort_order", "name")
         .values("slug", "name")
     )
-    shop = Shop.load()
 
     return render(request, "pos/index.html", {
         "products": products,
         "collections": collections,
         "shop": shop,
         "payment_methods": _PAYMENT_METHODS,
+        "cash_session": cash_session,
     })
 
 
@@ -409,3 +415,115 @@ def pos_cancel_last(request: HttpRequest) -> HttpResponse:
         f'style="background:var(--success-light,#dcfce7);color:var(--success-foreground,#166534)">'
         f'Venda {order_ref} cancelada com sucesso</div>'
     )
+
+
+# ── Cash Register Views ──────────────────────────────────────────────
+
+
+@require_POST
+def pos_cash_open(request: HttpRequest) -> HttpResponse:
+    """POST /gestao/pos/caixa/abrir/ — open a new cash register session."""
+    denied = _staff_required(request)
+    if denied:
+        return HttpResponse("Unauthorized", status=403)
+
+    from shopman.models import CashRegisterSession
+
+    existing = CashRegisterSession.get_open_for_operator(request.user)
+    if existing:
+        return redirect("/gestao/pos/")
+
+    try:
+        opening_raw = request.POST.get("opening_amount", "0").strip().replace(",", ".")
+        opening_amount_q = round(float(opening_raw) * 100)
+    except (ValueError, TypeError):
+        opening_amount_q = 0
+
+    CashRegisterSession.objects.create(
+        operator=request.user,
+        opening_amount_q=max(0, opening_amount_q),
+    )
+    logger.info("pos_cash_open operator=%s opening_q=%s", request.user.username, opening_amount_q)
+    return redirect("/gestao/pos/")
+
+
+@require_POST
+def pos_cash_sangria(request: HttpRequest) -> HttpResponse:
+    """POST /gestao/pos/caixa/sangria/ — HTMX: register a cash movement."""
+    denied = _staff_required(request)
+    if denied:
+        return HttpResponse("Unauthorized", status=403)
+
+    from shopman.models import CashMovement, CashRegisterSession
+
+    session = CashRegisterSession.get_open_for_operator(request.user)
+    if not session:
+        return HttpResponse(
+            '<div class="text-destructive text-sm font-semibold">Caixa não aberto.</div>',
+            status=422,
+        )
+
+    movement_type = request.POST.get("movement_type", "sangria")
+    if movement_type not in ("sangria", "suprimento", "ajuste"):
+        movement_type = "sangria"
+
+    try:
+        amount_raw = request.POST.get("amount", "0").strip().replace(",", ".")
+        amount_q = round(float(amount_raw) * 100)
+    except (ValueError, TypeError):
+        amount_q = 0
+
+    if amount_q <= 0:
+        return HttpResponse(
+            '<div class="text-destructive text-sm font-semibold">Valor inválido.</div>',
+            status=422,
+        )
+
+    reason = request.POST.get("reason", "").strip()
+    CashMovement.objects.create(
+        session=session,
+        movement_type=movement_type,
+        amount_q=amount_q,
+        reason=reason,
+        created_by=request.user.username,
+    )
+    logger.info(
+        "pos_cash_movement type=%s amount_q=%s operator=%s",
+        movement_type, amount_q, request.user.username,
+    )
+
+    from shopman.utils.monetary import format_money as _fm
+    label = {"sangria": "Sangria", "suprimento": "Suprimento", "ajuste": "Ajuste"}.get(movement_type, movement_type)
+    return HttpResponse(
+        f'<div class="text-success-foreground text-sm font-semibold">'
+        f'{label} de R$ {_fm(amount_q)} registrada.</div>'
+    )
+
+
+@require_POST
+def pos_cash_close(request: HttpRequest) -> HttpResponse:
+    """POST /gestao/pos/caixa/fechar/ — close the current cash register session."""
+    denied = _staff_required(request)
+    if denied:
+        return HttpResponse("Unauthorized", status=403)
+
+    from shopman.models import CashRegisterSession
+
+    session = CashRegisterSession.get_open_for_operator(request.user)
+    if not session:
+        return HttpResponse(
+            '<div class="text-destructive font-semibold">Caixa não aberto.</div>',
+            status=422,
+        )
+
+    try:
+        closing_raw = request.POST.get("closing_amount", "0").strip().replace(",", ".")
+        closing_amount_q = round(float(closing_raw) * 100)
+    except (ValueError, TypeError):
+        closing_amount_q = 0
+
+    notes = request.POST.get("notes", "").strip()
+    session.close(closing_amount_q=closing_amount_q, notes=notes)
+    logger.info("pos_cash_close operator=%s closing_q=%s diff_q=%s", request.user.username, closing_amount_q, session.difference_q)
+
+    return render(request, "pos/cash_close_report.html", {"session": session})

@@ -31,6 +31,8 @@ class D1BadgePOSTests(TestCase):
         User = get_user_model()
         self.staff = User.objects.create_user(username="d1_staff", password="x", is_staff=True)
         Product.objects.create(sku="D1-PROD", name="D-1 Product", base_price_q=1000, is_published=True, is_available=True)
+        from shopman.models import CashRegisterSession
+        CashRegisterSession.objects.create(operator=self.staff, opening_amount_q=0)
 
     def test_product_with_d1_flag_renders_badge(self) -> None:
         """Product with is_d1=True shows D-1 badge in POS grid."""
@@ -74,6 +76,8 @@ class EmployeeDiscountPOSTests(TestCase):
         _make_channel()
         User = get_user_model()
         self.staff = User.objects.create_user(username="emp_staff", password="x", is_staff=True)
+        from shopman.models import CashRegisterSession
+        CashRegisterSession.objects.create(operator=self.staff, opening_amount_q=0)
 
     def test_customer_lookup_returns_group(self) -> None:
         """pos_customer_lookup returns data-customer-group attribute."""

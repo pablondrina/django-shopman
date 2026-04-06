@@ -701,7 +701,7 @@ Sem estado Alpine para isso — server-side via HTMX.
 
 ---
 
-### WP-R16: POS Gestão de Caixa
+### ✅ WP-R16: POS Gestão de Caixa
 
 **Objetivo:** Abertura, sangria, e fechamento de caixa.
 

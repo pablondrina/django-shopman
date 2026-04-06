@@ -66,7 +66,16 @@ from .pedidos import (
     PedidoNotesView,
     GestorOrderRejectView,
 )
-from .pos import pos_cancel_last, pos_close, pos_customer_lookup, pos_shift_summary, pos_view
+from .pos import (
+    pos_cancel_last,
+    pos_cash_close,
+    pos_cash_open,
+    pos_cash_sangria,
+    pos_close,
+    pos_customer_lookup,
+    pos_shift_summary,
+    pos_view,
+)
 from .production import bulk_create_work_orders
 from .pwa import OfflineView
 from .tracking import OrderCancelView, OrderStatusPartialView, OrderTrackingView, ReorderView
@@ -141,6 +150,9 @@ __all__ = [
     "KDSTicketDoneView",
     "KDSTicketListPartialView",
     "pos_cancel_last",
+    "pos_cash_close",
+    "pos_cash_open",
+    "pos_cash_sangria",
     "pos_close",
     "pos_customer_lookup",
     "pos_shift_summary",

@@ -26,6 +26,9 @@ class POSLayoutTests(TestCase):
         _make_channel()
         User = get_user_model()
         self.staff = User.objects.create_user(username="staff", password="x", is_staff=True)
+        # WP-R16: POS requires an open cash register session
+        from shopman.models import CashRegisterSession
+        CashRegisterSession.objects.create(operator=self.staff, opening_amount_q=0)
 
     def test_pos_loads_for_staff(self) -> None:
         """Staff can access POS page."""

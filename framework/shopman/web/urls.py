@@ -106,6 +106,9 @@ urlpatterns = [
     path("gestao/pos/close/", views.pos_close, name="pos_close"),
     path("gestao/pos/cancel-last/", views.pos_cancel_last, name="pos_cancel_last"),
     path("gestao/pos/shift-summary/", views.pos_shift_summary, name="pos_shift_summary"),
+    path("gestao/pos/caixa/abrir/", views.pos_cash_open, name="pos_cash_open"),
+    path("gestao/pos/caixa/sangria/", views.pos_cash_sangria, name="pos_cash_sangria"),
+    path("gestao/pos/caixa/fechar/", views.pos_cash_close, name="pos_cash_close"),
     # Operator: Production
     path("gestao/producao/criar/", views.bulk_create_work_orders, name="bulk_create_work_orders"),
     # Operator: KDS (Kitchen Display System)

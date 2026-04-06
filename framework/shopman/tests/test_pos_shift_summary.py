@@ -40,6 +40,9 @@ class ShiftSummaryViewTests(TestCase):
         User = get_user_model()
         self.staff = User.objects.create_user(username="shift_staff", password="x", is_staff=True)
         self.client.force_login(self.staff)
+        # WP-R16: POS requires an open cash register session
+        from shopman.models import CashRegisterSession
+        CashRegisterSession.objects.create(operator=self.staff, opening_amount_q=0)
 
     def test_summary_zero_sales(self) -> None:
         """Shift summary with no orders shows 0 sales."""
