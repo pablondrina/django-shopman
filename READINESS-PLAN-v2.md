@@ -315,7 +315,7 @@ Design tokens do storefront. Lazy-load alternativas no cart (HTMX on-demand).
 
 ---
 
-### WP-R7: Checkout Defaults Pre-fill
+### ✅ WP-R7: Checkout Defaults Pre-fill
 
 **Objetivo:** Cliente que já comprou não deveria preencher tudo de novo.
 
