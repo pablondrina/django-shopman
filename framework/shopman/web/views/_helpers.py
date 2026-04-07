@@ -89,45 +89,60 @@ def _line_item_is_d1(product: Product, *, listing_ref: str | None = None) -> boo
     return d1 > 0 and ready == 0 and in_prod == 0
 
 
+def _to_storefront_avail(raw_avail: dict | None, product: Product) -> dict | None:
+    """Convert raw availability_for_sku result to simplified storefront view.
+
+    The storefront never consumes internal breakdown ({ready, in_production, d1}).
+    Returns:
+        {available_qty, can_order, is_paused, had_stock}
+    or None if raw_avail is None.
+    """
+    if raw_avail is None:
+        return None
+    from decimal import Decimal
+
+    is_paused = raw_avail.get("is_paused", False) or not product.is_available
+    total_orderable = raw_avail.get("total_orderable", Decimal("0"))
+    can_order = total_orderable > 0 and not is_paused
+    # had_stock: is_planned (future production scheduled) or currently available
+    had_stock = raw_avail.get("is_planned", False) or total_orderable > 0
+    return {
+        "available_qty": total_orderable,
+        "can_order": can_order,
+        "is_paused": is_paused,
+        "had_stock": had_stock,
+    }
+
+
 def _availability_badge(avail: dict | None, product: Product) -> dict:
     """
     Determine the availability badge for a product.
 
-    Returns dict with keys: label, css_class, can_add_to_cart.
-    Possible states:
-    - available: ready or in_production stock > 0
-    - preparing: no ready stock, but in_production > 0
-    - sold_out: no orderable stock
-    - paused: product marked unavailable by admin
-    - unknown: stocking unavailable (fall back to product.is_available)
+    ``avail`` must be the simplified storefront format from ``_to_storefront_avail()``,
+    NOT the raw breakdown from availability_for_sku(). Returns:
+      {label, css_class, can_add_to_cart}
 
-    D-1 (yesterday's leftovers) is NEVER exposed to the customer.
-    When only D-1 stock exists (d1>0, ready=0, in_production=0), the product
-    is treated as unavailable. D-1 is a POS/balcão concept.
+    Customer-facing states:
+    - available: can_order=True → no badge (implicit)
+    - sold-out: can_order=False, had_stock=True, not paused → "Esgotado"
+    - unavailable: can_order=False otherwise → "Indisponível"
     """
     if not product.is_available:
-        return {"label": "Indisponível", "css_class": "badge-paused", "can_add_to_cart": False}
+        return {"label": "Indisponível", "css_class": "badge-unavailable", "can_add_to_cart": False}
 
     if avail is None:
-        # No stocking — fall back to product.is_available flag
+        # No stocking module — fall back to product.is_available flag
         return {"label": "", "css_class": "", "can_add_to_cart": product.is_available}
 
-    if avail.get("is_paused"):
-        return {"label": "Indisponível", "css_class": "badge-paused", "can_add_to_cart": False}
-
-    breakdown = avail.get("breakdown", {})
-    from decimal import Decimal
-
-    ready = breakdown.get("ready", Decimal("0"))
-    in_prod = breakdown.get("in_production", Decimal("0"))
-
-    if ready > 0:
+    can_order = avail.get("can_order", True)
+    if can_order:
         return {"label": "", "css_class": "badge-available", "can_add_to_cart": True}
-    if in_prod > 0:
-        return {"label": "Preparando...", "css_class": "badge-preparing", "can_add_to_cart": True}
-    if avail.get("is_planned"):
-        return {"label": "Em breve", "css_class": "badge-planned", "can_add_to_cart": False}
-    return {"label": "Indisponível", "css_class": "badge-sold-out", "can_add_to_cart": False}
+
+    had_stock = avail.get("had_stock", False)
+    is_paused = avail.get("is_paused", False)
+    if had_stock and not is_paused:
+        return {"label": "Esgotado", "css_class": "badge-sold-out", "can_add_to_cart": False}
+    return {"label": "Indisponível", "css_class": "badge-unavailable", "can_add_to_cart": False}
 
 
 def _storefront_session_pricing_hints(request: HttpRequest | None) -> tuple[str, int]:
@@ -174,20 +189,6 @@ def _promo_matches_for_vitrine(promo, sku: str, ctx: dict) -> bool:
             return True
     return False
 
-
-def _d1_discount_percent() -> int:
-    """Get D-1 discount percent from channel config or default."""
-    D1_DISCOUNT_PERCENT = 50
-
-    try:
-        from shopman.ordering.models import Channel
-
-        channel = Channel.objects.filter(ref=STOREFRONT_CHANNEL_REF).first()
-        if channel and channel.config:
-            return channel.config.get("rules", {}).get("d1_discount_percent", D1_DISCOUNT_PERCENT)
-    except Exception as e:
-        logger.warning("d1_discount_percent_failed: %s", e, exc_info=True)
-    return D1_DISCOUNT_PERCENT
 
 
 def _best_auto_promotion_discount_q(
@@ -303,7 +304,8 @@ def _annotate_products(
         if base_q is None:
             base_q = p.base_price_q
 
-        avail = avail_map.get(p.sku)
+        avail_raw = avail_map.get(p.sku)
+        avail = _to_storefront_avail(avail_raw, p)
         badge = _availability_badge(avail, p)
         cols = sku_collections.get(p.sku, [])
 

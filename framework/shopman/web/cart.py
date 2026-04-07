@@ -182,13 +182,8 @@ class CartService:
             # Flag if current qty exceeds available stock
             avail = avail_map.get(item.get("sku", ""))
             if avail is not None:
-                breakdown = avail.get("breakdown", {})
                 from decimal import Decimal as _D
-                total_avail = (
-                    breakdown.get("ready", _D("0"))
-                    + breakdown.get("in_production", _D("0"))
-                    + breakdown.get("d1", _D("0"))
-                )
+                total_avail = avail.get("total_orderable", _D("0"))
                 item["is_unavailable"] = int(total_avail) < int(Decimal(str(item.get("qty", 0))))
             else:
                 item["is_unavailable"] = False

@@ -50,10 +50,7 @@
     {% if badge.label %}
     <span class="absolute top-4 right-4 z-20 rounded-full font-bold
       {% if badge.css_class == 'badge-available' %}text-xs px-2 py-0.5 bg-muted text-muted-foreground
-      {% elif badge.css_class == 'badge-preparing' %}text-sm px-3 py-1.5 shadow-md ring-1 ring-black/5 bg-warning-light text-warning-foreground
-      {% elif badge.css_class == 'badge-sold-out' %}text-sm px-3 py-1.5 shadow-md ring-1 ring-black/5 bg-muted text-muted-foreground
-      {% elif badge.css_class == 'badge-paused' %}text-sm px-3 py-1.5 shadow-md ring-1 ring-black/5 bg-muted text-muted-foreground
-      {% elif badge.css_class == 'badge-planned' %}text-sm px-3 py-1.5 shadow-md ring-1 ring-black/5 bg-info-light text-foreground
+      {% elif badge.css_class == 'badge-sold-out' or badge.css_class == 'badge-unavailable' %}text-sm px-3 py-1.5 shadow-md ring-1 ring-black/5 bg-muted text-muted-foreground
       {% else %}{{ badge.css_class }}{% endif %}">
       {{ badge.label }}
     </span>
@@ -104,13 +101,9 @@
     {% endif %}
 
     <!-- Availability detail -->
-    {% if badge.label == "Preparando..." %}
-    <div class="mt-4 px-4 py-3 bg-warning/10 border border-warning/30 rounded-xl">
-      <p class="text-warning-foreground font-medium text-sm">Em preparo — logo estar&aacute; dispon&iacute;vel para retirada.</p>
-    </div>
-    {% elif badge.label == "Em breve" %}
-    <div class="mt-4 px-4 py-2 bg-info/10 border border-info/30 rounded-xl">
-      <p class="text-foreground font-medium text-sm">Produ&ccedil;&atilde;o planejada — dispon&iacute;vel em breve.</p>
+    {% if badge.label == "Esgotado" %}
+    <div class="mt-4 px-4 py-2 bg-muted-foreground/10 rounded-xl">
+      <p class="text-muted-foreground font-medium">Esgotado no momento</p>
     </div>
     {% elif badge.label == "Indisponível" %}
     <div class="mt-4 px-4 py-2 bg-muted-foreground/10 rounded-xl">

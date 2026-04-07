@@ -236,14 +236,10 @@
     .modal-overlay { padding: 0.75rem; }
   }
 
-  /* Availability badges */
-  /* Fundos *-light: texto com --foreground (tokens *-foreground do Oxbow são para botão sólido, não para tint) */
+  /* Availability badges — customer-facing: available (implicit), sold-out, unavailable */
   .badge-available { background: var(--success-light); color: rgb(var(--foreground)); }
-  .badge-preparing { background: var(--warning-light); color: rgb(var(--warning-foreground)); animation: pulse-badge 2s ease-in-out infinite; }
-  .badge-d1 { background: var(--error-light); color: rgb(var(--foreground)); }
   .badge-sold-out { background: rgb(var(--muted)); color: rgb(var(--foreground-muted)); }
-  .badge-paused { background: rgb(var(--foreground-muted)); color: rgb(var(--background)); opacity: 0.8; }
-  .badge-planned { background: var(--info-light); color: rgb(var(--foreground)); }
+  .badge-unavailable { background: rgb(var(--muted)); color: rgb(var(--foreground-muted)); }
 
   /* Button loading/success states */
   .btn-add-loading { pointer-events: none; opacity: 0.8; }

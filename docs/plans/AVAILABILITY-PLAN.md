@@ -289,7 +289,7 @@ Toda configuração que afeta o comportamento comercial deve ser editável via
 
 **Arquivos**: `_helpers.py`, `product_card.html`, `product_detail.html`, `catalog.py`
 
-### WP-A2: Simplificar badges para o cliente
+### WP-A2: Simplificar badges para o cliente ✅ 2026-04-07
 
 **Objetivo**: Apenas "indisponível" e opcionalmente "esgotado".
 

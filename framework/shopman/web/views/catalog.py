@@ -30,6 +30,7 @@ from ._helpers import (
     _is_happy_hour_active,
     _popular_skus,
     _storefront_session_pricing_hints,
+    _to_storefront_avail,
 )
 
 
@@ -238,19 +239,6 @@ def _load_alternatives(sku: str, listing_ref: str | None, request: HttpRequest |
         return []
 
 
-def _extract_available_qty(avail: dict | None) -> int | None:
-    """Extract total available quantity from availability breakdown."""
-    if avail is None:
-        return None
-    breakdown = avail.get("breakdown", {})
-    from decimal import Decimal
-
-    ready = breakdown.get("ready", Decimal("0"))
-    in_prod = breakdown.get("in_production", Decimal("0"))
-    d1 = breakdown.get("d1", Decimal("0"))
-    total = ready + in_prod + d1
-    return int(total)
-
 
 class CartAlternativesView(View):
     """HTMX partial: alternatives for an out-of-stock cart item."""
@@ -271,7 +259,8 @@ class ProductDetailView(View):
         product = get_object_or_404(Product, sku=sku, is_published=True)
         listing_ref = _get_channel_listing_ref()
         base_price_q = _get_price_q(product, listing_ref=listing_ref)
-        avail = _get_availability(product.sku)
+        avail_raw = _get_availability(product.sku)
+        avail = _to_storefront_avail(avail_raw, product)
         badge = _availability_badge(avail, product)
 
         price_q = base_price_q
@@ -319,9 +308,9 @@ class ProductDetailView(View):
             except Exception as e:
                 logger.warning("bundle_expand_failed sku=%s: %s", product.sku, e, exc_info=True)
 
-        # Alternatives when sold out or paused
+        # Alternatives when unavailable
         alternatives = []
-        if badge["css_class"] in ("badge-sold-out", "badge-paused"):
+        if not badge["can_add_to_cart"]:
             alternatives = _load_alternatives(product.sku, listing_ref, request=request)
 
         # Cross-sell ("Compre junto")
@@ -344,7 +333,8 @@ class ProductDetailView(View):
             logger.warning("breadcrumb_collection_failed sku=%s: %s", product.sku, e, exc_info=True)
 
         # Available quantity for JS notice
-        available_qty = _extract_available_qty(avail)
+        from decimal import Decimal
+        available_qty = int(avail["available_qty"]) if avail and avail.get("available_qty") is not None else None
 
         return render(request, "storefront/product_detail.html", {
             "product": product,

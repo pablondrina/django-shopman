@@ -21,10 +21,7 @@
       {% if item.badge.label %}
       <span class="absolute top-2 right-2 z-20 max-w-[calc(100%-0.5rem)] text-center text-xs font-bold leading-tight rounded-full
         {% if item.badge.css_class == 'badge-available' %}px-2 py-0.5 bg-muted text-muted-foreground
-        {% elif item.badge.css_class == 'badge-preparing' %}px-2.5 py-1 shadow-md ring-1 ring-black/5 bg-warning-light text-warning-foreground
-        {% elif item.badge.css_class == 'badge-sold-out' %}px-2.5 py-1 shadow-md ring-1 ring-black/5 bg-muted text-muted-foreground
-        {% elif item.badge.css_class == 'badge-paused' %}px-2.5 py-1 shadow-md ring-1 ring-black/5 bg-muted text-muted-foreground
-        {% elif item.badge.css_class == 'badge-planned' %}px-2.5 py-1 shadow-md ring-1 ring-black/5 bg-info-light text-foreground
+        {% elif item.badge.css_class == 'badge-sold-out' or item.badge.css_class == 'badge-unavailable' %}px-2.5 py-1 shadow-md ring-1 ring-black/5 bg-muted text-muted-foreground
         {% else %}{{ item.badge.css_class }}{% endif %}">
         {{ item.badge.label }}
       </span>
