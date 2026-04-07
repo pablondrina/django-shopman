@@ -179,19 +179,28 @@ class CraftPlanning:
         return orders
 
     @classmethod
-    def adjust(cls, order, quantity, reason=None, expected_rev=None, actor=None):
+    def adjust(cls, order, quantity, reason=None, expected_rev=None, actor=None, force=False):
         """
         Adjust target quantity of an open WorkOrder.
 
         N adjustments possible, each generates an event.
         expected_rev is optional (last-write-wins if omitted).
+
+        quantity=0: voids the WorkOrder instead of adjusting.
+        force=False: raise CraftError("DOWNSTREAM_DEFICIT") if reducing a
+            shared-ingredient WO creates shortage for downstream WOs.
+            force=True: allow with warning.
         """
         from shopman.crafting.models import WorkOrder, WorkOrderEvent
         from shopman.crafting.signals import production_changed
 
         quantity = Decimal(str(quantity))
-        if quantity <= 0:
+        if quantity < 0:
             raise CraftError("INVALID_QUANTITY", quantity=float(quantity))
+
+        # V3: quantity=0 → void
+        if quantity == Decimal("0"):
+            return cls.void(order, reason=reason or "Remanejo: zerado", expected_rev=expected_rev, actor=actor)
 
         with transaction.atomic():
             # Acquire row lock, then refresh caller's object in-place
@@ -204,6 +213,16 @@ class CraftPlanning:
                 raise CraftError("TERMINAL_STATUS", status=order.status)
 
             _check_rev(order, expected_rev)
+
+            # V1: validate committed holds (graceful if DEMAND_BACKEND not configured)
+            _validate_committed_holds(order, quantity)
+
+            # V2: validate shared ingredient availability (graceful if INVENTORY_BACKEND not configured)
+            _validate_shared_ingredients(order, quantity)
+
+            # V3 (downstream): check if reducing a shared-input WO creates deficit
+            _validate_downstream_deficit(order, quantity, force=force)
+
             order.quantity = quantity
             if order.started_at is None:
                 order.started_at = timezone.now()
@@ -236,3 +255,193 @@ class CraftPlanning:
 
         logger.info("WorkOrder %s adjusted: %s -> %s", order.code, old_quantity, quantity)
         return order
+
+
+# ── Adjust validation helpers ──────────────────────────────────────────────────
+
+
+def _validate_committed_holds(order, new_quantity: Decimal) -> None:
+    """
+    V1: Raise CraftError("COMMITTED_HOLDS") if new_quantity is below committed orders.
+
+    Graceful: skipped if DEMAND_BACKEND is not configured or raises.
+    """
+    try:
+        from shopman.crafting.conf import get_setting
+
+        backend_path = get_setting("DEMAND_BACKEND")
+        if not backend_path:
+            return
+
+        from django.utils.module_loading import import_string
+
+        backend = import_string(backend_path)()
+        committed = backend.committed(order.output_ref, order.scheduled_date)
+
+        if new_quantity < committed:
+            raise CraftError(
+                "COMMITTED_HOLDS",
+                committed=float(committed),
+                requested=float(new_quantity),
+                message=f"Há {committed} unidades comprometidas em encomendas",
+            )
+    except CraftError:
+        raise
+    except Exception:
+        pass  # graceful: no backend or unavailable → skip
+
+
+def _validate_shared_ingredients(order, new_quantity: Decimal) -> None:
+    """
+    V2: Raise CraftError("INSUFFICIENT_MATERIALS") if shared ingredients are insufficient.
+
+    Checks total ingredient consumption across ALL open WOs on the same date
+    against what's available. Graceful: skipped if INVENTORY_BACKEND is not configured.
+    """
+    try:
+        from shopman.crafting.conf import get_setting
+
+        inv_path = get_setting("INVENTORY_BACKEND")
+        if not inv_path:
+            return
+
+        from django.utils.module_loading import import_string
+        from shopman.crafting.models import WorkOrder
+        from shopman.crafting.protocols.inventory import MaterialNeed
+
+        recipe = order.recipe
+        coefficient_new = new_quantity / recipe.batch_size
+
+        # Own new ingredient needs
+        own_needs: dict[str, Decimal] = {}
+        for ri in recipe.items.filter(is_optional=False):
+            own_needs[ri.input_ref] = ri.quantity * coefficient_new
+
+        if not own_needs:
+            return
+
+        # Other WOs on same date
+        other_wos = (
+            WorkOrder.objects.filter(
+                status=WorkOrder.Status.OPEN,
+                scheduled_date=order.scheduled_date,
+            )
+            .exclude(pk=order.pk)
+            .select_related("recipe")
+            .prefetch_related("recipe__items")
+        )
+
+        other_needs: dict[str, Decimal] = {}
+        for other in other_wos:
+            other_coeff = other.quantity / other.recipe.batch_size
+            for ri in other.recipe.items.filter(is_optional=False):
+                if ri.input_ref in own_needs:
+                    other_needs[ri.input_ref] = (
+                        other_needs.get(ri.input_ref, Decimal("0"))
+                        + ri.quantity * other_coeff
+                    )
+
+        # Check availability for shared ingredients only
+        shared_refs = set(own_needs) & set(other_needs) | set(own_needs)
+        material_needs = [
+            MaterialNeed(sku=ref, quantity=own_needs.get(ref, Decimal("0")) + other_needs.get(ref, Decimal("0")))
+            for ref in shared_refs
+        ]
+
+        inv_backend = import_string(inv_path)()
+        result = inv_backend.available(material_needs)
+
+        if not result.all_available:
+            shortages = [
+                {"sku": ms.sku, "needed": float(ms.needed), "available": float(ms.available)}
+                for ms in result.materials
+                if not ms.sufficient
+            ]
+            raise CraftError("INSUFFICIENT_MATERIALS", shortages=shortages)
+
+    except CraftError:
+        raise
+    except Exception:
+        pass  # graceful: backend unavailable → skip
+
+
+def _validate_downstream_deficit(order, new_quantity: Decimal, *, force: bool) -> None:
+    """
+    V3 (downstream): If this WO's output_ref is used as input_ref by other active
+    recipes, check if reducing will create ingredient shortage for other open WOs.
+
+    force=False → raise CraftError("DOWNSTREAM_DEFICIT") if deficit found.
+    force=True  → log warning and proceed.
+
+    Graceful: skipped if an unexpected error occurs.
+    """
+    try:
+        from shopman.crafting.models import Recipe, RecipeItem, WorkOrder
+
+        # Is this WO's output used as an input in other recipes?
+        downstream_recipes = list(
+            Recipe.objects.filter(
+                items__input_ref=order.output_ref,
+                is_active=True,
+            )
+            .distinct()
+            .prefetch_related("items")
+        )
+        if not downstream_recipes:
+            return
+
+        # How much will this WO produce (new vs old)?
+        old_qty = order.quantity  # already refreshed from DB
+        delta = new_quantity - old_qty  # negative = reducing
+        if delta >= 0:
+            return  # increasing or same → no deficit risk
+
+        # Reduction amount
+        reduction = abs(delta)
+
+        # Check downstream WOs on the same date that need this ingredient
+        deficit_items = []
+        downstream_wos = (
+            WorkOrder.objects.filter(
+                status=WorkOrder.Status.OPEN,
+                scheduled_date=order.scheduled_date,
+                recipe__in=downstream_recipes,
+            )
+            .exclude(pk=order.pk)
+            .select_related("recipe")
+            .prefetch_related("recipe__items")
+        )
+
+        for downstream_wo in downstream_wos:
+            coeff = downstream_wo.quantity / downstream_wo.recipe.batch_size
+            for ri in downstream_wo.recipe.items.filter(input_ref=order.output_ref):
+                total_needed = ri.quantity * coeff
+                # This WO was supposed to provide some of the supply; reduction reduces it
+                if total_needed > 0:
+                    shortage = min(reduction, total_needed)
+                    deficit_items.append({
+                        "wo_code": downstream_wo.code,
+                        "sku": order.output_ref,
+                        "shortage": float(shortage),
+                    })
+
+        if not deficit_items:
+            return
+
+        if force:
+            logger.warning(
+                "WorkOrder %s adjusted with downstream deficit: %s",
+                order.code,
+                deficit_items,
+            )
+        else:
+            raise CraftError(
+                "DOWNSTREAM_DEFICIT",
+                deficit=deficit_items,
+                message="Insumo insuficiente para produção planejada",
+            )
+
+    except CraftError:
+        raise
+    except Exception:
+        pass  # graceful

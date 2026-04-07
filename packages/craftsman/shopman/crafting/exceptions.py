@@ -29,6 +29,9 @@ class CraftError(BaseError):
         "BOM_CYCLE": "BOM expansion exceeded maximum depth",
         "RECIPE_NOT_FOUND": "Recipe not found",
         "WORK_ORDER_NOT_FOUND": "Work order not found",
+        "COMMITTED_HOLDS": "Quantity below committed orders for this date",
+        "INSUFFICIENT_MATERIALS": "Insufficient shared ingredients for rescheduled quantity",
+        "DOWNSTREAM_DEFICIT": "Reducing this work order creates ingredient shortage for downstream production",
     }
 
 

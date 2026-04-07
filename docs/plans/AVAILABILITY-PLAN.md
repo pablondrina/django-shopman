@@ -399,7 +399,7 @@ via `needs(expand=True)` já resolve os componentes e pré-preparos nativamente.
 **Arquivos**: `craftsman/services/queries.py`, `craftsman/contrib/demand/backend.py`,
 `craftsman/conf.py`, seed
 
-### WP-A8: Validação de insumos e holds no `adjust()` (remanejo de produção)
+### WP-A8: Validação de insumos e holds no `adjust()` (remanejo de produção) ✅ 2026-04-07
 
 **Objetivo**: Remanejo seguro de quantidades entre WOs que compartilham insumos,
 respeitando compromissos com clientes. Sem novo status — mantém OPEN/DONE/VOID.

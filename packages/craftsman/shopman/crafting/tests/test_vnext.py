@@ -244,8 +244,15 @@ class TestAdjust:
     def test_adjust_invalid_quantity(self, recipe):
         wo = craft.plan(recipe, 100)
         with pytest.raises(CraftError) as exc:
-            craft.adjust(wo, quantity=0)
+            craft.adjust(wo, quantity=-5)
         assert exc.value.code == "INVALID_QUANTITY"
+
+    def test_adjust_zero_voids(self, recipe):
+        """adjust(quantity=0) voids the WorkOrder instead of raising."""
+        wo = craft.plan(recipe, 100)
+        craft.adjust(wo, quantity=0, reason="Remanejo: zerado")
+        wo.refresh_from_db()
+        assert wo.status == WorkOrder.Status.VOID
 
 
 # ══════════════════════════════════════════════════════════════
@@ -1186,3 +1193,166 @@ class TestSuggest:
         assert suggestions[0].basis["high_demand_applied"] is False
         # No multiplier: avg=100, safety=20% => 120
         assert suggestions[0].quantity == Decimal("120")
+
+
+# ══════════════════════════════════════════════════════════════
+# ADJUST VALIDATIONS (WP-A8)
+# ══════════════════════════════════════════════════════════════
+
+
+class TestAdjustValidations:
+    """Tests for WP-A8 adjust() validations: committed holds, shared ingredients, downstream."""
+
+    def test_adjust_no_backend_skips_validation(self, recipe_with_items, tomorrow):
+        """Without DEMAND_BACKEND or INVENTORY_BACKEND, adjust succeeds normally."""
+        wo = craft.plan(recipe_with_items, 100, date=tomorrow)
+        craft.adjust(wo, quantity=50)
+        wo.refresh_from_db()
+        assert wo.quantity == Decimal("50")
+
+    def test_adjust_below_committed_holds(self, recipe, tomorrow, settings):
+        """adjust() below committed quantity raises COMMITTED_HOLDS."""
+        from unittest.mock import MagicMock, patch
+
+        mock_backend = MagicMock()
+        mock_backend.committed.return_value = Decimal("80")
+        mock_backend_class = MagicMock(return_value=mock_backend)
+
+        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+
+        wo = craft.plan(recipe, 100, date=tomorrow)
+
+        with patch("django.utils.module_loading.import_string", return_value=mock_backend_class):
+            with pytest.raises(CraftError) as exc:
+                craft.adjust(wo, quantity=50)
+
+        assert exc.value.code == "COMMITTED_HOLDS"
+        assert exc.value.data["committed"] == 80.0
+        assert exc.value.data["requested"] == 50.0
+
+    def test_adjust_at_committed_quantity_succeeds(self, recipe, tomorrow, settings):
+        """adjust() exactly at committed quantity is allowed."""
+        from unittest.mock import MagicMock, patch
+
+        mock_backend = MagicMock()
+        mock_backend.committed.return_value = Decimal("80")
+        mock_backend_class = MagicMock(return_value=mock_backend)
+
+        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+
+        wo = craft.plan(recipe, 100, date=tomorrow)
+
+        with patch("django.utils.module_loading.import_string", return_value=mock_backend_class):
+            craft.adjust(wo, quantity=80)
+
+        wo.refresh_from_db()
+        assert wo.quantity == Decimal("80")
+
+    def test_adjust_exceeds_shared_ingredient(self, recipe_with_items, tomorrow, settings):
+        """adjust() raises INSUFFICIENT_MATERIALS when shared ingredients are short."""
+        from unittest.mock import MagicMock, patch
+        from shopman.crafting.protocols.inventory import AvailabilityResult, MaterialStatus
+
+        mock_inv = MagicMock()
+        # Available farinha=20kg, but new WO needs 50kg (coefficient=100/10=10, farinha=5*10=50)
+        mock_inv.available.return_value = AvailabilityResult(
+            all_available=False,
+            materials=[
+                MaterialStatus(sku="farinha", needed=Decimal("50"), available=Decimal("20")),
+            ],
+        )
+        mock_inv_class = MagicMock(return_value=mock_inv)
+
+        settings.CRAFTING = {"INVENTORY_BACKEND": "test.MockInvBackend"}
+
+        wo = craft.plan(recipe_with_items, 50, date=tomorrow)
+
+        with patch("django.utils.module_loading.import_string", return_value=mock_inv_class):
+            with pytest.raises(CraftError) as exc:
+                craft.adjust(wo, quantity=100)
+
+        assert exc.value.code == "INSUFFICIENT_MATERIALS"
+        shortages = exc.value.data["shortages"]
+        assert any(s["sku"] == "farinha" for s in shortages)
+
+    def test_adjust_within_limits_succeeds(self, recipe_with_items, tomorrow, settings):
+        """adjust() within available ingredients succeeds."""
+        from unittest.mock import MagicMock, patch
+        from shopman.crafting.protocols.inventory import AvailabilityResult, MaterialStatus
+
+        mock_inv = MagicMock()
+        mock_inv.available.return_value = AvailabilityResult(
+            all_available=True,
+            materials=[
+                MaterialStatus(sku="farinha", needed=Decimal("50"), available=Decimal("100")),
+            ],
+        )
+        mock_inv_class = MagicMock(return_value=mock_inv)
+
+        settings.CRAFTING = {"INVENTORY_BACKEND": "test.MockInvBackend"}
+
+        wo = craft.plan(recipe_with_items, 50, date=tomorrow)
+
+        with patch("django.utils.module_loading.import_string", return_value=mock_inv_class):
+            craft.adjust(wo, quantity=80)
+
+        wo.refresh_from_db()
+        assert wo.quantity == Decimal("80")
+
+    def test_adjust_to_zero_voids(self, recipe, tomorrow):
+        """adjust(quantity=0) delegates to void()."""
+        wo = craft.plan(recipe, 100, date=tomorrow)
+        result = craft.adjust(wo, quantity=0)
+        result.refresh_from_db()
+        assert result.status == WorkOrder.Status.VOID
+
+    def test_adjust_downstream_deficit_blocked(self, recipe, recipe_with_items, tomorrow):
+        """Reducing a WO whose output is used by another WO raises DOWNSTREAM_DEFICIT."""
+        # recipe_with_items uses: farinha, agua, fermento
+        # We create a sub-recipe where "croissant" (output of recipe) is an ingredient
+        intermediate = Recipe.objects.create(
+            code="pain-complet",
+            name="Pain Complet",
+            output_ref="pain-complet",
+            batch_size=Decimal("10"),
+        )
+        RecipeItem.objects.create(
+            recipe=intermediate,
+            input_ref="croissant",  # uses croissant output
+            quantity=Decimal("2"),
+            unit="un",
+        )
+
+        # Plan croissant WO (recipe output_ref="croissant")
+        wo_croissant = craft.plan(recipe, 100, date=tomorrow)
+        # Plan downstream WO that needs croissant as ingredient
+        craft.plan(intermediate, 50, date=tomorrow)
+
+        # Reducing croissant below downstream needs should raise DOWNSTREAM_DEFICIT
+        with pytest.raises(CraftError) as exc:
+            craft.adjust(wo_croissant, quantity=5, force=False)
+
+        assert exc.value.code == "DOWNSTREAM_DEFICIT"
+
+    def test_adjust_downstream_deficit_forced(self, recipe, tomorrow):
+        """force=True allows adjusting despite downstream deficit (with warning)."""
+        intermediate = Recipe.objects.create(
+            code="pain-complet-force",
+            name="Pain Complet Force",
+            output_ref="pain-complet-force",
+            batch_size=Decimal("10"),
+        )
+        RecipeItem.objects.create(
+            recipe=intermediate,
+            input_ref="croissant",
+            quantity=Decimal("5"),
+            unit="un",
+        )
+
+        wo_croissant = craft.plan(recipe, 100, date=tomorrow)
+        craft.plan(intermediate, 50, date=tomorrow)
+
+        # force=True: should succeed despite deficit
+        craft.adjust(wo_croissant, quantity=5, force=True)
+        wo_croissant.refresh_from_db()
+        assert wo_croissant.quantity == Decimal("5")
