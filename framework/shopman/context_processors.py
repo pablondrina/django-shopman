@@ -32,12 +32,23 @@ def shop(request: HttpRequest) -> dict:
             "state": shop_instance.state_code,
         }
 
+    try:
+        from .web.views._helpers import _format_opening_hours, _shop_status
+
+        shop_status = _shop_status()
+        opening_hours_display = _format_opening_hours()
+    except Exception:
+        shop_status = {"is_open": True, "message": None, "opens_at": None, "closes_at": None}
+        opening_hours_display = []
+
     return {
         "storefront": shop_instance,
         "customer_name": customer_name,
         "google_maps_api_key": settings.GOOGLE_MAPS_API_KEY,
         "stripe_publishable_key": getattr(settings, "STRIPE_PUBLISHABLE_KEY", ""),
         "shop_location": shop_location,
+        "shop_status": shop_status,
+        "opening_hours_display": opening_hours_display,
     }
 
 

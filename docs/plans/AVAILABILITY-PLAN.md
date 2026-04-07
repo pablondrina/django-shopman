@@ -325,7 +325,7 @@ Toda configuração que afeta o comportamento comercial deve ser editável via
 
 **Arquivos**: `checkout.py`, `checkout.html`, `seed.py` (popular defaults)
 
-### WP-A4: Wiring do banner de horário de funcionamento
+### WP-A4: Wiring do banner de horário de funcionamento ✅ 2026-04-07
 
 **Objetivo**: Banner informativo de "Aberto/Fechado" funcional em todas as páginas.
 
