@@ -66,11 +66,40 @@ class OrderingDemandBackend:
             .order_by("order_date")
         )
 
+        # Build waste map from WorkOrderItem (kind=waste) — same date range
+        waste_by_date: dict = {}
+        try:
+            from shopman.crafting.models import WorkOrderItem
+
+            waste_qs = (
+                WorkOrderItem.objects.filter(
+                    kind=WorkOrderItem.Kind.WASTE,
+                    item_ref=product_ref,
+                    work_order__scheduled_date__gte=cutoff,
+                    work_order__scheduled_date__lt=today,
+                )
+                .values("work_order__scheduled_date")
+                .annotate(total_wasted=Coalesce(Sum("quantity"), Decimal("0")))
+            )
+            if same_weekday:
+                waste_by_date = {
+                    row["work_order__scheduled_date"]: row["total_wasted"]
+                    for row in waste_qs
+                    if row["work_order__scheduled_date"].weekday() == today.weekday()
+                }
+            else:
+                waste_by_date = {
+                    row["work_order__scheduled_date"]: row["total_wasted"]
+                    for row in waste_qs
+                }
+        except Exception:
+            pass  # graceful — waste stays zero if model not available
+
         return [
             DailyDemand(
                 date=row["order_date"],
                 sold=row["total_sold"],
-                wasted=Decimal("0"),
+                wasted=waste_by_date.get(row["order_date"], Decimal("0")),
             )
             for row in daily
         ]

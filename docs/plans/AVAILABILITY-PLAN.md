@@ -433,7 +433,7 @@ respeitando compromissos com clientes. Sem novo status — mantém OPEN/DONE/VOI
 **Arquivos**: `craftsman/services/scheduling.py` (adjust), `craftsman/protocols/inventory.py`,
 `craftsman/contrib/stocking/handlers.py`, testes
 
-### WP-A9: Seed com dados realistas de demanda
+### WP-A9: Seed com dados realistas de demanda ✅ 2026-04-07
 
 **Objetivo**: Seed popula dados que exercitam todo o fluxo de disponibilidade.
 

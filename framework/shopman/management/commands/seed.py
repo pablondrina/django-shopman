@@ -21,7 +21,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 # ── Crafting (producao) ─────────────────────────────────────────────
-from shopman.crafting.models import Recipe, RecipeItem, WorkOrder
+from shopman.crafting.models import Recipe, RecipeItem, WorkOrder, WorkOrderItem
 
 # ── Customers (clientes) ─────────────────────────────────────────────
 from shopman.customers.models import ContactPoint, Customer, CustomerAddress, CustomerGroup
@@ -150,12 +150,13 @@ class Command(BaseCommand):
                     "http://www.nelsonboulangerie.com.br",
                 ],
                 "opening_hours": {
-                    "monday":    {"open": "09:00", "close": "18:00"},
-                    "tuesday":   {"open": "09:00", "close": "18:00"},
-                    "wednesday": {"open": "09:00", "close": "18:00"},
-                    "thursday":  {"open": "09:00", "close": "18:00"},
-                    "friday":    {"open": "09:00", "close": "18:00"},
-                    "saturday":  {"open": "09:00", "close": "18:00"},
+                    # monday: fechado (boulangerie típica)
+                    "tuesday":   {"open": "07:00", "close": "19:00"},
+                    "wednesday": {"open": "07:00", "close": "19:00"},
+                    "thursday":  {"open": "07:00", "close": "19:00"},
+                    "friday":    {"open": "07:00", "close": "19:00"},
+                    "saturday":  {"open": "07:00", "close": "19:00"},
+                    "sunday":    {"open": "07:00", "close": "13:00"},
                 },
                 "defaults": {
                     "notifications": {"backend": "console"},
@@ -175,6 +176,13 @@ class Command(BaseCommand):
                         {"date": "2026-12-31", "label": "Réveillon"},
                         {"date": "2026-01-01", "label": "Confraternização Universal"},
                     ],
+                    "seasons": {
+                        "hot":  [10, 11, 12, 1, 2, 3],
+                        "mild": [4, 5, 9],
+                        "cold": [6, 7, 8],
+                    },
+                    "high_demand_multiplier": "1.2",
+                    "safety_stock_percent": "0.20",
                 },
             },
         )
@@ -1091,14 +1099,14 @@ class Command(BaseCommand):
             craft.plan(recipe, quantity=qty, date=tomorrow)
             wo_count += 1
 
-        # Historical production (last 7 days) — one WO per product per day
-        # This feeds the pickup slot service's median calculation
+        # Historical production (last 35 days) — one WO per product per day
+        # This feeds the pickup slot service's median calculation and craft.suggest()
         recipes_by_output = {r.output_ref: r for r in Recipe.objects.all()}
         history_count = 0
-        for days_ago in range(1, 8):
+        for days_ago in range(1, 36):
             wo_date = today - timedelta(days=days_ago)
-            # Skip Sundays (Nelson doesn't open)
-            if wo_date.weekday() == 6:
+            # Skip Mondays (Nelson está fechado)
+            if wo_date.weekday() == 0:
                 continue
             for sku, (fh, fm) in TYPICAL_FINISH.items():
                 recipe = recipes_by_output.get(sku)
@@ -1114,6 +1122,7 @@ class Command(BaseCommand):
                 start_h = max(0, finish_h - 2)  # ~2h before finish
                 qty = recipe.batch_size or Decimal("20")
                 produced = int(qty * Decimal(str(random.uniform(0.90, 0.98))))
+                finish_dt = datetime.combine(wo_date, time(finish_h, finish_m), tzinfo=tz_info)
 
                 wo = WorkOrder.objects.create(
                     recipe=recipe,
@@ -1123,15 +1132,31 @@ class Command(BaseCommand):
                     status="done",
                     scheduled_date=wo_date,
                     started_at=datetime.combine(wo_date, time(start_h, 0), tzinfo=tz_info),
-                    finished_at=datetime.combine(wo_date, time(finish_h, finish_m), tzinfo=tz_info),
+                    finished_at=finish_dt,
                     position_ref=recipe.output_ref,
                 )
+
+                # Waste: ~25% of WOs have some waste (5-15% of produced)
+                if random.random() < 0.25:
+                    waste_qty = Decimal(str(round(produced * random.uniform(0.05, 0.15))))
+                    if waste_qty > 0:
+                        WorkOrderItem.objects.create(
+                            work_order=wo,
+                            kind=WorkOrderItem.Kind.WASTE,
+                            item_ref=sku,
+                            quantity=waste_qty,
+                            unit="un",
+                            recorded_at=finish_dt,
+                            recorded_by="seed",
+                            meta={"reason": "perda natural — não vendido"},
+                        )
+
                 history_count += 1
             wo_count += 1
 
         self.stdout.write(
             f"  ✅ {len(recipes_data)} receitas, {wo_count} ordens de producao"
-            f" + {history_count} historico (pickup slots)"
+            f" + {history_count} historico (35 dias — pickup slots + suggest)"
         )
 
     # ────────────────────────────────────────────────────────────────
@@ -1265,14 +1290,42 @@ class Command(BaseCommand):
         product_list = list(products.values())
         channel_list = [channels["balcao"], channels["delivery"], channels["whatsapp"]]
 
-        for days_ago in range(7):
+        # Seasonal demand multiplier based on current month
+        current_month = now.month
+        if current_month in (10, 11, 12, 1, 2, 3):   # hot season
+            season_multiplier = 1.1
+        elif current_month in (6, 7, 8):               # cold season
+            season_multiplier = 1.2
+        else:                                           # mild
+            season_multiplier = 1.0
+
+        for days_ago in range(35):  # 5 weeks of history
             day = now - timedelta(days=days_ago)
-            num_orders = random.randint(8, 15) if days_ago < 2 else random.randint(5, 10)
+            weekday = day.weekday()  # 0=Mon, 4=Fri, 5=Sat, 6=Sun
+
+            # Skip Mondays (boulangerie típica)
+            if weekday == 0:
+                continue
+
+            # Base order count
+            base_orders = random.randint(8, 15) if days_ago < 2 else random.randint(5, 10)
+
+            # Weekday multiplier
+            if weekday in (4, 5):    # Fri, Sat — alta demanda
+                day_mult = 1.3
+            elif weekday == 6:        # Sun — menor demanda e fecha mais cedo
+                day_mult = 0.7
+            else:
+                day_mult = 1.0
+
+            num_orders = max(1, int(base_orders * day_mult * season_multiplier))
 
             for _ in range(num_orders):
                 channel = random.choice(channel_list)
                 customer = random.choice(customer_list)
-                hour = random.randint(6, 19)
+                # Sunday closes at 13:00; others close at 19:00
+                max_hour = 12 if weekday == 6 else 18
+                hour = random.randint(7, max_hour)
                 minute = random.randint(0, 59)
                 order_time = day.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
@@ -1380,7 +1433,7 @@ class Command(BaseCommand):
 
                 order_count += 1
 
-        self.stdout.write(f"  ✅ {order_count} pedidos (7 dias)")
+        self.stdout.write(f"  ✅ {order_count} pedidos (35 dias)")
 
     # ────────────────────────────────────────────────────────────────
     # Sessoes abertas (Ordering)
