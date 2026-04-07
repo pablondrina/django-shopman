@@ -36,13 +36,21 @@ class CheckoutView(View):
 
     def _checkout_page_context(self, request: HttpRequest, cart: dict) -> dict:
         """Contexto comum GET e re-render com erros (WP-S3: paridade total)."""
+        import json as _json
+        from shopman.models import Shop
+        shop = Shop.load()
+        shop_defaults = (shop.defaults or {}) if shop else {}
+        max_preorder_days = int(shop_defaults.get("max_preorder_days", 30))
+        closed_dates = shop_defaults.get("closed_dates", [])
+
         ctx: dict = {
             "cart": cart,
             "checkout_defaults": {},
             "saved_addresses": [],
             "payment_methods": self._get_payment_methods(),
-            "cutoff_info": self._get_cutoff_info(),
             "minimum_order_warning": _min_order_progress(cart["subtotal_q"]),
+            "max_preorder_days": max_preorder_days,
+            "closed_dates_json": _json.dumps(closed_dates),
         }
 
         # Pickup slots — dynamic from Shop.defaults + production history
@@ -486,30 +494,6 @@ class CheckoutView(View):
         return payment_methods[0] if payment_methods else "counter"
 
     @staticmethod
-    def _get_cutoff_info() -> dict | None:
-        try:
-            channel = Channel.objects.get(ref=CHANNEL_REF)
-            cutoff_hour = (channel.config or {}).get("cutoff_hour", 18)
-        except Channel.DoesNotExist:
-            cutoff_hour = 18
-
-        now = timezone.localtime()
-        past_cutoff = now.hour >= cutoff_hour
-
-        if past_cutoff:
-            next_date = (now + timedelta(days=2)).strftime("%d/%m")
-            return {
-                "past_cutoff": True,
-                "cutoff_hour": cutoff_hour,
-                "message": f"Pedidos para amanhã encerrados. Próxima entrega: {next_date}",
-            }
-        return {
-            "past_cutoff": False,
-            "cutoff_hour": cutoff_hour,
-            "message": f"Pedidos até {cutoff_hour}h para entrega amanhã",
-        }
-
-    @staticmethod
     def _parse_address_data(request: HttpRequest) -> dict:
         addr_data = {
             "route": request.POST.get("addr_route", "").strip(),
@@ -537,6 +521,34 @@ class CheckoutView(View):
         return addr_data
 
     @staticmethod
+    def _is_closed_date(date_obj, closed_dates: list) -> tuple[bool, str | None]:
+        """Check if date_obj falls within any entry in closed_dates.
+
+        Supports single-date {"date": "YYYY-MM-DD", "label": "..."} and
+        range {"from": "YYYY-MM-DD", "to": "YYYY-MM-DD", "label": "..."}.
+        Returns (is_closed, label_or_None).
+        """
+        from datetime import date as date_type
+
+        for entry in closed_dates:
+            label = entry.get("label", "")
+            if "date" in entry:
+                try:
+                    if date_obj == date_type.fromisoformat(entry["date"]):
+                        return True, label
+                except ValueError:
+                    pass
+            elif "from" in entry and "to" in entry:
+                try:
+                    start = date_type.fromisoformat(entry["from"])
+                    end = date_type.fromisoformat(entry["to"])
+                    if start <= date_obj <= end:
+                        return True, label
+                except ValueError:
+                    pass
+        return False, None
+
+    @staticmethod
     def _validate_preorder(delivery_date: str, cart: dict) -> dict:
         from datetime import date as date_type
 
@@ -547,25 +559,28 @@ class CheckoutView(View):
         except ValueError:
             return errors
 
-        max_date = today + timedelta(days=7)
-        if chosen_date > max_date:
-            errors["delivery_date"] = f"Data maxima permitida: {max_date.isoformat()}"
-        if chosen_date == today + timedelta(days=1):
-            cutoff_hour = 18
-            if timezone.now().hour >= cutoff_hour:
-                errors["delivery_date"] = (
-                    f"Encomendas para amanha devem ser feitas ate as {cutoff_hour}h."
-                )
+        if chosen_date < today:
+            errors["delivery_date"] = "Não é possível encomendar para uma data passada."
+            return errors
 
-        if chosen_date > today and "delivery_date" not in errors:
-            total_qty = sum(item["qty"] for item in cart["items"])
-            try:
-                channel_obj = Channel.objects.get(ref=CHANNEL_REF)
-                min_qty = (channel_obj.config or {}).get("preorder_min_quantity", 1)
-            except Channel.DoesNotExist:
-                min_qty = 1
-            if total_qty < min_qty:
-                errors["min_quantity"] = f"Encomenda minima: {min_qty} unidades"
+        try:
+            from shopman.models import Shop
+            shop = Shop.load()
+            max_preorder_days = int((shop.defaults or {}).get("max_preorder_days", 30)) if shop else 30
+            closed_dates = ((shop.defaults or {}).get("closed_dates", [])) if shop else []
+        except Exception:
+            max_preorder_days = 30
+            closed_dates = []
+
+        max_date = today + timedelta(days=max_preorder_days)
+        if chosen_date > max_date:
+            errors["delivery_date"] = f"Data máxima permitida: {max_date.strftime('%d/%m/%Y')}"
+            return errors
+
+        is_closed, closed_label = CheckoutView._is_closed_date(chosen_date, closed_dates)
+        if is_closed:
+            suffix = f": {closed_label}" if closed_label else ""
+            errors["delivery_date"] = f"Fechado{suffix} — escolha outra data."
 
         return errors
 

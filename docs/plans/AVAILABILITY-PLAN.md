@@ -309,7 +309,7 @@ Toda configuração que afeta o comportamento comercial deve ser editável via
 
 **Arquivos**: `_helpers.py`, `product_card.html`, `product_detail.html`, `output.css`
 
-### WP-A3: Remover restrições artificiais de encomenda
+### WP-A3: Remover restrições artificiais de encomenda ✅ 2026-04-07
 
 **Objetivo**: Cliente encomenda a qualquer hora, para qualquer data com disponibilidade.
 

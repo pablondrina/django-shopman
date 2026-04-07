@@ -176,15 +176,6 @@
         </div>
       </div>
 
-      <!-- Cutoff info -->
-      {% if cutoff_info %}
-      <div class="p-3 rounded-lg text-sm flex items-start gap-2.5 {% if cutoff_info.past_cutoff %}bg-warning-light border border-warning/80 text-foreground{% else %}bg-muted/70 border border-border text-foreground{% endif %}" role="status">
-        <svg class="w-5 h-5 flex-shrink-0 mt-0.5 {% if cutoff_info.past_cutoff %}text-warning{% else %}text-foreground/80{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-        {{ cutoff_info.message }}
-      </div>
-      {% endif %}
 
       <!-- Para quando? -->
       <div>
@@ -429,8 +420,9 @@ function checkoutPage() {
   tomorrowDate.setDate(tomorrowDate.getDate() + 1);
   var tomorrowStr = localYmd(tomorrowDate);
   var maxDate = new Date();
-  maxDate.setDate(maxDate.getDate() + 7);
+  maxDate.setDate(maxDate.getDate() + {{ max_preorder_days|default:30 }});
   var maxStr = localYmd(maxDate);
+  var closedDates = {{ closed_dates_json|default:"[]"|safe }};
 
   return {
     // State
@@ -535,6 +527,16 @@ function checkoutPage() {
           });
         }
       });
+    },
+
+    isClosedDate(dateStr) {
+      if (!dateStr || !closedDates.length) return false;
+      for (var i = 0; i < closedDates.length; i++) {
+        var entry = closedDates[i];
+        if (entry.date && entry.date === dateStr) return true;
+        if (entry.from && entry.to && dateStr >= entry.from && dateStr <= entry.to) return true;
+      }
+      return false;
     },
 
     selectDate(option) {

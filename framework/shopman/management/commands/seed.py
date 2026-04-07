@@ -169,6 +169,12 @@ class Command(BaseCommand):
                         "history_days": 30,
                         "fallback_slot": "slot-09",
                     },
+                    "max_preorder_days": 30,
+                    "closed_dates": [
+                        {"date": "2026-12-25", "label": "Natal"},
+                        {"date": "2026-12-31", "label": "Réveillon"},
+                        {"date": "2026-01-01", "label": "Confraternização Universal"},
+                    ],
                 },
             },
         )
@@ -305,84 +311,174 @@ class Command(BaseCommand):
     def _seed_catalog(self):
         self.stdout.write("  📦 Catalogo...")
 
+        # Catalogo real Nelson Boulangerie
+        # Fonte: https://github.com/pablondrina/nb-catalog
+        IMG = "https://raw.githubusercontent.com/pablondrina/nb-catalog/main/img/products"
+
         # (sku, name, short_desc, price_q, unit, shelf_life, available, image, weight_g, storage_tip)
         products_data = [
-            ("PAO-FRANCES", "Pao Frances Artesanal", "Fermentacao natural, crosta crocante", 150, "un", 0, True,
-             "https://images.unsplash.com/photo-1549931319-a545dcf3bc73?w=400&q=80",
-             50, "Congele em ate 2h para manter a crocancia por ate 30 dias"),
-            ("BAGUETE", "Baguete Tradicional", "Receita francesa classica, 60cm", 850, "un", 0, True,
-             "https://images.unsplash.com/photo-1568471173242-461f0a730452?w=400&q=80",
-             250, "Congele inteira ou em pedacos. Reaqueça direto do freezer a 200°C por 8min"),
-            ("CROISSANT", "Croissant Manteiga", "Folhado com manteiga francesa, 72h de fermentacao", 890, "un", 1, True,
-             "https://images.unsplash.com/photo-1623334044303-241021148842?w=400&q=80",
-             80, "Reaqueça no forno a 180°C por 5min para recuperar a crocancia"),
-            ("PAIN-CHOCOLAT", "Pain au Chocolat", "Folhado com chocolate belga 70%", 1090, "un", 1, True,
-             "https://images.unsplash.com/photo-1530610476181-d83430b64dcd?w=400&q=80",
-             90, "Reaqueça no forno a 180°C por 5min. Evite micro-ondas"),
-            ("BRIOCHE", "Brioche Nanterre", "Brioche classico, massa amanteigada", 990, "un", 2, True,
-             "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&q=80",
-             350, "Mantenha em saco plastico fechado. Congela bem por ate 30 dias"),
-            ("FOCACCIA", "Focaccia Alecrim", "Azeite extra-virgem e alecrim fresco", 1490, "un", 0, True,
-             "https://images.unsplash.com/photo-1586444248902-2f64eddc13df?w=400&q=80",
-             300, "Congele em porcoes. Reaqueça a 200°C por 5min com um fio de azeite"),
-            ("CIABATTA", "Ciabatta Italiana", "Massa hidratada, miolo aerado", 750, "un", 0, True,
-             "https://images.unsplash.com/photo-1608198093002-ad4e005484ec?w=400&q=80",
-             200, "Congele no mesmo dia. Reaqueça a 200°C por 8min"),
-            ("SOURDOUGH", "Sourdough Integral", "Levain natural, farinha integral organica", 1690, "un", 3, True,
-             "https://images.unsplash.com/photo-1589367920969-ab8e050bbb04?w=400&q=80",
-             500, "Guarde em saco de pano. Dura ate 5 dias em temperatura ambiente"),
-            ("PAO-INTEGRAL", "Pao Integral", "Farinha integral organica, rico em fibras", 200, "un", 1, True,
-             "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&q=80",
-             60, "Congele em ate 2h para manter por ate 30 dias"),
-            ("PAO-QUEIJO", "Pao de Queijo", "Receita mineira com queijo minas artesanal", 350, "un", 0, True,
-             "https://images.unsplash.com/photo-1598733596988-5aa4decbd202?w=400&q=80",
-             40, "Melhor consumido quente. Congele cru para assar quando quiser"),
-            ("BOLO-CHOCOLATE", "Bolo de Chocolate", "Massa fofinha com ganache de chocolate 70%", 4500, "un", 3, True,
-             "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&q=80",
-             800, "Conserve na geladeira por ate 3 dias. Retire 30min antes de servir"),
-            ("BOLO-CENOURA", "Bolo de Cenoura", "Com cobertura de chocolate", 3500, "un", 3, True,
-             "https://images.unsplash.com/photo-1621303837174-89787a7d4729?w=400&q=80",
-             700, "Conserve na geladeira. A cobertura mantem melhor em temperatura ambiente"),
-            ("BRIGADEIRO", "Brigadeiro Artesanal", "Chocolate 70%, granulado belga", 250, "un", 5, True,
-             "https://images.unsplash.com/photo-1598569304780-5765fd040981?w=400&q=80",
-             25, "Conserve na geladeira por ate 5 dias"),
-            ("BROWNIE", "Brownie", "Chocolate 70%, nozes, textura fudgy", 690, "un", 3, True,
-             "https://images.unsplash.com/photo-1607920591413-4ec007e70023?w=400&q=80",
-             100, "Conserve em recipiente fechado. Congela bem por ate 60 dias"),
-            ("DANISH", "Danish de Frutas", "Folhado com creme e frutas da estacao", 1290, "un", 1, True,
-             "https://images.unsplash.com/photo-1509365390695-33aee754301f?w=400&q=80",
-             120, "Consuma no dia. Reaqueça no forno a 180°C por 5min"),
-            ("CAFE-ESPRESSO", "Cafe Espresso", "Blend especial, torra media", 690, "un", None, True,
-             "https://images.unsplash.com/photo-1510707577719-ae7c14805e3a?w=400&q=80",
-             None, ""),
-            ("CAFE-LATTE", "Cafe Latte", "Espresso com leite vaporizado", 990, "un", None, True,
-             "https://images.unsplash.com/photo-1534778101976-62847782c213?w=400&q=80",
-             None, ""),
-            ("SUCO-LARANJA", "Suco de Laranja Natural", "Laranja pera, sem acucar", 890, "un", None, True,
-             "https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=400&q=80",
-             300, ""),
+            # ── Paes Artesanais (fermentacao natural / levain) ──
+            ("BAGUETE", "Baguete Francesa", "Pao de tradicao francesa e fermentacao 100% natural (levain)", 1300, "un", 0, True,
+             f"{IMG}/bf.jpg", 250, "Congele inteira ou em pedacos. Reaqueça direto do freezer a 200°C por 8min"),
+            ("BAGUETE-CAMPAGNE", "Baguette de Campagne", "Baguete de fermentacao natural (levain), trigo 50% integral e centeio organico", 1700, "un", 1, True,
+             f"{IMG}/cf.jpg", 280, "Guarde em saco de pano. Congele em ate 2h para melhor resultado"),
+            ("BAGUETE-GERGELIM", "Baguete Gergelim", "Baguete com fermentacao 100% natural (levain), toque de azeite e gergelim", 1800, "un", 0, True,
+             f"{IMG}/be.jpg", 260, "Congele no mesmo dia. Reaqueça a 200°C por 8min"),
+            ("MINI-BAGUETE", "Mini Baguete", "Mini baguete com fermentacao 100% natural (levain) e toque de azeite", 900, "un", 0, True,
+             f"{IMG}/bap.jpg", 120, "Congele no mesmo dia. Reaqueça a 200°C por 5min"),
+            ("BATARD", "Batard", "Pao de tradicao francesa e fermentacao 100% natural (levain) em formato de filao", 1300, "un", 0, True,
+             f"{IMG}/ba.jpg", 350, "Guarde em saco de pano. Congele em ate 2h"),
+            ("FENDU", "Fendu", "Paozinho de tradicao francesa e fermentacao 100% natural (levain)", 600, "un", 0, True,
+             f"{IMG}/fe.jpg", 100, "Melhor consumido no dia. Congele para ate 30 dias"),
+            ("TABATIERE", "Tabatiere", "Paozinho de tradicao francesa e fermentacao 100% natural (levain)", 600, "un", 0, True,
+             f"{IMG}/tb.jpg", 100, "Melhor consumido no dia. Congele para ate 30 dias"),
+            ("ITALIANO-RUSTICO", "Italiano Rustico", "Pao tradicional com fermentacao 100% natural (levain)", 2200, "un", 1, True,
+             f"{IMG}/bax.jpg", 400, "Guarde em saco de pano. Dura ate 3 dias em temperatura ambiente"),
+            ("CAMPAGNE-OVAL", "Pain de Campagne (Oval)", "Fermentacao natural (levain), trigo 50% integral e centeio organico", 1800, "un", 2, True,
+             f"{IMG}/cgo.jpg", 500, "Guarde em saco de pano. Dura ate 4 dias em temperatura ambiente"),
+            ("CAMPAGNE-REDONDO", "Pain de Campagne (Redondo)", "Fermentacao natural (levain), trigo 50% integral e centeio organico", 1800, "un", 2, True,
+             f"{IMG}/cgr.jpg", 500, "Guarde em saco de pano. Dura ate 4 dias em temperatura ambiente"),
+            ("CAMPAGNE-PASSAS", "Campagne Passas & Castanhas", "Levain, trigo 50% integral e centeio organico, passas, castanhas de caju e do Para", 3300, "un", 3, True,
+             f"{IMG}/cpx.jpg", 550, "Guarde em saco de pano. Dura ate 5 dias em temperatura ambiente"),
+            ("CIABATTA", "Ciabatta", "Pao aerado, classico italiano com azeite extra virgem, fermentacao 100% natural (levain)", 1400, "un", 0, True,
+             f"{IMG}/ci.jpg", 200, "Congele no mesmo dia. Reaqueça a 200°C por 8min"),
+            ("PAO-FORMA", "Pao de Forma Artesanal", "Super macio ao estilo japones. Vem com 6 fatias grossas", 1800, "un", 2, True,
+             f"{IMG}/fa.jpg", 400, "Mantenha em saco plastico fechado. Congela bem por ate 30 dias"),
+            ("CHALLAH", "Challah", "Tranca fofinha e levemente adocicada, decorada com gergelim", 1800, "un", 2, True,
+             f"{IMG}/ch.jpg", 350, "Mantenha em saco plastico fechado. Congela bem por ate 30 dias"),
+            ("PAO-HAMBURGER", "Pao de Hamburger", "Pao de tradicao francesa e fermentacao 100% natural (levain)", 600, "un", 0, True,
+             f"{IMG}/ph.jpg", 100, "Melhor consumido no dia. Congele para ate 30 dias"),
+            # ── Focaccias ──
+            ("FOCACCIA-ALECRIM", "Focaccia Alecrim & Sal Grosso", "Classico italiano, alecrim fresco e sal grosso, regada com azeite extra virgem", 3100, "un", 0, True,
+             f"{IMG}/foa.jpg", 450, "Congele em porcoes. Reaqueça a 200°C por 5min com um fio de azeite"),
+            ("FOCACCIA-CEBOLA", "Focaccia Cebola Roxa & Azeitonas", "Cebola roxa e azeitonas pretas, regada com azeite extra virgem", 4000, "un", 0, True,
+             f"{IMG}/foc.jpg", 500, "Congele em porcoes. Reaqueça a 200°C por 5min"),
+            ("FOCACCIA-BACON", "Focaccia Bacon, Cebola & Tomilho", "Cebola, bacon, tomilho e queijo minas, regada com azeite extra virgem", 4000, "un", 0, True,
+             f"{IMG}/cbt.jpg", 500, "Congele em porcoes. Reaqueça a 200°C por 5min"),
+            ("MINI-FOCACCIA-ALECRIM", "Mini Focaccia Alecrim & Sal Grosso", "Versao individual, alecrim fresco e sal grosso, regada com azeite extra virgem", 1300, "un", 0, True,
+             f"{IMG}/mif.jpg", 150, "Melhor consumida no dia. Reaqueça a 200°C por 3min"),
+            ("MINI-FOCACCIA-CEBOLA", "Mini Focaccia Cebola Roxa & Azeitonas", "Versao individual, cebola roxa e azeitonas pretas", 1800, "un", 0, True,
+             f"{IMG}/mifoc.jpg", 160, "Melhor consumida no dia. Reaqueça a 200°C por 3min"),
+            ("MINI-FOCACCIA-BACON", "Mini Focaccia Bacon, Cebola & Tomilho", "Versao individual, cebola, bacon, tomilho e queijo minas", 1800, "un", 0, True,
+             f"{IMG}/micbt.jpg", 160, "Melhor consumida no dia. Reaqueça a 200°C por 3min"),
+            # ── Brioches & Paes Especiais ──
+            ("BRIOCHE", "Brioche Nanterre", "Super leve e levemente adocicado", 2200, "un", 2, True,
+             f"{IMG}/bn.jpg", 350, "Mantenha em saco plastico fechado. Congela bem por ate 30 dias"),
+            ("BRIOCHE-BURGER", "Brioche Burger Bun (pc. 2un.)", "Super leve, riquisimo em ovos e manteiga", 1600, "un", 1, True,
+             f"{IMG}/bbb.jpg", 200, "Congele no mesmo dia. Reaqueça a 180°C por 5min"),
+            ("PAO-HOTDOG", "Pao para Hot Dog (pc. 4un.)", "Pao amanteigado, bom para cachorro quente", 2800, "un", 1, True,
+             f"{IMG}/pho.jpg", 320, "Congele no mesmo dia para ate 30 dias"),
+            # ── Croissants & Folhados ──
+            ("CROISSANT", "Croissant Tradicional", "Classico em pura manteiga. Simples e delicioso. Otimo com geleias!", 1300, "un", 1, True,
+             f"{IMG}/ct.jpg", 80, "Reaqueça no forno a 180°C por 5min para recuperar a crocancia"),
+            ("PAIN-CHOCOLAT", "Pain au Chocolat", "Croissant recheado com chocolate!", 1500, "un", 1, True,
+             f"{IMG}/pc.jpg", 90, "Reaqueça no forno a 180°C por 5min. Evite micro-ondas"),
+            ("MINI-CROISSANT", "Mini Croissant", "Delicioso mini croissant com calda doce", 800, "un", 1, True,
+             f"{IMG}/cm.jpg", 40, "Consuma no dia. Reaqueça no forno a 180°C por 3min"),
+            ("CHAUSSON", "Chausson aux Pommes", "Classico folhado em pura manteiga, recheio de maca & canela da casa", 1800, "un", 1, True,
+             f"{IMG}/cn.jpg", 120, "Consuma no dia. Reaqueça no forno a 180°C por 5min"),
+            ("BICHON", "Bichon au Citron", "Folhado com creme de limao", 1800, "un", 1, True,
+             f"{IMG}/bh.jpg", 110, "Consuma no dia. Reaqueça no forno a 180°C por 5min"),
+            # ── Paes Doces & Recheados ──
+            ("CORNET-CHOCOLATE", "Cornet Chocolate", "Pao amanteigado em formato de cone, recheio de creme de chocolate", 1100, "un", 1, True,
+             f"{IMG}/coc.jpg", 120, "Melhor consumido no dia. Reaqueça a 180°C por 5min"),
+            ("CORNET", "Cornet", "Pao amanteigado em formato de cone, recheio de creme", 1000, "un", 1, True,
+             f"{IMG}/co.jpg", 120, "Melhor consumido no dia. Reaqueça a 180°C por 5min"),
+            ("MELON-PAN", "Melon Pan", "Classico japones amanteigado com cobertura crocante e levemente doce", 1100, "un", 1, True,
+             f"{IMG}/me.jpg", 100, "Melhor consumido no dia"),
+            ("PAIN-RAISINS", "Pain aux Raisins", "Brioche com creme e uvas passas", 1100, "un", 1, True,
+             f"{IMG}/pr.jpg", 110, "Consuma no dia. Reaqueça no forno a 180°C por 5min"),
+            ("BRIOCHE-CHOCOLAT", "Brioche Chocolat", "Briochinho super macio com gotas de chocolate", 1000, "un", 1, True,
+             f"{IMG}/bch.jpg", 90, "Melhor consumido no dia"),
+            ("MADELEINE", "Madeleine", "Bolinho classico frances, simples e delicioso", 600, "un", 2, True,
+             f"{IMG}/md.jpg", 40, "Conserve em recipiente fechado por ate 3 dias"),
+            # ── Salgados & Recheados ──
+            ("DELI", "Deli", "Pao amanteigado recheado com milho, bacon & queijo minas", 1900, "un", 0, True,
+             f"{IMG}/dl.jpg", 180, "Melhor consumido quente, no dia"),
+            ("HOTDOG", "Hot Dog", "Pao amanteigado recheado com salsicha viena artesanal", 1500, "un", 0, True,
+             f"{IMG}/ho.jpg", 180, "Melhor consumido quente, no dia"),
+            # ── Lanches (montados na hora) ──
+            ("CROQUE-MONSIEUR", "Croque Monsieur", "Classico sanduiche frances gratinado com presunto e queijo gruyere", 2400, "un", 0, True,
+             f"{IMG}/cm.jpg", 250, "Servir quente, imediatamente"),
+            ("CROQUE-MADAME", "Croque Madame", "Croque monsieur com ovo pochado por cima", 2800, "un", 0, True,
+             f"{IMG}/cmd.jpg", 290, "Servir quente, imediatamente"),
+            ("QUICHE-LORRAINE", "Quiche Lorraine", "Quiche classica de bacon, queijo e cebola", 1800, "un", 0, True,
+             f"{IMG}/ql.jpg", 200, "Melhor consumido quente, no dia"),
+            ("QUICHE-LEGUMES", "Quiche de Legumes", "Quiche vegetariana com abobrinha, tomate e queijo", 1800, "un", 0, True,
+             f"{IMG}/qv.jpg", 200, "Melhor consumido quente, no dia"),
+            ("TARTINE-SAUMON", "Tartine Saumon", "Fatia de campagne com cream cheese, salmao defumado e alcaparras", 2600, "un", 0, True,
+             f"{IMG}/ts.jpg", 220, "Servir frio, consumir no dia"),
+            ("TARTINE-TOMATE", "Tartine Tomate & Burrata", "Fatia de campagne com tomate, burrata e manjericao", 2200, "un", 0, True,
+             f"{IMG}/tt.jpg", 200, "Servir frio, consumir no dia"),
+            # ── Cafes e Bebidas ──
+            ("ESPRESSO", "Espresso", "Cafe espresso puro, grao especial torrado artesanal", 800, "un", None, True,
+             f"{IMG}/es.jpg", 0, ""),
+            ("ESPRESSO-DUPLO", "Espresso Duplo", "Dose dupla de espresso", 1000, "un", None, True,
+             f"{IMG}/ed.jpg", 0, ""),
+            ("CAPPUCCINO", "Cappuccino", "Espresso com leite vaporizado e espuma cremosa", 1200, "un", None, True,
+             f"{IMG}/cp.jpg", 0, ""),
+            ("LATTE", "Cafe Latte", "Espresso com bastante leite vaporizado", 1200, "un", None, True,
+             f"{IMG}/lt.jpg", 0, ""),
+            ("CHOCOLATE-QUENTE", "Chocolate Quente", "Chocolate belga com leite vaporizado", 1400, "un", None, True,
+             f"{IMG}/cq.jpg", 0, ""),
+            ("CHA-EARL-GREY", "Cha Earl Grey", "Cha preto com bergamota, servido em bule", 900, "un", None, True,
+             f"{IMG}/ch.jpg", 0, ""),
+            ("SUCO-LARANJA", "Suco de Laranja", "Suco natural de laranja espremido na hora", 1200, "un", None, True,
+             f"{IMG}/sl.jpg", 0, ""),
         ]
 
         # Keywords by product (for find_alternatives and search)
         keywords_map = {
-            "PAO-FRANCES": ["pao", "frances", "trigo", "artesanal", "salgado"],
-            "BAGUETE": ["pao", "frances", "trigo", "artesanal", "salgado", "crocante"],
-            "CROISSANT": ["folhado", "manteiga", "doce", "frances", "cafe-da-manha"],
-            "PAIN-CHOCOLAT": ["folhado", "chocolate", "doce", "frances", "cafe-da-manha"],
-            "BRIOCHE": ["pao", "doce", "manteiga", "frances", "macio"],
-            "FOCACCIA": ["pao", "italiano", "ervas", "salgado", "artesanal"],
-            "CIABATTA": ["pao", "italiano", "artesanal", "salgado", "crocante"],
-            "SOURDOUGH": ["pao", "fermentacao-natural", "artesanal", "salgado", "rustico"],
-            "PAO-INTEGRAL": ["pao", "integral", "fibra", "artesanal", "salgado", "saudavel"],
-            "PAO-QUEIJO": ["pao-de-queijo", "queijo", "mineiro", "lanche", "salgado"],
-            "BOLO-CHOCOLATE": ["bolo", "chocolate", "doce", "confeitaria", "festa"],
-            "BOLO-CENOURA": ["bolo", "cenoura", "chocolate", "doce", "confeitaria"],
-            "BRIGADEIRO": ["doce", "chocolate", "brasileiro", "festa", "confeitaria"],
-            "BROWNIE": ["doce", "chocolate", "nozes", "confeitaria", "americano"],
-            "DANISH": ["folhado", "doce", "frutas", "cafe-da-manha", "dinamarques"],
-            "CAFE-ESPRESSO": ["cafe", "bebida", "quente", "espresso"],
-            "CAFE-LATTE": ["cafe", "bebida", "quente", "leite", "cremoso"],
-            "SUCO-LARANJA": ["suco", "bebida", "frio", "natural", "laranja"],
+            "BAGUETE": ["pao", "frances", "levain", "artesanal", "crocante"],
+            "BAGUETE-CAMPAGNE": ["pao", "campagne", "levain", "integral", "centeio"],
+            "BAGUETE-GERGELIM": ["pao", "frances", "levain", "gergelim", "azeite"],
+            "MINI-BAGUETE": ["pao", "frances", "levain", "mini", "individual"],
+            "BATARD": ["pao", "frances", "levain", "filao", "artesanal"],
+            "FENDU": ["pao", "frances", "levain", "individual", "artesanal"],
+            "TABATIERE": ["pao", "frances", "levain", "individual", "artesanal"],
+            "ITALIANO-RUSTICO": ["pao", "italiano", "levain", "rustico", "artesanal"],
+            "CAMPAGNE-OVAL": ["pao", "campagne", "levain", "integral", "centeio"],
+            "CAMPAGNE-REDONDO": ["pao", "campagne", "levain", "integral", "centeio"],
+            "CAMPAGNE-PASSAS": ["pao", "campagne", "levain", "passas", "castanhas", "especial"],
+            "CIABATTA": ["pao", "italiano", "levain", "azeite", "aerado"],
+            "PAO-FORMA": ["pao", "forma", "japones", "macio", "fatiado"],
+            "CHALLAH": ["pao", "tranca", "judaico", "gergelim", "doce"],
+            "PAO-HAMBURGER": ["pao", "hamburger", "levain", "individual"],
+            "FOCACCIA-ALECRIM": ["focaccia", "italiano", "azeite", "alecrim", "ervas"],
+            "FOCACCIA-CEBOLA": ["focaccia", "italiano", "azeite", "cebola", "azeitona"],
+            "FOCACCIA-BACON": ["focaccia", "italiano", "azeite", "bacon", "queijo"],
+            "MINI-FOCACCIA-ALECRIM": ["focaccia", "italiano", "mini", "alecrim", "individual"],
+            "MINI-FOCACCIA-CEBOLA": ["focaccia", "italiano", "mini", "cebola", "azeitona"],
+            "MINI-FOCACCIA-BACON": ["focaccia", "italiano", "mini", "bacon", "queijo"],
+            "BRIOCHE": ["brioche", "frances", "manteiga", "doce", "macio"],
+            "BRIOCHE-BURGER": ["brioche", "hamburger", "manteiga", "ovos"],
+            "PAO-HOTDOG": ["pao", "hotdog", "manteiga", "salgado"],
+            "CROISSANT": ["croissant", "folhado", "manteiga", "frances"],
+            "PAIN-CHOCOLAT": ["croissant", "folhado", "chocolate", "frances"],
+            "MINI-CROISSANT": ["croissant", "folhado", "mini", "doce"],
+            "CHAUSSON": ["folhado", "maca", "canela", "frances", "doce"],
+            "BICHON": ["folhado", "limao", "creme", "frances", "doce"],
+            "CORNET-CHOCOLATE": ["pao-doce", "chocolate", "creme", "recheado"],
+            "CORNET": ["pao-doce", "creme", "recheado", "amanteigado"],
+            "MELON-PAN": ["pao-doce", "japones", "crocante", "amanteigado"],
+            "PAIN-RAISINS": ["brioche", "passas", "creme", "frances", "doce"],
+            "BRIOCHE-CHOCOLAT": ["brioche", "chocolate", "gotas", "doce", "macio"],
+            "MADELEINE": ["bolinho", "frances", "classico", "doce"],
+            "DELI": ["salgado", "recheado", "milho", "bacon", "queijo"],
+            "HOTDOG": ["salgado", "recheado", "salsicha", "viena", "quente"],
+            "CROQUE-MONSIEUR": ["lanche", "sanduiche", "frances", "presunto", "queijo", "gratinado"],
+            "CROQUE-MADAME": ["lanche", "sanduiche", "frances", "ovo", "queijo", "gratinado"],
+            "QUICHE-LORRAINE": ["lanche", "quiche", "bacon", "queijo", "torta"],
+            "QUICHE-LEGUMES": ["lanche", "quiche", "vegetariano", "legumes", "torta"],
+            "TARTINE-SAUMON": ["lanche", "tartine", "salmao", "cream-cheese", "frio"],
+            "TARTINE-TOMATE": ["lanche", "tartine", "burrata", "tomate", "vegetariano"],
+            "ESPRESSO": ["cafe", "espresso", "bebida", "quente"],
+            "ESPRESSO-DUPLO": ["cafe", "espresso", "duplo", "bebida", "quente"],
+            "CAPPUCCINO": ["cafe", "cappuccino", "leite", "bebida", "quente"],
+            "LATTE": ["cafe", "latte", "leite", "bebida", "quente"],
+            "CHOCOLATE-QUENTE": ["chocolate", "bebida", "quente", "leite"],
+            "CHA-EARL-GREY": ["cha", "earl-grey", "bebida", "quente"],
+            "SUCO-LARANJA": ["suco", "laranja", "natural", "bebida", "frio"],
         }
 
         products = {}
@@ -406,24 +502,24 @@ class Command(BaseCommand):
                 p.keywords.add(*keywords_map[sku])
             products[sku] = p
 
-        # Bundle: Combo Cafe da Manha
+        # Bundle: Combo Petit Dejeuner (Croissant + Mini Baguete)
         combo, _ = Product.objects.update_or_create(
-            sku="COMBO-MANHA",
+            sku="COMBO-PETIT-DEJ",
             defaults={
-                "name": "Combo Cafe da Manha",
-                "short_description": "Croissant + Cafe Espresso (economia de R$ 2,90)",
-                "base_price_q": 1290,
+                "name": "Combo Petit Déjeuner",
+                "short_description": "Croissant + Mini Baguete (economia de R$ 3,00)",
+                "base_price_q": 1900,
                 "unit": "un",
                 "is_published": True,
                 "is_available": True,
-                "image_url": "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&q=80",
+                "image_url": f"{IMG}/ct.jpg",
             },
         )
         combo.keywords.add("combo", "cafe-da-manha", "promocao")
-        products["COMBO-MANHA"] = combo
+        products["COMBO-PETIT-DEJ"] = combo
 
         # D-1 eligible: breads that can be sold next day at discount
-        d1_skus = ["PAO-FRANCES", "BAGUETE", "FOCACCIA", "CIABATTA"]
+        d1_skus = ["BAGUETE", "BATARD", "CIABATTA", "FENDU", "TABATIERE", "PAO-HAMBURGER"]
         for sku in d1_skus:
             p = products[sku]
             p.metadata["allows_next_day_sale"] = True
@@ -432,49 +528,114 @@ class Command(BaseCommand):
         # Bundle components
         ProductComponent.objects.filter(parent=combo).delete()
         ProductComponent.objects.create(parent=combo, component=products["CROISSANT"], qty=Decimal("1"))
-        ProductComponent.objects.create(parent=combo, component=products["CAFE-ESPRESSO"], qty=Decimal("1"))
+        ProductComponent.objects.create(parent=combo, component=products["MINI-BAGUETE"], qty=Decimal("1"))
 
         # Collections
         col_paes, _ = Collection.objects.update_or_create(
             slug="paes-artesanais",
-            defaults={"name": "Paes Artesanais", "is_active": True, "sort_order": 1},
+            defaults={"name": "Pães Artesanais", "is_active": True, "sort_order": 1},
         )
-        col_confeitaria, _ = Collection.objects.update_or_create(
-            slug="confeitaria",
-            defaults={"name": "Confeitaria & Folhados", "is_active": True, "sort_order": 2},
+        col_focaccias, _ = Collection.objects.update_or_create(
+            slug="focaccias",
+            defaults={"name": "Focaccias", "is_active": True, "sort_order": 2},
         )
-        col_bebidas, _ = Collection.objects.update_or_create(
-            slug="bebidas",
-            defaults={"name": "Bebidas", "is_active": True, "sort_order": 3},
+        col_brioches, _ = Collection.objects.update_or_create(
+            slug="brioches",
+            defaults={"name": "Brioches & Pães Especiais", "is_active": True, "sort_order": 3},
+        )
+        col_folhados, _ = Collection.objects.update_or_create(
+            slug="croissants-folhados",
+            defaults={"name": "Croissants & Folhados", "is_active": True, "sort_order": 4},
+        )
+        col_doces, _ = Collection.objects.update_or_create(
+            slug="paes-doces",
+            defaults={"name": "Pães Doces & Recheados", "is_active": True, "sort_order": 5},
+        )
+        col_salgados, _ = Collection.objects.update_or_create(
+            slug="salgados",
+            defaults={"name": "Salgados", "is_active": True, "sort_order": 6},
+        )
+        col_lanches, _ = Collection.objects.update_or_create(
+            slug="lanches",
+            defaults={"name": "Lanches & Tartines", "is_active": True, "sort_order": 7},
+        )
+        col_cafes, _ = Collection.objects.update_or_create(
+            slug="cafes-bebidas",
+            defaults={"name": "Cafes & Bebidas", "is_active": True, "sort_order": 8},
         )
         col_combos, _ = Collection.objects.update_or_create(
             slug="combos",
-            defaults={"name": "Combos", "is_active": True, "sort_order": 4},
+            defaults={"name": "Combos", "is_active": True, "sort_order": 9},
         )
 
-        # Collection items (first collection per product = is_primary)
-        CollectionItem.objects.filter(collection__in=[col_paes, col_confeitaria, col_bebidas, col_combos]).delete()
+        all_cols = [col_paes, col_focaccias, col_brioches, col_folhados, col_doces, col_salgados, col_lanches, col_cafes, col_combos]
+        CollectionItem.objects.filter(collection__in=all_cols).delete()
 
-        paes_skus = ["PAO-FRANCES", "PAO-INTEGRAL", "BAGUETE", "FOCACCIA", "CIABATTA", "SOURDOUGH", "PAO-QUEIJO"]
+        paes_skus = [
+            "BAGUETE", "BAGUETE-CAMPAGNE", "BAGUETE-GERGELIM", "MINI-BAGUETE",
+            "BATARD", "FENDU", "TABATIERE", "ITALIANO-RUSTICO",
+            "CAMPAGNE-OVAL", "CAMPAGNE-REDONDO", "CAMPAGNE-PASSAS",
+            "CIABATTA", "PAO-FORMA", "CHALLAH", "PAO-HAMBURGER",
+        ]
         for i, sku in enumerate(paes_skus):
             CollectionItem.objects.create(
                 collection=col_paes, product=products[sku], sort_order=i, is_primary=True,
             )
 
-        confeitaria_skus = ["CROISSANT", "PAIN-CHOCOLAT", "BRIOCHE", "DANISH", "BOLO-CHOCOLATE", "BOLO-CENOURA", "BRIGADEIRO", "BROWNIE"]
-        for i, sku in enumerate(confeitaria_skus):
+        focaccias_skus = [
+            "FOCACCIA-ALECRIM", "FOCACCIA-CEBOLA", "FOCACCIA-BACON",
+            "MINI-FOCACCIA-ALECRIM", "MINI-FOCACCIA-CEBOLA", "MINI-FOCACCIA-BACON",
+        ]
+        for i, sku in enumerate(focaccias_skus):
             CollectionItem.objects.create(
-                collection=col_confeitaria, product=products[sku], sort_order=i, is_primary=True,
+                collection=col_focaccias, product=products[sku], sort_order=i, is_primary=True,
             )
 
-        bebidas_skus = ["CAFE-ESPRESSO", "CAFE-LATTE", "SUCO-LARANJA"]
-        for i, sku in enumerate(bebidas_skus):
+        brioches_skus = ["BRIOCHE", "BRIOCHE-BURGER", "PAO-HOTDOG"]
+        for i, sku in enumerate(brioches_skus):
             CollectionItem.objects.create(
-                collection=col_bebidas, product=products[sku], sort_order=i, is_primary=True,
+                collection=col_brioches, product=products[sku], sort_order=i, is_primary=True,
+            )
+
+        folhados_skus = ["CROISSANT", "PAIN-CHOCOLAT", "MINI-CROISSANT", "CHAUSSON", "BICHON"]
+        for i, sku in enumerate(folhados_skus):
+            CollectionItem.objects.create(
+                collection=col_folhados, product=products[sku], sort_order=i, is_primary=True,
+            )
+
+        doces_skus = ["CORNET-CHOCOLATE", "CORNET", "MELON-PAN", "PAIN-RAISINS", "BRIOCHE-CHOCOLAT", "MADELEINE"]
+        for i, sku in enumerate(doces_skus):
+            CollectionItem.objects.create(
+                collection=col_doces, product=products[sku], sort_order=i, is_primary=True,
+            )
+
+        salgados_skus = ["DELI", "HOTDOG"]
+        for i, sku in enumerate(salgados_skus):
+            CollectionItem.objects.create(
+                collection=col_salgados, product=products[sku], sort_order=i, is_primary=True,
+            )
+
+        lanches_skus = [
+            "CROQUE-MONSIEUR", "CROQUE-MADAME",
+            "QUICHE-LORRAINE", "QUICHE-LEGUMES",
+            "TARTINE-SAUMON", "TARTINE-TOMATE",
+        ]
+        for i, sku in enumerate(lanches_skus):
+            CollectionItem.objects.create(
+                collection=col_lanches, product=products[sku], sort_order=i, is_primary=True,
+            )
+
+        cafes_skus = [
+            "ESPRESSO", "ESPRESSO-DUPLO", "CAPPUCCINO", "LATTE",
+            "CHOCOLATE-QUENTE", "CHA-EARL-GREY", "SUCO-LARANJA",
+        ]
+        for i, sku in enumerate(cafes_skus):
+            CollectionItem.objects.create(
+                collection=col_cafes, product=products[sku], sort_order=i, is_primary=True,
             )
 
         CollectionItem.objects.create(
-            collection=col_combos, product=products["COMBO-MANHA"], sort_order=0, is_primary=True,
+            collection=col_combos, product=products["COMBO-PETIT-DEJ"], sort_order=0, is_primary=True,
         )
 
         # Listings
@@ -512,7 +673,7 @@ class Command(BaseCommand):
                     is_available=product.is_available,
                 )
 
-        self.stdout.write(f"  ✅ {len(products)} produtos ({Product.objects.filter(unit_weight_g__isnull=False).count()} com peso), 4 colecoes, 4 listagens")
+        self.stdout.write(f"  ✅ {len(products)} produtos ({Product.objects.filter(unit_weight_g__isnull=False).count()} com peso), 7 colecoes, 4 listagens")
         return products
 
     # ────────────────────────────────────────────────────────────────
@@ -550,15 +711,38 @@ class Command(BaseCommand):
 
         vitrine = positions["vitrine"]
         stock_data = {
-            "PAO-FRANCES": 120,
             "BAGUETE": 25,
+            "BAGUETE-CAMPAGNE": 12,
+            "BAGUETE-GERGELIM": 10,
+            "MINI-BAGUETE": 30,
+            "BATARD": 15,
+            "FENDU": 40,
+            "TABATIERE": 35,
+            "ITALIANO-RUSTICO": 8,
+            "CAMPAGNE-OVAL": 10,
+            "CAMPAGNE-REDONDO": 10,
+            "CIABATTA": 20,
+            "PAO-FORMA": 12,
+            "CHALLAH": 8,
+            "PAO-HAMBURGER": 30,
+            "FOCACCIA-ALECRIM": 8,
+            "FOCACCIA-CEBOLA": 6,
+            "FOCACCIA-BACON": 6,
+            "MINI-FOCACCIA-ALECRIM": 15,
+            "BRIOCHE": 12,
+            "BRIOCHE-BURGER": 15,
             "CROISSANT": 40,
             "PAIN-CHOCOLAT": 30,
-            "BRIOCHE": 20,
-            "FOCACCIA": 15,
-            "CIABATTA": 30,
-            "SOURDOUGH": 12,
-            "DANISH": 24,
+            "MINI-CROISSANT": 25,
+            "CHAUSSON": 12,
+            "BICHON": 10,
+            "CORNET-CHOCOLATE": 15,
+            "CORNET": 12,
+            "MELON-PAN": 10,
+            "PAIN-RAISINS": 12,
+            "MADELEINE": 20,
+            "DELI": 15,
+            "HOTDOG": 12,
         }
 
         for sku, qty in stock_data.items():
@@ -573,10 +757,12 @@ class Command(BaseCommand):
         # D-1 stock (yesterday's leftovers in "ontem" position)
         d1_position = positions["ontem"]
         d1_items = [
-            ("PAO-FRANCES", 10),
-            ("BAGUETE", 3),
-            ("FOCACCIA", 2),
-            ("CIABATTA", 1),
+            ("BAGUETE", 4),
+            ("BATARD", 2),
+            ("FENDU", 5),
+            ("TABATIERE", 4),
+            ("CIABATTA", 3),
+            ("PAO-HAMBURGER", 6),
         ]
         for sku, qty in d1_items:
             if sku in products:
@@ -598,28 +784,128 @@ class Command(BaseCommand):
 
         recipes_data = [
             {
-                "code": "pao-frances",
-                "name": "Pao Frances Artesanal",
-                "output_ref": "PAO-FRANCES",
-                "batch_size": Decimal("50"),
+                "code": "baguete",
+                "name": "Baguete Francesa",
+                "output_ref": "BAGUETE",
+                "batch_size": Decimal("25"),
                 "items": [
-                    ("INS-FARINHA-T55", Decimal("5.000")),
-                    ("INS-AGUA", Decimal("3.250")),
+                    ("INS-FARINHA-T65", Decimal("5.000")),
+                    ("INS-AGUA", Decimal("3.500")),
+                    ("INS-FERMENTO-NAT", Decimal("1.500")),
+                    ("INS-SAL", Decimal("0.100")),
+                    ("INS-MALTE", Decimal("0.020")),
+                ],
+            },
+            {
+                "code": "baguete-campagne",
+                "name": "Baguette de Campagne",
+                "output_ref": "BAGUETE-CAMPAGNE",
+                "batch_size": Decimal("12"),
+                "items": [
+                    ("INS-FARINHA-T65", Decimal("2.000")),
+                    ("INS-FARINHA-INT", Decimal("2.000")),
+                    ("INS-CENTEIO", Decimal("0.500")),
+                    ("INS-AGUA", Decimal("3.000")),
+                    ("INS-FERMENTO-NAT", Decimal("1.200")),
+                    ("INS-SAL", Decimal("0.080")),
+                ],
+            },
+            {
+                "code": "campagne",
+                "name": "Pain de Campagne",
+                "output_ref": "CAMPAGNE-OVAL",
+                "batch_size": Decimal("10"),
+                "items": [
+                    ("INS-FARINHA-T65", Decimal("2.500")),
+                    ("INS-FARINHA-INT", Decimal("2.500")),
+                    ("INS-CENTEIO", Decimal("0.600")),
+                    ("INS-AGUA", Decimal("3.500")),
                     ("INS-FERMENTO-NAT", Decimal("1.500")),
                     ("INS-SAL", Decimal("0.100")),
                 ],
             },
             {
-                "code": "baguete",
-                "name": "Baguete Tradicional",
-                "output_ref": "BAGUETE",
-                "batch_size": Decimal("20"),
+                "code": "italiano-rustico",
+                "name": "Italiano Rustico",
+                "output_ref": "ITALIANO-RUSTICO",
+                "batch_size": Decimal("8"),
                 "items": [
-                    ("INS-FARINHA-T65", Decimal("4.000")),
-                    ("INS-AGUA", Decimal("2.800")),
+                    ("INS-FARINHA-T65", Decimal("3.500")),
+                    ("INS-AGUA", Decimal("2.500")),
                     ("INS-FERMENTO-NAT", Decimal("1.200")),
                     ("INS-SAL", Decimal("0.080")),
-                    ("INS-MALTE", Decimal("0.020")),
+                    ("INS-AZEITE", Decimal("0.100")),
+                ],
+            },
+            {
+                "code": "ciabatta",
+                "name": "Ciabatta",
+                "output_ref": "CIABATTA",
+                "batch_size": Decimal("20"),
+                "items": [
+                    ("INS-FARINHA-T55", Decimal("3.000")),
+                    ("INS-AGUA", Decimal("2.400")),
+                    ("INS-AZEITE", Decimal("0.200")),
+                    ("INS-FERMENTO-NAT", Decimal("0.900")),
+                    ("INS-SAL", Decimal("0.060")),
+                ],
+            },
+            {
+                "code": "focaccia-alecrim",
+                "name": "Focaccia Alecrim",
+                "output_ref": "FOCACCIA-ALECRIM",
+                "batch_size": Decimal("8"),
+                "items": [
+                    ("INS-FARINHA-T55", Decimal("2.000")),
+                    ("INS-AGUA", Decimal("1.500")),
+                    ("INS-AZEITE", Decimal("0.300")),
+                    ("INS-FERMENTO-NAT", Decimal("0.600")),
+                    ("INS-SAL", Decimal("0.040")),
+                    ("INS-ALECRIM", Decimal("0.030")),
+                ],
+            },
+            {
+                "code": "focaccia-cebola",
+                "name": "Focaccia Cebola Roxa",
+                "output_ref": "FOCACCIA-CEBOLA",
+                "batch_size": Decimal("6"),
+                "items": [
+                    ("INS-FARINHA-T55", Decimal("2.000")),
+                    ("INS-AGUA", Decimal("1.500")),
+                    ("INS-AZEITE", Decimal("0.300")),
+                    ("INS-FERMENTO-NAT", Decimal("0.600")),
+                    ("INS-CEBOLA-ROXA", Decimal("0.400")),
+                    ("INS-AZEITONA", Decimal("0.200")),
+                    ("INS-SAL", Decimal("0.040")),
+                ],
+            },
+            {
+                "code": "pao-forma",
+                "name": "Pao de Forma Artesanal",
+                "output_ref": "PAO-FORMA",
+                "batch_size": Decimal("12"),
+                "items": [
+                    ("INS-FARINHA-T55", Decimal("3.000")),
+                    ("INS-MANTEIGA-FR", Decimal("0.400")),
+                    ("INS-LEITE", Decimal("1.200")),
+                    ("INS-ACUCAR", Decimal("0.200")),
+                    ("INS-FERMENTO-BIO", Decimal("0.100")),
+                    ("INS-SAL", Decimal("0.060")),
+                ],
+            },
+            {
+                "code": "challah",
+                "name": "Challah",
+                "output_ref": "CHALLAH",
+                "batch_size": Decimal("8"),
+                "items": [
+                    ("INS-FARINHA-T45", Decimal("2.000")),
+                    ("INS-OVOS", Decimal("0.600")),
+                    ("INS-ACUCAR", Decimal("0.300")),
+                    ("INS-AZEITE", Decimal("0.200")),
+                    ("INS-FERMENTO-BIO", Decimal("0.080")),
+                    ("INS-SAL", Decimal("0.040")),
+                    ("INS-GERGELIM", Decimal("0.050")),
                 ],
             },
             {
@@ -654,133 +940,43 @@ class Command(BaseCommand):
                 ],
             },
             {
-                "code": "focaccia",
-                "name": "Focaccia Alecrim",
-                "output_ref": "FOCACCIA",
-                "batch_size": Decimal("10"),
-                "items": [
-                    ("INS-FARINHA-T55", Decimal("2.000")),
-                    ("INS-AGUA", Decimal("1.500")),
-                    ("INS-AZEITE", Decimal("0.200")),
-                    ("INS-FERMENTO-NAT", Decimal("0.600")),
-                    ("INS-SAL", Decimal("0.040")),
-                    ("INS-ALECRIM", Decimal("0.030")),
-                ],
-            },
-            {
-                "code": "sourdough",
-                "name": "Sourdough Integral",
-                "output_ref": "SOURDOUGH",
-                "batch_size": Decimal("8"),
-                "items": [
-                    ("INS-FARINHA-INT", Decimal("2.400")),
-                    ("INS-FARINHA-T65", Decimal("1.600")),
-                    ("INS-AGUA", Decimal("3.000")),
-                    ("INS-FERMENTO-NAT", Decimal("1.200")),
-                    ("INS-SAL", Decimal("0.080")),
-                ],
-            },
-            {
-                "code": "pao-integral",
-                "name": "Pão Integral",
-                "output_ref": "PAO-INTEGRAL",
-                "batch_size": Decimal("60"),
-                "items": [
-                    ("INS-FARINHA-INT", Decimal("4.000")),
-                    ("INS-AGUA", Decimal("2.800")),
-                    ("INS-FERMENTO-NAT", Decimal("1.000")),
-                    ("INS-SAL", Decimal("0.080")),
-                ],
-            },
-            {
-                "code": "ciabatta",
-                "name": "Ciabatta",
-                "output_ref": "CIABATTA",
-                "batch_size": Decimal("15"),
-                "items": [
-                    ("INS-FARINHA-T55", Decimal("3.000")),
-                    ("INS-AGUA", Decimal("2.400")),
-                    ("INS-AZEITE", Decimal("0.150")),
-                    ("INS-FERMENTO-NAT", Decimal("0.900")),
-                    ("INS-SAL", Decimal("0.060")),
-                ],
-            },
-            {
-                "code": "pao-queijo",
-                "name": "Pão de Queijo",
-                "output_ref": "PAO-QUEIJO",
-                "batch_size": Decimal("80"),
-                "items": [
-                    ("INS-POLVILHO", Decimal("2.000")),
-                    ("INS-QUEIJO-MINAS", Decimal("1.000")),
-                    ("INS-LEITE", Decimal("0.800")),
-                    ("INS-OVOS", Decimal("0.400")),
-                    ("INS-SAL", Decimal("0.040")),
-                ],
-            },
-            {
                 "code": "brioche",
-                "name": "Brioche",
+                "name": "Brioche Nanterre",
                 "output_ref": "BRIOCHE",
-                "batch_size": Decimal("24"),
+                "batch_size": Decimal("12"),
                 "items": [
                     ("INS-FARINHA-T45", Decimal("2.000")),
                     ("INS-MANTEIGA-FR", Decimal("1.000")),
-                    ("INS-OVOS", Decimal("0.500")),
+                    ("INS-OVOS", Decimal("0.600")),
                     ("INS-ACUCAR", Decimal("0.300")),
                     ("INS-FERMENTO-BIO", Decimal("0.080")),
                     ("INS-SAL", Decimal("0.040")),
                 ],
             },
             {
-                "code": "bolo-chocolate",
-                "name": "Bolo de Chocolate",
-                "output_ref": "BOLO-CHOCOLATE",
-                "batch_size": Decimal("4"),
+                "code": "chausson",
+                "name": "Chausson aux Pommes",
+                "output_ref": "CHAUSSON",
+                "batch_size": Decimal("12"),
                 "items": [
-                    ("INS-FARINHA-T45", Decimal("1.200")),
-                    ("INS-CHOCOLATE-70", Decimal("0.600")),
-                    ("INS-MANTEIGA-FR", Decimal("0.400")),
-                    ("INS-ACUCAR", Decimal("0.500")),
-                    ("INS-OVOS", Decimal("0.600")),
-                    ("INS-LEITE", Decimal("0.300")),
+                    ("INS-FARINHA-T45", Decimal("1.500")),
+                    ("INS-MANTEIGA-FR", Decimal("0.800")),
+                    ("INS-MACA", Decimal("0.600")),
+                    ("INS-ACUCAR", Decimal("0.200")),
+                    ("INS-CANELA", Decimal("0.010")),
                 ],
             },
             {
-                "code": "bolo-cenoura",
-                "name": "Bolo de Cenoura",
-                "output_ref": "BOLO-CENOURA",
-                "batch_size": Decimal("4"),
+                "code": "madeleine",
+                "name": "Madeleine",
+                "output_ref": "MADELEINE",
+                "batch_size": Decimal("24"),
                 "items": [
-                    ("INS-FARINHA-T45", Decimal("1.000")),
-                    ("INS-ACUCAR", Decimal("0.400")),
+                    ("INS-FARINHA-T45", Decimal("0.500")),
+                    ("INS-MANTEIGA-FR", Decimal("0.500")),
                     ("INS-OVOS", Decimal("0.400")),
-                    ("INS-CENOURA", Decimal("0.600")),
-                    ("INS-CHOCOLATE-70", Decimal("0.200")),
-                ],
-            },
-            {
-                "code": "brigadeiro",
-                "name": "Brigadeiro",
-                "output_ref": "BRIGADEIRO",
-                "batch_size": Decimal("100"),
-                "items": [
-                    ("INS-LEITE-COND", Decimal("1.200")),
-                    ("INS-CHOCOLATE-70", Decimal("0.300")),
-                    ("INS-MANTEIGA-FR", Decimal("0.060")),
-                ],
-            },
-            {
-                "code": "brownie",
-                "name": "Brownie",
-                "output_ref": "BROWNIE",
-                "batch_size": Decimal("20"),
-                "items": [
-                    ("INS-CHOCOLATE-70", Decimal("0.400")),
-                    ("INS-MANTEIGA-FR", Decimal("0.300")),
                     ("INS-ACUCAR", Decimal("0.300")),
-                    ("INS-FARINHA-T45", Decimal("0.200")),
-                    ("INS-OVOS", Decimal("0.300")),
+                    ("INS-LIMAO", Decimal("0.020")),
                 ],
             },
         ]
@@ -806,19 +1002,20 @@ class Command(BaseCommand):
         # (production_changed → planned quants → inventory protocol)
         #
         # Nelson's production schedule (realistic):
-        #   PAO-FRANCES:   start 04:00, finish ~05:30  → slot-09
-        #   PAO-INTEGRAL:  start 04:00, finish ~06:00  → slot-09
-        #   BAGUETE:       start 04:30, finish ~06:30  → slot-09
-        #   CIABATTA:      start 05:00, finish ~07:00  → slot-09
-        #   CROISSANT:     start 05:00, finish ~07:30  → slot-09
-        #   PAO-QUEIJO:    start 06:00, finish ~07:00  → slot-09
-        #   SOURDOUGH:     start 03:00, finish ~09:00  → slot-09
-        #   BRIOCHE:       start 05:30, finish ~08:30  → slot-09
-        #   FOCACCIA:      start 07:00, finish ~10:00  → slot-12
-        #   BOLO-CHOCOLATE: start 08:00, finish ~11:30 → slot-12
-        #   BOLO-CENOURA:  start 08:00, finish ~11:00  → slot-12
-        #   BRIGADEIRO:    start 10:00, finish ~13:30   → slot-15
-        #   BROWNIE:       start 09:00, finish ~14:00   → slot-15
+        #   BAGUETE:           start 04:00, finish ~06:00  → slot-09
+        #   BAGUETE-CAMPAGNE:  start 04:00, finish ~06:30  → slot-09
+        #   CAMPAGNE-OVAL:     start 03:30, finish ~08:00  → slot-09
+        #   ITALIANO-RUSTICO:  start 03:30, finish ~08:30  → slot-09
+        #   CIABATTA:          start 05:00, finish ~07:00  → slot-09
+        #   PAO-FORMA:         start 05:00, finish ~07:30  → slot-09
+        #   CHALLAH:           start 05:00, finish ~08:00  → slot-09
+        #   CROISSANT:         start 05:00, finish ~07:30  → slot-09
+        #   PAIN-CHOCOLAT:     start 05:00, finish ~08:00  → slot-09
+        #   BRIOCHE:           start 05:30, finish ~08:30  → slot-09
+        #   FOCACCIA-ALECRIM:  start 07:00, finish ~10:00  → slot-12
+        #   FOCACCIA-CEBOLA:   start 07:30, finish ~10:30  → slot-12
+        #   CHAUSSON:          start 08:00, finish ~11:00  → slot-12
+        #   MADELEINE:         start 09:00, finish ~13:00  → slot-15
         from shopman.crafting.service import CraftService as craft
 
         today = date.today()
@@ -827,26 +1024,27 @@ class Command(BaseCommand):
 
         # Production schedule: (recipe_code, qty, start_hour, start_min, finish_hour, finish_min)
         PRODUCTION_SCHEDULE = [
-            ("pao-frances",  Decimal("100"), 4, 0,  5, 30),
-            ("croissant",    Decimal("48"),  5, 0,  7, 30),
-            ("baguete",      Decimal("20"),  4, 30, 6, 30),
+            ("baguete",          Decimal("25"),  4, 0,  6, 0),
+            ("croissant",        Decimal("48"),  5, 0,  7, 30),
+            ("focaccia-alecrim", Decimal("8"),   7, 0,  10, 0),
         ]
 
-        # Typical finish times per SKU (for historical WOs — covers ALL products)
+        # Typical finish times per SKU (for historical WOs — covers ALL products with recipes)
         TYPICAL_FINISH = {
-            "PAO-FRANCES":    (5, 30),
-            "PAO-INTEGRAL":   (6, 0),
-            "BAGUETE":        (6, 30),
-            "CIABATTA":       (7, 0),
-            "CROISSANT":      (7, 30),
-            "PAO-QUEIJO":     (7, 0),
-            "SOURDOUGH":      (9, 0),
-            "BRIOCHE":        (8, 30),
-            "FOCACCIA":       (10, 0),
-            "BOLO-CHOCOLATE": (11, 30),
-            "BOLO-CENOURA":   (11, 0),
-            "BRIGADEIRO":     (13, 30),
-            "BROWNIE":        (14, 0),
+            "BAGUETE":          (6, 0),
+            "BAGUETE-CAMPAGNE": (6, 30),
+            "CAMPAGNE-OVAL":    (8, 0),
+            "ITALIANO-RUSTICO": (8, 30),
+            "CIABATTA":         (7, 0),
+            "PAO-FORMA":        (7, 30),
+            "CHALLAH":          (8, 0),
+            "CROISSANT":        (7, 30),
+            "PAIN-CHOCOLAT":    (8, 0),
+            "BRIOCHE":          (8, 30),
+            "FOCACCIA-ALECRIM": (10, 0),
+            "FOCACCIA-CEBOLA":  (10, 30),
+            "CHAUSSON":         (11, 0),
+            "MADELEINE":        (13, 0),
         }
 
         wo_count = 0
@@ -862,7 +1060,7 @@ class Command(BaseCommand):
                 continue
 
             wo = craft.plan(recipe, quantity=qty, date=today)
-            should_close = code != "baguete"  # baguete still in production
+            should_close = code != "focaccia-alecrim"  # focaccia still in production
             if should_close:
                 produced = int(qty * Decimal("0.95"))
                 craft.close(wo, produced=produced, actor="seed")
@@ -877,10 +1075,10 @@ class Command(BaseCommand):
 
         # Tomorrow: 4 open (via craft.plan → creates planned quants)
         for code, qty in [
-            ("pao-frances", Decimal("150")),
-            ("croissant", Decimal("96")),
-            ("baguete", Decimal("40")),
-            ("sourdough", Decimal("16")),
+            ("baguete", Decimal("30")),
+            ("baguete-campagne", Decimal("15")),
+            ("croissant", Decimal("60")),
+            ("focaccia-alecrim", Decimal("10")),
         ]:
             recipe = Recipe.objects.get(code=code)
             existing = WorkOrder.objects.filter(
@@ -1195,16 +1393,16 @@ class Command(BaseCommand):
 
         for channel_ref, items in [
             ("balcao", [
-                {"line_id": uuid.uuid4().hex[:8], "sku": "CROISSANT", "name": "Croissant Manteiga", "qty": 2, "unit_price_q": 890, "line_total_q": 1780},
-                {"line_id": uuid.uuid4().hex[:8], "sku": "CAFE-ESPRESSO", "name": "Cafe Espresso", "qty": 1, "unit_price_q": 690, "line_total_q": 690},
+                {"line_id": uuid.uuid4().hex[:8], "sku": "CROISSANT", "name": "Croissant Tradicional", "qty": 2, "unit_price_q": 1300, "line_total_q": 2600},
+                {"line_id": uuid.uuid4().hex[:8], "sku": "PAIN-CHOCOLAT", "name": "Pain au Chocolat", "qty": 1, "unit_price_q": 1500, "line_total_q": 1500},
             ]),
             ("delivery", [
-                {"line_id": uuid.uuid4().hex[:8], "sku": "PAO-FRANCES", "name": "Pao Frances Artesanal", "qty": 10, "unit_price_q": 150, "line_total_q": 1500},
-                {"line_id": uuid.uuid4().hex[:8], "sku": "BAGUETE", "name": "Baguete Tradicional", "qty": 3, "unit_price_q": 850, "line_total_q": 2550},
+                {"line_id": uuid.uuid4().hex[:8], "sku": "BAGUETE", "name": "Baguete Francesa", "qty": 3, "unit_price_q": 1300, "line_total_q": 3900},
+                {"line_id": uuid.uuid4().hex[:8], "sku": "FOCACCIA-ALECRIM", "name": "Focaccia Alecrim & Sal Grosso", "qty": 1, "unit_price_q": 3100, "line_total_q": 3100},
             ]),
             ("whatsapp", [
-                {"line_id": uuid.uuid4().hex[:8], "sku": "PAO-FRANCES", "name": "Pao Frances Artesanal", "qty": 100, "unit_price_q": 150, "line_total_q": 15000},
-                {"line_id": uuid.uuid4().hex[:8], "sku": "CROISSANT", "name": "Croissant Manteiga", "qty": 50, "unit_price_q": 890, "line_total_q": 44500},
+                {"line_id": uuid.uuid4().hex[:8], "sku": "BAGUETE", "name": "Baguete Francesa", "qty": 10, "unit_price_q": 1300, "line_total_q": 13000},
+                {"line_id": uuid.uuid4().hex[:8], "sku": "CROISSANT", "name": "Croissant Tradicional", "qty": 20, "unit_price_q": 1300, "line_total_q": 26000},
             ]),
         ]:
             ch = channels[channel_ref]
@@ -1228,13 +1426,14 @@ class Command(BaseCommand):
 
         vitrine = positions["vitrine"]
         alerts_data = [
-            ("PAO-FRANCES", 50),
             ("BAGUETE", 10),
+            ("MINI-BAGUETE", 12),
+            ("FENDU", 15),
             ("CROISSANT", 15),
             ("PAIN-CHOCOLAT", 12),
-            ("BRIOCHE", 10),
-            ("FOCACCIA", 8),
-            ("SOURDOUGH", 6),
+            ("BRIOCHE", 6),
+            ("FOCACCIA-ALECRIM", 4),
+            ("CIABATTA", 8),
         ]
 
         for sku, min_qty in alerts_data:
@@ -1682,46 +1881,15 @@ class Command(BaseCommand):
     def _seed_kds(self):
         self.stdout.write("  🖥️  KDS...")
 
-        # Get collections
-        col_paes = Collection.objects.filter(slug="paes-artesanais").first()
-        col_confeitaria = Collection.objects.filter(slug="confeitaria").first()
-        col_bebidas = Collection.objects.filter(slug="bebidas").first()
+        # Get collections for KDS routing
+        col_lanches = Collection.objects.filter(slug="lanches").first()
+        col_salgados = Collection.objects.filter(slug="salgados").first()
+        col_cafes = Collection.objects.filter(slug="cafes-bebidas").first()
 
-        # KDS Pães — Picking: pães e folhados já prontos na vitrine
-        # (produzidos em lote via WorkOrder antes da abertura).
-        kds_paes, _ = KDSInstance.objects.update_or_create(
-            ref="paes",
-            defaults={
-                "name": "Pães",
-                "type": "picking",
-                "target_time_minutes": 3,
-                "sound_enabled": True,
-                "is_active": True,
-            },
-        )
-        kds_paes.collections.clear()
-        if col_paes:
-            kds_paes.collections.add(col_paes)
-        if col_confeitaria:
-            kds_paes.collections.add(col_confeitaria)
+        # Remove old KDS instances that no longer exist
+        KDSInstance.objects.filter(ref__in=["paes", "folhados", "salgados"]).delete()
 
-        # KDS Cafés — Prep: bebidas preparadas na hora (espresso, latte)
-        kds_cafes, _ = KDSInstance.objects.update_or_create(
-            ref="cafes",
-            defaults={
-                "name": "Cafés",
-                "type": "prep",
-                "target_time_minutes": 5,
-                "sound_enabled": True,
-                "is_active": True,
-            },
-        )
-        kds_cafes.collections.clear()
-        if col_bebidas:
-            kds_cafes.collections.add(col_bebidas)
-
-        # KDS Lanches — Prep catch-all: salgados e sanduíches preparados
-        # na hora. Catch-all para prep items sem estação específica.
+        # KDS Lanches — Prep: montagem de lanches e salgados na hora
         kds_lanches, _ = KDSInstance.objects.update_or_create(
             ref="lanches",
             defaults={
@@ -1732,7 +1900,37 @@ class Command(BaseCommand):
                 "is_active": True,
             },
         )
-        kds_lanches.collections.clear()  # catch-all prep
+        kds_lanches.collections.clear()
+        for col in [col_lanches, col_salgados]:
+            if col:
+                kds_lanches.collections.add(col)
+
+        # KDS Cafés — Prep: bebidas quentes e frias
+        kds_cafes, _ = KDSInstance.objects.update_or_create(
+            ref="cafes",
+            defaults={
+                "name": "Cafés",
+                "type": "prep",
+                "target_time_minutes": 3,
+                "sound_enabled": True,
+                "is_active": True,
+            },
+        )
+        kds_cafes.collections.clear()
+        if col_cafes:
+            kds_cafes.collections.add(col_cafes)
+
+        # KDS Encomendas — Picking: pedidos agendados (future-dated)
+        KDSInstance.objects.update_or_create(
+            ref="encomendas",
+            defaults={
+                "name": "Encomendas",
+                "type": "picking",
+                "target_time_minutes": 5,
+                "sound_enabled": True,
+                "is_active": True,
+            },
+        )
 
         # KDS Expedição — mostra pedidos prontos (READY)
         KDSInstance.objects.update_or_create(
@@ -1746,7 +1944,7 @@ class Command(BaseCommand):
             },
         )
 
-        self.stdout.write("  ✅ 4 estações KDS (Pães, Cafés, Lanches, Expedição)")
+        self.stdout.write("  ✅ 4 estações KDS (Lanches, Cafés, Encomendas, Expedição)")
 
     # ────────────────────────────────────────────────────────────────
     # Notification Templates
@@ -1760,7 +1958,8 @@ class Command(BaseCommand):
         FALLBACK_TEMPLATES = {
             "order_confirmed": {"subject": "Pedido {order_ref} confirmado", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* foi confirmado. Total: *{total}*.\n\nObrigado pela preferencia!"},
             "order_processing": {"subject": "Pedido {order_ref} em preparo", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* esta sendo preparado.\n\nAvisaremos quando estiver pronto!"},
-            "order_ready": {"subject": "Pedido {order_ref} pronto para retirada", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* esta pronto!\n\nVenha retirar. Obrigado!"},
+            "order_ready_pickup": {"subject": "Pedido {order_ref} pronto para retirada", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* esta pronto para retirada! \U0001f389\n\nVenha buscar. Obrigado!"},
+            "order_ready_delivery": {"subject": "Pedido {order_ref} pronto para envio", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* esta pronto e sera enviado em breve! \U0001f4e6"},
             "order_dispatched": {"subject": "Pedido {order_ref} saiu para entrega", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* saiu para entrega!\n\nEm breve estara com voce!"},
             "order_delivered": {"subject": "Pedido {order_ref} entregue", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* foi entregue.\n\nEsperamos que tenha gostado! Obrigado pela preferencia."},
             "order_cancelled": {"subject": "Pedido {order_ref} cancelado", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* foi cancelado.\n\nEm caso de duvidas, entre em contato."},
@@ -1868,10 +2067,12 @@ class Command(BaseCommand):
                 "closed_by": admin,
                 "notes": "Fechamento automatico (seed)",
                 "data": [
-                    {"sku": "PAO-FRANCES", "qty_remaining": 15, "qty_d1": 10, "qty_loss": 5},
-                    {"sku": "BAGUETE", "qty_remaining": 3, "qty_d1": 3, "qty_loss": 0},
-                    {"sku": "FOCACCIA", "qty_remaining": 2, "qty_d1": 2, "qty_loss": 0},
-                    {"sku": "CIABATTA", "qty_remaining": 1, "qty_d1": 1, "qty_loss": 0},
+                    {"sku": "BAGUETE", "qty_remaining": 6, "qty_d1": 4, "qty_loss": 2},
+                    {"sku": "BATARD", "qty_remaining": 3, "qty_d1": 2, "qty_loss": 1},
+                    {"sku": "FENDU", "qty_remaining": 7, "qty_d1": 5, "qty_loss": 2},
+                    {"sku": "TABATIERE", "qty_remaining": 5, "qty_d1": 4, "qty_loss": 1},
+                    {"sku": "CIABATTA", "qty_remaining": 4, "qty_d1": 3, "qty_loss": 1},
+                    {"sku": "PAO-HAMBURGER", "qty_remaining": 8, "qty_d1": 6, "qty_loss": 2},
                 ],
             },
         )
