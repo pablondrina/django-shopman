@@ -39,17 +39,21 @@ NEXT_STATUS_MAP = {
     "confirmed": "processing",
     "processing": "ready",
     "ready": "completed",
+    "dispatched": "delivered",
+    "delivered": "completed",
 }
 
 NEXT_ACTION_LABELS = {
     "confirmed": "Iniciar Preparo \u25b8",
     "processing": "Marcar Pronto \u25b8",
     "ready": "Entregar \u2713",
+    "dispatched": "Marcar Entregue \u2713",
+    "delivered": "Concluir \u2713",
 }
 
 # ── Active statuses for the gestor ───────────────────────────────────
 
-_ACTIVE_STATUSES = ["new", "confirmed", "processing", "ready"]
+_ACTIVE_STATUSES = ["new", "confirmed", "processing", "ready", "dispatched"]
 
 
 def _staff_required(request):
@@ -67,13 +71,13 @@ def _enrich_order(order: Order) -> dict:
     # Timer class for new orders (confirmation urgency)
     if order.status == "new":
         if elapsed < 180:
-            timer_class = "text-success"
+            timer_class = "timer-ok"
         elif elapsed < 240:
-            timer_class = "text-warning"
+            timer_class = "timer-warning"
         else:
-            timer_class = "text-error"
+            timer_class = "timer-urgent"
     else:
-        timer_class = "text-foreground-muted"
+        timer_class = "timer-muted"
 
     # Items summary (first 3 items)
     items = list(order.items.all()[:4])
@@ -116,7 +120,7 @@ def _enrich_order(order: Order) -> dict:
         "fulfillment_icon": fulfillment_icon,
         "fulfillment_label": fulfillment_label,
         "can_confirm": order.status == "new",
-        "can_advance": order.status in ("confirmed", "processing", "ready"),
+        "can_advance": order.status in ("confirmed", "processing", "ready", "dispatched", "delivered"),
         "next_status": NEXT_STATUS_MAP.get(order.status, ""),
         "next_action_label": NEXT_ACTION_LABELS.get(order.status, ""),
         "order": order,
@@ -313,12 +317,6 @@ class PedidoAdvanceView(View):
 
         order.transition_status(next_status, actor=f"operator:{request.user.username}")
 
-        # Dispatch to KDS when entering PROCESSING
-        if next_status == "processing":
-            from shopman.kds_utils import dispatch_to_kds
-
-            dispatch_to_kds(order)
-
         enriched = _enrich_order(order)
         return render(request, "pedidos/partials/card.html", {"o": enriched})
 
@@ -335,7 +333,7 @@ class PedidoNotesView(View):
         order.data["internal_notes"] = request.POST.get("notes", "")
         order.save(update_fields=["data", "updated_at"])
 
-        return HttpResponse('<span class="text-success text-caption">Salvo</span>')
+        return HttpResponse('<span class="ped-notes-saved">Salvo</span>')
 
 
 class PedidoMarkPaidView(View):
