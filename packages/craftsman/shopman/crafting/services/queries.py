@@ -84,7 +84,14 @@ class CraftQueries:
         return list(aggregated.values())
 
     @classmethod
-    def suggest(cls, date, output_refs=None):
+    def suggest(
+        cls,
+        date,
+        output_refs=None,
+        *,
+        season_months: list | None = None,
+        high_demand_multiplier: Decimal | None = None,
+    ):
         """
         Suggest production quantities for a date.
 
@@ -92,14 +99,23 @@ class CraftQueries:
             date: production date
             output_refs: optional list of output_ref strings to filter recipes.
                          If None, all active recipes are considered.
+            season_months: optional list of month ints to filter history by season.
+                           e.g. [10, 11, 12, 1, 2, 3] for hot season.
+                           If None, all history months are used.
+            high_demand_multiplier: if provided and the date falls on Friday (4) or
+                                    Saturday (5), multiply suggested qty by this factor.
 
         Algorithm:
             For each active Recipe (optionally filtered by output_refs):
             1. Get historical demand via DemandProtocol.history()
-            2. Estimate true demand (extrapolate if soldout_at set)
-            3. avg_demand = average of estimates
-            4. committed = DemandProtocol.committed(output_ref, date)
-            5. quantity = (avg_demand + committed) * (1 + SAFETY_STOCK_PERCENT)
+            2. Filter by season_months if provided
+            3. Estimate true demand (extrapolate if soldout_at set)
+            4. confidence = "high" / "medium" / "low" based on sample_size
+            5. avg_demand = average of estimates
+            6. Apply waste adjustment if waste_rate > 15%
+            7. committed = DemandProtocol.committed(output_ref, date)
+            8. quantity = (avg_demand + committed) * (1 + SAFETY_STOCK_PERCENT)
+            9. Apply high_demand_multiplier on Fri/Sat if provided
 
         Returns [] if DEMAND_BACKEND is not configured.
         """
@@ -136,14 +152,46 @@ class CraftQueries:
             if not history:
                 continue
 
+            # Filter by season if provided
+            if season_months:
+                history = [dd for dd in history if dd.date.month in season_months]
+
             # Estimate true demand for each historical day
             estimates = [_estimate_demand(dd) for dd in history]
+
+            # Confidence based on sample size
+            confidence = _calc_confidence(len(estimates))
+            if confidence is None:
+                # Not enough data — skip this recipe
+                continue
+
             avg_demand = sum(estimates) / len(estimates)
+
+            # Waste adjustment: if waste_rate > 15%, reduce proportionally
+            total_sold = sum(dd.sold for dd in history)
+            total_wasted = sum(dd.wasted for dd in history)
+            waste_rate: Decimal | None = None
+            if total_sold > 0 and total_wasted > 0:
+                waste_rate = total_wasted / total_sold
+                if waste_rate > Decimal("0.15"):
+                    avg_demand = avg_demand * (1 - waste_rate)
 
             committed = backend.committed(recipe.output_ref, date)
 
             raw_qty = (avg_demand + committed) * (1 + safety_pct)
+
+            # High demand multiplier: Fri(4) or Sat(5)
+            high_demand_applied = False
+            if high_demand_multiplier and date.weekday() in (4, 5):
+                raw_qty = raw_qty * high_demand_multiplier
+                high_demand_applied = True
+
             quantity = raw_qty.quantize(Decimal("1"))  # round to whole units
+
+            # Determine season label
+            season_label: str | None = None
+            if season_months:
+                season_label = _season_label(season_months)
 
             suggestions.append(
                 Suggestion(
@@ -156,6 +204,10 @@ class CraftQueries:
                         "historical_days": historical_days,
                         "same_weekday": same_weekday,
                         "sample_size": len(estimates),
+                        "confidence": confidence,
+                        "season": season_label,
+                        "waste_rate": waste_rate,
+                        "high_demand_applied": high_demand_applied,
                     },
                 )
             )
@@ -197,6 +249,34 @@ def _expand_bom(item_ref, quantity, unit, depth=0):
             yield from _expand_bom(ri.input_ref, ri.quantity * sub_coefficient, ri.unit, depth + 1)
     else:
         yield (item_ref, quantity, unit)
+
+
+def _calc_confidence(sample_size: int) -> str | None:
+    """Return confidence label or None (skip) based on sample size."""
+    if sample_size >= 8:
+        return "high"
+    if sample_size >= 3:
+        return "medium"
+    if sample_size >= 1:
+        return "low"
+    return None
+
+
+_HOT_MONTHS = frozenset([10, 11, 12, 1, 2, 3])
+_COLD_MONTHS = frozenset([6, 7, 8])
+_MILD_MONTHS = frozenset([4, 5, 9])
+
+
+def _season_label(months: list[int]) -> str | None:
+    """Infer season label from a list of month ints."""
+    m = frozenset(months)
+    if m == _HOT_MONTHS:
+        return "hot"
+    if m == _COLD_MONTHS:
+        return "cold"
+    if m == _MILD_MONTHS:
+        return "mild"
+    return None
 
 
 def _estimate_demand(dd):

@@ -373,7 +373,7 @@ Toda configuração que afeta o comportamento comercial deve ser editável via
 
 **Arquivos**: `checkout.py`, testes
 
-### WP-A7: Elevar `craft.suggest()` a first-class
+### WP-A7: Elevar `craft.suggest()` a first-class ✅ 2026-04-07
 
 **Objetivo**: Sugestão de produção inteligente com sazonalidade, waste, confiança.
 

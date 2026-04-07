@@ -39,10 +39,37 @@ class Command(BaseCommand):
         target_date = self._parse_date(options["date"])
         output_refs = options["skus"]
 
+        # Read season and high_demand_multiplier from Shop.defaults if available
+        season_months = None
+        high_demand_multiplier = None
+        try:
+            from shopman.models import Shop
+            from decimal import Decimal as D
+
+            shop = Shop.objects.first()
+            if shop and shop.defaults:
+                seasons = shop.defaults.get("seasons", {})
+                # Determine current season based on target_date month
+                month = target_date.month
+                for season_name, months in seasons.items():
+                    if month in months:
+                        season_months = months
+                        break
+                hdm = shop.defaults.get("high_demand_multiplier")
+                if hdm is not None:
+                    high_demand_multiplier = D(str(hdm))
+        except Exception:
+            pass
+
         self.stdout.write(f"\nSugestão de produção para {target_date}")
         self.stdout.write("=" * 60)
 
-        suggestions = craft.suggest(date=target_date, output_refs=output_refs)
+        suggestions = craft.suggest(
+            date=target_date,
+            output_refs=output_refs,
+            season_months=season_months,
+            high_demand_multiplier=high_demand_multiplier,
+        )
 
         if not suggestions:
             self.stdout.write(
@@ -56,16 +83,34 @@ class Command(BaseCommand):
             )
             return
 
+        confidence_colors = {
+            "high": self.style.SUCCESS,
+            "medium": self.style.WARNING,
+            "low": self.style.ERROR,
+        }
+
         for s in suggestions:
             basis = s.basis
             avg = basis.get("avg_demand", Decimal("0"))
             committed = basis.get("committed", Decimal("0"))
             safety = basis.get("safety_pct", Decimal("0"))
             sample = basis.get("sample_size", 0)
+            confidence = basis.get("confidence", "low")
+            waste_rate = basis.get("waste_rate")
+            high_demand_applied = basis.get("high_demand_applied", False)
+            season = basis.get("season")
+
+            color = confidence_colors.get(confidence, lambda x: x)
+            confidence_label = color(f"{confidence.upper()}")
+
+            waste_str = f" | waste: {waste_rate:.0%}" if waste_rate else ""
+            season_str = f" | estação: {season}" if season else ""
+            hd_str = " | alta demanda ✓" if high_demand_applied else ""
 
             self.stdout.write(
                 f"\n  {s.recipe.name} ({s.recipe.output_ref}):"
                 f"\n    Produzir: {s.quantity} unidades"
+                f"\n    Confiança: {confidence_label}{season_str}{waste_str}{hd_str}"
                 f"\n    Demanda média: {avg:.1f} (amostra: {sample} dias)"
                 f"\n    Comprometido: {committed}"
                 f"\n    Margem segurança: {safety:.0%}"

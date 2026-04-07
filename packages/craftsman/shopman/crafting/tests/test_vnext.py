@@ -1002,3 +1002,187 @@ class TestSuggest:
 
         assert suggestions == []
         mock_backend.history.assert_not_called()
+
+    def test_suggest_with_season_filter(self, recipe, settings):
+        """Season filter keeps only history records whose month is in season_months."""
+        from unittest.mock import MagicMock, patch
+
+        from shopman.crafting.protocols.demand import DailyDemand
+
+        mock_backend = MagicMock()
+        # Mix of hot (Jan/Feb) and mild (Apr/May) months
+        mock_backend.history.return_value = [
+            DailyDemand(date=date(2025, 1, 8), sold=Decimal("100"), wasted=Decimal("0")),
+            DailyDemand(date=date(2025, 2, 5), sold=Decimal("120"), wasted=Decimal("0")),
+            DailyDemand(date=date(2025, 4, 2), sold=Decimal("50"), wasted=Decimal("0")),
+            DailyDemand(date=date(2025, 5, 7), sold=Decimal("60"), wasted=Decimal("0")),
+            DailyDemand(date=date(2025, 1, 15), sold=Decimal("110"), wasted=Decimal("0")),
+            DailyDemand(date=date(2025, 1, 22), sold=Decimal("90"), wasted=Decimal("0")),
+            DailyDemand(date=date(2025, 2, 12), sold=Decimal("130"), wasted=Decimal("0")),
+            DailyDemand(date=date(2025, 2, 19), sold=Decimal("95"), wasted=Decimal("0")),
+        ]
+        mock_backend.committed.return_value = Decimal("0")
+        mock_backend_class = MagicMock(return_value=mock_backend)
+
+        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+
+        target = date(2026, 1, 14)  # January = hot month
+        hot_months = [10, 11, 12, 1, 2, 3]
+
+        with patch("django.utils.module_loading.import_string", return_value=mock_backend_class):
+            suggestions = craft.suggest(target, season_months=hot_months)
+
+        assert len(suggestions) == 1
+        s = suggestions[0]
+        # Only 6 hot-month records used (Jan x4 + Feb x2 = sorted from history above)
+        assert s.basis["sample_size"] == 6
+        assert s.basis["season"] == "hot"
+        assert s.basis["confidence"] == "medium"  # 6 records: >= 3 but < 8
+        # avg of [100, 120, 110, 90, 130, 95] = 645/6 = 107.5; safety 20% => 107.5*1.2=129
+        assert s.quantity == Decimal("129")
+
+    def test_suggest_confidence_levels(self, recipe, settings):
+        """Confidence is derived from sample_size: >=8 high, >=3 medium, >=1 low, 0 skip."""
+        from unittest.mock import MagicMock, patch
+
+        from shopman.crafting.protocols.demand import DailyDemand
+
+        def _make_history(n):
+            return [
+                DailyDemand(date=date(2025, 1, i + 1), sold=Decimal("100"), wasted=Decimal("0"))
+                for i in range(n)
+            ]
+
+        def _run(n):
+            mock_backend = MagicMock()
+            mock_backend.history.return_value = _make_history(n)
+            mock_backend.committed.return_value = Decimal("0")
+            mock_backend_class = MagicMock(return_value=mock_backend)
+            with patch("django.utils.module_loading.import_string", return_value=mock_backend_class):
+                return craft.suggest(date(2026, 1, 14))
+
+        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+
+        # 10 records → high
+        sugs = _run(10)
+        assert sugs[0].basis["confidence"] == "high"
+
+        # 5 records → medium
+        sugs = _run(5)
+        assert sugs[0].basis["confidence"] == "medium"
+
+        # 1 record → low
+        sugs = _run(1)
+        assert sugs[0].basis["confidence"] == "low"
+
+        # 0 records → no suggestion
+        sugs = _run(0)
+        assert sugs == []
+
+    def test_suggest_waste_adjustment(self, recipe, settings):
+        """High waste_rate (>15%) reduces avg_demand proportionally."""
+        from unittest.mock import MagicMock, patch
+
+        from shopman.crafting.protocols.demand import DailyDemand
+
+        mock_backend = MagicMock()
+        # 5 records with 20% waste rate: sold=100, wasted=20 each
+        mock_backend.history.return_value = [
+            DailyDemand(date=date(2025, 1, i + 1), sold=Decimal("100"), wasted=Decimal("20"))
+            for i in range(5)
+        ]
+        mock_backend.committed.return_value = Decimal("0")
+        mock_backend_class = MagicMock(return_value=mock_backend)
+
+        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+
+        with patch("django.utils.module_loading.import_string", return_value=mock_backend_class):
+            suggestions = craft.suggest(date(2026, 1, 14))
+
+        assert len(suggestions) == 1
+        s = suggestions[0]
+        # waste_rate=20/100=0.20; avg_demand after adjustment=100*(1-0.20)=80
+        # quantity=80*1.2=96
+        assert s.basis["waste_rate"] == Decimal("0.20")
+        assert s.quantity == Decimal("96")
+
+    def test_suggest_waste_below_threshold_no_adjustment(self, recipe, settings):
+        """Waste rate <= 15% does not reduce suggestion."""
+        from unittest.mock import MagicMock, patch
+
+        from shopman.crafting.protocols.demand import DailyDemand
+
+        mock_backend = MagicMock()
+        mock_backend.history.return_value = [
+            DailyDemand(date=date(2025, 1, i + 1), sold=Decimal("100"), wasted=Decimal("10"))
+            for i in range(5)
+        ]
+        mock_backend.committed.return_value = Decimal("0")
+        mock_backend_class = MagicMock(return_value=mock_backend)
+
+        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+
+        with patch("django.utils.module_loading.import_string", return_value=mock_backend_class):
+            suggestions = craft.suggest(date(2026, 1, 14))
+
+        # waste_rate=0.10 ≤ 0.15 → no adjustment; avg=100, quantity=100*1.2=120
+        assert suggestions[0].quantity == Decimal("120")
+
+    def test_suggest_high_demand_friday(self, settings):
+        """High demand multiplier applied on Friday."""
+        from unittest.mock import MagicMock, patch
+
+        from shopman.crafting.protocols.demand import DailyDemand
+        from shopman.crafting.models import Recipe
+
+        friday = date(2026, 2, 27)  # weekday() == 4
+        assert friday.weekday() == 4
+
+        recipe_fri = Recipe.objects.create(
+            code="croissant-fri", name="Croissant Fri", output_ref="croissant-fri",
+            batch_size=Decimal("10"),
+        )
+
+        mock_backend = MagicMock()
+        mock_backend.history.return_value = [
+            DailyDemand(date=date(2025, 1, i + 1), sold=Decimal("100"), wasted=Decimal("0"))
+            for i in range(5)
+        ]
+        mock_backend.committed.return_value = Decimal("0")
+        mock_backend_class = MagicMock(return_value=mock_backend)
+
+        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+
+        with patch("django.utils.module_loading.import_string", return_value=mock_backend_class):
+            suggestions = craft.suggest(friday, high_demand_multiplier=Decimal("1.5"))
+
+        s = next(sg for sg in suggestions if sg.recipe.output_ref == "croissant-fri")
+        # avg=100, safety=20% => 100*1.2=120, then *1.5 = 180
+        assert s.basis["high_demand_applied"] is True
+        assert s.quantity == Decimal("180")
+
+    def test_suggest_high_demand_not_applied_on_weekday(self, recipe, tomorrow, settings):
+        """High demand multiplier NOT applied on non-Fri/Sat day."""
+        from unittest.mock import MagicMock, patch
+
+        from shopman.crafting.protocols.demand import DailyDemand
+
+        # tomorrow fixture is 2026-02-25 (Wednesday)
+        assert tomorrow.weekday() not in (4, 5)
+
+        mock_backend = MagicMock()
+        mock_backend.history.return_value = [
+            DailyDemand(date=date(2025, 1, i + 1), sold=Decimal("100"), wasted=Decimal("0"))
+            for i in range(5)
+        ]
+        mock_backend.committed.return_value = Decimal("0")
+        mock_backend_class = MagicMock(return_value=mock_backend)
+
+        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+
+        with patch("django.utils.module_loading.import_string", return_value=mock_backend_class):
+            suggestions = craft.suggest(tomorrow, high_demand_multiplier=Decimal("1.5"))
+
+        assert suggestions[0].basis["high_demand_applied"] is False
+        # No multiplier: avg=100, safety=20% => 120
+        assert suggestions[0].quantity == Decimal("120")
