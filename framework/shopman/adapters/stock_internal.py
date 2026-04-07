@@ -214,40 +214,6 @@ def release_holds(hold_ids: list[str]) -> None:
             logger.debug("release_holds: Hold %s already released or invalid", hold_id)
 
 
-def get_alternatives(sku: str, qty: Decimal, *, limit: int = 5) -> list[dict]:
-    """
-    Find alternative products with sufficient stock.
-
-    Returns:
-        [{"sku": str, "name": str, "available_qty": Decimal}, ...]
-    """
-    try:
-        from shopman.offering.contrib.suggestions import find_alternatives
-    except ImportError:
-        return []
-
-    try:
-        candidates = find_alternatives(sku, limit=limit)
-    except Exception:
-        return []
-
-    from shopman.stocking.service import Stock as stock
-
-    alternatives = []
-    for product in candidates:
-        try:
-            avail_qty = stock.available(product.sku)
-            if avail_qty >= qty:
-                alternatives.append({
-                    "sku": product.sku,
-                    "name": product.name,
-                    "available_qty": Decimal(str(avail_qty)),
-                })
-        except Exception:
-            pass
-    return alternatives
-
-
 def release_holds_for_reference(reference: str) -> int:
     """Release all active holds for a given reference (e.g. order ref)."""
     from shopman.stocking.exceptions import StockError

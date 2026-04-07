@@ -233,10 +233,12 @@ class StockHoldHandler:
     def _build_issue(self, *, sku, line_id, requested_qty, available_qty, message, session_rev) -> dict:
         alternatives_data: list[dict] = []
         try:
-            alternatives = self.backend.get_alternatives(sku, requested_qty)
+            from shopman.services.alternatives import find as _find_alternatives
+
+            alts = _find_alternatives(sku, qty=requested_qty, limit=4)
             alternatives_data = [
-                {"sku": alt.sku, "name": alt.name, "available_qty": float(alt.available_qty)}
-                for alt in alternatives
+                {"sku": a["sku"], "name": a["name"], "available_qty": float(a["available_qty"])}
+                for a in alts
             ]
         except Exception:
             pass

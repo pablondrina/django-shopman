@@ -340,7 +340,7 @@ Toda configuração que afeta o comportamento comercial deve ser editável via
 
 **Arquivos**: `context_processors.py`, `_helpers.py`, `base.html`, `seed.py`
 
-### WP-A5: Centralizar serviço de alternativas
+### WP-A5: Centralizar serviço de alternativas ✅ 2026-04-07
 
 **Objetivo**: Um único serviço para todos os contextos.
 

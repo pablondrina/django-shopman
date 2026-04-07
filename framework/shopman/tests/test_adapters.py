@@ -18,7 +18,6 @@ STOCK_CONTRACT = {
     "create_hold": ["sku", "qty", "ttl_minutes"],
     "fulfill_hold": ["hold_id"],
     "release_holds": ["hold_ids"],
-    "get_alternatives": ["sku", "qty"],
 }
 
 PAYMENT_CONTRACT = {

@@ -120,14 +120,13 @@ class ProductDetailView(APIView):
         annotated = _annotate_products([product], listing_ref=listing_ref)
         data = _serialize_annotated(annotated)[0]
 
-        # Add alternatives if sold out or paused
+        # Add alternatives if not orderable
         badge_class = data["badge"]["css_class"]
         alternatives = []
-        if badge_class in ("badge-sold-out", "badge-paused"):
-            from shopman.web.views.catalog import _load_alternatives
+        if badge_class in ("badge-sold-out", "badge-unavailable"):
+            from shopman.services.alternatives import find as _find_alternatives
 
-            alt_items = _load_alternatives(sku, listing_ref)
-            alternatives = _serialize_annotated(alt_items)
+            alternatives = _find_alternatives(sku, limit=4)
 
         data["alternatives"] = alternatives
         return Response(data)

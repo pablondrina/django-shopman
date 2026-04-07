@@ -13,7 +13,7 @@ from typing import Any
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
 
-from shopman.protocols import Alternative, AvailabilityResult, HoldResult
+from shopman.protocols import AvailabilityResult, HoldResult
 
 logger = logging.getLogger(__name__)
 
@@ -203,32 +203,6 @@ class StockingBackend:
 
         stock.fulfill(hold_id)
 
-    def get_alternatives(self, sku: str, quantity: Decimal) -> list[Alternative]:
-        try:
-            from shopman.offering.contrib.suggestions import find_alternatives
-        except ImportError:
-            return []
-
-        try:
-            candidates = find_alternatives(sku, limit=5)
-            alternatives = []
-            for product in candidates:
-                try:
-                    avail_qty = Decimal("0")
-                    if _stocking_available():
-                        from shopman.stocking.service import Stock as stock
-
-                        avail_qty = stock.available(product.sku)
-                    if avail_qty >= quantity:
-                        alternatives.append(
-                            Alternative(sku=product.sku, name=product.name, available_qty=avail_qty)
-                        )
-                except Exception:
-                    pass
-            return alternatives
-        except Exception:
-            return []
-
     def release_holds_for_reference(self, reference: str) -> int:
         if not _stocking_available():
             return 0
@@ -295,9 +269,6 @@ class NoopStockBackend:
 
     def fulfill_hold(self, hold_id: str, reference: str | None = None) -> None:
         pass
-
-    def get_alternatives(self, sku: str, quantity: Decimal) -> list[Alternative]:
-        return []
 
     def release_holds_for_reference(self, reference: str) -> int:
         return 0

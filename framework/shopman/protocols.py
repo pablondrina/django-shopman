@@ -51,15 +51,6 @@ class HoldResult:
     is_planned: bool = False
 
 
-@dataclass(frozen=True)
-class Alternative:
-    """Produto alternativo sugerido."""
-
-    sku: str
-    name: str
-    available_qty: Decimal
-
-
 @runtime_checkable
 class StockBackend(Protocol):
     """Protocol para backends de estoque."""
@@ -83,8 +74,6 @@ class StockBackend(Protocol):
     def release_hold(self, hold_id: str) -> None: ...
 
     def fulfill_hold(self, hold_id: str, reference: str | None = None) -> None: ...
-
-    def get_alternatives(self, sku: str, quantity: Decimal) -> list[Alternative]: ...
 
     def release_holds_for_reference(self, reference: str) -> int: ...
 
@@ -215,7 +204,6 @@ __all__ = [
     "StockBackend",
     "AvailabilityResult",
     "HoldResult",
-    "Alternative",
     # Payment
     "PaymentBackend",
     "GatewayIntent",

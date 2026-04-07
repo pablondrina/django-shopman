@@ -224,19 +224,10 @@ class MenuSearchView(View):
 
 
 def _load_alternatives(sku: str, listing_ref: str | None, request: HttpRequest | None = None) -> list[dict]:
-    """Load alternative products annotated with price and badge."""
-    try:
-        from shopman.offering.contrib.suggestions import find_alternatives
+    """Load alternative products. Delegates to the centralized alternatives service."""
+    from shopman.services.alternatives import find as _find_alternatives
 
-        candidates = find_alternatives(sku, limit=4, same_collection=False)
-        if not candidates:
-            return []
-        return _annotate_products(candidates, listing_ref=listing_ref, request=request)
-    except ImportError:
-        return []
-    except Exception as e:
-        logger.warning("load_alternatives_failed sku=%s: %s", sku, e, exc_info=True)
-        return []
+    return _find_alternatives(sku, limit=4)
 
 
 
