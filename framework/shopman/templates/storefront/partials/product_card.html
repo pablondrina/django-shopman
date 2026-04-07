@@ -22,7 +22,6 @@
       <span class="absolute top-2 right-2 z-20 max-w-[calc(100%-0.5rem)] text-center text-xs font-bold leading-tight rounded-full
         {% if item.badge.css_class == 'badge-available' %}px-2 py-0.5 bg-muted text-muted-foreground
         {% elif item.badge.css_class == 'badge-preparing' %}px-2.5 py-1 shadow-md ring-1 ring-black/5 bg-warning-light text-warning-foreground
-        {% elif item.badge.css_class == 'badge-d1' %}px-2.5 py-1 shadow-md ring-1 ring-black/5 bg-error-light text-error-foreground
         {% elif item.badge.css_class == 'badge-sold-out' %}px-2.5 py-1 shadow-md ring-1 ring-black/5 bg-muted text-muted-foreground
         {% elif item.badge.css_class == 'badge-paused' %}px-2.5 py-1 shadow-md ring-1 ring-black/5 bg-muted text-muted-foreground
         {% elif item.badge.css_class == 'badge-planned' %}px-2.5 py-1 shadow-md ring-1 ring-black/5 bg-info-light text-foreground
@@ -31,12 +30,8 @@
       </span>
       {% endif %}
 
-      {# D-1 / promo badge (top-left) #}
-      {% if item.is_d1 %}
-      <span class="absolute top-2 left-2 badge-d1 text-xs font-bold px-2 py-0.5 rounded-full">
-        -{{ item.d1_pct }}%
-      </span>
-      {% elif item.promo_badge %}
+      {# Promo badge (top-left) #}
+      {% if item.promo_badge %}
       <span class="absolute top-2 left-2 bg-foreground text-background text-xs font-bold px-2 py-0.5 rounded-full">
         {{ item.promo_badge.label }}
       </span>
@@ -59,12 +54,7 @@
       {% if featured and item.product.short_description %}
       <p class="text-muted-foreground text-xs mt-1 line-clamp-2">{{ item.product.short_description }}</p>
       {% endif %}
-      {% if item.is_d1 and item.d1_price_display %}
-      <div class="mt-1.5 flex items-center gap-2 flex-wrap">
-        <p class="text-primary font-bold {% if featured %}text-lg{% endif %}">{{ item.d1_price_display }}</p>
-        <p class="text-muted-foreground/50 text-sm line-through">{{ item.original_price_display }}</p>
-      </div>
-      {% elif item.has_promo_price and item.promo_price_display %}
+      {% if item.has_promo_price and item.promo_price_display %}
       <div class="mt-1.5 flex items-center gap-2 flex-wrap">
         <p class="text-primary font-bold {% if featured %}text-lg{% endif %}">{{ item.promo_price_display }}</p>
         <p class="text-muted-foreground/50 text-sm line-through">{{ item.promo_original_price_display }}</p>

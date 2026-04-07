@@ -23,7 +23,6 @@ from ._helpers import (
     _best_auto_promotion_discount_q,
     _collection_icon,
     _cross_sell_products,
-    _d1_discount_percent,
     _get_availability,
     _get_channel_listing_ref,
     _get_price_q,
@@ -275,28 +274,14 @@ class ProductDetailView(View):
         avail = _get_availability(product.sku)
         badge = _availability_badge(avail, product)
 
-        d1_price_display = None
-        original_price_display = None
-        is_d1 = False
         price_q = base_price_q
-        d1_pct = _d1_discount_percent()
-
-        if avail and badge["css_class"] == "badge-d1" and base_price_q:
-            is_d1 = True
-            from shopman.utils.monetary import monetary_div
-
-            discount_q = monetary_div(base_price_q * d1_pct, 100)
-            d1_price_q = base_price_q - discount_q
-            d1_price_display = f"R$ {format_money(d1_price_q)}"
-            original_price_display = f"R$ {format_money(base_price_q)}"
-            price_q = d1_price_q
 
         promo_badge = None
         has_promo_price = False
         promo_price_display = None
         promo_original_price_display = None
         ft_hint, sub_hint = _storefront_session_pricing_hints(request)
-        if not is_d1 and base_price_q:
+        if base_price_q:
             try:
                 from shopman.offering.models import CollectionItem
 
@@ -365,10 +350,6 @@ class ProductDetailView(View):
             "product": product,
             "price_q": price_q,
             "price_display": f"R$ {format_money(price_q)}" if price_q else None,
-            "d1_price_display": d1_price_display,
-            "original_price_display": original_price_display,
-            "is_d1": is_d1,
-            "d1_pct": d1_pct,
             "badge": badge,
             "availability": avail,
             "promo_badge": promo_badge,
@@ -384,8 +365,8 @@ class ProductDetailView(View):
         })
 
 
-class ConservacaoView(View):
+class DicasView(View):
     """Static page: storage and conservation tips."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        return render(request, "storefront/conservacao.html")
+        return render(request, "storefront/dicas.html")

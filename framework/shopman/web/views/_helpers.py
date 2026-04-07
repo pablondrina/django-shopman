@@ -76,17 +76,17 @@ def _get_availability(sku: str) -> dict | None:
 
 
 def _line_item_is_d1(product: Product, *, listing_ref: str | None = None) -> bool:
-    """
-    True se o SKU está em D-1 (mesma regra de `_annotate_products` / vitrine).
-
-    Usado ao adicionar linha ao carrinho para alinhar D1DiscountModifier ao preço exibido.
-    """
-    base_q = _get_price_q(product, listing_ref=listing_ref)
-    if not base_q:
-        return False
+    """True if SKU has only D-1 stock in its availability scope. POS internal use only."""
     avail = _get_availability(product.sku)
-    badge = _availability_badge(avail, product)
-    return bool(avail and badge["css_class"] == "badge-d1")
+    if not avail:
+        return False
+    from decimal import Decimal
+
+    breakdown = avail.get("breakdown", {})
+    ready = breakdown.get("ready", Decimal("0"))
+    in_prod = breakdown.get("in_production", Decimal("0"))
+    d1 = breakdown.get("d1", Decimal("0"))
+    return d1 > 0 and ready == 0 and in_prod == 0
 
 
 def _availability_badge(avail: dict | None, product: Product) -> dict:
@@ -95,12 +95,15 @@ def _availability_badge(avail: dict | None, product: Product) -> dict:
 
     Returns dict with keys: label, css_class, can_add_to_cart.
     Possible states:
-    - available: ready stock > 0
+    - available: ready or in_production stock > 0
     - preparing: no ready stock, but in_production > 0
-    - d1_only: only D-1 stock (yesterday's leftovers)
-    - sold_out: no stock at all
+    - sold_out: no orderable stock
     - paused: product marked unavailable by admin
     - unknown: stocking unavailable (fall back to product.is_available)
+
+    D-1 (yesterday's leftovers) is NEVER exposed to the customer.
+    When only D-1 stock exists (d1>0, ready=0, in_production=0), the product
+    is treated as unavailable. D-1 is a POS/balcão concept.
     """
     if not product.is_available:
         return {"label": "Indisponível", "css_class": "badge-paused", "can_add_to_cart": False}
@@ -117,14 +120,11 @@ def _availability_badge(avail: dict | None, product: Product) -> dict:
 
     ready = breakdown.get("ready", Decimal("0"))
     in_prod = breakdown.get("in_production", Decimal("0"))
-    d1 = breakdown.get("d1", Decimal("0"))
 
     if ready > 0:
         return {"label": "", "css_class": "badge-available", "can_add_to_cart": True}
     if in_prod > 0:
         return {"label": "Preparando...", "css_class": "badge-preparing", "can_add_to_cart": True}
-    if d1 > 0:
-        return {"label": "Últimas unidades", "css_class": "badge-d1", "can_add_to_cart": True}
     if avail.get("is_planned"):
         return {"label": "Em breve", "css_class": "badge-planned", "can_add_to_cart": False}
     return {"label": "Indisponível", "css_class": "badge-sold-out", "can_add_to_cart": False}
@@ -243,10 +243,9 @@ def _annotate_products(
     fulfillment_type: str | None = None,
     request: HttpRequest | None = None,
 ) -> list[dict]:
-    """Build template-ready list with price, availability, D-1, promo (mesma regra do carrinho)."""
+    """Build template-ready list with price, availability, promo (same logic as cart)."""
     if listing_ref is None:
         listing_ref = _get_channel_listing_ref()
-    d1_pct = _d1_discount_percent()
 
     if request is not None and (session_total_q is None or fulfillment_type is None):
         ft_hint, sub_hint = _storefront_session_pricing_hints(request)
@@ -260,7 +259,6 @@ def _annotate_products(
         fulfillment_type = ""
 
     from shopman.offering.models import CollectionItem
-    from shopman.utils.monetary import monetary_div
 
     skus = [p.sku for p in products]
 
@@ -283,8 +281,6 @@ def _annotate_products(
             .select_related("product")
             .order_by("-min_qty")
         ):
-            # setdefault keeps the first (highest-priority) price per SKU
-            # because queryset is ordered by -min_qty (highest tier first)
             price_map.setdefault(item.product.sku, item.price_q)
 
     # ── Batch: availability — one call for all SKUs ───────────────────────────
@@ -303,7 +299,6 @@ def _annotate_products(
 
     result = []
     for p in products:
-        # Price: batch map first, fall back to base_price_q (same as _get_price_q)
         base_q = price_map.get(p.sku) if listing_ref else None
         if base_q is None:
             base_q = p.base_price_q
@@ -312,22 +307,13 @@ def _annotate_products(
         badge = _availability_badge(avail, p)
         cols = sku_collections.get(p.sku, [])
 
-        d1_price_q = None
-        d1_price_display = None
-        is_d1 = False
-        if avail and badge["css_class"] == "badge-d1" and base_q:
-            is_d1 = True
-            discount_q = monetary_div(base_q * d1_pct, 100)
-            d1_price_q = base_q - discount_q
-            d1_price_display = f"R$ {format_money(d1_price_q)}"
-
         promo_discount_q = 0
         promo_badge = None
         promo_price_display = None
         promo_original_price_display = None
         has_promo_price = False
 
-        if not is_d1 and base_q:
+        if base_q:
             promo_discount_q, promo = _best_auto_promotion_discount_q(
                 p.sku,
                 base_q,
@@ -351,23 +337,13 @@ def _annotate_products(
                     "label": label,
                 }
 
-        if is_d1 and d1_price_q is not None:
-            effective_q = d1_price_q
-        elif has_promo_price:
-            effective_q = base_q - promo_discount_q
-        else:
-            effective_q = base_q
-
+        effective_q = (base_q - promo_discount_q) if has_promo_price else base_q
         price_display = f"R$ {format_money(effective_q)}" if effective_q else None
 
         result.append({
             "product": p,
             "price_q": effective_q,
             "price_display": price_display,
-            "d1_price_display": d1_price_display,
-            "original_price_display": f"R$ {format_money(base_q)}" if is_d1 and base_q else None,
-            "is_d1": is_d1,
-            "d1_pct": d1_pct,
             "badge": badge,
             "availability": avail,
             "promo_badge": promo_badge,
