@@ -61,6 +61,9 @@ class TestCheckoutPost:
         assert resp.status_code == 200
 
     def test_successful_checkout_redirects(self, cart_session, channel, customer):
+        from datetime import date, timedelta
+        # Use 3 days ahead to avoid the tomorrow cutoff check (which uses UTC hours)
+        future_date = (date.today() + timedelta(days=3)).isoformat()
         _login_as_customer(cart_session, customer)
         resp = cart_session.post(
             "/checkout/",
@@ -68,6 +71,8 @@ class TestCheckoutPost:
                 "phone": customer.phone,
                 "name": customer.name,
                 "fulfillment_type": "pickup",
+                "delivery_date": future_date,
+                "delivery_time_slot": "slot-09",
             },
         )
         assert resp.status_code == 302
@@ -86,6 +91,8 @@ class TestCheckoutPost:
         assert resp.status_code == 302
 
     def test_checkout_with_notes(self, cart_session, channel, customer):
+        from datetime import date, timedelta
+        future_date = (date.today() + timedelta(days=3)).isoformat()
         _login_as_customer(cart_session, customer)
         resp = cart_session.post(
             "/checkout/",
@@ -93,6 +100,9 @@ class TestCheckoutPost:
                 "phone": customer.phone,
                 "name": customer.name,
                 "notes": "Sem glúten",
+                "fulfillment_type": "pickup",
+                "delivery_date": future_date,
+                "delivery_time_slot": "slot-09",
             },
         )
         assert resp.status_code == 302

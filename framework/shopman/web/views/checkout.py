@@ -295,6 +295,23 @@ class CheckoutView(View):
                     },
                 )
 
+        # ── Slot validation ──
+        slot_errors = self._validate_slot(delivery_time_slot, fulfillment_type, delivery_date)
+        if slot_errors:
+            return self._render_with_errors(
+                request,
+                cart,
+                slot_errors,
+                name,
+                phone_raw,
+                notes,
+                extra_form_data={
+                    "delivery_date": delivery_date,
+                    "delivery_time_slot": delivery_time_slot,
+                    "fulfillment_type": fulfillment_type,
+                },
+            )
+
         # ── Build checkout data and commit via service ──
         from shopman.services.checkout import process as checkout_process
 
@@ -549,6 +566,54 @@ class CheckoutView(View):
                 min_qty = 1
             if total_qty < min_qty:
                 errors["min_quantity"] = f"Encomenda minima: {min_qty} unidades"
+
+        return errors
+
+    @staticmethod
+    def _validate_slot(
+        delivery_time_slot: str,
+        fulfillment_type: str,
+        delivery_date: str,
+    ) -> dict:
+        from datetime import date as date_type, time as time_type
+
+        from shopman.services.pickup_slots import _find_slot_by_ref, get_slots
+
+        errors = {}
+
+        if fulfillment_type == "pickup" and not delivery_time_slot:
+            errors["delivery_time_slot"] = "Selecione um horário de retirada."
+            return errors
+
+        if not delivery_time_slot:
+            return errors
+
+        slots = get_slots()
+        slot = _find_slot_by_ref(slots, delivery_time_slot)
+        if slot is None:
+            errors["delivery_time_slot"] = "Horário de retirada inválido."
+            return errors
+
+        # If delivery is for today: slot must be in the future
+        today = timezone.now().date()
+        is_today = True
+        if delivery_date:
+            try:
+                chosen_date = date_type.fromisoformat(delivery_date)
+                is_today = chosen_date == today
+            except ValueError:
+                is_today = True
+
+        if is_today:
+            now_local = timezone.localtime()
+            try:
+                parts = slot["starts_at"].split(":")
+                slot_time = time_type(int(parts[0]), int(parts[1]))
+                current_time = now_local.time().replace(second=0, microsecond=0)
+                if slot_time <= current_time:
+                    errors["delivery_time_slot"] = "Este horário já passou. Selecione um horário futuro."
+            except (ValueError, KeyError):
+                pass
 
         return errors
 

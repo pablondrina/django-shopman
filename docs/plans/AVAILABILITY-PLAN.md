@@ -361,7 +361,7 @@ Toda configuração que afeta o comportamento comercial deve ser editável via
 **Arquivos**: Novo `services/alternatives.py`, `catalog.py`, `cart.py`,
 `handlers/stock.py`, `api/catalog.py`, `stock_internal.py`
 
-### WP-A6: Validação server-side de slots
+### WP-A6: Validação server-side de slots ✅ 2026-04-07
 
 **Objetivo**: Slot inválido rejeitado no servidor.
 
