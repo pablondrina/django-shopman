@@ -1325,17 +1325,21 @@ class Command(BaseCommand):
                 customer = random.choice(customer_list)
                 # Sunday closes at 13:00; others close at 19:00
                 max_hour = 12 if weekday == 6 else 18
-                hour = random.randint(7, max_hour)
-                minute = random.randint(0, 59)
-                order_time = day.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
-                # Determine status based on age
                 if days_ago == 0:
-                    status = random.choice(["new", "confirmed", "processing", "ready"])
-                elif days_ago == 1:
-                    status = random.choice(["completed", "completed", "completed", "completed"])
-                else:
+                    # Only completed orders from earlier today (morning hours)
+                    morning_ceiling = max(7, now.hour - 2)
+                    if morning_ceiling <= 7:
+                        continue  # too early in the day — no completed history yet
+                    hour = random.randint(7, morning_ceiling)
+                    minute = random.randint(0, 59)
                     status = "completed"
+                else:
+                    hour = random.randint(7, max_hour)
+                    minute = random.randint(0, 59)
+                    status = "completed"
+
+                order_time = day.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
                 # Random items
                 num_items = random.randint(1, 4)
@@ -1419,21 +1423,117 @@ class Command(BaseCommand):
                         created_at=order_time + timedelta(minutes=15),
                     )
 
-                # Dispatch KDS tickets for orders that passed through processing
-                if status in ("processing", "ready"):
-                    from shopman.kds_utils import dispatch_to_kds
-
-                    tickets = dispatch_to_kds(order)
-                    # Mark tickets done for orders already past processing
-                    if status == "ready":
-                        for ticket in tickets:
-                            ticket.status = "done"
-                            ticket.completed_at = order_time + timedelta(minutes=10)
-                            ticket.save(update_fields=["status", "completed_at"])
-
                 order_count += 1
 
-        self.stdout.write(f"  ✅ {order_count} pedidos (35 dias)")
+        # ── Live orders — timestamps in minutes, not hours ────────────────
+        # These represent what's happening RIGHT NOW in the kitchen/counter.
+        live_specs = [
+            ("processing", random.randint(5, 15)),
+            ("processing", random.randint(5, 15)),
+            ("confirmed",  random.randint(2, 5)),
+            ("confirmed",  random.randint(2, 5)),
+            ("new",        random.randint(1, 3)),
+            ("new",        random.randint(1, 4)),
+            ("ready",      1),
+        ]
+        # 50% chance of a pending PIX order
+        if random.random() < 0.5:
+            live_specs.append(("new", random.randint(3, 5)))
+
+        for live_status, minutes_ago in live_specs:
+            channel = random.choice(channel_list)
+            customer = random.choice(customer_list)
+            order_time = now - timedelta(minutes=minutes_ago)
+
+            num_items = random.randint(1, 3)
+            selected_products = random.sample(product_list, min(num_items, len(product_list)))
+
+            items_data = []
+            total_q = 0
+            for prod in selected_products:
+                qty = random.randint(1, 3)
+                price_q = prod.base_price_q
+                line_total_q = price_q * qty
+                total_q += line_total_q
+                items_data.append({
+                    "sku": prod.sku,
+                    "name": prod.name,
+                    "qty": qty,
+                    "unit_price_q": price_q,
+                    "line_total_q": line_total_q,
+                })
+
+            ref = f"NB-{uuid.uuid4().hex[:8].upper()}"
+            cp = customer.contact_points.filter(type="whatsapp").first()
+            handle_ref = cp.value_normalized if cp else ""
+
+            order = Order.objects.create(
+                ref=ref,
+                channel=channel,
+                status=live_status,
+                total_q=total_q,
+                handle_type="phone",
+                handle_ref=handle_ref,
+                created_at=order_time,
+            )
+
+            for item in items_data:
+                OrderItem.objects.create(
+                    order=order,
+                    line_id=f"L-{uuid.uuid4().hex[:8]}",
+                    sku=item["sku"],
+                    name=item["name"],
+                    qty=Decimal(str(item["qty"])),
+                    unit_price_q=item["unit_price_q"],
+                    line_total_q=item["line_total_q"],
+                )
+
+            # Events: realistic minute progression
+            OrderEvent.objects.create(
+                order=order,
+                type="status_change",
+                seq=0,
+                payload={"new_status": "new"},
+                created_at=order_time,
+            )
+
+            if live_status in ("confirmed", "processing", "ready"):
+                OrderEvent.objects.create(
+                    order=order,
+                    type="status_change",
+                    seq=1,
+                    payload={"new_status": "confirmed"},
+                    created_at=order_time + timedelta(minutes=1),
+                )
+
+            if live_status in ("processing", "ready"):
+                OrderEvent.objects.create(
+                    order=order,
+                    type="status_change",
+                    seq=2,
+                    payload={"new_status": "processing"},
+                    created_at=order_time + timedelta(minutes=2),
+                )
+
+                from shopman.kds_utils import dispatch_to_kds
+                tickets = dispatch_to_kds(order)
+
+                if live_status == "ready":
+                    OrderEvent.objects.create(
+                        order=order,
+                        type="status_change",
+                        seq=3,
+                        payload={"new_status": "ready"},
+                        created_at=order_time + timedelta(minutes=3),
+                    )
+                    for ticket in tickets:
+                        ticket.status = "done"
+                        ticket.completed_at = order_time + timedelta(minutes=3)
+                        ticket.save(update_fields=["status", "completed_at"])
+
+            order_count += 1
+
+        self.stdout.write(f"  ✅ {order_count} pedidos (35 dias + live)")
 
     # ────────────────────────────────────────────────────────────────
     # Sessoes abertas (Ordering)
