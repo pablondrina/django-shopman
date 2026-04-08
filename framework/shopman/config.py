@@ -76,7 +76,7 @@ class ChannelConfig:
 
         on_commit: list[str] = field(default_factory=list)
         on_confirmed: list[str] = field(default_factory=list)
-        on_processing: list[str] = field(default_factory=list)
+        on_preparing: list[str] = field(default_factory=list)
         on_ready: list[str] = field(default_factory=list)
         on_dispatched: list[str] = field(default_factory=list)
         on_delivered: list[str] = field(default_factory=list)

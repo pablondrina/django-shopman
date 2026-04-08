@@ -12,21 +12,25 @@ class Order(models.Model):
     Pedido canônico (selado, imutável).
 
     Status Canônicos:
-    - new: Pedido recebido, aguardando processamento
-    - confirmed: Confirmado
-    - processing: Em preparação/produção
-    - ready: Pronto para retirada/despacho
-    - dispatched: Em trânsito (só para delivery)
-    - delivered: Entregue ao destinatário
-    - completed: Finalizado com sucesso
-    - cancelled: Cancelado
-    - returned: Devolvido (pós-entrega)
+    - new: Pedido criado pelo sistema. Em modo immediate: estado de microssegundos antes de confirmar.
+           Em modo optimistic/pessimistic: aguarda operador confirmar ou timeout.
+    - confirmed: Confirmado pelo operador ou auto-confirmado. Pagamento iniciado se digital.
+    - preparing: Pedido em montagem na cozinha. KDS tickets ativos. NÃO é produção em lote
+                 (WorkOrder). WorkOrders são produção antecipada; este estado = itens sendo
+                 montados para este pedido específico.
+    - ready: Pronto. Pickup: aguardando retirada no balcão. Delivery: aguardando motoboy.
+    - dispatched: Em trânsito (exclusivo para delivery). Jamais alcançável por pedidos de retirada.
+    - delivered: Entregue ao destinatário (delivery). Aguarda fechamento fiscal/loyalty.
+    - completed: Finalizado. Fiscal emitido, loyalty acumulado. Status interno — cliente não
+                 distingue de delivered.
+    - cancelled: Cancelado. Terminal.
+    - returned: Devolvido pós-entrega. Stock revertido, reembolso efetuado. Terminal.
     """
 
     class Status(models.TextChoices):
         NEW = "new", _("novo")
         CONFIRMED = "confirmed", _("confirmado")
-        PROCESSING = "processing", _("em preparo")
+        PREPARING = "preparing", _("em preparo")
         READY = "ready", _("pronto")
         DISPATCHED = "dispatched", _("despachado")
         DELIVERED = "delivered", _("entregue")
@@ -36,7 +40,7 @@ class Order(models.Model):
 
     STATUS_NEW = Status.NEW
     STATUS_CONFIRMED = Status.CONFIRMED
-    STATUS_PROCESSING = Status.PROCESSING
+    STATUS_PREPARING = Status.PREPARING
     STATUS_READY = Status.READY
     STATUS_DISPATCHED = Status.DISPATCHED
     STATUS_DELIVERED = Status.DELIVERED
@@ -47,17 +51,17 @@ class Order(models.Model):
 
     DEFAULT_TRANSITIONS = {
         Status.NEW: [Status.CONFIRMED, Status.CANCELLED],
-        Status.CONFIRMED: [Status.PROCESSING, Status.READY, Status.CANCELLED],
-        Status.PROCESSING: [Status.READY, Status.CANCELLED],
+        Status.CONFIRMED: [Status.PREPARING, Status.READY, Status.CANCELLED],
+        Status.PREPARING: [Status.READY, Status.CANCELLED],
         Status.READY: [Status.DISPATCHED, Status.COMPLETED],
         Status.DISPATCHED: [Status.DELIVERED, Status.RETURNED],
         Status.DELIVERED: [Status.COMPLETED, Status.RETURNED],
         Status.COMPLETED: [Status.RETURNED],
         Status.CANCELLED: [],
-        Status.RETURNED: [Status.COMPLETED],
+        Status.RETURNED: [],
     }
 
-    TERMINAL_STATUSES = [Status.COMPLETED, Status.CANCELLED]
+    TERMINAL_STATUSES = [Status.COMPLETED, Status.CANCELLED, Status.RETURNED]
 
     ref = models.CharField(_("referência"), max_length=64, unique=True)
     channel = models.ForeignKey(
@@ -92,7 +96,7 @@ class Order(models.Model):
     created_at = models.DateTimeField(_("criado em"), auto_now_add=True)
     updated_at = models.DateTimeField(_("atualizado em"), auto_now=True)
     confirmed_at = models.DateTimeField(_("confirmado em"), null=True, blank=True)
-    processing_at = models.DateTimeField(_("em preparo em"), null=True, blank=True)
+    preparing_at = models.DateTimeField(_("em preparo em"), null=True, blank=True)
     ready_at = models.DateTimeField(_("pronto em"), null=True, blank=True)
     dispatched_at = models.DateTimeField(_("despachado em"), null=True, blank=True)
     delivered_at = models.DateTimeField(_("entregue em"), null=True, blank=True)
@@ -146,7 +150,7 @@ class Order(models.Model):
 
     STATUS_TIMESTAMP_FIELDS = {
         STATUS_CONFIRMED: "confirmed_at",
-        STATUS_PROCESSING: "processing_at",
+        STATUS_PREPARING: "preparing_at",
         STATUS_READY: "ready_at",
         STATUS_DISPATCHED: "dispatched_at",
         STATUS_DELIVERED: "delivered_at",

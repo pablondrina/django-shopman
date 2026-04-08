@@ -233,14 +233,14 @@ class TestBaseFlowOnPaid:
         mock_notification.send.assert_not_called()
 
 
-class TestBaseFlowOnProcessing:
+class TestBaseFlowOnPreparing:
     @patch("shopman.flows.notification")
     @patch("shopman.flows.kds")
     def test_dispatches_kds_and_notifies(self, mock_kds, mock_notification):
         order = _make_order()
-        BaseFlow().on_processing(order)
+        BaseFlow().on_preparing(order)
         mock_kds.dispatch.assert_called_once_with(order)
-        mock_notification.send.assert_called_once_with(order, "order_processing")
+        mock_notification.send.assert_called_once_with(order, "order_preparing")
 
 
 class TestBaseFlowOnReady:

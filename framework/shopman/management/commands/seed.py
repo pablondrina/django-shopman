@@ -1396,7 +1396,7 @@ class Command(BaseCommand):
                     created_at=order_time,
                 )
 
-                if status in ("confirmed", "processing", "ready", "completed"):
+                if status in ("confirmed", "preparing", "ready", "completed"):
                     OrderEvent.objects.create(
                         order=order,
                         type="status_change",
@@ -1405,12 +1405,12 @@ class Command(BaseCommand):
                         created_at=order_time + timedelta(minutes=2),
                     )
 
-                if status in ("processing", "ready", "completed"):
+                if status in ("preparing", "ready", "completed"):
                     OrderEvent.objects.create(
                         order=order,
                         type="status_change",
                         seq=2,
-                        payload={"new_status": "processing"},
+                        payload={"new_status": "preparing"},
                         created_at=order_time + timedelta(minutes=5),
                     )
 
@@ -1428,8 +1428,8 @@ class Command(BaseCommand):
         # ── Live orders — timestamps in minutes, not hours ────────────────
         # These represent what's happening RIGHT NOW in the kitchen/counter.
         live_specs = [
-            ("processing", random.randint(5, 15)),
-            ("processing", random.randint(5, 15)),
+            ("preparing", random.randint(5, 15)),
+            ("preparing", random.randint(5, 15)),
             ("confirmed",  random.randint(2, 5)),
             ("confirmed",  random.randint(2, 5)),
             ("new",        random.randint(1, 3)),
@@ -1497,7 +1497,7 @@ class Command(BaseCommand):
                 created_at=order_time,
             )
 
-            if live_status in ("confirmed", "processing", "ready"):
+            if live_status in ("confirmed", "preparing", "ready"):
                 OrderEvent.objects.create(
                     order=order,
                     type="status_change",
@@ -1506,12 +1506,12 @@ class Command(BaseCommand):
                     created_at=order_time + timedelta(minutes=1),
                 )
 
-            if live_status in ("processing", "ready"):
+            if live_status in ("preparing", "ready"):
                 OrderEvent.objects.create(
                     order=order,
                     type="status_change",
                     seq=2,
-                    payload={"new_status": "processing"},
+                    payload={"new_status": "preparing"},
                     created_at=order_time + timedelta(minutes=2),
                 )
 
@@ -1878,8 +1878,8 @@ class Command(BaseCommand):
 
             count += 1
 
-        # Processing orders: fulfillment in progress
-        for order in Order.objects.filter(status="processing"):
+        # Preparing orders: fulfillment in progress
+        for order in Order.objects.filter(status="preparing"):
             if Fulfillment.objects.filter(order=order).exists():
                 continue
 
@@ -1911,7 +1911,7 @@ class Command(BaseCommand):
         FULFILLMENT_CREATE = "fulfillment.create"
 
         count = 0
-        for order in Order.objects.filter(status__in=["completed", "delivered", "processing", "confirmed"]):
+        for order in Order.objects.filter(status__in=["completed", "delivered", "preparing", "confirmed"]):
             if Directive.objects.filter(payload__order_ref=order.ref).exists():
                 continue
 
@@ -2110,7 +2110,7 @@ class Command(BaseCommand):
 
         FALLBACK_TEMPLATES = {
             "order_confirmed": {"subject": "Pedido {order_ref} confirmado", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* foi confirmado. Total: *{total}*.\n\nObrigado pela preferencia!"},
-            "order_processing": {"subject": "Pedido {order_ref} em preparo", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* esta sendo preparado.\n\nAvisaremos quando estiver pronto!"},
+            "order_preparing": {"subject": "Pedido {order_ref} em preparo", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* esta sendo preparado.\n\nAvisaremos quando estiver pronto!"},
             "order_ready_pickup": {"subject": "Pedido {order_ref} pronto para retirada", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* esta pronto para retirada! \U0001f389\n\nVenha buscar. Obrigado!"},
             "order_ready_delivery": {"subject": "Pedido {order_ref} pronto para envio", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* esta pronto e sera enviado em breve! \U0001f4e6"},
             "order_dispatched": {"subject": "Pedido {order_ref} saiu para entrega", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* saiu para entrega!\n\nEm breve estara com voce!"},

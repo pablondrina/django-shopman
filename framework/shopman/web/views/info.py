@@ -22,7 +22,7 @@ class HowItWorksView(View):
 class OrderHistoryView(View):
     """Order history — requires session auth (OTP verified)."""
 
-    _ACTIVE_STATUSES = {"new", "confirmed", "processing", "ready", "dispatched"}
+    _ACTIVE_STATUSES = {"new", "confirmed", "preparing", "ready", "dispatched"}
 
     def get(self, request: HttpRequest) -> HttpResponse:
         # Badge-only: return active order count for bottom nav polling

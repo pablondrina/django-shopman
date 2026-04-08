@@ -142,9 +142,9 @@ class EndToEndFlowTests(TestCase):
         order.refresh_from_db()
         self.assertEqual(order.status, Order.STATUS_CONFIRMED)
 
-        order.transition_status(Order.STATUS_PROCESSING, actor="test_kitchen")
+        order.transition_status(Order.STATUS_PREPARING, actor="test_kitchen")
         order.refresh_from_db()
-        self.assertEqual(order.status, Order.STATUS_PROCESSING)
+        self.assertEqual(order.status, Order.STATUS_PREPARING)
 
         order.transition_status(Order.STATUS_READY, actor="test_kitchen")
         order.refresh_from_db()

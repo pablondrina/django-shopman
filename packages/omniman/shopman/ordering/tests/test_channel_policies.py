@@ -39,8 +39,8 @@ class IFoodPolicyTests(TestCase):
                 "order_flow": {
                     "transitions": {
                         "new": ["confirmed", "cancelled"],
-                        "confirmed": ["processing", "cancelled"],
-                        "processing": ["ready", "cancelled"],
+                        "confirmed": ["preparing", "cancelled"],
+                        "preparing": ["ready", "cancelled"],
                         "ready": ["dispatched"],
                         "dispatched": ["delivered"],
                         "delivered": ["completed"],
@@ -159,8 +159,8 @@ class IFoodPolicyTests(TestCase):
         order.transition_status(Order.STATUS_CONFIRMED, actor="webhook")
         self.assertEqual(order.status, Order.STATUS_CONFIRMED)
 
-        order.transition_status(Order.STATUS_PROCESSING, actor="kitchen")
-        self.assertEqual(order.status, Order.STATUS_PROCESSING)
+        order.transition_status(Order.STATUS_PREPARING, actor="kitchen")
+        self.assertEqual(order.status, Order.STATUS_PREPARING)
 
 
 class PDVPolicyTests(TestCase):
@@ -183,8 +183,8 @@ class PDVPolicyTests(TestCase):
                 "order_flow": {
                     "transitions": {
                         "new": ["confirmed", "cancelled"],
-                        "confirmed": ["processing", "cancelled"],
-                        "processing": ["ready", "completed", "cancelled"],
+                        "confirmed": ["preparing", "cancelled"],
+                        "preparing": ["ready", "completed", "cancelled"],
                         "ready": ["completed"],
                     },
                 },

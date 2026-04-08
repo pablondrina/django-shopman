@@ -38,18 +38,18 @@ class OrderTimestampTests(TestCase):
         self.order.refresh_from_db()
         self.assertIsNotNone(self.order.confirmed_at)
 
-    def test_processing_at_is_set_on_transition(self) -> None:
-        """processing_at é definido ao transicionar para processing."""
+    def test_preparing_at_is_set_on_transition(self) -> None:
+        """preparing_at é definido ao transicionar para preparing."""
         self.order.transition_status(Order.STATUS_CONFIRMED, actor="test")
-        self.assertIsNone(self.order.processing_at)
-        self.order.transition_status(Order.STATUS_PROCESSING, actor="test")
+        self.assertIsNone(self.order.preparing_at)
+        self.order.transition_status(Order.STATUS_PREPARING, actor="test")
         self.order.refresh_from_db()
-        self.assertIsNotNone(self.order.processing_at)
+        self.assertIsNotNone(self.order.preparing_at)
 
     def test_ready_at_is_set_on_transition(self) -> None:
         """ready_at é definido ao transicionar para ready."""
         self.order.transition_status(Order.STATUS_CONFIRMED, actor="test")
-        self.order.transition_status(Order.STATUS_PROCESSING, actor="test")
+        self.order.transition_status(Order.STATUS_PREPARING, actor="test")
         self.assertIsNone(self.order.ready_at)
         self.order.transition_status(Order.STATUS_READY, actor="test")
         self.order.refresh_from_db()
@@ -58,7 +58,7 @@ class OrderTimestampTests(TestCase):
     def test_dispatched_at_is_set_on_transition(self) -> None:
         """dispatched_at é definido ao transicionar para dispatched."""
         self.order.transition_status(Order.STATUS_CONFIRMED, actor="test")
-        self.order.transition_status(Order.STATUS_PROCESSING, actor="test")
+        self.order.transition_status(Order.STATUS_PREPARING, actor="test")
         self.order.transition_status(Order.STATUS_READY, actor="test")
         self.assertIsNone(self.order.dispatched_at)
         self.order.transition_status(Order.STATUS_DISPATCHED, actor="test")
@@ -68,7 +68,7 @@ class OrderTimestampTests(TestCase):
     def test_delivered_at_is_set_on_transition(self) -> None:
         """delivered_at é definido ao transicionar para delivered."""
         self.order.transition_status(Order.STATUS_CONFIRMED, actor="test")
-        self.order.transition_status(Order.STATUS_PROCESSING, actor="test")
+        self.order.transition_status(Order.STATUS_PREPARING, actor="test")
         self.order.transition_status(Order.STATUS_READY, actor="test")
         self.order.transition_status(Order.STATUS_DISPATCHED, actor="test")
         self.assertIsNone(self.order.delivered_at)
@@ -79,7 +79,7 @@ class OrderTimestampTests(TestCase):
     def test_completed_at_is_set_on_transition(self) -> None:
         """completed_at é definido ao transicionar para completed."""
         self.order.transition_status(Order.STATUS_CONFIRMED, actor="test")
-        self.order.transition_status(Order.STATUS_PROCESSING, actor="test")
+        self.order.transition_status(Order.STATUS_PREPARING, actor="test")
         self.order.transition_status(Order.STATUS_READY, actor="test")
         self.assertIsNone(self.order.completed_at)
         self.order.transition_status(Order.STATUS_COMPLETED, actor="test")
@@ -112,13 +112,13 @@ class OrderTimestampTests(TestCase):
         """Timestamps permitem calcular duração entre estados."""
         # Transiciona normalmente
         self.order.transition_status(Order.STATUS_CONFIRMED, actor="test")
-        self.order.transition_status(Order.STATUS_PROCESSING, actor="test")
+        self.order.transition_status(Order.STATUS_PREPARING, actor="test")
         self.order.transition_status(Order.STATUS_READY, actor="test")
 
         self.order.refresh_from_db()
 
         # Verifica que podemos calcular a duração
-        prep_time = self.order.ready_at - self.order.processing_at
+        prep_time = self.order.ready_at - self.order.preparing_at
         # A duração deve ser >= 0 (quase instantânea no teste)
         self.assertGreaterEqual(prep_time.total_seconds(), 0)
 
@@ -135,15 +135,15 @@ class IFoodChannelFlowTests(TestCase):
                 "order_flow": {
                     "transitions": {
                         "new": ["confirmed", "cancelled"],
-                        "confirmed": ["processing", "cancelled"],
-                        "processing": ["ready", "cancelled"],
+                        "confirmed": ["preparing", "cancelled"],
+                        "preparing": ["ready", "cancelled"],
                         "ready": ["dispatched"],
                         "dispatched": ["delivered", "returned"],
                         "delivered": ["completed", "returned"],
                         "completed": [],
-                        "returned": ["completed"],
+                        "returned": [],
                     },
-                    "terminal_statuses": ["completed", "cancelled"],
+                    "terminal_statuses": ["completed", "cancelled", "returned"],
                 },
                 "auto_transitions": {
                     "on_create": "confirmed",
@@ -151,7 +151,7 @@ class IFoodChannelFlowTests(TestCase):
                 "status_labels": {
                     "new": "Recebido",
                     "confirmed": "Aceito",
-                    "processing": "Em Preparo",
+                    "preparing": "Em Preparo",
                     "ready": "Pronto p/ Retirada",
                     "dispatched": "Saiu p/ Entrega",
                 },
@@ -173,8 +173,8 @@ class IFoodChannelFlowTests(TestCase):
         self.assertEqual(order.status, Order.STATUS_CONFIRMED)
 
         # Cozinha aceita
-        order.transition_status(Order.STATUS_PROCESSING, actor="kitchen")
-        self.assertEqual(order.status, Order.STATUS_PROCESSING)
+        order.transition_status(Order.STATUS_PREPARING, actor="kitchen")
+        self.assertEqual(order.status, Order.STATUS_PREPARING)
 
         # Pronto
         order.transition_status(Order.STATUS_READY, actor="kitchen")
@@ -195,7 +195,7 @@ class IFoodChannelFlowTests(TestCase):
         # Verifica todos os timestamps
         order.refresh_from_db()
         self.assertIsNotNone(order.confirmed_at)
-        self.assertIsNotNone(order.processing_at)
+        self.assertIsNotNone(order.preparing_at)
         self.assertIsNotNone(order.ready_at)
         self.assertIsNotNone(order.dispatched_at)
         self.assertIsNotNone(order.delivered_at)
@@ -224,14 +224,14 @@ class IFoodChannelFlowTests(TestCase):
         )
 
         order.transition_status(Order.STATUS_CONFIRMED, actor="ifood-webhook")
-        order.transition_status(Order.STATUS_PROCESSING, actor="kitchen")
+        order.transition_status(Order.STATUS_PREPARING, actor="kitchen")
         order.transition_status(Order.STATUS_CANCELLED, actor="ifood-webhook")
 
         self.assertEqual(order.status, Order.STATUS_CANCELLED)
         self.assertIsNotNone(order.cancelled_at)
 
     def test_ifood_return_after_delivery(self) -> None:
-        """Devolução após entrega."""
+        """Devolução após entrega — returned é terminal."""
         order = Order.objects.create(
             ref="IFOOD-004",
             channel=self.channel,
@@ -241,7 +241,7 @@ class IFoodChannelFlowTests(TestCase):
 
         # Fluxo até entrega
         order.transition_status(Order.STATUS_CONFIRMED, actor="ifood-webhook")
-        order.transition_status(Order.STATUS_PROCESSING, actor="kitchen")
+        order.transition_status(Order.STATUS_PREPARING, actor="kitchen")
         order.transition_status(Order.STATUS_READY, actor="kitchen")
         order.transition_status(Order.STATUS_DISPATCHED, actor="motoboy")
         order.transition_status(Order.STATUS_DELIVERED, actor="motoboy")
@@ -250,9 +250,9 @@ class IFoodChannelFlowTests(TestCase):
         order.transition_status(Order.STATUS_RETURNED, actor="customer-support")
         self.assertEqual(order.status, Order.STATUS_RETURNED)
 
-        # Após resolver devolução, finaliza
-        order.transition_status(Order.STATUS_COMPLETED, actor="finance")
-        self.assertEqual(order.status, Order.STATUS_COMPLETED)
+        # returned é terminal — não pode transicionar para completed
+        with self.assertRaises(InvalidTransition):
+            order.transition_status(Order.STATUS_COMPLETED, actor="finance")
 
     def test_ifood_cannot_skip_states(self) -> None:
         """iFood não pode pular estados intermediários."""
@@ -284,16 +284,16 @@ class EcommerceChannelFlowTests(TestCase):
                 "order_flow": {
                     "transitions": {
                         "new": ["confirmed", "cancelled"],
-                        "confirmed": ["processing", "cancelled"],
-                        "processing": ["ready", "cancelled"],
+                        "confirmed": ["preparing", "cancelled"],
+                        "preparing": ["ready", "cancelled"],
                         "ready": ["dispatched", "completed"],  # pickup ou delivery
                         "dispatched": ["delivered", "returned"],
                         "delivered": ["completed", "returned"],
                         "completed": [],
                         "cancelled": [],
-                        "returned": ["completed"],
+                        "returned": [],
                     },
-                    "terminal_statuses": ["completed", "cancelled"],
+                    "terminal_statuses": ["completed", "cancelled", "returned"],
                 },
             },
         )
@@ -309,7 +309,7 @@ class EcommerceChannelFlowTests(TestCase):
 
         # Cliente finaliza compra → pagamento OK → confirmed
         order.transition_status(Order.STATUS_CONFIRMED, actor="payment-webhook")
-        order.transition_status(Order.STATUS_PROCESSING, actor="warehouse")
+        order.transition_status(Order.STATUS_PREPARING, actor="warehouse")
         order.transition_status(Order.STATUS_READY, actor="warehouse")
         order.transition_status(Order.STATUS_DISPATCHED, actor="correios")
         order.transition_status(Order.STATUS_DELIVERED, actor="correios")
@@ -327,7 +327,7 @@ class EcommerceChannelFlowTests(TestCase):
         )
 
         order.transition_status(Order.STATUS_CONFIRMED, actor="payment-webhook")
-        order.transition_status(Order.STATUS_PROCESSING, actor="store")
+        order.transition_status(Order.STATUS_PREPARING, actor="store")
         order.transition_status(Order.STATUS_READY, actor="store")
         # Cliente retira → direto para completed (sem dispatched)
         order.transition_status(Order.STATUS_COMPLETED, actor="store-clerk")
@@ -416,7 +416,7 @@ class PDVChannelFlowTests(TestCase):
 
         # Não pode ir para processing, ready, dispatched, etc.
         with self.assertRaises(InvalidTransition):
-            order.transition_status(Order.STATUS_PROCESSING, actor="test")
+            order.transition_status(Order.STATUS_PREPARING, actor="test")
 
 
 class OrderEventAuditTests(TestCase):
@@ -612,11 +612,11 @@ class EdgeCaseTests(TestCase):
 
         # Segunda transição do mesmo status (outro processo)
         order2 = Order.objects.get(pk=order.pk)
-        order2.transition_status(Order.STATUS_PROCESSING, actor="user2")
+        order2.transition_status(Order.STATUS_PREPARING, actor="user2")
 
         # Ambas devem ter funcionado
         order.refresh_from_db()
-        self.assertEqual(order.status, Order.STATUS_PROCESSING)
+        self.assertEqual(order.status, Order.STATUS_PREPARING)
 
     def test_empty_channel_config(self) -> None:
         """Canal sem config usa defaults."""

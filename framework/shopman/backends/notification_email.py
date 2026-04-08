@@ -35,8 +35,9 @@ class EmailBackend:
 
     SUBJECT_TEMPLATES = {
         "order_confirmed": "Pedido {order_ref} confirmado",
-        "order_processing": "Pedido {order_ref} em preparo",
-        "order_ready": "Pedido {order_ref} pronto para retirada",
+        "order_preparing": "Pedido {order_ref} em preparo",
+        "order_ready_pickup": "Pedido {order_ref} pronto para retirada",
+        "order_ready_delivery": "Pedido {order_ref} pronto para envio",
         "order_dispatched": "Pedido {order_ref} saiu para entrega",
         "order_delivered": "Pedido {order_ref} entregue",
         "order_cancelled": "Pedido {order_ref} cancelado",
@@ -45,7 +46,7 @@ class EmailBackend:
         "stock_alert": "Alerta de estoque: {sku}",
         # Legacy dot-separated events
         "order.confirmed": "Pedido {order_ref} confirmado",
-        "order.ready": "Pedido {order_ref} pronto para retirada",
+        "order.ready": "Pedido {order_ref} pronto",
         "order.dispatched": "Pedido {order_ref} saiu para entrega",
         "order.delivered": "Pedido {order_ref} entregue",
     }
@@ -57,14 +58,19 @@ class EmailBackend:
             "Total: {total}\n\n"
             "Obrigado pela preferencia!\n"
         ),
-        "order_processing": (
+        "order_preparing": (
             "Ola{customer_name_greeting}!\n\n"
             "Seu pedido {order_ref} esta em preparo.\n\n"
             "Avisaremos quando estiver pronto!\n"
         ),
-        "order_ready": (
+        "order_ready_pickup": (
             "Ola{customer_name_greeting}!\n\n"
             "Seu pedido {order_ref} esta pronto para retirada.\n\n"
+            "Venha buscar. Obrigado!\n"
+        ),
+        "order_ready_delivery": (
+            "Ola{customer_name_greeting}!\n\n"
+            "Seu pedido {order_ref} esta pronto e sera enviado em breve.\n\n"
             "Obrigado!\n"
         ),
         "order_dispatched": (
@@ -108,7 +114,7 @@ class EmailBackend:
         ),
         "order.ready": (
             "Ola{customer_name_greeting}!\n\n"
-            "Seu pedido {order_ref} esta pronto para retirada.\n\n"
+            "Seu pedido {order_ref} esta pronto.\n\n"
             "Obrigado!\n"
         ),
     }

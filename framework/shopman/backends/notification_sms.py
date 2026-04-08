@@ -62,8 +62,9 @@ class TwilioSMSBackend:
     # Templates de mensagem por evento
     MESSAGE_TEMPLATES = {
         "order_confirmed": "Pedido {order_ref} confirmado! Total: {total}",
-        "order_processing": "Pedido {order_ref} em preparo! Avisaremos quando estiver pronto.",
-        "order_ready": "Pedido {order_ref} pronto para retirada!",
+        "order_preparing": "Pedido {order_ref} em preparo! Avisaremos quando estiver pronto.",
+        "order_ready_pickup": "Pedido {order_ref} pronto para retirada!",
+        "order_ready_delivery": "Pedido {order_ref} pronto! Sera enviado em breve.",
         "order_dispatched": "Pedido {order_ref} saiu para entrega!",
         "order_delivered": "Pedido {order_ref} entregue. Obrigado!",
         "order_cancelled": "Pedido {order_ref} cancelado. Em caso de duvidas, entre em contato.",

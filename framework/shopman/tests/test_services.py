@@ -536,7 +536,7 @@ class TestKDSService:
 
         channel = Channel.objects.create(ref="kds-test", name="KDS Test")
         order = Order.objects.create(
-            ref="KDS-ORD-001", channel=channel, status=Order.Status.PROCESSING, total_q=1000,
+            ref="KDS-ORD-001", channel=channel, status=Order.Status.PREPARING, total_q=1000,
         )
         inst = KDSInstance.objects.create(ref="prep-1", name="Prep", type="prep")
         KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="done")
@@ -556,7 +556,7 @@ class TestKDSService:
 
         channel = Channel.objects.create(ref="kds-test2", name="KDS Test 2")
         order = Order.objects.create(
-            ref="KDS-ORD-002", channel=channel, status=Order.Status.PROCESSING, total_q=1000,
+            ref="KDS-ORD-002", channel=channel, status=Order.Status.PREPARING, total_q=1000,
         )
         inst = KDSInstance.objects.create(ref="prep-2", name="Prep 2", type="prep")
         KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="done")
@@ -568,7 +568,7 @@ class TestKDSService:
 
         assert result is False
         order.refresh_from_db()
-        assert order.status == Order.Status.PROCESSING
+        assert order.status == Order.Status.PREPARING
 
 
 # ══════════════════════════════════════════════════════════════════════

@@ -1040,7 +1040,7 @@ class OrderAdmin(ModelAdmin):
 
     # Cores de referência BADGES:
     # - Azul=#5EB1EF (info), Amarelo=#E2A336 (warning), Verde=#5BB98B (success), Vermelho=#EB8E90 (danger), Cinza=secondary
-    # Status canônicos v0.5.9: new, confirmed, processing, ready, dispatched, delivered, completed, cancelled, returned
+    # Status canônicos: new, confirmed, preparing, ready, dispatched, delivered, completed, cancelled, returned
     @display(
         description=_("status"),
         label={

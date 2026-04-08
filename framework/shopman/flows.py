@@ -138,10 +138,10 @@ class BaseFlow:
         stock.fulfill(order)
         notification.send(order, "payment_confirmed")
 
-    def on_processing(self, order):
+    def on_preparing(self, order):
         """Order in preparation: dispatch to KDS + notify."""
         kds.dispatch(order)
-        notification.send(order, "order_processing")
+        notification.send(order, "order_preparing")
 
     def on_ready(self, order):
         """Order ready: create fulfillment + notify."""

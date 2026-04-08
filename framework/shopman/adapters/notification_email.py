@@ -19,8 +19,9 @@ logger = logging.getLogger(__name__)
 
 SUBJECT_TEMPLATES: dict[str, str] = {
     "order_confirmed": "Pedido {order_ref} confirmado",
-    "order_processing": "Pedido {order_ref} em preparo",
-    "order_ready": "Pedido {order_ref} pronto para retirada",
+    "order_preparing": "Pedido {order_ref} em preparo",
+    "order_ready_pickup": "Pedido {order_ref} pronto para retirada",
+    "order_ready_delivery": "Pedido {order_ref} pronto para envio",
     "order_dispatched": "Pedido {order_ref} saiu para entrega",
     "order_delivered": "Pedido {order_ref} entregue",
     "order_cancelled": "Pedido {order_ref} cancelado",
@@ -35,14 +36,20 @@ BODY_TEMPLATES: dict[str, str] = {
         "Seu pedido {order_ref} foi confirmado.\n\n"
         "Total: {total}\n\nObrigado pela preferencia!\n"
     ),
-    "order_processing": (
+    "order_preparing": (
         "Ola{customer_name_greeting}!\n\n"
         "Seu pedido {order_ref} esta em preparo.\n\n"
         "Avisaremos quando estiver pronto!\n"
     ),
-    "order_ready": (
+    "order_ready_pickup": (
         "Ola{customer_name_greeting}!\n\n"
-        "Seu pedido {order_ref} esta pronto para retirada.\n\nObrigado!\n"
+        "Seu pedido {order_ref} esta pronto para retirada.\n\n"
+        "Venha buscar. Obrigado!\n"
+    ),
+    "order_ready_delivery": (
+        "Ola{customer_name_greeting}!\n\n"
+        "Seu pedido {order_ref} esta pronto e sera enviado em breve.\n\n"
+        "Obrigado!\n"
     ),
     "order_dispatched": (
         "Ola{customer_name_greeting}!\n\n"

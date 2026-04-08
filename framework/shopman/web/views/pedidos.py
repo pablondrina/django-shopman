@@ -36,8 +36,8 @@ _DEFAULT_CHANNEL_ICON = "shopping_bag"
 # ── Action labels per status ─────────────────────────────────────────
 
 NEXT_STATUS_MAP = {
-    "confirmed": "processing",
-    "processing": "ready",
+    "confirmed": "preparing",
+    "preparing": "ready",
     "ready": "completed",
     "dispatched": "delivered",
     "delivered": "completed",
@@ -45,7 +45,7 @@ NEXT_STATUS_MAP = {
 
 NEXT_ACTION_LABELS = {
     "confirmed": "Iniciar Preparo \u25b8",
-    "processing": "Marcar Pronto \u25b8",
+    "preparing": "Marcar Pronto \u25b8",
     "ready": "Entregar \u2713",  # pickup default; delivery override in _enrich_order
     "dispatched": "Marcar Entregue \u2713",
     "delivered": "Concluir \u2713",
@@ -79,7 +79,7 @@ def _next_label_for(order) -> str:
 
 # ── Active statuses for the gestor ───────────────────────────────────
 
-_ACTIVE_STATUSES = ["new", "confirmed", "processing", "ready", "dispatched"]
+_ACTIVE_STATUSES = ["new", "confirmed", "preparing", "ready", "dispatched"]
 
 
 def _staff_required(request):
@@ -146,7 +146,7 @@ def _enrich_order(order: Order) -> dict:
         "fulfillment_icon": fulfillment_icon,
         "fulfillment_label": fulfillment_label,
         "can_confirm": order.status == "new",
-        "can_advance": order.status in ("confirmed", "processing", "ready", "dispatched", "delivered"),
+        "can_advance": order.status in ("confirmed", "preparing", "ready", "dispatched", "delivered"),
         "next_status": _next_status_for(order),
         "next_action_label": _next_label_for(order),
         "order": order,

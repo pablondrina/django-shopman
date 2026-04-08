@@ -5,8 +5,26 @@
   </span>
 </div>
 
+{# Cancel button — inside partial so it updates with polling #}
+{% if can_cancel %}
+<div class="mb-6">
+  <button type="button"
+          @click="$store.confirm.show({
+            title: 'Cancelar pedido?',
+            message: 'Essa ação não pode ser desfeita. O pedido será cancelado e os itens liberados.',
+            confirmLabel: 'Cancelar Pedido',
+            destructive: true,
+            onConfirm: () => htmx.ajax('POST', '{% url 'storefront:order_cancel' ref=order.ref %}', { target: '#order-status-area', swap: 'innerHTML' })
+          })"
+          class="w-full py-3 border border-error text-error rounded-xl font-medium hover:bg-error/10 transition-colors text-center"
+          style="min-height: var(--touch-min)">
+    Cancelar Pedido
+  </button>
+</div>
+{% endif %}
+
 {# ETA (when preparing) #}
-{% if eta and order.status == "processing" %}
+{% if eta and order.status == "preparing" %}
 <div class="text-center mb-4">
   <p class="text-sm text-muted-foreground">
     Previsão: pronto às <span class="font-bold text-foreground">{{ eta|time:"H:i" }}</span>

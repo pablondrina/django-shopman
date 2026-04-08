@@ -16,7 +16,7 @@ from django.utils.html import format_html
 STATUS_LABELS = {
     "new": "Novo",
     "confirmed": "Confirmado",
-    "processing": "Em Preparo",
+    "preparing": "Em Preparo",
     "ready": "Pronto",
     "dispatched": "Despachado",
     "delivered": "Entregue",
@@ -28,7 +28,7 @@ STATUS_LABELS = {
 STATUS_CHART_COLORS = {
     "new": "#5EB1EF",
     "confirmed": "#5EB1EF",
-    "processing": "#E2A336",
+    "preparing": "#E2A336",
     "ready": "#5BB98B",
     "dispatched": "#E2A336",
     "delivered": "#5BB98B",
@@ -40,7 +40,7 @@ STATUS_CHART_COLORS = {
 STATUS_BADGE_CSS = {
     "new": "bg-blue-500",
     "confirmed": "bg-emerald-500",
-    "processing": "bg-amber-500",
+    "preparing": "bg-amber-500",
     "ready": "bg-violet-500",
     "dispatched": "bg-indigo-500",
     "delivered": "bg-green-600",
@@ -139,7 +139,7 @@ def _revenue(today, yesterday):
     from shopman.ordering.models import Order
 
     confirmed_statuses = [
-        "confirmed", "processing", "ready",
+        "confirmed", "preparing", "ready",
         "dispatched", "delivered", "completed",
     ]
     today_q = (
@@ -338,12 +338,12 @@ def _chart_sales_7days(today):
 
 
 def _build_pending_orders_table(today):
-    """Pending orders (new, confirmed, processing)."""
+    """Pending orders (new, confirmed, preparing)."""
     from shopman.ordering.models import Order
 
     pending = (
         Order.objects
-        .filter(status__in=["new", "confirmed", "processing"])
+        .filter(status__in=["new", "confirmed", "preparing"])
         .select_related("channel")
         .order_by("-created_at")[:8]
     )
