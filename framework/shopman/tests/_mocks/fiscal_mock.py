@@ -4,7 +4,7 @@ Mock Fiscal Backend — Para desenvolvimento e testes.
 
 from __future__ import annotations
 
-from shopman.ordering.protocols import (
+from shopman.omniman.protocols import (
     FiscalCancellationResult,
     FiscalDocumentResult,
 )

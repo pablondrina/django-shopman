@@ -1,22 +1,22 @@
 {# ── Order items ── #}
 <div style="margin-bottom: 0.75rem;">
-  <h4 style="font-size: var(--text-body-sm); font-weight: 600; margin: 0 0 0.5rem;">Itens</h4>
-  <table style="width: 100%; font-size: var(--text-caption); border-collapse: collapse;">
+  <h4 class="ped-detail-heading">Itens</h4>
+  <table class="ped-detail-table">
     <thead>
-      <tr style="color: var(--foreground-muted); text-align: left;">
-        <th style="padding: 0.25rem 0;">Item</th>
-        <th style="padding: 0.25rem 0; text-align: center;">Qtd</th>
-        <th style="padding: 0.25rem 0; text-align: right;">Unit.</th>
-        <th style="padding: 0.25rem 0; text-align: right;">Total</th>
+      <tr>
+        <th>Item</th>
+        <th class="text-center">Qtd</th>
+        <th class="text-right">Unit.</th>
+        <th class="text-right">Total</th>
       </tr>
     </thead>
     <tbody>
       {% for item in items %}
-      <tr style="border-top: 1px solid var(--border);">
-        <td style="padding: 0.375rem 0;">{{ item.name }}</td>
-        <td style="padding: 0.375rem 0; text-align: center;">{{ item.qty }}</td>
-        <td style="padding: 0.375rem 0; text-align: right;">{{ item.unit_price_display }}</td>
-        <td style="padding: 0.375rem 0; text-align: right;">{{ item.total_display }}</td>
+      <tr>
+        <td>{{ item.name }}</td>
+        <td class="text-center">{{ item.qty }}</td>
+        <td class="text-right">{{ item.unit_price_display }}</td>
+        <td class="text-right">{{ item.total_display }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -26,13 +26,11 @@
 {# ── Mini timeline ── #}
 {% if timeline %}
 <div style="margin-bottom: 0.75rem;">
-  <h4 style="font-size: var(--text-body-sm); font-weight: 600; margin: 0 0 0.5rem;">Histórico</h4>
-  <div style="font-size: var(--text-caption); color: var(--foreground-muted);">
+  <h4 class="ped-detail-heading">Historico</h4>
+  <div class="ped-timeline">
     {% for event in timeline %}
-    <div style="display: flex; gap: 0.5rem; padding: 0.125rem 0;">
-      <span style="font-variant-numeric: tabular-nums; white-space: nowrap;">
-        {{ event.timestamp|date:"H:i" }}
-      </span>
+    <div class="ped-timeline-event">
+      <span class="ped-timeline-time">{{ event.timestamp|date:"H:i" }}</span>
       <span>{{ event.label }}</span>
     </div>
     {% endfor %}
@@ -42,28 +40,19 @@
 
 {# ── Internal notes ── #}
 <div>
-  <h4 style="font-size: var(--text-body-sm); font-weight: 600; margin: 0 0 0.5rem;">Notas internas</h4>
-  <div style="display: flex; gap: 0.5rem; align-items: flex-start;">
-    <textarea
-      name="notes"
-      rows="2"
-      hx-post="/pedidos/{{ order.ref }}/notes/"
-      hx-trigger="change"
-      hx-target="next span"
-      hx-swap="innerHTML"
-      style="
-        flex: 1;
-        padding: 0.5rem;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-md);
-        font-size: var(--text-caption);
-        font-family: var(--font-body);
-        background: var(--input);
-        color: var(--foreground);
-        resize: vertical;
-        box-sizing: border-box;
-      "
-    >{{ internal_notes }}</textarea>
-    <span></span>
+  <h4 class="ped-detail-heading">
+    <label for="notes-{{ order.ref }}">Notas internas</label>
+  </h4>
+  <div class="ped-notes">
+    <textarea id="notes-{{ order.ref }}"
+              name="notes"
+              rows="2"
+              class="ped-textarea"
+              hx-post="/pedidos/{{ order.ref }}/notes/"
+              hx-trigger="change"
+              hx-target="next .ped-notes-feedback"
+              hx-swap="innerHTML"
+              style="flex: 1;">{{ internal_notes }}</textarea>
+    <span class="ped-notes-feedback"></span>
   </div>
 </div>

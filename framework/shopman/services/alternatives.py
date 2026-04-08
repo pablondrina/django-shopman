@@ -24,7 +24,7 @@ def find(sku: str, *, qty: Decimal = Decimal("1"), channel: str | None = None, l
         [{"sku", "name", "price_q", "price_display", "available_qty", "can_order"}, ...]
     """
     try:
-        from shopman.offering.contrib.suggestions import find_alternatives as _find_candidates
+        from shopman.offerman.contrib.suggestions import find_alternatives as _find_candidates
     except ImportError:
         return []
 
@@ -42,7 +42,7 @@ def find(sku: str, *, qty: Decimal = Decimal("1"), channel: str | None = None, l
     avail_map: dict[str, dict | None] = {}
     if HAS_STOCKING:
         try:
-            from shopman.stocking.services.availability import (
+            from shopman.stockman.services.availability import (
                 availability_for_skus,
                 availability_scope_for_channel,
             )
@@ -56,8 +56,8 @@ def find(sku: str, *, qty: Decimal = Decimal("1"), channel: str | None = None, l
     # Build price map via listing
     price_map: dict[str, int] = {}
     try:
-        from shopman.offering.models import ListingItem
-        from shopman.ordering.models import Channel
+        from shopman.offerman.models import ListingItem
+        from shopman.omniman.models import Channel
 
         channel_obj = Channel.objects.filter(ref=channel_ref).first()
         listing_ref = channel_obj.listing_ref if channel_obj else None

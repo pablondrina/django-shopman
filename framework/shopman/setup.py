@@ -12,7 +12,7 @@ import logging
 
 from django.conf import settings
 
-from shopman.ordering import registry
+from shopman.omniman import registry
 
 logger = logging.getLogger(__name__)
 
@@ -194,7 +194,7 @@ def _register_stock_signals() -> None:
     """Connect stock hold materialization + production voided signals."""
     try:
         from shopman.handlers._stock_receivers import on_holds_materialized
-        from shopman.stocking.signals import holds_materialized
+        from shopman.stockman.signals import holds_materialized
 
         holds_materialized.connect(on_holds_materialized, weak=False)
         logger.info("shopman.setup: Connected holds_materialized receiver.")
@@ -202,7 +202,7 @@ def _register_stock_signals() -> None:
         logger.debug("shopman.setup: stocking signals not available")
 
     try:
-        from shopman.crafting.signals import production_changed
+        from shopman.craftsman.signals import production_changed
         from shopman.handlers._stock_receivers import on_production_voided
 
         production_changed.connect(on_production_voided, weak=False)
@@ -210,7 +210,7 @@ def _register_stock_signals() -> None:
 
         # Import core-level handler — the @receiver decorator auto-connects
         # planned/adjusted/closed/voided → Stocking quant management
-        import shopman.crafting.contrib.stocking.handlers  # noqa: F401
+        import shopman.craftsman.contrib.stocking.handlers  # noqa: F401
 
         logger.info("shopman.setup: Loaded crafting→stocking signal handlers.")
     except ImportError:

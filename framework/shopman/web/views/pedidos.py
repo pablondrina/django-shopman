@@ -12,7 +12,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
 
-from shopman.ordering.models import Directive, Order
+from shopman.omniman.models import Directive, Order
 from shopman.services.cancellation import cancel
 from shopman.utils.monetary import format_money
 

@@ -21,10 +21,10 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 # ── Crafting (producao) ─────────────────────────────────────────────
-from shopman.crafting.models import Recipe, RecipeItem, WorkOrder, WorkOrderItem
+from shopman.craftsman.models import Recipe, RecipeItem, WorkOrder, WorkOrderItem
 
 # ── Customers (clientes) ─────────────────────────────────────────────
-from shopman.customers.models import ContactPoint, Customer, CustomerAddress, CustomerGroup
+from shopman.guestman.models import ContactPoint, Customer, CustomerAddress, CustomerGroup
 
 # ── Shopman (orchestrator) ────────────────────────────────────────────
 from shopman.models import (
@@ -39,7 +39,7 @@ from shopman.models import (
 )
 
 # ── Offering (catalogo) ──────────────────────────────────────────────
-from shopman.offering.models import (
+from shopman.offerman.models import (
     Collection,
     CollectionItem,
     Listing,
@@ -49,7 +49,7 @@ from shopman.offering.models import (
 )
 
 # ── Ordering (canais e pedidos) ──────────────────────────────────────
-from shopman.ordering.models import (
+from shopman.omniman.models import (
     Channel,
     Directive,
     Fulfillment,
@@ -61,11 +61,11 @@ from shopman.ordering.models import (
 )
 
 # ── Payments ─────────────────────────────────────────────────────────
-from shopman.payments.models import PaymentIntent, PaymentTransaction
+from shopman.payman.models import PaymentIntent, PaymentTransaction
 
 # ── Stocking (estoque) ──────────────────────────────────────────────
-from shopman.stocking import stock
-from shopman.stocking.models import Position, PositionKind, StockAlert
+from shopman.stockman import stock
+from shopman.stockman.models import Position, PositionKind, StockAlert
 
 
 class Command(BaseCommand):
@@ -277,13 +277,13 @@ class Command(BaseCommand):
             model.objects.all().delete()
 
         # Stocking
-        from shopman.stocking.models import Hold, Move, Quant
+        from shopman.stockman.models import Hold, Move, Quant
 
         for model in [StockAlert, Hold, Move, Quant, Position]:
             model.objects.all().delete()
 
         # Crafting
-        from shopman.crafting.models import WorkOrderEvent
+        from shopman.craftsman.models import WorkOrderEvent
 
         for model in [WorkOrderEvent, WorkOrder, RecipeItem, Recipe]:
             model.objects.all().delete()
@@ -1024,7 +1024,7 @@ class Command(BaseCommand):
         #   FOCACCIA-CEBOLA:   start 07:30, finish ~10:30  → slot-12
         #   CHAUSSON:          start 08:00, finish ~11:00  → slot-12
         #   MADELEINE:         start 09:00, finish ~13:00  → slot-15
-        from shopman.crafting.service import CraftService as craft
+        from shopman.craftsman.service import CraftService as craft
 
         today = date.today()
         tomorrow = today + timedelta(days=1)
@@ -1542,7 +1542,7 @@ class Command(BaseCommand):
     def _seed_sessions(self, channels):
         self.stdout.write("  📝 Sessoes abertas...")
 
-        from shopman.ordering.ids import generate_session_key
+        from shopman.omniman.ids import generate_session_key
 
         for channel_ref, items in [
             ("balcao", [
@@ -1904,9 +1904,9 @@ class Command(BaseCommand):
     def _seed_directives(self):
         self.stdout.write("  📋 Directives...")
 
-        # Directive topics (inline — channels.topics is gone)
-        STOCK_HOLD = "stock.hold"
-        PAYMENT_CAPTURE = "payment.capture"
+        # Stock holds and payments are now handled inline (services.availability +
+        # services.stock + services.payment), not via directives. Only notification
+        # and fulfillment remain as async directives.
         NOTIFICATION_SEND = "notification.send"
         FULFILLMENT_CREATE = "fulfillment.create"
 
@@ -1919,24 +1919,6 @@ class Command(BaseCommand):
             directive_status = "done" if is_terminal else "queued"
             base_time = order.created_at
 
-            # stock.hold
-            Directive.objects.create(
-                topic=STOCK_HOLD,
-                status=directive_status,
-                payload={"order_ref": order.ref},
-                available_at=base_time,
-            )
-
-            # payment.capture (for completed/delivered)
-            if is_terminal:
-                Directive.objects.create(
-                    topic=PAYMENT_CAPTURE,
-                    status="done",
-                    payload={"order_ref": order.ref},
-                    available_at=base_time + timedelta(minutes=1),
-                )
-
-            # notification.send
             Directive.objects.create(
                 topic=NOTIFICATION_SEND,
                 status=directive_status,
@@ -1944,7 +1926,6 @@ class Command(BaseCommand):
                 available_at=base_time + timedelta(minutes=2),
             )
 
-            # fulfillment.create (for completed/delivered)
             if is_terminal:
                 Directive.objects.create(
                     topic=FULFILLMENT_CREATE,
@@ -1965,7 +1946,7 @@ class Command(BaseCommand):
         self.stdout.write("  🎖️  Loyalty...")
 
         try:
-            from shopman.customers.contrib.loyalty.service import LoyaltyService
+            from shopman.guestman.contrib.loyalty.service import LoyaltyService
         except ImportError:
             self.stdout.write("  ⏭️  Loyalty app nao instalado")
             return

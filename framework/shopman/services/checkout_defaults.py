@@ -52,7 +52,7 @@ class CheckoutDefaultsService:
             Apenas keys com valor são incluídas.
         """
         try:
-            from shopman.customers.contrib.preferences.service import PreferenceService
+            from shopman.guestman.contrib.preferences.service import PreferenceService
         except ImportError:
             return {}
 
@@ -74,7 +74,7 @@ class CheckoutDefaultsService:
     ) -> None:
         """Salva defaults explícitos (usuário marcou 'salvar como padrão')."""
         try:
-            from shopman.customers.contrib.preferences.service import PreferenceService
+            from shopman.guestman.contrib.preferences.service import PreferenceService
         except ImportError:
             return
 
@@ -111,8 +111,8 @@ class CheckoutDefaultsService:
             return {}
 
         try:
-            from shopman.customers.contrib.preferences.models import PreferenceType
-            from shopman.customers.contrib.preferences.service import PreferenceService
+            from shopman.guestman.contrib.preferences.models import PreferenceType
+            from shopman.guestman.contrib.preferences.service import PreferenceService
         except ImportError:
             return {}
 

@@ -9,8 +9,8 @@ pytestmark = pytest.mark.django_db
 
 
 def _login_as_customer(client, customer):
-    from shopman.auth.protocols.customer import AuthCustomerInfo
-    from shopman.auth.services._user_bridge import get_or_create_user_for_customer
+    from shopman.doorman.protocols.customer import AuthCustomerInfo
+    from shopman.doorman.services._user_bridge import get_or_create_user_for_customer
 
     info = AuthCustomerInfo(
         uuid=customer.uuid,
@@ -20,7 +20,7 @@ def _login_as_customer(client, customer):
         is_active=True,
     )
     user, _ = get_or_create_user_for_customer(info)
-    client.force_login(user, backend="shopman.auth.backends.PhoneOTPBackend")
+    client.force_login(user, backend="shopman.doorman.backends.PhoneOTPBackend")
     return user
 
 

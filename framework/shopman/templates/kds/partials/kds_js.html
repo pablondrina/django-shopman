@@ -1,24 +1,68 @@
 function kdsDisplay() {
   var ref = '{{ instance.ref }}';
+  var targetMinutes = {{ instance.target_time_minutes|default:10 }};
+
   return {
     soundEnabled: sessionStorage.getItem('kds_sound_' + ref) !== 'false',
     previousCount: 0,
+    ticketCount: 0,
     clock: '',
+    isFullscreen: false,
 
     init() {
-      this.previousCount = document.querySelectorAll('[data-kds-ticket]').length;
+      this.syncState();
       this.updateClock();
       setInterval(() => this.updateClock(), 1000);
 
+      /* Track fullscreen state */
+      var self = this;
+      document.addEventListener('fullscreenchange', function() {
+        self.isFullscreen = !!document.fullscreenElement;
+      });
+
+      /* On HTMX swap: sync timers, count tickets, play sound */
       document.addEventListener('htmx:afterSwap', (e) => {
         if (e.detail.target.id === 'ticket-grid') {
-          var newCount = e.detail.target.querySelectorAll('[data-kds-ticket]').length;
-          if (newCount > this.previousCount && this.soundEnabled) {
-            this.playSound();
-          }
-          this.previousCount = newCount;
+          this.syncState();
         }
       });
+    },
+
+    syncState() {
+      var grid = document.getElementById('ticket-grid');
+      if (!grid) return;
+
+      var tickets = grid.querySelectorAll('[data-kds-ticket]');
+      var newCount = tickets.length;
+
+      /* Sound: new tickets or ticket going late */
+      if (newCount > this.previousCount && this.soundEnabled) {
+        this.playSound('new');
+      }
+      this.previousCount = newCount;
+      this.ticketCount = newCount;
+
+      /* Sync elapsed timers from server data to prevent drift */
+      tickets.forEach(function(el) {
+        var serverElapsed = parseInt(el.getAttribute('data-elapsed'));
+        if (!isNaN(serverElapsed) && el.__x) {
+          el.__x.$data.elapsed = serverElapsed;
+        }
+      });
+
+      /* Check for late tickets — escalation sound */
+      if (this.soundEnabled) {
+        var hasLate = false;
+        tickets.forEach(function(el) {
+          var elapsed = parseInt(el.getAttribute('data-elapsed'));
+          if (!isNaN(elapsed) && elapsed >= targetMinutes * 120) {
+            hasLate = true;
+          }
+        });
+        if (hasLate) {
+          this.playSound('urgent');
+        }
+      }
     },
 
     updateClock() {
@@ -31,27 +75,40 @@ function kdsDisplay() {
       sessionStorage.setItem('kds_sound_' + ref, this.soundEnabled ? 'true' : 'false');
     },
 
-    playSound() {
+    playSound(type) {
       try {
         var ctx = new (window.AudioContext || window.webkitAudioContext)();
         var osc = ctx.createOscillator();
         var gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
-        osc.frequency.value = 1046;
-        osc.type = 'sine';
-        gain.gain.value = 0.4;
-        osc.start();
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
-        osc.stop(ctx.currentTime + 0.2);
+
+        if (type === 'urgent') {
+          /* Two-tone alert for late tickets */
+          osc.frequency.value = 880;
+          osc.type = 'square';
+          gain.gain.value = 0.25;
+          osc.start();
+          osc.frequency.setValueAtTime(660, ctx.currentTime + 0.15);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+          osc.stop(ctx.currentTime + 0.35);
+        } else {
+          /* Single tone for new tickets */
+          osc.frequency.value = 1046;
+          osc.type = 'sine';
+          gain.gain.value = 0.35;
+          osc.start();
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+          osc.stop(ctx.currentTime + 0.2);
+        }
       } catch (e) {}
     },
 
     toggleFullscreen() {
       if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
+        document.documentElement.requestFullscreen().catch(function() {});
       } else {
-        document.exitFullscreen();
+        document.exitFullscreen().catch(function() {});
       }
     }
   }

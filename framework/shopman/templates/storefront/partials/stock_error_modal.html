@@ -4,7 +4,31 @@
       <span class="material-symbols-rounded icon-xl text-warning" aria-hidden="true">sentiment_dissatisfied</span>
     </div>
     <h3 class="text-h4 text-foreground mb-2">{{ title }}</h3>
-    <p class="text-muted-foreground text-sm mb-6">{{ message }}</p>
+    <p class="text-muted-foreground text-sm mb-4">{{ message }}</p>
+
+    {% if alternatives %}
+    <div class="mb-5 text-left">
+      <p class="text-xs uppercase tracking-wide text-muted-foreground mb-2">Que tal uma destas?</p>
+      <ul class="space-y-2">
+        {% for alt in alternatives %}
+        <li>
+          <button
+            type="button"
+            hx-post="{% url 'storefront:cart_add' %}"
+            hx-vals='{"sku": "{{ alt.sku }}", "qty": 1}'
+            hx-swap="none"
+            @click="dismissStockModal()"
+            class="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-border hover:bg-muted transition-colors"
+          >
+            <span class="text-sm text-foreground truncate">{{ alt.name }}</span>
+            <span class="text-sm font-medium text-primary whitespace-nowrap">{{ alt.price_display }}</span>
+          </button>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
     <button
       @click="dismissStockModal()"
       class="w-full py-3 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"

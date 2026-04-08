@@ -167,7 +167,7 @@ class DiscountModifier:
         # Coleções por SKU — necessário para promoções por coleção (mesma regra no vitrine)
         if items and not ctx.get("sku_collections"):
             try:
-                from shopman.offering.models import CollectionItem
+                from shopman.offerman.models import CollectionItem
 
                 line_skus = [i.get("sku") for i in items if i.get("sku")]
                 col_map: dict[str, list[str]] = {}

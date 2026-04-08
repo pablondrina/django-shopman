@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def _offering_available() -> bool:
     try:
-        from shopman.offering import CatalogService  # noqa: F401
+        from shopman.offerman import CatalogService  # noqa: F401
         return True
     except ImportError:
         return False
@@ -45,7 +45,7 @@ class OfferingPricingBackend:
 
         # 3. Preço base do produto
         try:
-            from shopman.offering.models import Product
+            from shopman.offerman.models import Product
             product = Product.objects.get(sku=sku)
             return product.base_price_q
         except Exception:
@@ -54,7 +54,7 @@ class OfferingPricingBackend:
     def _get_listing_item(self, listing_ref, sku, qty=1):
         """Find the ListingItem with the highest min_qty tier <= qty."""
         try:
-            from shopman.offering.models import ListingItem
+            from shopman.offerman.models import ListingItem
             return (
                 ListingItem.objects.filter(
                     listing__ref=listing_ref,

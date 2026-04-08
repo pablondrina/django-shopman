@@ -9,8 +9,8 @@ from __future__ import annotations
 import logging
 from datetime import date
 
-from shopman.ordering.models import Directive
-from shopman.ordering.protocols import AccountingBackend
+from shopman.omniman.models import Directive
+from shopman.omniman.protocols import AccountingBackend
 from shopman.topics import ACCOUNTING_CREATE_PAYABLE
 
 logger = logging.getLogger(__name__)

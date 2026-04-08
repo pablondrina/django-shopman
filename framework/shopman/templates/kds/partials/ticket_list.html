@@ -2,6 +2,7 @@
   {% include "kds/partials/ticket.html" %}
 {% empty %}
 <div style="text-align: center; padding: 4rem 1rem; color: var(--kds-text-muted); grid-column: 1 / -1;">
-  <p style="font-size: 1.25rem;">{% if is_expedition %}Nenhum pedido pronto.{% else %}Nenhum ticket pendente.{% endif %}</p>
+  <span class="material-symbols-rounded" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.5;" aria-hidden="true">done_all</span>
+  <p style="font-size: 1.125rem;">{% if is_expedition %}Nenhum pedido pronto.{% else %}Nenhum ticket pendente.{% endif %}</p>
 </div>
 {% endfor %}

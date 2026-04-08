@@ -1,7 +1,7 @@
 """
 Django settings for Offering tests.
 
-Minimal settings to run pytest with shopman.offering app.
+Minimal settings to run pytest with shopman.offerman app.
 """
 
 SECRET_KEY = "test-secret-key-for-offering-tests"
@@ -15,10 +15,10 @@ INSTALLED_APPS = [
     "simple_history",
     "rest_framework",
     "django_filters",
-    "shopman.offering",
+    "shopman.offerman",
 ]
 
-ROOT_URLCONF = "shopman.offering.tests.urls"
+ROOT_URLCONF = "shopman.offerman.tests.urls"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

@@ -8,7 +8,7 @@ from django.test import TestCase
 
 
 def _make_order(ref="FAIL-001", total_q=1000):
-    from shopman.ordering.models import Channel, Order
+    from shopman.omniman.models import Channel, Order
 
     channel, _ = Channel.objects.get_or_create(
         ref="balcao",
@@ -132,7 +132,7 @@ class StockCheckDegradationTests(TestCase):
 
     def setUp(self):
         _make_shop()
-        from shopman.ordering.models import Channel
+        from shopman.omniman.models import Channel
 
         Channel.objects.get_or_create(
             ref="balcao",

@@ -15,8 +15,8 @@ from django_ratelimit.decorators import ratelimit
 
 logger = logging.getLogger(__name__)
 
-from shopman.ordering.ids import generate_idempotency_key
-from shopman.ordering.models import Channel
+from shopman.omniman.ids import generate_idempotency_key
+from shopman.omniman.models import Channel
 from shopman.services.checkout_defaults import CheckoutDefaultsService
 from shopman.utils.phone import normalize_phone
 
@@ -67,7 +67,7 @@ class CheckoutView(View):
         if customer_info is None:
             return ctx
 
-        from shopman.customers.services import customer as customer_service
+        from shopman.guestman.services import customer as customer_service
 
         customer_obj = customer_service.get_by_uuid(customer_info.uuid)
         if customer_obj:
@@ -98,7 +98,7 @@ class CheckoutView(View):
 
             # Loyalty balance for points redemption
             try:
-                from shopman.customers.contrib.loyalty.service import LoyaltyService
+                from shopman.guestman.contrib.loyalty.service import LoyaltyService
                 from shopman.utils.monetary import format_money
 
                 balance = LoyaltyService.get_balance(customer_obj.ref)
@@ -168,7 +168,7 @@ class CheckoutView(View):
 
         # Name required only for new customers
         if not errors and not name:
-            from shopman.customers.services import customer as cs_check
+            from shopman.guestman.services import customer as cs_check
 
             existing = cs_check.get_by_phone(phone) if phone else None
             if not existing or not existing.first_name:
@@ -181,7 +181,7 @@ class CheckoutView(View):
 
         # Resolve name from existing customer if not provided
         if not name:
-            from shopman.customers.services import customer as cs_name
+            from shopman.guestman.services import customer as cs_name
 
             existing = cs_name.get_by_phone(phone)
             if existing and existing.first_name:
@@ -190,7 +190,7 @@ class CheckoutView(View):
         session_key = cart["session_key"]
 
         # Set handle on session for history lookup
-        from shopman.ordering.models import Session as OmniSession
+        from shopman.omniman.models import Session as OmniSession
 
         try:
             omni_session = OmniSession.objects.get(
@@ -214,7 +214,7 @@ class CheckoutView(View):
         # Resolve saved address if selected
         saved_address_id = request.POST.get("saved_address_id", "").strip()
         if saved_address_id and fulfillment_type == "delivery" and not delivery_address:
-            from shopman.customers.models import CustomerAddress
+            from shopman.guestman.models import CustomerAddress
 
             try:
                 addr = CustomerAddress.objects.get(id=int(saved_address_id))
@@ -350,12 +350,12 @@ class CheckoutView(View):
             customer_info = getattr(request, "customer", None)
             if customer_info:
                 try:
-                    from shopman.customers.contrib.loyalty.service import LoyaltyService
-                    from shopman.ordering.models import Session as OrderingSession
+                    from shopman.guestman.contrib.loyalty.service import LoyaltyService
+                    from shopman.omniman.models import Session as OrderingSession
                     balance = LoyaltyService.get_balance_by_uuid(customer_info.uuid) if hasattr(LoyaltyService, "get_balance_by_uuid") else 0
                     if balance <= 0:
                         # Fallback: get customer ref and use get_balance
-                        from shopman.customers.services import customer as customer_service
+                        from shopman.guestman.services import customer as customer_service
                         customer_obj = customer_service.get_by_uuid(customer_info.uuid)
                         if customer_obj:
                             balance = LoyaltyService.get_balance(customer_obj.ref)
@@ -374,7 +374,7 @@ class CheckoutView(View):
             )
         except Exception as exc:
             # Map ordering ValidationError to user-visible checkout error
-            from shopman.ordering.exceptions import ValidationError as OrderingValidationError
+            from shopman.omniman.exceptions import ValidationError as OrderingValidationError
 
             if isinstance(exc, OrderingValidationError):
                 field = "delivery_address" if exc.code == "delivery_zone_not_covered" else "checkout"
@@ -404,7 +404,7 @@ class CheckoutView(View):
         # ── Ensure customer exists ──
         from django.db import IntegrityError
 
-        from shopman.customers.services import customer as customer_service
+        from shopman.guestman.services import customer as customer_service
 
         customer_obj = customer_service.get_by_phone(phone)
         if customer_obj:
@@ -453,7 +453,7 @@ class CheckoutView(View):
         if chosen_method in ("pix", "card"):
             # If payment initiation failed (gateway down), redirect to tracking with a message
             try:
-                from shopman.ordering.models import Order as _Order
+                from shopman.omniman.models import Order as _Order
                 _order = _Order.objects.get(ref=order_ref)
                 _payment_status = (_order.data or {}).get("payment", {}).get("status")
                 if _payment_status == "pending_retry":
@@ -667,7 +667,7 @@ class CheckoutView(View):
         if not items:
             return []
 
-        from shopman.offering.models import Product
+        from shopman.offerman.models import Product
 
         skus = [item.get("sku", "") for item in items if item.get("sku")]
         if not skus:
@@ -761,7 +761,7 @@ class CheckoutView(View):
         if not session_key:
             return {}
         try:
-            from shopman.stocking.models import Hold
+            from shopman.stockman.models import Hold
 
             holds = Hold.objects.filter(metadata__reference=session_key).active()
             held: dict[str, int] = {}

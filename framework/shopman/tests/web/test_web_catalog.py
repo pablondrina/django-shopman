@@ -33,7 +33,7 @@ class TestMenuView:
         assert resp.status_code == 404
 
     def test_menu_hides_unpublished_products(self, client: Client, collection, product_unpublished):
-        from shopman.offering.models import CollectionItem
+        from shopman.offerman.models import CollectionItem
         CollectionItem.objects.create(collection=collection, product=product_unpublished, sort_order=1)
         resp = client.get(f"/menu/{collection.slug}/")
         assert resp.status_code == 200

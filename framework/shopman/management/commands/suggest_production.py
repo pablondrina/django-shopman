@@ -34,7 +34,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        from shopman.crafting.service import CraftService as craft
+        from shopman.craftsman.service import CraftService as craft
 
         target_date = self._parse_date(options["date"])
         output_refs = options["skus"]

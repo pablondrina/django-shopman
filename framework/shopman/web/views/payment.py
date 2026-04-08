@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
 
-from shopman.ordering.models import Order
+from shopman.omniman.models import Order
 from shopman.utils.monetary import format_money
 
 logger = logging.getLogger("shopman.web.payment")
@@ -51,7 +51,7 @@ class PaymentStatusView(View):
         is_paid = payment.get("status") == "captured"
 
         if not is_paid and intent_id:
-            from shopman.payments import PaymentError, PaymentService
+            from shopman.payman import PaymentError, PaymentService
             try:
                 intent = PaymentService.get(intent_id)
                 is_paid = intent.status == "captured"
@@ -98,7 +98,7 @@ class MockPaymentConfirmView(View):
         if not settings.DEBUG:
             raise Http404
 
-        from shopman.payments import PaymentError, PaymentService
+        from shopman.payman import PaymentError, PaymentService
 
         order = get_object_or_404(Order, ref=ref)
 

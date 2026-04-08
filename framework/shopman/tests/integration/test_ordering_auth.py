@@ -12,8 +12,8 @@ class TestOrderingAuthIntegration(TestCase):
     """Integration between Ordering (sessions) and Auth."""
 
     def setUp(self):
-        from shopman.customers.models import Customer
-        from shopman.ordering.models import Channel
+        from shopman.guestman.models import Customer
+        from shopman.omniman.models import Channel
 
         # Create customer
         self.customer = Customer.objects.create(
@@ -33,7 +33,7 @@ class TestOrderingAuthIntegration(TestCase):
 
     def test_access_link_can_reference_customer(self):
         """AccessLink stores customer_id matching Customers customer."""
-        from shopman.auth.models import AccessLink
+        from shopman.doorman.models import AccessLink
 
         token = AccessLink.objects.create(
             customer_id=self.customer.uuid,
@@ -48,7 +48,7 @@ class TestOrderingAuthIntegration(TestCase):
         """CustomerUser connects Django User to Customer."""
         from django.contrib.auth import get_user_model
 
-        from shopman.auth.models import CustomerUser
+        from shopman.doorman.models import CustomerUser
 
         User = get_user_model()
         user = User.objects.create_user(
@@ -66,7 +66,7 @@ class TestOrderingAuthIntegration(TestCase):
 
     def test_session_preservation_across_login(self):
         """Session data (like basket) can be preserved across auth."""
-        from shopman.ordering.models import Session
+        from shopman.omniman.models import Session
 
         # Create session before auth
         session = Session.objects.create(

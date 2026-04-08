@@ -1,7 +1,7 @@
 """
 Django settings for Auth tests.
 
-Minimal settings to run pytest with shopman.auth + shopman.customers (for CustomerResolver).
+Minimal settings to run pytest with shopman.doorman + shopman.guestman (for CustomerResolver).
 """
 
 SECRET_KEY = "test-secret-key-for-auth-tests"
@@ -13,9 +13,9 @@ INSTALLED_APPS = [
     "django.contrib.auth",
     "django.contrib.sessions",
     # Customers (dependency for CustomerResolver)
-    "shopman.customers",
+    "shopman.guestman",
     # Auth
-    "shopman.auth",
+    "shopman.doorman",
 ]
 
 DATABASES = {
@@ -48,7 +48,7 @@ TEMPLATES = [
 
 # Auth settings
 AUTH = {
-    "MESSAGE_SENDER_CLASS": "shopman.auth.senders.LogSender",
+    "MESSAGE_SENDER_CLASS": "shopman.doorman.senders.LogSender",
     "ACCESS_LINK_API_KEY": "",
     "AUTO_CREATE_CUSTOMER": True,
     "USE_HTTPS": False,

@@ -12,8 +12,8 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('offering', '0002_rename_offering_pro_is_publ_idx_offering_pr_is_publ_6ea7fc_idx_and_more'),
-        ('ordering', '0005_session_origin_channel_order_origin_channel'),
+        ('offerman', '0002_rename_offering_pro_is_publ_idx_offering_pr_is_publ_6ea7fc_idx_and_more'),
+        ('omniman', '0005_session_origin_channel_order_origin_channel'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
@@ -148,7 +148,7 @@ class Migration(migrations.Migration):
                 ('sound_enabled', models.BooleanField(default=True, verbose_name='som ativo')),
                 ('is_active', models.BooleanField(default=True, verbose_name='ativa')),
                 ('config', models.JSONField(blank=True, default=dict, help_text='text_size, dark_mode, refresh_interval, etc.', verbose_name='configurações')),
-                ('collections', models.ManyToManyField(blank=True, help_text='Categorias de produto que esta estação processa. Vazio = catch-all.', to='offering.collection', verbose_name='coleções')),
+                ('collections', models.ManyToManyField(blank=True, help_text='Categorias de produto que esta estação processa. Vazio = catch-all.', to='offerman.collection', verbose_name='coleções')),
             ],
             options={
                 'verbose_name': 'instância KDS',
@@ -165,7 +165,7 @@ class Migration(migrations.Migration):
                 ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='criado em')),
                 ('completed_at', models.DateTimeField(blank=True, null=True, verbose_name='concluído em')),
                 ('kds_instance', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='tickets', to='shopman.kdsinstance', verbose_name='estação KDS')),
-                ('order', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='kds_tickets', to='ordering.order', verbose_name='pedido')),
+                ('order', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='kds_tickets', to='omniman.order', verbose_name='pedido')),
             ],
             options={
                 'verbose_name': 'ticket KDS',
@@ -198,7 +198,7 @@ class Migration(migrations.Migration):
                 ('enabled', models.BooleanField(default=True, verbose_name='ativa')),
                 ('params', models.JSONField(blank=True, default=dict, help_text='Parâmetros da regra (ex: percentual, horários, SKUs)', verbose_name='parâmetros')),
                 ('priority', models.IntegerField(default=0, help_text='Regras com menor número são avaliadas primeiro', verbose_name='prioridade')),
-                ('channels', models.ManyToManyField(blank=True, help_text='Canais onde esta regra se aplica. Vazio = todos.', to='ordering.channel', verbose_name='canais')),
+                ('channels', models.ManyToManyField(blank=True, help_text='Canais onde esta regra se aplica. Vazio = todos.', to='omniman.channel', verbose_name='canais')),
             ],
             options={
                 'verbose_name': 'regra configurável',

@@ -7,9 +7,9 @@ import json
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from shopman.ordering.ids import generate_session_key
-from shopman.ordering.models import Channel, Session
-from shopman.ordering.services.modify import ModifyService
+from shopman.omniman.ids import generate_session_key
+from shopman.omniman.models import Channel, Session
+from shopman.omniman.services.modify import ModifyService
 
 
 def _make_channel():
@@ -30,7 +30,7 @@ def _make_session(items=None):
         edit_policy="open",
     )
     if items:
-        from shopman.offering.models import Product
+        from shopman.offerman.models import Product
         for item in items:
             Product.objects.get_or_create(
                 sku=item["sku"],
@@ -96,7 +96,7 @@ class POSCloseWithDiscountTests(TestCase):
         from shopman.models import Shop
         Shop.objects.create(name="Test Shop", brand_name="Test")
         _make_channel()
-        from shopman.offering.models import Product
+        from shopman.offerman.models import Product
         Product.objects.create(sku="POS-ITEM-1", name="Item 1", base_price_q=1000, is_published=True, is_available=True)
         User = get_user_model()
         self.staff = User.objects.create_user(username="pos_staff", password="x", is_staff=True)

@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from decimal import Decimal
 
-from shopman.offering.service import CatalogService
+from shopman.offerman.service import CatalogService
 
 logger = logging.getLogger(__name__)
 

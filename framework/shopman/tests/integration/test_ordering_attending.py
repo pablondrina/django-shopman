@@ -12,8 +12,8 @@ class TestOrderingCustomersIntegration(TestCase):
     """Integration between Ordering (orders) and Customers."""
 
     def setUp(self):
-        from shopman.customers.models import Customer, CustomerGroup
-        from shopman.ordering.models import Channel
+        from shopman.guestman.models import Customer, CustomerGroup
+        from shopman.omniman.models import Channel
 
         # Create customer group
         self.group = CustomerGroup.objects.create(
@@ -40,7 +40,7 @@ class TestOrderingCustomersIntegration(TestCase):
 
     def test_session_with_customer_data(self):
         """Session can store customer reference."""
-        from shopman.ordering.models import Session
+        from shopman.omniman.models import Session
 
         session = Session.objects.create(
             session_key="INT-SESSION-001",
@@ -61,7 +61,7 @@ class TestOrderingCustomersIntegration(TestCase):
 
     def test_customer_lookup_by_ref(self):
         """Customer can be retrieved by ref for session association."""
-        from shopman.customers.models import Customer
+        from shopman.guestman.models import Customer
 
         found = Customer.objects.filter(ref="INT-CUST-001").first()
         assert found is not None

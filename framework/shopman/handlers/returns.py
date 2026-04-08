@@ -13,7 +13,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.utils import timezone
 
-from shopman.ordering.models import Directive, Order
+from shopman.omniman.models import Directive, Order
 from shopman.topics import RETURN_PROCESS
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ class ReturnService:
     @classmethod
     @transaction.atomic
     def initiate_return(cls, order: Order, items: list[dict], reason: str, actor: str) -> ReturnResult:
-        from shopman.ordering.exceptions import InvalidTransition
+        from shopman.omniman.exceptions import InvalidTransition
 
         order = Order.objects.select_for_update().get(pk=order.pk)
 
@@ -109,14 +109,23 @@ class ReturnService:
 
     @classmethod
     @transaction.atomic
-    def process_refund(cls, order: Order, amount_q: int, actor: str, *, payment_backend=None, fiscal_backend=None) -> dict:
+    def process_refund(cls, order: Order, amount_q: int, actor: str, *, fiscal_backend=None) -> dict:
+        from shopman.services import payment as payment_service
+
         result = {"refund": None, "fiscal": None}
 
-        intent_id = (order.data.get("payment") or {}).get("intent_id")
-        if intent_id and payment_backend:
-            refund_result = payment_backend.refund(intent_id, amount_q=amount_q, reason="Devolução de mercadoria")
-            result["refund"] = {"success": refund_result.success, "refund_id": refund_result.refund_id, "amount_q": refund_result.amount_q}
-            order.emit_event(event_type="refund_processed", actor=actor, payload={"amount_q": amount_q, "refund_id": refund_result.refund_id, "success": refund_result.success})
+        if (order.data.get("payment") or {}).get("intent_id"):
+            try:
+                payment_service.refund(order)
+                result["refund"] = {"success": True, "amount_q": amount_q}
+                order.emit_event(
+                    event_type="refund_processed",
+                    actor=actor,
+                    payload={"amount_q": amount_q, "success": True},
+                )
+            except Exception as exc:
+                logger.exception("process_refund: payment refund failed for %s", order.ref)
+                result["refund"] = {"success": False, "error": str(exc)}
 
         if order.data.get("nfce_access_key") and fiscal_backend:
             cancel_result = fiscal_backend.cancel(reference=order.ref, reason="Devolução de mercadoria")
@@ -131,12 +140,12 @@ class ReturnHandler:
 
     topic = RETURN_PROCESS
 
-    def __init__(self, *, stock_backend=None, payment_backend=None, fiscal_backend=None):
-        self.stock_backend = stock_backend
-        self.payment_backend = payment_backend
+    def __init__(self, *, fiscal_backend=None):
         self.fiscal_backend = fiscal_backend
 
     def handle(self, *, message: Directive, ctx: dict) -> None:
+        from shopman.adapters import get_adapter
+
         payload = message.payload
         order_ref = payload["order_ref"]
         items = payload["items"]
@@ -157,12 +166,15 @@ class ReturnHandler:
             message.save(update_fields=["status", "updated_at"])
             return
 
-        if self.stock_backend:
+        stock_adapter = get_adapter("stock")
+        if stock_adapter:
             for item in items:
                 try:
-                    self.stock_backend.receive_return(
-                        sku=item["sku"], quantity=Decimal(str(item["qty"])),
-                        reference=order_ref, reason=f"Devolução pedido {order_ref}",
+                    stock_adapter.receive_return(
+                        sku=item["sku"],
+                        qty=Decimal(str(item["qty"])),
+                        reference=order_ref,
+                        reason=f"Devolução pedido {order_ref}",
                     )
                 except Exception:
                     logger.exception("ReturnHandler: Failed to reverse stock for sku=%s order=%s", item["sku"], order_ref)
@@ -170,7 +182,7 @@ class ReturnHandler:
         try:
             ReturnService.process_refund(
                 order=order, amount_q=refund_total_q, actor="return.process",
-                payment_backend=self.payment_backend, fiscal_backend=self.fiscal_backend,
+                fiscal_backend=self.fiscal_backend,
             )
         except Exception:
             logger.exception("ReturnHandler: Failed to process refund for order=%s", order_ref)

@@ -24,7 +24,7 @@ def check_and_alert(sku: str | None = None) -> int:
     Returns count of new OperatorAlerts created.
     """
     try:
-        from shopman.stocking.services.alerts import check_alerts
+        from shopman.stockman.services.alerts import check_alerts
     except ImportError:
         return 0
 

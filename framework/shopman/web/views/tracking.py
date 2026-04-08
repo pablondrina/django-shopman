@@ -8,7 +8,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 
-from shopman.ordering.models import Order
+from shopman.omniman.models import Order
 from shopman.utils.monetary import format_money
 
 from ..cart import CartService
@@ -275,7 +275,7 @@ class ReorderView(View):
     """POST: re-add all items from a past order to the cart."""
 
     def post(self, request: HttpRequest, ref: str) -> HttpResponse:
-        from shopman.offering.models import Product
+        from shopman.offerman.models import Product
         from shopman.web.cart import CartUnavailableError
 
         order = get_object_or_404(Order, ref=ref)

@@ -26,7 +26,7 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["shopman.stocking*"]
+include = ["shopman.stockman*"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "stocking_test_settings"

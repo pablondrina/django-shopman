@@ -25,7 +25,7 @@ def get_authenticated_customer(request: HttpRequest):
     if customer_info is None:
         return None
 
-    from shopman.customers.services import customer as customer_service
+    from shopman.guestman.services import customer as customer_service
 
     return customer_service.get_by_uuid(customer_info.uuid)
 
@@ -62,7 +62,7 @@ class LoginView(View):
         if step == "post-login":
             phone = request.session.get("login_phone", "")
             if phone:
-                from shopman.customers.services import customer as customer_service
+                from shopman.guestman.services import customer as customer_service
 
                 customer = customer_service.get_by_phone(phone)
                 if customer and customer.first_name:
@@ -135,13 +135,13 @@ class LoginView(View):
             })
 
         # Check if customer exists
-        from shopman.customers.services import customer as customer_service
+        from shopman.guestman.services import customer as customer_service
 
         customer = customer_service.get_by_phone(phone)
 
         # Send OTP code
         if HAS_AUTH:
-            from shopman.auth.services.verification import AuthService
+            from shopman.doorman.services.verification import AuthService
 
             result = AuthService.request_code(
                 target_value=phone,
@@ -194,7 +194,7 @@ class LoginView(View):
             })
 
         # Update customer name
-        from shopman.customers.services import customer as customer_service
+        from shopman.guestman.services import customer as customer_service
 
         customer_obj = customer_service.get_by_phone(phone)
         if customer_obj and not customer_obj.first_name:
@@ -225,7 +225,7 @@ class CustomerLookupView(View):
         customer_info = getattr(request, "customer", None)
         is_verified = customer_info is not None and customer_info.phone == phone
 
-        from shopman.customers.services import customer as customer_service
+        from shopman.guestman.services import customer as customer_service
 
         customer = customer_service.get_by_phone(phone)
         if not customer:
@@ -288,7 +288,7 @@ class RequestCodeView(View):
                 "error_message": "Telefone inválido.",
             })
 
-        from shopman.auth.services.verification import AuthService
+        from shopman.doorman.services.verification import AuthService
 
         ip = request.META.get("REMOTE_ADDR")
         result = AuthService.request_code(
@@ -347,7 +347,7 @@ class VerifyCodeView(View):
                 "error_message": "Telefone inválido.",
             })
 
-        from shopman.auth.services.verification import AuthService
+        from shopman.doorman.services.verification import AuthService
 
         result = AuthService.verify_for_login(
             target_value=phone,
@@ -377,7 +377,7 @@ class VerifyCodeView(View):
             "phone": phone,
         })
 
-        from shopman.auth.services.device_trust import DeviceTrustService
+        from shopman.doorman.services.device_trust import DeviceTrustService
 
         DeviceTrustService.trust_device(
             response=response,
@@ -399,8 +399,8 @@ class AccessLinkLoginView(View):
         if not HAS_AUTH:
             return redirect("/")
 
-        from shopman.auth.services.access_link import AccessLinkService
-        from shopman.auth.utils import safe_redirect_url
+        from shopman.doorman.services.access_link import AccessLinkService
+        from shopman.doorman.utils import safe_redirect_url
 
         result = AccessLinkService.exchange(
             token_str=token,
@@ -441,20 +441,20 @@ class DeviceCheckLoginView(View):
             logger.warning("Phone normalization failed in device check", extra={"phone_raw": phone_raw})
             return JsonResponse({"trusted": False})
 
-        from shopman.customers.services import customer as customer_service
+        from shopman.guestman.services import customer as customer_service
 
         customer = customer_service.get_by_phone(phone)
         if not customer:
             return JsonResponse({"trusted": False})
 
-        from shopman.auth.services.device_trust import DeviceTrustService
+        from shopman.doorman.services.device_trust import DeviceTrustService
 
         if DeviceTrustService.check_device_trust(request, customer.uuid):
             # Django login
             from django.contrib.auth import login
 
-            from shopman.auth.protocols.customer import AuthCustomerInfo
-            from shopman.auth.services._user_bridge import get_or_create_user_for_customer
+            from shopman.doorman.protocols.customer import AuthCustomerInfo
+            from shopman.doorman.services._user_bridge import get_or_create_user_for_customer
 
             customer_info = AuthCustomerInfo(
                 uuid=customer.uuid,
@@ -464,7 +464,7 @@ class DeviceCheckLoginView(View):
                 is_active=True,
             )
             user, _ = get_or_create_user_for_customer(customer_info)
-            login(request, user, backend="shopman.auth.backends.PhoneOTPBackend")
+            login(request, user, backend="shopman.doorman.backends.PhoneOTPBackend")
 
             return JsonResponse({"trusted": True, "name": customer.name})
 

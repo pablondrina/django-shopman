@@ -18,15 +18,15 @@ packages/               8 apps pip-instaláveis (sem dependência entre si)
 framework/              Orquestrador (app único: shopman/)  [django-shopman]
 ├── shopman/            Orquestração — Flows, Services, Adapters, Rules
 │   ├── flows.py        BaseFlow → Local/Remote/Marketplace + dispatch()
-│   ├── services/       11 services (stock, payment, customer, checkout, pricing, etc.)
-│   ├── adapters/       8 adapters (payment_efi, payment_stripe, notification_*, stock_internal, etc.)
+│   ├── services/       services (availability, alternatives, stock, payment, customer, checkout, pricing, etc.)
+│   ├── adapters/       adapters (stock, payment_efi, payment_stripe, notification_*, etc.)
 │   ├── rules/          engine.py, pricing.py, validation.py — regras configuráveis via admin
 │   ├── models/         Shop, Promotion, Coupon, RuleConfig, OperatorAlert, KDS*, DayClosing
-│   ├── handlers/       16 directive handlers (stock, payment, notification, fulfillment, etc.)
-│   ├── backends/       16 backends (stock, payment_*, notification_*, pricing, etc.)
+│   ├── handlers/       directive handlers (notification, fulfillment, fiscal, loyalty, returns, etc.)
+│   ├── backends/       backends remanescentes (notification_*, pricing, fiscal/accounting mock)
 │   ├── setup.py        register_all() — registro centralizado de handlers
 │   ├── config.py       ChannelConfig dataclass (7 aspectos)
-│   ├── protocols.py    Contratos (StockBackend, NotificationBackend, etc.)
+│   ├── protocols.py    Contratos (NotificationBackend, CustomerBackend, etc. — Stock é módulo)
 │   ├── topics.py       Constantes de tópicos de directives
 │   ├── notifications.py Registry + dispatch de notificações
 │   ├── confirmation.py Helpers de confirmação

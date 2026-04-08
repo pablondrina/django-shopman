@@ -1,7 +1,7 @@
 """
 Django settings for Stocking tests.
 
-Minimal settings to run pytest with shopman.stocking app.
+Minimal settings to run pytest with shopman.stockman app.
 """
 
 SECRET_KEY = "test-secret-key-for-stocking-tests"
@@ -14,12 +14,12 @@ INSTALLED_APPS = [
     "taggit",
     "simple_history",
     "rest_framework",
-    "shopman.offering",
-    "shopman.stocking",
-    "shopman.stocking.contrib.alerts",
+    "shopman.offerman",
+    "shopman.stockman",
+    "shopman.stockman.contrib.alerts",
 ]
 
-ROOT_URLCONF = "shopman.stocking.tests.urls"
+ROOT_URLCONF = "shopman.stockman.tests.urls"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

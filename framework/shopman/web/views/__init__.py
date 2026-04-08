@@ -37,7 +37,7 @@ from .cart import (
     RemoveCouponView,
     UpdateCartItemView,
 )
-from .catalog import CartAlternativesView, ConservacaoView, MenuSearchView, MenuView, ProductDetailView
+from .catalog import CartAlternativesView, DicasView, MenuSearchView, MenuView, ProductDetailView
 from .checkout import (
     CepLookupView,
     CheckoutOrderSummaryView,
@@ -83,7 +83,7 @@ from .tracking import OrderCancelView, OrderStatusPartialView, OrderTrackingView
 __all__ = [
     "BridgeTokenView",
     "CartAlternativesView",
-    "ConservacaoView",
+    "DicasView",
     "HomeView",
     "AccountDeleteView",
     "AccountView",

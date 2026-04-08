@@ -20,7 +20,7 @@ def dispatch_to_kds(order) -> list:
     Returns list of created KDSTicket instances.
     """
     from shopman.models import KDSInstance, KDSTicket
-    from shopman.offering.models import CollectionItem
+    from shopman.offerman.models import CollectionItem
 
     # 1. Get all active KDS instances (exclude expedition — it's query-based)
     instances = list(
@@ -49,7 +49,7 @@ def dispatch_to_kds(order) -> list:
 
     # 4. Bulk-query recipes: set of SKUs that need prep
     try:
-        from shopman.crafting.models import Recipe
+        from shopman.craftsman.models import Recipe
 
         prep_skus = set(
             Recipe.objects.filter(output_ref__in=skus, is_active=True)

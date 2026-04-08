@@ -25,7 +25,7 @@ def create_intent(order_ref: str, amount_q: int, method: str = "pix", **config) 
         {"intent_ref": str, "status": str, "client_secret": str,
          "expires_at": datetime, "gateway_id": str}
     """
-    from shopman.payments import PaymentService
+    from shopman.payman import PaymentService
 
     pix_timeout = config.get("pix_timeout_minutes", 30)
     expires_at = timezone.now() + timedelta(minutes=pix_timeout)
@@ -84,7 +84,7 @@ def capture(intent_ref: str, amount_q: int | None = None, **config) -> dict:
         {"success": bool, "transaction_id": str | None, "amount_q": int | None,
          "error_code": str | None, "message": str | None}
     """
-    from shopman.payments import PaymentError, PaymentService
+    from shopman.payman import PaymentError, PaymentService
 
     try:
         txn = PaymentService.capture(intent_ref, amount_q=amount_q)
@@ -113,7 +113,7 @@ def refund(intent_ref: str, amount_q: int | None = None, **config) -> dict:
         {"success": bool, "refund_id": str | None, "amount_q": int | None,
          "error_code": str | None, "message": str | None}
     """
-    from shopman.payments import PaymentError, PaymentService
+    from shopman.payman import PaymentError, PaymentService
 
     try:
         txn = PaymentService.refund(
@@ -145,7 +145,7 @@ def cancel(intent_ref: str, **config) -> dict:
     Returns:
         {"success": bool, "error_code": str | None, "message": str | None}
     """
-    from shopman.payments import PaymentError, PaymentService
+    from shopman.payman import PaymentError, PaymentService
 
     try:
         PaymentService.cancel(intent_ref)
@@ -162,7 +162,7 @@ def get_status(intent_ref: str, **config) -> dict:
         {"intent_ref": str, "status": str, "amount_q": int,
          "captured_q": int, "refunded_q": int, "currency": str}
     """
-    from shopman.payments import PaymentError, PaymentService
+    from shopman.payman import PaymentError, PaymentService
 
     try:
         intent = PaymentService.get(intent_ref)

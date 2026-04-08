@@ -26,7 +26,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from shopman.ordering.models import Directive, Order
+from shopman.omniman.models import Directive, Order
 from shopman.services import (
     availability,
     customer,

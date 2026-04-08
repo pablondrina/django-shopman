@@ -3,20 +3,77 @@ function gestorPedidos() {
     filter: sessionStorage.getItem('gestor_filter') || 'all',
     soundEnabled: sessionStorage.getItem('gestor_sound') !== 'false',
     previousCount: 0,
+    orderCount: 0,
     clock: '',
+    isFullscreen: false,
 
     init() {
-      this.previousCount = document.querySelectorAll('[data-order-card]').length;
+      this.syncState();
+      this.updateClock();
+      setInterval(() => this.updateClock(), 1000);
 
+      /* Track fullscreen state */
+      var self = this;
+      document.addEventListener('fullscreenchange', function() {
+        self.isFullscreen = !!document.fullscreenElement;
+      });
+
+      /* Pause polling when any card is being interacted with */
+      var grid = document.getElementById('order-grid');
+      if (grid) {
+        grid.addEventListener('htmx:beforeRequest', function(e) {
+          var cards = document.querySelectorAll('[data-order-card]');
+          var hasInteraction = false;
+          cards.forEach(function(card) {
+            try {
+              var d = Alpine.$data(card);
+              if (d && (d.expanded || d.rejectMode || d.confirming)) hasInteraction = true;
+            } catch (ex) {}
+          });
+          if (hasInteraction) {
+            e.preventDefault();
+          }
+        });
+      }
+
+      /* On HTMX swap: count orders, play sound for new ones */
       document.addEventListener('htmx:afterSwap', (e) => {
         if (e.detail.target.id === 'order-grid') {
-          var newCount = e.detail.target.querySelectorAll('[data-order-card]').length;
-          if (newCount > this.previousCount && this.soundEnabled) {
-            this.playSound();
-          }
-          this.previousCount = newCount;
+          this.syncState();
         }
       });
+    },
+
+    syncState() {
+      var grid = document.getElementById('order-grid');
+      if (!grid) return;
+
+      var cards = grid.querySelectorAll('[data-order-card]');
+      var newCount = cards.length;
+
+      if (newCount > this.previousCount && this.soundEnabled) {
+        this.playSound('new');
+      }
+
+      /* Check for orders waiting too long (>4min without confirmation) */
+      if (this.soundEnabled) {
+        var hasUrgent = false;
+        cards.forEach(function(el) {
+          var timer = el.querySelector('.timer-urgent');
+          if (timer) hasUrgent = true;
+        });
+        if (hasUrgent) {
+          this.playSound('urgent');
+        }
+      }
+
+      this.previousCount = newCount;
+      this.orderCount = newCount;
+    },
+
+    updateClock() {
+      var now = new Date();
+      this.clock = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
     },
 
     setFilter(f) {
@@ -30,27 +87,40 @@ function gestorPedidos() {
       sessionStorage.setItem('gestor_sound', this.soundEnabled ? 'true' : 'false');
     },
 
-    playSound() {
+    playSound(type) {
       try {
         var ctx = new (window.AudioContext || window.webkitAudioContext)();
         var osc = ctx.createOscillator();
         var gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
-        osc.frequency.value = 880;
-        osc.type = 'sine';
-        gain.gain.value = 0.3;
-        osc.start();
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-        osc.stop(ctx.currentTime + 0.3);
+
+        if (type === 'urgent') {
+          /* Two-tone alert for overdue orders */
+          osc.frequency.value = 880;
+          osc.type = 'square';
+          gain.gain.value = 0.25;
+          osc.start();
+          osc.frequency.setValueAtTime(660, ctx.currentTime + 0.15);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+          osc.stop(ctx.currentTime + 0.35);
+        } else {
+          /* Single tone for new orders */
+          osc.frequency.value = 1046;
+          osc.type = 'sine';
+          gain.gain.value = 0.35;
+          osc.start();
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+          osc.stop(ctx.currentTime + 0.2);
+        }
       } catch (e) {}
     },
 
     toggleFullscreen() {
       if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
+        document.documentElement.requestFullscreen().catch(function() {});
       } else {
-        document.exitFullscreen();
+        document.exitFullscreen().catch(function() {});
       }
     }
   }

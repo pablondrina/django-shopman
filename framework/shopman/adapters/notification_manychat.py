@@ -20,16 +20,24 @@ MESSAGE_TEMPLATES: dict[str, str] = {
         "Ola{customer_name_greeting}! Seu pedido {order_ref} foi confirmado."
         " Total: {total}. Obrigado pela preferencia! \U0001f950"
     ),
-    "order_ready": (
-        "Ola{customer_name_greeting}! Seu pedido {order_ref} esta pronto! \U0001f389"
+    "order_ready_pickup": (
+        "Ola{customer_name_greeting}! Seu pedido {order_ref} esta pronto"
+        " para retirada! \U0001f389\n\nVenha buscar. Obrigado!"
     ),
-    "order_dispatched": "Seu pedido {order_ref} saiu para entrega! \U0001f697",
-    "order_delivered": "Pedido {order_ref} entregue. Obrigado! \u2b50",
+    "order_ready_delivery": (
+        "Ola{customer_name_greeting}! Seu pedido {order_ref} esta pronto"
+        " e sera enviado em breve! \U0001f4e6"
+    ),
+    "order_dispatched": (
+        "Ola{customer_name_greeting}! Seu pedido {order_ref} saiu para"
+        " entrega! \U0001f697"
+    ),
+    "order_delivered": "Pedido {order_ref} entregue. Obrigado pela preferencia! \u2b50",
     "order_cancelled": (
         "Seu pedido {order_ref} foi cancelado. Qualquer duvida, estamos aqui."
     ),
     "payment_confirmed": (
-        "Ola{customer_name_greeting}! Pagamento do pedido {order_ref} confirmado!"
+        "Ola{customer_name_greeting}! Pagamento do pedido {order_ref} confirmado! \u2705"
     ),
     "payment_reminder": (
         "Ola{customer_name_greeting}! Seu pedido {order_ref} aguarda"

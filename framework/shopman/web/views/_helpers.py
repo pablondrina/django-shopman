@@ -6,7 +6,7 @@ from datetime import time
 from django.http import HttpRequest
 from django.utils import timezone
 
-from shopman.offering.models import ListingItem, Product
+from shopman.offerman.models import ListingItem, Product
 from shopman.utils.monetary import format_money
 
 from ..constants import HAS_STOCKING, STOREFRONT_CHANNEL_REF
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 def _get_channel_listing_ref() -> str | None:
     """Ref da Listagem do canal web (`Channel.listing_ref`) — catálogo e preço ofertados."""
     try:
-        from shopman.ordering.models import Channel
+        from shopman.omniman.models import Channel
 
         channel = Channel.objects.filter(ref=STOREFRONT_CHANNEL_REF).first()
         return channel.listing_ref if channel else None
@@ -59,7 +59,7 @@ def _get_availability(sku: str) -> dict | None:
     if not HAS_STOCKING:
         return None
     try:
-        from shopman.stocking.services.availability import (
+        from shopman.stockman.services.availability import (
             availability_for_sku,
             availability_scope_for_channel,
         )
@@ -150,7 +150,7 @@ def _storefront_session_pricing_hints(request: HttpRequest | None) -> tuple[str,
     if request is None:
         return "", 0
     try:
-        from shopman.ordering.models import Channel, Session
+        from shopman.omniman.models import Channel, Session
 
         key = request.session.get("cart_session_key")
         if not key:
@@ -259,7 +259,7 @@ def _annotate_products(
     if fulfillment_type is None:
         fulfillment_type = ""
 
-    from shopman.offering.models import CollectionItem
+    from shopman.offerman.models import CollectionItem
 
     skus = [p.sku for p in products]
 
@@ -288,7 +288,7 @@ def _annotate_products(
     avail_map: dict[str, dict | None] = {}
     if HAS_STOCKING:
         try:
-            from shopman.stocking.services.availability import (
+            from shopman.stockman.services.availability import (
                 availability_for_skus,
                 availability_scope_for_channel,
             )
@@ -517,7 +517,7 @@ def _collection_icon(slug: str) -> str:
 def _popular_skus(limit: int = 5) -> set[str]:
     """Aggregate favorite SKUs across all customer insights."""
     try:
-        from shopman.customers.contrib.insights.models import CustomerInsight
+        from shopman.guestman.contrib.insights.models import CustomerInsight
 
         insights = CustomerInsight.objects.exclude(favorite_products=[]).values_list(
             "favorite_products", flat=True
@@ -562,7 +562,7 @@ def _hero_data(listing_ref: str | None = None, request: HttpRequest | None = Non
 
         if promo and promo.skus:
             # Feature the first SKU of the promotion
-            from shopman.offering.models import Product as Prod
+            from shopman.offerman.models import Product as Prod
 
             product = Prod.objects.filter(sku=promo.skus[0], is_published=True).first()
             if product:
@@ -573,7 +573,7 @@ def _hero_data(listing_ref: str | None = None, request: HttpRequest | None = Non
                     discount_label = f"R$ {format_money(promo.value)} OFF"
                 cols: list[str] = []
                 try:
-                    from shopman.offering.models import CollectionItem
+                    from shopman.offerman.models import CollectionItem
 
                     cols = list(
                         CollectionItem.objects.filter(product=product).values_list(
@@ -605,7 +605,7 @@ def _hero_data(listing_ref: str | None = None, request: HttpRequest | None = Non
         # Fallback: most popular product
         popular = _popular_skus(limit=1)
         if popular:
-            from shopman.offering.models import Product as Prod
+            from shopman.offerman.models import Product as Prod
 
             sku = next(iter(popular))
             product = Prod.objects.filter(sku=sku, is_published=True).first()
@@ -634,7 +634,7 @@ def _min_order_progress(subtotal_q: int, channel_ref: str = STOREFRONT_CHANNEL_R
     MINIMUM_ORDER_Q = 1000  # R$ 10,00 default
     minimum_q = 0
     try:
-        from shopman.ordering.models import Channel
+        from shopman.omniman.models import Channel
 
         channel = Channel.objects.filter(ref=channel_ref).first()
         if channel and channel.config:
@@ -681,7 +681,7 @@ def _upsell_suggestion(cart_skus: set[str], listing_ref: str | None = None) -> d
     if not candidates:
         return None
 
-    from shopman.offering.models import Product as Prod
+    from shopman.offerman.models import Product as Prod
 
     for sku in candidates:
         product = Prod.objects.filter(sku=sku, is_published=True, is_available=True).first()
@@ -708,8 +708,8 @@ def _cross_sell_products(
     Returns annotated product dicts.
     """
     try:
-        from shopman.customers.contrib.insights.models import CustomerInsight
-        from shopman.offering.models import Product as Prod
+        from shopman.guestman.contrib.insights.models import CustomerInsight
+        from shopman.offerman.models import Product as Prod
 
         # Find customers who have this SKU in favorites
         insights = CustomerInsight.objects.filter(

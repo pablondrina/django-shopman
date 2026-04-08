@@ -104,7 +104,7 @@ class DeliveryZoneRule:
     default_params = {}
 
     def validate(self, *, channel: Any, session: Any, ctx: dict) -> None:
-        from shopman.ordering.exceptions import ValidationError as OrderingValidationError
+        from shopman.omniman.exceptions import ValidationError as OrderingValidationError
 
         session_data = getattr(session, "data", None) or {}
         fulfillment_type = session_data.get("fulfillment_type", "")

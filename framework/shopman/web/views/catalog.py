@@ -12,8 +12,8 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 
 logger = logging.getLogger(__name__)
 
-from shopman.offering.models import Collection, Product
-from shopman.offering.service import CatalogService
+from shopman.offerman.models import Collection, Product
+from shopman.offerman.service import CatalogService
 from shopman.utils.monetary import format_money
 
 from ._helpers import (
@@ -267,7 +267,7 @@ class ProductDetailView(View):
         ft_hint, sub_hint = _storefront_session_pricing_hints(request)
         if base_price_q:
             try:
-                from shopman.offering.models import CollectionItem
+                from shopman.offerman.models import CollectionItem
 
                 cols = list(
                     CollectionItem.objects.filter(product=product).values_list(
@@ -319,7 +319,7 @@ class ProductDetailView(View):
         # Breadcrumb: find first collection for this product
         breadcrumb_collection = None
         try:
-            from shopman.offering.models import CollectionItem
+            from shopman.offerman.models import CollectionItem
 
             ci = CollectionItem.objects.filter(product=product).select_related("collection").first()
             if ci and ci.collection.is_active:

@@ -4,8 +4,8 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views import View
 
-from shopman.offering.models import Collection, Product
-from shopman.ordering.models import Order
+from shopman.offerman.models import Collection, Product
+from shopman.omniman.models import Order
 from shopman.utils.monetary import format_money
 
 from .auth import get_authenticated_customer

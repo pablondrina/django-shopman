@@ -17,10 +17,10 @@ from django.template.response import TemplateResponse
 from django.urls import reverse
 
 from shopman.models import DayClosing
-from shopman.offering.models import Product
-from shopman.stocking.models import Move, Quant
-from shopman.stocking.models.position import Position
-from shopman.stocking.services.movements import StockMovements
+from shopman.offerman.models import Product
+from shopman.stockman.models import Move, Quant
+from shopman.stockman.models.position import Position
+from shopman.stockman.services.movements import StockMovements
 
 logger = logging.getLogger(__name__)
 

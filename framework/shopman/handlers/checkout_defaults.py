@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 
-from shopman.ordering.models import Directive
+from shopman.omniman.models import Directive
 from shopman.topics import CHECKOUT_INFER_DEFAULTS
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ class CheckoutInferDefaultsHandler:
     topic = CHECKOUT_INFER_DEFAULTS
 
     def handle(self, *, message: Directive, ctx: dict) -> None:
-        from shopman.ordering.models import Order
+        from shopman.omniman.models import Order
 
         payload = message.payload
         order_ref = payload.get("order_ref")

@@ -12,7 +12,7 @@ def _make_shop():
 
 
 def _make_channel():
-    from shopman.ordering.models import Channel
+    from shopman.omniman.models import Channel
     return Channel.objects.get_or_create(
         ref="balcao",
         defaults={"name": "Balcão", "pricing_policy": "fixed", "edit_policy": "open", "config": {}, "is_active": True},

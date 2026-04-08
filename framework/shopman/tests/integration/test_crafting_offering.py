@@ -15,8 +15,8 @@ from decimal import Decimal
 
 import pytest
 
-from shopman.crafting.models import Recipe, RecipeItem, WorkOrder
-from shopman.offering.models import Product, ProductComponent
+from shopman.craftsman.models import Recipe, RecipeItem, WorkOrder
+from shopman.offerman.models import Product, ProductComponent
 
 pytestmark = pytest.mark.django_db
 
@@ -42,7 +42,7 @@ class TestRecipeProductRelationship:
 
     def test_recipe_for_hidden_product(self, db, collection):
         """Recipe can reference hidden (unpublished) products."""
-        from shopman.offering.models import CollectionItem
+        from shopman.offerman.models import CollectionItem
 
         hidden = Product.objects.create(
             sku="HIDDEN-PROD",
@@ -67,7 +67,7 @@ class TestRecipeProductRelationship:
 
     def test_recipe_for_unavailable_product(self, db, collection):
         """Recipe can reference paused (unavailable) products."""
-        from shopman.offering.models import CollectionItem
+        from shopman.offerman.models import CollectionItem
 
         paused = Product.objects.create(
             sku="PAUSED-PROD",
@@ -113,7 +113,7 @@ class TestRecipeIngredients:
 
     def test_recipe_with_multiple_ingredients(self, db, collection, croissant):
         """Recipe can have multiple ingredients."""
-        from shopman.offering.models import CollectionItem
+        from shopman.offerman.models import CollectionItem
 
         # Create additional ingredients
         butter = Product.objects.create(
@@ -166,7 +166,7 @@ class TestRecipeIngredients:
 
     def test_ingredient_cost_calculation(self, db, collection, croissant):
         """Calculate recipe cost from ingredient prices."""
-        from shopman.offering.models import CollectionItem
+        from shopman.offerman.models import CollectionItem
 
         flour = Product.objects.create(
             sku="FARINHA-CUSTO",
@@ -234,7 +234,7 @@ class TestBundleProduction:
 
     def test_bundle_product_recipe(self, db, collection, croissant):
         """Recipe can produce bundle products."""
-        from shopman.offering.models import CollectionItem
+        from shopman.offerman.models import CollectionItem
 
         coffee = Product.objects.create(
             sku="ESPRESSO",

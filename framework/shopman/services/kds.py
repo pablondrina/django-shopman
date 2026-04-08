@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 
-from shopman.ordering.models import Order
+from shopman.omniman.models import Order
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def dispatch(order) -> list:
     SYNC — tickets must be ready for the KDS display.
     """
     from shopman.models import KDSInstance, KDSTicket
-    from shopman.offering.models import CollectionItem
+    from shopman.offerman.models import CollectionItem
 
     # Idempotent check
     if KDSTicket.objects.filter(order=order).exists():
@@ -181,7 +181,7 @@ def on_all_tickets_done(order) -> bool:
 def _get_prep_skus(skus: list[str]) -> set[str]:
     """Get set of SKUs that have active recipes (need prep)."""
     try:
-        from shopman.crafting.models import Recipe
+        from shopman.craftsman.models import Recipe
         return set(
             Recipe.objects.filter(output_ref__in=skus, is_active=True)
             .values_list("output_ref", flat=True)

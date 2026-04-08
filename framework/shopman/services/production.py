@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 
-from shopman.crafting.models import WorkOrder
+from shopman.craftsman.models import WorkOrder
 
 logger = logging.getLogger(__name__)
 

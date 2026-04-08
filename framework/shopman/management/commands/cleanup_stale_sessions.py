@@ -40,7 +40,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         from django.db.models import Exists, OuterRef
 
-        from shopman.ordering.models import Order, Session
+        from shopman.omniman.models import Order, Session
 
         hours = options["hours"]
         dry_run = options["dry_run"]

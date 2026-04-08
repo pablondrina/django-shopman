@@ -5,12 +5,38 @@ from decimal import Decimal
 
 from django.http import HttpRequest
 
-from shopman.ordering.ids import generate_session_key
-from shopman.ordering.models import Channel, Session
-from shopman.ordering.services.modify import ModifyService
+from shopman.omniman.ids import generate_session_key
+from shopman.omniman.models import Channel, Session
+from shopman.omniman.services.modify import ModifyService
+from shopman.services import availability
 from shopman.utils.monetary import format_money
 
 CHANNEL_REF = "web"
+
+
+class CartUnavailableError(Exception):
+    """Raised by CartService.add_item when stock is insufficient.
+
+    Carries the available quantity and alternative suggestions so the view
+    layer can render a meaningful response (modal with alternatives).
+    """
+
+    def __init__(
+        self,
+        sku: str,
+        requested_qty: int,
+        available_qty: int,
+        is_paused: bool,
+        alternatives: list[dict],
+        error_code: str,
+    ):
+        super().__init__(f"unavailable: sku={sku} qty={requested_qty} avail={available_qty}")
+        self.sku = sku
+        self.requested_qty = requested_qty
+        self.available_qty = available_qty
+        self.is_paused = is_paused
+        self.alternatives = alternatives
+        self.error_code = error_code
 
 
 class CartService:
@@ -67,11 +93,37 @@ class CartService:
 
         ``is_d1`` deve refletir a mesma regra da vitrine (estoque só D-1): assim o
         D1DiscountModifier aplica e o DiscountModifier não empilha promoção automática.
+
+        Inline availability check + hold creation: calls services.availability.reserve()
+        BEFORE ModifyService.modify_session(). On shortage, raises CartUnavailableError
+        with alternatives populated so the caller can render a "no stock" UI.
+
+        For merges (existing line), checks availability for the *additional* qty only
+        and adopts an additional hold tagged with the same session_key.
         """
         session, session_key = CartService._get_or_create_session(request)
 
-        # Merge: if SKU already in cart, increment qty instead of adding new line
+        # Determine the qty we actually need to reserve in this call.
         existing = next((item for item in session.items if item.get("sku") == sku), None)
+        delta_qty = qty  # qty to reserve = qty being added in this request
+
+        result = availability.reserve(
+            sku,
+            Decimal(str(delta_qty)),
+            session_key=session_key,
+            channel_ref=CHANNEL_REF,
+        )
+        if not result["ok"]:
+            raise CartUnavailableError(
+                sku=sku,
+                requested_qty=delta_qty,
+                available_qty=int(result["available_qty"]),
+                is_paused=result["is_paused"],
+                alternatives=result["alternatives"],
+                error_code=result["error_code"],
+            )
+
+        # Merge: if SKU already in cart, increment qty instead of adding new line
         if existing:
             new_qty = int(Decimal(str(existing["qty"]))) + qty
             return ModifyService.modify_session(
@@ -148,7 +200,7 @@ class CartService:
         count = sum(int(Decimal(str(item.get("qty", 0)))) for item in items)
 
         # Enrich items with product name and display info
-        from shopman.offering.models import Product
+        from shopman.offerman.models import Product
 
         skus = [item.get("sku", "") for item in items]
         products_by_sku = {
@@ -161,7 +213,7 @@ class CartService:
         try:
             from shopman.web.constants import HAS_STOCKING, STOREFRONT_CHANNEL_REF
             if HAS_STOCKING:
-                from shopman.stocking.services.availability import (
+                from shopman.stockman.services.availability import (
                     availability_for_skus,
                     availability_scope_for_channel,
                 )

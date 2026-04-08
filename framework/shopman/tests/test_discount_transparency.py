@@ -14,10 +14,10 @@ from decimal import Decimal
 
 from django.test import TestCase
 
-from shopman.offering.models import Product
-from shopman.ordering.ids import generate_session_key
-from shopman.ordering.models import Channel, Session
-from shopman.ordering.services.modify import ModifyService
+from shopman.offerman.models import Product
+from shopman.omniman.ids import generate_session_key
+from shopman.omniman.models import Channel, Session
+from shopman.omniman.services.modify import ModifyService
 
 
 def _make_session_with_pricing(sku: str, qty: int, unit_price_q: int, pricing_extra: dict | None = None) -> Session:

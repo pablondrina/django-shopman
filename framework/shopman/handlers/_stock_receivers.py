@@ -17,9 +17,9 @@ def on_production_voided(sender, product_ref, date, action, work_order, **kwargs
         return
 
     try:
-        from shopman.stocking.models import Hold
-        from shopman.stocking.models.enums import HoldStatus
-        from shopman.stocking.service import Stock as stock
+        from shopman.stockman.models import Hold
+        from shopman.stockman.models.enums import HoldStatus
+        from shopman.stockman.service import Stock as stock
     except ImportError:
         return
 
@@ -45,7 +45,7 @@ def on_production_voided(sender, product_ref, date, action, work_order, **kwargs
 
     # Notify fermata sessions
     try:
-        from shopman.ordering.models import Directive, Session
+        from shopman.omniman.models import Directive, Session
 
         sessions = Session.objects.filter(
             session_key__in=session_keys, state="open",
@@ -78,7 +78,7 @@ def on_holds_materialized(sender, hold_ids, sku, target_date, **kwargs):
     if not hold_ids:
         return
 
-    from shopman.stocking.models import Hold
+    from shopman.stockman.models import Hold
 
     session_keys = set()
     for hold_id in hold_ids:
@@ -94,7 +94,7 @@ def on_holds_materialized(sender, hold_ids, sku, target_date, **kwargs):
     if not session_keys:
         return
 
-    from shopman.ordering.models import Session
+    from shopman.omniman.models import Session
 
     sessions = Session.objects.filter(
         session_key__in=session_keys, state="open",
@@ -120,7 +120,7 @@ def on_holds_materialized(sender, hold_ids, sku, target_date, **kwargs):
 
 
 def _all_holds_materialized(check_result: dict) -> bool:
-    from shopman.stocking.models import Hold
+    from shopman.stockman.models import Hold
 
     planned_holds = [h for h in check_result.get("holds", []) if h.get("is_planned")]
     if not planned_holds:
@@ -142,7 +142,7 @@ def _all_holds_materialized(check_result: dict) -> bool:
 
 
 def _auto_commit_session(session):
-    from shopman.ordering.services.commit import CommitService
+    from shopman.omniman.services.commit import CommitService
 
     idempotency_key = f"auto-commit-{session.session_key}-{uuid.uuid4().hex[:8]}"
 

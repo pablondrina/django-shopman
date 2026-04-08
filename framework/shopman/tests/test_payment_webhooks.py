@@ -18,11 +18,11 @@ from unittest.mock import MagicMock, patch
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
-from shopman.ordering.models import Channel, Order, Session
-from shopman.ordering.ids import generate_session_key, generate_idempotency_key
-from shopman.ordering.services.commit import CommitService
-from shopman.ordering.services.modify import ModifyService
-from shopman.payments import PaymentService
+from shopman.omniman.models import Channel, Order, Session
+from shopman.omniman.ids import generate_session_key, generate_idempotency_key
+from shopman.omniman.services.commit import CommitService
+from shopman.omniman.services.modify import ModifyService
+from shopman.payman import PaymentService
 
 STRIPE_SETTINGS = {
     "SECRET_KEY": "sk_test_fake",

@@ -18,7 +18,7 @@ pytestmark = pytest.mark.django_db
 
 
 def _setup_channel():
-    from shopman.ordering.models import Channel
+    from shopman.omniman.models import Channel
     return Channel.objects.get_or_create(
         ref="web",
         defaults={
@@ -32,7 +32,7 @@ def _setup_channel():
 
 
 def _setup_product():
-    from shopman.offering.models import Product
+    from shopman.offerman.models import Product
     return Product.objects.get_or_create(
         sku="DEFAULT-SKU",
         defaults={
@@ -50,8 +50,8 @@ def _add_to_cart(client):
 
 
 def _login_as_customer(client, customer):
-    from shopman.auth.protocols.customer import AuthCustomerInfo
-    from shopman.auth.services._user_bridge import get_or_create_user_for_customer
+    from shopman.doorman.protocols.customer import AuthCustomerInfo
+    from shopman.doorman.services._user_bridge import get_or_create_user_for_customer
 
     info = AuthCustomerInfo(
         uuid=customer.uuid,
@@ -61,7 +61,7 @@ def _login_as_customer(client, customer):
         is_active=True,
     )
     user, _ = get_or_create_user_for_customer(info)
-    client.force_login(user, backend="shopman.auth.backends.PhoneOTPBackend")
+    client.force_login(user, backend="shopman.doorman.backends.PhoneOTPBackend")
     return user
 
 
@@ -77,7 +77,7 @@ class TestCheckoutDefaultsContext:
 
     def test_new_customer_gets_empty_defaults(self, client: Client):
         """Customer with no prior orders sees empty checkout_defaults."""
-        from shopman.customers.models import Customer
+        from shopman.guestman.models import Customer
 
         customer = Customer.objects.create(
             first_name="New",
@@ -96,7 +96,7 @@ class TestCheckoutDefaultsContext:
 
     def test_returning_customer_gets_defaults(self, client: Client):
         """Customer with saved defaults sees them in checkout context."""
-        from shopman.customers.models import Customer
+        from shopman.guestman.models import Customer
 
         customer = Customer.objects.create(
             first_name="Returning",
@@ -120,7 +120,7 @@ class TestCheckoutDefaultsContext:
 
     def test_checkout_defaults_service_called_with_customer_ref(self, client: Client):
         """CheckoutDefaultsService.get_defaults is called with the right customer ref."""
-        from shopman.customers.models import Customer
+        from shopman.guestman.models import Customer
 
         customer = Customer.objects.create(
             first_name="Test",
@@ -143,7 +143,7 @@ class TestCheckoutDefaultsContext:
 
     def test_defaults_failure_does_not_break_checkout(self, client: Client):
         """If get_defaults raises, checkout still renders with empty defaults."""
-        from shopman.customers.models import Customer
+        from shopman.guestman.models import Customer
 
         customer = Customer.objects.create(
             first_name="Error",

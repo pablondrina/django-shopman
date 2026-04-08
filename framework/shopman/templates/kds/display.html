@@ -5,29 +5,40 @@
 <div x-data="kdsDisplay()" x-init="init()">
 
   <header class="kds-header">
-    <div style="display: flex; align-items: center; gap: 0.75rem;">
-      <a href="/kds/" style="color: var(--kds-text-muted); text-decoration: none; font-size: 1.25rem;" title="Voltar">&larr;</a>
-      <h1 style="display: flex; align-items: center; gap: 0.5rem;">
-        <span class="material-symbols-rounded icon-kds-lg" aria-hidden="true">{% if instance.type == "prep" %}skillet{% elif instance.type == "picking" %}inventory_2{% else %}local_shipping{% endif %}</span>
+    <div class="kds-header-left">
+      <a href="/kds/" class="kds-btn-icon" title="Voltar" aria-label="Voltar">
+        <span class="material-symbols-rounded" aria-hidden="true">arrow_back</span>
+      </a>
+      <h1>
+        <span class="material-symbols-rounded" aria-hidden="true">{% if instance.type == "prep" %}skillet{% elif instance.type == "picking" %}inventory_2{% else %}local_shipping{% endif %}</span>
         {{ instance.name }}
-        <span style="font-size: 0.75rem; font-weight: 400; color: var(--kds-text-muted);">({{ instance.get_type_display }})</span>
       </h1>
+      <span class="kds-queue-count" x-text="ticketCount + ' pendente' + (ticketCount !== 1 ? 's' : '')"></span>
     </div>
-    <div style="display: flex; align-items: center; gap: 1rem;">
-      <span class="kds-clock" x-text="clock"></span>
-      <div class="kds-actions">
-        <button type="button" @click="toggleSound()" :title="soundEnabled ? 'Som ativo' : 'Som desativado'">
-          <span class="material-symbols-rounded icon-kds-lg" x-text="soundEnabled ? 'volume_up' : 'volume_off'"></span>
-        </button>
-        <button type="button" @click="toggleFullscreen()" title="Tela cheia"><span class="material-symbols-rounded icon-kds-lg" aria-hidden="true">open_in_full</span></button>
-      </div>
+    <div class="kds-header-right">
+      <span class="kds-clock" x-text="clock" aria-label="Hora atual"></span>
+      <button type="button"
+              class="kds-btn-icon"
+              @click="toggleSound()"
+              :title="soundEnabled ? 'Som ativo' : 'Som desativado'"
+              :aria-label="soundEnabled ? 'Desativar som' : 'Ativar som'">
+        <span class="material-symbols-rounded" x-text="soundEnabled ? 'volume_up' : 'volume_off'" aria-hidden="true"></span>
+      </button>
+      <button type="button"
+              class="kds-btn-icon"
+              @click="toggleFullscreen()"
+              title="Tela cheia"
+              aria-label="Alternar tela cheia">
+        <span class="material-symbols-rounded" aria-hidden="true" x-text="isFullscreen ? 'close_fullscreen' : 'open_in_full'"></span>
+      </button>
     </div>
   </header>
 
-  <main class="kds-main">
+  <main class="kds-main" role="main" aria-live="polite">
     <div id="ticket-grid"
+         class="kds-grid"
          hx-get="/kds/{{ instance.ref }}/tickets/"
-         hx-trigger="every 5s"
+         hx-trigger="every {{ instance.config.refresh_interval_seconds|default:5 }}s"
          hx-target="#ticket-grid"
          hx-swap="innerHTML">
       {% include "kds/partials/ticket_list.html" %}
@@ -35,6 +46,29 @@
   </main>
 
 </div>
+
+<style>
+  .kds-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 0.75rem;
+    align-items: start;
+  }
+
+  /* Large screens: 3-4 columns */
+  @media (min-width: 1280px) {
+    .kds-grid {
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    }
+  }
+
+  /* Small screens: stack */
+  @media (max-width: 480px) {
+    .kds-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
 
 <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 <script>

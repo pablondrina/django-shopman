@@ -21,7 +21,7 @@ DEFAULT_DDD = _DEFAULT_DDD_FALLBACK
 try:
     from django.apps import apps as _apps
 
-    _apps.get_app_config("shopman_auth")
+    _apps.get_app_config("doorman")
     HAS_AUTH = True
 except LookupError:
     HAS_AUTH = False
@@ -29,7 +29,7 @@ except LookupError:
 
 # Check if stocking availability API is available
 try:
-    from shopman.stocking.services.availability import availability_for_sku  # noqa: F401
+    from shopman.stockman.services.availability import availability_for_sku  # noqa: F401
 
     HAS_STOCKING = True
 except ImportError:

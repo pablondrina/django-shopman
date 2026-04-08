@@ -7,7 +7,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from shopman.offering.models import Collection, CollectionItem, Product
+from shopman.offerman.models import Collection, CollectionItem, Product
 from shopman.web.views._helpers import (
     _annotate_products,
     _get_channel_listing_ref,

@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from shopman.ordering.models import Directive
+from shopman.omniman.models import Directive
 
 # ── helpers ──
 
@@ -69,7 +69,7 @@ class TestAvailabilityListingMembership:
     """
 
     def _make_channel(self, ref="ifood", listing_ref="ifood-cardapio"):
-        from shopman.ordering.models import Channel
+        from shopman.omniman.models import Channel
         return Channel.objects.create(
             ref=ref,
             name=ref.upper(),
@@ -80,7 +80,7 @@ class TestAvailabilityListingMembership:
         )
 
     def _make_product(self, sku="PAO-001", paused=False):
-        from shopman.offering.models import Product
+        from shopman.offerman.models import Product
         return Product.objects.create(
             sku=sku,
             name=sku,
@@ -90,13 +90,13 @@ class TestAvailabilityListingMembership:
         )
 
     def _make_listing(self, ref):
-        from shopman.offering.models import Listing
+        from shopman.offerman.models import Listing
         return Listing.objects.create(
             ref=ref, name=ref, is_active=True, priority=10,
         )
 
     def _publish(self, listing, product, *, published=True, available=True):
-        from shopman.offering.models import ListingItem
+        from shopman.offerman.models import ListingItem
         return ListingItem.objects.create(
             listing=listing,
             product=product,
@@ -167,7 +167,7 @@ class TestAvailabilityListingMembership:
 
     def test_rejects_below_min_qty(self):
         """ListingItem.min_qty enforced: qty < min_qty → ok=False, error_code=below_min_qty."""
-        from shopman.offering.models import ListingItem
+        from shopman.offerman.models import ListingItem
         from shopman.services import availability
 
         self._make_channel(ref="ifood", listing_ref="ifood-cardapio")
@@ -192,7 +192,7 @@ class TestAvailabilityListingMembership:
 
     def test_passes_when_qty_meets_min_qty(self):
         """qty >= min_qty → listing gate passes."""
-        from shopman.offering.models import ListingItem
+        from shopman.offerman.models import ListingItem
         from shopman.services import availability
 
         self._make_channel(ref="ifood", listing_ref="ifood-cardapio")
@@ -664,7 +664,7 @@ class TestCancellationService:
         assert result is True
 
     def test_cancel_skips_already_cancelled(self):
-        from shopman.ordering.models import Order
+        from shopman.omniman.models import Order
         from shopman.services.cancellation import cancel
 
         order = _make_order(status=Order.Status.CANCELLED)
@@ -675,7 +675,7 @@ class TestCancellationService:
         assert result is False
 
     def test_cancel_skips_completed(self):
-        from shopman.ordering.models import Order
+        from shopman.omniman.models import Order
         from shopman.services.cancellation import cancel
 
         order = _make_order(status=Order.Status.COMPLETED)
@@ -712,7 +712,7 @@ class TestKDSService:
 
     @patch("shopman.models.KDSTicket")
     @patch("shopman.models.KDSInstance")
-    @patch("shopman.offering.models.CollectionItem")
+    @patch("shopman.offerman.models.CollectionItem")
     @patch("shopman.services.kds._get_prep_skus")
     def test_dispatch_creates_tickets(self, mock_prep, mock_ci, mock_kds_inst, mock_ticket_cls):
         """Test that dispatch routes items to correct KDS instances."""
@@ -732,7 +732,7 @@ class TestKDSService:
     @pytest.mark.django_db
     def test_on_all_tickets_done_transitions_to_ready(self):
         from shopman.models import KDSInstance, KDSTicket
-        from shopman.ordering.models import Channel, Order
+        from shopman.omniman.models import Channel, Order
 
         channel = Channel.objects.create(ref="kds-test", name="KDS Test")
         order = Order.objects.create(
@@ -753,7 +753,7 @@ class TestKDSService:
     def test_cancel_tickets_cancels_open_tickets(self):
         """cancel_tickets() sets status=cancelled on all open tickets."""
         from shopman.models import KDSInstance, KDSTicket
-        from shopman.ordering.models import Channel, Order
+        from shopman.omniman.models import Channel, Order
 
         channel = Channel.objects.create(ref="kds-cancel-1", name="KDS Cancel 1")
         order = Order.objects.create(
@@ -777,7 +777,7 @@ class TestKDSService:
     def test_cancel_tickets_returns_zero_when_no_open_tickets(self):
         """cancel_tickets() returns 0 without error when no open tickets exist."""
         from shopman.models import KDSInstance, KDSTicket
-        from shopman.ordering.models import Channel, Order
+        from shopman.omniman.models import Channel, Order
 
         channel = Channel.objects.create(ref="kds-cancel-2", name="KDS Cancel 2")
         order = Order.objects.create(
@@ -795,7 +795,7 @@ class TestKDSService:
     @pytest.mark.django_db
     def test_cancel_tickets_returns_zero_for_order_with_no_tickets(self):
         """cancel_tickets() is safe on orders with no tickets at all."""
-        from shopman.ordering.models import Channel, Order
+        from shopman.omniman.models import Channel, Order
 
         channel = Channel.objects.create(ref="kds-cancel-3", name="KDS Cancel 3")
         order = Order.objects.create(
@@ -810,7 +810,7 @@ class TestKDSService:
     @pytest.mark.django_db
     def test_on_all_tickets_done_noop_if_not_all_done(self):
         from shopman.models import KDSInstance, KDSTicket
-        from shopman.ordering.models import Channel, Order
+        from shopman.omniman.models import Channel, Order
 
         channel = Channel.objects.create(ref="kds-test2", name="KDS Test 2")
         order = Order.objects.create(
@@ -1041,7 +1041,7 @@ class TestAvailabilityBundles:
         from shopman.services.availability import _expand_if_bundle
 
         with patch("shopman.services.availability.CatalogService") as mock_catalog:
-            from shopman.offering.exceptions import CatalogError
+            from shopman.offerman.exceptions import CatalogError
             mock_catalog.expand.side_effect = CatalogError("NOT_A_BUNDLE", sku="PAO-001")
             result = _expand_if_bundle("PAO-001", Decimal("1"))
 

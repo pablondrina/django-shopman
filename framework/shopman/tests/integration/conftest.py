@@ -21,7 +21,7 @@ import pytest
 @pytest.fixture
 def collection(db):
     """Create a test collection."""
-    from shopman.offering.models import Collection
+    from shopman.offerman.models import Collection
 
     return Collection.objects.create(
         name="Padaria",
@@ -33,7 +33,7 @@ def collection(db):
 @pytest.fixture
 def product(db, collection):
     """Create a sellable product."""
-    from shopman.offering.models import CollectionItem, Product
+    from shopman.offerman.models import CollectionItem, Product
 
     p = Product.objects.create(
         sku="PAO-FRANCES",
@@ -52,7 +52,7 @@ def product(db, collection):
 @pytest.fixture
 def croissant(db, collection):
     """Create a perishable product (shelf_life_days=0)."""
-    from shopman.offering.models import CollectionItem, Product
+    from shopman.offerman.models import CollectionItem, Product
 
     p = Product.objects.create(
         sku="CROISSANT",
@@ -72,7 +72,7 @@ def croissant(db, collection):
 @pytest.fixture
 def bolo(db, collection):
     """Create a product that accepts demand (for Crafting)."""
-    from shopman.offering.models import CollectionItem, Product
+    from shopman.offerman.models import CollectionItem, Product
 
     p = Product.objects.create(
         sku="BOLO-CENOURA",
@@ -92,7 +92,7 @@ def bolo(db, collection):
 @pytest.fixture
 def ingredient(db, collection):
     """Create a non-sellable ingredient."""
-    from shopman.offering.models import CollectionItem, Product
+    from shopman.offerman.models import CollectionItem, Product
 
     p = Product.objects.create(
         sku="FARINHA",
@@ -110,7 +110,7 @@ def ingredient(db, collection):
 @pytest.fixture
 def listing(db):
     """Create a test listing for iFood channel."""
-    from shopman.offering.models import Listing
+    from shopman.offerman.models import Listing
 
     return Listing.objects.create(
         ref="ifood",
@@ -123,7 +123,7 @@ def listing(db):
 @pytest.fixture
 def listing_item(db, listing, product):
     """Create listing item for product."""
-    from shopman.offering.models import ListingItem
+    from shopman.offerman.models import ListingItem
 
     return ListingItem.objects.create(
         listing=listing,
@@ -140,7 +140,7 @@ def listing_item(db, listing, product):
 @pytest.fixture
 def position_loja(db):
     """Create store position (saleable)."""
-    from shopman.stocking.models import Position, PositionKind
+    from shopman.stockman.models import Position, PositionKind
 
     position, _ = Position.objects.get_or_create(
         ref="loja",
@@ -156,7 +156,7 @@ def position_loja(db):
 @pytest.fixture
 def position_producao(db):
     """Create production position (not saleable)."""
-    from shopman.stocking.models import Position, PositionKind
+    from shopman.stockman.models import Position, PositionKind
 
     position, _ = Position.objects.get_or_create(
         ref="producao",
@@ -189,7 +189,7 @@ def tomorrow():
 @pytest.fixture
 def channel(db):
     """Create a test channel."""
-    from shopman.ordering.models import Channel
+    from shopman.omniman.models import Channel
 
     return Channel.objects.create(
         ref="loja",
@@ -203,7 +203,7 @@ def channel(db):
 @pytest.fixture
 def ifood_channel(db):
     """Create iFood channel."""
-    from shopman.ordering.models import Channel
+    from shopman.omniman.models import Channel
 
     return Channel.objects.create(
         ref="ifood",
@@ -217,7 +217,7 @@ def ifood_channel(db):
 @pytest.fixture
 def session(db, channel):
     """Create a test session."""
-    from shopman.ordering.models import Session
+    from shopman.omniman.models import Session
 
     return Session.objects.create(
         session_key="TEST-SESSION-001",
@@ -235,7 +235,7 @@ def session(db, channel):
 @pytest.fixture
 def recipe(db, croissant, ingredient):
     """Create a recipe for croissant production."""
-    from shopman.crafting.models import Recipe, RecipeItem
+    from shopman.craftsman.models import Recipe, RecipeItem
 
     recipe = Recipe.objects.create(
         code="croissant",
@@ -258,7 +258,7 @@ def recipe(db, croissant, ingredient):
 @pytest.fixture
 def work_order(db, recipe, today, position_producao, position_loja):
     """Create a work order."""
-    from shopman.crafting.models import WorkOrder
+    from shopman.craftsman.models import WorkOrder
 
     return WorkOrder.objects.create(
         recipe=recipe,

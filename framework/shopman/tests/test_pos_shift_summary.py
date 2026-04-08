@@ -13,7 +13,7 @@ def _make_shop():
 
 
 def _make_channel():
-    from shopman.ordering.models import Channel
+    from shopman.omniman.models import Channel
     return Channel.objects.get_or_create(
         ref="balcao",
         defaults={"name": "Balcão", "pricing_policy": "fixed", "edit_policy": "open", "config": {}, "is_active": True},
@@ -21,7 +21,7 @@ def _make_channel():
 
 
 def _make_order(channel, ref, total_q, status="confirmed"):
-    from shopman.ordering.models import Order
+    from shopman.omniman.models import Order
     return Order.objects.create(
         ref=ref,
         channel=channel,
@@ -87,7 +87,7 @@ class ShiftSummaryViewTests(TestCase):
     def test_pos_close_sends_hx_trigger(self) -> None:
         """Successful pos_close sends HX-Trigger: posOrderCreated header."""
         import json
-        from shopman.offering.models import Product
+        from shopman.offerman.models import Product
         Product.objects.create(sku="SHIFT-PROD", name="Prod", base_price_q=500, is_published=True, is_available=True)
         payload = json.dumps({
             "items": [{"sku": "SHIFT-PROD", "qty": 1, "unit_price_q": 500}],

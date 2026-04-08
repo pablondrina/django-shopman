@@ -7,10 +7,10 @@ from decimal import Decimal
 import pytest
 from django.core.cache import cache
 
-from shopman.customers.models import Customer, CustomerAddress
+from shopman.guestman.models import Customer, CustomerAddress
 from shopman.models import Shop
-from shopman.offering.models import Collection, CollectionItem, Listing, ListingItem, Product
-from shopman.ordering.models import Channel, Order, OrderItem
+from shopman.offerman.models import Collection, CollectionItem, Listing, ListingItem, Product
+from shopman.omniman.models import Channel, Order, OrderItem
 
 
 @pytest.fixture(autouse=True)
@@ -230,8 +230,8 @@ def customer_address(customer):
 def _seed_stock_for_product_sku(sku: str) -> None:
     """Estoque pronto para testes de checkout (WP-S3 valida estoque no servidor)."""
     try:
-        from shopman.stocking import stock
-        from shopman.stocking.models import Position, PositionKind
+        from shopman.stockman import stock
+        from shopman.stockman.models import Position, PositionKind
     except ImportError:
         return
     try:
@@ -254,10 +254,28 @@ def _seed_stock_for_product_sku(sku: str) -> None:
         pass
 
 
+def _ensure_listing_item(channel: Channel, product: Product, price_q: int) -> None:
+    """Garante ListingItem(published+available) no listing do canal.
+
+    `availability.check` valida membership no listing do canal: sem isso o
+    /cart/add/ devolve 422 (`error_code=not_in_listing`).
+    """
+    listing_obj, _ = Listing.objects.get_or_create(
+        ref=channel.listing_ref,
+        defaults={"name": channel.listing_ref, "is_active": True, "priority": 10},
+    )
+    ListingItem.objects.get_or_create(
+        listing=listing_obj,
+        product=product,
+        defaults={"price_q": price_q, "is_published": True, "is_available": True},
+    )
+
+
 @pytest.fixture
 def cart_session(client, channel, product):
     """Add an item to the cart and return the client with active session."""
     _seed_stock_for_product_sku(product.sku)
+    _ensure_listing_item(channel, product, price_q=90)
     client.post("/cart/add/", {"sku": product.sku, "qty": 2})
     return client
 
@@ -266,5 +284,6 @@ def cart_session(client, channel, product):
 def cart_session_delivery(client, channel, croissant):
     """Cart with enough value for delivery (min R$ 20,00). Uses croissant (R$ 8,00 x 4 = R$ 32,00)."""
     _seed_stock_for_product_sku(croissant.sku)
+    _ensure_listing_item(channel, croissant, price_q=800)
     client.post("/cart/add/", {"sku": croissant.sku, "qty": 4})
     return client

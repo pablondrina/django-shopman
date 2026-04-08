@@ -12,15 +12,15 @@ from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
 
-from shopman.crafting.models import Recipe, WorkOrder
-from shopman.crafting.services.execution import CraftExecution
-from shopman.crafting.services.scheduling import CraftPlanning
-from shopman.stocking.models.position import Position
+from shopman.craftsman.models import Recipe, WorkOrder
+from shopman.craftsman.services.execution import CraftExecution
+from shopman.craftsman.services.scheduling import CraftPlanning
+from shopman.stockman.models.position import Position
 
 logger = logging.getLogger(__name__)
 
 TEMPLATE = "admin/shop/production.html"
-PERMISSION = "crafting.add_workorder"
+PERMISSION = "craftsman.add_workorder"
 
 
 def production_view(request, admin_site):

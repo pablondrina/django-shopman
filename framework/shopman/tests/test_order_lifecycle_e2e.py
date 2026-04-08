@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import pytest
 
-from shopman.ordering.exceptions import InvalidTransition
-from shopman.ordering.models import Channel, Order
+from shopman.omniman.exceptions import InvalidTransition
+from shopman.omniman.models import Channel, Order
 
 
 @pytest.fixture

@@ -7,7 +7,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from shopman.offering.models import Product
+from shopman.offerman.models import Product
 
 
 def _make_shop():
@@ -16,7 +16,7 @@ def _make_shop():
 
 
 def _make_channel():
-    from shopman.ordering.models import Channel
+    from shopman.omniman.models import Channel
     return Channel.objects.get_or_create(
         ref="balcao",
         defaults={"name": "Balcão", "pricing_policy": "fixed", "edit_policy": "open", "config": {}, "is_active": True},
@@ -81,8 +81,8 @@ class EmployeeDiscountPOSTests(TestCase):
 
     def test_customer_lookup_returns_group(self) -> None:
         """pos_customer_lookup returns data-customer-group attribute."""
-        from shopman.customers.models import Customer
-        from shopman.customers.models import CustomerGroup
+        from shopman.guestman.models import Customer
+        from shopman.guestman.models import CustomerGroup
 
         grp = CustomerGroup.objects.create(ref="staff", name="Staff")
         customer = Customer.objects.create(
@@ -100,7 +100,7 @@ class EmployeeDiscountPOSTests(TestCase):
 
     def test_customer_lookup_no_group_returns_empty_group(self) -> None:
         """pos_customer_lookup with no group returns data-customer-group=''."""
-        from shopman.customers.models import Customer
+        from shopman.guestman.models import Customer
 
         Customer.objects.create(
             first_name="Regular",

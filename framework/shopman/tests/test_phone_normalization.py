@@ -14,9 +14,9 @@ from __future__ import annotations
 import pytest
 from django.test import TestCase
 
-from shopman.customers.models import ContactPoint, Customer
-from shopman.customers.services import customer as customer_service
-from shopman.ordering.models import Channel, Order
+from shopman.guestman.models import ContactPoint, Customer
+from shopman.guestman.services import customer as customer_service
+from shopman.omniman.models import Channel, Order
 from shopman.utils.phone import normalize_phone
 
 pytestmark = pytest.mark.django_db

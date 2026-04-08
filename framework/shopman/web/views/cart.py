@@ -6,7 +6,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views import View
 
-from shopman.offering.models import Product
+from shopman.offerman.models import Product
 
 from ..cart import CartService, CartUnavailableError
 from ._helpers import (
@@ -335,7 +335,7 @@ def _get_session_held_qty(request: HttpRequest) -> dict[str, int]:
     if not session_key:
         return {}
     try:
-        from shopman.stocking.models import Hold
+        from shopman.stockman.models import Hold
 
         holds = Hold.objects.filter(
             metadata__reference=session_key,

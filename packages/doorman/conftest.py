@@ -2,7 +2,7 @@
 
 import pytest
 
-from shopman.auth.conf import reset_adapter, reset_customer_resolver
+from shopman.doorman.conf import reset_adapter, reset_customer_resolver
 
 
 @pytest.fixture(autouse=True)

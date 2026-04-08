@@ -30,14 +30,14 @@ urlpatterns = [
 
 # ── Core APIs ──────────────────────────────────────────────────────
 
-urlpatterns += _include_optional("api/ordering/", "shopman.ordering.api.urls")
-urlpatterns += _include_optional("api/offering/", "shopman.offering.api.urls")
-urlpatterns += _include_optional("api/stocking/", "shopman.stocking.api.urls")
-urlpatterns += _include_optional("api/crafting/", "shopman.crafting.api.urls")
-urlpatterns += _include_optional("api/customers/", "shopman.customers.api.urls")
-urlpatterns += _include_optional("api/auth/", "shopman.auth.api.urls")
-urlpatterns += _include_optional("auth/", "shopman.auth.urls")
-urlpatterns += _include_optional("api/payments/", "shopman.payments.api.urls")
+urlpatterns += _include_optional("api/ordering/", "shopman.omniman.api.urls")
+urlpatterns += _include_optional("api/offering/", "shopman.offerman.api.urls")
+urlpatterns += _include_optional("api/stocking/", "shopman.stockman.api.urls")
+urlpatterns += _include_optional("api/crafting/", "shopman.craftsman.api.urls")
+urlpatterns += _include_optional("api/customers/", "shopman.guestman.api.urls")
+urlpatterns += _include_optional("api/auth/", "shopman.doorman.api.urls")
+urlpatterns += _include_optional("auth/", "shopman.doorman.urls")
+urlpatterns += _include_optional("api/payments/", "shopman.payman.api.urls")
 
 urlpatterns += _include_optional("api/webhooks/", "shopman.webhooks.urls")
 urlpatterns += _include_optional("api/", "shopman.api.urls")

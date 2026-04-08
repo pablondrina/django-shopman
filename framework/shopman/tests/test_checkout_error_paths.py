@@ -15,7 +15,7 @@ def _make_shop():
 
 
 def _make_channels():
-    from shopman.ordering.models import Channel
+    from shopman.omniman.models import Channel
     Channel.objects.get_or_create(
         ref="web",
         defaults={
@@ -128,7 +128,7 @@ class RepricingWarningTests(TestCase):
     def setUp(self):
         _make_shop()
         _make_channels()
-        from shopman.offering.models import Product
+        from shopman.offerman.models import Product
         self.product = Product.objects.create(
             sku="REPRICE-SKU-001",
             name="Repriced Product",
@@ -204,7 +204,7 @@ class RepricingWarningStructureTests(TestCase):
     def setUp(self):
         _make_shop()
         _make_channels()
-        from shopman.offering.models import Product
+        from shopman.offerman.models import Product
         Product.objects.create(
             sku="STRUCT-SKU-001",
             name="Struct Product",

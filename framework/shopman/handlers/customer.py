@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import uuid
 
-from shopman.ordering.models import Directive
+from shopman.omniman.models import Directive
 from shopman.topics import CUSTOMER_ENSURE
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 def _customers_available() -> bool:
     try:
-        from shopman.customers.services import customer as _svc  # noqa: F401
+        from shopman.guestman.services import customer as _svc  # noqa: F401
 
         return True
     except ImportError:
@@ -26,7 +26,7 @@ def _customers_available() -> bool:
 
 def _identifiers_available() -> bool:
     try:
-        from shopman.customers.contrib.identifiers.models import CustomerIdentifier  # noqa: F401
+        from shopman.guestman.contrib.identifiers.models import CustomerIdentifier  # noqa: F401
 
         return True
     except ImportError:
@@ -34,7 +34,7 @@ def _identifiers_available() -> bool:
 
 
 def _get_customer_service():
-    from shopman.customers.services import customer as svc
+    from shopman.guestman.services import customer as svc
 
     return svc
 
@@ -45,7 +45,7 @@ class CustomerEnsureHandler:
     topic = CUSTOMER_ENSURE
 
     def handle(self, *, message: Directive, ctx: dict) -> None:
-        from shopman.ordering.models import Order
+        from shopman.omniman.models import Order
 
         payload = message.payload
         order_ref = payload.get("order_ref")
@@ -268,7 +268,7 @@ def _find_by_identifier(provider: str, external_id: str):
     if not _identifiers_available():
         return None
 
-    from shopman.customers.contrib.identifiers.models import CustomerIdentifier
+    from shopman.guestman.contrib.identifiers.models import CustomerIdentifier
 
     try:
         ident = CustomerIdentifier.objects.select_related("customer").get(
@@ -283,7 +283,7 @@ def _add_identifier(customer, provider: str, value: str, *, is_primary: bool = F
     if not _identifiers_available():
         return
 
-    from shopman.customers.contrib.identifiers.models import CustomerIdentifier
+    from shopman.guestman.contrib.identifiers.models import CustomerIdentifier
 
     CustomerIdentifier.objects.get_or_create(
         identifier_type=provider, identifier_value=str(value),
@@ -293,7 +293,7 @@ def _add_identifier(customer, provider: str, value: str, *, is_primary: bool = F
 
 def _create_timeline_event(customer, order) -> None:
     try:
-        from shopman.customers.contrib.timeline.models import TimelineEvent
+        from shopman.guestman.contrib.timeline.models import TimelineEvent
 
         exists = TimelineEvent.objects.filter(
             customer=customer, event_type="order", reference=f"order:{order.ref}",
@@ -316,7 +316,7 @@ def _create_timeline_event(customer, order) -> None:
 
 def _save_delivery_address(customer, address_text: str) -> None:
     try:
-        from shopman.customers.models import CustomerAddress
+        from shopman.guestman.models import CustomerAddress
 
         if CustomerAddress.objects.filter(customer=customer, formatted_address=address_text).exists():
             return
@@ -332,7 +332,7 @@ def _save_delivery_address(customer, address_text: str) -> None:
 
 def _update_insights(customer_ref: str) -> None:
     try:
-        from shopman.customers.contrib.insights.service import InsightService
+        from shopman.guestman.contrib.insights.service import InsightService
 
         InsightService.recalculate(customer_ref)
     except ImportError:

@@ -69,7 +69,7 @@ class BridgeTokenView(View):
     @staticmethod
     def _exchange_token(token_str: str, request: HttpRequest):
         """Exchange AccessLink token for Django session."""
-        from shopman.auth.services.access_link import AccessLinkService
+        from shopman.doorman.services.access_link import AccessLinkService
 
         return AccessLinkService.exchange(
             token_str=token_str,
@@ -89,7 +89,7 @@ class BridgeTokenView(View):
         # For Manychat, check if it's Instagram or WhatsApp
         source = "web"
         try:
-            from shopman.auth.models import AccessLink
+            from shopman.doorman.models import AccessLink
 
             token = AccessLink.objects.filter(
                 customer_id=result.customer.uuid,

@@ -38,7 +38,7 @@ _DEFAULTS = {
     "notification": {
         "console": "shopman.adapters.notification_console",
     },
-    "stock": "shopman.adapters.stock_internal",
+    "stock": "shopman.adapters.stock",
     "fiscal": None,
 }
 

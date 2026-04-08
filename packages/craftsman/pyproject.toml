@@ -26,7 +26,7 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["shopman.crafting*"]
+include = ["shopman.craftsman*"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "crafting_test_settings"

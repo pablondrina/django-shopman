@@ -10,7 +10,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 
 logger = logging.getLogger(__name__)
 
-from shopman.ordering.models import Order
+from shopman.omniman.models import Order
 from shopman.utils.monetary import format_money
 
 from .auth import get_authenticated_customer
@@ -27,7 +27,7 @@ TAB_OPTIONS = [
 def _get_loyalty_data(customer):
     """Fetch loyalty account and recent transactions if loyalty is installed."""
     try:
-        from shopman.customers.contrib.loyalty.service import LoyaltyService
+        from shopman.guestman.contrib.loyalty.service import LoyaltyService
 
         account = LoyaltyService.get_account(customer.ref)
         if account:
@@ -48,7 +48,7 @@ def _get_notification_prefs(customer) -> list[dict]:
     ]
     prefs = []
     try:
-        from shopman.customers.contrib.consent.service import ConsentService
+        from shopman.guestman.contrib.consent.service import ConsentService
 
         for channel, label, description in channels:
             enabled = ConsentService.has_consent(customer.ref, channel)
@@ -101,7 +101,7 @@ class AccountView(View):
 
         preferences = None
         try:
-            from shopman.customers.contrib.preferences.models import CustomerPreference
+            from shopman.guestman.contrib.preferences.models import CustomerPreference
 
             prefs = CustomerPreference.objects.filter(customer=customer).order_by("category", "key")
             if prefs.exists():
@@ -121,7 +121,7 @@ class AccountView(View):
         # Food preference options with active state
         active_food_keys = set()
         try:
-            from shopman.customers.contrib.preferences.models import CustomerPreference
+            from shopman.guestman.contrib.preferences.models import CustomerPreference
             active_food_keys = set(
                 CustomerPreference.objects.filter(
                     customer=customer, category="alimentar",
@@ -157,7 +157,7 @@ class AddressCreateView(View):
     """HTMX: create new address, return updated address list."""
 
     def post(self, request: HttpRequest) -> HttpResponse:
-        from shopman.customers.models import CustomerAddress
+        from shopman.guestman.models import CustomerAddress
 
         customer = get_authenticated_customer(request)
         if not customer:
@@ -219,7 +219,7 @@ class AddressUpdateView(View):
     """HTMX: update existing address, return updated item."""
 
     def post(self, request: HttpRequest, pk: int) -> HttpResponse:
-        from shopman.customers.models import CustomerAddress
+        from shopman.guestman.models import CustomerAddress
 
         auth_customer = get_authenticated_customer(request)
         if not auth_customer:
@@ -266,7 +266,7 @@ class AddressDeleteView(View):
     """HTMX: delete address, return updated list."""
 
     def post(self, request: HttpRequest, pk: int) -> HttpResponse:
-        from shopman.customers.models import CustomerAddress
+        from shopman.guestman.models import CustomerAddress
 
         auth_customer = get_authenticated_customer(request)
         if not auth_customer:
@@ -359,7 +359,7 @@ class AddressSetDefaultView(View):
     """HTMX: set address as default, return updated list."""
 
     def post(self, request: HttpRequest, pk: int) -> HttpResponse:
-        from shopman.customers.models import CustomerAddress
+        from shopman.guestman.models import CustomerAddress
 
         auth_customer = get_authenticated_customer(request)
         if not auth_customer:
@@ -393,7 +393,7 @@ class NotificationPrefsToggleView(View):
         if not channel:
             return HttpResponse("", status=400)
 
-        from shopman.customers.contrib.consent.service import ConsentService
+        from shopman.guestman.contrib.consent.service import ConsentService
 
         if ConsentService.has_consent(customer.ref, channel):
             ConsentService.revoke_consent(customer.ref, channel)
@@ -454,7 +454,7 @@ class FoodPreferenceToggleView(View):
         if not key:
             return HttpResponse("", status=400)
 
-        from shopman.customers.contrib.preferences.service import PreferenceService
+        from shopman.guestman.contrib.preferences.service import PreferenceService
 
         existing = PreferenceService.get_preference(customer.ref, "alimentar", key)
         if existing is not None:
@@ -466,7 +466,7 @@ class FoodPreferenceToggleView(View):
             )
 
         # Return updated tags
-        from shopman.customers.contrib.preferences.models import CustomerPreference
+        from shopman.guestman.contrib.preferences.models import CustomerPreference
         active_keys = set(
             CustomerPreference.objects.filter(
                 customer=customer, category="alimentar",
@@ -537,7 +537,7 @@ class DataExportView(View):
 
         # Preferences
         try:
-            from shopman.customers.contrib.preferences.models import CustomerPreference
+            from shopman.guestman.contrib.preferences.models import CustomerPreference
             data["preferences"] = list(
                 CustomerPreference.objects.filter(customer=customer).values(
                     "category", "key", "value", "preference_type",
@@ -549,7 +549,7 @@ class DataExportView(View):
 
         # Consent
         try:
-            from shopman.customers.contrib.consent.models import CommunicationConsent
+            from shopman.guestman.contrib.consent.models import CommunicationConsent
             data["consents"] = list(
                 CommunicationConsent.objects.filter(customer=customer).values(
                     "channel", "status", "consented_at", "revoked_at",
@@ -561,7 +561,7 @@ class DataExportView(View):
 
         # Loyalty
         try:
-            from shopman.customers.contrib.loyalty.service import LoyaltyService
+            from shopman.guestman.contrib.loyalty.service import LoyaltyService
             account = LoyaltyService.get_account(customer.ref)
             if account:
                 data["loyalty"] = {
@@ -612,7 +612,7 @@ class AccountDeleteView(View):
 
         # Revoke all consents
         try:
-            from shopman.customers.contrib.consent.service import ConsentService
+            from shopman.guestman.contrib.consent.service import ConsentService
             for channel in ("whatsapp", "email", "sms", "push"):
                 try:
                     ConsentService.revoke_consent(original_ref, channel)

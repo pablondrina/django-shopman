@@ -25,7 +25,7 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["shopman.customers*"]
+include = ["shopman.guestman*"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "customers_test_settings"

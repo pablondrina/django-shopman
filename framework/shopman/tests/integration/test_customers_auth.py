@@ -14,7 +14,7 @@ class TestCustomersAuthIntegration(TestCase):
     """Integration between Customers and Auth."""
 
     def setUp(self):
-        from shopman.customers.models import ContactPoint, Customer
+        from shopman.guestman.models import ContactPoint, Customer
 
         self.customer = Customer.objects.create(
             ref="GD-INT-001",
@@ -35,7 +35,7 @@ class TestCustomersAuthIntegration(TestCase):
 
     def test_customer_user_uses_customer_uuid(self):
         """CustomerUser references customer by UUID, not FK."""
-        from shopman.auth.models import CustomerUser
+        from shopman.doorman.models import CustomerUser
 
         user = User.objects.create_user(
             username="gd_test_user",
@@ -56,13 +56,13 @@ class TestCustomersAuthIntegration(TestCase):
         """Each user has at most one CustomerUser."""
         from django.db import IntegrityError
 
-        from shopman.auth.models import CustomerUser
+        from shopman.doorman.models import CustomerUser
 
         user = User.objects.create_user(username="gd_unique_user")
         CustomerUser.objects.create(user=user, customer_id=self.customer.uuid)
 
         # Cannot create second link for same user
-        from shopman.customers.models import Customer
+        from shopman.guestman.models import Customer
 
         other_customer = Customer.objects.create(
             ref="GD-INT-002",
@@ -76,7 +76,7 @@ class TestCustomersAuthIntegration(TestCase):
         """Each customer_id has at most one CustomerUser."""
         from django.db import IntegrityError
 
-        from shopman.auth.models import CustomerUser
+        from shopman.doorman.models import CustomerUser
 
         user1 = User.objects.create_user(username="gd_user_1")
         user2 = User.objects.create_user(username="gd_user_2")
@@ -88,7 +88,7 @@ class TestCustomersAuthIntegration(TestCase):
 
     def test_verified_contact_for_login(self):
         """Only verified contacts should be used for authentication."""
-        from shopman.customers.models import ContactPoint
+        from shopman.guestman.models import ContactPoint
 
         # The verified contact
         verified = ContactPoint.objects.filter(
@@ -103,7 +103,7 @@ class TestCustomersAuthIntegration(TestCase):
 
     def test_verification_code_links_to_customer_uuid(self):
         """VerificationCode stores customer_id after verification."""
-        from shopman.auth.models import VerificationCode
+        from shopman.doorman.models import VerificationCode
 
         code = VerificationCode.objects.create(
             target_value="+5541999998888",

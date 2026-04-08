@@ -25,7 +25,7 @@ from shopman.flows import (
     dispatch,
     get_flow,
 )
-from shopman.ordering.models import Directive, Order
+from shopman.omniman.models import Directive, Order
 
 # ── helpers ──
 

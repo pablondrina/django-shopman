@@ -192,14 +192,14 @@ class _SkipAnonymous(Exception):
 
 def _customers_available() -> bool:
     try:
-        from shopman.customers.services import customer as _svc  # noqa: F401
+        from shopman.guestman.services import customer as _svc  # noqa: F401
         return True
     except ImportError:
         return False
 
 
 def _get_customer_service():
-    from shopman.customers.services import customer as svc
+    from shopman.guestman.services import customer as svc
     return svc
 
 
@@ -234,7 +234,7 @@ def _maybe_update_name(customer, name: str) -> None:
 
 def _find_by_identifier(provider: str, external_id: str):
     try:
-        from shopman.customers.contrib.identifiers.models import CustomerIdentifier
+        from shopman.guestman.contrib.identifiers.models import CustomerIdentifier
     except ImportError:
         return None
 
@@ -250,7 +250,7 @@ def _find_by_identifier(provider: str, external_id: str):
 
 def _add_identifier(customer, provider: str, value: str, *, is_primary: bool = False) -> None:
     try:
-        from shopman.customers.contrib.identifiers.models import CustomerIdentifier
+        from shopman.guestman.contrib.identifiers.models import CustomerIdentifier
     except ImportError:
         return
 
@@ -269,7 +269,7 @@ def _save_delivery_address(customer, order) -> None:
         return
 
     try:
-        from shopman.customers.models import CustomerAddress
+        from shopman.guestman.models import CustomerAddress
 
         if CustomerAddress.objects.filter(customer=customer, formatted_address=delivery_address).exists():
             return
@@ -286,7 +286,7 @@ def _save_delivery_address(customer, order) -> None:
 
 def _create_timeline_event(customer, order) -> None:
     try:
-        from shopman.customers.contrib.timeline.models import TimelineEvent
+        from shopman.guestman.contrib.timeline.models import TimelineEvent
         from shopman.utils.monetary import format_money
 
         exists = TimelineEvent.objects.filter(
@@ -310,7 +310,7 @@ def _create_timeline_event(customer, order) -> None:
 
 def _update_insights(customer_ref: str) -> None:
     try:
-        from shopman.customers.contrib.insights.service import InsightService
+        from shopman.guestman.contrib.insights.service import InsightService
         InsightService.recalculate(customer_ref)
     except ImportError:
         pass

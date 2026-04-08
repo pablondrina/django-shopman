@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 
-from shopman.crafting.models import WorkOrderEvent
+from shopman.craftsman.models import WorkOrderEvent
 from shopman.services import production as production_svc
 
 logger = logging.getLogger(__name__)

@@ -88,7 +88,7 @@ class ShopmanConfig(AppConfig):
         The old handler is NOT connected — channels app is not in INSTALLED_APPS.
         """
         from shopman.flows import dispatch
-        from shopman.ordering.signals import order_changed
+        from shopman.omniman.signals import order_changed
 
         def on_order_changed(sender, order, event_type, actor, **kwargs):
             if event_type == "created":
@@ -105,7 +105,7 @@ class ShopmanConfig(AppConfig):
 
     def _connect_production_flow_signal(self):
         """Connect Core signal production_changed → production_flows.dispatch_production()."""
-        from shopman.crafting.signals import production_changed
+        from shopman.craftsman.signals import production_changed
         from shopman.production_flows import on_production_changed_receiver
 
         production_changed.connect(

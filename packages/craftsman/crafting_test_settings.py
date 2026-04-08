@@ -1,7 +1,7 @@
 """
 Django settings for Crafting tests.
 
-Minimal settings to run pytest with shopman.crafting app.
+Minimal settings to run pytest with shopman.craftsman app.
 """
 
 SECRET_KEY = "test-secret-key-for-crafting-tests"
@@ -12,10 +12,10 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.auth",
     "rest_framework",
-    "shopman.crafting",
+    "shopman.craftsman",
 ]
 
-ROOT_URLCONF = "shopman.crafting.tests.urls"
+ROOT_URLCONF = "shopman.craftsman.tests.urls"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

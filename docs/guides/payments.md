@@ -4,8 +4,8 @@
 
 O sistema de pagamentos é composto por duas camadas:
 
-1. **Payments Core** (`shopman.payments`) — Service layer agnóstico que gerencia o lifecycle de `PaymentIntent` e `PaymentTransaction` no banco
-2. **Payment Handlers** (`channels/handlers/payment.py`) — Handlers que conectam o lifecycle do pedido aos backends de gateway
+1. **Payman Core** (`shopman.payments`) — Service layer agnóstico que gerencia o lifecycle de `PaymentIntent` e `PaymentTransaction` no banco
+2. **Payment Handlers** (`shopman/handlers/payment.py`) — Handlers que conectam o lifecycle do pedido aos backends de gateway
 
 O core não sabe nada sobre gateways (Efi, Stripe, etc.). Os backends implementam o `PaymentBackend` protocol e são configurados no orquestrador.
 
@@ -136,7 +136,7 @@ O timeout total de hold de estoque deve cobrir: confirmação + pagamento + marg
 Para testes e desenvolvimento. Simula fluxo completo com PIX mockado.
 
 ```python
-SHOPMAN_PAYMENT_BACKEND = "channels.backends.payment_mock.MockPaymentBackend"
+SHOPMAN_PAYMENT_BACKEND = "shopman.backends.payment_mock.MockPaymentBackend"
 ```
 
 ### EfiPixBackend
@@ -144,7 +144,7 @@ SHOPMAN_PAYMENT_BACKEND = "channels.backends.payment_mock.MockPaymentBackend"
 Integração com Efi (Gerencianet) para PIX real.
 
 ```python
-SHOPMAN_PAYMENT_BACKEND = "channels.backends.payment_efi.EfiPixBackend"
+SHOPMAN_PAYMENT_BACKEND = "shopman.backends.payment_efi.EfiPixBackend"
 
 # Settings necessários:
 EFI_CLIENT_ID = "..."
@@ -158,7 +158,7 @@ EFI_SANDBOX = True  # False em produção
 Integração com Stripe (cartão, PIX via Stripe).
 
 ```python
-SHOPMAN_PAYMENT_BACKEND = "channels.backends.payment_stripe.StripeBackend"
+SHOPMAN_PAYMENT_BACKEND = "shopman.backends.payment_stripe.StripeBackend"
 
 # Settings necessários:
 STRIPE_SECRET_KEY = "sk_..."

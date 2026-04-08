@@ -19,7 +19,7 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["shopman.ordering*"]
+include = ["shopman.omniman*"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "ordering_test_settings"

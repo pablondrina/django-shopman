@@ -8,8 +8,8 @@ from unittest.mock import patch
 import pytest
 from django.utils import timezone
 
-from shopman.crafting.models import Recipe
-from shopman.crafting.service import craft
+from shopman.craftsman.models import Recipe
+from shopman.craftsman.service import craft
 from shopman.production_flows import StandardFlow, production_flow_name_for
 
 pytestmark = pytest.mark.django_db

@@ -15,9 +15,9 @@ from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
 
-from shopman.ordering.ids import generate_session_key
-from shopman.ordering.models import Channel, Session
-from shopman.ordering.services.modify import ModifyService
+from shopman.omniman.ids import generate_session_key
+from shopman.omniman.models import Channel, Session
+from shopman.omniman.services.modify import ModifyService
 
 
 def _make_channel(ref="balcao"):
@@ -44,7 +44,7 @@ def _make_session(channel_ref="balcao", items=None):
         edit_policy="open",
     )
     if items:
-        from shopman.offering.models import Product
+        from shopman.offerman.models import Product
         for item in items:
             Product.objects.get_or_create(
                 sku=item["sku"],
@@ -125,8 +125,8 @@ class LoyaltyRedeemHandlerTests(TestCase):
     def test_handler_calls_redeem_points(self) -> None:
         """LoyaltyRedeemHandler calls LoyaltyService.redeem_points when customer found."""
         from shopman.handlers.loyalty import LoyaltyRedeemHandler
-        from shopman.ordering.models import Directive, Order
-        from shopman.customers.models import Customer
+        from shopman.omniman.models import Directive, Order
+        from shopman.guestman.models import Customer
 
         customer = Customer.objects.create(
             first_name="Loyal",
@@ -147,11 +147,11 @@ class LoyaltyRedeemHandlerTests(TestCase):
             payload={"order_ref": order.ref, "points": 100},
         )
 
-        with patch("shopman.customers.contrib.loyalty.service.LoyaltyService.redeem_points") as mock_redeem:
-            with patch("shopman.customers.services.customer.get_by_phone") as mock_get:
+        with patch("shopman.guestman.contrib.loyalty.service.LoyaltyService.redeem_points") as mock_redeem:
+            with patch("shopman.guestman.services.customer.get_by_phone") as mock_get:
                 mock_get.return_value = customer
                 # Enroll customer first
-                with patch("shopman.customers.contrib.loyalty.service.LoyaltyService._get_active_account_for_update") as mock_acct:
+                with patch("shopman.guestman.contrib.loyalty.service.LoyaltyService._get_active_account_for_update") as mock_acct:
                     mock_acct.return_value = MagicMock(points_balance=500)
                     handler = LoyaltyRedeemHandler()
                     handler.handle(message=directive, ctx={})
@@ -161,7 +161,7 @@ class LoyaltyRedeemHandlerTests(TestCase):
     def test_handler_skips_when_no_points(self) -> None:
         """Handler completes without calling redeem when points=0."""
         from shopman.handlers.loyalty import LoyaltyRedeemHandler
-        from shopman.ordering.models import Directive
+        from shopman.omniman.models import Directive
 
         directive = Directive.objects.create(
             topic="loyalty.redeem",
@@ -178,7 +178,7 @@ class CheckoutLoyaltyContextTests(TestCase):
         super().setUp()
         from shopman.models import Shop
         Shop.objects.create(name="Test Shop", brand_name="Test")
-        from shopman.ordering.models import Channel
+        from shopman.omniman.models import Channel
         Channel.objects.create(
             ref="web",
             name="Web",
@@ -187,7 +187,7 @@ class CheckoutLoyaltyContextTests(TestCase):
             config={},
             is_active=True,
         )
-        from shopman.offering.models import Product
+        from shopman.offerman.models import Product
         Product.objects.create(
             sku="LOYAL-WEB",
             name="Loyal Product",
@@ -197,8 +197,8 @@ class CheckoutLoyaltyContextTests(TestCase):
         )
 
     def _login_as_customer(self, client, customer):
-        from shopman.auth.protocols.customer import AuthCustomerInfo
-        from shopman.auth.services._user_bridge import get_or_create_user_for_customer
+        from shopman.doorman.protocols.customer import AuthCustomerInfo
+        from shopman.doorman.services._user_bridge import get_or_create_user_for_customer
 
         info = AuthCustomerInfo(
             uuid=customer.uuid,
@@ -208,11 +208,11 @@ class CheckoutLoyaltyContextTests(TestCase):
             is_active=True,
         )
         user, _ = get_or_create_user_for_customer(info)
-        client.force_login(user, backend="shopman.auth.backends.PhoneOTPBackend")
+        client.force_login(user, backend="shopman.doorman.backends.PhoneOTPBackend")
 
     def test_loyalty_balance_in_context(self) -> None:
         """CheckoutView passes loyalty_balance to template context."""
-        from shopman.customers.models import Customer
+        from shopman.guestman.models import Customer
 
         customer = Customer.objects.create(
             first_name="Points",
@@ -222,7 +222,7 @@ class CheckoutLoyaltyContextTests(TestCase):
         self._login_as_customer(self.client, customer)
         self.client.post("/cart/add/", {"sku": "LOYAL-WEB", "qty": "1"})
 
-        with patch("shopman.customers.contrib.loyalty.service.LoyaltyService.get_balance") as mock_bal:
+        with patch("shopman.guestman.contrib.loyalty.service.LoyaltyService.get_balance") as mock_bal:
             mock_bal.return_value = 250
             resp = self.client.get("/checkout/")
 
@@ -231,7 +231,7 @@ class CheckoutLoyaltyContextTests(TestCase):
 
     def test_no_loyalty_balance_for_new_customer(self) -> None:
         """Customer with 0 balance doesn't see loyalty section."""
-        from shopman.customers.models import Customer
+        from shopman.guestman.models import Customer
 
         customer = Customer.objects.create(
             first_name="Zero",
@@ -241,7 +241,7 @@ class CheckoutLoyaltyContextTests(TestCase):
         self._login_as_customer(self.client, customer)
         self.client.post("/cart/add/", {"sku": "LOYAL-WEB", "qty": "1"})
 
-        with patch("shopman.customers.contrib.loyalty.service.LoyaltyService.get_balance") as mock_bal:
+        with patch("shopman.guestman.contrib.loyalty.service.LoyaltyService.get_balance") as mock_bal:
             mock_bal.return_value = 0
             resp = self.client.get("/checkout/")
 

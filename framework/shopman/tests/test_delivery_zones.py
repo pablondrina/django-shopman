@@ -24,7 +24,7 @@ from django.test import TestCase
 
 from shopman.models import DeliveryZone, Shop
 from shopman.modifiers import DeliveryFeeModifier
-from shopman.ordering.exceptions import ValidationError as OrderingValidationError
+from shopman.omniman.exceptions import ValidationError as OrderingValidationError
 from shopman.rules.validation import DeliveryZoneRule
 
 
@@ -309,7 +309,7 @@ class TestDeliveryFeeCommitPropagation(TestCase):
         """delivery_fee_q must be in CommitService's key propagation list."""
         import inspect
 
-        import shopman.ordering.services.commit as commit_module
+        import shopman.omniman.services.commit as commit_module
 
         source = inspect.getsource(commit_module)
         # Check for either single or double quote form

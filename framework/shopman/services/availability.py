@@ -28,7 +28,7 @@ import logging
 from decimal import Decimal
 
 from shopman.adapters import get_adapter
-from shopman.offering.service import CatalogService
+from shopman.offerman.service import CatalogService
 
 from . import alternatives
 
@@ -104,7 +104,7 @@ def check(sku: str, qty: Decimal, *, channel_ref: str | None = None) -> dict:
 
     # ── 2) Stockman availability ────────────────────────────────────────────
     try:
-        from shopman.stocking.services.availability import (
+        from shopman.stockman.services.availability import (
             availability_for_sku,
             availability_scope_for_channel,
         )
@@ -171,7 +171,7 @@ def _expand_if_bundle(sku: str, qty: Decimal) -> list[dict] | None:
     via the Stockman gate.
     """
     try:
-        from shopman.offering.exceptions import CatalogError
+        from shopman.offerman.exceptions import CatalogError
         components = CatalogService.expand(sku, qty)
         # Guard: if expand returns a single component with the same SKU, treat
         # as simple product (infinite recursion prevention).
@@ -256,8 +256,8 @@ def _sku_in_channel_listing(sku: str, channel_ref: str | None) -> "ListingItem |
         return True
 
     try:
-        from shopman.offering.models import ListingItem
-        from shopman.ordering.models import Channel
+        from shopman.offerman.models import ListingItem
+        from shopman.omniman.models import Channel
     except ImportError:
         return True
 

@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
 
-from shopman.ordering.models import Order
+from shopman.omniman.models import Order
 from shopman.utils.monetary import format_money
 
 from .pedidos import CHANNEL_ICONS, _DEFAULT_CHANNEL_ICON
@@ -66,7 +66,7 @@ def _enrich_ticket(ticket, instance) -> dict:
 def _add_stock_warnings(items: list[dict]) -> list[dict]:
     """Add stock_warning to items where physical stock is low or zero."""
     try:
-        from shopman.stocking.models import Quant, StockAlert
+        from shopman.stockman.models import Quant, StockAlert
     except ImportError:
         return items
 
@@ -287,7 +287,7 @@ class KDSTicketDoneView(View):
             return denied
 
         from shopman.models import KDSTicket
-        from shopman.ordering.exceptions import InvalidTransition
+        from shopman.omniman.exceptions import InvalidTransition
 
         ticket = get_object_or_404(KDSTicket, pk=pk)
 

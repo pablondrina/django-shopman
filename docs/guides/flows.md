@@ -6,7 +6,7 @@
 
 ## Visão Geral
 
-O módulo `shopman/` (em `framework/shopman/`) é o orquestrador do sistema. Ele não contém lógica de domínio — apenas **coordena** os apps core (offering, stocking, crafting, ordering, customers, auth, payments) através de 4 conceitos separados:
+O módulo `shopman/` (em `framework/shopman/`) é o orquestrador do sistema. Ele não contém lógica de domínio — apenas **coordena** os apps core (Offerman, Stockman, Craftsman, Omniman, Guestman, Doorman, Payman) através de 4 conceitos separados:
 
 1. **Flows** (`flows.py`) — **QUANDO**: coordenação de lifecycle via herança Python
 2. **Services** (`services/`) — **O QUE**: lógica de negócio que chama Core services + adapters
@@ -16,11 +16,11 @@ O módulo `shopman/` (em `framework/shopman/`) é o orquestrador do sistema. Ele
 ```
 shopman/
 ├── flows.py            Signal → dispatch() → Flow.on_<phase>() → services
-├── services/           11 services (stock, payment, customer, checkout, pricing, etc.)
-├── adapters/           8 adapters (payment_efi, payment_stripe, notification_*, etc.)
+├── services/           services (availability, alternatives, stock, payment, customer, checkout, pricing, etc.)
+├── adapters/           adapters (stock, payment_efi, payment_stripe, notification_*, etc.)
 ├── rules/              engine.py, pricing.py, validation.py
-├── handlers/           16 directive handlers (processam tarefas assíncronas)
-├── backends/           16 backends (adaptam core apps aos protocols)
+├── handlers/           directive handlers (notification, fulfillment, fiscal, loyalty, returns, etc.)
+├── backends/           backends remanescentes (notification_*, pricing, fiscal/accounting mock)
 ├── config.py           ChannelConfig dataclass (7 aspectos)
 ├── setup.py            register_all() — registro centralizado de handlers
 ├── protocols.py        Contratos de backend (Stock, Customer, Notification, Pricing)
@@ -60,9 +60,9 @@ BaseFlow                   # Ciclo completo — 10 fases, todo pedido
 
 | Fase | Trigger | Ações |
 |------|---------|-------|
-| `on_commit` | Order criada | `customer.ensure()`, `stock.hold()`, `handle_confirmation()` |
-| `on_confirmed` | Status → CONFIRMED | `payment.initiate()`, `notification.send("order_confirmed")` |
-| `on_paid` | Webhook de pagamento | `stock.fulfill()`, `notification.send("payment_confirmed")` |
+| `on_commit` | Order criada | `customer.ensure()`, `stock.hold()` (adopta holds da sessão), `handle_confirmation()` |
+| `on_confirmed` | Status → CONFIRMED | `stock.fulfill()`, `payment.initiate()`, `notification.send("order_confirmed")` |
+| `on_paid` | Webhook de pagamento | `notification.send("payment_confirmed")` (LocalFlow: no-op) |
 | `on_processing` | Status → PROCESSING | `kds.dispatch()`, `notification.send("order_processing")` |
 | `on_ready` | Status → READY | `fulfillment.create()`, `notification.send("order_ready")` |
 | `on_dispatched` | Status → DISPATCHED | `notification.send("order_dispatched")` |
@@ -93,10 +93,10 @@ BaseFlow                   # Ciclo completo — 10 fases, todo pedido
 
 | Flow | on_commit | on_confirmed | on_paid |
 |------|-----------|--------------|---------|
-| **BaseFlow** | customer + stock + confirmation | payment + notify | stock.fulfill + notify |
-| **LocalFlow** | customer + stock + immediate confirm | notify (no payment) | no-op |
+| **BaseFlow** | customer + stock.hold + confirmation | stock.fulfill + payment + notify | notify |
+| **LocalFlow** | customer + stock.hold + loyalty + immediate confirm | stock.fulfill + notify (no payment) | no-op |
 | **RemoteFlow** | (herda BaseFlow) | (herda BaseFlow) | (herda BaseFlow) |
-| **MarketplaceFlow** | customer + stock (pessimistic wait) | notify (no payment) | stock.fulfill + notify |
+| **MarketplaceFlow** | customer + stock.hold + reject if missing | stock.fulfill + notify (no payment) | notify |
 
 ---
 
@@ -108,7 +108,9 @@ Cada service encapsula uma preocupação de negócio. Services chamam Core servi
 
 | Service | Métodos | Core Service | Natureza |
 |---------|---------|--------------|----------|
-| `stock` | hold, fulfill, release, revert | StockService, CatalogService (expand) | Sync |
+| `availability` | check, reserve | Stockman.availability + adapter `stock.create_hold` | Sync |
+| `alternatives` | find | Offerman/Stockman | Sync |
+| `stock` | hold, fulfill, release, revert | adapter `stock` (adopta holds da sessão em `hold`) | Sync |
 | `payment` | initiate, capture, refund | PaymentService via adapter | Sync |
 | `customer` | ensure | CustomerService | Sync |
 | `checkout` | process | CommitService, ModifyService | Sync |
@@ -164,7 +166,7 @@ SHOPMAN_NOTIFICATION_ADAPTERS = {
     "console": "shopman.adapters.notification_console",
 }
 
-SHOPMAN_STOCK_ADAPTER = "shopman.adapters.stock_internal"
+SHOPMAN_STOCK_ADAPTER = "shopman.adapters.stock"
 ```
 
 ### Resolução
@@ -174,7 +176,7 @@ from shopman.adapters import get_adapter
 
 adapter = get_adapter("payment", method="pix")  # → payment_efi module
 adapter = get_adapter("notification")            # → notification_manychat (default)
-adapter = get_adapter("stock")                   # → stock_internal
+adapter = get_adapter("stock")                   # → shopman.adapters.stock
 ```
 
 O `get_adapter()` resolve: channel override → settings global → default.
@@ -266,7 +268,10 @@ Fluxo completo de um pedido no storefront web:
 
 2. Cliente adiciona ao carrinho
    └── web/views/cart.py → CartService (session-based)
-   └── ModifyService + StockCheckHandler (check de disponibilidade)
+   └── services.availability.reserve(sku, qty, session_key=...) — sync, inline
+       ├── ok=True → cria hold tagged com session_key (Stockman)
+       └── ok=False → CartUnavailableError (com alternatives)
+   └── ModifyService.modify_session(...) atualiza Session.snapshot
 
 3. Cliente faz checkout
    └── web/views/checkout.py → services.checkout.process()
@@ -275,7 +280,7 @@ Fluxo completo de um pedido no storefront web:
    └── dispatch(order, "on_commit")
    └── WebFlow.on_commit():
        ├── customer.ensure(order)      → CustomerService
-       ├── stock.hold(order)           → StockService.create_hold()
+       ├── stock.hold(order)           → adopta holds da sessão (re-tag para `order:<ref>`)
        └── handle_confirmation()       → optimistic → Directive(confirmation.timeout)
        └── order.transition_status(CONFIRMED)
 
@@ -289,8 +294,8 @@ Fluxo completo de um pedido no storefront web:
    └── webhooks/efi.py → payment confirmed
    └── dispatch(order, "on_paid")
    └── WebFlow.on_paid():
-       ├── stock.fulfill(order)        → StockService.fulfill_hold()
        └── notification.send(order, "payment_confirmed")
+   (stock.fulfill já ocorreu em on_confirmed)
 
 6. Operador inicia preparo → status PROCESSING
    └── dispatch(order, "on_processing")
@@ -307,20 +312,12 @@ Fluxo completo de um pedido no storefront web:
 
 ---
 
-## Handlers e Backends (legado em migração)
+## Handlers (Directives assíncronas)
 
-Os 16 handlers em `handlers/` e 16 backends em `backends/` processam Directives assíncronas. Eles foram migrados de `channels/handlers/` e `channels/backends/` e serão gradualmente absorvidos pelos services em futuras iterações.
-
-### Handlers
+Handlers processam Directives criadas por services. Stock e payment NÃO usam mais directives — são chamados sync via services + adapters.
 
 | Handler | Topic | Ação |
 |---------|-------|------|
-| `StockHoldHandler` | `stock.hold` | Cria reserva de estoque |
-| `StockCommitHandler` | `stock.commit` | Confirma reserva |
-| `PixGenerateHandler` | `pix.generate` | Gera QR code PIX |
-| `PixTimeoutHandler` | `pix.timeout` | Trata timeout de PIX |
-| `PaymentCaptureHandler` | `payment.capture` | Captura pagamento |
-| `PaymentRefundHandler` | `payment.refund` | Processa reembolso |
 | `NotificationSendHandler` | `notification.send` | Envia notificação |
 | `ConfirmationTimeoutHandler` | `confirmation.timeout` | Auto-confirma após timeout |
 | `CustomerEnsureHandler` | `customer.ensure` | Garante customer existe |
@@ -331,6 +328,7 @@ Os 16 handlers em `handlers/` e 16 backends em `backends/` processam Directives 
 | `FulfillmentUpdateHandler` | `fulfillment.update` | Atualiza fulfillment |
 | `LoyaltyEarnHandler` | `loyalty.earn` | Registra pontos de fidelidade |
 | `CheckoutInferDefaultsHandler` | `checkout.infer_defaults` | Infere preferências do checkout |
+| `StockIssueResolver` | (signal `stock_issue`) | Resolve alertas de stock |
 
 ---
 
@@ -338,8 +336,8 @@ Os 16 handlers em `handlers/` e 16 backends em `backends/` processam Directives 
 
 | Receiver | Signal | Ação |
 |----------|--------|------|
-| `on_holds_materialized` | `holds_materialized` (stocking) | Auto-commit de sessões aguardando produção |
-| `on_production_voided` | `production_changed` (crafting) | Libera demand holds quando produção anulada |
+| `on_holds_materialized` | `holds_materialized` (Stockman) | Auto-commit de sessões aguardando produção |
+| `on_production_voided` | `production_changed` (Craftsman) | Libera demand holds quando produção anulada |
 
 ---
 

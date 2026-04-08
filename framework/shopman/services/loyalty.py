@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 
-from shopman.ordering.models import Directive
+from shopman.omniman.models import Directive
 
 logger = logging.getLogger(__name__)
 

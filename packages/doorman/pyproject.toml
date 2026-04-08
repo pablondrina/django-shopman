@@ -19,7 +19,7 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["shopman.auth*"]
+include = ["shopman.doorman*"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "auth_test_settings"

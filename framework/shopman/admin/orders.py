@@ -37,7 +37,7 @@ def _payment_info(self, obj):
     """Show PaymentIntent info linked via order_ref."""
     from django.utils.html import format_html, format_html_join
 
-    from shopman.payments.models import PaymentIntent
+    from shopman.payman.models import PaymentIntent
 
     intents = PaymentIntent.objects.filter(order_ref=obj.ref).order_by("-created_at")
     if not intents.exists():
@@ -79,7 +79,7 @@ _payment_info.short_description = "Pagamentos"
 
 def _extend_order_admin():
     """Add Fulfillment inline and payment info to OrderAdmin."""
-    from shopman.ordering.models import Fulfillment, Order
+    from shopman.omniman.models import Fulfillment, Order
 
     FulfillmentOrderInline.model = Fulfillment
 
@@ -116,7 +116,7 @@ def _extend_order_admin():
 
 def _extend_product_admin():
     """Add allows_next_day_sale checkbox to the offering ProductAdmin."""
-    from shopman.offering.models import Product
+    from shopman.offerman.models import Product
 
     try:
         ProductAdminClass = type(admin.site._registry[Product])
@@ -171,7 +171,7 @@ class SupplierFilter(admin.SimpleListFilter):
     parameter_name = "supplier"
 
     def lookups(self, request, model_admin):
-        from shopman.stocking.models import Batch
+        from shopman.stockman.models import Batch
 
         suppliers = (
             Batch.objects.exclude(supplier="")
@@ -211,7 +211,7 @@ class ExpiryStatusFilter(admin.SimpleListFilter):
 
 def _extend_batch_admin():
     """Add supplier and expiry status filters to BatchAdmin."""
-    from shopman.stocking.models import Batch
+    from shopman.stockman.models import Batch
 
     try:
         BatchAdminClass = type(admin.site._registry[Batch])
@@ -231,7 +231,7 @@ def _extend_batch_admin():
 
 def _extend_quant_admin():
     """Add batch link to QuantAdmin for traceability."""
-    from shopman.stocking.models import Quant
+    from shopman.stockman.models import Quant
 
     try:
         QuantAdminClass = type(admin.site._registry[Quant])
@@ -242,13 +242,13 @@ def _extend_quant_admin():
         from django.urls import reverse
         from django.utils.html import format_html
 
-        from shopman.stocking.models import Batch
+        from shopman.stockman.models import Batch
 
         if not obj.batch:
             return "\u2014"
         batch = Batch.objects.filter(ref=obj.batch).first()
         if batch:
-            url = reverse("admin:stocking_batch_change", args=[batch.pk])
+            url = reverse("admin:stockman_batch_change", args=[batch.pk])
             return format_html('<a href="{}">{}</a>', url, obj.batch)
         return obj.batch
 

@@ -9,11 +9,11 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
-from shopman.offering.models import Collection, Product
-from shopman.ordering.ids import generate_idempotency_key, generate_session_key
-from shopman.ordering.models import Channel, Session
-from shopman.ordering.services.commit import CommitService
-from shopman.ordering.services.modify import ModifyService
+from shopman.offerman.models import Collection, Product
+from shopman.omniman.ids import generate_idempotency_key, generate_session_key
+from shopman.omniman.models import Channel, Session
+from shopman.omniman.services.commit import CommitService
+from shopman.omniman.services.modify import ModifyService
 from shopman.utils.monetary import format_money
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ def _staff_required(request):
 def _resolve_customer(phone: str):
     """Look up customer by phone for modifier discounts."""
     try:
-        from shopman.customers.models import Customer
+        from shopman.guestman.models import Customer
         from shopman.utils.phone import normalize_phone
 
         normalized = normalize_phone(phone)
@@ -42,7 +42,7 @@ def _load_products():
     """Load products with prices and D-1 flags for the POS grid."""
     products = []
     try:
-        from shopman.offering.models import ListingItem
+        from shopman.offerman.models import ListingItem
 
         items = (
             ListingItem.objects.filter(
@@ -140,7 +140,7 @@ def pos_customer_lookup(request: HttpRequest) -> HttpResponse:
         return HttpResponse('<span class="text-muted-foreground">Cliente avulso</span>')
 
     try:
-        from shopman.customers.models import Customer
+        from shopman.guestman.models import Customer
         from shopman.utils.phone import normalize_phone
 
         normalized = normalize_phone(phone)
@@ -323,7 +323,7 @@ def pos_shift_summary(request: HttpRequest) -> HttpResponse:
     from django.db.models import Sum
     from django.utils import timezone
 
-    from shopman.ordering.models import Order
+    from shopman.omniman.models import Order
 
     today = timezone.localdate()
     qs = Order.objects.filter(
@@ -357,7 +357,7 @@ def pos_cancel_last(request: HttpRequest) -> HttpResponse:
 
     from django.utils import timezone
 
-    from shopman.ordering.models import Order
+    from shopman.omniman.models import Order
     from shopman.services.cancellation import cancel
 
     order_ref = request.POST.get("order_ref", "").strip()

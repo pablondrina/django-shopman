@@ -39,17 +39,17 @@ Escolhemos model dedicado porque:
 
 `PaymentBackend` protocol vive em `shopman.payments.protocols` porque é uma interface de domínio genérica. O core define os DTOs (`GatewayIntent`, `CaptureResult`, `RefundResult`, `PaymentStatus`) que backends devem usar.
 
-Os backends concretos vivem no orquestrador (`channels/backends/payment_*.py`) porque dependem de settings e infraestrutura do App.
+Os backends concretos vivem no orquestrador (`shopman/backends/payment_*.py`) porque dependem de settings e infraestrutura do App.
 
 ### 4. Webhook como Ponto de Entrada
 
-Webhooks de gateway (`channels/webhooks.py`) recebem a notificação externa e chamam `PaymentService.authorize()` + `capture()`. Depois disparam o hook `on_payment_confirmed()` que cria directives de pós-pagamento (stock.commit, notification).
+Webhooks de gateway (`shopman/webhooks/`) recebem a notificação externa e chamam `PaymentService.authorize()` + `capture()`. Depois disparam o hook `on_payment_confirmed()` que cria directives de pós-pagamento (stock.commit, notification).
 
 O webhook não cria directives diretamente — ele usa o mesmo mecanismo de hooks que o resto do lifecycle.
 
 ## Consequências
 
 - **Testabilidade:** `MockPaymentBackend` implementa o protocol completo sem I/O externo
-- **Extensibilidade:** Novos gateways = novo backend em `channels/backends/` + setting
+- **Extensibilidade:** Novos gateways = novo backend em `shopman/backends/` + setting
 - **Auditoria:** `PaymentTransaction` é imutável, cada operação financeira tem registro
-- **Desacoplamento:** Ordering não importa Payments; a ligação é via `order_ref` (string) e signals
+- **Desacoplamento:** Omniman não importa Payman; a ligação é via `order_ref` (string) e signals

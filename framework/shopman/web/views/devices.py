@@ -63,8 +63,8 @@ class DeviceListView(View):
         if customer_id is None:
             return HttpResponse('<p class="text-bark-light text-sm">Faça login para ver seus dispositivos.</p>')
 
-        from shopman.auth.conf import auth_settings
-        from shopman.auth.models.device_trust import TrustedDevice, _hash_token
+        from shopman.doorman.conf import auth_settings
+        from shopman.doorman.models.device_trust import TrustedDevice, _hash_token
 
         devices = TrustedDevice.objects.filter(
             customer_id=customer_id,
@@ -104,7 +104,7 @@ class DeviceRevokeView(View):
         if customer_id is None:
             return HttpResponse('<p class="text-sm text-error">Autenticação necessária.</p>')
 
-        from shopman.auth.models.device_trust import TrustedDevice
+        from shopman.doorman.models.device_trust import TrustedDevice
 
         try:
             device_uuid = uuid.UUID(str(device_id))
@@ -138,8 +138,8 @@ class DeviceRevokeAllView(View):
         if customer_id is None:
             return HttpResponse('<p class="text-sm text-error">Autenticação necessária.</p>')
 
-        from shopman.auth.conf import auth_settings
-        from shopman.auth.services.device_trust import DeviceTrustService
+        from shopman.doorman.conf import auth_settings
+        from shopman.doorman.services.device_trust import DeviceTrustService
 
         count = DeviceTrustService.revoke_all(customer_id)
 

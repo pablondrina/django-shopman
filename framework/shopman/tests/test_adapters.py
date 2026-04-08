@@ -65,12 +65,12 @@ def _check_contract(module_path: str, contract: dict[str, list[str]]):
 # ── Stock adapter contract ──
 
 
-class TestStockInternalContract:
+class TestStockContract:
     def test_exports_all_functions(self):
-        _check_contract("shopman.adapters.stock_internal", STOCK_CONTRACT)
+        _check_contract("shopman.adapters.stock", STOCK_CONTRACT)
 
     def test_has_extra_utility_functions(self):
-        mod = import_module("shopman.adapters.stock_internal")
+        mod = import_module("shopman.adapters.stock")
         assert callable(getattr(mod, "release_holds_for_reference", None))
         assert callable(getattr(mod, "receive_return", None))
 
@@ -137,12 +137,12 @@ class TestGetAdapter:
         adapter = get_adapter("payment", method="pix")
         assert adapter.__name__ == "shopman.adapters.payment_mock"
 
-    def test_stock_returns_internal(self):
+    def test_stock_returns_module(self):
         from shopman.adapters import get_adapter
 
         adapter = get_adapter("stock")
         assert adapter is not None
-        assert adapter.__name__ == "shopman.adapters.stock_internal"
+        assert adapter.__name__ == "shopman.adapters.stock"
         assert hasattr(adapter, "check_availability")
         assert hasattr(adapter, "create_hold")
 

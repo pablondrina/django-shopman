@@ -11,13 +11,13 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
 # ── Fiscal, Accounting ── (vivem no ordering core, re-export)
-from shopman.ordering.protocols import (  # noqa: F401
+from shopman.omniman.protocols import (  # noqa: F401
     AccountingBackend,
     FiscalBackend,
 )
 
 # ── Payment ── (vivem no payments core, re-export)
-from shopman.payments.protocols import (  # noqa: F401
+from shopman.payman.protocols import (  # noqa: F401
     CaptureResult,
     GatewayIntent,
     PaymentBackend,

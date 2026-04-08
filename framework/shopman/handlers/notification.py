@@ -17,7 +17,7 @@ import logging
 from django.conf import settings
 
 from shopman.notifications import notify
-from shopman.ordering.models import Directive
+from shopman.omniman.models import Directive
 from shopman.topics import NOTIFICATION_SEND
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ class NotificationSendHandler:
 
     def _handle_order_notification(self, message: Directive) -> None:
         """Handle order-related notifications (customer-facing)."""
-        from shopman.ordering.models import Order
+        from shopman.omniman.models import Order
 
         payload = message.payload
         order_ref = payload.get("order_ref")
@@ -76,6 +76,8 @@ class NotificationSendHandler:
             return
 
         context = self._build_context(order, payload, template)
+        template = self._qualify_template(template, context)
+        context["template"] = template
 
         # Try each backend in the chain until one succeeds
         last_error = None
@@ -201,11 +203,13 @@ class NotificationSendHandler:
                     chain = [fallback]
             return [backend] + [b for b in chain if b != backend]
 
-        # Default phone-first: manychat → sms → email
-        return ["manychat", "sms", "email"]
+        # Default phone-first: manychat → sms → email → console (safety net)
+        return ["manychat", "sms", "email", "console"]
 
     def _build_context(self, order, payload: dict, template: str) -> dict:
         """Build notification context from order data."""
+        fulfillment_type = order.data.get("fulfillment_type", "pickup")
+
         context = {
             "order_ref": payload.get("order_ref"),
             "template": template,
@@ -213,6 +217,7 @@ class NotificationSendHandler:
             "total_q": order.total_q,
             "items": order.data.get("items", []),
             "reason": payload.get("reason"),
+            "fulfillment_type": fulfillment_type,
         }
 
         # Enrich with customer name
@@ -232,6 +237,18 @@ class NotificationSendHandler:
             context["payment"] = payment
 
         return context
+
+    @staticmethod
+    def _qualify_template(template: str, context: dict) -> str:
+        """Qualify template name based on fulfillment_type when relevant.
+
+        order_ready → order_ready_pickup or order_ready_delivery
+        """
+        if template in ("order_ready", "order.ready"):
+            ft = context.get("fulfillment_type", "pickup")
+            suffix = "delivery" if ft == "delivery" else "pickup"
+            return f"{template}_{suffix}"
+        return template
 
     def _resolve_recipient(self, order, backend_name: str = "") -> str | None:
         """Resolve recipient based on backend type.

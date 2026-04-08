@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 
-from shopman.ordering.models import Directive
+from shopman.omniman.models import Directive
 from shopman.topics import LOYALTY_EARN, LOYALTY_REDEEM
 
 logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ class LoyaltyEarnHandler:
     topic = LOYALTY_EARN
 
     def handle(self, *, message: Directive, ctx: dict) -> None:
-        from shopman.ordering.models import Order
+        from shopman.omniman.models import Order
 
         payload = message.payload
         order_ref = payload.get("order_ref")
@@ -46,7 +46,7 @@ class LoyaltyEarnHandler:
 
         # Find customer by phone
         try:
-            from shopman.customers.services import customer as customer_service
+            from shopman.guestman.services import customer as customer_service
 
             customer = customer_service.get_by_phone(order.handle_ref)
         except Exception:
@@ -66,7 +66,7 @@ class LoyaltyEarnHandler:
             return
 
         try:
-            from shopman.customers.contrib.loyalty.service import LoyaltyService
+            from shopman.guestman.contrib.loyalty.service import LoyaltyService
 
             # Enroll if not yet enrolled (idempotent)
             LoyaltyService.enroll(customer.ref)
@@ -113,7 +113,7 @@ class LoyaltyRedeemHandler:
             return
 
         try:
-            from shopman.ordering.models import Order
+            from shopman.omniman.models import Order
             order = Order.objects.get(ref=order_ref)
         except Order.DoesNotExist:
             message.status = "failed"
@@ -128,7 +128,7 @@ class LoyaltyRedeemHandler:
             return
 
         try:
-            from shopman.customers.services import customer as customer_service
+            from shopman.guestman.services import customer as customer_service
             customer = customer_service.get_by_phone(order.handle_ref)
         except Exception:
             customer = None
@@ -140,7 +140,7 @@ class LoyaltyRedeemHandler:
             return
 
         try:
-            from shopman.customers.contrib.loyalty.service import LoyaltyService
+            from shopman.guestman.contrib.loyalty.service import LoyaltyService
 
             LoyaltyService.redeem_points(
                 customer_ref=customer.ref,

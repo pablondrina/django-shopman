@@ -16,7 +16,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from shopman.ordering.models import Order
+from shopman.omniman.models import Order
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,7 @@ class EfiPixWebhookView(APIView):
         return Response(status=status.HTTP_200_OK)
 
     def _process_pix_confirmation(self, *, txid: str, e2e_id: str, valor: str) -> None:
-        from shopman.payments import PaymentError, PaymentService
+        from shopman.payman import PaymentError, PaymentService
 
         db_intent = PaymentService.get_by_gateway_id(txid)
 

@@ -5,7 +5,7 @@ Instead of Directive.objects.create() scattered across services,
 use directives.queue() for consistent payload structure.
 """
 
-from shopman.ordering.models import Directive
+from shopman.omniman.models import Directive
 
 
 def queue(topic, order, **extra):

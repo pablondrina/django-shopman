@@ -69,7 +69,7 @@ def register_active_rules():
     via channels.setup — R8 will migrate everything.
     """
     from shopman.models import RuleConfig
-    from shopman.ordering import registry
+    from shopman.omniman import registry
 
     active = RuleConfig.objects.filter(enabled=True).order_by("priority")
 

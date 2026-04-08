@@ -92,7 +92,7 @@ def get_typical_ready_times(
         rounding_minutes = config.get("rounding_minutes", DEFAULT_ROUNDING_MINUTES)
 
     try:
-        from shopman.crafting.models import WorkOrder
+        from shopman.craftsman.models import WorkOrder
     except ImportError:
         return {}
 

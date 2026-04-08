@@ -1,7 +1,7 @@
 """
 Django settings for Customers tests.
 
-Minimal settings to run pytest with shopman.customers app and all contrib modules.
+Minimal settings to run pytest with shopman.guestman app and all contrib modules.
 """
 
 SECRET_KEY = "test-secret-key-for-customers-tests"
@@ -14,15 +14,15 @@ INSTALLED_APPS = [
     "rest_framework",
     "django_filters",
     # Customers core
-    "shopman.customers",
+    "shopman.guestman",
     # Customers contribs
-    "shopman.customers.contrib.identifiers",
-    "shopman.customers.contrib.preferences",
-    "shopman.customers.contrib.insights",
-    "shopman.customers.contrib.timeline",
-    "shopman.customers.contrib.consent",
-    "shopman.customers.contrib.loyalty",
-    "shopman.customers.contrib.merge",
+    "shopman.guestman.contrib.identifiers",
+    "shopman.guestman.contrib.preferences",
+    "shopman.guestman.contrib.insights",
+    "shopman.guestman.contrib.timeline",
+    "shopman.guestman.contrib.consent",
+    "shopman.guestman.contrib.loyalty",
+    "shopman.guestman.contrib.merge",
 ]
 
 DATABASES = {

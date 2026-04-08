@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 
-from shopman.ordering.models import Directive
+from shopman.omniman.models import Directive
 from shopman.topics import FULFILLMENT_CREATE, FULFILLMENT_UPDATE, NOTIFICATION_SEND
 
 logger = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ class FulfillmentCreateHandler:
     topic = FULFILLMENT_CREATE
 
     def handle(self, *, message: Directive, ctx: dict) -> None:
-        from shopman.ordering.models import Order
+        from shopman.omniman.models import Order
 
         payload = message.payload
         order_ref = payload.get("order_ref")
@@ -99,8 +99,8 @@ class FulfillmentUpdateHandler:
 
     def handle(self, *, message: Directive, ctx: dict) -> None:
         from shopman.config import ChannelConfig
-        from shopman.ordering.exceptions import InvalidTransition
-        from shopman.ordering.models import Fulfillment, Order
+        from shopman.omniman.exceptions import InvalidTransition
+        from shopman.omniman.models import Fulfillment, Order
 
         payload = message.payload
         order_ref = payload.get("order_ref")
@@ -197,7 +197,7 @@ class FulfillmentUpdateHandler:
 
     def _sync_order_status(self, order, fulfillment_status: str) -> None:
         """Auto-sync: fulfillment status → order status."""
-        from shopman.ordering.models import Order
+        from shopman.omniman.models import Order
 
         sync_map = {
             "dispatched": Order.Status.DISPATCHED,

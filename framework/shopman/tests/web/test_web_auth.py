@@ -14,17 +14,17 @@ from django.core.cache import cache
 from django.test import Client, override_settings
 from django.utils import timezone
 
-from shopman.auth.models import AccessLink
-from shopman.auth.models.device_trust import TrustedDevice
-from shopman.customers.models import Customer
+from shopman.doorman.models import AccessLink
+from shopman.doorman.models.device_trust import TrustedDevice
+from shopman.guestman.models import Customer
 
 pytestmark = pytest.mark.django_db
 
 
 def _login_as_customer(client: Client, customer) -> User:
     """Log in the Django test client as a customer via Django auth."""
-    from shopman.auth.protocols.customer import AuthCustomerInfo
-    from shopman.auth.services._user_bridge import get_or_create_user_for_customer
+    from shopman.doorman.protocols.customer import AuthCustomerInfo
+    from shopman.doorman.services._user_bridge import get_or_create_user_for_customer
 
     info = AuthCustomerInfo(
         uuid=customer.uuid,
@@ -34,7 +34,7 @@ def _login_as_customer(client: Client, customer) -> User:
         is_active=True,
     )
     user, _ = get_or_create_user_for_customer(info)
-    client.force_login(user, backend="shopman.auth.backends.PhoneOTPBackend")
+    client.force_login(user, backend="shopman.doorman.backends.PhoneOTPBackend")
     return user
 
 
@@ -209,7 +209,7 @@ class TestDeviceTrust:
             ip_address="127.0.0.1",
         )
 
-        from shopman.auth.conf import auth_settings
+        from shopman.doorman.conf import auth_settings
 
         client.cookies[auth_settings.DEVICE_TRUST_COOKIE_NAME] = raw_token
 
@@ -234,7 +234,7 @@ class TestDeviceTrust:
         device.expires_at = timezone.now() - timedelta(days=1)
         device.save()
 
-        from shopman.auth.conf import auth_settings
+        from shopman.doorman.conf import auth_settings
 
         client.cookies[auth_settings.DEVICE_TRUST_COOKIE_NAME] = raw_token
 
@@ -256,7 +256,7 @@ class TestDeviceTrust:
             ip_address="127.0.0.1",
         )
 
-        from shopman.auth.conf import auth_settings
+        from shopman.doorman.conf import auth_settings
 
         client.cookies[auth_settings.DEVICE_TRUST_COOKIE_NAME] = raw_token
 
@@ -267,8 +267,8 @@ class TestDeviceTrust:
 
     def test_verify_code_sets_device_trust_cookie(self, client: Client, customer):
         """Successful OTP verification sets device trust cookie on response."""
-        with patch("shopman.auth.services.verification.AuthService") as mock_vs:
-            from shopman.auth.protocols.customer import AuthCustomerInfo
+        with patch("shopman.doorman.services.verification.AuthService") as mock_vs:
+            from shopman.doorman.protocols.customer import AuthCustomerInfo
 
             mock_customer = AuthCustomerInfo(
                 uuid=customer.uuid,
@@ -287,7 +287,7 @@ class TestDeviceTrust:
             })
 
             assert response.status_code == 200
-            from shopman.auth.conf import auth_settings
+            from shopman.doorman.conf import auth_settings
 
             cookie_name = auth_settings.DEVICE_TRUST_COOKIE_NAME
             assert cookie_name in response.cookies
@@ -304,7 +304,7 @@ class TestRateLimiting:
         """RequestCodeView blocks after 5 requests/min with HTTP 429."""
         phone = customer.phone
 
-        with patch("shopman.auth.services.verification.AuthService") as mock_vs:
+        with patch("shopman.doorman.services.verification.AuthService") as mock_vs:
             mock_vs.request_code.return_value = type("R", (), {
                 "success": True, "code_id": "x", "expires_at": "x",
             })()
@@ -323,7 +323,7 @@ class TestRateLimiting:
         """VerifyCodeView blocks after 10 requests/min with HTTP 429."""
         phone = customer.phone
 
-        with patch("shopman.auth.services.verification.AuthService") as mock_vs:
+        with patch("shopman.doorman.services.verification.AuthService") as mock_vs:
             mock_vs.verify_for_login.return_value = type("R", (), {
                 "success": False, "error": "Incorrect code.",
                 "attempts_remaining": 9, "customer": None,
@@ -369,8 +369,8 @@ class TestDjangoAuth:
 
     def test_verify_code_sets_django_auth(self, client: Client, customer):
         """Successful OTP verification sets Django auth (real service, no mock)."""
-        from shopman.auth.models import VerificationCode
-        from shopman.auth.models.verification_code import generate_raw_code
+        from shopman.doorman.models import VerificationCode
+        from shopman.doorman.models.verification_code import generate_raw_code
 
         raw_code, hmac_digest = generate_raw_code()
         VerificationCode.objects.create(

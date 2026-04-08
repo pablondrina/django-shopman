@@ -18,7 +18,7 @@ class KDSInstance(models.Model):
     name = models.CharField("nome", max_length=200)
     type = models.CharField("tipo", max_length=20, choices=TYPE_CHOICES)
     collections = models.ManyToManyField(
-        "offering.Collection",
+        "offerman.Collection",
         blank=True,
         verbose_name="coleções",
         help_text="Categorias de produto que esta estação processa. Vazio = catch-all.",
@@ -53,7 +53,7 @@ class KDSTicket(models.Model):
     ]
 
     order = models.ForeignKey(
-        "ordering.Order",
+        "omniman.Order",
         on_delete=models.CASCADE,
         related_name="kds_tickets",
         verbose_name="pedido",

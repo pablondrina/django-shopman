@@ -1,5 +1,5 @@
 from django.urls import include, path
 
 urlpatterns = [
-    path("api/", include("shopman.ordering.api.urls")),
+    path("api/", include("shopman.omniman.api.urls")),
 ]

@@ -1,6 +1,6 @@
 import pytest
 
-from shopman.ordering import registry
+from shopman.omniman import registry
 
 
 @pytest.fixture(autouse=True)

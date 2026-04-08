@@ -16,8 +16,8 @@ class TestVerifyCodeAuth:
 
     def test_verify_code_sets_django_user(self, client: Client, customer):
         """request.user is authenticated after OTP verification."""
-        from shopman.auth.models import VerificationCode
-        from shopman.auth.models.verification_code import generate_raw_code
+        from shopman.doorman.models import VerificationCode
+        from shopman.doorman.models.verification_code import generate_raw_code
 
         raw_code, hmac_digest = generate_raw_code()
         VerificationCode.objects.create(
@@ -40,7 +40,7 @@ class TestVerifyCodeAuth:
         user = User.objects.get(pk=user_id)
         assert user.is_active
 
-        from shopman.auth.models import CustomerUser
+        from shopman.doorman.models import CustomerUser
         link = CustomerUser.objects.get(user=user)
         assert link.customer_id == customer.uuid
 
@@ -50,12 +50,12 @@ class TestDeviceCheckAuth:
 
     def _trust_device(self, client: Client, customer):
         """Simulate trusting a device by creating a device and setting cookie."""
-        from shopman.auth.models.device_trust import TrustedDevice
+        from shopman.doorman.models.device_trust import TrustedDevice
 
         device, raw_token = TrustedDevice.create_for_customer(
             customer_id=customer.uuid,
         )
-        from shopman.auth.conf import auth_settings
+        from shopman.doorman.conf import auth_settings
         client.cookies[auth_settings.DEVICE_TRUST_COOKIE_NAME] = raw_token
 
     def test_device_check_sets_django_user(self, client: Client, customer):
@@ -68,6 +68,6 @@ class TestDeviceCheckAuth:
         assert user_id is not None
 
         user = User.objects.get(pk=user_id)
-        from shopman.auth.models import CustomerUser
+        from shopman.doorman.models import CustomerUser
         link = CustomerUser.objects.get(user=user)
         assert link.customer_id == customer.uuid

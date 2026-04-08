@@ -15,7 +15,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from shopman.ordering.models import Order
+from shopman.omniman.models import Order
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,7 @@ class StripeWebhookView(APIView):
     def _trigger_order_hooks(self, intent_ref: str) -> None:
         """Find associated order and trigger flow dispatch."""
         from shopman.flows import dispatch
-        from shopman.payments import PaymentService
+        from shopman.payman import PaymentService
 
         try:
             intent = PaymentService.get(intent_ref)

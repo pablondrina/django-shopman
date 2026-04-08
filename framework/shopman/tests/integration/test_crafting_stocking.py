@@ -18,8 +18,8 @@ from decimal import Decimal
 import pytest
 from django.utils import timezone
 
-from shopman.crafting.models import WorkOrder
-from shopman.stocking import stock
+from shopman.craftsman.models import WorkOrder
+from shopman.stockman import stock
 
 pytestmark = pytest.mark.django_db
 
@@ -67,7 +67,7 @@ class TestProductionOutputToStock:
         self, recipe, croissant, position_loja, position_producao, today
     ):
         """Multiple completed WorkOrders should accumulate stock."""
-        from shopman.crafting.models import WorkOrder
+        from shopman.craftsman.models import WorkOrder
 
         # Create and complete first work order
         wo1 = WorkOrder.objects.create(
@@ -366,7 +366,7 @@ class TestStockByPosition:
         self, croissant, position_producao, position_loja, today
     ):
         """Only saleable positions should be used for order fulfillment."""
-        from shopman.stocking.models import Position
+        from shopman.stockman.models import Position
 
         # Production position is not saleable
         assert position_producao.is_saleable is False

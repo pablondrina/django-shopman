@@ -50,23 +50,23 @@ INSTALLED_APPS = [
     "django_ratelimit",
     # Shopman core apps
     "shopman.utils",
-    "shopman.offering",
-    "shopman.stocking",
-    "shopman.crafting",
-    "shopman.ordering",
-    "shopman.payments",
-    "shopman.customers",
-    "shopman.auth",
+    "shopman.offerman",
+    "shopman.stockman",
+    "shopman.craftsman",
+    "shopman.omniman",
+    "shopman.payman",
+    "shopman.guestman",
+    "shopman.doorman",
     # Shopman core Unfold contribs
-    "shopman.offering.contrib.admin_unfold",
-    "shopman.stocking.contrib.admin_unfold",
-    "shopman.crafting.contrib.admin_unfold",
-    "shopman.stocking.contrib.alerts",
-    "shopman.customers.contrib.insights",
-    "shopman.customers.contrib.loyalty",
-    "shopman.customers.contrib.preferences",
-    "shopman.customers.contrib.admin_unfold",
-    "shopman.auth.contrib.admin_unfold",
+    "shopman.offerman.contrib.admin_unfold",
+    "shopman.stockman.contrib.admin_unfold",
+    "shopman.craftsman.contrib.admin_unfold",
+    "shopman.stockman.contrib.alerts",
+    "shopman.guestman.contrib.insights",
+    "shopman.guestman.contrib.loyalty",
+    "shopman.guestman.contrib.preferences",
+    "shopman.guestman.contrib.admin_unfold",
+    "shopman.doorman.contrib.admin_unfold",
     # Shopman orchestrator
     "shopman",
 ]
@@ -78,7 +78,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "shopman.auth.middleware.AuthCustomerMiddleware",
+    "shopman.doorman.middleware.AuthCustomerMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "shopman.middleware.ChannelParamMiddleware",
@@ -86,7 +86,7 @@ MIDDLEWARE = [
 ]
 
 AUTHENTICATION_BACKENDS = [
-    "shopman.auth.backends.PhoneOTPBackend",
+    "shopman.doorman.backends.PhoneOTPBackend",
     "django.contrib.auth.backends.ModelBackend",
 ]
 
@@ -201,9 +201,9 @@ if MANYCHAT_API_TOKEN:
         "DELIVERY_CHAIN": ["whatsapp", "sms", "email"] if not DEBUG else ["whatsapp", "sms", "console"],
         "DELIVERY_SENDERS": {
             "whatsapp": "shopman.adapters.otp_manychat.ManychatOTPSender",
-            "sms": "shopman.auth.senders.SMSSender",
-            "email": "shopman.auth.senders.EmailSender",
-            "console": "shopman.auth.senders.ConsoleSender",
+            "sms": "shopman.doorman.senders.SMSSender",
+            "email": "shopman.doorman.senders.EmailSender",
+            "console": "shopman.doorman.senders.ConsoleSender",
         },
     })
 
@@ -253,42 +253,42 @@ UNFOLD = {
     },
     "TABS": [
         {
-            "models": ["offering.product", "offering.collection", "offering.listing"],
+            "models": ["offerman.product", "offerman.collection", "offerman.listing"],
             "items": [
-                {"title": "Produtos", "link": reverse_lazy("admin:offering_product_changelist")},
-                {"title": "Colecoes", "link": reverse_lazy("admin:offering_collection_changelist")},
-                {"title": "Listagens", "link": reverse_lazy("admin:offering_listing_changelist")},
+                {"title": "Produtos", "link": reverse_lazy("admin:offerman_product_changelist")},
+                {"title": "Colecoes", "link": reverse_lazy("admin:offerman_collection_changelist")},
+                {"title": "Listagens", "link": reverse_lazy("admin:offerman_listing_changelist")},
             ],
         },
         {
             "models": [
-                "stocking.quant",
-                "stocking.move",
-                "stocking.hold",
-                "stocking.batch",
-                "stocking.position",
-                "stocking.stockalert",
+                "stockman.quant",
+                "stockman.move",
+                "stockman.hold",
+                "stockman.batch",
+                "stockman.position",
+                "stockman.stockalert",
             ],
             "items": [
-                {"title": "Saldo", "link": reverse_lazy("admin:stocking_quant_changelist")},
-                {"title": "Movimentos", "link": reverse_lazy("admin:stocking_move_changelist")},
-                {"title": "Reservas", "link": reverse_lazy("admin:stocking_hold_changelist")},
-                {"title": "Lotes", "link": reverse_lazy("admin:stocking_batch_changelist")},
-            ],
-        },
-        {
-            "models": ["crafting.recipe", "crafting.workorder"],
-            "items": [
-                {"title": "Receitas", "link": reverse_lazy("admin:crafting_recipe_changelist")},
-                {"title": "Ordens de Producao", "link": reverse_lazy("admin:crafting_workorder_changelist")},
+                {"title": "Saldo", "link": reverse_lazy("admin:stockman_quant_changelist")},
+                {"title": "Movimentos", "link": reverse_lazy("admin:stockman_move_changelist")},
+                {"title": "Reservas", "link": reverse_lazy("admin:stockman_hold_changelist")},
+                {"title": "Lotes", "link": reverse_lazy("admin:stockman_batch_changelist")},
             ],
         },
         {
-            "models": ["ordering.order", "ordering.session", "ordering.directive"],
+            "models": ["craftsman.recipe", "craftsman.workorder"],
             "items": [
-                {"title": "Pedidos", "link": reverse_lazy("admin:ordering_order_changelist")},
-                {"title": "Sessoes", "link": reverse_lazy("admin:ordering_session_changelist")},
-                {"title": "Diretivas", "link": reverse_lazy("admin:ordering_directive_changelist")},
+                {"title": "Receitas", "link": reverse_lazy("admin:craftsman_recipe_changelist")},
+                {"title": "Ordens de Producao", "link": reverse_lazy("admin:craftsman_workorder_changelist")},
+            ],
+        },
+        {
+            "models": ["omniman.order", "omniman.session", "omniman.directive"],
+            "items": [
+                {"title": "Pedidos", "link": reverse_lazy("admin:omniman_order_changelist")},
+                {"title": "Sessoes", "link": reverse_lazy("admin:omniman_session_changelist")},
+                {"title": "Diretivas", "link": reverse_lazy("admin:omniman_directive_changelist")},
             ],
         },
     ],
@@ -315,9 +315,9 @@ UNFOLD = {
                 "separator": True,
                 "collapsible": True,
                 "items": [
-                    {"title": "Canais", "icon": "network_node", "link": reverse_lazy("admin:ordering_channel_changelist")},
-                    {"title": "Sessoes", "icon": "note_alt", "link": reverse_lazy("admin:ordering_session_changelist")},
-                    {"title": "Pedidos", "icon": "assignment", "link": reverse_lazy("admin:ordering_order_changelist")},
+                    {"title": "Canais", "icon": "network_node", "link": reverse_lazy("admin:omniman_channel_changelist")},
+                    {"title": "Sessoes", "icon": "note_alt", "link": reverse_lazy("admin:omniman_session_changelist")},
+                    {"title": "Pedidos", "icon": "assignment", "link": reverse_lazy("admin:omniman_order_changelist")},
                 ],
             },
             {
@@ -325,9 +325,9 @@ UNFOLD = {
                 "separator": True,
                 "collapsible": True,
                 "items": [
-                    {"title": "Produtos", "icon": "inventory_2", "link": reverse_lazy("admin:offering_product_changelist")},
-                    {"title": "Colecoes", "icon": "category", "link": reverse_lazy("admin:offering_collection_changelist")},
-                    {"title": "Listagens", "icon": "shoppingmode", "link": reverse_lazy("admin:offering_listing_changelist")},
+                    {"title": "Produtos", "icon": "inventory_2", "link": reverse_lazy("admin:offerman_product_changelist")},
+                    {"title": "Colecoes", "icon": "category", "link": reverse_lazy("admin:offerman_collection_changelist")},
+                    {"title": "Listagens", "icon": "shoppingmode", "link": reverse_lazy("admin:offerman_listing_changelist")},
                 ],
             },
             {
@@ -335,12 +335,12 @@ UNFOLD = {
                 "separator": True,
                 "collapsible": True,
                 "items": [
-                    {"title": "Saldo", "icon": "point_scan", "link": reverse_lazy("admin:stocking_quant_changelist")},
-                    {"title": "Movimentos", "icon": "swap_horiz", "link": reverse_lazy("admin:stocking_move_changelist")},
-                    {"title": "Reservas", "icon": "keep", "link": reverse_lazy("admin:stocking_hold_changelist")},
-                    {"title": "Lotes", "icon": "science", "link": reverse_lazy("admin:stocking_batch_changelist")},
-                    {"title": "Posicoes", "icon": "domain", "link": reverse_lazy("admin:stocking_position_changelist")},
-                    {"title": "Alertas", "icon": "notification_important", "link": reverse_lazy("admin:stocking_stockalert_changelist")},
+                    {"title": "Saldo", "icon": "point_scan", "link": reverse_lazy("admin:stockman_quant_changelist")},
+                    {"title": "Movimentos", "icon": "swap_horiz", "link": reverse_lazy("admin:stockman_move_changelist")},
+                    {"title": "Reservas", "icon": "keep", "link": reverse_lazy("admin:stockman_hold_changelist")},
+                    {"title": "Lotes", "icon": "science", "link": reverse_lazy("admin:stockman_batch_changelist")},
+                    {"title": "Posicoes", "icon": "domain", "link": reverse_lazy("admin:stockman_position_changelist")},
+                    {"title": "Alertas", "icon": "notification_important", "link": reverse_lazy("admin:stockman_stockalert_changelist")},
                 ],
             },
             {
@@ -360,11 +360,11 @@ UNFOLD = {
                 "items": [
                     {"title": "Registro Rápido", "icon": "add_circle", "link": reverse_lazy("admin:shop_production")},
                     {"title": "Fechamento", "icon": "point_of_sale", "link": reverse_lazy("admin:shop_closing")},
-                    {"title": "Receitas", "icon": "menu_book", "link": reverse_lazy("admin:crafting_recipe_changelist")},
-                    {"title": "Ordens de Producao", "icon": "manufacturing", "link": reverse_lazy("admin:crafting_workorder_changelist")},
+                    {"title": "Receitas", "icon": "menu_book", "link": reverse_lazy("admin:craftsman_recipe_changelist")},
+                    {"title": "Ordens de Producao", "icon": "manufacturing", "link": reverse_lazy("admin:craftsman_workorder_changelist")},
                     {"title": "Alertas", "icon": "warning", "link": reverse_lazy("admin:shopman_operatoralert_changelist")},
                     {"title": "KDS", "icon": "kitchen", "link": reverse_lazy("admin:shopman_kdsinstance_changelist")},
-                    {"title": "Diretivas", "icon": "conversion_path", "link": reverse_lazy("admin:ordering_directive_changelist")},
+                    {"title": "Diretivas", "icon": "conversion_path", "link": reverse_lazy("admin:omniman_directive_changelist")},
                     {"title": "Fechamento Diário", "icon": "event_available", "link": reverse_lazy("admin:shopman_dayclosing_changelist")},
                 ],
             },
@@ -373,8 +373,8 @@ UNFOLD = {
                 "separator": True,
                 "collapsible": True,
                 "items": [
-                    {"title": "Clientes", "icon": "people", "link": reverse_lazy("admin:customers_customer_changelist")},
-                    {"title": "Grupos", "icon": "groups", "link": reverse_lazy("admin:customers_customergroup_changelist")},
+                    {"title": "Clientes", "icon": "people", "link": reverse_lazy("admin:guestman_customer_changelist")},
+                    {"title": "Grupos", "icon": "groups", "link": reverse_lazy("admin:guestman_customergroup_changelist")},
                 ],
             },
             {
@@ -436,25 +436,27 @@ OFFERING = {
 # ── Crafting (micro-MRP integration) ──────────────────────────────
 
 CRAFTING = {
-    "INVENTORY_BACKEND": "shopman.crafting.adapters.stocking.StockingBackend",
-    "DEMAND_BACKEND": "shopman.crafting.contrib.demand.backend.OrderingDemandBackend",
-    "CATALOG_BACKEND": "shopman.offering.adapters.catalog_backend.OfferingCatalogBackend",
+    "INVENTORY_BACKEND": "shopman.craftsman.adapters.stocking.StockingBackend",
+    "DEMAND_BACKEND": "shopman.craftsman.contrib.demand.backend.OrderingDemandBackend",
+    "CATALOG_BACKEND": "shopman.offerman.adapters.catalog_backend.OfferingCatalogBackend",
 }
 
 # ── Shopman Adapters ──────────────────────────────────────────────────
 
 SHOPMAN_PAYMENT_ADAPTERS = {
-    "pix": "shopman.adapters.payment_mock",
-    "card": "shopman.adapters.payment_mock",
+    "pix": os.environ.get("SHOPMAN_PIX_ADAPTER", "shopman.adapters.payment_mock"),
+    "card": os.environ.get("SHOPMAN_CARD_ADAPTER", "shopman.adapters.payment_mock"),
     "counter": None,
     "external": None,
 }
 
 SHOPMAN_NOTIFICATION_ADAPTERS = {
+    "manychat": "shopman.adapters.notification_manychat",
+    "email": "shopman.adapters.notification_email",
     "console": "shopman.adapters.notification_console",
 }
 
-SHOPMAN_STOCK_ADAPTER = "shopman.adapters.stock_internal"
+SHOPMAN_STOCK_ADAPTER = "shopman.adapters.stock"
 
 SHOPMAN_FISCAL_ADAPTER = None
 

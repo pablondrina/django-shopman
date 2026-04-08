@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import logging
 
-from shopman.ordering.services.commit import CommitService
-from shopman.ordering.services.modify import ModifyService
+from shopman.omniman.services.commit import CommitService
+from shopman.omniman.services.modify import ModifyService
 
 logger = logging.getLogger(__name__)
 

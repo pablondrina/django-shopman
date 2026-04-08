@@ -73,7 +73,7 @@ class GetSlotsTests(TestCase):
 
 class GetTypicalReadyTimesTests(TestCase):
     def setUp(self):
-        from shopman.crafting.models import Recipe, WorkOrder
+        from shopman.craftsman.models import Recipe, WorkOrder
 
         Shop.objects.create(name="Test", brand_name="Test")
         self.recipe = Recipe.objects.create(
@@ -110,7 +110,7 @@ class GetTypicalReadyTimesTests(TestCase):
 
     def test_rounds_up_correctly(self):
         """If median is 6:15, should round up to 6:30."""
-        from shopman.crafting.models import WorkOrder
+        from shopman.craftsman.models import WorkOrder
 
         tz_info = timezone.get_current_timezone()
         today = date.today()
@@ -133,7 +133,7 @@ class GetTypicalReadyTimesTests(TestCase):
 
 class GetEarliestSlotTests(TestCase):
     def setUp(self):
-        from shopman.crafting.models import Recipe, WorkOrder
+        from shopman.craftsman.models import Recipe, WorkOrder
 
         Shop.objects.create(
             name="Test",

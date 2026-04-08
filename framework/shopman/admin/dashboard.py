@@ -76,7 +76,7 @@ def dashboard_callback(request, context):
         "kpi_stock_alerts": len(stock_alerts),
         "kpi_operator_alerts": operator_alerts["count"],
         # Quick-link URLs
-        "orders_url": reverse("admin:ordering_order_changelist"),
+        "orders_url": reverse("admin:omniman_order_changelist"),
         # Charts (JSON for Chart.js)
         "chart_pedidos_status": _chart_orders_by_status(today),
         "chart_pedidos_status_options": json.dumps({"indexAxis": "y"}),
@@ -105,7 +105,7 @@ def dashboard_callback(request, context):
 
 
 def _order_summary(today):
-    from shopman.ordering.models import Order
+    from shopman.omniman.models import Order
 
     qs = (
         Order.objects
@@ -126,7 +126,7 @@ def _order_summary(today):
                 "label": label,
                 "count": count,
                 "color": STATUS_CHART_COLORS.get(status, "#6B7280"),
-                "url": f'{reverse("admin:ordering_order_changelist")}?status__exact={status}',
+                "url": f'{reverse("admin:omniman_order_changelist")}?status__exact={status}',
             })
 
     return {"total": total, "new_count": new_count, "cards": cards}
@@ -136,7 +136,7 @@ def _order_summary(today):
 
 
 def _revenue(today, yesterday):
-    from shopman.ordering.models import Order
+    from shopman.omniman.models import Order
 
     confirmed_statuses = [
         "confirmed", "preparing", "ready",
@@ -169,7 +169,7 @@ def _revenue(today, yesterday):
 
 def _production(today):
     try:
-        from shopman.crafting.models import WorkOrder
+        from shopman.craftsman.models import WorkOrder
     except ImportError:
         return {"open": 0, "done": 0, "total": 0, "progress": 0, "wos": [], "tracker": []}
 
@@ -199,7 +199,7 @@ def _production(today):
             "output_ref": wo.output_ref,
             "quantity": wo.quantity,
             "status": wo.status,
-            "url": reverse("admin:crafting_workorder_change", args=[wo.pk]),
+            "url": reverse("admin:craftsman_workorder_change", args=[wo.pk]),
         })
 
     return {
@@ -217,7 +217,7 @@ def _production(today):
 
 def _stock_alerts():
     try:
-        from shopman.stocking.models import Quant, StockAlert
+        from shopman.stockman.models import Quant, StockAlert
     except ImportError:
         return []
 
@@ -246,7 +246,7 @@ def _stock_alerts():
 
 
 def _recent_orders():
-    from shopman.ordering.models import Order
+    from shopman.omniman.models import Order
 
     orders = (
         Order.objects
@@ -261,7 +261,7 @@ def _recent_orders():
             "total_display": _format_brl(o.total_q),
             "channel_name": o.channel.name if o.channel else "\u2014",
             "created_at": o.created_at,
-            "url": reverse("admin:ordering_order_change", args=[o.pk]),
+            "url": reverse("admin:omniman_order_change", args=[o.pk]),
         }
         for o in orders
     ]
@@ -272,7 +272,7 @@ def _recent_orders():
 
 def _chart_orders_by_status(today):
     """Bar chart: orders by status (horizontal)."""
-    from shopman.ordering.models import Order
+    from shopman.omniman.models import Order
 
     orders_today = Order.objects.filter(created_at__date=today)
 
@@ -302,7 +302,7 @@ def _chart_orders_by_status(today):
 
 def _chart_sales_7days(today):
     """Line chart: sales trend over last 7 days."""
-    from shopman.ordering.models import Order
+    from shopman.omniman.models import Order
 
     week_ago = today - timedelta(days=6)
     labels = []
@@ -339,7 +339,7 @@ def _chart_sales_7days(today):
 
 def _build_pending_orders_table(today):
     """Pending orders (new, confirmed, preparing)."""
-    from shopman.ordering.models import Order
+    from shopman.omniman.models import Order
 
     pending = (
         Order.objects
@@ -359,7 +359,7 @@ def _build_pending_orders_table(today):
         rows.append([
             format_html(
                 '<a href="{}" class="font-medium">{}</a>',
-                reverse("admin:ordering_order_change", args=[o.pk]),
+                reverse("admin:omniman_order_change", args=[o.pk]),
                 o.ref,
             ),
             format_html(
@@ -448,8 +448,8 @@ def _build_alerts_table(alerts):
 def _d1_stock():
     """Fetch D-1 stock in position 'ontem'."""
     try:
-        from shopman.stocking.models import Move, Quant
-        from shopman.stocking.models.position import Position
+        from shopman.stockman.models import Move, Quant
+        from shopman.stockman.models.position import Position
     except ImportError:
         return []
 
@@ -471,7 +471,7 @@ def _d1_stock():
         entry_date = last_move.timestamp.date() if last_move else None
 
         try:
-            from shopman.offering.models import Product
+            from shopman.offerman.models import Product
             product = Product.objects.get(sku=quant.sku)
             name = product.name
         except Exception:
@@ -546,7 +546,7 @@ def _build_operator_alerts_table(alerts):
 def _production_suggestions(target_date):
     """Fetch production suggestions for target_date via CraftService.suggest()."""
     try:
-        from shopman.crafting.service import CraftService as craft
+        from shopman.craftsman.service import CraftService as craft
     except ImportError:
         return []
 

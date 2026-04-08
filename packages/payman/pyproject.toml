@@ -22,7 +22,7 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["shopman.payments*"]
+include = ["shopman.payman*"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "payments_test_settings"

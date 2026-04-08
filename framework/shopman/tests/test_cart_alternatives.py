@@ -15,8 +15,8 @@ from unittest.mock import patch
 from django.contrib.auth.models import User
 from django.test import TestCase
 
-from shopman.offering.models import Product
-from shopman.ordering.models import Channel
+from shopman.offerman.models import Product
+from shopman.omniman.models import Channel
 
 
 class CartAlternativesViewTests(TestCase):
@@ -107,7 +107,7 @@ class CartItemUnavailableFlagTests(TestCase):
         )
         # Ensure stock exists so is_unavailable defaults to False
         try:
-            from shopman.stocking.models import Position, Quant
+            from shopman.stockman.models import Position, Quant
             pos, _ = Position.objects.get_or_create(
                 ref="vitrine", defaults={"name": "Vitrine", "kind": "PHYSICAL", "is_saleable": True}
             )
@@ -119,9 +119,9 @@ class CartItemUnavailableFlagTests(TestCase):
         self.client.post("/cart/add/", {"sku": self.product.sku, "qty": str(qty)})
 
     def _make_session_and_request(self, qty: int = 1):
-        from shopman.ordering.ids import generate_session_key
-        from shopman.ordering.models import Session
-        from shopman.ordering.services.modify import ModifyService
+        from shopman.omniman.ids import generate_session_key
+        from shopman.omniman.models import Session
+        from shopman.omniman.services.modify import ModifyService
 
         channel = Channel.objects.get(ref="web")
         session_key = generate_session_key()

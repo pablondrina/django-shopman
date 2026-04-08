@@ -3,5 +3,5 @@
 from django.urls import include, path
 
 urlpatterns = [
-    path("auth/", include("shopman.auth.urls")),
+    path("auth/", include("shopman.doorman.urls")),
 ]

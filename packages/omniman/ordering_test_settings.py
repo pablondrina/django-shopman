@@ -1,7 +1,7 @@
 """
 Django settings for Ordering tests.
 
-Minimal settings to run pytest with shopman.ordering app.
+Minimal settings to run pytest with shopman.omniman app.
 """
 
 SECRET_KEY = "test-secret-key-for-ordering-tests"
@@ -13,8 +13,8 @@ INSTALLED_APPS = [
     "django.contrib.auth",
     "rest_framework",
     "shopman.utils",
-    "shopman.ordering",
-    "shopman.ordering.contrib.refs",
+    "shopman.omniman",
+    "shopman.omniman.contrib.refs",
 ]
 
 DATABASES = {

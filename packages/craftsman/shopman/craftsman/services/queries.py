@@ -1,0 +1,319 @@
+"""
+Query service — suggest, needs, expected.
+
+Read-only operations. All @classmethod (mixin pattern).
+"""
+
+import logging
+from dataclasses import dataclass, field
+from decimal import Decimal
+
+from django.db.models import Sum
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class Need:
+    """Material need from BOM explosion."""
+    item_ref: str
+    quantity: Decimal
+    unit: str
+    has_recipe: bool
+
+
+@dataclass
+class Suggestion:
+    """Production suggestion for a date."""
+    recipe: object  # Recipe instance
+    quantity: Decimal
+    basis: dict = field(default_factory=dict)
+
+
+class CraftQueries:
+    """Read-only query methods."""
+
+    @classmethod
+    def expected(cls, output_ref, date):
+        """
+        Sum of open WorkOrder quantities for output_ref on date.
+
+        Used by the availability system (spec 016).
+
+        Returns:
+            Decimal — total planned quantity.
+        """
+        from shopman.craftsman.models import WorkOrder
+
+        result = WorkOrder.objects.filter(
+            output_ref=output_ref,
+            status=WorkOrder.Status.OPEN,
+            scheduled_date=date,
+        ).aggregate(total=Sum("quantity"))
+        return result["total"] or Decimal("0")
+
+    @classmethod
+    def needs(cls, date, expand=False):
+        """
+        BOM explosion for a date. Returns material needs.
+
+        Args:
+            date: production date
+            expand: if True, recursively expand sub-recipes to raw materials
+
+        Returns:
+            list[Need] — aggregated material needs.
+        """
+        from shopman.craftsman.models import Recipe, WorkOrder
+
+        orders = WorkOrder.objects.filter(
+            status=WorkOrder.Status.OPEN,
+            scheduled_date=date,
+        ).select_related("recipe").prefetch_related("recipe__items")
+
+        aggregated = {}
+        for wo in orders:
+            coefficient = wo.quantity / wo.recipe.batch_size
+            for ri in wo.recipe.items.filter(is_optional=False).order_by("sort_order"):
+                if expand:
+                    for item_ref, qty, unit in _expand_bom(ri.input_ref, ri.quantity * coefficient, ri.unit):
+                        _aggregate(aggregated, item_ref, qty, unit)
+                else:
+                    _aggregate(aggregated, ri.input_ref, ri.quantity * coefficient, ri.unit)
+
+        return list(aggregated.values())
+
+    @classmethod
+    def suggest(
+        cls,
+        date,
+        output_refs=None,
+        *,
+        season_months: list | None = None,
+        high_demand_multiplier: Decimal | None = None,
+    ):
+        """
+        Suggest production quantities for a date.
+
+        Args:
+            date: production date
+            output_refs: optional list of output_ref strings to filter recipes.
+                         If None, all active recipes are considered.
+            season_months: optional list of month ints to filter history by season.
+                           e.g. [10, 11, 12, 1, 2, 3] for hot season.
+                           If None, all history months are used.
+            high_demand_multiplier: if provided and the date falls on Friday (4) or
+                                    Saturday (5), multiply suggested qty by this factor.
+
+        Algorithm:
+            For each active Recipe (optionally filtered by output_refs):
+            1. Get historical demand via DemandProtocol.history()
+            2. Filter by season_months if provided
+            3. Estimate true demand (extrapolate if soldout_at set)
+            4. confidence = "high" / "medium" / "low" based on sample_size
+            5. avg_demand = average of estimates
+            6. Apply waste adjustment if waste_rate > 15%
+            7. committed = DemandProtocol.committed(output_ref, date)
+            8. quantity = (avg_demand + committed) * (1 + SAFETY_STOCK_PERCENT)
+            9. Apply high_demand_multiplier on Fri/Sat if provided
+
+        Returns [] if DEMAND_BACKEND is not configured.
+        """
+        from shopman.craftsman.conf import get_setting
+        from shopman.craftsman.models import Recipe
+
+        backend_path = get_setting("DEMAND_BACKEND")
+        if not backend_path:
+            return []
+
+        try:
+            from django.utils.module_loading import import_string
+
+            backend = import_string(backend_path)()
+        except Exception:
+            logger.warning("Failed to load DEMAND_BACKEND: %s", backend_path)
+            return []
+
+        safety_pct = get_setting("SAFETY_STOCK_PERCENT")
+        historical_days = get_setting("HISTORICAL_DAYS")
+        same_weekday = get_setting("SAME_WEEKDAY_ONLY")
+
+        suggestions = []
+        recipes = Recipe.objects.filter(is_active=True)
+        if output_refs:
+            recipes = recipes.filter(output_ref__in=output_refs)
+        for recipe in recipes:
+            history = backend.history(
+                recipe.output_ref,
+                days=historical_days,
+                same_weekday=same_weekday,
+            )
+
+            if not history:
+                continue
+
+            # Filter by season if provided
+            if season_months:
+                history = [dd for dd in history if dd.date.month in season_months]
+
+            # Estimate true demand for each historical day
+            estimates = [_estimate_demand(dd) for dd in history]
+
+            # Confidence based on sample size
+            confidence = _calc_confidence(len(estimates))
+            if confidence is None:
+                # Not enough data — skip this recipe
+                continue
+
+            avg_demand = sum(estimates) / len(estimates)
+
+            # Waste adjustment: if waste_rate > 15%, reduce proportionally
+            total_sold = sum(dd.sold for dd in history)
+            total_wasted = sum(dd.wasted for dd in history)
+            waste_rate: Decimal | None = None
+            if total_sold > 0 and total_wasted > 0:
+                waste_rate = total_wasted / total_sold
+                if waste_rate > Decimal("0.15"):
+                    avg_demand = avg_demand * (1 - waste_rate)
+
+            committed = backend.committed(recipe.output_ref, date)
+
+            raw_qty = (avg_demand + committed) * (1 + safety_pct)
+
+            # High demand multiplier: Fri(4) or Sat(5)
+            high_demand_applied = False
+            if high_demand_multiplier and date.weekday() in (4, 5):
+                raw_qty = raw_qty * high_demand_multiplier
+                high_demand_applied = True
+
+            quantity = raw_qty.quantize(Decimal("1"))  # round to whole units
+
+            # Determine season label
+            season_label: str | None = None
+            if season_months:
+                season_label = _season_label(season_months)
+
+            suggestions.append(
+                Suggestion(
+                    recipe=recipe,
+                    quantity=quantity,
+                    basis={
+                        "avg_demand": avg_demand,
+                        "committed": committed,
+                        "safety_pct": safety_pct,
+                        "historical_days": historical_days,
+                        "same_weekday": same_weekday,
+                        "sample_size": len(estimates),
+                        "confidence": confidence,
+                        "season": season_label,
+                        "waste_rate": waste_rate,
+                        "high_demand_applied": high_demand_applied,
+                    },
+                )
+            )
+
+        return suggestions
+
+
+def _aggregate(agg, item_ref, quantity, unit):
+    """Aggregate material need by (item_ref, unit)."""
+    from shopman.craftsman.models import Recipe
+
+    key = (item_ref, unit)
+    if key in agg:
+        agg[key].quantity += quantity
+    else:
+        has_recipe = Recipe.objects.filter(output_ref=item_ref, is_active=True).exists()
+        agg[key] = Need(item_ref=item_ref, quantity=quantity, unit=unit, has_recipe=has_recipe)
+
+
+def _expand_bom(item_ref, quantity, unit, depth=0):
+    """
+    Recursively expand BOM to raw materials.
+
+    If item_ref has an active Recipe, expand its items.
+    Otherwise, yield as-is (terminal ingredient).
+
+    Max depth 5 for cycle protection.
+    """
+    from shopman.craftsman.exceptions import CraftError
+    from shopman.craftsman.models import Recipe
+
+    if depth > 5:
+        raise CraftError("BOM_CYCLE", item_ref=item_ref, depth=depth)
+
+    sub_recipe = Recipe.objects.filter(output_ref=item_ref, is_active=True).first()
+    if sub_recipe:
+        sub_coefficient = quantity / sub_recipe.batch_size
+        for ri in sub_recipe.items.filter(is_optional=False).order_by("sort_order"):
+            yield from _expand_bom(ri.input_ref, ri.quantity * sub_coefficient, ri.unit, depth + 1)
+    else:
+        yield (item_ref, quantity, unit)
+
+
+def _calc_confidence(sample_size: int) -> str | None:
+    """Return confidence label or None (skip) based on sample size."""
+    if sample_size >= 8:
+        return "high"
+    if sample_size >= 3:
+        return "medium"
+    if sample_size >= 1:
+        return "low"
+    return None
+
+
+_HOT_MONTHS = frozenset([10, 11, 12, 1, 2, 3])
+_COLD_MONTHS = frozenset([6, 7, 8])
+_MILD_MONTHS = frozenset([4, 5, 9])
+
+
+def _season_label(months: list[int]) -> str | None:
+    """Infer season label from a list of month ints."""
+    m = frozenset(months)
+    if m == _HOT_MONTHS:
+        return "hot"
+    if m == _COLD_MONTHS:
+        return "cold"
+    if m == _MILD_MONTHS:
+        return "mild"
+    return None
+
+
+def _estimate_demand(dd):
+    """
+    Estimate true demand from a DailyDemand record.
+
+    If soldout_at is None → demand = sold (full day of selling).
+    If soldout_at is set → extrapolate based on selling rate, capped at 2x.
+        rate = sold / minutes_selling
+        estimated = min(rate * full_day_minutes, 2 * sold)
+
+    Assumes bakery hours: 06:00 - 18:00 (720 minutes).
+    """
+    if dd.soldout_at is None:
+        return dd.sold
+
+    from datetime import datetime, time
+    from datetime import date as date_type
+
+    # Standard bakery hours
+    open_time = time(6, 0)
+    close_time = time(18, 0)
+    dummy = date_type(2000, 1, 1)
+
+    open_dt = datetime.combine(dummy, open_time)
+    soldout_dt = datetime.combine(dummy, dd.soldout_at)
+    close_dt = datetime.combine(dummy, close_time)
+
+    minutes_selling = (soldout_dt - open_dt).total_seconds() / 60
+    if minutes_selling <= 0:
+        return dd.sold
+
+    full_day_minutes = (close_dt - open_dt).total_seconds() / 60
+
+    rate = dd.sold / Decimal(str(minutes_selling))
+    estimated = rate * Decimal(str(full_day_minutes))
+
+    # Cap at 2x actual sold to avoid wild overestimation
+    cap = dd.sold * 2
+    return min(estimated, cap)
