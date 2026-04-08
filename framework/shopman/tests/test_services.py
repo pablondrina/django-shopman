@@ -56,21 +56,136 @@ def _make_item(sku="PAO-001", name="Pão Francês", qty=5, unit_price_q=100, lin
 
 
 # ══════════════════════════════════════════════════════════════════════
+# services/availability.py
+# ══════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.django_db
+class TestAvailabilityListingMembership:
+    """`availability.check` honors per-channel listing membership.
+
+    The check fails with `error_code=not_in_listing` when a SKU is not in
+    the listing of the channel that's asking — even if Stockman has stock.
+    """
+
+    def _make_channel(self, ref="ifood", listing_ref="ifood-cardapio"):
+        from shopman.ordering.models import Channel
+        return Channel.objects.create(
+            ref=ref,
+            name=ref.upper(),
+            listing_ref=listing_ref,
+            pricing_policy="external",
+            edit_policy="open",
+            config={},
+        )
+
+    def _make_product(self, sku="PAO-001", paused=False):
+        from shopman.offering.models import Product
+        return Product.objects.create(
+            sku=sku,
+            name=sku,
+            base_price_q=500,
+            is_published=not paused,
+            is_available=not paused,
+        )
+
+    def _make_listing(self, ref):
+        from shopman.offering.models import Listing
+        return Listing.objects.create(
+            ref=ref, name=ref, is_active=True, priority=10,
+        )
+
+    def _publish(self, listing, product, *, published=True, available=True):
+        from shopman.offering.models import ListingItem
+        return ListingItem.objects.create(
+            listing=listing,
+            product=product,
+            price_q=500,
+            is_published=published,
+            is_available=available,
+        )
+
+    def test_rejects_sku_absent_from_channel_listing(self):
+        """Product exists, has stock, but is NOT in the channel's listing → reject."""
+        from shopman.services import availability
+
+        self._make_channel(ref="ifood", listing_ref="ifood-cardapio")
+        self._make_product(sku="PAO-001")
+        # listing exists but no ListingItem for this product
+        self._make_listing("ifood-cardapio")
+
+        result = availability.check("PAO-001", Decimal("1"), channel_ref="ifood")
+
+        assert result["ok"] is False
+        assert result["error_code"] == "not_in_listing"
+        assert result["available_qty"] == Decimal("0")
+
+    def test_rejects_unpublished_listing_item(self):
+        """ListingItem exists but is_published=False → reject."""
+        from shopman.services import availability
+
+        self._make_channel(ref="ifood", listing_ref="ifood-cardapio")
+        product = self._make_product(sku="PAO-001")
+        listing = self._make_listing("ifood-cardapio")
+        self._publish(listing, product, published=False, available=True)
+
+        result = availability.check("PAO-001", Decimal("1"), channel_ref="ifood")
+
+        assert result["ok"] is False
+        assert result["error_code"] == "not_in_listing"
+
+    def test_passes_when_published_in_channel_listing(self):
+        """ListingItem published+available → check proceeds to Stockman layer.
+
+        Without seeded Quants the SKU is treated as `untracked` (ok=True),
+        which is the documented behavior — what we're proving here is that
+        the listing gate did NOT veto the call.
+        """
+        from shopman.services import availability
+
+        self._make_channel(ref="ifood", listing_ref="ifood-cardapio")
+        product = self._make_product(sku="PAO-001")
+        listing = self._make_listing("ifood-cardapio")
+        self._publish(listing, product, published=True, available=True)
+
+        result = availability.check("PAO-001", Decimal("1"), channel_ref="ifood")
+
+        assert result["ok"] is True
+        assert result.get("error_code") is None
+
+    def test_skips_listing_check_when_channel_has_no_listing_ref(self):
+        """Internal channels (POS) often have no listing_ref — check is bypassed."""
+        from shopman.services import availability
+
+        self._make_channel(ref="pos-internal", listing_ref="")
+        self._make_product(sku="PAO-001")
+
+        result = availability.check("PAO-001", Decimal("1"), channel_ref="pos-internal")
+
+        assert result["ok"] is True
+        assert result.get("error_code") is None
+
+
+# ══════════════════════════════════════════════════════════════════════
 # services/stock.py
 # ══════════════════════════════════════════════════════════════════════
 
 
 class TestStockService:
 
-    @patch("shopman.services.stock._get_product")
-    @patch("shopman.services.stock.StockService")
+    @patch("shopman.services.stock._load_session_holds")
+    @patch("shopman.services.stock.get_adapter")
     @patch("shopman.services.stock.CatalogService")
-    def test_hold_simple_items(self, mock_catalog, mock_stock, mock_get_product):
+    def test_hold_simple_items_creates_hold(
+        self, mock_catalog, mock_get_adapter, mock_load,
+    ):
         from shopman.services.stock import hold
 
         mock_catalog.expand.side_effect = Exception("NOT_A_BUNDLE")
-        mock_get_product.return_value = MagicMock(sku="PAO-001")
-        mock_stock.hold.return_value = "hold:1"
+        mock_load.return_value = {}  # no session holds to adopt
+        adapter = MagicMock()
+        adapter.create_hold.return_value = {"success": True, "hold_id": "hold:1"}
+        mock_get_adapter.return_value = adapter
 
         order = _make_order(
             snapshot={"items": [{"sku": "PAO-001", "qty": "5"}], "data": {}},
@@ -78,22 +193,27 @@ class TestStockService:
 
         hold(order)
 
-        mock_stock.hold.assert_called_once()
+        adapter.create_hold.assert_called_once()
         assert order.data["hold_ids"][0]["hold_id"] == "hold:1"
         order.save.assert_called()
 
-    @patch("shopman.services.stock._get_product")
-    @patch("shopman.services.stock.StockService")
+    @patch("shopman.services.stock._load_session_holds")
+    @patch("shopman.services.stock.get_adapter")
     @patch("shopman.services.stock.CatalogService")
-    def test_hold_expands_bundles(self, mock_catalog, mock_stock, mock_get_product):
+    def test_hold_expands_bundles(self, mock_catalog, mock_get_adapter, mock_load):
         from shopman.services.stock import hold
 
         mock_catalog.expand.return_value = [
             {"sku": "COMP-A", "qty": Decimal("2")},
             {"sku": "COMP-B", "qty": Decimal("3")},
         ]
-        mock_get_product.return_value = MagicMock()
-        mock_stock.hold.return_value = "hold:1"
+        mock_load.return_value = {}
+        adapter = MagicMock()
+        adapter.create_hold.side_effect = [
+            {"success": True, "hold_id": "hold:1"},
+            {"success": True, "hold_id": "hold:2"},
+        ]
+        mock_get_adapter.return_value = adapter
 
         order = _make_order(
             snapshot={"items": [{"sku": "BUNDLE-1", "qty": "1"}], "data": {}},
@@ -101,12 +221,42 @@ class TestStockService:
 
         hold(order)
 
-        assert mock_stock.hold.call_count == 2
+        assert adapter.create_hold.call_count == 2
         assert len(order.data["hold_ids"]) == 2
 
-    @patch("shopman.services.stock.StockService")
-    def test_fulfill_calls_stock_service(self, mock_stock):
+    @patch("shopman.services.stock._retag_hold_for_order")
+    @patch("shopman.services.stock._load_session_holds")
+    @patch("shopman.services.stock.get_adapter")
+    @patch("shopman.services.stock.CatalogService")
+    def test_hold_adopts_session_holds(
+        self, mock_catalog, mock_get_adapter, mock_load, mock_retag,
+    ):
+        from shopman.services.stock import hold
+
+        mock_catalog.expand.side_effect = Exception("NOT_A_BUNDLE")
+        mock_load.return_value = {"PAO-001": ["hold:42"]}
+        adapter = MagicMock()
+        mock_get_adapter.return_value = adapter
+
+        order = _make_order(
+            snapshot={"items": [{"sku": "PAO-001", "qty": "5"}], "data": {}},
+        )
+        order.session_key = "sess-1"
+
+        hold(order)
+
+        # Adopted, not freshly created
+        adapter.create_hold.assert_not_called()
+        mock_retag.assert_called_once_with("hold:42", order.ref)
+        assert order.data["hold_ids"][0]["hold_id"] == "hold:42"
+
+    @patch("shopman.services.stock.get_adapter")
+    def test_fulfill_calls_adapter(self, mock_get_adapter):
         from shopman.services.stock import fulfill
+
+        adapter = MagicMock()
+        adapter.fulfill_hold.return_value = {"success": True}
+        mock_get_adapter.return_value = adapter
 
         order = _make_order(data={
             "hold_ids": [
@@ -117,11 +267,14 @@ class TestStockService:
 
         fulfill(order)
 
-        assert mock_stock.fulfill.call_count == 2
+        assert adapter.fulfill_hold.call_count == 2
 
-    @patch("shopman.services.stock.StockService")
-    def test_release_calls_stock_service(self, mock_stock):
+    @patch("shopman.services.stock.get_adapter")
+    def test_release_calls_adapter(self, mock_get_adapter):
         from shopman.services.stock import release
+
+        adapter = MagicMock()
+        mock_get_adapter.return_value = adapter
 
         order = _make_order(data={
             "hold_ids": [{"hold_id": "hold:1", "sku": "PAO-001", "qty": 5}],
@@ -129,7 +282,7 @@ class TestStockService:
 
         release(order)
 
-        mock_stock.release.assert_called_once_with("hold:1")
+        adapter.release_holds.assert_called_once_with(["hold:1"])
 
     @patch("shopman.services.stock.get_adapter")
     def test_revert_calls_adapter(self, mock_get_adapter):
@@ -711,6 +864,240 @@ class TestCustomerService:
 
         assert order.data["customer_ref"] == "CLI-001"
         order.save.assert_called()
+
+
+# ══════════════════════════════════════════════════════════════════════
+# services/availability.py — bundle expansion (WP-CL2-1)
+# ══════════════════════════════════════════════════════════════════════
+
+
+class TestAvailabilityBundles:
+    """availability.check() expands bundles and validates each component."""
+
+    def _make_check_result(self, *, ok=True, available_qty=Decimal("100"), error_code=None, is_paused=False):
+        return {
+            "ok": ok,
+            "available_qty": available_qty,
+            "is_paused": is_paused,
+            "is_planned": False,
+            "breakdown": {},
+            "error_code": error_code,
+            "is_bundle": False,
+            "failed_sku": None,
+        }
+
+    def test_bundle_all_components_available(self):
+        """Bundle with all components available → ok=True, is_bundle=True, available_qty=min constructable."""
+        from shopman.services import availability
+
+        bundle_qty = Decimal("1")
+        components = [
+            {"sku": "FARINHA-001", "qty": Decimal("2")},
+            {"sku": "MANTEIGA-001", "qty": Decimal("1")},
+        ]
+
+        # FARINHA has 50 units → 50/2=25 bundles
+        # MANTEIGA has 200 units → 200/1=200 bundles
+        # min = 25
+        def fake_check(sku, qty, *, channel_ref=None):
+            if sku == "FARINHA-001":
+                return {**self._make_check_result(available_qty=Decimal("50")), "is_bundle": False, "failed_sku": None}
+            return {**self._make_check_result(available_qty=Decimal("200")), "is_bundle": False, "failed_sku": None}
+
+        with patch("shopman.services.availability.check", side_effect=fake_check):
+            result = availability._check_bundle("BUNDLE-001", bundle_qty, components, channel_ref=None)
+
+        assert result["ok"] is True
+        assert result["is_bundle"] is True
+        assert result["failed_sku"] is None
+        assert result["available_qty"] == Decimal("25")
+
+    def test_bundle_component_out_of_stock(self):
+        """Bundle with 1 component insufficient stock → ok=False, failed_sku set."""
+        from shopman.services import availability
+
+        bundle_qty = Decimal("1")
+        components = [
+            {"sku": "FARINHA-001", "qty": Decimal("2")},
+            {"sku": "MANTEIGA-001", "qty": Decimal("1")},
+        ]
+
+        def fake_check(sku, qty, *, channel_ref=None):
+            if sku == "FARINHA-001":
+                return {
+                    "ok": False, "available_qty": Decimal("0"),
+                    "is_paused": False, "is_planned": False,
+                    "breakdown": {}, "error_code": "insufficient_stock",
+                    "is_bundle": False, "failed_sku": None,
+                }
+            return {
+                "ok": True, "available_qty": Decimal("200"),
+                "is_paused": False, "is_planned": False,
+                "breakdown": {}, "error_code": None,
+                "is_bundle": False, "failed_sku": None,
+            }
+
+        with patch("shopman.services.availability.check", side_effect=fake_check):
+            result = availability._check_bundle("BUNDLE-001", bundle_qty, components, channel_ref=None)
+
+        assert result["ok"] is False
+        assert result["is_bundle"] is True
+        assert result["failed_sku"] == "FARINHA-001"
+        assert result["error_code"] == "insufficient_stock"
+
+    def test_bundle_component_not_in_listing(self):
+        """Bundle with 1 component not in listing → ok=False, error_code=not_in_listing."""
+        from shopman.services import availability
+
+        bundle_qty = Decimal("1")
+        components = [{"sku": "COMP-A", "qty": Decimal("1")}]
+
+        def fake_check(sku, qty, *, channel_ref=None):
+            return {
+                "ok": False, "available_qty": Decimal("0"),
+                "is_paused": False, "is_planned": False,
+                "breakdown": {}, "error_code": "not_in_listing",
+                "is_bundle": False, "failed_sku": None,
+            }
+
+        with patch("shopman.services.availability.check", side_effect=fake_check):
+            result = availability._check_bundle("BUNDLE-001", bundle_qty, components, channel_ref="ifood")
+
+        assert result["ok"] is False
+        assert result["error_code"] == "not_in_listing"
+        assert result["failed_sku"] == "COMP-A"
+
+    def test_bundle_component_paused(self):
+        """Bundle with 1 component paused → ok=False, error_code=paused."""
+        from shopman.services import availability
+
+        bundle_qty = Decimal("1")
+        components = [{"sku": "COMP-A", "qty": Decimal("1")}]
+
+        def fake_check(sku, qty, *, channel_ref=None):
+            return {
+                "ok": False, "available_qty": Decimal("0"),
+                "is_paused": True, "is_planned": False,
+                "breakdown": {}, "error_code": "paused",
+                "is_bundle": False, "failed_sku": None,
+            }
+
+        with patch("shopman.services.availability.check", side_effect=fake_check):
+            result = availability._check_bundle("BUNDLE-001", bundle_qty, components, channel_ref=None)
+
+        assert result["ok"] is False
+        assert result["error_code"] == "paused"
+        assert result["failed_sku"] == "COMP-A"
+
+    def test_simple_product_not_expanded(self):
+        """Non-bundle SKU: _expand_if_bundle returns None, check proceeds normally."""
+        from shopman.services.availability import _expand_if_bundle
+
+        with patch("shopman.services.availability.CatalogService") as mock_catalog:
+            from shopman.offering.exceptions import CatalogError
+            mock_catalog.expand.side_effect = CatalogError("NOT_A_BUNDLE", sku="PAO-001")
+            result = _expand_if_bundle("PAO-001", Decimal("1"))
+
+        assert result is None
+
+    def test_bundle_same_sku_guard(self):
+        """If expand returns single element with same SKU, treat as simple product."""
+        from shopman.services.availability import _expand_if_bundle
+
+        with patch("shopman.services.availability.CatalogService") as mock_catalog:
+            mock_catalog.expand.return_value = [{"sku": "PAO-001", "qty": Decimal("1")}]
+            result = _expand_if_bundle("PAO-001", Decimal("1"))
+
+        assert result is None
+
+
+class TestAvailabilityReserveBundles:
+    """reserve() creates one hold per bundle component."""
+
+    def _make_status_bundle_ok(self):
+        return {
+            "ok": True,
+            "available_qty": Decimal("10"),
+            "is_paused": False,
+            "is_planned": False,
+            "breakdown": {},
+            "error_code": None,
+            "is_bundle": True,
+            "failed_sku": None,
+        }
+
+    @patch("shopman.services.availability.alternatives")
+    @patch("shopman.services.availability.get_adapter")
+    @patch("shopman.services.availability._expand_if_bundle")
+    @patch("shopman.services.availability.check")
+    def test_reserve_bundle_creates_one_hold_per_component(
+        self, mock_check, mock_expand, mock_get_adapter, mock_alternatives
+    ):
+        """reserve(bundle) success → N holds created, all with reference=session_key."""
+        from shopman.services.availability import reserve
+
+        mock_check.return_value = self._make_status_bundle_ok()
+        mock_expand.return_value = [
+            {"sku": "COMP-A", "qty": Decimal("2")},
+            {"sku": "COMP-B", "qty": Decimal("1")},
+        ]
+
+        adapter = MagicMock()
+        adapter.create_hold.side_effect = [
+            {"success": True, "hold_id": "hold:1"},
+            {"success": True, "hold_id": "hold:2"},
+        ]
+        mock_get_adapter.return_value = adapter
+        mock_alternatives.find.return_value = []
+
+        result = reserve(
+            "BUNDLE-001", Decimal("1"),
+            session_key="sess-abc",
+            channel_ref=None,
+        )
+
+        assert result["ok"] is True
+        assert result["is_bundle"] is True
+        assert result["hold_ids"] == ["hold:1", "hold:2"]
+        assert adapter.create_hold.call_count == 2
+        # Each hold uses session_key as reference
+        for call in adapter.create_hold.call_args_list:
+            assert call.kwargs["reference"] == "sess-abc"
+
+    @patch("shopman.services.availability.alternatives")
+    @patch("shopman.services.availability.get_adapter")
+    @patch("shopman.services.availability._expand_if_bundle")
+    @patch("shopman.services.availability.check")
+    def test_reserve_bundle_failure_releases_created_holds(
+        self, mock_check, mock_expand, mock_get_adapter, mock_alternatives
+    ):
+        """reserve(bundle) with mid-flight failure → no holds remain, alternatives populated."""
+        from shopman.services.availability import reserve
+
+        mock_check.return_value = self._make_status_bundle_ok()
+        mock_expand.return_value = [
+            {"sku": "COMP-A", "qty": Decimal("2")},
+            {"sku": "COMP-B", "qty": Decimal("1")},
+        ]
+
+        adapter = MagicMock()
+        adapter.create_hold.side_effect = [
+            {"success": True, "hold_id": "hold:1"},
+            {"success": False, "error_code": "insufficient_stock"},
+        ]
+        mock_get_adapter.return_value = adapter
+        mock_alternatives.find.return_value = [{"sku": "ALT-001"}]
+
+        result = reserve(
+            "BUNDLE-001", Decimal("1"),
+            session_key="sess-abc",
+            channel_ref=None,
+        )
+
+        assert result["ok"] is False
+        assert result["error_code"] == "insufficient_stock"
+        # Rollback: released the hold already created
+        adapter.release_holds.assert_called_once_with(["hold:1"])
 
 
 # ══════════════════════════════════════════════════════════════════════
