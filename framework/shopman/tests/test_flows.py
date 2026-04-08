@@ -299,11 +299,61 @@ class TestBaseFlowOnReturned:
 
 
 class TestLocalFlow:
+    @patch("shopman.flows.availability")
     @patch("shopman.flows.customer")
     @patch("shopman.flows.stock")
-    def test_on_commit_immediate_confirmation(self, mock_stock, mock_customer):
-        order = _make_order(channel_config={"flow": "local"})
+    def test_on_commit_immediate_confirmation(self, mock_stock, mock_customer, mock_availability):
+        mock_availability.check.return_value = {"ok": True}
+        order = _make_order(
+            channel_config={"flow": "local"},
+            snapshot={"items": [{"sku": "PAO-001", "qty": 1}], "data": {}},
+        )
         LocalFlow().on_commit(order)
+        order.transition_status.assert_called_once_with(
+            Order.Status.CONFIRMED, actor="auto_confirm",
+        )
+
+    @patch("shopman.flows._create_alert")
+    @patch("shopman.flows.availability")
+    @patch("shopman.flows.customer")
+    @patch("shopman.flows.stock")
+    def test_on_commit_rejects_when_item_unavailable(
+        self, mock_stock, mock_customer, mock_availability, mock_alert,
+    ):
+        """LocalFlow.on_commit cancels order when any item fails availability check."""
+        mock_availability.check.return_value = {
+            "ok": False,
+            "error_code": "insufficient_stock",
+            "available_qty": 0,
+        }
+        order = _make_order(
+            snapshot={"items": [{"sku": "PAO-001", "qty": 5}], "data": {}},
+        )
+
+        LocalFlow().on_commit(order)
+
+        # Alert created, order cancelled, stock.hold NOT called
+        mock_alert.assert_called_once_with(order, "pos_rejected_unavailable")
+        order.transition_status.assert_called_once_with(
+            Order.Status.CANCELLED, actor="auto_reject_unavailable",
+        )
+        mock_stock.hold.assert_not_called()
+
+    @patch("shopman.flows.availability")
+    @patch("shopman.flows.customer")
+    @patch("shopman.flows.stock")
+    def test_on_commit_proceeds_when_all_available(
+        self, mock_stock, mock_customer, mock_availability,
+    ):
+        """LocalFlow.on_commit proceeds to stock.hold when all items are available."""
+        mock_availability.check.return_value = {"ok": True}
+        order = _make_order(
+            snapshot={"items": [{"sku": "PAO-001", "qty": 2}], "data": {}},
+        )
+
+        LocalFlow().on_commit(order)
+
+        mock_stock.hold.assert_called_once_with(order)
         order.transition_status.assert_called_once_with(
             Order.Status.CONFIRMED, actor="auto_confirm",
         )
@@ -364,6 +414,60 @@ class TestMarketplaceFlow:
         mock_customer.ensure.assert_called_once_with(order)
         mock_stock.hold.assert_called_once_with(order)
         # Pessimistic: no transition, no directive
+        order.transition_status.assert_not_called()
+
+    @patch("shopman.flows._create_alert")
+    @patch("shopman.flows.availability")
+    @patch("shopman.flows.customer")
+    @patch("shopman.flows.stock")
+    def test_on_commit_rejects_when_item_not_in_listing(
+        self, mock_stock, mock_customer, mock_availability, mock_alert,
+    ):
+        """Marketplace rejects pre-emptively when availability.check fails.
+
+        Per-item check is honored BEFORE stock.hold; failure (e.g.
+        not_in_listing, paused, insufficient_stock) cancels the order.
+        """
+        order = _make_order(
+            channel_config={"flow": "marketplace"},
+            snapshot={"items": [{"sku": "PAO-001", "qty": "2"}], "data": {}},
+        )
+        mock_availability.check.return_value = {
+            "ok": False,
+            "is_paused": False,
+            "available_qty": 0,
+            "error_code": "not_in_listing",
+        }
+
+        MarketplaceFlow().on_commit(order)
+
+        mock_availability.check.assert_called_once_with(
+            "PAO-001", "2", channel_ref="web",
+        )
+        mock_stock.hold.assert_not_called()
+        mock_alert.assert_called_once_with(order, "marketplace_rejected_unavailable")
+        order.transition_status.assert_called_once_with(
+            Order.Status.CANCELLED, actor="auto_reject_unavailable",
+        )
+
+    @patch("shopman.flows._create_alert")
+    @patch("shopman.flows.availability")
+    @patch("shopman.flows.customer")
+    @patch("shopman.flows.stock")
+    def test_on_commit_proceeds_when_all_items_available(
+        self, mock_stock, mock_customer, mock_availability, mock_alert,
+    ):
+        order = _make_order(
+            channel_config={"flow": "marketplace"},
+            snapshot={"items": [{"sku": "PAO-001", "qty": "2"}], "data": {}},
+            data={"hold_ids": [{"sku": "PAO-001", "hold_id": "hold:1"}]},
+        )
+        mock_availability.check.return_value = {"ok": True, "available_qty": 100}
+
+        MarketplaceFlow().on_commit(order)
+
+        mock_stock.hold.assert_called_once_with(order)
+        mock_alert.assert_not_called()
         order.transition_status.assert_not_called()
 
     @patch("shopman.flows.notification")

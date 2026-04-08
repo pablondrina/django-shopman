@@ -28,6 +28,7 @@ from django.utils import timezone
 
 from shopman.ordering.models import Directive, Order
 from shopman.services import (
+    availability,
     customer,
     fiscal,
     fulfillment,
@@ -189,16 +190,38 @@ class LocalFlow(BaseFlow):
 
     def on_commit(self, order):
         customer.ensure(order)
+
+        # Per-item availability check — symmetric with MarketplaceFlow.on_commit.
+        # POS operators see stock visually but this gate prevents inconsistencies
+        # when a product is paused or stock is depleted between display and commit.
+        channel_ref = getattr(order.channel, "ref", None)
+        for item in order.snapshot.get("items", []):
+            sku = item["sku"]
+            qty = item["qty"]
+            status = availability.check(sku, qty, channel_ref=channel_ref)
+            if not status["ok"]:
+                logger.info(
+                    "LocalFlow.on_commit: rejecting order %s — sku=%s code=%s",
+                    order.ref, sku, status.get("error_code"),
+                )
+                _create_alert(order, "pos_rejected_unavailable")
+                order.transition_status(Order.Status.CANCELLED, actor="auto_reject_unavailable")
+                return
+
         stock.hold(order)
+        loyalty.redeem(order)
         # Always immediate confirmation for local orders
         order.transition_status(Order.Status.CONFIRMED, actor="auto_confirm")
 
     def on_confirmed(self, order):
-        # No digital payment for local orders — skip payment.initiate
+        # No digital payment for local orders — fulfill stock immediately
+        # (cash/counter payment is settled at the counter, not via gateway).
+        stock.fulfill(order)
         notification.send(order, "order_confirmed")
 
     def on_paid(self, order):
-        # No digital payment — this phase is a no-op for local flows
+        # Local orders never receive payment webhooks; fulfill happened in
+        # on_confirmed. No-op here.
         pass
 
 
@@ -246,11 +269,54 @@ class ManychatFlow(RemoteFlow):
 
 @flow("marketplace")
 class MarketplaceFlow(BaseFlow):
-    """Marketplace — external payment, pessimistic confirmation."""
+    """Marketplace — external payment, pessimistic confirmation.
+
+    Marketplaces (iFood, Rappi) push orders that have already been "decided"
+    by the customer, but the merchant can still REJECT them. `on_commit` runs
+    a per-item availability check (channel listing membership + Offerman pause
+    + Stockman scope) BEFORE attempting to hold stock. Any failure aborts the
+    order with a typed alert; the marketplace adapter is responsible for
+    actually calling reject() upstream.
+    """
 
     def on_commit(self, order):
         customer.ensure(order)
+
+        # Per-item availability check honoring:
+        #   - channel listing membership (ListingItem published+available)
+        #   - Offerman global pause (Product.is_published / is_available)
+        #   - per-channel safety_margin and allowed_positions
+        channel_ref = getattr(order.channel, "ref", None)
+        rejected: list[tuple[str, str]] = []
+        for item in order.snapshot.get("items", []):
+            sku = item["sku"]
+            qty = item["qty"]
+            status = availability.check(sku, qty, channel_ref=channel_ref)
+            if not status["ok"]:
+                rejected.append((sku, status.get("error_code") or "unavailable"))
+
+        if rejected:
+            reasons = ", ".join(f"{sku}:{code}" for sku, code in rejected)
+            logger.info(
+                "MarketplaceFlow.on_commit: rejecting order %s — %s",
+                order.ref, reasons,
+            )
+            _create_alert(order, "marketplace_rejected_unavailable")
+            order.transition_status(Order.Status.CANCELLED, actor="auto_reject_unavailable")
+            return
+
         stock.hold(order)
+
+        # Defense-in-depth: hold() can still fail on a race between check and
+        # create_hold (stock vanished). Compare held vs ordered SKUs.
+        held_skus = {h.get("sku") for h in (order.data or {}).get("hold_ids", [])}
+        ordered_skus = {item["sku"] for item in order.snapshot.get("items", [])}
+        missing = ordered_skus - held_skus
+        if missing:
+            _create_alert(order, "marketplace_rejected_oos")
+            order.transition_status(Order.Status.CANCELLED, actor="auto_reject_oos")
+            stock.release(order)
+            return
         # Pessimistic: wait for marketplace/operator to confirm or cancel.
         # No auto-action — order stays NEW until explicit operator intervention.
 
