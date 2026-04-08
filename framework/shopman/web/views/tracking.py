@@ -194,16 +194,28 @@ def _build_tracking_context(order: Order) -> dict:
         prep_minutes = getattr(shop, "prep_time_minutes", None) or 30
         eta = tz.localtime(order.created_at) + tz.timedelta(minutes=prep_minutes)
 
-    # Delivery fee from order.data (propagated by CommitService)
     order_data = order.data or {}
+
+    # Delivery fee from order.data (propagated by CommitService)
     delivery_fee_q = order_data.get("delivery_fee_q")
     delivery_fee_display = None
     if delivery_fee_q is not None:
         delivery_fee_display = "Grátis" if delivery_fee_q == 0 else f"R$ {format_money(delivery_fee_q)}"
 
+    # Item #3: contextual "ready" label — pickup vs delivery
+    # Item #6: completed is invisible to customer (shows "Entregue" for delivery, "Concluído" for pickup)
+    fulfillment_type = order_data.get("fulfillment_type") or order_data.get("delivery_method", "")
+    is_delivery = fulfillment_type == "delivery"
+
+    status_label = STATUS_LABELS.get(order.status, order.status)
+    if order.status == "ready":
+        status_label = "Aguardando motoboy" if is_delivery else "Pronto para retirada"
+    elif order.status == "completed":
+        status_label = "Entregue" if is_delivery else "Concluído"
+
     return {
         "order": order,
-        "status_label": STATUS_LABELS.get(order.status, order.status),
+        "status_label": status_label,
         "status_color": STATUS_COLORS.get(order.status, "bg-muted text-muted-foreground"),
         "timeline": timeline,
         "items": items,

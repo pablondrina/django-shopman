@@ -25,18 +25,15 @@
     {% include "storefront/partials/order_status.html" %}
   </div>
 
-  <!-- Fulfillment: Delivery -->
+  <!-- Fulfillment: Delivery — logistics details only, no status badge (status shown in timeline) -->
   {% if delivery_fulfillments %}
   <div class="bg-surface rounded-xl shadow-sm p-6 mb-6">
     <h3 class="text-h4 text-foreground mb-4">Entrega</h3>
     {% for ful in delivery_fulfillments %}
     <div class="{% if not forloop.first %}mt-4 pt-4 border-t border-border/50{% endif %}">
-      <div class="flex items-center gap-2 mb-2">
-        <span class="text-sm font-medium px-2 py-0.5 rounded-full bg-background text-foreground">{{ ful.status_label }}</span>
-        {% if ful.carrier %}
-        <span class="text-sm text-muted-foreground">via {{ ful.carrier }}</span>
-        {% endif %}
-      </div>
+      {% if ful.carrier %}
+      <p class="text-sm text-muted-foreground mb-2">Transportadora: <span class="font-medium text-foreground">{{ ful.carrier }}</span></p>
+      {% endif %}
       {% if ful.tracking_code %}
       <p class="text-sm text-muted-foreground">
         Rastreio: <span class="font-mono font-medium text-foreground">{{ ful.tracking_code }}</span>
@@ -59,15 +56,12 @@
   </div>
   {% endif %}
 
-  <!-- Fulfillment: Pickup -->
+  <!-- Fulfillment: Pickup — status badge removed (status shown in timeline) -->
   {% if pickup_fulfillments %}
   <div class="bg-surface rounded-xl shadow-sm p-6 mb-6">
     <h3 class="text-h4 text-foreground mb-4">Retirada na Loja</h3>
     {% for ful in pickup_fulfillments %}
     <div class="{% if not forloop.first %}mt-4 pt-4 border-t border-border/50{% endif %}">
-      <div class="flex items-center gap-2 mb-3">
-        <span class="text-sm font-medium px-2 py-0.5 rounded-full bg-background text-foreground">{{ ful.status_label }}</span>
-      </div>
     </div>
     {% endfor %}
     {% if pickup %}
@@ -133,22 +127,6 @@
 
   <!-- Actions -->
   <div class="space-y-3 mb-6">
-    <!-- Cancel button (only if cancellable) -->
-    {% if can_cancel %}
-    <button type="button"
-            @click="$store.confirm.show({
-              title: 'Cancelar pedido?',
-              message: 'Essa ação não pode ser desfeita. O pedido será cancelado e os itens liberados.',
-              confirmLabel: 'Cancelar Pedido',
-              destructive: true,
-              onConfirm: () => htmx.ajax('POST', '{% url 'storefront:order_cancel' ref=order.ref %}', { target: '#order-status-area', swap: 'innerHTML' })
-            })"
-            class="w-full py-3.5 border border-error text-error rounded-xl font-medium hover:bg-error/10 transition-colors text-center"
-            style="min-height: var(--touch-min)">
-      Cancelar Pedido
-    </button>
-    {% endif %}
-
     <!-- Contact + Share -->
     <div class="flex gap-3">
       {% if whatsapp_url %}
