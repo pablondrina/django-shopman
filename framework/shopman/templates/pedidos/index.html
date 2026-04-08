@@ -53,6 +53,14 @@
             :class="filter === 'ready' ? 'ped-pill ped-pill--active' : 'ped-pill'">
       Prontos (<span id="count-ready">{{ counts.ready }}</span>)
     </button>
+    <button @click="setFilter('dispatched')"
+            :class="filter === 'dispatched' ? 'ped-pill ped-pill--active' : 'ped-pill'">
+      Em Entrega (<span id="count-dispatched">{{ counts.dispatched }}</span>)
+    </button>
+    <button @click="setFilter('delivered')"
+            :class="filter === 'delivered' ? 'ped-pill ped-pill--active' : 'ped-pill'">
+      Entregues (<span id="count-delivered">{{ counts.delivered }}</span>)
+    </button>
   </nav>
 
   {# ── Order grid (HTMX polling) ── #}

@@ -84,7 +84,7 @@ def _next_label_for(order) -> str:
 
 # ── Active statuses for the gestor ───────────────────────────────────
 
-_ACTIVE_STATUSES = ["new", "confirmed", "preparing", "ready", "dispatched"]
+_ACTIVE_STATUSES = ["new", "confirmed", "preparing", "ready", "dispatched", "delivered"]
 
 
 def _staff_required(request):
