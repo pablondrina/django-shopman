@@ -802,3 +802,76 @@ class OrderSaveIntegrityTests(TestCase):
         self.order.status = Order.STATUS_READY  # new → ready não é permitido
         with self.assertRaises(InvalidTransition):
             self.order.save()
+
+
+class DispatchedDeliveryGuardTests(TestCase):
+    """WP-ST2: Guard — dispatched is exclusive to delivery orders."""
+
+    def setUp(self) -> None:
+        self.channel = Channel.objects.create(ref="guard-test", name="Guard Test")
+
+    def test_pickup_order_cannot_reach_dispatched(self) -> None:
+        """Pickup order tentando ready→dispatched levanta InvalidTransition."""
+        order = Order.objects.create(
+            ref="GUARD-001",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=1000,
+            data={"fulfillment_type": "pickup"},
+        )
+        order.transition_status(Order.STATUS_CONFIRMED, actor="test")
+        order.transition_status(Order.STATUS_PREPARING, actor="test")
+        order.transition_status(Order.STATUS_READY, actor="test")
+
+        with self.assertRaises(InvalidTransition) as ctx:
+            order.transition_status(Order.STATUS_DISPATCHED, actor="test")
+
+        self.assertEqual(ctx.exception.code, "dispatched_requires_delivery")
+
+    def test_delivery_order_can_reach_dispatched(self) -> None:
+        """Delivery order pode transicionar ready→dispatched normalmente."""
+        order = Order.objects.create(
+            ref="GUARD-002",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=1000,
+            data={"fulfillment_type": "delivery"},
+        )
+        order.transition_status(Order.STATUS_CONFIRMED, actor="test")
+        order.transition_status(Order.STATUS_PREPARING, actor="test")
+        order.transition_status(Order.STATUS_READY, actor="test")
+        order.transition_status(Order.STATUS_DISPATCHED, actor="test")
+
+        self.assertEqual(order.status, Order.STATUS_DISPATCHED)
+
+    def test_order_without_fulfillment_type_can_reach_dispatched(self) -> None:
+        """Order sem fulfillment_type (legado) não é bloqueado pelo guard."""
+        order = Order.objects.create(
+            ref="GUARD-003",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=1000,
+            data={},  # sem fulfillment_type
+        )
+        order.transition_status(Order.STATUS_CONFIRMED, actor="test")
+        order.transition_status(Order.STATUS_PREPARING, actor="test")
+        order.transition_status(Order.STATUS_READY, actor="test")
+        order.transition_status(Order.STATUS_DISPATCHED, actor="test")
+
+        self.assertEqual(order.status, Order.STATUS_DISPATCHED)
+
+    def test_legacy_delivery_method_key_is_accepted(self) -> None:
+        """Order com chave legada delivery_method='delivery' pode ir para dispatched."""
+        order = Order.objects.create(
+            ref="GUARD-004",
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=1000,
+            data={"delivery_method": "delivery"},
+        )
+        order.transition_status(Order.STATUS_CONFIRMED, actor="test")
+        order.transition_status(Order.STATUS_PREPARING, actor="test")
+        order.transition_status(Order.STATUS_READY, actor="test")
+        order.transition_status(Order.STATUS_DISPATCHED, actor="test")
+
+        self.assertEqual(order.status, Order.STATUS_DISPATCHED)

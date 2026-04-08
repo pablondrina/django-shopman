@@ -56,15 +56,20 @@ READY_DELIVERY_LABEL = "Saiu para Entrega \u25b8"
 
 
 def _is_delivery(order) -> bool:
-    """True if this order is for delivery (not pickup/balcão)."""
-    return order.data.get("delivery_method") == "delivery"
+    """True if this order is for delivery (not pickup/balcão).
+
+    Uses canonical key fulfillment_type with fallback to legacy delivery_method.
+    """
+    ft = order.data.get("fulfillment_type") or order.data.get("delivery_method", "")
+    return ft == "delivery"
 
 
 def _next_status_for(order) -> str:
-    """Next status considering delivery lifecycle.
+    """Next status for UX routing.
 
-    For delivery orders: ready → dispatched (not completed).
+    For delivery orders: ready → dispatched.
     For pickup orders: ready → completed.
+    The Kernel enforces the dispatched-requires-delivery invariant as a safety net.
     """
     if order.status == "ready" and _is_delivery(order):
         return "dispatched"

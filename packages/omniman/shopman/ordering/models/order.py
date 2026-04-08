@@ -179,6 +179,17 @@ class Order(models.Model):
                     },
                 )
 
+            # Domain invariant: dispatched is exclusive to delivery orders.
+            # Guard uses fulfillment_type (canonical key) with fallback to legacy delivery_method.
+            if self.status == self.Status.DISPATCHED:
+                ft = self.data.get("fulfillment_type") or self.data.get("delivery_method", "")
+                if ft and ft != "delivery":
+                    raise InvalidTransition(
+                        code="dispatched_requires_delivery",
+                        message="Transição para 'dispatched' requer pedido de delivery",
+                        context={"fulfillment_type": ft},
+                    )
+
             ts_field = self.STATUS_TIMESTAMP_FIELDS.get(self.status)
             if ts_field and getattr(self, ts_field) is None:
                 setattr(self, ts_field, timezone.now())
