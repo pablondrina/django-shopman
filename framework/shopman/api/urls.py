@@ -6,6 +6,7 @@ from django.urls import path
 
 from . import views
 from .account import AddressListView, OrderHistoryView, ProfileView
+from .availability import AvailabilityView
 from .catalog import CollectionListView, ProductDetailView, ProductListView
 from .tracking import OrderTrackingView
 
@@ -16,6 +17,8 @@ urlpatterns = [
     path("cart/items/<str:line_id>/", views.CartItemView.as_view(), name="api-cart-item"),
     # Checkout
     path("checkout/", views.CheckoutView.as_view(), name="api-checkout"),
+    # Availability
+    path("availability/<str:sku>/", AvailabilityView.as_view(), name="api-availability"),
     # Catalog
     path("catalog/products/", ProductListView.as_view(), name="api-catalog-products"),
     path("catalog/products/<str:sku>/", ProductDetailView.as_view(), name="api-catalog-product-detail"),
