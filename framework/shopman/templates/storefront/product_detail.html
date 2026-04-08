@@ -46,13 +46,10 @@
     </div>
     {% endif %}
 
-    <!-- Availability badge — só quando há label (sem chip quando estoque normal) -->
+    <!-- Availability badge — HTMX polling every 30s; SSR provides initial state -->
     {% if badge.label %}
-    <span class="absolute top-4 right-4 z-20 rounded-full font-bold
-      {% if badge.css_class == 'badge-available' %}text-xs px-2 py-0.5 bg-muted text-muted-foreground
-      {% elif badge.css_class == 'badge-sold-out' or badge.css_class == 'badge-unavailable' %}text-sm px-3 py-1.5 shadow-md ring-1 ring-black/5 bg-muted text-muted-foreground
-      {% else %}{{ badge.css_class }}{% endif %}">
-      {{ badge.label }}
+    <span class="absolute top-4 right-4 z-20 rounded-full font-bold">
+      {% include "storefront/partials/availability_badge.html" with sku=product.sku channel_ref="web" badge_text=badge.label badge_class=badge.css_class only %}
     </span>
     {% endif %}
 

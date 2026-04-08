@@ -1,0 +1,7 @@
+<span class="availability-badge {{ badge_class }}"
+      hx-get="{% url 'api-availability' sku=sku %}{% if channel_ref %}?channel={{ channel_ref }}{% endif %}"
+      hx-trigger="every 30s"
+      hx-swap="outerHTML"
+      hx-target="this">
+  {{ badge_text }}
+</span>
