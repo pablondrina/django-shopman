@@ -14,6 +14,9 @@ class OperatorAlert(models.Model):
         ("stock_discrepancy", "Discrepância de estoque"),
         ("payment_after_cancel", "Pagamento após cancelamento"),
         ("stock_low", "Estoque baixo"),
+        ("marketplace_rejected_unavailable", "Marketplace rejeitado: indisponível"),
+        ("marketplace_rejected_oos", "Marketplace rejeitado: sem estoque"),
+        ("pos_rejected_unavailable", "POS rejeitado: produto indisponível"),
     ]
     SEVERITY_CHOICES = [
         ("warning", "Aviso"),
@@ -21,7 +24,7 @@ class OperatorAlert(models.Model):
         ("critical", "Crítico"),
     ]
 
-    type = models.CharField("tipo", max_length=30, choices=TYPE_CHOICES)
+    type = models.CharField("tipo", max_length=50, choices=TYPE_CHOICES)
     severity = models.CharField("severidade", max_length=10, choices=SEVERITY_CHOICES, default="warning")
     message = models.TextField("mensagem")
     order_ref = models.CharField("ref do pedido", max_length=50, blank=True)
