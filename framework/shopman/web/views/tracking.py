@@ -21,7 +21,7 @@ STATUS_LABELS = {
     "confirmed": "Confirmado",
     "processing": "Em Preparo",
     "ready": "Pronto",
-    "dispatched": "Despachado",
+    "dispatched": "Saiu para entrega",
     "delivered": "Entregue",
     "completed": "Concluído",
     "cancelled": "Cancelado",
@@ -43,7 +43,7 @@ STATUS_COLORS = {
 FULFILLMENT_STATUS_LABELS = {
     "pending": "Aguardando",
     "in_progress": "Em separação",
-    "dispatched": "Despachado",
+    "dispatched": "Saiu para entrega",
     "delivered": "Entregue",
     "cancelled": "Cancelado",
 }
@@ -56,7 +56,7 @@ EVENT_LABELS = {
     "return_initiated": "Devolução solicitada",
     "refund_processed": "Reembolso processado",
     "fiscal_cancelled": "Nota fiscal cancelada",
-    "fulfillment.dispatched": "Pedido enviado",
+    "fulfillment.dispatched": "Saiu para entrega",
     "fulfillment.delivered": "Pedido entregue",
 }
 

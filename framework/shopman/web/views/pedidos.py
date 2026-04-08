@@ -46,10 +46,36 @@ NEXT_STATUS_MAP = {
 NEXT_ACTION_LABELS = {
     "confirmed": "Iniciar Preparo \u25b8",
     "processing": "Marcar Pronto \u25b8",
-    "ready": "Entregar \u2713",
+    "ready": "Entregar \u2713",  # pickup default; delivery override in _enrich_order
     "dispatched": "Marcar Entregue \u2713",
     "delivered": "Concluir \u2713",
 }
+
+# Delivery-specific label override for "ready" status
+READY_DELIVERY_LABEL = "Saiu para Entrega \u25b8"
+
+
+def _is_delivery(order) -> bool:
+    """True if this order is for delivery (not pickup/balcão)."""
+    return order.data.get("delivery_method") == "delivery"
+
+
+def _next_status_for(order) -> str:
+    """Next status considering delivery lifecycle.
+
+    For delivery orders: ready → dispatched (not completed).
+    For pickup orders: ready → completed.
+    """
+    if order.status == "ready" and _is_delivery(order):
+        return "dispatched"
+    return NEXT_STATUS_MAP.get(order.status, "")
+
+
+def _next_label_for(order) -> str:
+    """Next action label considering delivery lifecycle."""
+    if order.status == "ready" and _is_delivery(order):
+        return READY_DELIVERY_LABEL
+    return NEXT_ACTION_LABELS.get(order.status, "")
 
 # ── Active statuses for the gestor ───────────────────────────────────
 
@@ -121,8 +147,8 @@ def _enrich_order(order: Order) -> dict:
         "fulfillment_label": fulfillment_label,
         "can_confirm": order.status == "new",
         "can_advance": order.status in ("confirmed", "processing", "ready", "dispatched", "delivered"),
-        "next_status": NEXT_STATUS_MAP.get(order.status, ""),
-        "next_action_label": NEXT_ACTION_LABELS.get(order.status, ""),
+        "next_status": _next_status_for(order),
+        "next_action_label": _next_label_for(order),
         "order": order,
         "payment_method": order.data.get("payment", {}).get("method", ""),
         "payment_status": order.data.get("payment", {}).get("status", ""),
@@ -306,12 +332,8 @@ class PedidoAdvanceView(View):
 
         order = get_object_or_404(Order, ref=ref)
 
-        # Check if delivery → dispatched instead of completed
-        next_map = dict(NEXT_STATUS_MAP)
-        if order.status == "ready" and order.data.get("delivery_method") == "delivery":
-            next_map["ready"] = "dispatched"
-
-        next_status = next_map.get(order.status)
+        # Delivery-aware next status (ready → dispatched for delivery orders)
+        next_status = _next_status_for(order)
         if not next_status:
             return HttpResponse("", status=422)
 
