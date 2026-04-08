@@ -30,6 +30,7 @@ def _make_session_with_pricing(sku: str, qty: int, unit_price_q: int, pricing_ex
         state="open",
         pricing_policy="fixed",
         edit_policy="open",
+        data={"origin_channel": "web"},
     )
     ModifyService.modify_session(
         session_key=session_key,

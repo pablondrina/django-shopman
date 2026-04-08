@@ -12,9 +12,11 @@ The order lifecycle is:
   on_paid  → services.stock.fulfill(order)                     [PENDING→CONFIRMED→FULFILLED]
   cancel   → services.stock.release(order)                     [release adopted holds]
 
-`hold(order)` ADOPTS the holds created at cart-add time (tagged with session_key
-as reference). For order items without a matching session hold (e.g. POS,
-marketplace, reorder), it creates fresh holds via the adapter as fallback.
+`hold(order)` ADOPTS session holds **by quantity, not by SKU-first**: multiple
+session holds for the same SKU are summed up to meet the ordered qty, and a
+fresh hold is created via the adapter for any unmet remainder. This is the
+fix for the sangria where a stepper that created two holds of qty=2 each
+ended up adopting only one of them.
 """
 
 from __future__ import annotations
@@ -34,10 +36,14 @@ def hold(order) -> None:
 
     Strategy:
       1. Look up session holds tagged with order.session_key (created by
-         services.availability.reserve at cart-add time).
-      2. For each order item, adopt the matching session hold.
-      3. For items without a session hold (POS, marketplace, reorder), create
-         a fresh hold via the stock adapter.
+         services.availability.reserve at cart-add time), indexed per SKU as
+         a FIFO list of `(hold_id, qty)` pairs.
+      2. For each order component, consume holds from the bucket until the
+         component's required qty is met (possibly adopting multiple holds).
+      3. Create a fresh hold via the adapter for any unmet remainder (POS,
+         marketplace, reorder, or partial session coverage).
+      4. Release any session holds not consumed (e.g. items removed before
+         checkout that weren't reconciled on the cart side).
 
     Saves the resulting hold_ids in order.data["hold_ids"]. SYNC.
     """
@@ -62,36 +68,43 @@ def hold(order) -> None:
             comp_sku = comp["sku"]
             comp_qty = Decimal(str(comp["qty"]))
 
-            # 1) Try to adopt an existing session hold for this SKU.
-            adopted_id = _pop_matching_hold(session_holds_by_sku, comp_sku, comp_qty)
-            if adopted_id:
-                _retag_hold_for_order(adopted_id, order.ref)
+            # 1) Adopt session holds by quantity until comp_qty is met.
+            adopted_pairs, unmet_qty = _adopt_holds_for_qty(
+                session_holds_by_sku, comp_sku, comp_qty,
+            )
+            for hid, hqty in adopted_pairs:
+                _retag_hold_for_order(hid, order.ref)
                 hold_ids.append(
-                    {"sku": comp_sku, "hold_id": adopted_id, "qty": float(comp_qty)}
+                    {"sku": comp_sku, "hold_id": hid, "qty": float(hqty)}
                 )
+
+            if unmet_qty <= 0:
                 continue
 
-            # 2) Fallback: create a fresh hold via the adapter.
+            # 2) Fallback: create a fresh hold via the adapter for the remainder.
             result = adapter.create_hold(
                 sku=comp_sku,
-                qty=comp_qty,
+                qty=unmet_qty,
                 reference=f"order:{order.ref}",
             )
             if not result.get("success"):
                 logger.warning(
                     "stock.hold: create_hold failed sku=%s qty=%s code=%s",
-                    comp_sku, comp_qty, result.get("error_code"),
+                    comp_sku, unmet_qty, result.get("error_code"),
                 )
                 continue
 
             hold_ids.append({
                 "sku": comp_sku,
                 "hold_id": result["hold_id"],
-                "qty": float(comp_qty),
+                "qty": float(unmet_qty),
             })
 
-    # Any session holds left over (e.g. items removed before checkout) — release.
-    leftover_ids = [hid for ids in session_holds_by_sku.values() for hid in ids]
+    # Any session holds left over (e.g. items removed before checkout without
+    # calling availability.reconcile) — release.
+    leftover_ids = [
+        hid for pairs in session_holds_by_sku.values() for hid, _ in pairs
+    ]
     if leftover_ids:
         adapter.release_holds(leftover_ids)
 
@@ -183,11 +196,12 @@ def _expand_if_bundle(sku: str, qty: Decimal) -> list[dict]:
         return [{"sku": sku, "qty": qty}]
 
 
-def _load_session_holds(session_key: str) -> dict[str, list[str]]:
-    """Index active session holds by SKU.
+def _load_session_holds(session_key: str) -> dict[str, list[tuple[str, Decimal]]]:
+    """Index active session holds by SKU, preserving (hold_id, qty) pairs.
 
-    Returns {sku: [hold_id, ...]} for holds tagged with the given session_key
-    that are still in PENDING/CONFIRMED state.
+    Returns {sku: [(hold_id, qty), ...]} for holds tagged with the given
+    session_key that are still in PENDING/CONFIRMED state. Order within a
+    bucket is FIFO (by Hold.pk).
     """
     try:
         from shopman.stockman.models import Hold
@@ -198,28 +212,40 @@ def _load_session_holds(session_key: str) -> dict[str, list[str]]:
     holds = Hold.objects.filter(
         metadata__reference=session_key,
         status__in=[HoldStatus.PENDING, HoldStatus.CONFIRMED],
-    )
-    indexed: dict[str, list[str]] = {}
+    ).order_by("pk")
+    indexed: dict[str, list[tuple[str, Decimal]]] = {}
     for h in holds:
-        indexed.setdefault(h.sku, []).append(h.hold_id)
+        indexed.setdefault(h.sku, []).append((h.hold_id, Decimal(str(h.quantity))))
     return indexed
 
 
-def _pop_matching_hold(
-    indexed: dict[str, list[str]],
+def _adopt_holds_for_qty(
+    indexed: dict[str, list[tuple[str, Decimal]]],
     sku: str,
-    qty: Decimal,
-) -> str | None:
-    """Pop and return one hold_id for `sku` from `indexed`, if present.
+    required_qty: Decimal,
+) -> tuple[list[tuple[str, Decimal]], Decimal]:
+    """Consume session holds for `sku` until `required_qty` is met.
 
-    Note: we don't try to match qty exactly. Cart UX may have created multiple
-    holds for the same SKU as the customer adjusted quantities; we adopt them
-    in FIFO order. Stockman tracks the actual reserved quantity per Hold row.
+    Returns `(adopted_pairs, unmet_qty)` where `adopted_pairs` is a list of
+    `(hold_id, hold_qty)` popped from the bucket in FIFO order, and
+    `unmet_qty` is the remaining quantity to cover via a fresh hold (zero
+    when the session holds fully satisfy the requirement).
+
+    Over-adoption (last hold's qty pushes the total past required_qty) is
+    accepted: the excess stays reserved to the order, commit consolidates
+    everything in `order.data["hold_ids"]`, and `fulfill_hold` drains each
+    hold fully at pay-time. Splitting the tail hold would require a new
+    Stockman API and the minor drift is absorbed.
     """
-    bucket = indexed.get(sku)
-    if not bucket:
-        return None
-    return bucket.pop(0)
+    bucket = indexed.get(sku, [])
+    adopted: list[tuple[str, Decimal]] = []
+    remaining = required_qty
+    while bucket and remaining > 0:
+        hid, hqty = bucket.pop(0)
+        adopted.append((hid, hqty))
+        remaining -= hqty
+    unmet = remaining if remaining > 0 else Decimal("0")
+    return adopted, unmet
 
 
 def _retag_hold_for_order(hold_id: str, order_ref: str) -> None:

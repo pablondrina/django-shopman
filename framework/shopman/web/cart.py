@@ -143,10 +143,35 @@ class CartService:
 
     @staticmethod
     def update_qty(request: HttpRequest, line_id: str, qty: int) -> Session:
-        """Update quantity of a cart item."""
+        """Update quantity of a cart item.
+
+        Reconciles Stockman holds to the new absolute quantity BEFORE
+        `modify_session` so the reserved qty matches the cart qty. On
+        shortage, raises `CartUnavailableError` and does not mutate the
+        cart.
+        """
         session_key = CartService._get_session_key(request)
         if not session_key:
             raise ValueError("No active cart")
+
+        line = CartService._get_line(session_key, line_id)
+        if line is not None:
+            result = availability.reconcile(
+                sku=line["sku"],
+                new_qty=Decimal(str(qty)),
+                session_key=session_key,
+                channel_ref=CHANNEL_REF,
+            )
+            if not result["ok"]:
+                raise CartUnavailableError(
+                    sku=line["sku"],
+                    requested_qty=qty,
+                    available_qty=int(result["available_qty"]),
+                    is_paused=result["is_paused"],
+                    alternatives=result["alternatives"],
+                    error_code=result["error_code"],
+                )
+
         return ModifyService.modify_session(
             session_key=session_key,
             channel_ref=CHANNEL_REF,
@@ -155,15 +180,47 @@ class CartService:
 
     @staticmethod
     def remove_item(request: HttpRequest, line_id: str) -> Session:
-        """Remove item from cart."""
+        """Remove item from cart.
+
+        Reconciles Stockman holds to qty=0 for the line's SKU before
+        `modify_session`, so the removed line doesn't bleed reservations
+        until the next commit.
+        """
         session_key = CartService._get_session_key(request)
         if not session_key:
             raise ValueError("No active cart")
+
+        line = CartService._get_line(session_key, line_id)
+        if line is not None:
+            availability.reconcile(
+                sku=line["sku"],
+                new_qty=Decimal("0"),
+                session_key=session_key,
+                channel_ref=CHANNEL_REF,
+            )
+
         return ModifyService.modify_session(
             session_key=session_key,
             channel_ref=CHANNEL_REF,
             ops=[{"op": "remove_line", "line_id": line_id}],
         )
+
+    @staticmethod
+    def _get_line(session_key: str, line_id: str) -> dict | None:
+        """Return the session line dict matching `line_id`, or None."""
+        channel = CartService._get_channel()
+        try:
+            session = Session.objects.get(
+                session_key=session_key,
+                channel=channel,
+                state="open",
+            )
+        except Session.DoesNotExist:
+            return None
+        for item in session.items:
+            if item.get("line_id") == line_id:
+                return item
+        return None
 
     @staticmethod
     def get_cart(request: HttpRequest) -> dict:

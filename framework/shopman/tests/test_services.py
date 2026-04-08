@@ -281,7 +281,8 @@ class TestStockService:
         from shopman.services.stock import hold
 
         mock_catalog.expand.side_effect = Exception("NOT_A_BUNDLE")
-        mock_load.return_value = {"PAO-001": ["hold:42"]}
+        # Session has one hold of exactly the required qty — fully satisfies.
+        mock_load.return_value = {"PAO-001": [("hold:42", Decimal("5"))]}
         adapter = MagicMock()
         mock_get_adapter.return_value = adapter
 
@@ -296,6 +297,76 @@ class TestStockService:
         adapter.create_hold.assert_not_called()
         mock_retag.assert_called_once_with("hold:42", order.ref)
         assert order.data["hold_ids"][0]["hold_id"] == "hold:42"
+
+    @patch("shopman.services.stock._retag_hold_for_order")
+    @patch("shopman.services.stock._load_session_holds")
+    @patch("shopman.services.stock.get_adapter")
+    @patch("shopman.services.stock.CatalogService")
+    def test_hold_adopts_multiple_session_holds_summing_qty(
+        self, mock_catalog, mock_get_adapter, mock_load, mock_retag,
+    ):
+        """Two holds of qty=2 each should both be adopted to cover qty=4."""
+        from shopman.services.stock import hold
+
+        mock_catalog.expand.side_effect = Exception("NOT_A_BUNDLE")
+        mock_load.return_value = {
+            "PAO-001": [
+                ("hold:10", Decimal("2")),
+                ("hold:11", Decimal("2")),
+            ],
+        }
+        adapter = MagicMock()
+        mock_get_adapter.return_value = adapter
+
+        order = _make_order(
+            snapshot={"items": [{"sku": "PAO-001", "qty": "4"}], "data": {}},
+        )
+        order.session_key = "sess-1"
+
+        hold(order)
+
+        adapter.create_hold.assert_not_called()
+        assert mock_retag.call_count == 2
+        hold_entries = order.data["hold_ids"]
+        assert len(hold_entries) == 2
+        assert {e["hold_id"] for e in hold_entries} == {"hold:10", "hold:11"}
+        assert sum(Decimal(str(e["qty"])) for e in hold_entries) == Decimal("4")
+
+    @patch("shopman.services.stock._retag_hold_for_order")
+    @patch("shopman.services.stock._load_session_holds")
+    @patch("shopman.services.stock.get_adapter")
+    @patch("shopman.services.stock.CatalogService")
+    def test_hold_adopts_session_holds_and_creates_fresh_for_remainder(
+        self, mock_catalog, mock_get_adapter, mock_load, mock_retag,
+    ):
+        """Session covers qty=2, required=5 → adopt 2 + create 3 fresh."""
+        from shopman.services.stock import hold
+
+        mock_catalog.expand.side_effect = Exception("NOT_A_BUNDLE")
+        mock_load.return_value = {
+            "PAO-001": [("hold:20", Decimal("2"))],
+        }
+        adapter = MagicMock()
+        adapter.create_hold.return_value = {
+            "success": True, "hold_id": "hold:21",
+        }
+        mock_get_adapter.return_value = adapter
+
+        order = _make_order(
+            snapshot={"items": [{"sku": "PAO-001", "qty": "5"}], "data": {}},
+        )
+        order.session_key = "sess-1"
+
+        hold(order)
+
+        adapter.create_hold.assert_called_once()
+        # Fresh hold is for remainder = 5 - 2 = 3
+        call_kwargs = adapter.create_hold.call_args.kwargs
+        assert call_kwargs["qty"] == Decimal("3")
+
+        hold_entries = order.data["hold_ids"]
+        assert len(hold_entries) == 2
+        assert {e["hold_id"] for e in hold_entries} == {"hold:20", "hold:21"}
 
     @patch("shopman.services.stock.get_adapter")
     def test_fulfill_calls_adapter(self, mock_get_adapter):
@@ -362,16 +433,16 @@ class TestPaymentService:
 
     @patch("shopman.services.payment.get_adapter")
     def test_initiate_pix(self, mock_get_adapter):
+        from shopman.adapters.payment_types import PaymentIntent
         from shopman.services.payment import initiate
 
         adapter = MagicMock()
-        intent = MagicMock()
-        intent.intent_id = "INT-001"
-        intent.status = "pending"
-        intent.metadata = {"qrcode": "QR123", "brcode": "PIX123"}
-        intent.client_secret = None
-        intent.expires_at = None
-        adapter.create_intent.return_value = intent
+        adapter.create_intent.return_value = PaymentIntent(
+            intent_ref="INT-001",
+            status="pending",
+            amount_q=5000,
+            metadata={"qrcode": "QR123", "brcode": "PIX123"},
+        )
         mock_get_adapter.return_value = adapter
 
         order = _make_order(data={"payment": {"method": "pix"}}, total_q=5000)
@@ -379,22 +450,26 @@ class TestPaymentService:
         initiate(order)
 
         adapter.create_intent.assert_called_once()
-        assert order.data["payment"]["intent_id"] == "INT-001"
+        call_kwargs = adapter.create_intent.call_args.kwargs
+        assert call_kwargs["order_ref"] == order.ref
+        assert call_kwargs["amount_q"] == 5000
+        assert call_kwargs["method"] == "pix"
+        assert order.data["payment"]["intent_ref"] == "INT-001"
         assert order.data["payment"]["qr_code"] == "QR123"
         order.save.assert_called()
 
     @patch("shopman.services.payment.get_adapter")
     def test_initiate_card(self, mock_get_adapter):
+        from shopman.adapters.payment_types import PaymentIntent
         from shopman.services.payment import initiate
 
         adapter = MagicMock()
-        intent = MagicMock()
-        intent.intent_id = "INT-002"
-        intent.status = "pending"
-        intent.metadata = None
-        intent.client_secret = "cs_test_123"
-        intent.expires_at = None
-        adapter.create_intent.return_value = intent
+        adapter.create_intent.return_value = PaymentIntent(
+            intent_ref="INT-002",
+            status="pending",
+            amount_q=5000,
+            client_secret="cs_test_123",
+        )
         mock_get_adapter.return_value = adapter
 
         order = _make_order(data={"payment": {"method": "card"}}, total_q=5000)
@@ -402,6 +477,7 @@ class TestPaymentService:
         initiate(order)
 
         assert order.data["payment"]["client_secret"] == "cs_test_123"
+        assert order.data["payment"]["intent_ref"] == "INT-002"
 
     def test_initiate_counter_noop(self):
         from shopman.services.payment import initiate
@@ -413,7 +489,7 @@ class TestPaymentService:
     def test_initiate_idempotent(self):
         from shopman.services.payment import initiate
 
-        order = _make_order(data={"payment": {"method": "pix", "intent_id": "INT-EXISTING"}})
+        order = _make_order(data={"payment": {"method": "pix", "intent_ref": "INT-EXISTING"}})
         initiate(order)
         order.save.assert_not_called()
 
@@ -427,15 +503,16 @@ class TestPaymentService:
 
     @patch("shopman.services.payment.get_adapter")
     def test_refund_with_intent(self, mock_get_adapter):
+        from shopman.adapters.payment_types import PaymentResult
         from shopman.services.payment import refund
 
         adapter = MagicMock()
-        result = MagicMock()
-        result.success = True
-        adapter.refund.return_value = result
+        adapter.refund.return_value = PaymentResult(success=True)
         mock_get_adapter.return_value = adapter
 
-        order = _make_order(data={"payment": {"method": "pix", "intent_id": "INT-001", "status": "captured"}})
+        order = _make_order(
+            data={"payment": {"method": "pix", "intent_ref": "INT-001", "status": "captured"}},
+        )
 
         refund(order)
 
@@ -444,20 +521,24 @@ class TestPaymentService:
 
     @patch("shopman.services.payment.get_adapter")
     def test_capture(self, mock_get_adapter):
+        from shopman.adapters.payment_types import PaymentResult
         from shopman.services.payment import capture
 
         adapter = MagicMock()
-        result = MagicMock()
-        result.success = True
-        result.transaction_id = "TXN-001"
-        adapter.capture.return_value = result
+        adapter.capture.return_value = PaymentResult(
+            success=True,
+            transaction_id="TXN-001",
+        )
         mock_get_adapter.return_value = adapter
 
-        order = _make_order(data={"payment": {"method": "pix", "intent_id": "INT-001", "status": "authorized"}})
+        order = _make_order(
+            data={"payment": {"method": "pix", "intent_ref": "INT-001", "status": "authorized"}},
+        )
 
         capture(order)
 
         assert order.data["payment"]["status"] == "captured"
+        assert order.data["payment"]["transaction_id"] == "TXN-001"
 
 
 # ══════════════════════════════════════════════════════════════════════
