@@ -26,6 +26,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 
+from shopman.config import ChannelConfig
 from shopman.omniman.models import Directive, Order
 from shopman.services import (
     availability,
@@ -56,10 +57,20 @@ def flow(name: str):
 
 
 def get_flow(order) -> BaseFlow:
-    """Resolve the Flow class for an order based on channel config."""
-    flow_name = _channel_config(order, "flow", "base")
-    cls = _registry.get(flow_name, BaseFlow)
+    """Resolve the Flow class for an order based on `channel.flow`.
+
+    `channel.flow` is a CharField on the Channel model that names a class
+    registered in `_registry` via the `@flow` decorator. Orthogonal to
+    `ChannelConfig.flow` (which customizes transitions).
+    """
+    name = getattr(order.channel, "flow", None) or "base"
+    cls = _registry.get(name, BaseFlow)
     return cls()
+
+
+def _effective_config(order) -> ChannelConfig:
+    """Materialize the effective ChannelConfig with cascade channel←shop←defaults."""
+    return ChannelConfig.effective(order.channel)
 
 
 def dispatch(order, phase: str) -> None:
@@ -78,15 +89,6 @@ def dispatch(order, phase: str) -> None:
         )
 
 
-# ── Helpers ──
-
-
-def _channel_config(order, key: str, default=None):
-    """Read a key from the order's channel config."""
-    config = getattr(order.channel, "config", None) or {}
-    return config.get(key, default)
-
-
 # ── BaseFlow ──
 
 
@@ -102,14 +104,13 @@ class BaseFlow:
         self.handle_confirmation(order)
 
     def handle_confirmation(self, order):
-        """Route confirmation by mode: immediate, optimistic, pessimistic."""
-        mode = _channel_config(order, "confirmation_mode", "immediate")
-        timeout = _channel_config(order, "confirmation_timeout", 300)
+        """Route confirmation by mode: immediate, optimistic, manual."""
+        cfg = _effective_config(order).confirmation
 
-        if mode == "immediate":
+        if cfg.mode == "immediate":
             order.transition_status(Order.Status.CONFIRMED, actor="auto_confirm")
-        elif mode == "optimistic":
-            expires_at = timezone.now() + timedelta(seconds=timeout)
+        elif cfg.mode == "optimistic":
+            expires_at = timezone.now() + timedelta(minutes=cfg.timeout_minutes)
             Directive.objects.create(
                 topic="confirmation.timeout",
                 payload={
@@ -119,7 +120,7 @@ class BaseFlow:
                 },
                 available_at=expires_at,
             )
-        # pessimistic: wait for operator — no action
+        # manual: wait for operator — no action
 
     def on_confirmed(self, order):
         """Order confirmed: initiate payment + notify."""

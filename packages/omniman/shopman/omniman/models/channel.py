@@ -26,6 +26,16 @@ class Channel(models.Model):
 
     ref = models.CharField(_("código"), max_length=64, unique=True)
     name = models.CharField(_("nome"), max_length=128, blank=True, default="")
+    flow = models.CharField(
+        _("flow"),
+        max_length=32,
+        default="base",
+        help_text=_(
+            "Nome da classe de Flow no registry (shopman.flows): "
+            "base, local, pos, totem, remote, web, whatsapp, manychat, "
+            "marketplace, ifood."
+        ),
+    )
     listing_ref = models.CharField(
         _("listagem"),
         max_length=50,

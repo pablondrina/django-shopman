@@ -31,7 +31,7 @@ from shopman.omniman.models import Directive, Order
 
 
 def _make_order(**overrides):
-    """Create a mock Order with channel config."""
+    """Create a mock Order with channel flow + config."""
     order = MagicMock()
     order.ref = overrides.get("ref", "ORD-001")
     order.total_q = overrides.get("total_q", 5000)
@@ -42,6 +42,7 @@ def _make_order(**overrides):
     channel = MagicMock()
     channel.ref = overrides.get("channel_ref", "web")
     channel.name = "Web"
+    channel.flow = overrides.get("channel_flow", "base")
     channel.config = overrides.get("channel_config", {})
     order.channel = channel
 
@@ -74,50 +75,58 @@ class TestRegistry:
 
 
 class TestGetFlow:
-    def test_resolves_from_channel_config(self):
-        order = _make_order(channel_config={"flow": "web"})
+    def test_resolves_from_channel_flow_field(self):
+        order = _make_order(channel_flow="web")
         flow = get_flow(order)
         assert isinstance(flow, WebFlow)
 
     def test_resolves_local(self):
-        order = _make_order(channel_config={"flow": "local"})
+        order = _make_order(channel_flow="local")
         flow = get_flow(order)
         assert isinstance(flow, LocalFlow)
 
     def test_resolves_marketplace(self):
-        order = _make_order(channel_config={"flow": "marketplace"})
+        order = _make_order(channel_flow="marketplace")
         flow = get_flow(order)
         assert isinstance(flow, MarketplaceFlow)
 
     def test_defaults_to_base(self):
-        order = _make_order(channel_config={})
+        order = _make_order(channel_flow="base")
         flow = get_flow(order)
         assert isinstance(flow, BaseFlow)
 
     def test_unknown_flow_defaults_to_base(self):
-        order = _make_order(channel_config={"flow": "nonexistent"})
+        order = _make_order(channel_flow="nonexistent")
         flow = get_flow(order)
         assert isinstance(flow, BaseFlow)
 
 
 class TestDispatch:
+    @patch("shopman.flows._effective_config")
+    @patch("shopman.flows.loyalty")
     @patch("shopman.flows.customer")
     @patch("shopman.flows.stock")
-    def test_dispatch_calls_correct_phase(self, mock_stock, mock_customer):
-        order = _make_order(channel_config={"flow": "base", "confirmation_mode": "pessimistic"})
+    def test_dispatch_calls_correct_phase(
+        self, mock_stock, mock_customer, mock_loyalty, mock_eff,
+    ):
+        from shopman.config import ChannelConfig
+        mock_eff.return_value = ChannelConfig(
+            confirmation=ChannelConfig.Confirmation(mode="manual"),
+        )
+        order = _make_order(channel_flow="base")
         dispatch(order, "on_commit")
         mock_customer.ensure.assert_called_once_with(order)
         mock_stock.hold.assert_called_once_with(order)
 
     def test_dispatch_unknown_phase_logs_warning(self):
-        order = _make_order(channel_config={"flow": "base"})
+        order = _make_order(channel_flow="base")
         # Should not raise
         dispatch(order, "on_nonexistent_phase")
 
     @patch("shopman.flows.notification")
     def test_dispatch_exception_does_not_propagate(self, mock_notification):
         mock_notification.send.side_effect = RuntimeError("boom")
-        order = _make_order(channel_config={"flow": "base"})
+        order = _make_order(channel_flow="base")
         # Should not raise — dispatch catches exceptions
         dispatch(order, "on_dispatched")
 
@@ -158,41 +167,70 @@ class TestHierarchy:
 
 
 class TestBaseFlowOnCommit:
+    @patch("shopman.flows._effective_config")
+    @patch("shopman.flows.loyalty")
     @patch("shopman.flows.customer")
     @patch("shopman.flows.stock")
-    def test_calls_customer_ensure_and_stock_hold(self, mock_stock, mock_customer):
-        order = _make_order(channel_config={"confirmation_mode": "pessimistic"})
+    def test_calls_customer_ensure_and_stock_hold(
+        self, mock_stock, mock_customer, mock_loyalty, mock_eff,
+    ):
+        from shopman.config import ChannelConfig
+        mock_eff.return_value = ChannelConfig(
+            confirmation=ChannelConfig.Confirmation(mode="manual"),
+        )
+        order = _make_order()
         BaseFlow().on_commit(order)
         mock_customer.ensure.assert_called_once_with(order)
         mock_stock.hold.assert_called_once_with(order)
 
+    @patch("shopman.flows._effective_config")
+    @patch("shopman.flows.loyalty")
     @patch("shopman.flows.customer")
     @patch("shopman.flows.stock")
-    def test_immediate_confirmation(self, mock_stock, mock_customer):
-        order = _make_order(channel_config={"confirmation_mode": "immediate"})
+    def test_immediate_confirmation(
+        self, mock_stock, mock_customer, mock_loyalty, mock_eff,
+    ):
+        from shopman.config import ChannelConfig
+        mock_eff.return_value = ChannelConfig(
+            confirmation=ChannelConfig.Confirmation(mode="immediate"),
+        )
+        order = _make_order()
         BaseFlow().on_commit(order)
         order.transition_status.assert_called_once_with(
             Order.Status.CONFIRMED, actor="auto_confirm",
         )
 
+    @patch("shopman.flows._effective_config")
+    @patch("shopman.flows.loyalty")
     @patch("shopman.flows.customer")
     @patch("shopman.flows.stock")
     @pytest.mark.django_db
-    def test_optimistic_confirmation_creates_directive(self, mock_stock, mock_customer):
-        order = _make_order(channel_config={
-            "confirmation_mode": "optimistic",
-            "confirmation_timeout": 300,
-        })
+    def test_optimistic_confirmation_creates_directive(
+        self, mock_stock, mock_customer, mock_loyalty, mock_eff,
+    ):
+        from shopman.config import ChannelConfig
+        mock_eff.return_value = ChannelConfig(
+            confirmation=ChannelConfig.Confirmation(mode="optimistic", timeout_minutes=5),
+        )
+        order = _make_order()
         BaseFlow().on_commit(order)
         directive = Directive.objects.filter(topic="confirmation.timeout").first()
         assert directive is not None
         assert directive.payload["order_ref"] == "ORD-001"
         assert directive.payload["action"] == "confirm"
 
+    @patch("shopman.flows._effective_config")
+    @patch("shopman.flows.loyalty")
     @patch("shopman.flows.customer")
     @patch("shopman.flows.stock")
-    def test_pessimistic_confirmation_no_auto_action(self, mock_stock, mock_customer):
-        order = _make_order(channel_config={"confirmation_mode": "pessimistic"})
+    def test_manual_confirmation_no_auto_action(
+        self, mock_stock, mock_customer, mock_loyalty, mock_eff,
+    ):
+        from shopman.config import ChannelConfig
+        mock_eff.return_value = ChannelConfig(
+            confirmation=ChannelConfig.Confirmation(mode="manual"),
+        )
+        order = _make_order()
         BaseFlow().on_commit(order)
         order.transition_status.assert_not_called()
 
@@ -299,13 +337,14 @@ class TestBaseFlowOnReturned:
 
 
 class TestLocalFlow:
+    @patch("shopman.flows.loyalty")
     @patch("shopman.flows.availability")
     @patch("shopman.flows.customer")
     @patch("shopman.flows.stock")
-    def test_on_commit_immediate_confirmation(self, mock_stock, mock_customer, mock_availability):
+    def test_on_commit_immediate_confirmation(self, mock_stock, mock_customer, mock_availability, mock_loyalty):
         mock_availability.check.return_value = {"ok": True}
         order = _make_order(
-            channel_config={"flow": "local"},
+            channel_flow="local",
             snapshot={"items": [{"sku": "PAO-001", "qty": 1}], "data": {}},
         )
         LocalFlow().on_commit(order)
@@ -386,10 +425,18 @@ class TestLocalFlow:
 
 
 class TestRemoteFlow:
+    @patch("shopman.flows._effective_config")
+    @patch("shopman.flows.loyalty")
     @patch("shopman.flows.customer")
     @patch("shopman.flows.stock")
-    def test_inherits_base_on_commit(self, mock_stock, mock_customer):
-        order = _make_order(channel_config={"confirmation_mode": "pessimistic"})
+    def test_inherits_base_on_commit(
+        self, mock_stock, mock_customer, mock_loyalty, mock_eff,
+    ):
+        from shopman.config import ChannelConfig
+        mock_eff.return_value = ChannelConfig(
+            confirmation=ChannelConfig.Confirmation(mode="manual"),
+        )
+        order = _make_order()
         RemoteFlow().on_commit(order)
         mock_customer.ensure.assert_called_once_with(order)
         mock_stock.hold.assert_called_once_with(order)
@@ -409,7 +456,7 @@ class TestMarketplaceFlow:
     @patch("shopman.flows.customer")
     @patch("shopman.flows.stock")
     def test_on_commit_pessimistic_no_auto_action(self, mock_stock, mock_customer):
-        order = _make_order(channel_config={"flow": "marketplace"})
+        order = _make_order(channel_flow="marketplace")
         MarketplaceFlow().on_commit(order)
         mock_customer.ensure.assert_called_once_with(order)
         mock_stock.hold.assert_called_once_with(order)
@@ -429,7 +476,7 @@ class TestMarketplaceFlow:
         not_in_listing, paused, insufficient_stock) cancels the order.
         """
         order = _make_order(
-            channel_config={"flow": "marketplace"},
+            channel_flow="marketplace",
             snapshot={"items": [{"sku": "PAO-001", "qty": "2"}], "data": {}},
         )
         mock_availability.check.return_value = {
@@ -458,7 +505,7 @@ class TestMarketplaceFlow:
         self, mock_stock, mock_customer, mock_availability, mock_alert,
     ):
         order = _make_order(
-            channel_config={"flow": "marketplace"},
+            channel_flow="marketplace",
             snapshot={"items": [{"sku": "PAO-001", "qty": "2"}], "data": {}},
             data={"hold_ids": [{"sku": "PAO-001", "hold_id": "hold:1"}]},
         )
@@ -494,10 +541,18 @@ class TestMarketplaceFlow:
 
 
 class TestSignalDispatch:
+    @patch("shopman.flows._effective_config")
+    @patch("shopman.flows.loyalty")
     @patch("shopman.flows.customer")
     @patch("shopman.flows.stock")
-    def test_created_event_triggers_on_commit(self, mock_stock, mock_customer):
-        order = _make_order(channel_config={"confirmation_mode": "pessimistic"})
+    def test_created_event_triggers_on_commit(
+        self, mock_stock, mock_customer, mock_loyalty, mock_eff,
+    ):
+        from shopman.config import ChannelConfig
+        mock_eff.return_value = ChannelConfig(
+            confirmation=ChannelConfig.Confirmation(mode="manual"),
+        )
+        order = _make_order()
         dispatch(order, "on_commit")
         mock_customer.ensure.assert_called_once()
         mock_stock.hold.assert_called_once()
@@ -505,7 +560,7 @@ class TestSignalDispatch:
     @patch("shopman.flows.notification")
     @patch("shopman.flows.payment")
     def test_confirmed_status_triggers_on_confirmed(self, mock_payment, mock_notification):
-        order = _make_order(channel_config={"flow": "base"})
+        order = _make_order(channel_flow="base")
         dispatch(order, "on_confirmed")
         mock_payment.initiate.assert_called_once()
 
@@ -514,7 +569,7 @@ class TestSignalDispatch:
     @patch("shopman.flows.stock")
     @patch("shopman.flows.kds")
     def test_cancelled_status_triggers_on_cancelled(self, mock_kds, mock_stock, mock_payment, mock_notification):
-        order = _make_order(channel_config={"flow": "base"})
+        order = _make_order(channel_flow="base")
         dispatch(order, "on_cancelled")
         mock_kds.cancel_tickets.assert_called_once()
         mock_stock.release.assert_called_once()
@@ -522,7 +577,7 @@ class TestSignalDispatch:
     @patch("shopman.flows.fiscal")
     @patch("shopman.flows.loyalty")
     def test_completed_status_triggers_on_completed(self, mock_loyalty, mock_fiscal):
-        order = _make_order(channel_config={"flow": "base"})
+        order = _make_order(channel_flow="base")
         dispatch(order, "on_completed")
         mock_loyalty.earn.assert_called_once()
         mock_fiscal.emit.assert_called_once()
@@ -535,20 +590,20 @@ class TestFlowSpecificDispatch:
     @patch("shopman.flows.notification")
     @patch("shopman.flows.payment")
     def test_web_flow_dispatch(self, mock_payment, mock_notification):
-        order = _make_order(channel_config={"flow": "web"})
+        order = _make_order(channel_flow="web")
         dispatch(order, "on_confirmed")
         # WebFlow inherits RemoteFlow → BaseFlow, so payment.initiate is called
         mock_payment.initiate.assert_called_once()
 
     @patch("shopman.flows.notification")
     def test_local_flow_on_confirmed_no_payment(self, mock_notification):
-        order = _make_order(channel_config={"flow": "local"})
+        order = _make_order(channel_flow="local")
         dispatch(order, "on_confirmed")
         mock_notification.send.assert_called_once_with(order, "order_confirmed")
 
     @patch("shopman.flows.notification")
     def test_pos_flow_inherits_local(self, mock_notification):
-        order = _make_order(channel_config={"flow": "pos"})
+        order = _make_order(channel_flow="pos")
         dispatch(order, "on_confirmed")
         mock_notification.send.assert_called_once_with(order, "order_confirmed")
 
@@ -556,7 +611,7 @@ class TestFlowSpecificDispatch:
     @patch("shopman.flows.stock")
     def test_ifood_flow_inherits_marketplace(self, mock_stock, mock_notification):
         order = _make_order(
-            channel_config={"flow": "ifood"},
+            channel_flow="ifood",
             status="confirmed",
         )
         dispatch(order, "on_paid")
@@ -578,3 +633,143 @@ class TestNotificationPhases:
         order = _make_order()
         BaseFlow().on_delivered(order)
         mock_notification.send.assert_called_once_with(order, "order_delivered")
+
+
+# ── ChannelConfig integration ──
+
+
+@pytest.mark.django_db
+class TestChannelConfigIntegration:
+    """End-to-end tests that flows.py correctly reads the typed ChannelConfig
+    cascade (channel ← shop ← defaults) instead of flat `channel.config`.
+    """
+
+    def _make_real_channel(self, *, flow="base", config=None):
+        from shopman.omniman.models import Channel
+        return Channel.objects.create(
+            ref=f"test-{flow}",
+            name=f"Test {flow}",
+            flow=flow,
+            config=config or {},
+        )
+
+    def test_get_flow_uses_channel_flow_field(self):
+        """get_flow() reads from Channel.flow field, not channel.config."""
+        channel = self._make_real_channel(flow="web")
+        order = MagicMock()
+        order.channel = channel
+        flow = get_flow(order)
+        assert isinstance(flow, WebFlow)
+
+    def test_get_flow_defaults_base_when_unknown(self):
+        channel = self._make_real_channel(flow="nonexistent")
+        order = MagicMock()
+        order.channel = channel
+        flow = get_flow(order)
+        assert isinstance(flow, BaseFlow)
+
+    @patch("shopman.flows.loyalty")
+    @patch("shopman.flows.customer")
+    @patch("shopman.flows.stock")
+    def test_handle_confirmation_uses_effective_config(
+        self, mock_stock, mock_customer, mock_loyalty,
+    ):
+        """BaseFlow.handle_confirmation reads mode via ChannelConfig.effective()."""
+        channel = self._make_real_channel(
+            flow="base",
+            config={"confirmation": {"mode": "immediate"}},
+        )
+        order = MagicMock()
+        order.ref = "ORD-CFG-1"
+        order.snapshot = {"items": []}
+        order.data = {}
+        order.channel = channel
+
+        BaseFlow().on_commit(order)
+        order.transition_status.assert_called_once_with(
+            Order.Status.CONFIRMED, actor="auto_confirm",
+        )
+
+    @patch("shopman.flows.loyalty")
+    @patch("shopman.flows.customer")
+    @patch("shopman.flows.stock")
+    def test_optimistic_uses_timeout_minutes_from_schema(
+        self, mock_stock, mock_customer, mock_loyalty,
+    ):
+        """Optimistic mode honors timeout_minutes from ChannelConfig.Confirmation."""
+        channel = self._make_real_channel(
+            flow="base",
+            config={
+                "confirmation": {"mode": "optimistic", "timeout_minutes": 7},
+            },
+        )
+        order = MagicMock()
+        order.ref = "ORD-CFG-2"
+        order.snapshot = {"items": []}
+        order.data = {}
+        order.channel = channel
+
+        BaseFlow().on_commit(order)
+
+        directive = Directive.objects.filter(
+            topic="confirmation.timeout", payload__order_ref="ORD-CFG-2",
+        ).first()
+        assert directive is not None
+        # Directive.available_at should be ~7 minutes in the future
+        from datetime import timedelta
+        from django.utils import timezone
+        delta = directive.available_at - timezone.now()
+        assert timedelta(minutes=6) < delta < timedelta(minutes=8)
+
+    @patch("shopman.flows.loyalty")
+    @patch("shopman.flows.customer")
+    @patch("shopman.flows.stock")
+    def test_shop_defaults_cascade_into_channel_config(
+        self, mock_stock, mock_customer, mock_loyalty,
+    ):
+        """ChannelConfig cascade: shop.defaults provide confirmation.mode
+        when the channel doesn't override it.
+        """
+        from shopman.models import Shop
+        Shop.objects.create(
+            name="Test Shop",
+            defaults={"confirmation": {"mode": "immediate"}},
+        )
+
+        channel = self._make_real_channel(flow="base", config={})
+        order = MagicMock()
+        order.ref = "ORD-CFG-3"
+        order.snapshot = {"items": []}
+        order.data = {}
+        order.channel = channel
+
+        BaseFlow().on_commit(order)
+        order.transition_status.assert_called_once_with(
+            Order.Status.CONFIRMED, actor="auto_confirm",
+        )
+
+    @patch("shopman.flows.loyalty")
+    @patch("shopman.flows.customer")
+    @patch("shopman.flows.stock")
+    def test_channel_overrides_shop_defaults(
+        self, mock_stock, mock_customer, mock_loyalty,
+    ):
+        """Channel.config overrides shop.defaults in the cascade."""
+        from shopman.models import Shop
+        shop = Shop.load()
+        shop.defaults = {"confirmation": {"mode": "immediate"}}
+        shop.save()
+
+        channel = self._make_real_channel(
+            flow="base",
+            config={"confirmation": {"mode": "manual"}},
+        )
+        order = MagicMock()
+        order.ref = "ORD-CFG-4"
+        order.snapshot = {"items": []}
+        order.data = {}
+        order.channel = channel
+
+        BaseFlow().on_commit(order)
+        # manual = no auto-transition
+        order.transition_status.assert_not_called()

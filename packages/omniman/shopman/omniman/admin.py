@@ -143,13 +143,14 @@ class ChannelAdmin(ModelAdmin):
     list_display = [
         "name",
         "ref",
+        "flow",
         "pricing_policy_badge",
         "edit_policy_badge",
         "is_active",
         "display_order",
         "created_at",
     ]
-    list_filter = ("is_active", "pricing_policy", "edit_policy")
+    list_filter = ("is_active", "flow", "pricing_policy", "edit_policy")
     search_fields = ("ref", "name")
     ordering = ("display_order", "id")
     list_filter_submit = True
@@ -167,7 +168,7 @@ class ChannelAdmin(ModelAdmin):
         return history_action(self, request, object_id)
 
     fieldsets = (
-        (_("Identidade"), {"fields": ("name", "ref"), "classes": ("tab",)}),
+        (_("Identidade"), {"fields": ("name", "ref", "flow"), "classes": ("tab",)}),
         (
             _("Políticas"),
             {"fields": ("pricing_policy", "edit_policy"), "classes": ("tab",)},

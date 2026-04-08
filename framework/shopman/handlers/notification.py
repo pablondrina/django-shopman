@@ -171,40 +171,13 @@ class NotificationSendHandler:
             self._escalate("", event, result.error)
 
     def _resolve_backend_chain(self, order) -> list[str]:
-        """Resolve the ordered list of backends to try.
+        """Resolve the ordered list of backends to try via ChannelConfig cascade."""
+        from shopman.config import ChannelConfig
 
-        Priority:
-        1. Channel.config['notification_routing']['backend'] + fallback_chain
-        2. Channel.config['notifications']['backend'] + fallback_chain
-        3. Default: manychat → email
-        """
-        config = order.channel.config or {}
-
-        # Priority 1: explicit notification_routing
-        routing = config.get("notification_routing")
-        if routing:
-            backend = routing.get("backend", "manychat")
-            # Support both old 'fallback' (string) and new 'fallback_chain' (list)
-            chain = routing.get("fallback_chain") or []
-            if not chain:
-                fallback = routing.get("fallback")
-                if fallback:
-                    chain = [fallback]
-            return [backend] + [b for b in chain if b != backend]
-
-        # Priority 2: notifications config
-        notifications = config.get("notifications", {})
-        if notifications.get("backend"):
-            backend = notifications["backend"]
-            chain = notifications.get("fallback_chain") or []
-            if not chain:
-                fallback = notifications.get("fallback")
-                if fallback:
-                    chain = [fallback]
-            return [backend] + [b for b in chain if b != backend]
-
-        # Default phone-first: manychat → sms → email → console (safety net)
-        return ["manychat", "sms", "email", "console"]
+        notifications = ChannelConfig.effective(order.channel).notifications
+        backend = notifications.backend or "manychat"
+        chain = notifications.fallback_chain or []
+        return [backend] + [b for b in chain if b != backend]
 
     def _build_context(self, order, payload: dict, template: str) -> dict:
         """Build notification context from order data."""

@@ -47,6 +47,7 @@ def _create_order_with_payment(channel_ref: str = "web", payment_method: str = "
         edit_policy="open",
         handle_type="guest",
         handle_ref="test-guest",
+        data={"origin_channel": "web"},
     )
     ModifyService.modify_session(
         session_key=session_key,
@@ -79,7 +80,7 @@ def _create_pix_intent(order: Order) -> object:
     intent.gateway_id = "txid_test_abc123"
     intent.save(update_fields=["gateway_id"])
     # Link intent to order
-    order.data.setdefault("payment", {})["intent_id"] = intent.ref
+    order.data.setdefault("payment", {})["intent_ref"] = intent.ref
     order.save(update_fields=["data", "updated_at"])
     return intent
 
@@ -95,7 +96,7 @@ def _create_card_intent(order: Order, stripe_pi_id: str = "pi_test_stripe_abc") 
     )
     intent.gateway_id = stripe_pi_id
     intent.save(update_fields=["gateway_id"])
-    order.data.setdefault("payment", {})["intent_id"] = intent.ref
+    order.data.setdefault("payment", {})["intent_ref"] = intent.ref
     order.save(update_fields=["data", "updated_at"])
     return intent
 

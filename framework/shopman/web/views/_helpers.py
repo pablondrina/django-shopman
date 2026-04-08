@@ -634,13 +634,17 @@ def _min_order_progress(subtotal_q: int, channel_ref: str = STOREFRONT_CHANNEL_R
     MINIMUM_ORDER_Q = 1000  # R$ 10,00 default
     minimum_q = 0
     try:
+        from shopman.config import ChannelConfig
         from shopman.omniman.models import Channel
 
         channel = Channel.objects.filter(ref=channel_ref).first()
-        if channel and channel.config:
-            validators = (channel.config or {}).get("rules", {}).get("validators", [])
-            if "shop.minimum_order" in validators:
-                raw = channel.config.get("rules", {}).get("minimum_order_q")
+        if channel:
+            rules = ChannelConfig.effective(channel).rules
+            if "shop.minimum_order" in rules.validators:
+                # minimum_order_q is a convention-based extension key,
+                # not part of the ChannelConfig.Rules schema — read raw
+                # from channel config then shop defaults.
+                raw = (channel.config or {}).get("rules", {}).get("minimum_order_q")
                 if raw:
                     minimum_q = int(raw)
                 else:

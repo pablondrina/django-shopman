@@ -1224,43 +1224,43 @@ class Command(BaseCommand):
         self.stdout.write("  📡 Canais...")
 
         channels = {}
-        # Flat channel configs (simplified — flows/services handle orchestration in R4+)
-        _pos_config = {"flow": "pos", "confirmation_mode": "immediate", "payment": ["counter"]}
+        # ChannelConfig schema (7 aspects). `flow` is now a Channel model field,
+        # not a config key — moved out of `config`.
+        _pos_config = {
+            "confirmation": {"mode": "immediate"},
+            "payment": {"method": "counter"},
+        }
         # Remote: não reserva estoque na posição "ontem" (D-1 físico no balcão); balcão usa allowed_positions omitido (= todas).
-        _remote_stock = {"allowed_positions": ["deposito", "vitrine", "producao"]}
+        _remote_stock = {
+            "allowed_positions": ["deposito", "vitrine", "producao"],
+            "hold_ttl_minutes": 30,
+        }
         _remote_config = {
-            "flow": "web",
-            "confirmation_mode": "optimistic",
-            "confirmation_timeout": 300,
-            "payment": ["pix", "card"],
-            "stock_hold_ttl": 30,
+            "confirmation": {"mode": "optimistic", "timeout_minutes": 5},
+            "payment": {"method": ["pix", "card"], "timeout_minutes": 15},
             "stock": _remote_stock,
         }
         _marketplace_config = {
-            "flow": "marketplace",
-            "confirmation_mode": "pessimistic",
-            "confirmation_timeout": 300,
-            "payment": ["external"],
+            "confirmation": {"mode": "manual"},
+            "payment": {"method": "external"},
             "stock": _remote_stock,
         }
         _whatsapp_config = {
-            "flow": "whatsapp",
-            "confirmation_mode": "optimistic",
-            "confirmation_timeout": 300,
-            "payment": ["pix", "card"],
-            "notification_adapter": "manychat",
+            "confirmation": {"mode": "optimistic", "timeout_minutes": 5},
+            "payment": {"method": ["pix", "card"], "timeout_minutes": 15},
+            "notifications": {"backend": "manychat"},
             "stock": _remote_stock,
         }
         channels_data = [
-            # (ref, name, pricing, edit, listing_ref, config)
-            ("balcao", "Balcao / PDV", "internal", "open", "balcao", _pos_config),
-            ("delivery", "Delivery Proprio", "internal", "open", "delivery", _remote_config),
-            ("ifood", "iFood", "external", "locked", "ifood", _marketplace_config),
-            ("whatsapp", "WhatsApp", "internal", "open", "web", _whatsapp_config),
-            ("web", "E-commerce", "internal", "open", "web", _remote_config),
+            # (ref, name, pricing, edit, listing_ref, flow, config)
+            ("balcao", "Balcao / PDV", "internal", "open", "balcao", "pos", _pos_config),
+            ("delivery", "Delivery Proprio", "internal", "open", "delivery", "web", _remote_config),
+            ("ifood", "iFood", "external", "locked", "ifood", "ifood", _marketplace_config),
+            ("whatsapp", "WhatsApp", "internal", "open", "web", "whatsapp", _whatsapp_config),
+            ("web", "E-commerce", "internal", "open", "web", "web", _remote_config),
         ]
 
-        for ref, name, pricing, edit, listing_ref, config in channels_data:
+        for ref, name, pricing, edit, listing_ref, flow, config in channels_data:
             ch, _ = Channel.objects.update_or_create(
                 ref=ref,
                 defaults={
@@ -1268,6 +1268,7 @@ class Command(BaseCommand):
                     "pricing_policy": pricing,
                     "edit_policy": edit,
                     "listing_ref": listing_ref,
+                    "flow": flow,
                     "is_active": True,
                     "config": config,
                 },

@@ -469,20 +469,12 @@ class CheckoutView(View):
 
     @staticmethod
     def _get_payment_methods() -> list[str]:
+        from shopman.config import ChannelConfig
         try:
             channel = Channel.objects.get(ref=CHANNEL_REF)
-            config = channel.config or {}
-            payment = config.get("payment", {})
-            method = (
-                payment.get("method", "counter")
-                if isinstance(payment, dict)
-                else payment
-            )
-            if isinstance(method, list):
-                return method
-            return [method]
         except Channel.DoesNotExist:
             return ["counter"]
+        return ChannelConfig.effective(channel).payment.available_methods
 
     def _resolve_payment_method(self, request: HttpRequest) -> str:
         payment_methods = self._get_payment_methods()

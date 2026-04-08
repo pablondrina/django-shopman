@@ -81,17 +81,11 @@ def _pickup_info() -> dict | None:
         return None
 
 
-def _get_effective_config(channel) -> dict:
-    """Build effective config: defaults <- shop <- channel (flat dict merge)."""
-    from shopman.models import Shop
+def _effective_config(channel):
+    """Return the effective ChannelConfig with cascade channel←shop←defaults."""
+    from shopman.config import ChannelConfig
 
-    base = {}
-    shop = Shop.load()
-    if shop and shop.defaults:
-        base.update(shop.defaults)
-    if channel and channel.config:
-        base.update(channel.config)
-    return base
+    return ChannelConfig.effective(channel)
 
 
 def _build_tracking_context(order: Order) -> dict:
@@ -177,13 +171,11 @@ def _build_tracking_context(order: Order) -> dict:
     confirmation_countdown = False
     confirmation_expires_at = None
     if order.status == "new":
-        config = _get_effective_config(order.channel)
-        confirmation_mode = config.get("confirmation", {}).get("mode", "immediate") if isinstance(config.get("confirmation"), dict) else config.get("confirmation_mode", "immediate")
-        if confirmation_mode == "optimistic":
+        cfg = _effective_config(order.channel).confirmation
+        if cfg.mode == "optimistic":
             from datetime import timedelta
             confirmation_countdown = True
-            timeout = config.get("confirmation", {}).get("timeout_minutes", 5) if isinstance(config.get("confirmation"), dict) else config.get("confirmation_timeout_minutes", 5)
-            confirmation_expires_at = order.created_at + timedelta(minutes=timeout)
+            confirmation_expires_at = order.created_at + timedelta(minutes=cfg.timeout_minutes)
 
     eta = None
     if order.status == "preparing":
@@ -419,11 +411,9 @@ class OrderConfirmationView(View):
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
         order = get_object_or_404(Order, ref=ref)
 
-        channel = order.channel
-        if channel:
-            config = _get_effective_config(channel)
-            confirmation_mode = config.get("confirmation", {}).get("mode", "immediate") if isinstance(config.get("confirmation"), dict) else config.get("confirmation_mode", "immediate")
-            if confirmation_mode == "optimistic":
+        if order.channel:
+            cfg = _effective_config(order.channel).confirmation
+            if cfg.mode == "optimistic":
                 return redirect("storefront:order_tracking", ref=ref)
 
         items = order.items.all()

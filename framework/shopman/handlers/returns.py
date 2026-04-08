@@ -114,7 +114,7 @@ class ReturnService:
 
         result = {"refund": None, "fiscal": None}
 
-        if (order.data.get("payment") or {}).get("intent_id"):
+        if (order.data.get("payment") or {}).get("intent_ref"):
             try:
                 payment_service.refund(order)
                 result["refund"] = {"success": True, "amount_q": amount_q}
