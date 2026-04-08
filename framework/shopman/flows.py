@@ -162,7 +162,12 @@ class BaseFlow:
         fiscal.emit(order)
 
     def on_cancelled(self, order):
-        """Order cancelled: release stock + refund + notify."""
+        """Order cancelled: cancel KDS tickets + release stock + refund + notify.
+
+        Cancels open KDS tickets first to prevent kitchen from producing items
+        for a cancelled order (tickets would otherwise become orphans).
+        """
+        kds.cancel_tickets(order)
         stock.release(order)
         payment.refund(order)
         notification.send(order, "order_cancelled")

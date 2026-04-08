@@ -1,6 +1,17 @@
 """
 KDS (Kitchen Display System) dispatch service.
 
+Bridge: KDS is reactive to Order.status (unidirecional Order→KDS):
+- dispatch()         — cria tickets quando Order entra em PREPARING
+- cancel_tickets()   — cancela tickets abertos quando Order é CANCELLED
+- on_all_tickets_done() — transiciona Order para READY quando todos os tickets concluídos
+
+Invariantes garantidos:
+- dispatch() é idempotente: não cria duplicatas se já há tickets para o pedido
+- cancel_tickets() é idempotente: retorna 0 sem erro se não há tickets abertos
+- Tickets órfãos (Order cancelado mas tickets ainda abertos) não podem ocorrer se
+  BaseFlow.on_cancelled() chamar cancel_tickets() corretamente
+
 Core: KDSInstance, KDSTicket (models), Recipe (crafting), CollectionItem (offering)
 """
 
@@ -115,6 +126,27 @@ def dispatch(order) -> list:
 
     logger.info("kds.dispatch: %d tickets for order %s", len(tickets), order.ref)
     return tickets
+
+
+def cancel_tickets(order) -> int:
+    """
+    Cancel all open KDS tickets for this order.
+
+    Called by BaseFlow.on_cancelled() to prevent tickets from becoming orphans
+    (kitchen producing items for an already-cancelled order).
+
+    Idempotent: safe to call even if there are no open tickets.
+
+    Returns count of cancelled tickets.
+
+    SYNC — tickets must be cancelled immediately when order is cancelled.
+    """
+    from shopman.models import KDSTicket
+
+    count = KDSTicket.objects.filter(order=order, status="open").update(status="cancelled")
+    if count:
+        logger.info("kds.cancel_tickets: cancelled %d tickets for order=%s", count, order.ref)
+    return count
 
 
 def on_all_tickets_done(order) -> bool:

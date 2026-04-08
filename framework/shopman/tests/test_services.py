@@ -550,6 +550,64 @@ class TestKDSService:
         assert order.status == Order.Status.READY
 
     @pytest.mark.django_db
+    def test_cancel_tickets_cancels_open_tickets(self):
+        """cancel_tickets() sets status=cancelled on all open tickets."""
+        from shopman.models import KDSInstance, KDSTicket
+        from shopman.ordering.models import Channel, Order
+
+        channel = Channel.objects.create(ref="kds-cancel-1", name="KDS Cancel 1")
+        order = Order.objects.create(
+            ref="KDS-CANCEL-001", channel=channel, status=Order.Status.PREPARING, total_q=1000,
+        )
+        inst = KDSInstance.objects.create(ref="prep-cancel-1", name="Prep Cancel", type="prep")
+        t1 = KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="open")
+        t2 = KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="open")
+
+        from shopman.services.kds import cancel_tickets
+
+        count = cancel_tickets(order)
+
+        assert count == 2
+        t1.refresh_from_db()
+        t2.refresh_from_db()
+        assert t1.status == "cancelled"
+        assert t2.status == "cancelled"
+
+    @pytest.mark.django_db
+    def test_cancel_tickets_returns_zero_when_no_open_tickets(self):
+        """cancel_tickets() returns 0 without error when no open tickets exist."""
+        from shopman.models import KDSInstance, KDSTicket
+        from shopman.ordering.models import Channel, Order
+
+        channel = Channel.objects.create(ref="kds-cancel-2", name="KDS Cancel 2")
+        order = Order.objects.create(
+            ref="KDS-CANCEL-002", channel=channel, status=Order.Status.PREPARING, total_q=1000,
+        )
+        inst = KDSInstance.objects.create(ref="prep-cancel-2", name="Prep Cancel 2", type="prep")
+        # Ticket already done — not "open"
+        KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="done")
+
+        from shopman.services.kds import cancel_tickets
+
+        count = cancel_tickets(order)
+        assert count == 0
+
+    @pytest.mark.django_db
+    def test_cancel_tickets_returns_zero_for_order_with_no_tickets(self):
+        """cancel_tickets() is safe on orders with no tickets at all."""
+        from shopman.ordering.models import Channel, Order
+
+        channel = Channel.objects.create(ref="kds-cancel-3", name="KDS Cancel 3")
+        order = Order.objects.create(
+            ref="KDS-CANCEL-003", channel=channel, status=Order.Status.CONFIRMED, total_q=1000,
+        )
+
+        from shopman.services.kds import cancel_tickets
+
+        count = cancel_tickets(order)
+        assert count == 0
+
+    @pytest.mark.django_db
     def test_on_all_tickets_done_noop_if_not_all_done(self):
         from shopman.models import KDSInstance, KDSTicket
         from shopman.ordering.models import Channel, Order

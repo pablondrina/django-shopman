@@ -267,9 +267,13 @@ class TestBaseFlowOnCancelled:
     @patch("shopman.flows.notification")
     @patch("shopman.flows.payment")
     @patch("shopman.flows.stock")
-    def test_releases_stock_refunds_and_notifies(self, mock_stock, mock_payment, mock_notification):
+    @patch("shopman.flows.kds")
+    def test_cancels_kds_tickets_releases_stock_refunds_and_notifies(
+        self, mock_kds, mock_stock, mock_payment, mock_notification
+    ):
         order = _make_order()
         BaseFlow().on_cancelled(order)
+        mock_kds.cancel_tickets.assert_called_once_with(order)
         mock_stock.release.assert_called_once_with(order)
         mock_payment.refund.assert_called_once_with(order)
         mock_notification.send.assert_called_once_with(order, "order_cancelled")
@@ -318,9 +322,11 @@ class TestLocalFlow:
     @patch("shopman.flows.notification")
     @patch("shopman.flows.payment")
     @patch("shopman.flows.stock")
-    def test_on_cancelled_inherits_base(self, mock_stock, mock_payment, mock_notification):
+    @patch("shopman.flows.kds")
+    def test_on_cancelled_inherits_base(self, mock_kds, mock_stock, mock_payment, mock_notification):
         order = _make_order()
         LocalFlow().on_cancelled(order)
+        mock_kds.cancel_tickets.assert_called_once_with(order)
         mock_stock.release.assert_called_once_with(order)
         mock_payment.refund.assert_called_once_with(order)
         mock_notification.send.assert_called_once_with(order, "order_cancelled")
@@ -402,9 +408,11 @@ class TestSignalDispatch:
     @patch("shopman.flows.notification")
     @patch("shopman.flows.payment")
     @patch("shopman.flows.stock")
-    def test_cancelled_status_triggers_on_cancelled(self, mock_stock, mock_payment, mock_notification):
+    @patch("shopman.flows.kds")
+    def test_cancelled_status_triggers_on_cancelled(self, mock_kds, mock_stock, mock_payment, mock_notification):
         order = _make_order(channel_config={"flow": "base"})
         dispatch(order, "on_cancelled")
+        mock_kds.cancel_tickets.assert_called_once()
         mock_stock.release.assert_called_once()
 
     @patch("shopman.flows.fiscal")
