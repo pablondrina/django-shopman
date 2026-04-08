@@ -224,7 +224,7 @@ def _load_fiscal_backend():
     backend_path = getattr(settings, "SHOPMAN_FISCAL_BACKEND", None)
     if not backend_path:
         try:
-            from shopman.backends.fiscal_mock import MockFiscalBackend
+            from shopman.tests._mocks.fiscal_mock import MockFiscalBackend
 
             return MockFiscalBackend()
         except ImportError:
@@ -240,7 +240,7 @@ def _load_accounting_backend():
     backend_path = getattr(settings, "SHOPMAN_ACCOUNTING_BACKEND", None)
     if not backend_path:
         try:
-            from shopman.backends.accounting_mock import MockAccountingBackend
+            from shopman.tests._mocks.accounting_mock import MockAccountingBackend
 
             return MockAccountingBackend()
         except ImportError:
