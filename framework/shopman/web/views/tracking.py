@@ -276,21 +276,33 @@ class ReorderView(View):
 
     def post(self, request: HttpRequest, ref: str) -> HttpResponse:
         from shopman.offering.models import Product
+        from shopman.web.cart import CartUnavailableError
 
         order = get_object_or_404(Order, ref=ref)
+        skipped: list[str] = []
         for item in order.items.all():
             product = Product.objects.filter(sku=item.sku, is_published=True).first()
             if product and product.is_available:
                 price_q = _get_price_q(product)
                 if price_q is None:
                     price_q = 0
-                CartService.add_item(
-                    request,
-                    sku=item.sku,
-                    qty=int(item.qty),
-                    unit_price_q=price_q,
-                    is_d1=_line_item_is_d1(product),
-                )
+                try:
+                    CartService.add_item(
+                        request,
+                        sku=item.sku,
+                        qty=int(item.qty),
+                        unit_price_q=price_q,
+                        is_d1=_line_item_is_d1(product),
+                    )
+                except CartUnavailableError:
+                    skipped.append(product.name or item.sku)
+            else:
+                # Product unavailable/unpublished — collect for UX feedback
+                name = product.name if product else item.sku
+                skipped.append(name)
+
+        if skipped:
+            request.session["reorder_skipped"] = skipped
 
         return redirect("storefront:cart")
 

@@ -109,6 +109,9 @@ class MenuView(View):
 
         happy_hour_info = _is_happy_hour_active()
 
+        # Reorder feedback: items skipped due to unavailability
+        reorder_skipped = request.session.pop("reorder_skipped", None)
+
         return render(request, "storefront/menu.html", {
             "sections": sections,
             "collections": collections,
@@ -117,6 +120,7 @@ class MenuView(View):
             "hero": hero,
             "collection_icons": collection_icons,
             "happy_hour_info": happy_hour_info,
+            "reorder_skipped": reorder_skipped,
         })
 
     def _availability_preview(self, request: HttpRequest, listing_ref: str | None) -> HttpResponse:
