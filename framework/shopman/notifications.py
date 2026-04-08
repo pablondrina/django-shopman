@@ -1,34 +1,41 @@
 """
-Channels notification service — registry + dispatch.
+Notification dispatch — registry + send.
 
-Migrado de shopman.notifications.service.
+Adapters are function-style modules in shopman.adapters.notification_*.
+Each adapter exposes:
+    send(recipient, template, context, **config) -> bool
+    is_available(recipient, **config) -> bool
+
+The registry maps backend names to adapter modules. Registration happens in
+setup.py at startup. Callers use notify() to dispatch.
 """
 
 from __future__ import annotations
 
+import importlib
 import logging
+from types import ModuleType
 from typing import Any
-
-from django.conf import settings
-
-from shopman.protocols import NotificationBackend, NotificationResult
 
 logger = logging.getLogger(__name__)
 
-# Registry de backends
-_backends: dict[str, NotificationBackend] = {}
+from shopman.protocols import NotificationResult
+
+# Registry: backend name → adapter module (with a `send` function)
+_adapters: dict[str, ModuleType] = {}
 
 
-def register_backend(name: str, backend: NotificationBackend) -> None:
-    _backends[name] = backend
+def register_backend(name: str, adapter: ModuleType) -> None:
+    """Register a notification adapter module under `name`."""
+    _adapters[name] = adapter
     logger.debug("Notification backend registered: %s", name)
 
 
-def get_backend(name: str | None = None) -> NotificationBackend | None:
+def get_backend(name: str | None = None) -> ModuleType | None:
+    """Resolve adapter module by name. Falls back to 'console' when name is None."""
     if name is None:
-        config = getattr(settings, "SHOPMAN_NOTIFICATIONS", {})
-        name = config.get("default_backend", "console")
-    return _backends.get(name)
+        name = "console"
+    return _adapters.get(name)
 
 
 def notify(
@@ -38,20 +45,33 @@ def notify(
     context: dict[str, Any],
     backend: str | None = None,
 ) -> NotificationResult:
-    backend_instance = get_backend(backend)
+    """Dispatch a notification through the named adapter.
 
-    if not backend_instance:
+    Args:
+        event: Template/event name (e.g. "order_confirmed").
+        recipient: Recipient identifier (phone, email, subscriber_id).
+        context: Template variables passed to the adapter.
+        backend: Backend name ("console", "email", "manychat", "sms").
+
+    Returns:
+        NotificationResult with success/error fields.
+    """
+    adapter = get_backend(backend)
+
+    if not adapter:
         backend_name = backend or "default"
         logger.warning("Notification backend not found: %s", backend_name)
         return NotificationResult(success=False, error=f"Backend not found: {backend_name}")
 
     try:
-        result = backend_instance.send(event=event, recipient=recipient, context=context)
-        if result.success:
+        success = adapter.send(recipient=recipient, template=event, context=context)
+        if success:
             logger.info("Notification sent: %s -> %s...", event, recipient[:20])
+            return NotificationResult(success=True, message_id=f"{backend}_{recipient[:20]}")
         else:
-            logger.warning("Notification failed: %s -> %s", event, result.error)
-        return result
+            error_msg = f"Adapter {backend} returned False"
+            logger.warning("Notification failed: %s -> %s", event, error_msg)
+            return NotificationResult(success=False, error=error_msg)
     except Exception as e:
         logger.exception("Notification error: %s", event)
         return NotificationResult(success=False, error=str(e))

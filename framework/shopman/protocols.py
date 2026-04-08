@@ -8,8 +8,6 @@ Protocols que viviam nos mini-apps são definidos inline aqui.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime
-from decimal import Decimal
 from typing import Any, Protocol, runtime_checkable
 
 # ── Fiscal, Accounting ── (vivem no ordering core, re-export)
@@ -27,64 +25,9 @@ from shopman.payments.protocols import (  # noqa: F401
     RefundResult,
 )
 
-# ── Stock (inline — era shopman.inventory.protocols) ──
-
-
-@dataclass(frozen=True)
-class AvailabilityResult:
-    """Resultado de verificação de disponibilidade."""
-
-    available: bool
-    available_qty: Decimal
-    message: str | None = None
-
-
-@dataclass(frozen=True)
-class HoldResult:
-    """Resultado de criação de reserva."""
-
-    success: bool
-    hold_id: str | None = None
-    error_code: str | None = None
-    message: str | None = None
-    expires_at: datetime | None = None
-    is_planned: bool = False
-
-
-@runtime_checkable
-class StockBackend(Protocol):
-    """Protocol para backends de estoque."""
-
-    def check_availability(
-        self,
-        sku: str,
-        quantity: Decimal,
-        target_date: date | None = None,
-    ) -> AvailabilityResult: ...
-
-    def create_hold(
-        self,
-        sku: str,
-        quantity: Decimal,
-        expires_at: datetime | None = None,
-        reference: str | None = None,
-        target_date: date | None = None,
-    ) -> HoldResult: ...
-
-    def release_hold(self, hold_id: str) -> None: ...
-
-    def fulfill_hold(self, hold_id: str, reference: str | None = None) -> None: ...
-
-    def release_holds_for_reference(self, reference: str) -> int: ...
-
-    def receive_return(
-        self,
-        sku: str,
-        quantity: Decimal,
-        *,
-        reference: str | None = None,
-        reason: str = "Devolução",
-    ) -> None: ...
+# Note: Stock no longer has a class-based protocol — the canonical entrypoint
+# is the module `shopman.adapters.stock` (function-style adapter resolved via
+# `get_adapter("stock")`). See ADR-001 for the protocol/adapter pattern.
 
 
 # ── Customer (inline — era shopman.identification.protocols) ──
@@ -171,19 +114,6 @@ class NotificationResult:
     error: str | None = None
 
 
-@runtime_checkable
-class NotificationBackend(Protocol):
-    """Protocol para backends de notificação."""
-
-    def send(
-        self,
-        *,
-        event: str,
-        recipient: str,
-        context: dict[str, Any],
-    ) -> NotificationResult: ...
-
-
 # ── Pricing (inline — era shopman.pricing.protocols) ──
 
 
@@ -200,10 +130,6 @@ class PricingBackend(Protocol):
 
 
 __all__ = [
-    # Stock
-    "StockBackend",
-    "AvailabilityResult",
-    "HoldResult",
     # Payment
     "PaymentBackend",
     "GatewayIntent",
@@ -221,7 +147,6 @@ __all__ = [
     "CustomerValidationResult",
     "AddressInfo",
     # Notification
-    "NotificationBackend",
     "NotificationResult",
     # Pricing
     "PricingBackend",

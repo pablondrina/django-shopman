@@ -19,8 +19,6 @@ logger = logging.getLogger(__name__)
 
 def register_all() -> None:
     """Registra todos os componentes no registry do ordering."""
-    _register_stock_handlers()
-    _register_payment_handlers()
     _register_notification_handlers()
     _register_confirmation_handler()
     _register_customer_handler()
@@ -31,59 +29,12 @@ def register_all() -> None:
     _register_loyalty_handler()
     _register_checkout_defaults_handler()
     _register_pricing_modifiers()
-    _register_checks()
-    _register_stock_validator()
+    _register_validators()
     _register_stock_signals()
 
 
-def _register_stock_handlers() -> None:
-    from shopman.handlers.stock import StockCommitHandler, StockHoldHandler
-
-    backend = _load_stock_backend()
-    if not backend:
-        return
-
-    for handler in [StockHoldHandler(backend=backend), StockCommitHandler(backend=backend)]:
-        try:
-            registry.register_directive_handler(handler)
-        except ValueError:
-            pass
-
-    logger.info("shopman.setup: Registered stock handlers with %s.", type(backend).__name__)
-
-
-def _register_payment_handlers() -> None:
-    from shopman.handlers.payment import (
-        CardCreateHandler,
-        PaymentCaptureHandler,
-        PaymentRefundHandler,
-        PaymentTimeoutHandler,
-        PixGenerateHandler,
-        PixTimeoutHandler,
-    )
-
-    backend = _load_payment_backend()
-    if not backend:
-        return
-
-    for handler in [
-        CardCreateHandler(backend=backend),
-        PaymentCaptureHandler(backend=backend),
-        PaymentRefundHandler(backend=backend),
-        PaymentTimeoutHandler(backend=backend),
-        PixGenerateHandler(backend=backend),
-        PixTimeoutHandler(backend=backend),
-    ]:
-        try:
-            registry.register_directive_handler(handler)
-        except ValueError:
-            pass
-
-    logger.info("shopman.setup: Registered payment handlers with %s.", type(backend).__name__)
-
-
 def _register_notification_handlers() -> None:
-    from shopman.backends.notification_console import ConsoleBackend
+    from shopman.adapters import notification_console, notification_email, notification_manychat
     from shopman.handlers.notification import NotificationSendHandler
     from shopman.notifications import register_backend
 
@@ -92,50 +43,18 @@ def _register_notification_handlers() -> None:
     except ValueError:
         pass
 
-    register_backend("console", ConsoleBackend())
+    register_backend("console", notification_console)
+    register_backend("email", notification_email)
 
-    # Email backend
-    from shopman.backends.notification_email import EmailBackend
+    # SMS adapter (always registered — disabled at send time when Twilio not configured)
+    try:
+        from shopman.adapters import notification_sms
+        register_backend("sms", notification_sms)
+    except ImportError:
+        logger.debug("shopman.setup: SMS adapter not available", exc_info=True)
 
-    register_backend("email", EmailBackend())
-
-    # SMS if configured (Twilio)
-    twilio_sid = getattr(settings, "TWILIO_ACCOUNT_SID", "")
-    if twilio_sid:
-        try:
-            from shopman.backends.notification_sms import TwilioSMSBackend
-
-            sms_backend = TwilioSMSBackend(
-                account_sid=twilio_sid,
-                auth_token=getattr(settings, "TWILIO_AUTH_TOKEN", ""),
-                from_number=getattr(settings, "TWILIO_FROM_NUMBER", ""),
-            )
-            register_backend("sms", sms_backend)
-        except Exception:
-            logger.debug("shopman.setup: SMS backend not available", exc_info=True)
-
-    # Manychat if configured
-    api_token = getattr(settings, "MANYCHAT_API_TOKEN", "")
-    if api_token:
-        try:
-            from shopman.backends.notification_manychat import ManychatBackend, ManychatConfig
-
-            config = ManychatConfig(
-                api_token=api_token,
-                flow_map=getattr(settings, "MANYCHAT_FLOW_MAP", {}),
-            )
-
-            resolver = None
-            try:
-                from shopman.customers.contrib.manychat.resolver import ManychatSubscriberResolver
-
-                resolver = ManychatSubscriberResolver.resolve
-            except ImportError:
-                pass
-
-            register_backend("manychat", ManychatBackend(config=config, resolver=resolver))
-        except Exception:
-            logger.debug("shopman.setup: Manychat backend not available", exc_info=True)
+    # Manychat adapter (always registered — disabled at send time when API token not configured)
+    register_backend("manychat", notification_manychat)
 
 
 def _register_confirmation_handler() -> None:
@@ -186,17 +105,11 @@ def _register_accounting_handler() -> None:
 def _register_return_handler() -> None:
     from shopman.handlers.returns import ReturnHandler
 
-    stock_backend = _load_stock_backend()
-    payment_backend = _load_payment_backend()
     fiscal_backend = _load_fiscal_backend()
 
     try:
         registry.register_directive_handler(
-            ReturnHandler(
-                stock_backend=stock_backend,
-                payment_backend=payment_backend,
-                fiscal_backend=fiscal_backend,
-            )
+            ReturnHandler(fiscal_backend=fiscal_backend)
         )
     except ValueError:
         pass
@@ -267,24 +180,8 @@ def _register_pricing_modifiers() -> None:
     logger.info("shopman.setup: Registered pricing modifiers.")
 
 
-def _register_checks() -> None:
-    from shopman.handlers.stock import StockCheck
-
-    try:
-        registry.register_check(StockCheck())
-    except (ValueError, AttributeError):
-        pass
-
-
-def _register_stock_validator() -> None:
-    """Registra StockCheckValidator (valida checks no commit)."""
-    from shopman.handlers.stock import StockCheckValidator
-
-    try:
-        registry.register_validator(StockCheckValidator())
-    except (ValueError, TypeError):
-        pass
-
+def _register_validators() -> None:
+    """Registra validators de commit (rodam dentro do CommitService)."""
     # Delivery zone — bloqueia commit quando endereço não atendido
     from shopman.rules.validation import DeliveryZoneRule
 
@@ -322,38 +219,6 @@ def _register_stock_signals() -> None:
 
 
 # ── Backend loaders ──
-
-
-def _load_stock_backend():
-    backend_path = getattr(settings, "SHOPMAN_STOCK_BACKEND", None)
-    if backend_path:
-        return _import_class(backend_path)()
-
-    try:
-        from shopman.backends.stock import StockingBackend
-        from shopman.stocking import stock  # noqa: F401
-
-        def _product_resolver(sku: str):
-            from shopman.offering.models import Product
-
-            return Product.objects.get(sku=sku)
-
-        return StockingBackend(product_resolver=_product_resolver)
-    except ImportError:
-        pass
-
-    from shopman.backends.stock import NoopStockBackend
-
-    return NoopStockBackend()
-
-
-def _load_payment_backend():
-    backend_path = getattr(settings, "SHOPMAN_PAYMENT_BACKEND", "shopman.backends.payment_mock.MockPaymentBackend")
-    try:
-        return _import_class(backend_path)()
-    except Exception:
-        logger.warning("shopman.setup: Could not load payment backend", exc_info=True)
-        return None
 
 
 def _load_fiscal_backend():
