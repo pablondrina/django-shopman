@@ -6,10 +6,67 @@ Inline de shopman.pricing.modifiers.
 
 from __future__ import annotations
 
+import logging
 from decimal import Decimal
 from typing import Any
 
-from shopman.protocols import PricingBackend
+logger = logging.getLogger(__name__)
+
+
+def _offering_available() -> bool:
+    try:
+        from shopman.offering import CatalogService  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+class OfferingPricingBackend:
+    """Resolve preço pela cascata: grupo do cliente → listing do canal → preço base."""
+
+    def get_price(self, sku: str, channel: Any, customer=None, qty: int = 1) -> int | None:
+        if not _offering_available():
+            return None
+
+        # 1. Preço do grupo do cliente (se identificado e tem grupo com listing)
+        if customer and hasattr(customer, "group") and customer.group:
+            listing_ref = getattr(customer.group, "listing_ref", None)
+            if listing_ref:
+                item = self._get_listing_item(listing_ref, sku, qty=qty)
+                if item and item.is_available:
+                    return item.price_q
+
+        # 2. Preço do canal (via listing do canal)
+        channel_listing = getattr(channel, "listing_ref", None) if channel else None
+        if channel_listing:
+            item = self._get_listing_item(channel_listing, sku, qty=qty)
+            if item and item.is_available:
+                return item.price_q
+
+        # 3. Preço base do produto
+        try:
+            from shopman.offering.models import Product
+            product = Product.objects.get(sku=sku)
+            return product.base_price_q
+        except Exception:
+            return None
+
+    def _get_listing_item(self, listing_ref, sku, qty=1):
+        """Find the ListingItem with the highest min_qty tier <= qty."""
+        try:
+            from shopman.offering.models import ListingItem
+            return (
+                ListingItem.objects.filter(
+                    listing__ref=listing_ref,
+                    product__sku=sku,
+                    min_qty__lte=qty,
+                    is_published=True,
+                )
+                .order_by("-min_qty")
+                .first()
+            )
+        except Exception:
+            return None
 
 
 class ItemPricingModifier:
@@ -24,7 +81,7 @@ class ItemPricingModifier:
     code = "pricing.item"
     order = 10
 
-    def __init__(self, backend: PricingBackend):
+    def __init__(self, backend):
         self.backend = backend
 
     def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:

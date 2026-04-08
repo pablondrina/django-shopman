@@ -65,7 +65,7 @@ class CheckoutInferDefaultsHandler:
                 .order_by("-created_at")[:10]
             )
 
-            from shopman.backends.checkout_defaults import CheckoutDefaultsService
+            from shopman.services.checkout_defaults import CheckoutDefaultsService
 
             inferred = CheckoutDefaultsService.infer_from_history(
                 customer_ref=customer_ref,

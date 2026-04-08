@@ -117,18 +117,6 @@ class NotificationResult:
 # ── Pricing (inline — era shopman.pricing.protocols) ──
 
 
-@runtime_checkable
-class PricingBackend(Protocol):
-    """Protocol para backends de precificação."""
-
-    def get_price(
-        self,
-        sku: str,
-        channel: Any,
-        qty: int = 1,
-    ) -> int | None: ...
-
-
 __all__ = [
     # Payment
     "PaymentBackend",
@@ -148,6 +136,4 @@ __all__ = [
     "AddressInfo",
     # Notification
     "NotificationResult",
-    # Pricing
-    "PricingBackend",
 ]

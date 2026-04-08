@@ -147,8 +147,7 @@ def _register_checkout_defaults_handler() -> None:
 
 
 def _register_pricing_modifiers() -> None:
-    from shopman.backends.pricing import OfferingBackend
-    from shopman.handlers.pricing import ItemPricingModifier, SessionTotalModifier
+    from shopman.handlers.pricing import ItemPricingModifier, OfferingPricingBackend, SessionTotalModifier
     from shopman.modifiers import (
         D1DiscountModifier,
         DeliveryFeeModifier,
@@ -159,7 +158,7 @@ def _register_pricing_modifiers() -> None:
         ManualDiscountModifier,
     )
 
-    backend = OfferingBackend()
+    backend = OfferingPricingBackend()
     modifiers = [
         ItemPricingModifier(backend=backend),
         D1DiscountModifier(),
