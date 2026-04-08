@@ -106,24 +106,23 @@ class PaymentInitiateFailureTests(TestCase):
 
     def test_successful_initiate_not_affected(self) -> None:
         """Happy path: successful create_intent is not changed."""
+        from shopman.adapters.payment_types import PaymentIntent
         from shopman.services import payment as payment_service
 
         order = _make_order(ref="FAIL-005")
-        mock_intent = MagicMock()
-        mock_intent.intent_id = "pi_test_123"
-        mock_intent.status = "pending"
-        mock_intent.expires_at = None
-        mock_intent.metadata = {}
-        mock_intent.client_secret = None
         mock_adapter = MagicMock()
-        mock_adapter.create_intent.return_value = mock_intent
+        mock_adapter.create_intent.return_value = PaymentIntent(
+            intent_ref="pi_test_123",
+            status="pending",
+            amount_q=order.total_q,
+        )
 
         with patch("shopman.services.payment.get_adapter", return_value=mock_adapter):
             payment_service.initiate(order)
 
         order.refresh_from_db()
         payment = order.data.get("payment", {})
-        self.assertEqual(payment.get("intent_id"), "pi_test_123")
+        self.assertEqual(payment.get("intent_ref"), "pi_test_123")
         self.assertNotEqual(payment.get("status"), "pending_retry")
 
 

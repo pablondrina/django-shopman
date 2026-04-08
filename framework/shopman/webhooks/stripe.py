@@ -94,7 +94,7 @@ class StripeWebhookView(APIView):
 
         order = (
             Order.objects.select_related("channel")
-            .filter(data__payment__intent_id=intent_ref)
+            .filter(data__payment__intent_ref=intent_ref)
             .first()
         )
 
@@ -114,12 +114,12 @@ class StripeWebhookView(APIView):
 
             # Auto-transition if configured
             try:
-                channel = order.channel
-                config = (channel.config or {}) if channel else {}
-                auto_transitions = config.get("flow", {}).get("auto_transitions", {}) if isinstance(config.get("flow"), dict) else {}
-                target = auto_transitions.get("on_payment_confirm")
-                if target and order.can_transition_to(target):
-                    order.transition_status(target, actor="payment.webhook")
+                if order.channel:
+                    from shopman.config import ChannelConfig
+                    flow_cfg = ChannelConfig.effective(order.channel).flow
+                    target = (flow_cfg.auto_transitions or {}).get("on_payment_confirm")
+                    if target and order.can_transition_to(target):
+                        order.transition_status(target, actor="payment.webhook")
             except Exception:
                 pass
 

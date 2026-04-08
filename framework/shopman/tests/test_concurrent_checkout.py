@@ -279,6 +279,8 @@ class ConcurrentPaymentCaptureTests(TransactionTestCase):
         from shopman.services import payment as payment_service
         from unittest.mock import MagicMock, patch
 
+        from shopman.adapters.payment_types import PaymentResult
+
         order = Order.objects.create(
             ref="RACE-ORD-001",
             channel=self.channel,
@@ -286,20 +288,16 @@ class ConcurrentPaymentCaptureTests(TransactionTestCase):
             total_q=1000,
             handle_type="phone",
             handle_ref="+5543999001122",
-            data={"payment": {"method": "pix", "intent_id": "pi_race_001", "status": "pending"}},
+            data={"payment": {"method": "pix", "intent_ref": "pi_race_001", "status": "pending"}},
         )
 
         capture_count = {"n": 0}
         lock = threading.Lock()
 
-        mock_result = MagicMock()
-        mock_result.success = True
-        mock_result.transaction_id = "txn_race_001"
-
-        def mock_capture(intent_id, reference):
+        def mock_capture(intent_ref, **kwargs):
             with lock:
                 capture_count["n"] += 1
-            return mock_result
+            return PaymentResult(success=True, transaction_id="txn_race_001")
 
         mock_adapter = MagicMock()
         mock_adapter.capture.side_effect = mock_capture

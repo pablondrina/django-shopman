@@ -47,18 +47,18 @@ class PaymentStatusView(View):
         payment = order.data.get("payment", {})
 
         # Check PaymentService for real-time status
-        intent_id = payment.get("intent_id")
+        intent_ref = payment.get("intent_ref")
         is_paid = payment.get("status") == "captured"
 
-        if not is_paid and intent_id:
+        if not is_paid and intent_ref:
             from shopman.payman import PaymentError, PaymentService
             try:
-                intent = PaymentService.get(intent_id)
+                intent = PaymentService.get(intent_ref)
                 is_paid = intent.status == "captured"
             except PaymentError as exc:
                 logger.warning(
                     "Payment status check failed: %s", exc,
-                    extra={"intent_id": intent_id, "order_ref": ref},
+                    extra={"intent_ref": intent_ref, "order_ref": ref},
                 )
 
         is_cancelled = order.status == "cancelled"
@@ -107,18 +107,18 @@ class MockPaymentConfirmView(View):
             return redirect("storefront:order_tracking", ref=ref)
 
         # Transition via PaymentService
-        intent_id = payment.get("intent_id")
-        if intent_id:
+        intent_ref = payment.get("intent_ref")
+        if intent_ref:
             try:
-                intent = PaymentService.get(intent_id)
+                intent = PaymentService.get(intent_ref)
                 if intent.status == "pending":
-                    PaymentService.authorize(intent_id, gateway_id=f"mock_confirm_{intent_id}")
+                    PaymentService.authorize(intent_ref, gateway_id=f"mock_confirm_{intent_ref}")
                 if intent.status in ("pending", "authorized"):
-                    PaymentService.capture(intent_id)
+                    PaymentService.capture(intent_ref)
             except PaymentError as exc:
                 logger.warning(
                     "Mock payment transition failed: %s", exc,
-                    extra={"intent_id": intent_id, "order_ref": ref},
+                    extra={"intent_ref": intent_ref, "order_ref": ref},
                 )
 
         # Mark payment as captured in order data

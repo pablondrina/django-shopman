@@ -11,6 +11,8 @@ import logging
 
 from django.conf import settings
 
+from shopman.adapters.payment_types import PaymentIntent, PaymentResult
+
 logger = logging.getLogger(__name__)
 
 
@@ -32,22 +34,25 @@ def _get_stripe():
     return stripe
 
 
-def create_intent(order_ref: str, amount_q: int, method: str = "card", **config) -> dict:
-    """
-    Create a Stripe PaymentIntent + persist via PaymentService.
+def create_intent(
+    *,
+    order_ref: str,
+    amount_q: int,
+    currency: str = "BRL",
+    method: str = "card",
+    metadata: dict | None = None,
+    **config,
+) -> PaymentIntent:
+    """Create a Stripe PaymentIntent + persist via PaymentService.
 
     The client_secret is used by the frontend (Stripe Elements) to confirm payment.
-
-    Returns:
-        {"intent_ref": str, "status": str, "client_secret": str,
-         "gateway_id": str}
     """
     from shopman.payman import PaymentService
 
+    metadata = metadata or {}
     stripe_config = _get_config()
     capture_method = stripe_config.get("capture_method", "manual")
-    currency = config.get("currency", "BRL").lower()
-    metadata = config.get("metadata", {})
+    stripe_currency = currency.lower()
 
     db_intent = PaymentService.create_intent(
         order_ref=order_ref,
@@ -60,7 +65,7 @@ def create_intent(order_ref: str, amount_q: int, method: str = "card", **config)
     stripe = _get_stripe()
     stripe_intent = stripe.PaymentIntent.create(
         amount=amount_q,
-        currency=currency,
+        currency=stripe_currency,
         capture_method=capture_method,
         metadata={
             "shopman_ref": db_intent.ref,
@@ -80,37 +85,34 @@ def create_intent(order_ref: str, amount_q: int, method: str = "card", **config)
     if stripe_intent.status == "requires_action":
         status = "requires_action"
 
-    return {
-        "intent_ref": db_intent.ref,
-        "status": status,
-        "client_secret": stripe_intent.client_secret,
-        "gateway_id": stripe_intent.id,
-    }
+    return PaymentIntent(
+        intent_ref=db_intent.ref,
+        status=status,
+        amount_q=amount_q,
+        currency=currency,
+        client_secret=stripe_intent.client_secret,
+        gateway_id=stripe_intent.id,
+        metadata=metadata,
+    )
 
 
-def capture(intent_ref: str, amount_q: int | None = None, **config) -> dict:
-    """
-    Capture a Stripe PaymentIntent.
+def capture(
+    intent_ref: str,
+    *,
+    amount_q: int | None = None,
+    **config,
+) -> PaymentResult:
+    """Capture a Stripe PaymentIntent.
 
     For capture_method="automatic", payment is already captured.
     For capture_method="manual", calls stripe.PaymentIntent.capture().
-
-    Returns:
-        {"success": bool, "transaction_id": str | None, "amount_q": int | None,
-         "error_code": str | None, "message": str | None}
     """
     from shopman.payman import PaymentError, PaymentService
 
     try:
         intent = PaymentService.get(intent_ref)
     except PaymentError as e:
-        return {
-            "success": False,
-            "transaction_id": None,
-            "amount_q": None,
-            "error_code": e.code,
-            "message": e.message,
-        }
+        return PaymentResult(success=False, error_code=e.code, message=e.message)
 
     stripe = _get_stripe()
 
@@ -130,44 +132,34 @@ def capture(intent_ref: str, amount_q: int | None = None, **config) -> dict:
             gateway_id=stripe_intent.id,
         )
 
-        return {
-            "success": True,
-            "transaction_id": stripe_intent.latest_charge,
-            "amount_q": txn.amount_q,
-            "error_code": None,
-            "message": None,
-        }
+        return PaymentResult(
+            success=True,
+            transaction_id=stripe_intent.latest_charge,
+            amount_q=txn.amount_q,
+        )
     except Exception as e:
         logger.exception("Stripe capture error for %s", intent_ref)
-        return {
-            "success": False,
-            "transaction_id": None,
-            "amount_q": None,
-            "error_code": "stripe_error",
-            "message": str(e),
-        }
+        return PaymentResult(
+            success=False,
+            error_code="stripe_error",
+            message=str(e),
+        )
 
 
-def refund(intent_ref: str, amount_q: int | None = None, **config) -> dict:
-    """
-    Process refund via Stripe + PaymentService.
-
-    Returns:
-        {"success": bool, "refund_id": str | None, "amount_q": int | None,
-         "error_code": str | None, "message": str | None}
-    """
+def refund(
+    intent_ref: str,
+    *,
+    amount_q: int | None = None,
+    reason: str = "",
+    **config,
+) -> PaymentResult:
+    """Process refund via Stripe + PaymentService."""
     from shopman.payman import PaymentError, PaymentService
 
     try:
         intent = PaymentService.get(intent_ref)
     except PaymentError as e:
-        return {
-            "success": False,
-            "refund_id": None,
-            "amount_q": None,
-            "error_code": e.code,
-            "message": e.message,
-        }
+        return PaymentResult(success=False, error_code=e.code, message=e.message)
 
     stripe = _get_stripe()
 
@@ -175,7 +167,6 @@ def refund(intent_ref: str, amount_q: int | None = None, **config) -> dict:
         refund_params = {"payment_intent": intent.gateway_id}
         if amount_q is not None:
             refund_params["amount"] = amount_q
-        reason = config.get("reason")
         if reason:
             refund_params["reason"] = "requested_by_customer"
 
@@ -186,43 +177,38 @@ def refund(intent_ref: str, amount_q: int | None = None, **config) -> dict:
             PaymentService.refund(
                 intent_ref,
                 amount_q=refund_amount,
-                reason=reason or "",
+                reason=reason,
                 gateway_id=stripe_refund.id,
             )
         except PaymentError:
             pass
 
-        return {
-            "success": True,
-            "refund_id": stripe_refund.id,
-            "amount_q": refund_amount,
-            "error_code": None,
-            "message": None,
-        }
+        return PaymentResult(
+            success=True,
+            transaction_id=stripe_refund.id,
+            amount_q=refund_amount,
+        )
     except Exception as e:
         logger.exception("Stripe refund error for %s", intent_ref)
-        return {
-            "success": False,
-            "refund_id": None,
-            "amount_q": None,
-            "error_code": "stripe_error",
-            "message": str(e),
-        }
+        return PaymentResult(
+            success=False,
+            error_code="stripe_error",
+            message=str(e),
+        )
 
 
-def cancel(intent_ref: str, **config) -> dict:
-    """
-    Cancel a Stripe PaymentIntent + PaymentService.
-
-    Returns:
-        {"success": bool, "error_code": str | None, "message": str | None}
-    """
+def cancel(intent_ref: str, **config) -> PaymentResult:
+    """Cancel a Stripe PaymentIntent + PaymentService."""
     from shopman.payman import PaymentError, PaymentService
 
     try:
         intent = PaymentService.get(intent_ref)
     except PaymentError:
-        return {"success": False, "error_code": "intent_not_found", "message": "Intent não encontrado"}
+        return PaymentResult(
+            success=False,
+            error_code="intent_not_found",
+            message="Intent não encontrado",
+        )
 
     stripe = _get_stripe()
 
@@ -234,10 +220,14 @@ def cancel(intent_ref: str, **config) -> dict:
         except PaymentError:
             pass
 
-        return {"success": True, "error_code": None, "message": None}
+        return PaymentResult(success=True)
     except Exception as e:
         logger.warning("Stripe cancel failed for %s: %s", intent_ref, e, exc_info=True)
-        return {"success": False, "error_code": "stripe_error", "message": str(e)}
+        return PaymentResult(
+            success=False,
+            error_code="stripe_error",
+            message=str(e),
+        )
 
 
 def get_status(intent_ref: str, **config) -> dict:

@@ -3,6 +3,8 @@ Mock payment adapter for development and testing.
 
 Persists via PaymentService (DB) + simulates gateway in-memory.
 All payments succeed by default.
+
+Returns canonical DTOs from shopman.adapters.payment_types.
 """
 
 from __future__ import annotations
@@ -14,19 +16,24 @@ from uuid import uuid4
 
 from django.utils import timezone
 
+from shopman.adapters.payment_types import PaymentIntent, PaymentResult
+
 logger = logging.getLogger(__name__)
 
 
-def create_intent(order_ref: str, amount_q: int, method: str = "pix", **config) -> dict:
-    """
-    Create a mock payment intent with persistence via PaymentService.
-
-    Returns:
-        {"intent_ref": str, "status": str, "client_secret": str,
-         "expires_at": datetime, "gateway_id": str}
-    """
+def create_intent(
+    *,
+    order_ref: str,
+    amount_q: int,
+    currency: str = "BRL",
+    method: str = "pix",
+    metadata: dict | None = None,
+    **config,
+) -> PaymentIntent:
+    """Create a mock payment intent with persistence via PaymentService."""
     from shopman.payman import PaymentService
 
+    metadata = metadata or {}
     pix_timeout = config.get("pix_timeout_minutes", 30)
     expires_at = timezone.now() + timedelta(minutes=pix_timeout)
     auto_authorize = config.get("auto_authorize", True)
@@ -36,7 +43,7 @@ def create_intent(order_ref: str, amount_q: int, method: str = "pix", **config) 
         amount_q=amount_q,
         method=method,
         gateway="mock",
-        gateway_data=config.get("metadata", {}),
+        gateway_data=metadata,
         expires_at=expires_at,
     )
 
@@ -67,100 +74,91 @@ def create_intent(order_ref: str, amount_q: int, method: str = "pix", **config) 
         PaymentService.authorize(db_intent.ref, gateway_id=gateway_id)
         status = "authorized"
 
-    return {
-        "intent_ref": db_intent.ref,
-        "status": status,
-        "client_secret": client_secret,
-        "expires_at": expires_at,
-        "gateway_id": gateway_id,
-    }
+    return PaymentIntent(
+        intent_ref=db_intent.ref,
+        status=status,
+        amount_q=amount_q,
+        currency=currency,
+        client_secret=client_secret,
+        expires_at=expires_at,
+        gateway_id=gateway_id,
+        metadata={"qrcode": mock_qr_svg, "brcode": mock_brcode},
+    )
 
 
-def capture(intent_ref: str, amount_q: int | None = None, **config) -> dict:
-    """
-    Capture mock payment via PaymentService.
-
-    Returns:
-        {"success": bool, "transaction_id": str | None, "amount_q": int | None,
-         "error_code": str | None, "message": str | None}
-    """
+def capture(
+    intent_ref: str,
+    *,
+    amount_q: int | None = None,
+    **config,
+) -> PaymentResult:
+    """Capture mock payment via PaymentService."""
     from shopman.payman import PaymentError, PaymentService
 
     try:
         txn = PaymentService.capture(intent_ref, amount_q=amount_q)
-        return {
-            "success": True,
-            "transaction_id": f"mock_txn_{intent_ref}",
-            "amount_q": txn.amount_q,
-            "error_code": None,
-            "message": None,
-        }
+        return PaymentResult(
+            success=True,
+            transaction_id=f"mock_txn_{intent_ref}",
+            amount_q=txn.amount_q,
+        )
     except PaymentError as e:
-        return {
-            "success": False,
-            "transaction_id": None,
-            "amount_q": None,
-            "error_code": e.code,
-            "message": e.message,
-        }
+        return PaymentResult(
+            success=False,
+            error_code=e.code,
+            message=e.message,
+        )
 
 
-def refund(intent_ref: str, amount_q: int | None = None, **config) -> dict:
-    """
-    Process mock refund via PaymentService.
-
-    Returns:
-        {"success": bool, "refund_id": str | None, "amount_q": int | None,
-         "error_code": str | None, "message": str | None}
-    """
+def refund(
+    intent_ref: str,
+    *,
+    amount_q: int | None = None,
+    reason: str = "",
+    **config,
+) -> PaymentResult:
+    """Process mock refund via PaymentService."""
     from shopman.payman import PaymentError, PaymentService
 
     try:
         txn = PaymentService.refund(
             intent_ref,
             amount_q=amount_q,
-            reason=config.get("reason", ""),
+            reason=reason,
         )
-        return {
-            "success": True,
-            "refund_id": f"mock_refund_{uuid4().hex[:8]}",
-            "amount_q": txn.amount_q,
-            "error_code": None,
-            "message": None,
-        }
+        return PaymentResult(
+            success=True,
+            transaction_id=f"mock_refund_{uuid4().hex[:8]}",
+            amount_q=txn.amount_q,
+        )
     except PaymentError as e:
-        return {
-            "success": False,
-            "refund_id": None,
-            "amount_q": None,
-            "error_code": e.code,
-            "message": e.message,
-        }
+        return PaymentResult(
+            success=False,
+            error_code=e.code,
+            message=e.message,
+        )
 
 
-def cancel(intent_ref: str, **config) -> dict:
-    """
-    Cancel mock payment intent via PaymentService.
-
-    Returns:
-        {"success": bool, "error_code": str | None, "message": str | None}
-    """
+def cancel(intent_ref: str, **config) -> PaymentResult:
+    """Cancel mock payment intent via PaymentService."""
     from shopman.payman import PaymentError, PaymentService
 
     try:
         PaymentService.cancel(intent_ref)
-        return {"success": True, "error_code": None, "message": None}
+        return PaymentResult(success=True)
     except PaymentError as e:
-        return {"success": False, "error_code": e.code, "message": e.message}
+        return PaymentResult(
+            success=False,
+            error_code=e.code,
+            message=e.message,
+        )
 
 
 def get_status(intent_ref: str, **config) -> dict:
-    """
-    Get payment status from PaymentService.
+    """Get payment status from PaymentService.
 
-    Returns:
-        {"intent_ref": str, "status": str, "amount_q": int,
-         "captured_q": int, "refunded_q": int, "currency": str}
+    Returns a plain dict because get_status is a read-only convenience that
+    doesn't participate in the orchestrator contract.
     """
     from shopman.payman import PaymentError, PaymentService
 

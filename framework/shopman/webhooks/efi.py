@@ -73,7 +73,7 @@ class EfiPixWebhookView(APIView):
         if db_intent is None:
             order = (
                 Order.objects.select_related("channel")
-                .filter(data__payment__intent_id__icontains=txid)
+                .filter(data__payment__intent_ref__icontains=txid)
                 .first()
             )
             if order is None:
@@ -102,7 +102,7 @@ class EfiPixWebhookView(APIView):
 
         order = (
             Order.objects.select_related("channel")
-            .filter(data__payment__intent_id=db_intent.ref)
+            .filter(data__payment__intent_ref=db_intent.ref)
             .first()
         )
 
@@ -139,10 +139,11 @@ class EfiPixWebhookView(APIView):
     def _auto_transition(order: Order) -> None:
         """Auto-transition order status on payment confirmation if configured."""
         try:
-            channel = order.channel
-            config = (channel.config or {}) if channel else {}
-            auto_transitions = config.get("flow", {}).get("auto_transitions", {}) if isinstance(config.get("flow"), dict) else {}
-            target = auto_transitions.get("on_payment_confirm")
+            if not order.channel:
+                return
+            from shopman.config import ChannelConfig
+            flow_cfg = ChannelConfig.effective(order.channel).flow
+            target = (flow_cfg.auto_transitions or {}).get("on_payment_confirm")
             if target and order.can_transition_to(target):
                 order.transition_status(target, actor="payment.webhook")
         except Exception:

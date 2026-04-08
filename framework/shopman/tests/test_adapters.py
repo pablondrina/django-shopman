@@ -52,7 +52,7 @@ def _check_contract(module_path: str, contract: dict[str, list[str]]):
         param_names = [
             p.name
             for p in sig.parameters.values()
-            if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)
+            if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)
         ]
 
         for required in required_params:

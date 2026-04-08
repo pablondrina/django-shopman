@@ -21,6 +21,8 @@ from django.conf import settings
 from django.core.cache import cache
 from django.utils import timezone
 
+from shopman.adapters.payment_types import PaymentIntent, PaymentResult
+
 logger = logging.getLogger(__name__)
 
 SANDBOX_URL = "https://pix-h.api.efipay.com.br"
@@ -102,19 +104,22 @@ def _request(method: str, path: str, payload: dict | None = None) -> dict:
         raise
 
 
-def create_intent(order_ref: str, amount_q: int, method: str = "pix", **config) -> dict:
-    """
-    Create a PIX charge via Efi gateway + persist via PaymentService.
-
-    Returns:
-        {"intent_ref": str, "status": str, "client_secret": str,
-         "expires_at": datetime, "gateway_id": str}
-    """
+def create_intent(
+    *,
+    order_ref: str,
+    amount_q: int,
+    currency: str = "BRL",
+    method: str = "pix",
+    metadata: dict | None = None,
+    **config,
+) -> PaymentIntent:
+    """Create a PIX charge via Efi gateway + persist via PaymentService."""
     from shopman.payman import PaymentService
 
     if method != "pix":
         raise ValueError("EFI adapter only supports PIX")
 
+    metadata = metadata or {}
     efi_config = _get_config()
     pix_expiry_seconds = getattr(settings, "SHOPMAN_PIX_EXPIRY_SECONDS", 3600)
     expires_at = timezone.now() + timedelta(seconds=pix_expiry_seconds)
@@ -124,7 +129,7 @@ def create_intent(order_ref: str, amount_q: int, method: str = "pix", **config) 
         amount_q=amount_q,
         method="pix",
         gateway="efi",
-        gateway_data=config.get("metadata", {}),
+        gateway_data=metadata,
         expires_at=expires_at,
     )
 
@@ -157,13 +162,20 @@ def create_intent(order_ref: str, amount_q: int, method: str = "pix", **config) 
         }
         db_intent.save(update_fields=["gateway_id", "gateway_data"])
 
-        return {
-            "intent_ref": db_intent.ref,
-            "status": "pending",
-            "client_secret": client_secret,
-            "expires_at": expires_at,
-            "gateway_id": txid,
-        }
+        return PaymentIntent(
+            intent_ref=db_intent.ref,
+            status="pending",
+            amount_q=amount_q,
+            currency=currency,
+            client_secret=client_secret,
+            expires_at=expires_at,
+            gateway_id=txid,
+            metadata={
+                "qrcode": qr_response.get("qrcode", ""),
+                "imagemQrcode": qr_response.get("imagemQrcode", ""),
+                "txid": txid,
+            },
+        )
     except Exception:
         try:
             PaymentService.fail(
@@ -177,15 +189,17 @@ def create_intent(order_ref: str, amount_q: int, method: str = "pix", **config) 
         raise
 
 
-def capture(intent_ref: str, **config) -> dict:
-    """
-    Check PIX payment status and capture if paid.
+def capture(
+    intent_ref: str,
+    *,
+    amount_q: int | None = None,
+    **config,
+) -> PaymentResult:
+    """Check PIX payment status and capture if paid.
 
     PIX is auto-captured when paid — this verifies status at the gateway.
-
-    Returns:
-        {"success": bool, "transaction_id": str | None, "amount_q": int | None,
-         "error_code": str | None, "message": str | None}
+    The `amount_q` argument is accepted for contract uniformity but ignored:
+    PIX captures the full charge amount as defined at create_intent time.
     """
     from shopman.payman import PaymentError, PaymentService
 
@@ -193,13 +207,11 @@ def capture(intent_ref: str, **config) -> dict:
         intent = PaymentService.get(intent_ref)
         txid = intent.gateway_id
     except PaymentError:
-        return {
-            "success": False,
-            "transaction_id": None,
-            "amount_q": None,
-            "error_code": "intent_not_found",
-            "message": f"Intent {intent_ref} não encontrado",
-        }
+        return PaymentResult(
+            success=False,
+            error_code="intent_not_found",
+            message=f"Intent {intent_ref} não encontrado",
+        )
 
     try:
         response = _request("GET", f"/v2/cob/{txid}")
@@ -210,74 +222,62 @@ def capture(intent_ref: str, **config) -> dict:
                 PaymentService.authorize(intent_ref, gateway_id=txid)
             except PaymentError:
                 pass
-            return {
-                "success": True,
-                "transaction_id": txid,
-                "amount_q": int(float(response["valor"]["original"]) * 100),
-                "error_code": None,
-                "message": None,
-            }
-        return {
-            "success": False,
-            "transaction_id": None,
-            "amount_q": None,
-            "error_code": status.lower() if status else "pending",
-            "message": f"Status: {status}",
-        }
+            return PaymentResult(
+                success=True,
+                transaction_id=txid,
+                amount_q=int(float(response["valor"]["original"]) * 100),
+            )
+        return PaymentResult(
+            success=False,
+            error_code=status.lower() if status else "pending",
+            message=f"Status: {status}",
+        )
     except Exception as e:
         logger.warning("capture check failed for intent %s: %s", intent_ref, e, exc_info=True)
-        return {
-            "success": False,
-            "transaction_id": None,
-            "amount_q": None,
-            "error_code": "error",
-            "message": str(e),
-        }
+        return PaymentResult(
+            success=False,
+            error_code="error",
+            message=str(e),
+        )
 
 
-def refund(intent_ref: str, amount_q: int | None = None, **config) -> dict:
-    """
-    Process PIX refund via Efi gateway + PaymentService.
-
-    Returns:
-        {"success": bool, "refund_id": str | None, "amount_q": int | None,
-         "error_code": str | None, "message": str | None}
-    """
+def refund(
+    intent_ref: str,
+    *,
+    amount_q: int | None = None,
+    reason: str = "",
+    **config,
+) -> PaymentResult:
+    """Process PIX refund via Efi gateway + PaymentService."""
     from shopman.payman import PaymentError, PaymentService
 
     try:
         intent = PaymentService.get(intent_ref)
         txid = intent.gateway_id
     except PaymentError:
-        return {
-            "success": False,
-            "refund_id": None,
-            "amount_q": None,
-            "error_code": "intent_not_found",
-            "message": f"Intent {intent_ref} não encontrado",
-        }
+        return PaymentResult(
+            success=False,
+            error_code="intent_not_found",
+            message=f"Intent {intent_ref} não encontrado",
+        )
 
     try:
         cob = _request("GET", f"/v2/cob/{txid}")
 
         if cob.get("status") != "CONCLUIDA":
-            return {
-                "success": False,
-                "refund_id": None,
-                "amount_q": None,
-                "error_code": "not_paid",
-                "message": "Cobrança não foi paga",
-            }
+            return PaymentResult(
+                success=False,
+                error_code="not_paid",
+                message="Cobrança não foi paga",
+            )
 
         pix_list = cob.get("pix", [])
         if not pix_list:
-            return {
-                "success": False,
-                "refund_id": None,
-                "amount_q": None,
-                "error_code": "no_payment",
-                "message": "Pagamento não encontrado",
-            }
+            return PaymentResult(
+                success=False,
+                error_code="no_payment",
+                message="Pagamento não encontrado",
+            )
 
         e2eid = pix_list[0].get("endToEndId", "")
         valor = f"{amount_q / 100:.2f}" if amount_q else cob["valor"]["original"]
@@ -290,44 +290,39 @@ def refund(intent_ref: str, amount_q: int | None = None, **config) -> dict:
             PaymentService.refund(
                 intent_ref,
                 amount_q=refund_amount,
-                reason=config.get("reason", ""),
+                reason=reason,
                 gateway_id=response.get("id", dev_id),
             )
         except PaymentError:
             pass
 
-        return {
-            "success": True,
-            "refund_id": response.get("id", dev_id),
-            "amount_q": refund_amount,
-            "error_code": None,
-            "message": None,
-        }
+        return PaymentResult(
+            success=True,
+            transaction_id=response.get("id", dev_id),
+            amount_q=refund_amount,
+        )
     except Exception as e:
         logger.exception("Efi refund error for intent %s", intent_ref)
-        return {
-            "success": False,
-            "refund_id": None,
-            "amount_q": None,
-            "error_code": "error",
-            "message": str(e),
-        }
+        return PaymentResult(
+            success=False,
+            error_code="error",
+            message=str(e),
+        )
 
 
-def cancel(intent_ref: str, **config) -> dict:
-    """
-    Cancel a PIX charge via Efi gateway + PaymentService.
-
-    Returns:
-        {"success": bool, "error_code": str | None, "message": str | None}
-    """
+def cancel(intent_ref: str, **config) -> PaymentResult:
+    """Cancel a PIX charge via Efi gateway + PaymentService."""
     from shopman.payman import PaymentError, PaymentService
 
     try:
         intent = PaymentService.get(intent_ref)
         txid = intent.gateway_id
     except PaymentError:
-        return {"success": False, "error_code": "intent_not_found", "message": "Intent não encontrado"}
+        return PaymentResult(
+            success=False,
+            error_code="intent_not_found",
+            message="Intent não encontrado",
+        )
 
     try:
         payload = {"status": "REMOVIDA_PELO_USUARIO_RECEBEDOR"}
@@ -338,10 +333,14 @@ def cancel(intent_ref: str, **config) -> dict:
         except PaymentError:
             pass
 
-        return {"success": True, "error_code": None, "message": None}
+        return PaymentResult(success=True)
     except Exception as e:
         logger.warning("cancel failed for intent %s: %s", intent_ref, e, exc_info=True)
-        return {"success": False, "error_code": "error", "message": str(e)}
+        return PaymentResult(
+            success=False,
+            error_code="error",
+            message=str(e),
+        )
 
 
 def get_status(intent_ref: str, **config) -> dict:
