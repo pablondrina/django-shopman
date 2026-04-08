@@ -8,7 +8,7 @@ from django.views import View
 
 from shopman.offering.models import Product
 
-from ..cart import CartService
+from ..cart import CartService, CartUnavailableError
 from ._helpers import (
     _get_availability,
     _get_channel_listing_ref,
@@ -56,18 +56,48 @@ class AddToCartView(View):
         if price_q is None:
             price_q = 0
 
-        CartService.add_item(
-            request,
-            sku=sku,
-            qty=qty,
-            unit_price_q=price_q,
-            is_d1=_line_item_is_d1(product),
-        )
+        try:
+            CartService.add_item(
+                request,
+                sku=sku,
+                qty=qty,
+                unit_price_q=price_q,
+                is_d1=_line_item_is_d1(product),
+            )
+        except CartUnavailableError as exc:
+            return _stock_error_response(request, product, exc)
+
         cart = CartService.get_cart(request)
         response = render(request, "storefront/partials/cart_summary.html", {"cart": cart})
         response["HX-Trigger"] = "cartUpdated"
         response["X-Cart-Item-Name"] = quote(product.name, safe="")
         return response
+
+
+def _stock_error_response(request: HttpRequest, product, exc: "CartUnavailableError") -> HttpResponse:
+    """Render the stock-error modal with available qty + alternatives."""
+    if exc.error_code == "below_min_qty":
+        message = f"Quantidade mínima: {exc.available_qty} unidades para {product.name}."
+    elif exc.is_paused:
+        message = f"{product.name} não está disponível no momento."
+    elif exc.available_qty == 0:
+        message = f"{product.name} está esgotado no momento."
+    else:
+        message = (
+            f"Restam apenas {exc.available_qty} de {product.name}. "
+            f"Você pediu {exc.requested_qty}."
+        )
+    response = render(request, "storefront/partials/stock_error_modal.html", {
+        "title": "Estoque insuficiente",
+        "message": message,
+        "alternatives": exc.alternatives,
+        "sku": exc.sku,
+    })
+    response["HX-Retarget"] = "#stock-error-modal"
+    response["HX-Reswap"] = "innerHTML"
+    response["X-Shopman-Error-UI"] = "1"
+    response.status_code = 422
+    return response
 
 
 class CartDrawerContentView(View):
@@ -109,13 +139,17 @@ class QuickAddView(View):
         if price_q is None:
             price_q = 0
 
-        CartService.add_item(
-            request,
-            sku=sku,
-            qty=qty,
-            unit_price_q=price_q,
-            is_d1=_line_item_is_d1(product),
-        )
+        try:
+            CartService.add_item(
+                request,
+                sku=sku,
+                qty=qty,
+                unit_price_q=price_q,
+                is_d1=_line_item_is_d1(product),
+            )
+        except CartUnavailableError as exc:
+            return _stock_error_response(request, product, exc)
+
         cart = CartService.get_cart(request)
         response = render(request, "storefront/partials/cart_summary.html", {"cart": cart})
         response["HX-Trigger"] = "cartUpdated"

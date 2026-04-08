@@ -165,6 +165,53 @@ class TestAvailabilityListingMembership:
         assert result["ok"] is True
         assert result.get("error_code") is None
 
+    def test_rejects_below_min_qty(self):
+        """ListingItem.min_qty enforced: qty < min_qty → ok=False, error_code=below_min_qty."""
+        from shopman.offering.models import ListingItem
+        from shopman.services import availability
+
+        self._make_channel(ref="ifood", listing_ref="ifood-cardapio")
+        product = self._make_product(sku="PAO-001")
+        listing = self._make_listing("ifood-cardapio")
+        # min_qty=24 (e.g., pão francês in dozens)
+        ListingItem.objects.create(
+            listing=listing,
+            product=product,
+            price_q=500,
+            is_published=True,
+            is_available=True,
+            min_qty=Decimal("24"),
+        )
+
+        # Order qty=1 < min_qty=24 → reject
+        result = availability.check("PAO-001", Decimal("1"), channel_ref="ifood")
+
+        assert result["ok"] is False
+        assert result["error_code"] == "below_min_qty"
+        assert result["available_qty"] == Decimal("24")
+
+    def test_passes_when_qty_meets_min_qty(self):
+        """qty >= min_qty → listing gate passes."""
+        from shopman.offering.models import ListingItem
+        from shopman.services import availability
+
+        self._make_channel(ref="ifood", listing_ref="ifood-cardapio")
+        product = self._make_product(sku="PAO-001")
+        listing = self._make_listing("ifood-cardapio")
+        ListingItem.objects.create(
+            listing=listing,
+            product=product,
+            price_q=500,
+            is_published=True,
+            is_available=True,
+            min_qty=Decimal("5"),
+        )
+
+        # qty=5 == min_qty=5 → passes listing gate (Stockman treats as untracked)
+        result = availability.check("PAO-001", Decimal("5"), channel_ref="ifood")
+
+        assert result.get("error_code") != "below_min_qty"
+
 
 # ══════════════════════════════════════════════════════════════════════
 # services/stock.py
