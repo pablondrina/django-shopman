@@ -160,7 +160,7 @@ class SessionApiTests(TestCase):
         self.assertEqual(r.data["code"], "missing_unit_price_q")
 
     def test_commit_requires_fresh_required_checks(self) -> None:
-        c = self._mk_channel(ref="pos", config={"required_checks_on_commit": ["stock"]})
+        c = self._mk_channel(ref="pos", config={"rules": {"checks": ["stock"]}})
         sess = Session.objects.create(
             session_key="SESS-C1",
             channel=c,

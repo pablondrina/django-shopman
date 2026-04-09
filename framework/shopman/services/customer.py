@@ -2,25 +2,45 @@
 Customer resolution service.
 
 Core: customers.services.customer (get_by_phone, create, etc.)
+
+Strategy registry
+-----------------
+The service dispatches to a registered strategy keyed by handle_type or
+channel_ref. Generic strategies (manychat, ifood) are registered at module
+load. Instance-specific strategies are registered by the instance's app
+configuration via register_strategy().
+
+    from shopman.services.customer import register_strategy
+    register_strategy("my-channel", my_handle_fn)
 """
 
 from __future__ import annotations
 
 import logging
 import uuid
+from typing import Callable
 
 logger = logging.getLogger(__name__)
+
+# ── Strategy registry ──
+
+_STRATEGIES: dict[str, Callable] = {}
+
+
+def register_strategy(key: str, fn: Callable) -> None:
+    """Register a customer resolution strategy for the given key.
+
+    The key is matched against order.handle_type first, then order.channel.ref.
+    """
+    _STRATEGIES[key] = fn
 
 
 def ensure(order) -> None:
     """
     Resolve or create the customer for the order.
 
-    Strategy varies by channel type:
-    - manychat → resolve by subscriber_id
-    - ifood → resolve by iFood order ID
-    - balcao → resolve by CPF or phone
-    - default → resolve by phone
+    Lookup order: handle_type first, then channel_ref. Falls back to
+    _handle_phone when no strategy is registered for either.
 
     Saves customer_ref in order.data["customer_ref"].
 
@@ -33,12 +53,9 @@ def ensure(order) -> None:
     handle_type = getattr(order, "handle_type", "") or ""
 
     try:
-        if handle_type == "manychat":
-            customer = _handle_manychat(order)
-        elif channel_ref == "ifood":
-            customer = _handle_ifood(order)
-        elif channel_ref == "balcao":
-            customer = _handle_balcao(order)
+        fn = _STRATEGIES.get(handle_type) or _STRATEGIES.get(channel_ref)
+        if fn:
+            customer = fn(order)
         else:
             customer = _handle_phone(order)
     except _SkipAnonymous:
@@ -57,7 +74,7 @@ def ensure(order) -> None:
         _update_insights(customer.ref)
 
 
-# ── strategy per channel ──
+# ── Built-in strategies ──
 
 
 def _handle_manychat(order):
@@ -118,44 +135,6 @@ def _handle_ifood(order):
     return customer
 
 
-def _handle_balcao(order):
-    customer_data = _get_customer_data(order)
-    phone_raw = customer_data.get("phone", "")
-    cpf = customer_data.get("cpf", "")
-    name = customer_data.get("name", "")
-
-    if phone_raw:
-        return _handle_phone(order)
-
-    if cpf:
-        svc = _get_customer_service()
-        cpf_normalized = "".join(filter(str.isdigit, cpf))
-        if not cpf_normalized:
-            raise _SkipAnonymous()
-
-        customer = svc.get_by_document(cpf_normalized)
-        if customer:
-            _maybe_update_name(customer, name)
-            return customer
-
-        customer = _find_by_identifier("cpf", cpf_normalized)
-        if customer:
-            _maybe_update_name(customer, name)
-            return customer
-
-        first_name, last_name = _split_name(name)
-        ref = f"CLI-{uuid.uuid4().hex[:8].upper()}"
-        customer = svc.create(
-            ref=ref, first_name=first_name or "Cliente",
-            last_name=last_name or f"CPF {cpf_normalized[-4:]}",
-            document=cpf_normalized, customer_type="individual", source_system="balcao",
-        )
-        _add_identifier(customer, "cpf", cpf_normalized, is_primary=True)
-        return customer
-
-    raise _SkipAnonymous()
-
-
 def _handle_phone(order):
     svc = _get_customer_service()
     customer_data = _get_customer_data(order)
@@ -181,6 +160,11 @@ def _handle_phone(order):
         phone=phone, customer_type="individual", source_system="shopman",
     )
     return customer
+
+
+# Register generic strategies at module load
+register_strategy("manychat", _handle_manychat)
+register_strategy("ifood", _handle_ifood)
 
 
 # ── helpers ──

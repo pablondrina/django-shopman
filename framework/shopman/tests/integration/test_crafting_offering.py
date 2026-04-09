@@ -285,7 +285,7 @@ class TestBundleProduction:
 
 
 class TestProductionWorkflow:
-    """Tests for full production workflow with Offering products."""
+    """Tests for full production workflow with offerman products."""
 
     def test_work_order_for_offering_product(
         self, work_order, recipe, croissant, position_loja, today

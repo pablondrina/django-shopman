@@ -90,7 +90,7 @@ class TestProductionSignalCreatesPlannedQuant:
     def test_plan_creates_planned_quant(
         self, recipe, croissant, position_producao, tomorrow,
     ):
-        # Ensure the crafting contrib stocking handler is loaded
+        # Ensure the craftsman contrib stockman handler is loaded
         import shopman.craftsman.contrib.stocking.handlers  # noqa: F401
 
         craft.plan(recipe, quantity=Decimal("50"), date=tomorrow)

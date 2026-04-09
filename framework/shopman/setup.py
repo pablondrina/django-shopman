@@ -18,10 +18,11 @@ logger = logging.getLogger(__name__)
 
 
 def register_all() -> None:
-    """Registra todos os componentes no registry do ordering."""
+    """Registra todos os componentes no registry do omniman."""
     _register_notification_handlers()
     _register_confirmation_handler()
     _register_customer_handler()
+    _register_customer_strategies()
     _register_fiscal_handlers()
     _register_accounting_handler()
     _register_return_handler()
@@ -73,6 +74,28 @@ def _register_customer_handler() -> None:
         registry.register_directive_handler(CustomerEnsureHandler())
     except ValueError:
         pass
+
+
+def _register_customer_strategies() -> None:
+    """Load instance-specific customer strategy modules listed in settings.
+
+    Each module is imported once; importing it triggers register_strategy()
+    calls at module level. Configure via SHOPMAN_CUSTOMER_STRATEGY_MODULES.
+
+    Example settings.py:
+        SHOPMAN_CUSTOMER_STRATEGY_MODULES = ["nelson.customer_strategies"]
+    """
+    strategy_modules = getattr(settings, "SHOPMAN_CUSTOMER_STRATEGY_MODULES", [])
+    for module_path in strategy_modules:
+        try:
+            importlib.import_module(module_path)
+            logger.info("shopman.setup: Loaded customer strategies from %s", module_path)
+        except ImportError:
+            logger.warning(
+                "shopman.setup: Could not load customer strategy module: %s",
+                module_path,
+                exc_info=True,
+            )
 
 
 def _register_fiscal_handlers() -> None:
@@ -199,7 +222,7 @@ def _register_stock_signals() -> None:
         holds_materialized.connect(on_holds_materialized, weak=False)
         logger.info("shopman.setup: Connected holds_materialized receiver.")
     except ImportError:
-        logger.debug("shopman.setup: stocking signals not available")
+        logger.debug("shopman.setup: stockman signals not available")
 
     try:
         from shopman.craftsman.signals import production_changed
@@ -209,12 +232,12 @@ def _register_stock_signals() -> None:
         logger.info("shopman.setup: Connected production_changed receiver (voided).")
 
         # Import core-level handler — the @receiver decorator auto-connects
-        # planned/adjusted/closed/voided → Stocking quant management
+        # planned/adjusted/closed/voided → stockman quant management
         import shopman.craftsman.contrib.stocking.handlers  # noqa: F401
 
-        logger.info("shopman.setup: Loaded crafting→stocking signal handlers.")
+        logger.info("shopman.setup: Loaded craftsman→stockman signal handlers.")
     except ImportError:
-        logger.debug("shopman.setup: crafting signals not available")
+        logger.debug("shopman.setup: craftsman signals not available")
 
 
 # ── Backend loaders ──

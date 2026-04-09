@@ -12,7 +12,7 @@ Invariantes garantidos:
 - Tickets órfãos (Order cancelado mas tickets ainda abertos) não podem ocorrer se
   BaseFlow.on_cancelled() chamar cancel_tickets() corretamente
 
-Core: KDSInstance, KDSTicket (models), Recipe (crafting), CollectionItem (offering)
+Core: KDSInstance, KDSTicket (models), Recipe (craftsman), CollectionItem (offerman)
 """
 
 from __future__ import annotations

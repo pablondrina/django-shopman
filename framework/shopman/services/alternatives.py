@@ -86,7 +86,7 @@ def find(sku: str, *, qty: Decimal = Decimal("1"), channel: str | None = None, l
         raw_avail = avail_map.get(product.sku)
         can_order, available_qty = _resolve_availability(raw_avail, product, qty)
 
-        # Skip if not orderable and stocking is active
+        # Skip if not orderable and stockman is active
         if HAS_STOCKING and raw_avail is not None and not can_order:
             continue
 
@@ -110,7 +110,7 @@ def _resolve_availability(raw_avail: dict | None, product, qty: Decimal) -> tupl
     if not product.is_available:
         return False, Decimal("0")
     if raw_avail is None:
-        # No stocking data — assume available
+        # No stockman data — assume available
         return True, Decimal("0")
     is_paused = raw_avail.get("is_paused", False) or not product.is_available
     total_orderable = raw_avail.get("total_orderable", Decimal("0"))

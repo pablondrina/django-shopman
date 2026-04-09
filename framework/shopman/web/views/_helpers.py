@@ -131,7 +131,7 @@ def _availability_badge(avail: dict | None, product: Product) -> dict:
         return {"label": "Indisponível", "css_class": "badge-unavailable", "can_add_to_cart": False}
 
     if avail is None:
-        # No stocking module — fall back to product.is_available flag
+        # No stockman module — fall back to product.is_available flag
         return {"label": "", "css_class": "", "can_add_to_cart": product.is_available}
 
     can_order = avail.get("can_order", True)

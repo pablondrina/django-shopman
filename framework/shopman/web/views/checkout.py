@@ -373,7 +373,7 @@ class CheckoutView(View):
                 idempotency_key=idempotency_key,
             )
         except Exception as exc:
-            # Map ordering ValidationError to user-visible checkout error
+            # Map omniman ValidationError to user-visible checkout error
             from shopman.omniman.exceptions import ValidationError as OrderingValidationError
 
             if isinstance(exc, OrderingValidationError):

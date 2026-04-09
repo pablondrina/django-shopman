@@ -1,7 +1,7 @@
 """
 Management command: cleanup_stale_sessions
 
-Deletes ordering Sessions that have no associated Order and haven't been
+Deletes omniman Sessions that have no associated Order and haven't been
 updated in the last 48 hours. Prevents indefinite accumulation of
 abandoned sessions.
 

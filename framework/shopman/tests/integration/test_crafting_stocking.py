@@ -402,7 +402,7 @@ class TestStockByPosition:
 # =============================================================================
 
 
-@pytest.mark.skip(reason="Perishable expiry via shelf_life_days not yet wired in stocking.available()")
+@pytest.mark.skip(reason="Perishable expiry via shelf_life_days not yet wired in stockman.available()")
 class TestPerishableProducts:
     """Tests for perishable product handling."""
 

@@ -10,8 +10,7 @@ from shopman.omniman.models import Channel, Session
 from shopman.omniman.services.modify import ModifyService
 from shopman.services import availability
 from shopman.utils.monetary import format_money
-
-CHANNEL_REF = "web"
+from shopman.web.constants import STOREFRONT_CHANNEL_REF as CHANNEL_REF
 
 
 class CartUnavailableError(Exception):
@@ -268,13 +267,13 @@ class CartService:
         # Batch availability check to flag unavailable items
         avail_map: dict[str, dict | None] = {}
         try:
-            from shopman.web.constants import HAS_STOCKING, STOREFRONT_CHANNEL_REF
+            from shopman.web.constants import HAS_STOCKING
             if HAS_STOCKING:
                 from shopman.stockman.services.availability import (
                     availability_for_skus,
                     availability_scope_for_channel,
                 )
-                scope = availability_scope_for_channel(STOREFRONT_CHANNEL_REF)
+                scope = availability_scope_for_channel(CHANNEL_REF)
                 avail_map = availability_for_skus(skus, **scope)
         except Exception:
             import logging

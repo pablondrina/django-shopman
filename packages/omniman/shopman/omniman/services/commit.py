@@ -199,7 +199,7 @@ class CommitService:
             raise CommitError(code="abandoned", message="Sessão foi abandonada")
 
         # Check required checks are fresh
-        required_checks = channel.config.get("required_checks_on_commit", [])
+        required_checks = (channel.config or {}).get("rules", {}).get("checks", [])
         checks = session.data.get("checks", {})
         now = timezone.now()
 

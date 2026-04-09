@@ -574,6 +574,36 @@ class TestNotificationService:
         assert directive.payload["origin_channel"] == "whatsapp"
 
 
+class TestNotificationSendHandler:
+    """Unit tests for NotificationSendHandler._build_context."""
+
+    def test_build_context_reads_items_from_snapshot(self):
+        """Items must come from order.snapshot, not order.data (CommitService never copies them)."""
+        from shopman.handlers.notification import NotificationSendHandler
+
+        items = [{"sku": "PAO-001", "name": "Pão Francês", "qty": 2, "line_total_q": 200}]
+        order = _make_order(
+            snapshot={"items": items, "data": {}},
+            data={"fulfillment_type": "pickup"},
+        )
+        handler = NotificationSendHandler()
+
+        ctx = handler._build_context(order, {"order_ref": "ORD-001"}, "order_confirmed")
+
+        assert ctx["items"] == items, "items must be read from order.snapshot, not order.data"
+
+    def test_build_context_items_empty_when_snapshot_has_none(self):
+        """Empty snapshot returns empty items list without error."""
+        from shopman.handlers.notification import NotificationSendHandler
+
+        order = _make_order(snapshot={}, data={})
+        handler = NotificationSendHandler()
+
+        ctx = handler._build_context(order, {"order_ref": "ORD-001"}, "order_confirmed")
+
+        assert ctx["items"] == []
+
+
 # ══════════════════════════════════════════════════════════════════════
 # services/fulfillment.py
 # ══════════════════════════════════════════════════════════════════════
@@ -992,6 +1022,66 @@ class TestCustomerService:
 
         assert order.data["customer_ref"] == "CLI-001"
         order.save.assert_called()
+
+    @patch("shopman.services.customer._update_insights")
+    @patch("shopman.services.customer._create_timeline_event")
+    @patch("shopman.services.customer._save_delivery_address")
+    @patch("shopman.services.customer._customers_available", return_value=True)
+    def test_ensure_uses_registered_strategy(self, mock_avail, mock_addr, mock_timeline, mock_insights):
+        """A strategy registered for a channel_ref is called instead of the default."""
+        import shopman.services.customer as svc_module
+        from shopman.services.customer import ensure, register_strategy
+
+        customer = MagicMock()
+        customer.ref = "CUSTOM-001"
+        custom_fn = MagicMock(return_value=customer)
+
+        original = svc_module._STRATEGIES.copy()
+        try:
+            register_strategy("test-channel", custom_fn)
+            order = _make_order(channel_ref="test-channel")
+            order.data = {}
+            ensure(order)
+            custom_fn.assert_called_once_with(order)
+            assert order.data["customer_ref"] == "CUSTOM-001"
+        finally:
+            svc_module._STRATEGIES.clear()
+            svc_module._STRATEGIES.update(original)
+
+    @patch("shopman.services.customer._update_insights")
+    @patch("shopman.services.customer._create_timeline_event")
+    @patch("shopman.services.customer._save_delivery_address")
+    @patch("shopman.services.customer._get_customer_service")
+    @patch("shopman.services.customer._customers_available", return_value=True)
+    def test_ensure_falls_back_to_phone_when_no_strategy(
+        self, mock_avail, mock_svc_fn, mock_addr, mock_timeline, mock_insights
+    ):
+        """Unrecognised channel with no registered strategy falls back to phone."""
+        import shopman.services.customer as svc_module
+        from shopman.services.customer import ensure
+
+        svc = MagicMock()
+        customer = MagicMock()
+        customer.ref = "CLI-002"
+        customer.first_name = "Ana"
+        svc.get_by_phone.return_value = customer
+        mock_svc_fn.return_value = svc
+
+        original = svc_module._STRATEGIES.copy()
+        try:
+            # Remove all strategies to simulate unregistered channel
+            svc_module._STRATEGIES.clear()
+            order = _make_order(
+                channel_ref="unknown-channel",
+                handle_ref="+5543888888888",
+                snapshot={"data": {"customer": {"phone": "+5543888888888"}}, "items": []},
+            )
+            order.data = {}
+            ensure(order)
+            assert order.data["customer_ref"] == "CLI-002"
+        finally:
+            svc_module._STRATEGIES.clear()
+            svc_module._STRATEGIES.update(original)
 
 
 # ══════════════════════════════════════════════════════════════════════

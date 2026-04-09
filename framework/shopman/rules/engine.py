@@ -60,7 +60,7 @@ def load_rule(rule_config):
 
 
 def register_active_rules():
-    """Register active validator rules in the ordering registry.
+    """Register active validator rules in the omniman registry.
 
     Called at boot (apps.py ready), AFTER channels.setup.register_all().
 

@@ -132,7 +132,7 @@ class IFoodChannelFlowTests(TestCase):
             name="iFood",
             config={
                 "pricing_policy": "external",
-                "order_flow": {
+                "flow": {
                     "transitions": {
                         "new": ["confirmed", "cancelled"],
                         "confirmed": ["preparing", "cancelled"],
@@ -144,9 +144,9 @@ class IFoodChannelFlowTests(TestCase):
                         "returned": [],
                     },
                     "terminal_statuses": ["completed", "cancelled", "returned"],
-                },
-                "auto_transitions": {
-                    "on_create": "confirmed",
+                    "auto_transitions": {
+                        "on_create": "confirmed",
+                    },
                 },
                 "status_labels": {
                     "new": "Recebido",
@@ -281,7 +281,7 @@ class EcommerceChannelFlowTests(TestCase):
             name="Loja Virtual",
             config={
                 "pricing_policy": "external",
-                "order_flow": {
+                "flow": {
                     "transitions": {
                         "new": ["confirmed", "cancelled"],
                         "confirmed": ["preparing", "cancelled"],
@@ -358,7 +358,7 @@ class PDVChannelFlowTests(TestCase):
             name="Balcão",
             config={
                 "pricing_policy": "internal",
-                "order_flow": {
+                "flow": {
                     "transitions": {
                         "new": ["confirmed", "cancelled"],
                         "confirmed": ["completed", "cancelled"],

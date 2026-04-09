@@ -32,9 +32,6 @@ class PreorderCommitTests(TestCase):
         self.channel = Channel.objects.create(
             ref="balcao",
             name="Balcao",
-            config={
-                "required_checks_on_commit": [],
-                            },
             is_active=True,
         )
 
@@ -126,9 +123,6 @@ class PreorderReminderDirectiveTests(TestCase):
         self.channel = Channel.objects.create(
             ref="whatsapp",
             name="WhatsApp",
-            config={
-                "required_checks_on_commit": [],
-                            },
             is_active=True,
         )
 
@@ -214,9 +208,6 @@ class PreorderCutoffValidationTests(TestCase):
         self.channel = Channel.objects.create(
             ref="balcao",
             name="Balcao",
-            config={
-                "required_checks_on_commit": [],
-                            },
             is_active=True,
         )
 

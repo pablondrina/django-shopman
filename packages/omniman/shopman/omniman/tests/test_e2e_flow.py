@@ -27,9 +27,6 @@ class EndToEndFlowTests(TestCase):
             name="Shop",
             pricing_policy="external",
             edit_policy="open",
-            config={
-                "required_checks_on_commit": [],  # Sem checks obrigatórios para simplificar
-                            },
         )
 
     def test_complete_flow_from_session_to_completed_order(self) -> None:
@@ -182,9 +179,6 @@ class EndToEndFlowTests(TestCase):
             name="Internal Shop",
             pricing_policy="internal",
             edit_policy="open",
-            config={
-                "required_checks_on_commit": [],
-                            },
         )
 
         session_key = generate_session_key()

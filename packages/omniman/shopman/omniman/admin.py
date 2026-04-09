@@ -698,7 +698,7 @@ class SessionAdmin(ModelAdmin):
             "failed": Re-check ou commit falhou por outro motivo
         """
         channel_config = session.channel.config or {}
-        required_checks = channel_config.get("required_checks_on_commit", [])
+        required_checks = channel_config.get("rules", {}).get("checks", [])
         checks_config = channel_config.get("checks", {})
 
         # Executa todos os checks requeridos
@@ -771,7 +771,7 @@ class SessionAdmin(ModelAdmin):
                 extra_context["issue_actions"] = obj.data.get("issues", [])
                 manual_checks: list[dict] = []
                 channel_config = obj.channel.config or {}
-                required_checks = channel_config.get("required_checks_on_commit", [])
+                required_checks = channel_config.get("rules", {}).get("checks", [])
                 checks_config = channel_config.get("checks", {})
                 for code in required_checks:
                     check_opts = checks_config.get(code, {})

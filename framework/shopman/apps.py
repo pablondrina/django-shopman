@@ -53,7 +53,7 @@ class ShopmanConfig(AppConfig):
         - Checkout defaults handler
         - Pricing modifiers (Item, D1, Discount, SessionTotal, Employee, HappyHour)
         - Stock check + validator
-        - Stock signals (holds_materialized, production_changed, crafting→stocking)
+        - Stock signals (holds_materialized, production_changed, craftsman→stockman)
         """
         try:
             from shopman.setup import register_all

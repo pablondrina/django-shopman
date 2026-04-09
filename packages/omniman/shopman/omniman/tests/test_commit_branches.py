@@ -177,7 +177,7 @@ class CommitHoldExpiryTests(TestCase):
         self.channel = Channel.objects.create(
             ref="commit-expiry-test",
             name="Hold Expiry Test",
-            config={"required_checks_on_commit": ["stock"]},
+            config={"rules": {"checks": ["stock"]}},
         )
 
     def test_commit_raises_for_expired_hold_in_result(self) -> None:

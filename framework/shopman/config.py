@@ -18,7 +18,6 @@ class ChannelConfig:
     confirmation  — como o pedido é aceito?
     payment       — como o cliente paga?
     stock         — comportamento de reserva de estoque
-    pipeline      — o que acontece em cada fase do pedido?
     notifications — por onde avisamos?
     rules         — quais validators/modifiers ativar?
     flow          — como o pedido transita entre status?
@@ -63,31 +62,7 @@ class ChannelConfig:
         planned_hold_ttl_hours: int = 48  # TTL for planned holds (fermata timeout)
         allowed_positions: list[str] | None = None  # None = all saleable positions
 
-    # ── 4. Pipeline ──
-
-    @dataclass
-    class Pipeline:
-        """O que acontece em cada fase do ciclo de vida.
-
-        Cada fase é uma lista de directive topics.
-        Notação "topic:template" para notificações com template.
-        Fases mapeiam 1:1 com Order.Status + eventos especiais.
-        """
-
-        on_commit: list[str] = field(default_factory=list)
-        on_confirmed: list[str] = field(default_factory=list)
-        on_preparing: list[str] = field(default_factory=list)
-        on_ready: list[str] = field(default_factory=list)
-        on_dispatched: list[str] = field(default_factory=list)
-        on_delivered: list[str] = field(default_factory=list)
-        on_completed: list[str] = field(default_factory=list)
-        on_cancelled: list[str] = field(default_factory=list)
-        on_returned: list[str] = field(default_factory=list)
-        # Evento especial (não é status — vem de webhook de pagamento)
-        on_payment_confirmed: list[str] = field(default_factory=list)
-
-    # ── 5. Notificações ──
-
+    # ── 4. Notificações ──
     @dataclass
     class Notifications:
         backend: str = "manychat"
@@ -96,7 +71,7 @@ class ChannelConfig:
         fallback_chain: list[str] = field(default_factory=lambda: ["sms", "email"])
         routing: dict[str, str] | None = None
 
-    # ── 6. Regras ──
+    # ── 5. Regras ──
 
     @dataclass
     class Rules:
@@ -112,7 +87,7 @@ class ChannelConfig:
         modifiers: list[str] = field(default_factory=list)
         checks: list[str] = field(default_factory=list)
 
-    # ── 7. Fluxo ──
+    # ── 6. Fluxo ──
 
     @dataclass
     class Flow:
@@ -121,6 +96,9 @@ class ChannelConfig:
         transitions: dict[str, list[str]] | None = None
         terminal_statuses: list[str] | None = None
         auto_transitions: dict[str, str] | None = None
+        # Chaves canônicas de auto_transitions:
+        #   "on_paid" — dispara quando webhook de pagamento confirma (PIX/Stripe)
+        #   Mapeiam para o status-alvo: {"on_paid": "confirmed"}
         auto_sync_fulfillment: bool = False
 
     # ── Campos ──
@@ -128,7 +106,6 @@ class ChannelConfig:
     confirmation: Confirmation = field(default_factory=Confirmation)
     payment: Payment = field(default_factory=Payment)
     stock: Stock = field(default_factory=Stock)
-    pipeline: Pipeline = field(default_factory=Pipeline)
     notifications: Notifications = field(default_factory=Notifications)
     rules: Rules = field(default_factory=Rules)
     flow: Flow = field(default_factory=Flow)
@@ -144,10 +121,6 @@ class ChannelConfig:
             confirmation=_safe_init(cls.Confirmation, data.get("confirmation", {})),
             payment=_safe_init(cls.Payment, data.get("payment", {})),
             stock=_safe_init(cls.Stock, data.get("stock", {})),
-            pipeline=_safe_init(
-                cls.Pipeline,
-                {k: v for k, v in data.get("pipeline", {}).items() if k.startswith("on_")},
-            ),
             notifications=_safe_init(cls.Notifications, data.get("notifications", {})),
             rules=_safe_init(cls.Rules, data.get("rules", {})),
             flow=_safe_init(

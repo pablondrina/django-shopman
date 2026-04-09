@@ -1,8 +1,8 @@
 """
 Seed de producao — Nelson Boulangerie.
 
-Popula loja (shop), catalogo (offering), estoque (stocking), receitas (crafting),
-clientes (customers), canais (ordering) e pedidos com dados da Nelson.
+Popula loja (shop), catalogo (offerman), estoque (stockman), receitas (craftsman),
+clientes (customers), canais (omniman) e pedidos com dados da Nelson.
 
 Uso:
     python manage.py seed          # seed normal
@@ -141,13 +141,13 @@ class Command(BaseCommand):
                 "latitude": -23.3045,
                 "longitude": -51.1628,
                 "phone": "554333231997",
-                "email": "contato@nelsonboulangerie.com.br",
+                "email": "contato@example.com",
                 "default_ddd": "43",
                 "social_links": [
                     "https://wa.me/554333231997",
-                    "https://instagram.com/nelsonboulangerie",
-                    "https://www.facebook.com/nelsonboulangerie",
-                    "http://www.nelsonboulangerie.com.br",
+                    "https://instagram.com/example",
+                    "https://www.facebook.com/example",
+                    "http://www.example.com.br",
                 ],
                 "opening_hours": {
                     # monday: fechado (boulangerie típica)
@@ -250,7 +250,7 @@ class Command(BaseCommand):
         if not User.objects.filter(username="admin").exists():
             User.objects.create_superuser(
                 username="admin",
-                email="admin@nelson.com.br",
+                email="admin@example.com",
                 password=password,
             )
             self.stdout.write("  ✅ Superuser 'admin' criado")

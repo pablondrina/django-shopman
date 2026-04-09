@@ -2,7 +2,7 @@
 Production service — coordenação em torno do WorkOrder (WP-S5).
 
 Reserva de insumos e movimentação física de estoque são integradas ao Core via
-`production_changed` → contrib/stocking e InventoryProtocol no `craft.close()`.
+`production_changed` → contrib/stockman e InventoryProtocol no `craft.close()`.
 
 Este módulo é o gancho explícito do orquestrador: logging estruturado e pontos
 únicos para evoluir (alertas ao operador, integrações externas).

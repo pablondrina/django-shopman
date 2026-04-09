@@ -1,7 +1,7 @@
 """EFI PIX webhook — receives payment notifications from EFI gateway.
 
-Migrated from channels/webhooks.py. Uses shopman.flows.dispatch() for
-order lifecycle instead of channels.hooks.on_payment_confirmed().
+Uses shopman.flows.dispatch(order, "on_paid") for order lifecycle.
+Auto-transition key: flow.auto_transitions["on_paid"] → target status.
 """
 
 from __future__ import annotations
@@ -143,7 +143,7 @@ class EfiPixWebhookView(APIView):
                 return
             from shopman.config import ChannelConfig
             flow_cfg = ChannelConfig.effective(order.channel).flow
-            target = (flow_cfg.auto_transitions or {}).get("on_payment_confirm")
+            target = (flow_cfg.auto_transitions or {}).get("on_paid")
             if target and order.can_transition_to(target):
                 order.transition_status(target, actor="payment.webhook")
         except Exception:

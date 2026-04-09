@@ -1,7 +1,7 @@
 """
 Fulfillment service.
 
-Core: ordering.models.Fulfillment
+Core: omniman.models.Fulfillment
 """
 
 from __future__ import annotations

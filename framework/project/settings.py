@@ -3,11 +3,17 @@ Django settings for the Shopman project (Nelson Boulangerie demo).
 """
 
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Make instances/ importable (e.g. nelson.customer_strategies)
+_instances_dir = str(Path(BASE_DIR).parent / "instances")
+if _instances_dir not in sys.path:
+    sys.path.insert(0, _instances_dir)
 
 load_dotenv(Path(BASE_DIR) / ".env")
 
@@ -441,6 +447,12 @@ CRAFTING = {
     "CATALOG_BACKEND": "shopman.offerman.adapters.catalog_backend.OfferingCatalogBackend",
 }
 
+# ── Shopman Instance ─────────────────────────────────────────────────
+
+# Customer strategy modules to load on startup. Each module registers
+# instance-specific strategies via register_strategy() on import.
+SHOPMAN_CUSTOMER_STRATEGY_MODULES = ["nelson.customer_strategies"]
+
 # ── Shopman Adapters ──────────────────────────────────────────────────
 
 SHOPMAN_PAYMENT_ADAPTERS = {
@@ -459,6 +471,11 @@ SHOPMAN_NOTIFICATION_ADAPTERS = {
 SHOPMAN_STOCK_ADAPTER = "shopman.adapters.stock"
 
 SHOPMAN_FISCAL_ADAPTER = None
+
+# ── Storefront channel ────────────────────────────────────────────────
+# Ref of the Channel that powers the web storefront. Override in instance settings
+# if this instance uses a different ref (e.g. "site", "loja").
+SHOPMAN_STOREFRONT_CHANNEL_REF = "web"
 
 # ── Happy Hour ("Hora da Xepa") ───────────────────────────────────────
 SHOPMAN_HAPPY_HOUR_START = "17:30"

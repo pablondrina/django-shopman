@@ -1,4 +1,4 @@
-"""Validation rules — registered as validators in the ordering registry.
+"""Validation rules — registered as validators in the omniman registry.
 
 These rules ARE registered by the engine (register_active_rules) at boot.
 They wrap the existing validators from shop.validators, adding configurability

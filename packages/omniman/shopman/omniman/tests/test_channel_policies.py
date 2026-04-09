@@ -36,7 +36,7 @@ class IFoodPolicyTests(TestCase):
             pricing_policy="external",
             edit_policy="locked",  # Política: NÃO EDITÁVEL
             config={
-                "order_flow": {
+                "flow": {
                     "transitions": {
                         "new": ["confirmed", "cancelled"],
                         "confirmed": ["preparing", "cancelled"],
@@ -180,7 +180,7 @@ class PDVPolicyTests(TestCase):
             pricing_policy="internal",
             edit_policy="open",  # Política: EDITÁVEL
             config={
-                "order_flow": {
+                "flow": {
                     "transitions": {
                         "new": ["confirmed", "cancelled"],
                         "confirmed": ["preparing", "cancelled"],

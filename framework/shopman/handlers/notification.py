@@ -188,7 +188,7 @@ class NotificationSendHandler:
             "template": template,
             "order_status": order.status,
             "total_q": order.total_q,
-            "items": order.data.get("items", []),
+            "items": order.snapshot.get("items", []),
             "reason": payload.get("reason"),
             "fulfillment_type": fulfillment_type,
         }

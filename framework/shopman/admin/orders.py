@@ -115,7 +115,7 @@ def _extend_order_admin():
 
 
 def _extend_product_admin():
-    """Add allows_next_day_sale checkbox to the offering ProductAdmin."""
+    """Add allows_next_day_sale checkbox to the offerman ProductAdmin."""
     from shopman.offerman.models import Product
 
     try:
