@@ -43,6 +43,7 @@ class CommitService:
         channel_ref: str,
         idempotency_key: str,
         ctx: dict | None = None,
+        channel_config: dict | None = None,
     ) -> dict:
         """
         Fecha uma sessão e cria um Order.
@@ -52,6 +53,10 @@ class CommitService:
             channel_ref: Código do canal
             idempotency_key: Chave de idempotência
             ctx: Contexto adicional
+            channel_config: Config resolvido (com cascade canal←loja←defaults). Quando
+                fornecido, substitui a leitura direta de channel.config. Callers no
+                framework devem fornecer ChannelConfig.effective(channel).asdict() para
+                herança correta de defaults da loja.
 
         Returns:
             dict com order_ref e dados do pedido
@@ -77,6 +82,7 @@ class CommitService:
                 channel_ref=channel_ref,
                 idempotency_key=idempotency_key,
                 ctx=ctx,
+                channel_config=channel_config,
             )
 
             # 3. Mark idempotency key as done (outside transaction)
@@ -169,6 +175,7 @@ class CommitService:
         channel_ref: str,
         idempotency_key: str,
         ctx: dict,
+        channel_config: dict | None = None,
     ) -> dict:
         """
         Execute the actual commit logic in an atomic transaction.
@@ -199,7 +206,10 @@ class CommitService:
             raise CommitError(code="abandoned", message="Sessão foi abandonada")
 
         # Check required checks are fresh
-        required_checks = (channel.config or {}).get("rules", {}).get("checks", [])
+        # channel_config is the cascade-resolved config (canal←loja←defaults) when
+        # supplied by the framework caller; falls back to raw channel.config otherwise.
+        effective_config = channel_config if channel_config is not None else (channel.config or {})
+        required_checks = effective_config.get("rules", {}).get("checks", [])
         checks = session.data.get("checks", {})
         now = timezone.now()
 

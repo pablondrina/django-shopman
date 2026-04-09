@@ -7,7 +7,10 @@ Core: ModifyService, CommitService
 from __future__ import annotations
 
 import logging
+from dataclasses import asdict
 
+from shopman.config import ChannelConfig
+from shopman.omniman.models import Channel
 from shopman.omniman.services.commit import CommitService
 from shopman.omniman.services.modify import ModifyService
 
@@ -46,12 +49,20 @@ def process(session_key: str, channel_ref: str, data: dict, *, idempotency_key: 
             ctx=ctx,
         )
 
-    # 2. Commit
+    # 2. Resolve channel config with cascade (canal←loja←defaults) for CommitService
+    try:
+        channel = Channel.objects.get(ref=channel_ref)
+        resolved_config = asdict(ChannelConfig.effective(channel))
+    except Exception:
+        resolved_config = None
+
+    # 3. Commit
     result = CommitService.commit(
         session_key=session_key,
         channel_ref=channel_ref,
         idempotency_key=idempotency_key,
         ctx=ctx,
+        channel_config=resolved_config,
     )
 
     logger.info("checkout.process: order %s committed", result.get("order_ref"))

@@ -947,9 +947,11 @@ class TestKDSService:
 
 class TestCheckoutService:
 
+    @patch("shopman.services.checkout.Channel")
+    @patch("shopman.services.checkout.ChannelConfig")
     @patch("shopman.services.checkout.CommitService")
     @patch("shopman.services.checkout.ModifyService")
-    def test_process_applies_data_and_commits(self, mock_modify, mock_commit):
+    def test_process_applies_data_and_commits(self, mock_modify, mock_commit, mock_cfg, mock_channel):
         from shopman.services.checkout import process
 
         mock_commit.commit.return_value = {"order_ref": "ORD-001", "status": "committed"}
@@ -965,9 +967,11 @@ class TestCheckoutService:
         mock_commit.commit.assert_called_once()
         assert result["order_ref"] == "ORD-001"
 
+    @patch("shopman.services.checkout.Channel")
+    @patch("shopman.services.checkout.ChannelConfig")
     @patch("shopman.services.checkout.CommitService")
     @patch("shopman.services.checkout.ModifyService")
-    def test_process_skips_modify_with_no_data(self, mock_modify, mock_commit):
+    def test_process_skips_modify_with_no_data(self, mock_modify, mock_commit, mock_cfg, mock_channel):
         from shopman.services.checkout import process
 
         mock_commit.commit.return_value = {"order_ref": "ORD-002", "status": "committed"}
