@@ -68,15 +68,14 @@ class TestAvailabilityListingMembership:
     the listing of the channel that's asking — even if Stockman has stock.
     """
 
-    def _make_channel(self, ref="ifood", listing_ref="ifood-cardapio"):
+    def _make_channel(self, ref="ifood"):
+        """Channel.ref == Listing.ref by convention."""
         from shopman.omniman.models import Channel
         return Channel.objects.create(
             ref=ref,
             name=ref.upper(),
-            listing_ref=listing_ref,
             pricing_policy="external",
             edit_policy="open",
-            config={},
         )
 
     def _make_product(self, sku="PAO-001", paused=False):
@@ -90,6 +89,7 @@ class TestAvailabilityListingMembership:
         )
 
     def _make_listing(self, ref):
+        """Create a listing with ref matching a channel ref (convention: listing.ref == channel.ref)."""
         from shopman.offerman.models import Listing
         return Listing.objects.create(
             ref=ref, name=ref, is_active=True, priority=10,
@@ -109,10 +109,10 @@ class TestAvailabilityListingMembership:
         """Product exists, has stock, but is NOT in the channel's listing → reject."""
         from shopman.services import availability
 
-        self._make_channel(ref="ifood", listing_ref="ifood-cardapio")
+        self._make_channel(ref="ifood")
         self._make_product(sku="PAO-001")
-        # listing exists but no ListingItem for this product
-        self._make_listing("ifood-cardapio")
+        # listing.ref == channel.ref by convention; exists but no ListingItem for this product
+        self._make_listing("ifood")
 
         result = availability.check("PAO-001", Decimal("1"), channel_ref="ifood")
 
@@ -124,9 +124,9 @@ class TestAvailabilityListingMembership:
         """ListingItem exists but is_published=False → reject."""
         from shopman.services import availability
 
-        self._make_channel(ref="ifood", listing_ref="ifood-cardapio")
+        self._make_channel(ref="ifood")
         product = self._make_product(sku="PAO-001")
-        listing = self._make_listing("ifood-cardapio")
+        listing = self._make_listing("ifood")
         self._publish(listing, product, published=False, available=True)
 
         result = availability.check("PAO-001", Decimal("1"), channel_ref="ifood")
@@ -143,9 +143,9 @@ class TestAvailabilityListingMembership:
         """
         from shopman.services import availability
 
-        self._make_channel(ref="ifood", listing_ref="ifood-cardapio")
+        self._make_channel(ref="ifood")
         product = self._make_product(sku="PAO-001")
-        listing = self._make_listing("ifood-cardapio")
+        listing = self._make_listing("ifood")
         self._publish(listing, product, published=True, available=True)
 
         result = availability.check("PAO-001", Decimal("1"), channel_ref="ifood")
@@ -153,12 +153,13 @@ class TestAvailabilityListingMembership:
         assert result["ok"] is True
         assert result.get("error_code") is None
 
-    def test_skips_listing_check_when_channel_has_no_listing_ref(self):
-        """Internal channels (POS) often have no listing_ref — check is bypassed."""
+    def test_skips_listing_check_when_channel_has_no_listing(self):
+        """Channels without a Listing configured skip the listing gate."""
         from shopman.services import availability
 
-        self._make_channel(ref="pos-internal", listing_ref="")
+        self._make_channel(ref="pos-internal")
         self._make_product(sku="PAO-001")
+        # No Listing with ref="pos-internal" exists → gate skipped
 
         result = availability.check("PAO-001", Decimal("1"), channel_ref="pos-internal")
 
@@ -170,9 +171,9 @@ class TestAvailabilityListingMembership:
         from shopman.offerman.models import ListingItem
         from shopman.services import availability
 
-        self._make_channel(ref="ifood", listing_ref="ifood-cardapio")
+        self._make_channel(ref="ifood")
         product = self._make_product(sku="PAO-001")
-        listing = self._make_listing("ifood-cardapio")
+        listing = self._make_listing("ifood")
         # min_qty=24 (e.g., pão francês in dozens)
         ListingItem.objects.create(
             listing=listing,
@@ -195,9 +196,9 @@ class TestAvailabilityListingMembership:
         from shopman.offerman.models import ListingItem
         from shopman.services import availability
 
-        self._make_channel(ref="ifood", listing_ref="ifood-cardapio")
+        self._make_channel(ref="ifood")
         product = self._make_product(sku="PAO-001")
-        listing = self._make_listing("ifood-cardapio")
+        listing = self._make_listing("ifood")
         ListingItem.objects.create(
             listing=listing,
             product=product,
@@ -501,8 +502,9 @@ class TestPaymentService:
         refund(order)
         mock_get_adapter.assert_not_called()
 
+    @patch("shopman.services.payment._payman_intent_refunded", return_value=False)
     @patch("shopman.services.payment.get_adapter")
-    def test_refund_with_intent(self, mock_get_adapter):
+    def test_refund_with_intent(self, mock_get_adapter, mock_payman_check):
         from shopman.adapters.payment_types import PaymentResult
         from shopman.services.payment import refund
 
@@ -511,16 +513,18 @@ class TestPaymentService:
         mock_get_adapter.return_value = adapter
 
         order = _make_order(
-            data={"payment": {"method": "pix", "intent_ref": "INT-001", "status": "captured"}},
+            data={"payment": {"method": "pix", "intent_ref": "INT-001"}},
         )
 
         refund(order)
 
         adapter.refund.assert_called_once()
-        assert order.data["payment"]["status"] == "refunded"
+        # Status is NOT written to order.data — Payman (PaymentService) is canonical
+        assert "status" not in order.data["payment"]
 
+    @patch("shopman.services.payment._payman_intent_captured", return_value=False)
     @patch("shopman.services.payment.get_adapter")
-    def test_capture(self, mock_get_adapter):
+    def test_capture(self, mock_get_adapter, mock_payman_check):
         from shopman.adapters.payment_types import PaymentResult
         from shopman.services.payment import capture
 
@@ -532,12 +536,13 @@ class TestPaymentService:
         mock_get_adapter.return_value = adapter
 
         order = _make_order(
-            data={"payment": {"method": "pix", "intent_ref": "INT-001", "status": "authorized"}},
+            data={"payment": {"method": "pix", "intent_ref": "INT-001"}},
         )
 
         capture(order)
 
-        assert order.data["payment"]["status"] == "captured"
+        # Status is NOT written to order.data — transaction_id remains as reference
+        assert "status" not in order.data["payment"]
         assert order.data["payment"]["transaction_id"] == "TXN-001"
 
 
@@ -952,8 +957,10 @@ class TestCheckoutService:
     @patch("shopman.services.checkout.CommitService")
     @patch("shopman.services.checkout.ModifyService")
     def test_process_applies_data_and_commits(self, mock_modify, mock_commit, mock_cfg, mock_channel):
+        from shopman.config import ChannelConfig
         from shopman.services.checkout import process
 
+        mock_cfg.for_channel.return_value = ChannelConfig()
         mock_commit.commit.return_value = {"order_ref": "ORD-001", "status": "committed"}
 
         result = process(
@@ -972,8 +979,10 @@ class TestCheckoutService:
     @patch("shopman.services.checkout.CommitService")
     @patch("shopman.services.checkout.ModifyService")
     def test_process_skips_modify_with_no_data(self, mock_modify, mock_commit, mock_cfg, mock_channel):
+        from shopman.config import ChannelConfig
         from shopman.services.checkout import process
 
+        mock_cfg.for_channel.return_value = ChannelConfig()
         mock_commit.commit.return_value = {"order_ref": "ORD-002", "status": "committed"}
 
         process(

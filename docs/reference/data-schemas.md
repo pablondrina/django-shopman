@@ -113,7 +113,7 @@ for key in (
 
 | Chave | Tipo | Escrito por | Lido por | Descrição |
 |-------|------|-------------|----------|-----------|
-| `payment` | `dict` | CommitService (propagado de Session.data), PaymentHandler, webhooks, hooks | Muitos (ver abaixo) | Dados de pagamento (ver detalhamento). `{method}` propagado pelo CommitService; enriquecido por handlers pós-commit (intent_ref, status, etc.) |
+| `payment` | `dict` | CommitService (propaga `{method}` de Session.data), `payment.initiate()`, webhooks | Muitos (ver abaixo) | Dados de pagamento. Contrato: `{intent_ref, method}`. Status de pagamento vive em Payman — nunca duplicado aqui. Ver detalhamento abaixo. |
 | `customer_ref` | `string` | CustomerIdentificationHandler | CheckoutInferDefaultsHandler | Ref do Customer criado/encontrado |
 | `fulfillment_created` | `bool` | FulfillmentCreateHandler | FulfillmentCreateHandler (idempotência) | Flag: Fulfillment object criado |
 | `cancellation_reason` | `string` | PixTimeoutHandler, PaymentTimeoutHandler, ConfirmationTimeoutHandler, OrderCancelView, GestorOrderRejectView | hooks._on_cancelled | Motivo: `"pix_timeout"`, `"card_timeout"`, `"confirmation_timeout"`, `"customer_requested"`, texto livre |
@@ -141,11 +141,14 @@ for key in (
 
 ### payment — detalhamento
 
+**Contrato**: `{intent_ref, method}` são as chaves canônicas. Status de pagamento vive
+em Payman (`PaymentService`) — nunca duplicado em `order.data`. Demais chaves são
+dados de display (UI) ou audit (rastreabilidade).
+
 ```json
 {
   "method": "pix",
   "intent_ref": "INT-abc123",
-  "status": "captured",
   "amount_q": 2500,
   "qr_code": "data:image/png;base64,...",
   "copy_paste": "00020126...",
@@ -153,23 +156,28 @@ for key in (
   "e2e_id": "E123456789",
   "paid_amount_q": 2500,
   "captured_at": "2026-03-30T10:12:00Z",
-  "client_secret": "pi_xxx_secret_yyy"
+  "client_secret": "pi_xxx_secret_yyy",
+  "transaction_id": "TXN-001",
+  "marked_paid_by": "operator_user",
+  "error": "Gateway timeout (truncado a 200 chars)"
 }
 ```
 
 | Sub-chave | Tipo | Escrito por | Descrição |
 |-----------|------|-------------|-----------|
-| `method` | `string` | CheckoutView (via Session.data → CommitService), PixGenerateHandler, CardCreateHandler | `"pix"`, `"card"`, `"counter"`, `"external"` |
-| `intent_ref` | `string` | PixGenerateHandler, CardCreateHandler | ID do intent no gateway |
-| `status` | `string` | PixGenerateHandler, hooks.on_payment_confirmed | `"pending"`, `"captured"`, `"refunded"`, `"expired"`, `"failed"` |
-| `amount_q` | `int` | PixGenerateHandler, CardCreateHandler | Valor em centavos |
-| `qr_code` | `string` | PixGenerateHandler | QR code image (data URI) |
-| `copy_paste` | `string` | PixGenerateHandler | Brcode PIX copia-e-cola |
-| `expires_at` | `string` | PixGenerateHandler | ISO datetime de expiração do QR |
-| `e2e_id` | `string` | EfiPixWebhook | End-to-end ID da transação PIX |
-| `paid_amount_q` | `int` | EfiPixWebhook | Valor efetivamente pago |
-| `captured_at` | `string` | MockPaymentConfirmView | ISO datetime de captura |
-| `client_secret` | `string` | CardCreateHandler | Secret do Stripe PaymentIntent |
+| `method` | `string` | CheckoutView (Session.data → CommitService) | `"pix"`, `"card"`, `"counter"`, `"external"` — chave de contrato |
+| `intent_ref` | `string` | `payment.initiate()` | ID do intent no Payman/gateway — chave de contrato |
+| `amount_q` | `int` | `payment.initiate()` | Valor em centavos (referência) |
+| `qr_code` | `string` | `payment.initiate()` | QR code image (data URI) — display PIX |
+| `copy_paste` | `string` | `payment.initiate()` | Brcode PIX copia-e-cola — display PIX |
+| `expires_at` | `string` | `payment.initiate()` | ISO datetime de expiração do QR |
+| `client_secret` | `string` | `payment.initiate()` | Secret do Stripe PaymentIntent — display card |
+| `e2e_id` | `string` | `EfiPixWebhookView` | End-to-end ID da transação PIX (idempotência + audit) |
+| `paid_amount_q` | `int` | `EfiPixWebhookView` | Valor efetivamente pago (audit) |
+| `captured_at` | `string` | `MockPaymentConfirmView` | ISO datetime de captura mock (dev only) |
+| `transaction_id` | `string` | `payment.capture()` | Transaction ID do adapter (audit) |
+| `marked_paid_by` | `string` | `PedidoMarkPaidView` | Username do operador que marcou como pago (idempotência + audit) |
+| `error` | `string` | `payment.initiate()` | Mensagem de erro se create_intent falhou |
 
 ### returns — detalhamento
 

@@ -30,14 +30,12 @@ class SessionApiTests(TestCase):
         ref: str = "pos",
         pricing_policy: str = "internal",
         edit_policy: str = "open",
-        config: dict | None = None,
     ) -> Channel:
         return Channel.objects.create(
             ref=ref,
             name=ref.upper(),
             pricing_policy=pricing_policy,
             edit_policy=edit_policy,
-            config=config or {},
             is_active=True,
         )
 
@@ -93,21 +91,8 @@ class SessionApiTests(TestCase):
         self.assertEqual(r2.status_code, 200, r2.data)
         self.assertEqual(r2.data["channel_ref"], "pos")
 
-    def test_modify_increments_rev_clears_checks_issues_and_enqueues_directive(self) -> None:
-        # Register a mock stock check so ModifyService finds it via registry
-        class _MockStockCheck:
-            code = "stock"
-            topic = "stock.hold"
-            def validate(self, *, channel, session, ctx):
-                pass
-        registry.register_check(_MockStockCheck())
-
-        self._mk_channel(
-            ref="pos",
-            config={
-                "rules": {"checks": ["stock"]},
-            },
-        )
+    def test_modify_increments_rev_and_clears_checks(self) -> None:
+        self._mk_channel(ref="pos")
         s = self.client.post("/api/sessions", {"channel_ref": "pos"}, format="json").data
 
         payload = {"channel_ref": "pos", "ops": [{"op": "add_line", "sku": "LATTE", "qty": 2}]}
@@ -117,9 +102,39 @@ class SessionApiTests(TestCase):
         self.assertEqual(r.data["data"]["checks"], {})
         self.assertEqual(r.data["data"]["issues"], [])
 
+    def test_modify_enqueues_check_directives_when_channel_config_has_checks(self) -> None:
+        # Check directive enqueue requires channel_config — tested via ModifyService directly.
+        from shopman.omniman.services import ModifyService
+
+        class _MockStockCheck:
+            code = "stock"
+            topic = "stock.hold"
+            def validate(self, *, channel, session, ctx):
+                pass
+        registry.register_check(_MockStockCheck())
+
+        channel = self._mk_channel(ref="pos")
+        session = Session.objects.create(
+            session_key="SESS-CHK-1",
+            channel=channel,
+            state="open",
+            pricing_policy=channel.pricing_policy,
+            edit_policy=channel.edit_policy,
+            rev=0,
+            items=[],
+            data={"checks": {}, "issues": []},
+        )
+
+        ModifyService.modify_session(
+            session_key=session.session_key,
+            channel_ref=channel.ref,
+            ops=[{"op": "add_line", "sku": "LATTE", "qty": 2, "unit_price_q": 1000}],
+            channel_config={"rules": {"checks": ["stock"]}},
+        )
+
         d = Directive.objects.filter(topic="stock.hold").order_by("-id").first()
         self.assertIsNotNone(d)
-        self.assertEqual(d.payload["session_key"], s["session_key"])
+        self.assertEqual(d.payload["session_key"], session.session_key)
         self.assertEqual(d.payload["channel_ref"], "pos")
         self.assertEqual(d.payload["rev"], 1)
         self.assertIn("items", d.payload)
@@ -158,30 +173,6 @@ class SessionApiTests(TestCase):
         )
         self.assertEqual(r.status_code, 400, r.data)
         self.assertEqual(r.data["code"], "missing_unit_price_q")
-
-    def test_commit_requires_fresh_required_checks(self) -> None:
-        c = self._mk_channel(ref="pos", config={"rules": {"checks": ["stock"]}})
-        sess = Session.objects.create(
-            session_key="SESS-C1",
-            channel=c,
-            state="open",
-            pricing_policy=c.pricing_policy,
-            edit_policy=c.edit_policy,
-            rev=0,
-            items=[{"line_id": "L-1", "sku": "LATTE", "qty": 1, "unit_price_q": 1000, "meta": {}}],
-            data={"checks": {}, "issues": []},
-        )
-
-        r1 = self.client.post(f"/api/sessions/{sess.session_key}/commit", {"channel_ref": "pos"}, format="json")
-        self.assertEqual(r1.status_code, 400, r1.data)
-        self.assertEqual(r1.data["code"], "missing_check")
-
-        # stale check
-        sess.data["checks"]["stock"] = {"rev": -1}
-        sess.save(update_fields=["data"])
-        r2 = self.client.post(f"/api/sessions/{sess.session_key}/commit", {"channel_ref": "pos"}, format="json")
-        self.assertEqual(r2.status_code, 400, r2.data)
-        self.assertEqual(r2.data["code"], "stale_check")
 
     def test_commit_blocks_on_blocking_issues(self) -> None:
         c = self._mk_channel(ref="pos")

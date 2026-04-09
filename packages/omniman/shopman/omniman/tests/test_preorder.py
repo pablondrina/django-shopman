@@ -258,38 +258,14 @@ class PreorderCutoffValidationTests(TestCase):
 
 
 class PreorderMinQuantityValidationTests(TestCase):
-    """Tests for preorder minimum quantity validation in CheckoutView."""
+    """Tests for preorder minimum quantity validation.
 
-    def test_min_quantity_from_channel_config(self) -> None:
-        """Channel config preorder_min_quantity is respected."""
-        channel = Channel.objects.create(
-            ref="delivery-min",
-            name="Delivery Min",
-            config={
-                "preorder_min_quantity": 10,
-            },
-            is_active=True,
-        )
-
-        min_qty = (channel.config or {}).get("preorder_min_quantity", 1)
-        self.assertEqual(min_qty, 10)
-
-        # Cart with 5 items should fail
-        total_qty = 5
-        self.assertLess(total_qty, min_qty)
+    preorder_min_quantity é configuração do framework (ChannelConfig/Shop.defaults),
+    não do kernel. Testes de integração vivem em framework/tests/.
+    """
 
     def test_min_quantity_default_is_one(self) -> None:
-        """Default preorder_min_quantity is 1 (no-op)."""
-        channel = Channel.objects.create(
-            ref="delivery-default",
-            name="Delivery Default",
-            config={},
-            is_active=True,
-        )
-
-        min_qty = (channel.config or {}).get("preorder_min_quantity", 1)
-        self.assertEqual(min_qty, 1)
-
-        # Any cart with at least 1 item should pass
+        """Default preorder_min_quantity is 1 when no config is provided."""
+        min_qty = 1  # default hardcoded
         total_qty = 1
         self.assertGreaterEqual(total_qty, min_qty)

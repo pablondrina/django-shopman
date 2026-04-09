@@ -1,5 +1,6 @@
 """Shopman models — Shop, rules, alerts, KDS, closing, delivery, cash register."""
 
+from ._channel_config import ChannelConfigRecord
 from .alerts import OperatorAlert
 from .cash_register import CashMovement, CashRegisterSession
 from .closing import DayClosing
@@ -21,4 +22,5 @@ __all__ = [
     "DeliveryZone",
     "CashRegisterSession",
     "CashMovement",
+    "ChannelConfigRecord",
 ]

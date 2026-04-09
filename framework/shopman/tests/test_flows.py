@@ -42,8 +42,7 @@ def _make_order(**overrides):
     channel = MagicMock()
     channel.ref = overrides.get("channel_ref", "web")
     channel.name = "Web"
-    channel.flow = overrides.get("channel_flow", "base")
-    channel.config = overrides.get("channel_config", {})
+    channel.kind = overrides.get("channel_flow", "base")
     order.channel = channel
 
     return order
@@ -124,11 +123,12 @@ class TestDispatch:
         dispatch(order, "on_nonexistent_phase")
 
     @patch("shopman.flows.notification")
-    def test_dispatch_exception_does_not_propagate(self, mock_notification):
+    def test_dispatch_exception_propagates(self, mock_notification):
         mock_notification.send.side_effect = RuntimeError("boom")
         order = _make_order(channel_flow="base")
-        # Should not raise — dispatch catches exceptions
-        dispatch(order, "on_dispatched")
+        # Exceptions propagate — orders stuck in inconsistent state are worse than visible errors
+        with pytest.raises(RuntimeError, match="boom"):
+            dispatch(order, "on_dispatched")
 
 
 # ── Hierarchy ──
@@ -649,12 +649,11 @@ class TestChannelConfigIntegration:
         return Channel.objects.create(
             ref=f"test-{flow}",
             name=f"Test {flow}",
-            flow=flow,
-            config=config or {},
+            kind=flow,
         )
 
     def test_get_flow_uses_channel_flow_field(self):
-        """get_flow() reads from Channel.flow field, not channel.config."""
+        """get_flow() reads from Channel.kind field."""
         channel = self._make_real_channel(flow="web")
         order = MagicMock()
         order.channel = channel
@@ -674,11 +673,10 @@ class TestChannelConfigIntegration:
     def test_handle_confirmation_uses_effective_config(
         self, mock_stock, mock_customer, mock_loyalty,
     ):
-        """BaseFlow.handle_confirmation reads mode via ChannelConfig.effective()."""
-        channel = self._make_real_channel(
-            flow="base",
-            config={"confirmation": {"mode": "immediate"}},
-        )
+        """BaseFlow.handle_confirmation reads mode via ChannelConfig.for_channel().
+        Default mode is 'immediate' → auto-confirms.
+        """
+        channel = self._make_real_channel(flow="base")
         order = MagicMock()
         order.ref = "ORD-CFG-1"
         order.snapshot = {"items": []}
@@ -696,13 +694,19 @@ class TestChannelConfigIntegration:
     def test_optimistic_uses_timeout_minutes_from_schema(
         self, mock_stock, mock_customer, mock_loyalty,
     ):
-        """Optimistic mode honors timeout_minutes from ChannelConfig.Confirmation."""
-        channel = self._make_real_channel(
-            flow="base",
-            config={
-                "confirmation": {"mode": "optimistic", "timeout_minutes": 7},
-            },
+        """Optimistic mode honors timeout_minutes from ChannelConfig.Confirmation.
+        Config is set via Shop.defaults (channel-level override comes in WP-F1).
+        """
+        from shopman.models import Shop
+        Shop.objects.get_or_create(
+            name="Test Shop",
+            defaults={"defaults": {"confirmation": {"mode": "optimistic", "timeout_minutes": 7}}},
         )
+        shop = Shop.load()
+        shop.defaults = {"confirmation": {"mode": "optimistic", "timeout_minutes": 7}}
+        shop.save()
+
+        channel = self._make_real_channel(flow="base")
         order = MagicMock()
         order.ref = "ORD-CFG-2"
         order.snapshot = {"items": []}
@@ -736,7 +740,7 @@ class TestChannelConfigIntegration:
             defaults={"confirmation": {"mode": "immediate"}},
         )
 
-        channel = self._make_real_channel(flow="base", config={})
+        channel = self._make_real_channel(flow="base")
         order = MagicMock()
         order.ref = "ORD-CFG-3"
         order.snapshot = {"items": []}
@@ -751,19 +755,18 @@ class TestChannelConfigIntegration:
     @patch("shopman.flows.loyalty")
     @patch("shopman.flows.customer")
     @patch("shopman.flows.stock")
-    def test_channel_overrides_shop_defaults(
+    def test_shop_defaults_override_system_defaults(
         self, mock_stock, mock_customer, mock_loyalty,
     ):
-        """Channel.config overrides shop.defaults in the cascade."""
+        """Shop.defaults override system defaults in the cascade.
+        Note: channel-level override of shop defaults is pending WP-F1.
+        """
         from shopman.models import Shop
         shop = Shop.load()
-        shop.defaults = {"confirmation": {"mode": "immediate"}}
+        shop.defaults = {"confirmation": {"mode": "manual"}}
         shop.save()
 
-        channel = self._make_real_channel(
-            flow="base",
-            config={"confirmation": {"mode": "manual"}},
-        )
+        channel = self._make_real_channel(flow="base")
         order = MagicMock()
         order.ref = "ORD-CFG-4"
         order.snapshot = {"items": []}

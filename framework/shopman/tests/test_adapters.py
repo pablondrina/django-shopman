@@ -153,29 +153,6 @@ class TestGetAdapter:
         assert adapter is not None
         assert adapter.__name__ == "shopman.adapters.notification_console"
 
-    def test_channel_override(self):
-        from shopman.adapters import get_adapter
-
-        channel = MagicMock()
-        channel.config = {
-            "notification_adapter": "shopman.adapters.notification_console",
-        }
-
-        adapter = get_adapter("notification", channel=channel)
-        assert adapter is not None
-        assert adapter.__name__ == "shopman.adapters.notification_console"
-
-    def test_channel_override_takes_precedence(self):
-        from shopman.adapters import get_adapter
-
-        channel = MagicMock()
-        channel.config = {
-            "payment_adapter": "shopman.adapters.payment_mock",
-        }
-
-        adapter = get_adapter("payment", method="pix", channel=channel)
-        assert adapter.__name__ == "shopman.adapters.payment_mock"
-
     def test_counter_method_returns_none(self):
         from shopman.adapters import get_adapter
 

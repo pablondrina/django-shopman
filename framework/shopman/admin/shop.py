@@ -14,7 +14,7 @@ from unfold.widgets import UnfoldAdminColorInputWidget
 
 from shopman.admin.widgets import FontPreviewWidget
 from shopman.colors import oklch_to_hex
-from shopman.models import DeliveryZone, NotificationTemplate, Shop
+from shopman.models import DeliveryZone, NotificationTemplate, Shop, ChannelConfigRecord
 
 
 class DeliveryZoneInline(admin.TabularInline):
@@ -156,6 +156,14 @@ class ShopAdmin(ModelAdmin):
             "fields": ("defaults",),
             "classes": ("collapse",),
         }),
+        ("Integrações", {
+            "fields": ("integrations",),
+            "classes": ("collapse",),
+            "description": (
+                "Seleção de adapters Admin-configurável. Sobreescreve settings.py. "
+                "Exemplo: {\"payment\": {\"pix\": \"shopman.adapters.payment_efi\"}}."
+            ),
+        }),
     )
 
     @admin.display(description="Preview da paleta (Oxbow → RGB)")
@@ -287,3 +295,18 @@ class NotificationTemplateAdmin(ModelAdmin):
     list_editable = ("is_active",)
     fields = ("event", "subject", "body", "is_active")
     readonly_fields = ("event",)
+
+
+
+@admin.register(ChannelConfigRecord)
+class ChannelConfigRecordAdmin(ModelAdmin):
+    """Admin para overrides de ChannelConfig por canal.
+
+    Cada registro sobreescreve a config padrão da loja (Shop.defaults) para um canal específico.
+    Cascata completa: canal (este model) ← loja (Shop.defaults) ← defaults hardcoded.
+    """
+
+    list_display = ("channel_ref", "updated_at")
+    search_fields = ("channel_ref",)
+    readonly_fields = ("updated_at",)
+    fields = ("channel_ref", "data", "updated_at")

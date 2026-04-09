@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 
 from shopman.omniman.models import Directive
-from shopman.topics import FULFILLMENT_CREATE, FULFILLMENT_UPDATE, NOTIFICATION_SEND
+from shopman.directives import FULFILLMENT_CREATE, FULFILLMENT_UPDATE, NOTIFICATION_SEND
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +185,7 @@ class FulfillmentUpdateHandler:
         )
 
         # Auto-sync com Order
-        config = ChannelConfig.effective(order.channel)
+        config = ChannelConfig.for_channel(order.channel)
         if config.flow.auto_sync_fulfillment:
             self._sync_order_status(order, new_status)
 

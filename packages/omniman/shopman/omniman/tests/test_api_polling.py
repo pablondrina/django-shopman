@@ -23,7 +23,6 @@ class OrderStreamViewTests(TestCase):
         self.channel = Channel.objects.create(
             ref="sse-test",
             name="SSE Test Channel",
-            config={},
         )
         # Create staff user for authentication
         self.staff_user = User.objects.create_user(

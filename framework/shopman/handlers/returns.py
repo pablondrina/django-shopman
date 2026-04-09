@@ -14,7 +14,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from shopman.omniman.models import Directive, Order
-from shopman.topics import RETURN_PROCESS
+from shopman.directives import RETURN_PROCESS
 
 logger = logging.getLogger(__name__)
 

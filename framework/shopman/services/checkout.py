@@ -39,7 +39,11 @@ def process(session_key: str, channel_ref: str, data: dict, *, idempotency_key: 
     """
     ctx = ctx or {}
 
-    # 1. Apply checkout data to the session
+    # 1. Resolve channel config with cascade (canal←loja←defaults)
+    channel = Channel.objects.get(ref=channel_ref)
+    resolved_config = asdict(ChannelConfig.for_channel(channel))
+
+    # 2. Apply checkout data to the session
     ops = _build_ops_from_data(data)
     if ops:
         ModifyService.modify_session(
@@ -47,14 +51,8 @@ def process(session_key: str, channel_ref: str, data: dict, *, idempotency_key: 
             channel_ref=channel_ref,
             ops=ops,
             ctx=ctx,
+            channel_config=resolved_config,
         )
-
-    # 2. Resolve channel config with cascade (canal←loja←defaults) for CommitService
-    try:
-        channel = Channel.objects.get(ref=channel_ref)
-        resolved_config = asdict(ChannelConfig.effective(channel))
-    except Exception:
-        resolved_config = None
 
     # 3. Commit
     result = CommitService.commit(
@@ -65,7 +63,7 @@ def process(session_key: str, channel_ref: str, data: dict, *, idempotency_key: 
         channel_config=resolved_config,
     )
 
-    logger.info("checkout.process: order %s committed", result.get("order_ref"))
+    logger.info("checkout.process: order %s committed for channel %s", result.get("order_ref"), channel_ref)
     return result
 
 

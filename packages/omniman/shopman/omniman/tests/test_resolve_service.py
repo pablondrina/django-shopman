@@ -28,9 +28,6 @@ class ResolveServiceTests(TestCase):
         self.channel = Channel.objects.create(
             ref="pos",
             name="POS",
-            config={
-                "rules": {"checks": ["stock"]},
-            },
         )
 
     def tearDown(self) -> None:
@@ -106,6 +103,7 @@ class ResolveServiceTests(TestCase):
             issue_id="ISS-1",
             action_id="ACT-SET",
             ctx={"actor": "test"},
+            channel_config={"rules": {"checks": ["stock"]}},
         )
 
         directive = Directive.objects.filter(topic="stock.hold").order_by("-id").first()

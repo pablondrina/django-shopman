@@ -16,7 +16,6 @@ def _make_order(ref="FAIL-001", total_q=1000):
             "name": "Balcão",
             "pricing_policy": "fixed",
             "edit_policy": "open",
-            "config": {},
             "is_active": True,
         },
     )
@@ -43,8 +42,11 @@ class PaymentInitiateFailureTests(TestCase):
     def setUp(self):
         _make_shop()
 
-    def test_adapter_exception_sets_pending_retry(self) -> None:
-        """create_intent() raising sets payment.status = 'pending_retry'."""
+    def test_adapter_exception_records_error(self) -> None:
+        """create_intent() raising records error in payment data.
+
+        Status is NOT written — Payman (PaymentService) is the canonical status source.
+        """
         from shopman.services import payment as payment_service
 
         order = _make_order(ref="FAIL-001")
@@ -57,7 +59,7 @@ class PaymentInitiateFailureTests(TestCase):
 
         order.refresh_from_db()
         payment = order.data.get("payment", {})
-        self.assertEqual(payment.get("status"), "pending_retry")
+        self.assertNotIn("status", payment)
         self.assertIn("error", payment)
         self.assertIn("Gateway timeout", payment["error"])
 
@@ -139,7 +141,6 @@ class StockCheckDegradationTests(TestCase):
                 "name": "Balcão",
                 "pricing_policy": "fixed",
                 "edit_policy": "open",
-                "config": {},
                 "is_active": True,
             },
         )

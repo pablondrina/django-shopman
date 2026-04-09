@@ -359,8 +359,7 @@ class TestCartReconcileIntegration:
                 "name": "Web",
                 "pricing_policy": "internal",
                 "edit_policy": "open",
-                "flow": "web",
-                "config": {},
+                "kind": "web",
             },
         )
         session = Session.objects.create(

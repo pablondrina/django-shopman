@@ -57,36 +57,34 @@ def flow(name: str):
 
 
 def get_flow(order) -> BaseFlow:
-    """Resolve the Flow class for an order based on `channel.flow`.
+    """Resolve a classe de Flow para um pedido a partir de `channel.kind`.
 
-    `channel.flow` is a CharField on the Channel model that names a class
-    registered in `_registry` via the `@flow` decorator. Orthogonal to
-    `ChannelConfig.flow` (which customizes transitions).
+    `channel.kind` é um CharField no modelo Channel que nomeia uma classe
+    registrada em `_registry` via o decorator `@flow`.
     """
-    name = getattr(order.channel, "flow", None) or "base"
+    name = getattr(order.channel, "kind", None) or "base"
     cls = _registry.get(name, BaseFlow)
     return cls()
 
 
 def _effective_config(order) -> ChannelConfig:
     """Materialize the effective ChannelConfig with cascade channel←shop←defaults."""
-    return ChannelConfig.effective(order.channel)
+    return ChannelConfig.for_channel(order.channel)
 
 
 def dispatch(order, phase: str) -> None:
-    """Resolve Flow and call the phase method."""
+    """Resolve Flow and call the phase method.
+
+    Exceptions propagate — an order stuck in an inconsistent state is worse
+    than a visible error. Callers (signal handlers) are responsible for
+    surfacing failures appropriately.
+    """
     flow_instance = get_flow(order)
     method = getattr(flow_instance, phase, None)
     if method is None:
         logger.warning("flows.dispatch: no phase %s on %s", phase, type(flow_instance).__name__)
         return
-    try:
-        method(order)
-    except Exception:
-        logger.exception(
-            "flows.dispatch: error in %s.%s for order %s",
-            type(flow_instance).__name__, phase, order.ref,
-        )
+    method(order)
 
 
 # ── BaseFlow ──

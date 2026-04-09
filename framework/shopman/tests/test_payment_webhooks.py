@@ -115,7 +115,6 @@ class WebhookTestBase(TestCase):
             name="Web",
             pricing_policy="fixed",
             edit_policy="open",
-            config={},
             is_active=True,
         )
 
@@ -195,8 +194,11 @@ class StripeWebhookTests(WebhookTestBase):
         intent.refresh_from_db()
         self.assertEqual(intent.status, "captured")
 
-    def test_stripe_payment_succeeded_marks_order_payment_captured(self) -> None:
-        """payment_intent.succeeded → order.data['payment']['status'] == 'captured'."""
+    def test_stripe_payment_succeeded_captures_payman_intent(self) -> None:
+        """payment_intent.succeeded → Payman intent.status == 'captured'.
+
+        Status is NOT written to order.data["payment"] — Payman is the canonical source.
+        """
         order = _create_order_with_payment("web", "card")
         intent = _create_card_intent(order)
         event_dict = self._make_event("payment_intent.succeeded", intent.gateway_id, intent.ref)
@@ -209,8 +211,10 @@ class StripeWebhookTests(WebhookTestBase):
 
             self._post_webhook(event_dict)
 
+        intent.refresh_from_db()
+        self.assertEqual(intent.status, "captured")
         order.refresh_from_db()
-        self.assertEqual(order.data.get("payment", {}).get("status"), "captured")
+        self.assertNotIn("status", order.data.get("payment", {}))
 
     # ── Idempotency ───────────────────────────────────────────
 
@@ -338,8 +342,11 @@ class EfiPixWebhookTests(WebhookTestBase):
         intent.refresh_from_db()
         self.assertEqual(intent.status, "captured")
 
-    def test_efi_pix_payment_marks_order_captured(self) -> None:
-        """PIX notification → order.data['payment']['status'] == 'captured'."""
+    def test_efi_pix_payment_records_e2e_id(self) -> None:
+        """PIX notification → order.data['payment']['e2e_id'] recorded, Payman intent captured.
+
+        Status is NOT written to order.data["payment"] — Payman is the canonical source.
+        """
         order = _create_order_with_payment("web", "pix")
         intent = _create_pix_intent(order)
 
@@ -355,7 +362,10 @@ class EfiPixWebhookTests(WebhookTestBase):
         self._post(payload)
 
         order.refresh_from_db()
-        self.assertEqual(order.data.get("payment", {}).get("status"), "captured")
+        self.assertEqual(order.data.get("payment", {}).get("e2e_id"), "E9999999999")
+        self.assertNotIn("status", order.data.get("payment", {}))
+        intent.refresh_from_db()
+        self.assertEqual(intent.status, "captured")
 
     # ── Idempotency ───────────────────────────────────────────
 

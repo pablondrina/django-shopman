@@ -105,18 +105,11 @@ class StripeWebhookView(APIView):
                 return
 
         if order:
-            # Set payment status on order data
-            payment_data = order.data.get("payment", {})
-            if payment_data.get("status") != "captured":
-                payment_data["status"] = "captured"
-                order.data["payment"] = payment_data
-                order.save(update_fields=["data", "updated_at"])
-
             # Auto-transition if configured
             try:
                 if order.channel:
                     from shopman.config import ChannelConfig
-                    flow_cfg = ChannelConfig.effective(order.channel).flow
+                    flow_cfg = ChannelConfig.for_channel(order.channel).flow
                     target = (flow_cfg.auto_transitions or {}).get("on_paid")
                     if target and order.can_transition_to(target):
                         order.transition_status(target, actor="payment.webhook")

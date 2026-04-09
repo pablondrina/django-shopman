@@ -242,6 +242,23 @@ class Shop(models.Model):
         help_text="Mesmo schema do ChannelConfig. Canais herdam se não sobreescreverem.",
     )
 
+    # ── Integrações (adapter selection — Admin-configurável) ──
+    integrations = models.JSONField(
+        "integrações",
+        default=dict,
+        blank=True,
+        help_text=(
+            "Seleção de adapters por tipo. Sobreescreve settings.py. "
+            "Mesmo schema que SHOPMAN_*_ADAPTERS.\n\n"
+            "Exemplo:\n"
+            "{\n"
+            '  "payment": {"pix": "shopman.adapters.payment_efi", "card": "shopman.adapters.payment_stripe"},\n'
+            '  "notification": {"default": "shopman.adapters.notification_manychat"},\n'
+            '  "fiscal": "shopman.adapters.fiscal_nfce"\n'
+            "}"
+        ),
+    )
+
     class Meta:
         verbose_name = "loja"
         verbose_name_plural = "loja"

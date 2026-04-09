@@ -55,7 +55,7 @@ def on_production_voided(sender, product_ref, date, action, work_order, **kwargs
                 (session.data or {}).get("checks", {}).get("stock", {}).get("result", {})
             )
             if check_result.get("has_planned_holds"):
-                from shopman.topics import NOTIFICATION_SEND
+                from shopman.directives import NOTIFICATION_SEND
 
                 Directive.objects.create(
                     topic=NOTIFICATION_SEND,

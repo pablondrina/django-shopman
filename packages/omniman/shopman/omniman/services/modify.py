@@ -46,6 +46,7 @@ class ModifyService:
         channel_ref: str,
         ops: list[dict],
         ctx: dict | None = None,
+        channel_config: dict | None = None,
     ) -> Session:
         ctx = ctx or {}
 
@@ -101,7 +102,7 @@ class ModifyService:
         session.data = data
 
         # 3. Run modifiers (filtered by channel config)
-        rules = (channel.config or {}).get("rules", {})
+        rules = (channel_config or {}).get("rules", {})
         allowed_modifiers = rules.get("modifiers")  # None = run all, [] = none
 
         # Infrastructure modifiers (pricing.*) always run

@@ -130,32 +130,6 @@ class IFoodChannelFlowTests(TestCase):
         self.channel = Channel.objects.create(
             ref="ifood",
             name="iFood",
-            config={
-                "pricing_policy": "external",
-                "flow": {
-                    "transitions": {
-                        "new": ["confirmed", "cancelled"],
-                        "confirmed": ["preparing", "cancelled"],
-                        "preparing": ["ready", "cancelled"],
-                        "ready": ["dispatched"],
-                        "dispatched": ["delivered", "returned"],
-                        "delivered": ["completed", "returned"],
-                        "completed": [],
-                        "returned": [],
-                    },
-                    "terminal_statuses": ["completed", "cancelled", "returned"],
-                    "auto_transitions": {
-                        "on_create": "confirmed",
-                    },
-                },
-                "status_labels": {
-                    "new": "Recebido",
-                    "confirmed": "Aceito",
-                    "preparing": "Em Preparo",
-                    "ready": "Pronto p/ Retirada",
-                    "dispatched": "Saiu p/ Entrega",
-                },
-            },
         )
 
     def test_ifood_happy_path_delivery(self) -> None:
@@ -279,23 +253,6 @@ class EcommerceChannelFlowTests(TestCase):
         self.channel = Channel.objects.create(
             ref="ecommerce",
             name="Loja Virtual",
-            config={
-                "pricing_policy": "external",
-                "flow": {
-                    "transitions": {
-                        "new": ["confirmed", "cancelled"],
-                        "confirmed": ["preparing", "cancelled"],
-                        "preparing": ["ready", "cancelled"],
-                        "ready": ["dispatched", "completed"],  # pickup ou delivery
-                        "dispatched": ["delivered", "returned"],
-                        "delivered": ["completed", "returned"],
-                        "completed": [],
-                        "cancelled": [],
-                        "returned": [],
-                    },
-                    "terminal_statuses": ["completed", "cancelled", "returned"],
-                },
-            },
         )
 
     def test_ecommerce_delivery_flow(self) -> None:
@@ -350,40 +307,39 @@ class EcommerceChannelFlowTests(TestCase):
 
 
 class PDVChannelFlowTests(TestCase):
-    """Testes de fluxo realista para canal PDV (balcão)."""
+    """Testes de fluxo realista para canal PDV (balcão).
+
+    PDV usa fluxo simplificado: new → confirmed → completed (sem delivery states).
+    Lifecycle config é baked no order.snapshot["lifecycle"] no momento do commit
+    (via ChannelConfig.flow.transitions no framework). Aqui usamos diretamente.
+    """
+
+    _PDV_TRANSITIONS = {
+        Order.STATUS_NEW: [Order.STATUS_CONFIRMED, Order.STATUS_CANCELLED],
+        Order.STATUS_CONFIRMED: [Order.STATUS_COMPLETED, Order.STATUS_CANCELLED],
+        Order.STATUS_COMPLETED: [],
+        Order.STATUS_CANCELLED: [],
+    }
 
     def setUp(self) -> None:
         self.channel = Channel.objects.create(
             ref="pdv",
             name="Balcão",
-            config={
-                "pricing_policy": "internal",
-                "flow": {
-                    "transitions": {
-                        "new": ["confirmed", "cancelled"],
-                        "confirmed": ["completed", "cancelled"],
-                        "completed": [],
-                        "cancelled": [],
-                    },
-                    "terminal_statuses": ["completed", "cancelled"],
-                },
-                "terminology": {
-                    "session": "Atendimento",
-                    "order": "Venda",
-                },
-            },
+        )
+
+    def _mk_order(self, ref, total_q):
+        return Order.objects.create(
+            ref=ref,
+            channel=self.channel,
+            status=Order.STATUS_NEW,
+            total_q=total_q,
+            snapshot={"lifecycle": {"transitions": self._PDV_TRANSITIONS}},
         )
 
     def test_pdv_quick_sale(self) -> None:
-        """Venda rápida no balcão."""
-        order = Order.objects.create(
-            ref="PDV-001",
-            channel=self.channel,
-            status=Order.STATUS_NEW,
-            total_q=2500,
-        )
+        """Venda rápida no balcão: new → confirmed → completed."""
+        order = self._mk_order("PDV-001", 2500)
 
-        # Fluxo simplificado: new → confirmed → completed
         order.transition_status(Order.STATUS_CONFIRMED, actor="cashier")
         order.transition_status(Order.STATUS_COMPLETED, actor="cashier")
 
@@ -393,28 +349,17 @@ class PDVChannelFlowTests(TestCase):
 
     def test_pdv_cancelled_sale(self) -> None:
         """Venda cancelada no balcão."""
-        order = Order.objects.create(
-            ref="PDV-002",
-            channel=self.channel,
-            status=Order.STATUS_NEW,
-            total_q=1500,
-        )
+        order = self._mk_order("PDV-002", 1500)
 
         order.transition_status(Order.STATUS_CANCELLED, actor="cashier")
         self.assertEqual(order.status, Order.STATUS_CANCELLED)
 
     def test_pdv_cannot_access_delivery_states(self) -> None:
         """PDV não tem acesso a estados de delivery."""
-        order = Order.objects.create(
-            ref="PDV-003",
-            channel=self.channel,
-            status=Order.STATUS_NEW,
-            total_q=3000,
-        )
-
+        order = self._mk_order("PDV-003", 3000)
         order.transition_status(Order.STATUS_CONFIRMED, actor="cashier")
 
-        # Não pode ir para processing, ready, dispatched, etc.
+        # Não pode ir para preparing — PDV tem fluxo simplificado
         with self.assertRaises(InvalidTransition):
             order.transition_status(Order.STATUS_PREPARING, actor="test")
 
@@ -623,7 +568,6 @@ class EdgeCaseTests(TestCase):
         empty_channel = Channel.objects.create(
             ref="empty",
             name="Empty Config",
-            config={},
         )
         order = Order.objects.create(
             ref="EDGE-006",
@@ -641,7 +585,6 @@ class EdgeCaseTests(TestCase):
         empty_config_channel = Channel.objects.create(
             ref="empty_config",
             name="Empty Config",
-            config={},  # Dict vazio é o default real
         )
 
         order = Order.objects.create(

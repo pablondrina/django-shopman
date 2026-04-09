@@ -68,7 +68,6 @@ class PosCancelLastTests(TestCase):
             name="Balcão",
             pricing_policy="fixed",
             edit_policy="open",
-            config={},
             is_active=True,
         )
         self.client.force_login(self.staff)
@@ -143,7 +142,6 @@ class PosCloseGranularErrorTests(TestCase):
             name="Balcão",
             pricing_policy="fixed",
             edit_policy="open",
-            config={},
             is_active=True,
         )
         self.client.force_login(self.staff)

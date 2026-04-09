@@ -132,14 +132,14 @@ class Order(models.Model):
     # ------------------------------------------------------------------ status
 
     def get_transitions(self) -> dict[str, list[str]]:
-        """Retorna o mapa de transições do canal ou o padrão."""
-        flow = (self.channel.config or {}).get("flow", {})
-        return flow.get("transitions") or self.DEFAULT_TRANSITIONS
+        """Retorna o mapa de transições baked no snapshot ou o padrão."""
+        lifecycle = (self.snapshot or {}).get("lifecycle", {})
+        return lifecycle.get("transitions") or self.DEFAULT_TRANSITIONS
 
     def get_terminal_statuses(self) -> list[str]:
-        """Retorna os status terminais do canal ou o padrão."""
-        flow = (self.channel.config or {}).get("flow", {})
-        return flow.get("terminal_statuses") or self.TERMINAL_STATUSES
+        """Retorna os status terminais baked no snapshot ou o padrão."""
+        lifecycle = (self.snapshot or {}).get("lifecycle", {})
+        return lifecycle.get("terminal_statuses") or self.TERMINAL_STATUSES
 
     def get_allowed_transitions(self) -> list[str]:
         """Retorna os próximos status válidos a partir do status atual."""

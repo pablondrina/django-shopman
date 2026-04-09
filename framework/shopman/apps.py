@@ -2,10 +2,10 @@
 Django AppConfig for the Shopman orchestrator.
 
 Wiring:
-  1. Core signal order_changed → flows.dispatch()
-  2. Core signal production_changed → production_flows.dispatch_production()
-  3. Handler/modifier/check registration via shopman.setup
-  4. Stock signals (Core ↔ Core bridge)
+  1. Handler/modifier/validator registration via shopman.handlers.register_all()
+  2. Rules engine boot + cache invalidation signal
+  3. Core signal order_changed → flows.dispatch()
+  4. Core signal production_changed → production_flows.dispatch_production()
 """
 
 from __future__ import annotations
@@ -23,63 +23,44 @@ class ShopmanConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
 
     def ready(self):
-        # 1. Register handlers, modifiers, checks via channels.setup
-        # (temporary — these will be migrated to shopman/ in R8)
+        # 1. Register handlers, modifiers, validators
         self._register_handlers()
 
-        # 2. Register active validator rules from RuleConfig DB
+        # 2. Boot rules engine + connect cache invalidation
         self._register_rules()
 
-        # 3. Connect order_changed → flows.dispatch (NEW — replaces channels.hooks)
+        # 3. Connect order_changed → flows.dispatch
         self._connect_flow_signal()
 
-        # 4. Connect production_changed → production flows (WP-S5)
+        # 4. Connect production_changed → production flows
         self._connect_production_flow_signal()
 
     def _register_handlers(self):
-        """Register all directive handlers, modifiers, checks, and stock signals.
+        """Register all directive handlers, modifiers, validators, and stock signals.
 
-        Uses channels.setup.register_all() which registers:
-        - Stock handlers (StockHoldHandler, StockCommitHandler)
-        - Payment handlers (Pix, Card, Capture, Refund, Timeout)
-        - Notification handler + backends
-        - Confirmation timeout handler
-        - Customer ensure handler
-        - Fiscal handlers (NFCe emit/cancel)
-        - Accounting handler
-        - Return handler
-        - Fulfillment handlers
-        - Loyalty handler
-        - Checkout defaults handler
-        - Pricing modifiers (Item, D1, Discount, SessionTotal, Employee, HappyHour)
-        - Stock check + validator
-        - Stock signals (holds_materialized, production_changed, craftsman→stockman)
+        Required components raise on failure.
+        Optional components are silent when not configured; fatal when configured-but-wrong.
+        See shopman.handlers.ALL_HANDLERS for the complete list.
         """
-        try:
-            from shopman.setup import register_all
-            register_all()
-            logger.info("ShopmanConfig: handlers registered via shopman.setup.")
-        except Exception:
-            logger.warning("ShopmanConfig: handler registration failed.", exc_info=True)
+        from shopman.handlers import register_all
+        register_all()
+        logger.info("ShopmanConfig: handlers registered.")
 
     def _register_rules(self):
-        """Register active validator rules and connect cache invalidation signal."""
-        try:
-            from django.db.models.signals import post_save
+        """Boot the rules engine and connect RuleConfig cache invalidation."""
+        from django.db.models.signals import post_save
 
-            from shopman.models import RuleConfig
-            from shopman.rules.engine import invalidate_rules_cache, register_active_rules
+        from shopman.models import RuleConfig
+        from shopman.rules.engine import invalidate_rules_cache, register_active_rules
 
-            register_active_rules()
+        register_active_rules()
 
-            post_save.connect(
-                invalidate_rules_cache,
-                sender=RuleConfig,
-                dispatch_uid="shopman.rules.invalidate_cache",
-            )
-            logger.info("ShopmanConfig: rules engine booted.")
-        except Exception:
-            logger.warning("ShopmanConfig: rules engine boot failed.", exc_info=True)
+        post_save.connect(
+            invalidate_rules_cache,
+            sender=RuleConfig,
+            dispatch_uid="shopman.rules.invalidate_cache",
+        )
+        logger.info("ShopmanConfig: rules engine booted.")
 
     def _connect_flow_signal(self):
         """Connect Core signal order_changed → flows.dispatch().

@@ -18,7 +18,7 @@ from django.conf import settings
 
 from shopman.notifications import notify
 from shopman.omniman.models import Directive
-from shopman.topics import NOTIFICATION_SEND
+from shopman.directives import NOTIFICATION_SEND
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +174,7 @@ class NotificationSendHandler:
         """Resolve the ordered list of backends to try via ChannelConfig cascade."""
         from shopman.config import ChannelConfig
 
-        notifications = ChannelConfig.effective(order.channel).notifications
+        notifications = ChannelConfig.for_channel(order.channel).notifications
         backend = notifications.backend or "manychat"
         chain = notifications.fallback_chain or []
         return [backend] + [b for b in chain if b != backend]

@@ -145,21 +145,31 @@ class ChannelConfig:
     # ── Cascata ──
 
     @classmethod
-    def effective(cls, channel) -> ChannelConfig:
+    def for_channel(cls, channel) -> "ChannelConfig":
         """
-        Configuração efetiva: canal ← loja ← defaults.
+        Config resolvido para este canal: canal ← loja ← defaults.
 
-        Chave ausente no override = herda.
-        Chave presente (mesmo null) = sobreescreve.
+        Cascata completa:
+          1. Defaults hardcoded (ChannelConfig())
+          2. Shop.defaults (nível loja, Admin-configurável)
+          3. ChannelConfigRecord.data para channel.ref (nível canal, Admin-configurável)
         """
-        from shopman.models import Shop
+        from shopman.models import Shop, ChannelConfigRecord
 
         base = cls.defaults()
+
+        # Nível loja
         shop = Shop.load()
         if shop and shop.defaults:
             base = deep_merge(base, shop.defaults)
-        if channel.config:
-            base = deep_merge(base, channel.config)
+
+        # Nível canal
+        channel_ref = getattr(channel, "ref", None)
+        if channel_ref:
+            record = ChannelConfigRecord.objects.filter(channel_ref=channel_ref).first()
+            if record and record.data:
+                base = deep_merge(base, record.data)
+
         return cls.from_dict(base)
 
     # ── Validação ──

@@ -121,8 +121,7 @@ class MockPaymentConfirmView(View):
                     extra={"intent_ref": intent_ref, "order_ref": ref},
                 )
 
-        # Mark payment as captured in order data
-        payment["status"] = "captured"
+        # Record mock capture timestamp — Payman (PaymentService) is the canonical status source
         payment["captured_at"] = timezone.now().isoformat()
         order.data["payment"] = payment
         order.save(update_fields=["data", "updated_at"])

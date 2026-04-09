@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 
 from shopman.omniman.models import Directive
-from shopman.topics import LOYALTY_EARN, LOYALTY_REDEEM
+from shopman.directives import LOYALTY_EARN, LOYALTY_REDEEM
 
 logger = logging.getLogger(__name__)
 

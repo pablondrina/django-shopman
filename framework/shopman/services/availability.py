@@ -272,8 +272,14 @@ def _sku_in_channel_listing(sku: str, channel_ref: str | None) -> "ListingItem |
     except Channel.DoesNotExist:
         return True
 
-    listing_ref = getattr(channel, "listing_ref", None)
+    listing_ref = channel.ref
     if not listing_ref:
+        return True
+
+    # Gate is only active when a Listing with this ref actually exists.
+    # Convention: listing.ref == channel.ref, but listing may not be configured.
+    from shopman.offerman.models import Listing
+    if not Listing.objects.filter(ref=listing_ref, is_active=True).exists():
         return True
 
     try:

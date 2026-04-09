@@ -35,7 +35,6 @@ class ManychatWebhookTests(TestCase):
             name="WhatsApp",
             pricing_policy="external",
             edit_policy="open",
-            config={},
             is_active=True,
         )
         self.url = "/webhook/manychat/"

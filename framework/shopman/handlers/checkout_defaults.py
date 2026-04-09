@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 
 from shopman.omniman.models import Directive
-from shopman.topics import CHECKOUT_INFER_DEFAULTS
+from shopman.directives import CHECKOUT_INFER_DEFAULTS
 
 logger = logging.getLogger(__name__)
 

@@ -62,7 +62,6 @@ class ValidatorIntegrationTests(TestCase):
         self.channel = Channel.objects.create(
             ref="validator-test",
             name="Validator Test Channel",
-            config={},
         )
         self.session = Session.objects.create(
             session_key="VAL-SESS-001",
@@ -128,7 +127,6 @@ class ModifierIntegrationTests(TestCase):
         self.channel = Channel.objects.create(
             ref="modifier-test",
             name="Modifier Test Channel",
-            config={},
         )
         self.session = Session.objects.create(
             session_key="MOD-SESS-001",

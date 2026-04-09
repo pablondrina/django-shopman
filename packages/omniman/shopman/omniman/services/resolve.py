@@ -27,6 +27,7 @@ class ResolveService:
         issue_id: str,
         action_id: str,
         ctx: dict | None = None,
+        channel_config: dict | None = None,
     ) -> Session:
         ctx = ctx or {}
 
@@ -69,6 +70,7 @@ class ResolveService:
                 issue=issue,
                 action_id=action_id,
                 ctx=ctx,
+                channel_config=channel_config,
             )
         except IssueResolveError:
             raise

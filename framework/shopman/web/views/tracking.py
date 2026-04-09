@@ -85,7 +85,7 @@ def _effective_config(channel):
     """Return the effective ChannelConfig with cascade channel←shop←defaults."""
     from shopman.config import ChannelConfig
 
-    return ChannelConfig.effective(channel)
+    return ChannelConfig.for_channel(channel)
 
 
 def _build_tracking_context(order: Order) -> dict:

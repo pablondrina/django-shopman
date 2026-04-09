@@ -22,7 +22,6 @@ class CommitIdempotencyTests(TestCase):
         self.channel = Channel.objects.create(
             ref="commit-idem-test",
             name="Commit Idempotency Test",
-            config={},
         )
         self.session = Session.objects.create(
             session_key="IDEM-SESS-001",
@@ -76,7 +75,6 @@ class CommitSessionNotFoundTests(TestCase):
         self.channel = Channel.objects.create(
             ref="commit-notfound-test",
             name="Not Found Test",
-            config={},
         )
 
     def test_commit_raises_session_not_found(self) -> None:
@@ -98,7 +96,6 @@ class CommitAbandonedSessionTests(TestCase):
         self.channel = Channel.objects.create(
             ref="commit-abandoned-test",
             name="Abandoned Test",
-            config={},
         )
         self.session = Session.objects.create(
             session_key="ABANDONED-SESS-001",
@@ -127,7 +124,6 @@ class CommitAlreadyCommittedTests(TestCase):
         self.channel = Channel.objects.create(
             ref="commit-already-test",
             name="Already Committed Test",
-            config={},
         )
         self.session = Session.objects.create(
             session_key="ALREADY-SESS-001",
@@ -177,7 +173,6 @@ class CommitHoldExpiryTests(TestCase):
         self.channel = Channel.objects.create(
             ref="commit-expiry-test",
             name="Hold Expiry Test",
-            config={"rules": {"checks": ["stock"]}},
         )
 
     def test_commit_raises_for_expired_hold_in_result(self) -> None:
@@ -210,6 +205,7 @@ class CommitHoldExpiryTests(TestCase):
                 session_key=session.session_key,
                 channel_ref=self.channel.ref,
                 idempotency_key="key-expired-hold",
+                channel_config={"rules": {"checks": ["stock"]}},
             )
 
         self.assertEqual(ctx.exception.code, "hold_expired")
@@ -242,6 +238,7 @@ class CommitHoldExpiryTests(TestCase):
             session_key=session.session_key,
             channel_ref=self.channel.ref,
             idempotency_key="key-no-expiry",
+            channel_config={"rules": {"checks": ["stock"]}},
         )
 
         self.assertIn("order_ref", result)
@@ -274,6 +271,7 @@ class CommitHoldExpiryTests(TestCase):
                 session_key=session.session_key,
                 channel_ref=self.channel.ref,
                 idempotency_key="key-expired-result",
+                channel_config={"rules": {"checks": ["stock"]}},
             )
 
         self.assertEqual(ctx.exception.code, "hold_expired")

@@ -22,7 +22,6 @@ def _make_channels():
             "name": "Web",
             "pricing_policy": "fixed",
             "edit_policy": "open",
-            "config": {"payment": {"method": ["pix", "counter"]}},
             "is_active": True,
         },
     )
@@ -32,7 +31,6 @@ def _make_channels():
             "name": "Balcão",
             "pricing_policy": "fixed",
             "edit_policy": "open",
-            "config": {},
             "is_active": True,
         },
     )

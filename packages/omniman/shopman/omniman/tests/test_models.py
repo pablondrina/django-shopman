@@ -32,7 +32,6 @@ class TestChannel(TestCase):
         assert ch.pricing_policy == "internal"
         assert ch.edit_policy == "open"
         assert ch.is_active is True
-        assert ch.config == {}
 
 
 @pytest.mark.django_db

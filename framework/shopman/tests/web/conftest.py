@@ -106,7 +106,7 @@ def collection_item(collection, product):
 @pytest.fixture
 def listing(db):
     return Listing.objects.create(
-        ref="balcao", name="Balcão", is_active=True, priority=10,
+        ref="web", name="Web", is_active=True, priority=10,
     )
 
 
@@ -125,10 +125,8 @@ def channel(db):
     return Channel.objects.create(
         ref="web",
         name="Loja Online",
-        listing_ref="balcao",
         pricing_policy="external",
         edit_policy="open",
-        config={},
     )
 
 
@@ -261,8 +259,8 @@ def _ensure_listing_item(channel: Channel, product: Product, price_q: int) -> No
     /cart/add/ devolve 422 (`error_code=not_in_listing`).
     """
     listing_obj, _ = Listing.objects.get_or_create(
-        ref=channel.listing_ref,
-        defaults={"name": channel.listing_ref, "is_active": True, "priority": 10},
+        ref=channel.ref,
+        defaults={"name": channel.ref, "is_active": True, "priority": 10},
     )
     ListingItem.objects.get_or_create(
         listing=listing_obj,

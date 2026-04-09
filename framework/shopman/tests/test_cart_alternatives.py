@@ -29,7 +29,6 @@ class CartAlternativesViewTests(TestCase):
             name="Web",
             pricing_policy="fixed",
             edit_policy="open",
-            config={},
             is_active=True,
         )
         self.product = Product.objects.create(
@@ -95,7 +94,6 @@ class CartItemUnavailableFlagTests(TestCase):
             name="Web",
             pricing_policy="fixed",
             edit_policy="open",
-            config={},
             is_active=True,
         )
         self.product = Product.objects.create(

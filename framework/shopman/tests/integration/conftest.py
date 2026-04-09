@@ -196,7 +196,6 @@ def channel(db):
         name="Loja Física",
         pricing_policy="external",
         edit_policy="open",
-        config={},
     )
 
 
@@ -210,7 +209,6 @@ def ifood_channel(db):
         name="iFood",
         pricing_policy="external",
         edit_policy="locked",
-        config={},
     )
 
 

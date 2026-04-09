@@ -39,7 +39,6 @@ def _make_channel(ref="stress-test"):
             "name": "Stress Test",
             "pricing_policy": "fixed",
             "edit_policy": "open",
-            "config": {},
             "is_active": True,
         },
     )[0]
@@ -174,7 +173,6 @@ class ConcurrentOversellTests(TransactionTestCase):
                 "name": "Oversell Test",
                 "pricing_policy": "fixed",
                 "edit_policy": "open",
-                "config": {},
                 "is_active": True,
             },
         )
@@ -268,7 +266,6 @@ class ConcurrentPaymentCaptureTests(TransactionTestCase):
                 "name": "Payment Race Test",
                 "pricing_policy": "fixed",
                 "edit_policy": "open",
-                "config": {},
                 "is_active": True,
             },
         )
@@ -288,7 +285,7 @@ class ConcurrentPaymentCaptureTests(TransactionTestCase):
             total_q=1000,
             handle_type="phone",
             handle_ref="+5543999001122",
-            data={"payment": {"method": "pix", "intent_ref": "pi_race_001", "status": "pending"}},
+            data={"payment": {"method": "pix", "intent_ref": "pi_race_001"}},
         )
 
         capture_count = {"n": 0}
@@ -302,13 +299,11 @@ class ConcurrentPaymentCaptureTests(TransactionTestCase):
         mock_adapter = MagicMock()
         mock_adapter.capture.side_effect = mock_capture
 
-        results = []
-
         def do_capture():
-            with patch("shopman.services.payment.get_adapter", return_value=mock_adapter):
-                payment_service.capture(order)
-            order.refresh_from_db()
-            results.append(order.data.get("payment", {}).get("status"))
+            # _payman_intent_captured returns False (no Payman record in test DB)
+            with patch("shopman.services.payment._payman_intent_captured", return_value=False):
+                with patch("shopman.services.payment.get_adapter", return_value=mock_adapter):
+                    payment_service.capture(order)
 
         threads = [threading.Thread(target=do_capture) for _ in range(2)]
         for t in threads:
@@ -317,6 +312,8 @@ class ConcurrentPaymentCaptureTests(TransactionTestCase):
             t.join()
 
         order.refresh_from_db()
-        self.assertEqual(order.data["payment"]["status"], "captured")
-        # Exactly 1 capture call got through (the second was skipped by idempotency check)
+        # transaction_id written to order.data on successful capture
+        self.assertEqual(order.data["payment"]["transaction_id"], "txn_race_001")
+        # Status is NOT written to order.data — Payman is the canonical source
+        self.assertNotIn("status", order.data["payment"])
         self.assertGreaterEqual(capture_count["n"], 1)

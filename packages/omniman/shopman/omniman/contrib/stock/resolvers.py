@@ -29,6 +29,7 @@ class StockIssueResolver:
         issue: dict,
         action_id: str,
         ctx: dict,
+        channel_config: dict | None = None,
     ) -> Any:
         """
         Resolve issue de estoque aplicando action selecionada.
@@ -87,4 +88,5 @@ class StockIssueResolver:
             channel_ref=session.channel.ref,
             ops=ops,
             ctx=ctx,
+            channel_config=channel_config,
         )

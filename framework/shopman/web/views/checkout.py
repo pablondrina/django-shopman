@@ -474,7 +474,7 @@ class CheckoutView(View):
             channel = Channel.objects.get(ref=CHANNEL_REF)
         except Channel.DoesNotExist:
             return ["counter"]
-        return ChannelConfig.effective(channel).payment.available_methods
+        return ChannelConfig.for_channel(channel).payment.available_methods
 
     def _resolve_payment_method(self, request: HttpRequest) -> str:
         payment_methods = self._get_payment_methods()

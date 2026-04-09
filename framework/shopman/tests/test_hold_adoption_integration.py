@@ -47,9 +47,8 @@ def _setup_world(stock_qty: int = 100) -> Product:
         name="Web",
         pricing_policy="fixed",
         edit_policy="open",
-        flow="web",
+        kind="web",
         is_active=True,
-        config={},
     )
     product = Product.objects.create(
         sku=SKU,

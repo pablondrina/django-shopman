@@ -10,7 +10,7 @@ import logging
 import uuid
 
 from shopman.omniman.models import Directive
-from shopman.topics import CUSTOMER_ENSURE
+from shopman.directives import CUSTOMER_ENSURE
 
 logger = logging.getLogger(__name__)
 

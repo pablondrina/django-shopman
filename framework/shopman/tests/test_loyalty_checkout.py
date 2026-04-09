@@ -27,7 +27,6 @@ def _make_channel(ref="balcao"):
             "name": ref.capitalize(),
             "pricing_policy": "fixed",
             "edit_policy": "open",
-            "config": {},
             "is_active": True,
         },
     )[0]
@@ -184,7 +183,6 @@ class CheckoutLoyaltyContextTests(TestCase):
             name="Web",
             pricing_policy="fixed",
             edit_policy="open",
-            config={},
             is_active=True,
         )
         from shopman.offerman.models import Product

@@ -25,7 +25,6 @@ def _setup_channel():
             "name": "Web",
             "pricing_policy": "fixed",
             "edit_policy": "open",
-            "config": {},
             "is_active": True,
         },
     )[0]

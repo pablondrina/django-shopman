@@ -325,29 +325,13 @@ def availability_for_skus(
 
 
 def _get_safety_margin(channel_ref: str | None) -> int:
-    """Get safety_margin from Channel.config, default 0."""
-    if not channel_ref:
-        return 0
-    from shopman.omniman.models import Channel
-
-    try:
-        channel = Channel.objects.get(ref=channel_ref)
-        return int(channel.config.get("safety_margin", 0))
-    except Channel.DoesNotExist:
-        return 0
+    """Safety margin for channel. Defaults to 0; override via framework ChannelConfig.stock."""
+    return 0
 
 
 def _get_allowed_positions(channel_ref: str | None) -> list[str] | None:
-    """stock.allowed_positions from Channel.config. None = todas as posições."""
-    if not channel_ref:
-        return None
-    from shopman.omniman.models import Channel
-
-    try:
-        channel = Channel.objects.get(ref=channel_ref)
-        return (channel.config or {}).get("stock", {}).get("allowed_positions")
-    except Channel.DoesNotExist:
-        return None
+    """Allowed stock positions for channel. None = all positions; override via framework ChannelConfig.stock."""
+    return None
 
 
 def availability_scope_for_channel(channel_ref: str | None) -> dict[str, int | list[str] | None]:

@@ -15,12 +15,12 @@ logger = logging.getLogger(__name__)
 
 
 def _get_channel_listing_ref() -> str | None:
-    """Ref da Listagem do canal web (`Channel.listing_ref`) — catálogo e preço ofertados."""
+    """Ref da Listagem do canal web — por convenção, igual ao ref do canal."""
     try:
         from shopman.omniman.models import Channel
 
         channel = Channel.objects.filter(ref=STOREFRONT_CHANNEL_REF).first()
-        return channel.listing_ref if channel else None
+        return channel.ref if channel else None
     except Exception as e:
         logger.warning("channel_listing_ref_failed: %s", e, exc_info=True)
         return None
@@ -639,24 +639,14 @@ def _min_order_progress(subtotal_q: int, channel_ref: str = STOREFRONT_CHANNEL_R
 
         channel = Channel.objects.filter(ref=channel_ref).first()
         if channel:
-            rules = ChannelConfig.effective(channel).rules
+            rules = ChannelConfig.for_channel(channel).rules
             if "shop.minimum_order" in rules.validators:
-                # minimum_order_q is a convention-based extension key,
-                # not part of the ChannelConfig.Rules schema — read raw
-                # from channel config then shop defaults.
-                raw = (channel.config or {}).get("rules", {}).get("minimum_order_q")
-                if raw:
-                    minimum_q = int(raw)
-                else:
-                    from shopman.models import Shop
+                # minimum_order_q lido de Shop.defaults (canal-level virá via ChannelConfig em WP-F1)
+                from shopman.models import Shop
 
-                    shop = Shop.load()
-                    if shop and shop.defaults:
-                        raw = shop.defaults.get("rules", {}).get("minimum_order_q")
-                        if raw:
-                            minimum_q = int(raw)
-                    if not minimum_q:
-                        minimum_q = MINIMUM_ORDER_Q
+                shop = Shop.load()
+                raw = shop.defaults.get("rules", {}).get("minimum_order_q") if shop and shop.defaults else None
+                minimum_q = int(raw) if raw else MINIMUM_ORDER_Q
     except Exception as e:
         logger.warning("min_order_progress_failed: %s", e, exc_info=True)
 

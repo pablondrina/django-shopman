@@ -115,15 +115,19 @@ class EfiPixWebhookView(APIView):
         self._process_order_payment(order, e2e_id=e2e_id, valor=valor)
 
     def _process_order_payment(self, order: Order, *, e2e_id: str, valor: str) -> None:
-        """Update order payment data and trigger flow dispatch."""
+        """Record PIX transaction data and trigger flow dispatch."""
         from shopman.flows import dispatch
 
         payment_data = order.data.get("payment", {})
-        if payment_data.get("status") == "captured":
+
+        # Idempotency: if this e2e_id was already processed, skip.
+        # e2e_id is the end-to-end transaction ID — unique per PIX transaction.
+        if e2e_id and payment_data.get("e2e_id") == e2e_id:
             return
 
-        payment_data["status"] = "captured"
-        payment_data["e2e_id"] = e2e_id
+        # Record PIX transaction audit data (not payment status — Payman is canonical)
+        if e2e_id:
+            payment_data["e2e_id"] = e2e_id
         if valor:
             payment_data["paid_amount_q"] = int(round(float(valor) * 100))
         order.data["payment"] = payment_data
@@ -142,7 +146,7 @@ class EfiPixWebhookView(APIView):
             if not order.channel:
                 return
             from shopman.config import ChannelConfig
-            flow_cfg = ChannelConfig.effective(order.channel).flow
+            flow_cfg = ChannelConfig.for_channel(order.channel).flow
             target = (flow_cfg.auto_transitions or {}).get("on_paid")
             if target and order.can_transition_to(target):
                 order.transition_status(target, actor="payment.webhook")

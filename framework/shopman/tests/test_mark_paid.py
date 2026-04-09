@@ -55,19 +55,20 @@ class MarkPaidTests(TestCase):
             name="Balcão",
             pricing_policy="fixed",
             edit_policy="open",
-            config={},
             is_active=True,
         )
         self.client.force_login(self.staff)
 
     def test_mark_paid_happy_path(self) -> None:
-        """POST mark-paid → payment status set to captured."""
+        """POST mark-paid → marked_paid_by recorded (Payman is canonical status source)."""
         order = _create_order()
         resp = self.client.post(f"/pedidos/{order.ref}/mark-paid/")
         self.assertEqual(resp.status_code, 200)
 
         order.refresh_from_db()
-        self.assertEqual(order.data.get("payment", {}).get("status"), "captured")
+        self.assertEqual(order.data.get("payment", {}).get("marked_paid_by"), "staff_user")
+        # Status is NOT written to order.data — Payman is canonical
+        self.assertNotIn("status", order.data.get("payment", {}))
 
     def test_mark_paid_transitions_new_to_confirmed(self) -> None:
         """mark-paid on a new order → transitions to confirmed."""
@@ -82,14 +83,14 @@ class MarkPaidTests(TestCase):
         self.assertEqual(order.status, "confirmed")
 
     def test_mark_paid_idempotent(self) -> None:
-        """mark-paid twice → no error, still captured."""
+        """mark-paid twice → no error, marked_paid_by unchanged."""
         order = _create_order()
         self.client.post(f"/pedidos/{order.ref}/mark-paid/")
         resp2 = self.client.post(f"/pedidos/{order.ref}/mark-paid/")
 
         self.assertEqual(resp2.status_code, 200)
         order.refresh_from_db()
-        self.assertEqual(order.data.get("payment", {}).get("status"), "captured")
+        self.assertEqual(order.data.get("payment", {}).get("marked_paid_by"), "staff_user")
 
     def test_mark_paid_staff_only(self) -> None:
         """Non-staff user → redirected to login."""
@@ -120,6 +121,7 @@ class MarkPaidTests(TestCase):
         self.assertEqual(resp.status_code, 200)
 
         order.refresh_from_db()
-        self.assertEqual(order.data.get("payment", {}).get("status"), "captured")
+        # Operator marker is set
+        self.assertEqual(order.data.get("payment", {}).get("marked_paid_by"), "staff_user")
         # Status unchanged (already confirmed)
         self.assertEqual(order.status, "confirmed")

@@ -12,7 +12,7 @@ from datetime import datetime
 from django.utils import timezone
 
 from shopman.omniman.models import Directive
-from shopman.topics import CONFIRMATION_TIMEOUT
+from shopman.directives import CONFIRMATION_TIMEOUT
 
 logger = logging.getLogger(__name__)
 

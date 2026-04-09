@@ -373,12 +373,11 @@ class PedidoMarkPaidView(View):
         order = get_object_or_404(Order, ref=ref)
 
         payment_data = order.data.get("payment", {})
-        if payment_data.get("status") == "captured":
-            # Already marked — idempotent, return updated card
+        if payment_data.get("marked_paid_by"):
+            # Already marked paid — idempotent, return updated card
             enriched = _enrich_order(order)
             return render(request, "pedidos/partials/card.html", {"o": enriched})
 
-        payment_data["status"] = "captured"
         payment_data["marked_paid_by"] = request.user.username
         order.data["payment"] = payment_data
         order.save(update_fields=["data", "updated_at"])

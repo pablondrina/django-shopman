@@ -7,6 +7,10 @@ Adapter: get_adapter("payment", method=...) → payment_efi / payment_stripe / p
 The contract between this service and the adapters is defined in
 shopman.adapters.payment_types: adapters return PaymentIntent / PaymentResult
 dataclasses, not dicts. This service consumes them by attribute access.
+
+order.data["payment"] contract: {intent_ref, method} are the core keys.
+Display keys (qr_code, copy_paste, client_secret, expires_at, amount_q) are also stored.
+Payment status lives in Payman (canonical) — never duplicated here.
 """
 
 from __future__ import annotations
@@ -25,7 +29,7 @@ def initiate(order) -> None:
     Create a payment intent for the order.
 
     Resolves the adapter by payment method (from order.data["payment"]["method"]),
-    calls adapter.create_intent(), then saves intent_ref and client_secret
+    calls adapter.create_intent(), then saves intent_ref and display data
     in order.data["payment"].
 
     SYNC — needs the intent/QR data to show to the client.
@@ -63,22 +67,21 @@ def initiate(order) -> None:
         )
         order.data["payment"] = {
             "method": method,
-            "status": "pending_retry",
             "amount_q": amount_q,
             "error": str(exc)[:200],
         }
         order.save(update_fields=["data", "updated_at"])
         return
 
-    # Build payment data to save
+    # Build payment data to save — intent_ref + method + display fields only.
+    # Status is NOT stored here; Payman (PaymentService) is the canonical source.
     result = {
         "intent_ref": intent.intent_ref,
-        "status": intent.status,
         "amount_q": amount_q,
         "method": method,
     }
 
-    # Extract QR/client_secret data
+    # Extract QR/client_secret data for UI display
     if method == "pix":
         qr_data = _extract_qr_data(intent)
         result["qr_code"] = qr_data.get("qrcode") or qr_data.get("qr_code")
@@ -99,10 +102,10 @@ def initiate(order) -> None:
 
 def capture(order) -> None:
     """
-    Capture a previously authorized payment.
+    Capture a previously authorized payment via adapter.
 
     Reads intent_ref from order.data["payment"] and calls adapter.capture().
-    Persists result via Core PaymentService.
+    Uses Payman (PaymentService) as idempotency source.
 
     SYNC — capture must succeed.
     """
@@ -112,8 +115,8 @@ def capture(order) -> None:
     if not intent_ref:
         return
 
-    # Already captured?
-    if payment_data.get("status") in ("captured", "paid"):
+    # Idempotency via Payman — skip if already captured
+    if _payman_intent_captured(intent_ref):
         return
 
     method = payment_data.get("method", "pix")
@@ -123,7 +126,6 @@ def capture(order) -> None:
 
     result = adapter.capture(intent_ref)
     if result.success:
-        payment_data["status"] = "captured"
         payment_data["transaction_id"] = result.transaction_id
         order.data["payment"] = payment_data
         order.save(update_fields=["data", "updated_at"])
@@ -136,7 +138,7 @@ def refund(order) -> None:
     Refund payment for the order.
 
     Smart no-op: if order has no payment intent, does nothing.
-    Otherwise calls adapter.refund() and persists via Core PaymentService.
+    Uses Payman (PaymentService) as idempotency source.
 
     SYNC — direct refund.
     """
@@ -147,7 +149,8 @@ def refund(order) -> None:
         # Smart no-op: no payment to refund (counter, external, etc.)
         return
 
-    if payment_data.get("status") == "refunded":
+    # Idempotency via Payman — skip if already refunded
+    if _payman_intent_refunded(intent_ref):
         return
 
     method = payment_data.get("method", "pix")
@@ -158,10 +161,6 @@ def refund(order) -> None:
     try:
         result = adapter.refund(intent_ref, reason="order_cancelled")
         if result.success:
-            payment_data["status"] = "refunded"
-            order.data["payment"] = payment_data
-            order.save(update_fields=["data", "updated_at"])
-
             logger.info("payment.refund: refunded %s for order %s", intent_ref, order.ref)
     except Exception as exc:
         logger.warning("payment.refund: failed for order %s: %s", order.ref, exc)
@@ -182,3 +181,23 @@ def _extract_qr_data(intent: PaymentIntent) -> dict:
             pass
 
     return {}
+
+
+def _payman_intent_captured(intent_ref: str) -> bool:
+    """Return True if the Payman intent is already captured. Fails silently."""
+    try:
+        from shopman.payman import PaymentService
+        intent = PaymentService.get(intent_ref)
+        return intent.status in ("captured", "refunded")
+    except Exception:
+        return False
+
+
+def _payman_intent_refunded(intent_ref: str) -> bool:
+    """Return True if the Payman intent is already refunded. Fails silently."""
+    try:
+        from shopman.payman import PaymentService
+        intent = PaymentService.get(intent_ref)
+        return intent.status == "refunded"
+    except Exception:
+        return False

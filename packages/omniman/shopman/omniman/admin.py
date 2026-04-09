@@ -143,14 +143,14 @@ class ChannelAdmin(ModelAdmin):
     list_display = [
         "name",
         "ref",
-        "flow",
+        "kind",
         "pricing_policy_badge",
         "edit_policy_badge",
         "is_active",
         "display_order",
         "created_at",
     ]
-    list_filter = ("is_active", "flow", "pricing_policy", "edit_policy")
+    list_filter = ("is_active", "kind", "pricing_policy", "edit_policy")
     search_fields = ("ref", "name")
     ordering = ("display_order", "id")
     list_filter_submit = True
@@ -685,9 +685,10 @@ class SessionAdmin(ModelAdmin):
             "has_issues": Re-check feito mas há issues bloqueantes
             "failed": Re-check ou commit falhou por outro motivo
         """
-        channel_config = session.channel.config or {}
-        required_checks = channel_config.get("rules", {}).get("checks", [])
-        checks_config = channel_config.get("checks", {})
+        # O kernel não acessa ChannelConfig do framework.
+        # Checks específicos por canal são responsabilidade do admin do framework.
+        required_checks: list = []
+        checks_config: dict = {}
 
         # Executa todos os checks requeridos
         for check_code in required_checks:
@@ -758,9 +759,9 @@ class SessionAdmin(ModelAdmin):
             if obj:
                 extra_context["issue_actions"] = obj.data.get("issues", [])
                 manual_checks: list[dict] = []
-                channel_config = obj.channel.config or {}
-                required_checks = channel_config.get("rules", {}).get("checks", [])
-                checks_config = channel_config.get("checks", {})
+                # O kernel não acessa ChannelConfig do framework.
+                required_checks: list = []
+                checks_config: dict = {}
                 for code in required_checks:
                     check_opts = checks_config.get(code, {})
                     topic = check_opts.get("directive_topic") or f"{code}.hold"

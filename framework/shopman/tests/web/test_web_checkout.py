@@ -108,17 +108,13 @@ class TestCheckoutPost:
         assert resp.status_code == 302
 
     def test_minimum_order_warning_shows_on_checkout(
-        self, cart_session, channel, customer
+        self, cart_session, channel, customer, shop_instance
     ):
-        _login_as_customer(cart_session, customer)
-        channel.config = {
-            "rules": {
-                "validators": ["shop.minimum_order"],
-                "minimum_order_q": 5000,
-            }
-        }
-        channel.save(update_fields=["config"])
+        # Configure minimum order via Shop.defaults (channel-level config comes in WP-F1)
+        shop_instance.defaults = {"rules": {"validators": ["shop.minimum_order"], "minimum_order_q": 50000}}
+        shop_instance.save()
 
+        _login_as_customer(cart_session, customer)
         resp = cart_session.get("/checkout/")
         assert resp.status_code == 200
         content = resp.content.decode()

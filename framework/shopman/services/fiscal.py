@@ -11,7 +11,7 @@ import logging
 
 from shopman import directives
 from shopman.fiscal import fiscal_pool
-from shopman.topics import FISCAL_CANCEL_NFCE, FISCAL_EMIT_NFCE
+from shopman.directives import FISCAL_CANCEL_NFCE, FISCAL_EMIT_NFCE
 
 logger = logging.getLogger(__name__)
 

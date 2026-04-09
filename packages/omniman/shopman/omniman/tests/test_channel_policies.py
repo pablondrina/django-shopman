@@ -35,19 +35,6 @@ class IFoodPolicyTests(TestCase):
             name="iFood",
             pricing_policy="external",
             edit_policy="locked",  # Política: NÃO EDITÁVEL
-            config={
-                "flow": {
-                    "transitions": {
-                        "new": ["confirmed", "cancelled"],
-                        "confirmed": ["preparing", "cancelled"],
-                        "preparing": ["ready", "cancelled"],
-                        "ready": ["dispatched"],
-                        "dispatched": ["delivered"],
-                        "delivered": ["completed"],
-                    },
-                },
-                "source": "ifood",
-            },
         )
 
     def test_ifood_session_cannot_be_edited(self) -> None:
@@ -179,16 +166,6 @@ class PDVPolicyTests(TestCase):
             name="Balcão",
             pricing_policy="internal",
             edit_policy="open",  # Política: EDITÁVEL
-            config={
-                "flow": {
-                    "transitions": {
-                        "new": ["confirmed", "cancelled"],
-                        "confirmed": ["preparing", "cancelled"],
-                        "preparing": ["ready", "completed", "cancelled"],
-                        "ready": ["completed"],
-                    },
-                },
-            },
         )
 
     def test_pdv_session_can_be_edited(self) -> None:

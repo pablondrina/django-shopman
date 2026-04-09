@@ -1254,25 +1254,25 @@ class Command(BaseCommand):
             "stock": _remote_stock,
         }
         channels_data = [
-            # (ref, name, pricing, edit, listing_ref, flow, config)
-            ("balcao", "Balcao / PDV", "internal", "open", "balcao", "pos", _pos_config),
-            ("delivery", "Delivery Proprio", "internal", "open", "delivery", "web", _remote_config),
-            ("ifood", "iFood", "external", "locked", "ifood", "ifood", _marketplace_config),
-            ("whatsapp", "WhatsApp", "internal", "open", "web", "whatsapp", _whatsapp_config),
-            ("web", "E-commerce", "internal", "open", "web", "web", _remote_config),
+            # (ref, name, pricing, edit, kind)
+            # ChannelConfig values (confirmation, payment, stock, etc.) live in Shop.defaults
+            # or the future ChannelConfig storage model (WP-F1).
+            ("balcao", "Balcao / PDV", "internal", "open", "pos"),
+            ("delivery", "Delivery Proprio", "internal", "open", "web"),
+            ("ifood", "iFood", "external", "locked", "ifood"),
+            ("whatsapp", "WhatsApp", "internal", "open", "whatsapp"),
+            ("web", "E-commerce", "internal", "open", "web"),
         ]
 
-        for ref, name, pricing, edit, listing_ref, flow, config in channels_data:
+        for ref, name, pricing, edit, kind in channels_data:
             ch, _ = Channel.objects.update_or_create(
                 ref=ref,
                 defaults={
                     "name": name,
                     "pricing_policy": pricing,
                     "edit_policy": edit,
-                    "listing_ref": listing_ref,
-                    "flow": flow,
+                    "kind": kind,
                     "is_active": True,
-                    "config": config,
                 },
             )
             channels[ref] = ch

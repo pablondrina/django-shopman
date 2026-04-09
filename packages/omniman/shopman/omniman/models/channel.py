@@ -3,46 +3,29 @@ from __future__ import annotations
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-# Keys recognised by ChannelConfig (6 aspects + UX). Anything else triggers a validation warning.
-KNOWN_CONFIG_KEYS = frozenset({
-    "confirmation",
-    "payment",
-    "stock",
-    "notifications",
-    "rules",
-    "flow",
-    "handle_label",
-    "handle_placeholder",
-})
-
 
 class Channel(models.Model):
     """
     Canal de origem do pedido (PDV, e-commerce, iFood, etc.)
 
-    Config segue o schema do ChannelConfig dataclass (6 aspectos):
-    confirmation, payment, stock, notifications, rules, flow.
-    Use presets: pos(), remote(), marketplace() para templates comuns.
+    O `ref` é o identificador agnóstico que conecta o canal a qualquer
+    recurso do framework (ChannelConfig, Listing, etc.) por convenção de nomes.
+
+    O `kind` descreve o tipo comportamental do canal — usado pelo framework
+    para resolver a classe de Flow correspondente.
     """
 
     ref = models.CharField(_("código"), max_length=64, unique=True)
     name = models.CharField(_("nome"), max_length=128, blank=True, default="")
-    flow = models.CharField(
-        _("flow"),
+    kind = models.CharField(
+        _("tipo"),
         max_length=32,
         default="base",
         help_text=_(
-            "Nome da classe de Flow no registry (shopman.flows): "
-            "base, local, pos, totem, remote, web, whatsapp, manychat, "
-            "marketplace, ifood."
+            "Tipo comportamental do canal. Usado pelo framework para resolver "
+            "a classe de Flow: base, local, pos, totem, remote, web, whatsapp, "
+            "manychat, marketplace, ifood."
         ),
-    )
-    listing_ref = models.CharField(
-        _("listagem"),
-        max_length=50,
-        blank=True,
-        default="",
-        help_text=_("Ref da Listing que serve como catálogo deste canal"),
     )
 
     pricing_policy = models.CharField(
@@ -59,23 +42,6 @@ class Channel(models.Model):
     )
 
     display_order = models.PositiveIntegerField(_("ordem de exibição"), default=0, db_index=True)
-    config = models.JSONField(
-        _("configuração"),
-        default=dict,
-        blank=True,
-        help_text=_(
-            "ChannelConfig schema (6 aspectos + UX). Chaves: "
-            "confirmation {mode, timeout_minutes}, "
-            "payment {method, timeout_minutes}, "
-            "stock {hold_ttl_minutes, safety_margin, planned_hold_ttl_hours}, "
-            "notifications {backend, fallback, routing}, "
-            "rules {validators, modifiers, checks}, "
-            "flow {transitions, terminal_statuses, auto_transitions, auto_sync_fulfillment}, "
-            "handle_label (string — ex: 'Comanda', 'Mesa', 'CPF'), "
-            "handle_placeholder (string — ex: 'Ex: 42'). "
-            "Use presets: pos(), remote(), marketplace()."
-        ),
-    )
     is_active = models.BooleanField(_("ativo"), default=True)
 
     created_at = models.DateTimeField(_("criado em"), auto_now_add=True)
@@ -88,20 +54,3 @@ class Channel(models.Model):
 
     def __str__(self) -> str:
         return self.name or self.ref
-
-    def clean(self):
-        super().clean()
-        if self.config:
-            from django.core.exceptions import ValidationError
-
-            unknown = set(self.config.keys()) - KNOWN_CONFIG_KEYS
-            if unknown:
-                raise ValidationError(
-                    {
-                        "config": (
-                            f"Keys desconhecidas: {', '.join(sorted(unknown))}. "
-                            f"Keys válidas: {', '.join(sorted(KNOWN_CONFIG_KEYS))}. "
-                            f"Se são intencionais, ignore este aviso."
-                        ),
-                    },
-                )

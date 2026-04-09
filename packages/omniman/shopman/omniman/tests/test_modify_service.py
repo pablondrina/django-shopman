@@ -28,7 +28,6 @@ class ModifyServiceBaseTests(TestCase):
             name="Test Channel",
             pricing_policy="external",
             edit_policy="open",
-            config={},
         )
 
 
@@ -358,7 +357,6 @@ class SessionWriteServiceTests(TestCase):
         self.channel = Channel.objects.create(
             ref="check-test",
             name="Check Test",
-            config={},
         )
         self.session = Session.objects.create(
             session_key="CHECK-RESULT-SESSION",

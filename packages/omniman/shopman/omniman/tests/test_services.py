@@ -194,7 +194,6 @@ class TestCommitService(TestCase):
         channel = Channel.objects.create(
             ref="mktplace",
             name="Marketplace",
-            config={},
         )
         Session.objects.create(
             session_key="S-MKT-1",

@@ -60,7 +60,7 @@ def find(sku: str, *, qty: Decimal = Decimal("1"), channel: str | None = None, l
         from shopman.omniman.models import Channel
 
         channel_obj = Channel.objects.filter(ref=channel_ref).first()
-        listing_ref = channel_obj.listing_ref if channel_obj else None
+        listing_ref = channel_obj.ref if channel_obj else None
         if listing_ref:
             skus = [p.sku for p in candidates]
             for item in (

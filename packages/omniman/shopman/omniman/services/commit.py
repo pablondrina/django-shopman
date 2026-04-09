@@ -53,10 +53,9 @@ class CommitService:
             channel_ref: Código do canal
             idempotency_key: Chave de idempotência
             ctx: Contexto adicional
-            channel_config: Config resolvido (com cascade canal←loja←defaults). Quando
-                fornecido, substitui a leitura direta de channel.config. Callers no
-                framework devem fornecer ChannelConfig.effective(channel).asdict() para
-                herança correta de defaults da loja.
+            channel_config: Config resolvido com cascade (canal←loja←defaults).
+                Obrigatório em produção — fornecido pelo framework via ChannelConfig.for_channel().
+                Testes podem omitir para usar comportamento padrão.
 
         Returns:
             dict com order_ref e dados do pedido
@@ -206,9 +205,9 @@ class CommitService:
             raise CommitError(code="abandoned", message="Sessão foi abandonada")
 
         # Check required checks are fresh
-        # channel_config is the cascade-resolved config (canal←loja←defaults) when
-        # supplied by the framework caller; falls back to raw channel.config otherwise.
-        effective_config = channel_config if channel_config is not None else (channel.config or {})
+        # channel_config must always be supplied by the framework caller (cascade resolvido).
+        # Kernel não lê channel.config — o framework passa o config resolvido como parâmetro.
+        effective_config = channel_config or {}
         required_checks = effective_config.get("rules", {}).get("checks", [])
         checks = session.data.get("checks", {})
         now = timezone.now()
@@ -311,6 +310,7 @@ class CommitService:
                 "data": session.data,
                 "pricing": session.pricing,
                 "rev": session.rev,
+                "lifecycle": effective_config.get("lifecycle", {}),
             },
             data=order_data,
             total_q=CommitService._calculate_total(session.items),

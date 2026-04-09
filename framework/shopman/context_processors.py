@@ -48,7 +48,7 @@ def shop(request: HttpRequest) -> dict:
         from shopman.web.constants import STOREFRONT_CHANNEL_REF
 
         _channel = Channel.objects.get(ref=STOREFRONT_CHANNEL_REF)
-        _cfg = ChannelConfig.effective(_channel)
+        _cfg = ChannelConfig.for_channel(_channel)
         handle_label = _cfg.handle_label
         handle_placeholder = _cfg.handle_placeholder
     except Exception:

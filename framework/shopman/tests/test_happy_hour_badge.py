@@ -90,7 +90,6 @@ class MenuViewHappyHourContextTests(TestCase):
             name="Web",
             pricing_policy="fixed",
             edit_policy="open",
-            config={},
             is_active=True,
         )
 
