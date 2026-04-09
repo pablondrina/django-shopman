@@ -1,5 +1,5 @@
 """
-Ordering Registry — Sistema de extensibilidade via Protocols e Registry.
+Omniman Registry — Sistema de extensibilidade via Protocols e Registry.
 
 Permite registrar validators, modifiers, directive handlers e issue resolvers.
 """
@@ -103,7 +103,7 @@ class Check(Protocol):
 
 class _Registry:
     """
-    Registro central de extensões do Ordering.
+    Registro central de extensões do Omniman.
 
     Uso:
         from shopman.omniman import registry

@@ -4,7 +4,7 @@ Termos de domínio usados no código e na documentação.
 
 ---
 
-## Offering (Catálogo)
+## Offerman (Catálogo)
 
 | Termo | Definição |
 |-------|-----------|
@@ -15,7 +15,7 @@ Termos de domínio usados no código e na documentação.
 | **ListingItem** | Produto numa listing com `price_q` específico e flags de publicação/disponibilidade. |
 | **ProductComponent** | Composição de bundles — relaciona produto pai com componentes e quantidades. |
 
-## Stocking (Estoque)
+## Stockman (Estoque)
 
 | Termo | Definição |
 |-------|-----------|
@@ -25,7 +25,7 @@ Termos de domínio usados no código e na documentação.
 | **Position** | Onde o estoque existe. Tipos: PHYSICAL (depósito, vitrine), VIRTUAL (em trânsito), PROCESS (área de produção). Flag `is_saleable` indica se é posição de venda. |
 | **PositionKind** | Enum: `PHYSICAL`, `VIRTUAL`, `PROCESS`. |
 
-## Ordering (Pedidos)
+## Omniman (Pedidos)
 
 | Termo | Definição |
 |-------|-----------|
@@ -37,7 +37,7 @@ Termos de domínio usados no código e na documentação.
 | **Fulfillment** | Registro de envio/entrega de um pedido. Status: `PENDING` → `IN_PROGRESS` → `DISPATCHED` → `DELIVERED` (ou `CANCELLED`). Tem `tracking_code`, `carrier`. |
 | **Directive** | Tarefa assíncrona at-least-once. Tem `topic`, `payload`, `attempts`, status: `queued` → `running` → `done`/`failed`. Substitui Celery. |
 
-## Crafting (Produção)
+## Craftsman (Produção)
 
 | Termo | Definição |
 |-------|-----------|

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def _get_product(sku: str):
-    """Resolve SKU to Product via Offering."""
+    """Resolve SKU to Product via Offerman."""
     from shopman.offerman.models import Product
 
     return Product.objects.get(sku=sku)

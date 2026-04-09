@@ -1,5 +1,5 @@
 """
-Shopman Ordering — Headless Omnichannel Order Kernel.
+Shopman Omniman — Headless Omnichannel Order Kernel.
 
 Uso:
     from shopman.omniman.models import Channel, Session, Order
@@ -7,6 +7,6 @@ Uso:
     from shopman.omniman import registry
 """
 
-__title__ = "Shopman Ordering"
+__title__ = "Shopman Omniman"
 __version__ = "0.1.0"
 __author__ = "Pablo Valentini"

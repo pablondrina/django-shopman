@@ -60,12 +60,12 @@ instances/              Instâncias Django (não são pip packages)
 
 ## Convenções Ativas
 
-- **`ref` not `code`**: Identificadores textuais são `ref`. Exceção única: `Product.sku`.
+- **`ref` not `code`**: Identificadores textuais são `ref`. Exceções deliberadas: `Product.sku`, `Recipe.code` (SlugField descritivo, ex: `croissant-v1`), `WorkOrder.code` (código sequencial auto-gerado, ex: `WO-001`).
 - **Centavos com `_q`**: Valores monetários são inteiros em centavos, sufixo `_q`. Ex: `price_q = 1500` → R$ 15,00.
 - **Confirmação otimista**: Pedido auto-confirma se operador não cancela dentro do prazo.
 - **Zero residuals em renames**: Ao renomear, zerar TUDO (variáveis, strings, comments, docstrings). Nada de `# formerly X`.
 - **Zero backward-compat aliases**: Projeto novo, do zero. Não há consumidores externos. Nunca criar aliases tipo `OldName = NewName`. Apagar o nome antigo completamente.
-- **Offering = somente produtos vendáveis**: Insumos ficam em Stocking/Crafting, nunca no Offering.
+- **Offerman = somente produtos vendáveis**: Insumos ficam em Stockman/Craftsman, nunca no Offerman.
 - **Frontend: HTMX ↔ servidor, Alpine.js ↔ DOM**:
   - **HTMX**: toda comunicação com servidor (GET, POST, polling, swaps). Incluindo `hx-on::before-request`/`after-request` para estados visuais de loading atrelados a requests.
   - **Alpine.js**: todo estado local na tela (abrir/fechar, toggles, dropdowns, modals, steppers, validação client-side, contadores, masks).

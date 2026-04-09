@@ -1,5 +1,5 @@
 """
-Context processors para o Admin do Ordering.
+Context processors para o Admin do Omniman.
 """
 
 from __future__ import annotations

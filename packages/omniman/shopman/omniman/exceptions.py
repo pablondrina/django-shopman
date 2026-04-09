@@ -1,5 +1,5 @@
 """
-Ordering Exceptions.
+Omniman Exceptions.
 
 Todas as exceções seguem o padrão:
 - code: Código máquina do erro (ex.: "missing_sku", "invalid_qty")
@@ -12,7 +12,7 @@ from __future__ import annotations
 
 class OrderingError(Exception):
     """
-    Classe base para todas as exceções do Ordering.
+    Classe base para todas as exceções do Omniman.
 
     Attributes:
         code: Código máquina do erro

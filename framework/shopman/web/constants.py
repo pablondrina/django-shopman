@@ -16,9 +16,6 @@ def get_default_ddd() -> str:
         return _DEFAULT_DDD_FALLBACK
 
 
-# Kept for backwards compat — views should prefer get_default_ddd()
-DEFAULT_DDD = _DEFAULT_DDD_FALLBACK
-
 # Check if auth is available for inline auth
 try:
     from django.apps import apps as _apps

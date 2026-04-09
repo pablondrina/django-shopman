@@ -31,7 +31,7 @@ class BridgeTokenView(View):
     sets origin_channel on the Django session, and redirects to the
     target URL (default: /menu/).
 
-    origin_channel is later propagated to Ordering.Session and Order
+    origin_channel is later propagated to Omniman.Session and Order
     for notification routing.
     """
 

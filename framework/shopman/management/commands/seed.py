@@ -20,7 +20,7 @@ from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-# ── Crafting (producao) ─────────────────────────────────────────────
+# ── Craftsman (producao) ─────────────────────────────────────────────
 from shopman.craftsman.models import Recipe, RecipeItem, WorkOrder, WorkOrderItem
 
 # ── Customers (clientes) ─────────────────────────────────────────────
@@ -38,7 +38,7 @@ from shopman.models import (
     Shop,
 )
 
-# ── Offering (catalogo) ──────────────────────────────────────────────
+# ── Offerman (catalogo) ──────────────────────────────────────────────
 from shopman.offerman.models import (
     Collection,
     CollectionItem,
@@ -48,7 +48,7 @@ from shopman.offerman.models import (
     ProductComponent,
 )
 
-# ── Ordering (canais e pedidos) ──────────────────────────────────────
+# ── Omniman (canais e pedidos) ──────────────────────────────────────
 from shopman.omniman.models import (
     Channel,
     Directive,
@@ -63,7 +63,7 @@ from shopman.omniman.models import (
 # ── Payments ─────────────────────────────────────────────────────────
 from shopman.payman.models import PaymentIntent, PaymentTransaction
 
-# ── Stocking (estoque) ──────────────────────────────────────────────
+# ── Stockman (estoque) ──────────────────────────────────────────────
 from shopman.stockman import stock
 from shopman.stockman.models import Position, PositionKind, StockAlert
 
@@ -268,21 +268,21 @@ class Command(BaseCommand):
         for model in [PaymentTransaction, PaymentIntent]:
             model.objects.all().delete()
 
-        # Ordering
+        # Omniman
         for model in [FulfillmentItem, Fulfillment, Directive, OrderEvent, OrderItem, Order, Session, Channel]:
             model.objects.all().delete()
 
-        # Offering
+        # Offerman
         for model in [ListingItem, Listing, CollectionItem, Collection, ProductComponent, Product]:
             model.objects.all().delete()
 
-        # Stocking
+        # Stockman
         from shopman.stockman.models import Hold, Move, Quant
 
         for model in [StockAlert, Hold, Move, Quant, Position]:
             model.objects.all().delete()
 
-        # Crafting
+        # Craftsman
         from shopman.craftsman.models import WorkOrderEvent
 
         for model in [WorkOrderEvent, WorkOrder, RecipeItem, Recipe]:
@@ -313,7 +313,7 @@ class Command(BaseCommand):
         self.stdout.write("  ✅ Dados limpos")
 
     # ────────────────────────────────────────────────────────────────
-    # Catalogo (Offering)
+    # Catalogo (Offerman)
     # ────────────────────────────────────────────────────────────────
 
     def _seed_catalog(self):
@@ -685,7 +685,7 @@ class Command(BaseCommand):
         return products
 
     # ────────────────────────────────────────────────────────────────
-    # Estoque (Stocking)
+    # Estoque (Stockman)
     # ────────────────────────────────────────────────────────────────
 
     def _seed_positions(self):
@@ -784,7 +784,7 @@ class Command(BaseCommand):
         self.stdout.write(f"  ✅ Estoque para {len(stock_data)} produtos + {len(d1_items)} D-1")
 
     # ────────────────────────────────────────────────────────────────
-    # Receitas (Crafting)
+    # Receitas (Craftsman)
     # ────────────────────────────────────────────────────────────────
 
     def _seed_recipes(self):
@@ -1217,7 +1217,7 @@ class Command(BaseCommand):
         return customers
 
     # ────────────────────────────────────────────────────────────────
-    # Canais (Ordering)
+    # Canais (Omniman)
     # ────────────────────────────────────────────────────────────────
 
     def _seed_channels(self):
@@ -1279,7 +1279,7 @@ class Command(BaseCommand):
         return channels
 
     # ────────────────────────────────────────────────────────────────
-    # Pedidos (Ordering)
+    # Pedidos (Omniman)
     # ────────────────────────────────────────────────────────────────
 
     def _seed_orders(self, products, customers, channels):
@@ -1537,7 +1537,7 @@ class Command(BaseCommand):
         self.stdout.write(f"  ✅ {order_count} pedidos (35 dias + live)")
 
     # ────────────────────────────────────────────────────────────────
-    # Sessoes abertas (Ordering)
+    # Sessoes abertas (Omniman)
     # ────────────────────────────────────────────────────────────────
 
     def _seed_sessions(self, channels):
@@ -1572,7 +1572,7 @@ class Command(BaseCommand):
         self.stdout.write("  ✅ 3 sessoes abertas")
 
     # ────────────────────────────────────────────────────────────────
-    # Alertas de estoque (Stocking)
+    # Alertas de estoque (Stockman)
     # ────────────────────────────────────────────────────────────────
 
     def _seed_stock_alerts(self, products, positions):

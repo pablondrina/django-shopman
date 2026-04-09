@@ -432,14 +432,14 @@ SPECTACULAR_SETTINGS = {
 
 # ── Logging ────────────────────────────────────────────────────────────
 
-# ── Offering ──────────────────────────────────────────────────────
+# ── Offerman ──────────────────────────────────────────────────────
 
 OFFERING = {
     # TODO WP-R2: restore cost backend adapter
     "COST_BACKEND": None,
 }
 
-# ── Crafting (micro-MRP integration) ──────────────────────────────
+# ── Craftsman (micro-MRP integration) ──────────────────────────────
 
 CRAFTING = {
     "INVENTORY_BACKEND": "shopman.craftsman.adapters.stocking.StockingBackend",
