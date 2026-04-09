@@ -42,7 +42,6 @@ class CheckoutSerializer(serializers.Serializer):
 
 class CheckoutResponseSerializer(serializers.Serializer):
     order_ref = serializers.CharField()
-    order_id = serializers.IntegerField()
     status = serializers.CharField()
 
 

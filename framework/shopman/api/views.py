@@ -216,7 +216,6 @@ class CheckoutView(APIView):
         data = CheckoutResponseSerializer(
             {
                 "order_ref": result["order_ref"],
-                "order_id": result["order_id"],
                 "status": result["status"],
             }
         ).data

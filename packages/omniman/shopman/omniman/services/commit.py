@@ -386,7 +386,6 @@ class CommitService:
 
         return {
             "order_ref": order.ref,
-            "order_id": order.pk,
             "status": "committed",
             "total_q": order.total_q,
             "items_count": len(session.items),

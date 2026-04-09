@@ -500,6 +500,12 @@ class SessionAdmin(ModelAdmin):
                         directive.save(update_fields=["status", "last_error", "updated_at"])
                         failed_count += 1
 
+            # Fetch order PK for admin URL (Django admin requires PK, not ref)
+            try:
+                order_pk = Order.objects.get(ref=order_ref).pk
+            except Order.DoesNotExist:
+                order_pk = None
+
             # Mensagem de sucesso com informação sobre diretivas
             if executed_count > 0:
                 messages.success(
@@ -508,7 +514,7 @@ class SessionAdmin(ModelAdmin):
                         _('Pedido <strong>{}</strong> criado! {} diretiva(s) executada(s). <a href="{}">Ver pedido</a>'),
                         order_ref,
                         executed_count,
-                        reverse("admin:omniman_order_change", args=[result.get("order_id")]),
+                        reverse("admin:omniman_order_change", args=[order_pk]) if order_pk else "#",
                     ),
                 )
             else:
@@ -517,7 +523,7 @@ class SessionAdmin(ModelAdmin):
                     format_html(
                         _('Pedido <strong>{}</strong> criado! <a href="{}">Ver pedido</a>'),
                         order_ref,
-                        reverse("admin:omniman_order_change", args=[result.get("order_id")]),
+                        reverse("admin:omniman_order_change", args=[order_pk]) if order_pk else "#",
                     ),
                 )
 
@@ -528,9 +534,8 @@ class SessionAdmin(ModelAdmin):
                 )
 
             # Redireciona para o pedido criado, garantindo que apareça na listagem
-            order_id = result.get("order_id")
-            if order_id:
-                return HttpResponseRedirect(reverse("admin:omniman_order_change", args=[order_id]))
+            if order_pk:
+                return HttpResponseRedirect(reverse("admin:omniman_order_change", args=[order_pk]))
             else:
                 # Fallback: redireciona para changelist com filtros
                 return HttpResponseRedirect(
