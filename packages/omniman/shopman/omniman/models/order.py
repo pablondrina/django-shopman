@@ -247,21 +247,24 @@ class Order(models.Model):
         Emite um evento no audit log do pedido.
 
         Calcula seq automaticamente como MAX(seq) + 1 para este order.
+        Usa select_for_update() para evitar condição de corrida em criações concorrentes.
         """
+        from django.db import transaction
         from django.db.models import Max, Value
         from django.db.models.functions import Coalesce
 
-        last_seq = self.events.aggregate(
-            m=Coalesce(Max("seq"), Value(-1))
-        )["m"]
+        with transaction.atomic():
+            last_seq = self.events.select_for_update().aggregate(
+                m=Coalesce(Max("seq"), Value(-1))
+            )["m"]
 
-        return OrderEvent.objects.create(
-            order=self,
-            seq=last_seq + 1,
-            type=event_type,
-            actor=actor,
-            payload=payload or {},
-        )
+            return OrderEvent.objects.create(
+                order=self,
+                seq=last_seq + 1,
+                type=event_type,
+                actor=actor,
+                payload=payload or {},
+            )
 
 
 class OrderItem(models.Model):
