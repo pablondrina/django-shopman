@@ -41,6 +41,20 @@ def shop(request: HttpRequest) -> dict:
         shop_status = {"is_open": True, "message": None, "opens_at": None, "closes_at": None}
         opening_hours_display = []
 
+    # Resolve handle_label from the effective channel config
+    try:
+        from shopman.config import ChannelConfig
+        from shopman.omniman.models import Channel
+        from shopman.web.constants import STOREFRONT_CHANNEL_REF
+
+        _channel = Channel.objects.get(ref=STOREFRONT_CHANNEL_REF)
+        _cfg = ChannelConfig.effective(_channel)
+        handle_label = _cfg.handle_label
+        handle_placeholder = _cfg.handle_placeholder
+    except Exception:
+        handle_label = "Identificador"
+        handle_placeholder = ""
+
     return {
         "storefront": shop_instance,
         "customer_name": customer_name,
@@ -49,6 +63,8 @@ def shop(request: HttpRequest) -> dict:
         "shop_location": shop_location,
         "shop_status": shop_status,
         "opening_hours_display": opening_hours_display,
+        "handle_label": handle_label,
+        "handle_placeholder": handle_placeholder,
     }
 
 

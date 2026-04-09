@@ -1229,6 +1229,8 @@ class Command(BaseCommand):
         _pos_config = {
             "confirmation": {"mode": "immediate"},
             "payment": {"method": "counter"},
+            "handle_label": "Comanda",
+            "handle_placeholder": "Ex: 42",
         }
         # Remote: não reserva estoque na posição "ontem" (D-1 físico no balcão); balcão usa allowed_positions omitido (= todas).
         _remote_stock = {

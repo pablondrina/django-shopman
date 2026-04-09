@@ -3,7 +3,7 @@ from __future__ import annotations
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-# Keys recognised by ChannelConfig (6 aspects). Anything else triggers a validation warning.
+# Keys recognised by ChannelConfig (6 aspects + UX). Anything else triggers a validation warning.
 KNOWN_CONFIG_KEYS = frozenset({
     "confirmation",
     "payment",
@@ -11,6 +11,8 @@ KNOWN_CONFIG_KEYS = frozenset({
     "notifications",
     "rules",
     "flow",
+    "handle_label",
+    "handle_placeholder",
 })
 
 
@@ -62,13 +64,15 @@ class Channel(models.Model):
         default=dict,
         blank=True,
         help_text=_(
-            "ChannelConfig schema (6 aspectos). Chaves: "
+            "ChannelConfig schema (6 aspectos + UX). Chaves: "
             "confirmation {mode, timeout_minutes}, "
             "payment {method, timeout_minutes}, "
             "stock {hold_ttl_minutes, safety_margin, planned_hold_ttl_hours}, "
             "notifications {backend, fallback, routing}, "
             "rules {validators, modifiers, checks}, "
-            "flow {transitions, terminal_statuses, auto_transitions, auto_sync_fulfillment}. "
+            "flow {transitions, terminal_statuses, auto_transitions, auto_sync_fulfillment}, "
+            "handle_label (string — ex: 'Comanda', 'Mesa', 'CPF'), "
+            "handle_placeholder (string — ex: 'Ex: 42'). "
             "Use presets: pos(), remote(), marketplace()."
         ),
     )

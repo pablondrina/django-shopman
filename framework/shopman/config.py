@@ -110,6 +110,15 @@ class ChannelConfig:
     rules: Rules = field(default_factory=Rules)
     flow: Flow = field(default_factory=Flow)
 
+    # ── UX ──
+
+    handle_label: str = "Identificador"
+    # Label exibido na UI para o campo handle_ref da sessão/pedido.
+    # Ex: "Comanda" (restaurante), "Mesa" (self-service), "CPF" (e-commerce).
+    handle_placeholder: str = ""
+    # Placeholder sugerido para o campo handle_ref.
+    # Ex: "Ex: 42", "Ex: mesa 3".
+
     # ── Serialização ──
 
     def to_dict(self) -> dict:
