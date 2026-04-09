@@ -11,6 +11,7 @@ import logging
 
 from shopman import directives
 from shopman.fiscal import fiscal_pool
+from shopman.topics import FISCAL_CANCEL_NFCE, FISCAL_EMIT_NFCE
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ def emit(order) -> None:
     Schedule NFC-e emission for the order.
 
     Smart no-op if no fiscal backend is configured.
-    Creates a Directive with topic="fiscal.emit".
+    Creates a Directive with topic FISCAL_EMIT_NFCE.
 
     ASYNC — retry-safe.
     """
@@ -31,7 +32,7 @@ def emit(order) -> None:
         return
 
     directives.queue(
-        "fiscal.emit", order,
+        FISCAL_EMIT_NFCE, order,
         items=_build_fiscal_items(order),
         payment=(order.data or {}).get("payment", {}),
         customer=(order.data or {}).get("customer", {}),
@@ -45,7 +46,7 @@ def cancel(order) -> None:
     Schedule NFC-e cancellation for the order.
 
     Smart no-op if no fiscal backend is configured or NFC-e was never emitted.
-    Creates a Directive with topic="fiscal.cancel".
+    Creates a Directive with topic FISCAL_CANCEL_NFCE.
 
     ASYNC — retry-safe.
     """
@@ -59,7 +60,7 @@ def cancel(order) -> None:
         return
 
     directives.queue(
-        "fiscal.cancel", order,
+        FISCAL_CANCEL_NFCE, order,
         reason=(order.data or {}).get("cancellation_reason", "cancelled"),
     )
 

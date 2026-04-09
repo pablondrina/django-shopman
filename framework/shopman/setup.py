@@ -246,12 +246,7 @@ def _register_stock_signals() -> None:
 def _load_fiscal_backend():
     backend_path = getattr(settings, "SHOPMAN_FISCAL_BACKEND", None)
     if not backend_path:
-        try:
-            from shopman.tests._mocks.fiscal_mock import MockFiscalBackend
-
-            return MockFiscalBackend()
-        except ImportError:
-            return None
+        return None
     try:
         return _import_class(backend_path)()
     except Exception:
@@ -262,12 +257,7 @@ def _load_fiscal_backend():
 def _load_accounting_backend():
     backend_path = getattr(settings, "SHOPMAN_ACCOUNTING_BACKEND", None)
     if not backend_path:
-        try:
-            from shopman.tests._mocks.accounting_mock import MockAccountingBackend
-
-            return MockAccountingBackend()
-        except ImportError:
-            return None
+        return None
     try:
         return _import_class(backend_path)()
     except Exception:

@@ -702,7 +702,7 @@ class TestFiscalService:
 
         directive = Directive.objects.last()
         assert directive is not None
-        assert directive.topic == "fiscal.emit"
+        assert directive.topic == "fiscal.emit_nfce"
 
     @pytest.mark.django_db
     @patch("shopman.services.fiscal.fiscal_pool")
@@ -740,7 +740,7 @@ class TestFiscalService:
 
         directive = Directive.objects.last()
         assert directive is not None
-        assert directive.topic == "fiscal.cancel"
+        assert directive.topic == "fiscal.cancel_nfce"
 
     @pytest.mark.django_db
     @patch("shopman.services.fiscal.fiscal_pool")
