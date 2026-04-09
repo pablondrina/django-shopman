@@ -26,9 +26,10 @@ O Core não impõe schema — a governança é por convenção documentada aqui.
 | `availability` | `dict` | StockCheckHandler (via checks) | D1DiscountModifier | Mapa SKU → `{is_d1: bool}`. Flag D-1 por produto |
 | `outside_business_hours` | `bool` | BusinessHoursRule (validation) | CheckoutView, CommitService | `True` se pedido feito fora do horário. Não bloqueia checkout — apenas flag informativa |
 | `delivery_address_structured` | `dict` | CheckoutView (`set_data`) | CommitService | Endereço estruturado do Google Places: `{route, street_number, complement, neighborhood, city, state_code, postal_code, place_id, formatted_address, delivery_instructions, is_verified, latitude, longitude}` |
-| `payment` | `dict` | CheckoutView (`set_data`), POS, API | CommitService, hooks, handlers | Dados de pagamento iniciais: `{method}`. Enriquecido por handlers pós-commit (intent_id, status, etc.) |
+| `payment` | `dict` | CheckoutView (`set_data`), POS, API | CommitService, hooks, handlers | Dados de pagamento iniciais: `{method}`. Enriquecido por handlers pós-commit (intent_ref, status, etc.) |
 | `delivery_fee_q` | `int` | DeliveryFeeModifier (via `session.save`) | CommitService, CartService, tracking view | Taxa de entrega em centavos. 0 = grátis. Só presente quando `fulfillment_type == "delivery"` e zona encontrada |
 | `delivery_zone_error` | `bool` | DeliveryFeeModifier (via `session.save`) | DeliveryZoneRule validator | `True` quando endereço de entrega não está coberto por nenhuma DeliveryZone ativa. Bloqueia commit |
+| `delivery_address_id` | `int` | `web/views/checkout.py` | `checkout_defaults.py` | FK para `CustomerAddress.pk`. Usada para inferir defaults na sessão. **Não propagada ao Order.data** — somente em Session.data |
 
 ### Chaves de sistema (geridas pelo Core)
 
@@ -112,7 +113,7 @@ for key in (
 
 | Chave | Tipo | Escrito por | Lido por | Descrição |
 |-------|------|-------------|----------|-----------|
-| `payment` | `dict` | CommitService (propagado de Session.data), PaymentHandler, webhooks, hooks | Muitos (ver abaixo) | Dados de pagamento (ver detalhamento). `{method}` propagado pelo CommitService; enriquecido por handlers pós-commit (intent_id, status, etc.) |
+| `payment` | `dict` | CommitService (propagado de Session.data), PaymentHandler, webhooks, hooks | Muitos (ver abaixo) | Dados de pagamento (ver detalhamento). `{method}` propagado pelo CommitService; enriquecido por handlers pós-commit (intent_ref, status, etc.) |
 | `customer_ref` | `string` | CustomerIdentificationHandler | CheckoutInferDefaultsHandler | Ref do Customer criado/encontrado |
 | `fulfillment_created` | `bool` | FulfillmentCreateHandler | FulfillmentCreateHandler (idempotência) | Flag: Fulfillment object criado |
 | `cancellation_reason` | `string` | PixTimeoutHandler, PaymentTimeoutHandler, ConfirmationTimeoutHandler, OrderCancelView, GestorOrderRejectView | hooks._on_cancelled | Motivo: `"pix_timeout"`, `"card_timeout"`, `"confirmation_timeout"`, `"customer_requested"`, texto livre |
@@ -126,6 +127,8 @@ for key in (
 | `nfce_cancelled` | `bool` | NFCeCancelHandler | NFCeCancelHandler (idempotência) | NFCe cancelada |
 | `nfce_cancellation_protocol` | `string` | NFCeCancelHandler | — | Protocolo de cancelamento |
 | `session_key` | `string` | hooks._on_cancelled | hooks._on_cancelled | Chave de sessão original (referência para release holds) |
+| `hold_ids` | `list[str]` | `StockService.hold(order)` | `StockService.fulfill(order)`, `StockService.release(order)` | IDs dos holds do Stockman adotados no momento do commit |
+| `loyalty` | `dict` | `LoyaltyRedeemModifier` | `services/loyalty.py` | Dados de resgate de pontos: `{redeem_points_q: int}` |
 
 
 ### Chaves lidas por views (convenience — fallback para vazio)
@@ -141,7 +144,7 @@ for key in (
 ```json
 {
   "method": "pix",
-  "intent_id": "INT-abc123",
+  "intent_ref": "INT-abc123",
   "status": "captured",
   "amount_q": 2500,
   "qr_code": "data:image/png;base64,...",
@@ -157,7 +160,7 @@ for key in (
 | Sub-chave | Tipo | Escrito por | Descrição |
 |-----------|------|-------------|-----------|
 | `method` | `string` | CheckoutView (via Session.data → CommitService), PixGenerateHandler, CardCreateHandler | `"pix"`, `"card"`, `"counter"`, `"external"` |
-| `intent_id` | `string` | PixGenerateHandler, CardCreateHandler | ID do intent no gateway |
+| `intent_ref` | `string` | PixGenerateHandler, CardCreateHandler | ID do intent no gateway |
 | `status` | `string` | PixGenerateHandler, hooks.on_payment_confirmed | `"pending"`, `"captured"`, `"refunded"`, `"expired"`, `"failed"` |
 | `amount_q` | `int` | PixGenerateHandler, CardCreateHandler | Valor em centavos |
 | `qr_code` | `string` | PixGenerateHandler | QR code image (data URI) |
@@ -212,7 +215,7 @@ for key in (
   "is_preorder": true,
   "payment": {
     "method": "pix",
-    "intent_id": "INT-abc123",
+    "intent_ref": "INT-abc123",
     "status": "captured",
     "amount_q": 2500,
     "e2e_id": "E123456789",
@@ -328,7 +331,7 @@ Write-back: spawns `pix.timeout` e `notification.send` (reminder)
 | Chave | Tipo | Escrito por | Lido por |
 |-------|------|-------------|----------|
 | `order_ref` | `string` | PixGenerateHandler | PixTimeoutHandler |
-| `intent_id` | `string` | PixGenerateHandler | PixTimeoutHandler |
+| `intent_ref` | `string` | PixGenerateHandler | PixTimeoutHandler |
 | `expires_at` | `string` | PixGenerateHandler | PixTimeoutHandler |
 
 #### `payment.capture`
@@ -336,7 +339,7 @@ Write-back: spawns `pix.timeout` e `notification.send` (reminder)
 | Chave | Tipo | Escrito por | Lido por |
 |-------|------|-------------|----------|
 | `order_ref` | `string` | hooks / web view | PaymentCaptureHandler |
-| `intent_id` | `string` | hooks / web view | PaymentCaptureHandler |
+| `intent_ref` | `string` | hooks / web view | PaymentCaptureHandler |
 | `amount_q` | `int` | hooks / web view | PaymentCaptureHandler |
 | `session_key` | `string` | hooks (opcional) | PaymentCaptureHandler (fallback lookup) |
 | `channel_ref` | `string` | hooks (opcional) | PaymentCaptureHandler (fallback lookup) |
@@ -349,7 +352,7 @@ Write-back: `transaction_id` (string)
 | Chave | Tipo | Escrito por | Lido por |
 |-------|------|-------------|----------|
 | `order_ref` | `string` | hooks | PaymentTimeoutHandler |
-| `intent_id` | `string` | hooks | PaymentTimeoutHandler |
+| `intent_ref` | `string` | hooks | PaymentTimeoutHandler |
 | `expires_at` | `string` | hooks | PaymentTimeoutHandler |
 | `method` | `string` | hooks | PaymentTimeoutHandler (default `"card"`) |
 
@@ -358,7 +361,7 @@ Write-back: `transaction_id` (string)
 | Chave | Tipo | Escrito por | Lido por |
 |-------|------|-------------|----------|
 | `order_ref` | `string` | hooks.on_payment_confirmed | PaymentRefundHandler |
-| `intent_id` | `string` | hooks.on_payment_confirmed | PaymentRefundHandler |
+| `intent_ref` | `string` | hooks.on_payment_confirmed | PaymentRefundHandler |
 | `amount_q` | `int` | hooks.on_payment_confirmed | PaymentRefundHandler |
 | `reason` | `string` | hooks.on_payment_confirmed | PaymentRefundHandler |
 
@@ -371,7 +374,7 @@ Write-back: `refund_id` (string)
 | `order_ref` | `string` | hooks | CardCreateHandler |
 | `amount_q` | `int` | hooks | CardCreateHandler |
 
-Write-back: `intent_id` (string)
+Write-back: `intent_ref` (string)
 
 #### `notification.send` (order notification)
 
