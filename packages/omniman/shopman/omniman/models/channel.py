@@ -3,12 +3,11 @@ from __future__ import annotations
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-# Keys recognised by ChannelConfig (7 aspects). Anything else triggers a validation warning.
+# Keys recognised by ChannelConfig (6 aspects). Anything else triggers a validation warning.
 KNOWN_CONFIG_KEYS = frozenset({
     "confirmation",
     "payment",
     "stock",
-    "pipeline",
     "notifications",
     "rules",
     "flow",
@@ -19,8 +18,8 @@ class Channel(models.Model):
     """
     Canal de origem do pedido (PDV, e-commerce, iFood, etc.)
 
-    Config segue o schema do ChannelConfig dataclass (7 aspectos):
-    confirmation, payment, stock, pipeline, notifications, rules, flow.
+    Config segue o schema do ChannelConfig dataclass (6 aspectos):
+    confirmation, payment, stock, notifications, rules, flow.
     Use presets: pos(), remote(), marketplace() para templates comuns.
     """
 
@@ -63,11 +62,10 @@ class Channel(models.Model):
         default=dict,
         blank=True,
         help_text=_(
-            "ChannelConfig schema (7 aspectos). Chaves: "
+            "ChannelConfig schema (6 aspectos). Chaves: "
             "confirmation {mode, timeout_minutes}, "
             "payment {method, timeout_minutes}, "
             "stock {hold_ttl_minutes, safety_margin, planned_hold_ttl_hours}, "
-            "pipeline {on_commit, on_confirmed, on_cancelled, ...} (listas de topics), "
             "notifications {backend, fallback, routing}, "
             "rules {validators, modifiers, checks}, "
             "flow {transitions, terminal_statuses, auto_transitions, auto_sync_fulfillment}. "

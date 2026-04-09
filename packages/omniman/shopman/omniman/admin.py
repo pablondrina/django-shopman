@@ -246,15 +246,6 @@ class ChannelAdmin(ModelAdmin):
         if margin:
             stock_text += f" | Margem: {margin} un"
 
-        # Pipeline — on_commit
-        pipeline = c.get("pipeline", {})
-        on_commit = pipeline.get("on_commit", [])
-        commit_text = " → ".join(on_commit) if on_commit else "Nenhuma"
-
-        # Pipeline — on_confirmed
-        on_confirmed = pipeline.get("on_confirmed", [])
-        confirmed_text = " → ".join(on_confirmed) if on_confirmed else "Nenhuma"
-
         # Rules
         rules = c.get("rules", {})
         checks = rules.get("checks", [])
@@ -292,14 +283,6 @@ class ChannelAdmin(ModelAdmin):
                     <div class="{label_style}">Estoque</div>
                     <div class="{value_style}">{stock_text}</div>
                 </div>
-            </div>
-            <div class="{card_style}">
-                <div class="{label_style}">Pipeline: on_commit</div>
-                <div class="{value_style} font-mono text-xs">{commit_text}</div>
-            </div>
-            <div class="{card_style}">
-                <div class="{label_style}">Pipeline: on_confirmed</div>
-                <div class="{value_style} font-mono text-xs">{confirmed_text}</div>
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div class="{card_style}">
