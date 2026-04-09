@@ -12,6 +12,7 @@ from django.views import View
 from shopman.omniman.models import Order
 from shopman.utils.monetary import format_money
 
+from shopman.services.order_helpers import get_fulfillment_type
 from .pedidos import CHANNEL_ICONS, _DEFAULT_CHANNEL_ICON
 
 logger = logging.getLogger(__name__)
@@ -39,8 +40,8 @@ def _enrich_ticket(ticket, instance) -> dict:
 
     order = ticket.order
     customer_name = order.data.get("customer_name", "") or order.handle_ref or ""
-    delivery_method = order.data.get("delivery_method", "")
-    fulfillment_icon = "local_shipping" if delivery_method == "delivery" else "storefront"
+    fulfillment_type = get_fulfillment_type(order)
+    fulfillment_icon = "local_shipping" if fulfillment_type == "delivery" else "storefront"
 
     items = ticket.items
     if instance.type == "picking":
@@ -115,8 +116,7 @@ def _add_stock_warnings(items: list[dict]) -> list[dict]:
 def _enrich_expedition_order(order) -> dict:
     """Build template-ready dict for an expedition order card."""
     customer_name = order.data.get("customer_name", "") or order.handle_ref or ""
-    delivery_method = order.data.get("delivery_method", "")
-    is_delivery = delivery_method == "delivery"
+    is_delivery = get_fulfillment_type(order) == "delivery"
 
     return {
         "pk": order.pk,

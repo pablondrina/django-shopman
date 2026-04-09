@@ -14,6 +14,7 @@ from django.views import View
 
 from shopman.omniman.models import Directive, Order
 from shopman.services.cancellation import cancel
+from shopman.services.order_helpers import get_fulfillment_type
 from shopman.utils.monetary import format_money
 
 from .tracking import STATUS_COLORS, STATUS_LABELS, _build_tracking_context
@@ -60,8 +61,7 @@ def _is_delivery(order) -> bool:
 
     Uses canonical key fulfillment_type with fallback to legacy delivery_method.
     """
-    ft = order.data.get("fulfillment_type") or order.data.get("delivery_method", "")
-    return ft == "delivery"
+    return get_fulfillment_type(order) == "delivery"
 
 
 def _next_status_for(order) -> str:
@@ -120,8 +120,7 @@ def _enrich_order(order: Order) -> dict:
 
     items_count = order.items.count()
 
-    delivery_method = order.data.get("delivery_method", "")
-    if delivery_method == "delivery":
+    if get_fulfillment_type(order) == "delivery":
         fulfillment_icon = "local_shipping"
         fulfillment_label = "Delivery"
     else:
