@@ -5,7 +5,7 @@ All operations that modify >1 record use transaction.atomic().
 
 from django.db import transaction
 
-from shopman.guestman.exceptions import CustomersError
+from shopman.guestman.exceptions import CustomerError
 from shopman.guestman.models import Customer, CustomerAddress
 from shopman.guestman.services.customer import get
 
@@ -55,7 +55,7 @@ def add_address(
     """
     cust = get(customer_ref)
     if not cust:
-        raise CustomersError("CUSTOMER_NOT_FOUND", customer_ref=customer_ref)
+        raise CustomerError("CUSTOMER_NOT_FOUND", customer_ref=customer_ref)
 
     comp = components or {}
 
@@ -91,13 +91,13 @@ def set_default_address(customer_ref: str, address_id: int) -> CustomerAddress:
     """Set address as default."""
     cust = get(customer_ref)
     if not cust:
-        raise CustomersError("CUSTOMER_NOT_FOUND", customer_ref=customer_ref)
+        raise CustomerError("CUSTOMER_NOT_FOUND", customer_ref=customer_ref)
 
     with transaction.atomic():
         try:
             addr = CustomerAddress.objects.get(pk=address_id, customer=cust)
         except CustomerAddress.DoesNotExist:
-            raise CustomersError("ADDRESS_NOT_FOUND", address_id=address_id)
+            raise CustomerError("ADDRESS_NOT_FOUND", address_id=address_id)
 
         addr.is_default = True
         addr.save()
@@ -108,11 +108,11 @@ def delete_address(customer_ref: str, address_id: int) -> bool:
     """Delete address."""
     cust = get(customer_ref)
     if not cust:
-        raise CustomersError("CUSTOMER_NOT_FOUND", customer_ref=customer_ref)
+        raise CustomerError("CUSTOMER_NOT_FOUND", customer_ref=customer_ref)
 
     try:
         addr = CustomerAddress.objects.get(pk=address_id, customer=cust)
         addr.delete()
         return True
     except CustomerAddress.DoesNotExist:
-        raise CustomersError("ADDRESS_NOT_FOUND", address_id=address_id)
+        raise CustomerError("ADDRESS_NOT_FOUND", address_id=address_id)

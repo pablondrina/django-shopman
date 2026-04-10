@@ -10,7 +10,7 @@ Todas as exceções seguem o padrão:
 from __future__ import annotations
 
 
-class OrderingError(Exception):
+class OrderError(Exception):
     """
     Classe base para todas as exceções do Orderman.
 
@@ -30,7 +30,7 @@ class OrderingError(Exception):
         return {"code": self.code, "message": self.message, "context": self.context}
 
 
-class ValidationError(OrderingError):
+class ValidationError(OrderError):
     """
     Erro de validação (Validator falhou).
 
@@ -38,7 +38,7 @@ class ValidationError(OrderingError):
     """
 
 
-class SessionError(OrderingError):
+class SessionError(OrderError):
     """
     Erro relacionado a sessões.
 
@@ -46,7 +46,7 @@ class SessionError(OrderingError):
     """
 
 
-class CommitError(OrderingError):
+class CommitError(OrderError):
     """
     Erro durante o commit de uma sessão.
 
@@ -54,7 +54,7 @@ class CommitError(OrderingError):
     """
 
 
-class DirectiveError(OrderingError):
+class DirectiveError(OrderError):
     """
     Erro durante processamento de diretiva.
 
@@ -86,7 +86,7 @@ class DirectiveTerminalError(DirectiveError):
         super().__init__(code="terminal", message=message, context=context)
 
 
-class IssueResolveError(OrderingError):
+class IssueResolveError(OrderError):
     """
     Erro durante resolução de issue.
 
@@ -94,7 +94,7 @@ class IssueResolveError(OrderingError):
     """
 
 
-class IdempotencyError(OrderingError):
+class IdempotencyError(OrderError):
     """
     Erro relacionado a idempotência.
 
@@ -102,7 +102,7 @@ class IdempotencyError(OrderingError):
     """
 
 
-class IdempotencyCacheHit(OrderingError):
+class IdempotencyCacheHit(OrderError):
     """
     Indica que resposta foi encontrada em cache de idempotência.
 
@@ -117,7 +117,7 @@ class IdempotencyCacheHit(OrderingError):
         super().__init__("Idempotency cache hit")
 
 
-class InvalidTransition(OrderingError):
+class InvalidTransition(OrderError):
     """
     Erro de transição de status inválida.
 

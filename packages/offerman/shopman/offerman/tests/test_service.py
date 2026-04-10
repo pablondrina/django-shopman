@@ -508,11 +508,11 @@ class TestCatalogSearchFilters:
 
 
 class TestCatalogBackendAdapter:
-    """OfferingCatalogBackend integration."""
+    """CatalogBackend integration."""
 
     def test_get_product_returns_info(self, db):
         """get_product returns correct ProductInfo fields."""
-        from shopman.offerman.adapters.catalog_backend import OfferingCatalogBackend
+        from shopman.offerman.adapters.catalog_backend import CatalogBackend
 
         p = Product.objects.create(
             sku="ADAPT-1", name="Adapter Test", base_price_q=999,
@@ -521,7 +521,7 @@ class TestCatalogBackendAdapter:
         coll = Collection.objects.create(slug="test-cat", name="Test Cat")
         CollectionItem.objects.create(collection=coll, product=p, is_primary=True)
 
-        backend = OfferingCatalogBackend()
+        backend = CatalogBackend()
         info = backend.get_product("ADAPT-1")
 
         assert info is not None
@@ -534,17 +534,17 @@ class TestCatalogBackendAdapter:
 
     def test_get_product_not_found(self, db):
         """get_product returns None for unknown SKU."""
-        from shopman.offerman.adapters.catalog_backend import OfferingCatalogBackend
+        from shopman.offerman.adapters.catalog_backend import CatalogBackend
 
-        backend = OfferingCatalogBackend()
+        backend = CatalogBackend()
         assert backend.get_product("NONEXISTENT") is None
 
     def test_get_price_fractional_rounding(self, db):
         """get_price rounds correctly for fractional qty."""
-        from shopman.offerman.adapters.catalog_backend import OfferingCatalogBackend
+        from shopman.offerman.adapters.catalog_backend import CatalogBackend
         from unittest.mock import patch
 
-        backend = OfferingCatalogBackend()
+        backend = CatalogBackend()
 
         with patch("shopman.offerman.adapters.catalog_backend.CatalogService.price", return_value=1001):
             result = backend.get_price("ANY", qty=Decimal("3"))
@@ -554,7 +554,7 @@ class TestCatalogBackendAdapter:
 
     def test_expand_bundle_returns_components(self, db):
         """expand_bundle returns BundleComponent list."""
-        from shopman.offerman.adapters.catalog_backend import OfferingCatalogBackend
+        from shopman.offerman.adapters.catalog_backend import CatalogBackend
         from shopman.offerman.models import ProductComponent
 
         combo = Product.objects.create(sku="COMBO-A", name="Combo A", base_price_q=1000)
@@ -563,7 +563,7 @@ class TestCatalogBackendAdapter:
         ProductComponent.objects.create(parent=combo, component=comp1, qty=Decimal("2"))
         ProductComponent.objects.create(parent=combo, component=comp2, qty=Decimal("1"))
 
-        backend = OfferingCatalogBackend()
+        backend = CatalogBackend()
         result = backend.expand_bundle("COMBO-A")
 
         assert len(result) == 2
@@ -573,10 +573,10 @@ class TestCatalogBackendAdapter:
 
     def test_expand_bundle_non_bundle_returns_empty(self, db):
         """expand_bundle on non-bundle returns empty list."""
-        from shopman.offerman.adapters.catalog_backend import OfferingCatalogBackend
+        from shopman.offerman.adapters.catalog_backend import CatalogBackend
 
         Product.objects.create(sku="SINGLE", name="Single", base_price_q=500)
-        backend = OfferingCatalogBackend()
+        backend = CatalogBackend()
         result = backend.expand_bundle("SINGLE")
         assert result == []
 

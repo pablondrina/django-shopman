@@ -24,7 +24,7 @@ from shopman.guestman.contrib.loyalty.models import (
     TransactionType,
 )
 from shopman.guestman.contrib.loyalty.service import LoyaltyService
-from shopman.guestman.exceptions import CustomersError
+from shopman.guestman.exceptions import CustomerError
 from shopman.guestman.models import Customer, CustomerGroup
 
 
@@ -149,19 +149,19 @@ class TestEarnPoints:
         assert enrolled.lifetime_points == 125
 
     def test_earn_zero_points_raises(self, enrolled):
-        with pytest.raises(CustomersError) as exc:
+        with pytest.raises(CustomerError) as exc:
             LoyaltyService.earn_points("CUST-LOY-001", 0, "Zero")
 
         assert exc.value.code == "LOYALTY_INVALID_POINTS"
 
     def test_earn_negative_points_raises(self, enrolled):
-        with pytest.raises(CustomersError) as exc:
+        with pytest.raises(CustomerError) as exc:
             LoyaltyService.earn_points("CUST-LOY-001", -10, "Negative")
 
         assert exc.value.code == "LOYALTY_INVALID_POINTS"
 
     def test_earn_not_enrolled_raises(self, customer):
-        with pytest.raises(CustomersError) as exc:
+        with pytest.raises(CustomerError) as exc:
             LoyaltyService.earn_points(customer.ref, 100, "Test")
 
         assert exc.value.code == "LOYALTY_NOT_ENROLLED"
@@ -196,7 +196,7 @@ class TestRedeemPoints:
     def test_redeem_insufficient_balance_raises(self, enrolled):
         LoyaltyService.earn_points("CUST-LOY-001", 50, "Small earn")
 
-        with pytest.raises(CustomersError) as exc:
+        with pytest.raises(CustomerError) as exc:
             LoyaltyService.redeem_points("CUST-LOY-001", 100, "Too much")
 
         assert exc.value.code == "LOYALTY_INSUFFICIENT_POINTS"
@@ -211,15 +211,15 @@ class TestRedeemPoints:
         assert enrolled.points_balance == 0
 
     def test_redeem_zero_raises(self, enrolled):
-        with pytest.raises(CustomersError):
+        with pytest.raises(CustomerError):
             LoyaltyService.redeem_points("CUST-LOY-001", 0, "Zero")
 
     def test_redeem_negative_raises(self, enrolled):
-        with pytest.raises(CustomersError):
+        with pytest.raises(CustomerError):
             LoyaltyService.redeem_points("CUST-LOY-001", -10, "Negative")
 
     def test_redeem_not_enrolled_raises(self, customer):
-        with pytest.raises(CustomersError) as exc:
+        with pytest.raises(CustomerError) as exc:
             LoyaltyService.redeem_points(customer.ref, 100, "Test")
 
         assert exc.value.code == "LOYALTY_NOT_ENROLLED"
@@ -287,7 +287,7 @@ class TestAddStamp:
         assert "Cartela completa" in tx.description
 
     def test_stamp_not_enrolled_raises(self, customer):
-        with pytest.raises(CustomersError) as exc:
+        with pytest.raises(CustomerError) as exc:
             LoyaltyService.add_stamp(customer.ref)
 
         assert exc.value.code == "LOYALTY_NOT_ENROLLED"

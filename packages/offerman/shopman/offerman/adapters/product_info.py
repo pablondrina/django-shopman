@@ -23,7 +23,7 @@ def _crafting_protocols_available() -> bool:
         return False
 
 
-class OfferingProductInfoBackend:
+class ProductInfoBackend:
     """
     Product info backend using Offerman Product model.
 
@@ -151,16 +151,16 @@ class OfferingProductInfoBackend:
 
 # Singleton factory
 _lock = threading.Lock()
-_backend_instance: OfferingProductInfoBackend | None = None
+_backend_instance: ProductInfoBackend | None = None
 
 
-def get_product_info_backend() -> OfferingProductInfoBackend:
-    """Return singleton instance of OfferingProductInfoBackend."""
+def get_product_info_backend() -> ProductInfoBackend:
+    """Return singleton instance of ProductInfoBackend."""
     global _backend_instance
     if _backend_instance is None:
         with _lock:
             if _backend_instance is None:
-                _backend_instance = OfferingProductInfoBackend()
+                _backend_instance = ProductInfoBackend()
     return _backend_instance
 
 

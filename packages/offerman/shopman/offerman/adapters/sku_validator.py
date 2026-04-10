@@ -25,7 +25,7 @@ def _stocking_protocols_available() -> bool:
         return False
 
 
-class OfferingSkuValidator:
+class SkuValidator:
     """
     SKU validator using Offerman Product model.
 
@@ -142,16 +142,16 @@ class OfferingSkuValidator:
 
 # Singleton factory
 _lock = threading.Lock()
-_validator_instance: OfferingSkuValidator | None = None
+_validator_instance: SkuValidator | None = None
 
 
-def get_sku_validator() -> OfferingSkuValidator:
-    """Return singleton instance of OfferingSkuValidator."""
+def get_sku_validator() -> SkuValidator:
+    """Return singleton instance of SkuValidator."""
     global _validator_instance
     if _validator_instance is None:
         with _lock:
             if _validator_instance is None:
-                _validator_instance = OfferingSkuValidator()
+                _validator_instance = SkuValidator()
     return _validator_instance
 
 

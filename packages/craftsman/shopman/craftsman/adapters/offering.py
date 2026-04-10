@@ -11,7 +11,7 @@ Usage:
 
 Settings:
     CRAFTING = {
-        "CATALOG_BACKEND": offerman.adapters.catalog.OfferingCatalogBackend",
+        "CATALOG_BACKEND": offerman.adapters.catalog.CatalogBackend",
     }
 """
 
@@ -60,7 +60,7 @@ def get_catalog_backend():
                 if not backend_path:
                     raise ImproperlyConfigured(
                         "CRAFTING['CATALOG_BACKEND'] must be configured. "
-                        "Example: offerman.adapters.catalog.OfferingCatalogBackend'"
+                        "Example: offerman.adapters.catalog.CatalogBackend'"
                     )
 
                 try:

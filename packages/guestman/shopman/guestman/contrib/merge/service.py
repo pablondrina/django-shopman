@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from shopman.guestman.exceptions import CustomersError
+from shopman.guestman.exceptions import CustomerError
 from shopman.guestman.gates import Gates
 from shopman.guestman.models import (
     ContactPoint,
@@ -68,7 +68,7 @@ class MergeService:
             MergeResult with counts of migrated records.
 
         Raises:
-            CustomersError: If gate validation fails or customers are invalid.
+            CustomerError: If gate validation fails or customers are invalid.
         """
         # --- Validate via G6 ---
         Gates.merge_safety(
@@ -78,12 +78,12 @@ class MergeService:
         )
 
         if not source_customer.is_active:
-            raise CustomersError(
+            raise CustomerError(
                 "MERGE_DENIED",
                 message="Source customer is already inactive.",
             )
         if not target_customer.is_active:
-            raise CustomersError(
+            raise CustomerError(
                 "MERGE_DENIED",
                 message="Target customer is inactive.",
             )
@@ -161,20 +161,20 @@ class MergeService:
             actor: Who initiated the undo.
 
         Raises:
-            CustomersError: If audit not found, already reverted, or window expired.
+            CustomerError: If audit not found, already reverted, or window expired.
         """
         from shopman.guestman.contrib.merge.models import MergeAudit, MergeStatus
 
         try:
             audit = MergeAudit.objects.get(pk=audit_id)
         except MergeAudit.DoesNotExist:
-            raise CustomersError("UNDO_FAILED", message="Merge audit record not found.")
+            raise CustomerError("UNDO_FAILED", message="Merge audit record not found.")
 
         if audit.status != MergeStatus.COMPLETED:
-            raise CustomersError("UNDO_FAILED", message="Merge already reverted.")
+            raise CustomerError("UNDO_FAILED", message="Merge already reverted.")
 
         if not audit.can_undo:
-            raise CustomersError(
+            raise CustomerError(
                 "UNDO_FAILED",
                 message=f"Undo window expired at {audit.undo_deadline}.",
             )

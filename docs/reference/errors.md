@@ -13,13 +13,13 @@ Exception
 │   ├── StockError (stocking)
 │   ├── CraftError (crafting)
 │   │   └── StaleRevision
-│   ├── CustomersError (customers)
+│   ├── CustomerError (customers)
 │   └── AuthError (auth)
 │       └── GateError
 │
 ├── PaymentError (payments)              # Base independente com code + context
 │
-├── OrderingError (ordering)             # Base independente com code + context
+├── OrderError (ordering)             # Base independente com code + context
 │   ├── ValidationError
 │   ├── SessionError
 │   ├── CommitError
@@ -114,7 +114,7 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 
 ---
 
-## CustomersError (Customers)
+## CustomerError (Customers)
 
 **Arquivo:** `packages/guestman/shopman/customers/exceptions.py`
 **Base:** `BaseError`
@@ -171,7 +171,7 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 
 ---
 
-## OrderingError (Ordering)
+## OrderError (Ordering)
 
 **Arquivo:** `packages/orderman/shopman/ordering/exceptions.py`
 **Base:** `Exception` (independente de `BaseError`)

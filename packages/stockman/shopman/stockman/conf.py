@@ -3,7 +3,7 @@ Stockman configuration.
 
 Usage in settings.py:
     STOCKMAN = {
-        "SKU_VALIDATOR": "shopman.offerman.adapters.sku_validator.OfferingSkuValidator",
+        "SKU_VALIDATOR": "shopman.offerman.adapters.sku_validator.SkuValidator",
         "HOLD_TTL_MINUTES": 30,
         "EXPIRED_BATCH_SIZE": 200,
         "VALIDATE_INPUT_SKUS": True,

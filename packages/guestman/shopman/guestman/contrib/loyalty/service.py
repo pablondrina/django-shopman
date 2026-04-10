@@ -10,7 +10,7 @@ from shopman.guestman.contrib.loyalty.models import (
     LoyaltyTier,
     TransactionType,
 )
-from shopman.guestman.exceptions import CustomersError
+from shopman.guestman.exceptions import CustomerError
 from shopman.guestman.models import Customer
 
 logger = logging.getLogger(__name__)
@@ -87,10 +87,10 @@ class LoyaltyService:
             Created LoyaltyTransaction
 
         Raises:
-            CustomersError: If not enrolled or points <= 0
+            CustomerError: If not enrolled or points <= 0
         """
         if points <= 0:
-            raise CustomersError("LOYALTY_INVALID_POINTS", message="Points must be positive")
+            raise CustomerError("LOYALTY_INVALID_POINTS", message="Points must be positive")
 
         with transaction.atomic():
             account = cls._get_active_account_for_update(customer_ref)
@@ -137,16 +137,16 @@ class LoyaltyService:
             Created LoyaltyTransaction
 
         Raises:
-            CustomersError: If not enrolled, insufficient balance, or points <= 0
+            CustomerError: If not enrolled, insufficient balance, or points <= 0
         """
         if points <= 0:
-            raise CustomersError("LOYALTY_INVALID_POINTS", message="Points must be positive")
+            raise CustomerError("LOYALTY_INVALID_POINTS", message="Points must be positive")
 
         with transaction.atomic():
             account = cls._get_active_account_for_update(customer_ref)
 
             if account.points_balance < points:
-                raise CustomersError(
+                raise CustomerError(
                     "LOYALTY_INSUFFICIENT_POINTS",
                     available=account.points_balance,
                     requested=points,
@@ -189,7 +189,7 @@ class LoyaltyService:
             Tuple of (LoyaltyAccount, card_completed: bool)
 
         Raises:
-            CustomersError: If not enrolled
+            CustomerError: If not enrolled
         """
         with transaction.atomic():
             account = cls._get_active_account_for_update(customer_ref)
@@ -243,7 +243,7 @@ class LoyaltyService:
                 is_active=True,
             )
         except LoyaltyAccount.DoesNotExist:
-            raise CustomersError("LOYALTY_NOT_ENROLLED", customer_ref=customer_ref)
+            raise CustomerError("LOYALTY_NOT_ENROLLED", customer_ref=customer_ref)
 
     @classmethod
     def _get_active_account_for_update(cls, customer_ref: str) -> LoyaltyAccount:
@@ -265,7 +265,7 @@ class LoyaltyService:
                 )
             )
         except LoyaltyAccount.DoesNotExist:
-            raise CustomersError("LOYALTY_NOT_ENROLLED", customer_ref=customer_ref)
+            raise CustomerError("LOYALTY_NOT_ENROLLED", customer_ref=customer_ref)
 
     @classmethod
     def _update_tier(cls, account: LoyaltyAccount) -> None:

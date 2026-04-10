@@ -55,7 +55,7 @@ logger = logging.getLogger(__name__)
 
 # H26: Default pagination for list endpoints.
 # Uses CursorPagination for stable ordering with large datasets.
-class OrderingCursorPagination(CursorPagination):
+class OrderCursorPagination(CursorPagination):
     """Cursor-based pagination for Orderman API endpoints."""
 
     page_size = 25
@@ -149,7 +149,7 @@ class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
     queryset = Session.objects.all()
     serializer_class = SessionSerializer
     permission_classes = get_orderman_setting("DEFAULT_PERMISSION_CLASSES")
-    pagination_class = OrderingCursorPagination
+    pagination_class = OrderCursorPagination
     throttle_classes = [AnonRateThrottle, UserRateThrottle]
 
     lookup_field = "session_key"
@@ -367,7 +367,7 @@ class OrderViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
     permission_classes = get_orderman_setting("DEFAULT_PERMISSION_CLASSES")
-    pagination_class = OrderingCursorPagination
+    pagination_class = OrderCursorPagination
     throttle_classes = [AnonRateThrottle, UserRateThrottle]
 
 
@@ -386,5 +386,5 @@ class DirectiveViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Directive.objects.all()
     serializer_class = DirectiveSerializer
     permission_classes = get_orderman_setting("ADMIN_PERMISSION_CLASSES")
-    pagination_class = OrderingCursorPagination
+    pagination_class = OrderCursorPagination
     throttle_classes = [AnonRateThrottle, UserRateThrottle]

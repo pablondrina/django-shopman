@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from shopman.guestman.contrib.merge.models import MergeAudit, MergeStatus
 from shopman.guestman.contrib.merge.service import MergeResult, MergeService
-from shopman.guestman.exceptions import CustomersError
+from shopman.guestman.exceptions import CustomerError
 from shopman.guestman.gates import GateError
 from shopman.guestman.models import (
     ContactPoint,
@@ -111,14 +111,14 @@ class TestMergeGateValidation:
         source.is_active = False
         source.save(update_fields=["is_active"])
 
-        with pytest.raises(CustomersError):
+        with pytest.raises(CustomerError):
             MergeService.merge(source, target, evidence, actor="test")
 
     def test_merge_rejects_inactive_target(self, source, target, evidence):
         target.is_active = False
         target.save(update_fields=["is_active"])
 
-        with pytest.raises(CustomersError):
+        with pytest.raises(CustomerError):
             MergeService.merge(source, target, evidence, actor="test")
 
     def test_merge_accepts_staff_override(self, source, target):
@@ -881,7 +881,7 @@ class TestMergeUndo:
         result = MergeService.merge(source, target, evidence, actor="test")
         MergeService.undo(result.audit_id, actor="test")
 
-        with pytest.raises(CustomersError, match="already reverted"):
+        with pytest.raises(CustomerError, match="already reverted"):
             MergeService.undo(result.audit_id, actor="test")
 
     def test_undo_rejects_expired_window(self, source, target, evidence):
@@ -890,11 +890,11 @@ class TestMergeUndo:
         audit.merged_at = timezone.now() - timedelta(hours=25)
         audit.save(update_fields=["merged_at"])
 
-        with pytest.raises(CustomersError, match="window expired"):
+        with pytest.raises(CustomerError, match="window expired"):
             MergeService.undo(result.audit_id, actor="test")
 
     def test_undo_rejects_invalid_audit_id(self):
-        with pytest.raises(CustomersError, match="not found"):
+        with pytest.raises(CustomerError, match="not found"):
             MergeService.undo("00000000-0000-0000-0000-000000000000", actor="test")
 
     def test_undo_creates_timeline_event(self, source, target, evidence):

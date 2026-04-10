@@ -13,7 +13,7 @@ from shopman.offerman.protocols import (
 from shopman.offerman.exceptions import CatalogError
 
 
-class OfferingCatalogBackend:
+class CatalogBackend:
     """
     CatalogBackend implementation using Offerman's catalog service.
 
@@ -86,5 +86,5 @@ class OfferingCatalogBackend:
 
 
 # Verify implementation at import time
-if not isinstance(OfferingCatalogBackend(), CatalogBackend):
-    raise TypeError("OfferingCatalogBackend does not implement CatalogBackend protocol")
+if not isinstance(CatalogBackend(), CatalogBackend):
+    raise TypeError("CatalogBackend does not implement CatalogBackend protocol")

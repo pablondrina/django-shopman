@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet, mixins
 
-from shopman.guestman.exceptions import CustomersError
+from shopman.guestman.exceptions import CustomerError
 from shopman.guestman.models import Customer
 from shopman.guestman.services import address as address_service
 from shopman.guestman.services import customer as customer_service
@@ -145,7 +145,7 @@ class CustomerViewSet(
                 is_default=data.get("is_default", False),
                 coordinates=coordinates,
             )
-        except CustomersError as e:
+        except CustomerError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(CustomerAddressSerializer(addr).data, status=status.HTTP_201_CREATED)

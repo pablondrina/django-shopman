@@ -54,7 +54,7 @@ def _map_workorder_status(status: str) -> ProductionStatusEnum:
     return mapping.get(status, ProductionStatusEnum.REQUESTED)
 
 
-class CraftingBackend:
+class ProductionBackend:
     """
     Implementação do ProductionBackend usando a API do Craftsman.
 
@@ -297,12 +297,12 @@ class CraftingBackend:
 
 
 _lock = threading.Lock()
-_backend_instance: CraftingBackend | None = None
+_backend_instance: ProductionBackend | None = None
 
 
 def get_production_backend(
     recipe_resolver: Callable[[str], Any] | None = None,
-) -> CraftingBackend:
+) -> ProductionBackend:
     """
     Get or create the production backend instance.
 
@@ -310,18 +310,18 @@ def get_production_backend(
         recipe_resolver: Optional custom recipe resolver
 
     Returns:
-        CraftingBackend instance
+        ProductionBackend instance
     """
     global _backend_instance
 
     if recipe_resolver:
         # Se passou resolver customizado, cria nova instância
-        return CraftingBackend(recipe_resolver=recipe_resolver)
+        return ProductionBackend(recipe_resolver=recipe_resolver)
 
     if _backend_instance is None:
         with _lock:
             if _backend_instance is None:  # double-checked
-                _backend_instance = CraftingBackend()
+                _backend_instance = ProductionBackend()
 
     return _backend_instance
 

@@ -1,5 +1,5 @@
 """
-Stock alert checker — bridges Core StockAlerts to App OperatorAlerts.
+Stock alert checker — propagates Stockman StockAlerts to framework OperatorAlerts.
 
 Called explicitly after stock-changing operations (fulfill, issue)
 to detect when physical stock drops below configured minimums.

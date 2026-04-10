@@ -3,7 +3,7 @@
 from shopman.utils.exceptions import BaseError
 
 
-class CustomersError(BaseError):
+class CustomerError(BaseError):
     """
     Structured exception for customer operations.
 
@@ -12,7 +12,7 @@ class CustomersError(BaseError):
     Usage:
         try:
             customer = customer_service.get("CUST-001")
-        except CustomersError as e:
+        except CustomerError as e:
             if e.code == "CUSTOMER_NOT_FOUND":
                 handle_not_found()
     """

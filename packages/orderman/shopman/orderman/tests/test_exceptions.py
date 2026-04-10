@@ -12,18 +12,18 @@ from shopman.orderman.exceptions import (
     IdempotencyError,
     InvalidTransition,
     IssueResolveError,
-    OrderingError,
+    OrderError,
     SessionError,
     ValidationError,
 )
 
 
-class OrderingErrorTests(TestCase):
-    """Tests for base OrderingError."""
+class OrderErrorTests(TestCase):
+    """Tests for base OrderError."""
 
     def test_ordering_error_is_exception(self) -> None:
         """Should be an Exception subclass."""
-        error = OrderingError("test")
+        error = OrderError("test")
         self.assertIsInstance(error, Exception)
 
 

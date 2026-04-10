@@ -27,7 +27,7 @@ pytestmark = pytest.mark.django_db
 CRAFTING_WITH_BACKENDS = {
     "INVENTORY_BACKEND": "shopman.craftsman.adapters.stocking.StockingBackend",
     "DEMAND_BACKEND": "shopman.craftsman.contrib.demand.backend.OrderingDemandBackend",
-    "CATALOG_BACKEND": "shopman.offerman.adapters.catalog_backend.OfferingCatalogBackend",
+    "CATALOG_BACKEND": "shopman.offerman.adapters.catalog_backend.CatalogBackend",
 }
 
 

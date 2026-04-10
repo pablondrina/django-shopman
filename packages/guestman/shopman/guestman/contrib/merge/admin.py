@@ -7,7 +7,7 @@ from django.http import HttpRequest, HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 
-from shopman.guestman.exceptions import CustomersError
+from shopman.guestman.exceptions import CustomerError
 from shopman.guestman.models import Customer
 
 
@@ -80,7 +80,7 @@ class MergeAdminMixin:
                     f"{result.migrated_timeline_events} eventos.",
                     messages.SUCCESS,
                 )
-            except CustomersError as exc:
+            except CustomerError as exc:
                 self.message_user(
                     request,
                     f"Merge falhou: {exc}",
@@ -147,7 +147,7 @@ def register_merge_action(admin_class=None):
                     f"Merge concluído: {result.source_ref} → {result.target_ref}.",
                     messages.SUCCESS,
                 )
-            except CustomersError as exc:
+            except CustomerError as exc:
                 modeladmin.message_user(
                     request,
                     f"Merge falhou: {exc}",

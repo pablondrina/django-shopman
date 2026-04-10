@@ -276,7 +276,7 @@ class AccountingBackend(Protocol):
 
 ## Exceções
 
-Todas herdam de `OrderingError(code, message, context)`:
+Todas herdam de `OrderError(code, message, context)`:
 
 | Exceção | Uso |
 |---------|-----|

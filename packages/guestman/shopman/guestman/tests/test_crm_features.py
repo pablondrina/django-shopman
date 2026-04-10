@@ -5,7 +5,7 @@ Tests for Micro CRM features:
 - Loyalty (points/stamps program)
 - Customer → ContactPoint sync
 - Address null safety
-- CustomersError → BaseError inheritance
+- CustomerError → BaseError inheritance
 - InsightService enhancements (LTV, segmentation)
 """
 
@@ -15,7 +15,7 @@ import pytest
 from django.db import IntegrityError, transaction
 
 from shopman.guestman.models import Customer, CustomerGroup, CustomerAddress, ContactPoint
-from shopman.guestman.exceptions import CustomersError
+from shopman.guestman.exceptions import CustomerError
 
 # Contrib imports
 from shopman.guestman.contrib.timeline.models import TimelineEvent
@@ -67,30 +67,30 @@ def customer_b(group):
 
 
 # ═══════════════════════════════════════════════════════════════════
-# CustomersError → BaseError
+# CustomerError → BaseError
 # ═══════════════════════════════════════════════════════════════════
 
 
-class TestCustomersErrorInheritance:
-    """CustomersError inherits from shopman.utils.BaseError."""
+class TestCustomerErrorInheritance:
+    """CustomerError inherits from shopman.utils.BaseError."""
 
     def test_inherits_from_base_error(self):
         from shopman.utils.exceptions import BaseError
 
-        err = CustomersError("CUSTOMER_NOT_FOUND")
+        err = CustomerError("CUSTOMER_NOT_FOUND")
         assert isinstance(err, BaseError)
 
     def test_default_messages(self):
-        err = CustomersError("CUSTOMER_NOT_FOUND")
+        err = CustomerError("CUSTOMER_NOT_FOUND")
         assert err.message == "Customer not found"
         assert err.code == "CUSTOMER_NOT_FOUND"
 
     def test_custom_message(self):
-        err = CustomersError("CUSTOMER_NOT_FOUND", message="Custom msg")
+        err = CustomerError("CUSTOMER_NOT_FOUND", message="Custom msg")
         assert err.message == "Custom msg"
 
     def test_as_dict(self):
-        err = CustomersError("LOYALTY_NOT_ENROLLED", customer_ref="CRM-001")
+        err = CustomerError("LOYALTY_NOT_ENROLLED", customer_ref="CRM-001")
         d = err.as_dict()
         assert d["code"] == "LOYALTY_NOT_ENROLLED"
         assert d["data"]["customer_ref"] == "CRM-001"
@@ -450,12 +450,12 @@ class TestLoyaltyService:
         LoyaltyService.enroll("CRM-001")
         LoyaltyService.earn_points("CRM-001", 50, "Earn")
 
-        with pytest.raises(CustomersError, match="LOYALTY_INSUFFICIENT_POINTS"):
+        with pytest.raises(CustomerError, match="LOYALTY_INSUFFICIENT_POINTS"):
             LoyaltyService.redeem_points("CRM-001", 100, "Too much")
 
     def test_not_enrolled_raises(self, customer):
         """Operations on non-enrolled customer raise error."""
-        with pytest.raises(CustomersError, match="LOYALTY_NOT_ENROLLED"):
+        with pytest.raises(CustomerError, match="LOYALTY_NOT_ENROLLED"):
             LoyaltyService.earn_points("CRM-001", 100, "Test")
 
     def test_get_balance(self, customer):
@@ -515,9 +515,9 @@ class TestLoyaltyService:
     def test_earn_zero_raises(self, customer):
         """Earning 0 or negative points raises."""
         LoyaltyService.enroll("CRM-001")
-        with pytest.raises(CustomersError):
+        with pytest.raises(CustomerError):
             LoyaltyService.earn_points("CRM-001", 0, "Invalid")
-        with pytest.raises(CustomersError):
+        with pytest.raises(CustomerError):
             LoyaltyService.earn_points("CRM-001", -10, "Invalid")
 
     def test_stamps_progress_percent(self, customer):

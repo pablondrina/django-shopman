@@ -11,7 +11,7 @@ Usage:
 
 Settings:
     STOCKING = {
-        "SKU_VALIDATOR": "shopman.offerman.adapters.sku_validator.OfferingSkuValidator",
+        "SKU_VALIDATOR": "shopman.offerman.adapters.sku_validator.SkuValidator",
     }
 
 If SKU_VALIDATOR is not configured, get_sku_validator() raises ImproperlyConfigured.
@@ -61,7 +61,7 @@ def get_sku_validator() -> SkuValidator:
                 if not validator_path:
                     raise ImproperlyConfigured(
                         "STOCKMAN['SKU_VALIDATOR'] must be configured. "
-                        "Example: 'shopman.offerman.adapters.sku_validator.OfferingSkuValidator'"
+                        "Example: 'shopman.offerman.adapters.sku_validator.SkuValidator'"
                     )
 
                 try:

@@ -4,7 +4,7 @@ Stockman Adapters.
 Implementations of protocols for external systems.
 """
 
-from shopman.stockman.adapters.crafting import CraftingBackend, get_production_backend
+from shopman.stockman.adapters.crafting import ProductionBackend, get_production_backend
 from shopman.stockman.adapters.noop import NoopSkuValidator
 from shopman.stockman.adapters.offering import (
     get_sku_validator,
@@ -12,7 +12,7 @@ from shopman.stockman.adapters.offering import (
 )
 
 __all__ = [
-    "CraftingBackend",
+    "ProductionBackend",
     "NoopSkuValidator",
     "get_production_backend",
     "get_sku_validator",

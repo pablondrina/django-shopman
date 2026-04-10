@@ -101,7 +101,7 @@ class ProductionBackend(Protocol):
     - A demanda excede o planejado
 
     Implementações:
-        - CraftingBackend: Usa craft.plan() + craft.schedule()
+        - ProductionBackend: Usa craft.plan() + craft.schedule()
         - MockProductionBackend: Para testes sem produção real
     """
 
