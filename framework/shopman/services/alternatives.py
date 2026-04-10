@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 from decimal import Decimal
 
+from shopman.adapters import get_adapter
 from shopman.utils.monetary import format_money
 
 from ..web.constants import HAS_STOCKMAN, STOREFRONT_CHANNEL_REF
@@ -23,13 +24,12 @@ def find(sku: str, *, qty: Decimal = Decimal("1"), channel: str | None = None, l
     Returns:
         [{"sku", "name", "price_q", "price_display", "available_qty", "can_order"}, ...]
     """
-    try:
-        from shopman.offerman import find_alternatives as _find_candidates
-    except ImportError:
+    catalog = get_adapter("catalog")
+    if not catalog:
         return []
 
     try:
-        candidates = _find_candidates(sku, limit=limit * 2)
+        candidates = catalog.find_alternatives(sku, limit=limit * 2)
         if not candidates:
             return []
     except Exception as e:
@@ -56,25 +56,13 @@ def find(sku: str, *, qty: Decimal = Decimal("1"), channel: str | None = None, l
     # Build price map via listing
     price_map: dict[str, int] = {}
     try:
-        from shopman.offerman.models import ListingItem
         from shopman.omniman.models import Channel
 
         channel_obj = Channel.objects.filter(ref=channel_ref).first()
         listing_ref = channel_obj.ref if channel_obj else None
         if listing_ref:
             skus = [p.sku for p in candidates]
-            for item in (
-                ListingItem.objects.filter(
-                    listing__ref=listing_ref,
-                    listing__is_active=True,
-                    product__sku__in=skus,
-                    is_published=True,
-                    is_available=True,
-                )
-                .select_related("product")
-                .order_by("-min_qty")
-            ):
-                price_map.setdefault(item.product.sku, item.price_q)
+            price_map = catalog.bulk_listing_price_map(skus, listing_ref)
     except Exception as e:
         logger.warning("alternatives_price_map_failed: %s", e, exc_info=True)
 

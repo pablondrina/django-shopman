@@ -1,15 +1,14 @@
 """
 Pricing resolution service.
 
-Core: CatalogService.price()
+Core: CatalogService.price() via catalog adapter
 """
 
 from __future__ import annotations
 
 import logging
-from decimal import Decimal
 
-from shopman.offerman.service import CatalogService
+from shopman.adapters import get_adapter
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +17,8 @@ def resolve(sku: str, qty: int = 1, channel: str | None = None) -> int:
     """
     Resolve the price for a SKU.
 
-    Calls CatalogService.price() as the base price. In the future (R5),
-    the Rules engine will apply modifiers on top.
+    Calls CatalogService.price() as the base price via catalog adapter. In the
+    future (R5), the Rules engine will apply modifiers on top.
 
     Args:
         sku: Product SKU
@@ -31,4 +30,5 @@ def resolve(sku: str, qty: int = 1, channel: str | None = None) -> int:
 
     SYNC — immediate price resolution.
     """
-    return CatalogService.price(sku, qty=Decimal(str(qty)), channel=channel)
+    catalog = get_adapter("catalog")
+    return catalog.get_price(sku, qty=qty, channel=channel)

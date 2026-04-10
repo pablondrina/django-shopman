@@ -1,7 +1,7 @@
 """
 Customer resolution service.
 
-Core: customers.services.customer (get_by_phone, create, etc.)
+Core: customers.services.customer (get_by_phone, create, etc.) via customer adapter
 
 Strategy registry
 -----------------
@@ -18,11 +18,9 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Callable
+from collections.abc import Callable
 
-from shopman.guestman.contrib.identifiers import CustomerIdentifier
-from shopman.guestman.contrib.insights import InsightService
-from shopman.guestman.contrib.timeline import TimelineEvent
+from shopman.adapters import get_adapter
 
 logger = logging.getLogger(__name__)
 
@@ -68,20 +66,21 @@ def ensure(order) -> None:
         logger.warning("customer.ensure: failed for order %s: %s", order.ref, exc)
         return
 
-    if customer and order.data.get("customer_ref") != customer.ref:
-        order.data["customer_ref"] = customer.ref
+    if customer and order.data.get("customer_ref") != customer["ref"]:
+        order.data["customer_ref"] = customer["ref"]
         order.save(update_fields=["data", "updated_at"])
 
     if customer:
         _save_delivery_address(customer, order)
         _create_timeline_event(customer, order)
-        _update_insights(customer.ref)
+        _update_insights(customer["ref"])
 
 
 # ── Built-in strategies ──
 
 
 def _handle_manychat(order):
+    adapter = get_adapter("customer")
     subscriber_id = order.handle_ref
     customer_data = _get_customer_data(order)
     name = customer_data.get("name", "")
@@ -89,32 +88,32 @@ def _handle_manychat(order):
     if not subscriber_id:
         raise _SkipAnonymous()
 
-    customer = _find_by_identifier("manychat", subscriber_id)
+    customer = adapter.get_customer_by_identifier("manychat", subscriber_id)
     if customer:
-        _maybe_update_name(customer, name)
+        _maybe_update_name(adapter, customer, name)
         return customer
 
-    svc = _get_customer_service()
     phone = _normalize_phone_safe(customer_data.get("phone", ""))
 
     if phone:
-        customer = svc.get_by_phone(phone)
+        customer = adapter.get_customer_by_phone(phone)
         if customer:
-            _add_identifier(customer, "manychat", subscriber_id, is_primary=True)
-            _maybe_update_name(customer, name)
+            adapter.create_identifier(customer["ref"], "manychat", subscriber_id, is_primary=True)
+            _maybe_update_name(adapter, customer, name)
             return customer
 
     first_name, last_name = _split_name(name)
     ref = f"MC-{uuid.uuid4().hex[:8].upper()}"
-    customer = svc.create(
+    customer = adapter.create_customer(
         ref=ref, first_name=first_name, last_name=last_name,
         phone=phone, customer_type="individual", source_system="manychat",
     )
-    _add_identifier(customer, "manychat", subscriber_id, is_primary=True)
+    adapter.create_identifier(customer["ref"], "manychat", subscriber_id, is_primary=True)
     return customer
 
 
 def _handle_ifood(order):
+    adapter = get_adapter("customer")
     customer_data = _get_customer_data(order)
     ifood_order_id = order.external_ref or order.handle_ref
     name = customer_data.get("name", "")
@@ -122,25 +121,24 @@ def _handle_ifood(order):
     if not ifood_order_id:
         raise _SkipAnonymous()
 
-    customer = _find_by_identifier("ifood", ifood_order_id)
+    customer = adapter.get_customer_by_identifier("ifood", ifood_order_id)
     if customer:
-        _maybe_update_name(customer, name)
+        _maybe_update_name(adapter, customer, name)
         return customer
 
-    svc = _get_customer_service()
     first_name, last_name = _split_name(name)
     ref = f"IF-{uuid.uuid4().hex[:8].upper()}"
-    customer = svc.create(
+    customer = adapter.create_customer(
         ref=ref, first_name=first_name or "iFood",
         last_name=last_name or f"#{ifood_order_id[:8]}",
-        customer_type="individual", source_system="ifood",
+        phone="", customer_type="individual", source_system="ifood",
     )
-    _add_identifier(customer, "ifood", ifood_order_id, is_primary=True)
+    adapter.create_identifier(customer["ref"], "ifood", ifood_order_id, is_primary=True)
     return customer
 
 
 def _handle_phone(order):
-    svc = _get_customer_service()
+    adapter = get_adapter("customer")
     customer_data = _get_customer_data(order)
     phone_raw = customer_data.get("phone") or order.handle_ref
     name = customer_data.get("name", "")
@@ -152,14 +150,14 @@ def _handle_phone(order):
     if not phone:
         raise _SkipAnonymous()
 
-    customer = svc.get_by_phone(phone)
+    customer = adapter.get_customer_by_phone(phone)
     if customer:
-        _maybe_update_name(customer, name)
+        _maybe_update_name(adapter, customer, name)
         return customer
 
     first_name, last_name = _split_name(name)
     ref = f"CLI-{uuid.uuid4().hex[:8].upper()}"
-    customer = svc.create(
+    customer = adapter.create_customer(
         ref=ref, first_name=first_name, last_name=last_name,
         phone=phone, customer_type="individual", source_system="shopman",
     )
@@ -179,13 +177,11 @@ class _SkipAnonymous(Exception):
 
 
 def _customers_available() -> bool:
-    from shopman.guestman.services import customer as _svc  # noqa: F401
-    return True
-
-
-def _get_customer_service():
-    from shopman.guestman.services import customer as svc
-    return svc
+    try:
+        from shopman.guestman.services import customer as _svc  # noqa: F401
+        return True
+    except ImportError:
+        return False
 
 
 def _get_customer_data(order) -> dict:
@@ -207,35 +203,16 @@ def _normalize_phone_safe(phone_raw: str) -> str:
         return phone_raw
 
 
-def _maybe_update_name(customer, name: str) -> None:
-    if name and not customer.first_name:
-        svc = _get_customer_service()
+def _maybe_update_name(adapter, customer: dict, name: str) -> None:
+    if name and not customer.get("first_name"):
         first_name, last_name = _split_name(name)
         try:
-            svc.update(customer.ref, first_name=first_name, last_name=last_name)
+            adapter.update_customer(customer["ref"], first_name=first_name, last_name=last_name)
         except Exception:
             pass
 
 
-def _find_by_identifier(provider: str, external_id: str):
-    try:
-        ident = CustomerIdentifier.objects.select_related("customer").get(
-            identifier_type=provider, identifier_value=str(external_id),
-            customer__is_active=True,
-        )
-        return ident.customer
-    except CustomerIdentifier.DoesNotExist:
-        return None
-
-
-def _add_identifier(customer, provider: str, value: str, *, is_primary: bool = False) -> None:
-    CustomerIdentifier.objects.get_or_create(
-        identifier_type=provider, identifier_value=str(value),
-        defaults={"customer": customer, "is_primary": is_primary, "source_system": "shopman"},
-    )
-
-
-def _save_delivery_address(customer, order) -> None:
+def _save_delivery_address(customer: dict, order) -> None:
     delivery_address = (
         order.data.get("delivery_address")
         or order.snapshot.get("data", {}).get("delivery_address")
@@ -243,34 +220,40 @@ def _save_delivery_address(customer, order) -> None:
     if not delivery_address:
         return
 
-    from shopman.guestman.models import CustomerAddress
+    adapter = get_adapter("customer")
+    customer_ref = customer["ref"]
 
     try:
-        if CustomerAddress.objects.filter(customer=customer, formatted_address=delivery_address).exists():
+        if adapter.has_address(customer_ref, delivery_address):
             return
-        has_addresses = CustomerAddress.objects.filter(customer=customer).exists()
-        CustomerAddress.objects.create(
-            customer=customer, label="home", formatted_address=delivery_address,
-            is_default=not has_addresses,
+        has_any = adapter.has_any_address(customer_ref)
+        adapter.create_address(
+            customer_ref=customer_ref,
+            label="home",
+            formatted_address=delivery_address,
+            is_default=not has_any,
         )
     except Exception as exc:
         logger.warning("customer.ensure: address save failed: %s", exc)
 
 
-def _create_timeline_event(customer, order) -> None:
+def _create_timeline_event(customer: dict, order) -> None:
     from shopman.utils.monetary import format_money
 
+    adapter = get_adapter("customer")
+    customer_ref = customer["ref"]
+
     try:
-        exists = TimelineEvent.objects.filter(
-            customer=customer, event_type="order", reference=f"order:{order.ref}",
-        ).exists()
-        if exists:
+        if adapter.has_timeline_event(customer_ref, "order", f"order:{order.ref}"):
             return
 
-        TimelineEvent.objects.create(
-            customer=customer, event_type="order", title=f"Pedido {order.ref}",
+        adapter.log_timeline_event(
+            customer_ref=customer_ref,
+            event_type="order",
+            title=f"Pedido {order.ref}",
             description=f"Pedido realizado via {order.channel.name} — R$ {format_money(order.total_q)}",
-            channel=order.channel.ref, reference=f"order:{order.ref}",
+            channel=order.channel.ref,
+            reference=f"order:{order.ref}",
             metadata={"order_ref": order.ref, "total_q": order.total_q},
             created_by="shopman.services.customer.ensure",
         )
@@ -279,7 +262,8 @@ def _create_timeline_event(customer, order) -> None:
 
 
 def _update_insights(customer_ref: str) -> None:
+    adapter = get_adapter("customer")
     try:
-        InsightService.recalculate(customer_ref)
+        adapter.recalculate_insights(customer_ref)
     except Exception as exc:
         logger.warning("customer.ensure: insight recalculation failed: %s", exc)

@@ -10,7 +10,7 @@ import logging
 from decimal import Decimal
 from typing import Any
 
-from shopman.offerman.models import ListingItem, Product
+from shopman.adapters import get_adapter
 
 logger = logging.getLogger(__name__)
 
@@ -19,40 +19,33 @@ class OffermanPricingBackend:
     """Resolve preço pela cascata: grupo do cliente → listing do canal → preço base."""
 
     def get_price(self, sku: str, channel: Any, customer=None, qty: int = 1) -> int | None:
+        catalog = get_adapter("catalog")
+
         # 1. Preço do grupo do cliente (se identificado e tem grupo com listing)
         if customer and hasattr(customer, "group") and customer.group:
             listing_ref = getattr(customer.group, "listing_ref", None)
             if listing_ref:
-                item = self._get_listing_item(listing_ref, sku, qty=qty)
-                if item and item.is_available:
-                    return item.price_q
+                item = self._get_listing_item(catalog, listing_ref, sku, qty=qty)
+                if item and item.get("is_available"):
+                    return item["price_q"]
 
         # 2. Preço do canal (via listing do canal)
         channel_listing = getattr(channel, "listing_ref", None) if channel else None
         if channel_listing:
-            item = self._get_listing_item(channel_listing, sku, qty=qty)
-            if item and item.is_available:
-                return item.price_q
+            item = self._get_listing_item(catalog, channel_listing, sku, qty=qty)
+            if item and item.get("is_available"):
+                return item["price_q"]
 
         # 3. Preço base do produto
         try:
-            product = Product.objects.get(sku=sku)
-            return product.base_price_q
-        except Product.DoesNotExist:
+            return catalog.get_product_base_price(sku)
+        except Exception:
             return None
 
-    def _get_listing_item(self, listing_ref, sku, qty=1):
-        """Find the ListingItem with the highest min_qty tier <= qty."""
-        return (
-            ListingItem.objects.filter(
-                listing__ref=listing_ref,
-                product__sku=sku,
-                min_qty__lte=qty,
-                is_published=True,
-            )
-            .order_by("-min_qty")
-            .first()
-        )
+    def _get_listing_item(self, catalog, listing_ref, sku, qty=1):
+        """Find the tier with highest min_qty <= qty."""
+        tiers = catalog.find_listing_tiers(sku, listing_ref)
+        return next((t for t in tiers if t["min_qty"] <= qty), None)
 
 
 class ItemPricingModifier:

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 
-from shopman.craftsman.models import WorkOrderEvent
+from shopman.adapters import get_adapter
 from shopman.services import production as production_svc
 
 logger = logging.getLogger(__name__)
@@ -59,10 +59,8 @@ def _action_to_phase(action: str, work_order) -> str | None:
     if action == "planned":
         return "on_planned"
     if action == "adjusted":
-        n = WorkOrderEvent.objects.filter(
-            work_order=work_order,
-            kind=WorkOrderEvent.Kind.ADJUSTED,
-        ).count()
+        production = get_adapter("production")
+        n = production.count_adjusted_events(work_order.code)
         return "on_started" if n == 1 else None
     if action == "closed":
         return "on_closed"

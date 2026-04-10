@@ -12,12 +12,10 @@ from __future__ import annotations
 
 import logging
 
-from shopman.craftsman.models import WorkOrder
-
 logger = logging.getLogger(__name__)
 
 
-def reserve_materials(work_order: WorkOrder) -> None:
+def reserve_materials(work_order) -> None:
     """Ponto de coordenação ao planejar produção.
 
     O Stockman reage ao signal `production_changed` (action=planned/adjusted).
@@ -31,7 +29,7 @@ def reserve_materials(work_order: WorkOrder) -> None:
     )
 
 
-def emit_goods(work_order: WorkOrder) -> None:
+def emit_goods(work_order) -> None:
     """Ponto de coordenação ao encerrar produção com saída real.
 
     Consumo de insumos e entrada do acabado ocorrem no `craft.close()` via
@@ -45,7 +43,7 @@ def emit_goods(work_order: WorkOrder) -> None:
     )
 
 
-def notify(work_order: WorkOrder, event: str) -> None:
+def notify(work_order, event: str) -> None:
     """Notificação de lifecycle de produção (sem Order — apenas log por ora)."""
     logger.info(
         "production.notify: wo=%s event=%s",

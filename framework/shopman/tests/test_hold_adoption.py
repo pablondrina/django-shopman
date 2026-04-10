@@ -70,22 +70,21 @@ class TestHoldAdoptionByQuantity:
     @patch("shopman.services.stock._retag_hold_for_order")
     @patch("shopman.services.stock._load_session_holds")
     @patch("shopman.services.stock.get_adapter")
-    @patch("shopman.services.stock.CatalogService")
     def test_add_twice_adopts_both_holds(
-        self, mock_catalog, mock_get_adapter, mock_load, mock_retag,
+        self, mock_get_adapter, mock_load, mock_retag,
     ):
         """add(X, 2) + add(X, 2) → commit → two holds adopted, total qty=4."""
         from shopman.services.stock import hold
 
-        mock_catalog.expand.side_effect = Exception("NOT_A_BUNDLE")
+        adapter = MagicMock()
+        adapter.expand_bundle.side_effect = Exception("NOT_A_BUNDLE")
+        mock_get_adapter.return_value = adapter
         mock_load.return_value = {
             "X": [
                 ("hold:A", Decimal("2")),
                 ("hold:B", Decimal("2")),
             ],
         }
-        adapter = MagicMock()
-        mock_get_adapter.return_value = adapter
 
         order = _make_order(items=[{"sku": "X", "qty": "4"}])
         hold(order)
@@ -99,22 +98,19 @@ class TestHoldAdoptionByQuantity:
     @patch("shopman.services.stock._retag_hold_for_order")
     @patch("shopman.services.stock._load_session_holds")
     @patch("shopman.services.stock.get_adapter")
-    @patch("shopman.services.stock.CatalogService")
     def test_partial_session_holds_fills_remainder_with_fresh_hold(
-        self, mock_catalog, mock_get_adapter, mock_load, mock_retag,
+        self, mock_get_adapter, mock_load, mock_retag,
     ):
         """Session covers qty=2 of required=5 → adopt 2, create fresh 3."""
         from shopman.services.stock import hold
 
-        mock_catalog.expand.side_effect = Exception("NOT_A_BUNDLE")
+        adapter = MagicMock()
+        adapter.expand_bundle.side_effect = Exception("NOT_A_BUNDLE")
+        adapter.create_hold.return_value = {"success": True, "hold_id": "hold:FRESH"}
+        mock_get_adapter.return_value = adapter
         mock_load.return_value = {
             "X": [("hold:A", Decimal("2"))],
         }
-        adapter = MagicMock()
-        adapter.create_hold.return_value = {
-            "success": True, "hold_id": "hold:FRESH",
-        }
-        mock_get_adapter.return_value = adapter
 
         order = _make_order(items=[{"sku": "X", "qty": "5"}])
         hold(order)
@@ -128,22 +124,21 @@ class TestHoldAdoptionByQuantity:
     @patch("shopman.services.stock._retag_hold_for_order")
     @patch("shopman.services.stock._load_session_holds")
     @patch("shopman.services.stock.get_adapter")
-    @patch("shopman.services.stock.CatalogService")
     def test_overshoot_adoption_accepted(
-        self, mock_catalog, mock_get_adapter, mock_load, mock_retag,
+        self, mock_get_adapter, mock_load, mock_retag,
     ):
         """Last adopted hold overshoots required_qty — accepted per plan."""
         from shopman.services.stock import hold
 
-        mock_catalog.expand.side_effect = Exception("NOT_A_BUNDLE")
+        adapter = MagicMock()
+        adapter.expand_bundle.side_effect = Exception("NOT_A_BUNDLE")
+        mock_get_adapter.return_value = adapter
         mock_load.return_value = {
             "X": [
                 ("hold:A", Decimal("2")),
                 ("hold:B", Decimal("3")),  # total=5, required=4
             ],
         }
-        adapter = MagicMock()
-        mock_get_adapter.return_value = adapter
 
         order = _make_order(items=[{"sku": "X", "qty": "4"}])
         hold(order)
@@ -157,20 +152,19 @@ class TestHoldAdoptionByQuantity:
     @patch("shopman.services.stock._retag_hold_for_order")
     @patch("shopman.services.stock._load_session_holds")
     @patch("shopman.services.stock.get_adapter")
-    @patch("shopman.services.stock.CatalogService")
     def test_leftover_holds_released(
-        self, mock_catalog, mock_get_adapter, mock_load, mock_retag,
+        self, mock_get_adapter, mock_load, mock_retag,
     ):
         """Session hold for SKU not in order → released at commit (safety net)."""
         from shopman.services.stock import hold
 
-        mock_catalog.expand.side_effect = Exception("NOT_A_BUNDLE")
+        adapter = MagicMock()
+        adapter.expand_bundle.side_effect = Exception("NOT_A_BUNDLE")
+        mock_get_adapter.return_value = adapter
         mock_load.return_value = {
             "X": [("hold:X1", Decimal("2"))],
             "Y": [("hold:Y1", Decimal("1"))],  # leftover — Y not in order
         }
-        adapter = MagicMock()
-        mock_get_adapter.return_value = adapter
 
         order = _make_order(items=[{"sku": "X", "qty": "2"}])
         hold(order)

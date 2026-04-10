@@ -25,7 +25,6 @@ import logging
 from decimal import Decimal
 
 from shopman.adapters import get_adapter
-from shopman.offerman.service import CatalogService
 
 logger = logging.getLogger(__name__)
 
@@ -191,7 +190,8 @@ def revert(order) -> None:
 def _expand_if_bundle(sku: str, qty: Decimal) -> list[dict]:
     """Expand bundle into components. Returns single-item list if not a bundle."""
     try:
-        return CatalogService.expand(sku, qty)
+        catalog = get_adapter("catalog")
+        return catalog.expand_bundle(sku, qty)
     except Exception:
         logger.exception("stock._expand_if_bundle: unexpected error expanding sku=%s", sku)
         return [{"sku": sku, "qty": qty}]

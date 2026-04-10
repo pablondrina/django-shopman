@@ -34,8 +34,6 @@ import logging
 from decimal import Decimal
 
 from shopman.adapters import get_adapter
-from shopman.offerman.models import ListingItem
-from shopman.offerman.service import CatalogService
 from shopman.omniman.models import Channel
 
 from . import alternatives
@@ -97,7 +95,7 @@ def check(sku: str, qty: Decimal, *, channel_ref: str | None = None) -> dict:
 
     # Check min_qty constraint from listing
     if listing_item is not None and listing_item is not True:
-        min_qty = getattr(listing_item, "min_qty", None)
+        min_qty = listing_item.get("min_qty") if isinstance(listing_item, dict) else None
         if min_qty is not None and qty_d < Decimal(str(min_qty)):
             return {
                 "ok": False,
@@ -158,12 +156,13 @@ def check(sku: str, qty: Decimal, *, channel_ref: str | None = None) -> dict:
 def _expand_if_bundle(sku: str, qty: Decimal) -> list[dict] | None:
     """Return component list if SKU is a bundle, None if it's a simple product.
 
-    Returns None (not a bundle) when CatalogService.expand raises any error,
+    Returns None (not a bundle) when expand_bundle raises any error,
     including NOT_A_BUNDLE and SKU_NOT_FOUND — callers handle missing SKU
     via the Stockman gate.
     """
     try:
-        components = CatalogService.expand(sku, qty)
+        catalog = get_adapter("catalog")
+        components = catalog.expand_bundle(sku, qty)
         # Guard: if expand returns a single component with the same SKU, treat
         # as simple product (infinite recursion prevention).
         if len(components) == 1 and components[0]["sku"] == sku:
@@ -230,14 +229,14 @@ def _check_bundle(
     }
 
 
-def _sku_in_channel_listing(sku: str, channel_ref: str | None) -> "ListingItem | bool":
-    """Return ListingItem when the SKU is published+available in the channel's listing.
+def _sku_in_channel_listing(sku: str, channel_ref: str | None) -> dict | bool:
+    """Return listing item dict when the SKU is published+available in the channel's listing.
 
     Returns True when the check is skipped (no channel_ref or no listing_ref),
     False when the SKU fails the listing gate.
 
-    Callers treat True as "gate skipped", a ListingItem object as "gate passed
-    with item data" (used for min_qty checks), and False as "gate failed".
+    Callers treat True as "gate skipped", a dict as "gate passed with item data"
+    (used for min_qty checks), and False as "gate failed".
 
     If the channel has no `listing_ref` configured, the check is skipped
     (returns True) — this preserves backward compatibility for channels that
@@ -257,29 +256,14 @@ def _sku_in_channel_listing(sku: str, channel_ref: str | None) -> "ListingItem |
 
     # Gate is only active when a Listing with this ref actually exists.
     # Convention: listing.ref == channel.ref, but listing may not be configured.
-    from shopman.offerman.models import Listing
-    if not Listing.objects.filter(ref=listing_ref, is_active=True).exists():
+    catalog = get_adapter("catalog")
+    if not catalog.listing_exists(listing_ref):
         return True
 
-    try:
-        return ListingItem.objects.get(
-            listing__ref=listing_ref,
-            listing__is_active=True,
-            product__sku=sku,
-            is_published=True,
-            is_available=True,
-        )
-    except ListingItem.DoesNotExist:
+    item = catalog.get_listing_item(sku, listing_ref)
+    if item is None:
         return False
-    except ListingItem.MultipleObjectsReturned:
-        # Multiple active listing items — gate passes, use first
-        return ListingItem.objects.filter(
-            listing__ref=listing_ref,
-            listing__is_active=True,
-            product__sku=sku,
-            is_published=True,
-            is_available=True,
-        ).first() or False
+    return item
 
 
 def reserve(

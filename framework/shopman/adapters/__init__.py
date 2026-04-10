@@ -25,6 +25,9 @@ _SETTINGS_MAP = {
     "notification": "SHOPMAN_NOTIFICATION_ADAPTERS",
     "stock": "SHOPMAN_STOCK_ADAPTER",
     "fiscal": "SHOPMAN_FISCAL_ADAPTER",
+    "catalog": "SHOPMAN_CATALOG_ADAPTER",
+    "production": "SHOPMAN_PRODUCTION_ADAPTER",
+    "customer": "SHOPMAN_CUSTOMER_ADAPTER",
 }
 
 # Defaults when settings are absent
@@ -40,6 +43,9 @@ _DEFAULTS = {
     },
     "stock": "shopman.adapters.stock",
     "fiscal": None,
+    "catalog": "shopman.adapters.catalog",
+    "production": "shopman.adapters.production",
+    "customer": "shopman.adapters.customer",
 }
 
 

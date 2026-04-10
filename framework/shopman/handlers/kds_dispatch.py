@@ -19,8 +19,8 @@ def dispatch_to_kds(order) -> list:
 
     Returns list of created KDSTicket instances.
     """
+    from shopman.adapters import get_adapter
     from shopman.models import KDSInstance, KDSTicket
-    from shopman.offerman.models import CollectionItem
 
     # 1. Get all active KDS instances (exclude expedition — it's query-based)
     instances = list(
@@ -39,24 +39,12 @@ def dispatch_to_kds(order) -> list:
     skus = [item.sku for item in order_items]
 
     # 3. Bulk-query primary collections: sku → collection_id
-    sku_to_collection = {}
-    ci_qs = (
-        CollectionItem.objects.filter(product__sku__in=skus, is_primary=True)
-        .select_related("collection")
-    )
-    for ci in ci_qs:
-        sku_to_collection[ci.product.sku] = ci.collection_id
+    catalog = get_adapter("catalog")
+    sku_to_collection = catalog.bulk_sku_to_collection_id(skus)
 
     # 4. Bulk-query recipes: set of SKUs that need prep
-    try:
-        from shopman.craftsman.models import Recipe
-
-        prep_skus = set(
-            Recipe.objects.filter(output_ref__in=skus, is_active=True)
-            .values_list("output_ref", flat=True)
-        )
-    except ImportError:
-        prep_skus = set()
+    production = get_adapter("production")
+    prep_skus = production.get_prep_skus(skus) if production else set()
 
     # 5. Build instance lookup: (type, collection_id) → [instance, ...]
     #    Also track catch-all instances (no collections assigned)

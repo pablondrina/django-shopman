@@ -41,8 +41,8 @@ def dispatch(order) -> list:
 
     SYNC — tickets must be ready for the KDS display.
     """
+    from shopman.adapters import get_adapter
     from shopman.models import KDSInstance, KDSTicket
-    from shopman.offerman.models import CollectionItem
 
     # Idempotent check
     if KDSTicket.objects.filter(order=order).exists():
@@ -64,14 +64,12 @@ def dispatch(order) -> list:
     skus = [item.sku for item in order_items]
 
     # Bulk-query primary collections: sku → collection_id
-    sku_to_collection = {}
-    for ci in CollectionItem.objects.filter(
-        product__sku__in=skus, is_primary=True,
-    ).select_related("collection"):
-        sku_to_collection[ci.product.sku] = ci.collection_id
+    catalog = get_adapter("catalog")
+    sku_to_collection = catalog.bulk_sku_to_collection_id(skus)
 
     # Bulk-query recipes: set of SKUs that need prep
-    prep_skus = _get_prep_skus(skus)
+    production = get_adapter("production")
+    prep_skus = production.get_prep_skus(skus) if production else set()
 
     # Build instance lookup: (type, collection_id) → [instance, ...]
     type_col_map = defaultdict(list)
@@ -178,13 +176,3 @@ def on_all_tickets_done(order) -> bool:
     return True
 
 
-def _get_prep_skus(skus: list[str]) -> set[str]:
-    """Get set of SKUs that have active recipes (need prep)."""
-    try:
-        from shopman.craftsman.models import Recipe
-        return set(
-            Recipe.objects.filter(output_ref__in=skus, is_active=True)
-            .values_list("output_ref", flat=True)
-        )
-    except ImportError:
-        return set()

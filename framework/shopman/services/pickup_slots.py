@@ -17,7 +17,7 @@ Configuration lives in Shop.defaults["pickup_slots"] (admin-editable):
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, time, timedelta
+from datetime import date, time, timedelta
 from statistics import median
 
 logger = logging.getLogger(__name__)
@@ -92,22 +92,15 @@ def get_typical_ready_times(
         rounding_minutes = config.get("rounding_minutes", DEFAULT_ROUNDING_MINUTES)
 
     try:
-        from shopman.craftsman.models import WorkOrder
+        from shopman.adapters import get_adapter
+        production = get_adapter("production")
     except ImportError:
         return {}
 
     cutoff = date.today() - timedelta(days=history_days)
 
     # Single query: all finished WorkOrders for these SKUs in the window
-    wos = (
-        WorkOrder.objects.filter(
-            output_ref__in=skus,
-            status="done",
-            finished_at__isnull=False,
-            finished_at__date__gte=cutoff,
-        )
-        .values_list("output_ref", "finished_at")
-    )
+    wos = production.get_finished_work_orders(skus, cutoff)
 
     # Group finish times by SKU
     times_by_sku: dict[str, list[float]] = {}

@@ -221,17 +221,16 @@ class TestStockService:
 
     @patch("shopman.services.stock._load_session_holds")
     @patch("shopman.services.stock.get_adapter")
-    @patch("shopman.services.stock.CatalogService")
     def test_hold_simple_items_creates_hold(
-        self, mock_catalog, mock_get_adapter, mock_load,
+        self, mock_get_adapter, mock_load,
     ):
         from shopman.services.stock import hold
 
-        mock_catalog.expand.side_effect = Exception("NOT_A_BUNDLE")
-        mock_load.return_value = {}  # no session holds to adopt
         adapter = MagicMock()
+        adapter.expand_bundle.side_effect = Exception("NOT_A_BUNDLE")
         adapter.create_hold.return_value = {"success": True, "hold_id": "hold:1"}
         mock_get_adapter.return_value = adapter
+        mock_load.return_value = {}  # no session holds to adopt
 
         order = _make_order(
             snapshot={"items": [{"sku": "PAO-001", "qty": "5"}], "data": {}},
@@ -245,21 +244,20 @@ class TestStockService:
 
     @patch("shopman.services.stock._load_session_holds")
     @patch("shopman.services.stock.get_adapter")
-    @patch("shopman.services.stock.CatalogService")
-    def test_hold_expands_bundles(self, mock_catalog, mock_get_adapter, mock_load):
+    def test_hold_expands_bundles(self, mock_get_adapter, mock_load):
         from shopman.services.stock import hold
 
-        mock_catalog.expand.return_value = [
+        adapter = MagicMock()
+        adapter.expand_bundle.return_value = [
             {"sku": "COMP-A", "qty": Decimal("2")},
             {"sku": "COMP-B", "qty": Decimal("3")},
         ]
-        mock_load.return_value = {}
-        adapter = MagicMock()
         adapter.create_hold.side_effect = [
             {"success": True, "hold_id": "hold:1"},
             {"success": True, "hold_id": "hold:2"},
         ]
         mock_get_adapter.return_value = adapter
+        mock_load.return_value = {}
 
         order = _make_order(
             snapshot={"items": [{"sku": "BUNDLE-1", "qty": "1"}], "data": {}},
@@ -273,17 +271,16 @@ class TestStockService:
     @patch("shopman.services.stock._retag_hold_for_order")
     @patch("shopman.services.stock._load_session_holds")
     @patch("shopman.services.stock.get_adapter")
-    @patch("shopman.services.stock.CatalogService")
     def test_hold_adopts_session_holds(
-        self, mock_catalog, mock_get_adapter, mock_load, mock_retag,
+        self, mock_get_adapter, mock_load, mock_retag,
     ):
         from shopman.services.stock import hold
 
-        mock_catalog.expand.side_effect = Exception("NOT_A_BUNDLE")
+        adapter = MagicMock()
+        adapter.expand_bundle.side_effect = Exception("NOT_A_BUNDLE")
+        mock_get_adapter.return_value = adapter
         # Session has one hold of exactly the required qty — fully satisfies.
         mock_load.return_value = {"PAO-001": [("hold:42", Decimal("5"))]}
-        adapter = MagicMock()
-        mock_get_adapter.return_value = adapter
 
         order = _make_order(
             snapshot={"items": [{"sku": "PAO-001", "qty": "5"}], "data": {}},
@@ -300,22 +297,21 @@ class TestStockService:
     @patch("shopman.services.stock._retag_hold_for_order")
     @patch("shopman.services.stock._load_session_holds")
     @patch("shopman.services.stock.get_adapter")
-    @patch("shopman.services.stock.CatalogService")
     def test_hold_adopts_multiple_session_holds_summing_qty(
-        self, mock_catalog, mock_get_adapter, mock_load, mock_retag,
+        self, mock_get_adapter, mock_load, mock_retag,
     ):
         """Two holds of qty=2 each should both be adopted to cover qty=4."""
         from shopman.services.stock import hold
 
-        mock_catalog.expand.side_effect = Exception("NOT_A_BUNDLE")
+        adapter = MagicMock()
+        adapter.expand_bundle.side_effect = Exception("NOT_A_BUNDLE")
+        mock_get_adapter.return_value = adapter
         mock_load.return_value = {
             "PAO-001": [
                 ("hold:10", Decimal("2")),
                 ("hold:11", Decimal("2")),
             ],
         }
-        adapter = MagicMock()
-        mock_get_adapter.return_value = adapter
 
         order = _make_order(
             snapshot={"items": [{"sku": "PAO-001", "qty": "4"}], "data": {}},
@@ -334,22 +330,19 @@ class TestStockService:
     @patch("shopman.services.stock._retag_hold_for_order")
     @patch("shopman.services.stock._load_session_holds")
     @patch("shopman.services.stock.get_adapter")
-    @patch("shopman.services.stock.CatalogService")
     def test_hold_adopts_session_holds_and_creates_fresh_for_remainder(
-        self, mock_catalog, mock_get_adapter, mock_load, mock_retag,
+        self, mock_get_adapter, mock_load, mock_retag,
     ):
         """Session covers qty=2, required=5 → adopt 2 + create 3 fresh."""
         from shopman.services.stock import hold
 
-        mock_catalog.expand.side_effect = Exception("NOT_A_BUNDLE")
+        adapter = MagicMock()
+        adapter.expand_bundle.side_effect = Exception("NOT_A_BUNDLE")
+        adapter.create_hold.return_value = {"success": True, "hold_id": "hold:21"}
+        mock_get_adapter.return_value = adapter
         mock_load.return_value = {
             "PAO-001": [("hold:20", Decimal("2"))],
         }
-        adapter = MagicMock()
-        adapter.create_hold.return_value = {
-            "success": True, "hold_id": "hold:21",
-        }
-        mock_get_adapter.return_value = adapter
 
         order = _make_order(
             snapshot={"items": [{"sku": "PAO-001", "qty": "5"}], "data": {}},
@@ -826,9 +819,7 @@ class TestKDSService:
 
     @patch("shopman.models.KDSTicket")
     @patch("shopman.models.KDSInstance")
-    @patch("shopman.offerman.models.CollectionItem")
-    @patch("shopman.services.kds._get_prep_skus")
-    def test_dispatch_creates_tickets(self, mock_prep, mock_ci, mock_kds_inst, mock_ticket_cls):
+    def test_dispatch_creates_tickets(self, mock_kds_inst, mock_ticket_cls):
         """Test that dispatch routes items to correct KDS instances."""
         from shopman.services.kds import dispatch
 
@@ -1012,17 +1003,15 @@ class TestCustomerService:
     @patch("shopman.services.customer._update_insights")
     @patch("shopman.services.customer._create_timeline_event")
     @patch("shopman.services.customer._save_delivery_address")
-    @patch("shopman.services.customer._get_customer_service")
+    @patch("shopman.services.customer.get_adapter")
     @patch("shopman.services.customer._customers_available", return_value=True)
-    def test_ensure_phone_strategy(self, mock_avail, mock_svc_fn, mock_addr, mock_timeline, mock_insights):
+    def test_ensure_phone_strategy(self, mock_avail, mock_get_adapter, mock_addr, mock_timeline, mock_insights):
         from shopman.services.customer import ensure
 
-        svc = MagicMock()
-        customer = MagicMock()
-        customer.ref = "CLI-001"
-        customer.first_name = "João"
-        svc.get_by_phone.return_value = customer
-        mock_svc_fn.return_value = svc
+        customer = {"ref": "CLI-001", "first_name": "João", "last_name": "Silva", "phone": "+5543999999999"}
+        adapter = MagicMock()
+        adapter.get_customer_by_phone.return_value = customer
+        mock_get_adapter.return_value = adapter
 
         order = _make_order(
             handle_ref="+5543999999999",
@@ -1043,8 +1032,7 @@ class TestCustomerService:
         import shopman.services.customer as svc_module
         from shopman.services.customer import ensure, register_strategy
 
-        customer = MagicMock()
-        customer.ref = "CUSTOM-001"
+        customer = {"ref": "CUSTOM-001", "first_name": "", "last_name": "", "phone": ""}
         custom_fn = MagicMock(return_value=customer)
 
         original = svc_module._STRATEGIES.copy()
@@ -1062,21 +1050,19 @@ class TestCustomerService:
     @patch("shopman.services.customer._update_insights")
     @patch("shopman.services.customer._create_timeline_event")
     @patch("shopman.services.customer._save_delivery_address")
-    @patch("shopman.services.customer._get_customer_service")
+    @patch("shopman.services.customer.get_adapter")
     @patch("shopman.services.customer._customers_available", return_value=True)
     def test_ensure_falls_back_to_phone_when_no_strategy(
-        self, mock_avail, mock_svc_fn, mock_addr, mock_timeline, mock_insights
+        self, mock_avail, mock_get_adapter, mock_addr, mock_timeline, mock_insights
     ):
         """Unrecognised channel with no registered strategy falls back to phone."""
         import shopman.services.customer as svc_module
         from shopman.services.customer import ensure
 
-        svc = MagicMock()
-        customer = MagicMock()
-        customer.ref = "CLI-002"
-        customer.first_name = "Ana"
-        svc.get_by_phone.return_value = customer
-        mock_svc_fn.return_value = svc
+        customer = {"ref": "CLI-002", "first_name": "Ana", "last_name": "", "phone": "+5543888888888"}
+        adapter = MagicMock()
+        adapter.get_customer_by_phone.return_value = customer
+        mock_get_adapter.return_value = adapter
 
         original = svc_module._STRATEGIES.copy()
         try:
@@ -1222,9 +1208,8 @@ class TestAvailabilityBundles:
         """Non-bundle SKU: _expand_if_bundle returns None, check proceeds normally."""
         from shopman.services.availability import _expand_if_bundle
 
-        with patch("shopman.services.availability.CatalogService") as mock_catalog:
-            from shopman.offerman.exceptions import CatalogError
-            mock_catalog.expand.side_effect = CatalogError("NOT_A_BUNDLE", sku="PAO-001")
+        from shopman.offerman.exceptions import CatalogError
+        with patch("shopman.adapters.catalog.expand_bundle", side_effect=CatalogError("NOT_A_BUNDLE", sku="PAO-001")):
             result = _expand_if_bundle("PAO-001", Decimal("1"))
 
         assert result is None
@@ -1233,8 +1218,7 @@ class TestAvailabilityBundles:
         """If expand returns single element with same SKU, treat as simple product."""
         from shopman.services.availability import _expand_if_bundle
 
-        with patch("shopman.services.availability.CatalogService") as mock_catalog:
-            mock_catalog.expand.return_value = [{"sku": "PAO-001", "qty": Decimal("1")}]
+        with patch("shopman.adapters.catalog.expand_bundle", return_value=[{"sku": "PAO-001", "qty": Decimal("1")}]):
             result = _expand_if_bundle("PAO-001", Decimal("1"))
 
         assert result is None

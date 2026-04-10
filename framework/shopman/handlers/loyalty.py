@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import logging
 
+from shopman.adapters import get_adapter
 from shopman.directives import LOYALTY_EARN, LOYALTY_REDEEM
-from shopman.guestman.contrib.loyalty import LoyaltyService
 from shopman.omniman.models import Directive
 
 logger = logging.getLogger(__name__)
@@ -47,9 +47,8 @@ class LoyaltyEarnHandler:
 
         # Find customer by phone
         try:
-            from shopman.guestman.services import customer as customer_service
-
-            customer = customer_service.get_by_phone(order.handle_ref)
+            adapter = get_adapter("customer")
+            customer = adapter.get_customer_by_phone(order.handle_ref)
         except Exception:
             customer = None
 
@@ -68,18 +67,18 @@ class LoyaltyEarnHandler:
 
         try:
             # Enroll if not yet enrolled (idempotent)
-            LoyaltyService.enroll(customer.ref)
+            adapter.enroll_loyalty(customer["ref"])
 
             # Award points
-            LoyaltyService.earn_points(
-                customer_ref=customer.ref,
+            adapter.earn_points(
+                customer_ref=customer["ref"],
                 points=points,
                 description=f"Pedido {order.ref}",
                 reference=f"order:{order.ref}",
                 created_by="system",
             )
 
-            logger.info("loyalty.earn: +%d points for %s (order %s)", points, customer.ref, order_ref)
+            logger.info("loyalty.earn: +%d points for %s (order %s)", points, customer["ref"], order_ref)
 
             message.status = "completed"
             message.save(update_fields=["status", "updated_at"])
@@ -127,8 +126,8 @@ class LoyaltyRedeemHandler:
             return
 
         try:
-            from shopman.guestman.services import customer as customer_service
-            customer = customer_service.get_by_phone(order.handle_ref)
+            adapter = get_adapter("customer")
+            customer = adapter.get_customer_by_phone(order.handle_ref)
         except Exception:
             customer = None
 
@@ -139,15 +138,15 @@ class LoyaltyRedeemHandler:
             return
 
         try:
-            LoyaltyService.redeem_points(
-                customer_ref=customer.ref,
+            adapter.redeem_points(
+                customer_ref=customer["ref"],
                 points=points,
                 description=f"Resgate pedido {order_ref}",
                 reference=f"order:{order_ref}",
                 created_by="system",
             )
 
-            logger.info("loyalty.redeem: -%d points for %s (order %s)", points, customer.ref, order_ref)
+            logger.info("loyalty.redeem: -%d points for %s (order %s)", points, customer["ref"], order_ref)
 
             message.status = "completed"
             message.save(update_fields=["status", "updated_at"])
