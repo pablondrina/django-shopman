@@ -8,7 +8,7 @@ import logging
 
 from shopman.adapters import get_adapter
 from shopman.directives import LOYALTY_EARN, LOYALTY_REDEEM
-from shopman.omniman.models import Directive
+from shopman.orderman.models import Directive
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ class LoyaltyEarnHandler:
     topic = LOYALTY_EARN
 
     def handle(self, *, message: Directive, ctx: dict) -> None:
-        from shopman.omniman.models import Order
+        from shopman.orderman.models import Order
 
         payload = message.payload
         order_ref = payload.get("order_ref")
@@ -111,7 +111,7 @@ class LoyaltyRedeemHandler:
             return
 
         try:
-            from shopman.omniman.models import Order
+            from shopman.orderman.models import Order
             order = Order.objects.get(ref=order_ref)
         except Order.DoesNotExist:
             message.status = "failed"

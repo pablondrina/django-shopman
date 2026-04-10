@@ -5,10 +5,10 @@ from decimal import Decimal
 
 from django.http import HttpRequest
 
-from shopman.omniman.ids import generate_session_key
+from shopman.orderman.ids import generate_session_key
 from shopman.models import Channel
-from shopman.omniman.models import Session
-from shopman.omniman.services.modify import ModifyService
+from shopman.orderman.models import Session
+from shopman.orderman.services.modify import ModifyService
 from shopman.services import availability
 from shopman.utils.monetary import format_money
 from shopman.web.constants import STOREFRONT_CHANNEL_REF as CHANNEL_REF

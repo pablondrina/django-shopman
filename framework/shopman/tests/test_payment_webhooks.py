@@ -18,10 +18,10 @@ from unittest.mock import MagicMock, patch
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
-from shopman.omniman.models import Order, Session
-from shopman.omniman.ids import generate_session_key, generate_idempotency_key
-from shopman.omniman.services.commit import CommitService
-from shopman.omniman.services.modify import ModifyService
+from shopman.orderman.models import Order, Session
+from shopman.orderman.ids import generate_session_key, generate_idempotency_key
+from shopman.orderman.services.commit import CommitService
+from shopman.orderman.services.modify import ModifyService
 from shopman.payman import PaymentService
 from shopman.models import Channel
 

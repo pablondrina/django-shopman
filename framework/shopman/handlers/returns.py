@@ -13,7 +13,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.utils import timezone
 
-from shopman.omniman.models import Directive, Order
+from shopman.orderman.models import Directive, Order
 from shopman.directives import RETURN_PROCESS
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ class ReturnService:
     @classmethod
     @transaction.atomic
     def initiate_return(cls, order: Order, items: list[dict], reason: str, actor: str) -> ReturnResult:
-        from shopman.omniman.exceptions import InvalidTransition
+        from shopman.orderman.exceptions import InvalidTransition
 
         order = Order.objects.select_for_update().get(pk=order.pk)
 

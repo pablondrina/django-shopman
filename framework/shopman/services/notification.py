@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 
-from shopman.omniman.models import Directive
+from shopman.orderman.models import Directive
 
 logger = logging.getLogger(__name__)
 

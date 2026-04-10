@@ -10,11 +10,11 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
 from shopman.offerman.models import Collection, Product
-from shopman.omniman.ids import generate_idempotency_key, generate_session_key
+from shopman.orderman.ids import generate_idempotency_key, generate_session_key
 from shopman.models import Channel
-from shopman.omniman.models import Session
-from shopman.omniman.services.commit import CommitService
-from shopman.omniman.services.modify import ModifyService
+from shopman.orderman.models import Session
+from shopman.orderman.services.commit import CommitService
+from shopman.orderman.services.modify import ModifyService
 from shopman.utils.monetary import format_money
 
 logger = logging.getLogger(__name__)
@@ -327,7 +327,7 @@ def pos_shift_summary(request: HttpRequest) -> HttpResponse:
     from django.db.models import Sum
     from django.utils import timezone
 
-    from shopman.omniman.models import Order
+    from shopman.orderman.models import Order
 
     today = timezone.localdate()
     qs = Order.objects.filter(
@@ -361,7 +361,7 @@ def pos_cancel_last(request: HttpRequest) -> HttpResponse:
 
     from django.utils import timezone
 
-    from shopman.omniman.models import Order
+    from shopman.orderman.models import Order
     from shopman.services.cancellation import cancel
 
     order_ref = request.POST.get("order_ref", "").strip()

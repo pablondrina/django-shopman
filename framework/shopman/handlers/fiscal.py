@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import logging
 
-from shopman.omniman.models import Directive
-from shopman.omniman.protocols import FiscalBackend
+from shopman.orderman.models import Directive
+from shopman.orderman.protocols import FiscalBackend
 from shopman.directives import FISCAL_CANCEL_NFCE, FISCAL_EMIT_NFCE
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ class NFCeEmitHandler:
         self.backend = backend
 
     def handle(self, *, message: Directive, ctx: dict) -> None:
-        from shopman.omniman.models import Order
+        from shopman.orderman.models import Order
 
         payload = message.payload
         order_ref = payload["order_ref"]
@@ -72,7 +72,7 @@ class NFCeCancelHandler:
         self.backend = backend
 
     def handle(self, *, message: Directive, ctx: dict) -> None:
-        from shopman.omniman.models import Order
+        from shopman.orderman.models import Order
 
         payload = message.payload
         order_ref = payload["order_ref"]

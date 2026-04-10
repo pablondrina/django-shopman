@@ -15,9 +15,9 @@ from decimal import Decimal
 from django.test import TestCase
 
 from shopman.offerman.models import Product
-from shopman.omniman.ids import generate_session_key
-from shopman.omniman.models import Session
-from shopman.omniman.services.modify import ModifyService
+from shopman.orderman.ids import generate_session_key
+from shopman.orderman.models import Session
+from shopman.orderman.services.modify import ModifyService
 from shopman.models import Channel
 
 

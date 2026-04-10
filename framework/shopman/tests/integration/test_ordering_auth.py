@@ -64,7 +64,7 @@ class TestOrderingAuthIntegration(TestCase):
 
     def test_session_preservation_across_login(self):
         """Session data (like basket) can be preserved across auth."""
-        from shopman.omniman.models import Session
+        from shopman.orderman.models import Session
 
         # Create session before auth
         session = Session.objects.create(

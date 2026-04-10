@@ -16,7 +16,7 @@ from django_ratelimit.decorators import ratelimit
 logger = logging.getLogger(__name__)
 
 from shopman.guestman.contrib.loyalty import LoyaltyService
-from shopman.omniman.ids import generate_idempotency_key
+from shopman.orderman.ids import generate_idempotency_key
 from shopman.models import Channel
 from shopman.services.checkout_defaults import CheckoutDefaultsService
 from shopman.utils.phone import normalize_phone
@@ -190,7 +190,7 @@ class CheckoutView(View):
         session_key = cart["session_key"]
 
         # Set handle on session for history lookup
-        from shopman.omniman.models import Session as OmniSession
+        from shopman.orderman.models import Session as OmniSession
 
         try:
             omni_session = OmniSession.objects.get(
@@ -371,8 +371,8 @@ class CheckoutView(View):
                 idempotency_key=idempotency_key,
             )
         except Exception as exc:
-            # Map omniman ValidationError to user-visible checkout error
-            from shopman.omniman.exceptions import ValidationError as OrderingValidationError
+            # Map orderman ValidationError to user-visible checkout error
+            from shopman.orderman.exceptions import ValidationError as OrderingValidationError
 
             if isinstance(exc, OrderingValidationError):
                 field = "delivery_address" if exc.code == "delivery_zone_not_covered" else "checkout"
@@ -451,7 +451,7 @@ class CheckoutView(View):
         if chosen_method in ("pix", "card"):
             # If payment initiation failed (gateway down), redirect to tracking
             try:
-                from shopman.omniman.models import Order as _Order
+                from shopman.orderman.models import Order as _Order
                 _order = _Order.objects.get(ref=order_ref)
                 _payment_data = (_order.data or {}).get("payment", {})
                 if _payment_data.get("error"):

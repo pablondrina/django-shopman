@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('offerman', '0001_initial'),
-        ('omniman', '0001_initial'),
+        ('orderman', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
@@ -221,7 +221,7 @@ class Migration(migrations.Migration):
                 ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='criado em')),
                 ('completed_at', models.DateTimeField(blank=True, null=True, verbose_name='concluído em')),
                 ('kds_instance', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='tickets', to='shopman.kdsinstance', verbose_name='estação KDS')),
-                ('order', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='kds_tickets', to='omniman.order', verbose_name='pedido')),
+                ('order', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='kds_tickets', to='orderman.order', verbose_name='pedido')),
             ],
             options={
                 'verbose_name': 'ticket KDS',

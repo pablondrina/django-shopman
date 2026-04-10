@@ -20,7 +20,7 @@ import logging
 
 from django.conf import settings
 
-from shopman.omniman import registry
+from shopman.orderman import registry
 
 logger = logging.getLogger(__name__)
 

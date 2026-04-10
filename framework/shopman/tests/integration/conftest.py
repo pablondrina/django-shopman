@@ -211,7 +211,7 @@ def ifood_channel(db):
 @pytest.fixture
 def session(db, channel):
     """Create a test session."""
-    from shopman.omniman.models import Session
+    from shopman.orderman.models import Session
 
     return Session.objects.create(
         session_key="TEST-SESSION-001",

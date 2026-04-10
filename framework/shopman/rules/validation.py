@@ -1,4 +1,4 @@
-"""Validation rules — registered as validators in the omniman registry.
+"""Validation rules — registered as validators in the orderman registry.
 
 These rules ARE registered by the engine (register_active_rules) at boot.
 They wrap the existing validators from shop.validators, adding configurability
@@ -104,7 +104,7 @@ class DeliveryZoneRule:
     default_params = {}
 
     def validate(self, *, channel: Any, session: Any, ctx: dict) -> None:
-        from shopman.omniman.exceptions import ValidationError as OmnimanValidationError
+        from shopman.orderman.exceptions import ValidationError as OmnimanValidationError
 
         session_data = getattr(session, "data", None) or {}
         fulfillment_type = session_data.get("fulfillment_type", "")

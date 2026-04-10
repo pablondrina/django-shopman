@@ -61,7 +61,7 @@ class CashRegisterSession(models.Model):
     def close(self, *, closing_amount_q: int, notes: str = "") -> None:
         """Close the session and compute expected_amount_q / difference_q."""
         from django.db.models import Sum
-        from shopman.omniman.models import Order
+        from shopman.orderman.models import Order
 
         # Cash sales during this session
         cash_sales_q = (

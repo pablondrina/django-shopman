@@ -11,7 +11,7 @@ from datetime import datetime
 
 from django.utils import timezone
 
-from shopman.omniman.models import Directive
+from shopman.orderman.models import Directive
 from shopman.directives import CONFIRMATION_TIMEOUT
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ class ConfirmationTimeoutHandler:
     topic = CONFIRMATION_TIMEOUT
 
     def handle(self, *, message: Directive, ctx: dict) -> None:
-        from shopman.omniman.models import Order
+        from shopman.orderman.models import Order
 
         payload = message.payload
         order_ref = payload["order_ref"]

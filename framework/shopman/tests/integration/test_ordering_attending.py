@@ -38,7 +38,7 @@ class TestOrderingCustomersIntegration(TestCase):
 
     def test_session_with_customer_data(self):
         """Session can store customer reference."""
-        from shopman.omniman.models import Session
+        from shopman.orderman.models import Session
 
         session = Session.objects.create(
             session_key="INT-SESSION-001",

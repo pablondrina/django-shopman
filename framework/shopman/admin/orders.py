@@ -79,7 +79,7 @@ _payment_info.short_description = "Pagamentos"
 
 def _extend_order_admin():
     """Add Fulfillment inline and payment info to OrderAdmin."""
-    from shopman.omniman.models import Fulfillment, Order
+    from shopman.orderman.models import Fulfillment, Order
 
     FulfillmentOrderInline.model = Fulfillment
 

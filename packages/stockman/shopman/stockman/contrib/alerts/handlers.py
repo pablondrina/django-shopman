@@ -100,7 +100,7 @@ def _dispatch_notification(alert, available) -> None:
     Graceful: logs and returns if Omniman is not installed.
     """
     try:
-        from shopman.omniman.models import Directive
+        from shopman.orderman.models import Directive
 
         position_str = alert.position.ref if alert.position else "all"
 

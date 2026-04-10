@@ -346,7 +346,7 @@ class TestCartReconcileIntegration:
     """
 
     def _setup_cart(self):
-        from shopman.omniman.models import Session
+        from shopman.orderman.models import Session
 
         channel, _ = Channel.objects.get_or_create(
             ref="web",

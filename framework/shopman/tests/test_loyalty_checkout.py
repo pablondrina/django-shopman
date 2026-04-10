@@ -16,9 +16,9 @@ from unittest.mock import MagicMock, patch
 from django.test import TestCase
 
 from shopman.models import Channel
-from shopman.omniman.ids import generate_session_key
-from shopman.omniman.models import Session
-from shopman.omniman.services.modify import ModifyService
+from shopman.orderman.ids import generate_session_key
+from shopman.orderman.models import Session
+from shopman.orderman.services.modify import ModifyService
 
 
 def _make_channel(ref="balcao"):
@@ -123,7 +123,7 @@ class LoyaltyRedeemHandlerTests(TestCase):
     def test_handler_calls_redeem_points(self) -> None:
         """LoyaltyRedeemHandler calls LoyaltyService.redeem_points when customer found."""
         from shopman.handlers.loyalty import LoyaltyRedeemHandler
-        from shopman.omniman.models import Directive, Order
+        from shopman.orderman.models import Directive, Order
         from shopman.guestman.models import Customer
 
         customer = Customer.objects.create(
@@ -159,7 +159,7 @@ class LoyaltyRedeemHandlerTests(TestCase):
     def test_handler_skips_when_no_points(self) -> None:
         """Handler completes without calling redeem when points=0."""
         from shopman.handlers.loyalty import LoyaltyRedeemHandler
-        from shopman.omniman.models import Directive
+        from shopman.orderman.models import Directive
 
         directive = Directive.objects.create(
             topic="loyalty.redeem",

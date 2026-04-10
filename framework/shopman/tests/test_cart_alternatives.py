@@ -113,9 +113,9 @@ class CartItemUnavailableFlagTests(TestCase):
         self.client.post("/cart/add/", {"sku": self.product.sku, "qty": str(qty)})
 
     def _make_session_and_request(self, qty: int = 1):
-        from shopman.omniman.ids import generate_session_key
-        from shopman.omniman.models import Session
-        from shopman.omniman.services.modify import ModifyService
+        from shopman.orderman.ids import generate_session_key
+        from shopman.orderman.models import Session
+        from shopman.orderman.services.modify import ModifyService
 
         channel = Channel.objects.get(ref="web")
         session_key = generate_session_key()

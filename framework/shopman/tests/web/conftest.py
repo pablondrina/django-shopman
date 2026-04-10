@@ -10,7 +10,7 @@ from django.core.cache import cache
 from shopman.guestman.models import Customer, CustomerAddress
 from shopman.models import Shop
 from shopman.offerman.models import Collection, CollectionItem, Listing, ListingItem, Product
-from shopman.omniman.models import Order, OrderItem
+from shopman.orderman.models import Order, OrderItem
 from shopman.models import Channel
 
 

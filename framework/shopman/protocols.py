@@ -1,7 +1,7 @@
 """
 Channel protocols — contratos de backend consolidados.
 
-Protocols que vivem no omniman core são re-exportados.
+Protocols que vivem no orderman core são re-exportados.
 Protocols que viviam nos mini-apps são definidos inline aqui.
 """
 
@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-# ── Fiscal, Accounting ── (vivem no omniman core, re-export)
-from shopman.omniman.protocols import (  # noqa: F401
+# ── Fiscal, Accounting ── (vivem no orderman core, re-export)
+from shopman.orderman.protocols import (  # noqa: F401
     AccountingBackend,
     FiscalBackend,
 )

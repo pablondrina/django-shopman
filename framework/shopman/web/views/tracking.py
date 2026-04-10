@@ -8,7 +8,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 
-from shopman.omniman.models import Order
+from shopman.orderman.models import Order
 from shopman.utils.monetary import format_money
 
 from ..cart import CartService

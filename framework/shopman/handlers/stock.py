@@ -21,8 +21,8 @@ class StockIssueResolver:
     source = "stock"
 
     def resolve(self, *, session, issue: dict, action_id: str, ctx: dict):
-        from shopman.omniman.exceptions import IssueResolveError
-        from shopman.omniman.services import ModifyService
+        from shopman.orderman.exceptions import IssueResolveError
+        from shopman.orderman.services import ModifyService
 
         context = issue.get("context", {})
         actions = context.get("actions", [])

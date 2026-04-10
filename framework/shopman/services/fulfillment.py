@@ -1,14 +1,14 @@
 """
 Fulfillment service.
 
-Core: omniman.models.Fulfillment
+Core: orderman.models.Fulfillment
 """
 
 from __future__ import annotations
 
 import logging
 
-from shopman.omniman.models import Fulfillment
+from shopman.orderman.models import Fulfillment
 
 logger = logging.getLogger(__name__)
 

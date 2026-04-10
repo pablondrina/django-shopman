@@ -21,7 +21,7 @@ class OmnimanOrderHistoryBackend:
         """Return last orders for customer from Omniman."""
         # Late import to avoid circular dependency
         try:
-            from shopman.omniman.models import Order
+            from shopman.orderman.models import Order
         except ImportError:
             return []
 
@@ -48,7 +48,7 @@ class OmnimanOrderHistoryBackend:
     def get_order_stats(self, customer_ref: str) -> OrderStats:
         """Return aggregated order statistics from Omniman."""
         try:
-            from shopman.omniman.models import Order
+            from shopman.orderman.models import Order
             from django.db.models import Count, Min, Max
         except ImportError:
             return OrderStats(

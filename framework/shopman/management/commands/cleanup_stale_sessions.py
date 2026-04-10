@@ -1,7 +1,7 @@
 """
 Management command: cleanup_stale_sessions
 
-Deletes omniman Sessions that have no associated Order and haven't been
+Deletes orderman Sessions that have no associated Order and haven't been
 updated in the last 48 hours. Prevents indefinite accumulation of
 abandoned sessions.
 
@@ -40,7 +40,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         from django.db.models import Exists, OuterRef
 
-        from shopman.omniman.models import Order, Session
+        from shopman.orderman.models import Order, Session
 
         hours = options["hours"]
         dry_run = options["dry_run"]

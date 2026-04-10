@@ -293,7 +293,7 @@ class TestEngine:
         assert cache.get(CACHE_KEY) is None
 
     def test_register_active_rules_registers_validators(self):
-        from shopman.omniman import registry
+        from shopman.orderman import registry
 
         self._create_rule(
             code="bh_register",
@@ -313,7 +313,7 @@ class TestEngine:
         assert "shop.minimum_order" in validator_codes
 
     def test_register_active_rules_skips_modifiers(self):
-        from shopman.omniman import registry
+        from shopman.orderman import registry
 
         self._create_rule(
             code="pricing_skip",
@@ -328,7 +328,7 @@ class TestEngine:
         assert new_count == initial_count
 
     def test_register_active_rules_skips_disabled(self):
-        from shopman.omniman import registry
+        from shopman.orderman import registry
 
         self._create_rule(
             code="disabled_val",

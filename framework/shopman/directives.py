@@ -5,7 +5,7 @@ Topic constants: canonical names for all directive topics (single source of trut
 queue(): single entry point for creating Directives across services.
 """
 
-from shopman.omniman.models import Directive
+from shopman.orderman.models import Directive
 
 # ── Topic constants ──
 

@@ -186,7 +186,7 @@ class CustomerAdmin(BaseModelAdmin):
     def orders_link(self, obj):
         """Show order count with link to order list filtered by this customer."""
         try:
-            from shopman.omniman.models import Order
+            from shopman.orderman.models import Order
 
             count = Order.objects.filter(
                 handle_type="customer", handle_ref=obj.ref

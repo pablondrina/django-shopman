@@ -142,7 +142,7 @@ class TestOperatorAlertAdmin:
 class TestOrderAdminExtensions:
     def test_order_has_fulfillment_inline(self, db):
         from shopman.admin.orders import FulfillmentOrderInline
-        from shopman.omniman.models import Order
+        from shopman.orderman.models import Order
 
         if Order not in admin.site._registry:
             pytest.skip("Order not registered in admin")
@@ -151,7 +151,7 @@ class TestOrderAdminExtensions:
         assert FulfillmentOrderInline in (order_admin_cls.inlines or [])
 
     def test_order_has_payment_info(self, db):
-        from shopman.omniman.models import Order
+        from shopman.orderman.models import Order
 
         if Order not in admin.site._registry:
             pytest.skip("Order not registered in admin")

@@ -9,10 +9,10 @@ from __future__ import annotations
 from django.contrib.auth.models import User
 from django.test import TestCase
 
-from shopman.omniman.ids import generate_idempotency_key, generate_session_key
-from shopman.omniman.models import Order, Session
-from shopman.omniman.services.commit import CommitService
-from shopman.omniman.services.modify import ModifyService
+from shopman.orderman.ids import generate_idempotency_key, generate_session_key
+from shopman.orderman.models import Order, Session
+from shopman.orderman.services.commit import CommitService
+from shopman.orderman.services.modify import ModifyService
 from shopman.models import Channel
 
 

@@ -8,8 +8,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from shopman.offerman.models import Product
-from shopman.omniman.ids import generate_idempotency_key
-from shopman.omniman.services.commit import CommitService
+from shopman.orderman.ids import generate_idempotency_key
+from shopman.orderman.services.commit import CommitService
 from shopman.utils.phone import normalize_phone
 from shopman.web.cart import CHANNEL_REF, CartService
 from shopman.web.views._helpers import _get_price_q, _line_item_is_d1
@@ -176,7 +176,7 @@ class CheckoutView(APIView):
         phone = normalize_phone(phone_raw) or phone_raw
 
         # Set customer data on session
-        from shopman.omniman.services.modify import ModifyService
+        from shopman.orderman.services.modify import ModifyService
 
         ops = [
             {"op": "set_data", "path": "customer.name", "value": name},
@@ -195,7 +195,7 @@ class CheckoutView(APIView):
         )
 
         # Set session handle for customer tracking
-        from shopman.omniman.models import Session
+        from shopman.orderman.models import Session
 
         session_obj = Session.objects.get(session_key=session_key)
         session_obj.handle_type = "phone"

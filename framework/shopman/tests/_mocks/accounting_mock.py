@@ -7,7 +7,7 @@ from __future__ import annotations
 from datetime import date
 from uuid import uuid4
 
-from shopman.omniman.protocols import (
+from shopman.orderman.protocols import (
     AccountEntry,
     AccountsSummary,
     CashFlowSummary,

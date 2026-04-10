@@ -43,7 +43,7 @@ def _make_channel(ref="stress-test"):
 
 
 def _make_open_session(channel, session_key, sku="TEST-SKU", qty=1, price_q=1000):
-    from shopman.omniman.models import Session
+    from shopman.orderman.models import Session
     return Session.objects.create(
         session_key=session_key,
         channel_ref=channel.ref,
@@ -63,12 +63,12 @@ class DoubleSubmitIdempotencyTests(TestCase):
 
     def test_same_idempotency_key_returns_cached_order(self) -> None:
         """Committing twice with same key returns the same order, no duplicate created."""
-        from shopman.omniman.models import IdempotencyKey, Order
+        from shopman.orderman.models import IdempotencyKey, Order
 
         session = _make_open_session(self.channel, "IDEM-SS-001")
 
         # First commit
-        from shopman.omniman.services.commit import CommitService
+        from shopman.orderman.services.commit import CommitService
         result1 = CommitService.commit(
             session_key=session.session_key,
             channel_ref=self.channel.ref,
@@ -89,8 +89,8 @@ class DoubleSubmitIdempotencyTests(TestCase):
 
     def test_different_idempotency_keys_still_one_order(self) -> None:
         """Second commit with different key on already-committed session returns existing order."""
-        from shopman.omniman.models import Order
-        from shopman.omniman.services.commit import CommitService
+        from shopman.orderman.models import Order
+        from shopman.orderman.services.commit import CommitService
 
         session = _make_open_session(self.channel, "IDEM-SS-002")
 
@@ -114,8 +114,8 @@ class DoubleSubmitIdempotencyTests(TestCase):
 
     def test_five_sessions_five_commits_five_orders(self) -> None:
         """5 independent sessions each create exactly 1 order."""
-        from shopman.omniman.models import Order
-        from shopman.omniman.services.commit import CommitService
+        from shopman.orderman.models import Order
+        from shopman.orderman.services.commit import CommitService
 
         for i in range(5):
             session = _make_open_session(self.channel, f"MULTI-SS-{i:03d}")
@@ -132,9 +132,9 @@ class DoubleSubmitIdempotencyTests(TestCase):
 
     def test_in_progress_idempotency_key_blocks_duplicate(self) -> None:
         """Committing with an in-progress key raises CommitError."""
-        from shopman.omniman.exceptions import CommitError
-        from shopman.omniman.models import IdempotencyKey
-        from shopman.omniman.services.commit import CommitService
+        from shopman.orderman.exceptions import CommitError
+        from shopman.orderman.models import IdempotencyKey
+        from shopman.orderman.services.commit import CommitService
 
         session = _make_open_session(self.channel, "IDEM-SS-003")
         IdempotencyKey.objects.create(
@@ -191,9 +191,9 @@ class ConcurrentOversellTests(TransactionTestCase):
 
     def _commit_session(self, session_key, idem_key):
         """Attempt to commit a session; return (success, order_ref, error)."""
-        from shopman.omniman.exceptions import CommitError, SessionError
-        from shopman.omniman.models import Session
-        from shopman.omniman.services.checkout import process as checkout_process
+        from shopman.orderman.exceptions import CommitError, SessionError
+        from shopman.orderman.models import Session
+        from shopman.orderman.services.checkout import process as checkout_process
 
         try:
             # Session must be created within thread (TransactionTestCase uses autocommit)
@@ -205,7 +205,7 @@ class ConcurrentOversellTests(TransactionTestCase):
                 items=[{"line_id": f"L-{session_key}", "sku": self.product.sku, "qty": 1, "unit_price_q": 1000}],
                 data={},
             )
-            from shopman.omniman.services.commit import CommitService
+            from shopman.orderman.services.commit import CommitService
             result = CommitService.commit(
                 session_key=session_key,
                 channel_ref=self.channel.ref,
@@ -217,7 +217,7 @@ class ConcurrentOversellTests(TransactionTestCase):
 
     def test_concurrent_checkout_no_oversell(self) -> None:
         """5 concurrent checkouts for stock=3 → at most 3 orders, no oversell."""
-        from shopman.omniman.models import Order
+        from shopman.orderman.models import Order
 
         results = []
         with ThreadPoolExecutor(max_workers=5) as executor:
@@ -266,7 +266,7 @@ class ConcurrentPaymentCaptureTests(TransactionTestCase):
 
     def test_concurrent_capture_idempotent(self) -> None:
         """Two concurrent captures on the same order → payment captured exactly once."""
-        from shopman.omniman.models import Order
+        from shopman.orderman.models import Order
         from shopman.services import payment as payment_service
         from unittest.mock import MagicMock, patch
 

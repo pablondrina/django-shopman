@@ -25,7 +25,7 @@ FRAMEWORK_ROOT = Path(__file__).resolve().parent.parent  # framework/shopman/
 # Packages whose internals must not be imported directly (WP-C scope).
 # guestman.contrib is tracked separately as C4 (WP-F).
 KERNEL_PACKAGES = [
-    "stockman", "offerman", "craftsman", "omniman",
+    "stockman", "offerman", "craftsman", "orderman",
     "doorman", "payman",
 ]
 

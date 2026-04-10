@@ -21,7 +21,7 @@ def _make_channel():
 
 
 def _make_order(channel, ref, total_q, status="confirmed"):
-    from shopman.omniman.models import Order
+    from shopman.orderman.models import Order
     return Order.objects.create(
         ref=ref,
         channel_ref=channel.ref,

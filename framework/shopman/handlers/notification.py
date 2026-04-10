@@ -17,7 +17,7 @@ import logging
 from django.conf import settings
 
 from shopman.notifications import notify
-from shopman.omniman.models import Directive
+from shopman.orderman.models import Directive
 from shopman.directives import NOTIFICATION_SEND
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ class NotificationSendHandler:
 
     def _handle_order_notification(self, message: Directive) -> None:
         """Handle order-related notifications (customer-facing)."""
-        from shopman.omniman.models import Order
+        from shopman.orderman.models import Order
 
         payload = message.payload
         order_ref = payload.get("order_ref")

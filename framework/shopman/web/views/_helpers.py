@@ -152,7 +152,7 @@ def _storefront_session_pricing_hints(request: HttpRequest | None) -> tuple[str,
         return "", 0
     try:
         from shopman.models import Channel
-        from shopman.omniman.models import Session
+        from shopman.orderman.models import Session
 
         key = request.session.get("cart_session_key")
         if not key:

@@ -41,7 +41,7 @@ def on_production_voided(sender, product_ref, date, action, work_order, **kwargs
 
     # Notify fermata sessions
     try:
-        from shopman.omniman.models import Directive, Session
+        from shopman.orderman.models import Directive, Session
 
         sessions = Session.objects.filter(
             session_key__in=session_keys, state="open",
@@ -90,7 +90,7 @@ def on_holds_materialized(sender, hold_ids, sku, target_date, **kwargs):
     if not session_keys:
         return
 
-    from shopman.omniman.models import Session
+    from shopman.orderman.models import Session
 
     sessions = Session.objects.filter(
         session_key__in=session_keys, state="open",
@@ -138,7 +138,7 @@ def _all_holds_materialized(check_result: dict) -> bool:
 
 
 def _auto_commit_session(session):
-    from shopman.omniman.services.commit import CommitService
+    from shopman.orderman.services.commit import CommitService
 
     idempotency_key = f"auto-commit-{session.session_key}-{uuid.uuid4().hex[:8]}"
 

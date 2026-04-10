@@ -151,10 +151,10 @@ class TestCooldown:
 class TestDirectiveCreation:
     """Alert dispatch creates Directive when Omniman is available."""
 
-    @pytest.mark.skip(reason="Requires shopman.omniman — not yet migrated")
+    @pytest.mark.skip(reason="Requires shopman.orderman — not yet migrated")
     def test_dispatch_creates_directive(self, stocked_product, vitrine, alert):
         """Triggered alert creates a Directive with notification.send topic."""
-        from shopman.omniman.models import Directive
+        from shopman.orderman.models import Directive
 
         product, quant = stocked_product
         stock.issue(Decimal("35"), quant, reason="Sale")

@@ -10,7 +10,7 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def order_card(channel):
-    from shopman.omniman.models import Order
+    from shopman.orderman.models import Order
 
     return Order.objects.create(
         ref="ORD-CARD-001",

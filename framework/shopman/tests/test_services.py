@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from shopman.omniman.models import Directive
+from shopman.orderman.models import Directive
 
 # ── helpers ──
 
@@ -771,7 +771,7 @@ class TestCancellationService:
         assert result is True
 
     def test_cancel_skips_already_cancelled(self):
-        from shopman.omniman.models import Order
+        from shopman.orderman.models import Order
         from shopman.services.cancellation import cancel
 
         order = _make_order(status=Order.Status.CANCELLED)
@@ -782,7 +782,7 @@ class TestCancellationService:
         assert result is False
 
     def test_cancel_skips_completed(self):
-        from shopman.omniman.models import Order
+        from shopman.orderman.models import Order
         from shopman.services.cancellation import cancel
 
         order = _make_order(status=Order.Status.COMPLETED)
@@ -837,7 +837,7 @@ class TestKDSService:
     @pytest.mark.django_db
     def test_on_all_tickets_done_transitions_to_ready(self):
         from shopman.models import KDSInstance, KDSTicket
-        from shopman.omniman.models import Order
+        from shopman.orderman.models import Order
 
         from shopman.models import Channel
         channel = Channel.objects.create(ref="kds-test", name="KDS Test")
@@ -859,7 +859,7 @@ class TestKDSService:
     def test_cancel_tickets_cancels_open_tickets(self):
         """cancel_tickets() sets status=cancelled on all open tickets."""
         from shopman.models import KDSInstance, KDSTicket
-        from shopman.omniman.models import Order
+        from shopman.orderman.models import Order
 
         from shopman.models import Channel
         channel = Channel.objects.create(ref="kds-cancel-1", name="KDS Cancel 1")
@@ -884,7 +884,7 @@ class TestKDSService:
     def test_cancel_tickets_returns_zero_when_no_open_tickets(self):
         """cancel_tickets() returns 0 without error when no open tickets exist."""
         from shopman.models import KDSInstance, KDSTicket
-        from shopman.omniman.models import Order
+        from shopman.orderman.models import Order
 
         from shopman.models import Channel
         channel = Channel.objects.create(ref="kds-cancel-2", name="KDS Cancel 2")
@@ -903,7 +903,7 @@ class TestKDSService:
     @pytest.mark.django_db
     def test_cancel_tickets_returns_zero_for_order_with_no_tickets(self):
         """cancel_tickets() is safe on orders with no tickets at all."""
-        from shopman.omniman.models import Order
+        from shopman.orderman.models import Order
 
         from shopman.models import Channel
         channel = Channel.objects.create(ref="kds-cancel-3", name="KDS Cancel 3")
@@ -919,7 +919,7 @@ class TestKDSService:
     @pytest.mark.django_db
     def test_on_all_tickets_done_noop_if_not_all_done(self):
         from shopman.models import KDSInstance, KDSTicket
-        from shopman.omniman.models import Order
+        from shopman.orderman.models import Order
 
         from shopman.models import Channel
         channel = Channel.objects.create(ref="kds-test2", name="KDS Test 2")

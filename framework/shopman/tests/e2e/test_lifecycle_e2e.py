@@ -26,9 +26,9 @@ from unittest.mock import MagicMock, patch
 from django.test import TestCase, TransactionTestCase
 
 from shopman.models import Channel
-from shopman.omniman.ids import generate_idempotency_key, generate_session_key
-from shopman.omniman.models import Directive, Order, Session
-from shopman.omniman.services import CommitService
+from shopman.orderman.ids import generate_idempotency_key, generate_session_key
+from shopman.orderman.models import Directive, Order, Session
+from shopman.orderman.services import CommitService
 
 # ── Service patch targets ─────────────────────────────────────────────
 
@@ -426,8 +426,8 @@ class TestE2E8NotificationFailureDirectiveRetry(TestCase):
         _stop_patches(self.patchers)
 
     def test_directive_transient_error_stays_queued(self):
-        from shopman.omniman.exceptions import DirectiveTransientError
-        from shopman.omniman.management.commands.process_directives import Command
+        from shopman.orderman.exceptions import DirectiveTransientError
+        from shopman.orderman.management.commands.process_directives import Command
 
         # Create a directive
         directive = Directive.objects.create(
@@ -439,7 +439,7 @@ class TestE2E8NotificationFailureDirectiveRetry(TestCase):
         mock_handler = MagicMock()
         mock_handler.handle.side_effect = DirectiveTransientError("network timeout")
 
-        with patch("shopman.omniman.registry.get_directive_handler", return_value=mock_handler):
+        with patch("shopman.orderman.registry.get_directive_handler", return_value=mock_handler):
             cmd = Command()
             cmd.stdout = MagicMock()
             cmd.stderr = MagicMock()
@@ -467,8 +467,8 @@ class TestE2E8TerminalErrorDirectiveFails(TestCase):
         _stop_patches(self.patchers)
 
     def test_directive_terminal_error_marks_failed(self):
-        from shopman.omniman.exceptions import DirectiveTerminalError
-        from shopman.omniman.management.commands.process_directives import Command
+        from shopman.orderman.exceptions import DirectiveTerminalError
+        from shopman.orderman.management.commands.process_directives import Command
 
         directive = Directive.objects.create(
             topic="notification.order_confirmed",
@@ -478,7 +478,7 @@ class TestE2E8TerminalErrorDirectiveFails(TestCase):
         mock_handler = MagicMock()
         mock_handler.handle.side_effect = DirectiveTerminalError("invalid payload")
 
-        with patch("shopman.omniman.registry.get_directive_handler", return_value=mock_handler):
+        with patch("shopman.orderman.registry.get_directive_handler", return_value=mock_handler):
             cmd = Command()
             cmd.stdout = MagicMock()
             cmd.stderr = MagicMock()

@@ -16,7 +16,7 @@ from django.test import TestCase
 
 from shopman.guestman.models import ContactPoint, Customer
 from shopman.guestman.services import customer as customer_service
-from shopman.omniman.models import Order
+from shopman.orderman.models import Order
 from shopman.utils.phone import normalize_phone
 from shopman.models import Channel
 

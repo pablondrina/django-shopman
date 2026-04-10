@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
 
-from shopman.omniman.models import Order
+from shopman.orderman.models import Order
 from shopman.utils.monetary import format_money
 
 logger = logging.getLogger("shopman.web.payment")

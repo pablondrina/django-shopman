@@ -63,7 +63,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        from shopman.omniman.models import Order
+        from shopman.orderman.models import Order
 
         since_str = options["since"]
         dry_run = options["dry_run"]

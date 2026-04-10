@@ -6,7 +6,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from shopman.omniman.models import Order
+from shopman.orderman.models import Order
 from shopman.web.views.tracking import (
     STATUS_LABELS,
     _build_tracking_context,

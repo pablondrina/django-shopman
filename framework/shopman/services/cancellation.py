@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 
-from shopman.omniman.models import Order
+from shopman.orderman.models import Order
 
 logger = logging.getLogger(__name__)
 

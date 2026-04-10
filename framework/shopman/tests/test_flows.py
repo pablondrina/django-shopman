@@ -14,7 +14,7 @@ import pytest
 
 from shopman.config import ChannelConfig
 from shopman.flows import dispatch
-from shopman.omniman.models import Directive, Order
+from shopman.orderman.models import Directive, Order
 
 # ── helpers ──
 

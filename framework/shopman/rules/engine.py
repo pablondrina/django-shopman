@@ -60,7 +60,7 @@ def load_rule(rule_config):
 
 
 def register_active_rules():
-    """Register active validator rules in the omniman registry.
+    """Register active validator rules in the orderman registry.
 
     Called at boot (apps.py ready), AFTER channels.setup.register_all().
 
@@ -69,7 +69,7 @@ def register_active_rules():
     via channels.setup — R8 will migrate everything.
     """
     from shopman.models import RuleConfig
-    from shopman.omniman import registry
+    from shopman.orderman import registry
 
     active = RuleConfig.objects.filter(enabled=True).order_by("priority")
 

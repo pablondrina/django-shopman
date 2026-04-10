@@ -53,7 +53,7 @@ class KDSTicket(models.Model):
     ]
 
     order = models.ForeignKey(
-        "omniman.Order",
+        "orderman.Order",
         on_delete=models.CASCADE,
         related_name="kds_tickets",
         verbose_name="pedido",

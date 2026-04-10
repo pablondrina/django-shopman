@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
 
-from shopman.omniman.models import Order
+from shopman.orderman.models import Order
 from shopman.utils.monetary import format_money
 
 from shopman.services.order_helpers import get_fulfillment_type
@@ -287,7 +287,7 @@ class KDSTicketDoneView(View):
             return denied
 
         from shopman.models import KDSTicket
-        from shopman.omniman.exceptions import InvalidTransition
+        from shopman.orderman.exceptions import InvalidTransition
 
         ticket = get_object_or_404(KDSTicket, pk=pk)
 

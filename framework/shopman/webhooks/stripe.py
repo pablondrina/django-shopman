@@ -14,7 +14,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from shopman.omniman.models import Order
+from shopman.orderman.models import Order
 
 logger = logging.getLogger(__name__)
 

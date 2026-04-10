@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 from shopman.guestman.contrib.consent import CommunicationConsent, ConsentService
 from shopman.guestman.contrib.loyalty import LoyaltyService
 from shopman.guestman.contrib.preferences import CustomerPreference, PreferenceService
-from shopman.omniman.models import Order
+from shopman.orderman.models import Order
 from shopman.utils.monetary import format_money
 
 from .auth import get_authenticated_customer

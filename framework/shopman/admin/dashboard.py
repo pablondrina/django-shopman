@@ -76,7 +76,7 @@ def dashboard_callback(request, context):
         "kpi_stock_alerts": len(stock_alerts),
         "kpi_operator_alerts": operator_alerts["count"],
         # Quick-link URLs
-        "orders_url": reverse("admin:omniman_order_changelist"),
+        "orders_url": reverse("admin:orderman_order_changelist"),
         # Charts (JSON for Chart.js)
         "chart_pedidos_status": _chart_orders_by_status(today),
         "chart_pedidos_status_options": json.dumps({"indexAxis": "y"}),
@@ -105,7 +105,7 @@ def dashboard_callback(request, context):
 
 
 def _order_summary(today):
-    from shopman.omniman.models import Order
+    from shopman.orderman.models import Order
 
     qs = (
         Order.objects
@@ -126,7 +126,7 @@ def _order_summary(today):
                 "label": label,
                 "count": count,
                 "color": STATUS_CHART_COLORS.get(status, "#6B7280"),
-                "url": f'{reverse("admin:omniman_order_changelist")}?status__exact={status}',
+                "url": f'{reverse("admin:orderman_order_changelist")}?status__exact={status}',
             })
 
     return {"total": total, "new_count": new_count, "cards": cards}
@@ -136,7 +136,7 @@ def _order_summary(today):
 
 
 def _revenue(today, yesterday):
-    from shopman.omniman.models import Order
+    from shopman.orderman.models import Order
 
     confirmed_statuses = [
         "confirmed", "preparing", "ready",
@@ -246,7 +246,7 @@ def _stock_alerts():
 
 
 def _recent_orders():
-    from shopman.omniman.models import Order
+    from shopman.orderman.models import Order
 
     orders = (
         Order.objects
@@ -261,7 +261,7 @@ def _recent_orders():
             "total_display": _format_brl(o.total_q),
             "channel_name": o.channel_ref or "\u2014",
             "created_at": o.created_at,
-            "url": reverse("admin:omniman_order_change", args=[o.pk]),
+            "url": reverse("admin:orderman_order_change", args=[o.pk]),
         }
         for o in orders
     ]
@@ -272,7 +272,7 @@ def _recent_orders():
 
 def _chart_orders_by_status(today):
     """Bar chart: orders by status (horizontal)."""
-    from shopman.omniman.models import Order
+    from shopman.orderman.models import Order
 
     orders_today = Order.objects.filter(created_at__date=today)
 
@@ -302,7 +302,7 @@ def _chart_orders_by_status(today):
 
 def _chart_sales_7days(today):
     """Line chart: sales trend over last 7 days."""
-    from shopman.omniman.models import Order
+    from shopman.orderman.models import Order
 
     week_ago = today - timedelta(days=6)
     labels = []
@@ -339,7 +339,7 @@ def _chart_sales_7days(today):
 
 def _build_pending_orders_table(today):
     """Pending orders (new, confirmed, preparing)."""
-    from shopman.omniman.models import Order
+    from shopman.orderman.models import Order
 
     pending = (
         Order.objects
@@ -359,7 +359,7 @@ def _build_pending_orders_table(today):
         rows.append([
             format_html(
                 '<a href="{}" class="font-medium">{}</a>',
-                reverse("admin:omniman_order_change", args=[o.pk]),
+                reverse("admin:orderman_order_change", args=[o.pk]),
                 o.ref,
             ),
             format_html(
