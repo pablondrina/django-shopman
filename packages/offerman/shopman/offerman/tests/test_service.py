@@ -462,7 +462,7 @@ class TestCatalogSearchFilters:
 
     def test_search_by_collection(self, db):
         """Filter by collection slug."""
-        coll = Collection.objects.create(slug="doces", name="Doces")
+        coll = Collection.objects.create(ref="doces", name="Doces")
         p1 = Product.objects.create(sku="BOLO", name="Bolo")
         Product.objects.create(sku="PAO", name="Pao")
         CollectionItem.objects.create(collection=coll, product=p1, is_primary=True)
@@ -487,7 +487,7 @@ class TestCatalogSearchFilters:
         """Combined query text + collection filter."""
         from shopman.offerman.models import Collection, CollectionItem
 
-        coll = Collection.objects.create(slug="paes", name="Paes")
+        coll = Collection.objects.create(ref="paes", name="Paes")
         p1 = Product.objects.create(sku="PAO-INT", name="Pao Integral")
         p2 = Product.objects.create(sku="PAO-FR", name="Pao Frances")
         p3 = Product.objects.create(sku="BOLO-INT", name="Bolo Integral")
@@ -518,7 +518,7 @@ class TestCatalogBackendAdapter:
             sku="ADAPT-1", name="Adapter Test", base_price_q=999,
             unit="kg", long_description="Test description",
         )
-        coll = Collection.objects.create(slug="test-cat", name="Test Cat")
+        coll = Collection.objects.create(ref="test-cat", name="Test Cat")
         CollectionItem.objects.create(collection=coll, product=p, is_primary=True)
 
         backend = CatalogBackend()
@@ -594,7 +594,7 @@ class TestSuggestions:
         from shopman.offerman.contrib.suggestions.suggestions import find_alternatives
         from shopman.offerman.models import Collection, CollectionItem
 
-        coll = Collection.objects.create(slug="paes", name="Paes")
+        coll = Collection.objects.create(ref="paes", name="Paes")
         p1 = Product.objects.create(sku="PAO-INT", name="Pao Integral", base_price_q=400)
         p1.keywords.add("integral", "pao")
         CollectionItem.objects.create(collection=coll, product=p1, is_primary=True)
@@ -630,7 +630,7 @@ class TestSuggestions:
         from shopman.offerman.contrib.suggestions.suggestions import find_similar
         from shopman.offerman.models import Collection, CollectionItem
 
-        coll = Collection.objects.create(slug="paes", name="Paes")
+        coll = Collection.objects.create(ref="paes", name="Paes")
         p1 = Product.objects.create(sku="SIM-1", name="Product 1", base_price_q=400)
         p1.keywords.add("artesanal")
         CollectionItem.objects.create(collection=coll, product=p1, is_primary=True)

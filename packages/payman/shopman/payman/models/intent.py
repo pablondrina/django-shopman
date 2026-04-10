@@ -17,6 +17,15 @@ class PaymentIntent(models.Model):
         authorized → failed
         captured → refunded (via PaymentTransaction)
 
+    Domain contracts:
+        - Capture is single-shot: once CAPTURED, no further capture is allowed.
+          Partial capture means the uncaptured balance is abandoned.
+        - REFUNDED means "at least one refund exists", NOT "fully refunded".
+          Use ``PaymentService.refunded_total(ref)`` for the actual refund amount.
+        - Multiple partial refunds are allowed while captured balance remains.
+        - All mutations must go through ``PaymentService``, not direct model saves.
+          ``transition_status()`` is an internal concurrency helper only.
+
     Inspiração: Stripe PaymentIntent + Omniman.Order status machine.
     """
 
@@ -79,6 +88,12 @@ class PaymentIntent(models.Model):
         ordering = ["-created_at"]
         verbose_name = _("intenção de pagamento")
         verbose_name_plural = _("intenções de pagamento")
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(amount_q__gt=0),
+                name="pay_intent_amount_q_positive",
+            ),
+        ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

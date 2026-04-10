@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import time
-
 from django.db.models import Avg, Count, Q, Sum
 from rest_framework import status
 from rest_framework.decorators import action
@@ -61,7 +58,7 @@ class CustomerViewSet(
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        ref = self._generate_ref(data["phone"])
+        ref = Customer.generate_ref()
 
         try:
             cust = customer_service.create(
@@ -197,12 +194,7 @@ class CustomerViewSet(
         prefs = PreferenceService.get_preferences_dict(customer.ref)
         return Response(prefs)
 
-    @staticmethod
-    def _generate_ref(phone: str) -> str:
-        """Generate a unique customer ref from phone."""
-        hash_input = f"{phone}-{time.time()}"
-        short_hash = hashlib.sha256(hash_input.encode()).hexdigest()[:8].upper()
-        return f"CUST-{short_hash}"
+    # Ref generation delegated to Customer.generate_ref()
 
 
 class LookupView(APIView):

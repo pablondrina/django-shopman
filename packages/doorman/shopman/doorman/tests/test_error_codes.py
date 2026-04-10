@@ -179,7 +179,7 @@ def test_exchange_expired_token_error_code(customer):
     from django.contrib.sessions.backends.db import SessionStore
     from django.contrib.auth.models import AnonymousUser
 
-    token = AccessLink.objects.create(
+    link, raw_token = AccessLink.create_with_token(
         customer_id=customer.uuid,
         expires_at=timezone.now() - timedelta(minutes=1),
     )
@@ -190,7 +190,7 @@ def test_exchange_expired_token_error_code(customer):
     request.session.create()
     request.user = AnonymousUser()
 
-    result = AccessLinkService.exchange(token.token, request)
+    result = AccessLinkService.exchange(raw_token, request)
     assert not result.success
     assert result.error_code == ErrorCode.TOKEN_EXPIRED
 

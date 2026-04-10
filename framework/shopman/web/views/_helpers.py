@@ -268,7 +268,7 @@ def _annotate_products(
     # ── Batch: collections per SKU ────────────────────────────────────────────
     sku_collections: dict[str, list[str]] = {}
     for ci in CollectionItem.objects.filter(product__sku__in=skus).select_related("collection"):
-        sku_collections.setdefault(ci.product.sku, []).append(ci.collection.slug)
+        sku_collections.setdefault(ci.product.sku, []).append(ci.collection.ref)
 
     # ── Batch: prices — one query for all SKUs ────────────────────────────────
     price_map: dict[str, int] = {}
@@ -489,7 +489,7 @@ def _format_opening_hours() -> list[dict]:
     return result
 
 
-# Material Symbols Rounded — nomes de ligature por trecho de slug de coleção
+# Material Symbols Rounded — nomes de ligature por trecho de ref de coleção
 COLLECTION_ICONS: dict[str, str] = {
     "paes": "bakery_dining",
     "pao": "bakery_dining",
@@ -505,13 +505,13 @@ COLLECTION_ICONS: dict[str, str] = {
 }
 
 
-def _collection_icon(slug: str) -> str:
-    """Nome do ícone Material Symbols para slug de coleção (default visível no cardápio)."""
-    if not slug:
+def _collection_icon(ref: str) -> str:
+    """Nome do ícone Material Symbols para ref de coleção (default visível no cardápio)."""
+    if not ref:
         return "restaurant_menu"
-    slug_lower = slug.lower()
+    ref_lower = ref.lower()
     for key, icon in COLLECTION_ICONS.items():
-        if key in slug_lower:
+        if key in ref_lower:
             return icon
     return "restaurant_menu"
 
@@ -578,7 +578,7 @@ def _hero_data(listing_ref: str | None = None, request: HttpRequest | None = Non
 
                     cols = list(
                         CollectionItem.objects.filter(product=product).values_list(
-                            "collection__slug", flat=True,
+                            "collection__ref", flat=True,
                         ),
                     )
                 except Exception as e:

@@ -1,7 +1,7 @@
 """
-Code sequence for atomic WorkOrder code generation.
+Ref sequence for atomic WorkOrder ref generation.
 
-Replaces the fragile SELECT MAX(code) + retry approach with
+Replaces the fragile SELECT MAX(ref) + retry approach with
 an atomic counter using SELECT FOR UPDATE.
 """
 
@@ -9,15 +9,15 @@ from django.db import models, transaction
 from django.utils.translation import gettext_lazy as _
 
 
-class CodeSequence(models.Model):
+class RefSequence(models.Model):
     """
-    Atomic counter for generating sequential codes.
+    Atomic counter for generating sequential refs.
 
     One row per (prefix), e.g. "WO-2026" → last_value = 42.
     Thread-safe via SELECT FOR UPDATE.
 
     Usage (internal to WorkOrder.save):
-        seq_val = CodeSequence.next_value("WO-2026")
+        seq_val = RefSequence.next_value("WO-2026")
         # Returns 1, 2, 3... atomically
     """
 
@@ -33,8 +33,8 @@ class CodeSequence(models.Model):
 
     class Meta:
         db_table = "crafting_code_sequence"
-        verbose_name = _("Sequência de Código")
-        verbose_name_plural = _("Sequências de Código")
+        verbose_name = _("Sequência de Referência")
+        verbose_name_plural = _("Sequências de Referência")
 
     def __str__(self) -> str:
         return f"{self.prefix} → {self.last_value}"

@@ -43,5 +43,5 @@ class StaleRevision(CraftError):
             "STALE_REVISION",
             expected_rev=expected_rev,
             current_rev=order.rev,
-            work_order=order.code,
+            work_order=order.ref,
         )

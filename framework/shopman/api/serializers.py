@@ -69,7 +69,7 @@ class ProductListItemSerializer(serializers.Serializer):
 
 
 class CollectionSerializer(serializers.Serializer):
-    slug = serializers.CharField()
+    ref = serializers.CharField()
     name = serializers.CharField()
     description = serializers.CharField(allow_null=True, required=False)
     product_count = serializers.IntegerField()

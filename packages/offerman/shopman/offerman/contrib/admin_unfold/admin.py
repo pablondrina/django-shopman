@@ -54,7 +54,7 @@ class CollectionItemInline(BaseTabularInline):
 @admin.register(Collection)
 class CollectionAdmin(BaseModelAdmin):
     list_display = [
-        "slug",
+        "ref",
         "name",
         "parent",
         "is_active_badge",
@@ -63,13 +63,13 @@ class CollectionAdmin(BaseModelAdmin):
         "products_count",
     ]
     list_filter = ["is_active", "parent"]
-    search_fields = ["slug", "name"]
+    search_fields = ["ref", "name"]
     ordering = ["sort_order", "name"]
-    prepopulated_fields = {"slug": ("name",)}
+    prepopulated_fields = {"ref": ("name",)}
     inlines = [CollectionItemInline]
 
     fieldsets = [
-        (None, {"fields": ("slug", "name", "description")}),
+        (None, {"fields": ("ref", "name", "description")}),
         ("Hierarchy", {"fields": ("parent",)}),
         ("Validity", {"fields": ("valid_from", "valid_until")}),
         ("Settings", {"fields": ("sort_order", "is_active")}),

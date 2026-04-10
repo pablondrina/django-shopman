@@ -31,6 +31,12 @@ class PaymentTransaction(models.Model):
         ordering = ["-created_at"]
         verbose_name = _("transação de pagamento")
         verbose_name_plural = _("transações de pagamento")
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(amount_q__gt=0),
+                name="pay_transaction_amount_q_positive",
+            ),
+        ]
 
     def save(self, *args, **kwargs):
         if self.pk:

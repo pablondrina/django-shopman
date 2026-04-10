@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from shopman.offerman.service import CatalogService
 from shopman.offerman.protocols import (
-    CatalogBackend,
+    CatalogBackend as CatalogBackendProtocol,
     ProductInfo,
     PriceInfo,
     SkuValidation,
@@ -13,11 +13,11 @@ from shopman.offerman.protocols import (
 from shopman.offerman.exceptions import CatalogError
 
 
-class CatalogBackend:
+class OffermanCatalogBackend:
     """
     CatalogBackend implementation using Offerman's catalog service.
 
-    This adapter allows other apps (Omniman, Stockman) to use Offerman
+    This adapter allows other apps (Orderman, Stockman) to use Offerman
     as their catalog source without direct model access.
     """
 
@@ -30,7 +30,7 @@ class CatalogBackend:
         primary_collection = None
         primary_item = product.collection_items.filter(is_primary=True).first()
         if primary_item:
-            primary_collection = primary_item.collection.slug
+            primary_collection = primary_item.collection.ref
 
         return ProductInfo(
             sku=product.sku,
@@ -83,8 +83,3 @@ class CatalogBackend:
             ]
         except CatalogError:
             return []
-
-
-# Verify implementation at import time
-if not isinstance(CatalogBackend(), CatalogBackend):
-    raise TypeError("CatalogBackend does not implement CatalogBackend protocol")

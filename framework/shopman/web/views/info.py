@@ -101,7 +101,7 @@ class SitemapView(View):
         # Collections
         for col in Collection.objects.filter(is_active=True):
             urls.append({
-                "loc": base + reverse("storefront:menu_collection", args=[col.slug]),
+                "loc": base + reverse("storefront:menu_collection", args=[col.ref]),
                 "priority": "0.8",
                 "changefreq": "daily",
             })

@@ -83,7 +83,7 @@ def _product_dict(product, price_q):
         "name": product.name,
         "price_q": price_q,
         "price_display": f"R$ {format_money(price_q)}",
-        "collection_slug": ci.collection.slug if ci else "",
+        "collection_ref": ci.collection.ref if ci else "",
         "is_d1": is_d1,
     }
 
@@ -117,7 +117,7 @@ def pos_view(request: HttpRequest) -> HttpResponse:
     collections = list(
         Collection.objects.filter(is_active=True, parent__isnull=True)
         .order_by("sort_order", "name")
-        .values("slug", "name")
+        .values("ref", "name")
     )
 
     return render(request, "pos/index.html", {

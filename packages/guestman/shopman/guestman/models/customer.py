@@ -120,6 +120,17 @@ class Customer(models.Model):
             ),
         ]
 
+    @classmethod
+    def generate_ref(cls) -> str:
+        """
+        Generate a unique customer ref.
+
+        Canonical ref format: CUST-{12 hex chars from uuid4}.
+        This is the SINGLE point of ref generation — API views, IdentifierService,
+        and any other caller must delegate here.
+        """
+        return f"CUST-{uuid_lib.uuid4().hex[:12].upper()}"
+
     def __str__(self):
         return f"{self.name} ({self.ref})"
 

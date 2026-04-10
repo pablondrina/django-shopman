@@ -2,6 +2,6 @@
 Craftsman URL Configuration.
 """
 
-app_name = "crafting"
+app_name = "craftsman"
 
 urlpatterns = []

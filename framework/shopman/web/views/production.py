@@ -56,7 +56,7 @@ def production_void_view(request, admin_site):
             reason="Estornado via produção rápida",
             actor=f"admin:{request.user}",
         )
-        messages.success(request, f"Ordem {wo.code} estornada.")
+        messages.success(request, f"Ordem {wo.ref} estornada.")
     except WorkOrder.DoesNotExist:
         messages.error(request, "Ordem não encontrada.")
     except Exception as exc:
@@ -123,7 +123,7 @@ def _handle_post(request, admin_site):
 
         messages.success(
             request,
-            f"Produção registrada: {recipe.output_ref} × {quantity} ({wo.code})",
+            f"Produção registrada: {recipe.output_ref} × {quantity} ({wo.ref})",
         )
     except Exception as exc:
         logger.exception("Quick production failed")
@@ -228,7 +228,7 @@ def bulk_create_work_orders(request: HttpRequest) -> HttpResponse:
                 position_ref=position_ref,
                 source_ref="dashboard_suggestion",
             )
-            created.append(f"{recipe.output_ref} × {quantity} ({wo.code})")
+            created.append(f"{recipe.output_ref} × {quantity} ({wo.ref})")
         except Exception as exc:
             errors.append(f"{recipe_code}: {exc}")
             logger.exception("bulk_create_work_orders failed for %s", recipe_code)

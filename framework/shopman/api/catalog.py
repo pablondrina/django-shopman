@@ -48,7 +48,7 @@ def _serialize_annotated(items: list[dict]) -> list[dict]:
         tags=["catalog"],
         summary="List products",
         parameters=[
-            OpenApiParameter("collection", str, description="Filter by collection slug"),
+            OpenApiParameter("collection", str, description="Filter by collection ref"),
             OpenApiParameter("search", str, description="Search by product name"),
             OpenApiParameter("available", bool, description="Only available products"),
         ],
@@ -67,11 +67,11 @@ class ProductListView(APIView):
         listing_ref = _get_channel_listing_ref()
         qs = _published_products(listing_ref).order_by("name").distinct()
 
-        # Filter by collection slug
+        # Filter by collection ref
         collection_slug = request.query_params.get("collection")
         if collection_slug:
             qs = qs.filter(
-                collection_items__collection__slug=collection_slug,
+                collection_items__collection__ref=collection_slug,
                 collection_items__collection__is_active=True,
             )
 
@@ -153,7 +153,7 @@ class CollectionListView(APIView):
                 product__is_published=True,
             ).count()
             data.append({
-                "slug": col.slug,
+                "ref": col.ref,
                 "name": col.name,
                 "description": getattr(col, "description", None) or "",
                 "product_count": count,

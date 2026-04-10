@@ -104,7 +104,7 @@ class AccessLinkService:
         ttl = ttl_minutes or doorman_settings.ACCESS_LINK_EXCHANGE_TTL_MINUTES
         expires_at = timezone.now() + timedelta(minutes=ttl)
 
-        token = AccessLink.objects.create(
+        link, raw_token = AccessLink.create_with_token(
             customer_id=customer.uuid,
             audience=audience,
             source=source,
@@ -112,12 +112,12 @@ class AccessLinkService:
             metadata=metadata or {},
         )
 
-        url = cls._build_url(token.token)
+        url = cls._build_url(raw_token)
 
         # Signal
         access_link_created.send(
             sender=cls,
-            token=token,
+            token=link,
             customer=customer,
             audience=audience,
             source=source,
@@ -130,7 +130,7 @@ class AccessLinkService:
 
         return TokenResult(
             success=True,
-            token=token.token,
+            token=raw_token,
             url=url,
             expires_at=expires_at.isoformat(),
         )
@@ -177,11 +177,10 @@ class AccessLinkService:
         Returns:
             AuthResult with user and customer
         """
-        # Find token
-        try:
-            token = AccessLink.objects.get(token=token_str)
-        except AccessLink.DoesNotExist:
-            logger.warning("Invalid token", extra={"token": token_str[:8]})
+        # Find token (lookup by HMAC hash, never plaintext)
+        token = AccessLink.get_by_token(token_str)
+        if token is None:
+            logger.warning("Invalid token attempted")
             return AuthResult(success=False, error="Invalid token.", error_code=ErrorCode.TOKEN_INVALID)
 
         # G7: Validate

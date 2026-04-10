@@ -25,7 +25,7 @@ def collection(db):
 
     return Collection.objects.create(
         name="Padaria",
-        slug="padaria",
+        ref="padaria",
         is_active=True,
     )
 

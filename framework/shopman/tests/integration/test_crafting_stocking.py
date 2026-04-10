@@ -56,7 +56,7 @@ class TestProductionOutputToStock:
             sku=croissant.sku,
             position=position_loja,
             target_date=today,
-            reason=f"WorkOrder {work_order.code}",
+            reason=f"WorkOrder {work_order.ref}",
         )
 
         # Verify stock was added
@@ -86,7 +86,7 @@ class TestProductionOutputToStock:
             sku=croissant.sku,
             position=position_loja,
             target_date=today,
-            reason=f"WorkOrder {wo1.code}",
+            reason=f"WorkOrder {wo1.ref}",
         )
 
         # Create and complete second work order
@@ -106,7 +106,7 @@ class TestProductionOutputToStock:
             sku=croissant.sku,
             position=position_loja,
             target_date=today,
-            reason=f"WorkOrder {wo2.code}",
+            reason=f"WorkOrder {wo2.ref}",
         )
 
         # Total stock should be sum of both

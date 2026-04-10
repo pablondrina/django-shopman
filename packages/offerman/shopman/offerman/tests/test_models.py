@@ -226,23 +226,23 @@ class TestListingItem:
 class TestCollection:
     def test_create_collection(self, db):
         collection = Collection.objects.create(
-            slug="destaques",
+            ref="destaques",
             name="Destaques",
         )
-        assert collection.slug == "destaques"
+        assert collection.ref == "destaques"
         assert collection.is_active is True
 
     def test_hierarchy(self, db):
-        parent = Collection.objects.create(slug="breads", name="Breads")
-        child = Collection.objects.create(slug="sweet-breads", name="Sweet Breads", parent=parent)
+        parent = Collection.objects.create(ref="breads", name="Breads")
+        child = Collection.objects.create(ref="sweet-breads", name="Sweet Breads", parent=parent)
 
         assert child.parent == parent
         assert child.depth == 1
         assert parent.depth == 0
 
     def test_full_path(self, db):
-        parent = Collection.objects.create(slug="breads", name="Breads")
-        child = Collection.objects.create(slug="sweet-breads", name="Sweet Breads", parent=parent)
+        parent = Collection.objects.create(ref="breads", name="Breads")
+        child = Collection.objects.create(ref="sweet-breads", name="Sweet Breads", parent=parent)
 
         assert parent.full_path == "Breads"
         assert child.full_path == "Breads > Sweet Breads"
@@ -254,7 +254,7 @@ class TestCollection:
 
         today = timezone.now().date()
         coll = Collection.objects.create(
-            slug="natal",
+            ref="natal",
             name="Christmas",
             valid_from=today - timedelta(days=1),
             valid_until=today + timedelta(days=1),
@@ -267,7 +267,7 @@ class TestCollection:
 
 class TestCollectionItem:
     def test_create_item(self, db):
-        collection = Collection.objects.create(slug="test", name="Test")
+        collection = Collection.objects.create(ref="test", name="Test")
         product = Product.objects.create(sku="PROD", name="Product")
 
         item = CollectionItem.objects.create(
@@ -279,8 +279,8 @@ class TestCollectionItem:
         assert collection.items.count() == 1
 
     def test_single_primary(self, db):
-        col1 = Collection.objects.create(slug="col1", name="Col 1")
-        col2 = Collection.objects.create(slug="col2", name="Col 2")
+        col1 = Collection.objects.create(ref="col1", name="Col 1")
+        col2 = Collection.objects.create(ref="col2", name="Col 2")
         product = Product.objects.create(sku="PROD", name="Product")
 
         item1 = CollectionItem.objects.create(

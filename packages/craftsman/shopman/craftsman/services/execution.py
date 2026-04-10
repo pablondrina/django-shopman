@@ -118,7 +118,7 @@ class CraftExecution:
                     if c["item_ref"] not in recipe_refs:
                         logger.warning(
                             "WorkOrder %s: consumed item_ref '%s' not in recipe (substitution?)",
-                            order.code, c["item_ref"],
+                            order.ref, c["item_ref"],
                         )
 
             if consumed is None:
@@ -243,7 +243,7 @@ class CraftExecution:
             work_order=order,
         )
 
-        logger.info("WorkOrder %s closed: produced=%s", order.code, produced_decimal)
+        logger.info("WorkOrder %s closed: produced=%s", order.ref, produced_decimal)
         return order
 
     @classmethod
@@ -259,7 +259,7 @@ class CraftExecution:
 
             # Status check (inside transaction, fresh from DB)
             if order.status == WorkOrder.Status.DONE:
-                raise CraftError("VOID_FROM_DONE", work_order=order.code)
+                raise CraftError("VOID_FROM_DONE", work_order=order.ref)
             if order.status != WorkOrder.Status.OPEN:
                 raise CraftError("TERMINAL_STATUS", status=order.status)
 
@@ -289,7 +289,7 @@ class CraftExecution:
             work_order=order,
         )
 
-        logger.info("WorkOrder %s voided: %s", order.code, reason)
+        logger.info("WorkOrder %s voided: %s", order.ref, reason)
         return order
 
     @classmethod
@@ -297,7 +297,8 @@ class CraftExecution:
         """
         Call InventoryProtocol.consume + receive if configured.
 
-        Graceful degradation: logs warning on failure, does not raise.
+        In MODE=graceful (default): logs warning on failure, does not raise.
+        In MODE=strict: re-raises the exception, aborting the operation.
         """
         from shopman.craftsman.conf import get_setting
 
@@ -315,17 +316,25 @@ class CraftExecution:
                 MaterialUsed(sku=r["item_ref"], quantity=r["quantity"])
                 for r in requirements
             ]
-            backend.consume(consumed, ref=order.code)
+            backend.consume(consumed, ref=order.ref)
 
             backend.receive(
                 [MaterialProduced(sku=order.output_ref, quantity=produced_decimal)],
-                ref=order.code,
+                ref=order.ref,
             )
 
         except Exception as e:
+            mode = get_setting("MODE")
+            if mode == "strict":
+                from shopman.craftsman.exceptions import CraftError
+                raise CraftError(
+                    code="inventory_backend_failed",
+                    message=f"InventoryProtocol.close failed for {order.ref}: {e}",
+                    context={"order_ref": order.ref, "original_error": str(e)},
+                ) from e
             logger.warning(
                 "InventoryProtocol.close failed for %s: %s (non-fatal)",
-                order.code, e, exc_info=True,
+                order.ref, e, exc_info=True,
             )
 
     @classmethod
@@ -333,7 +342,8 @@ class CraftExecution:
         """
         Call InventoryProtocol.release if configured.
 
-        Graceful degradation: logs warning on failure, does not raise.
+        In MODE=graceful (default): logs warning on failure, does not raise.
+        In MODE=strict: re-raises the exception, aborting the operation.
         """
         from shopman.craftsman.conf import get_setting
 
@@ -345,10 +355,18 @@ class CraftExecution:
             from django.utils.module_loading import import_string
 
             backend = import_string(backend_path)()
-            backend.release(ref=order.code)
+            backend.release(ref=order.ref)
 
         except Exception as e:
+            mode = get_setting("MODE")
+            if mode == "strict":
+                from shopman.craftsman.exceptions import CraftError
+                raise CraftError(
+                    code="inventory_backend_failed",
+                    message=f"InventoryProtocol.release failed for {order.ref}: {e}",
+                    context={"order_ref": order.ref, "original_error": str(e)},
+                ) from e
             logger.warning(
                 "InventoryProtocol.release failed for %s: %s (non-fatal)",
-                order.code, e, exc_info=True,
+                order.ref, e, exc_info=True,
             )

@@ -1,7 +1,14 @@
 """
 AccessLink model - Token for creating web session from chat or email.
+
+Security:
+- Token stored as HMAC-SHA256 digest in DB (never plaintext).
+- Raw token is returned only at creation time for delivery to customer.
+- Lookup uses hash comparison (same pattern as TrustedDevice).
 """
 
+import hashlib
+import hmac
 import secrets
 import uuid
 from datetime import timedelta
@@ -12,9 +19,21 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 
+def _get_hmac_key() -> bytes:
+    """Get the HMAC key for access link token hashing."""
+    return settings.SECRET_KEY.encode("utf-8")
+
+
 def generate_token() -> str:
-    """Generate a secure URL-safe token."""
+    """Legacy: kept for migration compatibility. Not used in new code."""
     return secrets.token_urlsafe(32)
+
+
+def _hash_token(raw_token: str) -> str:
+    """Compute HMAC-SHA256 hex digest for an access link token."""
+    return hmac.new(
+        _get_hmac_key(), raw_token.encode("utf-8"), hashlib.sha256
+    ).hexdigest()
 
 
 def default_expiry():
@@ -54,12 +73,12 @@ class AccessLink(models.Model):
 
     # Identification
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    token = models.CharField(
-        _("token"),
+    token_hash = models.CharField(
+        _("hash do token"),
         max_length=64,
         unique=True,
         db_index=True,
-        default=generate_token,
+        help_text=_("HMAC-SHA256 do token. Token bruto nunca é persistido."),
     )
 
     # Target (Customer UUID from Guestman)
@@ -117,7 +136,7 @@ class AccessLink(models.Model):
 
     def __str__(self):
         status = "used" if self.used_at else ("expired" if self.is_expired else "valid")
-        return f"AccessLink {self.token[:8]}... ({status})"
+        return f"AccessLink {self.token_hash[:8]}… ({status})"
 
     @property
     def is_expired(self) -> bool:
@@ -141,3 +160,46 @@ class AccessLink(models.Model):
 
         resolver = get_customer_resolver()
         return resolver.get_by_uuid(self.customer_id)
+
+    # ===========================================
+    # Class methods for secure token handling
+    # ===========================================
+
+    @classmethod
+    def create_with_token(
+        cls,
+        customer_id: uuid.UUID,
+        audience: str = "web_general",
+        source: str = "manychat",
+        expires_at=None,
+        metadata: dict | None = None,
+    ) -> tuple["AccessLink", str]:
+        """
+        Create an AccessLink and return (link, raw_token).
+
+        The raw_token is returned only once for delivery to the customer.
+        The DB stores only the HMAC-SHA256 digest.
+        """
+        raw_token = secrets.token_urlsafe(32)
+        link = cls.objects.create(
+            customer_id=customer_id,
+            token_hash=_hash_token(raw_token),
+            audience=audience,
+            source=source,
+            expires_at=expires_at,
+            metadata=metadata or {},
+        )
+        return link, raw_token
+
+    @classmethod
+    def get_by_token(cls, raw_token: str) -> "AccessLink | None":
+        """
+        Look up an AccessLink by raw token.
+
+        Computes HMAC and queries by hash — never stores or queries plaintext.
+        """
+        token_hash = _hash_token(raw_token)
+        try:
+            return cls.objects.get(token_hash=token_hash)
+        except cls.DoesNotExist:
+            return None

@@ -254,6 +254,9 @@ class StockHolds:
                     expected=HoldStatus.CONFIRMED
                 )
 
+            if hold.is_expired:
+                raise StockError('HOLD_EXPIRED', hold_id=hold_id)
+
             if hold.quant is None:
                 raise StockError('HOLD_IS_DEMAND', hold_id=hold_id)
 

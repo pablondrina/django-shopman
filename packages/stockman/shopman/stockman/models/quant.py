@@ -106,6 +106,11 @@ class Quant(models.Model):
             models.UniqueConstraint(
                 fields=['sku', 'position', 'target_date', 'batch'],
                 name='unique_quant_coordinate',
+                nulls_distinct=False,
+            ),
+            models.CheckConstraint(
+                condition=models.Q(_quantity__gte=0),
+                name='stk_quant_quantity_non_negative',
             ),
         ]
         indexes = [

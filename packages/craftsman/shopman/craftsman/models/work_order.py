@@ -36,11 +36,11 @@ class WorkOrder(models.Model):
         DONE = "done", _("Concluida")
         VOID = "void", _("Cancelada")
 
-    code = models.CharField(
+    ref = models.CharField(
         max_length=20,
         unique=True,
         blank=True,
-        verbose_name=_("Codigo"),
+        verbose_name=_("Referência"),
     )
     recipe = models.ForeignKey(
         "craftsman.Recipe",
@@ -150,7 +150,7 @@ class WorkOrder(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.code} - {self.recipe.name}" if self.code else f"WO-{self.pk}"
+        return f"{self.ref} - {self.recipe.name}" if self.ref else f"WO-{self.pk}"
 
     def clean(self):
         super().clean()
@@ -158,22 +158,22 @@ class WorkOrder(models.Model):
             raise ValidationError({"quantity": _("Deve ser maior que zero.")})
 
     def save(self, *args, **kwargs):
-        """Auto-generate code via CodeSequence if blank."""
-        if not self.code:
-            self.code = self._generate_code()
+        """Auto-generate ref via RefSequence if blank."""
+        if not self.ref:
+            self.ref = self._generate_ref()
         # full_clean only on creation/full save — services use
         # save(update_fields=[...]) and validate in the service layer.
         if not kwargs.get("update_fields"):
             self.full_clean()
         super().save(*args, **kwargs)
 
-    def _generate_code(self) -> str:
-        """Generate unique code: WO-YYYY-NNNNN."""
-        from shopman.craftsman.models.sequence import CodeSequence
+    def _generate_ref(self) -> str:
+        """Generate unique ref: WO-YYYY-NNNNN."""
+        from shopman.craftsman.models.sequence import RefSequence
 
         year = timezone.now().year
         prefix = f"WO-{year}"
-        next_num = CodeSequence.next_value(prefix)
+        next_num = RefSequence.next_value(prefix)
         return f"{prefix}-{next_num:05d}"
 
     # ── Properties ──────────────────────────────────────────────

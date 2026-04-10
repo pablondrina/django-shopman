@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import uuid as uuid_lib
+
 from django.db import models, transaction
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -63,6 +65,11 @@ class Order(models.Model):
 
     TERMINAL_STATUSES = [Status.COMPLETED, Status.CANCELLED, Status.RETURNED]
 
+    # Campos selados: nunca mudam após criação do Order.
+    # Qualquer tentativa de alterar esses campos em save() levanta ImmutabilityError.
+    SEALED_FIELDS = ["ref", "channel_ref", "session_key", "snapshot", "total_q", "currency"]
+
+    uuid = models.UUIDField(default=uuid_lib.uuid4, editable=False, unique=True)
     ref = models.CharField(_("referência"), max_length=64, unique=True)
     channel_ref = models.CharField(_("canal de venda"), max_length=64, db_index=True, default="")
     session_key = models.CharField(_("chave da sessão"), max_length=64, db_index=True, default="")
@@ -107,11 +114,18 @@ class Order(models.Model):
         verbose_name = _("pedido")
         verbose_name_plural = _("pedidos")
         ordering = ("-created_at", "id")
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(total_q__gte=0),
+                name="ord_order_total_q_non_negative",
+            ),
+        ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._original_status = self.status
         self._transition_actor: str | None = None
+        self._sealed_snapshot = {f: getattr(self, f) for f in self.SEALED_FIELDS}
 
     def __str__(self) -> str:
         if self.handle_ref and self.handle_type:
@@ -158,6 +172,20 @@ class Order(models.Model):
     }
 
     def save(self, *args, **kwargs):
+        # Sealed field protection: after creation, these fields are immutable.
+        if self.pk:
+            changed = [
+                f for f in self.SEALED_FIELDS
+                if getattr(self, f) != self._sealed_snapshot.get(f)
+            ]
+            if changed:
+                from shopman.orderman.exceptions import ImmutabilityError
+                raise ImmutabilityError(
+                    code="sealed_field_modified",
+                    message=f"Campos selados não podem ser alterados: {', '.join(changed)}",
+                    context={"fields": changed},
+                )
+
         status_changed = self.pk and self.status != self._original_status
         old_status = self._original_status
 
@@ -194,6 +222,7 @@ class Order(models.Model):
 
         super().save(*args, **kwargs)
         self._original_status = self.status
+        self._sealed_snapshot = {f: getattr(self, f) for f in self.SEALED_FIELDS}
 
         if status_changed:
             actor = self._transition_actor or "direct"
@@ -293,6 +322,14 @@ class OrderItem(models.Model):
             models.CheckConstraint(
                 condition=models.Q(qty__gt=0),
                 name="ord_order_item_qty_positive",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(unit_price_q__gte=0),
+                name="ord_order_item_unit_price_q_non_negative",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(line_total_q__gte=0),
+                name="ord_order_item_line_total_q_non_negative",
             ),
         ]
 

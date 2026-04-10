@@ -60,7 +60,7 @@ def _action_to_phase(action: str, work_order) -> str | None:
         return "on_planned"
     if action == "adjusted":
         production = get_adapter("production")
-        n = production.count_adjusted_events(work_order.code)
+        n = production.count_adjusted_events(work_order.ref)
         return "on_started" if n == 1 else None
     if action == "closed":
         return "on_closed"
@@ -141,7 +141,7 @@ class ForecastFlow(StandardFlow):
 
     def on_closed(self, work_order):
         super().on_closed(work_order)
-        logger.info("ForecastFlow: closed wo=%s", work_order.code)
+        logger.info("ForecastFlow: closed wo=%s", work_order.ref)
 
 
 @production_flow("subcontract")

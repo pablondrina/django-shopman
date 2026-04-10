@@ -181,21 +181,21 @@ def _production(today):
 
     # Tracker: per-WO colored blocks
     tracker = []
-    for wo in wo_today.order_by("code"):
+    for wo in wo_today.order_by("ref"):
         if wo.status == "done":
-            tracker.append({"color": "bg-green-500", "tooltip": f"{wo.code}: Conclu\u00edda"})
+            tracker.append({"color": "bg-green-500", "tooltip": f"{wo.ref}: Conclu\u00edda"})
         elif wo.started_at:
-            tracker.append({"color": "bg-blue-500", "tooltip": f"{wo.code}: Em preparo"})
+            tracker.append({"color": "bg-blue-500", "tooltip": f"{wo.ref}: Em preparo"})
         elif wo.status == "void":
-            tracker.append({"color": "bg-red-500", "tooltip": f"{wo.code}: Cancelada"})
+            tracker.append({"color": "bg-red-500", "tooltip": f"{wo.ref}: Cancelada"})
         else:
-            tracker.append({"color": "bg-amber-400", "tooltip": f"{wo.code}: Pendente"})
+            tracker.append({"color": "bg-amber-400", "tooltip": f"{wo.ref}: Pendente"})
 
     # WO list for table
     wos = []
-    for wo in wo_today.order_by("status", "code")[:10]:
+    for wo in wo_today.order_by("status", "ref")[:10]:
         wos.append({
-            "code": wo.code,
+            "ref": wo.ref,
             "output_ref": wo.output_ref,
             "quantity": wo.quantity,
             "status": wo.status,

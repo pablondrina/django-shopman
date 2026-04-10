@@ -540,39 +540,39 @@ class Command(BaseCommand):
 
         # Collections
         col_paes, _ = Collection.objects.update_or_create(
-            slug="paes-artesanais",
+            ref="paes-artesanais",
             defaults={"name": "Pães Artesanais", "is_active": True, "sort_order": 1},
         )
         col_focaccias, _ = Collection.objects.update_or_create(
-            slug="focaccias",
+            ref="focaccias",
             defaults={"name": "Focaccias", "is_active": True, "sort_order": 2},
         )
         col_brioches, _ = Collection.objects.update_or_create(
-            slug="brioches",
+            ref="brioches",
             defaults={"name": "Brioches & Pães Especiais", "is_active": True, "sort_order": 3},
         )
         col_folhados, _ = Collection.objects.update_or_create(
-            slug="croissants-folhados",
+            ref="croissants-folhados",
             defaults={"name": "Croissants & Folhados", "is_active": True, "sort_order": 4},
         )
         col_doces, _ = Collection.objects.update_or_create(
-            slug="paes-doces",
+            ref="paes-doces",
             defaults={"name": "Pães Doces & Recheados", "is_active": True, "sort_order": 5},
         )
         col_salgados, _ = Collection.objects.update_or_create(
-            slug="salgados",
+            ref="salgados",
             defaults={"name": "Salgados", "is_active": True, "sort_order": 6},
         )
         col_lanches, _ = Collection.objects.update_or_create(
-            slug="lanches",
+            ref="lanches",
             defaults={"name": "Lanches & Tartines", "is_active": True, "sort_order": 7},
         )
         col_cafes, _ = Collection.objects.update_or_create(
-            slug="cafes-bebidas",
+            ref="cafes-bebidas",
             defaults={"name": "Cafes & Bebidas", "is_active": True, "sort_order": 8},
         )
         col_combos, _ = Collection.objects.update_or_create(
-            slug="combos",
+            ref="combos",
             defaults={"name": "Combos", "is_active": True, "sort_order": 9},
         )
 
@@ -2027,9 +2027,9 @@ class Command(BaseCommand):
         self.stdout.write("  🖥️  KDS...")
 
         # Get collections for KDS routing
-        col_lanches = Collection.objects.filter(slug="lanches").first()
-        col_salgados = Collection.objects.filter(slug="salgados").first()
-        col_cafes = Collection.objects.filter(slug="cafes-bebidas").first()
+        col_lanches = Collection.objects.filter(ref="lanches").first()
+        col_salgados = Collection.objects.filter(ref="salgados").first()
+        col_cafes = Collection.objects.filter(ref="cafes-bebidas").first()
 
         # Remove old KDS instances that no longer exist
         KDSInstance.objects.filter(ref__in=["paes", "folhados", "salgados"]).delete()

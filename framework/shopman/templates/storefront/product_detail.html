@@ -22,7 +22,7 @@
     </li>
     {% if breadcrumb_collection %}
     <li>
-      <a href="{% url 'storefront:menu_collection' breadcrumb_collection.slug %}" class="text-xs flex items-center font-medium gap-2 text-muted-foreground hover:text-foreground transition-colors">
+      <a href="{% url 'storefront:menu_collection' breadcrumb_collection.ref %}" class="text-xs flex items-center font-medium gap-2 text-muted-foreground hover:text-foreground transition-colors">
         {{ breadcrumb_collection.name }}
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6"/></svg>
       </a>

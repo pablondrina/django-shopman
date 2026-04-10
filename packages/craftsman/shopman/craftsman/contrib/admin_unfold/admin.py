@@ -190,7 +190,7 @@ class WorkOrderAdmin(BaseModelAdmin):
     warn_unsaved_form = True
 
     list_display = [
-        "code",
+        "ref",
         "product_display",
         "date_display",
         "preorder_indicator",
@@ -206,7 +206,7 @@ class WorkOrderAdmin(BaseModelAdmin):
         ("scheduled_date", RangeDateFilter),
     ]
     list_filter_submit = True
-    search_fields = ["code", "recipe__name", "output_ref"]
+    search_fields = ["ref", "recipe__name", "output_ref"]
     date_hierarchy = "scheduled_date"
     ordering = ["-created_at"]
     autocomplete_fields = ["recipe"]
@@ -219,7 +219,7 @@ class WorkOrderAdmin(BaseModelAdmin):
     fieldsets = (
         (
             _("Identificação"),
-            {"fields": ("code", "recipe", "output_ref", "status")},
+            {"fields": ("ref", "recipe", "output_ref", "status")},
         ),
         (
             _("Quantidades"),
@@ -252,7 +252,7 @@ class WorkOrderAdmin(BaseModelAdmin):
     )
 
     readonly_fields = [
-        "code",
+        "ref",
         "output_ref",
         "status",
         "produced",
@@ -319,10 +319,10 @@ class WorkOrderAdmin(BaseModelAdmin):
         return unfold_badge(obj.get_status_display(), color)
 
     def get_readonly_fields(self, request, obj=None):
-        """Make code readonly only for existing objects."""
+        """Make ref readonly only for existing objects."""
         readonly = list(super().get_readonly_fields(request, obj))
-        if obj and "code" not in readonly:
-            readonly.append("code")
+        if obj and "ref" not in readonly:
+            readonly.append("ref")
         return readonly
 
     def changelist_view(self, request, extra_context=None):
@@ -380,7 +380,7 @@ class WorkOrderAdmin(BaseModelAdmin):
             messages.success(
                 request,
                 _("Ordem %(code)s encerrada (produzido: %(qty)s).") % {
-                    "code": wo.code,
+                    "code": wo.ref,
                     "qty": format_quantity(wo.quantity),
                 },
             )
@@ -412,7 +412,7 @@ class WorkOrderAdmin(BaseModelAdmin):
             craft.void(wo, reason="Anulado via admin", actor=actor)
             messages.success(
                 request,
-                _("Ordem %(code)s anulada.") % {"code": wo.code},
+                _("Ordem %(code)s anulada.") % {"code": wo.ref},
             )
         except Exception as exc:
             messages.error(request, str(exc))

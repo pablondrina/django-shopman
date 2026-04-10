@@ -129,14 +129,14 @@ class TestAccessLinkLoginView:
 
     def test_access_link_creates_authenticated_session(self, client: Client, customer):
         """Valid access link logs in via Django auth."""
-        token = AccessLink.objects.create(
+        link, raw_token = AccessLink.create_with_token(
             customer_id=customer.uuid,
             audience=AccessLink.Audience.WEB_GENERAL,
             source=AccessLink.Source.INTERNAL,
             expires_at=timezone.now() + timedelta(minutes=5),
         )
 
-        response = client.get(f"/auth/access/{token.token}/")
+        response = client.get(f"/auth/access/{raw_token}/")
 
         assert response.status_code == 302
         # Django auth user should be set
@@ -145,14 +145,14 @@ class TestAccessLinkLoginView:
 
     def test_access_link_expired_returns_error(self, client: Client, customer):
         """Expired access link renders error page."""
-        token = AccessLink.objects.create(
+        link, raw_token = AccessLink.create_with_token(
             customer_id=customer.uuid,
             audience=AccessLink.Audience.WEB_GENERAL,
             source=AccessLink.Source.INTERNAL,
             expires_at=timezone.now() - timedelta(minutes=1),
         )
 
-        response = client.get(f"/auth/access/{token.token}/")
+        response = client.get(f"/auth/access/{raw_token}/")
 
         assert response.status_code == 200
         assert client.session.get("_auth_user_id") is None
@@ -166,30 +166,30 @@ class TestAccessLinkLoginView:
 
     def test_access_link_used_returns_error(self, client: Client, customer):
         """Already-used access link returns error (outside reuse window)."""
-        token = AccessLink.objects.create(
+        link, raw_token = AccessLink.create_with_token(
             customer_id=customer.uuid,
             audience=AccessLink.Audience.WEB_GENERAL,
             source=AccessLink.Source.INTERNAL,
             expires_at=timezone.now() + timedelta(minutes=5),
         )
-        token.used_at = timezone.now() - timedelta(minutes=5)
-        token.save()
+        link.used_at = timezone.now() - timedelta(minutes=5)
+        link.save()
 
-        response = client.get(f"/auth/access/{token.token}/")
+        response = client.get(f"/auth/access/{raw_token}/")
 
         assert response.status_code == 200
         assert client.session.get("_auth_user_id") is None
 
     def test_access_link_redirects_to_next(self, client: Client, customer):
         """Access link respects ?next= parameter for redirect."""
-        token = AccessLink.objects.create(
+        link, raw_token = AccessLink.create_with_token(
             customer_id=customer.uuid,
             audience=AccessLink.Audience.WEB_GENERAL,
             source=AccessLink.Source.INTERNAL,
             expires_at=timezone.now() + timedelta(minutes=5),
         )
 
-        response = client.get(f"/auth/access/{token.token}/?next=/minha-conta/")
+        response = client.get(f"/auth/access/{raw_token}/?next=/minha-conta/")
 
         assert response.status_code == 302
         assert response.url == "/minha-conta/"

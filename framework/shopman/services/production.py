@@ -23,7 +23,7 @@ def reserve_materials(work_order) -> None:
     """
     logger.info(
         "production.reserve_materials: wo=%s qty=%s ref=%s",
-        work_order.code,
+        work_order.ref,
         work_order.quantity,
         work_order.output_ref,
     )
@@ -37,7 +37,7 @@ def emit_goods(work_order) -> None:
     """
     logger.info(
         "production.emit_goods: wo=%s produced=%s ref=%s",
-        work_order.code,
+        work_order.ref,
         work_order.produced,
         work_order.output_ref,
     )
@@ -47,6 +47,6 @@ def notify(work_order, event: str) -> None:
     """Notificação de lifecycle de produção (sem Order — apenas log por ora)."""
     logger.info(
         "production.notify: wo=%s event=%s",
-        work_order.code,
+        work_order.ref,
         event,
     )

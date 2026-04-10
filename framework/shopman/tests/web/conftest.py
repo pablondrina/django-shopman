@@ -42,14 +42,14 @@ def shop_instance(db):
 @pytest.fixture
 def collection(db):
     return Collection.objects.create(
-        name="Pães", slug="paes", is_active=True, sort_order=1,
+        name="Pães", ref="paes", is_active=True, sort_order=1,
     )
 
 
 @pytest.fixture
 def collection_inactive(db):
     return Collection.objects.create(
-        name="Sazonais", slug="sazonais", is_active=False, sort_order=99,
+        name="Sazonais", ref="sazonais", is_active=False, sort_order=99,
     )
 
 

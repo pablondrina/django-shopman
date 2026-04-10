@@ -80,7 +80,7 @@ class TestPlan:
     def test_plan_single(self, recipe, tomorrow):
         wo = craft.plan(recipe, 100, date=tomorrow)
 
-        assert wo.code.startswith("WO-")
+        assert wo.ref.startswith("WO-")
         assert wo.recipe == recipe
         assert wo.output_ref == "croissant"
         assert wo.quantity == Decimal("100")
@@ -89,13 +89,13 @@ class TestPlan:
         assert wo.scheduled_date == tomorrow
         assert wo.rev == 0
 
-    def test_plan_generates_unique_code(self, recipe):
+    def test_plan_generates_unique_ref(self, recipe):
         wo1 = craft.plan(recipe, 10)
         wo2 = craft.plan(recipe, 20)
 
-        assert wo1.code != wo2.code
-        assert wo1.code.startswith("WO-2026-")
-        assert wo2.code.startswith("WO-2026-")
+        assert wo1.ref != wo2.ref
+        assert wo1.ref.startswith("WO-2026-")
+        assert wo2.ref.startswith("WO-2026-")
 
     def test_plan_creates_event(self, recipe):
         wo = craft.plan(recipe, 50)
@@ -651,9 +651,9 @@ class TestModels:
         with pytest.raises(Exception):
             RecipeItem.objects.create(recipe=recipe, input_ref="farinha", quantity=Decimal("3"), unit="kg")
 
-    def test_work_order_auto_code(self, recipe):
+    def test_work_order_auto_ref(self, recipe):
         wo = WorkOrder.objects.create(recipe=recipe, output_ref="croissant", quantity=Decimal("10"))
-        assert wo.code.startswith("WO-2026-")
+        assert wo.ref.startswith("WO-2026-")
 
     def test_work_order_status_choices(self):
         assert WorkOrder.Status.OPEN == "open"

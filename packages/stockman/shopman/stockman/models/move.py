@@ -90,6 +90,19 @@ class Move(models.Model):
                 _quantity=F('_quantity') + self.delta,
                 updated_at=timezone.now()
             )
+
+            # Verify non-negative invariant (catch before DB constraint)
+            if self.delta < 0:
+                new_qty = Quant.objects.values_list('_quantity', flat=True).get(
+                    pk=self.quant_id
+                )
+                if new_qty < 0:
+                    from shopman.stockman.exceptions import StockError
+                    raise StockError(
+                        'INSUFFICIENT_QUANTITY',
+                        available=new_qty - self.delta,
+                        requested=abs(self.delta),
+                    )
     
     def delete(self, *args, **kwargs):
         """Prevent deletion — moves are immutable."""

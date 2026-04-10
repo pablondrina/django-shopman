@@ -9,37 +9,54 @@ from shopman.doorman.models import AccessLink, VerificationCode
 @pytest.mark.django_db
 class TestAccessLink:
     def test_create_access_link(self, customer):
-        """Test creating an access link."""
-        token = AccessLink.objects.create(
+        """Test creating an access link with hashed token."""
+        link, raw_token = AccessLink.create_with_token(
             customer_id=customer.uuid,
             audience=AccessLink.Audience.WEB_GENERAL,
             source=AccessLink.Source.MANYCHAT,
         )
-        assert token.token is not None
-        assert len(token.token) > 20
-        assert token.is_valid
-        assert not token.is_expired
+        assert link.token_hash is not None
+        assert len(link.token_hash) == 64  # HMAC-SHA256 hex digest
+        assert raw_token is not None
+        assert len(raw_token) > 20
+        assert link.is_valid
+        assert not link.is_expired
+
+    def test_access_link_lookup_by_token(self, customer):
+        """Test looking up access link by raw token."""
+        link, raw_token = AccessLink.create_with_token(
+            customer_id=customer.uuid,
+        )
+        found = AccessLink.get_by_token(raw_token)
+        assert found is not None
+        assert found.pk == link.pk
+
+    def test_access_link_lookup_wrong_token(self, customer):
+        """Test that wrong token returns None."""
+        AccessLink.create_with_token(customer_id=customer.uuid)
+        found = AccessLink.get_by_token("wrong-token-value")
+        assert found is None
 
     def test_access_link_expires(self, customer):
         """Test token expiration."""
-        token = AccessLink.objects.create(
+        link, _ = AccessLink.create_with_token(
             customer_id=customer.uuid,
             expires_at=timezone.now() - timezone.timedelta(minutes=1),
         )
-        assert token.is_expired
-        assert not token.is_valid
+        assert link.is_expired
+        assert not link.is_valid
 
     def test_access_link_mark_used(self, customer, django_user_model):
         """Test marking token as used."""
         user = django_user_model.objects.create_user(username="testuser")
-        token = AccessLink.objects.create(customer_id=customer.uuid)
+        link, _ = AccessLink.create_with_token(customer_id=customer.uuid)
 
-        token.mark_used(user)
-        token.refresh_from_db()
+        link.mark_used(user)
+        link.refresh_from_db()
 
-        assert token.used_at is not None
-        assert token.user == user
-        assert not token.is_valid
+        assert link.used_at is not None
+        assert link.user == user
+        assert not link.is_valid
 
 
 @pytest.mark.django_db

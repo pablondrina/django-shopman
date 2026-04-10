@@ -141,6 +141,7 @@ class ContactPoint(models.Model):
         self.value_normalized = self.normalize_value(self.value_normalized, self.type)
 
         # First of type = primary
+        auto_promoted = False
         if not self.pk:
             exists = ContactPoint.objects.filter(
                 customer=self.customer,
@@ -148,8 +149,13 @@ class ContactPoint(models.Model):
             ).exists()
             if not exists:
                 self.is_primary = True
+                auto_promoted = True
 
         super().save(*args, **kwargs)
+
+        # Sync to Customer cache when auto-promoted to primary
+        if auto_promoted:
+            self._sync_to_customer()
 
     @staticmethod
     def normalize_value(value: str, contact_type: str | None = None) -> str:
@@ -164,7 +170,12 @@ class ContactPoint(models.Model):
         return normalize_phone(value, contact_type=contact_type)
 
     def set_as_primary(self):
-        """Set this contact as primary for its type."""
+        """
+        Set this contact as primary for its type.
+
+        Also syncs the Customer cache field (phone/email) so that
+        lookups via CustomerService.get_by_phone/email stay consistent.
+        """
         with transaction.atomic():
             ContactPoint.objects.filter(
                 customer=self.customer,
@@ -174,6 +185,30 @@ class ContactPoint(models.Model):
 
             self.is_primary = True
             self.save(update_fields=["is_primary", "updated_at"])
+
+            self._sync_to_customer()
+
+    def _sync_to_customer(self):
+        """
+        Reverse sync: propagate primary ContactPoint value to Customer cache field.
+
+        Maps ContactPoint.Type → Customer field:
+        - PHONE / WHATSAPP → Customer.phone
+        - EMAIL → Customer.email
+        """
+        field_map = {
+            self.Type.PHONE: "phone",
+            self.Type.WHATSAPP: "phone",
+            self.Type.EMAIL: "email",
+        }
+        customer_field = field_map.get(self.type)
+        if not customer_field:
+            return
+
+        from shopman.guestman.models.customer import Customer
+        Customer.objects.filter(pk=self.customer_id).update(
+            **{customer_field: self.value_normalized}
+        )
 
     def mark_verified(self, method: str, ref: str | None = None):
         """Mark contact as verified."""

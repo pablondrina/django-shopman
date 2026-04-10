@@ -15,7 +15,7 @@ class CollectionItemInline(admin.TabularInline):
 @admin.register(Collection)
 class CollectionAdmin(admin.ModelAdmin):
     list_display = [
-        "slug",
+        "ref",
         "name",
         "parent",
         "is_active",
@@ -24,13 +24,13 @@ class CollectionAdmin(admin.ModelAdmin):
         "products_count",
     ]
     list_filter = ["is_active", "parent"]
-    search_fields = ["slug", "name"]
+    search_fields = ["ref", "name"]
     list_editable = ["is_active"]
     ordering = ["sort_order", "name"]
     inlines = [CollectionItemInline]
 
     fieldsets = [
-        (None, {"fields": ("slug", "name", "description")}),
+        (None, {"fields": ("ref", "name", "description")}),
         ("Hierarchy", {"fields": ("parent",)}),
         ("Validity", {"fields": ("valid_from", "valid_until")}),
         ("Settings", {"fields": ("sort_order", "is_active")}),

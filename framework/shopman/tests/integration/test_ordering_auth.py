@@ -33,14 +33,14 @@ class TestOrderingAuthIntegration(TestCase):
         """AccessLink stores customer_id matching Customers customer."""
         from shopman.doorman.models import AccessLink
 
-        token = AccessLink.objects.create(
+        link, raw_token = AccessLink.create_with_token(
             customer_id=self.customer.uuid,
             audience="web_checkout",
             source="manychat",
         )
 
-        assert token.customer_id == self.customer.uuid
-        assert token.is_valid
+        assert link.customer_id == self.customer.uuid
+        assert link.is_valid
 
     def test_customer_user_connects_user_to_customer(self):
         """CustomerUser connects Django User to Customer."""

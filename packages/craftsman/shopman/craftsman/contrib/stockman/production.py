@@ -111,7 +111,7 @@ class CraftingProductionBackend:
 
             logger.info(
                 "Production requested for SKU %s: WorkOrder %s created",
-                sku, wo.code,
+                sku, wo.ref,
             )
 
             return ProductionResult(
@@ -138,7 +138,7 @@ class CraftingProductionBackend:
                 pk = int(request_id.split(":")[1])
                 wo = WorkOrder.objects.get(pk=pk)
             else:
-                wo = WorkOrder.objects.filter(code=request_id).first()
+                wo = WorkOrder.objects.filter(ref=request_id).first()
                 if not wo:
                     return None
 
@@ -173,7 +173,7 @@ class CraftingProductionBackend:
                 pk = int(request_id.split(":")[1])
                 wo = WorkOrder.objects.get(pk=pk)
             else:
-                wo = WorkOrder.objects.filter(code=request_id).first()
+                wo = WorkOrder.objects.filter(ref=request_id).first()
                 if not wo:
                     return ProductionResult(
                         success=False,
@@ -181,7 +181,7 @@ class CraftingProductionBackend:
                     )
 
             craft.void(wo, reason=reason, actor="stocking:cancel")
-            logger.info("Production request %s cancelled: %s", wo.code, reason)
+            logger.info("Production request %s cancelled: %s", wo.ref, reason)
 
             return ProductionResult(
                 success=True,

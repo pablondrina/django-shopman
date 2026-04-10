@@ -105,7 +105,7 @@ def _handle_planned(work_order, product_ref, date):
             sku=product_ref,
             position=position,
             target_date=date,
-            reason=f"Produção planejada: {work_order.code}",
+            reason=f"Produção planejada: {work_order.ref}",
         )
         logger.info(
             "Planned quant created: sku=%s qty=%s target_date=%s position=%s ref=%s",
@@ -113,12 +113,12 @@ def _handle_planned(work_order, product_ref, date):
             work_order.quantity,
             date,
             work_order.position_ref or "(default)",
-            work_order.code,
+            work_order.ref,
         )
     except Exception:
         logger.warning(
             "Failed to create planned quant for %s (non-fatal)",
-            work_order.code,
+            work_order.ref,
             exc_info=True,
         )
 
@@ -149,26 +149,26 @@ def _handle_adjusted(work_order, product_ref, date):
                 quantity=work_order.quantity,
                 sku=product_ref,
                 target_date=date,
-                reference=work_order.code,
-                reason=f"Produção planejada (ajuste): {work_order.code}",
+                reference=work_order.ref,
+                reason=f"Produção planejada (ajuste): {work_order.ref}",
             )
         else:
             StockMovements.adjust(
                 quant,
                 work_order.quantity,
-                reason=f"Ajuste WO {work_order.code}",
+                reason=f"Ajuste WO {work_order.ref}",
             )
         logger.info(
             "Planned quant adjusted: sku=%s qty=%s target_date=%s ref=%s",
             product_ref,
             work_order.quantity,
             date,
-            work_order.code,
+            work_order.ref,
         )
     except Exception:
         logger.warning(
             "Failed to adjust planned quant for %s (non-fatal)",
-            work_order.code,
+            work_order.ref,
             exc_info=True,
         )
 
@@ -186,7 +186,7 @@ def _handle_voided(work_order, product_ref, date):
     if not date:
         logger.info(
             "WorkOrder %s voided without scheduled_date — no planned quant to cancel",
-            work_order.code,
+            work_order.ref,
         )
         return
 
@@ -207,18 +207,18 @@ def _handle_voided(work_order, product_ref, date):
             StockMovements.adjust(
                 quant,
                 new_quantity=0,
-                reason=f"WO cancelada: {work_order.code}",
+                reason=f"WO cancelada: {work_order.ref}",
             )
         logger.info(
             "Planned quant cancelled: sku=%s target_date=%s ref=%s",
             product_ref,
             date,
-            work_order.code,
+            work_order.ref,
         )
     except Exception:
         logger.warning(
             "Failed to cancel planned quant for %s (non-fatal)",
-            work_order.code,
+            work_order.ref,
             exc_info=True,
         )
 
@@ -251,7 +251,7 @@ def _handle_closed(work_order, product_ref, date):
         if not to_position:
             logger.warning(
                 "No saleable position found — cannot realize %s",
-                work_order.code,
+                work_order.ref,
             )
             return
 
@@ -277,7 +277,7 @@ def _handle_closed(work_order, product_ref, date):
             actual_quantity=produced,
             to_position=to_position,
             from_position=from_position,
-            reason=f"Produção concluída: {work_order.code}",
+            reason=f"Produção concluída: {work_order.ref}",
         )
         logger.info(
             "Production realized: sku=%s qty=%s %s → %s (WO %s)",
@@ -285,11 +285,11 @@ def _handle_closed(work_order, product_ref, date):
             produced,
             work_order.position_ref or "(default)",
             to_position.ref,
-            work_order.code,
+            work_order.ref,
         )
     except Exception:
         logger.warning(
             "Failed to realize production for %s (non-fatal)",
-            work_order.code,
+            work_order.ref,
             exc_info=True,
         )

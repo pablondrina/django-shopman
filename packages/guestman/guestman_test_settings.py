@@ -52,7 +52,7 @@ USE_TZ = True
 TIME_ZONE = "America/Sao_Paulo"
 
 # Guestman settings
-ATTENDING = {
+GUESTMAN = {
     "DEFAULT_REGION": "BR",
     "EVENT_CLEANUP_DAYS": 90,
 }

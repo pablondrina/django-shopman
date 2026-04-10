@@ -240,7 +240,7 @@ class TestAccessLinkLifecycle:
         """Token must not be usable after first exchange."""
         # First exchange: should succeed
         request1 = self._make_request()
-        result1 = AccessLinkService.exchange(access_link.token, request1)
+        result1 = AccessLinkService.exchange(access_link._raw_token, request1)
         assert result1.success
 
         # Move used_at past the reuse window
@@ -250,13 +250,13 @@ class TestAccessLinkLifecycle:
 
         # Second exchange: should fail
         request2 = self._make_request()
-        result2 = AccessLinkService.exchange(access_link.token, request2)
+        result2 = AccessLinkService.exchange(access_link._raw_token, request2)
         assert not result2.success
 
     def test_expired_token_rejected(self, expired_access_link):
         """Expired token must be rejected."""
         request = self._make_request()
-        result = AccessLinkService.exchange(expired_access_link.token, request)
+        result = AccessLinkService.exchange(expired_access_link._raw_token, request)
         assert not result.success
         assert "expired" in result.error.lower()
 
@@ -265,7 +265,7 @@ class TestAccessLinkLifecycle:
         factory = RequestFactory()
         request = factory.get(
             "/auth/access-link/",
-            {"t": access_link.token, "next": "https://evil.com"},
+            {"t": access_link._raw_token, "next": "https://evil.com"},
         )
         from django.contrib.sessions.backends.db import SessionStore
 
@@ -432,7 +432,7 @@ class TestPIILogging:
 
         with patch("shopman.doorman.services.access_link.logger") as mock_logger:
             AccessLinkService.exchange(
-                access_link.token,
+                access_link._raw_token,
                 request,
                 preserve_session_keys=["basket_key"],
             )
@@ -509,7 +509,7 @@ class TestGates:
         """G12 blocks after too many access link tokens for same email."""
         email = customer.email
         for _ in range(5):
-            AccessLink.objects.create(
+            AccessLink.create_with_token(
                 customer_id=customer.uuid,
                 metadata={"method": "access_link", "email": email},
             )
@@ -533,7 +533,7 @@ class TestAccessLinkUtilities:
         factory = RequestFactory()
         request = factory.get("/")
         request.session = SessionStore()
-        result = AccessLinkService.exchange(access_link.token, request)
+        result = AccessLinkService.exchange(access_link._raw_token, request)
         assert result.success
 
         found = AccessLinkService.get_customer_for_user(result.user)
@@ -552,7 +552,7 @@ class TestAccessLinkUtilities:
         factory = RequestFactory()
         request = factory.get("/")
         request.session = SessionStore()
-        result = AccessLinkService.exchange(access_link.token, request)
+        result = AccessLinkService.exchange(access_link._raw_token, request)
         assert result.success
 
         user = AccessLinkService.get_user_for_customer(customer)
@@ -568,25 +568,25 @@ class TestAccessLinkUtilities:
         import uuid
 
         # Create an expired token old enough to be cleaned
-        token = AccessLink.objects.create(
+        link, _ = AccessLink.create_with_token(
             customer_id=uuid.uuid4(),
             expires_at=timezone.now() - timedelta(days=10),
         )
         deleted = AccessLinkService.cleanup_expired_tokens(days=7)
         assert deleted == 1
-        assert not AccessLink.objects.filter(pk=token.pk).exists()
+        assert not AccessLink.objects.filter(pk=link.pk).exists()
 
     def test_cleanup_does_not_delete_recent(self, db):
         """cleanup_expired_tokens preserves recently expired tokens."""
         import uuid
 
-        token = AccessLink.objects.create(
+        link, _ = AccessLink.create_with_token(
             customer_id=uuid.uuid4(),
             expires_at=timezone.now() - timedelta(days=1),
         )
         deleted = AccessLinkService.cleanup_expired_tokens(days=7)
         assert deleted == 0
-        assert AccessLink.objects.filter(pk=token.pk).exists()
+        assert AccessLink.objects.filter(pk=link.pk).exists()
 
     def test_integrity_error_retry(self, customer):
         """_get_or_create_user handles concurrent creation via IntegrityError."""

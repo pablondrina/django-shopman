@@ -95,11 +95,11 @@
     </a>
     {% for col in collections %}
     <a
-      href="{% url 'storefront:menu_collection' col.slug %}"
-      data-collection="{{ col.slug }}"
-      class="pill shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors inline-flex items-center gap-1.5 {% if active_collection and active_collection.slug == col.slug %}bg-foreground text-background{% else %}bg-muted text-foreground border border-border hover:bg-muted-foreground/10{% endif %}"
+      href="{% url 'storefront:menu_collection' col.ref %}"
+      data-collection="{{ col.ref }}"
+      class="pill shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors inline-flex items-center gap-1.5 {% if active_collection and active_collection.ref == col.ref %}bg-foreground text-background{% else %}bg-muted text-foreground border border-border hover:bg-muted-foreground/10{% endif %}"
     >
-      <span class="material-symbols-rounded icon-sm shrink-0 opacity-90" aria-hidden="true">{{ collection_icons|get_item:col.slug }}</span>
+      <span class="material-symbols-rounded icon-sm shrink-0 opacity-90" aria-hidden="true">{{ collection_icons|get_item:col.ref }}</span>
       {{ col.name }}
     </a>
     {% endfor %}
@@ -109,10 +109,10 @@
 
 <!-- Product sections -->
 {% for section in sections %}
-<section id="section-{{ section.collection.slug|default:'outros' }}" class="mb-12 scroll-mt-32">
+<section id="section-{{ section.collection.ref|default:'outros' }}" class="mb-12 scroll-mt-32">
   {% if section.collection %}
   <h2 class="text-h2 text-foreground mb-4 pb-2 border-b border-border flex items-center gap-2.5 flex-wrap">
-    <span class="material-symbols-rounded icon-md text-primary shrink-0" aria-hidden="true">{{ collection_icons|get_item:section.collection.slug }}</span>
+    <span class="material-symbols-rounded icon-md text-primary shrink-0" aria-hidden="true">{{ collection_icons|get_item:section.collection.ref }}</span>
     {{ section.collection.name }}
   </h2>
   {% if section.collection.description %}

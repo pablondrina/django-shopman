@@ -42,12 +42,12 @@ def anon_client():
 
 @pytest.fixture
 def breads_collection(db):
-    return Collection.objects.create(slug="breads", name="Breads", is_active=True)
+    return Collection.objects.create(ref="breads", name="Breads", is_active=True)
 
 
 @pytest.fixture
 def inactive_collection(db):
-    return Collection.objects.create(slug="archived", name="Archived", is_active=False)
+    return Collection.objects.create(ref="archived", name="Archived", is_active=False)
 
 
 @pytest.fixture
@@ -371,19 +371,19 @@ class TestCollectionList:
     def test_list_active_collections(self, api_client, breads_collection):
         resp = api_client.get("/api/offering/collections/")
         assert resp.status_code == 200
-        slugs = {c["slug"] for c in resp.data["results"]}
+        slugs = {c["ref"] for c in resp.data["results"]}
         assert "breads" in slugs
 
     def test_excludes_inactive_collections(self, api_client, breads_collection, inactive_collection):
         resp = api_client.get("/api/offering/collections/")
-        slugs = {c["slug"] for c in resp.data["results"]}
+        slugs = {c["ref"] for c in resp.data["results"]}
         assert "breads" in slugs
         assert "archived" not in slugs
 
     def test_collection_serializer_fields(self, api_client, breads_collection):
         resp = api_client.get("/api/offering/collections/")
         coll = resp.data["results"][0]
-        expected = {"uuid", "slug", "name", "description", "is_active"}
+        expected = {"uuid", "ref", "name", "description", "is_active"}
         assert set(coll.keys()) == expected
 
 
@@ -391,19 +391,19 @@ class TestCollectionDetail:
     """GET /api/offering/collections/{slug}/"""
 
     def test_retrieve_by_slug(self, api_client, breads_collection, baguete):
-        resp = api_client.get(f"/api/offering/collections/{breads_collection.slug}/")
+        resp = api_client.get(f"/api/offering/collections/{breads_collection.ref}/")
         assert resp.status_code == 200
-        assert resp.data["slug"] == "breads"
+        assert resp.data["ref"] == "breads"
 
     def test_detail_includes_products(self, api_client, breads_collection, baguete, croissant):
-        resp = api_client.get(f"/api/offering/collections/{breads_collection.slug}/")
+        resp = api_client.get(f"/api/offering/collections/{breads_collection.ref}/")
         assert "products" in resp.data
         product_skus = {p["sku"] for p in resp.data["products"]}
         assert "BAGUETE" in product_skus
         assert "CROISSANT" in product_skus
 
     def test_detail_products_include_primary_flag(self, api_client, breads_collection, baguete):
-        resp = api_client.get(f"/api/offering/collections/{breads_collection.slug}/")
+        resp = api_client.get(f"/api/offering/collections/{breads_collection.ref}/")
         product = resp.data["products"][0]
         assert "is_primary" in product
         assert "sort_order" in product
@@ -487,11 +487,11 @@ class TestReadOnly:
         assert resp.status_code == 405
 
     def test_collections_post_returns_405(self, api_client, breads_collection):
-        resp = api_client.post("/api/offering/collections/", {"slug": "new"})
+        resp = api_client.post("/api/offering/collections/", {"ref": "new"})
         assert resp.status_code == 405
 
     def test_collections_delete_returns_405(self, api_client, breads_collection):
-        resp = api_client.delete(f"/api/offering/collections/{breads_collection.slug}/")
+        resp = api_client.delete(f"/api/offering/collections/{breads_collection.ref}/")
         assert resp.status_code == 405
 
     def test_listings_post_returns_405(self, api_client, ifood_listing):

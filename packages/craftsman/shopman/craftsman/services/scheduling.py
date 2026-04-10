@@ -95,7 +95,7 @@ class CraftPlanning:
             work_order=wo,
         )
 
-        logger.info("WorkOrder %s planned: %s x %s", wo.code, quantity, recipe.output_ref)
+        logger.info("WorkOrder %s planned: %s x %s", wo.ref, quantity, recipe.output_ref)
         return wo
 
     @classmethod
@@ -253,7 +253,7 @@ class CraftPlanning:
             work_order=order,
         )
 
-        logger.info("WorkOrder %s adjusted: %s -> %s", order.code, old_quantity, quantity)
+        logger.info("WorkOrder %s adjusted: %s -> %s", order.ref, old_quantity, quantity)
         return order
 
 
@@ -287,8 +287,15 @@ def _validate_committed_holds(order, new_quantity: Decimal) -> None:
             )
     except CraftError:
         raise
-    except Exception:
-        pass  # graceful: no backend or unavailable → skip
+    except Exception as e:
+        from shopman.craftsman.conf import get_setting
+        mode = get_setting("MODE")
+        if mode == "strict":
+            raise CraftError(
+                "DEMAND_BACKEND_FAILED",
+                message=f"Demand backend failed during validation: {e}",
+            ) from e
+        # graceful: no backend or unavailable → skip
 
 
 def _validate_shared_ingredients(order, new_quantity: Decimal) -> None:
@@ -361,8 +368,15 @@ def _validate_shared_ingredients(order, new_quantity: Decimal) -> None:
 
     except CraftError:
         raise
-    except Exception:
-        pass  # graceful: backend unavailable → skip
+    except Exception as e:
+        from shopman.craftsman.conf import get_setting
+        mode = get_setting("MODE")
+        if mode == "strict":
+            raise CraftError(
+                "INVENTORY_BACKEND_FAILED",
+                message=f"Inventory backend failed during validation: {e}",
+            ) from e
+        # graceful: backend unavailable → skip
 
 
 def _validate_downstream_deficit(order, new_quantity: Decimal, *, force: bool) -> None:
@@ -420,7 +434,7 @@ def _validate_downstream_deficit(order, new_quantity: Decimal, *, force: bool) -
                 if total_needed > 0:
                     shortage = min(reduction, total_needed)
                     deficit_items.append({
-                        "wo_code": downstream_wo.code,
+                        "wo_ref": downstream_wo.ref,
                         "sku": order.output_ref,
                         "shortage": float(shortage),
                     })
@@ -431,7 +445,7 @@ def _validate_downstream_deficit(order, new_quantity: Decimal, *, force: bool) -
         if force:
             logger.warning(
                 "WorkOrder %s adjusted with downstream deficit: %s",
-                order.code,
+                order.ref,
                 deficit_items,
             )
         else:

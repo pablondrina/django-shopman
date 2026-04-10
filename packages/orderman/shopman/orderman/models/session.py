@@ -296,6 +296,14 @@ class SessionItem(models.Model):
                 condition=models.Q(qty__gt=0),
                 name="ord_session_item_qty_positive",
             ),
+            models.CheckConstraint(
+                condition=models.Q(unit_price_q__gte=0),
+                name="ord_session_item_unit_price_q_non_negative",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(line_total_q__gte=0),
+                name="ord_session_item_line_total_q_non_negative",
+            ),
         ]
 
     def __str__(self) -> str:

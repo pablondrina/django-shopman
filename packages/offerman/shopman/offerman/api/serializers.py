@@ -51,7 +51,7 @@ class ProductDetailSerializer(ProductSerializer):
 class CollectionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Collection
-        fields = ["uuid", "slug", "name", "description", "is_active"]
+        fields = ["uuid", "ref", "name", "description", "is_active"]
 
 
 class CollectionDetailSerializer(CollectionSerializer):

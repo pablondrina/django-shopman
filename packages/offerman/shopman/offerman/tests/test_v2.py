@@ -289,8 +289,8 @@ class TestGetDescendantsMaxDepth:
 
     def test_default_uses_settings(self, db):
         """Default max_depth comes from offerman_settings."""
-        root = Collection.objects.create(slug="depth-root", name="Root")
-        child = Collection.objects.create(slug="depth-child", name="Child", parent=root)
+        root = Collection.objects.create(ref="depth-root", name="Root")
+        child = Collection.objects.create(ref="depth-child", name="Child", parent=root)
 
         with patch("shopman.offerman.conf.get_offerman_settings") as mock_settings:
             mock_settings.return_value = MagicMock(MAX_COLLECTION_DEPTH=1)
@@ -300,9 +300,9 @@ class TestGetDescendantsMaxDepth:
             assert descendants[0].pk == child.pk
 
     def test_explicit_max_depth_overrides_settings(self, db):
-        root = Collection.objects.create(slug="exp-root", name="Root")
-        child = Collection.objects.create(slug="exp-child", name="Child", parent=root)
-        grandchild = Collection.objects.create(slug="exp-gchild", name="GChild", parent=child)
+        root = Collection.objects.create(ref="exp-root", name="Root")
+        child = Collection.objects.create(ref="exp-child", name="Child", parent=root)
+        grandchild = Collection.objects.create(ref="exp-gchild", name="GChild", parent=child)
 
         # With max_depth=1, only direct children
         descendants = root.get_descendants(max_depth=1)
@@ -313,9 +313,9 @@ class TestGetDescendantsMaxDepth:
         assert len(descendants) == 2
 
     def test_get_ancestors_uses_settings(self, db):
-        root = Collection.objects.create(slug="anc-root", name="Root")
-        child = Collection.objects.create(slug="anc-child", name="Child", parent=root)
-        grandchild = Collection.objects.create(slug="anc-gchild", name="GChild", parent=child)
+        root = Collection.objects.create(ref="anc-root", name="Root")
+        child = Collection.objects.create(ref="anc-child", name="Child", parent=root)
+        grandchild = Collection.objects.create(ref="anc-gchild", name="GChild", parent=child)
 
         ancestors = grandchild.get_ancestors()
         assert len(ancestors) == 2
@@ -332,7 +332,7 @@ class TestSuggestionsScoring:
     def test_scored_by_keywords(self, db):
         from shopman.offerman.contrib.suggestions.suggestions import find_alternatives
 
-        coll = Collection.objects.create(slug="score-col", name="Test")
+        coll = Collection.objects.create(ref="score-col", name="Test")
 
         # Reference product
         ref = Product.objects.create(sku="REF-1", name="Reference", base_price_q=1000)
@@ -357,7 +357,7 @@ class TestSuggestionsScoring:
     def test_price_similarity_contributes(self, db):
         from shopman.offerman.contrib.suggestions.suggestions import find_alternatives
 
-        coll = Collection.objects.create(slug="price-col", name="Test")
+        coll = Collection.objects.create(ref="price-col", name="Test")
 
         ref = Product.objects.create(sku="PRICE-REF", name="Reference", base_price_q=1000)
         ref.keywords.add("doce")
@@ -381,7 +381,7 @@ class TestSuggestionsScoring:
     def test_find_similar_uses_scoring(self, db):
         from shopman.offerman.contrib.suggestions.suggestions import find_similar
 
-        coll = Collection.objects.create(slug="sim-col", name="Test")
+        coll = Collection.objects.create(ref="sim-col", name="Test")
 
         ref = Product.objects.create(sku="SIM-REF", name="Reference", base_price_q=500)
         ref.keywords.add("cafe", "quente")

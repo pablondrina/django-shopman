@@ -48,7 +48,7 @@ PRODUCT_SKUS = [
     "EMPADA",
 ]
 
-COLLECTION_SLUGS = [
+COLLECTION_REFS = [
     "padaria",
     "confeitaria",
     "salgados",
@@ -84,8 +84,8 @@ class BrowsingUser(HttpUser):
     @task(3)
     def browse_collection(self):
         """GET /menu/<collection>/ — filtered by collection."""
-        slug = random.choice(COLLECTION_SLUGS)
-        self.client.get(f"/menu/{slug}/", name="/menu/[collection]/")
+        ref = random.choice(COLLECTION_REFS)
+        self.client.get(f"/menu/{ref}/", name="/menu/[collection]/")
 
     @task(2)
     def product_detail(self):

@@ -17,6 +17,28 @@ Lifecycle:
 5 verbs: create_intent, authorize, capture, refund, cancel.
 2 queries: get, get_by_order.
 1 helper: get_active_intent.
+
+Domain Contracts:
+
+    Capture:
+        - Payman allows a SINGLE capture per intent.
+        - ``amount_q < authorized`` means partial capture; the uncaptured
+          balance is abandoned (no second capture is allowed).
+        - Full capture: omit ``amount_q`` (defaults to ``intent.amount_q``).
+
+    Refund:
+        - ``REFUNDED`` status means "at least one refund exists".
+        - ``refunded_total(ref)`` is the financial source of truth for how
+          much has actually been returned to the customer.
+        - Multiple partial refunds are allowed as long as
+          ``captured_total - refunded_total > 0``.
+
+    Mutation Surface:
+        - ``PaymentService`` is the canonical mutation surface. All status
+          transitions, transaction creation, and signal emission happen here.
+        - ``intent.transition_status()`` is an internal helper used only by
+          the model's own ``save()`` concurrency guard; external code must
+          always go through ``PaymentService`` methods.
 """
 
 from __future__ import annotations
@@ -185,9 +207,14 @@ class PaymentService:
         """
         Captura pagamento autorizado (authorized → captured).
 
+        Contract: a single capture per intent. If ``amount_q < intent.amount_q``,
+        this is a partial capture and the uncaptured balance is abandoned.
+        No second capture is possible once the intent transitions to CAPTURED.
+
         Args:
             ref: Referência do intent
-            amount_q: Valor a capturar (None = total autorizado)
+            amount_q: Valor a capturar (None = total autorizado).
+                      Partial capture: pass a value < intent.amount_q.
             gateway_id: ID da captura no gateway
 
         Returns:
@@ -201,6 +228,13 @@ class PaymentService:
         cls._require_status(intent, PaymentIntent.Status.AUTHORIZED, "capture")
 
         capture_amount = amount_q if amount_q is not None else intent.amount_q
+
+        if capture_amount <= 0:
+            raise PaymentError(
+                code="invalid_amount",
+                message=f"Valor de captura deve ser positivo, recebido: {capture_amount}q",
+                context={"capture_amount": capture_amount},
+            )
 
         if capture_amount > intent.amount_q:
             raise PaymentError(
@@ -251,6 +285,12 @@ class PaymentService:
         """
         Processa reembolso (parcial ou total).
 
+        Contract: multiple partial refunds are allowed while
+        ``captured_total - refunded_total > 0``. The intent transitions to
+        REFUNDED on the first refund and stays there for subsequent ones.
+        ``refunded_total(ref)`` is the financial source of truth, not the
+        status field alone.
+
         Args:
             ref: Referência do intent
             amount_q: Valor a reembolsar (None = total capturado - já reembolsado)
@@ -284,6 +324,13 @@ class PaymentService:
             )
 
         refund_amount = amount_q if amount_q is not None else available_q
+
+        if refund_amount <= 0:
+            raise PaymentError(
+                code="invalid_amount",
+                message=f"Valor de reembolso deve ser positivo, recebido: {refund_amount}q",
+                context={"refund_amount": refund_amount},
+            )
 
         if refund_amount > available_q:
             raise PaymentError(

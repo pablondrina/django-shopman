@@ -32,7 +32,7 @@ from shopman.offerman.models import (
 
 @pytest.fixture
 def collection_h21(db):
-    return Collection.objects.create(slug="h21-test", name="Test")
+    return Collection.objects.create(ref="h21-test", name="Test")
 
 
 @pytest.fixture
@@ -320,14 +320,14 @@ class TestCollectionDeepHierarchy:
 
     def test_get_descendants_three_levels(self, db):
         """Three-level hierarchy returns all descendants."""
-        root = Collection.objects.create(slug="root", name="Root")
-        child1 = Collection.objects.create(slug="child1", name="Child 1", parent=root)
-        child2 = Collection.objects.create(slug="child2", name="Child 2", parent=root)
+        root = Collection.objects.create(ref="root", name="Root")
+        child1 = Collection.objects.create(ref="child1", name="Child 1", parent=root)
+        child2 = Collection.objects.create(ref="child2", name="Child 2", parent=root)
         grandchild1 = Collection.objects.create(
-            slug="grandchild1", name="Grandchild 1", parent=child1
+            ref="grandchild1", name="Grandchild 1", parent=child1
         )
         grandchild2 = Collection.objects.create(
-            slug="grandchild2", name="Grandchild 2", parent=child1
+            ref="grandchild2", name="Grandchild 2", parent=child1
         )
 
         descendants = root.get_descendants()
@@ -342,23 +342,23 @@ class TestCollectionDeepHierarchy:
 
     def test_full_path_three_levels(self, db):
         """full_path shows complete hierarchy."""
-        root = Collection.objects.create(slug="padaria", name="Padaria")
-        sub = Collection.objects.create(slug="paes", name="Paes", parent=root)
-        leaf = Collection.objects.create(slug="integrais", name="Integrais", parent=sub)
+        root = Collection.objects.create(ref="padaria", name="Padaria")
+        sub = Collection.objects.create(ref="paes", name="Paes", parent=root)
+        leaf = Collection.objects.create(ref="integrais", name="Integrais", parent=sub)
 
         assert leaf.full_path == "Padaria > Paes > Integrais"
         assert leaf.depth == 2
 
     def test_leaf_has_no_descendants(self, db):
         """Leaf collection returns empty list of descendants."""
-        leaf = Collection.objects.create(slug="leaf", name="Leaf")
+        leaf = Collection.objects.create(ref="leaf", name="Leaf")
         assert leaf.get_descendants() == []
 
     def test_get_ancestors(self, db):
         """get_ancestors returns path from root to parent."""
-        root = Collection.objects.create(slug="a-root", name="Root")
-        mid = Collection.objects.create(slug="a-mid", name="Mid", parent=root)
-        leaf = Collection.objects.create(slug="a-leaf", name="Leaf", parent=mid)
+        root = Collection.objects.create(ref="a-root", name="Root")
+        mid = Collection.objects.create(ref="a-mid", name="Mid", parent=root)
+        leaf = Collection.objects.create(ref="a-leaf", name="Leaf", parent=mid)
 
         ancestors = leaf.get_ancestors()
         assert len(ancestors) == 2

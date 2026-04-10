@@ -32,6 +32,13 @@ class HoldQuerySet(models.QuerySet):
             expires_at__lt=now,
         )
 
+    def fulfillable(self):
+        """Holds ready for fulfillment: CONFIRMED, not expired, with linked quant."""
+        return self.active().filter(
+            status=HoldStatus.CONFIRMED,
+            quant__isnull=False,
+        )
+
 
 class Hold(models.Model):
     """
@@ -161,6 +168,15 @@ class Hold(models.Model):
         if self.expires_at is None:
             return False
         return timezone.now() > self.expires_at
+
+    @property
+    def can_fulfill(self) -> bool:
+        """Can this hold be fulfilled? Must be CONFIRMED, not expired, with linked quant."""
+        return (
+            self.status == HoldStatus.CONFIRMED
+            and not self.is_expired
+            and self.quant is not None
+        )
 
     @property
     def hold_id(self) -> str:

@@ -17,7 +17,7 @@ class Collection(models.Model):
 
     uuid = models.UUIDField(default=uuid_lib.uuid4, editable=False, unique=True, verbose_name=_("UUID"))
 
-    slug = models.SlugField(max_length=50, unique=True, verbose_name=_("slug"))
+    ref = models.SlugField(max_length=50, unique=True, verbose_name=_("referência"))
     name = models.CharField(max_length=100, verbose_name=_("nome"))
     description = models.TextField(blank=True, verbose_name=_("descrição"))
 
@@ -169,7 +169,7 @@ class CollectionItem(models.Model):
 
     def __str__(self):
         primary = " (principal)" if self.is_primary else ""
-        return f"{self.product.sku} em {self.collection.slug}{primary}"
+        return f"{self.product.sku} em {self.collection.ref}{primary}"
 
     def save(self, *args, **kwargs):
         if self.is_primary:

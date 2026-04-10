@@ -174,7 +174,7 @@ class DiscountModifier:
                 for ci in CollectionItem.objects.filter(product__sku__in=line_skus).select_related(
                     "collection",
                 ):
-                    col_map.setdefault(ci.product.sku, []).append(ci.collection.slug)
+                    col_map.setdefault(ci.product.sku, []).append(ci.collection.ref)
                 ctx["sku_collections"] = col_map
             except Exception:
                 pass

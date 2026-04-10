@@ -125,9 +125,7 @@ class IdentifierService:
         # Create new customer + identifier atomically
         defaults = defaults or {}
         if "ref" not in defaults:
-            defaults["ref"] = cls._generate_ref_from_identifier(
-                identifier_type, identifier_value
-            )
+            defaults["ref"] = Customer.generate_ref()
 
         with transaction.atomic():
             customer = Customer.objects.create(**defaults)
@@ -163,16 +161,4 @@ class IdentifierService:
             return normalize_phone(value, contact_type="instagram")
         return value.strip()
 
-    @classmethod
-    def _generate_ref_from_identifier(
-        cls,
-        identifier_type: str,
-        identifier_value: str,
-    ) -> str:
-        """Generate customer ref from identifier."""
-        import hashlib
-
-        # Create a short hash
-        hash_input = f"{identifier_type}:{identifier_value}"
-        hash_value = hashlib.md5(hash_input.encode()).hexdigest()[:8].upper()
-        return f"CUST-{hash_value}"
+    # Ref generation delegated to Customer.generate_ref()

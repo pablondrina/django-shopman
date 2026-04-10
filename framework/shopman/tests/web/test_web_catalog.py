@@ -21,7 +21,7 @@ class TestMenuView:
         assert b"paes" in resp.content.lower() or b"P\xc3\xa3es" in resp.content
 
     def test_menu_filtered_by_collection(self, client: Client, collection, collection_item, product):
-        resp = client.get(f"/menu/{collection.slug}/")
+        resp = client.get(f"/menu/{collection.ref}/")
         assert resp.status_code == 200
 
     def test_menu_collection_not_found(self, client: Client):
@@ -29,13 +29,13 @@ class TestMenuView:
         assert resp.status_code == 404
 
     def test_menu_inactive_collection_404(self, client: Client, collection_inactive):
-        resp = client.get(f"/menu/{collection_inactive.slug}/")
+        resp = client.get(f"/menu/{collection_inactive.ref}/")
         assert resp.status_code == 404
 
     def test_menu_hides_unpublished_products(self, client: Client, collection, product_unpublished):
         from shopman.offerman.models import CollectionItem
         CollectionItem.objects.create(collection=collection, product=product_unpublished, sort_order=1)
-        resp = client.get(f"/menu/{collection.slug}/")
+        resp = client.get(f"/menu/{collection.ref}/")
         assert resp.status_code == 200
         assert b"Rascunho" not in resp.content
 

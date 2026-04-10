@@ -12,7 +12,7 @@ def collection(db):
     """Create a test collection."""
     return Collection.objects.create(
         name="Breads",
-        slug="breads",
+        ref="breads",
         is_active=True,
     )
 
@@ -22,7 +22,7 @@ def subcollection(db, collection):
     """Create a subcollection."""
     return Collection.objects.create(
         name="Sweet Breads",
-        slug="sweet-breads",
+        ref="sweet-breads",
         parent=collection,
         is_active=True,
     )
@@ -151,7 +151,7 @@ def listing_item(db, listing, product):
 def featured_collection(db, product, croissant):
     """Create a featured collection."""
     coll = Collection.objects.create(
-        slug="destaques",
+        ref="destaques",
         name="Featured Products",
         is_active=True,
     )

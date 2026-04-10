@@ -99,7 +99,7 @@ class WorkOrderSerializer(serializers.ModelSerializer):
         model = WorkOrder
         fields = [
             "id",
-            "code",
+            "ref",
             "recipe",
             "recipe_code",
             "recipe_name",
@@ -124,7 +124,7 @@ class WorkOrderSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
-            "code",
+            "ref",
             "recipe_code",
             "recipe_name",
             "output_ref",
@@ -154,7 +154,7 @@ class WorkOrderListSerializer(serializers.ModelSerializer):
         model = WorkOrder
         fields = [
             "id",
-            "code",
+            "ref",
             "recipe_code",
             "output_ref",
             "quantity",

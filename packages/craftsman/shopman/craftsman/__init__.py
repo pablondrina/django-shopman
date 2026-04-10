@@ -30,4 +30,4 @@ def __getattr__(name):
 
 
 __all__ = ["craft", "CraftService", "Craft", "CraftError", "StaleRevision"]
-__version__ = "0.2.2"
+__version__ = "0.3.0"

@@ -75,7 +75,7 @@ class WorkOrderViewSet(
     permission_classes = [IsAuthenticated]
     pagination_class = CraftsmanPagination
     queryset = WorkOrder.objects.select_related("recipe").order_by("-created_at")
-    lookup_field = "code"
+    lookup_field = "ref"
 
     def get_serializer_class(self):
         if self.action == "list":

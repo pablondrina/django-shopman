@@ -127,6 +127,12 @@ class StockMovements:
         if not reason:
             raise StockError('REASON_REQUIRED')
 
+        if new_quantity < 0:
+            raise StockError(
+                'INVALID_QUANTITY',
+                requested=new_quantity,
+            )
+
         with transaction.atomic():
             locked_quant = Quant.objects.select_for_update().get(pk=quant.pk)
             delta = new_quantity - locked_quant._quantity

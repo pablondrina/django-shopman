@@ -69,10 +69,10 @@ class AccessLinkAdmin(BaseModelAdmin):
         "created_at",
     ]
     list_filter = ["audience", "source"]
-    search_fields = ["token", "customer_id"]
+    search_fields = ["token_hash", "customer_id"]
     readonly_fields = [
         "id",
-        "token",
+        "token_hash",
         "customer_id",
         "audience",
         "source",
@@ -86,16 +86,16 @@ class AccessLinkAdmin(BaseModelAdmin):
     date_hierarchy = "created_at"
 
     fieldsets = [
-        (None, {"fields": ["id", "token", "customer_id"]}),
+        (None, {"fields": ["id", "token_hash", "customer_id"]}),
         ("Scope", {"fields": ["audience", "source"]}),
         ("Lifecycle", {"fields": ["created_at", "expires_at", "used_at"]}),
         ("Result", {"fields": ["user"]}),
         ("Metadata", {"fields": ["metadata"], "classes": ["collapse"]}),
     ]
 
-    @display(description="Token")
+    @display(description="Token Hash")
     def token_short(self, obj):
-        return obj.token[:12] + "…"
+        return obj.token_hash[:12] + "…"
 
     @display(description="Customer")
     def customer_id_short(self, obj):

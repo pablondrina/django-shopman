@@ -11,14 +11,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def get_work_order(code: str) -> dict | None:
-    """Retorna {"code", "quantity", "output_ref", "produced", "recipe_name"} ou None."""
+def get_work_order(ref: str) -> dict | None:
+    """Retorna {"ref", "quantity", "output_ref", "produced", "recipe_name"} ou None."""
     try:
         from shopman.craftsman.models import WorkOrder
 
-        wo = WorkOrder.objects.select_related("recipe").get(code=code)
+        wo = WorkOrder.objects.select_related("recipe").get(ref=ref)
         return {
-            "code": wo.code,
+            "ref": wo.ref,
             "quantity": wo.quantity,
             "output_ref": wo.output_ref,
             "produced": wo.produced,
@@ -28,12 +28,12 @@ def get_work_order(code: str) -> dict | None:
         return None
 
 
-def count_adjusted_events(work_order_code: str) -> int:
+def count_adjusted_events(work_order_ref: str) -> int:
     """Conta eventos ADJUSTED de uma work order."""
     from shopman.craftsman.models import WorkOrderEvent
 
     return WorkOrderEvent.objects.filter(
-        work_order__code=work_order_code,
+        work_order__ref=work_order_ref,
         kind=WorkOrderEvent.Kind.ADJUSTED,
     ).count()
 

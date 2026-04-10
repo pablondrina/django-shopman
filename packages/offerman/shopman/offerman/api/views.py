@@ -97,7 +97,7 @@ class CollectionViewSet(ReadOnlyModelViewSet):
     """Read-only ViewSet for collections."""
 
     permission_classes = [AllowAny]
-    lookup_field = "slug"
+    lookup_field = "ref"
     filterset_class = CollectionFilter
 
     def get_serializer_class(self):

@@ -211,7 +211,7 @@ class CatalogService:
             ).distinct()
 
         if collection:
-            qs = qs.filter(collection_items__collection__slug=collection)
+            qs = qs.filter(collection_items__collection__ref=collection)
         if keywords:
             qs = qs.filter(keywords__name__in=keywords).distinct()
 

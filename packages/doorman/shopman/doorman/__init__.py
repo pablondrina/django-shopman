@@ -1,11 +1,11 @@
 """
-Shopman Auth — Phone-First Authentication.
+Shopman Doorman — Phone-First Authentication.
 
 Usage:
     from shopman.doorman import get_access_link_service, get_auth_service
 """
 
-__title__ = "Shopman Auth"
+__title__ = "Shopman Doorman"
 __version__ = "0.1.0"
 __author__ = "Pablo Valentini"
 

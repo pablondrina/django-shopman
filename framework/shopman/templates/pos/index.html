@@ -19,7 +19,7 @@
     Alpine.data('posApp', function() { return {
       search: '',
       activeCollection: '',
-      collections: [{% for col in collections %}'{{ col.slug }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
+      collections: [{% for col in collections %}'{{ col.ref }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
       cart: [],
       customerPhone: '',
       customerName: '',
@@ -188,8 +188,8 @@
           {% for col in collections %}
           <button type="button"
                   class="px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors"
-                  :class="activeCollection === '{{ col.slug }}' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent text-foreground border-border hover:bg-surface'"
-                  @click="activeCollection = '{{ col.slug }}'">{{ col.name }}</button>
+                  :class="activeCollection === '{{ col.ref }}' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent text-foreground border-border hover:bg-surface'"
+                  @click="activeCollection = '{{ col.ref }}'">{{ col.name }}</button>
           {% endfor %}
         </div>
         {% endif %}
@@ -200,7 +200,7 @@
            style="grid-template-columns: repeat(auto-fill, minmax(110px, 1fr))">
         {% for p in products %}
         <div class="bg-surface border border-border rounded-xl p-2.5 cursor-pointer text-center transition-all duration-100 active:scale-95 flex flex-col items-center gap-1 min-h-[84px] justify-center hover:border-primary/50 hover:shadow-sm select-none relative"
-             x-show="matchesTile('{{ p.name|escapejs }}', '{{ p.sku }}', '{{ p.collection_slug }}')"
+             x-show="matchesTile('{{ p.name|escapejs }}', '{{ p.sku }}', '{{ p.collection_ref }}')"
              @click="addItem({sku:'{{ p.sku }}', name:'{{ p.name|escapejs }}', price_q:{{ p.price_q }}, is_d1:{{ p.is_d1|yesno:'true,false' }}})">
           {% if p.is_d1 %}
           <span class="absolute top-1 right-1 text-[9px] font-bold px-1 py-0.5 rounded bg-warning/20 text-warning-foreground leading-none">D-1</span>

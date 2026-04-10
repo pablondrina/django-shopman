@@ -67,7 +67,7 @@ class TestAuthentication:
 
     def test_close_requires_auth(self, anon_client, recipe):
         wo = craft.plan(recipe, 100)
-        resp = anon_client.post(f"/api/crafting/work-orders/{wo.code}/close/", {})
+        resp = anon_client.post(f"/api/crafting/work-orders/{wo.ref}/close/", {})
         assert resp.status_code in (401, 403)
 
     def test_authenticated_can_list(self, api_client, recipe):
@@ -85,7 +85,7 @@ class TestCloseEndpoint:
     def test_close_returns_200(self, api_client, recipe_with_items):
         wo = craft.plan(recipe_with_items, 100)
         resp = api_client.post(
-            f"/api/crafting/work-orders/{wo.code}/close/",
+            f"/api/crafting/work-orders/{wo.ref}/close/",
             {"produced": "93", "expected_rev": 0},
             format="json",
         )
@@ -98,7 +98,7 @@ class TestCloseEndpoint:
         craft.close(wo, produced=93, expected_rev=0)
 
         resp = api_client.post(
-            f"/api/crafting/work-orders/{wo.code}/close/",
+            f"/api/crafting/work-orders/{wo.ref}/close/",
             {"produced": "50", "expected_rev": 1},
             format="json",
         )
@@ -110,7 +110,7 @@ class TestCloseEndpoint:
         craft.adjust(wo, quantity=97)  # rev now 1
 
         resp = api_client.post(
-            f"/api/crafting/work-orders/{wo.code}/close/",
+            f"/api/crafting/work-orders/{wo.ref}/close/",
             {"produced": "93", "expected_rev": 0},
             format="json",
         )
@@ -120,7 +120,7 @@ class TestCloseEndpoint:
     def test_close_missing_produced_returns_400(self, api_client, recipe):
         wo = craft.plan(recipe, 100)
         resp = api_client.post(
-            f"/api/crafting/work-orders/{wo.code}/close/",
+            f"/api/crafting/work-orders/{wo.ref}/close/",
             {},
             format="json",
         )
@@ -130,7 +130,7 @@ class TestCloseEndpoint:
     def test_close_with_valid_consumed(self, api_client, recipe_with_items):
         wo = craft.plan(recipe_with_items, 100)
         resp = api_client.post(
-            f"/api/crafting/work-orders/{wo.code}/close/",
+            f"/api/crafting/work-orders/{wo.ref}/close/",
             {
                 "produced": "93",
                 "expected_rev": 0,
@@ -146,7 +146,7 @@ class TestCloseEndpoint:
     def test_close_consumed_missing_item_ref_returns_400(self, api_client, recipe_with_items):
         wo = craft.plan(recipe_with_items, 100)
         resp = api_client.post(
-            f"/api/crafting/work-orders/{wo.code}/close/",
+            f"/api/crafting/work-orders/{wo.ref}/close/",
             {
                 "produced": "93",
                 "consumed": [
@@ -160,7 +160,7 @@ class TestCloseEndpoint:
     def test_close_consumed_missing_quantity_returns_400(self, api_client, recipe_with_items):
         wo = craft.plan(recipe_with_items, 100)
         resp = api_client.post(
-            f"/api/crafting/work-orders/{wo.code}/close/",
+            f"/api/crafting/work-orders/{wo.ref}/close/",
             {
                 "produced": "93",
                 "consumed": [
@@ -179,12 +179,12 @@ class TestCloseEndpoint:
             "idempotency_key": "close-http-001",
         }
         resp1 = api_client.post(
-            f"/api/crafting/work-orders/{wo.code}/close/", payload, format="json",
+            f"/api/crafting/work-orders/{wo.ref}/close/", payload, format="json",
         )
         assert resp1.status_code == 200
 
         resp2 = api_client.post(
-            f"/api/crafting/work-orders/{wo.code}/close/",
+            f"/api/crafting/work-orders/{wo.ref}/close/",
             {"produced": "50", "idempotency_key": "close-http-001"},
             format="json",
         )
@@ -201,7 +201,7 @@ class TestAdjustEndpoint:
     def test_adjust_returns_200(self, api_client, recipe):
         wo = craft.plan(recipe, 100)
         resp = api_client.post(
-            f"/api/crafting/work-orders/{wo.code}/adjust/",
+            f"/api/crafting/work-orders/{wo.ref}/adjust/",
             {"quantity": "97", "reason": "farinha insuficiente", "expected_rev": 0},
             format="json",
         )
@@ -213,7 +213,7 @@ class TestAdjustEndpoint:
         craft.adjust(wo, quantity=97)  # rev now 1
 
         resp = api_client.post(
-            f"/api/crafting/work-orders/{wo.code}/adjust/",
+            f"/api/crafting/work-orders/{wo.ref}/adjust/",
             {"quantity": "95", "expected_rev": 0},
             format="json",
         )
@@ -224,7 +224,7 @@ class TestAdjustEndpoint:
         craft.close(wo, produced=93, expected_rev=0)
 
         resp = api_client.post(
-            f"/api/crafting/work-orders/{wo.code}/adjust/",
+            f"/api/crafting/work-orders/{wo.ref}/adjust/",
             {"quantity": "50"},
             format="json",
         )
@@ -234,7 +234,7 @@ class TestAdjustEndpoint:
     def test_adjust_missing_quantity_returns_400(self, api_client, recipe):
         wo = craft.plan(recipe, 100)
         resp = api_client.post(
-            f"/api/crafting/work-orders/{wo.code}/adjust/",
+            f"/api/crafting/work-orders/{wo.ref}/adjust/",
             {},
             format="json",
         )
@@ -251,7 +251,7 @@ class TestVoidEndpoint:
     def test_void_returns_200(self, api_client, recipe):
         wo = craft.plan(recipe, 100)
         resp = api_client.post(
-            f"/api/crafting/work-orders/{wo.code}/void/",
+            f"/api/crafting/work-orders/{wo.ref}/void/",
             {"reason": "cliente cancelou", "expected_rev": 0},
             format="json",
         )
@@ -263,7 +263,7 @@ class TestVoidEndpoint:
         craft.close(wo, produced=93, expected_rev=0)
 
         resp = api_client.post(
-            f"/api/crafting/work-orders/{wo.code}/void/",
+            f"/api/crafting/work-orders/{wo.ref}/void/",
             {"reason": "teste", "expected_rev": 1},
             format="json",
         )
@@ -275,7 +275,7 @@ class TestVoidEndpoint:
         craft.adjust(wo, quantity=97)
 
         resp = api_client.post(
-            f"/api/crafting/work-orders/{wo.code}/void/",
+            f"/api/crafting/work-orders/{wo.ref}/void/",
             {"reason": "cancelado", "expected_rev": 0},
             format="json",
         )
@@ -284,7 +284,7 @@ class TestVoidEndpoint:
     def test_void_missing_reason_returns_400(self, api_client, recipe):
         wo = craft.plan(recipe, 100)
         resp = api_client.post(
-            f"/api/crafting/work-orders/{wo.code}/void/",
+            f"/api/crafting/work-orders/{wo.ref}/void/",
             {},
             format="json",
         )
@@ -310,9 +310,9 @@ class TestReadEndpoints:
 
     def test_retrieve_work_order(self, api_client, recipe):
         wo = craft.plan(recipe, 100)
-        resp = api_client.get(f"/api/crafting/work-orders/{wo.code}/")
+        resp = api_client.get(f"/api/crafting/work-orders/{wo.ref}/")
         assert resp.status_code == 200
-        assert resp.data["code"] == wo.code
+        assert resp.data["ref"] == wo.ref
         assert resp.data["output_ref"] == "croissant"
 
     def test_list_recipes(self, api_client, recipe):

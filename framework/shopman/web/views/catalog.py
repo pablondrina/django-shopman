@@ -65,7 +65,7 @@ class MenuView(View):
         popular = _popular_skus(limit=5)
 
         if collection:
-            active_collection = get_object_or_404(Collection, slug=collection, is_active=True)
+            active_collection = get_object_or_404(Collection, ref=collection, is_active=True)
             products = (
                 _published_products(listing_ref)
                 .filter(collection_items__collection=active_collection)
@@ -104,8 +104,8 @@ class MenuView(View):
         # Hero section data (only on main menu, not collection-filtered)
         hero = _hero_data(listing_ref=listing_ref, request=request) if not collection else None
 
-        # Ícones Material Symbols por coleção (slug → ligature name)
-        collection_icons = {col.slug: _collection_icon(col.slug) for col in collections}
+        # Ícones Material Symbols por coleção (ref → ligature name)
+        collection_icons = {col.ref: _collection_icon(col.ref) for col in collections}
 
         happy_hour_info = _is_happy_hour_active()
 
@@ -271,7 +271,7 @@ class ProductDetailView(View):
 
                 cols = list(
                     CollectionItem.objects.filter(product=product).values_list(
-                        "collection__slug", flat=True,
+                        "collection__ref", flat=True,
                     ),
                 )
             except Exception as e:

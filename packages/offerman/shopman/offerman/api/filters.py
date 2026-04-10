@@ -17,7 +17,7 @@ class ProductFilter(filters.FilterSet):
         }
 
     def filter_collection(self, queryset, name, value):
-        return queryset.filter(collection_items__collection__slug=value)
+        return queryset.filter(collection_items__collection__ref=value)
 
 
 class CollectionFilter(filters.FilterSet):

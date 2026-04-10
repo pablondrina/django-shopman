@@ -40,21 +40,29 @@ def other_customer(db):
 
 @pytest.fixture
 def access_link(customer):
-    """Create a valid access link."""
-    return AccessLink.objects.create(
+    """Create a valid access link.
+
+    The raw token is stored as ``link._raw_token`` so tests can
+    exchange it while the DB stores only the HMAC digest.
+    """
+    link, raw_token = AccessLink.create_with_token(
         customer_id=customer.uuid,
         audience=AccessLink.Audience.WEB_GENERAL,
         source=AccessLink.Source.MANYCHAT,
     )
+    link._raw_token = raw_token
+    return link
 
 
 @pytest.fixture
 def expired_access_link(customer):
     """Create an expired access link."""
-    return AccessLink.objects.create(
+    link, raw_token = AccessLink.create_with_token(
         customer_id=customer.uuid,
         expires_at=timezone.now() - timedelta(minutes=1),
     )
+    link._raw_token = raw_token
+    return link
 
 
 @pytest.fixture

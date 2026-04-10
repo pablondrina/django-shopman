@@ -22,6 +22,9 @@ from django.conf import settings
 # ── Defaults ──
 
 DEFAULTS = {
+    # "graceful" (default): backend failures log warning and continue.
+    # "strict": backend failures abort the operation with CraftError.
+    "MODE": "graceful",
     "INVENTORY_BACKEND": None,
     "CATALOG_BACKEND": None,
     "DEMAND_BACKEND": None,

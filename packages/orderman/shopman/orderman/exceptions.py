@@ -123,3 +123,11 @@ class InvalidTransition(OrderError):
 
     Codes: "invalid_transition", "terminal_status"
     """
+
+
+class ImmutabilityError(OrderError):
+    """
+    Tentativa de modificar campo selado de um Order já criado.
+
+    Codes: "sealed_field_modified"
+    """
