@@ -10,7 +10,7 @@ import logging
 from dataclasses import asdict
 
 from shopman.config import ChannelConfig
-from shopman.omniman.models import Channel
+from shopman.models import Channel
 from shopman.omniman.services.commit import CommitService
 from shopman.omniman.services.modify import ModifyService
 

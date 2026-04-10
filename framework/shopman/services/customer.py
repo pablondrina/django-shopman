@@ -32,7 +32,7 @@ _STRATEGIES: dict[str, Callable] = {}
 def register_strategy(key: str, fn: Callable) -> None:
     """Register a customer resolution strategy for the given key.
 
-    The key is matched against order.handle_type first, then order.channel.ref.
+    The key is matched against order.handle_type first, then order.channel_ref.
     """
     _STRATEGIES[key] = fn
 
@@ -51,7 +51,7 @@ def ensure(order) -> None:
     if not _customers_available():
         return
 
-    channel_ref = order.channel.ref if order.channel else ""
+    channel_ref = order.channel_ref or ""
     handle_type = getattr(order, "handle_type", "") or ""
 
     try:
@@ -251,8 +251,8 @@ def _create_timeline_event(customer: dict, order) -> None:
             customer_ref=customer_ref,
             event_type="order",
             title=f"Pedido {order.ref}",
-            description=f"Pedido realizado via {order.channel.name} — R$ {format_money(order.total_q)}",
-            channel=order.channel.ref,
+            description=f"Pedido realizado via {order.channel_ref} — R$ {format_money(order.total_q)}",
+            channel=order.channel_ref,
             reference=f"order:{order.ref}",
             metadata={"order_ref": order.ref, "total_q": order.total_q},
             created_by="shopman.services.customer.ensure",

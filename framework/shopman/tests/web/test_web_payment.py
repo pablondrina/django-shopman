@@ -14,7 +14,7 @@ def order_card(channel):
 
     return Order.objects.create(
         ref="ORD-CARD-001",
-        channel=channel,
+        channel_ref=channel.ref,
         status="new",
         total_q=1500,
         handle_type="phone",

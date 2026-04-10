@@ -60,7 +60,7 @@ def dispatch(order, phase: str) -> None:
     than a visible error. Callers (signal handlers) are responsible for
     surfacing failures appropriately.
     """
-    config = ChannelConfig.for_channel(order.channel)
+    config = ChannelConfig.for_channel(order.channel_ref)
 
     handler = _PHASE_HANDLERS.get(phase)
     if handler is None:
@@ -206,7 +206,7 @@ def _handle_confirmation(order, config: ChannelConfig) -> None:
 
 def _check_availability(order, config: ChannelConfig) -> bool:
     """Per-item availability check. Returns False if order was cancelled."""
-    channel_ref = getattr(order.channel, "ref", None)
+    channel_ref = order.channel_ref or None
     rejected: list[tuple[str, str]] = []
 
     for item in order.snapshot.get("items", []):

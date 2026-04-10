@@ -3,6 +3,7 @@ Testes abrangentes para Order lifecycle, status transitions e timestamps.
 Cobre cenários realistas de iFood, E-commerce e PDV.
 """
 from __future__ import annotations
+import types
 
 from datetime import timedelta
 from decimal import Decimal
@@ -12,17 +13,17 @@ from django.test import TestCase
 from django.utils import timezone
 
 from shopman.omniman.exceptions import InvalidTransition
-from shopman.omniman.models import Channel, Order, OrderEvent, OrderItem, Session
+from shopman.omniman.models import Order, OrderEvent, OrderItem, Session
 
 
 class OrderTimestampTests(TestCase):
     """Testes para timestamps de lifecycle do Order."""
 
     def setUp(self) -> None:
-        self.channel = Channel.objects.create(ref="shop", name="Shop")
+        self.channel = types.SimpleNamespace(ref="shop", name="Shop")
         self.order = Order.objects.create(
             ref="ORD-TS-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=10000,
         )
@@ -127,7 +128,7 @@ class IFoodChannelFlowTests(TestCase):
     """Testes de fluxo realista para canal iFood."""
 
     def setUp(self) -> None:
-        self.channel = Channel.objects.create(
+        self.channel = types.SimpleNamespace(
             ref="ifood",
             name="iFood",
         )
@@ -136,7 +137,7 @@ class IFoodChannelFlowTests(TestCase):
         """Fluxo completo de delivery iFood."""
         order = Order.objects.create(
             ref="IFOOD-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=5000,
             external_ref="ifood-abc123",
@@ -179,7 +180,7 @@ class IFoodChannelFlowTests(TestCase):
         """Cancelamento antes de aceitar."""
         order = Order.objects.create(
             ref="IFOOD-002",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=3000,
         )
@@ -192,7 +193,7 @@ class IFoodChannelFlowTests(TestCase):
         """Cancelamento durante preparo."""
         order = Order.objects.create(
             ref="IFOOD-003",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=4500,
         )
@@ -208,7 +209,7 @@ class IFoodChannelFlowTests(TestCase):
         """Devolução após entrega — returned é terminal."""
         order = Order.objects.create(
             ref="IFOOD-004",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=8000,
         )
@@ -232,7 +233,7 @@ class IFoodChannelFlowTests(TestCase):
         """iFood não pode pular estados intermediários."""
         order = Order.objects.create(
             ref="IFOOD-005",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=2500,
         )
@@ -250,7 +251,7 @@ class EcommerceChannelFlowTests(TestCase):
     """Testes de fluxo realista para canal E-commerce."""
 
     def setUp(self) -> None:
-        self.channel = Channel.objects.create(
+        self.channel = types.SimpleNamespace(
             ref="ecommerce",
             name="Loja Virtual",
         )
@@ -259,7 +260,7 @@ class EcommerceChannelFlowTests(TestCase):
         """E-commerce com entrega."""
         order = Order.objects.create(
             ref="ECOM-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=15000,
         )
@@ -278,7 +279,7 @@ class EcommerceChannelFlowTests(TestCase):
         """E-commerce com retirada na loja (sem dispatched)."""
         order = Order.objects.create(
             ref="ECOM-002",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=8000,
         )
@@ -296,7 +297,7 @@ class EcommerceChannelFlowTests(TestCase):
         """Cancelamento por timeout de pagamento."""
         order = Order.objects.create(
             ref="ECOM-003",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=12000,
         )
@@ -322,7 +323,7 @@ class PDVChannelFlowTests(TestCase):
     }
 
     def setUp(self) -> None:
-        self.channel = Channel.objects.create(
+        self.channel = types.SimpleNamespace(
             ref="pdv",
             name="Balcão",
         )
@@ -330,7 +331,7 @@ class PDVChannelFlowTests(TestCase):
     def _mk_order(self, ref, total_q):
         return Order.objects.create(
             ref=ref,
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=total_q,
             snapshot={"lifecycle": {"transitions": self._PDV_TRANSITIONS}},
@@ -368,10 +369,10 @@ class OrderEventAuditTests(TestCase):
     """Testes para auditoria de eventos do Order."""
 
     def setUp(self) -> None:
-        self.channel = Channel.objects.create(ref="test", name="Test")
+        self.channel = types.SimpleNamespace(ref="test", name="Test")
         self.order = Order.objects.create(
             ref="AUDIT-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=5000,
         )
@@ -425,10 +426,10 @@ class OrderItemTests(TestCase):
     """Testes para OrderItem."""
 
     def setUp(self) -> None:
-        self.channel = Channel.objects.create(ref="test", name="Test")
+        self.channel = types.SimpleNamespace(ref="test", name="Test")
         self.order = Order.objects.create(
             ref="ITEM-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=10000,
         )
@@ -493,13 +494,13 @@ class EdgeCaseTests(TestCase):
     """Testes para casos de borda e cenários extremos."""
 
     def setUp(self) -> None:
-        self.channel = Channel.objects.create(ref="test", name="Test")
+        self.channel = types.SimpleNamespace(ref="test", name="Test")
 
     def test_order_with_zero_total(self) -> None:
         """Order com total zero (promoção 100% off)."""
         order = Order.objects.create(
             ref="EDGE-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=0,
         )
@@ -511,7 +512,7 @@ class EdgeCaseTests(TestCase):
         """Order com valor muito alto."""
         order = Order.objects.create(
             ref="EDGE-002",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=99999999999,  # ~R$ 999 milhões
         )
@@ -522,7 +523,7 @@ class EdgeCaseTests(TestCase):
         """Order com referência externa longa."""
         order = Order.objects.create(
             ref="EDGE-003",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=1000,
             external_ref="x" * 128,  # max length
@@ -534,7 +535,7 @@ class EdgeCaseTests(TestCase):
         """Order com caracteres especiais no handle."""
         order = Order.objects.create(
             ref="EDGE-004",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=1000,
             handle_type="mesa",
@@ -547,7 +548,7 @@ class EdgeCaseTests(TestCase):
         """Simula transições quase simultâneas."""
         order = Order.objects.create(
             ref="EDGE-005",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=5000,
         )
@@ -565,13 +566,13 @@ class EdgeCaseTests(TestCase):
 
     def test_empty_channel_config(self) -> None:
         """Canal sem config usa defaults."""
-        empty_channel = Channel.objects.create(
+        empty_channel = types.SimpleNamespace(
             ref="empty",
             name="Empty Config",
         )
         order = Order.objects.create(
             ref="EDGE-006",
-            channel=empty_channel,
+            channel_ref=empty_channel.ref,
             status=Order.STATUS_NEW,
             total_q=1000,
         )
@@ -582,14 +583,14 @@ class EdgeCaseTests(TestCase):
 
     def test_empty_channel_config_with_get_transitions(self) -> None:
         """Canal com config vazio usa defaults (config={} é o default)."""
-        empty_config_channel = Channel.objects.create(
+        empty_config_channel = types.SimpleNamespace(
             ref="empty_config",
             name="Empty Config",
         )
 
         order = Order.objects.create(
             ref="EDGE-007",
-            channel=empty_config_channel,
+            channel_ref=empty_config_channel.ref,
             status=Order.STATUS_NEW,
             total_q=1000,
         )
@@ -606,13 +607,13 @@ class SessionToOrderFlowTests(TestCase):
     """Testes de fluxo Session → Order."""
 
     def setUp(self) -> None:
-        self.channel = Channel.objects.create(ref="flow", name="Flow Test")
+        self.channel = types.SimpleNamespace(ref="flow", name="Flow Test")
 
     def test_session_items_preserved_in_order_snapshot(self) -> None:
         """Items da Session são preservados no snapshot do Order."""
         session = Session.objects.create(
             session_key="SESS-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             items=[
                 {"line_id": "L-1", "sku": "A", "qty": 2, "unit_price_q": 1000},
                 {"line_id": "L-2", "sku": "B", "qty": 1, "unit_price_q": 500},
@@ -621,7 +622,7 @@ class SessionToOrderFlowTests(TestCase):
 
         order = Order.objects.create(
             ref="FLOW-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             session_key=session.session_key,
             status=Order.STATUS_NEW,
             total_q=2500,
@@ -635,14 +636,14 @@ class SessionToOrderFlowTests(TestCase):
         """Handle da Session é copiado para Order."""
         session = Session.objects.create(
             session_key="SESS-002",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             handle_type="comanda",
             handle_ref="42",
         )
 
         order = Order.objects.create(
             ref="FLOW-002",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             session_key=session.session_key,
             handle_type=session.handle_type,
             handle_ref=session.handle_ref,
@@ -659,10 +660,10 @@ class OrderSaveIntegrityTests(TestCase):
     """WP-H1: Testes de integridade garantida pelo save()."""
 
     def setUp(self) -> None:
-        self.channel = Channel.objects.create(ref="h1-test", name="H1 Test")
+        self.channel = types.SimpleNamespace(ref="h1-test", name="H1 Test")
         self.order = Order.objects.create(
             ref="H1-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=5000,
         )
@@ -751,13 +752,13 @@ class DispatchedDeliveryGuardTests(TestCase):
     """WP-ST2: Guard — dispatched is exclusive to delivery orders."""
 
     def setUp(self) -> None:
-        self.channel = Channel.objects.create(ref="guard-test", name="Guard Test")
+        self.channel = types.SimpleNamespace(ref="guard-test", name="Guard Test")
 
     def test_pickup_order_cannot_reach_dispatched(self) -> None:
         """Pickup order tentando ready→dispatched levanta InvalidTransition."""
         order = Order.objects.create(
             ref="GUARD-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=1000,
             data={"fulfillment_type": "pickup"},
@@ -775,7 +776,7 @@ class DispatchedDeliveryGuardTests(TestCase):
         """Delivery order pode transicionar ready→dispatched normalmente."""
         order = Order.objects.create(
             ref="GUARD-002",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=1000,
             data={"fulfillment_type": "delivery"},
@@ -791,7 +792,7 @@ class DispatchedDeliveryGuardTests(TestCase):
         """Order sem fulfillment_type (legado) não é bloqueado pelo guard."""
         order = Order.objects.create(
             ref="GUARD-003",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=1000,
             data={},  # sem fulfillment_type
@@ -807,7 +808,7 @@ class DispatchedDeliveryGuardTests(TestCase):
         """Order com chave legada delivery_method='delivery' pode ir para dispatched."""
         order = Order.objects.create(
             ref="GUARD-004",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=1000,
             data={"delivery_method": "delivery"},

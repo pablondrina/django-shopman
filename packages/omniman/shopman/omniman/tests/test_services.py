@@ -2,21 +2,22 @@
 
 from decimal import Decimal
 
+import types
 import pytest
 from django.test import TestCase
 
 from shopman.omniman.exceptions import CommitError, SessionError, ValidationError
-from shopman.omniman.models import Channel, Directive, Order, OrderItem, Session
+from shopman.omniman.models import Directive, Order, OrderItem, Session
 from shopman.omniman.services import CommitService, ModifyService, SessionWriteService
 
 
 @pytest.mark.django_db
 class TestModifyService(TestCase):
     def setUp(self):
-        self.channel = Channel.objects.create(ref="pos", name="PDV")
+        self.channel = types.SimpleNamespace(ref="pos", name="PDV")
         self.session = Session.objects.create(
             session_key="S-1",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
         )
 
     def test_add_line(self):
@@ -32,7 +33,7 @@ class TestModifyService(TestCase):
     def test_remove_line(self):
         session = Session.objects.create(
             session_key="S-2",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             items=[{"sku": "A", "qty": 1, "unit_price_q": 100}],
         )
         line_id = session.items[0]["line_id"]
@@ -46,7 +47,7 @@ class TestModifyService(TestCase):
     def test_set_qty(self):
         session = Session.objects.create(
             session_key="S-3",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             items=[{"sku": "A", "qty": 1, "unit_price_q": 100}],
         )
         line_id = session.items[0]["line_id"]
@@ -96,7 +97,7 @@ class TestModifyService(TestCase):
     def test_merge_lines(self):
         session = Session.objects.create(
             session_key="S-4",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             items=[
                 {"sku": "A", "qty": 2, "unit_price_q": 100},
                 {"sku": "A", "qty": 3, "unit_price_q": 100},
@@ -115,12 +116,12 @@ class TestModifyService(TestCase):
 @pytest.mark.django_db
 class TestCommitService(TestCase):
     def setUp(self):
-        self.channel = Channel.objects.create(ref="pos", name="PDV")
+        self.channel = types.SimpleNamespace(ref="pos", name="PDV")
 
     def test_commit_creates_order(self):
         Session.objects.create(
             session_key="S-1",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             items=[{"sku": "CROISSANT", "qty": 2, "unit_price_q": 1000}],
         )
         result = CommitService.commit(
@@ -138,17 +139,17 @@ class TestCommitService(TestCase):
     def test_commit_marks_session_committed(self):
         Session.objects.create(
             session_key="S-2",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             items=[{"sku": "A", "qty": 1, "unit_price_q": 500}],
         )
         CommitService.commit(session_key="S-2", channel_ref="pos", idempotency_key="IDEM-2")
-        session = Session.objects.get(session_key="S-2", channel=self.channel)
+        session = Session.objects.get(session_key="S-2", channel_ref=self.channel.ref)
         assert session.state == "committed"
 
     def test_commit_idempotency(self):
         Session.objects.create(
             session_key="S-3",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             items=[{"sku": "A", "qty": 1, "unit_price_q": 500}],
         )
         r1 = CommitService.commit(session_key="S-3", channel_ref="pos", idempotency_key="IDEM-3")
@@ -156,17 +157,17 @@ class TestCommitService(TestCase):
         assert r1["order_ref"] == r2["order_ref"]
 
     def test_commit_empty_session_raises(self):
-        Session.objects.create(session_key="S-4", channel=self.channel)
+        Session.objects.create(session_key="S-4", channel_ref=self.channel.ref)
         with pytest.raises(CommitError, match="empty_session"):
             CommitService.commit(session_key="S-4", channel_ref="pos", idempotency_key="IDEM-4")
 
     def test_commit_blocking_issues_raises(self):
         Session.objects.create(
             session_key="S-5",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             items=[{"sku": "A", "qty": 1, "unit_price_q": 100}],
         )
-        session = Session.objects.get(session_key="S-5", channel=self.channel)
+        session = Session.objects.get(session_key="S-5", channel_ref=self.channel.ref)
         session.data = {"issues": [{"id": "ISS-1", "source": "stock", "blocking": True, "message": "Sem estoque"}]}
         session.save()
         with pytest.raises(CommitError, match="blocking_issues"):
@@ -174,10 +175,10 @@ class TestCommitService(TestCase):
 
     def test_commit_no_directives_from_core(self):
         """CommitService does not create directives — that's hooks.py's job."""
-        channel = Channel.objects.create(ref="bare", name="Bare")
+        channel = types.SimpleNamespace(ref="bare", name="Bare")
         Session.objects.create(
             session_key="S-BARE-1",
-            channel=channel,
+            channel_ref=channel.ref,
             items=[{"sku": "A", "qty": 1, "unit_price_q": 500}],
         )
         result = CommitService.commit(
@@ -191,13 +192,13 @@ class TestCommitService(TestCase):
 
     def test_commit_marketplace_no_directives(self):
         """Marketplace channel: CommitService creates no directives."""
-        channel = Channel.objects.create(
+        channel = types.SimpleNamespace(
             ref="mktplace",
             name="Marketplace",
         )
         Session.objects.create(
             session_key="S-MKT-1",
-            channel=channel,
+            channel_ref=channel.ref,
             items=[{"sku": "PIZZA", "qty": 1, "unit_price_q": 3500}],
         )
         result = CommitService.commit(
@@ -214,10 +215,10 @@ class TestCommitService(TestCase):
 @pytest.mark.django_db
 class TestSessionWriteService(TestCase):
     def setUp(self):
-        self.channel = Channel.objects.create(ref="pos", name="PDV")
+        self.channel = types.SimpleNamespace(ref="pos", name="PDV")
 
     def test_apply_check_result(self):
-        session = Session.objects.create(session_key="S-1", channel=self.channel)
+        session = Session.objects.create(session_key="S-1", channel_ref=self.channel.ref)
         result = SessionWriteService.apply_check_result(
             session_key="S-1",
             channel_ref="pos",
@@ -231,7 +232,7 @@ class TestSessionWriteService(TestCase):
         assert "stock" in session.data.get("checks", {})
 
     def test_stale_rev_returns_false(self):
-        Session.objects.create(session_key="S-2", channel=self.channel, rev=5)
+        Session.objects.create(session_key="S-2", channel_ref=self.channel.ref, rev=5)
         result = SessionWriteService.apply_check_result(
             session_key="S-2",
             channel_ref="pos",

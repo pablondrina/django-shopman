@@ -189,7 +189,7 @@ def tomorrow():
 @pytest.fixture
 def channel(db):
     """Create a test channel."""
-    from shopman.omniman.models import Channel
+    from shopman.models import Channel
 
     return Channel.objects.create(
         ref="loja",
@@ -200,7 +200,7 @@ def channel(db):
 @pytest.fixture
 def ifood_channel(db):
     """Create iFood channel."""
-    from shopman.omniman.models import Channel
+    from shopman.models import Channel
 
     return Channel.objects.create(
         ref="ifood",
@@ -215,7 +215,7 @@ def session(db, channel):
 
     return Session.objects.create(
         session_key="TEST-SESSION-001",
-        channel=channel,
+        channel_ref=channel.ref,
         state="open",
         items=[],
     )

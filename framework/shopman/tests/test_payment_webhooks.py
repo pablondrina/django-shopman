@@ -18,11 +18,12 @@ from unittest.mock import MagicMock, patch
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
-from shopman.omniman.models import Channel, Order, Session
+from shopman.omniman.models import Order, Session
 from shopman.omniman.ids import generate_session_key, generate_idempotency_key
 from shopman.omniman.services.commit import CommitService
 from shopman.omniman.services.modify import ModifyService
 from shopman.payman import PaymentService
+from shopman.models import Channel
 
 STRIPE_SETTINGS = {
     "SECRET_KEY": "sk_test_fake",
@@ -41,7 +42,7 @@ def _create_order_with_payment(channel_ref: str = "web", payment_method: str = "
     session_key = generate_session_key()
     Session.objects.create(
         session_key=session_key,
-        channel=Channel.objects.get(ref=channel_ref),
+        channel_ref=channel_ref,
         state="open",
         pricing_policy="fixed",
         edit_policy="open",
@@ -65,7 +66,7 @@ def _create_order_with_payment(channel_ref: str = "web", payment_method: str = "
         idempotency_key=generate_idempotency_key(),
         ctx={"actor": "test"},
     )
-    return Order.objects.select_related("channel").get(ref=result["order_ref"])
+    return Order.objects.get(ref=result["order_ref"])
 
 
 def _create_pix_intent(order: Order) -> object:

@@ -8,8 +8,9 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from shopman.omniman.ids import generate_session_key
-from shopman.omniman.models import Channel, Session
+from shopman.omniman.models import Session
 from shopman.omniman.services.modify import ModifyService
+from shopman.models import Channel
 
 
 def _make_channel():
@@ -24,7 +25,7 @@ def _make_session(items=None):
     session_key = generate_session_key()
     session = Session.objects.create(
         session_key=session_key,
-        channel=channel,
+        channel_ref=channel.ref,
         state="open",
         pricing_policy="fixed",
         edit_policy="open",

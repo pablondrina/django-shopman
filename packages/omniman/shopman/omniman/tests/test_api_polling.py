@@ -4,13 +4,14 @@ Tests for api/polling module (order polling endpoint).
 
 from __future__ import annotations
 
+import types
 import json
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, RequestFactory
 
 from shopman.omniman.api.polling import order_stream_view
-from shopman.omniman.models import Channel, Order
+from shopman.omniman.models import Order
 
 User = get_user_model()
 
@@ -20,7 +21,7 @@ class OrderStreamViewTests(TestCase):
 
     def setUp(self) -> None:
         self.factory = RequestFactory()
-        self.channel = Channel.objects.create(
+        self.channel = types.SimpleNamespace(
             ref="sse-test",
             name="SSE Test Channel",
         )
@@ -34,7 +35,7 @@ class OrderStreamViewTests(TestCase):
     def _create_order(self, ref, **kwargs):
         """Helper to create an Order (items are related model, not field)."""
         defaults = {
-            "channel": self.channel,
+            "channel_ref": self.channel.ref,
             "status": "new",
             "total_q": 0,  # Required field
         }
@@ -89,7 +90,7 @@ class OrderStreamViewTests(TestCase):
         self.assertEqual(len(data["orders"]), 1)
         self.assertEqual(data["orders"][0]["ref"], "ORD-SSE-011")
         self.assertEqual(data["orders"][0]["status"], "confirmed")
-        self.assertEqual(data["orders"][0]["channel"], "SSE Test Channel")
+        self.assertEqual(data["orders"][0]["channel"], "sse-test")
         self.assertEqual(data["orders"][0]["total"], "25.0")
         self.assertEqual(data["orders"][0]["handle_ref"], "TABLE-5")
         self.assertEqual(data["last_id"], order2.id)

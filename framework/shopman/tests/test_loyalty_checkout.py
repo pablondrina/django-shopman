@@ -15,8 +15,9 @@ from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
 
+from shopman.models import Channel
 from shopman.omniman.ids import generate_session_key
-from shopman.omniman.models import Channel, Session
+from shopman.omniman.models import Session
 from shopman.omniman.services.modify import ModifyService
 
 
@@ -35,7 +36,7 @@ def _make_session(channel_ref="balcao", items=None):
     session_key = generate_session_key()
     session = Session.objects.create(
         session_key=session_key,
-        channel=channel,
+        channel_ref=channel.ref,
         state="open",
         pricing_policy="fixed",
         edit_policy="open",
@@ -133,7 +134,7 @@ class LoyaltyRedeemHandlerTests(TestCase):
         channel = _make_channel()
         order = Order.objects.create(
             ref="LYL-001",
-            channel=channel,
+            channel_ref=channel.ref,
             status="new",
             handle_type="phone",
             handle_ref=customer.phone,
@@ -175,7 +176,7 @@ class CheckoutLoyaltyContextTests(TestCase):
         super().setUp()
         from shopman.models import Shop
         Shop.objects.create(name="Test Shop", brand_name="Test")
-        from shopman.omniman.models import Channel
+        from shopman.models import Channel
         Channel.objects.create(
             ref="web",
             name="Web",

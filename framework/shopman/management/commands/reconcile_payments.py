@@ -79,7 +79,7 @@ class Command(BaseCommand):
         pending = Order.objects.filter(
             status=Order.Status.CONFIRMED,
             created_at__lt=cutoff,
-        ).select_related("channel")
+        )
 
         if not pending.exists():
             self.stdout.write("Nenhum pedido pending_payment encontrado para reconciliar.")

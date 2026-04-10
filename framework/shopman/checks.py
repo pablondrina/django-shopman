@@ -134,15 +134,15 @@ def check_fiscal_adapter(app_configs, **kwargs):
     if fiscal_adapter:
         return warnings
 
-    from shopman.models import ChannelConfigRecord
+    from shopman.models import Channel
 
-    for record in ChannelConfigRecord.objects.all():
-        data = record.data or {}
+    for channel in Channel.objects.all():
+        data = channel.config or {}
         fiscal = data.get("fiscal", {})
         if fiscal.get("enabled"):
             warnings.append(
                 Warning(
-                    f"Canal '{record.channel_ref}' tem fiscal ativo mas nenhum adapter fiscal está configurado.",
+                    f"Canal '{channel.ref}' tem fiscal ativo mas nenhum adapter fiscal está configurado.",
                     hint="Defina SHOPMAN_FISCAL_ADAPTER em settings ou desative fiscal neste canal.",
                     id="SHOPMAN_W003",
                 )

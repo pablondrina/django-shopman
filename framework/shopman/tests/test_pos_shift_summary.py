@@ -13,7 +13,7 @@ def _make_shop():
 
 
 def _make_channel():
-    from shopman.omniman.models import Channel
+    from shopman.models import Channel
     return Channel.objects.get_or_create(
         ref="balcao",
         defaults={"name": "Balcão", "is_active": True},
@@ -24,7 +24,7 @@ def _make_order(channel, ref, total_q, status="confirmed"):
     from shopman.omniman.models import Order
     return Order.objects.create(
         ref=ref,
-        channel=channel,
+        channel_ref=channel.ref,
         status=status,
         total_q=total_q,
         handle_type="pos",

@@ -19,7 +19,7 @@ def _make_order(**overrides):
     order.snapshot = overrides.get("snapshot", {"items": [], "data": {}})
     channel = MagicMock()
     channel.ref = "web"
-    order.channel = channel
+    order.channel_ref = channel.ref
     return order
 
 

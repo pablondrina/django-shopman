@@ -183,7 +183,7 @@ class CommitService:
         try:
             session = Session.objects.select_for_update().get(
                 session_key=session_key,
-                channel__ref=channel_ref,
+                channel_ref=channel_ref,
             )
         except Session.DoesNotExist:
             raise SessionError(
@@ -191,12 +191,13 @@ class CommitService:
                 message=f"Sessão não encontrada: {channel_ref}:{session_key}",
             )
 
-        channel = session.channel
+        import types
+        channel = types.SimpleNamespace(ref=channel_ref, config={})
 
         # Validate session is open
         if session.state == "committed":
             # Return existing order (idempotency)
-            order = Order.objects.filter(session_key=session_key, channel=channel).first()
+            order = Order.objects.filter(session_key=session_key, channel_ref=channel_ref).first()
             if order:
                 return {"order_ref": order.ref, "status": "already_committed"}
             raise CommitError(code="already_committed", message="Sessão já foi fechada")
@@ -300,7 +301,7 @@ class CommitService:
         # Create Order + OrderItems
         order = Order.objects.create(
             ref=generate_order_ref(),
-            channel=channel,
+            channel_ref=channel_ref,
             session_key=session_key,
             handle_type=session.handle_type,
             handle_ref=session.handle_ref,

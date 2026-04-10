@@ -6,7 +6,8 @@ from decimal import Decimal
 from django.http import HttpRequest
 
 from shopman.omniman.ids import generate_session_key
-from shopman.omniman.models import Channel, Session
+from shopman.models import Channel
+from shopman.omniman.models import Session
 from shopman.omniman.services.modify import ModifyService
 from shopman.services import availability
 from shopman.utils.monetary import format_money
@@ -59,7 +60,7 @@ class CartService:
             try:
                 ordering_session = Session.objects.get(
                     session_key=session_key,
-                    channel=channel,
+                    channel_ref=channel.ref,
                     state="open",
                 )
                 return ordering_session, session_key
@@ -74,7 +75,7 @@ class CartService:
         config = ChannelConfig.for_channel(channel)
         ordering_session = Session.objects.create(
             session_key=session_key,
-            channel=channel,
+            channel_ref=channel.ref,
             pricing_policy=config.pricing.policy,
             edit_policy=config.editing.policy,
             data={"origin_channel": origin_channel},
@@ -214,7 +215,7 @@ class CartService:
         try:
             session = Session.objects.get(
                 session_key=session_key,
-                channel=channel,
+                channel_ref=channel.ref,
                 state="open",
             )
         except Session.DoesNotExist:
@@ -241,7 +242,7 @@ class CartService:
         try:
             session = Session.objects.get(
                 session_key=session_key,
-                channel=channel,
+                channel_ref=channel.ref,
                 state="open",
             )
         except Session.DoesNotExist:
@@ -428,7 +429,7 @@ class CartService:
         # Store coupon in session data and re-run modifiers
         channel = CartService._get_channel()
         try:
-            session = Session.objects.get(session_key=session_key, channel=channel, state="open")
+            session = Session.objects.get(session_key=session_key, channel_ref=channel.ref, state="open")
         except Session.DoesNotExist:
             return {"ok": False, "error": "no_cart"}
 
@@ -455,7 +456,7 @@ class CartService:
 
         channel = CartService._get_channel()
         try:
-            session = Session.objects.get(session_key=session_key, channel=channel, state="open")
+            session = Session.objects.get(session_key=session_key, channel_ref=channel.ref, state="open")
         except Session.DoesNotExist:
             return {"ok": False, "error": "no_cart"}
 
@@ -488,7 +489,7 @@ class CartService:
         try:
             session = Session.objects.get(
                 session_key=session_key,
-                channel=channel,
+                channel_ref=channel.ref,
                 state="open",
             )
             session.state = "abandoned"

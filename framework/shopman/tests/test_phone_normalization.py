@@ -16,8 +16,9 @@ from django.test import TestCase
 
 from shopman.guestman.models import ContactPoint, Customer
 from shopman.guestman.services import customer as customer_service
-from shopman.omniman.models import Channel, Order
+from shopman.omniman.models import Order
 from shopman.utils.phone import normalize_phone
+from shopman.models import Channel
 
 pytestmark = pytest.mark.django_db
 
@@ -142,7 +143,7 @@ class TestOrderHandleRefPhoneLookup(TestCase):
         )
         self.order = Order.objects.create(
             ref="ORD-PHONE-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status="new",
             total_q=1000,
             handle_type="phone",

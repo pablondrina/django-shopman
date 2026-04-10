@@ -54,7 +54,7 @@ class ModifyService:
         try:
             session = Session.objects.select_for_update().get(
                 session_key=session_key,
-                channel__ref=channel_ref,
+                channel_ref=channel_ref,
             )
         except Session.DoesNotExist as exc:
             raise SessionError(
@@ -62,31 +62,32 @@ class ModifyService:
                 message=f"Sessão não encontrada: {channel_ref}:{session_key}",
             ) from exc
 
-        channel = session.channel
+        import types
+        channel = types.SimpleNamespace(ref=channel_ref, config={})
 
         if session.state == "committed":
             raise SessionError(
                 code="already_committed",
                 message="Esta sessão já foi finalizada e não pode mais ser alterada.",
-                context={"session_key": session_key, "channel": channel.name or channel.ref},
+                context={"session_key": session_key, "channel": channel_ref},
             )
         if session.state == "abandoned":
             raise SessionError(
                 code="already_abandoned",
                 message="Esta sessão foi abandonada e não pode mais ser alterada.",
-                context={"session_key": session_key, "channel": channel.name or channel.ref},
+                context={"session_key": session_key, "channel": channel_ref},
             )
 
         if session.edit_policy == "locked":
             raise SessionError(
                 code="locked",
                 message=(
-                    f"Pedidos do canal '{channel.name or channel.ref}' não podem ser editados. "
+                    f"Pedidos do canal '{channel_ref}' não podem ser editados. "
                     "Este canal recebe pedidos prontos de uma plataforma externa."
                 ),
                 context={
                     "session_key": session_key,
-                    "channel": channel.name or channel.ref,
+                    "channel": channel_ref,
                     "edit_policy": session.edit_policy,
                 },
             )

@@ -34,7 +34,7 @@ import logging
 from decimal import Decimal
 
 from shopman.adapters import get_adapter
-from shopman.omniman.models import Channel
+from shopman.models import Channel
 
 from . import alternatives
 

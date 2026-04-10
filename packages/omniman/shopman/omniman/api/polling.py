@@ -33,7 +33,6 @@ def order_stream_view(request):
 
         new_orders = list(
             Order.objects.filter(id__gt=since_id)
-            .select_related("channel")
             .order_by("id")[:10]
         )
 
@@ -41,7 +40,7 @@ def order_stream_view(request):
             {
                 "id": order.id,
                 "ref": order.ref,
-                "channel": order.channel.name if order.channel else None,
+                "channel": order.channel_ref,
                 "status": order.status,
                 "total": str(order.total_q / 100) if order.total_q else "0",
                 "created_at": order.created_at.isoformat() if order.created_at else None,

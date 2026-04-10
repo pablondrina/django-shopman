@@ -16,8 +16,9 @@ from django.test import TestCase
 
 from shopman.offerman.models import Product
 from shopman.omniman.ids import generate_session_key
-from shopman.omniman.models import Channel, Session
+from shopman.omniman.models import Session
 from shopman.omniman.services.modify import ModifyService
+from shopman.models import Channel
 
 
 def _make_session_with_pricing(sku: str, qty: int, unit_price_q: int, pricing_extra: dict | None = None) -> Session:
@@ -26,7 +27,7 @@ def _make_session_with_pricing(sku: str, qty: int, unit_price_q: int, pricing_ex
     session_key = generate_session_key()
     session = Session.objects.create(
         session_key=session_key,
-        channel=channel,
+        channel_ref=channel.ref,
         state="open",
         pricing_policy="fixed",
         edit_policy="open",

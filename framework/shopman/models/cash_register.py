@@ -66,7 +66,7 @@ class CashRegisterSession(models.Model):
         # Cash sales during this session
         cash_sales_q = (
             Order.objects.filter(
-                channel__ref="balcao",
+                channel_ref="balcao",
                 created_at__gte=self.opened_at,
                 created_at__lte=timezone.now(),
             )

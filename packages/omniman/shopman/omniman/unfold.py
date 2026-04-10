@@ -19,7 +19,7 @@ def _icon_for_kind(kind: str) -> str:
 
 def _order_items_by_channel():
     """Itens do grupo 'Pedidos' (dinâmico por Channel ativo)."""
-    from shopman.omniman.models import Channel
+    from shopman.models import Channel
 
     items = [
         # Default operacional: cair em "Novos"

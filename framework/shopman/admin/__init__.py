@@ -1,8 +1,8 @@
-"""Shopman admin — Unfold admin for shop, rules, orders, alerts, KDS, closing, cash, channel config, dashboard."""
+"""Shopman admin — Unfold admin for shop, rules, orders, alerts, KDS, closing, cash, channel, dashboard."""
 
 from shopman.admin.alerts import OperatorAlertAdmin  # noqa: F401
 from shopman.admin.cash_register import CashRegisterSessionAdmin  # noqa: F401
-from shopman.admin.channel_config import ChannelConfigAdmin  # noqa: F401
+from shopman.admin.channel import ChannelAdmin  # noqa: F401
 from shopman.admin.closing import DayClosingAdmin  # noqa: F401
 from shopman.admin.kds import KDSInstanceAdmin  # noqa: F401
 from shopman.admin.orders import (  # noqa: F401

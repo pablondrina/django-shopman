@@ -20,18 +20,14 @@ from shopman.omniman.models import Directive, Order
 
 
 def _make_order(**overrides):
-    """Create a mock Order with channel."""
+    """Create a mock Order with channel_ref."""
     order = MagicMock()
     order.ref = overrides.get("ref", "ORD-001")
     order.total_q = overrides.get("total_q", 5000)
     order.status = overrides.get("status", "new")
     order.data = overrides.get("data", {})
     order.snapshot = overrides.get("snapshot", {"items": [], "data": {}})
-
-    channel = MagicMock()
-    channel.ref = overrides.get("channel_ref", "web")
-    channel.name = "Web"
-    order.channel = channel
+    order.channel_ref = overrides.get("channel_ref", "web")
 
     return order
 
@@ -574,7 +570,7 @@ class TestChannelConfigIntegration:
     """
 
     def _make_real_channel(self, ref="test-web"):
-        from shopman.omniman.models import Channel
+        from shopman.models import Channel
         return Channel.objects.create(ref=ref, name=f"Test {ref}")
 
     @patch("shopman.flows.loyalty")
@@ -589,7 +585,7 @@ class TestChannelConfigIntegration:
         order.ref = "ORD-CFG-1"
         order.snapshot = {"items": []}
         order.data = {}
-        order.channel = channel
+        order.channel_ref = channel.ref
 
         dispatch(order, "on_commit")
         order.transition_status.assert_called_once_with(
@@ -616,7 +612,7 @@ class TestChannelConfigIntegration:
         order.ref = "ORD-CFG-2"
         order.snapshot = {"items": []}
         order.data = {}
-        order.channel = channel
+        order.channel_ref = channel.ref
 
         dispatch(order, "on_commit")
 
@@ -646,7 +642,7 @@ class TestChannelConfigIntegration:
         order.ref = "ORD-CFG-4"
         order.snapshot = {"items": []}
         order.data = {}
-        order.channel = channel
+        order.channel_ref = channel.ref
 
         dispatch(order, "on_commit")
         order.transition_status.assert_not_called()

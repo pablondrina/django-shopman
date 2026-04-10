@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 def _get_channel_listing_ref() -> str | None:
     """Ref da Listagem do canal web — por convenção, igual ao ref do canal."""
     try:
-        from shopman.omniman.models import Channel
+        from shopman.models import Channel
 
         channel = Channel.objects.filter(ref=STOREFRONT_CHANNEL_REF).first()
         return channel.ref if channel else None
@@ -151,7 +151,8 @@ def _storefront_session_pricing_hints(request: HttpRequest | None) -> tuple[str,
     if request is None:
         return "", 0
     try:
-        from shopman.omniman.models import Channel, Session
+        from shopman.models import Channel
+        from shopman.omniman.models import Session
 
         key = request.session.get("cart_session_key")
         if not key:
@@ -161,7 +162,7 @@ def _storefront_session_pricing_hints(request: HttpRequest | None) -> tuple[str,
             return "", 0
         sess = Session.objects.filter(
             session_key=key,
-            channel=ch,
+            channel_ref=ch.ref,
             state="open",
         ).first()
         if not sess:
@@ -635,7 +636,7 @@ def _min_order_progress(subtotal_q: int, channel_ref: str = STOREFRONT_CHANNEL_R
     minimum_q = 0
     try:
         from shopman.config import ChannelConfig
-        from shopman.omniman.models import Channel
+        from shopman.models import Channel
 
         channel = Channel.objects.filter(ref=channel_ref).first()
         if channel:

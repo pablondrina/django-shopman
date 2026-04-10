@@ -1376,7 +1376,7 @@ class Command(BaseCommand):
 
                 order = Order.objects.create(
                     ref=ref,
-                    channel=channel,
+                    channel_ref=channel.ref,
                     status=status,
                     total_q=total_q,
                     handle_type="phone",
@@ -1477,7 +1477,7 @@ class Command(BaseCommand):
 
             order = Order.objects.create(
                 ref=ref,
-                channel=channel,
+                channel_ref=channel.ref,
                 status=live_status,
                 total_q=total_q,
                 handle_type="phone",
@@ -1572,7 +1572,7 @@ class Command(BaseCommand):
             cfg = ChannelConfig.for_channel(ch)
             Session.objects.create(
                 session_key=generate_session_key(),
-                channel=ch,
+                channel_ref=ch.ref,
                 state="open",
                 pricing_policy=cfg.pricing.policy,
                 edit_policy=cfg.editing.policy,

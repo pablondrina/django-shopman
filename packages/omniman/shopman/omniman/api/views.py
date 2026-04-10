@@ -35,13 +35,12 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 
 from shopman.omniman.conf import get_omniman_setting
-from shopman.omniman.models import Channel, Directive, Order, Session
+from shopman.omniman.models import Directive, Order, Session
 from shopman.omniman.services import CommitService, ModifyService, ResolveService
 from shopman.omniman.ids import generate_idempotency_key, generate_session_key
 from shopman.omniman.exceptions import CommitError, IssueResolveError, SessionError, ValidationError
 
 from .serializers import (
-    ChannelSerializer,
     DirectiveSerializer,
     OrderSerializer,
     SessionSerializer,
@@ -97,7 +96,7 @@ class ModifyRateThrottle(UserRateThrottle):
 
 class ChannelViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    ViewSet para canais de venda.
+    ViewSet para canais de venda (shopman.Channel).
 
     Endpoints:
         GET /api/channels - Lista todos os canais
@@ -106,8 +105,23 @@ class ChannelViewSet(viewsets.ReadOnlyModelViewSet):
     Canais são read-only via API. Configuração é feita via admin.
     """
 
-    queryset = Channel.objects.all()
-    serializer_class = ChannelSerializer
+    @property
+    def queryset(self):
+        from shopman.models import Channel
+        return Channel.objects.all()
+
+    @property
+    def serializer_class(self):
+        from rest_framework import serializers as drf_serializers
+        from shopman.models import Channel
+
+        class ChannelSerializer(drf_serializers.ModelSerializer):
+            class Meta:
+                model = Channel
+                fields = ("id", "ref", "name", "kind", "display_order", "is_active")
+
+        return ChannelSerializer
+
     permission_classes = get_omniman_setting("DEFAULT_PERMISSION_CLASSES")
     throttle_classes = [AnonRateThrottle, UserRateThrottle]
 
@@ -133,7 +147,7 @@ class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
         - Operações de commit têm rate limit específico (CommitRateThrottle)
     """
 
-    queryset = Session.objects.select_related("channel").all()
+    queryset = Session.objects.all()
     serializer_class = SessionSerializer
     permission_classes = get_omniman_setting("DEFAULT_PERMISSION_CLASSES")
     pagination_class = OrderingCursorPagination
@@ -146,7 +160,7 @@ class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
         qs = super().get_queryset()
         channel_ref = self.request.query_params.get("channel_ref")
         if channel_ref:
-            qs = qs.filter(channel__ref=channel_ref)
+            qs = qs.filter(channel_ref=channel_ref)
         return qs
 
     def _get_channel_ref_from_request(self) -> str | None:
@@ -168,9 +182,9 @@ class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
 
         channel_ref = self._get_channel_ref_from_request()
 
-        qs = Session.objects.select_related("channel").filter(session_key=session_key)
+        qs = Session.objects.filter(session_key=session_key)
         if channel_ref:
-            qs = qs.filter(channel__ref=channel_ref)
+            qs = qs.filter(channel_ref=channel_ref)
 
         matches = list(qs[:2])
         if not matches:
@@ -184,16 +198,16 @@ class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
     def create(self, request, *args, **kwargs):
         s = SessionCreateSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        channel: Channel = s.validated_data["channel"]
+        channel_ref: str = s.validated_data["channel_ref"]
 
         handle_type = s.validated_data.get("handle_type")
         handle_ref = s.validated_data.get("handle_ref")
 
-        # v0.5.4+ (ainda válido): get-or-open por owner quando owner_* é usado.
+        # get-or-open por owner quando handle_type+handle_ref é usado.
         if handle_type and handle_ref:
             existing = (
                 Session.objects.filter(
-                    channel=channel,
+                    channel_ref=channel_ref,
                     handle_type=handle_type,
                     handle_ref=handle_ref,
                     state="open",
@@ -208,7 +222,7 @@ class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
 
         session = Session.objects.create(
             session_key=session_key,
-            channel=channel,
+            channel_ref=channel_ref,
             handle_type=handle_type,
             handle_ref=handle_ref,
             state="open",
@@ -222,14 +236,14 @@ class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
     def modify(self, request, *args, **kwargs):
         s = SessionModifySerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        channel: Channel = s.validated_data["channel"]
+        channel_ref: str = s.validated_data["channel_ref"]
         ops = s.validated_data["ops"]
 
         session_key = self.kwargs[self.lookup_url_kwarg or self.lookup_field]
         try:
             updated = ModifyService.modify_session(
                 session_key=session_key,
-                channel_ref=channel.ref,
+                channel_ref=channel_ref,
                 ops=ops,
                 ctx={"actor": _get_actor(request)},
             )
@@ -242,7 +256,7 @@ class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
     def resolve(self, request, *args, **kwargs):
         s = SessionResolveSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        channel: Channel = s.validated_data["channel"]
+        channel_ref: str = s.validated_data["channel_ref"]
         issue_id = s.validated_data["issue_id"]
         action_id = s.validated_data["action_id"]
 
@@ -250,7 +264,7 @@ class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
         try:
             updated = ResolveService.resolve(
                 session_key=session_key,
-                channel_ref=channel.ref,
+                channel_ref=channel_ref,
                 issue_id=issue_id,
                 action_id=action_id,
                 ctx={"actor": _get_actor(request)},
@@ -293,7 +307,7 @@ class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
         """
         s = SessionCommitSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        channel: Channel = s.validated_data["channel"]
+        channel_ref: str = s.validated_data["channel_ref"]
         idempotency_key = s.validated_data.get("idempotency_key") or generate_idempotency_key()
 
         session_key = self.kwargs[self.lookup_url_kwarg or self.lookup_field]
@@ -302,7 +316,7 @@ class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
             "Commit requested",
             extra={
                 "session_key": session_key,
-                "channel_ref": channel.ref,
+                "channel_ref": channel_ref,
                 "idempotency_key": idempotency_key,
                 "actor": _get_actor(request),
             },
@@ -311,7 +325,7 @@ class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
         try:
             result = CommitService.commit(
                 session_key=session_key,
-                channel_ref=channel.ref,
+                channel_ref=channel_ref,
                 idempotency_key=idempotency_key,
                 ctx={"actor": _get_actor(request)},
             )
@@ -320,7 +334,7 @@ class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
                 "Commit failed",
                 extra={
                     "session_key": session_key,
-                    "channel_ref": channel.ref,
+                    "channel_ref": channel_ref,
                     "error_code": e.code,
                     "error_message": e.message,
                 },
@@ -331,7 +345,7 @@ class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
             "Commit successful",
             extra={
                 "session_key": session_key,
-                "channel_ref": channel.ref,
+                "channel_ref": channel_ref,
                 "order_ref": result.get("order_ref"),
             },
         )
@@ -352,7 +366,7 @@ class OrderViewSet(viewsets.ReadOnlyModelViewSet):
     são feitas via admin ou transições programáticas.
     """
 
-    queryset = Order.objects.select_related("channel").all()
+    queryset = Order.objects.all()
     serializer_class = OrderSerializer
     permission_classes = get_omniman_setting("DEFAULT_PERMISSION_CLASSES")
     pagination_class = OrderingCursorPagination

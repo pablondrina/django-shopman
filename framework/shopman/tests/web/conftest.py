@@ -10,7 +10,8 @@ from django.core.cache import cache
 from shopman.guestman.models import Customer, CustomerAddress
 from shopman.models import Shop
 from shopman.offerman.models import Collection, CollectionItem, Listing, ListingItem, Product
-from shopman.omniman.models import Channel, Order, OrderItem
+from shopman.omniman.models import Order, OrderItem
+from shopman.models import Channel
 
 
 @pytest.fixture(autouse=True)
@@ -132,7 +133,7 @@ def channel(db):
 def order(channel):
     return Order.objects.create(
         ref="ORD-001",
-        channel=channel,
+        channel_ref=channel.ref,
         status="new",
         total_q=1600,
         handle_type="phone",
@@ -145,7 +146,7 @@ def order(channel):
 def order_with_payment(channel):
     return Order.objects.create(
         ref="ORD-PAY-001",
-        channel=channel,
+        channel_ref=channel.ref,
         status="new",
         total_q=2500,
         handle_type="phone",
@@ -165,7 +166,7 @@ def order_with_payment(channel):
 def order_paid(channel):
     return Order.objects.create(
         ref="ORD-PAID-001",
-        channel=channel,
+        channel_ref=channel.ref,
         status="confirmed",
         total_q=2500,
         handle_type="phone",

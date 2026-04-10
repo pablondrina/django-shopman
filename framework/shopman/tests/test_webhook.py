@@ -16,7 +16,8 @@ pytestmark = pytest.mark.skip(reason="Manychat webhook moved — pending reimple
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
-from shopman.omniman.models import Channel, Order, Session
+from shopman.omniman.models import Order, Session
+from shopman.models import Channel
 
 WEBHOOK_SETTINGS = {
     "AUTH_TOKEN": "test-secret-token",
@@ -63,7 +64,7 @@ class ManychatWebhookTests(TestCase):
 
         # Verify session was created
         session = Session.objects.get(
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             handle_type="subscriber",
             handle_ref="12345",
         )
@@ -90,7 +91,7 @@ class ManychatWebhookTests(TestCase):
         })
 
         sessions = Session.objects.filter(
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             handle_type="subscriber",
             handle_ref="12345",
             state="open",

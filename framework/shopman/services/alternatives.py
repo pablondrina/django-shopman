@@ -56,7 +56,7 @@ def find(sku: str, *, qty: Decimal = Decimal("1"), channel: str | None = None, l
     # Build price map via listing
     price_map: dict[str, int] = {}
     try:
-        from shopman.omniman.models import Channel
+        from shopman.models import Channel
 
         channel_obj = Channel.objects.filter(ref=channel_ref).first()
         listing_ref = channel_obj.ref if channel_obj else None

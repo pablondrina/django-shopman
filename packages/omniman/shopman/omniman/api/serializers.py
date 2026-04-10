@@ -2,24 +2,15 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
-from shopman.omniman.models import Channel, Directive, Order, Session
-
-
-class ChannelSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Channel
-        fields = ("id", "ref", "name", "kind", "display_order", "is_active")
+from shopman.omniman.models import Directive, Order, Session
 
 
 class SessionSerializer(serializers.ModelSerializer):
-    channel_ref = serializers.CharField(source="channel.ref", read_only=True)
-
     class Meta:
         model = Session
         fields = (
             "id",
             "session_key",
-            "channel",
             "channel_ref",
             "handle_type",
             "handle_ref",
@@ -39,19 +30,12 @@ class SessionCreateSerializer(serializers.Serializer):
     """
     POST /api/sessions
 
-    v0.5.7 (Core do framework): permite abrir/criar sessão.
-    v0.5.8: permanece válido (não conflita com kernel minimalista).
-
     Notas:
-    - `channel_ref` usa SlugRelatedField para renderizar <select> na Browsable API.
+    - `channel_ref` é validado pelo framework (via views). O kernel aceita qualquer string.
     - Se `handle_type` e `handle_ref` forem enviados, a API tenta get-or-open (1 sessão open por owner).
     """
 
-    channel_ref = serializers.SlugRelatedField(
-        slug_field="ref",
-        queryset=Channel.objects.all(),
-        source="channel",
-    )
+    channel_ref = serializers.CharField(max_length=64)
     session_key = serializers.CharField(required=False, allow_blank=False, max_length=64)
     handle_type = serializers.CharField(required=False, allow_blank=False, max_length=32)
     handle_ref = serializers.CharField(required=False, allow_blank=False, max_length=64)
@@ -204,26 +188,16 @@ class SessionModifySerializer(serializers.Serializer):
     Aplica operações a uma sessão. Operações são validadas individualmente.
     """
 
-    channel_ref = serializers.SlugRelatedField(
-        slug_field="ref",
-        queryset=Channel.objects.all(),
-        source="channel",
-    )
+    channel_ref = serializers.CharField(max_length=64)
     ops = serializers.ListField(child=OperationSerializer(), allow_empty=False)
 
 
 class SessionResolveSerializer(serializers.Serializer):
     """
     POST /api/sessions/<session_key>/resolve
-
-    v0.5.8: resolução delegada por `issue["source"]` para IssueResolver.
     """
 
-    channel_ref = serializers.SlugRelatedField(
-        slug_field="ref",
-        queryset=Channel.objects.all(),
-        source="channel",
-    )
+    channel_ref = serializers.CharField(max_length=64)
     issue_id = serializers.CharField(allow_blank=False, max_length=64)
     action_id = serializers.CharField(allow_blank=False, max_length=64)
 
@@ -233,20 +207,14 @@ class SessionCommitSerializer(serializers.Serializer):
     POST /api/sessions/<session_key>/commit
     """
 
-    channel_ref = serializers.SlugRelatedField(
-        slug_field="ref",
-        queryset=Channel.objects.all(),
-        source="channel",
-    )
+    channel_ref = serializers.CharField(max_length=64)
     idempotency_key = serializers.CharField(required=False, allow_blank=False, max_length=128)
 
 
 class OrderSerializer(serializers.ModelSerializer):
-    channel_ref = serializers.CharField(source="channel.ref", read_only=True)
-
     class Meta:
         model = Order
-        fields = ("id", "ref", "channel", "channel_ref", "status", "created_at")
+        fields = ("id", "ref", "channel_ref", "status", "created_at")
 
 
 class DirectiveSerializer(serializers.ModelSerializer):

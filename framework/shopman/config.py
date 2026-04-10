@@ -167,16 +167,18 @@ class ChannelConfig:
     # ── Cascata ──
 
     @classmethod
-    def for_channel(cls, channel) -> "ChannelConfig":
+    def for_channel(cls, channel_or_ref) -> "ChannelConfig":
         """
         Config resolvido para este canal: canal ← loja ← defaults.
+
+        Aceita um objeto Channel (shopman.Channel) ou uma string channel_ref.
 
         Cascata completa:
           1. Defaults hardcoded (ChannelConfig())
           2. Shop.defaults (nível loja, Admin-configurável)
-          3. ChannelConfigRecord.data para channel.ref (nível canal, Admin-configurável)
+          3. Channel.config (nível canal, Admin-configurável)
         """
-        from shopman.models import Shop, ChannelConfigRecord
+        from shopman.models import Channel, Shop
 
         base = cls.defaults()
 
@@ -186,11 +188,17 @@ class ChannelConfig:
             base = deep_merge(base, shop.defaults)
 
         # Nível canal
-        channel_ref = getattr(channel, "ref", None)
-        if channel_ref:
-            record = ChannelConfigRecord.objects.filter(channel_ref=channel_ref).first()
-            if record and record.data:
-                base = deep_merge(base, record.data)
+        if isinstance(channel_or_ref, str):
+            channel_ref = channel_or_ref
+            try:
+                channel = Channel.objects.get(ref=channel_ref)
+            except Channel.DoesNotExist:
+                channel = None
+        else:
+            channel = channel_or_ref
+
+        if channel and channel.config:
+            base = deep_merge(base, channel.config)
 
         return cls.from_dict(base)
 

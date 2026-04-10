@@ -53,7 +53,7 @@ class NotificationSendHandler:
             return
 
         try:
-            order = Order.objects.select_related("channel").get(ref=order_ref)
+            order = Order.objects.get(ref=order_ref)
         except Order.DoesNotExist:
             message.status = "failed"
             message.last_error = f"Order not found: {order_ref}"
@@ -174,7 +174,7 @@ class NotificationSendHandler:
         """Resolve the ordered list of backends to try via ChannelConfig cascade."""
         from shopman.config import ChannelConfig
 
-        notifications = ChannelConfig.for_channel(order.channel).notifications
+        notifications = ChannelConfig.for_channel(order.channel_ref).notifications
         backend = notifications.backend or "manychat"
         chain = notifications.fallback_chain or []
         return [backend] + [b for b in chain if b != backend]

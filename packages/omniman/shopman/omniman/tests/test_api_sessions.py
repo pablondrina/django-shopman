@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import types
 from decimal import Decimal
 
 from django.test import TestCase
@@ -7,7 +8,7 @@ from rest_framework.test import APIClient
 
 from shopman.omniman import registry
 from shopman.omniman.contrib.stock.resolvers import StockIssueResolver
-from shopman.omniman.models import Channel, Directive, IdempotencyKey, Session
+from shopman.omniman.models import Directive, IdempotencyKey, Session
 
 
 class SessionApiTests(TestCase):
@@ -28,8 +29,8 @@ class SessionApiTests(TestCase):
         self,
         *,
         ref: str = "pos",
-    ) -> Channel:
-        return Channel.objects.create(
+    ) -> types.SimpleNamespace:
+        return types.SimpleNamespace(
             ref=ref,
             name=ref.upper(),
             is_active=True,
@@ -60,7 +61,7 @@ class SessionApiTests(TestCase):
 
         Session.objects.create(
             session_key="SESS-AMBIG",
-            channel=c1,
+            channel_ref=c1.ref,
             state="open",
             pricing_policy="internal",
             edit_policy="open",
@@ -70,7 +71,7 @@ class SessionApiTests(TestCase):
         )
         Session.objects.create(
             session_key="SESS-AMBIG",
-            channel=c2,
+            channel_ref=c2.ref,
             state="open",
             pricing_policy="internal",
             edit_policy="open",
@@ -112,7 +113,7 @@ class SessionApiTests(TestCase):
         channel = self._mk_channel(ref="pos")
         session = Session.objects.create(
             session_key="SESS-CHK-1",
-            channel=channel,
+            channel_ref=channel.ref,
             state="open",
             pricing_policy="internal",
             edit_policy="open",
@@ -139,7 +140,7 @@ class SessionApiTests(TestCase):
         channel = self._mk_channel(ref="pos")
         session = Session.objects.create(
             session_key="SESS-LOCKED",
-            channel=channel,
+            channel_ref=channel.ref,
             state="open",
             edit_policy="locked",
             rev=0,
@@ -170,7 +171,7 @@ class SessionApiTests(TestCase):
         channel = self._mk_channel(ref="ifood")
         session = Session.objects.create(
             session_key="SESS-EXT-PRICE",
-            channel=channel,
+            channel_ref=channel.ref,
             state="open",
             pricing_policy="external",
             edit_policy="open",
@@ -191,7 +192,7 @@ class SessionApiTests(TestCase):
         c = self._mk_channel(ref="pos")
         sess = Session.objects.create(
             session_key="SESS-C2",
-            channel=c,
+            channel_ref=c.ref,
             state="open",
             pricing_policy="internal",
             edit_policy="open",
@@ -220,7 +221,7 @@ class SessionApiTests(TestCase):
         c = self._mk_channel(ref="pos")
         sess = Session.objects.create(
             session_key="SESS-IDEM",
-            channel=c,
+            channel_ref=c.ref,
             state="open",
             pricing_policy="internal",
             edit_policy="open",
@@ -256,7 +257,7 @@ class SessionApiTests(TestCase):
         c = self._mk_channel(ref="pos")
         sess = Session.objects.create(
             session_key="SESS-R1",
-            channel=c,
+            channel_ref=c.ref,
             state="open",
             pricing_policy="internal",
             edit_policy="open",

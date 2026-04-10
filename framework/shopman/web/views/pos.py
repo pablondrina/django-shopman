@@ -11,7 +11,8 @@ from django.views.decorators.http import require_GET, require_POST
 
 from shopman.offerman.models import Collection, Product
 from shopman.omniman.ids import generate_idempotency_key, generate_session_key
-from shopman.omniman.models import Channel, Session
+from shopman.models import Channel
+from shopman.omniman.models import Session
 from shopman.omniman.services.commit import CommitService
 from shopman.omniman.services.modify import ModifyService
 from shopman.utils.monetary import format_money
@@ -214,7 +215,7 @@ def pos_close(request: HttpRequest) -> HttpResponse:
     config = ChannelConfig.for_channel(channel)
     Session.objects.create(
         session_key=session_key,
-        channel=channel,
+        channel_ref=channel.ref,
         state="open",
         pricing_policy=config.pricing.policy,
         edit_policy=config.editing.policy,
@@ -330,7 +331,7 @@ def pos_shift_summary(request: HttpRequest) -> HttpResponse:
 
     today = timezone.localdate()
     qs = Order.objects.filter(
-        channel__ref="balcao",
+        channel_ref="balcao",
         created_at__date=today,
     ).exclude(status="cancelled")
 

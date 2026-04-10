@@ -94,7 +94,7 @@ def on_holds_materialized(sender, hold_ids, sku, target_date, **kwargs):
 
     sessions = Session.objects.filter(
         session_key__in=session_keys, state="open",
-    ).select_related("channel")
+    )
 
     for session in sessions:
         check_result = (
@@ -111,7 +111,7 @@ def on_holds_materialized(sender, hold_ids, sku, target_date, **kwargs):
         except Exception:
             logger.warning(
                 "Failed to auto-commit session %s:%s",
-                session.channel.ref, session.session_key, exc_info=True,
+                session.channel_ref, session.session_key, exc_info=True,
             )
 
 
@@ -144,12 +144,12 @@ def _auto_commit_session(session):
 
     result = CommitService.commit(
         session_key=session.session_key,
-        channel_ref=session.channel.ref,
+        channel_ref=session.channel_ref,
         idempotency_key=idempotency_key,
         ctx={"actor": "stock_materialized"},
     )
 
     logger.info(
         "Auto-commit successful: session=%s:%s order=%s",
-        session.channel.ref, session.session_key, result.get("order_ref"),
+        session.channel_ref, session.session_key, result.get("order_ref"),
     )

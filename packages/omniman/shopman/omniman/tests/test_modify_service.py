@@ -9,13 +9,14 @@ Covers:
 """
 
 from __future__ import annotations
+import types
 
 from decimal import Decimal
 
 from django.test import TestCase
 
 from shopman.omniman.exceptions import SessionError, ValidationError
-from shopman.omniman.models import Channel, Session
+from shopman.omniman.models import Session
 from shopman.omniman.services import ModifyService
 
 
@@ -23,7 +24,7 @@ class ModifyServiceBaseTests(TestCase):
     """Base test setup for ModifyService tests."""
 
     def setUp(self) -> None:
-        self.channel = Channel.objects.create(
+        self.channel = types.SimpleNamespace(
             ref="test",
             name="Test Channel",
         )
@@ -51,7 +52,7 @@ class ModifyServiceLockedSessionTests(ModifyServiceBaseTests):
         """Should raise SessionError when session is locked."""
         session = Session.objects.create(
             session_key="LOCKED-SESSION",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="open",
             edit_policy="locked",  # Locked!
         )
@@ -73,7 +74,7 @@ class ModifyServiceAbandonedSessionTests(ModifyServiceBaseTests):
         """Should raise SessionError when session is abandoned."""
         session = Session.objects.create(
             session_key="ABANDONED-SESSION",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="abandoned",
         )
 
@@ -94,7 +95,7 @@ class ModifyServiceReplaceSKUTests(ModifyServiceBaseTests):
         super().setUp()
         self.session = Session.objects.create(
             session_key="REPLACE-SKU-SESSION",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="open",
             pricing_policy="external",  # Explicitly set
             items=[
@@ -191,7 +192,7 @@ class ModifyServiceSetDataTests(ModifyServiceBaseTests):
         super().setUp()
         self.session = Session.objects.create(
             session_key="SET-DATA-SESSION",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="open",
             data={},
         )
@@ -249,7 +250,7 @@ class ModifyServiceMergeLinesTests(ModifyServiceBaseTests):
         super().setUp()
         self.session = Session.objects.create(
             session_key="MERGE-LINES-SESSION",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="open",
             items=[
                 {"line_id": "L1", "sku": "COFFEE", "qty": 2, "unit_price_q": 500, "meta": {}},
@@ -327,7 +328,7 @@ class ModifyServiceSetQtyUnknownLineTests(ModifyServiceBaseTests):
         """Should raise error when line_id not found for set_qty."""
         session = Session.objects.create(
             session_key="SET-QTY-UNKNOWN",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="open",
             items=[
                 {"line_id": "L1", "sku": "X", "qty": 1, "unit_price_q": 100, "meta": {}},
@@ -352,13 +353,13 @@ class SessionWriteServiceTests(TestCase):
     """Tests for SessionWriteService.apply_check_result."""
 
     def setUp(self) -> None:
-        self.channel = Channel.objects.create(
+        self.channel = types.SimpleNamespace(
             ref="check-test",
             name="Check Test",
         )
         self.session = Session.objects.create(
             session_key="CHECK-RESULT-SESSION",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="open",
             rev=5,
             data={},

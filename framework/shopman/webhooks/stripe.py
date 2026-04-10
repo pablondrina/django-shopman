@@ -92,14 +92,14 @@ class StripeWebhookView(APIView):
             return
 
         order = (
-            Order.objects.select_related("channel")
+            Order.objects
             .filter(data__payment__intent_ref=intent_ref)
             .first()
         )
 
         if order is None and intent.order_ref:
             try:
-                order = Order.objects.select_related("channel").get(ref=intent.order_ref)
+                order = Order.objects.get(ref=intent.order_ref)
             except Order.DoesNotExist:
                 return
 

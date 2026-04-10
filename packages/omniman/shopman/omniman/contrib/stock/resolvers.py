@@ -85,7 +85,7 @@ class StockIssueResolver:
 
         return ModifyService.modify_session(
             session_key=session.session_key,
-            channel_ref=session.channel.ref,
+            channel_ref=session.channel_ref,
             ops=ops,
             ctx=ctx,
             channel_config=channel_config,

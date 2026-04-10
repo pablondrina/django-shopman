@@ -2,7 +2,7 @@
 Shopman Omniman — Headless Omnichannel Order Kernel.
 
 Uso:
-    from shopman.omniman.models import Channel, Session, Order
+    from shopman.omniman.models import Session, Order
     from shopman.omniman.services import ModifyService, CommitService
     from shopman.omniman import registry
 """

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 from shopman.guestman.contrib.loyalty import LoyaltyService
 from shopman.omniman.ids import generate_idempotency_key
-from shopman.omniman.models import Channel
+from shopman.models import Channel
 from shopman.services.checkout_defaults import CheckoutDefaultsService
 from shopman.utils.phone import normalize_phone
 

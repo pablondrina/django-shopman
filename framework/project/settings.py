@@ -326,7 +326,7 @@ UNFOLD = {
                 "separator": True,
                 "collapsible": True,
                 "items": [
-                    {"title": "Canais", "icon": "network_node", "link": reverse_lazy("admin:omniman_channel_changelist")},
+                    {"title": "Canais", "icon": "network_node", "link": reverse_lazy("admin:shopman_channel_changelist")},
                     {"title": "Sessoes", "icon": "note_alt", "link": reverse_lazy("admin:omniman_session_changelist")},
                     {"title": "Pedidos", "icon": "assignment", "link": reverse_lazy("admin:omniman_order_changelist")},
                 ],

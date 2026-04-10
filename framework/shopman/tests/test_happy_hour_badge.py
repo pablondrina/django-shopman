@@ -15,7 +15,7 @@ from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 
-from shopman.omniman.models import Channel
+from shopman.models import Channel
 
 
 class IsHappyHourActiveTests(TestCase):

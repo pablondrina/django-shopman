@@ -50,7 +50,7 @@ class SessionManager(models.Manager):
     Uso:
         session = Session.objects.create(
             session_key="S-1",
-            channel=channel,
+            channel_ref=channel.ref,
             items=[{"sku": "SKU", "qty": 2, "unit_price_q": 1000}],
         )
     """
@@ -91,11 +91,7 @@ class Session(models.Model):
     """
 
     session_key = models.CharField(_("chave da sessão"), max_length=64)
-    channel = models.ForeignKey(
-        "omniman.Channel",
-        verbose_name=_("canal de venda"),
-        on_delete=models.PROTECT,
-    )
+    channel_ref = models.CharField(_("canal de venda"), max_length=64, db_index=True, default="")
 
     handle_type = models.CharField(_("tipo de identificação"), max_length=32, null=True, blank=True)
     handle_ref = models.CharField(_("identificador"), max_length=64, null=True, blank=True)
@@ -147,9 +143,9 @@ class Session(models.Model):
         verbose_name = _("sessão")
         verbose_name_plural = _("sessões")
         constraints = [
-            models.UniqueConstraint(fields=["channel", "session_key"], name="ord_uniq_session_channel_key"),
+            models.UniqueConstraint(fields=["channel_ref", "session_key"], name="ord_uniq_session_channel_key"),
             models.UniqueConstraint(
-                fields=["channel", "handle_type", "handle_ref"],
+                fields=["channel_ref", "handle_type", "handle_ref"],
                 condition=Q(state="open") & Q(handle_type__isnull=False) & Q(handle_ref__isnull=False),
                 name="ord_uniq_open_session_handle",
             ),
@@ -167,7 +163,7 @@ class Session(models.Model):
                 )
                 return f"{handle_type}: {self.handle_ref}"
             return str(self.handle_ref)
-        return f"{self.channel.ref}:{self.session_key}"
+        return f"{self.channel_ref}:{self.session_key}"
 
     # ------------------------------------------------------------------ items API
 

@@ -6,6 +6,7 @@ até a finalização do order com transições de status.
 """
 
 from __future__ import annotations
+import types
 
 from decimal import Decimal
 
@@ -13,7 +14,7 @@ from django.test import TestCase
 
 from shopman.omniman.exceptions import CommitError
 from shopman.omniman.ids import generate_idempotency_key, generate_session_key
-from shopman.omniman.models import Channel, Directive, Order, OrderEvent, Session
+from shopman.omniman.models import Directive, Order, OrderEvent, Session
 from shopman.omniman.services import CommitService, ModifyService
 
 
@@ -22,7 +23,7 @@ class EndToEndFlowTests(TestCase):
 
     def setUp(self) -> None:
         """Configura ambiente de teste."""
-        self.channel = Channel.objects.create(
+        self.channel = types.SimpleNamespace(
             ref="shop",
             name="Shop",
         )
@@ -41,7 +42,7 @@ class EndToEndFlowTests(TestCase):
         # 1. Criar sessão
         session = Session.objects.create(
             session_key=session_key,
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             items=[
                 {"sku": "SKU001", "qty": 2, "unit_price_q": 1000},
                 {"sku": "SKU002", "qty": 1, "unit_price_q": 500},
@@ -101,7 +102,7 @@ class EndToEndFlowTests(TestCase):
 
         # Verificar que order foi criado
         order = Order.objects.get(ref=order_ref)
-        self.assertEqual(order.channel, self.channel)
+        self.assertEqual(order.channel_ref, self.channel.ref)
         self.assertEqual(order.session_key, session_key)
         self.assertEqual(order.status, Order.STATUS_NEW)
         self.assertEqual(order.items.count(), 2)
@@ -172,7 +173,7 @@ class EndToEndFlowTests(TestCase):
     def test_flow_with_pricing_modifiers(self) -> None:
         """Testa fluxo com pricing policy internal (sem preços nos items)."""
         # Canal com pricing interno (requer modifiers registrados)
-        internal_channel = Channel.objects.create(
+        internal_channel = types.SimpleNamespace(
             ref="internal_shop",
             name="Internal Shop",
         )
@@ -180,7 +181,7 @@ class EndToEndFlowTests(TestCase):
         session_key = generate_session_key()
         session = Session.objects.create(
             session_key=session_key,
-            channel=internal_channel,
+            channel_ref=internal_channel.ref,
             items=[
                 {"sku": "SKU001", "qty": 2},  # Sem unit_price_q
             ],
@@ -202,7 +203,7 @@ class EndToEndFlowTests(TestCase):
         session_key = generate_session_key()
         session = Session.objects.create(
             session_key=session_key,
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             items=[{"sku": "SKU001", "qty": 1, "unit_price_q": 1000}],
         )
 

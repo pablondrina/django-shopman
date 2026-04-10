@@ -71,7 +71,7 @@ class EfiPixWebhookView(APIView):
 
         if db_intent is None:
             order = (
-                Order.objects.select_related("channel")
+                Order.objects
                 .filter(data__payment__intent_ref__icontains=txid)
                 .first()
             )
@@ -100,14 +100,14 @@ class EfiPixWebhookView(APIView):
                 raise
 
         order = (
-            Order.objects.select_related("channel")
+            Order.objects
             .filter(data__payment__intent_ref=db_intent.ref)
             .first()
         )
 
         if order is None:
             try:
-                order = Order.objects.select_related("channel").get(ref=db_intent.order_ref)
+                order = Order.objects.get(ref=db_intent.order_ref)
             except Order.DoesNotExist:
                 return
 

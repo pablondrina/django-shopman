@@ -11,10 +11,11 @@ CONTEXTO IMPORTANTE:
 
 from __future__ import annotations
 
+import types
 from decimal import Decimal
 from django.test import TestCase
 
-from shopman.omniman.models import Channel, Session, Order
+from shopman.omniman.models import Session, Order
 from shopman.omniman.services import ModifyService
 from shopman.omniman.exceptions import SessionError
 
@@ -30,7 +31,7 @@ class IFoodPolicyTests(TestCase):
     """
 
     def setUp(self) -> None:
-        self.channel = Channel.objects.create(
+        self.channel = types.SimpleNamespace(
             ref="ifood",
             name="iFood",
         )
@@ -40,7 +41,7 @@ class IFoodPolicyTests(TestCase):
         # Simula sessão que chegou do iFood
         session = Session.objects.create(
             session_key="ifood_abc123",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             handle_type="ifood_order",
             handle_ref="abc123",
             pricing_policy="external",
@@ -68,19 +69,19 @@ class IFoodPolicyTests(TestCase):
         self.assertEqual(ctx.exception.code, "locked")
 
         # Verifica mensagem elegante para o operador
-        self.assertIn("iFood", ctx.exception.message)
+        self.assertIn("ifood", ctx.exception.message)
         self.assertIn("não podem ser editados", ctx.exception.message)
         self.assertIn("plataforma externa", ctx.exception.message)
 
         # Verifica que contexto contém informações úteis
-        self.assertEqual(ctx.exception.context["channel"], "iFood")
+        self.assertEqual(ctx.exception.context["channel"], "ifood")
         self.assertEqual(ctx.exception.context["edit_policy"], "locked")
 
     def test_ifood_session_cannot_remove_items(self) -> None:
         """Operador não pode remover itens do iFood."""
         session = Session.objects.create(
             session_key="ifood_def456",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             edit_policy="locked",
             items=[
                 {
@@ -108,7 +109,7 @@ class IFoodPolicyTests(TestCase):
         """Operador não pode alterar quantidades do iFood."""
         session = Session.objects.create(
             session_key="ifood_ghi789",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             edit_policy="locked",
             items=[
                 {
@@ -134,7 +135,7 @@ class IFoodPolicyTests(TestCase):
         """Mesmo bloqueado para edição, iFood pode transicionar status."""
         order = Order.objects.create(
             ref="IFOOD-POLICY-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status=Order.STATUS_NEW,
             total_q=4500,
             external_ref="ifood-xyz",
@@ -159,7 +160,7 @@ class PDVPolicyTests(TestCase):
     """
 
     def setUp(self) -> None:
-        self.channel = Channel.objects.create(
+        self.channel = types.SimpleNamespace(
             ref="pdv",
             name="Balcão",
         )
@@ -168,7 +169,7 @@ class PDVPolicyTests(TestCase):
         """Operador pode editar sessão do PDV normalmente."""
         session = Session.objects.create(
             session_key="pdv_001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             edit_policy="open",
             items=[
                 {
@@ -203,7 +204,7 @@ class PDVPolicyTests(TestCase):
         """Operador pode remover itens do PDV."""
         session = Session.objects.create(
             session_key="pdv_002",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             edit_policy="open",
             items=[
                 {
@@ -238,7 +239,7 @@ class PDVPolicyTests(TestCase):
         """Operador pode alterar quantidades no PDV."""
         session = Session.objects.create(
             session_key="pdv_003",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             edit_policy="open",
             items=[
                 {
@@ -271,7 +272,7 @@ class SessionStateErrorTests(TestCase):
     """
 
     def setUp(self) -> None:
-        self.channel = Channel.objects.create(
+        self.channel = types.SimpleNamespace(
             ref="test",
             name="Teste",
         )
@@ -280,7 +281,7 @@ class SessionStateErrorTests(TestCase):
         """Sessão já finalizada não pode ser editada (mensagem clara)."""
         session = Session.objects.create(
             session_key="committed_001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="committed",  # Já foi fechada!
             items=[],
         )
@@ -300,7 +301,7 @@ class SessionStateErrorTests(TestCase):
         """Sessão abandonada não pode ser editada (mensagem clara)."""
         session = Session.objects.create(
             session_key="abandoned_001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="abandoned",  # Foi abandonada!
             items=[],
         )
@@ -329,7 +330,7 @@ class ErrorMessageQualityTests(TestCase):
     """
 
     def setUp(self) -> None:
-        self.ifood_channel = Channel.objects.create(
+        self.ifood_channel = types.SimpleNamespace(
             ref="ifood",
             name="iFood",
         )
@@ -338,7 +339,7 @@ class ErrorMessageQualityTests(TestCase):
         """Mensagens de erro são em português."""
         session = Session.objects.create(
             session_key="pt_001",
-            channel=self.ifood_channel,
+            channel_ref=self.ifood_channel.ref,
             edit_policy="locked",
             items=[],
         )
@@ -361,7 +362,7 @@ class ErrorMessageQualityTests(TestCase):
         """Mensagens incluem nome do canal para contexto."""
         session = Session.objects.create(
             session_key="ctx_001",
-            channel=self.ifood_channel,
+            channel_ref=self.ifood_channel.ref,
             edit_policy="locked",
             items=[],
         )
@@ -373,14 +374,14 @@ class ErrorMessageQualityTests(TestCase):
                 ops=[{"op": "add_line", "sku": "X", "qty": 1, "unit_price_q": 100}],
             )
 
-        # Deve mencionar o canal pelo nome
-        self.assertIn("iFood", ctx.exception.message)
+        # Deve mencionar o canal
+        self.assertIn("ifood", ctx.exception.message)
 
     def test_error_context_provides_debugging_info(self) -> None:
         """Contexto do erro fornece info para debugging."""
         session = Session.objects.create(
             session_key="debug_001",
-            channel=self.ifood_channel,
+            channel_ref=self.ifood_channel.ref,
             edit_policy="locked",
             items=[],
         )

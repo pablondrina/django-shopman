@@ -18,7 +18,7 @@ pytestmark = pytest.mark.django_db
 
 
 def _setup_channel():
-    from shopman.omniman.models import Channel
+    from shopman.models import Channel
     return Channel.objects.get_or_create(
         ref="web",
         defaults={

@@ -12,7 +12,8 @@ from __future__ import annotations
 import pytest
 
 from shopman.omniman.exceptions import InvalidTransition
-from shopman.omniman.models import Channel, Order
+from shopman.omniman.models import Order
+from shopman.models import Channel
 
 
 @pytest.fixture
@@ -24,7 +25,7 @@ def channel(db):
 def delivery_order(channel):
     return Order.objects.create(
         ref="E2E-DLV-001",
-        channel=channel,
+        channel_ref=channel.ref,
         status=Order.Status.NEW,
         total_q=5000,
         data={"fulfillment_type": "delivery"},
@@ -35,7 +36,7 @@ def delivery_order(channel):
 def pickup_order(channel):
     return Order.objects.create(
         ref="E2E-PKP-001",
-        channel=channel,
+        channel_ref=channel.ref,
         status=Order.Status.NEW,
         total_q=3000,
         data={"fulfillment_type": "pickup"},
@@ -114,7 +115,7 @@ def test_cancellation_while_preparing_cleans_kds_tickets(channel):
 
     order = Order.objects.create(
         ref="E2E-CANCEL-001",
-        channel=channel,
+        channel_ref=channel.ref,
         status=Order.Status.CONFIRMED,
         total_q=2000,
     )
@@ -171,7 +172,7 @@ def test_dispatched_requires_delivery_invariant(channel):
     for ft in ("pickup", "balcao", "totem"):
         order = Order.objects.create(
             ref=f"E2E-GUARD-{ft}",
-            channel=channel,
+            channel_ref=channel.ref,
             status=Order.Status.NEW,
             total_q=1000,
             data={"fulfillment_type": ft},

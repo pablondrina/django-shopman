@@ -40,7 +40,7 @@ class StockIssueResolver:
             raise IssueResolveError(code="no_ops", message="Action não contém operações")
 
         return ModifyService.modify_session(
-            session_key=session.session_key, channel_ref=session.channel.ref, ops=ops, ctx=ctx,
+            session_key=session.session_key, channel_ref=session.channel_ref, ops=ops, ctx=ctx,
         )
 
 

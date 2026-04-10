@@ -31,7 +31,7 @@ def _make_order(**overrides):
     channel.ref = overrides.get("channel_ref", "web")
     channel.name = "Web"
     channel.config = overrides.get("channel_config", {})
-    order.channel = channel
+    order.channel_ref = channel.ref
 
     # items manager
     items_qs = MagicMock()
@@ -70,7 +70,7 @@ class TestAvailabilityListingMembership:
 
     def _make_channel(self, ref="ifood"):
         """Channel.ref == Listing.ref by convention."""
-        from shopman.omniman.models import Channel
+        from shopman.models import Channel
         return Channel.objects.create(
             ref=ref,
             name=ref.upper(),
@@ -837,11 +837,12 @@ class TestKDSService:
     @pytest.mark.django_db
     def test_on_all_tickets_done_transitions_to_ready(self):
         from shopman.models import KDSInstance, KDSTicket
-        from shopman.omniman.models import Channel, Order
+        from shopman.omniman.models import Order
 
+        from shopman.models import Channel
         channel = Channel.objects.create(ref="kds-test", name="KDS Test")
         order = Order.objects.create(
-            ref="KDS-ORD-001", channel=channel, status=Order.Status.PREPARING, total_q=1000,
+            ref="KDS-ORD-001", channel_ref=channel.ref, status=Order.Status.PREPARING, total_q=1000,
         )
         inst = KDSInstance.objects.create(ref="prep-1", name="Prep", type="prep")
         KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="done")
@@ -858,11 +859,12 @@ class TestKDSService:
     def test_cancel_tickets_cancels_open_tickets(self):
         """cancel_tickets() sets status=cancelled on all open tickets."""
         from shopman.models import KDSInstance, KDSTicket
-        from shopman.omniman.models import Channel, Order
+        from shopman.omniman.models import Order
 
+        from shopman.models import Channel
         channel = Channel.objects.create(ref="kds-cancel-1", name="KDS Cancel 1")
         order = Order.objects.create(
-            ref="KDS-CANCEL-001", channel=channel, status=Order.Status.PREPARING, total_q=1000,
+            ref="KDS-CANCEL-001", channel_ref=channel.ref, status=Order.Status.PREPARING, total_q=1000,
         )
         inst = KDSInstance.objects.create(ref="prep-cancel-1", name="Prep Cancel", type="prep")
         t1 = KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="open")
@@ -882,11 +884,12 @@ class TestKDSService:
     def test_cancel_tickets_returns_zero_when_no_open_tickets(self):
         """cancel_tickets() returns 0 without error when no open tickets exist."""
         from shopman.models import KDSInstance, KDSTicket
-        from shopman.omniman.models import Channel, Order
+        from shopman.omniman.models import Order
 
+        from shopman.models import Channel
         channel = Channel.objects.create(ref="kds-cancel-2", name="KDS Cancel 2")
         order = Order.objects.create(
-            ref="KDS-CANCEL-002", channel=channel, status=Order.Status.PREPARING, total_q=1000,
+            ref="KDS-CANCEL-002", channel_ref=channel.ref, status=Order.Status.PREPARING, total_q=1000,
         )
         inst = KDSInstance.objects.create(ref="prep-cancel-2", name="Prep Cancel 2", type="prep")
         # Ticket already done — not "open"
@@ -900,11 +903,12 @@ class TestKDSService:
     @pytest.mark.django_db
     def test_cancel_tickets_returns_zero_for_order_with_no_tickets(self):
         """cancel_tickets() is safe on orders with no tickets at all."""
-        from shopman.omniman.models import Channel, Order
+        from shopman.omniman.models import Order
 
+        from shopman.models import Channel
         channel = Channel.objects.create(ref="kds-cancel-3", name="KDS Cancel 3")
         order = Order.objects.create(
-            ref="KDS-CANCEL-003", channel=channel, status=Order.Status.CONFIRMED, total_q=1000,
+            ref="KDS-CANCEL-003", channel_ref=channel.ref, status=Order.Status.CONFIRMED, total_q=1000,
         )
 
         from shopman.services.kds import cancel_tickets
@@ -915,11 +919,12 @@ class TestKDSService:
     @pytest.mark.django_db
     def test_on_all_tickets_done_noop_if_not_all_done(self):
         from shopman.models import KDSInstance, KDSTicket
-        from shopman.omniman.models import Channel, Order
+        from shopman.omniman.models import Order
 
+        from shopman.models import Channel
         channel = Channel.objects.create(ref="kds-test2", name="KDS Test 2")
         order = Order.objects.create(
-            ref="KDS-ORD-002", channel=channel, status=Order.Status.PREPARING, total_q=1000,
+            ref="KDS-ORD-002", channel_ref=channel.ref, status=Order.Status.PREPARING, total_q=1000,
         )
         inst = KDSInstance.objects.create(ref="prep-2", name="Prep 2", type="prep")
         KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="done")

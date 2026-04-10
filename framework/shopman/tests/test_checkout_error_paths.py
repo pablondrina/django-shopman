@@ -15,7 +15,7 @@ def _make_shop():
 
 
 def _make_channels():
-    from shopman.omniman.models import Channel
+    from shopman.models import Channel
     Channel.objects.get_or_create(
         ref="web",
         defaults={

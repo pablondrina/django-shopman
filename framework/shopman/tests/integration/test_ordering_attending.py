@@ -13,7 +13,7 @@ class TestOrderingCustomersIntegration(TestCase):
 
     def setUp(self):
         from shopman.guestman.models import Customer, CustomerGroup
-        from shopman.omniman.models import Channel
+        from shopman.models import Channel
 
         # Create customer group
         self.group = CustomerGroup.objects.create(
@@ -42,7 +42,7 @@ class TestOrderingCustomersIntegration(TestCase):
 
         session = Session.objects.create(
             session_key="INT-SESSION-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="open",
             items=[],
             data={"customer_ref": self.customer.ref},

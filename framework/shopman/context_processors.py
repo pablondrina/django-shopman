@@ -44,7 +44,7 @@ def shop(request: HttpRequest) -> dict:
     # Resolve handle_label from the effective channel config
     try:
         from shopman.config import ChannelConfig
-        from shopman.omniman.models import Channel
+        from shopman.models import Channel
         from shopman.web.constants import STOREFRONT_CHANNEL_REF
 
         _channel = Channel.objects.get(ref=STOREFRONT_CHANNEL_REF)

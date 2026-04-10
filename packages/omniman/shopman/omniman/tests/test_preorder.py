@@ -12,6 +12,7 @@ Covers:
 """
 
 from __future__ import annotations
+import types
 
 from datetime import date, timedelta
 from decimal import Decimal
@@ -20,7 +21,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from shopman.omniman.ids import generate_idempotency_key
-from shopman.omniman.models import Channel, Directive, Order, Session
+from shopman.omniman.models import Directive, Order, Session
 from shopman.omniman.services import CommitService
 
 
@@ -29,7 +30,7 @@ class PreorderCommitTests(TestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.channel = Channel.objects.create(
+        self.channel = types.SimpleNamespace(
             ref="balcao",
             name="Balcao",
             is_active=True,
@@ -42,7 +43,7 @@ class PreorderCommitTests(TestCase):
         data.update(extra_data)
         return Session.objects.create(
             session_key=f"S-{generate_idempotency_key()[:8]}",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="open",
             pricing_policy="internal",
             edit_policy="open",
@@ -120,7 +121,7 @@ class PreorderReminderDirectiveTests(TestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.channel = Channel.objects.create(
+        self.channel = types.SimpleNamespace(
             ref="whatsapp",
             name="WhatsApp",
             is_active=True,
@@ -131,7 +132,7 @@ class PreorderReminderDirectiveTests(TestCase):
         friday = (timezone.now().date() + timedelta(days=3))
         session = Session.objects.create(
             session_key="S-REMINDER-1",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="open",
             pricing_policy="internal",
             edit_policy="open",
@@ -172,7 +173,7 @@ class PreorderReminderDirectiveTests(TestCase):
         today = timezone.now().date()
         session = Session.objects.create(
             session_key="S-NO-REMINDER",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="open",
             pricing_policy="internal",
             edit_policy="open",
@@ -205,7 +206,7 @@ class PreorderCutoffValidationTests(TestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.channel = Channel.objects.create(
+        self.channel = types.SimpleNamespace(
             ref="balcao",
             name="Balcao",
             is_active=True,

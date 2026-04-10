@@ -13,7 +13,7 @@ class TestOrderingAuthIntegration(TestCase):
 
     def setUp(self):
         from shopman.guestman.models import Customer
-        from shopman.omniman.models import Channel
+        from shopman.models import Channel
 
         # Create customer
         self.customer = Customer.objects.create(
@@ -69,7 +69,7 @@ class TestOrderingAuthIntegration(TestCase):
         # Create session before auth
         session = Session.objects.create(
             session_key="BASKET-SESSION-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="open",
             items=[
                 {"sku": "PAO-FRANCES", "qty": 10, "price_q": 80},

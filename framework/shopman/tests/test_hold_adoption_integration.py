@@ -25,7 +25,7 @@ import pytest
 
 from shopman.adapters import get_adapter
 from shopman.offerman.models import Product
-from shopman.omniman.models import Channel
+from shopman.models import Channel
 from shopman.services import availability
 from shopman.services import stock as stock_service
 from shopman.stockman.models import Hold, Position, Quant

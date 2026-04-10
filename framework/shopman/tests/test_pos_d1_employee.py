@@ -16,7 +16,7 @@ def _make_shop():
 
 
 def _make_channel():
-    from shopman.omniman.models import Channel
+    from shopman.models import Channel
     return Channel.objects.get_or_create(
         ref="balcao",
         defaults={"name": "Balcão", "is_active": True},

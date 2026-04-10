@@ -250,7 +250,7 @@ def _recent_orders():
 
     orders = (
         Order.objects
-        .select_related("channel")
+        
         .order_by("-created_at")[:10]
     )
     return [
@@ -259,7 +259,7 @@ def _recent_orders():
             "status": o.status,
             "status_label": STATUS_LABELS.get(o.status, o.status),
             "total_display": _format_brl(o.total_q),
-            "channel_name": o.channel.name if o.channel else "\u2014",
+            "channel_name": o.channel_ref or "\u2014",
             "created_at": o.created_at,
             "url": reverse("admin:omniman_order_change", args=[o.pk]),
         }
@@ -344,7 +344,7 @@ def _build_pending_orders_table(today):
     pending = (
         Order.objects
         .filter(status__in=["new", "confirmed", "preparing"])
-        .select_related("channel")
+        
         .order_by("-created_at")[:8]
     )
     rows = []

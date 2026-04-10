@@ -136,9 +136,9 @@ def _enrich_order(order: Order) -> dict:
         "status": order.status,
         "status_label": STATUS_LABELS.get(order.status, order.status),
         "status_color": STATUS_COLORS.get(order.status, "bg-muted text-muted-foreground"),
-        "channel_ref": order.channel.ref if order.channel_id else "",
+        "channel_ref": order.channel_ref or "",
         "channel_icon": CHANNEL_ICONS.get(
-            order.channel.ref if order.channel_id else "", _DEFAULT_CHANNEL_ICON
+            order.channel_ref or "", _DEFAULT_CHANNEL_ICON
         ),
         "customer_name": customer_name,
         "created_at": order.created_at,
@@ -173,7 +173,7 @@ def _get_filtered_orders(filter_status: str):
     """Return filtered queryset of active orders."""
     qs = Order.objects.filter(
         status__in=_ACTIVE_STATUSES,
-    ).select_related("channel").order_by("created_at")
+    ).order_by("created_at")
 
     if filter_status and filter_status != "all" and filter_status in _ACTIVE_STATUSES:
         qs = qs.filter(status=filter_status)
@@ -191,7 +191,7 @@ class GestorPedidosView(View):
 
         all_orders = Order.objects.filter(
             status__in=_ACTIVE_STATUSES,
-        ).select_related("channel").order_by("created_at")
+        ).order_by("created_at")
 
         filter_status = request.GET.get("filter", "all")
         if filter_status != "all" and filter_status in _ACTIVE_STATUSES:
@@ -223,7 +223,7 @@ class OrderListPartialView(View):
 
         all_orders = Order.objects.filter(
             status__in=_ACTIVE_STATUSES,
-        ).select_related("channel").order_by("created_at")
+        ).order_by("created_at")
 
         filter_status = request.GET.get("filter", "all")
         if filter_status != "all" and filter_status in _ACTIVE_STATUSES:

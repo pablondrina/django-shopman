@@ -20,6 +20,7 @@ from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 import pytest
+from shopman.models import Channel
 
 # ── helpers ──
 
@@ -345,7 +346,7 @@ class TestCartReconcileIntegration:
     """
 
     def _setup_cart(self):
-        from shopman.omniman.models import Channel, Session
+        from shopman.omniman.models import Session
 
         channel, _ = Channel.objects.get_or_create(
             ref="web",
@@ -356,7 +357,7 @@ class TestCartReconcileIntegration:
         )
         session = Session.objects.create(
             session_key="sess-test-1",
-            channel=channel,
+            channel_ref=channel.ref,
             pricing_policy="internal",
             edit_policy="open",
             data={},

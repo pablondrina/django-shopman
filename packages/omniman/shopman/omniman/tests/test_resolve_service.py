@@ -1,4 +1,5 @@
 from __future__ import annotations
+import types
 
 from decimal import Decimal
 
@@ -7,7 +8,7 @@ from django.test import TestCase
 from shopman.omniman import registry
 from shopman.omniman.contrib.stock.resolvers import StockIssueResolver
 from shopman.omniman.exceptions import IssueResolveError
-from shopman.omniman.models import Channel, Directive, Session
+from shopman.omniman.models import Directive, Session
 from shopman.omniman.services import ResolveService
 
 
@@ -25,7 +26,7 @@ class ResolveServiceTests(TestCase):
                 pass
         registry.register_check(_MockStockCheck())
 
-        self.channel = Channel.objects.create(
+        self.channel = types.SimpleNamespace(
             ref="pos",
             name="POS",
         )
@@ -65,7 +66,7 @@ class ResolveServiceTests(TestCase):
 
         return Session.objects.create(
             session_key="SESS-RESOLVE",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="open",
             pricing_policy="internal",
             edit_policy="open",
@@ -160,7 +161,7 @@ class ResolveServiceTests(TestCase):
         }
         session = Session.objects.create(
             session_key="SESS-BOOM",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="open",
             pricing_policy="internal",
             edit_policy="open",

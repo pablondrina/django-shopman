@@ -4,6 +4,7 @@ Tests for additional branches in CommitService.
 
 from __future__ import annotations
 
+import types
 from datetime import timedelta
 from decimal import Decimal
 
@@ -11,7 +12,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from shopman.omniman.exceptions import CommitError, SessionError
-from shopman.omniman.models import Channel, IdempotencyKey, Order, Session
+from shopman.omniman.models import IdempotencyKey, Order, Session
 from shopman.omniman.services import CommitService
 
 
@@ -19,13 +20,13 @@ class CommitIdempotencyTests(TestCase):
     """Tests for idempotency handling in CommitService."""
 
     def setUp(self) -> None:
-        self.channel = Channel.objects.create(
+        self.channel = types.SimpleNamespace(
             ref="commit-idem-test",
             name="Commit Idempotency Test",
         )
         self.session = Session.objects.create(
             session_key="IDEM-SESS-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="open",
             rev=1,
             items=[{"line_id": "L1", "sku": "A", "qty": 1, "unit_price_q": 1000}],
@@ -72,7 +73,7 @@ class CommitSessionNotFoundTests(TestCase):
     """Tests for session not found in CommitService."""
 
     def setUp(self) -> None:
-        self.channel = Channel.objects.create(
+        self.channel = types.SimpleNamespace(
             ref="commit-notfound-test",
             name="Not Found Test",
         )
@@ -93,13 +94,13 @@ class CommitAbandonedSessionTests(TestCase):
     """Tests for abandoned session handling."""
 
     def setUp(self) -> None:
-        self.channel = Channel.objects.create(
+        self.channel = types.SimpleNamespace(
             ref="commit-abandoned-test",
             name="Abandoned Test",
         )
         self.session = Session.objects.create(
             session_key="ABANDONED-SESS-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="abandoned",
             rev=1,
             items=[],
@@ -121,13 +122,13 @@ class CommitAlreadyCommittedTests(TestCase):
     """Tests for already committed session handling."""
 
     def setUp(self) -> None:
-        self.channel = Channel.objects.create(
+        self.channel = types.SimpleNamespace(
             ref="commit-already-test",
             name="Already Committed Test",
         )
         self.session = Session.objects.create(
             session_key="ALREADY-SESS-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="committed",
             rev=1,
             items=[{"line_id": "L1", "sku": "A", "qty": 1, "unit_price_q": 1000}],
@@ -135,7 +136,7 @@ class CommitAlreadyCommittedTests(TestCase):
         # Create corresponding order
         self.order = Order.objects.create(
             ref="ORD-ALREADY-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             session_key=self.session.session_key,
             status="new",
             total_q=1000,
@@ -170,7 +171,7 @@ class CommitHoldExpiryTests(TestCase):
     """Tests for hold expiry checking in CommitService."""
 
     def setUp(self) -> None:
-        self.channel = Channel.objects.create(
+        self.channel = types.SimpleNamespace(
             ref="commit-expiry-test",
             name="Hold Expiry Test",
         )
@@ -181,7 +182,7 @@ class CommitHoldExpiryTests(TestCase):
 
         session = Session.objects.create(
             session_key="EXPIRY-SESS-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="open",
             rev=1,
             items=[{"line_id": "L1", "sku": "A", "qty": 1, "unit_price_q": 1000}],
@@ -214,7 +215,7 @@ class CommitHoldExpiryTests(TestCase):
         """Should allow holds without expires_at field."""
         session = Session.objects.create(
             session_key="NOEXPIRY-SESS-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="open",
             rev=1,
             items=[{"line_id": "L1", "sku": "A", "qty": 1, "unit_price_q": 1000}],
@@ -249,7 +250,7 @@ class CommitHoldExpiryTests(TestCase):
 
         session = Session.objects.create(
             session_key="EXPIRY-RESULT-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="open",
             rev=1,
             items=[{"line_id": "L1", "sku": "A", "qty": 1, "unit_price_q": 1000}],

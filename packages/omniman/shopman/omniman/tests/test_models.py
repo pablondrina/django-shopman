@@ -2,12 +2,12 @@
 
 from decimal import Decimal
 
+import types
 import pytest
 from django.test import TestCase
 
 from shopman.omniman.exceptions import InvalidTransition
 from shopman.omniman.models import (
-    Channel,
     Directive,
     Fulfillment,
     FulfillmentItem,
@@ -20,27 +20,17 @@ from shopman.omniman.models import (
 )
 
 
-@pytest.mark.django_db
-class TestChannel(TestCase):
-    def test_create_channel(self):
-        ch = Channel.objects.create(ref="pos", name="PDV")
-        assert ch.ref == "pos"
-        assert str(ch) == "PDV"
-
-    def test_channel_defaults(self):
-        ch = Channel.objects.create(ref="test")
-        assert ch.is_active is True
 
 
 @pytest.mark.django_db
 class TestSession(TestCase):
     def setUp(self):
-        self.channel = Channel.objects.create(ref="pos", name="PDV")
+        self.channel = types.SimpleNamespace(ref="pos", name="PDV")
 
     def test_create_session(self):
         session = Session.objects.create(
             session_key="S-1",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
         )
         assert session.state == "open"
         assert session.rev == 0
@@ -49,7 +39,7 @@ class TestSession(TestCase):
     def test_create_session_with_items(self):
         session = Session.objects.create(
             session_key="S-2",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             items=[{"sku": "CROISSANT", "qty": 2, "unit_price_q": 1000}],
         )
         items = session.items
@@ -63,7 +53,7 @@ class TestSession(TestCase):
     def test_session_items_cache_invalidation(self):
         session = Session.objects.create(
             session_key="S-3",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             items=[{"sku": "A", "qty": 1, "unit_price_q": 100}],
         )
         items = session.items
@@ -80,7 +70,7 @@ class TestSession(TestCase):
     def test_session_str_with_handle(self):
         session = Session.objects.create(
             session_key="S-4",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             handle_type="mesa",
             handle_ref="42",
         )
@@ -89,7 +79,7 @@ class TestSession(TestCase):
     def test_session_str_without_handle(self):
         session = Session.objects.create(
             session_key="S-5",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
         )
         assert str(session) == "pos:S-5"
 
@@ -97,12 +87,12 @@ class TestSession(TestCase):
 @pytest.mark.django_db
 class TestOrder(TestCase):
     def setUp(self):
-        self.channel = Channel.objects.create(ref="pos", name="PDV")
+        self.channel = types.SimpleNamespace(ref="pos", name="PDV")
 
     def test_create_order(self):
         order = Order.objects.create(
             ref="ORD-TEST-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             session_key="S-1",
             total_q=5000,
         )
@@ -112,7 +102,7 @@ class TestOrder(TestCase):
     def test_order_transition(self):
         order = Order.objects.create(
             ref="ORD-TEST-002",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
         )
         order.transition_status("confirmed", actor="test")
         assert order.status == "confirmed"
@@ -121,7 +111,7 @@ class TestOrder(TestCase):
     def test_invalid_transition_raises(self):
         order = Order.objects.create(
             ref="ORD-TEST-003",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
         )
         with pytest.raises(InvalidTransition):
             order.transition_status("completed", actor="test")
@@ -129,7 +119,7 @@ class TestOrder(TestCase):
     def test_order_event_emitted_on_transition(self):
         order = Order.objects.create(
             ref="ORD-TEST-004",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
         )
         order.transition_status("confirmed", actor="test")
         events = list(order.events.all())
@@ -141,7 +131,7 @@ class TestOrder(TestCase):
     def test_emit_event(self):
         order = Order.objects.create(
             ref="ORD-TEST-005",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
         )
         evt = order.emit_event("created", actor="system", payload={"key": "val"})
         assert evt.seq == 0
@@ -154,8 +144,8 @@ class TestOrder(TestCase):
 @pytest.mark.django_db
 class TestOrderItem(TestCase):
     def test_create_order_item(self):
-        ch = Channel.objects.create(ref="pos")
-        order = Order.objects.create(ref="ORD-ITEM-001", channel=ch)
+        ch = types.SimpleNamespace(ref="pos")
+        order = Order.objects.create(ref="ORD-ITEM-001", channel_ref=ch.ref)
         item = OrderItem.objects.create(
             order=order,
             line_id="L-001",
@@ -181,8 +171,8 @@ class TestDirective(TestCase):
 @pytest.mark.django_db
 class TestFulfillment(TestCase):
     def test_fulfillment_lifecycle(self):
-        ch = Channel.objects.create(ref="pos")
-        order = Order.objects.create(ref="ORD-FF-001", channel=ch)
+        ch = types.SimpleNamespace(ref="pos")
+        order = Order.objects.create(ref="ORD-FF-001", channel_ref=ch.ref)
         ff = Fulfillment.objects.create(order=order)
         assert ff.status == "pending"
 
@@ -195,8 +185,8 @@ class TestFulfillment(TestCase):
         assert ff.status == "dispatched"
 
     def test_invalid_fulfillment_transition(self):
-        ch = Channel.objects.create(ref="pos")
-        order = Order.objects.create(ref="ORD-FF-002", channel=ch)
+        ch = types.SimpleNamespace(ref="pos")
+        order = Order.objects.create(ref="ORD-FF-002", channel_ref=ch.ref)
         ff = Fulfillment.objects.create(order=order)
         ff.status = "delivered"  # Skip dispatched
         with pytest.raises(InvalidTransition):
@@ -216,10 +206,10 @@ class TestSessionItemsReadOnly(TestCase):
     """WP-H2: Session.items é read-only, update_items() persiste imediatamente."""
 
     def setUp(self):
-        self.channel = Channel.objects.create(ref="h2-test", name="H2")
+        self.channel = types.SimpleNamespace(ref="h2-test", name="H2")
         self.session = Session.objects.create(
             session_key="H2-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             items=[{"sku": "A", "qty": 1, "unit_price_q": 100}],
         )
 

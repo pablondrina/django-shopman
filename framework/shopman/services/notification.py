@@ -30,7 +30,7 @@ def send(order, template: str) -> None:
     """
     payload = {
         "order_ref": order.ref,
-        "channel_ref": order.channel.ref if order.channel else "",
+        "channel_ref": order.channel_ref or "",
         "template": template,
     }
 

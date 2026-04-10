@@ -38,7 +38,7 @@ class ConfirmationTimeoutHandler:
             return
 
         try:
-            order = Order.objects.select_related("channel").get(ref=order_ref)
+            order = Order.objects.get(ref=order_ref)
         except Order.DoesNotExist:
             message.status = "done"
             message.save(update_fields=["status", "updated_at"])

@@ -171,7 +171,7 @@ def _build_tracking_context(order: Order) -> dict:
     confirmation_countdown = False
     confirmation_expires_at = None
     if order.status == "new":
-        cfg = _effective_config(order.channel).confirmation
+        cfg = _effective_config(order.channel_ref).confirmation
         if cfg.mode == "optimistic":
             from datetime import timedelta
             confirmation_countdown = True
@@ -411,8 +411,8 @@ class OrderConfirmationView(View):
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
         order = get_object_or_404(Order, ref=ref)
 
-        if order.channel:
-            cfg = _effective_config(order.channel).confirmation
+        if order.channel_ref:
+            cfg = _effective_config(order.channel_ref).confirmation
             if cfg.mode == "optimistic":
                 return redirect("storefront:order_tracking", ref=ref)
 

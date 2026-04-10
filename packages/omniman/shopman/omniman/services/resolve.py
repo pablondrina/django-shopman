@@ -34,7 +34,7 @@ class ResolveService:
         try:
             session = Session.objects.select_for_update().get(
                 session_key=session_key,
-                channel__ref=channel_ref,
+                channel_ref=channel_ref,
             )
         except Session.DoesNotExist:
             raise IssueResolveError(

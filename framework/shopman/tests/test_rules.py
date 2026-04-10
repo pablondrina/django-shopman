@@ -236,7 +236,7 @@ class TestEngine:
         assert "inactive_1" not in codes
 
     def test_get_active_rules_filters_by_channel(self):
-        from shopman.omniman.models import Channel
+        from shopman.models import Channel
 
         ch = Channel.objects.create(ref="test-ch", name="Test Channel")
 
@@ -251,7 +251,7 @@ class TestEngine:
         assert "channel_rule" in codes
 
     def test_get_active_rules_excludes_other_channel(self):
-        from shopman.omniman.models import Channel
+        from shopman.models import Channel
 
         ch1 = Channel.objects.create(ref="ch-1", name="Channel 1")
         ch2 = Channel.objects.create(ref="ch-2", name="Channel 2")

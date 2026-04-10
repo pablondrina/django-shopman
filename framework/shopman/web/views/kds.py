@@ -51,7 +51,7 @@ def _enrich_ticket(ticket, instance) -> dict:
         "pk": ticket.pk,
         "order_ref": order.ref,
         "channel_icon": CHANNEL_ICONS.get(
-            order.channel.ref if order.channel_id else "", _DEFAULT_CHANNEL_ICON
+            order.channel_ref or "", _DEFAULT_CHANNEL_ICON
         ),
         "customer_name": customer_name,
         "fulfillment_icon": fulfillment_icon,
@@ -122,7 +122,7 @@ def _enrich_expedition_order(order) -> dict:
         "pk": order.pk,
         "ref": order.ref,
         "channel_icon": CHANNEL_ICONS.get(
-            order.channel.ref if order.channel_id else "", _DEFAULT_CHANNEL_ICON
+            order.channel_ref or "", _DEFAULT_CHANNEL_ICON
         ),
         "customer_name": customer_name,
         "fulfillment_icon": "local_shipping" if is_delivery else "storefront",
@@ -183,7 +183,7 @@ class KDSDisplayView(View):
         if instance.type == "expedition":
             orders = (
                 Order.objects.filter(status="ready")
-                .select_related("channel")
+                
                 .order_by("created_at")
             )
             enriched = [_enrich_expedition_order(o) for o in orders]
@@ -198,7 +198,7 @@ class KDSDisplayView(View):
             KDSTicket.objects.filter(
                 kds_instance=instance, status__in=["pending", "in_progress"],
             )
-            .select_related("order", "order__channel")
+            .select_related("order")
             .order_by("created_at")
         )
         enriched = [_enrich_ticket(t, instance) for t in tickets]
@@ -226,7 +226,7 @@ class KDSTicketListPartialView(View):
         if instance.type == "expedition":
             orders = (
                 Order.objects.filter(status="ready")
-                .select_related("channel")
+                
                 .order_by("created_at")
             )
             enriched = [_enrich_expedition_order(o) for o in orders]
@@ -235,7 +235,7 @@ class KDSTicketListPartialView(View):
                 KDSTicket.objects.filter(
                     kds_instance=instance, status__in=["pending", "in_progress"],
                 )
-                .select_related("order", "order__channel")
+                .select_related("order")
                 .order_by("created_at")
             )
             enriched = [_enrich_ticket(t, instance) for t in tickets]

@@ -20,9 +20,10 @@ from django.test import TestCase
 from django.utils import timezone
 
 from shopman.omniman.ids import generate_idempotency_key, generate_session_key
-from shopman.omniman.models import Channel, Order, Session
+from shopman.omniman.models import Order, Session
 from shopman.omniman.services.commit import CommitService
 from shopman.omniman.services.modify import ModifyService
+from shopman.models import Channel
 
 
 def _create_pos_order(payment_method: str = "dinheiro") -> Order:
@@ -30,7 +31,7 @@ def _create_pos_order(payment_method: str = "dinheiro") -> Order:
     session_key = generate_session_key()
     Session.objects.create(
         session_key=session_key,
-        channel=channel,
+        channel_ref=channel.ref,
         state="open",
         pricing_policy="fixed",
         edit_policy="open",
@@ -53,7 +54,7 @@ def _create_pos_order(payment_method: str = "dinheiro") -> Order:
         idempotency_key=generate_idempotency_key(),
         ctx={"actor": "test"},
     )
-    return Order.objects.select_related("channel").get(ref=result["order_ref"])
+    return Order.objects.get(ref=result["order_ref"])
 
 
 class PosCancelLastTests(TestCase):

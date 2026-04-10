@@ -50,7 +50,7 @@ def queue(topic, order, **extra):
         directives.queue("notification.send", order, template="order_confirmed")
     """
     payload = {"order_ref": order.ref}
-    if order.channel:
-        payload["channel_ref"] = order.channel.ref
+    if order.channel_ref:
+        payload["channel_ref"] = order.channel_ref
     payload.update(extra)
     return Directive.objects.create(topic=topic, payload=payload)

@@ -64,11 +64,7 @@ class Order(models.Model):
     TERMINAL_STATUSES = [Status.COMPLETED, Status.CANCELLED, Status.RETURNED]
 
     ref = models.CharField(_("referência"), max_length=64, unique=True)
-    channel = models.ForeignKey(
-        "omniman.Channel",
-        verbose_name=_("canal de venda"),
-        on_delete=models.PROTECT,
-    )
+    channel_ref = models.CharField(_("canal de venda"), max_length=64, db_index=True, default="")
     session_key = models.CharField(_("chave da sessão"), max_length=64, db_index=True, default="")
 
     handle_type = models.CharField(_("tipo de identificação"), max_length=32, null=True, blank=True)

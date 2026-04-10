@@ -5,6 +5,7 @@ Covers edge cases and branches in ModifyService and CommitService.
 """
 
 from __future__ import annotations
+import types
 
 from decimal import Decimal
 
@@ -12,7 +13,7 @@ from django.test import TestCase
 
 from shopman.omniman import registry
 from shopman.omniman.exceptions import ValidationError
-from shopman.omniman.models import Channel, Session
+from shopman.omniman.models import Session
 from shopman.omniman.services import ModifyService
 
 
@@ -59,13 +60,13 @@ class ValidatorIntegrationTests(TestCase):
 
     def setUp(self) -> None:
         registry.clear()
-        self.channel = Channel.objects.create(
+        self.channel = types.SimpleNamespace(
             ref="validator-test",
             name="Validator Test Channel",
         )
         self.session = Session.objects.create(
             session_key="VAL-SESS-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="open",
             rev=1,
             items=[],
@@ -124,13 +125,13 @@ class ModifierIntegrationTests(TestCase):
 
     def setUp(self) -> None:
         registry.clear()
-        self.channel = Channel.objects.create(
+        self.channel = types.SimpleNamespace(
             ref="modifier-test",
             name="Modifier Test Channel",
         )
         self.session = Session.objects.create(
             session_key="MOD-SESS-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="open",
             rev=1,
             items=[],

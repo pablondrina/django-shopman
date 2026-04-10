@@ -32,7 +32,7 @@ def _make_shop():
 
 
 def _make_channel(ref="stress-test"):
-    from shopman.omniman.models import Channel
+    from shopman.models import Channel
     return Channel.objects.get_or_create(
         ref=ref,
         defaults={
@@ -46,7 +46,7 @@ def _make_open_session(channel, session_key, sku="TEST-SKU", qty=1, price_q=1000
     from shopman.omniman.models import Session
     return Session.objects.create(
         session_key=session_key,
-        channel=channel,
+        channel_ref=channel.ref,
         state="open",
         rev=1,
         items=[{"line_id": f"L-{session_key}", "sku": sku, "qty": qty, "unit_price_q": price_q}],
@@ -126,7 +126,7 @@ class DoubleSubmitIdempotencyTests(TestCase):
             )
 
         order_count = Order.objects.filter(
-            session_key__startswith="MULTI-SS-", channel=self.channel
+            session_key__startswith="MULTI-SS-", channel_ref=self.channel.ref
         ).count()
         self.assertEqual(order_count, 5)
 
@@ -164,7 +164,7 @@ class ConcurrentOversellTests(TransactionTestCase):
     def setUp(self):
         from shopman.models import Shop
         Shop.objects.get_or_create(name="Test Shop", defaults={"brand_name": "Test"})
-        from shopman.omniman.models import Channel
+        from shopman.models import Channel
         self.channel, _ = Channel.objects.get_or_create(
             ref="stress-oversell",
             defaults={
@@ -199,7 +199,7 @@ class ConcurrentOversellTests(TransactionTestCase):
             # Session must be created within thread (TransactionTestCase uses autocommit)
             Session.objects.create(
                 session_key=session_key,
-                channel=self.channel,
+                channel_ref=self.channel.ref,
                 state="open",
                 rev=1,
                 items=[{"line_id": f"L-{session_key}", "sku": self.product.sku, "qty": 1, "unit_price_q": 1000}],
@@ -236,7 +236,7 @@ class ConcurrentOversellTests(TransactionTestCase):
         failures = [r for r in results if not r[0]]
 
         # At most 3 orders (limited by stock)
-        order_count = Order.objects.filter(channel=self.channel).count()
+        order_count = Order.objects.filter(channel_ref=self.channel.ref).count()
         self.assertLessEqual(order_count, 3)
         self.assertLessEqual(len(successes), 3)
 
@@ -255,7 +255,7 @@ class ConcurrentPaymentCaptureTests(TransactionTestCase):
     def setUp(self):
         from shopman.models import Shop
         Shop.objects.get_or_create(name="Test Shop", defaults={"brand_name": "Test"})
-        from shopman.omniman.models import Channel
+        from shopman.models import Channel
         self.channel, _ = Channel.objects.get_or_create(
             ref="stress-payment",
             defaults={
@@ -274,7 +274,7 @@ class ConcurrentPaymentCaptureTests(TransactionTestCase):
 
         order = Order.objects.create(
             ref="RACE-ORD-001",
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             status="confirmed",
             total_q=1000,
             handle_type="phone",

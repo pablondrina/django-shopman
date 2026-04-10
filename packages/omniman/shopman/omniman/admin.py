@@ -91,7 +91,6 @@ from shopman.omniman.admin_widgets import DatalistTextInput
 from shopman.omniman.exceptions import CommitError, IssueResolveError, SessionError
 from shopman.omniman.ids import generate_idempotency_key
 from shopman.omniman.models import (
-    Channel,
     Directive,
     Fulfillment,
     FulfillmentItem,
@@ -123,57 +122,20 @@ def history_action(modeladmin, request, object_id):
 
 class CanalVendaFilter(admin.SimpleListFilter):
     title = _("canal")
-    parameter_name = "channel__id__exact"
+    parameter_name = "channel_ref"
 
     def lookups(self, request, model_admin):
+        from shopman.models import Channel
         qs = Channel.objects.filter(is_active=True).order_by(
             "display_order", "name", "ref"
         )
-        return [(str(c.pk), c.name or c.ref) for c in qs]
+        return [(c.ref, c.name or c.ref) for c in qs]
 
     def queryset(self, request, queryset):
         value = self.value()
         if not value:
             return queryset
-        return queryset.filter(channel_id=value)
-
-
-@admin.register(Channel)
-class ChannelAdmin(ModelAdmin):
-    list_display = [
-        "name",
-        "ref",
-        "kind",
-        "is_active",
-        "display_order",
-        "created_at",
-    ]
-    list_filter = ("is_active", "kind")
-    search_fields = ("ref", "name")
-    ordering = ("display_order", "id")
-    list_filter_submit = True
-    list_fullwidth = True
-    compressed_fields = True
-    warn_unsaved_form = True
-
-    ordering_field = "display_order"
-    hide_ordering_field = True
-
-    actions_detail = ["history_detail_action"]
-
-    @action(description=_("Histórico"), url_path="history-action", icon="history")
-    def history_detail_action(self, request, object_id):
-        return history_action(self, request, object_id)
-
-    fieldsets = (
-        (_("Identidade"), {"fields": ("name", "ref", "kind"), "classes": ("tab",)}),
-        (
-            _("Exibição"),
-            {"fields": ("display_order", "is_active"), "classes": ("tab",)},
-        ),
-        (_("Auditoria"), {"fields": ("created_at",), "classes": ("tab",)}),
-    )
-    readonly_fields = ("created_at",)
+        return queryset.filter(channel_ref=value)
 
 
 @admin.register(Session)
@@ -181,7 +143,7 @@ class SessionAdmin(ModelAdmin):
     change_form_template = "ordering/admin/session_change_form.html"
     list_display = (
         "session_key",
-        "channel",
+        "channel_ref",
         "handle_type",
         "handle_ref",
         "state_badge",
@@ -189,7 +151,7 @@ class SessionAdmin(ModelAdmin):
         "updated_at",
     )
     list_filter = (CanalVendaFilter, ("state", ChoicesRadioFilter))
-    search_fields = ("session_key", "channel__ref", "handle_type", "handle_ref")
+    search_fields = ("session_key", "channel_ref", "handle_type", "handle_ref")
     ordering = ("-updated_at", "-id")
     date_hierarchy = "updated_at"
     list_filter_submit = True
@@ -200,7 +162,7 @@ class SessionAdmin(ModelAdmin):
     # Todos os campos são readonly - Sessões são imutáveis após criação
     # Apenas ações podem modificar o estado (ex: commit)
     readonly_fields = (
-        "channel",
+        "channel_ref",
         "session_key",
         "session_key_content",
         "session_key_display",
@@ -400,7 +362,7 @@ class SessionAdmin(ModelAdmin):
     fieldsets = (
         (
             _("Identidade"),
-            {"fields": ("session_key", "channel", "handle_type", "handle_ref"), "classes": ("tab",)},
+            {"fields": ("session_key", "channel_ref", "handle_type", "handle_ref"), "classes": ("tab",)},
         ),
         (_("Conteúdo"), {"fields": ("session_key_content", "items_display", "data"), "classes": ("tab",)}),
         (
@@ -411,8 +373,6 @@ class SessionAdmin(ModelAdmin):
             },
         ),
     )
-
-    autocomplete_fields = ("channel",)
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -738,7 +698,7 @@ class PreorderFilter(admin.SimpleListFilter):
 class OrderAdmin(ModelAdmin):
     list_display = (
         "ref",
-        "channel",
+        "channel_ref",
         "handle_ref",
         "status_badge",
         "delivery_date_display",
@@ -753,7 +713,7 @@ class OrderAdmin(ModelAdmin):
         ("created_at", RangeDateFilter),
         ("total_q", RangeNumericFilter),
     )
-    search_fields = ("ref", "channel__ref", "session_key", "handle_ref", "external_ref")
+    search_fields = ("ref", "channel_ref", "session_key", "handle_ref", "external_ref")
     ordering = ("-created_at", "-id")
     date_hierarchy = "created_at"
     list_filter_submit = True
@@ -836,7 +796,7 @@ class OrderAdmin(ModelAdmin):
         (
             _("Identidade"),
             {
-                "fields": ("ref", "channel", "status", "external_ref"),
+                "fields": ("ref", "channel_ref", "status", "external_ref"),
                 "classes": ("tab",),
             },
         ),
@@ -853,7 +813,7 @@ class OrderAdmin(ModelAdmin):
     # Apenas ações podem modificar o estado (ex: avançar status)
     readonly_fields = (
         "ref",
-        "channel",
+        "channel_ref",
         "session_key",
         "handle_type",
         "handle_ref",
@@ -971,8 +931,6 @@ class OrderAdmin(ModelAdmin):
                 request,
                 _("%(count)d pedido(s) não puderam ser cancelados.") % {"count": skipped},
             )
-
-    autocomplete_fields = ("channel",)
 
     def changelist_view(self, request, extra_context=None):
         # UX: tab padrão = "Novos" quando não há nenhum filtro explícito.

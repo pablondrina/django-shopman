@@ -16,7 +16,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 
 from shopman.offerman.models import Product
-from shopman.omniman.models import Channel
+from shopman.models import Channel
 
 
 class CartAlternativesViewTests(TestCase):
@@ -121,7 +121,7 @@ class CartItemUnavailableFlagTests(TestCase):
         session_key = generate_session_key()
         Session.objects.create(
             session_key=session_key,
-            channel=channel,
+            channel_ref=channel.ref,
             state="open",
             pricing_policy="fixed",
             edit_policy="open",

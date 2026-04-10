@@ -105,7 +105,7 @@ class RuleConfig(models.Model):
         help_text="Parâmetros da regra (ex: percentual, horários, SKUs)",
     )
     channels = models.ManyToManyField(
-        "omniman.Channel", blank=True,
+        "shopman.Channel", blank=True,
         verbose_name="canais",
         help_text="Canais onde esta regra se aplica. Vazio = todos.",
     )

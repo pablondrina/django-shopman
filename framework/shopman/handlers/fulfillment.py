@@ -185,7 +185,7 @@ class FulfillmentUpdateHandler:
         )
 
         # Auto-sync com Order
-        config = ChannelConfig.for_channel(order.channel)
+        config = ChannelConfig.for_channel(order.channel_ref)
         if config.fulfillment.auto_sync:
             self._sync_order_status(order, new_status)
 
@@ -226,7 +226,7 @@ class FulfillmentUpdateHandler:
 
         payload = {
             "order_ref": order.ref,
-            "channel_ref": order.channel.ref,
+            "channel_ref": order.channel_ref,
             "template": template,
         }
 

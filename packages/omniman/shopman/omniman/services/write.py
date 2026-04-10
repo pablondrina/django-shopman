@@ -45,7 +45,7 @@ class SessionWriteService:
         try:
             session = Session.objects.select_for_update().get(
                 session_key=session_key,
-                channel__ref=channel_ref,
+                channel_ref=channel_ref,
             )
         except Session.DoesNotExist:
             logger.warning("Session not found for check result", extra=log_context)

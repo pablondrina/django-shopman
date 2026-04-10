@@ -1,4 +1,4 @@
-"""ChannelConfigAdmin — per-channel configuration with tabbed aspects."""
+"""ChannelAdmin — Canal de venda com configuração integrada."""
 
 from __future__ import annotations
 
@@ -10,11 +10,11 @@ from django.utils.safestring import mark_safe
 from unfold.admin import ModelAdmin
 
 from shopman.config import ChannelConfig
-from shopman.models import ChannelConfigRecord
+from shopman.models import Channel
 
 
-class ChannelConfigForm(forms.ModelForm):
-    """Form that presents ChannelConfig aspects as individual JSON fields."""
+class ChannelForm(forms.ModelForm):
+    """Form com campos de config por aspecto."""
 
     confirmation = forms.CharField(
         widget=forms.Textarea(attrs={"rows": 4, "class": "vLargeTextField"}),
@@ -58,8 +58,8 @@ class ChannelConfigForm(forms.ModelForm):
     )
 
     class Meta:
-        model = ChannelConfigRecord
-        fields = ("channel_ref",)
+        model = Channel
+        fields = ("ref", "name", "kind", "shop", "display_order", "is_active")
 
     _ASPECTS = (
         "confirmation", "payment", "fulfillment", "stock",
@@ -69,7 +69,7 @@ class ChannelConfigForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk:
-            data = self.instance.data or {}
+            data = self.instance.config or {}
             for aspect in self._ASPECTS:
                 value = data.get(aspect, {})
                 self.fields[aspect].initial = json.dumps(value, indent=2, ensure_ascii=False) if value else ""
@@ -89,42 +89,31 @@ class ChannelConfigForm(forms.ModelForm):
 
     def save(self, commit=True):
         instance = super().save(commit=False)
-        data = instance.data or {}
+        config = instance.config or {}
         for aspect in self._ASPECTS:
             value = self.cleaned_data.get(aspect, {})
             if value:
-                data[aspect] = value
+                config[aspect] = value
             else:
-                data.pop(aspect, None)
-        instance.data = data
-
-        # Validate the resulting config
-        try:
-            config = ChannelConfig.from_dict(data)
-            config.validate()
-        except (ValueError, TypeError) as e:
-            raise forms.ValidationError(f"Config inválida: {e}") from e
-
+                config.pop(aspect, None)
+        instance.config = config
         if commit:
             instance.save()
         return instance
 
 
-@admin.register(ChannelConfigRecord)
-class ChannelConfigAdmin(ModelAdmin):
-    """Admin para configuração de canal com abas por aspecto.
+@admin.register(Channel)
+class ChannelAdmin(ModelAdmin):
+    """Admin para canais de venda com configuração por aspecto."""
 
-    Cada registro sobreescreve a config padrão da loja (Shop.defaults) para um canal.
-    Cascata completa: canal (este model) ← loja (Shop.defaults) ← defaults hardcoded.
-    """
-
-    form = ChannelConfigForm
-    list_display = ("channel_ref", "pricing_display", "editing_display", "updated_at")
-    search_fields = ("channel_ref",)
-    readonly_fields = ("updated_at", "resolved_config_display")
+    form = ChannelForm
+    list_display = ("ref", "name", "kind", "is_active", "display_order")
+    list_filter = ("kind", "is_active")
+    search_fields = ("ref", "name")
+    ordering = ("display_order", "ref")
 
     fieldsets = (
-        (None, {"fields": ("channel_ref",)}),
+        (None, {"fields": ("ref", "name", "kind", "shop", "display_order", "is_active")}),
         ("Confirmação", {"fields": ("confirmation",), "classes": ("tab",)}),
         ("Pagamento", {"fields": ("payment",), "classes": ("tab",)}),
         ("Fulfillment", {"fields": ("fulfillment",), "classes": ("tab",)}),
@@ -133,32 +122,18 @@ class ChannelConfigAdmin(ModelAdmin):
         ("Pricing", {"fields": ("pricing",), "classes": ("tab",)}),
         ("Editing", {"fields": ("editing",), "classes": ("tab",)}),
         ("Regras", {"fields": ("rules",), "classes": ("tab",)}),
-        ("Info", {"fields": ("resolved_config_display", "updated_at"), "classes": ("tab",)}),
+        ("Config resolvida", {"fields": ("resolved_config_display",), "classes": ("tab",)}),
     )
-
-    @admin.display(description="pricing")
-    def pricing_display(self, obj):
-        policy = (obj.data or {}).get("pricing", {}).get("policy", "internal")
-        color = "green" if policy == "internal" else "red"
-        return mark_safe(f'<span style="color:{color}">{policy}</span>')
-
-    @admin.display(description="editing")
-    def editing_display(self, obj):
-        policy = (obj.data or {}).get("editing", {}).get("policy", "open")
-        color = "green" if policy == "open" else "red"
-        return mark_safe(f'<span style="color:{color}">{policy}</span>')
+    readonly_fields = ("resolved_config_display",)
 
     @admin.display(description="Config resolvida (cascata)")
     def resolved_config_display(self, obj):
         if not obj.pk:
             return "-"
-        from shopman.omniman.models import Channel
-
         try:
-            channel = Channel.objects.get(ref=obj.channel_ref)
-            config = ChannelConfig.for_channel(channel)
+            config = ChannelConfig.for_channel(obj)
             data = config.to_dict()
             formatted = json.dumps(data, indent=2, ensure_ascii=False)
             return mark_safe(f"<pre>{formatted}</pre>")
-        except Channel.DoesNotExist:
-            return mark_safe("<em>Canal não encontrado</em>")
+        except Exception:
+            return "-"

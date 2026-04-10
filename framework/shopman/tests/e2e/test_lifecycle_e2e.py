@@ -25,9 +25,9 @@ from unittest.mock import MagicMock, patch
 
 from django.test import TestCase, TransactionTestCase
 
-from shopman.models import ChannelConfigRecord
+from shopman.models import Channel
 from shopman.omniman.ids import generate_idempotency_key, generate_session_key
-from shopman.omniman.models import Channel, Directive, Order, Session
+from shopman.omniman.models import Directive, Order, Session
 from shopman.omniman.services import CommitService
 
 # ── Service patch targets ─────────────────────────────────────────────
@@ -115,10 +115,9 @@ def _make_channel(ref="test", kind="local", config=None, **kwargs):
         ref=ref,
         name=ref.title(),
         kind=kind,
+        config=config or {},
         **kwargs,
     )
-    if config:
-        ChannelConfigRecord.objects.create(channel_ref=ref, data=config)
     return channel
 
 
@@ -126,7 +125,7 @@ def _make_session(channel, key=None):
     key = key or generate_session_key()
     return Session.objects.create(
         session_key=key,
-        channel=channel,
+        channel_ref=channel.ref,
         state="open",
         items=[{"sku": "PAO-FRANCES", "qty": 2, "unit_price_q": 80, "line_id": "L1"}],
     )
@@ -330,7 +329,7 @@ class TestE2E6DuplicateCommit(TestCase):
         session_key = generate_session_key()
         session = Session.objects.create(
             session_key=session_key,
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="open",
             items=[{"sku": "PAO-FRANCES", "qty": 1, "unit_price_q": 80, "line_id": "L1"}],
         )
@@ -375,7 +374,7 @@ class TestE2E7ConcurrentCommits(TransactionTestCase):
         session_key = generate_session_key()
         Session.objects.create(
             session_key=session_key,
-            channel=self.channel,
+            channel_ref=self.channel.ref,
             state="open",
             items=[{"sku": "PAO-FRANCES", "qty": 1, "unit_price_q": 80, "line_id": "L1"}],
         )
