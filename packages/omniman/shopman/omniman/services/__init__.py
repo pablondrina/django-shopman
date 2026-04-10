@@ -1,5 +1,5 @@
 """
-Ordering Services — Serviços do Kernel.
+Omniman Services — Serviços do Kernel.
 
 Re-exports:
     from shopman.omniman.services import ModifyService, CommitService, ...

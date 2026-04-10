@@ -1,5 +1,5 @@
 """
-Customers Identifiers - Multi-channel customer deduplication.
+Guestman Identifiers - Multi-channel customer deduplication.
 
 This contrib module provides CustomerIdentifier for linking multiple
 channel identities (WhatsApp, Instagram, Facebook, etc.) to a single customer.
@@ -23,7 +23,11 @@ def __getattr__(name):
         from shopman.guestman.contrib.identifiers.service import IdentifierService
 
         return IdentifierService
+    if name in ("CustomerIdentifier", "IdentifierType"):
+        from shopman.guestman.contrib.identifiers import models
+
+        return getattr(models, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = ["IdentifierService"]
+__all__ = ["IdentifierService", "CustomerIdentifier", "IdentifierType"]

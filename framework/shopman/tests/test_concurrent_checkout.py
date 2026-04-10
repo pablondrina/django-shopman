@@ -37,8 +37,6 @@ def _make_channel(ref="stress-test"):
         ref=ref,
         defaults={
             "name": "Stress Test",
-            "pricing_policy": "fixed",
-            "edit_policy": "open",
             "is_active": True,
         },
     )[0]
@@ -171,8 +169,6 @@ class ConcurrentOversellTests(TransactionTestCase):
             ref="stress-oversell",
             defaults={
                 "name": "Oversell Test",
-                "pricing_policy": "fixed",
-                "edit_policy": "open",
                 "is_active": True,
             },
         )
@@ -264,8 +260,6 @@ class ConcurrentPaymentCaptureTests(TransactionTestCase):
             ref="stress-payment",
             defaults={
                 "name": "Payment Race Test",
-                "pricing_policy": "fixed",
-                "edit_policy": "open",
                 "is_active": True,
             },
         )

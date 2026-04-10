@@ -1,10 +1,10 @@
 """
-Django settings for Stocking tests.
+Django settings for Offerman tests.
 
-Minimal settings to run pytest with shopman.stockman app.
+Minimal settings to run pytest with shopman.offerman app.
 """
 
-SECRET_KEY = "test-secret-key-for-stocking-tests"
+SECRET_KEY = "test-secret-key-for-offering-tests"
 
 DEBUG = True
 
@@ -14,16 +14,19 @@ INSTALLED_APPS = [
     "taggit",
     "simple_history",
     "rest_framework",
+    "django_filters",
     "shopman.offerman",
-    "shopman.stockman",
-    "shopman.stockman.contrib.alerts",
 ]
 
-ROOT_URLCONF = "shopman.stockman.tests.urls"
+ROOT_URLCONF = "shopman.offerman.tests.urls"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.SearchFilter",
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,

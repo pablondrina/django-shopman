@@ -1,5 +1,5 @@
 """
-Pytest fixtures for Stocking tests.
+Pytest fixtures for Stockman tests.
 """
 
 from datetime import date, timedelta

@@ -1,4 +1,4 @@
-"""Offering models."""
+"""Offerman models."""
 
 from shopman.offerman.models.collection import Collection, CollectionItem
 from shopman.offerman.models.listing import Listing, ListingItem

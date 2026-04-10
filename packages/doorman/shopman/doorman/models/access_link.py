@@ -19,9 +19,9 @@ def generate_token() -> str:
 
 def default_expiry():
     """Default expiration time for access links."""
-    from ..conf import auth_settings
+    from ..conf import doorman_settings
 
-    return timezone.now() + timedelta(minutes=auth_settings.ACCESS_LINK_EXCHANGE_TTL_MINUTES)
+    return timezone.now() + timedelta(minutes=doorman_settings.ACCESS_LINK_EXCHANGE_TTL_MINUTES)
 
 
 class AccessLink(models.Model):
@@ -62,11 +62,11 @@ class AccessLink(models.Model):
         default=generate_token,
     )
 
-    # Target (Customer UUID from Customers)
+    # Target (Customer UUID from Guestman)
     customer_id = models.UUIDField(
         _("ID do cliente"),
         db_index=True,
-        help_text=_("UUID do cliente no Customers"),
+        help_text=_("UUID do cliente no Guestman"),
     )
 
     # Scope

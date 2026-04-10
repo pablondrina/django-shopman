@@ -16,7 +16,7 @@ from shopman.doorman.views.logout import LogoutView
 
 User = get_user_model()
 
-AUTH_SETTINGS = {
+DOORMAN_SETTINGS = {
     "CUSTOMER_RESOLVER_CLASS": "shopman.guestman.adapters.auth.CustomerResolver",
     "MESSAGE_SENDER_CLASS": "shopman.doorman.senders.LogSender",
     "DEVICE_TRUST_COOKIE_NAME": "shopman_auth_dt",
@@ -118,7 +118,7 @@ def test_backend_get_user_invalid(db):
 
 @pytest.mark.django_db
 @override_settings(
-    AUTH=AUTH_SETTINGS,
+    DOORMAN=DOORMAN_SETTINGS,
     AUTHENTICATION_BACKENDS=BACKENDS,
 )
 def test_verify_login_with_request_sets_user(customer, verification_code):
@@ -137,7 +137,7 @@ def test_verify_login_with_request_sets_user(customer, verification_code):
 
 
 @pytest.mark.django_db
-@override_settings(AUTH=AUTH_SETTINGS)
+@override_settings(DOORMAN=DOORMAN_SETTINGS)
 def test_verify_login_without_request_no_login(customer, verification_code):
     """verify_for_login without request does not attempt login."""
     result = AuthService.verify_for_login(
@@ -157,7 +157,7 @@ def test_verify_login_without_request_no_login(customer, verification_code):
 
 @pytest.mark.django_db
 @override_settings(
-    AUTH=AUTH_SETTINGS,
+    DOORMAN=DOORMAN_SETTINGS,
     AUTHENTICATION_BACKENDS=BACKENDS,
 )
 def test_logout_clears_session(customer):
@@ -174,7 +174,7 @@ def test_logout_clears_session(customer):
 
 
 @pytest.mark.django_db
-@override_settings(AUTH=AUTH_SETTINGS)
+@override_settings(DOORMAN=DOORMAN_SETTINGS)
 def test_logout_clears_device_trust_cookie(customer):
     request = _make_request("post", "/auth/logout/")
     request.COOKIES["shopman_auth_dt"] = "some-token"
@@ -187,7 +187,7 @@ def test_logout_clears_device_trust_cookie(customer):
 
 
 @pytest.mark.django_db
-@override_settings(AUTH=AUTH_SETTINGS)
+@override_settings(DOORMAN=DOORMAN_SETTINGS)
 def test_logout_get_not_allowed():
     request = _make_request("get", "/auth/logout/")
     response = LogoutView.as_view()(request)
@@ -195,7 +195,7 @@ def test_logout_get_not_allowed():
 
 
 @pytest.mark.django_db
-@override_settings(AUTH={**AUTH_SETTINGS, "LOGOUT_REDIRECT_URL": "/goodbye/"})
+@override_settings(DOORMAN={**DOORMAN_SETTINGS, "LOGOUT_REDIRECT_URL": "/goodbye/"})
 def test_logout_redirect_url_configurable(customer):
     request = _make_request("post", "/auth/logout/")
     response = LogoutView.as_view()(request)

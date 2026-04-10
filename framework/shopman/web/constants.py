@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from django.conf import settings
 
+from shopman.stockman.services.availability import availability_for_sku  # noqa: F401
+
 _DEFAULT_DDD_FALLBACK = "43"
 
 
@@ -26,13 +28,7 @@ except LookupError:
     HAS_AUTH = False
 
 
-# Check if stockman availability API is available
-try:
-    from shopman.stockman.services.availability import availability_for_sku  # noqa: F401
-
-    HAS_STOCKING = True
-except ImportError:
-    HAS_STOCKING = False
+HAS_STOCKMAN = True
 
 
 # Override via SHOPMAN_STOREFRONT_CHANNEL_REF in your Django settings.

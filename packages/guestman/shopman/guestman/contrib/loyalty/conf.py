@@ -1,5 +1,5 @@
 """
-Customers Loyalty configuration.
+Guestman Loyalty configuration.
 
 Tier thresholds are configurable via Django settings:
 

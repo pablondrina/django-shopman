@@ -3,7 +3,7 @@ Testes de Políticas de Canal — Garante que cada canal respeita suas política
 e que operadores recebem mensagens elegantes quando tentam ações proibidas.
 
 CONTEXTO IMPORTANTE:
-- Cada canal tem políticas próprias (edit_policy, pricing_policy)
+- Cada sessão herda políticas do canal (edit_policy, pricing_policy)
 - iFood: Pedidos chegam prontos, NÃO podem ser editados (edit_policy=locked)
 - PDV: Pedidos são criados localmente, PODEM ser editados (edit_policy=open)
 - O operador deve receber mensagens claras e amigáveis, nunca erros técnicos
@@ -33,8 +33,6 @@ class IFoodPolicyTests(TestCase):
         self.channel = Channel.objects.create(
             ref="ifood",
             name="iFood",
-            pricing_policy="external",
-            edit_policy="locked",  # Política: NÃO EDITÁVEL
         )
 
     def test_ifood_session_cannot_be_edited(self) -> None:
@@ -164,8 +162,6 @@ class PDVPolicyTests(TestCase):
         self.channel = Channel.objects.create(
             ref="pdv",
             name="Balcão",
-            pricing_policy="internal",
-            edit_policy="open",  # Política: EDITÁVEL
         )
 
     def test_pdv_session_can_be_edited(self) -> None:
@@ -278,7 +274,6 @@ class SessionStateErrorTests(TestCase):
         self.channel = Channel.objects.create(
             ref="test",
             name="Teste",
-            edit_policy="open",
         )
 
     def test_committed_session_cannot_be_edited(self) -> None:
@@ -337,7 +332,6 @@ class ErrorMessageQualityTests(TestCase):
         self.ifood_channel = Channel.objects.create(
             ref="ifood",
             name="iFood",
-            edit_policy="locked",
         )
 
     def test_error_messages_are_in_portuguese(self) -> None:

@@ -1,5 +1,5 @@
 """
-Stocking signals — domain events emitted by stock operations.
+Stockman signals — domain events emitted by stock operations.
 """
 
 from __future__ import annotations

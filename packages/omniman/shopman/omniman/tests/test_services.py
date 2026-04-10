@@ -1,4 +1,4 @@
-"""Testes dos Services do Ordering kernel."""
+"""Testes dos Services do Omniman kernel."""
 
 from decimal import Decimal
 

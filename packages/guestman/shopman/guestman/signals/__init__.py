@@ -1,5 +1,5 @@
 """
-Customers signals — public event API.
+Guestman signals — public event API.
 
 Emitted signals:
 - customer_created: Emitted by services.customer.create()

@@ -1,4 +1,4 @@
-"""Customers models (CORE only).
+"""Guestman models (CORE only).
 
 CORE models are exported here. Contrib models are in their respective modules:
 - shopman.guestman.contrib.identifiers: CustomerIdentifier, IdentifierType

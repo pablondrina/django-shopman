@@ -1,5 +1,5 @@
 """
-Exceptions for Stocking.
+Exceptions for Stockman.
 
 All errors are StockError with a structured code for programmatic handling.
 """

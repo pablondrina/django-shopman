@@ -1,5 +1,5 @@
 """
-Django settings for Crafting vNext tests.
+Django settings for Craftsman vNext tests.
 
 Minimal setup — no external app dependencies for core tests.
 """

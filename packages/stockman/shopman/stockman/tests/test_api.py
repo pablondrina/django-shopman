@@ -17,8 +17,8 @@ User = get_user_model()
 BASE_URL = "/api/stocking"
 
 
-class StockingAPITestBase(TestCase):
-    """Base class with common setup for all stocking API tests."""
+class StockmanAPITestBase(TestCase):
+    """Base class with common setup for all Stockman API tests."""
 
     def setUp(self) -> None:
         self.user = User.objects.create_user(username="testuser", password="testpass123")
@@ -70,7 +70,7 @@ class StockingAPITestBase(TestCase):
 # ══════════════════════════════════════════════════════════════════
 
 
-class AvailabilityTests(StockingAPITestBase):
+class AvailabilityTests(StockmanAPITestBase):
     """Tests for GET /api/stocking/availability/"""
 
     def test_availability_returns_qty_and_reserved(self):
@@ -151,7 +151,7 @@ class AvailabilityTests(StockingAPITestBase):
         assert filtered["total_available"] == Decimal("0")
 
 
-class BulkAvailabilityTests(StockingAPITestBase):
+class BulkAvailabilityTests(StockmanAPITestBase):
     """Tests for GET /api/stocking/availability/bulk/"""
 
     def test_bulk_returns_multiple_skus(self):
@@ -183,7 +183,7 @@ class BulkAvailabilityTests(StockingAPITestBase):
 # ══════════════════════════════════════════════════════════════════
 
 
-class PositionTests(StockingAPITestBase):
+class PositionTests(StockmanAPITestBase):
     """Tests for GET /api/stocking/positions/"""
 
     def test_list_positions(self):
@@ -205,7 +205,7 @@ class PositionTests(StockingAPITestBase):
         assert vitrine["is_saleable"] is True
 
 
-class PositionQuantsTests(StockingAPITestBase):
+class PositionQuantsTests(StockmanAPITestBase):
     """Tests for GET /api/stocking/positions/{code}/quants/"""
 
     def test_quants_at_position(self):
@@ -240,7 +240,7 @@ class PositionQuantsTests(StockingAPITestBase):
 # ══════════════════════════════════════════════════════════════════
 
 
-class BelowMinimumAlertTests(StockingAPITestBase):
+class BelowMinimumAlertTests(StockmanAPITestBase):
     """Tests for GET /api/stocking/alerts/below-minimum/"""
 
     def test_triggered_alerts(self):
@@ -286,7 +286,7 @@ class BelowMinimumAlertTests(StockingAPITestBase):
 # ══════════════════════════════════════════════════════════════════
 
 
-class ReceiveTests(StockingAPITestBase):
+class ReceiveTests(StockmanAPITestBase):
     """Tests for POST /api/stocking/receive/"""
 
     def test_receive_creates_move_and_updates_quant(self):
@@ -356,7 +356,7 @@ class ReceiveTests(StockingAPITestBase):
             move.save()
 
 
-class IssueTests(StockingAPITestBase):
+class IssueTests(StockmanAPITestBase):
     """Tests for POST /api/stocking/issue/"""
 
     def test_issue_creates_negative_move(self):
@@ -401,7 +401,7 @@ class IssueTests(StockingAPITestBase):
 # ══════════════════════════════════════════════════════════════════
 
 
-class MoveHistoryTests(StockingAPITestBase):
+class MoveHistoryTests(StockmanAPITestBase):
     """Tests for GET /api/stocking/moves/"""
 
     def test_moves_returns_paginated_history(self):
@@ -465,7 +465,7 @@ class MoveHistoryTests(StockingAPITestBase):
         assert "timestamp" in move
 
 
-class HoldHistoryTests(StockingAPITestBase):
+class HoldHistoryTests(StockmanAPITestBase):
     """Tests for GET /api/stocking/holds/"""
 
     def test_holds_list(self):
@@ -512,7 +512,7 @@ class HoldHistoryTests(StockingAPITestBase):
 # ══════════════════════════════════════════════════════════════════
 
 
-class AuthenticationTests(StockingAPITestBase):
+class AuthenticationTests(StockmanAPITestBase):
     """Critério: Autenticação obrigatória em todos os endpoints."""
 
     def setUp(self) -> None:
@@ -561,7 +561,7 @@ class AuthenticationTests(StockingAPITestBase):
 # ══════════════════════════════════════════════════════════════════
 
 
-class ReadOnlyEnforcementTests(StockingAPITestBase):
+class ReadOnlyEnforcementTests(StockmanAPITestBase):
     """Ensure read-only endpoints reject write methods."""
 
     def test_availability_rejects_post(self):

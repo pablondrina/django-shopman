@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "shopman-omniman"
 version = "0.1.0"
-description = "Shopman Ordering — Omnichannel Order Kernel"
+description = "Shopman Omniman — Omnichannel Order Kernel"
 requires-python = ">=3.12"
 dependencies = [
     "Django>=5.2,<6.0",
@@ -22,5 +22,5 @@ dev = [
 include = ["shopman.omniman*"]
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "ordering_test_settings"
+DJANGO_SETTINGS_MODULE = "omniman_test_settings"
 pythonpath = ["."]

@@ -1,5 +1,5 @@
 """
-Crafting Offering Adapter — product/catalog information via Offering.
+Craftsman Offerman Adapter — product/catalog information via Offerman.
 
 Supports both new CatalogProtocol and legacy ProductInfoBackend.
 
@@ -50,7 +50,7 @@ def get_catalog_backend():
     if _catalog_backend is None:
         with _lock:
             if _catalog_backend is None:
-                crafting_settings = getattr(settings, "CRAFTING", {})
+                crafting_settings = getattr(settings, "CRAFTSMAN", {})
 
                 backend_path = (
                     crafting_settings.get("CATALOG_BACKEND")

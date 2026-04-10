@@ -1,7 +1,6 @@
 """EFI PIX webhook — receives payment notifications from EFI gateway.
 
 Uses shopman.flows.dispatch(order, "on_paid") for order lifecycle.
-Auto-transition key: flow.auto_transitions["on_paid"] → target status.
 """
 
 from __future__ import annotations
@@ -141,17 +140,8 @@ class EfiPixWebhookView(APIView):
 
     @staticmethod
     def _auto_transition(order: Order) -> None:
-        """Auto-transition order status on payment confirmation if configured."""
-        try:
-            if not order.channel:
-                return
-            from shopman.config import ChannelConfig
-            flow_cfg = ChannelConfig.for_channel(order.channel).flow
-            target = (flow_cfg.auto_transitions or {}).get("on_paid")
-            if target and order.can_transition_to(target):
-                order.transition_status(target, actor="payment.webhook")
-        except Exception:
-            pass
+        """No-op — auto-transition is handled by dispatch(order, 'on_paid')."""
+        pass
 
     def _check_auth(self, request: Request) -> bool:
         skip_signature = _get_efi_webhook_setting("SKIP_SIGNATURE")

@@ -20,6 +20,10 @@ import logging
 import uuid
 from typing import Callable
 
+from shopman.guestman.contrib.identifiers import CustomerIdentifier
+from shopman.guestman.contrib.insights import InsightService
+from shopman.guestman.contrib.timeline import TimelineEvent
+
 logger = logging.getLogger(__name__)
 
 # ── Strategy registry ──
@@ -175,11 +179,8 @@ class _SkipAnonymous(Exception):
 
 
 def _customers_available() -> bool:
-    try:
-        from shopman.guestman.services import customer as _svc  # noqa: F401
-        return True
-    except ImportError:
-        return False
+    from shopman.guestman.services import customer as _svc  # noqa: F401
+    return True
 
 
 def _get_customer_service():
@@ -218,11 +219,6 @@ def _maybe_update_name(customer, name: str) -> None:
 
 def _find_by_identifier(provider: str, external_id: str):
     try:
-        from shopman.guestman.contrib.identifiers.models import CustomerIdentifier
-    except ImportError:
-        return None
-
-    try:
         ident = CustomerIdentifier.objects.select_related("customer").get(
             identifier_type=provider, identifier_value=str(external_id),
             customer__is_active=True,
@@ -233,11 +229,6 @@ def _find_by_identifier(provider: str, external_id: str):
 
 
 def _add_identifier(customer, provider: str, value: str, *, is_primary: bool = False) -> None:
-    try:
-        from shopman.guestman.contrib.identifiers.models import CustomerIdentifier
-    except ImportError:
-        return
-
     CustomerIdentifier.objects.get_or_create(
         identifier_type=provider, identifier_value=str(value),
         defaults={"customer": customer, "is_primary": is_primary, "source_system": "shopman"},
@@ -252,9 +243,9 @@ def _save_delivery_address(customer, order) -> None:
     if not delivery_address:
         return
 
-    try:
-        from shopman.guestman.models import CustomerAddress
+    from shopman.guestman.models import CustomerAddress
 
+    try:
         if CustomerAddress.objects.filter(customer=customer, formatted_address=delivery_address).exists():
             return
         has_addresses = CustomerAddress.objects.filter(customer=customer).exists()
@@ -262,17 +253,14 @@ def _save_delivery_address(customer, order) -> None:
             customer=customer, label="home", formatted_address=delivery_address,
             is_default=not has_addresses,
         )
-    except ImportError:
-        pass
     except Exception as exc:
         logger.warning("customer.ensure: address save failed: %s", exc)
 
 
 def _create_timeline_event(customer, order) -> None:
-    try:
-        from shopman.guestman.contrib.timeline.models import TimelineEvent
-        from shopman.utils.monetary import format_money
+    from shopman.utils.monetary import format_money
 
+    try:
         exists = TimelineEvent.objects.filter(
             customer=customer, event_type="order", reference=f"order:{order.ref}",
         ).exists()
@@ -286,17 +274,12 @@ def _create_timeline_event(customer, order) -> None:
             metadata={"order_ref": order.ref, "total_q": order.total_q},
             created_by="shopman.services.customer.ensure",
         )
-    except ImportError:
-        pass
     except Exception as exc:
         logger.warning("customer.ensure: timeline event failed: %s", exc)
 
 
 def _update_insights(customer_ref: str) -> None:
     try:
-        from shopman.guestman.contrib.insights.service import InsightService
         InsightService.recalculate(customer_ref)
-    except ImportError:
-        pass
     except Exception as exc:
         logger.warning("customer.ensure: insight recalculation failed: %s", exc)

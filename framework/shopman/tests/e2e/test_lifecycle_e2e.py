@@ -20,10 +20,12 @@ Scenarios:
 from __future__ import annotations
 
 import threading
+from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 from django.test import TestCase, TransactionTestCase
 
+from shopman.models import ChannelConfigRecord
 from shopman.omniman.ids import generate_idempotency_key, generate_session_key
 from shopman.omniman.models import Channel, Directive, Order, Session
 from shopman.omniman.services import CommitService
@@ -52,7 +54,16 @@ _PATCHES = [
 
 
 _DEFAULT_RETURN: dict[str, object] = {
-    "shopman.services.availability.check": {"ok": True},
+    "shopman.services.availability.check": {
+        "ok": True,
+        "available_qty": Decimal("999"),
+        "is_paused": False,
+        "is_planned": False,
+        "breakdown": {},
+        "error_code": None,
+        "is_bundle": False,
+        "failed_sku": None,
+    },
 }
 
 
@@ -81,15 +92,34 @@ def _stop_patches(patchers):
             pass
 
 
-def _make_channel(ref="test", kind="local", **kwargs):
-    return Channel.objects.create(
+_LOCAL_CONFIG = {
+    "confirmation": {"mode": "immediate"},
+    "payment": {"method": "counter", "timing": "external"},
+    "stock": {"check_on_commit": True},
+}
+
+_REMOTE_CONFIG = {
+    "confirmation": {"mode": "immediate"},
+    "payment": {"method": "pix", "timing": "post_commit"},
+}
+
+_MARKETPLACE_CONFIG = {
+    "confirmation": {"mode": "manual"},
+    "payment": {"method": "external", "timing": "external"},
+    "stock": {"check_on_commit": True},
+}
+
+
+def _make_channel(ref="test", kind="local", config=None, **kwargs):
+    channel = Channel.objects.create(
         ref=ref,
         name=ref.title(),
-        pricing_policy="external",
-        edit_policy="open",
         kind=kind,
         **kwargs,
     )
+    if config:
+        ChannelConfigRecord.objects.create(channel_ref=ref, data=config)
+    return channel
 
 
 def _make_session(channel, key=None):
@@ -115,10 +145,10 @@ def _commit(session, channel):
 # ─────────────────────────────────────────────────────────────────────
 
 class TestE2E1LocalCheckout(TestCase):
-    """LocalFlow: commit → auto-confirm → stock.fulfill."""
+    """Local channel: commit → auto-confirm → stock.fulfill."""
 
     def setUp(self):
-        self.channel = _make_channel(ref="balcao", kind="local")
+        self.channel = _make_channel(ref="balcao", kind="local", config=_LOCAL_CONFIG)
         self.patchers, self.mocks = _start_patches()
 
     def tearDown(self):
@@ -130,7 +160,7 @@ class TestE2E1LocalCheckout(TestCase):
 
         order = Order.objects.get(ref=result["order_ref"])
 
-        # LocalFlow.on_commit → auto_confirm → on_confirmed → stock.fulfill
+        # on_commit → auto_confirm → on_confirmed → stock.fulfill
         self.assertEqual(order.status, Order.Status.CONFIRMED)
         # stock.fulfill called once in on_confirmed
         self.mocks["fulfill"].assert_called_once()
@@ -141,10 +171,10 @@ class TestE2E1LocalCheckout(TestCase):
 # ─────────────────────────────────────────────────────────────────────
 
 class TestE2E2WebPixHappyPath(TestCase):
-    """WebFlow: commit → confirmed → manual on_paid transition → paid."""
+    """Remote channel: commit → confirmed → on_paid → stock.fulfill."""
 
     def setUp(self):
-        self.channel = _make_channel(ref="web", kind="web")
+        self.channel = _make_channel(ref="web", kind="web", config=_REMOTE_CONFIG)
         self.patchers, self.mocks = _start_patches()
 
     def tearDown(self):
@@ -157,7 +187,7 @@ class TestE2E2WebPixHappyPath(TestCase):
         result = _commit(session, self.channel)
         order = Order.objects.get(ref=result["order_ref"])
 
-        # BaseFlow.on_commit(WebFlow) → optimistic/manual confirmation
+        # on_commit → immediate confirmation → on_confirmed
         order.transition_status(Order.Status.CONFIRMED, actor="test")
         order.refresh_from_db()
         self.assertEqual(order.status, Order.Status.CONFIRMED)
@@ -177,7 +207,7 @@ class TestE2E3WebPixCancelledBeforeWebhook(TestCase):
     """Operator cancels order before PIX webhook arrives."""
 
     def setUp(self):
-        self.channel = _make_channel(ref="web-cancel", kind="web")
+        self.channel = _make_channel(ref="web-cancel", kind="web", config=_REMOTE_CONFIG)
         self.patchers, self.mocks = _start_patches()
 
     def tearDown(self):
@@ -205,12 +235,12 @@ class TestE2E3WebPixCancelledBeforeWebhook(TestCase):
 class TestE2E4WebPixWebhookAfterCancellation(TestCase):
     """PIX webhook arrives after operator already cancelled the order.
 
-    BaseFlow.on_paid() checks for CANCELLED status and refunds instead of
+    dispatch on_paid checks for CANCELLED status and refunds instead of
     fulfilling. This test confirms that protection holds.
     """
 
     def setUp(self):
-        self.channel = _make_channel(ref="web-late", kind="web")
+        self.channel = _make_channel(ref="web-late", kind="web", config=_REMOTE_CONFIG)
         self.patchers, self.mocks = _start_patches()
 
     def tearDown(self):
@@ -249,10 +279,10 @@ class TestE2E4WebPixWebhookAfterCancellation(TestCase):
 # ─────────────────────────────────────────────────────────────────────
 
 class TestE2E5MarketplaceInsufficientStock(TestCase):
-    """MarketplaceFlow.on_commit rejects order when availability.check fails."""
+    """Marketplace on_commit rejects order when availability.check fails."""
 
     def setUp(self):
-        self.channel = _make_channel(ref="ifood", kind="marketplace")
+        self.channel = _make_channel(ref="ifood", kind="marketplace", config=_MARKETPLACE_CONFIG)
         self.patchers, self.mocks = _start_patches()
 
     def tearDown(self):
@@ -260,18 +290,22 @@ class TestE2E5MarketplaceInsufficientStock(TestCase):
 
     def test_marketplace_rejects_when_unavailable(self):
         # availability.check returns failure
-        availability_patcher = patch(
-            "shopman.services.availability.check",
-            return_value={"ok": False, "error_code": "out_of_stock"},
-        )
-        availability_patcher.start()
-        self.patchers.append(availability_patcher)
+        self.mocks["check"].return_value = {
+            "ok": False,
+            "available_qty": Decimal("0"),
+            "is_paused": False,
+            "is_planned": False,
+            "breakdown": {},
+            "error_code": "out_of_stock",
+            "is_bundle": False,
+            "failed_sku": None,
+        }
 
         session = _make_session(self.channel)
         result = _commit(session, self.channel)
         order = Order.objects.get(ref=result["order_ref"])
 
-        # MarketplaceFlow.on_commit cancels when availability fails
+        # on_commit cancels when availability fails (check_on_commit=True)
         order.refresh_from_db()
         self.assertEqual(order.status, Order.Status.CANCELLED)
         # stock.hold must NOT be called — order was rejected before hold
@@ -286,7 +320,7 @@ class TestE2E6DuplicateCommit(TestCase):
     """Duplicate commit with same idempotency_key returns cached result."""
 
     def setUp(self):
-        self.channel = _make_channel(ref="idem-test", kind="local")
+        self.channel = _make_channel(ref="idem-test", kind="local", config=_LOCAL_CONFIG)
         self.patchers, self.mocks = _start_patches()
 
     def tearDown(self):
@@ -331,7 +365,7 @@ class TestE2E7ConcurrentCommits(TransactionTestCase):
     """
 
     def setUp(self):
-        self.channel = _make_channel(ref="race-test", kind="local")
+        self.channel = _make_channel(ref="race-test", kind="local", config=_LOCAL_CONFIG)
         self.patchers, self.mocks = _start_patches()
 
     def tearDown(self):
@@ -386,7 +420,7 @@ class TestE2E8NotificationFailureDirectiveRetry(TestCase):
     """When a directive handler raises DirectiveTransientError, worker retries."""
 
     def setUp(self):
-        self.channel = _make_channel(ref="notif-test", kind="local")
+        self.channel = _make_channel(ref="notif-test", kind="local", config=_LOCAL_CONFIG)
         self.patchers, self.mocks = _start_patches()
 
     def tearDown(self):
@@ -427,7 +461,7 @@ class TestE2E8TerminalErrorDirectiveFails(TestCase):
     """When a directive handler raises DirectiveTerminalError, it is marked failed immediately."""
 
     def setUp(self):
-        self.channel = _make_channel(ref="terminal-test", kind="local")
+        self.channel = _make_channel(ref="terminal-test", kind="local", config=_LOCAL_CONFIG)
         self.patchers, self.mocks = _start_patches()
 
     def tearDown(self):
@@ -473,7 +507,7 @@ class TestE2E9StockHoldFailure(TestCase):
     """
 
     def setUp(self):
-        self.channel = _make_channel(ref="stock-fail", kind="web")
+        self.channel = _make_channel(ref="stock-fail", kind="web", config=_REMOTE_CONFIG)
         self.patchers, self.mocks = _start_patches()
 
     def tearDown(self):
@@ -481,12 +515,7 @@ class TestE2E9StockHoldFailure(TestCase):
 
     def test_stock_hold_failure_propagates(self):
         # Override stock.hold to raise
-        hold_patcher = patch(
-            "shopman.services.stock.hold",
-            side_effect=RuntimeError("stock hold failed: partial bundle"),
-        )
-        hold_patcher.start()
-        self.patchers.append(hold_patcher)
+        self.mocks["hold"].side_effect = RuntimeError("stock hold failed: partial bundle")
 
         session = _make_session(self.channel)
 

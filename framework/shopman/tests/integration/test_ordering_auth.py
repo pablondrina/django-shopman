@@ -27,8 +27,6 @@ class TestOrderingAuthIntegration(TestCase):
         self.channel = Channel.objects.create(
             ref="web-test",
             name="Web Test",
-            pricing_policy="external",
-            edit_policy="open",
         )
 
     def test_access_link_can_reference_customer(self):

@@ -1,4 +1,4 @@
-"""Customers admin (CORE only).
+"""Guestman admin (CORE only).
 
 Contrib models have their own admin in their respective modules:
 - customers.contrib.identifiers.admin: CustomerIdentifierAdmin
@@ -46,7 +46,7 @@ class CustomerGroupAdmin(admin.ModelAdmin):
     def customer_count(self, obj):
         return obj._customer_count
 
-    customer_count.short_description = "Customers"
+    customer_count.short_description = "Guestman"
     customer_count.admin_order_field = "_customer_count"
 
 

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "shopman-offerman"
 version = "0.3.0"
-description = "Shopman Offering — Product Catalog"
+description = "Shopman Offerman — Product Catalog"
 requires-python = ">=3.12"
 dependencies = [
     "Django>=5.2,<6.0",
@@ -37,5 +37,5 @@ dev = [
 include = ["shopman.offerman*"]
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "offering_test_settings"
+DJANGO_SETTINGS_MODULE = "offerman_test_settings"
 pythonpath = ["."]

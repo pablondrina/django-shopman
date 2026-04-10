@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "shopman-craftsman"
 version = "0.3.0"
-description = "Shopman Crafting — Production Management (MRP)"
+description = "Shopman Craftsman — Production Management (MRP)"
 requires-python = ">=3.12"
 dependencies = [
     "Django>=5.2,<6.0",
@@ -29,5 +29,5 @@ dev = [
 include = ["shopman.craftsman*"]
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "crafting_test_settings"
+DJANGO_SETTINGS_MODULE = "craftsman_test_settings"
 pythonpath = ["."]

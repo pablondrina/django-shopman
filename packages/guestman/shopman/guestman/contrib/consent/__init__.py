@@ -1,5 +1,5 @@
 """
-Customers Consent - LGPD-compliant communication opt-in/opt-out.
+Guestman Consent - LGPD-compliant communication opt-in/opt-out.
 
 Tracks per-channel consent for customer communications (WhatsApp, email, SMS, push).
 Required for LGPD/GDPR compliance — never send marketing without active consent.
@@ -24,7 +24,17 @@ def __getattr__(name):
         from shopman.guestman.contrib.consent.service import ConsentService
 
         return ConsentService
+    if name in ("CommunicationConsent", "ConsentChannel", "ConsentStatus", "LegalBasis"):
+        from shopman.guestman.contrib.consent import models
+
+        return getattr(models, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = ["ConsentService"]
+__all__ = [
+    "ConsentService",
+    "CommunicationConsent",
+    "ConsentChannel",
+    "ConsentStatus",
+    "LegalBasis",
+]

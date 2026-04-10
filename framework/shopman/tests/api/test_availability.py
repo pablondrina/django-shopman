@@ -16,9 +16,9 @@ from shopman.offerman.models import Product
 @pytest.fixture(autouse=True)
 def _shop(db):
     return Shop.objects.create(
-        name="Nelson Boulangerie",
-        brand_name="Nelson Boulangerie",
-        short_name="Nelson",
+        name="Demo Bakery",
+        brand_name="Demo Bakery",
+        short_name="Demo",
         tagline="Padaria Artesanal",
         primary_color="#C5A55A",
         default_ddd="43",

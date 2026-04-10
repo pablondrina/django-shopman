@@ -50,13 +50,13 @@ class TestDeviceCheckAuth:
 
     def _trust_device(self, client: Client, customer):
         """Simulate trusting a device by creating a device and setting cookie."""
-        from shopman.doorman.models.device_trust import TrustedDevice
+        from shopman.doorman import TrustedDevice
 
         device, raw_token = TrustedDevice.create_for_customer(
             customer_id=customer.uuid,
         )
-        from shopman.doorman.conf import auth_settings
-        client.cookies[auth_settings.DEVICE_TRUST_COOKIE_NAME] = raw_token
+        from shopman.doorman.conf import doorman_settings
+        client.cookies[doorman_settings.DEVICE_TRUST_COOKIE_NAME] = raw_token
 
     def test_device_check_sets_django_user(self, client: Client, customer):
         """request.user is authenticated after device trust login."""

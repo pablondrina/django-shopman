@@ -2,7 +2,7 @@
 Demand Protocol — interface for historical demand and committed orders.
 
 Used by craft.suggest() to calculate recommended production quantities.
-Ordering (or other order management systems) implements this.
+Omniman (or other order management systems) implements this.
 """
 
 from __future__ import annotations

@@ -1,5 +1,5 @@
 """
-Ordering Holds — Utilitários compartilhados para liberação de holds de estoque.
+Omniman Holds — Utilitários compartilhados para liberação de holds de estoque.
 
 Usado por handlers de confirmation e payment quando precisam liberar holds
 após cancelamento de pedido (timeout, rejeição, etc).

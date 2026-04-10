@@ -91,7 +91,7 @@ class TestProductionSignalCreatesPlannedQuant:
         self, recipe, croissant, position_producao, tomorrow,
     ):
         # Ensure the craftsman contrib stockman handler is loaded
-        import shopman.craftsman.contrib.stocking.handlers  # noqa: F401
+        import shopman.craftsman.contrib.stockman.handlers  # noqa: F401
 
         craft.plan(recipe, quantity=Decimal("50"), date=tomorrow)
 
@@ -107,7 +107,7 @@ class TestProductionSignalCreatesPlannedQuant:
     def test_adjust_updates_planned_quant(
         self, recipe, croissant, position_producao, tomorrow,
     ):
-        import shopman.craftsman.contrib.stocking.handlers  # noqa: F401
+        import shopman.craftsman.contrib.stockman.handlers  # noqa: F401
 
         wo = craft.plan(recipe, quantity=Decimal("50"), date=tomorrow)
 
@@ -125,7 +125,7 @@ class TestProductionSignalCreatesPlannedQuant:
     def test_void_cancels_planned_quant(
         self, recipe, croissant, position_producao, tomorrow,
     ):
-        import shopman.craftsman.contrib.stocking.handlers  # noqa: F401
+        import shopman.craftsman.contrib.stockman.handlers  # noqa: F401
 
         wo = craft.plan(recipe, quantity=Decimal("50"), date=tomorrow)
 
@@ -218,7 +218,7 @@ class TestPlannedHoldMaterializationFlow:
         self, recipe, croissant, position_loja, today,
     ):
         """Closing a work order creates stock through the signal chain."""
-        import shopman.craftsman.contrib.stocking.handlers  # noqa: F401
+        import shopman.craftsman.contrib.stockman.handlers  # noqa: F401
 
         wo = craft.plan(recipe, quantity=Decimal("50"), date=today)
 

@@ -204,19 +204,11 @@ def _load_session_holds(session_key: str) -> dict[str, list[tuple[str, Decimal]]
     session_key that are still in PENDING/CONFIRMED state. Order within a
     bucket is FIFO (by Hold.pk).
     """
-    try:
-        from shopman.stockman.models import Hold
-        from shopman.stockman.models.enums import HoldStatus
-    except ImportError:
-        return {}
-
-    holds = Hold.objects.filter(
-        metadata__reference=session_key,
-        status__in=[HoldStatus.PENDING, HoldStatus.CONFIRMED],
-    ).order_by("pk")
+    adapter = get_adapter("stock")
+    holds = adapter.find_holds_by_reference(session_key)
     indexed: dict[str, list[tuple[str, Decimal]]] = {}
-    for h in holds:
-        indexed.setdefault(h.sku, []).append((h.hold_id, Decimal(str(h.quantity))))
+    for hold_id, sku, qty in holds:
+        indexed.setdefault(sku, []).append((hold_id, qty))
     return indexed
 
 
@@ -255,18 +247,5 @@ def _retag_hold_for_order(hold_id: str, order_ref: str) -> None:
     This is bookkeeping so the hold can be discovered later via
     `release_holds_for_reference("order:<ref>")` if needed.
     """
-    try:
-        from shopman.stockman.models import Hold
-    except ImportError:
-        return
-
-    try:
-        pk = int(hold_id.split(":")[1])
-        hold = Hold.objects.get(pk=pk)
-    except (ValueError, Hold.DoesNotExist):
-        return
-
-    metadata = dict(hold.metadata or {})
-    metadata["reference"] = f"order:{order_ref}"
-    hold.metadata = metadata
-    hold.save(update_fields=["metadata"])
+    adapter = get_adapter("stock")
+    adapter.retag_hold_reference(hold_id, f"order:{order_ref}")

@@ -1,16 +1,16 @@
 """
 CostBackend protocol.
 
-Allows external apps (e.g. Crafting) to provide production cost
-for a product without Offering importing them.
+Allows external apps (e.g. Craftsman) to provide production cost
+for a product without Offerman importing them.
 
 Usage:
     # In settings.py
-    OFFERING = {
+    OFFERMAN = {
         "COST_BACKEND": "shopman.craftsman.adapters.offering.CraftingCostBackend",
     }
 
-    # Crafting implements the adapter:
+    # Craftsman implements this adapter:
     class CraftingCostBackend:
         def get_cost(self, sku: str) -> int | None:
             recipe = Recipe.objects.filter(output_sku=sku).first()
@@ -25,8 +25,8 @@ class CostBackend(Protocol):
     """
     Interface for retrieving production cost of a product.
 
-    Implemented by apps that own cost data (e.g. Crafting).
-    Offering reads cost via this Protocol for margin calculations.
+    Implemented by apps that own cost data (e.g. Craftsman).
+    Offerman reads cost via this Protocol for margin calculations.
     """
 
     def get_cost(self, sku: str) -> int | None:

@@ -1,5 +1,5 @@
 """
-Offering SKU Validator — Implements Stocking's SkuValidator protocol.
+Offerman SKU Validator — Implements Stockman's SkuValidator protocol.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def _stocking_protocols_available() -> bool:
-    """Check if Stocking protocols are available."""
+    """Check if Stockman protocols are available."""
     try:
         from shopman.stockman.protocols.sku import SkuInfo, SkuValidationResult
         return True
@@ -27,9 +27,9 @@ def _stocking_protocols_available() -> bool:
 
 class OfferingSkuValidator:
     """
-    SKU validator using Offering Product model.
+    SKU validator using Offerman Product model.
 
-    Implements SkuValidator protocol from Stocking.
+    Implements SkuValidator protocol from Stockman.
     """
 
     def validate_sku(self, sku: str):

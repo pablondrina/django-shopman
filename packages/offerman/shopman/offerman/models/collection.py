@@ -62,7 +62,7 @@ class Collection(models.Model):
 
     def clean(self):
         """Validate no circular parent reference and enforce max depth."""
-        from shopman.offerman.conf import offering_settings
+        from shopman.offerman.conf import offerman_settings
 
         if self.parent_id:
             visited = {self.pk}
@@ -75,9 +75,9 @@ class Collection(models.Model):
                 depth += 1
                 current = current.parent
 
-            if depth > offering_settings.MAX_COLLECTION_DEPTH:
+            if depth > offerman_settings.MAX_COLLECTION_DEPTH:
                 raise ValidationError(
-                    {"parent": f"Max collection depth ({offering_settings.MAX_COLLECTION_DEPTH}) exceeded."}
+                    {"parent": f"Max collection depth ({offerman_settings.MAX_COLLECTION_DEPTH}) exceeded."}
                 )
 
     def save(self, *args, **kwargs):
@@ -101,9 +101,9 @@ class Collection(models.Model):
     def get_ancestors(self, max_depth: int | None = None) -> list["Collection"]:
         """Returns list of ancestors from root to parent."""
         if max_depth is None:
-            from shopman.offerman.conf import offering_settings
+            from shopman.offerman.conf import offerman_settings
 
-            max_depth = offering_settings.MAX_COLLECTION_DEPTH
+            max_depth = offerman_settings.MAX_COLLECTION_DEPTH
         ancestors = []
         current = self.parent
         depth = 0
@@ -116,9 +116,9 @@ class Collection(models.Model):
     def get_descendants(self, max_depth: int | None = None, _depth: int = 0) -> list["Collection"]:
         """Returns all descendants (children, grandchildren, etc.)."""
         if max_depth is None:
-            from shopman.offerman.conf import offering_settings
+            from shopman.offerman.conf import offerman_settings
 
-            max_depth = offering_settings.MAX_COLLECTION_DEPTH
+            max_depth = offerman_settings.MAX_COLLECTION_DEPTH
         if _depth >= max_depth:
             return []
         children = list(self.children.all())

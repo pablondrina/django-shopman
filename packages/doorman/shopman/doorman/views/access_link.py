@@ -13,7 +13,7 @@ from django.utils.translation import gettext_lazy as _
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
-from ..conf import get_customer_resolver, get_auth_settings
+from ..conf import get_customer_resolver, get_doorman_settings
 from ..models import AccessLink
 from ..services.access_link import AccessLinkService
 from ..utils import safe_redirect_url
@@ -47,7 +47,7 @@ class AccessLinkCreateView(View):
 
     def post(self, request):
         # Authenticate via API key (H05)
-        settings = get_auth_settings()
+        settings = get_doorman_settings()
         api_key = settings.ACCESS_LINK_API_KEY
         if api_key:
             auth_header = request.META.get("HTTP_AUTHORIZATION", "")
@@ -110,11 +110,11 @@ class AccessLinkExchangeView(View):
 
     def get_template_name(self):
         """Get template name from settings."""
-        settings = get_auth_settings()
+        settings = get_doorman_settings()
         return settings.TEMPLATE_ACCESS_LINK_INVALID
 
     def get(self, request):
-        settings = get_auth_settings()
+        settings = get_doorman_settings()
         token = request.GET.get("t")
         if not token:
             return render(

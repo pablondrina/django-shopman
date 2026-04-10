@@ -25,8 +25,6 @@ def _make_channel(ref="balcao"):
         ref=ref,
         defaults={
             "name": ref.capitalize(),
-            "pricing_policy": "fixed",
-            "edit_policy": "open",
             "is_active": True,
         },
     )[0]
@@ -181,8 +179,6 @@ class CheckoutLoyaltyContextTests(TestCase):
         Channel.objects.create(
             ref="web",
             name="Web",
-            pricing_policy="fixed",
-            edit_policy="open",
             is_active=True,
         )
         from shopman.offerman.models import Product

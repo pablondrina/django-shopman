@@ -28,19 +28,6 @@ class Channel(models.Model):
         ),
     )
 
-    pricing_policy = models.CharField(
-        _("política de preço"),
-        max_length=16,
-        choices=[("internal", _("interna")), ("external", _("externa"))],
-        default="internal",
-    )
-    edit_policy = models.CharField(
-        _("política de edição"),
-        max_length=16,
-        choices=[("open", _("aberta")), ("locked", _("bloqueada"))],
-        default="open",
-    )
-
     display_order = models.PositiveIntegerField(_("ordem de exibição"), default=0, db_index=True)
     is_active = models.BooleanField(_("ativo"), default=True)
 

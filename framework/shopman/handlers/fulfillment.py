@@ -91,7 +91,7 @@ class FulfillmentUpdateHandler:
 
     - Executa transição no Fulfillment model
     - Auto-seta tracking_url quando carrier é conhecido
-    - Auto-sync com Order status (se config.flow.auto_sync_fulfillment)
+    - Auto-sync com Order status (se config.fulfillment.auto_sync)
     - Cria notificações para DISPATCHED e DELIVERED
     """
 
@@ -186,7 +186,7 @@ class FulfillmentUpdateHandler:
 
         # Auto-sync com Order
         config = ChannelConfig.for_channel(order.channel)
-        if config.flow.auto_sync_fulfillment:
+        if config.fulfillment.auto_sync:
             self._sync_order_status(order, new_status)
 
         # Notificações por transição

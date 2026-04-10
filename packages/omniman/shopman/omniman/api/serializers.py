@@ -8,7 +8,7 @@ from shopman.omniman.models import Channel, Directive, Order, Session
 class ChannelSerializer(serializers.ModelSerializer):
     class Meta:
         model = Channel
-        fields = ("id", "ref", "name", "pricing_policy", "edit_policy", "display_order", "config", "is_active")
+        fields = ("id", "ref", "name", "kind", "display_order", "is_active")
 
 
 class SessionSerializer(serializers.ModelSerializer):

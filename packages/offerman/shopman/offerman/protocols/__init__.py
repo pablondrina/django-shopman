@@ -1,4 +1,4 @@
-"""Offering protocols."""
+"""Offerman protocols."""
 
 from shopman.offerman.protocols.catalog import (
     CatalogBackend,

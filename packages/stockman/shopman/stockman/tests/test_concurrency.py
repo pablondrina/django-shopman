@@ -1,5 +1,5 @@
 """
-Concurrency tests for Stocking hold lifecycle.
+Concurrency tests for Stockman hold lifecycle.
 
 These tests verify that the select_for_update() locking in
 StockHolds actually serialises concurrent operations under PostgreSQL.

@@ -14,8 +14,6 @@ def _make_order(ref="FAIL-001", total_q=1000):
         ref="balcao",
         defaults={
             "name": "Balcão",
-            "pricing_policy": "fixed",
-            "edit_policy": "open",
             "is_active": True,
         },
     )
@@ -139,8 +137,6 @@ class StockCheckDegradationTests(TestCase):
             ref="balcao",
             defaults={
                 "name": "Balcão",
-                "pricing_policy": "fixed",
-                "edit_policy": "open",
                 "is_active": True,
             },
         )

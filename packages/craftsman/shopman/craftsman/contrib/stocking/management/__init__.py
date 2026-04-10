@@ -1,1 +1,0 @@
-"""Crafting Stocking management commands."""

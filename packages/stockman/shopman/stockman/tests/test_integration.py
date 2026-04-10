@@ -1,8 +1,8 @@
 """
 Integration tests: Stock lifecycle operations.
 
-Tests the complete stock flow using Stocking service API
-with Offering products: receive, hold, confirm, fulfill, release.
+Tests the complete stock flow using Stockman service API
+with Offerman products: receive, hold, confirm, fulfill, release.
 """
 
 from datetime import date, timedelta

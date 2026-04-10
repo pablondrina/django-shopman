@@ -1,4 +1,4 @@
-"""Offering adapters."""
+"""Offerman adapters."""
 
 from shopman.offerman.adapters.catalog_backend import OfferingCatalogBackend
 from shopman.offerman.adapters.noop import NoopCostBackend

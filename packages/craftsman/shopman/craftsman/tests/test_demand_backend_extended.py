@@ -2,7 +2,7 @@
 Extended tests for shopman.craftsman.contrib.demand — OrderingDemandBackend.
 
 Supplements test_demand_backend.py with:
-- history() ORM integration (with real Ordering models when available)
+- history() ORM integration (with real Omniman models when available)
 - committed() edge cases (no holds, mixed holds)
 - _sku_lookup helper
 - Error handling in committed()
@@ -80,14 +80,14 @@ class TestOrderingDemandBackendCommitted:
     """Extended tests for committed() method."""
 
     def test_committed_without_stocking_returns_zero(self, db):
-        """When Stocking is not installed, committed() returns Decimal(0)."""
+        """When Stockman is not installed, committed() returns Decimal(0)."""
         backend = OrderingDemandBackend()
         result = backend.committed("CROISSANT", date.today())
         assert result == Decimal("0")
         assert isinstance(result, Decimal)
 
     def test_committed_handles_import_error(self, db):
-        """ImportError from missing Stocking → Decimal(0)."""
+        """ImportError from missing Stockman → Decimal(0)."""
         backend = OrderingDemandBackend()
 
         with patch(

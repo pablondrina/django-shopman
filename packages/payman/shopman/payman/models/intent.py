@@ -17,7 +17,7 @@ class PaymentIntent(models.Model):
         authorized → failed
         captured → refunded (via PaymentTransaction)
 
-    Inspiração: Stripe PaymentIntent + Ordering.Order status machine.
+    Inspiração: Stripe PaymentIntent + Omniman.Order status machine.
     """
 
     class Status(models.TextChoices):

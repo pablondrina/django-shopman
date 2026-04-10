@@ -1,5 +1,5 @@
 """
-Customers configuration.
+Guestman configuration.
 
 Usage in settings.py:
     GUESTMAN = {
@@ -15,8 +15,8 @@ from django.conf import settings
 
 
 @dataclass
-class CustomersSettings:
-    """Customers configuration settings."""
+class GuestmanSettings:
+    """Guestman configuration settings."""
 
     # Phone normalization default region
     DEFAULT_REGION: str = "BR"
@@ -28,17 +28,17 @@ class CustomersSettings:
     ORDER_HISTORY_BACKEND: str = ""
 
 
-def get_customers_settings() -> CustomersSettings:
+def get_guestman_settings() -> GuestmanSettings:
     """Load settings from Django settings."""
-    user_settings: dict[str, Any] = getattr(settings, "ATTENDING", {})
-    return CustomersSettings(**user_settings)
+    user_settings: dict[str, Any] = getattr(settings, "GUESTMAN", {})
+    return GuestmanSettings(**user_settings)
 
 
 class _LazySettings:
     """Lazy proxy that re-reads settings on every attribute access."""
 
     def __getattr__(self, name):
-        return getattr(get_customers_settings(), name)
+        return getattr(get_guestman_settings(), name)
 
 
-customers_settings = _LazySettings()
+guestman_settings = _LazySettings()

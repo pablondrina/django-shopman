@@ -109,7 +109,7 @@ class WorkOrder(models.Model):
         max_length=100,
         blank=True,
         verbose_name=_("Posição"),
-        help_text=_("Ref da Position no Stocking (ex: 'producao')"),
+        help_text=_("Ref da Position no Stockman (ex: 'producao')"),
     )
     assigned_ref = models.CharField(
         max_length=100,

@@ -1,4 +1,4 @@
-"""Pytest fixtures for Offering tests."""
+"""Pytest fixtures for Offerman tests."""
 
 from decimal import Decimal
 

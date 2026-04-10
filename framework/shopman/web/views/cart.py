@@ -334,16 +334,11 @@ def _get_session_held_qty(request: HttpRequest) -> dict[str, int]:
     session_key = request.session.get("cart_session_key")
     if not session_key:
         return {}
-    try:
-        from shopman.stockman.models import Hold
+    from shopman.stockman import StockHolds
 
-        holds = Hold.objects.filter(
-            metadata__reference=session_key,
-        ).active()
+    holds = StockHolds.find_active_by_reference(session_key)
 
-        held: dict[str, int] = {}
-        for h in holds:
-            held[h.sku] = held.get(h.sku, 0) + int(h.quantity)
-        return held
-    except (ImportError, Exception):
-        return {}
+    held: dict[str, int] = {}
+    for h in holds:
+        held[h.sku] = held.get(h.sku, 0) + int(h.quantity)
+    return held

@@ -88,8 +88,6 @@ class MenuViewHappyHourContextTests(TestCase):
         Channel.objects.create(
             ref="web",
             name="Web",
-            pricing_policy="fixed",
-            edit_policy="open",
             is_active=True,
         )
 

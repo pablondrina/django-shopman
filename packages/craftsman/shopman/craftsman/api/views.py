@@ -1,5 +1,5 @@
 """
-Crafting API ViewSets (vNext).
+Craftsman API ViewSets (vNext).
 
 4 verbs: plan, adjust, close, void.
 3 queries: expected, needs, suggest.
@@ -31,8 +31,8 @@ from .serializers import (
 )
 
 
-class CraftingPagination(LimitOffsetPagination):
-    """Default pagination for Crafting API."""
+class CraftsmanPagination(LimitOffsetPagination):
+    """Default pagination for Craftsman API."""
 
     default_limit = 50
     max_limit = 200
@@ -47,7 +47,7 @@ class RecipeViewSet(viewsets.ReadOnlyModelViewSet):
     """
 
     permission_classes = [IsAuthenticated]
-    pagination_class = CraftingPagination
+    pagination_class = CraftsmanPagination
     queryset = Recipe.objects.filter(is_active=True).prefetch_related("items")
     serializer_class = RecipeSerializer
     lookup_field = "code"
@@ -73,7 +73,7 @@ class WorkOrderViewSet(
     """
 
     permission_classes = [IsAuthenticated]
-    pagination_class = CraftingPagination
+    pagination_class = CraftsmanPagination
     queryset = WorkOrder.objects.select_related("recipe").order_by("-created_at")
     lookup_field = "code"
 
@@ -263,7 +263,7 @@ class WorkOrderViewSet(
 
 class QueryViewSet(viewsets.ViewSet):
     """
-    ViewSet for Crafting read-only queries.
+    ViewSet for Craftsman read-only queries.
 
     expected: Sum of open WorkOrder quantities for a product on a date.
     needs: BOM explosion for a date (material needs).

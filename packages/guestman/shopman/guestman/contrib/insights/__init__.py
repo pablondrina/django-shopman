@@ -1,5 +1,5 @@
 """
-Customers Insights - Customer analytics and RFM segmentation.
+Guestman Insights - Customer analytics and RFM segmentation.
 
 This contrib module provides CustomerInsight for calculated metrics,
 RFM scoring, and churn prediction.
@@ -23,7 +23,11 @@ def __getattr__(name):
         from shopman.guestman.contrib.insights.service import InsightService
 
         return InsightService
+    if name == "CustomerInsight":
+        from shopman.guestman.contrib.insights.models import CustomerInsight
+
+        return CustomerInsight
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = ["InsightService"]
+__all__ = ["InsightService", "CustomerInsight"]

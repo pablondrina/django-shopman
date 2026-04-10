@@ -1,4 +1,4 @@
-"""Tests for Offering service (CatalogService API)."""
+"""Tests for Offerman service (CatalogService API)."""
 
 from decimal import Decimal
 

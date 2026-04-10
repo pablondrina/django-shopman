@@ -1,4 +1,4 @@
-"""Tests for Customers REST API (SPEC-002)."""
+"""Tests for Guestman REST API (SPEC-002)."""
 from __future__ import annotations
 
 from decimal import Decimal

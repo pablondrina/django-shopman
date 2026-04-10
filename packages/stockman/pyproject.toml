@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "shopman-stockman"
 version = "0.3.0"
-description = "Shopman Stocking — Inventory Management"
+description = "Shopman Stockman — Inventory Management"
 requires-python = ">=3.12"
 dependencies = [
     "Django>=5.2,<6.0",
@@ -29,5 +29,5 @@ dev = [
 include = ["shopman.stockman*"]
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "stocking_test_settings"
+DJANGO_SETTINGS_MODULE = "stockman_test_settings"
 pythonpath = ["."]

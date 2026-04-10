@@ -1,8 +1,8 @@
 """
-Stocking Backend — implements InventoryProtocol using Stocking's API.
+Stockman Backend — implements InventoryProtocol using Stockman's API.
 
 Vocabulary mapping:
-    Crafting           →  Stocking
+    Craftsman          →  Stockman
     ─────────────────────────────────
     available()         →  stock.available()
     reserve()           →  stock.hold()
@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 
 def _stocking_available() -> bool:
-    """Check if Stocking is available."""
+    """Check if Stockman is available."""
     try:
         from shopman.stockman.service import stock  # noqa: F401
 
@@ -47,7 +47,7 @@ def _stocking_available() -> bool:
 
 class StockingBackend:
     """
-    Implementação do InventoryProtocol usando a API do Stocking.
+    Implementação do InventoryProtocol usando a API do Stockman.
 
     Exemplo de uso:
         from shopman.craftsman.adapters import get_stock_backend
@@ -82,7 +82,7 @@ class StockingBackend:
         return None
 
     def _get_stock(self):
-        """Get Stocking service."""
+        """Get Stockman service."""
         from shopman.stockman.service import stock
 
         return stock
@@ -213,7 +213,7 @@ class StockingBackend:
                 status__in=[HoldStatus.PENDING, HoldStatus.CONFIRMED],
             )
         except ImportError:
-            return ConsumeResult(success=False, message="Stocking not available")
+            return ConsumeResult(success=False, message="Stockman not available")
 
         consumed = []
         adjustments = []
@@ -261,7 +261,7 @@ class StockingBackend:
                 status__in=[HoldStatus.PENDING, HoldStatus.CONFIRMED],
             )
         except ImportError:
-            return ReleaseResult(success=False, message="Stocking not available")
+            return ReleaseResult(success=False, message="Stockman not available")
 
         released = []
         failed = []

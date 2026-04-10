@@ -1,1 +1,1 @@
-"""Crafting contrib modules."""
+"""Craftsman contrib modules."""

@@ -34,7 +34,9 @@ import logging
 from decimal import Decimal
 
 from shopman.adapters import get_adapter
+from shopman.offerman.models import ListingItem
 from shopman.offerman.service import CatalogService
+from shopman.omniman.models import Channel
 
 from . import alternatives
 
@@ -109,25 +111,9 @@ def check(sku: str, qty: Decimal, *, channel_ref: str | None = None) -> dict:
             }
 
     # ── 2) Stockman availability ────────────────────────────────────────────
-    try:
-        from shopman.stockman.services.availability import (
-            availability_for_sku,
-            availability_scope_for_channel,
-        )
-    except ImportError:
-        return {
-            "ok": False,
-            "available_qty": Decimal("0"),
-            "is_paused": False,
-            "is_planned": False,
-            "breakdown": {"ready": Decimal("0"), "in_production": Decimal("0"), "d1": Decimal("0")},
-            "error_code": "stocking_not_installed",
-            "is_bundle": False,
-            "failed_sku": None,
-        }
-
-    scope = availability_scope_for_channel(channel_ref)
-    info = availability_for_sku(
+    adapter = get_adapter("stock")
+    scope = adapter.get_channel_scope(channel_ref)
+    info = adapter.get_availability(
         sku,
         safety_margin=scope["safety_margin"],
         allowed_positions=scope["allowed_positions"],
@@ -177,7 +163,6 @@ def _expand_if_bundle(sku: str, qty: Decimal) -> list[dict] | None:
     via the Stockman gate.
     """
     try:
-        from shopman.offerman.exceptions import CatalogError
         components = CatalogService.expand(sku, qty)
         # Guard: if expand returns a single component with the same SKU, treat
         # as simple product (infinite recursion prevention).
@@ -259,12 +244,6 @@ def _sku_in_channel_listing(sku: str, channel_ref: str | None) -> "ListingItem |
     don't constrain their catalog (e.g. internal POS).
     """
     if not channel_ref:
-        return True
-
-    try:
-        from shopman.offerman.models import ListingItem
-        from shopman.omniman.models import Channel
-    except ImportError:
         return True
 
     try:
@@ -498,18 +477,9 @@ def _load_session_holds_for_sku(
     session_key: str, sku: str,
 ) -> list[tuple[str, Decimal]]:
     """Return FIFO list of `(hold_id, qty)` for active session holds on `sku`."""
-    try:
-        from shopman.stockman.models import Hold
-        from shopman.stockman.models.enums import HoldStatus
-    except ImportError:
-        return []
-
-    holds = Hold.objects.filter(
-        metadata__reference=session_key,
-        sku=sku,
-        status__in=[HoldStatus.PENDING, HoldStatus.CONFIRMED],
-    ).order_by("pk")
-    return [(h.hold_id, Decimal(str(h.quantity))) for h in holds]
+    adapter = get_adapter("stock")
+    holds = adapter.find_holds_by_reference(session_key, sku=sku)
+    return [(hold_id, qty) for hold_id, _sku, qty in holds]
 
 
 def _reconcile_simple(

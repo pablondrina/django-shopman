@@ -1,5 +1,5 @@
 """
-CustomerUser model - Links Customer (Customers) to User (Django auth).
+CustomerUser model - Links Customer (Guestman) to User (Django auth).
 """
 
 from django.conf import settings
@@ -9,7 +9,7 @@ from django.utils.translation import gettext_lazy as _
 
 class CustomerUser(models.Model):
     """
-    Link between Customer (Customers) and User (Django auth).
+    Link between Customer (Guestman) and User (Django auth).
 
     Created when Customer needs a web session.
     1:1 relationship in both directions.
@@ -25,13 +25,13 @@ class CustomerUser(models.Model):
         verbose_name=_("usuário"),
     )
 
-    # Customer UUID from Customers
+    # Customer UUID from Guestman
     # Using UUID field, not FK, for decoupling
     customer_id = models.UUIDField(
         _("ID do cliente"),
         unique=True,
         db_index=True,
-        help_text=_("UUID do cliente no Customers"),
+        help_text=_("UUID do cliente no Guestman"),
     )
 
     created_at = models.DateTimeField(_("criado em"), auto_now_add=True)

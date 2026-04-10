@@ -13,7 +13,7 @@ from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
-from shopman.stockman.conf import stocking_settings
+from shopman.stockman.conf import stockman_settings
 from shopman.stockman.exceptions import StockError
 from shopman.stockman.models.enums import HoldStatus
 from shopman.stockman.models.hold import Hold
@@ -286,7 +286,7 @@ class StockHolds:
         """
         now = timezone.now()
         total = 0
-        batch_size = stocking_settings.EXPIRED_BATCH_SIZE
+        batch_size = stockman_settings.EXPIRED_BATCH_SIZE
 
         while True:
             with transaction.atomic():
@@ -311,3 +311,61 @@ class StockHolds:
                 extra={"released": total},
             )
         return total
+
+    # ── Reference-based queries ──────────────────────────────────
+
+    @staticmethod
+    def find_by_reference(
+        reference: str,
+        *,
+        sku: str | None = None,
+        status_in: list[str] | None = None,
+    ):
+        """Find holds by metadata.reference.
+
+        Args:
+            reference: The reference tag stored in Hold.metadata["reference"].
+            sku: Optional SKU filter.
+            status_in: Optional list of HoldStatus values to filter on.
+
+        Returns:
+            QuerySet[Hold] ordered by pk (FIFO).
+        """
+        qs = Hold.objects.filter(metadata__reference=reference)
+        if sku:
+            qs = qs.filter(sku=sku)
+        if status_in:
+            qs = qs.filter(status__in=status_in)
+        return qs.order_by("pk")
+
+    @staticmethod
+    def find_active_by_reference(reference: str):
+        """Find active (PENDING/CONFIRMED, not expired) holds for a reference.
+
+        Returns:
+            QuerySet[Hold] — active holds ordered by pk (FIFO).
+        """
+        return Hold.objects.filter(
+            metadata__reference=reference,
+        ).active().order_by("pk")
+
+    @staticmethod
+    def retag_reference(hold_id: str, new_reference: str) -> bool:
+        """Update Hold.metadata.reference to a new value.
+
+        Used to transfer a hold from session scope to order scope.
+
+        Returns:
+            True if the hold was updated, False if not found.
+        """
+        pk = _parse_hold_id(hold_id)
+        try:
+            hold = Hold.objects.get(pk=pk)
+        except Hold.DoesNotExist:
+            return False
+
+        metadata = dict(hold.metadata or {})
+        metadata["reference"] = new_reference
+        hold.metadata = metadata
+        hold.save(update_fields=["metadata"])
+        return True

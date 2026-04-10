@@ -51,7 +51,7 @@ class ProductComponent(models.Model):
 
     def clean(self):
         """Validation: cannot be component of itself, no cycles, max depth."""
-        from shopman.offerman.conf import offering_settings
+        from shopman.offerman.conf import offerman_settings
 
         if self.parent_id == self.component_id:
             raise ValidationError("Product cannot be component of itself")
@@ -61,9 +61,9 @@ class ProductComponent(models.Model):
         if is_circular:
             raise ValidationError("Circular component reference detected")
 
-        if depth > offering_settings.BUNDLE_MAX_DEPTH:
+        if depth > offerman_settings.BUNDLE_MAX_DEPTH:
             raise ValidationError(
-                f"Max bundle depth ({offering_settings.BUNDLE_MAX_DEPTH}) exceeded."
+                f"Max bundle depth ({offerman_settings.BUNDLE_MAX_DEPTH}) exceeded."
             )
 
     def _check_depth_and_cycles(self) -> tuple[bool, int]:

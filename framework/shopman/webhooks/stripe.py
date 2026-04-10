@@ -1,7 +1,6 @@
 """Stripe webhook — receives payment events from Stripe.
 
 Uses shopman.flows.dispatch(order, "on_paid") for order lifecycle.
-Auto-transition key: flow.auto_transitions["on_paid"] → target status.
 """
 
 from __future__ import annotations
@@ -105,16 +104,5 @@ class StripeWebhookView(APIView):
                 return
 
         if order:
-            # Auto-transition if configured
-            try:
-                if order.channel:
-                    from shopman.config import ChannelConfig
-                    flow_cfg = ChannelConfig.for_channel(order.channel).flow
-                    target = (flow_cfg.auto_transitions or {}).get("on_paid")
-                    if target and order.can_transition_to(target):
-                        order.transition_status(target, actor="payment.webhook")
-            except Exception:
-                pass
-
             # Dispatch to flow for downstream effects
             dispatch(order, "on_paid")

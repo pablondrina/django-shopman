@@ -1,5 +1,5 @@
 """
-Ordering Signals — Sinais Django para eventos do sistema.
+Omniman Signals — Sinais Django para eventos do sistema.
 
 Sinais emitidos:
 - order_changed: Quando Order é criado ou muda de status.

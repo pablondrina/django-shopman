@@ -10,7 +10,7 @@ from django.shortcuts import redirect, render
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 
-from ..conf import get_auth_settings
+from ..conf import get_doorman_settings
 from ..models import AccessLink, VerificationCode
 from ..services.access_link import AccessLinkService
 from ..services.verification import AuthService
@@ -36,7 +36,7 @@ class VerificationCodeRequestView(View):
 
     def get_template_name(self):
         """Get template name from settings."""
-        settings = get_auth_settings()
+        settings = get_doorman_settings()
         return settings.TEMPLATE_CODE_REQUEST
 
     def get(self, request):
@@ -79,7 +79,7 @@ class VerificationCodeRequestView(View):
             )
 
         # Request code
-        settings = get_auth_settings()
+        settings = get_doorman_settings()
         result = AuthService.request_code(
             target_value=phone,
             purpose=VerificationCode.Purpose.LOGIN,
@@ -105,7 +105,7 @@ class VerificationCodeRequestView(View):
         if raw_next:
             # Validate before storing to prevent open redirect (H02)
             validated = safe_redirect_url(raw_next, request)
-            if validated != get_auth_settings().LOGIN_REDIRECT_URL:
+            if validated != get_doorman_settings().LOGIN_REDIRECT_URL:
                 request.session["doorman_next"] = validated
 
         return redirect("shopman_auth:code-verify")
@@ -128,7 +128,7 @@ class VerificationCodeVerifyView(View):
 
     def get_template_name(self):
         """Get template name from settings."""
-        settings = get_auth_settings()
+        settings = get_doorman_settings()
         return settings.TEMPLATE_CODE_VERIFY
 
     def get(self, request):
@@ -139,7 +139,7 @@ class VerificationCodeVerifyView(View):
 
     def post(self, request):
         template_name = self.get_template_name()
-        settings = get_auth_settings()
+        settings = get_doorman_settings()
 
         # Parse input
         is_json = request.content_type == "application/json"

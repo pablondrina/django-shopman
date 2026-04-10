@@ -1,5 +1,5 @@
 """
-Tests for Crafting v0.2.2 changes.
+Tests for Craftsman v0.2.2 changes.
 
 Covers:
 - B1 fix: old_quantity stale in adjust() audit trail
@@ -367,7 +367,7 @@ class TestSuggestFilter:
         mock_backend.committed.return_value = Decimal("0")
         mock_backend_class = MagicMock(return_value=mock_backend)
 
-        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+        settings.CRAFTSMAN = {"DEMAND_BACKEND": "test.MockDemandBackend"}
 
         with patch(
             "django.utils.module_loading.import_string",
@@ -394,7 +394,7 @@ class TestSuggestFilter:
         mock_backend.committed.return_value = Decimal("0")
         mock_backend_class = MagicMock(return_value=mock_backend)
 
-        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+        settings.CRAFTSMAN = {"DEMAND_BACKEND": "test.MockDemandBackend"}
 
         with patch(
             "django.utils.module_loading.import_string",
@@ -691,7 +691,7 @@ class TestSuggestEndpoint:
         mock_backend.committed.return_value = Decimal("0")
         mock_backend_class = MagicMock(return_value=mock_backend)
 
-        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+        settings.CRAFTSMAN = {"DEMAND_BACKEND": "test.MockDemandBackend"}
 
         with patch(
             "django.utils.module_loading.import_string",
@@ -717,7 +717,7 @@ class TestSuggestEndpoint:
         mock_backend.committed.return_value = Decimal("0")
         mock_backend_class = MagicMock(return_value=mock_backend)
 
-        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+        settings.CRAFTSMAN = {"DEMAND_BACKEND": "test.MockDemandBackend"}
 
         with patch(
             "django.utils.module_loading.import_string",

@@ -15,7 +15,7 @@ from shopman.omniman.services.modify import ModifyService
 def _make_channel():
     return Channel.objects.get_or_create(
         ref="balcao",
-        defaults={"name": "Balcão", "pricing_policy": "fixed", "edit_policy": "open", "is_active": True},
+        defaults={"name": "Balcão", "is_active": True},
     )[0]
 
 

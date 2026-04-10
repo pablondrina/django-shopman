@@ -14,7 +14,7 @@ import uuid
 from django.http import JsonResponse
 from django.views import View
 
-from ..conf import auth_settings
+from ..conf import doorman_settings
 from ..models.device_trust import TrustedDevice
 from ..services.device_trust import DeviceTrustService
 
@@ -66,7 +66,7 @@ class DeviceListView(View):
 
         # Clear device trust cookie on response
         response = JsonResponse({"revoked": count})
-        cookie_name = auth_settings.DEVICE_TRUST_COOKIE_NAME
+        cookie_name = doorman_settings.DEVICE_TRUST_COOKIE_NAME
         response.delete_cookie(cookie_name)
 
         logger.info(
@@ -105,7 +105,7 @@ class DeviceRevokeView(View):
 
         # If revoking the current device, clear cookie
         if _is_current_device(request, device):
-            cookie_name = auth_settings.DEVICE_TRUST_COOKIE_NAME
+            cookie_name = doorman_settings.DEVICE_TRUST_COOKIE_NAME
             response.delete_cookie(cookie_name)
 
         logger.info(
@@ -121,9 +121,9 @@ class DeviceRevokeView(View):
 
 def _is_current_device(request, device: TrustedDevice) -> bool:
     """Check if a device matches the current request's cookie."""
-    from ..conf import auth_settings
+    from ..conf import doorman_settings
 
-    raw_token = request.COOKIES.get(auth_settings.DEVICE_TRUST_COOKIE_NAME)
+    raw_token = request.COOKIES.get(doorman_settings.DEVICE_TRUST_COOKIE_NAME)
     if not raw_token:
         return False
     from ..models.device_trust import _hash_token

@@ -1,5 +1,5 @@
 """
-H21 — Offering hardening tests.
+H21 — Offerman hardening tests.
 
 Tests for:
 - CatalogBackend.get_price() with fractional division

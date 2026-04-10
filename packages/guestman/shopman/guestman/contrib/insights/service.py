@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 def _get_order_backend() -> OrderHistoryBackend | None:
     """Get configured OrderHistoryBackend."""
-    customers_settings = getattr(settings, "ATTENDING", {})
-    backend_path = customers_settings.get("ORDER_HISTORY_BACKEND")
+    guestman_cfg = getattr(settings, "GUESTMAN", {})
+    backend_path = guestman_cfg.get("ORDER_HISTORY_BACKEND")
     if backend_path:
         backend_class = import_string(backend_path)
         return backend_class()

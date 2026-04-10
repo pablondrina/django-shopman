@@ -18,7 +18,7 @@ class ManychatService:
         source_system: str = "manychat",
     ) -> tuple[Customer, bool]:
         """
-        Sync a Manychat subscriber to Customers.
+        Sync a Manychat subscriber to Guestman.
 
         Args:
             subscriber_data: Manychat subscriber data with fields like:

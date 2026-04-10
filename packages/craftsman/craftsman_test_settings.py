@@ -1,5 +1,5 @@
 """
-Django settings for Crafting tests.
+Django settings for Craftsman tests.
 
 Minimal settings to run pytest with shopman.craftsman app.
 """

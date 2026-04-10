@@ -448,8 +448,7 @@ def _build_alerts_table(alerts):
 def _d1_stock():
     """Fetch D-1 stock in position 'ontem'."""
     try:
-        from shopman.stockman.models import Move, Quant
-        from shopman.stockman.models.position import Position
+        from shopman.stockman import Move, Position, Quant
     except ImportError:
         return []
 

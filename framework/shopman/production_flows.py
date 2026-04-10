@@ -85,15 +85,7 @@ def dispatch_production(work_order, phase: str) -> None:
             type(flow).__name__,
         )
         return
-    try:
-        method(work_order)
-    except Exception:
-        logger.exception(
-            "production_flows.dispatch: error in %s.%s for wo %s",
-            type(flow).__name__,
-            phase,
-            getattr(work_order, "code", work_order.pk),
-        )
+    method(work_order)
 
 
 def on_production_changed_receiver(sender, product_ref, date, **kwargs):

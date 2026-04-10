@@ -1,5 +1,5 @@
 """
-Crafting Admin with Unfold theme (vNext).
+Craftsman Admin with Unfold theme (vNext).
 
 Registers Unfold-styled admin classes for vNext models:
 - Recipe + RecipeItem inline

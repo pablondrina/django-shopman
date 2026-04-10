@@ -1,1 +1,1 @@
-"""Stocking contrib modules."""
+"""Stockman contrib modules."""

@@ -119,7 +119,7 @@ def test_verify_code_invalid_error_code(customer, verification_code):
 
 
 @pytest.mark.django_db
-@override_settings(AUTH={"AUTO_CREATE_CUSTOMER": False})
+@override_settings(DOORMAN={"AUTO_CREATE_CUSTOMER": False})
 def test_verify_account_not_found_error_code():
     """Unknown phone with auto-create disabled returns ACCOUNT_NOT_FOUND."""
     raw_code, hmac_digest = generate_raw_code()
@@ -195,7 +195,7 @@ def test_exchange_expired_token_error_code(customer):
     assert result.error_code == ErrorCode.TOKEN_EXPIRED
 
 
-@override_settings(AUTH={"ACCESS_LINK_ENABLED": False})
+@override_settings(DOORMAN={"ACCESS_LINK_ENABLED": False})
 def test_send_access_link_disabled_error_code():
     """Disabled access links return ACCESS_LINK_DISABLED."""
     result = AccessLinkService.send_access_link("test@example.com")
@@ -244,37 +244,37 @@ def test_validate_settings_defaults_pass():
     assert errors == []
 
 
-@override_settings(AUTH={"ACCESS_LINK_EXCHANGE_TTL_MINUTES": 0})
+@override_settings(DOORMAN={"ACCESS_LINK_EXCHANGE_TTL_MINUTES": 0})
 def test_validate_settings_invalid_exchange_ttl():
     errors = validate_settings()
     assert any("ACCESS_LINK_EXCHANGE_TTL_MINUTES" in e for e in errors)
 
 
-@override_settings(AUTH={"ACCESS_CODE_TTL_MINUTES": -1})
+@override_settings(DOORMAN={"ACCESS_CODE_TTL_MINUTES": -1})
 def test_validate_settings_invalid_code_ttl():
     errors = validate_settings()
     assert any("ACCESS_CODE_TTL_MINUTES" in e for e in errors)
 
 
-@override_settings(AUTH={"ACCESS_CODE_MAX_ATTEMPTS": 0})
+@override_settings(DOORMAN={"ACCESS_CODE_MAX_ATTEMPTS": 0})
 def test_validate_settings_invalid_max_attempts():
     errors = validate_settings()
     assert any("ACCESS_CODE_MAX_ATTEMPTS" in e for e in errors)
 
 
-@override_settings(AUTH={"ACCESS_CODE_RATE_LIMIT_MAX": 0})
+@override_settings(DOORMAN={"ACCESS_CODE_RATE_LIMIT_MAX": 0})
 def test_validate_settings_invalid_rate_limit():
     errors = validate_settings()
     assert any("ACCESS_CODE_RATE_LIMIT_MAX" in e for e in errors)
 
 
-@override_settings(AUTH={"ACCESS_LINK_TTL_MINUTES": -5})
+@override_settings(DOORMAN={"ACCESS_LINK_TTL_MINUTES": -5})
 def test_validate_settings_invalid_access_link_ttl():
     errors = validate_settings()
     assert any("ACCESS_LINK_TTL_MINUTES" in e for e in errors)
 
 
-@override_settings(AUTH={"DEVICE_TRUST_TTL_DAYS": 0})
+@override_settings(DOORMAN={"DEVICE_TRUST_TTL_DAYS": 0})
 def test_validate_settings_invalid_device_trust_ttl():
     errors = validate_settings()
     assert any("DEVICE_TRUST_TTL_DAYS" in e for e in errors)

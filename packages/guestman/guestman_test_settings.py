@@ -1,5 +1,5 @@
 """
-Django settings for Customers tests.
+Django settings for Guestman tests.
 
 Minimal settings to run pytest with shopman.guestman app and all contrib modules.
 """
@@ -13,9 +13,9 @@ INSTALLED_APPS = [
     "django.contrib.auth",
     "rest_framework",
     "django_filters",
-    # Customers core
+    # Guestman core
     "shopman.guestman",
-    # Customers contribs
+    # Guestman contribs
     "shopman.guestman.contrib.identifiers",
     "shopman.guestman.contrib.preferences",
     "shopman.guestman.contrib.insights",
@@ -51,7 +51,7 @@ REST_FRAMEWORK = {
 USE_TZ = True
 TIME_ZONE = "America/Sao_Paulo"
 
-# Customers settings
+# Guestman settings
 ATTENDING = {
     "DEFAULT_REGION": "BR",
     "EVENT_CLEANUP_DAYS": 90,

@@ -1,4 +1,4 @@
-"""Customers exceptions."""
+"""Guestman exceptions."""
 
 from shopman.utils.exceptions import BaseError
 

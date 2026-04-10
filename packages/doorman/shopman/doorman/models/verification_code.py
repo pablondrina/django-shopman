@@ -16,8 +16,8 @@ from django.utils.translation import gettext_lazy as _
 
 def _get_hmac_key() -> bytes:
     """Get the HMAC key for OTP hashing."""
-    from ..conf import auth_settings
-    key = getattr(auth_settings, "OTP_HMAC_KEY", "") or settings.SECRET_KEY
+    from ..conf import doorman_settings
+    key = getattr(doorman_settings, "OTP_HMAC_KEY", "") or settings.SECRET_KEY
     return key.encode("utf-8")
 
 
@@ -46,14 +46,14 @@ def verify_code(stored_digest: str, code_input: str) -> bool:
 
 def default_code_expiry():
     """Default expiration time for verification codes."""
-    from ..conf import auth_settings
+    from ..conf import doorman_settings
 
-    return timezone.now() + timedelta(minutes=auth_settings.ACCESS_CODE_TTL_MINUTES)
+    return timezone.now() + timedelta(minutes=doorman_settings.ACCESS_CODE_TTL_MINUTES)
 
 
 def _default_max_attempts():
-    from shopman.doorman.conf import auth_settings
-    return auth_settings.ACCESS_CODE_MAX_ATTEMPTS
+    from shopman.doorman.conf import doorman_settings
+    return doorman_settings.ACCESS_CODE_MAX_ATTEMPTS
 
 
 class VerificationCode(models.Model):
@@ -131,12 +131,12 @@ class VerificationCode(models.Model):
     max_attempts = models.PositiveSmallIntegerField(_("máximo de tentativas"), default=_default_max_attempts)
     ip_address = models.GenericIPAddressField(_("endereço IP"), null=True, blank=True)
 
-    # Result (Customer UUID from Customers)
+    # Result (Customer UUID from Guestman)
     customer_id = models.UUIDField(
         _("ID do cliente"),
         null=True,
         blank=True,
-        help_text=_("UUID do cliente no Customers"),
+        help_text=_("UUID do cliente no Guestman"),
     )
 
     class Meta:

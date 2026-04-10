@@ -6,8 +6,7 @@ from datetime import date, timedelta
 
 from django.core.management.base import BaseCommand
 
-from shopman.stockman.models import Move, Quant
-from shopman.stockman.models.position import Position
+from shopman.stockman import Move, Position, Quant
 from shopman.stockman.services.movements import StockMovements
 
 

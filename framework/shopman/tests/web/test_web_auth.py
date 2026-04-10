@@ -15,7 +15,7 @@ from django.test import Client, override_settings
 from django.utils import timezone
 
 from shopman.doorman.models import AccessLink
-from shopman.doorman.models.device_trust import TrustedDevice
+from shopman.doorman import TrustedDevice
 from shopman.guestman.models import Customer
 
 pytestmark = pytest.mark.django_db
@@ -209,9 +209,9 @@ class TestDeviceTrust:
             ip_address="127.0.0.1",
         )
 
-        from shopman.doorman.conf import auth_settings
+        from shopman.doorman.conf import doorman_settings
 
-        client.cookies[auth_settings.DEVICE_TRUST_COOKIE_NAME] = raw_token
+        client.cookies[doorman_settings.DEVICE_TRUST_COOKIE_NAME] = raw_token
 
         response = client.post("/auth/device-check/", {"phone": customer.phone})
 
@@ -234,9 +234,9 @@ class TestDeviceTrust:
         device.expires_at = timezone.now() - timedelta(days=1)
         device.save()
 
-        from shopman.doorman.conf import auth_settings
+        from shopman.doorman.conf import doorman_settings
 
-        client.cookies[auth_settings.DEVICE_TRUST_COOKIE_NAME] = raw_token
+        client.cookies[doorman_settings.DEVICE_TRUST_COOKIE_NAME] = raw_token
 
         response = client.post("/auth/device-check/", {"phone": customer.phone})
 
@@ -256,9 +256,9 @@ class TestDeviceTrust:
             ip_address="127.0.0.1",
         )
 
-        from shopman.doorman.conf import auth_settings
+        from shopman.doorman.conf import doorman_settings
 
-        client.cookies[auth_settings.DEVICE_TRUST_COOKIE_NAME] = raw_token
+        client.cookies[doorman_settings.DEVICE_TRUST_COOKIE_NAME] = raw_token
 
         response = client.post("/auth/device-check/", {"phone": customer.phone})
 
@@ -287,9 +287,9 @@ class TestDeviceTrust:
             })
 
             assert response.status_code == 200
-            from shopman.doorman.conf import auth_settings
+            from shopman.doorman.conf import doorman_settings
 
-            cookie_name = auth_settings.DEVICE_TRUST_COOKIE_NAME
+            cookie_name = doorman_settings.DEVICE_TRUST_COOKIE_NAME
             assert cookie_name in response.cookies
 
 

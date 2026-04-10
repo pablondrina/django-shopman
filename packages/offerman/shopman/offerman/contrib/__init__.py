@@ -1,1 +1,1 @@
-"""Offering contrib modules."""
+"""Offerman contrib modules."""

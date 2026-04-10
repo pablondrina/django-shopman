@@ -1,5 +1,5 @@
 """
-Crafting Adapters (vNext).
+Craftsman Adapters (vNext).
 
 Implementations of protocols for external systems.
 Adapters use lazy imports — they only fail if you actually call them
@@ -15,10 +15,10 @@ from shopman.craftsman.adapters.offering import (
 )
 
 __all__ = [
-    # Stocking adapters
+    # Stockman adapters
     "StockingBackend",
     "get_stock_backend",
-    # Offering/Catalog adapters
+    # Offerman/Catalog adapters
     "get_catalog_backend",
     "get_product_info_backend",
     "reset_catalog_backend",

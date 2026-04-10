@@ -1,5 +1,5 @@
 """
-Shopman Payments — Payment Lifecycle Management.
+Shopman Payman — Payment Lifecycle Management.
 
 Usage:
     from shopman.payman import PaymentService, PaymentError

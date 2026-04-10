@@ -1,1 +1,1 @@
-"""Customers tests."""
+"""Guestman tests."""

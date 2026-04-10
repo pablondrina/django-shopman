@@ -6,7 +6,7 @@ WP-F17.1 — Playwright E2E tests for the storefront.
 Prerequisites:
   pip install pytest-playwright
   playwright install chromium
-  make seed  # populate DB with Nelson Boulangerie data
+  make seed  # populate DB with demo data
   make run   # start dev server in another terminal
 
 Run:

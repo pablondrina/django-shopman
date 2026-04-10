@@ -6,8 +6,9 @@ from __future__ import annotations
 
 import logging
 
-from shopman.omniman.models import Directive
 from shopman.directives import LOYALTY_EARN, LOYALTY_REDEEM
+from shopman.guestman.contrib.loyalty import LoyaltyService
+from shopman.omniman.models import Directive
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +67,6 @@ class LoyaltyEarnHandler:
             return
 
         try:
-            from shopman.guestman.contrib.loyalty.service import LoyaltyService
-
             # Enroll if not yet enrolled (idempotent)
             LoyaltyService.enroll(customer.ref)
 
@@ -140,8 +139,6 @@ class LoyaltyRedeemHandler:
             return
 
         try:
-            from shopman.guestman.contrib.loyalty.service import LoyaltyService
-
             LoyaltyService.redeem_points(
                 customer_ref=customer.ref,
                 points=points,

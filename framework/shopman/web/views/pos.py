@@ -209,12 +209,15 @@ def pos_close(request: HttpRequest) -> HttpResponse:
         )
 
     session_key = generate_session_key()
+    from shopman.config import ChannelConfig
+
+    config = ChannelConfig.for_channel(channel)
     Session.objects.create(
         session_key=session_key,
         channel=channel,
         state="open",
-        pricing_policy=channel.pricing_policy,
-        edit_policy=channel.edit_policy,
+        pricing_policy=config.pricing.policy,
+        edit_policy=config.editing.policy,
         handle_type="pos" if not customer_phone else "phone",
         handle_ref=customer_phone or f"pos:{request.user.username}",
     )

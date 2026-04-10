@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "shopman-guestman"
 version = "0.1.0"
-description = "Shopman Attending — Customer Management"
+description = "Shopman Guestman — Customer Management"
 requires-python = ">=3.12"
 dependencies = [
     "Django>=5.2,<6.0",
@@ -28,5 +28,5 @@ dev = [
 include = ["shopman.guestman*"]
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "customers_test_settings"
+DJANGO_SETTINGS_MODULE = "guestman_test_settings"
 pythonpath = ["."]

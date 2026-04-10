@@ -3,7 +3,7 @@ Tests for v0.2.1 polish changes.
 
 Covers:
 - Recipe validation i18n fix (f-string → % formatting)
-- Stocking adapter logging on _get_product failure
+- Stockman adapter logging on _get_product failure
 - API endpoint exception handling (StaleRevision → 409, CraftError → 400)
 - Version alignment
 """
@@ -92,7 +92,7 @@ class TestRecipeValidationI18n:
 # ══════════════════════════════════════════════════════════════
 
 
-class TestStockingAdapterLogging:
+class TestStockmanAdapterLogging:
     """Test that _get_product logs errors instead of silencing them."""
 
     def test_get_product_logs_import_error(self):
@@ -160,7 +160,7 @@ class TestProductionBackendExceptions:
 
     def test_create_wo_craft_error_logged_as_warning(self, db):
         """CraftError (business logic) is logged at warning level."""
-        from shopman.craftsman.contrib.stocking.production import CraftingProductionBackend
+        from shopman.craftsman.contrib.stockman.production import CraftingProductionBackend
 
         backend = CraftingProductionBackend()
 
@@ -172,7 +172,7 @@ class TestProductionBackendExceptions:
         )
 
         # Plan with invalid quantity triggers CraftError
-        with patch("shopman.craftsman.contrib.stocking.production.logger") as mock_logger:
+        with patch("shopman.craftsman.contrib.stockman.production.logger") as mock_logger:
             # Mock the stocking import
             mock_request = MagicMock()
             mock_request.sku = "test-product"

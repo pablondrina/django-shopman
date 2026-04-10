@@ -5,7 +5,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from ..conf import get_auth_settings
+from ..conf import get_doorman_settings
 from ..models import VerificationCode
 from ..services.verification import AuthService
 from ..utils import get_client_ip, normalize_phone
@@ -41,7 +41,7 @@ class RequestCodeView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        settings = get_auth_settings()
+        settings = get_doorman_settings()
         result = AuthService.request_code(
             target_value=phone,
             purpose=VerificationCode.Purpose.LOGIN,

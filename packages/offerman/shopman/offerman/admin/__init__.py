@@ -1,4 +1,4 @@
-"""Offering admin."""
+"""Offerman admin."""
 
 from shopman.offerman.admin.collection import CollectionAdmin, CollectionItemInline
 from shopman.offerman.admin.listing import ListingAdmin, ListingItemInline

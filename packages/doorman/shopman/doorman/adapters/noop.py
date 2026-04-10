@@ -3,7 +3,7 @@ NoopCustomerResolver -- Minimal adapter for development and testing.
 
 Implements the CustomerResolver protocol without any external dependency.
 Useful for:
-- Running Auth standalone without Customers
+- Running Doorman standalone without Guestman
 - Unit tests that don't need real customer data
 - Local development and rapid prototyping
 
@@ -15,7 +15,7 @@ Behavior:
   (except when looked up by email).
 
 Configure in settings:
-    AUTH = {
+    DOORMAN = {
         "CUSTOMER_RESOLVER_CLASS": "shopman.doorman.adapters.noop.NoopCustomerResolver",
     }
 """

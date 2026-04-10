@@ -34,8 +34,6 @@ class TestOrderingCustomersIntegration(TestCase):
         self.channel = Channel.objects.create(
             ref="loja-test",
             name="Loja Test",
-            pricing_policy="external",
-            edit_policy="open",
         )
 
     def test_session_with_customer_data(self):

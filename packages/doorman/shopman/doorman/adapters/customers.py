@@ -1,15 +1,15 @@
 """
-AuthCustomerResolver -- Production adapter backed by Customers.
+AuthCustomerResolver -- Production adapter backed by Guestman.
 
 Implements the CustomerResolver protocol by delegating to
 shopman.guestman.services.customer for all customer lookup and creation.
 
-This is the default adapter used when Auth runs alongside Customers
-in the shopman-suite. It translates between Customers's Customer model
+This is the default adapter used when Auth runs alongside Guestman
+in the shopman-suite. It translates between Guestman's Customer model
 and Auth's AuthCustomerInfo dataclass.
 
 Configure in settings (this is the default):
-    AUTH = {
+    DOORMAN = {
         "CUSTOMER_RESOLVER_CLASS": "shopman.doorman.adapters.customers.AuthCustomerResolver",
     }
 
@@ -30,35 +30,35 @@ if TYPE_CHECKING:
 
 class AuthCustomerResolver:
     """
-    Customer resolver backed by Customers's customer service layer.
+    Customer resolver backed by Guestman's customer service layer.
 
     Each method delegates to shopman.guestman.services.customer and converts
     the returned Customer model instance into an AuthCustomerInfo.
     """
 
     def get_by_phone(self, phone: str) -> AuthCustomerInfo | None:
-        """Lookup customer by phone via Customers."""
+        """Lookup customer by phone via Guestman."""
         from shopman.guestman.services import customer as customer_service
 
         c = customer_service.get_by_phone(phone)
         return self._to_info(c) if c else None
 
     def get_by_email(self, email: str) -> AuthCustomerInfo | None:
-        """Lookup customer by email via Customers."""
+        """Lookup customer by email via Guestman."""
         from shopman.guestman.services import customer as customer_service
 
         c = customer_service.get_by_email(email)
         return self._to_info(c) if c else None
 
     def get_by_uuid(self, uuid: UUID) -> AuthCustomerInfo | None:
-        """Lookup customer by UUID via Customers."""
+        """Lookup customer by UUID via Guestman."""
         from shopman.guestman.services import customer as customer_service
 
         c = customer_service.get_by_uuid(str(uuid))
         return self._to_info(c) if c else None
 
     def create_for_phone(self, phone: str) -> AuthCustomerInfo:
-        """Create a new customer with the given phone via Customers."""
+        """Create a new customer with the given phone via Guestman."""
         from shopman.guestman.services import customer as customer_service
 
         c = customer_service.create(
@@ -70,7 +70,7 @@ class AuthCustomerResolver:
 
     @staticmethod
     def _to_info(c: "Customer") -> AuthCustomerInfo:
-        """Convert a Customers Customer model to AuthCustomerInfo."""
+        """Convert a Guestman Customer model to AuthCustomerInfo."""
         return AuthCustomerInfo(
             uuid=c.uuid,
             name=c.name,

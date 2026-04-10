@@ -1,5 +1,5 @@
 """
-Offering Product Info Adapter — Implements Crafting's ProductInfoBackend protocol.
+Offerman Product Info Adapter — Implements Craftsman's ProductInfoBackend protocol.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def _crafting_protocols_available() -> bool:
-    """Check if Crafting protocols are available."""
+    """Check if Craftsman protocols are available."""
     try:
         from shopman.craftsman.protocols.catalog import ProductInfo, SkuValidationResult
         return True
@@ -25,9 +25,9 @@ def _crafting_protocols_available() -> bool:
 
 class OfferingProductInfoBackend:
     """
-    Product info backend using Offering Product model.
+    Product info backend using Offerman Product model.
 
-    Implements ProductInfoBackend protocol from Crafting.
+    Implements ProductInfoBackend protocol from Craftsman.
     """
 
     def get_product_info(self, sku: str):

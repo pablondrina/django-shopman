@@ -23,8 +23,6 @@ def _setup_channel():
         ref="web",
         defaults={
             "name": "Web",
-            "pricing_policy": "fixed",
-            "edit_policy": "open",
             "is_active": True,
         },
     )[0]
@@ -45,7 +43,11 @@ def _setup_product():
 
 def _add_to_cart(client):
     product = _setup_product()
-    client.post("/cart/add/", {"sku": product.sku, "qty": "1"})
+    with patch("shopman.services.availability.reserve", return_value={
+        "ok": True, "hold_id": "fake-hold", "available_qty": 999,
+        "is_paused": False, "error_code": None, "alternatives": [],
+    }):
+        client.post("/cart/add/", {"sku": product.sku, "qty": "1"})
 
 
 def _login_as_customer(client, customer):

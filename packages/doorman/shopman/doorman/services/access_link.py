@@ -16,7 +16,7 @@ from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
 
-from ..conf import auth_settings, get_adapter, get_auth_settings
+from ..conf import doorman_settings, get_adapter, get_doorman_settings
 from ..error_codes import ErrorCode
 from ..protocols.customer import AuthCustomerInfo
 from ..exceptions import GateError
@@ -92,7 +92,7 @@ class AccessLinkService:
         Create an AccessLink for Customer.
 
         Args:
-            customer: Customer from Customers
+            customer: Customer from Guestman
             audience: Token audience/scope
             source: Token source (manychat, api, internal)
             ttl_minutes: Time to live in minutes (default from settings)
@@ -101,7 +101,7 @@ class AccessLinkService:
         Returns:
             TokenResult with token and URL
         """
-        ttl = ttl_minutes or auth_settings.ACCESS_LINK_EXCHANGE_TTL_MINUTES
+        ttl = ttl_minutes or doorman_settings.ACCESS_LINK_EXCHANGE_TTL_MINUTES
         expires_at = timezone.now() + timedelta(minutes=ttl)
 
         token = AccessLink.objects.create(
@@ -144,10 +144,10 @@ class AccessLinkService:
 
             domain = Site.objects.get_current().domain
         except Exception:
-            domain = auth_settings.DEFAULT_DOMAIN
+            domain = doorman_settings.DEFAULT_DOMAIN
 
         path = reverse("shopman_auth:access-exchange")
-        protocol = "https" if auth_settings.USE_HTTPS else "http"
+        protocol = "https" if doorman_settings.USE_HTTPS else "http"
 
         return f"{protocol}://{domain}{path}?t={token}"
 
@@ -289,7 +289,7 @@ class AccessLinkService:
         Returns:
             AccessLinkEmailResult with success status.
         """
-        if not get_auth_settings().ACCESS_LINK_ENABLED:
+        if not get_doorman_settings().ACCESS_LINK_ENABLED:
             return AccessLinkEmailResult(
                 success=False, error="Access links are disabled.",
                 error_code=ErrorCode.ACCESS_LINK_DISABLED,
@@ -303,7 +303,7 @@ class AccessLinkService:
             )
 
         # G12: Rate limit by email
-        settings = get_auth_settings()
+        settings = get_doorman_settings()
         try:
             Gates.access_link_rate_limit(
                 email=email,
@@ -352,7 +352,7 @@ class AccessLinkService:
             )
 
         # Create access link with email login TTL
-        ttl = auth_settings.ACCESS_LINK_TTL_MINUTES
+        ttl = doorman_settings.ACCESS_LINK_TTL_MINUTES
         token_result = cls.create_token(
             customer=customer,
             audience=AccessLink.Audience.WEB_GENERAL,
@@ -400,10 +400,10 @@ class AccessLinkService:
         try:
             subject = _("Your login link")
             text_body = render_to_string(
-                auth_settings.TEMPLATE_ACCESS_LINK_EMAIL_TXT, context
+                doorman_settings.TEMPLATE_ACCESS_LINK_EMAIL_TXT, context
             )
             html_body = render_to_string(
-                auth_settings.TEMPLATE_ACCESS_LINK_EMAIL_HTML, context
+                doorman_settings.TEMPLATE_ACCESS_LINK_EMAIL_HTML, context
             )
 
             msg = EmailMultiAlternatives(
@@ -448,7 +448,7 @@ class AccessLinkService:
         Returns:
             AccessLinkEmailResult with success status.
         """
-        ttl = ttl_minutes or auth_settings.ACCESS_LINK_TTL_MINUTES
+        ttl = ttl_minutes or doorman_settings.ACCESS_LINK_TTL_MINUTES
         token_result = cls.create_token(
             customer=customer,
             audience=audience,
@@ -501,7 +501,7 @@ class AccessLinkService:
         Get Django User for a Customer.
 
         Args:
-            customer: Customer from Customers
+            customer: Customer from Guestman
 
         Returns:
             User or None

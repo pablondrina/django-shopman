@@ -1,5 +1,5 @@
 """
-Customers Gates - Validation rules.
+Guestman Gates - Validation rules.
 
 G1: ContactPointUniqueness - (type, value) cannot exist in another Customer
 G2: PrimaryInvariant - Max 1 primary per (customer, type)
@@ -42,7 +42,7 @@ class GateResult:
 
 
 class Gates:
-    """Customers validation gates."""
+    """Guestman validation gates."""
 
     # =========================================================================
     # G1: ContactPoint Uniqueness

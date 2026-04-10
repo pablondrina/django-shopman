@@ -2,7 +2,7 @@ from django.apps import AppConfig
 from django.utils.translation import gettext_lazy as _
 
 
-class OrderingConfig(AppConfig):
+class OmnimanConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "shopman.omniman"
     label = "omniman"

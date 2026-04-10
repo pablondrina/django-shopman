@@ -139,7 +139,6 @@ class TestOrderHandleRefPhoneLookup(TestCase):
     def setUp(self):
         self.channel = Channel.objects.create(
             ref="web", name="Web",
-            pricing_policy="external", edit_policy="open",
         )
         self.order = Order.objects.create(
             ref="ORD-PHONE-001",

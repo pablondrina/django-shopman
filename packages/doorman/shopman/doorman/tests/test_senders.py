@@ -107,7 +107,7 @@ class TestWhatsAppCloudAPISender:
 
     httpx = pytest.importorskip("httpx")
 
-    @override_settings(AUTH={
+    @override_settings(DOORMAN={
         "WHATSAPP_ACCESS_TOKEN": "test-token",
         "WHATSAPP_PHONE_ID": "12345",
         "WHATSAPP_CODE_TEMPLATE": "verification_code",
@@ -126,7 +126,7 @@ class TestWhatsAppCloudAPISender:
         call_kwargs = mock_post.call_args
         assert call_kwargs[1]["json"]["to"] == "5541999999999"
 
-    @override_settings(AUTH={
+    @override_settings(DOORMAN={
         "WHATSAPP_ACCESS_TOKEN": "test-token",
         "WHATSAPP_PHONE_ID": "12345",
         "WHATSAPP_CODE_TEMPLATE": "verification_code",
@@ -137,7 +137,7 @@ class TestWhatsAppCloudAPISender:
             result = sender.send_code("+5541999999999", "123456", "whatsapp")
         assert result is False
 
-    @override_settings(AUTH={
+    @override_settings(DOORMAN={
         "WHATSAPP_ACCESS_TOKEN": "",
         "WHATSAPP_PHONE_ID": "",
         "WHATSAPP_CODE_TEMPLATE": "",

@@ -28,25 +28,25 @@ class Migration(migrations.Migration):
         migrations.RunSQL(
             sql=(
                 "UPDATE omniman_orderevent "
-                "SET payload = jsonb_set(payload, '{new_status}', '\"preparing\"') "
-                "WHERE payload->>'new_status' = 'processing';"
+                "SET payload = json_set(payload, '$.new_status', 'preparing') "
+                "WHERE json_extract(payload, '$.new_status') = 'processing';"
             ),
             reverse_sql=(
                 "UPDATE omniman_orderevent "
-                "SET payload = jsonb_set(payload, '{new_status}', '\"processing\"') "
-                "WHERE payload->>'new_status' = 'preparing';"
+                "SET payload = json_set(payload, '$.new_status', 'processing') "
+                "WHERE json_extract(payload, '$.new_status') = 'preparing';"
             ),
         ),
         migrations.RunSQL(
             sql=(
                 "UPDATE omniman_orderevent "
-                "SET payload = jsonb_set(payload, '{old_status}', '\"preparing\"') "
-                "WHERE payload->>'old_status' = 'processing';"
+                "SET payload = json_set(payload, '$.old_status', 'preparing') "
+                "WHERE json_extract(payload, '$.old_status') = 'processing';"
             ),
             reverse_sql=(
                 "UPDATE omniman_orderevent "
-                "SET payload = jsonb_set(payload, '{old_status}', '\"processing\"') "
-                "WHERE payload->>'old_status' = 'preparing';"
+                "SET payload = json_set(payload, '$.old_status', 'processing') "
+                "WHERE json_extract(payload, '$.old_status') = 'preparing';"
             ),
         ),
     ]

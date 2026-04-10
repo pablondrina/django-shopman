@@ -1,5 +1,5 @@
 """
-Testes end-to-end do fluxo completo Ordering.
+Testes end-to-end do fluxo completo Omniman.
 
 Este módulo testa o fluxo completo desde a criação de uma sessão
 até a finalização do order com transições de status.
@@ -18,15 +18,13 @@ from shopman.omniman.services import CommitService, ModifyService
 
 
 class EndToEndFlowTests(TestCase):
-    """Testa o fluxo completo do Ordering."""
+    """Testa o fluxo completo do Omniman."""
 
     def setUp(self) -> None:
         """Configura ambiente de teste."""
         self.channel = Channel.objects.create(
             ref="shop",
             name="Shop",
-            pricing_policy="external",
-            edit_policy="open",
         )
 
     def test_complete_flow_from_session_to_completed_order(self) -> None:
@@ -177,8 +175,6 @@ class EndToEndFlowTests(TestCase):
         internal_channel = Channel.objects.create(
             ref="internal_shop",
             name="Internal Shop",
-            pricing_policy="internal",
-            edit_policy="open",
         )
 
         session_key = generate_session_key()

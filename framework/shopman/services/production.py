@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 def reserve_materials(work_order: WorkOrder) -> None:
     """Ponto de coordenação ao planejar produção.
 
-    O Stocking reage ao signal `production_changed` (action=planned/adjusted).
+    O Stockman reage ao signal `production_changed` (action=planned/adjusted).
     Aqui registramos o evento de domínio para auditoria e extensões futuras.
     """
     logger.info(

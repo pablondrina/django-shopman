@@ -19,7 +19,7 @@ import pytest
 from django.test import RequestFactory, override_settings
 from django.utils import timezone
 
-from shopman.doorman.conf import get_auth_settings
+from shopman.doorman.conf import get_doorman_settings
 from shopman.doorman.exceptions import GateError
 from shopman.doorman.gates import Gates
 from shopman.doorman.models import AccessLink, VerificationCode
@@ -137,7 +137,7 @@ class TestSafeRedirectUrl:
         result = safe_redirect_url("data:text/html,<h1>evil</h1>")
         assert result == "/"
 
-    @override_settings(AUTH={"ALLOWED_REDIRECT_HOSTS": {"trusted.com"}})
+    @override_settings(DOORMAN={"ALLOWED_REDIRECT_HOSTS": {"trusted.com"}})
     def test_accepts_allowed_host(self):
         result = safe_redirect_url("https://trusted.com/page")
         assert result == "https://trusted.com/page"
@@ -175,13 +175,13 @@ class TestAccessLinkCreateAuth:
         ):
             return view(request)
 
-    @override_settings(AUTH={"ACCESS_LINK_API_KEY": TEST_API_KEY})
+    @override_settings(DOORMAN={"ACCESS_LINK_API_KEY": TEST_API_KEY})
     def test_create_without_key_returns_401(self, customer):
         """POST without API key must return 401."""
         response = self._post_create({"customer_id": str(customer.uuid)})
         assert response.status_code == 401
 
-    @override_settings(AUTH={"ACCESS_LINK_API_KEY": TEST_API_KEY})
+    @override_settings(DOORMAN={"ACCESS_LINK_API_KEY": TEST_API_KEY})
     def test_create_with_wrong_key_returns_401(self, customer):
         """POST with wrong API key must return 401."""
         response = self._post_create(
@@ -190,7 +190,7 @@ class TestAccessLinkCreateAuth:
         )
         assert response.status_code == 401
 
-    @override_settings(AUTH={"ACCESS_LINK_API_KEY": TEST_API_KEY})
+    @override_settings(DOORMAN={"ACCESS_LINK_API_KEY": TEST_API_KEY})
     def test_create_with_bearer_key_returns_200(self, customer):
         """POST with correct Bearer key must succeed."""
         response = self._post_create(
@@ -202,7 +202,7 @@ class TestAccessLinkCreateAuth:
         assert "token" in data
         assert "url" in data
 
-    @override_settings(AUTH={"ACCESS_LINK_API_KEY": TEST_API_KEY})
+    @override_settings(DOORMAN={"ACCESS_LINK_API_KEY": TEST_API_KEY})
     def test_create_with_x_api_key_returns_200(self, customer):
         """POST with X-Api-Key header must succeed."""
         response = self._post_create(
@@ -211,7 +211,7 @@ class TestAccessLinkCreateAuth:
         )
         assert response.status_code == 200
 
-    @override_settings(AUTH={"ACCESS_LINK_API_KEY": ""})
+    @override_settings(DOORMAN={"ACCESS_LINK_API_KEY": ""})
     def test_create_without_configured_key_allows_access(self, customer):
         """POST without configured API key must allow access (dev mode)."""
         response = self._post_create({"customer_id": str(customer.uuid)})
@@ -373,7 +373,7 @@ class TestVerificationCodeLifecycle:
 class TestCustomerAutoCreation:
     """Tests for customer auto-creation setting."""
 
-    @override_settings(AUTH={"AUTO_CREATE_CUSTOMER": False})
+    @override_settings(DOORMAN={"AUTO_CREATE_CUSTOMER": False})
     def test_auto_create_disabled_returns_error(self, db):
         """When disabled, unknown phone must return error."""
         unknown_phone = "+5541666666666"

@@ -44,8 +44,8 @@ class PreorderCommitTests(TestCase):
             session_key=f"S-{generate_idempotency_key()[:8]}",
             channel=self.channel,
             state="open",
-            pricing_policy=self.channel.pricing_policy,
-            edit_policy=self.channel.edit_policy,
+            pricing_policy="internal",
+            edit_policy="open",
             rev=0,
             items=[
                 {"line_id": "L1", "sku": "pao-queijo", "name": "Pao de Queijo", "qty": 50, "unit_price_q": 150, "meta": {}},
@@ -133,8 +133,8 @@ class PreorderReminderDirectiveTests(TestCase):
             session_key="S-REMINDER-1",
             channel=self.channel,
             state="open",
-            pricing_policy=self.channel.pricing_policy,
-            edit_policy=self.channel.edit_policy,
+            pricing_policy="internal",
+            edit_policy="open",
             rev=0,
             items=[
                 {"line_id": "L1", "sku": "pao-queijo", "name": "Pao de Queijo", "qty": 50, "unit_price_q": 150, "meta": {}},
@@ -174,8 +174,8 @@ class PreorderReminderDirectiveTests(TestCase):
             session_key="S-NO-REMINDER",
             channel=self.channel,
             state="open",
-            pricing_policy=self.channel.pricing_policy,
-            edit_policy=self.channel.edit_policy,
+            pricing_policy="internal",
+            edit_policy="open",
             rev=0,
             items=[
                 {"line_id": "L1", "sku": "croissant", "name": "Croissant", "qty": 5, "unit_price_q": 800, "meta": {}},

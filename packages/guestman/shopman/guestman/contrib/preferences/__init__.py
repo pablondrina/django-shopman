@@ -1,5 +1,5 @@
 """
-Customers Preferences - Customer preferences management.
+Guestman Preferences - Customer preferences management.
 
 This contrib module provides CustomerPreference for storing explicit,
 inferred, and restriction preferences.
@@ -23,7 +23,11 @@ def __getattr__(name):
         from shopman.guestman.contrib.preferences.service import PreferenceService
 
         return PreferenceService
+    if name in ("CustomerPreference", "PreferenceType"):
+        from shopman.guestman.contrib.preferences import models
+
+        return getattr(models, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = ["PreferenceService"]
+__all__ = ["PreferenceService", "CustomerPreference", "PreferenceType"]

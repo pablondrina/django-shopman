@@ -1,4 +1,4 @@
-"""CatalogBackend implementation for Offering."""
+"""CatalogBackend implementation for Offerman."""
 
 from decimal import Decimal
 
@@ -15,9 +15,9 @@ from shopman.offerman.exceptions import CatalogError
 
 class OfferingCatalogBackend:
     """
-    CatalogBackend implementation using Offering's catalog service.
+    CatalogBackend implementation using Offerman's catalog service.
 
-    This adapter allows other apps (Ordering, Stocking) to use Offering
+    This adapter allows other apps (Omniman, Stockman) to use Offerman
     as their catalog source without direct model access.
     """
 

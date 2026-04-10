@@ -12,12 +12,12 @@ class CustomerGroup(models.Model):
     name = models.CharField(_("nome"), max_length=200)
     description = models.TextField(_("descrição"), blank=True)
 
-    # Link to pricing (Offering Listing)
+    # Link to pricing (Offerman Listing)
     listing_ref = models.CharField(
         _("código da listagem"),
         max_length=50,
         blank=True,
-        help_text=_("Código do Listing no Offering (convenção: Listing.ref == Channel.ref)"),
+        help_text=_("Código do Listing no Offerman (convenção: Listing.ref == Channel.ref)"),
     )
 
     # Configuration

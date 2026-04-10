@@ -15,7 +15,7 @@ from django.urls import reverse
 from shopman.craftsman.models import Recipe, WorkOrder
 from shopman.craftsman.services.execution import CraftExecution
 from shopman.craftsman.services.scheduling import CraftPlanning
-from shopman.stockman.models.position import Position
+from shopman.stockman import Position
 
 logger = logging.getLogger(__name__)
 

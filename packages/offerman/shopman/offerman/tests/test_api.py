@@ -1,4 +1,4 @@
-"""Tests for Offering REST API (SPEC-001)."""
+"""Tests for Offerman REST API (SPEC-001)."""
 from __future__ import annotations
 
 from decimal import Decimal
@@ -505,7 +505,7 @@ class TestReadOnly:
 
 
 class TestAuthentication:
-    """Offering endpoints are public (AllowAny) — catalog is accessible without auth."""
+    """Offerman endpoints are public (AllowAny) — catalog is accessible without auth."""
 
     def test_products_accessible_without_auth(self, anon_client, baguete):
         resp = anon_client.get("/api/offering/products/")

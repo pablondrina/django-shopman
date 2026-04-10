@@ -1,7 +1,7 @@
 """
-Customers Admin with Unfold theme.
+Guestman Admin with Unfold theme.
 
-This module provides Unfold-styled admin classes for Customers models.
+This module provides Unfold-styled admin classes for Guestman models.
 To use, add 'shopman.guestman.contrib.admin_unfold' to INSTALLED_APPS after 'customers'.
 
 The admins will automatically unregister the basic admins and register
@@ -95,7 +95,7 @@ class CustomerGroupAdmin(BaseModelAdmin):
     def is_default_badge(self, obj):
         return obj.is_default
 
-    @display(description="Customers")
+    @display(description="Guestman")
     def customer_count(self, obj):
         return obj.customers.count()
 

@@ -1,14 +1,14 @@
 """
-Stocking Signal Handlers for Crafting (vNext).
+Stockman Signal Handlers for Craftsman (vNext).
 
 Listens to the single `production_changed` signal and dispatches
-to appropriate Stocking actions:
+to appropriate Stockman actions:
 
 - planned: Create planned Quant (future stock) for finished goods
 - closed: No-op here (handled by InventoryProtocol in execution.py)
 - voided: Cancel planned Quant for the WorkOrder
 
-Registered by CraftingStockingConfig.ready().
+Registered by CraftsmanStockmanConfig.ready().
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 def _stocking_available() -> bool:
-    """Check if Stocking is installed."""
+    """Check if Stockman is installed."""
     try:
         from shopman.stockman.services.movements import StockMovements  # noqa: F401
 
@@ -37,7 +37,7 @@ def handle_production_changed(sender, product_ref, date, **kwargs):
     """
     React to production changes (plan, adjust, close, void).
 
-    - planned: Create planned Quant in Stocking (future stock for finished goods)
+    - planned: Create planned Quant in Stockman (future stock for finished goods)
     - adjusted: Update planned Quant quantity
     - closed: No-op (stock receive handled by InventoryProtocol)
     - voided: Cancel (zero out) the planned Quant
@@ -56,7 +56,7 @@ def handle_production_changed(sender, product_ref, date, **kwargs):
 
     if not _stocking_available():
         logger.debug(
-            "Stocking not installed, skipping production_changed handler: "
+            "Stockman not installed, skipping production_changed handler: "
             "action=%s product_ref=%s",
             action,
             product_ref,

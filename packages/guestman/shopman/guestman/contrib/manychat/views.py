@@ -1,7 +1,7 @@
 """
 Manychat webhook endpoint.
 
-Receives webhooks from Manychat and syncs subscribers to Customers.
+Receives webhooks from Manychat and syncs subscribers to Guestman.
 
 Flow:
     1. Validates HMAC signature (G4)

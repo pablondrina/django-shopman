@@ -213,7 +213,7 @@ class CostBackend(Protocol):
 
 ## Configuração
 
-Chave Django settings: `OFFERING`
+Chave Django settings: `OFFERMAN`
 
 | Setting | Default | Descrição |
 |---------|---------|-----------|

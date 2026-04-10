@@ -1,1 +1,1 @@
-"""Customers contrib modules."""
+"""Guestman contrib modules."""

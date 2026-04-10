@@ -8,7 +8,7 @@ class PaymentTransaction(models.Model):
 
     Imutável: uma vez criada, não pode ser atualizada nem deletada.
     Correções são feitas via nova Transaction (ex: refund parcial adicional).
-    Segue o mesmo padrão de Stocking.Move.
+    Segue o mesmo padrão de Stockman.Move.
     """
 
     class Type(models.TextChoices):

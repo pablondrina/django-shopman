@@ -69,11 +69,14 @@ class CartService:
         # Create new session
         session_key = generate_session_key()
         origin_channel = request.session.get("origin_channel", "web")
+        from shopman.config import ChannelConfig
+
+        config = ChannelConfig.for_channel(channel)
         ordering_session = Session.objects.create(
             session_key=session_key,
             channel=channel,
-            pricing_policy=channel.pricing_policy,
-            edit_policy=channel.edit_policy,
+            pricing_policy=config.pricing.policy,
+            edit_policy=config.editing.policy,
             data={"origin_channel": origin_channel},
         )
         request.session["cart_session_key"] = session_key
@@ -267,8 +270,8 @@ class CartService:
         # Batch availability check to flag unavailable items
         avail_map: dict[str, dict | None] = {}
         try:
-            from shopman.web.constants import HAS_STOCKING
-            if HAS_STOCKING:
+            from shopman.web.constants import HAS_STOCKMAN
+            if HAS_STOCKMAN:
                 from shopman.stockman.services.availability import (
                     availability_for_skus,
                     availability_scope_for_channel,

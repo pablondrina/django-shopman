@@ -1,7 +1,7 @@
 """
 Catalog Protocol — interface for product/item information.
 
-Crafting defines this protocol, Offering (or other catalog systems) implements it.
+Craftsman defines this protocol, Offerman (or other catalog systems) implements it.
 
 Se não configurado: item_ref é usado como-é.
 Se configurado: resolve nomes, unidades, shelf_life, etc.

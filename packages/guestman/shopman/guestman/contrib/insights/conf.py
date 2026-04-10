@@ -1,5 +1,5 @@
 """
-Customers Insights configuration.
+Guestman Insights configuration.
 
 RFM thresholds are configurable via Django settings:
 

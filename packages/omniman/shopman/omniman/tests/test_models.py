@@ -1,4 +1,4 @@
-"""Testes dos modelos do Ordering kernel."""
+"""Testes dos modelos do Omniman kernel."""
 
 from decimal import Decimal
 
@@ -29,8 +29,6 @@ class TestChannel(TestCase):
 
     def test_channel_defaults(self):
         ch = Channel.objects.create(ref="test")
-        assert ch.pricing_policy == "internal"
-        assert ch.edit_policy == "open"
         assert ch.is_active is True
 
 

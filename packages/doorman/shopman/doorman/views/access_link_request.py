@@ -10,7 +10,7 @@ from django.shortcuts import render
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 
-from ..conf import get_auth_settings
+from ..conf import get_doorman_settings
 from ..services.access_link import AccessLinkService
 from ..utils import get_client_ip
 
@@ -33,11 +33,11 @@ class AccessLinkRequestView(View):
     """
 
     def get_template_name(self):
-        settings = get_auth_settings()
+        settings = get_doorman_settings()
         return settings.TEMPLATE_ACCESS_LINK_REQUEST
 
     def get(self, request):
-        if not get_auth_settings().ACCESS_LINK_ENABLED:
+        if not get_doorman_settings().ACCESS_LINK_ENABLED:
             return render(
                 request,
                 self.get_template_name(),
@@ -49,7 +49,7 @@ class AccessLinkRequestView(View):
     def post(self, request):
         template_name = self.get_template_name()
 
-        if not get_auth_settings().ACCESS_LINK_ENABLED:
+        if not get_doorman_settings().ACCESS_LINK_ENABLED:
             return JsonResponse(
                 {"error": "Access links are disabled."}, status=400
             )
@@ -74,7 +74,7 @@ class AccessLinkRequestView(View):
             return render(request, template_name, {"error": error, "email": email})
 
         # Send access link
-        settings = get_auth_settings()
+        settings = get_doorman_settings()
         ip_address = get_client_ip(request, settings.TRUSTED_PROXY_DEPTH)
         result = AccessLinkService.send_access_link(email, ip_address=ip_address)
 

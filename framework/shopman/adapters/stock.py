@@ -165,9 +165,7 @@ def fulfill_hold(hold_id: str) -> dict:
     Returns:
         {"success": bool, "error_code": str | None, "message": str | None}
     """
-    from shopman.stockman.exceptions import StockError
-    from shopman.stockman.models import Hold
-    from shopman.stockman.models.enums import HoldStatus
+    from shopman.stockman import Hold, HoldStatus, StockError
     from shopman.stockman.service import Stock as stock
 
     pk = int(hold_id.split(":")[1])
@@ -204,7 +202,7 @@ def fulfill_hold(hold_id: str) -> dict:
 
 def release_holds(hold_ids: list[str]) -> None:
     """Release multiple holds (cancel reservations)."""
-    from shopman.stockman.exceptions import StockError
+    from shopman.stockman import StockError
     from shopman.stockman.service import Stock as stock
 
     for hold_id in hold_ids:
@@ -216,16 +214,11 @@ def release_holds(hold_ids: list[str]) -> None:
 
 def release_holds_for_reference(reference: str) -> int:
     """Release all active holds for a given reference (e.g. order ref)."""
-    from shopman.stockman.exceptions import StockError
-    from shopman.stockman.models import Hold
-    from shopman.stockman.models.enums import HoldStatus
+    from shopman.stockman import StockError, StockHolds
     from shopman.stockman.service import Stock as stock
 
     try:
-        holds = Hold.objects.filter(
-            status__in=[HoldStatus.PENDING, HoldStatus.CONFIRMED],
-            metadata__reference=reference,
-        )
+        holds = StockHolds.find_active_by_reference(reference)
         count = 0
         for hold in holds:
             try:
@@ -250,3 +243,70 @@ def receive_return(
 
     full_reason = f"{reason} (ref: {reference})" if reference else reason
     StockMovements.receive(quantity=qty, sku=sku, reason=full_reason)
+
+
+# ── Session hold queries ─────────────────────────────────────────────
+
+
+def find_holds_by_reference(
+    reference: str,
+    *,
+    sku: str | None = None,
+) -> list[tuple[str, str, Decimal]]:
+    """Find active holds (PENDING/CONFIRMED) tagged with `reference`.
+
+    Returns:
+        List of (hold_id, sku, qty) tuples ordered by pk (FIFO).
+    """
+    from shopman.stockman import HoldStatus, StockHolds
+
+    holds = StockHolds.find_by_reference(
+        reference,
+        sku=sku,
+        status_in=[HoldStatus.PENDING, HoldStatus.CONFIRMED],
+    )
+    return [(h.hold_id, h.sku, Decimal(str(h.quantity))) for h in holds]
+
+
+def retag_hold_reference(hold_id: str, new_reference: str) -> bool:
+    """Update hold's reference tag (e.g. session_key → order ref).
+
+    Returns True if updated, False if hold not found.
+    """
+    from shopman.stockman import StockHolds
+
+    return StockHolds.retag_reference(hold_id, new_reference)
+
+
+# ── Availability queries ─────────────────────────────────────────────
+
+
+def get_availability(
+    sku: str,
+    *,
+    safety_margin: int = 0,
+    allowed_positions: list[str] | None = None,
+) -> dict:
+    """Return availability info for a SKU.
+
+    Delegates to Stockman's availability_for_sku(). Returns a dict with
+    keys: sku, total_available, total_orderable, total_reserved,
+    breakdown, is_planned, is_paused, positions.
+    """
+    from shopman.stockman.services.availability import availability_for_sku
+
+    return availability_for_sku(
+        sku,
+        safety_margin=safety_margin,
+        allowed_positions=allowed_positions,
+    )
+
+
+def get_channel_scope(channel_ref: str | None) -> dict:
+    """Return stock scope for a channel: safety_margin + allowed_positions.
+
+    Used by availability.check() to narrow stock visibility per channel.
+    """
+    from shopman.stockman.services.availability import availability_scope_for_channel
+
+    return availability_scope_for_channel(channel_ref)

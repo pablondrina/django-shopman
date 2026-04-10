@@ -1,5 +1,5 @@
 """
-Django settings for Ordering tests.
+Django settings for Omniman tests.
 
 Minimal settings to run pytest with shopman.omniman app.
 """

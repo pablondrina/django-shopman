@@ -14,7 +14,7 @@ from unfold.widgets import UnfoldAdminColorInputWidget
 
 from shopman.admin.widgets import FontPreviewWidget
 from shopman.colors import oklch_to_hex
-from shopman.models import DeliveryZone, NotificationTemplate, Shop, ChannelConfigRecord
+from shopman.models import DeliveryZone, NotificationTemplate, Shop
 
 
 class DeliveryZoneInline(admin.TabularInline):
@@ -298,15 +298,3 @@ class NotificationTemplateAdmin(ModelAdmin):
 
 
 
-@admin.register(ChannelConfigRecord)
-class ChannelConfigRecordAdmin(ModelAdmin):
-    """Admin para overrides de ChannelConfig por canal.
-
-    Cada registro sobreescreve a config padrão da loja (Shop.defaults) para um canal específico.
-    Cascata completa: canal (este model) ← loja (Shop.defaults) ← defaults hardcoded.
-    """
-
-    list_display = ("channel_ref", "updated_at")
-    search_fields = ("channel_ref",)
-    readonly_fields = ("updated_at",)
-    fields = ("channel_ref", "data", "updated_at")

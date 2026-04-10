@@ -36,7 +36,7 @@ import string
 
 from locust import HttpUser, between, task
 
-# Product SKUs from seed data (Nelson Boulangerie)
+# Product SKUs from seed data
 PRODUCT_SKUS = [
     "PAO-FRANCES",
     "CROISSANT",

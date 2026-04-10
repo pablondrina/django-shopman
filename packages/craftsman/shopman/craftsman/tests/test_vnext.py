@@ -1,5 +1,5 @@
 """
-Tests for Crafting vNext — 4 verbs + 3 queries + invariants.
+Tests for Craftsman vNext — 4 verbs + 3 queries + invariants.
 """
 
 import pytest
@@ -743,7 +743,7 @@ class TestInventoryWiring:
         mock_backend = MagicMock()
         mock_backend_class = MagicMock(return_value=mock_backend)
 
-        settings.CRAFTING = {
+        settings.CRAFTSMAN = {
             "INVENTORY_BACKEND": "test.MockBackend",
         }
 
@@ -766,7 +766,7 @@ class TestInventoryWiring:
         mock_backend = MagicMock()
         mock_backend_class = MagicMock(return_value=mock_backend)
 
-        settings.CRAFTING = {
+        settings.CRAFTSMAN = {
             "INVENTORY_BACKEND": "test.MockBackend",
         }
 
@@ -786,10 +786,10 @@ class TestInventoryWiring:
         from unittest.mock import MagicMock, patch
 
         mock_backend = MagicMock()
-        mock_backend.consume.side_effect = RuntimeError("Stocking down")
+        mock_backend.consume.side_effect = RuntimeError("Stockman down")
         mock_backend_class = MagicMock(return_value=mock_backend)
 
-        settings.CRAFTING = {
+        settings.CRAFTSMAN = {
             "INVENTORY_BACKEND": "test.MockBackend",
         }
 
@@ -835,7 +835,7 @@ class TestSuggest:
         mock_backend.committed.return_value = Decimal("0")
         mock_backend_class = MagicMock(return_value=mock_backend)
 
-        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+        settings.CRAFTSMAN = {"DEMAND_BACKEND": "test.MockDemandBackend"}
 
         with patch(
             "django.utils.module_loading.import_string",
@@ -866,7 +866,7 @@ class TestSuggest:
         mock_backend.committed.return_value = Decimal("30")
         mock_backend_class = MagicMock(return_value=mock_backend)
 
-        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+        settings.CRAFTSMAN = {"DEMAND_BACKEND": "test.MockDemandBackend"}
 
         with patch(
             "django.utils.module_loading.import_string",
@@ -900,7 +900,7 @@ class TestSuggest:
         mock_backend.committed.return_value = Decimal("0")
         mock_backend_class = MagicMock(return_value=mock_backend)
 
-        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+        settings.CRAFTSMAN = {"DEMAND_BACKEND": "test.MockDemandBackend"}
 
         with patch(
             "django.utils.module_loading.import_string",
@@ -933,7 +933,7 @@ class TestSuggest:
         mock_backend.committed.return_value = Decimal("0")
         mock_backend_class = MagicMock(return_value=mock_backend)
 
-        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+        settings.CRAFTSMAN = {"DEMAND_BACKEND": "test.MockDemandBackend"}
 
         with patch(
             "django.utils.module_loading.import_string",
@@ -953,7 +953,7 @@ class TestSuggest:
         mock_backend.history.return_value = []
         mock_backend_class = MagicMock(return_value=mock_backend)
 
-        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+        settings.CRAFTSMAN = {"DEMAND_BACKEND": "test.MockDemandBackend"}
 
         with patch(
             "django.utils.module_loading.import_string",
@@ -971,7 +971,7 @@ class TestSuggest:
         mock_backend.history.return_value = []
         mock_backend_class = MagicMock(return_value=mock_backend)
 
-        settings.CRAFTING = {
+        settings.CRAFTSMAN = {
             "DEMAND_BACKEND": "test.MockDemandBackend",
             "HISTORICAL_DAYS": 14,
             "SAME_WEEKDAY_ONLY": False,
@@ -999,7 +999,7 @@ class TestSuggest:
         mock_backend = MagicMock()
         mock_backend_class = MagicMock(return_value=mock_backend)
 
-        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+        settings.CRAFTSMAN = {"DEMAND_BACKEND": "test.MockDemandBackend"}
 
         with patch(
             "django.utils.module_loading.import_string",
@@ -1031,7 +1031,7 @@ class TestSuggest:
         mock_backend.committed.return_value = Decimal("0")
         mock_backend_class = MagicMock(return_value=mock_backend)
 
-        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+        settings.CRAFTSMAN = {"DEMAND_BACKEND": "test.MockDemandBackend"}
 
         target = date(2026, 1, 14)  # January = hot month
         hot_months = [10, 11, 12, 1, 2, 3]
@@ -1068,7 +1068,7 @@ class TestSuggest:
             with patch("django.utils.module_loading.import_string", return_value=mock_backend_class):
                 return craft.suggest(date(2026, 1, 14))
 
-        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+        settings.CRAFTSMAN = {"DEMAND_BACKEND": "test.MockDemandBackend"}
 
         # 10 records → high
         sugs = _run(10)
@@ -1101,7 +1101,7 @@ class TestSuggest:
         mock_backend.committed.return_value = Decimal("0")
         mock_backend_class = MagicMock(return_value=mock_backend)
 
-        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+        settings.CRAFTSMAN = {"DEMAND_BACKEND": "test.MockDemandBackend"}
 
         with patch("django.utils.module_loading.import_string", return_value=mock_backend_class):
             suggestions = craft.suggest(date(2026, 1, 14))
@@ -1127,7 +1127,7 @@ class TestSuggest:
         mock_backend.committed.return_value = Decimal("0")
         mock_backend_class = MagicMock(return_value=mock_backend)
 
-        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+        settings.CRAFTSMAN = {"DEMAND_BACKEND": "test.MockDemandBackend"}
 
         with patch("django.utils.module_loading.import_string", return_value=mock_backend_class):
             suggestions = craft.suggest(date(2026, 1, 14))
@@ -1158,7 +1158,7 @@ class TestSuggest:
         mock_backend.committed.return_value = Decimal("0")
         mock_backend_class = MagicMock(return_value=mock_backend)
 
-        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+        settings.CRAFTSMAN = {"DEMAND_BACKEND": "test.MockDemandBackend"}
 
         with patch("django.utils.module_loading.import_string", return_value=mock_backend_class):
             suggestions = craft.suggest(friday, high_demand_multiplier=Decimal("1.5"))
@@ -1185,7 +1185,7 @@ class TestSuggest:
         mock_backend.committed.return_value = Decimal("0")
         mock_backend_class = MagicMock(return_value=mock_backend)
 
-        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+        settings.CRAFTSMAN = {"DEMAND_BACKEND": "test.MockDemandBackend"}
 
         with patch("django.utils.module_loading.import_string", return_value=mock_backend_class):
             suggestions = craft.suggest(tomorrow, high_demand_multiplier=Decimal("1.5"))
@@ -1218,7 +1218,7 @@ class TestAdjustValidations:
         mock_backend.committed.return_value = Decimal("80")
         mock_backend_class = MagicMock(return_value=mock_backend)
 
-        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+        settings.CRAFTSMAN = {"DEMAND_BACKEND": "test.MockDemandBackend"}
 
         wo = craft.plan(recipe, 100, date=tomorrow)
 
@@ -1238,7 +1238,7 @@ class TestAdjustValidations:
         mock_backend.committed.return_value = Decimal("80")
         mock_backend_class = MagicMock(return_value=mock_backend)
 
-        settings.CRAFTING = {"DEMAND_BACKEND": "test.MockDemandBackend"}
+        settings.CRAFTSMAN = {"DEMAND_BACKEND": "test.MockDemandBackend"}
 
         wo = craft.plan(recipe, 100, date=tomorrow)
 
@@ -1263,7 +1263,7 @@ class TestAdjustValidations:
         )
         mock_inv_class = MagicMock(return_value=mock_inv)
 
-        settings.CRAFTING = {"INVENTORY_BACKEND": "test.MockInvBackend"}
+        settings.CRAFTSMAN = {"INVENTORY_BACKEND": "test.MockInvBackend"}
 
         wo = craft.plan(recipe_with_items, 50, date=tomorrow)
 
@@ -1289,7 +1289,7 @@ class TestAdjustValidations:
         )
         mock_inv_class = MagicMock(return_value=mock_inv)
 
-        settings.CRAFTING = {"INVENTORY_BACKEND": "test.MockInvBackend"}
+        settings.CRAFTSMAN = {"INVENTORY_BACKEND": "test.MockInvBackend"}
 
         wo = craft.plan(recipe_with_items, 50, date=tomorrow)
 

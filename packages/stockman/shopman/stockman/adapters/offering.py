@@ -1,5 +1,5 @@
 """
-Stocking Offering Adapter — SKU validation via Offering.
+Stockman Offerman Adapter — SKU validation via Offerman.
 
 This adapter loads the configured SkuValidator from settings.
 
@@ -55,12 +55,12 @@ def get_sku_validator() -> SkuValidator:
     if _sku_validator is None:
         with _lock:
             if _sku_validator is None:  # double-checked
-                stocking_settings = getattr(settings, "STOCKING", {})
-                validator_path = stocking_settings.get("SKU_VALIDATOR")
+                stockman_settings = getattr(settings, "STOCKMAN", {})
+                validator_path = stockman_settings.get("SKU_VALIDATOR")
 
                 if not validator_path:
                     raise ImproperlyConfigured(
-                        "STOCKING['SKU_VALIDATOR'] must be configured. "
+                        "STOCKMAN['SKU_VALIDATOR'] must be configured. "
                         "Example: 'shopman.offerman.adapters.sku_validator.OfferingSkuValidator'"
                     )
 

@@ -1,4 +1,4 @@
-"""Minimal URL config for Customers tests."""
+"""Minimal URL config for Guestman tests."""
 
 from django.urls import include, path
 

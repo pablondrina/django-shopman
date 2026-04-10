@@ -1,5 +1,5 @@
 """
-Channel configuration — 6 aspectos + cascata + validação.
+Channel configuration — 8 aspectos + cascata + validação.
 
 Configuração completa de um canal de venda. Cada aspecto responde a UMA pergunta.
 Cascata: canal → loja → defaults.
@@ -16,11 +16,13 @@ class ChannelConfig:
     Configuração completa de um canal de venda.
 
     confirmation  — como o pedido é aceito?
-    payment       — como o cliente paga?
+    payment       — como e quando o cliente paga?
+    fulfillment   — quando criar fulfillment?
     stock         — comportamento de reserva de estoque
     notifications — por onde avisamos?
+    pricing       — como o preço é definido? (internal/external)
+    editing       — itens podem ser editados? (open/locked)
     rules         — quais validators/modifiers ativar?
-    flow          — como o pedido transita entre status?
     """
 
     # ── 1. Confirmação ──
@@ -44,6 +46,10 @@ class ChannelConfig:
         # "card"     — cartão via Stripe
         # "external" — já pago (marketplace)
         # ["pix", "card"] — múltiplos métodos (cliente escolhe)
+        timing: str = "post_commit"
+        # "post_commit" — initiate payment after order confirmed (default for remote)
+        # "at_commit"   — initiate payment at commit time
+        # "external"    — no digital payment (local counter / marketplace)
         timeout_minutes: int = 15  # só para method=pix
 
         @property
@@ -53,7 +59,17 @@ class ChannelConfig:
                 return self.method
             return [self.method]
 
-    # ── 3. Estoque ──
+    # ── 3. Fulfillment ──
+
+    @dataclass
+    class Fulfillment:
+        timing: str = "post_commit"
+        # "at_commit"   — create fulfillment at commit time
+        # "post_commit" — create fulfillment when order is ready (default)
+        # "external"    — handled externally (marketplace)
+        auto_sync: bool = True
+
+    # ── 4. Estoque ──
 
     @dataclass
     class Stock:
@@ -61,8 +77,9 @@ class ChannelConfig:
         safety_margin: int = 0
         planned_hold_ttl_hours: int = 48  # TTL for planned holds (fermata timeout)
         allowed_positions: list[str] | None = None  # None = all saleable positions
+        check_on_commit: bool = False  # validate per-item availability at commit
 
-    # ── 4. Notificações ──
+    # ── 5. Notificações ──
     @dataclass
     class Notifications:
         backend: str = "manychat"
@@ -71,7 +88,23 @@ class ChannelConfig:
         fallback_chain: list[str] = field(default_factory=lambda: ["sms", "email"])
         routing: dict[str, str] | None = None
 
-    # ── 5. Regras ──
+    # ── 6. Pricing ──
+
+    @dataclass
+    class Pricing:
+        policy: str = "internal"
+        # "internal" — preço resolvido pelo backend (padrão para canais próprios)
+        # "external" — preço definido externamente (marketplace)
+
+    # ── 7. Editing ──
+
+    @dataclass
+    class Editing:
+        policy: str = "open"
+        # "open"   — itens podem ser editados após adição (padrão)
+        # "locked" — itens não podem ser editados (marketplace)
+
+    # ── 8. Regras ──
 
     @dataclass
     class Rules:
@@ -87,28 +120,16 @@ class ChannelConfig:
         modifiers: list[str] = field(default_factory=list)
         checks: list[str] = field(default_factory=list)
 
-    # ── 6. Fluxo ──
-
-    @dataclass
-    class Flow:
-        """Customização do fluxo de status."""
-
-        transitions: dict[str, list[str]] | None = None
-        terminal_statuses: list[str] | None = None
-        auto_transitions: dict[str, str] | None = None
-        # Chaves canônicas de auto_transitions:
-        #   "on_paid" — dispara quando webhook de pagamento confirma (PIX/Stripe)
-        #   Mapeiam para o status-alvo: {"on_paid": "confirmed"}
-        auto_sync_fulfillment: bool = False
-
     # ── Campos ──
 
     confirmation: Confirmation = field(default_factory=Confirmation)
     payment: Payment = field(default_factory=Payment)
+    fulfillment: Fulfillment = field(default_factory=Fulfillment)
     stock: Stock = field(default_factory=Stock)
     notifications: Notifications = field(default_factory=Notifications)
+    pricing: Pricing = field(default_factory=Pricing)
+    editing: Editing = field(default_factory=Editing)
     rules: Rules = field(default_factory=Rules)
-    flow: Flow = field(default_factory=Flow)
 
     # ── UX ──
 
@@ -129,13 +150,12 @@ class ChannelConfig:
         return cls(
             confirmation=_safe_init(cls.Confirmation, data.get("confirmation", {})),
             payment=_safe_init(cls.Payment, data.get("payment", {})),
+            fulfillment=_safe_init(cls.Fulfillment, data.get("fulfillment", {})),
             stock=_safe_init(cls.Stock, data.get("stock", {})),
             notifications=_safe_init(cls.Notifications, data.get("notifications", {})),
+            pricing=_safe_init(cls.Pricing, data.get("pricing", {})),
+            editing=_safe_init(cls.Editing, data.get("editing", {})),
             rules=_safe_init(cls.Rules, data.get("rules", {})),
-            flow=_safe_init(
-                cls.Flow,
-                {k: v for k, v in data.get("flow", {}).items() if v is not None},
-            ),
             handle_label=data.get("handle_label", cls.handle_label),
             handle_placeholder=data.get("handle_placeholder", cls.handle_placeholder),
         )
@@ -187,6 +207,15 @@ class ChannelConfig:
                 raise ValueError(f"payment.method inválido: {m}")
         if "pix" in self.payment.available_methods and self.payment.timeout_minutes <= 0:
             raise ValueError("timeout_minutes deve ser > 0 para method=pix")
+        valid_timings = {"pre_commit", "at_commit", "post_commit", "external"}
+        if self.payment.timing not in valid_timings:
+            raise ValueError(f"payment.timing inválido: {self.payment.timing}")
+        if self.fulfillment.timing not in valid_timings:
+            raise ValueError(f"fulfillment.timing inválido: {self.fulfillment.timing}")
+        if self.pricing.policy not in ("internal", "external"):
+            raise ValueError(f"pricing.policy inválido: {self.pricing.policy}")
+        if self.editing.policy not in ("open", "locked"):
+            raise ValueError(f"editing.policy inválido: {self.editing.policy}")
 
 
 def _safe_init(cls, data: dict):

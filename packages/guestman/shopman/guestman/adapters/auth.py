@@ -1,4 +1,4 @@
-"""Customers adapter for Auth's CustomerResolver protocol."""
+"""Guestman adapter for Doorman's CustomerResolver protocol."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from shopman.guestman.services import customer as customer_service
 
 
 class CustomerResolver:
-    """Adapter: Customers implements Auth's CustomerResolver."""
+    """Adapter: Guestman implements Doorman's CustomerResolver."""
 
     def get_by_phone(self, phone: str) -> AuthCustomerInfo | None:
         c = customer_service.get_by_phone(phone)

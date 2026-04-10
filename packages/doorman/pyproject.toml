@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "shopman-doorman"
 version = "0.1.0"
-description = "Shopman Gating — Phone-First Authentication"
+description = "Shopman Doorman — Phone-First Authentication"
 requires-python = ">=3.12"
 dependencies = [
     "Django>=5.2,<6.0",
@@ -22,5 +22,5 @@ dev = [
 include = ["shopman.doorman*"]
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "auth_test_settings"
+DJANGO_SETTINGS_MODULE = "doorman_test_settings"
 pythonpath = ["."]

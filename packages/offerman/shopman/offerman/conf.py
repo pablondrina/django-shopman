@@ -1,8 +1,8 @@
 """
-Offering configuration.
+Offerman configuration.
 
 Usage in settings.py:
-    OFFERING = {
+    OFFERMAN = {
         "MAX_COLLECTION_DEPTH": 10,
         "BUNDLE_MAX_DEPTH": 5,
         "COST_BACKEND": None,  # e.g. "shopman.craftsman.adapters.offering.CraftingCostBackend"
@@ -11,35 +11,35 @@ Usage in settings.py:
 
 import importlib
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from django.conf import settings
 
 
 @dataclass
-class OfferingSettings:
-    """Offering configuration settings."""
+class OffermanSettings:
+    """Offerman configuration settings."""
 
     MAX_COLLECTION_DEPTH: int = 10
     BUNDLE_MAX_DEPTH: int = 5
     COST_BACKEND: str | None = None
 
 
-def get_offering_settings() -> OfferingSettings:
+def get_offerman_settings() -> OffermanSettings:
     """Load settings from Django settings."""
-    user_settings: dict[str, Any] = getattr(settings, "OFFERING", {})
-    return OfferingSettings(**user_settings)
+    user_settings: dict[str, Any] = getattr(settings, "OFFERMAN", {})
+    return OffermanSettings(**user_settings)
 
 
 class _LazySettings:
     """Lazy proxy that re-reads settings on every attribute access."""
 
     def __getattr__(self, name):
-        return getattr(get_offering_settings(), name)
+        return getattr(get_offerman_settings(), name)
 
 
-offering_settings = _LazySettings()
+offerman_settings = _LazySettings()
 
 
 # CostBackend singleton
@@ -51,13 +51,13 @@ def get_cost_backend():
     """
     Return the configured CostBackend instance, or None.
 
-    Loads from OFFERING["COST_BACKEND"] setting (dotted path).
+    Loads from OFFERMAN["COST_BACKEND"] setting (dotted path).
     If _cost_backend_instance was set directly (e.g. in tests), returns it as-is.
     """
     global _cost_backend_instance
     if _cost_backend_instance is not None:
         return _cost_backend_instance
-    backend_path = offering_settings.COST_BACKEND
+    backend_path = offerman_settings.COST_BACKEND
     if not backend_path:
         return None
     with _cost_backend_lock:

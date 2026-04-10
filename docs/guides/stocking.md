@@ -287,7 +287,7 @@ class ProductionBackend(Protocol):
 
 ## Configuração
 
-Chave Django settings: `STOCKING`
+Chave Django settings: `STOCKMAN`
 
 | Setting | Default | Descrição |
 |---------|---------|-----------|

@@ -1,4 +1,4 @@
-"""Testes do Registry do Ordering kernel."""
+"""Testes do Registry do Omniman kernel."""
 
 import pytest
 

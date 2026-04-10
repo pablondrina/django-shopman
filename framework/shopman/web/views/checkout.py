@@ -15,6 +15,7 @@ from django_ratelimit.decorators import ratelimit
 
 logger = logging.getLogger(__name__)
 
+from shopman.guestman.contrib.loyalty import LoyaltyService
 from shopman.omniman.ids import generate_idempotency_key
 from shopman.omniman.models import Channel
 from shopman.services.checkout_defaults import CheckoutDefaultsService
@@ -98,7 +99,6 @@ class CheckoutView(View):
 
             # Loyalty balance for points redemption
             try:
-                from shopman.guestman.contrib.loyalty.service import LoyaltyService
                 from shopman.utils.monetary import format_money
 
                 balance = LoyaltyService.get_balance(customer_obj.ref)
@@ -350,8 +350,6 @@ class CheckoutView(View):
             customer_info = getattr(request, "customer", None)
             if customer_info:
                 try:
-                    from shopman.guestman.contrib.loyalty.service import LoyaltyService
-                    from shopman.omniman.models import Session as OrderingSession
                     balance = LoyaltyService.get_balance_by_uuid(customer_info.uuid) if hasattr(LoyaltyService, "get_balance_by_uuid") else 0
                     if balance <= 0:
                         # Fallback: get customer ref and use get_balance
@@ -451,12 +449,12 @@ class CheckoutView(View):
 
         # Redirect to payment or tracking
         if chosen_method in ("pix", "card"):
-            # If payment initiation failed (gateway down), redirect to tracking with a message
+            # If payment initiation failed (gateway down), redirect to tracking
             try:
                 from shopman.omniman.models import Order as _Order
                 _order = _Order.objects.get(ref=order_ref)
-                _payment_status = (_order.data or {}).get("payment", {}).get("status")
-                if _payment_status == "pending_retry":
+                _payment_data = (_order.data or {}).get("payment", {})
+                if _payment_data.get("error"):
                     from django.contrib import messages
                     messages.warning(request, "Pagamento será processado em breve. Acompanhe seu pedido.")
                     return redirect("storefront:order_tracking", ref=order_ref)
@@ -752,16 +750,13 @@ class CheckoutView(View):
         session_key = request.session.get("cart_session_key")
         if not session_key:
             return {}
-        try:
-            from shopman.stockman.models import Hold
+        from shopman.stockman import StockHolds
 
-            holds = Hold.objects.filter(metadata__reference=session_key).active()
-            held: dict[str, int] = {}
-            for hold in holds:
-                held[hold.sku] = held.get(hold.sku, 0) + int(hold.quantity)
-            return held
-        except Exception:
-            return {}
+        holds = StockHolds.find_active_by_reference(session_key)
+        held: dict[str, int] = {}
+        for hold in holds:
+            held[hold.sku] = held.get(hold.sku, 0) + int(hold.quantity)
+        return held
 
     def _render_with_errors(
         self,

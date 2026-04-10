@@ -1,5 +1,5 @@
 """
-Import/Export resources for Offering models.
+Import/Export resources for Offerman models.
 """
 from __future__ import annotations
 

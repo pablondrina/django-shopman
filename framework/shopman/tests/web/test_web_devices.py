@@ -14,8 +14,8 @@ import pytest
 from django.contrib.auth.models import User
 from django.test import Client
 
-from shopman.doorman.conf import auth_settings
-from shopman.doorman.models.device_trust import TrustedDevice
+from shopman.doorman.conf import doorman_settings
+from shopman.doorman import TrustedDevice
 from shopman.guestman.models import Customer
 
 pytestmark = pytest.mark.django_db
@@ -88,7 +88,7 @@ class TestDeviceListView:
         device, raw_token = trusted_device
         _login_as_customer(client, customer)
         # Set the device trust cookie
-        client.cookies[auth_settings.DEVICE_TRUST_COOKIE_NAME] = raw_token
+        client.cookies[doorman_settings.DEVICE_TRUST_COOKIE_NAME] = raw_token
         resp = client.get("/auth/devices/")
         content = resp.content.decode()
         assert "Este dispositivo" in content
@@ -166,7 +166,7 @@ class TestDeviceRevokeAllView:
             user_agent="Mozilla/5.0 Firefox/120",
         )
         _login_as_customer(client, customer)
-        client.cookies[auth_settings.DEVICE_TRUST_COOKIE_NAME] = raw_token
+        client.cookies[doorman_settings.DEVICE_TRUST_COOKIE_NAME] = raw_token
         resp = client.delete("/auth/devices/revoke-all/")
         assert resp.status_code == 200
         assert "revogados" in resp.content.decode()
@@ -180,10 +180,10 @@ class TestDeviceRevokeAllView:
     def test_revoke_all_clears_cookie(self, client: Client, customer, trusted_device):
         _, raw_token = trusted_device
         _login_as_customer(client, customer)
-        client.cookies[auth_settings.DEVICE_TRUST_COOKIE_NAME] = raw_token
+        client.cookies[doorman_settings.DEVICE_TRUST_COOKIE_NAME] = raw_token
         resp = client.delete("/auth/devices/revoke-all/")
         # Cookie should be deleted in the response
-        cookie_name = auth_settings.DEVICE_TRUST_COOKIE_NAME
+        cookie_name = doorman_settings.DEVICE_TRUST_COOKIE_NAME
         assert cookie_name in resp.cookies
         assert resp.cookies[cookie_name]["max-age"] == 0
 

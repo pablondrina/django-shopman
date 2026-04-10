@@ -69,7 +69,7 @@ Documentação de consulta rápida gerada a partir do código.
 | Documento | Conteúdo |
 |-----------|----------|
 | [Protocols e Adapters](reference/protocols.md) | Mapa de todos os protocols, dataclasses e adapters disponíveis |
-| [Configurações](reference/settings.md) | Settings por app (STOCKING, CRAFTING, AUTH, SHOPMAN_*, etc.) com defaults |
+| [Configurações](reference/settings.md) | Settings por app (STOCKMAN, CRAFTSMAN, DOORMAN, SHOPMAN_*, etc.) com defaults |
 | [Management Commands](reference/commands.md) | Comandos disponíveis com flags, exemplos e cron recomendado |
 | [Exceções e Erros](reference/errors.md) | Hierarquia de exceções, códigos de erro e quando ocorrem |
 | [Sinais (Signals)](reference/signals.md) | Sinais emitidos e consumidos por cada app, payload e fluxos |

@@ -1,5 +1,5 @@
 """
-Ordering API Views — ViewSets para a REST API.
+Omniman API Views — ViewSets para a REST API.
 
 Este módulo implementa os endpoints REST para gestão de canais, sessões,
 pedidos e diretivas. Usa Django REST Framework com suporte a throttling
@@ -34,7 +34,7 @@ from rest_framework.pagination import CursorPagination
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 
-from shopman.omniman.conf import get_ordering_setting
+from shopman.omniman.conf import get_omniman_setting
 from shopman.omniman.models import Channel, Directive, Order, Session
 from shopman.omniman.services import CommitService, ModifyService, ResolveService
 from shopman.omniman.ids import generate_idempotency_key, generate_session_key
@@ -58,7 +58,7 @@ logger = logging.getLogger(__name__)
 # H26: Default pagination for list endpoints.
 # Uses CursorPagination for stable ordering with large datasets.
 class OrderingCursorPagination(CursorPagination):
-    """Cursor-based pagination for Ordering API endpoints."""
+    """Cursor-based pagination for Omniman API endpoints."""
 
     page_size = 25
     ordering = "-created_at"
@@ -108,7 +108,7 @@ class ChannelViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = Channel.objects.all()
     serializer_class = ChannelSerializer
-    permission_classes = get_ordering_setting("DEFAULT_PERMISSION_CLASSES")
+    permission_classes = get_omniman_setting("DEFAULT_PERMISSION_CLASSES")
     throttle_classes = [AnonRateThrottle, UserRateThrottle]
 
 
@@ -135,7 +135,7 @@ class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
 
     queryset = Session.objects.select_related("channel").all()
     serializer_class = SessionSerializer
-    permission_classes = get_ordering_setting("DEFAULT_PERMISSION_CLASSES")
+    permission_classes = get_omniman_setting("DEFAULT_PERMISSION_CLASSES")
     pagination_class = OrderingCursorPagination
     throttle_classes = [AnonRateThrottle, UserRateThrottle]
 
@@ -212,8 +212,6 @@ class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
             handle_type=handle_type,
             handle_ref=handle_ref,
             state="open",
-            pricing_policy=channel.pricing_policy,
-            edit_policy=channel.edit_policy,
             rev=0,
             items=[],
             data={"checks": {}, "issues": []},
@@ -356,7 +354,7 @@ class OrderViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = Order.objects.select_related("channel").all()
     serializer_class = OrderSerializer
-    permission_classes = get_ordering_setting("DEFAULT_PERMISSION_CLASSES")
+    permission_classes = get_omniman_setting("DEFAULT_PERMISSION_CLASSES")
     pagination_class = OrderingCursorPagination
     throttle_classes = [AnonRateThrottle, UserRateThrottle]
 
@@ -375,6 +373,6 @@ class DirectiveViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = Directive.objects.all()
     serializer_class = DirectiveSerializer
-    permission_classes = get_ordering_setting("ADMIN_PERMISSION_CLASSES")
+    permission_classes = get_omniman_setting("ADMIN_PERMISSION_CLASSES")
     pagination_class = OrderingCursorPagination
     throttle_classes = [AnonRateThrottle, UserRateThrottle]

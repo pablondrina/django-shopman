@@ -1,1 +1,1 @@
-"""Root conftest for Customers tests."""
+"""Root conftest for Guestman tests."""

@@ -63,8 +63,8 @@ class DeviceListView(View):
         if customer_id is None:
             return HttpResponse('<p class="text-bark-light text-sm">Faça login para ver seus dispositivos.</p>')
 
-        from shopman.doorman.conf import auth_settings
-        from shopman.doorman.models.device_trust import TrustedDevice, _hash_token
+        from shopman.doorman import TrustedDevice, hash_device_token
+        from shopman.doorman.conf import doorman_settings
 
         devices = TrustedDevice.objects.filter(
             customer_id=customer_id,
@@ -72,8 +72,8 @@ class DeviceListView(View):
         ).order_by("-last_used_at", "-created_at")
 
         # Check which is the current device
-        raw_token = request.COOKIES.get(auth_settings.DEVICE_TRUST_COOKIE_NAME)
-        current_hash = _hash_token(raw_token) if raw_token else None
+        raw_token = request.COOKIES.get(doorman_settings.DEVICE_TRUST_COOKIE_NAME)
+        current_hash = hash_device_token(raw_token) if raw_token else None
 
         device_list = []
         for d in devices:
@@ -104,7 +104,7 @@ class DeviceRevokeView(View):
         if customer_id is None:
             return HttpResponse('<p class="text-sm text-error">Autenticação necessária.</p>')
 
-        from shopman.doorman.models.device_trust import TrustedDevice
+        from shopman.doorman import TrustedDevice
 
         try:
             device_uuid = uuid.UUID(str(device_id))
@@ -138,7 +138,7 @@ class DeviceRevokeAllView(View):
         if customer_id is None:
             return HttpResponse('<p class="text-sm text-error">Autenticação necessária.</p>')
 
-        from shopman.doorman.conf import auth_settings
+        from shopman.doorman.conf import doorman_settings
         from shopman.doorman.services.device_trust import DeviceTrustService
 
         count = DeviceTrustService.revoke_all(customer_id)
@@ -146,7 +146,7 @@ class DeviceRevokeAllView(View):
         response = HttpResponse(
             '<p class="text-bark-light text-sm text-center py-4">Todos os dispositivos foram revogados.</p>'
         )
-        response.delete_cookie(auth_settings.DEVICE_TRUST_COOKIE_NAME)
+        response.delete_cookie(doorman_settings.DEVICE_TRUST_COOKIE_NAME)
 
         logger.info(
             "All devices revoked from storefront",

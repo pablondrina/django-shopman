@@ -1,10 +1,10 @@
 """
-Crafting Backend.
+Craftsman Backend.
 
-Implements ProductionBackend using Crafting's API (craft.*, work.*).
+Implements ProductionBackend using Craftsman's API (craft.*, work.*).
 
 Vocabulary mapping:
-    Stocking                →  Crafting
+    Stockman                →  Craftsman
     ─────────────────────────────────────────
     request_production()    →  craft.plan() + craft.schedule()
     check_status()          →  WorkOrder.status
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 def _crafting_available() -> bool:
-    """Check if Crafting is available."""
+    """Check if Craftsman is available."""
     try:
         from shopman.craftsman.service import craft
 
@@ -42,7 +42,7 @@ def _crafting_available() -> bool:
 
 
 def _map_workorder_status(status: str) -> ProductionStatusEnum:
-    """Map Crafting WorkOrder status to ProductionStatusEnum."""
+    """Map Craftsman WorkOrder status to ProductionStatusEnum."""
     mapping = {
         "pending": ProductionStatusEnum.PLANNED,
         "approved": ProductionStatusEnum.PLANNED,
@@ -56,7 +56,7 @@ def _map_workorder_status(status: str) -> ProductionStatusEnum:
 
 class CraftingBackend:
     """
-    Implementação do ProductionBackend usando a API do Crafting.
+    Implementação do ProductionBackend usando a API do Craftsman.
 
     Exemplo de uso:
         from shopman.stockman.adapters import get_production_backend
@@ -93,7 +93,7 @@ class CraftingBackend:
             return None
 
     def _get_craft(self):
-        """Get Crafting service."""
+        """Get Craftsman service."""
         from shopman.craftsman.service import craft
 
         return craft
@@ -107,7 +107,7 @@ class CraftingBackend:
         if not _crafting_available():
             return ProductionResult(
                 success=False,
-                message="Crafting not available",
+                message="Craftsman not available",
             )
 
         craft = self._get_craft()
@@ -206,7 +206,7 @@ class CraftingBackend:
         if not _crafting_available():
             return ProductionResult(
                 success=False,
-                message="Crafting not available",
+                message="Craftsman not available",
             )
 
         try:

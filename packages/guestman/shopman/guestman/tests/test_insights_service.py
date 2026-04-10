@@ -98,7 +98,7 @@ class TestRecalculate:
 
         backend = MockOrderHistoryBackend(stats=stats, orders=orders)
 
-        settings.ATTENDING = {
+        settings.GUESTMAN = {
             "ORDER_HISTORY_BACKEND": "shopman.guestman.tests.test_insights_service.MockOrderHistoryBackend",
         }
 
@@ -124,7 +124,7 @@ class TestRecalculate:
 
     def test_recalculate_no_backend_resets_metrics(self, customer, settings):
         """No ORDER_HISTORY_BACKEND configured → resets to zero."""
-        settings.ATTENDING = {}
+        settings.GUESTMAN = {}
 
         insight = InsightService.recalculate(customer.ref)
 
@@ -392,7 +392,7 @@ class TestRecalculateAll:
 
     def test_recalculate_all_processes_all_customers(self, customer, customer2, settings):
         """recalculate_all processes all active customers."""
-        settings.ATTENDING = {}  # No backend → reset metrics
+        settings.GUESTMAN = {}  # No backend → reset metrics
 
         count = InsightService.recalculate_all()
 
@@ -403,7 +403,7 @@ class TestRecalculateAll:
         """Inactive customers are skipped."""
         customer.is_active = False
         customer.save()
-        settings.ATTENDING = {}
+        settings.GUESTMAN = {}
 
         count = InsightService.recalculate_all()
 

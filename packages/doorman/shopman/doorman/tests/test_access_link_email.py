@@ -40,7 +40,7 @@ class TestAccessLinkEmailService:
         result = AccessLinkService.send_access_link("")
         assert not result.success
 
-    @override_settings(AUTH={"ACCESS_LINK_ENABLED": False})
+    @override_settings(DOORMAN={"ACCESS_LINK_ENABLED": False})
     def test_send_access_link_disabled(self):
         """When disabled, should return error."""
         result = AccessLinkService.send_access_link("test@example.com")
@@ -138,7 +138,7 @@ class TestAccessLinkRequestView:
         response = AccessLinkRequestView.as_view()(request)
         assert response.status_code == 400
 
-    @override_settings(AUTH={"ACCESS_LINK_ENABLED": False})
+    @override_settings(DOORMAN={"ACCESS_LINK_ENABLED": False})
     def test_post_disabled_returns_error(self):
         factory = RequestFactory()
         request = factory.post(

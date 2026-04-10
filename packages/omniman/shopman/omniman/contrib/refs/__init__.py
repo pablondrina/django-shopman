@@ -1,5 +1,5 @@
 """
-Ordering contrib/refs — Localizadores e etiquetas externas.
+Omniman contrib/refs — Localizadores e etiquetas externas.
 
 Permite associar múltiplas "etiquetas" (mesa, comanda, senha, order number, etc.)
 a Sessions e Orders, com controle de unicidade, scope e lifecycle.

@@ -25,7 +25,7 @@
 **App:** `shopman.stocking`
 **Arquivo:** `packages/stockman/shopman/stocking/management/commands/release_expired_holds.py`
 
-Libera bloqueios de estoque que ultrapassaram o TTL configurado (`STOCKING.HOLD_TTL_MINUTES`).
+Libera bloqueios de estoque que ultrapassaram o TTL configurado (`STOCKMAN.HOLD_TTL_MINUTES`).
 
 | Flag | Default | Descrição |
 |------|---------|-----------|

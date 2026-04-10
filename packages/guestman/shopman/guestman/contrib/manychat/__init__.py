@@ -1,5 +1,5 @@
 """
-Customers Manychat - Manychat integration for customer management.
+Guestman Manychat - Manychat integration for customer management.
 
 This contrib module provides Manychat-specific fields and sync functionality.
 

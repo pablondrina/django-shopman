@@ -35,7 +35,7 @@ class TestOfflineView:
     def test_contains_brand_name(self, client_db):
         resp = client_db.get("/offline/")
         content = resp.content.decode()
-        assert "Nelson Boulangerie" in content
+        assert "Demo Bakery" in content
 
 
 # ── ManifestView ─────────────────────────────────────────────────────
@@ -49,8 +49,8 @@ class TestManifestView:
     def test_required_fields(self, client_db):
         resp = client_db.get("/manifest.json")
         data = json.loads(resp.content)
-        assert data["name"] == "Nelson Boulangerie"
-        assert data["short_name"] == "Nelson"
+        assert data["name"] == "Demo Bakery"
+        assert data["short_name"] == "Demo"
         assert data["start_url"] == "/menu/"
         assert data["display"] == "standalone"
 
@@ -96,7 +96,7 @@ class TestServiceWorkerView:
     def test_contains_cache_name(self, client_db):
         resp = client_db.get("/sw.js")
         content = resp.content.decode()
-        assert "CACHE_NAME = 'nelson-v2'" in content
+        assert "CACHE_NAME = 'demo-v2'" in content
 
     def test_precaches_offline_url(self, client_db):
         resp = client_db.get("/sw.js")

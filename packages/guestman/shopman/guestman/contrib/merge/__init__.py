@@ -1,5 +1,5 @@
 """
-Customers Merge - Customer deduplication via merge.
+Guestman Merge - Customer deduplication via merge.
 
 Merges a source customer into a target customer, consolidating all
 related data (contact points, identifiers, preferences, etc.) and

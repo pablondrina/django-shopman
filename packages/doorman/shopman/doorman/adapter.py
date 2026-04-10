@@ -10,7 +10,7 @@ and MessageSender protocols for backward compatibility.
 Usage::
 
     # settings.py
-    AUTH = {
+    DOORMAN = {
         "AUTH_ADAPTER": "myapp.auth.MyAuthAdapter",
     }
 
@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from .conf import auth_settings, get_customer_resolver
+from .conf import doorman_settings, get_customer_resolver
 from .protocols.customer import AuthCustomerInfo
 from .utils import normalize_phone
 
@@ -86,7 +86,7 @@ class DefaultAuthAdapter:
         if self._sender is None:
             from django.utils.module_loading import import_string
 
-            sender_class = import_string(auth_settings.MESSAGE_SENDER_CLASS)
+            sender_class = import_string(doorman_settings.MESSAGE_SENDER_CLASS)
             self._sender = sender_class()
         return self._sender
 
@@ -166,7 +166,7 @@ class DefaultAuthAdapter:
         """Get the sender instance for a delivery chain method."""
         from django.utils.module_loading import import_string
 
-        senders_map = auth_settings.DELIVERY_SENDERS
+        senders_map = doorman_settings.DELIVERY_SENDERS
         cls_path = senders_map.get(method)
         if not cls_path:
             return None
@@ -210,16 +210,16 @@ class DefaultAuthAdapter:
             logger.warning("No email for customer %s", customer.uuid)
             return False
 
-        ttl = auth_settings.ACCESS_LINK_TTL_MINUTES
+        ttl = doorman_settings.ACCESS_LINK_TTL_MINUTES
         context = {"url": url, "ttl_minutes": ttl, "email": email}
 
         try:
             subject = _("Your login link")
             text_body = render_to_string(
-                auth_settings.TEMPLATE_ACCESS_LINK_EMAIL_TXT, context
+                doorman_settings.TEMPLATE_ACCESS_LINK_EMAIL_TXT, context
             )
             html_body = render_to_string(
-                auth_settings.TEMPLATE_ACCESS_LINK_EMAIL_HTML, context
+                doorman_settings.TEMPLATE_ACCESS_LINK_EMAIL_HTML, context
             )
 
             msg = EmailMultiAlternatives(
@@ -244,7 +244,7 @@ class DefaultAuthAdapter:
         Returns DELIVERY_CHAIN from settings, or empty list if not configured
         (which triggers backward-compat single-sender mode).
         """
-        return list(auth_settings.DELIVERY_CHAIN)
+        return list(doorman_settings.DELIVERY_CHAIN)
 
     # ===========================================
     # Lifecycle hooks
@@ -295,7 +295,7 @@ class DefaultAuthAdapter:
 
     def should_auto_create_customer(self) -> bool:
         """Whether to auto-create customers on first login."""
-        return auth_settings.AUTO_CREATE_CUSTOMER
+        return doorman_settings.AUTO_CREATE_CUSTOMER
 
     def normalize_phone(self, raw: str) -> str:
         """Normalize a phone number to E.164."""
@@ -315,8 +315,8 @@ class DefaultAuthAdapter:
 
     def get_login_redirect_url(self, request: "HttpRequest", customer: AuthCustomerInfo) -> str:
         """Get the URL to redirect to after login."""
-        return auth_settings.LOGIN_REDIRECT_URL
+        return doorman_settings.LOGIN_REDIRECT_URL
 
     def get_logout_redirect_url(self, request: "HttpRequest") -> str:
         """Get the URL to redirect to after logout."""
-        return auth_settings.LOGOUT_REDIRECT_URL
+        return doorman_settings.LOGOUT_REDIRECT_URL

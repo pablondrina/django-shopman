@@ -10,7 +10,7 @@ from decimal import Decimal
 
 from shopman.utils.monetary import format_money
 
-from ..web.constants import HAS_STOCKING, STOREFRONT_CHANNEL_REF
+from ..web.constants import HAS_STOCKMAN, STOREFRONT_CHANNEL_REF
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ def find(sku: str, *, qty: Decimal = Decimal("1"), channel: str | None = None, l
         [{"sku", "name", "price_q", "price_display", "available_qty", "can_order"}, ...]
     """
     try:
-        from shopman.offerman.contrib.suggestions import find_alternatives as _find_candidates
+        from shopman.offerman import find_alternatives as _find_candidates
     except ImportError:
         return []
 
@@ -40,7 +40,7 @@ def find(sku: str, *, qty: Decimal = Decimal("1"), channel: str | None = None, l
 
     # Build availability map for all candidates in one batch query
     avail_map: dict[str, dict | None] = {}
-    if HAS_STOCKING:
+    if HAS_STOCKMAN:
         try:
             from shopman.stockman.services.availability import (
                 availability_for_skus,
@@ -87,7 +87,7 @@ def find(sku: str, *, qty: Decimal = Decimal("1"), channel: str | None = None, l
         can_order, available_qty = _resolve_availability(raw_avail, product, qty)
 
         # Skip if not orderable and stockman is active
-        if HAS_STOCKING and raw_avail is not None and not can_order:
+        if HAS_STOCKMAN and raw_avail is not None and not can_order:
             continue
 
         price_q = price_map.get(product.sku) or product.base_price_q

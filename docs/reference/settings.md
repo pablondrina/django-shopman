@@ -6,17 +6,17 @@
 
 ## Convenções
 
-- Configurações são lidas via dicts no `settings.py` do Django (ex.: `STOCKING = {"HOLD_TTL_MINUTES": 30}`)
+- Configurações são lidas via dicts no `settings.py` do Django (ex.: `STOCKMAN = {"HOLD_TTL_MINUTES": 30}`)
 - Cada app core usa um padrão de `conf.py` com lazy proxy ou função `get_setting()`
 - Settings do orquestrador (framework) usam prefixo `SHOPMAN_*` como settings flat
 - Valores monetários são sempre em **centavos** (inteiro) — veja [ADR-002](../decisions/adr-002-centavos.md)
 
 ---
 
-## Offering (Catálogo)
+## Offerman (Catálogo)
 
-**Arquivo:** `packages/offerman/shopman/offering/conf.py`
-**Dict:** `OFFERING = {}`
+**Arquivo:** `packages/offerman/shopman/offerman/conf.py`
+**Dict:** `OFFERMAN = {}`
 
 | Setting | Tipo | Default | Descrição |
 |---------|------|---------|-----------|
@@ -28,10 +28,10 @@
 
 ---
 
-## Stocking (Estoque)
+## Stockman (Estoque)
 
-**Arquivo:** `packages/stockman/shopman/stocking/conf.py`
-**Dict:** `STOCKING = {}`
+**Arquivo:** `packages/stockman/shopman/stockman/conf.py`
+**Dict:** `STOCKMAN = {}`
 
 | Setting | Tipo | Default | Descrição |
 |---------|------|---------|-----------|
@@ -42,21 +42,21 @@
 
 **Guia:** [stocking.md](../guides/stocking.md)
 
-### Stocking — Alertas
+### Stockman — Alertas
 
-**Arquivo:** `packages/stockman/shopman/stocking/contrib/alerts/conf.py`
-**Dict:** `STOCKING_ALERTS = {}` ou settings flat
+**Arquivo:** `packages/stockman/shopman/stockman/contrib/alerts/conf.py`
+**Dict:** `STOCKMAN_ALERTS = {}` ou settings flat
 
 | Setting | Tipo | Default | Descrição |
 |---------|------|---------|-----------|
-| `STOCKING_ALERT_COOLDOWN_MINUTES` | int | `60` | Cooldown entre re-notificações do mesmo alerta |
+| `STOCKMAN_ALERT_COOLDOWN_MINUTES` | int | `60` | Cooldown entre re-notificações do mesmo alerta |
 
 ---
 
-## Crafting (Produção)
+## Craftsman (Produção)
 
-**Arquivo:** `packages/craftsman/shopman/crafting/conf.py`
-**Dict:** `CRAFTING = {}` ou settings flat `CRAFTING_*`
+**Arquivo:** `packages/craftsman/shopman/craftsman/conf.py`
+**Dict:** `CRAFTSMAN = {}` ou settings flat `CRAFTSMAN_*`
 
 | Setting | Tipo | Default | Descrição |
 |---------|------|---------|-----------|
@@ -71,10 +71,10 @@
 
 ---
 
-## Ordering (Pedidos)
+## Omniman (Pedidos)
 
-**Arquivo:** `packages/omniman/shopman/ordering/conf.py`
-**Dict:** `ORDERING = {}`
+**Arquivo:** `packages/omniman/shopman/omniman/conf.py`
+**Dict:** `OMNIMAN = {}`
 
 | Setting | Tipo | Default | Descrição |
 |---------|------|---------|-----------|
@@ -85,10 +85,10 @@
 
 ---
 
-## Customers (Clientes)
+## Guestman (Clientes)
 
-**Arquivo:** `packages/guestman/shopman/customers/conf.py`
-**Dict:** `CUSTOMERS = {}`
+**Arquivo:** `packages/guestman/shopman/guestman/conf.py`
+**Dict:** `GUESTMAN = {}`
 
 | Setting | Tipo | Default | Descrição |
 |---------|------|---------|-----------|
@@ -98,10 +98,10 @@
 
 **Guia:** [customers.md](../guides/customers.md)
 
-### Customers — Insights (RFM)
+### Guestman — Insights (RFM)
 
-**Arquivo:** `packages/guestman/shopman/customers/contrib/insights/conf.py`
-**Dict:** `CUSTOMERS_INSIGHTS = {}` ou settings flat
+**Arquivo:** `packages/guestman/shopman/guestman/contrib/insights/conf.py`
+**Dict:** `GUESTMAN_INSIGHTS = {}` ou settings flat
 
 | Setting | Tipo | Default | Descrição |
 |---------|------|---------|-----------|
@@ -109,10 +109,10 @@
 | `RFM_FREQUENCY_THRESHOLDS` | list[tuple] | `[(20,5), (10,4), (5,3), (2,2)]` | Thresholds de frequência (pedidos, score) |
 | `RFM_MONETARY_THRESHOLDS` | list[tuple] | `[(1000000,5), (500000,4), (200000,3), (50000,2)]` | Thresholds monetários (centavos, score) |
 
-### Customers — Loyalty
+### Guestman — Loyalty
 
-**Arquivo:** `packages/guestman/shopman/customers/contrib/loyalty/conf.py`
-**Dict:** `CUSTOMERS_LOYALTY = {}` ou settings flat
+**Arquivo:** `packages/guestman/shopman/guestman/contrib/loyalty/conf.py`
+**Dict:** `GUESTMAN_LOYALTY = {}` ou settings flat
 
 | Setting | Tipo | Default | Descrição |
 |---------|------|---------|-----------|
@@ -120,10 +120,10 @@
 
 ---
 
-## Auth (Autenticação)
+## Doorman (Autenticação)
 
-**Arquivo:** `packages/doorman/shopman/auth/conf.py`
-**Dict:** `AUTH = {}`
+**Arquivo:** `packages/doorman/shopman/doorman/conf.py`
+**Dict:** `DOORMAN = {}`
 
 ### Access Link (chat → web)
 
@@ -212,12 +212,12 @@ O app **recusa iniciar** com `DEBUG=False` se:
 
 ```python
 # settings.py
-AUTH = {
+DOORMAN = {
     "ACCESS_LINK_API_KEY": os.environ["AUTH_ACCESS_LINK_API_KEY"],
     "DEFAULT_DOMAIN": os.environ.get("AUTH_DEFAULT_DOMAIN", "shop.example.com"),
     "USE_HTTPS": True,
     "PRESERVE_SESSION_KEYS": ["cart_session_key"],
-    "MESSAGE_SENDER_CLASS": "shopman.auth.senders.WhatsAppCloudAPISender",
+    "MESSAGE_SENDER_CLASS": "shopman.doorman.senders.WhatsAppCloudAPISender",
     "WHATSAPP_ACCESS_TOKEN": os.environ["WHATSAPP_ACCESS_TOKEN"],
     "WHATSAPP_PHONE_ID": os.environ["WHATSAPP_PHONE_ID"],
 }

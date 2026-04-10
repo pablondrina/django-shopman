@@ -1,8 +1,8 @@
 """
-Auth configuration.
+Doorman configuration.
 
 Usage in settings.py:
-    AUTH = {
+    DOORMAN = {
         "ACCESS_LINK_EXCHANGE_TTL_MINUTES": 5,
         "ACCESS_CODE_TTL_MINUTES": 10,  # verification code TTL
         "MESSAGE_SENDER_CLASS": "shopman.doorman.senders.ConsoleSender",
@@ -17,8 +17,8 @@ from django.conf import settings
 
 
 @dataclass
-class AuthSettings:
-    """Auth configuration settings."""
+class DoormanSettings:
+    """Doorman configuration settings."""
 
     # Access Link (chat → web exchange, short-lived)
     ACCESS_LINK_EXCHANGE_TTL_MINUTES: int = 5
@@ -74,7 +74,7 @@ class AuthSettings:
     # Keys to preserve across login (e.g., basket_session_key for e-commerce)
     PRESERVE_SESSION_KEYS: list[str] | None = None
 
-    # Customer resolver (Protocol-based decoupling from Customers)
+    # Customer resolver (Protocol-based decoupling from Guestman)
     CUSTOMER_RESOLVER_CLASS: str = "shopman.guestman.adapters.auth.CustomerResolver"
 
     # Adapter (single point of customization, like allauth's DefaultAccountAdapter)
@@ -102,33 +102,33 @@ class AuthSettings:
     TEMPLATE_ACCESS_LINK_EMAIL_HTML: str = "auth/email_access_link.html"
 
 
-def get_auth_settings() -> AuthSettings:
+def get_doorman_settings() -> DoormanSettings:
     """Load settings from Django settings."""
-    user_settings: dict[str, Any] = getattr(settings, "AUTH", {})
-    return AuthSettings(**user_settings)
+    user_settings: dict[str, Any] = getattr(settings, "DOORMAN", {})
+    return DoormanSettings(**user_settings)
 
 
 def validate_settings() -> list[str]:
     """
-    Validate auth settings. Returns list of error messages (empty = valid).
+    Validate doorman settings. Returns list of error messages (empty = valid).
 
     Called during AppConfig.ready() to fail fast on misconfiguration.
     """
     errors = []
-    s = get_auth_settings()
+    s = get_doorman_settings()
 
     if s.ACCESS_LINK_EXCHANGE_TTL_MINUTES <= 0:
-        errors.append("AUTH.ACCESS_LINK_EXCHANGE_TTL_MINUTES must be > 0")
+        errors.append("DOORMAN.ACCESS_LINK_EXCHANGE_TTL_MINUTES must be > 0")
     if s.ACCESS_CODE_TTL_MINUTES <= 0:
-        errors.append("AUTH.ACCESS_CODE_TTL_MINUTES must be > 0")
+        errors.append("DOORMAN.ACCESS_CODE_TTL_MINUTES must be > 0")
     if s.ACCESS_CODE_MAX_ATTEMPTS <= 0:
-        errors.append("AUTH.ACCESS_CODE_MAX_ATTEMPTS must be > 0")
+        errors.append("DOORMAN.ACCESS_CODE_MAX_ATTEMPTS must be > 0")
     if s.ACCESS_CODE_RATE_LIMIT_MAX <= 0:
-        errors.append("AUTH.ACCESS_CODE_RATE_LIMIT_MAX must be > 0")
+        errors.append("DOORMAN.ACCESS_CODE_RATE_LIMIT_MAX must be > 0")
     if s.ACCESS_LINK_TTL_MINUTES <= 0:
-        errors.append("AUTH.ACCESS_LINK_TTL_MINUTES must be > 0")
+        errors.append("DOORMAN.ACCESS_LINK_TTL_MINUTES must be > 0")
     if s.DEVICE_TRUST_TTL_DAYS <= 0:
-        errors.append("AUTH.DEVICE_TRUST_TTL_DAYS must be > 0")
+        errors.append("DOORMAN.DEVICE_TRUST_TTL_DAYS must be > 0")
 
     return errors
 
@@ -140,10 +140,10 @@ class _LazySettings:
     """
 
     def __getattr__(self, name):
-        return getattr(get_auth_settings(), name)
+        return getattr(get_doorman_settings(), name)
 
 
-auth_settings = _LazySettings()
+doorman_settings = _LazySettings()
 
 
 # Customer resolver (singleton, thread-safe)
@@ -159,7 +159,7 @@ def get_customer_resolver():
             if _customer_resolver is None:
                 from django.utils.module_loading import import_string
 
-                s = get_auth_settings()
+                s = get_doorman_settings()
                 cls = import_string(s.CUSTOMER_RESOLVER_CLASS)
                 _customer_resolver = cls()
     return _customer_resolver
@@ -184,7 +184,7 @@ def get_adapter():
             if _adapter is None:
                 from django.utils.module_loading import import_string
 
-                s = get_auth_settings()
+                s = get_doorman_settings()
                 cls = import_string(s.AUTH_ADAPTER)
                 _adapter = cls()
     return _adapter

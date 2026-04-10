@@ -20,8 +20,6 @@ def _make_channels():
         ref="web",
         defaults={
             "name": "Web",
-            "pricing_policy": "fixed",
-            "edit_policy": "open",
             "is_active": True,
         },
     )
@@ -29,8 +27,6 @@ def _make_channels():
         ref="balcao",
         defaults={
             "name": "Balcão",
-            "pricing_policy": "fixed",
-            "edit_policy": "open",
             "is_active": True,
         },
     )

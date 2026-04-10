@@ -1,4 +1,4 @@
-"""Customers services (CORE only).
+"""Guestman services (CORE only).
 
 CORE services are exported here. Contrib services are in their respective modules:
 - shopman.guestman.contrib.preferences: PreferenceService

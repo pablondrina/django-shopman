@@ -33,7 +33,7 @@ class ConsoleSender:
 
     def send_code(self, target: str, code: str, method: str) -> bool:
         print(f"\n{'='*50}")
-        print(f"AUTH - Verification Code")
+        print(f"DOORMAN - Verification Code")
         print(f"   Target: {target}")
         print(f"   Method: {method}")
         print(f"   Code: {code}")
@@ -54,11 +54,11 @@ class WhatsAppCloudAPISender:
     """Sender via WhatsApp Cloud API."""
 
     def __init__(self):
-        from .conf import auth_settings
+        from .conf import doorman_settings
 
-        self.access_token = auth_settings.WHATSAPP_ACCESS_TOKEN
-        self.phone_id = auth_settings.WHATSAPP_PHONE_ID
-        self.template_name = auth_settings.WHATSAPP_CODE_TEMPLATE
+        self.access_token = doorman_settings.WHATSAPP_ACCESS_TOKEN
+        self.phone_id = doorman_settings.WHATSAPP_PHONE_ID
+        self.template_name = doorman_settings.WHATSAPP_CODE_TEMPLATE
 
     def send_code(self, target: str, code: str, method: str) -> bool:
         if not all([self.access_token, self.phone_id, self.template_name]):
@@ -131,9 +131,9 @@ class EmailSender:
         from django.template.loader import render_to_string
         from django.utils.translation import gettext as _
 
-        from .conf import auth_settings
+        from .conf import doorman_settings
 
-        ttl = auth_settings.ACCESS_CODE_TTL_MINUTES
+        ttl = doorman_settings.ACCESS_CODE_TTL_MINUTES
         context = {"code": code, "ttl_minutes": ttl}
 
         try:

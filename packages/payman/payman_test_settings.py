@@ -1,5 +1,5 @@
 """
-Django settings for Payments tests.
+Django settings for Payman tests.
 
 Minimal settings to run pytest with shopman.payman app.
 """

@@ -10,24 +10,15 @@ import logging
 from decimal import Decimal
 from typing import Any
 
+from shopman.offerman.models import ListingItem, Product
+
 logger = logging.getLogger(__name__)
-
-
-def _offering_available() -> bool:
-    try:
-        from shopman.offerman import CatalogService  # noqa: F401
-        return True
-    except ImportError:
-        return False
 
 
 class OffermanPricingBackend:
     """Resolve preço pela cascata: grupo do cliente → listing do canal → preço base."""
 
     def get_price(self, sku: str, channel: Any, customer=None, qty: int = 1) -> int | None:
-        if not _offering_available():
-            return None
-
         # 1. Preço do grupo do cliente (se identificado e tem grupo com listing)
         if customer and hasattr(customer, "group") and customer.group:
             listing_ref = getattr(customer.group, "listing_ref", None)
@@ -45,28 +36,23 @@ class OffermanPricingBackend:
 
         # 3. Preço base do produto
         try:
-            from shopman.offerman.models import Product
             product = Product.objects.get(sku=sku)
             return product.base_price_q
-        except Exception:
+        except Product.DoesNotExist:
             return None
 
     def _get_listing_item(self, listing_ref, sku, qty=1):
         """Find the ListingItem with the highest min_qty tier <= qty."""
-        try:
-            from shopman.offerman.models import ListingItem
-            return (
-                ListingItem.objects.filter(
-                    listing__ref=listing_ref,
-                    product__sku=sku,
-                    min_qty__lte=qty,
-                    is_published=True,
-                )
-                .order_by("-min_qty")
-                .first()
+        return (
+            ListingItem.objects.filter(
+                listing__ref=listing_ref,
+                product__sku=sku,
+                min_qty__lte=qty,
+                is_published=True,
             )
-        except Exception:
-            return None
+            .order_by("-min_qty")
+            .first()
+        )
 
 
 class ItemPricingModifier:

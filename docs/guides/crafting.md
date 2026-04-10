@@ -225,7 +225,7 @@ class CatalogProtocol(Protocol):
 
 ## Configuração
 
-Chave Django settings: `CRAFTING`
+Chave Django settings: `CRAFTSMAN`
 
 | Setting | Default | Descrição |
 |---------|---------|-----------|

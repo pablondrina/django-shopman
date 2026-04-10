@@ -1,15 +1,15 @@
 """
-Crafting Settings (vNext).
+Craftsman Settings (vNext).
 
 Supports two formats (dict takes priority):
 
     # Option 1: Dict
-    CRAFTING = {
+    CRAFTSMAN = {
         "INVENTORY_BACKEND": "shopman.craftsman.adapters.stocking.StockingBackend",
     }
 
     # Option 2: Flat
-    CRAFTING_INVENTORY_BACKEND = "shopman.craftsman.adapters.stocking.StockingBackend"
+    CRAFTSMAN_INVENTORY_BACKEND = "shopman.craftsman.adapters.stocking.StockingBackend"
 
 All settings have sensible defaults — zero configuration required.
 """
@@ -41,15 +41,15 @@ def get_setting(name, default=_sentinel):
     Get a crafting setting.
 
     Looks up in order:
-    1. CRAFTING dict (e.g. CRAFTING = {"INVENTORY_BACKEND": "..."})
-    2. Flat setting (e.g. CRAFTING_INVENTORY_BACKEND = "...")
+    1. CRAFTSMAN dict (e.g. CRAFTSMAN = {"INVENTORY_BACKEND": "..."})
+    2. Flat setting (e.g. CRAFTSMAN_INVENTORY_BACKEND = "...")
     3. DEFAULTS
     """
-    crafting_dict = getattr(settings, "CRAFTING", {})
+    crafting_dict = getattr(settings, "CRAFTSMAN", {})
     if name in crafting_dict:
         return crafting_dict[name]
 
-    flat_value = getattr(settings, f"CRAFTING_{name}", _sentinel)
+    flat_value = getattr(settings, f"CRAFTSMAN_{name}", _sentinel)
     if flat_value is not _sentinel:
         return flat_value
 

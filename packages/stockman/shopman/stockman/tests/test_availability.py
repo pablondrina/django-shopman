@@ -1,5 +1,5 @@
 """
-Availability tests for Stocking.
+Availability tests for Stockman.
 
 Tests that stock.available() correctly computes availability based on
 Quant quantities, active holds, expired holds, shelflife, and multiple products.

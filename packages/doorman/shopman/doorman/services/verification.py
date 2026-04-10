@@ -12,7 +12,7 @@ from django.contrib.auth import login
 from django.db import transaction
 from django.utils import timezone
 
-from ..conf import auth_settings, get_adapter
+from ..conf import doorman_settings, get_adapter
 from ..error_codes import ErrorCode
 from ..protocols.customer import AuthCustomerInfo
 from ..exceptions import GateError
@@ -93,8 +93,8 @@ class AuthService:
         try:
             Gates.rate_limit(
                 key=target_value,
-                max_requests=auth_settings.ACCESS_CODE_RATE_LIMIT_MAX,
-                window_minutes=auth_settings.ACCESS_CODE_RATE_LIMIT_WINDOW_MINUTES,
+                max_requests=doorman_settings.ACCESS_CODE_RATE_LIMIT_MAX,
+                window_minutes=doorman_settings.ACCESS_CODE_RATE_LIMIT_WINDOW_MINUTES,
             )
         except GateError:
             return CodeRequestResult(
@@ -107,7 +107,7 @@ class AuthService:
         try:
             Gates.code_cooldown(
                 target_value=target_value,
-                cooldown_seconds=auth_settings.ACCESS_CODE_COOLDOWN_SECONDS,
+                cooldown_seconds=doorman_settings.ACCESS_CODE_COOLDOWN_SECONDS,
             )
         except GateError:
             return CodeRequestResult(
@@ -272,7 +272,7 @@ class AuthService:
 
             # Preserve session keys across login (login flushes session)
             preserved = {}
-            preserve_keys = auth_settings.PRESERVE_SESSION_KEYS
+            preserve_keys = doorman_settings.PRESERVE_SESSION_KEYS
             if preserve_keys and hasattr(request, "session"):
                 for key in preserve_keys:
                     if key in request.session:

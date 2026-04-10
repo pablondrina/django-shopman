@@ -33,8 +33,6 @@ class ManychatWebhookTests(TestCase):
         self.channel = Channel.objects.create(
             ref="whatsapp",
             name="WhatsApp",
-            pricing_policy="external",
-            edit_policy="open",
             is_active=True,
         )
         self.url = "/webhook/manychat/"

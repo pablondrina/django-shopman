@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "shopman-payman"
 version = "0.1.0"
-description = "Shopman Payments — Payment Intents & Transactions"
+description = "Shopman Payman — Payment Intents & Transactions"
 requires-python = ">=3.12"
 dependencies = [
     "Django>=5.2,<6.0",
@@ -25,5 +25,5 @@ dev = [
 include = ["shopman.payman*"]
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "payments_test_settings"
+DJANGO_SETTINGS_MODULE = "payman_test_settings"
 pythonpath = ["."]

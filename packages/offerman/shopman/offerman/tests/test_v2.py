@@ -1,5 +1,5 @@
 """
-Tests for Offering V2 improvements.
+Tests for Offerman V2 improvements.
 
 Tests:
 - C1: CatalogError inherits from BaseError
@@ -288,11 +288,11 @@ class TestGetDescendantsMaxDepth:
     """get_descendants() uses settings.MAX_COLLECTION_DEPTH by default."""
 
     def test_default_uses_settings(self, db):
-        """Default max_depth comes from offering_settings."""
+        """Default max_depth comes from offerman_settings."""
         root = Collection.objects.create(slug="depth-root", name="Root")
         child = Collection.objects.create(slug="depth-child", name="Child", parent=root)
 
-        with patch("shopman.offerman.conf.get_offering_settings") as mock_settings:
+        with patch("shopman.offerman.conf.get_offerman_settings") as mock_settings:
             mock_settings.return_value = MagicMock(MAX_COLLECTION_DEPTH=1)
             descendants = root.get_descendants()
             # Depth limit 1: only direct children

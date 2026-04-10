@@ -26,8 +26,6 @@ class ModifyServiceBaseTests(TestCase):
         self.channel = Channel.objects.create(
             ref="test",
             name="Test Channel",
-            pricing_policy="external",
-            edit_policy="open",
         )
 
 

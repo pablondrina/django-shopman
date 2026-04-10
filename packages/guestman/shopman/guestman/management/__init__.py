@@ -1,1 +1,1 @@
-"""Customers management commands."""
+"""Guestman management commands."""

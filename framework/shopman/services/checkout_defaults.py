@@ -11,6 +11,8 @@ import logging
 from collections import Counter
 from decimal import Decimal
 
+from shopman.guestman.contrib.preferences import PreferenceService, PreferenceType
+
 logger = logging.getLogger(__name__)
 
 CATEGORY = "checkout"
@@ -51,10 +53,6 @@ class CheckoutDefaultsService:
             {"fulfillment_type": "delivery", "payment_method": "pix", ...}
             Apenas keys com valor são incluídas.
         """
-        try:
-            from shopman.guestman.contrib.preferences.service import PreferenceService
-        except ImportError:
-            return {}
 
         prefs = PreferenceService.get_preferences(customer_ref, category=CATEGORY)
         prefix = f"{channel_ref}:"
@@ -73,10 +71,6 @@ class CheckoutDefaultsService:
         source: str = "checkout",
     ) -> None:
         """Salva defaults explícitos (usuário marcou 'salvar como padrão')."""
-        try:
-            from shopman.guestman.contrib.preferences.service import PreferenceService
-        except ImportError:
-            return
 
         for key, value in data.items():
             if key in KEYS and value:
@@ -110,11 +104,6 @@ class CheckoutDefaultsService:
         if len(orders) < MIN_ORDERS_FOR_INFERENCE:
             return {}
 
-        try:
-            from shopman.guestman.contrib.preferences.models import PreferenceType
-            from shopman.guestman.contrib.preferences.service import PreferenceService
-        except ImportError:
-            return {}
 
         # Collect signals from orders
         signals: dict[str, list] = {k: [] for k in INFERABLE_KEYS}

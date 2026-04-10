@@ -24,4 +24,20 @@ def get_auth_service():
     return AuthService
 
 
-__all__ = ["get_access_link_service", "get_auth_service"]
+def __getattr__(name):
+    """Lazy import for public surfaces."""
+    if name == 'TrustedDevice':
+        from shopman.doorman.models.device_trust import TrustedDevice
+        return TrustedDevice
+    elif name == 'hash_device_token':
+        from shopman.doorman.models.device_trust import _hash_token
+        return _hash_token
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+__all__ = [
+    "get_access_link_service",
+    "get_auth_service",
+    "TrustedDevice",
+    "hash_device_token",
+]

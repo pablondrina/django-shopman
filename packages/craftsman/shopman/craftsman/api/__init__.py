@@ -1,5 +1,5 @@
 """
-Crafting REST API.
+Craftsman REST API.
 
 Provides DRF ViewSets for:
 - Recipe (read-only)

@@ -46,9 +46,9 @@ def safe_redirect_url(url: str | None, request=None) -> str:
     Returns:
         The validated URL, or LOGIN_REDIRECT_URL if invalid
     """
-    from .conf import get_auth_settings
+    from .conf import get_doorman_settings
 
-    settings = get_auth_settings()
+    settings = get_doorman_settings()
     fallback = settings.LOGIN_REDIRECT_URL
 
     if not url:

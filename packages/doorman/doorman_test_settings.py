@@ -1,5 +1,5 @@
 """
-Django settings for Auth tests.
+Django settings for Doorman tests.
 
 Minimal settings to run pytest with shopman.doorman + shopman.guestman (for CustomerResolver).
 """
@@ -12,7 +12,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.auth",
     "django.contrib.sessions",
-    # Customers (dependency for CustomerResolver)
+    # Guestman (dependency for CustomerResolver)
     "shopman.guestman",
     # Auth
     "shopman.doorman",
@@ -46,8 +46,8 @@ TEMPLATES = [
     },
 ]
 
-# Auth settings
-AUTH = {
+# Doorman settings
+DOORMAN = {
     "MESSAGE_SENDER_CLASS": "shopman.doorman.senders.LogSender",
     "ACCESS_LINK_API_KEY": "",
     "AUTO_CREATE_CUSTOMER": True,

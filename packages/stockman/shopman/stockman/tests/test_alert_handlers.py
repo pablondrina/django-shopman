@@ -124,7 +124,7 @@ class TestCooldown:
     def test_cooldown_prevents_re_dispatch(self, stocked_product, vitrine, alert, settings):
         """Alert within cooldown period does not dispatch notification."""
         product, quant = stocked_product
-        settings.STOCKING_ALERT_COOLDOWN_MINUTES = 60
+        settings.STOCKMAN_ALERT_COOLDOWN_MINUTES = 60
 
         # Simulate recent trigger
         alert.last_triggered_at = timezone.now() - timedelta(minutes=10)
@@ -137,7 +137,7 @@ class TestCooldown:
     def test_expired_cooldown_allows_dispatch(self, stocked_product, vitrine, alert, settings):
         """Alert past cooldown period dispatches notification."""
         product, quant = stocked_product
-        settings.STOCKING_ALERT_COOLDOWN_MINUTES = 60
+        settings.STOCKMAN_ALERT_COOLDOWN_MINUTES = 60
 
         # Simulate old trigger (past cooldown)
         alert.last_triggered_at = timezone.now() - timedelta(hours=2)
@@ -149,7 +149,7 @@ class TestCooldown:
 
 
 class TestDirectiveCreation:
-    """Alert dispatch creates Directive when Ordering is available."""
+    """Alert dispatch creates Directive when Omniman is available."""
 
     @pytest.mark.skip(reason="Requires shopman.omniman — not yet migrated")
     def test_dispatch_creates_directive(self, stocked_product, vitrine, alert):
@@ -166,7 +166,7 @@ class TestDirectiveCreation:
         assert d.payload["context"]["alert_id"] == alert.pk
 
     def test_dispatch_graceful_without_ordering(self, stocked_product, vitrine, alert):
-        """Without Ordering, dispatch logs and returns gracefully."""
+        """Without Omniman, dispatch logs and returns gracefully."""
         product, quant = stocked_product
 
         with patch(
@@ -188,5 +188,5 @@ class TestAlertConf:
     def test_custom_cooldown(self, settings):
         from shopman.stockman.contrib.alerts.conf import get_alert_cooldown_minutes
 
-        settings.STOCKING_ALERT_COOLDOWN_MINUTES = 30
+        settings.STOCKMAN_ALERT_COOLDOWN_MINUTES = 30
         assert get_alert_cooldown_minutes() == 30

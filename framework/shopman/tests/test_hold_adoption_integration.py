@@ -29,7 +29,7 @@ from shopman.omniman.models import Channel
 from shopman.services import availability
 from shopman.services import stock as stock_service
 from shopman.stockman.models import Hold, Position, Quant
-from shopman.stockman.models.enums import HoldStatus, PositionKind
+from shopman.stockman import HoldStatus, PositionKind, StockHolds
 
 SKU = "WP-DF3-INT"
 SESSION_KEY = "sess-int-1"
@@ -45,8 +45,6 @@ def _setup_world(stock_qty: int = 100) -> Product:
     Channel.objects.create(
         ref=CHANNEL_REF,
         name="Web",
-        pricing_policy="fixed",
-        edit_policy="open",
         kind="web",
         is_active=True,
     )
@@ -98,19 +96,19 @@ def _hold_pk(hold_id: str) -> int:
 
 def _active_session_holds() -> list[Hold]:
     return list(
-        Hold.objects.filter(
-            metadata__reference=SESSION_KEY,
-            status=HoldStatus.PENDING,
-        ).order_by("pk")
+        StockHolds.find_by_reference(
+            SESSION_KEY,
+            status_in=[HoldStatus.PENDING],
+        )
     )
 
 
 def _order_holds() -> list[Hold]:
     return list(
-        Hold.objects.filter(
-            metadata__reference=f"order:{ORDER_REF}",
-            status=HoldStatus.PENDING,
-        ).order_by("pk")
+        StockHolds.find_by_reference(
+            f"order:{ORDER_REF}",
+            status_in=[HoldStatus.PENDING],
+        )
     )
 
 

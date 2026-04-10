@@ -2,7 +2,7 @@
 Noop Demand Backend -- returns zero/empty for all demand queries.
 
 Use this adapter for development or testing when a real demand source
-(e.g. Ordering) is not available.
+(e.g. Omniman) is not available.
 
 Configuration:
     CRAFTING = {
@@ -21,7 +21,7 @@ class NoopDemandBackend:
     No-operation implementation of the DemandProtocol.
 
     Returns empty history and zero committed demand for every query.
-    Useful for development environments, standalone Crafting setups,
+    Useful for development environments, standalone Craftsman setups,
     or integration tests that should not depend on a real demand source.
     """
 

@@ -52,7 +52,7 @@ class TestSendCodeWithFallback:
         assert success is True
         assert method == "whatsapp"
 
-    @override_settings(AUTH={
+    @override_settings(DOORMAN={
         "DELIVERY_CHAIN": ["whatsapp", "sms", "email"],
         "DELIVERY_SENDERS": {
             "whatsapp": "shopman.doorman.senders.ConsoleSender",
@@ -76,7 +76,7 @@ class TestSendCodeWithFallback:
         adapter._chain_sender_sms = ok_sender
 
         # Manually set the chain
-        with override_settings(AUTH={
+        with override_settings(DOORMAN={
             "DELIVERY_CHAIN": ["whatsapp", "sms"],
             "DELIVERY_SENDERS": {
                 "whatsapp": "shopman.doorman.senders.ConsoleSender",
@@ -97,7 +97,7 @@ class TestSendCodeWithFallback:
         adapter._chain_sender_whatsapp = exploding
         adapter._chain_sender_sms = ok_sender
 
-        with override_settings(AUTH={
+        with override_settings(DOORMAN={
             "DELIVERY_CHAIN": ["whatsapp", "sms"],
             "DELIVERY_SENDERS": {
                 "whatsapp": "shopman.doorman.senders.ConsoleSender",
@@ -116,7 +116,7 @@ class TestSendCodeWithFallback:
         adapter._chain_sender_whatsapp = fail1
         adapter._chain_sender_sms = fail2
 
-        with override_settings(AUTH={
+        with override_settings(DOORMAN={
             "DELIVERY_CHAIN": ["whatsapp", "sms"],
             "DELIVERY_SENDERS": {
                 "whatsapp": "shopman.doorman.senders.ConsoleSender",
@@ -133,7 +133,7 @@ class TestSendCodeWithFallback:
         ok_sender = FakeSender(succeed=True)
         adapter._chain_sender_sms = ok_sender
 
-        with override_settings(AUTH={
+        with override_settings(DOORMAN={
             "DELIVERY_CHAIN": ["whatsapp", "sms"],
             "DELIVERY_SENDERS": {
                 "sms": "shopman.doorman.senders.ConsoleSender",
@@ -155,7 +155,7 @@ class TestRequestCodeWithFallback:
     def teardown_method(self):
         reset_adapter()
 
-    @override_settings(AUTH={
+    @override_settings(DOORMAN={
         "CUSTOMER_RESOLVER_CLASS": "shopman.guestman.adapters.auth.CustomerResolver",
     })
     def test_request_code_records_actual_delivery_method(self):
@@ -175,7 +175,7 @@ class TestRequestCodeWithFallback:
         assert code.delivery_method == "whatsapp"
         assert code.status == "sent"
 
-    @override_settings(AUTH={
+    @override_settings(DOORMAN={
         "CUSTOMER_RESOLVER_CLASS": "shopman.guestman.adapters.auth.CustomerResolver",
         "DELIVERY_CHAIN": ["whatsapp", "sms"],
         "DELIVERY_SENDERS": {

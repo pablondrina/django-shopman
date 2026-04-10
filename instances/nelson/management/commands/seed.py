@@ -665,7 +665,7 @@ class Command(BaseCommand):
         )
 
         # Listing items (all products in all listings)
-        # iFood uses pricing_policy="external" (marketplace defines prices),
+        # iFood uses pricing.policy="external" (marketplace defines prices),
         # so its listing prices are reference-only. No markup applied.
         markup_map = {"balcao": 0, "delivery": 0, "ifood": 30, "web": 0}
         for listing_obj in [balcao, delivery, ifood, web]:
@@ -1224,11 +1224,10 @@ class Command(BaseCommand):
         self.stdout.write("  📡 Canais...")
 
         channels = {}
-        # ChannelConfig schema (7 aspects). `flow` is now a Channel model field,
-        # not a config key — moved out of `config`.
         _pos_config = {
             "confirmation": {"mode": "immediate"},
-            "payment": {"method": "counter"},
+            "payment": {"method": "counter", "timing": "external"},
+            "stock": {"check_on_commit": True},
             "handle_label": "Comanda",
             "handle_placeholder": "Ex: 42",
         }
@@ -1239,13 +1238,13 @@ class Command(BaseCommand):
         }
         _remote_config = {
             "confirmation": {"mode": "optimistic", "timeout_minutes": 5},
-            "payment": {"method": ["pix", "card"], "timeout_minutes": 15},
+            "payment": {"method": ["pix", "card"], "timing": "post_commit", "timeout_minutes": 15},
             "stock": _remote_stock,
         }
         _marketplace_config = {
             "confirmation": {"mode": "manual"},
-            "payment": {"method": "external"},
-            "stock": _remote_stock,
+            "payment": {"method": "external", "timing": "external"},
+            "stock": {**_remote_stock, "check_on_commit": True},
         }
         _whatsapp_config = {
             "confirmation": {"mode": "optimistic", "timeout_minutes": 5},
@@ -1254,28 +1253,34 @@ class Command(BaseCommand):
             "stock": _remote_stock,
         }
         channels_data = [
-            # (ref, name, pricing, edit, kind)
-            # ChannelConfig values (confirmation, payment, stock, etc.) live in Shop.defaults
-            # or the future ChannelConfig storage model (WP-F1).
-            ("balcao", "Balcao / PDV", "internal", "open", "pos"),
-            ("delivery", "Delivery Proprio", "internal", "open", "web"),
-            ("ifood", "iFood", "external", "locked", "ifood"),
-            ("whatsapp", "WhatsApp", "internal", "open", "whatsapp"),
-            ("web", "E-commerce", "internal", "open", "web"),
+            # (ref, name, kind, config_overrides)
+            ("balcao", "Balcao / PDV", "pos", _pos_config),
+            ("delivery", "Delivery Proprio", "web", _remote_config),
+            ("ifood", "iFood", "ifood", {
+                **_marketplace_config,
+                "pricing": {"policy": "external"},
+                "editing": {"policy": "locked"},
+            }),
+            ("whatsapp", "WhatsApp", "whatsapp", _whatsapp_config),
+            ("web", "E-commerce", "web", _remote_config),
         ]
 
-        for ref, name, pricing, edit, kind in channels_data:
+        from shopman.models import ChannelConfigRecord
+
+        for ref, name, kind, config_data in channels_data:
             ch, _ = Channel.objects.update_or_create(
                 ref=ref,
                 defaults={
                     "name": name,
-                    "pricing_policy": pricing,
-                    "edit_policy": edit,
                     "kind": kind,
                     "is_active": True,
                 },
             )
             channels[ref] = ch
+            ChannelConfigRecord.objects.update_or_create(
+                channel_ref=ref,
+                defaults={"data": config_data},
+            )
 
         self.stdout.write(f"  ✅ {len(channels)} canais")
         return channels
@@ -1562,12 +1567,15 @@ class Command(BaseCommand):
             ]),
         ]:
             ch = channels[channel_ref]
+            from shopman.config import ChannelConfig
+
+            cfg = ChannelConfig.for_channel(ch)
             Session.objects.create(
                 session_key=generate_session_key(),
                 channel=ch,
                 state="open",
-                pricing_policy=ch.pricing_policy,
-                edit_policy=ch.edit_policy,
+                pricing_policy=cfg.pricing.policy,
+                edit_policy=cfg.editing.policy,
                 items=items,
             )
 

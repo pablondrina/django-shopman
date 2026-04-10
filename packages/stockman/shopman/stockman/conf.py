@@ -1,8 +1,8 @@
 """
-Stocking configuration.
+Stockman configuration.
 
 Usage in settings.py:
-    STOCKING = {
+    STOCKMAN = {
         "SKU_VALIDATOR": "shopman.offerman.adapters.sku_validator.OfferingSkuValidator",
         "HOLD_TTL_MINUTES": 30,
         "EXPIRED_BATCH_SIZE": 200,
@@ -17,8 +17,8 @@ from django.conf import settings
 
 
 @dataclass
-class StockingSettings:
-    """Stocking configuration settings."""
+class StockmanSettings:
+    """Stockman configuration settings."""
 
     # SKU validation backend (dotted path)
     SKU_VALIDATOR: str = ""
@@ -33,12 +33,12 @@ class StockingSettings:
     VALIDATE_INPUT_SKUS: bool = True
 
 
-def get_stocking_settings() -> StockingSettings:
+def get_stockman_settings() -> StockmanSettings:
     """Load settings from Django settings."""
-    user_settings: dict[str, Any] = getattr(settings, "STOCKING", {})
-    return StockingSettings(**{
+    user_settings: dict[str, Any] = getattr(settings, "STOCKMAN", {})
+    return StockmanSettings(**{
         k: v for k, v in user_settings.items()
-        if k in StockingSettings.__dataclass_fields__
+        if k in StockmanSettings.__dataclass_fields__
     })
 
 
@@ -46,7 +46,7 @@ class _LazySettings:
     """Lazy proxy that re-reads settings on every attribute access."""
 
     def __getattr__(self, name):
-        return getattr(get_stocking_settings(), name)
+        return getattr(get_stockman_settings(), name)
 
 
-stocking_settings = _LazySettings()
+stockman_settings = _LazySettings()

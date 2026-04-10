@@ -1,4 +1,4 @@
-"""Offering exceptions."""
+"""Offerman exceptions."""
 
 from shopman.utils.exceptions import BaseError
 

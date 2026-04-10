@@ -6,10 +6,11 @@ from datetime import time
 from django.http import HttpRequest
 from django.utils import timezone
 
+from shopman.guestman.contrib.insights import CustomerInsight
 from shopman.offerman.models import ListingItem, Product
 from shopman.utils.monetary import format_money
 
-from ..constants import HAS_STOCKING, STOREFRONT_CHANNEL_REF
+from ..constants import HAS_STOCKMAN, STOREFRONT_CHANNEL_REF
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,7 @@ def _get_availability(sku: str) -> dict | None:
     **Disponibilidade** (aqui): quanto existe nas posições que esse canal pode usar,
     mesma regra do checkout — não substitui a listagem, só responde “tem físico?”
     """
-    if not HAS_STOCKING:
+    if not HAS_STOCKMAN:
         return None
     try:
         from shopman.stockman.services.availability import (
@@ -286,7 +287,7 @@ def _annotate_products(
 
     # ── Batch: availability — one call for all SKUs ───────────────────────────
     avail_map: dict[str, dict | None] = {}
-    if HAS_STOCKING:
+    if HAS_STOCKMAN:
         try:
             from shopman.stockman.services.availability import (
                 availability_for_skus,
@@ -517,7 +518,6 @@ def _collection_icon(slug: str) -> str:
 def _popular_skus(limit: int = 5) -> set[str]:
     """Aggregate favorite SKUs across all customer insights."""
     try:
-        from shopman.guestman.contrib.insights.models import CustomerInsight
 
         insights = CustomerInsight.objects.exclude(favorite_products=[]).values_list(
             "favorite_products", flat=True
@@ -702,7 +702,6 @@ def _cross_sell_products(
     Returns annotated product dicts.
     """
     try:
-        from shopman.guestman.contrib.insights.models import CustomerInsight
         from shopman.offerman.models import Product as Prod
 
         # Find customers who have this SKU in favorites

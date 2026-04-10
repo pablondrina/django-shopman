@@ -149,7 +149,7 @@ class TestDeviceTrustService:
         other_cid = uuid.uuid4()
         assert not DeviceTrustService.check_device_trust(request, other_cid)
 
-    @override_settings(AUTH={"DEVICE_TRUST_ENABLED": False})
+    @override_settings(DOORMAN={"DEVICE_TRUST_ENABLED": False})
     def test_check_device_trust_disabled(self):
         """When disabled, always returns False."""
         cid = uuid.uuid4()
@@ -175,7 +175,7 @@ class TestDeviceTrustService:
         assert cookie["httponly"]
         assert cookie["samesite"] == "Lax"
 
-    @override_settings(AUTH={"DEVICE_TRUST_ENABLED": False})
+    @override_settings(DOORMAN={"DEVICE_TRUST_ENABLED": False})
     def test_trust_device_disabled(self):
         """When disabled, trust_device returns None."""
         from django.http import HttpResponse

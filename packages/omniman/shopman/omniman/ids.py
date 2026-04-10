@@ -1,5 +1,5 @@
 """
-Ordering IDs — Geração de identificadores únicos.
+Omniman IDs — Geração de identificadores únicos.
 """
 
 from __future__ import annotations

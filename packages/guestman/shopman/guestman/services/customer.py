@@ -127,7 +127,7 @@ def validate(ref: str) -> CustomerValidation:
 
 
 def get_listing_ref(ref: str) -> str | None:
-    """Return customer's listing_ref (for Offering pricing)."""
+    """Return customer's listing_ref (for Offerman pricing)."""
     cust = get(ref)
     if cust:
         return cust.listing_ref

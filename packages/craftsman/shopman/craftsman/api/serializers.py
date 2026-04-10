@@ -1,5 +1,5 @@
 """
-Crafting API Serializers (vNext).
+Craftsman API Serializers (vNext).
 """
 
 from decimal import Decimal

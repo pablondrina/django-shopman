@@ -357,8 +357,6 @@ class TestCartReconcileIntegration:
             ref="web",
             defaults={
                 "name": "Web",
-                "pricing_policy": "internal",
-                "edit_policy": "open",
                 "kind": "web",
             },
         )

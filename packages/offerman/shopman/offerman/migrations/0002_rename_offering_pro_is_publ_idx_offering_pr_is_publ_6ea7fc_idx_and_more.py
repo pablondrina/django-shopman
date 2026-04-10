@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='historicalproduct',
             name='is_batch_produced',
-            field=models.BooleanField(default=False, help_text='Produzido em lotes (para Crafting)', verbose_name='produção em lote'),
+            field=models.BooleanField(default=False, help_text='Produzido em lotes (para Craftsman)', verbose_name='produção em lote'),
         ),
         migrations.AlterField(
             model_name='historicalproduct',
@@ -33,6 +33,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='product',
             name='is_batch_produced',
-            field=models.BooleanField(default=False, help_text='Produzido em lotes (para Crafting)', verbose_name='produção em lote'),
+            field=models.BooleanField(default=False, help_text='Produzido em lotes (para Craftsman)', verbose_name='produção em lote'),
         ),
     ]

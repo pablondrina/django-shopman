@@ -86,7 +86,7 @@ def test_default_adapter_should_auto_create():
     assert adapter.should_auto_create_customer() is True
 
 
-@override_settings(AUTH={"AUTO_CREATE_CUSTOMER": False})
+@override_settings(DOORMAN={"AUTO_CREATE_CUSTOMER": False})
 def test_default_adapter_should_not_auto_create():
     adapter = DefaultAuthAdapter()
     assert adapter.should_auto_create_customer() is False
@@ -125,7 +125,7 @@ class CustomAdapter(DefaultAuthAdapter):
         return "/custom-login-redirect/"
 
 
-@override_settings(AUTH={"AUTH_ADAPTER": "shopman.doorman.tests.test_adapter.CustomAdapter"})
+@override_settings(DOORMAN={"AUTH_ADAPTER": "shopman.doorman.tests.test_adapter.CustomAdapter"})
 def test_custom_adapter_loaded():
     reset_adapter()
     adapter = get_adapter()
@@ -133,7 +133,7 @@ def test_custom_adapter_loaded():
     assert adapter.should_auto_create_customer() is False
 
 
-@override_settings(AUTH={"AUTH_ADAPTER": "shopman.doorman.tests.test_adapter.CustomAdapter"})
+@override_settings(DOORMAN={"AUTH_ADAPTER": "shopman.doorman.tests.test_adapter.CustomAdapter"})
 def test_custom_adapter_login_allowed():
     reset_adapter()
     adapter = get_adapter()
@@ -141,7 +141,7 @@ def test_custom_adapter_login_allowed():
     assert adapter.is_login_allowed("+5500000000000", "whatsapp") is False
 
 
-@override_settings(AUTH={"AUTH_ADAPTER": "shopman.doorman.tests.test_adapter.CustomAdapter"})
+@override_settings(DOORMAN={"AUTH_ADAPTER": "shopman.doorman.tests.test_adapter.CustomAdapter"})
 def test_custom_adapter_redirect_url():
     reset_adapter()
     adapter = get_adapter()

@@ -1,4 +1,4 @@
-"""Offering Admin with Unfold theme."""
+"""Offerman Admin with Unfold theme."""
 
 __all__ = [
     "BaseModelAdmin",

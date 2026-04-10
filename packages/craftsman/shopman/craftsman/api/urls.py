@@ -1,5 +1,5 @@
 """
-Crafting API URLs (vNext).
+Craftsman API URLs (vNext).
 
 Include this in your project's urlpatterns:
 

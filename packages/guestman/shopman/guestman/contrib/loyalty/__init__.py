@@ -1,5 +1,5 @@
 """
-Customers Loyalty - Simple points/stamps loyalty program.
+Guestman Loyalty - Simple points/stamps loyalty program.
 
 Native loyalty program (not plugin). Supports both points-based and
 stamp-based programs — configurable per deployment.
@@ -25,7 +25,17 @@ def __getattr__(name):
         from shopman.guestman.contrib.loyalty.service import LoyaltyService
 
         return LoyaltyService
+    if name in ("LoyaltyAccount", "LoyaltyTransaction", "LoyaltyTier", "TransactionType"):
+        from shopman.guestman.contrib.loyalty import models
+
+        return getattr(models, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = ["LoyaltyService"]
+__all__ = [
+    "LoyaltyService",
+    "LoyaltyAccount",
+    "LoyaltyTransaction",
+    "LoyaltyTier",
+    "TransactionType",
+]

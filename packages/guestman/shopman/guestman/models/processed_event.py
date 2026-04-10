@@ -39,7 +39,7 @@ class ProcessedEvent(models.Model):
     def cleanup_old_events(cls, days: int | None = None):
         """Remove events older than N days."""
         if days is None:
-            from shopman.guestman.conf import customers_settings
-            days = customers_settings.EVENT_CLEANUP_DAYS
+            from shopman.guestman.conf import guestman_settings
+            days = guestman_settings.EVENT_CLEANUP_DAYS
         cutoff = timezone.now() - timedelta(days=days)
         return cls.objects.filter(processed_at__lt=cutoff).delete()

@@ -1,4 +1,4 @@
-"""Tests for Offering models."""
+"""Tests for Offerman models."""
 
 from decimal import Decimal
 

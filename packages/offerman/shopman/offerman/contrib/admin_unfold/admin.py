@@ -1,5 +1,5 @@
 """
-Offering Admin with Unfold theme.
+Offerman Admin with Unfold theme.
 """
 from __future__ import annotations
 
@@ -316,7 +316,7 @@ class ProductAdmin(_ProductImportExportBase):
 
     @display(description=_("Estoque"))
     def stock_available_display(self, obj):
-        """Display available stock from Stocking (if available)."""
+        """Display available stock from Stockman (if available)."""
         try:
             from shopman.stockman.models import Quant
             from django.db.models import Sum

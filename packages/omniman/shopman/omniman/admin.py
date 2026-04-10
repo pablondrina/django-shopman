@@ -144,13 +144,11 @@ class ChannelAdmin(ModelAdmin):
         "name",
         "ref",
         "kind",
-        "pricing_policy_badge",
-        "edit_policy_badge",
         "is_active",
         "display_order",
         "created_at",
     ]
-    list_filter = ("is_active", "kind", "pricing_policy", "edit_policy")
+    list_filter = ("is_active", "kind")
     search_fields = ("ref", "name")
     ordering = ("display_order", "id")
     list_filter_submit = True
@@ -168,173 +166,14 @@ class ChannelAdmin(ModelAdmin):
         return history_action(self, request, object_id)
 
     fieldsets = (
-        (_("Identidade"), {"fields": ("name", "ref", "flow"), "classes": ("tab",)}),
+        (_("Identidade"), {"fields": ("name", "ref", "kind"), "classes": ("tab",)}),
         (
-            _("Políticas"),
-            {"fields": ("pricing_policy", "edit_policy"), "classes": ("tab",)},
-        ),
-        (
-            _("Contrato"),
-            {"fields": ("config_flow_display",), "classes": ("tab",)},
-        ),
-        (
-            _("Configuração"),
-            {"fields": ("display_order", "config_display", "config", "is_active"), "classes": ("tab",)},
+            _("Exibição"),
+            {"fields": ("display_order", "is_active"), "classes": ("tab",)},
         ),
         (_("Auditoria"), {"fields": ("created_at",), "classes": ("tab",)}),
     )
-    readonly_fields = ("created_at", "config_display", "config_flow_display")
-
-    def get_fieldsets(self, request, obj=None):
-        """Mostra config_display apenas quando há valor."""
-        fieldsets = list(super().get_fieldsets(request, obj))
-        if obj and obj.config:
-            # Se há config, mostra o display formatado
-            return fieldsets
-        else:
-            # Se não há config, remove o display
-            for fieldset in fieldsets:
-                if fieldset[0] == _("Configuração"):
-                    fields = list(fieldset[1]["fields"])
-                    if "config_display" in fields:
-                        fields.remove("config_display")
-                    fieldset[1]["fields"] = tuple(fields)
-        return fieldsets
-
-    @display(description=_("contrato do canal"))
-    def config_flow_display(self, obj: Channel) -> str:
-        """Displays channel config as structured business contract cards (ChannelConfig schema)."""
-        if not obj or not obj.config:
-            return format_html('<span class="text-base-400">Sem configuração</span>')
-
-        c = obj.config
-
-        # Confirmation
-        confirm = c.get("confirmation", {})
-        mode = confirm.get("mode", "immediate")
-        mode_labels = {"immediate": "Auto-confirm", "optimistic": "Otimista", "manual": "Manual"}
-        confirm_text = mode_labels.get(mode, mode)
-        if mode == "optimistic":
-            timeout = confirm.get("timeout_minutes", 5)
-            confirm_text += f" ({timeout} min)"
-
-        # Payment
-        payment = c.get("payment", {})
-        method = payment.get("method", "counter")
-        method_labels = {"counter": "No caixa", "pix": "PIX", "external": "Externo (marketplace)"}
-        payment_text = method_labels.get(method, method)
-        if method == "pix":
-            timeout = payment.get("timeout_minutes", 15)
-            payment_text += f" ({timeout} min)"
-
-        # Notifications
-        notif = c.get("notifications", {})
-        notif_backend = notif.get("backend", "console")
-        notif_fallback = notif.get("fallback")
-        if notif_backend == "none":
-            notif_text = "Desativado"
-        elif notif_fallback:
-            notif_text = f"{notif_backend} (fallback: {notif_fallback})"
-        else:
-            notif_text = notif_backend
-
-        # Stock
-        stock_cfg = c.get("stock", {})
-        hold_ttl = stock_cfg.get("hold_ttl_minutes")
-        margin = stock_cfg.get("safety_margin", 0)
-        stock_text = f"Hold: {hold_ttl or '∞'} min"
-        if margin:
-            stock_text += f" | Margem: {margin} un"
-
-        # Rules
-        rules = c.get("rules", {})
-        checks = rules.get("checks", [])
-        checks_text = ", ".join(checks) if checks else "Nenhum"
-        modifiers = rules.get("modifiers", [])
-        modifiers_text = ", ".join(modifiers) if modifiers else "Nenhum"
-
-        # Flow
-        flow = c.get("flow", {})
-        auto_sync = "Sim" if flow.get("auto_sync_fulfillment") else "Nao"
-
-        card_style = (
-            "bg-base-50 dark:bg-base-800 border border-base-200 "
-            "dark:border-base-700 rounded-default p-3 text-sm"
-        )
-        label_style = "font-semibold text-base-600 dark:text-base-400"
-        value_style = "text-base-900 dark:text-base-100"
-
-        html = f"""
-        <div class="space-y-3">
-            <div class="grid grid-cols-2 gap-3">
-                <div class="{card_style}">
-                    <div class="{label_style}">Confirmação</div>
-                    <div class="{value_style}">{confirm_text}</div>
-                </div>
-                <div class="{card_style}">
-                    <div class="{label_style}">Pagamento</div>
-                    <div class="{value_style}">{payment_text}</div>
-                </div>
-                <div class="{card_style}">
-                    <div class="{label_style}">Notificações</div>
-                    <div class="{value_style}">{notif_text}</div>
-                </div>
-                <div class="{card_style}">
-                    <div class="{label_style}">Estoque</div>
-                    <div class="{value_style}">{stock_text}</div>
-                </div>
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div class="{card_style}">
-                    <div class="{label_style}">Checks</div>
-                    <div class="{value_style}">{checks_text}</div>
-                </div>
-                <div class="{card_style}">
-                    <div class="{label_style}">Modifiers</div>
-                    <div class="{value_style}">{modifiers_text}</div>
-                </div>
-            </div>
-            <div class="{card_style}">
-                <div class="{label_style}">Auto-sync fulfillment</div>
-                <div class="{value_style}">{auto_sync}</div>
-            </div>
-        </div>
-        """
-        return format_html(html)
-
-    @display(description=_("configuração"))
-    def config_display(self, obj: Channel) -> str:
-        """Exibe JSON formatado de forma legível."""
-        if not obj or not obj.config:
-            return "-"
-        import json
-        try:
-            formatted = json.dumps(obj.config, indent=2, ensure_ascii=False, sort_keys=True)
-            return format_html('<pre class="bg-base-50 border border-base-200 dark:bg-base-800 dark:border-base-700 font-mono overflow-x-auto p-3 rounded-default text-sm">{}</pre>', formatted)
-        except Exception:
-            logger.debug("JSON format failed for Channel.config pk=%s", obj.pk, exc_info=True)
-            return str(obj.config)
-
-    def get_form(self, request, obj=None, **kwargs):
-        """Renomeia o campo config para 'Editar Configuração'."""
-        form = super().get_form(request, obj, **kwargs)
-        if "config" in form.base_fields:
-            form.base_fields["config"].label = _("Editar Configuração")
-        return form
-
-    @display(
-        description=_("política de preço"),
-        label={"interna": "success", "externa": "danger"},
-    )
-    def pricing_policy_badge(self, obj: Channel) -> str:
-        return obj.get_pricing_policy_display()
-
-    @display(
-        description=_("política de edição"),
-        label={"aberta": "success", "bloqueada": "danger"},
-    )
-    def edit_policy_badge(self, obj: Channel) -> str:
-        return obj.get_edit_policy_display()
+    readonly_fields = ("created_at",)
 
 
 @admin.register(Session)

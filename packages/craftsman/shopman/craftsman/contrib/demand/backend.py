@@ -1,7 +1,7 @@
 """
 OrderingDemandBackend — DemandProtocol implementation.
 
-Queries Ordering OrderItems for historical demand and Stocking Holds
+Queries Omniman OrderItems for historical demand and Stockman Holds
 for committed quantities.
 """
 
@@ -22,10 +22,10 @@ logger = logging.getLogger(__name__)
 
 class OrderingDemandBackend:
     """
-    DemandProtocol implementation backed by Ordering orders.
+    DemandProtocol implementation backed by Omniman orders.
 
     history() → queries OrderItems from completed/delivered orders.
-    committed() → sums active Holds from Stocking for a given SKU+date.
+    committed() → sums active Holds from Stockman for a given SKU+date.
     """
 
     # Order statuses that represent fulfilled demand
@@ -38,7 +38,7 @@ class OrderingDemandBackend:
         same_weekday: bool = True,
     ) -> list[DailyDemand]:
         """
-        Return historical demand for a product based on Ordering orders.
+        Return historical demand for a product based on Omniman orders.
 
         Queries OrderItems where sku matches product_ref, from orders
         with status completed or delivered, grouped by date.
@@ -106,13 +106,13 @@ class OrderingDemandBackend:
 
     def committed(self, product_ref: str, target_date: date) -> Decimal:
         """
-        Return total committed quantity from Stocking Holds.
+        Return total committed quantity from Stockman Holds.
 
         Includes both reservation holds (quant set) and demand holds
         (quant=None, e.g. preorders) — any active hold for the given
         SKU and target_date counts as committed demand.
 
-        Graceful: returns 0 if Stocking is not installed.
+        Graceful: returns 0 if Stockman is not installed.
         """
         try:
             from shopman.stockman.models.hold import Hold
@@ -127,11 +127,11 @@ class OrderingDemandBackend:
             )
             return total
         except ImportError:
-            logger.debug("Stocking not available, committed() returning 0")
+            logger.debug("Stockman not available, committed() returning 0")
             return Decimal("0")
         except Exception:
             logger.warning(
-                "Failed to query Stocking holds for %s on %s, returning 0",
+                "Failed to query Stockman holds for %s on %s, returning 0",
                 product_ref,
                 target_date,
                 exc_info=True,
@@ -150,7 +150,7 @@ def _sku_lookup(sku: str):
     """
     Build a Q filter to find Holds for a given SKU.
 
-    Stocking uses GenericForeignKey, so we need to resolve via
+    Stockman uses GenericForeignKey, so we need to resolve via
     the Product model's content type.
     """
     from django.contrib.contenttypes.models import ContentType

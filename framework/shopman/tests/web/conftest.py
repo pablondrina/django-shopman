@@ -25,9 +25,9 @@ def _clear_rate_limit_cache():
 def shop_instance(db):
     """Create a default Shop singleton for all web tests."""
     return Shop.objects.create(
-        name="Nelson Boulangerie",
-        brand_name="Nelson Boulangerie",
-        short_name="Nelson",
+        name="Demo Bakery",
+        brand_name="Demo Bakery",
+        short_name="Demo",
         tagline="Padaria Artesanal",
         primary_color="#C5A55A",
         default_ddd="43",
@@ -125,8 +125,6 @@ def channel(db):
     return Channel.objects.create(
         ref="web",
         name="Loja Online",
-        pricing_policy="external",
-        edit_policy="open",
     )
 
 

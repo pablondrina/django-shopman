@@ -1,5 +1,5 @@
 """
-H22 — Customers hardening tests.
+H22 — Guestman hardening tests.
 
 Tests for:
 - Gates G1-G6 (all scenarios)

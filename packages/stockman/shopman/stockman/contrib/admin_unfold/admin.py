@@ -1,7 +1,7 @@
 """
-Stocking Admin with Unfold theme.
+Stockman Admin with Unfold theme.
 
-This module provides Unfold-styled admin classes for Stocking models.
+This module provides Unfold-styled admin classes for Stockman models.
 To use, add stockman.contrib.admin_unfold' to INSTALLED_APPS after 'stocking'.
 
 The admins will automatically register the Unfold versions.

@@ -1,5 +1,5 @@
 """
-Customers Timeline - Customer interaction history.
+Guestman Timeline - Customer interaction history.
 
 Records every meaningful interaction: orders, contacts, notes, system events.
 Provides a unified chronological view per customer — essential for CRM.
@@ -23,7 +23,11 @@ def __getattr__(name):
         from shopman.guestman.contrib.timeline.service import TimelineService
 
         return TimelineService
+    if name in ("TimelineEvent", "EventType"):
+        from shopman.guestman.contrib.timeline import models
+
+        return getattr(models, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = ["TimelineService"]
+__all__ = ["TimelineService", "TimelineEvent", "EventType"]

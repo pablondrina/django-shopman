@@ -1,5 +1,5 @@
 """
-Ordering Models — Modelos do Kernel.
+Omniman Models — Modelos do Kernel.
 
 Re-exports:
     from shopman.omniman.models import Channel, Session, Order, ...

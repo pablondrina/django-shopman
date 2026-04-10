@@ -10,6 +10,9 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 
 logger = logging.getLogger(__name__)
 
+from shopman.guestman.contrib.consent import CommunicationConsent, ConsentService
+from shopman.guestman.contrib.loyalty import LoyaltyService
+from shopman.guestman.contrib.preferences import CustomerPreference, PreferenceService
 from shopman.omniman.models import Order
 from shopman.utils.monetary import format_money
 
@@ -25,10 +28,9 @@ TAB_OPTIONS = [
 
 
 def _get_loyalty_data(customer):
-    """Fetch loyalty account and recent transactions if loyalty is installed."""
-    try:
-        from shopman.guestman.contrib.loyalty.service import LoyaltyService
+    """Fetch loyalty account and recent transactions."""
 
+    try:
         account = LoyaltyService.get_account(customer.ref)
         if account:
             transactions = LoyaltyService.get_transactions(customer.ref, limit=5)
@@ -46,10 +48,9 @@ def _get_notification_prefs(customer) -> list[dict]:
         ("sms", "SMS", "Receber notificações por SMS"),
         ("push", "Push", "Notificações push no navegador"),
     ]
+
     prefs = []
     try:
-        from shopman.guestman.contrib.consent.service import ConsentService
-
         for channel, label, description in channels:
             enabled = ConsentService.has_consent(customer.ref, channel)
             prefs.append({
@@ -99,10 +100,9 @@ class AccountView(View):
 
         enriched_orders = _enrich_orders(orders)
 
+
         preferences = None
         try:
-            from shopman.guestman.contrib.preferences.models import CustomerPreference
-
             prefs = CustomerPreference.objects.filter(customer=customer).order_by("category", "key")
             if prefs.exists():
                 preferences = prefs
@@ -121,7 +121,6 @@ class AccountView(View):
         # Food preference options with active state
         active_food_keys = set()
         try:
-            from shopman.guestman.contrib.preferences.models import CustomerPreference
             active_food_keys = set(
                 CustomerPreference.objects.filter(
                     customer=customer, category="alimentar",
@@ -393,7 +392,6 @@ class NotificationPrefsToggleView(View):
         if not channel:
             return HttpResponse("", status=400)
 
-        from shopman.guestman.contrib.consent.service import ConsentService
 
         if ConsentService.has_consent(customer.ref, channel):
             ConsentService.revoke_consent(customer.ref, channel)
@@ -454,7 +452,6 @@ class FoodPreferenceToggleView(View):
         if not key:
             return HttpResponse("", status=400)
 
-        from shopman.guestman.contrib.preferences.service import PreferenceService
 
         existing = PreferenceService.get_preference(customer.ref, "alimentar", key)
         if existing is not None:
@@ -466,7 +463,6 @@ class FoodPreferenceToggleView(View):
             )
 
         # Return updated tags
-        from shopman.guestman.contrib.preferences.models import CustomerPreference
         active_keys = set(
             CustomerPreference.objects.filter(
                 customer=customer, category="alimentar",
@@ -536,32 +532,21 @@ class DataExportView(View):
         ]
 
         # Preferences
-        try:
-            from shopman.guestman.contrib.preferences.models import CustomerPreference
-            data["preferences"] = list(
-                CustomerPreference.objects.filter(customer=customer).values(
-                    "category", "key", "value", "preference_type",
-                )
+        data["preferences"] = list(
+            CustomerPreference.objects.filter(customer=customer).values(
+                "category", "key", "value", "preference_type",
             )
-        except Exception as e:
-            logger.warning("data_export_preferences_failed: %s", e, exc_info=True)
-            data["preferences"] = []
+        )
 
         # Consent
-        try:
-            from shopman.guestman.contrib.consent.models import CommunicationConsent
-            data["consents"] = list(
-                CommunicationConsent.objects.filter(customer=customer).values(
-                    "channel", "status", "consented_at", "revoked_at",
-                )
+        data["consents"] = list(
+            CommunicationConsent.objects.filter(customer=customer).values(
+                "channel", "status", "consented_at", "revoked_at",
             )
-        except Exception as e:
-            logger.warning("data_export_consents_failed: %s", e, exc_info=True)
-            data["consents"] = []
+        )
 
         # Loyalty
         try:
-            from shopman.guestman.contrib.loyalty.service import LoyaltyService
             account = LoyaltyService.get_account(customer.ref)
             if account:
                 data["loyalty"] = {
@@ -611,15 +596,11 @@ class AccountDeleteView(View):
         customer.save()
 
         # Revoke all consents
-        try:
-            from shopman.guestman.contrib.consent.service import ConsentService
-            for channel in ("whatsapp", "email", "sms", "push"):
-                try:
-                    ConsentService.revoke_consent(original_ref, channel)
-                except Exception as e:
-                    logger.warning("consent_revoke_failed channel=%s: %s", channel, e, exc_info=True)
-        except Exception as e:
-            logger.warning("consent_revoke_import_failed: %s", e, exc_info=True)
+        for channel in ("whatsapp", "email", "sms", "push"):
+            try:
+                ConsentService.revoke_consent(original_ref, channel)
+            except Exception as e:
+                logger.warning("consent_revoke_failed channel=%s: %s", channel, e, exc_info=True)
 
         # Delete addresses
         customer.addresses.all().delete()

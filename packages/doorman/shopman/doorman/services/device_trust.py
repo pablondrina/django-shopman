@@ -18,7 +18,7 @@ import logging
 import uuid
 from typing import TYPE_CHECKING
 
-from ..conf import auth_settings
+from ..conf import doorman_settings
 from ..models.device_trust import TrustedDevice
 from ..signals import device_trusted
 
@@ -44,10 +44,10 @@ class DeviceTrustService:
 
         Returns True if the device is trusted and the customer matches.
         """
-        if not auth_settings.DEVICE_TRUST_ENABLED:
+        if not doorman_settings.DEVICE_TRUST_ENABLED:
             return False
 
-        cookie_name = auth_settings.DEVICE_TRUST_COOKIE_NAME
+        cookie_name = doorman_settings.DEVICE_TRUST_COOKIE_NAME
         raw_token = request.COOKIES.get(cookie_name)
         if not raw_token:
             return False
@@ -83,13 +83,13 @@ class DeviceTrustService:
 
         Returns the TrustedDevice or None if device trust is disabled.
         """
-        if not auth_settings.DEVICE_TRUST_ENABLED:
+        if not doorman_settings.DEVICE_TRUST_ENABLED:
             return None
 
         user_agent = request.META.get("HTTP_USER_AGENT", "")
         from ..utils import get_client_ip
 
-        ip = get_client_ip(request, auth_settings.TRUSTED_PROXY_DEPTH)
+        ip = get_client_ip(request, doorman_settings.TRUSTED_PROXY_DEPTH)
 
         device, raw_token = TrustedDevice.create_for_customer(
             customer_id=customer_id,
@@ -98,14 +98,14 @@ class DeviceTrustService:
         )
 
         # Set cookie
-        cookie_name = auth_settings.DEVICE_TRUST_COOKIE_NAME
-        max_age = auth_settings.DEVICE_TRUST_TTL_DAYS * 86400
+        cookie_name = doorman_settings.DEVICE_TRUST_COOKIE_NAME
+        max_age = doorman_settings.DEVICE_TRUST_TTL_DAYS * 86400
         response.set_cookie(
             cookie_name,
             raw_token,
             max_age=max_age,
             httponly=True,
-            secure=auth_settings.USE_HTTPS,
+            secure=doorman_settings.USE_HTTPS,
             samesite="Lax",
         )
 
@@ -131,7 +131,7 @@ class DeviceTrustService:
     @classmethod
     def revoke_device(cls, request: HttpRequest, response: HttpResponse) -> None:
         """Revoke the trusted device from the current request and clear cookie."""
-        cookie_name = auth_settings.DEVICE_TRUST_COOKIE_NAME
+        cookie_name = doorman_settings.DEVICE_TRUST_COOKIE_NAME
         raw_token = request.COOKIES.get(cookie_name)
         if raw_token:
             device = TrustedDevice.verify_token(raw_token)

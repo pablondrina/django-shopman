@@ -29,8 +29,6 @@ logger = logging.getLogger(__name__)
 ALL_HANDLERS = [
     # Lifecycle
     "shopman.handlers.confirmation.ConfirmationTimeoutHandler",
-    "shopman.handlers.customer.CustomerEnsureHandler",
-    "shopman.handlers.checkout_defaults.CheckoutInferDefaultsHandler",
     # Fulfillment
     "shopman.handlers.fulfillment.FulfillmentCreateHandler",
     "shopman.handlers.fulfillment.FulfillmentUpdateHandler",
@@ -70,14 +68,12 @@ def register_all() -> None:
     """Register all directive handlers, modifiers, validators, and signals."""
     _register_notification_handlers()
     _register_confirmation_handler()
-    _register_customer_handler()
     _register_customer_strategies()
     _register_fiscal_handlers()
     _register_accounting_handler()
     _register_return_handler()
     _register_fulfillment_handler()
     _register_loyalty_handler()
-    _register_checkout_defaults_handler()
     _register_pricing_modifiers()
     _register_validators()
     _register_stock_signals()
@@ -111,11 +107,6 @@ def _register_notification_handlers() -> None:
 def _register_confirmation_handler() -> None:
     from shopman.handlers.confirmation import ConfirmationTimeoutHandler
     registry.register_directive_handler(ConfirmationTimeoutHandler())
-
-
-def _register_customer_handler() -> None:
-    from shopman.handlers.customer import CustomerEnsureHandler
-    registry.register_directive_handler(CustomerEnsureHandler())
 
 
 def _register_customer_strategies() -> None:
@@ -165,11 +156,6 @@ def _register_loyalty_handler() -> None:
     registry.register_directive_handler(LoyaltyRedeemHandler())
 
 
-def _register_checkout_defaults_handler() -> None:
-    from shopman.handlers.checkout_defaults import CheckoutInferDefaultsHandler
-    registry.register_directive_handler(CheckoutInferDefaultsHandler())
-
-
 def _register_pricing_modifiers() -> None:
     from shopman.handlers.pricing import ItemPricingModifier, OffermanPricingBackend, SessionTotalModifier
     from shopman.modifiers import (
@@ -213,7 +199,7 @@ def _register_stock_signals() -> None:
         from shopman.handlers._stock_receivers import on_production_voided
         production_changed.connect(on_production_voided, weak=False)
 
-        import shopman.craftsman.contrib.stocking.handlers  # noqa: F401
+        import shopman.craftsman.contrib.stockman.handlers  # noqa: F401
         logger.info("shopman.handlers: loaded craftsman→stockman signal handlers.")
     except ImportError:
         pass

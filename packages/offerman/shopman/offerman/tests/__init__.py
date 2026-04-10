@@ -1,1 +1,1 @@
-"""Offering tests."""
+"""Offerman tests."""

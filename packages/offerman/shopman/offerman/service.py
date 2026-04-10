@@ -1,5 +1,5 @@
 """
-Offering public API.
+Offerman public API.
 
 CORE (essential):
     CatalogService.get(sku)      - Get product
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
 class CatalogService:
     """
-    Offering public API.
+    Offerman public API.
 
     Uses @classmethod for extensibility (see spec 000 section 12.1).
 

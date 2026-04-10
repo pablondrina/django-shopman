@@ -13,7 +13,7 @@ from django.contrib.auth import logout
 from django.http import HttpResponseNotAllowed, HttpResponseRedirect
 from django.views import View
 
-from ..conf import auth_settings
+from ..conf import doorman_settings
 from ..services.device_trust import DeviceTrustService
 
 logger = logging.getLogger("shopman.doorman.views.logout")
@@ -27,7 +27,7 @@ class LogoutView(View):
         from ..utils import safe_redirect_url
 
         next_url = request.POST.get("next") or request.GET.get("next")
-        redirect_url = safe_redirect_url(next_url, request) if next_url else auth_settings.LOGOUT_REDIRECT_URL
+        redirect_url = safe_redirect_url(next_url, request) if next_url else doorman_settings.LOGOUT_REDIRECT_URL
         response = HttpResponseRedirect(redirect_url)
 
         # Clear device trust cookie
@@ -35,7 +35,7 @@ class LogoutView(View):
 
         # Preserve session keys across logout (logout flushes session)
         preserved = {}
-        preserve_keys = auth_settings.PRESERVE_SESSION_KEYS
+        preserve_keys = doorman_settings.PRESERVE_SESSION_KEYS
         if preserve_keys and hasattr(request, "session"):
             for key in preserve_keys:
                 if key in request.session:

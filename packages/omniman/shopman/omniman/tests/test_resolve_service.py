@@ -67,7 +67,7 @@ class ResolveServiceTests(TestCase):
             session_key="SESS-RESOLVE",
             channel=self.channel,
             state="open",
-            pricing_policy=self.channel.pricing_policy,
+            pricing_policy="internal",
             edit_policy="open",
             rev=0,
             items=[
@@ -162,7 +162,7 @@ class ResolveServiceTests(TestCase):
             session_key="SESS-BOOM",
             channel=self.channel,
             state="open",
-            pricing_policy=self.channel.pricing_policy,
+            pricing_policy="internal",
             edit_policy="open",
             rev=0,
             items=[{"line_id": "L-1", "sku": "SKU", "qty": 1, "unit_price_q": 1000, "meta": {}}],

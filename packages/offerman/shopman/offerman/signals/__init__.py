@@ -1,5 +1,5 @@
 """
-Offering signals.
+Offerman signals.
 
 Signals:
     product_created:

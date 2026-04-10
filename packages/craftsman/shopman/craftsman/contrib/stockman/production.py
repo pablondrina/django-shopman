@@ -1,8 +1,8 @@
 """
 Production Backend Adapter (vNext).
 
-Implements Stocking's ProductionBackend protocol for Crafting.
-This allows Stocking to request production when stock reaches reorder point.
+Implements Stockman's ProductionBackend protocol for Craftsman.
+This allows Stockman to request production when stock reaches reorder point.
 
 Uses craft.plan() and craft.void() instead of direct WorkOrder manipulation.
 """
@@ -23,10 +23,10 @@ _production_backend = None
 
 class CraftingProductionBackend:
     """
-    Implements ProductionBackend for Stocking to request production.
+    Implements ProductionBackend for Stockman to request production.
 
     Usage:
-        from shopman.craftsman.contrib.stocking.production import get_production_backend
+        from shopman.craftsman.contrib.stockman.production import get_production_backend
 
         backend = get_production_backend()
         result = backend.request_production(ProductionRequest(

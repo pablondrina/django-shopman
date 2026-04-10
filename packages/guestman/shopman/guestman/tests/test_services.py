@@ -1,4 +1,4 @@
-"""Tests for Customers services."""
+"""Tests for Guestman services."""
 
 from decimal import Decimal
 from datetime import timedelta

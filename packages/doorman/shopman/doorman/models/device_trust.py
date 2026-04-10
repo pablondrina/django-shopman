@@ -36,9 +36,9 @@ def _hash_token(raw_token: str) -> str:
 
 
 def _default_expires_at():
-    from ..conf import auth_settings
+    from ..conf import doorman_settings
 
-    return timezone.now() + timedelta(days=auth_settings.DEVICE_TRUST_TTL_DAYS)
+    return timezone.now() + timedelta(days=doorman_settings.DEVICE_TRUST_TTL_DAYS)
 
 
 class TrustedDevice(models.Model):
@@ -55,7 +55,7 @@ class TrustedDevice(models.Model):
     customer_id = models.UUIDField(
         _("ID do cliente"),
         db_index=True,
-        help_text=_("UUID do cliente no Customers"),
+        help_text=_("UUID do cliente no Guestman"),
     )
 
     # Device identification (HMAC of the cookie token)

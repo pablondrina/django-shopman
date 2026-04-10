@@ -127,7 +127,7 @@ dev: framework/node_modules/.package-lock.json ## Dev: CSS watch + directive wor
 	cd framework && $(PYTHON) manage.py process_directives --watch &
 	cd framework && $(PYTHON) manage.py runserver
 
-seed: ## Popula banco com dados demo da Nelson Boulangerie (flush + recria)
+seed: ## Popula banco com dados demo da instancia ativa (flush + recria)
 	cd framework && $(PYTHON) manage.py seed --flush
 	@echo "✓ Seed completo"
 

@@ -1,7 +1,7 @@
 """
 Tests for shopman.craftsman.contrib.demand — OrderingDemandBackend.
 
-Since Ordering models aren't available in isolated crafting tests,
+Since Omniman models aren't available in isolated crafting tests,
 we mock the backend methods for suggest() integration and test
 helper functions directly.
 """
@@ -119,7 +119,7 @@ class TestSuggestWithDemandBackend:
         today = date.today()
         tomorrow = today + timedelta(days=1)
 
-        settings.CRAFTING = {
+        settings.CRAFTSMAN = {
             "DEMAND_BACKEND": "shopman.craftsman.contrib.demand.backend.OrderingDemandBackend",
         }
 
@@ -151,7 +151,7 @@ class TestSuggestWithDemandBackend:
         """Recipe with no historical demand is skipped."""
         tomorrow = date.today() + timedelta(days=1)
 
-        settings.CRAFTING = {
+        settings.CRAFTSMAN = {
             "DEMAND_BACKEND": "shopman.craftsman.contrib.demand.backend.OrderingDemandBackend",
         }
 
@@ -169,7 +169,7 @@ class TestSuggestWithDemandBackend:
         recipe.is_active = False
         recipe.save()
 
-        settings.CRAFTING = {
+        settings.CRAFTSMAN = {
             "DEMAND_BACKEND": "shopman.craftsman.contrib.demand.backend.OrderingDemandBackend",
         }
 
@@ -199,7 +199,7 @@ class TestSuggestWithDemandBackend:
             steps=["Mistura", "Forno"],
         )
 
-        settings.CRAFTING = {
+        settings.CRAFTSMAN = {
             "DEMAND_BACKEND": "shopman.craftsman.contrib.demand.backend.OrderingDemandBackend",
         }
 

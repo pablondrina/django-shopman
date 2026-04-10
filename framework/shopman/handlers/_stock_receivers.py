@@ -16,12 +16,8 @@ def on_production_voided(sender, product_ref, date, action, work_order, **kwargs
     if action != "voided":
         return
 
-    try:
-        from shopman.stockman.models import Hold
-        from shopman.stockman.models.enums import HoldStatus
-        from shopman.stockman.service import Stock as stock
-    except ImportError:
-        return
+    from shopman.stockman import Hold, HoldStatus
+    from shopman.stockman.service import Stock as stock
 
     # Find pending holds for this SKU/date that are linked to planned quants
     holds = Hold.objects.filter(

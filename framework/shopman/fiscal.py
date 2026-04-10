@@ -13,7 +13,7 @@ Usage:
 
 Settings:
     SHOPMAN_FISCAL_BACKENDS = [
-        "nelson.adapters.fiscal_focus.FocusNFCeBackend",
+        "myinstance.adapters.fiscal_focus.FocusNFCeBackend",
     ]
 """
 

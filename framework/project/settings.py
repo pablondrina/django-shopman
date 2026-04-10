@@ -1,5 +1,5 @@
 """
-Django settings for the Shopman project (Nelson Boulangerie demo).
+Django settings for the Shopman project.
 """
 
 import os
@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Make instances/ importable (e.g. nelson.customer_strategies)
+# Make instances/ importable (e.g. instance.customer_strategies)
 _instances_dir = str(Path(BASE_DIR).parent / "instances")
 if _instances_dir not in sys.path:
     sys.path.insert(0, _instances_dir)
@@ -68,13 +68,18 @@ INSTALLED_APPS = [
     "shopman.stockman.contrib.admin_unfold",
     "shopman.craftsman.contrib.admin_unfold",
     "shopman.stockman.contrib.alerts",
+    "shopman.guestman.contrib.consent",
+    "shopman.guestman.contrib.identifiers",
     "shopman.guestman.contrib.insights",
     "shopman.guestman.contrib.loyalty",
     "shopman.guestman.contrib.preferences",
+    "shopman.guestman.contrib.timeline",
     "shopman.guestman.contrib.admin_unfold",
     "shopman.doorman.contrib.admin_unfold",
     # Shopman orchestrator
     "shopman",
+    # Instance (Nelson Boulangerie demo)
+    "nelson",
 ]
 
 MIDDLEWARE = [
@@ -96,7 +101,7 @@ AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
 ]
 
-AUTH = {
+DOORMAN = {
     "PRESERVE_SESSION_KEYS": ["cart_session_key"],
     "DEFAULT_DOMAIN": os.environ.get("AUTH_DEFAULT_DOMAIN", "localhost:8000"),
     "USE_HTTPS": not DEBUG,
@@ -203,7 +208,7 @@ SHOPMAN_IFOOD = {
 
 # ── OTP Delivery Chain (depends on MANYCHAT_API_TOKEN above) ──────
 if MANYCHAT_API_TOKEN:
-    AUTH.update({
+    DOORMAN.update({
         "DELIVERY_CHAIN": ["whatsapp", "sms", "email"] if not DEBUG else ["whatsapp", "sms", "console"],
         "DELIVERY_SENDERS": {
             "whatsapp": "shopman.adapters.otp_manychat.ManychatOTPSender",
@@ -434,14 +439,14 @@ SPECTACULAR_SETTINGS = {
 
 # ── Offerman ──────────────────────────────────────────────────────
 
-OFFERING = {
+OFFERMAN = {
     # TODO WP-R2: restore cost backend adapter
     "COST_BACKEND": None,
 }
 
 # ── Craftsman (micro-MRP integration) ──────────────────────────────
 
-CRAFTING = {
+CRAFTSMAN = {
     "INVENTORY_BACKEND": "shopman.craftsman.adapters.stocking.StockingBackend",
     "DEMAND_BACKEND": "shopman.craftsman.contrib.demand.backend.OrderingDemandBackend",
     "CATALOG_BACKEND": "shopman.offerman.adapters.catalog_backend.OfferingCatalogBackend",

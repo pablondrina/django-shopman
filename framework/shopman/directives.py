@@ -19,8 +19,6 @@ FULFILLMENT_UPDATE = "fulfillment.update"
 # Confirmation
 CONFIRMATION_TIMEOUT = "confirmation.timeout"
 
-# Customer
-CUSTOMER_ENSURE = "customer.ensure"
 
 # Fiscal
 FISCAL_EMIT_NFCE = "fiscal.emit_nfce"
@@ -32,9 +30,6 @@ ACCOUNTING_CREATE_PAYABLE = "accounting.create_payable"
 # Loyalty
 LOYALTY_EARN = "loyalty.earn"
 LOYALTY_REDEEM = "loyalty.redeem"
-
-# Checkout defaults
-CHECKOUT_INFER_DEFAULTS = "checkout.infer_defaults"
 
 # Returns
 RETURN_PROCESS = "return.process"

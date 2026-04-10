@@ -1,12 +1,12 @@
 """
-Ordering Core Protocols — Interfaces para backends externos.
+Omniman Core Protocols — Interfaces para backends externos.
 
 Este módulo define os protocols (interfaces) que backends devem implementar.
 Os protocols vivem no core para que possam ser usados sem dependências circulares.
 
 Implementações concretas vivem em contrib/:
 - contrib/payment/adapters/ - Stripe, Pix, Mock
-- contrib/stock/adapters/ - Stocking, etc.
+- contrib/stock/adapters/ - Stockman, etc.
 - contrib/fiscal/backends/ - Focus NFC-e, Mock
 - contrib/accounting/backends/ - Conta Azul, Mock
 """

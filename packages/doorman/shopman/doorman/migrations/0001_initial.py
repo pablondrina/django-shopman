@@ -22,7 +22,7 @@ class Migration(migrations.Migration):
             name='CustomerUser',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('customer_id', models.UUIDField(db_index=True, help_text='UUID do cliente no Customers', unique=True, verbose_name='ID do cliente')),
+                ('customer_id', models.UUIDField(db_index=True, help_text='UUID do cliente no Guestman', unique=True, verbose_name='ID do cliente')),
                 ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='criado em')),
                 ('metadata', models.JSONField(blank=True, default=dict, help_text='Metadados do vínculo. Ex: {"device": "Chrome/120", "ip": "192.168.1.1"}', verbose_name='metadados')),
                 ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='shopman_auth_customer_user', to=settings.AUTH_USER_MODEL, verbose_name='usuário')),
@@ -37,7 +37,7 @@ class Migration(migrations.Migration):
             name='TrustedDevice',
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('customer_id', models.UUIDField(db_index=True, help_text='UUID do cliente no Customers', verbose_name='ID do cliente')),
+                ('customer_id', models.UUIDField(db_index=True, help_text='UUID do cliente no Guestman', verbose_name='ID do cliente')),
                 ('token_hash', models.CharField(db_index=True, help_text='HMAC-SHA256 do token do cookie.', max_length=64, unique=True, verbose_name='hash do token')),
                 ('user_agent', models.CharField(blank=True, default='', max_length=512, verbose_name='user agent')),
                 ('ip_address', models.GenericIPAddressField(blank=True, null=True, verbose_name='endereço IP')),
@@ -71,7 +71,7 @@ class Migration(migrations.Migration):
                 ('attempts', models.PositiveSmallIntegerField(default=0, verbose_name='tentativas')),
                 ('max_attempts', models.PositiveSmallIntegerField(default=shopman.doorman.models.verification_code._default_max_attempts, verbose_name='máximo de tentativas')),
                 ('ip_address', models.GenericIPAddressField(blank=True, null=True, verbose_name='endereço IP')),
-                ('customer_id', models.UUIDField(blank=True, help_text='UUID do cliente no Customers', null=True, verbose_name='ID do cliente')),
+                ('customer_id', models.UUIDField(blank=True, help_text='UUID do cliente no Guestman', null=True, verbose_name='ID do cliente')),
             ],
             options={
                 'verbose_name': 'código de verificação',
@@ -86,7 +86,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
                 ('token', models.CharField(db_index=True, default=shopman.doorman.models.access_link.generate_token, max_length=64, unique=True, verbose_name='token')),
-                ('customer_id', models.UUIDField(db_index=True, help_text='UUID do cliente no Customers', verbose_name='ID do cliente')),
+                ('customer_id', models.UUIDField(db_index=True, help_text='UUID do cliente no Guestman', verbose_name='ID do cliente')),
                 ('audience', models.CharField(choices=[('web_checkout', 'Checkout'), ('web_account', 'Conta'), ('web_support', 'Suporte'), ('web_general', 'Geral')], default='web_general', help_text='Escopo do token', max_length=20, verbose_name='audiência')),
                 ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='criado em')),
                 ('expires_at', models.DateTimeField(default=shopman.doorman.models.access_link.default_expiry, verbose_name='expira em')),

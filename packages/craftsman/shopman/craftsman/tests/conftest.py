@@ -1,5 +1,5 @@
 """
-Pytest configuration for Crafting tests.
+Pytest configuration for Craftsman tests.
 """
 
 import pytest

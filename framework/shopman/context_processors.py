@@ -69,7 +69,7 @@ def shop(request: HttpRequest) -> dict:
 
 
 def cart_count(request: HttpRequest) -> dict:
-    """Expose cart item count and subtotal from Ordering session to all templates."""
+    """Expose cart item count and subtotal from Omniman session to all templates."""
     from shopman.web.cart import CartService
 
     cart = CartService.get_cart(request)

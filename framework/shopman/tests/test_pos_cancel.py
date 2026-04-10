@@ -66,8 +66,6 @@ class PosCancelLastTests(TestCase):
         self.channel = Channel.objects.create(
             ref="balcao",
             name="Balcão",
-            pricing_policy="fixed",
-            edit_policy="open",
             is_active=True,
         )
         self.client.force_login(self.staff)
@@ -140,8 +138,6 @@ class PosCloseGranularErrorTests(TestCase):
         self.channel = Channel.objects.create(
             ref="balcao",
             name="Balcão",
-            pricing_policy="fixed",
-            edit_policy="open",
             is_active=True,
         )
         self.client.force_login(self.staff)

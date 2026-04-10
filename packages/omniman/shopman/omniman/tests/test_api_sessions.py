@@ -28,14 +28,10 @@ class SessionApiTests(TestCase):
         self,
         *,
         ref: str = "pos",
-        pricing_policy: str = "internal",
-        edit_policy: str = "open",
     ) -> Channel:
         return Channel.objects.create(
             ref=ref,
             name=ref.upper(),
-            pricing_policy=pricing_policy,
-            edit_policy=edit_policy,
             is_active=True,
         )
 
@@ -66,8 +62,8 @@ class SessionApiTests(TestCase):
             session_key="SESS-AMBIG",
             channel=c1,
             state="open",
-            pricing_policy=c1.pricing_policy,
-            edit_policy=c1.edit_policy,
+            pricing_policy="internal",
+            edit_policy="open",
             rev=0,
             items=[],
             data={"checks": {}, "issues": []},
@@ -76,8 +72,8 @@ class SessionApiTests(TestCase):
             session_key="SESS-AMBIG",
             channel=c2,
             state="open",
-            pricing_policy=c2.pricing_policy,
-            edit_policy=c2.edit_policy,
+            pricing_policy="internal",
+            edit_policy="open",
             rev=0,
             items=[],
             data={"checks": {}, "issues": []},
@@ -118,8 +114,8 @@ class SessionApiTests(TestCase):
             session_key="SESS-CHK-1",
             channel=channel,
             state="open",
-            pricing_policy=channel.pricing_policy,
-            edit_policy=channel.edit_policy,
+            pricing_policy="internal",
+            edit_policy="open",
             rev=0,
             items=[],
             data={"checks": {}, "issues": []},
@@ -140,10 +136,18 @@ class SessionApiTests(TestCase):
         self.assertIn("items", d.payload)
 
     def test_modify_locked_session_rejected(self) -> None:
-        self._mk_channel(ref="pos", edit_policy="locked")
-        s = self.client.post("/api/sessions", {"channel_ref": "pos"}, format="json").data
+        channel = self._mk_channel(ref="pos")
+        session = Session.objects.create(
+            session_key="SESS-LOCKED",
+            channel=channel,
+            state="open",
+            edit_policy="locked",
+            rev=0,
+            items=[],
+            data={"checks": {}, "issues": []},
+        )
         r = self.client.post(
-            f"/api/sessions/{s['session_key']}/modify",
+            f"/api/sessions/{session.session_key}/modify",
             {"channel_ref": "pos", "ops": [{"op": "add_line", "sku": "LATTE", "qty": 1}]},
             format="json",
         )
@@ -163,11 +167,20 @@ class SessionApiTests(TestCase):
         self.assertEqual(r.data["code"], "invalid_qty")
 
     def test_modify_external_pricing_requires_unit_price_q(self) -> None:
-        self._mk_channel(ref="ifood", pricing_policy="external")
-        s = self.client.post("/api/sessions", {"channel_ref": "ifood"}, format="json").data
+        channel = self._mk_channel(ref="ifood")
+        session = Session.objects.create(
+            session_key="SESS-EXT-PRICE",
+            channel=channel,
+            state="open",
+            pricing_policy="external",
+            edit_policy="open",
+            rev=0,
+            items=[],
+            data={"checks": {}, "issues": []},
+        )
 
         r = self.client.post(
-            f"/api/sessions/{s['session_key']}/modify",
+            f"/api/sessions/{session.session_key}/modify",
             {"channel_ref": "ifood", "ops": [{"op": "add_line", "sku": "LATTE", "qty": 1}]},
             format="json",
         )
@@ -180,8 +193,8 @@ class SessionApiTests(TestCase):
             session_key="SESS-C2",
             channel=c,
             state="open",
-            pricing_policy=c.pricing_policy,
-            edit_policy=c.edit_policy,
+            pricing_policy="internal",
+            edit_policy="open",
             rev=0,
             items=[{"line_id": "L-1", "sku": "LATTE", "qty": 1, "unit_price_q": 1000, "meta": {}}],
             data={
@@ -209,8 +222,8 @@ class SessionApiTests(TestCase):
             session_key="SESS-IDEM",
             channel=c,
             state="open",
-            pricing_policy=c.pricing_policy,
-            edit_policy=c.edit_policy,
+            pricing_policy="internal",
+            edit_policy="open",
             rev=0,
             items=[{"line_id": "L-1", "sku": "LATTE", "qty": 1, "unit_price_q": 1000, "meta": {}}],
             data={"checks": {}, "issues": []},
@@ -245,8 +258,8 @@ class SessionApiTests(TestCase):
             session_key="SESS-R1",
             channel=c,
             state="open",
-            pricing_policy=c.pricing_policy,
-            edit_policy=c.edit_policy,
+            pricing_policy="internal",
+            edit_policy="open",
             rev=0,
             items=[{"line_id": "L-1", "sku": "LATTE", "qty": 3, "unit_price_q": 1000, "meta": {}}],
             data={"checks": {}, "issues": []},

@@ -1,5 +1,5 @@
 """
-Django Stocking — Motor Unificado de Estoque.
+Django Stockman — Motor Unificado de Estoque.
 
 O parceiro de dança perfeito para o Django Salesman.
 
@@ -50,6 +50,9 @@ def __getattr__(name):
     elif name == 'Batch':
         from shopman.stockman.models.batch import Batch
         return Batch
+    elif name == 'StockHolds':
+        from shopman.stockman.services.holds import StockHolds
+        return StockHolds
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -66,6 +69,7 @@ __all__ = [
     'HoldStatus',
     'StockAlert',
     'Batch',
+    'StockHolds',
 ]
 
 __version__ = '0.3.0'

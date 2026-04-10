@@ -194,8 +194,6 @@ def channel(db):
     return Channel.objects.create(
         ref="loja",
         name="Loja Física",
-        pricing_policy="external",
-        edit_policy="open",
     )
 
 
@@ -207,8 +205,6 @@ def ifood_channel(db):
     return Channel.objects.create(
         ref="ifood",
         name="iFood",
-        pricing_policy="external",
-        edit_policy="locked",
     )
 
 

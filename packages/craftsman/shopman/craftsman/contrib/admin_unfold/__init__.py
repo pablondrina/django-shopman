@@ -1,4 +1,4 @@
-"""Crafting Admin with Unfold theme."""
+"""Craftsman Admin with Unfold theme."""
 
 # Lazy imports to avoid circular dependencies
 # Import directly from .base when needed:

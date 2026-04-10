@@ -46,7 +46,7 @@ class Migration(migrations.Migration):
                 ('ref', models.SlugField(unique=True, verbose_name='referência')),
                 ('name', models.CharField(max_length=200, verbose_name='nome')),
                 ('description', models.TextField(blank=True, verbose_name='descrição')),
-                ('listing_ref', models.CharField(blank=True, help_text='Código do Listing no Offering (convenção: Listing.ref == Channel.ref)', max_length=50, verbose_name='código da listagem')),
+                ('listing_ref', models.CharField(blank=True, help_text='Código do Listing no Offerman (convenção: Listing.ref == Channel.ref)', max_length=50, verbose_name='código da listagem')),
                 ('is_default', models.BooleanField(default=False, help_text='Grupo padrão para novos clientes', verbose_name='padrão')),
                 ('priority', models.IntegerField(default=0, help_text='Maior = mais prioridade', verbose_name='prioridade')),
                 ('metadata', models.JSONField(blank=True, default=dict, verbose_name='metadados')),

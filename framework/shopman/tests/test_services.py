@@ -74,8 +74,6 @@ class TestAvailabilityListingMembership:
         return Channel.objects.create(
             ref=ref,
             name=ref.upper(),
-            pricing_policy="external",
-            edit_policy="open",
         )
 
     def _make_product(self, sku="PAO-001", paused=False):

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 class PaymentError(Exception):
     """
-    Classe base para todas as exceções do Payments.
+    Classe base para todas as exceções do Payman.
 
     Codes:
         INTENT_NOT_FOUND — Intent não encontrado pelo ref

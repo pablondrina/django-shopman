@@ -1,4 +1,4 @@
-"""Customers protocols."""
+"""Guestman protocols."""
 
 from shopman.guestman.protocols.customer import (
     CustomerBackend,
