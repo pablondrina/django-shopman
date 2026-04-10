@@ -366,7 +366,6 @@ class CommitService:
                 # Schedule reminder for 09:00 on D-1
                 reminder_at = datetime_type.combine(reminder_date, time_type(9, 0))
                 if timezone.is_naive(reminder_at):
-                    from datetime import timezone as dt_timezone
                     # Use server timezone (BRT = UTC-3)
                     reminder_at = timezone.make_aware(reminder_at)
 

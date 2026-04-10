@@ -19,7 +19,6 @@ from shopman.orderman.contrib.refs.services import (
     attach_ref,
     resolve_ref,
     deactivate_refs,
-    get_refs_for_target,
     on_session_committed,
 )
 from shopman.orderman.contrib.refs.sequences import (

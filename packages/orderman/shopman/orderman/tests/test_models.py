@@ -10,10 +10,8 @@ from shopman.orderman.exceptions import InvalidTransition
 from shopman.orderman.models import (
     Directive,
     Fulfillment,
-    FulfillmentItem,
     IdempotencyKey,
     Order,
-    OrderEvent,
     OrderItem,
     Session,
     SessionItem,

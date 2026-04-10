@@ -7,7 +7,6 @@ Covers edge cases and branches in ModifyService and CommitService.
 from __future__ import annotations
 import types
 
-from decimal import Decimal
 
 from django.test import TestCase
 

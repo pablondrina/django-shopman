@@ -30,7 +30,7 @@ Cada app é um pacote pip independente. Comunicação entre apps via `typing.Pro
 | **Offerman** | `shopman-offerman` | `shopman.offerman` | Catálogo de produtos | Product, Listing, Collection, Bundle |
 | **Stockman** | `shopman-stockman` | `shopman.stockman` | Estoque físico | Quant, Move, Hold, Position, Batch |
 | **Craftsman** | `shopman-craftsman` | `shopman.craftsman` | Produção e receitas | Recipe, WorkOrder, WorkOrderItem |
-| **Omniman** | `shopman-omniman` | `shopman.omniman` | Pedidos omnichannel | Session, Order, Directive, Channel |
+| **Orderman** | `shopman-orderman` | `shopman.orderman` | Pedidos omnichannel | Session, Order, Directive, Channel |
 | **Guestman** | `shopman-guestman` | `shopman.guestman` | CRM e clientes | Customer, ContactPoint, CustomerGroup |
 | **Doorman** | `shopman-doorman` | `shopman.doorman` | Auth e acesso | VerificationCode, TrustedDevice, AccessLink |
 | **Payman** | `shopman-payman` | `shopman.payman` | Pagamentos | PaymentIntent, PaymentTransaction |
@@ -75,7 +75,7 @@ django-shopman/
 │   ├── offerman/               # shopman-offerman — Catálogo
 │   ├── stockman/               # shopman-stockman — Estoque
 │   ├── craftsman/              # shopman-craftsman — Produção
-│   ├── omniman/                # shopman-omniman — Pedidos
+│   ├── orderman/                # shopman-orderman — Pedidos
 │   ├── guestman/               # shopman-guestman — CRM
 │   ├── doorman/                # shopman-doorman — Auth
 │   └── payman/                 # shopman-payman — Pagamentos
@@ -154,7 +154,7 @@ make lint             # Ruff check
 | Repo | Descrição |
 |------|-----------|
 | [django-shopman](https://github.com/pablondrina/django-shopman) | Monorepo (este repo) |
-| [shopman-omniman](https://github.com/pablondrina/shopman-omniman) | Core: Pedidos |
+| [shopman-orderman](https://github.com/pablondrina/shopman-orderman) | Core: Pedidos |
 | [shopman-stockman](https://github.com/pablondrina/shopman-stockman) | Core: Estoque |
 | [shopman-craftsman](https://github.com/pablondrina/shopman-craftsman) | Core: Produção |
 | [shopman-offerman](https://github.com/pablondrina/shopman-offerman) | Core: Catálogo |

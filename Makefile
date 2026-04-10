@@ -11,7 +11,7 @@ PYTHON := $(shell [ -f .venv/bin/python ] && echo $(CURDIR)/.venv/bin/python || 
 # Python: usa venv se existir, senao o do PATH
 PYTHON := $(shell [ -f .venv/bin/python ] && echo $(CURDIR)/.venv/bin/python || echo python)
 
-.PHONY: help install test test-utils test-offerman test-stockman test-craftsman test-omniman test-payman test-guestman test-doorman test-framework lint clean migrate run dev seed coverage css css-watch fonts
+.PHONY: help install test test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework lint clean migrate run dev seed coverage css css-watch fonts
 
 help: ## Mostra este help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -33,14 +33,14 @@ install: ## Instala deps + apps da suite em modo editável
 	$(PYTHON) -m pip install -e packages/craftsman
 	$(PYTHON) -m pip install -e packages/guestman
 	$(PYTHON) -m pip install -e packages/doorman
-	$(PYTHON) -m pip install -e packages/omniman
+	$(PYTHON) -m pip install -e packages/orderman
 	$(PYTHON) -m pip install -e packages/payman
 	$(PYTHON) -m pip install -e framework
 	@echo "✓ Dependências instaladas"
 
 # ── Testes ────────────────────────────────────────────────────────────
 
-test: test-utils test-offerman test-stockman test-craftsman test-omniman test-payman test-guestman test-doorman test-framework ## Roda todos os testes
+test: test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework ## Roda todos os testes
 	@echo "✓ Todos os testes passaram"
 
 test-utils: ## Testes do shopman.utils
@@ -59,9 +59,9 @@ test-craftsman: ## Testes do shopman.crafting
 	@echo "── Craftsman ──"
 	cd packages/craftsman && $(PYTHON) -m pytest -x -q
 
-test-omniman: ## Testes do shopman.ordering
-	@echo "── Omniman ──"
-	cd packages/omniman && $(PYTHON) -m pytest -x -q
+test-orderman: ## Testes do shopman.orderman
+	@echo "── Orderman ──"
+	cd packages/orderman && $(PYTHON) -m pytest -x -q
 
 test-payman: ## Testes do shopman.payments
 	@echo "── Payman ──"

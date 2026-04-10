@@ -34,11 +34,11 @@ class OrderHistoryBackend(Protocol):
     Protocol for accessing order history.
 
     Used by contrib/insights to calculate RFM and metrics.
-    Implemented by adapters/omniman.py.
+    Implemented by adapters/orderman.py.
 
     Configuration in settings.py:
         GUESTMAN = {
-            "ORDER_HISTORY_BACKEND": "shopman.guestman.adapters.omniman.OmnimanOrderHistoryBackend",
+            "ORDER_HISTORY_BACKEND": "shopman.guestman.adapters.orderman.OrdermanOrderHistoryBackend",
         }
     """
 

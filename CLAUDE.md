@@ -10,7 +10,7 @@ packages/               8 apps pip-instaláveis (sem dependência entre si)
 ├── offerman/           Catálogo: produtos, preços, listings, coleções, bundles      [shopman-offerman]
 ├── stockman/           Estoque: quants, moves, holds, posições, alertas, planejamento [shopman-stockman]
 ├── craftsman/          Produção: receitas, work orders, BOM, sugestão               [shopman-craftsman]
-├── omniman/            Pedidos: sessions, orders, channels, directives, fulfillment [shopman-omniman]
+├── orderman/           Pedidos: sessions, orders, channels, directives, fulfillment [shopman-orderman]
 ├── guestman/           Clientes: customers, contatos, grupos, loyalty, RFM          [shopman-guestman]
 ├── doorman/            Auth: OTP, device trust, bridge tokens, magic links          [shopman-doorman]
 └── payman/             Pagamentos: intents, transactions, service                   [shopman-payman]

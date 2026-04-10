@@ -2,7 +2,7 @@
 Seed de producao — Nelson Boulangerie.
 
 Popula loja (shop), catalogo (offerman), estoque (stockman), receitas (craftsman),
-clientes (customers), canais (omniman) e pedidos com dados da Nelson.
+clientes (customers), canais (orderman) e pedidos com dados da Nelson.
 
 Uso:
     python manage.py seed          # seed normal
@@ -48,8 +48,8 @@ from shopman.offerman.models import (
     ProductComponent,
 )
 
-# ── Omniman (canais e pedidos) ──────────────────────────────────────
-from shopman.omniman.models import (
+# ── Orderman (canais e pedidos) ──────────────────────────────────────
+from shopman.orderman.models import (
     Channel,
     Directive,
     Fulfillment,
@@ -268,7 +268,7 @@ class Command(BaseCommand):
         for model in [PaymentTransaction, PaymentIntent]:
             model.objects.all().delete()
 
-        # Omniman
+        # Orderman
         for model in [FulfillmentItem, Fulfillment, Directive, OrderEvent, OrderItem, Order, Session, Channel]:
             model.objects.all().delete()
 
@@ -1217,7 +1217,7 @@ class Command(BaseCommand):
         return customers
 
     # ────────────────────────────────────────────────────────────────
-    # Canais (Omniman)
+    # Canais (Orderman)
     # ────────────────────────────────────────────────────────────────
 
     def _seed_channels(self):
@@ -1286,7 +1286,7 @@ class Command(BaseCommand):
         return channels
 
     # ────────────────────────────────────────────────────────────────
-    # Pedidos (Omniman)
+    # Pedidos (Orderman)
     # ────────────────────────────────────────────────────────────────
 
     def _seed_orders(self, products, customers, channels):
@@ -1544,13 +1544,13 @@ class Command(BaseCommand):
         self.stdout.write(f"  ✅ {order_count} pedidos (35 dias + live)")
 
     # ────────────────────────────────────────────────────────────────
-    # Sessoes abertas (Omniman)
+    # Sessoes abertas (Orderman)
     # ────────────────────────────────────────────────────────────────
 
     def _seed_sessions(self, channels):
         self.stdout.write("  📝 Sessoes abertas...")
 
-        from shopman.omniman.ids import generate_session_key
+        from shopman.orderman.ids import generate_session_key
 
         for channel_ref, items in [
             ("balcao", [

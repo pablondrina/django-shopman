@@ -14,8 +14,7 @@ Covers:
 from __future__ import annotations
 import types
 
-from datetime import date, timedelta
-from decimal import Decimal
+from datetime import timedelta
 
 from django.test import TestCase
 from django.utils import timezone
@@ -148,7 +147,7 @@ class PreorderReminderDirectiveTests(TestCase):
             },
         )
 
-        result = CommitService.commit(
+        CommitService.commit(
             session_key=session.session_key,
             channel_ref=self.channel.ref,
             idempotency_key=generate_idempotency_key(),
@@ -226,7 +225,6 @@ class PreorderCutoffValidationTests(TestCase):
     def test_preorder_tomorrow_after_cutoff(self) -> None:
         """Orders for tomorrow placed after 18h should fail validation."""
         from unittest.mock import patch
-        from datetime import datetime as dt
 
         today = timezone.now().date()
         tomorrow = today + timedelta(days=1)

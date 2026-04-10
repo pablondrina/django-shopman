@@ -173,7 +173,7 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 
 ## OrderingError (Ordering)
 
-**Arquivo:** `packages/omniman/shopman/ordering/exceptions.py`
+**Arquivo:** `packages/orderman/shopman/ordering/exceptions.py`
 **Base:** `Exception` (independente de `BaseError`)
 **Construtor:** `__init__(code, message, context=None)`
 
@@ -245,7 +245,7 @@ Não é erro — controle de fluxo. Contém `cached_response` com resultado ante
 
 ## RefError (Ordering — Refs)
 
-**Arquivo:** `packages/omniman/shopman/ordering/contrib/refs/exceptions.py`
+**Arquivo:** `packages/orderman/shopman/ordering/contrib/refs/exceptions.py`
 **Base:** `Exception`
 
 | Exceção | Quando ocorre |

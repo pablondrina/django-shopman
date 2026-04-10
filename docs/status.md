@@ -15,7 +15,7 @@ Para gaps e roadmap, ver [CORRECTIONS-PLAN.md](../CORRECTIONS-PLAN.md) e [READIN
 | shopman-offerman | `shopman-offerman` | 0.3.0 | 188 | Estável | Catálogo, preços, listings, bundles, coleções |
 | shopman-stockman | `shopman-stockman` | 0.3.0 | 162 | Estável | Estoque, holds, moves, posições, alertas |
 | shopman-craftsman | `shopman-craftsman` | 0.3.0 | 207 | Estável | Produção, receitas, work orders, BOM |
-| shopman-omniman | `shopman-omniman` | 0.1.0 | 231 | Estável | Pedidos, sessions, directives, channels |
+| shopman-orderman | `shopman-orderman` | 0.1.0 | 231 | Estável | Pedidos, sessions, directives, channels |
 | shopman-guestman | `shopman-guestman` | 0.1.0 | 369 | Estável | CRM, clientes, loyalty, RFM, consent |
 | shopman-doorman | `shopman-doorman` | 0.1.0 | 221 | Estável | Auth OTP, device trust, bridge tokens |
 | shopman-payman | `shopman-payman` | 0.1.0 | 111 | Beta | Pagamentos, PIX, Stripe — cobertura parcial (WP-C7) |

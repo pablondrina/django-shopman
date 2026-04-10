@@ -7,7 +7,7 @@ import pytest
 from django.test import TestCase
 
 from shopman.orderman.exceptions import CommitError, SessionError, ValidationError
-from shopman.orderman.models import Directive, Order, OrderItem, Session
+from shopman.orderman.models import Directive, Order, Session
 from shopman.orderman.services import CommitService, ModifyService, SessionWriteService
 
 

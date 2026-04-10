@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 
-from django import forms
 from django.contrib import admin, messages
 from django.db import models
 from django.http import HttpRequest, HttpResponseRedirect
@@ -87,7 +86,6 @@ except ImportError:
 from shopman.utils.monetary import format_money
 
 from shopman.orderman import registry
-from shopman.orderman.admin_widgets import DatalistTextInput
 from shopman.orderman.exceptions import CommitError, IssueResolveError, SessionError
 from shopman.orderman.ids import generate_idempotency_key
 from shopman.orderman.models import (
@@ -420,7 +418,7 @@ class SessionAdmin(ModelAdmin):
             self.message_user(request, _("Action aplicada com sucesso."))
         except IssueResolveError as exc:
             self.message_user(request, f"{exc.message}", level="error")
-        except Exception as exc:  # pragma: no cover - logging side-effect
+        except Exception:  # pragma: no cover - logging side-effect
             logger.exception(
                 "Falha inesperada ao resolver issue %s/%s para sessão %s",
                 issue_id,
@@ -548,7 +546,7 @@ class SessionAdmin(ModelAdmin):
             logger.warning("auto_recheck: Commit falhou após re-check para sessão %s: %s", session.session_key, exc.message)
             self.message_user(request, f"{exc.message}", level="error")
             return "failed"
-        except Exception as exc:
+        except Exception:
             logger.exception("auto_recheck: Falha inesperada ao commit após re-check para sessão %s", session.session_key)
             return "failed"
     def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
@@ -599,6 +597,7 @@ class SessionAdmin(ModelAdmin):
         # Supra-filtro por canal (barra rápida) — preserva contexto e mantém intenção do status (tabs).
         extra_context = extra_context or {}
 
+        from shopman.models import Channel
         channels = list(
             Channel.objects.filter(is_active=True).order_by(
                 "display_order", "name", "ref"
@@ -959,6 +958,7 @@ class OrderAdmin(ModelAdmin):
 
         # Supra-filtro por canal (barra rápida) — preserva contexto e mantém intenção do status (tabs).
         extra_context = extra_context or {}
+        from shopman.models import Channel
         channels = list(
             Channel.objects.filter(is_active=True).order_by(
                 "display_order", "name", "ref"

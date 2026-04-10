@@ -16,8 +16,8 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 | [`CustomerBackend`](#customerbackend) | framework/shopman/protocols | CustomersBackend, NoopCustomerBackend | 5 |
 | [`NotificationBackend`](#notificationbackend) | framework/shopman/protocols | ConsoleBackend, ManychatBackend, EmailBackend, SmsBackend, WebhookBackend, WhatsappBackend | 1 |
 | [`PaymentBackend`](#paymentbackend) | packages/payman/shopman/payments/protocols | MockPaymentBackend, StripeBackend, EfiPixBackend | 6 |
-| [`FiscalBackend`](#fiscalbackend) | packages/omniman/shopman/ordering/protocols | MockFiscalBackend, FocusBackend | 3 |
-| [`AccountingBackend`](#accountingbackend) | packages/omniman/shopman/ordering/protocols | MockAccountingBackend, ContaazulBackend | 6 |
+| [`FiscalBackend`](#fiscalbackend) | packages/orderman/shopman/ordering/protocols | MockFiscalBackend, FocusBackend | 3 |
+| [`AccountingBackend`](#accountingbackend) | packages/orderman/shopman/ordering/protocols | MockAccountingBackend, ContaazulBackend | 6 |
 
 ---
 
@@ -186,7 +186,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 ## FiscalBackend
 
-**Definido em:** `packages/omniman/shopman/ordering/protocols.py`
+**Definido em:** `packages/orderman/shopman/ordering/protocols.py`
 **Guia:** [Orquestração — Fiscal](../guides/flows.md)
 
 ### Dataclasses
@@ -217,7 +217,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 ## AccountingBackend
 
-**Definido em:** `packages/omniman/shopman/ordering/protocols.py`
+**Definido em:** `packages/orderman/shopman/ordering/protocols.py`
 **Guia:** [Ordering](../guides/ordering.md)
 
 ### Dataclasses

@@ -25,7 +25,6 @@ Configuração de Throttling:
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -170,7 +169,6 @@ class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
             return code
         # Para POST actions, pode vir no body.
         data = getattr(self.request, "data", {}) or {}
-        channel = data.get("channel") or {}
         # Quando usamos SlugRelatedField(source="channel") o payload original é channel_ref,
         # mas aqui ainda não passou pelo serializer; então lemos direto.
         return data.get("channel_ref")

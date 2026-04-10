@@ -86,7 +86,7 @@ packages/                            framework/
 ├── offerman     (catálogo)          │   ├── handlers/      (16 handlers)
 ├── stockman     (estoque)           │   ├── backends/      (16 backends)
 ├── craftsman    (produção)          │   ├── config.py      (ChannelConfig)
-├── omniman      (pedidos)           │   ├── services/      (11 services)
+├── orderman      (pedidos)           │   ├── services/      (11 services)
 ├── guestman     (clientes)          │   ├── flows.py       (lifecycle dispatcher)
 ├── doorman      (autenticação)      │   ├── setup.py       (registro centralizado)
 └── payman       (pagamentos)        │   └── web/           (storefront)
@@ -114,6 +114,6 @@ Para quem conhece a suite antiga (`django-shopman-suite`):
 | offerman | shopman.offering | `offering` |
 | stockman | shopman.stocking | `stocking` |
 | craftsman | shopman.crafting | `crafting` |
-| omniman | shopman.ordering | `ordering` |
+| orderman | shopman.ordering | `ordering` |
 | guestman | shopman.customers | `customers` |
 | doorman | shopman.auth | `auth` |

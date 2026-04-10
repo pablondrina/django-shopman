@@ -1,15 +1,15 @@
-"""Omniman OrderHistoryBackend adapter."""
+"""Orderman OrderHistoryBackend adapter."""
 
 from shopman.guestman.protocols.orders import OrderHistoryBackend, OrderSummary, OrderStats
 
 
-class OmnimanOrderHistoryBackend:
+class OrdermanOrderHistoryBackend:
     """
-    Adapter that implements OrderHistoryBackend by querying Omniman.
+    Adapter that implements OrderHistoryBackend by querying Orderman.
 
     Configuration in settings.py:
         GUESTMAN = {
-            "ORDER_HISTORY_BACKEND": "shopman.guestman.adapters.omniman.OmnimanOrderHistoryBackend",
+            "ORDER_HISTORY_BACKEND": "shopman.guestman.adapters.orderman.OrdermanOrderHistoryBackend",
         }
     """
 
@@ -18,7 +18,7 @@ class OmnimanOrderHistoryBackend:
         customer_ref: str,
         limit: int = 10,
     ) -> list[OrderSummary]:
-        """Return last orders for customer from Omniman."""
+        """Return last orders for customer from Orderman."""
         # Late import to avoid circular dependency
         try:
             from shopman.orderman.models import Order
@@ -27,14 +27,14 @@ class OmnimanOrderHistoryBackend:
 
         orders = (
             Order.objects.filter(customer_ref=customer_ref)
-            .select_related("channel")
+            
             .order_by("-created_at")[:limit]
         )
 
         return [
             OrderSummary(
                 order_ref=o.ref,
-                channel_ref=o.channel.ref if o.channel else "",
+                channel_ref=o.channel_ref or "",
                 ordered_at=o.created_at,
                 total_q=o.snapshot.get("pricing", {}).get("total_q", 0)
                 if o.snapshot
@@ -46,7 +46,7 @@ class OmnimanOrderHistoryBackend:
         ]
 
     def get_order_stats(self, customer_ref: str) -> OrderStats:
-        """Return aggregated order statistics from Omniman."""
+        """Return aggregated order statistics from Orderman."""
         try:
             from shopman.orderman.models import Order
             from django.db.models import Count, Min, Max

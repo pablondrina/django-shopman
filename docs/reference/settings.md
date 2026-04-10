@@ -71,9 +71,9 @@
 
 ---
 
-## Omniman (Pedidos)
+## Orderman (Pedidos)
 
-**Arquivo:** `packages/omniman/shopman/omniman/conf.py`
+**Arquivo:** `packages/orderman/shopman/orderman/conf.py`
 **Dict:** `OMNIMAN = {}`
 
 | Setting | Tipo | Default | Descrição |

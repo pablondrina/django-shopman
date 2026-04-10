@@ -231,7 +231,7 @@ Maria Santos envia mensagem no WhatsApp: "Quero 3 croissants e 2 cafes".
 
 O agente Nice interage com a API do ordering. Primeiro, abre uma sessao:
 
-**Codigo:** `packages/omniman/shopman/ordering/services/modify.py`
+**Codigo:** `packages/orderman/shopman/ordering/services/modify.py`
 
 ```python
 from shopman.ordering.services.modify import ModifyService
@@ -271,7 +271,7 @@ session = ModifyService.modify_session(
 
 O operador ve a sessao no admin e confirma (via `SessionAdmin` action).
 
-**Codigo:** `packages/omniman/shopman/ordering/services/commit.py`
+**Codigo:** `packages/orderman/shopman/ordering/services/commit.py`
 
 ```python
 from shopman.ordering.services.commit import CommitService

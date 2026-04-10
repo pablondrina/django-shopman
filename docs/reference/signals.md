@@ -126,7 +126,7 @@ Registrado por: `ShopmanConfig.ready()` via `setup.register_all()` → `_registe
 
 ### Ordering
 
-**Arquivo:** `packages/omniman/shopman/ordering/signals.py`
+**Arquivo:** `packages/orderman/shopman/ordering/signals.py`
 
 #### order_changed
 
@@ -307,7 +307,7 @@ Emitido quando um reembolso é registrado.
 
 ### post_save — Directive Dispatch
 
-**Arquivo:** `packages/omniman/shopman/ordering/dispatch.py`
+**Arquivo:** `packages/orderman/shopman/ordering/dispatch.py`
 **Registrado por:** `OrderingConfig.ready()`
 **dispatch_uid:** `"ordering.directive_dispatch"`
 

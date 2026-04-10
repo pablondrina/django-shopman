@@ -194,7 +194,7 @@ class CustomerAdmin(BaseModelAdmin):
             if count == 0:
                 return "-"
             url = (
-                reverse("admin:omniman_order_changelist")
+                reverse("admin:orderman_order_changelist")
                 + f"?handle_type=customer&handle_ref={obj.ref}"
             )
             return format_html(

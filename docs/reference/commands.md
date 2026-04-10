@@ -67,7 +67,7 @@ python manage.py load_crafting_demo --clear
 ### process_directives
 
 **App:** `shopman.ordering`
-**Arquivo:** `packages/omniman/shopman/ordering/management/commands/process_directives.py`
+**Arquivo:** `packages/orderman/shopman/ordering/management/commands/process_directives.py`
 
 Processa directives enfileiradas usando os handlers registrados. Implementa row-level locking (`skip_locked`), retry com backoff exponencial, e reaping de directives "stuck".
 
@@ -101,7 +101,7 @@ python manage.py process_directives --watch --interval 5 --limit 100 --max-attem
 ### cleanup_idempotency_keys
 
 **App:** `shopman.ordering`
-**Arquivo:** `packages/omniman/shopman/ordering/management/commands/cleanup_idempotency_keys.py`
+**Arquivo:** `packages/orderman/shopman/ordering/management/commands/cleanup_idempotency_keys.py`
 
 Remove IdempotencyKeys expiradas ou antigas. Limpa 3 categorias: keys com `expires_at` passado, keys antigas (done/failed), e opcionalmente keys "in_progress" órfãs (> 1h).
 

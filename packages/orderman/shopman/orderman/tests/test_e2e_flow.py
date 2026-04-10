@@ -14,7 +14,7 @@ from django.test import TestCase
 
 from shopman.orderman.exceptions import CommitError
 from shopman.orderman.ids import generate_idempotency_key, generate_session_key
-from shopman.orderman.models import Directive, Order, OrderEvent, Session
+from shopman.orderman.models import Order, Session
 from shopman.orderman.services import CommitService, ModifyService
 
 
