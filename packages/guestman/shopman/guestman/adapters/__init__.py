@@ -1,7 +1,7 @@
 """Customers adapters."""
 
-from shopman.guestman.adapters.ordering import OrderingOrderHistoryBackend
+from shopman.guestman.adapters.omniman import OmnimanOrderHistoryBackend
 
 __all__ = [
-    "OrderingOrderHistoryBackend",
+    "OmnimanOrderHistoryBackend",
 ]

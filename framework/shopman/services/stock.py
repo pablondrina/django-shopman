@@ -193,6 +193,7 @@ def _expand_if_bundle(sku: str, qty: Decimal) -> list[dict]:
     try:
         return CatalogService.expand(sku, qty)
     except Exception:
+        logger.exception("stock._expand_if_bundle: unexpected error expanding sku=%s", sku)
         return [{"sku": sku, "qty": qty}]
 
 

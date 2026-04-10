@@ -21,7 +21,7 @@ def _offering_available() -> bool:
         return False
 
 
-class OfferingPricingBackend:
+class OffermanPricingBackend:
     """Resolve preço pela cascata: grupo do cliente → listing do canal → preço base."""
 
     def get_price(self, sku: str, channel: Any, customer=None, qty: int = 1) -> int | None:

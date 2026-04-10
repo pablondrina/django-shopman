@@ -48,7 +48,7 @@ ALL_HANDLERS = [
     "shopman.handlers.accounting.PurchaseToPayableHandler",
     # Pricing modifiers
     "shopman.handlers.pricing.ItemPricingModifier",
-    "shopman.handlers.pricing.OfferingPricingBackend",
+    "shopman.handlers.pricing.OffermanPricingBackend",
     "shopman.handlers.pricing.SessionTotalModifier",
     # Validators
     "shopman.rules.validation.DeliveryZoneRule",
@@ -171,7 +171,7 @@ def _register_checkout_defaults_handler() -> None:
 
 
 def _register_pricing_modifiers() -> None:
-    from shopman.handlers.pricing import ItemPricingModifier, OfferingPricingBackend, SessionTotalModifier
+    from shopman.handlers.pricing import ItemPricingModifier, OffermanPricingBackend, SessionTotalModifier
     from shopman.modifiers import (
         D1DiscountModifier,
         DeliveryFeeModifier,
@@ -182,7 +182,7 @@ def _register_pricing_modifiers() -> None:
         ManualDiscountModifier,
     )
 
-    backend = OfferingPricingBackend()
+    backend = OffermanPricingBackend()
     for modifier in [
         ItemPricingModifier(backend=backend),
         D1DiscountModifier(),

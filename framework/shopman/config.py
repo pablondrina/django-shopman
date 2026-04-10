@@ -1,5 +1,5 @@
 """
-Channel configuration — 7 aspectos + cascata + validação.
+Channel configuration — 6 aspectos + cascata + validação.
 
 Configuração completa de um canal de venda. Cada aspecto responde a UMA pergunta.
 Cascata: canal → loja → defaults.
@@ -136,6 +136,8 @@ class ChannelConfig:
                 cls.Flow,
                 {k: v for k, v in data.get("flow", {}).items() if v is not None},
             ),
+            handle_label=data.get("handle_label", cls.handle_label),
+            handle_placeholder=data.get("handle_placeholder", cls.handle_placeholder),
         )
 
     @classmethod

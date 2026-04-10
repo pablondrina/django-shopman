@@ -190,6 +190,7 @@ def _payman_intent_captured(intent_ref: str) -> bool:
         intent = PaymentService.get(intent_ref)
         return intent.status in ("captured", "refunded")
     except Exception:
+        logger.exception("payment._payman_intent_captured: error checking intent_ref=%s", intent_ref)
         return False
 
 
@@ -200,4 +201,5 @@ def _payman_intent_refunded(intent_ref: str) -> bool:
         intent = PaymentService.get(intent_ref)
         return intent.status == "refunded"
     except Exception:
+        logger.exception("payment._payman_intent_refunded: error checking intent_ref=%s", intent_ref)
         return False
