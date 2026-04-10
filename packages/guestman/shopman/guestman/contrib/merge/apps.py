@@ -8,5 +8,5 @@ from django.utils.translation import gettext_lazy as _
 
 class MergeConfig(AppConfig):
     name = "shopman.guestman.contrib.merge"
-    label = "guestman_merge"
+    label = "customer_merge"
     verbose_name = _("Merge de Clientes")

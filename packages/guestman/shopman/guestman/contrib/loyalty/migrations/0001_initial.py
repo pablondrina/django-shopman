@@ -44,7 +44,7 @@ class Migration(migrations.Migration):
                 ('reference', models.CharField(blank=True, help_text='ID externo (ex: order:123)', max_length=100, verbose_name='referência')),
                 ('created_at', models.DateTimeField(auto_now_add=True, db_index=True, verbose_name='criado em')),
                 ('created_by', models.CharField(blank=True, max_length=100, verbose_name='criado por')),
-                ('account', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='transactions', to='guestman_loyalty.loyaltyaccount', verbose_name='conta')),
+                ('account', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='transactions', to='customer_loyalty.loyaltyaccount', verbose_name='conta')),
             ],
             options={
                 'verbose_name': 'transação de fidelidade',

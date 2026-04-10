@@ -6,5 +6,5 @@ from django.utils.translation import gettext_lazy as _
 
 class LoyaltyConfig(AppConfig):
     name = "shopman.guestman.contrib.loyalty"
-    label = "guestman_loyalty"
+    label = "customer_loyalty"
     verbose_name = _("Programa de Fidelidade")

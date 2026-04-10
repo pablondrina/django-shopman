@@ -6,5 +6,5 @@ from django.utils.translation import gettext_lazy as _
 
 class PreferencesConfig(AppConfig):
     name = "shopman.guestman.contrib.preferences"
-    label = "guestman_preferences"
+    label = "customer_preferences"
     verbose_name = _("Preferências")

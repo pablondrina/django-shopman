@@ -6,5 +6,5 @@ from django.utils.translation import gettext_lazy as _
 
 class InsightsConfig(AppConfig):
     name = "shopman.guestman.contrib.insights"
-    label = "guestman_insights"
+    label = "customer_insights"
     verbose_name = _("Análise de Clientes")
