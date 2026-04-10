@@ -62,6 +62,30 @@ class DirectiveError(OrderingError):
     """
 
 
+class DirectiveTransientError(DirectiveError):
+    """
+    Falha recuperável durante processamento de diretiva (network, lock timeout, etc).
+
+    O worker mantém a diretiva em fila com backoff exponencial para retry.
+    Valor de error_code gravado: "transient"
+    """
+
+    def __init__(self, message: str = "", context: dict | None = None):
+        super().__init__(code="transient", message=message, context=context)
+
+
+class DirectiveTerminalError(DirectiveError):
+    """
+    Falha irrecuperável durante processamento de diretiva (dado inválido, lógica quebrada).
+
+    O worker marca a diretiva como failed sem retry.
+    Valor de error_code gravado: "terminal"
+    """
+
+    def __init__(self, message: str = "", context: dict | None = None):
+        super().__init__(code="terminal", message=message, context=context)
+
+
 class IssueResolveError(OrderingError):
     """
     Erro durante resolução de issue.

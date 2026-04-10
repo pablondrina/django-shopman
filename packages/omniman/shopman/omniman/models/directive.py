@@ -31,6 +31,21 @@ class Directive(models.Model):
     attempts = models.IntegerField(_("tentativas"), default=0)
     available_at = models.DateTimeField(_("disponível em"), default=timezone.now, db_index=True)
     last_error = models.TextField(_("último erro"), blank=True, default="")
+    error_code = models.CharField(
+        _("código de erro"),
+        max_length=64,
+        blank=True,
+        default="",
+        help_text=_("Canônico: transient, terminal, handler_not_found, payload_invalid"),
+    )
+    dedupe_key = models.CharField(
+        _("chave de deduplicação"),
+        max_length=128,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text=_("Formato: {topic}:{order_ref}:{handler_version}. Handlers definem o seu."),
+    )
 
     created_at = models.DateTimeField(_("criado em"), auto_now_add=True)
     started_at = models.DateTimeField(_("iniciado em"), null=True, blank=True)

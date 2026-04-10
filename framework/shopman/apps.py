@@ -23,6 +23,9 @@ class ShopmanConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
 
     def ready(self):
+        # 0. Register system checks
+        import shopman.checks  # noqa: F401
+
         # 1. Register handlers, modifiers, validators
         self._register_handlers()
 

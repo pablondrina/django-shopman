@@ -1195,10 +1195,23 @@ class OrderAdmin(ModelAdmin):
         return super().changelist_view(request, extra_context=extra_context)
 
 
+class HighAttemptsFilter(admin.SimpleListFilter):
+    title = "tentativas"
+    parameter_name = "high_attempts"
+
+    def lookups(self, request, model_admin):
+        return [("yes", "≥ 3 tentativas")]
+
+    def queryset(self, request, queryset):
+        if self.value() == "yes":
+            return queryset.filter(attempts__gte=3)
+        return queryset
+
+
 @admin.register(Directive)
 class DirectiveAdmin(ModelAdmin):
-    list_display = ("topic", "status_badge", "attempts", "available_at", "started_at", "created_at")
-    list_filter = (("status", ChoicesRadioFilter), "topic")
+    list_display = ("topic", "status_badge", "error_code", "attempts", "available_at", "started_at", "created_at")
+    list_filter = (("status", ChoicesRadioFilter), "topic", "error_code", HighAttemptsFilter)
     search_fields = (
         "topic",
         "payload",
@@ -1206,11 +1219,11 @@ class DirectiveAdmin(ModelAdmin):
         "payload__order_ref",
         "payload__channel_ref",
         "payload__holds__hold_id",
+        "dedupe_key",
     )
     list_filter_submit = True
     ordering = ("-created_at", "-id")
     date_hierarchy = "created_at"
-    # list_filter_submit = True  # Desativado para permitir navegação via tabs
     list_fullwidth = True
     compressed_fields = True
     warn_unsaved_form = True
@@ -1221,11 +1234,11 @@ class DirectiveAdmin(ModelAdmin):
     fieldsets = (
         (
             _("Diretiva"),
-            {"fields": ("topic", "status", "payload"), "classes": ("tab",)},
+            {"fields": ("topic", "status", "payload", "dedupe_key"), "classes": ("tab",)},
         ),
         (
             _("Execução"),
-            {"fields": ("attempts", "available_at", "started_at", "last_error"), "classes": ("tab",)},
+            {"fields": ("attempts", "available_at", "started_at", "error_code", "last_error"), "classes": ("tab",)},
         ),
         (_("Auditoria"), {"fields": ("created_at", "updated_at"), "classes": ("tab",)}),
     )
@@ -1235,9 +1248,11 @@ class DirectiveAdmin(ModelAdmin):
         "topic",
         "status",
         "payload",
+        "dedupe_key",
         "attempts",
         "available_at",
         "started_at",
+        "error_code",
         "last_error",
         "created_at",
         "updated_at",
