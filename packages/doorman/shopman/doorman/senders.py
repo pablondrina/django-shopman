@@ -33,7 +33,7 @@ class ConsoleSender:
 
     def send_code(self, target: str, code: str, method: str) -> bool:
         print(f"\n{'='*50}")
-        print(f"DOORMAN - Verification Code")
+        print("DOORMAN - Verification Code")
         print(f"   Target: {target}")
         print(f"   Method: {method}")
         print(f"   Code: {code}")

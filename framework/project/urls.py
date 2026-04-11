@@ -30,10 +30,10 @@ urlpatterns = [
 
 # ── Core APIs ──────────────────────────────────────────────────────
 
-urlpatterns += _include_optional("api/ordering/", "shopman.orderman.api.urls")
-urlpatterns += _include_optional("api/offering/", "shopman.offerman.api.urls")
-urlpatterns += _include_optional("api/stocking/", "shopman.stockman.api.urls")
-urlpatterns += _include_optional("api/crafting/", "shopman.craftsman.api.urls")
+urlpatterns += _include_optional("api/orderman/", "shopman.orderman.api.urls")
+urlpatterns += _include_optional("api/offerman/", "shopman.offerman.api.urls")
+urlpatterns += _include_optional("api/stockman/", "shopman.stockman.api.urls")
+urlpatterns += _include_optional("api/craftsman/", "shopman.craftsman.api.urls")
 urlpatterns += _include_optional("api/customers/", "shopman.guestman.api.urls")
 urlpatterns += _include_optional("api/auth/", "shopman.doorman.api.urls")
 urlpatterns += _include_optional("auth/", "shopman.doorman.urls")

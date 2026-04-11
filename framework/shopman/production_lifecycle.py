@@ -1,5 +1,5 @@
 """
-Production flow hierarchy — lifecycle coordination for WorkOrders (WP-S5).
+Production lifecycle — coordination for WorkOrders.
 
 Signal `production_changed` → dispatch_production() → Flow.on_<phase>() → services.
 
@@ -78,7 +78,7 @@ def dispatch_production(work_order, phase: str) -> None:
     method = getattr(flow, phase, None)
     if method is None:
         logger.warning(
-            "production_flows.dispatch: no phase %s on %s",
+            "production_lifecycle.dispatch: no phase %s on %s",
             phase,
             type(flow).__name__,
         )

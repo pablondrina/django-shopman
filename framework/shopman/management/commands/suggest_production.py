@@ -43,15 +43,16 @@ class Command(BaseCommand):
         season_months = None
         high_demand_multiplier = None
         try:
-            from shopman.models import Shop
             from decimal import Decimal as D
+
+            from shopman.models import Shop
 
             shop = Shop.objects.first()
             if shop and shop.defaults:
                 seasons = shop.defaults.get("seasons", {})
                 # Determine current season based on target_date month
                 month = target_date.month
-                for season_name, months in seasons.items():
+                for _season_name, months in seasons.items():
                     if month in months:
                         season_months = months
                         break

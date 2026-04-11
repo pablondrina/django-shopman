@@ -4,8 +4,8 @@ Django AppConfig for the Shopman orchestrator.
 Wiring:
   1. Handler/modifier/validator registration via shopman.handlers.register_all()
   2. Rules engine boot + cache invalidation signal
-  3. Core signal order_changed → flows.dispatch()
-  4. Core signal production_changed → production_flows.dispatch_production()
+  3. Core signal order_changed → lifecycle.dispatch()
+  4. Core signal production_changed → production_lifecycle.dispatch_production()
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ class ShopmanConfig(AppConfig):
         # 2. Boot rules engine + connect cache invalidation
         self._register_rules()
 
-        # 3. Connect order_changed → flows.dispatch
+        # 3. Connect order_changed → lifecycle.dispatch
         self._connect_flow_signal()
 
         # 4. Connect production_changed → production flows
@@ -66,12 +66,12 @@ class ShopmanConfig(AppConfig):
         logger.info("ShopmanConfig: rules engine booted.")
 
     def _connect_flow_signal(self):
-        """Connect Core signal order_changed → flows.dispatch().
+        """Connect Core signal order_changed → lifecycle.dispatch().
 
         This replaces the old channels.hooks.on_order_lifecycle signal handler.
         The old handler is NOT connected — channels app is not in INSTALLED_APPS.
         """
-        from shopman.flows import dispatch
+        from shopman.lifecycle import dispatch
         from shopman.orderman.signals import order_changed
 
         def on_order_changed(sender, order, event_type, actor, **kwargs):
@@ -82,19 +82,19 @@ class ShopmanConfig(AppConfig):
 
         order_changed.connect(
             on_order_changed,
-            dispatch_uid="shopman.flows.on_order_changed",
+            dispatch_uid="shopman.lifecycle.on_order_changed",
             weak=False,
         )
         logger.info("ShopmanConfig: flow signal connected.")
 
     def _connect_production_flow_signal(self):
-        """Connect Core signal production_changed → production_flows.dispatch_production()."""
+        """Connect Core signal production_changed → production_lifecycle.dispatch_production()."""
         from shopman.craftsman.signals import production_changed
-        from shopman.production_flows import on_production_changed_receiver
+        from shopman.production_lifecycle import on_production_changed_receiver
 
         production_changed.connect(
             on_production_changed_receiver,
-            dispatch_uid="shopman.production_flows.on_production_changed",
+            dispatch_uid="shopman.production_lifecycle.on_production_changed",
             weak=False,
         )
         logger.info("ShopmanConfig: production flow signal connected.")

@@ -39,7 +39,7 @@ def _enrich_ticket(ticket, instance) -> dict:
         timer_class = "timer-late"
 
     order = ticket.order
-    customer_name = order.data.get("customer_name", "") or order.handle_ref or ""
+    customer_name = order.data.get("customer", {}).get("name", "") or order.handle_ref or ""
     fulfillment_type = get_fulfillment_type(order)
     fulfillment_icon = "local_shipping" if fulfillment_type == "delivery" else "storefront"
 
@@ -115,7 +115,7 @@ def _add_stock_warnings(items: list[dict]) -> list[dict]:
 
 def _enrich_expedition_order(order) -> dict:
     """Build template-ready dict for an expedition order card."""
-    customer_name = order.data.get("customer_name", "") or order.handle_ref or ""
+    customer_name = order.data.get("customer", {}).get("name", "") or order.handle_ref or ""
     is_delivery = get_fulfillment_type(order) == "delivery"
 
     return {

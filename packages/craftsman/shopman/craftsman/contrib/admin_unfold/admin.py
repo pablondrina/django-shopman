@@ -15,7 +15,6 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from unfold.contrib.filters.admin.datetime_filters import RangeDateFilter
 from unfold.contrib.filters.admin.dropdown_filters import ChoicesDropdownFilter

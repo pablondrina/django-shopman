@@ -1,6 +1,6 @@
 """Stripe webhook — receives payment events from Stripe.
 
-Uses shopman.flows.dispatch(order, "on_paid") for order lifecycle.
+Uses shopman.lifecycle.dispatch(order, "on_paid") for order lifecycle.
 """
 
 from __future__ import annotations
@@ -83,7 +83,7 @@ class StripeWebhookView(APIView):
 
     def _trigger_order_hooks(self, intent_ref: str) -> None:
         """Find associated order and trigger flow dispatch."""
-        from shopman.flows import dispatch
+        from shopman.lifecycle import dispatch
         from shopman.payman import PaymentService
 
         try:

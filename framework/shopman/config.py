@@ -131,6 +131,13 @@ class ChannelConfig:
     editing: Editing = field(default_factory=Editing)
     rules: Rules = field(default_factory=Rules)
 
+    # ── 9. Lifecycle ──
+
+    lifecycle: dict = field(default_factory=dict)
+    # Status transition map and terminal statuses baked into Order.snapshot at commit.
+    # Keys: transitions (dict status→list[status]), terminal_statuses (list[str]).
+    # Empty dict = use Order.DEFAULT_TRANSITIONS / Order.TERMINAL_STATUSES.
+
     # ── UX ──
 
     handle_label: str = "Identificador"
@@ -156,6 +163,7 @@ class ChannelConfig:
             pricing=_safe_init(cls.Pricing, data.get("pricing", {})),
             editing=_safe_init(cls.Editing, data.get("editing", {})),
             rules=_safe_init(cls.Rules, data.get("rules", {})),
+            lifecycle=data.get("lifecycle", {}),
             handle_label=data.get("handle_label", cls.handle_label),
             handle_placeholder=data.get("handle_placeholder", cls.handle_placeholder),
         )
