@@ -91,7 +91,7 @@ os WPs — são entrada, não output.
 
 **Caminho crítico:** WP-A → WP-B → WP-C/WP-D (paralelos) → WP-E → WP-F.
 
-WP-A é pré-requisito de tudo porque sem ele o admin do omniman quebra (C1) e
+WP-A é pré-requisito de tudo porque sem ele o admin do orderman quebra (C1) e
 qualquer trabalho no framework esbarra em código com nomes antigos. WP-B é o
 coração da reestruturação — é nele que o `ChannelConfig` passa a ser consumido
 de verdade.
@@ -103,10 +103,10 @@ de verdade.
 ### WP-A — Kernel Hygiene
 
 **Objetivo:** zerar resíduos de naming antigo no kernel e desbloquear o admin
-do omniman. Trabalho mecânico, sem decisão de design.
+do orderman. Trabalho mecânico, sem decisão de design.
 
 **Resolve:**
-- **C1** — admin do omniman referenciando `Channel.config`/`Channel.flow`
+- **C1** — admin do orderman referenciando `Channel.config`/`Channel.flow`
 - **C7** — `framework/shopman/checks.py:140` filtrando `config__fiscal__enabled`
 - **C8** — todos os resíduos `Stocking/Crafting/Offering/Identification/Customers/Payments/Auth` em docstrings, AppConfig, settings dataclasses, `__init__.py`, `pyproject.toml`
 - **C9** — 7 arquivos `*_test_settings.py` com nomes antigos
@@ -114,7 +114,7 @@ do omniman. Trabalho mecânico, sem decisão de design.
 
 **Critérios de pronto:**
 1. `grep -r "Stocking\|Crafting\|Offering\|Ordering\|Identification\|Customers\b\|Payments\b\|Doorkeeper" packages/` retorna **só** ocorrências legítimas (ex: `customer_type`, etc.). Nenhum resíduo de persona antiga.
-2. Admin do omniman abre Channel sem AttributeError. A aba "Config" foi **removida** do ChannelAdmin do kernel (config vive no framework).
+2. Admin do orderman abre Channel sem AttributeError. A aba "Config" foi **removida** do ChannelAdmin do kernel (config vive no framework).
 3. `framework/shopman/checks.py` não menciona `Channel.config`.
 4. `craftsman/contrib/stocking/` renomeado para `stockman/`, todos os imports atualizados.
 5. Os 7 `*_test_settings.py` renomeados para `<persona>_test_settings.py` ou `test_settings.py`.
@@ -144,11 +144,11 @@ Leia primeiro:
 
 Objetivo: zerar resíduos de naming antigo (Stocking/Crafting/Offering/
 Ordering/Identification/Customers/Payments/Auth/Doorkeeper) no kernel
-(packages/) e desbloquear o admin do omniman, sem mexer em design.
+(packages/) e desbloquear o admin do orderman, sem mexer em design.
 
 Faça nesta ordem:
 
-1. Corrigir packages/omniman/shopman/omniman/admin.py:
+1. Corrigir packages/orderman/shopman/orderman/admin.py:
    - Remover toda referência a Channel.config e Channel.flow.
    - Remover a aba "Config" do ChannelAdmin (vira responsabilidade do framework).
    - Manter Identidade (name, ref, kind), Display, ações.
@@ -181,7 +181,7 @@ Faça nesta ordem:
    - packages/doorman/auth_test_settings.py → doorman_test_settings.py
    - packages/guestman/customers_test_settings.py → guestman_test_settings.py
    - packages/offerman/offering_test_settings.py → offerman_test_settings.py
-   - packages/omniman/ordering_test_settings.py → omniman_test_settings.py
+   - packages/orderman/ordering_test_settings.py → orderman_test_settings.py
    - packages/payman/payments_test_settings.py → payman_test_settings.py
    - packages/stockman/stocking_test_settings.py → stockman_test_settings.py
    Atualizar Makefile, tox.ini, pytest.ini, .github/workflows se referenciarem.
@@ -203,7 +203,7 @@ Faça nesta ordem:
 
 9. Rodar make test e make lint. Tudo precisa passar.
 
-10. Commit no formato: feat(WP-A): kernel hygiene + omniman admin unblock
+10. Commit no formato: feat(WP-A): kernel hygiene + orderman admin unblock
 
 Critérios de pronto: ver seção WP-A em docs/plans/RESTRUCTURE-PLAN.md.
 
@@ -633,7 +633,7 @@ configuração de canal.
 **Critérios de pronto:**
 1. `Channel` do kernel tem só: `name`, `ref`, `kind`, `is_active`, `display_order` (+ timestamps).
 2. `ChannelConfig` (no framework) tem aspectos `Pricing` e `Editing` (ou nomes equivalentes).
-3. Migration do omniman remove `pricing_policy` e `edit_policy` de `Channel`.
+3. Migration do orderman remove `pricing_policy` e `edit_policy` de `Channel`.
 4. `framework/shopman/admin/channel_config.py` (novo) tem UI de aba por aspecto.
 5. Testes do `cart.py` e `pos.py` do framework continuam passando, agora lendo da config.
 6. `framework/shopman/checks.py` lê fiscal config do `ChannelConfigRecord`.
@@ -656,7 +656,7 @@ Pré-requisito: WP-A, WP-B, WP-C concluídos.
 Leia primeiro:
 - docs/plans/RESTRUCTURE-PLAN.md (princípios + escopo do WP-D)
 - docs/audit/2026-04-10-kernel-framework-audit.md (achado C16, parte de C1)
-- packages/omniman/shopman/omniman/models/channel.py
+- packages/orderman/shopman/orderman/models/channel.py
 - framework/shopman/config.py
 - framework/shopman/web/cart.py (leitor atual de pricing_policy/edit_policy)
 - CLAUDE.md
@@ -669,7 +669,7 @@ Decisões fechadas:
 - pricing_policy e edit_policy saem de Channel (kernel) e viram aspectos
   ChannelConfig.Pricing.policy e ChannelConfig.Editing.policy (revisar nomes
   durante a sessão).
-- Migration no omniman remove os dois campos.
+- Migration no orderman remove os dois campos.
 - Framework ganha admin/channel_config.py com UI por aba (Confirmation,
   Payment, Stock, Notifications, Rules, Fulfillment, Pricing, Editing).
 - Seed do nelson é atualizado para popular ChannelConfigRecord.
@@ -685,7 +685,7 @@ Faça:
    - framework/shopman/management/commands/seed.py — idem (popula
      ChannelConfigRecord)
 
-3. Criar migration no packages/omniman/ removendo pricing_policy e
+3. Criar migration no packages/orderman/ removendo pricing_policy e
    edit_policy de Channel. Limpar fixtures/seeds que ainda gravam neles.
 
 4. Reescrever framework/shopman/checks.py:140 (que ainda estava com TODO de
@@ -922,10 +922,10 @@ Critérios de pronto: ver seção WP-F em docs/plans/RESTRUCTURE-PLAN.md.
 Estas saíram da auditoria/conversa mas não foram alocadas:
 
 1. **`framework/shopman/protocols.py` ainda tem razão de existir?**
-   Após WP-B (que apaga `CustomerBackend`), ele só re-exporta de payman/omniman.
+   Após WP-B (que apaga `CustomerBackend`), ele só re-exporta de payman/orderman.
    Decisão: avaliar no fim do WP-B se vale a pena deletar de vez.
 
-2. **`omniman.contrib.refs` e `omniman.contrib.stock`** continuam sendo
+2. **`orderman.contrib.refs` e `orderman.contrib.stock`** continuam sendo
    contribs do kernel? Estão saudáveis hoje, mas se a decisão de WP-F
    estabelecer um padrão, pode valer revisitar.
 

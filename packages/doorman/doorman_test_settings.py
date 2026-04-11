@@ -53,4 +53,5 @@ DOORMAN = {
     "AUTO_CREATE_CUSTOMER": True,
     "USE_HTTPS": False,
     "DEFAULT_DOMAIN": "testserver",
+    "CUSTOMER_RESOLVER_CLASS": "shopman.guestman.adapters.auth.CustomerResolver",
 }

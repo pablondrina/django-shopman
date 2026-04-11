@@ -71,9 +71,15 @@ class FiscalBackend(Protocol):
     """
     Protocol para backends fiscais.
 
-    Implementações:
-    - FocusNFCeBackend: NFC-e via Focus API
-    - MockFiscalBackend: Para testes
+    Extension point intencional — o sistema funciona sem nenhum backend fiscal
+    configurado (handlers são no-op silenciosos quando não há backend ativo).
+    Ative em produção via SHOPMAN_FISCAL_BACKENDS no settings da instância.
+
+    Implementações de referência:
+    - FocusNFCeBackend: NFC-e via Focus NFE API (instância Nelson)
+    - MockFiscalBackend: Para testes unitários
+
+    Ver também: framework/shopman/fiscal.py (FiscalPool + base class)
     """
 
     def emit(
@@ -196,15 +202,19 @@ class AccountingBackend(Protocol):
     """
     Protocol para backends contábeis/financeiros.
 
-    Implementações:
+    Extension point intencional — não há implementação padrão.
+    O sistema funciona sem backend contábil; ative em produção via adapter
+    configurado no settings da instância.
+
+    Implementações de referência:
     - ContaAzulBackend: Conta Azul API
-    - MockAccountingBackend: Para testes
+    - MockAccountingBackend: Para testes unitários
 
     Responsabilidades:
     - Consulta de receitas e despesas
-    - Criação de contas a pagar (compras → Étienne)
-    - Fluxo de caixa (Anaïs)
-    - Contas a pagar/receber (Anaïs)
+    - Criação de contas a pagar
+    - Fluxo de caixa
+    - Contas a pagar/receber
     """
 
     def get_cash_flow(

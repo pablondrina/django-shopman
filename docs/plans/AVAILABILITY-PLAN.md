@@ -41,7 +41,7 @@ refatorando o Framework (shopman/) e Storefront (web/templates/).
 - **Stockman Core**: Quant (coordenadas espaço-tempo), Hold lifecycle, Move (ledger imutável), shelflife. Sólido.
 - **Craftsman Core**: Recipe, WorkOrder (OPEN/DONE/VOID), BOM multinível com `needs(expand=True)`, suggest() básico funcional. Sólido.
 - **Offerman Core**: Product, Listing, ListingItem, CatalogService. Sólido.
-- **Omniman Core**: Session→Order via CommitService, directives at-least-once, idempotency. Sólido.
+- **Orderman Core**: Session→Order via CommitService, directives at-least-once, idempotency. Sólido.
 - **Hold lifecycle**: PENDING→CONFIRMED→FULFILLED | RELEASED. Correto.
 - **Pickup slots**: Baseados em produção histórica, bottleneck logic. Correto.
 - **`find_alternatives()`**: Algoritmo de keywords + collection + score. Funcional (centralizar consumo).

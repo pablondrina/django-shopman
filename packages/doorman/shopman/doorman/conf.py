@@ -75,7 +75,9 @@ class DoormanSettings:
     PRESERVE_SESSION_KEYS: list[str] | None = None
 
     # Customer resolver (Protocol-based decoupling from Guestman)
-    CUSTOMER_RESOLVER_CLASS: str = "shopman.guestman.adapters.auth.CustomerResolver"
+    # Default raises NotImplementedError — configure a real resolver in settings.
+    # With shopman-guestman: "shopman.guestman.adapters.auth.CustomerResolver"
+    CUSTOMER_RESOLVER_CLASS: str = "shopman.doorman.resolvers.NoopCustomerResolver"
 
     # Adapter (single point of customization, like allauth's DefaultAccountAdapter)
     AUTH_ADAPTER: str = "shopman.doorman.adapter.DefaultAuthAdapter"

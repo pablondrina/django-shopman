@@ -63,9 +63,4 @@ def __getattr__(name):
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = [
-    "Gates",
-    "GateError",
-    "GateResult",
-    *_CONTRIB_MAP,
-]
+__all__ = ["Gates", "GateError", "GateResult"]

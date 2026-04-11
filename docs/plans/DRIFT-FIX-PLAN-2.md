@@ -98,7 +98,7 @@ Verificar se `settings/test.py` ou `conftest.py` já configura isso explicitamen
 
 ### Diagnóstico
 
-`packages/omniman/shopman/omniman/services/commit.py:388-394`:
+`packages/orderman/shopman/orderman/services/commit.py:388-394`:
 ```python
 return {
     "order_ref": order.ref,
@@ -132,7 +132,7 @@ O usuário confirmou: **`order_ref` é o identificador canônico**. Remover `ord
 
 ### Arquivos a modificar
 
-- `packages/omniman/shopman/omniman/services/commit.py` — remover `"order_id"` do retorno.
+- `packages/orderman/shopman/orderman/services/commit.py` — remover `"order_id"` do retorno.
 - `framework/shopman/api/serializers.py` — remover campo `order_id`.
 - `framework/shopman/api/views.py` — remover qualquer referência a `order_id` no retorno de commit.
 - `framework/shopman/web/views/checkout.py` — verificar se usa `result["order_id"]`.
@@ -146,7 +146,7 @@ O usuário confirmou: **`order_ref` é o identificador canônico**. Remover `ord
 
 ---
 
-## WP-DS-3 — Resíduos de `"pipeline"` em channel.py e admin Omniman
+## WP-DS-3 — Resíduos de `"pipeline"` em channel.py e admin Orderman
 
 **Gravidade:** alta. Admin exibe e aceita configuração de `pipeline` que não tem efeito — operadores que confiam no admin ficam com configuração silenciosamente ignorada.
 
@@ -155,7 +155,7 @@ O usuário confirmou: **`order_ref` é o identificador canônico**. Remover `ord
 AF-3 removeu `Pipeline` do `ChannelConfig`, mas três resíduos permanecem:
 
 **Resíduo 1 — `KNOWN_CONFIG_KEYS`:**
-`packages/omniman/shopman/omniman/models/channel.py:11`:
+`packages/orderman/shopman/orderman/models/channel.py:11`:
 ```python
 KNOWN_CONFIG_KEYS = frozenset({
     "confirmation", "payment", "stock", "pipeline",  # ← "pipeline" inválido
@@ -165,7 +165,7 @@ KNOWN_CONFIG_KEYS = frozenset({
 O método `Channel.clean()` usa esse set para validar o JSON. `"pipeline"` passa sem warning.
 
 **Resíduo 2 — Admin:**
-`packages/omniman/shopman/omniman/admin.py:250-256`:
+`packages/orderman/shopman/orderman/admin.py:250-256`:
 ```python
 pipeline = c.get("pipeline", {})
 on_commit = pipeline.get("on_commit", [])
@@ -174,7 +174,7 @@ on_confirmed = pipeline.get("on_confirmed", [])
 O admin exibe uma seção "Pipeline" lendo dados de `channel.config["pipeline"]`, que não tem mais efeito.
 
 **Resíduo 3 — Docstring/help_text:**
-`packages/omniman/shopman/omniman/models/channel.py:22-23,70`:
+`packages/orderman/shopman/orderman/models/channel.py:22-23,70`:
 ```python
 # channel.py:22-23
 Config segue o schema do ChannelConfig dataclass (7 aspectos):
@@ -192,14 +192,14 @@ confirmation, payment, stock, pipeline, notifications, rules, flow.
 
 ### Arquivos a modificar
 
-- `packages/omniman/shopman/omniman/models/channel.py` — `KNOWN_CONFIG_KEYS`, docstring, help_text.
-- `packages/omniman/shopman/omniman/admin.py` — remover seção pipeline.
+- `packages/orderman/shopman/orderman/models/channel.py` — `KNOWN_CONFIG_KEYS`, docstring, help_text.
+- `packages/orderman/shopman/orderman/admin.py` — remover seção pipeline.
 - `framework/shopman/management/commands/seed.py` — verificar e remover `"pipeline"` de configs de canal.
 - `instances/nelson/` — verificar fixtures/configs.
 
 ### Critério de conclusão
 
-- [ ] `grep -rn '"pipeline"' packages/omniman/` retorna zero (exceto testes de migração se existirem).
+- [ ] `grep -rn '"pipeline"' packages/orderman/` retorna zero (exceto testes de migração se existirem).
 - [ ] Admin de Channel não exibe mais seção "Pipeline".
 - [ ] Docstring de `Channel` lista 6 aspectos (sem `pipeline`).
 - [ ] `make test` verde.
@@ -347,7 +347,7 @@ Verificar também `framework/shopman/services/` e `framework/shopman/handlers/` 
 
 ### Arquivos a modificar
 
-- `packages/omniman/shopman/omniman/services/commit.py` — usar `ChannelConfig.effective(channel)`.
+- `packages/orderman/shopman/orderman/services/commit.py` — usar `ChannelConfig.effective(channel)`.
 - Outros call sites identificados na auditoria.
 
 ### Critério de conclusão
@@ -378,15 +378,15 @@ Cada ocorrência é drift. Substituir por `session_key`.
 - `seed.py` linhas 23,41,51,66,271,275,285,316,688,787,1220,1282,1540,1575: comentários de seção com `Offering`, `Stocking`, `Crafting`, `Ordering`.
 - `modifiers.py:4`: docstring `"Modifiers follow the Ordering Modifier protocol"`.
 - `middleware.py:18`: docstring `"Ordering.Session.data"`.
-- `omniman/__init__.py`, `omniman/registry.py`, `omniman/context_processors.py`, `omniman/exceptions.py`: verificar e corrigir.
+- `orderman/__init__.py`, `orderman/registry.py`, `orderman/context_processors.py`, `orderman/exceptions.py`: verificar e corrigir.
 - `suggest_production.py:79`: referência a `Crafting`.
-- Glossário (`docs/reference/glossary.md:7,18,40,48`): seções `Offering`, `Stocking`, `Crafting`, `Ordering` → `Offerman`, `Stockman`, `Craftsman`, `Omniman`.
+- Glossário (`docs/reference/glossary.md:7,18,40,48`): seções `Offering`, `Stocking`, `Crafting`, `Ordering` → `Offerman`, `Stockman`, `Craftsman`, `Orderman`.
 
 Substituições:
 - `Offering` → `Offerman`
 - `Stocking` → `Stockman`
 - `Crafting` → `Craftsman`
-- `Ordering` → `Omniman`
+- `Ordering` → `Orderman`
 
 **Grupo 3 — `DEFAULT_DDD` alias de backward compat:**
 `framework/shopman/web/constants.py:19-20`:
@@ -405,7 +405,7 @@ Viola a convenção "zero backward-compat aliases". Verificar callers: `grep -rn
 - `framework/shopman/management/commands/seed.py` — comentários de seção.
 - `framework/shopman/modifiers.py:4` — docstring.
 - `framework/shopman/middleware.py:18` — docstring.
-- `packages/omniman/shopman/omniman/__init__.py`, `registry.py`, `context_processors.py`, `exceptions.py` — varredura e correção.
+- `packages/orderman/shopman/orderman/__init__.py`, `registry.py`, `context_processors.py`, `exceptions.py` — varredura e correção.
 - `framework/shopman/management/commands/suggest_production.py:79`.
 - `docs/reference/glossary.md` — seções renomeadas.
 - `framework/shopman/web/constants.py` — remover `DEFAULT_DDD` (se sem callers).
@@ -497,7 +497,7 @@ grep -rn 'handle_type\|handle_ref' framework/shopman/web/views/ framework/shopma
 
 **Item 1 — `OrderEvent.seq` sem `select_for_update`:**
 
-`packages/omniman/shopman/omniman/models/order.py:254-257`:
+`packages/orderman/shopman/orderman/models/order.py:254-257`:
 ```python
 last_seq = self.events.aggregate(
     m=Coalesce(Max("seq"), Value(-1))
@@ -535,7 +535,7 @@ Alternativa: converter para `<a href="javascript:location.reload()">` ou manter 
 
 ### Arquivos a modificar
 
-- `packages/omniman/shopman/omniman/models/order.py` — adicionar `select_for_update()` em `emit_event()`.
+- `packages/orderman/shopman/orderman/models/order.py` — adicionar `select_for_update()` em `emit_event()`.
 - `framework/shopman/templates/storefront/offline.html` — adicionar comentário de exceção.
 
 ### Critério de conclusão

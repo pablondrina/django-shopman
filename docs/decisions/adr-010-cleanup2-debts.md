@@ -232,7 +232,7 @@ backends/. Dificulta onboarding e aumenta o overhead cognitivo.
 | Diretório de package | Namespace Python real | Persona |
 |---|---|---|
 | `packages/stockman/` | `shopman.stocking` | Stockman |
-| `packages/omniman/` | `shopman.ordering` | Omniman |
+| `packages/orderman/` | `shopman.orderman` | Orderman |
 | `packages/offerman/` | `shopman.offering` | Offerman |
 | `packages/guestman/` | `shopman.customers` | Guestman |
 | `packages/craftsman/` | `shopman.crafting` | Craftsman |
@@ -252,8 +252,7 @@ WP-CL2-10 executa o rename físico, exige aprovação separada do usuário.
 **WP responsável:** CL2-9 (prep), CL2-10 (execução — exige aprovação)
 
 **Justificativa:** O código é lido com muito mais frequência do que é escrito.
-`from shopman.ordering.models import Order` e `from shopman.omniman.models import Order`
-têm o mesmo resultado hoje, mas o segundo reflete a identidade do projeto.
+`from shopman.orderman.models import Order` reflete a identidade do projeto.
 Com 401 ocorrências, o rename é o maior WP do plano — justifica o dry-run
 isolado de CL2-9.
 
@@ -312,7 +311,7 @@ já estaria correto quando o cliente chega na PDP.
 - D1 (crítico): pedidos de bundle nunca mais chegam ao commit com stock inconsistente
 - D4: comportamento de stock uniform entre todos os canais
 - D6: `backends/` vazio ao fim de CL2-8 — arquitetura coerente
-- D7: `from shopman.omniman.models import Order` — identidade do projeto refletida no código
+- D7: `from shopman.orderman.models import Order` — identidade do projeto refletida no código
 - D8: vitrine sempre atualizada sem reload do cliente
 
 ### Negativas

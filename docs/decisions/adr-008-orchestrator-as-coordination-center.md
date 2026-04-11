@@ -20,7 +20,7 @@ O desacoplamento existe entre os core apps — eles tem zero imports entre si. O
 
 ### Principios que sustentam a decisao
 
-1. **Core apps sao verdadeiramente independentes.** Nenhum app em `packages/` importa de outro app. Offerman nao sabe que Stockman existe. Omniman nao sabe que Payman existe. Cada um resolve seu dominio isoladamente.
+1. **Core apps sao verdadeiramente independentes.** Nenhum app em `packages/` importa de outro app. Offerman nao sabe que Stockman existe. Orderman nao sabe que Payman existe. Cada um resolve seu dominio isoladamente.
 
 2. **Protocol/Adapter garante que core apps nao se conhecem.** Os contratos (`protocols.py`) e os adapters (`adapters/`) permitem que o framework conecte dominios sem que os dominios saibam uns dos outros. Um `StockBackend` pode ser trocado sem tocar em nenhum core app.
 

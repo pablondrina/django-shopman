@@ -2,7 +2,7 @@
 
 ## Contexto
 
-WP-K1 foi concluído com sucesso. O kernel (`packages/omniman`) foi limpo:
+WP-K1 foi concluído com sucesso. O kernel (`packages/orderman`) foi limpo:
 - `Channel.flow` → `Channel.kind`
 - `Channel.listing_ref` removido (convenção: `listing.ref == channel.ref`)
 - `Channel.config` removido do kernel (config é responsabilidade do framework)

@@ -184,7 +184,7 @@ Para quem conhece a suite antiga (`django-shopman-suite`):
 | offerman | shopman.offering | offering |
 | stockman | shopman.stocking | stocking |
 | craftsman | shopman.crafting | crafting |
-| omniman | shopman.ordering | ordering |
+| orderman | shopman.orderman | orderman |
 | guestman | shopman.customers | customers |
 | doorman | shopman.auth | auth |
 | *(novo)* | shopman.payments | payments |

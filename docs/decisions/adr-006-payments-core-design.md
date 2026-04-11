@@ -52,4 +52,4 @@ O webhook não cria directives diretamente — ele usa o mesmo mecanismo de hook
 - **Testabilidade:** `MockPaymentBackend` implementa o protocol completo sem I/O externo
 - **Extensibilidade:** Novos gateways = novo backend em `shopman/backends/` + setting
 - **Auditoria:** `PaymentTransaction` é imutável, cada operação financeira tem registro
-- **Desacoplamento:** Omniman não importa Payman; a ligação é via `order_ref` (string) e signals
+- **Desacoplamento:** Orderman não importa Payman; a ligação é via `order_ref` (string) e signals

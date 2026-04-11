@@ -1,9 +1,9 @@
-# ADR-007: Integração Craftsman ↔ Omniman
+# ADR-007: Integração Craftsman ↔ Orderman
 
 **Status:** Implemented
 **Data:** 2026-03-24
 **Atualizado:** 2026-04-07
-**Contexto:** Conectar o ciclo de produção (Craftsman) ao ciclo de pedidos (Omniman)
+**Contexto:** Conectar o ciclo de produção (Craftsman) ao ciclo de pedidos (Orderman)
 
 ---
 
@@ -103,9 +103,9 @@ Produção fecha na manhã seguinte:
 
 ## Decisão
 
-### Princípio: O Craftsman NÃO depende do Omniman
+### Princípio: O Craftsman NÃO depende do Orderman
 
-Toda integração fica no framework (App layer). O Craftsman core não importa nada do Omniman.
+Toda integração fica no framework (App layer). O Craftsman core não importa nada do Orderman.
 
 ### Implementação (completa)
 
@@ -117,7 +117,7 @@ via `get_safety_margin()`.
 
 #### 2. Encomendas como input do suggest() (IMPLEMENTADO)
 
-`OmnimanDemandBackend.committed()` consulta holds ativos no Stockman.
+`OrdermanDemandBackend.committed()` consulta holds ativos no Stockman.
 Quando o operador roda `craft.suggest(sexta)`, as encomendas estão contabilizadas
 no cálculo de demanda.
 
@@ -254,7 +254,7 @@ Carlos pede 60 croissants para sexta, quinta às 22h
 
 ### Positivas
 - **100% do fluxo fermata implementado** — auto-commit, pagamento pós-materialização, TTL
-- Craftsman core permanece 100% agnóstico (zero imports de Omniman)
+- Craftsman core permanece 100% agnóstico (zero imports de Orderman)
 - `suggest()` incorpora encomendas via `committed()` do DemandBackend
 - Hold de demanda + realize() + holds_materialized funcionam E2E
 - Disponibilidade com margem de segurança para estoque planejado

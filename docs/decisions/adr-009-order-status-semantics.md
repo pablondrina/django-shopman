@@ -16,7 +16,7 @@ operacionalmente órfãos. Este ADR valida cada item contra o código atual
 e decide o tipo de correção a aplicar.
 
 Arquivos de referência auditados:
-- `packages/omniman/shopman/ordering/models/order.py` — enum `Status`, `DEFAULT_TRANSITIONS`, docstrings
+- `packages/orderman/shopman/orderman/models/order.py` — enum `Status`, `DEFAULT_TRANSITIONS`, docstrings
 - `framework/shopman/flows.py` — `BaseFlow.on_*`, `kds.dispatch`
 - `framework/shopman/services/kds.py` — `dispatch()`, idempotência
 - `framework/shopman/web/views/pedidos.py` — `_ACTIVE_STATUSES`, `_is_delivery()`, `_next_status_for()`

@@ -6,7 +6,7 @@
 
 ## Visão Geral
 
-O módulo `shopman/` (em `framework/shopman/`) é o orquestrador do sistema. Ele não contém lógica de domínio — apenas **coordena** os apps core (Offerman, Stockman, Craftsman, Omniman, Guestman, Doorman, Payman) através de 4 conceitos separados:
+O módulo `shopman/` (em `framework/shopman/`) é o orquestrador do sistema. Ele não contém lógica de domínio — apenas **coordena** os apps core (Offerman, Stockman, Craftsman, Orderman, Guestman, Doorman, Payman) através de 4 conceitos separados:
 
 1. **Flows** (`flows.py`) — **QUANDO**: coordenação de lifecycle via herança Python
 2. **Services** (`services/`) — **O QUE**: lógica de negócio que chama Core services + adapters

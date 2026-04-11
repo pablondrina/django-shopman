@@ -243,8 +243,8 @@ deve passar a usar `ChannelConfig.effective(channel)` para herdar o cascade.
 
 ### Arquivos afetados
 
-- `packages/omniman/shopman/omniman/models/channel.py` — adicionar `flow` field.
-- `packages/omniman/shopman/omniman/migrations/` — nova migração.
+- `packages/orderman/shopman/orderman/models/channel.py` — adicionar `flow` field.
+- `packages/orderman/shopman/orderman/migrations/` — nova migração.
 - `framework/shopman/flows.py` — substituir `_channel_config` por `ChannelConfig.effective`.
 - `framework/shopman/config.py` — `Flow` dataclass fica como está (transitions/terminal_statuses).
 - `framework/shopman/admin/shop.py` (ou onde Channel é administrado) — expor `flow` no admin.
@@ -408,7 +408,7 @@ em branches separados, mas recomendo serializar para facilitar revisão.
 
 - **Respeitar o core** (memória `feedback_respect_core_no_reinvent`): os três fixes
   são no framework orquestrador, não nos packages. O core `payman` está correto, o
-  core `stockman` está correto, o core `omniman` está correto. É o glue code que
+  core `stockman` está correto, o core `orderman` está correto. É o glue code que
   ficou pra trás.
 - **Zero resíduos** (memória `feedback_zero_residuals`): renomear `intent_id` →
   `intent_ref` em tudo. Não deixar alias.

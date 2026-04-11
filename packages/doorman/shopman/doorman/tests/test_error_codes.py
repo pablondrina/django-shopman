@@ -119,7 +119,10 @@ def test_verify_code_invalid_error_code(customer, verification_code):
 
 
 @pytest.mark.django_db
-@override_settings(DOORMAN={"AUTO_CREATE_CUSTOMER": False})
+@override_settings(DOORMAN={
+    "AUTO_CREATE_CUSTOMER": False,
+    "CUSTOMER_RESOLVER_CLASS": "shopman.guestman.adapters.auth.CustomerResolver",
+})
 def test_verify_account_not_found_error_code():
     """Unknown phone with auto-create disabled returns ACCOUNT_NOT_FOUND."""
     raw_code, hmac_digest = generate_raw_code()

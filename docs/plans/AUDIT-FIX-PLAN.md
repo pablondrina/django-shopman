@@ -82,7 +82,7 @@ sendo lidos da fonte errada (`order.data` vs `order.snapshot`).
 
 ### Diagnóstico
 
-`packages/omniman/shopman/omniman/models/order.py:136`:
+`packages/orderman/shopman/orderman/models/order.py:136`:
 
 ```python
 def get_transitions(self) -> dict:
@@ -118,7 +118,7 @@ pode ser necessária para renomear a chave para `flow` se houver configs salvas)
 
 ### Arquivos afetados
 
-- `packages/omniman/shopman/omniman/models/order.py` — reescrever os dois métodos.
+- `packages/orderman/shopman/orderman/models/order.py` — reescrever os dois métodos.
 - Possivelmente: migration de dados para renomear `order_flow` → `flow` em configs
   de canais existentes (verificar com `Channel.objects.filter(config__order_flow__isnull=False)`).
 
@@ -201,7 +201,7 @@ seguindo o nome do Pipeline, não vai funcionar — o webhook procura `on_paymen
 
 ### Diagnóstico
 
-`packages/omniman/shopman/omniman/services/commit.py:202`:
+`packages/orderman/shopman/orderman/services/commit.py:202`:
 
 ```python
 required_checks = channel.config.get("required_checks_on_commit", [])
@@ -232,7 +232,7 @@ migrar os valores para a chave `rules.checks` no JSON do canal.
 
 ### Arquivos afetados
 
-- `packages/omniman/shopman/omniman/services/commit.py` — substituir leitura.
+- `packages/orderman/shopman/orderman/services/commit.py` — substituir leitura.
 - Possivelmente: script de migração de dados para renomear chave em configs existentes.
 
 ### Testes obrigatórios
@@ -399,7 +399,7 @@ Resíduos de nomes antigos e dados Nelson em código não-executável:
   - `offering` → `offerman`
   - `stocking` → `stockman`
   - `crafting` → `craftsman`
-  - `ordering` → `omniman`
+  - `ordering` → `orderman`
 - Substituir referências Nelson em help texts por placeholders genéricos
   (ex: `"https://instagram.com/suanomequi"` → `"https://instagram.com/example"`).
 - No `seed.py`: substituir emails/URLs Nelson por genéricos (`admin@example.com`, etc.).
@@ -444,4 +444,4 @@ cada WP antes de passar para o próximo.
 - **Zero gambiarras**: registry pattern em AF-5 é a solução correta, não um `if` extra.
 - **Core é sagrado**: todos os WPs tocam apenas no framework orquestrador ou na
   instância. Nenhum WP modifica `packages/` exceto AF-2 e AF-4 que tocam em
-  `packages/omniman/` com cirurgia mínima.
+  `packages/orderman/` com cirurgia mínima.
