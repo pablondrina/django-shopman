@@ -210,7 +210,7 @@ Critérios de pronto: ver seção WP-A em docs/plans/RESTRUCTURE-PLAN.md.
 NÃO faça neste WP:
 - Mover pricing_policy/edit_policy
 - Reescrever ChannelAdmin do framework
-- Tocar em flows.py, handlers/customer.py, services/customer.py, ChannelConfig
+- Tocar em lifecycle.py, handlers/customer.py, services/customer.py, ChannelConfig
 - Decidir sobre contribs do guestman
 
 Se encontrar algo fora de escopo que parece urgente, anote em
@@ -256,7 +256,7 @@ Este é o WP central. É o que justifica todo o resto.
    `Fulfillment` ou somem (transitions, terminal_statuses, auto_transitions
    eram morto).
 
-2. **`flows.py` vira função pura:**
+2. **`lifecycle.py` vira função pura:**
    `LocalFlow`, `RemoteFlow`, `MarketplaceFlow`, `PosFlow`, `TotemFlow`,
    `WebFlow`, `WhatsAppFlow`, `ManychatFlow`, `IFoodFlow` — **todos removidos**.
    `dispatch(order, phase)` lê `ChannelConfig.for_channel(order.channel)` e
@@ -310,8 +310,8 @@ Este é o WP central. É o que justifica todo o resto.
    - `framework/shopman/handlers/__init__.py:211` — `shopman.craftsman.signals`
 
 **Critérios de pronto:**
-1. `framework/shopman/flows.py` tem **zero classes Flow** — só `dispatch()` e helpers.
-2. `framework/shopman/production_flows.py` foi unificado com `flows.py` ou removido (decidir durante o WP).
+1. `framework/shopman/lifecycle.py` tem **zero classes Flow** — só `dispatch()` e helpers.
+2. `framework/shopman/production_lifecycle.py` foi unificado com `lifecycle.py` ou removido (decidir durante o WP).
 3. `framework/shopman/handlers/customer.py` foi deletado.
 4. `framework/shopman/handlers/checkout_defaults.py` foi deletado (`CheckoutInferDefaultsHandler` órfão).
 5. `framework/shopman/protocols.py::CustomerBackend` foi deletado.
@@ -358,7 +358,7 @@ Leia primeiro:
 - docs/audit/2026-04-10-kernel-framework-audit.md (achados C2, C5, C6, C11, C13, C14)
 - CLAUDE.md
 - framework/shopman/config.py (entender ChannelConfig atual)
-- framework/shopman/flows.py (entender o que vai sumir)
+- framework/shopman/lifecycle.py (entender o que vai sumir)
 - framework/shopman/services/customer.py + handlers/customer.py (duplicação)
 
 Objetivo: reescrever o runtime do framework para consumir ChannelConfig
@@ -385,7 +385,7 @@ Estratégia: avançar gradualmente em 9 etapas:
    Manter Flow aspect antigo intocado por enquanto.
    Adicionar testes de defaults e cascata para os novos campos.
 
-2. Reescrever framework/shopman/flows.py:
+2. Reescrever framework/shopman/lifecycle.py:
    - dispatch(order, phase) lê ChannelConfig e chama services em ordem.
    - Manter assinatura de dispatch() compatível com signal handler atual.
    - Documentar a tabela de combinações (timing × phase × service).
@@ -394,10 +394,10 @@ Estratégia: avançar gradualmente em 9 etapas:
    configurar canais via payment.timing/fulfillment.timing em vez de
    selecionar Flow class.
 
-4. Deletar todas as subclasses de Flow em flows.py. Manter só dispatch()
+4. Deletar todas as subclasses de Flow em lifecycle.py. Manter só dispatch()
    + helpers necessários.
 
-5. Decidir production_flows.py: unificar com flows.py OU remover. NÃO deixar
+5. Decidir production_lifecycle.py: unificar com lifecycle.py OU remover. NÃO deixar
    como está. Recomendação: remover e mover lógica para services/production.py
    se ainda for necessária.
 
@@ -423,7 +423,7 @@ Estratégia: avançar gradualmente em 9 etapas:
 9. Adicionar testes de invariante em framework/shopman/tests/:
    - test_invariant_payment_data.py: rejeita gravar 'status' em order.data['payment']
    - test_invariant_handlers.py: todo handler de ALL_HANDLERS tem produtor identificado
-   - test_invariant_no_legacy_flow.py: nenhuma classe Flow definida em flows.py
+   - test_invariant_no_legacy_flow.py: nenhuma classe Flow definida em lifecycle.py
 
 10. Corrigir framework/shopman/web/views/checkout.py:442 — substituir leitura de
     order.data['payment']['intent_ref'] por consulta a PaymentService.
@@ -704,7 +704,7 @@ Faça:
 9. Commit: refactor(WP-D): channel config consolidation + remove kernel leak
 
 NÃO faça neste WP:
-- Mexer em flows.py / dispatch (já fechado em WP-B)
+- Mexer em lifecycle.py / dispatch (já fechado em WP-B)
 - Mexer em contribs do guestman (WP-F)
 - Mover seed.py inteiro (WP-E)
 

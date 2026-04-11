@@ -495,7 +495,7 @@ WP-A9  Seed realista                     ← depende de A7, A8 (usa features nov
 ## Referências
 
 - [docs/reference/data-schemas.md](../reference/data-schemas.md) — Schemas de Session/Order data
-- [docs/guides/flows.md](../guides/flows.md) — Arquitetura de Flows
+- [docs/guides/lifecycle.md](../guides/lifecycle.md) — Arquitetura de Flows
 - [CLAUDE.md](../../CLAUDE.md) — Convenções do projeto
 - Stockman: `packages/stockman/shopman/stocking/services/availability.py`
 - Craftsman: `packages/craftsman/shopman/crafting/services/queries.py`

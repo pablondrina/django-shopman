@@ -120,6 +120,22 @@ class ChannelConfig:
         modifiers: list[str] = field(default_factory=list)
         checks: list[str] = field(default_factory=list)
 
+    # ── 9. Lifecycle ──
+
+    @dataclass
+    class Lifecycle:
+        """Transições e status terminais customizáveis por canal.
+
+        Vazio = usa os defaults hardcoded em Order.DEFAULT_TRANSITIONS e
+        Order.TERMINAL_STATUSES.  Baked no snapshot no momento do commit.
+        """
+
+        transitions: dict = field(default_factory=dict)
+        # Sobrescreve Order.DEFAULT_TRANSITIONS. Ex:
+        # {"new": ["confirmed", "cancelled"], "confirmed": ["ready", "cancelled"]}
+        terminal_statuses: list[str] = field(default_factory=list)
+        # Sobrescreve Order.TERMINAL_STATUSES. Ex: ["delivered", "cancelled"]
+
     # ── Campos ──
 
     confirmation: Confirmation = field(default_factory=Confirmation)
@@ -130,6 +146,7 @@ class ChannelConfig:
     pricing: Pricing = field(default_factory=Pricing)
     editing: Editing = field(default_factory=Editing)
     rules: Rules = field(default_factory=Rules)
+    lifecycle: Lifecycle = field(default_factory=Lifecycle)
 
     # ── UX ──
 
@@ -156,6 +173,7 @@ class ChannelConfig:
             pricing=_safe_init(cls.Pricing, data.get("pricing", {})),
             editing=_safe_init(cls.Editing, data.get("editing", {})),
             rules=_safe_init(cls.Rules, data.get("rules", {})),
+            lifecycle=_safe_init(cls.Lifecycle, data.get("lifecycle", {})),
             handle_label=data.get("handle_label", cls.handle_label),
             handle_placeholder=data.get("handle_placeholder", cls.handle_placeholder),
         )

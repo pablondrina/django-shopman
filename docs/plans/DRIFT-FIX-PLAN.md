@@ -6,7 +6,7 @@ framework orquestrador. Verificação no código confirmou os três como bugs re
 
 1. **WP-DF-1** — Contrato adapter de pagamento está incompatível com `services/payment.py`
    (runtime-breaking na primeira chamada).
-2. **WP-DF-2** — `flows.py` lê chaves planas de `channel.config` que não existem no
+2. **WP-DF-2** — `lifecycle.py` lê chaves planas de `channel.config` que não existem no
    schema, ignorando a `ChannelConfig` dataclass e seu cascade canal←loja←defaults.
 3. **WP-DF-3** — Adoção de holds por SKU (não por quantidade) sangra estoque quando
    o carrinho tem múltiplas mutações.
@@ -139,7 +139,7 @@ também, para alinhar com o core `payman`).
   - Exercita `adapter.capture` → `PaymentResult`.
   - Garante que `services.payment.initiate(order)` roda fim-a-fim com adapter mock real
     e grava `order.data["payment"]["intent_ref"]`.
-- `tests/test_flows.py` (novo ou adicionar): `WebFlow.on_confirmed` → `payment.initiate` → não explode.
+- `tests/test_lifecycle.py` (novo ou adicionar): `WebFlow.on_confirmed` → `payment.initiate` → não explode.
 
 ### Convenções
 
@@ -172,7 +172,7 @@ também, para alinhar com o core `payman`).
 - método `effective(channel)` com cascade canal←loja←defaults via `deep_merge`;
 - método `validate()`.
 
-`framework/shopman/flows.py:84-87` ignora tudo isso:
+`framework/shopman/lifecycle.py:84-87` ignora tudo isso:
 
 ```python
 def _channel_config(order, key: str, default=None):
@@ -182,7 +182,7 @@ def _channel_config(order, key: str, default=None):
 
 E lê chaves que **não existem no schema**:
 
-| `flows.py` lê | Schema diz | Resultado |
+| `lifecycle.py` lê | Schema diz | Resultado |
 |---|---|---|
 | `config["confirmation_mode"]` | `config["confirmation"]["mode"]` | sempre cai em default `"immediate"` |
 | `config["confirmation_timeout"]` | `config["confirmation"]["timeout_minutes"]` | sempre cai em default `300` |
@@ -195,7 +195,7 @@ continua rodando como `"immediate"`. Shop defaults nunca são aplicados.
 
 #### (a) Resolver ambiguidade do "flow"
 
-O schema trata `flow` como customização de transições (dict). Mas `flows.py` precisa
+O schema trata `flow` como customização de transições (dict). Mas `lifecycle.py` precisa
 de um **nome de classe** para resolver no `_registry`. São duas coisas distintas.
 Separar:
 
@@ -205,7 +205,7 @@ Separar:
   de customização de transições. Namespaces distintos: `channel.flow` é o model field,
   `channel.config["flow"]` é a estrutura de transitions/terminal_statuses.
 
-#### (b) Fazer `flows.py` usar `ChannelConfig.effective()`
+#### (b) Fazer `lifecycle.py` usar `ChannelConfig.effective()`
 
 ```python
 from shopman.config import ChannelConfig
@@ -245,7 +245,7 @@ deve passar a usar `ChannelConfig.effective(channel)` para herdar o cascade.
 
 - `packages/omniman/shopman/omniman/models/channel.py` — adicionar `flow` field.
 - `packages/omniman/shopman/omniman/migrations/` — nova migração.
-- `framework/shopman/flows.py` — substituir `_channel_config` por `ChannelConfig.effective`.
+- `framework/shopman/lifecycle.py` — substituir `_channel_config` por `ChannelConfig.effective`.
 - `framework/shopman/config.py` — `Flow` dataclass fica como está (transitions/terminal_statuses).
 - `framework/shopman/admin/shop.py` (ou onde Channel é administrado) — expor `flow` no admin.
 - `framework/shopman/management/commands/seed.py` (Nelson) — popular `flow` nos canais seed.
@@ -265,7 +265,7 @@ deve passar a usar `ChannelConfig.effective(channel)` para herdar o cascade.
 ### Critério de conclusão
 
 - [ ] `Channel.flow` adicionado + migração.
-- [ ] `flows.py` não tem mais `_channel_config`; usa `ChannelConfig.effective(order.channel)`.
+- [ ] `lifecycle.py` não tem mais `_channel_config`; usa `ChannelConfig.effective(order.channel)`.
 - [ ] Teste de cascade verde.
 - [ ] Teste de confirmation modes (immediate/optimistic/manual) verde.
 - [ ] `grep -rn '_channel_config' framework/` retorna zero.

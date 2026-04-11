@@ -16,8 +16,8 @@ packages/               8 apps pip-instaláveis (sem dependência entre si)
 └── payman/             Pagamentos: intents, transactions, service                   [shopman-payman]
 
 framework/              Orquestrador (app único: shopman/)  [django-shopman]
-├── shopman/            Orquestração — Flows, Services, Adapters, Rules
-│   ├── flows.py        BaseFlow → Local/Remote/Marketplace + dispatch()
+├── shopman/            Orquestração — Lifecycle, Services, Adapters, Rules
+│   ├── lifecycle.py    dispatch(order, phase) config-driven (sem Flow classes)
 │   ├── services/       services (availability, alternatives, stock, payment, customer, checkout, pricing, etc.)
 │   ├── adapters/       adapters (stock, payment_efi, payment_stripe, notification_*, etc.)
 │   ├── rules/          engine.py, pricing.py, validation.py — regras configuráveis via admin
@@ -25,7 +25,7 @@ framework/              Orquestrador (app único: shopman/)  [django-shopman]
 │   ├── handlers/       directive handlers (notification, fulfillment, fiscal, loyalty, returns, etc.)
 │   ├── backends/       backends remanescentes (notification_*, pricing, fiscal/accounting mock)
 │   ├── setup.py        register_all() — registro centralizado de handlers
-│   ├── config.py       ChannelConfig dataclass (7 aspectos)
+│   ├── config.py       ChannelConfig dataclass (9 aspectos)
 │   ├── protocols.py    Contratos (NotificationBackend, CustomerBackend, etc. — Stock é módulo)
 │   ├── topics.py       Constantes de tópicos de directives
 │   ├── notifications.py Registry + dispatch de notificações
@@ -53,7 +53,7 @@ instances/              Instâncias Django (não são pip packages)
 
 ### Conceitos Primários
 
-- **Flows** (`flows.py`): Coordenação de lifecycle. `BaseFlow` → `LocalFlow` → `RemoteFlow` → `MarketplaceFlow`. Signal `order_changed` → `dispatch()` → `Flow.on_<phase>()` → services.
+- **Lifecycle** (`lifecycle.py`): Coordenação de lifecycle config-driven. Sem Flow classes — comportamento definido por `ChannelConfig`. Signal `order_changed` → `dispatch(order, phase)` → services.
 - **Services** (`services/`): Lógica de negócio. Cada service usa Core services (StockService, PaymentService, CatalogService, etc.) via adapters.
 - **Adapters** (`adapters/`): Swappable via settings. `get_adapter("payment", method="pix")` → `payment_efi`.
 - **Rules** (`rules/`): Regras configuráveis via admin com `RuleConfig` no DB. Engine avalia rules ativas por contexto.
@@ -123,7 +123,7 @@ Antes de alterar qualquer coisa no Core, **compreenda como ele já resolve o pro
 ## Referências
 
 - [docs/reference/data-schemas.md](docs/reference/data-schemas.md) — **Obrigatório**: inventário de chaves em Session.data, Order.data, Directive.payload
-- [docs/guides/flows.md](docs/guides/flows.md) — Guia da arquitetura: Flows, Services, Adapters, Rules
+- [docs/guides/lifecycle.md](docs/guides/lifecycle.md) — Guia da arquitetura: Lifecycle, Services, Adapters, Rules
 - [PRODUCTION-PLAN.md](PRODUCTION-PLAN.md) — Plano de produção: WP-F0 a WP-F18 (UX, operação, canais, governance)
 - [EVOLUTION-PLAN.md](EVOLUTION-PLAN.md) — Plano completo: WP-E1 a WP-E6 (disponibilidade, loyalty, cartão, dashboard, notificações, API)
 - [docs/ROADMAP.md](docs/ROADMAP.md) — Visão geral de próximos passos e ideias futuras

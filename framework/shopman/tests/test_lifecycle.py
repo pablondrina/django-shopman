@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from shopman.config import ChannelConfig
-from shopman.flows import dispatch
+from shopman.lifecycle import dispatch
 from shopman.orderman.models import Directive, Order
 
 # ── helpers ──
@@ -60,10 +60,10 @@ def _config(**overrides):
 
 
 class TestDispatch:
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.loyalty")
-    @patch("shopman.flows.customer")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.loyalty")
+    @patch("shopman.lifecycle.customer")
+    @patch("shopman.lifecycle.stock")
     def test_dispatch_calls_correct_phase(
         self, mock_stock, mock_customer, mock_loyalty, mock_cc,
     ):
@@ -73,15 +73,15 @@ class TestDispatch:
         mock_customer.ensure.assert_called_once_with(order)
         mock_stock.hold.assert_called_once_with(order)
 
-    @patch("shopman.flows.ChannelConfig")
+    @patch("shopman.lifecycle.ChannelConfig")
     def test_dispatch_unknown_phase_logs_warning(self, mock_cc):
         mock_cc.for_channel.return_value = _config()
         order = _make_order()
         # Should not raise
         dispatch(order, "on_nonexistent_phase")
 
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.notification")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.notification")
     def test_dispatch_exception_propagates(self, mock_notification, mock_cc):
         mock_cc.for_channel.return_value = _config()
         mock_notification.send.side_effect = RuntimeError("boom")
@@ -94,10 +94,10 @@ class TestDispatch:
 
 
 class TestOnCommit:
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.loyalty")
-    @patch("shopman.flows.customer")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.loyalty")
+    @patch("shopman.lifecycle.customer")
+    @patch("shopman.lifecycle.stock")
     def test_calls_customer_ensure_and_stock_hold(
         self, mock_stock, mock_customer, mock_loyalty, mock_cc,
     ):
@@ -107,10 +107,10 @@ class TestOnCommit:
         mock_customer.ensure.assert_called_once_with(order)
         mock_stock.hold.assert_called_once_with(order)
 
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.loyalty")
-    @patch("shopman.flows.customer")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.loyalty")
+    @patch("shopman.lifecycle.customer")
+    @patch("shopman.lifecycle.stock")
     def test_immediate_confirmation(
         self, mock_stock, mock_customer, mock_loyalty, mock_cc,
     ):
@@ -121,10 +121,10 @@ class TestOnCommit:
             Order.Status.CONFIRMED, actor="auto_confirm",
         )
 
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.loyalty")
-    @patch("shopman.flows.customer")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.loyalty")
+    @patch("shopman.lifecycle.customer")
+    @patch("shopman.lifecycle.stock")
     @pytest.mark.django_db
     def test_optimistic_confirmation_creates_directive(
         self, mock_stock, mock_customer, mock_loyalty, mock_cc,
@@ -139,10 +139,10 @@ class TestOnCommit:
         assert directive.payload["order_ref"] == "ORD-001"
         assert directive.payload["action"] == "confirm"
 
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.loyalty")
-    @patch("shopman.flows.customer")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.loyalty")
+    @patch("shopman.lifecycle.customer")
+    @patch("shopman.lifecycle.stock")
     def test_manual_confirmation_no_auto_action(
         self, mock_stock, mock_customer, mock_loyalty, mock_cc,
     ):
@@ -151,11 +151,11 @@ class TestOnCommit:
         dispatch(order, "on_commit")
         order.transition_status.assert_not_called()
 
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.payment")
-    @patch("shopman.flows.loyalty")
-    @patch("shopman.flows.customer")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.payment")
+    @patch("shopman.lifecycle.loyalty")
+    @patch("shopman.lifecycle.customer")
+    @patch("shopman.lifecycle.stock")
     def test_payment_at_commit(
         self, mock_stock, mock_customer, mock_loyalty, mock_payment, mock_cc,
     ):
@@ -166,10 +166,10 @@ class TestOnCommit:
         dispatch(order, "on_commit")
         mock_payment.initiate.assert_called_once_with(order)
 
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.loyalty")
-    @patch("shopman.flows.customer")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.loyalty")
+    @patch("shopman.lifecycle.customer")
+    @patch("shopman.lifecycle.stock")
     def test_no_payment_at_commit_when_post_commit(
         self, mock_stock, mock_customer, mock_loyalty, mock_cc,
     ):
@@ -182,11 +182,11 @@ class TestOnCommit:
 
 
 class TestOnCommitAvailabilityCheck:
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.loyalty")
-    @patch("shopman.flows.availability")
-    @patch("shopman.flows.customer")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.loyalty")
+    @patch("shopman.lifecycle.availability")
+    @patch("shopman.lifecycle.customer")
+    @patch("shopman.lifecycle.stock")
     def test_check_on_commit_rejects_unavailable(
         self, mock_stock, mock_customer, mock_availability, mock_loyalty, mock_cc,
     ):
@@ -207,11 +207,11 @@ class TestOnCommitAvailabilityCheck:
         )
         mock_stock.hold.assert_not_called()
 
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.loyalty")
-    @patch("shopman.flows.availability")
-    @patch("shopman.flows.customer")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.loyalty")
+    @patch("shopman.lifecycle.availability")
+    @patch("shopman.lifecycle.customer")
+    @patch("shopman.lifecycle.stock")
     def test_check_on_commit_proceeds_when_available(
         self, mock_stock, mock_customer, mock_availability, mock_loyalty, mock_cc,
     ):
@@ -231,10 +231,10 @@ class TestOnCommitAvailabilityCheck:
             Order.Status.CONFIRMED, actor="auto_confirm",
         )
 
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.loyalty")
-    @patch("shopman.flows.customer")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.loyalty")
+    @patch("shopman.lifecycle.customer")
+    @patch("shopman.lifecycle.stock")
     def test_no_check_when_check_on_commit_false(
         self, mock_stock, mock_customer, mock_loyalty, mock_cc,
     ):
@@ -253,9 +253,9 @@ class TestOnCommitAvailabilityCheck:
 
 
 class TestOnConfirmed:
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.notification")
-    @patch("shopman.flows.payment")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.notification")
+    @patch("shopman.lifecycle.payment")
     def test_post_commit_initiates_payment(self, mock_payment, mock_notification, mock_cc):
         mock_cc.for_channel.return_value = _config(
             payment_timing="post_commit", payment_method="pix",
@@ -265,10 +265,10 @@ class TestOnConfirmed:
         mock_payment.initiate.assert_called_once_with(order)
         mock_notification.send.assert_called_once_with(order, "order_confirmed")
 
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.notification")
-    @patch("shopman.flows.payment")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.notification")
+    @patch("shopman.lifecycle.payment")
+    @patch("shopman.lifecycle.stock")
     def test_external_counter_fulfills_stock(
         self, mock_stock, mock_payment, mock_notification, mock_cc,
     ):
@@ -282,10 +282,10 @@ class TestOnConfirmed:
         mock_stock.fulfill.assert_called_once_with(order)
         mock_notification.send.assert_called_once_with(order, "order_confirmed")
 
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.notification")
-    @patch("shopman.flows.payment")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.notification")
+    @patch("shopman.lifecycle.payment")
+    @patch("shopman.lifecycle.stock")
     def test_external_marketplace_no_fulfill(
         self, mock_stock, mock_payment, mock_notification, mock_cc,
     ):
@@ -304,9 +304,9 @@ class TestOnConfirmed:
 
 
 class TestOnPaid:
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.notification")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.notification")
+    @patch("shopman.lifecycle.stock")
     def test_fulfills_stock_and_notifies(self, mock_stock, mock_notification, mock_cc):
         mock_cc.for_channel.return_value = _config()
         order = _make_order(status="confirmed")
@@ -314,9 +314,9 @@ class TestOnPaid:
         mock_stock.fulfill.assert_called_once_with(order)
         mock_notification.send.assert_called_once_with(order, "payment_confirmed")
 
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows._create_alert")
-    @patch("shopman.flows.payment")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle._create_alert")
+    @patch("shopman.lifecycle.payment")
     def test_race_condition_cancelled_order_refunds(self, mock_payment, mock_alert, mock_cc):
         mock_cc.for_channel.return_value = _config()
         order = _make_order(status=Order.Status.CANCELLED)
@@ -324,9 +324,9 @@ class TestOnPaid:
         mock_payment.refund.assert_called_once_with(order)
         mock_alert.assert_called_once_with(order, "payment_after_cancel")
 
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.notification")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.notification")
+    @patch("shopman.lifecycle.stock")
     def test_race_condition_does_not_fulfill(self, mock_stock, mock_notification, mock_cc):
         mock_cc.for_channel.return_value = _config()
         order = _make_order(status=Order.Status.CANCELLED)
@@ -339,9 +339,9 @@ class TestOnPaid:
 
 
 class TestOnPreparing:
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.notification")
-    @patch("shopman.flows.kds")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.notification")
+    @patch("shopman.lifecycle.kds")
     def test_dispatches_kds_and_notifies(self, mock_kds, mock_notification, mock_cc):
         mock_cc.for_channel.return_value = _config()
         order = _make_order()
@@ -351,9 +351,9 @@ class TestOnPreparing:
 
 
 class TestOnReady:
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.notification")
-    @patch("shopman.flows.fulfillment")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.notification")
+    @patch("shopman.lifecycle.fulfillment")
     def test_creates_fulfillment_and_notifies(self, mock_fulfillment, mock_notification, mock_cc):
         mock_cc.for_channel.return_value = _config()
         order = _make_order()
@@ -361,9 +361,9 @@ class TestOnReady:
         mock_fulfillment.create.assert_called_once_with(order)
         mock_notification.send.assert_called_once_with(order, "order_ready")
 
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.notification")
-    @patch("shopman.flows.fulfillment")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.notification")
+    @patch("shopman.lifecycle.fulfillment")
     def test_no_fulfillment_when_external(self, mock_fulfillment, mock_notification, mock_cc):
         mock_cc.for_channel.return_value = _config(fulfillment_timing="external")
         order = _make_order()
@@ -373,9 +373,9 @@ class TestOnReady:
 
 
 class TestOnCompleted:
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.fiscal")
-    @patch("shopman.flows.loyalty")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.fiscal")
+    @patch("shopman.lifecycle.loyalty")
     def test_earns_loyalty_and_emits_fiscal(self, mock_loyalty, mock_fiscal, mock_cc):
         mock_cc.for_channel.return_value = _config()
         order = _make_order()
@@ -385,11 +385,11 @@ class TestOnCompleted:
 
 
 class TestOnCancelled:
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.notification")
-    @patch("shopman.flows.payment")
-    @patch("shopman.flows.stock")
-    @patch("shopman.flows.kds")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.notification")
+    @patch("shopman.lifecycle.payment")
+    @patch("shopman.lifecycle.stock")
+    @patch("shopman.lifecycle.kds")
     def test_cancels_kds_releases_stock_refunds_and_notifies(
         self, mock_kds, mock_stock, mock_payment, mock_notification, mock_cc,
     ):
@@ -403,11 +403,11 @@ class TestOnCancelled:
 
 
 class TestOnReturned:
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.notification")
-    @patch("shopman.flows.fiscal")
-    @patch("shopman.flows.payment")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.notification")
+    @patch("shopman.lifecycle.fiscal")
+    @patch("shopman.lifecycle.payment")
+    @patch("shopman.lifecycle.stock")
     def test_reverts_stock_refunds_cancels_fiscal_notifies(
         self, mock_stock, mock_payment, mock_fiscal, mock_notification, mock_cc,
     ):
@@ -421,16 +421,16 @@ class TestOnReturned:
 
 
 class TestNotificationPhases:
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.notification")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.notification")
     def test_on_dispatched_sends_notification(self, mock_notification, mock_cc):
         mock_cc.for_channel.return_value = _config()
         order = _make_order()
         dispatch(order, "on_dispatched")
         mock_notification.send.assert_called_once_with(order, "order_dispatched")
 
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.notification")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.notification")
     def test_on_delivered_sends_notification(self, mock_notification, mock_cc):
         mock_cc.for_channel.return_value = _config()
         order = _make_order()
@@ -445,11 +445,11 @@ class TestLocalChannelScenario:
     """Local channel: payment.timing=external, payment.method=counter,
     confirmation.mode=immediate, stock.check_on_commit=True."""
 
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.loyalty")
-    @patch("shopman.flows.availability")
-    @patch("shopman.flows.customer")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.loyalty")
+    @patch("shopman.lifecycle.availability")
+    @patch("shopman.lifecycle.customer")
+    @patch("shopman.lifecycle.stock")
     def test_commit_immediate_confirm(
         self, mock_stock, mock_customer, mock_availability, mock_loyalty, mock_cc,
     ):
@@ -468,9 +468,9 @@ class TestLocalChannelScenario:
             Order.Status.CONFIRMED, actor="auto_confirm",
         )
 
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.notification")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.notification")
+    @patch("shopman.lifecycle.stock")
     def test_confirmed_fulfills_stock_no_payment(
         self, mock_stock, mock_notification, mock_cc,
     ):
@@ -485,9 +485,9 @@ class TestLocalChannelScenario:
 class TestRemoteChannelScenario:
     """Remote channel: payment.timing=post_commit, confirmation.mode=optimistic."""
 
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.notification")
-    @patch("shopman.flows.payment")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.notification")
+    @patch("shopman.lifecycle.payment")
     def test_confirmed_initiates_payment(self, mock_payment, mock_notification, mock_cc):
         mock_cc.for_channel.return_value = _config(
             payment_timing="post_commit", payment_method="pix",
@@ -496,9 +496,9 @@ class TestRemoteChannelScenario:
         dispatch(order, "on_confirmed")
         mock_payment.initiate.assert_called_once_with(order)
 
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.notification")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.notification")
+    @patch("shopman.lifecycle.stock")
     def test_paid_fulfills_stock(self, mock_stock, mock_notification, mock_cc):
         mock_cc.for_channel.return_value = _config(
             payment_timing="post_commit", payment_method="pix",
@@ -512,10 +512,10 @@ class TestMarketplaceChannelScenario:
     """Marketplace: payment.timing=external, payment.method=external,
     confirmation.mode=manual, stock.check_on_commit=True."""
 
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.availability")
-    @patch("shopman.flows.customer")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.availability")
+    @patch("shopman.lifecycle.customer")
+    @patch("shopman.lifecycle.stock")
     def test_commit_manual_no_auto_action(
         self, mock_stock, mock_customer, mock_availability, mock_cc,
     ):
@@ -533,10 +533,10 @@ class TestMarketplaceChannelScenario:
         mock_stock.hold.assert_called_once_with(order)
         order.transition_status.assert_not_called()
 
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.notification")
-    @patch("shopman.flows.payment")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.notification")
+    @patch("shopman.lifecycle.payment")
+    @patch("shopman.lifecycle.stock")
     def test_confirmed_no_payment_no_fulfill(
         self, mock_stock, mock_payment, mock_notification, mock_cc,
     ):
@@ -548,9 +548,9 @@ class TestMarketplaceChannelScenario:
         mock_payment.initiate.assert_not_called()
         mock_stock.fulfill.assert_not_called()
 
-    @patch("shopman.flows.ChannelConfig")
-    @patch("shopman.flows.notification")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.ChannelConfig")
+    @patch("shopman.lifecycle.notification")
+    @patch("shopman.lifecycle.stock")
     def test_paid_fulfills_stock(self, mock_stock, mock_notification, mock_cc):
         mock_cc.for_channel.return_value = _config(
             payment_timing="external", payment_method="external",
@@ -573,9 +573,9 @@ class TestChannelConfigIntegration:
         from shopman.models import Channel
         return Channel.objects.create(ref=ref, name=f"Test {ref}")
 
-    @patch("shopman.flows.loyalty")
-    @patch("shopman.flows.customer")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.loyalty")
+    @patch("shopman.lifecycle.customer")
+    @patch("shopman.lifecycle.stock")
     def test_default_config_immediate_confirmation(
         self, mock_stock, mock_customer, mock_loyalty,
     ):
@@ -592,9 +592,9 @@ class TestChannelConfigIntegration:
             Order.Status.CONFIRMED, actor="auto_confirm",
         )
 
-    @patch("shopman.flows.loyalty")
-    @patch("shopman.flows.customer")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.loyalty")
+    @patch("shopman.lifecycle.customer")
+    @patch("shopman.lifecycle.stock")
     def test_optimistic_uses_timeout_minutes_from_schema(
         self, mock_stock, mock_customer, mock_loyalty,
     ):
@@ -626,9 +626,9 @@ class TestChannelConfigIntegration:
         delta = directive.available_at - timezone.now()
         assert timedelta(minutes=6) < delta < timedelta(minutes=8)
 
-    @patch("shopman.flows.loyalty")
-    @patch("shopman.flows.customer")
-    @patch("shopman.flows.stock")
+    @patch("shopman.lifecycle.loyalty")
+    @patch("shopman.lifecycle.customer")
+    @patch("shopman.lifecycle.stock")
     def test_shop_defaults_manual_no_auto_action(
         self, mock_stock, mock_customer, mock_loyalty,
     ):

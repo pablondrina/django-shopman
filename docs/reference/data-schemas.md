@@ -30,6 +30,8 @@ O Core não impõe schema — a governança é por convenção documentada aqui.
 | `delivery_fee_q` | `int` | DeliveryFeeModifier (via `session.save`) | CommitService, CartService, tracking view | Taxa de entrega em centavos. 0 = grátis. Só presente quando `fulfillment_type == "delivery"` e zona encontrada |
 | `delivery_zone_error` | `bool` | DeliveryFeeModifier (via `session.save`) | DeliveryZoneRule validator | `True` quando endereço de entrega não está coberto por nenhuma DeliveryZone ativa. Bloqueia commit |
 | `delivery_address_id` | `int` | `web/views/checkout.py` | `checkout_defaults.py` | FK para `CustomerAddress.pk`. Usada para inferir defaults na sessão. **Não propagada ao Order.data** — somente em Session.data |
+| `stock_check_unavailable` | `bool` | `StockCheckHandler` | `StockCheckHandler`, `CheckoutView` | `True` quando check de estoque detecta item indisponível. Bloqueia commit quando `stock.check_on_commit=True` |
+| `manual_discount` | `dict` | POS `pos_close` via `set_data` | `CommitService`, `order.data` | Desconto manual aplicado pelo operador: `{type, value, discount_q, reason}`. `type` ∈ `"percent"` \| `"fixed"` |
 
 ### Chaves de sistema (geridas pelo Core)
 
@@ -127,7 +129,7 @@ for key in (
 | `nfce_cancelled` | `bool` | NFCeCancelHandler | NFCeCancelHandler (idempotência) | NFCe cancelada |
 | `nfce_cancellation_protocol` | `string` | NFCeCancelHandler | — | Protocolo de cancelamento |
 | `session_key` | `string` | hooks._on_cancelled | hooks._on_cancelled | Chave de sessão original (referência para release holds) |
-| `hold_ids` | `list[str]` | `StockService.hold(order)` | `StockService.fulfill(order)`, `StockService.release(order)` | IDs dos holds do Stockman adotados no momento do commit |
+| `hold_ids` | `list[dict]` | `StockService.hold(order)` | `StockService.fulfill(order)`, `StockService.release(order)` | Holds do Stockman adotados no commit. Cada entrada: `{sku, hold_id, qty}` |
 | `loyalty` | `dict` | `LoyaltyRedeemModifier` | `services/loyalty.py` | Dados de resgate de pontos: `{redeem_points_q: int}` |
 
 

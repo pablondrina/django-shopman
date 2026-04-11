@@ -128,7 +128,7 @@ def _enrich_order(order: Order) -> dict:
         fulfillment_label = "Retirada"
 
     # Customer name
-    customer_name = order.data.get("customer_name", "") or order.handle_ref or ""
+    customer_name = order.data.get("customer", {}).get("name", "") or order.handle_ref or ""
 
     return {
         "id": order.pk,
@@ -387,7 +387,7 @@ class PedidoMarkPaidView(View):
 
         logger.info("mark_paid order=%s operator=%s", order.ref, request.user.username)
 
-        from shopman.flows import dispatch
+        from shopman.lifecycle import dispatch
         dispatch(order, "on_paid")
 
         enriched = _enrich_order(order)

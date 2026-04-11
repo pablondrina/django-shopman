@@ -490,9 +490,9 @@ class TestConcurrency:
 
 class TestPlanEndpoint:
     def test_plan_creates_work_order(self, api_client, recipe_with_items, tomorrow):
-        """POST /api/crafting/work-orders/plan/ creates a WO."""
+        """POST /api/craftsman/work-orders/plan/ creates a WO."""
         resp = api_client.post(
-            "/api/crafting/work-orders/plan/",
+            "/api/craftsman/work-orders/plan/",
             {
                 "recipe_code": "croissant-v1",
                 "quantity": "100",
@@ -509,7 +509,7 @@ class TestPlanEndpoint:
     def test_plan_with_all_fields(self, api_client, recipe_with_items, tomorrow):
         """Plan with all optional fields."""
         resp = api_client.post(
-            "/api/crafting/work-orders/plan/",
+            "/api/craftsman/work-orders/plan/",
             {
                 "recipe_code": "croissant-v1",
                 "quantity": "50",
@@ -530,7 +530,7 @@ class TestPlanEndpoint:
     def test_plan_recipe_not_found(self, api_client):
         """Plan with nonexistent recipe returns 404."""
         resp = api_client.post(
-            "/api/crafting/work-orders/plan/",
+            "/api/craftsman/work-orders/plan/",
             {"recipe_code": "nonexistent", "quantity": "100"},
             format="json",
         )
@@ -543,7 +543,7 @@ class TestPlanEndpoint:
         recipe.save()
 
         resp = api_client.post(
-            "/api/crafting/work-orders/plan/",
+            "/api/craftsman/work-orders/plan/",
             {"recipe_code": "croissant-v1", "quantity": "100"},
             format="json",
         )
@@ -552,7 +552,7 @@ class TestPlanEndpoint:
     def test_plan_invalid_quantity(self, api_client, recipe):
         """Plan with invalid quantity returns 400."""
         resp = api_client.post(
-            "/api/crafting/work-orders/plan/",
+            "/api/craftsman/work-orders/plan/",
             {"recipe_code": "croissant-v1", "quantity": "0"},
             format="json",
         )
@@ -561,7 +561,7 @@ class TestPlanEndpoint:
     def test_plan_missing_fields(self, api_client):
         """Plan missing required fields returns 400."""
         resp = api_client.post(
-            "/api/crafting/work-orders/plan/",
+            "/api/craftsman/work-orders/plan/",
             {},
             format="json",
         )
@@ -572,7 +572,7 @@ class TestPlanEndpoint:
     def test_plan_requires_auth(self, anon_client, recipe):
         """Plan requires authentication."""
         resp = anon_client.post(
-            "/api/crafting/work-orders/plan/",
+            "/api/craftsman/work-orders/plan/",
             {"recipe_code": "croissant-v1", "quantity": "100"},
             format="json",
         )
@@ -586,12 +586,12 @@ class TestPlanEndpoint:
 
 class TestExpectedEndpoint:
     def test_expected_returns_total(self, api_client, recipe, tomorrow):
-        """GET /api/crafting/queries/expected/ returns sum of open WOs."""
+        """GET /api/craftsman/queries/expected/ returns sum of open WOs."""
         craft.plan(recipe, 100, date=tomorrow)
         craft.plan(recipe, 50, date=tomorrow)
 
         resp = api_client.get(
-            f"/api/crafting/queries/expected/?output_ref=croissant&date={tomorrow}",
+            f"/api/craftsman/queries/expected/?output_ref=croissant&date={tomorrow}",
         )
         assert resp.status_code == 200
         assert resp.data["output_ref"] == "croissant"
@@ -600,40 +600,40 @@ class TestExpectedEndpoint:
     def test_expected_zero_when_none(self, api_client, tomorrow):
         """Expected returns 0 when no matching WOs."""
         resp = api_client.get(
-            f"/api/crafting/queries/expected/?output_ref=nada&date={tomorrow}",
+            f"/api/craftsman/queries/expected/?output_ref=nada&date={tomorrow}",
         )
         assert resp.status_code == 200
         assert resp.data["total"] == "0"
 
     def test_expected_missing_params(self, api_client):
         """Missing params returns 400."""
-        resp = api_client.get("/api/crafting/queries/expected/")
+        resp = api_client.get("/api/craftsman/queries/expected/")
         assert resp.status_code == 400
         assert resp.data["error"] == "MISSING_PARAMS"
 
     def test_expected_missing_date(self, api_client):
         """Missing date returns 400."""
-        resp = api_client.get("/api/crafting/queries/expected/?output_ref=croissant")
+        resp = api_client.get("/api/craftsman/queries/expected/?output_ref=croissant")
         assert resp.status_code == 400
 
     def test_expected_invalid_date(self, api_client):
         """Invalid date format returns 400."""
-        resp = api_client.get("/api/crafting/queries/expected/?output_ref=croissant&date=invalid")
+        resp = api_client.get("/api/craftsman/queries/expected/?output_ref=croissant&date=invalid")
         assert resp.status_code == 400
         assert resp.data["error"] == "INVALID_DATE"
 
     def test_expected_requires_auth(self, anon_client, tomorrow):
         """Expected requires authentication."""
-        resp = anon_client.get(f"/api/crafting/queries/expected/?output_ref=x&date={tomorrow}")
+        resp = anon_client.get(f"/api/craftsman/queries/expected/?output_ref=x&date={tomorrow}")
         assert resp.status_code in (401, 403)
 
 
 class TestNeedsEndpoint:
     def test_needs_returns_bom(self, api_client, recipe_with_items, tomorrow):
-        """GET /api/crafting/queries/needs/ returns BOM explosion."""
+        """GET /api/craftsman/queries/needs/ returns BOM explosion."""
         craft.plan(recipe_with_items, 100, date=tomorrow)
 
-        resp = api_client.get(f"/api/crafting/queries/needs/?date={tomorrow}")
+        resp = api_client.get(f"/api/craftsman/queries/needs/?date={tomorrow}")
         assert resp.status_code == 200
         assert len(resp.data) == 3
 
@@ -644,39 +644,39 @@ class TestNeedsEndpoint:
 
     def test_needs_empty_when_no_orders(self, api_client, tomorrow):
         """Needs returns [] when no open WOs on date."""
-        resp = api_client.get(f"/api/crafting/queries/needs/?date={tomorrow}")
+        resp = api_client.get(f"/api/craftsman/queries/needs/?date={tomorrow}")
         assert resp.status_code == 200
         assert resp.data == []
 
     def test_needs_with_expand(self, api_client, recipe_with_items, tomorrow):
         """Needs with expand=true works."""
         craft.plan(recipe_with_items, 100, date=tomorrow)
-        resp = api_client.get(f"/api/crafting/queries/needs/?date={tomorrow}&expand=true")
+        resp = api_client.get(f"/api/craftsman/queries/needs/?date={tomorrow}&expand=true")
         assert resp.status_code == 200
         assert len(resp.data) == 3
 
     def test_needs_missing_date(self, api_client):
         """Missing date returns 400."""
-        resp = api_client.get("/api/crafting/queries/needs/")
+        resp = api_client.get("/api/craftsman/queries/needs/")
         assert resp.status_code == 400
         assert resp.data["error"] == "MISSING_PARAMS"
 
     def test_needs_invalid_date(self, api_client):
         """Invalid date returns 400."""
-        resp = api_client.get("/api/crafting/queries/needs/?date=not-a-date")
+        resp = api_client.get("/api/craftsman/queries/needs/?date=not-a-date")
         assert resp.status_code == 400
         assert resp.data["error"] == "INVALID_DATE"
 
     def test_needs_requires_auth(self, anon_client, tomorrow):
         """Needs requires authentication."""
-        resp = anon_client.get(f"/api/crafting/queries/needs/?date={tomorrow}")
+        resp = anon_client.get(f"/api/craftsman/queries/needs/?date={tomorrow}")
         assert resp.status_code in (401, 403)
 
 
 class TestSuggestEndpoint:
     def test_suggest_no_backend(self, api_client, recipe, tomorrow):
         """Without DEMAND_BACKEND, suggest returns []."""
-        resp = api_client.get(f"/api/crafting/queries/suggest/?date={tomorrow}")
+        resp = api_client.get(f"/api/craftsman/queries/suggest/?date={tomorrow}")
         assert resp.status_code == 200
         assert resp.data == []
 
@@ -697,7 +697,7 @@ class TestSuggestEndpoint:
             "django.utils.module_loading.import_string",
             return_value=mock_backend_class,
         ):
-            resp = api_client.get(f"/api/crafting/queries/suggest/?date={tomorrow}")
+            resp = api_client.get(f"/api/craftsman/queries/suggest/?date={tomorrow}")
 
         assert resp.status_code == 200
         assert len(resp.data) == 1
@@ -724,7 +724,7 @@ class TestSuggestEndpoint:
             return_value=mock_backend_class,
         ):
             resp = api_client.get(
-                f"/api/crafting/queries/suggest/?date={tomorrow}&output_refs=croissant",
+                f"/api/craftsman/queries/suggest/?date={tomorrow}&output_refs=croissant",
             )
 
         assert resp.status_code == 200
@@ -733,19 +733,19 @@ class TestSuggestEndpoint:
 
     def test_suggest_missing_date(self, api_client):
         """Missing date returns 400."""
-        resp = api_client.get("/api/crafting/queries/suggest/")
+        resp = api_client.get("/api/craftsman/queries/suggest/")
         assert resp.status_code == 400
         assert resp.data["error"] == "MISSING_PARAMS"
 
     def test_suggest_invalid_date(self, api_client):
         """Invalid date returns 400."""
-        resp = api_client.get("/api/crafting/queries/suggest/?date=invalid")
+        resp = api_client.get("/api/craftsman/queries/suggest/?date=invalid")
         assert resp.status_code == 400
         assert resp.data["error"] == "INVALID_DATE"
 
     def test_suggest_requires_auth(self, anon_client, tomorrow):
         """Suggest requires authentication."""
-        resp = anon_client.get(f"/api/crafting/queries/suggest/?date={tomorrow}")
+        resp = anon_client.get(f"/api/craftsman/queries/suggest/?date={tomorrow}")
         assert resp.status_code in (401, 403)
 
 
@@ -762,7 +762,7 @@ class TestPagination:
         for _ in range(5):
             craft.plan(recipe, 10)
 
-        resp = api_client.get("/api/crafting/work-orders/?limit=2&offset=0")
+        resp = api_client.get("/api/craftsman/work-orders/?limit=2&offset=0")
         assert resp.status_code == 200
         assert resp.data["count"] == 5
         assert len(resp.data["results"]) == 2
@@ -773,7 +773,7 @@ class TestPagination:
         for _ in range(3):
             craft.plan(recipe, 10)
 
-        resp = api_client.get("/api/crafting/work-orders/")
+        resp = api_client.get("/api/craftsman/work-orders/")
         assert resp.status_code == 200
         # With pagination, response wraps in {count, next, previous, results}
         assert resp.data["count"] == 3
@@ -781,7 +781,7 @@ class TestPagination:
 
     def test_recipes_paginated(self, api_client, recipe, recipe_b):
         """Recipe list is also paginated."""
-        resp = api_client.get("/api/crafting/recipes/?limit=1")
+        resp = api_client.get("/api/craftsman/recipes/?limit=1")
         assert resp.status_code == 200
         assert resp.data["count"] == 2
         assert len(resp.data["results"]) == 1
@@ -791,7 +791,7 @@ class TestPagination:
         for _ in range(5):
             craft.plan(recipe, 10)
 
-        resp = api_client.get("/api/crafting/work-orders/?limit=2&offset=4")
+        resp = api_client.get("/api/craftsman/work-orders/?limit=2&offset=4")
         assert resp.status_code == 200
         assert resp.data["count"] == 5
         assert len(resp.data["results"]) == 1  # only 1 left after offset=4

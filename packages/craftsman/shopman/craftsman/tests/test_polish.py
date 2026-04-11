@@ -26,7 +26,7 @@ from shopman.craftsman.models import Recipe, RecipeItem, WorkOrder
 class TestVersion:
     def test_version_string(self):
         import shopman.craftsman
-        assert shopman.craftsman.__version__ == "0.2.2"
+        assert shopman.craftsman.__version__ == "0.3.0"
 
     def test_version_format(self):
         import shopman.craftsman

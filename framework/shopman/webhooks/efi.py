@@ -1,6 +1,6 @@
 """EFI PIX webhook — receives payment notifications from EFI gateway.
 
-Uses shopman.flows.dispatch(order, "on_paid") for order lifecycle.
+Uses shopman.lifecycle.dispatch(order, "on_paid") for order lifecycle.
 """
 
 from __future__ import annotations
@@ -115,7 +115,7 @@ class EfiPixWebhookView(APIView):
 
     def _process_order_payment(self, order: Order, *, e2e_id: str, valor: str) -> None:
         """Record PIX transaction data and trigger flow dispatch."""
-        from shopman.flows import dispatch
+        from shopman.lifecycle import dispatch
 
         payment_data = order.data.get("payment", {})
 

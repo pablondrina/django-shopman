@@ -93,7 +93,7 @@ class WorkOrderViewSet(
         """
         Create a new work order via craft.plan().
 
-        POST /api/crafting/work-orders/plan/
+        POST /api/craftsman/work-orders/plan/
         {
             "recipe_code": "croissant-v1",
             "quantity": 100,
@@ -139,11 +139,11 @@ class WorkOrderViewSet(
             )
 
     @action(detail=True, methods=["post"])
-    def close(self, request, code=None):
+    def close(self, request, ref=None):
         """
         Close the work order with production results.
 
-        POST /api/crafting/work-orders/{code}/close/
+        POST /api/craftsman/work-orders/{ref}/close/
         {
             "produced": 93,
             "consumed": null,
@@ -183,11 +183,11 @@ class WorkOrderViewSet(
             )
 
     @action(detail=True, methods=["post"])
-    def adjust(self, request, code=None):
+    def adjust(self, request, ref=None):
         """
         Adjust target quantity of an open work order.
 
-        POST /api/crafting/work-orders/{code}/adjust/
+        POST /api/craftsman/work-orders/{ref}/adjust/
         {
             "quantity": 97,
             "reason": "farinha insuficiente",
@@ -223,11 +223,11 @@ class WorkOrderViewSet(
             )
 
     @action(detail=True, methods=["post"])
-    def void(self, request, code=None):
+    def void(self, request, ref=None):
         """
         Void (cancel) a work order.
 
-        POST /api/crafting/work-orders/{code}/void/
+        POST /api/craftsman/work-orders/{ref}/void/
         {
             "reason": "cliente cancelou",
             "expected_rev": 0
@@ -277,7 +277,7 @@ class QueryViewSet(viewsets.ViewSet):
         """
         Sum of open WorkOrder quantities for output_ref on date.
 
-        GET /api/crafting/queries/expected/?output_ref=croissant&date=2026-02-27
+        GET /api/craftsman/queries/expected/?output_ref=croissant&date=2026-02-27
         """
         output_ref = request.query_params.get("output_ref")
         date_str = request.query_params.get("date")
@@ -308,7 +308,7 @@ class QueryViewSet(viewsets.ViewSet):
         """
         BOM explosion for a date — aggregated material needs.
 
-        GET /api/crafting/queries/needs/?date=2026-02-27&expand=true
+        GET /api/craftsman/queries/needs/?date=2026-02-27&expand=true
         """
         date_str = request.query_params.get("date")
         expand = request.query_params.get("expand", "false").lower() == "true"
@@ -335,7 +335,7 @@ class QueryViewSet(viewsets.ViewSet):
         """
         Production suggestions based on demand history.
 
-        GET /api/crafting/queries/suggest/?date=2026-02-27&output_refs=croissant,baguette
+        GET /api/craftsman/queries/suggest/?date=2026-02-27&output_refs=croissant,baguette
         """
         date_str = request.query_params.get("date")
 

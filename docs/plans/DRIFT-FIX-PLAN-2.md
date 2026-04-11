@@ -126,7 +126,7 @@ O usuário confirmou: **`order_ref` é o identificador canônico**. Remover `ord
 3. Auditar todos os callers de `CommitService` que possam usar `result["order_id"]`:
    - `framework/shopman/web/views/checkout.py`
    - `framework/shopman/api/views.py`
-   - `framework/shopman/flows.py`
+   - `framework/shopman/lifecycle.py`
    - Qualquer outro que capture o retorno de `commit_service.commit(...)`
 4. Onde o PK é realmente necessário (improvável, mas verificar), obter via `Order.objects.get(ref=order_ref).pk`.
 
