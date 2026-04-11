@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.views import View
 
 from shopman.orderman.models import Order
+from shopman.services import payment as payment_svc
 from shopman.utils.monetary import format_money
 
 logger = logging.getLogger("shopman.web.payment")
@@ -23,7 +24,7 @@ class PaymentView(View):
         method = payment.get("method", "pix")
 
         # If already paid, redirect to tracking
-        if payment.get("status") == "captured":
+        if payment_svc.get_payment_status(order) == "captured":
             return redirect("storefront:order_tracking", ref=ref)
 
         # If order is cancelled, redirect to tracking (shows cancelled state)
@@ -46,21 +47,7 @@ class PaymentStatusView(View):
         order = get_object_or_404(Order, ref=ref)
         payment = order.data.get("payment", {})
 
-        # Check PaymentService for real-time status
-        intent_ref = payment.get("intent_ref")
-        is_paid = payment.get("status") == "captured"
-
-        if not is_paid and intent_ref:
-            from shopman.payman import PaymentError, PaymentService
-            try:
-                intent = PaymentService.get(intent_ref)
-                is_paid = intent.status == "captured"
-            except PaymentError as exc:
-                logger.warning(
-                    "Payment status check failed: %s", exc,
-                    extra={"intent_ref": intent_ref, "order_ref": ref},
-                )
-
+        is_paid = payment_svc.get_payment_status(order) == "captured"
         is_cancelled = order.status == "cancelled"
 
         # Check if PIX expired
@@ -103,7 +90,7 @@ class MockPaymentConfirmView(View):
         order = get_object_or_404(Order, ref=ref)
 
         payment = order.data.get("payment", {})
-        if payment.get("status") == "captured":
+        if payment_svc.get_payment_status(order) == "captured":
             return redirect("storefront:order_tracking", ref=ref)
 
         # Transition via PaymentService

@@ -52,11 +52,17 @@ class ShopmanConfig(AppConfig):
     def _register_rules(self):
         """Boot the rules engine and connect RuleConfig cache invalidation."""
         from django.db.models.signals import post_save
+        from django.db.utils import OperationalError, ProgrammingError
 
         from shopman.models import RuleConfig
         from shopman.rules.engine import invalidate_rules_cache, register_active_rules
 
-        register_active_rules()
+        try:
+            register_active_rules()
+        except (OperationalError, ProgrammingError):
+            # Tables may not exist yet during initial migration. Rules will be
+            # loaded lazily on first request after the DB is set up.
+            logger.debug("ShopmanConfig: rules boot deferred — tables not ready yet.")
 
         post_save.connect(
             invalidate_rules_cache,

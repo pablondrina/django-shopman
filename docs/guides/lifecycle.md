@@ -166,15 +166,16 @@ Ver: [`config.py`](../../framework/shopman/config.py) e [`data-schemas.md`](../r
 
 ## Handlers (Directives assíncronas)
 
-Handlers processam Directives criadas por services.
+Handlers processam Directives criadas por services. Note que nem tudo passa por
+Directive: `customer.ensure`, `stock.hold`, `payment.initiate` e `fulfillment.create`
+são chamadas **síncronas diretas** em lifecycle.py — não criam Directive. Apenas
+operações que podem ser enfileiradas/retentadas usam o mecanismo de Directive.
 
 | Handler | Topic | Ação |
 |---------|-------|------|
-| `NotificationSendHandler` | `notification.send` | Envia notificação |
-| `ConfirmationTimeoutHandler` | `confirmation.timeout` | Auto-confirma após timeout |
-| `CustomerEnsureHandler` | `customer.ensure` | Garante customer existe |
+| `NotificationSendHandler` | `notification.send` | Envia notificação via adapter |
+| `ConfirmationTimeoutHandler` | `confirmation.timeout` | Auto-confirma após timeout (optimistic) |
 | `NFCeEmitHandler` | `fiscal.emit_nfce` | Emite NFC-e |
 | `NFCeCancelHandler` | `fiscal.cancel_nfce` | Cancela NFC-e |
 | `ReturnHandler` | `return.process` | Processa devolução |
-| `FulfillmentCreateHandler` | `fulfillment.create` | Cria fulfillment |
 | `LoyaltyEarnHandler` | `loyalty.earn` | Registra pontos de fidelidade |

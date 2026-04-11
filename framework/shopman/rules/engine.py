@@ -1,4 +1,23 @@
-"""Rules engine — loads, caches, and registers active RuleConfigs."""
+"""
+Rules engine — loads, caches, and registers active RuleConfigs.
+
+## Governance model — two layers, intentionally separate
+
+**Handlers** (static, boot-time):
+    Registered once in `setup.register_all()` at `AppConfig.ready()`. These are
+    the directive processors (NotificationSendHandler, ConfirmationTimeoutHandler,
+    etc.) that wire the lifecycle together. They never change at runtime.
+
+**Rules** (dynamic, DB-driven):
+    `RuleConfig` rows in the database configure validators and pricing modifiers.
+    Operators can toggle rules, set params, and restrict to channels — all without
+    a deploy. `register_active_rules()` loads them at boot and the cache is
+    invalidated on every `RuleConfig` save/delete.
+
+The split is intentional: handlers express *how the system works*; rules express
+*how the business behaves*. Changing a rule is an operational action; changing a
+handler is a code change.
+"""
 
 from __future__ import annotations
 

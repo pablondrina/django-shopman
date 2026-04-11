@@ -134,9 +134,16 @@ def check_fiscal_adapter(app_configs, **kwargs):
     if fiscal_adapter:
         return warnings
 
+    from django.db.utils import OperationalError, ProgrammingError
+
     from shopman.models import Channel
 
-    for channel in Channel.objects.all():
+    try:
+        channels = list(Channel.objects.all())
+    except (OperationalError, ProgrammingError):
+        return warnings  # tables not ready (initial migration)
+
+    for channel in channels:
         data = channel.config or {}
         fiscal = data.get("fiscal", {})
         if fiscal.get("enabled"):

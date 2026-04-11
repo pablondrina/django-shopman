@@ -6,6 +6,8 @@ arquiteturais se mantêm ao longo do tempo.
 
 Invariantes verificadas:
 1. Nenhuma view/API lê order.data["payment"]["status"] diretamente.
+   Detecta tanto padrão inline (.data.get("payment"...).get("status"))
+   quanto padrão split (payment = ...; payment.get("status")).
 2. Fulfillment tem um único caminho de criação (via service).
 3. Handlers delegam para services — sem Fulfillment.objects.create() em handlers.
 4. lifecycle.py não contém classes Flow.
@@ -46,6 +48,54 @@ def _grep(pattern: str, files: list[Path]) -> list[tuple[Path, int, str]]:
     return hits
 
 
+def _scan_split_payment_status(files: list[Path]) -> list[tuple[Path, int, str]]:
+    """
+    Detect split-statement payment status reads:
+
+        payment = order.data.get("payment", {})
+        payment.get("status")          # ← violation
+
+    Walks each file line-by-line, recording any variable assigned from
+    `*.data.get("payment"` or `*.data["payment"]`, then flags any later
+    access to `.get("status")` or `["status"]` on that variable.
+    """
+    violations = []
+    for path in files:
+        try:
+            lines = path.read_text().splitlines()
+        except (OSError, UnicodeDecodeError):
+            continue
+        if "test_" in path.name:
+            continue
+
+        payment_vars: set[str] = set()
+        for lineno, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
+
+            # Detect: varname = ....data.get("payment", ...) or ....data["payment"]
+            m = re.match(
+                r'(\w+)\s*=\s*.*\.data(?:\.get\(["\']payment["\']|\[["\']payment["\'])',
+                stripped,
+            )
+            if m:
+                payment_vars.add(m.group(1))
+
+            # Detect: varname.get("status") or varname["status"]
+            for var in list(payment_vars):
+                if re.search(
+                    rf'\b{re.escape(var)}\s*\.get\(\s*["\']status["\']',
+                    stripped,
+                ) or re.search(
+                    rf'\b{re.escape(var)}\s*\[\s*["\']status["\']',
+                    stripped,
+                ):
+                    violations.append((path, lineno, stripped))
+
+    return violations
+
+
 # ── Invariant 1: No view/API reads order.data["payment"]["status"] ──
 
 
@@ -82,6 +132,27 @@ class TestNoDirectPaymentStatusRead:
             "Handlers must use payment_svc.get_payment_status(order) instead of "
             "order.data['payment']['status']. Violations:\n"
             + "\n".join(f"  {p}:{ln}: {line}" for p, ln, line in real_hits)
+        )
+
+    def test_no_split_statement_payment_status_in_views(self):
+        """Detect multi-line payment status reads (variable assigned, then .get('status'))."""
+        violations = _scan_split_payment_status(self.VIEW_FILES)
+        assert not violations, (
+            "Views/API must use payment_svc.get_payment_status(order) — "
+            "split-statement reads of payment.get('status') are also forbidden. "
+            "Violations:\n"
+            + "\n".join(f"  {p}:{ln}: {line}" for p, ln, line in violations)
+        )
+
+    def test_no_split_statement_payment_status_in_handlers(self):
+        """Detect multi-line payment status reads in handlers."""
+        handler_files = _source_files("handlers")
+        violations = _scan_split_payment_status(handler_files)
+        assert not violations, (
+            "Handlers must use payment_svc.get_payment_status(order) — "
+            "split-statement reads of payment.get('status') are also forbidden. "
+            "Violations:\n"
+            + "\n".join(f"  {p}:{ln}: {line}" for p, ln, line in violations)
         )
 
 
