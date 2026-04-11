@@ -1,8 +1,8 @@
 """
 Fulfillment handlers — criação e atualização de fulfillment.
 
-FulfillmentCreateHandler: cria registro após confirmação.
-FulfillmentUpdateHandler: transições, tracking, auto-sync com Order.
+FulfillmentCreateHandler: cria registro após confirmação. Delega para services.fulfillment.create().
+FulfillmentUpdateHandler: transições, tracking, auto-sync com Order. Delega para services.fulfillment.update().
 """
 
 from __future__ import annotations
@@ -14,23 +14,6 @@ from shopman.directives import FULFILLMENT_CREATE, FULFILLMENT_UPDATE, NOTIFICAT
 
 logger = logging.getLogger(__name__)
 
-# ── Tracking URL patterns para transportadoras conhecidas ──
-
-CARRIER_TRACKING_URLS = {
-    "correios": "https://rastreamento.correios.com.br/app/index.php?objetos={code}",
-    "sedex": "https://rastreamento.correios.com.br/app/index.php?objetos={code}",
-    "jadlog": "https://www.jadlog.com.br/tracking?code={code}",
-    "loggi": "https://www.loggi.com/rastreio/{code}",
-}
-
-
-def _enrich_tracking_url(carrier: str, tracking_code: str) -> str:
-    """Gera tracking URL automaticamente quando carrier é conhecido."""
-    pattern = CARRIER_TRACKING_URLS.get(carrier.lower())
-    if pattern and tracking_code:
-        return pattern.format(code=tracking_code)
-    return ""
-
 
 class FulfillmentCreateHandler:
     """
@@ -39,13 +22,14 @@ class FulfillmentCreateHandler:
     Topic: fulfillment.create
     Payload: {order_ref, channel_ref}
 
-    Idempotente: verifica se fulfillment já existe antes de criar.
+    Idempotente via services.fulfillment.create().
     """
 
     topic = FULFILLMENT_CREATE
 
     def handle(self, *, message: Directive, ctx: dict) -> None:
         from shopman.orderman.models import Order
+        from shopman.services import fulfillment as fulfillment_svc
 
         payload = message.payload
         order_ref = payload.get("order_ref")
@@ -64,18 +48,7 @@ class FulfillmentCreateHandler:
             message.save(update_fields=["status", "last_error", "updated_at"])
             return
 
-        # Idempotência: não criar duas vezes
-        if order.data.get("fulfillment_created"):
-            logger.info(
-                "FulfillmentCreateHandler: fulfillment already exists for %s",
-                order_ref,
-            )
-            message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
-            return
-
-        order.data["fulfillment_created"] = True
-        order.save(update_fields=["data", "updated_at"])
+        fulfillment_svc.create(order)
 
         logger.info("FulfillmentCreateHandler: created fulfillment for %s", order_ref)
         message.status = "done"
@@ -89,8 +62,7 @@ class FulfillmentUpdateHandler:
     Topic: fulfillment.update
     Payload: {order_ref, fulfillment_id, new_status, tracking_code?, carrier?}
 
-    - Executa transição no Fulfillment model
-    - Auto-seta tracking_url quando carrier é conhecido
+    - Delega update para services.fulfillment.update()
     - Auto-sync com Order status (se config.fulfillment.auto_sync)
     - Cria notificações para DISPATCHED e DELIVERED
     """
@@ -101,6 +73,7 @@ class FulfillmentUpdateHandler:
         from shopman.config import ChannelConfig
         from shopman.orderman.exceptions import InvalidTransition
         from shopman.orderman.models import Fulfillment, Order
+        from shopman.services import fulfillment as fulfillment_svc
 
         payload = message.payload
         order_ref = payload.get("order_ref")
@@ -152,25 +125,11 @@ class FulfillmentUpdateHandler:
             message.save(update_fields=["status", "updated_at"])
             return
 
-        # Atualizar tracking info se fornecido
         tracking_code = payload.get("tracking_code")
         carrier = payload.get("carrier")
 
-        if tracking_code:
-            fulfillment.tracking_code = tracking_code
-        if carrier:
-            fulfillment.carrier = carrier
-
-        # Auto-enrich tracking URL
-        effective_carrier = carrier or fulfillment.carrier
-        effective_code = tracking_code or fulfillment.tracking_code
-        if effective_carrier and effective_code and not fulfillment.tracking_url:
-            fulfillment.tracking_url = _enrich_tracking_url(effective_carrier, effective_code)
-
-        # Executar transição
-        fulfillment.status = new_status
         try:
-            fulfillment.save()
+            fulfillment_svc.update(fulfillment, new_status, tracking_code, carrier)
         except InvalidTransition as exc:
             message.status = "failed"
             message.last_error = str(exc)

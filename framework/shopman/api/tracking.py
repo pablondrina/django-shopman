@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from shopman.orderman.models import Order
+from shopman.services import payment as payment_svc
 from shopman.web.views.tracking import (
     STATUS_LABELS,
     _build_tracking_context,
@@ -39,10 +40,7 @@ class OrderTrackingView(APIView):
         # Merge delivery + pickup fulfillments
         fulfillments = ctx.get("delivery_fulfillments", []) + ctx.get("pickup_fulfillments", [])
 
-        payment_status = None
-        payment_data = order.data.get("payment") if order.data else None
-        if payment_data:
-            payment_status = payment_data.get("status")
+        payment_status = payment_svc.get_payment_status(order)
 
         data = {
             "ref": order.ref,

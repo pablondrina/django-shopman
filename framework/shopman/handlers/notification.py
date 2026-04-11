@@ -1,13 +1,11 @@
 """
 Notification handler — processa directives notification.send.
 
-Suporta dois tipos de notificacao:
-- Pedido: payload com order_ref → notifica cliente
-- Sistema: payload com event (ex: stock.alert) → notifica operador
+Suporta dois tipos de notificação:
+- Pedido: payload com order_ref → delega para services.notification.deliver_order_notification()
+- Sistema: payload com event (ex: stock.alert) → notifica operador via email/console
 
-Roteamento phone-first (Brasil):
-  manychat (WhatsApp) → sms → email → console
-  Configurável via ChannelConfig.Notifications.fallback_chain
+O handler é fino: lê o directive, obtém o pedido, delega ao service, escreve o status.
 """
 
 from __future__ import annotations
@@ -19,12 +17,13 @@ from django.conf import settings
 from shopman.notifications import notify
 from shopman.orderman.models import Directive
 from shopman.directives import NOTIFICATION_SEND
+from shopman.services import notification as notification_svc
 
 logger = logging.getLogger(__name__)
 
 
 class NotificationSendHandler:
-    """Processa directives de notificacao. Topic: notification.send"""
+    """Processa directives de notificação. Topic: notification.send"""
 
     topic = NOTIFICATION_SEND
 
@@ -39,8 +38,9 @@ class NotificationSendHandler:
         self._handle_order_notification(message)
 
     def _handle_order_notification(self, message: Directive) -> None:
-        """Handle order-related notifications (customer-facing)."""
+        """Handle order-related notifications — delega ao service."""
         from shopman.orderman.models import Order
+        from shopman.services import payment as payment_svc
 
         payload = message.payload
         order_ref = payload.get("order_ref")
@@ -60,54 +60,22 @@ class NotificationSendHandler:
             message.save(update_fields=["status", "last_error", "updated_at"])
             return
 
-        # Skip payment reminders if already paid
+        # Guarda: pular reminders de pagamento se já pago
         if template == "payment.reminder":
-            payment_status = order.data.get("payment", {}).get("status", "")
+            payment_status = payment_svc.get_payment_status(order) or ""
             if payment_status in ("paid", "captured", "succeeded") or order.status not in ("new", "created"):
                 message.status = "done"
                 message.save(update_fields=["status", "updated_at"])
                 return
 
-        backend_chain = self._resolve_backend_chain(order)
+        success, last_error = notification_svc.deliver_order_notification(order, template, payload)
 
-        if not backend_chain or backend_chain == ["none"]:
+        if success:
             message.status = "done"
             message.save(update_fields=["status", "updated_at"])
             return
 
-        context = self._build_context(order, payload, template)
-        template = self._qualify_template(template, context)
-        context["template"] = template
-
-        # Try each backend in the chain until one succeeds
-        last_error = None
-        for backend_name in backend_chain:
-            if backend_name == "none":
-                continue
-
-            recipient = self._resolve_recipient(order, backend_name)
-            if not recipient:
-                last_error = f"No recipient for backend {backend_name}"
-                continue
-
-            # Enrich context for manychat
-            if backend_name == "manychat" and order.handle_type == "manychat":
-                context["subscriber_id"] = order.handle_ref
-
-            result = notify(event=template, recipient=recipient, context=context, backend=backend_name)
-
-            if result.success:
-                message.status = "done"
-                message.save(update_fields=["status", "updated_at"])
-                return
-
-            last_error = result.error or "unknown"
-            logger.info(
-                "Notification backend %s failed for %s, trying next in chain",
-                backend_name, order_ref,
-            )
-
-        # All backends in chain failed
+        # Todos os backends falharam
         message.last_error = (last_error or "all backends failed")[:500]
         exhausted = message.attempts >= 5
         message.status = "failed" if exhausted else "queued"
@@ -117,7 +85,7 @@ class NotificationSendHandler:
             self._escalate(order_ref, template, last_error)
 
     def _escalate(self, order_ref: str, template: str, last_error: str | None) -> None:
-        """Create OperatorAlert when notification delivery is exhausted."""
+        """Cria OperatorAlert quando entrega de notificação é exaurida."""
         try:
             from shopman.models import OperatorAlert
 
@@ -149,12 +117,11 @@ class NotificationSendHandler:
         else:
             template = context.get("template") or event
 
-        # Determine recipient: operator email from settings or DEFAULT_FROM_EMAIL
         recipient = getattr(settings, "SHOPMAN_OPERATOR_EMAIL", None) or getattr(
             settings, "DEFAULT_FROM_EMAIL", "admin@shopman.local"
         )
 
-        # System notifications: email → console
+        result = None
         for backend_name in ["email", "console"]:
             result = notify(event=template, recipient=recipient, context=context, backend=backend_name)
             if result.success:
@@ -162,98 +129,13 @@ class NotificationSendHandler:
                 message.save(update_fields=["status", "updated_at"])
                 return
 
-        message.last_error = (result.error or "unknown")[:500]
+        message.last_error = (result.error if result else "unknown")[:500]
         exhausted = message.attempts >= 5
         message.status = "failed" if exhausted else "queued"
         message.save(update_fields=["status", "last_error", "updated_at"])
 
         if exhausted:
-            self._escalate("", event, result.error)
-
-    def _resolve_backend_chain(self, order) -> list[str]:
-        """Resolve the ordered list of backends to try via ChannelConfig cascade."""
-        from shopman.config import ChannelConfig
-
-        notifications = ChannelConfig.for_channel(order.channel_ref).notifications
-        backend = notifications.backend or "manychat"
-        chain = notifications.fallback_chain or []
-        return [backend] + [b for b in chain if b != backend]
-
-    def _build_context(self, order, payload: dict, template: str) -> dict:
-        """Build notification context from order data."""
-        fulfillment_type = order.data.get("fulfillment_type", "pickup")
-
-        context = {
-            "order_ref": payload.get("order_ref"),
-            "template": template,
-            "order_status": order.status,
-            "total_q": order.total_q,
-            "items": order.snapshot.get("items", []),
-            "reason": payload.get("reason"),
-            "fulfillment_type": fulfillment_type,
-        }
-
-        # Enrich with customer name
-        customer_data = order.data.get("customer", {})
-        if isinstance(customer_data, dict):
-            context["customer_name"] = customer_data.get("name", "")
-        context["customer_phone"] = (
-            customer_data.get("phone", "") if isinstance(customer_data, dict) else ""
-        )
-
-        # Format total for display
-        if order.total_q:
-            context["total"] = f"R$ {order.total_q / 100:,.2f}"
-
-        payment = order.data.get("payment")
-        if payment:
-            context["payment"] = payment
-
-        return context
-
-    @staticmethod
-    def _qualify_template(template: str, context: dict) -> str:
-        """Qualify template name based on fulfillment_type when relevant.
-
-        order_ready → order_ready_pickup or order_ready_delivery
-        """
-        if template in ("order_ready", "order.ready"):
-            ft = context.get("fulfillment_type", "pickup")
-            suffix = "delivery" if ft == "delivery" else "pickup"
-            return f"{template}_{suffix}"
-        return template
-
-    def _resolve_recipient(self, order, backend_name: str = "") -> str | None:
-        """Resolve recipient based on backend type.
-
-        manychat → handle_ref (subscriber_id) ou phone
-        email    → email ou phone
-        sms      → phone
-        console  → phone ou qualquer identificador
-        """
-        customer_data = order.data.get("customer", {})
-        if not isinstance(customer_data, dict):
-            customer_data = {}
-
-        if backend_name == "manychat":
-            # Manychat: subscriber_id preferido, depois phone
-            if order.handle_type == "manychat" and order.handle_ref:
-                return order.handle_ref
-            return customer_data.get("phone") or order.data.get("customer_phone")
-
-        if backend_name == "email":
-            # Email: email preferido, depois phone como fallback
-            email = customer_data.get("email")
-            if email:
-                return email
-            return customer_data.get("phone") or order.data.get("customer_phone")
-
-        # sms, console, webhook, etc: phone
-        return (
-            customer_data.get("phone")
-            or order.data.get("customer_phone")
-            or (order.handle_ref if order.handle_type in ("customer", "phone") else None)
-        )
+            self._escalate("", event, result.error if result else None)
 
 
 __all__ = ["NotificationSendHandler"]

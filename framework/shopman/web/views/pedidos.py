@@ -13,6 +13,7 @@ from django.utils import timezone
 from django.views import View
 
 from shopman.orderman.models import Directive, Order
+from shopman.services import payment as payment_svc
 from shopman.services.cancellation import cancel
 from shopman.services.order_helpers import get_fulfillment_type
 from shopman.utils.monetary import format_money
@@ -54,6 +55,11 @@ NEXT_ACTION_LABELS = {
 
 # Delivery-specific label override for "ready" status
 READY_DELIVERY_LABEL = "Saiu para Entrega \u25b8"
+
+
+def _payment_status(order) -> str:
+    """Payment status via facade — empty string for counter/external orders."""
+    return payment_svc.get_payment_status(order) or ""
 
 
 def _is_delivery(order) -> bool:
@@ -155,7 +161,7 @@ def _enrich_order(order: Order) -> dict:
         "next_action_label": _next_label_for(order),
         "order": order,
         "payment_method": order.data.get("payment", {}).get("method", ""),
-        "payment_status": order.data.get("payment", {}).get("status", ""),
+        "payment_status": _payment_status(order),
     }
 
 

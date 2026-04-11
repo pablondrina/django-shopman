@@ -159,12 +159,8 @@ def _build_tracking_context(order: Order) -> dict:
 
     pickup = _pickup_info() if pickup_fulfillments else None
 
-    payment = order.data.get("payment", {})
-    payment_captured = payment.get("status") == "captured"
-    can_cancel = (
-        order.status in _CANCELLABLE_STATUSES
-        and not payment_captured
-    )
+    from shopman.services import payment as payment_svc
+    can_cancel = payment_svc.can_cancel(order)
 
     is_active = order.status not in _TERMINAL_STATUSES
 
@@ -319,11 +315,11 @@ class OrderCancelView(View):
     """
 
     def post(self, request: HttpRequest, ref: str) -> HttpResponse:
+        from shopman.services import payment as payment_svc
         from shopman.services.cancellation import cancel
 
         order = get_object_or_404(Order, ref=ref)
 
-        payment_status = order.data.get("payment", {}).get("status", "")
         if order.status not in _CANCELLABLE_STATUSES:
             if request.headers.get("HX-Request"):
                 return HttpResponse(
@@ -333,7 +329,7 @@ class OrderCancelView(View):
                 )
             return redirect("storefront:order_tracking", ref=ref)
 
-        if payment_status == "captured":
+        if payment_svc.get_payment_status(order) == "captured":
             if request.headers.get("HX-Request"):
                 return HttpResponse(
                     '<div class="toast toast-warning" role="alert" aria-live="assertive">'
