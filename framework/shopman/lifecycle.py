@@ -254,4 +254,4 @@ def _create_alert(order, alert_type: str) -> None:
             order_ref=order.ref,
         )
     except Exception:
-        logger.exception("flows._create_alert: failed for order %s", order.ref)
+        logger.exception("lifecycle._create_alert: failed for order %s", order.ref)

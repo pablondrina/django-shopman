@@ -112,7 +112,7 @@ class Command(BaseCommand):
                 action = "on_paid → flow dispatch"
                 if not dry_run:
                     try:
-                        from shopman.flows import dispatch
+                        from shopman.lifecycle import dispatch
                         dispatch(order, "on_paid")
                         logger.info(
                             "reconcile_payments: order %s intent %s → on_paid dispatched",

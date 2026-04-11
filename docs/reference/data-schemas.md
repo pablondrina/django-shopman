@@ -30,6 +30,8 @@ O Core não impõe schema — a governança é por convenção documentada aqui.
 | `delivery_fee_q` | `int` | DeliveryFeeModifier (via `session.save`) | CommitService, CartService, tracking view | Taxa de entrega em centavos. 0 = grátis. Só presente quando `fulfillment_type == "delivery"` e zona encontrada |
 | `delivery_zone_error` | `bool` | DeliveryFeeModifier (via `session.save`) | DeliveryZoneRule validator | `True` quando endereço de entrega não está coberto por nenhuma DeliveryZone ativa. Bloqueia commit |
 | `delivery_address_id` | `int` | `web/views/checkout.py` | `checkout_defaults.py` | FK para `CustomerAddress.pk`. Usada para inferir defaults na sessão. **Não propagada ao Order.data** — somente em Session.data |
+| `stock_check_unavailable` | `list[dict]` | `flows._check_availability` (via `check_on_commit`) | — | SKUs rejeitados por indisponibilidade durante check pré-commit. Cada entry: `{sku, error_code}`. Presente quando pedido é cancelado por `auto_reject_unavailable` |
+| `manual_discount` | `dict` | POS `pos_close` view | `ModifyService` (via `set_data`) | Desconto manual do operador: `{type, value, discount_q, reason}`. `type`: `"percent"` ou `"fixed"` |
 
 ### Chaves de sistema (geridas pelo Core)
 
@@ -127,7 +129,7 @@ for key in (
 | `nfce_cancelled` | `bool` | NFCeCancelHandler | NFCeCancelHandler (idempotência) | NFCe cancelada |
 | `nfce_cancellation_protocol` | `string` | NFCeCancelHandler | — | Protocolo de cancelamento |
 | `session_key` | `string` | hooks._on_cancelled | hooks._on_cancelled | Chave de sessão original (referência para release holds) |
-| `hold_ids` | `list[str]` | `StockService.hold(order)` | `StockService.fulfill(order)`, `StockService.release(order)` | IDs dos holds do Stockman adotados no momento do commit |
+| `hold_ids` | `list[dict]` | `StockService.hold(order)` | `StockService.fulfill(order)`, `StockService.release(order)` | Holds do Stockman adotados no commit. Cada entry: `{sku, hold_id, qty}` |
 | `loyalty` | `dict` | `LoyaltyRedeemModifier` | `services/loyalty.py` | Dados de resgate de pontos: `{redeem_points_q: int}` |
 
 
@@ -135,7 +137,7 @@ for key in (
 
 | Chave | Tipo | Lido por | Descrição |
 |-------|------|----------|-----------|
-| `customer_name` | `string` | pedidos._enrich_order, kds._enrich_order | **Não escrito pela checkout padrão.** Falls back para `order.handle_ref`. Previsto para canais que achatam `customer.name` |
+| `customer_name` | `string` | — | **Não usar.** Views agora lêem `customer.name` canônico com fallback para `order.handle_ref`. Reservado para canais legados que achatam o nome |
 | `delivery_method` | `string` | pedidos._enrich_order, kds._enrich_order, PedidoAdvanceView | **Não escrito pela checkout padrão.** Falls back para `""`. Previsto para canais que usam `delivery_method` em vez de `fulfillment_type` |
 | `customer_phone` | `string` | NotificationHandler._resolve_recipient | **Não escrito diretamente.** Fallback quando `customer.phone` não encontrado |
 

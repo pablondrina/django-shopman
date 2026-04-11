@@ -76,7 +76,7 @@ Termos de domínio usados no código e na documentação.
 | Termo | Definição |
 |-------|-----------|
 | **Shop** | Model singleton em `shop/` com identidade, localização, branding e defaults de negócio do estabelecimento. Cascata: canal ← Shop ← hardcoded. |
-| **ChannelConfig** | Dataclass com 6 aspectos de configuração de canal (confirmation, payment, stock, notifications, rules, flow). Cascata via `for_channel()`. |
+| **ChannelConfig** | Dataclass com 8 aspectos de configuração de canal (confirmation, payment, fulfillment, stock, notifications, pricing, editing, rules). Cascata via `for_channel()`. |
 | **inventory** | Módulo orquestrador de estoque (`channels.handlers.stock`). Conecta stocking core com o fluxo do pedido via backends. |
 | **identification** | Módulo orquestrador de identidade do cliente (`channels.handlers.customer`). Conecta customers core com o fluxo do pedido. |
 | **confirmation** | Módulo orquestrador que lida com confirmação otimista de pedidos. Auto-confirma se operador não cancela dentro do prazo. |

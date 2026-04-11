@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from shopman.craftsman.models import Recipe
 from shopman.craftsman.service import craft
-from shopman.production_flows import StandardFlow, production_flow_name_for
+from shopman.production_lifecycle import StandardFlow, production_flow_name_for
 
 pytestmark = pytest.mark.django_db
 
@@ -80,7 +80,7 @@ class TestDispatchMapping:
         today = timezone.localdate()
         wo = craft.plan(recipe, Decimal("5"), date=today)
 
-        with patch("shopman.production_flows.logger.info") as log_info:
+        with patch("shopman.production_lifecycle.logger.info") as log_info:
             craft.close(wo, produced=5, actor="t")
             texts = " ".join(str(c) for c in log_info.call_args_list)
             assert "ForecastFlow" in texts
