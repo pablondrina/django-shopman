@@ -64,7 +64,7 @@ class CashRegisterSession(models.Model):
 
         from shopman.orderman.models import Order
 
-        # Cash (counter) sales during this session
+        # Cash sales during this session
         cash_sales_q = (
             Order.objects.filter(
                 channel_ref="balcao",
@@ -72,7 +72,7 @@ class CashRegisterSession(models.Model):
                 created_at__lte=timezone.now(),
             )
             .exclude(status="cancelled")
-            .filter(data__payment__method="counter")
+            .filter(data__payment__method="cash")
             .aggregate(t=Sum("total_q"))["t"]
         ) or 0
 

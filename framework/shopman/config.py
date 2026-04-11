@@ -41,7 +41,8 @@ class ChannelConfig:
     class Payment:
         method: str | list[str] = "counter"
         # str or list[str]:
-        # "counter"  — no caixa/entrega
+        # "counter"  — pagamento no caixa físico (sem processamento digital; inclui cash/card presencial)
+        # "cash"     — dinheiro em espécie (POS: registrado em order.data para fechamento de caixa)
         # "pix"      — PIX com QR code
         # "card"     — cartão via Stripe
         # "external" — já pago (marketplace)
@@ -227,7 +228,7 @@ class ChannelConfig:
             raise ValueError(f"confirmation.mode inválido: {self.confirmation.mode}")
         if self.confirmation.mode == "optimistic" and self.confirmation.timeout_minutes <= 0:
             raise ValueError("timeout_minutes deve ser > 0 para mode=optimistic")
-        valid_methods = {"counter", "pix", "card", "external"}
+        valid_methods = {"counter", "cash", "pix", "card", "external"}
         for m in self.payment.available_methods:
             if m not in valid_methods:
                 raise ValueError(f"payment.method inválido: {m}")

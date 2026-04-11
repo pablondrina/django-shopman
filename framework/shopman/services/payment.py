@@ -37,7 +37,7 @@ def initiate(order) -> None:
     payment_data = order.data.get("payment", {})
     method = payment_data.get("method")
 
-    if not method or method in ("counter", "external"):
+    if not method or method in ("counter", "cash", "external"):
         return
 
     # Idempotent: skip if intent already exists
