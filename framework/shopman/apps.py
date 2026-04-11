@@ -35,7 +35,7 @@ class ShopmanConfig(AppConfig):
         # 3. Connect order_changed → lifecycle.dispatch
         self._connect_flow_signal()
 
-        # 4. Connect production_changed → production flows
+        # 4. Connect production_changed → production_lifecycle.dispatch_production
         self._connect_production_flow_signal()
 
     def _register_handlers(self):

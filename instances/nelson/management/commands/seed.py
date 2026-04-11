@@ -1226,7 +1226,7 @@ class Command(BaseCommand):
         channels = {}
         _pos_config = {
             "confirmation": {"mode": "immediate"},
-            "payment": {"method": "counter", "timing": "external"},
+            "payment": {"method": "cash", "timing": "external"},
             "stock": {"check_on_commit": True},
             "handle_label": "Comanda",
             "handle_placeholder": "Ex: 42",

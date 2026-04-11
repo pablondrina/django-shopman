@@ -32,7 +32,7 @@ Tarefas:
 Tarefas:
 - Renomear `framework/shopman/topics.py` → `framework/shopman/directives.py`
   - Zero residuals: atualizar todos os imports
-- `framework/shopman/flows.py`: `dispatch()` deve **propagar** exceções (não engolir)
+- `framework/shopman/lifecycle.py`: `dispatch()` deve **propagar** exceções (não engolir)
   - Orders stuck in inconsistent state são piores que um erro visível
 - `ChannelConfig.for_channel()` em `framework/shopman/config.py`:
   - Implementar leitura de canal-level override via `_ChannelConfigRecord` (criado em F1-3)
@@ -76,7 +76,7 @@ framework/shopman/
 ├── apps.py              # Boot — ready() com registro de handlers
 ├── setup.py             # Registro central — candidato a deletar
 ├── topics.py            # Constantes de tópicos — renomear para directives.py
-├── flows.py             # BaseFlow, dispatch() — propagar exceções
+├── lifecycle.py             # BaseFlow, dispatch() — propagar exceções
 ├── config.py            # ChannelConfig dataclass — for_channel() completo
 ├── handlers/
 │   ├── __init__.py      # Deve ter ALL_HANDLERS declarativo

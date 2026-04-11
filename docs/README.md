@@ -57,7 +57,7 @@ Cada guia segue a estrutura: Conceitos → Modelos → Serviços → Protocols �
 | [Customers](guides/customers.md) | `shopman.customers` | Clientes, contatos, grupos, loyalty, consent, RFM |
 | [Auth](guides/auth.md) | `shopman.auth` | Auth OTP, device trust, bridge tokens, magic links |
 | [Payments](guides/payments.md) | `shopman.payments` | Pagamentos, PIX, Stripe, intents, lifecycle |
-| [Flows](guides/flows.md) | `framework/shopman` | Orquestrador: Flows, Services, Adapters, Rules, lifecycle |
+| [Lifecycle](guides/lifecycle.md) | `framework/shopman` | Orquestrador: Lifecycle, Services, Adapters, Rules |
 | [Fechamento do dia](guides/day-closing.md) | `shopman` | Sobras, não vendidos, D-1 em `ontem`, às cegas vs vendas |
 
 ---
@@ -87,7 +87,7 @@ packages/                            framework/
 ├── stockman     (estoque)           │   ├── backends/      (16 backends)
 ├── craftsman    (produção)          │   ├── config.py      (ChannelConfig)
 ├── orderman      (pedidos)           │   ├── services/      (11 services)
-├── guestman     (clientes)          │   ├── flows.py       (lifecycle dispatcher)
+├── guestman     (clientes)          │   ├── lifecycle.py       (lifecycle dispatcher))
 ├── doorman      (autenticação)      │   ├── setup.py       (registro centralizado)
 └── payman       (pagamentos)        │   └── web/           (storefront)
                                      └── project/           (settings, urls)

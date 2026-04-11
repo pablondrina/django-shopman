@@ -80,7 +80,7 @@ def test_checkout_rate_limited(client: Client):
         "name": "Test User",
         "phone": "+5511999990005",
         "fulfillment_type": "pickup",
-        "payment_method": "counter",
+        "payment_method": "cash",
     }
     for _ in range(3):
         resp = client.post("/checkout/", data=payload)
@@ -101,7 +101,7 @@ def test_checkout_normal_use_passes(client: Client):
             "name": "Test User",
             "phone": "+5511999990006",
             "fulfillment_type": "pickup",
-            "payment_method": "counter",
+            "payment_method": "cash",
         },
     )
     assert resp.status_code != 429

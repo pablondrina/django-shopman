@@ -156,7 +156,7 @@ class TestGetAdapter:
     def test_counter_method_returns_none(self):
         from shopman.adapters import get_adapter
 
-        adapter = get_adapter("payment", method="counter")
+        adapter = get_adapter("payment", method="cash")
         assert adapter is None
 
     def test_fiscal_default_returns_none(self):

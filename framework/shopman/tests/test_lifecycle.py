@@ -42,7 +42,7 @@ def _config(**overrides):
         )
     if "payment_timing" in overrides or "payment_method" in overrides:
         kwargs["payment"] = ChannelConfig.Payment(
-            method=overrides.get("payment_method", "counter"),
+            method=overrides.get("payment_method", "cash"),
             timing=overrides.get("payment_timing", "post_commit"),
         )
     if "fulfillment_timing" in overrides:
@@ -192,7 +192,7 @@ class TestOnCommitAvailabilityCheck:
     ):
         mock_cc.for_channel.return_value = _config(
             confirmation_mode="immediate", check_on_commit=True,
-            payment_timing="external", payment_method="counter",
+            payment_timing="external", payment_method="cash",
         )
         mock_availability.check.return_value = {
             "ok": False, "error_code": "insufficient_stock", "available_qty": 0,
@@ -217,7 +217,7 @@ class TestOnCommitAvailabilityCheck:
     ):
         mock_cc.for_channel.return_value = _config(
             confirmation_mode="immediate", check_on_commit=True,
-            payment_timing="external", payment_method="counter",
+            payment_timing="external", payment_method="cash",
         )
         mock_availability.check.return_value = {"ok": True}
         order = _make_order(
@@ -274,7 +274,7 @@ class TestOnConfirmed:
     ):
         """Counter payment (external timing) fulfills stock on confirmed."""
         mock_cc.for_channel.return_value = _config(
-            payment_timing="external", payment_method="counter",
+            payment_timing="external", payment_method="cash",
         )
         order = _make_order()
         dispatch(order, "on_confirmed")
@@ -455,7 +455,7 @@ class TestLocalChannelScenario:
     ):
         mock_cc.for_channel.return_value = _config(
             confirmation_mode="immediate",
-            payment_timing="external", payment_method="counter",
+            payment_timing="external", payment_method="cash",
             check_on_commit=True,
         )
         mock_availability.check.return_value = {"ok": True}
@@ -475,7 +475,7 @@ class TestLocalChannelScenario:
         self, mock_stock, mock_notification, mock_cc,
     ):
         mock_cc.for_channel.return_value = _config(
-            payment_timing="external", payment_method="counter",
+            payment_timing="external", payment_method="cash",
         )
         order = _make_order()
         dispatch(order, "on_confirmed")

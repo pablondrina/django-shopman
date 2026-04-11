@@ -3,7 +3,7 @@ Craftsman API URLs (vNext).
 
 Include this in your project's urlpatterns:
 
-    path('api/crafting/', include('shopman.craftsman.api.urls')),
+    path('api/craftsman/', include('shopman.craftsman.api.urls')),
 """
 
 from rest_framework.routers import DefaultRouter

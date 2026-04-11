@@ -303,7 +303,7 @@ class TestGestorDetail(TestCase):
 | WorkOrder check | `WorkOrder.objects.filter(output_ref=sku, status="open")` | `crafting/models/work_order.py` |
 | Recipe check | `Recipe.objects.filter(output_ref=sku, is_active=True)` | `crafting/models/recipe.py` |
 | Release holds | `release_holds_for_order(order)` | `ordering/holds.py` |
-| Directive creation | `Directive.objects.create(topic=..., payload=...)` | `shopman/flows.py:38` |
+| Directive creation | `Directive.objects.create(topic=..., payload=...)` | `shopman/lifecycle.py:38` |
 | HTMX partial swap | `hx-get`, `hx-target`, `hx-swap="innerHTML"` | `tracking.html`, `payment.html` |
 | Alpine state | `x-data="componentName()"` com function no `<script>` | `payment.html`, `product_detail.html` |
 | Timer Alpine | Countdown com `setInterval`, cores por threshold | `order_status.html` (confirmTimer) |

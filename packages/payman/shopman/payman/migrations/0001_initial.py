@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('ref', models.CharField(max_length=64, unique=True)),
                 ('order_ref', models.CharField(db_index=True, max_length=64)),
-                ('method', models.CharField(choices=[('pix', 'PIX'), ('counter', 'Balcão'), ('card', 'Cartão'), ('external', 'Externo')], max_length=20)),
+                ('method', models.CharField(choices=[('pix', 'PIX'), ('cash', 'Dinheiro'), ('card', 'Cartão'), ('external', 'Externo')], max_length=20)),
                 ('status', models.CharField(choices=[('pending', 'Pendente'), ('authorized', 'Autorizado'), ('captured', 'Capturado'), ('failed', 'Falhou'), ('cancelled', 'Cancelado'), ('refunded', 'Reembolsado')], db_index=True, default='pending', max_length=20)),
                 ('amount_q', models.BigIntegerField()),
                 ('currency', models.CharField(default='BRL', max_length=3)),

@@ -39,7 +39,7 @@ class PaymentIntent(models.Model):
 
     class Method(models.TextChoices):
         PIX = "pix", _("PIX")
-        COUNTER = "counter", _("Balcão")
+        CASH = "cash", _("Dinheiro")
         CARD = "card", _("Cartão")
         EXTERNAL = "external", _("Externo")
 

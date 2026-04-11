@@ -125,7 +125,7 @@ def product_image(product, size="card", css_class=""):
         url = image.url
         # Build srcset if multiple sizes available
         srcset_parts = []
-        for sz_name, sz_width in sorted(_SIZES.items(), key=lambda x: x[1]):
+        for _sz_name, sz_width in sorted(_SIZES.items(), key=lambda x: x[1]):
             srcset_parts.append(f"{url} {sz_width}w")
         srcset = ", ".join(srcset_parts)
 

@@ -14,7 +14,7 @@ from shopman.stockman.services.movements import StockMovements
 
 User = get_user_model()
 
-BASE_URL = "/api/stocking"
+BASE_URL = "/api/stockman"
 
 
 class StockmanAPITestBase(TestCase):
@@ -71,7 +71,7 @@ class StockmanAPITestBase(TestCase):
 
 
 class AvailabilityTests(StockmanAPITestBase):
-    """Tests for GET /api/stocking/availability/"""
+    """Tests for GET /api/stockman/availability/"""
 
     def test_availability_returns_qty_and_reserved(self):
         """Critério: GET availability/?sku=X retorna qty disponível e reservada."""
@@ -152,7 +152,7 @@ class AvailabilityTests(StockmanAPITestBase):
 
 
 class BulkAvailabilityTests(StockmanAPITestBase):
-    """Tests for GET /api/stocking/availability/bulk/"""
+    """Tests for GET /api/stockman/availability/bulk/"""
 
     def test_bulk_returns_multiple_skus(self):
         """Critério: GET availability/bulk/?skus=X,Y,Z retorna múltiplos."""
@@ -184,7 +184,7 @@ class BulkAvailabilityTests(StockmanAPITestBase):
 
 
 class PositionTests(StockmanAPITestBase):
-    """Tests for GET /api/stocking/positions/"""
+    """Tests for GET /api/stockman/positions/"""
 
     def test_list_positions(self):
         resp = self.client.get(f"{BASE_URL}/positions/")
@@ -206,7 +206,7 @@ class PositionTests(StockmanAPITestBase):
 
 
 class PositionQuantsTests(StockmanAPITestBase):
-    """Tests for GET /api/stocking/positions/{code}/quants/"""
+    """Tests for GET /api/stockman/positions/{code}/quants/"""
 
     def test_quants_at_position(self):
         StockMovements.receive(Decimal("15"), self.product.sku, position=self.vitrine, reason="Produção")
@@ -241,7 +241,7 @@ class PositionQuantsTests(StockmanAPITestBase):
 
 
 class BelowMinimumAlertTests(StockmanAPITestBase):
-    """Tests for GET /api/stocking/alerts/below-minimum/"""
+    """Tests for GET /api/stockman/alerts/below-minimum/"""
 
     def test_triggered_alerts(self):
         StockMovements.receive(Decimal("3"), self.product.sku, position=self.vitrine, reason="Produção")
@@ -287,7 +287,7 @@ class BelowMinimumAlertTests(StockmanAPITestBase):
 
 
 class ReceiveTests(StockmanAPITestBase):
-    """Tests for POST /api/stocking/receive/"""
+    """Tests for POST /api/stockman/receive/"""
 
     def test_receive_creates_move_and_updates_quant(self):
         """Critério: POST receive/ cria Move e atualiza Quant atomicamente."""
@@ -357,7 +357,7 @@ class ReceiveTests(StockmanAPITestBase):
 
 
 class IssueTests(StockmanAPITestBase):
-    """Tests for POST /api/stocking/issue/"""
+    """Tests for POST /api/stockman/issue/"""
 
     def test_issue_creates_negative_move(self):
         StockMovements.receive(Decimal("20"), self.product.sku, position=self.vitrine, reason="Produção")
@@ -402,10 +402,10 @@ class IssueTests(StockmanAPITestBase):
 
 
 class MoveHistoryTests(StockmanAPITestBase):
-    """Tests for GET /api/stocking/moves/"""
+    """Tests for GET /api/stockman/moves/"""
 
     def test_moves_returns_paginated_history(self):
-        """Critério: GET /api/stocking/moves/ retorna histórico paginado e filtrável."""
+        """Critério: GET /api/stockman/moves/ retorna histórico paginado e filtrável."""
         StockMovements.receive(Decimal("20"), self.product.sku, position=self.vitrine, user=self.user, reason="Produção manhã")
         StockMovements.receive(Decimal("10"), self.croissant.sku, position=self.vitrine, user=self.user, reason="Produção manhã")
 
@@ -466,7 +466,7 @@ class MoveHistoryTests(StockmanAPITestBase):
 
 
 class HoldHistoryTests(StockmanAPITestBase):
-    """Tests for GET /api/stocking/holds/"""
+    """Tests for GET /api/stockman/holds/"""
 
     def test_holds_list(self):
         quant = StockMovements.receive(Decimal("20"), self.product.sku, position=self.vitrine, reason="Produção")

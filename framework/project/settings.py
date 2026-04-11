@@ -463,7 +463,7 @@ SHOPMAN_CUSTOMER_STRATEGY_MODULES = ["nelson.customer_strategies"]
 SHOPMAN_PAYMENT_ADAPTERS = {
     "pix": os.environ.get("SHOPMAN_PIX_ADAPTER", "shopman.adapters.payment_mock"),
     "card": os.environ.get("SHOPMAN_CARD_ADAPTER", "shopman.adapters.payment_mock"),
-    "counter": None,
+    "cash": None,
     "external": None,
 }
 

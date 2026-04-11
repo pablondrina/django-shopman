@@ -152,7 +152,7 @@ pode ser necessária para renomear a chave para `flow` se houver configs salvas)
 **Três nomes para a mesma fase de pagamento:**
 - `config.py:87` → `Pipeline.on_payment_confirmed` (órfão)
 - `webhooks/stripe.py:120`, `webhooks/efi.py:146` → `auto_transitions.get("on_payment_confirm")` (sem "d")
-- `flows.py` → `Flow.on_paid()` (o real, em produção)
+- `lifecycle.py` → `Flow.on_paid()` (o real, em produção)
 
 Risco concreto: se alguém configurar `auto_transitions: {on_payment_confirmed: "confirmed"}`
 seguindo o nome do Pipeline, não vai funcionar — o webhook procura `on_payment_confirm`.
@@ -164,7 +164,7 @@ seguindo o nome do Pipeline, não vai funcionar — o webhook procura `on_paymen
    - Remover o parse de `pipeline` em `from_dict()`.
    - Buscar e remover qualquer referência remanescente.
 
-2. **Padronizar chave de auto-transition para `on_paid`** (alinhado com `flows.py`):
+2. **Padronizar chave de auto-transition para `on_paid`** (alinhado com `lifecycle.py`):
    - `webhooks/stripe.py:120`: `auto_transitions.get("on_payment_confirm")` → `auto_transitions.get("on_paid")`
    - `webhooks/efi.py:146`: idem.
    - Documentar no docstring de `ChannelConfig.Flow.auto_transitions` que a chave
@@ -387,7 +387,7 @@ Resíduos de nomes antigos e dados Nelson em código não-executável:
 | Arquivo | Problema |
 |---------|----------|
 | `framework/shopman/setup.py:4-5` | Fala em "offering", "stocking", "crafting", "ordering" |
-| `framework/shopman/flows.py:17` | "KDSInstance (models), Recipe (crafting), CollectionItem (offering)" |
+| `framework/shopman/lifecycle.py:17` | "KDSInstance (models), Recipe (crafting), CollectionItem (offering)" |
 | `framework/shopman/management/commands/seed.py:4-5` | "catalogo (offering), estoque (stocking), receitas (crafting), clientes (customers), canais (ordering)" |
 | `framework/shopman/models/shop.py` | help_text com `nelsonboulangerie.com.br` |
 | `framework/shopman/management/commands/seed.py` | emails e URLs de Nelson |

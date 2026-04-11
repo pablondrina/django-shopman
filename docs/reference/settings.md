@@ -249,7 +249,7 @@ Settings flat no `settings.py` do Django (sem dict wrapper).
 | `SHOPMAN_ACCOUNTING_BACKEND` | str | *(sem default)* | Backend de contabilidade. Se ausente, handler de accounting não é registrado |
 | `SHOPMAN_NOTIFICATIONS` | str | `"console"` | Backend padrão de notificações |
 
-**Guia:** [flows.md](../guides/flows.md)
+**Guia:** [flows.md](../guides/lifecycle.md)
 
 ### Webhook
 
@@ -305,7 +305,7 @@ Cada campo de `ChannelConfig` é resolvido na ordem: canal específico → defau
 
 O módulo `shopman/confirmation.py` mantém fallback legado para `settings.CONFIRMATION_FLOW`, mas o caminho principal é via `ChannelConfig.effective()`.
 
-**Guia:** [flows.md](../guides/flows.md)
+**Guia:** [flows.md](../guides/lifecycle.md)
 
 ### ChannelConfig — Estrutura
 
