@@ -100,7 +100,7 @@ class PaymentService:
         Args:
             order_ref: Referência do pedido (string, sem FK)
             amount_q: Valor em centavos
-            method: Método de pagamento (pix, card, counter, external)
+            method: Método de pagamento (pix, card, cash, external)
             currency: Código ISO 4217
             gateway: Nome do gateway (ex: "efi", "stripe")
             gateway_id: ID da transação no gateway

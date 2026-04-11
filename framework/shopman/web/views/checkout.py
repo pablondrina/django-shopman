@@ -471,7 +471,7 @@ class CheckoutView(View):
         try:
             channel = Channel.objects.get(ref=CHANNEL_REF)
         except Channel.DoesNotExist:
-            return ["counter"]
+            return ["cash"]
         return ChannelConfig.for_channel(channel).payment.available_methods
 
     def _resolve_payment_method(self, request: HttpRequest) -> str:
@@ -481,7 +481,7 @@ class CheckoutView(View):
             if chosen_method not in payment_methods:
                 chosen_method = payment_methods[0]
             return chosen_method
-        return payment_methods[0] if payment_methods else "counter"
+        return payment_methods[0] if payment_methods else "cash"
 
     @staticmethod
     def _parse_address_data(request: HttpRequest) -> dict:

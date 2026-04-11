@@ -82,7 +82,7 @@ class CartExpiredRedirectTests(TestCase):
                 "name": "Test",
                 "phone": "5543999001122",
                 "fulfillment_type": "pickup",
-                "payment_method": "counter",
+                "payment_method": "cash",
             })
 
         self.assertEqual(resp.status_code, 302)
@@ -103,15 +103,15 @@ class PaymentMethodUnavailableTests(TestCase):
         from shopman.web.views.checkout import CheckoutView
         view = CheckoutView()
         # Patch _get_payment_methods to return only counter
-        with patch.object(CheckoutView, "_get_payment_methods", return_value=["counter"]):
-            self.assertTrue(view._payment_method_available("counter"))
+        with patch.object(CheckoutView, "_get_payment_methods", return_value=["cash"]):
+            self.assertTrue(view._payment_method_available("cash"))
             self.assertFalse(view._payment_method_available("pix"))
 
     def test_payment_method_unavailable_returns_false(self) -> None:
         """pix not in channel config → _payment_method_available returns False."""
         from shopman.web.views.checkout import CheckoutView
         view = CheckoutView()
-        with patch.object(CheckoutView, "_get_payment_methods", return_value=["counter"]):
+        with patch.object(CheckoutView, "_get_payment_methods", return_value=["cash"]):
             result = view._payment_method_available("pix")
         self.assertFalse(result)
 

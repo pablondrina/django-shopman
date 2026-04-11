@@ -94,7 +94,7 @@ def _stop_patches(patchers):
 
 _LOCAL_CONFIG = {
     "confirmation": {"mode": "immediate"},
-    "payment": {"method": "counter", "timing": "external"},
+    "payment": {"method": "cash", "timing": "external"},
     "stock": {"check_on_commit": True},
 }
 

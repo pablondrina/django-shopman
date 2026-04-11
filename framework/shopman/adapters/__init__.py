@@ -35,7 +35,7 @@ _DEFAULTS = {
     "payment": {
         "pix": "shopman.adapters.payment_mock",
         "card": "shopman.adapters.payment_mock",
-        "counter": None,
+        "cash": None,
         "external": None,
     },
     "notification": {

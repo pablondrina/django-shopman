@@ -474,7 +474,7 @@ class TestPaymentService:
     def test_initiate_counter_noop(self):
         from shopman.services.payment import initiate
 
-        order = _make_order(data={"payment": {"method": "counter"}})
+        order = _make_order(data={"payment": {"method": "cash"}})
         initiate(order)
         order.save.assert_not_called()
 
