@@ -25,7 +25,7 @@ Termos de domínio usados no código e na documentação.
 | **Position** | Onde o estoque existe. Tipos: PHYSICAL (depósito, vitrine), VIRTUAL (em trânsito), PROCESS (área de produção). Flag `is_saleable` indica se é posição de venda. |
 | **PositionKind** | Enum: `PHYSICAL`, `VIRTUAL`, `PROCESS`. |
 
-## Omniman (Pedidos)
+## Orderman (Pedidos)
 
 | Termo | Definição |
 |-------|-----------|

@@ -3,7 +3,7 @@
 > Última atualização: 2026-04-06
 
 Retrato factual do que está implementado e funcionando. Não é um plano — é o estado atual.
-Para gaps e roadmap, ver [CORRECTIONS-PLAN.md](../CORRECTIONS-PLAN.md) e [READINESS-PLAN.md](../READINESS-PLAN.md).
+Para gaps e roadmap, ver [ROADMAP.md](ROADMAP.md) e [READINESS-PLAN.md](READINESS-PLAN.md).
 
 ---
 
@@ -58,7 +58,7 @@ Para gaps e roadmap, ver [CORRECTIONS-PLAN.md](../CORRECTIONS-PLAN.md) e [READIN
 
 ## Gaps Conhecidos
 
-Ver [CORRECTIONS-PLAN.md](../CORRECTIONS-PLAN.md) para o plano de correção ativo:
+Ver [ROADMAP.md](ROADMAP.md) para gaps conhecidos e plano de correção:
 
 - **C1** — 42 blocos `except Exception` silenciosos nas views (sem logging)
 - **C2** — Thread safety no adapter EFI + cobertura de testes baseline
