@@ -45,12 +45,12 @@ Django Shopman é composto por **8 apps core** independentes e um **orquestrador
 │  │                    (packages/*)                                 │  │
 │  │                                                                │  │
 │  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐          │  │
-│  │  │ offering │ │ stocking │ │ crafting │ │ ordering │          │  │
+│  │  │offerman  │ │stockman  │ │craftsman │ │orderman  │          │  │
 │  │  │ catálogo │ │ estoque  │ │ produção │ │ pedidos  │          │  │
 │  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘          │  │
 │  │                                                                │  │
 │  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐          │  │
-│  │  │customers │ │   auth   │ │ payments │ │  utils   │          │  │
+│  │  │guestman  │ │ doorman  │ │  payman  │ │  utils   │          │  │
 │  │  │ clientes │ │   auth   │ │  pagam.  │ │  comum   │          │  │
 │  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘          │  │
 │  └────────────────────────────────────────────────────────────────┘  │
@@ -97,12 +97,12 @@ SHOPMAN_STOCK_BACKEND = "channels.backends.stock.StockingBackend"
 | Protocol | Definido em | Adapters |
 |----------|-------------|----------|
 | `StockBackend` | `shopman/protocols` | `StockingBackend`, `NoopStockBackend` |
-| `PaymentBackend` | `shopman.payments.protocols` | `MockPaymentBackend`, `EfiPixBackend`, `StripeBackend` |
-| `FiscalBackend` | `shopman.ordering.protocols` | `MockFiscalBackend`, `FocusBackend` |
-| `AccountingBackend` | `shopman.ordering.protocols` | `MockAccountingBackend`, `ContaazulBackend` |
-| `NotificationBackend` | `channels.protocols` | `ConsoleBackend`, `ManychatBackend`, `EmailBackend`, `SmsBackend`, `WebhookBackend`, `WhatsappBackend` |
-| `CustomerBackend` | `channels.protocols` | `CustomersBackend`, `NoopCustomerBackend` |
-| `PricingBackend` | `channels.protocols` | `OfferingBackend`, `CatalogPricingBackend`, `ChannelPricingBackend` |
+| `PaymentBackend` | `shopman.payman.protocols` | `MockPaymentBackend`, `EfiPixBackend`, `StripeBackend` |
+| `FiscalBackend` | `shopman.orderman.protocols` | `MockFiscalBackend`, `FocusBackend` |
+| `AccountingBackend` | `shopman.orderman.protocols` | `MockAccountingBackend`, `ContaazulBackend` |
+| `NotificationBackend` | `shopman/protocols` | `ConsoleBackend`, `ManychatBackend`, `EmailBackend`, `SmsBackend`, `WebhookBackend`, `WhatsappBackend` |
+| `CustomerBackend` | `shopman/protocols` | `GuestmanBackend`, `NoopCustomerBackend` |
+| `PricingBackend` | `shopman/protocols` | `OffermanBackend`, `CatalogPricingBackend`, `ChannelPricingBackend` |
 
 ### Vantagens
 
@@ -114,13 +114,13 @@ SHOPMAN_STOCK_BACKEND = "channels.backends.stock.StockingBackend"
 ## Mapa de Dependências
 
 ```
-utils ← offering
-utils ← stocking
-utils ← crafting   ← (protocols: stocking, offering)
-utils ← ordering
-utils ← customers  ← (protocols: ordering)
-utils ← auth       ← (protocols: customers)
-utils ← payments
+utils ← offerman
+utils ← stockman
+utils ← craftsman  ← (protocols: stockman, offerman)
+utils ← orderman
+utils ← guestman   ← (protocols: orderman)
+utils ← doorman    ← (protocols: guestman)
+utils ← payman
 ```
 
 Setas indicam dependência de pacote. Dependências via Protocol (runtime) são indicadas entre parênteses — não criam acoplamento de pacote.
@@ -141,10 +141,16 @@ Setas indicam dependência de pacote. Dependências via Protocol (runtime) são 
    ├── order_changed signal (event_type="created")
    │     └── on_order_lifecycle() lê ChannelConfig.pipeline
    │
-   ├── Directives enfileiradas conforme pipeline do canal:
-   │     ├── customer.ensure   → CustomerEnsureHandler
-   │     ├── stock.hold        → StockHoldHandler → StockBackend.create_hold()
+   ├── Serviços chamados diretamente pelo lifecycle (síncronos):
+   │     ├── customer.ensure   → services/customer.py (chamada direta)
+   │     ├── stock.hold        → services/stock.py → adapter.create_hold()
+   │     ├── payment.initiate  → services/payment.py → adapter.create_intent()
+   │     └── fulfillment.create → services/fulfillment.py
+   │
+   ├── Directives assíncronas criadas por services:
    │     ├── notification.send → NotificationSendHandler → NotificationBackend.send()
+   │     ├── loyalty.earn      → LoyaltyEarnHandler
+   │     ├── fiscal.emit_nfce  → NFCeEmitHandler
    │     └── ...
    │
 5. Confirmação (conforme modo do canal):
@@ -174,17 +180,15 @@ A configuração cascateia: `Channel.config` → `Shop.defaults` → `ChannelCon
 
 Veja [guia de pagamentos](guides/payments.md) para o fluxo PIX completo.
 
-## Mapa de Nomes (suite antiga → repo novo)
+## Namespaces dos Core Apps
 
-Para quem conhece a suite antiga (`django-shopman-suite`):
-
-| Suite Antiga | Repo Novo | App Label |
-|-------------|-----------|-----------|
-| commons | shopman.utils | utils |
-| offerman | shopman.offering | offering |
-| stockman | shopman.stocking | stocking |
-| craftsman | shopman.crafting | crafting |
-| orderman | shopman.orderman | orderman |
-| guestman | shopman.customers | customers |
-| doorman | shopman.auth | auth |
-| *(novo)* | shopman.payments | payments |
+| Persona | Pacote pip | Namespace Python | App Label |
+|---------|-----------|-----------------|-----------|
+| Utils | shopman-utils | shopman.utils | utils |
+| Offerman | shopman-offerman | shopman.offerman | offerman |
+| Stockman | shopman-stockman | shopman.stockman | stockman |
+| Craftsman | shopman-craftsman | shopman.craftsman | craftsman |
+| Orderman | shopman-orderman | shopman.orderman | orderman |
+| Guestman | shopman-guestman | shopman.guestman | guestman |
+| Doorman | shopman-doorman | shopman.doorman | doorman |
+| Payman | shopman-payman | shopman.payman | payman |

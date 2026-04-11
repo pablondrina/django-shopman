@@ -30,7 +30,7 @@ O Core não impõe schema — a governança é por convenção documentada aqui.
 | `delivery_fee_q` | `int` | DeliveryFeeModifier (via `session.save`) | CommitService, CartService, tracking view | Taxa de entrega em centavos. 0 = grátis. Só presente quando `fulfillment_type == "delivery"` e zona encontrada |
 | `delivery_zone_error` | `bool` | DeliveryFeeModifier (via `session.save`) | DeliveryZoneRule validator | `True` quando endereço de entrega não está coberto por nenhuma DeliveryZone ativa. Bloqueia commit |
 | `delivery_address_id` | `int` | `web/views/checkout.py` | `checkout_defaults.py` | FK para `CustomerAddress.pk`. Usada para inferir defaults na sessão. **Não propagada ao Order.data** — somente em Session.data |
-| `stock_check_unavailable` | `list[dict]` | `flows._check_availability` (via `check_on_commit`) | — | SKUs rejeitados por indisponibilidade durante check pré-commit. Cada entry: `{sku, error_code}`. Presente quando pedido é cancelado por `auto_reject_unavailable` |
+| `stock_check_unavailable` | `list[dict]` | `lifecycle._check_availability` (via `check_on_commit`) | — | SKUs rejeitados por indisponibilidade durante check pré-commit. Cada entry: `{sku, error_code}`. Presente quando pedido é cancelado por `auto_reject_unavailable` |
 | `manual_discount` | `dict` | POS `pos_close` view | `ModifyService` (via `set_data`) | Desconto manual do operador: `{type, value, discount_q, reason}`. `type`: `"percent"` ou `"fixed"` |
 
 ### Chaves de sistema (geridas pelo Core)
@@ -165,21 +165,25 @@ dados de display (UI) ou audit (rastreabilidade).
 }
 ```
 
-| Sub-chave | Tipo | Escrito por | Descrição |
-|-----------|------|-------------|-----------|
-| `method` | `string` | CheckoutView (Session.data → CommitService) | `"pix"`, `"card"`, `"counter"`, `"external"` — chave de contrato |
-| `intent_ref` | `string` | `payment.initiate()` | ID do intent no Payman/gateway — chave de contrato |
-| `amount_q` | `int` | `payment.initiate()` | Valor em centavos (referência) |
-| `qr_code` | `string` | `payment.initiate()` | QR code image (data URI) — display PIX |
-| `copy_paste` | `string` | `payment.initiate()` | Brcode PIX copia-e-cola — display PIX |
-| `expires_at` | `string` | `payment.initiate()` | ISO datetime de expiração do QR |
-| `client_secret` | `string` | `payment.initiate()` | Secret do Stripe PaymentIntent — display card |
-| `e2e_id` | `string` | `EfiPixWebhookView` | End-to-end ID da transação PIX (idempotência + audit) |
-| `paid_amount_q` | `int` | `EfiPixWebhookView` | Valor efetivamente pago (audit) |
-| `captured_at` | `string` | `MockPaymentConfirmView` | ISO datetime de captura mock (dev only) |
-| `transaction_id` | `string` | `payment.capture()` | Transaction ID do adapter (audit) |
-| `marked_paid_by` | `string` | `PedidoMarkPaidView` | Username do operador que marcou como pago (idempotência + audit) |
-| `error` | `string` | `payment.initiate()` | Mensagem de erro se create_intent falhou |
+Classificações: **canonical** = fonte de verdade para decisões; **display** = dados de UI, nunca usado para lógica; **audit** = rastreabilidade; **idempotency** = flag de deduplicação.
+
+**Status de pagamento NÃO está aqui** — consulte sempre `payment_svc.get_payment_status(order)` (canonical source: Payman).
+
+| Sub-chave | Tipo | Classe | Escrito por | Lido por | Descrição |
+|-----------|------|--------|-------------|----------|-----------|
+| `method` | `string` | **canonical** | CheckoutView → CommitService | lifecycle, views, handlers | `"pix"`, `"card"`, `"counter"`, `"external"` |
+| `intent_ref` | `string` | **canonical** | `payment.initiate()` | `payment_svc.get_payment_status`, PaymentStatusView | ID do intent no Payman/gateway |
+| `amount_q` | `int` | display | `payment.initiate()` | PaymentView, templates | Valor em centavos (referência para UI) |
+| `qr_code` | `string` | display | `payment.initiate()` | PaymentView template | QR code image (data URI) — PIX only |
+| `copy_paste` | `string` | display | `payment.initiate()` | PaymentView template | Brcode PIX copia-e-cola — PIX only |
+| `expires_at` | `string` | display | `payment.initiate()` | PaymentStatusView (expiração) | ISO datetime de expiração do QR — PIX only |
+| `client_secret` | `string` | display | `payment.initiate()` | PaymentView template | Stripe PaymentIntent secret — card only |
+| `e2e_id` | `string` | audit + idempotency | `EfiPixWebhookView` | EfiPixWebhookView (deduplicação) | End-to-end ID da transação PIX |
+| `paid_amount_q` | `int` | audit | `EfiPixWebhookView` | — | Valor efetivamente pago pelo cliente |
+| `captured_at` | `string` | audit | `MockPaymentConfirmView` | — | ISO datetime de captura mock (dev only) |
+| `transaction_id` | `string` | audit | `payment.capture()` | — | Transaction ID do adapter pós-capture |
+| `marked_paid_by` | `string` | audit + idempotency | `PedidoMarkPaidView` | `PedidoMarkPaidView` (deduplicação) | Username do operador que marcou como pago |
+| `error` | `string` | audit | `payment.initiate()` | — | Mensagem de erro se create_intent falhou (max 200 chars) |
 
 ### returns — detalhamento
 
@@ -226,7 +230,6 @@ dados de display (UI) ou audit (rastreabilidade).
   "payment": {
     "method": "pix",
     "intent_ref": "INT-abc123",
-    "status": "captured",
     "amount_q": 2500,
     "e2e_id": "E123456789",
     "paid_amount_q": 2500
@@ -461,13 +464,6 @@ Valores de `event`: `"stock.alert.triggered"`, `"system"`.
 | Chave | Tipo | Escrito por | Lido por |
 |-------|------|-------------|----------|
 | `order_ref` | `string` | hooks | LoyaltyEarnHandler |
-
-#### `customer.ensure`
-
-| Chave | Tipo | Escrito por | Lido por |
-|-------|------|-------------|----------|
-| `order_ref` | `string` | hooks | CustomerEnsureHandler |
-| `channel_ref` | `string` | hooks | CustomerEnsureHandler |
 
 #### `checkout.infer_defaults`
 
