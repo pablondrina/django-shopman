@@ -9,13 +9,14 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
+from shopman.models import Channel
 from shopman.offerman.models import Collection, Product
 from shopman.orderman.ids import generate_idempotency_key, generate_session_key
-from shopman.models import Channel
 from shopman.orderman.models import Session
 from shopman.orderman.services.commit import CommitService
 from shopman.orderman.services.modify import ModifyService
 from shopman.utils.monetary import format_money
+from shopman.web.constants import POS_CHANNEL_REF
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ def _load_products():
 
         items = (
             ListingItem.objects.filter(
-                listing__ref="balcao",
+                listing__ref=POS_CHANNEL_REF,
                 listing__is_active=True,
                 is_published=True,
                 is_available=True,
@@ -74,7 +75,7 @@ def _product_dict(product, price_q):
 
     ci = product.collection_items.filter(is_primary=True).select_related("collection").first()
     try:
-        is_d1 = _line_item_is_d1(product, listing_ref="balcao")
+        is_d1 = _line_item_is_d1(product, listing_ref=POS_CHANNEL_REF)
     except Exception as e:
         logger.debug("pos_d1_check_failed sku=%s: %s", product.sku, e)
         is_d1 = False
@@ -92,9 +93,9 @@ def _product_dict(product, price_q):
 
 
 _PAYMENT_METHODS = [
-    ("dinheiro", "Dinheiro"),
+    ("counter", "Dinheiro"),
     ("pix", "PIX"),
-    ("cartao", "Cartão"),
+    ("card", "Cartão"),
 ]
 
 
@@ -199,13 +200,13 @@ def pos_close(request: HttpRequest) -> HttpResponse:
 
     customer_name = body.get("customer_name", "").strip()
     customer_phone = body.get("customer_phone", "").strip()
-    payment_method = body.get("payment_method", "dinheiro")
+    payment_method = body.get("payment_method", "counter")
 
     try:
-        channel = Channel.objects.get(ref="balcao")
+        channel = Channel.objects.get(ref=POS_CHANNEL_REF)
     except Channel.DoesNotExist:
         return HttpResponse(
-            '<div id="pos-result">Canal balc&atilde;o n&atilde;o configurado</div>',
+            f'<div id="pos-result">Canal {POS_CHANNEL_REF} n&atilde;o configurado</div>',
             status=500,
         )
 
@@ -265,9 +266,10 @@ def pos_close(request: HttpRequest) -> HttpResponse:
     try:
         ModifyService.modify_session(
             session_key=session_key,
-            channel_ref="balcao",
+            channel_ref=channel.ref,
             ops=ops,
             ctx={"actor": f"pos:{request.user.username}"},
+            channel_config=config.to_dict(),
         )
     except Exception as e:
         _msg = str(e).lower()
@@ -286,9 +288,10 @@ def pos_close(request: HttpRequest) -> HttpResponse:
     try:
         result = CommitService.commit(
             session_key=session_key,
-            channel_ref="balcao",
+            channel_ref=channel.ref,
             idempotency_key=generate_idempotency_key(),
             ctx={"actor": f"pos:{request.user.username}"},
+            channel_config=config.to_dict(),
         )
     except Exception as e:
         logger.exception("pos_close commit_failed")
@@ -331,7 +334,7 @@ def pos_shift_summary(request: HttpRequest) -> HttpResponse:
 
     today = timezone.localdate()
     qs = Order.objects.filter(
-        channel_ref="balcao",
+        channel_ref=POS_CHANNEL_REF,
         created_at__date=today,
     ).exclude(status="cancelled")
 

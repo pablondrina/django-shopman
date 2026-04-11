@@ -180,7 +180,7 @@ class TestE2E2WebPixHappyPath(TestCase):
         _stop_patches(self.patchers)
 
     def test_web_pix_happy_path(self):
-        from shopman.flows import dispatch
+        from shopman.lifecycle import dispatch
 
         session = _make_session(self.channel)
         result = _commit(session, self.channel)
@@ -246,7 +246,7 @@ class TestE2E4WebPixWebhookAfterCancellation(TestCase):
         _stop_patches(self.patchers)
 
     def test_on_paid_with_cancelled_order_does_not_fulfill(self):
-        from shopman.flows import dispatch
+        from shopman.lifecycle import dispatch
 
         session = _make_session(self.channel)
         result = _commit(session, self.channel)

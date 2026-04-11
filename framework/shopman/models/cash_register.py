@@ -6,6 +6,8 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
+_POS_CHANNEL_REF: str = getattr(settings, "SHOPMAN_POS_CHANNEL_REF", "balcao")
+
 
 class CashRegisterSession(models.Model):
     """
@@ -55,23 +57,24 @@ class CashRegisterSession(models.Model):
         return f"Caixa {self.operator.username} — {self.opened_at:%d/%m/%Y %H:%M} [{self.status}]"
 
     @classmethod
-    def get_open_for_operator(cls, operator) -> "CashRegisterSession | None":
+    def get_open_for_operator(cls, operator) -> CashRegisterSession | None:
         return cls.objects.filter(operator=operator, status=cls.Status.OPEN).first()
 
     def close(self, *, closing_amount_q: int, notes: str = "") -> None:
         """Close the session and compute expected_amount_q / difference_q."""
         from django.db.models import Sum
+
         from shopman.orderman.models import Order
 
         # Cash sales during this session
         cash_sales_q = (
             Order.objects.filter(
-                channel_ref="balcao",
+                channel_ref=_POS_CHANNEL_REF,
                 created_at__gte=self.opened_at,
                 created_at__lte=timezone.now(),
             )
             .exclude(status="cancelled")
-            .filter(data__payment__method="dinheiro")
+            .filter(data__payment__method="counter")
             .aggregate(t=Sum("total_q"))["t"]
         ) or 0
 

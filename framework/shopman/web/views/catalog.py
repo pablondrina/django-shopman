@@ -10,8 +10,6 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
 
-logger = logging.getLogger(__name__)
-
 from shopman.offerman.models import Collection, Product
 from shopman.offerman.service import CatalogService
 from shopman.utils.monetary import format_money
@@ -32,6 +30,8 @@ from ._helpers import (
     _storefront_session_pricing_hints,
     _to_storefront_avail,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _published_products(listing_ref: str | None) -> QuerySet:
@@ -328,7 +328,6 @@ class ProductDetailView(View):
             logger.warning("breadcrumb_collection_failed sku=%s: %s", product.sku, e, exc_info=True)
 
         # Available quantity for JS notice
-        from decimal import Decimal
         available_qty = int(avail["available_qty"]) if avail and avail.get("available_qty") is not None else None
 
         return render(request, "storefront/product_detail.html", {
