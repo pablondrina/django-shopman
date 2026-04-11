@@ -166,6 +166,41 @@ def refund(order) -> None:
         logger.warning("payment.refund: failed for order %s: %s", order.ref, exc)
 
 
+# ── facades ──
+
+_CANCELLABLE_STATUSES = {"new", "confirmed"}
+
+
+def get_payment_status(order) -> str | None:
+    """
+    Retorna o status canônico de pagamento via Payman.
+
+    Consulta PaymentService pelo intent_ref. Retorna None para pedidos
+    sem intent (counter, external, dinheiro).
+    """
+    intent_ref = (order.data or {}).get("payment", {}).get("intent_ref")
+    if not intent_ref:
+        return None
+    try:
+        from shopman.payman import PaymentService
+        intent = PaymentService.get(intent_ref)
+        return intent.status
+    except Exception:
+        logger.debug("get_payment_status: intent not found for order %s", order.ref)
+        return None
+
+
+def can_cancel(order) -> bool:
+    """
+    True se o pedido pode ser cancelado pelo cliente.
+
+    Requer: status in {new, confirmed} e pagamento não capturado.
+    """
+    if order.status not in _CANCELLABLE_STATUSES:
+        return False
+    return get_payment_status(order) != "captured"
+
+
 # ── helpers ──
 
 

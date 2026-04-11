@@ -571,31 +571,29 @@ class TestNotificationService:
 
 
 class TestNotificationSendHandler:
-    """Unit tests for NotificationSendHandler._build_context."""
+    """Unit tests for notification service context building."""
 
     def test_build_context_reads_items_from_snapshot(self):
         """Items must come from order.snapshot, not order.data (CommitService never copies them)."""
-        from shopman.handlers.notification import NotificationSendHandler
+        from shopman.services.notification import _build_context
 
         items = [{"sku": "PAO-001", "name": "Pão Francês", "qty": 2, "line_total_q": 200}]
         order = _make_order(
             snapshot={"items": items, "data": {}},
             data={"fulfillment_type": "pickup"},
         )
-        handler = NotificationSendHandler()
 
-        ctx = handler._build_context(order, {"order_ref": "ORD-001"}, "order_confirmed")
+        ctx = _build_context(order, {"order_ref": "ORD-001"}, "order_confirmed")
 
         assert ctx["items"] == items, "items must be read from order.snapshot, not order.data"
 
     def test_build_context_items_empty_when_snapshot_has_none(self):
         """Empty snapshot returns empty items list without error."""
-        from shopman.handlers.notification import NotificationSendHandler
+        from shopman.services.notification import _build_context
 
         order = _make_order(snapshot={}, data={})
-        handler = NotificationSendHandler()
 
-        ctx = handler._build_context(order, {"order_ref": "ORD-001"}, "order_confirmed")
+        ctx = _build_context(order, {"order_ref": "ORD-001"}, "order_confirmed")
 
         assert ctx["items"] == []
 
