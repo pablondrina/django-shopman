@@ -1,12 +1,12 @@
 """
-Craftsman Demand Backend — Omniman integration.
+Craftsman Demand Backend — Orderman integration.
 
 Add 'shopman.craftsman.contrib.demand' to INSTALLED_APPS to enable:
-- OmnimanDemandBackend implementing DemandProtocol
+- OrderingDemandBackend implementing DemandProtocol
 - Production suggestions based on historical order data
 
 Configure via settings:
-    CRAFTING = {
-        "DEMAND_BACKEND": "shopman.craftsman.contrib.demand.backend.OmnimanDemandBackend",
+    CRAFTSMAN = {
+        "DEMAND_BACKEND": "shopman.craftsman.contrib.demand.backend.OrderingDemandBackend",
     }
 """

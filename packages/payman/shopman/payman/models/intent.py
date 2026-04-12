@@ -26,7 +26,7 @@ class PaymentIntent(models.Model):
         - All mutations must go through ``PaymentService``, not direct model saves.
           ``transition_status()`` is an internal concurrency helper only.
 
-    Inspiração: Stripe PaymentIntent + Omniman.Order status machine.
+    Inspiração: Stripe PaymentIntent + Orderman Order status machine.
     """
 
     class Status(models.TextChoices):

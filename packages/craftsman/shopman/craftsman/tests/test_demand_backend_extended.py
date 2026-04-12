@@ -2,7 +2,7 @@
 Extended tests for shopman.craftsman.contrib.demand — OrderingDemandBackend.
 
 Supplements test_demand_backend.py with:
-- history() ORM integration (with real Omniman models when available)
+- history() ORM integration (with real Orderman models when available)
 - committed() edge cases (no holds, mixed holds)
 - _sku_lookup helper
 - Error handling in committed()

@@ -1,7 +1,7 @@
 """
 Shop — Custom order modifiers.
 
-Modifiers follow the Omniman Modifier protocol:
+Modifiers follow the Orderman Modifier protocol:
 - code: str — unique identifier
 - order: int — execution order (lower = first)
 - apply(*, channel, session, ctx) -> None — mutates session in-place

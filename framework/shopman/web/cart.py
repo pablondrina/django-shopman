@@ -40,7 +40,7 @@ class CartUnavailableError(Exception):
 
 
 class CartService:
-    """Manages Omniman sessions linked to Django visitor sessions."""
+    """Manages Orderman sessions linked to Django visitor sessions."""
 
     @staticmethod
     def _get_channel() -> Channel:

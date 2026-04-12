@@ -138,7 +138,7 @@ class TestCooldown:
 
 
 class TestDirectiveCreation:
-    """Alert dispatch creates Directive when Omniman is available."""
+    """Alert dispatch creates Directive when Orderman is available."""
 
     @pytest.mark.skip(reason="Requires shopman.orderman — not yet migrated")
     def test_dispatch_creates_directive(self, stocked_product, vitrine, alert):
@@ -155,7 +155,7 @@ class TestDirectiveCreation:
         assert d.payload["context"]["alert_id"] == alert.pk
 
     def test_dispatch_graceful_without_ordering(self, stocked_product, vitrine, alert):
-        """Without Omniman, dispatch logs and returns gracefully."""
+        """Without Orderman, dispatch logs and returns gracefully."""
         product, quant = stocked_product
 
         with patch(

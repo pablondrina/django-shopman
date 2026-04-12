@@ -124,7 +124,7 @@ que estão fora do escopo atual mas não devem ser esquecidos.
 | KDS como contrib formal | `framework/shopman/models/kds.py`, `services/kds.py`, `web/views/kds.py` | KDS models e views estão no framework como built-in. Lifecycle agora é opt-in (lazy import), mas modelos e views ainda são parte do framework. Considerar extrair para `framework/shopman/contrib/kds/` como app contrib registrável. | Média |
 | _is_happy_hour_active no storefront | `framework/shopman/web/views/_helpers.py:790` | Helper que mostra badge de Happy Hour na vitrine. Funciona via settings (agnóstico), mas a existência dessa função no framework pressupõe que Happy Hour é uma feature universalmente desejada. Considerar tornar condicional ao registro do modifier. | Baixa |
 | ~~Stockman testes importam offerman~~ | `packages/stockman/shopman/stockman/tests/` | **CONCLUÍDO** — 4 arquivos migrados para SimpleNamespace + NoopSkuValidator. Zero imports de offerman. | ✅ |
-| ~12 settings ausentes | `framework/project/settings.py` | GUESTMAN, OMNIMAN, GUESTMAN_INSIGHTS, GUESTMAN_LOYALTY, SHOPMAN_OPERATOR_EMAIL, SHOPMAN_PIX_EXPIRY_SECONDS, SHOPMAN_POS_CHANNEL_REF, SHOPMAN_FISCAL_BACKENDS, SHOPMAN_SMS_ADAPTER, STOCKMAN_ALERT_COOLDOWN_MINUTES — todos referenciados no código com fallback, mas ausentes do settings.py default. | Média |
+| ~11 settings ausentes | `framework/project/settings.py` | GUESTMAN, ORDERMAN, GUESTMAN_INSIGHTS, GUESTMAN_LOYALTY, SHOPMAN_OPERATOR_EMAIL, SHOPMAN_PIX_EXPIRY_SECONDS, SHOPMAN_POS_CHANNEL_REF, SHOPMAN_FISCAL_BACKENDS, SHOPMAN_SMS_ADAPTER, STOCKMAN_ALERT_COOLDOWN_MINUTES — referenciados no código com fallback, ausentes do settings.py default. OMNIMAN renomeado para ORDERMAN em conf.py. | Média |
 | Doorman multi-handle formal | `packages/doorman/` | Multi-handle existe no orderman (handle_type/handle_ref) mas não é protocolo formal no doorman. | Média |
 | Doorman provider linking | `packages/doorman/` | OAuth/SSO provider linking não existe. Extension point a criar. | Baixa |
 | ~~Listing sem contrato de canal~~ | `packages/offerman/` | **CONCLUÍDO** — Docstring do Listing formaliza contrato de canal (ref match por convenção, estado comercial em 2 níveis). | ✅ |
@@ -132,6 +132,7 @@ que estão fora do escopo atual mas não devem ser esquecidos.
 | D1Rule e HappyHourRule no framework | `framework/shopman/rules/pricing.py` | Rule wrappers para admin (D1Rule, HappyHourRule) ainda estão no framework. Os modifiers correspondentes foram movidos para instância. Considerar mecanismo de rule discovery para que instâncias registrem suas próprias rules. | Média |
 | CatalogProjectionBackend implementation | `framework/shopman/adapters/` | Protocolo criado em offerman. Falta implementação concreta para pelo menos um canal externo (iFood, Rappi, etc). | Alta estratégica |
 | Craftsman UI de chão | `framework/shopman/web/views/production.py` | A Matriz pede "desenhar UI/fluxos de chão como parte do domínio". A view atual de produção existe mas não cobre apontamento operacional completo (start, finish com quantidades, waste report). | Média |
+| Utils: JS estático faltante | `packages/utils/shopman/utils/admin/mixins.py:44` | `AutofillInlineMixin` referencia `shopman_utils/js/autocomplete_autofill.js` mas o arquivo não existe no pacote. Funcionalidade server-side funciona, client-side não. | Baixa |
 
 ---
 

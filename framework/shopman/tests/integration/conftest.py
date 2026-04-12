@@ -2,8 +2,8 @@
 Pytest fixtures for integration tests between Shopman apps.
 
 These tests verify the contracts between:
-- Omniman <-> Stockman (stock backend)
-- Omniman <-> Offerman (pricing backend)
+- Orderman <-> Stockman (stock backend)
+- Orderman <-> Offerman (pricing backend)
 - Craftsman <-> Stockman (production -> stock)
 - Craftsman <-> Offerman (recipes -> products)
 """

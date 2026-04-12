@@ -104,7 +104,7 @@ class DeliveryZoneRule:
     default_params = {}
 
     def validate(self, *, channel: Any, session: Any, ctx: dict) -> None:
-        from shopman.orderman.exceptions import ValidationError as OmnimanValidationError
+        from shopman.orderman.exceptions import ValidationError as OrderValidationError
 
         session_data = getattr(session, "data", None) or {}
         fulfillment_type = session_data.get("fulfillment_type", "")
@@ -112,7 +112,7 @@ class DeliveryZoneRule:
             return
 
         if session_data.get("delivery_zone_error"):
-            raise OmnimanValidationError(
+            raise OrderValidationError(
                 code="delivery_zone_not_covered",
                 message="Não entregamos neste endereço ainda.",
             )

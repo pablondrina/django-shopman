@@ -15,7 +15,7 @@ class ChannelParamMiddleware:
 
     When a customer visits any storefront URL with ?channel=whatsapp,
     the value is persisted as origin_channel in the Django session.
-    This is later propagated to Omniman.Session.data for notification routing.
+    This is later propagated to Orderman Session.data for notification routing.
 
     Only sets once per session (doesn't overwrite bridge-token origin).
     """

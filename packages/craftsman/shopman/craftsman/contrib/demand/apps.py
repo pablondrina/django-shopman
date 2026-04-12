@@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
 
 
 class CraftsmanDemandConfig(AppConfig):
-    """Demand backend powered by Omniman order history."""
+    """Demand backend powered by Orderman order history."""
 
     name = "shopman.craftsman.contrib.demand"
     label = "craftsman_demand"
