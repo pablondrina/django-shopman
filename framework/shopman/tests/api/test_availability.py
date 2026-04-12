@@ -41,7 +41,7 @@ def product(db):
         name="Pão Francês",
         base_price_q=80,
         is_published=True,
-        is_available=True,
+        is_sellable=True,
     )
 
 

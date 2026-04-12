@@ -114,7 +114,7 @@ class StockPlanning:
 
             # Transfer actual_quantity from planned → physical.
             # The planned Quant may hold more stock (from multiple WOs),
-            # so we only debit what was actually produced.
+            # so we only debit what was actually finished.
             Move.objects.create(
                 quant=locked_quant,
                 delta=-actual_quantity,

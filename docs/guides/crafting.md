@@ -17,7 +17,7 @@ Define como produzir um produto: ingredientes (`RecipeItem`), quantidade por lot
 Método de escala proporcional: `coeficiente = quantidade / batch_size`. Todos os ingredientes são escalados proporcionalmente.
 
 ### Ordem de Trabalho (`WorkOrder`)
-Instância de produção com ciclo de vida: `OPEN → DONE` ou `OPEN → VOID`.
+Instância de produção com ciclo de vida: `PLANNED → STARTED → FINISHED` ou `PLANNED/STARTED → VOID`.
 
 ### 4 Tipos de Item (`WorkOrderItem`)
 - **REQUIREMENT** — BOM planejado (receita × coeficiente)
@@ -26,7 +26,7 @@ Instância de produção com ciclo de vida: `OPEN → DONE` ou `OPEN → VOID`.
 - **WASTE** — Perda/refugo
 
 ### Snapshot de BOM
-No momento do `plan()`, a receita é congelada em `meta._recipe_snapshot`. O `close()` usa a receita como era, não como é agora.
+No momento do `plan()`, a receita é congelada em `meta._recipe_snapshot`. O `finish()` usa a receita como era, não como é agora.
 
 ### Concorrência Otimista
 Campo `rev` com verificação opcional via `expected_rev`. Conflitos geram `StaleRevision`.
@@ -63,9 +63,9 @@ Campo `rev` com verificação opcional via `expected_rev`. Conflitos geram `Stal
 | `code` | CharField(20, unique) | Auto-gerado "WO-YYYY-NNNNN" |
 | `recipe` | FK(Recipe, PROTECT) | Receita usada |
 | `output_ref` | CharField(100) | Copiado da receita no plan |
-| `quantity` | DecimalField(12,3) | Quantidade alvo (mutável via adjust) |
-| `produced` | DecimalField(12,3, null) | Quantidade real (set no close, imutável) |
-| `status` | CharField | OPEN, DONE, VOID |
+| `quantity` | DecimalField(12,3) | Quantidade planejada (mutável via adjust enquanto planned) |
+| `finished` | DecimalField(12,3, null) | Quantidade finalizada (set no finish, imutável) |
+| `status` | CharField | PLANNED, STARTED, FINISHED, VOID |
 | `rev` | PositiveIntegerField | Contador de concorrência otimista |
 | `scheduled_date` | DateField(null) | Data de produção |
 | `source_ref` | CharField(100) | Origem (ex: "order:789") |
@@ -73,7 +73,7 @@ Campo `rev` com verificação opcional via `expected_rev`. Conflitos geram `Stal
 | `assigned_ref` | CharField(100) | Responsável (ex: "user:joao") |
 | `meta` | JSONField | Inclui `_recipe_snapshot` |
 
-**Propriedades:** `loss` (quantity - produced), `yield_rate` (produced / quantity)
+**Propriedades:** `planned_qty`, `started_qty`, `finished_qty`, `loss`, `yield_rate`
 
 ### WorkOrderItem
 
@@ -94,10 +94,10 @@ Campo `rev` com verificação opcional via `expected_rev`. Conflitos geram `Stal
 |-------|------|-----------|
 | `work_order` | FK(WorkOrder, CASCADE) | Ordem de trabalho |
 | `seq` | PositiveIntegerField | Sequência incremental |
-| `kind` | CharField(choices) | PLANNED, ADJUSTED, CLOSED, VOIDED |
+| `kind` | CharField(choices) | PLANNED, ADJUSTED, STARTED, FINISHED, VOIDED |
 | `payload` | JSONField | Dados do evento |
 | `actor` | CharField(100) | Quem disparou |
-| `idempotency_key` | CharField(200, unique, null) | Prevenção de duplo-close |
+| `idempotency_key` | CharField(200, unique, null) | Prevenção de duplo-finish |
 
 ## Serviços
 
@@ -122,29 +122,40 @@ craft.adjust(wo, quantity=97, reason="farinha insuficiente", expected_rev=0)
 
 ### Execução
 
-**`craft.close(order, produced, consumed=None, wasted=None, expected_rev=None, idempotency_key=None)`** — Fechar ordem com resultados.
+**`craft.start(order, quantity, expected_rev=None, assigned_ref=None, position_ref=None, note=None)`** — Marcar quanto efetivamente entrou em produção.
 ```python
-# Simples: só quantidade produzida
-craft.close(wo, produced=93)
+craft.start(
+    wo,
+    quantity=97,
+    expected_rev=0,
+    assigned_ref="user:joao",
+    position_ref="station:forno-01",
+    note="massa na bancada",
+)
+```
+
+**`craft.finish(order, produced, consumed=None, wasted=None, expected_rev=None, idempotency_key=None)`** — Finalizar a ordem com resultado real.
+```python
+craft.finish(wo, produced=93)
 
 # Completo: consumo explícito
-craft.close(wo, produced=93, consumed=[
+craft.finish(wo, produced=93, consumed=[
     {"item_ref": "FARINHA-T55", "quantity": Decimal("7.5")},
     {"item_ref": "MANTEIGA", "quantity": Decimal("3.2")},
 ])
 
 # Co-produtos
-craft.close(wo, produced=[
+craft.finish(wo, produced=[
     {"item_ref": "CROISSANT", "quantity": 93},
     {"item_ref": "MASSA-SOBRA", "quantity": Decimal("0.5")},
 ])
 ```
 
-Pipeline do `close()`:
-1. Calcula coeficiente francês: `quantity / batch_size`
+Pipeline do `finish()`:
+1. Calcula coeficiente francês: `started_qty / batch_size` (ou `planned_qty` se não houver start explícito)
 2. Materializa 4 tipos de WorkOrderItem
 3. Se `consumed=None`, usa BOM × coeficiente
-4. Se `wasted=None`, calcula `quantity - produced`
+4. Se `wasted=None`, calcula `started_qty - produced`
 5. Chama `InventoryProtocol.consume()` + `receive()` (se configurado)
 
 **`craft.void(order, reason, expected_rev=None)`** — Cancelar ordem.

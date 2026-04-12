@@ -22,7 +22,7 @@ class ProductResource(resources.ModelResource):
             "unit",
             "availability_policy",
             "is_published",
-            "is_available",
+            "is_sellable",
             "shelf_life_days",
         )
         import_id_fields = ("sku",)
@@ -54,7 +54,7 @@ class ListingItemResource(resources.ModelResource):
             "price_q",
             "min_qty",
             "is_published",
-            "is_available",
+            "is_sellable",
         )
         import_id_fields = ("listing_ref", "product_sku")
         export_order = fields

@@ -64,7 +64,7 @@ def _make_stock_adapter(holds=None):
     _call_count = [0]
     _holds = holds or {}
 
-    def _create_hold(sku, qty, reference):
+    def _create_hold(sku, qty, reference=None, **kwargs):
         hold_id = _holds.get(sku, f"H-{sku}-auto")
         return {"success": True, "hold_id": hold_id}
 
@@ -79,13 +79,23 @@ _LIFECYCLE_PATCHES = [
     "shopman.services.customer.ensure",
     "shopman.services.loyalty.redeem",
     "shopman.services.payment.initiate",
-    "shopman.services.availability.check",
+    "shopman.services.availability.decide",
     "shopman.services.fulfillment.create",
 ]
 
-_AVAIL_OK = {"ok": True, "available_qty": Decimal("999"), "is_paused": False,
-             "is_planned": False, "breakdown": {}, "error_code": None,
-             "is_bundle": False, "failed_sku": None}
+_AVAIL_OK = {
+    "approved": True,
+    "sku": "CROIS-01",
+    "requested_qty": Decimal("1"),
+    "available_qty": Decimal("999"),
+    "reason_code": None,
+    "is_paused": False,
+    "is_planned": False,
+    "target_date": None,
+    "failed_sku": None,
+    "source": "stock.untracked",
+    "untracked": True,
+}
 
 
 def _start_lifecycle_patches(extra_patches=None):
@@ -174,7 +184,7 @@ class TestHoldCorrectQuantities(TestCase):
         mock_adapter.find_holds_by_reference.return_value = []
         created_holds = []
 
-        def _create_hold(sku, qty, reference):
+        def _create_hold(sku, qty, reference=None, **kwargs):
             hold_id = f"H-{sku}"
             created_holds.append({"sku": sku, "qty": float(qty), "hold_id": hold_id})
             return {"success": True, "hold_id": hold_id}
@@ -230,7 +240,7 @@ class TestBundleExpansion(TestCase):
         mock_adapter.find_holds_by_reference.return_value = []
         created = {}
 
-        def _create_hold(sku, qty, reference):
+        def _create_hold(sku, qty, reference=None, **kwargs):
             created[sku] = float(qty)
             return {"success": True, "hold_id": f"H-{sku}"}
 
@@ -271,7 +281,7 @@ class TestBundleExpansion(TestCase):
         mock_adapter.find_holds_by_reference.return_value = []
         created = {}
 
-        def _create_hold(sku, qty, reference):
+        def _create_hold(sku, qty, reference=None, **kwargs):
             created[sku] = float(qty)
             return {"success": True, "hold_id": f"H-{sku}"}
 
@@ -311,7 +321,7 @@ class TestPartialStock(TestCase):
         mock_adapter = MagicMock()
         mock_adapter.find_holds_by_reference.return_value = []
 
-        def _create_hold(sku, qty, reference):
+        def _create_hold(sku, qty, reference=None, **kwargs):
             if sku == "OOS-SKU":
                 return {"success": False, "hold_id": None, "error_code": "out_of_stock"}
             return {"success": True, "hold_id": f"H-{sku}"}
@@ -363,7 +373,7 @@ class TestVerifyHolds(TestCase):
         mock_adapter = MagicMock()
         mock_adapter.find_holds_by_reference.return_value = []
 
-        def _create_hold(sku, qty, reference):
+        def _create_hold(sku, qty, reference=None, **kwargs):
             if sku == "MISSING-SKU":
                 # Adapter rejects → hold not added to hold_ids
                 return {"success": False, "hold_id": None, "error_code": "out_of_stock"}

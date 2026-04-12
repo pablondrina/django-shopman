@@ -41,7 +41,7 @@ def product(db, collection):
         unit="un",
         base_price_q=80,  # R$ 0.80
         availability_policy="planned_ok",
-        is_available=True,
+        is_sellable=True,
     )
     CollectionItem.objects.create(
         collection=collection, product=p, is_primary=True,
@@ -61,7 +61,7 @@ def croissant(db, collection):
         base_price_q=800,  # R$ 8.00
         shelf_life_days=0,  # Same day only
         availability_policy="planned_ok",
-        is_available=True,
+        is_sellable=True,
     )
     CollectionItem.objects.create(
         collection=collection, product=p, is_primary=True,
@@ -81,7 +81,7 @@ def bolo(db, collection):
         base_price_q=4500,  # R$ 45.00
         shelf_life_days=3,
         availability_policy="demand_ok",
-        is_available=True,
+        is_sellable=True,
     )
     CollectionItem.objects.create(
         collection=collection, product=p, is_primary=True,
@@ -99,7 +99,7 @@ def ingredient(db, collection):
         name="Farinha de Trigo",
         unit="kg",
         base_price_q=500,  # R$ 5.00/kg
-        is_available=False,
+        is_sellable=False,
     )
     CollectionItem.objects.create(
         collection=collection, product=p, is_primary=True,
@@ -258,7 +258,7 @@ def work_order(db, recipe, today, position_producao, position_loja):
         recipe=recipe,
         output_ref=recipe.output_ref,
         quantity=Decimal("50"),
-        status=WorkOrder.Status.OPEN,
+        status=WorkOrder.Status.PLANNED,
         scheduled_date=today,
         position_ref=position_producao.ref,
     )

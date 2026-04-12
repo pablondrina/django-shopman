@@ -1,5 +1,5 @@
 """
-Execution service — close and void operations.
+Execution service — finish and void operations.
 
 All methods are @classmethod (mixin pattern).
 """
@@ -17,43 +17,42 @@ logger = logging.getLogger(__name__)
 
 
 class CraftExecution:
-    """Close and void operations."""
+    """Finish and void operations."""
 
     @classmethod
-    def close(cls, order, produced, consumed=None, wasted=None,
-              expected_rev=None, actor=None, idempotency_key=None):
+    def finish(
+        cls,
+        order,
+        finished,
+        *,
+        consumed=None,
+        wasted=None,
+        expected_rev=None,
+        actor=None,
+        note=None,
+        idempotency_key=None,
+    ):
         """
-        Close a WorkOrder with production results.
-
-        Progressive disclosure:
-            produced=93             -> single output (Decimal)
-            produced=[{...}, ...]   -> co-products (list)
-            consumed=None           -> auto from requirements
-            consumed=[{...}, ...]   -> explicit consumption
-            wasted=None             -> auto (quantity - produced)
-            wasted=5                -> explicit single waste
-            wasted=[{...}, ...]     -> detailed waste items
+        Finish a WorkOrder with final production results.
         """
-        from shopman.craftsman.models import WorkOrder, WorkOrderEvent, WorkOrderItem
+        from shopman.craftsman.models import WorkOrder, WorkOrderEvent
         from shopman.craftsman.signals import production_changed
 
-        # Normalize produced (pure computation, safe outside transaction)
-        if isinstance(produced, (int, float, Decimal)):
-            produced_decimal = Decimal(str(produced))
-            produced_items = None
+        # Normalize finished quantity (pure computation, safe outside transaction)
+        if isinstance(finished, (int, float, Decimal)):
+            finished_decimal = Decimal(str(finished))
+            finished_items = None
         else:
-            produced_items = produced
-            produced_decimal = sum(Decimal(str(p["quantity"])) for p in produced)
+            finished_items = finished
+            finished_decimal = sum(Decimal(str(p["quantity"])) for p in finished)
 
-        if produced_decimal < 0:
-            raise CraftError("INVALID_QUANTITY", quantity=float(produced_decimal))
+        if finished_decimal < 0:
+            raise CraftError("INVALID_QUANTITY", quantity=float(finished_decimal))
 
         with transaction.atomic():
-            # Acquire row lock, then refresh caller's object in-place
             WorkOrder.objects.select_for_update().get(pk=order.pk)
             order.refresh_from_db()
 
-            # Idempotency check (inside transaction, after lock)
             if idempotency_key:
                 existing = WorkOrderEvent.objects.filter(
                     idempotency_key=idempotency_key,
@@ -61,36 +60,53 @@ class CraftExecution:
                 if existing:
                     return existing.work_order
 
-            # Status check (inside transaction, fresh from DB)
-            if order.status != WorkOrder.Status.OPEN:
+            if order.status == WorkOrder.Status.FINISHED:
+                raise CraftError("TERMINAL_STATUS", status=order.status)
+            if order.status == WorkOrder.Status.VOID:
                 raise CraftError("TERMINAL_STATUS", status=order.status)
 
-            # Rev check
             _check_rev(order, expected_rev)
 
-            # 5. Timestamps
             now = timezone.now()
             if order.started_at is None:
                 order.started_at = now
 
-            recipe = order.recipe
+            if order.status == WorkOrder.Status.PLANNED:
+                implicit_started_qty = order.quantity
+                next_seq = _next_seq(order)
+                WorkOrderEvent.objects.create(
+                    work_order=order,
+                    seq=next_seq,
+                    kind=WorkOrderEvent.Kind.STARTED,
+                    payload={
+                        "quantity": str(implicit_started_qty),
+                        "assigned_ref": order.assigned_ref,
+                        "position_ref": order.position_ref,
+                        "note": note or "",
+                        "implicit": True,
+                    },
+                    actor=actor or "",
+                )
+                order.status = WorkOrder.Status.STARTED
+                order.save(update_fields=["started_at", "status", "updated_at"])
 
-            # 6. Materialize requirements (French coefficient)
-            # Use BOM snapshot from plan-time if available (v0.2.2+),
-            # otherwise fall back to current recipe items (backward compat).
+            recipe = order.recipe
+            started_qty = order.started_qty or order.quantity
+
             snapshot = order.meta.get("_recipe_snapshot") if order.meta else None
             if snapshot:
                 batch_size = Decimal(snapshot["batch_size"])
-                coefficient = order.quantity / batch_size
+                coefficient = started_qty / batch_size
                 recipe_item_data = snapshot["items"]
             else:
-                coefficient = order.quantity / recipe.batch_size
+                coefficient = started_qty / recipe.batch_size
                 recipe_item_data = [
                     {"input_ref": ri.input_ref, "quantity": str(ri.quantity), "unit": ri.unit}
                     for ri in recipe.items.filter(is_optional=False).order_by("sort_order")
                 ]
 
-            # Build all ledger items, then bulk_create for efficiency.
+            from shopman.craftsman.models import WorkOrderItem
+
             all_items = []
             requirements = []
 
@@ -111,7 +127,6 @@ class CraftExecution:
                     recorded_by=actor or "",
                 ))
 
-            # 7. Consumption items (with optional validation)
             if consumed is not None:
                 recipe_refs = {r["item_ref"] for r in requirements}
                 for c in consumed:
@@ -122,7 +137,6 @@ class CraftExecution:
                         )
 
             if consumed is None:
-                # Auto: consumption = requirements
                 for req in requirements:
                     all_items.append(WorkOrderItem(
                         work_order=order,
@@ -146,19 +160,18 @@ class CraftExecution:
                         meta=c.get("meta", {}),
                     ))
 
-            # 8. Output items
-            if produced_items is None:
+            if finished_items is None:
                 all_items.append(WorkOrderItem(
                     work_order=order,
                     kind=WorkOrderItem.Kind.OUTPUT,
                     item_ref=order.output_ref,
-                    quantity=produced_decimal,
+                    quantity=finished_decimal,
                     unit="",
                     recorded_at=now,
                     recorded_by=actor or "",
                 ))
             else:
-                for p in produced_items:
+                for p in finished_items:
                     all_items.append(WorkOrderItem(
                         work_order=order,
                         kind=WorkOrderItem.Kind.OUTPUT,
@@ -169,9 +182,8 @@ class CraftExecution:
                         recorded_by=actor or "",
                     ))
 
-            # 9. Waste items
             if wasted is None:
-                auto_waste = order.quantity - produced_decimal
+                auto_waste = started_qty - finished_decimal
                 if auto_waste > 0:
                     all_items.append(WorkOrderItem(
                         work_order=order,
@@ -209,46 +221,43 @@ class CraftExecution:
 
             WorkOrderItem.objects.bulk_create(all_items)
 
-            # 10. Update WorkOrder
-            order.produced = produced_decimal
-            order.status = WorkOrder.Status.DONE
+            order.finished = finished_decimal
+            order.status = WorkOrder.Status.FINISHED
             order.finished_at = now
             order.save(update_fields=[
-                "produced", "status", "finished_at", "started_at", "updated_at",
+                "finished", "status", "finished_at", "started_at", "updated_at",
             ])
 
-            # Create event (atomic seq via row lock)
             next_seq = _next_seq(order)
             WorkOrderEvent.objects.create(
                 work_order=order,
                 seq=next_seq,
-                kind=WorkOrderEvent.Kind.CLOSED,
+                kind=WorkOrderEvent.Kind.FINISHED,
                 payload={
-                    "produced": str(produced_decimal),
-                    "quantity": str(order.quantity),
+                    "finished_qty": str(finished_decimal),
+                    "planned_qty": str(order.quantity),
+                    "started_qty": str(started_qty),
                 },
                 actor=actor or "",
                 idempotency_key=idempotency_key,
             )
 
-            # 12. InventoryProtocol (stub — Phase D)
-            cls._call_inventory_on_close(order, requirements, produced_decimal)
+            cls._call_inventory_on_finish(order, requirements, finished_decimal)
 
-        # 13. Signal (outside transaction)
         production_changed.send(
             sender=WorkOrder,
             product_ref=order.output_ref,
             date=order.scheduled_date,
-            action="closed",
+            action="finished",
             work_order=order,
         )
 
-        logger.info("WorkOrder %s closed: produced=%s", order.ref, produced_decimal)
+        logger.info("WorkOrder %s finished: finished_qty=%s", order.ref, finished_decimal)
         return order
 
     @classmethod
     def void(cls, order, reason, expected_rev=None, actor=None):
-        """Void (cancel) an open WorkOrder."""
+        """Void (cancel) a non-finished WorkOrder."""
         from shopman.craftsman.models import WorkOrder, WorkOrderEvent
         from shopman.craftsman.signals import production_changed
 
@@ -258,9 +267,9 @@ class CraftExecution:
             order.refresh_from_db()
 
             # Status check (inside transaction, fresh from DB)
-            if order.status == WorkOrder.Status.DONE:
+            if order.status == WorkOrder.Status.FINISHED:
                 raise CraftError("VOID_FROM_DONE", work_order=order.ref)
-            if order.status != WorkOrder.Status.OPEN:
+            if order.status == WorkOrder.Status.VOID:
                 raise CraftError("TERMINAL_STATUS", status=order.status)
 
             _check_rev(order, expected_rev)
@@ -293,7 +302,7 @@ class CraftExecution:
         return order
 
     @classmethod
-    def _call_inventory_on_close(cls, order, requirements, produced_decimal):
+    def _call_inventory_on_finish(cls, order, requirements, produced_decimal):
         """
         Call InventoryProtocol.consume + receive if configured.
 
@@ -329,11 +338,11 @@ class CraftExecution:
                 from shopman.craftsman.exceptions import CraftError
                 raise CraftError(
                     code="inventory_backend_failed",
-                    message=f"InventoryProtocol.close failed for {order.ref}: {e}",
+                    message=f"InventoryProtocol.finish failed for {order.ref}: {e}",
                     context={"order_ref": order.ref, "original_error": str(e)},
                 ) from e
             logger.warning(
-                "InventoryProtocol.close failed for %s: %s (non-fatal)",
+                "InventoryProtocol.finish failed for %s: %s (non-fatal)",
                 order.ref, e, exc_info=True,
             )
 

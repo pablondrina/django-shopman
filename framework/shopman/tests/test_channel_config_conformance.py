@@ -228,7 +228,7 @@ class TestFulfillmentConformance:
 
 class TestStockConformance:
     def test_check_on_commit_false_skips_availability(self):
-        """stock.check_on_commit=False → availability.check NOT called on commit."""
+        """stock.check_on_commit=False → availability.decide NOT called on commit."""
         from shopman.lifecycle import dispatch
 
         order = _make_order()
@@ -240,13 +240,14 @@ class TestStockConformance:
             with patch("shopman.lifecycle.customer.ensure"):
                 with patch("shopman.lifecycle.stock.hold"):
                     with patch("shopman.lifecycle.loyalty.redeem"):
-                        with patch("shopman.lifecycle.availability.check") as mock_check:
+                        with patch("shopman.lifecycle.availability.decide") as mock_decide:
                             dispatch(order, "on_commit")
 
-        mock_check.assert_not_called()
+        mock_decide.assert_not_called()
 
     def test_check_on_commit_true_checks_each_item(self):
-        """stock.check_on_commit=True → availability.check called for each snapshot item."""
+        """stock.check_on_commit=True → availability.decide called for each snapshot item."""
+        from decimal import Decimal
         from shopman.lifecycle import dispatch
 
         order = _make_order(
@@ -257,14 +258,29 @@ class TestStockConformance:
         cfg.stock.check_on_commit = True
         cfg.confirmation.mode = "manual"
 
+        _avail_ok = {
+            "approved": True,
+            "sku": "PAIN-AU-CHOCOLAT",
+            "requested_qty": Decimal("2"),
+            "available_qty": Decimal("999"),
+            "reason_code": None,
+            "is_paused": False,
+            "is_planned": False,
+            "target_date": None,
+            "failed_sku": None,
+            "source": "stock.untracked",
+        }
+
         with _patch_config(cfg):
             with patch("shopman.lifecycle.customer.ensure"):
                 with patch("shopman.lifecycle.stock.hold"):
                     with patch("shopman.lifecycle.loyalty.redeem"):
-                        with patch("shopman.lifecycle.availability.check", return_value={"ok": True}) as mock_check:
+                        with patch("shopman.lifecycle.availability.decide", return_value=_avail_ok) as mock_decide:
                             dispatch(order, "on_commit")
 
-        mock_check.assert_called_once_with("PAIN-AU-CHOCOLAT", 2, channel_ref="web")
+        mock_decide.assert_called_once_with(
+            "PAIN-AU-CHOCOLAT", 2, channel_ref="web", target_date=None
+        )
 
 
 # ── Aspect 5: Notifications ──
@@ -295,7 +311,7 @@ class TestNotificationsConformance:
         cfg = _config()
 
         with _patch_config(cfg):
-            with patch("shopman.lifecycle.kds.cancel_tickets"):
+            with patch("shopman.services.kds.cancel_tickets"):
                 with patch("shopman.lifecycle.stock.release"):
                     with patch("shopman.lifecycle.payment.refund"):
                         with patch("shopman.lifecycle.notification.send") as mock_notify:

@@ -19,6 +19,7 @@ from shopman.guestman.contrib.loyalty import LoyaltyService
 from shopman.orderman.ids import generate_idempotency_key
 from shopman.models import Channel
 from shopman.services.checkout_defaults import CheckoutDefaultsService
+from shopman.services.order_helpers import parse_commitment_date
 from shopman.utils.phone import normalize_phone
 
 from ..cart import CHANNEL_REF, CartService
@@ -252,7 +253,12 @@ class CheckoutView(View):
         repricing_warnings = self._check_repricing(cart)
 
         # Estoque: sempre no servidor (WP-S3 — não depender só do flag `stock_checked` do cliente)
-        stock_errors, stock_check_unavailable = self._check_cart_stock(request, cart)
+        commitment_date = parse_commitment_date(delivery_date)
+        stock_errors, stock_check_unavailable = self._check_cart_stock(
+            request,
+            cart,
+            target_date=commitment_date,
+        )
         if stock_errors:
             errors["stock"] = stock_errors[0]["message"]
 
@@ -690,7 +696,13 @@ class CheckoutView(View):
                 })
         return warnings
 
-    def _check_cart_stock(self, request: HttpRequest, cart: dict) -> tuple[list[dict], bool]:
+    def _check_cart_stock(
+        self,
+        request: HttpRequest,
+        cart: dict,
+        *,
+        target_date=None,
+    ) -> tuple[list[dict], bool]:
         """Check cart items against live stock. Returns (warnings, service_unavailable).
 
         service_unavailable=True means ALL availability checks failed (stock service down).
@@ -702,14 +714,14 @@ class CheckoutView(View):
         if not items:
             return [], False
 
-        session_held = self._get_session_held_qty(request)
+        session_held = self._get_session_held_qty(request, target_date=target_date)
         warnings = []
         checked = 0
         skipped = 0
         for item in items:
             sku = item.get("sku", "")
             qty = int(Decimal(str(item.get("qty", 0))))
-            avail = _get_availability(sku)
+            avail = _get_availability(sku, target_date=target_date)
             if avail is None:
                 skipped += 1
                 continue
@@ -746,7 +758,7 @@ class CheckoutView(View):
         return warnings, service_unavailable
 
     @staticmethod
-    def _get_session_held_qty(request: HttpRequest) -> dict[str, int]:
+    def _get_session_held_qty(request: HttpRequest, *, target_date=None) -> dict[str, int]:
         session_key = request.session.get("cart_session_key")
         if not session_key:
             return {}
@@ -755,6 +767,8 @@ class CheckoutView(View):
         holds = StockHolds.find_active_by_reference(session_key)
         held: dict[str, int] = {}
         for hold in holds:
+            if target_date is not None and hold.target_date != target_date:
+                continue
             held[hold.sku] = held.get(hold.sku, 0) + int(hold.quantity)
         return held
 

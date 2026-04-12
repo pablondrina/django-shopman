@@ -18,7 +18,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "unit",
             "base_price_q",
             "is_published",
-            "is_available",
+            "is_sellable",
             "availability_policy",
             "keywords",
         ]
@@ -85,7 +85,7 @@ class ListingItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ListingItem
-        fields = ["sku", "product_name", "price_q", "min_qty", "is_published", "is_available"]
+        fields = ["sku", "product_name", "price_q", "min_qty", "is_published", "is_sellable"]
 
 
 class PriceResponseSerializer(serializers.Serializer):

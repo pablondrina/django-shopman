@@ -37,7 +37,7 @@ def product(db, collection):
         unit="un",
         base_price_q=500,  # R$ 5.00
         availability_policy="planned_ok",
-        is_available=True,
+        is_sellable=True,
     )
     CollectionItem.objects.create(collection=collection, product=prod, is_primary=True)
     return prod
@@ -58,12 +58,12 @@ def hidden_product(db, collection):
 
 @pytest.fixture
 def paused_product(db, collection):
-    """Create a paused (unavailable) product."""
+    """Create a paused (non-sellable) product."""
     prod = Product.objects.create(
         sku="PAUSED-001",
         name="Paused Product",
         base_price_q=1000,
-        is_available=False,
+        is_sellable=False,
     )
     CollectionItem.objects.create(collection=collection, product=prod)
     return prod
@@ -71,13 +71,13 @@ def paused_product(db, collection):
 
 @pytest.fixture
 def ingredient(db, collection):
-    """Create a non-available ingredient."""
+    """Create a non-sellable ingredient."""
     prod = Product.objects.create(
         sku="FLOUR",
         name="Wheat Flour",
         unit="kg",
         base_price_q=300,
-        is_available=False,
+        is_sellable=False,
     )
     CollectionItem.objects.create(collection=collection, product=prod)
     return prod

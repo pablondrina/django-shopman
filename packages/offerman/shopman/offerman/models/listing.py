@@ -86,9 +86,13 @@ class ListingItem(models.Model):
         verbose_name=_("quantidade mínima"),
     )
 
-    # Publication and availability in this listing
+    # Publication and sellability in this listing
     is_published = models.BooleanField(default=True, verbose_name=_("publicado"))
-    is_available = models.BooleanField(default=True, verbose_name=_("disponível"))
+    is_sellable = models.BooleanField(
+        default=True,
+        db_column="is_available",
+        verbose_name=_("vendável"),
+    )
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("criado em"))
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("atualizado em"))

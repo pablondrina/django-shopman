@@ -128,7 +128,7 @@ class RepricingWarningTests(TestCase):
             name="Repriced Product",
             base_price_q=1000,  # current catalog: R$ 10,00
             is_published=True,
-            is_available=True,
+            is_sellable=True,
         )
 
     def test_repricing_detected_over_5_percent(self) -> None:
@@ -204,7 +204,7 @@ class RepricingWarningStructureTests(TestCase):
             name="Struct Product",
             base_price_q=2000,
             is_published=True,
-            is_available=True,
+            is_sellable=True,
         )
 
     def test_repricing_warning_has_required_keys(self) -> None:

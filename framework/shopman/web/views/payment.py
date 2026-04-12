@@ -123,6 +123,9 @@ class MockPaymentConfirmView(View):
 
         # Transition to confirmed (if still new)
         if order.status == "new":
+            from shopman.lifecycle import ensure_confirmable
+
+            ensure_confirmable(order)
             order.transition_status("confirmed", actor=f"payment.{method}")
 
         return redirect("storefront:order_tracking", ref=ref)

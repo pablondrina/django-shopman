@@ -1,18 +1,20 @@
 """
 Django Craftsman — Headless Micro-MRP Framework (vNext).
 
-5 models, 4 verbs, 3 states. Cabe na cabeca.
+5 models, 5 verbs, 4 states. Cabe na cabeca.
 
 Usage:
     from shopman.craftsman import craft, CraftError
 
     wo = craft.plan(recipe, 100)
-    craft.close(wo, produced=95)
+    craft.start(wo, quantity=97)
+    craft.finish(wo, finished=95)
 
-    wo.produced      # 95
-    wo.loss          # 5
-    wo.yield_rate    # 0.95
-    wo.events.all()  # [planned, closed]
+    wo.started_qty   # 97
+    wo.finished_qty  # 95
+    wo.loss          # 2
+    wo.yield_rate    # 0.9793...
+    wo.events.all()  # [planned, started, finished]
 
 Philosophy: SIREL (Simples, Robusto, Elegante)
 """

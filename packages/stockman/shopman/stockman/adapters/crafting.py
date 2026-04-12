@@ -6,9 +6,9 @@ Implements ProductionBackend using Craftsman's API (craft.*, work.*).
 Vocabulary mapping:
     Stockman                →  Craftsman
     ─────────────────────────────────────────
-    request_production()    →  craft.plan() + craft.schedule()
+    request_production()    →  craft.plan()
     check_status()          →  WorkOrder.status
-    cancel_request()        →  WorkOrder.cancel()
+    cancel_request()        →  craft.void()
     list_pending()          →  WorkOrder.objects.filter()
 """
 
@@ -44,14 +44,16 @@ def _crafting_available() -> bool:
 def _map_workorder_status(status: str) -> ProductionStatusEnum:
     """Map Craftsman WorkOrder status to ProductionStatusEnum."""
     mapping = {
-        "pending": ProductionStatusEnum.PLANNED,
-        "approved": ProductionStatusEnum.PLANNED,
-        "scheduled": ProductionStatusEnum.SCHEDULED,
-        "in_progress": ProductionStatusEnum.IN_PROGRESS,
-        "completed": ProductionStatusEnum.COMPLETED,
-        "cancelled": ProductionStatusEnum.CANCELLED,
+        "planned": ProductionStatusEnum.PLANNED,
+        "started": ProductionStatusEnum.STARTED,
+        "finished": ProductionStatusEnum.FINISHED,
+        "void": ProductionStatusEnum.VOIDED,
     }
-    return mapping.get(status, ProductionStatusEnum.REQUESTED)
+    try:
+        return mapping[status]
+    except KeyError:
+        logger.warning("Unknown Craftsman WorkOrder status for ProductionStatusEnum: %s", status)
+        return ProductionStatusEnum.PLANNED
 
 
 class ProductionBackend:
@@ -235,7 +237,7 @@ class ProductionBackend:
             return ProductionResult(
                 success=True,
                 request_id=request_id,
-                status=ProductionStatusEnum.CANCELLED,
+                status=ProductionStatusEnum.VOIDED,
                 work_order_id=str(work_order.uuid),
             )
 

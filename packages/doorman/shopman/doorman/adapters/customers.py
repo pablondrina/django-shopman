@@ -17,8 +17,6 @@ Requires shopman.guestman to be installed and available on the Python path.
 """
 
 from __future__ import annotations
-
-import uuid as uuid_lib
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -60,21 +58,47 @@ class AuthCustomerResolver:
     def create_for_phone(self, phone: str) -> AuthCustomerInfo:
         """Create a new customer with the given phone via Guestman."""
         from shopman.guestman.services import customer as customer_service
+        from shopman.guestman.services import identity as identity_service
+        from shopman.guestman.models import Customer
 
         c = customer_service.create(
-            code=f"WEB-{str(uuid_lib.uuid4())[:8].upper()}",
+            ref=Customer.generate_ref(),
             first_name="",
             phone=phone,
+            source_system="doorman",
+        )
+        identity_service.ensure_contact_point(
+            c,
+            type="whatsapp",
+            value_normalized=c.phone,
+            is_primary=True,
         )
         return self._to_info(c)
 
     @staticmethod
     def _to_info(c: "Customer") -> AuthCustomerInfo:
         """Convert a Guestman Customer model to AuthCustomerInfo."""
+        from shopman.guestman.models import ContactPoint
+
+        primary_phone = (
+            c.contact_points.filter(
+                type__in=[ContactPoint.Type.WHATSAPP, ContactPoint.Type.PHONE],
+            )
+            .order_by("-is_primary", "-is_verified", "-updated_at")
+            .values_list("value_normalized", flat=True)
+            .first()
+        )
+        primary_email = (
+            c.contact_points.filter(type=ContactPoint.Type.EMAIL)
+            .order_by("-is_primary", "-is_verified", "-updated_at")
+            .values_list("value_normalized", flat=True)
+            .first()
+        )
+
         return AuthCustomerInfo(
             uuid=c.uuid,
             name=c.name,
-            phone=c.phone,
-            email=c.email,
+            phone=primary_phone or c.phone,
+            email=primary_email or c.email,
             is_active=c.is_active,
         )

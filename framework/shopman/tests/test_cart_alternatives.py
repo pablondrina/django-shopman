@@ -34,14 +34,14 @@ class CartAlternativesViewTests(TestCase):
             name="Test Product",
             base_price_q=1000,
             is_published=True,
-            is_available=False,
+            is_sellable=False,
         )
         self.alt_product = Product.objects.create(
             sku="ALT-SUB",
             name="Alternative Product",
             base_price_q=1200,
             is_published=True,
-            is_available=True,
+            is_sellable=True,
         )
 
     def test_alternatives_endpoint_returns_200(self) -> None:
@@ -97,7 +97,7 @@ class CartItemUnavailableFlagTests(TestCase):
             name="Cart Product",
             base_price_q=500,
             is_published=True,
-            is_available=True,
+            is_sellable=True,
         )
         # Ensure stock exists so is_unavailable defaults to False
         try:

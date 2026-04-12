@@ -36,7 +36,7 @@ class CraftQueries:
     @classmethod
     def expected(cls, output_ref, date):
         """
-        Sum of open WorkOrder quantities for output_ref on date.
+        Sum of active WorkOrder quantities for output_ref on date.
 
         Used by the availability system (spec 016).
 
@@ -47,7 +47,7 @@ class CraftQueries:
 
         result = WorkOrder.objects.filter(
             output_ref=output_ref,
-            status=WorkOrder.Status.OPEN,
+            status__in=[WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED],
             scheduled_date=date,
         ).aggregate(total=Sum("quantity"))
         return result["total"] or Decimal("0")
@@ -67,7 +67,7 @@ class CraftQueries:
         from shopman.craftsman.models import Recipe, WorkOrder
 
         orders = WorkOrder.objects.filter(
-            status=WorkOrder.Status.OPEN,
+            status__in=[WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED],
             scheduled_date=date,
         ).select_related("recipe").prefetch_related("recipe__items")
 

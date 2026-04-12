@@ -22,10 +22,15 @@ logger = logging.getLogger(__name__)
 def _get_stripe_setting(key: str, default=None):
     cfg = getattr(settings, "SHOPMAN_STRIPE", {})
     defaults = {
-        "SECRET_KEY": None,
-        "WEBHOOK_SECRET": None,
+        "secret_key": None,
+        "webhook_secret": None,
     }
-    return cfg.get(key, defaults.get(key, default))
+    return (
+        cfg.get(key)
+        or cfg.get(key.lower())
+        or cfg.get(key.upper())
+        or defaults.get(key.lower(), default)
+    )
 
 
 class StripeWebhookView(APIView):
@@ -48,9 +53,9 @@ class StripeWebhookView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        webhook_secret = _get_stripe_setting("WEBHOOK_SECRET")
+        webhook_secret = _get_stripe_setting("webhook_secret")
         if not webhook_secret:
-            logger.error("StripeWebhook: SHOPMAN_STRIPE.WEBHOOK_SECRET not configured")
+            logger.error("StripeWebhook: SHOPMAN_STRIPE.webhook_secret not configured")
             return Response(
                 {"error": "Webhook not configured"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,

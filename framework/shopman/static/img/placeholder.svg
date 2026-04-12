@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" fill="none">
   <rect width="400" height="400" rx="8" fill="#e5e7eb"/>
-  <!-- Bread/bakery silhouette -->
+  <!-- Generic product silhouette -->
   <g opacity="0.35">
     <ellipse cx="200" cy="230" rx="60" ry="35" fill="#9ca3af"/>
     <ellipse cx="200" cy="210" rx="50" ry="25" fill="#d1d5db"/>
     <path d="M160 210c0-22.091 17.909-40 40-40s40 17.909 40 40" fill="#d1d5db"/>
-    <!-- Wheat detail -->
+    <!-- Decorative detail -->
     <path d="M195 175l5-20m0 0l5 20m-5-20l-8-15m8 15l8-15" stroke="#9ca3af" stroke-width="2" stroke-linecap="round"/>
   </g>
 </svg>

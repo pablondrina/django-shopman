@@ -65,15 +65,15 @@ class TestRecipeProductRelationship:
         product = Product.objects.get(sku=recipe.output_ref)
         assert product.is_hidden is True
 
-    def test_recipe_for_unavailable_product(self, db, collection):
-        """Recipe can reference paused (unavailable) products."""
+    def test_recipe_for_paused_product(self, db, collection):
+        """Recipe can reference paused (non-sellable) products."""
         from shopman.offerman.models import CollectionItem
 
         paused = Product.objects.create(
             sku="PAUSED-PROD",
             name="Paused Product",
             base_price_q=1000,
-            is_available=False,
+            is_sellable=False,
         )
         CollectionItem.objects.create(
             collection=collection, product=paused, is_primary=True,
@@ -87,7 +87,7 @@ class TestRecipeProductRelationship:
         )
 
         product = Product.objects.get(sku=recipe.output_ref)
-        assert product.is_available is False
+        assert product.is_sellable is False
 
 
 # =============================================================================
@@ -106,9 +106,9 @@ class TestRecipeIngredients:
         assert item.input_ref == ingredient.sku
         assert item.input_ref == "FARINHA"
 
-    def test_ingredient_is_non_available(self, ingredient):
-        """Ingredients are typically non-available products."""
-        assert ingredient.is_available is False
+    def test_ingredient_is_non_sellable(self, ingredient):
+        """Ingredients are typically non-sellable products."""
+        assert ingredient.is_sellable is False
         assert ingredient.sku == "FARINHA"
 
     def test_recipe_with_multiple_ingredients(self, db, collection, croissant):
@@ -121,7 +121,7 @@ class TestRecipeIngredients:
             name="Manteiga",
             unit="kg",
             base_price_q=2500,
-            is_available=False,
+            is_sellable=False,
         )
         CollectionItem.objects.create(
             collection=collection, product=butter, is_primary=True,
@@ -131,7 +131,7 @@ class TestRecipeIngredients:
             name="Ovos",
             unit="un",
             base_price_q=50,
-            is_available=False,
+            is_sellable=False,
         )
         CollectionItem.objects.create(
             collection=collection, product=eggs, is_primary=True,
@@ -173,7 +173,7 @@ class TestRecipeIngredients:
             name="Farinha",
             unit="kg",
             base_price_q=500,  # R$ 5.00/kg
-            is_available=False,
+            is_sellable=False,
         )
         CollectionItem.objects.create(
             collection=collection, product=flour, is_primary=True,
@@ -183,7 +183,7 @@ class TestRecipeIngredients:
             name="Manteiga",
             unit="kg",
             base_price_q=2500,  # R$ 25.00/kg
-            is_available=False,
+            is_sellable=False,
         )
         CollectionItem.objects.create(
             collection=collection, product=butter, is_primary=True,
@@ -301,23 +301,23 @@ class TestProductionWorkflow:
         """Completing WorkOrder tracks production of Offering product."""
         from django.utils import timezone
 
-        # WorkOrder starts as OPEN
-        assert work_order.status == WorkOrder.Status.OPEN
+        # WorkOrder starts as PLANNED
+        assert work_order.status == WorkOrder.Status.PLANNED
 
         # Start work order
         work_order.started_at = timezone.now()
         work_order.save(update_fields=["started_at"])
 
         # Complete work order
-        work_order.produced = Decimal("48")
-        work_order.status = WorkOrder.Status.DONE
+        work_order.finished = Decimal("48")
+        work_order.status = WorkOrder.Status.FINISHED
         work_order.finished_at = timezone.now()
-        work_order.save(update_fields=["produced", "status", "finished_at"])
+        work_order.save(update_fields=["finished", "status", "finished_at"])
 
         # Verify product reference
         product = Product.objects.get(sku=work_order.recipe.output_ref)
         assert product == croissant
-        assert work_order.produced == Decimal("48")
+        assert work_order.finished == Decimal("48")
 
     def test_product_price_vs_production_cost(
         self, db, collection, croissant, ingredient
@@ -364,13 +364,13 @@ class TestProductionWorkflow:
 class TestCatalogQueriesForProduction:
     """Tests for using Offering catalog queries in production context."""
 
-    def test_find_available_products(self, product, croissant, ingredient):
-        """Find available products that need production."""
-        available = Product.objects.filter(is_available=True)
+    def test_find_sellable_products(self, product, croissant, ingredient):
+        """Find sellable products that may need production."""
+        sellable = Product.objects.filter(is_sellable=True)
 
-        assert product in available
-        assert croissant in available
-        assert ingredient not in available
+        assert product in sellable
+        assert croissant in sellable
+        assert ingredient not in sellable
 
     def test_find_products_with_recipes(self, recipe, croissant, product):
         """Find products that have recipes."""

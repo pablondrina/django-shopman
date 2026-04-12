@@ -43,14 +43,42 @@ from shopman.services import (
     customer,
     fiscal,
     fulfillment,
-    kds,
     loyalty,
     notification,
     payment,
     stock,
 )
+from shopman.services.order_helpers import get_commitment_date
 
 logger = logging.getLogger(__name__)
+
+
+def has_availability_approval(order) -> bool:
+    """Return True when the order carries an explicit positive availability decision."""
+    decision = (order.data or {}).get("availability_decision", {})
+    if decision.get("approved") is not True:
+        return False
+    if "decisions" in decision:
+        return True
+    return bool(decision.get("items"))
+
+
+def ensure_confirmable(order) -> None:
+    """Enforce the operational precondition for moving an order into CONFIRMED."""
+    from shopman.orderman.exceptions import InvalidTransition
+
+    if has_availability_approval(order):
+        return
+
+    raise InvalidTransition(
+        code="availability_not_approved",
+        message="Pedido não pode ser confirmado sem decisão positiva de disponibilidade",
+        context={
+            "order_ref": order.ref,
+            "status": order.status,
+            "availability_decision": (order.data or {}).get("availability_decision"),
+        },
+    )
 
 
 def dispatch(order, phase: str) -> None:
@@ -86,6 +114,30 @@ def _on_commit(order, config: ChannelConfig) -> None:
     if config.stock.check_on_commit and (order.data or {}).get("hold_ids"):
         if not _verify_holds(order):
             return  # order cancelled
+
+    decisions = (order.data or {}).get("availability_decision", {}).get("decisions")
+    if not decisions:
+        decisions = [
+            {
+                "approved": True,
+                "sku": item.get("sku"),
+                "requested_qty": item.get("qty"),
+                "available_qty": item.get("qty"),
+                "reason_code": None,
+                "is_paused": False,
+                "is_planned": False,
+                "target_date": get_commitment_date(order).isoformat() if get_commitment_date(order) else None,
+                "failed_sku": None,
+                "source": "stock.hold",
+            }
+            for item in order.snapshot.get("items", [])
+        ]
+    _record_availability_decision(
+        order,
+        approved=True,
+        source="stock.check_on_commit" if config.stock.check_on_commit else "stock.hold",
+        decisions=decisions,
+    )
 
     loyalty.redeem(order)
 
@@ -123,8 +175,12 @@ def _on_paid(order, config: ChannelConfig) -> None:
 
 
 def _on_preparing(order, config: ChannelConfig) -> None:
-    """Order in preparation: dispatch to KDS + notify."""
-    kds.dispatch(order)
+    """Order in preparation: dispatch to KDS (if enabled) + notify."""
+    try:
+        from shopman.services import kds
+        kds.dispatch(order)
+    except ImportError:
+        pass
     notification.send(order, "order_preparing")
 
 
@@ -152,8 +208,12 @@ def _on_completed(order, config: ChannelConfig) -> None:
 
 
 def _on_cancelled(order, config: ChannelConfig) -> None:
-    """Order cancelled: cancel KDS tickets + release stock + refund + notify."""
-    kds.cancel_tickets(order)
+    """Order cancelled: cancel KDS tickets (if enabled) + release stock + refund + notify."""
+    try:
+        from shopman.services import kds
+        kds.cancel_tickets(order)
+    except ImportError:
+        pass
     stock.release(order)
     payment.refund(order)
     notification.send(order, "order_cancelled")
@@ -189,6 +249,7 @@ def _handle_confirmation(order, config: ChannelConfig) -> None:
     mode = config.confirmation.mode
 
     if mode == "immediate":
+        ensure_confirmable(order)
         order.transition_status(Order.Status.CONFIRMED, actor="auto_confirm")
     elif mode == "optimistic":
         expires_at = timezone.now() + timedelta(minutes=config.confirmation.timeout_minutes)
@@ -207,18 +268,33 @@ def _handle_confirmation(order, config: ChannelConfig) -> None:
 def _check_availability(order, config: ChannelConfig) -> bool:
     """Per-item availability check. Returns False if order was cancelled."""
     channel_ref = order.channel_ref or None
+    target_date = get_commitment_date(order)
     rejected: list[tuple[str, str]] = []
+    item_decisions: list[dict] = []
 
     for item in order.snapshot.get("items", []):
         sku = item["sku"]
         qty = item["qty"]
-        status = availability.check(sku, qty, channel_ref=channel_ref)
-        if not status["ok"]:
-            rejected.append((sku, status.get("error_code") or "unavailable"))
+        status = availability.decide(
+            sku,
+            qty,
+            channel_ref=channel_ref,
+            target_date=target_date,
+        )
+        item_decisions.append(status)
+        if not status["approved"]:
+            rejected.append((sku, status.get("reason_code") or "unavailable"))
 
     if rejected:
         reasons = ", ".join(f"{sku}:{code}" for sku, code in rejected)
         logger.info("dispatch.on_commit: rejecting order %s — %s", order.ref, reasons)
+        _record_availability_decision(
+            order,
+            approved=False,
+            source="stock.promise_decision",
+            rejected=rejected,
+            decisions=item_decisions,
+        )
         _create_alert(order, "rejected_unavailable")
         order.transition_status(Order.Status.CANCELLED, actor="auto_reject_unavailable")
         return False
@@ -234,12 +310,55 @@ def _verify_holds(order) -> bool:
     missing = ordered_skus - held_skus
 
     if missing:
+        _record_availability_decision(
+            order,
+            approved=False,
+            source="stock.verify_holds",
+            rejected=[(sku, "missing_hold") for sku in sorted(missing)],
+        )
         _create_alert(order, "rejected_oos")
         order.transition_status(Order.Status.CANCELLED, actor="auto_reject_oos")
         stock.release(order)
         return False
 
     return True
+
+
+def _record_availability_decision(
+    order,
+    *,
+    approved: bool,
+    source: str,
+    rejected: list[tuple[str, str]] | None = None,
+    decisions: list[dict] | None = None,
+) -> None:
+    """Persist a lightweight audit of the operational availability decision."""
+    target_date = get_commitment_date(order)
+    payload = {
+        "approved": approved,
+        "source": source,
+        "checked_at": timezone.now().isoformat(),
+        "target_date": target_date.isoformat() if target_date else None,
+        "channel_ref": order.channel_ref,
+        "hold_ids": [entry.get("hold_id") for entry in (order.data or {}).get("hold_ids", []) if entry.get("hold_id")],
+        "items": [
+            {
+                "sku": item.get("sku"),
+                "qty": item.get("qty"),
+            }
+            for item in order.snapshot.get("items", [])
+        ],
+    }
+    if decisions is not None:
+        payload["decisions"] = decisions
+    if rejected:
+        payload["rejected"] = [
+            {"sku": sku, "reason": reason}
+            for sku, reason in rejected
+        ]
+
+    order.data["availability_decision"] = payload
+    order.save(update_fields=["data", "updated_at"])
 
 
 def _create_alert(order, alert_type: str) -> None:

@@ -11,8 +11,9 @@ CONVENIENCE (helpers):
     CatalogService.search(...)   - Search products
 
 LISTING / CHANNEL (per-channel availability):
-    CatalogService.get_available_products(listing_ref) - Products available in listing
-    CatalogService.is_product_available(product, listing_ref) - Check availability
+    CatalogService.get_listed_products(listing_ref) - Products structurally linked to listing
+    CatalogService.get_published_products(listing_ref) - Products visible in listing
+    CatalogService.get_sellable_products(listing_ref) - Products strategically sellable in listing
 """
 
 from decimal import ROUND_HALF_UP, Decimal
@@ -122,8 +123,7 @@ class CatalogService:
                     listing=listing,
                     product=product,
                     min_qty__lte=qty,
-                    is_published=True,
-                    is_available=True,
+                    is_sellable=True,
                 )
                 .order_by("-min_qty")
                 .first()
@@ -171,7 +171,7 @@ class CatalogService:
             sku=sku,
             name=product.name,
             is_published=product.is_published,
-            is_available=product.is_available,
+            is_sellable=product.is_sellable,
             message=cls._get_validation_message(product),
         )
 
@@ -179,7 +179,7 @@ class CatalogService:
     def _get_validation_message(cls, product: "Product") -> str | None:
         if not product.is_published:
             return "Product is not published in catalog"
-        if not product.is_available:
+        if not product.is_sellable:
             return "Product is not available for purchase"
         return None
 
@@ -194,7 +194,7 @@ class CatalogService:
         collection: str | None = None,
         keywords: list[str] | None = None,
         only_published: bool = True,
-        only_available: bool = True,
+        only_sellable: bool = True,
         limit: int = 20,
     ) -> list["Product"]:
         from shopman.offerman.models import Product
@@ -203,8 +203,8 @@ class CatalogService:
 
         if only_published:
             qs = qs.filter(is_published=True)
-        if only_available:
-            qs = qs.filter(is_available=True)
+        if only_sellable:
+            qs = qs.sellable()
         if query:
             qs = qs.filter(
                 models.Q(sku__icontains=query) | models.Q(name__icontains=query)
@@ -231,22 +231,40 @@ class CatalogService:
         )
 
     @classmethod
-    def get_available_products(cls, listing_ref: str) -> models.QuerySet["Product"]:
+    def get_listed_products(cls, listing_ref: str) -> models.QuerySet["Product"]:
         from shopman.offerman.models import Product
 
         return Product.objects.filter(
             cls._listing_validity_q(),
-            is_published=True,
-            is_available=True,
             listing_items__listing__ref=listing_ref,
             listing_items__listing__is_active=True,
-            listing_items__is_published=True,
-            listing_items__is_available=True,
         ).distinct()
 
     @classmethod
-    def is_product_available(cls, product: "Product", listing_ref: str) -> bool:
-        if not product.is_published or not product.is_available:
+    def is_product_listed(cls, product: "Product", listing_ref: str) -> bool:
+        from shopman.offerman.models import ListingItem
+
+        today = timezone.localdate()
+        return ListingItem.objects.filter(
+            models.Q(listing__valid_from__isnull=True) | models.Q(listing__valid_from__lte=today),
+            models.Q(listing__valid_until__isnull=True) | models.Q(listing__valid_until__gte=today),
+            listing__ref=listing_ref,
+            listing__is_active=True,
+            product=product,
+        ).exists()
+
+    @classmethod
+    def get_published_products(cls, listing_ref: str) -> models.QuerySet["Product"]:
+        return cls.get_listed_products(listing_ref).filter(
+            is_published=True,
+            listing_items__listing__ref=listing_ref,
+            listing_items__listing__is_active=True,
+            listing_items__is_published=True,
+        ).distinct()
+
+    @classmethod
+    def is_product_published(cls, product: "Product", listing_ref: str) -> bool:
+        if not product.is_published:
             return False
 
         from shopman.offerman.models import ListingItem
@@ -259,5 +277,30 @@ class CatalogService:
             listing__is_active=True,
             product=product,
             is_published=True,
-            is_available=True,
+        ).exists()
+
+    @classmethod
+    def get_sellable_products(cls, listing_ref: str) -> models.QuerySet["Product"]:
+        return cls.get_listed_products(listing_ref).filter(
+            is_sellable=True,
+            listing_items__listing__ref=listing_ref,
+            listing_items__listing__is_active=True,
+            listing_items__is_sellable=True,
+        ).distinct()
+
+    @classmethod
+    def is_product_sellable(cls, product: "Product", listing_ref: str) -> bool:
+        if not product.is_sellable:
+            return False
+
+        from shopman.offerman.models import ListingItem
+
+        today = timezone.localdate()
+        return ListingItem.objects.filter(
+            models.Q(listing__valid_from__isnull=True) | models.Q(listing__valid_from__lte=today),
+            models.Q(listing__valid_until__isnull=True) | models.Q(listing__valid_until__gte=today),
+            listing__ref=listing_ref,
+            listing__is_active=True,
+            product=product,
+            is_sellable=True,
         ).exists()

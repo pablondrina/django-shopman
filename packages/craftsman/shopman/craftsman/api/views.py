@@ -1,7 +1,7 @@
 """
 Craftsman API ViewSets (vNext).
 
-4 verbs: plan, adjust, close, void.
+4 verbs: plan, adjust, start, finish.
 3 queries: expected, needs, suggest.
 All mutations go through craft service.
 """
@@ -20,10 +20,11 @@ from shopman.craftsman.service import craft
 
 from .serializers import (
     AdjustSerializer,
-    CloseSerializer,
+    FinishSerializer,
     NeedSerializer,
     PlanSerializer,
     RecipeSerializer,
+    StartSerializer,
     SuggestionSerializer,
     VoidSerializer,
     WorkOrderListSerializer,
@@ -64,12 +65,13 @@ class WorkOrderViewSet(
     list: List work orders (lightweight)
     retrieve: Get a specific work order (with items and events)
     plan: Create a new work order via craft.plan()
-    close: Close a work order with production results
+    finish: Finish a work order with final production results
     adjust: Adjust target quantity
+    start: Start a planned work order with the entered quantity
     void: Cancel (void) a work order
 
     Create/update/delete are not exposed — all mutations go through
-    craft.plan(), craft.adjust(), craft.close(), craft.void().
+    craft.plan(), craft.adjust(), craft.start(), craft.finish(), craft.void().
     """
 
     permission_classes = [IsAuthenticated]
@@ -139,30 +141,30 @@ class WorkOrderViewSet(
             )
 
     @action(detail=True, methods=["post"])
-    def close(self, request, ref=None):
+    def finish(self, request, ref=None):
         """
-        Close the work order with production results.
+        Finish the work order with final production results.
 
-        POST /api/craftsman/work-orders/{ref}/close/
+        POST /api/craftsman/work-orders/{ref}/finish/
         {
-            "produced": 93,
+            "finished": 93,
             "consumed": null,
             "wasted": null,
             "expected_rev": 0,
-            "idempotency_key": "close-wo-123"
+            "idempotency_key": "finish-wo-123"
         }
         """
         wo = self.get_object()
-        serializer = CloseSerializer(data=request.data)
+        serializer = FinishSerializer(data=request.data)
 
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             data = serializer.validated_data
-            result = craft.close(
+            result = craft.finish(
                 wo,
-                produced=data["produced"],
+                finished=data["finished"],
                 consumed=data.get("consumed"),
                 wasted=data.get("wasted"),
                 expected_rev=data.get("expected_rev"),
@@ -185,7 +187,7 @@ class WorkOrderViewSet(
     @action(detail=True, methods=["post"])
     def adjust(self, request, ref=None):
         """
-        Adjust target quantity of an open work order.
+        Adjust target quantity of a planned work order.
 
         POST /api/craftsman/work-orders/{ref}/adjust/
         {
@@ -211,6 +213,38 @@ class WorkOrderViewSet(
             )
             return Response(WorkOrderSerializer(result).data)
 
+        except StaleRevision as e:
+            return Response(
+                {"error": "STALE_REVISION", "detail": str(e)},
+                status=status.HTTP_409_CONFLICT,
+            )
+        except CraftError as e:
+            return Response(
+                {"error": e.code, "detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    @action(detail=True, methods=["post"])
+    def start(self, request, ref=None):
+        """Mark the work order as started."""
+        wo = self.get_object()
+        serializer = StartSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            data = serializer.validated_data
+            result = craft.start(
+                wo,
+                quantity=data["quantity"],
+                expected_rev=data.get("expected_rev"),
+                assigned_ref=data.get("assigned_ref"),
+                position_ref=data.get("position_ref"),
+                note=data.get("note"),
+                actor=data.get("actor", request.user.username),
+            )
+            return Response(WorkOrderSerializer(result).data)
         except StaleRevision as e:
             return Response(
                 {"error": "STALE_REVISION", "detail": str(e)},
@@ -265,7 +299,7 @@ class QueryViewSet(viewsets.ViewSet):
     """
     ViewSet for Craftsman read-only queries.
 
-    expected: Sum of open WorkOrder quantities for a product on a date.
+    expected: Sum of active WorkOrder quantities for a product on a date.
     needs: BOM explosion for a date (material needs).
     suggest: Production suggestions based on demand history.
     """
@@ -275,7 +309,7 @@ class QueryViewSet(viewsets.ViewSet):
     @action(detail=False, methods=["get"])
     def expected(self, request):
         """
-        Sum of open WorkOrder quantities for output_ref on date.
+        Sum of active WorkOrder quantities for output_ref on date.
 
         GET /api/craftsman/queries/expected/?output_ref=croissant&date=2026-02-27
         """

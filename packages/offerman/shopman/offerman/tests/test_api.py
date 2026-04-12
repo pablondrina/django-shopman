@@ -60,7 +60,7 @@ def baguete(db, breads_collection):
         unit="un",
         base_price_q=500,
         is_published=True,
-        is_available=True,
+        is_sellable=True,
     )
     prod.keywords.add("artesanal", "fermentacao-natural")
     CollectionItem.objects.create(collection=breads_collection, product=prod, is_primary=True)
@@ -78,7 +78,7 @@ def croissant(db, breads_collection):
         shelf_life_days=12,
         production_cycle_hours=4,
         is_published=True,
-        is_available=True,
+        is_sellable=True,
     )
     prod.keywords.add("artesanal", "manteiga")
     CollectionItem.objects.create(collection=breads_collection, product=prod, is_primary=True)
@@ -93,7 +93,7 @@ def coffee(db):
         unit="un",
         base_price_q=500,
         is_published=True,
-        is_available=True,
+        is_sellable=True,
     )
 
 
@@ -115,7 +115,7 @@ def paused_product(db, breads_collection):
         sku="PAUSED-001",
         name="Paused Product",
         base_price_q=1000,
-        is_available=False,
+        is_sellable=False,
     )
     CollectionItem.objects.create(collection=breads_collection, product=prod)
     return prod
@@ -128,7 +128,7 @@ def combo(db, breads_collection, croissant, coffee):
         name="Breakfast Combo",
         base_price_q=1100,
         is_published=True,
-        is_available=True,
+        is_sellable=True,
     )
     CollectionItem.objects.create(collection=breads_collection, product=combo, is_primary=True)
     ProductComponent.objects.create(parent=combo, component=croissant, qty=Decimal("1"))
@@ -205,7 +205,7 @@ class TestProductList:
         assert "BAGUETE" in skus
         assert "HIDDEN-001" not in skus
 
-    def test_list_excludes_unavailable(self, api_client, baguete, paused_product):
+    def test_list_excludes_non_sellable(self, api_client, baguete, paused_product):
         resp = api_client.get("/api/offerman/products/")
         skus = {p["sku"] for p in resp.data["results"]}
         assert "BAGUETE" in skus
@@ -251,7 +251,7 @@ class TestProductList:
         product = resp.data["results"][0]
         expected_fields = {
             "uuid", "sku", "name", "short_description", "unit",
-            "base_price_q", "is_published", "is_available",
+            "base_price_q", "is_published", "is_sellable",
             "availability_policy", "keywords",
         }
         assert set(product.keys()) == expected_fields
@@ -458,7 +458,7 @@ class TestListingItems:
     def test_item_serializer_fields(self, api_client, ifood_listing, ifood_baguete):
         resp = api_client.get(f"/api/offerman/listings/{ifood_listing.ref}/items/")
         item = resp.data[0]
-        expected = {"sku", "product_name", "price_q", "min_qty", "is_published", "is_available"}
+        expected = {"sku", "product_name", "price_q", "min_qty", "is_published", "is_sellable"}
         assert set(item.keys()) == expected
 
 

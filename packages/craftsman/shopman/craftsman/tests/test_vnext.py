@@ -84,8 +84,8 @@ class TestPlan:
         assert wo.recipe == recipe
         assert wo.output_ref == "croissant"
         assert wo.quantity == Decimal("100")
-        assert wo.produced is None
-        assert wo.status == WorkOrder.Status.OPEN
+        assert wo.finished is None
+        assert wo.status == WorkOrder.Status.PLANNED
         assert wo.scheduled_date == tomorrow
         assert wo.rev == 0
 
@@ -197,13 +197,14 @@ class TestAdjust:
         assert events[1].payload["reason"] == "farinha insuficiente"
         assert events[1].actor == "joao"
 
-    def test_adjust_sets_started_at(self, recipe):
+    def test_adjust_does_not_start_work_order(self, recipe):
         wo = craft.plan(recipe, 100)
         assert wo.started_at is None
 
         craft.adjust(wo, quantity=97)
         wo.refresh_from_db()
-        assert wo.started_at is not None
+        assert wo.started_at is None
+        assert wo.status == WorkOrder.Status.PLANNED
 
     def test_adjust_with_rev_check(self, recipe):
         wo = craft.plan(recipe, 100)
@@ -219,11 +220,11 @@ class TestAdjust:
 
     def test_adjust_terminal_status(self, recipe):
         wo = craft.plan(recipe, 100)
-        craft.close(wo, produced=93, expected_rev=0)
+        craft.finish(wo, finished=93, expected_rev=0)
 
         with pytest.raises(CraftError) as exc:
             craft.adjust(wo, quantity=50)
-        assert exc.value.code == "TERMINAL_STATUS"
+        assert exc.value.code == "INVALID_STATUS"
 
     def test_adjust_emits_signal(self, recipe):
         wo = craft.plan(recipe, 100)
@@ -255,25 +256,86 @@ class TestAdjust:
         assert wo.status == WorkOrder.Status.VOID
 
 
-# ══════════════════════════════════════════════════════════════
-# CLOSE
-# ══════════════════════════════════════════════════════════════
+class TestFloorExecution:
+    def test_start_sets_started_at_and_event(self, recipe):
+        wo = craft.plan(recipe, 100)
 
-
-class TestClose:
-    def test_close_simple(self, recipe_with_items):
-        wo = craft.plan(recipe_with_items, 100)
-        craft.close(wo, produced=93, expected_rev=0)
+        craft.start(
+            wo,
+            quantity=Decimal("92"),
+            expected_rev=0,
+            actor="joao",
+            assigned_ref="user:joao",
+            position_ref="station:forno-01",
+            note="massa na bancada",
+        )
 
         wo.refresh_from_db()
-        assert wo.status == WorkOrder.Status.DONE
-        assert wo.produced == Decimal("93")
+        assert wo.status == WorkOrder.Status.STARTED
+        assert wo.started_at is not None
+        assert wo.assigned_ref == "user:joao"
+        assert wo.position_ref == "station:forno-01"
+        assert wo.started_qty == Decimal("92")
+        assert wo.rev == 1
+
+        ev = wo.events.order_by("seq").last()
+        assert ev.kind == "started"
+        assert ev.payload["quantity"] == "92"
+        assert ev.payload["assigned_ref"] == "user:joao"
+        assert ev.payload["position_ref"] == "station:forno-01"
+        assert ev.payload["note"] == "massa na bancada"
+        assert ev.actor == "joao"
+
+    def test_finish_uses_started_qty_as_execution_base(self, recipe):
+        wo = craft.plan(recipe, 100)
+        craft.start(wo, quantity=Decimal("92"), expected_rev=0, actor="joao")
+        craft.finish(wo, finished=Decimal("89"), expected_rev=1, actor="joao")
+
+        wo.refresh_from_db()
+        assert wo.status == WorkOrder.Status.FINISHED
+        assert wo.finished == Decimal("89")
+        assert wo.started_qty == Decimal("92")
+        assert wo.loss == Decimal("3")
+        ev = wo.events.order_by("seq").last()
+        assert ev.kind == "finished"
+        assert ev.payload["planned_qty"] == "100.000"
+        assert ev.payload["started_qty"] == "92"
+        assert ev.payload["finished_qty"] == "89"
+
+    def test_work_order_projection_tracks_floor_progress(self, recipe):
+        wo = craft.plan(recipe, 100)
+        assert wo.planned_qty == Decimal("100")
+        assert wo.started_qty is None
+        assert wo.finished_qty is None
+
+        craft.start(wo, quantity=Decimal("92"), expected_rev=0)
+        craft.finish(wo, finished=Decimal("89"), expected_rev=1)
+
+        wo.refresh_from_db()
+        assert wo.planned_qty == Decimal("100")
+        assert wo.started_qty == Decimal("92")
+        assert wo.finished_qty == Decimal("89")
+
+
+# ══════════════════════════════════════════════════════════════
+# FINISH
+# ══════════════════════════════════════════════════════════════
+
+
+class TestFinish:
+    def test_finish_simple(self, recipe_with_items):
+        wo = craft.plan(recipe_with_items, 100)
+        craft.finish(wo, finished=93, expected_rev=0)
+
+        wo.refresh_from_db()
+        assert wo.status == WorkOrder.Status.FINISHED
+        assert wo.finished == Decimal("93")
         assert wo.finished_at is not None
 
-    def test_close_materializes_requirements(self, recipe_with_items):
+    def test_finish_materializes_requirements(self, recipe_with_items):
         """French coefficient: 100/10 = 10x. Farinha: 5*10=50kg."""
         wo = craft.plan(recipe_with_items, 100)
-        craft.close(wo, produced=93, expected_rev=0)
+        craft.finish(wo, finished=93, expected_rev=0)
 
         reqs = WorkOrderItem.objects.filter(work_order=wo, kind=WorkOrderItem.Kind.REQUIREMENT)
         assert reqs.count() == 3
@@ -288,18 +350,18 @@ class TestClose:
         fermento = reqs.get(item_ref="fermento")
         assert fermento.quantity == Decimal("1.000")
 
-    def test_close_auto_consumption(self, recipe_with_items):
+    def test_finish_auto_consumption(self, recipe_with_items):
         """If consumed=None, consumption = requirements."""
         wo = craft.plan(recipe_with_items, 100)
-        craft.close(wo, produced=93, expected_rev=0)
+        craft.finish(wo, finished=93, expected_rev=0)
 
         consumptions = WorkOrderItem.objects.filter(work_order=wo, kind=WorkOrderItem.Kind.CONSUMPTION)
         assert consumptions.count() == 3
         assert consumptions.get(item_ref="farinha").quantity == Decimal("50.000")
 
-    def test_close_explicit_consumed(self, recipe_with_items):
+    def test_finish_explicit_consumed(self, recipe_with_items):
         wo = craft.plan(recipe_with_items, 100)
-        craft.close(wo, produced=93, consumed=[
+        craft.finish(wo, finished=93, consumed=[
             {"item_ref": "farinha", "quantity": 48.5, "unit": "kg"},
             {"item_ref": "agua", "quantity": 29, "unit": "L"},
             {"item_ref": "fermento", "quantity": "0.95", "unit": "kg"},
@@ -309,36 +371,36 @@ class TestClose:
         assert consumptions.count() == 3
         assert consumptions.get(item_ref="farinha").quantity == Decimal("48.5")
 
-    def test_close_creates_output_item(self, recipe_with_items):
+    def test_finish_creates_output_item(self, recipe_with_items):
         wo = craft.plan(recipe_with_items, 100)
-        craft.close(wo, produced=93, expected_rev=0)
+        craft.finish(wo, finished=93, expected_rev=0)
 
         outputs = WorkOrderItem.objects.filter(work_order=wo, kind=WorkOrderItem.Kind.OUTPUT)
         assert outputs.count() == 1
         assert outputs[0].item_ref == "croissant"
         assert outputs[0].quantity == Decimal("93")
 
-    def test_close_auto_waste(self, recipe_with_items):
-        """Auto waste: quantity(100) - produced(93) = 7."""
+    def test_finish_auto_waste(self, recipe_with_items):
+        """Auto waste: started_qty/planned_qty(100) - finished(93) = 7."""
         wo = craft.plan(recipe_with_items, 100)
-        craft.close(wo, produced=93, expected_rev=0)
+        craft.finish(wo, finished=93, expected_rev=0)
 
         wastes = WorkOrderItem.objects.filter(work_order=wo, kind=WorkOrderItem.Kind.WASTE)
         assert wastes.count() == 1
         assert wastes[0].quantity == Decimal("7")
         assert wastes[0].item_ref == "croissant"
 
-    def test_close_no_waste_when_exact(self, recipe_with_items):
-        """No waste when produced == quantity."""
+    def test_finish_no_waste_when_exact(self, recipe_with_items):
+        """No waste when finished == quantity."""
         wo = craft.plan(recipe_with_items, 100)
-        craft.close(wo, produced=100, expected_rev=0)
+        craft.finish(wo, finished=100, expected_rev=0)
 
         wastes = WorkOrderItem.objects.filter(work_order=wo, kind=WorkOrderItem.Kind.WASTE)
         assert wastes.count() == 0
 
-    def test_close_explicit_waste(self, recipe_with_items):
+    def test_finish_explicit_waste(self, recipe_with_items):
         wo = craft.plan(recipe_with_items, 100)
-        craft.close(wo, produced=93, wasted=[
+        craft.finish(wo, finished=93, wasted=[
             {"item_ref": "croissant", "quantity": 3, "meta": {"reason": "queimado"}},
             {"item_ref": "massa", "quantity": 2, "unit": "kg", "meta": {"reason": "caiu"}},
         ], expected_rev=0)
@@ -346,47 +408,49 @@ class TestClose:
         wastes = WorkOrderItem.objects.filter(work_order=wo, kind=WorkOrderItem.Kind.WASTE)
         assert wastes.count() == 2
 
-    def test_close_idempotency(self, recipe_with_items):
+    def test_finish_idempotency(self, recipe_with_items):
         wo = craft.plan(recipe_with_items, 100)
-        result1 = craft.close(wo, produced=93, expected_rev=0, idempotency_key="close-001")
+        result1 = craft.finish(wo, finished=93, expected_rev=0, idempotency_key="finish-001")
 
         # Second call with same key — returns without mutating
-        result2 = craft.close(wo, produced=50, idempotency_key="close-001")
+        result2 = craft.finish(wo, finished=50, idempotency_key="finish-001")
         assert result2.pk == result1.pk
-        assert result2.produced == Decimal("93")  # original value preserved
+        assert result2.finished == Decimal("93")  # original value preserved
 
-    def test_close_bumps_rev(self, recipe):
+    def test_finish_bumps_rev(self, recipe):
         wo = craft.plan(recipe, 100)
-        craft.close(wo, produced=93, expected_rev=0)
+        craft.finish(wo, finished=93, expected_rev=0)
         wo.refresh_from_db()
         assert wo.rev == 1
 
-    def test_close_stale_rev(self, recipe):
+    def test_finish_stale_rev(self, recipe):
         wo = craft.plan(recipe, 100)
         craft.adjust(wo, quantity=97)  # rev now 1
 
         with pytest.raises(StaleRevision):
-            craft.close(wo, produced=93, expected_rev=0)
+            craft.finish(wo, finished=93, expected_rev=0)
 
-    def test_close_terminal_status(self, recipe):
+    def test_finish_terminal_status(self, recipe):
         wo = craft.plan(recipe, 100)
-        craft.close(wo, produced=93, expected_rev=0)
+        craft.finish(wo, finished=93, expected_rev=0)
 
         with pytest.raises(CraftError) as exc:
-            craft.close(wo, produced=50, expected_rev=1)
+            craft.finish(wo, finished=50, expected_rev=1)
         assert exc.value.code == "TERMINAL_STATUS"
 
-    def test_close_creates_event(self, recipe):
+    def test_finish_creates_event(self, recipe):
         wo = craft.plan(recipe, 100)
-        craft.close(wo, produced=93, expected_rev=0, actor="operador")
+        craft.finish(wo, finished=93, expected_rev=0, actor="operador")
 
         events = list(wo.events.order_by("seq"))
-        assert len(events) == 2
-        assert events[1].kind == "closed"
-        assert events[1].payload["produced"] == "93"
-        assert events[1].actor == "operador"
+        assert len(events) == 3
+        assert events[1].kind == "started"
+        assert events[1].payload["implicit"] is True
+        assert events[2].kind == "finished"
+        assert events[2].payload["finished_qty"] == "93"
+        assert events[2].actor == "operador"
 
-    def test_close_emits_signal(self, recipe):
+    def test_finish_emits_signal(self, recipe):
         wo = craft.plan(recipe, 100)
         received = []
 
@@ -397,15 +461,15 @@ class TestClose:
 
         production_changed.connect(handler)
         try:
-            craft.close(wo, produced=93, expected_rev=0)
+            craft.finish(wo, finished=93, expected_rev=0)
             assert "croissant" in received
         finally:
             production_changed.disconnect(handler)
 
-    def test_close_with_lot_tracking(self, recipe_with_items):
+    def test_finish_with_lot_tracking(self, recipe_with_items):
         """Lot tracking via meta on consumed items."""
         wo = craft.plan(recipe_with_items, 100)
-        craft.close(wo, produced=93, consumed=[
+        craft.finish(wo, finished=93, consumed=[
             {"item_ref": "farinha", "quantity": 50, "unit": "kg",
              "meta": {"lot": "FAR-2026-02-23"}},
             {"item_ref": "agua", "quantity": 30, "unit": "L"},
@@ -425,7 +489,7 @@ class TestClose:
 
 
 class TestVoid:
-    def test_void_from_open(self, recipe):
+    def test_void_from_planned(self, recipe):
         wo = craft.plan(recipe, 100)
         craft.void(wo, reason="cliente cancelou", expected_rev=0)
 
@@ -442,9 +506,9 @@ class TestVoid:
         assert events[1].payload["reason"] == "cancelado"
         assert events[1].actor == "operador"
 
-    def test_void_from_done_fails(self, recipe):
+    def test_void_from_finished_fails(self, recipe):
         wo = craft.plan(recipe, 100)
-        craft.close(wo, produced=93, expected_rev=0)
+        craft.finish(wo, finished=93, expected_rev=0)
 
         with pytest.raises(CraftError) as exc:
             craft.void(wo, reason="teste", expected_rev=1)
@@ -488,16 +552,16 @@ class TestVoid:
 
 
 class TestExpected:
-    def test_expected_sums_open_orders(self, recipe, tomorrow):
+    def test_expected_sums_active_orders(self, recipe, tomorrow):
         craft.plan(recipe, 100, date=tomorrow)
         craft.plan(recipe, 50, date=tomorrow)
 
         total = craft.expected("croissant", tomorrow)
         assert total == Decimal("150")
 
-    def test_expected_excludes_done(self, recipe, tomorrow):
+    def test_expected_excludes_finished(self, recipe, tomorrow):
         wo = craft.plan(recipe, 100, date=tomorrow)
-        craft.close(wo, produced=93, expected_rev=0)
+        craft.finish(wo, finished=93, expected_rev=0)
 
         total = craft.expected("croissant", tomorrow)
         assert total == Decimal("0")
@@ -579,9 +643,9 @@ class TestInvariants:
         with pytest.raises(CraftError):
             craft.plan(recipe, -10)
 
-    def test_done_is_terminal(self, recipe):
+    def test_finished_is_terminal(self, recipe):
         wo = craft.plan(recipe, 100)
-        craft.close(wo, produced=93, expected_rev=0)
+        craft.finish(wo, finished=93, expected_rev=0)
 
         with pytest.raises(CraftError):
             craft.adjust(wo, quantity=50)
@@ -604,28 +668,28 @@ class TestInvariants:
         craft.adjust(wo, quantity=97)
         assert wo.rev == 1
 
-        craft.close(wo, produced=93, expected_rev=1)
+        craft.finish(wo, finished=93, expected_rev=1)
         wo.refresh_from_db()
         assert wo.rev == 2
 
     def test_events_sequential(self, recipe):
         wo = craft.plan(recipe, 100)
         craft.adjust(wo, quantity=97)
-        craft.close(wo, produced=93, expected_rev=1)
+        craft.finish(wo, finished=93, expected_rev=1)
 
         events = list(wo.events.order_by("seq"))
-        assert [e.seq for e in events] == [0, 1, 2]
-        assert [e.kind for e in events] == ["planned", "adjusted", "closed"]
+        assert [e.seq for e in events] == [0, 1, 2, 3]
+        assert [e.kind for e in events] == ["planned", "adjusted", "started", "finished"]
 
     def test_loss_and_yield(self, recipe):
         wo = craft.plan(recipe, 100)
-        craft.close(wo, produced=93, expected_rev=0)
+        craft.finish(wo, finished=93, expected_rev=0)
 
         wo.refresh_from_db()
         assert wo.loss == Decimal("7")
         assert wo.yield_rate == Decimal("93") / Decimal("100")
 
-    def test_loss_none_before_close(self, recipe):
+    def test_loss_none_before_finish(self, recipe):
         wo = craft.plan(recipe, 100)
         assert wo.loss is None
         assert wo.yield_rate is None
@@ -656,8 +720,9 @@ class TestModels:
         assert wo.ref.startswith("WO-2026-")
 
     def test_work_order_status_choices(self):
-        assert WorkOrder.Status.OPEN == "open"
-        assert WorkOrder.Status.DONE == "done"
+        assert WorkOrder.Status.PLANNED == "planned"
+        assert WorkOrder.Status.STARTED == "started"
+        assert WorkOrder.Status.FINISHED == "finished"
         assert WorkOrder.Status.VOID == "void"
 
 
@@ -722,13 +787,13 @@ class TestProtocols:
 
 
 class TestInventoryWiring:
-    """Test the inventory protocol integration in close/void."""
+    """Test the inventory protocol integration in finish/void."""
 
-    def test_close_standalone_mode(self, recipe_with_items):
-        """Without INVENTORY_BACKEND, close succeeds (standalone)."""
+    def test_finish_standalone_mode(self, recipe_with_items):
+        """Without INVENTORY_BACKEND, finish succeeds (standalone)."""
         wo = craft.plan(recipe_with_items, 10)
-        craft.close(wo, produced=9)
-        assert wo.status == "done"
+        craft.finish(wo, finished=9)
+        assert wo.status == "finished"
 
     def test_void_standalone_mode(self, recipe_with_items):
         """Without INVENTORY_BACKEND, void succeeds (standalone)."""
@@ -736,8 +801,8 @@ class TestInventoryWiring:
         craft.void(wo, reason="test")
         assert wo.status == "void"
 
-    def test_close_with_mock_backend(self, recipe_with_items, settings):
-        """With configured backend, close calls consume + receive."""
+    def test_finish_with_mock_backend(self, recipe_with_items, settings):
+        """With configured backend, finish calls consume + receive."""
         from unittest.mock import MagicMock, patch
 
         mock_backend = MagicMock()
@@ -753,9 +818,9 @@ class TestInventoryWiring:
             "django.utils.module_loading.import_string",
             return_value=mock_backend_class,
         ):
-            craft.close(wo, produced=9)
+            craft.finish(wo, finished=9)
 
-        assert wo.status == "done"
+        assert wo.status == "finished"
         assert mock_backend.consume.called
         assert mock_backend.receive.called
 
@@ -782,7 +847,7 @@ class TestInventoryWiring:
         assert mock_backend.release.called
 
     def test_backend_failure_is_non_fatal(self, recipe_with_items, settings):
-        """If backend raises, close still succeeds (graceful degradation)."""
+        """If backend raises, finish still succeeds (graceful degradation)."""
         from unittest.mock import MagicMock, patch
 
         mock_backend = MagicMock()
@@ -800,10 +865,10 @@ class TestInventoryWiring:
             return_value=mock_backend_class,
         ):
             # Should NOT raise — graceful degradation
-            craft.close(wo, produced=9)
+            craft.finish(wo, finished=9)
 
-        assert wo.status == "done"
-        assert wo.produced == Decimal("9")
+        assert wo.status == "finished"
+        assert wo.finished == Decimal("9")
 
 
 # ══════════════════════════════════════════════════════════════

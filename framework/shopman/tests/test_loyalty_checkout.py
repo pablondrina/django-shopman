@@ -50,7 +50,7 @@ def _make_session(channel_ref="balcao", items=None):
                     "name": item["sku"],
                     "base_price_q": item["unit_price_q"],
                     "is_published": True,
-                    "is_available": True,
+                    "is_sellable": True,
                 },
             )
         ModifyService.modify_session(
@@ -188,7 +188,7 @@ class CheckoutLoyaltyContextTests(TestCase):
             name="Loyal Product",
             base_price_q=500,
             is_published=True,
-            is_available=True,
+            is_sellable=True,
         )
 
     def _login_as_customer(self, client, customer):

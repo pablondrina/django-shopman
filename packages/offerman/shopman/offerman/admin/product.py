@@ -25,7 +25,7 @@ class ProductAdmin(admin.ModelAdmin):
     ]
     list_filter = [
         "is_published",
-        "is_available",
+        "is_sellable",
         "availability_policy",
     ]
     search_fields = ["sku", "name", "keywords__name"]
@@ -42,10 +42,10 @@ class ProductAdmin(admin.ModelAdmin):
             {"fields": ("base_price_q", "margin_percent")},
         ),
         (
-            "Publication & Availability",
+            "Publication & Sellability",
             {
-                "fields": ("is_published", "is_available"),
-                "description": "is_published controls catalog publication, is_available controls purchase availability.",
+                "fields": ("is_published", "is_sellable"),
+                "description": "is_published controls catalog exposure, is_sellable controls whether the product is commercially enabled.",
             },
         ),
         (
@@ -85,10 +85,10 @@ class ProductAdmin(admin.ModelAdmin):
                 '<span style="background-color:#ffc107;color:#000;'
                 'padding:2px 6px;border-radius:3px;font-size:11px;">Unpublished</span>'
             )
-        if not obj.is_available:
+        if not obj.is_sellable:
             badges.append(
                 '<span style="background-color:#dc3545;color:#fff;'
-                'padding:2px 6px;border-radius:3px;font-size:11px;">Unavailable</span>'
+                'padding:2px 6px;border-radius:3px;font-size:11px;">Not Sellable</span>'
             )
 
         if not badges:
@@ -119,12 +119,12 @@ class ProductAdmin(admin.ModelAdmin):
         updated = queryset.update(is_published=True)
         self.message_user(request, f"{updated} product(s) published.")
 
-    @admin.action(description="Pause selected products (unavailable)")
+    @admin.action(description="Disable selling for selected products")
     def pause_products(self, request, queryset):
-        updated = queryset.update(is_available=False)
-        self.message_user(request, f"{updated} product(s) paused.")
+        updated = queryset.update(is_sellable=False)
+        self.message_user(request, f"{updated} product(s) disabled for sale.")
 
-    @admin.action(description="Resume selected products (available)")
+    @admin.action(description="Enable selling for selected products")
     def resume_products(self, request, queryset):
-        updated = queryset.update(is_available=True)
-        self.message_user(request, f"{updated} product(s) resumed.")
+        updated = queryset.update(is_sellable=True)
+        self.message_user(request, f"{updated} product(s) enabled for sale.")

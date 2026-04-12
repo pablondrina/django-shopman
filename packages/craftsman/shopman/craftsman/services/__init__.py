@@ -1,7 +1,7 @@
 """
 Craftsman Services.
 
-4 verbs: plan, adjust, close, void.
+5 verbs: plan, adjust, start, finish, void.
 3 queries: suggest, needs, expected.
 """
 

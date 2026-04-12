@@ -61,7 +61,7 @@ class CartDiscountTransparencyTests(TestCase):
             name="Discount Product",
             base_price_q=1000,
             is_published=True,
-            is_available=True,
+            is_sellable=True,
         )
 
     def _get_cart(self, session: Session) -> dict:

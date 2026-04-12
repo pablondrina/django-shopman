@@ -5,7 +5,7 @@ Listens to the single `production_changed` signal and dispatches
 to appropriate Stockman actions:
 
 - planned: Create planned Quant (future stock) for finished goods
-- closed: No-op here (handled by InventoryProtocol in execution.py)
+- finished: No-op here (handled by InventoryProtocol in execution.py)
 - voided: Cancel planned Quant for the WorkOrder
 
 Registered by CraftsmanStockmanConfig.ready().
@@ -35,11 +35,12 @@ def _stocking_available() -> bool:
 @receiver(production_changed)
 def handle_production_changed(sender, product_ref, date, **kwargs):
     """
-    React to production changes (plan, adjust, close, void).
+    React to production changes (plan, adjust, start, finish, void).
 
     - planned: Create planned Quant in Stockman (future stock for finished goods)
     - adjusted: Update planned Quant quantity
-    - closed: No-op (stock receive handled by InventoryProtocol)
+    - started: No-op (production already committed inside Craftsman)
+    - finished: No-op (stock receive handled by InventoryProtocol)
     - voided: Cancel (zero out) the planned Quant
     """
     action = kwargs.get("action")
@@ -69,8 +70,10 @@ def handle_production_changed(sender, product_ref, date, **kwargs):
         _handle_adjusted(work_order, product_ref, date)
     elif action == "voided":
         _handle_voided(work_order, product_ref, date)
-    elif action == "closed":
-        _handle_closed(work_order, product_ref, date)
+    elif action == "started":
+        logger.debug("Started event received for %s; no Stockman side effect", work_order.ref if work_order else "?")
+    elif action == "finished":
+        _handle_finished(work_order, product_ref, date)
     else:
         logger.warning("Unknown production_changed action: %s", action)
 
@@ -223,7 +226,7 @@ def _handle_voided(work_order, product_ref, date):
         )
 
 
-def _handle_closed(work_order, product_ref, date):
+def _handle_finished(work_order, product_ref, date):
     """
     Realize production: transfer planned stock → saleable position.
 
@@ -243,7 +246,7 @@ def _handle_closed(work_order, product_ref, date):
     from shopman.stockman.services.planning import StockPlanning
     from shopman.stockman.services.queries import StockQueries
 
-    produced = work_order.produced or work_order.quantity
+    finished_qty = work_order.finished or work_order.quantity
 
     try:
         # Find saleable destination (vitrine)
@@ -274,7 +277,7 @@ def _handle_closed(work_order, product_ref, date):
         StockPlanning.realize(
             product=type("P", (), {"sku": product_ref})(),
             target_date=date,
-            actual_quantity=produced,
+            actual_quantity=finished_qty,
             to_position=to_position,
             from_position=from_position,
             reason=f"Produção concluída: {work_order.ref}",
@@ -282,7 +285,7 @@ def _handle_closed(work_order, product_ref, date):
         logger.info(
             "Production realized: sku=%s qty=%s %s → %s (WO %s)",
             product_ref,
-            produced,
+            finished_qty,
             work_order.position_ref or "(default)",
             to_position.ref,
             work_order.ref,

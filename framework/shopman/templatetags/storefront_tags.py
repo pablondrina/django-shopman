@@ -7,17 +7,16 @@ from django.utils.safestring import mark_safe
 
 register = template.Library()
 
-# Material Symbols Rounded — ligature names (SKU prefix → ícone)
+# Material Symbols Rounded — ligature names (generic SKU hint → icon)
 _PRODUCT_SYMBOL_MAP = {
-    "PAO": "bakery_dining",
-    "BAGUETE": "bakery_dining",
-    "CROISSANT": "cookie",
-    "PAIN": "cookie",
-    "BRIOCHE": "cake",
-    "FOCACCIA": "local_pizza",
-    "CIABATTA": "bakery_dining",
+    "BEB": "local_drink",
+    "DRINK": "local_drink",
     "CAFE": "local_cafe",
+    "COFFEE": "local_cafe",
     "COMBO": "inventory_2",
+    "KIT": "inventory_2",
+    "MEAL": "lunch_dining",
+    "FOOD": "restaurant",
 }
 _DEFAULT_PRODUCT_SYMBOL = "restaurant_menu"
 

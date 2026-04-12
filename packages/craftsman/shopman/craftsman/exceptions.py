@@ -12,7 +12,7 @@ class CraftError(BaseError):
     Base exception for all Craftsman errors.
 
     Usage:
-        raise CraftError('INVALID_STATUS', current='pending', expected='open')
+        raise CraftError('INVALID_STATUS', current='started', expected='planned')
         raise CraftError('INVALID_QUANTITY', quantity=-1)
 
     Attributes:
@@ -23,6 +23,7 @@ class CraftError(BaseError):
 
     _default_messages = {
         "INVALID_QUANTITY": "Quantity must be greater than zero",
+        "INVALID_STATUS": "Work order is not in the expected status for this operation",
         "TERMINAL_STATUS": "Cannot modify a work order in terminal status",
         "VOID_FROM_DONE": "Cannot void a completed work order",
         "STALE_REVISION": "Work order was modified by another process",

@@ -7,6 +7,8 @@ Stockman defines this protocol, Offerman (or other catalog systems) implements i
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
+from decimal import Decimal
 from typing import Protocol, runtime_checkable
 
 
@@ -18,8 +20,8 @@ class SkuValidationResult:
     sku: str
     message: str | None = None
     product_name: str | None = None
-    is_active: bool = True
-    error_code: str | None = None  # "not_found", "inactive", etc.
+    is_published: bool = True
+    error_code: str | None = None  # "not_found", "unpublished", etc.
 
 
 @dataclass(frozen=True)
@@ -29,11 +31,25 @@ class SkuInfo:
     sku: str
     name: str
     description: str | None
-    is_active: bool
+    is_published: bool
     unit: str  # "un", "kg", "lt", etc.
     category: str | None = None
     base_price_q: int | None = None  # In cents
     metadata: dict | None = None
+
+
+@dataclass(frozen=True)
+class PromiseDecision:
+    """Operational promise decision for a SKU in a given time scope."""
+
+    approved: bool
+    sku: str
+    requested_qty: Decimal
+    target_date: date | None
+    reason_code: str | None = None
+    available_qty: Decimal = Decimal("0")
+    is_planned: bool = False
+    is_paused: bool = False
 
 
 @runtime_checkable
@@ -42,20 +58,20 @@ class SkuValidator(Protocol):
     Protocol for SKU validation.
 
     Implementations should provide methods to:
-    - Validate if a SKU exists and is active
+    - Validate if a SKU exists and is published in the base catalog
     - Get SKU information
     - Search SKUs for autocomplete
     """
 
     def validate_sku(self, sku: str) -> SkuValidationResult:
         """
-        Validate if a SKU exists and is active.
+        Validate if a SKU exists and is published.
 
         Args:
             sku: Product code
 
         Returns:
-            SkuValidationResult with status and details
+            SkuValidationResult with publication status and details
         """
         ...
 
@@ -95,7 +111,7 @@ class SkuValidator(Protocol):
         Args:
             query: Search term
             limit: Maximum results
-            include_inactive: Include inactive SKUs
+            include_inactive: Include unpublished SKUs
 
         Returns:
             List of SkuInfo

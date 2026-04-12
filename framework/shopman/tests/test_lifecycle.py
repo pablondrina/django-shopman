@@ -13,8 +13,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from shopman.config import ChannelConfig
-from shopman.lifecycle import dispatch
+from shopman.lifecycle import dispatch, ensure_confirmable
 from shopman.orderman.models import Directive, Order
+from shopman.orderman.exceptions import InvalidTransition
 
 # ── helpers ──
 
@@ -88,6 +89,21 @@ class TestDispatch:
         order = _make_order()
         with pytest.raises(RuntimeError, match="boom"):
             dispatch(order, "on_dispatched")
+
+
+class TestConfirmability:
+    def test_ensure_confirmable_requires_positive_availability_decision(self):
+        order = _make_order(data={})
+
+        with pytest.raises(InvalidTransition, match="disponibilidade"):
+            ensure_confirmable(order)
+
+    def test_ensure_confirmable_accepts_positive_availability_decision(self):
+        order = _make_order(
+            data={"availability_decision": {"approved": True, "decisions": [{"sku": "PAO-001"}]}}
+        )
+
+        ensure_confirmable(order)
 
 
 # ── on_commit ──
@@ -194,8 +210,8 @@ class TestOnCommitAvailabilityCheck:
             confirmation_mode="immediate", check_on_commit=True,
             payment_timing="external", payment_method="cash",
         )
-        mock_availability.check.return_value = {
-            "ok": False, "error_code": "insufficient_stock", "available_qty": 0,
+        mock_availability.decide.return_value = {
+            "approved": False, "reason_code": "insufficient_stock", "available_qty": 0,
         }
         order = _make_order(
             snapshot={"items": [{"sku": "PAO-001", "qty": 5}], "data": {}},
@@ -219,7 +235,18 @@ class TestOnCommitAvailabilityCheck:
             confirmation_mode="immediate", check_on_commit=True,
             payment_timing="external", payment_method="cash",
         )
-        mock_availability.check.return_value = {"ok": True}
+        mock_availability.decide.return_value = {
+            "approved": True,
+            "sku": "PAO-001",
+            "requested_qty": 2,
+            "available_qty": 2,
+            "reason_code": None,
+            "is_paused": False,
+            "is_planned": False,
+            "target_date": None,
+            "failed_sku": None,
+            "source": "stock.promise_decision",
+        }
         order = _make_order(
             snapshot={"items": [{"sku": "PAO-001", "qty": 2}], "data": {}},
             data={"hold_ids": [{"sku": "PAO-001", "hold_id": "hold:1"}]},
@@ -341,12 +368,12 @@ class TestOnPaid:
 class TestOnPreparing:
     @patch("shopman.lifecycle.ChannelConfig")
     @patch("shopman.lifecycle.notification")
-    @patch("shopman.lifecycle.kds")
-    def test_dispatches_kds_and_notifies(self, mock_kds, mock_notification, mock_cc):
+    @patch("shopman.services.kds.dispatch")
+    def test_dispatches_kds_and_notifies(self, mock_kds_dispatch, mock_notification, mock_cc):
         mock_cc.for_channel.return_value = _config()
         order = _make_order()
         dispatch(order, "on_preparing")
-        mock_kds.dispatch.assert_called_once_with(order)
+        mock_kds_dispatch.assert_called_once_with(order)
         mock_notification.send.assert_called_once_with(order, "order_preparing")
 
 
@@ -389,14 +416,14 @@ class TestOnCancelled:
     @patch("shopman.lifecycle.notification")
     @patch("shopman.lifecycle.payment")
     @patch("shopman.lifecycle.stock")
-    @patch("shopman.lifecycle.kds")
+    @patch("shopman.services.kds.cancel_tickets")
     def test_cancels_kds_releases_stock_refunds_and_notifies(
-        self, mock_kds, mock_stock, mock_payment, mock_notification, mock_cc,
+        self, mock_kds_cancel, mock_stock, mock_payment, mock_notification, mock_cc,
     ):
         mock_cc.for_channel.return_value = _config()
         order = _make_order()
         dispatch(order, "on_cancelled")
-        mock_kds.cancel_tickets.assert_called_once_with(order)
+        mock_kds_cancel.assert_called_once_with(order)
         mock_stock.release.assert_called_once_with(order)
         mock_payment.refund.assert_called_once_with(order)
         mock_notification.send.assert_called_once_with(order, "order_cancelled")

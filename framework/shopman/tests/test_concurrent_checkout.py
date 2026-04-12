@@ -178,7 +178,7 @@ class ConcurrentOversellTests(TransactionTestCase):
             name="Stress Product",
             base_price_q=1000,
             is_published=True,
-            is_available=True,
+            is_sellable=True,
         )
         # Create stock: 3 units
         from shopman.stockman import stock

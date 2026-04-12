@@ -22,8 +22,13 @@ logger = logging.getLogger(__name__)
 
 def _get_efi_webhook_setting(key: str, default=None):
     cfg = getattr(settings, "SHOPMAN_EFI_WEBHOOK", {})
-    defaults = {"WEBHOOK_TOKEN": None, "SKIP_SIGNATURE": False}
-    return cfg.get(key, defaults.get(key, default))
+    defaults = {"webhook_token": None, "skip_signature": False}
+    return (
+        cfg.get(key)
+        or cfg.get(key.lower())
+        or cfg.get(key.upper())
+        or defaults.get(key.lower(), default)
+    )
 
 
 class EfiPixWebhookView(APIView):
@@ -144,13 +149,13 @@ class EfiPixWebhookView(APIView):
         pass
 
     def _check_auth(self, request: Request) -> bool:
-        skip_signature = _get_efi_webhook_setting("SKIP_SIGNATURE")
+        skip_signature = _get_efi_webhook_setting("skip_signature")
         if skip_signature:
             return True
 
-        expected_token = _get_efi_webhook_setting("WEBHOOK_TOKEN")
+        expected_token = _get_efi_webhook_setting("webhook_token")
         if not expected_token:
-            logger.error("EfiPixWebhook: WEBHOOK_TOKEN not configured — rejecting request")
+            logger.error("EfiPixWebhook: SHOPMAN_EFI_WEBHOOK.webhook_token not configured — rejecting request")
             return False
 
         token = request.META.get("HTTP_X_EFI_WEBHOOK_TOKEN", "")

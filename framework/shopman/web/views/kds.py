@@ -13,7 +13,7 @@ from shopman.orderman.models import Order
 from shopman.utils.monetary import format_money
 
 from shopman.services.order_helpers import get_fulfillment_type
-from .pedidos import CHANNEL_ICONS, _DEFAULT_CHANNEL_ICON
+from .orders import CHANNEL_ICONS, _DEFAULT_CHANNEL_ICON
 
 logger = logging.getLogger(__name__)
 

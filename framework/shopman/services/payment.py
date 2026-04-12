@@ -66,6 +66,7 @@ def initiate(order) -> None:
             exc,
         )
         order.data["payment"] = {
+            **payment_data,
             "method": method,
             "amount_q": amount_q,
             "error": str(exc)[:200],
@@ -76,6 +77,7 @@ def initiate(order) -> None:
     # Build payment data to save — intent_ref + method + display fields only.
     # Status is NOT stored here; Payman (PaymentService) is the canonical source.
     result = {
+        **payment_data,
         "intent_ref": intent.intent_ref,
         "amount_q": amount_q,
         "method": method,

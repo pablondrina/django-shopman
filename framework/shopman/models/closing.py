@@ -20,7 +20,7 @@ class DayClosing(models.Model):
         "snapshot",
         default=list,
         blank=True,
-        help_text="Lista de dicts: [{sku, qty_remaining, qty_d1, qty_loss}]",
+        help_text="Snapshot de fechamento do dia. Schema definido pela instância.",
     )
 
     class Meta:

@@ -31,7 +31,7 @@ urlpatterns = [
     path("menu/search/", views.MenuSearchView.as_view(), name="menu_search"),
     path("menu/<slug:collection>/", views.MenuView.as_view(), name="menu_collection"),
     path("produto/<str:sku>/", views.ProductDetailView.as_view(), name="product_detail"),
-    path("dicas/", views.DicasView.as_view(), name="dicas"),
+    path("dicas/", views.TipsView.as_view(), name="dicas"),
     # Cart
     path("cart/", views.CartView.as_view(), name="cart"),
     path("cart/add/", views.AddToCartView.as_view(), name="cart_add"),
@@ -93,14 +93,14 @@ urlpatterns = [
     # Info pages
     path("como-funciona/", views.HowItWorksView.as_view(), name="como_funciona"),
     # Operator: Gestor de Pedidos
-    path("pedidos/", views.GestorPedidosView.as_view(), name="gestor_pedidos"),
+    path("pedidos/", views.OperatorOrdersView.as_view(), name="gestor_pedidos"),
     path("pedidos/list/", views.OrderListPartialView.as_view(), name="gestor_list_partial"),
-    path("pedidos/<str:ref>/detail/", views.PedidoDetailPartialView.as_view(), name="gestor_detail"),
-    path("pedidos/<str:ref>/confirm/", views.PedidoConfirmView.as_view(), name="gestor_confirm"),
-    path("pedidos/<str:ref>/reject/", views.GestorOrderRejectView.as_view(), name="gestor_reject"),
-    path("pedidos/<str:ref>/advance/", views.PedidoAdvanceView.as_view(), name="gestor_advance"),
-    path("pedidos/<str:ref>/notes/", views.PedidoNotesView.as_view(), name="gestor_notes"),
-    path("pedidos/<str:ref>/mark-paid/", views.PedidoMarkPaidView.as_view(), name="gestor_mark_paid"),
+    path("pedidos/<str:ref>/detail/", views.OrderDetailPartialView.as_view(), name="gestor_detail"),
+    path("pedidos/<str:ref>/confirm/", views.OrderConfirmView.as_view(), name="gestor_confirm"),
+    path("pedidos/<str:ref>/reject/", views.OrderRejectView.as_view(), name="gestor_reject"),
+    path("pedidos/<str:ref>/advance/", views.OrderAdvanceView.as_view(), name="gestor_advance"),
+    path("pedidos/<str:ref>/notes/", views.OrderNotesView.as_view(), name="gestor_notes"),
+    path("pedidos/<str:ref>/mark-paid/", views.OrderMarkPaidView.as_view(), name="gestor_mark_paid"),
     # Operator: POS (Balcao)
     path("gestao/pos/", views.pos_view, name="pos"),
     path("gestao/pos/customer-lookup/", views.pos_customer_lookup, name="pos_customer_lookup"),

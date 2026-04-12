@@ -24,6 +24,7 @@ class ConfirmationTimeoutHandler:
 
     def handle(self, *, message: Directive, ctx: dict) -> None:
         from shopman.orderman.models import Order
+        from shopman.lifecycle import ensure_confirmable
 
         payload = message.payload
         order_ref = payload["order_ref"]
@@ -49,6 +50,7 @@ class ConfirmationTimeoutHandler:
             message.save(update_fields=["status", "updated_at"])
             return
 
+        ensure_confirmable(order)
         order.transition_status(Order.Status.CONFIRMED, actor="confirmation.timeout")
         message.status = "done"
         message.save(update_fields=["status", "updated_at"])

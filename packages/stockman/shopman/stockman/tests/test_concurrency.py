@@ -18,13 +18,13 @@ from __future__ import annotations
 import threading
 from datetime import date
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 from django.conf import settings
 from django.db import connection
 from django.test import TransactionTestCase
 
-from shopman.offerman.models import Product
 from shopman.stockman import stock, StockError
 from shopman.stockman.models import Position, PositionKind, Hold, HoldStatus
 
@@ -33,18 +33,6 @@ requires_postgres = pytest.mark.skipif(
     "sqlite" in settings.DATABASES["default"]["ENGINE"],
     reason="Requires PostgreSQL for real concurrency testing",
 )
-
-
-def _make_product(sku: str) -> Product:
-    return Product.objects.create(
-        sku=sku,
-        name=f"Test Product {sku}",
-        unit="un",
-        base_price_q=1000,
-        is_available=True,
-        shelf_life_days=None,
-        availability_policy="planned_ok",
-    )
 
 
 def _make_position(ref: str) -> Position:
@@ -71,7 +59,7 @@ class TestConcurrentHoldSameSku(TransactionTestCase):
 
     def test_concurrent_hold_same_sku(self):
         today = date.today()
-        product = _make_product("HOLD-CONC-001")
+        product = SimpleNamespace(sku="HOLD-CONC-001")
         vitrine = _make_position("vitrine-conc-1")
 
         # Stock = 5 units, each thread tries to hold 4 (total 8 > 5)
@@ -125,7 +113,7 @@ class TestConcurrentFulfillSameHold(TransactionTestCase):
 
     def test_concurrent_fulfill_same_hold(self):
         today = date.today()
-        product = _make_product("HOLD-CONC-002")
+        product = SimpleNamespace(sku="HOLD-CONC-002")
         vitrine = _make_position("vitrine-conc-2")
 
         stock.receive(Decimal("10"), product.sku, vitrine, reason="Setup")
@@ -179,7 +167,7 @@ class TestConcurrentReleaseAndFulfill(TransactionTestCase):
 
     def test_concurrent_release_and_fulfill(self):
         today = date.today()
-        product = _make_product("HOLD-CONC-003")
+        product = SimpleNamespace(sku="HOLD-CONC-003")
         vitrine = _make_position("vitrine-conc-3")
 
         stock.receive(Decimal("10"), product.sku, vitrine, reason="Setup")

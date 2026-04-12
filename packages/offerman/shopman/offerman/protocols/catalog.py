@@ -9,9 +9,9 @@ from typing import Protocol, runtime_checkable
 class ProductInfo:
     """Product information.
 
-    Availability is determined by two flags:
+    Commercial state is determined by two flags:
     - is_published: Published in catalog (False = hidden/discontinued)
-    - is_available: Can be purchased (False = ingredient or paused)
+    - is_sellable: Can be purchased strategically (False = ingredient or paused)
     """
 
     sku: str
@@ -22,7 +22,7 @@ class ProductInfo:
     is_bundle: bool
     base_price_q: int
     is_published: bool = True
-    is_available: bool = True
+    is_sellable: bool = True
     keywords: list[str] | None = None
 
 
@@ -41,16 +41,16 @@ class PriceInfo:
 class SkuValidation:
     """Validation result.
 
-    Availability is determined by two flags:
+    Commercial state is determined by two flags:
     - is_published: Published in catalog
-    - is_available: Can be purchased
+    - is_sellable: Can be purchased strategically
     """
 
     valid: bool
     sku: str
     name: str | None = None
     is_published: bool = True
-    is_available: bool = True
+    is_sellable: bool = True
     error_code: str | None = None
     message: str | None = None
 

@@ -9,9 +9,11 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
+from django.test import override_settings
 from django.utils import timezone
 
 from shopman.stockman import stock
+from shopman.stockman.services.availability import promise_decision_for_sku
 from shopman.stockman.models import Quant, Hold, Position
 
 
@@ -469,3 +471,41 @@ class TestFutureDates:
 
         assert stock.available(product, friday) == Decimal('50')
         assert stock.available(product, friday - timedelta(days=1)) == Decimal('0')
+
+
+class TestPromiseDecision:
+    """Explicit promise decisions expose operational approval and reason."""
+
+    @override_settings(
+        STOCKMAN={"SKU_VALIDATOR": "shopman.offerman.adapters.sku_validator.SkuValidator"}
+    )
+    def test_promise_decision_approves_when_orderable(self, product, vitrine, today):
+        Quant.objects.create(
+            sku=product.sku,
+            position=vitrine,
+            target_date=today,
+            _quantity=Decimal("10"),
+        )
+
+        decision = promise_decision_for_sku(product.sku, Decimal("3"), target_date=today)
+
+        assert decision.approved is True
+        assert decision.reason_code is None
+        assert decision.available_qty == Decimal("10")
+
+    @override_settings(
+        STOCKMAN={"SKU_VALIDATOR": "shopman.offerman.adapters.sku_validator.SkuValidator"}
+    )
+    def test_promise_decision_rejects_when_insufficient(self, product, vitrine, today):
+        Quant.objects.create(
+            sku=product.sku,
+            position=vitrine,
+            target_date=today,
+            _quantity=Decimal("2"),
+        )
+
+        decision = promise_decision_for_sku(product.sku, Decimal("3"), target_date=today)
+
+        assert decision.approved is False
+        assert decision.reason_code == "insufficient_stock"
+        assert decision.available_qty == Decimal("2")

@@ -12,24 +12,24 @@ from decimal import Decimal
 from django.db.models import Q, Sum
 from django.utils import timezone
 
+from shopman.stockman.adapters.offering import get_sku_validator
 from shopman.stockman.models import Hold, Quant
 from shopman.stockman.models.enums import HoldStatus
+from shopman.stockman.protocols.sku import PromiseDecision
 
 
 def sku_exists(sku: str) -> bool:
-    """Check if SKU exists via offering.Product."""
-    from shopman.offerman.models import Product
-
-    return Product.objects.filter(sku=sku).exists()
+    """Check if a SKU exists via the configured validator contract."""
+    validator = get_sku_validator()
+    result = validator.validate_sku(sku)
+    return result.valid
 
 
 def _product_is_orderable(sku: str) -> bool:
-    """Check if product is published AND available for sale."""
-    from shopman.offerman.models import Product
-
-    return Product.objects.filter(
-        sku=sku, is_published=True, is_available=True,
-    ).exists()
+    """Check if a SKU is published in the base catalog via the validator contract."""
+    validator = get_sku_validator()
+    result = validator.validate_sku(sku)
+    return result.valid and result.is_published
 
 
 def availability_for_sku(
@@ -37,6 +37,7 @@ def availability_for_sku(
     position=None,
     safety_margin: int = 0,
     *,
+    target_date: date | None = None,
     allowed_positions: list[str] | None = None,
 ) -> dict:
     """
@@ -77,21 +78,25 @@ def availability_for_sku(
         }
 
     today = date.today()
+    target = target_date or today
 
     # Expired batch refs for this SKU (loose coupling via string)
     expired_refs = set(
-        Batch.objects.filter(sku=sku, expiry_date__lt=today)
+        Batch.objects.filter(sku=sku, expiry_date__lt=target)
         .values_list("ref", flat=True)
     )
 
-    # Check if there are planned (future) quants → is_planned flag
+    # Planned flag means this promise depends on future-dated stock up to target.
     is_planned = Quant.objects.filter(
-        sku=sku, target_date__gt=today, _quantity__gt=0,
+        sku=sku,
+        target_date__gt=today,
+        target_date__lte=target,
+        _quantity__gt=0,
     ).exists()
 
     quants = (
         Quant.objects.filter(sku=sku)
-        .filter(Q(target_date__isnull=True) | Q(target_date__lte=today))
+        .filter(Q(target_date__isnull=True) | Q(target_date__lte=target))
         .filter(_quantity__gt=0)
         .select_related("position")
     )
@@ -164,10 +169,47 @@ def availability_for_sku(
     }
 
 
+def promise_decision_for_sku(
+    sku: str,
+    qty: Decimal,
+    *,
+    target_date: date | None = None,
+    safety_margin: int = 0,
+    allowed_positions: list[str] | None = None,
+) -> PromiseDecision:
+    """Return an explicit operational promise decision for a SKU."""
+    qty_d = Decimal(str(qty))
+    info = availability_for_sku(
+        sku,
+        target_date=target_date,
+        safety_margin=safety_margin,
+        allowed_positions=allowed_positions,
+    )
+    available_qty = info["total_orderable"]
+    is_paused = info.get("is_paused", False)
+    approved = (not is_paused) and qty_d <= available_qty
+
+    reason_code = None
+    if not approved:
+        reason_code = "paused" if is_paused else "insufficient_stock"
+
+    return PromiseDecision(
+        approved=approved,
+        sku=sku,
+        requested_qty=qty_d,
+        target_date=target_date,
+        reason_code=reason_code,
+        available_qty=available_qty,
+        is_planned=info.get("is_planned", False),
+        is_paused=is_paused,
+    )
+
+
 def availability_for_skus(
     skus: list[str],
     safety_margin: int = 0,
     *,
+    target_date: date | None = None,
     allowed_positions: list[str] | None = None,
 ) -> dict[str, dict]:
     """
@@ -177,7 +219,6 @@ def availability_for_skus(
     to calling availability_for_sku(sku, safety_margin=..., allowed_positions=...)
     for each SKU, but uses bulk DB queries to avoid N+1.
     """
-    from shopman.offerman.models import Product
     from shopman.stockman.models import Batch
 
     if not skus:
@@ -187,31 +228,37 @@ def availability_for_skus(
     zero_breakdown = {"ready": zero, "in_production": zero, "d1": zero}
 
     today = date.today()
+    target = target_date or today
 
     # ── Query 1: orderable SKUs (published + available) ──────────────────────
-    orderable_skus: set[str] = set(
-        Product.objects.filter(
-            sku__in=skus, is_published=True, is_available=True,
-        ).values_list("sku", flat=True)
-    )
+    validator = get_sku_validator()
+    validations = validator.validate_skus(skus)
+    orderable_skus: set[str] = {
+        sku
+        for sku, validation in validations.items()
+        if validation.valid and validation.is_published
+    }
 
     # ── Query 2: expired batch refs grouped by SKU ────────────────────────────
     # Maps sku → set of expired batch refs
     expired_refs_by_sku: dict[str, set[str]] = {}
-    for row in Batch.objects.filter(sku__in=skus, expiry_date__lt=today).values("sku", "ref"):
+    for row in Batch.objects.filter(sku__in=skus, expiry_date__lt=target).values("sku", "ref"):
         expired_refs_by_sku.setdefault(row["sku"], set()).add(row["ref"])
 
     # ── Query 3: planned SKUs (has future quants) ─────────────────────────────
     planned_skus: set[str] = set(
         Quant.objects.filter(
-            sku__in=skus, target_date__gt=today, _quantity__gt=0,
+            sku__in=skus,
+            target_date__gt=today,
+            target_date__lte=target,
+            _quantity__gt=0,
         ).values_list("sku", flat=True).distinct()
     )
 
     # ── Query 4: physical quants (current/past), select_related position ──────
     quant_qs = (
         Quant.objects.filter(sku__in=skus)
-        .filter(Q(target_date__isnull=True) | Q(target_date__lte=today))
+        .filter(Q(target_date__isnull=True) | Q(target_date__lte=target))
         .filter(_quantity__gt=0)
         .select_related("position")
     )

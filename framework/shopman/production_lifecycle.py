@@ -5,8 +5,8 @@ Signal `production_changed` → dispatch_production() → Flow.on_<phase>() → 
 
 Phases (mapeamento a partir do Core):
     planned   → on_planned
-    adjusted  → on_started (apenas no primeiro ajuste — início efetivo)
-    closed    → on_closed
+    started   → on_started
+    finished  → on_finished
     voided    → on_voided
 
 Configuração por receita: `Recipe.meta["production_flow"]` ∈
@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import logging
 
-from shopman.adapters import get_adapter
 from shopman.services import production as production_svc
 
 logger = logging.getLogger(__name__)
@@ -58,12 +57,10 @@ def _action_to_phase(action: str, work_order) -> str | None:
     """Traduz action do signal Core → método on_* do flow."""
     if action == "planned":
         return "on_planned"
-    if action == "adjusted":
-        production = get_adapter("production")
-        n = production.count_adjusted_events(work_order.ref)
-        return "on_started" if n == 1 else None
-    if action == "closed":
-        return "on_closed"
+    if action == "started":
+        return "on_started"
+    if action == "finished":
+        return "on_finished"
     if action == "voided":
         return "on_voided"
     return None
@@ -101,7 +98,7 @@ def on_production_changed_receiver(sender, product_ref, date, **kwargs):
 
 
 class BaseProductionFlow:
-    """Ciclo: plan → start → close | void."""
+    """Ciclo: plan → start → finish | void."""
 
     def on_planned(self, work_order):
         pass
@@ -109,7 +106,7 @@ class BaseProductionFlow:
     def on_started(self, work_order):
         pass
 
-    def on_closed(self, work_order):
+    def on_finished(self, work_order):
         pass
 
     def on_voided(self, work_order):
@@ -118,7 +115,7 @@ class BaseProductionFlow:
 
 @production_flow("standard")
 class StandardFlow(BaseProductionFlow):
-    """Plano → produzir → fechar."""
+    """Plano → produzir → finalizar."""
 
     def on_planned(self, work_order):
         production_svc.reserve_materials(work_order)
@@ -127,9 +124,9 @@ class StandardFlow(BaseProductionFlow):
     def on_started(self, work_order):
         production_svc.notify(work_order, "started")
 
-    def on_closed(self, work_order):
+    def on_finished(self, work_order):
         production_svc.emit_goods(work_order)
-        production_svc.notify(work_order, "closed")
+        production_svc.notify(work_order, "finished")
 
     def on_voided(self, work_order):
         production_svc.notify(work_order, "voided")
@@ -137,16 +134,16 @@ class StandardFlow(BaseProductionFlow):
 
 @production_flow("forecast")
 class ForecastFlow(StandardFlow):
-    """Previsão — mesmo pipeline que standard; fechamento pode ter política adicional."""
+    """Previsão — mesmo pipeline que standard; finalização pode ter política adicional."""
 
-    def on_closed(self, work_order):
-        super().on_closed(work_order)
-        logger.info("ForecastFlow: closed wo=%s", work_order.ref)
+    def on_finished(self, work_order):
+        super().on_finished(work_order)
+        logger.info("ForecastFlow: finished wo=%s", work_order.ref)
 
 
 @production_flow("subcontract")
 class SubcontractFlow(BaseProductionFlow):
-    """Terceirização — plano → envio → retorno → fechar (hooks distintos)."""
+    """Terceirização — plano → envio → retorno → finalizar (hooks distintos)."""
 
     def on_planned(self, work_order):
         production_svc.reserve_materials(work_order)
@@ -155,9 +152,9 @@ class SubcontractFlow(BaseProductionFlow):
     def on_started(self, work_order):
         production_svc.notify(work_order, "subcontract_in_progress")
 
-    def on_closed(self, work_order):
+    def on_finished(self, work_order):
         production_svc.emit_goods(work_order)
-        production_svc.notify(work_order, "subcontract_closed")
+        production_svc.notify(work_order, "subcontract_finished")
 
     def on_voided(self, work_order):
         production_svc.notify(work_order, "subcontract_voided")

@@ -30,7 +30,7 @@ class D1BadgePOSTests(TestCase):
         _make_channel()
         User = get_user_model()
         self.staff = User.objects.create_user(username="d1_staff", password="x", is_staff=True)
-        Product.objects.create(sku="D1-PROD", name="D-1 Product", base_price_q=1000, is_published=True, is_available=True)
+        Product.objects.create(sku="D1-PROD", name="D-1 Product", base_price_q=1000, is_published=True, is_sellable=True)
         from shopman.models import CashRegisterSession
         CashRegisterSession.objects.create(operator=self.staff, opening_amount_q=0)
 

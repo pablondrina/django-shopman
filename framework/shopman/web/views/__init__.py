@@ -37,7 +37,13 @@ from .cart import (
     RemoveCouponView,
     UpdateCartItemView,
 )
-from .catalog import CartAlternativesView, DicasView, MenuSearchView, MenuView, ProductDetailView
+from .catalog import (
+    CartAlternativesView,
+    MenuSearchView,
+    MenuView,
+    ProductDetailView,
+    TipsView,
+)
 from .checkout import (
     CepLookupView,
     CheckoutOrderSummaryView,
@@ -56,15 +62,15 @@ from .kds import (
     KDSTicketListPartialView,
 )
 from .payment import MockPaymentConfirmView, PaymentStatusView, PaymentView
-from .pedidos import (
-    GestorPedidosView,
+from .orders import (
+    OperatorOrdersView,
+    OrderAdvanceView,
+    OrderConfirmView,
+    OrderDetailPartialView,
+    OrderMarkPaidView,
+    OrderNotesView,
+    OrderRejectView,
     OrderListPartialView,
-    PedidoAdvanceView,
-    PedidoConfirmView,
-    PedidoDetailPartialView,
-    PedidoMarkPaidView,
-    PedidoNotesView,
-    GestorOrderRejectView,
 )
 from .pos import (
     pos_cancel_last,
@@ -83,7 +89,7 @@ from .tracking import OrderCancelView, OrderStatusPartialView, OrderTrackingView
 __all__ = [
     "BridgeTokenView",
     "CartAlternativesView",
-    "DicasView",
+    "TipsView",
     "HomeView",
     "AccountDeleteView",
     "AccountView",
@@ -117,7 +123,14 @@ __all__ = [
     "LoginView",
     "MenuView",
     "MockPaymentConfirmView",
+    "OperatorOrdersView",
     "OfflineView",
+    "OrderAdvanceView",
+    "OrderConfirmView",
+    "OrderDetailPartialView",
+    "OrderMarkPaidView",
+    "OrderNotesView",
+    "OrderRejectView",
     "OrderCancelView",
     "OrderConfirmationView",
     "OrderHistoryView",
@@ -130,14 +143,7 @@ __all__ = [
     "ProfileEditView",
     "ProfileUpdateView",
     "ReorderView",
-    "GestorPedidosView",
     "OrderListPartialView",
-    "PedidoAdvanceView",
-    "PedidoConfirmView",
-    "PedidoDetailPartialView",
-    "PedidoMarkPaidView",
-    "PedidoNotesView",
-    "GestorOrderRejectView",
     "RemoveCartItemView",
     "RemoveCouponView",
     "RequestCodeView",

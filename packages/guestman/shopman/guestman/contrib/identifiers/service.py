@@ -101,6 +101,43 @@ class IdentifierService:
         )
 
     @classmethod
+    def ensure_identifier(
+        cls,
+        customer_ref: str,
+        identifier_type: str,
+        identifier_value: str,
+        *,
+        is_primary: bool = False,
+        source_system: str = "",
+    ) -> CustomerIdentifier:
+        """Ensure an identifier exists for a customer, reusing the existing row when possible."""
+        customer = Customer.objects.get(ref=customer_ref, is_active=True)
+        normalized = cls._normalize_value(identifier_type, identifier_value)
+
+        identifier, created = CustomerIdentifier.objects.get_or_create(
+            identifier_type=identifier_type,
+            identifier_value=normalized,
+            defaults={
+                "customer": customer,
+                "is_primary": is_primary,
+                "source_system": source_system,
+            },
+        )
+        if identifier.customer_id != customer.id:
+            raise ValueError("identifier_belongs_to_another_customer")
+        if not created:
+            updates = []
+            if is_primary and not identifier.is_primary:
+                identifier.is_primary = True
+                updates.append("is_primary")
+            if source_system and identifier.source_system != source_system:
+                identifier.source_system = source_system
+                updates.append("source_system")
+            if updates:
+                identifier.save(update_fields=updates)
+        return identifier
+
+    @classmethod
     def find_or_create_customer(
         cls,
         identifier_type: str,

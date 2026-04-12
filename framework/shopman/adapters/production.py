@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_work_order(ref: str) -> dict | None:
-    """Retorna {"ref", "quantity", "output_ref", "produced", "recipe_name"} ou None."""
+    """Retorna {"ref", "quantity", "output_ref", "finished", "recipe_name"} ou None."""
     try:
         from shopman.craftsman.models import WorkOrder
 
@@ -21,7 +21,7 @@ def get_work_order(ref: str) -> dict | None:
             "ref": wo.ref,
             "quantity": wo.quantity,
             "output_ref": wo.output_ref,
-            "produced": wo.produced,
+            "finished": wo.finished,
             "recipe_name": wo.recipe.name if wo.recipe else "",
         }
     except Exception:
@@ -58,7 +58,7 @@ def get_finished_work_orders(skus: list[str], cutoff_date) -> list[tuple]:
     return list(
         WorkOrder.objects.filter(
             output_ref__in=skus,
-            status="done",
+            status=WorkOrder.Status.FINISHED,
             finished_at__isnull=False,
             finished_at__date__gte=cutoff_date,
         ).values_list("output_ref", "finished_at")

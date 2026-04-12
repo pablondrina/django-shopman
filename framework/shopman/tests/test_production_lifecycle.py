@@ -10,7 +10,10 @@ from django.utils import timezone
 
 from shopman.craftsman.models import Recipe
 from shopman.craftsman.service import craft
-from shopman.production_lifecycle import StandardFlow, production_flow_name_for
+from shopman.production_lifecycle import (
+    StandardFlow,
+    production_flow_name_for,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -52,7 +55,7 @@ class TestDispatchMapping:
             args, _ = mock_planned.call_args
             assert args[1].pk == wo.pk
 
-    def test_first_adjust_triggers_on_started_only_once(self):
+    def test_start_triggers_on_started_only_once(self):
         recipe = Recipe.objects.create(
             code="pf-adj",
             name="Adj",
@@ -63,13 +66,13 @@ class TestDispatchMapping:
         wo = craft.plan(recipe, Decimal("5"), date=today)
 
         with patch.object(StandardFlow, "on_started", autospec=True) as mock_started:
-            craft.adjust(wo, quantity=Decimal("4"), reason="test")
+            craft.start(wo, quantity=Decimal("4"), actor="test")
             mock_started.assert_called_once()
 
-            craft.adjust(wo, quantity=Decimal("3"), reason="test2")
+            craft.finish(wo, finished=Decimal("3"), actor="test2")
             assert mock_started.call_count == 1
 
-    def test_forecast_flow_logs_on_close(self):
+    def test_forecast_flow_logs_on_finish(self):
         recipe = Recipe.objects.create(
             code="pf-fc",
             name="Fc",
@@ -81,6 +84,6 @@ class TestDispatchMapping:
         wo = craft.plan(recipe, Decimal("5"), date=today)
 
         with patch("shopman.production_lifecycle.logger.info") as log_info:
-            craft.close(wo, produced=5, actor="t")
+            craft.finish(wo, finished=5, actor="t")
             texts = " ".join(str(c) for c in log_info.call_args_list)
             assert "ForecastFlow" in texts

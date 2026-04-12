@@ -50,26 +50,25 @@ class ShopmanConfig(AppConfig):
         logger.info("ShopmanConfig: handlers registered.")
 
     def _register_rules(self):
-        """Boot the rules engine and connect RuleConfig cache invalidation."""
+        """Wire rule cache invalidation and defer DB-backed bootstrap until DB is ready."""
+        from django.db.backends.signals import connection_created
         from django.db.models.signals import post_save
-        from django.db.utils import OperationalError, ProgrammingError
 
         from shopman.models import RuleConfig
-        from shopman.rules.engine import invalidate_rules_cache, register_active_rules
+        from shopman.rules.engine import bootstrap_active_rules, invalidate_rules_cache
 
-        try:
-            register_active_rules()
-        except (OperationalError, ProgrammingError):
-            # Tables may not exist yet during initial migration. Rules will be
-            # loaded lazily on first request after the DB is set up.
-            logger.debug("ShopmanConfig: rules boot deferred — tables not ready yet.")
+        connection_created.connect(
+            lambda sender, connection, **kwargs: bootstrap_active_rules(),
+            dispatch_uid="shopman.rules.bootstrap_on_connection",
+            weak=False,
+        )
 
         post_save.connect(
             invalidate_rules_cache,
             sender=RuleConfig,
             dispatch_uid="shopman.rules.invalidate_cache",
         )
-        logger.info("ShopmanConfig: rules engine booted.")
+        logger.info("ShopmanConfig: rules engine wired.")
 
     def _connect_flow_signal(self):
         """Connect Core signal order_changed → lifecycle.dispatch().

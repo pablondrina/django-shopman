@@ -181,14 +181,16 @@ class AccessLink(models.Model):
         The DB stores only the HMAC-SHA256 digest.
         """
         raw_token = secrets.token_urlsafe(32)
-        link = cls.objects.create(
+        kwargs = dict(
             customer_id=customer_id,
             token_hash=_hash_token(raw_token),
             audience=audience,
             source=source,
-            expires_at=expires_at,
             metadata=metadata or {},
         )
+        if expires_at is not None:
+            kwargs["expires_at"] = expires_at
+        link = cls.objects.create(**kwargs)
         return link, raw_token
 
     @classmethod

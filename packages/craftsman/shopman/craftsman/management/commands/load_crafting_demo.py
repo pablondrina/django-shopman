@@ -3,7 +3,7 @@ Load demo data for Craftsman vNext.
 
 Creates realistic production data for a bakery using the vNext API:
 - Recipes with RecipeItems (BOM)
-- WorkOrders via craft.plan() + craft.close()
+- WorkOrders via craft.plan() + craft.finish()
 
 Usage:
     python manage.py load_crafting_demo
@@ -138,7 +138,7 @@ class Command(BaseCommand):
         return created
 
     def _create_work_orders(self, recipes):
-        """Create demo WorkOrders using craft.plan() and craft.close()."""
+        """Create demo WorkOrders using craft.plan() and craft.finish()."""
         from shopman.craftsman import craft
 
         self.stdout.write("\nCriando ordens de producao...")
@@ -155,14 +155,14 @@ class Command(BaseCommand):
                 wo = craft.plan(recipe, qty, date=target_date)
 
                 if is_past:
-                    # Past: all closed with realistic yield
-                    produced = int(qty * random.uniform(0.90, 0.99))
-                    craft.close(wo, produced=produced)
+                    # Past: all finished with realistic yield
+                    finished = int(qty * random.uniform(0.90, 0.99))
+                    craft.finish(wo, finished=finished)
                 elif is_today and random.random() < 0.5:
-                    # Today: 50% chance of being closed
-                    produced = int(qty * random.uniform(0.92, 0.98))
-                    craft.close(wo, produced=produced)
-                # Future: leave as OPEN
+                    # Today: 50% chance of being finished
+                    finished = int(qty * random.uniform(0.92, 0.98))
+                    craft.finish(wo, finished=finished)
+                # Future: leave as PLANNED
 
             label = "(HOJE)" if is_today else "(FUTURO)" if not is_past else ""
             self.stdout.write(f"  {target_date.strftime('%d/%m/%Y')} {label}")
@@ -176,10 +176,13 @@ class Command(BaseCommand):
         self.stdout.write(f"  Receitas:  {Recipe.objects.count()}")
         self.stdout.write(f"  OPs total: {WorkOrder.objects.count()}")
         self.stdout.write(
-            f"    OPEN: {WorkOrder.objects.filter(status=WorkOrder.Status.OPEN).count()}"
+            f"    PLANNED: {WorkOrder.objects.filter(status=WorkOrder.Status.PLANNED).count()}"
         )
         self.stdout.write(
-            f"    DONE: {WorkOrder.objects.filter(status=WorkOrder.Status.DONE).count()}"
+            f"    STARTED: {WorkOrder.objects.filter(status=WorkOrder.Status.STARTED).count()}"
+        )
+        self.stdout.write(
+            f"    FINISHED: {WorkOrder.objects.filter(status=WorkOrder.Status.FINISHED).count()}"
         )
         self.stdout.write(
             f"    VOID: {WorkOrder.objects.filter(status=WorkOrder.Status.VOID).count()}"

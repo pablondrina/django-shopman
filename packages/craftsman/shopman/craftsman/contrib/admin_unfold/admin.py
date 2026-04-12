@@ -181,8 +181,8 @@ class WorkOrderAdmin(BaseModelAdmin):
     """
     Admin de Execução (vNext).
 
-    3 estados: open, done, void.
-    Campos editáveis: quantity (via adjust), scheduled_date.
+    4 estados: planned, started, finished, void.
+    Campos editáveis: quantity (via adjust enquanto planned), scheduled_date.
     """
 
     compressed_fields = True
@@ -224,7 +224,7 @@ class WorkOrderAdmin(BaseModelAdmin):
             _("Quantidades"),
             {
                 "classes": ["tab"],
-                "fields": ("quantity", "produced"),
+                "fields": ("quantity", "finished"),
             },
         ),
         (
@@ -254,7 +254,7 @@ class WorkOrderAdmin(BaseModelAdmin):
         "ref",
         "output_ref",
         "status",
-        "produced",
+        "finished",
         "rev",
         "started_at",
         "finished_at",
@@ -281,9 +281,9 @@ class WorkOrderAdmin(BaseModelAdmin):
 
     @display(description=_("Produzido"))
     def produced_display(self, obj):
-        """Display produced quantity."""
-        if obj.produced is not None:
-            return unfold_badge_numeric(format_quantity(obj.produced), "green")
+        """Display finished quantity."""
+        if obj.finished is not None:
+            return unfold_badge_numeric(format_quantity(obj.finished), "green")
         return "-"
 
     @display(description=_("Perda"))
@@ -310,8 +310,9 @@ class WorkOrderAdmin(BaseModelAdmin):
     def status_badge(self, obj):
         """Display colored status badge."""
         colors = {
-            WorkOrder.Status.OPEN: "blue",
-            WorkOrder.Status.DONE: "green",
+            WorkOrder.Status.PLANNED: "blue",
+            WorkOrder.Status.STARTED: "yellow",
+            WorkOrder.Status.FINISHED: "green",
             WorkOrder.Status.VOID: "red",
         }
         color = colors.get(obj.status, "base")
@@ -356,8 +357,8 @@ class WorkOrderAdmin(BaseModelAdmin):
         return super().changelist_view(request, extra_context)
 
     @action(
-        description=_("Concluir ✓"),
-        url_path="close-wo",
+        description=_("Finalizar ✓"),
+        url_path="finish-wo",
         icon="check_circle",
         variant=ActionVariant.SUCCESS,
     )
@@ -367,20 +368,22 @@ class WorkOrderAdmin(BaseModelAdmin):
             messages.error(request, _("Ordem não encontrada."))
             return HttpResponseRedirect(reverse("admin:craftsman_workorder_changelist"))
 
-        if wo.status != WorkOrder.Status.OPEN:
-            messages.warning(request, _("Apenas ordens abertas podem ser encerradas."))
+        if wo.status not in (WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED):
+            messages.warning(request, _("Apenas ordens planned/started podem ser finalizadas."))
             return HttpResponseRedirect(reverse("admin:craftsman_workorder_changelist"))
 
         from shopman.craftsman import craft
 
         actor = getattr(request.user, "username", None) or "admin"
         try:
-            craft.close(wo, produced=wo.quantity, actor=actor)
+            if wo.status == WorkOrder.Status.PLANNED:
+                craft.start(wo, quantity=wo.quantity, actor=actor)
+            craft.finish(wo, finished=wo.started_qty or wo.quantity, actor=actor)
             messages.success(
                 request,
-                _("Ordem %(code)s encerrada (produzido: %(qty)s).") % {
+                _("Ordem %(code)s finalizada (resultado: %(qty)s).") % {
                     "code": wo.ref,
-                    "qty": format_quantity(wo.quantity),
+                    "qty": format_quantity(wo.started_qty or wo.quantity),
                 },
             )
         except Exception as exc:
@@ -400,8 +403,8 @@ class WorkOrderAdmin(BaseModelAdmin):
             messages.error(request, _("Ordem não encontrada."))
             return HttpResponseRedirect(reverse("admin:craftsman_workorder_changelist"))
 
-        if wo.status != WorkOrder.Status.OPEN:
-            messages.warning(request, _("Apenas ordens abertas podem ser anuladas."))
+        if wo.status not in (WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED):
+            messages.warning(request, _("Apenas ordens planned/started podem ser anuladas."))
             return HttpResponseRedirect(reverse("admin:craftsman_workorder_changelist"))
 
         from shopman.craftsman import craft

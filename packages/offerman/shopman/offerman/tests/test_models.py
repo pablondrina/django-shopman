@@ -30,7 +30,7 @@ class TestProduct:
         assert product.sku == "BAGUETE"
         assert product.base_price_q == 500
         assert product.is_published is True
-        assert product.is_available is True
+        assert product.is_sellable is True
 
     def test_base_price_property(self, db):
         product = Product.objects.create(
@@ -43,14 +43,14 @@ class TestProduct:
         product.base_price = Decimal("7.50")
         assert product.base_price_q == 750
 
-    def test_queryset_active_method(self, db):
+    def test_queryset_sellable_method(self, db):
         Product.objects.create(sku="P1", name="P1")
         Product.objects.create(sku="P2", name="P2", is_published=False)
-        Product.objects.create(sku="P3", name="P3", is_available=False)
+        Product.objects.create(sku="P3", name="P3", is_sellable=False)
 
-        active = Product.objects.active()
-        assert active.count() == 1
-        assert active.first().sku == "P1"
+        sellable = Product.objects.sellable()
+        assert sellable.count() == 2
+        assert set(sellable.values_list("sku", flat=True)) == {"P1", "P2"}
 
     def test_queryset_published_method(self, db):
         Product.objects.create(sku="P1", name="P1")
@@ -60,13 +60,13 @@ class TestProduct:
         assert published.count() == 1
         assert published.first().sku == "P1"
 
-    def test_queryset_available_method(self, db):
+    def test_queryset_sellable_is_independent_from_publication(self, db):
         Product.objects.create(sku="P1", name="P1")
-        Product.objects.create(sku="P2", name="P2", is_available=False)
+        Product.objects.create(sku="P2", name="P2", is_sellable=False)
 
-        available = Product.objects.available()
-        assert available.count() == 1
-        assert available.first().sku == "P1"
+        sellable = Product.objects.sellable()
+        assert sellable.count() == 1
+        assert sellable.first().sku == "P1"
 
     def test_is_bundle_property(self, db):
         product = Product.objects.create(sku="SINGLE", name="Single")
@@ -217,10 +217,10 @@ class TestListingItem:
             product=product,
             price_q=500,
             is_published=False,
-            is_available=True,
+            is_sellable=True,
         )
         assert item.is_published is False
-        assert item.is_available is True
+        assert item.is_sellable is True
 
 
 class TestCollection:

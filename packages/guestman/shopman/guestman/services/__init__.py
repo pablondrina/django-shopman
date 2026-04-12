@@ -8,5 +8,6 @@ CORE services are exported here. Contrib services are in their respective module
 
 from shopman.guestman.services import customer
 from shopman.guestman.services import address
+from shopman.guestman.services import identity
 
-__all__ = ["customer", "address"]
+__all__ = ["customer", "address", "identity"]

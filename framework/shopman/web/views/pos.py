@@ -51,7 +51,7 @@ def _load_products():
                 listing__ref=POS_CHANNEL_REF,
                 listing__is_active=True,
                 is_published=True,
-                is_available=True,
+                is_sellable=True,
             )
             .select_related("product")
             .order_by("product__name")
@@ -64,7 +64,7 @@ def _load_products():
         logger.warning("pos_load_products_listing_failed: %s", e, exc_info=True)
 
     if not products:
-        for p in Product.objects.filter(is_published=True, is_available=True).order_by("name"):
+        for p in Product.objects.filter(is_published=True, is_sellable=True).order_by("name"):
             products.append(_product_dict(p, p.base_price_q))
 
     return products

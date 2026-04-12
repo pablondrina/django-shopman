@@ -1,8 +1,8 @@
 """
 WorkOrder model (vNext).
 
-3 states: open, done, void.
-2 numbers: quantity (mutable target), produced (set on close).
+4 states: planned, started, finished, void.
+3 quantities: planned, started, finished.
 1 rev: optimistic concurrency.
 
 Business logic lives in services, not in the model.
@@ -22,18 +22,22 @@ class WorkOrder(models.Model):
     Ordem de producao.
 
     Lifecycle:
-        open ---> done  (via craft.close)
-          |
-          +-----> void  (via craft.void)
+        planned ---> started ---> finished
+            |             |
+            +------------>+
+            |
+            +-----> void
 
-    The two numbers:
-        quantity: target (mutable via craft.adjust)
-        produced: actual output (set once via craft.close)
+    The three quantities:
+        quantity: planned_qty (mutable via craft.adjust while planned)
+        started_qty: quantity effectively sent into production
+        finished: final output quantity (set once via craft.finish)
     """
 
     class Status(models.TextChoices):
-        OPEN = "open", _("Aberta")
-        DONE = "done", _("Concluida")
+        PLANNED = "planned", _("Planejada")
+        STARTED = "started", _("Iniciada")
+        FINISHED = "finished", _("Finalizada")
         VOID = "void", _("Cancelada")
 
     ref = models.CharField(
@@ -54,26 +58,27 @@ class WorkOrder(models.Model):
         help_text=_("Copiado da Recipe no plan"),
     )
 
-    # The two numbers
+    # The quantitative trilogy
     quantity = models.DecimalField(
         max_digits=12,
         decimal_places=3,
-        verbose_name=_("Quantidade Alvo"),
-        help_text=_("Alvo atual (mutavel via adjust)"),
+        verbose_name=_("Quantidade Planejada"),
+        help_text=_("Planejado atual (mutavel via adjust enquanto planned)"),
     )
-    produced = models.DecimalField(
+    finished = models.DecimalField(
         max_digits=12,
         decimal_places=3,
+        db_column="produced",  # legacy physical column name; domain language is "finished"
         null=True,
         blank=True,
-        verbose_name=_("Produzido"),
-        help_text=_("Set no close, imutavel depois"),
+        verbose_name=_("Quantidade Finalizada"),
+        help_text=_("Set no finish, imutavel depois"),
     )
 
     status = models.CharField(
         max_length=10,
         choices=Status.choices,
-        default=Status.OPEN,
+        default=Status.PLANNED,
         verbose_name=_("Status"),
     )
     rev = models.PositiveIntegerField(
@@ -180,14 +185,36 @@ class WorkOrder(models.Model):
 
     @property
     def loss(self) -> Decimal | None:
-        """Quantity lost: target - produced."""
-        if self.produced is None:
+        """Quantity lost between what entered production and what finished."""
+        if self.finished is None:
             return None
-        return max(self.quantity - self.produced, Decimal("0"))
+        base_qty = self.started_qty or self.quantity
+        return max(base_qty - self.finished, Decimal("0"))
 
     @property
     def yield_rate(self) -> Decimal | None:
-        """Efficiency: produced / quantity."""
-        if self.produced is None or not self.quantity:
+        """Efficiency: finished_qty / started_qty (or planned if not started)."""
+        if self.finished is None:
             return None
-        return self.produced / self.quantity
+        base_qty = self.started_qty or self.quantity
+        if not base_qty:
+            return None
+        return self.finished / base_qty
+
+    @property
+    def planned_qty(self) -> Decimal:
+        """Canonical planned quantity projection."""
+        return self.quantity
+
+    @property
+    def started_qty(self) -> Decimal | None:
+        """Latest quantity that effectively entered production."""
+        event = self.events.filter(kind="started").order_by("-seq").only("payload").first()
+        if not event:
+            return None
+        return Decimal(str(event.payload.get("quantity", "0")))
+
+    @property
+    def finished_qty(self) -> Decimal | None:
+        """Canonical finished quantity projection."""
+        return self.finished

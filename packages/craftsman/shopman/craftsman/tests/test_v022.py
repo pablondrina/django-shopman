@@ -5,7 +5,7 @@ Covers:
 - B1 fix: old_quantity stale in adjust() audit trail
 - B2 fix: receive() loop returns on first iteration
 - Hardening: CheckConstraints (DB-level), clean()/full_clean()
-- BOM Snapshot: plan-time freeze, close uses snapshot, backward compat
+- BOM Snapshot: plan-time freeze, finish uses snapshot, backward compat
 - Consumed validation: warning for unknown item_refs
 - suggest(output_refs=): filter parameter
 - Concurrency: simulated optimistic locking scenarios
@@ -229,10 +229,10 @@ class TestWorkOrderClean:
         """save(update_fields=[...]) skips full_clean (service pattern)."""
         wo = craft.plan(recipe, 100)
         # Services use save(update_fields=...) which should not trigger full_clean
-        wo.status = WorkOrder.Status.DONE
+        wo.status = WorkOrder.Status.FINISHED
         wo.save(update_fields=["status", "updated_at"])
         wo.refresh_from_db()
-        assert wo.status == WorkOrder.Status.DONE
+        assert wo.status == WorkOrder.Status.FINISHED
 
 
 # ══════════════════════════════════════════════════════════════
@@ -241,7 +241,7 @@ class TestWorkOrderClean:
 
 
 class TestBOMSnapshot:
-    """BOM snapshot: freeze recipe items at plan-time, use in close."""
+    """BOM snapshot: freeze recipe items at plan-time, use in finish."""
 
     def test_plan_creates_snapshot(self, recipe_with_items):
         """plan() stores _recipe_snapshot in WorkOrder.meta."""
@@ -262,8 +262,8 @@ class TestBOMSnapshot:
         assert wo.meta["priority"] == "high"
         assert "_recipe_snapshot" in wo.meta
 
-    def test_close_uses_snapshot_not_current_recipe(self, recipe_with_items):
-        """After plan, modifying recipe doesn't affect close() BOM."""
+    def test_finish_uses_snapshot_not_current_recipe(self, recipe_with_items):
+        """After plan, modifying recipe doesn't affect finish() BOM."""
         wo = craft.plan(recipe_with_items, 100)
 
         # Modify recipe AFTER plan (e.g., changing farinha qty)
@@ -271,7 +271,7 @@ class TestBOMSnapshot:
         farinha_item.quantity = Decimal("10")  # was 5
         farinha_item.save()
 
-        craft.close(wo, produced=93, expected_rev=0)
+        craft.finish(wo, finished=93, expected_rev=0)
 
         # Requirements should use snapshot (5kg per batch), not current (10kg per batch)
         reqs = WorkOrderItem.objects.filter(work_order=wo, kind=WorkOrderItem.Kind.REQUIREMENT)
@@ -279,7 +279,7 @@ class TestBOMSnapshot:
         # 100 / 10 (batch) * 5 (snapshot qty) = 50
         assert farinha_req.quantity == Decimal("50.000")
 
-    def test_close_backward_compat_no_snapshot(self, recipe_with_items):
+    def test_finish_backward_compat_no_snapshot(self, recipe_with_items):
         """WO without snapshot (pre-v0.2.2) falls back to current recipe."""
         wo = craft.plan(recipe_with_items, 100)
 
@@ -287,7 +287,7 @@ class TestBOMSnapshot:
         wo.meta = {}
         wo.save(update_fields=["meta", "updated_at"])
 
-        craft.close(wo, produced=93, expected_rev=0)
+        craft.finish(wo, finished=93, expected_rev=0)
 
         # Should use current recipe items
         reqs = WorkOrderItem.objects.filter(work_order=wo, kind=WorkOrderItem.Kind.REQUIREMENT)
@@ -314,14 +314,14 @@ class TestBOMSnapshot:
 
 
 class TestConsumedValidation:
-    """close() warns on consumed item_refs not in recipe."""
+    """finish() warns on consumed item_refs not in recipe."""
 
     def test_consumed_unknown_item_ref_logs_warning(self, recipe_with_items, caplog):
         """Consumed items not in recipe trigger warning log."""
         wo = craft.plan(recipe_with_items, 100)
 
         with caplog.at_level(logging.WARNING, logger="shopman.craftsman.services.execution"):
-            craft.close(wo, produced=93, consumed=[
+            craft.finish(wo, finished=93, consumed=[
                 {"item_ref": "farinha", "quantity": 50, "unit": "kg"},
                 {"item_ref": "agua", "quantity": 30, "unit": "L"},
                 {"item_ref": "fermento", "quantity": 1, "unit": "kg"},
@@ -330,15 +330,15 @@ class TestConsumedValidation:
 
         assert any("UNKNOWN_INGREDIENT" in record.message for record in caplog.records)
         assert any("not in recipe" in record.message for record in caplog.records)
-        # But close still succeeds (warning, not error)
-        assert wo.status == WorkOrder.Status.DONE
+        # But finish still succeeds (warning, not error)
+        assert wo.status == WorkOrder.Status.FINISHED
 
     def test_consumed_valid_items_no_warning(self, recipe_with_items, caplog):
         """Consumed items matching recipe don't trigger warnings."""
         wo = craft.plan(recipe_with_items, 100)
 
         with caplog.at_level(logging.WARNING, logger="shopman.craftsman.services.execution"):
-            craft.close(wo, produced=93, consumed=[
+            craft.finish(wo, finished=93, consumed=[
                 {"item_ref": "farinha", "quantity": 50, "unit": "kg"},
                 {"item_ref": "agua", "quantity": 30, "unit": "L"},
                 {"item_ref": "fermento", "quantity": 1, "unit": "kg"},
@@ -440,13 +440,13 @@ class TestConcurrency:
             craft.adjust(wo, quantity=90, expected_rev=0)  # stale!
         assert exc.value.data["expected_rev"] == 0
 
-    def test_close_with_stale_rev_raises(self, recipe):
-        """close() with stale expected_rev raises StaleRevision."""
+    def test_finish_with_stale_rev_raises(self, recipe):
+        """finish() with stale expected_rev raises StaleRevision."""
         wo = craft.plan(recipe, 100)
         craft.adjust(wo, quantity=97, expected_rev=0)
 
         with pytest.raises(StaleRevision):
-            craft.close(wo, produced=93, expected_rev=0)  # stale!
+            craft.finish(wo, finished=93, expected_rev=0)  # stale!
 
     def test_void_with_stale_rev_raises(self, recipe):
         """void() with stale expected_rev raises StaleRevision."""
@@ -467,15 +467,15 @@ class TestConcurrency:
         assert wo.quantity == Decimal("80")
         assert wo.rev == 3
 
-    def test_rev_correct_after_plan_adjust_close(self, recipe):
-        """Full lifecycle: plan(rev=0) → adjust(rev=1) → close(rev=2)."""
+    def test_rev_correct_after_plan_adjust_finish(self, recipe):
+        """Full lifecycle: plan(rev=0) → adjust(rev=1) → finish(rev=2)."""
         wo = craft.plan(recipe, 100)
         assert wo.rev == 0
 
         craft.adjust(wo, quantity=97, expected_rev=0)
         assert wo.rev == 1
 
-        craft.close(wo, produced=93, expected_rev=1)
+        craft.finish(wo, finished=93, expected_rev=1)
         wo.refresh_from_db()
         assert wo.rev == 2
 
@@ -504,7 +504,7 @@ class TestPlanEndpoint:
         assert resp.data["output_ref"] == "croissant"
         assert resp.data["quantity"] == "100.000"
         assert resp.data["scheduled_date"] == str(tomorrow)
-        assert resp.data["status"] == "open"
+        assert resp.data["status"] == "planned"
 
     def test_plan_with_all_fields(self, api_client, recipe_with_items, tomorrow):
         """Plan with all optional fields."""
@@ -586,7 +586,7 @@ class TestPlanEndpoint:
 
 class TestExpectedEndpoint:
     def test_expected_returns_total(self, api_client, recipe, tomorrow):
-        """GET /api/craftsman/queries/expected/ returns sum of open WOs."""
+        """GET /api/craftsman/queries/expected/ returns sum of planned/started WOs."""
         craft.plan(recipe, 100, date=tomorrow)
         craft.plan(recipe, 50, date=tomorrow)
 
@@ -643,7 +643,7 @@ class TestNeedsEndpoint:
         assert by_ref["farinha"]["has_recipe"] is False
 
     def test_needs_empty_when_no_orders(self, api_client, tomorrow):
-        """Needs returns [] when no open WOs on date."""
+        """Needs returns [] when no planned/started WOs on date."""
         resp = api_client.get(f"/api/craftsman/queries/needs/?date={tomorrow}")
         assert resp.status_code == 200
         assert resp.data == []

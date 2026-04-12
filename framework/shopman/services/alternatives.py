@@ -95,12 +95,12 @@ def find(sku: str, *, qty: Decimal = Decimal("1"), channel: str | None = None, l
 
 def _resolve_availability(raw_avail: dict | None, product, qty: Decimal) -> tuple[bool, Decimal]:
     """Return (can_order, available_qty) from raw availability result."""
-    if not product.is_available:
+    if not product.is_sellable:
         return False, Decimal("0")
     if raw_avail is None:
         # No stockman data — assume available
         return True, Decimal("0")
-    is_paused = raw_avail.get("is_paused", False) or not product.is_available
+    is_paused = raw_avail.get("is_paused", False) or not product.is_sellable
     total_orderable = raw_avail.get("total_orderable", Decimal("0"))
     can_order = total_orderable >= qty and not is_paused
     return can_order, total_orderable

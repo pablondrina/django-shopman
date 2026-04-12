@@ -88,7 +88,7 @@ class ShiftSummaryViewTests(TestCase):
         """Successful pos_close sends HX-Trigger: posOrderCreated header."""
         import json
         from shopman.offerman.models import Product
-        Product.objects.create(sku="SHIFT-PROD", name="Prod", base_price_q=500, is_published=True, is_available=True)
+        Product.objects.create(sku="SHIFT-PROD", name="Prod", base_price_q=500, is_published=True, is_sellable=True)
         payload = json.dumps({
             "items": [{"sku": "SHIFT-PROD", "qty": 1, "unit_price_q": 500}],
             "customer_name": "", "customer_phone": "", "payment_method": "dinheiro",

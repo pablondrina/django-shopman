@@ -1,15 +1,9 @@
-"""CatalogBackend implementation for Offerman."""
+"""Offerman catalog backend implementation."""
 
 from decimal import Decimal
 
 from shopman.offerman.service import CatalogService
-from shopman.offerman.protocols import (
-    CatalogBackend as CatalogBackendProtocol,
-    ProductInfo,
-    PriceInfo,
-    SkuValidation,
-    BundleComponent,
-)
+from shopman.offerman.protocols import ProductInfo, PriceInfo, SkuValidation, BundleComponent
 from shopman.offerman.exceptions import CatalogError
 
 
@@ -41,7 +35,7 @@ class OffermanCatalogBackend:
             is_bundle=product.is_bundle,
             base_price_q=product.base_price_q,
             is_published=product.is_published,
-            is_available=product.is_available,
+            is_sellable=product.is_sellable,
             keywords=list(product.keywords.names()) if product.keywords else None,
         )
 

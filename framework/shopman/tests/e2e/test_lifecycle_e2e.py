@@ -48,21 +48,24 @@ _PATCHES = [
     "shopman.services.fiscal.cancel",
     "shopman.services.kds.dispatch",
     "shopman.services.kds.cancel_tickets",
-    "shopman.services.availability.check",
+    "shopman.services.availability.decide",
     "shopman.services.fulfillment.create",
 ]
 
 
 _DEFAULT_RETURN: dict[str, object] = {
-    "shopman.services.availability.check": {
-        "ok": True,
+    "shopman.services.availability.decide": {
+        "approved": True,
+        "sku": "PAO-FRANCES",
+        "requested_qty": Decimal("2"),
         "available_qty": Decimal("999"),
+        "reason_code": None,
         "is_paused": False,
         "is_planned": False,
-        "breakdown": {},
-        "error_code": None,
-        "is_bundle": False,
+        "target_date": None,
         "failed_sku": None,
+        "source": "stock.untracked",
+        "untracked": True,
     },
 }
 
@@ -288,16 +291,18 @@ class TestE2E5MarketplaceInsufficientStock(TestCase):
         _stop_patches(self.patchers)
 
     def test_marketplace_rejects_when_unavailable(self):
-        # availability.check returns failure
-        self.mocks["check"].return_value = {
-            "ok": False,
+        # availability.decide returns failure
+        self.mocks["decide"].return_value = {
+            "approved": False,
+            "sku": "PAO-FRANCES",
+            "requested_qty": Decimal("1"),
             "available_qty": Decimal("0"),
+            "reason_code": "out_of_stock",
             "is_paused": False,
             "is_planned": False,
-            "breakdown": {},
-            "error_code": "out_of_stock",
-            "is_bundle": False,
+            "target_date": None,
             "failed_sku": None,
+            "source": "stock.promise_decision",
         }
 
         session = _make_session(self.channel)

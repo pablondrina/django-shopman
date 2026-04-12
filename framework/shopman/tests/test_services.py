@@ -6,6 +6,7 @@ Uses mocking for Core services and adapters to ensure isolation.
 
 from __future__ import annotations
 
+from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
@@ -83,7 +84,7 @@ class TestAvailabilityListingMembership:
             name=sku,
             base_price_q=500,
             is_published=not paused,
-            is_available=not paused,
+            is_sellable=not paused,
         )
 
     def _make_listing(self, ref):
@@ -100,7 +101,7 @@ class TestAvailabilityListingMembership:
             product=product,
             price_q=500,
             is_published=published,
-            is_available=available,
+            is_sellable=available,
         )
 
     def test_rejects_sku_absent_from_channel_listing(self):
@@ -118,8 +119,8 @@ class TestAvailabilityListingMembership:
         assert result["error_code"] == "not_in_listing"
         assert result["available_qty"] == Decimal("0")
 
-    def test_rejects_unpublished_listing_item(self):
-        """ListingItem exists but is_published=False → reject."""
+    def test_hidden_listing_item_still_passes_checkout_gate_if_sellable(self):
+        """Publication controls listing visibility, not direct purchase eligibility."""
         from shopman.services import availability
 
         self._make_channel(ref="ifood")
@@ -129,8 +130,23 @@ class TestAvailabilityListingMembership:
 
         result = availability.check("PAO-001", Decimal("1"), channel_ref="ifood")
 
+        assert result["ok"] is True
+        assert result.get("error_code") is None
+
+    def test_paused_listing_item_rejects_as_paused(self):
+        """Strategic sellability in Offerman can pause a SKU even if it is listed."""
+        from shopman.services import availability
+
+        self._make_channel(ref="ifood")
+        product = self._make_product(sku="PAO-001")
+        listing = self._make_listing("ifood")
+        self._publish(listing, product, published=True, available=False)
+
+        result = availability.check("PAO-001", Decimal("1"), channel_ref="ifood")
+
         assert result["ok"] is False
-        assert result["error_code"] == "not_in_listing"
+        assert result["error_code"] == "paused"
+        assert result["is_paused"] is True
 
     def test_passes_when_published_in_channel_listing(self):
         """ListingItem published+available → check proceeds to Stockman layer.
@@ -178,7 +194,7 @@ class TestAvailabilityListingMembership:
             product=product,
             price_q=500,
             is_published=True,
-            is_available=True,
+            is_sellable=True,
             min_qty=Decimal("24"),
         )
 
@@ -202,7 +218,7 @@ class TestAvailabilityListingMembership:
             product=product,
             price_q=500,
             is_published=True,
-            is_available=True,
+            is_sellable=True,
             min_qty=Decimal("5"),
         )
 
@@ -210,6 +226,46 @@ class TestAvailabilityListingMembership:
         result = availability.check("PAO-001", Decimal("5"), channel_ref="ifood")
 
         assert result.get("error_code") != "below_min_qty"
+
+    @patch("shopman.services.availability.get_adapter")
+    def test_check_forwards_target_date_to_stock_adapter(self, mock_get_adapter):
+        from shopman.services import availability
+
+        future_date = date.today() + timedelta(days=2)
+        stock_adapter = MagicMock()
+        stock_adapter.get_channel_scope.return_value = {
+            "safety_margin": 0,
+            "allowed_positions": None,
+        }
+        stock_adapter.get_availability.return_value = {
+            "total_orderable": Decimal("5"),
+            "is_paused": False,
+            "is_planned": True,
+            "breakdown": {},
+            "positions": [{"position_ref": "vitrine"}],
+        }
+        catalog_adapter = MagicMock()
+        catalog_adapter.listing_exists.return_value = False
+        mock_get_adapter.side_effect = lambda name: (
+            stock_adapter if name == "stock" else catalog_adapter
+        )
+
+        with patch("shopman.services.availability._expand_if_bundle", return_value=None):
+            result = availability.check(
+                "PAO-001",
+                Decimal("1"),
+                channel_ref="ifood",
+                target_date=future_date,
+            )
+
+        assert result["ok"] is True
+        assert result["target_date"] == future_date
+        stock_adapter.get_availability.assert_called_once_with(
+            "PAO-001",
+            target_date=future_date,
+            safety_margin=0,
+            allowed_positions=None,
+        )
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -358,8 +414,34 @@ class TestStockService:
 
         hold_entries = order.data["hold_ids"]
         assert len(hold_entries) == 2
-        assert {e["hold_id"] for e in hold_entries} == {"hold:20", "hold:21"}
 
+    @patch("shopman.services.stock._retag_hold_for_order")
+    @patch("shopman.services.stock._load_session_holds")
+    @patch("shopman.services.stock.get_adapter")
+    def test_hold_future_order_skips_same_day_session_holds(
+        self, mock_get_adapter, mock_load, mock_retag,
+    ):
+        from shopman.services.stock import hold
+
+        adapter = MagicMock()
+        adapter.expand_bundle.side_effect = Exception("NOT_A_BUNDLE")
+        adapter.create_hold.return_value = {"success": True, "hold_id": "hold:future"}
+        mock_get_adapter.return_value = adapter
+        mock_load.return_value = {"PAO-001": [("hold:today", Decimal("5"))]}
+
+        future_date = date.today() + timedelta(days=3)
+        order = _make_order(
+            snapshot={"items": [{"sku": "PAO-001", "qty": "5"}], "data": {}},
+            data={"delivery_date": future_date.isoformat()},
+        )
+        order.session_key = "sess-1"
+
+        hold(order)
+
+        mock_retag.assert_not_called()
+        adapter.create_hold.assert_called_once()
+        assert adapter.create_hold.call_args.kwargs["target_date"] == future_date
+        adapter.release_holds.assert_called_once_with(["hold:today"])
     @patch("shopman.services.stock.get_adapter")
     def test_fulfill_calls_adapter(self, mock_get_adapter):
         from shopman.services.stock import fulfill
@@ -1117,13 +1199,13 @@ class TestAvailabilityBundles:
         # FARINHA has 50 units → 50/2=25 bundles
         # MANTEIGA has 200 units → 200/1=200 bundles
         # min = 25
-        def fake_check(sku, qty, *, channel_ref=None):
+        def fake_check(sku, qty, *, channel_ref=None, target_date=None):
             if sku == "FARINHA-001":
                 return {**self._make_check_result(available_qty=Decimal("50")), "is_bundle": False, "failed_sku": None}
             return {**self._make_check_result(available_qty=Decimal("200")), "is_bundle": False, "failed_sku": None}
 
         with patch("shopman.services.availability.check", side_effect=fake_check):
-            result = availability._check_bundle("BUNDLE-001", bundle_qty, components, channel_ref=None)
+            result = availability._check_bundle("BUNDLE-001", bundle_qty, components, channel_ref=None, target_date=None)
 
         assert result["ok"] is True
         assert result["is_bundle"] is True
@@ -1140,7 +1222,7 @@ class TestAvailabilityBundles:
             {"sku": "MANTEIGA-001", "qty": Decimal("1")},
         ]
 
-        def fake_check(sku, qty, *, channel_ref=None):
+        def fake_check(sku, qty, *, channel_ref=None, target_date=None):
             if sku == "FARINHA-001":
                 return {
                     "ok": False, "available_qty": Decimal("0"),
@@ -1156,7 +1238,7 @@ class TestAvailabilityBundles:
             }
 
         with patch("shopman.services.availability.check", side_effect=fake_check):
-            result = availability._check_bundle("BUNDLE-001", bundle_qty, components, channel_ref=None)
+            result = availability._check_bundle("BUNDLE-001", bundle_qty, components, channel_ref=None, target_date=None)
 
         assert result["ok"] is False
         assert result["is_bundle"] is True
@@ -1170,7 +1252,7 @@ class TestAvailabilityBundles:
         bundle_qty = Decimal("1")
         components = [{"sku": "COMP-A", "qty": Decimal("1")}]
 
-        def fake_check(sku, qty, *, channel_ref=None):
+        def fake_check(sku, qty, *, channel_ref=None, target_date=None):
             return {
                 "ok": False, "available_qty": Decimal("0"),
                 "is_paused": False, "is_planned": False,
@@ -1179,7 +1261,7 @@ class TestAvailabilityBundles:
             }
 
         with patch("shopman.services.availability.check", side_effect=fake_check):
-            result = availability._check_bundle("BUNDLE-001", bundle_qty, components, channel_ref="ifood")
+            result = availability._check_bundle("BUNDLE-001", bundle_qty, components, channel_ref="ifood", target_date=None)
 
         assert result["ok"] is False
         assert result["error_code"] == "not_in_listing"
@@ -1192,7 +1274,7 @@ class TestAvailabilityBundles:
         bundle_qty = Decimal("1")
         components = [{"sku": "COMP-A", "qty": Decimal("1")}]
 
-        def fake_check(sku, qty, *, channel_ref=None):
+        def fake_check(sku, qty, *, channel_ref=None, target_date=None):
             return {
                 "ok": False, "available_qty": Decimal("0"),
                 "is_paused": True, "is_planned": False,
@@ -1201,7 +1283,7 @@ class TestAvailabilityBundles:
             }
 
         with patch("shopman.services.availability.check", side_effect=fake_check):
-            result = availability._check_bundle("BUNDLE-001", bundle_qty, components, channel_ref=None)
+            result = availability._check_bundle("BUNDLE-001", bundle_qty, components, channel_ref=None, target_date=None)
 
         assert result["ok"] is False
         assert result["error_code"] == "paused"

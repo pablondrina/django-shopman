@@ -82,7 +82,7 @@ class ProductListView(APIView):
 
         # Filter available only
         if request.query_params.get("available") in ("true", "1"):
-            qs = qs.filter(is_available=True)
+            qs = qs.filter(is_sellable=True)
 
         # Paginate before annotating (annotate is expensive per-product)
         paginator = ProductCursorPagination()

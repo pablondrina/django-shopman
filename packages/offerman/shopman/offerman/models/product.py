@@ -19,19 +19,15 @@ class AvailabilityPolicy(models.TextChoices):
 
 
 class ProductQuerySet(models.QuerySet):
-    """Custom QuerySet for Product with availability filters."""
+    """Custom QuerySet for Product with publication and sellability filters."""
 
-    def active(self):
-        """Products that are published AND available."""
-        return self.filter(is_published=True, is_available=True)
+    def sellable(self):
+        """Products that are commercially enabled."""
+        return self.filter(is_sellable=True)
 
     def published(self):
-        """Products that are published (may be unavailable)."""
+        """Products that are published in the base catalog."""
         return self.filter(is_published=True)
-
-    def available(self):
-        """Products that are available for sale."""
-        return self.filter(is_available=True)
 
 
 class Product(models.Model):
@@ -121,7 +117,7 @@ class Product(models.Model):
         help_text=_("Tempo de produção em horas (ex: 4h para croissant)"),
     )
 
-    # === PUBLICATION & AVAILABILITY ===
+    # === PUBLICATION & SELLABILITY ===
     is_published = models.BooleanField(
         _("publicado"),
         default=True,
@@ -129,11 +125,12 @@ class Product(models.Model):
         help_text=_("Publicado no catálogo (Não = oculto/descontinuado)"),
     )
 
-    is_available = models.BooleanField(
-        _("disponível"),
+    is_sellable = models.BooleanField(
+        _("vendável"),
         default=True,
+        db_column="is_available",
         db_index=True,
-        help_text=_("Disponível para venda (Não = insumo ou pausado)"),
+        help_text=_("Permite venda estratégica (Não = insumo ou item pausado)"),
     )
 
     # Image
@@ -173,7 +170,7 @@ class Product(models.Model):
         verbose_name_plural = _("produtos")
         ordering = ["name"]
         indexes = [
-            models.Index(fields=["is_published", "is_available"]),
+            models.Index(fields=["is_published", "is_sellable"]),
         ]
 
     def __str__(self):

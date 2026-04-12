@@ -35,7 +35,7 @@ def _make_session(items=None):
         for item in items:
             Product.objects.get_or_create(
                 sku=item["sku"],
-                defaults={"name": item["sku"], "base_price_q": item["unit_price_q"], "is_published": True, "is_available": True},
+                defaults={"name": item["sku"], "base_price_q": item["unit_price_q"], "is_published": True, "is_sellable": True},
             )
         ModifyService.modify_session(
             session_key=session_key,
@@ -98,7 +98,7 @@ class POSCloseWithDiscountTests(TestCase):
         Shop.objects.create(name="Test Shop", brand_name="Test")
         _make_channel()
         from shopman.offerman.models import Product
-        Product.objects.create(sku="POS-ITEM-1", name="Item 1", base_price_q=1000, is_published=True, is_available=True)
+        Product.objects.create(sku="POS-ITEM-1", name="Item 1", base_price_q=1000, is_published=True, is_sellable=True)
         User = get_user_model()
         self.staff = User.objects.create_user(username="pos_staff", password="x", is_staff=True)
 

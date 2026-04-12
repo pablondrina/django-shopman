@@ -35,14 +35,13 @@ logger = logging.getLogger(__name__)
 
 
 def _published_products(listing_ref: str | None) -> QuerySet:
-    """Base queryset: published globally AND available in channel listing."""
+    """Base queryset: visible in the current listing."""
     qs = Product.objects.filter(is_published=True)
     if listing_ref:
         qs = qs.filter(
             listing_items__listing__ref=listing_ref,
             listing_items__listing__is_active=True,
             listing_items__is_published=True,
-            listing_items__is_available=True,
         )
     return qs
 
@@ -54,7 +53,7 @@ class MenuView(View):
     def get(self, request: HttpRequest, collection: str | None = None) -> HttpResponse:
         listing_ref = _get_channel_listing_ref()
 
-        # HTMX partial: availability preview for home page "Direto do forno" section
+        # HTMX partial: availability preview for home page featured section
         if request.GET.get("partial") == "availability_preview":
             return self._availability_preview(request, listing_ref)
 
@@ -349,7 +348,7 @@ class ProductDetailView(View):
         })
 
 
-class DicasView(View):
+class TipsView(View):
     """Static page: storage and conservation tips."""
 
     def get(self, request: HttpRequest) -> HttpResponse:

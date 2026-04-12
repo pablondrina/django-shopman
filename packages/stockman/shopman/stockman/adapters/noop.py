@@ -11,7 +11,7 @@ Usage in settings.py:
     }
 
 WARNING: Do NOT use in production. This adapter performs no real validation
-and will accept any SKU, including nonexistent or inactive ones.
+and will accept any SKU, including nonexistent or unpublished ones.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ class NoopSkuValidator:
             valid=True,
             sku=sku,
             product_name=sku,
-            is_active=True,
+            is_published=True,
         )
 
     def validate_skus(self, skus: list[str]) -> dict[str, SkuValidationResult]:
@@ -75,7 +75,7 @@ class NoopSkuValidator:
             sku=sku,
             name=sku,
             description=None,
-            is_active=True,
+            is_published=True,
             unit="un",
             category=None,
             base_price_q=None,
@@ -96,7 +96,7 @@ class NoopSkuValidator:
         Args:
             query: Search term (ignored).
             limit: Maximum results (ignored).
-            include_inactive: Include inactive SKUs (ignored).
+            include_inactive: Include unpublished SKUs (ignored).
 
         Returns:
             Empty list.

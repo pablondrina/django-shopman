@@ -12,7 +12,7 @@ class ProductFilter(filters.FilterSet):
         model = Product
         fields = {
             "is_published": ["exact"],
-            "is_available": ["exact"],
+            "is_sellable": ["exact"],
             "unit": ["exact"],
         }
 

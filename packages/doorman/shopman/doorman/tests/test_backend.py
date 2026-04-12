@@ -5,6 +5,7 @@ Tests for PhoneOTPBackend, verify_for_login login(), and LogoutView (AUTH-1).
 import uuid
 
 import pytest
+from django.apps import apps
 from django.contrib.auth import get_user_model, login
 from django.contrib.sessions.backends.db import SessionStore
 from django.test import RequestFactory, override_settings
@@ -13,6 +14,7 @@ from shopman.doorman.backends import PhoneOTPBackend
 from shopman.doorman.models import CustomerUser
 from shopman.doorman.services.verification import AuthService
 from shopman.doorman.views.logout import LogoutView
+from shopman.guestman.contrib.identifiers.models import CustomerIdentifier, IdentifierType
 
 User = get_user_model()
 
@@ -148,6 +150,31 @@ def test_verify_login_without_request_no_login(customer, verification_code):
 
     assert result.success
     assert result.customer is not None
+
+
+@pytest.mark.django_db
+@override_settings(DOORMAN=DOORMAN_SETTINGS)
+def test_verify_login_links_whatsapp_identifier(customer, verification_code):
+    if not apps.is_installed("shopman.guestman.contrib.identifiers"):
+        pytest.skip("guestman identifiers contrib not installed in this test settings")
+
+    CustomerIdentifier.objects.filter(
+        customer=customer,
+        identifier_type=IdentifierType.WHATSAPP,
+    ).delete()
+
+    result = AuthService.verify_for_login(
+        target_value=verification_code.target_value,
+        code_input=verification_code._raw_code,
+        request=None,
+    )
+
+    assert result.success
+    assert CustomerIdentifier.objects.filter(
+        customer=customer,
+        identifier_type=IdentifierType.WHATSAPP,
+        identifier_value=verification_code.target_value,
+    ).exists()
 
 
 # ===========================================

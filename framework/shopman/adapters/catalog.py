@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import logging
 
+from django.db import models
+
 logger = logging.getLogger(__name__)
 
 
@@ -35,7 +37,7 @@ def get_product_base_price(sku: str) -> int:
 
 
 def get_listing_item(sku: str, listing_ref: str) -> dict | None:
-    """Retorna {"price_q": int, "min_qty": int, "is_available": bool} ou None."""
+    """Retorna os flags canônicos do vínculo sku <-> listing, ou None se não houver vínculo estrutural."""
     from shopman.offerman.models import ListingItem
 
     try:
@@ -43,8 +45,6 @@ def get_listing_item(sku: str, listing_ref: str) -> dict | None:
             listing__ref=listing_ref,
             listing__is_active=True,
             product__sku=sku,
-            is_published=True,
-            is_available=True,
         )
     except ListingItem.DoesNotExist:
         return None
@@ -54,28 +54,31 @@ def get_listing_item(sku: str, listing_ref: str) -> dict | None:
                 listing__ref=listing_ref,
                 listing__is_active=True,
                 product__sku=sku,
-                is_published=True,
-                is_available=True,
             ).first()
         )
         if not item:
             return None
 
-    return {"price_q": item.price_q, "min_qty": item.min_qty, "is_available": item.is_available}
+    return {
+        "price_q": item.price_q,
+        "min_qty": item.min_qty,
+        "is_published": item.is_published,
+        "is_sellable": item.is_sellable,
+    }
 
 
 def find_listing_tiers(sku: str, listing_ref: str) -> list[dict]:
-    """Tiers de preço por quantidade. Retorna [{"min_qty": int, "price_q": int, "is_available": bool}] desc."""
+    """Tiers de preço vendáveis por quantidade. Retorna [{"min_qty", "price_q", "is_sellable"}] desc."""
     from shopman.offerman.models import ListingItem
 
     return list(
         ListingItem.objects.filter(
             listing__ref=listing_ref,
             product__sku=sku,
-            is_published=True,
+            is_sellable=True,
         )
         .order_by("-min_qty")
-        .values("min_qty", "price_q", "is_available")
+        .values("min_qty", "price_q", is_sellable=models.F("is_sellable"))
     )
 
 
@@ -115,8 +118,7 @@ def bulk_listing_price_map(skus: list[str], listing_ref: str) -> dict[str, int]:
             listing__ref=listing_ref,
             listing__is_active=True,
             product__sku__in=skus,
-            is_published=True,
-            is_available=True,
+            is_sellable=True,
         )
         .select_related("product")
         .order_by("-min_qty")

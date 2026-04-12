@@ -130,7 +130,7 @@ class TestCatalogValidate:
         assert result.sku == "BAGUETE"
         assert result.name == "Baguete Tradicional"
         assert result.is_published is True
-        assert result.is_available is True
+        assert result.is_sellable is True
         assert result.message is None
 
     def test_validate_unpublished_product(self, db):
@@ -193,33 +193,33 @@ class TestCatalogSearch:
 
 
 class TestCatalogAvailability:
-    """Tests for CatalogService availability methods."""
+    """Tests for CatalogService listing semantics."""
 
-    def test_get_available_products(self, db):
-        """Test getting available products for a listing."""
+    def test_get_listed_products(self, db):
+        """Listed means structurally present in the listing."""
         listing = Listing.objects.create(ref="shop", name="Shop")
         product1 = Product.objects.create(sku="P1", name="Product 1")
-        product2 = Product.objects.create(sku="P2", name="Product 2", is_available=False)
+        product2 = Product.objects.create(sku="P2", name="Product 2", is_sellable=False)
 
         ListingItem.objects.create(listing=listing, product=product1, price_q=500)
         ListingItem.objects.create(listing=listing, product=product2, price_q=600)
 
-        available = CatalogService.get_available_products("shop")
-        skus = [p.sku for p in available]
+        listed = CatalogService.get_listed_products("shop")
+        skus = [p.sku for p in listed]
         assert "P1" in skus
-        assert "P2" not in skus  # Not available globally
+        assert "P2" in skus
 
-    def test_is_product_available(self, db):
-        """Test checking product availability in listing."""
+    def test_is_product_listed(self, db):
+        """Listed means linked to the listing, nothing else."""
         listing = Listing.objects.create(ref="shop", name="Shop")
         product = Product.objects.create(sku="P1", name="Product 1")
         ListingItem.objects.create(listing=listing, product=product, price_q=500)
 
-        assert CatalogService.is_product_available(product, "shop") is True
-        assert CatalogService.is_product_available(product, "nonexistent") is False
+        assert CatalogService.is_product_listed(product, "shop") is True
+        assert CatalogService.is_product_listed(product, "nonexistent") is False
 
-    def test_listing_item_visibility(self, db):
-        """Test listing item visibility flags."""
+    def test_published_products_exclude_hidden_listing_items(self, db):
+        """Published means visible in the listing."""
         listing = Listing.objects.create(ref="shop", name="Shop")
         product = Product.objects.create(sku="P1", name="Product 1")
         ListingItem.objects.create(
@@ -227,7 +227,23 @@ class TestCatalogAvailability:
             is_published=False,  # Unpublished in this listing
         )
 
-        assert CatalogService.is_product_available(product, "shop") is False
+        assert CatalogService.is_product_listed(product, "shop") is True
+        assert CatalogService.is_product_published(product, "shop") is False
+        assert product not in CatalogService.get_published_products("shop")
+
+    def test_sellable_products_exclude_paused_listing_items(self, db):
+        """Sellable means strategically purchasable in the listing."""
+        listing = Listing.objects.create(ref="shop", name="Shop")
+        product = Product.objects.create(sku="P1", name="Product 1")
+        ListingItem.objects.create(
+            listing=listing, product=product, price_q=500,
+            is_published=True,
+            is_sellable=False,
+        )
+
+        assert CatalogService.is_product_listed(product, "shop") is True
+        assert CatalogService.is_product_sellable(product, "shop") is False
+        assert product not in CatalogService.get_sellable_products("shop")
 
     def test_expired_listing_excludes_products(self, db):
         """Expired listing should not return products as available."""
@@ -242,10 +258,10 @@ class TestCatalogAvailability:
         product = Product.objects.create(sku="EXP-1", name="Product")
         ListingItem.objects.create(listing=listing, product=product, price_q=500)
 
-        available = CatalogService.get_available_products("promo-old")
-        assert product not in available
+        listed = CatalogService.get_listed_products("promo-old")
+        assert product not in listed
 
-        assert CatalogService.is_product_available(product, "promo-old") is False
+        assert CatalogService.is_product_listed(product, "promo-old") is False
 
     def test_future_listing_excludes_products(self, db):
         """Listing not yet started should not return products as available."""
@@ -260,10 +276,10 @@ class TestCatalogAvailability:
         product = Product.objects.create(sku="FUT-1", name="Product")
         ListingItem.objects.create(listing=listing, product=product, price_q=500)
 
-        available = CatalogService.get_available_products("promo-future")
-        assert product not in available
+        listed = CatalogService.get_listed_products("promo-future")
+        assert product not in listed
 
-        assert CatalogService.is_product_available(product, "promo-future") is False
+        assert CatalogService.is_product_listed(product, "promo-future") is False
 
     def test_valid_listing_with_dates_includes_products(self, db):
         """Listing within valid date range should return products."""
@@ -279,10 +295,10 @@ class TestCatalogAvailability:
         product = Product.objects.create(sku="VAL-1", name="Product")
         ListingItem.objects.create(listing=listing, product=product, price_q=500)
 
-        available = CatalogService.get_available_products("promo-active")
-        assert product in available
+        listed = CatalogService.get_listed_products("promo-active")
+        assert product in listed
 
-        assert CatalogService.is_product_available(product, "promo-active") is True
+        assert CatalogService.is_product_listed(product, "promo-active") is True
 
     def test_listing_without_dates_includes_products(self, db):
         """Listing without date constraints (null) should return products."""
@@ -294,10 +310,10 @@ class TestCatalogAvailability:
         product = Product.objects.create(sku="EVR-1", name="Product")
         ListingItem.objects.create(listing=listing, product=product, price_q=500)
 
-        available = CatalogService.get_available_products("evergreen")
-        assert product in available
+        listed = CatalogService.get_listed_products("evergreen")
+        assert product in listed
 
-        assert CatalogService.is_product_available(product, "evergreen") is True
+        assert CatalogService.is_product_listed(product, "evergreen") is True
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -512,7 +528,7 @@ class TestCatalogBackendAdapter:
 
     def test_get_product_returns_info(self, db):
         """get_product returns correct ProductInfo fields."""
-        from shopman.offerman.adapters.catalog_backend import CatalogBackend
+        from shopman.offerman.adapters.catalog_backend import OffermanCatalogBackend
 
         p = Product.objects.create(
             sku="ADAPT-1", name="Adapter Test", base_price_q=999,
@@ -521,7 +537,7 @@ class TestCatalogBackendAdapter:
         coll = Collection.objects.create(ref="test-cat", name="Test Cat")
         CollectionItem.objects.create(collection=coll, product=p, is_primary=True)
 
-        backend = CatalogBackend()
+        backend = OffermanCatalogBackend()
         info = backend.get_product("ADAPT-1")
 
         assert info is not None
@@ -534,17 +550,17 @@ class TestCatalogBackendAdapter:
 
     def test_get_product_not_found(self, db):
         """get_product returns None for unknown SKU."""
-        from shopman.offerman.adapters.catalog_backend import CatalogBackend
+        from shopman.offerman.adapters.catalog_backend import OffermanCatalogBackend
 
-        backend = CatalogBackend()
+        backend = OffermanCatalogBackend()
         assert backend.get_product("NONEXISTENT") is None
 
     def test_get_price_fractional_rounding(self, db):
         """get_price rounds correctly for fractional qty."""
-        from shopman.offerman.adapters.catalog_backend import CatalogBackend
+        from shopman.offerman.adapters.catalog_backend import OffermanCatalogBackend
         from unittest.mock import patch
 
-        backend = CatalogBackend()
+        backend = OffermanCatalogBackend()
 
         with patch("shopman.offerman.adapters.catalog_backend.CatalogService.price", return_value=1001):
             result = backend.get_price("ANY", qty=Decimal("3"))
@@ -554,7 +570,7 @@ class TestCatalogBackendAdapter:
 
     def test_expand_bundle_returns_components(self, db):
         """expand_bundle returns BundleComponent list."""
-        from shopman.offerman.adapters.catalog_backend import CatalogBackend
+        from shopman.offerman.adapters.catalog_backend import OffermanCatalogBackend
         from shopman.offerman.models import ProductComponent
 
         combo = Product.objects.create(sku="COMBO-A", name="Combo A", base_price_q=1000)
@@ -563,7 +579,7 @@ class TestCatalogBackendAdapter:
         ProductComponent.objects.create(parent=combo, component=comp1, qty=Decimal("2"))
         ProductComponent.objects.create(parent=combo, component=comp2, qty=Decimal("1"))
 
-        backend = CatalogBackend()
+        backend = OffermanCatalogBackend()
         result = backend.expand_bundle("COMBO-A")
 
         assert len(result) == 2
@@ -573,10 +589,10 @@ class TestCatalogBackendAdapter:
 
     def test_expand_bundle_non_bundle_returns_empty(self, db):
         """expand_bundle on non-bundle returns empty list."""
-        from shopman.offerman.adapters.catalog_backend import CatalogBackend
+        from shopman.offerman.adapters.catalog_backend import OffermanCatalogBackend
 
         Product.objects.create(sku="SINGLE", name="Single", base_price_q=500)
-        backend = CatalogBackend()
+        backend = OffermanCatalogBackend()
         result = backend.expand_bundle("SINGLE")
         assert result == []
 

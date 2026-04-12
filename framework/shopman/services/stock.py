@@ -22,9 +22,11 @@ ended up adopting only one of them.
 from __future__ import annotations
 
 import logging
+from datetime import date
 from decimal import Decimal
 
 from shopman.adapters import get_adapter
+from shopman.services.order_helpers import get_commitment_date
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +52,8 @@ def hold(order) -> None:
     if not items:
         return
 
+    target_date = get_commitment_date(order)
+    adopt_session_holds = target_date in (None, date.today())
     session_key = getattr(order, "session_key", None)
     session_holds_by_sku = _load_session_holds(session_key) if session_key else {}
 
@@ -68,9 +72,12 @@ def hold(order) -> None:
             comp_qty = Decimal(str(comp["qty"]))
 
             # 1) Adopt session holds by quantity until comp_qty is met.
-            adopted_pairs, unmet_qty = _adopt_holds_for_qty(
-                session_holds_by_sku, comp_sku, comp_qty,
-            )
+            if adopt_session_holds:
+                adopted_pairs, unmet_qty = _adopt_holds_for_qty(
+                    session_holds_by_sku, comp_sku, comp_qty,
+                )
+            else:
+                adopted_pairs, unmet_qty = [], comp_qty
             for hid, hqty in adopted_pairs:
                 _retag_hold_for_order(hid, order.ref)
                 hold_ids.append(
@@ -85,6 +92,7 @@ def hold(order) -> None:
                 sku=comp_sku,
                 qty=unmet_qty,
                 reference=f"order:{order.ref}",
+                target_date=target_date,
             )
             if not result.get("success"):
                 logger.warning(

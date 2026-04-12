@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import importlib
 import logging
+import threading
 
 from django.core.cache import cache
 
@@ -30,6 +31,8 @@ logger = logging.getLogger(__name__)
 
 CACHE_KEY = "shopman_rules"
 CACHE_TIMEOUT = 60 * 60  # 1 hour (invalidated on save)
+_boot_lock = threading.Lock()
+_bootstrapped = False
 
 
 def get_active_rules(channel=None, stage=None):
@@ -111,6 +114,23 @@ def register_active_rules():
             logger.info("rules.engine: Registered validator %s", rule.code)
         except TypeError:
             logger.warning("rules.engine: %s does not satisfy Validator protocol", rc.rule_path)
+
+
+def bootstrap_active_rules() -> None:
+    """Register DB-driven validators once, after the DB connection is ready."""
+    global _bootstrapped
+
+    if _bootstrapped:
+        return
+
+    with _boot_lock:
+        if _bootstrapped:
+            return
+        try:
+            register_active_rules()
+            _bootstrapped = True
+        except Exception:
+            logger.debug("rules.engine: deferred bootstrap failed; will retry later.", exc_info=True)
 
 
 def invalidate_rules_cache(sender, **kwargs):

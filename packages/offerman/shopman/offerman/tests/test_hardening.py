@@ -42,7 +42,7 @@ def product_a(db, collection_h21):
         name="Product A",
         base_price_q=1000,
         unit="un",
-        is_available=True,
+        is_sellable=True,
     )
     CollectionItem.objects.create(collection=collection_h21, product=p, is_primary=True)
     return p
@@ -55,7 +55,7 @@ def product_b(db, collection_h21):
         name="Product B",
         base_price_q=2000,
         unit="un",
-        is_available=True,
+        is_sellable=True,
     )
     CollectionItem.objects.create(collection=collection_h21, product=p, is_primary=True)
     return p
@@ -68,7 +68,7 @@ def product_c(db, collection_h21):
         name="Product C",
         base_price_q=500,
         unit="un",
-        is_available=True,
+        is_sellable=True,
     )
     CollectionItem.objects.create(collection=collection_h21, product=p, is_primary=True)
     return p
@@ -81,7 +81,7 @@ def product_zero_price(db, collection_h21):
         name="Free Sample",
         base_price_q=0,
         unit="un",
-        is_available=True,
+        is_sellable=True,
     )
     CollectionItem.objects.create(collection=collection_h21, product=p, is_primary=True)
     return p
@@ -97,9 +97,9 @@ class TestCatalogBackendFractionalPrice:
 
     def test_1001_divided_by_3_rounds_correctly(self):
         """R$10.01 / 3 = 334 centavos (round), not 333 (//)."""
-        from shopman.offerman.adapters.catalog_backend import CatalogBackend
+        from shopman.offerman.adapters.catalog_backend import OffermanCatalogBackend
 
-        backend = CatalogBackend()
+        backend = OffermanCatalogBackend()
 
         with patch("shopman.offerman.adapters.catalog_backend.CatalogService.price", return_value=1001):
             result = backend.get_price("ANY-SKU", qty=Decimal("3"))
@@ -108,9 +108,9 @@ class TestCatalogBackendFractionalPrice:
 
     def test_500_divided_by_3_rounds_correctly(self):
         """R$5.00 / 3 = 167 centavos (round), not 166 (//)."""
-        from shopman.offerman.adapters.catalog_backend import CatalogBackend
+        from shopman.offerman.adapters.catalog_backend import OffermanCatalogBackend
 
-        backend = CatalogBackend()
+        backend = OffermanCatalogBackend()
 
         with patch("shopman.offerman.adapters.catalog_backend.CatalogService.price", return_value=500):
             result = backend.get_price("ANY-SKU", qty=Decimal("3"))
@@ -119,9 +119,9 @@ class TestCatalogBackendFractionalPrice:
 
     def test_qty_zero_returns_total(self):
         """qty=0 returns total_price_q unchanged."""
-        from shopman.offerman.adapters.catalog_backend import CatalogBackend
+        from shopman.offerman.adapters.catalog_backend import OffermanCatalogBackend
 
-        backend = CatalogBackend()
+        backend = OffermanCatalogBackend()
 
         with patch("shopman.offerman.adapters.catalog_backend.CatalogService.price", return_value=999):
             result = backend.get_price("ANY-SKU", qty=Decimal("0"))
@@ -130,9 +130,9 @@ class TestCatalogBackendFractionalPrice:
 
     def test_exact_division(self):
         """R$10.00 / 2 = 500 centavos (exact)."""
-        from shopman.offerman.adapters.catalog_backend import CatalogBackend
+        from shopman.offerman.adapters.catalog_backend import OffermanCatalogBackend
 
-        backend = CatalogBackend()
+        backend = OffermanCatalogBackend()
 
         with patch("shopman.offerman.adapters.catalog_backend.CatalogService.price", return_value=1000):
             result = backend.get_price("ANY-SKU", qty=Decimal("2"))

@@ -27,20 +27,9 @@ pytestmark = [pytest.mark.django_db(transaction=True)]
 
 @pytest.fixture
 def product(db):
-    """Create a test product."""
-    from shopman.offerman.models import Product
-
-    p = Product.objects.create(
-        sku="PAO-ALERT-TEST",
-        name="Pao Alert Test",
-        unit="un",
-        base_price_q=1000,
-        is_available=True,
-        shelf_life_days=None,
-        availability_policy="planned_ok",
-    )
-    p.shelflife = None
-    return p
+    """A plain SKU reference — NoopSkuValidator accepts any SKU."""
+    from types import SimpleNamespace
+    return SimpleNamespace(sku="PAO-ALERT-TEST", name="Pao Alert Test", shelflife=None)
 
 
 @pytest.fixture

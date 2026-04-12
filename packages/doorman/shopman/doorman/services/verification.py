@@ -263,6 +263,8 @@ class AuthService:
             customer = adapter.create_customer_for_phone(target_value)
             created = True
 
+        cls._link_verified_identifier(customer, target_value)
+
         # Mark code verified
         code.mark_verified(customer.uuid)
 
@@ -306,6 +308,34 @@ class AuthService:
             customer=customer,
             created_customer=created,
         )
+
+    @classmethod
+    def _link_verified_identifier(cls, customer: AuthCustomerInfo, target_value: str) -> None:
+        """Best-effort linking of the verified login handle into Guestman's identifier table."""
+        try:
+            from shopman.guestman.contrib.identifiers import IdentifierService, IdentifierType
+            from shopman.guestman.models import ContactPoint, Customer as GuestCustomer
+            from shopman.guestman.services import identity as identity_service
+
+            guest_customer = GuestCustomer.objects.filter(uuid=customer.uuid, is_active=True).first()
+            if not guest_customer:
+                return
+            identity_service.ensure_contact_point(
+                guest_customer,
+                type=ContactPoint.Type.WHATSAPP,
+                value_normalized=target_value,
+                is_primary=True,
+                is_verified=True,
+            )
+            IdentifierService.ensure_identifier(
+                customer_ref=guest_customer.ref,
+                identifier_type=IdentifierType.WHATSAPP,
+                identifier_value=target_value,
+                is_primary=True,
+                source_system="doorman",
+            )
+        except Exception:
+            logger.exception("verify_for_login: failed to link verified identifier")
 
     # ===========================================
     # Helpers

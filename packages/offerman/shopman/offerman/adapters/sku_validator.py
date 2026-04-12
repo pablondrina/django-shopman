@@ -33,19 +33,19 @@ class SkuValidator:
     """
 
     def validate_sku(self, sku: str):
-        """Validate if SKU exists and is active."""
+        """Validate if SKU exists and is published in the base catalog."""
         from shopman.stockman.protocols.sku import SkuValidationResult
         from shopman.offerman.models import Product
 
         try:
             product = Product.objects.get(sku=sku)
-            is_active = product.is_published and product.is_available
+            is_published = product.is_published
             return SkuValidationResult(
                 valid=True,
                 sku=sku,
                 product_name=product.name,
-                is_active=is_active,
-                message=None if is_active else "Product is inactive",
+                is_published=is_published,
+                message=None if is_published else "Product is not published",
             )
         except Product.DoesNotExist:
             return SkuValidationResult(
@@ -71,7 +71,7 @@ class SkuValidator:
                     valid=True,
                     sku=sku,
                     product_name=product.name,
-                    is_active=product.is_published and product.is_available,
+                    is_published=product.is_published,
                 )
             else:
                 result[sku] = SkuValidationResult(
@@ -95,7 +95,7 @@ class SkuValidator:
                 sku=product.sku,
                 name=product.name,
                 description=product.long_description,
-                is_active=product.is_published and product.is_available,
+                is_published=product.is_published,
                 unit=product.unit,
                 category=category,
                 base_price_q=product.base_price_q,
@@ -118,7 +118,7 @@ class SkuValidator:
         ).prefetch_related("collection_items__collection")
 
         if not include_inactive:
-            qs = qs.filter(is_published=True, is_available=True)
+            qs = qs.filter(is_published=True)
 
         qs = qs[:limit]
 
@@ -131,7 +131,7 @@ class SkuValidator:
                     sku=p.sku,
                     name=p.name,
                     description=p.long_description,
-                    is_active=p.is_published and p.is_available,
+                    is_published=p.is_published,
                     unit=p.unit,
                     category=category,
                     base_price_q=p.base_price_q,

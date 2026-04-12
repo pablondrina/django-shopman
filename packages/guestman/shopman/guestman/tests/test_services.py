@@ -9,6 +9,7 @@ from django.utils import timezone
 # Core services
 from shopman.guestman.services import customer as customer_service
 from shopman.guestman.services import address as address_service
+from shopman.guestman.services import identity as identity_service
 
 # Contrib services
 from shopman.guestman.contrib.preferences import PreferenceService
@@ -97,6 +98,48 @@ class TestCustomerService:
         result = customer_service.get_by_email("dup@example.com")
         assert result is not None
         assert result.ref == "DUP-EMAIL-2"
+
+    def test_get_by_phone_prefers_contact_point_source_of_truth(self, db, group_regular):
+        """Phone lookup must work even when the cache field is stale."""
+        from shopman.guestman.models import ContactPoint, Customer
+
+        customer = Customer.objects.create(
+            ref="CONTACT-PHONE-1",
+            first_name="Phone",
+            group=group_regular,
+        )
+        ContactPoint.objects.create(
+            customer=customer,
+            type=ContactPoint.Type.WHATSAPP,
+            value_normalized="+5541991112222",
+            is_primary=True,
+            is_verified=True,
+        )
+
+        result = customer_service.get_by_phone("+5541991112222")
+        assert result is not None
+        assert result.ref == "CONTACT-PHONE-1"
+
+    def test_get_by_email_prefers_contact_point_source_of_truth(self, db, group_regular):
+        """Email lookup must work even when the cache field is stale."""
+        from shopman.guestman.models import ContactPoint, Customer
+
+        customer = Customer.objects.create(
+            ref="CONTACT-EMAIL-1",
+            first_name="Email",
+            group=group_regular,
+        )
+        ContactPoint.objects.create(
+            customer=customer,
+            type=ContactPoint.Type.EMAIL,
+            value_normalized="contact@example.com",
+            is_primary=True,
+            is_verified=True,
+        )
+
+        result = customer_service.get_by_email("contact@example.com")
+        assert result is not None
+        assert result.ref == "CONTACT-EMAIL-1"
 
     def test_search(self, customer, customer_vip):
         """Test search functionality."""
@@ -304,3 +347,44 @@ class TestIdentifierService:
 
         identifiers = IdentifierService.get_identifiers("CUST-001")
         assert len(identifiers) == 2
+
+    def test_ensure_identifier_reuses_existing(self, customer):
+        ident1 = IdentifierService.ensure_identifier(
+            customer_ref="CUST-001",
+            identifier_type=IdentifierType.WHATSAPP,
+            identifier_value="+5511999999999",
+            is_primary=True,
+            source_system="doorman",
+        )
+        ident2 = IdentifierService.ensure_identifier(
+            customer_ref="CUST-001",
+            identifier_type=IdentifierType.WHATSAPP,
+            identifier_value="+55 11 99999-9999",
+            is_primary=True,
+            source_system="doorman",
+        )
+
+        assert ident1.pk == ident2.pk
+        assert CustomerIdentifier.objects.filter(customer=customer).count() == 1
+
+
+class TestIdentityService:
+    """Tests for identity service."""
+
+    def test_ensure_external_identity_reuses_existing(self, customer):
+        identity = identity_service.ensure_external_identity(
+            customer,
+            provider="manychat",
+            external_id="mc-123",
+            metadata={"flow": "welcome"},
+        )
+
+        reused = identity_service.ensure_external_identity(
+            customer,
+            provider="manychat",
+            external_id="mc-123",
+            metadata={"flow": "welcome"},
+        )
+
+        assert reused.id == identity.id
+        assert customer.external_identities.count() == 1

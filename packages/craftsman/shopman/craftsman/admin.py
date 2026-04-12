@@ -42,35 +42,37 @@ if not apps.is_installed("shopman.craftsman.contrib.admin_unfold"):
 
     @admin.register(WorkOrder)
     class WorkOrderAdmin(admin.ModelAdmin):
-        list_display = ("ref", "recipe", "output_ref", "quantity", "produced", "status", "scheduled_date", "source_ref")
+        list_display = ("ref", "recipe", "output_ref", "quantity", "finished", "status", "scheduled_date", "source_ref")
         list_filter = ("status", "scheduled_date")
         search_fields = ("ref", "output_ref", "source_ref")
         readonly_fields = ("ref", "rev", "created_at", "updated_at", "started_at", "finished_at")
         inlines = [WorkOrderItemInline, WorkOrderEventInline]
-        actions = ["close_work_orders", "void_work_orders"]
+        actions = ["finish_work_orders", "void_work_orders"]
 
-        @admin.action(description="Concluir WOs selecionadas (produção = quantidade planejada)")
-        def close_work_orders(self, request, queryset):
+        @admin.action(description="Finalizar WOs selecionadas (resultado = quantidade planejada)")
+        def finish_work_orders(self, request, queryset):
             from shopman.craftsman import craft
 
-            closed = 0
+            finished = 0
             errors = 0
-            for wo in queryset.filter(status="open"):
+            for wo in queryset.filter(status__in=[WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED]):
                 try:
-                    craft.close(wo, produced=wo.quantity, actor=request.user.username)
-                    closed += 1
+                    if wo.status == WorkOrder.Status.PLANNED:
+                        craft.start(wo, quantity=wo.quantity, actor=request.user.username)
+                    craft.finish(wo, finished=wo.started_qty or wo.quantity, actor=request.user.username)
+                    finished += 1
                 except Exception as exc:
-                    self.message_user(request, f"Erro ao fechar {wo.ref}: {exc}", level="error")
+                    self.message_user(request, f"Erro ao finalizar {wo.ref}: {exc}", level="error")
                     errors += 1
-            if closed:
-                self.message_user(request, f"{closed} WO(s) encerrada(s).")
+            if finished:
+                self.message_user(request, f"{finished} WO(s) finalizada(s).")
 
         @admin.action(description="Cancelar WOs selecionadas")
         def void_work_orders(self, request, queryset):
             from shopman.craftsman import craft
 
             voided = 0
-            for wo in queryset.filter(status="open"):
+            for wo in queryset.filter(status__in=[WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED]):
                 try:
                     craft.void(wo, reason="Anulado via admin", actor=request.user.username)
                     voided += 1

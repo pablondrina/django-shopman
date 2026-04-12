@@ -9,9 +9,7 @@ without the required package installed.
 from shopman.craftsman.adapters.stocking import StockingBackend, get_stock_backend
 from shopman.craftsman.adapters.offering import (
     get_catalog_backend,
-    get_product_info_backend,
     reset_catalog_backend,
-    reset_product_info_backend,
 )
 
 __all__ = [
@@ -20,7 +18,5 @@ __all__ = [
     "get_stock_backend",
     # Offerman/Catalog adapters
     "get_catalog_backend",
-    "get_product_info_backend",
     "reset_catalog_backend",
-    "reset_product_info_backend",
 ]

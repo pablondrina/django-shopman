@@ -117,7 +117,7 @@ class CraftingProductionBackend:
             return ProductionResult(
                 success=True,
                 work_order_id=str(wo.pk),
-                status=ProductionStatusEnum.SCHEDULED,
+                status=ProductionStatusEnum.PLANNED,
                 request_id=f"production:{wo.pk}",
             )
 
@@ -143,16 +143,17 @@ class CraftingProductionBackend:
                     return None
 
             status_map = {
-                WorkOrder.Status.OPEN: ProductionStatusEnum.SCHEDULED,
-                WorkOrder.Status.DONE: ProductionStatusEnum.COMPLETED,
-                WorkOrder.Status.VOID: ProductionStatusEnum.CANCELLED,
+                WorkOrder.Status.PLANNED: ProductionStatusEnum.PLANNED,
+                WorkOrder.Status.STARTED: ProductionStatusEnum.STARTED,
+                WorkOrder.Status.FINISHED: ProductionStatusEnum.FINISHED,
+                WorkOrder.Status.VOID: ProductionStatusEnum.VOIDED,
             }
 
             return ProductionStatus(
                 request_id=f"production:{wo.pk}",
                 sku=wo.output_ref,
                 quantity=wo.quantity,
-                status=status_map.get(wo.status, ProductionStatusEnum.REQUESTED),
+                status=status_map[wo.status],
                 target_date=wo.scheduled_date,
                 estimated_completion=None,
                 work_order_id=str(wo.pk),
@@ -186,7 +187,7 @@ class CraftingProductionBackend:
             return ProductionResult(
                 success=True,
                 request_id=request_id,
-                status=ProductionStatusEnum.CANCELLED,
+                status=ProductionStatusEnum.VOIDED,
                 work_order_id=str(wo.pk),
             )
         except WorkOrder.DoesNotExist:
@@ -211,7 +212,7 @@ class CraftingProductionBackend:
         from shopman.stockman.protocols.production import ProductionStatus, ProductionStatusEnum
 
         qs = WorkOrder.objects.filter(
-            status=WorkOrder.Status.OPEN,
+            status__in=[WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED],
             source_ref__startswith="stocking:",
         )
 
@@ -228,7 +229,7 @@ class CraftingProductionBackend:
                     request_id=f"production:{wo.pk}",
                     sku=wo.output_ref,
                     quantity=wo.quantity,
-                    status=ProductionStatusEnum.SCHEDULED,
+                    status=ProductionStatusEnum.PLANNED if wo.status == WorkOrder.Status.PLANNED else ProductionStatusEnum.STARTED,
                     target_date=wo.scheduled_date,
                     estimated_completion=None,
                     work_order_id=str(wo.pk),

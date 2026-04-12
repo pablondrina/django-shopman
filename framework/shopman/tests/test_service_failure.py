@@ -190,7 +190,7 @@ class StockCheckDegradationTests(TestCase):
 
         avail_ok = {"breakdown": {"ready": Decimal("10"), "in_production": Decimal("0"), "d1": Decimal("0")}}
 
-        def _avail(sku):
+        def _avail(sku, **kwargs):
             return avail_ok if sku == "SKU-A" else None
 
         with patch("shopman.web.views.checkout._get_availability", side_effect=_avail):

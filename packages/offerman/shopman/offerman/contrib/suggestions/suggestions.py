@@ -74,7 +74,7 @@ def find_alternatives(
     qs = (
         Product.objects.filter(
             is_published=True,
-            is_available=True,
+            is_sellable=True,
             keywords__name__in=product_keywords,
         )
         .exclude(sku=sku)
@@ -106,7 +106,7 @@ def find_similar(
     qs = (
         Product.objects.filter(
             is_published=True,
-            is_available=True,
+            is_sellable=True,
         )
         .exclude(sku=sku)
     )

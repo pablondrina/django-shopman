@@ -36,7 +36,7 @@ def _setup_product():
             "name": "Test Product",
             "base_price_q": 1000,
             "is_published": True,
-            "is_available": True,
+            "is_sellable": True,
         },
     )[0]
 

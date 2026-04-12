@@ -219,33 +219,33 @@ class TestAPIExceptionHandling:
         )
         return recipe
 
-    def test_close_stale_rev_returns_409(self, recipe_with_items):
-        """StaleRevision on close returns 409 Conflict."""
+    def test_finish_stale_rev_returns_409(self, recipe_with_items):
+        """StaleRevision on finish returns 409 Conflict."""
         wo = craft.plan(recipe_with_items, 100)
         craft.adjust(wo, quantity=97)  # bumps rev to 1
 
         try:
             # This should raise StaleRevision because expected_rev=0 but actual is 1
-            craft.close(wo, produced=93, expected_rev=0)
+            craft.finish(wo, finished=93, expected_rev=0)
             assert False, "Should have raised StaleRevision"
         except StaleRevision as e:
             assert e.code == "STALE_REVISION"
 
-    def test_close_terminal_returns_400(self, recipe):
+    def test_finish_terminal_returns_400(self, recipe):
         """CraftError on terminal status returns error with code."""
         wo = craft.plan(recipe, 100)
-        craft.close(wo, produced=93, expected_rev=0)
+        craft.finish(wo, finished=93, expected_rev=0)
 
         try:
-            craft.close(wo, produced=50, expected_rev=1)
+            craft.finish(wo, finished=50, expected_rev=1)
             assert False, "Should have raised CraftError"
         except CraftError as e:
             assert e.code == "TERMINAL_STATUS"
 
-    def test_void_from_done_returns_specific_code(self, recipe):
-        """Voiding a done order returns VOID_FROM_DONE code."""
+    def test_void_from_finished_returns_specific_code(self, recipe):
+        """Voiding a finished order returns VOID_FROM_DONE code."""
         wo = craft.plan(recipe, 100)
-        craft.close(wo, produced=93, expected_rev=0)
+        craft.finish(wo, finished=93, expected_rev=0)
 
         try:
             craft.void(wo, reason="test", expected_rev=1)

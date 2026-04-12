@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from shopman.offerman.models import Product
 from shopman.stockman.models import Hold, HoldStatus, Move, Position, PositionKind, Quant, StockAlert
 from shopman.stockman.services.movements import StockMovements
 
@@ -18,7 +18,10 @@ BASE_URL = "/api/stockman"
 
 
 class StockmanAPITestBase(TestCase):
-    """Base class with common setup for all Stockman API tests."""
+    """Base class with common setup for all Stockman API tests.
+
+    Uses plain SKU strings with NoopSkuValidator — no dependency on offerman.
+    """
 
     def setUp(self) -> None:
         self.user = User.objects.create_user(username="testuser", password="testpass123")
@@ -42,27 +45,9 @@ class StockmanAPITestBase(TestCase):
             },
         )
 
-        self.product = Product.objects.create(
-            sku="PAO-FORMA",
-            name="Pão de Forma",
-            unit="un",
-            base_price_q=1000,
-            is_available=True,
-            shelf_life_days=None,
-            availability_policy="planned_ok",
-        )
-        self.product.shelflife = None
-
-        self.croissant = Product.objects.create(
-            sku="CROISSANT",
-            name="Croissant",
-            unit="un",
-            base_price_q=800,
-            is_available=True,
-            shelf_life_days=0,
-            availability_policy="planned_ok",
-        )
-        self.croissant.shelflife = 0
+        # Plain SKU references — NoopSkuValidator accepts any SKU as valid
+        self.product = SimpleNamespace(sku="PAO-FORMA", name="Pão de Forma", shelflife=None)
+        self.croissant = SimpleNamespace(sku="CROISSANT", name="Croissant", shelflife=0)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -112,8 +97,11 @@ class AvailabilityTests(StockmanAPITestBase):
         assert resp.status_code == 400
 
     def test_availability_unknown_sku(self):
+        # NoopSkuValidator aceita qualquer SKU como válido — retorna 200 com estoque zero
         resp = self.client.get(f"{BASE_URL}/availability/", {"sku": "INEXISTENTE"})
-        assert resp.status_code == 404
+        assert resp.status_code == 200
+        data = resp.json()
+        assert Decimal(data["total_available"]) == Decimal("0.000")
 
     def test_availability_no_stock_returns_zero(self):
         resp = self.client.get(f"{BASE_URL}/availability/", {"sku": "PAO-FORMA"})
@@ -322,10 +310,11 @@ class ReceiveTests(StockmanAPITestBase):
         assert Move.objects.count() == 2
 
     def test_receive_unknown_sku(self):
+        # NoopSkuValidator aceita qualquer SKU como válido — receive retorna 201
         resp = self.client.post(f"{BASE_URL}/receive/", {
             "sku": "INEXISTENTE", "qty": "10.000", "position_ref": "vitrine", "reference": "PO-001",
         }, format="json")
-        assert resp.status_code == 404
+        assert resp.status_code == 201
 
     def test_receive_unknown_position(self):
         resp = self.client.post(f"{BASE_URL}/receive/", {

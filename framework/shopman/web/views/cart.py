@@ -41,7 +41,7 @@ class AddToCartView(View):
         if not product:
             return HttpResponse("", status=404)
 
-        if not product.is_available:
+        if not product.is_sellable:
             response = render(request, "storefront/partials/stock_error_modal.html", {
                 "title": "Produto indisponível",
                 "message": f"{product.name} não está disponível no momento. Confira outras opções no cardápio.",
@@ -78,8 +78,6 @@ def _stock_error_response(request: HttpRequest, product, exc: "CartUnavailableEr
     """Render the stock-error modal with available qty + alternatives."""
     if exc.error_code == "below_min_qty":
         message = f"Quantidade mínima: {exc.available_qty} unidades para {product.name}."
-    elif exc.is_paused:
-        message = f"{product.name} não está disponível no momento."
     elif exc.available_qty == 0:
         message = f"{product.name} está esgotado no momento."
     else:
@@ -87,6 +85,8 @@ def _stock_error_response(request: HttpRequest, product, exc: "CartUnavailableEr
             f"Restam apenas {exc.available_qty} de {product.name}. "
             f"Você pediu {exc.requested_qty}."
         )
+        if exc.error_code in {"paused", "not_in_listing"}:
+            message = f"{product.name} não está disponível no momento."
     response = render(request, "storefront/partials/stock_error_modal.html", {
         "title": "Estoque insuficiente",
         "message": message,
@@ -132,7 +132,7 @@ class QuickAddView(View):
         product = Product.objects.filter(sku=sku, is_published=True).first()
         if not product:
             return HttpResponse("", status=404)
-        if not product.is_available:
+        if not product.is_sellable:
             return HttpResponse("", status=409)
 
         price_q = _get_price_q(product)

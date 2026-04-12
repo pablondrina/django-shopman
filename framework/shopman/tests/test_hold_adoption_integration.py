@@ -53,7 +53,7 @@ def _setup_world(stock_qty: int = 100) -> Product:
         name="Test Product",
         base_price_q=1000,
         is_published=True,
-        is_available=True,
+        is_sellable=True,
     )
     pos, _ = Position.objects.get_or_create(
         ref="vitrine",

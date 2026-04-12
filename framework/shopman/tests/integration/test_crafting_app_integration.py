@@ -2,8 +2,8 @@
 Integration tests for WP-B4: Crafting ↔ App.
 
 Tests the full integration loop:
-- CraftService.close() → InventoryProtocol.consume() → ingredients issued from stock
-- CraftService.close() → InventoryProtocol.receive() → finished goods received in stock
+- CraftService.finish() → InventoryProtocol.consume() → ingredients issued from stock
+- CraftService.finish() → InventoryProtocol.receive() → finished goods received in stock
 - CraftService.suggest() via management command
 - production_changed signal → planned quants → hold materialization
 """
@@ -27,19 +27,19 @@ pytestmark = pytest.mark.django_db
 CRAFTING_WITH_BACKENDS = {
     "INVENTORY_BACKEND": "shopman.craftsman.adapters.stocking.StockingBackend",
     "DEMAND_BACKEND": "shopman.craftsman.contrib.demand.backend.OrderingDemandBackend",
-    "CATALOG_BACKEND": "shopman.offerman.adapters.catalog_backend.CatalogBackend",
+    "CATALOG_BACKEND": "shopman.offerman.adapters.catalog_backend.OffermanCatalogBackend",
 }
 
 
 # =============================================================================
-# CraftService.close() → Inventory Protocol
+# CraftService.finish() → Inventory Protocol
 # =============================================================================
 
 
-class TestCloseWorkOrderInventoryIntegration:
-    """CraftService.close() should interact with stock via InventoryProtocol."""
+class TestFinishWorkOrderInventoryIntegration:
+    """CraftService.finish() should interact with stock via InventoryProtocol."""
 
-    def test_close_work_order_issues_ingredients(
+    def test_finish_work_order_issues_ingredients(
         self, settings, recipe, ingredient, croissant,
         position_producao, position_loja, today,
     ):
@@ -59,24 +59,24 @@ class TestCloseWorkOrderInventoryIntegration:
         )
         assert initial_ingredient == Decimal("10")
 
-        # Plan and close work order via CraftService
+        # Plan and finish work order via CraftService
         wo = craft.plan(recipe, quantity=Decimal("20"), date=today)
-        craft.close(wo, produced=18, actor="test")
+        craft.finish(wo, finished=18, actor="test")
 
         # The InventoryProtocol.consume + receive should have been called
-        assert wo.status == WorkOrder.Status.DONE
-        assert wo.produced == Decimal("18")
+        assert wo.status == WorkOrder.Status.FINISHED
+        assert wo.finished == Decimal("18")
 
-    def test_close_work_order_receives_finished_product(
+    def test_finish_work_order_receives_finished_product(
         self, settings, recipe, croissant, position_loja, today,
     ):
         settings.CRAFTING = CRAFTING_WITH_BACKENDS
 
         wo = craft.plan(recipe, quantity=Decimal("10"), date=today)
-        craft.close(wo, produced=9, actor="test")
+        craft.finish(wo, finished=9, actor="test")
 
-        assert wo.status == WorkOrder.Status.DONE
-        assert wo.produced == Decimal("9")
+        assert wo.status == WorkOrder.Status.FINISHED
+        assert wo.finished == Decimal("9")
 
 
 # =============================================================================
@@ -214,10 +214,10 @@ class TestPlannedHoldMaterializationFlow:
         available_after = stock.available(croissant, target_date=tomorrow)
         assert available_after == Decimal("95")
 
-    def test_production_closed_via_craft_service(
+    def test_production_finished_via_craft_service(
         self, recipe, croissant, position_loja, today,
     ):
-        """Closing a work order creates stock through the signal chain."""
+        """Finishing a work order creates stock through the signal chain."""
         import shopman.craftsman.contrib.stockman.handlers  # noqa: F401
 
         wo = craft.plan(recipe, quantity=Decimal("50"), date=today)
@@ -226,7 +226,7 @@ class TestPlannedHoldMaterializationFlow:
         planned = Quant.objects.filter(sku=croissant.sku, target_date=today).first()
         assert planned is not None
 
-        # Close work order (triggers production_changed with action=closed)
-        craft.close(wo, produced=48, actor="test")
+        # Finish work order (triggers production_changed with action=finished)
+        craft.finish(wo, finished=48, actor="test")
 
-        assert wo.status == WorkOrder.Status.DONE
+        assert wo.status == WorkOrder.Status.FINISHED

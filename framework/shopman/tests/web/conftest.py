@@ -60,7 +60,7 @@ def product(db):
         name="Pão Francês",
         base_price_q=80,
         is_published=True,
-        is_available=True,
+        is_sellable=True,
     )
 
 
@@ -71,7 +71,7 @@ def product_unavailable(db):
         name="Bolo Especial",
         base_price_q=5000,
         is_published=True,
-        is_available=False,
+        is_sellable=False,
     )
 
 
@@ -82,7 +82,7 @@ def product_unpublished(db):
         name="Rascunho",
         base_price_q=100,
         is_published=False,
-        is_available=True,
+        is_sellable=True,
     )
 
 
@@ -93,7 +93,7 @@ def croissant(db):
         name="Croissant",
         base_price_q=800,
         is_published=True,
-        is_available=True,
+        is_sellable=True,
     )
 
 
@@ -114,7 +114,7 @@ def listing(db):
 @pytest.fixture
 def listing_item(listing, product):
     return ListingItem.objects.create(
-        listing=listing, product=product, price_q=90, is_published=True, is_available=True,
+        listing=listing, product=product, price_q=90, is_published=True, is_sellable=True,
     )
 
 
@@ -264,7 +264,7 @@ def _ensure_listing_item(channel: Channel, product: Product, price_q: int) -> No
     ListingItem.objects.get_or_create(
         listing=listing_obj,
         product=product,
-        defaults={"price_q": price_q, "is_published": True, "is_available": True},
+        defaults={"price_q": price_q, "is_published": True, "is_sellable": True},
     )
 
 

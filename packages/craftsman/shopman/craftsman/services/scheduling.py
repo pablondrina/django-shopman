@@ -107,7 +107,7 @@ class CraftPlanning:
         transaction.atomic().
 
         The BOM snapshot freezes recipe items at plan time so that
-        close() uses the recipe as-it-was, not as-it-is-now.
+        finish() uses the recipe as-it-was, not as-it-is-now.
         """
         from shopman.craftsman.models import WorkOrder, WorkOrderEvent
 
@@ -131,7 +131,7 @@ class CraftPlanning:
             recipe=recipe,
             output_ref=recipe.output_ref,
             quantity=quantity,
-            status=WorkOrder.Status.OPEN,
+            status=WorkOrder.Status.PLANNED,
             scheduled_date=date,
             **wo_kwargs,
         )
@@ -181,7 +181,7 @@ class CraftPlanning:
     @classmethod
     def adjust(cls, order, quantity, reason=None, expected_rev=None, actor=None, force=False):
         """
-        Adjust target quantity of an open WorkOrder.
+        Adjust target quantity of a planned WorkOrder.
 
         N adjustments possible, each generates an event.
         expected_rev is optional (last-write-wins if omitted).
@@ -209,8 +209,8 @@ class CraftPlanning:
             old_quantity = order.quantity
 
             # Status check (inside transaction, fresh from DB)
-            if order.status != WorkOrder.Status.OPEN:
-                raise CraftError("TERMINAL_STATUS", status=order.status)
+            if order.status != WorkOrder.Status.PLANNED:
+                raise CraftError("INVALID_STATUS", current=order.status, expected=WorkOrder.Status.PLANNED)
 
             _check_rev(order, expected_rev)
 
@@ -224,10 +224,7 @@ class CraftPlanning:
             _validate_downstream_deficit(order, quantity, force=force)
 
             order.quantity = quantity
-            if order.started_at is None:
-                order.started_at = timezone.now()
-
-            update_fields = ["quantity", "started_at", "updated_at"]
+            update_fields = ["quantity", "updated_at"]
             order.save(update_fields=update_fields)
             order.refresh_from_db(fields=["rev"])
 
@@ -254,6 +251,73 @@ class CraftPlanning:
         )
 
         logger.info("WorkOrder %s adjusted: %s -> %s", order.ref, old_quantity, quantity)
+        return order
+
+    @classmethod
+    def start(
+        cls,
+        order,
+        quantity,
+        *,
+        expected_rev=None,
+        actor=None,
+        assigned_ref=None,
+        position_ref=None,
+        note=None,
+    ):
+        """
+        Mark a WorkOrder as started with the quantity that entered production.
+        """
+        from shopman.craftsman.models import WorkOrder, WorkOrderEvent
+        from shopman.craftsman.signals import production_changed
+
+        quantity = Decimal(str(quantity))
+        if quantity <= 0:
+            raise CraftError("INVALID_QUANTITY", quantity=float(quantity))
+
+        with transaction.atomic():
+            WorkOrder.objects.select_for_update().get(pk=order.pk)
+            order.refresh_from_db()
+
+            if order.status != WorkOrder.Status.PLANNED:
+                raise CraftError("INVALID_STATUS", current=order.status, expected=WorkOrder.Status.PLANNED)
+
+            _check_rev(order, expected_rev)
+
+            now = timezone.now()
+            if order.started_at is None:
+                order.started_at = now
+            order.status = WorkOrder.Status.STARTED
+            if assigned_ref is not None:
+                order.assigned_ref = assigned_ref
+            if position_ref is not None:
+                order.position_ref = position_ref
+
+            order.save(update_fields=["started_at", "status", "assigned_ref", "position_ref", "updated_at"])
+
+            next_seq = _next_seq(order)
+            WorkOrderEvent.objects.create(
+                work_order=order,
+                seq=next_seq,
+                kind=WorkOrderEvent.Kind.STARTED,
+                payload={
+                    "quantity": str(quantity),
+                    "assigned_ref": order.assigned_ref,
+                    "position_ref": order.position_ref,
+                    "note": note or "",
+                },
+                actor=actor or "",
+            )
+
+        production_changed.send(
+            sender=WorkOrder,
+            product_ref=order.output_ref,
+            date=order.scheduled_date,
+            action="started",
+            work_order=order,
+        )
+
+        logger.info("WorkOrder %s started", order.ref)
         return order
 
 
@@ -302,7 +366,7 @@ def _validate_shared_ingredients(order, new_quantity: Decimal) -> None:
     """
     V2: Raise CraftError("INSUFFICIENT_MATERIALS") if shared ingredients are insufficient.
 
-    Checks total ingredient consumption across ALL open WOs on the same date
+    Checks total ingredient consumption across all active WOs on the same date
     against what's available. Graceful: skipped if INVENTORY_BACKEND is not configured.
     """
     try:
@@ -330,7 +394,7 @@ def _validate_shared_ingredients(order, new_quantity: Decimal) -> None:
         # Other WOs on same date
         other_wos = (
             WorkOrder.objects.filter(
-                status=WorkOrder.Status.OPEN,
+                status__in=[WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED],
                 scheduled_date=order.scheduled_date,
             )
             .exclude(pk=order.pk)
@@ -382,7 +446,7 @@ def _validate_shared_ingredients(order, new_quantity: Decimal) -> None:
 def _validate_downstream_deficit(order, new_quantity: Decimal, *, force: bool) -> None:
     """
     V3 (downstream): If this WO's output_ref is used as input_ref by other active
-    recipes, check if reducing will create ingredient shortage for other open WOs.
+    recipes, check if reducing will create ingredient shortage for other active WOs.
 
     force=False → raise CraftError("DOWNSTREAM_DEFICIT") if deficit found.
     force=True  → log warning and proceed.
@@ -417,7 +481,7 @@ def _validate_downstream_deficit(order, new_quantity: Decimal, *, force: bool) -
         deficit_items = []
         downstream_wos = (
             WorkOrder.objects.filter(
-                status=WorkOrder.Status.OPEN,
+                status__in=[WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED],
                 scheduled_date=order.scheduled_date,
                 recipe__in=downstream_recipes,
             )

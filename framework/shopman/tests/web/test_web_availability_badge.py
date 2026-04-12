@@ -41,7 +41,7 @@ def product(db):
         name="Pão Artesanal",
         base_price_q=150,
         is_published=True,
-        is_available=True,
+        is_sellable=True,
     )
 
 
@@ -53,7 +53,7 @@ def product_in_listing(product, db):
         product=product,
         price_q=150,
         is_published=True,
-        is_available=False,  # sold-out in listing so badge shows
+        is_sellable=False,  # strategically unavailable in listing
     )
     return product
 
@@ -65,7 +65,7 @@ def product_unavailable(db):
         name="Bolo Indisponível",
         base_price_q=500,
         is_published=True,
-        is_available=False,
+        is_sellable=False,
     )
 
 

@@ -55,7 +55,7 @@ class CartAddItemView(APIView):
         qty = serializer.validated_data["qty"]
 
         try:
-            product = Product.objects.get(sku=sku, is_published=True, is_available=True)
+            product = Product.objects.get(sku=sku, is_published=True, is_sellable=True)
         except Product.DoesNotExist:
             return Response(
                 {"detail": "Product not found or unavailable."},

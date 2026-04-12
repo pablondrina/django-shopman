@@ -43,14 +43,17 @@ from shopman.orderman.services import CommitService
 # ── Test infrastructure ───────────────────────────────────────────────
 
 _AVAIL_OK = {
-    "ok": True,
+    "approved": True,
+    "sku": "CROIS-01",
+    "requested_qty": Decimal("1"),
     "available_qty": Decimal("999"),
+    "reason_code": None,
     "is_paused": False,
     "is_planned": False,
-    "breakdown": {},
-    "error_code": None,
-    "is_bundle": False,
+    "target_date": None,
     "failed_sku": None,
+    "source": "stock.untracked",
+    "untracked": True,
 }
 
 _PATCHES = [
@@ -70,12 +73,12 @@ _PATCHES = [
     "shopman.services.fiscal.cancel",
     "shopman.services.kds.dispatch",
     "shopman.services.kds.cancel_tickets",
-    "shopman.services.availability.check",
+    "shopman.services.availability.decide",
     "shopman.services.fulfillment.create",
 ]
 
 _DEFAULT_RETURN = {
-    "shopman.services.availability.check": _AVAIL_OK,
+    "shopman.services.availability.decide": _AVAIL_OK,
     "shopman.services.payment.get_payment_status": None,
 }
 
@@ -246,7 +249,7 @@ class TestC04MarketplaceExternal(TestCase):
     def test_availability_check_runs_for_marketplace(self):
         session = _session(self.channel)
         _commit(session, self.channel)
-        self.mocks["check"].assert_called()
+        self.mocks["decide"].assert_called()
 
 
 # ── C-05: Immediate confirmation ─────────────────────────────────────
@@ -466,10 +469,10 @@ class TestC11StockUnavailableAtCommit(TestCase):
         })
 
     def test_order_cancelled_when_sku_unavailable(self):
-        avail_fail = dict(_AVAIL_OK, ok=False, error_code="out_of_stock")
+        avail_fail = dict(_AVAIL_OK, approved=False, reason_code="out_of_stock")
 
         patchers, mocks = _start_patches(overrides={
-            "shopman.services.availability.check": avail_fail,
+            "shopman.services.availability.decide": avail_fail,
         })
         try:
             session = _session(self.channel)
@@ -511,7 +514,7 @@ class TestC12PartialQtyHold(TestCase):
         mock_adapter.release_holds.return_value = None
         mock_adapter.retag_hold_reference.return_value = None
 
-        def _create_hold(sku, qty, reference):
+        def _create_hold(sku, qty, reference=None, **kwargs):
             if sku == "RARE-SKU":
                 return {"success": False, "hold_id": None, "error_code": "out_of_stock"}
             return {"success": True, "hold_id": f"H-{sku}"}
@@ -575,7 +578,7 @@ class TestC13BundleHoldExpansion(TestCase):
         mock_adapter.retag_hold_reference.return_value = None
         held = {}
 
-        def _create_hold(sku, qty, reference):
+        def _create_hold(sku, qty, reference=None, **kwargs):
             held[sku] = float(qty)
             return {"success": True, "hold_id": f"H-{sku}"}
 

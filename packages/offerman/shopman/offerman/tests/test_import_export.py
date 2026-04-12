@@ -35,14 +35,14 @@ class TestProductResource:
         dataset = resource.export()
         expected_headers = {
             "sku", "name", "base_price_q", "unit",
-            "availability_policy", "is_published", "is_available", "shelf_life_days",
+            "availability_policy", "is_published", "is_sellable", "shelf_life_days",
         }
         assert set(dataset.headers) == expected_headers
 
     def test_import_new_product(self, db, csv_format):
         """Import a new product via CSV."""
         csv_data = (
-            "sku,name,base_price_q,unit,availability_policy,is_published,is_available,shelf_life_days\r\n"
+            "sku,name,base_price_q,unit,availability_policy,is_published,is_sellable,shelf_life_days\r\n"
             "PAIN-CHOC,Pain au Chocolat,1250,un,planned_ok,1,1,24\r\n"
         )
         resource = ProductResource()
@@ -59,7 +59,7 @@ class TestProductResource:
     def test_import_update_existing(self, db, product, csv_format):
         """Import updates existing product by SKU."""
         csv_data = (
-            "sku,name,base_price_q,unit,availability_policy,is_published,is_available,shelf_life_days\r\n"
+            "sku,name,base_price_q,unit,availability_policy,is_published,is_sellable,shelf_life_days\r\n"
             f"{product.sku},Baguete Premium,750,un,planned_ok,1,1,\r\n"
         )
         resource = ProductResource()
@@ -74,7 +74,7 @@ class TestProductResource:
     def test_import_dry_run(self, db, csv_format):
         """Dry run does not persist changes."""
         csv_data = (
-            "sku,name,base_price_q,unit,availability_policy,is_published,is_available,shelf_life_days\r\n"
+            "sku,name,base_price_q,unit,availability_policy,is_published,is_sellable,shelf_life_days\r\n"
             "DRY-RUN,Test Dry Run,100,un,stock_only,1,1,\r\n"
         )
         resource = ProductResource()
@@ -117,14 +117,14 @@ class TestListingItemResource:
         dataset = resource.export()
         expected_headers = {
             "listing__ref", "product__sku", "price_q",
-            "min_qty", "is_published", "is_available",
+            "min_qty", "is_published", "is_sellable",
         }
         assert set(dataset.headers) == expected_headers
 
     def test_import_new_listing_item(self, db, listing, croissant, csv_format):
         """Import a new listing item via CSV."""
         csv_data = (
-            "listing__ref,product__sku,price_q,min_qty,is_published,is_available\r\n"
+            "listing__ref,product__sku,price_q,min_qty,is_published,is_sellable\r\n"
             f"{listing.ref},{croissant.sku},1000,1.000,1,1\r\n"
         )
         resource = ListingItemResource()
@@ -140,7 +140,7 @@ class TestListingItemResource:
         old_price = listing_item.price_q
         new_price = old_price + 200
         csv_data = (
-            "listing__ref,product__sku,price_q,min_qty,is_published,is_available\r\n"
+            "listing__ref,product__sku,price_q,min_qty,is_published,is_sellable\r\n"
             f"{listing_item.listing.ref},{listing_item.product.sku},{new_price},"
             f"{listing_item.min_qty},1,1\r\n"
         )

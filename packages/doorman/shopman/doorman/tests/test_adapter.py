@@ -16,6 +16,7 @@ from unittest.mock import patch
 import pytest
 from django.test import override_settings
 
+from shopman.guestman.models import ContactPoint, Customer
 from shopman.doorman.adapter import DefaultAuthAdapter
 from shopman.doorman.conf import get_adapter, reset_adapter
 from shopman.doorman.protocols.customer import AuthCustomerInfo
@@ -67,6 +68,42 @@ def test_default_adapter_create_customer():
 
     assert info is not None
     assert info.phone == "+5541777777777"
+
+
+@pytest.mark.django_db
+def test_default_adapter_create_customer_creates_whatsapp_contact_point():
+    adapter = DefaultAuthAdapter()
+    info = adapter.create_customer_for_phone("+5541777777777")
+
+    customer = Customer.objects.get(uuid=info.uuid)
+    assert ContactPoint.objects.filter(
+        customer=customer,
+        type=ContactPoint.Type.WHATSAPP,
+        value_normalized="+5541777777777",
+        is_primary=True,
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_default_adapter_resolve_phone_via_contact_point():
+    customer = Customer.objects.create(
+        ref="AUTH-CONTACT-1",
+        first_name="Phone",
+    )
+    ContactPoint.objects.create(
+        customer=customer,
+        type=ContactPoint.Type.WHATSAPP,
+        value_normalized="+554188887777",
+        is_primary=True,
+        is_verified=True,
+    )
+
+    adapter = DefaultAuthAdapter()
+    info = adapter.resolve_customer_by_phone("+554188887777")
+
+    assert info is not None
+    assert info.uuid == customer.uuid
+    assert info.phone == "+554188887777"
 
 
 def test_default_adapter_send_code():

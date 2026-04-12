@@ -732,7 +732,7 @@ class OrderSaveIntegrityTests(TestCase):
 
         order_changed.connect(handler)
         try:
-            self.order.total_q = 9999
+            self.order.external_ref = "test-dirty-save"
             self.order.save()
 
             self.assertEqual(OrderEvent.objects.filter(order=self.order).count(), 0)

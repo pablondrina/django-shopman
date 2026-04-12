@@ -284,6 +284,7 @@ def retag_hold_reference(hold_id: str, new_reference: str) -> bool:
 def get_availability(
     sku: str,
     *,
+    target_date: date | None = None,
     safety_margin: int = 0,
     allowed_positions: list[str] | None = None,
 ) -> dict:
@@ -297,6 +298,7 @@ def get_availability(
 
     return availability_for_sku(
         sku,
+        target_date=target_date,
         safety_margin=safety_margin,
         allowed_positions=allowed_positions,
     )
@@ -310,3 +312,23 @@ def get_channel_scope(channel_ref: str | None) -> dict:
     from shopman.stockman.services.availability import availability_scope_for_channel
 
     return availability_scope_for_channel(channel_ref)
+
+
+def get_promise_decision(
+    sku: str,
+    qty,
+    *,
+    target_date: date | None = None,
+    safety_margin: int = 0,
+    allowed_positions: list[str] | None = None,
+):
+    """Return Stockman's explicit operational promise decision for a SKU."""
+    from shopman.stockman.services.availability import promise_decision_for_sku
+
+    return promise_decision_for_sku(
+        sku,
+        qty,
+        target_date=target_date,
+        safety_margin=safety_margin,
+        allowed_positions=allowed_positions,
+    )

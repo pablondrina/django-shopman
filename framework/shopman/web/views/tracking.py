@@ -270,7 +270,7 @@ class ReorderView(View):
         skipped: list[str] = []
         for item in order.items.all():
             product = Product.objects.filter(sku=item.sku, is_published=True).first()
-            if product and product.is_available:
+            if product and product.is_sellable:
                 price_q = _get_price_q(product)
                 if price_q is None:
                     price_q = 0

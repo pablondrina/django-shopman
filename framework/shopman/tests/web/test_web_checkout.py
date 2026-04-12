@@ -2,10 +2,25 @@
 
 from __future__ import annotations
 
+from datetime import date, timedelta
+from unittest.mock import patch
+
 import pytest
 from django.test import Client
 
 pytestmark = pytest.mark.django_db
+
+DOORMAN_SETTINGS = {
+    "CUSTOMER_RESOLVER_CLASS": "shopman.guestman.adapters.auth.CustomerResolver",
+    "MESSAGE_SENDER_CLASS": "shopman.doorman.senders.LogSender",
+    "DEVICE_TRUST_COOKIE_NAME": "shopman_auth_dt",
+    "LOGOUT_REDIRECT_URL": "/",
+}
+
+BACKENDS = [
+    "shopman.doorman.backends.PhoneOTPBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
 
 
 def _login_as_customer(client, customer):
@@ -25,6 +40,12 @@ def _login_as_customer(client, customer):
 
 
 # ── CheckoutView GET ──────────────────────────────────────────────────
+
+
+@pytest.fixture(autouse=True)
+def _configure_auth(settings):
+    settings.DOORMAN = DOORMAN_SETTINGS
+    settings.AUTHENTICATION_BACKENDS = BACKENDS
 
 
 class TestCheckoutGet:
@@ -135,6 +156,33 @@ class TestCheckoutPost:
             },
         )
         assert resp.status_code in (200, 302)
+
+    def test_checkout_stock_check_uses_selected_future_date(
+        self, cart_session, channel, customer
+    ):
+        future_date = date.today() + timedelta(days=3)
+        _login_as_customer(cart_session, customer)
+
+        with patch(
+            "shopman.web.views.checkout._get_availability",
+            return_value={
+                "breakdown": {"ready": 0, "in_production": 1, "d1": 0},
+            },
+        ) as mock_get_availability:
+            resp = cart_session.post(
+                "/checkout/",
+                {
+                    "phone": customer.phone,
+                    "name": customer.name,
+                    "fulfillment_type": "pickup",
+                    "delivery_date": future_date.isoformat(),
+                    "delivery_time_slot": "slot-09",
+                },
+            )
+
+        assert resp.status_code in (200, 302)
+        assert mock_get_availability.called
+        assert mock_get_availability.call_args.kwargs["target_date"] == future_date
 
 
 # ── OrderConfirmationView ─────────────────────────────────────────────

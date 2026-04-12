@@ -1,14 +1,17 @@
 """
 Pytest fixtures for Stockman tests.
+
+Stockman is catalog-agnostic: tests use plain SKU strings with NoopSkuValidator
+(all SKUs are valid). No dependency on offerman or any catalog package.
 """
 
 from datetime import date, timedelta
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 from django.contrib.auth import get_user_model
 
-from shopman.offerman.models import Product, Collection
 from shopman.stockman.models import Position, PositionKind
 
 
@@ -25,61 +28,21 @@ def user(db):
 
 
 @pytest.fixture
-def category(db):
-    """Create a test collection."""
-    return Collection.objects.create(
-        name='Paes',
-        slug='paes',
-        is_active=True,
-    )
-
-
-@pytest.fixture
 def product(db):
-    """Create a test product (non-perishable, shelflife=None)."""
-    p = Product.objects.create(
-        sku='PAO-FORMA',
-        name='Pao de Forma',
-        unit='un',
-        base_price_q=1000,  # R$ 10.00
-        is_available=True,
-        shelf_life_days=None,  # Non-perishable
-        availability_policy='planned_ok',
-    )
-    p.shelflife = None
-    return p
+    """A plain SKU reference for non-perishable stock tests."""
+    return SimpleNamespace(sku='PAO-FORMA', name='Pao de Forma', shelflife=None)
 
 
 @pytest.fixture
 def perishable_product(db):
-    """Create a perishable product (shelflife=0, same day only)."""
-    p = Product.objects.create(
-        sku='CROISSANT',
-        name='Croissant',
-        unit='un',
-        base_price_q=800,  # R$ 8.00
-        is_available=True,
-        shelf_life_days=0,  # Same day only
-        availability_policy='planned_ok',
-    )
-    p.shelflife = 0
-    return p
+    """A plain SKU reference for perishable stock tests."""
+    return SimpleNamespace(sku='CROISSANT', name='Croissant', shelflife=0)
 
 
 @pytest.fixture
 def demand_product(db):
-    """Create a product that accepts demand."""
-    p = Product.objects.create(
-        sku='BOLO-ESPECIAL',
-        name='Bolo Especial',
-        unit='un',
-        base_price_q=5000,  # R$ 50.00
-        is_available=True,
-        shelf_life_days=3,  # 3 days
-        availability_policy='demand_ok',
-    )
-    p.shelflife = 3
-    return p
+    """A plain SKU reference for demand stock tests."""
+    return SimpleNamespace(sku='BOLO-ESPECIAL', name='Bolo Especial', shelflife=3, availability_policy='demand_ok')
 
 
 @pytest.fixture

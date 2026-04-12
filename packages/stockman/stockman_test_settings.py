@@ -14,7 +14,6 @@ INSTALLED_APPS = [
     "taggit",
     "simple_history",
     "rest_framework",
-    "shopman.offerman",
     "shopman.stockman",
     "shopman.stockman.contrib.alerts",
 ]
@@ -40,3 +39,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 USE_TZ = True
 TIME_ZONE = "America/Sao_Paulo"
+
+STOCKMAN = {
+    "SKU_VALIDATOR": "shopman.stockman.adapters.noop.NoopSkuValidator",
+}

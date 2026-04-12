@@ -1,5 +1,7 @@
 """Orderman OrderHistoryBackend adapter."""
 
+from django.db.models import Count, Max, Min
+
 from shopman.guestman.protocols.orders import OrderHistoryBackend, OrderSummary, OrderStats
 
 
@@ -19,15 +21,10 @@ class OrdermanOrderHistoryBackend:
         limit: int = 10,
     ) -> list[OrderSummary]:
         """Return last orders for customer from Orderman."""
-        # Late import to avoid circular dependency
-        try:
-            from shopman.orderman.models import Order
-        except ImportError:
-            return []
+        from shopman.orderman.models import Order
 
         orders = (
-            Order.objects.filter(customer_ref=customer_ref)
-            
+            self._base_queryset(Order, customer_ref)
             .order_by("-created_at")[:limit]
         )
 
@@ -47,19 +44,9 @@ class OrdermanOrderHistoryBackend:
 
     def get_order_stats(self, customer_ref: str) -> OrderStats:
         """Return aggregated order statistics from Orderman."""
-        try:
-            from shopman.orderman.models import Order
-            from django.db.models import Count, Min, Max
-        except ImportError:
-            return OrderStats(
-                total_orders=0,
-                total_spent_q=0,
-                first_order_at=None,
-                last_order_at=None,
-                average_order_q=0,
-            )
+        from shopman.orderman.models import Order
 
-        qs = Order.objects.filter(customer_ref=customer_ref)
+        qs = self._base_queryset(Order, customer_ref)
 
         stats = qs.aggregate(
             total_orders=Count("id"),
@@ -72,9 +59,8 @@ class OrdermanOrderHistoryBackend:
         # total_spent lives inside JSON snapshot — must iterate,
         # but we use iterator() to avoid loading all into memory
         total_spent = sum(
-            o.snapshot.get("pricing", {}).get("total_q", 0)
-            for o in qs.only("snapshot").iterator()
-            if o.snapshot
+            (snapshot or {}).get("pricing", {}).get("total_q", 0)
+            for snapshot in qs.values_list("snapshot", flat=True).iterator()
         )
 
         return OrderStats(
@@ -84,3 +70,14 @@ class OrdermanOrderHistoryBackend:
             last_order_at=stats["last_order_at"],
             average_order_q=total_spent // total_orders if total_orders > 0 else 0,
         )
+
+    @staticmethod
+    def _base_queryset(Order, customer_ref: str):
+        """
+        Canonical link from customer insight to orders.
+
+        Guestman should not assume a concrete FK in Orderman. The operational
+        contract today is ``order.data["customer_ref"]`` populated by the
+        customer resolution service.
+        """
+        return Order.objects.filter(data__customer_ref=customer_ref)

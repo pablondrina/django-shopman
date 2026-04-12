@@ -26,14 +26,14 @@ class OffermanPricingBackend:
             listing_ref = getattr(customer.group, "listing_ref", None)
             if listing_ref:
                 item = self._get_listing_item(catalog, listing_ref, sku, qty=qty)
-                if item and item.get("is_available"):
+                if item and item.get("is_sellable"):
                     return item["price_q"]
 
         # 2. Preço do canal (via listing do canal)
         channel_listing = getattr(channel, "listing_ref", None) if channel else None
         if channel_listing:
             item = self._get_listing_item(catalog, channel_listing, sku, qty=qty)
-            if item and item.get("is_available"):
+            if item and item.get("is_sellable"):
                 return item["price_q"]
 
         # 3. Preço base do produto

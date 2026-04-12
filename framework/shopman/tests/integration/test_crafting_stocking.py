@@ -45,10 +45,10 @@ class TestProductionOutputToStock:
         work_order.save(update_fields=["started_at"])
 
         actual_qty = Decimal("48")
-        work_order.produced = actual_qty
-        work_order.status = WorkOrder.Status.DONE
+        work_order.finished = actual_qty
+        work_order.status = WorkOrder.Status.FINISHED
         work_order.finished_at = timezone.now()
-        work_order.save(update_fields=["produced", "status", "finished_at"])
+        work_order.save(update_fields=["finished", "status", "finished_at"])
 
         # Manually add stock (simulating what hook/signal would do)
         stock.receive(
@@ -74,8 +74,8 @@ class TestProductionOutputToStock:
             recipe=recipe,
             output_ref=recipe.output_ref,
             quantity=Decimal("50"),
-            produced=Decimal("48"),
-            status=WorkOrder.Status.DONE,
+            finished=Decimal("48"),
+            status=WorkOrder.Status.FINISHED,
             scheduled_date=today,
             position_ref=position_producao.ref,
             started_at=timezone.now(),
@@ -94,8 +94,8 @@ class TestProductionOutputToStock:
             recipe=recipe,
             output_ref=recipe.output_ref,
             quantity=Decimal("30"),
-            produced=Decimal("28"),
-            status=WorkOrder.Status.DONE,
+            finished=Decimal("28"),
+            status=WorkOrder.Status.FINISHED,
             scheduled_date=today,
             position_ref=position_producao.ref,
             started_at=timezone.now(),

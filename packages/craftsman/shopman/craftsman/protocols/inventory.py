@@ -147,7 +147,7 @@ class InventoryProtocol(Protocol):
     Interface para Craftsman acessar estoque de materiais.
 
     Se não configurado: Craftsman funciona standalone (puro registro).
-    Se configurado: close chama consume + receive. void chama release.
+    Se configurado: finish chama consume + receive. void chama release.
 
     Implementações:
         - StockingBackend: Usa a API do Stockman (stock.*)

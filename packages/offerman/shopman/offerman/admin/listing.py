@@ -11,7 +11,7 @@ class ListingItemInline(AutofillInlineMixin, admin.TabularInline):
     extra = 1
     autocomplete_fields = ["product"]
     autofill_fields = {"product": {"price_q": "base_price_q"}}
-    fields = ["product", "price_q", "min_qty", "is_published", "is_available"]
+    fields = ["product", "price_q", "min_qty", "is_published", "is_sellable"]
 
 
 @admin.register(Listing)

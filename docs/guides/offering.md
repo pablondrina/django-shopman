@@ -44,7 +44,7 @@ Tabela de preços por canal (WhatsApp, iFood, balcão). Suporta preços por faix
 | `shelf_life_days` | IntegerField(null) | Validade em dias (None=não perecível, 0=consumo no dia) |
 | `production_cycle_hours` | IntegerField(null) | Tempo de produção em horas |
 | `is_published` | BooleanField | Visível no catálogo |
-| `is_available` | BooleanField | Disponível para venda |
+| `is_sellable` | BooleanField | Elegível comercialmente para venda |
 | `image_url` | URLField | URL da imagem |
 | `is_batch_produced` | BooleanField | Produção em lote |
 | `metadata` | JSONField | Dados customizados |
@@ -61,7 +61,7 @@ Tabela de preços por canal (WhatsApp, iFood, balcão). Suporta preços por faix
 **QuerySet:**
 - `Product.objects.active()` — publicados E disponíveis
 - `Product.objects.published()` — publicados
-- `Product.objects.available()` — disponíveis
+- `Product.objects.sellable()` — elegíveis comercialmente
 
 ### ProductComponent
 
@@ -120,7 +120,7 @@ Validações: sem auto-referência, sem ciclos, profundidade ≤ `BUNDLE_MAX_DEP
 | `price_q` | BigIntegerField | Preço em centavos |
 | `min_qty` | DecimalField(10,3, default=1) | Quantidade mínima para este tier |
 | `is_published` | BooleanField | Visível neste canal |
-| `is_available` | BooleanField | Disponível neste canal |
+| `is_sellable` | BooleanField | Elegível comercialmente neste canal |
 | `history` | HistoricalRecords | Auditoria de preços |
 
 ## Serviços
@@ -167,12 +167,12 @@ doces = CatalogService.search(keywords=["doce", "sobremesa"])
 
 #### Canal
 
-**`CatalogService.get_available_products(listing_ref)`** — Produtos disponíveis num canal.
+**`CatalogService.get_sellable_products(listing_ref)`** — Produtos comercialmente elegíveis num canal.
 ```python
-menu_whatsapp = CatalogService.get_available_products("whatsapp")
+menu_whatsapp = CatalogService.get_sellable_products("whatsapp")
 ```
 
-**`CatalogService.is_product_available(product, listing_ref)`** — Verifica disponibilidade num canal.
+**`CatalogService.is_product_sellable(product, listing_ref)`** — Verifica elegibilidade comercial num canal.
 
 ## Protocols
 
@@ -199,9 +199,9 @@ class CostBackend(Protocol):
 
 ### Dataclasses
 
-- `ProductInfo(sku, name, description, category, unit, is_bundle, base_price_q, is_published, is_available, keywords)`
+- `ProductInfo(sku, name, description, category, unit, is_bundle, base_price_q, is_published, is_sellable, keywords)`
 - `PriceInfo(sku, unit_price_q, total_price_q, qty, listing)`
-- `SkuValidation(valid, sku, name, is_published, is_available, error_code, message)`
+- `SkuValidation(valid, sku, name, is_published, is_sellable, error_code, message)`
 - `BundleComponent(sku, name, qty)`
 
 ## Sinais

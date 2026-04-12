@@ -6,12 +6,13 @@ Usage:
 
     wo = craft.plan(recipe, 100)
     craft.adjust(wo, quantity=97, reason='farinha insuficiente')
-    craft.close(wo, produced=93)
+    craft.start(wo, quantity=97)
+    craft.finish(wo, finished=93)
 
     # or
     craft.void(wo, reason='cliente cancelou')
 
-4 verbs: plan, adjust, close, void.
+5 verbs: plan, adjust, start, finish, void.
 3 queries: suggest, needs, expected.
 """
 
@@ -31,8 +32,6 @@ class CraftService(CraftPlanning, CraftExecution, CraftQueries):
     Models encapsulate invariants. Services orchestrate effects.
     """
 
-
-# Backward-compatible aliases
 Craft = CraftService
 
 # Module-level alias — all methods are @classmethod.

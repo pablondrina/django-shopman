@@ -24,7 +24,7 @@ PERMISSION = "craftsman.add_workorder"
 
 
 def production_view(request, admin_site):
-    """GET: form + today's WOs. POST: create + close WO."""
+    """GET: form + today's WOs. POST: create + finish WO."""
     if not request.user.has_perm(PERMISSION):
         messages.error(request, "Sem permissão para registrar produção.")
         return HttpResponseRedirect(reverse("admin:index"))
@@ -67,7 +67,7 @@ def production_void_view(request, admin_site):
 
 
 def _handle_post(request, admin_site):
-    """Create WorkOrder + close immediately."""
+    """Create WorkOrder + finish immediately."""
     recipe_id = request.POST.get("recipe")
     quantity_raw = request.POST.get("quantity", "").strip()
     position_id = request.POST.get("position", "").strip()
@@ -105,7 +105,7 @@ def _handle_post(request, admin_site):
     actor = f"admin:{request.user}"
 
     try:
-        # Plan (creates WO with status=open)
+        # Plan a new work order for today
         wo = CraftPlanning.plan(
             recipe,
             quantity,
@@ -114,10 +114,10 @@ def _handle_post(request, admin_site):
             source_ref="quick_production",
         )
 
-        # Close immediately (produced = quantity)
-        CraftExecution.close(
+        # Finish immediately using the registered final quantity
+        CraftExecution.finish(
             order=wo,
-            produced=quantity,
+            finished=quantity,
             actor=actor,
         )
 

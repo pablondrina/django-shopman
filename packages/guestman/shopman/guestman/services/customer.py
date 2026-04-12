@@ -57,12 +57,27 @@ def get_by_document(document: str) -> Customer | None:
 
 
 def get_by_phone(phone: str) -> Customer | None:
-    """Get customer by phone (exact match on normalized E.164)."""
+    """Get customer by phone, preferring ContactPoint as the source of truth."""
     from shopman.utils.phone import normalize_phone
+    from shopman.guestman.models import ContactPoint
 
     phone_normalized = normalize_phone(phone)
     if not phone_normalized:
         return None
+
+    contact_point = (
+        ContactPoint.objects.select_related("customer", "customer__group")
+        .filter(
+            value_normalized=phone_normalized,
+            type__in=[ContactPoint.Type.PHONE, ContactPoint.Type.WHATSAPP],
+            customer__is_active=True,
+        )
+        .order_by("-is_primary", "-is_verified", "-updated_at")
+        .first()
+    )
+    if contact_point:
+        return contact_point.customer
+
     try:
         return Customer.objects.select_related("group").get(
             phone=phone_normalized, is_active=True
@@ -76,16 +91,35 @@ def get_by_phone(phone: str) -> Customer | None:
 
 
 def get_by_email(email: str) -> Customer | None:
-    """Get customer by email."""
+    """Get customer by email, preferring ContactPoint as the source of truth."""
+    from shopman.guestman.models import ContactPoint
+
+    email_normalized = email.strip().lower()
+    if not email_normalized:
+        return None
+
+    contact_point = (
+        ContactPoint.objects.select_related("customer", "customer__group")
+        .filter(
+            type=ContactPoint.Type.EMAIL,
+            value_normalized=email_normalized,
+            customer__is_active=True,
+        )
+        .order_by("-is_primary", "-is_verified", "-updated_at")
+        .first()
+    )
+    if contact_point:
+        return contact_point.customer
+
     try:
         return Customer.objects.select_related("group").get(
-            email__iexact=email, is_active=True
+            email__iexact=email_normalized, is_active=True
         )
     except Customer.DoesNotExist:
         return None
     except Customer.MultipleObjectsReturned:
         return Customer.objects.filter(
-            email__iexact=email, is_active=True
+            email__iexact=email_normalized, is_active=True
         ).select_related("group").order_by("-updated_at").first()
 
 

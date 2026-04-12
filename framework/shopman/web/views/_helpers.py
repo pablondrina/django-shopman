@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import time
+from datetime import date, time
 
 from django.http import HttpRequest
 from django.utils import timezone
@@ -38,7 +38,6 @@ def _get_price_q(product: Product, listing_ref: str | None = None) -> int | None
                 listing__is_active=True,
                 product=product,
                 is_published=True,
-                is_available=True,
             )
             .order_by("-min_qty")
             .first()
@@ -48,7 +47,7 @@ def _get_price_q(product: Product, listing_ref: str | None = None) -> int | None
     return product.base_price_q
 
 
-def _get_availability(sku: str) -> dict | None:
+def _get_availability(sku: str, *, target_date: date | None = None) -> dict | None:
     """Breakdown de estoque para o canal storefront.
 
     **Listagem** (Listing / ListingItem + ``_published_products``): define o catálogo
@@ -68,6 +67,7 @@ def _get_availability(sku: str) -> dict | None:
         scope = availability_scope_for_channel(STOREFRONT_CHANNEL_REF)
         return availability_for_sku(
             sku,
+            target_date=target_date,
             safety_margin=scope["safety_margin"],
             allowed_positions=scope["allowed_positions"],
         )
@@ -95,24 +95,39 @@ def _to_storefront_avail(raw_avail: dict | None, product: Product) -> dict | Non
 
     The storefront never consumes internal breakdown ({ready, in_production, d1}).
     Returns:
-        {available_qty, can_order, is_paused, had_stock}
+        {available_qty, can_order, is_paused, had_stock, state}
     or None if raw_avail is None.
     """
     if raw_avail is None:
         return None
     from decimal import Decimal
 
-    is_paused = raw_avail.get("is_paused", False) or not product.is_available
+    is_paused = raw_avail.get("is_paused", False) or not product.is_sellable
     total_orderable = raw_avail.get("total_orderable", Decimal("0"))
     can_order = total_orderable > 0 and not is_paused
     # had_stock: is_planned (future production scheduled) or currently available
     had_stock = raw_avail.get("is_planned", False) or total_orderable > 0
+    state = _storefront_availability_state(
+        can_order=can_order,
+        had_stock=had_stock,
+        is_paused=is_paused,
+    )
     return {
         "available_qty": total_orderable,
         "can_order": can_order,
         "is_paused": is_paused,
         "had_stock": had_stock,
+        "state": state,
     }
+
+
+def _storefront_availability_state(*, can_order: bool, had_stock: bool, is_paused: bool) -> str:
+    """Map internal availability facts to the only UI states the storefront needs."""
+    if can_order:
+        return "available"
+    if had_stock and not is_paused:
+        return "sold_out"
+    return "unavailable"
 
 
 def _availability_badge(avail: dict | None, product: Product) -> dict:
@@ -128,20 +143,21 @@ def _availability_badge(avail: dict | None, product: Product) -> dict:
     - sold-out: can_order=False, had_stock=True, not paused → "Esgotado"
     - unavailable: can_order=False otherwise → "Indisponível"
     """
-    if not product.is_available:
+    if not product.is_sellable:
         return {"label": "Indisponível", "css_class": "badge-unavailable", "can_add_to_cart": False}
 
     if avail is None:
-        # No stockman module — fall back to product.is_available flag
-        return {"label": "", "css_class": "", "can_add_to_cart": product.is_available}
+        # No stockman module — fall back to product.is_sellable flag
+        return {"label": "", "css_class": "", "can_add_to_cart": product.is_sellable}
 
-    can_order = avail.get("can_order", True)
-    if can_order:
+    state = avail.get("state") or _storefront_availability_state(
+        can_order=avail.get("can_order", True),
+        had_stock=avail.get("had_stock", False),
+        is_paused=avail.get("is_paused", False),
+    )
+    if state == "available":
         return {"label": "", "css_class": "badge-available", "can_add_to_cart": True}
-
-    had_stock = avail.get("had_stock", False)
-    is_paused = avail.get("is_paused", False)
-    if had_stock and not is_paused:
+    if state == "sold_out":
         return {"label": "Esgotado", "css_class": "badge-sold-out", "can_add_to_cart": False}
     return {"label": "Indisponível", "css_class": "badge-unavailable", "can_add_to_cart": False}
 
@@ -279,7 +295,7 @@ def _annotate_products(
                 listing__is_active=True,
                 product__sku__in=skus,
                 is_published=True,
-                is_available=True,
+                is_sellable=True,
             )
             .select_related("product")
             .order_by("-min_qty")
@@ -489,16 +505,17 @@ def _format_opening_hours() -> list[dict]:
     return result
 
 
-# Material Symbols Rounded — nomes de ligature por trecho de ref de coleção
+# Material Symbols Rounded — generic ligature names by collection hint
 COLLECTION_ICONS: dict[str, str] = {
-    "paes": "bakery_dining",
-    "pao": "bakery_dining",
-    "confeitaria": "cake",
-    "doces": "icecream",
     "cafes": "local_cafe",
     "cafe": "local_cafe",
     "bebidas": "local_drink",
+    "drinks": "local_drink",
     "combos": "inventory_2",
+    "kits": "inventory_2",
+    "ofertas": "sell",
+    "promocoes": "sell",
+    "snacks": "lunch_dining",
     "salgados": "lunch_dining",
     "lanches": "restaurant",
     "especiais": "star",
@@ -679,7 +696,7 @@ def _upsell_suggestion(cart_skus: set[str], listing_ref: str | None = None) -> d
     from shopman.offerman.models import Product as Prod
 
     for sku in candidates:
-        product = Prod.objects.filter(sku=sku, is_published=True, is_available=True).first()
+        product = Prod.objects.filter(sku=sku, is_published=True, is_sellable=True).first()
         if product:
             price_q = _get_price_q(product, listing_ref=listing_ref)
             return {
@@ -817,5 +834,3 @@ def _carrier_tracking_url(carrier: str, tracking_code: str) -> str | None:
     if template:
         return template.format(code=tracking_code)
     return None
-
-

@@ -1,7 +1,7 @@
-"""Gestor de pedidos (operador) — fila de orders do canal; URLs em /pedidos/.
+"""Operator order queue views.
 
-Nomes em português no path são de domínio (cardápio, pedido). As classes usam
-inglês (Order) onde o código já padronizou assim.
+Paths and templates may stay in Portuguese for product UX, but technical module
+and class names follow the suite-wide English naming rule.
 """
 from __future__ import annotations
 
@@ -187,7 +187,7 @@ def _get_filtered_orders(filter_status: str):
     return qs
 
 
-class GestorPedidosView(View):
+class OperatorOrdersView(View):
     """Main operator dashboard page."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
@@ -247,7 +247,7 @@ class OrderListPartialView(View):
         })
 
 
-class PedidoDetailPartialView(View):
+class OrderDetailPartialView(View):
     """HTMX partial: expanded detail for a single order card."""
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
@@ -279,7 +279,7 @@ class PedidoDetailPartialView(View):
         })
 
 
-class PedidoConfirmView(View):
+class OrderConfirmView(View):
     """POST /pedidos/<ref>/confirm/ — confirm an order."""
 
     def post(self, request: HttpRequest, ref: str) -> HttpResponse:
@@ -291,13 +291,20 @@ class PedidoConfirmView(View):
         if order.status != "new":
             return HttpResponse("Pedido não está aguardando confirmação", status=422)
 
+        from shopman.lifecycle import ensure_confirmable
+
+        try:
+            ensure_confirmable(order)
+        except Exception as exc:
+            return HttpResponse(str(exc), status=422)
+
         order.transition_status("confirmed", actor=f"operator:{request.user.username}")
 
         enriched = _enrich_order(order)
         return render(request, "pedidos/partials/card.html", {"o": enriched})
 
 
-class GestorOrderRejectView(View):
+class OrderRejectView(View):
     """POST /pedidos/<ref>/reject/ — operador recusa o pedido (motivo obrigatório)."""
 
     def post(self, request: HttpRequest, ref: str) -> HttpResponse:
@@ -332,7 +339,7 @@ class GestorOrderRejectView(View):
         return HttpResponse("")
 
 
-class PedidoAdvanceView(View):
+class OrderAdvanceView(View):
     """POST /pedidos/<ref>/advance/ — advance to next status."""
 
     def post(self, request: HttpRequest, ref: str) -> HttpResponse:
@@ -353,7 +360,7 @@ class PedidoAdvanceView(View):
         return render(request, "pedidos/partials/card.html", {"o": enriched})
 
 
-class PedidoNotesView(View):
+class OrderNotesView(View):
     """POST /pedidos/<ref>/notes/ — save internal notes."""
 
     def post(self, request: HttpRequest, ref: str) -> HttpResponse:
@@ -368,7 +375,7 @@ class PedidoNotesView(View):
         return HttpResponse('<span class="ped-notes-saved">Salvo</span>')
 
 
-class PedidoMarkPaidView(View):
+class OrderMarkPaidView(View):
     """POST /pedidos/<ref>/mark-paid/ — operador confirma recebimento manual (dinheiro/counter)."""
 
     def post(self, request: HttpRequest, ref: str) -> HttpResponse:
@@ -378,17 +385,26 @@ class PedidoMarkPaidView(View):
 
         order = get_object_or_404(Order, ref=ref)
 
-        payment_data = order.data.get("payment", {})
+        payment_data = dict(order.data.get("payment", {}))
         if payment_data.get("marked_paid_by"):
             # Already marked paid — idempotent, return updated card
             enriched = _enrich_order(order)
             return render(request, "pedidos/partials/card.html", {"o": enriched})
 
         payment_data["marked_paid_by"] = request.user.username
-        order.data["payment"] = payment_data
-        order.save(update_fields=["data", "updated_at"])
+        updated_data = dict(order.data)
+        updated_data["payment"] = payment_data
+        Order.objects.filter(pk=order.pk).update(data=updated_data)
+        order.data = updated_data
 
         if order.status == "new":
+            from shopman.lifecycle import ensure_confirmable
+
+            try:
+                ensure_confirmable(order)
+            except Exception as exc:
+                return HttpResponse(str(exc), status=422)
+
             order.transition_status("confirmed", actor=f"operator:{request.user.username}")
 
         logger.info("mark_paid order=%s operator=%s", order.ref, request.user.username)

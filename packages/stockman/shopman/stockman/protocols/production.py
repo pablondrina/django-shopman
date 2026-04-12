@@ -5,9 +5,9 @@ Defines the interface for Stockman to interact with production systems
 (e.g., Craftsman) for requesting production when demand exceeds supply.
 
 Vocabulary mapping (Stockman → Craftsman):
-    request_production()  →  craft.plan() + craft.schedule()
+    request_production()  →  craft.plan()
     check_status()        →  WorkOrder.status
-    cancel_request()      →  WorkOrder.cancel()
+    cancel_request()      →  craft.void()
 """
 
 from dataclasses import dataclass, field
@@ -34,13 +34,10 @@ class ProductionPriority(str, Enum):
 class ProductionStatusEnum(str, Enum):
     """Status de um pedido de produção."""
 
-    REQUESTED = "requested"  # Solicitação criada
-    PLANNED = "planned"  # Plan aprovado
-    SCHEDULED = "scheduled"  # WorkOrder criada
-    IN_PROGRESS = "in_progress"  # Produção em andamento
-    COMPLETED = "completed"  # Produção concluída
-    CANCELLED = "cancelled"  # Cancelado
-    FAILED = "failed"  # Falhou (sem materiais, etc.)
+    PLANNED = "planned"  # WorkOrder planejada
+    STARTED = "started"  # Produção iniciada
+    FINISHED = "finished"  # Produção finalizada
+    VOIDED = "voided"  # Produção anulada
 
 
 # ══════════════════════════════════════════════════════════════
@@ -101,7 +98,7 @@ class ProductionBackend(Protocol):
     - A demanda excede o planejado
 
     Implementações:
-        - ProductionBackend: Usa craft.plan() + craft.schedule()
+        - ProductionBackend: Usa craft.plan()
         - MockProductionBackend: Para testes sem produção real
     """
 
@@ -115,7 +112,7 @@ class ProductionBackend(Protocol):
         Fluxo típico no Craftsman:
         1. Encontra Recipe para o SKU
         2. Cria Plan com craft.plan()
-        3. Aprova e agenda com craft.schedule()
+        3. Retorna a WorkOrder criada
 
         Args:
             request: Dados da solicitação

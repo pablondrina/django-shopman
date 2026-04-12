@@ -17,6 +17,12 @@ if _instances_dir not in sys.path:
 
 load_dotenv(Path(BASE_DIR) / ".env")
 
+
+def _csv_env_list(name: str, default: str = "") -> list[str]:
+    """Parse a comma-separated env var into a clean list."""
+    raw = os.environ.get(name, default)
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
 # ⚠️ PRODUÇÃO: Definir via DJANGO_SECRET_KEY env var. NUNCA usar o default.
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-secret-key-not-for-production")
 
@@ -33,6 +39,8 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 if DEBUG:
     CSRF_TRUSTED_ORIGINS += ["https://*.ngrok-free.app", "https://*.ngrok.io"]
+
+SHOPMAN_INSTANCE_APPS = _csv_env_list("SHOPMAN_INSTANCE_APPS")
 
 INSTALLED_APPS = [
     # Unfold admin theme (MUST be before django.contrib.admin)
@@ -78,8 +86,8 @@ INSTALLED_APPS = [
     "shopman.doorman.contrib.admin_unfold",
     # Shopman orchestrator
     "shopman",
-    # Instance (Nelson Boulangerie demo)
-    "nelson",
+    # Optional instance/distribution apps
+    *SHOPMAN_INSTANCE_APPS,
 ]
 
 MIDDLEWARE = [
@@ -105,6 +113,10 @@ DOORMAN = {
     "PRESERVE_SESSION_KEYS": ["cart_session_key"],
     "DEFAULT_DOMAIN": os.environ.get("AUTH_DEFAULT_DOMAIN", "localhost:8000"),
     "USE_HTTPS": not DEBUG,
+    "CUSTOMER_RESOLVER_CLASS": os.environ.get(
+        "DOORMAN_CUSTOMER_RESOLVER_CLASS",
+        "shopman.guestman.adapters.auth.CustomerResolver",
+    ),
     # OTP delivery: WhatsApp (via ManyChat) → SMS → email
     # Configured dynamically below after MANYCHAT_API_TOKEN is read
 }
@@ -241,7 +253,7 @@ def _unfold_site_title(request=None):
 UNFOLD = {
     "SITE_TITLE": _unfold_site_title,
     "SITE_HEADER": _unfold_site_title,
-    "SITE_SYMBOL": "storefront",
+    "SITE_SYMBOL": "store",
     "DASHBOARD_CALLBACK": "shopman.admin.dashboard.dashboard_callback",
     "SHOW_HISTORY": True,
     "SHOW_VIEW_ON_SITE": False,
@@ -449,14 +461,24 @@ OFFERMAN = {
 CRAFTSMAN = {
     "INVENTORY_BACKEND": "shopman.craftsman.adapters.stocking.StockingBackend",
     "DEMAND_BACKEND": "shopman.craftsman.contrib.demand.backend.OrderingDemandBackend",
-    "CATALOG_BACKEND": "shopman.offerman.adapters.catalog_backend.CatalogBackend",
+    "CATALOG_BACKEND": "shopman.offerman.adapters.catalog_backend.OffermanCatalogBackend",
 }
 
-# ── Shopman Instance ─────────────────────────────────────────────────
+STOCKMAN = {
+    "SKU_VALIDATOR": os.environ.get(
+        "STOCKMAN_SKU_VALIDATOR",
+        "shopman.offerman.adapters.sku_validator.SkuValidator",
+    ),
+}
 
-# Customer strategy modules to load on startup. Each module registers
-# instance-specific strategies via register_strategy() on import.
-SHOPMAN_CUSTOMER_STRATEGY_MODULES = ["nelson.customer_strategies"]
+# ── Shopman Instance Hooks (optional) ────────────────────────────────
+
+# Customer strategy modules to load on startup.
+# Each module must register its strategies on import.
+# Default is empty: the framework base must stay instance-agnostic.
+SHOPMAN_CUSTOMER_STRATEGY_MODULES = _csv_env_list(
+    "SHOPMAN_CUSTOMER_STRATEGY_MODULES"
+)
 
 # ── Shopman Adapters ──────────────────────────────────────────────────
 
@@ -476,16 +498,51 @@ SHOPMAN_NOTIFICATION_ADAPTERS = {
 SHOPMAN_STOCK_ADAPTER = "shopman.adapters.stock"
 
 SHOPMAN_FISCAL_ADAPTER = None
+SHOPMAN_FISCAL_BACKEND = None
+SHOPMAN_ACCOUNTING_BACKEND = None
+
+SHOPMAN_STRIPE = {
+    "publishable_key": STRIPE_PUBLISHABLE_KEY,
+    "secret_key": STRIPE_SECRET_KEY,
+    "webhook_secret": os.environ.get("STRIPE_WEBHOOK_SECRET", ""),
+    "capture_method": os.environ.get("STRIPE_CAPTURE_METHOD", "manual"),
+}
+
+SHOPMAN_EFI = {
+    "sandbox": os.environ.get("EFI_SANDBOX", "true").lower() in ("true", "1", "yes"),
+    "client_id": os.environ.get("EFI_CLIENT_ID", ""),
+    "client_secret": os.environ.get("EFI_CLIENT_SECRET", ""),
+    "certificate_path": os.environ.get("EFI_CERTIFICATE_PATH", ""),
+    "pix_key": os.environ.get("EFI_PIX_KEY", ""),
+}
+
+SHOPMAN_EFI_WEBHOOK = {
+    "webhook_token": os.environ.get("EFI_WEBHOOK_TOKEN", ""),
+    "skip_signature": os.environ.get("EFI_SKIP_SIGNATURE", str(DEBUG)).lower() in ("true", "1", "yes"),
+}
 
 # ── Storefront channel ────────────────────────────────────────────────
 # Ref of the Channel that powers the web storefront. Override in instance settings
 # if this instance uses a different ref (e.g. "site", "loja").
 SHOPMAN_STOREFRONT_CHANNEL_REF = "web"
 
-# ── Happy Hour ("Hora da Xepa") ───────────────────────────────────────
-SHOPMAN_HAPPY_HOUR_START = "17:30"
-SHOPMAN_HAPPY_HOUR_END = "18:00"
-HAPPY_HOUR_DISCOUNT_PERCENT = 25
+# ── Instance-specific modifiers ──────────────────────────────────────
+# Dotted paths to modifier classes registered at boot.
+# Example for Nelson: ["nelson.modifiers.D1DiscountModifier", "nelson.modifiers.HappyHourModifier"]
+SHOPMAN_INSTANCE_MODIFIERS = _csv_env_list("SHOPMAN_INSTANCE_MODIFIERS")
+
+# ── Instance-specific settings (override via env or instance settings) ─
+# Happy Hour — only active if the instance registers HappyHourModifier
+SHOPMAN_HAPPY_HOUR_START = os.environ.get("SHOPMAN_HAPPY_HOUR_START", "17:30")
+SHOPMAN_HAPPY_HOUR_END = os.environ.get("SHOPMAN_HAPPY_HOUR_END", "18:00")
+SHOPMAN_HAPPY_HOUR_DISCOUNT_PERCENT = int(
+    os.environ.get("SHOPMAN_HAPPY_HOUR_DISCOUNT_PERCENT", "25")
+)
+
+# Employee discount — configurable percentage
+SHOPMAN_EMPLOYEE_DISCOUNT_PERCENT = int(
+    os.environ.get("SHOPMAN_EMPLOYEE_DISCOUNT_PERCENT", "20")
+)
 
 # ── Logging ────────────────────────────────────────────────────────────
 

@@ -8,26 +8,25 @@ Modifiers follow the Omniman Modifier protocol:
 
 Execution order:
   10  pricing.item          — base price from backend (qty-aware)
-  15  shop.d1_discount      — D-1 markdown (priority, skips other discounts)
   20  shop.discount         — promotions + coupons (maior desconto ganha)
   50  pricing.session_total — recalculate total
   60  shop.employee_discount
-  65  shop.happy_hour
   70  shop.delivery_fee     — taxa de entrega por zona (só delivery)
   80  shop.loyalty_redeem   — loyalty points redemption (post-pricing)
+  85  shop.manual_discount  — desconto manual (POS)
+
+Instance-specific modifiers (D-1, Happy Hour, etc.) are registered via
+SHOPMAN_INSTANCE_MODIFIERS in settings and live in their respective instance.
 
 Discount policy — "maior desconto ganha":
   Per item, only ONE discount applies (the best one).
-  D-1 has absolute priority and prevents all other discounts.
-  Employee and HappyHour are post-pricing and mutually exclusive.
+  Employee discount is post-pricing.
 """
 from __future__ import annotations
 
 import logging
-from datetime import time
 from typing import Any
 
-from django.conf import settings
 from django.utils import timezone
 
 from shopman.utils.monetary import monetary_div
@@ -35,71 +34,7 @@ from shopman.utils.monetary import monetary_div
 logger = logging.getLogger(__name__)
 
 # ── Configurable defaults ──────────────────────────────────────────
-D1_DISCOUNT_PERCENT = 50
-EMPLOYEE_DISCOUNT_PERCENT = 20
-HAPPY_HOUR_DISCOUNT_PERCENT = 25
-HAPPY_HOUR_START = time(17, 30)
-HAPPY_HOUR_END = time(18, 0)
-
-
-class D1DiscountModifier:
-    """
-    Desconto D-1 — aplica desconto em itens com estoque apenas D-1
-    (sobras do dia anterior).
-
-    Configurável via channel config: rules.d1_discount_percent (default 50).
-    Requer que o item tenha {"is_d1": true} em session.data["availability"]
-    ou em item["is_d1"].
-    """
-
-    code = "shop.d1_discount"
-    order = 15
-
-    def __init__(self, *, discount_percent: int = D1_DISCOUNT_PERCENT):
-        self.discount_percent = discount_percent
-
-    def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
-        config = getattr(channel, "config", None) or {}
-        rules = config.get("rules", {})
-        percent = rules.get("d1_discount_percent", self.discount_percent)
-
-        availability = (session.data or {}).get("availability", {})
-
-        items = session.items or []
-        modified = False
-        for item in items:
-            sku = item.get("sku", "")
-            is_d1 = item.get("is_d1", False) or availability.get(sku, {}).get("is_d1", False)
-            if not is_d1:
-                continue
-
-            original_q = item.get("unit_price_q", 0)
-            if not original_q:
-                continue
-
-            discount_q = monetary_div(original_q * percent, 100)
-            item["unit_price_q"] = original_q - discount_q
-            item["line_total_q"] = item["unit_price_q"] * int(item.get("qty", 1))
-            item.setdefault("modifiers_applied", []).append(
-                {"type": "d1_discount", "discount_percent": percent, "original_price_q": original_q}
-            )
-            modified = True
-
-        if modified:
-            session.update_items(items)
-            total_discount_q = sum(
-                (m["original_price_q"] - item.get("unit_price_q", 0)) * int(item.get("qty", 1))
-                for item in items
-                for m in item.get("modifiers_applied", [])
-                if m.get("type") == "d1_discount"
-            )
-            pricing = session.pricing or {}
-            if total_discount_q > 0:
-                pricing["d1_discount"] = {"total_discount_q": total_discount_q, "label": "D-1"}
-            else:
-                pricing.pop("d1_discount", None)
-            session.pricing = pricing
-            session.save(update_fields=["pricing"])
+DEFAULT_EMPLOYEE_DISCOUNT_PERCENT = 20
 
 
 class DiscountModifier:
@@ -306,7 +241,10 @@ class DiscountModifier:
 
 class EmployeeDiscountModifier:
     """
-    20% discount for employees (customer_group == "staff").
+    Discount for employees (customer_group == "staff").
+
+    Percentage is configurable via channel config rules.employee_discount_percent
+    or SHOPMAN_EMPLOYEE_DISCOUNT_PERCENT setting (default 20).
 
     Applied per-item. Adjusts unit_price_q and line_total_q on session.items.
     """
@@ -314,27 +252,34 @@ class EmployeeDiscountModifier:
     code = "shop.employee_discount"
     order = 60  # After canonical pricing (10, 50), before session total recalc
 
+    def __init__(self, *, discount_percent: int = DEFAULT_EMPLOYEE_DISCOUNT_PERCENT):
+        self.discount_percent = discount_percent
+
     def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
         customer_group = (session.data or {}).get("customer", {}).get("group", "")
         if customer_group != "staff":
             return
 
+        config = getattr(channel, "config", None) or {}
+        rules = config.get("rules", {})
+        percent = rules.get("employee_discount_percent", self.discount_percent)
+
         items = session.items or []
         modified = False
         for item in items:
             original_q = item.get("unit_price_q", 0)
-            discount_q = monetary_div(original_q * EMPLOYEE_DISCOUNT_PERCENT, 100)
+            discount_q = monetary_div(original_q * percent, 100)
             item["unit_price_q"] = original_q - discount_q
             item["line_total_q"] = item["unit_price_q"] * int(item.get("qty", 1))
             item.setdefault("modifiers_applied", []).append(
-                {"type": "employee_discount", "discount_percent": EMPLOYEE_DISCOUNT_PERCENT}
+                {"type": "employee_discount", "discount_percent": percent}
             )
             modified = True
 
         if modified:
             session.update_items(items)
             total_discount_q = sum(
-                monetary_div(item.get("unit_price_q", 0) * EMPLOYEE_DISCOUNT_PERCENT, 100 - EMPLOYEE_DISCOUNT_PERCENT)
+                monetary_div(item.get("unit_price_q", 0) * percent, 100 - percent)
                 * int(item.get("qty", 1))
                 for item in items
                 if any(m.get("type") == "employee_discount" for m in item.get("modifiers_applied", []))
@@ -344,81 +289,6 @@ class EmployeeDiscountModifier:
                 pricing["employee_discount"] = {"total_discount_q": total_discount_q, "label": "Desconto funcionário"}
             else:
                 pricing.pop("employee_discount", None)
-            session.pricing = pricing
-            session.save(update_fields=["pricing"])
-
-
-class HappyHourModifier:
-    """
-    10% discount during happy hour (16h-18h by default).
-
-    Applied per-item. Does NOT stack with employee discount.
-    """
-
-    code = "shop.happy_hour"
-    order = 65  # After employee discount
-
-    def __init__(
-        self,
-        *,
-        discount_percent: int = HAPPY_HOUR_DISCOUNT_PERCENT,
-        start: time | None = None,
-        end: time | None = None,
-    ):
-        self.discount_percent = discount_percent
-
-        if start is None:
-            raw = getattr(settings, "SHOPMAN_HAPPY_HOUR_START", "16:00")
-            h, m = map(int, raw.split(":"))
-            start = time(h, m)
-        if end is None:
-            raw = getattr(settings, "SHOPMAN_HAPPY_HOUR_END", "18:00")
-            h, m = map(int, raw.split(":"))
-            end = time(h, m)
-
-        self.start = start
-        self.end = end
-
-    def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
-        # Vitrine não inclui happy hour no preço exibido; aplicar HH só no web geraria
-        # divergência (ex.: card 5,50 vs carrinho ~5,73). HH permanece para POS/outros.
-        if (session.data or {}).get("origin_channel") == "web":
-            return
-
-        now = timezone.localtime().time()
-        if not (self.start <= now < self.end):
-            return
-
-        items = session.items or []
-        modified = False
-        for item in items:
-            # Skip if employee discount already applied
-            applied = item.get("modifiers_applied", [])
-            if any(m.get("type") == "employee_discount" for m in applied):
-                continue
-
-            original_q = item.get("unit_price_q", 0)
-            discount_q = monetary_div(original_q * self.discount_percent, 100)
-            item["unit_price_q"] = original_q - discount_q
-            item["line_total_q"] = item["unit_price_q"] * int(item.get("qty", 1))
-            item.setdefault("modifiers_applied", []).append(
-                {"type": "happy_hour", "discount_percent": self.discount_percent}
-            )
-            modified = True
-
-        if modified:
-            session.update_items(items)
-            total_discount_q = sum(
-                monetary_div(item.get("unit_price_q", 0) * self.discount_percent, 100 - self.discount_percent)
-                * int(item.get("qty", 1))
-                for item in items
-                if any(m.get("type") == "happy_hour" for m in item.get("modifiers_applied", []))
-            )
-            pricing = session.pricing or {}
-            if total_discount_q > 0:
-                pricing["happy_hour"] = {"total_discount_q": total_discount_q, "label": "Happy Hour"}
-            else:
-                pricing.pop("happy_hour", None)
             session.pricing = pricing
             session.save(update_fields=["pricing"])
 

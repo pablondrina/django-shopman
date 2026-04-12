@@ -51,13 +51,12 @@ ALL_HANDLERS = [
     # Validators
     "shopman.rules.validation.DeliveryZoneRule",
     # Pricing modifiers (via shopman.modifiers)
-    "shopman.modifiers.D1DiscountModifier",
     "shopman.modifiers.DeliveryFeeModifier",
     "shopman.modifiers.DiscountModifier",
     "shopman.modifiers.EmployeeDiscountModifier",
-    "shopman.modifiers.HappyHourModifier",
     "shopman.modifiers.LoyaltyRedeemModifier",
     "shopman.modifiers.ManualDiscountModifier",
+    # Instance-specific modifiers loaded via SHOPMAN_INSTANCE_MODIFIERS
 ]
 
 
@@ -159,11 +158,9 @@ def _register_loyalty_handler() -> None:
 def _register_pricing_modifiers() -> None:
     from shopman.handlers.pricing import ItemPricingModifier, OffermanPricingBackend, SessionTotalModifier
     from shopman.modifiers import (
-        D1DiscountModifier,
         DeliveryFeeModifier,
         DiscountModifier,
         EmployeeDiscountModifier,
-        HappyHourModifier,
         LoyaltyRedeemModifier,
         ManualDiscountModifier,
     )
@@ -171,16 +168,32 @@ def _register_pricing_modifiers() -> None:
     backend = OffermanPricingBackend()
     for modifier in [
         ItemPricingModifier(backend=backend),
-        D1DiscountModifier(),
         DiscountModifier(),
         SessionTotalModifier(),
         EmployeeDiscountModifier(),
-        HappyHourModifier(),
         DeliveryFeeModifier(),
         LoyaltyRedeemModifier(),
         ManualDiscountModifier(),
     ]:
         registry.register_modifier(modifier)
+
+    # Instance-specific modifiers (D-1, Happy Hour, etc.)
+    _register_instance_modifiers()
+
+
+def _register_instance_modifiers() -> None:
+    """Load instance-specific modifiers from SHOPMAN_INSTANCE_MODIFIERS setting.
+
+    Each entry is a dotted path to a modifier class. If the setting is present,
+    a broken path is fatal (configured-but-wrong).
+    """
+    modifier_paths = getattr(settings, "SHOPMAN_INSTANCE_MODIFIERS", [])
+    for path in modifier_paths:
+        module_path, class_name = path.rsplit(".", 1)
+        module = importlib.import_module(module_path)
+        modifier_class = getattr(module, class_name)
+        registry.register_modifier(modifier_class())
+        logger.info("shopman.handlers: loaded instance modifier %s", path)
 
 
 def _register_validators() -> None:

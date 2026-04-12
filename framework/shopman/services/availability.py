@@ -31,6 +31,7 @@ react without coupling to Stockman internals.
 from __future__ import annotations
 
 import logging
+from datetime import date
 from decimal import Decimal
 
 from shopman.adapters import get_adapter
@@ -41,7 +42,136 @@ from . import alternatives
 logger = logging.getLogger(__name__)
 
 
-def check(sku: str, qty: Decimal, *, channel_ref: str | None = None) -> dict:
+def decide(
+    sku: str,
+    qty: Decimal,
+    *,
+    channel_ref: str | None = None,
+    target_date: date | None = None,
+) -> dict:
+    """Return a canonical promise decision for one SKU in context."""
+    qty_d = Decimal(str(qty))
+
+    components = _expand_if_bundle(sku, qty_d)
+    if components is not None:
+        bundle_result = _check_bundle(
+            sku,
+            qty_d,
+            components,
+            channel_ref=channel_ref,
+            target_date=target_date,
+        )
+        return {
+            "approved": bundle_result["ok"],
+            "sku": sku,
+            "requested_qty": qty_d,
+            "available_qty": bundle_result["available_qty"],
+            "reason_code": bundle_result.get("error_code"),
+            "is_paused": bundle_result.get("is_paused", False),
+            "is_planned": bundle_result.get("is_planned", False),
+            "target_date": target_date,
+            "failed_sku": bundle_result.get("failed_sku"),
+            "source": "availability.bundle_decision",
+        }
+
+    listing_item = _sku_in_channel_listing(sku, channel_ref)
+    if listing_item is False:
+        return {
+            "approved": False,
+            "sku": sku,
+            "requested_qty": qty_d,
+            "available_qty": Decimal("0"),
+            "reason_code": "not_in_listing",
+            "is_paused": False,
+            "is_planned": False,
+            "target_date": target_date,
+            "failed_sku": None,
+            "source": "availability.listing_gate",
+        }
+    if isinstance(listing_item, dict) and not listing_item.get("is_sellable", True):
+        return {
+            "approved": False,
+            "sku": sku,
+            "requested_qty": qty_d,
+            "available_qty": Decimal("0"),
+            "reason_code": "paused",
+            "is_paused": True,
+            "is_planned": False,
+            "target_date": target_date,
+            "failed_sku": None,
+            "source": "availability.listing_gate",
+        }
+    if listing_item is not None and listing_item is not True:
+        min_qty = listing_item.get("min_qty") if isinstance(listing_item, dict) else None
+        if min_qty is not None and qty_d < Decimal(str(min_qty)):
+            return {
+                "approved": False,
+                "sku": sku,
+                "requested_qty": qty_d,
+                "available_qty": Decimal(str(min_qty)),
+                "reason_code": "below_min_qty",
+                "is_paused": False,
+                "is_planned": False,
+                "target_date": target_date,
+                "failed_sku": None,
+                "source": "availability.listing_gate",
+            }
+
+    adapter = get_adapter("stock")
+    scope = adapter.get_channel_scope(channel_ref)
+    info = adapter.get_availability(
+        sku,
+        target_date=target_date,
+        safety_margin=scope["safety_margin"],
+        allowed_positions=scope["allowed_positions"],
+    )
+    if not info.get("is_paused", False) and not info.get("positions"):
+        return {
+            "approved": True,
+            "sku": sku,
+            "requested_qty": qty_d,
+            "available_qty": Decimal("999999"),
+            "reason_code": None,
+            "is_paused": False,
+            "is_planned": False,
+            "target_date": target_date,
+            "failed_sku": None,
+            "source": "stock.untracked",
+            "untracked": True,
+        }
+
+    decision = adapter.get_promise_decision(
+        sku,
+        qty_d,
+        target_date=target_date,
+        safety_margin=scope["safety_margin"],
+        allowed_positions=scope["allowed_positions"],
+    )
+    approved = decision.approved if isinstance(getattr(decision, "approved", None), bool) else qty_d <= info["total_orderable"]
+    reason_code = getattr(decision, "reason_code", None)
+    if not isinstance(reason_code, str | type(None)):
+        reason_code = None if approved else ("paused" if info.get("is_paused", False) else "insufficient_stock")
+    return {
+        "approved": approved,
+        "sku": getattr(decision, "sku", sku),
+        "requested_qty": getattr(decision, "requested_qty", qty_d),
+        "available_qty": getattr(decision, "available_qty", info["total_orderable"]),
+        "reason_code": reason_code,
+        "is_paused": getattr(decision, "is_paused", info.get("is_paused", False)),
+        "is_planned": getattr(decision, "is_planned", info.get("is_planned", False)),
+        "target_date": getattr(decision, "target_date", target_date),
+        "failed_sku": None,
+        "source": "stock.promise_decision",
+    }
+
+
+def check(
+    sku: str,
+    qty: Decimal,
+    *,
+    channel_ref: str | None = None,
+    target_date: date | None = None,
+) -> dict:
     """
     Read-only availability check for a single SKU/qty in a channel scope.
 
@@ -51,11 +181,11 @@ def check(sku: str, qty: Decimal, *, channel_ref: str | None = None) -> dict:
     available_qty = min constructable bundles if all components pass.
 
     Validations applied for simple SKUs (in order):
-      1. Channel listing membership — if `channel_ref` is provided and the
-         channel has a `listing_ref`, the SKU must be in that listing as a
-         published+available `ListingItem`. Otherwise → ok=False, error_code=
-         "not_in_listing". This catches marketplace orders pushing SKUs that
-         the merchant doesn't actually offer on that channel.
+      1. Channel listing gate — if `channel_ref` is provided and the
+         channel has a `listing_ref`, the SKU must belong structurally to that
+         listing. If the listing item exists but is strategically not sellable,
+         the result is ok=False with error_code="paused". If no listing item
+         exists at all, ok=False with error_code="not_in_listing".
       2. Stockman availability — Offerman global pause (`is_paused`),
          per-channel safety_margin and allowed_positions, plus physical
          stock breakdown.
@@ -72,84 +202,23 @@ def check(sku: str, qty: Decimal, *, channel_ref: str | None = None) -> dict:
             "failed_sku": str | None,   # component that caused failure (bundles only)
         }
     """
-    qty_d = Decimal(str(qty))
-
-    # ── 0) Bundle expansion ─────────────────────────────────────────────────
-    components = _expand_if_bundle(sku, qty_d)
-    if components is not None:
-        return _check_bundle(sku, qty_d, components, channel_ref=channel_ref)
-
-    # ── 1) Channel listing membership ───────────────────────────────────────
-    listing_item = _sku_in_channel_listing(sku, channel_ref)
-    if listing_item is False:
-        return {
-            "ok": False,
-            "available_qty": Decimal("0"),
-            "is_paused": False,
-            "is_planned": False,
-            "breakdown": {"ready": Decimal("0"), "in_production": Decimal("0"), "d1": Decimal("0")},
-            "error_code": "not_in_listing",
-            "is_bundle": False,
-            "failed_sku": None,
-        }
-
-    # Check min_qty constraint from listing
-    if listing_item is not None and listing_item is not True:
-        min_qty = listing_item.get("min_qty") if isinstance(listing_item, dict) else None
-        if min_qty is not None and qty_d < Decimal(str(min_qty)):
-            return {
-                "ok": False,
-                "available_qty": Decimal(str(min_qty)),
-                "is_paused": False,
-                "is_planned": False,
-                "breakdown": {"ready": Decimal("0"), "in_production": Decimal("0"), "d1": Decimal("0")},
-                "error_code": "below_min_qty",
-                "is_bundle": False,
-                "failed_sku": None,
-            }
-
-    # ── 2) Stockman availability ────────────────────────────────────────────
-    adapter = get_adapter("stock")
-    scope = adapter.get_channel_scope(channel_ref)
-    info = adapter.get_availability(
+    decision = decide(
         sku,
-        safety_margin=scope["safety_margin"],
-        allowed_positions=scope["allowed_positions"],
+        qty,
+        channel_ref=channel_ref,
+        target_date=target_date,
     )
-
-    available = info["total_orderable"]
-    is_paused = info.get("is_paused", False)
-
-    # If Stockman has no data at all for this SKU (no positions, not paused),
-    # the product is outside the stock subsystem's scope — treat as available.
-    # This matches the prior NoopStockBackend behavior and keeps Offerman-only
-    # products (test fixtures, drop-shipped items) addable to the cart.
-    if not is_paused and not info.get("positions"):
-        return {
-            "ok": True,
-            "available_qty": Decimal("999999"),
-            "is_paused": False,
-            "is_planned": False,
-            "breakdown": info.get("breakdown", {}),
-            "untracked": True,
-            "is_bundle": False,
-            "failed_sku": None,
-        }
-
-    ok = (not is_paused) and qty_d <= available
-    error_code = None
-    if not ok:
-        error_code = "paused" if is_paused else "insufficient_stock"
-
     return {
-        "ok": ok,
-        "available_qty": available,
-        "is_paused": is_paused,
-        "is_planned": info.get("is_planned", False),
-        "breakdown": info.get("breakdown", {}),
-        "error_code": error_code,
-        "is_bundle": False,
-        "failed_sku": None,
+        "ok": decision["approved"],
+        "available_qty": decision["available_qty"],
+        "is_paused": decision["is_paused"],
+        "is_planned": decision["is_planned"],
+        "breakdown": {},
+        "error_code": decision["reason_code"],
+        "is_bundle": decision["source"] == "availability.bundle_decision",
+        "failed_sku": decision.get("failed_sku"),
+        "target_date": target_date,
+        "untracked": decision.get("untracked", False),
     }
 
 
@@ -178,6 +247,7 @@ def _check_bundle(
     components: list[dict],
     *,
     channel_ref: str | None,
+    target_date: date | None,
 ) -> dict:
     """Check availability of all bundle components recursively.
 
@@ -190,7 +260,7 @@ def _check_bundle(
         comp_sku = comp["sku"]
         comp_qty = Decimal(str(comp["qty"]))
 
-        result = check(comp_sku, comp_qty, channel_ref=channel_ref)
+        result = check(comp_sku, comp_qty, channel_ref=channel_ref, target_date=target_date)
 
         if not result["ok"]:
             return {
@@ -202,6 +272,7 @@ def _check_bundle(
                 "error_code": result.get("error_code"),
                 "is_bundle": True,
                 "failed_sku": comp_sku,
+                "target_date": target_date,
             }
 
         # Calculate how many bundles we can build from this component's stock.
@@ -226,17 +297,18 @@ def _check_bundle(
         "error_code": None,
         "is_bundle": True,
         "failed_sku": None,
+        "target_date": target_date,
     }
 
 
 def _sku_in_channel_listing(sku: str, channel_ref: str | None) -> dict | bool:
-    """Return listing item dict when the SKU is published+available in the channel's listing.
+    """Return listing item dict when the SKU belongs to the channel's listing.
 
     Returns True when the check is skipped (no channel_ref or no listing_ref),
     False when the SKU fails the listing gate.
 
     Callers treat True as "gate skipped", a dict as "gate passed with item data"
-    (used for min_qty checks), and False as "gate failed".
+    (used for min_qty and sellability checks), and False as "gate failed".
 
     If the channel has no `listing_ref` configured, the check is skipped
     (returns True) — this preserves backward compatibility for channels that
@@ -272,6 +344,7 @@ def reserve(
     *,
     session_key: str,
     channel_ref: str | None = None,
+    target_date: date | None = None,
     ttl_minutes: int = 30,
 ) -> dict:
     """
@@ -294,7 +367,7 @@ def reserve(
         }
     """
     qty_d = Decimal(str(qty))
-    status = check(sku, qty_d, channel_ref=channel_ref)
+    status = check(sku, qty_d, channel_ref=channel_ref, target_date=target_date)
 
     # SKUs that are not tracked by Stockman: skip the hold (the order will
     # commit without stock reservation, same as the legacy noop path).
@@ -331,6 +404,7 @@ def reserve(
                 session_key=session_key,
                 ttl_minutes=ttl_minutes,
                 channel_ref=channel_ref,
+                target_date=target_date,
                 available_qty=status["available_qty"],
                 adapter=adapter,
             )
@@ -340,6 +414,7 @@ def reserve(
         qty=qty_d,
         ttl_minutes=ttl_minutes,
         reference=session_key,
+        target_date=target_date,
     )
 
     if not result.get("success"):
@@ -373,6 +448,7 @@ def reconcile(
     *,
     session_key: str,
     channel_ref: str | None = None,
+    target_date: date | None = None,
     ttl_minutes: int = 30,
 ) -> dict:
     """
@@ -427,6 +503,7 @@ def reconcile(
                 sku, new_qty_d, components,
                 session_key=session_key,
                 channel_ref=channel_ref,
+                target_date=target_date,
                 ttl_minutes=ttl_minutes,
             )
     else:
@@ -453,6 +530,7 @@ def reconcile(
         sku, new_qty_d,
         session_key=session_key,
         channel_ref=channel_ref,
+        target_date=target_date,
         ttl_minutes=ttl_minutes,
     )
 
@@ -472,6 +550,7 @@ def _reconcile_simple(
     *,
     session_key: str,
     channel_ref: str | None,
+    target_date: date | None,
     ttl_minutes: int,
 ) -> dict:
     """Reconcile a simple (non-bundle) SKU to `new_qty`."""
@@ -494,7 +573,7 @@ def _reconcile_simple(
     # ── Grow ──
     if new_qty > current_total:
         delta = new_qty - current_total
-        status = check(sku, delta, channel_ref=channel_ref)
+        status = check(sku, delta, channel_ref=channel_ref, target_date=target_date)
 
         if status.get("untracked"):
             # SKU outside Stockman scope — no hold needed, treat as ok.
@@ -524,6 +603,7 @@ def _reconcile_simple(
             qty=delta,
             ttl_minutes=ttl_minutes,
             reference=session_key,
+            target_date=target_date,
         )
         if not result.get("success"):
             logger.info(
@@ -572,6 +652,7 @@ def _reconcile_simple(
             qty=overshoot,
             ttl_minutes=ttl_minutes,
             reference=session_key,
+            target_date=target_date,
         )
         if result.get("success"):
             created_ids.append(result["hold_id"])
@@ -600,6 +681,7 @@ def _reconcile_bundle_components(
     *,
     session_key: str,
     channel_ref: str | None,
+    target_date: date | None,
     ttl_minutes: int,
 ) -> dict:
     """Reconcile each bundle component independently.
@@ -620,6 +702,7 @@ def _reconcile_bundle_components(
             comp_sku, comp_qty,
             session_key=session_key,
             channel_ref=channel_ref,
+            target_date=target_date,
             ttl_minutes=ttl_minutes,
         )
         if not result["ok"]:
@@ -659,6 +742,7 @@ def _reserve_bundle_components(
     session_key: str,
     ttl_minutes: int,
     channel_ref: str | None,
+    target_date: date | None,
     available_qty: Decimal,
     adapter,
 ) -> dict:
@@ -678,6 +762,7 @@ def _reserve_bundle_components(
             qty=comp_qty,
             ttl_minutes=ttl_minutes,
             reference=session_key,
+            target_date=target_date,
         )
 
         if not result.get("success"):

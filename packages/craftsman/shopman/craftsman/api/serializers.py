@@ -92,6 +92,15 @@ class WorkOrderSerializer(serializers.ModelSerializer):
     yield_rate = serializers.DecimalField(
         max_digits=6, decimal_places=4, read_only=True, allow_null=True,
     )
+    planned_qty = serializers.DecimalField(
+        max_digits=12, decimal_places=3, read_only=True,
+    )
+    started_qty = serializers.DecimalField(
+        max_digits=12, decimal_places=3, read_only=True, allow_null=True,
+    )
+    finished_qty = serializers.DecimalField(
+        max_digits=12, decimal_places=3, read_only=True, allow_null=True,
+    )
     items = WorkOrderItemSerializer(many=True, read_only=True)
     events = WorkOrderEventSerializer(many=True, read_only=True)
 
@@ -105,7 +114,7 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             "recipe_name",
             "output_ref",
             "quantity",
-            "produced",
+            "finished",
             "status",
             "rev",
             "scheduled_date",
@@ -117,6 +126,9 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             "meta",
             "loss",
             "yield_rate",
+            "planned_qty",
+            "started_qty",
+            "finished_qty",
             "items",
             "events",
             "created_at",
@@ -128,7 +140,7 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             "recipe_code",
             "recipe_name",
             "output_ref",
-            "produced",
+            "finished",
             "status",
             "rev",
             "started_at",
@@ -149,6 +161,15 @@ class WorkOrderListSerializer(serializers.ModelSerializer):
     loss = serializers.DecimalField(
         max_digits=12, decimal_places=3, read_only=True, allow_null=True,
     )
+    planned_qty = serializers.DecimalField(
+        max_digits=12, decimal_places=3, read_only=True,
+    )
+    started_qty = serializers.DecimalField(
+        max_digits=12, decimal_places=3, read_only=True, allow_null=True,
+    )
+    finished_qty = serializers.DecimalField(
+        max_digits=12, decimal_places=3, read_only=True, allow_null=True,
+    )
 
     class Meta:
         model = WorkOrder
@@ -158,13 +179,16 @@ class WorkOrderListSerializer(serializers.ModelSerializer):
             "recipe_code",
             "output_ref",
             "quantity",
-            "produced",
+            "finished",
             "status",
             "rev",
             "scheduled_date",
             "started_at",
             "finished_at",
             "loss",
+            "planned_qty",
+            "started_qty",
+            "finished_qty",
             "created_at",
         ]
 
@@ -173,7 +197,7 @@ class WorkOrderListSerializer(serializers.ModelSerializer):
 
 
 class ConsumedItemSerializer(serializers.Serializer):
-    """Serializer for consumed item in close action."""
+    """Serializer for consumed item in finish action."""
 
     item_ref = serializers.CharField()
     quantity = serializers.DecimalField(max_digits=12, decimal_places=3, min_value=0)
@@ -182,12 +206,12 @@ class ConsumedItemSerializer(serializers.Serializer):
 
 
 
-class CloseSerializer(serializers.Serializer):
-    """Serializer for close action."""
+class FinishSerializer(serializers.Serializer):
+    """Serializer for finish action."""
 
-    produced = serializers.DecimalField(
+    finished = serializers.DecimalField(
         max_digits=12, decimal_places=3,
-        help_text="Quantity produced (Decimal or list of co-products)",
+        help_text="Final finished quantity",
     )
     consumed = ConsumedItemSerializer(
         many=True, required=False, allow_null=True,
@@ -203,7 +227,7 @@ class CloseSerializer(serializers.Serializer):
     )
     idempotency_key = serializers.CharField(
         required=False, allow_null=True, allow_blank=True,
-        help_text="Idempotency key to prevent duplicate closes",
+        help_text="Idempotency key to prevent duplicate finishes",
     )
     actor = serializers.CharField(
         required=False, allow_blank=True, default="",
@@ -222,6 +246,31 @@ class AdjustSerializer(serializers.Serializer):
     )
     expected_rev = serializers.IntegerField(
         required=False, allow_null=True,
+    )
+    actor = serializers.CharField(
+        required=False, allow_blank=True, default="",
+    )
+
+
+class StartSerializer(serializers.Serializer):
+    """Serializer for start action."""
+
+    quantity = serializers.DecimalField(
+        max_digits=12, decimal_places=3, min_value=Decimal("0.001"),
+        help_text="Quantity that effectively entered production",
+    )
+
+    expected_rev = serializers.IntegerField(
+        required=False, allow_null=True,
+    )
+    assigned_ref = serializers.CharField(
+        required=False, allow_blank=True, default="",
+    )
+    position_ref = serializers.CharField(
+        required=False, allow_blank=True, default="",
+    )
+    note = serializers.CharField(
+        required=False, allow_blank=True, default="",
     )
     actor = serializers.CharField(
         required=False, allow_blank=True, default="",

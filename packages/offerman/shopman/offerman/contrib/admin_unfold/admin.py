@@ -94,7 +94,7 @@ class ListingItemInline(AutofillInlineMixin, BaseTabularInline):
     extra = 1
     autocomplete_fields = ["product"]
     autofill_fields = {"product": {"price_q": "base_price_q"}}
-    fields = ["product", "price_q", "min_qty", "is_published", "is_available"]
+    fields = ["product", "price_q", "min_qty", "is_published", "is_sellable"]
 
 
 class _ListingExportBase(ExportMixin, BaseModelAdmin):
@@ -177,7 +177,7 @@ class ProductListingItemInline(BaseTabularInline):
     """Inline to manage product's listing (per-channel pricing/visibility)."""
     model = ListingItem
     extra = 0
-    fields = ["listing", "price_q", "is_published", "is_available", "min_qty"]
+    fields = ["listing", "price_q", "is_published", "is_sellable", "min_qty"]
     readonly_fields = ["listing"]
     can_delete = False
 
@@ -211,7 +211,7 @@ class ProductAdmin(_ProductImportExportBase):
     ]
     list_filter = [
         "is_published",
-        "is_available",
+        "is_sellable",
         "availability_policy",
         ("base_price_q", RangeNumericFilter),
     ]
@@ -230,10 +230,10 @@ class ProductAdmin(_ProductImportExportBase):
             {"fields": ("base_price_q", "margin_percent")},
         ),
         (
-            "Publication & Availability",
+            "Publication & Sellability",
             {
-                "fields": ("is_published", "is_available"),
-                "description": "is_published controls catalog publication, is_available controls purchase availability.",
+                "fields": ("is_published", "is_sellable"),
+                "description": "is_published controls catalog exposure, is_sellable controls whether the product is commercially enabled.",
             },
         ),
         (
@@ -280,8 +280,8 @@ class ProductAdmin(_ProductImportExportBase):
 
         if not obj.is_published:
             badges.append(unfold_badge("Unpublished", "yellow"))
-        if not obj.is_available:
-            badges.append(unfold_badge("Unavailable", "red"))
+        if not obj.is_sellable:
+            badges.append(unfold_badge("Not Sellable", "red"))
 
         if not badges:
             return unfold_badge("Active", "green")
@@ -351,15 +351,15 @@ class ProductAdmin(_ProductImportExportBase):
         updated = queryset.update(is_published=True)
         self.message_user(request, f"{updated} product(s) published.")
 
-    @admin.action(description=_("Pause selected products (unavailable)"))
+    @admin.action(description=_("Disable selling for selected products"))
     def pause_products(self, request, queryset):
-        updated = queryset.update(is_available=False)
-        self.message_user(request, f"{updated} product(s) paused.")
+        updated = queryset.update(is_sellable=False)
+        self.message_user(request, f"{updated} product(s) disabled for sale.")
 
-    @admin.action(description=_("Resume selected products (available)"))
+    @admin.action(description=_("Enable selling for selected products"))
     def resume_products(self, request, queryset):
-        updated = queryset.update(is_available=True)
-        self.message_user(request, f"{updated} product(s) resumed.")
+        updated = queryset.update(is_sellable=True)
+        self.message_user(request, f"{updated} product(s) enabled for sale.")
 
     @admin.action(description=_("Atualizar preço +X%%"))
     def update_price_percent(self, request, queryset):

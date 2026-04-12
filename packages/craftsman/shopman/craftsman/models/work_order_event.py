@@ -4,7 +4,7 @@ WorkOrderEvent — Semantic audit trail + idempotency.
 Replaces django-simple-history with lightweight, queryable events.
 Each mutation creates one event with incremental seq.
 
-Event kinds: planned, adjusted, closed, voided.
+Event kinds: planned, adjusted, started, finished, voided.
 """
 
 from django.db import models
@@ -16,15 +16,16 @@ class WorkOrderEvent(models.Model):
     Registro imutavel de auditoria.
 
     - seq: incremental per WorkOrder (0, 1, 2, ...)
-    - kind: planned | adjusted | closed | voided
+    - kind: planned | adjusted | started | finished | voided
     - payload: JSON with event-specific data
-    - idempotency_key: unique, prevents double-close
+    - idempotency_key: unique, prevents duplicate finish
     """
 
     class Kind(models.TextChoices):
         PLANNED = "planned", _("Planejado")
         ADJUSTED = "adjusted", _("Ajustado")
-        CLOSED = "closed", _("Encerrado")
+        STARTED = "started", _("Iniciado")
+        FINISHED = "finished", _("Finalizado")
         VOIDED = "voided", _("Cancelado")
 
     work_order = models.ForeignKey(
@@ -45,7 +46,7 @@ class WorkOrderEvent(models.Model):
         default=dict,
         blank=True,
         verbose_name=_("Dados"),
-        help_text=_('Dados do evento. Ex: {"produced": 48, "waste": 2}'),
+        help_text=_('Dados do evento. Ex: {"finished_qty": 48, "waste": 2}'),
     )
     actor = models.CharField(
         max_length=100,
