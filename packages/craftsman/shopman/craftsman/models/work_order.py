@@ -68,7 +68,6 @@ class WorkOrder(models.Model):
     finished = models.DecimalField(
         max_digits=12,
         decimal_places=3,
-        db_column="produced",  # legacy physical column name; domain language is "finished"
         null=True,
         blank=True,
         verbose_name=_("Quantidade Finalizada"),

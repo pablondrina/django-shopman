@@ -1,7 +1,11 @@
 """
 Catalog Protocol — interface for product/item information.
 
-Craftsman defines this protocol, Offerman (or other catalog systems) implements it.
+Craftsman defines these protocols, Offerman (or other catalog systems) implements them.
+
+Two levels of abstraction:
+- CatalogProtocol: Generic item resolution (any ref → ItemInfo)
+- ProductInfoBackend: Product-specific queries (SKU → ProductInfo, validation)
 
 Se não configurado: item_ref é usado como-é.
 Se configurado: resolve nomes, unidades, shelf_life, etc.
@@ -13,9 +17,14 @@ from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 
+# ══════════════════════════════════════════════════════════════
+# DATA TYPES
+# ══════════════════════════════════════════════════════════════
+
+
 @dataclass(frozen=True)
 class ItemInfo:
-    """Item information from catalog."""
+    """Item information from catalog (generic)."""
 
     ref: str
     name: str
@@ -28,11 +37,9 @@ class ItemInfo:
     meta: dict | None = None
 
 
-# ── Backward compat aliases ──
-
 @dataclass(frozen=True)
 class ProductInfo:
-    """Product information from catalog (backward compat)."""
+    """Product information from catalog (product-specific)."""
 
     sku: str
     name: str
@@ -55,10 +62,15 @@ class SkuValidationResult:
     message: str | None = None
 
 
+# ══════════════════════════════════════════════════════════════
+# PROTOCOLS
+# ══════════════════════════════════════════════════════════════
+
+
 @runtime_checkable
 class CatalogProtocol(Protocol):
     """
-    Protocol for catalog/product information.
+    Generic item resolution protocol.
 
     Se não configurado: item_ref é usado como-é.
     Se configurado: resolve nomes, unidades, etc.
@@ -80,9 +92,10 @@ class CatalogProtocol(Protocol):
 @runtime_checkable
 class ProductInfoBackend(Protocol):
     """
-    Backward compat protocol (pre-vNext).
+    Product-specific catalog protocol.
 
-    New code should use CatalogProtocol.
+    Used by Offerman adapter to provide production-relevant
+    product information to Craftsman.
     """
 
     def get_product_info(self, sku: str) -> ProductInfo | None:

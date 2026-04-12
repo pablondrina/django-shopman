@@ -733,8 +733,8 @@ class TestProtocols:
     """Test that all protocols are importable and well-defined."""
 
     def test_inventory_protocol_importable(self):
-        from shopman.craftsman.protocols import InventoryProtocol, StockBackend
-        assert InventoryProtocol is StockBackend
+        from shopman.craftsman.protocols import InventoryProtocol
+        assert InventoryProtocol is not None
 
     def test_catalog_protocol_importable(self):
         from shopman.craftsman.protocols import CatalogProtocol, ProductInfoBackend
@@ -742,8 +742,8 @@ class TestProtocols:
         assert ProductInfoBackend is not None
 
     def test_demand_protocol_importable(self):
-        from shopman.craftsman.protocols import DemandProtocol, DemandBackend, DailyDemand
-        assert DemandProtocol is DemandBackend
+        from shopman.craftsman.protocols import DemandProtocol, DailyDemand
+        assert DemandProtocol is not None
         assert DailyDemand is not None
 
     def test_inventory_dataclasses(self):
@@ -770,10 +770,10 @@ class TestProtocols:
         assert dd.sold == Decimal("50")
         assert dd.soldout_at is None
 
-    def test_backward_compat_stock_module(self):
-        """protocols/stock.py still works as re-export."""
-        from shopman.craftsman.protocols.stock import StockBackend, MaterialNeed
-        assert StockBackend is not None
+    def test_stock_module_reexport(self):
+        """protocols/stock.py re-exports from inventory."""
+        from shopman.craftsman.protocols.stock import InventoryProtocol, MaterialNeed
+        assert InventoryProtocol is not None
         assert MaterialNeed is not None
 
     def test_backward_compat_product_module(self):

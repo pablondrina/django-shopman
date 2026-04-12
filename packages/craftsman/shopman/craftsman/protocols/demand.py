@@ -63,7 +63,3 @@ class DemandProtocol(Protocol):
             Total committed quantity
         """
         ...
-
-
-# ── Backward compatibility ──
-DemandBackend = DemandProtocol

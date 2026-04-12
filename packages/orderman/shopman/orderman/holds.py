@@ -18,7 +18,7 @@ def release_holds_for_order(order: Any) -> None:
     Libera todos os holds de estoque associados a um pedido.
 
     Busca hold_ids em order.data["holds"] e libera cada um via
-    StockBackend obtido do registry.
+    InventoryProtocol obtido do registry.
 
     Silencia exceções por hold individual para garantir que falha
     em um hold não impeça a liberação dos demais.

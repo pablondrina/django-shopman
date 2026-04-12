@@ -1,10 +1,10 @@
 """
-Craftsman Protocols (vNext).
+Craftsman Protocols.
 
 Defines interfaces for external integrations:
 - InventoryProtocol: stock management (Stockman)
 - CatalogProtocol: product/item information (Offerman)
-- DemandProtocol: demand history and committed orders (Omniman)
+- DemandProtocol: demand history and committed orders
 """
 
 from shopman.craftsman.protocols.inventory import (
@@ -20,7 +20,6 @@ from shopman.craftsman.protocols.inventory import (
     ReceiveResult,
     ReleaseResult,
     ReserveResult,
-    StockBackend,
 )
 from shopman.craftsman.protocols.catalog import (
     CatalogProtocol,
@@ -31,14 +30,12 @@ from shopman.craftsman.protocols.catalog import (
 )
 from shopman.craftsman.protocols.demand import (
     DailyDemand,
-    DemandBackend,
     DemandProtocol,
 )
 
 __all__ = [
     # Inventory Protocol
     "InventoryProtocol",
-    "StockBackend",
     "MaterialNeed",
     "MaterialUsed",
     "MaterialProduced",
@@ -58,6 +55,5 @@ __all__ = [
     "SkuValidationResult",
     # Demand Protocol
     "DemandProtocol",
-    "DemandBackend",
     "DailyDemand",
 ]

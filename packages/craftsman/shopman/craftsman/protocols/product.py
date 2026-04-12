@@ -1,7 +1,7 @@
 """
-Backward compatibility — re-exports from catalog.py.
+Re-exports from catalog.py for convenience.
 
-New code should import from shopman.craftsman.protocols.catalog.
+Canonical imports are from shopman.craftsman.protocols.catalog.
 """
 
 from shopman.craftsman.protocols.catalog import (  # noqa: F401

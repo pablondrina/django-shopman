@@ -150,8 +150,8 @@ class InventoryProtocol(Protocol):
     Se configurado: finish chama consume + receive. void chama release.
 
     Implementações:
-        - StockingBackend: Usa a API do Stockman (stock.*)
-        - MockStockBackend: Para testes sem estoque real
+        - StockingBackend (contrib): Usa a API do Stockman
+        - NoopInventory (adapters): Para testes sem estoque real
     """
 
     def available(self, materials: list[MaterialNeed]) -> AvailabilityResult:
@@ -190,7 +190,3 @@ class InventoryProtocol(Protocol):
     ) -> ReceiveResult:
         """Registra output de produção no estoque."""
         ...
-
-
-# ── Backward compatibility ──
-StockBackend = InventoryProtocol

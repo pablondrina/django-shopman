@@ -1,7 +1,7 @@
 """
-Backward compatibility — re-exports from inventory.py.
+Re-exports from inventory.py for convenience.
 
-New code should import from shopman.craftsman.protocols.inventory.
+Canonical imports are from shopman.craftsman.protocols.inventory.
 """
 
 from shopman.craftsman.protocols.inventory import (  # noqa: F401
@@ -17,11 +17,9 @@ from shopman.craftsman.protocols.inventory import (  # noqa: F401
     ReceiveResult,
     ReleaseResult,
     ReserveResult,
-    StockBackend,
 )
 
 __all__ = [
-    "StockBackend",
     "InventoryProtocol",
     "MaterialNeed",
     "MaterialUsed",

@@ -128,7 +128,6 @@ class Product(models.Model):
     is_sellable = models.BooleanField(
         _("vendável"),
         default=True,
-        db_column="is_available",
         db_index=True,
         help_text=_("Permite venda estratégica (Não = insumo ou item pausado)"),
     )
@@ -227,12 +226,3 @@ class Product(models.Model):
         margin = self.base_price_q - cost_q
         return Decimal(margin * 100 / self.base_price_q).quantize(Decimal("0.1"))
 
-    @property
-    def is_hidden(self) -> bool:
-        """Compatibility property: True if not published."""
-        return not self.is_published
-
-    @is_hidden.setter
-    def is_hidden(self, value: bool):
-        """Compatibility setter: sets is_published to inverse."""
-        self.is_published = not value

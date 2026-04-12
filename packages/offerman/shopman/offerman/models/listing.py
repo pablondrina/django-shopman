@@ -14,7 +14,19 @@ class Listing(models.Model):
     """
     Product listing for a channel.
 
-    Convention: ref = Channel.ref (loose coupling)
+    A Listing defines which products are visible and at what price in a
+    given sales channel. The association with Channel is by convention:
+    Listing.ref matches Channel.ref (loose coupling, no FK).
+
+    Commercial state per item is controlled at two levels:
+    - Product level: Product.is_published, Product.is_sellable
+    - Listing level: ListingItem.is_published, ListingItem.is_sellable
+
+    Both levels must agree for a product to be visible and purchasable
+    in a channel.
+
+    Temporal validity: valid_from/valid_until gate the listing period.
+    is_active gates the listing itself (admin toggle).
     """
 
     uuid = models.UUIDField(default=uuid_lib.uuid4, editable=False, unique=True, verbose_name=_("UUID"))
@@ -56,7 +68,7 @@ class Listing(models.Model):
 
 
 class ListingItem(models.Model):
-    """Product in a listing with price and availability."""
+    """Product in a listing with channel-level pricing and commercial state."""
 
     listing = models.ForeignKey(
         Listing,
@@ -90,7 +102,6 @@ class ListingItem(models.Model):
     is_published = models.BooleanField(default=True, verbose_name=_("publicado"))
     is_sellable = models.BooleanField(
         default=True,
-        db_column="is_available",
         verbose_name=_("vendável"),
     )
 

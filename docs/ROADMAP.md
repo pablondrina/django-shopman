@@ -117,8 +117,7 @@ Pendente: PostgreSQL, static files (Whitenoise/S3), worker Celery (se async), re
 ## Refactor Constitucional — Pendências Registradas
 
 Itens identificados durante a execução da Matriz Executiva de Delta Constitucional
-(seções 4.1 Framework e 4.2 Settings) que estão fora do escopo atual mas não devem
-ser esquecidos.
+que estão fora do escopo atual mas não devem ser esquecidos.
 
 | Item | Onde | Descrição | Prioridade |
 |------|------|-----------|------------|
@@ -128,9 +127,11 @@ ser esquecidos.
 | ~12 settings ausentes | `framework/project/settings.py` | GUESTMAN, OMNIMAN, GUESTMAN_INSIGHTS, GUESTMAN_LOYALTY, SHOPMAN_OPERATOR_EMAIL, SHOPMAN_PIX_EXPIRY_SECONDS, SHOPMAN_POS_CHANNEL_REF, SHOPMAN_FISCAL_BACKENDS, SHOPMAN_SMS_ADAPTER, STOCKMAN_ALERT_COOLDOWN_MINUTES — todos referenciados no código com fallback, mas ausentes do settings.py default. | Média |
 | Doorman multi-handle formal | `packages/doorman/` | Multi-handle existe no orderman (handle_type/handle_ref) mas não é protocolo formal no doorman. | Média |
 | Doorman provider linking | `packages/doorman/` | OAuth/SSO provider linking não existe. Extension point a criar. | Baixa |
-| Listing sem contrato de canal | `packages/offerman/` | Listing/ListingItem sem FK ou contrato formal com Channel. Acoplamento é por convenção (ref slug). | Média |
-| Sync/projeção de catálogo externo | `packages/offerman/` | Nenhuma infra para sync com catálogos terceiros (iFood, Rappi, etc). Protocolos existentes são só READ. | Alta estratégica |
+| ~~Listing sem contrato de canal~~ | `packages/offerman/` | **CONCLUÍDO** — Docstring do Listing formaliza contrato de canal (ref match por convenção, estado comercial em 2 níveis). | ✅ |
+| ~~Sync/projeção de catálogo externo~~ | `packages/offerman/protocols/projection.py` | **CONCLUÍDO** — CatalogProjectionBackend protocol criado (project/retract). Implementações concretas ficam no framework ou instância. | ✅ |
 | D1Rule e HappyHourRule no framework | `framework/shopman/rules/pricing.py` | Rule wrappers para admin (D1Rule, HappyHourRule) ainda estão no framework. Os modifiers correspondentes foram movidos para instância. Considerar mecanismo de rule discovery para que instâncias registrem suas próprias rules. | Média |
+| CatalogProjectionBackend implementation | `framework/shopman/adapters/` | Protocolo criado em offerman. Falta implementação concreta para pelo menos um canal externo (iFood, Rappi, etc). | Alta estratégica |
+| Craftsman UI de chão | `framework/shopman/web/views/production.py` | A Matriz pede "desenhar UI/fluxos de chão como parte do domínio". A view atual de produção existe mas não cobre apontamento operacional completo (start, finish com quantidades, waste report). | Média |
 
 ---
 

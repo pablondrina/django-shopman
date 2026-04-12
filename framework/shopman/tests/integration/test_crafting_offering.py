@@ -63,7 +63,7 @@ class TestRecipeProductRelationship:
 
         assert recipe.output_ref == hidden.sku
         product = Product.objects.get(sku=recipe.output_ref)
-        assert product.is_hidden is True
+        assert product.is_published is False
 
     def test_recipe_for_paused_product(self, db, collection):
         """Recipe can reference paused (non-sellable) products."""

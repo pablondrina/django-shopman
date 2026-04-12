@@ -5,6 +5,35 @@ Replaces django-simple-history with lightweight, queryable events.
 Each mutation creates one event with incremental seq.
 
 Event kinds: planned, adjusted, started, finished, voided.
+
+Canonical payload schemas per kind:
+
+    planned:
+        quantity: str       — planned quantity
+        recipe: str         — recipe code
+
+    adjusted:
+        from: str           — previous quantity
+        to: str             — new quantity
+        reason: str         — adjustment reason
+
+    started:
+        quantity: str       — quantity sent into production
+        assigned_ref: str   — who is producing (e.g. "user:joao")
+        position_ref: str   — where (e.g. "producao")
+        note: str           — optional note
+        implicit: bool      — True if auto-started by finish
+
+    finished:
+        finished_qty: str   — actual output quantity
+        planned_qty: str    — originally planned quantity
+        started_qty: str    — quantity that entered production
+
+    voided:
+        reason: str         — cancellation reason
+
+WorkOrderItem provides the material ledger (requirement, consumption,
+output, waste). Events are the semantic trail of what happened and why.
 """
 
 from django.db import models
@@ -13,11 +42,11 @@ from django.utils.translation import gettext_lazy as _
 
 class WorkOrderEvent(models.Model):
     """
-    Registro imutavel de auditoria.
+    Immutable audit record for WorkOrder state transitions.
 
     - seq: incremental per WorkOrder (0, 1, 2, ...)
     - kind: planned | adjusted | started | finished | voided
-    - payload: JSON with event-specific data
+    - payload: JSON with event-specific data (see module docstring for schemas)
     - idempotency_key: unique, prevents duplicate finish
     """
 
@@ -46,7 +75,7 @@ class WorkOrderEvent(models.Model):
         default=dict,
         blank=True,
         verbose_name=_("Dados"),
-        help_text=_('Dados do evento. Ex: {"finished_qty": 48, "waste": 2}'),
+        help_text=_("Dados do evento. Schema por kind documentado no módulo."),
     )
     actor = models.CharField(
         max_length=100,
