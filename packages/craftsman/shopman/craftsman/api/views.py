@@ -88,6 +88,26 @@ class WorkOrderViewSet(
 
     def get_queryset(self):
         qs = super().get_queryset()
+        target_date = self.request.query_params.get("target_date")
+        status_param = self.request.query_params.get("status")
+        position_ref = self.request.query_params.get("position_ref")
+        operator_ref = self.request.query_params.get("operator_ref")
+        output_ref = self.request.query_params.get("output_ref")
+
+        if target_date:
+            try:
+                qs = qs.filter(target_date=date_type.fromisoformat(target_date))
+            except ValueError:
+                return qs.none()
+        if status_param:
+            statuses = [item.strip() for item in status_param.split(",") if item.strip()]
+            qs = qs.filter(status__in=statuses)
+        if position_ref:
+            qs = qs.filter(position_ref=position_ref)
+        if operator_ref:
+            qs = qs.filter(operator_ref=operator_ref)
+        if output_ref:
+            qs = qs.filter(output_ref=output_ref)
         if self.action == "retrieve":
             qs = qs.prefetch_related("items", "events")
         return qs
@@ -391,8 +411,40 @@ class QueryViewSet(viewsets.ViewSet):
 
         output_refs_param = request.query_params.get("output_refs")
         output_refs = [r.strip() for r in output_refs_param.split(",")] if output_refs_param else None
+        season_months_param = request.query_params.get("season_months")
+        season_months = None
+        if season_months_param:
+            try:
+                season_months = [
+                    int(month.strip())
+                    for month in season_months_param.split(",")
+                    if month.strip()
+                ]
+            except ValueError:
+                return Response(
+                    {"error": "INVALID_SEASON_MONTHS", "detail": "season_months must be comma-separated integers."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        result = craft.suggest(d, output_refs=output_refs)
+        high_demand_multiplier_param = request.query_params.get("high_demand_multiplier")
+        high_demand_multiplier = None
+        if high_demand_multiplier_param:
+            try:
+                from decimal import Decimal
+
+                high_demand_multiplier = Decimal(high_demand_multiplier_param)
+            except Exception:
+                return Response(
+                    {"error": "INVALID_MULTIPLIER", "detail": "high_demand_multiplier must be a valid decimal."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        result = craft.suggest(
+            d,
+            output_refs=output_refs,
+            season_months=season_months,
+            high_demand_multiplier=high_demand_multiplier,
+        )
         return Response(SuggestionSerializer(result, many=True).data)
 
     @action(detail=False, methods=["get"])

@@ -54,6 +54,18 @@ Depois desta abertura, os próximos passos naturais de `craftsman` são:
 - expor desvio e rendimento com mais destaque para coordenação do chão
 - manter isso como projeção operacional, sem criar novos estados no core
 
+### Avanço posterior ainda dentro de 4.8
+
+Depois da abertura inicial, `craftsman` também ganhou:
+
+- filtros operacionais coerentes em API e admin por `target_date`, `position_ref` e `operator_ref`
+- listagem de `work-orders` alinhada aos mesmos cortes operacionais
+- endpoint de sugestão mais útil para planejamento real, aceitando:
+  - `season_months`
+  - `high_demand_multiplier`
+
+Isso deixa a frente de `craftsman` mais próxima do ponto em que o pacote deixa de ser apenas registro de ordem e passa a servir como base explícita para operação e planejamento.
+
 ## 4. Validação
 
 - `pytest packages/offerman/shopman/offerman/tests/test_service.py packages/offerman/shopman/offerman/tests/test_api.py` → `107 passed`

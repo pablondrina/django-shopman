@@ -402,6 +402,55 @@ class TestReadEndpoints:
         assert resp.status_code == 200
         assert resp.data["name"] == "Croissant Tradicional"
 
+    def test_list_work_orders_filters_by_operational_fields(self, api_client, recipe):
+        from datetime import date
+
+        wo1 = craft.plan(recipe, 100, date=date(2026, 2, 27), position_ref="forno", operator_ref="user:joao")
+        craft.plan(recipe, 50, date=date(2026, 2, 28), position_ref="bancada", operator_ref="user:maria")
+
+        resp = api_client.get(
+            "/api/craftsman/work-orders/?target_date=2026-02-27&position_ref=forno&operator_ref=user:joao&status=planned"
+        )
+        assert resp.status_code == 200
+        assert resp.data["count"] == 1
+        assert resp.data["results"][0]["ref"] == wo1.ref
+
     def test_nonexistent_work_order_returns_404(self, api_client):
         resp = api_client.get("/api/craftsman/work-orders/WO-9999-99999/")
         assert resp.status_code == 404
+
+
+class TestQueryEndpoints:
+    def test_suggest_accepts_season_and_multiplier(self, api_client, recipe, settings, monkeypatch):
+        from datetime import date
+        from unittest.mock import MagicMock
+        from shopman.craftsman.protocols.demand import DailyDemand
+
+        settings.CRAFTSMAN = {"DEMAND_BACKEND": "shopman.craftsman.adapters.noop.NoopDemandBackend"}
+
+        backend = MagicMock()
+        backend.history.return_value = [
+            DailyDemand(date=date(2026, 1, 10), sold=Decimal("10"), wasted=Decimal("0"), soldout_at=None),
+            DailyDemand(date=date(2026, 2, 14), sold=Decimal("12"), wasted=Decimal("0"), soldout_at=None),
+        ]
+        backend.committed.return_value = Decimal("3")
+
+        monkeypatch.setattr("django.utils.module_loading.import_string", lambda _: lambda: backend)
+
+        resp = api_client.get(
+            "/api/craftsman/queries/suggest/?date=2026-02-27&season_months=1,2,3&high_demand_multiplier=1.5"
+        )
+        assert resp.status_code == 200
+        assert len(resp.data) == 1
+        assert resp.data[0]["basis"]["season"] is None
+        assert resp.data[0]["basis"]["high_demand_applied"] is True
+
+    def test_suggest_rejects_invalid_season_months(self, api_client):
+        resp = api_client.get("/api/craftsman/queries/suggest/?date=2026-02-27&season_months=jan,fev")
+        assert resp.status_code == 400
+        assert resp.data["error"] == "INVALID_SEASON_MONTHS"
+
+    def test_suggest_rejects_invalid_multiplier(self, api_client):
+        resp = api_client.get("/api/craftsman/queries/suggest/?date=2026-02-27&high_demand_multiplier=abc")
+        assert resp.status_code == 400
+        assert resp.data["error"] == "INVALID_MULTIPLIER"

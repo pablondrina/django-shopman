@@ -4,6 +4,29 @@
 <div class="px-6 py-6">
   <h1 class="text-2xl font-semibold mb-6">{{ title }}</h1>
 
+  <form method="get" class="rounded-lg border p-4 bg-white mb-8 grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div>
+      <label class="block text-sm font-medium mb-1">Data</label>
+      <input type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Posição</label>
+      <select name="position_ref" class="w-full border rounded px-3 py-2">
+        <option value="">Todas</option>
+        {% for position in positions %}
+        <option value="{{ position.ref }}" {% if selected_position_ref == position.ref %}selected{% endif %}>{{ position.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Operador</label>
+      <input type="text" name="operator_ref" value="{{ selected_operator_ref }}" placeholder="user:joao" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div class="flex items-end">
+      <button type="submit" class="px-4 py-2 rounded bg-black text-white">Filtrar</button>
+    </div>
+  </form>
+
   <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
     <div class="rounded-lg border p-4 bg-white">
       <div class="text-sm text-gray-500">Ordens</div>
@@ -96,7 +119,7 @@
   </div>
 
   <section class="rounded-lg border p-4 bg-white">
-    <h2 class="text-lg font-semibold mb-4">Ordens do Dia</h2>
+    <h2 class="text-lg font-semibold mb-4">Ordens da Data</h2>
     {% if today_wos %}
     <div class="overflow-x-auto">
       <table class="min-w-full text-sm">
@@ -127,7 +150,7 @@
       </table>
     </div>
     {% else %}
-    <p class="text-sm text-gray-500">Nenhuma ordem agendada para hoje.</p>
+      <p class="text-sm text-gray-500">Nenhuma ordem agendada para a data filtrada.</p>
     {% endif %}
   </section>
 </div>

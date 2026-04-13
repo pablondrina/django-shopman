@@ -129,20 +129,17 @@ Fazer `craftsman` responder com clareza:
 - queries operacionais `craft.queue(...)` e `craft.summary(...)`
 - superfície HTTP para fila e resumo
 - superfície admin inicial para coordenação do chão
+- filtros operacionais coerentes em API/admin por `target_date`, `position_ref` e `operator_ref`
+- listagem de `work-orders` filtrável pelos mesmos eixos operacionais
+- API de sugestão expondo `season_months` e `high_demand_multiplier`
 - limpeza de métricas derivadas YAGNI que não eram fatos centrais
 
 ### O que falta
 
-1. Consolidar a leitura operacional por corte relevante.
-Principalmente por:
-- `target_date`
-- `position_ref`
-- `operator_ref`
-
-2. Confirmar a superfície canônica do pacote.
+1. Confirmar a superfície canônica do pacote.
 Garantir que payloads, docs e interfaces conversem sempre na mesma linguagem.
 
-3. Preparar a base para sugestão inteligente de produção.
+2. Preparar a base para sugestão inteligente de produção.
 Sem inflar o core. A base precisa existir para:
 - média histórica
 - padrão por dia da semana
@@ -150,7 +147,7 @@ Sem inflar o core. A base precisa existir para:
 - véspera de feriado
 - encomendas já comprometidas
 
-4. Consolidar o pacote como motor de execução, não só registro de ordem.
+3. Consolidar o pacote como motor de execução, não só registro de ordem.
 
 ### Critério de saída
 

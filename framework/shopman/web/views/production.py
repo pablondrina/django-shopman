@@ -135,7 +135,11 @@ def _handle_post(request, admin_site):
 
 def _render(request, admin_site):
     """Render the production page with form + today's list."""
-    today = date.today()
+    date_param = (request.GET.get("date") or "").strip()
+    try:
+        selected_date = date.fromisoformat(date_param) if date_param else date.today()
+    except ValueError:
+        selected_date = date.today()
     position_ref = (request.GET.get("position_ref") or "").strip()
     operator_ref = (request.GET.get("operator_ref") or "").strip()
 
@@ -145,17 +149,22 @@ def _render(request, admin_site):
 
     today_wos = (
         WorkOrder.objects
-        .filter(target_date=today)
+        .filter(target_date=selected_date)
         .select_related("recipe")
         .order_by("-created_at")
     )
+    if position_ref:
+        today_wos = today_wos.filter(position_ref=position_ref)
+    if operator_ref:
+        today_wos = today_wos.filter(operator_ref=operator_ref)
+
     craft_summary = craft.summary(
-        date=today,
+        date=selected_date,
         position_ref=position_ref or None,
         operator_ref=operator_ref or None,
     )
     queue_items = craft.queue(
-        date=today,
+        date=selected_date,
         position_ref=position_ref or None,
         operator_ref=operator_ref or None,
     )
@@ -175,7 +184,7 @@ def _render(request, admin_site):
         "started_queue": started_queue,
         "selected_position_ref": position_ref,
         "selected_operator_ref": operator_ref,
-        "today": today,
+        "selected_date": selected_date,
     }
     return TemplateResponse(request, TEMPLATE, context)
 

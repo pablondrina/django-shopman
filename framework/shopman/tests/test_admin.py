@@ -279,3 +279,31 @@ class TestProductionAdminView:
         assert response.context_data["craft_summary"].total_orders == 2
         assert len(response.context_data["planned_queue"]) == 1
         assert len(response.context_data["started_queue"]) == 1
+
+    def test_get_filters_by_date_position_and_operator(self, db, rf, admin_user):
+        from datetime import date, timedelta
+
+        from shopman.web.views.production import production_view
+
+        recipe = Recipe.objects.create(
+            code="baguette-v1",
+            name="Baguette",
+            output_ref="baguette",
+            batch_size=10,
+        )
+        target = date.today() + timedelta(days=1)
+        craft.plan(recipe, 100, date=target, position_ref="forno", operator_ref="user:joao")
+        craft.plan(recipe, 50, date=target, position_ref="bancada", operator_ref="user:maria")
+
+        request = rf.get(
+            "/admin/shopman/shop/production/",
+            {"date": target.isoformat(), "position_ref": "forno", "operator_ref": "user:joao"},
+        )
+        request.user = admin_user
+        response = production_view(request, admin.site)
+
+        assert response.status_code == 200
+        assert response.context_data["selected_date"] == target
+        assert response.context_data["craft_summary"].total_orders == 1
+        assert len(response.context_data["planned_queue"]) == 1
+        assert response.context_data["today_wos"].count() == 1
