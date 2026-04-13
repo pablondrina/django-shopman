@@ -75,7 +75,8 @@ class StockPlanning:
 
     @classmethod
     def realize(cls, product, target_date, actual_quantity,
-                to_position, from_position=None, user=None,
+                to_position, from_position=None, from_batch='',
+                user=None,
                 reason='Produção realizada'):
         """
         Realize production (planned -> physical).
@@ -91,10 +92,21 @@ class StockPlanning:
         from shopman.stockman.services.queries import StockQueries
 
         sku = product.sku
-        quant = StockQueries.get_quant(sku, target_date=target_date, position=from_position)
+        quant = StockQueries.get_quant(
+            sku,
+            target_date=target_date,
+            position=from_position,
+            batch=from_batch,
+        )
 
         if quant is None and from_position is not None:
             # Fallback: try without position
+            quant = StockQueries.get_quant(sku, target_date=target_date, batch=from_batch)
+
+        if quant is None and from_batch:
+            quant = StockQueries.get_quant(sku, target_date=target_date, position=from_position)
+
+        if quant is None and from_batch and from_position is not None:
             quant = StockQueries.get_quant(sku, target_date=target_date)
 
         if quant is None:

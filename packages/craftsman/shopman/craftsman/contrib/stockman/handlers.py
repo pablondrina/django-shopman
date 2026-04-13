@@ -21,6 +21,8 @@ from shopman.craftsman.signals import production_changed
 
 logger = logging.getLogger(__name__)
 
+STARTED_BATCH = "started"
+
 
 def _stocking_available() -> bool:
     """Check if Stockman is installed."""
@@ -68,10 +70,10 @@ def handle_production_changed(sender, product_ref, date, **kwargs):
         _handle_planned(work_order, product_ref, date)
     elif action == "adjusted":
         _handle_adjusted(work_order, product_ref, date)
+    elif action == "started":
+        _handle_started(work_order, product_ref, date)
     elif action == "voided":
         _handle_voided(work_order, product_ref, date)
-    elif action == "started":
-        logger.debug("Started event received for %s; no Stockman side effect", work_order.ref if work_order else "?")
     elif action == "finished":
         _handle_finished(work_order, product_ref, date)
     else:
@@ -176,6 +178,65 @@ def _handle_adjusted(work_order, product_ref, date):
         )
 
 
+def _handle_started(work_order, product_ref, date):
+    """
+    Materialize started supply as an operationally expected quant.
+
+    The remaining quantity stays as plain planned supply. This lets Stockman
+    distinguish what is merely planned from what is already expected because it
+    effectively entered production.
+    """
+    if not work_order or not date:
+        logger.warning(
+            "Cannot materialize started supply: work_order=%s date=%s",
+            work_order,
+            date,
+        )
+        return
+
+    from shopman.stockman.services.movements import StockMovements
+    from shopman.stockman.services.queries import StockQueries
+
+    started_qty = work_order.started_qty or work_order.quantity
+    position = _resolve_position(work_order.position_ref)
+
+    try:
+        planned_quant = StockQueries.get_quant(product_ref, target_date=date, position=position)
+        if planned_quant is None:
+            planned_quant = StockQueries.get_quant(product_ref, target_date=date)
+
+        if planned_quant is not None:
+            remaining_planned = max(planned_quant.quantity - started_qty, 0)
+            StockMovements.adjust(
+                planned_quant,
+                remaining_planned,
+                reason=f"Entrada em produção: {work_order.ref}",
+            )
+
+        StockMovements.receive(
+            quantity=started_qty,
+            sku=product_ref,
+            position=position,
+            target_date=date,
+            batch=STARTED_BATCH,
+            reason=f"Produção iniciada: {work_order.ref}",
+        )
+        logger.info(
+            "Started supply materialized: sku=%s started=%s target_date=%s position=%s ref=%s",
+            product_ref,
+            started_qty,
+            date,
+            work_order.position_ref or "(default)",
+            work_order.ref,
+        )
+    except Exception:
+        logger.warning(
+            "Failed to materialize started supply for %s (non-fatal)",
+            work_order.ref,
+            exc_info=True,
+        )
+
+
 def _handle_voided(work_order, product_ref, date):
     """
     Cancel the planned Quant by adjusting it to zero.
@@ -198,22 +259,35 @@ def _handle_voided(work_order, product_ref, date):
 
     try:
         quant = StockQueries.get_quant(product_ref, target_date=date)
-        if quant is None:
+        started_quant = StockQueries.get_quant(
+            product_ref,
+            target_date=date,
+            position=_resolve_position(work_order.position_ref),
+            batch=STARTED_BATCH,
+        )
+
+        if quant is None and started_quant is None:
             logger.debug(
-                "No planned quant found for sku=%s date=%s (already cancelled?)",
+                "No planned or started quant found for sku=%s date=%s (already cancelled?)",
                 product_ref,
                 date,
             )
             return
 
-        if quant.quantity > 0:
+        if quant is not None and quant.quantity > 0:
             StockMovements.adjust(
                 quant,
                 new_quantity=0,
                 reason=f"WO cancelada: {work_order.ref}",
             )
+        if started_quant is not None and started_quant.quantity > 0:
+            StockMovements.adjust(
+                started_quant,
+                new_quantity=0,
+                reason=f"WO cancelada após início: {work_order.ref}",
+            )
         logger.info(
-            "Planned quant cancelled: sku=%s target_date=%s ref=%s",
+            "Planned/started quants cancelled: sku=%s target_date=%s ref=%s",
             product_ref,
             date,
             work_order.ref,
@@ -261,8 +335,17 @@ def _handle_finished(work_order, product_ref, date):
         # Find planned quant (may be at position_ref position or default)
         from_position = _resolve_position(work_order.position_ref)
         quant = StockQueries.get_quant(
-            product_ref, target_date=date, position=from_position,
+            product_ref, target_date=date, position=from_position, batch=STARTED_BATCH,
         )
+        from_batch = STARTED_BATCH if quant is not None else ""
+        if quant is None:
+            quant = StockQueries.get_quant(
+                product_ref, target_date=date, position=from_position,
+            )
+        if quant is None:
+            quant = StockQueries.get_quant(product_ref, target_date=date, batch=STARTED_BATCH)
+            if quant is not None:
+                from_batch = STARTED_BATCH
         if quant is None:
             # Fallback: try without position filter
             quant = StockQueries.get_quant(product_ref, target_date=date)
@@ -280,6 +363,7 @@ def _handle_finished(work_order, product_ref, date):
             actual_quantity=finished_qty,
             to_position=to_position,
             from_position=from_position,
+            from_batch=from_batch,
             reason=f"Produção concluída: {work_order.ref}",
         )
         logger.info(

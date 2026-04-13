@@ -559,6 +559,34 @@ class TestPromiseDecision:
         assert decision.available_qty == Decimal("8")
 
     @override_settings(
+        STOCKMAN={"SKU_VALIDATOR": "shopman.stockman.tests.fakes.OrderableSkuValidator"}
+    )
+    def test_promise_decision_distinguishes_expected_from_planned_supply(
+        self, product, producao, tomorrow
+    ):
+        Quant.objects.create(
+            sku=product.sku,
+            position=None,
+            target_date=tomorrow,
+            _quantity=Decimal("20"),
+        )
+        Quant.objects.create(
+            sku=product.sku,
+            position=producao,
+            target_date=tomorrow,
+            batch="started",
+            _quantity=Decimal("30"),
+        )
+
+        decision = stock.promise(product.sku, Decimal("25"), target_date=tomorrow)
+
+        assert decision.approved is True
+        assert decision.available_now == Decimal("0")
+        assert decision.available_by_process == Decimal("30")
+        assert decision.available_by_plan == Decimal("20")
+        assert decision.available_qty == Decimal("50")
+
+    @override_settings(
         STOCKMAN={"SKU_VALIDATOR": "shopman.stockman.tests.fakes.StockOnlySkuValidator"}
     )
     def test_stock_only_policy_ignores_in_process_and_plan_for_promise(self, product, vitrine, tomorrow):

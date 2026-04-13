@@ -17,6 +17,8 @@ from shopman.stockman.models import Hold, Quant
 from shopman.stockman.models.enums import HoldStatus
 from shopman.stockman.protocols.sku import PromiseDecision
 
+STARTED_BATCH = "started"
+
 
 def _policy_promisable_qty(
     availability_policy: str,
@@ -162,14 +164,20 @@ def availability_for_sku(
         held = quant.held
 
         # Classify into breakdown buckets
-        if quant.is_future:
+        if quant.batch == STARTED_BATCH:
+            in_production += qty
+            held_production += held
+        elif quant.is_future:
             planned += qty
             held_planned += held
         elif quant.batch == "D-1":
             d1 += qty
             held_d1 += held
-        elif quant.position and quant.position.kind == "process":
-            # PROCESS position = production stage (forno, bancada, etc.)
+        elif quant.position and (
+            quant.position.kind == "process" or not quant.position.is_saleable
+        ):
+            # Operational stock not yet saleable: explicit process positions or
+            # non-saleable production areas.
             in_production += qty
             held_production += held
         elif quant.position and quant.position.is_saleable:
@@ -407,13 +415,18 @@ def availability_for_skus(
             held = held_by_quant.get(quant.pk, zero)
 
             # Classify into breakdown buckets (same logic as availability_for_sku)
-            if quant.is_future:
+            if quant.batch == STARTED_BATCH:
+                in_production += qty
+                held_production += held
+            elif quant.is_future:
                 planned += qty
                 held_planned += held
             elif quant.batch == "D-1":
                 d1 += qty
                 held_d1 += held
-            elif quant.position and quant.position.kind == "process":
+            elif quant.position and (
+                quant.position.kind == "process" or not quant.position.is_saleable
+            ):
                 in_production += qty
                 held_production += held
             elif quant.position and quant.position.is_saleable:

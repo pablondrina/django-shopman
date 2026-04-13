@@ -145,6 +145,49 @@ class TestProductionSignalCreatesPlannedQuant:
         assert quant is not None
         assert quant._quantity == Decimal("0")
 
+    def test_start_splits_planned_and_expected_supply(
+        self, recipe, croissant, position_producao, tomorrow,
+    ):
+        import shopman.craftsman.contrib.stockman.handlers  # noqa: F401
+
+        wo = craft.plan(
+            recipe,
+            quantity=Decimal("50"),
+            date=tomorrow,
+            position_ref=position_producao.ref,
+        )
+
+        craft.start(
+            wo,
+            quantity=Decimal("30"),
+            expected_rev=0,
+            position_ref=position_producao.ref,
+            operator_ref="user:joao",
+        )
+
+        planned_quant = Quant.objects.filter(
+            sku=croissant.sku,
+            target_date=tomorrow,
+            batch="",
+        ).first()
+        started_quant = Quant.objects.filter(
+            sku=croissant.sku,
+            target_date=tomorrow,
+            position=position_producao,
+            batch="started",
+        ).first()
+
+        assert planned_quant is not None
+        assert planned_quant._quantity == Decimal("20")
+        assert started_quant is not None
+        assert started_quant._quantity == Decimal("30")
+
+        decision = stock.promise(croissant.sku, Decimal("25"), target_date=tomorrow)
+        assert decision.approved is True
+        assert decision.available_by_process == Decimal("30")
+        assert decision.available_by_plan == Decimal("20")
+        assert decision.available_qty == Decimal("50")
+
 
 # =============================================================================
 # Suggest production management command

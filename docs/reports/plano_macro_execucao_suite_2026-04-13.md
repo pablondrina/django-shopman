@@ -170,6 +170,12 @@ Ainda não fechada.
 
 Fazer promessa e execução falarem como partes do mesmo sistema operacional.
 
+Semântica operacional prática:
+
+- `planned` / planejado: intenção ainda ajustável
+- `expected` / previsto: quantidade já iniciada ou operacionalmente esperada
+- `finished` / finalizado: resultado materializado
+
 ### O que precisa acontecer
 
 1. Definir claramente como supply futuro de produção alimenta a promessa.
