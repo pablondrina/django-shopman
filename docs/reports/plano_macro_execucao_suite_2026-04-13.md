@@ -176,6 +176,13 @@ Semântica operacional prática:
 - `expected` / previsto: quantidade já iniciada ou operacionalmente esperada
 - `finished` / finalizado: resultado materializado
 
+Fechamento futuro de convenção:
+
+- `craft.plan()` deve ser lido como determinando o planejado
+- `craft.start()` deve ser lido como determinando o previsto
+- `craft.finish()` deve ser lido como determinando o finalizado
+- quando houver passada retroativa de naming, revisar onde `started` e buckets correlatos devem convergir para a linguagem prática de `previsto`
+
 ### O que precisa acontecer
 
 1. Definir claramente como supply futuro de produção alimenta a promessa.
