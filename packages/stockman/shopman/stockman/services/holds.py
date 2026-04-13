@@ -19,6 +19,7 @@ from shopman.stockman.models.enums import HoldStatus
 from shopman.stockman.models.hold import Hold
 from shopman.stockman.models.move import Move
 from shopman.stockman.models.quant import Quant
+from shopman.stockman.services.availability import promise_decision_for_sku
 from shopman.stockman.services.queries import _resolve_stock_profile
 from shopman.stockman.shelflife import filter_valid_quants
 
@@ -91,10 +92,32 @@ class StockHolds:
 
         target = target_date or date.today()
         profile = _resolve_stock_profile(product)
-        policy = profile["availability_policy"]
         sku = profile["sku"]
 
         with transaction.atomic():
+            decision = promise_decision_for_sku(sku, quantity, target_date=target)
+            policy = profile["availability_policy"] or decision.availability_policy
+            approved = decision.approved
+            available = decision.available_qty
+
+            if decision.is_paused:
+                approved = False
+                available = Decimal("0")
+            elif policy == 'demand_ok':
+                approved = True
+                available = max(decision.available_qty, quantity)
+            elif policy == 'stock_only':
+                approved = quantity <= decision.available_now
+                available = decision.available_now
+
+            if not approved:
+                raise StockError(
+                    'INSUFFICIENT_AVAILABLE',
+                    available=available,
+                    requested=quantity,
+                    reason_code=decision.reason_code,
+                )
+
             quant = _find_quant_for_hold(sku, product, target, quantity)
 
             if quant:
@@ -121,10 +144,6 @@ class StockHolds:
                     )
                     return hold.hold_id
 
-            # Not enough availability — compute actual total for error reporting
-            from shopman.stockman.services.queries import StockQueries
-            current_available = StockQueries.available(sku, target)
-
             if policy == 'demand_ok':
                 hold = Hold.objects.create(
                     sku=sku,
@@ -148,7 +167,7 @@ class StockHolds:
 
             raise StockError(
                 'INSUFFICIENT_AVAILABLE',
-                available=current_available,
+                available=available,
                 requested=quantity
             )
 

@@ -6,6 +6,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest
+from django.test import override_settings
 from django.utils import timezone
 
 from shopman.stockman import stock, StockError
@@ -139,6 +140,34 @@ class TestStockHold:
         hold = Hold.objects.get(pk=int(hold_id.split(':')[1]))
         assert hold.is_demand
         assert hold.quant is None
+
+    @override_settings(
+        STOCKMAN={"SKU_VALIDATOR": "shopman.stockman.tests.fakes.StockOnlySkuValidator"}
+    )
+    def test_hold_stock_only_rejects_planned_supply(self, product, producao, tomorrow):
+        """stock_only cannot create hold from future planned stock."""
+        stock.receive(Decimal('10'), product.sku, producao, target_date=tomorrow, reason='Planejado')
+
+        with pytest.raises(StockError) as exc:
+            stock.hold(Decimal('5'), product, tomorrow)
+
+        assert exc.value.code == 'INSUFFICIENT_AVAILABLE'
+        assert exc.value.data['available'] == Decimal('0')
+        assert exc.value.data['reason_code'] == 'insufficient_supply'
+
+    @override_settings(
+        STOCKMAN={"SKU_VALIDATOR": "shopman.stockman.tests.fakes.PausedSkuValidator"}
+    )
+    def test_hold_paused_offer_rejects_even_with_stock(self, product, vitrine, today):
+        """Paused offer cannot be held even if stock physically exists."""
+        stock.receive(Decimal('10'), product.sku, vitrine, reason='Entrada')
+
+        with pytest.raises(StockError) as exc:
+            stock.hold(Decimal('5'), product, today)
+
+        assert exc.value.code == 'INSUFFICIENT_AVAILABLE'
+        assert exc.value.data['available'] == Decimal('0')
+        assert exc.value.data['reason_code'] == 'paused'
 
     def test_hold_with_expiration(self, product, vitrine, today):
         """Hold with expiration is set."""

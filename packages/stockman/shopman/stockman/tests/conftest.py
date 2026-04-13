@@ -12,10 +12,18 @@ from types import SimpleNamespace
 import pytest
 from django.contrib.auth import get_user_model
 
+from shopman.stockman.adapters.offering import reset_sku_validator
 from shopman.stockman.models import Position, PositionKind
 
 
 User = get_user_model()
+
+
+@pytest.fixture(autouse=True)
+def _reset_sku_validator_cache():
+    reset_sku_validator()
+    yield
+    reset_sku_validator()
 
 
 @pytest.fixture

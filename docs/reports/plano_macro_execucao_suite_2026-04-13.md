@@ -75,20 +75,22 @@ Fazer `stockman` responder com clareza e sem ruído:
 - contrato de SKU/oferta via adapter
 - fortalecimento de `promise` como decisão read-only
 - alinhamento de `promise` com `availability_policy`
+- alinhamento de `hold` com o mesmo gate semântico de `promise`
 - limpeza de `total_orderable` em favor de `total_promisable`
+- cobertura explícita para:
+  - `stock_only` não reservar contra supply apenas planejado
+  - `demand_ok` permitir compromisso sem supply atual
+  - oferta pausada bloquear `hold` mesmo com estoque físico
 
 ### O que falta
 
 1. Revisar a linguagem final de política de promessa.
 Hoje `availability_policy` ainda é aceitável, mas a evolução para `promise_policy` permanece aberta.
 
-2. Consolidar a fronteira entre `promise` e `hold`.
-`promise` deve decidir. `hold` deve comprometer. Nenhum dos dois deve duplicar o papel do outro.
-
-3. Revisar a superfície pública de disponibilidade/promessa.
+2. Revisar a superfície pública de disponibilidade/promessa.
 Confirmar que API, adapters e consumers externos usam a mesma verdade semântica.
 
-4. Consolidar supply temporal.
+3. Consolidar supply temporal.
 Fechar melhor a leitura entre:
 - disponível agora
 - em processo
