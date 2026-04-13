@@ -80,6 +80,7 @@ Fazer `stockman` responder com clareza e sem ruído:
 - limpeza de `total_orderable` em favor de `total_promisable`
 - limpeza do bucket ambíguo `available_in_process` em favor de `available_by_process`
 - checkout e carrinho deixaram de recompor promessa por breakdown manual; agora consomem `total_promisable`
+- auditoria de consumidores: não restam consumidores vivos do `framework` recompondo promessa por breakdown; resíduo encontrado ficou só em teste e foi alinhado
 - cobertura explícita para:
   - `stock_only` não reservar contra supply apenas planejado
   - `demand_ok` permitir compromisso sem supply atual

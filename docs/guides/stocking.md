@@ -192,7 +192,7 @@ move = stock.adjust(
 # Criar hold (reserva ou demanda)
 hold_id = stock.hold(
     quantity=Decimal("5"),
-    product=croissant,  # Product com availability_policy
+    product=croissant,  # Product com availability_policy/promise rule
     target_date=date.today(),
     expires_at=timezone.now() + timedelta(minutes=30),
 )

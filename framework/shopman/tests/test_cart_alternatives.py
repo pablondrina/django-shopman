@@ -150,10 +150,9 @@ class CartItemUnavailableFlagTests(TestCase):
         """is_unavailable=True when avail_map shows stock < qty."""
         from decimal import Decimal
 
-        # Test the logic directly: total_avail < qty → is_unavailable
-        avail = {"breakdown": {"ready": Decimal("2"), "in_production": Decimal("0"), "d1": Decimal("0")}}
-        breakdown = avail.get("breakdown", {})
-        total_avail = breakdown.get("ready", Decimal("0")) + breakdown.get("in_production", Decimal("0")) + breakdown.get("d1", Decimal("0"))
+        # Test the logic directly: total_promisable < qty → is_unavailable
+        avail = {"total_promisable": Decimal("2")}
+        total_avail = avail["total_promisable"]
         qty = 5
         self.assertTrue(int(total_avail) < qty)
 

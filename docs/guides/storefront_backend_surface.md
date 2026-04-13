@@ -87,6 +87,9 @@ Leitura correta:
 
 - `total_available`: fato físico imediatamente disponível para venda
 - `total_promisable`: quantidade efetivamente prometível segundo a policy vigente
+- `available_now`: parcela prometível já pronta agora
+- `available_by_process`: parcela prometível já prevista operacionalmente
+- `available_by_plan`: parcela prometível ainda apoiada só em plano futuro
 - `availability_policy`: política que governa a promessa
 - `approved` em `promise`: decisão explícita para SKU + qty + target_date
 
@@ -101,13 +104,19 @@ O template não deve:
 Perguntas legítimas:
 
 - o que está planejado para produzir?
-- o que já entrou em produção?
+- o que já virou previsto operacionalmente?
 - o que já foi finalizado?
 - como está a fila operacional?
 
 Dono:
 
 - `craftsman`
+
+Convenção prática:
+
+- `craft.plan()` determina o planejado
+- `craft.start()` determina o previsto
+- `craft.finish()` determina o finalizado
 
 Superfícies canônicas:
 
