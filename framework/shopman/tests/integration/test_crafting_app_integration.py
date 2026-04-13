@@ -184,8 +184,8 @@ class TestProductionSignalCreatesPlannedQuant:
 
         decision = stock.promise(croissant.sku, Decimal("25"), target_date=tomorrow)
         assert decision.approved is True
-        assert decision.available_by_process == Decimal("30")
-        assert decision.available_by_plan == Decimal("20")
+        assert decision.expected == Decimal("30")
+        assert decision.planned == Decimal("20")
         assert decision.available_qty == Decimal("50")
 
 

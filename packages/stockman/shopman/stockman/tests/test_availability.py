@@ -500,9 +500,9 @@ class TestPromiseDecision:
         assert decision.approved is True
         assert decision.reason_code is None
         assert decision.available_qty == Decimal("10")
-        assert decision.available_now == Decimal("10")
-        assert decision.available_by_process == Decimal("10")
-        assert decision.available_by_plan == Decimal("0")
+        assert decision.available == Decimal("10")
+        assert decision.expected == Decimal("10")
+        assert decision.planned == Decimal("0")
 
     @override_settings(
         STOCKMAN={"SKU_VALIDATOR": "shopman.stockman.tests.fakes.OrderableSkuValidator"}
@@ -553,9 +553,9 @@ class TestPromiseDecision:
         decision = stock.promise(product.sku, Decimal("6"), target_date=tomorrow)
 
         assert decision.approved is True
-        assert decision.available_now == Decimal("0")
-        assert decision.available_by_process == Decimal("0")
-        assert decision.available_by_plan == Decimal("8")
+        assert decision.available == Decimal("0")
+        assert decision.expected == Decimal("0")
+        assert decision.planned == Decimal("8")
         assert decision.available_qty == Decimal("8")
 
     @override_settings(
@@ -581,9 +581,9 @@ class TestPromiseDecision:
         decision = stock.promise(product.sku, Decimal("25"), target_date=tomorrow)
 
         assert decision.approved is True
-        assert decision.available_now == Decimal("0")
-        assert decision.available_by_process == Decimal("30")
-        assert decision.available_by_plan == Decimal("20")
+        assert decision.available == Decimal("0")
+        assert decision.expected == Decimal("30")
+        assert decision.planned == Decimal("20")
         assert decision.available_qty == Decimal("50")
 
     @override_settings(
@@ -600,7 +600,7 @@ class TestPromiseDecision:
         assert decision.availability_policy == "stock_only"
         assert decision.approved is False
         assert decision.available_qty == Decimal("0")
-        assert decision.available_by_plan == Decimal("5")
+        assert decision.planned == Decimal("5")
 
     @override_settings(
         STOCKMAN={"SKU_VALIDATOR": "shopman.stockman.tests.fakes.DemandOkSkuValidator"}
@@ -610,6 +610,6 @@ class TestPromiseDecision:
         assert decision.availability_policy == "demand_ok"
         assert decision.approved is True
         assert decision.available_qty == Decimal("7")
-        assert decision.available_now == Decimal("0")
-        assert decision.available_by_process == Decimal("0")
-        assert decision.available_by_plan == Decimal("0")
+        assert decision.available == Decimal("0")
+        assert decision.expected == Decimal("0")
+        assert decision.planned == Decimal("0")

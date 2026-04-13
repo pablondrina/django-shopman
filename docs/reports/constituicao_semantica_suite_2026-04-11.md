@@ -323,9 +323,9 @@ Mas o pacote precisa deixar explícito que hold é uma das peças do domínio, n
 
 Disponibilidade canônica precisa distinguir, ao menos conceitualmente:
 
-- `available_now`
-- `available_by_plan`
-- `available_by_process`
+- `available`
+- `planned`
+- `expected`
 - `unavailable`
 
 Isso pode existir como decisão/projeção, não necessariamente como campo persistido.

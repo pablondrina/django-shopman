@@ -46,7 +46,7 @@ class SkuInfo:
 class PromiseDecision:
     """Operational promise decision for a SKU in a given time scope.
 
-    ``available_by_process`` is cumulative: it includes what is available now
+    ``expected`` is cumulative: it includes what is available now
     plus what can be sustained by supply already in process before any future
     planned-only supply is considered.
     """
@@ -58,9 +58,9 @@ class PromiseDecision:
     availability_policy: str = "planned_ok"
     reason_code: str | None = None
     available_qty: Decimal = Decimal("0")
-    available_now: Decimal = Decimal("0")
-    available_by_process: Decimal = Decimal("0")
-    available_by_plan: Decimal = Decimal("0")
+    available: Decimal = Decimal("0")
+    expected: Decimal = Decimal("0")
+    planned: Decimal = Decimal("0")
     is_planned: bool = False
     is_paused: bool = False
 

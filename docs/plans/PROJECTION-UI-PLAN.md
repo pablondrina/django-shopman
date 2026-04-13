@@ -674,7 +674,7 @@ class Availability(str, Enum):
 ```
 
 Isso alinha com a constituição (seção 4.2 — Stockman): disponibilidade canônica
-distingue available_now, available_by_plan, available_by_process, unavailable.
+distingue available, planned, expected, unavailable.
 
 ### Preços sempre dual
 

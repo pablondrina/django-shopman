@@ -182,8 +182,8 @@ class PromiseTests(StockmanAPITestBase):
         assert data["availability_policy"] == "planned_ok"
         assert Decimal(data["requested_qty"]) == Decimal("5.000")
         assert Decimal(data["available_qty"]) == Decimal("20.000")
-        assert Decimal(data["available_now"]) == Decimal("20.000")
-        assert Decimal(data["available_by_process"]) == Decimal("20.000")
+        assert Decimal(data["available"]) == Decimal("20.000")
+        assert Decimal(data["expected"]) == Decimal("20.000")
 
     def test_promise_missing_params(self):
         resp = self.client.get(f"{BASE_URL}/promise/", {"sku": "PAO-FORMA"})

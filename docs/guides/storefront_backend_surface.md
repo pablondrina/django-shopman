@@ -87,9 +87,9 @@ Leitura correta:
 
 - `total_available`: fato físico imediatamente disponível para venda
 - `total_promisable`: quantidade efetivamente prometível segundo a policy vigente
-- `available_now`: parcela prometível já pronta agora
-- `available_by_process`: parcela prometível já prevista operacionalmente
-- `available_by_plan`: parcela prometível ainda apoiada só em plano futuro
+- `available`: parcela prometível já pronta agora
+- `expected`: parcela prometível já prevista operacionalmente
+- `planned`: parcela prometível ainda apoiada só em plano futuro
 - `availability_policy`: política que governa a promessa
 - `approved` em `promise`: decisão explícita para SKU + qty + target_date
 

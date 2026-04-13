@@ -78,7 +78,7 @@ Fazer `stockman` responder com clareza e sem ruído:
 - alinhamento de `hold` com o mesmo gate semântico de `promise`
 - endpoint HTTP explícito de promessa em `stockman`
 - limpeza de `total_orderable` em favor de `total_promisable`
-- limpeza do bucket ambíguo `available_in_process` em favor de `available_by_process`
+- convergência da promessa para `available`, `expected` e `planned`
 - checkout e carrinho deixaram de recompor promessa por breakdown manual; agora consomem `total_promisable`
 - auditoria de consumidores: não restam consumidores vivos do `framework` recompondo promessa por breakdown; resíduo encontrado ficou só em teste e foi alinhado
 - cobertura explícita para:

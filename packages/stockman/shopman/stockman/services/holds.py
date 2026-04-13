@@ -107,8 +107,8 @@ class StockHolds:
                 approved = True
                 available = max(decision.available_qty, quantity)
             elif policy == 'stock_only':
-                approved = quantity <= decision.available_now
-                available = decision.available_now
+                approved = quantity <= decision.available
+                available = decision.available
 
             if not approved:
                 raise StockError(

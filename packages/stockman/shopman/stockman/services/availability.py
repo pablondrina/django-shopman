@@ -23,14 +23,14 @@ STARTED_BATCH = "started"
 def _policy_promisable_qty(
     availability_policy: str,
     *,
-    available_now: Decimal,
-    available_by_process: Decimal,
-    available_by_plan: Decimal,
+    available: Decimal,
+    expected: Decimal,
+    planned: Decimal,
 ) -> Decimal:
     """Return the effective promise scope allowed by the offer policy."""
     if availability_policy == "stock_only":
-        return available_now
-    return available_by_process + available_by_plan
+        return available
+    return expected + planned
 
 
 def sku_exists(sku: str) -> bool:
@@ -113,9 +113,9 @@ def availability_for_sku(
             "total_available": zero,
             "total_promisable": zero,
             "total_reserved": zero,
-            "available_now": zero,
-            "available_by_process": zero,
-            "available_by_plan": zero,
+            "available": zero,
+            "expected": zero,
+            "planned": zero,
             "breakdown": zero_breakdown,
             "is_planned": False,
             "is_paused": True,
@@ -194,28 +194,28 @@ def availability_for_sku(
             })
 
     total_held = held_ready + held_production + held_planned + held_d1
-    available_now = max(ready - held_ready - safety_margin, Decimal("0"))
-    available_by_process = max(
+    available = max(ready - held_ready - safety_margin, Decimal("0"))
+    expected = max(
         ready + in_production - held_ready - held_production - safety_margin,
         Decimal("0"),
     )
-    available_by_plan = max(planned - held_planned, Decimal("0"))
+    planned = max(planned - held_planned, Decimal("0"))
     total_promisable = _policy_promisable_qty(
         availability_policy,
-        available_now=available_now,
-        available_by_process=available_by_process,
-        available_by_plan=available_by_plan,
+        available=available,
+        expected=expected,
+        planned=planned,
     )
 
     return {
         "sku": sku,
         "availability_policy": availability_policy,
-        "total_available": available_now,
+        "total_available": available,
         "total_promisable": total_promisable,
         "total_reserved": total_held,
-        "available_now": available_now,
-        "available_by_process": available_by_process,
-        "available_by_plan": available_by_plan,
+        "available": available,
+        "expected": expected,
+        "planned": planned,
         "breakdown": {
             "ready": ready - held_ready,
             "in_production": in_production - held_production,
@@ -269,9 +269,9 @@ def promise_decision_for_sku(
         availability_policy=availability_policy,
         reason_code=reason_code,
         available_qty=effective_available_qty,
-        available_now=info.get("available_now", Decimal("0")),
-        available_by_process=info.get("available_by_process", Decimal("0")),
-        available_by_plan=info.get("available_by_plan", Decimal("0")),
+        available=info.get("available", Decimal("0")),
+        expected=info.get("expected", Decimal("0")),
+        planned=info.get("planned", Decimal("0")),
         is_planned=info.get("is_planned", False),
         is_paused=is_paused,
     )
@@ -379,9 +379,9 @@ def availability_for_skus(
                 "total_available": zero,
                 "total_promisable": zero,
                 "total_reserved": zero,
-                "available_now": zero,
-                "available_by_process": zero,
-                "available_by_plan": zero,
+                "available": zero,
+                "expected": zero,
+                "planned": zero,
                 "breakdown": dict(zero_breakdown),
                 "is_planned": False,
                 "is_paused": True,
@@ -443,28 +443,28 @@ def availability_for_skus(
                 })
 
         total_held = held_ready + held_production + held_planned + held_d1
-        available_now = max(ready - held_ready - safety_margin, zero)
-        available_by_process = max(
+        available = max(ready - held_ready - safety_margin, zero)
+        expected = max(
             ready + in_production - held_ready - held_production - safety_margin,
             zero,
         )
-        available_by_plan = max(planned - held_planned, zero)
+        planned = max(planned - held_planned, zero)
         total_promisable = _policy_promisable_qty(
             availability_policy,
-            available_now=available_now,
-            available_by_process=available_by_process,
-            available_by_plan=available_by_plan,
+            available=available,
+            expected=expected,
+            planned=planned,
         )
 
         result[sku] = {
             "sku": sku,
             "availability_policy": availability_policy,
-            "total_available": available_now,
+            "total_available": available,
             "total_promisable": total_promisable,
             "total_reserved": total_held,
-            "available_now": available_now,
-            "available_by_process": available_by_process,
-            "available_by_plan": available_by_plan,
+            "available": available,
+            "expected": expected,
+            "planned": planned,
             "breakdown": {
                 "ready": ready - held_ready,
                 "in_production": in_production - held_production,
