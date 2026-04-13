@@ -76,6 +76,7 @@ Fazer `stockman` responder com clareza e sem ruído:
 - fortalecimento de `promise` como decisão read-only
 - alinhamento de `promise` com `availability_policy`
 - alinhamento de `hold` com o mesmo gate semântico de `promise`
+- endpoint HTTP explícito de promessa em `stockman`
 - limpeza de `total_orderable` em favor de `total_promisable`
 - cobertura explícita para:
   - `stock_only` não reservar contra supply apenas planejado
@@ -227,7 +228,25 @@ Se houver conflito entre conveniência local e constituição semântica:
 - a matriz executiva orienta a ordem
 - este plano orienta a execução corrente
 
-## 6. Próxima revisão deste plano
+## 6. Débito fora da trilha de kernel
+
+### Storefront templates em refatoração local
+
+Há trabalho local em andamento fora desta trilha, ainda não empacotado nesta rodada:
+
+- `framework/shopman/web/templates/storefront/proto/home.html`
+- `framework/shopman/web/templates/storefront/proto/proto-scenarios.js`
+
+Regra para outros agentes:
+
+- não tocar nesses arquivos sem coordenação explícita
+- não misturar refatoração de storefront com a trilha atual de kernel
+- quando a frente de storefront for retomada, ela deve ser guiada pela superfície canônica do backend, especialmente:
+  - `offerman` para catálogo/oferta/preço contextual
+  - `stockman` para disponibilidade/promessa
+  - `craftsman` para projeções operacionais
+
+## 7. Próxima revisão deste plano
 
 Atualizar este documento quando ocorrer um destes marcos:
 

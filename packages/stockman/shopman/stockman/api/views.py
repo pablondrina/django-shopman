@@ -3,6 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from django.db.models import Q
+from django.utils.dateparse import parse_date
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -24,6 +25,7 @@ from .serializers import (
     MoveResponseSerializer,
     MoveSerializer,
     PositionSerializer,
+    PromiseDecisionSerializer,
     QuantSerializer,
     ReceiveSerializer,
     IssueSerializer,
@@ -32,6 +34,7 @@ from shopman.stockman.services.availability import (
     availability_for_sku,
     availability_for_skus,
     availability_scope_for_channel,
+    promise_decision_for_sku,
     sku_exists,
 )
 
@@ -125,6 +128,56 @@ class BulkAvailabilityView(APIView):
                 })
 
         serializer = BulkAvailabilitySerializer(results, many=True)
+        return Response(serializer.data)
+
+
+class PromiseView(APIView):
+    """GET explicit promise decision for one SKU/quantity in scope."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        sku = request.query_params.get("sku")
+        qty = request.query_params.get("qty")
+        if not sku or qty is None:
+            return Response(
+                {"detail": "sku and qty query parameters are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not sku_exists(sku):
+            return Response(
+                {"detail": "Product not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            requested_qty = Decimal(qty)
+        except Exception:
+            return Response(
+                {"detail": "qty must be a valid decimal."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        target_date_param = request.query_params.get("target_date")
+        target_date = parse_date(target_date_param) if target_date_param else None
+        if target_date_param and target_date is None:
+            return Response(
+                {"detail": "target_date must be in YYYY-MM-DD format."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        channel_ref = request.query_params.get("channel_ref")
+        scope = availability_scope_for_channel(channel_ref)
+
+        decision = promise_decision_for_sku(
+            sku,
+            requested_qty,
+            target_date=target_date,
+            safety_margin=scope["safety_margin"],
+            allowed_positions=scope["allowed_positions"],
+        )
+        serializer = PromiseDecisionSerializer(decision)
         return Response(serializer.data)
 
 

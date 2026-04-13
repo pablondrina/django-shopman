@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.test import override_settings
 from rest_framework.test import APIClient
 
 from shopman.stockman.models import Hold, HoldStatus, Move, Position, PositionKind, Quant, StockAlert
@@ -165,6 +166,62 @@ class BulkAvailabilityTests(StockmanAPITestBase):
     def test_bulk_missing_param(self):
         resp = self.client.get(f"{BASE_URL}/availability/bulk/")
         assert resp.status_code == 400
+
+
+class PromiseTests(StockmanAPITestBase):
+    """Tests for GET /api/stockman/promise/"""
+
+    def test_promise_returns_explicit_decision(self):
+        StockMovements.receive(Decimal("20"), self.product.sku, position=self.vitrine, reason="Produção")
+
+        resp = self.client.get(f"{BASE_URL}/promise/", {"sku": "PAO-FORMA", "qty": "5"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["sku"] == "PAO-FORMA"
+        assert data["approved"] is True
+        assert data["availability_policy"] == "planned_ok"
+        assert Decimal(data["requested_qty"]) == Decimal("5.000")
+        assert Decimal(data["available_qty"]) == Decimal("20.000")
+        assert Decimal(data["available_now"]) == Decimal("20.000")
+
+    def test_promise_missing_params(self):
+        resp = self.client.get(f"{BASE_URL}/promise/", {"sku": "PAO-FORMA"})
+        assert resp.status_code == 400
+
+    def test_promise_invalid_qty(self):
+        resp = self.client.get(f"{BASE_URL}/promise/", {"sku": "PAO-FORMA", "qty": "abc"})
+        assert resp.status_code == 400
+
+    def test_promise_invalid_target_date(self):
+        resp = self.client.get(
+            f"{BASE_URL}/promise/",
+            {"sku": "PAO-FORMA", "qty": "1", "target_date": "13-04-2026"},
+        )
+        assert resp.status_code == 400
+
+    @override_settings(
+        STOCKMAN={"SKU_VALIDATOR": "shopman.stockman.tests.fakes.DemandOkSkuValidator"}
+    )
+    def test_promise_demand_ok_approves_without_supply(self):
+        resp = self.client.get(f"{BASE_URL}/promise/", {"sku": "PAO-FORMA", "qty": "7"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["approved"] is True
+        assert data["availability_policy"] == "demand_ok"
+        assert Decimal(data["available_qty"]) == Decimal("7.000")
+
+    @override_settings(
+        STOCKMAN={"SKU_VALIDATOR": "shopman.stockman.tests.fakes.PausedSkuValidator"}
+    )
+    def test_promise_paused_offer_rejects(self):
+        StockMovements.receive(Decimal("10"), self.product.sku, position=self.vitrine, reason="Produção")
+
+        resp = self.client.get(f"{BASE_URL}/promise/", {"sku": "PAO-FORMA", "qty": "5"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["approved"] is False
+        assert data["is_paused"] is True
+        assert data["reason_code"] == "paused"
 
 
 # ══════════════════════════════════════════════════════════════════
