@@ -243,6 +243,33 @@ Regra para outros agentes:
   - `stockman` para disponibilidade/promessa
   - `craftsman` para projeções operacionais
 
+### Personalização recorrente de storefront
+
+Também fica registrado como débito controlado:
+
+- formalizar uma projection de storefront chamada `customer_summary`
+
+Escopo esperado:
+
+- `order_count`
+- `favorite_product`
+- `last_order_summary`
+
+Relação de domínio:
+
+- eixo principal em `guestman`
+- apoio de contrato público de `orderman` para último pedido
+
+Ponto ainda aberto para decisão futura:
+
+- `favorite_product` virá de favorito explícito
+- ou de inferência por histórico de pedidos
+
+Até essa decisão:
+
+- não espalhar `favorite_item` como nome
+- não jogar esses campos crus em context processor global
+
 ## 7. Próxima revisão deste plano
 
 Atualizar este documento quando ocorrer um destes marcos:

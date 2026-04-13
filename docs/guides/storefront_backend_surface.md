@@ -135,6 +135,34 @@ Usar:
 - `offerman` para produto + preço
 - `stockman` para badge de promessa/disponibilidade
 
+Se houver personalização de cliente recorrente, preferir uma projection dedicada:
+
+- `customer_summary`
+
+Essa projection deve ser pequena e semântica, por exemplo:
+
+- `order_count`
+- `favorite_product`
+- `last_order_summary`
+
+Fonte correta:
+
+- `guestman` para identidade e insight agregado
+- `orderman` para o último pedido/resumo selado
+
+Evitar:
+
+- `favorite_item` como nome
+- campos soltos em context processor global
+- personalização da home baseada em models diretos
+
+Observação:
+
+- `customer_summary` nasce melhor como projection reutilizável de storefront
+- pode ser usada na home
+- pode também ser consumida em menu/cardápio quando houver personalização contextual
+- não precisa nascer como projection exclusiva da home
+
 Não usar:
 
 - model cru de produto para decidir promise
@@ -251,6 +279,32 @@ Enquanto essa frente estiver aberta:
 
 - não misturar mudanças de kernel com esses templates
 - qualquer agente novo deve primeiro alinhar sua proposta a este guia
+
+### Personalização recorrente ainda não formalizada
+
+Há uma frente funcional ainda em aberto para storefront de cliente recorrente:
+
+- projection canônica `customer_summary`
+- possível inclusão de:
+  - `order_count`
+  - `favorite_product`
+  - `last_order_summary`
+
+Decisão semântica já tomada:
+
+- isso se relaciona principalmente a `guestman`
+- o último pedido continua vindo de contrato público de `orderman`
+
+Ponto ainda em aberto:
+
+- como formalizar `favorite_product`
+  - via mecanismo explícito de favoritos
+  - ou via reconhecimento por histórico de pedidos
+
+Enquanto isso não estiver decidido:
+
+- não improvisar `favorite_product` diretamente em template
+- registrar qualquer experimento como projection de storefront, não como verdade do domínio
 
 ## 9. Regra operacional para outros agentes
 
