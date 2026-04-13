@@ -52,7 +52,7 @@ class PromiseDecisionSerializer(serializers.Serializer):
     reason_code = serializers.CharField(allow_null=True, required=False)
     available_qty = serializers.DecimalField(max_digits=12, decimal_places=3)
     available_now = serializers.DecimalField(max_digits=12, decimal_places=3)
-    available_in_process = serializers.DecimalField(max_digits=12, decimal_places=3)
+    available_by_process = serializers.DecimalField(max_digits=12, decimal_places=3)
     available_by_plan = serializers.DecimalField(max_digits=12, decimal_places=3)
     is_planned = serializers.BooleanField(default=False)
     is_paused = serializers.BooleanField(default=False)

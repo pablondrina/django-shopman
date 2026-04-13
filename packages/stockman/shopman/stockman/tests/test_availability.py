@@ -501,7 +501,7 @@ class TestPromiseDecision:
         assert decision.reason_code is None
         assert decision.available_qty == Decimal("10")
         assert decision.available_now == Decimal("10")
-        assert decision.available_in_process == Decimal("10")
+        assert decision.available_by_process == Decimal("10")
         assert decision.available_by_plan == Decimal("0")
 
     @override_settings(
@@ -554,7 +554,7 @@ class TestPromiseDecision:
 
         assert decision.approved is True
         assert decision.available_now == Decimal("0")
-        assert decision.available_in_process == Decimal("0")
+        assert decision.available_by_process == Decimal("0")
         assert decision.available_by_plan == Decimal("8")
         assert decision.available_qty == Decimal("8")
 
@@ -583,5 +583,5 @@ class TestPromiseDecision:
         assert decision.approved is True
         assert decision.available_qty == Decimal("7")
         assert decision.available_now == Decimal("0")
-        assert decision.available_in_process == Decimal("0")
+        assert decision.available_by_process == Decimal("0")
         assert decision.available_by_plan == Decimal("0")

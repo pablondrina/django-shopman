@@ -325,7 +325,7 @@ Disponibilidade canônica precisa distinguir, ao menos conceitualmente:
 
 - `available_now`
 - `available_by_plan`
-- `available_in_process`
+- `available_by_process`
 - `unavailable`
 
 Isso pode existir como decisão/projeção, não necessariamente como campo persistido.

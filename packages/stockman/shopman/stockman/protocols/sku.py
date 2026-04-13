@@ -44,7 +44,12 @@ class SkuInfo:
 
 @dataclass(frozen=True)
 class PromiseDecision:
-    """Operational promise decision for a SKU in a given time scope."""
+    """Operational promise decision for a SKU in a given time scope.
+
+    ``available_by_process`` is cumulative: it includes what is available now
+    plus what can be sustained by supply already in process before any future
+    planned-only supply is considered.
+    """
 
     approved: bool
     sku: str
@@ -54,7 +59,7 @@ class PromiseDecision:
     reason_code: str | None = None
     available_qty: Decimal = Decimal("0")
     available_now: Decimal = Decimal("0")
-    available_in_process: Decimal = Decimal("0")
+    available_by_process: Decimal = Decimal("0")
     available_by_plan: Decimal = Decimal("0")
     is_planned: bool = False
     is_paused: bool = False

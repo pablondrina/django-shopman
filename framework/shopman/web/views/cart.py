@@ -308,11 +308,9 @@ class CartCheckView(View):
             avail = _get_availability(sku)
             if avail is None:
                 continue
-            breakdown = avail.get("breakdown", {})
-            ready = breakdown.get("ready", Decimal("0"))
-            in_prod = breakdown.get("in_production", Decimal("0"))
-            d1 = breakdown.get("d1", Decimal("0"))
-            available_qty = int(ready + in_prod + d1)
+            if avail.get("availability_policy") == "demand_ok" and not avail.get("is_paused", False):
+                continue
+            available_qty = int(avail.get("total_promisable", Decimal("0")))
 
             # Add back what this session holds — it's our own reservation.
             available_qty += session_held.get(sku, 0)

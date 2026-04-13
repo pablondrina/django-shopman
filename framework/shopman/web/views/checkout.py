@@ -733,11 +733,7 @@ class CheckoutView(View):
             checked += 1
             if avail.get("availability_policy") == "demand_ok" and not avail.get("is_paused", False):
                 continue
-            breakdown = avail.get("breakdown", {})
-            ready = breakdown.get("ready", Decimal("0"))
-            in_prod = breakdown.get("in_production", Decimal("0"))
-            d1 = breakdown.get("d1", Decimal("0"))
-            available_qty = int(ready + in_prod + d1) + session_held.get(sku, 0)
+            available_qty = int(avail.get("total_promisable", Decimal("0"))) + session_held.get(sku, 0)
             if qty > available_qty:
                 name = item.get("name") or sku
                 if available_qty > 0:
