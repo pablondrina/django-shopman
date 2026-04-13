@@ -291,7 +291,7 @@ def get_availability(
     """Return availability info for a SKU.
 
     Delegates to Stockman's availability_for_sku(). Returns a dict with
-    keys: sku, total_available, total_orderable, total_reserved,
+    keys: sku, total_available, total_promisable, total_reserved,
     breakdown, is_planned, is_paused, positions.
     """
     from shopman.stockman.services.availability import availability_for_sku

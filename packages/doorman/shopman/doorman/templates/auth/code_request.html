@@ -14,9 +14,9 @@
 
     <form method="post">
         {% csrf_token %}
-        <label for="phone">WhatsApp:</label>
-        <input type="tel" id="phone" name="phone" value="{{ phone|default:'' }}"
-               placeholder="(11) 99999-9999" required>
+        <label for="target">Identificador de acesso:</label>
+        <input type="text" id="target" name="target" value="{{ target|default:phone|default:'' }}"
+               placeholder="(11) 99999-9999 ou voce@exemplo.com" required>
         {% if next %}
         <input type="hidden" name="next" value="{{ next }}">
         {% endif %}

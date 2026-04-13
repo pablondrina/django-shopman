@@ -77,6 +77,30 @@ class DefaultAuthAdapter:
         """Create a new customer for the given phone number."""
         return self.resolver.create_for_phone(phone)
 
+    def create_customer_for_email(self, email: str) -> AuthCustomerInfo:
+        """Create a new customer for the given email address."""
+        return self.resolver.create_for_email(email)
+
+    def target_kind(self, target: str) -> str:
+        """Classify a normalized login target."""
+        return "email" if "@" in (target or "") else "phone"
+
+    def normalize_login_target(self, raw: str) -> str:
+        """Normalize a login target (phone or email)."""
+        return normalize_phone(raw)
+
+    def resolve_customer(self, target: str) -> AuthCustomerInfo | None:
+        """Resolve customer by normalized login target."""
+        if self.target_kind(target) == "email":
+            return self.resolve_customer_by_email(target)
+        return self.resolve_customer_by_phone(target)
+
+    def create_customer(self, target: str) -> AuthCustomerInfo:
+        """Create a customer from a normalized login target."""
+        if self.target_kind(target) == "email":
+            return self.create_customer_for_email(target)
+        return self.create_customer_for_phone(target)
+
     # ===========================================
     # Code delivery
     # ===========================================
@@ -298,8 +322,8 @@ class DefaultAuthAdapter:
         return doorman_settings.AUTO_CREATE_CUSTOMER
 
     def normalize_phone(self, raw: str) -> str:
-        """Normalize a phone number to E.164."""
-        return normalize_phone(raw)
+        """Backward-compatible alias for target normalization."""
+        return self.normalize_login_target(raw)
 
     def is_login_allowed(self, target: str, method: str) -> bool:
         """

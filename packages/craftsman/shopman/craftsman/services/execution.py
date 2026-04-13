@@ -80,7 +80,7 @@ class CraftExecution:
                     kind=WorkOrderEvent.Kind.STARTED,
                     payload={
                         "quantity": str(implicit_started_qty),
-                        "assigned_ref": order.assigned_ref,
+                        "operator_ref": order.operator_ref,
                         "position_ref": order.position_ref,
                         "note": note or "",
                         "implicit": True,
@@ -222,8 +222,6 @@ class CraftExecution:
             waste_total = sum(
                 item.quantity for item in all_items if item.kind == WorkOrderItem.Kind.WASTE
             )
-            yield_rate = (finished_decimal / started_qty) if started_qty else None
-
             WorkOrderItem.objects.bulk_create(all_items)
 
             order.finished = finished_decimal
@@ -243,12 +241,11 @@ class CraftExecution:
                     "planned_qty": str(order.quantity),
                     "started_qty": str(started_qty),
                     "loss_qty": str(waste_total),
-                    "yield_rate": str(yield_rate) if yield_rate is not None else None,
                     "output_ref": order.output_ref,
-                    "scheduled_date": str(order.scheduled_date) if order.scheduled_date else None,
+                    "target_date": str(order.target_date) if order.target_date else None,
                     "source_ref": order.source_ref,
                     "position_ref": order.position_ref,
-                    "assigned_ref": order.assigned_ref,
+                    "operator_ref": order.operator_ref,
                 },
                 actor=actor or "",
                 idempotency_key=idempotency_key,
@@ -259,7 +256,7 @@ class CraftExecution:
         production_changed.send(
             sender=WorkOrder,
             product_ref=order.output_ref,
-            date=order.scheduled_date,
+            date=order.target_date,
             action="finished",
             work_order=order,
         )
@@ -305,7 +302,7 @@ class CraftExecution:
         production_changed.send(
             sender=WorkOrder,
             product_ref=order.output_ref,
-            date=order.scheduled_date,
+            date=order.target_date,
             action="voided",
             work_order=order,
         )

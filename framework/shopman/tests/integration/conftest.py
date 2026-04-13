@@ -259,6 +259,6 @@ def work_order(db, recipe, today, position_producao, position_loja):
         output_ref=recipe.output_ref,
         quantity=Decimal("50"),
         status=WorkOrder.Status.PLANNED,
-        scheduled_date=today,
+        target_date=today,
         position_ref=position_producao.ref,
     )

@@ -8,11 +8,11 @@ Termos de domínio usados no código e na documentação.
 
 | Termo | Definição |
 |-------|-----------|
-| **Product** | Produto vendável. Identificado por `sku` (único). Tem `base_price_q`, `unit`, `shelf_life_days`, flags `is_published`/`is_available`. |
+| **Product** | Produto vendável. Identificado por `sku` (único). Tem `base_price_q`, `unit`, `shelf_life_days`, flags `is_published`/`is_sellable`. |
 | **Collection** | Agrupamento de produtos (ex: "Pães Artesanais", "Bebidas"). Pode ser hierárquico (parent FK) ou temporal (`valid_from`/`valid_until`). |
 | **CollectionItem** | Associação produto ↔ coleção, com `sort_order`. |
 | **Listing** | Tabela de preços por canal (ex: `balcao`, `ifood`, `web`). Tem `priority` e `is_active`. |
-| **ListingItem** | Produto numa listing com `price_q` específico e flags de publicação/disponibilidade. |
+| **ListingItem** | Produto numa listing com `price_q` específico e flags de publicação/comercialização. |
 | **ProductComponent** | Composição de bundles — relaciona produto pai com componentes e quantidades. |
 
 ## Stockman (Estoque)
@@ -43,7 +43,7 @@ Termos de domínio usados no código e na documentação.
 |-------|-----------|
 | **Recipe** | Ficha técnica / BOM (Bill of Materials). `code` único, `output_ref` (string-agnostic), `batch_size`. |
 | **RecipeItem** | Ingrediente na receita. Usa coeficiente francês para escalar quantidades proporcionalmente ao batch. |
-| **WorkOrder** | Ordem de produção. Liga uma receita a uma quantidade planejada, data de produção, e status (`open` → `in_progress` → `done`). |
+| **WorkOrder** | Ordem de produção. Liga uma receita às quantidades `planned`, `started` e `finished`, com status canônico `planned` → `started` → `finished` (ou `void`). |
 
 ## Customers (Clientes)
 

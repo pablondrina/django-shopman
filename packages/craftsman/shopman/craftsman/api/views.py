@@ -20,6 +20,8 @@ from shopman.craftsman.service import craft
 
 from .serializers import (
     AdjustSerializer,
+    CraftQueueItemSerializer,
+    CraftSummarySerializer,
     FinishSerializer,
     NeedSerializer,
     PlanSerializer,
@@ -102,7 +104,7 @@ class WorkOrderViewSet(
             "date": "2026-02-27",
             "source_ref": "order:789",
             "position_ref": "station:forno-01",
-            "assigned_ref": "user:joao",
+            "operator_ref": "user:joao",
             "actor": "api-user",
             "meta": {}
         }
@@ -128,7 +130,7 @@ class WorkOrderViewSet(
                 date=data.get("date"),
                 source_ref=data.get("source_ref", ""),
                 position_ref=data.get("position_ref", ""),
-                assigned_ref=data.get("assigned_ref", ""),
+                operator_ref=data.get("operator_ref", ""),
                 actor=data.get("actor") or request.user.username,
                 meta=data.get("meta", {}),
             )
@@ -239,7 +241,7 @@ class WorkOrderViewSet(
                 wo,
                 quantity=data["quantity"],
                 expected_rev=data.get("expected_rev"),
-                assigned_ref=data.get("assigned_ref"),
+                operator_ref=data.get("operator_ref"),
                 position_ref=data.get("position_ref"),
                 note=data.get("note"),
                 actor=data.get("actor", request.user.username),
@@ -392,3 +394,62 @@ class QueryViewSet(viewsets.ViewSet):
 
         result = craft.suggest(d, output_refs=output_refs)
         return Response(SuggestionSerializer(result, many=True).data)
+
+    @action(detail=False, methods=["get"])
+    def queue(self, request):
+        """
+        Operational queue for the floor.
+
+        GET /api/craftsman/queries/queue/?date=2026-02-27&position_ref=forno&operator_ref=user:joao
+        """
+        date_str = request.query_params.get("date")
+        position_ref = request.query_params.get("position_ref") or None
+        operator_ref = request.query_params.get("operator_ref") or None
+        statuses_param = request.query_params.get("statuses")
+
+        d = None
+        if date_str:
+            try:
+                d = date_type.fromisoformat(date_str)
+            except ValueError:
+                return Response(
+                    {"error": "INVALID_DATE", "detail": f"Invalid date format: {date_str}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        statuses = [s.strip() for s in statuses_param.split(",")] if statuses_param else None
+        result = craft.queue(
+            date=d,
+            position_ref=position_ref,
+            operator_ref=operator_ref,
+            statuses=statuses,
+        )
+        return Response(CraftQueueItemSerializer(result, many=True).data)
+
+    @action(detail=False, methods=["get"])
+    def summary(self, request):
+        """
+        Operational summary for the floor.
+
+        GET /api/craftsman/queries/summary/?date=2026-02-27&position_ref=forno&operator_ref=user:joao
+        """
+        date_str = request.query_params.get("date")
+        position_ref = request.query_params.get("position_ref") or None
+        operator_ref = request.query_params.get("operator_ref") or None
+
+        d = None
+        if date_str:
+            try:
+                d = date_type.fromisoformat(date_str)
+            except ValueError:
+                return Response(
+                    {"error": "INVALID_DATE", "detail": f"Invalid date format: {date_str}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        result = craft.summary(
+            date=d,
+            position_ref=position_ref,
+            operator_ref=operator_ref,
+        )
+        return Response(CraftSummarySerializer(result).data)

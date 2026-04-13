@@ -69,23 +69,22 @@ class CheckoutView(View):
         if customer_info is None:
             return ctx
 
+        from shopman.guestman.services import address as address_service
         from shopman.guestman.services import customer as customer_service
 
         customer_obj = customer_service.get_by_uuid(customer_info.uuid)
         if customer_obj:
-            addresses = list(
-                customer_obj.addresses.order_by("-is_default", "label").values(
-                    "id",
-                    "formatted_address",
-                    "complement",
-                    "delivery_instructions",
-                    "is_default",
-                )
-            )
-            for addr in addresses:
-                addr["label"] = customer_obj.addresses.get(
-                    id=addr["id"]
-                ).display_label
+            addresses = [
+                {
+                    "id": addr.id,
+                    "formatted_address": addr.formatted_address,
+                    "complement": addr.complement,
+                    "delivery_instructions": addr.delivery_instructions,
+                    "is_default": addr.is_default,
+                    "label": addr.display_label,
+                }
+                for addr in address_service.addresses(customer_obj.ref)
+            ]
             ctx["saved_addresses"] = addresses
 
             try:
@@ -215,15 +214,21 @@ class CheckoutView(View):
         # Resolve saved address if selected
         saved_address_id = request.POST.get("saved_address_id", "").strip()
         if saved_address_id and fulfillment_type == "delivery" and not delivery_address:
-            from shopman.guestman.models import CustomerAddress
+            customer_info = getattr(request, "customer", None)
+            from shopman.guestman.services import address as address_service
+            from shopman.guestman.services import customer as customer_service
 
             try:
-                addr = CustomerAddress.objects.get(id=int(saved_address_id))
-                parts = [addr.formatted_address]
-                if addr.complement:
-                    parts.append(f"- {addr.complement}")
-                delivery_address = " ".join(parts)
-            except (CustomerAddress.DoesNotExist, ValueError):
+                if customer_info is not None:
+                    customer_obj = customer_service.get_by_uuid(customer_info.uuid)
+                    if customer_obj:
+                        addr = address_service.get_address(customer_obj.ref, int(saved_address_id))
+                        if addr:
+                            parts = [addr.formatted_address]
+                            if addr.complement:
+                                parts.append(f"- {addr.complement}")
+                            delivery_address = " ".join(parts)
+            except ValueError:
                 pass
 
         chosen_method = self._resolve_payment_method(request)
@@ -726,6 +731,8 @@ class CheckoutView(View):
                 skipped += 1
                 continue
             checked += 1
+            if avail.get("availability_policy") == "demand_ok" and not avail.get("is_paused", False):
+                continue
             breakdown = avail.get("breakdown", {})
             ready = breakdown.get("ready", Decimal("0"))
             in_prod = breakdown.get("in_production", Decimal("0"))

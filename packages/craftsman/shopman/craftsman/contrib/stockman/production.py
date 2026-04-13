@@ -154,7 +154,7 @@ class CraftingProductionBackend:
                 sku=wo.output_ref,
                 quantity=wo.quantity,
                 status=status_map[wo.status],
-                target_date=wo.scheduled_date,
+                target_date=wo.target_date,
                 estimated_completion=None,
                 work_order_id=str(wo.pk),
             )
@@ -220,7 +220,7 @@ class CraftingProductionBackend:
             qs = qs.filter(output_ref=sku)
 
         if target_date:
-            qs = qs.filter(scheduled_date=target_date)
+            qs = qs.filter(target_date=target_date)
 
         results = []
         for wo in qs:
@@ -230,7 +230,7 @@ class CraftingProductionBackend:
                     sku=wo.output_ref,
                     quantity=wo.quantity,
                     status=ProductionStatusEnum.PLANNED if wo.status == WorkOrder.Status.PLANNED else ProductionStatusEnum.STARTED,
-                    target_date=wo.scheduled_date,
+                    target_date=wo.target_date,
                     estimated_completion=None,
                     work_order_id=str(wo.pk),
                 )

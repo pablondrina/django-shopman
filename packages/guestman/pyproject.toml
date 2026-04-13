@@ -26,7 +26,8 @@ dev = [
 
 [tool.setuptools.packages.find]
 include = ["shopman.guestman*"]
+namespaces = true
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "guestman_test_settings"
-pythonpath = ["."]
+pythonpath = [".", "../utils"]

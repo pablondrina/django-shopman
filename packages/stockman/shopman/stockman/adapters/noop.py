@@ -47,7 +47,7 @@ class NoopSkuValidator:
             sku=sku,
             product_name=sku,
             is_published=True,
-            is_orderable=True,
+            is_sellable=True,
         )
 
     def validate_skus(self, skus: list[str]) -> dict[str, SkuValidationResult]:
@@ -77,7 +77,7 @@ class NoopSkuValidator:
             name=sku,
             description=None,
             is_published=True,
-            is_orderable=True,
+            is_sellable=True,
             unit="un",
             category=None,
             base_price_q=None,

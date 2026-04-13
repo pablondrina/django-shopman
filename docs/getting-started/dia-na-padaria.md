@@ -80,7 +80,7 @@ from shopman.crafting.models import Recipe
 
 recipe = Recipe.objects.get(code="croissant-v1")
 wo = CraftPlanning.plan(recipe, quantity=48, date=date.today())
-# -> WorkOrder(status="open", scheduled_date=today)
+# -> WorkOrder(status="planned", target_date=today)
 ```
 
 **O que acontece internamente (dentro de `transaction.atomic()`):**
@@ -149,16 +149,16 @@ Pierre fechou os croissants. 48 planejados, 46 sairam (2 de perda).
 from shopman.crafting.services.execution import CraftExecution
 from shopman.crafting.models import WorkOrder
 
-wo = WorkOrder.objects.get(recipe__code="croissant-v1", status="open")
-wo = CraftExecution.close(wo, produced=46)
-# -> WorkOrder(status="done", produced=46)
+wo = WorkOrder.objects.get(recipe__code="croissant-v1", status="planned")
+wo = CraftExecution.finish(wo, finished=46)
+# -> WorkOrder(status="finished", finished=46)
 ```
 
 **Pipeline (dentro de `transaction.atomic()` com row lock):**
 
 1. `select_for_update()` — trava a WO no banco
 2. Verifica idempotencia (se `idempotency_key` fornecido)
-3. Valida status = `OPEN` (senao `CraftError("TERMINAL_STATUS")`)
+3. Valida status = `PLANNED` ou `STARTED` (senao `CraftError("TERMINAL_STATUS")`)
 4. **Materializa requirements** usando BOM snapshot do planejamento:
    - Coeficiente frances: `quantity_real / batch_size` (ex: 46 / 48 = 0.958)
    - Cada insumo x coeficiente = consumo real
@@ -166,19 +166,19 @@ wo = CraftExecution.close(wo, produced=46)
    - `REQUIREMENT` — o que deveria consumir (do BOM)
    - `CONSUMPTION` — o que realmente consumiu
    - `OUTPUT` — producao (46 unidades)
-   - `WASTE` — perda (2 unidades, calculado: `planned - produced`)
-6. Atualiza WO: `status=DONE`, `produced=46`, `finished_at=now`
-7. Cria `WorkOrderEvent(kind="CLOSED")`
+   - `WASTE` — perda (2 unidades, calculado: `started - finished`)
+6. Atualiza WO: `status=FINISHED`, `finished=46`, `finished_at=now`
+7. Cria `WorkOrderEvent(kind="FINISHED")`
 8. Chama `InventoryProtocol` para sincronizar estoque (se configurado)
 9. Emite `production_changed` signal
 
 **Perda explicita (opcional):**
 
 ```python
-CraftExecution.close(wo, produced=46, wasted=2)
+CraftExecution.finish(wo, finished=46, wasted=2)
 
 # Ou com consumo explicito:
-CraftExecution.close(wo, produced=46, consumed=[
+CraftExecution.finish(wo, finished=46, consumed=[
     {"item_ref": "FARINHA-TRIGO", "quantity": "2.8"},
     {"item_ref": "MANTEIGA", "quantity": "1.45"},
 ])
@@ -339,9 +339,9 @@ O fluxo e similar: cria sessao -> adiciona itens -> commit. Mas o canal `pos` te
 Pierre fecha a WO de baguetes (a ultima aberta para hoje):
 
 ```python
-wo_baguete = WorkOrder.objects.get(recipe__code="baguete-v1", status="open")
-CraftExecution.close(wo_baguete, produced=38)
-# 40 planejadas, 38 produzidas -> 2 de perda (5%)
+wo_baguete = WorkOrder.objects.get(recipe__code="baguete-v1", status="planned")
+CraftExecution.finish(wo_baguete, finished=38)
+# 40 planejadas, 38 finalizadas -> 2 de perda (5%)
 ```
 
 O estoque da vitrine recebe +38 baguetes via `StockMovements.receive()`.
@@ -422,7 +422,7 @@ count = InsightService.recalculate_all()
 │ DEMAND   │◄─────────────│ CRAFTING │────────────►│ WorkOrder│
 │ BACKEND  │  history()    │ Queries  │             │ OPEN     │
 └──────────┘               └──────────┘             └────┬─────┘
-                                                         │ close(produced=46)
+                                                         │ finish(finished=46)
                                                          ▼
                                                     ┌──────────┐
                                                     │ WorkOrder│

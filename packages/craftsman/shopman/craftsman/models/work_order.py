@@ -86,7 +86,7 @@ class WorkOrder(models.Model):
         help_text=_("Optimistic concurrency counter"),
     )
 
-    scheduled_date = models.DateField(
+    target_date = models.DateField(
         null=True,
         blank=True,
         verbose_name=_("Data Agendada"),
@@ -115,7 +115,7 @@ class WorkOrder(models.Model):
         verbose_name=_("Posição"),
         help_text=_("Ref da Position no Stockman (ex: 'producao')"),
     )
-    assigned_ref = models.CharField(
+    operator_ref = models.CharField(
         max_length=100,
         blank=True,
         verbose_name=_("Responsavel"),
@@ -142,9 +142,9 @@ class WorkOrder(models.Model):
         verbose_name_plural = _("Ordens de Producao")
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["status", "scheduled_date"]),
+            models.Index(fields=["status", "target_date"]),
             models.Index(fields=["output_ref", "status"]),
-            models.Index(fields=["scheduled_date"]),
+            models.Index(fields=["target_date"]),
         ]
         constraints = [
             models.CheckConstraint(

@@ -100,7 +100,7 @@ class TestVerificationCodeRequestViewForm:
         assert sender.last_code is not None
         assert len(sender.last_code) == 6
         # Phone stored in session
-        assert request.session.get("auth_phone") == "+5541999999999"
+        assert request.session.get("auth_target") == "+5541999999999"
 
 
 @pytest.mark.django_db
@@ -149,7 +149,7 @@ class TestVerificationCodeVerifyViewForm:
 
     def test_get_with_session_phone_renders(self):
         session = SessionStore()
-        session["auth_phone"] = "+5541999999999"
+        session["auth_target"] = "+5541999999999"
         session.save()
         request = _make_request("get", session=session)
         response = VerificationCodeVerifyView.as_view()(request)
@@ -234,6 +234,33 @@ class TestVerificationCodeVerifyViewJSON:
         data = json.loads(response.content)
         assert data["success"] is True
         assert "customer_id" in data
+
+    @_PATCH_BUILD_URL
+    def test_json_correct_email_code_returns_success(self, _mock_url):
+        from shopman.guestman.models import Customer
+
+        Customer.objects.create(
+            ref="VIEW-EMAIL-001",
+            first_name="Email",
+            last_name="Test",
+            email="email@example.com",
+        )
+
+        raw_code, hmac_digest = generate_raw_code()
+        VerificationCode.objects.create(
+            code_hash=hmac_digest,
+            target_value="email@example.com",
+            purpose=VerificationCode.Purpose.LOGIN,
+            status=VerificationCode.Status.SENT,
+            delivery_method=VerificationCode.DeliveryMethod.EMAIL,
+        )
+        body = json.dumps({"target": "email@example.com", "code": raw_code})
+        request = _make_request("post", data=body, content_type="application/json")
+        response = VerificationCodeVerifyView.as_view()(request)
+
+        assert response.status_code == 200
+        data = json.loads(response.content)
+        assert data["success"] is True
 
 
 # ===================================================

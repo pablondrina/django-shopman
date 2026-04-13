@@ -454,6 +454,8 @@ SPECTACULAR_SETTINGS = {
 OFFERMAN = {
     # TODO WP-R2: restore cost backend adapter
     "COST_BACKEND": None,
+    "PRICING_BACKEND": "shopman.adapters.offering.StorefrontPricingBackend",
+    "PROJECTION_BACKENDS": {},
 }
 
 # ── Craftsman (micro-MRP integration) ──────────────────────────────

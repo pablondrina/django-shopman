@@ -295,7 +295,10 @@ class CartService:
             avail = avail_map.get(item.get("sku", ""))
             if avail is not None:
                 from decimal import Decimal as _D
-                total_avail = avail.get("total_orderable", _D("0"))
+                if avail.get("availability_policy") == "demand_ok" and not avail.get("is_paused", False):
+                    item["is_unavailable"] = False
+                    continue
+                total_avail = avail.get("total_promisable", _D("0"))
                 item["is_unavailable"] = int(total_avail) < int(Decimal(str(item.get("qty", 0))))
             else:
                 item["is_unavailable"] = False

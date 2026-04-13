@@ -1,9 +1,12 @@
 """Django AppConfig for shopman.utils.
 
-Adding 'shopman.utils' to INSTALLED_APPS enables Django's static file
-finders to locate the bundled JavaScript (autocomplete_autofill.js, etc.).
+Adding ``shopman.utils`` to ``INSTALLED_APPS`` enables shared static assets
+used by the suite's transversal admin tooling.
 
-No models or migrations — this is a utility-only app.
+This package intentionally has no models or migrations. Its scope is:
+- cross-suite primitives
+- shared formatting / contact helpers
+- shared admin and Unfold helpers
 """
 
 from django.apps import AppConfig

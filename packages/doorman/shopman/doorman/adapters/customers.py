@@ -75,6 +75,26 @@ class AuthCustomerResolver:
         )
         return self._to_info(c)
 
+    def create_for_email(self, email: str) -> AuthCustomerInfo:
+        """Create a new customer with the given email via Guestman."""
+        from shopman.guestman.models import ContactPoint, Customer
+        from shopman.guestman.services import customer as customer_service
+        from shopman.guestman.services import identity as identity_service
+
+        c = customer_service.create(
+            ref=Customer.generate_ref(),
+            first_name="",
+            email=email,
+            source_system="doorman",
+        )
+        identity_service.ensure_contact_point(
+            c,
+            type=ContactPoint.Type.EMAIL,
+            value_normalized=c.email,
+            is_primary=True,
+        )
+        return self._to_info(c)
+
     @staticmethod
     def _to_info(c: "Customer") -> AuthCustomerInfo:
         """Convert a Guestman Customer model to AuthCustomerInfo."""

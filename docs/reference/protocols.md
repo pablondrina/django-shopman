@@ -15,7 +15,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 | [`PricingBackend`](#pricingbackend) | framework/shopman/protocols | OfferingBackend, SimplePricingBackend, ChannelPricingBackend, CatalogPricingBackend | 1 |
 | [`CustomerBackend`](#customerbackend) | framework/shopman/protocols | CustomersBackend, NoopCustomerBackend | 5 |
 | [`NotificationBackend`](#notificationbackend) | framework/shopman/protocols | ConsoleBackend, ManychatBackend, EmailBackend, SmsBackend, WebhookBackend, WhatsappBackend | 1 |
-| [`PaymentBackend`](#paymentbackend) | packages/payman/shopman/payments/protocols | MockPaymentBackend, StripeBackend, EfiPixBackend | 6 |
+| [`PaymentBackend`](#paymentbackend) | packages/payman/shopman/payman/protocols | MockPaymentBackend, StripeBackend, EfiPixBackend | 6 |
 | [`FiscalBackend`](#fiscalbackend) | packages/orderman/shopman/ordering/protocols | MockFiscalBackend, FocusBackend | 3 |
 | [`AccountingBackend`](#accountingbackend) | packages/orderman/shopman/ordering/protocols | MockAccountingBackend, ContaazulBackend | 6 |
 
@@ -50,7 +50,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 | Adapter | Arquivo | Quando usar |
 |---------|---------|-------------|
-| `StockingBackend` | `shopman/backends/stock.py` | Integração com `shopman.stocking` (produção). Resolve SKU via `Product`, suporta holds planejados |
+| `StockingBackend` | `shopman/backends/stock.py` | Integração com `shopman.stockman` (promessa operacional). Resolve SKU via contrato de catálogo e suporta holds planejados |
 | `NoopStockBackend` | `shopman/backends/stock.py` | Testes e desenvolvimento. Sempre reporta 999999 unidades disponíveis |
 
 **Configuração:** `SHOPMAN_STOCK_BACKEND` ou auto-detecção em `ShopmanConfig.ready()` — veja [settings.md](settings.md).
@@ -72,7 +72,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 | Adapter | Arquivo | Quando usar |
 |---------|---------|-------------|
-| `OfferingBackend` | `shopman/backends/pricing.py` | Integração com `shopman.offering`. Usa `CatalogService.price()` |
+| `OfferingBackend` | `shopman/backends/pricing.py` | Integração com `shopman.offerman`. Usa `CatalogService.price()` |
 | `SimplePricingBackend` | `shopman/backends/pricing.py` | Lê direto de `Product.base_price_q` |
 | `ChannelPricingBackend` | `shopman/backends/pricing.py` | Tenta `ChannelListing.price_q` do canal, fallback para `base_price_q` |
 | `CatalogPricingBackend` | `shopman/backends/pricing.py` | Combina CatalogService + ChannelListing com fallback |
@@ -109,7 +109,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 | Adapter | Arquivo | Quando usar |
 |---------|---------|-------------|
-| `CustomersBackend` | `shopman/backends/customer.py` | Integração com `shopman.customers`. Combina CustomerService + InsightService + PreferenceService |
+| `CustomersBackend` | `shopman/backends/customer.py` | Integração com `shopman.guestman`. Combina CustomerService + InsightService + PreferenceService |
 | `NoopCustomerBackend` | `shopman/backends/customer.py` | Testes. Retorna dados placeholder (ex.: "Guest {code}") |
 
 ---
@@ -148,7 +148,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 ## PaymentBackend
 
-**Definido em:** `packages/payman/shopman/payments/protocols.py`
+**Definido em:** `packages/payman/shopman/payman/protocols.py`
 **Re-exportado em:** `framework/shopman/protocols.py`
 **Guia:** [Ordering — Pagamentos](../guides/ordering.md)
 

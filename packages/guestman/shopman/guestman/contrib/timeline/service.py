@@ -86,6 +86,16 @@ class TimelineService:
         return list(qs[:limit])
 
     @classmethod
+    def has_event(cls, customer_ref: str, event_type: str, reference: str) -> bool:
+        """Check whether an event already exists for idempotent callers."""
+        return TimelineEvent.objects.filter(
+            customer__ref=customer_ref,
+            customer__is_active=True,
+            event_type=event_type,
+            reference=reference,
+        ).exists()
+
+    @classmethod
     def get_recent_across_customers(
         cls,
         limit: int = 50,

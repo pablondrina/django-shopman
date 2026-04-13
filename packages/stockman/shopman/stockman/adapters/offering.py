@@ -1,5 +1,5 @@
 """
-Stockman Offerman Adapter — SKU validation via Offerman.
+Stockman offering adapter loader.
 
 This adapter loads the configured SkuValidator from settings.
 
@@ -10,11 +10,9 @@ Usage:
     result = validator.validate_sku("SKU-001")
 
 Settings:
-    STOCKING = {
+    STOCKMAN = {
         "SKU_VALIDATOR": "shopman.offerman.adapters.sku_validator.SkuValidator",
     }
-
-If SKU_VALIDATOR is not configured, get_sku_validator() raises ImproperlyConfigured.
 """
 
 from __future__ import annotations
@@ -48,7 +46,7 @@ def get_sku_validator() -> SkuValidator:
         SkuValidator instance
 
     Raises:
-        ImproperlyConfigured: If SKU_VALIDATOR is not configured or import fails
+        ImproperlyConfigured: If the configured validator import fails
     """
     global _sku_validator
 
@@ -56,13 +54,10 @@ def get_sku_validator() -> SkuValidator:
         with _lock:
             if _sku_validator is None:  # double-checked
                 stockman_settings = getattr(settings, "STOCKMAN", {})
-                validator_path = stockman_settings.get("SKU_VALIDATOR")
-
-                if not validator_path:
-                    raise ImproperlyConfigured(
-                        "STOCKMAN['SKU_VALIDATOR'] must be configured. "
-                        "Example: 'shopman.offerman.adapters.sku_validator.SkuValidator'"
-                    )
+                validator_path = stockman_settings.get(
+                    "SKU_VALIDATOR",
+                    "shopman.stockman.adapters.noop.NoopSkuValidator",
+                )
 
                 try:
                     validator_class = import_string(validator_path)

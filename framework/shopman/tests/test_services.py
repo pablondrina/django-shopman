@@ -238,7 +238,7 @@ class TestAvailabilityListingMembership:
             "allowed_positions": None,
         }
         stock_adapter.get_availability.return_value = {
-            "total_orderable": Decimal("5"),
+            "total_promisable": Decimal("5"),
             "is_paused": False,
             "is_planned": True,
             "breakdown": {},

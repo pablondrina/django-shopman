@@ -26,6 +26,37 @@ def default_address(customer_ref: str) -> CustomerAddress | None:
     return cust.default_address
 
 
+def has_address(customer_ref: str, formatted_address: str) -> bool:
+    """Check whether the customer already has the exact address stored."""
+    cust = get(customer_ref)
+    if not cust:
+        return False
+    return cust.addresses.filter(formatted_address=formatted_address).exists()
+
+
+def has_any_address(customer_ref: str) -> bool:
+    """Check whether the customer has any address registered."""
+    cust = get(customer_ref)
+    if not cust:
+        return False
+    return cust.addresses.exists()
+
+
+def get_address(customer_ref: str, address_id: int) -> CustomerAddress | None:
+    """Return a specific address owned by the customer."""
+    cust = get(customer_ref)
+    if not cust:
+        return None
+    return cust.addresses.filter(pk=address_id).first()
+
+
+def address_belongs_to_other_customer(customer_ref: str, address_id: int) -> bool:
+    """Check whether an address exists but belongs to another customer."""
+    return CustomerAddress.objects.filter(pk=address_id).exclude(
+        customer__ref=customer_ref
+    ).exists()
+
+
 def add_address(
     customer_ref: str,
     label: str,
@@ -104,6 +135,45 @@ def set_default_address(customer_ref: str, address_id: int) -> CustomerAddress:
         return addr
 
 
+def update_address(customer_ref: str, address_id: int, **fields) -> CustomerAddress:
+    """Update an existing address owned by the customer."""
+    cust = get(customer_ref)
+    if not cust:
+        raise CustomerError("CUSTOMER_NOT_FOUND", customer_ref=customer_ref)
+
+    try:
+        addr = CustomerAddress.objects.get(pk=address_id, customer=cust)
+    except CustomerAddress.DoesNotExist:
+        raise CustomerError("ADDRESS_NOT_FOUND", address_id=address_id)
+
+    updatable_fields = {
+        "label",
+        "label_custom",
+        "formatted_address",
+        "route",
+        "street_number",
+        "neighborhood",
+        "city",
+        "state",
+        "state_code",
+        "postal_code",
+        "country",
+        "country_code",
+        "complement",
+        "delivery_instructions",
+        "is_default",
+    }
+    updates: list[str] = []
+    for key, value in fields.items():
+        if key in updatable_fields and hasattr(addr, key) and getattr(addr, key) != value:
+            setattr(addr, key, value)
+            updates.append(key)
+
+    if updates:
+        addr.save(update_fields=updates)
+    return addr
+
+
 def delete_address(customer_ref: str, address_id: int) -> bool:
     """Delete address."""
     cust = get(customer_ref)
@@ -116,3 +186,12 @@ def delete_address(customer_ref: str, address_id: int) -> bool:
         return True
     except CustomerAddress.DoesNotExist:
         raise CustomerError("ADDRESS_NOT_FOUND", address_id=address_id)
+
+
+def delete_all_addresses(customer_ref: str) -> int:
+    """Delete all addresses belonging to the customer."""
+    cust = get(customer_ref)
+    if not cust:
+        raise CustomerError("CUSTOMER_NOT_FOUND", customer_ref=customer_ref)
+    deleted, _ = cust.addresses.all().delete()
+    return deleted

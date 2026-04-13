@@ -213,7 +213,7 @@ class ProductionBackend:
 
         try:
             from shopman.craftsman.models import WorkOrder
-            from shopman.craftsman.service import work
+            from shopman.craftsman.service import craft
 
             # Parse request_id
             if not request_id.startswith("production:"):
@@ -231,8 +231,7 @@ class ProductionBackend:
                     message=f"WorkOrder not found: {request_id}",
                 )
 
-            # Cancelar via service
-            work.cancel(work_order, reason=reason)
+            craft.void(work_order, reason=reason, actor="stockman:cancel")
 
             return ProductionResult(
                 success=True,
@@ -261,7 +260,7 @@ class ProductionBackend:
             from shopman.craftsman.models import WorkOrder
 
             queryset = WorkOrder.objects.filter(
-                status__in=["pending", "approved", "scheduled", "in_progress"],
+                status__in=["planned", "started"],
             )
 
             if sku:

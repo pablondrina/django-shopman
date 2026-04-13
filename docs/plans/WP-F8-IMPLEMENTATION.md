@@ -212,7 +212,7 @@ result = backend.check_availability(sku=item.sku, quantity=item.qty)
 **WorkOrder check** (se indisponível mas em produção):
 ```python
 from shopman.crafting.models import WorkOrder
-wo = WorkOrder.objects.filter(output_ref=item.sku, status="open").first()
+wo = WorkOrder.objects.filter(output_ref=item.sku, status__in=["planned", "started"]).first()
 # Se existe → badge "Em produção"
 ```
 
@@ -300,7 +300,7 @@ class TestGestorDetail(TestCase):
 | Order transitions | `order.transition_status(status, actor)` | `ordering/models/order.py:206` |
 | Order events | `order.emit_event(type, actor, payload)` | `ordering/models/order.py:228` |
 | Stock check | `StockBackend().check_availability(sku, qty)` → `AvailabilityResult` | `shopman/backends/stock.py:36` |
-| WorkOrder check | `WorkOrder.objects.filter(output_ref=sku, status="open")` | `crafting/models/work_order.py` |
+| WorkOrder check | `WorkOrder.objects.filter(output_ref=sku, status__in=["planned", "started"])` | `crafting/models/work_order.py` |
 | Recipe check | `Recipe.objects.filter(output_ref=sku, is_active=True)` | `crafting/models/recipe.py` |
 | Release holds | `release_holds_for_order(order)` | `ordering/holds.py` |
 | Directive creation | `Directive.objects.create(topic=..., payload=...)` | `shopman/lifecycle.py:38` |

@@ -82,10 +82,10 @@ class StockBackend(Protocol):
     def release_hold(self, hold_id: str) -> None: ...
     def fulfill_hold(self, hold_id: str) -> None: ...
 
-# framework/shopman/backends/stock.py — adapter que conecta ao stocking
+# framework/shopman/backends/stock.py — adapter que conecta ao stockman
 class StockingBackend:
     def check_availability(self, sku, quantity, ...):
-        # Delega para shopman.stocking.service
+        # Delega para shopman.stockman.service
         ...
 
 # settings.py — ligação via config
@@ -101,7 +101,7 @@ SHOPMAN_STOCK_BACKEND = "channels.backends.stock.StockingBackend"
 | `FiscalBackend` | `shopman.orderman.protocols` | `MockFiscalBackend`, `FocusBackend` |
 | `AccountingBackend` | `shopman.orderman.protocols` | `MockAccountingBackend`, `ContaazulBackend` |
 | `NotificationBackend` | `shopman/protocols` | `ConsoleBackend`, `ManychatBackend`, `EmailBackend`, `SmsBackend`, `WebhookBackend`, `WhatsappBackend` |
-| `CustomerBackend` | `shopman/protocols` | `GuestmanBackend`, `NoopCustomerBackend` |
+| `CustomerBackend` | `shopman/protocols` | `CustomersBackend`, `NoopCustomerBackend` |
 | `PricingBackend` | `shopman/protocols` | `OffermanBackend`, `CatalogPricingBackend`, `ChannelPricingBackend` |
 
 ### Vantagens

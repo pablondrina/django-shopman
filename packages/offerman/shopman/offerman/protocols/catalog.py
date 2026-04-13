@@ -38,6 +38,31 @@ class PriceInfo:
 
 
 @dataclass(frozen=True)
+class PriceAdjustment:
+    """Contextual adjustment applied on top of the list price."""
+
+    code: str
+    label: str
+    amount_q: int
+    metadata: dict = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ContextualPrice:
+    """Complete contextual price for a product in context."""
+
+    sku: str
+    qty: Decimal
+    listing: str | None
+    list_unit_price_q: int
+    list_total_price_q: int
+    final_unit_price_q: int
+    final_total_price_q: int
+    adjustments: list[PriceAdjustment] = field(default_factory=list)
+    metadata: dict = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class SkuValidation:
     """Validation result.
 
@@ -89,4 +114,22 @@ class CatalogBackend(Protocol):
         self, sku: str, qty: Decimal = Decimal("1")
     ) -> list[BundleComponent]:
         """Expand bundle."""
+        ...
+
+
+@runtime_checkable
+class PricingBackend(Protocol):
+    """Optional contract for contextual pricing on top of list price."""
+
+    def get_price(
+        self,
+        *,
+        sku: str,
+        qty: Decimal,
+        listing: str | None,
+        list_unit_price_q: int,
+        list_total_price_q: int,
+        context: dict | None = None,
+    ) -> ContextualPrice | None:
+        """Return a contextual price, or None to accept the list price as-is."""
         ...

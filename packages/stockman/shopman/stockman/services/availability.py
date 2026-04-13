@@ -18,6 +18,19 @@ from shopman.stockman.models.enums import HoldStatus
 from shopman.stockman.protocols.sku import PromiseDecision
 
 
+def _policy_promisable_qty(
+    availability_policy: str,
+    *,
+    available_now: Decimal,
+    available_in_process: Decimal,
+    available_by_plan: Decimal,
+) -> Decimal:
+    """Return the effective promise scope allowed by the offer policy."""
+    if availability_policy == "stock_only":
+        return available_now
+    return available_in_process + available_by_plan
+
+
 def sku_exists(sku: str) -> bool:
     """Check if a SKU exists via the configured validator contract."""
     validator = get_sku_validator()
@@ -25,11 +38,20 @@ def sku_exists(sku: str) -> bool:
     return result.valid
 
 
-def _sku_is_orderable(sku: str) -> bool:
-    """Check if a SKU is commercially orderable via the offering contract."""
+def _sku_is_sellable(sku: str) -> bool:
+    """Check if a SKU is commercially sellable via the offering contract."""
     validator = get_sku_validator()
     result = validator.validate_sku(sku)
-    return result.valid and result.is_orderable
+    return result.valid and result.is_published and result.is_sellable
+
+
+def _sku_availability_policy(sku: str) -> str:
+    """Return the configured availability policy for a SKU."""
+    validator = get_sku_validator()
+    info = validator.get_sku_info(sku)
+    if info is None:
+        return "planned_ok"
+    return info.availability_policy or "planned_ok"
 
 
 def _planned_supply_for_target(sku: str, target: date) -> Decimal:
@@ -78,18 +100,19 @@ def availability_for_sku(
 
     zero = Decimal("0")
     zero_breakdown = {"ready": zero, "in_production": zero, "planned": zero, "d1": zero}
-    orderable = _sku_is_orderable(sku)
+    sellable = _sku_is_sellable(sku)
+    availability_policy = _sku_availability_policy(sku)
 
     # If product is paused, return zeros (stock exists but not for sale)
-    if not orderable:
+    if not sellable:
         return {
             "sku": sku,
+            "availability_policy": availability_policy,
             "total_available": zero,
-            "total_orderable": zero,
             "total_promisable": zero,
             "total_reserved": zero,
             "available_now": zero,
-            "available_by_commitment": zero,
+            "available_in_process": zero,
             "available_by_plan": zero,
             "breakdown": zero_breakdown,
             "is_planned": False,
@@ -164,21 +187,26 @@ def availability_for_sku(
 
     total_held = held_ready + held_production + held_planned + held_d1
     available_now = max(ready - held_ready - safety_margin, Decimal("0"))
-    available_by_commitment = max(
+    available_in_process = max(
         ready + in_production - held_ready - held_production - safety_margin,
         Decimal("0"),
     )
     available_by_plan = max(planned - held_planned, Decimal("0"))
-    total_promisable = available_by_commitment + available_by_plan
+    total_promisable = _policy_promisable_qty(
+        availability_policy,
+        available_now=available_now,
+        available_in_process=available_in_process,
+        available_by_plan=available_by_plan,
+    )
 
     return {
         "sku": sku,
+        "availability_policy": availability_policy,
         "total_available": available_now,
-        "total_orderable": total_promisable,
         "total_promisable": total_promisable,
         "total_reserved": total_held,
         "available_now": available_now,
-        "available_by_commitment": available_by_commitment,
+        "available_in_process": available_in_process,
         "available_by_plan": available_by_plan,
         "breakdown": {
             "ready": ready - held_ready,
@@ -209,22 +237,32 @@ def promise_decision_for_sku(
         allowed_positions=allowed_positions,
     )
     available_qty = info["total_promisable"]
+    availability_policy = info.get("availability_policy", "planned_ok")
     is_paused = info.get("is_paused", False)
-    approved = (not is_paused) and qty_d <= available_qty
+    if is_paused:
+        approved = False
+        effective_available_qty = Decimal("0")
+    elif availability_policy == "demand_ok":
+        approved = True
+        effective_available_qty = max(available_qty, qty_d)
+    else:
+        approved = qty_d <= available_qty
+        effective_available_qty = available_qty
 
     reason_code = None
     if not approved:
-        reason_code = "paused" if is_paused else "insufficient_stock"
+        reason_code = "paused" if is_paused else "insufficient_supply"
 
     return PromiseDecision(
         approved=approved,
         sku=sku,
         requested_qty=qty_d,
         target_date=target_date,
+        availability_policy=availability_policy,
         reason_code=reason_code,
-        available_qty=available_qty,
+        available_qty=effective_available_qty,
         available_now=info.get("available_now", Decimal("0")),
-        available_by_commitment=info.get("available_by_commitment", Decimal("0")),
+        available_in_process=info.get("available_in_process", Decimal("0")),
         available_by_plan=info.get("available_by_plan", Decimal("0")),
         is_planned=info.get("is_planned", False),
         is_paused=is_paused,
@@ -259,10 +297,11 @@ def availability_for_skus(
     # ── Query 1: orderable SKUs from the offering contract ───────────────────
     validator = get_sku_validator()
     validations = validator.validate_skus(skus)
+    sku_infos = {sku: validator.get_sku_info(sku) for sku in skus}
     orderable_skus: set[str] = {
         sku
         for sku, validation in validations.items()
-        if validation.valid and validation.is_orderable
+        if validation.valid and validation.is_published and validation.is_sellable
     }
 
     # ── Query 2: expired batch refs grouped by SKU ────────────────────────────
@@ -321,14 +360,19 @@ def availability_for_skus(
     for sku in skus:
         # Product paused: return zeros (stock may exist but not for sale)
         if sku not in orderable_skus:
+            availability_policy = (
+                sku_infos.get(sku).availability_policy
+                if sku_infos.get(sku) is not None
+                else "planned_ok"
+            )
             result[sku] = {
                 "sku": sku,
+                "availability_policy": availability_policy,
                 "total_available": zero,
-                "total_orderable": zero,
                 "total_promisable": zero,
                 "total_reserved": zero,
                 "available_now": zero,
-                "available_by_commitment": zero,
+                "available_in_process": zero,
                 "available_by_plan": zero,
                 "breakdown": dict(zero_breakdown),
                 "is_planned": False,
@@ -339,6 +383,11 @@ def availability_for_skus(
 
         expired_refs = expired_refs_by_sku.get(sku, set())
         is_planned = sku in planned_skus
+        availability_policy = (
+            sku_infos.get(sku).availability_policy
+            if sku_infos.get(sku) is not None
+            else "planned_ok"
+        )
 
         ready = Decimal("0")
         in_production = Decimal("0")
@@ -382,21 +431,26 @@ def availability_for_skus(
 
         total_held = held_ready + held_production + held_planned + held_d1
         available_now = max(ready - held_ready - safety_margin, zero)
-        available_by_commitment = max(
+        available_in_process = max(
             ready + in_production - held_ready - held_production - safety_margin,
             zero,
         )
         available_by_plan = max(planned - held_planned, zero)
-        total_promisable = available_by_commitment + available_by_plan
+        total_promisable = _policy_promisable_qty(
+            availability_policy,
+            available_now=available_now,
+            available_in_process=available_in_process,
+            available_by_plan=available_by_plan,
+        )
 
         result[sku] = {
             "sku": sku,
+            "availability_policy": availability_policy,
             "total_available": available_now,
-            "total_orderable": total_promisable,
             "total_promisable": total_promisable,
             "total_reserved": total_held,
             "available_now": available_now,
-            "available_by_commitment": available_by_commitment,
+            "available_in_process": available_in_process,
             "available_by_plan": available_by_plan,
             "breakdown": {
                 "ready": ready - held_ready,

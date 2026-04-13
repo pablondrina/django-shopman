@@ -90,7 +90,7 @@ product:
   shelf_life_days:      int | null         # null=não-perecível, 0=mesmo dia, N=dias
   availability_policy:  "stock_only" | "planned_ok" | "demand_ok"
   is_published:         bool              # Visível no catálogo
-  is_available:         bool              # Disponível para venda (false = insumo)
+  is_sellable:          bool              # Elegível para venda (false = insumo)
   is_batch_produced:    bool              # Produzido em lote (Crafting)
   image_url:            url
   metadata:             json              # Extensível (ex: allows_next_day_sale)
@@ -138,7 +138,7 @@ listing:
       price_q:     int            # Preço neste canal (pode diferir do base)
       min_qty:     decimal(1)     # Faixa de quantidade (descontos por volume)
       is_published: bool
-      is_available: bool
+      is_sellable: bool
 ```
 
 **Regra:** Cada canal pode ter preços diferentes. Exemplo: iFood com markup de 30%.
@@ -615,7 +615,7 @@ work_order:
   ref:            string(unique)
   recipe:         → Recipe
   qty:            decimal        # Quantidade a produzir
-  scheduled_date: date           # Para quando
+  target_date: date           # Para quando
   status:         enum           # Rastreia estado da produção
 ```
 

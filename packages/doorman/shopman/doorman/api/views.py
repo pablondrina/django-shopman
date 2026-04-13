@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 from ..conf import get_doorman_settings
 from ..models import VerificationCode
 from ..services.verification import AuthService
-from ..utils import get_client_ip, normalize_phone
+from ..utils import get_client_ip
 
 from .serializers import (
     RequestCodeResponseSerializer,
@@ -31,19 +31,12 @@ class RequestCodeView(APIView):
         serializer = RequestCodeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        phone_raw = serializer.validated_data["phone"]
+        target_raw = serializer.validated_data["target"]
         delivery_method = serializer.validated_data.get("delivery_method", "whatsapp")
-
-        phone = normalize_phone(phone_raw)
-        if not phone:
-            return Response(
-                {"detail": "Invalid phone number."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
 
         settings = get_doorman_settings()
         result = AuthService.request_code(
-            target_value=phone,
+            target_value=target_raw,
             purpose=VerificationCode.Purpose.LOGIN,
             delivery_method=delivery_method,
             ip_address=get_client_ip(request, settings.TRUSTED_PROXY_DEPTH),
@@ -78,12 +71,9 @@ class VerifyCodeView(APIView):
         serializer = VerifyCodeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        phone_raw = serializer.validated_data["phone"]
+        target_raw = serializer.validated_data["target"]
         code_input = serializer.validated_data["code"]
-
-        phone = normalize_phone(phone_raw) or phone_raw
-
-        result = AuthService.verify_for_login(phone, code_input, request)
+        result = AuthService.verify_for_login(target_raw, code_input, request)
 
         if not result.success:
             return Response(

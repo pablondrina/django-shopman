@@ -22,7 +22,9 @@ from typing import TYPE_CHECKING
 from django.db import models
 from django.utils import timezone
 
+from shopman.offerman.conf import get_pricing_backend, get_projection_backend
 from shopman.offerman.exceptions import CatalogError
+from shopman.offerman.protocols import ContextualPrice, ProjectedItem, ProjectionResult
 
 if TYPE_CHECKING:
     from shopman.offerman.models import Product
@@ -65,6 +67,17 @@ class CatalogService:
         return Product.objects.filter(sku=sku).first()
 
     @classmethod
+    def _get_valid_listing(cls, listing_ref: str):
+        from shopman.offerman.models import Listing
+
+        listing = Listing.objects.filter(ref=listing_ref).first()
+        if not listing:
+            raise CatalogError("LISTING_NOT_FOUND", listing_ref=listing_ref)
+        if not listing.is_valid():
+            raise CatalogError("LISTING_NOT_ACTIVE", listing_ref=listing_ref)
+        return listing
+
+    @classmethod
     def unit_price(
         cls,
         sku: str,
@@ -103,6 +116,67 @@ class CatalogService:
     ) -> int:
         up = cls.unit_price(sku, qty=qty, channel=channel, listing=listing)
         return int(Decimal(str(up * qty)).to_integral_value(rounding=ROUND_HALF_UP))
+
+    @classmethod
+    def get_price(
+        cls,
+        sku: str,
+        qty: Decimal = Decimal("1"),
+        channel: str | None = None,
+        listing: str | None = None,
+        context: dict | None = None,
+        *,
+        list_unit_price_q: int | None = None,
+    ) -> ContextualPrice:
+        """
+        Return the canonical commercial quote for a SKU in context.
+
+        Offerman owns the list price and channel tiers. Optional contextual
+        pricing may further adjust this quote via a configured backend, but the
+        list price always remains explicit in the payload.
+        """
+        effective_listing = listing or channel
+        if list_unit_price_q is None:
+            list_unit_price_q = cls.unit_price(sku, qty=qty, channel=channel, listing=listing)
+        list_total_price_q = int(
+            Decimal(str(list_unit_price_q * qty)).to_integral_value(rounding=ROUND_HALF_UP)
+        )
+
+        pricing_backend = get_pricing_backend()
+        if pricing_backend is None:
+            return ContextualPrice(
+                sku=sku,
+                qty=qty,
+                listing=effective_listing,
+                list_unit_price_q=list_unit_price_q,
+                list_total_price_q=list_total_price_q,
+                final_unit_price_q=list_unit_price_q,
+                final_total_price_q=list_total_price_q,
+                adjustments=[],
+                metadata={"source": "list_price", "context": context or {}},
+            )
+
+        price = pricing_backend.get_price(
+            sku=sku,
+            qty=qty,
+            listing=effective_listing,
+            list_unit_price_q=list_unit_price_q,
+            list_total_price_q=list_total_price_q,
+            context=context,
+        )
+        if price is None:
+            return ContextualPrice(
+                sku=sku,
+                qty=qty,
+                listing=effective_listing,
+                list_unit_price_q=list_unit_price_q,
+                list_total_price_q=list_total_price_q,
+                final_unit_price_q=list_unit_price_q,
+                final_total_price_q=list_total_price_q,
+                adjustments=[],
+                metadata={"source": "list_price", "context": context or {}},
+            )
+        return price
 
     @classmethod
     def _get_price_from_listing(
@@ -304,3 +378,89 @@ class CatalogService:
             product=product,
             is_sellable=True,
         ).exists()
+
+    @classmethod
+    def get_projection_items(cls, listing_ref: str) -> list[ProjectedItem]:
+        """
+        Return the normalized channel snapshot for a valid listing.
+
+        This is the canonic representation of a channel-specific commercial
+        offering: one row per listed product, with listing price plus the final
+        published/sellable state after combining product- and listing-level
+        switches.
+        """
+        from shopman.offerman.models import ListingItem
+
+        listing = cls._get_valid_listing(listing_ref)
+        items = (
+            ListingItem.objects.filter(listing=listing)
+            .select_related("product")
+            .prefetch_related("product__keywords", "product__collection_items__collection")
+            .order_by("product__sku", "-min_qty")
+        )
+
+        snapshot: dict[str, ProjectedItem] = {}
+        for item in items:
+            if item.product.sku in snapshot:
+                continue
+
+            product = item.product
+            primary_collection = None
+            primary_item = product.collection_items.filter(is_primary=True).first()
+            if primary_item:
+                primary_collection = primary_item.collection.ref
+
+            snapshot[product.sku] = ProjectedItem(
+                sku=product.sku,
+                name=product.name,
+                description=product.long_description or product.short_description,
+                unit=product.unit,
+                price_q=item.price_q,
+                is_published=product.is_published and item.is_published,
+                is_sellable=product.is_sellable and item.is_sellable,
+                category=primary_collection,
+                image_url=product.image_url or None,
+                keywords=list(product.keywords.names()) if product.keywords else [],
+                metadata={
+                    "listing_ref": listing.ref,
+                    "listing_name": listing.name,
+                    "listing_priority": listing.priority,
+                    "min_qty": str(item.min_qty),
+                },
+            )
+
+        return list(snapshot.values())
+
+    @classmethod
+    def project_listing(cls, listing_ref: str, *, full_sync: bool = False) -> ProjectionResult:
+        """
+        Project the current listing snapshot to its external channel backend.
+
+        Published + sellable items are upserted through the backend. Listed
+        items that are no longer published or sellable are retracted on
+        incremental syncs.
+        """
+        backend = get_projection_backend(listing_ref)
+        if backend is None:
+            raise CatalogError("PROJECTION_BACKEND_NOT_CONFIGURED", channel=listing_ref)
+
+        items = cls.get_projection_items(listing_ref)
+        projectable = [item for item in items if item.is_published and item.is_sellable]
+        retracted = [item.sku for item in items if not (item.is_published and item.is_sellable)]
+
+        project_result = backend.project(projectable, channel=listing_ref, full_sync=full_sync)
+        errors = list(project_result.errors)
+        success = project_result.success
+        projected = project_result.projected
+
+        if retracted and not full_sync:
+            retract_result = backend.retract(retracted, channel=listing_ref)
+            success = success and retract_result.success
+            errors.extend(retract_result.errors)
+
+        return ProjectionResult(
+            success=success,
+            projected=projected,
+            errors=errors,
+            channel=listing_ref,
+        )

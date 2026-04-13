@@ -12,6 +12,7 @@ from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
 
+from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe, WorkOrder
 from shopman.craftsman.services.execution import CraftExecution
 from shopman.craftsman.services.scheduling import CraftPlanning
@@ -135,6 +136,8 @@ def _handle_post(request, admin_site):
 def _render(request, admin_site):
     """Render the production page with form + today's list."""
     today = date.today()
+    position_ref = (request.GET.get("position_ref") or "").strip()
+    operator_ref = (request.GET.get("operator_ref") or "").strip()
 
     recipes = Recipe.objects.filter(is_active=True).order_by("code")
     positions = Position.objects.all().order_by("name")
@@ -142,10 +145,22 @@ def _render(request, admin_site):
 
     today_wos = (
         WorkOrder.objects
-        .filter(scheduled_date=today)
+        .filter(target_date=today)
         .select_related("recipe")
         .order_by("-created_at")
     )
+    craft_summary = craft.summary(
+        date=today,
+        position_ref=position_ref or None,
+        operator_ref=operator_ref or None,
+    )
+    queue_items = craft.queue(
+        date=today,
+        position_ref=position_ref or None,
+        operator_ref=operator_ref or None,
+    )
+    planned_queue = [item for item in queue_items if item.status == WorkOrder.Status.PLANNED]
+    started_queue = [item for item in queue_items if item.status == WorkOrder.Status.STARTED]
 
     context = {
         **admin_site.each_context(request),
@@ -154,6 +169,12 @@ def _render(request, admin_site):
         "positions": positions,
         "default_position_id": default_position.pk if default_position else None,
         "today_wos": today_wos,
+        "craft_summary": craft_summary,
+        "queue_items": queue_items,
+        "planned_queue": planned_queue,
+        "started_queue": started_queue,
+        "selected_position_ref": position_ref,
+        "selected_operator_ref": operator_ref,
         "today": today,
     }
     return TemplateResponse(request, TEMPLATE, context)

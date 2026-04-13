@@ -182,7 +182,7 @@ class WorkOrderAdmin(BaseModelAdmin):
     Admin de Execução (vNext).
 
     4 estados: planned, started, finished, void.
-    Campos editáveis: quantity (via adjust enquanto planned), scheduled_date.
+    Campos editáveis: quantity (via adjust enquanto planned), target_date.
     """
 
     compressed_fields = True
@@ -202,11 +202,11 @@ class WorkOrderAdmin(BaseModelAdmin):
     list_filter = [
         "status",
         ("recipe", ChoicesDropdownFilter),
-        ("scheduled_date", RangeDateFilter),
+        ("target_date", RangeDateFilter),
     ]
     list_filter_submit = True
     search_fields = ["ref", "recipe__name", "output_ref"]
-    date_hierarchy = "scheduled_date"
+    date_hierarchy = "target_date"
     ordering = ["-created_at"]
     autocomplete_fields = ["recipe"]
 
@@ -231,14 +231,14 @@ class WorkOrderAdmin(BaseModelAdmin):
             _("Agendamento"),
             {
                 "classes": ["tab"],
-                "fields": ("scheduled_date", "started_at", "finished_at"),
+                "fields": ("target_date", "started_at", "finished_at"),
             },
         ),
         (
             _("Referências"),
             {
                 "classes": ["tab"],
-                "fields": ("source_ref", "position_ref", "assigned_ref"),
+                "fields": ("source_ref", "position_ref", "operator_ref"),
             },
         ),
         (
@@ -268,14 +268,14 @@ class WorkOrderAdmin(BaseModelAdmin):
     @display(description=_("Data"))
     def date_display(self, obj):
         """Display date in DD/MM/YY format."""
-        if obj.scheduled_date:
-            return obj.scheduled_date.strftime("%d/%m/%y")
+        if obj.target_date:
+            return obj.target_date.strftime("%d/%m/%y")
         return "-"
 
     @display(description=_("Tipo"))
     def preorder_indicator(self, obj):
         """Show badge if WorkOrder is scheduled for a future date (preorder/programado)."""
-        if obj.scheduled_date and obj.scheduled_date > timezone.localdate():
+        if obj.target_date and obj.target_date > timezone.localdate():
             return unfold_badge(_("Programado"), "purple")
         return ""
 
@@ -327,9 +327,9 @@ class WorkOrderAdmin(BaseModelAdmin):
 
     def changelist_view(self, request, extra_context=None):
         """Auto-redirect to today if no date filter."""
-        date_year = request.GET.get("scheduled_date__year")
-        date_month = request.GET.get("scheduled_date__month")
-        date_day = request.GET.get("scheduled_date__day")
+        date_year = request.GET.get("target_date__year")
+        date_month = request.GET.get("target_date__month")
+        date_day = request.GET.get("target_date__day")
 
         has_any_date_param = bool(date_year or date_month or date_day)
 
@@ -349,9 +349,9 @@ class WorkOrderAdmin(BaseModelAdmin):
             changelist_url = reverse("admin:craftsman_workorder_changelist")
             return redirect(
                 f"{changelist_url}?"
-                f"scheduled_date__year={today.year}&"
-                f"scheduled_date__month={today.month}&"
-                f"scheduled_date__day={today.day}"
+                f"target_date__year={today.year}&"
+                f"target_date__month={today.month}&"
+                f"target_date__day={today.day}"
             )
 
         return super().changelist_view(request, extra_context)

@@ -30,11 +30,9 @@ def _staff_required(request):
 def _resolve_customer(phone: str):
     """Look up customer by phone for modifier discounts."""
     try:
-        from shopman.guestman.models import Customer
-        from shopman.utils.phone import normalize_phone
+        from shopman.guestman.services import customer as customer_service
 
-        normalized = normalize_phone(phone)
-        return Customer.objects.select_related("group").filter(phone=normalized).first()
+        return customer_service.get_by_phone(phone)
     except Exception as e:
         logger.warning("pos_resolve_customer_failed phone=%s: %s", phone, e, exc_info=True)
         return None
@@ -142,11 +140,7 @@ def pos_customer_lookup(request: HttpRequest) -> HttpResponse:
         return HttpResponse('<span class="text-muted-foreground">Cliente avulso</span>')
 
     try:
-        from shopman.guestman.models import Customer
-        from shopman.utils.phone import normalize_phone
-
-        normalized = normalize_phone(phone)
-        customer = Customer.objects.select_related("group").filter(phone=normalized).first()
+        customer = _resolve_customer(phone)
         if customer:
             name = f"{customer.first_name} {customer.last_name}".strip()
             group_ref = customer.group.ref if customer.group_id else ""

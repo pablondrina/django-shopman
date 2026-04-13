@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Minha Conta – Nelson Boulangerie</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap">
+    <style>
+        :root {
+            --sat: env(safe-area-inset-top, 0px);
+            --sab: env(safe-area-inset-bottom, 0px);
+        }
+        .font-display {
+            font-family: 'Playfair Display', Georgia, serif;
+        }
+    </style>
+</head>
+<body class="bg-neutral-50 text-neutral-900" x-data="accountApp()">
+    <div class="min-h-screen flex flex-col">
+        <!-- LOGGED IN STATE -->
+        <template x-if="loggedIn">
+            <div class="flex flex-col flex-1">
+                <!-- Header with dynamic title -->
+                <header class="h-12 bg-white border-b border-neutral-200 flex items-center px-4 sticky top-0 z-50" style="padding-top: var(--sat)">
+                    <template x-if="activePanel === 'main'">
+                        <h1 class="text-base font-semibold" x-text="getGreeting()"></h1>
+                    </template>
+                    <template x-if="activePanel === 'orders'">
+                        <div class="flex items-center gap-3 flex-1">
+                            <button @click="activePanel = 'main'; triggerHaptic(10)" class="flex items-center justify-center w-10 h-10 rounded-lg hover:bg-neutral-100 transition">
+                                <span class="material-symbols-rounded text-[20px]">arrow_back</span>
+                            </button>
+                            <h1 class="text-base font-semibold">Meus Pedidos</h1>
+                        </div>
+                    </template>
+                    <template x-if="activePanel === 'addresses'">
+                        <div class="flex items-center gap-3 flex-1">
+                            <button @click="activePanel = 'main'; triggerHaptic(10)" class="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-neutral-100 transition">
+                                <span class="material-symbols-rounded text-[20px]">arrow_back</span>
+                            </button>
+                            <h1 class="text-base font-semibold">Endereços</h1>
+                        </div>
+                    </template>
+                    <template x-if="activePanel === 'loyalty'">
+                        <div class="flex items-center gap-3 flex-1">
+                            <button @click="activePanel = 'main'; triggerHaptic(10)" class="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-neutral-100 transition">
+                                <span class="material-symbols-rounded text-[20px]">arrow_back</span>
+                            </button>
+                            <h1 class="text-base font-semibold">Fidelidade</h1>
+                        </div>
+                    </template>
+                    <template x-if="activePanel === 'payments'">
+                        <div class="flex items-center gap-3 flex-1">
+                            <button @click="activePanel = 'main'; triggerHaptic(10)" class="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-neutral-100 transition">
+                                <span class="material-symbols-rounded text-[20px]">arrow_back</span>
+                            </button>
+                            <h1 class="text-base font-semibold">Pagamentos</h1>
+                        </div>
+                    </template>
+                    <template x-if="activePanel === 'notifications'">
+                        <div class="flex items-center gap-3 flex-1">
+                            <button @click="activePanel = 'main'; triggerHaptic(10)" class="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-neutral-100 transition">
+                                <span class="material-symbols-rounded text-[20px]">arrow_back</span>
+                            </button>
+                            <h1 class="text-base font-semibold">Notificações</h1>
+                        </div>
+                    </template>
+                    <template x-if="activePanel === 'personal'">
+                        <div class="flex items-center gap-3 flex-1">
+                            <button @click="activePanel = 'main'; triggerHaptic(10)" class="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-neutral-100 transition">
+                                <span class="material-symbols-rounded text-[20px]">arrow_back</span>
+                            </button>
+                            <h1 class="text-base font-semibold">Dados Pessoais</h1>
+                        </div>
+                    </template>
+                    <template x-if="activePanel === 'about'">
+                        <div class="flex items-center gap-3 flex-1">
+                            <button @click="activePanel = 'main'; triggerHaptic(10)" class="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-neutral-100 transition">
+                                <span class="material-symbols-rounded text-[20px]">arrow_back</span>
+                            </button>
+                            <h1 class="text-base font-semibold">Sobre a Loja</h1>
+                        </div>
+                    </template>
+                </header>
+
+                <!-- Main Content -->
+                <main class="flex-1 overflow-y-auto pb-16">
+                    <!-- PANEL: main -->
+                    <template x-if="activePanel === 'main'">
+                        <div class="space-y-6">
+                            <!-- Profile Section -->
+                            <section class="bg-white border-b border-neutral-200 px-4 py-6">
+                                <div class="max-w-lg mx-auto flex items-start gap-4">
+                                    <div class="w-14 h-14 rounded-full bg-neutral-200 flex items-center justify-center flex-shrink-0">
+                                        <span class="material-symbols-rounded text-[32px] text-neutral-500">person</span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="flex items-center justify-between mb-1">
+                                            <h2 class="text-base font-semibold" x-text="customerName"></h2>
+                                            <button @click="activePanel = 'personal'; triggerHaptic(10)" class="text-xs text-neutral-500 underline hover:text-neutral-700 transition">Editar</button>
+                                        </div>
+                                        <p class="text-xs text-neutral-500 mb-2">(11) 99999-0000</p>
+                                        <p class="text-xs text-neutral-400" x-text="'Cliente desde ' + memberSince"></p>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <!-- Relationship Metrics Section -->
+                            <template x-if="isReturning">
+                                <section class="px-4 max-w-lg mx-auto mt-6">
+                                    <div class="bg-white border border-neutral-200 rounded-lg p-4">
+                                        <div class="grid grid-cols-3 gap-4 text-center">
+                                            <div>
+                                                <p class="text-2xl font-semibold text-neutral-900" x-text="orderCount"></p>
+                                                <p class="text-xs text-neutral-500 mt-1">pedidos</p>
+                                            </div>
+                                            <div>
+                                                <p class="text-2xl font-semibold text-neutral-900" x-text="'R$ ' + (totalSpent / 100).toFixed(2).replace('.', ',')"></p>
+                                                <p class="text-xs text-neutral-500 mt-1">gastou</p>
+                                            </div>
+                                            <div>
+                                                <p class="text-xs font-medium text-neutral-900 line-clamp-2" x-text="favoriteItem"></p>
+                                                <p class="text-xs text-neutral-500 mt-1">favorito</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+                            </template>
+
+                            <!-- Quick Actions Grid -->
+                            <section class="px-4 max-w-lg mx-auto">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <button @click="activePanel = 'orders'; triggerHaptic(10)" class="bg-white border border-neutral-200 rounded-lg p-4 flex flex-col items-center gap-2 text-center hover:border-neutral-300 transition">
+                                        <span class="material-symbols-rounded text-[24px] text-neutral-700">receipt_long</span>
+                                        <span class="text-sm font-semibold text-neutral-900">Meus Pedidos</span>
+                                        <span class="text-[11px] text-neutral-500">3 pedidos</span>
+                                    </button>
+
+                                    <button @click="activePanel = 'addresses'; triggerHaptic(10)" class="bg-white border border-neutral-200 rounded-lg p-4 flex flex-col items-center gap-2 text-center hover:border-neutral-300 transition">
+                                        <span class="material-symbols-rounded text-[24px] text-neutral-700">location_on</span>
+                                        <span class="text-sm font-semibold text-neutral-900">Endereços</span>
+                                        <span class="text-[11px] text-neutral-500">📍 Perto de você</span>
+                                    </button>
+
+                                    <button @click="activePanel = 'loyalty'; triggerHaptic(10)" class="bg-white border border-neutral-200 rounded-lg p-4 flex flex-col items-center gap-2 text-center hover:border-neutral-300 transition">
+                                        <div class="relative">
+                                            <span class="material-symbols-rounded text-[24px] text-neutral-700">loyalty</span>
+                                            <span class="absolute -top-1 -right-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-bold" x-text="loyaltyPoints"></span>
+                                        </div>
+                                        <span class="text-sm font-semibold text-neutral-900">Fidelidade</span>
+                                        <span class="text-[11px] text-neutral-500" x-text="loyaltyPoints + ' pts'"></span>
+                                    </button>
+
+                                    <button @click="activePanel = 'payments'; triggerHaptic(10)" class="bg-white border border-neutral-200 rounded-lg p-4 flex flex-col items-center gap-2 text-center hover:border-neutral-300 transition">
+                                        <span class="material-symbols-rounded text-[24px] text-neutral-700">credit_card</span>
+                                        <span class="text-sm font-semibold text-neutral-900">Pagamentos</span>
+                                        <span class="text-[11px] text-neutral-500">PIX preferido</span>
+                                    </button>
+                                </div>
+                            </section>
+
+                            <!-- Loyalty Celebration -->
+                            <template x-if="loyaltyPoints >= 100 && loyaltyPoints < 200">
+                                <section class="px-4 max-w-lg mx-auto">
+                                    <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
+                                        <p class="text-sm font-medium text-amber-900">
+                                            Quase lá! Faltam apenas <span x-text="200 - loyaltyPoints"></span> pts para Prata
+                                        </p>
+                                    </div>
+                                </section>
+                            </template>
+
+                            <!-- Recent Orders Preview -->
+                            <section class="px-4 max-w-lg mx-auto">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h2 class="font-display text-lg font-semibold">Últimos Pedidos</h2>
+                                    <button @click="activePanel = 'orders'; triggerHaptic(10)" class="text-sm font-medium text-neutral-500 underline hover:text-neutral-700 transition">Ver todos</button>
+                                </div>
+                                <div class="space-y-3">
+                                    <div class="bg-white border border-neutral-200 rounded-lg p-4">
+                                        <div class="flex items-start justify-between gap-3 mb-2">
+                                            <div class="flex-1">
+                                                <div class="flex items-center gap-2 mb-1">
+                                                    <span class="text-sm font-semibold text-neutral-900">#NB-0042</span>
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-50 text-[10px] font-medium text-emerald-700">Entregue</span>
+                                                </div>
+                                                <p class="text-xs text-neutral-500">Há 2 dias · 3 itens · R$ 38,60</p>
+                                            </div>
+                                        </div>
+                                        <p class="text-xs text-neutral-600 mb-3">2× Croissant, 1× Café</p>
+                                        <div class="flex gap-2">
+                                            <a href="cart.html" @click="triggerHaptic(10)" class="flex-1 rounded-md bg-neutral-900 text-white text-xs font-medium py-2 hover:bg-neutral-800 transition text-center block">
+                                                Repetir
+                                            </a>
+                                            <button @click="triggerHaptic(10)" class="flex-1 rounded-md bg-neutral-100 text-neutral-900 text-xs font-medium py-2 hover:bg-neutral-200 transition">
+                                                Detalhes
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="bg-white border border-neutral-200 rounded-lg p-4">
+                                        <div class="flex items-start justify-between gap-3 mb-2">
+                                            <div class="flex-1">
+                                                <div class="flex items-center gap-2 mb-1">
+                                                    <span class="text-sm font-semibold text-neutral-900">#NB-0038</span>
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-50 text-[10px] font-medium text-emerald-700">Entregue</span>
+                                                </div>
+                                                <p class="text-xs text-neutral-500">Há 5 dias · 2 itens · R$ 25,80</p>
+                                            </div>
+                                        </div>
+                                        <p class="text-xs text-neutral-600 mb-3">1× Pain au Chocolat, 1× Café</p>
+                                        <div class="flex gap-2">
+                                            <a href="cart.html" @click="triggerHaptic(10)" class="flex-1 rounded-md bg-neutral-900 text-white text-xs font-medium py-2 hover:bg-neutral-800 transition text-center block">
+                                                Repetir
+                                            </a>
+                                            <button @click="triggerHaptic(10)" class="flex-1 rounded-md bg-neutral-100 text-neutral-900 text-xs font-medium py-2 hover:bg-neutral-200 transition">
+                                                Detalhes
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <!-- Settings List -->
+                            <section class="mt-8 max-w-lg mx-auto">
+                                <h2 class="font-display text-lg font-semibold px-4 mb-3">Configurações</h2>
+                                <div class="bg-white border-t border-b border-neutral-200">
+                                    <button @click="activePanel = 'notifications'; triggerHaptic(10)" class="w-full flex items-center gap-3 px-4 py-3 border-b border-neutral-100 text-neutral-900 hover:bg-neutral-50 transition">
+                                        <span class="material-symbols-rounded text-[20px] text-neutral-500">notifications</span>
+                                        <span class="text-sm font-medium flex-1 text-left">Notificações</span>
+                                        <span class="material-symbols-rounded text-[20px] text-neutral-300">chevron_right</span>
+                                    </button>
+
+                                    <button @click="activePanel = 'personal'; triggerHaptic(10)" class="w-full flex items-center gap-3 px-4 py-3 border-b border-neutral-100 text-neutral-900 hover:bg-neutral-50 transition">
+                                        <span class="material-symbols-rounded text-[20px] text-neutral-500">badge</span>
+                                        <span class="text-sm font-medium flex-1 text-left">Dados Pessoais</span>
+                                        <span class="material-symbols-rounded text-[20px] text-neutral-300">chevron_right</span>
+                                    </button>
+
+                                    <button @click="activePanel = 'about'; triggerHaptic(10)" class="w-full flex items-center gap-3 px-4 py-3 border-b border-neutral-100 text-neutral-900 hover:bg-neutral-50 transition">
+                                        <span class="material-symbols-rounded text-[20px] text-neutral-500">storefront</span>
+                                        <span class="text-sm font-medium flex-1 text-left">Sobre a Loja</span>
+                                        <span class="material-symbols-rounded text-[20px] text-neutral-300">chevron_right</span>
+                                    </button>
+
+                                    <button @click="loggedIn = false; triggerHaptic(10)" class="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 transition">
+                                        <span class="material-symbols-rounded text-[20px] text-red-600">logout</span>
+                                        <span class="text-sm font-medium flex-1 text-left">Sair</span>
+                                        <span class="material-symbols-rounded text-[20px] text-neutral-300">chevron_right</span>
+                                    </button>
+                                </div>
+                            </section>
+
+                            <div class="h-4"></div>
+                        </div>
+                    </template>
+
+                    <!-- PANEL: orders -->
+                    <template x-if="activePanel === 'orders'">
+                        <div class="px-4 max-w-lg mx-auto py-6 space-y-4">
+                            <!-- Order 1 -->
+                            <div class="bg-white border border-neutral-200 rounded-lg p-4">
+                                <div class="flex items-start justify-between gap-3 mb-3">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span class="text-sm font-semibold text-neutral-900">#NB-0042</span>
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-50 text-[10px] font-medium text-emerald-700">Entregue</span>
+                                        </div>
+                                        <p class="text-xs text-neutral-500">Há 2 dias · R$ 38,60</p>
+                                    </div>
+                                </div>
+                                <div class="mb-3 pb-3 border-b border-neutral-100">
+                                    <p class="text-xs text-neutral-600 mb-2">2× Croissant</p>
+                                    <p class="text-xs text-neutral-600">1× Café com leite</p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button @click="triggerHaptic(10)" class="flex-1 rounded-md bg-neutral-900 text-white text-xs font-medium py-2 hover:bg-neutral-800 transition">
+                                        Repetir
+                                    </button>
+                                    <button @click="triggerHaptic(10)" class="flex-1 rounded-md bg-neutral-100 text-neutral-900 text-xs font-medium py-2 hover:bg-neutral-200 transition">
+                                        Rastrear
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Order 2 -->
+                            <div class="bg-white border border-neutral-200 rounded-lg p-4">
+                                <div class="flex items-start justify-between gap-3 mb-3">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span class="text-sm font-semibold text-neutral-900">#NB-0038</span>
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-50 text-[10px] font-medium text-emerald-700">Entregue</span>
+                                        </div>
+                                        <p class="text-xs text-neutral-500">Há 5 dias · R$ 25,80</p>
+                                    </div>
+                                </div>
+                                <div class="mb-3 pb-3 border-b border-neutral-100">
+                                    <p class="text-xs text-neutral-600 mb-2">1× Pain au Chocolat</p>
+                                    <p class="text-xs text-neutral-600">1× Café</p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button @click="triggerHaptic(10)" class="flex-1 rounded-md bg-neutral-900 text-white text-xs font-medium py-2 hover:bg-neutral-800 transition">
+                                        Repetir
+                                    </button>
+                                    <button @click="triggerHaptic(10)" class="flex-1 rounded-md bg-neutral-100 text-neutral-900 text-xs font-medium py-2 hover:bg-neutral-200 transition">
+                                        Rastrear
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Order 3 -->
+                            <div class="bg-white border border-neutral-200 rounded-lg p-4">
+                                <div class="flex items-start justify-between gap-3 mb-3">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span class="text-sm font-semibold text-neutral-900">#NB-0035</span>
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-50 text-[10px] font-medium text-emerald-700">Entregue</span>
+                                        </div>
+                                        <p class="text-xs text-neutral-500">Há 10 dias · R$ 52,00</p>
+                                    </div>
+                                </div>
+                                <div class="mb-3 pb-3 border-b border-neutral-100">
+                                    <p class="text-xs text-neutral-600 mb-2">1× Éclair de Chocolate</p>
+                                    <p class="text-xs text-neutral-600 mb-2">2× Macaron</p>
+                                    <p class="text-xs text-neutral-600">1× Suco natural</p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button @click="triggerHaptic(10)" class="flex-1 rounded-md bg-neutral-900 text-white text-xs font-medium py-2 hover:bg-neutral-800 transition">
+                                        Repetir
+                                    </button>
+                                    <button @click="triggerHaptic(10)" class="flex-1 rounded-md bg-neutral-100 text-neutral-900 text-xs font-medium py-2 hover:bg-neutral-200 transition">
+                                        Rastrear
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="h-4"></div>
+                        </div>
+                    </template>
+
+                    <!-- PANEL: addresses -->
+                    <template x-if="activePanel === 'addresses'">
+                        <div class="px-4 max-w-lg mx-auto py-6 space-y-4">
+                            <div class="space-y-3">
+                                <!-- Address 1 -->
+                                <div class="bg-white border border-neutral-200 rounded-lg p-4">
+                                    <div class="flex items-start justify-between gap-3 mb-2">
+                                        <div class="flex-1">
+                                            <p class="text-sm font-semibold text-neutral-900 mb-1">Casa</p>
+                                            <p class="text-xs text-neutral-600 mb-2">Rua das Flores, 123 – Apto 42</p>
+                                            <p class="text-xs text-neutral-600 mb-2">Vila Mariana, São Paulo, SP 01234-567</p>
+                                            <p class="text-xs text-neutral-500">1,2 km de distância</p>
+                                        </div>
+                                    </div>
+                                    <div class="pt-3 border-t border-neutral-100 flex gap-2">
+                                        <button @click="openEditAddress(0); triggerHaptic(10)" class="flex-1 rounded-md bg-neutral-900 text-white text-xs font-medium py-2 hover:bg-neutral-800 transition">
+                                            Editar
+                                        </button>
+                                        <button @click="deleteAddress(0); triggerHaptic(10)" class="flex-1 rounded-md bg-red-50 text-red-600 text-xs font-medium py-2 hover:bg-red-100 transition">
+                                            Remover
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Address 2 -->
+                                <div class="bg-white border border-neutral-200 rounded-lg p-4">
+                                    <div class="flex items-start justify-between gap-3 mb-2">
+                                        <div class="flex-1">
+                                            <p class="text-sm font-semibold text-neutral-900 mb-1">Trabalho</p>
+                                            <p class="text-xs text-neutral-600 mb-2">Avenida Paulista, 1000 – Sala 512</p>
+                                            <p class="text-xs text-neutral-600 mb-2">Bela Vista, São Paulo, SP 01311-200</p>
+                                            <p class="text-xs text-neutral-500">3,5 km de distância</p>
+                                        </div>
+                                    </div>
+                                    <div class="pt-3 border-t border-neutral-100 flex gap-2">
+                                        <button @click="openEditAddress(1); triggerHaptic(10)" class="flex-1 rounded-md bg-neutral-900 text-white text-xs font-medium py-2 hover:bg-neutral-800 transition">
+                                            Editar
+                                        </button>
+                                        <button @click="deleteAddress(1); triggerHaptic(10)" class="flex-1 rounded-md bg-red-50 text-red-600 text-xs font-medium py-2 hover:bg-red-100 transition">
+                                            Remover
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Add Address Button -->
+                            <button @click="openAddressForm(); triggerHaptic(10)" class="w-full bg-neutral-900 text-white rounded-lg min-h-[44px] py-3 font-medium text-sm hover:bg-neutral-800 transition flex items-center justify-center gap-2">
+                                <span class="material-symbols-rounded">add</span>
+                                Adicionar endereço
+                            </button>
+
+                            <div class="h-4"></div>
+                        </div>
+                    </template>
+
+                    <!-- PANEL: loyalty -->
+                    <template x-if="activePanel === 'loyalty'">
+                        <div class="px-4 max-w-lg mx-auto py-6 space-y-6">
+                            <!-- Loyalty Card -->
+                            <div class="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-lg p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center gap-2">
+                                        <span class="material-symbols-rounded text-[24px] text-amber-600">loyalty</span>
+                                        <span class="text-sm font-medium text-amber-900">Seu Tier</span>
+                                    </div>
+                                    <span class="text-lg font-semibold text-amber-900">Bronze</span>
+                                </div>
+                                <div class="mb-4">
+                                    <p class="text-3xl font-semibold text-amber-900 mb-1" x-text="loyaltyPoints + ' pontos'"></p>
+                                    <p class="text-xs text-amber-800" x-text="'Faltam ' + (200 - loyaltyPoints) + ' pts para Prata'"></p>
+                                </div>
+                                <div class="w-full h-2 bg-amber-200 rounded-full overflow-hidden">
+                                    <div class="h-full bg-amber-600 rounded-full" :style="'width: ' + Math.min(100, (loyaltyPoints / 2)) + '%'"></div>
+                                </div>
+                            </div>
+
+                            <!-- Benefits -->
+                            <div class="bg-white border border-neutral-200 rounded-lg p-4">
+                                <h3 class="font-display text-base font-semibold mb-3">Benefícios do Bronze</h3>
+                                <ul class="space-y-2">
+                                    <li class="flex items-start gap-2 text-sm text-neutral-600">
+                                        <span class="material-symbols-rounded text-emerald-600 text-[20px] flex-shrink-0">check_circle</span>
+                                        <span>1 ponto por real gasto</span>
+                                    </li>
+                                    <li class="flex items-start gap-2 text-sm text-neutral-600">
+                                        <span class="material-symbols-rounded text-emerald-600 text-[20px] flex-shrink-0">check_circle</span>
+                                        <span>Cupom de boas-vindas de 10%</span>
+                                    </li>
+                                    <li class="flex items-start gap-2 text-sm text-neutral-600">
+                                        <span class="material-symbols-rounded text-emerald-600 text-[20px] flex-shrink-0">check_circle</span>
+                                        <span>Acesso a ofertas semanais</span>
+                                    </li>
+                                    <li class="flex items-start gap-2 text-sm text-neutral-600">
+                                        <span class="material-symbols-rounded text-emerald-600 text-[20px] flex-shrink-0">check_circle</span>
+                                        <span>Birthday coupon</span>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <!-- Recent Point Events -->
+                            <div class="bg-white border border-neutral-200 rounded-lg p-4">
+                                <h3 class="font-display text-base font-semibold mb-3">Histórico Recente</h3>
+                                <div class="space-y-3">
+                                    <div class="flex items-center justify-between pb-3 border-b border-neutral-100">
+                                        <div>
+                                            <p class="text-sm text-neutral-900">Pedido #NB-0042</p>
+                                            <p class="text-xs text-neutral-500">Há 2 dias</p>
+                                        </div>
+                                        <span class="text-sm font-semibold text-amber-600">+12 pts</span>
+                                    </div>
+                                    <div class="flex items-center justify-between pb-3 border-b border-neutral-100">
+                                        <div>
+                                            <p class="text-sm text-neutral-900">Pedido #NB-0038</p>
+                                            <p class="text-xs text-neutral-500">Há 5 dias</p>
+                                        </div>
+                                        <span class="text-sm font-semibold text-amber-600">+9 pts</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <p class="text-sm text-neutral-900">Cupom de boas-vindas</p>
+                                            <p class="text-xs text-neutral-500">Há 30 dias</p>
+                                        </div>
+                                        <span class="text-sm font-semibold text-amber-600">+50 pts</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- How to Earn -->
+                            <div class="bg-neutral-100 border border-neutral-200 rounded-lg p-4">
+                                <h3 class="font-display text-base font-semibold mb-3">Como ganhar pontos</h3>
+                                <ul class="space-y-2 text-xs text-neutral-700">
+                                    <li class="flex items-start gap-2">
+                                        <span class="font-semibold text-neutral-900">1 pt:</span>
+                                        <span>A cada R$ 1,00 gasto</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="font-semibold text-neutral-900">Bônus:</span>
+                                        <span>Compras em datas especiais (2× pts)</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="font-semibold text-neutral-900">Resgate:</span>
+                                        <span>100 pts = R$ 5,00 de desconto</span>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div class="h-4"></div>
+                        </div>
+                    </template>
+
+                    <!-- PANEL: payments -->
+                    <template x-if="activePanel === 'payments'">
+                        <div class="px-4 max-w-lg mx-auto py-6 space-y-4">
+                            <!-- Primary Payment Method -->
+                            <h3 class="font-display text-base font-semibold">Formas de Pagamento</h3>
+
+                            <!-- PIX -->
+                            <div class="bg-white border border-emerald-300 border-2 rounded-lg p-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                                            <span class="material-symbols-rounded text-emerald-600">payment</span>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-semibold text-neutral-900">PIX</p>
+                                            <p class="text-xs text-neutral-500">Preferido</p>
+                                        </div>
+                                    </div>
+                                    <span class="inline-flex items-center px-2 py-1 rounded-md bg-emerald-50 text-[10px] font-medium text-emerald-700">Padrão</span>
+                                </div>
+                                <p class="text-xs text-neutral-600 mb-3">Chave aleatória: •••• •••• •••• d1a2</p>
+                                <button @click="triggerHaptic(10)" class="w-full rounded-md bg-neutral-100 text-neutral-900 text-xs font-medium py-2 hover:bg-neutral-200 transition">
+                                    Editar
+                                </button>
+                            </div>
+
+                            <!-- Add Card Option -->
+                            <button @click="triggerHaptic(10)" class="w-full bg-white border border-neutral-200 rounded-lg p-4 flex items-center gap-3 hover:border-neutral-300 transition">
+                                <div class="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center">
+                                    <span class="material-symbols-rounded text-neutral-500">add</span>
+                                </div>
+                                <div class="text-left flex-1">
+                                    <p class="text-sm font-semibold text-neutral-900">Adicionar cartão</p>
+                                    <p class="text-xs text-neutral-500">Débito ou crédito</p>
+                                </div>
+                                <span class="material-symbols-rounded text-neutral-300">chevron_right</span>
+                            </button>
+
+                            <!-- Payment History -->
+                            <h3 class="font-display text-base font-semibold mt-6">Histórico de Pagamentos</h3>
+                            <div class="space-y-3">
+                                <div class="bg-white border border-neutral-200 rounded-lg p-4 flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-neutral-900">Pedido #NB-0042</p>
+                                        <p class="text-xs text-neutral-500">R$ 38,60 • PIX • Há 2 dias</p>
+                                    </div>
+                                    <span class="material-symbols-rounded text-emerald-600 text-[20px]">check_circle</span>
+                                </div>
+                                <div class="bg-white border border-neutral-200 rounded-lg p-4 flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-neutral-900">Pedido #NB-0038</p>
+                                        <p class="text-xs text-neutral-500">R$ 25,80 • PIX • Há 5 dias</p>
+                                    </div>
+                                    <span class="material-symbols-rounded text-emerald-600 text-[20px]">check_circle</span>
+                                </div>
+                            </div>
+
+                            <div class="h-4"></div>
+                        </div>
+                    </template>
+
+                    <!-- PANEL: notifications -->
+                    <template x-if="activePanel === 'notifications'">
+                        <div class="px-4 max-w-lg mx-auto py-6 space-y-6">
+                            <h3 class="font-display text-base font-semibold">Escolha como receber atualizações</h3>
+
+                            <div class="bg-white border border-neutral-200 rounded-lg p-4">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center gap-3">
+                                        <span class="material-symbols-rounded text-[20px] text-neutral-500">chat</span>
+                                        <div>
+                                            <p class="text-sm font-semibold text-neutral-900">WhatsApp</p>
+                                            <p class="text-xs text-neutral-500">Status de pedidos e ofertas</p>
+                                        </div>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" x-model="notificationSettings.whatsapp" class="sr-only peer">
+                                        <div class="w-9 h-5 bg-neutral-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-neutral-900"></div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="bg-white border border-neutral-200 rounded-lg p-4">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center gap-3">
+                                        <span class="material-symbols-rounded text-[20px] text-neutral-500">mail</span>
+                                        <div>
+                                            <p class="text-sm font-semibold text-neutral-900">Email</p>
+                                            <p class="text-xs text-neutral-500">Resumo semanal e ofertas</p>
+                                        </div>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" x-model="notificationSettings.email" class="sr-only peer">
+                                        <div class="w-9 h-5 bg-neutral-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-neutral-900"></div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="bg-white border border-neutral-200 rounded-lg p-4">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center gap-3">
+                                        <span class="material-symbols-rounded text-[20px] text-neutral-500">notifications</span>
+                                        <div>
+                                            <p class="text-sm font-semibold text-neutral-900">Push Notifications</p>
+                                            <p class="text-xs text-neutral-500">Alertas em tempo real</p>
+                                        </div>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" x-model="notificationSettings.push" class="sr-only peer">
+                                        <div class="w-9 h-5 bg-neutral-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-neutral-900"></div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="bg-neutral-100 border border-neutral-200 rounded-lg p-4">
+                                <p class="text-xs text-neutral-600">Você sempre receberá notificações sobre seus pedidos, mesmo com essas opções desativadas.</p>
+                            </div>
+
+                            <div class="h-4"></div>
+                        </div>
+                    </template>
+
+                    <!-- PANEL: personal -->
+                    <template x-if="activePanel === 'personal'">
+                        <div class="px-4 max-w-lg mx-auto py-6">
+                            <form @submit.prevent="savePersonalData" class="space-y-4">
+                                <div>
+                                    <label class="text-xs font-semibold text-neutral-600 uppercase block mb-2">Nome completo</label>
+                                    <input type="text" x-model="personalData.name" class="w-full border border-neutral-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-neutral-900 transition" placeholder="Maria Silva">
+                                </div>
+
+                                <div>
+                                    <label class="text-xs font-semibold text-neutral-600 uppercase block mb-2">Telefone</label>
+                                    <input type="tel" x-model="personalData.phone" class="w-full border border-neutral-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-neutral-900 transition" placeholder="(11) 99999-0000">
+                                </div>
+
+                                <div>
+                                    <label class="text-xs font-semibold text-neutral-600 uppercase block mb-2">Email</label>
+                                    <input type="email" x-model="personalData.email" class="w-full border border-neutral-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-neutral-900 transition" placeholder="maria@example.com">
+                                </div>
+
+                                <div>
+                                    <label class="text-xs font-semibold text-neutral-600 uppercase block mb-2">Data de Nascimento</label>
+                                    <input type="date" x-model="personalData.birthDate" class="w-full border border-neutral-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-neutral-900 transition">
+                                </div>
+
+                                <div class="pt-4">
+                                    <button type="submit" @click="triggerHaptic(10)" class="w-full bg-neutral-900 text-white rounded-lg py-3 font-medium text-sm hover:bg-neutral-800 transition">
+                                        Salvar alterações
+                                    </button>
+                                </div>
+                            </form>
+
+                            <div class="h-4"></div>
+                        </div>
+                    </template>
+
+                    <!-- PANEL: about -->
+                    <template x-if="activePanel === 'about'">
+                        <div class="px-4 max-w-lg mx-auto py-6 space-y-6">
+                            <div class="bg-white border border-neutral-200 rounded-lg p-4">
+                                <h3 class="font-display text-base font-semibold mb-3">Nelson Boulangerie</h3>
+                                <div class="space-y-3 text-sm text-neutral-600">
+                                    <div class="flex items-start gap-3">
+                                        <span class="material-symbols-rounded text-neutral-500 flex-shrink-0">location_on</span>
+                                        <div>
+                                            <p class="font-medium text-neutral-900">Endereço</p>
+                                            <p>Rua das Flores, 456</p>
+                                            <p>São Paulo, SP 01234-567</p>
+                                        </div>
+                                    </div>
+                                    <a href="https://maps.google.com" class="inline-flex items-center gap-2 text-neutral-900 font-medium hover:underline">
+                                        <span class="material-symbols-rounded text-[18px]">map</span>
+                                        Ver no mapa
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="bg-white border border-neutral-200 rounded-lg p-4">
+                                <h3 class="font-display text-base font-semibold mb-3">Horário de Funcionamento</h3>
+                                <div class="space-y-2 text-sm text-neutral-600">
+                                    <div class="flex items-center justify-between">
+                                        <span>Segunda a Sexta</span>
+                                        <span class="font-medium text-neutral-900">7:00 – 19:00</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span>Sábado</span>
+                                        <span class="font-medium text-neutral-900">8:00 – 19:00</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span>Domingo</span>
+                                        <span class="font-medium text-neutral-900">9:00 – 18:00</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white border border-neutral-200 rounded-lg p-4">
+                                <h3 class="font-display text-base font-semibold mb-3">Contato</h3>
+                                <div class="space-y-3">
+                                    <a href="tel:+551133334444" class="flex items-center gap-3 hover:bg-neutral-50 p-2 rounded-lg transition">
+                                        <span class="material-symbols-rounded text-neutral-500">(11) 3333-4444</span>
+                                        <span class="text-sm text-neutral-900">Ligar</span>
+                                    </a>
+                                    <a href="https://wa.me/5511933334444" class="flex items-center gap-3 hover:bg-neutral-50 p-2 rounded-lg transition">
+                                        <span class="material-symbols-rounded text-neutral-500">chat</span>
+                                        <span class="text-sm text-neutral-900">WhatsApp</span>
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="bg-white border border-neutral-200 rounded-lg p-4">
+                                <h3 class="font-display text-base font-semibold mb-3">Redes Sociais</h3>
+                                <div class="flex gap-3">
+                                    <a href="https://instagram.com/nelsonboulangerie" target="_blank" class="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center hover:bg-neutral-200 transition">
+                                        <span class="material-symbols-rounded text-neutral-700">photo_camera</span>
+                                    </a>
+                                    <a href="https://facebook.com/nelsonboulangerie" target="_blank" class="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center hover:bg-neutral-200 transition">
+                                        <span class="material-symbols-rounded text-neutral-700">group</span>
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="h-4"></div>
+                        </div>
+                    </template>
+                </main>
+            </div>
+        </template>
+
+        <!-- NOT LOGGED IN STATE -->
+        <template x-if="!loggedIn">
+            <div class="flex flex-col flex-1">
+                <header class="h-12 bg-white border-b border-neutral-200 flex items-center justify-center sticky top-0 z-50" style="padding-top: var(--sat)">
+                    <h1 class="text-base font-semibold">Minha Conta</h1>
+                </header>
+
+                <main class="flex-1 flex flex-col items-center justify-center px-4 pb-16">
+                    <div class="max-w-sm w-full text-center">
+                        <div class="mb-6">
+                            <span class="material-symbols-rounded text-[56px] text-neutral-400 inline-block">person</span>
+                        </div>
+                        <h2 class="text-lg font-semibold mb-2">Entre para acompanhar seus pedidos</h2>
+                        <p class="text-sm text-neutral-500 mb-6">Gerencie seus endereços, fidelidade e pagamentos.</p>
+
+                        <button
+                            @click="loggedIn = true; triggerHaptic(10)"
+                            class="w-full bg-green-600 text-white text-sm font-semibold py-3 rounded-lg hover:bg-green-700 transition mb-3"
+                        >
+                            <span class="material-symbols-rounded inline-block text-[20px] mr-2 align-middle" style="vertical-align: -2px;">chat</span>
+                            Entrar com WhatsApp
+                        </button>
+                        <p class="text-xs text-neutral-500 mb-3">Enviaremos um código de verificação para seu WhatsApp</p>
+
+                        <button
+                            @click="triggerHaptic(10)"
+                            class="w-full bg-white border border-neutral-200 text-neutral-900 text-sm font-semibold py-3 rounded-lg hover:bg-neutral-50 transition"
+                        >
+                            <span class="material-symbols-rounded inline-block text-[20px] mr-2 align-middle" style="vertical-align: -2px;">phone</span>
+                            Entrar com telefone
+                        </button>
+
+                        <p class="text-xs text-neutral-500 mt-4">Login seguro e instantâneo</p>
+                        <p class="text-xs text-neutral-500 mt-2">Primeira vez? É rápido e seguro!</p>
+                    </div>
+                </main>
+            </div>
+        </template>
+
+        <!-- Bottom Navigation -->
+        <nav class="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-neutral-200" style="padding-bottom: var(--sab)">
+            <div class="max-w-lg mx-auto grid grid-cols-4 h-14">
+                <a href="home.html" class="flex flex-col items-center justify-center gap-0.5 text-neutral-400 no-underline hover:text-neutral-600 transition">
+                    <span class="material-symbols-rounded text-[20px]">home</span>
+                    <span class="text-[10px] font-medium">Home</span>
+                </a>
+                <a href="menu.html" class="flex flex-col items-center justify-center gap-0.5 text-neutral-400 no-underline hover:text-neutral-600 transition">
+                    <span class="material-symbols-rounded text-[20px]">restaurant_menu</span>
+                    <span class="text-[10px] font-medium">Cardápio</span>
+                </a>
+                <a href="cart.html" class="flex flex-col items-center justify-center gap-0.5 text-neutral-400 no-underline hover:text-neutral-600 transition">
+                    <span class="material-symbols-rounded text-[20px]">shopping_bag</span>
+                    <span class="text-[10px] font-medium">Carrinho</span>
+                </a>
+                <a href="account.html" class="flex flex-col items-center justify-center gap-0.5 text-neutral-900 no-underline">
+                    <span class="material-symbols-rounded text-[20px]">person</span>
+                    <span class="text-[10px] font-semibold">Conta</span>
+                </a>
+            </div>
+        </nav>
+
+        <!-- Address Edit Bottom Sheet -->
+        <template x-if="showAddressForm">
+            <div class="fixed inset-0 z-50 bg-black bg-opacity-40" @click="closeAddressForm(); triggerHaptic(10)"></div>
+            <div class="fixed bottom-0 inset-x-0 z-50 bg-white rounded-t-2xl p-4 max-w-lg mx-auto" style="padding-bottom: calc(var(--sab) + 1rem)">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-display text-lg font-semibold" x-text="editingAddressIndex !== null ? 'Editar endereço' : 'Novo endereço'"></h2>
+                    <button @click="closeAddressForm(); triggerHaptic(10)" class="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-neutral-100 transition">
+                        <span class="material-symbols-rounded">close</span>
+                    </button>
+                </div>
+
+                <form @submit.prevent="saveAddress" class="space-y-3 max-h-96 overflow-y-auto">
+                    <div>
+                        <label class="text-xs font-semibold text-neutral-600 uppercase block mb-1">Rótulo (ex: Casa, Trabalho)</label>
+                        <input type="text" x-model="addressForm.label" class="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-neutral-900 transition" placeholder="Casa">
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-semibold text-neutral-600 uppercase block mb-1">Rua</label>
+                        <input type="text" x-model="addressForm.street" class="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-neutral-900 transition" placeholder="Rua das Flores">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-xs font-semibold text-neutral-600 uppercase block mb-1">Número</label>
+                            <input type="text" x-model="addressForm.number" class="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-neutral-900 transition" placeholder="123">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-neutral-600 uppercase block mb-1">Complemento</label>
+                            <input type="text" x-model="addressForm.complement" class="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-neutral-900 transition" placeholder="Apto 42">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-semibold text-neutral-600 uppercase block mb-1">Bairro</label>
+                        <input type="text" x-model="addressForm.neighborhood" class="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-neutral-900 transition" placeholder="Vila Mariana">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-xs font-semibold text-neutral-600 uppercase block mb-1">Cidade</label>
+                            <input type="text" x-model="addressForm.city" class="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-neutral-900 transition" placeholder="São Paulo">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-neutral-600 uppercase block mb-1">Estado</label>
+                            <input type="text" x-model="addressForm.state" class="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-neutral-900 transition" placeholder="SP">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-semibold text-neutral-600 uppercase block mb-1">CEP</label>
+                        <input type="text" x-model="addressForm.zip" class="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-neutral-900 transition" placeholder="01234-567">
+                    </div>
+
+                    <div class="flex gap-3 pt-4">
+                        <button type="button" @click="closeAddressForm(); triggerHaptic(10)" class="flex-1 rounded-lg border border-neutral-200 text-neutral-900 font-medium py-2 hover:bg-neutral-50 transition">
+                            Cancelar
+                        </button>
+                        <button type="submit" @click="triggerHaptic(10)" class="flex-1 rounded-lg bg-neutral-900 text-white font-medium py-2 hover:bg-neutral-800 transition">
+                            Salvar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </template>
+    </div>
+
+    <script>
+        function accountApp() {
+            return {
+                loggedIn: true,
+                activePanel: 'main',
+                loyaltyPoints: 120,
+                showAddressForm: false,
+                editingAddressIndex: null,
+                customerName: 'Maria',
+                orderCount: 12,
+                isReturning: true,
+                memberSince: 'março 2024',
+                totalSpent: 156800,
+                favoriteItem: 'Croissant Clássico',
+
+                addresses: [
+                    {
+                        label: 'Casa',
+                        street: 'Rua das Flores',
+                        number: '123',
+                        complement: 'Apto 42',
+                        neighborhood: 'Vila Mariana',
+                        city: 'São Paulo',
+                        state: 'SP',
+                        zip: '01234-567',
+                        distance: '1,2 km'
+                    },
+                    {
+                        label: 'Trabalho',
+                        street: 'Avenida Paulista',
+                        number: '1000',
+                        complement: 'Sala 512',
+                        neighborhood: 'Bela Vista',
+                        city: 'São Paulo',
+                        state: 'SP',
+                        zip: '01311-200',
+                        distance: '3,5 km'
+                    }
+                ],
+
+                addressForm: {
+                    label: '',
+                    street: '',
+                    number: '',
+                    complement: '',
+                    neighborhood: '',
+                    city: '',
+                    state: '',
+                    zip: ''
+                },
+
+                personalData: {
+                    name: 'Maria Silva',
+                    phone: '(11) 99999-0000',
+                    email: 'maria.silva@example.com',
+                    birthDate: '1995-05-15'
+                },
+
+                notificationSettings: {
+                    whatsapp: true,
+                    email: true,
+                    push: false
+                },
+
+                getGreeting() {
+                    const hour = new Date().getHours();
+                    if (hour < 12) {
+                        return `Bom dia, ${this.customerName}`;
+                    } else if (hour < 18) {
+                        return `Boa tarde, ${this.customerName}`;
+                    } else {
+                        return `Boa noite, ${this.customerName}`;
+                    }
+                },
+
+                triggerHaptic(pattern) {
+                    if (navigator.vibrate) {
+                        navigator.vibrate(pattern);
+                    }
+                },
+
+                openAddressForm() {
+                    this.showAddressForm = true;
+                    this.editingAddressIndex = null;
+                    this.addressForm = {
+                        label: '',
+                        street: '',
+                        number: '',
+                        complement: '',
+                        neighborhood: '',
+                        city: '',
+                        state: '',
+                        zip: ''
+                    };
+                },
+
+                openEditAddress(index) {
+                    const address = this.addresses[index];
+                    this.addressForm = { ...address };
+                    this.editingAddressIndex = index;
+                    this.showAddressForm = true;
+                },
+
+                closeAddressForm() {
+                    this.showAddressForm = false;
+                    this.editingAddressIndex = null;
+                },
+
+                saveAddress() {
+                    if (this.editingAddressIndex !== null) {
+                        this.addresses[this.editingAddressIndex] = { ...this.addressForm };
+                    } else {
+                        this.addresses.push({ ...this.addressForm });
+                    }
+                    this.closeAddressForm();
+                    this.triggerHaptic(10);
+                },
+
+                deleteAddress(index) {
+                    this.addresses.splice(index, 1);
+                },
+
+                savePersonalData() {
+                    this.triggerHaptic(10);
+                    this.activePanel = 'main';
+                }
+            };
+        }
+    </script>
+    <script src="proto-scenarios.js"></script>
+</body>
+</html>

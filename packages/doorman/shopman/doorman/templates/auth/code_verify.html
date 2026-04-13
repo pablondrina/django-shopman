@@ -8,7 +8,7 @@
 <body>
     <h1>Verificar codigo</h1>
 
-    <p>Enviamos um codigo para <strong>{{ phone }}</strong>.</p>
+    <p>Enviamos um codigo para <strong>{{ target|default:phone }}</strong>.</p>
 
     {% if error %}
     <p style="color: red;">{{ error }}</p>
@@ -20,7 +20,7 @@
 
     <form method="post">
         {% csrf_token %}
-        <input type="hidden" name="phone" value="{{ phone }}">
+        <input type="hidden" name="target" value="{{ target|default:phone }}">
         <label for="code">Codigo:</label>
         <input type="text" id="code" name="code" maxlength="6"
                pattern="[0-9]{6}" inputmode="numeric" autocomplete="one-time-code"

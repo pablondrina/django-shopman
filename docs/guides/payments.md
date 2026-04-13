@@ -4,7 +4,7 @@
 
 O sistema de pagamentos é composto por duas camadas:
 
-1. **Payman Core** (`shopman.payments`) — Service layer agnóstico que gerencia o lifecycle de `PaymentIntent` e `PaymentTransaction` no banco
+1. **Payman Core** (`shopman.payman`) — Service layer agnóstico que gerencia o lifecycle de `PaymentIntent` e `PaymentTransaction` no banco
 2. **Payment Handlers** (`shopman/handlers/payment.py`) — Handlers que conectam o lifecycle do pedido aos backends de gateway
 
 O core não sabe nada sobre gateways (Efi, Stripe, etc.). Os backends implementam o `PaymentBackend` protocol e são configurados no orquestrador.
@@ -56,7 +56,7 @@ PENDING → AUTHORIZED → CAPTURED → REFUNDED
 Todas as operações state-changing usam `@transaction.atomic` + `select_for_update()`. Cada transição emite o signal correspondente.
 
 ```python
-from shopman.payments import PaymentService, PaymentError
+from shopman.payman import PaymentService, PaymentError
 
 # Criar intent
 intent = PaymentService.create_intent("ORD-001", 1500, "pix")
@@ -189,7 +189,7 @@ Todos emitidos por `PaymentService` após cada transição:
 ## Tratamento de Erros
 
 ```python
-from shopman.payments.exceptions import PaymentError
+from shopman.payman.exceptions import PaymentError
 
 try:
     PaymentService.capture(ref)
@@ -199,4 +199,4 @@ except PaymentError as e:
     print(e.as_dict())
 ```
 
-Códigos de erro: veja [errors.md](../reference/errors.md#paymenterror-payments).
+Códigos de erro: veja [errors.md](../reference/errors.md#paymenterror-payman).

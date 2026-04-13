@@ -3,17 +3,19 @@ from __future__ import annotations
 import logging
 
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
 
 logger = logging.getLogger(__name__)
 
-from shopman.guestman.contrib.consent import CommunicationConsent, ConsentService
+from shopman.guestman.contrib.consent import ConsentService
 from shopman.guestman.contrib.loyalty import LoyaltyService
-from shopman.guestman.contrib.preferences import CustomerPreference, PreferenceService
-from shopman.orderman.models import Order
+from shopman.guestman.contrib.preferences import PreferenceService
+from shopman.guestman.services import address as address_service
+from shopman.guestman.services import customer as customer_service
+from shopman.orderman.services import CustomerOrderHistoryService
 from shopman.utils.monetary import format_money
 
 from .auth import get_authenticated_customer
@@ -69,14 +71,26 @@ def _enrich_orders(orders) -> list[dict]:
     enriched = []
     for order in orders:
         enriched.append({
-            "ref": order.ref,
-            "created_at": order.created_at,
+            "ref": getattr(order, "order_ref", getattr(order, "ref", "")),
+            "created_at": getattr(order, "ordered_at", getattr(order, "created_at", None)),
             "total_display": f"R$ {format_money(order.total_q)}",
             "status": order.status,
             "status_label": STATUS_LABELS.get(order.status, order.status),
             "status_color": STATUS_COLORS.get(order.status, "bg-muted text-muted-foreground"),
         })
     return enriched
+
+
+def _get_customer_addresses(customer_ref: str):
+    return address_service.addresses(customer_ref)
+
+
+def _get_customer_preferences(customer_ref: str):
+    return PreferenceService.get_preferences(customer_ref)
+
+
+def _get_active_food_keys(customer_ref: str) -> set[str]:
+    return {pref.key for pref in PreferenceService.get_preferences(customer_ref, "alimentar")}
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
@@ -91,20 +105,13 @@ class AccountView(View):
 
     def _render_account(self, request: HttpRequest, customer, phone: str) -> HttpResponse:
         """Render account page with customer data."""
-        addresses = customer.addresses.order_by("-is_default", "label")
-
-        orders = Order.objects.filter(
-            handle_type="phone",
-            handle_ref=phone,
-        ).order_by("-created_at")[:10]
-
+        addresses = _get_customer_addresses(customer.ref)
+        orders = CustomerOrderHistoryService.list_customer_orders(customer.ref, limit=10)
         enriched_orders = _enrich_orders(orders)
-
-
         preferences = None
         try:
-            prefs = CustomerPreference.objects.filter(customer=customer).order_by("category", "key")
-            if prefs.exists():
+            prefs = _get_customer_preferences(customer.ref)
+            if prefs:
                 preferences = prefs
         except Exception as e:
             logger.warning("customer_preferences_failed: %s", e, exc_info=True)
@@ -121,11 +128,7 @@ class AccountView(View):
         # Food preference options with active state
         active_food_keys = set()
         try:
-            active_food_keys = set(
-                CustomerPreference.objects.filter(
-                    customer=customer, category="alimentar",
-                ).values_list("key", flat=True)
-            )
+            active_food_keys = _get_active_food_keys(customer.ref)
         except Exception as e:
             logger.warning("food_preferences_failed: %s", e, exc_info=True)
         food_pref_options = [
@@ -156,8 +159,6 @@ class AddressCreateView(View):
     """HTMX: create new address, return updated address list."""
 
     def post(self, request: HttpRequest) -> HttpResponse:
-        from shopman.guestman.models import CustomerAddress
-
         customer = get_authenticated_customer(request)
         if not customer:
             return HttpResponse("Autenticação necessária.", status=401)
@@ -193,21 +194,23 @@ class AddressCreateView(View):
                 "form_data": request.POST,
             })
 
-        CustomerAddress.objects.create(
-            customer=customer,
+        address_service.add_address(
+            customer_ref=customer.ref,
             label=label,
             label_custom=label_custom,
             formatted_address=formatted_address,
-            route=route,
-            street_number=street_number,
-            neighborhood=neighborhood,
-            city=city,
             complement=complement,
             delivery_instructions=delivery_instructions,
             is_default=is_default,
+            components={
+                "route": route,
+                "street_number": street_number,
+                "neighborhood": neighborhood,
+                "city": city,
+            },
         )
 
-        addresses = customer.addresses.order_by("-is_default", "label")
+        addresses = _get_customer_addresses(customer.ref)
         return render(request, "storefront/partials/address_list.html", {
             "addresses": addresses,
             "customer": customer,
@@ -218,43 +221,54 @@ class AddressUpdateView(View):
     """HTMX: update existing address, return updated item."""
 
     def post(self, request: HttpRequest, pk: int) -> HttpResponse:
-        from shopman.guestman.models import CustomerAddress
-
         auth_customer = get_authenticated_customer(request)
         if not auth_customer:
             return HttpResponse("Autenticação necessária.", status=401)
 
-        addr = get_object_or_404(CustomerAddress, pk=pk)
-        customer = addr.customer
-
-        if auth_customer.pk != customer.pk:
+        if address_service.address_belongs_to_other_customer(auth_customer.ref, pk):
             return HttpResponse("Acesso não autorizado.", status=403)
+        addr = address_service.get_address(auth_customer.ref, pk)
+        if not addr:
+            return HttpResponse("Endereço não encontrado.", status=404)
+        customer = auth_customer
 
-        addr.label = request.POST.get("label", addr.label)
-        addr.label_custom = request.POST.get("label_custom", "").strip()
-        addr.formatted_address = request.POST.get("formatted_address", addr.formatted_address).strip()
-        addr.route = request.POST.get("route", "").strip()
-        addr.street_number = request.POST.get("street_number", "").strip()
-        addr.neighborhood = request.POST.get("neighborhood", "").strip()
-        addr.city = request.POST.get("city", "").strip()
-        addr.complement = request.POST.get("complement", "").strip()
-        addr.delivery_instructions = request.POST.get("delivery_instructions", "").strip()
+        label = request.POST.get("label", addr.label)
+        label_custom = request.POST.get("label_custom", "").strip()
+        formatted_address = request.POST.get("formatted_address", addr.formatted_address).strip()
+        route = request.POST.get("route", "").strip()
+        street_number = request.POST.get("street_number", "").strip()
+        neighborhood = request.POST.get("neighborhood", "").strip()
+        city = request.POST.get("city", "").strip()
+        complement = request.POST.get("complement", "").strip()
+        delivery_instructions = request.POST.get("delivery_instructions", "").strip()
 
-        if not addr.formatted_address:
+        if not formatted_address:
             parts = []
-            if addr.route:
-                parts.append(addr.route)
-            if addr.street_number:
-                parts.append(addr.street_number)
-            if addr.neighborhood:
-                parts.append(f"- {addr.neighborhood}")
-            if addr.city:
-                parts.append(f"- {addr.city}")
-            addr.formatted_address = " ".join(parts) if parts else ""
+            if route:
+                parts.append(route)
+            if street_number:
+                parts.append(street_number)
+            if neighborhood:
+                parts.append(f"- {neighborhood}")
+            if city:
+                parts.append(f"- {city}")
+            formatted_address = " ".join(parts) if parts else ""
 
-        addr.save()
+        address_service.update_address(
+            customer.ref,
+            pk,
+            label=label,
+            label_custom=label_custom,
+            formatted_address=formatted_address,
+            route=route,
+            street_number=street_number,
+            neighborhood=neighborhood,
+            city=city,
+            complement=complement,
+            delivery_instructions=delivery_instructions,
+        )
 
-        addresses = customer.addresses.order_by("-is_default", "label")
+        addresses = _get_customer_addresses(customer.ref)
         return render(request, "storefront/partials/address_list.html", {
             "addresses": addresses,
             "customer": customer,
@@ -265,24 +279,21 @@ class AddressDeleteView(View):
     """HTMX: delete address, return updated list."""
 
     def post(self, request: HttpRequest, pk: int) -> HttpResponse:
-        from shopman.guestman.models import CustomerAddress
-
         auth_customer = get_authenticated_customer(request)
         if not auth_customer:
             return HttpResponse("Autenticação necessária.", status=401)
 
-        addr = get_object_or_404(CustomerAddress, pk=pk)
-        customer = addr.customer
-
-        if auth_customer.pk != customer.pk:
+        if address_service.address_belongs_to_other_customer(auth_customer.ref, pk):
             return HttpResponse("Acesso não autorizado.", status=403)
+        if not address_service.get_address(auth_customer.ref, pk):
+            return HttpResponse("Endereço não encontrado.", status=404)
 
-        addr.delete()
+        address_service.delete_address(auth_customer.ref, pk)
 
-        addresses = customer.addresses.order_by("-is_default", "label")
+        addresses = _get_customer_addresses(auth_customer.ref)
         return render(request, "storefront/partials/address_list.html", {
             "addresses": addresses,
-            "customer": customer,
+            "customer": auth_customer,
         })
 
 
@@ -333,21 +344,23 @@ class ProfileUpdateView(View):
                 "errors": errors,
             })
 
-        customer.first_name = first_name
-        customer.last_name = last_name
-        customer.email = email
-
         if birthday_raw:
             from datetime import date as date_type
 
             try:
-                customer.birthday = date_type.fromisoformat(birthday_raw)
+                birthday = date_type.fromisoformat(birthday_raw)
             except ValueError:
-                pass
+                birthday = customer.birthday
         else:
-            customer.birthday = None
+            birthday = None
 
-        customer.save(update_fields=["first_name", "last_name", "email", "birthday"])
+        customer = customer_service.update(
+            customer.ref,
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            birthday=birthday,
+        )
 
         return render(request, "storefront/partials/profile_display.html", {
             "customer": customer,
@@ -358,25 +371,21 @@ class AddressSetDefaultView(View):
     """HTMX: set address as default, return updated list."""
 
     def post(self, request: HttpRequest, pk: int) -> HttpResponse:
-        from shopman.guestman.models import CustomerAddress
-
         auth_customer = get_authenticated_customer(request)
         if not auth_customer:
             return HttpResponse("Autenticação necessária.", status=401)
 
-        addr = get_object_or_404(CustomerAddress, pk=pk)
-        customer = addr.customer
-
-        if auth_customer.pk != customer.pk:
+        if address_service.address_belongs_to_other_customer(auth_customer.ref, pk):
             return HttpResponse("Acesso não autorizado.", status=403)
+        if not address_service.get_address(auth_customer.ref, pk):
+            return HttpResponse("Endereço não encontrado.", status=404)
 
-        addr.is_default = True
-        addr.save()  # save() handles unsetting other defaults
+        address_service.set_default_address(auth_customer.ref, pk)
 
-        addresses = customer.addresses.order_by("-is_default", "label")
+        addresses = _get_customer_addresses(auth_customer.ref)
         return render(request, "storefront/partials/address_list.html", {
             "addresses": addresses,
-            "customer": customer,
+            "customer": auth_customer,
         })
 
 
@@ -463,11 +472,7 @@ class FoodPreferenceToggleView(View):
             )
 
         # Return updated tags
-        active_keys = set(
-            CustomerPreference.objects.filter(
-                customer=customer, category="alimentar",
-            ).values_list("key", flat=True)
-        )
+        active_keys = _get_active_food_keys(customer.ref)
 
         html_parts = []
         for opt_key, opt_label in FOOD_PREFERENCE_OPTIONS:
@@ -507,43 +512,56 @@ class DataExportView(View):
                 "birthday": str(customer.birthday) if customer.birthday else None,
                 "created_at": customer.created_at.isoformat(),
             },
-            "addresses": list(
-                customer.addresses.values(
-                    "label", "formatted_address", "route", "street_number",
-                    "neighborhood", "city", "complement", "delivery_instructions",
-                    "is_default",
-                )
-            ),
+            "addresses": [
+                {
+                    "label": addr.label,
+                    "formatted_address": addr.formatted_address,
+                    "route": addr.route,
+                    "street_number": addr.street_number,
+                    "neighborhood": addr.neighborhood,
+                    "city": addr.city,
+                    "complement": addr.complement,
+                    "delivery_instructions": addr.delivery_instructions,
+                    "is_default": addr.is_default,
+                }
+                for addr in _get_customer_addresses(customer.ref)
+            ],
         }
 
         # Orders
-        orders = Order.objects.filter(
-            handle_type="phone", handle_ref=customer.phone,
-        ).order_by("-created_at")[:100]
+        orders = CustomerOrderHistoryService.list_customer_orders(customer.ref, limit=100)
         data["orders"] = [
             {
-                "ref": o.ref,
+                "ref": o.order_ref,
                 "status": o.status,
                 "total_q": o.total_q,
-                "created_at": o.created_at.isoformat(),
-                "items": list(o.items.values("sku", "name", "qty", "unit_price_q", "line_total_q")),
+                "created_at": o.ordered_at.isoformat(),
+                "items": o.items,
             }
             for o in orders
         ]
 
         # Preferences
-        data["preferences"] = list(
-            CustomerPreference.objects.filter(customer=customer).values(
-                "category", "key", "value", "preference_type",
-            )
-        )
+        data["preferences"] = [
+            {
+                "category": pref.category,
+                "key": pref.key,
+                "value": pref.value,
+                "preference_type": pref.preference_type,
+            }
+            for pref in _get_customer_preferences(customer.ref)
+        ]
 
         # Consent
-        data["consents"] = list(
-            CommunicationConsent.objects.filter(customer=customer).values(
-                "channel", "status", "consented_at", "revoked_at",
-            )
-        )
+        data["consents"] = [
+            {
+                "channel": consent.channel,
+                "status": consent.status,
+                "consented_at": consent.consented_at,
+                "revoked_at": consent.revoked_at,
+            }
+            for consent in ConsentService.get_consents(customer.ref)
+        ]
 
         # Loyalty
         try:
@@ -585,25 +603,30 @@ class AccountDeleteView(View):
 
         # Anonymize personal data
         original_ref = customer.ref
-        customer.first_name = "Anonimizado"
-        customer.last_name = ""
-        customer.email = ""
-        phone_hash = hashlib.sha256(customer.phone.encode()).hexdigest()[:12]
-        customer.phone = ""
-        customer.birthday = None
-        customer.notes = ""
-        customer.is_active = False
-        customer.save()
+        original_phone = customer.phone
+        phone_hash = hashlib.sha256(original_phone.encode()).hexdigest()[:12]
 
-        # Revoke all consents
+        # Revoke all consents while the customer is still active
         for channel in ("whatsapp", "email", "sms", "push"):
             try:
                 ConsentService.revoke_consent(original_ref, channel)
             except Exception as e:
                 logger.warning("consent_revoke_failed channel=%s: %s", channel, e, exc_info=True)
 
-        # Delete addresses
-        customer.addresses.all().delete()
+        # Delete addresses while the customer is still active
+        try:
+            address_service.delete_all_addresses(original_ref)
+        except Exception as e:
+            logger.warning("address_cleanup_failed customer=%s: %s", original_ref, e, exc_info=True)
+
+        customer.first_name = "Anonimizado"
+        customer.last_name = ""
+        customer.email = ""
+        customer.phone = ""
+        customer.birthday = None
+        customer.notes = ""
+        customer.is_active = False
+        customer.save()
 
         # Clear session
         request.session.flush()

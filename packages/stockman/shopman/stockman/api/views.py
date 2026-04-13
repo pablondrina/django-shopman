@@ -107,7 +107,7 @@ class BulkAvailabilityView(APIView):
                 results.append({
                     "sku": sku,
                     "total_available": zero,
-                    "total_orderable": zero,
+                    "total_promisable": zero,
                     "total_reserved": zero,
                     "breakdown": zero_breakdown,
                     "is_planned": False,
@@ -117,7 +117,7 @@ class BulkAvailabilityView(APIView):
                 results.append({
                     "sku": data["sku"],
                     "total_available": data["total_available"],
-                    "total_orderable": data["total_orderable"],
+                    "total_promisable": data["total_promisable"],
                     "total_reserved": data["total_reserved"],
                     "breakdown": data["breakdown"],
                     "is_planned": data["is_planned"],

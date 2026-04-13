@@ -175,6 +175,29 @@ class InsightService:
                 logger.warning("recalculate_all: skipped customer %s: %s", customer.ref, exc)
         return count
 
+    @classmethod
+    def favorite_product_samples(cls, limit: int = 200) -> list[list]:
+        """Return recent favorite-product snapshots for aggregate storefront reads."""
+        return list(
+            CustomerInsight.objects.exclude(favorite_products=[])
+            .values_list("favorite_products", flat=True)[:limit]
+        )
+
+    @classmethod
+    def favorite_product_samples_for_sku(
+        cls,
+        sku: str,
+        limit: int = 100,
+    ) -> list[list]:
+        """Return favorite-product snapshots biased to customers who favor the given SKU."""
+        qs = CustomerInsight.objects.filter(
+            favorite_products__contains=[{"sku": sku}],
+        ).values_list("favorite_products", flat=True)[:limit]
+        samples = list(qs)
+        if samples:
+            return samples
+        return cls.favorite_product_samples(limit=limit)
+
     # ======================================================================
     # RFM Calculation Helpers
     # ======================================================================

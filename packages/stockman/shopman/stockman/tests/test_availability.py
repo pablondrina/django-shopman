@@ -501,7 +501,7 @@ class TestPromiseDecision:
         assert decision.reason_code is None
         assert decision.available_qty == Decimal("10")
         assert decision.available_now == Decimal("10")
-        assert decision.available_by_commitment == Decimal("10")
+        assert decision.available_in_process == Decimal("10")
         assert decision.available_by_plan == Decimal("0")
 
     @override_settings(
@@ -518,7 +518,7 @@ class TestPromiseDecision:
         decision = promise_decision_for_sku(product.sku, Decimal("3"), target_date=today)
 
         assert decision.approved is False
-        assert decision.reason_code == "insufficient_stock"
+        assert decision.reason_code == "insufficient_supply"
         assert decision.available_qty == Decimal("2")
 
     @override_settings(
@@ -550,10 +550,38 @@ class TestPromiseDecision:
             _quantity=Decimal("8"),
         )
 
-        decision = stock.assess_availability(product.sku, Decimal("6"), target_date=tomorrow)
+        decision = stock.promise(product.sku, Decimal("6"), target_date=tomorrow)
 
         assert decision.approved is True
         assert decision.available_now == Decimal("0")
-        assert decision.available_by_commitment == Decimal("0")
+        assert decision.available_in_process == Decimal("0")
         assert decision.available_by_plan == Decimal("8")
         assert decision.available_qty == Decimal("8")
+
+    @override_settings(
+        STOCKMAN={"SKU_VALIDATOR": "shopman.stockman.tests.fakes.StockOnlySkuValidator"}
+    )
+    def test_stock_only_policy_ignores_in_process_and_plan_for_promise(self, product, vitrine, tomorrow):
+        Quant.objects.create(
+            sku=product.sku,
+            position=vitrine,
+            target_date=tomorrow,
+            _quantity=Decimal("5"),
+        )
+        decision = promise_decision_for_sku(product.sku, Decimal("1"), target_date=tomorrow)
+        assert decision.availability_policy == "stock_only"
+        assert decision.approved is False
+        assert decision.available_qty == Decimal("0")
+        assert decision.available_by_plan == Decimal("5")
+
+    @override_settings(
+        STOCKMAN={"SKU_VALIDATOR": "shopman.stockman.tests.fakes.DemandOkSkuValidator"}
+    )
+    def test_demand_ok_policy_approves_beyond_current_supply(self, product, today):
+        decision = promise_decision_for_sku(product.sku, Decimal("7"), target_date=today)
+        assert decision.availability_policy == "demand_ok"
+        assert decision.approved is True
+        assert decision.available_qty == Decimal("7")
+        assert decision.available_now == Decimal("0")
+        assert decision.available_in_process == Decimal("0")
+        assert decision.available_by_plan == Decimal("0")

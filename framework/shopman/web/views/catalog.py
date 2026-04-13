@@ -18,7 +18,6 @@ from ._helpers import (
     _allergen_info,
     _annotate_products,
     _availability_badge,
-    _best_auto_promotion_discount_q,
     _collection_icon,
     _cross_sell_products,
     _get_availability,
@@ -256,43 +255,44 @@ class ProductDetailView(View):
         avail_raw = _get_availability(product.sku)
         avail = _to_storefront_avail(avail_raw, product)
         badge = _availability_badge(avail, product)
+        ft_hint, sub_hint = _storefront_session_pricing_hints(request)
+        try:
+            from shopman.offerman.models import CollectionItem
 
-        price_q = base_price_q
+            cols = list(
+                CollectionItem.objects.filter(product=product).values_list(
+                    "collection__ref", flat=True,
+                ),
+            )
+        except Exception as e:
+            logger.warning("product_collections_failed sku=%s: %s", product.sku, e, exc_info=True)
+            cols = []
 
+        price = CatalogService.get_price(
+            product.sku,
+            qty=1,
+            listing=listing_ref,
+            context={
+                "sku_collections": cols,
+                "session_total_q": sub_hint,
+                "fulfillment_type": ft_hint,
+            },
+            list_unit_price_q=base_price_q,
+        )
+        price_q = price.final_unit_price_q
         promo_badge = None
         has_promo_price = False
         promo_price_display = None
         promo_original_price_display = None
-        ft_hint, sub_hint = _storefront_session_pricing_hints(request)
-        if base_price_q:
-            try:
-                from shopman.offerman.models import CollectionItem
-
-                cols = list(
-                    CollectionItem.objects.filter(product=product).values_list(
-                        "collection__ref", flat=True,
-                    ),
-                )
-            except Exception as e:
-                logger.warning("product_collections_failed sku=%s: %s", product.sku, e, exc_info=True)
-                cols = []
-            disc_q, promo = _best_auto_promotion_discount_q(
-                product.sku,
-                base_price_q,
-                cols,
-                session_total_q=sub_hint,
-                fulfillment_type=ft_hint,
-            )
-            if disc_q > 0 and promo is not None:
-                has_promo_price = True
-                price_q = base_price_q - disc_q
-                promo_price_display = f"R$ {format_money(price_q)}"
-                promo_original_price_display = f"R$ {format_money(base_price_q)}"
-                if promo.type == "percent":
-                    plabel = f"-{promo.value}%"
-                else:
-                    plabel = f"-R$ {format_money(promo.value)}"
-                promo_badge = {"name": promo.name, "label": plabel}
+        if price.adjustments and price.final_unit_price_q < price.list_unit_price_q:
+            adj = price.adjustments[0]
+            has_promo_price = True
+            promo_price_display = f"R$ {format_money(price.final_unit_price_q)}"
+            promo_original_price_display = f"R$ {format_money(price.list_unit_price_q)}"
+            promo_badge = {
+                "name": adj.metadata.get("promotion_name", adj.label),
+                "label": adj.metadata.get("badge_label", adj.label),
+            }
 
         # Bundle: expand components for display
         components = []

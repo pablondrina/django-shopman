@@ -67,10 +67,10 @@ Campo `rev` com verificação opcional via `expected_rev`. Conflitos geram `Stal
 | `finished` | DecimalField(12,3, null) | Quantidade finalizada (set no finish, imutável) |
 | `status` | CharField | PLANNED, STARTED, FINISHED, VOID |
 | `rev` | PositiveIntegerField | Contador de concorrência otimista |
-| `scheduled_date` | DateField(null) | Data de produção |
+| `target_date` | DateField(null) | Data de produção |
 | `source_ref` | CharField(100) | Origem (ex: "order:789") |
 | `position_ref` | CharField(100) | Posição no Stocking |
-| `assigned_ref` | CharField(100) | Responsável (ex: "user:joao") |
+| `operator_ref` | CharField(100) | Responsável (ex: "user:joao") |
 | `meta` | JSONField | Inclui `_recipe_snapshot` |
 
 **Propriedades:** `planned_qty`, `started_qty`, `finished_qty`, `loss`, `yield_rate`
@@ -122,30 +122,30 @@ craft.adjust(wo, quantity=97, reason="farinha insuficiente", expected_rev=0)
 
 ### Execução
 
-**`craft.start(order, quantity, expected_rev=None, assigned_ref=None, position_ref=None, note=None)`** — Marcar quanto efetivamente entrou em produção.
+**`craft.start(order, quantity, expected_rev=None, operator_ref=None, position_ref=None, note=None)`** — Marcar quanto efetivamente entrou em produção.
 ```python
 craft.start(
     wo,
     quantity=97,
     expected_rev=0,
-    assigned_ref="user:joao",
+    operator_ref="user:joao",
     position_ref="station:forno-01",
     note="massa na bancada",
 )
 ```
 
-**`craft.finish(order, produced, consumed=None, wasted=None, expected_rev=None, idempotency_key=None)`** — Finalizar a ordem com resultado real.
+**`craft.finish(order, finished, consumed=None, wasted=None, expected_rev=None, idempotency_key=None)`** — Finalizar a ordem com resultado real.
 ```python
-craft.finish(wo, produced=93)
+craft.finish(wo, finished=93)
 
 # Completo: consumo explícito
-craft.finish(wo, produced=93, consumed=[
+craft.finish(wo, finished=93, consumed=[
     {"item_ref": "FARINHA-T55", "quantity": Decimal("7.5")},
     {"item_ref": "MANTEIGA", "quantity": Decimal("3.2")},
 ])
 
 # Co-produtos
-craft.finish(wo, produced=[
+craft.finish(wo, finished=[
     {"item_ref": "CROISSANT", "quantity": 93},
     {"item_ref": "MASSA-SOBRA", "quantity": Decimal("0.5")},
 ])
@@ -155,7 +155,7 @@ Pipeline do `finish()`:
 1. Calcula coeficiente francês: `started_qty / batch_size` (ou `planned_qty` se não houver start explícito)
 2. Materializa 4 tipos de WorkOrderItem
 3. Se `consumed=None`, usa BOM × coeficiente
-4. Se `wasted=None`, calcula `started_qty - produced`
+4. Se `wasted=None`, calcula `started_qty - finished`
 5. Chama `InventoryProtocol.consume()` + `receive()` (se configurado)
 
 **`craft.void(order, reason, expected_rev=None)`** — Cancelar ordem.
@@ -286,8 +286,8 @@ necessidades = craft.needs(hoje)
 # 07:00 — Ajustar (farinha insuficiente)
 craft.adjust(wo_croissant, quantity=100, reason="farinha insuficiente", expected_rev=0)
 
-# 10:00 — Fechar (croissants prontos)
-craft.close(wo_croissant, produced=93, actor="user:pierre")
+# 10:00 — Finalizar (croissants prontos)
+craft.finish(wo_croissant, finished=93, actor="user:pierre")
 # loss=7, yield_rate=0.93
 
 # 11:00 — Cancelar baguetes (demanda baixa)

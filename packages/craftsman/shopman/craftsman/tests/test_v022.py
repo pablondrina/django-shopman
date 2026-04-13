@@ -503,7 +503,7 @@ class TestPlanEndpoint:
         assert resp.status_code == 201
         assert resp.data["output_ref"] == "croissant"
         assert resp.data["quantity"] == "100.000"
-        assert resp.data["scheduled_date"] == str(tomorrow)
+        assert resp.data["target_date"] == str(tomorrow)
         assert resp.data["status"] == "planned"
 
     def test_plan_with_all_fields(self, api_client, recipe_with_items, tomorrow):
@@ -516,7 +516,7 @@ class TestPlanEndpoint:
                 "date": str(tomorrow),
                 "source_ref": "order:789",
                 "position_ref": "station:forno-01",
-                "assigned_ref": "user:joao",
+                "operator_ref": "user:joao",
                 "actor": "api-user",
                 "meta": {"priority": "high"},
             },
@@ -525,7 +525,7 @@ class TestPlanEndpoint:
         assert resp.status_code == 201
         assert resp.data["source_ref"] == "order:789"
         assert resp.data["position_ref"] == "station:forno-01"
-        assert resp.data["assigned_ref"] == "user:joao"
+        assert resp.data["operator_ref"] == "user:joao"
 
     def test_plan_recipe_not_found(self, api_client):
         """Plan with nonexistent recipe returns 404."""

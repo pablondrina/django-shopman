@@ -1057,7 +1057,7 @@ class Command(BaseCommand):
 
         wo_count = 0
 
-        # Today: 2 closed (via craft.plan + craft.close) + 1 open
+        # Today: 2 finished (via craft.plan + craft.finish) + 1 planned
         for code, qty, sh, sm, fh, fm in PRODUCTION_SCHEDULE:
             recipe = Recipe.objects.get(code=code)
             existing = WorkOrder.objects.filter(
@@ -1068,20 +1068,20 @@ class Command(BaseCommand):
                 continue
 
             wo = craft.plan(recipe, quantity=qty, date=today)
-            should_close = code != "focaccia-alecrim"  # focaccia still in production
-            if should_close:
-                produced = int(qty * Decimal("0.95"))
-                craft.close(wo, produced=produced, actor="seed")
+            should_finish = code != "focaccia-alecrim"  # focaccia still in production
+            if should_finish:
+                finished = int(qty * Decimal("0.95"))
+                craft.finish(wo, finished=finished, actor="seed")
             # Set realistic timestamps
             start_dt = datetime.combine(today, time(sh, sm), tzinfo=tz_info)
-            finish_dt = datetime.combine(today, time(fh, fm), tzinfo=tz_info) if should_close else None
+            finish_dt = datetime.combine(today, time(fh, fm), tzinfo=tz_info) if should_finish else None
             WorkOrder.objects.filter(pk=wo.pk).update(
                 started_at=start_dt,
                 **({"finished_at": finish_dt} if finish_dt else {}),
             )
             wo_count += 1
 
-        # Tomorrow: 4 open (via craft.plan → creates planned quants)
+        # Tomorrow: 4 planned orders (via craft.plan → creates planned quants)
         for code, qty in [
             ("baguete", Decimal("30")),
             ("baguete-campagne", Decimal("15")),
@@ -1121,24 +1121,24 @@ class Command(BaseCommand):
                 finish_m = max(0, min(59, finish_minutes % 60))
                 start_h = max(0, finish_h - 2)  # ~2h before finish
                 qty = recipe.batch_size or Decimal("20")
-                produced = int(qty * Decimal(str(random.uniform(0.90, 0.98))))
+                finished = int(qty * Decimal(str(random.uniform(0.90, 0.98))))
                 finish_dt = datetime.combine(wo_date, time(finish_h, finish_m), tzinfo=tz_info)
 
                 wo = WorkOrder.objects.create(
                     recipe=recipe,
                     output_ref=sku,
                     quantity=qty,
-                    produced=Decimal(str(produced)),
-                    status="done",
+                    finished=Decimal(str(finished)),
+                    status=WorkOrder.Status.FINISHED,
                     scheduled_date=wo_date,
                     started_at=datetime.combine(wo_date, time(start_h, 0), tzinfo=tz_info),
                     finished_at=finish_dt,
                     position_ref=recipe.output_ref,
                 )
 
-                # Waste: ~25% of WOs have some waste (5-15% of produced)
+                # Waste: ~25% of WOs have some waste (5-15% of finished_qty)
                 if random.random() < 0.25:
-                    waste_qty = Decimal(str(round(produced * random.uniform(0.05, 0.15))))
+                    waste_qty = Decimal(str(round(finished * random.uniform(0.05, 0.15))))
                     if waste_qty > 0:
                         WorkOrderItem.objects.create(
                             work_order=wo,

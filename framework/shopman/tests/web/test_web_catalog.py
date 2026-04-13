@@ -1,8 +1,11 @@
 """Tests for storefront catalog views: MenuView, MenuSearchView, ProductDetailView."""
 from __future__ import annotations
 
+from datetime import timedelta
+
 import pytest
 from django.test import Client
+from django.utils import timezone
 
 pytestmark = pytest.mark.django_db
 
@@ -104,6 +107,34 @@ class TestProductDetailView:
         assert resp.status_code == 200
         # Base price (80 centavos = R$ 0,80)
         assert b"0,80" in resp.content
+
+    def test_product_detail_uses_canonical_price_quote_for_promotion(
+        self,
+        client: Client,
+        product,
+        listing_item,
+        channel,
+    ):
+        from shopman.models import Promotion
+
+        now = timezone.now()
+        Promotion.objects.create(
+            name="Promo Web",
+            type=Promotion.FIXED,
+            value=10,
+            valid_from=now - timedelta(hours=1),
+            valid_until=now + timedelta(hours=1),
+            skus=[product.sku],
+            is_active=True,
+        )
+
+        resp = client.get(f"/produto/{product.sku}/")
+        assert resp.status_code == 200
+        assert resp.context["price_q"] == 80
+        assert resp.context["has_promo_price"] is True
+        assert resp.context["promo_price_display"] == "R$ 0,80"
+        assert resp.context["promo_original_price_display"] == "R$ 0,90"
+        assert resp.context["promo_badge"]["name"] == "Promo Web"
 
     def test_pdp_shows_alternatives_when_sold_out(self, client: Client, product_unavailable, product):
         """When product is unavailable (paused), PDP shows alternatives section."""

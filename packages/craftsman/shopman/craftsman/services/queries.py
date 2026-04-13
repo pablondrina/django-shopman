@@ -30,6 +30,39 @@ class Suggestion:
     basis: dict = field(default_factory=dict)
 
 
+@dataclass
+class CraftQueueItem:
+    """Operational queue row for the production floor."""
+
+    ref: str
+    recipe_code: str
+    output_ref: str
+    status: str
+    target_date: object
+    position_ref: str
+    operator_ref: str
+    planned_qty: Decimal
+    started_qty: Decimal | None
+    finished_qty: Decimal | None
+    loss_qty: Decimal | None
+    yield_rate: Decimal | None
+
+
+@dataclass
+class CraftSummary:
+    """Operational summary for a floor/date slice."""
+
+    total_orders: int = 0
+    planned_orders: int = 0
+    started_orders: int = 0
+    finished_orders: int = 0
+    void_orders: int = 0
+    planned_qty: Decimal = Decimal("0")
+    started_qty: Decimal = Decimal("0")
+    finished_qty: Decimal = Decimal("0")
+    loss_qty: Decimal = Decimal("0")
+
+
 class CraftQueries:
     """Read-only query methods."""
 
@@ -48,7 +81,7 @@ class CraftQueries:
         result = WorkOrder.objects.filter(
             output_ref=output_ref,
             status__in=[WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED],
-            scheduled_date=date,
+            target_date=date,
         ).aggregate(total=Sum("quantity"))
         return result["total"] or Decimal("0")
 
@@ -68,7 +101,7 @@ class CraftQueries:
 
         orders = WorkOrder.objects.filter(
             status__in=[WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED],
-            scheduled_date=date,
+            target_date=date,
         ).select_related("recipe").prefetch_related("recipe__items")
 
         aggregated = {}
@@ -214,6 +247,138 @@ class CraftQueries:
 
         return suggestions
 
+    @classmethod
+    def queue(
+        cls,
+        *,
+        date=None,
+        position_ref: str | None = None,
+        operator_ref: str | None = None,
+        statuses: list[str] | None = None,
+    ) -> list[CraftQueueItem]:
+        """
+        Operational queue for the floor.
+
+        Defaults to active work (`planned` + `started`) because this is the
+        practical queue the floor needs to act on.
+        """
+        from shopman.craftsman.models import WorkOrder
+
+        statuses = statuses or [WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED]
+        orders = cls._queue_queryset(
+            date=date,
+            position_ref=position_ref,
+            operator_ref=operator_ref,
+            statuses=statuses,
+        )
+
+        items = []
+        for order in orders:
+            started_qty = _started_qty(order)
+            finished_qty = order.finished
+            loss_qty = None
+            yield_rate = None
+            if finished_qty is not None:
+                base_qty = started_qty or order.quantity
+                loss_qty = max(base_qty - finished_qty, Decimal("0"))
+                yield_rate = (finished_qty / base_qty) if base_qty else None
+
+            items.append(
+                CraftQueueItem(
+                    ref=order.ref,
+                    recipe_code=order.recipe.code,
+                    output_ref=order.output_ref,
+                    status=order.status,
+                    target_date=order.target_date,
+                    position_ref=order.position_ref or "",
+                    operator_ref=order.operator_ref or "",
+                    planned_qty=order.quantity,
+                    started_qty=started_qty,
+                    finished_qty=finished_qty,
+                    loss_qty=loss_qty,
+                    yield_rate=yield_rate,
+                )
+            )
+        return items
+
+    @classmethod
+    def summary(
+        cls,
+        *,
+        date=None,
+        position_ref: str | None = None,
+        operator_ref: str | None = None,
+    ) -> CraftSummary:
+        """
+        Aggregate operational summary for a floor/date slice.
+
+        This is a projection for dashboards and floor coordination, not a new
+        domain state machine.
+        """
+        from shopman.craftsman.models import WorkOrder
+
+        orders = cls._queue_queryset(
+            date=date,
+            position_ref=position_ref,
+            operator_ref=operator_ref,
+            statuses=[
+                WorkOrder.Status.PLANNED,
+                WorkOrder.Status.STARTED,
+                WorkOrder.Status.FINISHED,
+                WorkOrder.Status.VOID,
+            ],
+        )
+
+        summary = CraftSummary()
+        for order in orders:
+            summary.total_orders += 1
+            summary.planned_qty += order.quantity or Decimal("0")
+
+            if order.status == WorkOrder.Status.PLANNED:
+                summary.planned_orders += 1
+            elif order.status == WorkOrder.Status.STARTED:
+                summary.started_orders += 1
+            elif order.status == WorkOrder.Status.FINISHED:
+                summary.finished_orders += 1
+            elif order.status == WorkOrder.Status.VOID:
+                summary.void_orders += 1
+
+            started_qty = _started_qty(order)
+            if started_qty is not None:
+                summary.started_qty += started_qty
+
+            if order.finished is not None:
+                summary.finished_qty += order.finished
+                base_qty = started_qty or order.quantity
+                summary.loss_qty += max(base_qty - order.finished, Decimal("0"))
+
+        return summary
+
+    @classmethod
+    def _queue_queryset(
+        cls,
+        *,
+        date=None,
+        position_ref: str | None = None,
+        operator_ref: str | None = None,
+        statuses: list[str] | None = None,
+    ):
+        from shopman.craftsman.models import WorkOrder
+
+        qs = (
+            WorkOrder.objects.filter(status__in=statuses or [])
+            .select_related("recipe")
+            .prefetch_related("events")
+            .order_by("target_date", "position_ref", "status", "created_at")
+        )
+        if date is not None:
+            qs = qs.filter(target_date=date)
+        if position_ref:
+            qs = qs.filter(position_ref=position_ref)
+        if operator_ref:
+            qs = qs.filter(operator_ref=operator_ref)
+        return qs
+
 
 def _aggregate(agg, item_ref, quantity, unit):
     """Aggregate material need by (item_ref, unit)."""
@@ -225,6 +390,22 @@ def _aggregate(agg, item_ref, quantity, unit):
     else:
         has_recipe = Recipe.objects.filter(output_ref=item_ref, is_active=True).exists()
         agg[key] = Need(item_ref=item_ref, quantity=quantity, unit=unit, has_recipe=has_recipe)
+
+
+def _started_qty(order) -> Decimal | None:
+    """Resolve latest started quantity from prefetched events when available."""
+    events = list(getattr(order, "_prefetched_objects_cache", {}).get("events", []))
+    if not events:
+        event = order.events.filter(kind="started").order_by("-seq").only("payload").first()
+        if not event:
+            return None
+        return Decimal(str(event.payload.get("quantity", "0")))
+
+    started_events = [event for event in events if event.kind == "started"]
+    if not started_events:
+        return None
+    latest = max(started_events, key=lambda ev: ev.seq)
+    return Decimal(str(latest.payload.get("quantity", "0")))
 
 
 def _expand_bom(item_ref, quantity, unit, depth=0):

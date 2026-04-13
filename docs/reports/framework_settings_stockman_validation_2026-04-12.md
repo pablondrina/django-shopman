@@ -20,14 +20,14 @@ Fechamento dos tópicos `4.1 Framework`, `4.2 Settings` e `4.3 Stockman` da
   - exemplos de configuração deixaram de citar uma instância específica.
 
 - `packages/stockman/shopman/stockman`
-  - o contrato de oferta passou a expor `is_orderable` além de `is_published`.
+  - o contrato de oferta passou a expor `is_sellable` além de `is_published`.
   - `availability.py` deixou de decidir prometibilidade a partir de
     `published` e passou a usar `orderable`.
   - o adapter de produção foi alinhado com o fluxo vivo de `craftsman`:
     `planned`, `started`, `finished`, `void`.
 
 - `packages/offerman/shopman/offerman/adapters/sku_validator.py`
-  - o adapter passou a projetar `is_orderable = is_published and is_sellable`.
+  - o adapter passou a projetar `is_sellable = is_published and is_sellable`.
 
 ## Falha estrutural encontrada
 

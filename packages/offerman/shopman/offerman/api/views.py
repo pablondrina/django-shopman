@@ -4,9 +4,12 @@ from decimal import Decimal, InvalidOperation
 
 from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.filters import SearchFilter
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.viewsets import ReadOnlyModelViewSet
+from django_filters.rest_framework import DjangoFilterBackend
 
 from shopman.offerman.exceptions import CatalogError
 from shopman.offerman.models import Collection, Listing, ListingItem, Product
@@ -24,6 +27,10 @@ from .serializers import (
 )
 
 
+class OffermanPagination(PageNumberPagination):
+    page_size = 50
+
+
 class ProductViewSet(ReadOnlyModelViewSet):
     """Read-only ViewSet for products."""
 
@@ -31,6 +38,8 @@ class ProductViewSet(ReadOnlyModelViewSet):
     lookup_field = "sku"
     filterset_class = ProductFilter
     search_fields = ["name", "sku", "keywords__name"]
+    pagination_class = OffermanPagination
+    filter_backends = [DjangoFilterBackend, SearchFilter]
 
     def get_serializer_class(self):
         if self.action == "retrieve":
@@ -99,6 +108,8 @@ class CollectionViewSet(ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
     lookup_field = "ref"
     filterset_class = CollectionFilter
+    pagination_class = OffermanPagination
+    filter_backends = [DjangoFilterBackend]
 
     def get_serializer_class(self):
         if self.action == "retrieve":
@@ -115,6 +126,8 @@ class ListingViewSet(ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
     lookup_field = "ref"
     filterset_class = ListingFilter
+    pagination_class = OffermanPagination
+    filter_backends = [DjangoFilterBackend]
 
     def get_serializer_class(self):
         return ListingSerializer

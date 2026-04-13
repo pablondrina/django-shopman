@@ -43,6 +43,23 @@ class CustomerResolver:
         )
         return self._to_info(c)
 
+    def create_for_email(self, email: str) -> AuthCustomerInfo:
+        from shopman.guestman.models import ContactPoint
+
+        c = customer_service.create(
+            ref=Customer.generate_ref(),
+            first_name="",
+            email=email,
+            source_system="doorman",
+        )
+        identity_service.ensure_contact_point(
+            c,
+            type=ContactPoint.Type.EMAIL,
+            value_normalized=c.email,
+            is_primary=True,
+        )
+        return self._to_info(c)
+
     @staticmethod
     def _to_info(c: Customer) -> AuthCustomerInfo:
         from shopman.doorman.protocols.customer import AuthCustomerInfo

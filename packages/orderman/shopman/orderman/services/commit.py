@@ -4,6 +4,7 @@ CommitService — Fecha sessões e cria Orders.
 
 from __future__ import annotations
 
+import copy
 import logging
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -253,6 +254,11 @@ class CommitService:
                         context={"check_code": check_code, "hold_id": hold.get("hold_id"), "expires_at": expires_at},
                     )
 
+        commitment_snapshot = CommitService._build_commitment_snapshot(
+            session=session,
+            required_checks=required_checks,
+        )
+
         # Check no blocking issues
         issues = session.data.get("issues", [])
         blocking = [i for i in issues if i.get("blocking")]
@@ -311,6 +317,7 @@ class CommitService:
                 "data": session.data,
                 "pricing": session.pricing,
                 "rev": session.rev,
+                "commitment": commitment_snapshot,
                 "lifecycle": effective_config.get("lifecycle", {}),
             },
             data=order_data,
@@ -399,6 +406,27 @@ class CommitService:
             "status": "committed",
             "total_q": order.total_q,
             "items_count": len(session.items),
+        }
+
+    @staticmethod
+    def _build_commitment_snapshot(
+        *,
+        session: Session,
+        required_checks: list[str],
+    ) -> dict:
+        """Seal the operational evidence that allowed this commit."""
+        session_data = session.data or {}
+        session_checks = session_data.get("checks", {})
+        return {
+            "session_rev": session.rev,
+            "checked_at": timezone.now().isoformat(),
+            "required_checks": list(required_checks),
+            "checks": {
+                check_code: copy.deepcopy(session_checks[check_code])
+                for check_code in required_checks
+                if check_code in session_checks
+            },
+            "issues": copy.deepcopy(session_data.get("issues", [])),
         }
 
     @staticmethod

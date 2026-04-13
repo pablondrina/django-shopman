@@ -301,7 +301,7 @@ O que pode ser prometido agora, para quando, em qual quantidade e com qual níve
 
 ### Verbs canônicos
 
-- `assess_availability`
+- `promise`
 - `hold`
 - `confirm_hold`
 - `release_hold`
@@ -325,7 +325,7 @@ Disponibilidade canônica precisa distinguir, ao menos conceitualmente:
 
 - `available_now`
 - `available_by_plan`
-- `available_by_commitment`
+- `available_in_process`
 - `unavailable`
 
 Isso pode existir como decisão/projeção, não necessariamente como campo persistido.
@@ -394,7 +394,7 @@ O que precisa ser produzido, quando, em que quantidade, com qual destino operaci
 
 - `WorkOrder` já tem semântica simples e promissora
 - `WorkOrderEvent` já aponta para trilha auditável e idempotência
-- `source_ref`, `position_ref` e `scheduled_date` abrem caminho para planejamento robusto
+- `source_ref`, `position_ref` e `target_date` abrem caminho para planejamento robusto
 
 ### Semântica oficial proposta
 

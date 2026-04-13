@@ -1,9 +1,4 @@
-"""
-Internal customer adapter — delegates to Guestman (Core).
-
-Core: customer service, CustomerIdentifier, CustomerAddress, TimelineEvent,
-      InsightService, PreferenceService, LoyaltyService
-"""
+"""Internal customer adapter — delegates to Guestman services."""
 
 from __future__ import annotations
 
@@ -66,17 +61,12 @@ def update_customer(ref: str, first_name: str | None = None, last_name: str | No
 
 def get_customer_by_identifier(identifier_type: str, identifier_value: str) -> dict | None:
     """Busca cliente por identificador externo. Retorna {"ref", "first_name", "last_name", "phone"} ou None."""
-    from shopman.guestman.contrib.identifiers import CustomerIdentifier
+    from shopman.guestman.contrib.identifiers import IdentifierService
 
-    try:
-        ident = CustomerIdentifier.objects.select_related("customer").get(
-            identifier_type=identifier_type,
-            identifier_value=str(identifier_value),
-            customer__is_active=True,
-        )
-        return _customer_to_dict(ident.customer)
-    except CustomerIdentifier.DoesNotExist:
+    customer = IdentifierService.find_by_identifier(identifier_type, identifier_value)
+    if not customer:
         return None
+    return _customer_to_dict(customer)
 
 
 def create_identifier(
@@ -87,18 +77,14 @@ def create_identifier(
     source_system: str | None = None,
 ) -> None:
     """Cria identificador externo para cliente."""
-    from shopman.guestman.contrib.identifiers import CustomerIdentifier
-    from shopman.guestman.models import Customer
+    from shopman.guestman.contrib.identifiers import IdentifierService
 
-    customer = Customer.objects.get(ref=customer_ref)
-    CustomerIdentifier.objects.get_or_create(
+    IdentifierService.ensure_identifier(
+        customer_ref=customer_ref,
         identifier_type=identifier_type,
         identifier_value=str(identifier_value),
-        defaults={
-            "customer": customer,
-            "is_primary": is_primary,
-            "source_system": source_system or "shopman",
-        },
+        is_primary=is_primary,
+        source_system=source_system or "shopman",
     )
 
 
@@ -116,12 +102,10 @@ def log_timeline_event(
     created_by: str = "system",
 ) -> None:
     """Registra evento na timeline do cliente."""
-    from shopman.guestman.contrib.timeline import TimelineEvent
-    from shopman.guestman.models import Customer
+    from shopman.guestman.contrib.timeline import TimelineService
 
-    customer = Customer.objects.get(ref=customer_ref)
-    TimelineEvent.objects.create(
-        customer=customer,
+    TimelineService.log_event(
+        customer_ref=customer_ref,
         event_type=event_type,
         title=title,
         description=description,
@@ -134,16 +118,9 @@ def log_timeline_event(
 
 def has_timeline_event(customer_ref: str, event_type: str, reference: str) -> bool:
     """Verifica se evento já existe (idempotência)."""
-    from shopman.guestman.contrib.timeline import TimelineEvent
-    from shopman.guestman.models import Customer
+    from shopman.guestman.contrib.timeline import TimelineService
 
-    try:
-        customer = Customer.objects.get(ref=customer_ref)
-    except Customer.DoesNotExist:
-        return False
-    return TimelineEvent.objects.filter(
-        customer=customer, event_type=event_type, reference=reference,
-    ).exists()
+    return TimelineService.has_event(customer_ref, event_type, reference)
 
 
 # ── Insights ─────────────────────────────────────────────────────────
@@ -161,26 +138,16 @@ def recalculate_insights(customer_ref: str) -> None:
 
 def has_address(customer_ref: str, formatted_address: str) -> bool:
     """Verifica se endereço já existe."""
-    from shopman.guestman.models import Customer, CustomerAddress
+    from shopman.guestman.services import address as address_service
 
-    try:
-        customer = Customer.objects.get(ref=customer_ref)
-    except Customer.DoesNotExist:
-        return False
-    return CustomerAddress.objects.filter(
-        customer=customer, formatted_address=formatted_address,
-    ).exists()
+    return address_service.has_address(customer_ref, formatted_address)
 
 
 def has_any_address(customer_ref: str) -> bool:
     """Verifica se o cliente já tem algum endereço cadastrado."""
-    from shopman.guestman.models import Customer, CustomerAddress
+    from shopman.guestman.services import address as address_service
 
-    try:
-        customer = Customer.objects.get(ref=customer_ref)
-    except Customer.DoesNotExist:
-        return False
-    return CustomerAddress.objects.filter(customer=customer).exists()
+    return address_service.has_any_address(customer_ref)
 
 
 def create_address(
@@ -190,11 +157,10 @@ def create_address(
     is_default: bool = False,
 ) -> None:
     """Salva endereço do cliente."""
-    from shopman.guestman.models import Customer, CustomerAddress
+    from shopman.guestman.services import address as address_service
 
-    customer = Customer.objects.get(ref=customer_ref)
-    CustomerAddress.objects.create(
-        customer=customer,
+    address_service.add_address(
+        customer_ref=customer_ref,
         label=label,
         formatted_address=formatted_address,
         is_default=is_default,

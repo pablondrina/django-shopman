@@ -3,13 +3,75 @@
 from decimal import Decimal
 
 import pytest
+from django.test import override_settings
 
+from shopman.offerman.conf import (
+    get_projection_backend,
+    reset_pricing_backend,
+    reset_projection_backends,
+)
 from shopman.offerman.service import CatalogService
 from shopman.offerman.exceptions import CatalogError
 from shopman.offerman.models import Collection, CollectionItem, Product, Listing, ListingItem
+from shopman.offerman.protocols import ContextualPrice, PriceAdjustment, ProjectionResult
 
 
 pytestmark = pytest.mark.django_db
+
+
+class FakeProjectionBackend:
+    def __init__(self):
+        self.project_calls = []
+        self.retract_calls = []
+
+    def project(self, items, *, channel: str, full_sync: bool = False):
+        self.project_calls.append((items, channel, full_sync))
+        return ProjectionResult(success=True, projected=len(items), channel=channel)
+
+    def retract(self, skus: list[str], *, channel: str):
+        self.retract_calls.append((skus, channel))
+        return ProjectionResult(success=True, projected=0, channel=channel)
+
+
+class FakePricingBackend:
+    def get_price(
+        self,
+        *,
+        sku: str,
+        qty,
+        listing: str | None,
+        list_unit_price_q: int,
+        list_total_price_q: int,
+        context: dict | None = None,
+    ) -> ContextualPrice:
+        discount_q = 100
+        return ContextualPrice(
+            sku=sku,
+            qty=qty,
+            listing=listing,
+            list_unit_price_q=list_unit_price_q,
+            list_total_price_q=list_total_price_q,
+            final_unit_price_q=max(list_unit_price_q - discount_q, 0),
+            final_total_price_q=max(list_total_price_q - int(discount_q * qty), 0),
+            adjustments=[
+                PriceAdjustment(
+                    code="vip_discount",
+                    label="VIP",
+                    amount_q=int(discount_q * qty),
+                    metadata={"context": context or {}},
+                )
+            ],
+            metadata={"source": "contextual_pricing"},
+        )
+
+
+@pytest.fixture(autouse=True)
+def _reset_projection_backends():
+    reset_pricing_backend()
+    reset_projection_backends()
+    yield
+    reset_pricing_backend()
+    reset_projection_backends()
 
 
 class TestCatalogGet:
@@ -80,6 +142,37 @@ class TestCatalogPrice:
         with pytest.raises(CatalogError) as exc:
             CatalogService.price("NONEXISTENT")
         assert exc.value.code == "SKU_NOT_FOUND"
+
+    def test_get_price_defaults_to_list_totals(self, db):
+        Product.objects.create(sku="BAGUETE", name="Baguete", base_price_q=500)
+
+        price = CatalogService.get_price("BAGUETE", qty=Decimal("2"))
+
+        assert price.list_unit_price_q == 500
+        assert price.list_total_price_q == 1000
+        assert price.final_unit_price_q == 500
+        assert price.final_total_price_q == 1000
+        assert "source" in price.metadata
+
+    @override_settings(
+        OFFERMAN={
+            "PRICING_BACKEND": "shopman.offerman.tests.test_service.FakePricingBackend",
+        }
+    )
+    def test_get_price_uses_contextual_pricing_backend(self, db):
+        Product.objects.create(sku="BAGUETE", name="Baguete", base_price_q=500)
+
+        price = CatalogService.get_price(
+            "BAGUETE",
+            qty=Decimal("2"),
+            context={"customer_segment": "vip"},
+        )
+
+        assert price.list_total_price_q == 1000
+        assert price.final_unit_price_q == 400
+        assert price.final_total_price_q == 800
+        assert price.adjustments[0].code == "vip_discount"
+        assert price.metadata["source"] == "contextual_pricing"
 
 
 class TestCatalogExpand:
@@ -244,6 +337,87 @@ class TestCatalogAvailability:
         assert CatalogService.is_product_listed(product, "shop") is True
         assert CatalogService.is_product_sellable(product, "shop") is False
         assert product not in CatalogService.get_sellable_products("shop")
+
+
+class TestCatalogProjection:
+    def test_get_projection_items_builds_channel_snapshot(self, db):
+        listing = Listing.objects.create(ref="ifood", name="iFood", priority=10)
+        featured = Collection.objects.create(ref="featured", name="Featured", is_active=True)
+        visible = Product.objects.create(
+            sku="BAGUETE",
+            name="Baguete",
+            short_description="Crocante",
+            base_price_q=500,
+            image_url="https://img.test/baguete.png",
+            metadata={"origin": "bakery"},
+        )
+        hidden = Product.objects.create(
+            sku="HIDDEN",
+            name="Hidden",
+            base_price_q=900,
+            is_published=False,
+        )
+        CollectionItem.objects.create(collection=featured, product=visible, is_primary=True)
+        CollectionItem.objects.create(collection=featured, product=hidden, is_primary=True)
+        visible.keywords.add("artesanal", "fermentacao")
+
+        ListingItem.objects.create(listing=listing, product=visible, price_q=650)
+        ListingItem.objects.create(
+            listing=listing,
+            product=hidden,
+            price_q=900,
+            is_published=True,
+            is_sellable=True,
+        )
+
+        items = {item.sku: item for item in CatalogService.get_projection_items("ifood")}
+
+        assert set(items) == {"BAGUETE", "HIDDEN"}
+        assert items["BAGUETE"].price_q == 650
+        assert items["BAGUETE"].category == "featured"
+        assert items["BAGUETE"].is_published is True
+        assert items["BAGUETE"].is_sellable is True
+        assert items["BAGUETE"].metadata["listing_ref"] == "ifood"
+        assert items["HIDDEN"].is_published is False
+
+    @override_settings(
+        OFFERMAN={
+            "PROJECTION_BACKENDS": {
+                "ifood": "shopman.offerman.tests.test_service.FakeProjectionBackend",
+            }
+        }
+    )
+    def test_project_listing_pushes_projectable_items_and_retracts_non_projectable(self, db):
+        listing = Listing.objects.create(ref="ifood", name="iFood")
+        visible = Product.objects.create(sku="BAGUETE", name="Baguete", base_price_q=500)
+        paused = Product.objects.create(
+            sku="PAUSED",
+            name="Paused",
+            base_price_q=700,
+            is_sellable=False,
+        )
+        ListingItem.objects.create(listing=listing, product=visible, price_q=650)
+        ListingItem.objects.create(listing=listing, product=paused, price_q=700)
+
+        result = CatalogService.project_listing("ifood")
+        configured = get_projection_backend("ifood")
+
+        assert result.success is True
+        assert result.projected == 1
+        assert configured.project_calls
+        projected_items, channel, full_sync = configured.project_calls[0]
+        assert [item.sku for item in projected_items] == ["BAGUETE"]
+        assert channel == "ifood"
+        assert full_sync is False
+        assert configured.retract_calls == [(["PAUSED"], "ifood")]
+
+    def test_project_listing_requires_backend(self, db):
+        Listing.objects.create(ref="ifood", name="iFood")
+
+        with pytest.raises(CatalogError) as exc:
+            CatalogService.project_listing("ifood")
+
+        assert exc.value.code == "PROJECTION_BACKEND_NOT_CONFIGURED"
 
     def test_expired_listing_excludes_products(self, db):
         """Expired listing should not return products as available."""

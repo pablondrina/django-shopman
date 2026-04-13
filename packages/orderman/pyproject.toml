@@ -23,4 +23,4 @@ include = ["shopman.orderman*"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "orderman_test_settings"
-pythonpath = ["."]
+pythonpath = [".", "../utils"]

@@ -112,7 +112,7 @@ class CraftPlanning:
         from shopman.craftsman.models import WorkOrder, WorkOrderEvent
 
         wo_kwargs = {}
-        for key in ("source_ref", "position_ref", "assigned_ref", "meta"):
+        for key in ("source_ref", "position_ref", "operator_ref", "meta"):
             if key in kwargs:
                 wo_kwargs[key] = kwargs[key]
 
@@ -132,7 +132,7 @@ class CraftPlanning:
             output_ref=recipe.output_ref,
             quantity=quantity,
             status=WorkOrder.Status.PLANNED,
-            scheduled_date=date,
+            target_date=date,
             **wo_kwargs,
         )
 
@@ -144,10 +144,10 @@ class CraftPlanning:
                 "quantity": str(quantity),
                 "recipe": recipe.code,
                 "output_ref": recipe.output_ref,
-                "scheduled_date": str(date) if date else None,
+                "target_date": str(date) if date else None,
                 "source_ref": wo.source_ref,
                 "position_ref": wo.position_ref,
-                "assigned_ref": wo.assigned_ref,
+                "operator_ref": wo.operator_ref,
             },
             actor=kwargs.get("actor", ""),
         )
@@ -253,7 +253,7 @@ class CraftPlanning:
         production_changed.send(
             sender=WorkOrder,
             product_ref=order.output_ref,
-            date=order.scheduled_date,
+            date=order.target_date,
             action="adjusted",
             work_order=order,
         )
@@ -269,7 +269,7 @@ class CraftPlanning:
         *,
         expected_rev=None,
         actor=None,
-        assigned_ref=None,
+        operator_ref=None,
         position_ref=None,
         note=None,
     ):
@@ -296,12 +296,12 @@ class CraftPlanning:
             if order.started_at is None:
                 order.started_at = now
             order.status = WorkOrder.Status.STARTED
-            if assigned_ref is not None:
-                order.assigned_ref = assigned_ref
+            if operator_ref is not None:
+                order.operator_ref = operator_ref
             if position_ref is not None:
                 order.position_ref = position_ref
 
-            order.save(update_fields=["started_at", "status", "assigned_ref", "position_ref", "updated_at"])
+            order.save(update_fields=["started_at", "status", "operator_ref", "position_ref", "updated_at"])
 
             next_seq = _next_seq(order)
             WorkOrderEvent.objects.create(
@@ -310,7 +310,7 @@ class CraftPlanning:
                 kind=WorkOrderEvent.Kind.STARTED,
                 payload={
                     "quantity": str(quantity),
-                    "assigned_ref": order.assigned_ref,
+                    "operator_ref": order.operator_ref,
                     "position_ref": order.position_ref,
                     "note": note or "",
                 },
@@ -320,7 +320,7 @@ class CraftPlanning:
         production_changed.send(
             sender=WorkOrder,
             product_ref=order.output_ref,
-            date=order.scheduled_date,
+            date=order.target_date,
             action="started",
             work_order=order,
         )
@@ -348,7 +348,7 @@ def _validate_committed_holds(order, new_quantity: Decimal) -> None:
         from django.utils.module_loading import import_string
 
         backend = import_string(backend_path)()
-        committed = backend.committed(order.output_ref, order.scheduled_date)
+        committed = backend.committed(order.output_ref, order.target_date)
 
         if new_quantity < committed:
             raise CraftError(
@@ -403,7 +403,7 @@ def _validate_shared_ingredients(order, new_quantity: Decimal) -> None:
         other_wos = (
             WorkOrder.objects.filter(
                 status__in=[WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED],
-                scheduled_date=order.scheduled_date,
+                target_date=order.target_date,
             )
             .exclude(pk=order.pk)
             .select_related("recipe")
@@ -490,7 +490,7 @@ def _validate_downstream_deficit(order, new_quantity: Decimal, *, force: bool) -
         downstream_wos = (
             WorkOrder.objects.filter(
                 status__in=[WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED],
-                scheduled_date=order.scheduled_date,
+                target_date=order.target_date,
                 recipe__in=downstream_recipes,
             )
             .exclude(pk=order.pk)

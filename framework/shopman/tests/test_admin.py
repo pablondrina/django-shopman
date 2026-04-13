@@ -8,6 +8,8 @@ from django.contrib.auth.models import User
 from django.test import Client, RequestFactory
 from django.urls import reverse
 
+from shopman.craftsman import craft
+from shopman.craftsman.models import Recipe
 from shopman.models import (
     DayClosing,
     KDSInstance,
@@ -251,3 +253,29 @@ class TestDashboardCallback:
         assert _format_brl(1500) == "R$ 15,00"
         assert _format_brl(150000) == "R$ 1.500,00"
         assert _format_brl(None) == "R$ 0,00"
+
+
+class TestProductionAdminView:
+    def test_get_exposes_operational_summary_and_queue(self, db, rf, admin_user):
+        from datetime import date
+
+        from shopman.web.views.production import production_view
+
+        recipe = Recipe.objects.create(
+            code="croissant-v1",
+            name="Croissant Tradicional",
+            output_ref="croissant",
+            batch_size=10,
+        )
+        craft.plan(recipe, 100, date=date.today(), position_ref="forno")
+        started = craft.plan(recipe, 80, date=date.today(), position_ref="forno", operator_ref="user:joao")
+        craft.start(started, quantity=75, expected_rev=0, position_ref="forno", operator_ref="user:joao")
+
+        request = rf.get("/admin/shopman/shop/production/")
+        request.user = admin_user
+        response = production_view(request, admin.site)
+
+        assert response.status_code == 200
+        assert response.context_data["craft_summary"].total_orders == 2
+        assert len(response.context_data["planned_queue"]) == 1
+        assert len(response.context_data["started_queue"]) == 1

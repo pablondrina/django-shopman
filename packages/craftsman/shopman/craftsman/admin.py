@@ -42,8 +42,8 @@ if not apps.is_installed("shopman.craftsman.contrib.admin_unfold"):
 
     @admin.register(WorkOrder)
     class WorkOrderAdmin(admin.ModelAdmin):
-        list_display = ("ref", "recipe", "output_ref", "quantity", "finished", "status", "scheduled_date", "source_ref")
-        list_filter = ("status", "scheduled_date")
+        list_display = ("ref", "recipe", "output_ref", "quantity", "finished", "status", "target_date", "source_ref")
+        list_filter = ("status", "target_date")
         search_fields = ("ref", "output_ref", "source_ref")
         readonly_fields = ("ref", "rev", "created_at", "updated_at", "started_at", "finished_at")
         inlines = [WorkOrderItemInline, WorkOrderEventInline]

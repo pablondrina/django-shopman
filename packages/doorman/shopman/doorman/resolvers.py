@@ -46,3 +46,6 @@ class NoopCustomerResolver:
 
     def create_for_phone(self, phone: str) -> AuthCustomerInfo:
         raise NotImplementedError(self._msg)
+
+    def create_for_email(self, email: str) -> AuthCustomerInfo:
+        raise NotImplementedError(self._msg)

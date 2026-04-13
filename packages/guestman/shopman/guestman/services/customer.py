@@ -233,6 +233,7 @@ UPDATABLE_FIELDS = {
     "last_name",
     "customer_type",
     "document",
+    "birthday",
     "email",
     "phone",
     "group",

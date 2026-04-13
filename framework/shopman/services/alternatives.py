@@ -101,6 +101,9 @@ def _resolve_availability(raw_avail: dict | None, product, qty: Decimal) -> tupl
         # No stockman data — assume available
         return True, Decimal("0")
     is_paused = raw_avail.get("is_paused", False) or not product.is_sellable
-    total_orderable = raw_avail.get("total_orderable", Decimal("0"))
-    can_order = total_orderable >= qty and not is_paused
-    return can_order, total_orderable
+    availability_policy = raw_avail.get("availability_policy", "planned_ok")
+    total_promisable = raw_avail.get("total_promisable", Decimal("0"))
+    if availability_policy == "demand_ok" and not is_paused:
+        return True, qty
+    can_order = total_promisable >= qty and not is_paused
+    return can_order, total_promisable

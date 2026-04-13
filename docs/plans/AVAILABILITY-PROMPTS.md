@@ -588,7 +588,7 @@ TAREFAS:
    (status == OPEN, quantity > 0, rev check), adicionar:
 
    V1 — Validar holds do SKU de saída:
-   - Obter committed = DemandProtocol.committed(output_ref, scheduled_date)
+   - Obter committed = DemandProtocol.committed(output_ref, target_date)
      OU consultar InventoryProtocol (depende de como committed está acessível)
    - Se quantity < committed:
      raise CraftError("COMMITTED_HOLDS", committed=float(committed),
@@ -604,7 +604,7 @@ TAREFAS:
    - Calcular o consumo TOTAL de TODAS as outras WOs OPEN na mesma data que
      usam os mesmos insumos (via BOM):
      other_wos = WorkOrder.objects.filter(
-       status=OPEN, scheduled_date=order.scheduled_date
+       status=OPEN, target_date=order.target_date
      ).exclude(pk=order.pk).select_related("recipe").prefetch_related("recipe__items")
      Para cada other_wo, para cada RecipeItem: somar consumo por input_ref
    - Para cada insumo: total_needed = own_new + others_existing

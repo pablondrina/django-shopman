@@ -112,7 +112,7 @@ class StockQueries:
         return total - held
 
     @classmethod
-    def assess_availability(
+    def promise(
         cls,
         sku: str,
         quantity,
@@ -121,7 +121,7 @@ class StockQueries:
         safety_margin: int = 0,
         allowed_positions: list[str] | None = None,
     ):
-        """Return Stockman's explicit promise assessment for a SKU."""
+        """Return Stockman's explicit promise decision for a SKU."""
         from shopman.stockman.services.availability import promise_decision_for_sku
 
         return promise_decision_for_sku(

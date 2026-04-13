@@ -187,6 +187,7 @@ Crítica e imediata.
 - explicitar contrato de decisão de disponibilidade
 - separar melhor saldo, reserva, demanda e supply projetado
 - introduzir projeção canônica de disponibilidade em vez de depender de booleans de model externos
+- tratar `availability_policy` como nome transitório aceitável, com evolução futura considerada para `promise_policy` se quisermos máxima nitidez semântica
 
 ### Impacto esperado
 
@@ -342,11 +343,11 @@ Alta.
 ### Violações constitucionais
 
 - ainda não viola por semântica grave, mas viola por insuficiência de explicitação estratégica
-- o uso de `is_available` tende a confundir disponibilidade comercial com promessa operacional
+- o uso de `is_sellable` precisa ficar claramente separado da prometibilidade operacional
 
 ### Evidências concretas
 
-- `Product` carrega `is_published` e `is_available`
+- `Product` carrega `is_published` e `is_sellable`
 - já há `Listing` e `ListingItem`, mas ainda sem contrato forte de publicação por canal
 
 ### Decisão semântica
@@ -355,7 +356,7 @@ Alta.
 
 ### Refactor estrutural
 
-- revisar booleanos para vocabulário mínimo e nítido, idealmente `active` + `published`
+- consolidar booleanos em vocabulário mínimo e nítido: `published` + `sellable`
 - explicitar canal/publicação/sync como capacidades formais
 - preparar semântica de preço contextual, promoções e superfícies externas sem inchar o core
 - introduzir contrato canônico de projeção para catálogos terceiros
@@ -399,7 +400,7 @@ Alta, mas depois de promessa operacional e fronteiras centrais.
 
 ### Refactor estrutural
 
-- manter `open/done/void` ou equivalentes mínimos
+- manter `planned/started/finished/void` como núcleo pequeno
 - enriquecer eventos, não status
 - formalizar payloads de output, waste, yield, assignment e source
 - desenhar UI/fluxos de chão como parte do domínio, não detalhe posterior

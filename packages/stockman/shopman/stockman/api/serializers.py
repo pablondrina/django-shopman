@@ -20,8 +20,9 @@ class BreakdownSerializer(serializers.Serializer):
 
 class AvailabilitySerializer(serializers.Serializer):
     sku = serializers.CharField()
+    availability_policy = serializers.CharField(required=False)
     total_available = serializers.DecimalField(max_digits=12, decimal_places=3)
-    total_orderable = serializers.DecimalField(max_digits=12, decimal_places=3)
+    total_promisable = serializers.DecimalField(max_digits=12, decimal_places=3)
     total_reserved = serializers.DecimalField(max_digits=12, decimal_places=3)
     breakdown = BreakdownSerializer(required=False)
     is_planned = serializers.BooleanField(default=False)
@@ -31,8 +32,9 @@ class AvailabilitySerializer(serializers.Serializer):
 
 class BulkAvailabilitySerializer(serializers.Serializer):
     sku = serializers.CharField()
+    availability_policy = serializers.CharField(required=False)
     total_available = serializers.DecimalField(max_digits=12, decimal_places=3)
-    total_orderable = serializers.DecimalField(max_digits=12, decimal_places=3)
+    total_promisable = serializers.DecimalField(max_digits=12, decimal_places=3)
     total_reserved = serializers.DecimalField(max_digits=12, decimal_places=3)
     breakdown = BreakdownSerializer(required=False)
     is_planned = serializers.BooleanField(default=False)

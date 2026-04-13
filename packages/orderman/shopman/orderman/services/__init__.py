@@ -6,6 +6,7 @@ Re-exports:
 """
 
 from .commit import CommitService  # noqa: F401
+from .history import CustomerOrderHistoryService  # noqa: F401
 from .modify import ModifyService  # noqa: F401
 from .resolve import ResolveService  # noqa: F401
 from .write import SessionWriteService  # noqa: F401

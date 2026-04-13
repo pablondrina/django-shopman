@@ -75,21 +75,21 @@ class OrderingDemandBackend:
                 WorkOrderItem.objects.filter(
                     kind=WorkOrderItem.Kind.WASTE,
                     item_ref=product_ref,
-                    work_order__scheduled_date__gte=cutoff,
-                    work_order__scheduled_date__lt=today,
+                    work_order__target_date__gte=cutoff,
+                    work_order__target_date__lt=today,
                 )
-                .values("work_order__scheduled_date")
+                .values("work_order__target_date")
                 .annotate(total_wasted=Coalesce(Sum("quantity"), Decimal("0")))
             )
             if same_weekday:
                 waste_by_date = {
-                    row["work_order__scheduled_date"]: row["total_wasted"]
+                    row["work_order__target_date"]: row["total_wasted"]
                     for row in waste_qs
-                    if row["work_order__scheduled_date"].weekday() == today.weekday()
+                    if row["work_order__target_date"].weekday() == today.weekday()
                 }
             else:
                 waste_by_date = {
-                    row["work_order__scheduled_date"]: row["total_wasted"]
+                    row["work_order__target_date"]: row["total_wasted"]
                     for row in waste_qs
                 }
         except Exception:

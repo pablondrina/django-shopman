@@ -188,7 +188,7 @@ def _handle_voided(work_order, product_ref, date):
 
     if not date:
         logger.info(
-            "WorkOrder %s voided without scheduled_date — no planned quant to cancel",
+            "WorkOrder %s voided without target_date — no planned quant to cancel",
             work_order.ref,
         )
         return

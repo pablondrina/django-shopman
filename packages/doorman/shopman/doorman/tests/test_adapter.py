@@ -85,6 +85,15 @@ def test_default_adapter_create_customer_creates_whatsapp_contact_point():
 
 
 @pytest.mark.django_db
+def test_default_adapter_create_customer_for_email():
+    adapter = DefaultAuthAdapter()
+    info = adapter.create_customer_for_email("person@example.com")
+
+    assert info is not None
+    assert info.email == "person@example.com"
+
+
+@pytest.mark.django_db
 def test_default_adapter_resolve_phone_via_contact_point():
     customer = Customer.objects.create(
         ref="AUTH-CONTACT-1",
@@ -116,6 +125,11 @@ def test_default_adapter_send_code():
 def test_default_adapter_normalize_phone():
     adapter = DefaultAuthAdapter()
     assert adapter.normalize_phone("41999999999") == "+5541999999999"
+
+
+def test_default_adapter_normalize_login_target_for_email():
+    adapter = DefaultAuthAdapter()
+    assert adapter.normalize_login_target(" User@Example.COM ") == "user@example.com"
 
 
 def test_default_adapter_should_auto_create():

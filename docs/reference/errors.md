@@ -9,17 +9,17 @@
 ```
 Exception
 ├── BaseError (utils)                    # Base com code + message + data
-│   ├── CatalogError (offering)
-│   ├── StockError (stocking)
-│   ├── CraftError (crafting)
+│   ├── CatalogError (offerman)
+│   ├── StockError (stockman)
+│   ├── CraftError (craftsman)
 │   │   └── StaleRevision
-│   ├── CustomerError (customers)
-│   └── AuthError (auth)
+│   ├── CustomerError (guestman)
+│   └── AuthError (doorman)
 │       └── GateError
 │
-├── PaymentError (payments)              # Base independente com code + context
+├── PaymentError (payman)                # Base independente com code + context
 │
-├── OrderError (ordering)             # Base independente com code + context
+├── OrderError (orderman)                # Base independente com code + context
 │   ├── ValidationError
 │   ├── SessionError
 │   ├── CommitError
@@ -29,7 +29,7 @@ Exception
 │   ├── IdempotencyCacheHit
 │   └── InvalidTransition
 │
-└── RefError (ordering/refs)
+└── RefError (orderman/refs)
     ├── RefTypeNotFound
     ├── RefScopeInvalid
     └── RefConflict
@@ -50,9 +50,9 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 
 ---
 
-## CatalogError (Offering)
+## CatalogError (Offerman)
 
-**Arquivo:** `packages/offerman/shopman/offering/exceptions.py`
+**Arquivo:** `packages/offerman/shopman/offerman/exceptions.py`
 **Base:** `BaseError`
 **Propriedade:** `.sku` — extrai SKU dos dados
 
@@ -70,9 +70,9 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 
 ---
 
-## StockError (Stocking)
+## StockError (Stockman)
 
-**Arquivo:** `packages/stockman/shopman/stocking/exceptions.py`
+**Arquivo:** `packages/stockman/shopman/stockman/exceptions.py`
 **Base:** `BaseError`
 **Propriedades:** `.available`, `.requested` — quantidades para erros de insuficiência
 
@@ -93,9 +93,9 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 
 ---
 
-## CraftError (Crafting)
+## CraftError (Craftsman)
 
-**Arquivo:** `packages/craftsman/shopman/crafting/exceptions.py`
+**Arquivo:** `packages/craftsman/shopman/craftsman/exceptions.py`
 **Base:** `BaseError`
 
 | Código | Quando ocorre |
@@ -114,9 +114,9 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 
 ---
 
-## CustomerError (Customers)
+## CustomerError (Guestman)
 
-**Arquivo:** `packages/guestman/shopman/customers/exceptions.py`
+**Arquivo:** `packages/guestman/shopman/guestman/exceptions.py`
 **Base:** `BaseError`
 
 | Código | Quando ocorre |
@@ -134,9 +134,9 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 
 ---
 
-## AuthError (Auth)
+## AuthError (Doorman)
 
-**Arquivo:** `packages/doorman/shopman/auth/exceptions.py`
+**Arquivo:** `packages/doorman/shopman/doorman/exceptions.py`
 **Base:** `BaseError`
 
 | Código | Quando ocorre |
@@ -152,9 +152,9 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 
 ---
 
-## PaymentError (Payments)
+## PaymentError (Payman)
 
-**Arquivo:** `packages/payman/shopman/payments/exceptions.py`
+**Arquivo:** `packages/payman/shopman/payman/exceptions.py`
 **Base:** `Exception` (independente de `BaseError`)
 **Construtor:** `__init__(code, message, context=None)`
 **Serialização:** `.as_dict()` → `{"code": "...", "message": "...", "context": {...}}`
@@ -171,9 +171,9 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 
 ---
 
-## OrderError (Ordering)
+## OrderError (Orderman)
 
-**Arquivo:** `packages/orderman/shopman/ordering/exceptions.py`
+**Arquivo:** `packages/orderman/shopman/orderman/exceptions.py`
 **Base:** `Exception` (independente de `BaseError`)
 **Construtor:** `__init__(code, message, context=None)`
 
@@ -259,7 +259,7 @@ Não é erro — controle de fluxo. Contém `cached_response` com resultado ante
 ## Padrão de Uso
 
 ```python
-from shopman.stocking.exceptions import StockError
+from shopman.stockman.exceptions import StockError
 
 try:
     stock.hold(sku="PAO-FR", qty=10)

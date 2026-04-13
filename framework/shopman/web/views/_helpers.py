@@ -6,8 +6,9 @@ from datetime import date, time
 from django.http import HttpRequest
 from django.utils import timezone
 
-from shopman.guestman.contrib.insights import CustomerInsight
+from shopman.guestman.contrib.insights import InsightService
 from shopman.offerman.models import ListingItem, Product
+from shopman.offerman.service import CatalogService
 from shopman.utils.monetary import format_money
 
 from ..constants import HAS_STOCKMAN, STOREFRONT_CHANNEL_REF
@@ -103,21 +104,23 @@ def _to_storefront_avail(raw_avail: dict | None, product: Product) -> dict | Non
     from decimal import Decimal
 
     is_paused = raw_avail.get("is_paused", False) or not product.is_sellable
-    total_orderable = raw_avail.get("total_orderable", Decimal("0"))
-    can_order = total_orderable > 0 and not is_paused
+    availability_policy = raw_avail.get("availability_policy", "planned_ok")
+    total_promisable = raw_avail.get("total_promisable", Decimal("0"))
+    can_order = ((availability_policy == "demand_ok") or total_promisable > 0) and not is_paused
     # had_stock: is_planned (future production scheduled) or currently available
-    had_stock = raw_avail.get("is_planned", False) or total_orderable > 0
+    had_stock = can_order or raw_avail.get("is_planned", False) or total_promisable > 0
     state = _storefront_availability_state(
         can_order=can_order,
         had_stock=had_stock,
         is_paused=is_paused,
     )
     return {
-        "available_qty": total_orderable,
+        "available_qty": total_promisable,
         "can_order": can_order,
         "is_paused": is_paused,
         "had_stock": had_stock,
         "state": state,
+        "availability_policy": availability_policy,
     }
 
 
@@ -262,7 +265,7 @@ def _annotate_products(
     fulfillment_type: str | None = None,
     request: HttpRequest | None = None,
 ) -> list[dict]:
-    """Build template-ready list with price, availability, promo (same logic as cart)."""
+    """Build template-ready list with canonical price quote and availability."""
     if listing_ref is None:
         listing_ref = _get_channel_listing_ref()
 
@@ -327,37 +330,37 @@ def _annotate_products(
         badge = _availability_badge(avail, p)
         cols = sku_collections.get(p.sku, [])
 
-        promo_discount_q = 0
+        price = CatalogService.get_price(
+            p.sku,
+            qty=1,
+            listing=listing_ref,
+            context={
+                "sku_collections": cols,
+                "session_total_q": session_total_q,
+                "fulfillment_type": fulfillment_type,
+            },
+            list_unit_price_q=base_q,
+        )
+
         promo_badge = None
         promo_price_display = None
         promo_original_price_display = None
         has_promo_price = False
 
-        if base_q:
-            promo_discount_q, promo = _best_auto_promotion_discount_q(
-                p.sku,
-                base_q,
-                cols,
-                session_total_q=session_total_q,
-                fulfillment_type=fulfillment_type,
-            )
-            if promo_discount_q > 0 and promo is not None:
-                has_promo_price = True
-                eff = base_q - promo_discount_q
-                promo_price_display = f"R$ {format_money(eff)}"
-                promo_original_price_display = f"R$ {format_money(base_q)}"
-                if promo.type == "percent":
-                    label = f"-{promo.value}%"
-                else:
-                    label = f"-R$ {format_money(promo.value)}"
+        if price.adjustments:
+            has_promo_price = price.final_unit_price_q < price.list_unit_price_q
+            adjustment = price.adjustments[0]
+            if has_promo_price:
+                promo_price_display = f"R$ {format_money(price.final_unit_price_q)}"
+                promo_original_price_display = f"R$ {format_money(price.list_unit_price_q)}"
                 promo_badge = {
-                    "name": promo.name,
-                    "type": promo.type,
-                    "value": promo.value,
-                    "label": label,
+                    "name": adjustment.metadata.get("promotion_name", adjustment.label),
+                    "type": adjustment.metadata.get("promotion_type"),
+                    "value": adjustment.metadata.get("promotion_value"),
+                    "label": adjustment.metadata.get("badge_label", adjustment.label),
                 }
 
-        effective_q = (base_q - promo_discount_q) if has_promo_price else base_q
+        effective_q = price.final_unit_price_q
         price_display = f"R$ {format_money(effective_q)}" if effective_q else None
 
         result.append({
@@ -536,10 +539,7 @@ def _collection_icon(ref: str) -> str:
 def _popular_skus(limit: int = 5) -> set[str]:
     """Aggregate favorite SKUs across all customer insights."""
     try:
-
-        insights = CustomerInsight.objects.exclude(favorite_products=[]).values_list(
-            "favorite_products", flat=True
-        )[:200]
+        insights = InsightService.favorite_product_samples(limit=200)
         sku_counts: dict[str, int] = {}
         for favorites in insights:
             if not favorites:
@@ -723,15 +723,7 @@ def _cross_sell_products(
         from shopman.offerman.models import Product as Prod
 
         # Find customers who have this SKU in favorites
-        insights = CustomerInsight.objects.filter(
-            favorite_products__contains=[{"sku": sku}],
-        ).values_list("favorite_products", flat=True)[:100]
-
-        if not insights.exists():
-            # Fallback: try text-based contains (JSONField varies by DB)
-            insights = CustomerInsight.objects.exclude(
-                favorite_products=[],
-            ).values_list("favorite_products", flat=True)[:100]
+        insights = InsightService.favorite_product_samples_for_sku(sku, limit=100)
 
         companion_counts: dict[str, int] = {}
         for favorites in insights:

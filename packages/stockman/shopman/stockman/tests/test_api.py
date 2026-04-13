@@ -65,6 +65,7 @@ class AvailabilityTests(StockmanAPITestBase):
         assert resp.status_code == 200
         data = resp.json()
         assert data["sku"] == "PAO-FORMA"
+        assert data["availability_policy"] == "planned_ok"
         assert Decimal(data["total_available"]) == Decimal("20.000")
         assert Decimal(data["total_reserved"]) == Decimal("0.000")
         assert len(data["positions"]) == 1

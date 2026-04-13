@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Cardápio — Nelson Boulangerie</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap">
+
+  <style>
+    :root {
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+    }
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .font-display {
+      font-family: 'Playfair Display', Georgia, serif;
+    }
+    @keyframes pop {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.15); }
+      100% { transform: scale(1); }
+    }
+    .animate-pop {
+      animation: pop 0.3s ease-out;
+    }
+  </style>
+</head>
+
+<body class="bg-neutral-50 text-neutral-900 antialiased"
+      x-data="{
+        cartCount: 0,
+        cartOpen: false,
+        activeCategory: 'todos',
+        searchOpen: false,
+        searchQuery: '',
+        addedSku: null,
+        hour: new Date().getHours(),
+        isReturning: true,
+        deliveryMinutes: 18,
+
+        get temporalGreeting() {
+          if (this.hour < 7) return 'Abrimos às 7h — monte seu pedido 🌅';
+          if (this.hour < 10) return 'Hora do café da manhã ☀️';
+          if (this.hour < 14) return 'Hora do almoço 🥪';
+          if (this.hour < 17) return 'Hora do lanche 🌤';
+          if (this.hour < 19) return 'Hora da sobremesa 🎂';
+          return 'Boa noite 🌙';
+        },
+
+        get lastOrder() {
+          return {
+            items: '2× Croissant, 1× Café',
+            total: 'R$ 28,70'
+          };
+        },
+
+        get initialCategory() {
+          if (this.hour < 12) return 'paes';
+          if (this.hour < 15) return 'doces';
+          return 'todos';
+        },
+
+        products: [
+          { sku: 'croissant-classico', name: 'Croissant Clássico', cat: 'paes', price: 'R$ 9,90', originalPrice: 'R$ 12,90', discount: '-25%', availability: 'available', img: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=400&fit=crop', freshness: 'Saiu do forno' },
+          { sku: 'pao-natural', name: 'Pão de Fermentação Natural', cat: 'paes', price: 'R$ 18,90', originalPrice: null, discount: null, availability: 'low_stock', img: 'https://images.unsplash.com/photo-1549931319-a545753467c8?w=400&h=400&fit=crop', freshness: 'Feito hoje' },
+          { sku: 'baguete', name: 'Baguete Francesa', cat: 'paes', price: 'R$ 8,90', originalPrice: null, discount: null, availability: 'unavailable', img: 'https://images.unsplash.com/photo-1586985289688-ca3cf47d3e6e?w=400&h=400&fit=crop', freshness: null },
+          { sku: 'brioche', name: 'Brioche', cat: 'paes', price: 'R$ 14,90', originalPrice: null, discount: null, availability: 'planned_ok', img: 'https://images.unsplash.com/photo-1555507036-ab1f4038024a?w=400&h=400&fit=crop', freshness: 'Feito hoje' },
+          { sku: 'pain-au-chocolat', name: 'Pain au Chocolat', cat: 'doces', price: 'R$ 11,90', originalPrice: null, discount: null, availability: 'available', img: 'https://images.unsplash.com/photo-1587668178277-295251f900ce?w=400&h=400&fit=crop', freshness: 'Saiu do forno' },
+          { sku: 'eclair-baunilha', name: 'Éclair de Baunilha', cat: 'doces', price: 'R$ 8,90', originalPrice: 'R$ 11,90', discount: '-25%', availability: 'available', img: 'https://images.unsplash.com/photo-1464305795204-6f5bbfc7fb81?w=400&h=400&fit=crop', freshness: 'Feito hoje' },
+          { sku: 'cafe-espresso', name: 'Café Espresso', cat: 'bebidas', price: 'R$ 6,90', originalPrice: null, discount: null, availability: 'available', img: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400&h=400&fit=crop', freshness: null },
+          { sku: 'suco-laranja', name: 'Suco Natural de Laranja', cat: 'bebidas', price: 'R$ 12,90', originalPrice: null, discount: null, availability: 'available', img: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=400&h=400&fit=crop', freshness: 'Feito hoje' },
+        ],
+
+        categories: [
+          { id: 'todos', label: 'Todos' },
+          { id: 'paes', label: 'Pães' },
+          { id: 'doces', label: 'Doces' },
+          { id: 'bebidas', label: 'Bebidas' },
+          { id: 'combos', label: 'Combos' },
+        ],
+
+        init() {
+          this.activeCategory = this.initialCategory;
+        },
+
+        get filteredProducts() {
+          let items = this.activeCategory === 'todos'
+            ? this.products
+            : this.products.filter(p => p.cat === this.activeCategory);
+          if (this.searchQuery.trim()) {
+            const q = this.searchQuery.toLowerCase();
+            items = items.filter(p => p.name.toLowerCase().includes(q));
+          }
+          return items;
+        },
+
+        get groupedProducts() {
+          const groups = {};
+          this.filteredProducts.forEach(p => {
+            if (!groups[p.cat]) groups[p.cat] = { label: this.categories.find(c => c.id === p.cat)?.label || p.cat, items: [] };
+            groups[p.cat].items.push(p);
+          });
+          return Object.values(groups);
+        },
+
+        get topProducts() {
+          return [
+            { sku: 'croissant-classico', name: 'Croissant Clássico', price: 'R$ 9,90', img: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=400&fit=crop' },
+            { sku: 'pain-au-chocolat', name: 'Pain au Chocolat', price: 'R$ 11,90', img: 'https://images.unsplash.com/photo-1587668178277-295251f900ce?w=400&h=400&fit=crop' },
+            { sku: 'eclair-baunilha', name: 'Éclair de Baunilha', price: 'R$ 8,90', img: 'https://images.unsplash.com/photo-1464305795204-6f5bbfc7fb81?w=400&h=400&fit=crop' },
+            { sku: 'cafe-espresso', name: 'Café Espresso', price: 'R$ 6,90', img: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400&h=400&fit=crop' },
+          ];
+        },
+
+        addToCart(sku) {
+          this.addedSku = sku;
+          this.cartCount++;
+          if (navigator.vibrate) {
+            navigator.vibrate(10);
+          }
+          setTimeout(() => this.addedSku = null, 1800);
+        },
+
+        availBadge(a) {
+          const map = {
+            low_stock: { text: 'Últimas unid.', bg: 'bg-red-50 border border-red-200', color: 'text-red-700' },
+            unavailable: { text: 'Indisponível', bg: 'bg-neutral-100 border border-neutral-300', color: 'text-neutral-500' },
+            planned_ok: { text: 'Em produção', bg: 'bg-blue-50 border border-blue-200', color: 'text-blue-700' },
+          };
+          return map[a] || null;
+        }
+      }">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-neutral-200"
+          style="padding-top: var(--sat)">
+    <div class="flex items-center gap-3 px-4 py-3 max-w-lg mx-auto">
+
+      <a href="home.html" class="flex-1 min-w-0 no-underline">
+        <h1 class="text-lg font-display font-bold text-neutral-900 truncate">Nelson Boulangerie</h1>
+        <p class="text-xs text-emerald-600 font-medium flex items-center gap-1">
+          <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          Aberto · Fecha às 19h
+        </p>
+      </a>
+
+      <button @click="searchOpen = !searchOpen; $nextTick(() => searchOpen && $refs.searchInput.focus())"
+              class="relative flex items-center justify-center w-10 h-10 rounded-full
+                     text-neutral-600 hover:bg-neutral-100 transition-colors"
+              :class="searchOpen && 'bg-neutral-100'"
+              aria-label="Buscar">
+        <span class="material-symbols-rounded text-[20px]"
+              x-text="searchOpen ? 'close' : 'search'">search</span>
+      </button>
+
+      <a href="cart.html"
+         class="relative flex items-center justify-center w-10 h-10 rounded-full
+                text-neutral-600 hover:bg-neutral-100 transition-colors"
+         aria-label="Carrinho">
+        <span class="material-symbols-rounded text-[20px]">shopping_bag</span>
+        <span x-show="cartCount > 0"
+              x-text="cartCount"
+              x-transition.scale.origin.top
+              class="absolute -top-0.5 -right-0.5 flex items-center justify-center
+                     min-w-[18px] h-[18px] rounded-full bg-neutral-900 text-white
+                     text-[10px] font-bold leading-none px-1">
+        </span>
+      </a>
+    </div>
+
+    <!-- Temporal greeting -->
+    <div class="px-4 pb-2 max-w-lg mx-auto">
+      <p class="text-xs text-neutral-500 font-medium" x-text="temporalGreeting"></p>
+    </div>
+
+    <!-- Search bar -->
+    <div x-show="searchOpen"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 -translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 -translate-y-2"
+         class="px-4 pb-3 max-w-lg mx-auto">
+      <div class="relative">
+        <span class="material-symbols-rounded text-[20px] text-neutral-400
+                     absolute left-3 top-1/2 -translate-y-1/2">search</span>
+        <input type="search"
+               x-model="searchQuery"
+               x-ref="searchInput"
+               @keydown.escape="searchOpen = false"
+               placeholder="O que você procura?"
+               class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-neutral-200
+                      bg-neutral-50 text-sm placeholder:text-neutral-400
+                      focus:outline-none focus:ring-2 focus:ring-neutral-900/10
+                      focus:border-neutral-300 transition-all">
+      </div>
+    </div>
+  </header>
+
+
+  <!-- Main Content -->
+  <main class="max-w-lg mx-auto pb-40">
+
+    <!-- Reorder Banner (for returning customers) -->
+    <div x-show="isReturning"
+         class="mx-4 mt-3 p-3 rounded-lg bg-white border border-neutral-200
+                shadow-sm"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 -translate-y-2">
+      <div class="flex items-start gap-3 mb-3">
+        <span class="material-symbols-rounded text-[18px] text-amber-600 shrink-0 mt-0.5">history</span>
+        <div class="flex-1">
+          <p class="text-xs font-semibold text-neutral-900 uppercase tracking-wider">Seu último pedido</p>
+          <p class="text-sm text-neutral-900 mt-0.5 font-medium" x-text="lastOrder.items"></p>
+          <p class="text-xs text-neutral-600 mt-1" x-text="`${lastOrder.total} · Entrega em ~${deliveryMinutes} min`"></p>
+        </div>
+      </div>
+      <button @click="cartCount += 3; window.location.href = 'cart.html'"
+         class="block w-full px-3 py-2 rounded-md bg-amber-600 text-white text-sm font-semibold
+                text-center transition-all active:scale-[0.96] hover:bg-amber-700">
+        Repetir Agora
+      </button>
+    </div>
+
+    <!-- Happy Hour Banner -->
+    <div class="mx-4 mt-3 flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg
+                bg-amber-50 border border-amber-200/60 text-amber-800"
+         role="status">
+      <span class="material-symbols-rounded text-[20px] text-amber-600 shrink-0">schedule</span>
+      <p class="text-xs font-semibold leading-tight">
+        Happy Hour até 18h — <span class="text-amber-900">25% off</span> em tudo
+      </p>
+    </div>
+
+
+    <!-- Category Filter Pills -->
+    <nav class="sticky z-30 bg-neutral-50/95 backdrop-blur-sm pt-3 pb-2 px-4"
+         style="top: calc(80px + var(--sat))">
+      <div class="flex gap-2 overflow-x-auto hide-scrollbar">
+        <template x-for="cat in categories" :key="cat.id">
+          <button @click="activeCategory = cat.id"
+                  :class="activeCategory === cat.id
+                    ? 'bg-neutral-900 text-white shadow-sm'
+                    : 'bg-white text-neutral-600 border border-neutral-200 hover:border-neutral-300'"
+                  class="shrink-0 px-4 py-2 rounded-md text-xs font-medium
+                         transition-all duration-200 min-h-[40px] flex items-center"
+                  x-text="cat.label">
+          </button>
+        </template>
+      </div>
+    </nav>
+
+
+    <!-- Product Grid -->
+    <template x-for="group in groupedProducts" :key="group.label">
+      <section class="px-4 mt-6">
+        <h2 class="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-3"
+            x-text="group.label"></h2>
+        <div class="grid grid-cols-2 gap-3">
+          <template x-for="product in group.items" :key="product.sku">
+            <div class="group bg-white rounded-lg overflow-hidden border border-neutral-200
+                        shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-shadow"
+                 :class="product.availability === 'unavailable' ? 'opacity-60' : 'hover:shadow-md'">
+
+              <!-- Image area -->
+              <a :href="'pdp.html?sku=' + product.sku"
+                 class="block relative aspect-square bg-neutral-100 rounded-lg overflow-hidden">
+                <img :src="product.img"
+                     :alt="product.name"
+                     class="w-full h-full object-cover transition-transform duration-300"
+                     :class="product.availability === 'unavailable' ? 'grayscale-[30%]' : 'group-hover:scale-105'"
+                     loading="lazy">
+
+                <!-- Discount badge -->
+                <span x-show="product.discount"
+                      x-text="product.discount"
+                      class="absolute top-2 left-2 inline-flex items-center rounded-md
+                             bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+                </span>
+
+                <!-- Availability badge -->
+                <template x-if="availBadge(product.availability)">
+                  <span :class="availBadge(product.availability).bg + ' ' + availBadge(product.availability).color"
+                        x-text="availBadge(product.availability).text"
+                        class="absolute top-2 left-2 inline-flex items-center rounded-md
+                               px-2 py-0.5 text-[10px] font-semibold">
+                  </span>
+                </template>
+              </a>
+
+              <!-- Info area -->
+              <div class="p-3">
+                <!-- Name -->
+                <div class="mb-1">
+                  <a :href="'pdp.html?sku=' + product.sku"
+                     class="block flex-1 min-w-0 no-underline">
+                    <h3 class="text-sm font-medium leading-tight truncate"
+                        :class="product.availability === 'unavailable' ? 'text-neutral-500' : 'text-neutral-900'"
+                        x-text="product.name"></h3>
+                  </a>
+                </div>
+
+                <!-- Prices + Button row -->
+                <div class="flex items-end justify-between mb-1">
+                  <div>
+                    <div class="flex items-baseline gap-1.5">
+                      <span class="text-sm font-semibold"
+                            :class="product.availability === 'unavailable' ? 'text-neutral-400' : 'text-neutral-900'"
+                            x-text="product.price"></span>
+                      <span x-show="product.originalPrice"
+                            x-text="product.originalPrice"
+                            class="text-xs text-neutral-400 line-through"></span>
+                    </div>
+                  </div>
+
+                  <!-- Add to cart button -->
+                  <template x-if="product.availability !== 'unavailable'">
+                    <button @click.prevent="addToCart(product.sku)"
+                            class="w-10 h-10 rounded-lg bg-neutral-900 text-white
+                                   flex items-center justify-center transition-all
+                                   active:scale-[0.92] hover:bg-neutral-800 shadow-sm"
+                            aria-label="Adicionar ao carrinho">
+                      <template x-if="addedSku !== product.sku">
+                        <span class="material-symbols-rounded text-[18px]">add</span>
+                      </template>
+                      <template x-if="addedSku === product.sku">
+                        <span class="material-symbols-rounded text-[18px] animate-pop">check</span>
+                      </template>
+                    </button>
+                  </template>
+
+                  <!-- Unavailable state -->
+                  <template x-if="product.availability === 'unavailable'">
+                    <button disabled
+                            class="w-10 h-10 rounded-lg bg-neutral-100 text-neutral-400
+                                   flex items-center justify-center cursor-not-allowed"
+                            aria-label="Produto indisponível">
+                      <span class="material-symbols-rounded text-[18px]">block</span>
+                    </button>
+                  </template>
+                </div>
+
+                <!-- Freshness indicator -->
+                <div x-show="product.freshness && product.availability !== 'unavailable'"
+                     class="text-xs text-emerald-700 font-medium"
+                     x-text="product.freshness"></div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </section>
+    </template>
+
+    <!-- Empty search state -->
+    <div x-show="filteredProducts.length === 0" class="px-4 py-16 text-center">
+      <span class="material-symbols-rounded text-[48px] text-neutral-300">search_off</span>
+      <p class="mt-3 text-sm text-neutral-500">Nenhum produto encontrado</p>
+      <button @click="searchQuery = ''; activeCategory = 'todos'"
+              class="mt-3 text-sm font-semibold text-neutral-900 underline underline-offset-2">
+        Limpar filtros
+      </button>
+    </div>
+
+    <!-- More Popular Items Section -->
+    <section class="px-4 mt-12 mb-8">
+      <div class="mb-4">
+        <h2 class="text-sm font-medium text-neutral-500 uppercase tracking-wider">Mais pedidos da semana</h2>
+      </div>
+      <div class="flex gap-3 overflow-x-auto hide-scrollbar -mx-4 px-4">
+        <template x-for="item in topProducts" :key="item.sku">
+          <a :href="'pdp.html?sku=' + item.sku"
+             class="group shrink-0 w-32 rounded-lg overflow-hidden bg-white border border-neutral-200
+                    shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-md transition-shadow">
+            <div class="relative aspect-square bg-neutral-100 overflow-hidden">
+              <img :src="item.img"
+                   :alt="item.name"
+                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                   loading="lazy">
+            </div>
+            <div class="p-2">
+              <p class="text-xs font-medium text-neutral-900 truncate" x-text="item.name"></p>
+              <p class="text-xs font-semibold text-neutral-900 mt-1" x-text="item.price"></p>
+            </div>
+          </a>
+        </template>
+      </div>
+    </section>
+
+  </main>
+
+
+  <!-- Floating Cart Bar -->
+  <div x-show="cartCount > 0"
+       x-transition:enter="transition ease-out duration-300"
+       x-transition:enter-start="translate-y-full opacity-0"
+       x-transition:enter-end="translate-y-0 opacity-100"
+       x-transition:leave="transition ease-in duration-200"
+       x-transition:leave-start="translate-y-0 opacity-100"
+       x-transition:leave-end="translate-y-full opacity-0"
+       class="fixed inset-x-0 z-50 px-4 pointer-events-none"
+       style="bottom: calc(56px + var(--sab))">
+    <a href="cart.html"
+       class="pointer-events-auto w-full max-w-lg mx-auto flex items-center justify-between
+              rounded-lg bg-neutral-900 px-5 py-3.5 text-white shadow-xl shadow-neutral-900/20
+              active:scale-[0.98] transition-transform no-underline">
+      <div class="flex items-center gap-3">
+        <span class="flex items-center justify-center w-7 h-7 rounded-full bg-white/20
+                     text-sm font-bold" x-text="cartCount"></span>
+        <span class="text-sm font-semibold">Ver carrinho</span>
+      </div>
+      <span class="text-sm font-bold">R$ 41,60</span>
+    </a>
+  </div>
+
+
+  <!-- Bottom Navigation -->
+  <nav class="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-neutral-200"
+       style="padding-bottom: var(--sab)">
+    <div class="max-w-lg mx-auto grid grid-cols-4 h-16">
+      <a href="home.html" class="flex flex-col items-center justify-center gap-1 text-neutral-400 no-underline">
+        <span class="material-symbols-rounded text-[20px]">home</span>
+        <span class="text-[10px] font-medium">Home</span>
+      </a>
+      <a href="menu.html" class="flex flex-col items-center justify-center gap-1 text-neutral-900 no-underline">
+        <span class="material-symbols-rounded text-[20px]">restaurant_menu</span>
+        <span class="text-[10px] font-semibold">Cardápio</span>
+      </a>
+      <a href="cart.html" class="flex flex-col items-center justify-center gap-1 text-neutral-400 no-underline">
+        <span class="material-symbols-rounded text-[20px]">shopping_bag</span>
+        <span class="text-[10px] font-medium">Carrinho</span>
+      </a>
+      <a href="account.html" class="flex flex-col items-center justify-center gap-1 text-neutral-400 no-underline">
+        <span class="material-symbols-rounded text-[20px]">person</span>
+        <span class="text-[10px] font-medium">Conta</span>
+      </a>
+    </div>
+  </nav>
+
+  <script src="proto-scenarios.js"></script>
+</body>
+</html>

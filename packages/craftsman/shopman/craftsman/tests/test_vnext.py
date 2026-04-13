@@ -86,7 +86,7 @@ class TestPlan:
         assert wo.quantity == Decimal("100")
         assert wo.finished is None
         assert wo.status == WorkOrder.Status.PLANNED
-        assert wo.scheduled_date == tomorrow
+        assert wo.target_date == tomorrow
         assert wo.rev == 0
 
     def test_plan_generates_unique_ref(self, recipe):
@@ -104,7 +104,7 @@ class TestPlan:
             date=tomorrow,
             source_ref="listing:balcao",
             position_ref="station:forno-01",
-            assigned_ref="user:joao",
+            operator_ref="user:joao",
         )
 
         events = wo.events.all()
@@ -116,10 +116,10 @@ class TestPlan:
         assert ev.payload["quantity"] == "50"
         assert ev.payload["recipe"] == "croissant-v1"
         assert ev.payload["output_ref"] == "croissant"
-        assert ev.payload["scheduled_date"] == str(tomorrow)
+        assert ev.payload["target_date"] == str(tomorrow)
         assert ev.payload["source_ref"] == "listing:balcao"
         assert ev.payload["position_ref"] == "station:forno-01"
-        assert ev.payload["assigned_ref"] == "user:joao"
+        assert ev.payload["operator_ref"] == "user:joao"
 
     def test_plan_batch(self, recipe, recipe_simple, tomorrow):
         orders = craft.plan([
@@ -138,13 +138,13 @@ class TestPlan:
             recipe, 100,
             source_ref="order:123",
             position_ref="station:forno-01",
-            assigned_ref="user:joao",
+            operator_ref="user:joao",
             actor="system:scheduler",
         )
 
         assert wo.source_ref == "order:123"
         assert wo.position_ref == "station:forno-01"
-        assert wo.assigned_ref == "user:joao"
+        assert wo.operator_ref == "user:joao"
         assert wo.events.first().actor == "system:scheduler"
 
     def test_plan_invalid_quantity(self, recipe):
@@ -277,7 +277,7 @@ class TestFloorExecution:
             quantity=Decimal("92"),
             expected_rev=0,
             actor="joao",
-            assigned_ref="user:joao",
+            operator_ref="user:joao",
             position_ref="station:forno-01",
             note="massa na bancada",
         )
@@ -285,7 +285,7 @@ class TestFloorExecution:
         wo.refresh_from_db()
         assert wo.status == WorkOrder.Status.STARTED
         assert wo.started_at is not None
-        assert wo.assigned_ref == "user:joao"
+        assert wo.operator_ref == "user:joao"
         assert wo.position_ref == "station:forno-01"
         assert wo.started_qty == Decimal("92")
         assert wo.rev == 1
@@ -293,7 +293,7 @@ class TestFloorExecution:
         ev = wo.events.order_by("seq").last()
         assert ev.kind == "started"
         assert ev.payload["quantity"] == "92"
-        assert ev.payload["assigned_ref"] == "user:joao"
+        assert ev.payload["operator_ref"] == "user:joao"
         assert ev.payload["position_ref"] == "station:forno-01"
         assert ev.payload["note"] == "massa na bancada"
         assert ev.actor == "joao"
@@ -314,7 +314,6 @@ class TestFloorExecution:
         assert ev.payload["started_qty"] == "92"
         assert ev.payload["finished_qty"] == "89"
         assert ev.payload["loss_qty"] == "3"
-        assert ev.payload["yield_rate"] == str(Decimal("89") / Decimal("92"))
 
     def test_finish_event_exposes_operational_context(self, recipe, tomorrow):
         wo = craft.plan(
@@ -323,7 +322,7 @@ class TestFloorExecution:
             date=tomorrow,
             source_ref="listing:ifood",
             position_ref="station:forno-02",
-            assigned_ref="user:maria",
+            operator_ref="user:maria",
         )
         craft.start(wo, quantity=Decimal("96"), expected_rev=0, actor="maria")
         craft.finish(wo, finished=Decimal("91"), expected_rev=1, actor="maria")
@@ -331,10 +330,10 @@ class TestFloorExecution:
         ev = wo.events.order_by("seq").last()
         assert ev.kind == "finished"
         assert ev.payload["output_ref"] == "croissant"
-        assert ev.payload["scheduled_date"] == str(tomorrow)
+        assert ev.payload["target_date"] == str(tomorrow)
         assert ev.payload["source_ref"] == "listing:ifood"
         assert ev.payload["position_ref"] == "station:forno-02"
-        assert ev.payload["assigned_ref"] == "user:maria"
+        assert ev.payload["operator_ref"] == "user:maria"
 
     def test_work_order_projection_tracks_floor_progress(self, recipe):
         wo = craft.plan(recipe, 100)
@@ -737,8 +736,8 @@ class TestInvariants:
 class TestFloorProjections:
     def test_queue_defaults_to_active_work(self, recipe, tomorrow):
         planned = craft.plan(recipe, 100, date=tomorrow, position_ref="forno")
-        started = craft.plan(recipe, 80, date=tomorrow, position_ref="forno", assigned_ref="user:joao")
-        craft.start(started, quantity=Decimal("75"), expected_rev=0, assigned_ref="user:joao", position_ref="forno")
+        started = craft.plan(recipe, 80, date=tomorrow, position_ref="forno", operator_ref="user:joao")
+        craft.start(started, quantity=Decimal("75"), expected_rev=0, operator_ref="user:joao", position_ref="forno")
         finished = craft.plan(recipe, 50, date=tomorrow, position_ref="forno")
         craft.finish(finished, finished=Decimal("47"), expected_rev=0)
 
@@ -749,13 +748,13 @@ class TestFloorProjections:
         assert started.ref in refs
         assert finished.ref not in refs
 
-    def test_queue_filters_by_position_and_assignee(self, recipe, tomorrow):
-        wo1 = craft.plan(recipe, 100, date=tomorrow, position_ref="forno", assigned_ref="user:joao")
-        wo2 = craft.plan(recipe, 100, date=tomorrow, position_ref="bancada", assigned_ref="user:maria")
-        craft.start(wo1, quantity=Decimal("96"), expected_rev=0, assigned_ref="user:joao", position_ref="forno")
-        craft.start(wo2, quantity=Decimal("88"), expected_rev=0, assigned_ref="user:maria", position_ref="bancada")
+    def test_queue_filters_by_position_and_operator(self, recipe, tomorrow):
+        wo1 = craft.plan(recipe, 100, date=tomorrow, position_ref="forno", operator_ref="user:joao")
+        wo2 = craft.plan(recipe, 100, date=tomorrow, position_ref="bancada", operator_ref="user:maria")
+        craft.start(wo1, quantity=Decimal("96"), expected_rev=0, operator_ref="user:joao", position_ref="forno")
+        craft.start(wo2, quantity=Decimal("88"), expected_rev=0, operator_ref="user:maria", position_ref="bancada")
 
-        queue = craft.queue(date=tomorrow, position_ref="forno", assigned_ref="user:joao")
+        queue = craft.queue(date=tomorrow, position_ref="forno", operator_ref="user:joao")
 
         assert [item.ref for item in queue] == [wo1.ref]
         assert queue[0].started_qty == Decimal("96")

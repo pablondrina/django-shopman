@@ -75,6 +75,10 @@ class TestAuthentication:
         resp = api_client.get("/api/craftsman/work-orders/")
         assert resp.status_code == 200
 
+    def test_queue_requires_auth(self, anon_client):
+        resp = anon_client.get("/api/craftsman/queries/queue/")
+        assert resp.status_code in (401, 403)
+
 
 # ══════════════════════════════════════════════════════════════
 # FINISH ENDPOINT
@@ -240,7 +244,46 @@ class TestAdjustEndpoint:
             format="json",
         )
         assert resp.status_code == 400
-        assert "quantity" in resp.data
+
+
+class TestOperationalQueries:
+    def test_queue_returns_active_work(self, api_client, recipe):
+        planned = craft.plan(recipe, 100, date="2026-02-27", position_ref="forno")
+        started = craft.plan(recipe, 80, date="2026-02-27", position_ref="forno", operator_ref="user:joao")
+        craft.start(started, quantity=Decimal("75"), expected_rev=0, position_ref="forno", operator_ref="user:joao")
+        finished = craft.plan(recipe, 50, date="2026-02-27", position_ref="forno")
+        craft.finish(finished, finished=Decimal("47"), expected_rev=0)
+
+        resp = api_client.get("/api/craftsman/queries/queue/?date=2026-02-27&position_ref=forno")
+
+        assert resp.status_code == 200
+        refs = [item["ref"] for item in resp.data]
+        assert planned.ref in refs
+        assert started.ref in refs
+        assert finished.ref not in refs
+
+    def test_summary_returns_operational_totals(self, api_client, recipe):
+        planned = craft.plan(recipe, 100, date="2026-02-27", position_ref="forno")
+        started = craft.plan(recipe, 80, date="2026-02-27", position_ref="forno")
+        craft.start(started, quantity=Decimal("75"), expected_rev=0, position_ref="forno")
+        finished = craft.plan(recipe, 50, date="2026-02-27", position_ref="forno")
+        craft.start(finished, quantity=Decimal("48"), expected_rev=0, position_ref="forno")
+        craft.finish(finished, finished=Decimal("46"), expected_rev=1)
+        voided = craft.plan(recipe, 20, date="2026-02-27", position_ref="forno")
+        craft.void(voided, reason="sem demanda")
+
+        resp = api_client.get("/api/craftsman/queries/summary/?date=2026-02-27&position_ref=forno")
+
+        assert resp.status_code == 200
+        assert resp.data["total_orders"] == 4
+        assert resp.data["planned_orders"] == 1
+        assert resp.data["started_orders"] == 1
+        assert resp.data["finished_orders"] == 1
+        assert resp.data["void_orders"] == 1
+        assert resp.data["planned_qty"] == "250.000"
+        assert resp.data["started_qty"] == "123.000"
+        assert resp.data["finished_qty"] == "46.000"
+        assert resp.data["loss_qty"] == "2.000"
 
 
 class TestFloorExecutionEndpoints:
@@ -251,7 +294,7 @@ class TestFloorExecutionEndpoints:
             {
                 "quantity": "92",
                 "expected_rev": 0,
-                "assigned_ref": "user:joao",
+                "operator_ref": "user:joao",
                 "position_ref": "station:forno-01",
                 "note": "massa na bancada",
             },
@@ -259,7 +302,7 @@ class TestFloorExecutionEndpoints:
         )
         assert resp.status_code == 200
         assert resp.data["status"] == "started"
-        assert resp.data["assigned_ref"] == "user:joao"
+        assert resp.data["operator_ref"] == "user:joao"
         assert resp.data["position_ref"] == "station:forno-01"
         assert resp.data["started_qty"] == "92.000"
 

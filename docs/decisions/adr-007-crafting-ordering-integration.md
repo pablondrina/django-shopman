@@ -51,8 +51,8 @@ Madrugada (04h):
   Produção inicia
 
 Manhã (06h):
-  craft.close(wo, produced=N)
-  → production_changed(closed) → Stockman realize()
+  craft.finish(wo, finished=N)
+  → production_changed(finished) → Stockman realize()
   → holds_materialized signal dispara
   → Sessions com holds planejados auto-comitam (on_holds_materialized)
   → Orders criados → flow normal → on_confirmed → payment.initiate()
@@ -83,8 +83,8 @@ Cliente pede 10 croissants para amanhã (session com delivery_date)
   → Session fica OPEN com has_planned_holds=True
   → [FERMATA — session aguarda]
 
-Produção fecha na manhã seguinte:
-  → craft.close() → realize() → holds_materialized
+Produção finaliza na manhã seguinte:
+  → craft.finish() → realize() → holds_materialized
   → on_holds_materialized verifica:
       todos os holds planejados dessa session viraram físicos?
       SIM → auto-commit session → Order criado
@@ -144,7 +144,7 @@ Produtos montados na hora com ingredientes do estoque. Duas opções:
 | Opção | Mecanismo | Prós | Contras |
 |-------|-----------|------|---------|
 | **BOM consumption** | Recipe lookup → `stock.issue()` por ingrediente | Simples, sem WO | Sem histórico formal |
-| **WO instantâneo** | `craft.plan() + craft.close()` atômico | Rastreabilidade completa | Overhead por item |
+| **WO instantâneo** | `craft.plan() + craft.finish()` atômico | Rastreabilidade completa | Overhead por item |
 
 **Recomendação:** Começar com BOM consumption direto.
 O Craftsman já tem `craft.needs()` para explosão de BOM. Basta consumir os
@@ -200,7 +200,7 @@ Quinta 17h: operador planeja
   → Hold do João vincula ao Quant planejado
 
 Sexta 06h: produção fecha
-  → craft.close(wo, produced=118)
+  → craft.finish(wo, finished=118)
   → realize(croissant, sexta, 118, vitrine)
   → holds_materialized → Session do João auto-comita
   → Order criado → flow normal → payment.initiate() → PIX QR → notificação

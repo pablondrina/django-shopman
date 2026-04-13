@@ -147,7 +147,7 @@ def decide(
         safety_margin=scope["safety_margin"],
         allowed_positions=scope["allowed_positions"],
     )
-    approved = decision.approved if isinstance(getattr(decision, "approved", None), bool) else qty_d <= info["total_orderable"]
+    approved = decision.approved if isinstance(getattr(decision, "approved", None), bool) else qty_d <= info["total_promisable"]
     reason_code = getattr(decision, "reason_code", None)
     if not isinstance(reason_code, str | type(None)):
         reason_code = None if approved else ("paused" if info.get("is_paused", False) else "insufficient_stock")
@@ -155,7 +155,7 @@ def decide(
         "approved": approved,
         "sku": getattr(decision, "sku", sku),
         "requested_qty": getattr(decision, "requested_qty", qty_d),
-        "available_qty": getattr(decision, "available_qty", info["total_orderable"]),
+        "available_qty": getattr(decision, "available_qty", info["total_promisable"]),
         "reason_code": reason_code,
         "is_paused": getattr(decision, "is_paused", info.get("is_paused", False)),
         "is_planned": getattr(decision, "is_planned", info.get("is_planned", False)),
@@ -193,7 +193,7 @@ def check(
     Returns:
         {
             "ok": bool,                 # passes listing check AND stock check
-            "available_qty": Decimal,   # total_orderable for this channel
+            "available_qty": Decimal,   # total_promisable for this channel
             "is_paused": bool,          # product paused/unpublished
             "is_planned": bool,         # only future quants exist
             "breakdown": {ready, in_production, d1},

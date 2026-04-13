@@ -3,7 +3,7 @@ Stockman configuration.
 
 Usage in settings.py:
     STOCKMAN = {
-        "SKU_VALIDATOR": "shopman.offerman.adapters.sku_validator.SkuValidator",
+        "SKU_VALIDATOR": "shopman.stockman.adapters.noop.NoopSkuValidator",
         "HOLD_TTL_MINUTES": 30,
         "EXPIRED_BATCH_SIZE": 200,
         "VALIDATE_INPUT_SKUS": True,
@@ -21,7 +21,7 @@ class StockmanSettings:
     """Stockman configuration settings."""
 
     # SKU validation backend (dotted path)
-    SKU_VALIDATOR: str = ""
+    SKU_VALIDATOR: str = "shopman.stockman.adapters.noop.NoopSkuValidator"
 
     # Default hold TTL in minutes (0 = no expiration)
     HOLD_TTL_MINUTES: int = 0

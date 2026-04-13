@@ -2,6 +2,9 @@
 
 from shopman.offerman.protocols.catalog import (
     CatalogBackend,
+    PricingBackend,
+    ContextualPrice,
+    PriceAdjustment,
     ProductInfo,
     PriceInfo,
     SkuValidation,
@@ -17,7 +20,10 @@ from shopman.offerman.protocols.projection import (
 __all__ = [
     "CatalogBackend",
     "CatalogProjectionBackend",
+    "ContextualPrice",
+    "PricingBackend",
     "CostBackend",
+    "PriceAdjustment",
     "ProductInfo",
     "PriceInfo",
     "ProjectedItem",

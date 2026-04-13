@@ -40,14 +40,13 @@ class SkuValidator:
         try:
             product = Product.objects.get(sku=sku)
             is_published = product.is_published
-            is_orderable = product.is_published and product.is_sellable
             return SkuValidationResult(
                 valid=True,
                 sku=sku,
                 product_name=product.name,
                 is_published=is_published,
-                is_orderable=is_orderable,
-                message=None if is_orderable else "Product is not orderable",
+                is_sellable=product.is_sellable,
+                message=None if (product.is_published and product.is_sellable) else "Product is not sellable",
             )
         except Product.DoesNotExist:
             return SkuValidationResult(
@@ -74,7 +73,7 @@ class SkuValidator:
                     sku=sku,
                     product_name=product.name,
                     is_published=product.is_published,
-                    is_orderable=product.is_published and product.is_sellable,
+                    is_sellable=product.is_sellable,
                 )
             else:
                 result[sku] = SkuValidationResult(
@@ -99,7 +98,7 @@ class SkuValidator:
                 name=product.name,
                 description=product.long_description,
                 is_published=product.is_published,
-                is_orderable=product.is_published and product.is_sellable,
+                is_sellable=product.is_sellable,
                 unit=product.unit,
                 category=category,
                 base_price_q=product.base_price_q,
@@ -138,7 +137,7 @@ class SkuValidator:
                     name=p.name,
                     description=p.long_description,
                     is_published=p.is_published,
-                    is_orderable=p.is_published and p.is_sellable,
+                    is_sellable=p.is_sellable,
                     unit=p.unit,
                     category=category,
                     base_price_q=p.base_price_q,

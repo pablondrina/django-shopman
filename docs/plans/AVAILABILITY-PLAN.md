@@ -78,8 +78,8 @@ O storefront consome uma **visão simplificada**, não o breakdown interno:
 # O que o frontend recebe (via helper ou API)
 {
     "available_qty": Decimal,   # qty disponível para o canal+data (já com scope)
-    "can_order": bool,          # available_qty > 0 AND product.is_orderable
-    "is_paused": bool,          # product.is_available = False
+    "can_order": bool,          # available_qty > 0 AND product.is_sellable
+    "is_paused": bool,          # product.is_sellable = False
     "had_stock": bool,          # para distinguir "esgotado" de "indisponível"
 }
 ```
@@ -406,7 +406,7 @@ respeitando compromissos com clientes. Sem novo status — mantém OPEN/DONE/VOI
 
 **Ações**:
 1. **V1 — Validar holds do SKU de saída**:
-   - `adjust()`: Se `qty_nova < holds_ativos` para o `output_ref + scheduled_date` → rejeita.
+   - `adjust()`: Se `qty_nova < holds_ativos` para o `output_ref + target_date` → rejeita.
    - `CraftError("COMMITTED_HOLDS", committed=N, requested=qty_nova)`.
    - Consulta `StockHolds` (ou `DemandProtocol.committed()`) para o SKU na data.
 

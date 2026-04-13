@@ -184,26 +184,14 @@ class CustomerAdmin(BaseModelAdmin):
 
     @display(description="Orders")
     def orders_link(self, obj):
-        """Show order count with link to order list filtered by this customer."""
+        """Show order count using Orderman's public customer-history contract."""
         try:
-            from shopman.orderman.models import Order
+            from shopman.orderman.services import CustomerOrderHistoryService
 
-            count = Order.objects.filter(
-                handle_type="customer", handle_ref=obj.ref
-            ).count()
+            count = CustomerOrderHistoryService.get_customer_stats(obj.ref).total_orders
             if count == 0:
                 return "-"
-            url = (
-                reverse("admin:orderman_order_changelist")
-                + f"?handle_type=customer&handle_ref={obj.ref}"
-            )
-            return format_html(
-                '<a href="{}" class="text-primary-600 hover:text-primary-700">'
-                "{} pedido{}</a>",
-                url,
-                count,
-                "s" if count != 1 else "",
-            )
+            return f"{count} pedido{'s' if count != 1 else ''}"
         except ImportError:
             return "-"
 

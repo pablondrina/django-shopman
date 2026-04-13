@@ -36,3 +36,4 @@ class ErrorCode(str, Enum):
 
     # General
     INVALID_INPUT = "invalid_input"
+    INVALID_TARGET = "invalid_target"

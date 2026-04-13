@@ -87,6 +87,16 @@ class NoopCustomerResolver:
             is_active=True,
         )
 
+    def create_for_email(self, email: str) -> AuthCustomerInfo:
+        """Create and return a synthetic customer for the given email."""
+        return AuthCustomerInfo(
+            uuid=self._make_uuid(email),
+            name="",
+            phone=None,
+            email=email,
+            is_active=True,
+        )
+
     def _make_uuid(self, key: str) -> UUID:
         """Derive a deterministic UUID from a string key."""
         return uuid_lib.uuid5(self._NAMESPACE, key)

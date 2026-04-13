@@ -26,6 +26,7 @@ import logging
 import threading
 
 from django.core.cache import cache
+from django.db import OperationalError, ProgrammingError
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +130,8 @@ def bootstrap_active_rules() -> None:
         try:
             register_active_rules()
             _bootstrapped = True
+        except (OperationalError, ProgrammingError):
+            logger.debug("rules.engine: rules table not ready yet; bootstrap deferred.")
         except Exception:
             logger.debug("rules.engine: deferred bootstrap failed; will retry later.", exc_info=True)
 

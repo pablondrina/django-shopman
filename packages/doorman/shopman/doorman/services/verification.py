@@ -85,9 +85,20 @@ class AuthService:
         Returns:
             CodeRequestResult with code_id and expiration
         """
-        # Normalize target
         adapter = get_adapter()
-        target_value = adapter.normalize_phone(target_value)
+        target_value = adapter.normalize_login_target(target_value)
+        if not target_value:
+            return CodeRequestResult(
+                success=False,
+                error="Invalid login target.",
+                error_code=ErrorCode.INVALID_TARGET,
+            )
+        if not adapter.is_login_allowed(target_value, delivery_method):
+            return CodeRequestResult(
+                success=False,
+                error="Login not allowed for this target.",
+                error_code=ErrorCode.ACCOUNT_INACTIVE,
+            )
 
         # G9: Rate limit by target
         try:
@@ -223,7 +234,13 @@ class AuthService:
             VerifyResult with customer
         """
         adapter = get_adapter()
-        target_value = adapter.normalize_phone(target_value)
+        target_value = adapter.normalize_login_target(target_value)
+        if not target_value:
+            return VerifyResult(
+                success=False,
+                error="Invalid login target.",
+                error_code=ErrorCode.INVALID_TARGET,
+            )
 
         # Find valid code
         code = cls._get_valid_code(target_value, VerificationCode.Purpose.LOGIN)
@@ -248,7 +265,7 @@ class AuthService:
             )
 
         # Get or create Customer via adapter
-        customer = adapter.resolve_customer_by_phone(target_value)
+        customer = adapter.resolve_customer(target_value)
         created = False
 
         if not customer:
@@ -260,7 +277,7 @@ class AuthService:
                     error_code=ErrorCode.ACCOUNT_NOT_FOUND,
                 )
 
-            customer = adapter.create_customer_for_phone(target_value)
+            customer = adapter.create_customer(target_value)
             created = True
 
         cls._link_verified_identifier(customer, target_value)
@@ -316,9 +333,27 @@ class AuthService:
             from shopman.guestman.contrib.identifiers import IdentifierService, IdentifierType
             from shopman.guestman.models import ContactPoint, Customer as GuestCustomer
             from shopman.guestman.services import identity as identity_service
+            from ..conf import get_adapter
 
             guest_customer = GuestCustomer.objects.filter(uuid=customer.uuid, is_active=True).first()
             if not guest_customer:
+                return
+            adapter = get_adapter()
+            if adapter.target_kind(target_value) == "email":
+                identity_service.ensure_contact_point(
+                    guest_customer,
+                    type=ContactPoint.Type.EMAIL,
+                    value_normalized=target_value,
+                    is_primary=True,
+                    is_verified=True,
+                )
+                IdentifierService.ensure_identifier(
+                    customer_ref=guest_customer.ref,
+                    identifier_type=IdentifierType.EMAIL,
+                    identifier_value=target_value,
+                    is_primary=True,
+                    source_system="doorman",
+                )
                 return
             identity_service.ensure_contact_point(
                 guest_customer,

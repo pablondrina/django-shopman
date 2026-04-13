@@ -1,10 +1,10 @@
-# Offering — Catálogo e Preços
+# Offerman — Catálogo, Oferta e Projeção
 
 ## Visão Geral
 
-O app `shopman.offering` é o catálogo de produtos e motor de precificação. Gerencia produtos, coleções, listings e preços com tiers por canal. A API pública é o `CatalogService`.
+O app `shopman.offerman` é o domínio de oferta comercial da suite. Ele gerencia produtos, coleções, listings e preços por canal. A API pública é o `CatalogService`.
 
-Offering trata **somente** de produtos vendáveis. Insumos (farinha, manteiga) vivem no Stocking/Crafting.
+`offerman` trata **somente** da oferta comercial. Exposição e vigência vivem aqui; disponibilidade prometível vem de `stockman`.
 
 ## Conceitos
 
@@ -59,7 +59,6 @@ Tabela de preços por canal (WhatsApp, iFood, balcão). Suporta preços por faix
 - `margin_percent` — Margem percentual
 
 **QuerySet:**
-- `Product.objects.active()` — publicados E disponíveis
 - `Product.objects.published()` — publicados
 - `Product.objects.sellable()` — elegíveis comercialmente
 
@@ -78,7 +77,7 @@ Validações: sem auto-referência, sem ciclos, profundidade ≤ `BUNDLE_MAX_DEP
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
 | `uuid` | UUIDField | Identificador único |
-| `slug` | SlugField(50, unique) | Identificador URL-friendly |
+| `ref` | SlugField(50, unique) | Identificador canônico |
 | `name` | CharField(100) | Nome |
 | `parent` | FK(self, null, CASCADE) | Coleção pai (hierarquia) |
 | `valid_from` / `valid_until` | DateField(null) | Validade temporal |
@@ -105,7 +104,7 @@ Validações: sem auto-referência, sem ciclos, profundidade ≤ `BUNDLE_MAX_DEP
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
 | `uuid` | UUIDField | Identificador único |
-| `code` | SlugField(50, unique) | Código do canal (ex: "whatsapp", "ifood") |
+| `ref` | SlugField(50, unique) | Código do canal (ex: `whatsapp`, `ifood`) |
 | `name` | CharField(100) | Nome |
 | `valid_from` / `valid_until` | DateField(null) | Validade temporal |
 | `priority` | IntegerField | Prioridade (maior = mais específico) |
@@ -130,7 +129,7 @@ Validações: sem auto-referência, sem ciclos, profundidade ≤ `BUNDLE_MAX_DEP
 API pública do catálogo. Todos os métodos são classmethods.
 
 ```python
-from shopman.offering import CatalogService, CatalogError
+from shopman.offerman import CatalogService, CatalogError
 ```
 
 #### Consultas
@@ -145,6 +144,17 @@ produtos = CatalogService.get(["CROISSANT", "BAGUETE"])  # dict {sku: Product}
 ```python
 total = CatalogService.price("CROISSANT", qty=Decimal("3"), listing="whatsapp")
 # Algoritmo: listing price > base_price (fallback)
+```
+
+**`CatalogService.get_price(sku, qty=1, channel=None, listing=None, context=None)`** — Preço contextual completo.
+```python
+price = CatalogService.get_price(
+    "CROISSANT",
+    qty=Decimal("3"),
+    listing="whatsapp",
+    context={"customer_segment": "vip"},
+)
+# ContextualPrice com preço de lista, preço final e ajustes explícitos
 ```
 
 **`CatalogService.expand(sku, qty=1)`** — Explode bundle em componentes.
@@ -174,6 +184,20 @@ menu_whatsapp = CatalogService.get_sellable_products("whatsapp")
 
 **`CatalogService.is_product_sellable(product, listing_ref)`** — Verifica elegibilidade comercial num canal.
 
+#### Projeção
+
+**`CatalogService.get_projection_items(listing_ref)`** — Snapshot canônico da oferta de um canal.
+```python
+snapshot = CatalogService.get_projection_items("ifood")
+# [ProjectedItem(sku="CROISSANT", price_q=790, is_published=True, is_sellable=True, ...), ...]
+```
+
+**`CatalogService.project_listing(listing_ref, full_sync=False)`** — Sincroniza a oferta do canal via projection backend.
+```python
+result = CatalogService.project_listing("ifood")
+# ProjectionResult(success=True, projected=42, channel="ifood")
+```
+
 ## Protocols
 
 ### CatalogBackend
@@ -197,12 +221,26 @@ class CostBackend(Protocol):
     def get_cost(self, sku: str) -> int | None: ...  # centavos
 ```
 
+### CatalogProjectionBackend
+
+Interface para projeção da oferta para canais terceiros.
+
+```python
+class CatalogProjectionBackend(Protocol):
+    def project(self, items: list[ProjectedItem], *, channel: str, full_sync: bool = False) -> ProjectionResult: ...
+    def retract(self, skus: list[str], *, channel: str) -> ProjectionResult: ...
+```
+
 ### Dataclasses
 
 - `ProductInfo(sku, name, description, category, unit, is_bundle, base_price_q, is_published, is_sellable, keywords)`
 - `PriceInfo(sku, unit_price_q, total_price_q, qty, listing)`
+- `PriceAdjustment(code, label, amount_q, metadata)`
+- `ContextualPrice(sku, qty, listing, list_unit_price_q, list_total_price_q, final_unit_price_q, final_total_price_q, adjustments, metadata)`
 - `SkuValidation(valid, sku, name, is_published, is_sellable, error_code, message)`
 - `BundleComponent(sku, name, qty)`
+- `ProjectedItem(sku, name, description, unit, price_q, is_published, is_sellable, category, image_url, keywords, metadata)`
+- `ProjectionResult(success, projected, errors, channel)`
 
 ## Sinais
 
@@ -220,13 +258,15 @@ Chave Django settings: `OFFERMAN`
 | `MAX_COLLECTION_DEPTH` | 10 | Profundidade máxima de coleções |
 | `BUNDLE_MAX_DEPTH` | 5 | Profundidade máxima de bundles |
 | `COST_BACKEND` | None | Dotted path para CostBackend |
+| `PRICING_BACKEND` | None | Dotted path para `PricingBackend` |
+| `PROJECTION_BACKENDS` | `{}` | Mapa `{listing_ref: dotted_path}` para `CatalogProjectionBackend` |
 
 ## Exemplos
 
 ### Criar produto com preço por canal
 
 ```python
-from shopman.offering.models import Product, Listing, ListingItem
+from shopman.offerman.models import Product, Listing, ListingItem
 from decimal import Decimal
 
 # Criar produto
@@ -241,7 +281,7 @@ croissant = Product.objects.create(
 
 # Criar listing para WhatsApp
 listing_wpp = Listing.objects.create(
-    code="whatsapp",
+    ref="whatsapp",
     name="Menu WhatsApp",
 )
 
@@ -256,7 +296,7 @@ ListingItem.objects.create(
 ### Consultar preço com fallback
 
 ```python
-from shopman.offering import CatalogService
+from shopman.offerman import CatalogService
 
 # Preço no canal (R$ 7,90)
 preco_wpp = CatalogService.price("CROISSANT", listing="whatsapp")
@@ -265,10 +305,35 @@ preco_wpp = CatalogService.price("CROISSANT", listing="whatsapp")
 preco_base = CatalogService.price("CROISSANT")
 ```
 
+### Cotação contextual
+
+```python
+from decimal import Decimal
+from shopman.offerman import CatalogService
+
+price = CatalogService.get_price(
+    "CROISSANT",
+    qty=Decimal("2"),
+    listing="whatsapp",
+    context={"customer_segment": "vip"},
+)
+
+assert price.list_total_price_q >= price.final_total_price_q
+```
+
+### Projetar catálogo por canal
+
+```python
+from shopman.offerman import CatalogService
+
+result = CatalogService.project_listing("ifood", full_sync=False)
+assert result.success is True
+```
+
 ### Bundle
 
 ```python
-from shopman.offering.models import Product, ProductComponent
+from shopman.offerman.models import Product, ProductComponent
 from decimal import Decimal
 
 kit = Product.objects.create(sku="KIT-CAFE", name="Kit Café da Manhã", base_price_q=2500)

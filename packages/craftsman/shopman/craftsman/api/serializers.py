@@ -117,12 +117,12 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             "finished",
             "status",
             "rev",
-            "scheduled_date",
+            "target_date",
             "started_at",
             "finished_at",
             "source_ref",
             "position_ref",
-            "assigned_ref",
+            "operator_ref",
             "meta",
             "loss",
             "yield_rate",
@@ -182,7 +182,7 @@ class WorkOrderListSerializer(serializers.ModelSerializer):
             "finished",
             "status",
             "rev",
-            "scheduled_date",
+            "target_date",
             "started_at",
             "finished_at",
             "loss",
@@ -263,7 +263,7 @@ class StartSerializer(serializers.Serializer):
     expected_rev = serializers.IntegerField(
         required=False, allow_null=True,
     )
-    assigned_ref = serializers.CharField(
+    operator_ref = serializers.CharField(
         required=False, allow_blank=True, default="",
     )
     position_ref = serializers.CharField(
@@ -314,7 +314,7 @@ class PlanSerializer(serializers.Serializer):
     position_ref = serializers.CharField(
         required=False, allow_blank=True, default="",
     )
-    assigned_ref = serializers.CharField(
+    operator_ref = serializers.CharField(
         required=False, allow_blank=True, default="",
     )
     actor = serializers.CharField(
@@ -345,3 +345,34 @@ class SuggestionSerializer(serializers.Serializer):
     output_ref = serializers.CharField(source="recipe.output_ref")
     quantity = serializers.DecimalField(max_digits=12, decimal_places=3)
     basis = serializers.DictField()
+
+
+class CraftQueueItemSerializer(serializers.Serializer):
+    """Serializer for craft.queue() projection items."""
+
+    ref = serializers.CharField()
+    recipe_code = serializers.CharField()
+    output_ref = serializers.CharField()
+    status = serializers.CharField()
+    target_date = serializers.DateField(allow_null=True)
+    position_ref = serializers.CharField(allow_blank=True)
+    operator_ref = serializers.CharField(allow_blank=True)
+    planned_qty = serializers.DecimalField(max_digits=12, decimal_places=3)
+    started_qty = serializers.DecimalField(max_digits=12, decimal_places=3, allow_null=True)
+    finished_qty = serializers.DecimalField(max_digits=12, decimal_places=3, allow_null=True)
+    loss_qty = serializers.DecimalField(max_digits=12, decimal_places=3, allow_null=True)
+    yield_rate = serializers.DecimalField(max_digits=12, decimal_places=4, allow_null=True)
+
+
+class CraftSummarySerializer(serializers.Serializer):
+    """Serializer for craft.summary() projection."""
+
+    total_orders = serializers.IntegerField()
+    planned_orders = serializers.IntegerField()
+    started_orders = serializers.IntegerField()
+    finished_orders = serializers.IntegerField()
+    void_orders = serializers.IntegerField()
+    planned_qty = serializers.DecimalField(max_digits=12, decimal_places=3)
+    started_qty = serializers.DecimalField(max_digits=12, decimal_places=3)
+    finished_qty = serializers.DecimalField(max_digits=12, decimal_places=3)
+    loss_qty = serializers.DecimalField(max_digits=12, decimal_places=3)

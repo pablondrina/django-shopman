@@ -93,7 +93,7 @@ class GetTypicalReadyTimesTests(TestCase):
                 quantity=Decimal("50"),
                 finished=Decimal("48"),
                 status="finished",
-                scheduled_date=d,
+                target_date=d,
                 started_at=datetime.combine(d, time(4, 0), tzinfo=tz_info),
                 finished_at=datetime.combine(d, time(6, 0), tzinfo=tz_info),
             )
@@ -122,7 +122,7 @@ class GetTypicalReadyTimesTests(TestCase):
             quantity=Decimal("50"),
             finished=Decimal("48"),
             status="finished",
-            scheduled_date=d,
+            target_date=d,
             started_at=datetime.combine(d, time(4, 0), tzinfo=tz_info),
             finished_at=datetime.combine(d, time(6, 30), tzinfo=tz_info),
         )
@@ -159,7 +159,7 @@ class GetEarliestSlotTests(TestCase):
             WorkOrder.objects.create(
                 recipe=self.bread_recipe, output_ref="BREAD",
                 quantity=Decimal("50"), finished=Decimal("48"), status="finished",
-                scheduled_date=d,
+                target_date=d,
                 started_at=datetime.combine(d, time(4, 0), tzinfo=tz_info),
                 finished_at=datetime.combine(d, time(5, 30), tzinfo=tz_info),
             )
@@ -173,7 +173,7 @@ class GetEarliestSlotTests(TestCase):
             WorkOrder.objects.create(
                 recipe=self.cake_recipe, output_ref="CAKE",
                 quantity=Decimal("10"), finished=Decimal("9"), status="finished",
-                scheduled_date=d,
+                target_date=d,
                 started_at=datetime.combine(d, time(8, 0), tzinfo=tz_info),
                 finished_at=datetime.combine(d, time(11, 30), tzinfo=tz_info),
             )
@@ -187,7 +187,7 @@ class GetEarliestSlotTests(TestCase):
             WorkOrder.objects.create(
                 recipe=self.brig_recipe, output_ref="BRIGADEIRO",
                 quantity=Decimal("100"), finished=Decimal("95"), status="finished",
-                scheduled_date=d,
+                target_date=d,
                 started_at=datetime.combine(d, time(10, 0), tzinfo=tz_info),
                 finished_at=datetime.combine(d, time(13, 30), tzinfo=tz_info),
             )

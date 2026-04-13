@@ -8,7 +8,12 @@ from django.test import TestCase
 
 from shopman.orderman.exceptions import CommitError, SessionError, ValidationError
 from shopman.orderman.models import Directive, Order, Session
-from shopman.orderman.services import CommitService, ModifyService, SessionWriteService
+from shopman.orderman.services import (
+    CommitService,
+    CustomerOrderHistoryService,
+    ModifyService,
+    SessionWriteService,
+)
 
 
 @pytest.mark.django_db
@@ -146,6 +151,43 @@ class TestCommitService(TestCase):
         session = Session.objects.get(session_key="S-2", channel_ref=self.channel.ref)
         assert session.state == "committed"
 
+    def test_commit_seals_commitment_evidence_in_snapshot(self):
+        Session.objects.create(
+            session_key="S-COMMIT-1",
+            channel_ref=self.channel.ref,
+            items=[{"sku": "A", "qty": 1, "unit_price_q": 500}],
+            data={
+                "checks": {
+                    "stock": {
+                        "rev": 0,
+                        "at": "2026-04-12T12:00:00+00:00",
+                        "result": {"approved": True, "holds": [{"hold_id": "H1"}]},
+                    },
+                    "other": {
+                        "rev": 0,
+                        "at": "2026-04-12T12:01:00+00:00",
+                        "result": {"ok": True},
+                    },
+                },
+                "issues": [],
+            },
+        )
+
+        result = CommitService.commit(
+            session_key="S-COMMIT-1",
+            channel_ref="pos",
+            idempotency_key="IDEM-COMMIT-1",
+            channel_config={"rules": {"checks": ["stock"]}},
+        )
+
+        order = Order.objects.get(ref=result["order_ref"])
+        commitment = order.snapshot["commitment"]
+        assert commitment["session_rev"] == 0
+        assert commitment["required_checks"] == ["stock"]
+        assert "stock" in commitment["checks"]
+        assert "other" not in commitment["checks"]
+        assert commitment["checks"]["stock"]["result"]["approved"] is True
+
     def test_commit_idempotency(self):
         Session.objects.create(
             session_key="S-3",
@@ -242,3 +284,37 @@ class TestSessionWriteService(TestCase):
             issues=[],
         )
         assert result is False
+
+
+@pytest.mark.django_db
+class TestCustomerOrderHistoryService(TestCase):
+    def test_reads_orders_via_customer_ref_contract(self):
+        Order.objects.create(
+            ref="ORD-HIST-001",
+            channel_ref="web",
+            session_key="sess-hist-1",
+            status=Order.Status.COMPLETED,
+            snapshot={"pricing": {"total_q": 2500}, "items": [{"sku": "SKU-1"}]},
+            data={"customer_ref": "CUST-HIST-001"},
+            total_q=2500,
+        )
+        Order.objects.create(
+            ref="ORD-HIST-002",
+            channel_ref="web",
+            session_key="sess-hist-2",
+            status=Order.Status.CANCELLED,
+            snapshot={"pricing": {"total_q": 900}, "items": [{"sku": "SKU-2"}]},
+            data={"customer_ref": "OTHER-CUST"},
+            total_q=900,
+        )
+
+        orders = CustomerOrderHistoryService.list_customer_orders(
+            "CUST-HIST-001",
+            limit=10,
+        )
+        stats = CustomerOrderHistoryService.get_customer_stats("CUST-HIST-001")
+
+        assert len(orders) == 1
+        assert orders[0].order_ref == "ORD-HIST-001"
+        assert stats.total_orders == 1
+        assert stats.total_spent_q == 2500
