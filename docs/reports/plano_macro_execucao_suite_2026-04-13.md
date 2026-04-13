@@ -271,6 +271,7 @@ Até essa decisão:
 
 - não espalhar `favorite_item` como nome
 - não jogar esses campos crus em context processor global
+- preservar os `TODO(customer_summary)` já anotados nos templates ativos até a wiring real do backend
 
 ## 7. Próxima revisão deste plano
 
