@@ -16,6 +16,33 @@ from shopman.stockman.models.quant import Quant
 from shopman.stockman.shelflife import filter_valid_quants
 
 
+def _resolve_stock_profile(sku_or_product):
+    """Resolve sku + stock profile from either a product-like object or the catalog contract."""
+    from shopman.stockman.adapters.offering import get_sku_validator
+
+    sku = sku_or_product if isinstance(sku_or_product, str) else sku_or_product.sku
+    shelflife = getattr(sku_or_product, "shelflife", None) if not isinstance(sku_or_product, str) else None
+    availability_policy = (
+        getattr(sku_or_product, "availability_policy", None)
+        if not isinstance(sku_or_product, str)
+        else None
+    )
+
+    if shelflife is None or availability_policy is None:
+        info = get_sku_validator().get_sku_info(sku)
+        if info is not None:
+            if shelflife is None:
+                shelflife = info.shelflife_days
+            if availability_policy is None:
+                availability_policy = info.availability_policy
+
+    return {
+        "sku": sku,
+        "shelflife": shelflife,
+        "availability_policy": availability_policy or "planned_ok",
+    }
+
+
 class StockQueries:
     """Read-only stock query methods."""
 
@@ -42,13 +69,18 @@ class StockQueries:
         target = target_date or date.today()
 
         # Support both sku string and product object
-        if isinstance(sku_or_product, str):
-            sku = sku_or_product
-        else:
-            # It's a product object
-            sku = sku_or_product.sku
-            if product is None:
-                product = sku_or_product
+        profile = _resolve_stock_profile(sku_or_product)
+        sku = profile["sku"]
+        if product is None:
+            product = sku_or_product if not isinstance(sku_or_product, str) else None
+        if product is None and profile["shelflife"] is not None:
+            from types import SimpleNamespace
+
+            product = SimpleNamespace(
+                sku=sku,
+                shelflife=profile["shelflife"],
+                availability_policy=profile["availability_policy"],
+            )
 
         quants = Quant.objects.filter(sku=sku)
 
@@ -78,6 +110,27 @@ class StockQueries:
         )['t']
 
         return total - held
+
+    @classmethod
+    def assess_availability(
+        cls,
+        sku: str,
+        quantity,
+        *,
+        target_date: date | None = None,
+        safety_margin: int = 0,
+        allowed_positions: list[str] | None = None,
+    ):
+        """Return Stockman's explicit promise assessment for a SKU."""
+        from shopman.stockman.services.availability import promise_decision_for_sku
+
+        return promise_decision_for_sku(
+            sku,
+            quantity,
+            target_date=target_date,
+            safety_margin=safety_margin,
+            allowed_positions=allowed_positions,
+        )
 
     @classmethod
     def demand(cls, sku_or_product, target_date: date) -> Decimal:

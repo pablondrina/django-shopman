@@ -13,11 +13,19 @@ from django.test import override_settings
 from django.utils import timezone
 
 from shopman.stockman import stock
+from shopman.stockman.adapters.offering import reset_sku_validator
 from shopman.stockman.services.availability import promise_decision_for_sku
 from shopman.stockman.models import Quant, Hold, Position
 
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture(autouse=True)
+def _reset_sku_validator_cache():
+    reset_sku_validator()
+    yield
+    reset_sku_validator()
 
 
 class TestBasicAvailability:
@@ -477,7 +485,7 @@ class TestPromiseDecision:
     """Explicit promise decisions expose operational approval and reason."""
 
     @override_settings(
-        STOCKMAN={"SKU_VALIDATOR": "shopman.offerman.adapters.sku_validator.SkuValidator"}
+        STOCKMAN={"SKU_VALIDATOR": "shopman.stockman.tests.fakes.OrderableSkuValidator"}
     )
     def test_promise_decision_approves_when_orderable(self, product, vitrine, today):
         Quant.objects.create(
@@ -492,9 +500,12 @@ class TestPromiseDecision:
         assert decision.approved is True
         assert decision.reason_code is None
         assert decision.available_qty == Decimal("10")
+        assert decision.available_now == Decimal("10")
+        assert decision.available_by_commitment == Decimal("10")
+        assert decision.available_by_plan == Decimal("0")
 
     @override_settings(
-        STOCKMAN={"SKU_VALIDATOR": "shopman.offerman.adapters.sku_validator.SkuValidator"}
+        STOCKMAN={"SKU_VALIDATOR": "shopman.stockman.tests.fakes.OrderableSkuValidator"}
     )
     def test_promise_decision_rejects_when_insufficient(self, product, vitrine, today):
         Quant.objects.create(
@@ -509,3 +520,40 @@ class TestPromiseDecision:
         assert decision.approved is False
         assert decision.reason_code == "insufficient_stock"
         assert decision.available_qty == Decimal("2")
+
+    @override_settings(
+        STOCKMAN={"SKU_VALIDATOR": "shopman.stockman.tests.fakes.PausedSkuValidator"}
+    )
+    def test_promise_decision_rejects_non_orderable_offer(self, vitrine, today):
+        sku = "ING-001"
+        Quant.objects.create(
+            sku=sku,
+            position=vitrine,
+            target_date=today,
+            _quantity=Decimal("10"),
+        )
+
+        decision = promise_decision_for_sku(sku, Decimal("1"), target_date=today)
+
+        assert decision.approved is False
+        assert decision.reason_code == "paused"
+        assert decision.available_qty == Decimal("0")
+
+    @override_settings(
+        STOCKMAN={"SKU_VALIDATOR": "shopman.stockman.tests.fakes.OrderableSkuValidator"}
+    )
+    def test_promise_decision_exposes_planned_supply(self, product, tomorrow):
+        Quant.objects.create(
+            sku=product.sku,
+            position=None,
+            target_date=tomorrow,
+            _quantity=Decimal("8"),
+        )
+
+        decision = stock.assess_availability(product.sku, Decimal("6"), target_date=tomorrow)
+
+        assert decision.approved is True
+        assert decision.available_now == Decimal("0")
+        assert decision.available_by_commitment == Decimal("0")
+        assert decision.available_by_plan == Decimal("8")
+        assert decision.available_qty == Decimal("8")

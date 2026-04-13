@@ -334,7 +334,7 @@ Ele já faz mais do que parece:
 
 - `WorkOrder` é simples e bom.
 - `CraftPlanning` tem visão de planejamento e ajuste com concorrência.
-- `CraftExecution.close()` materializa requirements, consumption, output e waste com uma riqueza rara para um pacote pequeno.
+- `CraftExecution.finish()` materializa requirements, consumption, output e waste com uma riqueza rara para um pacote pequeno.
 - integração com demanda e estoque já aponta para um micro-MRP real.
 
 Na prática, o pacote já é muito mais interessante do que a maioria dos módulos “produção” que aparecem em suites pequenas.

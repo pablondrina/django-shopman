@@ -19,25 +19,11 @@ from shopman.stockman.models.enums import HoldStatus
 from shopman.stockman.models.hold import Hold
 from shopman.stockman.models.move import Move
 from shopman.stockman.models.quant import Quant
+from shopman.stockman.services.queries import _resolve_stock_profile
 from shopman.stockman.shelflife import filter_valid_quants
 
 
 logger = logging.getLogger('shopman.stockman')
-
-# Defaults when product doesn't implement StockableProduct protocol
-PRODUCT_DEFAULTS = {
-    'shelflife': None,
-    'availability_policy': 'planned_ok',
-}
-
-
-def _get_product_attr(product, attr: str, default=None):
-    """Get product attribute with fallback to default."""
-    value = getattr(product, attr, None)
-    if value is not None:
-        return value
-    return PRODUCT_DEFAULTS.get(attr, default)
-
 
 def _parse_hold_id(hold_id: str) -> int:
     """Extract PK from hold_id."""
@@ -89,7 +75,7 @@ class StockHolds:
 
         Args:
             quantity: Amount to hold
-            product: Product object (must have .sku, optionally .availability_policy)
+            product: Product-like object or SKU string
             target_date: Desired date (None = today)
             expires_at: Expiration datetime (optional)
 
@@ -104,8 +90,9 @@ class StockHolds:
             raise StockError('INVALID_QUANTITY', requested=quantity)
 
         target = target_date or date.today()
-        policy = _get_product_attr(product, 'availability_policy', 'planned_ok')
-        sku = product.sku
+        profile = _resolve_stock_profile(product)
+        policy = profile["availability_policy"]
+        sku = profile["sku"]
 
         with transaction.atomic():
             quant = _find_quant_for_hold(sku, product, target, quantity)
@@ -136,7 +123,7 @@ class StockHolds:
 
             # Not enough availability — compute actual total for error reporting
             from shopman.stockman.services.queries import StockQueries
-            current_available = StockQueries.available(sku, target, product=product)
+            current_available = StockQueries.available(sku, target)
 
             if policy == 'demand_ok':
                 hold = Hold.objects.create(

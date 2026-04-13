@@ -219,6 +219,11 @@ class CraftExecution:
                         meta=w.get("meta", {}),
                     ))
 
+            waste_total = sum(
+                item.quantity for item in all_items if item.kind == WorkOrderItem.Kind.WASTE
+            )
+            yield_rate = (finished_decimal / started_qty) if started_qty else None
+
             WorkOrderItem.objects.bulk_create(all_items)
 
             order.finished = finished_decimal
@@ -237,6 +242,13 @@ class CraftExecution:
                     "finished_qty": str(finished_decimal),
                     "planned_qty": str(order.quantity),
                     "started_qty": str(started_qty),
+                    "loss_qty": str(waste_total),
+                    "yield_rate": str(yield_rate) if yield_rate is not None else None,
+                    "output_ref": order.output_ref,
+                    "scheduled_date": str(order.scheduled_date) if order.scheduled_date else None,
+                    "source_ref": order.source_ref,
+                    "position_ref": order.position_ref,
+                    "assigned_ref": order.assigned_ref,
                 },
                 actor=actor or "",
                 idempotency_key=idempotency_key,

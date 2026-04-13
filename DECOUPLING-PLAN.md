@@ -51,7 +51,7 @@ def get_product_base_price(sku) -> int:
 
 # Listing lookup
 def get_listing_item(sku, listing_ref) -> dict | None:
-    """Retorna {"price_q": int, "min_qty": int, "is_available": bool} ou None."""
+    """Retorna {"price_q": int, "min_qty": int, "is_sellable": bool} ou None."""
 
 def find_listing_tiers(sku, listing_ref) -> list[dict]:
     """Tiers de preço por quantidade. Retorna [{"min_qty": int, "price_q": int}] desc."""

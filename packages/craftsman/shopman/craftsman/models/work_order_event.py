@@ -11,6 +11,11 @@ Canonical payload schemas per kind:
     planned:
         quantity: str       — planned quantity
         recipe: str         — recipe code
+        output_ref: str     — produced SKU/ref
+        scheduled_date: str — planned date
+        source_ref: str     — upstream source/request
+        position_ref: str   — planned station/post
+        assigned_ref: str   — planned responsible actor
 
     adjusted:
         from: str           — previous quantity
@@ -28,6 +33,13 @@ Canonical payload schemas per kind:
         finished_qty: str   — actual output quantity
         planned_qty: str    — originally planned quantity
         started_qty: str    — quantity that entered production
+        loss_qty: str       — waste/loss quantity
+        yield_rate: str     — finished_qty / started_qty
+        output_ref: str     — produced SKU/ref
+        scheduled_date: str — production date
+        source_ref: str     — upstream source/request
+        position_ref: str   — station/post
+        assigned_ref: str   — responsible actor
 
     voided:
         reason: str         — cancellation reason

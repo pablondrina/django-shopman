@@ -6,7 +6,7 @@ This adapter implements the SkuValidator protocol with trivial defaults:
 - Product info returns minimal placeholder data
 
 Usage in settings.py:
-    STOCKING = {
+    STOCKMAN = {
         "SKU_VALIDATOR": "shopman.stockman.adapters.noop.NoopSkuValidator",
     }
 
@@ -47,6 +47,7 @@ class NoopSkuValidator:
             sku=sku,
             product_name=sku,
             is_published=True,
+            is_orderable=True,
         )
 
     def validate_skus(self, skus: list[str]) -> dict[str, SkuValidationResult]:
@@ -76,9 +77,12 @@ class NoopSkuValidator:
             name=sku,
             description=None,
             is_published=True,
+            is_orderable=True,
             unit="un",
             category=None,
             base_price_q=None,
+            availability_policy="planned_ok",
+            shelflife_days=None,
             metadata=None,
         )
 

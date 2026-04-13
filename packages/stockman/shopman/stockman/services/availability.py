@@ -25,11 +25,27 @@ def sku_exists(sku: str) -> bool:
     return result.valid
 
 
-def _product_is_orderable(sku: str) -> bool:
-    """Check if a SKU is published in the base catalog via the validator contract."""
+def _sku_is_orderable(sku: str) -> bool:
+    """Check if a SKU is commercially orderable via the offering contract."""
     validator = get_sku_validator()
     result = validator.validate_sku(sku)
-    return result.valid and result.is_published
+    return result.valid and result.is_orderable
+
+
+def _planned_supply_for_target(sku: str, target: date) -> Decimal:
+    """Quantity expected from future-dated quants up to the target date."""
+    today = date.today()
+    if target <= today:
+        return Decimal("0")
+    return (
+        Quant.objects.filter(
+            sku=sku,
+            target_date__gt=today,
+            target_date__lte=target,
+            _quantity__gt=0,
+        ).aggregate(total=Sum("_quantity"))["total"]
+        or Decimal("0")
+    )
 
 
 def availability_for_sku(
@@ -51,7 +67,7 @@ def availability_for_sku(
     total_available = ready - held - safety_margin (only saleable stock).
     is_planned = True if any quant has a future target_date.
 
-    If product is paused (is_available=False or is_published=False),
+    If the offering contract marks the SKU as not orderable,
     returns zeros for orderable/available — stock may exist but is not for sale.
 
     ``allowed_positions``: when not None, only quants at those position refs are
@@ -61,8 +77,8 @@ def availability_for_sku(
     from shopman.stockman.models import Batch
 
     zero = Decimal("0")
-    zero_breakdown = {"ready": zero, "in_production": zero, "d1": zero}
-    orderable = _product_is_orderable(sku)
+    zero_breakdown = {"ready": zero, "in_production": zero, "planned": zero, "d1": zero}
+    orderable = _sku_is_orderable(sku)
 
     # If product is paused, return zeros (stock exists but not for sale)
     if not orderable:
@@ -70,7 +86,11 @@ def availability_for_sku(
             "sku": sku,
             "total_available": zero,
             "total_orderable": zero,
+            "total_promisable": zero,
             "total_reserved": zero,
+            "available_now": zero,
+            "available_by_commitment": zero,
+            "available_by_plan": zero,
             "breakdown": zero_breakdown,
             "is_planned": False,
             "is_paused": True,
@@ -86,13 +106,8 @@ def availability_for_sku(
         .values_list("ref", flat=True)
     )
 
-    # Planned flag means this promise depends on future-dated stock up to target.
-    is_planned = Quant.objects.filter(
-        sku=sku,
-        target_date__gt=today,
-        target_date__lte=target,
-        _quantity__gt=0,
-    ).exists()
+    planned_supply = _planned_supply_for_target(sku, target)
+    is_planned = planned_supply > 0
 
     quants = (
         Quant.objects.filter(sku=sku)
@@ -108,9 +123,11 @@ def availability_for_sku(
 
     ready = Decimal("0")
     in_production = Decimal("0")
+    planned = Decimal("0")
     d1 = Decimal("0")
     held_ready = Decimal("0")
     held_production = Decimal("0")
+    held_planned = Decimal("0")
     held_d1 = Decimal("0")
     positions_data = []
 
@@ -122,7 +139,10 @@ def availability_for_sku(
         held = quant.held
 
         # Classify into breakdown buckets
-        if quant.batch == "D-1":
+        if quant.is_future:
+            planned += qty
+            held_planned += held
+        elif quant.batch == "D-1":
             d1 += qty
             held_d1 += held
         elif quant.position and quant.position.kind == "process":
@@ -142,25 +162,28 @@ def availability_for_sku(
                 "batch": quant.batch or None,
             })
 
-    total_held = held_ready + held_production + held_d1
-
-    # total_available = ready stock minus holds minus safety margin
-    total_available = max(ready - held_ready - safety_margin, Decimal("0"))
-
-    # total_orderable = everything that can be reserved (ready + production, net of holds)
-    total_orderable = max(
+    total_held = held_ready + held_production + held_planned + held_d1
+    available_now = max(ready - held_ready - safety_margin, Decimal("0"))
+    available_by_commitment = max(
         ready + in_production - held_ready - held_production - safety_margin,
         Decimal("0"),
     )
+    available_by_plan = max(planned - held_planned, Decimal("0"))
+    total_promisable = available_by_commitment + available_by_plan
 
     return {
         "sku": sku,
-        "total_available": total_available,
-        "total_orderable": total_orderable,
+        "total_available": available_now,
+        "total_orderable": total_promisable,
+        "total_promisable": total_promisable,
         "total_reserved": total_held,
+        "available_now": available_now,
+        "available_by_commitment": available_by_commitment,
+        "available_by_plan": available_by_plan,
         "breakdown": {
             "ready": ready - held_ready,
             "in_production": in_production - held_production,
+            "planned": planned - held_planned,
             "d1": d1 - held_d1,
         },
         "is_planned": is_planned,
@@ -185,7 +208,7 @@ def promise_decision_for_sku(
         safety_margin=safety_margin,
         allowed_positions=allowed_positions,
     )
-    available_qty = info["total_orderable"]
+    available_qty = info["total_promisable"]
     is_paused = info.get("is_paused", False)
     approved = (not is_paused) and qty_d <= available_qty
 
@@ -200,6 +223,9 @@ def promise_decision_for_sku(
         target_date=target_date,
         reason_code=reason_code,
         available_qty=available_qty,
+        available_now=info.get("available_now", Decimal("0")),
+        available_by_commitment=info.get("available_by_commitment", Decimal("0")),
+        available_by_plan=info.get("available_by_plan", Decimal("0")),
         is_planned=info.get("is_planned", False),
         is_paused=is_paused,
     )
@@ -225,18 +251,18 @@ def availability_for_skus(
         return {}
 
     zero = Decimal("0")
-    zero_breakdown = {"ready": zero, "in_production": zero, "d1": zero}
+    zero_breakdown = {"ready": zero, "in_production": zero, "planned": zero, "d1": zero}
 
     today = date.today()
     target = target_date or today
 
-    # ── Query 1: orderable SKUs (published + available) ──────────────────────
+    # ── Query 1: orderable SKUs from the offering contract ───────────────────
     validator = get_sku_validator()
     validations = validator.validate_skus(skus)
     orderable_skus: set[str] = {
         sku
         for sku, validation in validations.items()
-        if validation.valid and validation.is_published
+        if validation.valid and validation.is_orderable
     }
 
     # ── Query 2: expired batch refs grouped by SKU ────────────────────────────
@@ -299,7 +325,11 @@ def availability_for_skus(
                 "sku": sku,
                 "total_available": zero,
                 "total_orderable": zero,
+                "total_promisable": zero,
                 "total_reserved": zero,
+                "available_now": zero,
+                "available_by_commitment": zero,
+                "available_by_plan": zero,
                 "breakdown": dict(zero_breakdown),
                 "is_planned": False,
                 "is_paused": True,
@@ -312,9 +342,11 @@ def availability_for_skus(
 
         ready = Decimal("0")
         in_production = Decimal("0")
+        planned = Decimal("0")
         d1 = Decimal("0")
         held_ready = Decimal("0")
         held_production = Decimal("0")
+        held_planned = Decimal("0")
         held_d1 = Decimal("0")
         positions_data = []
 
@@ -326,7 +358,10 @@ def availability_for_skus(
             held = held_by_quant.get(quant.pk, zero)
 
             # Classify into breakdown buckets (same logic as availability_for_sku)
-            if quant.batch == "D-1":
+            if quant.is_future:
+                planned += qty
+                held_planned += held
+            elif quant.batch == "D-1":
                 d1 += qty
                 held_d1 += held
             elif quant.position and quant.position.kind == "process":
@@ -345,22 +380,28 @@ def availability_for_skus(
                     "batch": quant.batch or None,
                 })
 
-        total_held = held_ready + held_production + held_d1
-
-        total_available = max(ready - held_ready - safety_margin, zero)
-        total_orderable = max(
+        total_held = held_ready + held_production + held_planned + held_d1
+        available_now = max(ready - held_ready - safety_margin, zero)
+        available_by_commitment = max(
             ready + in_production - held_ready - held_production - safety_margin,
             zero,
         )
+        available_by_plan = max(planned - held_planned, zero)
+        total_promisable = available_by_commitment + available_by_plan
 
         result[sku] = {
             "sku": sku,
-            "total_available": total_available,
-            "total_orderable": total_orderable,
+            "total_available": available_now,
+            "total_orderable": total_promisable,
+            "total_promisable": total_promisable,
             "total_reserved": total_held,
+            "available_now": available_now,
+            "available_by_commitment": available_by_commitment,
+            "available_by_plan": available_by_plan,
             "breakdown": {
                 "ready": ready - held_ready,
                 "in_production": in_production - held_production,
+                "planned": planned - held_planned,
                 "d1": d1 - held_d1,
             },
             "is_planned": is_planned,

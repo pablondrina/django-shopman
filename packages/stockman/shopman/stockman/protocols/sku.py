@@ -21,6 +21,7 @@ class SkuValidationResult:
     message: str | None = None
     product_name: str | None = None
     is_published: bool = True
+    is_orderable: bool = True
     error_code: str | None = None  # "not_found", "unpublished", etc.
 
 
@@ -32,9 +33,12 @@ class SkuInfo:
     name: str
     description: str | None
     is_published: bool
+    is_orderable: bool
     unit: str  # "un", "kg", "lt", etc.
     category: str | None = None
     base_price_q: int | None = None  # In cents
+    availability_policy: str = "planned_ok"
+    shelflife_days: int | None = None
     metadata: dict | None = None
 
 
@@ -48,6 +52,9 @@ class PromiseDecision:
     target_date: date | None
     reason_code: str | None = None
     available_qty: Decimal = Decimal("0")
+    available_now: Decimal = Decimal("0")
+    available_by_commitment: Decimal = Decimal("0")
+    available_by_plan: Decimal = Decimal("0")
     is_planned: bool = False
     is_paused: bool = False
 

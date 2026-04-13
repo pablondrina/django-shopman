@@ -140,7 +140,15 @@ class CraftPlanning:
             work_order=wo,
             seq=0,
             kind=WorkOrderEvent.Kind.PLANNED,
-            payload={"quantity": str(quantity), "recipe": recipe.code},
+            payload={
+                "quantity": str(quantity),
+                "recipe": recipe.code,
+                "output_ref": recipe.output_ref,
+                "scheduled_date": str(date) if date else None,
+                "source_ref": wo.source_ref,
+                "position_ref": wo.position_ref,
+                "assigned_ref": wo.assigned_ref,
+            },
             actor=kwargs.get("actor", ""),
         )
 

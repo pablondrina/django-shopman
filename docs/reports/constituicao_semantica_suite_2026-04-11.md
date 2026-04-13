@@ -206,7 +206,7 @@ Para o core, evitar explosão de estados.
 Produto:
 
 - `published/unpublished`
-- `available/unavailable`
+- `sellable/unsellable`
 
 Listagem:
 
@@ -216,7 +216,7 @@ Listagem:
 Regras:
 
 - disponibilidade comercial nunca substitui disponibilidade operacional
-- `is_available` em `offerman` é elegibilidade comercial; a promessa final vem de `stockman`
+- `is_sellable` em `offerman` é elegibilidade comercial; a promessa final vem de `stockman`
 - preço base não é motor de promoção; promoções futuras devem ser projeções ou políticas explícitas
 
 ### Eventos desejáveis
@@ -411,31 +411,19 @@ O que precisa ser produzido, quando, em que quantidade, com qual destino operaci
 - `adjust_work`
 - `assign_work`
 - `start_work`
-- `report_output`
-- `close_work`
+- `finish_work`
 - `void_work`
 - `publish_output`
 
 ### Estados e sinais canônicos
 
-`WorkOrder.status` atual é funcional, mas excessivamente enxuto para toda a ambição futura.
+`WorkOrder.status` deve permanecer pequeno, mas semanticamente nítido.
 
-Hoje:
+Núcleo canônico estabilizado:
 
-- `open`
-- `done`
-- `void`
-
-Direção recomendada:
-
-- manter o core pequeno
-- usar eventos para granularidade
-- só promover novos status se forem invariantes relevantes
-
-Provável núcleo estável:
-
-- `open`
-- `closed`
+- `planned`
+- `started`
+- `finished`
 - `void`
 
 Com eventos:
@@ -443,8 +431,7 @@ Com eventos:
 - `planned`
 - `adjusted`
 - `started`
-- `output_reported`
-- `closed`
+- `finished`
 - `voided`
 
 ### Eventos desejáveis
@@ -982,7 +969,7 @@ O `framework` deve fazer a suite parecer fácil de ligar, não difícil de extra
 
 Regra:
 
-nenhum canal deve prometer apenas porque `Product.is_available=True`.
+nenhum canal deve prometer apenas porque `Product.is_sellable=True`.
 
 ## 6.2. Stockman -> Orderman
 
