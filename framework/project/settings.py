@@ -467,9 +467,34 @@ CRAFTSMAN = {
 STOCKMAN = {
     "SKU_VALIDATOR": os.environ.get(
         "STOCKMAN_SKU_VALIDATOR",
-        "shopman.offerman.adapters.sku_validator.SkuValidator",
+        "shopman.stockman.adapters.noop.NoopSkuValidator",
     ),
 }
+
+# Cooldown between repeated stock alerts for the same SKU (minutes).
+STOCKMAN_ALERT_COOLDOWN_MINUTES = int(
+    os.environ.get("STOCKMAN_ALERT_COOLDOWN_MINUTES", "60")
+)
+
+# ── Guestman ─────────────────────────────────────────────────────────
+
+# Available keys: DEFAULT_REGION, EVENT_CLEANUP_DAYS, ORDER_HISTORY_BACKEND
+# See packages/guestman/shopman/guestman/conf.py for defaults.
+GUESTMAN = {}
+
+# RFM thresholds. Empty dict uses built-in defaults from conf.py.
+# Keys: RFM_RECENCY_THRESHOLDS, RFM_FREQUENCY_THRESHOLDS, RFM_MONETARY_THRESHOLDS
+GUESTMAN_INSIGHTS = {}
+
+# Loyalty tier thresholds. Empty dict uses built-in defaults from conf.py.
+# Keys: TIER_THRESHOLDS
+GUESTMAN_LOYALTY = {}
+
+# ── Orderman ─────────────────────────────────────────────────────────
+
+# Available keys: DEFAULT_PERMISSION_CLASSES, ADMIN_PERMISSION_CLASSES
+# See packages/orderman/shopman/orderman/conf.py for defaults.
+ORDERMAN = {}
 
 # ── Shopman Instance Hooks (optional) ────────────────────────────────
 
@@ -501,6 +526,22 @@ SHOPMAN_FISCAL_ADAPTER = None
 SHOPMAN_FISCAL_BACKEND = None
 SHOPMAN_ACCOUNTING_BACKEND = None
 
+# List of dotted paths to FiscalBackend implementations.
+# Example: ["myinstance.adapters.fiscal_focus.FocusNFCeBackend"]
+SHOPMAN_FISCAL_BACKENDS: list[str] = []
+
+# SMS adapter for OTP delivery. None = fallback to notification_sms if available.
+SHOPMAN_SMS_ADAPTER = None
+
+# Operator email for backend notifications (order alerts, etc.).
+# Falls back to DEFAULT_FROM_EMAIL if None.
+SHOPMAN_OPERATOR_EMAIL = None
+
+# PIX payment expiry in seconds (default: 1 hour).
+SHOPMAN_PIX_EXPIRY_SECONDS = int(
+    os.environ.get("SHOPMAN_PIX_EXPIRY_SECONDS", "3600")
+)
+
 SHOPMAN_STRIPE = {
     "publishable_key": STRIPE_PUBLISHABLE_KEY,
     "secret_key": STRIPE_SECRET_KEY,
@@ -526,9 +567,12 @@ SHOPMAN_EFI_WEBHOOK = {
 # if this instance uses a different ref (e.g. "site", "loja").
 SHOPMAN_STOREFRONT_CHANNEL_REF = "web"
 
+# Ref of the Channel used for POS/counter orders.
+SHOPMAN_POS_CHANNEL_REF = os.environ.get("SHOPMAN_POS_CHANNEL_REF", "balcao")
+
 # ── Instance-specific modifiers ──────────────────────────────────────
 # Dotted paths to modifier classes registered at boot.
-# Example for Nelson: ["nelson.modifiers.D1DiscountModifier", "nelson.modifiers.HappyHourModifier"]
+# Example: ["instance.modifiers.D1DiscountModifier", "instance.modifiers.HappyHourModifier"]
 SHOPMAN_INSTANCE_MODIFIERS = _csv_env_list("SHOPMAN_INSTANCE_MODIFIERS")
 
 # ── Instance-specific settings (override via env or instance settings) ─

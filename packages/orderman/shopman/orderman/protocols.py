@@ -76,7 +76,7 @@ class FiscalBackend(Protocol):
     Ative em produção via SHOPMAN_FISCAL_BACKENDS no settings da instância.
 
     Implementações de referência:
-    - FocusNFCeBackend: NFC-e via Focus NFE API (instância Nelson)
+    - FocusNFCeBackend: NFC-e via Focus NFE API (implementação de instância)
     - MockFiscalBackend: Para testes unitários
 
     Ver também: framework/shopman/fiscal.py (FiscalPool + base class)

@@ -4,6 +4,7 @@ Tests for WP-R8 — Happy Hour Badge.
 Covers:
 - _is_happy_hour_active() returns active=True during happy hour window
 - _is_happy_hour_active() returns active=False outside window
+- _is_happy_hour_active() returns inactive when no modifier registered
 - MenuView passes happy_hour_info to context
 - Template shows banner when active, hides when inactive
 """
@@ -11,11 +12,21 @@ Covers:
 from __future__ import annotations
 
 from datetime import time
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 
 from shopman.models import Channel
+
+
+def _fake_modifiers_with_happy_hour():
+    """Return a modifier list that includes a happy hour modifier."""
+    return [SimpleNamespace(code="shop.happy_hour", order=65)]
+
+
+def _fake_modifiers_empty():
+    return []
 
 
 class IsHappyHourActiveTests(TestCase):
@@ -24,9 +35,10 @@ class IsHappyHourActiveTests(TestCase):
         from shopman.web.views._helpers import _is_happy_hour_active
 
         with override_settings(SHOPMAN_HAPPY_HOUR_START="16:00", SHOPMAN_HAPPY_HOUR_END="18:00"):
-            with patch("shopman.web.views._helpers.timezone") as mock_tz:
-                mock_tz.localtime.return_value.time.return_value = time(17, 0)
-                result = _is_happy_hour_active()
+            with patch("shopman.web.views._helpers.get_modifiers", _fake_modifiers_with_happy_hour):
+                with patch("shopman.web.views._helpers.timezone") as mock_tz:
+                    mock_tz.localtime.return_value.time.return_value = time(17, 0)
+                    result = _is_happy_hour_active()
 
         self.assertTrue(result["active"])
         self.assertEqual(result["end"], "18:00")
@@ -36,9 +48,10 @@ class IsHappyHourActiveTests(TestCase):
         from shopman.web.views._helpers import _is_happy_hour_active
 
         with override_settings(SHOPMAN_HAPPY_HOUR_START="16:00", SHOPMAN_HAPPY_HOUR_END="18:00"):
-            with patch("shopman.web.views._helpers.timezone") as mock_tz:
-                mock_tz.localtime.return_value.time.return_value = time(15, 59)
-                result = _is_happy_hour_active()
+            with patch("shopman.web.views._helpers.get_modifiers", _fake_modifiers_with_happy_hour):
+                with patch("shopman.web.views._helpers.timezone") as mock_tz:
+                    mock_tz.localtime.return_value.time.return_value = time(15, 59)
+                    result = _is_happy_hour_active()
 
         self.assertFalse(result["active"])
 
@@ -47,9 +60,10 @@ class IsHappyHourActiveTests(TestCase):
         from shopman.web.views._helpers import _is_happy_hour_active
 
         with override_settings(SHOPMAN_HAPPY_HOUR_START="16:00", SHOPMAN_HAPPY_HOUR_END="18:00"):
-            with patch("shopman.web.views._helpers.timezone") as mock_tz:
-                mock_tz.localtime.return_value.time.return_value = time(18, 0)
-                result = _is_happy_hour_active()
+            with patch("shopman.web.views._helpers.get_modifiers", _fake_modifiers_with_happy_hour):
+                with patch("shopman.web.views._helpers.timezone") as mock_tz:
+                    mock_tz.localtime.return_value.time.return_value = time(18, 0)
+                    result = _is_happy_hour_active()
 
         self.assertFalse(result["active"])
 
@@ -58,9 +72,10 @@ class IsHappyHourActiveTests(TestCase):
         from shopman.web.views._helpers import _is_happy_hour_active
 
         with override_settings(SHOPMAN_HAPPY_HOUR_START="16:00", SHOPMAN_HAPPY_HOUR_END="18:00"):
-            with patch("shopman.web.views._helpers.timezone") as mock_tz:
-                mock_tz.localtime.return_value.time.return_value = time(18, 0)
-                result = _is_happy_hour_active()
+            with patch("shopman.web.views._helpers.get_modifiers", _fake_modifiers_with_happy_hour):
+                with patch("shopman.web.views._helpers.timezone") as mock_tz:
+                    mock_tz.localtime.return_value.time.return_value = time(18, 0)
+                    result = _is_happy_hour_active()
 
         self.assertFalse(result["active"])
 
@@ -73,11 +88,25 @@ class IsHappyHourActiveTests(TestCase):
             SHOPMAN_HAPPY_HOUR_END="18:00",
             SHOPMAN_HAPPY_HOUR_DISCOUNT_PERCENT=15,
         ):
-            with patch("shopman.web.views._helpers.timezone") as mock_tz:
-                mock_tz.localtime.return_value.time.return_value = time(17, 0)
-                result = _is_happy_hour_active()
+            with patch("shopman.web.views._helpers.get_modifiers", _fake_modifiers_with_happy_hour):
+                with patch("shopman.web.views._helpers.timezone") as mock_tz:
+                    mock_tz.localtime.return_value.time.return_value = time(17, 0)
+                    result = _is_happy_hour_active()
 
         self.assertEqual(result["discount_percent"], 15)
+
+    def test_inactive_when_no_modifier_registered(self) -> None:
+        """Returns inactive when no happy hour modifier is in the registry."""
+        from shopman.web.views._helpers import _is_happy_hour_active
+
+        with override_settings(SHOPMAN_HAPPY_HOUR_START="16:00", SHOPMAN_HAPPY_HOUR_END="18:00"):
+            with patch("shopman.web.views._helpers.get_modifiers", _fake_modifiers_empty):
+                with patch("shopman.web.views._helpers.timezone") as mock_tz:
+                    mock_tz.localtime.return_value.time.return_value = time(17, 0)
+                    result = _is_happy_hour_active()
+
+        self.assertFalse(result["active"])
+        self.assertEqual(result["discount_percent"], 0)
 
 
 class MenuViewHappyHourContextTests(TestCase):

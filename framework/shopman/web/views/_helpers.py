@@ -787,12 +787,24 @@ def _allergen_info(product: Product) -> dict | None:
     }
 
 
+_HAPPY_HOUR_INACTIVE = {"active": False, "discount_percent": 0, "start": "", "end": ""}
+
+
 def _is_happy_hour_active() -> dict:
     """Return happy hour status and config for the storefront channel.
+
+    Only returns active=True if the instance has registered a modifier with
+    code ``shop.happy_hour``.  This ensures the badge is never shown unless
+    the instance actually applies the discount.
 
     Returns dict with keys: active (bool), discount_percent (int), end_hour (str).
     """
     from django.conf import settings
+    from shopman.orderman.registry import get_modifiers
+
+    # Guard: only show badge if the instance registered a happy hour modifier.
+    if not any(getattr(m, "code", None) == "shop.happy_hour" for m in get_modifiers()):
+        return _HAPPY_HOUR_INACTIVE
 
     try:
         raw_start = getattr(settings, "SHOPMAN_HAPPY_HOUR_START", "16:00")
@@ -813,7 +825,7 @@ def _is_happy_hour_active() -> dict:
         }
     except Exception as e:
         logger.warning("happy_hour_check_failed: %s", e, exc_info=True)
-        return {"active": False, "discount_percent": 0, "start": "16:00", "end": "18:00"}
+        return _HAPPY_HOUR_INACTIVE
 
 
 CARRIER_TRACKING_URLS: dict[str, str] = {
