@@ -1,89 +1,112 @@
-# ADR-004: String refs vs GenericForeignKey
+# ADR-004: String refs para identificadores cross-domain
 
-**Status:** Aceito (crafting); Em revisao (stocking)
-**Data:** 2025-01-20 (crafting), 2026-03-18 (revisao stocking)
-**Contexto:** Como referenciar produtos/materiais sem acoplar ao catalogo
+**Status:** Aceito
+**Data:** 2026-04-14 (consolidação)
+**Supera:** versões de 2025-01-20 (craftsman) e 2026-03-18 (stockman)
 
 ---
 
 ## Contexto
 
-Tanto crafting quanto stocking precisam referenciar "coisas" (produtos, insumos, materiais) sem depender do offering (catalogo). Duas abordagens foram usadas:
+Vários cores precisam referenciar "coisas" do domínio de catálogo (produtos,
+insumos, materiais) sem importar o offerman. Craftsman referencia o que entra
+e sai de uma receita. Stockman referencia o que está em estoque. Orderman
+referencia o que o cliente comprou.
 
-1. **crafting:** `output_ref` / `input_ref` / `item_ref` — CharField(100) com string livre
-2. **stocking:** `content_type` + `object_id` — GenericForeignKey do Django
+A pergunta é: **como nomear esses ponteiros sem criar dependência entre cores?**
+Uma FK direta para `offerman.Product` violaria ADR-001 (cores não se importam).
+`GenericForeignKey` resolve o acoplamento mas adiciona JOIN em `django_content_type`
+por query e cria inconsistência (API usa string, modelo usa par `(ct, id)`).
 
-O crafting usa `_ref` (nao `_sku`) deliberadamente: uma receita pode referenciar materias-primas que nao sao SKUs do catalogo (`FARINHA-T55`, `AGUA`, `FERMENTO-NATURAL`). O adapter faz o mapeamento quando necessario.
+## Decisão
 
-## Decisao
+### 1. Identificadores textuais são strings planas indexadas
 
-### crafting: string refs (correto, manter)
+Cada core guarda o identificador como `CharField` indexado. O nome do campo
+segue a taxonomia canônica (ver `docs/constitution.md` §3.1):
+
+- **`sku`** — identificador estável de produto vendável/estocável. Usado em
+  `offerman.Product.sku`, `stockman.Quant.sku`, `stockman.Hold.sku`,
+  `orderman.OrderItem.sku`.
+- **`ref`** — identificador textual de entidade do próprio core (ex.:
+  `Order.ref`, `Session.ref`, `Customer.ref`).
+- **`*_ref`** — ponteiro textual para entidade externa ao core, quando o alvo
+  **não é necessariamente** um SKU do catálogo (ver craftsman abaixo).
 
 ```python
+# packages/stockman/shopman/stockman/models/quant.py
+class Quant(models.Model):
+    sku = models.CharField(max_length=100, db_index=True)
+
+# packages/orderman/shopman/orderman/models.py
+class OrderItem(models.Model):
+    sku = models.CharField(max_length=100)
+```
+
+### 2. Craftsman usa `*_ref` porque o alvo é mais amplo que SKU
+
+Uma receita pode referenciar matérias-primas que não são produtos vendáveis:
+`FARINHA-T55`, `AGUA`, `FERMENTO-NATURAL`. Esses nunca estarão em
+`offerman.Product`. Por isso craftsman usa `input_ref` / `output_ref` /
+`item_ref`, não `sku`.
+
+```python
+# packages/craftsman/shopman/craftsman/models.py
 class Recipe(models.Model):
-    output_ref = CharField(max_length=100)  # "CROISSANT", "PAO-FRANCES"
+    output_ref = CharField(max_length=100)   # "CROISSANT", "PAO-FRANCES"
 
 class RecipeItem(models.Model):
-    input_ref = CharField(max_length=100)   # "FARINHA-T55", "MANTEIGA"
+    input_ref = CharField(max_length=100)    # "FARINHA-T55", "MANTEIGA"
 
 class WorkOrderItem(models.Model):
-    item_ref = CharField(max_length=100)    # insumo, produto ou perda
+    item_ref = CharField(max_length=100)     # insumo, produto ou perda
 ```
 
-A resolucao `output_ref -> SKU do offering` e feita pelo `CatalogProtocol.resolve()` em runtime, nao por FK.
+A resolução `output_ref → offerman.Product` é feita pelo framework via
+adapter (`PricingBackend` / catálogo), em runtime, não por FK.
 
-### stocking: GenericForeignKey (funciona, mas inconsistente)
+### 3. Validação é responsabilidade do framework
 
-```python
-class Quant(models.Model):
-    content_type = ForeignKey(ContentType)
-    object_id = PositiveIntegerField()
-    product = GenericForeignKey()
-```
+Sem FK o banco não impede typos (`FARIHNA-T55`). A validação acontece na
+borda onde o dado entra: services do framework e adapters validam SKU contra
+o catálogo antes de persistir. Testes de invariante garantem que o contrato
+`sku` é consistente entre cores.
 
-A API externa do stocking ja usa `sku` (string) nos serializers e views. O GFK e um detalhe interno que adiciona JOINs desnecessarios.
+## Consequências
 
-### Recomendacao para stocking: migrar para SKU string
+### Positivas
 
-```python
-# Futuro
-class Quant(models.Model):
-    sku = CharField(max_length=100, db_index=True)
-```
+- **Desacoplamento real:** stockman, orderman e craftsman não importam offerman.
+  Trocar o catálogo não toca nos outros cores.
+- **Sem JOINs parasitas:** query por `sku` é direta, sem `django_content_type`.
+- **Consistência cross-core:** o mesmo conceito (produto vendável) tem o mesmo
+  nome (`sku`) em todos os cores que o manipulam.
+- **Serializers diretos:** API externa já fala `sku` — não precisa traduzir
+  de/para `(content_type, object_id)`.
 
-A migracao deve ser feita quando houver janela, pois requer:
-1. Adicionar campo `sku` (nullable)
-2. Data migration: popular `sku` a partir do GFK
-3. Remover campos GFK
-4. Tornar `sku` NOT NULL
+### Negativas
 
-## Consequencias
+- **Sem integridade referencial no banco:** typos só são pegos em runtime.
+- **Resolução manual:** para obter nome/unidade de um `sku`, um service precisa
+  chamar o adapter de catálogo.
 
-### String refs (crafting)
+### Mitigações
 
-**Positivas:**
-- **Desacoplamento total:** crafting nao sabe o que e um Product. Pode referenciar qualquer coisa
-- **Sem JOINs:** Query direta por string, sem ContentType
-- **Portabilidade:** Se trocar offering por outro catalogo, zero impacto no crafting
-- **Consistente com a suite:** ordering usa `sku` (string) em OrderItem e SessionItem
+- Services do framework validam `sku` contra o catálogo na borda de entrada.
+- Testes cruzados (`framework/shopman/tests/test_invariants.py`) garantem que
+  os SKUs usados em fluxos reais existem no offerman.
+- Craftsman tem `CatalogProtocol.resolve()` para mapear `output_ref → Product`
+  quando o output **é** um vendável.
 
-**Negativas:**
-- **Sem integridade referencial:** `input_ref="FARIHNA-T55"` (typo) nao e detectado pelo banco
-- **Resolucao manual:** Precisa chamar `CatalogProtocol.resolve()` para obter nome, unidade etc.
+## Histórico
 
-### GenericForeignKey (stocking atual)
+- 2025-01-20: Decisão original — craftsman adota `*_ref` como string livre;
+  stockman ainda usa `GenericForeignKey`.
+- 2026-03-18: Revisão reconhece inconsistência — stockman precisa migrar.
+- 2026-04-14: Migração de stockman concluída. Todos os cores usam string
+  indexada (`sku` ou `*_ref`). Esta ADR consolida o estado final.
 
-**Positivas:**
-- **Integridade referencial:** O banco garante que o objeto existe
-- **Flexibilidade de tipo:** Pode apontar para Product, Component, ou qualquer model
+## Referências
 
-**Negativas:**
-- **Performance:** JOIN em `django_content_type` para cada query
-- **Inconsistencia:** API usa `sku` (string), models usam GFK. Conversao em todo serializer
-- **Acoplamento ao Django:** GenericForeignKey e especifico do Django ORM
-- **Complexidade:** `content_type_id` + `object_id` sao 2 campos para representar 1 conceito
-
-### Mitigacao
-
-- Validacao de SKU via `SkuValidator` protocol (stocking ja tem) compensa a falta de FK
-- Migracao GFK -> string e backwards-compatible: API externa nao muda (ja usa `sku`)
+- ADR-001: independência dos cores
+- `docs/constitution.md` §3.1: taxonomia de identificadores (uuid/ref/sku/handle)
