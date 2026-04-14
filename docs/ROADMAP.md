@@ -136,6 +136,20 @@ que estão fora do escopo atual mas não devem ser esquecidos.
 
 ---
 
+## Débitos Conhecidos
+
+Itens que aparecem como `pytest.mark.skip` na suíte e precisam voltar à tela do radar
+quando a área correspondente for retomada.
+
+| Item | Onde | Descrição | Prioridade |
+|------|------|-----------|------------|
+| Manychat webhook | `shopman/shop/tests/web/test_webhook.py` (10 skips) | Testes marcados como skip após a primeira rodada de reestruturação de canais. O endpoint atual não cobre o fluxo completo Manychat → session → confirmação. Retomar junto com a reimplementação do app de canal externo. | Alta |
+| Perishable shelflife wiring | `shopman/shop/tests/integration/test_production_stock.py::TestPerishableProducts` (4 skips) | `stockman.services.queries._resolve_stock_profile` lê `.shelflife` do produto, mas `offerman.Product` expõe `.shelf_life_days`. Além disso, o framework usa `NoopSkuValidator` por default, que não retorna `shelflife_days`. Correção exige registrar `OffermanSkuValidator` em settings **ou** alias de atributo em Offerman. Padaria real precisa disso (croissant same-day, bolo 3 dias). | Média |
+| Concorrência Postgres-only | vários `tests/.../test_*_concurrency.py` (9 skips) | `SELECT ... FOR UPDATE SKIP LOCKED` não é suportado no SQLite. Os testes rodam em CI com Postgres — reativar quando a pipeline de deploy for plugada. | Baixa (cobertura existe, só requer ambiente) |
+| Playwright E2E | `shopman/shop/tests/e2e/` (1 skip) | Suite E2E opcional, roda quando `playwright` está instalado. | Baixa |
+
+---
+
 ## Nice-to-Have (futuro distante)
 
 | Item | Descrição |
