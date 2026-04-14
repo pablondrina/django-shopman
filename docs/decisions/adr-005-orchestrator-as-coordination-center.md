@@ -1,4 +1,4 @@
-# ADR-008: Orquestrador centralizado e decisao consciente de design
+# ADR-005: Orquestrador centralizado e decisao consciente de design
 
 **Status:** Aceito
 **Data:** 2026-04-06

@@ -1,4 +1,4 @@
-# ADR-009: Semântica canônica do ciclo de vida de Order
+# ADR-006: Semântica canônica do ciclo de vida de Order
 
 **Status:** Aceito
 **Data:** 2026-04-14 (consolidação)
@@ -115,5 +115,5 @@ Canais podem **restringir** (nunca expandir) o mapa via `ChannelConfig`.
 
 - `packages/orderman/shopman/orderman/models/order.py` — enum e transições
 - `docs/constitution.md` §4.4 — estados canônicos da suite
-- ADR-008 — por que o framework decide *quando* transitar
+- ADR-005 — por que o framework decide *quando* transitar
 - `feedback_production_vs_sales` — WorkOrder vs KDS Prep

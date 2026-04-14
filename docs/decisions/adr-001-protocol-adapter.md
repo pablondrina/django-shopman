@@ -128,7 +128,7 @@ SHOPMAN_PAYMENT_BACKEND = "shopman.shop.adapters.payment_efi.EfiPixBackend"
 
 ### Negativas
 
-- **Framework conhece todos os cores.** Isso é intencional (ver ADR-008) — o
+- **Framework conhece todos os cores.** Isso é intencional (ver ADR-005) — o
   framework é o integrador. Mas significa que mudanças cross-domain tocam o
   framework, não podem ser feitas "só no core".
 - **Substituir um core requer mais trabalho.** Trocar stockman inteiro por
@@ -146,6 +146,6 @@ SHOPMAN_PAYMENT_BACKEND = "shopman.shop.adapters.payment_efi.EfiPixBackend"
 
 ## Referências
 
-- ADR-008: por que o framework é intencionalmente um ponto de coordenação
+- ADR-005: por que o framework é intencionalmente um ponto de coordenação
 - `docs/constitution.md` §3.4: definições canônicas de core/plugin/adapter/framework
 - `docs/reference/protocols.md`: inventário atualizado de Protocols e Adapters
