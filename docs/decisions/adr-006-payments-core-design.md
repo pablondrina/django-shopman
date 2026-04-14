@@ -37,7 +37,7 @@ Escolhemos model dedicado porque:
 
 ### 3. Protocols no Payments Core
 
-`PaymentBackend` protocol vive em `shopman.payments.protocols` porque é uma interface de domínio genérica. O core define os DTOs (`GatewayIntent`, `CaptureResult`, `RefundResult`, `PaymentStatus`) que backends devem usar.
+`PaymentBackend` protocol vive em `shopman.payman.protocols` porque é uma interface de domínio genérica. O core define os DTOs (`GatewayIntent`, `CaptureResult`, `RefundResult`, `PaymentStatus`) que backends devem usar.
 
 Os backends concretos vivem no orquestrador (`shopman/backends/payment_*.py`) porque dependem de settings e infraestrutura do App.
 

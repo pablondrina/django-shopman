@@ -8,12 +8,12 @@
 
 | Comando | App | Categoria | Descrição |
 |---------|-----|-----------|-----------|
-| [`release_expired_holds`](#release_expired_holds) | stocking | Manutenção | Libera holds expirados |
-| [`load_crafting_demo`](#load_crafting_demo) | crafting | Seed | Carrega dados demo de produção |
-| [`process_directives`](#process_directives) | ordering | Worker | Processa fila de directives |
-| [`cleanup_idempotency_keys`](#cleanup_idempotency_keys) | ordering | Manutenção | Remove chaves de idempotência antigas |
-| [`customers_cleanup`](#customers_cleanup) | customers | Manutenção | Remove eventos processados antigos |
-| [`auth_cleanup`](#auth_cleanup) | auth | Manutenção | Remove tokens/códigos expirados |
+| [`release_expired_holds`](#release_expired_holds) | stockman | Manutenção | Libera holds expirados |
+| [`load_crafting_demo`](#load_crafting_demo) | craftsman | Seed | Carrega dados demo de produção |
+| [`process_directives`](#process_directives) | orderman | Worker | Processa fila de directives |
+| [`cleanup_idempotency_keys`](#cleanup_idempotency_keys) | orderman | Manutenção | Remove chaves de idempotência antigas |
+| [`customers_cleanup`](#customers_cleanup) | guestman | Manutenção | Remove eventos processados antigos |
+| [`auth_cleanup`](#auth_cleanup) | doorman | Manutenção | Remove tokens/códigos expirados |
 | [`seed`](#seed) | shop | Seed | Popula banco com dados da Nelson Boulangerie |
 
 ---
@@ -22,8 +22,8 @@
 
 ### release_expired_holds
 
-**App:** `shopman.stocking`
-**Arquivo:** `packages/stockman/shopman/stocking/management/commands/release_expired_holds.py`
+**App:** `shopman.stockman`
+**Arquivo:** `packages/stockman/shopman/stockman/management/commands/release_expired_holds.py`
 
 Libera bloqueios de estoque que ultrapassaram o TTL configurado (`STOCKMAN.HOLD_TTL_MINUTES`).
 
@@ -45,8 +45,8 @@ python manage.py release_expired_holds
 
 ### load_crafting_demo
 
-**App:** `shopman.crafting`
-**Arquivo:** `packages/craftsman/shopman/crafting/management/commands/load_crafting_demo.py`
+**App:** `shopman.craftsman`
+**Arquivo:** `packages/craftsman/shopman/craftsman/management/commands/load_crafting_demo.py`
 
 Cria dados de demonstração para produção: 4 receitas de padaria (croissant, pão francês, baguette, brioche) com BOM de ingredientes e work orders distribuídas em 10 dias.
 
@@ -66,8 +66,8 @@ python manage.py load_crafting_demo --clear
 
 ### process_directives
 
-**App:** `shopman.ordering`
-**Arquivo:** `packages/orderman/shopman/ordering/management/commands/process_directives.py`
+**App:** `shopman.orderman`
+**Arquivo:** `packages/orderman/shopman/orderman/management/commands/process_directives.py`
 
 Processa directives enfileiradas usando os handlers registrados. Implementa row-level locking (`skip_locked`), retry com backoff exponencial, e reaping de directives "stuck".
 
@@ -100,8 +100,8 @@ python manage.py process_directives --watch --interval 5 --limit 100 --max-attem
 
 ### cleanup_idempotency_keys
 
-**App:** `shopman.ordering`
-**Arquivo:** `packages/orderman/shopman/ordering/management/commands/cleanup_idempotency_keys.py`
+**App:** `shopman.orderman`
+**Arquivo:** `packages/orderman/shopman/orderman/management/commands/cleanup_idempotency_keys.py`
 
 Remove IdempotencyKeys expiradas ou antigas. Limpa 3 categorias: keys com `expires_at` passado, keys antigas (done/failed), e opcionalmente keys "in_progress" órfãs (> 1h).
 
@@ -128,10 +128,10 @@ python manage.py cleanup_idempotency_keys --days 3 --include-in-progress
 
 ### customers_cleanup
 
-**App:** `shopman.customers` (app label: `customers`)
-**Arquivo:** `packages/guestman/shopman/customers/management/commands/customers_cleanup.py`
+**App:** `shopman.guestman` (app label: `guestman`)
+**Arquivo:** `packages/guestman/shopman/guestman/management/commands/customers_cleanup.py`
 
-Remove ProcessedEvent mais antigos que o threshold configurado (`CUSTOMERS.EVENT_CLEANUP_DAYS`, default 90 dias).
+Remove ProcessedEvent mais antigos que o threshold configurado (`GUESTMAN.EVENT_CLEANUP_DAYS`, default 90 dias).
 
 | Flag | Default | Descrição |
 |------|---------|-----------|
@@ -152,8 +152,8 @@ python manage.py customers_cleanup --days 30
 
 ### auth_cleanup
 
-**App:** `shopman.auth` (app label: `auth`)
-**Arquivo:** `packages/doorman/shopman/auth/management/commands/auth_cleanup.py`
+**App:** `shopman.doorman` (app label: `doorman`)
+**Arquivo:** `packages/doorman/shopman/doorman/management/commands/auth_cleanup.py`
 
 Limpa artefatos de autenticação expirados: AccessLinks, VerificationCodes e TrustedDevices.
 

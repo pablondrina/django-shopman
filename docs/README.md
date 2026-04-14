@@ -11,7 +11,7 @@
 | [`README.md`](../README.md) | Visão geral + entrada rápida (quickstart, caminhos de uso, ecossistema) |
 | [`docs/status.md`](status.md) | Estado factual — o que funciona, versões, contagem de testes real |
 | [`docs/architecture.md`](architecture.md) | Verdade arquitetural — camadas, Protocol/Adapter, dependências |
-| [`CORRECTIONS-PLAN.md`](../CORRECTIONS-PLAN.md) | Roadmap ativo de correções (gaps de segurança, robustez, UX) |
+| [`docs/ROADMAP.md`](ROADMAP.md) | Roadmap ativo de correções e próximos passos |
 | [`READINESS-PLAN.md`](../READINESS-PLAN.md) | Roadmap ativo de prontidão para produção (UX, features, infra) |
 | [`docs/plans/completed/`](plans/completed/) | Arquivo de planos de execução concluídos |
 
@@ -50,12 +50,12 @@ Cada guia segue a estrutura: Conceitos → Modelos → Serviços → Protocols �
 
 | Guia | App | Descrição |
 |------|-----|-----------|
-| [Offering](guides/offering.md) | `shopman.offerman` | Catálogo, preços, listings, bundles, coleções |
-| [Stocking](guides/stocking.md) | `shopman.stockman` | Estoque, holds, moves, posições, planejamento |
-| [Crafting](guides/crafting.md) | `shopman.craftsman` | Receitas, work orders, BOM, coeficiente francês |
-| [Ordering](guides/ordering.md) | `shopman.orderman` | Pedidos, sessões, canais, directives, fulfillment |
-| [Customers](guides/customers.md) | `shopman.guestman` | Clientes, contatos, grupos, loyalty, consent, RFM |
-| [Auth](guides/auth.md) | `shopman.doorman` | Auth OTP, device trust, bridge tokens, magic links |
+| [Offerman](guides/offerman.md) | `shopman.offerman` | Catálogo, preços, listings, bundles, coleções |
+| [Stockman](guides/stockman.md) | `shopman.stockman` | Estoque, holds, moves, posições, planejamento |
+| [Craftsman](guides/craftsman.md) | `shopman.craftsman` | Receitas, work orders, BOM, coeficiente francês |
+| [Orderman](guides/orderman.md) | `shopman.orderman` | Pedidos, sessões, canais, directives, fulfillment |
+| [Guestman](guides/guestman.md) | `shopman.guestman` | Clientes, contatos, grupos, loyalty, consent, RFM |
+| [Doorman](guides/doorman.md) | `shopman.doorman` | Auth OTP, device trust, bridge tokens, magic links |
 | [Payments](guides/payments.md) | `shopman.payman` | Pagamentos, PIX, Stripe, intents, lifecycle |
 | [Lifecycle](guides/lifecycle.md) | `framework/shopman` | Orquestrador: Lifecycle, Services, Adapters, Rules |
 | [Fechamento do dia](guides/day-closing.md) | `shopman` | Sobras, não vendidos, D-1 em `ontem`, às cegas vs vendas |

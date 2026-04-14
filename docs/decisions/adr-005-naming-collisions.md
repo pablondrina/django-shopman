@@ -1,4 +1,4 @@
-# ADR-005: Resolver naming collisions stock/stocking e customer/attending
+# ADR-005: Resolver naming collisions stock/stockman e customer/guestman
 
 ## Status
 Superseded (2026-03-23)
@@ -11,8 +11,8 @@ O orchestrator (framework/shopman) possuia modulos com nomes semanticamente prox
 
 | Orchestrator (antigo) | Orchestrator (novo) | Core app | Papel |
 |---|---|---|---|
-| `shopman.stock` | `shopman.inventory` | `shopman.stocking` | Reserva e commit de estoque via diretivas |
-| `shopman.customer` | `shopman.identification` | `shopman.customers` | Resolucao de clientes para pedidos |
+| `shopman.stock` | `shopman.inventory` | `shopman.stockman` | Reserva e commit de estoque via diretivas |
+| `shopman.customer` | `shopman.identification` | `shopman.guestman` | Resolução de clientes para pedidos |
 
 ## Decision
 

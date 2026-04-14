@@ -377,7 +377,7 @@ TAREFAS:
 2. Criar framework/shopman/services/alternatives.py:
 
    from decimal import Decimal
-   from shopman.offering.contrib.suggestions import find_alternatives as _find_candidates
+   from shopman.offerman.contrib.suggestions import find_alternatives as _find_candidates
 
    def find(sku: str, *, qty: Decimal = Decimal("1"), channel: str = None, limit: int = 4) -> list[dict]:
        """

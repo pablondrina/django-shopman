@@ -1,8 +1,8 @@
-# Customers — Clientes e Relacionamento
+# Guestman — Clientes e Relacionamento
 
 ## Visão Geral
 
-O app `shopman.customers` gerencia clientes, contatos, endereços, segmentação, loyalty, insights (RFM/LTV) e consentimento (LGPD). É o CRM do ecossistema shopman.
+O app `shopman.guestman` gerencia clientes, contatos, endereços, segmentação, loyalty, insights (RFM/LTV) e consentimento (LGPD). É o CRM do ecossistema shopman.
 
 ## Conceitos
 
@@ -128,25 +128,25 @@ Tabela de lookup para deduplicação multi-canal: phone, email, CPF, manychat_id
 ### customer (core)
 
 ```python
-from shopman.customers.services.customer import customer
+from shopman.guestman.services import customer as customer_service
 
 # Buscar
-cliente = customer.get("CLI-001")
-cliente = customer.get_by_phone("+5511999999999")
-cliente = customer.get_by_document("12345678901")
+cliente = customer_service.get("CLI-001")
+cliente = customer_service.get_by_phone("+5511999999999")
+cliente = customer_service.get_by_document("12345678901")
 
 # Validar (retorna info para Session)
-validacao = customer.validate("CLI-001")
+validacao = customer_service.validate("CLI-001")
 # CustomerValidation(valid=True, listing_ref="atacado", ...)
 
 # Buscar preço do grupo
-listing_ref = customer.get_listing_ref("CLI-001")
+listing_ref = customer_service.get_listing_ref("CLI-001")
 
 # Pesquisar
-resultados = customer.search("Maria", limit=10)
+resultados = customer_service.search("Maria", limit=10)
 
 # Criar
-novo = customer.create(
+novo = customer_service.create(
     ref="CLI-042",
     first_name="Maria",
     last_name="Silva",
@@ -155,13 +155,13 @@ novo = customer.create(
 )
 
 # Atualizar
-customer.update("CLI-042", phone="+5511888888888")
+customer_service.update("CLI-042", phone="+5511888888888")
 ```
 
 ### address
 
 ```python
-from shopman.customers.services.address import addresses, add_address, set_default_address
+from shopman.guestman.services.address import addresses, add_address, set_default_address
 
 # Listar endereços
 enderecos = addresses("CLI-042")
@@ -182,7 +182,7 @@ set_default_address("CLI-042", endereco.id)
 ### IdentifierService
 
 ```python
-from shopman.customers.contrib.identifiers.service import IdentifierService
+from shopman.guestman.contrib.identifiers.service import IdentifierService
 
 # Buscar por qualquer identificador
 cliente = IdentifierService.find_by_identifier("manychat", "MC-abc123")
@@ -199,7 +199,7 @@ cliente, criado = IdentifierService.find_or_create_customer(
 ### LoyaltyService
 
 ```python
-from shopman.customers.contrib.loyalty.service import LoyaltyService
+from shopman.guestman.contrib.loyalty.service import LoyaltyService
 
 # Inscrever
 conta = LoyaltyService.enroll("CLI-042")
@@ -219,7 +219,7 @@ if completou:
 ### InsightService
 
 ```python
-from shopman.customers.contrib.insights.service import InsightService
+from shopman.guestman.contrib.insights.service import InsightService
 
 # Recalcular métricas
 insight = InsightService.recalculate("CLI-042")
@@ -267,7 +267,7 @@ class OrderHistoryBackend(Protocol):
 ### Fluxo Manychat → Cliente
 
 ```python
-from shopman.customers.contrib.manychat.service import ManychatService
+from shopman.guestman.contrib.manychat.service import ManychatService
 
 # Webhook do Manychat com dados do subscriber
 cliente, criado = ManychatService.sync_subscriber({
@@ -285,7 +285,7 @@ cliente, criado = ManychatService.sync_subscriber({
 ### Merge de Clientes
 
 ```python
-from shopman.customers.contrib.merge.service import MergeService
+from shopman.guestman.contrib.merge.service import MergeService
 
 # Merge: source → target
 audit = MergeService.merge(

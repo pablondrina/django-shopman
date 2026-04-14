@@ -88,7 +88,7 @@ Endpoints de catálogo e tracking prontos. Account e histórico incompletos.
 | C5 | Queries N+1 no storefront (catalog, cart, tracking) | CONSOLIDATION-PLAN |
 | C6 | Testes de concorrência (stock, payment, work orders) | CONSOLIDATION-PLAN |
 | C7 | Payman: cobertura de testes insuficiente | CONSOLIDATION-PLAN |
-| B3 | Doorman depende de Guestman (viola standalone) | AUDIT-2026-04-10 |
+| ~~B3~~ | ~~Doorman depende de Guestman (viola standalone)~~ | **CONCLUÍDO** — `shopman-doorman` não depende de `shopman-guestman` por default: o resolver padrão é `NoopCustomerResolver` e o suporte a Guestman é opt-in via `DOORMAN["CUSTOMER_RESOLVER_CLASS"]` e extra opcional (`shopman-doorman[guestman]`). | ✅ |
 | R3-R8 | Storefront: empty states, erros, responsividade mobile | READINESS-PLAN |
 
 ---

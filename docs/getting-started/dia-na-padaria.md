@@ -8,10 +8,10 @@
 
 | Persona | Papel | Apps que usa |
 |---------|-------|-------------|
-| **Pierre** | Padeiro-chefe, responsavel pela producao | crafting, stocking |
-| **Etienne** | Gerente de estoque e compras | stocking |
-| **Nice** | Agente IA de atendimento (WhatsApp) | ordering, offering, attending |
-| **Operador** | Caixa do balcao / atendente | ordering (admin), POS |
+| **Pierre** | Padeiro-chefe, responsavel pela producao | craftsman, stockman |
+| **Etienne** | Gerente de estoque e compras | stockman |
+| **Nice** | Agente IA de atendimento (WhatsApp) | orderman, offerman, guestman |
+| **Operador** | Caixa do balcao / atendente | orderman (admin), POS |
 | **Anais** | Gestora financeira e estrategia | Todos (read) |
 
 ## Dados do seed
@@ -34,10 +34,10 @@ Pierre acessa http://localhost:8000/admin/. O dashboard mostra:
 
 Pierre quer saber o que produzir hoje. O sistema analisa vendas passadas e sugere quantidades.
 
-**Codigo:** `packages/craftsman/shopman/crafting/services/queries.py`
+**Codigo:** `packages/craftsman/shopman/craftsman/services/queries.py`
 
 ```python
-from shopman.crafting.services.queries import CraftQueries
+from shopman.craftsman.services.queries import CraftQueries
 
 suggestions = CraftQueries.suggest(date=date.today())
 ```
@@ -47,7 +47,7 @@ suggestions = CraftQueries.suggest(date=date.today())
 1. Busca todas as receitas ativas (`Recipe.objects.filter(is_active=True)`)
 2. Para cada receita, consulta o `DEMAND_BACKEND` (protocolo `DemandProtocol`):
    - `backend.history(output_ref, days=28, same_weekday=True)` — historico de vendas
-   - `backend.committed(output_ref, date)` — holds ativos no stocking
+   - `backend.committed(output_ref, date)` — holds ativos no stockman
 3. Calcula demanda media:
    - Se o produto esgotou cedo (tem `soldout_at`), extrapola a demanda real (caps em 2x)
 4. Aplica safety stock: `quantity = (avg_demand + committed) x (1 + SAFETY_STOCK_PERCENT)`
@@ -57,9 +57,9 @@ suggestions = CraftQueries.suggest(date=date.today())
 **Config via settings:**
 
 ```python
-# packages/craftsman/shopman/crafting/conf.py
-CRAFTING = {
-    "DEMAND_BACKEND": "shopman.crafting.contrib.demand.backend.OrderingDemandBackend",
+# packages/craftsman/shopman/craftsman/conf.py
+CRAFTSMAN = {
+    "DEMAND_BACKEND": "shopman.craftsman.contrib.demand.backend.OrderingDemandBackend",
     "SAFETY_STOCK_PERCENT": 0.10,  # 10% margem
     "HISTORICAL_DAYS": 28,
     "SAME_WEEKDAY_ONLY": True,
@@ -72,11 +72,11 @@ CRAFTING = {
 
 Com as sugestoes em maos, Pierre cria ordens de producao.
 
-**Codigo:** `packages/craftsman/shopman/crafting/services/scheduling.py`
+**Codigo:** `packages/craftsman/shopman/craftsman/services/scheduling.py`
 
 ```python
-from shopman.crafting.services.scheduling import CraftPlanning
-from shopman.crafting.models import Recipe
+from shopman.craftsman.services.scheduling import CraftPlanning
+from shopman.craftsman.models import Recipe
 
 recipe = Recipe.objects.get(code="croissant-v1")
 wo = CraftPlanning.plan(recipe, quantity=48, date=date.today())
@@ -103,7 +103,7 @@ wos = CraftPlanning.plan([
 # -> [WorkOrder, WorkOrder, WorkOrder]
 ```
 
-**Signal:** `production_changed` (em `shopman.crafting.signals`) — o stocking pode ouvir este signal para reservar ingredientes automaticamente.
+**Signal:** `production_changed` (em `shopman.craftsman.signals`) — o stockman pode ouvir este signal para reservar ingredientes automaticamente.
 
 ---
 
@@ -111,10 +111,10 @@ wos = CraftPlanning.plan([
 
 Etienne verifica os alertas de estoque baixo.
 
-**Codigo:** `packages/stockman/shopman/stocking/services/alerts.py`
+**Codigo:** `packages/stockman/shopman/stockman/services/alerts.py`
 
 ```python
-from shopman.stocking.services.alerts import check_alerts
+from shopman.stockman.services.alerts import check_alerts
 
 triggered = check_alerts()
 # -> [(StockAlert<PAIN-CHOCOLAT>, Decimal("15")),
@@ -143,11 +143,11 @@ triggered = check_alerts()
 
 Pierre fechou os croissants. 48 planejados, 46 sairam (2 de perda).
 
-**Codigo:** `packages/craftsman/shopman/crafting/services/execution.py`
+**Codigo:** `packages/craftsman/shopman/craftsman/services/execution.py`
 
 ```python
-from shopman.crafting.services.execution import CraftExecution
-from shopman.crafting.models import WorkOrder
+from shopman.craftsman.services.execution import CraftExecution
+from shopman.craftsman.models import WorkOrder
 
 wo = WorkOrder.objects.get(recipe__code="croissant-v1", status="planned")
 wo = CraftExecution.finish(wo, finished=46)
@@ -190,11 +190,11 @@ CraftExecution.finish(wo, finished=46, consumed=[
 
 Apos a producao, o estoque da vitrine e atualizado.
 
-**Codigo:** `packages/stockman/shopman/stocking/services/movements.py`
+**Codigo:** `packages/stockman/shopman/stockman/services/movements.py`
 
 ```python
-from shopman.stocking.services.movements import StockMovements
-from shopman.stocking.models import Position
+from shopman.stockman.services.movements import StockMovements
+from shopman.stockman.models import Position
 
 vitrine = Position.objects.get(ref="vitrine")
 
@@ -229,12 +229,12 @@ quant = StockMovements.receive(
 
 Maria Santos envia mensagem no WhatsApp: "Quero 3 croissants e 2 cafes".
 
-O agente Nice interage com a API do ordering. Primeiro, abre uma sessao:
+O agente Nice interage com a API do orderman. Primeiro, abre uma sessao:
 
-**Codigo:** `packages/orderman/shopman/ordering/services/modify.py`
+**Codigo:** `packages/orderman/shopman/orderman/services/modify.py`
 
 ```python
-from shopman.ordering.services.modify import ModifyService
+from shopman.orderman.services.modify import ModifyService
 
 # Nice cria uma sessao e adiciona itens
 session = ModifyService.modify_session(
@@ -271,10 +271,10 @@ session = ModifyService.modify_session(
 
 O operador ve a sessao no admin e confirma (via `SessionAdmin` action).
 
-**Codigo:** `packages/orderman/shopman/ordering/services/commit.py`
+**Codigo:** `packages/orderman/shopman/orderman/services/commit.py`
 
 ```python
-from shopman.ordering.services.commit import CommitService
+from shopman.orderman.services.commit import CommitService
 
 result = CommitService.commit(
     session_key="WA-a1b2c3d4",
@@ -312,7 +312,7 @@ result = CommitService.commit(
 3. **Pos-transacao:** marca idempotencia como `done`, cacheia resposta
 
 **O que o commit dispara (via Directives):**
-- `stock.hold` — reserva estoque no stocking
+- `stock.hold` — reserva estoque no stockman
 - `notification.send` — notifica cliente via WhatsApp (se configurado no canal)
 
 ---
@@ -352,7 +352,7 @@ O estoque da vitrine recebe +38 baguetes via `StockMovements.receive()`.
 
 O Cafe Parisiense faz um pedido de encomenda: 24 croissants + 18 pain au chocolat para amanha.
 
-O sistema de insights (attending) sabe que este cliente e **at_risk** (churn alto, muitos dias sem pedir). Um atendente atento pode notar isso no `CustomerAdmin` e oferecer atencao especial.
+O sistema de insights (guestman.contrib.insights) sabe que este cliente e **at_risk** (churn alto, muitos dias sem pedir). Um atendente atento pode notar isso no `CustomerAdmin` e oferecer atencao especial.
 
 ---
 
@@ -371,7 +371,7 @@ Anais revisa o dia no dashboard e dispara atualizacao dos insights RFM dos clien
 **Codigo:** `packages/guestman/shopman/customers/contrib/insights/service.py`
 
 ```python
-from shopman.customers.contrib.insights.service import InsightService
+from shopman.guestman.contrib.insights.service import InsightService
 
 # Recalcular para um cliente especifico
 insight = InsightService.recalculate(customer_ref="CLI-001")
@@ -419,7 +419,7 @@ count = InsightService.recalculate_all()
                                │ sku, price_q
                                ▼
 ┌──────────┐    suggest    ┌──────────┐    plan     ┌──────────┐
-│ DEMAND   │◄─────────────│ CRAFTING │────────────►│ WorkOrder│
+│ DEMAND   │◄─────────────│ CRAFTSMAN│────────────►│ WorkOrder│
 │ BACKEND  │  history()    │ Queries  │             │ OPEN     │
 └──────────┘               └──────────┘             └────┬─────┘
                                                          │ finish(finished=46)

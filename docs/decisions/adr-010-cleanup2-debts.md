@@ -231,15 +231,15 @@ backends/. Dificulta onboarding e aumenta o overhead cognitivo.
 
 | Diretório de package | Namespace Python real | Persona |
 |---|---|---|
-| `packages/stockman/` | `shopman.stocking` | Stockman |
+| `packages/stockman/` | `shopman.stockman` | Stockman |
 | `packages/orderman/` | `shopman.orderman` | Orderman |
-| `packages/offerman/` | `shopman.offering` | Offerman |
-| `packages/guestman/` | `shopman.customers` | Guestman |
-| `packages/craftsman/` | `shopman.crafting` | Craftsman |
-| `packages/payman/` | `shopman.payments` | Payman |
-| `packages/doorman/` | `shopman.auth` | Doorman |
+| `packages/offerman/` | `shopman.offerman` | Offerman |
+| `packages/guestman/` | `shopman.guestman` | Guestman |
+| `packages/craftsman/` | `shopman.craftsman` | Craftsman |
+| `packages/payman/` | `shopman.payman` | Payman |
+| `packages/doorman/` | `shopman.doorman` | Doorman |
 
-Grep mostra **401 ocorrências** de `from shopman.stocking/ordering/offering/customers`
+Grep mostra ocorrências de imports com namespaces antigos (pré-personas) no `framework/shopman/`
 só no `framework/shopman/`. Os nomes de persona são os definitivos desde ADR
 e memória `feedback_persona_names_only.md`.
 

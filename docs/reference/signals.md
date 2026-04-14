@@ -69,7 +69,7 @@ Emitido quando o preço de um `ListingItem` muda.
 | **Payload** | `instance` (ListingItem), `listing_ref` (str), `sku` (str), `old_price_q` (int), `new_price_q` (int) |
 | **Receivers** | Nenhum conectado |
 
-**Guia:** [offering.md](../guides/offering.md)
+**Guia:** [offerman.md](../guides/offerman.md)
 
 ---
 
@@ -99,7 +99,7 @@ Emitido quando o estado de produção muda (planejar, ajustar, iniciar, finaliza
 | `finished` | Realiza produção com `finished_qty` e move estoque para posição vendável (`StockPlanning.realize()`) |
 | `voided` | Zera Quant planejado |
 
-**Guia:** [crafting.md](../guides/crafting.md)
+**Guia:** [craftsman.md](../guides/craftsman.md)
 
 ---
 
@@ -121,7 +121,7 @@ Registrado por: `ShopmanConfig.ready()` via `setup.register_all()` → `_registe
 
 **Efeito:** Auto-commit de sessões que estavam aguardando produção. Quando todos os holds de uma sessão são materializados, executa `CommitService.commit()` automaticamente.
 
-**Guia:** [stocking.md](../guides/stocking.md), [flows.md](../guides/flows.md)
+**Guia:** [stockman.md](../guides/stockman.md), [flows.md](../guides/flows.md)
 
 ---
 
@@ -151,7 +151,7 @@ Emitido quando um `Order` é criado ou muda de status.
   - Se `confirmation_mode == "optimistic"` → cria directive `confirmation.timeout`
 - `"status_changed"` → `dispatch(order, f"on_{status}")` → Flow method correspondente
 
-**Guia:** [ordering.md](../guides/ordering.md), [flows.md](../guides/flows.md)
+**Guia:** [orderman.md](../guides/orderman.md), [flows.md](../guides/flows.md)
 
 ---
 
@@ -179,7 +179,7 @@ Emitido por `CustomerService.update()` após atualização de cliente.
 | **Payload** | `instance` (Customer), `changes` (dict) |
 | **Receivers** | Nenhum conectado |
 
-**Guia:** [customers.md](../guides/customers.md)
+**Guia:** [guestman.md](../guides/guestman.md)
 
 ---
 
@@ -244,7 +244,7 @@ Emitido após criação de dispositivo confiável via `DeviceTrustService.trust_
 | **Payload** | `device` (TrustedDevice), `customer_id` (UUID), `request` (HttpRequest) |
 | **Receivers** | Nenhum conectado |
 
-**Guia:** [auth.md](../guides/auth.md)
+**Guia:** [doorman.md](../guides/doorman.md)
 
 ---
 

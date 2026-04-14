@@ -24,7 +24,7 @@
 | `BUNDLE_MAX_DEPTH` | int | `5` | Profundidade máxima de bundles (prevenção de ciclos) |
 | `COST_BACKEND` | str \| None | `None` | Dotted path do backend de custo. Carregado como singleton thread-safe |
 
-**Guia:** [offering.md](../guides/offering.md)
+**Guia:** [offerman.md](../guides/offerman.md)
 
 ---
 
@@ -40,7 +40,7 @@
 | `EXPIRED_BATCH_SIZE` | int | `200` | Tamanho do batch para `release_expired` |
 | `VALIDATE_INPUT_SKUS` | bool | `True` | Valida SKUs via backend externo antes de operações |
 
-**Guia:** [stocking.md](../guides/stocking.md)
+**Guia:** [stockman.md](../guides/stockman.md)
 
 ### Stockman — Alertas
 
@@ -67,7 +67,7 @@
 | `HISTORICAL_DAYS` | int | `28` | Janela de dados históricos em dias |
 | `SAME_WEEKDAY_ONLY` | bool | `True` | Comparar apenas mesmo dia da semana no histórico |
 
-**Guia:** [crafting.md](../guides/crafting.md)
+**Guia:** [craftsman.md](../guides/craftsman.md)
 
 ---
 
@@ -81,7 +81,7 @@
 | `DEFAULT_PERMISSION_CLASSES` | list | `["rest_framework.permissions.IsAuthenticated"]` | Permissões padrão das APIs REST |
 | `ADMIN_PERMISSION_CLASSES` | list | `["rest_framework.permissions.IsAdminUser"]` | Permissões das APIs administrativas |
 
-**Guia:** [ordering.md](../guides/ordering.md)
+**Guia:** [orderman.md](../guides/orderman.md)
 
 ---
 
@@ -96,7 +96,7 @@
 | `EVENT_CLEANUP_DAYS` | int | `90` | Dias para manter ProcessedEvent antes de cleanup |
 | `ORDER_HISTORY_BACKEND` | str | `""` | Dotted path do backend de histórico de pedidos |
 
-**Guia:** [customers.md](../guides/customers.md)
+**Guia:** [guestman.md](../guides/guestman.md)
 
 ### Guestman — Insights (RFM)
 
@@ -223,7 +223,7 @@ DOORMAN = {
 }
 ```
 
-**Guia:** [auth.md](../guides/auth.md)
+**Guia:** [doorman.md](../guides/doorman.md)
 
 ---
 

@@ -47,7 +47,7 @@ class GestorPedidosView(View):
             return redirect(f"/admin/login/?next=/pedidos/")
 
         orders = Order.objects.filter(
-            status__in=["new", "confirmed", "processing", "ready"]
+            status__in=["new", "confirmed", "preparing", "ready"]
         ).select_related("channel").order_by("created_at")
 
         # Enrich cada order com: timer_seconds, channel_badge, items_summary,
@@ -62,15 +62,15 @@ class GestorPedidosView(View):
 
 **Helper `_enrich_order(order)`**: Retorna dict com:
 - `ref`, `status`, `status_label`, `channel_ref`, `channel_badge` (emoji por canal)
-- `customer_name` (de `order.handle_ref` ou `order.data.get("customer_name")`)
+- `customer_name` (de `order.handle_ref` ou `order.data.get("customer", {}).get("name")`)
 - `created_at`, `elapsed_seconds` (seconds since created)
 - `timer_class` (verde/amarelo/vermelho baseado nos 5 min de confirmation)
 - `items_summary` (primeiros 3 items como "2x Pão Francês, 1x Croissant...")
 - `items_count` (total de items)
 - `total_display` (R$ formatado)
-- `fulfillment_type` (retirada/delivery, de `order.data.get("delivery_method")`)
+- `fulfillment_type` (retirada/delivery, de `order.data.get("fulfillment_type")`)
 - `can_confirm` (status == "new")
-- `can_advance` (status in confirmed/processing/ready)
+- `can_advance` (status in confirmed/preparing/ready)
 - `next_status` e `next_action_label` (contextual)
 
 **Helper `_status_counts(orders)`**: Dict com counts por status para as pills.
@@ -101,12 +101,12 @@ class PedidoRejectView(View):
         Directive.objects.create(topic=NOTIFICATION_SEND, payload={...})
 
 class PedidoAdvanceView(View):
-    """POST /pedidos/<ref>/advance/ — avança status (confirmed→processing, processing→ready, etc)."""
+    """POST /pedidos/<ref>/advance/ — avança status (confirmed→preparing, preparing→ready, etc)."""
     def post(self, request, ref):
         order = get_object_or_404(Order, ref=ref)
         NEXT = {
-            "confirmed": "processing",
-            "processing": "ready",
+            "confirmed": "preparing",
+            "preparing": "ready",
             "ready": "completed",  # ou dispatched se delivery
         }
         next_status = NEXT.get(order.status)
@@ -211,7 +211,7 @@ result = backend.check_availability(sku=item.sku, quantity=item.qty)
 
 **WorkOrder check** (se indisponível mas em produção):
 ```python
-from shopman.crafting.models import WorkOrder
+from shopman.craftsman.models import WorkOrder
 wo = WorkOrder.objects.filter(output_ref=item.sku, status__in=["planned", "started"]).first()
 # Se existe → badge "Em produção"
 ```
@@ -273,7 +273,7 @@ class TestGestorAccess(TestCase):
 
 class TestGestorList(TestCase):
     def test_shows_new_orders(self): # orders com status=new aparecem
-    def test_filters_by_status(self): # ?filter=processing filtra
+    def test_filters_by_status(self): # ?filter=preparing filtra
     def test_multichannel_badges(self): # web/whatsapp/pos badges corretos
     def test_timer_display(self): # elapsed seconds renderizado
 

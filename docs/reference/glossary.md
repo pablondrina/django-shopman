@@ -30,11 +30,11 @@ Termos de domínio usados no código e na documentação.
 | Termo | Definição |
 |-------|-----------|
 | **Session** | Carrinho de compras em construção. Transiente — vive enquanto o cliente edita. Passa por modifiers e validators antes de commitar em Order. |
-| **Order** | Pedido selado e imutável. Status: `new` → `confirmed` → `processing` → `ready` → `dispatched` → `delivered` → `completed` (ou `cancelled`/`returned`). |
+| **Order** | Pedido selado e imutável. Status: `new` → `confirmed` → `preparing` → `ready` → `dispatched` → `delivered` → `completed` (ou `cancelled`/`returned`). |
 | **OrderItem** | Linha do pedido com `qty`, `unit_price_q` (centavos), snapshot do SessionItem. |
 | **OrderEvent** | Log de auditoria de mudanças de status (who, when, from/to status, reason, metadata). |
 | **Channel** | Canal de venda de onde o pedido origina (PDV, e-commerce, iFood, WhatsApp). Tem `ref`, `pricing_policy`, `edit_policy`, `config` dict. |
-| **Fulfillment** | Registro de envio/entrega de um pedido. Status: `PENDING` → `IN_PROGRESS` → `DISPATCHED` → `DELIVERED` (ou `CANCELLED`). Tem `tracking_code`, `carrier`. |
+| **Fulfillment** | Registro de envio/entrega de um pedido. Status: `PENDING` → `IN_PROGRESS` → `SHIPPED` → `DELIVERED` (ou `CANCELLED`). Tem `tracking_code`, `carrier`. |
 | **Directive** | Tarefa assíncrona at-least-once. Tem `topic`, `payload`, `attempts`, status: `queued` → `running` → `done`/`failed`. Substitui Celery. |
 
 ## Craftsman (Produção)
@@ -45,7 +45,7 @@ Termos de domínio usados no código e na documentação.
 | **RecipeItem** | Ingrediente na receita. Usa coeficiente francês para escalar quantidades proporcionalmente ao batch. |
 | **WorkOrder** | Ordem de produção. Liga uma receita às quantidades `planned`, `started` e `finished`, com status canônico `planned` → `started` → `finished` (ou `void`). |
 
-## Customers (Clientes)
+## Guestman (Clientes)
 
 | Termo | Definição |
 |-------|-----------|
@@ -54,7 +54,7 @@ Termos de domínio usados no código e na documentação.
 | **ContactPoint** | Ponto de contato do cliente (WhatsApp, email, etc.). `type` + `value_normalized`. |
 | **CustomerAddress** | Endereço de entrega com label, componentes estruturados, flag `is_default`. |
 
-## Auth (Autenticação)
+## Doorman (Autenticação)
 
 | Termo | Definição |
 |-------|-----------|
@@ -63,7 +63,7 @@ Termos de domínio usados no código e na documentação.
 | **TrustedDevice** | Registro de confiança de dispositivo (fingerprint, IP, user agent, `last_used`, `expires_at`). |
 | **CustomerUser** | Mapeia Django User ↔ Customer (1:1). Desacopla autenticação de gestão de clientes. |
 
-## Payments (Pagamentos)
+## Payman (Pagamentos)
 
 | Termo | Definição |
 |-------|-----------|

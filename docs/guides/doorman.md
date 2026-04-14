@@ -1,8 +1,8 @@
-# Auth — Autenticação Passwordless
+# Doorman — Autenticação Passwordless
 
 ## Visão Geral
 
-O app `shopman.auth` implementa autenticação passwordless com três fluxos de login (OTP, Access Link, Email Access Link), confiança de dispositivo e rate limiting. Não depende de senhas — a identidade é verificada via código enviado por WhatsApp/SMS/Email.
+O app `shopman.doorman` implementa autenticação passwordless com três fluxos de login (OTP, Access Link, Email Access Link), confiança de dispositivo e rate limiting. Não depende de senhas — a identidade é verificada via código enviado por WhatsApp/SMS/Email.
 
 ## Conceitos
 
@@ -19,7 +19,7 @@ Link de login por email com Access Link embutido. TTL de 15 minutos.
 Cookie seguro que permite pular OTP em logins futuros. TTL de 30 dias.
 
 ### CustomerUser
-Mapeamento Django User ↔ Customer (Customers). Desacopla autenticação de gestão de clientes.
+Mapeamento Django User ↔ Customer (Guestman). Desacopla autenticação de gestão de clientes.
 
 ### Gates (Validações)
 Regras de segurança com códigos:
@@ -80,7 +80,7 @@ Regras de segurança com códigos:
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
 | `user` | OneToOne(User) | Django User |
-| `customer_id` | UUIDField(unique) | UUID do cliente no Customers |
+| `customer_id` | UUIDField(unique) | UUID do cliente no Guestman |
 | `metadata` | JSONField | Info de dispositivo, login |
 
 ## Serviços
@@ -88,7 +88,7 @@ Regras de segurança com códigos:
 ### AuthService (OTP)
 
 ```python
-from shopman.auth.services.verification import AuthService
+from shopman.doorman.services.verification import AuthService
 
 # Solicitar código
 result = AuthService.request_code(
@@ -123,7 +123,7 @@ Pipeline do `verify_for_login`:
 ### AccessLinkService
 
 ```python
-from shopman.auth.services.access_link import AccessLinkService
+from shopman.doorman.services.access_link import AccessLinkService
 
 # Criar token (ex: chamado pelo Manychat)
 result = AccessLinkService.create_token(
@@ -152,7 +152,7 @@ Pipeline do `exchange`:
 ### AccessLinkService (email)
 
 ```python
-from shopman.auth.services.access_link import AccessLinkService
+from shopman.doorman.services.access_link import AccessLinkService
 
 result = AccessLinkService.send_access_link(
     email="maria@email.com",
@@ -164,7 +164,7 @@ result = AccessLinkService.send_access_link(
 ### DeviceTrustService
 
 ```python
-from shopman.auth.services.device_trust import DeviceTrustService
+from shopman.doorman.services.device_trust import DeviceTrustService
 
 # Verificar confiança
 confia = DeviceTrustService.check_device_trust(request, customer_id=uuid)
@@ -182,7 +182,7 @@ DeviceTrustService.revoke_all(customer_id=uuid)
 
 ### CustomerResolver
 
-Interface para resolver clientes (desacopla do Customers).
+Interface para resolver clientes (desacopla do Guestman).
 
 ```python
 class CustomerResolver(Protocol):
@@ -205,7 +205,7 @@ class MessageSenderProtocol(Protocol):
 
 ## Configuração
 
-Chave Django settings: `AUTH`
+Chave Django settings: `DOORMAN`
 
 | Setting | Default | Descrição |
 |---------|---------|-----------|
@@ -216,7 +216,7 @@ Chave Django settings: `AUTH`
 | `ACCESS_CODE_RATE_LIMIT_WINDOW_MINUTES` | 15 | Janela de rate limit |
 | `ACCESS_CODE_COOLDOWN_SECONDS` | 60 | Cooldown entre códigos |
 | `MESSAGE_SENDER_CLASS` | ConsoleSender | Classe de envio |
-| `CUSTOMER_RESOLVER_CLASS` | AttendingCustomerResolver | Resolver de clientes |
+| `CUSTOMER_RESOLVER_CLASS` | `shopman.doorman.resolvers.NoopCustomerResolver` | Resolver de clientes (configure um real; com Guestman use `shopman.guestman.adapters.auth.CustomerResolver`) |
 | `DEVICE_TRUST_ENABLED` | True | Habilitar confiança de dispositivo |
 | `DEVICE_TRUST_TTL_DAYS` | 30 | TTL do cookie |
 | `ACCESS_LINK_ENABLED` | True | Habilitar Access Link por email |
@@ -232,7 +232,7 @@ Chave Django settings: `AUTH`
 | Cookie seguro | HttpOnly, Secure (prod), SameSite=Lax |
 | Rate limiting | G9 (target), G10 (IP), G11 (cooldown), G12 (access link) |
 | Reuso de token | G7 permite 60s para browser prefetch |
-| Desacoplamento | CustomerResolver desacopla do Customers |
+| Desacoplamento | CustomerResolver desacopla do Guestman |
 | Preservação de sessão | Session keys preservadas no login (carrinho) |
 
 ## Exemplos
@@ -240,8 +240,8 @@ Chave Django settings: `AUTH`
 ### Fluxo OTP completo
 
 ```python
-from shopman.auth.services.verification import AuthService
-from shopman.auth.services.device_trust import DeviceTrustService
+from shopman.doorman.services.verification import AuthService
+from shopman.doorman.services.device_trust import DeviceTrustService
 
 # 1. Solicitar código
 result = AuthService.request_code(
@@ -262,7 +262,7 @@ if verify.success:
 ### Fluxo Manychat → Web
 
 ```python
-from shopman.auth.services.access_link import AccessLinkService
+from shopman.doorman.services.access_link import AccessLinkService
 
 # No Manychat (bot cria link para checkout)
 token_result = AccessLinkService.create_token(

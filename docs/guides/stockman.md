@@ -1,13 +1,13 @@
-# Stocking — Estoque e Reservas
+# Stockman — Estoque e Reservas
 
 ## Visão Geral
 
-O app `shopman.stocking` é um ledger imutável de estoque com coordenadas espaço-tempo, sistema de holds (reservas) e planejamento de produção. A interface pública unificada é a classe `Stock`.
+O app `shopman.stockman` é um ledger imutável de estoque com coordenadas espaço-tempo, sistema de holds (reservas) e planejamento de produção. A interface pública unificada é a classe `StockService` (exposta como `stock`).
 
 **Conceito central:** Estoque existe numa coordenada `(position, target_date, batch)`. `target_date=None` significa estoque físico (agora); datas futuras representam produção planejada.
 
 ```python
-from shopman.stocking import stock, StockError
+from shopman.stockman import stock, StockError
 ```
 
 ## Conceitos
@@ -32,7 +32,7 @@ Dois modos:
 - **Demanda** (`quant == None`) — estoque não existe, pré-encomenda aceita
 
 ### Política de Disponibilidade
-Definida no Product (Offering), respeitada pelo Stocking:
+Definida no Product (`shopman.offerman`), respeitada pelo Stockman:
 - `stock_only` — só estoque físico
 - `planned_ok` — aceita produção planejada
 - `demand_ok` — aceita holds sem estoque (demanda)
@@ -131,12 +131,12 @@ Definida no Product (Offering), respeitada pelo Stocking:
 
 ## Serviços
 
-A classe `Stock` combina 4 mixins: `StockQueries`, `StockMovements`, `StockHolds`, `StockPlanning`.
+A classe `StockService` combina 4 mixins: `StockQueries`, `StockMovements`, `StockHolds`, `StockPlanning`.
 
 ### Consultas (StockQueries)
 
 ```python
-from shopman.stocking import stock
+from shopman.stockman import stock
 
 # Quantidade disponível (física)
 disponivel = stock.available("CROISSANT")
@@ -192,7 +192,7 @@ move = stock.adjust(
 # Criar hold (reserva ou demanda)
 hold_id = stock.hold(
     quantity=Decimal("5"),
-    product=croissant,  # Product com availability_policy/promise rule
+    product=croissant,  # Product com availability_policy
     target_date=date.today(),
     expires_at=timezone.now() + timedelta(minutes=30),
 )
@@ -214,8 +214,6 @@ liberados = stock.release_expired()
 ### Planejamento (StockPlanning)
 
 ```python
-from datetime import date, timedelta
-
 amanha = date.today() + timedelta(days=1)
 
 # Planejar produção futura
@@ -249,11 +247,10 @@ quant_fisico = stock.realize(
 ### Alertas
 
 ```python
-from shopman.stocking.services.alerts import check_alerts
+from shopman.stockman.services.alerts import check_alerts
 
 # Verificar alertas (todos os SKUs)
 alertas = check_alerts()
-# → [(StockAlert, Decimal("3"))]  — alerta + quantidade atual
 
 # Verificar alertas de um SKU
 alertas = check_alerts(sku="CROISSANT")
@@ -263,7 +260,7 @@ alertas = check_alerts(sku="CROISSANT")
 
 ### SkuValidator
 
-Interface para validar SKUs contra catálogo externo (ex: Offering).
+Interface para validar SKUs contra catálogo externo (ex: Offerman).
 
 ```python
 class SkuValidator(Protocol):
@@ -275,7 +272,7 @@ class SkuValidator(Protocol):
 
 ### ProductionBackend
 
-Interface para solicitar produção ao Crafting.
+Interface para solicitar produção ao Craftsman.
 
 ```python
 class ProductionBackend(Protocol):
@@ -309,73 +306,3 @@ Chave Django settings: `STOCKMAN`
 - `REASON_REQUIRED` — Motivo obrigatório
 - `QUANT_NOT_FOUND` — Quant não encontrado
 
-## Exemplos
-
-### Fluxo completo: receber, reservar, vender
-
-```python
-from shopman.stocking import stock, StockError
-from shopman.offering.models import Product
-from decimal import Decimal
-from datetime import date
-from django.utils import timezone
-
-croissant = Product.objects.get(sku="CROISSANT")
-vitrine = Position.objects.get(ref="vitrine")
-
-# 1. Receber estoque
-quant = stock.receive(
-    quantity=Decimal("50"),
-    sku="CROISSANT",
-    position=vitrine,
-    reason="Produção manhã",
-)
-# quant.quantity = 50, quant.available = 50
-
-# 2. Reservar para pedido
-hold_id = stock.hold(
-    quantity=Decimal("3"),
-    product=croissant,
-    target_date=date.today(),
-)
-# quant.available = 47 (50 - 3 held)
-
-# 3. Confirmar hold (checkout iniciou)
-stock.confirm(hold_id)
-
-# 4. Efetivar (pedido pago)
-move = stock.fulfill(hold_id)
-# quant.quantity = 47, quant.available = 47
-```
-
-### Fluxo de produção planejada
-
-```python
-from datetime import date, timedelta
-
-amanha = date.today() + timedelta(days=1)
-
-# 1. Planejar
-quant_planejado = stock.plan(
-    quantity=Decimal("100"),
-    product=croissant,
-    target_date=amanha,
-)
-
-# 2. Reservar (hold no estoque planejado)
-hold_id = stock.hold(
-    quantity=Decimal("5"),
-    product=croissant,
-    target_date=amanha,
-)
-
-# 3. Realizar produção → transfere para físico
-quant_fisico = stock.realize(
-    product=croissant,
-    target_date=amanha,
-    actual_quantity=Decimal("93"),
-    to_position=vitrine,
-)
-# → Holds transferidos FIFO do planejado para o físico
-# → Sinal holds_materialized emitido
-```

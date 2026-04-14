@@ -60,7 +60,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 ## PricingBackend
 
 **Definido em:** `framework/shopman/protocols.py`
-**Guia:** [Offering — Preços](../guides/offering.md)
+**Guia:** [Offerman — Preços](../guides/offerman.md)
 
 ### Métodos
 
@@ -84,7 +84,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 ## CustomerBackend
 
 **Definido em:** `framework/shopman/protocols.py`
-**Guia:** [Customers — Clientes](../guides/customers.md)
+**Guia:** [Guestman — Clientes](../guides/guestman.md)
 
 ### Dataclasses
 
@@ -150,7 +150,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 
 **Definido em:** `packages/payman/shopman/payman/protocols.py`
 **Re-exportado em:** `framework/shopman/protocols.py`
-**Guia:** [Ordering — Pagamentos](../guides/ordering.md)
+**Guia:** [Orderman — Pagamentos](../guides/orderman.md)
 
 ### Dataclasses
 
@@ -218,7 +218,7 @@ Cada protocol tem um ou mais adapters concretos que podem ser substituídos via 
 ## AccountingBackend
 
 **Definido em:** `packages/orderman/shopman/ordering/protocols.py`
-**Guia:** [Ordering](../guides/ordering.md)
+**Guia:** [Orderman](../guides/orderman.md)
 
 ### Dataclasses
 

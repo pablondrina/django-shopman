@@ -66,7 +66,7 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 | `INVALID_QUANTITY` | Quantidade inválida (≤ 0) |
 | `CIRCULAR_COMPONENT` | Ciclo detectado na árvore de componentes do bundle |
 
-**Guia:** [offering.md](../guides/offering.md)
+**Guia:** [offerman.md](../guides/offerman.md)
 
 ---
 
@@ -89,7 +89,7 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 | `QUANT_NOT_FOUND` | Quant não encontrado na posição/SKU |
 | `CONCURRENT_MODIFICATION` | Conflito de concorrência (optimistic locking) |
 
-**Guia:** [stocking.md](../guides/stocking.md)
+**Guia:** [stockman.md](../guides/stockman.md)
 
 ---
 
@@ -110,7 +110,7 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 
 **Subclasse:** `StaleRevision(CraftError)` — levantada com `code="STALE_REVISION"` automaticamente, recebe `(order, expected_rev)`.
 
-**Guia:** [crafting.md](../guides/crafting.md)
+**Guia:** [craftsman.md](../guides/craftsman.md)
 
 ---
 
@@ -130,7 +130,7 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 | `LOYALTY_NOT_ENROLLED` | Cliente não está inscrito no programa de fidelidade |
 | `LOYALTY_INSUFFICIENT_POINTS` | Pontos insuficientes para resgate |
 
-**Guia:** [customers.md](../guides/customers.md)
+**Guia:** [guestman.md](../guides/guestman.md)
 
 ---
 
@@ -148,7 +148,7 @@ raise BaseError(code="SOME_CODE", message="descrição", extra_key="valor")
 
 **Subclasse:** `GateError(AuthError)` — levantada com `gate_name` e `code="GATE_FAILED"`. Usada pelos gates individuais.
 
-**Guia:** [auth.md](../guides/auth.md)
+**Guia:** [doorman.md](../guides/doorman.md)
 
 ---
 
@@ -239,7 +239,7 @@ Não é erro — controle de fluxo. Contém `cached_response` com resultado ante
 | `invalid_transition` | Transição de status não permitida |
 | `terminal_status` | Pedido em status terminal, não aceita transições |
 
-**Guia:** [ordering.md](../guides/ordering.md)
+**Guia:** [orderman.md](../guides/orderman.md)
 
 ---
 
