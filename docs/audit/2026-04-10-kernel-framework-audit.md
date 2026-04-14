@@ -330,8 +330,8 @@ A regra `feedback_persona_names_only` exige zero ocorrências de `Stocking`,
 - `packages/stockman/shopman/stockman/contrib/admin_unfold/apps.py:5` — `class StockingAdminUnfoldConfig`
 - `packages/stockman/shopman/stockman/contrib/admin_unfold/admin.py:2,4` — docstrings
 - `packages/stockman/shopman/stockman/adapters/__init__.py:2` — `"Stocking Adapters."`
-- `packages/stockman/shopman/stockman/adapters/offering.py:2` — `"Stocking Offering Adapter — SKU validation via Offering."`
-- `packages/stockman/shopman/stockman/adapters/crafting.py:2` — `"Crafting Backend."` `"Implements ProductionBackend using Crafting's API"`
+- `packages/stockman/shopman/stockman/adapters/sku_validation.py:2` — `"Stocking Offering Adapter — SKU validation via Offering."` *(renomeado de `offering.py` — P0)*
+- `packages/stockman/shopman/stockman/adapters/production.py:2` — `"Crafting Backend."` `"Implements ProductionBackend using Crafting's API"` *(renomeado de `crafting.py` — P0)*
 - `packages/stockman/shopman/stockman/protocols/production.py:4-10` — `"Stocking to interact with..."` + comentário "Vocabulary mapping (Stocking → Crafting)"
 - `packages/stockman/shopman/stockman/tests/__init__.py:1` — `"""Tests for Django Stocking."""`
 - `packages/stockman/shopman/stockman/tests/conftest.py:2` — `"Pytest fixtures for Stocking tests."`

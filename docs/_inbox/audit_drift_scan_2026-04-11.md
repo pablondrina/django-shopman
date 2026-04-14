@@ -1,259 +1,248 @@
-# Drift Scan — 2026-04-11
+# Drift Scan — 2026-04-11 (atualizado 2026-04-14)
+
+> **Atualização pós-P0 (2026-04-14):** Todos os achados do scan original foram corrigidos.
+> Documento atualizado para refletir:
+> - Reestruturação: `framework/shopman/` → `shopman/shop/`, `project/` → `config/`
+> - P0 Naming Plan: adapters e diretórios de templates renomeados para nomes canônicos
+> - Análise crítica externa incorporada como novos pontos de verificação
 
 ## Resumo executivo
 
-**13 achados:** 2 críticos, 5 altos, 3 médios, 3 baixos.  
-Distribuição: Nomenclatura(2), Separação(3), Contratos(3), Dead code(1), Frontend(0), Concorrência(0), Mocks(0), Vocabulário(1), Semântica(1), Regressão(2).
+**Original (2026-04-11):** 13 achados: 2 críticos, 5 altos, 3 médios, 3 baixos.
+**Status atual:** Todos corrigidos. Ver `docs/reports/drift_scan_2026-04-11.md` para detalhes das correções.
+**Próximo scan:** Verificar contratos de adapters, escopo do `Shop`, e resíduos pós-P0.
 
 ---
 
-## Achados já conhecidos (AUDIT-FIX-PLAN) — status atualizado
+## Achados conhecidos — todos corrigidos
+
+### AUDIT-FIX-PLAN (sessões anteriores)
 
 | WP | Status | Observação |
 |----|--------|------------|
 | AF-1 `notification.py` lê items de `order.data` | ✅ CORRIGIDO | `_build_context` agora lê `order.snapshot.get("items", [])` |
-| AF-2 `get_transitions()` via ChannelConfig | ⚠️ PARCIAL | Implementado via `snapshot["lifecycle"]`, mas `lifecycle` nunca é populado — ver **[CRÍTICO] AF-2** abaixo |
+| AF-2 `get_transitions()` via ChannelConfig | ✅ CORRIGIDO | Campo `lifecycle` adicionado ao ChannelConfig; `commit.py` popula corretamente |
 | AF-3 `ChannelConfig.Pipeline` + `on_payment_confirm` | ✅ CORRIGIDO | Pipeline removido, webhooks usam `on_paid` |
-| AF-4 `required_checks_on_commit` → `ChannelConfig.rules.checks` | ✅ CORRIGIDO | commit.py usa `effective_config.get("rules", {}).get("checks", [])` |
+| AF-4 `required_checks_on_commit` → `ChannelConfig.rules.checks` | ✅ CORRIGIDO | `commit.py` usa `effective_config.get("rules", {}).get("checks", [])` |
 | AF-5 `customer.py` discriminação por `channel_ref == "balcao"` | ✅ CORRIGIDO | Registry pattern implementado; sem `_handle_balcao` em services |
-| AF-6 `STOREFRONT_CHANNEL_REF` hardcoded | ✅ CORRIGIDO | `constants.py:35` lê `getattr(settings, "SHOPMAN_STOREFRONT_CHANNEL_REF", "web")` |
+| AF-6 `STOREFRONT_CHANNEL_REF` hardcoded | ✅ CORRIGIDO | `constants.py` lê `getattr(settings, "SHOPMAN_STOREFRONT_CHANNEL_REF", "web")` |
 
 **DRIFT-FIX-PLAN — todos corrigidos:**
 
 | WP | Status | Evidência |
 |----|--------|-----------|
 | DF-1 Contrato adapters de pagamento (DTOs) | ✅ CORRIGIDO | `payment_types.py` com `PaymentIntent`/`PaymentResult`; três adapters retornam DTOs |
-| DF-2 `_channel_config` helper + bypass de ChannelConfig | ✅ CORRIGIDO | `flows.py` usa `ChannelConfig.for_channel()`; zero ocorrências de `_channel_config` |
-| DF-3 `_pop_matching_hold` / sangria de estoque | ✅ CORRIGIDO | `stock.py` usa `_adopt_holds_for_qty` por quantidade |
+| DF-2 `_channel_config` helper + bypass de ChannelConfig | ✅ CORRIGIDO | `shopman/shop/lifecycle.py` usa `ChannelConfig.for_channel()`; zero `_channel_config` |
+| DF-3 `_pop_matching_hold` / sangria de estoque | ✅ CORRIGIDO | `shopman/shop/services/stock.py` usa `_adopt_holds_for_qty` por quantidade |
 
 ---
 
-## Novos achados — estruturais e de runtime
+### Achados do scan 2026-04-11
 
-### [CRÍTICO] AF-2 regrediu: `snapshot["lifecycle"]` sempre vazio
+#### [CRÍTICO] AF-2 regrediu: `snapshot["lifecycle"]` sempre vazio — CORRIGIDO
 
-**Dimensão:** Contratos entre camadas  
-**Arquivo:** `packages/orderman/shopman/orderman/services/commit.py:314` + `packages/orderman/shopman/orderman/models/order.py:146-147`  
-**Problema:** A solução de AF-2 gravou `lifecycle` no snapshot para que `get_transitions()` e `get_terminal_statuses()` pudessem ler customizações per-canal. Porém, o `commit.py` obtém esse valor via `effective_config.get("lifecycle", {})`. A chave `"lifecycle"` **não existe** no schema de `ChannelConfig` — não é um campo da dataclass. `asdict(ChannelConfig.for_channel(...))` nunca produz uma chave `"lifecycle"`. Resultado: `snapshot["lifecycle"]` é sempre `{}`, `get_transitions()` sempre cai em `DEFAULT_TRANSITIONS`, e transições customizadas por canal são silenciosamente ignoradas.
-
-**Evidência:**
-```python
-# commit.py:314 — chave "lifecycle" não existe em ChannelConfig.to_dict()
-"lifecycle": effective_config.get("lifecycle", {}),  # sempre {}
-
-# order.py:146-147 — nunca tem transitions
-lifecycle = (self.snapshot or {}).get("lifecycle", {})
-return lifecycle.get("transitions") or self.DEFAULT_TRANSITIONS  # sempre DEFAULT_TRANSITIONS
-```
-
-**Correção sugerida:** Ou (a) adicionar campo `lifecycle` ao ChannelConfig (com `transitions` e `terminal_statuses`), ou (b) remover a lógica de `snapshot["lifecycle"]` completamente se transições customizadas por canal não são necessárias.
+**Arquivo:** `shopman/shop/services/commit.py` + `packages/orderman/shopman/orderman/models/order.py`
+**Fix:** Campo `lifecycle: dict = field(default_factory=dict)` adicionado ao `ChannelConfig` em `shopman/shop/config.py`, com chaves `transitions` e `terminal_statuses`. `commit.py` agora popula o snapshot corretamente.
 
 ---
 
-### [CRÍTICO] POS bypassa ChannelConfig no commit e no modify
+#### [CRÍTICO] POS bypassa ChannelConfig — CORRIGIDO
 
-**Dimensão:** Contratos entre camadas  
-**Arquivo:** `framework/shopman/web/views/pos.py:265-292`  
-**Problema:** A view POS chama `ModifyService.modify_session()` (linha 266) e `CommitService.commit()` (linha 287) sem passar `channel_config`. Ambos os serviços recebem `channel_config=None` e fazem `effective_config = channel_config or {}` — config vazio. O canal `"balcao"` pode ter `confirmation.mode`, `payment.timing`, `rules.checks` customizados, mas eles são silenciosamente ignorados. O POS usa comportamento padrão hardcoded.
-
-**Evidência:**
-```python
-# pos.py:265-292
-ModifyService.modify_session(
-    session_key=session_key,
-    channel_ref="balcao",
-    ops=ops,
-    ctx={"actor": f"pos:{request.user.username}"},
-    # channel_config ausente!
-)
-result = CommitService.commit(
-    session_key=session_key,
-    channel_ref="balcao",
-    idempotency_key=generate_idempotency_key(),
-    ctx={"actor": f"pos:{request.user.username}"},
-    # channel_config ausente!
-)
-```
-
-**Contraste:** `checkout.py` (storefront) resolve corretamente via `asdict(ChannelConfig.for_channel(channel))` antes de chamar `CommitService.commit()`.
-
-**Correção sugerida:** Espelhar o padrão de `checkout.py`: resolver `config = ChannelConfig.for_channel(channel)` e passar `channel_config=asdict(config)` para ambas as chamadas.
+**Arquivo:** `shopman/shop/web/views/pos.py`
+**Fix:** `channel_config=config.to_dict()` passado para `ModifyService` e `CommitService`, espelhando o padrão de `shopman/shop/web/views/checkout.py`.
 
 ---
 
-### [ALTO] URL paths com forma gerúndio proibida
+#### [ALTO] URL paths com forma gerúndio — CORRIGIDO
 
-**Dimensão:** Nomenclatura  
-**Arquivo:** `framework/project/urls.py:33-36`  
-**Problema:** Quatro URL paths usam a forma gerúndio das personas — forma explicitamente proibida pelas convenções (memória `feedback_persona_names_only`). URLs são interface pública e inconsistência pode gerar confusão em documentação de API.
-
-**Evidência:**
-```python
-urlpatterns += _include_optional("api/ordering/", ...)  # deve ser "api/orderman/"
-urlpatterns += _include_optional("api/offering/", ...)  # deve ser "api/offerman/"
-urlpatterns += _include_optional("api/stocking/", ...)  # deve ser "api/stockman/"
-urlpatterns += _include_optional("api/crafting/", ...)  # deve ser "api/craftsman/"
-```
-
-**Correção sugerida:** Renomear os prefixos de URL para os nomes canônicos das personas.
+**Arquivo:** `config/urls.py`
+**Fix:** Renomeados para `api/orderman/`, `api/offerman/`, `api/stockman/`, `api/craftsman/`.
 
 ---
 
-### [ALTO] `"balcao"` hardcoded na view POS (violação framework/instância)
+#### [ALTO] `"balcao"` hardcoded na view POS — CORRIGIDO
 
-**Dimensão:** Separação framework/instância  
-**Arquivo:** `framework/shopman/web/views/pos.py:50,77,205,268,289,334`  
-**Problema:** A view POS referencia `"balcao"` diretamente em 6 lugares: query de listing, check D-1, busca de channel, chamadas de ModifyService e CommitService. AF-5 corrigiu `services/customer.py` mas a view POS permanece Nelson-específica no framework.
-
-**Evidência:**
-```python
-listing__ref="balcao"         # linha 50
-listing_ref="balcao"          # linha 77
-Channel.objects.get(ref="balcao")  # linha 205
-channel_ref="balcao",         # linhas 268, 289
-# + origem hardcoded: ops.append({"op": "set_data", "path": "origin_channel", "value": "pos"})
-```
-
-**Correção sugerida:** Parametrizar via settings (`SHOPMAN_POS_CHANNEL_REF`) seguindo o padrão de `SHOPMAN_STOREFRONT_CHANNEL_REF` já implementado em AF-6.
+**Arquivo:** `shopman/shop/web/views/pos.py`, `shopman/shop/models/cash_register.py`
+**Fix:** `POS_CHANNEL_REF` em `shopman/shop/web/constants.py` (override via `SHOPMAN_POS_CHANNEL_REF`).
 
 ---
 
-### [ALTO] Payment method `"cartao"` e `"dinheiro"` não-canônicos em POS
+#### [ALTO] Payment methods `"dinheiro"`/`"cartao"` não-canônicos — CORRIGIDO
 
-**Dimensão:** Separação framework/instância + semântica  
-**Arquivo:** `framework/shopman/web/views/pos.py:94-98`, `framework/shopman/services/payment.py:40`  
-**Problema:** O POS usa strings `"dinheiro"` e `"cartao"` (português) como valores de `payment.method`. O schema canônico (ChannelConfig.Payment) define `"counter"`, `"pix"`, `"card"`, `"external"`. `"dinheiro"` tem um tratamento especial em `payment.initiate()` (linha 40), mas `"cartao"` não — se `payment.timing` não for `"external"`, `payment.initiate()` tentará buscar um adapter para `"cartao"` e falhará silenciosamente. Além disso, esses valores são gravados em `order.data["payment"]["method"]` e consultados em queries (ex: `cash_register.py:74` filtra por `data__payment__method="dinheiro"`).
-
-**Evidência:**
-```python
-# pos.py:94-98
-_PAYMENT_METHODS = [
-    ("dinheiro", "Dinheiro"),  # não-canônico
-    ("pix", "PIX"),
-    ("cartao", "Cartão"),      # não-canônico — deveria ser "card"
-]
-
-# payment.py:40 — whitelist inclui "dinheiro" mas não "cartao"
-if not method or method in ("counter", "external", "dinheiro"):
-    return
-```
-
-**Correção sugerida:** Usar strings canônicas (`"counter"`, `"card"`) nos valores internos. Labels de display podem ser arbitrários. Ou, se `"dinheiro"` é intencional como alias de `"counter"`, documentar e adicionar `"cartao"` à whitelist de `payment.initiate()` — mas a solução correta é usar `"card"`.
+**Arquivo:** `shopman/shop/web/views/pos.py`, `shopman/shop/services/payment.py`
+**Fix:** `pos.py` usa `"counter"`/`"card"`. `payment.py` whitelist atualizada. `cash_register.py` filtra por `data__payment__method="counter"`.
 
 ---
 
-### [ALTO] `order.data["hold_ids"]` — schema documentado incorreto
+#### [ALTO] `order.data["hold_ids"]` — schema documentado incorreto — CORRIGIDO
 
-**Dimensão:** Contratos entre camadas  
-**Arquivo:** `docs/reference/data-schemas.md:130` vs `framework/shopman/services/stock.py:57,77`  
-**Problema:** O schema documenta `hold_ids` como `list[str]` (IDs de holds), mas o código grava e lê `list[dict]` com estrutura `[{"sku": ..., "hold_id": ..., "qty": ...}]`. A documentação descreve um contrato que não existe.
-
-**Evidência:**
-```python
-# stock.py:57 — declarado como list[dict]
-hold_ids: list[dict] = []
-
-# stock.py:77 — appenda dicts
-hold_ids.append({"sku": comp_sku, "hold_id": hid, "qty": float(hqty)})
-
-# flows.py:232 — lê como list[dict]
-held_skus = {h.get("sku") for h in (order.data or {}).get("hold_ids", [])}
-```
-
-**Correção sugerida:** Corrigir `data-schemas.md` para refletir o tipo real: `list[dict]` com schema `[{sku, hold_id, qty}]`.
+**Arquivo:** `docs/reference/data-schemas.md`
+**Fix:** Tipo corrigido para `list[dict]` com schema `[{sku, hold_id, qty}]`.
 
 ---
 
-### [MÉDIO] Glossário: ChannelConfig com "6 aspectos" (são 8)
+#### [MÉDIO] Glossário: ChannelConfig com "6 aspectos" (são 8) — CORRIGIDO
 
-**Dimensão:** Semântica / documentação  
-**Arquivo:** `docs/reference/glossary.md:79`  
-**Problema:** O glossário descreve ChannelConfig como tendo "6 aspectos (confirmation, payment, stock, notifications, rules, flow)". O model real tem 8 aspectos: `confirmation`, `payment`, `fulfillment`, `stock`, `notifications`, `pricing`, `editing`, `rules`. Dois aspectos (`fulfillment` e `pricing`) e o campo `editing` estão ausentes do glossário, e `flow` é mencionado mas não existe mais no schema.
-
-**Evidência:** `framework/shopman/config.py:125-132` lista 8 campos. `glossary.md:79` lista 6.
-
-**Correção sugerida:** Atualizar o glossário com a lista correta dos 8 aspectos.
+**Arquivo:** `docs/reference/glossary.md`
+**Fix:** Lista correta dos 8 aspectos: confirmation, payment, fulfillment, stock, notifications, pricing, editing, rules.
 
 ---
 
-### [MÉDIO] Chaves `stock_check_unavailable` e `manual_discount` não documentadas em Session.data
+#### [MÉDIO] Chaves `stock_check_unavailable` e `manual_discount` não documentadas — CORRIGIDO
 
-**Dimensão:** Contratos entre camadas  
-**Arquivo:** `docs/reference/data-schemas.md` (ausência)  
-**Problema:** Duas chaves são gravadas em `session.data` mas não aparecem na tabela do schema:
-- `stock_check_unavailable` (bool): escrito por `checkout.py:331` quando o check de estoque falhou silenciosamente.
-- `manual_discount` (dict): escrito por `pos.py:259-263` e lido por `ManualDiscountModifier`. Regra do projeto: "toda nova chave deve ser documentada aqui antes de ser usada."
-
-**Evidência:**
-```python
-# checkout.py:330-331
-if stock_check_unavailable:
-    checkout_data["stock_check_unavailable"] = True
-
-# pos.py:259-263
-ops.append({"op": "set_data", "path": "manual_discount.type", ...})
-```
-
-**Correção sugerida:** Adicionar ambas as chaves à tabela `Session.data` em `data-schemas.md`.
+**Arquivos:** `shopman/shop/web/views/checkout.py`, `shopman/shop/web/views/pos.py`
+**Fix:** Ambas adicionadas à tabela `Session.data` em `docs/reference/data-schemas.md`.
 
 ---
 
-## Novos achados — semântica e consistência
+#### [MÉDIO] `customer_name` flat vs `customer.name` aninhado — CORRIGIDO
 
-### [BAIXO] `delivery_method` — dois conceitos diferentes com o mesmo nome
+**Arquivos:** `shopman/shop/web/views/kds.py`, `shopman/shop/web/views/pedidos.py`
+**Fix:** Agora usam `order.data.get("customer", {}).get("name", "")` (acesso canônico).
 
-**Conceito afetado:** Canal de entrega  
-**Nomes encontrados:** `delivery_method` para OTP (doorman) e `delivery_method` como chave legacy de fulfillment_type (orderman)  
+---
+
+### P0 Naming Plan (2026-04-13→14) — todos corrigidos
+
+| Item | Status | Detalhe |
+|------|--------|---------|
+| Template orderman admin — URLs `omniman_session_*` | ✅ CORRIGIDO | → `orderman_session_resolve_issue`, `orderman_session_run_check` |
+| Admin `get_urls()` registrava como `ordering_session_*` | ✅ CORRIGIDO | → `orderman_session_run_check`, `orderman_session_resolve_issue` |
+| `adapters/offering.py` (stockman) — era SKU validator | ✅ CORRIGIDO | → `packages/stockman/.../adapters/sku_validation.py` |
+| `adapters/crafting.py` (stockman) — era ProductionBackend | ✅ CORRIGIDO | → `packages/stockman/.../adapters/production.py` |
+| `adapters/stocking.py` (craftsman) — era StockingBackend | ✅ CORRIGIDO | → `packages/craftsman/.../adapters/stock.py` |
+| `adapters/offering.py` (shopman/shop) — era StorefrontPricingBackend | ✅ CORRIGIDO | → `shopman/shop/adapters/pricing.py` |
+| `templates/ordering/` (orderman) | ✅ CORRIGIDO | → `packages/orderman/.../templates/orderman/` |
+| Test files `test_crafting_*.py`, `test_ordering_*.py` | ✅ CORRIGIDO | Renomeados para nomes canônicos (`test_production_*.py`, `test_session_*.py`) |
+| SECRET_KEY strings `"offering"`, `"ordering"` + throttle keys em test_settings | ✅ CORRIGIDO | Strings limpas |
+
+---
+
+## Itens de baixa prioridade — monitorar
+
+### [BAIXO] `delivery_method` — dois conceitos com o mesmo nome
+
 **Arquivos:**
-- `packages/doorman/.../models/verification_code.py:122` — campo de model para canal de entrega de OTP (whatsapp/sms/email)
-- `packages/orderman/.../models/order.py:211` — fallback legacy para `fulfillment_type`
-- `framework/shopman/web/views/auth.py:112-114` — usa `delivery_method` como parâmetro de POST  
+- `packages/doorman/shopman/doorman/models/verification_code.py` — canal OTP (whatsapp/sms/email)
+- `packages/orderman/shopman/orderman/models/order.py` — fallback legacy para `fulfillment_type`
+- `shopman/shop/web/views/auth.py` — parâmetro de POST
 
-**Impacto:** O mesmo nome descreve conceitos semanticamente distintos em dois domínios. Baixo impacto prático (estão em packages separados) mas pode causar confusão ao ler código que mistura os contextos.
-
----
-
-### [BAIXO] `customer_name` flat vs `customer.name` aninhado
-
-**Conceito afetado:** Nome do cliente no pedido  
-**Nomes encontrados:** `order.data.get("customer_name")` (flat) e `order.data.get("customer", {}).get("name")` (nested)  
-**Arquivos:**
-- `framework/shopman/web/views/kds.py:42,118` — lê `order.data.get("customer_name", "")`
-- `framework/shopman/web/views/pedidos.py:131` — idem  
-- `framework/shopman/handlers/notification.py:197-199` — lê `order.data.get("customer", {}).get("name", "")`
-
-**Canônico:** `order.data["customer"]["name"]` (documentado em data-schemas.md como canonical). A chave flat `customer_name` está documentada como "convenience fallback" para canais que achatam o dado — mas os próprios views do framework estão usando o fallback como caminho primário.
+**Impacto:** Baixo (packages separados). Monitorar se os contextos se misturarem.
 
 ---
 
-## Itens verificados sem achados
+### [BAIXO] `customer_name` flat — verificar novos usos
 
-- **Frontend (Passo 5):** Nenhuma violação HTMX/Alpine encontrada — zero `onclick=`, `onchange=`, `document.getElementById` em templates.
-- **Concorrência (Passo 6a-6c):** `select_for_update` aplicado corretamente em sequences, holds, fulfillment, orders; `apps.py` sem bare except no startup.
-- **Mocks em produção (Passo 7):** Nenhum mock importado fora de `tests/`. `payment_mock.py` está em `adapters/` (correto).
-- **Handlers órfãos (Passo 4b):** Todos os handlers têm topics emitidos (`notification.send`, `fulfillment.create`, `confirmation.timeout`, etc.) — nenhum dead handler.
-- **Imports de instances/ no framework (Passo 2d):** Zero ocorrências.
-- **Referências Nelson hardcoded em framework/shopman/ (Passo 2a):** Zero ocorrências.
-- **Personas antigas em código não-import (Passo 1c):** Hits do grep são todos `ordering` no contexto de Meta.ordering Django — não violações de persona.
-- **DF-1/DF-2/DF-3 do DRIFT-FIX-PLAN:** Todos verificados como corrigidos.
-- **AF-1/AF-3/AF-5/AF-6 do AUDIT-FIX-PLAN:** Todos verificados como corrigidos.
+Corrigido em views do framework. Verificar periodicamente se novo código usa o path flat ao invés de `order.data.get("customer", {}).get("name", "")`.
 
 ---
 
-## Lint (produção, não-test) — destaques
+## Itens verificados sem achados (padrões a manter)
 
-Total: 238 erros lint, maioria em tests. Em produção (não-test), os mais relevantes:
+- **Frontend (HTMX/Alpine):** zero `onclick=`, `onchange=`, `document.getElementById` em templates ✓
+- **Concorrência:** `select_for_update` aplicado corretamente em sequences, holds, fulfillment, orders ✓
+- **Mocks em produção:** nenhum mock importado fora de `tests/`. `payment_mock.py` está em `adapters/` (correto) ✓
+- **Handlers órfãos:** todos têm topics emitidos; nenhum dead handler ✓
+- **Imports de `instances/` no framework:** zero ocorrências ✓
+- **Referências Nelson hardcoded em `shopman/shop/`:** zero ocorrências ✓
+- **Personas antigas em código não-import:** hits de `ordering` são todos `Meta.ordering` Django ✓
 
-| Arquivo | Erro | Detalhe |
-|---------|------|---------|
-| `framework/shopman/models/cash_register.py:63` | F401 | `importlib` importado sem uso |
-| `framework/shopman/web/views/catalog.py:19` | F401 | `decimal.Decimal` importado sem uso |
-| `framework/shopman/web/views/pos.py` | F401 | `BaseModelAdmin` de craftsman importado sem uso |
-| `framework/shopman/templatetags/storefront_tags.py:128` | F841 | `session` atribuído mas não usado |
-| `framework/shopman/services/fiscal.py:8` | B007 | Variável de loop `sz_name` não usada no corpo |
-| `framework/shopman/management/commands/suggest_production.py:46` | B007 | `season_name` não usado no corpo do loop |
-| `packages/craftsman/.../contrib/admin_unfold/__init__.py` | F401 | `BaseTabularInline`, `format_quantity`, `format_html` importados sem uso |
-| `packages/doorman/.../senders.py` | F401 | `unittest.mock.patch` importado (verificar: pode ser falso-positivo) |
-| `packages/guestman/.../api/views.py` | F401 | `Sum`, `BaseModelAdmin` importados sem uso |
+---
 
-Comando para corrigir automaticamente: `make lint --fix` (apenas fixable F401/F841).
+## Pontos a investigar no próximo scan
+
+> Baseado em análise crítica externa (`docs/_inbox/analise_critica_django_shopman (1).md`)
+> e estado pós-P0. A análise foi feita contra a estrutura `framework/shopman/` (pré-reestruturação);
+> os caminhos canônicos atuais são `shopman/shop/`.
+
+### [MÉDIO] Contratos de adapters: sem validação no carregamento
+
+**Dimensão:** Contratos entre camadas
+**Arquivo:** `shopman/shop/adapters/__init__.py`
+
+**Contexto:** `get_adapter()` resolve por prioridade (DB → settings → defaults), mas não valida
+protocolo no momento do carregamento — duck typing implícito. Se um adapter não implementa um
+método obrigatório, a falha ocorre em runtime no ponto de uso, não no startup.
+
+**O que verificar:**
+- `get_adapter()`: há validação de contrato após resolução?
+- `shopman/shop/protocols.py`: os protocolos são usados como contratos de verificação ou apenas como documentação?
+- Existe algum `apps.py` check que valide adapters obrigatórios no startup?
+
+---
+
+### [MÉDIO] Modelo `Shop` com escopo largo
+
+**Dimensão:** Separação de responsabilidades
+**Arquivo:** `shopman/shop/models/shop.py`
+
+**Contexto:** `Shop` acumula identidade, endereço, contato, operação, branding, redes sociais,
+textos de tracking, defaults de negócio e integração de adapters — funciona como singleton de
+configuração + entidade comercial + config-store + integration registry ao mesmo tempo.
+
+**O que verificar:**
+- Novos campos adicionados desde o último scan?
+- `Shop.integrations` e `Shop.defaults` (JSONFields): schema documentado em `docs/reference/data-schemas.md`?
+- Há alguma responsabilidade que já poderia ser extraída para um modelo auxiliar?
+
+---
+
+### [BAIXO] JSON sem schema enforcement na cascade de ChannelConfig
+
+**Dimensão:** Robustez estrutural
+**Arquivos:** `shopman/shop/config.py`, `shopman/shop/models/shop.py`,
+`packages/orderman/shopman/orderman/models/channel.py`
+
+**Contexto:** A cascade (`Shop.defaults` → `Channel.config` → ChannelConfig defaults) depende de
+disciplina humana para manter os JSONs coerentes. Chaves inválidas ou tipos errados falham silenciosamente.
+
+**O que verificar:**
+- `ChannelConfig.for_channel()`: o que acontece com chaves inválidas em `Channel.config`?
+- Há algum `clean()` ou `full_clean()` no model que valide o schema do JSONField?
+- Existe um exemplo de teste que force um `Channel.config` inválido e verifique o comportamento?
+
+---
+
+### [BAIXO] Resíduos pós-P0 — verificação de naming drift
+
+**Dimensão:** Nomenclatura
+
+**O que verificar (grep em código de produção, excluindo `_archive/`, `_quarantine/`, test_settings):**
+```
+grep -r "ordering\|offering\|stocking\|crafting\|omniman" shopman/ packages/ config/ \
+  --include="*.py" \
+  | grep -v "Meta\.ordering\|test_settings\|_archive\|_quarantine"
+```
+Zero ocorrências esperadas. Exceção legítima: `Meta.ordering` Django (forma gerúndio de ORM).
+
+---
+
+## Lint — referência pós-fix (production, não-test)
+
+Após correção via `ruff --fix` no scan de 2026-04-11. Reexecutar `make lint` para verificar estado atual:
+
+```bash
+make lint
+```
+
+Arquivos que tinham erros na última auditoria (verificar se ainda limpos):
+- `shopman/shop/models/cash_register.py`
+- `shopman/shop/web/views/catalog.py`
+- `shopman/shop/web/views/pos.py`
+- `shopman/shop/templatetags/storefront_tags.py`
+- `shopman/shop/services/fiscal.py`
+- `shopman/shop/management/commands/suggest_production.py`
+- `packages/craftsman/shopman/craftsman/contrib/admin_unfold/__init__.py`
+- `packages/doorman/shopman/doorman/senders.py`
+- `packages/guestman/shopman/guestman/api/views.py`
+
+---
+
+## Referências
+
+- `docs/reference/data-schemas.md` — inventário de chaves em Session.data, Order.data, Directive.payload
+- `docs/reference/protocols.md` — contratos de adapters (regenerado 2026-04-14 a partir do código)
+- `docs/reference/glossary.md` — glossário de termos canônicos (8 aspectos do ChannelConfig)
+- `docs/guides/lifecycle.md` — arquitetura de lifecycle/dispatch (config-driven, sem classes de Flow)
+- `docs/_inbox/analise_critica_django_shopman (1).md` — análise crítica externa (2026-04-11): referências a `framework/shopman/` são pré-reestruturação, equivalentes atuais em `shopman/shop/`
+- `docs/reports/drift_scan_2026-04-11.md` — detalhes das correções aplicadas no scan original

@@ -21,7 +21,7 @@ Auditoria de drift entre código, docs e convenções. Todos os achados foram co
 ## HIGH
 
 ### A1. URL gerund paths — CORRIGIDO
-`project/urls.py` tinha `api/ordering/`, `api/offering/`, `api/stocking/`, `api/crafting/`.
+`config/urls.py` tinha `api/ordering/`, `api/offering/`, `api/stocking/`, `api/crafting/`.
 
 **Fix**: Renomeados para `api/orderman/`, `api/offerman/`, `api/stockman/`, `api/craftsman/`.
 
