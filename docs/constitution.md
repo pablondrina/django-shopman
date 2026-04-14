@@ -1,7 +1,13 @@
 # Constituição Semântica da Suite Shopman
 
-Data: 2026-04-11  
-Escopo: `offerman`, `stockman`, `craftsman`, `orderman`, `payman`, `guestman`, `doorman`, `utils`, `framework`
+**Status:** Canônico
+**Escopo:** `offerman`, `stockman`, `craftsman`, `orderman`, `payman`, `guestman`, `doorman`, `utils`, `framework`
+**Origem:** consolidado em 2026-04-11, promovido a documento canônico em 2026-04-14.
+
+> Este documento fixa a linguagem oficial da suite: personas, identificadores,
+> invariantes, contratos entre pacotes e mandamentos. As ADRs em
+> `docs/decisions/` decidem pontos específicos; a constituição estabelece o
+> vocabulário e os princípios que as ADRs aplicam.
 
 ## 1. Tese central
 
