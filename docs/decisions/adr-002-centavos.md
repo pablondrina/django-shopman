@@ -47,7 +47,7 @@ O sufixo `_q` (de "quantia") e obrigatorio em nomes de campos, variaveis e colun
 - **Semantica clara:** O sufixo `_q` torna impossivel confundir preco com quantidade ou ID
 - **JSON nativo:** `{"total_q": 2400}` — sem aspas, sem parsing. APIs retornam inteiros
 - **Performance:** Operacoes com int sao mais rapidas que Decimal
-- **Consistencia cross-app:** offering, ordering, stocking, crafting — todos usam a mesma convencao
+- **Consistencia cross-app:** offerman, orderman, stockman, craftsman, guestman, doorman, payman — todos usam a mesma convencao
 
 ### Negativas
 

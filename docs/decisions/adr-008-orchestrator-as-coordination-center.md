@@ -26,7 +26,7 @@ O desacoplamento existe entre os core apps — eles tem zero imports entre si. O
 
 3. **O framework e o UNICO lugar onde dominios se encontram.** Services como `CheckoutService` precisam orquestrar estoque, pagamento, catalogo e cliente numa unica transacao. Essa coordenacao so pode existir num ponto que conhece todos os dominios — e esse ponto e o framework.
 
-4. **Services, handlers e flows sao coordenacao concreta — esse e o trabalho deles.** Um `LocalFlow.on_confirmed()` chama `StockService.hold()`, `PaymentService.capture()`, `NotificationService.send()`. Isso nao e acoplamento indevido — e orquestracao explicita de um processo de negocio.
+4. **Services, handlers e lifecycle sao coordenacao concreta — esse e o trabalho deles.** O `lifecycle.dispatch(order, "on_confirmed")` resolve o `ChannelConfig` do canal e chama `StockService.hold()`, `PaymentService.capture()`, `NotificationService.send()` na ordem ditada pela configuracao. Isso nao e acoplamento indevido — e orquestracao explicita de um processo de negocio.
 
 5. **Isso e uma feature, nao uma limitacao.** A alternativa seria distribuir coordenacao entre os core apps, o que criaria dependencias cruzadas e destruiria a independencia dos pacotes. Centralizar a coordenacao no framework preserva a independencia dos core apps.
 
@@ -35,17 +35,17 @@ O desacoplamento existe entre os core apps — eles tem zero imports entre si. O
 ### Positivas
 
 - **Independencia real dos core apps:** Cada pacote em `packages/` pode ser testado, versionado e deployado sem os demais
-- **Ponto unico de verdade para regras de negocio cross-domain:** Flows, services e rules vivem num unico lugar previsivel
+- **Ponto unico de verdade para regras de negocio cross-domain:** Lifecycle, services e rules vivem num unico lugar previsivel
 - **Substituibilidade:** Trocar um core app (ex: outro sistema de pagamento) requer apenas um novo adapter no framework, sem tocar nos demais dominios
 - **Rastreabilidade:** Todo fluxo cross-domain passa pelo framework — facil de auditar, debugar e testar
 
 ### Negativas
 
-- **O framework e complexo:** 11 services, 8 adapters, 16 handlers, 16 backends — e um componente denso. Requer familiaridade para navegar
+- **O framework e complexo:** services, adapters, handlers, rules, lifecycle — e um componente denso. Requer familiaridade para navegar
 - **Mudancas cross-domain tocam o framework:** Novos fluxos de negocio quase sempre requerem alteracoes no orquestrador
 
 ### Mitigacoes
 
-- Organizacao interna clara: `services/`, `adapters/`, `handlers/`, `backends/`, `rules/`, `flows.py` — cada diretorio tem responsabilidade bem definida
+- Organizacao interna clara: `services/`, `adapters/`, `handlers/`, `rules/`, `lifecycle.py`, `config.py` — cada diretorio tem responsabilidade bem definida
 - Testes de integracao validam a coordenacao entre dominios
 - `CLAUDE.md` documenta a estrutura e convencoes para novos contribuidores

@@ -8,7 +8,7 @@
 
 ## Contexto
 
-O ordering precisa executar tarefas apos o commit de um pedido: emitir NFC-e, notificar cliente, confirmar estoque, registrar contabilidade. Essas tarefas nao podem bloquear o request HTTP, precisam de retry em caso de falha, e devem ter garantia at-least-once.
+O orderman precisa executar tarefas apos o commit de um pedido: emitir NFC-e, notificar cliente, confirmar estoque, registrar contabilidade. Essas tarefas nao podem bloquear o request HTTP, precisam de retry em caso de falha, e devem ter garantia at-least-once.
 
 A solucao padrao do ecossistema Django e Celery + Redis/RabbitMQ. Isso adiciona 2 dependencias de infra (broker + worker), configuracao de serializers, monitoramento (Flower), e complexidade operacional significativa para uma padaria.
 
