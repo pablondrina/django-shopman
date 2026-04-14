@@ -16,7 +16,7 @@
             {% if issue.actions %}
             <div class="mt-2">
                 {% for action in issue.actions %}
-                <a href="{% url 'admin:omniman_session_resolve_issue' object_id=original.pk issue_id=issue.id action_id=action.id %}"
+                <a href="{% url 'admin:orderman_session_resolve_issue' object_id=original.pk issue_id=issue.id action_id=action.id %}"
                    class="btn btn-sm btn-outline-primary mr-1">
                     {{ action.label }}
                 </a>
@@ -34,7 +34,7 @@
     <h2>{% trans "Verificações Manuais" %}</h2>
     <div style="padding: 10px;">
         {% for check in manual_checks %}
-        <a href="{% url 'admin:omniman_session_run_check' object_id=original.pk topic=check.topic %}"
+        <a href="{% url 'admin:orderman_session_run_check' object_id=original.pk topic=check.topic %}"
            class="btn btn-outline-secondary mr-2">
             {% trans "Executar" %}: {{ check.label }}
         </a>
