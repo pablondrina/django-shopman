@@ -528,3 +528,45 @@ Cada WP deve ter:
 - Saída: critérios objetivos de "feito"
 - Prompt auto-contido para retomar em sessão limpa
 - Testes que protegem o invariante após a mudança
+
+---
+
+## Addendum — P0 Naming Refactor (2026-04-14)
+
+> Atualização pós-execução do plano `P0-NAMING-PLAN.md`.
+
+### Itens resolvidos nesta auditoria
+
+| # | Status | Notas |
+|---|--------|-------|
+| C1 | ✅ Corrigido | Admin de Channel reescrito em sessões anteriores |
+| C7 | ✅ Corrigido | `checks.py` atualizado em sessões anteriores |
+| C8 | ✅ Corrigido | **Todas** as ocorrências listadas foram limpas: docstrings, AppConfig classes, `conf.py`, `pyproject.toml`, `__init__.py`, adapters, protocols, signals, exceptions, admin, models, tests, contribs |
+| C9 | ✅ Corrigido | Todos os 7 `*_test_settings.py` renomeados para `{package}_test_settings.py` canônico |
+| C10 | ✅ Corrigido | `craftsman/contrib/stocking/` → `craftsman/contrib/stockman/` |
+
+### Renames executados no P0 (2026-04-14)
+
+**Adapters:**
+- `stockman/adapters/offering.py` → `sku_validation.py`
+- `stockman/adapters/crafting.py` → `production.py`
+- `craftsman/adapters/stocking.py` → `stock.py`
+- `craftsman/adapters/offering.py` → `catalog.py`
+- `framework/adapters/offering.py` → `pricing.py`
+
+**Templates:** `orderman/templates/ordering/` → `orderman/templates/orderman/`
+
+**Testes de integração:**
+- `test_crafting_offering.py` → `test_production_catalog.py`
+- `test_crafting_stocking.py` → `test_production_stock.py`
+- `test_crafting_app_integration.py` → `test_production_app_integration.py`
+- `test_ordering_auth.py` → `test_session_auth.py`
+- `test_ordering_attending.py` → `test_session_attending.py`
+
+**Admin URLs:** `omniman_session_*` e `ordering_session_*` → `orderman_session_*`
+
+**Throttle scopes:** `ordering_modify/commit` → `orderman_modify/commit`
+
+**Funções internas:** `_stocking_available` → `_stockman_available`, `_crafting_available` → `_craftsman_available`
+
+### Verificação: 821 passed, 17 skipped (suite completa)

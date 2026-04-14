@@ -76,3 +76,14 @@ Adicionadas chaves `stock_check_unavailable` e `manual_discount` à tabela de `S
 
 - `docs/reports/` criado
 - Este arquivo salvo como referência permanente
+
+---
+
+## ADDENDUM — P0 Naming Refactor (2026-04-14)
+
+Refactor adicional executado sobre o A1 original: além de URLs, os **arquivos-fonte**
+dos adapters, templates, testes de integração, throttle scopes, variáveis internas e
+docstrings foram renomeados para nomes canônicos. Ver `docs/plans/completed/P0-NAMING-PLAN.md`
+e addendum no audit `docs/audit/2026-04-10-kernel-framework-audit.md`.
+
+Suite: 821 passed, 17 skipped.

@@ -103,7 +103,7 @@ Ver nota em `shopman/shop/protocols.py`.
 - `craftsman/contrib/stockman/production.py` — `CraftingProductionBackend`
 - `craftsman/contrib/demand/backend.py` — `OrderingDemandBackend`
 - `craftsman/adapters/noop.py` — `NoopDemandBackend`
-- `craftsman/adapters/stocking.py`, `adapters/stock.py` — `StockingBackend`
+- `craftsman/adapters/stock.py` — `StockingBackend`
 
 ---
 
