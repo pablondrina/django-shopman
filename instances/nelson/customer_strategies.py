@@ -5,7 +5,7 @@ Registers Nelson-specific strategies with the shopman customer service.
 Import this module during app startup to activate them.
 
     # In AppConfig.ready() or settings-level registration:
-    from shopman.services.customer import register_strategy
+    from shopman.shop.services.customer import register_strategy
     import nelson.customer_strategies  # registers on import
 """
 
@@ -23,7 +23,7 @@ def nelson_handle_balcao(order):
     2. CPF present → resolve/create customer by document number.
     3. Neither → skip (anonymous walk-in).
     """
-    from shopman.services.customer import (
+    from shopman.shop.services.customer import (
         _SkipAnonymous,
         _add_identifier,
         _find_by_identifier,
@@ -75,5 +75,5 @@ def nelson_handle_balcao(order):
 
 
 # Register on import
-from shopman.services.customer import register_strategy
+from shopman.shop.services.customer import register_strategy
 register_strategy("balcao", nelson_handle_balcao)

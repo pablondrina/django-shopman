@@ -27,7 +27,7 @@ from shopman.craftsman.models import Recipe, RecipeItem, WorkOrder, WorkOrderIte
 from shopman.guestman.models import ContactPoint, Customer, CustomerAddress, CustomerGroup
 
 # ── Shopman (orchestrator) ────────────────────────────────────────────
-from shopman.models import (
+from shopman.shop.models import (
     CashMovement,
     CashRegisterSession,
     Coupon,
@@ -193,7 +193,7 @@ class Command(BaseCommand):
     # ────────────────────────────────────────────────────────────────
 
     def _seed_delivery_zones(self):
-        from shopman.models import DeliveryZone
+        from shopman.shop.models import DeliveryZone
 
         shop = Shop.objects.get(pk=1)
         # Londrina — CEP prefixes: 860xx e 861xx (regiao metropolitana)
@@ -293,7 +293,7 @@ class Command(BaseCommand):
             model.objects.all().delete()
 
         # KDS
-        from shopman.models import KDSTicket
+        from shopman.shop.models import KDSTicket
 
         KDSTicket.objects.all().delete()
         KDSInstance.objects.all().delete()
@@ -1265,7 +1265,7 @@ class Command(BaseCommand):
             ("web", "E-commerce", "web", _remote_config),
         ]
 
-        from shopman.models import ChannelConfigRecord
+        from shopman.shop.models import ChannelConfigRecord
 
         for ref, name, kind, config_data in channels_data:
             ch, _ = Channel.objects.update_or_create(
@@ -1523,7 +1523,7 @@ class Command(BaseCommand):
                     created_at=order_time + timedelta(minutes=2),
                 )
 
-                from shopman.kds_utils import dispatch_to_kds
+                from shopman.shop.kds_utils import dispatch_to_kds
                 tickets = dispatch_to_kds(order)
 
                 if live_status == "ready":
@@ -1567,7 +1567,7 @@ class Command(BaseCommand):
             ]),
         ]:
             ch = channels[channel_ref]
-            from shopman.config import ChannelConfig
+            from shopman.shop.config import ChannelConfig
 
             cfg = ChannelConfig.for_channel(ch)
             Session.objects.create(
@@ -2098,7 +2098,7 @@ class Command(BaseCommand):
     def _seed_notification_templates(self):
         self.stdout.write("  📨 Templates de notificação...")
 
-        from shopman.models import NotificationTemplate
+        from shopman.shop.models import NotificationTemplate
 
         FALLBACK_TEMPLATES = {
             "order_confirmed": {"subject": "Pedido {order_ref} confirmado", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* foi confirmado. Total: *{total}*.\n\nObrigado pela preferencia!"},
@@ -2134,42 +2134,42 @@ class Command(BaseCommand):
         RULE_CONFIGS = [
             {
                 "code": "d1_discount",
-                "rule_path": "shopman.rules.pricing.D1Rule",
+                "rule_path": "shopman.shop.rules.pricing.D1Rule",
                 "label": "Desconto D-1 (sobras)",
                 "params": {"discount_percent": 50},
                 "priority": 15,
             },
             {
                 "code": "promotion_discount",
-                "rule_path": "shopman.rules.pricing.PromotionRule",
+                "rule_path": "shopman.shop.rules.pricing.PromotionRule",
                 "label": "Promoções e Cupons",
                 "params": {},
                 "priority": 20,
             },
             {
                 "code": "employee_discount",
-                "rule_path": "shopman.rules.pricing.EmployeeRule",
+                "rule_path": "shopman.shop.rules.pricing.EmployeeRule",
                 "label": "Desconto Funcionário",
                 "params": {"discount_percent": 20, "group": "staff"},
                 "priority": 60,
             },
             {
                 "code": "happy_hour",
-                "rule_path": "shopman.rules.pricing.HappyHourRule",
+                "rule_path": "shopman.shop.rules.pricing.HappyHourRule",
                 "label": "Hora da Xepa",
                 "params": {"discount_percent": 25, "start": "17:30", "end": "18:00"},
                 "priority": 65,
             },
             {
                 "code": "business_hours",
-                "rule_path": "shopman.rules.validation.BusinessHoursRule",
+                "rule_path": "shopman.shop.rules.validation.BusinessHoursRule",
                 "label": "Horário de Funcionamento",
                 "params": {},
                 "priority": 10,
             },
             {
                 "code": "minimum_order",
-                "rule_path": "shopman.rules.validation.MinimumOrderRule",
+                "rule_path": "shopman.shop.rules.validation.MinimumOrderRule",
                 "label": "Pedido Mínimo Delivery",
                 "params": {"minimum_q": 2500},
                 "priority": 20,

@@ -35,7 +35,7 @@ install: ## Instala deps + apps da suite em modo editável
 	$(PYTHON) -m pip install -e packages/doorman
 	$(PYTHON) -m pip install -e packages/orderman
 	$(PYTHON) -m pip install -e packages/payman
-	$(PYTHON) -m pip install -e framework
+	$(PYTHON) -m pip install -e .
 	@echo "✓ Dependências instaladas"
 
 # ── Testes ────────────────────────────────────────────────────────────
@@ -77,27 +77,27 @@ test-doorman: ## Testes do shopman.auth
 
 test-framework: ## Testes do framework (orquestração)
 	@echo "── Framework ──"
-	cd framework && $(PYTHON) -m pytest -x -q
+	$(PYTHON) -m pytest shopman/shop/tests -x -q
 
 # ── CSS & Frontend ───────────────────────────────────────────────────
 # npm é invisível — tudo via make. node_modules instala sob demanda.
 
-framework/node_modules/.package-lock.json: framework/package.json
+node_modules/.package-lock.json: package.json
 	@echo "── Instalando dependências frontend ──"
-	cd framework && npm install --silent
+	npm install --silent
 	@echo "✓ node_modules pronto"
 
-css: framework/node_modules/.package-lock.json ## Build CSS (Tailwind local, minificado)
-	cd framework && npx tailwindcss -i ./static/src/input.css -o ./shopman/static/storefront/css/output.css --minify
-	@echo "✓ CSS compilado (~$$(du -h framework/shopman/static/storefront/css/output.css | cut -f1))"
+css: node_modules/.package-lock.json ## Build CSS (Tailwind local, minificado)
+	npx tailwindcss -i ./static/src/input.css -o ./shopman/static/storefront/css/output.css --minify
+	@echo "✓ CSS compilado (~$$(du -h shopman/shop/static/storefront/css/output.css | cut -f1))"
 
-css-watch: framework/node_modules/.package-lock.json ## CSS watch mode (dev)
-	cd framework && npx tailwindcss -i ./static/src/input.css -o ./shopman/static/storefront/css/output.css --watch
+css-watch: node_modules/.package-lock.json ## CSS watch mode (dev)
+	npx tailwindcss -i ./static/src/input.css -o ./shopman/static/storefront/css/output.css --watch
 
 fonts: ## Baixa fontes WOFF2 para self-hosting (Inter + Playfair Display)
 	@echo "── Baixando fontes ──"
-	@mkdir -p framework/shopman/static/storefront/fonts
-	@cd framework/shopman/static/storefront/fonts && \
+	@mkdir -p shopman/shop/static/storefront/fonts
+	@cd shopman/shop/static/storefront/fonts && \
 		curl -sLO "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfMZhrib2Bg-4.woff2" && mv UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfMZhrib2Bg-4.woff2 inter-latin-400.woff2 && \
 		curl -sLO "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuI6fMZhrib2Bg-4.woff2" && mv UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuI6fMZhrib2Bg-4.woff2 inter-latin-500.woff2 && \
 		curl -sLO "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuGKYMZhrib2Bg-4.woff2" && mv UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuGKYMZhrib2Bg-4.woff2 inter-latin-600.woff2 && \
@@ -108,38 +108,38 @@ fonts: ## Baixa fontes WOFF2 para self-hosting (Inter + Playfair Display)
 		curl -sLO "https://fonts.gstatic.com/s/playfairdisplay/v37/nuFRD-vYSZviVYUb_rj3ij__anPXDTnCjmHKM4nYO7KN_qiTbtbK-F2rA0s.woff2" && mv nuFRD-vYSZviVYUb_rj3ij__anPXDTnCjmHKM4nYO7KN_qiTbtbK-F2rA0s.woff2 playfair-display-latin-400-italic.woff2 && \
 		curl -sLO "https://fonts.gstatic.com/s/playfairdisplay/v37/nuFRD-vYSZviVYUb_rj3ij__anPXDTnCjmHKM4nYO7KN_giUbtbK-F2rA0s.woff2" && mv nuFRD-vYSZviVYUb_rj3ij__anPXDTnCjmHKM4nYO7KN_giUbtbK-F2rA0s.woff2 playfair-display-latin-600-italic.woff2
 	@echo "✓ Fontes baixadas"
-	@ls -la framework/shopman/static/storefront/fonts/*.woff2 2>/dev/null | wc -l | xargs -I{} echo "  {} arquivos woff2"
+	@ls -la shopman/shop/static/storefront/fonts/*.woff2 2>/dev/null | wc -l | xargs -I{} echo "  {} arquivos woff2"
 
 # ── Server ────────────────────────────────────────────────────────────
 
 migrate: ## Cria/atualiza banco de dados
-	cd framework && $(PYTHON) manage.py migrate
+	$(PYTHON) manage.py migrate
 	@echo "✓ Migrações aplicadas"
 
 run: css ## Sobe servidor + directive worker
-	cd framework && $(PYTHON) manage.py process_directives --watch &
-	cd framework && $(PYTHON) manage.py runserver
+	$(PYTHON) manage.py process_directives --watch &
+	$(PYTHON) manage.py runserver
 
-dev: framework/node_modules/.package-lock.json ## Dev: CSS watch + directive worker + server
+dev: node_modules/.package-lock.json ## Dev: CSS watch + directive worker + server
 	@echo "── Dev mode: CSS watch + directive worker + Django server ──"
 	@echo "  Ctrl+C para parar tudo."
-	cd framework && npx tailwindcss -i ./static/src/input.css -o ./shopman/static/storefront/css/output.css --watch &
-	cd framework && $(PYTHON) manage.py process_directives --watch &
-	cd framework && $(PYTHON) manage.py runserver
+	npx tailwindcss -i ./static/src/input.css -o ./shopman/static/storefront/css/output.css --watch &
+	$(PYTHON) manage.py process_directives --watch &
+	$(PYTHON) manage.py runserver
 
 seed: ## Popula banco com dados demo da instancia ativa (flush + recria)
-	cd framework && $(PYTHON) manage.py seed --flush
+	$(PYTHON) manage.py seed --flush
 	@echo "✓ Seed completo"
 
 # ── Qualidade ─────────────────────────────────────────────────────────
 
 coverage: ## Roda testes do framework com cobertura
 	@echo "── Coverage ──"
-	cd framework && $(PYTHON) -m pytest --cov --cov-report=term-missing --cov-report=html:htmlcov -q
-	@echo "✓ Relatório HTML em framework/htmlcov/index.html"
+	$(PYTHON) -m pytest --cov --cov-report=term-missing --cov-report=html:htmlcov -q
+	@echo "✓ Relatório HTML em htmlcov/index.html"
 
 lint: ## Ruff check
-	ruff check packages/ framework/
+	ruff check packages/ shopman/shop/ config/
 
 clean: ## Remove caches
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
