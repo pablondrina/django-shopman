@@ -35,7 +35,7 @@ class IsHappyHourActiveTests(TestCase):
         from shopman.web.views._helpers import _is_happy_hour_active
 
         with override_settings(SHOPMAN_HAPPY_HOUR_START="16:00", SHOPMAN_HAPPY_HOUR_END="18:00"):
-            with patch("shopman.web.views._helpers.get_modifiers", _fake_modifiers_with_happy_hour):
+            with patch("shopman.orderman.registry.get_modifiers",_fake_modifiers_with_happy_hour):
                 with patch("shopman.web.views._helpers.timezone") as mock_tz:
                     mock_tz.localtime.return_value.time.return_value = time(17, 0)
                     result = _is_happy_hour_active()
@@ -48,7 +48,7 @@ class IsHappyHourActiveTests(TestCase):
         from shopman.web.views._helpers import _is_happy_hour_active
 
         with override_settings(SHOPMAN_HAPPY_HOUR_START="16:00", SHOPMAN_HAPPY_HOUR_END="18:00"):
-            with patch("shopman.web.views._helpers.get_modifiers", _fake_modifiers_with_happy_hour):
+            with patch("shopman.orderman.registry.get_modifiers",_fake_modifiers_with_happy_hour):
                 with patch("shopman.web.views._helpers.timezone") as mock_tz:
                     mock_tz.localtime.return_value.time.return_value = time(15, 59)
                     result = _is_happy_hour_active()
@@ -60,7 +60,7 @@ class IsHappyHourActiveTests(TestCase):
         from shopman.web.views._helpers import _is_happy_hour_active
 
         with override_settings(SHOPMAN_HAPPY_HOUR_START="16:00", SHOPMAN_HAPPY_HOUR_END="18:00"):
-            with patch("shopman.web.views._helpers.get_modifiers", _fake_modifiers_with_happy_hour):
+            with patch("shopman.orderman.registry.get_modifiers",_fake_modifiers_with_happy_hour):
                 with patch("shopman.web.views._helpers.timezone") as mock_tz:
                     mock_tz.localtime.return_value.time.return_value = time(18, 0)
                     result = _is_happy_hour_active()
@@ -72,7 +72,7 @@ class IsHappyHourActiveTests(TestCase):
         from shopman.web.views._helpers import _is_happy_hour_active
 
         with override_settings(SHOPMAN_HAPPY_HOUR_START="16:00", SHOPMAN_HAPPY_HOUR_END="18:00"):
-            with patch("shopman.web.views._helpers.get_modifiers", _fake_modifiers_with_happy_hour):
+            with patch("shopman.orderman.registry.get_modifiers",_fake_modifiers_with_happy_hour):
                 with patch("shopman.web.views._helpers.timezone") as mock_tz:
                     mock_tz.localtime.return_value.time.return_value = time(18, 0)
                     result = _is_happy_hour_active()
@@ -88,7 +88,7 @@ class IsHappyHourActiveTests(TestCase):
             SHOPMAN_HAPPY_HOUR_END="18:00",
             SHOPMAN_HAPPY_HOUR_DISCOUNT_PERCENT=15,
         ):
-            with patch("shopman.web.views._helpers.get_modifiers", _fake_modifiers_with_happy_hour):
+            with patch("shopman.orderman.registry.get_modifiers",_fake_modifiers_with_happy_hour):
                 with patch("shopman.web.views._helpers.timezone") as mock_tz:
                     mock_tz.localtime.return_value.time.return_value = time(17, 0)
                     result = _is_happy_hour_active()
@@ -100,7 +100,7 @@ class IsHappyHourActiveTests(TestCase):
         from shopman.web.views._helpers import _is_happy_hour_active
 
         with override_settings(SHOPMAN_HAPPY_HOUR_START="16:00", SHOPMAN_HAPPY_HOUR_END="18:00"):
-            with patch("shopman.web.views._helpers.get_modifiers", _fake_modifiers_empty):
+            with patch("shopman.orderman.registry.get_modifiers",_fake_modifiers_empty):
                 with patch("shopman.web.views._helpers.timezone") as mock_tz:
                     mock_tz.localtime.return_value.time.return_value = time(17, 0)
                     result = _is_happy_hour_active()

@@ -9,7 +9,6 @@ from django.utils import timezone
 from shopman.guestman.contrib.insights import InsightService
 from shopman.offerman.models import ListingItem, Product
 from shopman.offerman.service import CatalogService
-from shopman.orderman.registry import get_modifiers
 from shopman.utils.monetary import format_money
 
 from ..constants import HAS_STOCKMAN, STOREFRONT_CHANNEL_REF
@@ -793,6 +792,7 @@ def _is_happy_hour_active() -> dict:
     Returns dict with keys: active (bool), discount_percent (int), end_hour (str).
     """
     from django.conf import settings
+    from shopman.orderman.registry import get_modifiers
 
     # Guard: only show badge if the instance registered a happy hour modifier.
     if not any(getattr(m, "code", None) == "shop.happy_hour" for m in get_modifiers()):
