@@ -4,7 +4,7 @@ Django settings for Offerman tests.
 Minimal settings to run pytest with shopman.offerman app.
 """
 
-SECRET_KEY = "test-secret-key-for-offering-tests"
+SECRET_KEY = "test-secret-key-for-offerman-tests"
 
 DEBUG = True
 

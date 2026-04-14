@@ -5,8 +5,8 @@ Usage in settings.py:
     OFFERMAN = {
         "MAX_COLLECTION_DEPTH": 10,
         "BUNDLE_MAX_DEPTH": 5,
-        "COST_BACKEND": None,  # e.g. "shopman.craftsman.adapters.offering.CraftingCostBackend"
-        "PRICING_BACKEND": None,  # e.g. "framework.shopman.adapters.offering.StorefrontPricingBackend"
+        "COST_BACKEND": None,  # e.g. "shopman.craftsman.adapters.catalog.CraftingCostBackend"
+        "PRICING_BACKEND": None,  # e.g. "framework.shopman.adapters.pricing.StorefrontPricingBackend"
         "PROJECTION_BACKENDS": {},  # e.g. {"ifood": "myproj.offers.iFoodProjectionBackend"}
     }
 """

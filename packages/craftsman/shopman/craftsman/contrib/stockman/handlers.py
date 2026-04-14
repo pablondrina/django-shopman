@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 STARTED_BATCH = "started"
 
 
-def _stocking_available() -> bool:
+def _stockman_available() -> bool:
     """Check if Stockman is installed."""
     try:
         from shopman.stockman.services.movements import StockMovements  # noqa: F401
@@ -57,7 +57,7 @@ def handle_production_changed(sender, product_ref, date, **kwargs):
         )
         return
 
-    if not _stocking_available():
+    if not _stockman_available():
         logger.debug(
             "Stockman not installed, skipping production_changed handler: "
             "action=%s product_ref=%s",

@@ -5,10 +5,13 @@
   "description": "Shopman storefront CSS build pipeline",
   "scripts": {
     "css:build": "tailwindcss -i ./static/src/input.css -o ./channels/web/static/storefront/css/output.css --minify",
-    "css:watch": "tailwindcss -i ./static/src/input.css -o ./channels/web/static/storefront/css/output.css --watch"
+    "css:watch": "tailwindcss -i ./static/src/input.css -o ./channels/web/static/storefront/css/output.css --watch",
+    "v2:build": "npx @tailwindcss/cli@4 -i ./static/src/style-v2.css -o ./shopman/static/storefront/css/output-v2.css --minify",
+    "v2:watch": "npx @tailwindcss/cli@4 -i ./static/src/style-v2.css -o ./shopman/static/storefront/css/output-v2.css --watch"
   },
   "devDependencies": {
     "tailwindcss": "^3.4.17",
+    "@tailwindcss/cli": "^4.2.2",
     "@tailwindcss/forms": "^0.5.9",
     "@tailwindcss/typography": "^0.5.15"
   }

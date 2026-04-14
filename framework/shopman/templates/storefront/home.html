@@ -8,23 +8,89 @@
 
 {% block content %}
 
-{# ── Hero Section ── #}
+{# ── Hero Section (Omotenashi v2) ──
+   Structure: Logo → Badge → Voice (greeting + context) → CTAs
+   Data sources:
+   - storefront (Shop model) → logo, brand_name
+   - shop_status (context processor) → is_open, opens_at, closes_at
+   - customer_name (context processor) → personalized greeting
+#}
 <section class="text-center py-12 md:py-20">
+
+  {# Logo — identity, separated from voice #}
   {% if storefront.logo.name %}
   <img src="{{ storefront.logo.url }}" alt="{{ storefront.brand_name }}"
-       class="h-16 md:h-20 w-auto mx-auto mb-6 object-contain">
+       class="h-14 md:h-16 w-auto mx-auto mb-6 object-contain">
   {% endif %}
-  <h1 class="text-h1 md:text-4xl font-heading text-foreground mb-3">
-    {{ storefront.tagline|default:"Pão bom como sempre" }}
-  </h1>
-  <p class="text-muted-foreground max-w-lg mx-auto mb-8 text-base">
-    {{ storefront.description|truncatewords:25 }}
-  </p>
-  {% url 'storefront:menu' as menu_url %}
-  {% include "components/_button.html" with href=menu_url variant="primary" size="lg" label="Ver o cardápio de hoje" %}
+
+  {# Status badge — operational truth #}
+  <div class="flex justify-center mb-6">
+    {% include "storefront/partials/shop_status_badge.html" %}
+  </div>
+
+  {# Voice — temporal greeting + contextual line #}
+  {% include "storefront/partials/temporal_greeting.html" with show_context_line=True %}
+
+  {# CTAs — contextual + general, side by side when both present #}
+  <div class="mt-8 flex gap-3 justify-center flex-wrap" x-data="homeCta()">
+    {# Contextual CTA (appears based on time of day) #}
+    <a x-show="ctaLabel" x-cloak
+       :href="ctaHref"
+       x-text="ctaLabel"
+       class="inline-flex items-center justify-center px-6 py-3 min-w-[160px] max-w-[200px]
+              rounded-xl bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]
+              font-semibold text-body-sm transition-all active:scale-[0.97] hover:opacity-90
+              shadow-sm"
+       style="min-height: var(--touch-min);"></a>
+    {# General CTA — always visible #}
+    {% url 'storefront:menu' as menu_url %}
+    <a href="{{ menu_url }}"
+       class="inline-flex items-center justify-center px-6 py-3 min-w-[160px] max-w-[200px]
+              rounded-xl border border-border text-foreground
+              font-semibold text-body-sm transition-all active:scale-[0.97]
+              hover:bg-surface-hover"
+       :class="!ctaLabel && 'bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] border-transparent shadow-sm hover:opacity-90'"
+       style="min-height: var(--touch-min);">
+      Ver Cardápio
+    </a>
+  </div>
 </section>
 
-{# Como Funciona #}
+{# Closing awareness — shows only when closing within 1h #}
+<div class="max-w-2xl mx-auto px-4 mb-4">
+  {% include "storefront/partials/closing_awareness.html" %}
+</div>
+
+{# ── Quick Reorder (returning customers) ── #}
+<div class="max-w-2xl mx-auto mb-8">
+  {% include "storefront/partials/quick_reorder.html" %}
+</div>
+
+{# ── Direto do Forno (real-time availability from offerman + stockman) ── #}
+<section class="py-12 border-t border-border">
+  <h2 class="text-h2 font-heading text-foreground text-center mb-2">Direto do forno</h2>
+  <p class="text-muted-foreground text-center mb-8 text-body-sm">Disponibilidade em tempo real</p>
+
+  <div id="home-availability"
+       hx-get="{% url 'storefront:menu' %}?partial=availability_preview"
+       hx-trigger="load, every 60s"
+       hx-swap="innerHTML"
+       class="max-w-2xl mx-auto">
+    {# HTMX loads availability preview — offerman for catalog, stockman for promise #}
+    <div class="flex justify-center py-8">
+      <div class="w-6 h-6 border-2 border-[rgb(var(--primary))] border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  </div>
+
+  <div class="text-center mt-6">
+    <a href="{{ menu_url }}"
+       class="text-[rgb(var(--primary))] hover:text-[rgb(var(--primary-hover))] font-medium text-body-sm transition-colors">
+      Ver cardápio completo →
+    </a>
+  </div>
+</section>
+
+{# ── Como Funciona ── #}
 <section class="py-12 border-t border-border">
   <h2 class="text-h2 font-heading text-foreground text-center mb-10">Como Funciona</h2>
 
@@ -33,29 +99,29 @@
     {# Dimensão 1: Pedido Online #}
     <div>
       <h3 class="text-h3 text-foreground mb-6 flex items-center gap-2">
-        <span class="w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center shrink-0">1</span>
+        <span class="w-8 h-8 rounded-full bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] text-sm font-bold flex items-center justify-center shrink-0">1</span>
         Pedido Online
       </h3>
       <div class="space-y-4">
         <div class="flex gap-3">
-          <div class="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold">1</div>
+          <div class="w-6 h-6 rounded-full bg-[rgb(var(--primary))]/10 text-[rgb(var(--primary))] flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold">1</div>
           <div>
-            <p class="text-foreground font-medium text-sm">Escolha</p>
-            <p class="text-muted-foreground text-sm">Navegue pelo cardápio e adicione ao carrinho.</p>
+            <p class="text-foreground font-medium text-body-sm">Escolha</p>
+            <p class="text-muted-foreground text-body-sm">Navegue pelo cardápio e adicione ao carrinho.</p>
           </div>
         </div>
         <div class="flex gap-3">
-          <div class="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold">2</div>
+          <div class="w-6 h-6 rounded-full bg-[rgb(var(--primary))]/10 text-[rgb(var(--primary))] flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold">2</div>
           <div>
-            <p class="text-foreground font-medium text-sm">Pague</p>
-            <p class="text-muted-foreground text-sm">PIX rápido e seguro. Confirmação instantânea.</p>
+            <p class="text-foreground font-medium text-body-sm">Pague</p>
+            <p class="text-muted-foreground text-body-sm">PIX rápido e seguro. Confirmação instantânea.</p>
           </div>
         </div>
         <div class="flex gap-3">
-          <div class="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold">3</div>
+          <div class="w-6 h-6 rounded-full bg-[rgb(var(--primary))]/10 text-[rgb(var(--primary))] flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold">3</div>
           <div>
-            <p class="text-foreground font-medium text-sm">Retire ou Receba</p>
-            <p class="text-muted-foreground text-sm">Acompanhe em tempo real. Retire na loja ou receba em casa.</p>
+            <p class="text-foreground font-medium text-body-sm">Retire ou Receba</p>
+            <p class="text-muted-foreground text-body-sm">Acompanhe em tempo real. Retire na loja ou receba em casa.</p>
           </div>
         </div>
       </div>
@@ -64,35 +130,35 @@
     {# Dimensão 2: Visita à Loja #}
     <div>
       <h3 class="text-h3 text-foreground mb-6 flex items-center gap-2">
-        <span class="w-8 h-8 rounded-full bg-secondary text-secondary-foreground text-sm font-bold flex items-center justify-center shrink-0">2</span>
+        <span class="w-8 h-8 rounded-full bg-[rgb(var(--secondary))] text-[rgb(var(--secondary-foreground))] text-sm font-bold flex items-center justify-center shrink-0">2</span>
         Na Loja
       </h3>
       <div class="space-y-4">
         <div class="flex gap-3">
-          <div class="w-6 h-6 rounded-full bg-secondary/10 text-secondary-foreground flex items-center justify-center shrink-0 mt-0.5">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          <div class="w-6 h-6 rounded-full bg-[rgb(var(--secondary))]/10 text-[rgb(var(--secondary-foreground))] flex items-center justify-center shrink-0 mt-0.5">
+            <span class="material-symbols-rounded" style="font-size: 14px;" aria-hidden="true">storefront</span>
           </div>
           <div>
-            <p class="text-foreground font-medium text-sm">Pães no autosserviço</p>
-            <p class="text-muted-foreground text-sm">Escolha direto da prateleira. Pese, embale e leve ao caixa.</p>
+            <p class="text-foreground font-medium text-body-sm">Pães no autosserviço</p>
+            <p class="text-muted-foreground text-body-sm">Escolha direto da prateleira. Pese, embale e leve ao caixa.</p>
           </div>
         </div>
         <div class="flex gap-3">
-          <div class="w-6 h-6 rounded-full bg-secondary/10 text-secondary-foreground flex items-center justify-center shrink-0 mt-0.5">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <div class="w-6 h-6 rounded-full bg-[rgb(var(--secondary))]/10 text-[rgb(var(--secondary-foreground))] flex items-center justify-center shrink-0 mt-0.5">
+            <span class="material-symbols-rounded" style="font-size: 14px;" aria-hidden="true">coffee</span>
           </div>
           <div>
-            <p class="text-foreground font-medium text-sm">Cafés e doces no balcão</p>
-            <p class="text-muted-foreground text-sm">Peça ao atendente. Preparamos na hora.</p>
+            <p class="text-foreground font-medium text-body-sm">Cafés e doces no balcão</p>
+            <p class="text-muted-foreground text-body-sm">Peça ao atendente. Preparamos na hora.</p>
           </div>
         </div>
         <div class="flex gap-3">
-          <div class="w-6 h-6 rounded-full bg-secondary/10 text-secondary-foreground flex items-center justify-center shrink-0 mt-0.5">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <div class="w-6 h-6 rounded-full bg-[rgb(var(--secondary))]/10 text-[rgb(var(--secondary-foreground))] flex items-center justify-center shrink-0 mt-0.5">
+            <span class="material-symbols-rounded" style="font-size: 14px;" aria-hidden="true">schedule</span>
           </div>
           <div>
-            <p class="text-foreground font-medium text-sm">Horários</p>
-            <p class="text-muted-foreground text-sm">
+            <p class="text-foreground font-medium text-body-sm">Horários</p>
+            <p class="text-muted-foreground text-body-sm">
               {% for entry in opening_hours_display %}{{ entry.label }}: {{ entry.hours }}{% if not forloop.last %} · {% endif %}{% empty %}Consulte nossos horários{% endfor %}
             </p>
           </div>
@@ -103,27 +169,19 @@
   </div>
 </section>
 
-{# ── Direto do Forno (disponibilidade em tempo real) ── #}
-<section class="py-12 border-t border-border">
-  <h2 class="text-h2 font-heading text-foreground text-center mb-2">Direto do forno</h2>
-  <p class="text-muted-foreground text-center mb-8 text-sm">Disponibilidade em tempo real</p>
-
-  <div id="home-availability"
-       hx-get="{% url 'storefront:menu' %}?partial=availability_preview"
-       hx-trigger="load, every 60s"
-       hx-swap="innerHTML"
-       class="max-w-2xl mx-auto">
-    {# HTMX loads availability preview #}
-    <div class="flex justify-center py-8">
-      <div class="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-    </div>
-  </div>
-
-  <div class="text-center mt-6">
-    <a href="{% url 'storefront:menu' %}"
-       class="text-primary hover:text-primary-hover font-medium text-sm transition-colors">
-      Ver cardápio completo →
-    </a>
+{# ── Tomorrow Hook (Gate 3 — Ressonância) ── #}
+{# Visible afternoon/evening: seed the next visit #}
+<section x-data="{ visible: false }" x-init="visible = new Date().getHours() >= 14"
+         x-show="visible" x-transition x-cloak
+         class="py-8 border-t border-border">
+  <div class="max-w-2xl mx-auto text-center">
+    <p class="text-overline font-semibold text-muted-foreground uppercase tracking-widest">Amanhã</p>
+    <p class="text-body text-foreground font-medium mt-2"
+       x-text="new Date().getHours() >= {{ shop_status.closes_at|default:'19:00'|truncatechars:2 }}
+               ? 'Encomende agora para retirada a partir das {{ shop_status.opens_at|default:'7:00'|truncatechars:1 }}h.'
+               : 'Fornada fresca às {{ shop_status.opens_at|default:'7:00'|truncatechars:1 }}h.'">
+      Fornada fresca amanhã.
+    </p>
   </div>
 </section>
 
@@ -134,7 +192,7 @@
     <p class="text-foreground mb-2">
       {% if storefront.maps_url %}
       <a href="{{ storefront.maps_url }}" target="_blank" rel="noopener"
-         class="hover:text-primary transition-colors underline underline-offset-2">
+         class="hover:text-[rgb(var(--primary))] transition-colors underline underline-offset-2">
         {{ storefront.full_address }}
       </a>
       {% else %}
@@ -146,15 +204,16 @@
     <div class="flex items-center justify-center gap-4 mt-4">
       {% if storefront.phone %}
       <a href="{{ storefront.phone_url }}"
-         class="inline-flex items-center gap-2 px-4 py-2 bg-success text-success-foreground rounded-lg text-sm font-medium hover:bg-success/90 transition-colors"
-         style="min-height: 44px;">
+         class="inline-flex items-center gap-2 px-4 py-2 bg-[rgb(var(--success))] text-[rgb(var(--success-foreground))]
+                rounded-lg text-body-sm font-medium hover:opacity-90 transition-colors"
+         style="min-height: var(--touch-min);">
         WhatsApp
       </a>
       {% endif %}
       {% if storefront.social_links_resolved %}
       {% for link in storefront.social_links_resolved %}
       <a href="{{ link.url }}" target="_blank" rel="noopener" title="{{ link.label }}"
-         class="text-muted-foreground hover:text-primary transition-colors">
+         class="text-muted-foreground hover:text-[rgb(var(--primary))] transition-colors">
         {{ link.icon_svg|safe }}
       </a>
       {% endfor %}
@@ -162,5 +221,38 @@
     </div>
   </div>
 </section>
+
+{# ── Home CTA logic (Alpine) ── #}
+<script>
+  document.addEventListener('alpine:init', () => {
+    Alpine.data('homeCta', () => ({
+      ctaLabel: '',
+      ctaHref: '',
+
+      init() {
+        const h = new Date().getHours();
+        const closesAtStr = '{{ shop_status.closes_at|default:"" }}';
+        const closesAt = closesAtStr ? parseInt(closesAtStr.split(':')[0]) : 19;
+
+        if (h < 7) {
+          this.ctaLabel = 'Encomende agora';
+          this.ctaHref = '{% url "storefront:menu" %}';
+        } else if (h < 12) {
+          this.ctaLabel = 'Ver pães';
+          this.ctaHref = '{% url "storefront:menu" %}#paes';
+        } else if (h < 14) {
+          this.ctaLabel = 'Ver sanduíches';
+          this.ctaHref = '{% url "storefront:menu" %}#combos';
+        } else if (h >= closesAt) {
+          this.ctaLabel = 'Encomende para amanhã';
+          this.ctaHref = '{% url "storefront:menu" %}';
+        } else {
+          this.ctaLabel = '';
+          this.ctaHref = '';
+        }
+      }
+    }));
+  });
+</script>
 
 {% endblock %}

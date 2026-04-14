@@ -1,7 +1,7 @@
 """
 Manychat Subscriber Resolver — Resolve recipient → subscriber_id.
 
-Usado pelo ManychatBackend (ordering) para converter phone/email/ref
+Usado pelo ManychatBackend (orderman) para converter phone/email/ref
 em Manychat subscriber_id para envio de mensagens outbound.
 
 Estratégia de resolução (em ordem):

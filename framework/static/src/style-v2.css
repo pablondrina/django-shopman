@@ -1,0 +1,113 @@
+@import 'tailwindcss';
+
+@source "../../shopman/templates/storefront/v2/**/*.html";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+
+    /* Fonts — Penguin UI defaults, overridden at runtime by Django tokens */
+    --font-body: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-title: 'Montserrat', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* Light Theme */
+    --color-surface: var(--color-white);
+    --color-surface-alt: var(--color-neutral-50);
+    --color-on-surface: var(--color-neutral-600);
+    --color-on-surface-strong: var(--color-neutral-900);
+    --color-primary: var(--color-black);
+    --color-on-primary: var(--color-neutral-100);
+    --color-secondary: var(--color-neutral-800);
+    --color-on-secondary: var(--color-white);
+    --color-outline: var(--color-neutral-300);
+    --color-outline-strong: var(--color-neutral-800);
+
+    /* Dark Theme */
+    --color-surface-dark: var(--color-neutral-950);
+    --color-surface-dark-alt: var(--color-neutral-900);
+    --color-on-surface-dark: var(--color-neutral-300);
+    --color-on-surface-dark-strong: var(--color-white);
+    --color-primary-dark: var(--color-white);
+    --color-on-primary-dark: var(--color-black);
+    --color-secondary-dark: var(--color-neutral-300);
+    --color-on-secondary-dark: var(--color-black);
+    --color-outline-dark: var(--color-neutral-700);
+    --color-outline-dark-strong: var(--color-neutral-300);
+
+    /* Shared Colors */
+    --color-info: var(--color-sky-500);
+    --color-on-info: var(--color-white);
+    --color-success: var(--color-green-500);
+    --color-on-success: var(--color-white);
+    --color-warning: var(--color-amber-500);
+    --color-on-warning: var(--color-white);
+    --color-danger: var(--color-red-500);
+    --color-on-danger: var(--color-white);
+
+    /* Border Radius */
+    --radius-radius: var(--radius-sm);
+}
+
+/* ── Base layer ── */
+@layer base {
+    /* Alpine.js cloak */
+    [x-cloak] { display: none !important; }
+
+    /* Smooth scroll */
+    html { scroll-behavior: smooth; }
+
+    /* Selection */
+    ::selection {
+        background-color: var(--color-primary);
+        color: var(--color-on-primary);
+    }
+    .dark ::selection {
+        background-color: var(--color-primary-dark);
+        color: var(--color-on-primary-dark);
+    }
+
+    /* Body baseline */
+    body {
+        font-family: var(--font-body);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Headings */
+    h1, h2, h3, h4, h5, h6 {
+        font-family: var(--font-title);
+    }
+}
+
+/* ── Components layer ── */
+@layer components {
+    /* Touch targets (44px minimum) */
+    .touch-target {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    /* HTMX loading states */
+    .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
+    .htmx-request .htmx-indicator,
+    .htmx-request.htmx-indicator { opacity: 1; }
+
+    /* SPA-like transitions */
+    .htmx-swapping { opacity: 0; transition: opacity 150ms ease-out; }
+    .htmx-settling { opacity: 1; transition: opacity 150ms ease-in; }
+}
+
+/* ── Utilities layer ── */
+@layer utilities {
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
+    }
+}

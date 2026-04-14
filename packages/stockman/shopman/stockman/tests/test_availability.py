@@ -13,7 +13,7 @@ from django.test import override_settings
 from django.utils import timezone
 
 from shopman.stockman import stock
-from shopman.stockman.adapters.offering import reset_sku_validator
+from shopman.stockman.adapters.sku_validation import reset_sku_validator
 from shopman.stockman.services.availability import promise_decision_for_sku
 from shopman.stockman.models import Quant, Hold, Position
 

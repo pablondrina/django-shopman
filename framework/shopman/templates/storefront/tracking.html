@@ -145,8 +145,21 @@
       </a>
     </div>
 
+    {# TODO(kintsugi): Detect delay via order timeline events.
+       When current phase exceeds expected SLA, show transparent message:
+       "Seu pedido está levando mais tempo que o esperado. Nova estimativa: Xmin."
+       Source: orderman order events + shop SLA config. #}
+
+    {# Gate 3 — Ressonância: seed the next visit #}
+    {% if shop_status.opens_at %}
+    <div class="p-4 rounded-xl bg-surface border border-border text-center">
+      <p class="text-overline font-semibold text-muted-foreground uppercase tracking-widest">Amanhã</p>
+      <p class="text-body-sm text-foreground font-medium mt-1">Fornada fresca às {{ shop_status.opens_at|truncatechars:2 }}h.</p>
+    </div>
+    {% endif %}
+
     <!-- Navigation -->
-    <div class="flex gap-3">
+    <div class="flex gap-3 mt-4">
       {% url 'storefront:menu' as menu_url %}
       {% url 'storefront:order_history' as history_url %}
       {% include "components/_button.html" with href=menu_url variant="primary" label="Voltar ao Cardápio" css_class="flex-1" %}

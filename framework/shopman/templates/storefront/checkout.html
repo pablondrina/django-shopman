@@ -17,6 +17,14 @@
 
 <h1 class="text-h1 text-foreground mb-4">Finalizar Pedido</h1>
 
+{# Closing awareness — shows only when closing within 1h #}
+<div class="mb-4">
+  {% include "storefront/partials/closing_awareness.html" %}
+</div>
+
+{# "Pedido nº X" uses order.ref — already available in checkout context.
+   No dependency on customer_summary for this. #}
+
 <div x-data="checkoutPage()" x-init="init()">
 
 <!-- Visual stepper (Alpine reactive) -->

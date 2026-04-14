@@ -17,4 +17,7 @@ class HomeView(View):
     """
 
     def get(self, request: HttpRequest) -> HttpResponse:
+        # ?v2 flag switches to Penguin UI templates for A/B testing
+        if request.GET.get("v2") is not None:
+            return render(request, "storefront/v2/home.html")
         return render(request, "storefront/home.html")

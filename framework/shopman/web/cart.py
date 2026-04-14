@@ -52,18 +52,18 @@ class CartService:
 
     @staticmethod
     def _get_or_create_session(request: HttpRequest) -> tuple[Session, str]:
-        """Return (ordering_session, session_key). Creates if needed."""
+        """Return (cart_session, session_key). Creates if needed."""
         session_key = request.session.get("cart_session_key")
         channel = CartService._get_channel()
 
         if session_key:
             try:
-                ordering_session = Session.objects.get(
+                cart_session = Session.objects.get(
                     session_key=session_key,
                     channel_ref=channel.ref,
                     state="open",
                 )
-                return ordering_session, session_key
+                return cart_session, session_key
             except Session.DoesNotExist:
                 pass
 
@@ -73,7 +73,7 @@ class CartService:
         from shopman.config import ChannelConfig
 
         config = ChannelConfig.for_channel(channel)
-        ordering_session = Session.objects.create(
+        cart_session = Session.objects.create(
             session_key=session_key,
             channel_ref=channel.ref,
             pricing_policy=config.pricing.policy,
@@ -81,7 +81,7 @@ class CartService:
             data={"origin_channel": origin_channel},
         )
         request.session["cart_session_key"] = session_key
-        return ordering_session, session_key
+        return cart_session, session_key
 
     @staticmethod
     def add_item(

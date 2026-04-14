@@ -7,7 +7,7 @@ for a product without Offerman importing them.
 Usage:
     # In settings.py
     OFFERMAN = {
-        "COST_BACKEND": "shopman.craftsman.adapters.offering.CraftingCostBackend",
+        "COST_BACKEND": "shopman.craftsman.adapters.catalog.CraftingCostBackend",
     }
 
     # Craftsman implements this adapter:

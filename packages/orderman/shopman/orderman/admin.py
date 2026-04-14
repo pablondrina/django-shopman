@@ -138,7 +138,7 @@ class CanalVendaFilter(admin.SimpleListFilter):
 
 @admin.register(Session)
 class SessionAdmin(ModelAdmin):
-    change_form_template = "ordering/admin/session_change_form.html"
+    change_form_template = "orderman/admin/session_change_form.html"
     list_display = (
         "session_key",
         "channel_ref",
@@ -392,12 +392,12 @@ class SessionAdmin(ModelAdmin):
             path(
                 "<path:object_id>/resolve-issue/<str:issue_id>/<str:action_id>/",
                 self.admin_site.admin_view(self.resolve_issue_view),
-                name="ordering_session_resolve_issue",
+                name="orderman_session_resolve_issue",
             ),
             path(
                 "<path:object_id>/run-check/<str:topic>/",
                 self.admin_site.admin_view(self.run_check_view),
-                name="ordering_session_run_check",
+                name="orderman_session_run_check",
             ),
         ]
         return custom + urls
@@ -1192,7 +1192,7 @@ class DirectiveAdmin(ModelAdmin):
         return obj.get_status_display()
 
     # Banner explicativo antes do formulário (hook do Unfold), como no demo v0.5.2
-    change_form_before_template = "ordering/admin/directive_before.html"
+    change_form_before_template = "orderman/admin/directive_before.html"
 
     # Form customizado removido - todos os campos são readonly agora
     # Se precisar criar novas diretivas manualmente no futuro, pode adicionar form customizado

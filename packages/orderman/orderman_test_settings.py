@@ -4,7 +4,7 @@ Django settings for Orderman tests.
 Minimal settings to run pytest with shopman.orderman app.
 """
 
-SECRET_KEY = "test-secret-key-for-ordering-tests"
+SECRET_KEY = "test-secret-key-for-orderman-tests"
 
 DEBUG = True
 
@@ -38,7 +38,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "1000/minute",
         "user": "1000/minute",
-        "ordering_modify": "1000/minute",
-        "ordering_commit": "1000/minute",
+        "orderman_modify": "1000/minute",
+        "orderman_commit": "1000/minute",
     },
 }

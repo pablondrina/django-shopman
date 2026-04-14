@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Checkout — Nelson Boulangerie</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style type="text/tailwindcss">
+    @custom-variant dark (&:where(.dark, .dark *));
+
+    @theme {
+        --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+            'Segoe UI Symbol', 'Noto Color Emoji';
+        --font-title: 'Playfair Display', ui-serif, Georgia, serif;
+
+        --color-surface: var(--color-white);
+        --color-surface-alt: var(--color-neutral-50);
+        --color-on-surface: var(--color-neutral-600);
+        --color-on-surface-strong: var(--color-neutral-900);
+        --color-primary: var(--color-black);
+        --color-on-primary: var(--color-neutral-100);
+        --color-secondary: var(--color-neutral-800);
+        --color-on-secondary: var(--color-white);
+        --color-outline: var(--color-neutral-300);
+        --color-outline-strong: var(--color-neutral-800);
+
+        --color-surface-dark: var(--color-neutral-950);
+        --color-surface-dark-alt: var(--color-neutral-900);
+        --color-on-surface-dark: var(--color-neutral-300);
+        --color-on-surface-dark-strong: var(--color-white);
+        --color-primary-dark: var(--color-white);
+        --color-on-primary-dark: var(--color-black);
+        --color-secondary-dark: var(--color-neutral-300);
+        --color-on-secondary-dark: var(--color-black);
+        --color-outline-dark: var(--color-neutral-700);
+        --color-outline-dark-strong: var(--color-neutral-300);
+
+        --color-info: var(--color-sky-500);
+        --color-on-info: var(--color-white);
+        --color-success: var(--color-green-500);
+        --color-on-success: var(--color-white);
+        --color-warning: var(--color-amber-500);
+        --color-on-warning: var(--color-white);
+        --color-danger: var(--color-red-500);
+        --color-on-danger: var(--color-white);
+
+        --radius-radius: var(--radius-sm);
+    }
+
+    @layer base {
+        [x-cloak] { display: none !important; }
+        html { scroll-behavior: smooth; }
+        ::selection { background-color: var(--color-primary); color: var(--color-on-primary); }
+        body { font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+        h1, h2, h3, h4, h5, h6 { font-family: var(--font-title); }
+    }
+
+    @layer components {
+        .touch-target { min-height: 44px; min-width: 44px; }
+    }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+</head>
+
+<body class="bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark">
+  <div x-data="checkoutApp()" x-cloak class="min-h-screen flex flex-col pb-32">
+    <!-- Header -->
+    <header class="sticky top-0 z-40 bg-surface dark:bg-surface-dark border-b border-outline dark:border-outline-dark">
+      <div class="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
+        <button
+          @click="goBack()"
+          class="p-2 -ml-2 hover:bg-surface-alt dark:hover:bg-surface-alt-dark rounded-radius transition touch-target flex items-center justify-center"
+          aria-label="Voltar"
+        >
+          <svg class="w-6 h-6 text-on-surface-strong dark:text-on-surface-dark-strong" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 19l-7-7 7-7"></path>
+          </svg>
+        </button>
+        <h1 class="text-xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong" style="font-family: var(--font-title)">Checkout</h1>
+        <span class="text-sm font-medium text-on-surface dark:text-on-surface-dark" x-text="`${step}/4`"></span>
+      </div>
+
+      <!-- Progress Dots -->
+      <div class="max-w-md mx-auto px-4 pb-4 flex items-center justify-center gap-0">
+        <template x-for="i in 4" :key="i">
+          <div class="flex items-center flex-1">
+            <div
+              :class="[
+                'w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all touch-target',
+                step > i ? 'bg-success dark:bg-success text-on-success dark:text-on-success' :
+                step === i ? 'bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark' :
+                'bg-surface-alt dark:bg-surface-alt-dark text-on-surface dark:text-on-surface-dark'
+              ]"
+              x-text="step > i ? '✓' : i"
+            ></div>
+            <div
+              x-show="i < 4"
+              :class="[
+                'flex-1 h-1 mx-1 rounded-full transition-all',
+                step > i ? 'bg-success dark:bg-success' : 'bg-outline dark:bg-outline-dark'
+              ]"
+            ></div>
+          </div>
+        </template>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <main class="flex-1 max-w-md mx-auto w-full px-4 py-6">
+
+      <!-- Step 1: Dados (Identification) -->
+      <div x-show="step === 1" x-transition class="space-y-6">
+        <!-- Returning Customer Banner -->
+        <div class="bg-success dark:bg-success rounded-radius p-4">
+          <div class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-on-success dark:text-on-success flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            <div>
+              <p class="font-medium text-on-success dark:text-on-success">Bem-vinda de volta, Maria!</p>
+              <p class="text-sm mt-1 text-on-success dark:text-on-success opacity-90">Seus dados foram reconhecidos.</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h2 class="text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-6" style="font-family: var(--font-title)">Para quem é esse pedido?</h2>
+
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium mb-2 text-on-surface-strong dark:text-on-surface-dark-strong">Nome</label>
+              <input
+                type="text"
+                x-model="form.name"
+                placeholder="Maria Silva"
+                @keyup="validateStep()"
+                class="w-full px-4 py-3 rounded-radius border border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark text-on-surface-strong dark:text-on-surface-dark-strong transition-colors focus:outline-none focus:border-primary dark:focus:border-primary-dark focus:ring-2 focus:ring-primary/20 dark:focus:ring-primary-dark/20"
+              >
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium mb-2 text-on-surface-strong dark:text-on-surface-dark-strong">Telefone</label>
+              <input
+                type="tel"
+                x-model="form.phone"
+                @input="maskPhone()"
+                @keyup="validateStep()"
+                placeholder="(11) 99999-0000"
+                class="w-full px-4 py-3 rounded-radius border border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark text-on-surface-strong dark:text-on-surface-dark-strong transition-colors focus:outline-none focus:border-primary dark:focus:border-primary-dark focus:ring-2 focus:ring-primary/20 dark:focus:ring-primary-dark/20 font-mono"
+              >
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium mb-2 text-on-surface-strong dark:text-on-surface-dark-strong">Email</label>
+              <input
+                type="email"
+                x-model="form.email"
+                placeholder="maria@example.com"
+                @keyup="validateStep()"
+                class="w-full px-4 py-3 rounded-radius border border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark text-on-surface-strong dark:text-on-surface-dark-strong transition-colors focus:outline-none focus:border-primary dark:focus:border-primary-dark focus:ring-2 focus:ring-primary/20 dark:focus:ring-primary-dark/20"
+              >
+            </div>
+
+            <p class="text-xs text-on-surface dark:text-on-surface-dark">
+              Já tem cadastro? <a href="#" class="font-semibold text-primary dark:text-primary-dark hover:underline">Faça login</a>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Entrega (Fulfillment) -->
+      <div x-show="step === 2" x-transition class="space-y-6">
+        <h2 class="text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong" style="font-family: var(--font-title)">Como você quer receber?</h2>
+
+        <!-- Pickup Option -->
+        <button
+          @click="form.fulfillment = 'pickup'; validateStep()"
+          :class="[
+            'w-full p-4 rounded-radius border-2 transition-all text-left touch-target',
+            form.fulfillment === 'pickup'
+              ? 'border-primary dark:border-primary-dark bg-surface-alt dark:bg-surface-alt-dark'
+              : 'border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark hover:border-primary dark:hover:border-primary-dark'
+          ]"
+        >
+          <div class="flex items-start gap-4">
+            <svg class="w-6 h-6 mt-0.5 flex-shrink-0 text-primary dark:text-primary-dark" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="12" cy="12" r="4" fill="currentColor" opacity="0.3"/>
+            </svg>
+            <div class="flex-1">
+              <p class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Retirada na Loja</p>
+              <p class="text-sm text-on-surface dark:text-on-surface-dark mt-1">Rua das Flores, 1234</p>
+              <p class="text-xs text-on-surface dark:text-on-surface-dark mt-2">Pronto hoje às 18h</p>
+            </div>
+          </div>
+        </button>
+
+        <!-- Delivery Option -->
+        <button
+          @click="form.fulfillment = 'delivery'; validateStep()"
+          :class="[
+            'w-full p-4 rounded-radius border-2 transition-all text-left touch-target',
+            form.fulfillment === 'delivery'
+              ? 'border-primary dark:border-primary-dark bg-surface-alt dark:bg-surface-alt-dark'
+              : 'border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark hover:border-primary dark:hover:border-primary-dark'
+          ]"
+        >
+          <div class="flex items-start gap-4">
+            <svg class="w-6 h-6 mt-0.5 flex-shrink-0 text-primary dark:text-primary-dark" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm11 0c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/>
+            </svg>
+            <div class="flex-1">
+              <p class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Entrega</p>
+              <p class="text-sm text-on-surface dark:text-on-surface-dark mt-1">Entrega rápida na região</p>
+              <p class="text-xs text-on-surface dark:text-on-surface-dark mt-2">R$ 5,00 de taxa</p>
+            </div>
+          </div>
+        </button>
+
+        <!-- Delivery Address (shown when delivery selected) -->
+        <div x-show="form.fulfillment === 'delivery'" x-transition class="space-y-4 pt-4 border-t border-outline dark:border-outline-dark">
+          <button
+            class="w-full py-3 rounded-radius border-2 border-primary dark:border-primary-dark bg-surface dark:bg-surface-dark text-primary dark:text-primary-dark font-semibold flex items-center justify-center gap-2 transition hover:bg-surface-alt dark:hover:bg-surface-alt-dark touch-target"
+            @click="requestGeolocation()"
+          >
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94-3A11.96 11.96 0 0012 1C6.48 1 1.54 4.04.46 8.84c-.32 1.02-.32 2.33 0 3.35C1.54 19.96 6.48 23 12 23s10.46-3.04 11.54-10.81c.32-1.02.32-2.33 0-3.35zM12 20c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+            </svg>
+            Usar localização
+          </button>
+
+          <div>
+            <label class="block text-sm font-medium mb-2 text-on-surface-strong dark:text-on-surface-dark-strong">Endereço de Entrega</label>
+            <input
+              type="text"
+              x-model="form.address"
+              placeholder="Rua, número, bairro"
+              @keyup="validateStep()"
+              class="w-full px-4 py-3 rounded-radius border border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark text-on-surface-strong dark:text-on-surface-dark-strong transition-colors focus:outline-none focus:border-primary dark:focus:border-primary-dark focus:ring-2 focus:ring-primary/20 dark:focus:ring-primary-dark/20"
+            >
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2 text-on-surface-strong dark:text-on-surface-dark-strong">Complemento (opcional)</label>
+            <input
+              type="text"
+              x-model="form.addressComplement"
+              placeholder="Apto, bloco, referência..."
+              class="w-full px-4 py-3 rounded-radius border border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark text-on-surface-strong dark:text-on-surface-dark-strong transition-colors focus:outline-none focus:border-primary dark:focus:border-primary-dark focus:ring-2 focus:ring-primary/20 dark:focus:ring-primary-dark/20"
+            >
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Pagamento (Payment) -->
+      <div x-show="step === 3" x-transition class="space-y-6">
+        <h2 class="text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong" style="font-family: var(--font-title)">Como você quer pagar?</h2>
+
+        <!-- PIX Option -->
+        <button
+          @click="form.payment = 'pix'; validateStep()"
+          :class="[
+            'w-full p-4 rounded-radius border-2 transition-all text-left touch-target',
+            form.payment === 'pix'
+              ? 'border-primary dark:border-primary-dark bg-surface-alt dark:bg-surface-alt-dark'
+              : 'border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark hover:border-primary dark:hover:border-primary-dark'
+          ]"
+        >
+          <div class="flex items-start gap-4">
+            <svg class="w-8 h-8 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            <div class="flex-1">
+              <div class="flex items-center gap-2">
+                <p class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">PIX</p>
+                <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-success dark:bg-success text-on-success dark:text-on-success">Recomendado</span>
+              </div>
+              <p class="text-sm text-on-surface dark:text-on-surface-dark mt-1">Transferência instantânea</p>
+            </div>
+          </div>
+        </button>
+
+        <!-- Credit Card Option -->
+        <button
+          @click="form.payment = 'credit'; validateStep()"
+          :class="[
+            'w-full p-4 rounded-radius border-2 transition-all text-left touch-target',
+            form.payment === 'credit'
+              ? 'border-primary dark:border-primary-dark bg-surface-alt dark:bg-surface-alt-dark'
+              : 'border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark hover:border-primary dark:hover:border-primary-dark'
+          ]"
+        >
+          <div class="flex items-start gap-4">
+            <svg class="w-8 h-8 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20 8H4V4h16m0 12H4c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2zm-6 3.5c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2z"/>
+            </svg>
+            <div class="flex-1">
+              <p class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Cartão de Crédito</p>
+              <p class="text-sm text-on-surface dark:text-on-surface-dark mt-1">Parcelamento disponível</p>
+            </div>
+          </div>
+        </button>
+
+        <!-- Debit Card Option -->
+        <button
+          @click="form.payment = 'debit'; validateStep()"
+          :class="[
+            'w-full p-4 rounded-radius border-2 transition-all text-left touch-target',
+            form.payment === 'debit'
+              ? 'border-primary dark:border-primary-dark bg-surface-alt dark:bg-surface-alt-dark'
+              : 'border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark hover:border-primary dark:hover:border-primary-dark'
+          ]"
+        >
+          <div class="flex items-start gap-4">
+            <svg class="w-8 h-8 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20 8H4V4h16m0 12H4c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2zm-6 3.5c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2z"/>
+            </svg>
+            <div class="flex-1">
+              <p class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Cartão de Débito</p>
+              <p class="text-sm text-on-surface dark:text-on-surface-dark mt-1">Debitado imediatamente</p>
+            </div>
+          </div>
+        </button>
+
+        <!-- Coupon Section -->
+        <div class="pt-4 border-t border-outline dark:border-outline-dark">
+          <button
+            @click="showCoupon = !showCoupon"
+            class="text-sm font-semibold text-primary dark:text-primary-dark hover:underline flex items-center gap-2 touch-target"
+          >
+            <svg x-show="!showCoupon" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+            <svg x-show="showCoupon" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 13H5v-2h14v2z"/>
+            </svg>
+            Tenho um código de desconto
+          </button>
+
+          <div x-show="showCoupon" x-transition class="mt-3 flex gap-2">
+            <input
+              type="text"
+              x-model="form.coupon"
+              placeholder="DESCONTO10"
+              class="flex-1 px-4 py-3 rounded-radius border border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark text-on-surface-strong dark:text-on-surface-dark-strong transition-colors focus:outline-none focus:border-primary dark:focus:border-primary-dark focus:ring-2 focus:ring-primary/20 dark:focus:ring-primary-dark/20"
+            >
+            <button class="px-4 py-3 rounded-radius font-semibold bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark hover:opacity-90 transition text-sm touch-target">
+              Aplicar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4: Revisão (Review) -->
+      <div x-show="step === 4" x-transition class="space-y-6">
+        <h2 class="text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong" style="font-family: var(--font-title)">Revise seu pedido</h2>
+
+        <!-- Items -->
+        <div class="bg-surface-alt dark:bg-surface-alt-dark rounded-radius p-4 space-y-3">
+          <p class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Itens</p>
+          <div class="space-y-2 text-sm text-on-surface dark:text-on-surface-dark">
+            <div class="flex justify-between">
+              <span>2× Croissant Clássico</span>
+              <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">R$ 14,00</span>
+            </div>
+            <div class="flex justify-between">
+              <span>3× Pão Francês</span>
+              <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">R$ 15,00</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fulfillment -->
+        <div class="bg-surface-alt dark:bg-surface-alt-dark rounded-radius p-4 space-y-3">
+          <p class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Entrega</p>
+          <p class="text-sm text-on-surface dark:text-on-surface-dark" x-show="form.fulfillment === 'pickup'">Retirada na Loja — Rua das Flores, 1234</p>
+          <p class="text-sm text-on-surface dark:text-on-surface-dark" x-show="form.fulfillment === 'delivery'" x-text="`Entrega em: ${form.address}`"></p>
+        </div>
+
+        <!-- Payment -->
+        <div class="bg-surface-alt dark:bg-surface-alt-dark rounded-radius p-4 space-y-3">
+          <p class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Pagamento</p>
+          <p class="text-sm text-on-surface dark:text-on-surface-dark" x-show="form.payment === 'pix'">PIX (QR Code)</p>
+          <p class="text-sm text-on-surface dark:text-on-surface-dark" x-show="form.payment === 'credit'">Cartão de Crédito</p>
+          <p class="text-sm text-on-surface dark:text-on-surface-dark" x-show="form.payment === 'debit'">Cartão de Débito</p>
+        </div>
+
+        <!-- Price Breakdown -->
+        <div class="space-y-2 pt-4 border-t border-outline dark:border-outline-dark">
+          <div class="flex justify-between text-sm text-on-surface dark:text-on-surface-dark">
+            <span>Subtotal</span>
+            <span>R$ 29,00</span>
+          </div>
+          <div class="flex justify-between text-sm text-on-surface dark:text-on-surface-dark" x-show="form.fulfillment === 'delivery'">
+            <span>Taxa de entrega</span>
+            <span>R$ 5,00</span>
+          </div>
+          <div class="flex justify-between font-semibold text-on-surface-strong dark:text-on-surface-dark-strong pt-2 border-t border-outline dark:border-outline-dark">
+            <span>Total</span>
+            <span x-text="`R$ ${form.fulfillment === 'delivery' ? '34,00' : '29,00'}`"></span>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Sticky Bottom CTA -->
+    <div class="fixed bottom-0 inset-x-0 bg-surface dark:bg-surface-dark border-t border-outline dark:border-outline-dark">
+      <div class="max-w-md mx-auto px-4 py-4 space-y-2">
+        <template x-if="step < 4">
+          <button
+            @click="nextStep()"
+            :disabled="!stepValid[step]"
+            :class="[
+              'w-full py-4 rounded-radius font-semibold transition-all text-center touch-target',
+              stepValid[step]
+                ? 'bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark hover:opacity-90'
+                : 'bg-outline dark:bg-outline-dark text-on-surface dark:text-on-surface-dark opacity-50 cursor-not-allowed'
+            ]"
+          >
+            Continuar
+          </button>
+        </template>
+
+        <template x-if="step === 4">
+          <button
+            @click="submitOrder()"
+            class="w-full py-4 rounded-radius font-semibold bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark hover:opacity-90 transition-all text-center touch-target"
+          >
+            <span x-show="!orderSubmitting">Confirmar Pedido · R$ <span x-text="form.fulfillment === 'delivery' ? '34,50' : '29,50'"></span></span>
+            <span x-show="orderSubmitting">Processando...</span>
+          </button>
+        </template>
+
+        <button
+          @click="goBack()"
+          class="w-full py-3 rounded-radius font-medium border-2 border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark text-on-surface-strong dark:text-on-surface-dark-strong hover:border-primary dark:hover:border-primary-dark hover:bg-surface-alt dark:hover:bg-surface-alt-dark transition-all text-center touch-target"
+        >
+          Voltar
+        </button>
+      </div>
+    </div>
+
+    <!-- Success Bottom Sheet -->
+    <div
+      x-show="orderConfirmed"
+      @click.self="closeSuccess()"
+      class="fixed inset-0 z-50 flex items-end bg-black/40 dark:bg-black/60 transition-opacity"
+      :class="orderConfirmed ? 'opacity-100' : 'opacity-0 pointer-events-none'"
+      x-transition
+    >
+      <div class="w-full bg-surface dark:bg-surface-dark rounded-t-3xl p-6 max-w-md mx-auto space-y-6">
+        <!-- Success Icon -->
+        <div class="flex justify-center">
+          <svg class="w-16 h-16 text-success dark:text-success" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M10 14.5l-2.5-2.5M10 14.5l4-4" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/>
+          </svg>
+        </div>
+
+        <!-- Order Details -->
+        <div class="text-center space-y-2">
+          <p class="text-sm text-on-surface dark:text-on-surface-dark">Pedido confirmado!</p>
+          <p class="text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong" style="font-family: var(--font-title)">#NB-2024-0847</p>
+          <p class="text-sm text-on-surface dark:text-on-surface-dark">Pronto em aproximadamente 45 minutos</p>
+        </div>
+
+        <!-- Message -->
+        <div class="bg-success/10 dark:bg-success/10 rounded-radius p-4 text-sm text-center text-on-surface-strong dark:text-on-surface-dark-strong">
+          <p class="font-medium">Amanhã: fornada fresca às 7h da manhã! 🥐</p>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="space-y-2">
+          <a
+            href="tracking-v2.html"
+            class="w-full block py-4 rounded-radius font-semibold bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark hover:opacity-90 transition-all text-center touch-target"
+          >
+            Acompanhar Pedido
+          </a>
+          <button
+            class="w-full py-3 rounded-radius font-medium border-2 border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark text-on-surface-strong dark:text-on-surface-dark-strong hover:border-primary dark:hover:border-primary-dark hover:bg-surface-alt dark:hover:bg-surface-alt-dark transition-all text-center touch-target"
+          >
+            Compartilhar via WhatsApp
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function checkoutApp() {
+      return {
+        step: 1,
+        orderConfirmed: false,
+        orderSubmitting: false,
+        showCoupon: false,
+        stepValid: { 1: false, 2: false, 3: false, 4: true },
+        form: {
+          name: 'Maria',
+          phone: '(11) 99999-0000',
+          email: 'maria@example.com',
+          fulfillment: 'pickup',
+          address: '',
+          addressComplement: '',
+          payment: 'pix',
+          coupon: ''
+        },
+
+        maskPhone() {
+          let phone = this.form.phone.replace(/\D/g, '');
+          if (phone.length > 11) phone = phone.slice(0, 11);
+
+          if (phone.length <= 2) {
+            this.form.phone = phone;
+          } else if (phone.length <= 7) {
+            this.form.phone = `(${phone.slice(0, 2)}) ${phone.slice(2)}`;
+          } else {
+            this.form.phone = `(${phone.slice(0, 2)}) ${phone.slice(2, 7)}-${phone.slice(7)}`;
+          }
+        },
+
+        validateStep() {
+          if (this.step === 1) {
+            this.stepValid[1] = this.form.name.trim() && this.form.phone.length >= 14 && this.form.email.includes('@');
+          } else if (this.step === 2) {
+            if (this.form.fulfillment === 'pickup') {
+              this.stepValid[2] = true;
+            } else {
+              this.stepValid[2] = this.form.address.trim().length > 0;
+            }
+          } else if (this.step === 3) {
+            this.stepValid[3] = !!this.form.payment;
+          }
+        },
+
+        nextStep() {
+          if (this.step < 4 && this.stepValid[this.step]) {
+            this.step++;
+            window.scrollTo(0, 0);
+          }
+        },
+
+        goBack() {
+          if (this.step > 1) {
+            this.step--;
+            window.scrollTo(0, 0);
+          } else {
+            window.location.href = 'cart-v2.html';
+          }
+        },
+
+        submitOrder() {
+          this.orderSubmitting = true;
+          setTimeout(() => {
+            this.orderSubmitting = false;
+            this.orderConfirmed = true;
+            document.body.style.overflow = 'hidden';
+          }, 1200);
+        },
+
+        closeSuccess() {
+          this.orderConfirmed = false;
+          document.body.style.overflow = 'auto';
+        },
+
+        requestGeolocation() {
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                this.form.address = `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
+                this.validateStep();
+              },
+              (error) => {
+                console.error('Geolocation error:', error);
+              }
+            );
+          }
+        }
+      };
+    }
+  </script>
+
+  <script src="proto-scenarios.js"></script>
+</body>
+</html>

@@ -16,8 +16,8 @@ Configuração de Throttling:
         'DEFAULT_THROTTLE_RATES': {
             'anon': '100/hour',
             'user': '1000/hour',
-            'ordering_modify': '300/minute',  # Rate limit para modificações
-            'ordering_commit': '60/minute',   # Rate limit para commits
+            'orderman_modify': '300/minute',  # Rate limit para modificações
+            'orderman_commit': '60/minute',   # Rate limit para commits
         }
     }
 """
@@ -75,10 +75,10 @@ class CommitRateThrottle(UserRateThrottle):
     Throttle específico para operações de commit.
 
     Limita a taxa de commits para prevenir abuso.
-    Configure via 'ordering_commit' em DEFAULT_THROTTLE_RATES.
+    Configure via 'orderman_commit' em DEFAULT_THROTTLE_RATES.
     """
 
-    scope = "ordering_commit"
+    scope = "orderman_commit"
 
 
 class ModifyRateThrottle(UserRateThrottle):
@@ -86,11 +86,11 @@ class ModifyRateThrottle(UserRateThrottle):
     Throttle específico para operações de modify.
 
     Limita a taxa de modificações para prevenir abuso.
-    Configure via 'ordering_modify' em DEFAULT_THROTTLE_RATES.
+    Configure via 'orderman_modify' em DEFAULT_THROTTLE_RATES.
     Default: 300/minute (5 ops/segundo por usuário).
     """
 
-    scope = "ordering_modify"
+    scope = "orderman_modify"
 
 
 class ChannelViewSet(viewsets.ReadOnlyModelViewSet):

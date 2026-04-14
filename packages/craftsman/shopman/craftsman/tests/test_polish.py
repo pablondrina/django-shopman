@@ -97,14 +97,14 @@ class TestStockmanAdapterLogging:
 
     def test_get_product_logs_import_error(self):
         """ImportError is logged at debug level (catalog not installed)."""
-        from shopman.craftsman.adapters.stocking import StockingBackend
+        from shopman.craftsman.adapters.stock import StockingBackend
 
         backend = StockingBackend()
 
         with patch(
-            "shopman.craftsman.adapters.offering.get_catalog_backend",
+            "shopman.craftsman.adapters.catalog.get_catalog_backend",
             side_effect=ImportError("No module named 'offering'"),
-        ), patch("shopman.craftsman.adapters.stocking.logger") as mock_logger:
+        ), patch("shopman.craftsman.adapters.stock.logger") as mock_logger:
             result = backend._get_product("FARINHA")
 
         assert result is None
@@ -116,7 +116,7 @@ class TestStockmanAdapterLogging:
 
     def test_get_product_logs_runtime_error(self):
         """Runtime errors are logged at warning level with traceback."""
-        from shopman.craftsman.adapters.stocking import StockingBackend
+        from shopman.craftsman.adapters.stock import StockingBackend
 
         backend = StockingBackend()
 
@@ -124,9 +124,9 @@ class TestStockmanAdapterLogging:
         mock_catalog.resolve.side_effect = RuntimeError("Database connection lost")
 
         with patch(
-            "shopman.craftsman.adapters.offering.get_catalog_backend",
+            "shopman.craftsman.adapters.catalog.get_catalog_backend",
             return_value=mock_catalog,
-        ), patch("shopman.craftsman.adapters.stocking.logger") as mock_logger:
+        ), patch("shopman.craftsman.adapters.stock.logger") as mock_logger:
             result = backend._get_product("FARINHA")
 
         assert result is None
@@ -139,7 +139,7 @@ class TestStockmanAdapterLogging:
 
     def test_get_product_with_resolver(self):
         """Custom product_resolver bypasses catalog backend entirely."""
-        from shopman.craftsman.adapters.stocking import StockingBackend
+        from shopman.craftsman.adapters.stock import StockingBackend
 
         resolver = MagicMock(return_value="product-object")
         backend = StockingBackend(product_resolver=resolver)

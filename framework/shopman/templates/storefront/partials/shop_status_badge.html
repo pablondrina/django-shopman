@@ -1,0 +1,81 @@
+{# ── Shop Status Badge ──
+   Pill badge showing open/closed status with relative time when <1h.
+   Uses shop_status from context processor (is_open, opens_at, closes_at, message).
+
+   Alpine.js computes real-time relative display from opens_at/closes_at.
+   SSR fallback: shows shop_status.message directly if JS is disabled.
+
+   Usage: {% include "storefront/partials/shop_status_badge.html" %}
+#}
+
+<div x-data="shopStatusBadge()" x-init="tick(); setInterval(() => tick(), 60000)"
+     class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-caption font-medium
+            bg-muted/60 border border-border">
+  {# Dot indicator #}
+  <span class="w-1.5 h-1.5 rounded-full shrink-0"
+        :class="isOpen ? 'bg-[rgb(var(--success))] animate-pulse' : 'bg-[rgb(var(--muted-foreground))]'"></span>
+  {# Text — SSR fallback in noscript-friendly way #}
+  <span x-text="label" class="text-foreground/80">{{ shop_status.message }}</span>
+</div>
+
+<script>
+  document.addEventListener('alpine:init', () => {
+    Alpine.data('shopStatusBadge', () => ({
+      isOpen: {{ shop_status.is_open|yesno:"true,false" }},
+      opensAt: '{{ shop_status.opens_at|default:"" }}',
+      closesAt: '{{ shop_status.closes_at|default:"" }}',
+      label: '',
+
+      tick() {
+        const now = new Date();
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+
+        if (!this.opensAt || !this.closesAt) {
+          this.label = '{{ shop_status.message }}';
+          return;
+        }
+
+        const openMin = this._toMin(this.opensAt);
+        const closeMin = this._toMin(this.closesAt);
+
+        this.isOpen = nowMin >= openMin && nowMin < closeMin;
+
+        if (this.isOpen) {
+          const untilClose = closeMin - nowMin;
+          if (untilClose <= 60) {
+            const rounded = Math.ceil(untilClose / 15) * 15;
+            this.label = 'Aberto. Fecha em ' + rounded + 'min';
+          } else {
+            this.label = 'Aberto até ' + this._fmtHour(this.closesAt);
+          }
+        } else {
+          const untilOpen = openMin - nowMin;
+          if (untilOpen > 0 && untilOpen <= 60) {
+            const rounded = Math.ceil(untilOpen / 15) * 15;
+            this.label = 'Fechado. Abre em ' + rounded + 'min';
+          } else if (untilOpen > 60) {
+            this.label = 'Fechado. Abre às ' + this._fmtHour(this.opensAt);
+          } else {
+            {# Past closing — tomorrow or next weekday #}
+            const day = now.getDay();
+            if (day === 6) {
+              this.label = 'Fechado. Abre segunda às ' + this._fmtHour(this.opensAt);
+            } else {
+              this.label = 'Fechado. Abre amanhã às ' + this._fmtHour(this.opensAt);
+            }
+          }
+        }
+      },
+
+      _toMin(timeStr) {
+        const parts = timeStr.split(':');
+        return parseInt(parts[0]) * 60 + parseInt(parts[1] || 0);
+      },
+
+      _fmtHour(timeStr) {
+        const h = parseInt(timeStr.split(':')[0]);
+        return h + 'h';
+      }
+    }));
+  });
+</script>

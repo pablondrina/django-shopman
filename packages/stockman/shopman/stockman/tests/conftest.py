@@ -12,7 +12,7 @@ from types import SimpleNamespace
 import pytest
 from django.contrib.auth import get_user_model
 
-from shopman.stockman.adapters.offering import reset_sku_validator
+from shopman.stockman.adapters.sku_validation import reset_sku_validator
 from shopman.stockman.models import Position, PositionKind
 
 

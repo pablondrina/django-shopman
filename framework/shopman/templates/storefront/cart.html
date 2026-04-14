@@ -12,6 +12,11 @@
 
 <h1 class="text-h1 text-foreground mb-6">Seu Carrinho</h1>
 
+{# Closing awareness — shows only when closing within 1h #}
+<div class="mb-4">
+  {% include "storefront/partials/closing_awareness.html" %}
+</div>
+
 {% if minimum_order_warning %}
 <div class="mb-4 p-3 rounded-lg bg-warning-light border border-warning text-warning-foreground text-sm flex items-center gap-2">
   <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

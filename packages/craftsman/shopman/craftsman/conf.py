@@ -5,11 +5,11 @@ Supports two formats (dict takes priority):
 
     # Option 1: Dict
     CRAFTSMAN = {
-        "INVENTORY_BACKEND": "shopman.craftsman.adapters.stocking.StockingBackend",
+        "INVENTORY_BACKEND": "shopman.craftsman.adapters.stock.StockingBackend",
     }
 
     # Option 2: Flat
-    CRAFTSMAN_INVENTORY_BACKEND = "shopman.craftsman.adapters.stocking.StockingBackend"
+    CRAFTSMAN_INVENTORY_BACKEND = "shopman.craftsman.adapters.stock.StockingBackend"
 
 All settings have sensible defaults — zero configuration required.
 """

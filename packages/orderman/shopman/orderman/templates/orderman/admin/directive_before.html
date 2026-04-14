@@ -1,0 +1,11 @@
+{% load i18n %}
+
+<div class="bg-info-50 border border-info-200 rounded p-4 mb-4">
+    <h3 class="text-info-700 font-semibold mb-2">{% trans "Sobre Diretivas" %}</h3>
+    <p class="text-sm text-info-600">
+        {% trans "Diretivas são tarefas assíncronas criadas automaticamente pelo sistema. Elas processam operações como reserva de estoque, pagamentos e notificações." %}
+    </p>
+    <p class="text-sm text-info-600 mt-2">
+        {% trans "As diretivas usam semântica 'at-least-once', ou seja, podem ser executadas mais de uma vez. Por isso, os handlers devem ser idempotentes." %}
+    </p>
+</div>

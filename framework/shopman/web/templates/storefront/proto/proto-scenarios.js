@@ -19,70 +19,70 @@ document.addEventListener('alpine:init', () => {
       label: 'Maria · Fiel · Manhã · Perto',
       icon: '☀️',
       description: 'Recorrente, 1.2km, 9h — croissants saindo do forno',
-      vars: { hour: 9, isReturning: true, userDistance: 1.2, geolocationDenied: false, geolocationLoading: false, locationConfirmed: false, customerName: 'Maria', orderCount: 12, favoriteItem: 'Croissant Clássico', closingHour: 19 }
+      vars: { hour: 9, minute: 0, isReturning: true, userDistance: 1.2, geolocationDenied: false, geolocationLoading: false, locationConfirmed: false, customerName: 'Maria', orderCount: 12, favoriteItem: 'Croissant Clássico', closingHour: 19 }
     },
     {
       id: 'maria-early',
       label: 'Maria · Fiel · Cedinho · Antes de Abrir',
       icon: '🌅',
       description: 'Recorrente, 0.8km, 6h30 — loja ainda fechada',
-      vars: { hour: 6, isReturning: true, userDistance: 0.8, geolocationDenied: false, geolocationLoading: false, locationConfirmed: false, customerName: 'Maria', orderCount: 12, favoriteItem: 'Croissant Clássico', closingHour: 19 }
+      vars: { hour: 6, minute: 30, isReturning: true, userDistance: 0.8, geolocationDenied: false, geolocationLoading: false, locationConfirmed: false, customerName: 'Maria', orderCount: 12, favoriteItem: 'Croissant Clássico', closingHour: 19 }
     },
     {
       id: 'lunch-rush',
       label: 'Carlos · Fiel · Almoço · Perto',
       icon: '🥪',
       description: 'Recorrente, 0.5km, 12h — hora do almoço rápido',
-      vars: { hour: 12, isReturning: true, userDistance: 0.5, geolocationDenied: false, geolocationLoading: false, locationConfirmed: false, customerName: 'Carlos', orderCount: 8, favoriteItem: 'Sanduíche Natural', closingHour: 19 }
+      vars: { hour: 12, minute: 0, isReturning: true, userDistance: 0.5, geolocationDenied: false, geolocationLoading: false, locationConfirmed: false, customerName: 'Carlos', orderCount: 8, favoriteItem: 'Sanduíche Natural', closingHour: 19 }
     },
     {
       id: 'maria-night',
       label: 'Maria · Fiel · Noite · Fechado',
       icon: '🌙',
       description: 'Recorrente, 1.2km, 20h — loja fechada',
-      vars: { hour: 20, isReturning: true, userDistance: 1.2, geolocationDenied: false, geolocationLoading: false, locationConfirmed: false, customerName: 'Maria', orderCount: 12, favoriteItem: 'Croissant Clássico', closingHour: 19 }
+      vars: { hour: 20, minute: 0, isReturning: true, userDistance: 1.2, geolocationDenied: false, geolocationLoading: false, locationConfirmed: false, customerName: 'Maria', orderCount: 12, favoriteItem: 'Croissant Clássico', closingHour: 19 }
     },
     {
       id: 'joao-near',
       label: 'João · Novo · Manhã · Perto',
       icon: '🆕',
       description: 'Primeiro acesso, 2km, 10h',
-      vars: { hour: 10, isReturning: false, userDistance: 2.0, geolocationDenied: false, geolocationLoading: false, locationConfirmed: false, customerName: 'João', orderCount: 0, favoriteItem: '', closingHour: 19 }
+      vars: { hour: 10, minute: 0, isReturning: false, userDistance: 2.0, geolocationDenied: false, geolocationLoading: false, locationConfirmed: false, customerName: 'João', orderCount: 0, favoriteItem: '', closingHour: 19 }
     },
     {
       id: 'joao-marginal',
       label: 'João · Novo · Zona Marginal',
       icon: '⚠️',
       description: 'Primeiro acesso, 6km, 14h',
-      vars: { hour: 14, isReturning: false, userDistance: 6.0, geolocationDenied: false, geolocationLoading: false, locationConfirmed: false, customerName: 'João', orderCount: 0, favoriteItem: '', closingHour: 19 }
+      vars: { hour: 14, minute: 0, isReturning: false, userDistance: 6.0, geolocationDenied: false, geolocationLoading: false, locationConfirmed: false, customerName: 'João', orderCount: 0, favoriteItem: '', closingHour: 19 }
     },
     {
       id: 'ana-outside',
       label: 'Ana · Nova · Fora do Raio',
       icon: '📍',
       description: 'Primeiro acesso, 9km, 11h',
-      vars: { hour: 11, isReturning: false, userDistance: 9.0, geolocationDenied: false, geolocationLoading: false, locationConfirmed: false, customerName: 'Ana', orderCount: 0, favoriteItem: '', closingHour: 19 }
+      vars: { hour: 11, minute: 0, isReturning: false, userDistance: 9.0, geolocationDenied: false, geolocationLoading: false, locationConfirmed: false, customerName: 'Ana', orderCount: 0, favoriteItem: '', closingHour: 19 }
     },
     {
       id: 'pedro-denied',
       label: 'Pedro · Geo Negada',
       icon: '🚫',
       description: 'Localização bloqueada, 15h',
-      vars: { hour: 15, isReturning: false, userDistance: null, geolocationDenied: true, geolocationLoading: false, locationConfirmed: false, customerName: 'Pedro', orderCount: 0, favoriteItem: '', closingHour: 19 }
+      vars: { hour: 15, minute: 0, isReturning: false, userDistance: null, geolocationDenied: true, geolocationLoading: false, locationConfirmed: false, customerName: 'Pedro', orderCount: 0, favoriteItem: '', closingHour: 19 }
     },
     {
       id: 'happyhour',
       label: 'Happy Hour · Fiel · Perto',
       icon: '🍻',
       description: 'Recorrente, 0.8km, 16h — descontos ativos',
-      vars: { hour: 16, isReturning: true, userDistance: 0.8, geolocationDenied: false, geolocationLoading: false, locationConfirmed: false, customerName: 'Maria', orderCount: 15, favoriteItem: 'Croissant Clássico', closingHour: 19 }
+      vars: { hour: 16, minute: 0, isReturning: true, userDistance: 0.8, geolocationDenied: false, geolocationLoading: false, locationConfirmed: false, customerName: 'Maria', orderCount: 15, favoriteItem: 'Croissant Clássico', closingHour: 19 }
     },
     {
       id: 'closing-soon',
       label: 'Fechando · Novo · Perto',
       icon: '⏰',
       description: 'Novo, 1.5km, 18h — últimos pedidos',
-      vars: { hour: 18, isReturning: false, userDistance: 1.5, geolocationDenied: false, geolocationLoading: false, locationConfirmed: false, customerName: 'Lucas', orderCount: 0, favoriteItem: '', closingHour: 19 }
+      vars: { hour: 18, minute: 30, isReturning: false, userDistance: 1.5, geolocationDenied: false, geolocationLoading: false, locationConfirmed: false, customerName: 'Lucas', orderCount: 0, favoriteItem: '', closingHour: 19 }
     }
   ];
 
@@ -184,6 +184,7 @@ document.addEventListener('alpine:init', () => {
       pushControlsToPage() {
         const vars = {
           hour: this.ctrl.hour,
+          minute: 0,
           isReturning: this.ctrl.isReturning,
           userDistance: this.ctrl.geolocationDenied ? null : this.ctrl.userDistance,
           geolocationDenied: this.ctrl.geolocationDenied,

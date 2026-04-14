@@ -1,0 +1,47 @@
+{# ── Closing Awareness Banner ──
+   Shows a subtle banner when the shop is closing within 1 hour.
+   Uses shop_status from context processor.
+
+   Alpine auto-hides when not relevant.
+   Usage: {% include "storefront/partials/closing_awareness.html" %}
+#}
+
+<div x-data="closingAwareness()" x-show="visible" x-transition x-cloak
+     class="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-warning/10 border border-warning/30"
+     role="status" aria-live="polite">
+  <span class="material-symbols-rounded icon-sm text-[rgb(var(--warning))] shrink-0" aria-hidden="true">schedule</span>
+  <p class="text-body-sm font-medium text-[rgb(var(--warning-foreground))]" x-text="message"></p>
+</div>
+
+<script>
+  document.addEventListener('alpine:init', () => {
+    Alpine.data('closingAwareness', () => ({
+      visible: false,
+      message: '',
+
+      init() {
+        this.check();
+        setInterval(() => this.check(), 60000);
+      },
+
+      check() {
+        const closesAt = '{{ shop_status.closes_at|default:"" }}';
+        if (!closesAt) { this.visible = false; return; }
+
+        const now = new Date();
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+        const parts = closesAt.split(':');
+        const closeMin = parseInt(parts[0]) * 60 + parseInt(parts[1] || 0);
+        const remaining = closeMin - nowMin;
+
+        if (remaining > 0 && remaining <= 60) {
+          const rounded = Math.ceil(remaining / 15) * 15;
+          this.message = 'Últimos pedidos — fechamos em ' + rounded + ' minutos.';
+          this.visible = true;
+        } else {
+          this.visible = false;
+        }
+      }
+    }));
+  });
+</script>

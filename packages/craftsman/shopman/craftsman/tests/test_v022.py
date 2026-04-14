@@ -143,7 +143,7 @@ class TestB2ReceiveLoopFix:
 
     def test_receive_processes_multiple_items(self):
         """receive() should process all MaterialProduced items."""
-        from shopman.craftsman.adapters.stocking import StockingBackend
+        from shopman.craftsman.adapters.stock import StockingBackend
         from shopman.craftsman.protocols.inventory import MaterialProduced, ReceiveResult
 
         backend = StockingBackend()
@@ -165,7 +165,7 @@ class TestB2ReceiveLoopFix:
         with patch.object(backend, "_get_stock", return_value=mock_stock), \
              patch.object(backend, "_get_product", side_effect=[mock_product1, mock_product2]), \
              patch.object(backend, "_get_position", return_value=mock_position), \
-             patch("shopman.craftsman.adapters.stocking._stocking_available", return_value=True):
+             patch("shopman.craftsman.adapters.stock._stockman_available", return_value=True):
             result = backend.receive(items, ref="WO-2026-00001")
 
         assert result.success is True

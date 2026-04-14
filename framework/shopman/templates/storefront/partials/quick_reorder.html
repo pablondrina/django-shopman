@@ -1,0 +1,42 @@
+{# ── Quick Reorder ──
+   Shows last order summary with one-tap reorder for returning customers.
+
+   TODO(customer_summary): Replace mock data with customer_summary projection.
+   Source: guestman (identity) + orderman (last order).
+   Tracked in: storefront_backend_surface.md § 8.
+
+   Usage: {% include "storefront/partials/quick_reorder.html" %}
+#}
+
+{# --- Mock: customer_summary (remove when projection is wired) --- #}
+{# TODO: Wire to customer_summary projection from guestman + orderman #}
+{% if customer_name %}
+<section x-data="{ show: true }" x-show="show"
+         class="rounded-xl border border-border bg-card p-5">
+  <div class="flex items-start gap-3 mb-4">
+    <span class="material-symbols-rounded icon-sm text-[rgb(var(--primary))] shrink-0 mt-0.5" aria-hidden="true">history</span>
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2 mb-0.5">
+        <p class="text-body-sm font-semibold text-foreground">Repetir último pedido</p>
+        {# TODO(customer_summary): total_orders from customer_summary #}
+      </div>
+      {# TODO: last_order_summary.items from customer_summary #}
+      <p class="text-caption text-muted-foreground mt-1">Seu pedido anterior</p>
+    </div>
+    <button @click="show = false"
+            class="text-muted-foreground hover:text-foreground shrink-0"
+            aria-label="Dispensar">
+      <span class="material-symbols-rounded icon-sm">close</span>
+    </button>
+  </div>
+
+  {# TODO: href should point to reorder endpoint with last order ref #}
+  <a href="{% url 'storefront:menu' %}"
+     class="block w-full px-4 py-2.5 rounded-lg bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]
+            text-body-sm font-semibold text-center transition-all active:scale-[0.97]
+            hover:opacity-90"
+     style="min-height: var(--touch-min);">
+    Repetir Agora
+  </a>
+</section>
+{% endif %}

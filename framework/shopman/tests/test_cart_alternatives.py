@@ -107,7 +107,7 @@ class CartItemUnavailableFlagTests(TestCase):
             )
             Quant.objects.create(sku="CART-SKU", position=pos, _quantity=100)
         except Exception:
-            pass  # Stocking not installed
+            pass  # Stockman not installed
 
     def _add_to_cart(self, qty: int = 1) -> None:
         self.client.post("/cart/add/", {"sku": self.product.sku, "qty": str(qty)})

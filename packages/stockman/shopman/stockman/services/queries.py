@@ -18,7 +18,7 @@ from shopman.stockman.shelflife import filter_valid_quants
 
 def _resolve_stock_profile(sku_or_product):
     """Resolve sku + stock profile from either a product-like object or the catalog contract."""
-    from shopman.stockman.adapters.offering import get_sku_validator
+    from shopman.stockman.adapters.sku_validation import get_sku_validator
 
     sku = sku_or_product if isinstance(sku_or_product, str) else sku_or_product.sku
     shelflife = getattr(sku_or_product, "shelflife", None) if not isinstance(sku_or_product, str) else None

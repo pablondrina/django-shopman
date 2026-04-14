@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Nelson Boulangerie — Penguin UI v2</title>
+
+  <!-- Tailwind v4 (browser CDN — no build step) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+  <!-- Penguin UI theme (verbatim from style.css) -->
+  <style type="text/tailwindcss">
+    @custom-variant dark (&:where(.dark, .dark *));
+
+    @theme {
+        /* Fonts */
+        --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+            'Segoe UI Symbol', 'Noto Color Emoji';
+        --font-title: 'Playfair Display', ui-serif, Georgia, serif;
+
+        /* Light Theme */
+        --color-surface: var(--color-white);
+        --color-surface-alt: var(--color-neutral-50);
+        --color-on-surface: var(--color-neutral-600);
+        --color-on-surface-strong: var(--color-neutral-900);
+        --color-primary: var(--color-black);
+        --color-on-primary: var(--color-neutral-100);
+        --color-secondary: var(--color-neutral-800);
+        --color-on-secondary: var(--color-white);
+        --color-outline: var(--color-neutral-300);
+        --color-outline-strong: var(--color-neutral-800);
+
+        /* Dark Theme */
+        --color-surface-dark: var(--color-neutral-950);
+        --color-surface-dark-alt: var(--color-neutral-900);
+        --color-on-surface-dark: var(--color-neutral-300);
+        --color-on-surface-dark-strong: var(--color-white);
+        --color-primary-dark: var(--color-white);
+        --color-on-primary-dark: var(--color-black);
+        --color-secondary-dark: var(--color-neutral-300);
+        --color-on-secondary-dark: var(--color-black);
+        --color-outline-dark: var(--color-neutral-700);
+        --color-outline-dark-strong: var(--color-neutral-300);
+
+        /* Shared Colors */
+        --color-info: var(--color-sky-500);
+        --color-on-info: var(--color-white);
+        --color-success: var(--color-green-500);
+        --color-on-success: var(--color-white);
+        --color-warning: var(--color-amber-500);
+        --color-on-warning: var(--color-white);
+        --color-danger: var(--color-red-500);
+        --color-on-danger: var(--color-white);
+
+        /* Border Radius */
+        --radius-radius: var(--radius-sm);
+    }
+
+    @layer base {
+        [x-cloak] { display: none !important; }
+        html { scroll-behavior: smooth; }
+        ::selection {
+            background-color: var(--color-primary);
+            color: var(--color-on-primary);
+        }
+        body {
+            font-family: var(--font-body);
+            -webkit-font-smoothing: antialiased;
+        }
+        h1, h2, h3, h4, h5, h6 {
+            font-family: var(--font-title);
+        }
+    }
+
+    @layer components {
+        .touch-target { min-height: 44px; min-width: 44px; }
+    }
+  </style>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap">
+
+  <!-- Alpine.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+
+  <!-- HTMX -->
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+
+  <script>
+    /* Alpine components for dynamic behavior */
+    document.addEventListener('alpine:init', () => {
+      Alpine.data('shopStatusBadge', () => ({
+        /* status: 'open' | 'closing' | 'opening' | 'closed' */
+        status: 'open',
+        label: 'Aberto agora',
+        tick() {
+          const now = new Date();
+          const hour = now.getHours();
+          const minute = now.getMinutes();
+          const totalMin = hour * 60 + minute;
+          const openMin = 7 * 60;   // 7h
+          const closeMin = 19 * 60; // 19h
+
+          if (totalMin >= openMin && totalMin < closeMin) {
+            /* ≤30 min to closing → warning (amber) */
+            if (closeMin - totalMin <= 30) {
+              this.status = 'closing';
+              const left = closeMin - totalMin;
+              this.label = `Fecha em ${left} min`;
+            } else {
+              this.status = 'open';
+              this.label = `Aberto — até às 19h`;
+            }
+          } else {
+            /* ≤30 min to opening → warning (amber) */
+            const minToOpen = totalMin < openMin ? openMin - totalMin : (24 * 60 - totalMin) + openMin;
+            if (minToOpen <= 30) {
+              this.status = 'opening';
+              this.label = `Abre em ${minToOpen} min`;
+            } else {
+              this.status = 'closed';
+              this.label = hour < 7 ? 'Abre às 7h' : 'Abre amanhã às 7h';
+            }
+          }
+        }
+      }));
+
+      Alpine.data('temporalGreeting', () => ({
+        greeting: 'Bem-vindo',
+        contextLine: '',
+        init() {
+          this.updateGreeting();
+        },
+        updateGreeting() {
+          const now = new Date();
+          const hour = now.getHours();
+          const dayOfWeek = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'][now.getDay()];
+
+          if (hour >= 7 && hour < 12) {
+            this.greeting = 'Bom dia!';
+            this.contextLine = `Que tal um café e um croissant nesta ${dayOfWeek}?`;
+          } else if (hour >= 12 && hour < 18) {
+            this.greeting = 'Boa tarde!';
+            this.contextLine = `Pão quente saindo do forno agora. Aproveite!`;
+          } else if (hour >= 18 && hour < 19) {
+            this.greeting = 'Boa noite!';
+            this.contextLine = `Últimas peças disponíveis — aproveite enquanto duram.`;
+          } else {
+            this.greeting = 'Bem-vindo';
+            this.contextLine = 'Estamos fechados, mas abrimos amanhã às 7h.';
+          }
+        }
+      }));
+
+      Alpine.data('homeCta', () => ({
+        ctaLabel: 'Reorder agora',
+        ctaHref: '#',
+        init() {
+          const now = new Date();
+          const hour = now.getHours();
+          if (hour >= 7 && hour < 19) {
+            this.ctaLabel = 'Pedir agora';
+            this.ctaHref = 'menu-v2.html';
+          } else {
+            this.ctaLabel = '';
+          }
+        }
+      }));
+
+      Alpine.data('closingAwareness', () => ({
+        show: false,
+        message: '',
+        check() {
+          const now = new Date();
+          const hour = now.getHours();
+          const minute = now.getMinutes();
+          this.show = hour === 18 && minute >= 30;
+          if (this.show) {
+            this.message = 'Fechamos em 30 minutos. Aproveite para fazer seu pedido!';
+          }
+        }
+      }));
+    });
+  </script>
+</head>
+
+<body class="bg-surface text-on-surface dark:bg-surface-dark dark:text-on-surface-dark min-h-screen flex flex-col">
+
+  <!-- Skip to content (a11y) -->
+  <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-radius focus:bg-primary focus:text-on-primary dark:focus:bg-primary-dark dark:focus:text-on-primary-dark focus:text-sm focus:font-medium">
+    Pular para o conteúdo
+  </a>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       Navbar (Penguin UI — default-navbar.html)
+       ══════════════════════════════════════════════════════════════════ -->
+  <nav x-data="{ mobileMenuIsOpen: false }" x-on:click.away="mobileMenuIsOpen = false" class="flex items-center justify-between border-b border-outline px-4 py-4 sm:px-6 dark:border-outline-dark" aria-label="nelson boulangerie menu">
+    <!-- Brand Logo -->
+    <a href="home-v2.html" class="text-xl sm:text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">
+      <span>Nelson <span class="text-primary dark:text-primary-dark">Boulangerie</span></span>
+    </a>
+    <!-- Desktop Menu -->
+    <ul class="hidden items-center gap-4 md:flex">
+      <li><a href="home-v2.html" class="font-bold text-primary underline-offset-2 hover:text-primary focus:outline-hidden focus:underline dark:text-primary-dark dark:hover:text-primary-dark" aria-current="page">Início</a></li>
+      <li><a href="menu-v2.html" class="font-medium text-on-surface underline-offset-2 hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">Cardápio</a></li>
+      <li><a href="#contato" class="font-medium text-on-surface underline-offset-2 hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">Contato</a></li>
+      <li>
+        <a href="cart-v2.html" class="relative whitespace-nowrap rounded-radius bg-primary px-4 py-2 text-center text-sm font-medium tracking-wide text-on-primary transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:opacity-100 active:outline-offset-0 dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark touch-target">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" class="size-4 inline-block mr-1">
+            <path fill-rule="evenodd" d="M5 4a3 3 0 0 1 6 0v1h.643a1.5 1.5 0 0 1 1.492 1.35l.7 7A1.5 1.5 0 0 1 12.342 15H3.657a1.5 1.5 0 0 1-1.492-1.65l.7-7A1.5 1.5 0 0 1 4.357 5H5V4Zm4.5 0v1h-3V4a1.5 1.5 0 0 1 3 0Zm-3 3.75a.75.75 0 0 0-1.5 0v1a3 3 0 1 0 6 0v-1a.75.75 0 0 0-1.5 0v1a1.5 1.5 0 1 1-3 0v-1Z" clip-rule="evenodd" />
+          </svg>
+          Carrinho
+          <span class="ml-1 inline-flex items-center justify-center rounded-full bg-on-primary text-primary dark:bg-on-primary-dark dark:text-primary-dark text-xs font-bold size-5">3</span>
+        </a>
+      </li>
+    </ul>
+    <!-- Mobile Menu Button -->
+    <button x-on:click="mobileMenuIsOpen = !mobileMenuIsOpen" x-bind:aria-expanded="mobileMenuIsOpen" x-bind:class="mobileMenuIsOpen ? 'fixed top-4 right-4 z-20' : null" type="button" class="flex text-on-surface dark:text-on-surface-dark md:hidden touch-target" aria-label="mobile menu" aria-controls="mobileMenu">
+      <svg x-cloak x-show="!mobileMenuIsOpen" xmlns="http://www.w3.org/2000/svg" fill="none" aria-hidden="true" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-6">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+      </svg>
+      <svg x-cloak x-show="mobileMenuIsOpen" xmlns="http://www.w3.org/2000/svg" fill="none" aria-hidden="true" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-6">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+      </svg>
+    </button>
+    <!-- Mobile Menu -->
+    <ul x-cloak x-show="mobileMenuIsOpen" x-transition:enter="transition motion-reduce:transition-none ease-out duration-300" x-transition:enter-start="-translate-y-full" x-transition:enter-end="translate-y-0" x-transition:leave="transition motion-reduce:transition-none ease-out duration-300" x-transition:leave-start="translate-y-0" x-transition:leave-end="-translate-y-full" id="mobileMenu" class="fixed max-h-svh overflow-y-auto inset-x-0 top-0 z-10 flex flex-col divide-y divide-outline rounded-b-radius border-b border-outline bg-surface-alt px-4 pb-6 pt-20 dark:divide-outline-dark dark:border-outline-dark dark:bg-surface-dark-alt sm:px-6 md:hidden">
+      <li class="py-4"><a href="home-v2.html" class="w-full text-lg font-bold text-primary focus:underline dark:text-primary-dark" aria-current="page">Início</a></li>
+      <li class="py-4"><a href="menu-v2.html" class="w-full text-lg font-medium text-on-surface focus:underline dark:text-on-surface-dark">Cardápio</a></li>
+      <li class="py-4"><a href="#contato" class="w-full text-lg font-medium text-on-surface focus:underline dark:text-on-surface-dark">Contato</a></li>
+      <li class="py-4"><a href="cart-v2.html" class="w-full text-lg font-medium text-on-surface focus:underline dark:text-on-surface-dark">Carrinho</a></li>
+    </ul>
+  </nav>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       Hero Section (Full-bleed background image with overlay)
+       ══════════════════════════════════════════════════════════════════ -->
+  <section class="relative w-full h-screen sm:h-svh bg-cover bg-center bg-no-repeat" style="background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=800&h=1200&fit=crop');">
+    <!-- Hero content centered -->
+    <div class="absolute inset-0 flex flex-col items-center justify-center px-4 py-8 text-center">
+      <!-- Nelson Boulangerie Logo SVG (white variant) -->
+      <svg class="h-12 w-auto mb-6 sm:h-16" viewBox="0 0 65 30" xmlns="http://www.w3.org/2000/svg" aria-label="Nelson Boulangerie">
+        <defs><style>.st0{fill:#d8ad56}.st1{fill:#fff}</style></defs>
+        <g><path class="st1" d="M12.4,8.67c.13-.04.2-.17.16-.28-.04-.14-.08-.27-.12-.41-.03-.11-.16-.18-.28-.15-.76.23-1.51.48-2.26.73-.12.05-.18.17-.14.29.05.13.09.27.14.4.04.12.18.18.3.13.34-.12.76.07.86.39.63,1.91,1.26,3.81,1.9,5.72.04.12.02.21-.04.23-.03.01-.07,0-.11-.02-1.36-.96-9.51-4.12-9.69-3.99-.31-.11-.52-.18-.88,0-.37.18-.73.36-1.09.54-.12.06-.17.2-.12.31.06.13.13.25.19.38.06.11.2.15.33.08.34-.17.75-.05.91.27,1.1,2.23,2.19,4.45,3.29,6.68.15.31.02.71-.26.86-.1.05-.14.19-.09.3.06.13.13.25.19.38.05.11.17.15.28.11.61-.31,1.22-.6,1.84-.89h0c.1-.05.14-.18.09-.28-.06-.13-.12-.26-.18-.39-.05-.11-.18-.16-.29-.11-.29.13-.69-.02-.83-.33-.86-1.82-1.73-3.64-2.59-5.45-.06-.13-.06-.22,0-.25.03-.02.08-.01.14,0,.27-.19,9.59,3.86,9.4,4.06.3.17.5.28.84.17.07-.02.14-.05.21-.07.09-.05.13-.16.1-.26-.88-2.78-1.76-5.56-2.64-8.34-.1-.32.12-.72.46-.82h-.02Z"/><path class="st1" d="M45.23,5.57c-3.38-.63-6.36,1.69-6.61,4.8-.25,3.13,1.8,5.85,4.54,6.37,2.74.5,5.65-1.31,6.53-4.32.89-3-1.09-6.23-4.47-6.86h.01ZM44.39,15.92c-1.87.15-3.55-1.75-3.92-4.37-.36-2.62.98-5.02,3.17-5.2,2.18-.19,4.13,1.95,4.17,4.6.05,2.65-1.56,4.82-3.42,4.98h0Z"/><path class="st1" d="M22.44,14.37c-.13.02-.26.04-.4.07-.11.02-.19.14-.17.26.06.33-.17.69-.48.75-.8.15-1.6.32-2.39.5-.11.02-.21-.05-.24-.16-.3-1.28-.6-2.56-.9-3.84-.03-.11.04-.22.15-.25.75-.17,1.49-.33,2.24-.48.05-.01.09-.07.08-.13-.03-.18-.07-.36-.1-.54-.03-.12-.14-.19-.26-.17-.72.14-1.44.3-2.15.46-.12.02-.23-.05-.26-.16-.23-1-.47-1.99-.7-2.99-.03-.11.05-.23.17-.26.6-.14,1.2-.27,1.8-.39.35-.07.76.16.82.5.02.12.14.2.27.18.15-.03.29-.05.44-.08.12-.02.21-.13.19-.25-.08-.43-.15-.87-.23-1.3-.03-.12-.15-.19-.27-.17-2,.36-3.99.81-5.96,1.35-.12.04-.19.16-.16.28.04.14.08.27.11.41.03.12.16.19.29.15.35-.1.75.12.83.45.63,2.4,1.26,4.8,1.89,7.2.09.33-.11.7-.42.78-.11.03-.17.15-.14.27.04.14.08.28.11.41.03.11.14.18.25.16,1.93-.53,3.88-.96,5.84-1.29.11-.02.18-.12.17-.24-.07-.44-.14-.87-.21-1.31-.03-.12-.13-.19-.24-.18h.03Z"/><path class="st1" d="M36.47,10.89s-2.49-2.77-2.89-3.11c-.82-.83-1.12-1.48-.53-2.04.49-.46,1.15-.37,1.95.23.37.27.46.42.87.44.6.03,1.01-.4,1.03-.69,0-.22-.19-.47-.67-.69-.59-.28-1.29-.63-2.37-.65-1.54-.03-2.77,1.11-2.73,2.55.01.62.29,1.24.8,1.74.77.72,2.67,2.77,2.65,2.78.57.63,1.1,1.65,1.06,2.47-.09,1.48-1.15,2.5-2.49,2.48-1-.01-1.8-.4-2.2-1.09.21,0,.42,0,.63-.01,1.16-.03,1.99-.71,2.01-1.71.02-.89-.67-1.82-2.03-1.8-1.31.02-1.94,1.34-1.89,2.25.02.43.02.44-.09.44-.96.05-1.93.12-2.89.21-.11,0-.2-.08-.21-.19-.28-2.83-.57-5.66-.85-8.49-.05-.46-.52-.83-1.02-.77-.54.06-1.09.13-1.63.21-.13.03-.21.13-.19.25.02.14.04.28.06.42.02.12.14.21.27.19.36-.05.72.22.76.55.31,2.46.63,4.92.94,7.38.04.34-.2.68-.51.72-.11.02-.19.13-.17.25.02.14.04.28.06.42.02.12.11.2.22.19,1.83-.25,3.67-.42,5.52-.5.75,1.36,1.95,2.11,3.35,2.13,2.07.02,3.94-1.55,4.14-3.68.08-.94-.34-2.18-.96-2.9v.02ZM30.61,14.08c-.02-.46.13-1.17.79-1.18.35,0,.74.22.74.73,0,.48-.34.78-.92.8-.15,0-.31,0-.46.01q-.14,0-.15-.36Z"/><path class="st1" d="M62.62,12.63c.12.06.26.02.32-.09.06-.13.13-.26.19-.38.05-.11,0-.24-.11-.3-.72-.35-1.45-.69-2.18-1.02-.12-.05-.25,0-.3.11-.06.13-.11.26-.17.39-.05.11,0,.25.13.3.33.15.51.57.37.88-.84,1.83-1.68,3.65-2.52,5.48-.05.11-.13.17-.19.14-.03-.01-.05-.04-.07-.08-.37-1.64-4.15-9.5-4.36-9.53-.15-.29-.25-.48-.63-.6-.38-.12-.77-.23-1.15-.35-.13-.04-.26.03-.29.15-.04.14-.08.27-.12.41-.03.12.04.24.18.28.36.11.57.47.47.81-.72,2.38-1.44,4.75-2.15,7.13-.1.33-.46.54-.77.45-.11-.03-.23.04-.26.16-.04.14-.08.27-.12.41-.03.12.02.23.13.27.64.19,1.29.39,1.93.6h0c.11.03.22-.04.26-.15.04-.14.09-.27.13-.4.04-.12-.02-.24-.13-.28-.3-.1-.48-.48-.38-.8.61-1.92,1.22-3.84,1.82-5.76.04-.14.1-.2.17-.18.03.01.07.05.1.1.3.04,4.35,9.36,4.1,9.38.11.33.17.55.5.7.07.03.13.06.2.09.1.02.2-.03.25-.12,1.25-2.63,2.5-5.27,3.75-7.9.15-.31.58-.44.91-.28v-.02Z"/></g>
+        <g><path class="st0" d="M11.96,25.5c-.06,0-.1-.05-.1-.11v-.14c0-.06.05-.11.11-.11.08,0,.16-.07.17-.15v-2.44c-.01-.08-.09-.14-.17-.14-.06,0-.11-.05-.11-.11v-.14c0-.06.04-.1.1-.11h1.33c.48,0,.87.39.87.87,0,.22-.08.44-.24.6l-.03.04.04.02c.32.18.51.52.51.88,0,.56-.46,1.01-1.01,1.01h-1.47v.03Z"/><path class="st0" d="M38.24,25.65c-1.02,0-1.86-.83-1.86-1.85s.83-1.85,1.86-1.85c.59,0,.81.1.99.17.17.07.25.16.25.25,0,.11-.13.27-.34.27-.11,0-.26-.11-.33-.15l-.03-.02c-.08-.06-.41-.16-.71-.16-.1,0-.19.01-.26.03-.46.12-.87.66-.79,1.45.08.73.46,1.1.68,1.26.21.15.43.23.65.23.19,0,.68-.08.68-.29v-.71c0-.09-.08-.17-.17-.17-.06,0-.11-.05-.11-.11v-.14c0-.06.04-.1.1-.11h.49c.17,0,.32.15.32.31v1.08c0,.31-.73.5-1.43.5h0Z"/><path class="st0" d="M17.24,25.65c-1.02,0-1.86-.83-1.86-1.85s.83-1.85,1.86-1.85,1.85.83,1.85,1.85-.83,1.85-1.85,1.85Z"/><path class="st0" d="M31.84,25.5c-.06,0-.1-.05-.1-.11v-.14c0-.06.05-.11.11-.11.09,0,.17-.08.17-.17v-2.39c0-.1-.08-.17-.17-.17-.06,0-.11-.05-.11-.1v-.14c0-.06.05-.11.11-.11h.36c.13,0,.18.05.26.13,0,.01,2.36,2.36,2.36,2.36v-1.97c0-.09-.08-.17-.17-.17-.06,0-.11-.05-.11-.11v-.14c0-.06.04-.1.1-.11h.71s.1.05.1.11v.14c0,.06-.05.11-.11.11-.09,0-.17.08-.17.17v2.8s-.04.09-.09.1h-.08c-.14,0-.2-.06-.28-.15-.09-.09-2.35-2.35-2.35-2.35v1.97c0,.09.08.17.17.17.06,0,.11.05.11.11v.14c0,.06-.04.1-.1.11h-.71v.02Z"/><path class="st0" d="M40.72,25.5c-.06,0-.1-.05-.1-.11v-.14c0-.06.05-.11.11-.11.09,0,.17-.08.17-.17v-2.38c0-.09-.08-.17-.17-.17-.06,0-.11-.05-.11-.11v-.14c0-.06.04-.1.1-.11h1.82c.06,0,.1.04.11.1v.43c0,.06-.05.1-.11.1h-.14c-.06,0-.11-.05-.11-.11,0-.09-.09-.17-.18-.17h-.6v1.06h.73c.06,0,.1.04.11.1v.18s-.03.07-.07.07h-.78v1.34h.88c.09,0,.17-.09.17-.18,0-.06.05-.11.11-.11h.14c.06,0,.1.04.11.1v.43c0,.06-.05.1-.11.1h-2.1.02Z"/><path class="st0" d="M50.32,25.5c-.06,0-.1-.05-.1-.11v-.14c0-.06.05-.11.11-.11.09,0,.17-.08.17-.17v-2.38c0-.09-.08-.17-.17-.17-.06,0-.11-.05-.11-.11v-.14c0-.06.04-.1.1-.11h1.82c.06,0,.1.04.11.1v.43c0,.06-.05.1-.11.1h-.14c-.06,0-.11-.05-.11-.11,0-.09-.09-.17-.18-.17h-.6v1.06h.73c.06,0,.1.04.11.1v.18s-.03.07-.07.07h-.78v1.34h.88c.09,0,.17-.09.17-.18,0-.06.05-.11.11-.11h.14c.06,0,.1.04.11.1v.43c0,.06-.05.1-.11.1h-2.1.02Z"/><path class="st0" d="M48.19,25.5c-.06,0-.1-.05-.1-.11v-.14c0-.06.05-.11.11-.11.09,0,.17-.08.17-.17v-2.38c0-.09-.08-.17-.17-.17-.06,0-.11-.05-.11-.11v-.14c0-.06.04-.1.1-.11h.99c.06,0,.1.05.1.11v.14c0,.06-.05.11-.11.11-.09,0-.17.08-.17.17v2.38c0,.09.08.17.17.17.06,0,.11.05.11.11v.14c0,.06-.04.1-.1.11,0,0-.99,0-.99,0Z"/><path class="st0" d="M21.61,25.64c-.71,0-1.29-.58-1.29-1.29v-1.75c0-.09-.08-.17-.17-.17-.06,0-.11-.05-.11-.11v-.14c0-.06.04-.1.1-.11h.99c.06,0,.1.05.1.11v.14c0,.06-.05.11-.11.11-.09,0-.17.08-.17.17v1.75c0,.44.36.81.81.81s.81-.36.81-.81v-1.75c0-.09-.08-.17-.17-.17-.06,0-.11-.05-.11-.11v-.14c0-.06.04-.1.1-.11h.71s.1.05.1.11v.14c0,.06-.05.11-.11.11-.09,0-.17.08-.17.17v1.75c0,.71-.58,1.29-1.29,1.29h-.02Z"/><path class="st0" d="M24.22,25.5c-.06,0-.1-.05-.1-.11v-.14c0-.06.05-.11.11-.11.09,0,.17-.08.17-.17v-2.38c0-.09-.08-.17-.17-.17-.06,0-.11-.05-.11-.11v-.14c0-.06.04-.1.1-.11h.99c.06,0,.1.05.1.11v.14c0,.06-.05.11-.11.11-.09,0-.17.08-.17.17v2.56h.88c.09,0,.17-.08.17-.17,0-.06.05-.11.11-.11h.14c.06,0,.1.04.11.1v.43c0,.06-.05.1-.11.1h-2.11Z"/><path class="st0" d="M27.47,25.5c-.06,0-.1-.05-.1-.11v-.14c0-.06.05-.11.11-.11.1,0,.19-.06.23-.16l1-2.42s.02-.08.02-.11c0-.05-.01-.11-.04-.16,0-.02-.01-.04-.01-.07,0-.1.08-.17.17-.17h.26c.1,0,.19.06.23.15l1.15,2.78c.04.09.12.15.21.16.06,0,.11.05.11.11v.14c0-.06-.04.1-.1.11h-.99c-.06,0-.1-.05-.1-.11v-.14c0-.06.05-.11.11-.11.09,0,.1-.06.09-.12v-.03l-.27-.62h-1.2l-.26.62s0,.08,0,.1c.02.03.06.05.09.05.06,0,.11.05.11.11v.14c0,.06-.04.1-.1.11h-.72Z"/><path class="st0" d="M43.97,25.5c-.06,0-.1-.05-.1-.11v-.14c0-.06.05-.11.11-.11.08,0,.16-.07.17-.15v-2.44c0-.08-.09-.14-.17-.14-.06,0-.11-.05-.11-.11v-.14c0-.06.04-.1.1-.11h1.55c.53.04.94.48.94,1.01,0,.39-.23.75-.58.92l-.05.02,1.05,1.05s.09.07.14.07v.04h.08v-.03s.07.05.07.1v.14c0,.06-.04.1-.1.11h-.23c-.28,0-.54-.11-.73-.31l-1.06-1.06s-.05-.03-.08-.03h-.19v.88c0,.09.08.17.17.17.06,0,.11.05.11.11v.14c0,.06-.04.1-.1.11h-.99,0Z"/></g>
+      </svg>
+
+      <!-- Status badge -->
+      <div class="flex justify-center mb-4 sm:mb-6" x-data="shopStatusBadge()" x-init="tick(); setInterval(() => tick(), 60000)">
+        <!-- Open: green dot + success badge -->
+        <span x-show="status === 'open'" x-cloak
+              class="inline-flex items-center gap-1.5 rounded-radius w-fit border border-success bg-success px-2.5 py-1 text-xs font-medium text-on-success">
+          <span class="size-2 rounded-full bg-on-success animate-pulse" aria-hidden="true"></span>
+          <span x-text="label"></span>
+        </span>
+        <!-- Closing/Opening soon: amber dot + warning badge -->
+        <span x-show="status === 'closing' || status === 'opening'" x-cloak
+              class="inline-flex items-center gap-1.5 rounded-radius w-fit border border-warning bg-warning px-2.5 py-1 text-xs font-medium text-on-warning">
+          <span class="size-2 rounded-full bg-on-warning" aria-hidden="true"></span>
+          <span x-text="label"></span>
+        </span>
+        <!-- Closed: red dot + danger badge -->
+        <span x-show="status === 'closed'" x-cloak
+              class="inline-flex items-center gap-1.5 rounded-radius w-fit border border-danger bg-danger px-2.5 py-1 text-xs font-medium text-on-danger">
+          <span class="size-2 rounded-full bg-on-danger" aria-hidden="true"></span>
+          <span x-text="label"></span>
+        </span>
+        <noscript>
+          <span class="inline-flex items-center gap-1.5 rounded-radius w-fit border border-success bg-success px-2.5 py-1 text-xs font-medium text-on-success">
+            <span class="size-2 rounded-full bg-on-success" aria-hidden="true"></span>
+            Aberto
+          </span>
+        </noscript>
+      </div>
+
+      <!-- Temporal greeting -->
+      <div x-data="temporalGreeting()" class="text-center">
+        <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-2" x-text="greeting">
+          Bem-vindo
+        </h1>
+        <p x-show="contextLine" x-text="contextLine" x-cloak
+           class="text-sm sm:text-base text-white/90"></p>
+      </div>
+
+      <!-- CTAs -->
+      <div class="mt-8 flex gap-3 justify-center flex-wrap" x-data="homeCta()">
+        <a x-show="ctaLabel" x-cloak
+           :href="ctaHref"
+           x-text="ctaLabel"
+           class="whitespace-nowrap rounded-radius bg-primary px-6 py-3 text-center text-sm font-medium tracking-wide text-on-primary transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:opacity-100 active:outline-offset-0 dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark touch-target"></a>
+        <a href="menu-v2.html"
+           class="whitespace-nowrap rounded-radius border border-white bg-white/10 backdrop-blur-sm px-6 py-3 text-center text-sm font-medium tracking-wide text-white transition hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:opacity-100 active:outline-offset-0 touch-target"
+           :class="!ctaLabel && 'bg-primary text-on-primary border-primary dark:bg-primary-dark dark:text-on-primary-dark dark:border-primary-dark'">
+          Ver Cardápio
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       Status Banner (Penguin UI — simple-banner.html)
+       ══════════════════════════════════════════════════════════════════ -->
+  <div class="relative flex border-outline bg-surface-alt p-4 text-on-surface dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark border-b">
+    <p class="px-4 sm:px-6 text-xs sm:text-sm text-pretty mx-auto">Aberto agora — até às 19h</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       Main Content
+       ══════════════════════════════════════════════════════════════════ -->
+  <main id="main-content" class="flex-1 w-full">
+
+    <!-- ── Content container ── -->
+    <div class="max-w-2xl mx-auto px-4 py-6 sm:px-6">
+
+      <!-- ── Closing Awareness (Penguin UI — banner-with-button.html, warning) ── -->
+      <div x-data="closingAwareness()" x-init="check(); setInterval(() => check(), 60000)">
+        <div x-show="show" x-transition x-cloak
+             class="relative flex border-warning bg-warning/10 p-4 text-on-surface dark:text-on-surface-dark border border-warning/25 rounded-radius mb-6">
+          <div class="flex items-center gap-2.5 mx-auto">
+            <div class="rounded-full bg-warning/15 p-0.5 text-warning shrink-0" aria-hidden="true">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <p class="text-xs sm:text-sm text-pretty font-medium" x-text="message"></p>
+          </div>
+          <button @click="show = false" class="absolute top-1/2 -translate-y-1/2 right-4 text-on-surface dark:text-on-surface-dark touch-target" aria-label="dispensar">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="2.5" class="size-4 shrink-0">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Quick Reorder (Penguin UI — card-with-button.html) ── -->
+      <section class="mb-8">
+        <article x-data="{ show: true }" x-show="show"
+                 class="group flex rounded-radius flex-col overflow-hidden border border-outline bg-surface-alt text-on-surface dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark">
+          <div class="flex flex-col gap-4 p-4 sm:p-6">
+            <div class="flex items-start justify-between">
+              <div class="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5 text-primary dark:text-primary-dark shrink-0" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H4.598a.75.75 0 00-.75.75v3.634a.75.75 0 001.5 0v-2.033l.312.311a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.06-7.386a.75.75 0 00-1.5 0v2.033l-.312-.311a7 7 0 00-11.712 3.138.75.75 0 001.449.39 5.5 5.5 0 019.201-2.466l.312.311H11.6a.75.75 0 000 1.5h3.634a.75.75 0 00.75-.75V4.038z" clip-rule="evenodd" />
+                </svg>
+                <h3 class="text-base sm:text-lg font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Repetir último pedido</h3>
+              </div>
+              <button @click="show = false"
+                      class="text-on-surface hover:text-on-surface-strong dark:text-on-surface-dark dark:hover:text-on-surface-dark-strong shrink-0 touch-target"
+                      aria-label="Dispensar">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" class="size-5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            <p class="text-sm" id="reorderDescription">2x Croissant, 1x Baguete Tradicional</p>
+            <a href="#"
+               class="flex items-center justify-center gap-2 whitespace-nowrap bg-primary px-4 py-2 text-center text-sm font-medium tracking-wide text-on-primary transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:opacity-100 active:outline-offset-0 dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark rounded-radius touch-target"
+               aria-describedby="reorderDescription">
+              Repetir Agora
+            </a>
+          </div>
+        </article>
+      </section>
+
+      <!-- ── Direto do Forno ── -->
+      <section class="py-8 border-t border-outline dark:border-outline-dark" id="catalogo">
+        <h2 class="text-xl sm:text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong text-center mb-2">Direto do forno</h2>
+        <p class="text-on-surface dark:text-on-surface-dark text-center mb-6 sm:mb-8 text-sm">Disponibilidade em tempo real</p>
+
+        <!-- Availability cards grid (mobile-first: 1 col, then 2 col) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+          <!-- Croissant Card -->
+          <article class="group flex rounded-radius flex-col overflow-hidden border border-outline bg-surface-alt text-on-surface dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark">
+            <div class="h-32 sm:h-40 overflow-hidden bg-surface-alt dark:bg-surface-dark-alt">
+              <img src="https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=400&fit=crop" alt="Croissant" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+            </div>
+            <div class="flex flex-col gap-2 p-4">
+              <div class="flex items-center justify-between">
+                <h3 class="text-sm font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Croissant</h3>
+                <span class="rounded-radius w-fit border border-success bg-success px-2 py-0.5 text-xs font-medium text-on-success">Disponível</span>
+              </div>
+              <p class="text-xs text-on-surface dark:text-on-surface-dark">Manteiga francesa, fermentação longa</p>
+              <div class="flex items-center justify-between mt-1">
+                <span class="text-sm font-bold text-on-surface-strong dark:text-on-surface-dark-strong">R$ 8,50</span>
+                <button type="button" class="whitespace-nowrap rounded-radius bg-primary px-3 py-1.5 text-center text-xs font-medium tracking-wide text-on-primary transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:opacity-100 active:outline-offset-0 dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark touch-target">
+                  Adicionar
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <!-- Baguete Tradicional Card -->
+          <article class="group flex rounded-radius flex-col overflow-hidden border border-outline bg-surface-alt text-on-surface dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark">
+            <div class="h-32 sm:h-40 overflow-hidden bg-surface-alt dark:bg-surface-dark-alt">
+              <img src="https://images.unsplash.com/photo-1599599810694-b5ac4dd37e68?w=400&h=400&fit=crop" alt="Baguete Tradicional" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+            </div>
+            <div class="flex flex-col gap-2 p-4">
+              <div class="flex items-center justify-between">
+                <h3 class="text-sm font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Baguete Tradicional</h3>
+                <span class="rounded-radius w-fit border border-success bg-success px-2 py-0.5 text-xs font-medium text-on-success">Disponível</span>
+              </div>
+              <p class="text-xs text-on-surface dark:text-on-surface-dark">Crosta crocante, miolo macio</p>
+              <div class="flex items-center justify-between mt-1">
+                <span class="text-sm font-bold text-on-surface-strong dark:text-on-surface-dark-strong">R$ 12,00</span>
+                <button type="button" class="whitespace-nowrap rounded-radius bg-primary px-3 py-1.5 text-center text-xs font-medium tracking-wide text-on-primary transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:opacity-100 active:outline-offset-0 dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark touch-target">
+                  Adicionar
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <!-- Pain au Chocolat Card -->
+          <article class="group flex rounded-radius flex-col overflow-hidden border border-outline bg-surface-alt text-on-surface dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark">
+            <div class="h-32 sm:h-40 overflow-hidden bg-surface-alt dark:bg-surface-dark-alt">
+              <img src="https://images.unsplash.com/photo-1587668178277-295251f900ce?w=400&h=400&fit=crop" alt="Pain au Chocolat" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+            </div>
+            <div class="flex flex-col gap-2 p-4">
+              <div class="flex items-center justify-between">
+                <h3 class="text-sm font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Pain au Chocolat</h3>
+                <span class="rounded-radius w-fit border border-outline bg-surface-alt px-2 py-0.5 text-xs font-medium text-on-surface dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark">Próxima fornada 14h</span>
+              </div>
+              <p class="text-xs text-on-surface dark:text-on-surface-dark">Chocolate belga 70%, massa folhada</p>
+              <div class="flex items-center justify-between mt-1">
+                <span class="text-sm font-bold text-on-surface-strong dark:text-on-surface-dark-strong">R$ 11,00</span>
+                <button type="button" disabled class="whitespace-nowrap rounded-radius bg-primary px-3 py-1.5 text-center text-xs font-medium tracking-wide text-on-primary transition hover:opacity-75 disabled:cursor-not-allowed disabled:opacity-75 dark:bg-primary-dark dark:text-on-primary-dark touch-target">
+                  Indisponível
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <!-- Focaccia Card -->
+          <article class="group flex rounded-radius flex-col overflow-hidden border border-outline bg-surface-alt text-on-surface dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark">
+            <div class="h-32 sm:h-40 overflow-hidden bg-surface-alt dark:bg-surface-dark-alt">
+              <img src="https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&h=400&fit=crop" alt="Focaccia" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+            </div>
+            <div class="flex flex-col gap-2 p-4">
+              <div class="flex items-center justify-between">
+                <h3 class="text-sm font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Focaccia</h3>
+                <span class="rounded-radius w-fit border border-success bg-success px-2 py-0.5 text-xs font-medium text-on-success">Disponível</span>
+              </div>
+              <p class="text-xs text-on-surface dark:text-on-surface-dark">Azeite extra virgem, salgada</p>
+              <div class="flex items-center justify-between mt-1">
+                <span class="text-sm font-bold text-on-surface-strong dark:text-on-surface-dark-strong">R$ 9,50</span>
+                <button type="button" class="whitespace-nowrap rounded-radius bg-primary px-3 py-1.5 text-center text-xs font-medium tracking-wide text-on-primary transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:opacity-100 active:outline-offset-0 dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark touch-target">
+                  Adicionar
+                </button>
+              </div>
+            </div>
+          </article>
+
+        </div>
+      </section>
+
+      <!-- ── Como Funciona (Steps section) ── -->
+      <section class="py-8 border-t border-outline dark:border-outline-dark" id="como-funciona">
+        <h2 class="text-xl sm:text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong text-center mb-2">Como Funciona</h2>
+        <p class="text-on-surface dark:text-on-surface-dark text-center mb-8 text-sm">Três passos simples para seu pão quente</p>
+
+        <!-- Steps (mobile-first: stacked) -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+
+          <!-- Step 1 -->
+          <div class="flex flex-col items-center text-center">
+            <div class="flex items-center justify-center w-12 h-12 rounded-full bg-primary text-on-primary dark:bg-primary-dark dark:text-on-primary-dark font-bold text-lg mb-4">
+              1
+            </div>
+            <h3 class="text-sm font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-2">Peça seu pão</h3>
+            <p class="text-xs text-on-surface dark:text-on-surface-dark">Navegue pelo cardápio e escolha seus produtos preferidos</p>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="flex flex-col items-center text-center">
+            <div class="flex items-center justify-center w-12 h-12 rounded-full bg-primary text-on-primary dark:bg-primary-dark dark:text-on-primary-dark font-bold text-lg mb-4">
+              2
+            </div>
+            <h3 class="text-sm font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-2">Confirmação instantânea</h3>
+            <p class="text-xs text-on-surface dark:text-on-surface-dark">Seu pedido é confirmado e preparado com prioridade</p>
+          </div>
+
+          <!-- Step 3 -->
+          <div class="flex flex-col items-center text-center">
+            <div class="flex items-center justify-center w-12 h-12 rounded-full bg-primary text-on-primary dark:bg-primary-dark dark:text-on-primary-dark font-bold text-lg mb-4">
+              3
+            </div>
+            <h3 class="text-sm font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-2">Retire rápido</h3>
+            <p class="text-xs text-on-surface dark:text-on-surface-dark">Retire quando pronto — sempre quente e fresco</p>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ── Tomorrow Hook (Gate 3) ── -->
+      <section class="py-8 border-t border-outline dark:border-outline-dark">
+        <article class="rounded-radius border border-outline bg-surface-alt p-6 text-on-surface dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark text-center">
+          <h3 class="text-lg font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-3">Planejando para amanhã?</h3>
+          <p class="text-sm mb-4">Reserve seus pães favoritos com até 24 horas de antecedência e garanta disponibilidade.</p>
+          <a href="#" class="inline-flex whitespace-nowrap rounded-radius bg-primary px-6 py-2 text-center text-sm font-medium tracking-wide text-on-primary transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:opacity-100 active:outline-offset-0 dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark touch-target">
+            Agendar para amanhã
+          </a>
+        </article>
+      </section>
+
+      <!-- ── Contact Section ── -->
+      <section class="py-8 border-t border-outline dark:border-outline-dark" id="contato">
+        <h2 class="text-xl sm:text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong text-center mb-6">Entre em contato</h2>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+          <!-- Phone -->
+          <a href="tel:+551140000000" class="flex flex-col items-center justify-center p-6 rounded-radius border border-outline bg-surface-alt hover:bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt dark:hover:bg-surface-dark transition">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-6 text-primary dark:text-primary-dark mb-3" aria-hidden="true">
+              <path d="M2 3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3Z" />
+              <path fill-rule="evenodd" d="M2 7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7Zm3.293-1.707a1 1 0 0 1 1.414 0L10 8.586l2.293-2.293a1 1 0 1 1 1.414 1.414L11.414 10l2.293 2.293a1 1 0 0 1-1.414 1.414L10 11.414l-2.293 2.293a1 1 0 0 1-1.414-1.414L8.586 10 6.293 7.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd" />
+            </svg>
+            <h3 class="text-sm font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-1">(11) 4000-0000</h3>
+            <p class="text-xs text-on-surface dark:text-on-surface-dark">Ligação ou WhatsApp</p>
+          </a>
+
+          <!-- Email -->
+          <a href="mailto:contato@nelsonboulangerie.com.br" class="flex flex-col items-center justify-center p-6 rounded-radius border border-outline bg-surface-alt hover:bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt dark:hover:bg-surface-dark transition">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-6 text-primary dark:text-primary-dark mb-3" aria-hidden="true">
+              <path d="M3 4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H3Z" />
+              <path d="m19.447-0.745-6.976 5.92h.008a2 2 0 0 1-2.959 0h.008l-6.976-5.92A2 2 0 0 1 3 4h14a2 2 0 0 1 1.447 0.255Z" clip-rule="evenodd" fill-rule="evenodd" />
+            </svg>
+            <h3 class="text-sm font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-1">contato@nelson.com.br</h3>
+            <p class="text-xs text-on-surface dark:text-on-surface-dark">Resposta em até 2h</p>
+          </a>
+
+        </div>
+
+        <div class="mt-6 p-4 sm:p-6 rounded-radius border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt text-center">
+          <h3 class="text-sm font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-2">Endereço</h3>
+          <p class="text-xs text-on-surface dark:text-on-surface-dark mb-2">Rua Bom Jesus, 126 — Vila Mariana, São Paulo — SP</p>
+          <p class="text-xs text-on-surface dark:text-on-surface-dark mb-4">Aberto de segunda a sábado, 7h às 19h</p>
+          <a href="https://maps.google.com/?q=Rua+Bom+Jesus+126+São+Paulo" target="_blank" rel="noopener noreferrer" class="inline-flex whitespace-nowrap rounded-radius border border-outline px-4 py-2 text-center text-xs font-medium tracking-wide text-on-surface transition hover:opacity-75 dark:border-outline-dark dark:text-on-surface-dark touch-target">
+            Ver no mapa
+          </a>
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       Footer
+       ══════════════════════════════════════════════════════════════════ -->
+  <footer class="border-t border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark mt-12 py-8">
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 text-center">
+      <p class="text-xs text-on-surface dark:text-on-surface-dark mb-4">
+        &copy; 2026 Nelson Boulangerie. Todos os direitos reservados.
+      </p>
+      <div class="flex justify-center gap-4 flex-wrap">
+        <a href="#" class="text-xs text-on-surface hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">Sobre</a>
+        <a href="#" class="text-xs text-on-surface hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">Privacidade</a>
+        <a href="#" class="text-xs text-on-surface hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">Termos</a>
+        <a href="#" class="text-xs text-on-surface hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">Instagram</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="proto-scenarios.js"></script>
+</body>
+</html>

@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Minha Conta — Nelson Boulangerie</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style type="text/tailwindcss">
+    @custom-variant dark (&:where(.dark, .dark *));
+
+    @theme {
+        --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+            'Segoe UI Symbol', 'Noto Color Emoji';
+        --font-title: 'Playfair Display', ui-serif, Georgia, serif;
+
+        --color-surface: var(--color-white);
+        --color-surface-alt: var(--color-neutral-50);
+        --color-on-surface: var(--color-neutral-600);
+        --color-on-surface-strong: var(--color-neutral-900);
+        --color-primary: var(--color-black);
+        --color-on-primary: var(--color-neutral-100);
+        --color-secondary: var(--color-neutral-800);
+        --color-on-secondary: var(--color-white);
+        --color-outline: var(--color-neutral-300);
+        --color-outline-strong: var(--color-neutral-800);
+
+        --color-surface-dark: var(--color-neutral-950);
+        --color-surface-dark-alt: var(--color-neutral-900);
+        --color-on-surface-dark: var(--color-neutral-300);
+        --color-on-surface-dark-strong: var(--color-white);
+        --color-primary-dark: var(--color-white);
+        --color-on-primary-dark: var(--color-black);
+        --color-secondary-dark: var(--color-neutral-300);
+        --color-on-secondary-dark: var(--color-black);
+        --color-outline-dark: var(--color-neutral-700);
+        --color-outline-dark-strong: var(--color-neutral-300);
+
+        --color-info: var(--color-sky-500);
+        --color-on-info: var(--color-white);
+        --color-success: var(--color-green-500);
+        --color-on-success: var(--color-white);
+        --color-warning: var(--color-amber-500);
+        --color-on-warning: var(--color-white);
+        --color-danger: var(--color-red-500);
+        --color-on-danger: var(--color-white);
+
+        --radius-radius: var(--radius-sm);
+    }
+
+    @layer base {
+        [x-cloak] { display: none !important; }
+        html { scroll-behavior: smooth; }
+        ::selection { background-color: var(--color-primary); color: var(--color-on-primary); }
+        body { font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+        h1, h2, h3, h4, h5, h6 { font-family: var(--font-title); }
+    }
+
+    @layer components {
+        .touch-target { min-height: 44px; min-width: 44px; }
+        .card { @apply bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark rounded-lg p-4; }
+        .btn-primary { @apply bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark px-4 py-3 rounded-lg font-medium text-sm touch-target inline-flex items-center justify-center gap-2 hover:opacity-90 transition-opacity; }
+        .btn-secondary { @apply bg-surface-alt dark:bg-surface-dark-alt text-on-surface dark:text-on-surface-dark border border-outline dark:border-outline-dark px-4 py-3 rounded-lg font-medium text-sm touch-target inline-flex items-center justify-center gap-2 hover:opacity-80 transition-opacity; }
+        .btn-danger { @apply bg-danger dark:bg-danger text-on-danger dark:text-on-danger px-4 py-3 rounded-lg font-medium text-sm touch-target inline-flex items-center justify-center gap-2 hover:opacity-90 transition-opacity; }
+        .input-field { @apply w-full bg-surface dark:bg-surface-dark border border-outline dark:border-outline-dark rounded-lg px-4 py-3 text-on-surface dark:text-on-surface-dark font-body text-sm touch-target placeholder:text-on-surface placeholder:opacity-50 dark:placeholder:text-on-surface-dark dark:placeholder:opacity-50; }
+        .badge { @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium; }
+        .badge-success { @apply badge bg-success dark:bg-success text-on-success dark:text-on-success; }
+        .badge-warning { @apply badge bg-warning dark:bg-warning text-on-warning dark:text-on-warning; }
+        .badge-danger { @apply badge bg-danger dark:bg-danger text-on-danger dark:text-on-danger; }
+    }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+</head>
+<body class="bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark" x-cloak>
+  <div x-data="accountApp()" class="flex flex-col min-h-screen pb-20">
+    <!-- Login Screen -->
+    <div x-show="!loggedIn" class="flex flex-col items-center justify-center min-h-screen px-4 gap-8">
+      <div class="w-full max-w-sm">
+        <h1 class="text-3xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-2 text-center">Entre na sua conta</h1>
+        <p class="text-center text-on-surface dark:text-on-surface-dark text-sm mb-6">Use seu telefone para acessar</p>
+
+        <!-- Phone Input Step -->
+        <div x-show="otpStep === 'phone'" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium mb-2">Telefone</label>
+            <input
+              type="tel"
+              x-model="phone"
+              placeholder="(11) 99999-0000"
+              class="input-field"
+              @keydown.enter="requestOtp()"
+            >
+          </div>
+          <button @click="requestOtp()" class="btn-primary w-full">Enviar código</button>
+        </div>
+
+        <!-- OTP Input Step -->
+        <div x-show="otpStep === 'otp'" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium mb-2">Código de verificação</label>
+            <input
+              type="text"
+              x-model="otp"
+              placeholder="000000"
+              maxlength="6"
+              class="input-field text-center text-2xl tracking-widest"
+              @keydown.enter="verifyOtp()"
+            >
+            <p class="text-xs text-on-surface dark:text-on-surface-dark mt-2">Enviamos para <strong>{{ phone }}</strong></p>
+          </div>
+          <button @click="verifyOtp()" class="btn-primary w-full">Verificar</button>
+          <button @click="otpStep = 'phone'; otp = ''" class="btn-secondary w-full">Voltar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logged In Layout -->
+    <div x-show="loggedIn" class="flex flex-col">
+      <!-- Main Panel -->
+      <div x-show="activePanel === 'main'" class="pb-8">
+        <div class="px-4 pt-6">
+          <!-- Temporal Greeting -->
+          <h1 class="text-2xl font-bold mb-6">{{ greeting }} Maria</h1>
+
+          <!-- Profile Card -->
+          <div class="card mb-6 flex items-start gap-4">
+            <svg class="w-16 h-16 text-primary dark:text-primary-dark flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            </svg>
+            <div class="flex-1">
+              <p class="text-sm font-medium text-on-surface dark:text-on-surface-dark opacity-70">Perfil</p>
+              <p class="text-lg font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Maria</p>
+              <p class="text-sm text-on-surface dark:text-on-surface-dark">(11) 99999-0000</p>
+              <p class="text-xs text-on-surface dark:text-on-surface-dark opacity-60 mt-1">Cliente desde jan/2025</p>
+            </div>
+          </div>
+
+          <!-- Metrics Card -->
+          <div class="card mb-6">
+            <div class="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p class="text-2xl font-bold text-primary dark:text-primary-dark">12</p>
+                <p class="text-xs text-on-surface dark:text-on-surface-dark mt-1">Pedidos</p>
+              </div>
+              <div>
+                <p class="text-2xl font-bold text-primary dark:text-primary-dark">R$ 456,80</p>
+                <p class="text-xs text-on-surface dark:text-on-surface-dark mt-1">Gasto</p>
+              </div>
+              <div>
+                <p class="text-lg font-bold text-primary dark:text-primary-dark">🥐</p>
+                <p class="text-xs text-on-surface dark:text-on-surface-dark mt-1">Favorito</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Loyalty Banner -->
+          <div x-show="loyaltyNearTier" class="bg-warning dark:bg-warning text-on-warning dark:text-on-warning px-4 py-3 rounded-lg mb-6 flex gap-3 items-start">
+            <span class="text-lg leading-none">⭐</span>
+            <div class="text-sm">
+              <p class="font-medium">Próximo nível em breve!</p>
+              <p class="text-xs opacity-90">Você está a 3 pedidos da próxima tier.</p>
+            </div>
+          </div>
+
+          <!-- Quick Actions Grid -->
+          <div class="grid grid-cols-2 gap-4 mb-6">
+            <button @click="activePanel = 'orders'" class="card hover:opacity-80 transition-opacity flex flex-col items-center justify-center gap-2 py-6">
+              <svg class="w-6 h-6 text-primary dark:text-primary-dark" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-0.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-0.9-2-2-2z"/>
+              </svg>
+              <span class="text-sm font-medium">Meus Pedidos</span>
+            </button>
+
+            <button @click="activePanel = 'addresses'" class="card hover:opacity-80 transition-opacity flex flex-col items-center justify-center gap-2 py-6">
+              <svg class="w-6 h-6 text-primary dark:text-primary-dark" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+              </svg>
+              <span class="text-sm font-medium">Endereços</span>
+            </button>
+
+            <button @click="activePanel = 'loyalty'" class="card hover:opacity-80 transition-opacity flex flex-col items-center justify-center gap-2 py-6">
+              <svg class="w-6 h-6 text-primary dark:text-primary-dark" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2l-2.81 6.63L2 9.24l5.46 4.73L5.82 21z"/>
+              </svg>
+              <span class="text-sm font-medium">Fidelidade</span>
+            </button>
+
+            <button @click="activePanel = 'payments'" class="card hover:opacity-80 transition-opacity flex flex-col items-center justify-center gap-2 py-6">
+              <svg class="w-6 h-6 text-primary dark:text-primary-dark" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20 8H4V4h16m0 12H4c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2zm-6 3.5c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+              </svg>
+              <span class="text-sm font-medium">Pagamentos</span>
+            </button>
+          </div>
+
+          <!-- Recent Orders -->
+          <div class="mb-6">
+            <h2 class="text-lg font-bold mb-4">Pedidos recentes</h2>
+            <div class="space-y-3">
+              <div class="card">
+                <div class="flex justify-between items-start mb-2">
+                  <p class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">#NB-0042</p>
+                  <span class="badge-success">Entregue</span>
+                </div>
+                <p class="text-sm text-on-surface dark:text-on-surface-dark mb-3">3 itens • R$ 125,40</p>
+                <div class="flex gap-2">
+                  <button class="btn-secondary flex-1">Repetir</button>
+                  <button class="btn-secondary flex-1">Detalhes</button>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="flex justify-between items-start mb-2">
+                  <p class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">#NB-0038</p>
+                  <span class="badge-success">Entregue</span>
+                </div>
+                <p class="text-sm text-on-surface dark:text-on-surface-dark mb-3">2 itens • R$ 89,90</p>
+                <div class="flex gap-2">
+                  <button class="btn-secondary flex-1">Repetir</button>
+                  <button class="btn-secondary flex-1">Detalhes</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Settings List -->
+          <div class="space-y-2">
+            <h2 class="text-lg font-bold mb-4">Configurações</h2>
+            <button @click="activePanel = 'notifications'" class="card w-full text-left hover:opacity-80 transition-opacity flex justify-between items-center">
+              <span>Notificações</span>
+              <svg class="w-5 h-5 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+              </svg>
+            </button>
+
+            <button @click="activePanel = 'personal'" class="card w-full text-left hover:opacity-80 transition-opacity flex justify-between items-center">
+              <span>Dados Pessoais</span>
+              <svg class="w-5 h-5 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+              </svg>
+            </button>
+
+            <button @click="activePanel = 'about'" class="card w-full text-left hover:opacity-80 transition-opacity flex justify-between items-center">
+              <span>Sobre a Loja</span>
+              <svg class="w-5 h-5 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+              </svg>
+            </button>
+
+            <button @click="logout()" class="card w-full text-left hover:opacity-80 transition-opacity flex justify-between items-center text-danger dark:text-danger">
+              <span>Sair</span>
+              <svg class="w-5 h-5 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Orders Panel -->
+      <div x-show="activePanel === 'orders'" class="px-4">
+        <div class="flex items-center gap-3 mb-6 pt-6">
+          <button @click="activePanel = 'main'" class="touch-target flex items-center justify-center">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+          </button>
+          <h2 class="text-xl font-bold">Meus Pedidos</h2>
+        </div>
+        <div class="space-y-3 pb-8">
+          <template x-for="order in recentOrders" :key="order.id">
+            <div class="card">
+              <div class="flex justify-between items-start mb-2">
+                <p class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong" x-text="order.ref"></p>
+                <span class="badge-success" x-text="order.status"></span>
+              </div>
+              <p class="text-sm text-on-surface dark:text-on-surface-dark mb-3" x-text="order.items + ' itens • R$ ' + order.total"></p>
+              <div class="flex gap-2">
+                <button class="btn-secondary flex-1">Repetir</button>
+                <button class="btn-secondary flex-1">Detalhes</button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Addresses Panel -->
+      <div x-show="activePanel === 'addresses'" class="px-4">
+        <div class="flex items-center gap-3 mb-6 pt-6">
+          <button @click="activePanel = 'main'" class="touch-target flex items-center justify-center">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+          </button>
+          <h2 class="text-xl font-bold">Endereços</h2>
+        </div>
+        <div class="space-y-3 pb-8">
+          <template x-for="address in addresses" :key="address.id">
+            <div class="card hover:opacity-80 transition-opacity cursor-pointer">
+              <p class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong" x-text="address.type"></p>
+              <p class="text-sm text-on-surface dark:text-on-surface-dark mt-1" x-text="address.street"></p>
+              <p class="text-sm text-on-surface dark:text-on-surface-dark" x-text="address.city"></p>
+            </div>
+          </template>
+          <button class="btn-primary w-full">Adicionar Endereço</button>
+        </div>
+      </div>
+
+      <!-- Loyalty Panel -->
+      <div x-show="activePanel === 'loyalty'" class="px-4">
+        <div class="flex items-center gap-3 mb-6 pt-6">
+          <button @click="activePanel = 'main'" class="touch-target flex items-center justify-center">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+          </button>
+          <h2 class="text-xl font-bold">Fidelidade</h2>
+        </div>
+        <div class="pb-8">
+          <div class="card mb-6">
+            <p class="text-sm text-on-surface dark:text-on-surface-dark opacity-70">Saldo</p>
+            <p class="text-3xl font-bold text-primary dark:text-primary-dark">3.450</p>
+            <p class="text-xs text-on-surface dark:text-on-surface-dark mt-2">pontos disponíveis</p>
+          </div>
+
+          <div class="card mb-6">
+            <p class="text-sm font-medium mb-4">Seu Progresso</p>
+            <div class="space-y-3">
+              <div>
+                <div class="flex justify-between items-center mb-2">
+                  <span class="text-sm">Bronze</span>
+                  <span class="text-xs text-on-surface dark:text-on-surface-dark opacity-70">Ativo</span>
+                </div>
+                <div class="w-full bg-outline dark:bg-outline-dark rounded-full h-2">
+                  <div class="bg-primary dark:bg-primary-dark h-2 rounded-full" style="width: 100%"></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between items-center mb-2">
+                  <span class="text-sm">Prata</span>
+                  <span class="text-xs text-on-surface dark:text-on-surface-dark opacity-70">5 pedidos faltam</span>
+                </div>
+                <div class="w-full bg-outline dark:bg-outline-dark rounded-full h-2">
+                  <div class="bg-primary dark:bg-primary-dark h-2 rounded-full" style="width: 60%"></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between items-center mb-2">
+                  <span class="text-sm">Ouro</span>
+                  <span class="text-xs text-on-surface dark:text-on-surface-dark opacity-70">15 pedidos faltam</span>
+                </div>
+                <div class="w-full bg-outline dark:bg-outline-dark rounded-full h-2">
+                  <div class="bg-primary dark:bg-primary-dark h-2 rounded-full" style="width: 30%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <p class="text-sm font-medium mb-3">Histórico</p>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span>Pedido #NB-0042</span>
+                <span class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium">+250 pts</span>
+              </div>
+              <div class="flex justify-between text-on-surface dark:text-on-surface-dark opacity-70">
+                <span>5 dias atrás</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payments Panel -->
+      <div x-show="activePanel === 'payments'" class="px-4">
+        <div class="flex items-center gap-3 mb-6 pt-6">
+          <button @click="activePanel = 'main'" class="touch-target flex items-center justify-center">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+          </button>
+          <h2 class="text-xl font-bold">Pagamentos</h2>
+        </div>
+        <div class="space-y-3 pb-8">
+          <div class="card hover:opacity-80 transition-opacity cursor-pointer border-2 border-primary dark:border-primary-dark">
+            <div class="flex justify-between items-start mb-2">
+              <p class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">PIX</p>
+              <span class="text-xs font-medium text-primary dark:text-primary-dark">Preferido</span>
+            </div>
+            <p class="text-sm text-on-surface dark:text-on-surface-dark">***12345</p>
+          </div>
+          <button class="btn-primary w-full">Adicionar Cartão</button>
+        </div>
+      </div>
+
+      <!-- Notifications Panel -->
+      <div x-show="activePanel === 'notifications'" class="px-4">
+        <div class="flex items-center gap-3 mb-6 pt-6">
+          <button @click="activePanel = 'main'" class="touch-target flex items-center justify-center">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+          </button>
+          <h2 class="text-xl font-bold">Notificações</h2>
+        </div>
+        <div class="space-y-4 pb-8">
+          <div class="card flex justify-between items-center">
+            <span class="font-medium">Pedidos</span>
+            <button @click="toggleNotification('orders')" class="touch-target" :class="notifs.orders ? 'text-primary dark:text-primary-dark' : 'text-on-surface dark:text-on-surface-dark opacity-50'">
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="card flex justify-between items-center">
+            <span class="font-medium">Promoções</span>
+            <button @click="toggleNotification('promotions')" class="touch-target" :class="notifs.promotions ? 'text-primary dark:text-primary-dark' : 'text-on-surface dark:text-on-surface-dark opacity-50'">
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="card flex justify-between items-center">
+            <span class="font-medium">Entregas</span>
+            <button @click="toggleNotification('deliveries')" class="touch-target" :class="notifs.deliveries ? 'text-primary dark:text-primary-dark' : 'text-on-surface dark:text-on-surface-dark opacity-50'">
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Personal Data Panel -->
+      <div x-show="activePanel === 'personal'" class="px-4">
+        <div class="flex items-center gap-3 mb-6 pt-6">
+          <button @click="activePanel = 'main'" class="touch-target flex items-center justify-center">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+          </button>
+          <h2 class="text-xl font-bold">Dados Pessoais</h2>
+        </div>
+        <div class="space-y-4 pb-8">
+          <div>
+            <label class="block text-sm font-medium mb-2">Nome</label>
+            <input type="text" x-model="profile.name" class="input-field">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">Telefone</label>
+            <input type="tel" x-model="profile.phone" class="input-field">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">Email</label>
+            <input type="email" x-model="profile.email" class="input-field">
+          </div>
+
+          <button @click="saveProfile()" class="btn-primary w-full">Salvar Alterações</button>
+        </div>
+      </div>
+
+      <!-- About Panel -->
+      <div x-show="activePanel === 'about'" class="px-4">
+        <div class="flex items-center gap-3 mb-6 pt-6">
+          <button @click="activePanel = 'main'" class="touch-target flex items-center justify-center">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+          </button>
+          <h2 class="text-xl font-bold">Sobre a Loja</h2>
+        </div>
+        <div class="space-y-4 pb-8">
+          <div class="card">
+            <p class="font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-2">Nelson Boulangerie</p>
+            <p class="text-sm text-on-surface dark:text-on-surface-dark">Pãezinhos artesanais desde 1923</p>
+          </div>
+
+          <div class="card">
+            <p class="text-sm font-medium mb-2">Horário de Funcionamento</p>
+            <div class="space-y-1 text-sm text-on-surface dark:text-on-surface-dark">
+              <p>Segunda a Sexta: 7:00 - 20:00</p>
+              <p>Sábado: 7:00 - 18:00</p>
+              <p>Domingo: 8:00 - 14:00</p>
+            </div>
+          </div>
+
+          <div class="card">
+            <p class="text-sm font-medium mb-2">Contato</p>
+            <p class="text-sm text-on-surface dark:text-on-surface-dark">(11) 3333-3333</p>
+            <p class="text-sm text-on-surface dark:text-on-surface-dark">nelson@boulangerie.com.br</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation -->
+  <div x-show="loggedIn" class="fixed bottom-0 left-0 right-0 bg-surface dark:bg-surface-dark border-t border-outline dark:border-outline-dark">
+    <div class="flex justify-around max-w-lg mx-auto">
+      <a href="home-v2.html" class="flex-1 flex flex-col items-center justify-center gap-1 py-3 text-on-surface dark:text-on-surface-dark hover:text-primary dark:hover:text-primary-dark transition-colors">
+        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+        </svg>
+        <span class="text-xs">Início</span>
+      </a>
+      <a href="menu-v2.html" class="flex-1 flex flex-col items-center justify-center gap-1 py-3 text-on-surface dark:text-on-surface-dark hover:text-primary dark:hover:text-primary-dark transition-colors">
+        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M3 4h18v2H3V4zm0 7h18v2H3v-2zm0 7h18v2H3v-2z"/>
+        </svg>
+        <span class="text-xs">Menu</span>
+      </a>
+      <a href="cart-v2.html" class="flex-1 flex flex-col items-center justify-center gap-1 py-3 text-on-surface dark:text-on-surface-dark hover:text-primary dark:hover:text-primary-dark transition-colors">
+        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+        </svg>
+        <span class="text-xs">Carrinho</span>
+      </a>
+      <a href="account-v2.html" class="flex-1 flex flex-col items-center justify-center gap-1 py-3 text-primary dark:text-primary-dark">
+        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+        </svg>
+        <span class="text-xs">Conta</span>
+      </a>
+    </div>
+  </div>
+
+  <script src="proto-scenarios.js"></script>
+  <script>
+    function accountApp() {
+      return {
+        loggedIn: false,
+        activePanel: 'main',
+        otpStep: 'phone',
+        phone: '',
+        otp: '',
+        greeting: 'Bom dia',
+        loyaltyNearTier: true,
+        notifs: {
+          orders: true,
+          promotions: true,
+          deliveries: false
+        },
+        profile: {
+          name: 'Maria',
+          phone: '(11) 99999-0000',
+          email: 'maria@example.com'
+        },
+        recentOrders: [
+          { id: 1, ref: '#NB-0042', status: 'Entregue', items: 3, total: '125,40' },
+          { id: 2, ref: '#NB-0038', status: 'Entregue', items: 2, total: '89,90' },
+          { id: 3, ref: '#NB-0035', status: 'Entregue', items: 4, total: '210,30' },
+          { id: 4, ref: '#NB-0031', status: 'Entregue', items: 2, total: '65,00' }
+        ],
+        addresses: [
+          { id: 1, type: 'Casa', street: 'Rua das Flores, 123', city: 'São Paulo, SP' },
+          { id: 2, type: 'Trabalho', street: 'Av. Paulista, 456', city: 'São Paulo, SP' }
+        ],
+        init() {
+          this.updateGreeting();
+          setInterval(() => this.updateGreeting(), 60000);
+        },
+        updateGreeting() {
+          const hour = new Date().getHours();
+          if (hour < 12) {
+            this.greeting = 'Bom dia';
+          } else if (hour < 18) {
+            this.greeting = 'Boa tarde';
+          } else {
+            this.greeting = 'Boa noite';
+          }
+        },
+        requestOtp() {
+          if (!this.phone.trim()) return;
+          this.otpStep = 'otp';
+          if (navigator.vibrate) navigator.vibrate(50);
+        },
+        verifyOtp() {
+          if (this.otp.length === 6) {
+            this.loggedIn = true;
+            this.activePanel = 'main';
+            this.otpStep = 'phone';
+            this.phone = '';
+            this.otp = '';
+            if (navigator.vibrate) navigator.vibrate([50, 100, 50]);
+          }
+        },
+        logout() {
+          this.loggedIn = false;
+          this.activePanel = 'main';
+          this.phone = '';
+          this.otp = '';
+        },
+        toggleNotification(key) {
+          this.notifs[key] = !this.notifs[key];
+        },
+        saveProfile() {
+          if (navigator.vibrate) navigator.vibrate(50);
+          alert('Perfil atualizado com sucesso!');
+        }
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+{# ── Penguin UI v2 Tokens ──
+   Runtime override: Django injects shop colors into Penguin CSS variables.
+   Build-time: style-v2.css defines defaults via @theme.
+   This partial maps storefront.design_tokens → Penguin token names.
+#}
+
+{% load static %}
+
+{# Dark mode — runs before paint to prevent FOUC #}
+<script>
+(function(){
+  var m='{{ storefront.design_tokens.color_mode }}',h=document.documentElement;
+  if(m==='dark'){h.classList.add('dark')}
+  else if(m==='auto'){
+    var q=window.matchMedia('(prefers-color-scheme: dark)');
+    function a(e){h.classList.toggle('dark',e.matches)}
+    a(q);q.addEventListener('change',a);
+  }
+})();
+</script>
+
+{# Fonts (Google Fonts CDN) #}
+{% with t=storefront.design_tokens %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ t.heading_font|urlencode }}:ital,wght@0,400;0,600;0,700;1,400;1,600&family={{ t.body_font|urlencode }}:wght@400;500;600;700&display=swap">
+{% endwith %}
+
+{# Compiled Tailwind v4 (Penguin UI tokens) #}
+<link rel="stylesheet" href="{% static 'storefront/css/output-v2.css' %}">
+
+{# Alpine.js #}
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+
+{# Runtime token overrides — maps Django design_tokens to Penguin CSS vars #}
+{% with t=storefront.design_tokens dark=storefront.design_tokens.dark %}
+<style>
+  :root {
+    --font-body: '{{ t.body_font }}', ui-sans-serif, system-ui, sans-serif;
+    --font-title: '{{ t.heading_font }}', ui-serif, Georgia, serif;
+  }
+</style>
+{% endwith %}
