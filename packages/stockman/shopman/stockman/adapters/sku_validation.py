@@ -24,11 +24,10 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.module_loading import import_string
-
 from shopman.stockman.protocols.sku import SkuValidator
 
 if TYPE_CHECKING:
-    from shopman.stockman.protocols.sku import SkuInfo, SkuValidationResult
+    pass
 
 logger = logging.getLogger(__name__)
 

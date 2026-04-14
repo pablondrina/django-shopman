@@ -20,6 +20,7 @@ from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from shopman.shop.models import Channel
 
 # ── helpers ──

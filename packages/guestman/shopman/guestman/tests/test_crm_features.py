@@ -13,19 +13,17 @@ from decimal import Decimal
 
 import pytest
 from django.db import IntegrityError, transaction
-
-from shopman.guestman.models import Customer, CustomerGroup, CustomerAddress, ContactPoint
-from shopman.guestman.exceptions import CustomerError
+from shopman.guestman.contrib.consent.models import CommunicationConsent
+from shopman.guestman.contrib.consent.service import ConsentService
+from shopman.guestman.contrib.insights.service import InsightService
+from shopman.guestman.contrib.loyalty.models import LoyaltyAccount, LoyaltyTransaction
+from shopman.guestman.contrib.loyalty.service import LoyaltyService
 
 # Contrib imports
 from shopman.guestman.contrib.timeline.models import TimelineEvent
 from shopman.guestman.contrib.timeline.service import TimelineService
-from shopman.guestman.contrib.consent.models import CommunicationConsent, ConsentStatus
-from shopman.guestman.contrib.consent.service import ConsentService
-from shopman.guestman.contrib.loyalty.models import LoyaltyAccount, LoyaltyTransaction
-from shopman.guestman.contrib.loyalty.service import LoyaltyService
-from shopman.guestman.contrib.insights.service import InsightService
-
+from shopman.guestman.exceptions import CustomerError
+from shopman.guestman.models import ContactPoint, Customer, CustomerAddress, CustomerGroup
 
 pytestmark = pytest.mark.django_db
 

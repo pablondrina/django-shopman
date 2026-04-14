@@ -16,7 +16,6 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, Protocol, runtime_checkable
 
-
 # ══════════════════════════════════════════════════════════════
 # ENUMS
 # ══════════════════════════════════════════════════════════════

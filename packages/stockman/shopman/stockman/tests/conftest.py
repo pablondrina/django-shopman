@@ -6,15 +6,12 @@ Stockman is catalog-agnostic: tests use plain SKU strings with NoopSkuValidator
 """
 
 from datetime import date, timedelta
-from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
 from django.contrib.auth import get_user_model
-
 from shopman.stockman.adapters.sku_validation import reset_sku_validator
 from shopman.stockman.models import Position, PositionKind
-
 
 User = get_user_model()
 
@@ -38,19 +35,19 @@ def user(db):
 @pytest.fixture
 def product(db):
     """A plain SKU reference for non-perishable stock tests."""
-    return SimpleNamespace(sku='PAO-FORMA', name='Pao de Forma', shelflife=None)
+    return SimpleNamespace(sku='PAO-FORMA', name='Pao de Forma', shelf_life_days=None)
 
 
 @pytest.fixture
 def perishable_product(db):
     """A plain SKU reference for perishable stock tests."""
-    return SimpleNamespace(sku='CROISSANT', name='Croissant', shelflife=0)
+    return SimpleNamespace(sku='CROISSANT', name='Croissant', shelf_life_days=0)
 
 
 @pytest.fixture
 def demand_product(db):
     """A plain SKU reference for demand stock tests."""
-    return SimpleNamespace(sku='BOLO-ESPECIAL', name='Bolo Especial', shelflife=3, availability_policy='demand_ok')
+    return SimpleNamespace(sku='BOLO-ESPECIAL', name='Bolo Especial', shelf_life_days=3, availability_policy='demand_ok')
 
 
 @pytest.fixture

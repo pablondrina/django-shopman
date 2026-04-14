@@ -6,7 +6,6 @@ from datetime import timedelta
 from django.db import transaction
 from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
-
 from shopman.orderman import registry
 from shopman.orderman.models import Directive
 

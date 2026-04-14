@@ -4,19 +4,17 @@ from decimal import Decimal
 
 import pytest
 
-# Core models
-from shopman.guestman.models import (
-    Customer,
-    CustomerGroup,
-    CustomerAddress,
-    AddressLabel,
-)
-
 # Contrib models
 from shopman.guestman.contrib.identifiers.models import CustomerIdentifier, IdentifierType
 from shopman.guestman.contrib.preferences.models import CustomerPreference
-from shopman.guestman.contrib.insights.models import CustomerInsight
 
+# Core models
+from shopman.guestman.models import (
+    AddressLabel,
+    Customer,
+    CustomerAddress,
+    CustomerGroup,
+)
 
 pytestmark = pytest.mark.django_db
 

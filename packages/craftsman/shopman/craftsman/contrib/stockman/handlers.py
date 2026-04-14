@@ -16,7 +16,6 @@ from __future__ import annotations
 import logging
 
 from django.dispatch import receiver
-
 from shopman.craftsman.signals import production_changed
 
 logger = logging.getLogger(__name__)

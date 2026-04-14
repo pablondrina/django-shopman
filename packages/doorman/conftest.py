@@ -1,7 +1,6 @@
 """Root conftest for Auth tests."""
 
 import pytest
-
 from shopman.doorman.conf import reset_adapter, reset_customer_resolver
 
 _GUESTMAN_RESOLVER = "shopman.guestman.adapters.auth.CustomerResolver"

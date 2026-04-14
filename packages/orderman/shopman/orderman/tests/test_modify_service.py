@@ -9,12 +9,11 @@ Covers:
 """
 
 from __future__ import annotations
-import types
 
+import types
 from decimal import Decimal
 
 from django.test import TestCase
-
 from shopman.orderman.exceptions import SessionError, ValidationError
 from shopman.orderman.models import Session
 from shopman.orderman.services import ModifyService

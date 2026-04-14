@@ -12,7 +12,6 @@ from django.db import transaction
 from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone
-
 from shopman.stockman.conf import stockman_settings
 from shopman.stockman.exceptions import StockError
 from shopman.stockman.models.enums import HoldStatus
@@ -22,7 +21,6 @@ from shopman.stockman.models.quant import Quant
 from shopman.stockman.services.availability import promise_decision_for_sku
 from shopman.stockman.services.queries import _resolve_stock_profile
 from shopman.stockman.shelflife import filter_valid_quants
-
 
 logger = logging.getLogger('shopman.stockman')
 

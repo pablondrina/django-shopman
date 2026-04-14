@@ -8,8 +8,9 @@ from __future__ import annotations
 import logging
 from decimal import Decimal
 
-from shopman.shop.adapters import get_adapter
 from shopman.utils.monetary import format_money
+
+from shopman.shop.adapters import get_adapter
 
 from ..web.constants import HAS_STOCKMAN, STOREFRONT_CHANNEL_REF
 

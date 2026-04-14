@@ -13,11 +13,11 @@ from __future__ import annotations
 
 import pytest
 from django.test import TestCase
-
 from shopman.guestman.models import ContactPoint, Customer
 from shopman.guestman.services import customer as customer_service
 from shopman.orderman.models import Order
 from shopman.utils.phone import normalize_phone
+
 from shopman.shop.models import Channel
 
 pytestmark = pytest.mark.django_db

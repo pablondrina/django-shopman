@@ -1,6 +1,6 @@
 """Orderman OrderHistoryBackend adapter."""
 
-from shopman.guestman.protocols.orders import OrderHistoryBackend, OrderSummary, OrderStats
+from shopman.guestman.protocols.orders import OrderStats, OrderSummary
 
 
 class OrdermanOrderHistoryBackend:

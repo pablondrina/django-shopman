@@ -4,7 +4,6 @@ Tests for Device Trust (TrustedDevice model + DeviceTrustService).
 
 import uuid
 from datetime import timedelta
-from unittest.mock import patch
 
 import pytest
 from django.test import RequestFactory, override_settings

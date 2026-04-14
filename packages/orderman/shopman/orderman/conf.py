@@ -3,7 +3,6 @@ from __future__ import annotations
 from django.conf import settings
 from django.utils.module_loading import import_string
 
-
 ORDERMAN_DEFAULTS = {
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "ADMIN_PERMISSION_CLASSES": ["rest_framework.permissions.IsAdminUser"],

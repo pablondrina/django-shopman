@@ -6,7 +6,7 @@ from django.contrib.auth.models import AnonymousUser, User
 from django.test import RequestFactory
 
 from shopman.doorman.conf import reset_adapter
-from shopman.doorman.middleware import AuthCustomerMiddleware, _CACHE_ATTR
+from shopman.doorman.middleware import _CACHE_ATTR, AuthCustomerMiddleware
 from shopman.doorman.models import CustomerUser
 
 pytestmark = pytest.mark.django_db

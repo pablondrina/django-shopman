@@ -6,7 +6,6 @@ from django.contrib import admin, messages
 from django.http import HttpRequest, HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
-
 from shopman.guestman.exceptions import CustomerError
 from shopman.guestman.models import Customer
 

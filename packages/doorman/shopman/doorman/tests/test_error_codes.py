@@ -22,7 +22,6 @@ from shopman.doorman.models.verification_code import generate_raw_code
 from shopman.doorman.services.access_link import AccessLinkService
 from shopman.doorman.services.verification import AuthService
 
-
 # ===========================================
 # AuthService error codes
 # ===========================================
@@ -160,9 +159,9 @@ def test_verify_success_no_error_code(customer, verification_code):
 @pytest.mark.django_db
 def test_exchange_invalid_token_error_code():
     """Invalid token returns TOKEN_INVALID."""
-    from django.test import RequestFactory
-    from django.contrib.sessions.backends.db import SessionStore
     from django.contrib.auth.models import AnonymousUser
+    from django.contrib.sessions.backends.db import SessionStore
+    from django.test import RequestFactory
 
     factory = RequestFactory()
     request = factory.get("/")
@@ -178,9 +177,9 @@ def test_exchange_invalid_token_error_code():
 @pytest.mark.django_db
 def test_exchange_expired_token_error_code(customer):
     """Expired token returns TOKEN_EXPIRED."""
-    from django.test import RequestFactory
-    from django.contrib.sessions.backends.db import SessionStore
     from django.contrib.auth.models import AnonymousUser
+    from django.contrib.sessions.backends.db import SessionStore
+    from django.test import RequestFactory
 
     link, raw_token = AccessLink.create_with_token(
         customer_id=customer.uuid,

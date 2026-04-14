@@ -1,6 +1,5 @@
 """Tests for shopman.utils admin utilities."""
 
-import pytest
 
 
 class TestUnfoldBadge:

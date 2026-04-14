@@ -7,10 +7,10 @@ from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
-
 from shopman.orderman.models import Order
-from shopman.shop.services import payment as payment_svc
 from shopman.utils.monetary import format_money
+
+from shopman.shop.services import payment as payment_svc
 
 logger = logging.getLogger("shopman.shop.web.payment")
 

@@ -6,11 +6,11 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
 from shopman.offerman.models import Product
 from shopman.orderman.ids import generate_idempotency_key
 from shopman.orderman.services.commit import CommitService
 from shopman.utils.phone import normalize_phone
+
 from shopman.shop.web.cart import CHANNEL_REF, CartService
 from shopman.shop.web.views._helpers import _get_price_q, _line_item_is_d1
 

@@ -6,9 +6,7 @@ Recipe + RecipeItem inline, WorkOrder + WorkOrderItem/Event inlines.
 
 from django.apps import apps
 from django.contrib import admin
-
 from shopman.craftsman.models import Recipe, RecipeItem, WorkOrder, WorkOrderEvent, WorkOrderItem
-
 
 # Only register basic admin if Unfold contrib is NOT installed
 if not apps.is_installed("shopman.craftsman.contrib.admin_unfold"):

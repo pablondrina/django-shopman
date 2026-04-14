@@ -91,8 +91,9 @@ def register_active_rules():
     not registered anywhere else. Pricing modifiers continue to be registered
     via channels.setup — R8 will migrate everything.
     """
-    from shopman.shop.models import RuleConfig
     from shopman.orderman import registry
+
+    from shopman.shop.models import RuleConfig
 
     active = RuleConfig.objects.filter(enabled=True).order_by("priority")
 

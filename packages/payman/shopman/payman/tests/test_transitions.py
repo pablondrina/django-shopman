@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from django.test import TestCase
-
 from shopman.payman.exceptions import PaymentError
 from shopman.payman.models import PaymentIntent, PaymentTransaction
 
@@ -133,8 +132,9 @@ class PaymentIntentTransitionTests(TestCase):
 
     def test_timestamp_not_overwritten(self) -> None:
         """If timestamp already set, save() does not overwrite it."""
-        from django.utils import timezone
         from datetime import timedelta
+
+        from django.utils import timezone
 
         intent = self._make_intent()
         early = timezone.now() - timedelta(hours=1)

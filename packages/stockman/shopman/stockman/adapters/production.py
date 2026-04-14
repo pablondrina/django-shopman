@@ -14,12 +14,11 @@ Vocabulary mapping:
 
 import logging
 import threading
+from collections.abc import Callable
 from datetime import date
-from decimal import Decimal
-from typing import Any, Callable
+from typing import Any
 
 from django.db import transaction
-
 from shopman.stockman.protocols.production import (
     ProductionPriority,
     ProductionRequest,

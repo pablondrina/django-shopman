@@ -4,16 +4,14 @@ from decimal import Decimal
 
 import pytest
 from django.core.exceptions import ValidationError
-
 from shopman.offerman.models import (
     Collection,
     CollectionItem,
-    Product,
-    ProductComponent,
     Listing,
     ListingItem,
+    Product,
+    ProductComponent,
 )
-
 
 pytestmark = pytest.mark.django_db
 
@@ -80,7 +78,7 @@ class TestProduct:
 
     def test_margin_percent_with_cost_backend(self, db):
         from unittest.mock import MagicMock
-        from shopman.offerman.conf import reset_cost_backend
+
         import shopman.offerman.conf as conf
 
         product = Product.objects.create(

@@ -7,7 +7,6 @@ All methods use transaction.atomic() with appropriate locking.
 import logging
 
 from django.db import transaction
-
 from shopman.stockman.exceptions import StockError
 from shopman.stockman.models.move import Move
 from shopman.stockman.models.quant import Quant

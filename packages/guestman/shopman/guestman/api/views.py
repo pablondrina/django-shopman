@@ -7,7 +7,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet, mixins
-
 from shopman.guestman.exceptions import CustomerError
 from shopman.guestman.models import Customer
 from shopman.guestman.services import address as address_service

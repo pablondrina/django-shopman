@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 
 from shopman.orderman.models import Directive
+
 from shopman.shop.directives import FULFILLMENT_CREATE, FULFILLMENT_UPDATE, NOTIFICATION_SEND
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ class FulfillmentCreateHandler:
 
     def handle(self, *, message: Directive, ctx: dict) -> None:
         from shopman.orderman.models import Order
+
         from shopman.shop.services import fulfillment as fulfillment_svc
 
         payload = message.payload
@@ -70,9 +72,10 @@ class FulfillmentUpdateHandler:
     topic = FULFILLMENT_UPDATE
 
     def handle(self, *, message: Directive, ctx: dict) -> None:
-        from shopman.shop.config import ChannelConfig
         from shopman.orderman.exceptions import InvalidTransition
         from shopman.orderman.models import Fulfillment, Order
+
+        from shopman.shop.config import ChannelConfig
         from shopman.shop.services import fulfillment as fulfillment_svc
 
         payload = message.payload

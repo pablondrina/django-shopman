@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from django.db.models import Count, Max, Min
-
 from shopman.orderman.models import Order
 
 

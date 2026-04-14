@@ -8,9 +8,9 @@ from unittest.mock import patch
 import pytest
 from django.core.cache import cache
 from django.urls import reverse
+from shopman.offerman.models import Product
 
 from shopman.shop.models import Shop
-from shopman.offerman.models import Product
 
 
 @pytest.fixture(autouse=True)

@@ -4,9 +4,8 @@ All operations that modify >1 record use transaction.atomic().
 """
 
 from django.db import transaction
-
 from shopman.guestman.exceptions import CustomerError
-from shopman.guestman.models import Customer, CustomerAddress
+from shopman.guestman.models import CustomerAddress
 from shopman.guestman.services.customer import get
 
 
@@ -127,8 +126,8 @@ def set_default_address(customer_ref: str, address_id: int) -> CustomerAddress:
     with transaction.atomic():
         try:
             addr = CustomerAddress.objects.get(pk=address_id, customer=cust)
-        except CustomerAddress.DoesNotExist:
-            raise CustomerError("ADDRESS_NOT_FOUND", address_id=address_id)
+        except CustomerAddress.DoesNotExist as e:
+            raise CustomerError("ADDRESS_NOT_FOUND", address_id=address_id) from e
 
         addr.is_default = True
         addr.save()
@@ -143,8 +142,8 @@ def update_address(customer_ref: str, address_id: int, **fields) -> CustomerAddr
 
     try:
         addr = CustomerAddress.objects.get(pk=address_id, customer=cust)
-    except CustomerAddress.DoesNotExist:
-        raise CustomerError("ADDRESS_NOT_FOUND", address_id=address_id)
+    except CustomerAddress.DoesNotExist as e:
+        raise CustomerError("ADDRESS_NOT_FOUND", address_id=address_id) from e
 
     updatable_fields = {
         "label",
@@ -184,8 +183,8 @@ def delete_address(customer_ref: str, address_id: int) -> bool:
         addr = CustomerAddress.objects.get(pk=address_id, customer=cust)
         addr.delete()
         return True
-    except CustomerAddress.DoesNotExist:
-        raise CustomerError("ADDRESS_NOT_FOUND", address_id=address_id)
+    except CustomerAddress.DoesNotExist as e:
+        raise CustomerError("ADDRESS_NOT_FOUND", address_id=address_id) from e
 
 
 def delete_all_addresses(customer_ref: str) -> int:

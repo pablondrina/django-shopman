@@ -2,8 +2,8 @@
 Tests for Auth exceptions (P2 — BaseError inheritance).
 """
 
+from shopman.doorman.exceptions import GateError, GatingError
 from shopman.utils.exceptions import BaseError
-from shopman.doorman.exceptions import GatingError, GateError
 
 
 class TestGatingExceptions:

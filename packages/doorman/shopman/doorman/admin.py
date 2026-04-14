@@ -6,8 +6,7 @@ from django.contrib import admin
 from django.utils import timezone
 from django.utils.html import format_html
 
-from .models import AccessLink, CustomerUser, VerificationCode, TrustedDevice
-
+from .models import AccessLink, CustomerUser, TrustedDevice, VerificationCode
 
 # ===========================================
 # CustomerUser

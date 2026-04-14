@@ -1,24 +1,21 @@
 """Tests for Guestman services."""
 
-from decimal import Decimal
-from datetime import timedelta
 
 import pytest
 from django.utils import timezone
-
-# Core services
-from shopman.guestman.services import customer as customer_service
-from shopman.guestman.services import address as address_service
-from shopman.guestman.services import identity as identity_service
-
-# Contrib services
-from shopman.guestman.contrib.preferences import PreferenceService
-from shopman.guestman.contrib.insights import InsightService
 from shopman.guestman.contrib.identifiers import IdentifierService
 
 # Contrib models
 from shopman.guestman.contrib.identifiers.models import CustomerIdentifier, IdentifierType
+from shopman.guestman.contrib.insights import InsightService
 
+# Contrib services
+from shopman.guestman.contrib.preferences import PreferenceService
+from shopman.guestman.services import address as address_service
+
+# Core services
+from shopman.guestman.services import customer as customer_service
+from shopman.guestman.services import identity as identity_service
 
 pytestmark = pytest.mark.django_db
 

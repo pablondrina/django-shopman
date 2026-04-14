@@ -1,7 +1,6 @@
 """Testes do Registry do Orderman kernel."""
 
 import pytest
-
 from shopman.orderman import registry
 
 

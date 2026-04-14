@@ -12,10 +12,9 @@ from typing import Literal
 from uuid import UUID
 
 from django.db import transaction
-
+from shopman.orderman.contrib.refs.exceptions import RefScopeInvalid, RefTypeNotFound
 from shopman.orderman.contrib.refs.models import Ref, RefSequence
 from shopman.orderman.contrib.refs.registry import get_ref_type
-from shopman.orderman.contrib.refs.exceptions import RefTypeNotFound, RefScopeInvalid
 
 
 def _compute_scope_hash(scope: dict) -> str:

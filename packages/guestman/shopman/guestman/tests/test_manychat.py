@@ -22,12 +22,10 @@ import json
 
 import pytest
 from django.test import RequestFactory
-
+from shopman.guestman.contrib.identifiers.models import CustomerIdentifier, IdentifierType
 from shopman.guestman.contrib.manychat.service import ManychatService
 from shopman.guestman.contrib.manychat.views import ManychatWebhookView
-from shopman.guestman.contrib.identifiers.models import CustomerIdentifier, IdentifierType
 from shopman.guestman.models import Customer
-
 
 # ═══════════════════════════════════════════════════════════════════
 # Fixtures

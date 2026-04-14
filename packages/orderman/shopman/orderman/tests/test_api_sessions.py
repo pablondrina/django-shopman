@@ -5,7 +5,6 @@ from decimal import Decimal
 
 from django.test import TestCase
 from rest_framework.test import APIClient
-
 from shopman.orderman import registry
 from shopman.orderman.contrib.stock.resolvers import StockIssueResolver
 from shopman.orderman.models import Directive, IdempotencyKey, Session

@@ -2,13 +2,11 @@
 Hold model — Temporary quantity reservation.
 """
 
-from decimal import Decimal
 
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-
 from shopman.stockman.models.enums import HoldStatus
 
 

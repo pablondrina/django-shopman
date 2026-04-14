@@ -2,9 +2,10 @@
 
 import django.db.models.deletion
 import django.utils.timezone
-import shopman.shop.models.shop
 from django.conf import settings
 from django.db import migrations, models
+
+import shopman.shop.models.shop
 
 
 class Migration(migrations.Migration):

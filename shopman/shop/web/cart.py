@@ -4,13 +4,13 @@ from collections import defaultdict
 from decimal import Decimal
 
 from django.http import HttpRequest
-
 from shopman.orderman.ids import generate_session_key
-from shopman.shop.models import Channel
 from shopman.orderman.models import Session
 from shopman.orderman.services.modify import ModifyService
-from shopman.shop.services import availability
 from shopman.utils.monetary import format_money
+
+from shopman.shop.models import Channel
+from shopman.shop.services import availability
 from shopman.shop.web.constants import STOREFRONT_CHANNEL_REF as CHANNEL_REF
 
 

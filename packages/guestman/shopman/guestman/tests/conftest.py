@@ -3,11 +3,10 @@
 from decimal import Decimal
 
 import pytest
-
 from shopman.guestman.models import (
     Customer,
-    CustomerGroup,
     CustomerAddress,
+    CustomerGroup,
 )
 
 # Import contrib models only if available

@@ -1,13 +1,12 @@
 """Insight service for calculation and retrieval."""
 
 import logging
-from datetime import datetime, timezone
-from decimal import Decimal
 from collections import Counter
+from datetime import UTC, datetime
+from decimal import Decimal
 
 from django.conf import settings
 from django.utils.module_loading import import_string
-
 from shopman.guestman.contrib.insights.models import CustomerInsight
 from shopman.guestman.models import Customer
 from shopman.guestman.protocols.orders import OrderHistoryBackend
@@ -92,7 +91,7 @@ class InsightService:
 
         # Calculate days since last order
         if stats.last_order_at:
-            delta = datetime.now(timezone.utc) - stats.last_order_at
+            delta = datetime.now(UTC) - stats.last_order_at
             insight.days_since_last_order = delta.days
         else:
             insight.days_since_last_order = None

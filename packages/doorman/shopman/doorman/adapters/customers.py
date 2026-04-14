@@ -17,6 +17,7 @@ Requires shopman.guestman to be installed and available on the Python path.
 """
 
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -57,9 +58,9 @@ class AuthCustomerResolver:
 
     def create_for_phone(self, phone: str) -> AuthCustomerInfo:
         """Create a new customer with the given phone via Guestman."""
+        from shopman.guestman.models import Customer
         from shopman.guestman.services import customer as customer_service
         from shopman.guestman.services import identity as identity_service
-        from shopman.guestman.models import Customer
 
         c = customer_service.create(
             ref=Customer.generate_ref(),
@@ -96,7 +97,7 @@ class AuthCustomerResolver:
         return self._to_info(c)
 
     @staticmethod
-    def _to_info(c: "Customer") -> AuthCustomerInfo:
+    def _to_info(c: Customer) -> AuthCustomerInfo:
         """Convert a Guestman Customer model to AuthCustomerInfo."""
         from shopman.guestman.models import ContactPoint
 

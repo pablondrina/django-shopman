@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from import_export import fields, resources
 from import_export.widgets import ForeignKeyWidget
-
 from shopman.offerman.models import Listing, ListingItem, Product
 
 

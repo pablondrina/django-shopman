@@ -276,7 +276,7 @@ class DefaultAuthAdapter:
 
     def on_customer_authenticated(
         self,
-        request: "HttpRequest",
+        request: HttpRequest,
         customer: AuthCustomerInfo,
         user,
         method: str,
@@ -297,16 +297,16 @@ class DefaultAuthAdapter:
 
     def on_device_trusted(
         self,
-        request: "HttpRequest",
+        request: HttpRequest,
         customer: AuthCustomerInfo,
-        device: "TrustedDevice",
+        device: TrustedDevice,
     ) -> None:
         """Called after a device is marked as trusted."""
         pass
 
     def on_login_failed(
         self,
-        request: "HttpRequest | None",
+        request: HttpRequest | None,
         target: str,
         reason: str,
     ) -> None:
@@ -337,10 +337,10 @@ class DefaultAuthAdapter:
     # Redirects
     # ===========================================
 
-    def get_login_redirect_url(self, request: "HttpRequest", customer: AuthCustomerInfo) -> str:
+    def get_login_redirect_url(self, request: HttpRequest, customer: AuthCustomerInfo) -> str:
         """Get the URL to redirect to after login."""
         return doorman_settings.LOGIN_REDIRECT_URL
 
-    def get_logout_redirect_url(self, request: "HttpRequest") -> str:
+    def get_logout_redirect_url(self, request: HttpRequest) -> str:
         """Get the URL to redirect to after logout."""
         return doorman_settings.LOGOUT_REDIRECT_URL

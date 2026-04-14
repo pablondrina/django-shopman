@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from django.conf import settings
-
 from shopman.stockman.services.availability import availability_for_sku  # noqa: F401
 
 _DEFAULT_DDD_FALLBACK = "43"

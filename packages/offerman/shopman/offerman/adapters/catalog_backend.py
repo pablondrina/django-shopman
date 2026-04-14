@@ -2,9 +2,9 @@
 
 from decimal import Decimal
 
-from shopman.offerman.service import CatalogService
-from shopman.offerman.protocols import ProductInfo, PriceInfo, SkuValidation, BundleComponent
 from shopman.offerman.exceptions import CatalogError
+from shopman.offerman.protocols import BundleComponent, PriceInfo, ProductInfo, SkuValidation
+from shopman.offerman.service import CatalogService
 
 
 class OffermanCatalogBackend:

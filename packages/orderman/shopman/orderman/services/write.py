@@ -8,9 +8,7 @@ import logging
 
 from django.db import transaction
 from django.utils import timezone
-
 from shopman.orderman.models import Session
-
 
 logger = logging.getLogger(__name__)
 

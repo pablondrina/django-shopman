@@ -3,11 +3,9 @@
 import logging
 
 from django.db import transaction
-
 from shopman.guestman.contrib.loyalty.models import (
     LoyaltyAccount,
     LoyaltyTransaction,
-    LoyaltyTier,
     TransactionType,
 )
 from shopman.guestman.exceptions import CustomerError
@@ -242,8 +240,8 @@ class LoyaltyService:
                 customer__is_active=True,
                 is_active=True,
             )
-        except LoyaltyAccount.DoesNotExist:
-            raise CustomerError("LOYALTY_NOT_ENROLLED", customer_ref=customer_ref)
+        except LoyaltyAccount.DoesNotExist as e:
+            raise CustomerError("LOYALTY_NOT_ENROLLED", customer_ref=customer_ref) from e
 
     @classmethod
     def _get_active_account_for_update(cls, customer_ref: str) -> LoyaltyAccount:
@@ -264,8 +262,8 @@ class LoyaltyService:
                     is_active=True,
                 )
             )
-        except LoyaltyAccount.DoesNotExist:
-            raise CustomerError("LOYALTY_NOT_ENROLLED", customer_ref=customer_ref)
+        except LoyaltyAccount.DoesNotExist as e:
+            raise CustomerError("LOYALTY_NOT_ENROLLED", customer_ref=customer_ref) from e
 
     @classmethod
     def _update_tier(cls, account: LoyaltyAccount) -> None:

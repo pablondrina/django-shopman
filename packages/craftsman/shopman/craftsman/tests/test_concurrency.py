@@ -31,10 +31,8 @@ import pytest
 from django.conf import settings
 from django.db import connection
 from django.test import TransactionTestCase
-
-from shopman.craftsman import craft, CraftError, StaleRevision
+from shopman.craftsman import CraftError, StaleRevision, craft
 from shopman.craftsman.models import Recipe, WorkOrder
-
 
 requires_postgres = pytest.mark.skipif(
     "sqlite" in settings.DATABASES["default"]["ENGINE"],

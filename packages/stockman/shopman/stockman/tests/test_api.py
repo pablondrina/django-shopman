@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
 from django.contrib.auth import get_user_model
-from django.test import TestCase
-from django.test import override_settings
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
-
-from shopman.stockman.models import Hold, HoldStatus, Move, Position, PositionKind, Quant, StockAlert
+from shopman.stockman.models import Hold, HoldStatus, Move, Position, PositionKind, StockAlert
 from shopman.stockman.services.movements import StockMovements
 
 User = get_user_model()
@@ -47,8 +45,8 @@ class StockmanAPITestBase(TestCase):
         )
 
         # Plain SKU references — NoopSkuValidator accepts any SKU as valid
-        self.product = SimpleNamespace(sku="PAO-FORMA", name="Pão de Forma", shelflife=None)
-        self.croissant = SimpleNamespace(sku="CROISSANT", name="Croissant", shelflife=0)
+        self.product = SimpleNamespace(sku="PAO-FORMA", name="Pão de Forma", shelf_life_days=None)
+        self.croissant = SimpleNamespace(sku="CROISSANT", name="Croissant", shelf_life_days=0)
 
 
 # ══════════════════════════════════════════════════════════════════

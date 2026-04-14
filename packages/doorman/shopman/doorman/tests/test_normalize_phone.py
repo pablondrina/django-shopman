@@ -1,6 +1,5 @@
 """Tests for shopman.doorman.utils.normalize_phone and get_client_ip."""
 
-import pytest
 
 from shopman.doorman.utils import get_client_ip, normalize_phone
 

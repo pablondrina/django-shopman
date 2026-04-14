@@ -7,7 +7,6 @@ import logging
 from dataclasses import dataclass
 
 from django.db import transaction
-
 from shopman.guestman.models import Customer, CustomerGroup
 from shopman.guestman.signals import customer_created, customer_updated
 
@@ -58,8 +57,8 @@ def get_by_document(document: str) -> Customer | None:
 
 def get_by_phone(phone: str) -> Customer | None:
     """Get customer by phone, preferring ContactPoint as the source of truth."""
-    from shopman.utils.phone import normalize_phone
     from shopman.guestman.models import ContactPoint
+    from shopman.utils.phone import normalize_phone
 
     phone_normalized = normalize_phone(phone)
     if not phone_normalized:

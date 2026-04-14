@@ -1,9 +1,8 @@
 """Listing admin."""
 
 from django.contrib import admin
-
-from shopman.utils.admin.mixins import AutofillInlineMixin
 from shopman.offerman.models import Listing, ListingItem
+from shopman.utils.admin.mixins import AutofillInlineMixin
 
 
 class ListingItemInline(AutofillInlineMixin, admin.TabularInline):

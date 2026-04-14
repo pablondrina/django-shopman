@@ -7,7 +7,6 @@ import logging
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
-
 from shopman.orderman.models import Order
 from shopman.utils.monetary import format_money
 
@@ -76,8 +75,8 @@ def _pickup_info() -> dict | None:
             "address": shop.formatted_address or "",
             "opening_hours": _format_opening_hours(),
         }
-    except Exception as e:
-        logger.warning("pickup_info_failed: %s", e, exc_info=True)
+    except Exception:
+        logger.exception("pickup_info_failed")
         return None
 
 
@@ -264,6 +263,7 @@ class ReorderView(View):
 
     def post(self, request: HttpRequest, ref: str) -> HttpResponse:
         from shopman.offerman.models import Product
+
         from shopman.shop.web.cart import CartUnavailableError
 
         order = get_object_or_404(Order, ref=ref)
@@ -394,8 +394,8 @@ class CepLookupView(View):
                 f'<svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>'
                 f'{address_str}</div>',
             )
-        except Exception as e:
-            logger.warning("cep_lookup_failed cep=%s: %s", cep, e, exc_info=True)
+        except Exception:
+            logger.exception("cep_lookup_failed cep=%s", cep)
             return HttpResponse(
                 '<p class="text-warning text-xs mt-1">N\u00e3o foi poss\u00edvel buscar o CEP. Preencha manualmente.</p>',
             )

@@ -250,7 +250,7 @@ def _recent_orders():
 
     orders = (
         Order.objects
-        
+
         .order_by("-created_at")[:10]
     )
     return [
@@ -344,7 +344,7 @@ def _build_pending_orders_table(today):
     pending = (
         Order.objects
         .filter(status__in=["new", "confirmed", "preparing"])
-        
+
         .order_by("-created_at")[:8]
     )
     rows = []

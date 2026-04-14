@@ -9,14 +9,10 @@ Verifies:
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
-from unittest.mock import MagicMock
 
 import pytest
-from django.test import TestCase
-
-from shopman.stockman.models import Position, PositionKind, Quant
 from shopman.stockman.models.enums import HoldStatus
 from shopman.stockman.models.hold import Hold
 from shopman.stockman.services.holds import StockHolds

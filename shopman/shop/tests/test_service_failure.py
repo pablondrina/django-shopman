@@ -9,6 +9,7 @@ from django.test import TestCase
 
 def _make_order(ref="FAIL-001", total_q=1000):
     from shopman.orderman.models import Order
+
     from shopman.shop.models import Channel
 
     channel, _ = Channel.objects.get_or_create(

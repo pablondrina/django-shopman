@@ -13,20 +13,16 @@ import csv
 
 from django.contrib import admin, messages
 from django.http import HttpResponse
-from django.urls import reverse
-from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
-from unfold.contrib.filters.admin.dropdown_filters import ChoicesDropdownFilter
-from unfold.decorators import display
-
-from shopman.utils.contrib.admin_unfold.badges import unfold_badge
-from shopman.utils.contrib.admin_unfold.base import BaseModelAdmin, BaseTabularInline
 from shopman.guestman.models import (
     Customer,
-    CustomerGroup,
     CustomerAddress,
+    CustomerGroup,
 )
-
+from shopman.utils.contrib.admin_unfold.badges import unfold_badge
+from shopman.utils.contrib.admin_unfold.base import BaseModelAdmin, BaseTabularInline
+from unfold.contrib.filters.admin.dropdown_filters import ChoicesDropdownFilter
+from unfold.decorators import display
 
 # Unregister basic admins
 for model in [Customer, CustomerGroup, CustomerAddress]:
@@ -198,8 +194,8 @@ class CustomerAdmin(BaseModelAdmin):
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         try:
-            from shopman.guestman.contrib.insights.models import CustomerInsight
             from django.db.models import OuterRef, Subquery
+            from shopman.guestman.contrib.insights.models import CustomerInsight
             insight_qs = CustomerInsight.objects.filter(customer=OuterRef("pk"))
             qs = qs.annotate(
                 _rfm_segment=Subquery(insight_qs.values("rfm_segment")[:1]),
@@ -280,7 +276,7 @@ class CustomerAdmin(BaseModelAdmin):
             try:
                 InsightService.recalculate(customer.ref)
                 recalculated += 1
-            except Exception as exc:
+            except Exception:
                 errors += 1
 
         if recalculated:

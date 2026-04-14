@@ -1,14 +1,14 @@
 """Offerman protocols."""
 
 from shopman.offerman.protocols.catalog import (
+    BundleComponent,
     CatalogBackend,
-    PricingBackend,
     ContextualPrice,
     PriceAdjustment,
-    ProductInfo,
     PriceInfo,
+    PricingBackend,
+    ProductInfo,
     SkuValidation,
-    BundleComponent,
 )
 from shopman.offerman.protocols.cost import CostBackend
 from shopman.offerman.protocols.projection import (

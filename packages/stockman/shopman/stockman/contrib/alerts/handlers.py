@@ -16,7 +16,6 @@ from django.db import transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
-
 from shopman.stockman.models.move import Move
 
 from .conf import get_alert_cooldown_minutes

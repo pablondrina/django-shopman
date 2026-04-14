@@ -39,7 +39,6 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         from django.db.models import Exists, OuterRef
-
         from shopman.orderman.models import Order, Session
 
         hours = options["hours"]

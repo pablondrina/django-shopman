@@ -1,7 +1,7 @@
 """Manychat sync service."""
 
-from shopman.guestman.models import Customer
 from shopman.guestman.contrib.identifiers.models import CustomerIdentifier, IdentifierType
+from shopman.guestman.models import Customer
 
 
 class ManychatService:

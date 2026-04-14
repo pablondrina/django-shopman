@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import uuid as uuid_lib
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:

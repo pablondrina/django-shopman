@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import logging
 
-from shopman.shop.notifications import notify
 from shopman.orderman.models import Directive
+
+from shopman.shop.notifications import notify
 
 logger = logging.getLogger(__name__)
 

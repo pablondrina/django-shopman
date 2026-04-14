@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from rest_framework import serializers
-
 from shopman.guestman.models import ContactPoint, Customer, CustomerAddress
 
 

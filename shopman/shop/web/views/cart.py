@@ -5,7 +5,6 @@ from urllib.parse import quote
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views import View
-
 from shopman.offerman.models import Product
 
 from ..cart import CartService, CartUnavailableError
@@ -74,7 +73,7 @@ class AddToCartView(View):
         return response
 
 
-def _stock_error_response(request: HttpRequest, product, exc: "CartUnavailableError") -> HttpResponse:
+def _stock_error_response(request: HttpRequest, product, exc: CartUnavailableError) -> HttpResponse:
     """Render the stock-error modal with available qty + alternatives."""
     if exc.error_code == "below_min_qty":
         message = f"Quantidade mínima: {exc.available_qty} unidades para {product.name}."

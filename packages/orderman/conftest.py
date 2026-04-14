@@ -1,5 +1,4 @@
 import pytest
-
 from shopman.orderman import registry
 
 

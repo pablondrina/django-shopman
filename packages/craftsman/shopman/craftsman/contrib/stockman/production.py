@@ -21,7 +21,7 @@ _lock = threading.Lock()
 _production_backend = None
 
 
-class CraftingProductionBackend:
+class CraftsmanProductionBackend:
     """
     Implements ProductionBackend for Stockman to request production.
 
@@ -43,7 +43,6 @@ class CraftingProductionBackend:
         Args:
             request: ProductionRequest dataclass from shopman.stockman.protocols.production
         """
-        from shopman.stockman.protocols.production import ProductionResult
 
         sku = request.sku
         qty = request.quantity
@@ -239,13 +238,13 @@ class CraftingProductionBackend:
         return results
 
 
-def get_production_backend() -> CraftingProductionBackend:
+def get_production_backend() -> CraftsmanProductionBackend:
     """Get the production backend instance (singleton)."""
     global _production_backend
     if _production_backend is None:
         with _lock:
             if _production_backend is None:
-                _production_backend = CraftingProductionBackend()
+                _production_backend = CraftsmanProductionBackend()
     return _production_backend
 
 

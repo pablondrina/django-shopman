@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
-
 # ── Availability ──────────────────────────────────────────────────
 
 class PositionAvailabilitySerializer(serializers.Serializer):

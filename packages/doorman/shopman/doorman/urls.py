@@ -8,9 +8,9 @@ Include in your project's urls.py:
 from django.urls import path
 
 from .views.access_link import AccessLinkCreateView, AccessLinkExchangeView
+from .views.access_link_request import AccessLinkRequestView
 from .views.devices import DeviceListView, DeviceRevokeView
 from .views.health import HealthCheckView
-from .views.access_link_request import AccessLinkRequestView
 from .views.logout import LogoutView
 from .views.verification_code import VerificationCodeRequestView, VerificationCodeVerifyView
 

@@ -5,19 +5,10 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from django import forms
 from django.contrib import admin, messages
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from import_export.admin import ExportMixin, ImportExportModelAdmin
-from unfold.contrib.filters.admin.numeric_filters import RangeNumericFilter
-from unfold.contrib.filters.admin.dropdown_filters import RelatedDropdownFilter, ChoicesDropdownFilter
-from unfold.contrib.import_export.forms import ExportForm, ImportForm
-from unfold.decorators import display
-
-from shopman.utils.admin.mixins import AutofillInlineMixin
-from shopman.utils.contrib.admin_unfold.base import BaseModelAdmin, BaseTabularInline
-from shopman.utils.contrib.admin_unfold.badges import unfold_badge
 from shopman.offerman.models import (
     Collection,
     CollectionItem,
@@ -26,7 +17,12 @@ from shopman.offerman.models import (
     Product,
     ProductComponent,
 )
-
+from shopman.utils.admin.mixins import AutofillInlineMixin
+from shopman.utils.contrib.admin_unfold.badges import unfold_badge
+from shopman.utils.contrib.admin_unfold.base import BaseModelAdmin, BaseTabularInline
+from unfold.contrib.filters.admin.numeric_filters import RangeNumericFilter
+from unfold.contrib.import_export.forms import ExportForm, ImportForm
+from unfold.decorators import display
 
 # Unregister basic admins
 for model in [Collection, Listing, Product]:
@@ -318,8 +314,8 @@ class ProductAdmin(_ProductImportExportBase):
     def stock_available_display(self, obj):
         """Display available stock from Stockman (if available)."""
         try:
-            from shopman.stockman.models import Quant
             from django.db.models import Sum
+            from shopman.stockman.models import Quant
             total = (
                 Quant.objects
                 .filter(sku=obj.sku, position__is_saleable=True)

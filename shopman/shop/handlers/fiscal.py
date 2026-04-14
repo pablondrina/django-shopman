@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import logging
 
-from shopman.shop.directives import FISCAL_CANCEL_NFCE, FISCAL_EMIT_NFCE
 from shopman.orderman.models import Directive
 from shopman.orderman.protocols import FiscalBackend
+
+from shopman.shop.directives import FISCAL_CANCEL_NFCE, FISCAL_EMIT_NFCE
 
 logger = logging.getLogger(__name__)
 

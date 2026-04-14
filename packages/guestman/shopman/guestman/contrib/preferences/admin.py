@@ -1,7 +1,6 @@
 """Admin for CustomerPreference."""
 
 from django.contrib import admin
-
 from shopman.guestman.contrib.preferences.models import CustomerPreference
 
 

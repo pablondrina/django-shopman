@@ -15,16 +15,14 @@ success=False). These tests document both the guarantee and its scope.
 from __future__ import annotations
 
 from decimal import Decimal
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
-
-from shopman.shop.models import Channel
 from shopman.orderman.ids import generate_idempotency_key, generate_session_key
 from shopman.orderman.models import Order, Session
 from shopman.orderman.services import CommitService
-from shopman.shop.services import stock as stock_svc
 
+from shopman.shop.models import Channel
 
 # ── Helpers ──────────────────────────────────────────────────────────
 

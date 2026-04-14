@@ -22,14 +22,14 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
+from shopman.offerman.models import Product
+from shopman.stockman import HoldStatus, PositionKind, StockHolds
+from shopman.stockman.models import Hold, Position, Quant
 
 from shopman.shop.adapters import get_adapter
-from shopman.offerman.models import Product
 from shopman.shop.models import Channel
 from shopman.shop.services import availability
 from shopman.shop.services import stock as stock_service
-from shopman.stockman.models import Hold, Position, Quant
-from shopman.stockman import HoldStatus, PositionKind, StockHolds
 
 SKU = "WP-DF3-INT"
 SESSION_KEY = "sess-int-1"

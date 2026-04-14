@@ -21,7 +21,6 @@ from typing import TYPE_CHECKING
 
 from django.db import models
 from django.utils import timezone
-
 from shopman.offerman.conf import get_pricing_backend, get_projection_backend
 from shopman.offerman.exceptions import CatalogError
 from shopman.offerman.protocols import ContextualPrice, ProjectedItem, ProjectionResult

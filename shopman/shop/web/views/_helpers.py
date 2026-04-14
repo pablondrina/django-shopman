@@ -5,7 +5,6 @@ from datetime import date, time
 
 from django.http import HttpRequest
 from django.utils import timezone
-
 from shopman.guestman.contrib.insights import InsightService
 from shopman.offerman.models import ListingItem, Product
 from shopman.offerman.service import CatalogService
@@ -170,8 +169,9 @@ def _storefront_session_pricing_hints(request: HttpRequest | None) -> tuple[str,
     if request is None:
         return "", 0
     try:
-        from shopman.shop.models import Channel
         from shopman.orderman.models import Session
+
+        from shopman.shop.models import Channel
 
         key = request.session.get("cart_session_key")
         if not key:

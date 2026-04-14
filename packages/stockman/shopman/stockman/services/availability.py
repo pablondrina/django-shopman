@@ -11,7 +11,6 @@ from decimal import Decimal
 
 from django.db.models import Q, Sum
 from django.utils import timezone
-
 from shopman.stockman.adapters.sku_validation import get_sku_validator
 from shopman.stockman.models import Hold, Quant
 from shopman.stockman.models.enums import HoldStatus

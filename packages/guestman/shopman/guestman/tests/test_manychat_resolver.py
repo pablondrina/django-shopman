@@ -14,11 +14,9 @@ Covers (SPEC-004 acceptance criteria):
 from __future__ import annotations
 
 import pytest
-
 from shopman.guestman.contrib.identifiers.models import CustomerIdentifier, IdentifierType
 from shopman.guestman.contrib.manychat.resolver import ManychatSubscriberResolver
 from shopman.guestman.models import Customer
-
 
 # ═══════════════════════════════════════════════════════════════════
 # Fixtures

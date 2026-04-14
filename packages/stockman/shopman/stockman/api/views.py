@@ -3,17 +3,23 @@ from __future__ import annotations
 from decimal import Decimal
 
 from django.db.models import Q
-from django.utils.dateparse import parse_date
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet, mixins
-
 from shopman.stockman.exceptions import StockError
 from shopman.stockman.models import Hold, Move, Position, Quant
 from shopman.stockman.services.alerts import check_alerts
+from shopman.stockman.services.availability import (
+    availability_for_sku,
+    availability_for_skus,
+    availability_scope_for_channel,
+    promise_decision_for_sku,
+    sku_exists,
+)
 from shopman.stockman.services.movements import StockMovements
 from shopman.stockman.services.queries import StockQueries
 
@@ -22,20 +28,13 @@ from .serializers import (
     BelowMinimumAlertSerializer,
     BulkAvailabilitySerializer,
     HoldSerializer,
+    IssueSerializer,
     MoveResponseSerializer,
     MoveSerializer,
     PositionSerializer,
     PromiseDecisionSerializer,
     QuantSerializer,
     ReceiveSerializer,
-    IssueSerializer,
-)
-from shopman.stockman.services.availability import (
-    availability_for_sku,
-    availability_for_skus,
-    availability_scope_for_channel,
-    promise_decision_for_sku,
-    sku_exists,
 )
 
 

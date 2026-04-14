@@ -6,10 +6,10 @@ import json
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
-
 from shopman.orderman.ids import generate_session_key
 from shopman.orderman.models import Session
 from shopman.orderman.services.modify import ModifyService
+
 from shopman.shop.models import Channel
 
 

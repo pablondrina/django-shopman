@@ -9,7 +9,6 @@ from decimal import Decimal
 
 from django.db import models, transaction
 from django.utils import timezone
-
 from shopman.craftsman.exceptions import CraftError, StaleRevision
 
 logger = logging.getLogger(__name__)
@@ -462,7 +461,7 @@ def _validate_downstream_deficit(order, new_quantity: Decimal, *, force: bool) -
     Graceful: skipped if an unexpected error occurs.
     """
     try:
-        from shopman.craftsman.models import Recipe, RecipeItem, WorkOrder
+        from shopman.craftsman.models import Recipe, WorkOrder
 
         # Is this WO's output used as an input in other recipes?
         downstream_recipes = list(

@@ -299,7 +299,7 @@ class Gates:
         try:
             with transaction.atomic():
                 ProcessedEvent.objects.create(nonce=nonce, provider=provider)
-        except IntegrityError:
+        except IntegrityError as e:
             # IntegrityError means nonce already exists = replay
             # Check if it actually exists (could be other DB error)
             if ProcessedEvent.objects.filter(nonce=nonce).exists():
@@ -307,7 +307,7 @@ class Gates:
                     "G5_ReplayProtection",
                     "Replay detected: event already processed.",
                     {"nonce": nonce, "provider": provider},
-                )
+                ) from e
             # Re-raise if it's a different error
             raise
 

@@ -55,7 +55,6 @@ class TestCustomersAuthIntegration(TestCase):
     def test_customer_user_one_to_one(self):
         """Each user has at most one CustomerUser."""
         from django.db import IntegrityError
-
         from shopman.doorman.models import CustomerUser
 
         user = User.objects.create_user(username="gd_unique_user")
@@ -75,7 +74,6 @@ class TestCustomersAuthIntegration(TestCase):
     def test_customer_uuid_unique_in_customer_user(self):
         """Each customer_id has at most one CustomerUser."""
         from django.db import IntegrityError
-
         from shopman.doorman.models import CustomerUser
 
         user1 = User.objects.create_user(username="gd_user_1")

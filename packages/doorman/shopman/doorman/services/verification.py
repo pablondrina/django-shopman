@@ -14,10 +14,10 @@ from django.utils import timezone
 
 from ..conf import doorman_settings, get_adapter
 from ..error_codes import ErrorCode
-from ..protocols.customer import AuthCustomerInfo
 from ..exceptions import GateError
 from ..gates import Gates
 from ..models import VerificationCode
+from ..protocols.customer import AuthCustomerInfo
 from ..signals import verification_code_sent, verification_code_verified
 
 if TYPE_CHECKING:
@@ -70,7 +70,7 @@ class AuthService:
         purpose: str = VerificationCode.Purpose.LOGIN,
         delivery_method: str = VerificationCode.DeliveryMethod.WHATSAPP,
         ip_address: str | None = None,
-        sender: "MessageSenderProtocol | None" = None,
+        sender: MessageSenderProtocol | None = None,
     ) -> CodeRequestResult:
         """
         Request a verification code.
@@ -218,7 +218,7 @@ class AuthService:
         cls,
         target_value: str,
         code_input: str,
-        request: "HttpRequest | None" = None,
+        request: HttpRequest | None = None,
     ) -> VerifyResult:
         """
         Verify code for login.
@@ -331,8 +331,10 @@ class AuthService:
         """Best-effort linking of the verified login handle into Guestman's identifier table."""
         try:
             from shopman.guestman.contrib.identifiers import IdentifierService, IdentifierType
-            from shopman.guestman.models import ContactPoint, Customer as GuestCustomer
+            from shopman.guestman.models import ContactPoint
+            from shopman.guestman.models import Customer as GuestCustomer
             from shopman.guestman.services import identity as identity_service
+
             from ..conf import get_adapter
 
             guest_customer = GuestCustomer.objects.filter(uuid=customer.uuid, is_active=True).first()

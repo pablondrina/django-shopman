@@ -4,17 +4,15 @@ from decimal import Decimal
 
 import pytest
 from django.test import override_settings
-
 from shopman.offerman.conf import (
     get_projection_backend,
     reset_pricing_backend,
     reset_projection_backends,
 )
-from shopman.offerman.service import CatalogService
 from shopman.offerman.exceptions import CatalogError
-from shopman.offerman.models import Collection, CollectionItem, Product, Listing, ListingItem
+from shopman.offerman.models import Collection, CollectionItem, Listing, ListingItem, Product
 from shopman.offerman.protocols import ContextualPrice, PriceAdjustment, ProjectionResult
-
+from shopman.offerman.service import CatalogService
 
 pytestmark = pytest.mark.django_db
 
@@ -731,8 +729,9 @@ class TestCatalogBackendAdapter:
 
     def test_get_price_fractional_rounding(self, db):
         """get_price rounds correctly for fractional qty."""
-        from shopman.offerman.adapters.catalog_backend import OffermanCatalogBackend
         from unittest.mock import patch
+
+        from shopman.offerman.adapters.catalog_backend import OffermanCatalogBackend
 
         backend = OffermanCatalogBackend()
 

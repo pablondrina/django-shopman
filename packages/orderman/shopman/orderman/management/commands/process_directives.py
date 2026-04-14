@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Sequence
 from datetime import timedelta
-from typing import Sequence
 
 from django.core.management import BaseCommand
 from django.db import transaction
 from django.utils import timezone
-
 from shopman.orderman import registry
 from shopman.orderman.exceptions import DirectiveTerminalError, DirectiveTransientError
 from shopman.orderman.models import Directive

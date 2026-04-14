@@ -7,11 +7,9 @@ from __future__ import annotations
 import logging
 
 from django.db import transaction
-
 from shopman.orderman import registry
 from shopman.orderman.exceptions import IssueResolveError, SessionError, ValidationError
 from shopman.orderman.models import Session
-
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +34,11 @@ class ResolveService:
                 session_key=session_key,
                 channel_ref=channel_ref,
             )
-        except Session.DoesNotExist:
+        except Session.DoesNotExist as e:
             raise IssueResolveError(
                 code="session_not_found",
                 message=f"Sessão não encontrada: {channel_ref}:{session_key}",
-            )
+            ) from e
 
         issues = session.data.get("issues", [])
         issue = None

@@ -14,12 +14,10 @@ Covers:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
-
 from shopman.guestman.contrib.insights.models import CustomerInsight
 from shopman.guestman.contrib.insights.service import InsightService
 from shopman.guestman.models import Customer, CustomerGroup
@@ -76,7 +74,7 @@ class TestRecalculate:
 
     def test_recalculate_happy_path(self, customer, settings):
         """Full recalculate with stats and orders populates all fields."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         stats = OrderStats(
             total_orders=15,
             total_spent_q=500000,
@@ -156,7 +154,7 @@ class TestRecalculate:
 
     def test_recalculate_single_order(self, customer, settings):
         """Single order → no average_days_between."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         stats = OrderStats(
             total_orders=1,
             total_spent_q=5000,

@@ -8,15 +8,13 @@ Covers:
 - Version alignment
 """
 
-import pytest
 from decimal import Decimal
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
 from django.core.exceptions import ValidationError
-
 from shopman.craftsman import CraftError, StaleRevision, craft
-from shopman.craftsman.models import Recipe, RecipeItem, WorkOrder
-
+from shopman.craftsman.models import Recipe, RecipeItem
 
 # ══════════════════════════════════════════════════════════════
 # VERSION ALIGNMENT
@@ -160,9 +158,9 @@ class TestProductionBackendExceptions:
 
     def test_create_wo_craft_error_logged_as_warning(self, db):
         """CraftError (business logic) is logged at warning level."""
-        from shopman.craftsman.contrib.stockman.production import CraftingProductionBackend
+        from shopman.craftsman.contrib.stockman.production import CraftsmanProductionBackend
 
-        backend = CraftingProductionBackend()
+        backend = CraftsmanProductionBackend()
 
         recipe = Recipe.objects.create(
             code="test-recipe",

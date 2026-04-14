@@ -8,14 +8,14 @@ import logging
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
-
-from shopman.shop.models import Channel
 from shopman.offerman.models import Collection, Product
 from shopman.orderman.ids import generate_idempotency_key, generate_session_key
 from shopman.orderman.models import Session
 from shopman.orderman.services.commit import CommitService
 from shopman.orderman.services.modify import ModifyService
 from shopman.utils.monetary import format_money
+
+from shopman.shop.models import Channel
 from shopman.shop.web.constants import POS_CHANNEL_REF
 
 logger = logging.getLogger(__name__)
@@ -33,8 +33,8 @@ def _resolve_customer(phone: str):
         from shopman.guestman.services import customer as customer_service
 
         return customer_service.get_by_phone(phone)
-    except Exception as e:
-        logger.warning("pos_resolve_customer_failed phone=%s: %s", phone, e, exc_info=True)
+    except Exception:
+        logger.exception("pos_resolve_customer_failed phone=%s", phone)
         return None
 
 
@@ -58,8 +58,8 @@ def _load_products():
             p = li.product
             price_q = li.price_q if li.price_q else p.base_price_q
             products.append(_product_dict(p, price_q))
-    except Exception as e:
-        logger.warning("pos_load_products_listing_failed: %s", e, exc_info=True)
+    except Exception:
+        logger.exception("pos_load_products_listing_failed")
 
     if not products:
         for p in Product.objects.filter(is_published=True, is_sellable=True).order_by("name"):
@@ -74,8 +74,8 @@ def _product_dict(product, price_q):
     ci = product.collection_items.filter(is_primary=True).select_related("collection").first()
     try:
         is_d1 = _line_item_is_d1(product, listing_ref=POS_CHANNEL_REF)
-    except Exception as e:
-        logger.debug("pos_d1_check_failed sku=%s: %s", product.sku, e)
+    except Exception:
+        logger.exception("pos_d1_check_failed sku=%s", product.sku)
         is_d1 = False
     return {
         "sku": product.sku,
@@ -266,12 +266,12 @@ def pos_close(request: HttpRequest) -> HttpResponse:
             channel_config=config.to_dict(),
         )
     except Exception as e:
+        logger.exception("pos_close modify_failed")
         _msg = str(e).lower()
         if "insuficiente" in _msg or "estoque" in _msg or "stock" in _msg or "unavailable" in _msg:
             error_msg = f"Produto indispon&iacute;vel: {e}"
         else:
             error_msg = f"Erro ao montar pedido: {e}"
-        logger.warning("pos_close modify_failed: %s", e, exc_info=True)
         return HttpResponse(
             f'<div id="pos-result" class="pos-error" '
             f'style="background:var(--error-light);color:rgb(var(--error-foreground))">'
@@ -323,7 +323,6 @@ def pos_shift_summary(request: HttpRequest) -> HttpResponse:
 
     from django.db.models import Sum
     from django.utils import timezone
-
     from shopman.orderman.models import Order
 
     today = timezone.localdate()
@@ -357,8 +356,8 @@ def pos_cancel_last(request: HttpRequest) -> HttpResponse:
     from datetime import timedelta
 
     from django.utils import timezone
-
     from shopman.orderman.models import Order
+
     from shopman.shop.services.cancellation import cancel
 
     order_ref = request.POST.get("order_ref", "").strip()

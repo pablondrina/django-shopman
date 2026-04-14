@@ -28,27 +28,26 @@ import logging
 
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import NotFound, ValidationError as DRFValidationError
+from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.pagination import CursorPagination
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
-
 from shopman.orderman.conf import get_orderman_setting
+from shopman.orderman.exceptions import CommitError, IssueResolveError, SessionError, ValidationError
+from shopman.orderman.ids import generate_idempotency_key, generate_session_key
 from shopman.orderman.models import Directive, Order, Session
 from shopman.orderman.services import CommitService, ModifyService, ResolveService
-from shopman.orderman.ids import generate_idempotency_key, generate_session_key
-from shopman.orderman.exceptions import CommitError, IssueResolveError, SessionError, ValidationError
 
 from .serializers import (
     DirectiveSerializer,
     OrderSerializer,
-    SessionSerializer,
     SessionCommitSerializer,
     SessionCreateSerializer,
     SessionModifySerializer,
     SessionResolveSerializer,
+    SessionSerializer,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -246,7 +245,7 @@ class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
                 ctx={"actor": _get_actor(request)},
             )
         except (SessionError, ValidationError) as e:
-            raise DRFValidationError({"code": e.code, "message": e.message, "context": e.context})
+            raise DRFValidationError({"code": e.code, "message": e.message, "context": e.context}) from e
 
         return Response(SessionSerializer(updated).data, status=status.HTTP_200_OK)
 
@@ -268,7 +267,7 @@ class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
                 ctx={"actor": _get_actor(request)},
             )
         except IssueResolveError as e:
-            raise DRFValidationError({"code": e.code, "message": e.message, "context": e.context})
+            raise DRFValidationError({"code": e.code, "message": e.message, "context": e.context}) from e
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.exception(
                 "API resolve falhou para sessão %s (issue %s action %s)",
@@ -337,7 +336,7 @@ class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
                     "error_message": e.message,
                 },
             )
-            raise DRFValidationError({"code": e.code, "message": e.message, "context": e.context})
+            raise DRFValidationError({"code": e.code, "message": e.message, "context": e.context}) from e
 
         logger.info(
             "Commit successful",

@@ -5,8 +5,6 @@ from datetime import timedelta
 
 from django.test import TestCase
 from django.utils import timezone
-
-from shopman.payman.exceptions import PaymentError
 from shopman.payman.models import PaymentIntent, PaymentTransaction
 
 

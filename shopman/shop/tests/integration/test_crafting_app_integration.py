@@ -15,7 +15,6 @@ from io import StringIO
 
 import pytest
 from django.core.management import call_command
-
 from shopman.craftsman.models import WorkOrder
 from shopman.craftsman.service import CraftService as craft
 from shopman.stockman import stock

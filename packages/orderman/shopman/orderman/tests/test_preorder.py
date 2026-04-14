@@ -12,13 +12,12 @@ Covers:
 """
 
 from __future__ import annotations
-import types
 
+import types
 from datetime import timedelta
 
 from django.test import TestCase
 from django.utils import timezone
-
 from shopman.orderman.ids import generate_idempotency_key
 from shopman.orderman.models import Directive, Order, Session
 from shopman.orderman.services import CommitService

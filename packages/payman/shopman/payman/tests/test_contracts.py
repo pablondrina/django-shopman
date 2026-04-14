@@ -7,7 +7,6 @@ described in docs/reference/payment-contracts.md.
 from __future__ import annotations
 
 from django.test import TestCase
-
 from shopman.payman.exceptions import PaymentError
 from shopman.payman.models import PaymentIntent
 from shopman.payman.service import PaymentService

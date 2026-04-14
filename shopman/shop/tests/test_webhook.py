@@ -15,8 +15,8 @@ pytestmark = pytest.mark.skip(reason="Manychat webhook moved — pending reimple
 
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
-
 from shopman.orderman.models import Order, Session
+
 from shopman.shop.models import Channel
 
 WEBHOOK_SETTINGS = {

@@ -7,8 +7,7 @@ Permite registrar validators, modifiers, directive handlers e issue resolvers.
 from __future__ import annotations
 
 import threading
-from typing import Protocol, runtime_checkable, Any
-
+from typing import Any, Protocol, runtime_checkable
 
 # =============================================================================
 # PROTOCOLS

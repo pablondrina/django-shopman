@@ -11,12 +11,10 @@ Covers:
 
 from __future__ import annotations
 
-from datetime import date, time, timedelta
+from datetime import date, timedelta
 from unittest.mock import patch
 
-import pytest
 from django.test import TestCase
-from django.utils import timezone
 
 from shopman.shop.web.views.checkout import CheckoutView
 
@@ -37,7 +35,6 @@ def _future_date_str() -> str:
 
 def _fake_now(hour: int, minute: int = 0) -> object:
     """Return a mock for timezone.localtime() at the given time of day."""
-    import datetime as dt
 
     from django.utils import timezone as tz
 

@@ -36,7 +36,6 @@ class FulfillmentOrderInline(admin.TabularInline):
 def _payment_info(self, obj):
     """Show PaymentIntent info linked via order_ref."""
     from django.utils.html import format_html, format_html_join
-
     from shopman.payman.models import PaymentIntent
 
     intents = PaymentIntent.objects.filter(order_ref=obj.ref).order_by("-created_at")
@@ -241,7 +240,6 @@ def _extend_quant_admin():
     def batch_link(self, obj):
         from django.urls import reverse
         from django.utils.html import format_html
-
         from shopman.stockman.models import Batch
 
         if not obj.batch:

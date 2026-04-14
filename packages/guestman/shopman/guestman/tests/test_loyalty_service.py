@@ -13,10 +13,7 @@ Covers:
 
 from __future__ import annotations
 
-from decimal import Decimal
-
 import pytest
-
 from shopman.guestman.contrib.loyalty.models import (
     LoyaltyAccount,
     LoyaltyTier,

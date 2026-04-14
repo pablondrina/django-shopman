@@ -8,6 +8,7 @@ The admins will automatically register the Unfold versions.
 """
 
 import logging
+from decimal import Decimal
 
 from django.contrib import admin, messages
 from django.http import HttpResponseRedirect
@@ -18,13 +19,11 @@ from unfold.enums import ActionVariant
 
 logger = logging.getLogger(__name__)
 
-from unfold.contrib.filters.admin.datetime_filters import RangeDateFilter
-
+from shopman.stockman.models import Batch, Hold, HoldStatus, Move, Position, Quant, StockAlert
 from shopman.utils.contrib.admin_unfold.badges import unfold_badge, unfold_badge_numeric
 from shopman.utils.contrib.admin_unfold.base import BaseModelAdmin
 from shopman.utils.formatting import format_quantity
-from shopman.stockman.models import Batch, Position, Quant, Move, Hold, HoldStatus, StockAlert
-
+from unfold.contrib.filters.admin.datetime_filters import RangeDateFilter
 
 # =============================================================================
 # CUSTOM FILTERS
@@ -42,7 +41,6 @@ class BelowMinimumFilter(admin.SimpleListFilter):
     def queryset(self, request, queryset):
         if self.value() != "1":
             return queryset
-        from django.db.models import Exists, OuterRef
         # Subquery: exists an active alert where quant's sku matches and
         # (alert has no position OR alert position matches quant position)
         # and quant's available < alert min_quantity.
@@ -53,7 +51,7 @@ class BelowMinimumFilter(admin.SimpleListFilter):
             return queryset.none()
         below_pks = set()
         # Build a dict: (sku, position_id|None) -> min_quantity for all active alerts
-        alert_map: dict[tuple[str, int | None], 'Decimal'] = {}
+        alert_map: dict[tuple[str, int | None], Decimal] = {}
         for alert in alerts:
             key = (alert.sku, alert.position_id)
             alert_map[key] = alert.min_quantity

@@ -6,7 +6,6 @@ Each signal documents: kwargs, types, when emitted, and handler example.
 
 from django.dispatch import Signal
 
-
 customer_authenticated = Signal()
 """
 Dispatched when a Customer successfully authenticates via Auth.

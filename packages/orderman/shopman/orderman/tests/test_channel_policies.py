@@ -13,11 +13,11 @@ from __future__ import annotations
 
 import types
 from decimal import Decimal
-from django.test import TestCase
 
-from shopman.orderman.models import Session, Order
-from shopman.orderman.services import ModifyService
+from django.test import TestCase
 from shopman.orderman.exceptions import SessionError
+from shopman.orderman.models import Order, Session
+from shopman.orderman.services import ModifyService
 
 
 class IFoodPolicyTests(TestCase):

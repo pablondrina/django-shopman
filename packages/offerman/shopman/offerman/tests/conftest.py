@@ -3,8 +3,7 @@
 from decimal import Decimal
 
 import pytest
-
-from shopman.offerman.models import Collection, CollectionItem, Product, Listing, ListingItem
+from shopman.offerman.models import Collection, CollectionItem, Listing, ListingItem, Product
 
 
 @pytest.fixture

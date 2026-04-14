@@ -17,14 +17,13 @@ Coverage:
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
 from django.test import TestCase
+from shopman.orderman.exceptions import ValidationError as OrderingValidationError
 
 from shopman.shop.models import DeliveryZone, Shop
 from shopman.shop.modifiers import DeliveryFeeModifier
-from shopman.orderman.exceptions import ValidationError as OrderingValidationError
 from shopman.shop.rules.validation import DeliveryZoneRule
 
 

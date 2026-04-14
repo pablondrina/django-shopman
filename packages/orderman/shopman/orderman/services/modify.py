@@ -8,7 +8,6 @@ from decimal import Decimal
 from typing import Any
 
 from django.db import transaction
-
 from shopman.orderman import registry
 from shopman.orderman.exceptions import SessionError, ValidationError
 from shopman.orderman.ids import generate_line_id

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
-from django.utils import timezone
 
 
 def _make_shop():
@@ -87,6 +86,7 @@ class ShiftSummaryViewTests(TestCase):
     def test_pos_close_sends_hx_trigger(self) -> None:
         """Successful pos_close sends HX-Trigger: posOrderCreated header."""
         import json
+
         from shopman.offerman.models import Product
         Product.objects.create(sku="SHIFT-PROD", name="Prod", base_price_q=500, is_published=True, is_sellable=True)
         payload = json.dumps({

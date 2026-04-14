@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from django.db import models
 
 if TYPE_CHECKING:
-    from shopman.stockman.protocols.sku import SkuInfo, SkuValidationResult
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +34,8 @@ class SkuValidator:
 
     def validate_sku(self, sku: str):
         """Validate if SKU exists and expose orderability via the offer contract."""
-        from shopman.stockman.protocols.sku import SkuValidationResult
         from shopman.offerman.models import Product
+        from shopman.stockman.protocols.sku import SkuValidationResult
 
         try:
             product = Product.objects.get(sku=sku)
@@ -58,8 +58,8 @@ class SkuValidator:
 
     def validate_skus(self, skus: list[str]) -> dict:
         """Validate multiple SKUs at once."""
-        from shopman.stockman.protocols.sku import SkuValidationResult
         from shopman.offerman.models import Product
+        from shopman.stockman.protocols.sku import SkuValidationResult
 
         products = Product.objects.filter(sku__in=skus)
         found = {p.sku: p for p in products}
@@ -86,8 +86,8 @@ class SkuValidator:
 
     def get_sku_info(self, sku: str):
         """Get SKU information."""
-        from shopman.stockman.protocols.sku import SkuInfo
         from shopman.offerman.models import Product
+        from shopman.stockman.protocols.sku import SkuInfo
 
         try:
             product = Product.objects.get(sku=sku)
@@ -115,8 +115,8 @@ class SkuValidator:
         include_inactive: bool = False,
     ) -> list:
         """Search SKUs by name or code."""
-        from shopman.stockman.protocols.sku import SkuInfo
         from shopman.offerman.models import Product
+        from shopman.stockman.protocols.sku import SkuInfo
 
         qs = Product.objects.filter(
             models.Q(sku__icontains=query) | models.Q(name__icontains=query)

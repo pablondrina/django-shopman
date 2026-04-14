@@ -11,14 +11,13 @@ from uuid import UUID
 
 from django.db import transaction
 from django.db.models import Q
-
+from shopman.orderman.contrib.refs.exceptions import (
+    RefConflict,
+    RefScopeInvalid,
+    RefTypeNotFound,
+)
 from shopman.orderman.contrib.refs.models import Ref
 from shopman.orderman.contrib.refs.registry import get_ref_type
-from shopman.orderman.contrib.refs.exceptions import (
-    RefTypeNotFound,
-    RefScopeInvalid,
-    RefConflict,
-)
 
 
 def _normalize_value(value: str) -> str:

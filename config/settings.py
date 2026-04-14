@@ -26,8 +26,8 @@ def _csv_env_list(name: str, default: str = "") -> list[str]:
 # ⚠️ PRODUÇÃO: Definir via DJANGO_SECRET_KEY env var. NUNCA usar o default.
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-secret-key-not-for-production")
 
-# ⚠️ PRODUÇÃO: Definir DJANGO_DEBUG=false
-DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() in ("true", "1", "yes")
+# ⚠️ PRODUÇÃO: Definir DJANGO_DEBUG=false (default já é false)
+DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() in ("true", "1", "yes")
 
 # ⚠️ PRODUÇÃO: Restringir a domínios reais. "*" é apenas para desenvolvimento.
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",")

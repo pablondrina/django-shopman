@@ -9,7 +9,6 @@ from datetime import timedelta
 
 from django.test import TestCase
 from django.utils import timezone
-
 from shopman.orderman.exceptions import CommitError, SessionError
 from shopman.orderman.models import IdempotencyKey, Order, Session
 from shopman.orderman.services import CommitService

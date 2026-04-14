@@ -32,7 +32,6 @@ User mix (configured via weights):
 from __future__ import annotations
 
 import random
-import string
 
 from locust import HttpUser, between, task
 

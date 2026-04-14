@@ -8,15 +8,14 @@ helper functions directly.
 
 from __future__ import annotations
 
-import pytest
 from datetime import date, timedelta
 from decimal import Decimal
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
+import pytest
 from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe
 from shopman.craftsman.protocols.demand import DailyDemand, DemandProtocol
-
 
 # ── Fixtures ──
 

@@ -5,9 +5,9 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
 from shopman.orderman.models import Order
 from shopman.utils.monetary import format_money
+
 from shopman.shop.web.views.auth import get_authenticated_customer
 from shopman.shop.web.views.tracking import STATUS_LABELS
 

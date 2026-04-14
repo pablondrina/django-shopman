@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from rest_framework import serializers
-
 from shopman.orderman.models import Directive, Order, Session
 
 

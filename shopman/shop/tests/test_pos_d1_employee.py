@@ -6,7 +6,6 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
-
 from shopman.offerman.models import Product
 
 
@@ -81,8 +80,7 @@ class EmployeeDiscountPOSTests(TestCase):
 
     def test_customer_lookup_returns_group(self) -> None:
         """pos_customer_lookup returns data-customer-group attribute."""
-        from shopman.guestman.models import Customer
-        from shopman.guestman.models import CustomerGroup
+        from shopman.guestman.models import Customer, CustomerGroup
 
         grp = CustomerGroup.objects.create(ref="staff", name="Staff")
         customer = Customer.objects.create(

@@ -13,6 +13,7 @@ class TestOrderingAuthIntegration(TestCase):
 
     def setUp(self):
         from shopman.guestman.models import Customer
+
         from shopman.shop.models import Channel
 
         # Create customer
@@ -45,7 +46,6 @@ class TestOrderingAuthIntegration(TestCase):
     def test_customer_user_connects_user_to_customer(self):
         """CustomerUser connects Django User to Customer."""
         from django.contrib.auth import get_user_model
-
         from shopman.doorman.models import CustomerUser
 
         User = get_user_model()

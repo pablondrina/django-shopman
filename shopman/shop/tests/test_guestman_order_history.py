@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from django.test import TestCase
-
 from shopman.guestman.adapters.orderman import OrdermanOrderHistoryBackend
 from shopman.guestman.models import Customer, CustomerGroup
 from shopman.orderman.models import Order

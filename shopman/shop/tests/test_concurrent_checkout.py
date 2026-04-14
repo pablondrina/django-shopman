@@ -63,7 +63,7 @@ class DoubleSubmitIdempotencyTests(TestCase):
 
     def test_same_idempotency_key_returns_cached_order(self) -> None:
         """Committing twice with same key returns the same order, no duplicate created."""
-        from shopman.orderman.models import IdempotencyKey, Order
+        from shopman.orderman.models import Order
 
         session = _make_open_session(self.channel, "IDEM-SS-001")
 
@@ -191,9 +191,7 @@ class ConcurrentOversellTests(TransactionTestCase):
 
     def _commit_session(self, session_key, idem_key):
         """Attempt to commit a session; return (success, order_ref, error)."""
-        from shopman.orderman.exceptions import CommitError, SessionError
         from shopman.orderman.models import Session
-        from shopman.orderman.services.checkout import process as checkout_process
 
         try:
             # Session must be created within thread (TransactionTestCase uses autocommit)
@@ -266,11 +264,12 @@ class ConcurrentPaymentCaptureTests(TransactionTestCase):
 
     def test_concurrent_capture_idempotent(self) -> None:
         """Two concurrent captures on the same order → payment captured exactly once."""
-        from shopman.orderman.models import Order
-        from shopman.shop.services import payment as payment_service
         from unittest.mock import MagicMock, patch
 
+        from shopman.orderman.models import Order
+
         from shopman.shop.adapters.payment_types import PaymentResult
+        from shopman.shop.services import payment as payment_service
 
         order = Order.objects.create(
             ref="RACE-ORD-001",

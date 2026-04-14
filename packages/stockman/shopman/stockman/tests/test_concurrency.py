@@ -24,10 +24,8 @@ import pytest
 from django.conf import settings
 from django.db import connection
 from django.test import TransactionTestCase
-
-from shopman.stockman import stock, StockError
-from shopman.stockman.models import Position, PositionKind, Hold, HoldStatus
-
+from shopman.stockman import StockError, stock
+from shopman.stockman.models import Hold, HoldStatus, Position, PositionKind
 
 requires_postgres = pytest.mark.skipif(
     "sqlite" in settings.DATABASES["default"]["ENGINE"],

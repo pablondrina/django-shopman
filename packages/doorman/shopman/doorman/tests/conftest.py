@@ -5,11 +5,9 @@ from datetime import timedelta
 import pytest
 from django.utils import timezone
 
-from shopman.guestman.models import Customer
-
 from shopman.doorman.models import AccessLink, VerificationCode
 from shopman.doorman.models.verification_code import generate_raw_code
-
+from shopman.guestman.models import Customer
 
 TEST_API_KEY = "test-auth-api-key-2026"
 

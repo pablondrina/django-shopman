@@ -3,7 +3,6 @@ from __future__ import annotations
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views import View
-
 from shopman.offerman.models import Collection, Product
 from shopman.orderman.models import Order
 from shopman.utils.monetary import format_money

@@ -1,14 +1,12 @@
 """Tests for shopman.offerman.contrib.import_export resources."""
 from __future__ import annotations
 
-from decimal import Decimal
 from io import StringIO
 
 import pytest
 from import_export.formats.base_formats import CSV
-
 from shopman.offerman.contrib.import_export.resources import ListingItemResource, ProductResource
-from shopman.offerman.models import Listing, ListingItem, Product
+from shopman.offerman.models import ListingItem, Product
 
 
 @pytest.fixture

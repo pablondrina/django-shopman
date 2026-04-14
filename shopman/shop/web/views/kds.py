@@ -8,12 +8,12 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
-
 from shopman.orderman.models import Order
 from shopman.utils.monetary import format_money
 
 from shopman.shop.services.order_helpers import get_fulfillment_type
-from .orders import CHANNEL_ICONS, _DEFAULT_CHANNEL_ICON
+
+from .orders import _DEFAULT_CHANNEL_ICON, CHANNEL_ICONS
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +183,7 @@ class KDSDisplayView(View):
         if instance.type == "expedition":
             orders = (
                 Order.objects.filter(status="ready")
-                
+
                 .order_by("created_at")
             )
             enriched = [_enrich_expedition_order(o) for o in orders]
@@ -226,7 +226,7 @@ class KDSTicketListPartialView(View):
         if instance.type == "expedition":
             orders = (
                 Order.objects.filter(status="ready")
-                
+
                 .order_by("created_at")
             )
             enriched = [_enrich_expedition_order(o) for o in orders]
@@ -286,8 +286,9 @@ class KDSTicketDoneView(View):
         if denied:
             return denied
 
-        from shopman.shop.models import KDSTicket
         from shopman.orderman.exceptions import InvalidTransition
+
+        from shopman.shop.models import KDSTicket
 
         ticket = get_object_or_404(KDSTicket, pk=pk)
 

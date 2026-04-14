@@ -10,8 +10,8 @@ import logging
 from datetime import datetime
 
 from django.utils import timezone
-
 from shopman.orderman.models import Directive
+
 from shopman.shop.directives import CONFIRMATION_TIMEOUT
 
 logger = logging.getLogger(__name__)
@@ -24,6 +24,7 @@ class ConfirmationTimeoutHandler:
 
     def handle(self, *, message: Directive, ctx: dict) -> None:
         from shopman.orderman.models import Order
+
         from shopman.shop.lifecycle import ensure_confirmable
 
         payload = message.payload

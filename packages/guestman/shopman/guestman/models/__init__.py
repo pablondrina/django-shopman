@@ -6,11 +6,11 @@ CORE models are exported here. Contrib models are in their respective modules:
 - shopman.guestman.contrib.insights: CustomerInsight
 """
 
-from shopman.guestman.models.group import CustomerGroup
-from shopman.guestman.models.customer import Customer, CustomerType
-from shopman.guestman.models.address import CustomerAddress, AddressLabel
+from shopman.guestman.models.address import AddressLabel, CustomerAddress
 from shopman.guestman.models.contact_point import ContactPoint
+from shopman.guestman.models.customer import Customer, CustomerType
 from shopman.guestman.models.external_identity import ExternalIdentity
+from shopman.guestman.models.group import CustomerGroup
 from shopman.guestman.models.processed_event import ProcessedEvent
 
 __all__ = [

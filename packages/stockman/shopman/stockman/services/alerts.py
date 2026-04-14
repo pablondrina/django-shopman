@@ -16,7 +16,6 @@ from decimal import Decimal
 from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone
-
 from shopman.stockman.models.alert import StockAlert
 from shopman.stockman.models.hold import Hold
 from shopman.stockman.models.quant import Quant

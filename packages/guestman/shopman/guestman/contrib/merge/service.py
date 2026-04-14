@@ -7,7 +7,6 @@ from dataclasses import dataclass
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
-
 from shopman.guestman.exceptions import CustomerError
 from shopman.guestman.gates import Gates
 from shopman.guestman.models import (
@@ -167,8 +166,8 @@ class MergeService:
 
         try:
             audit = MergeAudit.objects.get(pk=audit_id)
-        except MergeAudit.DoesNotExist:
-            raise CustomerError("UNDO_FAILED", message="Merge audit record not found.")
+        except MergeAudit.DoesNotExist as e:
+            raise CustomerError("UNDO_FAILED", message="Merge audit record not found.") from e
 
         if audit.status != MergeStatus.COMPLETED:
             raise CustomerError("UNDO_FAILED", message="Merge already reverted.")
@@ -623,8 +622,8 @@ class MergeService:
         try:
             from shopman.guestman.contrib.loyalty.models import (
                 LoyaltyAccount,
-                LoyaltyTransaction,
                 LoyaltyTier,
+                LoyaltyTransaction,
                 TransactionType,
             )
         except ImportError:

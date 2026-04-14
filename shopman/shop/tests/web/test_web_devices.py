@@ -13,9 +13,8 @@ import uuid
 import pytest
 from django.contrib.auth.models import User
 from django.test import Client
-
-from shopman.doorman.conf import doorman_settings
 from shopman.doorman import TrustedDevice
+from shopman.doorman.conf import doorman_settings
 from shopman.guestman.models import Customer
 
 pytestmark = pytest.mark.django_db

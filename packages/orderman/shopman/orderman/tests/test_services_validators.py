@@ -5,11 +5,10 @@ Covers edge cases and branches in ModifyService and CommitService.
 """
 
 from __future__ import annotations
+
 import types
 
-
 from django.test import TestCase
-
 from shopman.orderman import registry
 from shopman.orderman.exceptions import ValidationError
 from shopman.orderman.models import Session

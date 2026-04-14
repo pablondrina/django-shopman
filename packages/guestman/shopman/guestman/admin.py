@@ -9,16 +9,14 @@ Contrib models have their own admin in their respective modules:
 from django.contrib import admin
 from django.db.models import Count
 from django.utils.html import format_html
-
 from shopman.guestman.contrib.merge.admin import MergeAdminMixin
 from shopman.guestman.models import (
-    Customer,
-    CustomerGroup,
-    CustomerAddress,
     ContactPoint,
+    Customer,
+    CustomerAddress,
+    CustomerGroup,
     ExternalIdentity,
 )
-
 
 # ===========================================
 # CustomerGroup Admin

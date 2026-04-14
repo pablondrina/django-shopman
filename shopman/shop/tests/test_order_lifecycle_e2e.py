@@ -10,9 +10,9 @@ Uses the Order model directly (integration tests, not UI).
 from __future__ import annotations
 
 import pytest
-
 from shopman.orderman.exceptions import InvalidTransition
 from shopman.orderman.models import Order
+
 from shopman.shop.models import Channel
 
 

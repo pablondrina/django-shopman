@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from django.core.management.base import BaseCommand
-
 from shopman.stockman import Move, Position, Quant
 from shopman.stockman.services.movements import StockMovements
 

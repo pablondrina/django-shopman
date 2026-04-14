@@ -2,7 +2,6 @@
 Move model — Immutable ledger of quantity changes.
 """
 
-from decimal import Decimal
 
 from django.conf import settings
 from django.db import models, transaction
@@ -22,21 +21,21 @@ class Move(models.Model):
     
     This is the ONLY model that changes quantity.
     """
-    
+
     quant = models.ForeignKey(
         'stockman.Quant',
         on_delete=models.PROTECT,
         related_name='moves',
         verbose_name=_('Saldo'),
     )
-    
+
     delta = models.DecimalField(
         max_digits=12,
         decimal_places=3,
         verbose_name=_('Variação'),
         help_text=_('Positivo = entrada, Negativo = saída'),
     )
-    
+
     reason = models.CharField(
         max_length=255,
         verbose_name=_('Motivo'),
@@ -46,7 +45,7 @@ class Move(models.Model):
         default=dict, blank=True, verbose_name=_('Metadados'),
         help_text=_('Metadados do movimento. Ex: {"reason_detail": "Ajuste de inventário"}'),
     )
-    
+
     timestamp = models.DateTimeField(default=timezone.now, db_index=True, verbose_name=_('Data/Hora'))
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -55,7 +54,7 @@ class Move(models.Model):
         blank=True,
         verbose_name=_('Usuário'),
     )
-    
+
     class Meta:
         verbose_name = _('Movimento')
         verbose_name_plural = _('Movimentos')
@@ -64,7 +63,7 @@ class Move(models.Model):
             models.Index(fields=['quant', 'timestamp']),
             models.Index(fields=['timestamp']),
         ]
-    
+
     def save(self, *args, **kwargs):
         """Save move and update quant cache atomically."""
         # Immutability check
@@ -73,18 +72,18 @@ class Move(models.Model):
                 "Movimentos são imutáveis. "
                 "Para corrigir, crie um novo Move com delta inverso."
             )
-        
+
         # Validations
         if not self.reason:
             raise ValueError("Motivo é obrigatório")
-        
+
         # Save and update cache atomically
         with transaction.atomic():
             super().save(*args, **kwargs)
-            
+
             # Import here to avoid circular import
             from shopman.stockman.models.quant import Quant
-            
+
             # Update Quant cache using F() for atomicity
             Quant.objects.filter(pk=self.quant_id).update(
                 _quantity=F('_quantity') + self.delta,
@@ -103,14 +102,14 @@ class Move(models.Model):
                         available=new_qty - self.delta,
                         requested=abs(self.delta),
                     )
-    
+
     def delete(self, *args, **kwargs):
         """Prevent deletion — moves are immutable."""
         raise ValueError(
             "Movimentos são imutáveis. "
             "Para estornar, crie um novo Move com delta inverso."
         )
-    
+
     def __str__(self) -> str:
         signal = '+' if self.delta > 0 else ''
         return f"{signal}{self.delta} | {self.reason}"

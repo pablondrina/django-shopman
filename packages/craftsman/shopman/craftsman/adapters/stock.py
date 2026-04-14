@@ -13,11 +13,11 @@ Vocabulary mapping:
 
 import logging
 import threading
+from collections.abc import Callable
 from decimal import Decimal
-from typing import Any, Callable
+from typing import Any
 
 from django.db import transaction
-
 from shopman.craftsman.protocols.inventory import (
     AvailabilityResult,
     ConsumeResult,

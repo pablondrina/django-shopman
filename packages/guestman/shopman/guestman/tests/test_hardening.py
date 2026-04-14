@@ -14,13 +14,10 @@ import hashlib
 import hmac
 import time
 from decimal import Decimal
-from unittest.mock import patch, MagicMock
 
 import pytest
 from django.db import IntegrityError
-
-from shopman.guestman.gates import Gates, GateError
-
+from shopman.guestman.gates import GateError, Gates
 
 # ═══════════════════════════════════════════════════════════════════
 # Fixtures
@@ -464,13 +461,15 @@ class TestCleanupDryRun:
     def test_dry_run_does_not_delete(self, db):
         """--dry-run reports count but keeps records."""
         from io import StringIO
+
         from django.core.management import call_command
         from shopman.guestman.models import ProcessedEvent
 
         ProcessedEvent.objects.create(nonce="old-001", provider="test")
         # Force old timestamp
-        from django.utils import timezone
         from datetime import timedelta
+
+        from django.utils import timezone
         ProcessedEvent.objects.filter(nonce="old-001").update(
             processed_at=timezone.now() - timedelta(days=200)
         )

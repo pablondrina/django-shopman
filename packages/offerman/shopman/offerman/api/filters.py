@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from django_filters import rest_framework as filters
-
 from shopman.offerman.models import Collection, Listing, ListingItem, Product
 
 

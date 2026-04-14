@@ -1,11 +1,10 @@
 """Testes dos Services do Orderman kernel."""
 
+import types
 from decimal import Decimal
 
-import types
 import pytest
 from django.test import TestCase
-
 from shopman.orderman.exceptions import CommitError, SessionError, ValidationError
 from shopman.orderman.models import Directive, Order, Session
 from shopman.orderman.services import (

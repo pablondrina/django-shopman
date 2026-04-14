@@ -2,7 +2,6 @@
 ContactPoint model - Customer contact points (WhatsApp, phone, email).
 """
 
-import re
 import uuid
 
 from django.db import models, transaction

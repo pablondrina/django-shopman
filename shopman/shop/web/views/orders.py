@@ -11,12 +11,12 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
-
 from shopman.orderman.models import Directive, Order
+from shopman.utils.monetary import format_money
+
 from shopman.shop.services import payment as payment_svc
 from shopman.shop.services.cancellation import cancel
 from shopman.shop.services.order_helpers import get_fulfillment_type
-from shopman.utils.monetary import format_money
 
 from .tracking import STATUS_COLORS, STATUS_LABELS, _build_tracking_context
 
@@ -296,6 +296,7 @@ class OrderConfirmView(View):
         try:
             ensure_confirmable(order)
         except Exception as exc:
+            logger.exception("ensure_confirmable failed for order %s", ref)
             return HttpResponse(str(exc), status=422)
 
         order.transition_status("confirmed", actor=f"operator:{request.user.username}")
@@ -403,6 +404,7 @@ class OrderMarkPaidView(View):
             try:
                 ensure_confirmable(order)
             except Exception as exc:
+                logger.exception("ensure_confirmable failed for order %s in mark_paid", ref)
                 return HttpResponse(str(exc), status=422)
 
             order.transition_status("confirmed", actor=f"operator:{request.user.username}")

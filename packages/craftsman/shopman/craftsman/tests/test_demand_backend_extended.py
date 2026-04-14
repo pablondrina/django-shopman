@@ -15,9 +15,8 @@ from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from shopman.craftsman.contrib.demand.backend import OrderingDemandBackend, _django_weekday
-from shopman.craftsman.protocols.demand import DailyDemand, DemandProtocol
+from shopman.craftsman.protocols.demand import DailyDemand
 
 
 class TestOrderingDemandBackendHistory:

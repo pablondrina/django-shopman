@@ -9,7 +9,7 @@ import threading
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from shopman.craftsman.protocols.catalog import ProductInfo, SkuValidationResult
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -118,9 +118,9 @@ class ProductInfoBackend:
         include_inactive: bool = False,
     ) -> list:
         """Search products by name or SKU."""
+        from django.db import models
         from shopman.craftsman.protocols.catalog import ProductInfo
         from shopman.offerman.models import Product
-        from django.db import models
 
         qs = Product.objects.filter(
             models.Q(sku__icontains=query) | models.Q(name__icontains=query)

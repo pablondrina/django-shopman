@@ -8,10 +8,8 @@ from decimal import Decimal
 import pytest
 from django.test import override_settings
 from django.utils import timezone
-
-from shopman.stockman import stock, StockError
-from shopman.stockman.models import Quant, Move, Hold, HoldStatus
-
+from shopman.stockman import StockError, stock
+from shopman.stockman.models import Hold, HoldStatus, Quant
 
 pytestmark = pytest.mark.django_db
 
@@ -440,8 +438,9 @@ class TestManagementCommandReleaseExpiredHolds:
 
     def test_command_releases_expired(self, product, vitrine, today):
         """Command releases expired holds."""
-        from django.core.management import call_command
         from io import StringIO
+
+        from django.core.management import call_command
 
         stock.receive(Decimal('100'), product.sku, vitrine, reason='Entrada')
         expires = timezone.now() - timedelta(minutes=1)
@@ -454,8 +453,9 @@ class TestManagementCommandReleaseExpiredHolds:
 
     def test_command_dry_run(self, product, vitrine, today):
         """Command --dry-run shows count without releasing."""
-        from django.core.management import call_command
         from io import StringIO
+
+        from django.core.management import call_command
 
         stock.receive(Decimal('100'), product.sku, vitrine, reason='Entrada')
         expires = timezone.now() - timedelta(minutes=1)

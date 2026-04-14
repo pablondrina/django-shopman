@@ -6,9 +6,23 @@ from datetime import timedelta
 
 import pytest
 from django.utils import timezone
-
+from shopman.guestman.contrib.consent.models import (
+    CommunicationConsent,
+    ConsentChannel,
+    ConsentStatus,
+    LegalBasis,
+)
+from shopman.guestman.contrib.identifiers.models import CustomerIdentifier, IdentifierType
+from shopman.guestman.contrib.loyalty.models import (
+    LoyaltyAccount,
+    LoyaltyTier,
+    LoyaltyTransaction,
+    TransactionType,
+)
 from shopman.guestman.contrib.merge.models import MergeAudit, MergeStatus
 from shopman.guestman.contrib.merge.service import MergeResult, MergeService
+from shopman.guestman.contrib.preferences.models import CustomerPreference, PreferenceType
+from shopman.guestman.contrib.timeline.models import EventType, TimelineEvent
 from shopman.guestman.exceptions import CustomerError
 from shopman.guestman.gates import GateError
 from shopman.guestman.models import (
@@ -18,23 +32,6 @@ from shopman.guestman.models import (
     CustomerGroup,
     ExternalIdentity,
 )
-from shopman.guestman.contrib.identifiers.models import CustomerIdentifier, IdentifierType
-from shopman.guestman.contrib.preferences.models import CustomerPreference, PreferenceType
-from shopman.guestman.contrib.insights.models import CustomerInsight
-from shopman.guestman.contrib.consent.models import (
-    CommunicationConsent,
-    ConsentChannel,
-    ConsentStatus,
-    LegalBasis,
-)
-from shopman.guestman.contrib.loyalty.models import (
-    LoyaltyAccount,
-    LoyaltyTransaction,
-    LoyaltyTier,
-    TransactionType,
-)
-from shopman.guestman.contrib.timeline.models import EventType, TimelineEvent
-
 
 pytestmark = pytest.mark.django_db
 

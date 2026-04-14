@@ -17,12 +17,12 @@ from unittest.mock import MagicMock, patch
 
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
-
+from shopman.orderman.ids import generate_idempotency_key, generate_session_key
 from shopman.orderman.models import Order, Session
-from shopman.orderman.ids import generate_session_key, generate_idempotency_key
 from shopman.orderman.services.commit import CommitService
 from shopman.orderman.services.modify import ModifyService
 from shopman.payman import PaymentService
+
 from shopman.shop.models import Channel
 
 STRIPE_SETTINGS = {
@@ -243,7 +243,6 @@ class StripeWebhookTests(WebhookTestBase):
 
     def test_stripe_payment_after_cancel_handled_gracefully(self) -> None:
         """Webhook for cancelled order → no crash, returns 200."""
-        from shopman.shop.services.cancellation import cancel
 
         order = _create_order_with_payment("web", "card")
         intent = _create_card_intent(order)

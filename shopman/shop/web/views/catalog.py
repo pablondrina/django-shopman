@@ -9,7 +9,6 @@ from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
-
 from shopman.offerman.models import Collection, Product
 from shopman.offerman.service import CatalogService
 from shopman.utils.monetary import format_money
@@ -264,8 +263,8 @@ class ProductDetailView(View):
                     "collection__ref", flat=True,
                 ),
             )
-        except Exception as e:
-            logger.warning("product_collections_failed sku=%s: %s", product.sku, e, exc_info=True)
+        except Exception:
+            logger.exception("product_collections_failed sku=%s", product.sku)
             cols = []
 
         price = CatalogService.get_price(
@@ -299,8 +298,8 @@ class ProductDetailView(View):
         if product.is_bundle:
             try:
                 components = CatalogService.expand(product.sku)
-            except Exception as e:
-                logger.warning("bundle_expand_failed sku=%s: %s", product.sku, e, exc_info=True)
+            except Exception:
+                logger.exception("bundle_expand_failed sku=%s", product.sku)
 
         # Alternatives when unavailable
         alternatives = []
@@ -323,8 +322,8 @@ class ProductDetailView(View):
             ci = CollectionItem.objects.filter(product=product).select_related("collection").first()
             if ci and ci.collection.is_active:
                 breadcrumb_collection = ci.collection
-        except Exception as e:
-            logger.warning("breadcrumb_collection_failed sku=%s: %s", product.sku, e, exc_info=True)
+        except Exception:
+            logger.exception("breadcrumb_collection_failed sku=%s", product.sku)
 
         # Available quantity for JS notice
         available_qty = int(avail["available_qty"]) if avail and avail.get("available_qty") is not None else None

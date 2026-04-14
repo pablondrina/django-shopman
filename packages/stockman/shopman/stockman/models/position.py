@@ -4,7 +4,6 @@ Position model — Where stock exists.
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-
 from shopman.stockman.models.enums import PositionKind
 
 
@@ -21,7 +20,7 @@ class Position(models.Model):
         Position.objects.create(ref='vitrine', name='Vitrine', kind=PositionKind.PHYSICAL, is_saleable=True)
         Position.objects.create(ref='producao', name='Produção', kind=PositionKind.PROCESS)
     """
-    
+
     ref = models.SlugField(
         unique=True,
         max_length=50,
@@ -55,15 +54,15 @@ class Position(models.Model):
         verbose_name=_('Metadados'),
         help_text=_('Metadados da posição. Ex: {"temperature": "ambiente", "capacity": 500}'),
     )
-    
+
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('criado em'))
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_('atualizado em'))
-    
+
     class Meta:
         verbose_name = _('Posição')
         verbose_name_plural = _('Posições')
         ordering = ['ref']
-    
+
     def __str__(self) -> str:
         return self.name
 

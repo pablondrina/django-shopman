@@ -9,7 +9,6 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.utils import timezone
-
 from shopman.craftsman.exceptions import CraftError
 from shopman.craftsman.services.scheduling import _check_rev, _next_seq
 

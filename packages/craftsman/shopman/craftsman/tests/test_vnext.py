@@ -2,20 +2,17 @@
 Tests for Craftsman vNext — 4 verbs + 3 queries + invariants.
 """
 
-import pytest
 from datetime import date
 from decimal import Decimal
-from unittest.mock import ANY
 
-from shopman.craftsman import craft, CraftError, StaleRevision
+import pytest
+from shopman.craftsman import CraftError, StaleRevision, craft
 from shopman.craftsman.models import (
     Recipe,
     RecipeItem,
     WorkOrder,
-    WorkOrderEvent,
     WorkOrderItem,
 )
-
 
 # ── Fixtures ──────────────────────────────────────────────────
 
@@ -829,15 +826,14 @@ class TestProtocols:
         assert ProductInfoBackend is not None
 
     def test_demand_protocol_importable(self):
-        from shopman.craftsman.protocols import DemandProtocol, DailyDemand
+        from shopman.craftsman.protocols import DailyDemand, DemandProtocol
         assert DemandProtocol is not None
         assert DailyDemand is not None
 
     def test_inventory_dataclasses(self):
         from shopman.craftsman.protocols.inventory import (
-            MaterialNeed, MaterialUsed, MaterialProduced,
-            MaterialStatus, AvailabilityResult, MaterialHold,
-            ReserveResult, ConsumeResult, ReleaseResult, ReceiveResult,
+            MaterialNeed,
+            MaterialProduced,
         )
         mn = MaterialNeed(sku="farinha", quantity=Decimal("10"))
         assert mn.sku == "farinha"
@@ -865,7 +861,7 @@ class TestProtocols:
 
     def test_backward_compat_product_module(self):
         """protocols/product.py still works as re-export."""
-        from shopman.craftsman.protocols.product import ProductInfoBackend, ProductInfo
+        from shopman.craftsman.protocols.product import ProductInfo, ProductInfoBackend
         assert ProductInfoBackend is not None
         assert ProductInfo is not None
 
@@ -973,7 +969,6 @@ class TestSuggest:
 
     def test_basic_suggestion(self, recipe, tomorrow, settings):
         """Basic suggest with uniform history data."""
-        from datetime import time
         from unittest.mock import MagicMock, patch
 
         from shopman.craftsman.protocols.demand import DailyDemand
@@ -1291,8 +1286,8 @@ class TestSuggest:
         """High demand multiplier applied on Friday."""
         from unittest.mock import MagicMock, patch
 
-        from shopman.craftsman.protocols.demand import DailyDemand
         from shopman.craftsman.models import Recipe
+        from shopman.craftsman.protocols.demand import DailyDemand
 
         friday = date(2026, 2, 27)  # weekday() == 4
         assert friday.weekday() == 4
@@ -1403,6 +1398,7 @@ class TestAdjustValidations:
     def test_adjust_exceeds_shared_ingredient(self, recipe_with_items, tomorrow, settings):
         """adjust() raises INSUFFICIENT_MATERIALS when shared ingredients are short."""
         from unittest.mock import MagicMock, patch
+
         from shopman.craftsman.protocols.inventory import AvailabilityResult, MaterialStatus
 
         mock_inv = MagicMock()
@@ -1430,6 +1426,7 @@ class TestAdjustValidations:
     def test_adjust_within_limits_succeeds(self, recipe_with_items, tomorrow, settings):
         """adjust() within available ingredients succeeds."""
         from unittest.mock import MagicMock, patch
+
         from shopman.craftsman.protocols.inventory import AvailabilityResult, MaterialStatus
 
         mock_inv = MagicMock()

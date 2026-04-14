@@ -15,7 +15,6 @@ from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from shopman.offerman.exceptions import CatalogError
 from shopman.offerman.models import (
     Collection,
@@ -23,9 +22,7 @@ from shopman.offerman.models import (
     Listing,
     ListingItem,
     Product,
-    ProductComponent,
 )
-
 
 pytestmark = pytest.mark.django_db
 

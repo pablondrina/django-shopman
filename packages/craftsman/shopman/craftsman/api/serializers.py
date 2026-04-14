@@ -5,7 +5,6 @@ Craftsman API Serializers (vNext).
 from decimal import Decimal
 
 from rest_framework import serializers
-
 from shopman.craftsman.models import Recipe, RecipeItem, WorkOrder, WorkOrderEvent, WorkOrderItem
 
 

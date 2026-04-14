@@ -175,7 +175,7 @@ class ChannelConfig:
     # ── Cascata ──
 
     @classmethod
-    def for_channel(cls, channel_or_ref) -> "ChannelConfig":
+    def for_channel(cls, channel_or_ref) -> ChannelConfig:
         """
         Config resolvido para este canal: canal ← loja ← defaults.
 

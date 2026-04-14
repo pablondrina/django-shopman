@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from django.contrib import admin
+from shopman.utils.monetary import format_money
 
 from shopman.shop.models import CashMovement, CashRegisterSession
-from shopman.utils.monetary import format_money
 
 
 class CashMovementInline(admin.TabularInline):

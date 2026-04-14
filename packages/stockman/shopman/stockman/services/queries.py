@@ -9,7 +9,6 @@ from decimal import Decimal
 
 from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
-
 from shopman.stockman.models.hold import Hold
 from shopman.stockman.models.position import Position
 from shopman.stockman.models.quant import Quant
@@ -21,7 +20,7 @@ def _resolve_stock_profile(sku_or_product):
     from shopman.stockman.adapters.sku_validation import get_sku_validator
 
     sku = sku_or_product if isinstance(sku_or_product, str) else sku_or_product.sku
-    shelflife = getattr(sku_or_product, "shelflife", None) if not isinstance(sku_or_product, str) else None
+    shelflife = getattr(sku_or_product, "shelf_life_days", None) if not isinstance(sku_or_product, str) else None
     availability_policy = (
         getattr(sku_or_product, "availability_policy", None)
         if not isinstance(sku_or_product, str)

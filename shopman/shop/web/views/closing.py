@@ -15,11 +15,11 @@ from django.db.models import Sum
 from django.http import HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
-
-from shopman.shop.models import DayClosing
 from shopman.offerman.models import Product
 from shopman.stockman import Move, Position, Quant
 from shopman.stockman.services.movements import StockMovements
+
+from shopman.shop.models import DayClosing
 
 logger = logging.getLogger(__name__)
 

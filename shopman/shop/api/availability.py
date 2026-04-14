@@ -8,8 +8,8 @@ from django.core.cache import cache
 from django.http import Http404
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
 from shopman.offerman.models import Product
+
 from shopman.shop.services import availability as avail_service
 
 

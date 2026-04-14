@@ -9,7 +9,6 @@ from ..conf import get_doorman_settings
 from ..models import VerificationCode
 from ..services.verification import AuthService
 from ..utils import get_client_ip
-
 from .serializers import (
     RequestCodeResponseSerializer,
     RequestCodeSerializer,

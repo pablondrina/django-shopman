@@ -6,18 +6,16 @@ from __future__ import annotations
 
 import copy
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from django.db import transaction
 from django.utils import timezone
-
 from shopman.orderman import registry
 from shopman.orderman.exceptions import CommitError, IdempotencyCacheHit, SessionError, ValidationError
 from shopman.orderman.ids import generate_order_ref
 from shopman.orderman.models import Directive, IdempotencyKey, Order, OrderItem, Session
 from shopman.utils.monetary import monetary_mult
-
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +141,7 @@ class CommitService:
                 idem.save(update_fields=["status"])
                 return idem
 
-            except IdempotencyKey.DoesNotExist:
+            except IdempotencyKey.DoesNotExist as e:
                 # Create new key
                 idem, created = IdempotencyKey.objects.get_or_create(
                     scope=scope,
@@ -157,12 +155,12 @@ class CommitService:
                     # Race condition: another request created it - re-check with lock
                     idem = IdempotencyKey.objects.select_for_update().get(pk=idem.pk)
                     if idem.status == "done" and idem.response_body:
-                        raise IdempotencyCacheHit(idem.response_body)
+                        raise IdempotencyCacheHit(idem.response_body) from e
                     elif idem.status == "in_progress":
                         raise CommitError(
                             code="in_progress",
                             message="Commit já está em andamento com esta chave",
-                        )
+                        ) from e
                     # Status is "failed" - allow retry
                     idem.status = "in_progress"
                     idem.save(update_fields=["status"])
@@ -186,11 +184,11 @@ class CommitService:
                 session_key=session_key,
                 channel_ref=channel_ref,
             )
-        except Session.DoesNotExist:
+        except Session.DoesNotExist as e:
             raise SessionError(
                 code="not_found",
                 message=f"Sessão não encontrada: {channel_ref}:{session_key}",
-            )
+            ) from e
 
         import types
         channel = types.SimpleNamespace(ref=channel_ref, config={})
@@ -365,7 +363,9 @@ class CommitService:
 
         # Preorder reminder: D-1 notification if delivery_date is future
         if order_data.get("is_preorder") and order_data.get("delivery_date"):
-            from datetime import date as date_type, datetime as datetime_type, time as time_type
+            from datetime import date as date_type
+            from datetime import datetime as datetime_type
+            from datetime import time as time_type
 
             try:
                 delivery_dt = date_type.fromisoformat(order_data["delivery_date"])
@@ -466,6 +466,5 @@ class CommitService:
         if timezone.is_naive(dt):
             # Assume UTC for naive datetimes (safer than assuming local TZ)
             # Using datetime.timezone.utc (stdlib, no pytz needed)
-            from datetime import timezone as dt_timezone
-            dt = dt.replace(tzinfo=dt_timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt

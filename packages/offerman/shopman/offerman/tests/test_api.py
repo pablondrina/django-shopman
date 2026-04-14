@@ -6,7 +6,6 @@ from decimal import Decimal
 import pytest
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient
-
 from shopman.offerman.models import (
     Collection,
     CollectionItem,

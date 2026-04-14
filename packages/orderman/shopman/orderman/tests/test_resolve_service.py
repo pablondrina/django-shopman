@@ -1,10 +1,9 @@
 from __future__ import annotations
-import types
 
+import types
 from decimal import Decimal
 
 from django.test import TestCase
-
 from shopman.orderman import registry
 from shopman.orderman.contrib.stock.resolvers import StockIssueResolver
 from shopman.orderman.exceptions import IssueResolveError

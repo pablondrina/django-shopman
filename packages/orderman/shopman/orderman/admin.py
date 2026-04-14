@@ -16,7 +16,8 @@ try:
     from unfold.contrib.filters.admin.choice_filters import ChoicesRadioFilter
     from unfold.contrib.filters.admin.datetime_filters import RangeDateFilter
     from unfold.contrib.filters.admin.numeric_filters import RangeNumericFilter
-    from unfold.decorators import action as unfold_action, display as unfold_display
+    from unfold.decorators import action as unfold_action
+    from unfold.decorators import display as unfold_display
     from unfold.enums import ActionVariant
     from unfold.sections import TableSection
 
@@ -83,8 +84,6 @@ except ImportError:
             django_kwargs["boolean"] = kwargs["boolean"]
         return admin.display(**django_kwargs)
 
-from shopman.utils.monetary import format_money
-
 from shopman.orderman import registry
 from shopman.orderman.exceptions import CommitError, IssueResolveError, SessionError
 from shopman.orderman.ids import generate_idempotency_key
@@ -99,7 +98,7 @@ from shopman.orderman.models import (
     Session,
 )
 from shopman.orderman.services import CommitService, ResolveService
-
+from shopman.utils.monetary import format_money
 
 logger = logging.getLogger(__name__)
 

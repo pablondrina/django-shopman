@@ -6,13 +6,13 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from shopman.offerman.protocols.cost import CostBackend
 from shopman.offerman.protocols import (
     CatalogProjectionBackend,
     ContextualPrice,
     PricingBackend,
     ProjectionResult,
 )
+from shopman.offerman.protocols.cost import CostBackend
 
 
 class NoopCostBackend:

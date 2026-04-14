@@ -7,7 +7,6 @@ from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
 from django.views import View
 from django_ratelimit.decorators import ratelimit
-
 from shopman.utils.phone import normalize_phone
 
 from ..constants import HAS_AUTH
@@ -123,7 +122,7 @@ class LoginView(View):
         try:
             phone = _normalize_phone_with_ddd(phone_raw)
         except Exception:
-            logger.warning("Phone normalization failed", extra={"phone_raw": phone_raw})
+            logger.exception("Phone normalization failed for raw input")
             phone = ""
 
         if not phone:
@@ -218,7 +217,7 @@ class CustomerLookupView(View):
         try:
             phone = normalize_phone(phone_raw)
         except Exception:
-            logger.warning("Phone normalization failed in lookup", extra={"phone_raw": phone_raw})
+            logger.exception("Phone normalization failed in lookup for raw input")
             return JsonResponse({"found": False})
 
         # Check if authenticated for this phone
@@ -283,7 +282,7 @@ class RequestCodeView(View):
         try:
             phone = normalize_phone(phone_raw)
         except Exception:
-            logger.warning("Phone normalization failed", extra={"phone_raw": phone_raw})
+            logger.exception("Phone normalization failed in RequestCodeView for raw input")
             return render(request, "storefront/partials/auth_error.html", {
                 "error_message": "Telefone inválido.",
             })
@@ -342,7 +341,7 @@ class VerifyCodeView(View):
         try:
             phone = normalize_phone(phone_raw)
         except Exception:
-            logger.warning("Phone normalization failed", extra={"phone_raw": phone_raw})
+            logger.exception("Phone normalization failed in VerifyCodeView for raw input")
             return render(request, "storefront/partials/auth_error.html", {
                 "error_message": "Telefone inválido.",
             })
@@ -438,7 +437,7 @@ class DeviceCheckLoginView(View):
         try:
             phone = normalize_phone(phone_raw)
         except Exception:
-            logger.warning("Phone normalization failed in device check", extra={"phone_raw": phone_raw})
+            logger.exception("Phone normalization failed in device check for raw input")
             return JsonResponse({"trusted": False})
 
         from shopman.guestman.services import customer as customer_service
@@ -452,7 +451,6 @@ class DeviceCheckLoginView(View):
         if DeviceTrustService.check_device_trust(request, customer.uuid):
             # Django login
             from django.contrib.auth import login
-
             from shopman.doorman.protocols.customer import AuthCustomerInfo
             from shopman.doorman.services._user_bridge import get_or_create_user_for_customer
 

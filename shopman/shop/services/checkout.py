@@ -9,10 +9,11 @@ from __future__ import annotations
 import logging
 from dataclasses import asdict
 
-from shopman.shop.config import ChannelConfig
-from shopman.shop.models import Channel
 from shopman.orderman.services.commit import CommitService
 from shopman.orderman.services.modify import ModifyService
+
+from shopman.shop.config import ChannelConfig
+from shopman.shop.models import Channel
 
 logger = logging.getLogger(__name__)
 

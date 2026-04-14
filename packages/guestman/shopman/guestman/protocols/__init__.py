@@ -1,16 +1,16 @@
 """Guestman protocols."""
 
 from shopman.guestman.protocols.customer import (
-    CustomerBackend,
     AddressInfo,
-    CustomerInfo,
+    CustomerBackend,
     CustomerContext,
+    CustomerInfo,
     CustomerValidationResult,
 )
 from shopman.guestman.protocols.orders import (
     OrderHistoryBackend,
-    OrderSummary,
     OrderStats,
+    OrderSummary,
 )
 
 __all__ = [

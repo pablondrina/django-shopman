@@ -8,15 +8,13 @@ Covers:
 - URL routing via router
 """
 
-import pytest
 from decimal import Decimal
 
+import pytest
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient
-
-from shopman.craftsman import craft, CraftError, StaleRevision
-from shopman.craftsman.models import Recipe, RecipeItem, WorkOrder
-
+from shopman.craftsman import craft
+from shopman.craftsman.models import Recipe, RecipeItem
 
 # ── Fixtures ──────────────────────────────────────────────────
 
@@ -424,6 +422,7 @@ class TestQueryEndpoints:
     def test_suggest_accepts_season_and_multiplier(self, api_client, recipe, settings, monkeypatch):
         from datetime import date
         from unittest.mock import MagicMock
+
         from shopman.craftsman.protocols.demand import DailyDemand
 
         settings.CRAFTSMAN = {"DEMAND_BACKEND": "shopman.craftsman.adapters.noop.NoopDemandBackend"}

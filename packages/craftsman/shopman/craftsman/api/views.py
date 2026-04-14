@@ -13,7 +13,6 @@ from rest_framework.decorators import action
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-
 from shopman.craftsman.exceptions import CraftError, StaleRevision
 from shopman.craftsman.models import Recipe, WorkOrder
 from shopman.craftsman.service import craft

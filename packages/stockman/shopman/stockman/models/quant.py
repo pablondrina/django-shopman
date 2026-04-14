@@ -10,8 +10,6 @@ from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
 from django.utils.translation import gettext_lazy as _
 
-from shopman.stockman.models.enums import HoldStatus
-
 
 class QuantManager(models.Manager):
     """Manager with helper methods for Quant queries."""

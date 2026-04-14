@@ -9,7 +9,6 @@ from __future__ import annotations
 from django.contrib.admin.views.decorators import staff_member_required
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
-
 from shopman.orderman.models import Order
 
 

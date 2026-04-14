@@ -35,9 +35,9 @@ import logging
 from datetime import timedelta
 
 from django.utils import timezone
+from shopman.orderman.models import Directive, Order
 
 from shopman.shop.config import ChannelConfig
-from shopman.orderman.models import Directive, Order
 from shopman.shop.services import (
     availability,
     customer,

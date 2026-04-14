@@ -3,7 +3,6 @@
 import logging
 
 from django.utils import timezone
-
 from shopman.guestman.contrib.consent.models import (
     CommunicationConsent,
     ConsentStatus,

@@ -17,10 +17,11 @@ logger = logging.getLogger(__name__)
 
 from shopman.guestman.contrib.loyalty import LoyaltyService
 from shopman.orderman.ids import generate_idempotency_key
+from shopman.utils.phone import normalize_phone
+
 from shopman.shop.models import Channel
 from shopman.shop.services.checkout_defaults import CheckoutDefaultsService
 from shopman.shop.services.order_helpers import parse_commitment_date
-from shopman.utils.phone import normalize_phone
 
 from ..cart import CHANNEL_REF, CartService
 from ..constants import get_default_ddd
@@ -39,6 +40,7 @@ class CheckoutView(View):
     def _checkout_page_context(self, request: HttpRequest, cart: dict) -> dict:
         """Contexto comum GET e re-render com erros (WP-S3: paridade total)."""
         import json as _json
+
         from shopman.shop.models import Shop
         shop = Shop.load()
         shop_defaults = (shop.defaults or {}) if shop else {}
@@ -61,8 +63,8 @@ class CheckoutView(View):
 
             cart_skus = [item["sku"] for item in cart.get("items", []) if item.get("sku")]
             ctx.update(annotate_slots_for_checkout(cart_skus))
-        except Exception as e:
-            logger.warning("pickup_slots_failed: %s", e, exc_info=True)
+        except Exception:
+            logger.exception("pickup_slots_failed")
         customer_info = getattr(request, "customer", None)
         ctx["customer_info"] = customer_info
         ctx["is_verified"] = customer_info is not None
@@ -94,8 +96,8 @@ class CheckoutView(View):
                 )
                 if checkout_defaults:
                     ctx["checkout_defaults"] = checkout_defaults
-            except Exception as e:
-                logger.warning("checkout_defaults_failed: %s", e, exc_info=True)
+            except Exception:
+                logger.exception("checkout_defaults_failed")
 
             # Loyalty balance for points redemption
             try:
@@ -104,8 +106,8 @@ class CheckoutView(View):
                 balance = LoyaltyService.get_balance(customer_obj.ref)
                 ctx["loyalty_balance"] = balance
                 ctx["loyalty_value_display"] = f"R$ {format_money(balance)}" if balance > 0 else None
-            except Exception as e:
-                logger.warning("loyalty_balance_failed: %s", e, exc_info=True)
+            except Exception:
+                logger.exception("loyalty_balance_failed")
                 ctx["loyalty_balance"] = 0
                 ctx["loyalty_value_display"] = None
 
@@ -160,8 +162,8 @@ class CheckoutView(View):
                     errors["phone"] = (
                         "Telefone inválido. Informe com DDD, ex: (43) 99999-9999"
                     )
-            except (ValueError, TypeError) as e:
-                logger.warning("phone_normalization_failed: %s", e, exc_info=True)
+            except (ValueError, TypeError):
+                logger.exception("phone_normalization_failed in checkout")
                 errors["phone"] = (
                     "Telefone inválido. Informe com DDD, ex: (43) 99999-9999"
                 )
@@ -370,8 +372,8 @@ class CheckoutView(View):
                             balance = LoyaltyService.get_balance(customer_obj.ref)
                     if balance > 0:
                         checkout_data["loyalty"] = {"redeem_points_q": balance}
-                except Exception as e:
-                    logger.warning("loyalty_redeem_failed: %s", e, exc_info=True)
+                except Exception:
+                    logger.exception("loyalty_redeem_failed")
 
         idempotency_key = generate_idempotency_key()
         try:
@@ -412,7 +414,6 @@ class CheckoutView(View):
 
         # ── Ensure customer exists ──
         from django.db import IntegrityError
-
         from shopman.guestman.services import customer as customer_service
 
         customer_obj = customer_service.get_by_phone(phone)
@@ -452,8 +453,8 @@ class CheckoutView(View):
                     data=defaults_data,
                     source=f"order:{order_ref}",
                 )
-            except Exception as e:
-                logger.warning("save_checkout_defaults_failed order=%s: %s", order_ref, e, exc_info=True)
+            except Exception:
+                logger.exception("save_checkout_defaults_failed order=%s", order_ref)
 
         # Clear cart
         request.session.pop("cart_session_key", None)
@@ -470,7 +471,7 @@ class CheckoutView(View):
                     messages.warning(request, "Pagamento será processado em breve. Acompanhe seu pedido.")
                     return redirect("storefront:order_tracking", ref=order_ref)
             except Exception:
-                pass
+                logger.exception("payment_check_failed for order %s", order_ref)
             return redirect("storefront:order_payment", ref=order_ref)
         return redirect("storefront:order_tracking", ref=order_ref)
 
@@ -591,7 +592,8 @@ class CheckoutView(View):
         fulfillment_type: str,
         delivery_date: str,
     ) -> dict:
-        from datetime import date as date_type, time as time_type
+        from datetime import date as date_type
+        from datetime import time as time_type
 
         from shopman.shop.services.pickup_slots import _find_slot_by_ref, get_slots
 

@@ -77,8 +77,9 @@ class ShopmanConfig(AppConfig):
         This replaces the old channels.hooks.on_order_lifecycle signal handler.
         The old handler is NOT connected — channels app is not in INSTALLED_APPS.
         """
-        from shopman.shop.lifecycle import dispatch
         from shopman.orderman.signals import order_changed
+
+        from shopman.shop.lifecycle import dispatch
 
         def on_order_changed(sender, order, event_type, actor, **kwargs):
             if event_type == "created":
@@ -96,6 +97,7 @@ class ShopmanConfig(AppConfig):
     def _connect_production_flow_signal(self):
         """Connect Core signal production_changed → production_lifecycle.dispatch_production()."""
         from shopman.craftsman.signals import production_changed
+
         from shopman.shop.production_lifecycle import on_production_changed_receiver
 
         production_changed.connect(

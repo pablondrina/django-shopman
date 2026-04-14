@@ -13,10 +13,10 @@ from __future__ import annotations
 import logging
 
 from django.conf import settings
-
-from shopman.shop.notifications import notify
 from shopman.orderman.models import Directive
+
 from shopman.shop.directives import NOTIFICATION_SEND
+from shopman.shop.notifications import notify
 from shopman.shop.services import notification as notification_svc
 
 logger = logging.getLogger(__name__)
@@ -40,6 +40,7 @@ class NotificationSendHandler:
     def _handle_order_notification(self, message: Directive) -> None:
         """Handle order-related notifications — delega ao service."""
         from shopman.orderman.models import Order
+
         from shopman.shop.services import payment as payment_svc
 
         payload = message.payload

@@ -3,14 +3,13 @@ Testes abrangentes para Order lifecycle, status transitions e timestamps.
 Cobre cenários realistas de iFood, E-commerce e PDV.
 """
 from __future__ import annotations
-import types
 
+import types
 from datetime import timedelta
 from decimal import Decimal
 
 from django.test import TestCase
 from django.utils import timezone
-
 from shopman.orderman.exceptions import InvalidTransition
 from shopman.orderman.models import Order, OrderEvent, OrderItem, Session
 

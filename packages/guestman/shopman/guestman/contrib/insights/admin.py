@@ -1,7 +1,6 @@
 """Admin for CustomerInsight."""
 
 from django.contrib import admin
-
 from shopman.guestman.contrib.insights.models import CustomerInsight
 
 

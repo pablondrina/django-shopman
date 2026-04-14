@@ -14,11 +14,8 @@ from unittest.mock import patch
 import pytest
 from django.apps import apps
 from django.utils import timezone
-
 from shopman.stockman import stock
-from shopman.stockman.models import Quant
 from shopman.stockman.models.alert import StockAlert
-
 
 pytestmark = [pytest.mark.django_db(transaction=True)]
 
@@ -30,7 +27,7 @@ pytestmark = [pytest.mark.django_db(transaction=True)]
 def product(db):
     """A plain SKU reference — NoopSkuValidator accepts any SKU."""
     from types import SimpleNamespace
-    return SimpleNamespace(sku="PAO-ALERT-TEST", name="Pao Alert Test", shelflife=None)
+    return SimpleNamespace(sku="PAO-ALERT-TEST", name="Pao Alert Test", shelf_life_days=None)
 
 
 @pytest.fixture

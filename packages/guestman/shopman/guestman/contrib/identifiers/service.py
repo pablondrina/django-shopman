@@ -1,7 +1,6 @@
 """Identifier service for lookup and management."""
 
 from django.db import transaction
-
 from shopman.guestman.contrib.identifiers.models import CustomerIdentifier, IdentifierType
 from shopman.guestman.models import Customer
 

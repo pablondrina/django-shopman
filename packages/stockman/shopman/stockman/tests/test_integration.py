@@ -5,15 +5,13 @@ Tests the complete stock flow using Stockman service API
 with Offerman products: receive, hold, confirm, fulfill, release.
 """
 
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
 from django.utils import timezone
-
-from shopman.stockman import stock, StockError
-from shopman.stockman.models import Position, Quant, Hold, HoldStatus
-
+from shopman.stockman import StockError, stock
+from shopman.stockman.models import Hold, HoldStatus, Quant
 
 pytestmark = pytest.mark.django_db
 

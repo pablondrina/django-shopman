@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from django.contrib.auth.models import User
 from django.test import TestCase
-
 from shopman.orderman.models import Order
+
 from shopman.shop.models import Channel
 
 

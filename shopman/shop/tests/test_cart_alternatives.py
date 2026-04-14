@@ -12,10 +12,9 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from django.contrib.auth.models import User
 from django.test import TestCase
-
 from shopman.offerman.models import Product
+
 from shopman.shop.models import Channel
 
 

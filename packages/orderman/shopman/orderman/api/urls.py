@@ -4,8 +4,8 @@ from django.http import JsonResponse
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .views import ChannelViewSet, DirectiveViewSet, OrderViewSet, SessionViewSet
 from .polling import order_stream_view
+from .views import ChannelViewSet, DirectiveViewSet, OrderViewSet, SessionViewSet
 
 
 def health_check(request):

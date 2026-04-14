@@ -19,7 +19,6 @@ import importlib
 import logging
 
 from django.conf import settings
-
 from shopman.orderman import registry
 
 logger = logging.getLogger(__name__)
@@ -202,13 +201,15 @@ def _register_validators() -> None:
 
 
 def _register_stock_signals() -> None:
-    from shopman.shop.handlers._stock_receivers import on_holds_materialized
     from shopman.stockman.signals import holds_materialized
+
+    from shopman.shop.handlers._stock_receivers import on_holds_materialized
     holds_materialized.connect(on_holds_materialized, weak=False)
     logger.info("shopman.handlers: connected holds_materialized receiver.")
 
     try:
         from shopman.craftsman.signals import production_changed
+
         from shopman.shop.handlers._stock_receivers import on_production_voided
         production_changed.connect(on_production_voided, weak=False)
 

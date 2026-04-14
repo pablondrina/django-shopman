@@ -5,7 +5,6 @@ Tests for shopman.orderman.exceptions module.
 from __future__ import annotations
 
 from django.test import TestCase
-
 from shopman.orderman.exceptions import (
     CommitError,
     DirectiveError,

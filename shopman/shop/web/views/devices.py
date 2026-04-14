@@ -38,8 +38,8 @@ def _geolocate_ip(ip: str) -> str:
             location = f"{data['city']}, {data.get('regionName', '')}"
             cache.set(cache_key, location, 86400)
             return location
-    except Exception as e:
-        logger.warning("geolocate_ip_failed ip=%s: %s", ip, e, exc_info=True)
+    except Exception:
+        logger.exception("geolocate_ip_failed ip=%s", ip)
     cache.set(cache_key, "", 3600)  # Cache failures for 1h
     return ""
 

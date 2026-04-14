@@ -16,12 +16,11 @@ from unittest.mock import patch
 import pytest
 from django.test import override_settings
 
-from shopman.guestman.models import ContactPoint, Customer
 from shopman.doorman.adapter import DefaultAuthAdapter
 from shopman.doorman.conf import get_adapter, reset_adapter
 from shopman.doorman.protocols.customer import AuthCustomerInfo
 from shopman.doorman.services.access_link import AccessLinkService
-
+from shopman.guestman.models import ContactPoint, Customer
 
 # ===========================================
 # Default adapter delegates correctly

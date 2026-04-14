@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from django.test import RequestFactory, TestCase
-
 from shopman.orderman.context_processors import pending_directives
 from shopman.orderman.models import Directive
 

@@ -19,7 +19,6 @@ import pytest
 from django.test import RequestFactory, override_settings
 from django.utils import timezone
 
-from shopman.doorman.conf import get_doorman_settings
 from shopman.doorman.exceptions import GateError
 from shopman.doorman.gates import Gates
 from shopman.doorman.models import AccessLink, VerificationCode
@@ -30,7 +29,6 @@ from shopman.doorman.utils import safe_redirect_url
 from shopman.doorman.views.access_link import AccessLinkCreateView, AccessLinkExchangeView
 
 from .conftest import TEST_API_KEY
-
 
 # ===================================================
 # H01: OTP Generation Security
@@ -590,10 +588,8 @@ class TestAccessLinkUtilities:
 
     def test_integrity_error_retry(self, customer):
         """_get_or_create_user handles concurrent creation via IntegrityError."""
-        from unittest.mock import patch
 
         from django.contrib.auth import get_user_model
-        from django.db import IntegrityError
 
         from shopman.doorman.models import CustomerUser
 

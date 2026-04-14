@@ -16,20 +16,6 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from unfold.contrib.filters.admin.datetime_filters import RangeDateFilter
-from unfold.contrib.filters.admin.dropdown_filters import ChoicesDropdownFilter
-from unfold.decorators import action, display
-from unfold.enums import ActionVariant
-from unfold.sections import TableSection
-
-from shopman.utils.contrib.admin_unfold.badges import unfold_badge, unfold_badge_numeric
-from shopman.utils.contrib.admin_unfold.base import (
-    BaseModelAdmin,
-    BaseStackedInline,
-    BaseTabularInline,
-)
-from shopman.utils.formatting import format_quantity
-
 from shopman.craftsman.models import (
     Recipe,
     RecipeItem,
@@ -37,6 +23,18 @@ from shopman.craftsman.models import (
     WorkOrderEvent,
     WorkOrderItem,
 )
+from shopman.utils.contrib.admin_unfold.badges import unfold_badge, unfold_badge_numeric
+from shopman.utils.contrib.admin_unfold.base import (
+    BaseModelAdmin,
+    BaseStackedInline,
+    BaseTabularInline,
+)
+from shopman.utils.formatting import format_quantity
+from unfold.contrib.filters.admin.datetime_filters import RangeDateFilter
+from unfold.contrib.filters.admin.dropdown_filters import ChoicesDropdownFilter
+from unfold.decorators import action, display
+from unfold.enums import ActionVariant
+from unfold.sections import TableSection
 
 logger = logging.getLogger(__name__)
 

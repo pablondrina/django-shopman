@@ -4,12 +4,11 @@ Tests for api/polling module (order polling endpoint).
 
 from __future__ import annotations
 
-import types
 import json
+import types
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase, RequestFactory
-
+from django.test import RequestFactory, TestCase
 from shopman.orderman.api.polling import order_stream_view
 from shopman.orderman.models import Order
 

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from django.core.management import call_command
 from django.test import TestCase
-
 from shopman.orderman import registry
 from shopman.orderman.models import Directive
 

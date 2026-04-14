@@ -14,16 +14,14 @@ from unittest.mock import patch
 
 import pytest
 from django.core.exceptions import ValidationError
-
 from shopman.offerman.models import (
-    Product,
     Collection,
     CollectionItem,
-    ProductComponent,
     Listing,
     ListingItem,
+    Product,
+    ProductComponent,
 )
-
 
 # ═══════════════════════════════════════════════════════════════════
 # Fixtures
@@ -294,6 +292,7 @@ class TestProductMarginZeroPrice:
     def test_zero_price_with_cost_backend(self, product_zero_price):
         """Product with base_price=0 and CostBackend cost handles gracefully."""
         from unittest.mock import MagicMock
+
         import shopman.offerman.conf as conf
 
         mock_backend = MagicMock()

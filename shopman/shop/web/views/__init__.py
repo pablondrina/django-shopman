@@ -61,17 +61,17 @@ from .kds import (
     KDSTicketDoneView,
     KDSTicketListPartialView,
 )
-from .payment import MockPaymentConfirmView, PaymentStatusView, PaymentView
 from .orders import (
     OperatorOrdersView,
     OrderAdvanceView,
     OrderConfirmView,
     OrderDetailPartialView,
+    OrderListPartialView,
     OrderMarkPaidView,
     OrderNotesView,
     OrderRejectView,
-    OrderListPartialView,
 )
+from .payment import MockPaymentConfirmView, PaymentStatusView, PaymentView
 from .pos import (
     pos_cancel_last,
     pos_cash_close,

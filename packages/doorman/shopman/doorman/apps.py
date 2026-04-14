@@ -14,12 +14,11 @@ class DoormanConfig(AppConfig):
 
     def ready(self):
         # Import signals to register handlers
-        from . import signals  # noqa: F401
-
         # Enforce API key in production
         from django.conf import settings
         from django.core.exceptions import ImproperlyConfigured
 
+        from . import signals  # noqa: F401
         from .conf import get_doorman_settings
 
         if not settings.DEBUG:

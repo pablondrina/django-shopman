@@ -7,9 +7,9 @@ from unittest.mock import patch
 
 import pytest
 from django.utils import timezone
-
 from shopman.craftsman.models import Recipe
 from shopman.craftsman.service import craft
+
 from shopman.shop.production_lifecycle import (
     StandardFlow,
     production_flow_name_for,

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from rest_framework import serializers
-
-from shopman.offerman.models import Collection, CollectionItem, Listing, ListingItem, Product, ProductComponent
+from shopman.offerman.models import Collection, Listing, ListingItem, Product, ProductComponent
 
 
 class ProductSerializer(serializers.ModelSerializer):

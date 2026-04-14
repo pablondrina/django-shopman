@@ -23,10 +23,8 @@ import pytest
 from django.conf import settings
 from django.db import connection
 from django.test import TransactionTestCase
-
 from shopman.payman.exceptions import PaymentError
 from shopman.payman.models import PaymentIntent
-
 
 requires_postgres = pytest.mark.skipif(
     "sqlite" in settings.DATABASES["default"]["ENGINE"],

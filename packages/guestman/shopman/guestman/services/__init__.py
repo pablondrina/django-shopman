@@ -6,8 +6,6 @@ CORE services are exported here. Contrib services are in their respective module
 - shopman.guestman.contrib.identifiers: IdentifierService
 """
 
-from shopman.guestman.services import customer
-from shopman.guestman.services import address
-from shopman.guestman.services import identity
+from shopman.guestman.services import address, customer, identity
 
 __all__ = ["customer", "address", "identity"]

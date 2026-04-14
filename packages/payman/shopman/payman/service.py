@@ -49,7 +49,6 @@ from typing import TYPE_CHECKING
 
 from django.db import models, transaction
 from django.utils import timezone
-
 from shopman.payman.exceptions import PaymentError
 from shopman.payman.models.intent import PaymentIntent
 from shopman.payman.models.transaction import PaymentTransaction
@@ -480,12 +479,12 @@ class PaymentService:
         """
         try:
             return PaymentIntent.objects.get(ref=ref)
-        except PaymentIntent.DoesNotExist:
+        except PaymentIntent.DoesNotExist as e:
             raise PaymentError(
                 code="intent_not_found",
                 message=f"Intent '{ref}' não encontrado",
                 context={"ref": ref},
-            )
+            ) from e
 
     @classmethod
     def get_by_order(cls, order_ref: str) -> QuerySet[PaymentIntent]:
@@ -532,12 +531,12 @@ class PaymentService:
         """Get intent with select_for_update."""
         try:
             return PaymentIntent.objects.select_for_update().get(ref=ref)
-        except PaymentIntent.DoesNotExist:
+        except PaymentIntent.DoesNotExist as e:
             raise PaymentError(
                 code="intent_not_found",
                 message=f"Intent '{ref}' não encontrado",
                 context={"ref": ref},
-            )
+            ) from e
 
     @classmethod
     def _require_status(cls, intent: PaymentIntent, expected: str, operation: str) -> None:

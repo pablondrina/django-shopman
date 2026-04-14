@@ -6,9 +6,10 @@ from __future__ import annotations
 
 import logging
 
+from shopman.orderman.models import Directive
+
 from shopman.shop.adapters import get_adapter
 from shopman.shop.directives import LOYALTY_EARN, LOYALTY_REDEEM
-from shopman.orderman.models import Directive
 
 logger = logging.getLogger(__name__)
 

@@ -2,12 +2,12 @@
 Shelflife validation — isolated, testable, reusable.
 
 Determines whether a Quant is still valid for a given target date,
-based on the product's shelflife (days the product remains usable).
+based on the product's shelf_life_days (days the product remains usable).
 
 Examples:
-    - Croissant (shelflife=0): only valid on production day
-    - Bolo (shelflife=3): valid for 3 days after production
-    - Wine (shelflife=None): no expiration
+    - Croissant (shelf_life_days=0): only valid on production day
+    - Bolo (shelf_life_days=3): valid for 3 days after production
+    - Wine (shelf_life_days=None): no expiration
 """
 
 from datetime import date, timedelta
@@ -21,13 +21,13 @@ def is_valid_for_date(quant, product, target_date: date) -> bool:
 
     Args:
         quant: Quant instance (needs .target_date, .created_at)
-        product: Product instance (needs .shelflife attribute or None)
+        product: Product instance (needs .shelf_life_days attribute or None)
         target_date: The date we want to use/sell the product
 
     Returns:
         True if the quant is still valid for the target date
     """
-    shelflife = getattr(product, 'shelflife', None)
+    shelflife = getattr(product, 'shelf_life_days', None)
 
     if shelflife is None:
         # No expiration — physical stock or planned up to target
@@ -54,13 +54,13 @@ def filter_valid_quants(quants, product, target_date: date):
 
     Args:
         quants: Quant QuerySet
-        product: Product instance (needs .shelflife attribute or None)
+        product: Product instance (needs .shelf_life_days attribute or None)
         target_date: The date we want to check validity for
 
     Returns:
         Filtered QuerySet
     """
-    shelflife = getattr(product, 'shelflife', None)
+    shelflife = getattr(product, 'shelf_life_days', None)
 
     if shelflife is not None:
         min_production = target_date - timedelta(days=shelflife)

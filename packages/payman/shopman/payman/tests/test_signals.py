@@ -4,7 +4,6 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 from django.test import TestCase
-
 from shopman.payman.models import PaymentIntent, PaymentTransaction
 from shopman.payman.service import PaymentService
 from shopman.payman.signals import (

@@ -1,11 +1,10 @@
 """Testes dos modelos do Orderman kernel."""
 
+import types
 from decimal import Decimal
 
-import types
 import pytest
 from django.test import TestCase
-
 from shopman.orderman.exceptions import InvalidTransition
 from shopman.orderman.models import (
     Directive,
@@ -16,8 +15,6 @@ from shopman.orderman.models import (
     Session,
     SessionItem,
 )
-
-
 
 
 @pytest.mark.django_db

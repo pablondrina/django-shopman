@@ -11,6 +11,7 @@ from datetime import date
 
 from shopman.orderman.models import Directive
 from shopman.orderman.protocols import AccountingBackend
+
 from shopman.shop.directives import ACCOUNTING_CREATE_PAYABLE
 
 logger = logging.getLogger(__name__)

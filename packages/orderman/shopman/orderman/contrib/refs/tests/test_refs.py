@@ -7,32 +7,30 @@ from datetime import date
 
 import pytest
 from django.test import TestCase
-
+from shopman.orderman.contrib.refs.exceptions import (
+    RefConflict,
+    RefScopeInvalid,
+    RefTypeNotFound,
+)
 from shopman.orderman.contrib.refs.models import Ref, RefSequence
 from shopman.orderman.contrib.refs.registry import (
-    register_ref_type,
-    get_ref_type,
     clear_ref_types,
-)
-from shopman.orderman.contrib.refs.types import RefType, POS_TABLE, POS_TAB
-from shopman.orderman.contrib.refs.services import (
-    attach_ref,
-    resolve_ref,
-    deactivate_refs,
-    on_session_committed,
+    get_ref_type,
+    register_ref_type,
 )
 from shopman.orderman.contrib.refs.sequences import (
-    generate_sequence_value,
     attach_sequence_ref,
-    reset_sequence,
+    generate_sequence_value,
     get_current_sequence_value,
+    reset_sequence,
 )
-from shopman.orderman.contrib.refs.exceptions import (
-    RefTypeNotFound,
-    RefScopeInvalid,
-    RefConflict,
+from shopman.orderman.contrib.refs.services import (
+    attach_ref,
+    deactivate_refs,
+    on_session_committed,
+    resolve_ref,
 )
-
+from shopman.orderman.contrib.refs.types import POS_TAB, POS_TABLE, RefType
 
 # RefType de teste para sequences e copy_to_order
 TEST_TICKET = RefType(

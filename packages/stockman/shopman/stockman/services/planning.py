@@ -12,7 +12,6 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.utils import timezone
-
 from shopman.stockman.conf import stockman_settings
 from shopman.stockman.exceptions import StockError
 from shopman.stockman.models.enums import HoldStatus

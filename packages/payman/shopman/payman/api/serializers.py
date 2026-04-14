@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from rest_framework import serializers
-
 from shopman.payman.models.intent import PaymentIntent
 from shopman.payman.models.transaction import PaymentTransaction
 

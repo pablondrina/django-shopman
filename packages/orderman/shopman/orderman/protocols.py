@@ -17,19 +17,8 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Protocol, runtime_checkable
 
-
-# =============================================================================
-# Payment Protocols — re-exported from shopman.payman.protocols
-# =============================================================================
-
-from shopman.payman.protocols import (  # noqa: F401
-    CaptureResult,
-    GatewayIntent,
-    PaymentBackend,
-    PaymentStatus,
-    RefundResult,
-)
-
+# Payment Protocols vivem em shopman.payman.protocols — importar de lá diretamente.
+# orderman não re-exporta payman para manter standalone instalável.
 
 # =============================================================================
 # Fiscal Protocols

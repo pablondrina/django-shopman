@@ -13,25 +13,22 @@ Covers:
 """
 
 import logging
-import pytest
-from datetime import date, time
+from datetime import date
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
+import pytest
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from rest_framework.test import APIClient
-
-from shopman.craftsman import craft, CraftError, StaleRevision
+from shopman.craftsman import StaleRevision, craft
 from shopman.craftsman.models import (
     Recipe,
     RecipeItem,
     WorkOrder,
-    WorkOrderEvent,
     WorkOrderItem,
 )
-
 
 # ── Fixtures ──────────────────────────────────────────────────
 
@@ -144,7 +141,7 @@ class TestB2ReceiveLoopFix:
     def test_receive_processes_multiple_items(self):
         """receive() should process all MaterialProduced items."""
         from shopman.craftsman.adapters.stock import StockingBackend
-        from shopman.craftsman.protocols.inventory import MaterialProduced, ReceiveResult
+        from shopman.craftsman.protocols.inventory import MaterialProduced
 
         backend = StockingBackend()
 
@@ -268,7 +265,7 @@ class TestBOMSnapshot:
 
         # Modify recipe AFTER plan (e.g., changing farinha qty)
         farinha_item = RecipeItem.objects.get(recipe=recipe_with_items, input_ref="farinha")
-        farinha_item.quantity = Decimal("10")  # was 5
+        farinha_item.quantity = Decimal("10")
         farinha_item.save()
 
         craft.finish(wo, finished=93, expected_rev=0)

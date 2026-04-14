@@ -9,7 +9,6 @@ import string
 
 from django.utils import timezone
 
-
 # Caracteres seguros para IDs (sem ambíguos: 0/O, 1/l/I)
 _SAFE_CHARS = string.ascii_uppercase.replace("O", "").replace("I", "") + string.digits.replace("0", "").replace("1", "")
 

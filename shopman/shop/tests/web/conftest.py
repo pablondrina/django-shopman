@@ -6,12 +6,11 @@ from decimal import Decimal
 
 import pytest
 from django.core.cache import cache
-
 from shopman.guestman.models import Customer, CustomerAddress
-from shopman.shop.models import Shop
 from shopman.offerman.models import Collection, CollectionItem, Listing, ListingItem, Product
 from shopman.orderman.models import Order, OrderItem
-from shopman.shop.models import Channel
+
+from shopman.shop.models import Channel, Shop
 
 
 @pytest.fixture(autouse=True)

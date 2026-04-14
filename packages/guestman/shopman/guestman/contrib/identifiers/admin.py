@@ -1,7 +1,6 @@
 """Admin for CustomerIdentifier."""
 
 from django.contrib import admin
-
 from shopman.guestman.contrib.identifiers.models import CustomerIdentifier
 
 

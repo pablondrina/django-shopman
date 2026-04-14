@@ -39,7 +39,7 @@ class Command(BaseCommand):
 
             from django.utils import timezone
 
-            from shopman.doorman.models import AccessLink, VerificationCode, TrustedDevice
+            from shopman.doorman.models import AccessLink, TrustedDevice, VerificationCode
 
             cutoff = timezone.now() - timedelta(days=days)
             tokens_count = AccessLink.objects.filter(expires_at__lt=cutoff).count()

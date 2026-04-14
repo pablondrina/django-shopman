@@ -97,7 +97,7 @@ class CraftQueries:
         Returns:
             list[Need] — aggregated material needs.
         """
-        from shopman.craftsman.models import Recipe, WorkOrder
+        from shopman.craftsman.models import WorkOrder
 
         orders = WorkOrder.objects.filter(
             status__in=[WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED],
@@ -474,8 +474,8 @@ def _estimate_demand(dd):
     if dd.soldout_at is None:
         return dd.sold
 
-    from datetime import datetime, time
     from datetime import date as date_type
+    from datetime import datetime, time
 
     # Standard bakery hours
     open_time = time(6, 0)

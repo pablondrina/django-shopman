@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import inspect
 from importlib import import_module
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 # ── Contract definitions ──
 

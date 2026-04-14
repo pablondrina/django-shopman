@@ -18,10 +18,10 @@ from django.utils import timezone
 
 from ..conf import doorman_settings, get_adapter, get_doorman_settings
 from ..error_codes import ErrorCode
-from ..protocols.customer import AuthCustomerInfo
 from ..exceptions import GateError
 from ..gates import Gates
 from ..models import AccessLink, CustomerUser
+from ..protocols.customer import AuthCustomerInfo
 from ..signals import access_link_created, customer_authenticated
 from ._user_bridge import get_or_create_user_for_customer
 
@@ -160,7 +160,7 @@ class AccessLinkService:
     def exchange(
         cls,
         token_str: str,
-        request: "HttpRequest",
+        request: HttpRequest,
         required_audience: str | None = None,
         preserve_session_keys: list[str] | None = None,
     ) -> AuthResult:
@@ -275,7 +275,7 @@ class AccessLinkService:
         cls,
         email: str,
         ip_address: str | None = None,
-        sender: "MessageSenderProtocol | None" = None,
+        sender: MessageSenderProtocol | None = None,
     ) -> AccessLinkEmailResult:
         """
         Send an access link to the given email address.
@@ -387,7 +387,7 @@ class AccessLinkService:
         email: str,
         url: str,
         ttl_minutes: int,
-        sender: "MessageSenderProtocol | None" = None,
+        sender: MessageSenderProtocol | None = None,
     ) -> bool:
         """Send the access link email using Django templates."""
         from django.core.mail import EmailMultiAlternatives

@@ -12,8 +12,8 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.utils import timezone
-
 from shopman.orderman.models import Directive, Order
+
 from shopman.shop.directives import RETURN_PROCESS
 
 logger = logging.getLogger(__name__)

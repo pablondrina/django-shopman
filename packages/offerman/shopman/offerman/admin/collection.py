@@ -1,7 +1,6 @@
 """Collection admin."""
 
 from django.contrib import admin
-
 from shopman.offerman.models import Collection, CollectionItem
 
 

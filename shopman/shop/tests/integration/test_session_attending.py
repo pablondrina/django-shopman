@@ -13,6 +13,7 @@ class TestOrderingCustomersIntegration(TestCase):
 
     def setUp(self):
         from shopman.guestman.models import Customer, CustomerGroup
+
         from shopman.shop.models import Channel
 
         # Create customer group

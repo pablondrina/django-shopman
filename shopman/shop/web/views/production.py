@@ -11,7 +11,6 @@ from django.contrib import messages
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
-
 from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe, WorkOrder
 from shopman.craftsman.services.execution import CraftExecution

@@ -6,12 +6,11 @@ até a finalização do order com transições de status.
 """
 
 from __future__ import annotations
-import types
 
+import types
 from decimal import Decimal
 
 from django.test import TestCase
-
 from shopman.orderman.exceptions import CommitError
 from shopman.orderman.ids import generate_idempotency_key, generate_session_key
 from shopman.orderman.models import Order, Session

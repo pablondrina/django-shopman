@@ -14,7 +14,6 @@ from decimal import Decimal
 from django.db.models import Sum
 from django.db.models.functions import Coalesce, TruncDate
 from django.utils import timezone
-
 from shopman.craftsman.protocols.demand import DailyDemand
 
 logger = logging.getLogger(__name__)

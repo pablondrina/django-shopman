@@ -7,6 +7,17 @@ Defines interfaces for external integrations:
 - DemandProtocol: demand history and committed orders
 """
 
+from shopman.craftsman.protocols.catalog import (
+    CatalogProtocol,
+    ItemInfo,
+    ProductInfo,
+    ProductInfoBackend,
+    SkuValidationResult,
+)
+from shopman.craftsman.protocols.demand import (
+    DailyDemand,
+    DemandProtocol,
+)
 from shopman.craftsman.protocols.inventory import (
     AvailabilityResult,
     ConsumeResult,
@@ -20,17 +31,6 @@ from shopman.craftsman.protocols.inventory import (
     ReceiveResult,
     ReleaseResult,
     ReserveResult,
-)
-from shopman.craftsman.protocols.catalog import (
-    CatalogProtocol,
-    ItemInfo,
-    ProductInfo,
-    ProductInfoBackend,
-    SkuValidationResult,
-)
-from shopman.craftsman.protocols.demand import (
-    DailyDemand,
-    DemandProtocol,
 )
 
 __all__ = [

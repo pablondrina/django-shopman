@@ -7,9 +7,9 @@ from django.contrib import admin
 from django.contrib.auth.models import User
 from django.test import Client, RequestFactory
 from django.urls import reverse
-
 from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe
+
 from shopman.shop.models import (
     DayClosing,
     KDSInstance,
@@ -143,8 +143,9 @@ class TestOperatorAlertAdmin:
 
 class TestOrderAdminExtensions:
     def test_order_has_fulfillment_inline(self, db):
-        from shopman.shop.admin.orders import FulfillmentOrderInline
         from shopman.orderman.models import Order
+
+        from shopman.shop.admin.orders import FulfillmentOrderInline
 
         if Order not in admin.site._registry:
             pytest.skip("Order not registered in admin")
@@ -180,8 +181,9 @@ class TestProductAdminExtension:
 
 class TestBatchAdminExtension:
     def test_batch_has_supplier_filter(self, db):
-        from shopman.shop.admin.orders import SupplierFilter
         from shopman.stockman.models import Batch
+
+        from shopman.shop.admin.orders import SupplierFilter
 
         if Batch not in admin.site._registry:
             pytest.skip("Batch not registered in admin")
@@ -190,8 +192,9 @@ class TestBatchAdminExtension:
         assert SupplierFilter in (batch_admin_cls.list_filter or [])
 
     def test_batch_has_expiry_filter(self, db):
-        from shopman.shop.admin.orders import ExpiryStatusFilter
         from shopman.stockman.models import Batch
+
+        from shopman.shop.admin.orders import ExpiryStatusFilter
 
         if Batch not in admin.site._registry:
             pytest.skip("Batch not registered in admin")

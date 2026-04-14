@@ -12,7 +12,6 @@ setup.py at startup. Callers use notify() to dispatch.
 
 from __future__ import annotations
 
-import importlib
 import logging
 from types import ModuleType
 from typing import Any

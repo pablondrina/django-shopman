@@ -24,11 +24,11 @@ from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 from django.test import TestCase, TransactionTestCase
-
-from shopman.shop.models import Channel
 from shopman.orderman.ids import generate_idempotency_key, generate_session_key
 from shopman.orderman.models import Directive, Order, Session
 from shopman.orderman.services import CommitService
+
+from shopman.shop.models import Channel
 
 # ── Service patch targets ─────────────────────────────────────────────
 

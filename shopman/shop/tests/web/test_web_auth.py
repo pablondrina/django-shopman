@@ -13,9 +13,8 @@ from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.test import Client, override_settings
 from django.utils import timezone
-
-from shopman.doorman.models import AccessLink
 from shopman.doorman import TrustedDevice
+from shopman.doorman.models import AccessLink
 from shopman.guestman.models import Customer
 
 pytestmark = pytest.mark.django_db

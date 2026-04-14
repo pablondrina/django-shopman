@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
-
 import pytest
-
-from shopman.offerman.models import Collection, CollectionItem, Listing, ListingItem, Product
+from shopman.offerman.models import Listing, ListingItem, Product
 
 pytestmark = pytest.mark.django_db
 

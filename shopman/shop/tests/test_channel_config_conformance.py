@@ -7,12 +7,11 @@ e verifica que dispatch() chama (ou não) o serviço esperado conforme a config.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from shopman.shop.config import ChannelConfig
-
 
 # ── fixture helpers ──
 
@@ -91,6 +90,7 @@ class TestConfirmationConformance:
     def test_optimistic_creates_confirmation_timeout_directive(self, db):
         """confirmation.mode='optimistic' → Directive com topic=confirmation.timeout."""
         from shopman.orderman.models import Directive
+
         from shopman.shop.lifecycle import dispatch
 
         order = _make_order()
@@ -248,6 +248,7 @@ class TestStockConformance:
     def test_check_on_commit_true_checks_each_item(self):
         """stock.check_on_commit=True → availability.decide called for each snapshot item."""
         from decimal import Decimal
+
         from shopman.shop.lifecycle import dispatch
 
         order = _make_order(

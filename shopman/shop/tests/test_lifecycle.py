@@ -11,11 +11,11 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
+from shopman.orderman.exceptions import InvalidTransition
+from shopman.orderman.models import Directive, Order
 
 from shopman.shop.config import ChannelConfig
 from shopman.shop.lifecycle import dispatch, ensure_confirmable
-from shopman.orderman.models import Directive, Order
-from shopman.orderman.exceptions import InvalidTransition
 
 # ── helpers ──
 

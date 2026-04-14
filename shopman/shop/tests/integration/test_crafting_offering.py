@@ -14,7 +14,6 @@ Covers:
 from decimal import Decimal
 
 import pytest
-
 from shopman.craftsman.models import Recipe, RecipeItem, WorkOrder
 from shopman.offerman.models import Product, ProductComponent
 
