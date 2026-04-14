@@ -9,18 +9,18 @@ Django Shopman é composto por **8 apps core** independentes e um **orquestrador
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │                         PROJETO DJANGO                               │
-│                     (framework/project/)                              │
+│                     (config/)                              │
 │                   settings.py · urls.py · wsgi                       │
 ├──────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐    │
-│  │              SHOP (framework/shopman/)                       │    │
+│  │              SHOP (shopman/shop/)                       │    │
 │  │         Shop (singleton), Promotion, Coupon                  │    │
 │  │         Configuração global + defaults de canal              │    │
 │  └──────────────────────────────────────────────────────────────┘    │
 │                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐    │
-│  │            SHOPMAN — Orquestrador (framework/shopman/)        │    │
+│  │            SHOPMAN — Orquestrador (shopman/shop/)        │    │
 │  │                                                              │    │
 │  │  config.py   presets.py   topics.py   hooks.py   setup.py   │    │
 │  │                                                              │    │
@@ -56,7 +56,7 @@ Django Shopman é composto por **8 apps core** independentes e um **orquestrador
 │  └────────────────────────────────────────────────────────────────┘  │
 │                                                                      │
 ├──────────────────────────────────────────────────────────────────────┤
-│              CANAIS DE VENDA (framework/shopman/web/)                 │
+│              CANAIS DE VENDA (shopman/shop/web/)                 │
 │                    web · api · (futuro: pos)                         │
 └──────────────────────────────────────────────────────────────────────┘
 ```
@@ -74,7 +74,7 @@ Toda comunicacao entre apps usa `typing.Protocol` (PEP 544) com `@runtime_checka
 ### Exemplo: Stock
 
 ```python
-# framework/shopman/protocols.py — consumidor define o contrato
+# shopman/shop/protocols.py — consumidor define o contrato
 @runtime_checkable
 class StockBackend(Protocol):
     def check_availability(self, sku: str, quantity: Decimal, ...) -> AvailabilityResult: ...
@@ -82,7 +82,7 @@ class StockBackend(Protocol):
     def release_hold(self, hold_id: str) -> None: ...
     def fulfill_hold(self, hold_id: str) -> None: ...
 
-# framework/shopman/backends/stock.py — adapter que conecta ao stockman
+# shopman/shop/backends/stock.py — adapter que conecta ao stockman
 class StockingBackend:
     def check_availability(self, sku, quantity, ...):
         # Delega para shopman.stockman.service

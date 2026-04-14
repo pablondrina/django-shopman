@@ -116,7 +116,7 @@ Emitido quando holds planejados são materializados (produção concluída, esto
 | **Sender** | *(evento de domínio)* |
 | **Payload** | `hold_ids` (list[str]), `sku` (str), `target_date` (date), `to_position` (Position) |
 
-**Receiver:** `on_holds_materialized()` em `framework/shopman/handlers/_stock_receivers.py`
+**Receiver:** `on_holds_materialized()` em `shopman/shop/handlers/_stock_receivers.py`
 Registrado por: `ShopmanConfig.ready()` via `setup.register_all()` → `_register_stock_signals()`
 
 **Efeito:** Auto-commit de sessões que estavam aguardando produção. Quando todos os holds de uma sessão são materializados, executa `CommitService.commit()` automaticamente.

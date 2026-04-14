@@ -93,7 +93,7 @@ o catálogo antes de persistir. Testes de invariante garantem que o contrato
 ### Mitigações
 
 - Services do framework validam `sku` contra o catálogo na borda de entrada.
-- Testes cruzados (`framework/shopman/tests/test_invariants.py`) garantem que
+- Testes cruzados (`shopman/shop/tests/test_invariants.py`) garantem que
   os SKUs usados em fluxos reais existem no offerman.
 - Craftsman tem `CatalogProtocol.resolve()` para mapear `output_ref → Product`
   quando o output **é** um vendável.

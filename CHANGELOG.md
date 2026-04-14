@@ -20,7 +20,7 @@ framework orquestrador, storefront, POS, KDS e instancia Nelson Boulangerie.
 - Doorman: OTP via WhatsApp/SMS, device trust, bridge tokens, magic links, rate limiting
 - Payman: payment intents, transactions, service com transicoes de estado
 
-**Framework Orquestrador (framework/)**
+**Framework Orquestrador (shopman/shop/)**
 - Flows: BaseFlow, LocalFlow, RemoteFlow, MarketplaceFlow com dispatch por signal
 - 11 services: stock, payment, customer, checkout, pricing, confirmation, fiscal, accounting, notifications, returns, catalog
 - 8 adapters swappable: payment_efi, payment_stripe, notification (WhatsApp/SMS/email), stock_internal
@@ -75,7 +75,7 @@ framework orquestrador, storefront, POS, KDS e instancia Nelson Boulangerie.
 - Seed command para popular banco com dados de padaria artesanal
 
 **Infraestrutura**
-- Monorepo: packages/ (core apps) + framework/ (orquestrador) + instances/ (Nelson)
+- Monorepo: packages/ (core apps) + shopman/shop/ (orquestrador) + config/ + instances/ (Nelson)
 - ~1.900 testes (1.531 core + 370 framework) incluindo integracao, e2e e stress tests
 - OpenAPI via drf-spectacular
 - Documentacao completa: guias, ADRs, glossario, referencia de schemas

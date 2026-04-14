@@ -15,38 +15,39 @@ packages/               8 apps pip-instaláveis (sem dependência entre si)
 ├── doorman/            Auth: OTP, device trust, bridge tokens, magic links          [shopman-doorman]
 └── payman/             Pagamentos: intents, transactions, service                   [shopman-payman]
 
-framework/              Orquestrador (app único: shopman/)  [django-shopman]
-├── shopman/            Orquestração — Lifecycle, Services, Adapters, Rules
-│   ├── lifecycle.py    dispatch() — coordenação config-driven por ChannelConfig
-│   ├── production_lifecycle.py  dispatch_production() — lifecycle de WorkOrders
-│   ├── services/       services (availability, alternatives, stock, payment, customer, checkout, pricing, etc.)
-│   ├── adapters/       adapters (stock, payment_efi, payment_stripe, notification_*, etc.)
-│   ├── rules/          engine.py, pricing.py, validation.py — regras configuráveis via admin
-│   ├── models/         Shop, Promotion, Coupon, RuleConfig, OperatorAlert, KDS*, DayClosing
-│   ├── handlers/       directive handlers (notification, fulfillment, fiscal, loyalty, returns, etc.)
-│   ├── backends/       backends remanescentes (notification_*, pricing, fiscal/accounting mock)
-│   ├── setup.py        register_all() — registro centralizado de handlers
-│   ├── config.py       ChannelConfig dataclass (8 aspectos)
-│   ├── protocols.py    Contratos (NotificationBackend, CustomerBackend, etc. — Stock é módulo)
-│   ├── topics.py       Constantes de tópicos de directives
-│   ├── notifications.py Registry + dispatch de notificações
-│   ├── confirmation.py Helpers de confirmação
-│   ├── modifiers.py    D1, Discount, Employee, HappyHour modifiers
-│   ├── webhooks/       efi.py, stripe.py
-│   ├── admin/          shop, orders, alerts, kds, closing, rules, dashboard, widgets
-│   ├── web/            Storefront (Django templates + HTMX)
-│   │   ├── views/      19 módulos (catalog, cart, checkout, tracking, auth, kds, pedidos, pos, etc.)
-│   │   ├── cart.py     CartService
-│   │   ├── urls.py     Todas as URLs
-│   │   └── templates/  78 templates (storefront, kds, pedidos, pos, components)
-│   ├── api/            API REST (DRF) — views, serializers, catalog, account, tracking
-│   ├── context_processors.py  shop() + cart_count()
-│   ├── middleware.py   ChannelParamMiddleware, OnboardingMiddleware
-│   ├── management/commands/   seed, cleanup_d1, cleanup_stale_sessions, suggest_production
-│   ├── apps.py         ShopmanConfig (signal wiring + handler registration + rules boot)
-│   └── tests/          7 test modules + web/ + integration/ + e2e/
-├── project/            settings.py, urls.py, wsgi
-└── manage.py
+shopman/                Namespace package (PEP 420) — sem __init__.py
+└── shop/               Orquestrador (app Django, name="shopman.shop", label="shop")  [django-shopman]
+    ├── lifecycle.py    dispatch() — coordenação config-driven por ChannelConfig
+    ├── production_lifecycle.py  dispatch_production() — lifecycle de WorkOrders
+    ├── services/       services (availability, alternatives, stock, payment, customer, checkout, pricing, etc.)
+    ├── adapters/       adapters (stock, payment_efi, payment_stripe, notification_*, etc.)
+    ├── rules/          engine.py, pricing.py, validation.py — regras configuráveis via admin
+    ├── models/         Shop, Promotion, Coupon, RuleConfig, OperatorAlert, KDS*, DayClosing
+    ├── handlers/       directive handlers (notification, fulfillment, fiscal, loyalty, returns, etc.)
+    ├── setup.py        register_all() — registro centralizado de handlers
+    ├── config.py       ChannelConfig dataclass (8 aspectos)
+    ├── protocols.py    Contratos (NotificationBackend, CustomerBackend, etc. — Stock é módulo)
+    ├── topics.py       Constantes de tópicos de directives
+    ├── notifications.py Registry + dispatch de notificações
+    ├── confirmation.py Helpers de confirmação
+    ├── modifiers.py    D1, Discount, Employee, HappyHour modifiers
+    ├── webhooks/       efi.py, stripe.py
+    ├── admin/          shop, orders, alerts, kds, closing, rules, dashboard, widgets
+    ├── web/            Storefront (Django templates + HTMX)
+    │   ├── views/      19 módulos (catalog, cart, checkout, tracking, auth, kds, pedidos, pos, etc.)
+    │   ├── cart.py     CartService
+    │   ├── urls.py     Todas as URLs
+    │   └── templates/  78 templates (storefront, kds, pedidos, pos, components)
+    ├── api/            API REST (DRF) — views, serializers, catalog, account, tracking
+    ├── context_processors.py  shop() + cart_count()
+    ├── middleware.py   ChannelParamMiddleware, OnboardingMiddleware
+    ├── management/commands/   seed, cleanup_d1, cleanup_stale_sessions, suggest_production
+    ├── apps.py         ShopmanConfig (signal wiring + handler registration + rules boot)
+    └── tests/          7 test modules + web/ + integration/ + e2e/
+
+config/                 Django project wrapper (settings.py, urls.py, wsgi.py, asgi.py)
+manage.py               Django management entrypoint (repo root)
+pyproject.toml          Build + test config (repo root)
 
 instances/              Instâncias Django (não são pip packages)
 └── nelson/             Nelson Boulangerie (futuro repo shopman-nelson)
@@ -76,7 +77,7 @@ instances/              Instâncias Django (não são pip packages)
 ## Como Rodar
 
 ```bash
-make test              # Todos os testes (~1.901: 1.531 core + 370 framework)
+make test              # Todos os testes (~2.448: cores + orquestrador)
 make test-offerman     # Apenas offerman (offering)
 make test-stockman     # Apenas stockman (stocking)
 make test-framework    # Orquestrador + integration + e2e

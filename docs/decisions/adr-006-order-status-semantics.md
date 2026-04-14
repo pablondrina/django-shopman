@@ -77,7 +77,7 @@ Canais podem **restringir** (nunca expandir) o mapa via `ChannelConfig`.
 
 - **Core (`orderman`)**: define enum, transições, guardas de integridade,
   método `transition_status`. Não conhece canais nem fulfillment.
-- **Framework (`framework/shopman/`)**: decide *quando* transitar via
+- **Framework (`shopman/shop/`)**: decide *quando* transitar via
   lifecycle dispatch + `ChannelConfig`. Aplica regra "dispatched só em
   delivery". Dispara handlers de KDS, fiscal, loyalty, notificação.
 - **Storefront**: deriva labels do status + `fulfillment_type`. Nunca inventa

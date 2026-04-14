@@ -7,7 +7,7 @@
 
 ## Contexto
 
-O framework (`framework/shopman/`) importa diretamente de 5 packages do kernel:
+O framework (`shopman/shop/`) importa diretamente de 5 packages do kernel:
 - **Omniman** (28 imports) — obrigatório, é o motor de pedidos
 - **Offerman** (14 imports) — catálogo, deveria ser substituível
 - **Guestman** (8 imports) — clientes, deveria ser opcional
@@ -32,7 +32,7 @@ não de pedidos. Deve morar ao lado de Shop e ChannelConfig no framework.
 
 ### WP-D1: CatalogAdapter (Offerman)
 
-**Criar** `framework/shopman/adapters/catalog.py`
+**Criar** `shopman/shop/adapters/catalog.py`
 
 Interface necessária (baseada no uso real em services/handlers):
 
@@ -73,7 +73,7 @@ _DEFAULTS["catalog"] = "shopman.adapters.catalog"
 
 ### WP-D2: ProductionAdapter (Craftsman)
 
-**Criar** `framework/shopman/adapters/production.py`
+**Criar** `shopman/shop/adapters/production.py`
 
 Interface necessária:
 
@@ -101,7 +101,7 @@ _DEFAULTS["production"] = "shopman.adapters.production"
 
 ### WP-D3: CustomerAdapter (Guestman)
 
-**Criar** `framework/shopman/adapters/customer.py`
+**Criar** `shopman/shop/adapters/customer.py`
 
 Interface necessária:
 
@@ -185,7 +185,7 @@ _DEFAULTS["customer"] = "shopman.adapters.customer"
 
 ### WP-D5: Channel model → framework
 
-- Criar `framework/shopman/models/channel.py` com os campos do Channel atual do Omniman
+- Criar `shopman/shop/models/channel.py` com os campos do Channel atual do Omniman
   **mais** `config = JSONField(default=dict)` e `shop = FK(Shop)`
 - Adicionar `get_config() -> ChannelConfig` no Channel model (cascata: defaults → shop → config)
 - Migration framework: criar tabela `shopman_channel`
@@ -255,4 +255,4 @@ Cada WP deve:
 - **UI Separation** (storefront, POS → `channels/` apps) — plano próprio, pós-decoupling
 - **KDS/Dashboard** migração para Unfold — plano próprio
 - **Payman conf.py** — feature work, não cleanup
-- **Diretório rename** (`framework/` → `application/`) — cosmético, decidir depois
+- ~~**Diretório rename** (`framework/` → `application/`)~~ — concluído em 2026-04-14: `framework/shopman/` → `shopman/shop/`, `framework/project/` → `config/`

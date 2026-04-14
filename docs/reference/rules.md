@@ -15,7 +15,7 @@ Handlers são registrados **uma vez**, em `setup.register_all()`, chamado por
 lifecycle: `NotificationSendHandler`, `ConfirmationTimeoutHandler`,
 `NFCeEmitHandler`, etc.
 
-- **Onde**: `framework/shopman/handlers/` + `framework/shopman/setup.py`
+- **Onde**: `shopman/shop/handlers/` + `shopman/shop/setup.py`
 - **Quando muda**: requer deploy
 - **Propósito**: expressa *como o sistema funciona*
 
@@ -25,7 +25,7 @@ lifecycle: `NotificationSendHandler`, `ConfirmationTimeoutHandler`,
 podem ativar/desativar rules, ajustar parâmetros e restringir a canais — sem
 deploy. O cache é invalidado a cada `RuleConfig.save()` ou `delete()`.
 
-- **Onde**: `framework/shopman/rules/`, model `RuleConfig`
+- **Onde**: `shopman/shop/rules/`, model `RuleConfig`
 - **Quando muda**: admin do operador, sem deploy
 - **Propósito**: expressa *como o negócio se comporta*
 
@@ -64,7 +64,7 @@ Runtime:
 
 ## Registro de uma Nova Rule
 
-1. Crie a classe em `framework/shopman/rules/` (validator ou modifier)
+1. Crie a classe em `shopman/shop/rules/` (validator ou modifier)
 2. A classe deve implementar o protocol `Validator` ou `Modifier` de Orderman
 3. Adicione uma linha em `RuleConfig` via admin com o `rule_path` correto
 4. A rule entra em vigor imediatamente (cache invalidado)

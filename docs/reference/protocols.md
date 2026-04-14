@@ -12,7 +12,7 @@ Na arquitetura atual:
 - **Protocols vivem no core que publica o contrato.** `PaymentBackend` é
   propriedade do `payman`; `FiscalBackend` do `orderman`; `CatalogBackend` do
   `offerman`; etc.
-- **Adapters vivem no framework** (`framework/shopman/adapters/`) ou em
+- **Adapters vivem no framework** (`shopman/shop/adapters/`) ou em
   `contrib/` do próprio core quando a implementação depende de outro core.
 - **Estilo dos adapters varia:**
   - **Módulo função-style** — para pontos simples (`stock`, `notification_*`,
@@ -70,8 +70,8 @@ Na arquitetura atual:
 **Adapters:**
 - `packages/offerman/shopman/offerman/adapters/` — `NoopCostBackend`,
   `NoopPricingBackend`, `NoopCatalogProjectionBackend`, `OffermanCatalogBackend`
-- `framework/shopman/adapters/pricing.py` — `StorefrontPricingBackend`
-- `framework/shopman/adapters/catalog.py` — composição para framework
+- `shopman/shop/adapters/pricing.py` — `StorefrontPricingBackend`
+- `shopman/shop/adapters/catalog.py` — composição para framework
 
 ---
 
@@ -82,9 +82,9 @@ Na arquitetura atual:
 - `packages/stockman/shopman/stockman/protocols/sku.py` — validação de SKU
 
 **Estilo stock:** **não** há classe `StockBackend` pública. O ponto de
-integração é o **módulo** `framework/shopman/adapters/stock.py` (função-style,
+integração é o **módulo** `shopman/shop/adapters/stock.py` (função-style,
 resolvido via `get_adapter("stock")`), que delega a `StockService` do stockman.
-Ver nota em `framework/shopman/protocols.py`.
+Ver nota em `shopman/shop/protocols.py`.
 
 ---
 
@@ -130,7 +130,7 @@ Ver nota em `framework/shopman/protocols.py`.
 | `MessageSenderProtocol` | Canal de envio de OTP varia (SMS, WhatsApp/Manychat) |
 
 **Adapters:**
-- `framework/shopman/adapters/otp_manychat.py` — `ManychatOTPSender`
+- `shopman/shop/adapters/otp_manychat.py` — `ManychatOTPSender`
 
 ---
 
@@ -171,4 +171,4 @@ Ver [`settings.md`](settings.md) para detalhes.
 
 Esta página é mantida à mão, mas deve ser regenerada quando novos protocols
 são adicionados ou adapters são renomeados. Checar `grep -r "class.*Protocol"
-packages/ framework/shopman/` para validar.
+packages/ shopman/shop/` para validar.

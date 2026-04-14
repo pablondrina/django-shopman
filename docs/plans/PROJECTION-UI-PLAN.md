@@ -36,7 +36,7 @@ Domain Models  →  Projection Builder  →  Projection (dataclass/TypedDict)  �
   payman.Intent                            CheckoutProjection
 ```
 
-Cada projection é um **dataclass** ou **TypedDict** em `framework/shopman/projections/`.
+Cada projection é um **dataclass** ou **TypedDict** em `shopman/shop/projections/`.
 Os builders ficam no mesmo módulo. Views chamam o builder, passam o resultado ao template.
 
 ### Regras
@@ -547,7 +547,7 @@ EXCEÇÃO: APIs do browser sem equivalente Alpine (IntersectionObserver, geoloca
 ## 6. Estrutura de Arquivos
 
 ```
-framework/shopman/projections/
+shopman/shop/projections/
 ├── __init__.py
 ├── types.py                    # Shared types: DiscountLineProjection, AddressProjection, etc.
 ├── catalog.py                  # CatalogProjection, CatalogItemProjection, build_catalog()
@@ -563,7 +563,7 @@ framework/shopman/projections/
 ├── dashboard.py                # DashboardProjection, build_dashboard()
 └── closing.py                  # DayClosingProjection, build_day_closing()
 
-framework/shopman/web/
+shopman/shop/web/
 ├── templates/
 │   ├── base.html               # Penguin UI base: Tailwind v4 + Alpine + HTMX CDN
 │   ├── components/             # Penguin UI partials reutilizáveis
@@ -584,7 +584,7 @@ framework/shopman/web/
 
 **Objetivo:** Criar a infra de projections e migrar as 3 telas mais acessadas.
 
-1. Criar `framework/shopman/projections/` com types base
+1. Criar `shopman/shop/projections/` com types base
 2. Implementar `CatalogProjection` + builder (extrai lógica de `_annotate_products`)
 3. Implementar `CartProjection` + builder (extrai lógica de `CartService.get_cart`)
 4. Implementar `ProductDetailProjection` + builder

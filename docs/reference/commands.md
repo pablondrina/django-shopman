@@ -180,7 +180,7 @@ python manage.py auth_cleanup --days 30
 ### seed
 
 **App:** `shop`
-**Arquivo:** `framework/shopman/management/commands/seed.py`
+**Arquivo:** `shopman/shop/management/commands/seed.py`
 
 Popula o banco com dados completos da Nelson Boulangerie: catálogo (13 produtos + 1 bundle), estoque (3 posições), receitas (6 com BOM), clientes (7), canais (5), pedidos (105+), sessões abertas (3), alertas de estoque (7), e superuser admin.
 

@@ -57,7 +57,7 @@ Cada guia segue a estrutura: Conceitos → Modelos → Serviços → Protocols �
 | [Guestman](guides/guestman.md) | `shopman.guestman` | Clientes, contatos, grupos, loyalty, consent, RFM |
 | [Doorman](guides/doorman.md) | `shopman.doorman` | Auth OTP, device trust, bridge tokens, magic links |
 | [Payments](guides/payments.md) | `shopman.payman` | Pagamentos, PIX, Stripe, intents, lifecycle |
-| [Lifecycle](guides/lifecycle.md) | `framework/shopman` | Orquestrador: Lifecycle, Services, Adapters, Rules |
+| [Lifecycle](guides/lifecycle.md) | `shopman/shop` | Orquestrador: Lifecycle, Services, Adapters, Rules |
 | [Fechamento do dia](guides/day-closing.md) | `shopman` | Sobras, não vendidos, D-1 em `ontem`, às cegas vs vendas |
 
 ---

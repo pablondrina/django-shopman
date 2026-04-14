@@ -27,7 +27,7 @@ make install
 O `make install` instala:
 - Django 5.2+, DRF, django-filter, phonenumbers, pytest
 - Cada package core (`packages/*`) em modo editavel (`pip install -e`)
-- O framework orquestrador (`framework/`) em modo editavel
+- O framework orquestrador (`shopman/shop/`) em modo editavel
 
 ## Banco de Dados
 
@@ -36,7 +36,7 @@ O `make install` instala:
 make migrate
 ```
 
-Usa SQLite por default (`db.sqlite3` em `framework/`). Para PostgreSQL, configure `DATABASES` em `framework/project/settings.py`.
+Usa SQLite por default (`db.sqlite3` na raiz do repo). Para PostgreSQL, configure `DATABASES` em `config/settings.py`.
 
 ## Seed — Nelson Boulangerie
 

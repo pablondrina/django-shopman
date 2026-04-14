@@ -886,7 +886,7 @@ Quais capacidades são verdadeiramente transversais e merecem existir uma vez s�
 Se um conjunto de utilidades ganhar densidade semântica própria, ele deve virar:
 
 - pacote novo, se for domínio
-- `framework/*`, se for conveniência web/admin
+- `shopman/shop/*`, se for conveniência web/admin
 - `contrib/*`, se for extensão opcional
 
 ### O ponto mais sensível

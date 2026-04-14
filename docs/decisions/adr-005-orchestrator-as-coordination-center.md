@@ -2,15 +2,15 @@
 
 **Status:** Aceito
 **Data:** 2026-04-06
-**Contexto:** Papel arquitetural do framework/shopman/ como centro de coordenacao
+**Contexto:** Papel arquitetural do shopman/shop/ como centro de coordenacao
 
 ---
 
 ## Contexto
 
-Auditorias externas observam que a camada `framework/shopman/` centraliza a coordenacao de flows, services, adapters, handlers e rules. Isso aparenta contradizer a narrativa de "desacoplamento via Protocol/Adapter" descrita na ADR-001. A pergunta recorrente e: se o projeto valoriza desacoplamento, por que existe um ponto central que conhece todos os dominios?
+Auditorias externas observam que a camada `shopman/shop/` centraliza a coordenacao de flows, services, adapters, handlers e rules. Isso aparenta contradizer a narrativa de "desacoplamento via Protocol/Adapter" descrita na ADR-001. A pergunta recorrente e: se o projeto valoriza desacoplamento, por que existe um ponto central que conhece todos os dominios?
 
-O projeto e composto por 8 core apps independentes (`packages/`) e um orquestrador (`framework/shopman/`). Os core apps sao pacotes pip instalaveis sem dependencia entre si. O orquestrador e a unica camada que importa de multiplos dominios para coordena-los.
+O projeto e composto por 8 core apps independentes (`packages/`) e um orquestrador (`shopman/shop/`). Os core apps sao pacotes pip instalaveis sem dependencia entre si. O orquestrador e a unica camada que importa de multiplos dominios para coordena-los.
 
 ## Decisao
 

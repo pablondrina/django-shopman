@@ -274,7 +274,7 @@ Settings flat usados pela integração ManyChat:
 
 ## Shop (Loja)
 
-**App:** `framework/shopman/`
+**App:** `shopman/shop/`
 **Model:** `Shop` (singleton via `Shop.load()`)
 
 A loja é configurada via Admin — não há settings no `settings.py`. O model `Shop` armazena:

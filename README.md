@@ -80,10 +80,9 @@ django-shopman/
 │   ├── doorman/                # shopman-doorman — Auth
 │   └── payman/                 # shopman-payman — Pagamentos
 │
-├── framework/                  # Framework orquestrador (django-shopman)
-│   ├── project/                # settings.py, urls.py, wsgi.py
-│   └── shopman/                # App Django: Flows, Services, Adapters, Handlers
-│       ├── flows.py            # BaseFlow → Local/Remote/Marketplace + dispatch()
+├── shopman/                    # Namespace package (PEP 420)
+│   └── shop/                   # App Django orquestrador (django-shopman)
+│       ├── lifecycle.py        # dispatch() config-driven via ChannelConfig
 │       ├── services/           # Lógica de negócio (stock, payment, checkout, etc.)
 │       ├── adapters/           # Integrações swappable (EFI, Stripe, ManyChat, etc.)
 │       ├── handlers/           # Directive handlers (stock, payment, notification, etc.)
@@ -91,6 +90,8 @@ django-shopman/
 │       ├── web/                # Storefront (Django templates + HTMX + Alpine.js)
 │       ├── api/                # API REST (DRF + drf-spectacular)
 │       └── admin/              # Admin Unfold (dashboard, pedidos, alertas, KDS)
+│
+├── config/                     # Django project wrapper (settings.py, urls.py, wsgi.py)
 │
 ├── instances/                  # Instâncias (configuração por negócio)
 │   └── nelson/                 # Nelson Boulangerie (demo)
@@ -103,14 +104,13 @@ django-shopman/
 └── Makefile                    # install, test, migrate, run, seed, lint
 ```
 
-## Framework (framework/)
+## Framework (shopman/shop/)
 
 O framework conecta os core apps para cenários de negócio concretos:
 
-- **Flows:** Coordenação de lifecycle. `BaseFlow` → `LocalFlow` → `RemoteFlow` → `MarketplaceFlow`. Signal `order_changed` → `dispatch()` → `Flow.on_<phase>()`.
+- **Lifecycle:** Coordenação config-driven. Signal `order_changed` → `dispatch(order, phase)` → services. Comportamento por canal via `ChannelConfig`.
 - **Services:** Lógica de negócio. Cada service opera sobre Core services via adapters.
 - **Adapters:** Integrações externas swappable via settings. `get_adapter("payment", method="pix")` → `payment_efi`.
-- **Presets de canal:** `pos()`, `remote()`, `marketplace()` — configuram comportamento por canal.
 - **Directive handlers:** Processamento assíncrono pós-commit (stock.hold, notification.send, payment.capture).
 
 ## Features

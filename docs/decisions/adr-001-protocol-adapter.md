@@ -10,7 +10,7 @@
 
 A suite Shopman é composta por oito core apps pip-instaláveis em `packages/`
 (`utils`, `offerman`, `stockman`, `craftsman`, `orderman`, `guestman`, `doorman`,
-`payman`) e uma aplicação integradora em `framework/shopman/` que compõe esses
+`payman`) e uma aplicação integradora em `shopman/shop/` que compõe esses
 cores em um produto utilizável.
 
 Dois mecanismos convivem no código:
@@ -51,13 +51,13 @@ class CommitService:
 
 ### 2. O framework importa e compõe
 
-`framework/shopman/` é o único lugar onde services de múltiplos cores se
+`shopman/shop/` é o único lugar onde services de múltiplos cores se
 encontram. Ele importa cada core diretamente, sem intermediários, e coordena
 processos de negócio cross-domain em `services/`, `lifecycle.py`, `handlers/`
 e `rules/`.
 
 ```python
-# framework/shopman/services/checkout.py
+# shopman/shop/services/checkout.py
 from shopman.offerman.services import CatalogService
 from shopman.stockman.services import StockService
 from shopman.guestman.services import CustomerService
@@ -92,7 +92,7 @@ Em todos os casos há duas ou mais implementações reais (não apenas
 o adapter é injetado via settings:
 
 ```python
-# framework/shopman/protocols.py
+# shopman/shop/protocols.py
 @runtime_checkable
 class PaymentBackend(Protocol):
     def create_intent(self, amount_q: int, ...) -> PaymentIntent: ...
@@ -137,7 +137,7 @@ SHOPMAN_PAYMENT_BACKEND = "shopman.shop.adapters.payment_efi.EfiPixBackend"
 
 ### Mitigações
 
-- Testes de invariante (`framework/shopman/tests/test_invariants.py`) garantem
+- Testes de invariante (`shopman/shop/tests/test_invariants.py`) garantem
   que cores não importam outros cores.
 - A lista de Protocols está documentada em `docs/reference/protocols.md` e é
   regenerada a partir do código.

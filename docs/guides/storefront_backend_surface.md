@@ -281,8 +281,8 @@ Evitar:
 
 Existe refatoração local em andamento nestes arquivos:
 
-- `framework/shopman/web/templates/storefront/proto/home.html`
-- `framework/shopman/web/templates/storefront/proto/proto-scenarios.js`
+- `shopman/shop/web/templates/storefront/proto/home.html`
+- `shopman/shop/web/templates/storefront/proto/proto-scenarios.js`
 
 Enquanto essa frente estiver aberta:
 

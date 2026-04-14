@@ -6,7 +6,7 @@
 
 ## Visão Geral
 
-O módulo `shopman/` (em `framework/shopman/`) é o orquestrador do sistema. Ele não contém lógica de domínio — apenas **coordena** os apps core (Offerman, Stockman, Craftsman, Orderman, Guestman, Doorman, Payman) através de 4 conceitos separados:
+O módulo `shopman/` (em `shopman/shop/`) é o orquestrador do sistema. Ele não contém lógica de domínio — apenas **coordena** os apps core (Offerman, Stockman, Craftsman, Orderman, Guestman, Doorman, Payman) através de 4 conceitos separados:
 
 1. **Lifecycle** (`lifecycle.py`) — **QUANDO**: coordenação config-driven via `dispatch(order, phase)`
 2. **Services** (`services/`) — **O QUE**: lógica de negócio que chama Core services + adapters
@@ -160,7 +160,7 @@ Rules são regras de negócio configuráveis pelo operador via admin (`RuleConfi
 
 Cada canal de venda é configurado por um `ChannelConfig` dataclass com 8 aspectos. Cascata: canal ← Shop.defaults ← hardcoded.
 
-Ver: [`config.py`](../../framework/shopman/config.py) e [`data-schemas.md`](../reference/data-schemas.md).
+Ver: [`config.py`](../../shopman/shop/config.py) e [`data-schemas.md`](../reference/data-schemas.md).
 
 ---
 
