@@ -1,250 +1,174 @@
 # Referência de Protocols e Adapters
 
-> Gerado a partir do código atual. Para entender o padrão Protocol/Adapter, veja [ADR-001](../decisions/adr-001-protocol-adapter.md).
+> Inventário gerado a partir do código atual (2026-04-14). Para o padrão,
+> ver [ADR-001](../decisions/adr-001-protocol-adapter.md).
 
 ---
 
-## Visão Geral
+## Visão geral
 
-O projeto usa `typing.Protocol` com `@runtime_checkable` para definir contratos entre módulos.
-Cada protocol tem um ou mais adapters concretos que podem ser substituídos via configuração.
+Na arquitetura atual:
 
-| Protocol | Módulo | Adapters | Métodos |
-|----------|--------|----------|---------|
-| [`StockBackend`](#stockbackend) | framework/shopman/protocols | StockingBackend, NoopStockBackend | 7 |
-| [`PricingBackend`](#pricingbackend) | framework/shopman/protocols | OfferingBackend, SimplePricingBackend, ChannelPricingBackend, CatalogPricingBackend | 1 |
-| [`CustomerBackend`](#customerbackend) | framework/shopman/protocols | CustomersBackend, NoopCustomerBackend | 5 |
-| [`NotificationBackend`](#notificationbackend) | framework/shopman/protocols | ConsoleBackend, ManychatBackend, EmailBackend, SmsBackend, WebhookBackend, WhatsappBackend | 1 |
-| [`PaymentBackend`](#paymentbackend) | packages/payman/shopman/payman/protocols | MockPaymentBackend, StripeBackend, EfiPixBackend | 6 |
-| [`FiscalBackend`](#fiscalbackend) | packages/orderman/shopman/ordering/protocols | MockFiscalBackend, FocusBackend | 3 |
-| [`AccountingBackend`](#accountingbackend) | packages/orderman/shopman/ordering/protocols | MockAccountingBackend, ContaazulBackend | 6 |
-
----
-
-## StockBackend
-
-**Definido em:** `framework/shopman/protocols.py`
-**Guia:** [Orquestração — Stock](../guides/flows.md)
-
-### Dataclasses
-
-| Classe | Campos | Descrição |
-|--------|--------|-----------|
-| `AvailabilityResult` | `available: bool`, `available_qty: Decimal`, `message: str \| None` | Resultado de consulta de disponibilidade |
-| `HoldResult` | `success: bool`, `hold_id: str \| None`, `error_code: str \| None`, `message: str \| None`, `expires_at: datetime \| None`, `is_planned: bool` | Resultado de reserva de estoque |
-| `Alternative` | `sku: str`, `name: str`, `available_qty: Decimal` | Produto alternativo sugerido |
-
-### Métodos
-
-| Método | Assinatura | Descrição |
-|--------|-----------|-----------|
-| `check_availability` | `(sku, quantity, target_date?) → AvailabilityResult` | Verifica disponibilidade de SKU |
-| `create_hold` | `(sku, quantity, expires_at?, reference?, target_date?) → HoldResult` | Cria reserva de estoque |
-| `release_hold` | `(hold_id) → None` | Libera uma reserva |
-| `fulfill_hold` | `(hold_id, reference?) → None` | Confirma uma reserva (baixa estoque) |
-| `get_alternatives` | `(sku, quantity) → list[Alternative]` | Busca alternativas para SKU indisponível |
-| `release_holds_for_reference` | `(reference) → int` | Libera todas as reservas de uma referência |
-| `receive_return` | `(sku, quantity, reference?, reason?) → None` | Registra devolução ao estoque |
-
-### Adapters
-
-| Adapter | Arquivo | Quando usar |
-|---------|---------|-------------|
-| `StockingBackend` | `shopman/backends/stock.py` | Integração com `shopman.stockman` (promessa operacional). Resolve SKU via contrato de catálogo e suporta holds planejados |
-| `NoopStockBackend` | `shopman/backends/stock.py` | Testes e desenvolvimento. Sempre reporta 999999 unidades disponíveis |
-
-**Configuração:** `SHOPMAN_STOCK_BACKEND` ou auto-detecção em `ShopmanConfig.ready()` — veja [settings.md](settings.md).
+- **Protocols vivem no core que publica o contrato.** `PaymentBackend` é
+  propriedade do `payman`; `FiscalBackend` do `orderman`; `CatalogBackend` do
+  `offerman`; etc.
+- **Adapters vivem no framework** (`framework/shopman/adapters/`) ou em
+  `contrib/` do próprio core quando a implementação depende de outro core.
+- **Estilo dos adapters varia:**
+  - **Módulo função-style** — para pontos simples (`stock`, `notification_*`,
+    `payment_*`). Resolvidos via `get_adapter("nome", ...)`.
+  - **Classe** — quando há estado ou múltiplas estratégias ativas ao mesmo
+    tempo (`StorefrontPricingBackend`, `ManychatOTPSender`).
 
 ---
 
-## PricingBackend
+## Protocols por core
 
-**Definido em:** `framework/shopman/protocols.py`
-**Guia:** [Offerman — Preços](../guides/offerman.md)
+### payman — pagamentos
 
-### Métodos
+**Arquivo:** `packages/payman/shopman/payman/protocols.py`
 
-| Método | Assinatura | Descrição |
-|--------|-----------|-----------|
-| `get_price` | `(sku, channel) → int \| None` | Retorna preço em centavos para SKU+canal |
+| Protocol | Métodos | Motivo de substituição |
+|---|---|---|
+| `PaymentBackend` | `create_intent`, `authorize`, `capture`, `refund`, `cancel`, `get_status` | Gateway varia por método (PIX, cartão) e ambiente (mock/prod) |
 
-### Adapters
+**DTOs:** `GatewayIntent`, `CaptureResult`, `RefundResult`, `PaymentStatus`
 
-| Adapter | Arquivo | Quando usar |
-|---------|---------|-------------|
-| `OfferingBackend` | `shopman/backends/pricing.py` | Integração com `shopman.offerman`. Usa `CatalogService.price()` |
-| `SimplePricingBackend` | `shopman/backends/pricing.py` | Lê direto de `Product.base_price_q` |
-| `ChannelPricingBackend` | `shopman/backends/pricing.py` | Tenta `ChannelListing.price_q` do canal, fallback para `base_price_q` |
-| `CatalogPricingBackend` | `shopman/backends/pricing.py` | Combina CatalogService + ChannelListing com fallback |
-
-**Nota:** `OfferingBackend` também expõe métodos de catálogo: `get_product`, `validate_sku`, `expand_bundle`, `is_bundle`, `search_products`.
+**Adapters (framework):**
+- `adapters/payment_mock.py` — testes e dev, fluxo simulado
+- `adapters/payment_efi.py` — PIX via Efi (Gerencianet)
+- `adapters/payment_stripe.py` — cartão via Stripe
 
 ---
 
-## CustomerBackend
+### orderman — fiscal e contábil
 
-**Definido em:** `framework/shopman/protocols.py`
-**Guia:** [Guestman — Clientes](../guides/guestman.md)
+**Arquivo:** `packages/orderman/shopman/orderman/protocols.py`
 
-### Dataclasses
+| Protocol | Métodos | Motivo de substituição |
+|---|---|---|
+| `FiscalBackend` | `emit`, `query_status`, `cancel` | Emissor fiscal varia por provedor (Focus, mock) |
+| `AccountingBackend` | `get_cash_flow`, `get_accounts_summary`, `list_entries`, `create_payable`, `create_receivable`, `mark_as_paid` | ERP contábil varia por instância |
 
-| Classe | Campos | Descrição |
-|--------|--------|-----------|
-| `AddressInfo` | `label`, `formatted_address`, `short_address`, `complement`, `delivery_instructions`, `latitude`, `longitude` | Endereço do cliente |
-| `CustomerInfo` | `code`, `name`, `customer_type`, `group_code`, `listing_ref`, `phone`, `email`, `default_address`, `total_orders`, `is_vip`, `is_at_risk`, `favorite_products` | Dados consolidados do cliente |
-| `CustomerContext` | `info`, `preferences`, `recent_orders`, `rfm_segment`, `days_since_last_order`, `recommended_products` | Contexto completo para personalização |
-| `CustomerValidationResult` | `valid`, `code`, `info`, `error_code`, `message` | Resultado de validação de cliente |
-
-### Métodos
-
-| Método | Assinatura | Descrição |
-|--------|-----------|-----------|
-| `get_customer` | `(code) → CustomerInfo \| None` | Busca dados do cliente |
-| `validate_customer` | `(code) → CustomerValidationResult` | Valida se cliente existe e está ativo |
-| `get_listing_ref` | `(customer_ref) → str \| None` | Retorna listing associado ao cliente |
-| `get_customer_context` | `(code) → CustomerContext \| None` | Contexto completo (RFM, preferências, histórico) |
-| `record_order` | `(customer_ref, order_data) → bool` | Registra pedido no histórico do cliente |
-
-### Adapters
-
-| Adapter | Arquivo | Quando usar |
-|---------|---------|-------------|
-| `CustomersBackend` | `shopman/backends/customer.py` | Integração com `shopman.guestman`. Combina CustomerService + InsightService + PreferenceService |
-| `NoopCustomerBackend` | `shopman/backends/customer.py` | Testes. Retorna dados placeholder (ex.: "Guest {code}") |
+**Adapters:** atualmente mock-only em framework. Implementações reais
+(Focus NFe, Conta Azul) são plugáveis via `SHOPMAN_FISCAL_BACKEND` /
+`SHOPMAN_ACCOUNTING_BACKEND`.
 
 ---
 
-## NotificationBackend
+### offerman — catálogo e preço
 
-**Definido em:** `framework/shopman/protocols.py`
-**Guia:** [Orquestração — Notificações](../guides/flows.md)
+**Arquivo:** `packages/offerman/shopman/offerman/protocols/`
 
-### Dataclasses
+| Protocol | Arquivo | Motivo |
+|---|---|---|
+| `CatalogBackend` | `catalog.py` | Permite substituir fonte de produtos/preços |
+| `PricingBackend` | `catalog.py` | Estratégia de precificação por canal |
+| `CostBackend` | `cost.py` | Fonte de custo (integração com stockman ou externo) |
+| `CatalogProjectionBackend` | `projection.py` | Projeção leve para storefront |
 
-| Classe | Campos | Descrição |
-|--------|--------|-----------|
-| `NotificationResult` | `success: bool`, `message_id: str \| None`, `error: str \| None` | Resultado de envio de notificação |
-
-### Métodos
-
-| Método | Assinatura | Descrição |
-|--------|-----------|-----------|
-| `send` | `(event, recipient, context) → NotificationResult` | Envia notificação. `event` ex.: "order.confirmed"; `recipient` = email/phone/URL |
-
-### Adapters
-
-| Adapter | Arquivo | Quando usar |
-|---------|---------|-------------|
-| `ConsoleBackend` | `shopman/backends/notification_console.py` | Desenvolvimento. Loga no console |
-| `ManychatBackend` | `shopman/backends/notification_manychat.py` | Produção. Envia via ManyChat API (WhatsApp) |
-| `EmailBackend` | `shopman/backends/notification_email.py` | Produção. Envia via Django email |
-| `SmsBackend` | `shopman/backends/notification_sms.py` | Produção. Envia via SMS |
-| `WebhookBackend` | `shopman/backends/notification_webhook.py` | Integração. Envia eventos via webhook HTTP |
-| `WhatsappBackend` | `shopman/backends/notification_whatsapp.py` | Produção. Envia via WhatsApp Cloud API |
-
-**Configuração:** Registrado em `ShopmanConfig.ready()`. Routing por canal via `ChannelConfig.notifications.routing`. ManychatBackend ativado se `MANYCHAT_API_TOKEN` estiver definido.
+**Adapters:**
+- `packages/offerman/shopman/offerman/adapters/` — `NoopCostBackend`,
+  `NoopPricingBackend`, `NoopCatalogProjectionBackend`, `OffermanCatalogBackend`
+- `framework/shopman/adapters/pricing.py` — `StorefrontPricingBackend`
+- `framework/shopman/adapters/catalog.py` — composição para framework
 
 ---
 
-## PaymentBackend
+### stockman — estoque
 
-**Definido em:** `packages/payman/shopman/payman/protocols.py`
-**Re-exportado em:** `framework/shopman/protocols.py`
-**Guia:** [Orderman — Pagamentos](../guides/orderman.md)
+**Arquivos:**
+- `packages/stockman/shopman/stockman/protocols/production.py` — `ProductionBackend`
+- `packages/stockman/shopman/stockman/protocols/sku.py` — validação de SKU
 
-### Dataclasses
-
-| Classe | Campos | Descrição |
-|--------|--------|-----------|
-| `PaymentIntent` | `intent_id`, `status`, `amount_q`, `currency`, `client_secret`, `expires_at`, `metadata` | Intenção de pagamento criada |
-| `CaptureResult` | `success`, `transaction_id`, `amount_q`, `error_code`, `message` | Resultado de captura |
-| `RefundResult` | `success`, `refund_id`, `amount_q`, `error_code`, `message` | Resultado de estorno |
-| `PaymentStatus` | `intent_id`, `status`, `amount_q`, `captured_q`, `refunded_q`, `currency`, `metadata` | Status consolidado |
-
-### Métodos
-
-| Método | Assinatura | Descrição |
-|--------|-----------|-----------|
-| `create_intent` | `(amount_q, currency, reference?, metadata?) → PaymentIntent` | Cria intenção de pagamento |
-| `authorize` | `(intent_id, payment_method?) → CaptureResult` | Autoriza pagamento |
-| `capture` | `(intent_id, amount_q?, reference?) → CaptureResult` | Captura pagamento autorizado |
-| `refund` | `(intent_id, amount_q?, reason?) → RefundResult` | Estorna pagamento |
-| `cancel` | `(intent_id) → bool` | Cancela intenção |
-| `get_status` | `(intent_id) → PaymentStatus` | Consulta status |
-
-### Adapters
-
-| Adapter | Arquivo | Quando usar |
-|---------|---------|-------------|
-| `MockPaymentBackend` | `shopman/backends/payment_mock.py` | Testes. Simula fluxo completo com PIX mockado. `auto_authorize=True`, `fail_rate=0.0` |
-| `StripeBackend` | `shopman/backends/payment_stripe.py` | Produção (cartão). Requer `pip install stripe`. Suporta webhook verification |
-| `EfiPixBackend` | `shopman/backends/payment_efi.py` | Produção (PIX). Integra com Efi (Gerencianet). Requer certificado PFX/PEM |
-
-**Configuração:** `SHOPMAN_PAYMENT_BACKEND` — veja [settings.md](settings.md).
+**Estilo stock:** **não** há classe `StockBackend` pública. O ponto de
+integração é o **módulo** `framework/shopman/adapters/stock.py` (função-style,
+resolvido via `get_adapter("stock")`), que delega a `StockService` do stockman.
+Ver nota em `framework/shopman/protocols.py`.
 
 ---
 
-## FiscalBackend
+### craftsman — produção
 
-**Definido em:** `packages/orderman/shopman/ordering/protocols.py`
-**Guia:** [Orquestração — Fiscal](../guides/flows.md)
+**Arquivo:** `packages/craftsman/shopman/craftsman/protocols/`
 
-### Dataclasses
+| Protocol | Arquivo | Motivo |
+|---|---|---|
+| `CatalogProtocol` | `catalog.py` | Resolver `output_ref` → produto |
+| `ProductInfoBackend` | `catalog.py` | Dados descritivos de insumos/produtos |
+| `DemandProtocol` | `demand.py` | Origem de demanda (pedidos reais ou simulação) |
+| `InventoryProtocol` | `inventory.py` | Consultar disponibilidade de insumos |
 
-| Classe | Campos | Descrição |
-|--------|--------|-----------|
-| `FiscalDocumentResult` | `success`, `document_id`, `document_number`, `document_series`, `access_key`, `authorization_date`, `protocol_number`, `xml_url`, `danfe_url`, `qrcode_url`, `status`, `error_code`, `error_message` | Resultado de emissão fiscal |
-| `FiscalCancellationResult` | `success`, `protocol_number`, `cancellation_date`, `error_code`, `error_message` | Resultado de cancelamento fiscal |
-
-### Métodos
-
-| Método | Assinatura | Descrição |
-|--------|-----------|-----------|
-| `emit` | `(reference, items, customer?, payment, additional_info?) → FiscalDocumentResult` | Emite documento fiscal |
-| `query_status` | `(reference) → FiscalDocumentResult` | Consulta status de documento |
-| `cancel` | `(reference, reason) → FiscalCancellationResult` | Cancela documento fiscal |
-
-### Adapters
-
-| Adapter | Arquivo | Quando usar |
-|---------|---------|-------------|
-| `MockFiscalBackend` | `shopman/backends/fiscal_mock.py` | Testes e desenvolvimento. Simula emissão com dados fictícios |
-| `FocusBackend` | `shopman/backends/fiscal_focus.py` | Produção. Integra com Focus NFe para emissão NFC-e/NF-e real |
-
-**Configuração:** `SHOPMAN_FISCAL_BACKEND` — veja [settings.md](settings.md). Se ausente, handlers fiscais não são registrados.
+**Adapters (no próprio core via `contrib/`):**
+- `craftsman/contrib/stockman/production.py` — `CraftingProductionBackend`
+- `craftsman/contrib/demand/backend.py` — `OrderingDemandBackend`
+- `craftsman/adapters/noop.py` — `NoopDemandBackend`
+- `craftsman/adapters/stocking.py`, `adapters/stock.py` — `StockingBackend`
 
 ---
 
-## AccountingBackend
+### guestman — clientes
 
-**Definido em:** `packages/orderman/shopman/ordering/protocols.py`
-**Guia:** [Orderman](../guides/orderman.md)
+**Arquivo:** `packages/guestman/shopman/guestman/protocols/`
 
-### Dataclasses
+| Protocol | Arquivo | Motivo |
+|---|---|---|
+| `CustomerBackend` | `customer.py` | Permite outra fonte de cliente além do guestman |
+| `OrderHistoryBackend` | `orders.py` | Histórico vem do orderman em produção, mock em testes |
 
-| Classe | Campos | Descrição |
-|--------|--------|-----------|
-| `AccountEntry` | `entry_id`, `description`, `amount_q`, `type` (revenue\|expense), `category`, `date`, `due_date`, `paid_date`, `status`, `reference`, `customer_name`, `supplier_name`, `metadata` | Lançamento contábil |
-| `CashFlowSummary` | `period_start`, `period_end`, `total_revenue_q`, `total_expenses_q`, `net_q`, `balance_q`, `revenue_by_category`, `expenses_by_category` | Resumo de fluxo de caixa |
-| `AccountsSummary` | `total_receivable_q`, `total_payable_q`, `overdue_receivable_q`, `overdue_payable_q`, `receivables`, `payables` | Resumo de contas a pagar/receber |
-| `CreateEntryResult` | `success`, `entry_id`, `error_message` | Resultado de criação de lançamento |
+**Adapters:**
+- `guestman/adapters/orderman.py` — `OrdermanOrderHistoryBackend`
 
-### Métodos
+---
 
-| Método | Assinatura | Descrição |
-|--------|-----------|-----------|
-| `get_cash_flow` | `(start_date, end_date) → CashFlowSummary` | Fluxo de caixa do período |
-| `get_accounts_summary` | `(as_of?) → AccountsSummary` | Resumo contas a pagar/receber |
-| `list_entries` | `(start_date?, end_date?, type?, status?, category?, reference?, limit=50, offset=0) → list[AccountEntry]` | Lista lançamentos com filtros |
-| `create_payable` | `(description, amount_q, due_date, category, supplier_name?, reference?, notes?) → CreateEntryResult` | Cria conta a pagar |
-| `create_receivable` | `(description, amount_q, due_date, category, customer_name?, reference?, notes?) → CreateEntryResult` | Cria conta a receber |
-| `mark_as_paid` | `(entry_id, paid_date?, amount_q?) → CreateEntryResult` | Marca lançamento como pago |
+### doorman — autenticação
 
-### Adapters
+**Arquivo:** `packages/doorman/shopman/doorman/senders.py`
 
-| Adapter | Arquivo | Quando usar |
-|---------|---------|-------------|
-| `MockAccountingBackend` | `shopman/backends/accounting_mock.py` | Testes e desenvolvimento. Simula lançamentos com dados fictícios |
-| `ContaazulBackend` | `shopman/backends/accounting_contaazul.py` | Produção. Integra com Conta Azul para lançamentos contábeis |
+| Protocol | Motivo |
+|---|---|
+| `MessageSenderProtocol` | Canal de envio de OTP varia (SMS, WhatsApp/Manychat) |
 
-**Configuração:** `SHOPMAN_ACCOUNTING_BACKEND` — veja [settings.md](settings.md). Se ausente, handler de contabilidade não é registrado.
+**Adapters:**
+- `framework/shopman/adapters/otp_manychat.py` — `ManychatOTPSender`
+
+---
+
+## Adapters puramente do framework (sem classe de protocol correspondente)
+
+Módulos função-style resolvidos via `get_adapter(nome, ...)`. O "protocol"
+é o conjunto de funções esperado; não há uma classe `Protocol`.
+
+| Adapter | Arquivo | Uso |
+|---|---|---|
+| Stock | `adapters/stock.py` | Delega a `stockman.StockService` |
+| Notification (console) | `adapters/notification_console.py` | Dev / fallback |
+| Notification (email) | `adapters/notification_email.py` | Django email |
+| Notification (sms) | `adapters/notification_sms.py` | SMS genérico |
+| Notification (manychat) | `adapters/notification_manychat.py` | WhatsApp via ManyChat |
+| Production | `adapters/production.py` | Composição para produção em lote |
+| Customer | `adapters/customer.py` | Compõe guestman services |
+| Catalog | `adapters/catalog.py` | Compõe offerman services |
+
+Routing entre adapters de notificação é feito por `ChannelConfig.notifications.routing`.
+
+---
+
+## Configuração via settings
+
+| Setting | Default | Onde é lido |
+|---|---|---|
+| `SHOPMAN_PAYMENT_BACKEND` | `payment_mock` | `get_adapter("payment", method=...)` |
+| `SHOPMAN_FISCAL_BACKEND` | ausente → handlers não registrados | `ShopmanConfig.ready()` |
+| `SHOPMAN_ACCOUNTING_BACKEND` | ausente → handler não registrado | `ShopmanConfig.ready()` |
+| `SHOPMAN_STOCK_BACKEND` | autodetect stockman | `ShopmanConfig.ready()` |
+
+Ver [`settings.md`](settings.md) para detalhes.
+
+---
+
+## Manutenção desta referência
+
+Esta página é mantida à mão, mas deve ser regenerada quando novos protocols
+são adicionados ou adapters são renomeados. Checar `grep -r "class.*Protocol"
+packages/ framework/shopman/` para validar.
