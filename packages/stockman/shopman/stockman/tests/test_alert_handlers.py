@@ -12,6 +12,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
+from django.apps import apps
 from django.utils import timezone
 
 from shopman.stockman import stock
@@ -140,9 +141,10 @@ class TestCooldown:
 class TestDirectiveCreation:
     """Alert dispatch creates Directive when Orderman is available."""
 
-    @pytest.mark.skip(reason="Requires shopman.orderman — not yet migrated")
     def test_dispatch_creates_directive(self, stocked_product, vitrine, alert):
         """Triggered alert creates a Directive with notification.send topic."""
+        if not apps.is_installed("shopman.orderman"):
+            pytest.skip("shopman.orderman not installed in this test settings")
         from shopman.orderman.models import Directive
 
         product, quant = stocked_product

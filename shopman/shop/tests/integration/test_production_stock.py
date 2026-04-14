@@ -402,7 +402,12 @@ class TestStockByPosition:
 # =============================================================================
 
 
-@pytest.mark.skip(reason="Perishable expiry via shelf_life_days not yet wired in stockman.available()")
+@pytest.mark.skip(
+    reason="Shelflife wiring half-done: stockman.queries._resolve_stock_profile reads "
+    "`.shelflife` but offerman.Product exposes `.shelf_life_days`, and framework default "
+    "SKU validator is Noop. Fix requires either OffermanSkuValidator in framework settings "
+    "or attribute alias. See docs/ROADMAP.md."
+)
 class TestPerishableProducts:
     """Tests for perishable product handling."""
 
