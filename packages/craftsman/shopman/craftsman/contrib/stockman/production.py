@@ -7,12 +7,18 @@ This allows Stockman to request production when stock reaches reorder point.
 Uses craft.plan() and craft.void() instead of direct WorkOrder manipulation.
 """
 
+from __future__ import annotations
+
 import logging
 import threading
 from datetime import date, datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from shopman.craftsman.exceptions import CraftError
+
+if TYPE_CHECKING:
+    from shopman.stockman.protocols.production import ProductionResult, ProductionStatus
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +42,7 @@ class CraftsmanProductionBackend:
         ))
     """
 
-    def request_production(self, request) -> "ProductionResult":
+    def request_production(self, request) -> ProductionResult:
         """
         Request production of a product (Protocol-compliant signature).
 
@@ -68,7 +74,7 @@ class CraftsmanProductionBackend:
         needed_by: datetime | None = None,
         priority: int = 50,
         metadata: dict | None = None,
-    ) -> "ProductionResult":
+    ) -> ProductionResult:
         """Request production — simplified API."""
         combined_metadata = metadata or {}
         combined_metadata["priority"] = priority
@@ -82,7 +88,7 @@ class CraftsmanProductionBackend:
         qty: Decimal,
         target_date: date | None,
         metadata: dict | None,
-    ) -> "ProductionResult":
+    ) -> ProductionResult:
         """Internal: create WorkOrder via craft.plan()."""
         from shopman.craftsman.models import Recipe
         from shopman.craftsman.service import craft
@@ -127,7 +133,7 @@ class CraftsmanProductionBackend:
             logger.error("Failed to request production for SKU %s: %s", sku, e, exc_info=True)
             return ProductionResult(success=False, message=str(e))
 
-    def check_status(self, request_id: str) -> "ProductionStatus | None":
+    def check_status(self, request_id: str) -> ProductionStatus | None:
         """Check status of a production request."""
         from shopman.craftsman.models import WorkOrder
         from shopman.stockman.protocols.production import ProductionStatus, ProductionStatusEnum
@@ -162,7 +168,7 @@ class CraftsmanProductionBackend:
 
     def cancel_request(
         self, request_id: str, reason: str = "cancelled"
-    ) -> "ProductionResult":
+    ) -> ProductionResult:
         """Cancel a production request via craft.void()."""
         from shopman.craftsman.models import WorkOrder
         from shopman.craftsman.service import craft
@@ -205,7 +211,7 @@ class CraftsmanProductionBackend:
         self,
         sku: str | None = None,
         target_date: date | None = None,
-    ) -> list["ProductionStatus"]:
+    ) -> list[ProductionStatus]:
         """List pending production requests."""
         from shopman.craftsman.models import WorkOrder
         from shopman.stockman.protocols.production import ProductionStatus, ProductionStatusEnum

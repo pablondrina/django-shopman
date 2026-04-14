@@ -10,12 +10,12 @@ from shopman.stockman.models.enums import PositionKind
 class Position(models.Model):
     """
     Where stock exists — physical, logical, or process stage.
-    
+
     Positions are stable entities, created during system setup.
-    
+
     For MVP, we use a flat structure (no hierarchy).
     django-treebeard can be added later if needed.
-    
+
     Examples:
         Position.objects.create(ref='vitrine', name='Vitrine', kind=PositionKind.PHYSICAL, is_saleable=True)
         Position.objects.create(ref='producao', name='Produção', kind=PositionKind.PROCESS)

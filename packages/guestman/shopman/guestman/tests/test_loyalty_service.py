@@ -243,7 +243,7 @@ class TestAddStamp:
 
     def test_stamp_card_completion(self, enrolled):
         """Collecting 10 stamps (default target) completes a card."""
-        for i in range(9):
+        for _i in range(9):
             LoyaltyService.add_stamp("CUST-LOY-001")
 
         account, completed = LoyaltyService.add_stamp("CUST-LOY-001", description="10th!")
@@ -254,7 +254,7 @@ class TestAddStamp:
 
     def test_stamp_card_second_completion(self, enrolled):
         """Complete two cards in a row."""
-        for i in range(20):
+        for _i in range(20):
             LoyaltyService.add_stamp("CUST-LOY-001")
 
         enrolled.refresh_from_db()
@@ -294,7 +294,7 @@ class TestAddStamp:
         enrolled.stamps_target = 5
         enrolled.save()
 
-        for i in range(5):
+        for _i in range(5):
             LoyaltyService.add_stamp("CUST-LOY-001")
 
         enrolled.refresh_from_db()

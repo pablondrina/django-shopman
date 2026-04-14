@@ -17,7 +17,7 @@ class _TextareaCustomizationMixin:
     def get_formset(self, request, obj=None, **kwargs):
         formset = super().get_formset(request, obj, **kwargs)
 
-        for field_name, field in formset.form.base_fields.items():
+        for _field_name, field in formset.form.base_fields.items():
             widget = field.widget
 
             if isinstance(
@@ -60,7 +60,7 @@ class BaseModelAdmin(ModelAdmin):
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
 
-        for field_name, field in form.base_fields.items():
+        for _field_name, field in form.base_fields.items():
             widget = field.widget
 
             if isinstance(

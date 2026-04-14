@@ -307,7 +307,7 @@ class TestVerificationCodeLifecycle:
 
     def test_brute_force_blocked_after_max_attempts(self, verification_code):
         """Code must be blocked after max attempts."""
-        for i in range(verification_code.max_attempts):
+        for _i in range(verification_code.max_attempts):
             verification_code.record_attempt()
 
         verification_code.refresh_from_db()
@@ -339,7 +339,7 @@ class TestVerificationCodeLifecycle:
     def test_rate_limit_by_phone(self, db):
         """Rate limit must block after too many requests per phone."""
         phone = "+5541777777777"
-        for i in range(5):
+        for _i in range(5):
             VerificationCode.objects.create(
                 target_value=phone,
                 purpose=VerificationCode.Purpose.LOGIN,

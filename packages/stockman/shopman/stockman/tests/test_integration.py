@@ -48,7 +48,7 @@ class TestStockLifecycle:
         stock.receive(Decimal('100'), product.sku, vitrine, reason='Entrada')
 
         hold_ids = []
-        for i in range(5):
+        for _i in range(5):
             hid = stock.hold(Decimal('10'), product, today)
             hold_ids.append(hid)
 
@@ -214,7 +214,7 @@ class TestConcurrentHoldScenarios:
         stock.receive(Decimal('5'), product.sku, vitrine, reason='Producao limitada')
 
         hold_ids = []
-        for i in range(5):
+        for _i in range(5):
             hid = stock.hold(Decimal('1'), product, today)
             hold_ids.append(hid)
 
@@ -244,7 +244,7 @@ class TestConcurrentHoldScenarios:
 
         hold_ids = []
         # Create 100 holds of 10 units each
-        for i in range(100):
+        for _i in range(100):
             hid = stock.hold(Decimal('10'), product, today)
             hold_ids.append(hid)
 

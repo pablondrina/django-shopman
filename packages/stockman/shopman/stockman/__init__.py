@@ -5,7 +5,7 @@ O parceiro de dança perfeito para o Django Salesman.
 
 Uso:
     from shopman.stockman import stock, StockError
-    
+
     stock.plan(50, croissant, sexta)
     stock.hold(5, croissant, sexta)
     stock.available(croissant, sexta)  # 45

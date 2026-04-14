@@ -113,7 +113,7 @@ class TestHoldsReduceAvailability:
             _quantity=Decimal('100'),
         )
 
-        for i in range(5):
+        for _i in range(5):
             Hold.objects.create(
                 quant=quant,
                 sku=product.sku,

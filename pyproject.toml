@@ -71,4 +71,8 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B", "C4", "UP"]
-ignore = ["E501", "B008"]
+ignore = [
+    "E501",   # line too long — handled by line-length setting
+    "E402",   # module-level import not at top — intentional lazy imports in adapters
+    "B008",   # function call in default argument — common Django pattern
+]

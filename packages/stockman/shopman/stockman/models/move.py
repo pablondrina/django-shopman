@@ -13,12 +13,12 @@ from django.utils.translation import gettext_lazy as _
 class Move(models.Model):
     """
     Immutable record of quantity change.
-    
+
     Rules:
     - NEVER update() or delete()
     - Corrections are new Moves with inverse delta
     - Updates Quant._quantity atomically on save()
-    
+
     This is the ONLY model that changes quantity.
     """
 
