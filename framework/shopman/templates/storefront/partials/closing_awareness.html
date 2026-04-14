@@ -1,10 +1,11 @@
-{# ── Closing Awareness Banner ──
+{% comment %}
+── Closing Awareness Banner ──
    Shows a subtle banner when the shop is closing within 1 hour.
    Uses shop_status from context processor.
 
    Alpine auto-hides when not relevant.
-   Usage: {% include "storefront/partials/closing_awareness.html" %}
-#}
+   Usage: include "storefront/partials/closing_awareness.html"
+{% endcomment %}
 
 <div x-data="closingAwareness()" x-show="visible" x-transition x-cloak
      class="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-warning/10 border border-warning/30"

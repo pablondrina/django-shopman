@@ -1,12 +1,13 @@
-{# ── Quick Reorder ──
+{% comment %}
+── Quick Reorder ──
    Shows last order summary with one-tap reorder for returning customers.
 
    TODO(customer_summary): Replace mock data with customer_summary projection.
    Source: guestman (identity) + orderman (last order).
    Tracked in: storefront_backend_surface.md § 8.
 
-   Usage: {% include "storefront/partials/quick_reorder.html" %}
-#}
+   Usage: include "storefront/partials/quick_reorder.html"
+{% endcomment %}
 
 {# --- Mock: customer_summary (remove when projection is wired) --- #}
 {# TODO: Wire to customer_summary projection from guestman + orderman #}

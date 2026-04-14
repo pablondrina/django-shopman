@@ -1,13 +1,14 @@
-{# ── Temporal Greeting ──
+{% comment %}
+── Temporal Greeting ──
    Time-aware greeting with optional customer name.
    Uses customer_name from context processor.
 
    Alpine computes greeting prefix from current hour.
    SSR fallback: generic "Bem-vindo".
 
-   Usage: {% include "storefront/partials/temporal_greeting.html" %}
-   Optional: {% include "..." with show_context_line=True %}
-#}
+   Usage: include "storefront/partials/temporal_greeting.html"
+   Optional: include "..." with show_context_line=True
+{% endcomment %}
 
 {% with name=customer_name %}
 <div x-data="temporalGreeting()" x-init="update()" class="text-center">

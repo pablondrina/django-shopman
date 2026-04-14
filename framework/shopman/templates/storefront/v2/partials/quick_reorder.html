@@ -1,12 +1,13 @@
-{# ── Quick Reorder (Penguin UI card) ──
+{% comment %}
+── Quick Reorder (Penguin UI card) ──
    Shows last order summary with one-tap reorder for returning customers.
 
    TODO(customer_summary): Replace mock data with customer_summary projection.
    Source: guestman (identity) + orderman (last order).
 
-   Usage: {% include "storefront/v2/partials/quick_reorder.html" %}
+   Usage: include "storefront/v2/partials/quick_reorder.html"
    Requires: customer_name in context.
-#}
+{% endcomment %}
 <section class="max-w-2xl mx-auto mb-8">
   <article x-data="{ show: true }" x-show="show"
            class="group flex rounded-radius flex-col overflow-hidden border border-outline bg-surface-alt text-on-surface dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark">

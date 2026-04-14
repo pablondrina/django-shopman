@@ -217,7 +217,7 @@ class StockCheckDegradationTests(TestCase):
         view = CheckoutView()
         cart = self._make_cart(skus=("SKU-C",))
         request = self._make_request()
-        avail = {"breakdown": {"ready": Decimal("5"), "in_production": Decimal("0"), "d1": Decimal("0")}}
+        avail = {"total_promisable": Decimal("5"), "breakdown": {"ready": Decimal("5"), "in_production": Decimal("0"), "d1": Decimal("0")}}
 
         with patch("shopman.web.views.checkout._get_availability", return_value=avail):
             errors, service_unavailable = view._check_cart_stock(request, cart)

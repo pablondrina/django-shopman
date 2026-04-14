@@ -246,7 +246,7 @@ class TestReconcileDB:
         )
 
         assert not result["ok"]
-        assert result["error_code"] in ("insufficient_stock", "no_listing")
+        assert result["error_code"] in ("insufficient_supply", "no_listing")
         # Existing hold preserved.
         h1_row = Hold.objects.get(pk=_hold_pk(h1))
         assert h1_row.status == HoldStatus.PENDING

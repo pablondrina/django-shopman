@@ -1,12 +1,13 @@
-{# ── Shop Status Badge ──
+{% comment %}
+── Shop Status Badge ──
    Pill badge showing open/closed status with relative time when <1h.
    Uses shop_status from context processor (is_open, opens_at, closes_at, message).
 
    Alpine.js computes real-time relative display from opens_at/closes_at.
    SSR fallback: shows shop_status.message directly if JS is disabled.
 
-   Usage: {% include "storefront/partials/shop_status_badge.html" %}
-#}
+   Usage: include "storefront/partials/shop_status_badge.html"
+{% endcomment %}
 
 <div x-data="shopStatusBadge()" x-init="tick(); setInterval(() => tick(), 60000)"
      class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-caption font-medium

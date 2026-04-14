@@ -1,9 +1,10 @@
-{# ── Temporal Greeting ──
+{% comment %}
+── Temporal Greeting ──
    Alpine for DOM: computes greeting based on time of day.
    Data source: customer_name from context processor.
-   Usage: {% include "storefront/v2/partials/temporal_greeting.html" %}
-          {% include "storefront/v2/partials/temporal_greeting.html" with show_context_line=True %}
-#}
+   Usage: include "storefront/v2/partials/temporal_greeting.html"
+          include "storefront/v2/partials/temporal_greeting.html" with show_context_line=True
+{% endcomment %}
 <div x-data="temporalGreeting()" class="text-center">
   <h1 class="text-2xl lg:text-3xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong" x-text="greeting">
     {# SSR fallback #}
