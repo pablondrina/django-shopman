@@ -33,6 +33,9 @@
 {# Alpine.js #}
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
 
+{# Haptic feedback helper — exposes window.triggerHaptic #}
+<script defer src="{% static 'storefront/v2/js/haptic.js' %}"></script>
+
 {# Runtime token overrides — maps Django design_tokens to Penguin CSS vars #}
 {% with t=storefront.design_tokens dark=storefront.design_tokens.dark %}
 <style>

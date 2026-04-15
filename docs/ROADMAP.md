@@ -29,11 +29,11 @@ Ver [`docs/plans/NAMING-CONSOLIDATION-PLAN.md`](plans/NAMING-CONSOLIDATION-PLAN.
 
 **Tese:** hoje a palavra "shop" é usada para dois conceitos incompatíveis — a camada orquestradora (`shopman/shop/`) e as instâncias deployadas (que **são** lojas reais). Proposta: renomear `shopman/shop/` → `shopman/hub/` (Django label `hub`) e `instances/` → `shops/`, devolvendo "shop" ao seu sentido único de "loja real deployada". Packages continuam sendo "Core". URL namespace `storefront` já está correto (zero templates precisam mudar). Impacto médio — ~1 dia focado com testes verdes a cada passo. Aguarda aprovação explícita do Pablo sobre 4 pontos listados no plano.
 
-### 3. Extração de valor do `proto/` antes de descartar
+### 3. ~~Extração de valor do `proto/` antes de descartar~~ — **concluído 2026-04-15**
 
-Ver [`docs/plans/PROTO-EXTRACTION-PLAN.md`](plans/PROTO-EXTRACTION-PLAN.md).
+Ver [`docs/plans/completed/PROTO-EXTRACTION-PLAN.md`](plans/completed/PROTO-EXTRACTION-PLAN.md).
 
-**Tese:** o diretório `shopman/shop/web/templates/storefront/proto/` (21 HTMLs estáticos, sandbox não roteado) contém mais valor do que parecia — sistema de design tokens Tailwind v4 `@theme` com pares light/dark (M3-style), 6 keyframes bem calibradas, componentes `@layer components`, haptic feedback pattern, timeline component, sistema `AVAILABILITY_CONFIG`, e um simulador de personas de 563 linhas (`proto-scenarios.js`) útil pra QA/demos. O plano extrai 7 categorias de coisas pra `v2/` + ferramenta de dev, e só então deleta. Executar **antes** da Fase 1 do PROJECTION-UI-PLAN pra que a migração Fase 1 já consuma os tokens/componentes extraídos.
+Sete categorias portadas para `v2/`: design tokens `@theme` com pares light/dark, componentes `@layer components` (card, btn-*, badge-*, touch-target), 6 keyframes + `prefers-reduced-motion`, partial `availability_badge.html`, partial `timeline.html`, helper `haptic.js` com `triggerHaptic.{light,double,confirm,error}`. Diretório `proto/` deletado; `proto-scenarios.js` sobreviveu como ferramenta de dev em `tools/demo-scenarios/` com guia em [`docs/guides/demo-personas.md`](guides/demo-personas.md).
 
 ### 4. Projections + UI (Penguin) — WP grande
 
@@ -58,11 +58,11 @@ Bug reportado: no cardápio, clicar em "Adicionar" adiciona ao carrinho **e** na
 ### Ordem recomendada de execução
 
 ```
-1. C1-C9 (commits em trânsito)
+1. C1-C9 (commits em trânsito)                                       ✓ feito
    ↓
-2. NAMING-CONSOLIDATION (árvore limpa, sem drift em paralelo)
+2. NAMING-CONSOLIDATION                                              — skipped (deixa como está)
    ↓
-3. PROTO-EXTRACTION (cria tokens/componentes em v2 já no lugar final)
+3. PROTO-EXTRACTION (cria tokens/componentes em v2 já no lugar final) ✓ feito 2026-04-15
    ↓
 4. PROJECTION-UI-PLAN Fase 1 (migra v1 → v2 tela por tela, consumindo o que proto deixou)
    ↓

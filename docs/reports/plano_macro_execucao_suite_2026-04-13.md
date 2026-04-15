@@ -247,12 +247,13 @@ Se houver conflito entre conveniência local e constituição semântica:
 
 Há trabalho local em andamento fora desta trilha, ainda não empacotado nesta rodada:
 
-- `framework/shopman/web/templates/storefront/proto/home.html`
-- `framework/shopman/web/templates/storefront/proto/proto-scenarios.js`
+- (histórico) a sandbox `storefront/proto/` foi desmontada durante
+  PROTO-EXTRACTION (2026-04-15) — padrões úteis portados para
+  `v2/components/` + `style-v2.css`; ver
+  [docs/plans/completed/PROTO-EXTRACTION-PLAN.md](../plans/completed/PROTO-EXTRACTION-PLAN.md).
 
 Regra para outros agentes:
 
-- não tocar nesses arquivos sem coordenação explícita
 - não misturar refatoração de storefront com a trilha atual de kernel
 - quando a frente de storefront for retomada, ela deve ser guiada pela superfície canônica do backend, especialmente:
   - `offerman` para catálogo/oferta/preço contextual

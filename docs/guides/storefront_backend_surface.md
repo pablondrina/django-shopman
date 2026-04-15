@@ -279,15 +279,17 @@ Evitar:
 
 ## 8. Débito atual conhecido
 
-Existe refatoração local em andamento nestes arquivos:
+A sandbox estática `shopman/shop/web/templates/storefront/proto/` foi desmontada
+durante PROTO-EXTRACTION (2026-04-15). Os padrões aproveitáveis (tokens @theme,
+componentes `.card`/`.btn-*`/`.badge-*`, 6 keyframes de animação, badge de
+disponibilidade, timeline, haptic helper) foram portados para
+[`static/src/style-v2.css`](../../static/src/style-v2.css),
+`shopman/shop/templates/storefront/v2/components/` e
+`shopman/shop/static/storefront/v2/js/haptic.js`.
 
-- `shopman/shop/web/templates/storefront/proto/home.html`
-- `shopman/shop/web/templates/storefront/proto/proto-scenarios.js`
-
-Enquanto essa frente estiver aberta:
-
-- não misturar mudanças de kernel com esses templates
-- qualquer agente novo deve primeiro alinhar sua proposta a este guia
+O sistema de personas de demo sobreviveu como ferramenta de dev/QA em
+[`tools/demo-scenarios/proto-scenarios.js`](../../tools/demo-scenarios/proto-scenarios.js) —
+uso documentado em [demo-personas.md](demo-personas.md).
 
 ### Personalização recorrente ainda não formalizada
 
