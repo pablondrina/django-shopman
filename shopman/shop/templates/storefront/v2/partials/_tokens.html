@@ -20,11 +20,11 @@
 })();
 </script>
 
-{# Fonts (Google Fonts CDN) #}
+{# Fonts (Google Fonts CDN) — brand fonts + Material Symbols for iconography #}
 {% with t=storefront.design_tokens %}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ t.heading_font|urlencode }}:ital,wght@0,400;0,600;0,700;1,400;1,600&family={{ t.body_font|urlencode }}:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ t.heading_font|urlencode }}:ital,wght@0,400;0,600;0,700;1,400;1,600&family={{ t.body_font|urlencode }}:wght@400;500;600;700&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap">
 {% endwith %}
 
 {# Compiled Tailwind v4 (Penguin UI tokens) #}

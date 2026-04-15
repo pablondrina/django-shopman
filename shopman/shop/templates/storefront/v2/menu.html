@@ -1,0 +1,148 @@
+{% extends "storefront/v2/base.html" %}
+{% load static %}
+
+{% block title %}Cardápio{% endblock %}
+{% block meta_description %}Cardápio com disponibilidade em tempo real — {{ storefront.brand_name }}.{% endblock %}
+
+{% block content %}
+
+{# ── Happy Hour banner ── #}
+{% if catalog.happy_hour %}
+<div class="card mb-6 flex items-center gap-3 animate-fade-in" role="status" aria-live="polite">
+  <span class="badge-warning shrink-0">Happy Hour</span>
+  <p class="text-sm text-on-surface dark:text-on-surface-dark">
+    Até {{ catalog.happy_hour.end }} &mdash; {{ catalog.happy_hour.discount_percent }}% de desconto em tudo
+  </p>
+</div>
+{% endif %}
+
+{# ── Page header ── #}
+<header class="mb-6">
+  <h1 class="text-2xl lg:text-3xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Cardápio</h1>
+  <p class="mt-1 text-sm text-on-surface dark:text-on-surface-dark">Feito à mão, todo dia.</p>
+</header>
+
+{# ── Category pills (sticky) ── #}
+{% if catalog.categories %}
+<nav aria-label="Filtrar por categoria"
+     class="sticky top-0 z-30 -mx-4 px-4 py-3 mb-6 bg-surface/95 dark:bg-surface-dark/95 backdrop-blur border-b border-outline dark:border-outline-dark">
+  <ul class="flex gap-2 overflow-x-auto">
+    <li class="shrink-0">
+      <a href="{% url 'storefront:menu' %}?v2"
+         class="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition touch-target
+                {% if not catalog.active_category_ref %}bg-primary text-on-primary dark:bg-primary-dark dark:text-on-primary-dark{% else %}bg-surface-alt text-on-surface border border-outline dark:bg-surface-dark-alt dark:text-on-surface-dark dark:border-outline-dark{% endif %}">
+        Todos
+      </a>
+    </li>
+    {% for cat in catalog.categories %}
+    <li class="shrink-0">
+      <a href="{{ cat.url }}?v2"
+         class="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition touch-target
+                {% if catalog.active_category_ref == cat.ref %}bg-primary text-on-primary dark:bg-primary-dark dark:text-on-primary-dark{% else %}bg-surface-alt text-on-surface border border-outline dark:bg-surface-dark-alt dark:text-on-surface-dark dark:border-outline-dark{% endif %}">
+        <span class="material-symbols-rounded text-base" aria-hidden="true">{{ cat.icon }}</span>
+        {{ cat.name }}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</nav>
+{% endif %}
+
+{# ── Sections (grouped by category) ── #}
+{% if catalog.has_items %}
+  {% for section in catalog.sections %}
+  <section class="mb-10 animate-fade-in" {% if section.category %}id="{{ section.category.ref }}"{% endif %}>
+    <h2 class="mb-4 text-lg font-bold text-on-surface-strong dark:text-on-surface-dark-strong flex items-center gap-2">
+      {% if section.category %}
+        <span class="material-symbols-rounded text-xl" aria-hidden="true">{{ section.category.icon }}</span>
+        {{ section.category.name }}
+      {% else %}
+        Outros
+      {% endif %}
+    </h2>
+
+    <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {% for item in section.items %}
+      <li x-data="{ justAdded: false }" class="card flex gap-4 relative overflow-hidden">
+
+        {# Image #}
+        <div class="shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-surface dark:bg-surface-dark border border-outline dark:border-outline-dark">
+          {% if item.image_url %}
+          <img src="{{ item.image_url }}" alt="{{ item.name }}" loading="lazy"
+               class="w-full h-full object-cover">
+          {% else %}
+          <div class="w-full h-full flex items-center justify-center text-on-surface/30 dark:text-on-surface-dark/30">
+            <span class="material-symbols-rounded text-3xl" aria-hidden="true">bakery_dining</span>
+          </div>
+          {% endif %}
+        </div>
+
+        {# Body #}
+        <div class="flex-1 min-w-0 flex flex-col">
+          <div class="flex items-start justify-between gap-2">
+            <h3 class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong leading-tight">
+              <a href="{% url 'storefront:product_detail' item.sku %}?v2"
+                 class="hover:text-primary dark:hover:text-primary-dark focus:outline-hidden focus:underline">
+                {{ item.name }}
+              </a>
+            </h3>
+            {% if item.is_featured %}
+            <span class="badge-info shrink-0" title="Popular">Popular</span>
+            {% endif %}
+          </div>
+
+          {% if item.short_description %}
+          <p class="mt-1 text-xs text-on-surface dark:text-on-surface-dark line-clamp-2">{{ item.short_description }}</p>
+          {% endif %}
+
+          {# Availability badge (only when not plain available) #}
+          {% if item.availability != "available" %}
+          <div class="mt-2">
+            {% include "storefront/v2/components/availability_badge.html" with state=item.availability.value %}
+          </div>
+          {% endif %}
+
+          {# Price + action #}
+          <div class="mt-auto pt-3 flex items-end justify-between gap-2">
+            <div>
+              {% if item.has_promotion %}
+                <p class="text-xs text-on-surface/70 dark:text-on-surface-dark/70 line-through">{{ item.original_price_display }}</p>
+                <p class="text-base font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.price_display }}</p>
+                {% if item.promotion_label %}
+                <span class="badge-warning mt-1">{{ item.promotion_label }}</span>
+                {% endif %}
+              {% else %}
+                <p class="text-base font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.price_display }}</p>
+              {% endif %}
+            </div>
+
+            {% if item.can_add_to_cart %}
+            <button type="button"
+                    class="btn-primary text-xs px-3 py-2"
+                    hx-post="{% url 'storefront:cart_add' %}"
+                    hx-vals='{"sku": "{{ item.sku }}", "qty": 1}'
+                    hx-target="#cart-badge-header"
+                    hx-swap="outerHTML"
+                    hx-on::after-request="justAdded = true; window.triggerHaptic && window.triggerHaptic.light(); setTimeout(() => justAdded = false, 1600)">
+              <span x-show="!justAdded" x-cloak>Adicionar</span>
+              <span x-show="justAdded" x-cloak>Adicionado ✓</span>
+            </button>
+            {% else %}
+            <button type="button" class="btn-secondary text-xs px-3 py-2 opacity-70 cursor-not-allowed" disabled aria-disabled="true">
+              {{ item.availability_label }}
+            </button>
+            {% endif %}
+          </div>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endfor %}
+{% else %}
+  <div class="card text-center py-12">
+    <p class="text-on-surface dark:text-on-surface-dark">Nenhum produto disponível no momento.</p>
+  </div>
+{% endif %}
+
+{% endblock %}

@@ -79,6 +79,7 @@ class ChannelConfig:
         planned_hold_ttl_hours: int = 48  # TTL for planned holds (fermata timeout)
         allowed_positions: list[str] | None = None  # None = all saleable positions
         check_on_commit: bool = False  # validate per-item availability at commit
+        low_stock_threshold: int = 5  # acima de 0 e <= este valor → "Últimas unidades" no cardápio
 
     # ── 5. Notificações ──
     @dataclass

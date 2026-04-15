@@ -13,19 +13,22 @@ from shopman.offerman.models import Collection, Product
 from shopman.offerman.service import CatalogService
 from shopman.utils.monetary import format_money
 
+from shopman.shop.projections.icons import collection_icon
+from shopman.shop.services.storefront_context import (
+    happy_hour_state,
+    popular_skus,
+    session_pricing_hints,
+)
+
 from ._helpers import (
     _allergen_info,
     _annotate_products,
     _availability_badge,
-    _collection_icon,
     _cross_sell_products,
     _get_availability,
     _get_channel_listing_ref,
     _get_price_q,
     _hero_data,
-    _is_happy_hour_active,
-    _popular_skus,
-    _storefront_session_pricing_hints,
     _to_storefront_avail,
 )
 
@@ -55,11 +58,26 @@ class MenuView(View):
         if request.GET.get("partial") == "availability_preview":
             return self._availability_preview(request, listing_ref)
 
+        # ?v2 flag: Penguin UI pilot driven by the CatalogProjection read model.
+        # Keeps v1 intact — toggled per-request for side-by-side validation.
+        if request.GET.get("v2") is not None:
+            from shopman.shop.projections import build_catalog
+            from shopman.shop.web.constants import STOREFRONT_CHANNEL_REF
+
+            if collection is not None:
+                get_object_or_404(Collection, ref=collection, is_active=True)
+            catalog = build_catalog(
+                channel_ref=STOREFRONT_CHANNEL_REF,
+                collection_ref=collection,
+                request=request,
+            )
+            return render(request, "storefront/v2/menu.html", {"catalog": catalog})
+
         collections = Collection.objects.filter(is_active=True).order_by("sort_order", "name")
         active_collection = None
 
         # Popular SKUs for badge annotation
-        popular = _popular_skus(limit=5)
+        popular = popular_skus(limit=5)
 
         if collection:
             active_collection = get_object_or_404(Collection, ref=collection, is_active=True)
@@ -102,9 +120,9 @@ class MenuView(View):
         hero = _hero_data(listing_ref=listing_ref, request=request) if not collection else None
 
         # Ícones Material Symbols por coleção (ref → ligature name)
-        collection_icons = {col.ref: _collection_icon(col.ref) for col in collections}
+        collection_icons = {col.ref: collection_icon(col.ref) for col in collections}
 
-        happy_hour_info = _is_happy_hour_active()
+        happy_hour_info = happy_hour_state()
 
         # Reorder feedback: items skipped due to unavailability
         reorder_skipped = request.session.pop("reorder_skipped", None)
@@ -122,7 +140,7 @@ class MenuView(View):
 
     def _availability_preview(self, request: HttpRequest, listing_ref: str | None) -> HttpResponse:
         """HTMX partial for home: produtos com disponibilidade + preço/promo (mesmo annotate do cardápio)."""
-        popular = _popular_skus(limit=6)
+        popular = popular_skus(limit=6)
         qs = _published_products(listing_ref)
         if popular:
             products = list(qs.filter(sku__in=popular).distinct()[:6])
@@ -187,9 +205,9 @@ class MenuSearchView(View):
         # If fuzzy returns nothing, show popular products as fallback
         popular_fallback = []
         if not items:
-            popular_skus = _popular_skus(limit=4)
-            if popular_skus:
-                fallback_qs = _published_products(listing_ref).filter(sku__in=popular_skus).distinct()[:4]
+            popular = popular_skus(limit=4)
+            if popular:
+                fallback_qs = _published_products(listing_ref).filter(sku__in=popular).distinct()[:4]
                 popular_fallback = _annotate_products(list(fallback_qs), listing_ref=listing_ref, request=request)
 
         return render(request, "storefront/partials/search_results.html", {
@@ -254,7 +272,7 @@ class ProductDetailView(View):
         avail_raw = _get_availability(product.sku)
         avail = _to_storefront_avail(avail_raw, product)
         badge = _availability_badge(avail, product)
-        ft_hint, sub_hint = _storefront_session_pricing_hints(request)
+        ft_hint, sub_hint = session_pricing_hints(request)
         try:
             from shopman.offerman.models import CollectionItem
 

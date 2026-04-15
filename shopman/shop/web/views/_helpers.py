@@ -10,6 +10,11 @@ from shopman.offerman.models import ListingItem, Product
 from shopman.offerman.service import CatalogService
 from shopman.utils.monetary import format_money
 
+from shopman.shop.services.storefront_context import (
+    popular_skus,
+    session_pricing_hints,
+)
+
 from ..constants import HAS_STOCKMAN, STOREFRONT_CHANNEL_REF
 
 logger = logging.getLogger(__name__)
@@ -164,36 +169,6 @@ def _availability_badge(avail: dict | None, product: Product) -> dict:
     return {"label": "Indisponível", "css_class": "badge-unavailable", "can_add_to_cart": False}
 
 
-def _storefront_session_pricing_hints(request: HttpRequest | None) -> tuple[str, int]:
-    """Tipo de entrega e subtotal do carrinho (sessão web) — alinha vitrine ao DiscountModifier."""
-    if request is None:
-        return "", 0
-    try:
-        from shopman.orderman.models import Session
-
-        from shopman.shop.models import Channel
-
-        key = request.session.get("cart_session_key")
-        if not key:
-            return "", 0
-        ch = Channel.objects.filter(ref=STOREFRONT_CHANNEL_REF).first()
-        if not ch:
-            return "", 0
-        sess = Session.objects.filter(
-            session_key=key,
-            channel_ref=ch.ref,
-            state="open",
-        ).first()
-        if not sess:
-            return "", 0
-        ft = (sess.data or {}).get("fulfillment_type") or ""
-        total = sum(int(line.get("line_total_q", 0) or 0) for line in (sess.items or []))
-        return ft, total
-    except Exception as e:
-        logger.warning("session_pricing_hints_failed: %s", e, exc_info=True)
-        return "", 0
-
-
 def _promo_matches_for_vitrine(promo, sku: str, ctx: dict) -> bool:
     """Igual DiscountModifier._matches, mas se não há fulfillment na sessão e a promo exige tipo,
     testa cada tipo permitido para ainda exibir preço/badge no cardápio."""
@@ -222,8 +197,9 @@ def _best_auto_promotion_discount_q(
 ):
     """Maior desconto entre promoções automáticas (igual DiscountModifier), para o vitrine.
 
-    Passe ``fulfillment_type`` e ``session_total_q`` da sessão do carrinho (`_storefront_session_pricing_hints`)
-    para coincidir com o que o modificador aplica no checkout.
+    Passe ``fulfillment_type`` e ``session_total_q`` da sessão do carrinho
+    (``services.storefront_context.session_pricing_hints``) para coincidir
+    com o que o modificador aplica no checkout.
     """
     from shopman.shop.models import Promotion
     from shopman.shop.modifiers import DiscountModifier
@@ -270,7 +246,7 @@ def _annotate_products(
         listing_ref = _get_channel_listing_ref()
 
     if request is not None and (session_total_q is None or fulfillment_type is None):
-        ft_hint, sub_hint = _storefront_session_pricing_hints(request)
+        ft_hint, sub_hint = session_pricing_hints(request)
         if fulfillment_type is None:
             fulfillment_type = ft_hint
         if session_total_q is None:
@@ -508,55 +484,6 @@ def _format_opening_hours() -> list[dict]:
     return result
 
 
-# Material Symbols Rounded — generic ligature names by collection hint
-COLLECTION_ICONS: dict[str, str] = {
-    "cafes": "local_cafe",
-    "cafe": "local_cafe",
-    "bebidas": "local_drink",
-    "drinks": "local_drink",
-    "combos": "inventory_2",
-    "kits": "inventory_2",
-    "ofertas": "sell",
-    "promocoes": "sell",
-    "snacks": "lunch_dining",
-    "salgados": "lunch_dining",
-    "lanches": "restaurant",
-    "especiais": "star",
-}
-
-
-def _collection_icon(ref: str) -> str:
-    """Nome do ícone Material Symbols para ref de coleção (default visível no cardápio)."""
-    if not ref:
-        return "restaurant_menu"
-    ref_lower = ref.lower()
-    for key, icon in COLLECTION_ICONS.items():
-        if key in ref_lower:
-            return icon
-    return "restaurant_menu"
-
-
-def _popular_skus(limit: int = 5) -> set[str]:
-    """Aggregate favorite SKUs across all customer insights."""
-    try:
-        insights = InsightService.favorite_product_samples(limit=200)
-        sku_counts: dict[str, int] = {}
-        for favorites in insights:
-            if not favorites:
-                continue
-            for fav in favorites:
-                sku = fav.get("sku", "") if isinstance(fav, dict) else str(fav)
-                if sku:
-                    sku_counts[sku] = sku_counts.get(sku, 0) + fav.get("qty", 1) if isinstance(fav, dict) else sku_counts.get(sku, 0) + 1
-        if not sku_counts:
-            return set()
-        sorted_skus = sorted(sku_counts, key=sku_counts.get, reverse=True)
-        return set(sorted_skus[:limit])
-    except Exception as e:
-        logger.warning("popular_skus_failed: %s", e, exc_info=True)
-        return set()
-
-
 def _hero_data(listing_ref: str | None = None, request: HttpRequest | None = None) -> dict | None:
     """
     Build hero section data: featured promotion or most popular product.
@@ -601,7 +528,7 @@ def _hero_data(listing_ref: str | None = None, request: HttpRequest | None = Non
                 except Exception as e:
                     logger.warning("hero_data_collections_failed: %s", e, exc_info=True)
                     cols = []
-                ft_hint, sub_hint = _storefront_session_pricing_hints(request) if request else ("", 0)
+                ft_hint, sub_hint = session_pricing_hints(request)
                 disc_q, _ = _best_auto_promotion_discount_q(
                     promo.skus[0],
                     price_q or 0,
@@ -621,7 +548,7 @@ def _hero_data(listing_ref: str | None = None, request: HttpRequest | None = Non
                 }
 
         # Fallback: most popular product
-        popular = _popular_skus(limit=1)
+        popular = popular_skus(limit=1)
         if popular:
             from shopman.offerman.models import Product as Prod
 
@@ -688,7 +615,7 @@ def _upsell_suggestion(cart_skus: set[str], listing_ref: str | None = None) -> d
 
     Returns annotated product dict or None.
     """
-    popular = _popular_skus(limit=10)
+    popular = popular_skus(limit=10)
     candidates = [sku for sku in popular if sku not in cart_skus]
     if not candidates:
         return None
@@ -777,47 +704,6 @@ def _allergen_info(product: Product) -> dict | None:
         "dietary_info": dietary if isinstance(dietary, list) else [],
         "serves": str(serves) if serves else None,
     }
-
-
-_HAPPY_HOUR_INACTIVE = {"active": False, "discount_percent": 0, "start": "", "end": ""}
-
-
-def _is_happy_hour_active() -> dict:
-    """Return happy hour status and config for the storefront channel.
-
-    Only returns active=True if the instance has registered a modifier with
-    code ``shop.happy_hour``.  This ensures the badge is never shown unless
-    the instance actually applies the discount.
-
-    Returns dict with keys: active (bool), discount_percent (int), end_hour (str).
-    """
-    from django.conf import settings
-    from shopman.orderman.registry import get_modifiers
-
-    # Guard: only show badge if the instance registered a happy hour modifier.
-    if not any(getattr(m, "code", None) == "shop.happy_hour" for m in get_modifiers()):
-        return _HAPPY_HOUR_INACTIVE
-
-    try:
-        raw_start = getattr(settings, "SHOPMAN_HAPPY_HOUR_START", "16:00")
-        raw_end = getattr(settings, "SHOPMAN_HAPPY_HOUR_END", "18:00")
-        discount_percent = getattr(settings, "SHOPMAN_HAPPY_HOUR_DISCOUNT_PERCENT", 10)
-
-        sh, sm = map(int, raw_start.split(":"))
-        eh, em = map(int, raw_end.split(":"))
-        start = time(sh, sm)
-        end = time(eh, em)
-        now = timezone.localtime().time()
-        active = start <= now < end
-        return {
-            "active": active,
-            "discount_percent": discount_percent,
-            "start": raw_start,
-            "end": raw_end,
-        }
-    except Exception as e:
-        logger.warning("happy_hour_check_failed: %s", e, exc_info=True)
-        return _HAPPY_HOUR_INACTIVE
 
 
 CARRIER_TRACKING_URLS: dict[str, str] = {
