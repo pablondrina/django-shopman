@@ -139,7 +139,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name='workorder',
-            index=models.Index(fields=['status', 'target_date'], name='crafting_wo_status_9c8483_idx'),
+            index=models.Index(fields=['status', 'target_date'], name='crafting_wo_status_7e4de4_idx'),
         ),
         migrations.AddIndex(
             model_name='workorder',
@@ -147,7 +147,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name='workorder',
-            index=models.Index(fields=['target_date'], name='crafting_wo_schedul_173027_idx'),
+            index=models.Index(fields=['target_date'], name='crafting_wo_target__173b8f_idx'),
         ),
         migrations.AddConstraint(
             model_name='workorder',

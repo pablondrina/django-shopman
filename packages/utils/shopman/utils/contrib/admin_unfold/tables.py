@@ -21,7 +21,7 @@ Usage in a dashboard callback::
     )
     for order in orders:
         table.add_row([
-            table_link(f"/admin/ordering/order/{order.pk}/change/", order.ref),
+            table_link(f"/admin/orderman/order/{order.pk}/change/", order.ref),
             order.channel.name,
             table_badge(order.get_status_display(), "green"),
             format_brl(order.total_q),
