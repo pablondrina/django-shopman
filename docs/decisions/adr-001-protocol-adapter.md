@@ -1,8 +1,8 @@
 # ADR-001: Cores independentes, framework integrador, Protocol/Adapter para substituição
 
 **Status:** Aceito
-**Data:** 2026-04-14 (reescrita)
-**Supera:** versão original de 2025-01-20
+**Data:** 2026-04-15 (revisão incorporando bridges)
+**Supera:** versão original de 2025-01-20; reescrita de 2026-04-14
 
 ---
 
@@ -34,18 +34,66 @@ reescrita fixa a lei atual na forma positiva.
 Um core em `packages/` responde uma pergunta canônica de negócio e a resolve
 inteiramente dentro do seu próprio código. Ele expõe services públicos, modela
 suas entidades, define seus sinais e emite seus eventos. É testável e
-instalável isoladamente. Nenhum core importa outro core — a única dependência
-permitida é `shopman.utils`.
+instalável isoladamente.
+
+A regra de pureza precisa ser dita com cuidado, porque há uma leitura literal
+tentadora — "nenhum core importa outro core" — e uma leitura honesta, que é a
+que o projeto segue:
+
+> **O código de domínio de cada core é puro. Bridges opt-in entre cores são
+> permitidas, mas só podem viver em pastas nomeadas — `adapters/` e
+> `contrib/<outro_core>/` — e precisam usar imports lazy.**
+
+Concretamente:
+
+- **`models/`, `services/`, `protocols/`, `api/`, `admin.py`** de um core **não
+  importam** nenhum outro core (exceto `shopman.utils`). Isto é inviolável e
+  coberto por um teste de invariante que varre essas pastas.
+- **`adapters/`** é onde vive o código de um core `<A>` que **implementa** um
+  protocol definido por outro core `<B>`, ou que **consome** serviços de `<B>`
+  diretamente quando ele está presente. Exemplo: `offerman/adapters/product_info.py`
+  implementa `ProductInfoBackend` definido em `craftsman.protocols.catalog`.
+- **`contrib/<B>/`** é reservado para integrações cross-cutting opt-in: signal
+  handlers, admin registrations, management commands que só fazem sentido quando
+  os dois cores estão instalados juntos. Segue a convenção de contrib do Django —
+  precisa ser explicitamente adicionado ao `INSTALLED_APPS` da instância.
 
 ```python
-# packages/stockman/shopman/stockman/services.py
-class StockService:
-    @classmethod
-    def hold(cls, sku: str, quantity: Decimal, ...) -> Hold: ...
+# packages/offerman/shopman/offerman/adapters/product_info.py
+class ProductInfoBackend:
+    def get_product_info(self, sku: str):
+        # Import lazy: o adapter inteiro carrega mesmo sem Craftsman,
+        # e só toca Craftsman quando for realmente chamado.
+        from shopman.craftsman.protocols.catalog import ProductInfo
+        from shopman.offerman.models import Product
+        ...
+```
 
+O teste real de independência é: `pip install shopman-<A>` num venv limpo, sem
+nenhum outro core, e `make test-<A>` passa. Os adapters e contrib podem existir
+como código que nunca é exercitado, desde que a importação do módulo não exploda.
+
+**Por que bridges existem.** Sem elas, um Craftsman instalado junto com
+Offerman e Stockman não conseguiria coordenar produção com estoque real a não
+ser via o framework orquestrador — e a capacidade de usar dois cores juntos sem
+o orquestrador (raro mas legítimo) se perderia. As pastas `adapters/` e
+`contrib/` dão uma casa nomeada para esse acoplamento, reconhecível à vista,
+impossível de esconder por acidente.
+
+**Convenções de nomeação de bridges:**
+
+- Se `<A>` implementa um protocol que `<B>` define, o adapter vai em
+  `<A>/adapters/` (o implementador segura o contrato do outro).
+- Se `<A>` consome serviços de `<B>` diretamente (sem protocol), o bridge vai
+  em `<A>/adapters/` com sufixo claro do alvo (`adapters/production.py`,
+  `adapters/stock.py`).
+- `contrib/<B>/` é para handlers de signals, admin, management commands que só
+  fazem sentido com os dois juntos.
+
+```python
 # packages/orderman/shopman/orderman/services/commit.py
 class CommitService:
-    # não importa nada de outros cores além de utils
+    # código de domínio puro — não importa nenhum outro core além de utils
     ...
 ```
 
@@ -104,8 +152,15 @@ SHOPMAN_PAYMENT_BACKEND = "shopman.shop.adapters.payment_efi.EfiPixBackend"
 
 ### 4. Invariantes
 
-- **Independência dos cores é invariante absoluto.** Nenhum core importa outro
-  core (exceto `utils`). Violações são bloqueadas por testes de invariante.
+- **Pureza do domínio é invariante absoluto.** `models/`, `services/`,
+  `protocols/`, `api/` de qualquer core **não importam** outro core (exceto
+  `utils`). Violações em pastas de domínio são bloqueadas por testes de
+  invariante. Bridges em `adapters/` e `contrib/` estão explicitamente
+  excluídos da varredura — eles são o único lugar legítimo onde imports
+  cross-package podem aparecer.
+- **Bridges precisam ser lazy.** Adapters e contrib importam outros cores
+  dentro de funções/métodos, nunca no topo do módulo. Assim a importação do
+  módulo permanece válida mesmo sem o outro core instalado.
 - **Substituibilidade é decisão pontual.** Novos Protocols precisam de uma razão
   concreta — pelo menos duas implementações reais previstas, ou necessidade de
   mock em testes. "Pode ser útil um dia" não justifica.
