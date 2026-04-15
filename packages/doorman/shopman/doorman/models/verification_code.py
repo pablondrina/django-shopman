@@ -38,8 +38,13 @@ def _hmac_code(code: str) -> str:
     return hmac.new(_get_hmac_key(), code.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
-def verify_code(stored_digest: str, code_input: str) -> bool:
-    """Verify a code against its stored HMAC digest."""
+def hmac_matches(stored_digest: str, code_input: str) -> bool:
+    """Compare a raw code against a stored HMAC digest in constant time.
+
+    This is a pure cryptographic primitive: it does NOT check expiration,
+    attempts, or status. Callers that need full lifecycle validation must
+    use :meth:`VerificationCode.verify` instead.
+    """
     input_digest = _hmac_code(code_input.strip())
     return hmac.compare_digest(stored_digest, input_digest)
 
@@ -170,6 +175,19 @@ class VerificationCode(models.Model):
     def attempts_remaining(self) -> int:
         """Number of attempts remaining."""
         return max(0, self.max_attempts - self.attempts)
+
+    def verify(self, raw_code: str) -> bool:
+        """Verify a raw code against this record.
+
+        Returns True only if (a) the record is still valid (not expired,
+        not exhausted, in a pending/sent status) and (b) the HMAC digest
+        matches. This is the canonical entry point for code verification.
+        Use :func:`hmac_matches` only when you need the raw primitive
+        (e.g. testing the cryptographic helper in isolation).
+        """
+        if not self.is_valid:
+            return False
+        return hmac_matches(self.code_hash, raw_code)
 
     def record_attempt(self):
         """Record a failed verification attempt (atomic increment)."""

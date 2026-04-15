@@ -251,10 +251,8 @@ class AuthService:
                 error_code=ErrorCode.CODE_EXPIRED,
             )
 
-        # Verify code via HMAC comparison
-        from ..models.verification_code import verify_code
-
-        if not verify_code(code.code_hash, code_input):
+        # Verify code (checks is_valid + HMAC in one call)
+        if not code.verify(code_input):
             code.record_attempt()
             adapter.on_login_failed(request, target_value, "incorrect_code")
             return VerifyResult(

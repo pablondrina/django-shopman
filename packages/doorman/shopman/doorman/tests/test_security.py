@@ -22,7 +22,7 @@ from django.utils import timezone
 from shopman.doorman.exceptions import GateError
 from shopman.doorman.gates import Gates
 from shopman.doorman.models import AccessLink, VerificationCode
-from shopman.doorman.models.verification_code import generate_code, generate_raw_code, verify_code
+from shopman.doorman.models.verification_code import generate_code, generate_raw_code, hmac_matches
 from shopman.doorman.services.access_link import AccessLinkService
 from shopman.doorman.services.verification import AuthService
 from shopman.doorman.utils import safe_redirect_url
@@ -73,10 +73,10 @@ class TestOTPGeneration:
         assert hasattr(vc_module, "secrets"), "secrets module not imported"
 
     def test_hmac_verification_works(self):
-        """verify_code correctly validates raw code against stored digest."""
+        """hmac_matches correctly validates raw code against stored digest."""
         raw_code, digest = generate_raw_code()
-        assert verify_code(digest, raw_code)
-        assert not verify_code(digest, "000000" if raw_code != "000000" else "111111")
+        assert hmac_matches(digest, raw_code)
+        assert not hmac_matches(digest, "000000" if raw_code != "000000" else "111111")
 
     def test_stored_code_not_plaintext(self, db):
         """Code stored in DB is HMAC, not the raw 6-digit code."""
