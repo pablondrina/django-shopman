@@ -16,10 +16,12 @@
     <p class="text-muted-foreground">{{ customer.phone|format_phone }}</p>
   </div>
 
-  {# TODO(customer_summary): Relationship metrics card.
-     Show total_orders, favorite_product, total_spent.
-     Source: customer_summary projection from guestman + orderman.
-     Design: subtle card with 3 inline stats, not flashy. #}
+  {% comment %}
+    TODO(customer_summary): Relationship metrics card.
+    Show total_orders, favorite_product, total_spent.
+    Source: customer_summary projection from guestman + orderman.
+    Design: subtle card with 3 inline stats, not flashy.
+  {% endcomment %}
 
   {# Horizontal tabs #}
   <div class="flex gap-1 mb-6 overflow-x-auto scrollbar-hide border-b border-border">

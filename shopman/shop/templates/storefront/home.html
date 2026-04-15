@@ -8,13 +8,14 @@
 
 {% block content %}
 
-{# ── Hero Section (Omotenashi v2) ──
-   Structure: Logo → Badge → Voice (greeting + context) → CTAs
-   Data sources:
-   - storefront (Shop model) → logo, brand_name
-   - shop_status (context processor) → is_open, opens_at, closes_at
-   - customer_name (context processor) → personalized greeting
-#}
+{% comment %}
+  ── Hero Section (Omotenashi v2) ──
+  Structure: Logo → Badge → Voice (greeting + context) → CTAs
+  Data sources:
+  - storefront (Shop model) → logo, brand_name
+  - shop_status (context processor) → is_open, opens_at, closes_at
+  - customer_name (context processor) → personalized greeting
+{% endcomment %}
 <section class="text-center py-12 md:py-20">
 
   {# Logo — identity, separated from voice #}

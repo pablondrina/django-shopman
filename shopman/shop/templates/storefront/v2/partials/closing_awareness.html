@@ -1,7 +1,8 @@
-{# ── Closing Awareness Banner (Penguin UI banner) ──
-   Alpine for DOM: auto-appears when closing within 1h, ticks every 60s.
-   Data source: shop_status from context processor.
-#}
+{% comment %}
+  ── Closing Awareness Banner (Penguin UI banner) ──
+  Alpine for DOM: auto-appears when closing within 1h, ticks every 60s.
+  Data source: shop_status from context processor.
+{% endcomment %}
 <div x-data="closingAwareness()" x-init="check(); setInterval(() => check(), 60000)">
   <div x-show="show" x-transition x-cloak
        class="relative flex border-warning bg-warning/10 p-4 text-on-surface dark:text-on-surface-dark border-b border-warning/25 rounded-radius mb-4 max-w-2xl mx-auto">

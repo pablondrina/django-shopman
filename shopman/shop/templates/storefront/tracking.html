@@ -145,10 +145,12 @@
       </a>
     </div>
 
-    {# TODO(kintsugi): Detect delay via order timeline events.
-       When current phase exceeds expected SLA, show transparent message:
-       "Seu pedido está levando mais tempo que o esperado. Nova estimativa: Xmin."
-       Source: orderman order events + shop SLA config. #}
+    {% comment %}
+      TODO(kintsugi): Detect delay via order timeline events.
+      When current phase exceeds expected SLA, show transparent message:
+      "Seu pedido está levando mais tempo que o esperado. Nova estimativa: Xmin."
+      Source: orderman order events + shop SLA config.
+    {% endcomment %}
 
     {# Gate 3 — Ressonância: seed the next visit #}
     {% if shop_status.opens_at %}

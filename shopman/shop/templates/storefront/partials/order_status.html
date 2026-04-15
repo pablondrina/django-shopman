@@ -32,7 +32,7 @@
 </div>
 {% endif %}
 
-{# Awaiting confirmation countdown (optimistic mode, status=new) #}
+{# Awaiting confirmation countdown (auto_confirm mode, status=new) #}
 {% if confirmation_countdown %}
 <div class="text-center mb-6" x-data="confirmTimer('{{ confirmation_expires_at|date:'c' }}')">
   <p class="text-sm text-muted-foreground mb-1">Aguardando confirmação</p>

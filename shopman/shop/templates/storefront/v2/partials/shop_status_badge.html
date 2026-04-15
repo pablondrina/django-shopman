@@ -1,7 +1,8 @@
-{# ── Shop Status Badge (Penguin UI badge) ──
-   Alpine for DOM: real-time countdown tick every 60s.
-   Data source: shop_status from context processor (is_open, opens_at, closes_at).
-#}
+{% comment %}
+  ── Shop Status Badge (Penguin UI badge) ──
+  Alpine for DOM: real-time countdown tick every 60s.
+  Data source: shop_status from context processor (is_open, opens_at, closes_at).
+{% endcomment %}
 <div x-data="shopStatusBadge()" x-init="tick(); setInterval(() => tick(), 60000)">
   {# Open #}
   <span x-show="isOpen" x-cloak

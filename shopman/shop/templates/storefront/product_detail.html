@@ -39,9 +39,11 @@
   {% include "storefront/partials/closing_awareness.html" %}
 </div>
 
-{# TODO(customer_summary): Show "Você já pediu este item" for returning customers.
-   Source: customer_summary.last_order_summary from guestman + orderman.
-   Check if product.sku appears in last order items. #}
+{% comment %}
+  TODO(customer_summary): Show "Você já pediu este item" for returning customers.
+  Source: customer_summary.last_order_summary from guestman + orderman.
+  Check if product.sku appears in last order items.
+{% endcomment %}
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
   <!-- Product image -->

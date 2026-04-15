@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from django import template
+from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
 register = template.Library()
@@ -116,12 +117,13 @@ def product_image(product, size="card", css_class=""):
     Falls back to a branded SVG placeholder if no image is set.
     """
     width = _SIZES.get(size, 400)
-    alt = getattr(product, "name", "Produto")
+    alt = escape(getattr(product, "name", "Produto"))
+    css = escape(css_class)
 
     # Check if product has an image
     image = getattr(product, "image", None)
     if image and hasattr(image, "url") and image.name:
-        url = image.url
+        url = escape(image.url)
         # Build srcset if multiple sizes available
         srcset_parts = []
         for _sz_name, sz_width in sorted(_SIZES.items(), key=lambda x: x[1]):
@@ -133,7 +135,7 @@ def product_image(product, size="card", css_class=""):
             f'sizes="(max-width: 640px) 100vw, {width}px" '
             f'width="{width}" height="{width}" '
             f'loading="lazy" decoding="async" '
-            f'alt="{alt}" class="{css_class} object-cover">'
+            f'alt="{alt}" class="{css} object-cover">'
         )
 
     # Placeholder: inline SVG data URI
@@ -145,7 +147,7 @@ def product_image(product, size="card", css_class=""):
     return mark_safe(
         f'<img src="{placeholder_b64}" '
         f'width="{width}" height="{width}" '
-        f'alt="{alt}" class="{css_class} object-cover" '
+        f'alt="{alt}" class="{css} object-cover" '
         f'role="img">'
     )
 
@@ -201,4 +203,6 @@ def json_ld_product(context, product, price_q=None, badge=None):
                 offer["availability"] = "https://schema.org/LimitedAvailability"
         data["offers"] = offer
 
-    return mark_safe(f'<script type="application/ld+json">{json.dumps(data, ensure_ascii=False)}</script>')
+    # Escape `</` to prevent `</script>` injection inside JSON payload.
+    payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+    return mark_safe(f'<script type="application/ld+json">{payload}</script>')
