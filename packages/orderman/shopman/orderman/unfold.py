@@ -19,14 +19,14 @@ def _icon_for_kind(kind: str) -> str:
 
 def _order_items_by_channel():
     """Itens do grupo 'Pedidos' (dinâmico por Channel ativo)."""
-    from shopman.models import Channel
+    from shopman.shop.models import Channel
 
     items = [
         # Default operacional: cair em "Novos"
         {
             "title": "Todos os Pedidos",
             "icon": "receipt_long",
-            "link": "/admin/ordering/order/?status__exact=new",
+            "link": "/admin/orderman/order/?status__exact=new",
         },
     ]
 
@@ -38,7 +38,7 @@ def _order_items_by_channel():
                 "title": channel.name or channel.ref,
                 "icon": _icon_for_kind(channel.kind),
                 # Use o mesmo parâmetro do filtro de FK do Django Admin: channel__id__exact
-                "link": f"/admin/ordering/order/?channel__id__exact={channel.id}&status__exact=new",
+                "link": f"/admin/orderman/order/?channel__id__exact={channel.id}&status__exact=new",
             }
         )
 
@@ -65,13 +65,13 @@ def get_sidebar_navigation(request):
                 {
                     "title": "Sessões",
                     "icon": "shopping_bag",
-                    "link": "/admin/ordering/session/?state__exact=open",
+                    "link": "/admin/orderman/session/?state__exact=open",
                 },
                 {
                     "title": "Pedidos",
                     "icon": "receipt_long",
                     # Link do item "pai" (clicável) + subitens por canal
-                    "link": "/admin/ordering/order/?status__exact=new",
+                    "link": "/admin/orderman/order/?status__exact=new",
                     "items": _order_items_by_channel(),
                 },
             ],
@@ -82,12 +82,12 @@ def get_sidebar_navigation(request):
         {
             "title": "Canais de Venda",
             "icon": "storefront",
-            "link": "/admin/ordering/channel/",
+            "link": "/admin/shop/channel/",
         },
         {
             "title": "Diretivas",
             "icon": "playlist_add_check",
-            "link": "/admin/ordering/directive/?status__exact=queued",
+            "link": "/admin/orderman/directive/?status__exact=queued",
         },
     ]
 

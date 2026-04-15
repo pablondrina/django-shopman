@@ -105,13 +105,14 @@ class ChannelViewSet(viewsets.ReadOnlyModelViewSet):
 
     @property
     def queryset(self):
-        from shopman.models import Channel
+        from shopman.shop.models import Channel
         return Channel.objects.all()
 
     @property
     def serializer_class(self):
         from rest_framework import serializers as drf_serializers
-        from shopman.models import Channel
+
+        from shopman.shop.models import Channel
 
         class ChannelSerializer(drf_serializers.ModelSerializer):
             class Meta:

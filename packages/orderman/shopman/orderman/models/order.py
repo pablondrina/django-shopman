@@ -15,7 +15,7 @@ class Order(models.Model):
 
     Status Canônicos:
     - new: Pedido criado pelo sistema. Em modo immediate: estado de microssegundos antes de confirmar.
-           Em modo optimistic/pessimistic: aguarda operador confirmar ou timeout.
+           Em modo auto_confirm/auto_cancel: aguarda operador confirmar ou timeout.
     - confirmed: Confirmado pelo operador ou auto-confirmado. Pagamento iniciado se digital.
     - preparing: Pedido em montagem na cozinha. KDS tickets ativos. NÃO é produção em lote
                  (WorkOrder). WorkOrders são produção antecipada; este estado = itens sendo

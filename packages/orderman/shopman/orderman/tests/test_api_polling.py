@@ -43,7 +43,7 @@ class OrderStreamViewTests(TestCase):
 
     def _get_response(self, since=None):
         """Helper to make authenticated request."""
-        url = "/admin/ordering/order/stream/"
+        url = "/admin/orderman/order/stream/"
         if since is not None:
             url += f"?since={since}"
         request = self.factory.get(url)

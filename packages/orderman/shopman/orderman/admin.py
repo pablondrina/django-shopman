@@ -122,7 +122,7 @@ class CanalVendaFilter(admin.SimpleListFilter):
     parameter_name = "channel_ref"
 
     def lookups(self, request, model_admin):
-        from shopman.models import Channel
+        from shopman.shop.models import Channel
         qs = Channel.objects.filter(is_active=True).order_by(
             "display_order", "name", "ref"
         )
@@ -596,7 +596,7 @@ class SessionAdmin(ModelAdmin):
         # Supra-filtro por canal (barra rápida) — preserva contexto e mantém intenção do status (tabs).
         extra_context = extra_context or {}
 
-        from shopman.models import Channel
+        from shopman.shop.models import Channel
         channels = list(
             Channel.objects.filter(is_active=True).order_by(
                 "display_order", "name", "ref"
@@ -957,7 +957,7 @@ class OrderAdmin(ModelAdmin):
 
         # Supra-filtro por canal (barra rápida) — preserva contexto e mantém intenção do status (tabs).
         extra_context = extra_context or {}
-        from shopman.models import Channel
+        from shopman.shop.models import Channel
         channels = list(
             Channel.objects.filter(is_active=True).order_by(
                 "display_order", "name", "ref"
