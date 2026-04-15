@@ -48,9 +48,8 @@ from shopman.offerman.models import (
     ProductComponent,
 )
 
-# ── Orderman (canais e pedidos) ──────────────────────────────────────
+# ── Orderman (pedidos) ───────────────────────────────────────────────
 from shopman.orderman.models import (
-    Channel,
     Directive,
     Fulfillment,
     FulfillmentItem,
@@ -59,6 +58,9 @@ from shopman.orderman.models import (
     OrderItem,
     Session,
 )
+
+# ── Shop (canais — parte do orquestrador, não do core) ──────────────
+from shopman.shop.models import Channel
 
 # ── Payments ─────────────────────────────────────────────────────────
 from shopman.payman.models import PaymentIntent, PaymentTransaction
@@ -490,7 +492,7 @@ class Command(BaseCommand):
         }
 
         products = {}
-        for sku, name, desc, price_q, unit, shelf_life, available, image, weight_g, storage in products_data:
+        for sku, name, desc, price_q, unit, shelf_life, sellable, image, weight_g, storage in products_data:
             p, _ = Product.objects.update_or_create(
                 sku=sku,
                 defaults={
@@ -500,7 +502,7 @@ class Command(BaseCommand):
                     "unit": unit,
                     "shelf_life_days": shelf_life,
                     "is_published": True,
-                    "is_available": available,
+                    "is_sellable": sellable,
                     "image_url": image,
                     "unit_weight_g": weight_g,
                     "storage_tip": storage,
@@ -519,7 +521,7 @@ class Command(BaseCommand):
                 "base_price_q": 1900,
                 "unit": "un",
                 "is_published": True,
-                "is_available": True,
+                "is_sellable": True,
                 "image_url": f"{IMG}/ct.jpg",
             },
         )
@@ -678,7 +680,7 @@ class Command(BaseCommand):
                     product=product,
                     price_q=price_q,
                     is_published=True,
-                    is_available=product.is_available,
+                    is_sellable=product.is_sellable,
                 )
 
         self.stdout.write(f"  ✅ {len(products)} produtos ({Product.objects.filter(unit_weight_g__isnull=False).count()} com peso), 7 colecoes, 4 listagens")
@@ -1061,7 +1063,7 @@ class Command(BaseCommand):
         for code, qty, sh, sm, fh, fm in PRODUCTION_SCHEDULE:
             recipe = Recipe.objects.get(code=code)
             existing = WorkOrder.objects.filter(
-                recipe=recipe, scheduled_date=today,
+                recipe=recipe, target_date=today,
             ).first()
             if existing:
                 wo_count += 1
@@ -1090,7 +1092,7 @@ class Command(BaseCommand):
         ]:
             recipe = Recipe.objects.get(code=code)
             existing = WorkOrder.objects.filter(
-                recipe=recipe, scheduled_date=tomorrow,
+                recipe=recipe, target_date=tomorrow,
             ).first()
             if existing:
                 wo_count += 1
@@ -1112,7 +1114,7 @@ class Command(BaseCommand):
                 recipe = recipes_by_output.get(sku)
                 if not recipe:
                     continue
-                if WorkOrder.objects.filter(recipe=recipe, scheduled_date=wo_date).exists():
+                if WorkOrder.objects.filter(recipe=recipe, target_date=wo_date).exists():
                     continue
                 # Add ±15min jitter to make data realistic
                 jitter = random.randint(-15, 15)
@@ -1130,7 +1132,7 @@ class Command(BaseCommand):
                     quantity=qty,
                     finished=Decimal(str(finished)),
                     status=WorkOrder.Status.FINISHED,
-                    scheduled_date=wo_date,
+                    target_date=wo_date,
                     started_at=datetime.combine(wo_date, time(start_h, 0), tzinfo=tz_info),
                     finished_at=finish_dt,
                     position_ref=recipe.output_ref,
@@ -1237,7 +1239,7 @@ class Command(BaseCommand):
             "hold_ttl_minutes": 30,
         }
         _remote_config = {
-            "confirmation": {"mode": "optimistic", "timeout_minutes": 5},
+            "confirmation": {"mode": "auto_confirm", "timeout_minutes": 5},
             "payment": {"method": ["pix", "card"], "timing": "post_commit", "timeout_minutes": 15},
             "stock": _remote_stock,
         }
@@ -1247,7 +1249,7 @@ class Command(BaseCommand):
             "stock": {**_remote_stock, "check_on_commit": True},
         }
         _whatsapp_config = {
-            "confirmation": {"mode": "optimistic", "timeout_minutes": 5},
+            "confirmation": {"mode": "auto_confirm", "timeout_minutes": 5},
             "payment": {"method": ["pix", "card"], "timeout_minutes": 15},
             "notifications": {"backend": "manychat"},
             "stock": _remote_stock,
@@ -1265,8 +1267,6 @@ class Command(BaseCommand):
             ("web", "E-commerce", "web", _remote_config),
         ]
 
-        from shopman.shop.models import ChannelConfigRecord
-
         for ref, name, kind, config_data in channels_data:
             ch, _ = Channel.objects.update_or_create(
                 ref=ref,
@@ -1274,13 +1274,10 @@ class Command(BaseCommand):
                     "name": name,
                     "kind": kind,
                     "is_active": True,
+                    "config": config_data,
                 },
             )
             channels[ref] = ch
-            ChannelConfigRecord.objects.update_or_create(
-                channel_ref=ref,
-                defaults={"data": config_data},
-            )
 
         self.stdout.write(f"  ✅ {len(channels)} canais")
         return channels
@@ -1857,7 +1854,7 @@ class Command(BaseCommand):
             if Fulfillment.objects.filter(order=order).exists():
                 continue
 
-            is_delivery = order.channel.ref in ("delivery", "whatsapp", "web")
+            is_delivery = order.channel_ref in ("delivery", "whatsapp", "web")
 
             if is_delivery:
                 tracking_code = f"BR{uuid.uuid4().hex[:12].upper()}"
@@ -1894,7 +1891,7 @@ class Command(BaseCommand):
             if Fulfillment.objects.filter(order=order).exists():
                 continue
 
-            is_delivery = order.channel.ref in ("delivery", "whatsapp", "web")
+            is_delivery = order.channel_ref in ("delivery", "whatsapp", "web")
 
             fulfillment = Fulfillment(
                 order=order,

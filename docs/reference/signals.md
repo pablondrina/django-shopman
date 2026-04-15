@@ -148,7 +148,8 @@ Emitido quando um `Order` é criado ou muda de status.
 **Efeitos por `event_type`:**
 - `"created"` → `dispatch(order, "on_commit")` → `Flow.on_commit()` (customer.ensure, stock.hold, confirmation)
   - Se `confirmation_mode == "immediate"` → auto-confirma
-  - Se `confirmation_mode == "optimistic"` → cria directive `confirmation.timeout`
+  - Se `confirmation_mode == "auto_confirm"` → cria directive `confirmation.timeout` (action=confirm)
+  - Se `confirmation_mode == "auto_cancel"` → cria directive `confirmation.timeout` (action=cancel)
 - `"status_changed"` → `dispatch(order, f"on_{status}")` → Flow method correspondente
 
 **Guia:** [orderman.md](../guides/orderman.md), [flows.md](../guides/flows.md)

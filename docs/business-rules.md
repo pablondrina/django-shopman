@@ -239,11 +239,12 @@ pipeline:
 
 ```yaml
 confirmation:
-  mode: "immediate" | "optimistic" | "manual"
-    # immediate:  auto-confirma ao criar pedido
-    # optimistic: auto-confirma após timeout se operador não cancela
-    # manual:     aguarda aprovação explícita do operador
-  timeout_minutes: int  # Só para mode=optimistic (default: 5)
+  mode: "immediate" | "auto_confirm" | "auto_cancel" | "manual"
+    # immediate:    auto-confirma ao criar pedido
+    # auto_confirm: auto-confirma após timeout se operador não cancela
+    # auto_cancel:  auto-cancela após timeout se operador não confirma
+    # manual:       aguarda aprovação explícita do operador
+  timeout_minutes: int  # Só para mode=auto_confirm ou auto_cancel (default: 5)
 ```
 
 ### 4.2 Pagamento
@@ -363,7 +364,7 @@ NEW → CONFIRMED → PROCESSING → READY → DISPATCHED → DELIVERED → COMP
 4. StockHold verifica disponibilidade + cria reservas
 5. Se problemas → operador resolve (ajustar qty ou remover)
 6. Session.commit → validadores checam regras
-7. Order criado → confirmação conforme modo (immediate/optimistic/manual)
+7. Order criado → confirmação conforme modo (immediate/auto_confirm/auto_cancel/manual)
 8. Se PIX: gera QR code → cliente paga
 9. Webhook (Efi/Stripe) → payment confirmed
 10. on_payment_confirmed → stock.commit (materializa reservas)

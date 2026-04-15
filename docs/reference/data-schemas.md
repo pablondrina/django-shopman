@@ -504,8 +504,8 @@ Chave ausente no override = herda. Chave presente (mesmo None) = sobreescreve.
 
 | Campo | Tipo | Default | Descrição |
 |-------|------|---------|-----------|
-| `mode` | `string` | `"immediate"` | `"immediate"` (auto-confirma), `"optimistic"` (auto-confirma após timeout), `"pessimistic"` (cancela após timeout), `"manual"` (aguarda) |
-| `timeout_minutes` | `int` | `5` | Timeout para modes optimistic/pessimistic |
+| `mode` | `string` | `"immediate"` | `"immediate"` (auto-confirma), `"auto_confirm"` (auto-confirma após timeout), `"auto_cancel"` (cancela após timeout), `"manual"` (aguarda) |
+| `timeout_minutes` | `int` | `5` | Timeout para modes auto_confirm/auto_cancel |
 
 Lido por: `hooks._on_order_created`, `ConfirmationTimeoutHandler`, `confirmation.py` helpers, `CheckoutView`, `TrackingView`.
 
@@ -601,9 +601,9 @@ Estas chaves são lidas diretamente de `channel.config` como dict bruto, sem pas
 | Preset | Confirmation | Payment | Stock TTL | Notifications | Validators |
 |--------|-------------|---------|-----------|---------------|------------|
 | `pos()` | immediate | counter | 5 min | console | business_hours |
-| `remote()` | optimistic/5min | [pix, card]/15min | 30 min | manychat | business_hours, min_order |
-| `whatsapp()` | optimistic/5min | [pix, card]/15min | 30 min | whatsapp | business_hours, min_order |
-| `marketplace()` | pessimistic/5min | external | None | none | (vazio) |
+| `remote()` | auto_confirm/5min | [pix, card]/15min | 30 min | manychat | business_hours, min_order |
+| `whatsapp()` | auto_confirm/5min | [pix, card]/15min | 30 min | whatsapp | business_hours, min_order |
+| `marketplace()` | auto_cancel/5min | external | None | none | (vazio) |
 
 ---
 

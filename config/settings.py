@@ -10,8 +10,10 @@ from dotenv import load_dotenv
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Make instances/ importable (e.g. instance.customer_strategies)
-_instances_dir = str(Path(BASE_DIR).parent / "instances")
+# Make instances/ importable (e.g. nelson.customer_strategies). The instances
+# directory lives at the repo root alongside config/ and shopman/, so it's
+# BASE_DIR / "instances" — no .parent.
+_instances_dir = str(Path(BASE_DIR) / "instances")
 if _instances_dir not in sys.path:
     sys.path.insert(0, _instances_dir)
 
@@ -212,10 +214,11 @@ SHOPMAN_WHATSAPP = {
 }
 
 # ── iFood (Marketplace F16) ────────────────────────────────────────
+# Same rule as EFI: webhook_token is mandatory in every environment (including
+# local dev). No skip flag. See shopman/shop/webhooks/efi.py for the pattern.
 SHOPMAN_IFOOD = {
-    "WEBHOOK_TOKEN": os.environ.get("IFOOD_WEBHOOK_TOKEN", ""),
-    "SKIP_SIGNATURE": os.environ.get("IFOOD_SKIP_SIGNATURE", "true").lower() in ("true", "1"),
-    "MERCHANT_ID": os.environ.get("IFOOD_MERCHANT_ID", ""),
+    "webhook_token": os.environ.get("IFOOD_WEBHOOK_TOKEN", ""),
+    "merchant_id": os.environ.get("IFOOD_MERCHANT_ID", ""),
 }
 
 # ── OTP Delivery Chain (depends on MANYCHAT_API_TOKEN above) ──────
@@ -560,8 +563,20 @@ SHOPMAN_EFI = {
 }
 
 SHOPMAN_EFI_WEBHOOK = {
+    # Shared secret between EFI dashboard and this service. MUST be set in
+    # every environment — including local dev — because webhook authentication
+    # uses the exact same code path in dev and prod. No bypass flag.
+    #
+    # Local dev: set EFI_WEBHOOK_TOKEN in `.env` to any non-empty value and
+    # use `make shopman-efi-test-webhook` (or the equivalent test fixture) to
+    # POST test payloads signed with the same token. See
+    # shopman/shop/webhooks/efi.py for the verification contract.
     "webhook_token": os.environ.get("EFI_WEBHOOK_TOKEN", ""),
-    "skip_signature": os.environ.get("EFI_SKIP_SIGNATURE", str(DEBUG)).lower() in ("true", "1", "yes"),
+    # Optional: header name that a fronting proxy (nginx, traefik) sets to
+    # "SUCCESS" after validating EFI's mTLS client certificate. When present
+    # and equal to "SUCCESS", the request is treated as pre-authenticated by
+    # the proxy. The shared token is still verified as defense-in-depth.
+    "mtls_header": os.environ.get("EFI_MTLS_HEADER", "HTTP_X_SSL_CLIENT_VERIFY"),
 }
 
 # ── Storefront channel ────────────────────────────────────────────────

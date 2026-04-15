@@ -311,7 +311,7 @@ O módulo `shopman/confirmation.py` mantém fallback legado para `settings.CONFI
 
 | Seção | Campos principais | Descrição |
 |-------|-------------------|-----------|
-| `confirmation` | `mode` (immediate\|optimistic\|manual), `timeout_minutes` | Modo de confirmação |
+| `confirmation` | `mode` (immediate\|auto_confirm\|auto_cancel\|manual), `timeout_minutes` | Modo de confirmação |
 | `payment` | `method` (counter\|pix\|external), `timeout_minutes` | Método de pagamento |
 | `stock` | `hold_ttl_minutes`, `safety_margin`, `planned_hold_ttl_hours` | Configuração de reservas |
 | `pipeline` | `on_commit`, `on_confirmed`, `on_payment_confirmed`, `on_ready`, `on_dispatched`, `on_delivered`, `on_completed`, `on_cancelled`, `on_returned` | Handlers por evento do ciclo de vida |

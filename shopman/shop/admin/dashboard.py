@@ -408,7 +408,7 @@ def _build_production_table(wos):
     rows = []
     for wo in wos:
         rows.append([
-            format_html('<a href="{}" class="font-medium">{}</a>', wo["url"], wo["code"]),
+            format_html('<a href="{}" class="font-medium">{}</a>', wo["url"], wo["ref"]),
             wo["output_ref"],
             str(wo["quantity"]),
             format_html(

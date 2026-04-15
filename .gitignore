@@ -18,4 +18,4 @@ htmlcov/
 venv/
 .claude/
 node_modules/
-framework/shopman/web/static/storefront/css/output.css
+shopman/static/storefront/css/output.css

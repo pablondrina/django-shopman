@@ -1,19 +1,87 @@
 # ROADMAP — Django Shopman
 
-> Atualizado em 2026-04-10. Reflete o estado atual após ciclos REFACTOR, CONSOLIDATION, HARDENING e BRIDGE.
+> Atualizado em 2026-04-15.
+
+---
+
+## Vocabulário (2026-04-15)
+
+- **Shopman Suite** (ou "a suite") = o projeto inteiro: os 8 packages + camada orquestradora + instâncias.
+- **Shopman** (sem qualificador) = a **camada orquestradora**, que hoje mora em `shopman/shop/` (Django app `shopman.shop`, label `shop`). Coloquialmente "orquestrador" ou "Maestro" também servem, mas o nome canônico informal é **Shopman**, fechando o padrão persona (Shopman rege; Offerman, Stockman, Craftsman, Orderman, Guestman, Doorman, Payman executam).
+- **Core / packages** = os 8 packages pip-instaláveis em `packages/*`, cada um standalone.
+- **Instância** = uma aplicação Django concreta em `instances/*` (ex.: Nelson Boulangerie), que consome a Suite.
+
+*Nota:* há tensão de namespace — `shopman.*` como namespace Python contém todos os packages, não só o orquestrador. Na fala isso não atrapalha; se um dia fizer sentido formalizar, o Django app `shopman.shop` poderia ser promovido a `shopman` (label `shopman`). Não urgente.
+
+---
+
+## Pendências Ativas (sessão 2026-04-15)
+
+Cinco frentes abertas. Ordem recomendada:
+
+### 1. Commit da leva backend em trânsito (C1-C9)
+
+Há ~58 arquivos modificados + untracked (handlers, services, ADR-007, novos iFood/PIX mock) resultantes de trabalho backend que ainda não fechou. Antes de tocar em qualquer outra coisa, fechar essa leva em commits semânticos agrupados por tema. Plano de 9 commits (C1-C9) aguardando execução — ver registro na sessão de trabalho ou gerar novamente com análise do `git status`.
+
+### 2. Consolidação semântica de nomes — refactor grande
+
+Ver [`docs/plans/NAMING-CONSOLIDATION-PLAN.md`](plans/NAMING-CONSOLIDATION-PLAN.md).
+
+**Tese:** hoje a palavra "shop" é usada para dois conceitos incompatíveis — a camada orquestradora (`shopman/shop/`) e as instâncias deployadas (que **são** lojas reais). Proposta: renomear `shopman/shop/` → `shopman/hub/` (Django label `hub`) e `instances/` → `shops/`, devolvendo "shop" ao seu sentido único de "loja real deployada". Packages continuam sendo "Core". URL namespace `storefront` já está correto (zero templates precisam mudar). Impacto médio — ~1 dia focado com testes verdes a cada passo. Aguarda aprovação explícita do Pablo sobre 4 pontos listados no plano.
+
+### 3. Extração de valor do `proto/` antes de descartar
+
+Ver [`docs/plans/PROTO-EXTRACTION-PLAN.md`](plans/PROTO-EXTRACTION-PLAN.md).
+
+**Tese:** o diretório `shopman/shop/web/templates/storefront/proto/` (21 HTMLs estáticos, sandbox não roteado) contém mais valor do que parecia — sistema de design tokens Tailwind v4 `@theme` com pares light/dark (M3-style), 6 keyframes bem calibradas, componentes `@layer components`, haptic feedback pattern, timeline component, sistema `AVAILABILITY_CONFIG`, e um simulador de personas de 563 linhas (`proto-scenarios.js`) útil pra QA/demos. O plano extrai 7 categorias de coisas pra `v2/` + ferramenta de dev, e só então deleta. Executar **antes** da Fase 1 do PROJECTION-UI-PLAN pra que a migração Fase 1 já consuma os tokens/componentes extraídos.
+
+### 4. Projections + UI (Penguin) — WP grande
+
+Ver [`docs/plans/PROJECTION-UI-PLAN.md`](plans/PROJECTION-UI-PLAN.md).
+
+**Tese:** templates hoje consomem domain models + helpers diretos. A solução é uma camada de **projections** (dataclasses tipadas e imutáveis em `shopman/shop/projections/`, ou `shopman/hub/projections/` pós-NAMING) que traduzem estado do domínio para o que a UI precisa. A mesma projection alimenta storefront, API REST, POS, KDS — qualquer interface. Precedente já existe em [`packages/offerman/shopman/offerman/protocols/projection.py`](../packages/offerman/shopman/offerman/protocols/projection.py) (`CatalogProjectionBackend` para sync de canais externos), mas esse é um caso específico — o plano generaliza para consumo interno por persona.
+
+Plano detalhado cobre: inventário de projections por tela (13 projections para storefront+operador), arquitetura, fases 1-5, integração com Penguin UI (Tailwind v4 + Alpine), regras (preços duais, disponibilidade como enum não bool, templates nunca importam models).
+
+**Nota sobre storefront bagunçado:** hoje há 3 versões coexistindo — `storefront/` (v1 produção, ~55 templates, todas as rotas usam), `storefront/v2/` (Penguin, só home+partials, ativada com `?v2`), e `web/templates/storefront/proto/` (sandbox com 21 duplicados, não roteado). O destino dessa bagunça é resolvido em 2 passos: **PROTO-EXTRACTION** (item 3) extrai valor do proto e deleta; **PROJECTION-UI-PLAN Fase 1** (este item) migra v1 → v2 tela por tela junto com criação de projections. Não limpar antes, senão refatora-se duas vezes.
+
+### 5. Fix UX rápido: stepper no cardápio
+
+Ver [`docs/plans/STOREFRONT-ADDTOCART-UX-PLAN.md`](plans/STOREFRONT-ADDTOCART-UX-PLAN.md).
+
+Bug reportado: no cardápio, clicar em "Adicionar" adiciona ao carrinho **e** navega pra PDP (dá impressão que PDP é pra confirmar qty). Backend está correto (`CartService` faz merge por SKU, endpoint retorna HTMX partial, não redireciona). É 100% UX.
+
+**Fix tático (padrão iFood/Rappi):** substituir botão por stepper Alpine inline no card (`−  N  +`) com `@click.stop` para não vazar no link ancestral da PDP. Clique no card ainda navega pra PDP (descoberta), stepper é a ação primária. Escopo pequeno: 1 template + anotação de `qty_in_cart` na view. Pode rodar em paralelo com qualquer coisa acima — é tático, isolado.
+
+---
+
+### Ordem recomendada de execução
+
+```
+1. C1-C9 (commits em trânsito)
+   ↓
+2. NAMING-CONSOLIDATION (árvore limpa, sem drift em paralelo)
+   ↓
+3. PROTO-EXTRACTION (cria tokens/componentes em v2 já no lugar final)
+   ↓
+4. PROJECTION-UI-PLAN Fase 1 (migra v1 → v2 tela por tela, consumindo o que proto deixou)
+   ↓
+5. (paralelo, a qualquer momento) STOREFRONT-ADDTOCART-UX — pequeno, isolado
+```
 
 ---
 
 ## Estado Atual
 
-Todos os planos de execução foram concluídos (arquivados em `docs/plans/completed/`):
+Todos os planos históricos de execução foram concluídos (arquivados em `docs/plans/completed/`):
 - **REFACTOR-PLAN** (WP-0 a WP-R5) — Reestruturação de 8 core apps
 - **CONSOLIDATION-PLAN** (WP-C1 a WP-C6) — Consolidação pós-refatoração
 - **HARDENING-PLAN** (WP-H0 a WP-H5) — Hardening arquitetural
 - **BRIDGE-PLAN** (WP-B1 a WP-B7) — Alinhamento Core ↔ App
+- **P0-NAMING-PLAN** — Refactor de nomenclatura persona (concluído 2026-04-14)
 
-O App está funcional como MVP: storefront completo (menu → cart → checkout → PIX → tracking),
-3 presets de canal, pipeline de pedidos flexível, ~1.970 testes.
+A Suite está funcional como MVP: storefront completo (menu → cart → checkout → PIX → tracking),
+3 presets de canal, pipeline de pedidos flexível, ~2.448 testes.
 
 ---
 
