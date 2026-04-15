@@ -30,12 +30,22 @@ def create_intent(
     metadata: dict | None = None,
     **config,
 ) -> PaymentIntent:
-    """Create a mock payment intent with persistence via PaymentService."""
+    """Create a mock payment intent with persistence via PaymentService.
+
+    For ``method="pix"`` this also schedules a ``mock_pix.confirm`` directive
+    with ``available_at = now + mock_pix_confirm_delay_seconds`` (default 10).
+    When it fires, ``MockPixConfirmHandler`` invokes the same ``confirm_pix``
+    service that the real EFI webhook uses, so the downstream flow is
+    identical in dev and prod.
+    """
+    from shopman.orderman.models import Directive
     from shopman.payman import PaymentService
 
     metadata = metadata or {}
     pix_timeout = config.get("pix_timeout_minutes", 30)
     expires_at = timezone.now() + timedelta(minutes=pix_timeout)
+    # Mock backend is "authorized" at the payman level immediately; the PIX
+    # capture/on_paid path happens via the scheduled directive below.
     auto_authorize = config.get("auto_authorize", True)
 
     db_intent = PaymentService.create_intent(
@@ -73,6 +83,24 @@ def create_intent(
     if auto_authorize:
         PaymentService.authorize(db_intent.ref, gateway_id=gateway_id)
         status = "authorized"
+
+    if method == "pix":
+        delay_seconds = int(config.get("mock_pix_confirm_delay_seconds", 10))
+        available_at = timezone.now() + timedelta(seconds=delay_seconds)
+        Directive.objects.create(
+            topic="mock_pix.confirm",
+            payload={
+                "order_ref": order_ref,
+                "txid": gateway_id,
+                "e2e_id": f"E2E{uuid4().hex[:24].upper()}",
+                "valor": f"{amount_q / 100:.2f}",
+            },
+            available_at=available_at,
+        )
+        logger.info(
+            "payment_mock: scheduled mock_pix.confirm for order=%s txid=%s in %ss",
+            order_ref, gateway_id, delay_seconds,
+        )
 
     return PaymentIntent(
         intent_ref=db_intent.ref,

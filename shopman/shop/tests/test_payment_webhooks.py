@@ -32,8 +32,7 @@ STRIPE_SETTINGS = {
 }
 
 EFI_WEBHOOK_SETTINGS = {
-    "WEBHOOK_TOKEN": "test-efi-token",
-    "SKIP_SIGNATURE": False,
+    "webhook_token": "test-efi-token",
 }
 
 
@@ -460,13 +459,14 @@ class EfiPixWebhookTests(WebhookTestBase):
         )
         self.assertEqual(resp.status_code, 401)
 
-    @override_settings(SHOPMAN_EFI_WEBHOOK={"SKIP_SIGNATURE": True})
-    def test_efi_skip_signature_allows_any_request(self) -> None:
-        """SKIP_SIGNATURE=True → no auth check."""
+    @override_settings(SHOPMAN_EFI_WEBHOOK={"webhook_token": ""})
+    def test_efi_unconfigured_token_rejects_all_requests(self) -> None:
+        """Unconfigured webhook_token → every request is rejected, including
+        ones that would otherwise match. There is no bypass path."""
         resp = self.client.post(
             self.URL,
-            {"pix": [{"txid": "skip_test", "endToEndId": "E_SKIP", "valor": "10.00"}]},
+            {"pix": [{"txid": "abc", "endToEndId": "E1", "valor": "10.00"}]},
             format="json",
+            HTTP_X_EFI_WEBHOOK_TOKEN="any-token",
         )
-        # Unknown txid but no 401
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.status_code, 401)

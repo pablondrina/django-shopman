@@ -54,6 +54,8 @@ urlpatterns = [
         name="checkout_order_summary",
     ),
     path("checkout/cep-lookup/", views.CepLookupView.as_view(), name="cep_lookup"),
+    # Dev-only: simulate an iFood order from the current cart (gated on DEBUG inside the view).
+    path("checkout/simular-ifood/", views.SimulateIFoodView.as_view(), name="simulate_ifood"),
     path("checkout/customer-lookup/", views.CustomerLookupView.as_view(), name="customer_lookup"),
     path("checkout/request-code/", views.RequestCodeView.as_view(), name="request_code"),
     path("checkout/verify-code/", views.VerifyCodeView.as_view(), name="verify_code"),

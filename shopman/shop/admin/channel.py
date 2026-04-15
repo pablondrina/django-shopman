@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 
 from django import forms
-from django.contrib import admin
+from django.conf import settings
+from django.contrib import admin, messages
 from django.utils.safestring import mark_safe
 from unfold.admin import ModelAdmin
 
@@ -111,6 +112,93 @@ class ChannelAdmin(ModelAdmin):
     list_filter = ("kind", "is_active")
     search_fields = ("ref", "name")
     ordering = ("display_order", "ref")
+    actions = ("inject_simulated_ifood_order",)
+
+    @admin.action(description="Injetar pedido iFood simulado (DEV)")
+    def inject_simulated_ifood_order(self, request, queryset):
+        """Dev-only: build a minimal iFood payload and ingest it through the
+        canonical entry point. Uses the first real Offerman product as the line
+        item so the order clears stock/pricing checks end-to-end. Silently no-ops
+        on non-iFood channels in the selection.
+        """
+        if not settings.DEBUG:
+            self.message_user(
+                request,
+                "Ação disponível apenas com DEBUG=True.",
+                level=messages.ERROR,
+            )
+            return
+
+        from uuid import uuid4
+
+        from django.utils import timezone
+        from shopman.offerman.models import Product
+
+        from shopman.shop.services import ifood_ingest
+
+        product = (
+            Product.objects.filter(is_published=True, is_sellable=True)
+            .exclude(base_price_q=0)
+            .first()
+        )
+        if product is None:
+            self.message_user(
+                request,
+                "Nenhum produto ativo com preço — rode o seed antes.",
+                level=messages.ERROR,
+            )
+            return
+
+        ifood_channels = [c for c in queryset if c.ref == ifood_ingest.IFOOD_CHANNEL_REF]
+        if not ifood_channels:
+            self.message_user(
+                request,
+                f"Selecione o canal '{ifood_ingest.IFOOD_CHANNEL_REF}'.",
+                level=messages.WARNING,
+            )
+            return
+
+        created_refs: list[str] = []
+        for channel in ifood_channels:
+            order_code = f"IFOOD-ADMIN-{uuid4().hex[:8].upper()}"
+            payload = {
+                "order_code": order_code,
+                "merchant_id": "mock-merchant",
+                "created_at": timezone.now().isoformat(),
+                "customer": {
+                    "name": "Cliente iFood Simulado (Admin)",
+                    "phone": "",
+                },
+                "delivery": {
+                    "type": "DELIVERY",
+                    "address": "Rua Simulada, 123 — Bairro iFood",
+                },
+                "items": [
+                    {
+                        "sku": product.sku,
+                        "name": product.name,
+                        "qty": 1,
+                        "unit_price_q": product.base_price_q,
+                    },
+                ],
+                "notes": "[SIMULAÇÃO] Pedido injetado via admin action",
+            }
+            try:
+                order = ifood_ingest.ingest(payload, channel_ref=channel.ref)
+                created_refs.append(order.ref)
+            except ifood_ingest.IFoodIngestError as e:
+                self.message_user(
+                    request,
+                    f"Falha ao injetar em {channel.ref}: {e.message}",
+                    level=messages.ERROR,
+                )
+
+        if created_refs:
+            self.message_user(
+                request,
+                f"Pedidos iFood simulados criados: {', '.join(created_refs)}.",
+                level=messages.SUCCESS,
+            )
 
     fieldsets = (
         (None, {"fields": ("ref", "name", "kind", "shop", "display_order", "is_active")}),

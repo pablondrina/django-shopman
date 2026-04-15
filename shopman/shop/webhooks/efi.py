@@ -1,6 +1,37 @@
 """EFI PIX webhook — receives payment notifications from EFI gateway.
 
-Uses shopman.lifecycle.dispatch(order, "on_paid") for order lifecycle.
+Authentication contract
+-----------------------
+
+EFI authenticates itself to this endpoint in two layers:
+
+1. **mTLS (canonical, production).** EFI's servers present a client
+   certificate to a fronting proxy (nginx/traefik). The proxy validates the
+   cert against EFI's CA and sets a header (configurable via
+   ``SHOPMAN_EFI_WEBHOOK["mtls_header"]``, default ``X-SSL-Client-Verify``)
+   to ``SUCCESS``. This is the canonical mechanism supported by EFI.
+
+2. **Shared token (defense-in-depth, always required).** A secret shared
+   between this service and the EFI dashboard, passed either in the
+   ``X-Efi-Webhook-Token`` header or a ``token`` query parameter. The token
+   is verified with :func:`hmac.compare_digest`.
+
+Both layers use **the same code path in dev and prod** — there is no
+"skip signature" flag. In local development, a developer must set
+``EFI_WEBHOOK_TOKEN`` in ``.env`` to any non-empty value and use the test
+helper that POSTs payloads with that token. The verification logic is
+identical to production; only the token value differs.
+
+If the token is not configured, all requests are rejected with 401 — in any
+environment, including dev. That is deliberate: the "correct" integration is
+the one that runs, full stop.
+
+Downstream
+----------
+
+On successful authentication and payload parse, this view updates the
+payment intent via :class:`PaymentService` and calls
+``shopman.shop.lifecycle.dispatch(order, "on_paid")``.
 """
 
 from __future__ import annotations
@@ -14,20 +45,15 @@ from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from shopman.orderman.models import Order
+
+from shopman.shop.services.pix_confirmation import confirm_pix
 
 logger = logging.getLogger(__name__)
 
 
 def _get_efi_webhook_setting(key: str, default=None):
     cfg = getattr(settings, "SHOPMAN_EFI_WEBHOOK", {})
-    defaults = {"webhook_token": None, "skip_signature": False}
-    return (
-        cfg.get(key)
-        or cfg.get(key.lower())
-        or cfg.get(key.upper())
-        or defaults.get(key.lower(), default)
-    )
+    return cfg.get(key, default)
 
 
 class EfiPixWebhookView(APIView):
@@ -60,7 +86,7 @@ class EfiPixWebhookView(APIView):
                 continue
 
             try:
-                self._process_pix_confirmation(txid=txid, e2e_id=e2e_id, valor=valor)
+                confirm_pix(txid=txid, e2e_id=e2e_id, valor=valor)
                 processed += 1
             except Exception:
                 logger.exception("EfiPixWebhook: error processing txid=%s", txid)
@@ -68,100 +94,46 @@ class EfiPixWebhookView(APIView):
 
         return Response(status=status.HTTP_200_OK)
 
-    def _process_pix_confirmation(self, *, txid: str, e2e_id: str, valor: str) -> None:
-        from shopman.payman import PaymentError, PaymentService
-
-        db_intent = PaymentService.get_by_gateway_id(txid)
-
-        if db_intent is None:
-            order = (
-                Order.objects
-                .filter(data__payment__intent_ref__icontains=txid)
-                .first()
-            )
-            if order is None:
-                return
-            self._process_order_payment(order, e2e_id=e2e_id, valor=valor)
-            return
-
-        amount_q = int(round(float(valor) * 100)) if valor else db_intent.amount_q
-
-        try:
-            if db_intent.status == "pending":
-                PaymentService.authorize(
-                    db_intent.ref,
-                    gateway_id=txid,
-                    gateway_data={"e2e_id": e2e_id},
-                )
-            if db_intent.status in ("pending", "authorized"):
-                PaymentService.capture(
-                    db_intent.ref,
-                    amount_q=amount_q,
-                    gateway_id=txid,
-                )
-        except PaymentError as e:
-            if e.code != "invalid_transition":
-                raise
-
-        order = (
-            Order.objects
-            .filter(data__payment__intent_ref=db_intent.ref)
-            .first()
-        )
-
-        if order is None:
-            try:
-                order = Order.objects.get(ref=db_intent.order_ref)
-            except Order.DoesNotExist:
-                return
-
-        self._process_order_payment(order, e2e_id=e2e_id, valor=valor)
-
-    def _process_order_payment(self, order: Order, *, e2e_id: str, valor: str) -> None:
-        """Record PIX transaction data and trigger flow dispatch."""
-        from shopman.shop.lifecycle import dispatch
-
-        payment_data = order.data.get("payment", {})
-
-        # Idempotency: if this e2e_id was already processed, skip.
-        # e2e_id is the end-to-end transaction ID — unique per PIX transaction.
-        if e2e_id and payment_data.get("e2e_id") == e2e_id:
-            return
-
-        # Record PIX transaction audit data (not payment status — Payman is canonical)
-        if e2e_id:
-            payment_data["e2e_id"] = e2e_id
-        if valor:
-            payment_data["paid_amount_q"] = int(round(float(valor) * 100))
-        order.data["payment"] = payment_data
-        order.save(update_fields=["data", "updated_at"])
-
-        # Auto-transition if configured on channel
-        self._auto_transition(order)
-
-        # Dispatch to flow for downstream effects (stock fulfill, notification, etc.)
-        dispatch(order, "on_paid")
-
-    @staticmethod
-    def _auto_transition(order: Order) -> None:
-        """No-op — auto-transition is handled by dispatch(order, 'on_paid')."""
-        pass
-
     def _check_auth(self, request: Request) -> bool:
-        skip_signature = _get_efi_webhook_setting("skip_signature")
-        if skip_signature:
-            return True
+        """Authenticate an inbound EFI webhook.
 
-        expected_token = _get_efi_webhook_setting("webhook_token")
+        Always enforces the shared token check. When the proxy has already
+        validated EFI's mTLS cert, the ``X-SSL-Client-Verify`` header (or
+        whatever is configured in ``SHOPMAN_EFI_WEBHOOK["mtls_header"]``)
+        arrives with value ``SUCCESS`` and is logged as additional evidence
+        — but the token is still checked on every request, so that dev
+        environments (where no proxy exists) use the exact same code path.
+
+        Returns ``True`` if and only if the token is configured and matches.
+        Returns ``False`` (→ 401 to the caller) in every other case.
+        """
+        expected_token = _get_efi_webhook_setting("webhook_token") or ""
         if not expected_token:
-            logger.error("EfiPixWebhook: SHOPMAN_EFI_WEBHOOK.webhook_token not configured — rejecting request")
+            logger.error(
+                "EfiPixWebhook: SHOPMAN_EFI_WEBHOOK['webhook_token'] is not "
+                "configured — rejecting request. Set EFI_WEBHOOK_TOKEN in the "
+                "environment (including local dev) to enable this endpoint.",
+            )
             return False
+
+        # Defense-in-depth: if the proxy signalled successful mTLS, log it.
+        # Absence is fine in dev; presence in prod just means an extra layer
+        # passed before we even got here.
+        mtls_header = _get_efi_webhook_setting("mtls_header") or "HTTP_X_SSL_CLIENT_VERIFY"
+        mtls_status = request.META.get(mtls_header, "")
+        if mtls_status:
+            logger.debug("EfiPixWebhook: mTLS pre-auth header %s=%s", mtls_header, mtls_status)
 
         token = request.META.get("HTTP_X_EFI_WEBHOOK_TOKEN", "")
         if not token:
             token = request.query_params.get("token", "")
 
         if not token:
+            logger.warning("EfiPixWebhook: missing token — rejecting")
             return False
 
-        return hmac.compare_digest(token, expected_token)
+        if not hmac.compare_digest(token, expected_token):
+            logger.warning("EfiPixWebhook: token mismatch — rejecting")
+            return False
+
+        return True

@@ -112,14 +112,19 @@ class TestWebhookImports:
         assert StripeWebhookView is not None
 
     def test_efi_uses_flows_dispatch(self):
-        """EFI webhook uses shopman.lifecycle.dispatch, not channels.hooks."""
+        """EFI webhook delegates to confirm_pix, which dispatches on_paid."""
         import inspect
 
-        from shopman.shop.webhooks.efi import EfiPixWebhookView
+        from shopman.shop.services import pix_confirmation
+        from shopman.shop.webhooks import efi
 
-        source = inspect.getsource(EfiPixWebhookView._process_order_payment)
-        assert "dispatch(order" in source
-        assert "on_payment_confirmed" not in source
+        webhook_source = inspect.getsource(efi)
+        assert "confirm_pix" in webhook_source
+
+        service_source = inspect.getsource(pix_confirmation._apply_order_payment)
+        assert "dispatch(order" in service_source
+        assert "on_paid" in service_source
+        assert "on_payment_confirmed" not in service_source
 
     def test_stripe_uses_flows_dispatch(self):
         """Stripe webhook uses shopman.lifecycle.dispatch, not channels.hooks."""

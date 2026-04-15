@@ -49,6 +49,7 @@ from .checkout import (
     CheckoutOrderSummaryView,
     CheckoutView,
     OrderConfirmationView,
+    SimulateIFoodView,
 )
 from .devices import DeviceListView, DeviceRevokeAllView, DeviceRevokeView
 from .home import HomeView
@@ -109,6 +110,7 @@ __all__ = [
     "QuickAddView",
     "CheckoutView",
     "CheckoutOrderSummaryView",
+    "SimulateIFoodView",
     "CustomerLookupView",
     "DataExportView",
     "DeviceCheckLoginView",

@@ -7,7 +7,7 @@ Errors (block runserver/migrate --deploy in production):
   SHOPMAN_E001  SECRET_KEY is the development default
   SHOPMAN_E002  ALLOWED_HOSTS is empty or contains '*'
   SHOPMAN_E003  PIX or CARD payment adapter is payment_mock
-  SHOPMAN_E004  iFood webhook signature verification is disabled
+  SHOPMAN_E004  A webhook integration has no token configured
 
 Warnings (non-blocking, logged at startup):
   SHOPMAN_W001  Database backend is SQLite
@@ -77,15 +77,35 @@ def check_payment_adapters(app_configs, **kwargs):
 
 
 @register(deploy=True)
-def check_ifood_signature(app_configs, **kwargs):
+def check_webhook_tokens(app_configs, **kwargs):
+    """Require a webhook token for every inbound integration.
+
+    The runtime rejects unauthenticated requests in every environment already
+    (there is no ``SKIP_SIGNATURE`` bypass). This check exists to fail early
+    at ``manage.py check --deploy`` time with a clear message, so prod deploys
+    do not ship with a silently broken webhook.
+    """
     errors = []
-    if not settings.DEBUG:
-        ifood = getattr(settings, "SHOPMAN_IFOOD", {})
-        if ifood.get("SKIP_SIGNATURE", False):
+    if settings.DEBUG:
+        return errors
+
+    # (settings_attr, persona, env_var)
+    integrations = [
+        ("SHOPMAN_EFI_WEBHOOK", "EFI", "EFI_WEBHOOK_TOKEN"),
+        ("SHOPMAN_IFOOD", "iFood", "IFOOD_WEBHOOK_TOKEN"),
+    ]
+    for attr, name, env_var in integrations:
+        cfg = getattr(settings, attr, {}) or {}
+        if not cfg.get("webhook_token"):
             errors.append(
                 Error(
-                    "SHOPMAN_IFOOD['SKIP_SIGNATURE'] está True em produção.",
-                    hint="Defina IFOOD_SKIP_SIGNATURE=false e configure a verificação de assinatura do webhook.",
+                    f"{attr}['webhook_token'] não está configurado em produção.",
+                    hint=(
+                        f"{name} authentication uses the same code path in "
+                        f"dev and prod. Defina {env_var} via variável de "
+                        f"ambiente — mesmo em dev, para que o caminho de "
+                        f"verificação seja exercitado localmente."
+                    ),
                     id="SHOPMAN_E004",
                 )
             )

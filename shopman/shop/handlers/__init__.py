@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 ALL_HANDLERS = [
     # Lifecycle
     "shopman.shop.handlers.confirmation.ConfirmationTimeoutHandler",
+    # Mock PIX (dev/test only; only fires when payment_mock scheduled a directive)
+    "shopman.shop.handlers.mock_pix.MockPixConfirmHandler",
     # Fulfillment
     "shopman.shop.handlers.fulfillment.FulfillmentCreateHandler",
     "shopman.shop.handlers.fulfillment.FulfillmentUpdateHandler",
@@ -66,6 +68,7 @@ def register_all() -> None:
     """Register all directive handlers, modifiers, validators, and signals."""
     _register_notification_handlers()
     _register_confirmation_handler()
+    _register_mock_pix_handler()
     _register_customer_strategies()
     _register_fiscal_handlers()
     _register_accounting_handler()
@@ -105,6 +108,21 @@ def _register_notification_handlers() -> None:
 def _register_confirmation_handler() -> None:
     from shopman.shop.handlers.confirmation import ConfirmationTimeoutHandler
     registry.register_directive_handler(ConfirmationTimeoutHandler())
+
+
+def _register_mock_pix_handler() -> None:
+    """Register the mock PIX confirmation handler whenever the PIX payment
+    adapter resolves to ``shopman.shop.adapters.payment_mock``.
+
+    The handler is harmless if no directive ever fires (mock mode off), but
+    gating registration on the adapter choice keeps production environments
+    free of a handler whose topic nothing ever publishes.
+    """
+    pix_adapter = getattr(settings, "SHOPMAN_PAYMENT_ADAPTERS", {}).get("pix", "")
+    if pix_adapter != "shopman.shop.adapters.payment_mock":
+        return
+    from shopman.shop.handlers.mock_pix import MockPixConfirmHandler
+    registry.register_directive_handler(MockPixConfirmHandler())
 
 
 def _register_customer_strategies() -> None:

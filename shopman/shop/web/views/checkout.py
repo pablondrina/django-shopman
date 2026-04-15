@@ -10,7 +10,7 @@ from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views import View
-from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django_ratelimit.decorators import ratelimit
 
 logger = logging.getLogger(__name__)
@@ -41,6 +41,8 @@ class CheckoutView(View):
         """Contexto comum GET e re-render com erros (WP-S3: paridade total)."""
         import json as _json
 
+        from django.conf import settings
+
         from shopman.shop.models import Shop
         shop = Shop.load()
         shop_defaults = (shop.defaults or {}) if shop else {}
@@ -55,6 +57,7 @@ class CheckoutView(View):
             "minimum_order_warning": _min_order_progress(cart["subtotal_q"]),
             "max_preorder_days": max_preorder_days,
             "closed_dates_json": _json.dumps(closed_dates),
+            "debug": settings.DEBUG,
         }
 
         # Pickup slots — dynamic from Shop.defaults + production history
@@ -814,3 +817,79 @@ class CheckoutOrderSummaryView(View):
                 "minimum_order_warning": _min_order_progress(cart["subtotal_q"]),
             },
         )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class SimulateIFoodView(View):
+    """Dev-only: translate current cart Session into an iFood payload and ingest it.
+
+    Gated behind ``settings.DEBUG`` so it never ships to production. Builds a
+    canonical iFood payload from the open Session via ``session_to_ifood_payload``
+    and hands it to ``ifood_ingest.ingest`` — the exact same entry point a real
+    iFood webhook would use. The storefront cart Session is then closed so the
+    user gets a fresh cart (the simulated order lives on the iFood channel and
+    is unrelated to the storefront checkout flow).
+
+    CSRF-exempt on purpose: this endpoint *simulates* an iFood webhook, and real
+    webhook endpoints never carry Django CSRF tokens (external services don't
+    know about them). Keeping this consistent with what it simulates avoids the
+    mismatch that caused the dev form to 403 when submitted from the browser.
+    Safe because the view is hard-gated behind ``settings.DEBUG`` and only acts
+    on the caller's own open cart Session.
+    """
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        from django.conf import settings
+        from django.contrib import messages
+        from django.http import Http404
+        from shopman.orderman.models import Session
+
+        from shopman.shop.services import ifood_ingest
+        from shopman.shop.services.ifood_simulation import session_to_ifood_payload
+
+        if not settings.DEBUG:
+            raise Http404()
+
+        session_key = CartService._get_session_key(request)
+        if not session_key:
+            messages.warning(request, "Carrinho vazio — adicione itens antes de simular.")
+            return redirect("storefront:cart")
+
+        channel = CartService._get_channel()
+        try:
+            cart_session = Session.objects.get(
+                session_key=session_key,
+                channel_ref=channel.ref,
+                state="open",
+            )
+        except Session.DoesNotExist:
+            messages.warning(request, "Carrinho não encontrado.")
+            return redirect("storefront:cart")
+
+        if not cart_session.items:
+            messages.warning(request, "Carrinho vazio — adicione itens antes de simular.")
+            return redirect("storefront:cart")
+
+        try:
+            payload = session_to_ifood_payload(cart_session)
+            order = ifood_ingest.ingest(payload)
+        except ifood_ingest.IFoodIngestError as e:
+            logger.exception("simulate_ifood: ingest failed")
+            messages.error(request, f"Falha ao simular pedido iFood: {e.message}")
+            return redirect("storefront:checkout")
+        except Exception as e:
+            logger.exception("simulate_ifood: unexpected error")
+            messages.error(request, f"Erro inesperado: {e}")
+            return redirect("storefront:checkout")
+
+        # Clear the storefront cart — the simulated order lives on the iFood
+        # channel, so the storefront session should not continue to show it.
+        cart_session.state = "closed"
+        cart_session.save(update_fields=["state", "updated_at"])
+        request.session.pop("cart_session_key", None)
+
+        messages.success(
+            request,
+            f"Pedido iFood simulado criado: {order.ref} (external: {order.external_ref}).",
+        )
+        return redirect("storefront:order_tracking", ref=order.ref)
