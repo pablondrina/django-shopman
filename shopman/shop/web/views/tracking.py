@@ -167,7 +167,7 @@ def _build_tracking_context(order: Order) -> dict:
     confirmation_expires_at = None
     if order.status == "new":
         cfg = _effective_config(order.channel_ref).confirmation
-        if cfg.mode == "optimistic":
+        if cfg.mode == "auto_confirm":
             from datetime import timedelta
             confirmation_countdown = True
             confirmation_expires_at = order.created_at + timedelta(minutes=cfg.timeout_minutes)
@@ -409,7 +409,7 @@ class OrderConfirmationView(View):
 
         if order.channel_ref:
             cfg = _effective_config(order.channel_ref).confirmation
-            if cfg.mode == "optimistic":
+            if cfg.mode == "auto_confirm":
                 return redirect("storefront:order_tracking", ref=ref)
 
         items = order.items.all()

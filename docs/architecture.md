@@ -154,9 +154,10 @@ Setas indicam dependência de pacote. Dependências via Protocol (runtime) são 
    │     └── ...
    │
 5. Confirmação (conforme modo do canal):
-   │  ├── immediate → auto-confirma
-   │  ├── optimistic → confirmation.timeout directive
-   │  └── manual → aguarda operador
+   │  ├── immediate    → auto-confirma
+   │  ├── auto_confirm → confirmation.timeout directive (auto-confirma no prazo)
+   │  ├── auto_cancel  → confirmation.timeout directive (auto-cancela no prazo)
+   │  └── manual       → aguarda operador
    │
 6. Pós-confirmação (se PIX):
    │  └── pix.generate → PixGenerateHandler → PaymentBackend.create_intent()
@@ -173,7 +174,7 @@ Cada canal de venda tem um preset (`shopman/presets.py`) que configura o comport
 | Preset | Confirmação | Pagamento | Stock Hold TTL | Pipeline on_commit | Pipeline on_confirmed |
 |--------|-------------|-----------|----------------|--------------------|-----------------------|
 | `pos()` | immediate | `counter` | 5 min | customer.ensure | stock.commit, notification, loyalty.earn |
-| `remote()` | optimistic (10 min) | `pix` (15 min) | 30 min | customer.ensure, stock.hold | pix.generate, notification, loyalty.earn |
+| `remote()` | auto_confirm (10 min) | `pix` (15 min) | 30 min | customer.ensure, stock.hold | pix.generate, notification, loyalty.earn |
 | `marketplace()` | immediate | `external` (pré-pago) | — | customer.ensure | stock.commit |
 
 A configuração cascateia: `Channel.config` → `Shop.defaults` → `ChannelConfig.defaults()`.

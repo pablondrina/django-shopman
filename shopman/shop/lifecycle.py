@@ -24,9 +24,10 @@ Timing × Phase table:
         False → skip check (web storefront validates during checkout)
 
     confirmation.mode:
-        "immediate"   → auto-confirm on commit
-        "optimistic"  → auto-confirm after timeout if not cancelled
-        "manual"      → wait for operator
+        "immediate"    → auto-confirm on commit
+        "auto_confirm" → auto-confirm after timeout if operator doesn't cancel
+        "auto_cancel"  → auto-CANCEL after timeout if operator doesn't confirm
+        "manual"       → wait for operator, no timeout
 """
 
 from __future__ import annotations
@@ -245,23 +246,40 @@ _PHASE_HANDLERS = {
 
 
 def _handle_confirmation(order, config: ChannelConfig) -> None:
-    """Route confirmation by mode: immediate, optimistic, manual."""
+    """Route confirmation by mode.
+
+    - ``immediate``    → transition NEW → CONFIRMED synchronously.
+    - ``auto_confirm`` → schedule a ``confirmation.timeout`` directive that
+      auto-confirms if the operator does not explicitly cancel within the
+      timeout. The operator can still cancel in the window.
+    - ``auto_cancel``  → schedule a ``confirmation.timeout`` directive that
+      auto-CANCELS if the operator does not explicitly confirm within the
+      timeout. The operator can confirm in the window; if they do, the
+      directive fires and noops (status != NEW).
+    - ``manual``       → no directive; status stays NEW until the operator
+      explicitly confirms or cancels. No timeout.
+    """
     mode = config.confirmation.mode
 
     if mode == "immediate":
         ensure_confirmable(order)
         order.transition_status(Order.Status.CONFIRMED, actor="auto_confirm")
-    elif mode == "optimistic":
+        return
+
+    if mode in ("auto_confirm", "auto_cancel"):
         expires_at = timezone.now() + timedelta(minutes=config.confirmation.timeout_minutes)
+        action = "confirm" if mode == "auto_confirm" else "cancel"
         Directive.objects.create(
             topic="confirmation.timeout",
             payload={
                 "order_ref": order.ref,
-                "action": "confirm",
+                "action": action,
                 "expires_at": expires_at.isoformat(),
             },
             available_at=expires_at,
         )
+        return
+
     # manual: wait for operator — no action
 
 
@@ -362,14 +380,22 @@ def _record_availability_decision(
 
 
 def _create_alert(order, alert_type: str) -> None:
-    """Create an OperatorAlert for exceptional situations."""
-    try:
-        from shopman.shop.models import OperatorAlert
+    """Create an OperatorAlert for exceptional situations.
 
+    Alerting is a best-effort side effect: a failure to persist the alert
+    must not abort the phase handler that called it. The broad ``except``
+    is intentional, but imports and message preparation are deliberately
+    kept *outside* the try block so that structural bugs (missing model,
+    bad field, typo) surface loudly instead of being silently swallowed.
+    """
+    from shopman.shop.models import OperatorAlert
+
+    message = f"Pedido {order.ref}: {alert_type.replace('_', ' ')}"
+    try:
         OperatorAlert.objects.create(
             type=alert_type,
             severity="warning",
-            message=f"Pedido {order.ref}: {alert_type.replace('_', ' ')}",
+            message=message,
             order_ref=order.ref,
         )
     except Exception:

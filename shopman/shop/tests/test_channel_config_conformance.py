@@ -87,15 +87,15 @@ class TestConfirmationConformance:
 
         order.transition_status.assert_not_called()
 
-    def test_optimistic_creates_confirmation_timeout_directive(self, db):
-        """confirmation.mode='optimistic' → Directive com topic=confirmation.timeout."""
+    def test_auto_confirm_creates_confirmation_timeout_directive(self, db):
+        """confirmation.mode='auto_confirm' → Directive com topic=confirmation.timeout."""
         from shopman.orderman.models import Directive
 
         from shopman.shop.lifecycle import dispatch
 
         order = _make_order()
         cfg = _config()
-        cfg.confirmation.mode = "optimistic"
+        cfg.confirmation.mode = "auto_confirm"
         cfg.confirmation.timeout_minutes = 5
 
         with _patch_config(cfg):

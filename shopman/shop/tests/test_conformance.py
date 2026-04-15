@@ -281,14 +281,14 @@ class TestC05ImmediateConfirmation(TestCase):
         self.assertEqual(initial_count, final_count)
 
 
-# ── C-06: Optimistic confirmation ────────────────────────────────────
+# ── C-06: auto_confirm confirmation ──────────────────────────────────
 
-class TestC06OptimisticConfirmation(TestCase):
-    """C-06: optimistic mode → confirmation.timeout directive created."""
+class TestC06AutoConfirmConfirmation(TestCase):
+    """C-06: auto_confirm mode → confirmation.timeout directive created."""
 
     def setUp(self):
-        self.channel = _channel("c06-optimistic", {
-            "confirmation": {"mode": "optimistic", "timeout_minutes": 10},
+        self.channel = _channel("c06-auto-confirm", {
+            "confirmation": {"mode": "auto_confirm", "timeout_minutes": 10},
             "payment": {"method": "pix", "timing": "post_commit"},
         })
         self.patchers, self.mocks = _start_patches()
@@ -360,6 +360,100 @@ class TestC07ManualConfirmation(TestCase):
         order.transition_status(Order.Status.CONFIRMED, actor="operator")
         order.refresh_from_db()
         self.assertEqual(order.status, Order.Status.CONFIRMED)
+
+
+# ── C-07b: auto_cancel confirmation ──────────────────────────────────
+
+class TestC07bAutoCancelConfirmation(TestCase):
+    """C-07b: auto_cancel mode → auto-CANCEL after timeout if operator
+    does not explicitly confirm. Mirror of C-06 (auto_confirm) with the
+    terminal action flipped."""
+
+    def setUp(self):
+        self.channel = _channel("c07b-auto-cancel", {
+            "confirmation": {"mode": "auto_cancel", "timeout_minutes": 10},
+            "payment": {"method": "pix", "timing": "post_commit"},
+        })
+        self.patchers, self.mocks = _start_patches()
+
+    def tearDown(self):
+        _stop(self.patchers)
+
+    def test_order_remains_new_after_commit(self):
+        session = _session(self.channel)
+        result = _commit(session, self.channel)
+        order = Order.objects.get(ref=result["order_ref"])
+        self.assertEqual(order.status, Order.Status.NEW)
+
+    def test_confirmation_timeout_directive_has_cancel_action(self):
+        session = _session(self.channel)
+        _commit(session, self.channel)
+        directive = Directive.objects.filter(topic="confirmation.timeout").first()
+        self.assertIsNotNone(directive)
+        self.assertEqual(directive.payload["action"], "cancel")
+
+    def test_timeout_handler_cancels_order_when_operator_silent(self):
+        """When the operator does not confirm within the window, the
+        timeout handler transitions the order to CANCELLED."""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from shopman.shop.handlers.confirmation import ConfirmationTimeoutHandler
+
+        session = _session(self.channel)
+        result = _commit(session, self.channel)
+        order = Order.objects.get(ref=result["order_ref"])
+        self.assertEqual(order.status, Order.Status.NEW)
+
+        directive = Directive.objects.filter(
+            topic="confirmation.timeout", payload__order_ref=order.ref,
+        ).first()
+        # Force the directive into the past so the handler fires immediately.
+        directive.available_at = timezone.now() - timedelta(minutes=1)
+        directive.payload["expires_at"] = (
+            timezone.now() - timedelta(minutes=1)
+        ).isoformat()
+        directive.save(update_fields=["available_at", "payload", "updated_at"])
+
+        ConfirmationTimeoutHandler().handle(message=directive, ctx={})
+
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.CANCELLED)
+
+    def test_operator_confirm_wins_the_race(self):
+        """If the operator confirms before the timeout fires, the handler
+        finds status != NEW and noops — the explicit decision stands."""
+        from shopman.shop.handlers.confirmation import ConfirmationTimeoutHandler
+        from shopman.shop.lifecycle import ensure_confirmable
+
+        session = _session(self.channel)
+        result = _commit(session, self.channel)
+        order = Order.objects.get(ref=result["order_ref"])
+
+        # Operator confirms within the window.
+        ensure_confirmable(order)
+        order.transition_status(Order.Status.CONFIRMED, actor="operator")
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.CONFIRMED)
+
+        # Now the directive fires.
+        directive = Directive.objects.filter(
+            topic="confirmation.timeout", payload__order_ref=order.ref,
+        ).first()
+        from datetime import timedelta
+
+        from django.utils import timezone
+        directive.available_at = timezone.now() - timedelta(minutes=1)
+        directive.payload["expires_at"] = (
+            timezone.now() - timedelta(minutes=1)
+        ).isoformat()
+        directive.save(update_fields=["available_at", "payload", "updated_at"])
+
+        ConfirmationTimeoutHandler().handle(message=directive, ctx={})
+
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.CONFIRMED)  # unchanged
 
 
 # ── C-08: Late payment (after cancellation) ──────────────────────────

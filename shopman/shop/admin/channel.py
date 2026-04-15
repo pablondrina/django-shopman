@@ -19,7 +19,7 @@ class ChannelForm(forms.ModelForm):
     confirmation = forms.CharField(
         widget=forms.Textarea(attrs={"rows": 4, "class": "vLargeTextField"}),
         required=False,
-        help_text="JSON: mode (immediate/optimistic/manual), timeout_minutes",
+        help_text="JSON: mode (immediate/auto_confirm/auto_cancel/manual), timeout_minutes",
     )
     payment = forms.CharField(
         widget=forms.Textarea(attrs={"rows": 5, "class": "vLargeTextField"}),

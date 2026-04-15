@@ -30,10 +30,11 @@ class ChannelConfig:
     @dataclass
     class Confirmation:
         mode: str = "immediate"
-        # "immediate"  — auto-confirma na criação
-        # "optimistic" — auto-confirma após timeout se operador não cancela
-        # "manual"     — aguarda aprovação explícita do operador
-        timeout_minutes: int = 5  # só para mode=optimistic
+        # "immediate"    — auto-confirma na criação
+        # "auto_confirm" — auto-confirma após timeout se operador não cancela
+        # "auto_cancel"  — auto-CANCELA após timeout se operador não confirma
+        # "manual"       — aguarda aprovação explícita, sem timeout
+        timeout_minutes: int = 5  # para mode=auto_confirm ou auto_cancel
 
     # ── 2. Pagamento ──
 
@@ -213,10 +214,13 @@ class ChannelConfig:
     # ── Validação ──
 
     def validate(self):
-        if self.confirmation.mode not in ("immediate", "optimistic", "manual"):
+        valid_modes = ("immediate", "auto_confirm", "auto_cancel", "manual")
+        if self.confirmation.mode not in valid_modes:
             raise ValueError(f"confirmation.mode inválido: {self.confirmation.mode}")
-        if self.confirmation.mode == "optimistic" and self.confirmation.timeout_minutes <= 0:
-            raise ValueError("timeout_minutes deve ser > 0 para mode=optimistic")
+        if self.confirmation.mode in ("auto_confirm", "auto_cancel") and self.confirmation.timeout_minutes <= 0:
+            raise ValueError(
+                f"timeout_minutes deve ser > 0 para mode={self.confirmation.mode}",
+            )
         valid_methods = {"counter", "pix", "card", "external"}
         for m in self.payment.available_methods:
             if m not in valid_methods:

@@ -28,7 +28,7 @@ class BusinessHoursRule:
     """Annotates orders placed outside business hours.
 
     Does NOT block checkout — sets session.data["outside_business_hours"] = True
-    so the flow layer can decide how to handle it (e.g. pessimistic confirmation,
+    so the flow layer can decide how to handle it (e.g. auto_cancel confirmation,
     adjusted lead time, operator review).
 
     Comportamento (WP-S6): se ``Shop.opening_hours`` estiver vazio/ausente, não

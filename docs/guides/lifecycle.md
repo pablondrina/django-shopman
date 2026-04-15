@@ -72,8 +72,9 @@ O comportamento de cada canal é 100% configurado via `ChannelConfig` — sem cl
 | `fulfillment.timing` | `"post_commit"` | fulfillment.create em on_ready (padrão) |
 | `fulfillment.timing` | `"external"` | nenhum fulfillment.create |
 | `confirmation.mode` | `"immediate"` | auto-confirm em on_commit |
-| `confirmation.mode` | `"optimistic"` | auto-confirm após timeout |
-| `confirmation.mode` | `"manual"` | aguarda operador |
+| `confirmation.mode` | `"auto_confirm"` | auto-confirm após timeout se operador não cancelar |
+| `confirmation.mode` | `"auto_cancel"` | auto-cancel após timeout se operador não confirmar |
+| `confirmation.mode` | `"manual"` | aguarda operador, sem timeout |
 | `stock.check_on_commit` | `True` | per-item check antes do hold (POS, marketplace) |
 
 ### 10 Fases
@@ -174,7 +175,7 @@ operações que podem ser enfileiradas/retentadas usam o mecanismo de Directive.
 | Handler | Topic | Ação |
 |---------|-------|------|
 | `NotificationSendHandler` | `notification.send` | Envia notificação via adapter |
-| `ConfirmationTimeoutHandler` | `confirmation.timeout` | Auto-confirma após timeout (optimistic) |
+| `ConfirmationTimeoutHandler` | `confirmation.timeout` | Auto-confirma (auto_confirm) ou auto-cancela (auto_cancel) após timeout |
 | `NFCeEmitHandler` | `fiscal.emit_nfce` | Emite NFC-e |
 | `NFCeCancelHandler` | `fiscal.cancel_nfce` | Cancela NFC-e |
 | `ReturnHandler` | `return.process` | Processa devolução |

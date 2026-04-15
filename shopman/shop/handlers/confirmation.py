@@ -1,7 +1,14 @@
 """
-Confirmation handler — auto-confirma pedido após timeout.
+Confirmation handler — resolve a NEW order after its confirmation timeout.
 
-Inline de shopman.confirmation.handlers.
+Fires once a ``confirmation.timeout`` directive reaches its ``expires_at``.
+The terminal action is dictated by ``payload["action"]``:
+
+- ``confirm`` → auto-confirm the order (auto_confirm mode).
+- ``cancel``  → auto-cancel the order (auto_cancel mode).
+
+If the operator has already moved the order out of ``NEW`` (by explicitly
+confirming or cancelling within the window) the handler noops.
 """
 
 from __future__ import annotations
@@ -18,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class ConfirmationTimeoutHandler:
-    """Confirma pedido automaticamente se operador não cancelar em tempo. Topic: confirmation.timeout"""
+    """Resolve pedido após timeout de confirmação. Topic: confirmation.timeout"""
 
     topic = CONFIRMATION_TIMEOUT
 
@@ -29,6 +36,7 @@ class ConfirmationTimeoutHandler:
 
         payload = message.payload
         order_ref = payload["order_ref"]
+        action = payload.get("action", "confirm")
         expires_at = datetime.fromisoformat(payload["expires_at"])
 
         if not timezone.is_aware(expires_at):
@@ -47,12 +55,33 @@ class ConfirmationTimeoutHandler:
             return
 
         if order.status != Order.Status.NEW:
+            # Operator already resolved the order within the window — noop.
             message.status = "done"
             message.save(update_fields=["status", "updated_at"])
             return
 
-        ensure_confirmable(order)
-        order.transition_status(Order.Status.CONFIRMED, actor="confirmation.timeout")
+        if action == "confirm":
+            ensure_confirmable(order)
+            order.transition_status(
+                Order.Status.CONFIRMED, actor="confirmation.timeout",
+            )
+        elif action == "cancel":
+            order.transition_status(
+                Order.Status.CANCELLED, actor="confirmation.timeout",
+            )
+            logger.info(
+                "confirmation.timeout: auto-cancelled order %s (auto_cancel mode)",
+                order_ref,
+            )
+        else:
+            logger.error(
+                "confirmation.timeout: unknown action %r for order %s",
+                action, order_ref,
+            )
+            message.status = "failed"
+            message.save(update_fields=["status", "updated_at"])
+            return
+
         message.status = "done"
         message.save(update_fields=["status", "updated_at"])
 

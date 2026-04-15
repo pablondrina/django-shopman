@@ -142,11 +142,11 @@ class TestOnCommit:
     @patch("shopman.shop.lifecycle.customer")
     @patch("shopman.shop.lifecycle.stock")
     @pytest.mark.django_db
-    def test_optimistic_confirmation_creates_directive(
+    def test_auto_confirm_creates_directive(
         self, mock_stock, mock_customer, mock_loyalty, mock_cc,
     ):
         mock_cc.for_channel.return_value = _config(
-            confirmation_mode="optimistic", confirmation_timeout=5,
+            confirmation_mode="auto_confirm", confirmation_timeout=5,
         )
         order = _make_order()
         dispatch(order, "on_commit")
@@ -154,6 +154,29 @@ class TestOnCommit:
         assert directive is not None
         assert directive.payload["order_ref"] == "ORD-001"
         assert directive.payload["action"] == "confirm"
+
+    @patch("shopman.shop.lifecycle.ChannelConfig")
+    @patch("shopman.shop.lifecycle.loyalty")
+    @patch("shopman.shop.lifecycle.customer")
+    @patch("shopman.shop.lifecycle.stock")
+    @pytest.mark.django_db
+    def test_auto_cancel_confirmation_creates_cancel_directive(
+        self, mock_stock, mock_customer, mock_loyalty, mock_cc,
+    ):
+        """confirmation.mode='auto_cancel' schedules a timeout directive
+        whose action is 'cancel' — the operator must explicitly confirm
+        within the window or the order is auto-cancelled."""
+        mock_cc.for_channel.return_value = _config(
+            confirmation_mode="auto_cancel", confirmation_timeout=5,
+        )
+        order = _make_order()
+        dispatch(order, "on_commit")
+        directive = Directive.objects.filter(topic="confirmation.timeout").first()
+        assert directive is not None
+        assert directive.payload["order_ref"] == "ORD-001"
+        assert directive.payload["action"] == "cancel"
+        # No synchronous confirmation — order stays NEW for operator to decide.
+        order.transition_status.assert_not_called()
 
     @patch("shopman.shop.lifecycle.ChannelConfig")
     @patch("shopman.shop.lifecycle.loyalty")
@@ -510,7 +533,7 @@ class TestLocalChannelScenario:
 
 
 class TestRemoteChannelScenario:
-    """Remote channel: payment.timing=post_commit, confirmation.mode=optimistic."""
+    """Remote channel: payment.timing=post_commit, confirmation.mode=auto_confirm."""
 
     @patch("shopman.shop.lifecycle.ChannelConfig")
     @patch("shopman.shop.lifecycle.notification")
@@ -622,16 +645,16 @@ class TestChannelConfigIntegration:
     @patch("shopman.shop.lifecycle.loyalty")
     @patch("shopman.shop.lifecycle.customer")
     @patch("shopman.shop.lifecycle.stock")
-    def test_optimistic_uses_timeout_minutes_from_schema(
+    def test_auto_confirm_uses_timeout_minutes_from_schema(
         self, mock_stock, mock_customer, mock_loyalty,
     ):
         from shopman.shop.models import Shop
         Shop.objects.get_or_create(
             name="Test Shop",
-            defaults={"defaults": {"confirmation": {"mode": "optimistic", "timeout_minutes": 7}}},
+            defaults={"defaults": {"confirmation": {"mode": "auto_confirm", "timeout_minutes": 7}}},
         )
         shop = Shop.load()
-        shop.defaults = {"confirmation": {"mode": "optimistic", "timeout_minutes": 7}}
+        shop.defaults = {"confirmation": {"mode": "auto_confirm", "timeout_minutes": 7}}
         shop.save()
 
         channel = self._make_real_channel()

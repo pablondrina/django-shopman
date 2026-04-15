@@ -26,7 +26,7 @@ em `Order.Status`. Essa é a fonte da verdade; as definições abaixo resumem.
 
 | Status | Significado | Terminal |
 |---|---|---|
-| `new` | Pedido criado. Em canais `immediate`, estado de microssegundos antes de auto-confirmar. Em `optimistic`/`pessimistic`, aguarda operador ou timeout. | — |
+| `new` | Pedido criado. Em canais `immediate`, estado de microssegundos antes de auto-confirmar. Em `auto_confirm`/`auto_cancel`, aguarda operador ou timeout. | — |
 | `confirmed` | Confirmado (operador ou auto-confirm). Pagamento iniciado se digital. | — |
 | `preparing` | Em montagem na cozinha. KDS tickets ativos. **Não é** produção em lote (WorkOrder) — é montagem do pedido específico. | — |
 | `ready` | Produzido/montado. Pickup: aguarda retirada. Delivery: aguarda motoboy. O status é único; o label customer-facing varia pelo `fulfillment_type`. | — |
