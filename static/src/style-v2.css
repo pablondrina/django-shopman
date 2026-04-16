@@ -14,16 +14,16 @@
         'Segoe UI Symbol', 'Noto Color Emoji';
 
     /* Light Theme — Industrial (Penguin UI) */
-    --color-surface: var(--color-amber-50);
-    --color-surface-alt: var(--color-amber-100);
-    --color-on-surface: var(--color-stone-800);
-    --color-on-surface-strong: var(--color-black);
-    --color-primary: var(--color-orange-900);
+    --color-surface: var(--color-stone-50);
+    --color-surface-alt: var(--color-white);
+    --color-on-surface: var(--color-stone-600);
+    --color-on-surface-strong: var(--color-stone-900);
+    --color-primary: var(--color-stone-900);
     --color-on-primary: var(--color-stone-50);
     --color-secondary: var(--color-yellow-700);
     --color-on-secondary: var(--color-stone-50);
-    --color-outline: transparent;
-    --color-outline-strong: var(--color-lime-900);
+    --color-outline: var(--color-stone-100);
+    --color-outline-strong: var(--color-stone-600);
 
     /* Dark Theme — Industrial (Penguin UI) */
     --color-surface-dark: var(--color-stone-950);
@@ -42,7 +42,7 @@
     --color-on-info: var(--color-stone-100);
     --color-success: var(--color-lime-800);
     --color-on-success: var(--color-white);
-    --color-warning: var(--color-yellow-600);
+    --color-warning: var(--color-amber-600);
     --color-on-warning: var(--color-white);
     --color-danger: var(--color-orange-700);
     --color-on-danger: var(--color-stone-100);
