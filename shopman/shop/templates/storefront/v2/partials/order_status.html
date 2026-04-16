@@ -1,0 +1,30 @@
+{# HTMX polling partial — status badge + timeline. #}
+{# Accepts: tracking_status (OrderTrackingStatusProjection) from polling partial, #}
+{# OR: tracking (OrderTrackingProjection) for the initial inline embed on the full page. #}
+{% with ts=tracking_status|default:tracking %}
+<div id="order-status-area" aria-live="polite">
+
+  <div class="rounded-radius border border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark p-5 space-y-4">
+
+    <div class="flex items-center gap-3">
+      <span class="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium {{ ts.status_color }}">
+        {{ ts.status_label }}
+      </span>
+    </div>
+
+    {% if ts.timeline %}
+    <ol class="relative border-l border-outline dark:border-outline-dark ml-2 space-y-4" aria-label="Histórico do pedido">
+      {% for event in ts.timeline %}
+      <li class="ml-4">
+        <div class="absolute -left-1.5 mt-0.5 h-3 w-3 rounded-full border border-outline bg-surface dark:border-outline-dark dark:bg-surface-dark"></div>
+        <p class="text-sm font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ event.label }}</p>
+        <time class="text-xs text-on-surface/50 dark:text-on-surface-dark/50">{{ event.timestamp_display }}</time>
+      </li>
+      {% endfor %}
+    </ol>
+    {% endif %}
+
+  </div>
+
+</div>
+{% endwith %}

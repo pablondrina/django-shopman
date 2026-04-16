@@ -12,6 +12,8 @@ from shopman.utils.monetary import format_money
 
 from shopman.shop.services import payment as payment_svc
 
+from ._helpers import _is_v2_request
+
 logger = logging.getLogger("shopman.shop.web.payment")
 
 
@@ -31,6 +33,12 @@ class PaymentView(View):
         if order.status == "cancelled":
             return redirect("storefront:order_tracking", ref=ref)
 
+        if request.GET.get("v2") is not None:
+            from shopman.shop.projections import build_payment
+
+            proj = build_payment(order)
+            return render(request, "storefront/v2/payment.html", {"payment": proj})
+
         return render(request, "storefront/payment.html", {
             "order": order,
             "payment": payment,
@@ -45,6 +53,17 @@ class PaymentStatusView(View):
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
         order = get_object_or_404(Order, ref=ref)
+
+        if _is_v2_request(request):
+            from shopman.shop.projections import build_payment_status
+
+            proj = build_payment_status(order)
+            if proj.is_paid:
+                response = HttpResponse("")
+                response["HX-Redirect"] = proj.redirect_url
+                return response
+            return render(request, "storefront/v2/partials/payment_status.html", {"payment_status": proj})
+
         payment = order.data.get("payment", {})
 
         is_paid = payment_svc.get_payment_status(order) == "captured"

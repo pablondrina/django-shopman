@@ -60,3 +60,102 @@ class HappyHourProjection:
     discount_percent: int
     start: str  # "16:00"
     end: str  # "18:00"
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Fase 2 — Checkout, Payment, Tracking
+# ──────────────────────────────────────────────────────────────────────
+
+PAYMENT_METHOD_LABELS_PT: dict[str, str] = {
+    "pix": "PIX",
+    "card": "Cartão",
+    "cash": "Dinheiro / Maquininha",
+    "counter": "Pagar no balcão",
+    "external": "Pago online",
+}
+
+ORDER_STATUS_LABELS_PT: dict[str, str] = {
+    "new": "Recebido",
+    "confirmed": "Confirmado",
+    "preparing": "Em Preparo",
+    "ready": "Pronto",
+    "dispatched": "Saiu para entrega",
+    "delivered": "Entregue",
+    "completed": "Concluído",
+    "cancelled": "Cancelado",
+    "returned": "Devolvido",
+}
+
+ORDER_STATUS_COLORS: dict[str, str] = {
+    "new": "bg-info/10 text-info border border-info/20",
+    "confirmed": "bg-info/10 text-info border border-info/20",
+    "preparing": "bg-warning/10 text-warning border border-warning/20",
+    "ready": "bg-success/10 text-success border border-success/20",
+    "dispatched": "bg-info/10 text-info border border-info/20",
+    "delivered": "bg-success/10 text-success border border-success/20",
+    "completed": "bg-success/10 text-success border border-success/20",
+    "cancelled": "bg-danger/10 text-danger border border-danger/20",
+    "returned": "bg-surface-alt text-on-surface/60 border border-outline",
+}
+
+
+@dataclass(frozen=True)
+class SavedAddressProjection:
+    """A customer's saved delivery address."""
+
+    id: int
+    formatted_address: str
+    complement: str
+    label: str
+    is_default: bool
+
+
+@dataclass(frozen=True)
+class PickupSlotProjection:
+    """A single configured pickup time slot."""
+
+    ref: str
+    label: str    # e.g. "A partir das 09h"
+    starts_at: str  # "09:00"
+
+
+@dataclass(frozen=True)
+class PaymentMethodOptionProjection:
+    """A payment method available on the channel."""
+
+    ref: str    # "pix", "card", "cash", "counter"
+    label: str  # pt-BR label
+    is_default: bool
+
+
+@dataclass(frozen=True)
+class OrderItemProjection:
+    """One line item as displayed on order tracking or confirmation."""
+
+    sku: str
+    name: str
+    qty: int
+    unit_price_display: str
+    total_display: str
+
+
+@dataclass(frozen=True)
+class TimelineEventProjection:
+    """A single event in the order timeline."""
+
+    label: str
+    event_type: str
+    timestamp_display: str  # pre-formatted local datetime, e.g. "15/04 às 14:32"
+
+
+@dataclass(frozen=True)
+class FulfillmentProjection:
+    """A fulfillment record (delivery or pickup)."""
+
+    status: str
+    status_label: str
+    tracking_code: str | None
+    tracking_url: str | None
+    carrier: str | None
+    dispatched_at_display: str | None
+    delivered_at_display: str | None

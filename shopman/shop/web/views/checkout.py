@@ -126,6 +126,19 @@ class CheckoutView(View):
         if customer_info is None:
             return redirect("/login/?next=/checkout/")
 
+        if request.GET.get("v2") is not None:
+            from shopman.shop.projections import build_checkout
+
+            checkout = build_checkout(request=request, channel_ref=CHANNEL_REF)
+            return render(request, "storefront/v2/checkout.html", {
+                "checkout": checkout,
+                "errors": {},
+                "form_data": {
+                    "phone": customer_info.phone or "",
+                    "name": customer_info.name or "",
+                },
+            })
+
         ctx = self._checkout_page_context(request, cart)
         ctx["form_data"] = {
             "phone": customer_info.phone or "",
