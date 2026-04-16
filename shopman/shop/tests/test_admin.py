@@ -279,7 +279,7 @@ class TestProductionAdminView:
         response = production_view(request, admin.site)
 
         assert response.status_code == 200
-        assert response.context_data["craft_summary"].total_orders == 2
+        assert response.context_data["craft_summary"].total == 2
         assert len(response.context_data["planned_queue"]) == 1
         assert len(response.context_data["started_queue"]) == 1
 
@@ -307,6 +307,6 @@ class TestProductionAdminView:
 
         assert response.status_code == 200
         assert response.context_data["selected_date"] == target
-        assert response.context_data["craft_summary"].total_orders == 1
+        assert response.context_data["craft_summary"].total == 1
         assert len(response.context_data["planned_queue"]) == 1
-        assert response.context_data["today_wos"].count() == 1
+        assert len(response.context_data["today_wos"]) == 1

@@ -33,7 +33,30 @@ from .account import (
     build_account,
 )
 from .checkout import CheckoutProjection, build_checkout
+from .closing import (
+    ClosingItemProjection,
+    DayClosingProjection,
+    build_day_closing,
+)
+from .kds import (
+    KDSBoardProjection,
+    KDSExpeditionCardProjection,
+    KDSInstanceSummaryProjection,
+    KDSItemProjection,
+    KDSTicketProjection,
+    build_kds_board,
+    build_kds_index,
+    build_kds_ticket,
+)
 from .order_history import OrderHistoryProjection, build_order_history
+from .order_queue import (
+    OperatorOrderProjection,
+    OrderCardProjection,
+    OrderQueueProjection,
+    build_operator_order,
+    build_order_card,
+    build_order_queue,
+)
 from .order_tracking import (
     OrderTrackingProjection,
     OrderTrackingStatusProjection,
@@ -46,6 +69,12 @@ from .payment import (
     PaymentStatusProjection,
     build_payment,
     build_payment_status,
+)
+from .production import (
+    ProductionBoardProjection,
+    ProductionCountsProjection,
+    WorkOrderCardProjection,
+    build_production_board,
 )
 from .product_detail import (
     AllergenInfoProjection,
@@ -73,6 +102,7 @@ from .types import (
 )
 
 __all__ = [
+    # Storefront (Fases 1–3)
     "AllergenInfoProjection",
     "Availability",
     "CartItemProjection",
@@ -121,4 +151,26 @@ __all__ = [
     "build_payment",
     "build_payment_status",
     "build_product_detail",
+    # Operator (Fase 4)
+    "ClosingItemProjection",
+    "DayClosingProjection",
+    "KDSBoardProjection",
+    "KDSExpeditionCardProjection",
+    "KDSInstanceSummaryProjection",
+    "KDSItemProjection",
+    "KDSTicketProjection",
+    "OperatorOrderProjection",
+    "OrderCardProjection",
+    "OrderQueueProjection",
+    "ProductionBoardProjection",
+    "ProductionCountsProjection",
+    "WorkOrderCardProjection",
+    "build_day_closing",
+    "build_kds_board",
+    "build_kds_index",
+    "build_kds_ticket",
+    "build_operator_order",
+    "build_order_card",
+    "build_order_queue",
+    "build_production_board",
 ]
