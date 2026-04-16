@@ -69,50 +69,55 @@
       </li>
       {# User: Avatar dropdown (auth) or Entrar link (guest) #}
       {% if request.user.is_authenticated %}
-      <li x-data="{ open: false }" x-on:click.away="open = false" class="relative">
-        <button type="button" @click="open = !open"
-                class="flex items-center gap-1.5 rounded-radius px-2 py-1 text-on-surface hover:text-primary dark:text-on-surface-dark dark:hover:text-primary-dark transition focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
-                :aria-expanded="open" aria-haspopup="true">
-          <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary dark:bg-primary-dark/10 dark:text-primary-dark text-sm font-bold select-none" aria-hidden="true">
-            {% if customer_name %}{{ customer_name|first|upper }}{% else %}<span class="material-symbols-rounded text-base">person</span>{% endif %}
-          </span>
-          <span class="material-symbols-rounded text-base transition-transform duration-200" :class="open ? 'rotate-180' : ''" aria-hidden="true">expand_more</span>
+      <li x-data="{ userDropDownIsOpen: false, openWithKeyboard: false }"
+          x-on:keydown.esc.window="userDropDownIsOpen = false, openWithKeyboard = false"
+          class="relative flex items-center">
+        <button type="button"
+                x-on:click="userDropDownIsOpen = !userDropDownIsOpen"
+                x-on:keydown.space.prevent="openWithKeyboard = true"
+                x-on:keydown.enter.prevent="openWithKeyboard = true"
+                x-on:keydown.down.prevent="openWithKeyboard = true"
+                x-bind:aria-expanded="userDropDownIsOpen"
+                aria-haspopup="true"
+                aria-controls="userMenu"
+                class="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary dark:bg-primary-dark/10 dark:text-primary-dark text-sm font-bold select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-dark">
+          {% if customer_name %}{{ customer_name|first|upper }}{% else %}<span class="material-symbols-rounded text-base" aria-hidden="true">person</span>{% endif %}
         </button>
         {# Dropdown panel #}
-        <div x-cloak x-show="open"
-             x-transition:enter="transition ease-out duration-150"
-             x-transition:enter-start="opacity-0 -translate-y-1"
-             x-transition:enter-end="opacity-100 translate-y-0"
-             x-transition:leave="transition ease-in duration-100"
-             x-transition:leave-start="opacity-100 translate-y-0"
-             x-transition:leave-end="opacity-0 -translate-y-1"
-             class="absolute right-0 top-full mt-1 w-48 rounded-radius border border-outline bg-surface shadow-md z-50 dark:border-outline-dark dark:bg-surface-dark"
-             role="menu">
-          <ul class="py-1">
-            <li>
-              <a href="{% url 'storefront:order_history' %}" role="menuitem" @click="open = false"
-                 class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-on-surface hover:bg-surface-alt dark:text-on-surface-dark dark:hover:bg-surface-dark-alt transition">
-                <span class="material-symbols-rounded text-base text-on-surface/60 dark:text-on-surface-dark/60" aria-hidden="true">receipt_long</span>
-                Meus Pedidos
-              </a>
-            </li>
-            <li>
-              <a href="{% url 'storefront:account' %}" role="menuitem" @click="open = false"
-                 class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-on-surface hover:bg-surface-alt dark:text-on-surface-dark dark:hover:bg-surface-dark-alt transition">
-                <span class="material-symbols-rounded text-base text-on-surface/60 dark:text-on-surface-dark/60" aria-hidden="true">manage_accounts</span>
-                Minha Conta
-              </a>
-            </li>
-            <li class="my-1 border-t border-outline dark:border-outline-dark" role="separator"></li>
-            <li>
-              <button type="button" role="menuitem" @click="open = false; document.getElementById('nav-logout-form').submit()"
-                      class="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-danger hover:bg-danger/5 dark:text-danger-dark dark:hover:bg-danger-dark/5 transition">
-                <span class="material-symbols-rounded text-base" aria-hidden="true">logout</span>
-                Sair
-              </button>
-            </li>
-          </ul>
-        </div>
+        <ul x-cloak
+            x-show="userDropDownIsOpen || openWithKeyboard"
+            x-transition.opacity
+            x-trap="openWithKeyboard"
+            x-on:click.outside="userDropDownIsOpen = false, openWithKeyboard = false"
+            x-on:keydown.down.prevent="$focus.wrap().next()"
+            x-on:keydown.up.prevent="$focus.wrap().previous()"
+            id="userMenu"
+            class="absolute right-0 top-12 flex w-fit min-w-48 flex-col overflow-hidden rounded-radius border border-outline bg-surface-alt py-1.5 shadow-md z-50 dark:border-outline-dark dark:bg-surface-dark-alt">
+          <li class="border-b border-outline dark:border-outline-dark">
+            <div class="flex flex-col px-4 py-2">
+              <span class="text-sm font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ customer_name|default:request.user.get_username }}</span>
+            </div>
+          </li>
+          <li>
+            <a href="{% url 'storefront:order_history' %}"
+               class="block bg-surface-alt px-4 py-2 text-sm text-on-surface hover:bg-surface-dark-alt/5 hover:text-on-surface-strong focus-visible:bg-surface-dark-alt/10 focus-visible:text-on-surface-strong focus-visible:outline-hidden dark:bg-surface-dark-alt dark:text-on-surface-dark dark:hover:bg-surface-alt/5 dark:hover:text-on-surface-dark-strong dark:focus-visible:bg-surface-alt/10 dark:focus-visible:text-on-surface-dark-strong">
+              Meus Pedidos
+            </a>
+          </li>
+          <li>
+            <a href="{% url 'storefront:account' %}"
+               class="block bg-surface-alt px-4 py-2 text-sm text-on-surface hover:bg-surface-dark-alt/5 hover:text-on-surface-strong focus-visible:bg-surface-dark-alt/10 focus-visible:text-on-surface-strong focus-visible:outline-hidden dark:bg-surface-dark-alt dark:text-on-surface-dark dark:hover:bg-surface-alt/5 dark:hover:text-on-surface-dark-strong dark:focus-visible:bg-surface-alt/10 dark:focus-visible:text-on-surface-dark-strong">
+              Minha Conta
+            </a>
+          </li>
+          <li class="border-t border-outline dark:border-outline-dark">
+            <button type="button"
+                    x-on:click="document.getElementById('nav-logout-form').submit()"
+                    class="block w-full text-left bg-surface-alt px-4 py-2 text-sm text-danger hover:bg-danger/5 focus-visible:bg-danger/10 focus-visible:outline-hidden dark:bg-surface-dark-alt dark:text-danger-dark dark:hover:bg-danger-dark/5 dark:focus-visible:bg-danger-dark/10">
+              Sair
+            </button>
+          </li>
+        </ul>
       </li>
       {% else %}
       <li><a href="{% url 'storefront:login' %}" class="font-medium text-on-surface underline-offset-2 hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">Entrar</a></li>

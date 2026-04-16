@@ -15,7 +15,8 @@
 
 <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
   {% for item in items %}
-  <li x-data="{
+  <li class="flex"
+      x-data="{
         qty: {{ item.qty_in_cart|default:0 }},
         busy: false,
         set(next) {
@@ -28,105 +29,104 @@
             values: { sku: '{{ item.sku }}', qty: String(target) }
           }).then(() => { this.qty = target }).finally(() => { this.busy = false });
         }
-      }"
-      class="card flex gap-4 relative overflow-hidden transition-shadow duration-150 hover:shadow-md active:scale-[0.99]">
+      }">
 
-    {# Image — clickable navigation to PDP #}
-    <a href="{% url 'storefront:product_detail' item.sku %}"
-       class="shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-surface dark:bg-surface-dark border border-outline dark:border-outline-dark focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
-       aria-label="Ver detalhes de {{ item.name }}">
-      {% if item.image_url %}
-      <img src="{{ item.image_url }}" alt="{{ item.name }}" loading="lazy" class="w-full h-full object-cover">
-      {% else %}
-      <div class="w-full h-full flex items-center justify-center text-on-surface/30 dark:text-on-surface-dark/30">
-        <span class="material-symbols-rounded text-3xl" aria-hidden="true">bakery_dining</span>
-      </div>
-      {% endif %}
-    </a>
+    <article class="group flex rounded-radius flex-col overflow-hidden border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt w-full">
 
-    {# Body #}
-    <div class="flex-1 min-w-0 flex flex-col">
-      <div class="flex items-start justify-between gap-2">
-        <h3 class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong leading-tight">
-          <a href="{% url 'storefront:product_detail' item.sku %}"
-             class="hover:text-primary dark:hover:text-primary-dark focus:outline-hidden focus:underline">
-            {{ item.name }}
-          </a>
-        </h3>
-        {% if item.is_featured %}
-        <span class="badge-info shrink-0" title="Popular">Popular</span>
+      {# Image — clickable navigation to PDP #}
+      <a href="{% url 'storefront:product_detail' item.sku %}"
+         class="block h-44 overflow-hidden focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
+         aria-label="Ver detalhes de {{ item.name }}">
+        {% if item.image_url %}
+        <img src="{{ item.image_url }}" alt="{{ item.name }}" loading="lazy"
+             class="w-full h-full object-cover transition duration-700 ease-out group-hover:scale-105">
+        {% else %}
+        <div class="w-full h-full flex items-center justify-center text-on-surface/30 dark:text-on-surface-dark/30">
+          <span class="material-symbols-rounded text-5xl" aria-hidden="true">bakery_dining</span>
+        </div>
         {% endif %}
-      </div>
+      </a>
 
-      {% if item.short_description %}
-      <p class="mt-1 text-xs text-on-surface dark:text-on-surface-dark line-clamp-2">
-        <a href="{% url 'storefront:product_detail' item.sku %}"
-           class="hover:text-primary dark:hover:text-primary-dark focus:outline-hidden focus:underline">
-          {{ item.short_description }}
-        </a>
-      </p>
-      {% endif %}
+      {# Body #}
+      <div class="flex flex-col gap-3 p-4 flex-1">
 
-      {% if item.availability != "available" %}
-      <div class="mt-2">
-        {% include "storefront/v2/components/availability_badge.html" with state=item.availability.value %}
-      </div>
-      {% endif %}
-
-      {# Price + stepper #}
-      <div class="mt-auto pt-3 flex items-end justify-between gap-2">
-        <div>
-          {% if item.has_promotion %}
-            <p class="text-xs text-on-surface/70 dark:text-on-surface-dark/70 line-through">{{ item.original_price_display }}</p>
-            <p class="text-base font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.price_display }}</p>
-            {% if item.promotion_label %}
-            <span class="badge-warning mt-1">{{ item.promotion_label }}</span>
-            {% endif %}
-          {% else %}
-            <p class="text-base font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.price_display }}</p>
+        <div class="flex items-start justify-between gap-2">
+          <h3 class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong leading-tight">
+            <a href="{% url 'storefront:product_detail' item.sku %}"
+               class="hover:text-primary dark:hover:text-primary-dark focus:outline-hidden focus:underline">
+              {{ item.name }}
+            </a>
+          </h3>
+          {% if item.is_featured %}
+          <span class="badge-info shrink-0" title="Popular">Popular</span>
           {% endif %}
         </div>
 
-        {% if item.can_add_to_cart %}
-        {# iFood/Rappi-style inline stepper: Alpine owns local qty, HTMX posts absolute value #}
-        <div @click.stop>
-          <template x-if="qty === 0">
-            <button type="button"
-                    class="btn-primary text-xs px-3 py-2"
-                    :disabled="busy"
-                    @click="set(1)">
-              Adicionar
-            </button>
-          </template>
-          <template x-if="qty > 0">
-            <div class="inline-flex items-center rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt"
-                 role="group" aria-label="Quantidade no carrinho">
-              <button type="button"
-                      class="w-9 h-9 flex items-center justify-center text-on-surface dark:text-on-surface-dark hover:bg-surface dark:hover:bg-surface-dark rounded-l-radius disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
-                      :disabled="busy"
-                      aria-label="Diminuir quantidade"
-                      @click="set(qty - 1)">
-                <span class="material-symbols-rounded text-lg" aria-hidden="true">remove</span>
-              </button>
-              <span class="min-w-[2ch] px-1 text-center text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums"
-                    x-text="qty" aria-live="polite"></span>
-              <button type="button"
-                      class="w-9 h-9 flex items-center justify-center text-on-surface dark:text-on-surface-dark hover:bg-surface dark:hover:bg-surface-dark rounded-r-radius disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
-                      :disabled="busy || qty >= 99"
-                      aria-label="Aumentar quantidade"
-                      @click="set(qty + 1)">
-                <span class="material-symbols-rounded text-lg" aria-hidden="true">add</span>
-              </button>
-            </div>
-          </template>
-        </div>
-        {% else %}
-        <button type="button" class="btn-secondary text-xs px-3 py-2 opacity-70 cursor-not-allowed" disabled aria-disabled="true">
-          {{ item.availability_label }}
-        </button>
+        {% if item.short_description %}
+        <p class="text-xs text-on-surface dark:text-on-surface-dark line-clamp-2">{{ item.short_description }}</p>
         {% endif %}
+
+        {% if item.availability != "available" %}
+        <div>
+          {% include "storefront/v2/components/availability_badge.html" with state=item.availability.value %}
+        </div>
+        {% endif %}
+
+        {# Price + stepper #}
+        <div class="mt-auto pt-2 flex items-end justify-between gap-2">
+          <div>
+            {% if item.has_promotion %}
+              <p class="text-xs text-on-surface/70 dark:text-on-surface-dark/70 line-through">{{ item.original_price_display }}</p>
+              <p class="text-base font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.price_display }}</p>
+              {% if item.promotion_label %}
+              <span class="badge-warning mt-1">{{ item.promotion_label }}</span>
+              {% endif %}
+            {% else %}
+              <p class="text-base font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.price_display }}</p>
+            {% endif %}
+          </div>
+
+          {% if item.can_add_to_cart %}
+          <div @click.stop>
+            <template x-if="qty === 0">
+              <button type="button"
+                      class="btn-primary text-xs px-3 py-2"
+                      :disabled="busy"
+                      @click="set(1)">
+                Adicionar
+              </button>
+            </template>
+            <template x-if="qty > 0">
+              <div class="inline-flex items-center rounded-radius border border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark"
+                   role="group" aria-label="Quantidade no carrinho">
+                <button type="button"
+                        class="w-9 h-9 flex items-center justify-center text-on-surface dark:text-on-surface-dark hover:bg-surface-alt dark:hover:bg-surface-dark-alt rounded-l-radius disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
+                        :disabled="busy"
+                        aria-label="Diminuir quantidade"
+                        @click="set(qty - 1)">
+                  <span class="material-symbols-rounded text-lg" aria-hidden="true">remove</span>
+                </button>
+                <span class="min-w-[2ch] px-1 text-center text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums"
+                      x-text="qty" aria-live="polite"></span>
+                <button type="button"
+                        class="w-9 h-9 flex items-center justify-center text-on-surface dark:text-on-surface-dark hover:bg-surface-alt dark:hover:bg-surface-dark-alt rounded-r-radius disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
+                        :disabled="busy || qty >= 99"
+                        aria-label="Aumentar quantidade"
+                        @click="set(qty + 1)">
+                  <span class="material-symbols-rounded text-lg" aria-hidden="true">add</span>
+                </button>
+              </div>
+            </template>
+          </div>
+          {% else %}
+          <button type="button" class="btn-secondary text-xs px-3 py-2 opacity-70 cursor-not-allowed" disabled aria-disabled="true">
+            {{ item.availability_label }}
+          </button>
+          {% endif %}
+        </div>
+
       </div>
-    </div>
+    </article>
   </li>
   {% endfor %}
 </ul>

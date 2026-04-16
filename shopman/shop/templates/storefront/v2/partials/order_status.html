@@ -13,22 +13,25 @@
     </div>
 
     {% if ts.timeline %}
-    <ol class="space-y-0" aria-label="Histórico do pedido">
+    <ol aria-label="Histórico do pedido">
       {% for event in ts.timeline %}
-      <li class="flex gap-3 {% if not forloop.last %}pb-4{% endif %}">
-        <div class="flex flex-col items-center shrink-0">
-          <div class="flex size-7 items-center justify-center rounded-full
-                      {% if forloop.first %}bg-primary text-on-primary dark:bg-primary-dark dark:text-on-primary-dark
-                      {% else %}bg-surface-alt border border-outline text-on-surface/50 dark:bg-surface-dark-alt dark:border-outline-dark dark:text-on-surface-dark/50{% endif %}">
+      <li class="relative flex gap-3 {% if not forloop.last %}pb-6{% endif %}">
+        {% if not forloop.last %}
+        <div class="absolute left-3 top-6 bottom-0 w-0.5 bg-outline dark:bg-outline-dark"></div>
+        {% endif %}
+        <div class="shrink-0">
+          <span class="flex size-6 items-center justify-center rounded-full
+                       {% if forloop.first %}border border-primary bg-primary text-on-primary outline outline-2 outline-offset-2 outline-primary dark:border-primary-dark dark:bg-primary-dark dark:text-on-primary-dark dark:outline-primary-dark
+                       {% else %}border border-primary bg-primary text-on-primary dark:border-primary-dark dark:bg-primary-dark dark:text-on-primary-dark{% endif %}">
             {% if forloop.first %}
-            <span class="material-symbols-rounded text-sm" aria-hidden="true">check</span>
+            <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+            </svg>
+            <span class="sr-only">atual</span>
             {% else %}
             <span class="text-xs font-medium">{{ forloop.revcounter }}</span>
             {% endif %}
-          </div>
-          {% if not forloop.last %}
-          <div class="mt-1 w-px flex-1 bg-outline dark:bg-outline-dark min-h-[1rem]"></div>
-          {% endif %}
+          </span>
         </div>
         <div class="flex-1 min-w-0 pb-1">
           <p class="text-sm font-medium text-on-surface-strong dark:text-on-surface-dark-strong leading-tight">{{ event.label }}</p>

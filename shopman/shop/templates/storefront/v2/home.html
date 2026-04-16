@@ -9,17 +9,28 @@
 {# ── Hero Carousel (Alpine.js — Penguin UI pattern) ── #}
 <section class="pt-8 pb-4 md:pt-12">
   <div x-data="{
-    active: 0,
-    count: 3,
-    iv: null,
-    start() { this.iv = setInterval(() => this.next(), 5000) },
-    stop()  { clearInterval(this.iv) },
-    next()  { this.active = (this.active + 1) % this.count },
-    prev()  { this.active = (this.active - 1 + this.count) % this.count }
+    autoplayIntervalTime: 5000,
+    currentSlideIndex: 1,
+    isPaused: false,
+    autoplayInterval: null,
+    previous() {
+      this.currentSlideIndex = this.currentSlideIndex === 1 ? 3 : this.currentSlideIndex - 1;
+    },
+    next() {
+      this.currentSlideIndex = this.currentSlideIndex === 3 ? 1 : this.currentSlideIndex + 1;
+    },
+    autoplay() {
+      this.autoplayInterval = setInterval(() => { if (!this.isPaused) this.next() }, this.autoplayIntervalTime);
+    },
+    setAutoplayInterval(t) {
+      clearInterval(this.autoplayInterval);
+      this.autoplayIntervalTime = t || this.autoplayIntervalTime;
+      this.autoplay();
+    }
   }"
-  x-init="start()"
-  @mouseenter="stop()" @mouseleave="start()"
-  @focusin="stop()"   @focusout="start()"
+  x-init="autoplay()"
+  @mouseenter="isPaused = true" @mouseleave="isPaused = false"
+  @focusin="isPaused = true"   @focusout="isPaused = false"
   class="relative overflow-hidden rounded-2xl"
   aria-roledescription="carousel"
   aria-label="Destaques da loja">
@@ -28,13 +39,8 @@
     <div class="relative h-52 md:h-64 select-none">
 
       {# Slide 1 — Brand #}
-      <div x-show="active === 0" x-cloak
-           x-transition:enter="transition duration-500 ease-out"
-           x-transition:enter-start="opacity-0 translate-x-4"
-           x-transition:enter-end="opacity-100 translate-x-0"
-           x-transition:leave="transition duration-300 ease-in"
-           x-transition:leave-start="opacity-100"
-           x-transition:leave-end="opacity-0"
+      <div x-show="currentSlideIndex === 1" x-cloak
+           x-transition.opacity.duration.1000ms
            class="absolute inset-0 flex flex-col items-center justify-center gap-3 p-8
                   bg-gradient-to-br from-primary/10 via-surface-alt to-secondary/10
                   dark:from-primary-dark/10 dark:via-surface-dark-alt dark:to-secondary-dark/10"
@@ -54,13 +60,8 @@
       </div>
 
       {# Slide 2 — Artesanal #}
-      <div x-show="active === 1" x-cloak
-           x-transition:enter="transition duration-500 ease-out"
-           x-transition:enter-start="opacity-0 translate-x-4"
-           x-transition:enter-end="opacity-100 translate-x-0"
-           x-transition:leave="transition duration-300 ease-in"
-           x-transition:leave-start="opacity-100"
-           x-transition:leave-end="opacity-0"
+      <div x-show="currentSlideIndex === 2" x-cloak
+           x-transition.opacity.duration.1000ms
            class="absolute inset-0 flex flex-col items-center justify-center gap-3 p-8
                   bg-gradient-to-br from-secondary/10 via-surface-alt to-primary/10
                   dark:from-secondary-dark/10 dark:via-surface-dark-alt dark:to-primary-dark/10"
@@ -73,13 +74,8 @@
       </div>
 
       {# Slide 3 — Entrega / Retirada #}
-      <div x-show="active === 2" x-cloak
-           x-transition:enter="transition duration-500 ease-out"
-           x-transition:enter-start="opacity-0 translate-x-4"
-           x-transition:enter-end="opacity-100 translate-x-0"
-           x-transition:leave="transition duration-300 ease-in"
-           x-transition:leave-start="opacity-100"
-           x-transition:leave-end="opacity-0"
+      <div x-show="currentSlideIndex === 3" x-cloak
+           x-transition.opacity.duration.1000ms
            class="absolute inset-0 flex flex-col items-center justify-center gap-3 p-8
                   bg-gradient-to-br from-success/10 via-surface-alt to-secondary/10
                   dark:from-success-dark/10 dark:via-surface-dark-alt dark:to-secondary-dark/10"
@@ -93,14 +89,14 @@
     </div>
 
     {# Prev / Next #}
-    <button @click="prev(); stop(); start()"
+    <button @click="previous(); setAutoplayInterval()"
             class="absolute left-3 top-1/2 -translate-y-1/2 flex size-8 items-center justify-center rounded-full
                    bg-surface/80 dark:bg-surface-dark/80 text-on-surface dark:text-on-surface-dark
                    shadow hover:bg-surface dark:hover:bg-surface-dark transition focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
             aria-label="Slide anterior">
       <span class="material-symbols-rounded text-base" aria-hidden="true">chevron_left</span>
     </button>
-    <button @click="next(); stop(); start()"
+    <button @click="next(); setAutoplayInterval()"
             class="absolute right-3 top-1/2 -translate-y-1/2 flex size-8 items-center justify-center rounded-full
                    bg-surface/80 dark:bg-surface-dark/80 text-on-surface dark:text-on-surface-dark
                    shadow hover:bg-surface dark:hover:bg-surface-dark transition focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
@@ -110,14 +106,14 @@
 
     {# Indicators #}
     <div class="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5" role="tablist" aria-label="Slides">
-      <button @click="active = 0; stop(); start()" role="tab" :aria-selected="active === 0" aria-label="Slide 1"
-              :class="active === 0 ? 'w-6 bg-primary dark:bg-primary-dark' : 'w-2 bg-on-surface/25 dark:bg-on-surface-dark/25'"
+      <button @click="currentSlideIndex = 1; setAutoplayInterval()" role="tab" :aria-selected="currentSlideIndex === 1" aria-label="Slide 1"
+              :class="currentSlideIndex === 1 ? 'w-6 bg-primary dark:bg-primary-dark' : 'w-2 bg-on-surface/25 dark:bg-on-surface-dark/25'"
               class="h-2 rounded-full transition-all duration-300 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"></button>
-      <button @click="active = 1; stop(); start()" role="tab" :aria-selected="active === 1" aria-label="Slide 2"
-              :class="active === 1 ? 'w-6 bg-primary dark:bg-primary-dark' : 'w-2 bg-on-surface/25 dark:bg-on-surface-dark/25'"
+      <button @click="currentSlideIndex = 2; setAutoplayInterval()" role="tab" :aria-selected="currentSlideIndex === 2" aria-label="Slide 2"
+              :class="currentSlideIndex === 2 ? 'w-6 bg-primary dark:bg-primary-dark' : 'w-2 bg-on-surface/25 dark:bg-on-surface-dark/25'"
               class="h-2 rounded-full transition-all duration-300 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"></button>
-      <button @click="active = 2; stop(); start()" role="tab" :aria-selected="active === 2" aria-label="Slide 3"
-              :class="active === 2 ? 'w-6 bg-primary dark:bg-primary-dark' : 'w-2 bg-on-surface/25 dark:bg-on-surface-dark/25'"
+      <button @click="currentSlideIndex = 3; setAutoplayInterval()" role="tab" :aria-selected="currentSlideIndex === 3" aria-label="Slide 3"
+              :class="currentSlideIndex === 3 ? 'w-6 bg-primary dark:bg-primary-dark' : 'w-2 bg-on-surface/25 dark:bg-on-surface-dark/25'"
               class="h-2 rounded-full transition-all duration-300 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"></button>
     </div>
   </div>
@@ -162,30 +158,30 @@
        hx-trigger="load, every 60s"
        hx-swap="innerHTML"
        class="max-w-2xl mx-auto">
-    {# Skeleton: 3 product card placeholders while HTMX loads #}
+    {# Skeleton: 3 vertical product card placeholders while HTMX loads #}
     <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-hidden="true">
-      <li class="card flex gap-4">
-        <div class="size-24 shrink-0 rounded-lg bg-surface-alt dark:bg-surface-dark-alt animate-pulse"></div>
-        <div class="flex-1 space-y-2 py-1">
-          <div class="h-4 rounded bg-surface-alt dark:bg-surface-dark-alt animate-pulse"></div>
-          <div class="h-3 rounded bg-surface-alt dark:bg-surface-dark-alt animate-pulse w-3/4"></div>
-          <div class="h-3 rounded bg-surface-alt dark:bg-surface-dark-alt animate-pulse w-1/2"></div>
+      <li class="flex rounded-radius overflow-hidden border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt flex-col">
+        <div class="h-44 bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse"></div>
+        <div class="p-4 space-y-3">
+          <div class="h-4 rounded bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse"></div>
+          <div class="h-3 rounded bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse w-3/4"></div>
+          <div class="h-3 rounded bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse w-1/2"></div>
         </div>
       </li>
-      <li class="card flex gap-4 hidden sm:flex">
-        <div class="size-24 shrink-0 rounded-lg bg-surface-alt dark:bg-surface-dark-alt animate-pulse"></div>
-        <div class="flex-1 space-y-2 py-1">
-          <div class="h-4 rounded bg-surface-alt dark:bg-surface-dark-alt animate-pulse"></div>
-          <div class="h-3 rounded bg-surface-alt dark:bg-surface-dark-alt animate-pulse w-3/4"></div>
-          <div class="h-3 rounded bg-surface-alt dark:bg-surface-dark-alt animate-pulse w-1/2"></div>
+      <li class="hidden sm:flex rounded-radius overflow-hidden border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt flex-col">
+        <div class="h-44 bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse"></div>
+        <div class="p-4 space-y-3">
+          <div class="h-4 rounded bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse"></div>
+          <div class="h-3 rounded bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse w-3/4"></div>
+          <div class="h-3 rounded bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse w-1/2"></div>
         </div>
       </li>
-      <li class="card flex gap-4 hidden lg:flex">
-        <div class="size-24 shrink-0 rounded-lg bg-surface-alt dark:bg-surface-dark-alt animate-pulse"></div>
-        <div class="flex-1 space-y-2 py-1">
-          <div class="h-4 rounded bg-surface-alt dark:bg-surface-dark-alt animate-pulse"></div>
-          <div class="h-3 rounded bg-surface-alt dark:bg-surface-dark-alt animate-pulse w-3/4"></div>
-          <div class="h-3 rounded bg-surface-alt dark:bg-surface-dark-alt animate-pulse w-1/2"></div>
+      <li class="hidden lg:flex rounded-radius overflow-hidden border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt flex-col">
+        <div class="h-44 bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse"></div>
+        <div class="p-4 space-y-3">
+          <div class="h-4 rounded bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse"></div>
+          <div class="h-3 rounded bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse w-3/4"></div>
+          <div class="h-3 rounded bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse w-1/2"></div>
         </div>
       </li>
     </ul>
