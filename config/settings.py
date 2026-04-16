@@ -40,7 +40,17 @@ CSRF_TRUSTED_ORIGINS = [
     if origin.strip()
 ]
 if DEBUG:
-    CSRF_TRUSTED_ORIGINS += ["https://*.ngrok-free.app", "https://*.ngrok.io"]
+    # Permitir os domínios públicos do ngrok ao expor o dev server.
+    # ALLOWED_HOSTS já é "*" em DEBUG, então só falta confiar no Origin do CSRF
+    # e respeitar o X-Forwarded-Proto que o ngrok adiciona ao terminar TLS.
+    CSRF_TRUSTED_ORIGINS += [
+        "https://*.ngrok-free.app",
+        "https://*.ngrok-free.dev",
+        "https://*.ngrok.io",
+        "https://*.ngrok.app",
+    ]
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    USE_X_FORWARDED_HOST = True
 
 SHOPMAN_INSTANCE_APPS = _csv_env_list("SHOPMAN_INSTANCE_APPS")
 
