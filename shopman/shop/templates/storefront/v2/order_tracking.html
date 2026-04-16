@@ -5,19 +5,17 @@
 {% block meta_description %}Acompanhe seu pedido {{ tracking.order_ref }} — {{ storefront.brand_name }}.{% endblock %}
 
 {% block breadcrumb %}
-<nav class="mb-6 flex" aria-label="Breadcrumb">
-  <ol class="flex items-center gap-2 text-sm">
-    <li>
-      <a href="{% url 'storefront:home' %}"
-         class="text-on-surface hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">
-        Início
-      </a>
+<nav class="mb-6" aria-label="Breadcrumb">
+  <ol x-data="breadcrumb()" class="flex items-center text-sm overflow-hidden">
+    <li data-bc>
+      <a href="{% url 'storefront:home' %}" class="text-on-surface hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">Início</a>
     </li>
-    {% include "storefront/v2/partials/_breadcrumb_chevron.html" %}
-    <li>
-      <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong" aria-current="page">
-        Pedido {{ tracking.order_ref }}
-      </span>
+    <li data-bc-ellipsis hidden class="flex items-center text-on-surface/40 dark:text-on-surface-dark/40">
+      {% include "storefront/v2/partials/_breadcrumb_chevron.html" %}<a :href="ellipsisHref" class="hover:text-primary dark:hover:text-primary-dark focus:outline-hidden focus:underline">…</a>
+    </li>
+    <li data-bc class="flex items-center min-w-0">
+      {% include "storefront/v2/partials/_breadcrumb_chevron.html" %}
+      <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong truncate" aria-current="page">Pedido {{ tracking.order_ref }}</span>
     </li>
   </ol>
 </nav>
@@ -39,9 +37,11 @@
     <div class="flex gap-2 shrink-0">
       {% if tracking.whatsapp_url %}
       <a href="{{ tracking.whatsapp_url }}" target="_blank" rel="noopener"
-         class="inline-flex items-center gap-1.5 rounded-radius border border-outline px-3 py-2 text-sm font-medium text-on-surface hover:bg-surface-alt focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:text-on-surface-dark min-h-[44px]"
-         aria-label="Contato via WhatsApp">
-        <span class="material-symbols-rounded text-base" aria-hidden="true">chat</span>
+         class="inline-flex items-center gap-1.5 rounded-radius bg-[#25D366] px-3 py-2 text-sm font-medium text-white hover:bg-[#20BD5A] focus:outline-hidden focus:ring-2 focus:ring-[#25D366] min-h-[44px] transition"
+         aria-label="Pedir ajuda via WhatsApp">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 shrink-0" aria-hidden="true">
+          <path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.524 3.659 1.435 5.168L2 22l4.968-1.41A9.952 9.952 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.946 7.946 0 01-4.073-1.117l-.291-.174-3.027.86.875-2.944-.19-.302A7.951 7.951 0 014 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8zm4.406-5.918c-.242-.121-1.432-.706-1.655-.787-.222-.08-.384-.121-.545.121-.162.242-.625.787-.767.949-.14.162-.282.182-.524.061-.242-.121-1.022-.376-1.947-1.199-.72-.64-1.205-1.432-1.347-1.674-.14-.242-.015-.373.106-.494.108-.109.242-.282.363-.424.121-.141.162-.242.242-.404.081-.162.04-.303-.02-.424-.061-.121-.545-1.317-.747-1.803-.196-.471-.397-.406-.545-.414-.14-.007-.302-.009-.464-.009-.162 0-.424.06-.646.302-.222.242-.848.829-.848 2.02 0 1.192.868 2.344.988 2.506.121.162 1.708 2.607 4.138 3.654.578.249 1.03.398 1.382.51.58.184 1.108.158 1.525.096.465-.069 1.432-.586 1.634-1.151.2-.566.2-1.051.14-1.151-.06-.1-.222-.162-.464-.283z"/>
+        </svg>
         <span class="hidden sm:inline">Ajuda</span>
       </a>
       {% endif %}

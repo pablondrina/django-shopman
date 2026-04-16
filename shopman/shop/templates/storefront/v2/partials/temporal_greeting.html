@@ -35,10 +35,10 @@ document.addEventListener('alpine:init', () => {
       this.greeting = name ? prefix + ', ' + name : prefix;
 
       {% if show_context_line %}
-      if (h >= 6 && h < 10) this.contextLine = 'Fresquinho do forno para voce.';
-      else if (h >= 11 && h < 14) this.contextLine = 'Hora do almoco. Que tal um combo?';
-      else if (h >= 14 && h < 17) this.contextLine = 'Um cafe da tarde vai bem.';
-      else if (h >= 17) this.contextLine = 'Garanta o pao de amanha.';
+      if (h >= 6 && h < 10) this.contextLine = 'Fresquinho do forno para você.';
+      else if (h >= 11 && h < 14) this.contextLine = 'Hora do almoço. Que tal um combo?';
+      else if (h >= 14 && h < 17) this.contextLine = 'Um café da tarde vai bem.';
+      else if (h >= 17) this.contextLine = 'Garanta o pão de amanhã.';
       {% endif %}
     }
   }));

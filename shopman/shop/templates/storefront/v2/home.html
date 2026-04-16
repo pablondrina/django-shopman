@@ -4,20 +4,77 @@
 {% block title %}{{ storefront.brand_name }} — {{ storefront.tagline }}{% endblock %}
 {% block meta_description %}{{ storefront.description|truncatewords:30 }}{% endblock %}
 
+{% block bottom_bar %}{% endblock %}
+
 {% block content %}
 
-{# ── Hero Carousel (Alpine.js — Penguin UI pattern) ── #}
-<section class="pt-8 pb-4 md:pt-12">
+{# ── Hero Carousel (full-bleed mobile, omotenashi greeting, CTAs inside) ── #}
+{% url 'storefront:menu' as menu_url %}
+<section class="-mx-4 -mt-6 mb-8 md:mx-0 md:mt-0 md:pt-4">
   <div x-data="{
     autoplayIntervalTime: 5000,
+    total: 4,
     currentSlideIndex: 1,
     isPaused: false,
     autoplayInterval: null,
+    touchStartX: 0,
+    heroGreeting: '',
+    contextA: '', ctaLabelA: '', ctaHrefA: '',
+    contextB: '', ctaLabelB: '', ctaHrefB: '',
+
+    init() {
+      this.autoplay();
+      const h = new Date().getHours();
+      const name = '{{ customer_name|default:"" }}';
+      const opensAt = '{{ shop_status.opens_at|default:"7:00" }}'.split(':')[0] || '7';
+      const closesAtStr = '{{ shop_status.closes_at|default:"" }}';
+      const closesAt = closesAtStr ? parseInt(closesAtStr.split(':')[0]) : 19;
+      const mu = '{{ menu_url }}';
+      let prefix;
+      if (h < 5) prefix = 'Boa noite';
+      else if (h < 12) prefix = 'Bom dia';
+      else if (h < 18) prefix = 'Boa tarde';
+      else prefix = 'Boa noite';
+      this.heroGreeting = name ? prefix + ', ' + name + '.' : prefix + '.';
+
+      if (h < 7) {
+        this.contextA = 'Encomende agora para retirada às ' + opensAt + 'h.';
+        this.ctaLabelA = 'Encomende agora'; this.ctaHrefA = mu;
+        this.contextB = 'Pão fresquinho te espera pela manhã.';
+        this.ctaLabelB = 'Ver cardápio'; this.ctaHrefB = mu;
+      } else if (h < 10) {
+        this.contextA = 'Croissants acabaram de sair do forno.';
+        this.ctaLabelA = 'Ver pães'; this.ctaHrefA = mu + '#paes';
+        this.contextB = 'Pão artesanal, fermentação natural, feito aqui.';
+        this.ctaLabelB = 'Ver pães'; this.ctaHrefB = mu + '#paes';
+      } else if (h < 12) {
+        this.contextA = 'Fresquinho do forno para você.';
+        this.ctaLabelA = 'Ver pães'; this.ctaHrefA = mu + '#paes';
+        this.contextB = 'Pão artesanal, fermentação natural, feito aqui.';
+        this.ctaLabelB = 'Ver pães'; this.ctaHrefB = mu + '#paes';
+      } else if (h < 14) {
+        this.contextA = 'Sanduíches e saladas prontos para o almoço.';
+        this.ctaLabelA = 'Ver sanduíches'; this.ctaHrefA = mu + '#combos';
+        this.contextB = 'Que tal um combo para o almoço?';
+        this.ctaLabelB = 'Ver combos'; this.ctaHrefB = mu + '#combos';
+      } else if (h < 16) {
+        this.contextA = 'Uma pausa para um café?';
+        this.contextB = 'Cafés especiais e doces artesanais.';
+      } else if (h >= closesAt) {
+        this.contextA = 'Encomende para amanhã.';
+        this.ctaLabelA = 'Encomende para amanhã'; this.ctaHrefA = mu;
+        this.contextB = 'Fornada fresca às ' + opensAt + 'h.';
+        this.ctaLabelB = 'Encomende para amanhã'; this.ctaHrefB = mu;
+      } else {
+        this.contextA = 'Últimos pedidos do dia.';
+        this.contextB = 'Garanta o pão de amanhã.';
+      }
+    },
     previous() {
-      this.currentSlideIndex = this.currentSlideIndex === 1 ? 3 : this.currentSlideIndex - 1;
+      this.currentSlideIndex = this.currentSlideIndex === 1 ? this.total : this.currentSlideIndex - 1;
     },
     next() {
-      this.currentSlideIndex = this.currentSlideIndex === 3 ? 1 : this.currentSlideIndex + 1;
+      this.currentSlideIndex = this.currentSlideIndex === this.total ? 1 : this.currentSlideIndex + 1;
     },
     autoplay() {
       this.autoplayInterval = setInterval(() => { if (!this.isPaused) this.next() }, this.autoplayIntervalTime);
@@ -28,115 +85,157 @@
       this.autoplay();
     }
   }"
-  x-init="autoplay()"
   @mouseenter="isPaused = true" @mouseleave="isPaused = false"
   @focusin="isPaused = true"   @focusout="isPaused = false"
-  class="relative overflow-hidden rounded-2xl"
+  @touchstart.passive="touchStartX = $event.changedTouches[0].screenX"
+  @touchend.passive="const dx = $event.changedTouches[0].screenX - touchStartX; if (Math.abs(dx) > 50) { dx < 0 ? next() : previous(); setAutoplayInterval() }"
+  class="relative overflow-hidden md:rounded-2xl"
   aria-roledescription="carousel"
   aria-label="Destaques da loja">
 
     {# Slides #}
-    <div class="relative h-52 md:h-64 select-none">
+    <div class="relative h-[85svh] md:h-96 select-none">
 
-      {# Slide 1 — Brand #}
+      {# Slide 1 — Greeting A #}
       <div x-show="currentSlideIndex === 1" x-cloak
            x-transition.opacity.duration.1000ms
-           class="absolute inset-0 flex flex-col items-center justify-center gap-3 p-8
-                  bg-gradient-to-br from-primary/10 via-surface-alt to-secondary/10
-                  dark:from-primary-dark/10 dark:via-surface-dark-alt dark:to-secondary-dark/10"
-           role="tabpanel" aria-label="Slide 1 de 3">
-        {% if storefront.logo.name %}
-        <img src="{{ storefront.logo.url }}" alt="{{ storefront.brand_name }}" class="h-14 w-auto object-contain">
-        {% else %}
-        <span class="material-symbols-rounded text-6xl text-primary dark:text-primary-dark" aria-hidden="true">storefront</span>
-        {% endif %}
-        <div class="text-center">
-          <p class="text-xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ storefront.brand_name }}</p>
-          {% if storefront.tagline %}
-          <p class="text-sm text-on-surface dark:text-on-surface-dark mt-1">{{ storefront.tagline }}</p>
-          {% endif %}
+           class="absolute inset-0"
+           role="tabpanel" aria-label="Slide 1 de 4">
+        <img src="https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1200&q=80"
+             alt="" class="absolute inset-0 w-full h-full object-cover" loading="eager">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/20"></div>
+        <div class="relative z-10 flex flex-col items-center h-full px-6 pt-8 pb-14 text-center">
+          <div class="flex-1 flex flex-col items-center justify-center">
+            {% if storefront.logo.name %}
+            <img src="{{ storefront.logo.url }}" alt="{{ storefront.brand_name }}" class="h-10 md:h-14 w-auto object-contain mb-4 drop-shadow-lg">
+            {% endif %}
+            <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg"
+               x-text="heroGreeting">Bem-vindo.</p>
+            <p class="text-sm md:text-base text-white/80 mt-3 tracking-wide drop-shadow"
+               x-text="contextA"></p>
+          </div>
+          <div class="flex gap-3">
+            <a x-show="ctaLabelA" x-cloak :href="ctaHrefA" x-text="ctaLabelA"
+               class="whitespace-nowrap rounded-radius bg-white px-5 py-2.5 text-center text-sm font-medium tracking-wide text-neutral-900 transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target"></a>
+            <a href="{{ menu_url }}"
+               class="whitespace-nowrap rounded-radius border border-white/50 px-5 py-2.5 text-center text-sm font-medium tracking-wide text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target"
+               :class="!ctaLabelA && 'bg-white !text-neutral-900 border-white hover:bg-white/90'">
+              Ver Cardápio
+            </a>
+          </div>
         </div>
-        <div>{% include "storefront/v2/partials/shop_status_badge.html" %}</div>
       </div>
 
-      {# Slide 2 — Artesanal #}
+      {# Slide 2 — Peça. Acompanhe. Aproveite. #}
       <div x-show="currentSlideIndex === 2" x-cloak
            x-transition.opacity.duration.1000ms
-           class="absolute inset-0 flex flex-col items-center justify-center gap-3 p-8
-                  bg-gradient-to-br from-secondary/10 via-surface-alt to-primary/10
-                  dark:from-secondary-dark/10 dark:via-surface-dark-alt dark:to-primary-dark/10"
-           role="tabpanel" aria-label="Slide 2 de 3">
-        <span class="material-symbols-rounded text-6xl text-secondary dark:text-secondary-dark" aria-hidden="true">bakery_dining</span>
-        <div class="text-center">
-          <p class="text-xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Feito à mão, todo dia</p>
-          <p class="text-sm text-on-surface dark:text-on-surface-dark mt-1">Pão fresco saindo do forno. Sempre.</p>
+           class="absolute inset-0"
+           role="tabpanel" aria-label="Slide 2 de 4">
+        <img src="https://images.unsplash.com/photo-1517433670267-08bbd4be890f?auto=format&fit=crop&w=1200&q=80"
+             alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/20"></div>
+        <div class="relative z-10 flex flex-col items-center h-full px-6 pt-8 pb-14 text-center">
+          <div class="flex-1 flex flex-col items-center justify-center">
+            <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg">Peça. Acompanhe.<br>Aproveite.</p>
+            <p class="text-sm md:text-base text-white/80 mt-4 tracking-wide drop-shadow">Retire na loja ou receba em casa.</p>
+          </div>
+          <div class="flex gap-3">
+            <a href="{{ menu_url }}"
+               class="whitespace-nowrap rounded-radius bg-white px-5 py-2.5 text-center text-sm font-medium tracking-wide text-neutral-900 transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target">
+              Ver Cardápio
+            </a>
+          </div>
         </div>
       </div>
 
-      {# Slide 3 — Entrega / Retirada #}
+      {# Slide 3 — Reorder (customer) or Greeting B (anonymous) #}
       <div x-show="currentSlideIndex === 3" x-cloak
            x-transition.opacity.duration.1000ms
-           class="absolute inset-0 flex flex-col items-center justify-center gap-3 p-8
-                  bg-gradient-to-br from-success/10 via-surface-alt to-secondary/10
-                  dark:from-success-dark/10 dark:via-surface-dark-alt dark:to-secondary-dark/10"
-           role="tabpanel" aria-label="Slide 3 de 3">
-        <span class="material-symbols-rounded text-6xl text-success dark:text-success-dark" aria-hidden="true">local_mall</span>
-        <div class="text-center">
-          <p class="text-xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Retire ou receba em casa</p>
-          <p class="text-sm text-on-surface dark:text-on-surface-dark mt-1">Acompanhe seu pedido em tempo real.</p>
+           class="absolute inset-0"
+           role="tabpanel" aria-label="Slide 3 de 4">
+        <img src="https://images.unsplash.com/photo-1568254183919-78a4f43a2877?auto=format&fit=crop&w=1200&q=80"
+             alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/20"></div>
+        <div class="relative z-10 flex flex-col items-center h-full px-6 pt-8 pb-14 text-center">
+          <div class="flex-1 flex flex-col items-center justify-center">
+            {% if customer_name %}
+            <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg">Quer repetir seu<br>último pedido, {{ customer_name }}?</p>
+            <p class="text-sm md:text-base text-white/80 mt-3 tracking-wide drop-shadow">Com um toque, seu favorito volta ao carrinho.</p>
+            {% else %}
+            <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg"
+               x-text="heroGreeting">Bem-vindo.</p>
+            <p class="text-sm md:text-base text-white/80 mt-3 tracking-wide drop-shadow"
+               x-text="contextB"></p>
+            {% endif %}
+          </div>
+          <div class="flex gap-3">
+            {% if customer_name %}
+            <a href="{% url 'storefront:order_history' %}"
+               class="whitespace-nowrap rounded-radius bg-white px-5 py-2.5 text-center text-sm font-medium tracking-wide text-neutral-900 transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target">
+              Pedir de novo
+            </a>
+            {% else %}
+            <a x-show="ctaLabelB" x-cloak :href="ctaHrefB" x-text="ctaLabelB"
+               class="whitespace-nowrap rounded-radius bg-white px-5 py-2.5 text-center text-sm font-medium tracking-wide text-neutral-900 transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target"></a>
+            <a href="{{ menu_url }}"
+               class="whitespace-nowrap rounded-radius border border-white/50 px-5 py-2.5 text-center text-sm font-medium tracking-wide text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target"
+               :class="!ctaLabelB && 'bg-white !text-neutral-900 border-white hover:bg-white/90'">
+              Ver Cardápio
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      {# Slide 4 — Feito à mão, todo dia #}
+      <div x-show="currentSlideIndex === 4" x-cloak
+           x-transition.opacity.duration.1000ms
+           class="absolute inset-0"
+           role="tabpanel" aria-label="Slide 4 de 4">
+        <img src="https://images.unsplash.com/photo-1608198093002-ad4e005484ec?auto=format&fit=crop&w=1200&q=80"
+             alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/20"></div>
+        <div class="relative z-10 flex flex-col items-center h-full px-6 pt-8 pb-14 text-center">
+          <div class="flex-1 flex flex-col items-center justify-center">
+            <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg">Feito à mão,<br>todo dia</p>
+            <p class="text-sm md:text-base text-white/80 mt-4 tracking-wide drop-shadow">Do forno para a sua mesa.</p>
+          </div>
+          <div class="flex gap-3">
+            <a href="{{ menu_url }}"
+               class="whitespace-nowrap rounded-radius bg-white px-5 py-2.5 text-center text-sm font-medium tracking-wide text-neutral-900 transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target">
+              Ver Cardápio
+            </a>
+          </div>
         </div>
       </div>
     </div>
 
     {# Prev / Next #}
     <button @click="previous(); setAutoplayInterval()"
-            class="absolute left-3 top-1/2 -translate-y-1/2 flex size-8 items-center justify-center rounded-full
-                   bg-surface/80 dark:bg-surface-dark/80 text-on-surface dark:text-on-surface-dark
-                   shadow hover:bg-surface dark:hover:bg-surface-dark transition focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+            class="absolute left-3 top-1/2 z-20 -translate-y-1/2 flex size-8 items-center justify-center rounded-full
+                   bg-white/20 text-white backdrop-blur-sm
+                   hover:bg-white/30 transition focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white"
             aria-label="Slide anterior">
       <span class="material-symbols-rounded text-base" aria-hidden="true">chevron_left</span>
     </button>
     <button @click="next(); setAutoplayInterval()"
-            class="absolute right-3 top-1/2 -translate-y-1/2 flex size-8 items-center justify-center rounded-full
-                   bg-surface/80 dark:bg-surface-dark/80 text-on-surface dark:text-on-surface-dark
-                   shadow hover:bg-surface dark:hover:bg-surface-dark transition focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+            class="absolute right-3 top-1/2 z-20 -translate-y-1/2 flex size-8 items-center justify-center rounded-full
+                   bg-white/20 text-white backdrop-blur-sm
+                   hover:bg-white/30 transition focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white"
             aria-label="Próximo slide">
       <span class="material-symbols-rounded text-base" aria-hidden="true">chevron_right</span>
     </button>
 
     {# Indicators #}
-    <div class="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5" role="tablist" aria-label="Slides">
-      <button @click="currentSlideIndex = 1; setAutoplayInterval()" role="tab" :aria-selected="currentSlideIndex === 1" aria-label="Slide 1"
-              :class="currentSlideIndex === 1 ? 'w-6 bg-primary dark:bg-primary-dark' : 'w-2 bg-on-surface/25 dark:bg-on-surface-dark/25'"
-              class="h-2 rounded-full transition-all duration-300 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"></button>
-      <button @click="currentSlideIndex = 2; setAutoplayInterval()" role="tab" :aria-selected="currentSlideIndex === 2" aria-label="Slide 2"
-              :class="currentSlideIndex === 2 ? 'w-6 bg-primary dark:bg-primary-dark' : 'w-2 bg-on-surface/25 dark:bg-on-surface-dark/25'"
-              class="h-2 rounded-full transition-all duration-300 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"></button>
-      <button @click="currentSlideIndex = 3; setAutoplayInterval()" role="tab" :aria-selected="currentSlideIndex === 3" aria-label="Slide 3"
-              :class="currentSlideIndex === 3 ? 'w-6 bg-primary dark:bg-primary-dark' : 'w-2 bg-on-surface/25 dark:bg-on-surface-dark/25'"
-              class="h-2 rounded-full transition-all duration-300 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"></button>
+    <div class="absolute bottom-4 left-0 right-0 z-20 flex justify-center gap-1.5" role="tablist" aria-label="Slides">
+      <template x-for="i in total" :key="i">
+        <button @click="currentSlideIndex = i; setAutoplayInterval()" role="tab"
+                :aria-selected="currentSlideIndex === i"
+                :aria-label="'Slide ' + i"
+                :class="currentSlideIndex === i ? 'w-6 bg-white' : 'w-2 bg-white/40'"
+                class="h-2 rounded-full transition-all duration-300 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white"></button>
+      </template>
     </div>
-  </div>
-
-  {# Temporal greeting (Alpine for DOM) #}
-  <div class="text-center mt-8">
-    {% include "storefront/v2/partials/temporal_greeting.html" %}
-  </div>
-
-  {# CTAs (Penguin UI buttons) #}
-  <div class="mt-6 flex gap-3 justify-center flex-wrap" x-data="homeCta()">
-    {# Contextual CTA #}
-    <a x-show="ctaLabel" x-cloak
-       :href="ctaHref"
-       x-text="ctaLabel"
-       class="whitespace-nowrap rounded-radius bg-primary px-6 py-3 text-center text-sm font-medium tracking-wide text-on-primary transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:opacity-100 active:outline-offset-0 dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark touch-target"></a>
-    {# General CTA #}
-    {% url 'storefront:menu' as menu_url %}
-    <a href="{{ menu_url }}"
-       class="whitespace-nowrap rounded-radius border border-outline px-6 py-3 text-center text-sm font-medium tracking-wide text-on-surface transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-outline-strong active:opacity-100 active:outline-offset-0 dark:border-outline-dark dark:text-on-surface-dark dark:focus-visible:outline-outline-dark-strong touch-target"
-       :class="!ctaLabel && 'bg-primary text-on-primary border-primary hover:opacity-75 dark:bg-primary-dark dark:text-on-primary-dark dark:border-primary-dark'">
-      Ver Cardapio
-    </a>
   </div>
 </section>
 
@@ -149,39 +248,39 @@
 {% endif %}
 
 {# ── Direto do Forno (HTMX for server) ── #}
-<section class="py-10 border-t border-outline dark:border-outline-dark">
-  <h2 class="text-lg lg:text-xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong text-center mb-2">Direto do forno</h2>
-  <p class="text-on-surface dark:text-on-surface-dark text-center mb-8 text-sm">Disponibilidade em tempo real</p>
+<section class="py-12 md:py-16 border-t border-outline dark:border-outline-dark">
+  <h2 class="font-title text-xl lg:text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong text-center mb-2 tracking-tight">Direto do forno</h2>
+  <p class="text-on-surface/60 dark:text-on-surface-dark/60 text-center mb-10 text-sm tracking-wide">Disponibilidade em tempo real</p>
 
   <div id="home-availability"
        hx-get="{% url 'storefront:menu' %}?partial=availability_preview"
        hx-trigger="load, every 60s"
        hx-swap="innerHTML"
        class="max-w-2xl mx-auto">
-    {# Skeleton: 3 vertical product card placeholders while HTMX loads #}
-    <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-hidden="true">
-      <li class="flex rounded-radius overflow-hidden border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt flex-col">
-        <div class="h-44 bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse"></div>
-        <div class="p-4 space-y-3">
-          <div class="h-4 rounded bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse"></div>
-          <div class="h-3 rounded bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse w-3/4"></div>
-          <div class="h-3 rounded bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse w-1/2"></div>
+    {# Skeleton: responsive card placeholders (horizontal mobile, vertical desktop) #}
+    <ul class="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-hidden="true">
+      <li class="flex rounded-radius overflow-hidden border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt flex-row sm:flex-col">
+        <div class="w-28 h-28 sm:w-full sm:h-44 shrink-0 bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse"></div>
+        <div class="p-3 sm:p-4 space-y-2 sm:space-y-3 flex-1">
+          <div class="h-4 rounded bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse"></div>
+          <div class="h-3 rounded bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse w-3/4"></div>
+          <div class="h-3 rounded bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse w-1/2"></div>
         </div>
       </li>
       <li class="hidden sm:flex rounded-radius overflow-hidden border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt flex-col">
-        <div class="h-44 bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse"></div>
+        <div class="h-44 bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse"></div>
         <div class="p-4 space-y-3">
-          <div class="h-4 rounded bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse"></div>
-          <div class="h-3 rounded bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse w-3/4"></div>
-          <div class="h-3 rounded bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse w-1/2"></div>
+          <div class="h-4 rounded bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse"></div>
+          <div class="h-3 rounded bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse w-3/4"></div>
+          <div class="h-3 rounded bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse w-1/2"></div>
         </div>
       </li>
       <li class="hidden lg:flex rounded-radius overflow-hidden border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt flex-col">
-        <div class="h-44 bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse"></div>
+        <div class="h-44 bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse"></div>
         <div class="p-4 space-y-3">
-          <div class="h-4 rounded bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse"></div>
-          <div class="h-3 rounded bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse w-3/4"></div>
-          <div class="h-3 rounded bg-on-surface/30 dark:bg-on-surface-dark/30 motion-safe:animate-pulse w-1/2"></div>
+          <div class="h-4 rounded bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse w-2/3"></div>
+          <div class="h-3 rounded bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse w-3/4"></div>
+          <div class="h-3 rounded bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse w-1/2"></div>
         </div>
       </li>
     </ul>
@@ -190,14 +289,14 @@
   <div class="text-center mt-6">
     <a href="{{ menu_url }}"
        class="font-medium text-primary underline-offset-2 hover:underline focus:underline focus:outline-hidden dark:text-primary-dark text-sm">
-      Ver cardapio completo &rarr;
+      Ver cardápio completo &rarr;
     </a>
   </div>
 </section>
 
 {# ── Como Funciona (Penguin UI steps + cards) ── #}
-<section class="py-10 border-t border-outline dark:border-outline-dark">
-  <h2 class="text-lg lg:text-xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong text-center mb-10">Como Funciona</h2>
+<section class="py-12 md:py-16 border-t border-outline dark:border-outline-dark">
+  <h2 class="font-title text-xl lg:text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong text-center mb-12 tracking-tight">Como Funciona</h2>
 
   <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
 
@@ -212,14 +311,14 @@
           <span class="flex size-6 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt font-medium text-on-surface text-xs dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark mt-0.5">1</span>
           <div>
             <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Escolha</p>
-            <p class="text-on-surface dark:text-on-surface-dark text-sm">Navegue pelo cardapio e adicione ao carrinho.</p>
+            <p class="text-on-surface dark:text-on-surface-dark text-sm">Navegue pelo cardápio e adicione ao carrinho.</p>
           </div>
         </li>
         <li class="flex gap-3">
           <span class="flex size-6 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt font-medium text-on-surface text-xs dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark mt-0.5">2</span>
           <div>
             <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Pague</p>
-            <p class="text-on-surface dark:text-on-surface-dark text-sm">PIX rapido e seguro. Confirmacao instantanea.</p>
+            <p class="text-on-surface dark:text-on-surface-dark text-sm">PIX rápido e seguro. Confirmação instantânea.</p>
           </div>
         </li>
         <li class="flex gap-3">
@@ -244,7 +343,7 @@
             <span class="material-symbols-rounded text-sm text-on-surface dark:text-on-surface-dark" aria-hidden="true">shelves</span>
           </div>
           <div>
-            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Paes no autosservico</p>
+            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Pães no autosserviço</p>
             <p class="text-on-surface dark:text-on-surface-dark text-sm">Escolha direto da prateleira. Pese, embale e leve ao caixa.</p>
           </div>
         </div>
@@ -253,8 +352,8 @@
             <span class="material-symbols-rounded text-sm text-on-surface dark:text-on-surface-dark" aria-hidden="true">coffee</span>
           </div>
           <div>
-            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Cafes e doces no balcao</p>
-            <p class="text-on-surface dark:text-on-surface-dark text-sm">Peca ao atendente. Preparamos na hora.</p>
+            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Cafés e doces no balcão</p>
+            <p class="text-on-surface dark:text-on-surface-dark text-sm">Peça ao atendente. Preparamos na hora.</p>
           </div>
         </div>
         <div class="flex gap-3">
@@ -262,9 +361,9 @@
             <span class="material-symbols-rounded text-sm text-on-surface dark:text-on-surface-dark" aria-hidden="true">schedule</span>
           </div>
           <div>
-            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Horarios</p>
+            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Horários</p>
             <p class="text-on-surface dark:text-on-surface-dark text-sm">
-              {% for entry in opening_hours_display %}{{ entry.label }}: {{ entry.hours }}{% if not forloop.last %} &middot; {% endif %}{% empty %}Consulte nossos horarios{% endfor %}
+              {% for entry in opening_hours_display %}{{ entry.label }}: {{ entry.hours }}{% if not forloop.last %} &middot; {% endif %}{% empty %}Consulte nossos horários{% endfor %}
             </p>
           </div>
         </div>
@@ -275,25 +374,35 @@
 </section>
 
 {# ── Tomorrow Hook (Gate 3) ── #}
-<section x-data="{ visible: false }" x-init="visible = new Date().getHours() >= 14"
-         x-show="visible" x-transition x-cloak
-         class="py-8 border-t border-outline dark:border-outline-dark">
+<section x-data="{
+    show: false,
+    msg: '',
+    init() {
+      const h = new Date().getHours();
+      if (h < 14) return;
+      this.show = true;
+      const closesAt = parseInt('{{ shop_status.closes_at|default:"19:00" }}'.split(':')[0]) || 19;
+      const opensAt = '{{ shop_status.opens_at|default:"7:00" }}'.split(':')[0] || '7';
+      this.msg = h >= closesAt
+        ? 'Encomende agora para retirada a partir das ' + opensAt + 'h.'
+        : 'Fornada fresca às ' + opensAt + 'h.';
+    }
+  }"
+  x-show="show" x-transition x-cloak
+  class="py-10 md:py-12 border-t border-outline dark:border-outline-dark">
   <div class="max-w-2xl mx-auto text-center">
-    <p class="text-xs font-semibold text-on-surface/50 dark:text-on-surface-dark/50 uppercase tracking-widest">Amanha</p>
-    <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium mt-2"
-       x-text="new Date().getHours() >= {{ shop_status.closes_at|default:'19:00'|truncatechars:2 }}
-               ? 'Encomende agora para retirada a partir das {{ shop_status.opens_at|default:'7:00'|truncatechars:1 }}h.'
-               : 'Fornada fresca as {{ shop_status.opens_at|default:'7:00'|truncatechars:1 }}h.'">
-      Fornada fresca amanha.
+    <p class="text-xs font-semibold text-on-surface/40 dark:text-on-surface-dark/40 uppercase tracking-[0.2em]">Amanhã</p>
+    <p class="font-title text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-lg mt-3" x-text="msg">
+      Fornada fresca amanhã.
     </p>
   </div>
 </section>
 
 {# ── Contato ── #}
-<section class="py-10 border-t border-outline dark:border-outline-dark">
+<section class="py-12 md:py-16 border-t border-outline dark:border-outline-dark">
   <div class="max-w-2xl mx-auto text-center">
     {% if storefront.full_address %}
-    <p class="text-on-surface-strong dark:text-on-surface-dark-strong mb-2">
+    <p class="text-on-surface-strong dark:text-on-surface-dark-strong mb-3 text-sm md:text-base">
       {% if storefront.maps_url %}
       <a href="{{ storefront.maps_url }}" target="_blank" rel="noopener"
          class="underline-offset-2 hover:text-primary focus:underline focus:outline-hidden dark:hover:text-primary-dark">
@@ -326,38 +435,5 @@
     </div>
   </div>
 </section>
-
-{# ── Home CTA logic (Alpine for DOM) ── #}
-<script>
-  document.addEventListener('alpine:init', () => {
-    Alpine.data('homeCta', () => ({
-      ctaLabel: '',
-      ctaHref: '',
-
-      init() {
-        const h = new Date().getHours();
-        const closesAtStr = '{{ shop_status.closes_at|default:"" }}';
-        const closesAt = closesAtStr ? parseInt(closesAtStr.split(':')[0]) : 19;
-
-        if (h < 7) {
-          this.ctaLabel = 'Encomende agora';
-          this.ctaHref = '{% url "storefront:menu" %}';
-        } else if (h < 12) {
-          this.ctaLabel = 'Ver paes';
-          this.ctaHref = '{% url "storefront:menu" %}#paes';
-        } else if (h < 14) {
-          this.ctaLabel = 'Ver sanduiches';
-          this.ctaHref = '{% url "storefront:menu" %}#combos';
-        } else if (h >= closesAt) {
-          this.ctaLabel = 'Encomende para amanha';
-          this.ctaHref = '{% url "storefront:menu" %}';
-        } else {
-          this.ctaLabel = '';
-          this.ctaHref = '';
-        }
-      }
-    }));
-  });
-</script>
 
 {% endblock %}

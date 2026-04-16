@@ -4,17 +4,17 @@
 {% block title %}Minha Conta{% endblock %}
 
 {% block breadcrumb %}
-<nav class="mb-6 flex" aria-label="Breadcrumb">
-  <ol class="flex items-center gap-2 text-sm">
-    <li>
-      <a href="{% url 'storefront:home' %}"
-         class="text-on-surface hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">
-        Início
-      </a>
+<nav class="mb-6" aria-label="Breadcrumb">
+  <ol x-data="breadcrumb()" class="flex items-center text-sm overflow-hidden">
+    <li data-bc>
+      <a href="{% url 'storefront:home' %}" class="text-on-surface hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">Início</a>
     </li>
-    {% include "storefront/v2/partials/_breadcrumb_chevron.html" %}
-    <li>
-      <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong" aria-current="page">Minha Conta</span>
+    <li data-bc-ellipsis hidden class="flex items-center text-on-surface/40 dark:text-on-surface-dark/40">
+      {% include "storefront/v2/partials/_breadcrumb_chevron.html" %}<a :href="ellipsisHref" class="hover:text-primary dark:hover:text-primary-dark focus:outline-hidden focus:underline">…</a>
+    </li>
+    <li data-bc class="flex items-center min-w-0">
+      {% include "storefront/v2/partials/_breadcrumb_chevron.html" %}
+      <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong truncate" aria-current="page">Minha Conta</span>
     </li>
   </ol>
 </nav>
@@ -33,7 +33,7 @@
   </div>
 
   {% comment %}── Tabs ──{% endcomment %}
-  <div class="flex gap-1 mb-6 overflow-x-auto border-b border-outline dark:border-outline-dark scrollbar-hide">
+  <div class="flex gap-1 mb-6 overflow-x-auto overflow-y-hidden border-b border-outline dark:border-outline-dark">
     {% for val, label in account.tab_options %}
     <button type="button"
             @click="tab = '{{ val }}'"

@@ -207,6 +207,9 @@
     .animate-bounce-down { animation: bounce-down 2s   infinite; }
     .animate-pulse-gentle{ animation: pulse-gentle 2s  cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 
+    /* Material Symbols filled variant */
+    .fill-icon { font-variation-settings: 'FILL' 1; }
+
     /* Reduced motion */
     @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after {

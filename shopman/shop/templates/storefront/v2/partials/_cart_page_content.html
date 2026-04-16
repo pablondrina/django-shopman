@@ -248,6 +248,12 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
       </a>
       {% endif %}
 
+      <a href="{% url 'storefront:menu' %}"
+         class="btn-secondary w-full flex items-center justify-center gap-1.5">
+        <span class="material-symbols-rounded text-base" aria-hidden="true">arrow_back</span>
+        Continuar comprando
+      </a>
+
       {% comment %}
       Upsell — cart_set_qty with qty=1 adds a fresh line; HX-Trigger
       cartUpdated reloads this wrapper so the new line appears.

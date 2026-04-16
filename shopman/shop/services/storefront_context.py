@@ -19,7 +19,8 @@ module reaches into another layer's private helpers.
 from __future__ import annotations
 
 import logging
-from datetime import time
+import math
+from datetime import time, timedelta
 
 from django.conf import settings
 from django.http import HttpRequest
@@ -68,6 +69,60 @@ def popular_skus(limit: int = 5) -> set[str]:
     except Exception as e:
         logger.warning("popular_skus_failed: %s", e, exc_info=True)
         return set()
+
+
+def fresh_from_oven_skus(limit: int = 6, max_age_minutes: int = 60) -> list[dict]:
+    """SKUs that recently entered saleable stock from production.
+
+    Queries Stockman Moves created by ``StockPlanning.realize()`` — the
+    credit side whose reason starts with "Recebido de produção".
+
+    Returns a list of dicts ordered by most-recent first::
+
+        [{"sku": "CROISSANT", "latest": datetime, "freshness_label": "há 15 min"}, ...]
+
+    Freshness labels are rounded UP to the nearest 15-minute interval,
+    capped at 1 h (``max_age_minutes``). Returns an empty list when
+    Stockman is unavailable or nothing was produced recently.
+    """
+    try:
+        from django.db.models import Max, Sum
+
+        from shopman.stockman.models import Move
+
+        cutoff = timezone.now() - timedelta(minutes=max_age_minutes)
+        rows = (
+            Move.objects.filter(
+                timestamp__gte=cutoff,
+                quant__position__is_saleable=True,
+                reason__istartswith="Recebido de produção",
+                delta__gt=0,
+            )
+            .values("quant__sku")
+            .annotate(latest=Max("timestamp"), total=Sum("delta"))
+            .order_by("-latest")[:limit]
+        )
+
+        now = timezone.now()
+        result = []
+        for row in rows:
+            elapsed = now - row["latest"]
+            minutes = elapsed.total_seconds() / 60
+            if minutes > max_age_minutes:
+                continue
+            bucket = min(math.ceil(minutes / 15) * 15, 60)
+            if bucket <= 0:
+                bucket = 15
+            label = "há 1h" if bucket >= 60 else f"há {bucket} min"
+            result.append({
+                "sku": row["quant__sku"],
+                "latest": row["latest"],
+                "freshness_label": label,
+            })
+        return result
+    except Exception as e:
+        logger.warning("fresh_from_oven_failed: %s", e, exc_info=True)
+        return []
 
 
 def companion_skus(sku: str, limit: int = 4) -> list[str]:

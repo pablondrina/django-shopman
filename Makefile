@@ -118,6 +118,7 @@ migrate: ## Cria/atualiza banco de dados
 	@echo "✓ Migrações aplicadas"
 
 run: css ## Sobe servidor + directive worker (0.0.0.0:8000)
+	-$(PYTHON) manage.py refresh_oven
 	$(PYTHON) manage.py process_directives --watch &
 	$(PYTHON) manage.py runserver 0.0.0.0:8000
 

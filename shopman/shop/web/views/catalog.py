@@ -15,6 +15,7 @@ from shopman.utils.monetary import format_money
 
 from shopman.shop.projections.icons import collection_icon
 from shopman.shop.services.storefront_context import (
+    fresh_from_oven_skus,
     happy_hour_state,
     popular_skus,
     session_pricing_hints,
@@ -142,15 +143,52 @@ class MenuView(View):
         })
 
     def _availability_preview(self, request: HttpRequest, listing_ref: str | None) -> HttpResponse:
-        """HTMX partial for home: produtos com disponibilidade + preço/promo (mesmo annotate do cardápio)."""
-        popular = popular_skus(limit=6)
-        qs = _published_products(listing_ref)
-        if popular:
-            products = list(qs.filter(sku__in=popular).distinct()[:6])
+        """HTMX partial for home: produtos com disponibilidade + preço/promo.
+
+        Prioritises "fresh from the oven" (recent production moves) and falls
+        back to popular SKUs when nothing was produced in the last hour.
+        """
+        is_v2 = request.GET.get("v1") is None
+
+        # Fresh from the oven — SKUs that just entered saleable stock
+        fresh = fresh_from_oven_skus(limit=6) if is_v2 else []
+        freshness_map: dict[str, str] = {}
+
+        if fresh:
+            fresh_skus = [f["sku"] for f in fresh]
+            freshness_map = {f["sku"]: f["freshness_label"] for f in fresh}
+            qs = _published_products(listing_ref)
+            products_by_sku = {p.sku: p for p in qs.filter(sku__in=fresh_skus)}
+            # Preserve order from fresh (most recent first)
+            products = [products_by_sku[s] for s in fresh_skus if s in products_by_sku]
         else:
-            products = list(qs.order_by("name")[:6])
-        items = _annotate_products(products, listing_ref=listing_ref, popular_skus=popular, request=request)
-        return render(request, "storefront/partials/availability_preview.html", {"items": items})
+            products = []
+
+        # Fallback: popular items
+        if not products:
+            popular = popular_skus(limit=6)
+            qs = _published_products(listing_ref)
+            if popular:
+                products = list(qs.filter(sku__in=popular).distinct()[:6])
+            else:
+                products = list(qs.order_by("name")[:6])
+
+        items = _annotate_products(
+            products, listing_ref=listing_ref,
+            popular_skus=popular_skus(limit=6) if not fresh else set(),
+            request=request,
+        )
+
+        # Attach freshness labels
+        for item in items:
+            item["freshness_label"] = freshness_map.get(item["product"].sku, "")
+
+        template = (
+            "storefront/v2/partials/availability_preview.html"
+            if is_v2
+            else "storefront/partials/availability_preview.html"
+        )
+        return render(request, template, {"items": items, "has_fresh": bool(freshness_map)})
 
     @staticmethod
     def _get_active_promotions() -> list[dict]:
