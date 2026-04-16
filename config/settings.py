@@ -41,8 +41,14 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 if DEBUG:
     # Permitir os domínios públicos do ngrok ao expor o dev server.
-    # ALLOWED_HOSTS já é "*" em DEBUG, então só falta confiar no Origin do CSRF
-    # e respeitar o X-Forwarded-Proto que o ngrok adiciona ao terminar TLS.
+    # ALLOWED_HOSTS recebe os padrões explicitamente para funcionar mesmo quando
+    # DJANGO_ALLOWED_HOSTS está restrito no .env. O prefixo "." cobre qualquer subdomínio.
+    ALLOWED_HOSTS += [
+        ".ngrok-free.app",
+        ".ngrok-free.dev",
+        ".ngrok.io",
+        ".ngrok.app",
+    ]
     CSRF_TRUSTED_ORIGINS += [
         "https://*.ngrok-free.app",
         "https://*.ngrok-free.dev",
