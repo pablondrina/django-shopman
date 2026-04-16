@@ -319,11 +319,11 @@
 
         {# Payment method #}
         <div class="flex gap-1.5">
-          {% for method, label in payment_methods %}
+          {% for pm in payment_methods %}
           <button type="button"
                   class="flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors"
-                  :class="paymentMethod === '{{ method }}' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent text-foreground border-border hover:bg-surface-hover'"
-                  @click="paymentMethod = '{{ method }}'">{{ label }}</button>
+                  :class="paymentMethod === '{{ pm.ref }}' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent text-foreground border-border hover:bg-surface-hover'"
+                  @click="paymentMethod = '{{ pm.ref }}'">{{ pm.label }}</button>
           {% empty %}
           <button type="button" class="flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors" :class="paymentMethod === 'dinheiro' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent text-foreground border-border'" @click="paymentMethod = 'dinheiro'">Dinheiro</button>
           <button type="button" class="flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors" :class="paymentMethod === 'pix' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent text-foreground border-border'" @click="paymentMethod = 'pix'">PIX</button>

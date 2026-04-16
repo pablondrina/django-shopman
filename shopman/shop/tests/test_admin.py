@@ -232,9 +232,9 @@ class TestDashboardCallback:
         result = dashboard_callback(request, context)
 
         summary = result["order_summary"]
-        assert "total" in summary
-        assert "new_count" in summary
-        assert "cards" in summary
+        assert hasattr(summary, "total")
+        assert hasattr(summary, "new_count")
+        assert hasattr(summary, "cards")
 
     def test_revenue_structure(self, db):
         from shopman.shop.admin.dashboard import dashboard_callback
@@ -244,13 +244,13 @@ class TestDashboardCallback:
         result = dashboard_callback(request, context)
 
         revenue = result["revenue"]
-        assert "today_q" in revenue
-        assert "today_display" in revenue
-        assert "yesterday_q" in revenue
-        assert "trend_up" in revenue
+        assert hasattr(revenue, "today_q")
+        assert hasattr(revenue, "today_display")
+        assert hasattr(revenue, "yesterday_q")
+        assert hasattr(revenue, "trend_up")
 
     def test_format_brl(self):
-        from shopman.shop.admin.dashboard import _format_brl
+        from shopman.shop.projections.dashboard import _format_brl
 
         assert _format_brl(0) == "R$ 0,00"
         assert _format_brl(1500) == "R$ 15,00"

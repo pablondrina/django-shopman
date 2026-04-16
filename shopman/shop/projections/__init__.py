@@ -11,6 +11,12 @@ Rules:
 - Availability is a canonical enum, not a bool
 """
 
+from .account import (
+    CustomerProfileProjection,
+    LoyaltyProjection,
+    LoyaltyTransactionProjection,
+    build_account,
+)
 from .cart import (
     CartItemProjection,
     CartProjection,
@@ -26,17 +32,15 @@ from .catalog import (
     build_catalog,
     build_catalog_items_for_skus,
 )
-from .account import (
-    CustomerProfileProjection,
-    LoyaltyProjection,
-    LoyaltyTransactionProjection,
-    build_account,
-)
 from .checkout import CheckoutProjection, build_checkout
 from .closing import (
     ClosingItemProjection,
     DayClosingProjection,
     build_day_closing,
+)
+from .dashboard import (
+    DashboardProjection,
+    build_dashboard,
 )
 from .kds import (
     KDSBoardProjection,
@@ -70,11 +74,11 @@ from .payment import (
     build_payment,
     build_payment_status,
 )
-from .production import (
-    ProductionBoardProjection,
-    ProductionCountsProjection,
-    WorkOrderCardProjection,
-    build_production_board,
+from .pos import (
+    POSProjection,
+    POSShiftSummaryProjection,
+    build_pos,
+    build_pos_shift_summary,
 )
 from .product_detail import (
     AllergenInfoProjection,
@@ -82,7 +86,16 @@ from .product_detail import (
     ProductDetailProjection,
     build_product_detail,
 )
+from .production import (
+    ProductionBoardProjection,
+    ProductionCountsProjection,
+    WorkOrderCardProjection,
+    build_production_board,
+)
 from .types import (
+    ORDER_STATUS_COLORS,
+    ORDER_STATUS_LABELS_PT,
+    PAYMENT_METHOD_LABELS_PT,
     Availability,
     CategoryProjection,
     ComponentProjection,
@@ -90,11 +103,8 @@ from .types import (
     FulfillmentProjection,
     HappyHourProjection,
     NotificationPrefProjection,
-    ORDER_STATUS_COLORS,
-    ORDER_STATUS_LABELS_PT,
     OrderItemProjection,
     OrderSummaryProjection,
-    PAYMENT_METHOD_LABELS_PT,
     PaymentMethodOptionProjection,
     PickupSlotProjection,
     SavedAddressProjection,
@@ -173,4 +183,11 @@ __all__ = [
     "build_order_card",
     "build_order_queue",
     "build_production_board",
+    # POS + Dashboard (Fase 5)
+    "DashboardProjection",
+    "POSProjection",
+    "POSShiftSummaryProjection",
+    "build_dashboard",
+    "build_pos",
+    "build_pos_shift_summary",
 ]
