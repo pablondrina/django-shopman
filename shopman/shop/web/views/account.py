@@ -18,6 +18,7 @@ from shopman.guestman.services import customer as customer_service
 from shopman.orderman.services import CustomerOrderHistoryService
 from shopman.utils.monetary import format_money
 
+from ._helpers import _is_v2_request
 from .auth import get_authenticated_customer
 from .tracking import STATUS_COLORS, STATUS_LABELS
 
@@ -135,7 +136,8 @@ class AccountView(View):
             (key, label, key in active_food_keys) for key, label in FOOD_PREFERENCE_OPTIONS
         ]
 
-        return render(request, "storefront/account.html", {
+        tmpl = "storefront/v2/account.html" if _is_v2_request(request) else "storefront/account.html"
+        return render(request, tmpl, {
             "customer": customer,
             "addresses": addresses,
             "orders": enriched_orders,
@@ -187,8 +189,10 @@ class AddressCreateView(View):
                 parts.append(f"- {city}")
             formatted_address = " ".join(parts) if parts else ""
 
+        v2 = _is_v2_request(request)
         if not formatted_address:
-            return render(request, "storefront/partials/address_form.html", {
+            form_tmpl = "storefront/v2/partials/address_form.html" if v2 else "storefront/partials/address_form.html"
+            return render(request, form_tmpl, {
                 "customer": customer,
                 "form_errors": {"formatted_address": "Endereço é obrigatório."},
                 "form_data": request.POST,
@@ -211,7 +215,8 @@ class AddressCreateView(View):
         )
 
         addresses = _get_customer_addresses(customer.ref)
-        return render(request, "storefront/partials/address_list.html", {
+        list_tmpl = "storefront/v2/partials/address_list.html" if v2 else "storefront/partials/address_list.html"
+        return render(request, list_tmpl, {
             "addresses": addresses,
             "customer": customer,
         })
@@ -269,7 +274,12 @@ class AddressUpdateView(View):
         )
 
         addresses = _get_customer_addresses(customer.ref)
-        return render(request, "storefront/partials/address_list.html", {
+        list_tmpl = (
+            "storefront/v2/partials/address_list.html"
+            if _is_v2_request(request)
+            else "storefront/partials/address_list.html"
+        )
+        return render(request, list_tmpl, {
             "addresses": addresses,
             "customer": customer,
         })
@@ -291,7 +301,12 @@ class AddressDeleteView(View):
         address_service.delete_address(auth_customer.ref, pk)
 
         addresses = _get_customer_addresses(auth_customer.ref)
-        return render(request, "storefront/partials/address_list.html", {
+        list_tmpl = (
+            "storefront/v2/partials/address_list.html"
+            if _is_v2_request(request)
+            else "storefront/partials/address_list.html"
+        )
+        return render(request, list_tmpl, {
             "addresses": addresses,
             "customer": auth_customer,
         })
@@ -304,9 +319,12 @@ class ProfileDisplayView(View):
         customer = get_authenticated_customer(request)
         if not customer:
             return HttpResponse("Autenticação necessária.", status=401)
-        return render(request, "storefront/partials/profile_display.html", {
-            "customer": customer,
-        })
+        tmpl = (
+            "storefront/v2/partials/profile_display.html"
+            if _is_v2_request(request)
+            else "storefront/partials/profile_display.html"
+        )
+        return render(request, tmpl, {"customer": customer})
 
 
 class ProfileEditView(View):
@@ -316,9 +334,12 @@ class ProfileEditView(View):
         customer = get_authenticated_customer(request)
         if not customer:
             return HttpResponse("Autenticação necessária.", status=401)
-        return render(request, "storefront/partials/profile_form.html", {
-            "customer": customer,
-        })
+        tmpl = (
+            "storefront/v2/partials/profile_form.html"
+            if _is_v2_request(request)
+            else "storefront/partials/profile_form.html"
+        )
+        return render(request, tmpl, {"customer": customer})
 
 
 class ProfileUpdateView(View):
@@ -338,8 +359,14 @@ class ProfileUpdateView(View):
         if not first_name:
             errors["first_name"] = "Nome é obrigatório."
 
+        v2 = _is_v2_request(request)
         if errors:
-            return render(request, "storefront/partials/profile_form.html", {
+            form_tmpl = (
+                "storefront/v2/partials/profile_form.html"
+                if v2
+                else "storefront/partials/profile_form.html"
+            )
+            return render(request, form_tmpl, {
                 "customer": customer,
                 "errors": errors,
             })
@@ -362,9 +389,12 @@ class ProfileUpdateView(View):
             birthday=birthday,
         )
 
-        return render(request, "storefront/partials/profile_display.html", {
-            "customer": customer,
-        })
+        display_tmpl = (
+            "storefront/v2/partials/profile_display.html"
+            if v2
+            else "storefront/partials/profile_display.html"
+        )
+        return render(request, display_tmpl, {"customer": customer})
 
 
 class AddressSetDefaultView(View):
@@ -383,7 +413,12 @@ class AddressSetDefaultView(View):
         address_service.set_default_address(auth_customer.ref, pk)
 
         addresses = _get_customer_addresses(auth_customer.ref)
-        return render(request, "storefront/partials/address_list.html", {
+        list_tmpl = (
+            "storefront/v2/partials/address_list.html"
+            if _is_v2_request(request)
+            else "storefront/partials/address_list.html"
+        )
+        return render(request, list_tmpl, {
             "addresses": addresses,
             "customer": auth_customer,
         })
@@ -414,27 +449,12 @@ class NotificationPrefsToggleView(View):
             )
 
         prefs = _get_notification_prefs(customer)
-        html_parts = []
-        for pref in prefs:
-            checked = "checked" if pref["enabled"] else ""
-            html_parts.append(
-                f'<label class="flex items-center justify-between py-2 cursor-pointer">'
-                f'<div><p class="text-sm font-medium text-foreground">{pref["label"]}</p>'
-                f'<p class="text-xs text-muted-foreground">{pref["description"]}</p></div>'
-                f'<div class="relative inline-flex cursor-pointer">'
-                f'<input type="hidden" name="channel" value="{pref["key"]}">'
-                f'<button type="button" hx-post="/minha-conta/notificacoes/" '
-                f'hx-vals=\'{{"channel": "{pref["key"]}"}}\' '
-                f'hx-target="#notification-prefs" hx-swap="innerHTML" '
-                f'class="w-11 h-6 rounded-full transition-colors '
-                f'{"bg-primary" if pref["enabled"] else "bg-border"}" '
-                f'style="min-height:24px">'
-                f'<span class="block w-5 h-5 bg-white rounded-full shadow transform transition-transform '
-                f'{"translate-x-5" if pref["enabled"] else "translate-x-0.5"}" '
-                f'style="margin-top:2px"></span>'
-                f'</button></div></label>'
-            )
-        return HttpResponse("".join(html_parts))
+        tmpl = (
+            "storefront/v2/partials/notification_prefs.html"
+            if _is_v2_request(request)
+            else "storefront/partials/notification_prefs.html"
+        )
+        return render(request, tmpl, {"notification_prefs": prefs})
 
 
 FOOD_PREFERENCE_OPTIONS = [
@@ -471,24 +491,16 @@ class FoodPreferenceToggleView(View):
                 preference_type="restriction", source="storefront_settings",
             )
 
-        # Return updated tags
         active_keys = _get_active_food_keys(customer.ref)
-
-        html_parts = []
-        for opt_key, opt_label in FOOD_PREFERENCE_OPTIONS:
-            active = opt_key in active_keys
-            cls = "bg-primary text-white" if active else "bg-background text-muted-foreground border border-border"
-            html_parts.append(
-                f'<button type="button" '
-                f'hx-post="/minha-conta/preferencias/" '
-                f'hx-vals=\'{{"key": "{opt_key}"}}\' '
-                f'hx-target="#food-prefs" hx-swap="innerHTML" '
-                f'class="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium '
-                f'transition-colors {cls}" '
-                f'style="min-height:var(--touch-min)">'
-                f'{opt_label}</button>'
-            )
-        return HttpResponse("".join(html_parts))
+        food_pref_options = [
+            (key, label, key in active_keys) for key, label in FOOD_PREFERENCE_OPTIONS
+        ]
+        tmpl = (
+            "storefront/v2/partials/food_prefs.html"
+            if _is_v2_request(request)
+            else "storefront/partials/food_prefs.html"
+        )
+        return render(request, tmpl, {"food_pref_options": food_pref_options})
 
 
 class DataExportView(View):

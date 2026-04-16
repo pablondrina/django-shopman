@@ -1,0 +1,16 @@
+{% for opt_key, opt_label, is_active in food_pref_options %}
+<button type="button"
+        hx-post="{% url 'storefront:food_preference_toggle' %}"
+        hx-vals='{"key": "{{ opt_key }}"}'
+        hx-target="#food-prefs"
+        hx-swap="innerHTML"
+        class="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-colors min-h-[36px]
+               {% if is_active %}
+                 bg-primary text-white dark:bg-primary-dark
+               {% else %}
+                 border border-outline text-on-surface hover:bg-surface-alt
+                 dark:border-outline-dark dark:text-on-surface-dark dark:hover:bg-surface-dark-alt
+               {% endif %}">
+  {{ opt_label }}
+</button>
+{% endfor %}

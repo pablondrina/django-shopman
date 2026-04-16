@@ -1,0 +1,188 @@
+{% if addresses %}
+<div class="space-y-3">
+  {% for addr in addresses %}
+  <div id="address-item-{{ addr.pk }}"
+       x-data="{ editing: false }"
+       class="relative rounded-radius border p-4 transition
+         {% if addr.is_default %}border-primary/40 bg-primary/5 dark:border-primary-dark/40 dark:bg-primary-dark/5
+         {% else %}border-outline bg-surface dark:border-outline-dark dark:bg-surface-dark{% endif %}">
+
+    {% comment %}── Edit form ──{% endcomment %}
+    <div x-show="editing" x-cloak>
+      <form hx-post="{% url 'storefront:address_update' pk=addr.pk %}"
+            hx-target="#address-list"
+            hx-swap="innerHTML"
+            class="space-y-3">
+        {% csrf_token %}
+        <input type="hidden" name="customer_phone" value="{{ customer.phone }}">
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-on-surface dark:text-on-surface-dark mb-1">Rótulo</label>
+            <select name="label"
+                    class="w-full px-3 py-2 rounded-radius border border-outline dark:border-outline-dark
+                           bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark text-sm
+                           focus:outline-hidden focus:ring-2 focus:ring-primary dark:focus:ring-primary-dark">
+              <option value="home" {% if addr.label == "home" %}selected{% endif %}>Casa</option>
+              <option value="work" {% if addr.label == "work" %}selected{% endif %}>Trabalho</option>
+              <option value="other" {% if addr.label == "other" %}selected{% endif %}>Outro</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-on-surface dark:text-on-surface-dark mb-1">Rótulo personalizado</label>
+            <input type="text" name="label_custom" value="{{ addr.label_custom }}"
+                   placeholder="Ex: Casa da vovó"
+                   class="w-full px-3 py-2 rounded-radius border border-outline dark:border-outline-dark
+                          bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark text-sm
+                          placeholder:text-on-surface/30 dark:placeholder:text-on-surface-dark/30
+                          focus:outline-hidden focus:ring-2 focus:ring-primary dark:focus:ring-primary-dark">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-on-surface dark:text-on-surface-dark mb-1">Rua</label>
+          <input type="text" name="route" value="{{ addr.route }}"
+                 class="w-full px-3 py-2 rounded-radius border border-outline dark:border-outline-dark
+                        bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark text-sm
+                        focus:outline-hidden focus:ring-2 focus:ring-primary dark:focus:ring-primary-dark">
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-on-surface dark:text-on-surface-dark mb-1">Número</label>
+            <input type="text" name="street_number" value="{{ addr.street_number }}"
+                   class="w-full px-3 py-2 rounded-radius border border-outline dark:border-outline-dark
+                          bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark text-sm
+                          focus:outline-hidden focus:ring-2 focus:ring-primary dark:focus:ring-primary-dark">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-on-surface dark:text-on-surface-dark mb-1">Complemento</label>
+            <input type="text" name="complement" value="{{ addr.complement }}"
+                   placeholder="Apto, bloco..."
+                   class="w-full px-3 py-2 rounded-radius border border-outline dark:border-outline-dark
+                          bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark text-sm
+                          placeholder:text-on-surface/30 dark:placeholder:text-on-surface-dark/30
+                          focus:outline-hidden focus:ring-2 focus:ring-primary dark:focus:ring-primary-dark">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-on-surface dark:text-on-surface-dark mb-1">Bairro</label>
+            <input type="text" name="neighborhood" value="{{ addr.neighborhood }}"
+                   class="w-full px-3 py-2 rounded-radius border border-outline dark:border-outline-dark
+                          bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark text-sm
+                          focus:outline-hidden focus:ring-2 focus:ring-primary dark:focus:ring-primary-dark">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-on-surface dark:text-on-surface-dark mb-1">Cidade</label>
+            <input type="text" name="city" value="{{ addr.city }}"
+                   class="w-full px-3 py-2 rounded-radius border border-outline dark:border-outline-dark
+                          bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark text-sm
+                          focus:outline-hidden focus:ring-2 focus:ring-primary dark:focus:ring-primary-dark">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-on-surface dark:text-on-surface-dark mb-1">Endereço formatado</label>
+          <input type="text" name="formatted_address" value="{{ addr.formatted_address }}"
+                 class="w-full px-3 py-2 rounded-radius border border-outline dark:border-outline-dark
+                        bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark text-sm
+                        focus:outline-hidden focus:ring-2 focus:ring-primary dark:focus:ring-primary-dark">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-on-surface dark:text-on-surface-dark mb-1">Instruções de entrega</label>
+          <textarea name="delivery_instructions" rows="2"
+                    placeholder="Instruções para o entregador..."
+                    class="w-full px-3 py-2 rounded-radius border border-outline dark:border-outline-dark
+                           bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark text-sm resize-none
+                           placeholder:text-on-surface/30 dark:placeholder:text-on-surface-dark/30
+                           focus:outline-hidden focus:ring-2 focus:ring-primary dark:focus:ring-primary-dark">{{ addr.delivery_instructions }}</textarea>
+        </div>
+
+        <div class="flex gap-2">
+          <button type="submit"
+                  class="px-4 py-2 rounded-radius bg-primary text-white text-sm font-medium hover:opacity-90 transition
+                         min-h-[36px] dark:bg-primary-dark">
+            Salvar
+          </button>
+          <button type="button" @click="editing = false"
+                  class="px-4 py-2 rounded-radius border border-outline text-on-surface text-sm font-medium
+                         hover:bg-surface-alt transition min-h-[36px]
+                         dark:border-outline-dark dark:text-on-surface-dark dark:hover:bg-surface-dark-alt">
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </div>
+
+    {% comment %}── Display mode ──{% endcomment %}
+    <div x-show="!editing">
+      <div class="flex items-start justify-between">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-sm font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ addr.display_label }}</span>
+            {% if addr.is_default %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                         bg-primary/15 text-primary dark:bg-primary-dark/15 dark:text-primary-dark">
+              Padrão
+            </span>
+            {% endif %}
+          </div>
+          <p class="text-sm text-on-surface dark:text-on-surface-dark">{{ addr.formatted_address }}</p>
+          {% if addr.complement %}
+          <p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60">{{ addr.complement }}</p>
+          {% endif %}
+          {% if addr.delivery_instructions %}
+          <p class="text-xs text-on-surface/50 dark:text-on-surface-dark/50 mt-1 italic">{{ addr.delivery_instructions }}</p>
+          {% endif %}
+        </div>
+
+        <div class="flex items-center gap-1 ml-3 flex-shrink-0">
+          {% if not addr.is_default %}
+          <form hx-post="{% url 'storefront:address_set_default' pk=addr.pk %}"
+                hx-target="#address-list" hx-swap="innerHTML">
+            {% csrf_token %}
+            <button type="submit" title="Marcar como padrão"
+                    class="p-1.5 rounded-radius text-on-surface/40 hover:text-primary hover:bg-surface-alt transition
+                           dark:text-on-surface-dark/40 dark:hover:text-primary-dark dark:hover:bg-surface-dark-alt">
+              <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+              </svg>
+            </button>
+          </form>
+          {% endif %}
+
+          <button type="button" @click="editing = true" title="Editar"
+                  class="p-1.5 rounded-radius text-on-surface/40 hover:text-primary hover:bg-surface-alt transition
+                         dark:text-on-surface-dark/40 dark:hover:text-primary-dark dark:hover:bg-surface-dark-alt">
+            <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+          </button>
+
+          <form hx-post="{% url 'storefront:address_delete' pk=addr.pk %}"
+                hx-target="#address-list" hx-swap="innerHTML"
+                hx-confirm="Remover este endereço?">
+            {% csrf_token %}
+            <button type="submit" title="Excluir"
+                    class="p-1.5 rounded-radius text-on-surface/40 hover:text-danger hover:bg-danger/5 transition
+                           dark:text-on-surface-dark/40 dark:hover:text-danger-dark">
+              <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60 text-center py-4">Nenhum endereço cadastrado.</p>
+{% endif %}
