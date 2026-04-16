@@ -56,7 +56,10 @@
 {% if catalog.categories %}
 <nav aria-label="Filtrar por categoria"
      class="sticky top-0 z-30 -mx-4 px-4 py-3 mb-6 bg-surface/95 dark:bg-surface-dark/95 backdrop-blur border-b border-outline dark:border-outline-dark">
-  <ul class="flex gap-2 overflow-x-auto">
+  <div class="relative">
+    <div class="pointer-events-none absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-surface/95 to-transparent dark:from-surface-dark/95 z-10" aria-hidden="true"></div>
+    <div class="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-surface/95 to-transparent dark:from-surface-dark/95 z-10" aria-hidden="true"></div>
+  <ul class="flex gap-3 overflow-x-auto scrollbar-hide">
     <li class="shrink-0">
       <a href="{% url 'storefront:menu' %}"
          class="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition touch-target
@@ -75,6 +78,7 @@
     </li>
     {% endfor %}
   </ul>
+  </div>
 </nav>
 {% endif %}
 

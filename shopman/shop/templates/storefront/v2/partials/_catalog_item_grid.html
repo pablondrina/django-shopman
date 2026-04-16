@@ -29,7 +29,7 @@
           }).then(() => { this.qty = target }).finally(() => { this.busy = false });
         }
       }"
-      class="card flex gap-4 relative overflow-hidden">
+      class="card flex gap-4 relative overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 active:scale-[0.98]">
 
     {# Image — clickable navigation to PDP #}
     <a href="{% url 'storefront:product_detail' item.sku %}"
@@ -38,8 +38,8 @@
       {% if item.image_url %}
       <img src="{{ item.image_url }}" alt="{{ item.name }}" loading="lazy" class="w-full h-full object-cover">
       {% else %}
-      <div class="w-full h-full flex items-center justify-center text-on-surface/30 dark:text-on-surface-dark/30">
-        <span class="material-symbols-rounded text-3xl" aria-hidden="true">bakery_dining</span>
+      <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-surface-alt to-outline/20 dark:from-surface-dark-alt dark:to-outline-dark/20">
+        <span class="material-symbols-rounded text-3xl text-on-surface/30 dark:text-on-surface-dark/30" aria-hidden="true">bakery_dining</span>
       </div>
       {% endif %}
     </a>

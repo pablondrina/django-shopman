@@ -37,11 +37,12 @@
     {% for val, label in tab_options %}
     <button type="button"
             @click="tab = '{{ val }}'"
-            class="flex-shrink-0 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px"
+            class="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px"
             :class="tab === '{{ val }}'
               ? 'text-primary border-primary dark:text-primary-dark dark:border-primary-dark'
               : 'text-on-surface/60 border-transparent hover:text-on-surface hover:border-outline dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark dark:hover:border-outline-dark'"
             style="min-height: var(--touch-min)">
+      <span class="material-symbols-rounded text-base" aria-hidden="true">{% if val == 'perfil' %}person{% elif val == 'pedidos' %}receipt_long{% elif val == 'fidelidade' %}loyalty{% elif val == 'config' %}settings{% else %}circle{% endif %}</span>
       {{ label }}
     </button>
     {% endfor %}
@@ -51,12 +52,12 @@
   <div x-show="tab === 'perfil'" x-cloak class="space-y-4">
 
     {% comment %}── Dados pessoais ──{% endcomment %}
-    <div class="rounded-radius border border-outline bg-surface p-6 dark:border-outline-dark dark:bg-surface-dark">
+    <div class="rounded-radius border border-outline bg-surface p-5 dark:border-outline-dark dark:bg-surface-dark">
       {% include "storefront/v2/partials/profile_display.html" with customer=customer %}
     </div>
 
     {% comment %}── Endereços ──{% endcomment %}
-    <div class="rounded-radius border border-outline bg-surface p-6 dark:border-outline-dark dark:bg-surface-dark">
+    <div class="rounded-radius border border-outline bg-surface p-5 dark:border-outline-dark dark:bg-surface-dark">
       <div class="flex items-center justify-between mb-4">
         <h3 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Endereços</h3>
         <button type="button"
@@ -138,7 +139,7 @@
   {% comment %}════ TAB: Fidelidade ════{% endcomment %}
   <div x-show="tab === 'fidelidade'" x-cloak>
     {% if loyalty_account %}
-    <div class="rounded-radius border border-outline bg-surface p-6 dark:border-outline-dark dark:bg-surface-dark space-y-5">
+    <div class="rounded-radius border border-outline bg-surface p-5 dark:border-outline-dark dark:bg-surface-dark space-y-5">
 
       {% comment %}── Tier + pontos ──{% endcomment %}
       <div class="flex flex-wrap items-center gap-3">
@@ -229,7 +230,7 @@
   <div x-show="tab === 'config'" x-cloak class="space-y-4">
 
     {% comment %}── Notificações ──{% endcomment %}
-    <div class="rounded-radius border border-outline bg-surface p-6 dark:border-outline-dark dark:bg-surface-dark">
+    <div class="rounded-radius border border-outline bg-surface p-5 dark:border-outline-dark dark:bg-surface-dark">
       <h3 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-4">Notificações</h3>
       <div id="notification-prefs">
         {% include "storefront/v2/partials/notification_prefs.html" with notification_prefs=notification_prefs %}
@@ -237,7 +238,7 @@
     </div>
 
     {% comment %}── Preferências alimentares ──{% endcomment %}
-    <div class="rounded-radius border border-outline bg-surface p-6 dark:border-outline-dark dark:bg-surface-dark">
+    <div class="rounded-radius border border-outline bg-surface p-5 dark:border-outline-dark dark:bg-surface-dark">
       <h3 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-1">Preferências alimentares</h3>
       <p class="text-xs text-on-surface/50 dark:text-on-surface-dark/50 mb-3">Toque para ativar ou desativar</p>
       <div id="food-prefs" class="flex flex-wrap gap-2">
@@ -246,7 +247,7 @@
     </div>
 
     {% comment %}── Dispositivos confiáveis ──{% endcomment %}
-    <div class="rounded-radius border border-outline bg-surface p-6 dark:border-outline-dark dark:bg-surface-dark">
+    <div class="rounded-radius border border-outline bg-surface p-5 dark:border-outline-dark dark:bg-surface-dark">
       <h3 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-1">Dispositivos confiáveis</h3>
       <p class="text-xs text-on-surface/50 dark:text-on-surface-dark/50 mb-4">Dispositivos que podem acessar sua conta sem código de verificação.</p>
       <div id="device-list-container"
@@ -258,7 +259,7 @@
     </div>
 
     {% comment %}── Privacidade e dados ──{% endcomment %}
-    <div class="rounded-radius border border-outline bg-surface p-6 dark:border-outline-dark dark:bg-surface-dark">
+    <div class="rounded-radius border border-outline bg-surface p-5 dark:border-outline-dark dark:bg-surface-dark">
       <h3 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-4">Privacidade e dados</h3>
 
       <a href="{% url 'storefront:data_export' %}"

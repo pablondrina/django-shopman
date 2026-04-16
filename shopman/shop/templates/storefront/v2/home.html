@@ -4,41 +4,107 @@
 {% block title %}{{ storefront.brand_name }} — {{ storefront.tagline }}{% endblock %}
 {% block meta_description %}{{ storefront.description|truncatewords:30 }}{% endblock %}
 
+{% url 'storefront:menu' as menu_url %}
+
 {% block content %}
 
-{# ── Hero ── #}
-<section class="text-center py-12 md:py-20">
+{# ── Hero Carousel (Penguin UI Carousel + Alpine) ── #}
+<section class="py-10"
+         x-data="{
+           currentSlide: 0,
+           totalSlides: 0,
+           autoplay: null,
+           startAutoplay() {
+             if (this.totalSlides < 2) return;
+             this.autoplay = setInterval(() => {
+               this.currentSlide = (this.currentSlide + 1) % this.totalSlides;
+             }, 5000);
+           },
+           stopAutoplay() { clearInterval(this.autoplay); },
+           goTo(n) { this.currentSlide = n; }
+         }"
+         x-init="totalSlides = $el.querySelectorAll('[data-carousel-slide]').length; startAutoplay()"
+         @mouseenter="stopAutoplay()"
+         @mouseleave="startAutoplay()">
 
-  {# Logo #}
-  {% if storefront.logo.name %}
-  <img src="{{ storefront.logo.url }}" alt="{{ storefront.brand_name }}"
-       class="h-14 md:h-16 w-auto mx-auto mb-6 object-contain">
-  {% endif %}
+  {# Slides container #}
+  <div class="relative overflow-hidden rounded-2xl min-h-[260px] md:min-h-[320px] bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark">
 
-  {# Status badge (Penguin UI badge) #}
-  <div class="flex justify-center mb-6">
-    {% include "storefront/v2/partials/shop_status_badge.html" %}
+    {# Slide 1: Logo + status badge + temporal greeting #}
+    <div data-carousel-slide
+         x-show="currentSlide === 0"
+         x-transition:enter="transition ease-out duration-500"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-300"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="absolute inset-0 flex flex-col items-center justify-center text-center gap-5 p-8">
+      {% if storefront.logo.name %}
+      <img src="{{ storefront.logo.url }}" alt="{{ storefront.brand_name }}"
+           class="h-14 md:h-16 w-auto mx-auto object-contain">
+      {% endif %}
+      <div class="flex justify-center">
+        {% include "storefront/v2/partials/shop_status_badge.html" %}
+      </div>
+      {% include "storefront/v2/partials/temporal_greeting.html" %}
+    </div>
+
+    {# Slide 2: Tagline + description #}
+    <div data-carousel-slide
+         x-show="currentSlide === 1"
+         x-cloak
+         x-transition:enter="transition ease-out duration-500"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-300"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="absolute inset-0 flex flex-col items-center justify-center text-center gap-4 p-8 bg-gradient-to-br from-primary/8 to-secondary/8 dark:from-primary-dark/8 dark:to-secondary-dark/8">
+      <p class="text-2xl md:text-3xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong leading-snug max-w-sm">
+        {{ storefront.tagline|default:storefront.brand_name }}
+      </p>
+      {% if storefront.description_html %}
+      <p class="text-sm text-on-surface dark:text-on-surface-dark max-w-sm leading-relaxed">
+        {{ storefront.description_html|striptags|truncatewords:20 }}
+      </p>
+      {% endif %}
+    </div>
+
   </div>
 
-  {# Temporal greeting (Alpine for DOM) #}
-  {% include "storefront/v2/partials/temporal_greeting.html" %}
-
-  {# CTAs (Penguin UI buttons) #}
-  <div class="mt-8 flex gap-3 justify-center flex-wrap" x-data="homeCta()">
-    {# Contextual CTA #}
-    <a x-show="ctaLabel" x-cloak
-       :href="ctaHref"
-       x-text="ctaLabel"
-       class="whitespace-nowrap rounded-radius bg-primary px-6 py-3 text-center text-sm font-medium tracking-wide text-on-primary transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:opacity-100 active:outline-offset-0 dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark touch-target"></a>
-    {# General CTA #}
-    {% url 'storefront:menu' as menu_url %}
-    <a href="{{ menu_url }}"
-       class="whitespace-nowrap rounded-radius border border-outline px-6 py-3 text-center text-sm font-medium tracking-wide text-on-surface transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-outline-strong active:opacity-100 active:outline-offset-0 dark:border-outline-dark dark:text-on-surface-dark dark:focus-visible:outline-outline-dark-strong touch-target"
-       :class="!ctaLabel && 'bg-primary text-on-primary border-primary hover:opacity-75 dark:bg-primary-dark dark:text-on-primary-dark dark:border-primary-dark'">
-      Ver Cardapio
-    </a>
+  {# Dot indicators #}
+  <div x-show="totalSlides > 1" x-cloak class="flex justify-center gap-2 mt-4" role="tablist" aria-label="Slides do carousel">
+    <template x-for="n in totalSlides" :key="n">
+      <button type="button"
+              role="tab"
+              :aria-selected="currentSlide === n"
+              :aria-label="`Slide ${n + 1}`"
+              @click="goTo(n); stopAutoplay()"
+              :class="currentSlide === n
+                ? 'w-6 h-2 bg-primary dark:bg-primary-dark'
+                : 'w-2 h-2 bg-outline dark:bg-outline-dark hover:bg-on-surface/30 dark:hover:bg-on-surface-dark/30'"
+              class="rounded-full transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark">
+      </button>
+    </template>
   </div>
+
 </section>
+
+{# ── CTAs (below carousel) ── #}
+<div class="mt-2 mb-10 flex gap-3 justify-center flex-wrap" x-data="homeCta()">
+  {# Contextual CTA #}
+  <a x-show="ctaLabel" x-cloak
+     :href="ctaHref"
+     x-text="ctaLabel"
+     class="whitespace-nowrap rounded-radius bg-primary px-6 py-3 text-center text-sm font-medium tracking-wide text-on-primary transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:opacity-100 active:outline-offset-0 dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark touch-target"></a>
+  {# General CTA #}
+  <a href="{{ menu_url }}"
+     class="whitespace-nowrap rounded-radius border border-outline px-6 py-3 text-center text-sm font-medium tracking-wide text-on-surface transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-outline-strong active:opacity-100 active:outline-offset-0 dark:border-outline-dark dark:text-on-surface-dark dark:focus-visible:outline-outline-dark-strong touch-target"
+     :class="!ctaLabel && 'bg-primary text-on-primary border-primary hover:opacity-75 dark:bg-primary-dark dark:text-on-primary-dark dark:border-primary-dark'">
+    Ver Cardapio
+  </a>
+</div>
 
 {# ── Closing awareness (Penguin UI banner) ── #}
 {% include "storefront/v2/partials/closing_awareness.html" %}
@@ -49,9 +115,9 @@
 {% endif %}
 
 {# ── Direto do Forno (HTMX for server) ── #}
-<section class="py-12 border-t border-outline dark:border-outline-dark">
+<section class="py-10 border-t border-outline dark:border-outline-dark">
   <h2 class="text-xl lg:text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong text-center mb-2">Direto do forno</h2>
-  <p class="text-on-surface dark:text-on-surface-dark text-center mb-8 text-sm">Disponibilidade em tempo real</p>
+  <p class="text-on-surface dark:text-on-surface-dark text-center mb-6 text-sm">Disponibilidade em tempo real</p>
 
   <div id="home-availability"
        hx-get="{% url 'storefront:menu' %}?partial=availability_preview"
@@ -73,7 +139,7 @@
 </section>
 
 {# ── Como Funciona (Penguin UI steps + cards) ── #}
-<section class="py-12 border-t border-outline dark:border-outline-dark">
+<section class="py-10 border-t border-outline dark:border-outline-dark">
   <h2 class="text-xl lg:text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong text-center mb-10">Como Funciona</h2>
 
   <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
@@ -118,7 +184,7 @@
       <div class="space-y-4">
         <div class="flex gap-3">
           <div class="flex size-6 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt mt-0.5">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-3.5 text-on-surface dark:text-on-surface-dark"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" /><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" /></svg>
+            <span class="material-symbols-rounded text-sm leading-none text-on-surface dark:text-on-surface-dark" aria-hidden="true">storefront</span>
           </div>
           <div>
             <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Paes no autosservico</p>
@@ -127,7 +193,7 @@
         </div>
         <div class="flex gap-3">
           <div class="flex size-6 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt mt-0.5">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-3.5 text-on-surface dark:text-on-surface-dark"><path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd" /></svg>
+            <span class="material-symbols-rounded text-sm leading-none text-on-surface dark:text-on-surface-dark" aria-hidden="true">favorite</span>
           </div>
           <div>
             <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Cafes e doces no balcao</p>
@@ -136,7 +202,7 @@
         </div>
         <div class="flex gap-3">
           <div class="flex size-6 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt mt-0.5">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-3.5 text-on-surface dark:text-on-surface-dark"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" /></svg>
+            <span class="material-symbols-rounded text-sm leading-none text-on-surface dark:text-on-surface-dark" aria-hidden="true">schedule</span>
           </div>
           <div>
             <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Horarios</p>
@@ -154,7 +220,7 @@
 {# ── Tomorrow Hook (Gate 3) ── #}
 <section x-data="{ visible: false }" x-init="visible = new Date().getHours() >= 14"
          x-show="visible" x-transition x-cloak
-         class="py-8 border-t border-outline dark:border-outline-dark">
+         class="py-10 border-t border-outline dark:border-outline-dark">
   <div class="max-w-2xl mx-auto text-center">
     <p class="text-xs font-semibold text-on-surface/50 dark:text-on-surface-dark/50 uppercase tracking-widest">Amanha</p>
     <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium mt-2"
@@ -167,7 +233,7 @@
 </section>
 
 {# ── Contato ── #}
-<section class="py-12 border-t border-outline dark:border-outline-dark">
+<section class="py-10 border-t border-outline dark:border-outline-dark">
   <div class="max-w-2xl mx-auto text-center">
     {% if storefront.full_address %}
     <p class="text-on-surface-strong dark:text-on-surface-dark-strong mb-2">
@@ -185,7 +251,11 @@
     <div class="flex items-center justify-center gap-4 mt-4">
       {% if storefront.phone %}
       <a href="{{ storefront.phone_url }}"
-         class="whitespace-nowrap rounded-radius bg-success px-4 py-2 text-center text-sm font-medium tracking-wide text-on-success transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-success active:opacity-100 active:outline-offset-0 touch-target">
+         class="inline-flex items-center gap-2 whitespace-nowrap rounded-radius bg-success px-4 py-2 text-center text-sm font-medium tracking-wide text-on-success transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-success active:opacity-100 active:outline-offset-0 touch-target">
+        {# WhatsApp brand mark #}
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 shrink-0" aria-hidden="true">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+        </svg>
         WhatsApp
       </a>
       {% endif %}
