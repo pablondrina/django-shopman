@@ -63,7 +63,7 @@ Entregue como parte da Fase 1 do PROJECTION-UI-PLAN (item 4). Stepper inline `�
 ```
 1. C1-C9 (commits em trânsito)                                       ✓ feito
    ↓
-2. NAMING-CONSOLIDATION                                              — skipped (deixa como está)
+2. NAMING-CONSOLIDATION                                              — ❌ Cancelado — nomenclatura mantida
    ↓
 3. PROTO-EXTRACTION (cria tokens/componentes em v2 já no lugar final) ✓ feito 2026-04-15
    ↓
