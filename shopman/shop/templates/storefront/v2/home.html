@@ -6,25 +6,129 @@
 
 {% block content %}
 
-{# ── Hero ── #}
-<section class="text-center py-12 md:py-20">
+{# ── Hero Carousel (Alpine.js — Penguin UI pattern) ── #}
+<section class="pt-8 pb-4 md:pt-12">
+  <div x-data="{
+    active: 0,
+    count: 3,
+    iv: null,
+    start() { this.iv = setInterval(() => this.next(), 5000) },
+    stop()  { clearInterval(this.iv) },
+    next()  { this.active = (this.active + 1) % this.count },
+    prev()  { this.active = (this.active - 1 + this.count) % this.count }
+  }"
+  x-init="start()"
+  @mouseenter="stop()" @mouseleave="start()"
+  @focusin="stop()"   @focusout="start()"
+  class="relative overflow-hidden rounded-2xl"
+  aria-roledescription="carousel"
+  aria-label="Destaques da loja">
 
-  {# Logo #}
-  {% if storefront.logo.name %}
-  <img src="{{ storefront.logo.url }}" alt="{{ storefront.brand_name }}"
-       class="h-14 md:h-16 w-auto mx-auto mb-6 object-contain">
-  {% endif %}
+    {# Slides #}
+    <div class="relative h-52 md:h-64 select-none">
 
-  {# Status badge (Penguin UI badge) #}
-  <div class="flex justify-center mb-6">
-    {% include "storefront/v2/partials/shop_status_badge.html" %}
+      {# Slide 1 — Brand #}
+      <div x-show="active === 0" x-cloak
+           x-transition:enter="transition duration-500 ease-out"
+           x-transition:enter-start="opacity-0 translate-x-4"
+           x-transition:enter-end="opacity-100 translate-x-0"
+           x-transition:leave="transition duration-300 ease-in"
+           x-transition:leave-start="opacity-100"
+           x-transition:leave-end="opacity-0"
+           class="absolute inset-0 flex flex-col items-center justify-center gap-3 p-8
+                  bg-gradient-to-br from-primary/10 via-surface-alt to-secondary/10
+                  dark:from-primary-dark/10 dark:via-surface-dark-alt dark:to-secondary-dark/10"
+           role="tabpanel" aria-label="Slide 1 de 3">
+        {% if storefront.logo.name %}
+        <img src="{{ storefront.logo.url }}" alt="{{ storefront.brand_name }}" class="h-14 w-auto object-contain">
+        {% else %}
+        <span class="material-symbols-rounded text-6xl text-primary dark:text-primary-dark" aria-hidden="true">storefront</span>
+        {% endif %}
+        <div class="text-center">
+          <p class="text-xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ storefront.brand_name }}</p>
+          {% if storefront.tagline %}
+          <p class="text-sm text-on-surface dark:text-on-surface-dark mt-1">{{ storefront.tagline }}</p>
+          {% endif %}
+        </div>
+        <div>{% include "storefront/v2/partials/shop_status_badge.html" %}</div>
+      </div>
+
+      {# Slide 2 — Artesanal #}
+      <div x-show="active === 1" x-cloak
+           x-transition:enter="transition duration-500 ease-out"
+           x-transition:enter-start="opacity-0 translate-x-4"
+           x-transition:enter-end="opacity-100 translate-x-0"
+           x-transition:leave="transition duration-300 ease-in"
+           x-transition:leave-start="opacity-100"
+           x-transition:leave-end="opacity-0"
+           class="absolute inset-0 flex flex-col items-center justify-center gap-3 p-8
+                  bg-gradient-to-br from-secondary/10 via-surface-alt to-primary/10
+                  dark:from-secondary-dark/10 dark:via-surface-dark-alt dark:to-primary-dark/10"
+           role="tabpanel" aria-label="Slide 2 de 3">
+        <span class="material-symbols-rounded text-6xl text-secondary dark:text-secondary-dark" aria-hidden="true">bakery_dining</span>
+        <div class="text-center">
+          <p class="text-xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Feito à mão, todo dia</p>
+          <p class="text-sm text-on-surface dark:text-on-surface-dark mt-1">Pão fresco saindo do forno. Sempre.</p>
+        </div>
+      </div>
+
+      {# Slide 3 — Entrega / Retirada #}
+      <div x-show="active === 2" x-cloak
+           x-transition:enter="transition duration-500 ease-out"
+           x-transition:enter-start="opacity-0 translate-x-4"
+           x-transition:enter-end="opacity-100 translate-x-0"
+           x-transition:leave="transition duration-300 ease-in"
+           x-transition:leave-start="opacity-100"
+           x-transition:leave-end="opacity-0"
+           class="absolute inset-0 flex flex-col items-center justify-center gap-3 p-8
+                  bg-gradient-to-br from-success/10 via-surface-alt to-secondary/10
+                  dark:from-success-dark/10 dark:via-surface-dark-alt dark:to-secondary-dark/10"
+           role="tabpanel" aria-label="Slide 3 de 3">
+        <span class="material-symbols-rounded text-6xl text-success dark:text-success-dark" aria-hidden="true">local_mall</span>
+        <div class="text-center">
+          <p class="text-xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Retire ou receba em casa</p>
+          <p class="text-sm text-on-surface dark:text-on-surface-dark mt-1">Acompanhe seu pedido em tempo real.</p>
+        </div>
+      </div>
+    </div>
+
+    {# Prev / Next #}
+    <button @click="prev(); stop(); start()"
+            class="absolute left-3 top-1/2 -translate-y-1/2 flex size-8 items-center justify-center rounded-full
+                   bg-surface/80 dark:bg-surface-dark/80 text-on-surface dark:text-on-surface-dark
+                   shadow hover:bg-surface dark:hover:bg-surface-dark transition focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+            aria-label="Slide anterior">
+      <span class="material-symbols-rounded text-base" aria-hidden="true">chevron_left</span>
+    </button>
+    <button @click="next(); stop(); start()"
+            class="absolute right-3 top-1/2 -translate-y-1/2 flex size-8 items-center justify-center rounded-full
+                   bg-surface/80 dark:bg-surface-dark/80 text-on-surface dark:text-on-surface-dark
+                   shadow hover:bg-surface dark:hover:bg-surface-dark transition focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+            aria-label="Próximo slide">
+      <span class="material-symbols-rounded text-base" aria-hidden="true">chevron_right</span>
+    </button>
+
+    {# Indicators #}
+    <div class="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5" role="tablist" aria-label="Slides">
+      <button @click="active = 0; stop(); start()" role="tab" :aria-selected="active === 0" aria-label="Slide 1"
+              :class="active === 0 ? 'w-6 bg-primary dark:bg-primary-dark' : 'w-2 bg-on-surface/25 dark:bg-on-surface-dark/25'"
+              class="h-2 rounded-full transition-all duration-300 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"></button>
+      <button @click="active = 1; stop(); start()" role="tab" :aria-selected="active === 1" aria-label="Slide 2"
+              :class="active === 1 ? 'w-6 bg-primary dark:bg-primary-dark' : 'w-2 bg-on-surface/25 dark:bg-on-surface-dark/25'"
+              class="h-2 rounded-full transition-all duration-300 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"></button>
+      <button @click="active = 2; stop(); start()" role="tab" :aria-selected="active === 2" aria-label="Slide 3"
+              :class="active === 2 ? 'w-6 bg-primary dark:bg-primary-dark' : 'w-2 bg-on-surface/25 dark:bg-on-surface-dark/25'"
+              class="h-2 rounded-full transition-all duration-300 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"></button>
+    </div>
   </div>
 
   {# Temporal greeting (Alpine for DOM) #}
-  {% include "storefront/v2/partials/temporal_greeting.html" %}
+  <div class="text-center mt-8">
+    {% include "storefront/v2/partials/temporal_greeting.html" %}
+  </div>
 
   {# CTAs (Penguin UI buttons) #}
-  <div class="mt-8 flex gap-3 justify-center flex-wrap" x-data="homeCta()">
+  <div class="mt-6 flex gap-3 justify-center flex-wrap" x-data="homeCta()">
     {# Contextual CTA #}
     <a x-show="ctaLabel" x-cloak
        :href="ctaHref"
@@ -118,7 +222,7 @@
       <div class="space-y-4">
         <div class="flex gap-3">
           <div class="flex size-6 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt mt-0.5">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-3.5 text-on-surface dark:text-on-surface-dark"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" /><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" /></svg>
+            <span class="material-symbols-rounded text-sm text-on-surface dark:text-on-surface-dark" aria-hidden="true">shelves</span>
           </div>
           <div>
             <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Paes no autosservico</p>
@@ -127,7 +231,7 @@
         </div>
         <div class="flex gap-3">
           <div class="flex size-6 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt mt-0.5">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-3.5 text-on-surface dark:text-on-surface-dark"><path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd" /></svg>
+            <span class="material-symbols-rounded text-sm text-on-surface dark:text-on-surface-dark" aria-hidden="true">coffee</span>
           </div>
           <div>
             <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Cafes e doces no balcao</p>
@@ -136,7 +240,7 @@
         </div>
         <div class="flex gap-3">
           <div class="flex size-6 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt mt-0.5">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-3.5 text-on-surface dark:text-on-surface-dark"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" /></svg>
+            <span class="material-symbols-rounded text-sm text-on-surface dark:text-on-surface-dark" aria-hidden="true">schedule</span>
           </div>
           <div>
             <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Horarios</p>
@@ -185,7 +289,10 @@
     <div class="flex items-center justify-center gap-4 mt-4">
       {% if storefront.phone %}
       <a href="{{ storefront.phone_url }}"
-         class="whitespace-nowrap rounded-radius bg-success px-4 py-2 text-center text-sm font-medium tracking-wide text-on-success transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-success active:opacity-100 active:outline-offset-0 touch-target">
+         class="inline-flex items-center gap-2 whitespace-nowrap rounded-radius bg-success px-4 py-2 text-center text-sm font-medium tracking-wide text-on-success transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-success active:opacity-100 active:outline-offset-0 touch-target">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 shrink-0" aria-hidden="true">
+          <path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.524 3.659 1.435 5.168L2 22l4.968-1.41A9.952 9.952 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.946 7.946 0 01-4.073-1.117l-.291-.174-3.027.86.875-2.944-.19-.302A7.951 7.951 0 014 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8zm4.406-5.918c-.242-.121-1.432-.706-1.655-.787-.222-.08-.384-.121-.545.121-.162.242-.625.787-.767.949-.14.162-.282.182-.524.061-.242-.121-1.022-.376-1.947-1.199-.72-.64-1.205-1.432-1.347-1.674-.14-.242-.015-.373.106-.494.108-.109.242-.282.363-.424.121-.141.162-.242.242-.404.081-.162.04-.303-.02-.424-.061-.121-.545-1.317-.747-1.803-.196-.471-.397-.406-.545-.414-.14-.007-.302-.009-.464-.009-.162 0-.424.06-.646.302-.222.242-.848.829-.848 2.02 0 1.192.868 2.344.988 2.506.121.162 1.708 2.607 4.138 3.654.578.249 1.03.398 1.382.51.58.184 1.108.158 1.525.096.465-.069 1.432-.586 1.634-1.151.2-.566.2-1.051.14-1.151-.06-.1-.222-.162-.464-.283z"/>
+        </svg>
         WhatsApp
       </a>
       {% endif %}

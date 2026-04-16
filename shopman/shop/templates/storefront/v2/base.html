@@ -47,24 +47,18 @@
   {# ── Navbar (Penguin UI) ── #}
   <nav x-data="{ mobileMenuIsOpen: false }" x-on:click.away="mobileMenuIsOpen = false" class="flex items-center justify-between border-b border-outline px-6 py-4 dark:border-outline-dark" aria-label="{{ storefront.brand_name }} menu">
     {# Brand Logo #}
-    <a href="{% url 'storefront:home' %}" class="text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">
+    <a href="{% url 'storefront:home' %}" class="flex items-center gap-2 text-xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">
       {% if storefront.logo.name %}
       <img src="{{ storefront.logo.url }}" alt="{{ storefront.brand_name }}" class="h-10 w-auto object-contain">
       {% else %}
+      <span class="material-symbols-rounded text-2xl text-primary dark:text-primary-dark" aria-hidden="true">storefront</span>
       <span>{{ storefront.brand_name }}</span>
       {% endif %}
     </a>
     {# Desktop Menu #}
     <ul class="hidden items-center gap-4 md:flex">
       <li><a href="{% url 'storefront:menu' %}" class="font-medium text-on-surface underline-offset-2 hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">Cardapio</a></li>
-      <li><a href="{% url 'storefront:como_funciona' %}" class="font-medium text-on-surface underline-offset-2 hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">Como Funciona</a></li>
-      {% if request.user.is_authenticated %}
-      <li><a href="{% url 'storefront:order_history' %}" class="font-medium text-on-surface underline-offset-2 hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">Pedidos</a></li>
-      <li><a href="{% url 'storefront:account' %}" class="font-medium text-on-surface underline-offset-2 hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">Conta</a></li>
-      {% else %}
-      <li><a href="{% url 'storefront:login' %}" class="font-medium text-on-surface underline-offset-2 hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">Entrar</a></li>
-      {% endif %}
-      {# Cart — same style as other nav items + notification badge (always rendered so HTMX swaps can target it) #}
+      {# Cart — notification badge (always rendered so HTMX swaps can target it) #}
       <li>
         <button type="button" @click="$dispatch('open-cart-drawer')"
                 class="inline-flex items-center gap-1.5 font-medium text-on-surface underline-offset-2 hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark"
@@ -73,6 +67,56 @@
           {% include "storefront/v2/partials/cart_summary.html" %}
         </button>
       </li>
+      {# User: Avatar dropdown (auth) or Entrar link (guest) #}
+      {% if request.user.is_authenticated %}
+      <li x-data="{ open: false }" x-on:click.away="open = false" class="relative">
+        <button type="button" @click="open = !open"
+                class="flex items-center gap-1.5 rounded-radius px-2 py-1 text-on-surface hover:text-primary dark:text-on-surface-dark dark:hover:text-primary-dark transition focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
+                :aria-expanded="open" aria-haspopup="true">
+          <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary dark:bg-primary-dark/10 dark:text-primary-dark text-sm font-bold select-none" aria-hidden="true">
+            {% if customer_name %}{{ customer_name|first|upper }}{% else %}<span class="material-symbols-rounded text-base">person</span>{% endif %}
+          </span>
+          <span class="material-symbols-rounded text-base transition-transform duration-200" :class="open ? 'rotate-180' : ''" aria-hidden="true">expand_more</span>
+        </button>
+        {# Dropdown panel #}
+        <div x-cloak x-show="open"
+             x-transition:enter="transition ease-out duration-150"
+             x-transition:enter-start="opacity-0 -translate-y-1"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-100"
+             x-transition:leave-start="opacity-100 translate-y-0"
+             x-transition:leave-end="opacity-0 -translate-y-1"
+             class="absolute right-0 top-full mt-1 w-48 rounded-radius border border-outline bg-surface shadow-md z-50 dark:border-outline-dark dark:bg-surface-dark"
+             role="menu">
+          <ul class="py-1">
+            <li>
+              <a href="{% url 'storefront:order_history' %}" role="menuitem" @click="open = false"
+                 class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-on-surface hover:bg-surface-alt dark:text-on-surface-dark dark:hover:bg-surface-dark-alt transition">
+                <span class="material-symbols-rounded text-base text-on-surface/60 dark:text-on-surface-dark/60" aria-hidden="true">receipt_long</span>
+                Meus Pedidos
+              </a>
+            </li>
+            <li>
+              <a href="{% url 'storefront:account' %}" role="menuitem" @click="open = false"
+                 class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-on-surface hover:bg-surface-alt dark:text-on-surface-dark dark:hover:bg-surface-dark-alt transition">
+                <span class="material-symbols-rounded text-base text-on-surface/60 dark:text-on-surface-dark/60" aria-hidden="true">manage_accounts</span>
+                Minha Conta
+              </a>
+            </li>
+            <li class="my-1 border-t border-outline dark:border-outline-dark" role="separator"></li>
+            <li>
+              <button type="button" role="menuitem" @click="open = false; document.getElementById('nav-logout-form').submit()"
+                      class="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-danger hover:bg-danger/5 dark:text-danger-dark dark:hover:bg-danger-dark/5 transition">
+                <span class="material-symbols-rounded text-base" aria-hidden="true">logout</span>
+                Sair
+              </button>
+            </li>
+          </ul>
+        </div>
+      </li>
+      {% else %}
+      <li><a href="{% url 'storefront:login' %}" class="font-medium text-on-surface underline-offset-2 hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">Entrar</a></li>
+      {% endif %}
     </ul>
     {# Mobile Menu Button #}
     <button x-on:click="mobileMenuIsOpen = !mobileMenuIsOpen" x-bind:aria-expanded="mobileMenuIsOpen" x-bind:class="mobileMenuIsOpen ? 'fixed top-6 right-6 z-20' : null" type="button" class="flex text-on-surface dark:text-on-surface-dark md:hidden" aria-label="mobile menu" aria-controls="mobileMenu">

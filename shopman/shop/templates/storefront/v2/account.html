@@ -37,11 +37,16 @@
     {% for val, label in tab_options %}
     <button type="button"
             @click="tab = '{{ val }}'"
-            class="flex-shrink-0 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px"
+            class="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px"
             :class="tab === '{{ val }}'
               ? 'text-primary border-primary dark:text-primary-dark dark:border-primary-dark'
               : 'text-on-surface/60 border-transparent hover:text-on-surface hover:border-outline dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark dark:hover:border-outline-dark'"
             style="min-height: var(--touch-min)">
+      {% if val == 'perfil' %}<span class="material-symbols-rounded text-base" aria-hidden="true">person</span>
+      {% elif val == 'pedidos' %}<span class="material-symbols-rounded text-base" aria-hidden="true">receipt_long</span>
+      {% elif val == 'fidelidade' %}<span class="material-symbols-rounded text-base" aria-hidden="true">loyalty</span>
+      {% elif val == 'config' %}<span class="material-symbols-rounded text-base" aria-hidden="true">settings</span>
+      {% endif %}
       {{ label }}
     </button>
     {% endfor %}

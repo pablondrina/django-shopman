@@ -29,7 +29,7 @@
           }).then(() => { this.qty = target }).finally(() => { this.busy = false });
         }
       }"
-      class="card flex gap-4 relative overflow-hidden">
+      class="card flex gap-4 relative overflow-hidden transition-shadow duration-150 hover:shadow-md active:scale-[0.99]">
 
     {# Image — clickable navigation to PDP #}
     <a href="{% url 'storefront:product_detail' item.sku %}"
