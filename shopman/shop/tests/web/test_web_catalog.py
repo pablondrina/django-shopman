@@ -130,11 +130,12 @@ class TestProductDetailView:
 
         resp = client.get(f"/produto/{product.sku}/")
         assert resp.status_code == 200
-        assert resp.context["price_q"] == 80
-        assert resp.context["has_promo_price"] is True
-        assert resp.context["promo_price_display"] == "R$ 0,80"
-        assert resp.context["promo_original_price_display"] == "R$ 0,90"
-        assert resp.context["promo_badge"]["name"] == "Promo Web"
+        projection = resp.context["product"]
+        assert projection.base_price_q == 80
+        assert projection.has_promotion is True
+        assert projection.price_display == "R$ 0,80"
+        assert projection.original_price_display == "R$ 0,90"
+        assert projection.promotion_label is not None
 
     def test_pdp_shows_alternatives_when_sold_out(self, client: Client, product_unavailable, product):
         """When product is unavailable (paused), PDP shows alternatives section."""

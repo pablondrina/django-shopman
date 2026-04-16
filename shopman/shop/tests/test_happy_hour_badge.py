@@ -121,17 +121,17 @@ class MenuViewHappyHourContextTests(TestCase):
         )
 
     def test_menu_passes_happy_hour_info_to_context(self) -> None:
-        """MenuView GET passes happy_hour_info dict to template context."""
-        with patch("shopman.shop.web.views.catalog.happy_hour_state") as mock_hh:
+        """MenuView GET includes catalog projection in context (v2 default)."""
+        with patch("shopman.shop.projections.catalog.happy_hour_state") as mock_hh:
             mock_hh.return_value = {"active": False, "discount_percent": 10, "start": "16:00", "end": "18:00"}
             resp = self.client.get("/menu/")
 
         self.assertEqual(resp.status_code, 200)
-        self.assertIn("happy_hour_info", resp.context)
+        self.assertIn("catalog", resp.context)
 
     def test_banner_shown_when_active(self) -> None:
         """Template renders Happy Hour banner when active=True."""
-        with patch("shopman.shop.web.views.catalog.happy_hour_state") as mock_hh:
+        with patch("shopman.shop.projections.catalog.happy_hour_state") as mock_hh:
             mock_hh.return_value = {"active": True, "discount_percent": 10, "start": "16:00", "end": "18:00"}
             resp = self.client.get("/menu/")
 
@@ -140,7 +140,7 @@ class MenuViewHappyHourContextTests(TestCase):
 
     def test_banner_hidden_when_inactive(self) -> None:
         """Template does NOT render Happy Hour banner when active=False."""
-        with patch("shopman.shop.web.views.catalog.happy_hour_state") as mock_hh:
+        with patch("shopman.shop.projections.catalog.happy_hour_state") as mock_hh:
             mock_hh.return_value = {"active": False, "discount_percent": 10, "start": "16:00", "end": "18:00"}
             resp = self.client.get("/menu/")
 

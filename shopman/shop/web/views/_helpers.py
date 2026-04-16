@@ -21,18 +21,16 @@ logger = logging.getLogger(__name__)
 
 
 def _is_v2_request(request: HttpRequest) -> bool:
-    """True when the request originates from a v2 pilot surface.
+    """True for v2 surfaces (default). False only when ``?v1`` is present.
 
-    Detects HTMX requests fired from a page whose URL carries the ``?v2``
-    query param (HTMX sends the originating page via ``HX-Current-URL``),
-    and also non-HTMX ``GET`` navigations to v2 URLs. Used by shared views
-    (cart summary, drawer, add-to-cart) to pick the right response template
-    during the v2 pilot without forking the URL map.
+    v2 is now the default storefront. ``?v1`` opts back into the legacy
+    templates. For HTMX requests, inspects ``HX-Current-URL`` (the
+    originating page URL sent by HTMX) to detect v1 pages.
     """
     current = request.headers.get("HX-Current-URL") or ""
-    if "v2" in current:
-        return True
-    return request.GET.get("v2") is not None
+    if "v1" in current:
+        return False
+    return request.GET.get("v1") is None
 
 
 def _get_channel_listing_ref() -> str | None:

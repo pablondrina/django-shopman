@@ -33,6 +33,19 @@
 </div>
 {% endif %}
 
+{% if reorder_skipped %}
+<div x-data="{ show: true }" x-show="show" class="mb-4 flex items-start gap-3 px-4 py-3 rounded-xl bg-muted border border-border" role="status" aria-live="polite">
+  <span class="material-symbols-rounded shrink-0 text-muted-foreground mt-0.5" aria-hidden="true">info</span>
+  <p class="text-body-sm text-foreground flex-1">
+    {{ reorder_skipped|length }} item{% if reorder_skipped|length != 1 %}(s){% endif %} indisponível{% if reorder_skipped|length != 1 %}(is){% endif %} e não foi adicionado ao carrinho:
+    <span class="font-medium">{{ reorder_skipped|join:", " }}</span>
+  </p>
+  <button @click="show = false" class="shrink-0 text-muted-foreground hover:text-foreground" aria-label="Fechar aviso">
+    <span class="material-symbols-rounded text-base" aria-hidden="true">close</span>
+  </button>
+</div>
+{% endif %}
+
 {# ── Page header ── #}
 <header class="mb-6">
   <h1 class="text-2xl lg:text-3xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Cardápio</h1>

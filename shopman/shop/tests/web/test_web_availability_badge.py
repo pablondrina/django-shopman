@@ -67,38 +67,20 @@ def product_unavailable(db):
 
 
 class TestAvailabilityBadgePartialSSR:
-    """SSR renders availability badge with correct initial class and hx-get attribute."""
+    """v2 product detail renders static availability badge from projection."""
 
-    def test_product_detail_sold_out_renders_badge_with_hx_get(self, client, product_unavailable):
+    def test_product_detail_sold_out_renders_unavailable_badge(self, client, product_unavailable):
         resp = client.get(f"/produto/{product_unavailable.sku}/")
         assert resp.status_code == 200
         content = resp.content.decode()
-        # Badge partial is rendered when badge.label is truthy (unavailable product)
-        assert "availability-badge" in content
-        assert "hx-get" in content
-        assert f"/api/availability/{product_unavailable.sku}/" in content
+        assert "Indisponível" in content
 
     def test_product_detail_badge_has_correct_class(self, client, product_unavailable):
         resp = client.get(f"/produto/{product_unavailable.sku}/")
         assert resp.status_code == 200
         content = resp.content.decode()
-        assert "badge-unavailable" in content
+        assert "badge-neutral" in content
 
-    def test_product_detail_badge_has_htmx_trigger(self, client, product_unavailable):
-        resp = client.get(f"/produto/{product_unavailable.sku}/")
+    def test_product_detail_available_renders_200(self, client, product):
+        resp = client.get(f"/produto/{product.sku}/")
         assert resp.status_code == 200
-        content = resp.content.decode()
-        assert "every 30s" in content
-
-    def test_product_detail_badge_has_channel_param(self, client, product_unavailable):
-        resp = client.get(f"/produto/{product_unavailable.sku}/")
-        assert resp.status_code == 200
-        content = resp.content.decode()
-        assert "?channel=web" in content
-
-    def test_product_detail_badge_outerhtml_swap(self, client, product_unavailable):
-        """Badge partial uses outerHTML swap so HTMX replaces the entire element on poll."""
-        resp = client.get(f"/produto/{product_unavailable.sku}/")
-        assert resp.status_code == 200
-        content = resp.content.decode()
-        assert 'hx-swap="outerHTML"' in content

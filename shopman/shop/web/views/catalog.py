@@ -58,9 +58,8 @@ class MenuView(View):
         if request.GET.get("partial") == "availability_preview":
             return self._availability_preview(request, listing_ref)
 
-        # ?v2 flag: Penguin UI pilot driven by the CatalogProjection read model.
-        # Keeps v1 intact — toggled per-request for side-by-side validation.
-        if request.GET.get("v2") is not None:
+        # v2 is default. ?v1 opts back into the legacy template.
+        if request.GET.get("v1") is None:
             from shopman.shop.projections import build_catalog
             from shopman.shop.web.constants import STOREFRONT_CHANNEL_REF
 
@@ -71,7 +70,11 @@ class MenuView(View):
                 collection_ref=collection,
                 request=request,
             )
-            return render(request, "storefront/v2/menu.html", {"catalog": catalog})
+            reorder_skipped = request.session.pop("reorder_skipped", None)
+            return render(request, "storefront/v2/menu.html", {
+                "catalog": catalog,
+                "reorder_skipped": reorder_skipped,
+            })
 
         collections = Collection.objects.filter(is_active=True).order_by("sort_order", "name")
         active_collection = None
@@ -266,9 +269,8 @@ class ProductDetailView(View):
     """Product detail page."""
 
     def get(self, request: HttpRequest, sku: str) -> HttpResponse:
-        # ?v2 flag: Penguin UI pilot driven by ProductDetailProjection.
-        # Keeps v1 intact — toggled per-request for side-by-side validation.
-        if request.GET.get("v2") is not None:
+        # v2 is default. ?v1 opts back into the legacy template.
+        if request.GET.get("v1") is None:
             from django.http import Http404
 
             from shopman.shop.projections import build_product_detail

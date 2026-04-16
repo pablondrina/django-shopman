@@ -1,9 +1,11 @@
 # Plano Temporário — Consolidação Semântica de Nomes
 
-Data: 2026-04-15
-Status: Pendente (aguardando aprovação explícita do Pablo para executar — não é commit automático)
-Escopo: Grande — refactor que toca imports, URLs, settings, Django label, filesystem
-Arquivar em: `docs/plans/completed/` ao concluir.
+**Status: CANCELADO** — Decisão 2026-04-15: manter `shopman/shop/` como está. Sem rename.
+
+~~Data: 2026-04-15~~
+~~Status: Pendente (aguardando aprovação explícita do Pablo para executar — não é commit automático)~~
+~~Escopo: Grande — refactor que toca imports, URLs, settings, Django label, filesystem~~
+~~Arquivar em: `docs/plans/completed/` ao concluir.~~
 
 ---
 

@@ -33,22 +33,21 @@ def _cart_summary_template(request: HttpRequest) -> str:
 class CartView(View):
     """Cart page.
 
-    v1 redirects to the menu (cart lives as a drawer). ``?v2`` renders
-    the full Penguin UI cart page driven by ``CartProjection`` — pilot
-    surface while the drawer keeps serving v1 users.
+    v2 (default): full Penguin UI cart page driven by ``CartProjection``.
+    ``?v1``: legacy behaviour — redirect to menu with cart drawer open.
     """
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        if request.GET.get("v2") is not None:
-            from shopman.shop.projections import build_cart
-            from shopman.shop.web.constants import STOREFRONT_CHANNEL_REF
+        if request.GET.get("v1") is not None:
+            from django.urls import reverse
 
-            cart = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
-            return render(request, "storefront/v2/cart.html", {"cart": cart})
+            return redirect(reverse("storefront:menu") + "?open_cart=1", permanent=False)
 
-        from django.urls import reverse
+        from shopman.shop.projections import build_cart
+        from shopman.shop.web.constants import STOREFRONT_CHANNEL_REF
 
-        return redirect(reverse("storefront:menu") + "?open_cart=1", permanent=False)
+        cart = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
+        return render(request, "storefront/v2/cart.html", {"cart": cart})
 
 
 class AddToCartView(View):

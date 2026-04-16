@@ -617,7 +617,7 @@ class CheckoutView(View):
             return errors
 
         # If delivery is for today: slot must be in the future
-        today = timezone.now().date()
+        today = timezone.localtime().date()
         is_today = True
         if delivery_date:
             try:
