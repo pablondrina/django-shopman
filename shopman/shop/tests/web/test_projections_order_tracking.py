@@ -60,8 +60,9 @@ class TestOrderTrackingShape:
         assert proj.is_active is True
 
     def test_is_active_false_for_completed(self, order):
-        order.status = "completed"
-        order.save(update_fields=["status"])
+        from shopman.orderman.models import Order as _Order
+        _Order.objects.filter(pk=order.pk).update(status="completed")
+        order.refresh_from_db()
         proj = build_order_tracking(order)
         assert proj.is_active is False
 
@@ -153,22 +154,23 @@ class TestStatusColours:
         ("cancelled", "danger"),
     ])
     def test_status_colour_uses_penguin_tokens(self, order, status, expected_fragment):
-        order.status = status
-        order.save(update_fields=["status"])
+        from shopman.orderman.models import Order as _Order
+        _Order.objects.filter(pk=order.pk).update(status=status)
+        order.refresh_from_db()
         proj = build_order_tracking(order)
         assert expected_fragment in proj.status_color
 
     def test_ready_pickup_label(self, order):
-        order.status = "ready"
-        order.data = {"fulfillment_type": "pickup"}
-        order.save(update_fields=["status", "data"])
+        from shopman.orderman.models import Order as _Order
+        _Order.objects.filter(pk=order.pk).update(status="ready", data={"fulfillment_type": "pickup"})
+        order.refresh_from_db()
         proj = build_order_tracking(order)
         assert proj.status_label == "Pronto para retirada"
 
     def test_ready_delivery_label(self, order):
-        order.status = "ready"
-        order.data = {"fulfillment_type": "delivery"}
-        order.save(update_fields=["status", "data"])
+        from shopman.orderman.models import Order as _Order
+        _Order.objects.filter(pk=order.pk).update(status="ready", data={"fulfillment_type": "delivery"})
+        order.refresh_from_db()
         proj = build_order_tracking(order)
         assert proj.status_label == "Aguardando motoboy"
 
@@ -196,8 +198,9 @@ class TestOrderTrackingStatusProjection:
 
     @pytest.mark.parametrize("status", ["completed", "cancelled", "returned"])
     def test_terminal_for_terminal_statuses(self, order, status):
-        order.status = status
-        order.save(update_fields=["status"])
+        from shopman.orderman.models import Order as _Order
+        _Order.objects.filter(pk=order.pk).update(status=status)
+        order.refresh_from_db()
         proj = build_order_tracking_status(order)
         assert proj.is_terminal is True
 

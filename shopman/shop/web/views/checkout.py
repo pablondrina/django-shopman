@@ -126,25 +126,25 @@ class CheckoutView(View):
         if customer_info is None:
             return redirect("/login/?next=/checkout/")
 
-        if _is_v2_request(request):
-            from shopman.shop.projections import build_checkout
+        if request.GET.get("v1") is not None:
+            ctx = self._checkout_page_context(request, cart)
+            ctx["form_data"] = {
+                "phone": customer_info.phone or "",
+                "name": customer_info.name or "",
+            }
+            return render(request, "storefront/checkout.html", ctx)
 
-            checkout = build_checkout(request=request, channel_ref=CHANNEL_REF)
-            return render(request, "storefront/v2/checkout.html", {
-                "checkout": checkout,
-                "errors": {},
-                "form_data": {
-                    "phone": customer_info.phone or "",
-                    "name": customer_info.name or "",
-                },
-            })
+        from shopman.shop.projections import build_checkout
 
-        ctx = self._checkout_page_context(request, cart)
-        ctx["form_data"] = {
-            "phone": customer_info.phone or "",
-            "name": customer_info.name or "",
-        }
-        return render(request, "storefront/checkout.html", ctx)
+        checkout = build_checkout(request=request, channel_ref=CHANNEL_REF)
+        return render(request, "storefront/v2/checkout.html", {
+            "checkout": checkout,
+            "errors": {},
+            "form_data": {
+                "phone": customer_info.phone or "",
+                "name": customer_info.name or "",
+            },
+        })
 
     def post(self, request: HttpRequest) -> HttpResponse:
         if getattr(request, "limited", False):
@@ -808,12 +808,23 @@ class CheckoutView(View):
         form_data = {"name": name, "phone": phone_raw, "notes": notes}
         if extra_form_data:
             form_data.update(extra_form_data)
-        ctx = self._checkout_page_context(request, cart)
-        ctx["errors"] = errors
-        ctx["form_data"] = form_data
-        if repricing_warnings:
-            ctx["repricing_warnings"] = repricing_warnings
-        return render(request, "storefront/checkout.html", ctx)
+
+        if request.GET.get("v1") is not None:
+            ctx = self._checkout_page_context(request, cart)
+            ctx["errors"] = errors
+            ctx["form_data"] = form_data
+            if repricing_warnings:
+                ctx["repricing_warnings"] = repricing_warnings
+            return render(request, "storefront/checkout.html", ctx)
+
+        from shopman.shop.projections import build_checkout
+
+        checkout = build_checkout(request=request, channel_ref=CHANNEL_REF)
+        return render(request, "storefront/v2/checkout.html", {
+            "checkout": checkout,
+            "errors": errors,
+            "form_data": form_data,
+        })
 
 
 class CheckoutOrderSummaryView(View):

@@ -15,7 +15,7 @@
     </li>
     {% include "storefront/v2/partials/_breadcrumb_chevron.html" %}
     <li>
-      <a href="{% url 'storefront:cart' %}?v2"
+      <a href="{% url 'storefront:cart' %}"
          class="text-on-surface hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">
         Carrinho
       </a>
@@ -83,7 +83,7 @@
       </div>
       {% endif %}
 
-      <form method="post" action="{% url 'storefront:checkout' %}?v2" id="checkout-form" class="space-y-6" novalidate>
+      <form method="post" action="{% url 'storefront:checkout' %}" id="checkout-form" class="space-y-6" novalidate>
         {% csrf_token %}
 
         {% comment %}── Contact ──{% endcomment %}

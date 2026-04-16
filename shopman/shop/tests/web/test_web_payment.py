@@ -41,17 +41,17 @@ class TestPaymentCardPage:
 
     @override_settings(STRIPE_PUBLISHABLE_KEY="pk_test_abc123")
     def test_card_payment_renders_meta_tag(self, client: Client, order_card):
-        """Payment page with a configured STRIPE_PUBLISHABLE_KEY renders the meta tag."""
+        """Payment page with a configured STRIPE_PUBLISHABLE_KEY renders the stripe-key meta tag."""
         resp = client.get(f"/pedido/{order_card.ref}/pagamento/")
         assert resp.status_code == 200
         content = resp.content.decode()
-        assert '<meta name="stripe-publishable-key"' in content
+        assert '<meta name="stripe-key"' in content
         assert "pk_test_abc123" in content
 
     @override_settings(STRIPE_PUBLISHABLE_KEY="")
     def test_no_meta_tag_when_key_not_configured(self, client: Client, order_card):
-        """When STRIPE_PUBLISHABLE_KEY is empty, the meta tag is not rendered."""
+        """When STRIPE_PUBLISHABLE_KEY is empty, the stripe-key meta tag is not rendered."""
         resp = client.get(f"/pedido/{order_card.ref}/pagamento/")
         assert resp.status_code == 200
         content = resp.content.decode()
-        assert '<meta name="stripe-publishable-key"' not in content
+        assert 'name="stripe-key"' not in content

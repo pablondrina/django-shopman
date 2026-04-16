@@ -1,5 +1,5 @@
 {# HTMX polling partial for payment status. Replaces #payment-status-area. #}
-{# Rendered by PaymentStatusView when request has ?v2 or HX-Current-URL contains v2. #}
+{# Rendered by PaymentStatusView (v2 default, v1 via ?v1). #}
 <div id="payment-status-area" aria-live="polite">
 
 {% if payment_status.is_paid %}
@@ -14,7 +14,7 @@
   <span class="material-symbols-rounded text-3xl block mb-1" aria-hidden="true">schedule</span>
   <p class="font-semibold">PIX expirado</p>
   <p class="text-sm mt-1">O tempo para pagamento encerrou.</p>
-  <a href="{% url 'storefront:order_tracking' ref=payment_status.order_ref %}?v2"
+  <a href="{% url 'storefront:order_tracking' ref=payment_status.order_ref %}"
      class="mt-3 inline-block text-sm underline underline-offset-2">Ver pedido</a>
 </div>
 
@@ -22,7 +22,7 @@
 <div class="rounded-radius border border-danger/30 bg-danger/10 p-4 text-center text-danger">
   <span class="material-symbols-rounded text-3xl block mb-1" aria-hidden="true">cancel</span>
   <p class="font-semibold">Pedido cancelado</p>
-  <a href="{% url 'storefront:order_tracking' ref=payment_status.order_ref %}?v2"
+  <a href="{% url 'storefront:order_tracking' ref=payment_status.order_ref %}"
      class="mt-3 inline-block text-sm underline underline-offset-2">Ver detalhes</a>
 </div>
 

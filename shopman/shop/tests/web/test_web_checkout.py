@@ -136,7 +136,7 @@ class TestCheckoutPost:
         shop_instance.save()
 
         _login_as_customer(cart_session, customer)
-        resp = cart_session.get("/checkout/")
+        resp = cart_session.get("/checkout/?v1")
         assert resp.status_code == 200
         content = resp.content.decode()
         assert "Faltam" in content

@@ -143,7 +143,7 @@ class CartDrawerContentView(View):
 class CartContentV2View(View):
     """HTMX: v2 cart page inner content driven by ``CartProjection``.
 
-    Companion to ``CartView`` ``?v2`` — the page wraps the partial in a
+    Companion to ``CartView`` v2 — the page wraps the partial in a
     ``#cart-page-content`` div that listens for ``cartUpdated from:body``
     and refetches this URL, so stepper/delete/coupon/upsell actions
     refresh the cart in place without a full page reload.
@@ -164,7 +164,7 @@ class CartContentV2View(View):
 class CartDrawerContentV2View(View):
     """HTMX: v2 cart drawer driven by ``CartProjection``.
 
-    Companion to ``CartView`` ``?v2`` — the v2 base template opens this
+    Companion to ``CartView`` v2 — the v2 base template opens this
     URL so the drawer renders with the same typed read model as the
     full cart page. v1 drawer stays untouched on ``cart_drawer``.
     """

@@ -18,7 +18,7 @@ the cascading ``cartUpdated`` reload destroys the source element.
     <span class="material-symbols-rounded text-6xl text-on-surface/30 dark:text-on-surface-dark/30 mb-4" aria-hidden="true">shopping_cart</span>
     <h4 class="text-lg font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-1">Carrinho vazio</h4>
     <p class="text-sm text-on-surface dark:text-on-surface-dark mb-6 max-w-xs">Adicione itens do cardápio para montar seu pedido.</p>
-    <a href="{% url 'storefront:menu' %}?v2" @click="closeCartDrawer()"
+    <a href="{% url 'storefront:menu' %}" @click="closeCartDrawer()"
        class="btn-primary inline-flex items-center gap-2">
       <span class="material-symbols-rounded text-base" aria-hidden="true">restaurant_menu</span>
       Ver cardápio
@@ -260,7 +260,7 @@ the cascading ``cartUpdated`` reload destroys the source element.
       Faltam {{ cart.minimum_order_progress.remaining_display }}
     </button>
     {% else %}
-    <a href="{% url 'storefront:cart' %}?v2" class="btn-primary w-full">
+    <a href="{% url 'storefront:cart' %}" class="btn-primary w-full">
       <span class="material-symbols-rounded text-base" aria-hidden="true">payments</span>
       Ver carrinho
     </a>

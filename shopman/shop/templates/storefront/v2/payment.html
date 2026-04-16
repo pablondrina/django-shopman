@@ -93,7 +93,7 @@
 
     {% comment %}Polling partial — updates status every 5s{% endcomment %}
     <div id="payment-status-area"
-         hx-get="{{ payment.status_url }}?v2"
+         hx-get="{{ payment.status_url }}"
          hx-trigger="load, every 5s"
          hx-swap="outerHTML"
          aria-live="polite">
@@ -114,7 +114,7 @@
         loading = true;
         const { error } = await stripe.confirmPayment({
           elements,
-          confirmParams: { return_url: window.location.origin + '/pedido/{{ payment.order_ref }}/?v2' }
+          confirmParams: { return_url: window.location.origin + '/pedido/{{ payment.order_ref }}/' }
         });
         if (error) { this.error = error.message; loading = false; }
       });
@@ -133,7 +133,7 @@
 
     {% comment %}Polling partial{% endcomment %}
     <div id="payment-status-area"
-         hx-get="{{ payment.status_url }}?v2"
+         hx-get="{{ payment.status_url }}"
          hx-trigger="load, every 5s"
          hx-swap="outerHTML"
          aria-live="polite">
@@ -154,7 +154,7 @@
   </div>
 
   <p class="mt-4 text-center text-sm text-on-surface/50 dark:text-on-surface-dark/50">
-    <a href="{% url 'storefront:order_tracking' ref=payment.order_ref %}?v2"
+    <a href="{% url 'storefront:order_tracking' ref=payment.order_ref %}"
        class="underline underline-offset-2 hover:text-primary dark:hover:text-primary-dark">
       Acompanhar pedido
     </a>

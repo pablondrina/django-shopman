@@ -32,7 +32,7 @@
       class="card flex gap-4 relative overflow-hidden">
 
     {# Image — clickable navigation to PDP #}
-    <a href="{% url 'storefront:product_detail' item.sku %}?v2"
+    <a href="{% url 'storefront:product_detail' item.sku %}"
        class="shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-surface dark:bg-surface-dark border border-outline dark:border-outline-dark focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
        aria-label="Ver detalhes de {{ item.name }}">
       {% if item.image_url %}
@@ -48,7 +48,7 @@
     <div class="flex-1 min-w-0 flex flex-col">
       <div class="flex items-start justify-between gap-2">
         <h3 class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong leading-tight">
-          <a href="{% url 'storefront:product_detail' item.sku %}?v2"
+          <a href="{% url 'storefront:product_detail' item.sku %}"
              class="hover:text-primary dark:hover:text-primary-dark focus:outline-hidden focus:underline">
             {{ item.name }}
           </a>
@@ -60,7 +60,7 @@
 
       {% if item.short_description %}
       <p class="mt-1 text-xs text-on-surface dark:text-on-surface-dark line-clamp-2">
-        <a href="{% url 'storefront:product_detail' item.sku %}?v2"
+        <a href="{% url 'storefront:product_detail' item.sku %}"
            class="hover:text-primary dark:hover:text-primary-dark focus:outline-hidden focus:underline">
           {{ item.short_description }}
         </a>
