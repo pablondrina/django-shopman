@@ -11,7 +11,7 @@ from shopman.orderman.models import Order
 from shopman.utils.monetary import format_money
 
 from ..cart import CartService
-from ._helpers import _carrier_tracking_url, _format_opening_hours, _get_price_q, _line_item_is_d1
+from ._helpers import _carrier_tracking_url, _format_opening_hours, _get_price_q, _is_v2_request, _line_item_is_d1
 
 logger = logging.getLogger(__name__)
 
@@ -225,6 +225,13 @@ class OrderTrackingView(View):
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
         order = get_object_or_404(Order, ref=ref)
+
+        if _is_v2_request(request):
+            from shopman.shop.projections import build_order_tracking
+
+            proj = build_order_tracking(order)
+            return render(request, "storefront/v2/order_tracking.html", {"tracking": proj})
+
         ctx = _build_tracking_context(order)
 
         from shopman.shop.models import Shop
@@ -300,6 +307,18 @@ class OrderStatusPartialView(View):
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
         order = get_object_or_404(Order, ref=ref)
+
+        if _is_v2_request(request):
+            from shopman.shop.projections import build_order_tracking_status
+
+            proj = build_order_tracking_status(order)
+            response = render(
+                request, "storefront/v2/partials/order_status.html", {"tracking_status": proj}
+            )
+            if proj.is_terminal:
+                response.status_code = 286
+            return response
+
         ctx = _build_tracking_context(order)
         response = render(request, "storefront/partials/order_status.html", ctx)
         if order.status in _TERMINAL_STATUSES:

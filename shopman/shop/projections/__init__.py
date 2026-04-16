@@ -26,6 +26,20 @@ from .catalog import (
     build_catalog,
     build_catalog_items_for_skus,
 )
+from .checkout import CheckoutProjection, build_checkout
+from .order_tracking import (
+    OrderTrackingProjection,
+    OrderTrackingStatusProjection,
+    PickupInfoProjection,
+    build_order_tracking,
+    build_order_tracking_status,
+)
+from .payment import (
+    PaymentProjection,
+    PaymentStatusProjection,
+    build_payment,
+    build_payment_status,
+)
 from .product_detail import (
     AllergenInfoProjection,
     ConservationInfoProjection,
@@ -36,7 +50,16 @@ from .types import (
     Availability,
     CategoryProjection,
     ComponentProjection,
+    FulfillmentProjection,
     HappyHourProjection,
+    ORDER_STATUS_COLORS,
+    ORDER_STATUS_LABELS_PT,
+    OrderItemProjection,
+    PAYMENT_METHOD_LABELS_PT,
+    PaymentMethodOptionProjection,
+    PickupSlotProjection,
+    SavedAddressProjection,
+    TimelineEventProjection,
 )
 
 __all__ = [
@@ -48,15 +71,35 @@ __all__ = [
     "CatalogProjection",
     "CatalogSectionProjection",
     "CategoryProjection",
+    "CheckoutProjection",
     "ComponentProjection",
     "ConservationInfoProjection",
     "DiscountLineProjection",
+    "FulfillmentProjection",
     "HappyHourProjection",
     "MinimumOrderProgressProjection",
+    "ORDER_STATUS_COLORS",
+    "ORDER_STATUS_LABELS_PT",
+    "OrderItemProjection",
+    "OrderTrackingProjection",
+    "OrderTrackingStatusProjection",
+    "PAYMENT_METHOD_LABELS_PT",
+    "PaymentMethodOptionProjection",
+    "PaymentProjection",
+    "PaymentStatusProjection",
+    "PickupInfoProjection",
+    "PickupSlotProjection",
     "ProductDetailProjection",
+    "SavedAddressProjection",
+    "TimelineEventProjection",
     "UpsellSuggestionProjection",
     "build_cart",
     "build_catalog",
     "build_catalog_items_for_skus",
+    "build_checkout",
+    "build_order_tracking",
+    "build_order_tracking_status",
+    "build_payment",
+    "build_payment_status",
     "build_product_detail",
 ]
