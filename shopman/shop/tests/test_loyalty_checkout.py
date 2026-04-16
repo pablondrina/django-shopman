@@ -221,7 +221,7 @@ class CheckoutLoyaltyContextTests(TestCase):
 
         with patch("shopman.guestman.contrib.loyalty.service.LoyaltyService.get_balance") as mock_bal:
             mock_bal.return_value = 250
-            resp = self.client.get("/checkout/")
+            resp = self.client.get("/checkout/?v1")
 
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.context.get("loyalty_balance"), 250)
@@ -240,7 +240,7 @@ class CheckoutLoyaltyContextTests(TestCase):
 
         with patch("shopman.guestman.contrib.loyalty.service.LoyaltyService.get_balance") as mock_bal:
             mock_bal.return_value = 0
-            resp = self.client.get("/checkout/")
+            resp = self.client.get("/checkout/?v1")
 
         self.assertEqual(resp.status_code, 200)
         self.assertNotContains(resp, "Resgatar pontos")

@@ -26,7 +26,7 @@ from shopman.shop.services.storefront_context import minimum_order_progress
 
 from ..cart import CHANNEL_REF, CartService
 from ..constants import get_default_ddd
-from ._helpers import _get_availability
+from ._helpers import _get_availability, _is_v2_request
 from .tracking import CepLookupView, OrderConfirmationView  # noqa: F401
 
 
@@ -126,7 +126,7 @@ class CheckoutView(View):
         if customer_info is None:
             return redirect("/login/?next=/checkout/")
 
-        if request.GET.get("v2") is not None:
+        if _is_v2_request(request):
             from shopman.shop.projections import build_checkout
 
             checkout = build_checkout(request=request, channel_ref=CHANNEL_REF)

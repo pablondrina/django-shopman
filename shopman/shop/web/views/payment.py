@@ -33,7 +33,7 @@ class PaymentView(View):
         if order.status == "cancelled":
             return redirect("storefront:order_tracking", ref=ref)
 
-        if request.GET.get("v2") is not None:
+        if _is_v2_request(request):
             from shopman.shop.projections import build_payment
 
             proj = build_payment(order)
