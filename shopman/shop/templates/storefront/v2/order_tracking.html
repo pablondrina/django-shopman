@@ -126,7 +126,7 @@
   {% for ful in tracking.delivery_fulfillments %}
   <div class="rounded-radius border border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark p-5 space-y-2">
     <div class="flex items-center justify-between">
-      <h2 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong text-sm">Entrega</h2>
+      <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Entrega</h2>
       <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">{{ ful.status_label }}</span>
     </div>
     {% if ful.carrier %}<p class="text-sm text-on-surface dark:text-on-surface-dark">Transportadora: {{ ful.carrier }}</p>{% endif %}
@@ -146,7 +146,7 @@
   {% comment %}── Pickup info ──{% endcomment %}
   {% if tracking.pickup_info %}
   <div class="rounded-radius border border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark p-5 space-y-1">
-    <h2 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong text-sm">Retirada</h2>
+    <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Retirada</h2>
     <p class="text-sm text-on-surface dark:text-on-surface-dark">{{ tracking.pickup_info.address }}</p>
     {% if tracking.pickup_info.opening_hours %}
     <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">{{ tracking.pickup_info.opening_hours }}</p>
@@ -157,7 +157,7 @@
   {% comment %}── Cancel ──{% endcomment %}
   {% if tracking.can_cancel %}
   <div class="rounded-radius border border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark p-5">
-    <h2 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong text-sm mb-3">Cancelar pedido</h2>
+    <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-3">Cancelar pedido</h2>
     <form method="post" action="{% url 'storefront:order_cancel' ref=tracking.order_ref %}"
           x-data="{ confirming: false }">
       {% csrf_token %}

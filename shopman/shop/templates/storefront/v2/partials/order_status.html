@@ -13,12 +13,27 @@
     </div>
 
     {% if ts.timeline %}
-    <ol class="relative border-l border-outline dark:border-outline-dark ml-2 space-y-4" aria-label="Histórico do pedido">
+    <ol class="space-y-0" aria-label="Histórico do pedido">
       {% for event in ts.timeline %}
-      <li class="ml-4">
-        <div class="absolute -left-1.5 mt-0.5 h-3 w-3 rounded-full border border-outline bg-surface dark:border-outline-dark dark:bg-surface-dark"></div>
-        <p class="text-sm font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ event.label }}</p>
-        <time class="text-xs text-on-surface/50 dark:text-on-surface-dark/50">{{ event.timestamp_display }}</time>
+      <li class="flex gap-3 {% if not forloop.last %}pb-4{% endif %}">
+        <div class="flex flex-col items-center shrink-0">
+          <div class="flex size-7 items-center justify-center rounded-full
+                      {% if forloop.first %}bg-primary text-on-primary dark:bg-primary-dark dark:text-on-primary-dark
+                      {% else %}bg-surface-alt border border-outline text-on-surface/50 dark:bg-surface-dark-alt dark:border-outline-dark dark:text-on-surface-dark/50{% endif %}">
+            {% if forloop.first %}
+            <span class="material-symbols-rounded text-sm" aria-hidden="true">check</span>
+            {% else %}
+            <span class="text-xs font-medium">{{ forloop.revcounter }}</span>
+            {% endif %}
+          </div>
+          {% if not forloop.last %}
+          <div class="mt-1 w-px flex-1 bg-outline dark:bg-outline-dark min-h-[1rem]"></div>
+          {% endif %}
+        </div>
+        <div class="flex-1 min-w-0 pb-1">
+          <p class="text-sm font-medium text-on-surface-strong dark:text-on-surface-dark-strong leading-tight">{{ event.label }}</p>
+          <time class="text-xs text-on-surface/50 dark:text-on-surface-dark/50">{{ event.timestamp_display }}</time>
+        </div>
       </li>
       {% endfor %}
     </ol>

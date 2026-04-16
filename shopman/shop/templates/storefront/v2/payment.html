@@ -33,8 +33,14 @@
       countdown: null,
       expiresAt: '{{ payment.pix_expires_at|default:'' }}',
       timeLeft: '',
+      totalSecs: 0,
+      secsLeft: 0,
       init() {
-        if (this.expiresAt) this.startCountdown();
+        if (this.expiresAt) {
+          this.totalSecs = Math.max(0, Math.floor((new Date(this.expiresAt) - Date.now()) / 1000));
+          this.secsLeft = this.totalSecs;
+          this.startCountdown();
+        }
       },
       startCountdown() {
         this.tick();
@@ -42,9 +48,14 @@
       },
       tick() {
         const diff = Math.max(0, Math.floor((new Date(this.expiresAt) - Date.now()) / 1000));
+        this.secsLeft = diff;
         if (diff === 0) { clearInterval(this.countdown); this.timeLeft = 'expirado'; return; }
         const m = Math.floor(diff / 60), s = diff % 60;
         this.timeLeft = m + ':' + String(s).padStart(2, '0');
+      },
+      get progressPct() {
+        if (!this.totalSecs) return 100;
+        return Math.round((this.secsLeft / this.totalSecs) * 100);
       },
       copy() {
         if (!navigator.clipboard) return;
@@ -85,8 +96,19 @@
       {% endif %}
 
       {% if payment.pix_expires_at %}
-      <p class="text-center text-sm text-on-surface/60 dark:text-on-surface-dark/60" x-show="timeLeft">
-        Expira em <span class="font-mono font-semibold" x-text="timeLeft"></span>
+      <div x-show="timeLeft && timeLeft !== 'expirado'" class="space-y-1.5">
+        <div class="h-1.5 w-full rounded-full bg-outline dark:bg-outline-dark overflow-hidden">
+          <div class="h-full rounded-full transition-all duration-1000"
+               :class="progressPct > 30 ? 'bg-primary dark:bg-primary-dark' : 'bg-danger dark:bg-danger-dark'"
+               :style="'width: ' + progressPct + '%'"></div>
+        </div>
+        <p class="text-center text-sm text-on-surface/60 dark:text-on-surface-dark/60">
+          Expira em <span class="font-mono font-semibold" x-text="timeLeft"></span>
+        </p>
+      </div>
+      <p x-show="timeLeft === 'expirado'" x-cloak
+         class="text-center text-sm font-medium text-danger dark:text-danger-dark">
+        PIX expirado
       </p>
       {% endif %}
     </div>

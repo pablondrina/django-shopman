@@ -153,8 +153,8 @@
 {% endif %}
 
 {# ── Direto do Forno (HTMX for server) ── #}
-<section class="py-12 border-t border-outline dark:border-outline-dark">
-  <h2 class="text-xl lg:text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong text-center mb-2">Direto do forno</h2>
+<section class="py-10 border-t border-outline dark:border-outline-dark">
+  <h2 class="text-lg lg:text-xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong text-center mb-2">Direto do forno</h2>
   <p class="text-on-surface dark:text-on-surface-dark text-center mb-8 text-sm">Disponibilidade em tempo real</p>
 
   <div id="home-availability"
@@ -162,10 +162,33 @@
        hx-trigger="load, every 60s"
        hx-swap="innerHTML"
        class="max-w-2xl mx-auto">
-    {# HTMX loads availability #}
-    <div class="flex justify-center py-8">
-      <div class="w-6 h-6 border-2 border-primary dark:border-primary-dark border-t-transparent rounded-full animate-spin"></div>
-    </div>
+    {# Skeleton: 3 product card placeholders while HTMX loads #}
+    <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-hidden="true">
+      <li class="card flex gap-4">
+        <div class="size-24 shrink-0 rounded-lg bg-surface-alt dark:bg-surface-dark-alt animate-pulse"></div>
+        <div class="flex-1 space-y-2 py-1">
+          <div class="h-4 rounded bg-surface-alt dark:bg-surface-dark-alt animate-pulse"></div>
+          <div class="h-3 rounded bg-surface-alt dark:bg-surface-dark-alt animate-pulse w-3/4"></div>
+          <div class="h-3 rounded bg-surface-alt dark:bg-surface-dark-alt animate-pulse w-1/2"></div>
+        </div>
+      </li>
+      <li class="card flex gap-4 hidden sm:flex">
+        <div class="size-24 shrink-0 rounded-lg bg-surface-alt dark:bg-surface-dark-alt animate-pulse"></div>
+        <div class="flex-1 space-y-2 py-1">
+          <div class="h-4 rounded bg-surface-alt dark:bg-surface-dark-alt animate-pulse"></div>
+          <div class="h-3 rounded bg-surface-alt dark:bg-surface-dark-alt animate-pulse w-3/4"></div>
+          <div class="h-3 rounded bg-surface-alt dark:bg-surface-dark-alt animate-pulse w-1/2"></div>
+        </div>
+      </li>
+      <li class="card flex gap-4 hidden lg:flex">
+        <div class="size-24 shrink-0 rounded-lg bg-surface-alt dark:bg-surface-dark-alt animate-pulse"></div>
+        <div class="flex-1 space-y-2 py-1">
+          <div class="h-4 rounded bg-surface-alt dark:bg-surface-dark-alt animate-pulse"></div>
+          <div class="h-3 rounded bg-surface-alt dark:bg-surface-dark-alt animate-pulse w-3/4"></div>
+          <div class="h-3 rounded bg-surface-alt dark:bg-surface-dark-alt animate-pulse w-1/2"></div>
+        </div>
+      </li>
+    </ul>
   </div>
 
   <div class="text-center mt-6">
@@ -177,8 +200,8 @@
 </section>
 
 {# ── Como Funciona (Penguin UI steps + cards) ── #}
-<section class="py-12 border-t border-outline dark:border-outline-dark">
-  <h2 class="text-xl lg:text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong text-center mb-10">Como Funciona</h2>
+<section class="py-10 border-t border-outline dark:border-outline-dark">
+  <h2 class="text-lg lg:text-xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong text-center mb-10">Como Funciona</h2>
 
   <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
 
@@ -271,7 +294,7 @@
 </section>
 
 {# ── Contato ── #}
-<section class="py-12 border-t border-outline dark:border-outline-dark">
+<section class="py-10 border-t border-outline dark:border-outline-dark">
   <div class="max-w-2xl mx-auto text-center">
     {% if storefront.full_address %}
     <p class="text-on-surface-strong dark:text-on-surface-dark-strong mb-2">
