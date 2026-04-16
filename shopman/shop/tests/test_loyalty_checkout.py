@@ -224,7 +224,7 @@ class CheckoutLoyaltyContextTests(TestCase):
             resp = self.client.get("/checkout/")
 
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.context.get("loyalty_balance"), 250)
+        self.assertEqual(resp.context["checkout"].loyalty_balance_q, 250)
 
     def test_no_loyalty_balance_for_new_customer(self) -> None:
         """Customer with 0 balance doesn't see loyalty section."""

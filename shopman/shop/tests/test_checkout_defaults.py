@@ -90,7 +90,7 @@ class TestCheckoutDefaultsContext:
 
         with patch("shopman.shop.services.checkout_defaults.CheckoutDefaultsService.get_defaults") as mock_get:
             mock_get.return_value = {}
-            resp = client.get("/checkout/")
+            resp = client.get("/checkout/?v1")
 
         assert resp.status_code == 200
         assert resp.context["checkout_defaults"] == {}
@@ -113,7 +113,7 @@ class TestCheckoutDefaultsContext:
         }
         with patch("shopman.shop.services.checkout_defaults.CheckoutDefaultsService.get_defaults") as mock_get:
             mock_get.return_value = saved_defaults
-            resp = client.get("/checkout/")
+            resp = client.get("/checkout/?v1")
 
         assert resp.status_code == 200
         assert resp.context["checkout_defaults"]["fulfillment_type"] == "pickup"
@@ -133,7 +133,7 @@ class TestCheckoutDefaultsContext:
 
         with patch("shopman.shop.services.checkout_defaults.CheckoutDefaultsService.get_defaults") as mock_get:
             mock_get.return_value = {}
-            resp = client.get("/checkout/")
+            resp = client.get("/checkout/?v1")
 
         assert resp.status_code == 200
         mock_get.assert_called_once()
@@ -156,7 +156,7 @@ class TestCheckoutDefaultsContext:
 
         with patch("shopman.shop.services.checkout_defaults.CheckoutDefaultsService.get_defaults") as mock_get:
             mock_get.side_effect = Exception("DB error")
-            resp = client.get("/checkout/")
+            resp = client.get("/checkout/?v1")
 
         assert resp.status_code == 200
         assert resp.context["checkout_defaults"] == {}

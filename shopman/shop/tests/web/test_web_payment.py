@@ -45,7 +45,7 @@ class TestPaymentCardPage:
         resp = client.get(f"/pedido/{order_card.ref}/pagamento/")
         assert resp.status_code == 200
         content = resp.content.decode()
-        assert '<meta name="stripe-publishable-key"' in content
+        assert '<meta name="stripe-key"' in content
         assert "pk_test_abc123" in content
 
     @override_settings(STRIPE_PUBLISHABLE_KEY="")
@@ -54,4 +54,4 @@ class TestPaymentCardPage:
         resp = client.get(f"/pedido/{order_card.ref}/pagamento/")
         assert resp.status_code == 200
         content = resp.content.decode()
-        assert '<meta name="stripe-publishable-key"' not in content
+        assert '<meta name="stripe-key"' not in content

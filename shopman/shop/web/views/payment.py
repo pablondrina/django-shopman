@@ -33,19 +33,19 @@ class PaymentView(View):
         if order.status == "cancelled":
             return redirect("storefront:order_tracking", ref=ref)
 
-        if request.GET.get("v2") is not None:
-            from shopman.shop.projections import build_payment
+        if request.GET.get("v1") is not None:
+            return render(request, "storefront/payment.html", {
+                "order": order,
+                "payment": payment,
+                "method": method,
+                "total_display": f"R$ {format_money(order.total_q)}",
+                "debug": settings.DEBUG,
+            })
 
-            proj = build_payment(order)
-            return render(request, "storefront/v2/payment.html", {"payment": proj})
+        from shopman.shop.projections import build_payment
 
-        return render(request, "storefront/payment.html", {
-            "order": order,
-            "payment": payment,
-            "method": method,
-            "total_display": f"R$ {format_money(order.total_q)}",
-            "debug": settings.DEBUG,
-        })
+        proj = build_payment(order)
+        return render(request, "storefront/v2/payment.html", {"payment": proj})
 
 
 class PaymentStatusView(View):
