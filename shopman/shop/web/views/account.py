@@ -11,75 +11,18 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 logger = logging.getLogger(__name__)
 
 from shopman.guestman.contrib.consent import ConsentService
-from shopman.guestman.contrib.loyalty import LoyaltyService
 from shopman.guestman.contrib.preferences import PreferenceService
 from shopman.guestman.services import address as address_service
 from shopman.guestman.services import customer as customer_service
-from shopman.orderman.services import CustomerOrderHistoryService
-from shopman.utils.monetary import format_money
+from shopman.shop.projections.account import (
+    FOOD_PREFERENCE_OPTIONS,
+    NOTIFICATION_CHANNELS,
+    build_account,
+)
+from shopman.shop.projections.types import FoodPrefProjection, NotificationPrefProjection
 
 from ._helpers import _is_v2_request
 from .auth import get_authenticated_customer
-from .tracking import STATUS_COLORS, STATUS_LABELS
-
-TAB_OPTIONS = [
-    ("perfil", "Perfil"),
-    ("pedidos", "Pedidos"),
-    ("fidelidade", "Fidelidade"),
-    ("config", "Configurações"),
-]
-
-
-def _get_loyalty_data(customer):
-    """Fetch loyalty account and recent transactions."""
-
-    try:
-        account = LoyaltyService.get_account(customer.ref)
-        if account:
-            transactions = LoyaltyService.get_transactions(customer.ref, limit=5)
-            return account, transactions
-    except Exception as e:
-        logger.warning("loyalty_data_failed customer=%s: %s", customer.ref, e, exc_info=True)
-    return None, []
-
-
-def _get_notification_prefs(customer) -> list[dict]:
-    """Build notification preference list from ConsentService."""
-    channels = [
-        ("whatsapp", "WhatsApp", "Receber atualizações de pedidos via WhatsApp"),
-        ("email", "Email", "Receber novidades e promoções por email"),
-        ("sms", "SMS", "Receber notificações por SMS"),
-        ("push", "Push", "Notificações push no navegador"),
-    ]
-
-    prefs = []
-    try:
-        for channel, label, description in channels:
-            enabled = ConsentService.has_consent(customer.ref, channel)
-            prefs.append({
-                "key": channel,
-                "label": label,
-                "description": description,
-                "enabled": enabled,
-            })
-    except Exception as e:
-        logger.warning("notification_prefs_failed customer=%s: %s", customer.ref, e, exc_info=True)
-    return prefs
-
-
-def _enrich_orders(orders) -> list[dict]:
-    """Build enriched order list with display info."""
-    enriched = []
-    for order in orders:
-        enriched.append({
-            "ref": getattr(order, "order_ref", getattr(order, "ref", "")),
-            "created_at": getattr(order, "ordered_at", getattr(order, "created_at", None)),
-            "total_display": f"R$ {format_money(order.total_q)}",
-            "status": order.status,
-            "status_label": STATUS_LABELS.get(order.status, order.status),
-            "status_color": STATUS_COLORS.get(order.status, "bg-muted text-muted-foreground"),
-        })
-    return enriched
 
 
 def _get_customer_addresses(customer_ref: str):
@@ -96,60 +39,22 @@ def _get_active_food_keys(customer_ref: str) -> set[str]:
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
 class AccountView(View):
-    """Account page: session-based auth → customer info + addresses + orders."""
+    """Account page: session-based auth → CustomerProfileProjection."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
         customer = get_authenticated_customer(request)
         if not customer:
             return redirect("/login/?next=/minha-conta/")
-        return self._render_account(request, customer, customer.phone)
+        return self._render_account(request, customer)
 
-    def _render_account(self, request: HttpRequest, customer, phone: str) -> HttpResponse:
-        """Render account page with customer data."""
+    def _render_account(self, request: HttpRequest, customer) -> HttpResponse:
+        account = build_account(customer)
         addresses = _get_customer_addresses(customer.ref)
-        orders = CustomerOrderHistoryService.list_customer_orders(customer.ref, limit=10)
-        enriched_orders = _enrich_orders(orders)
-        preferences = None
-        try:
-            prefs = _get_customer_preferences(customer.ref)
-            if prefs:
-                preferences = prefs
-        except Exception as e:
-            logger.warning("customer_preferences_failed: %s", e, exc_info=True)
-
-        loyalty_account, loyalty_transactions = _get_loyalty_data(customer)
-
-        # Stamps range for grid (2 rows × 5 cols = 10)
-        stamps_range = []
-        if loyalty_account and loyalty_account.stamps_target > 0:
-            stamps_range = list(range(1, loyalty_account.stamps_target + 1))
-
-        notification_prefs = _get_notification_prefs(customer)
-
-        # Food preference options with active state
-        active_food_keys = set()
-        try:
-            active_food_keys = _get_active_food_keys(customer.ref)
-        except Exception as e:
-            logger.warning("food_preferences_failed: %s", e, exc_info=True)
-        food_pref_options = [
-            (key, label, key in active_food_keys) for key, label in FOOD_PREFERENCE_OPTIONS
-        ]
-
         tmpl = "storefront/v2/account.html" if _is_v2_request(request) else "storefront/account.html"
         return render(request, tmpl, {
-            "customer": customer,
-            "addresses": addresses,
-            "orders": enriched_orders,
-            "preferences": preferences,
-            "loyalty_account": loyalty_account,
-            "loyalty_transactions": loyalty_transactions,
-            "stamps_range": stamps_range,
-            "notification_prefs": notification_prefs,
-            "food_pref_options": food_pref_options,
-            "tab_options": TAB_OPTIONS,
-            "phone_value": phone,
-            "is_verified": True,
+            "account": account,
+            "customer": customer,   # for HTMX partials (profile_display, address_form)
+            "addresses": addresses, # for address_list include
         })
 
     def post(self, request: HttpRequest) -> HttpResponse:
@@ -448,25 +353,21 @@ class NotificationPrefsToggleView(View):
                 ip_address=ip,
             )
 
-        prefs = _get_notification_prefs(customer)
+        notification_prefs = tuple(
+            NotificationPrefProjection(
+                key=key,
+                label=label,
+                description=description,
+                enabled=ConsentService.has_consent(customer.ref, key),
+            )
+            for key, label, description in NOTIFICATION_CHANNELS
+        )
         tmpl = (
             "storefront/v2/partials/notification_prefs.html"
             if _is_v2_request(request)
             else "storefront/partials/notification_prefs.html"
         )
-        return render(request, tmpl, {"notification_prefs": prefs})
-
-
-FOOD_PREFERENCE_OPTIONS = [
-    ("sem_gluten", "Sem Glúten"),
-    ("sem_lactose", "Sem Lactose"),
-    ("vegano", "Vegano"),
-    ("vegetariano", "Vegetariano"),
-    ("sem_acucar", "Sem Açúcar"),
-    ("sem_nozes", "Sem Nozes"),
-    ("organico", "Orgânico"),
-    ("integral", "Integral"),
-]
+        return render(request, tmpl, {"notification_prefs": notification_prefs})
 
 
 class FoodPreferenceToggleView(View):
@@ -481,7 +382,6 @@ class FoodPreferenceToggleView(View):
         if not key:
             return HttpResponse("", status=400)
 
-
         existing = PreferenceService.get_preference(customer.ref, "alimentar", key)
         if existing is not None:
             PreferenceService.delete_preference(customer.ref, "alimentar", key)
@@ -492,9 +392,10 @@ class FoodPreferenceToggleView(View):
             )
 
         active_keys = _get_active_food_keys(customer.ref)
-        food_pref_options = [
-            (key, label, key in active_keys) for key, label in FOOD_PREFERENCE_OPTIONS
-        ]
+        food_pref_options = tuple(
+            FoodPrefProjection(key=k, label=label, is_active=k in active_keys)
+            for k, label in FOOD_PREFERENCE_OPTIONS
+        )
         tmpl = (
             "storefront/v2/partials/food_prefs.html"
             if _is_v2_request(request)
@@ -541,6 +442,7 @@ class DataExportView(View):
         }
 
         # Orders
+        from shopman.orderman.services import CustomerOrderHistoryService
         orders = CustomerOrderHistoryService.list_customer_orders(customer.ref, limit=100)
         data["orders"] = [
             {
@@ -577,6 +479,7 @@ class DataExportView(View):
 
         # Loyalty
         try:
+            from shopman.guestman.contrib.loyalty import LoyaltyService
             account = LoyaltyService.get_account(customer.ref)
             if account:
                 data["loyalty"] = {

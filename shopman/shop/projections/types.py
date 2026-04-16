@@ -159,3 +159,41 @@ class FulfillmentProjection:
     carrier: str | None
     dispatched_at_display: str | None
     delivered_at_display: str | None
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Fase 3 — Account, Order History
+# ──────────────────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class OrderSummaryProjection:
+    """Compact order summary for account history and order-history pages."""
+
+    ref: str
+    created_at_display: str  # "15/04/2026 às 14:32"
+    total_q: int
+    total_display: str       # "R$ 48,00"
+    status: str
+    status_label: str
+    status_color: str        # Penguin UI token classes
+    item_count: int
+
+
+@dataclass(frozen=True)
+class NotificationPrefProjection:
+    """A single notification consent channel preference."""
+
+    key: str          # "whatsapp", "email", "sms", "push"
+    label: str        # "WhatsApp"
+    description: str  # "Receber atualizações via WhatsApp"
+    enabled: bool
+
+
+@dataclass(frozen=True)
+class FoodPrefProjection:
+    """A single food restriction / dietary preference."""
+
+    key: str       # "sem_gluten"
+    label: str     # "Sem Glúten"
+    is_active: bool
