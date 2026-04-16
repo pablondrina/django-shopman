@@ -1,0 +1,12 @@
+{% for opt_key, opt_label, is_active in food_pref_options %}
+<button type="button"
+        hx-post="{% url 'storefront:food_preference_toggle' %}"
+        hx-vals='{"key": "{{ opt_key }}"}'
+        hx-target="#food-prefs"
+        hx-swap="innerHTML"
+        class="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-colors
+          {% if is_active %}bg-primary text-primary-foreground{% else %}bg-background text-muted-foreground border border-border{% endif %}"
+        style="min-height:var(--touch-min)">
+  {{ opt_label }}
+</button>
+{% endfor %}

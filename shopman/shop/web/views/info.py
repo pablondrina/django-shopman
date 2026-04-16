@@ -7,6 +7,7 @@ from shopman.offerman.models import Collection, Product
 from shopman.orderman.models import Order
 from shopman.utils.monetary import format_money
 
+from ._helpers import _is_v2_request
 from .auth import get_authenticated_customer
 from .tracking import STATUS_COLORS, STATUS_LABELS
 
@@ -15,6 +16,8 @@ class HowItWorksView(View):
     """Static page explaining the ordering process."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
+        if _is_v2_request(request):
+            return render(request, "storefront/v2/como_funciona.html")
         return render(request, "storefront/como_funciona.html")
 
 
@@ -47,7 +50,7 @@ class OrderHistoryView(View):
 
         filter_param = request.GET.get("filter", "todos")
         orders = self._get_orders(customer.phone, filter_param)
-        return render(request, "storefront/history.html", {
+        ctx = {
             "orders": orders,
             "phone_value": customer.phone,
             "active_filter": filter_param,
@@ -56,7 +59,9 @@ class OrderHistoryView(View):
                 ("ativos", "Ativos"),
                 ("anteriores", "Anteriores"),
             ],
-        })
+        }
+        tmpl = "storefront/v2/history.html" if _is_v2_request(request) else "storefront/history.html"
+        return render(request, tmpl, ctx)
 
     @classmethod
     def _get_orders(cls, phone: str, filter_param: str = "todos") -> list[dict]:

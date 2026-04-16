@@ -1,0 +1,24 @@
+{% for pref in notification_prefs %}
+<label class="flex items-center justify-between py-3 cursor-pointer
+              {% if not forloop.last %}border-b border-outline dark:border-outline-dark{% endif %}">
+  <div>
+    <p class="text-sm font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ pref.label }}</p>
+    <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">{{ pref.description }}</p>
+  </div>
+  <button type="button"
+          hx-post="{% url 'storefront:notification_prefs_toggle' %}"
+          hx-vals='{"channel": "{{ pref.key }}"}'
+          hx-target="#notification-prefs"
+          hx-swap="innerHTML"
+          role="switch"
+          aria-checked="{{ pref.enabled|yesno:'true,false' }}"
+          class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ml-4
+                 {% if pref.enabled %}bg-primary dark:bg-primary-dark{% else %}bg-outline dark:bg-outline-dark{% endif %}">
+    <span class="inline-block size-5 transform rounded-full bg-white shadow transition-transform
+                 {% if pref.enabled %}translate-x-5{% else %}translate-x-0.5{% endif %}">
+    </span>
+  </button>
+</label>
+{% empty %}
+<p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60">Nenhuma preferência de notificação configurável no momento.</p>
+{% endfor %}
