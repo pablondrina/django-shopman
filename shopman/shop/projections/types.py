@@ -40,6 +40,19 @@ class CategoryProjection:
 
 
 @dataclass(frozen=True)
+class ComponentProjection:
+    """One line of a bundle's composition, as rendered under the PDP.
+
+    ``qty_display`` is a pre-formatted label like ``"2x"`` — templates
+    never format numbers themselves.
+    """
+
+    sku: str
+    name: str
+    qty_display: str
+
+
+@dataclass(frozen=True)
 class HappyHourProjection:
     """Happy hour banner state."""
 

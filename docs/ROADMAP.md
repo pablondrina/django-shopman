@@ -43,15 +43,18 @@ Ver [`docs/plans/PROJECTION-UI-PLAN.md`](plans/PROJECTION-UI-PLAN.md).
 
 Plano detalhado cobre: inventário de projections por tela (13 projections para storefront+operador), arquitetura, fases 1-5, integração com Penguin UI (Tailwind v4 + Alpine), regras (preços duais, disponibilidade como enum não bool, templates nunca importam models).
 
+**Status:**
+- **Fase 1 — Fundação:** ✅ concluída 2026-04-15. `CatalogProjection`, `CartProjection`, `ProductDetailProjection` + builders em `shopman/shop/projections/`. Todas com `qty_in_cart` anotado a partir do `CartService`. Templates `menu.html`, `cart.html`, `product_detail.html` em v2 consumindo as projections. Stepper inline iFood/Rappi-style nos cards (`− N +`) via `CartSetQtyBySkuView` (POST absoluto idempotente). 35 testes verdes.
+- **Fase 2 — Checkout/Payment/Tracking:** ⏳ próximo
+- **Fases 3-5:** pendentes
+
 **Nota sobre storefront bagunçado:** hoje há 3 versões coexistindo — `storefront/` (v1 produção, ~55 templates, todas as rotas usam), `storefront/v2/` (Penguin, só home+partials, ativada com `?v2`), e `web/templates/storefront/proto/` (sandbox com 21 duplicados, não roteado). O destino dessa bagunça é resolvido em 2 passos: **PROTO-EXTRACTION** (item 3) extrai valor do proto e deleta; **PROJECTION-UI-PLAN Fase 1** (este item) migra v1 → v2 tela por tela junto com criação de projections. Não limpar antes, senão refatora-se duas vezes.
 
-### 5. Fix UX rápido: stepper no cardápio
+### 5. ~~Fix UX rápido: stepper no cardápio~~ — **concluído 2026-04-15**
 
 Ver [`docs/plans/STOREFRONT-ADDTOCART-UX-PLAN.md`](plans/STOREFRONT-ADDTOCART-UX-PLAN.md).
 
-Bug reportado: no cardápio, clicar em "Adicionar" adiciona ao carrinho **e** navega pra PDP (dá impressão que PDP é pra confirmar qty). Backend está correto (`CartService` faz merge por SKU, endpoint retorna HTMX partial, não redireciona). É 100% UX.
-
-**Fix tático (padrão iFood/Rappi):** substituir botão por stepper Alpine inline no card (`−  N  +`) com `@click.stop` para não vazar no link ancestral da PDP. Clique no card ainda navega pra PDP (descoberta), stepper é a ação primária. Escopo pequeno: 1 template + anotação de `qty_in_cart` na view. Pode rodar em paralelo com qualquer coisa acima — é tático, isolado.
+Entregue como parte da Fase 1 do PROJECTION-UI-PLAN (item 4). Stepper inline `− N +` no card v2 dirigido por `CatalogItemProjection.qty_in_cart`, posta absoluto via `CartSetQtyBySkuView` (idempotente: 2 no carrinho + qty=3 no card → carrinho vira 3, não 5). PDP v2 segue o mesmo padrão: inicializa `qty: qty_in_cart || 1, inCart: qty_in_cart` e o botão alterna entre "Adicionar" e "Atualizar para N".
 
 ---
 
@@ -158,6 +161,8 @@ Endpoints de catálogo e tracking prontos. Account e histórico incompletos.
 | C7 | Payman: cobertura de testes insuficiente | CONSOLIDATION-PLAN |
 | ~~B3~~ | ~~Doorman depende de Guestman (viola standalone)~~ | **CONCLUÍDO** — `shopman-doorman` não depende de `shopman-guestman` por default: o resolver padrão é `NoopCustomerResolver` e o suporte a Guestman é opt-in via `DOORMAN["CUSTOMER_RESOLVER_CLASS"]` e extra opcional (`shopman-doorman[guestman]`). | ✅ |
 | R3-R8 | Storefront: empty states, erros, responsividade mobile | READINESS-PLAN |
+| HTMX swap errors antigos | `htmx:swapError` "Cannot read properties of null (reading 'querySelector')" no console — vinha de respostas de `/meus-pedidos/?badge_only=1` ou de drawer reload com target ausente. Identificado durante a Fase 1 do PROJECTION-UI-PLAN; não tem relação com o stepper novo. Investigar quando alguém estiver na área de header/badge polling. | _ad-hoc_ |
+| `_cart_qty_by_sku` carrega cart inteiro a cada render | `shopman/shop/projections/catalog.py` — o helper chama `CartService.get_cart(request)` em cada `build_catalog`, o que itera todas as linhas só pra montar um dict sku→qty. Fine pra catálogos pequenos (Nelson tem ~50 SKUs, cart tem 1-10 linhas). Se virar gargalo, expor `CartService.qty_by_sku(request)` que pula o resto do projection do carrinho. Documentado em 2026-04-15 durante Fase 1. | Baixa |
 
 ---
 

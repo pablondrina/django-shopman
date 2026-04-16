@@ -266,6 +266,67 @@ class TestPromotions:
 # ──────────────────────────────────────────────────────────────────────
 
 
+class TestCartAnnotation:
+    """`qty_in_cart` should mirror the open cart when a request is passed."""
+
+    def test_qty_in_cart_zero_without_request(
+        self, listing, collection, collection_item, product,
+    ):
+        _publish_on_listing(listing, product)
+        proj = build_catalog(channel_ref="web")
+        item = _find_item(proj, product.sku)
+        assert item is not None
+        assert item.qty_in_cart == 0
+
+    def test_qty_in_cart_zero_when_cart_empty(
+        self, listing, collection, collection_item, product,
+    ):
+        from django.test import RequestFactory
+
+        _publish_on_listing(listing, product)
+        rf = RequestFactory()
+        request = rf.get("/menu/?v2")
+        from django.contrib.sessions.backends.db import SessionStore
+        request.session = SessionStore()  # type: ignore[attr-defined]
+
+        proj = build_catalog(channel_ref="web", request=request)
+        item = _find_item(proj, product.sku)
+        assert item is not None
+        assert item.qty_in_cart == 0
+
+    def test_qty_in_cart_reflects_cart_session(
+        self, listing, collection, collection_item, cart_session, product,
+    ):
+        """After /cart/add/ puts 2 units in the session, the projection
+        should report ``qty_in_cart == 2`` for that SKU."""
+        from django.test import RequestFactory
+
+        rf = RequestFactory()
+        request = rf.get("/menu/?v2")
+        request.session = cart_session.session  # type: ignore[attr-defined]
+
+        proj = build_catalog(channel_ref="web", request=request)
+        item = _find_item(proj, product.sku)
+        assert item is not None
+        assert item.qty_in_cart == 2
+
+    def test_qty_in_cart_zero_for_other_skus(
+        self, listing, collection, collection_item, cart_session, product, croissant,
+    ):
+        from django.test import RequestFactory
+
+        _publish_on_listing(listing, croissant)
+
+        rf = RequestFactory()
+        request = rf.get("/menu/?v2")
+        request.session = cart_session.session  # type: ignore[attr-defined]
+
+        proj = build_catalog(channel_ref="web", request=request)
+        other = _find_item(proj, croissant.sku)
+        assert other is not None
+        assert other.qty_in_cart == 0
+
+
 class TestMultipleItemsInCollection:
     def test_multiple_products_order_and_price(
         self, listing, collection, collection_item, product,

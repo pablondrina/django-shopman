@@ -266,6 +266,27 @@ class ProductDetailView(View):
     """Product detail page."""
 
     def get(self, request: HttpRequest, sku: str) -> HttpResponse:
+        # ?v2 flag: Penguin UI pilot driven by ProductDetailProjection.
+        # Keeps v1 intact — toggled per-request for side-by-side validation.
+        if request.GET.get("v2") is not None:
+            from django.http import Http404
+
+            from shopman.shop.projections import build_product_detail
+            from shopman.shop.web.constants import STOREFRONT_CHANNEL_REF
+
+            projection = build_product_detail(
+                sku=sku,
+                channel_ref=STOREFRONT_CHANNEL_REF,
+                request=request,
+            )
+            if projection is None:
+                raise Http404("Product not found")
+            return render(
+                request,
+                "storefront/v2/product_detail.html",
+                {"product": projection},
+            )
+
         product = get_object_or_404(Product, sku=sku, is_published=True)
         listing_ref = _get_channel_listing_ref()
         base_price_q = _get_price_q(product, listing_ref=listing_ref)

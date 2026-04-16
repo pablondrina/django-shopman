@@ -11,20 +11,52 @@ Rules:
 - Availability is a canonical enum, not a bool
 """
 
+from .cart import (
+    CartItemProjection,
+    CartProjection,
+    DiscountLineProjection,
+    MinimumOrderProgressProjection,
+    UpsellSuggestionProjection,
+    build_cart,
+)
 from .catalog import (
     CatalogItemProjection,
     CatalogProjection,
     CatalogSectionProjection,
     build_catalog,
+    build_catalog_items_for_skus,
 )
-from .types import Availability, CategoryProjection, HappyHourProjection
+from .product_detail import (
+    AllergenInfoProjection,
+    ConservationInfoProjection,
+    ProductDetailProjection,
+    build_product_detail,
+)
+from .types import (
+    Availability,
+    CategoryProjection,
+    ComponentProjection,
+    HappyHourProjection,
+)
 
 __all__ = [
+    "AllergenInfoProjection",
     "Availability",
+    "CartItemProjection",
+    "CartProjection",
     "CatalogItemProjection",
     "CatalogProjection",
     "CatalogSectionProjection",
     "CategoryProjection",
+    "ComponentProjection",
+    "ConservationInfoProjection",
+    "DiscountLineProjection",
     "HappyHourProjection",
+    "MinimumOrderProgressProjection",
+    "ProductDetailProjection",
+    "UpsellSuggestionProjection",
+    "build_cart",
     "build_catalog",
+    "build_catalog_items_for_skus",
+    "build_product_detail",
 ]

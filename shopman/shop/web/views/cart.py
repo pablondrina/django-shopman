@@ -7,21 +7,45 @@ from django.shortcuts import redirect, render
 from django.views import View
 from shopman.offerman.models import Product
 
+from shopman.shop.services.storefront_context import (
+    minimum_order_progress,
+    upsell_suggestion,
+)
+
 from ..cart import CartService, CartUnavailableError
 from ._helpers import (
     _get_availability,
-    _get_channel_listing_ref,
     _get_price_q,
+    _is_v2_request,
     _line_item_is_d1,
-    _min_order_progress,
-    _upsell_suggestion,
 )
 
 
+def _cart_summary_template(request: HttpRequest) -> str:
+    """Pick the cart-badge partial that matches the originating surface."""
+    return (
+        "storefront/v2/partials/cart_summary.html"
+        if _is_v2_request(request)
+        else "storefront/partials/cart_summary.html"
+    )
+
+
 class CartView(View):
-    """Redirect to menu — cart is now the drawer."""
+    """Cart page.
+
+    v1 redirects to the menu (cart lives as a drawer). ``?v2`` renders
+    the full Penguin UI cart page driven by ``CartProjection`` — pilot
+    surface while the drawer keeps serving v1 users.
+    """
 
     def get(self, request: HttpRequest) -> HttpResponse:
+        if request.GET.get("v2") is not None:
+            from shopman.shop.projections import build_cart
+            from shopman.shop.web.constants import STOREFRONT_CHANNEL_REF
+
+            cart = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
+            return render(request, "storefront/v2/cart.html", {"cart": cart})
+
         from django.urls import reverse
 
         return redirect(reverse("storefront:menu") + "?open_cart=1", permanent=False)
@@ -67,7 +91,7 @@ class AddToCartView(View):
             return _stock_error_response(request, product, exc)
 
         cart = CartService.get_cart(request)
-        response = render(request, "storefront/partials/cart_summary.html", {"cart": cart})
+        response = render(request, _cart_summary_template(request), {"cart": cart})
         response["HX-Trigger"] = "cartUpdated"
         response["X-Cart-Item-Name"] = quote(product.name, safe="")
         return response
@@ -108,16 +132,50 @@ class CartDrawerContentView(View):
 
         if cart["items"]:
             # Minimum order progress
-            progress = _min_order_progress(cart["subtotal_q"])
-            ctx["min_order_progress"] = progress
+            ctx["min_order_progress"] = minimum_order_progress(cart["subtotal_q"])
 
             # Upsell suggestion
             cart_skus = {item.get("sku", "") for item in cart["items"]}
-            listing_ref = _get_channel_listing_ref()
-            upsell = _upsell_suggestion(cart_skus, listing_ref=listing_ref)
-            ctx["upsell"] = upsell
+            ctx["upsell"] = upsell_suggestion(cart_skus)
 
         return render(request, "storefront/partials/cart_drawer.html", ctx)
+
+
+class CartContentV2View(View):
+    """HTMX: v2 cart page inner content driven by ``CartProjection``.
+
+    Companion to ``CartView`` ``?v2`` — the page wraps the partial in a
+    ``#cart-page-content`` div that listens for ``cartUpdated from:body``
+    and refetches this URL, so stepper/delete/coupon/upsell actions
+    refresh the cart in place without a full page reload.
+    """
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        from shopman.shop.projections import build_cart
+        from shopman.shop.web.constants import STOREFRONT_CHANNEL_REF
+
+        cart = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
+        return render(
+            request,
+            "storefront/v2/partials/_cart_page_content.html",
+            {"cart": cart},
+        )
+
+
+class CartDrawerContentV2View(View):
+    """HTMX: v2 cart drawer driven by ``CartProjection``.
+
+    Companion to ``CartView`` ``?v2`` — the v2 base template opens this
+    URL so the drawer renders with the same typed read model as the
+    full cart page. v1 drawer stays untouched on ``cart_drawer``.
+    """
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        from shopman.shop.projections import build_cart
+        from shopman.shop.web.constants import STOREFRONT_CHANNEL_REF
+
+        cart = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
+        return render(request, "storefront/v2/partials/cart_drawer.html", {"cart": cart})
 
 
 class QuickAddView(View):
@@ -150,7 +208,68 @@ class QuickAddView(View):
             return _stock_error_response(request, product, exc)
 
         cart = CartService.get_cart(request)
-        response = render(request, "storefront/partials/cart_summary.html", {"cart": cart})
+        response = render(request, _cart_summary_template(request), {"cart": cart})
+        response["HX-Trigger"] = "cartUpdated"
+        response["X-Cart-Item-Name"] = quote(product.name, safe="")
+        return response
+
+
+class CartSetQtyBySkuView(View):
+    """HTMX: set absolute qty for a SKU, return cart summary badge.
+
+    Powers the inline stepper on v2 catalog cards: the card knows the SKU
+    (not the Orderman ``line_id``) and pushes an absolute quantity each
+    time the user taps ``+`` or ``−``. Resolves the open session line for
+    the SKU and dispatches to ``CartService``:
+
+    - qty ≤ 0  → ``remove_item`` if a line exists, otherwise no-op
+    - qty > 0, line exists → ``update_qty`` (reconciles holds)
+    - qty > 0, no line → ``add_item`` (adds with the current listing price)
+
+    Returns the same ``cart_summary`` partial + ``HX-Trigger: cartUpdated``
+    as ``AddToCartView`` so the header badge and drawer stay in sync.
+    """
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        sku = request.POST.get("sku", "").strip()
+        try:
+            qty = int(request.POST.get("qty", 0))
+        except (TypeError, ValueError):
+            qty = 0
+        if qty < 0:
+            qty = 0
+
+        product = Product.objects.filter(sku=sku, is_published=True).first()
+        if not product:
+            return HttpResponse("", status=404)
+
+        # Resolve any existing cart line for this SKU.
+        cart = CartService.get_cart(request)
+        line = next(
+            (item for item in cart.get("items") or [] if item.get("sku") == sku),
+            None,
+        )
+
+        try:
+            if qty == 0:
+                if line is not None:
+                    CartService.remove_item(request, line_id=line["line_id"])
+            elif line is not None:
+                CartService.update_qty(request, line_id=line["line_id"], qty=qty)
+            else:
+                price_q = _get_price_q(product) or 0
+                CartService.add_item(
+                    request,
+                    sku=sku,
+                    qty=qty,
+                    unit_price_q=price_q,
+                    is_d1=_line_item_is_d1(product),
+                )
+        except CartUnavailableError as exc:
+            return _stock_error_response(request, product, exc)
+
+        cart = CartService.get_cart(request)
+        response = render(request, _cart_summary_template(request), {"cart": cart})
         response["HX-Trigger"] = "cartUpdated"
         response["X-Cart-Item-Name"] = quote(product.name, safe="")
         return response
@@ -203,7 +322,7 @@ class CartContentPartialView(View):
         cart = CartService.get_cart(request)
         ctx: dict = {"cart": cart}
         if cart.get("items"):
-            ctx["minimum_order_warning"] = _min_order_progress(cart["subtotal_q"])
+            ctx["minimum_order_warning"] = minimum_order_progress(cart["subtotal_q"])
         return render(request, "storefront/partials/cart_content.html", ctx)
 
 
@@ -212,7 +331,7 @@ class CartSummaryView(View):
 
     def get(self, request: HttpRequest) -> HttpResponse:
         cart = CartService.get_cart(request)
-        return render(request, "storefront/partials/cart_summary.html", {"cart": cart})
+        return render(request, _cart_summary_template(request), {"cart": cart})
 
 
 class FloatingCartBarView(View):

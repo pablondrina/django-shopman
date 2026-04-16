@@ -22,10 +22,11 @@ from shopman.utils.phone import normalize_phone
 from shopman.shop.models import Channel
 from shopman.shop.services.checkout_defaults import CheckoutDefaultsService
 from shopman.shop.services.order_helpers import parse_commitment_date
+from shopman.shop.services.storefront_context import minimum_order_progress
 
 from ..cart import CHANNEL_REF, CartService
 from ..constants import get_default_ddd
-from ._helpers import _get_availability, _min_order_progress
+from ._helpers import _get_availability
 from .tracking import CepLookupView, OrderConfirmationView  # noqa: F401
 
 
@@ -54,7 +55,7 @@ class CheckoutView(View):
             "checkout_defaults": {},
             "saved_addresses": [],
             "payment_methods": self._get_payment_methods(),
-            "minimum_order_warning": _min_order_progress(cart["subtotal_q"]),
+            "minimum_order_warning": minimum_order_progress(cart["subtotal_q"]),
             "max_preorder_days": max_preorder_days,
             "closed_dates_json": _json.dumps(closed_dates),
             "debug": settings.DEBUG,
@@ -242,7 +243,7 @@ class CheckoutView(View):
         if not self._payment_method_available(chosen_method):
             errors["payment_method"] = "Método de pagamento indisponível. Selecione outro."
 
-        minimum_order_warning = _min_order_progress(cart["subtotal_q"])
+        minimum_order_warning = minimum_order_progress(cart["subtotal_q"])
         if minimum_order_warning:
             errors["minimum_order"] = (
                 "Faltam "
@@ -814,7 +815,7 @@ class CheckoutOrderSummaryView(View):
             "storefront/partials/checkout_order_summary.html",
             {
                 "cart": cart,
-                "minimum_order_warning": _min_order_progress(cart["subtotal_q"]),
+                "minimum_order_warning": minimum_order_progress(cart["subtotal_q"]),
             },
         )
 

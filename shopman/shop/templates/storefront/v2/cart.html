@@ -1,0 +1,42 @@
+{% extends "storefront/v2/base.html" %}
+{% load static %}
+
+{% block title %}Carrinho{% endblock %}
+{% block meta_description %}Seu carrinho — {{ storefront.brand_name }}.{% endblock %}
+
+{% block breadcrumb %}
+<nav class="mb-6 flex" aria-label="Breadcrumb">
+  <ol class="flex items-center gap-2 text-sm">
+    <li>
+      <a href="{% url 'storefront:home' %}"
+         class="text-on-surface hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">
+        Início
+      </a>
+    </li>
+    {% include "storefront/v2/partials/_breadcrumb_chevron.html" %}
+    <li>
+      <a href="{% url 'storefront:menu' %}?v2"
+         class="text-on-surface hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">
+        Cardápio
+      </a>
+    </li>
+    {% include "storefront/v2/partials/_breadcrumb_chevron.html" %}
+    <li>
+      <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong" aria-current="page">Carrinho</span>
+    </li>
+  </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+{% comment %}
+The inner partial re-renders on cartUpdated so steppers, delete, coupon,
+and upsell stay in sync with the projection without page reloads.
+{% endcomment %}
+<div id="cart-page-content"
+     hx-get="{% url 'storefront:cart_content_v2' %}"
+     hx-trigger="cartUpdated from:body"
+     hx-swap="innerHTML">
+  {% include "storefront/v2/partials/_cart_page_content.html" %}
+</div>
+{% endblock %}

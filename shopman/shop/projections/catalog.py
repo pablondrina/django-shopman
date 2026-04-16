@@ -79,6 +79,9 @@ class CatalogItemProjection:
     is_new: bool
     is_featured: bool
 
+    # Cart state (populated when the builder receives a request)
+    qty_in_cart: int = 0
+
     @property
     def detail_url(self) -> str:
         """Convenience for templates — build the PDP URL."""
@@ -153,6 +156,7 @@ def build_catalog(
 
     popular = popular_skus(limit=5)
     ft_hint, sub_hint = session_pricing_hints(request)
+    qty_in_cart_by_sku = _cart_qty_by_sku(request)
 
     # Flatten once for batching; remember grouping for sections.
     all_products: list[Product] = []
@@ -179,6 +183,7 @@ def build_catalog(
         session_total_q=sub_hint,
         fulfillment_type=ft_hint,
         low_stock_threshold=low_stock_threshold,
+        qty_in_cart_by_sku=qty_in_cart_by_sku,
     )
 
     sections = _build_sections(items_flat, group_index, categories)
@@ -261,6 +266,49 @@ def _fetch_products_by_collection(
     return groups
 
 
+def build_catalog_items_for_skus(
+    skus: list[str],
+    *,
+    channel_ref: str,
+    request: HttpRequest | None = None,
+) -> tuple[CatalogItemProjection, ...]:
+    """Build ``CatalogItemProjection``s for an ad-hoc list of SKUs.
+
+    Consumed by sibling projections (PDP alternatives / cross-sell cards)
+    that need the same card shape as the menu but for an explicit SKU set
+    rather than a collection section. Preserves the caller's SKU order,
+    silently drops SKUs whose ``Product`` is missing or unpublished.
+    """
+    if not skus:
+        return ()
+
+    products_by_sku = {
+        p.sku: p
+        for p in Product.objects.filter(sku__in=skus, is_published=True)
+    }
+    ordered = [products_by_sku[sku] for sku in skus if sku in products_by_sku]
+    if not ordered:
+        return ()
+
+    config = ChannelConfig.for_channel(channel_ref)
+    low_stock_threshold = Decimal(str(config.stock.low_stock_threshold))
+    popular = popular_skus(limit=5)
+    ft_hint, sub_hint = session_pricing_hints(request)
+    qty_in_cart_by_sku = _cart_qty_by_sku(request)
+
+    return tuple(
+        _build_items(
+            ordered,
+            channel_ref=channel_ref,
+            popular=popular,
+            session_total_q=sub_hint,
+            fulfillment_type=ft_hint,
+            low_stock_threshold=low_stock_threshold,
+            qty_in_cart_by_sku=qty_in_cart_by_sku,
+        )
+    )
+
+
 def _build_items(
     products: list[Product],
     *,
@@ -269,7 +317,9 @@ def _build_items(
     session_total_q: int,
     fulfillment_type: str,
     low_stock_threshold: Decimal,
+    qty_in_cart_by_sku: dict[str, int] | None = None,
 ) -> list[CatalogItemProjection]:
+    qty_in_cart_by_sku = qty_in_cart_by_sku or {}
     skus = [p.sku for p in products]
 
     # Batch: primary collection per SKU (used as `category` and for pricing context).
@@ -361,6 +411,7 @@ def _build_items(
                 dietary_info=tuple(str(d) for d in dietary),
                 is_new=bool(meta.get("is_new", False)),
                 is_featured=p.sku in popular,
+                qty_in_cart=int(qty_in_cart_by_sku.get(p.sku, 0)),
             ),
         )
     return result
@@ -463,6 +514,35 @@ def _money(value_q: int | None) -> str:
     if not value_q:
         return "R$ 0,00"
     return f"R$ {format_money(int(value_q))}"
+
+
+def _cart_qty_by_sku(request: HttpRequest | None) -> dict[str, int]:
+    """Map ``sku → current qty`` for the visitor's open cart.
+
+    Returns an empty dict when there is no request or no active session —
+    the stepper then falls back to the "Adicionar" state.
+    """
+    if request is None:
+        return {}
+    try:
+        from shopman.shop.web.cart import CartService
+    except ImportError:
+        return {}
+    try:
+        cart = CartService.get_cart(request)
+    except Exception:
+        logger.warning("cart_qty_lookup_failed", exc_info=True)
+        return {}
+    result: dict[str, int] = {}
+    for item in cart.get("items") or []:
+        sku = item.get("sku")
+        if not sku:
+            continue
+        try:
+            result[sku] = int(Decimal(str(item.get("qty", 0) or 0)))
+        except (ValueError, ArithmeticError):
+            continue
+    return result
 
 
 def _happy_hour_projection(raw: dict) -> HappyHourProjection | None:

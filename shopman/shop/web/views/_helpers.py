@@ -5,12 +5,12 @@ from datetime import date, time
 
 from django.http import HttpRequest
 from django.utils import timezone
-from shopman.guestman.contrib.insights import InsightService
 from shopman.offerman.models import ListingItem, Product
 from shopman.offerman.service import CatalogService
 from shopman.utils.monetary import format_money
 
 from shopman.shop.services.storefront_context import (
+    companion_skus,
     popular_skus,
     session_pricing_hints,
 )
@@ -18,6 +18,21 @@ from shopman.shop.services.storefront_context import (
 from ..constants import HAS_STOCKMAN, STOREFRONT_CHANNEL_REF
 
 logger = logging.getLogger(__name__)
+
+
+def _is_v2_request(request: HttpRequest) -> bool:
+    """True when the request originates from a v2 pilot surface.
+
+    Detects HTMX requests fired from a page whose URL carries the ``?v2``
+    query param (HTMX sends the originating page via ``HX-Current-URL``),
+    and also non-HTMX ``GET`` navigations to v2 URLs. Used by shared views
+    (cart summary, drawer, add-to-cart) to pick the right response template
+    during the v2 pilot without forking the URL map.
+    """
+    current = request.headers.get("HX-Current-URL") or ""
+    if "v2" in current:
+        return True
+    return request.GET.get("v2") is not None
 
 
 def _get_channel_listing_ref() -> str | None:
@@ -569,109 +584,19 @@ def _hero_data(listing_ref: str | None = None, request: HttpRequest | None = Non
     return None
 
 
-def _min_order_progress(subtotal_q: int, channel_ref: str = STOREFRONT_CHANNEL_REF) -> dict | None:
-    """
-    Calculate minimum order progress bar data.
-
-    Returns dict with: minimum_q, remaining_q, percent, remaining_display, minimum_display
-    or None if no minimum order configured or already met.
-    """
-    MINIMUM_ORDER_Q = 1000  # R$ 10,00 default
-    minimum_q = 0
-    try:
-        from shopman.shop.config import ChannelConfig
-        from shopman.shop.models import Channel
-
-        channel = Channel.objects.filter(ref=channel_ref).first()
-        if channel:
-            rules = ChannelConfig.for_channel(channel).rules
-            if "shop.minimum_order" in rules.validators:
-                # minimum_order_q lido de Shop.defaults (canal-level virá via ChannelConfig em WP-F1)
-                from shopman.shop.models import Shop
-
-                shop = Shop.load()
-                raw = shop.defaults.get("rules", {}).get("minimum_order_q") if shop and shop.defaults else None
-                minimum_q = int(raw) if raw else MINIMUM_ORDER_Q
-    except Exception as e:
-        logger.warning("min_order_progress_failed: %s", e, exc_info=True)
-
-    if not minimum_q or subtotal_q >= minimum_q:
-        return None
-
-    remaining_q = minimum_q - subtotal_q
-    percent = int(min(subtotal_q * 100 / minimum_q, 100)) if minimum_q else 0
-    return {
-        "minimum_q": minimum_q,
-        "remaining_q": remaining_q,
-        "percent": percent,
-        "remaining_display": f"R$ {format_money(remaining_q)}",
-        "minimum_display": f"R$ {format_money(minimum_q)}",
-    }
-
-
-def _upsell_suggestion(cart_skus: set[str], listing_ref: str | None = None) -> dict | None:
-    """
-    Return a single upsell product suggestion not already in the cart.
-
-    Returns annotated product dict or None.
-    """
-    popular = popular_skus(limit=10)
-    candidates = [sku for sku in popular if sku not in cart_skus]
-    if not candidates:
-        return None
-
-    from shopman.offerman.models import Product as Prod
-
-    for sku in candidates:
-        product = Prod.objects.filter(sku=sku, is_published=True, is_sellable=True).first()
-        if product:
-            price_q = _get_price_q(product, listing_ref=listing_ref)
-            return {
-                "product": product,
-                "price_display": f"R$ {format_money(price_q)}" if price_q else None,
-                "sku": product.sku,
-            }
-    return None
-
-
 def _cross_sell_products(
     sku: str,
     listing_ref: str | None = None,
     limit: int = 3,
     request: HttpRequest | None = None,
 ) -> list[dict]:
-    """
-    Find products frequently bought together with the given SKU.
-
-    Aggregates favorite_products from customers who have this SKU in their favorites.
-    Returns annotated product dicts.
-    """
+    """Annotated companion products for the given SKU ("Compre junto")."""
+    top_skus = companion_skus(sku, limit=limit)
+    if not top_skus:
+        return []
     try:
         from shopman.offerman.models import Product as Prod
 
-        # Find customers who have this SKU in favorites
-        insights = InsightService.favorite_product_samples_for_sku(sku, limit=100)
-
-        companion_counts: dict[str, int] = {}
-        for favorites in insights:
-            if not favorites:
-                continue
-            has_sku = any(
-                (f.get("sku") if isinstance(f, dict) else str(f)) == sku
-                for f in favorites
-            )
-            if not has_sku:
-                continue
-            for fav in favorites:
-                fav_sku = fav.get("sku") if isinstance(fav, dict) else str(fav)
-                if fav_sku and fav_sku != sku:
-                    qty = fav.get("qty", 1) if isinstance(fav, dict) else 1
-                    companion_counts[fav_sku] = companion_counts.get(fav_sku, 0) + qty
-
-        if not companion_counts:
-            return []
-
-        top_skus = sorted(companion_counts, key=companion_counts.get, reverse=True)[:limit]
         products = list(Prod.objects.filter(sku__in=top_skus, is_published=True))
         if not products:
             return []
