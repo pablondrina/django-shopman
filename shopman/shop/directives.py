@@ -35,6 +35,9 @@ LOYALTY_REDEEM = "loyalty.redeem"
 # Returns
 RETURN_PROCESS = "return.process"
 
+# Catalog projection
+CATALOG_PROJECT_SKU = "catalog.project_sku"
+
 
 # ── Queue helper ──
 

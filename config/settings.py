@@ -263,6 +263,15 @@ SHOPMAN_WHATSAPP = {
 SHOPMAN_IFOOD = {
     "webhook_token": os.environ.get("IFOOD_WEBHOOK_TOKEN", ""),
     "merchant_id": os.environ.get("IFOOD_MERCHANT_ID", ""),
+    "catalog_api_token": os.environ.get("IFOOD_CATALOG_API_TOKEN", ""),
+    "catalog_api_base": os.environ.get("IFOOD_CATALOG_API_BASE", "https://merchant-api.ifood.com.br"),
+}
+
+# Catalog projection adapters — enable by uncommenting the desired backend.
+# Missing key → handler not registered (silent skip).
+# Present but broken path → raises at boot (configured-but-wrong).
+SHOPMAN_CATALOG_PROJECTION_ADAPTERS: dict = {
+    # "ifood": "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection",
 }
 
 # ── OTP Delivery Chain (depends on MANYCHAT_API_TOKEN above) ──────
