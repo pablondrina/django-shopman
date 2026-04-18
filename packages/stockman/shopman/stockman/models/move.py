@@ -84,10 +84,13 @@ class Move(models.Model):
             # Import here to avoid circular import
             from shopman.stockman.models.quant import Quant
 
-            # Update Quant cache using F() for atomicity
+            # Update Quant cache using F() for atomicity.
+            # _allow_quantity_update=True: this is the ONE legitimate bypass of
+            # the QuantQuerySet guard — Move is the source-of-truth writer.
             Quant.objects.filter(pk=self.quant_id).update(
                 _quantity=F('_quantity') + self.delta,
-                updated_at=timezone.now()
+                updated_at=timezone.now(),
+                _allow_quantity_update=True,
             )
 
             # Verify non-negative invariant (catch before DB constraint)

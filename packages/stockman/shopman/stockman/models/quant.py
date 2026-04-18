@@ -1,7 +1,14 @@
 """
 Quant model — Quantity cache at space-time coordinate.
+
+IMPORTANT: `_quantity` is a denormalised cache — it MUST equal Σ(moves.delta).
+The only correct way to change stock is through the Move ledger (stock.receive,
+stock.issue, stock.adjust, etc.). Never bypass it with `.update(_quantity=...)`.
+
+See: docs/guides/stockman.md § Integridade de `_quantity`
 """
 
+import logging
 from datetime import date
 from decimal import Decimal
 
@@ -10,9 +17,34 @@ from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
 from django.utils.translation import gettext_lazy as _
 
+logger = logging.getLogger('shopman.stockman')
+
+
+class QuantQuerySet(models.QuerySet):
+    """
+    QuerySet that guards against direct `_quantity` writes.
+
+    `.update(_quantity=X)` bypasses the Move ledger and silently breaks the
+    cache invariant.  Pass `_allow_quantity_update=True` only from trusted
+    internals (Move.save, Quant.recalculate) that own the ledger.
+    """
+
+    def update(self, **kwargs):
+        allow = kwargs.pop('_allow_quantity_update', False)
+        if '_quantity' in kwargs and not allow:
+            raise ValueError(
+                "Quant._quantity é cache de Σ(moves.delta). "
+                "Use stock.receive/issue/adjust em vez de .update(). "
+                "Se você sabe o que está fazendo, passe _allow_quantity_update=True."
+            )
+        return super().update(**kwargs)
+
 
 class QuantManager(models.Manager):
     """Manager with helper methods for Quant queries."""
+
+    def get_queryset(self):
+        return QuantQuerySet(self.model, using=self._db)
 
     def for_sku(self, sku: str):
         """Filter quants for a specific SKU."""
@@ -44,10 +76,11 @@ class Quant(models.Model):
     - position: WHERE (space) — can be null (unspecified)
     - target_date: WHEN (time) — null means "now/physical"
 
-    Performance:
-    - _quantity is cache updated atomically by Move
-    - Read is O(1), not O(N)
-    - Use recalculate() for audit/correction
+    INVARIANT: _quantity == Σ(moves.delta)
+    - `_quantity` is a denormalised cache for O(1) availability reads.
+    - It MUST NOT be written directly. All changes flow through Move.save().
+    - Use recalculate() to audit or correct divergence.
+    - Use `recompute_quant_quantities` management command in cron for health checks.
     """
 
     sku = models.CharField(
@@ -80,7 +113,7 @@ class Quant(models.Model):
         help_text=_('Referência do lote (Batch.ref). Vazio = sem lote.'),
     )
 
-    # Quantity cache (updated atomically by Move)
+    # Quantity cache — updated atomically by Move only. Never write directly.
     _quantity = models.DecimalField(
         max_digits=12,
         decimal_places=3,
@@ -151,36 +184,67 @@ class Quant(models.Model):
         return self.target_date > date.today()
 
     # ══════════════════════════════════════════════════════════════
+    # VALIDATION
+    # ══════════════════════════════════════════════════════════════
+
+    def clean(self):
+        """
+        Validate quantity cache consistency against Move ledger.
+
+        Raises ValidationError in development when _quantity ≠ Σ(moves.delta).
+        Not called automatically on save (performance); available for testing
+        tools and `recompute_quant_quantities --dry-run`.
+        """
+        from django.core.exceptions import ValidationError
+
+        computed = self._compute_quantity()
+        if computed != self._quantity:
+            raise ValidationError(
+                f"Quant#{self.pk} _quantity ({self._quantity}) diverge de "
+                f"Σ(moves.delta) ({computed}). "
+                "Execute recompute_quant_quantities --apply para corrigir."
+            )
+
+    # ══════════════════════════════════════════════════════════════
     # METHODS
     # ══════════════════════════════════════════════════════════════
 
+    def _compute_quantity(self) -> Decimal:
+        """Compute expected quantity from Move ledger (no side-effects)."""
+        return self.moves.aggregate(
+            t=Coalesce(Sum('delta'), Decimal('0'))
+        )['t']
+
     def recalculate(self) -> Decimal:
         """
-        Recalculate quantity from Moves.
+        Recompute _quantity from Moves and persist if divergent.
 
         Use for:
-        - Integrity audit
+        - Integrity audit (management command)
         - Correction after detected inconsistency
         - Debug
 
         Returns:
-            New calculated quantity
+            Recomputed quantity (Σ moves.delta)
         """
-        import logging
-
-        total = self.moves.aggregate(
-            t=Coalesce(Sum('delta'), Decimal('0'))
-        )['t']
+        total = self._compute_quantity()
 
         if total != self._quantity:
             old = self._quantity
             self._quantity = total
+            # model-level save bypasses QuantQuerySet.update guard — intentional
             self.save(update_fields=['_quantity', 'updated_at'])
 
-            logger = logging.getLogger('shopman.stockman')
-            logger.warning(
-                f"Quant {self.pk} recalculated: {old} → {total} "
-                f"(diff: {total - old})"
+            logger.error(
+                "quant.quantity_mismatch",
+                extra={
+                    "pk": self.pk,
+                    "sku": self.sku,
+                    "position": str(self.position_id),
+                    "current": float(old),
+                    "computed": float(total),
+                    "delta": float(total - old),
+                },
             )
 
         return total
