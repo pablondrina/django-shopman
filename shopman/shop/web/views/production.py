@@ -171,7 +171,7 @@ def _render(request, admin_site):
 def bulk_create_work_orders(request: HttpRequest) -> HttpResponse:
     """POST /gestao/producao/criar/ — bulk create WorkOrders from suggestions.
 
-    Expects JSON body: {"date": "YYYY-MM-DD", "orders": [{"recipe_code": "...", "quantity": N}, ...]}
+    Expects JSON body: {"date": "YYYY-MM-DD", "orders": [{"recipe_ref": "...", "quantity": N}, ...]}
     Returns HTMX partial with result summary.
     """
     if not request.user.is_staff:
@@ -209,19 +209,19 @@ def bulk_create_work_orders(request: HttpRequest) -> HttpResponse:
     errors = []
 
     for entry in orders_data:
-        recipe_code = entry.get("recipe_code", "")
+        recipe_ref = entry.get("recipe_ref", "")
         try:
             quantity = Decimal(str(entry.get("quantity", 0)))
             if quantity <= 0:
                 continue
         except (InvalidOperation, TypeError):
-            errors.append(f"{recipe_code}: quantidade inválida")
+            errors.append(f"{recipe_ref}: quantidade inválida")
             continue
 
         try:
-            recipe = Recipe.objects.get(code=recipe_code, is_active=True)
+            recipe = Recipe.objects.get(ref=recipe_ref, is_active=True)
         except Recipe.DoesNotExist:
-            errors.append(f"{recipe_code}: receita não encontrada")
+            errors.append(f"{recipe_ref}: receita não encontrada")
             continue
 
         try:
@@ -234,8 +234,8 @@ def bulk_create_work_orders(request: HttpRequest) -> HttpResponse:
             )
             created.append(f"{recipe.output_ref} × {quantity} ({wo.ref})")
         except Exception as exc:
-            errors.append(f"{recipe_code}: {exc}")
-            logger.exception("bulk_create_work_orders failed for %s", recipe_code)
+            errors.append(f"{recipe_ref}: {exc}")
+            logger.exception("bulk_create_work_orders failed for %s", recipe_ref)
 
     parts = []
     if created:

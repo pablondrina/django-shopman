@@ -20,9 +20,9 @@ if not apps.is_installed("shopman.craftsman.contrib.admin_unfold"):
 
     @admin.register(Recipe)
     class RecipeAdmin(admin.ModelAdmin):
-        list_display = ("code", "name", "output_ref", "batch_size", "is_active")
+        list_display = ("ref", "name", "output_ref", "batch_size", "is_active")
         list_filter = ("is_active",)
-        search_fields = ("code", "name", "output_ref")
+        search_fields = ("ref", "name", "output_ref")
         inlines = [RecipeItemInline]
         readonly_fields = ("created_at", "updated_at")
 

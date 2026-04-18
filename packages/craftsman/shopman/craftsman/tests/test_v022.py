@@ -37,7 +37,7 @@ from shopman.craftsman.models import (
 def recipe(db):
     """Simple recipe: 10 croissants."""
     return Recipe.objects.create(
-        code="croissant-v1",
+        ref="croissant-v1",
         name="Croissant Tradicional",
         output_ref="croissant",
         batch_size=Decimal("10"),
@@ -58,7 +58,7 @@ def recipe_with_items(recipe):
 def recipe_b(db):
     """Second recipe for filtering tests."""
     r = Recipe.objects.create(
-        code="baguette-v1",
+        ref="baguette-v1",
         name="Baguette",
         output_ref="baguette",
         batch_size=Decimal("5"),
@@ -182,7 +182,7 @@ class TestCheckConstraints:
         """Recipe.batch_size must be > 0 at DB level."""
         with pytest.raises((IntegrityError, ValidationError)):
             Recipe.objects.create(
-                code="bad-batch", name="Bad", output_ref="x",
+                ref="bad-batch", name="Bad", output_ref="x",
                 batch_size=Decimal("0"),
             )
 
@@ -491,7 +491,7 @@ class TestPlanEndpoint:
         resp = api_client.post(
             "/api/craftsman/work-orders/plan/",
             {
-                "recipe_code": "croissant-v1",
+                "recipe_ref": "croissant-v1",
                 "quantity": "100",
                 "date": str(tomorrow),
             },
@@ -508,7 +508,7 @@ class TestPlanEndpoint:
         resp = api_client.post(
             "/api/craftsman/work-orders/plan/",
             {
-                "recipe_code": "croissant-v1",
+                "recipe_ref": "croissant-v1",
                 "quantity": "50",
                 "date": str(tomorrow),
                 "source_ref": "order:789",
@@ -528,7 +528,7 @@ class TestPlanEndpoint:
         """Plan with nonexistent recipe returns 404."""
         resp = api_client.post(
             "/api/craftsman/work-orders/plan/",
-            {"recipe_code": "nonexistent", "quantity": "100"},
+            {"recipe_ref": "nonexistent", "quantity": "100"},
             format="json",
         )
         assert resp.status_code == 404
@@ -541,7 +541,7 @@ class TestPlanEndpoint:
 
         resp = api_client.post(
             "/api/craftsman/work-orders/plan/",
-            {"recipe_code": "croissant-v1", "quantity": "100"},
+            {"recipe_ref": "croissant-v1", "quantity": "100"},
             format="json",
         )
         assert resp.status_code == 404
@@ -550,7 +550,7 @@ class TestPlanEndpoint:
         """Plan with invalid quantity returns 400."""
         resp = api_client.post(
             "/api/craftsman/work-orders/plan/",
-            {"recipe_code": "croissant-v1", "quantity": "0"},
+            {"recipe_ref": "croissant-v1", "quantity": "0"},
             format="json",
         )
         assert resp.status_code == 400
@@ -563,14 +563,14 @@ class TestPlanEndpoint:
             format="json",
         )
         assert resp.status_code == 400
-        assert "recipe_code" in resp.data
+        assert "recipe_ref" in resp.data
         assert "quantity" in resp.data
 
     def test_plan_requires_auth(self, anon_client, recipe):
         """Plan requires authentication."""
         resp = anon_client.post(
             "/api/craftsman/work-orders/plan/",
-            {"recipe_code": "croissant-v1", "quantity": "100"},
+            {"recipe_ref": "croissant-v1", "quantity": "100"},
             format="json",
         )
         assert resp.status_code in (401, 403)
@@ -698,7 +698,7 @@ class TestSuggestEndpoint:
 
         assert resp.status_code == 200
         assert len(resp.data) == 1
-        assert resp.data[0]["recipe_code"] == "croissant-v1"
+        assert resp.data[0]["recipe_ref"] == "croissant-v1"
         assert resp.data[0]["output_ref"] == "croissant"
         assert "quantity" in resp.data[0]
         assert "basis" in resp.data[0]

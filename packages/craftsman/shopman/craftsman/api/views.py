@@ -52,7 +52,7 @@ class RecipeViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = CraftsmanPagination
     queryset = Recipe.objects.filter(is_active=True).prefetch_related("items")
     serializer_class = RecipeSerializer
-    lookup_field = "code"
+    lookup_field = "ref"
 
 
 class WorkOrderViewSet(
@@ -118,7 +118,7 @@ class WorkOrderViewSet(
 
         POST /api/craftsman/work-orders/plan/
         {
-            "recipe_code": "croissant-v1",
+            "recipe_ref": "croissant-v1",
             "quantity": 100,
             "date": "2026-02-27",
             "source_ref": "order:789",
@@ -134,11 +134,11 @@ class WorkOrderViewSet(
 
         data = serializer.validated_data
         recipe = Recipe.objects.filter(
-            code=data["recipe_code"], is_active=True,
+            ref=data["recipe_ref"], is_active=True,
         ).first()
         if not recipe:
             return Response(
-                {"error": "RECIPE_NOT_FOUND", "detail": f"Recipe '{data['recipe_code']}' not found or inactive."},
+                {"error": "RECIPE_NOT_FOUND", "detail": f"Recipe '{data["recipe_ref"]}' not found or inactive."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 

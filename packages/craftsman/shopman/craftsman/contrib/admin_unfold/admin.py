@@ -76,23 +76,23 @@ class RecipeAdmin(BaseModelAdmin):
     warn_unsaved_form = True
 
     list_display = [
-        "code",
+        "ref",
         "name",
         "output_ref",
         "batch_size",
         "is_active",
     ]
     list_filter = ["is_active"]
-    search_fields = ["code", "name", "output_ref"]
+    search_fields = ["ref", "name", "output_ref"]
     ordering = ["name"]
-    prepopulated_fields = {"code": ("name",)}
+    prepopulated_fields = {"ref": ("name",)}
 
     inlines = [RecipeItemInline]
 
     fieldsets = (
         (
             _("Identificação"),
-            {"fields": ("code", "name", "is_active")},
+            {"fields": ("ref", "name", "is_active")},
         ),
         (
             _("Produção"),

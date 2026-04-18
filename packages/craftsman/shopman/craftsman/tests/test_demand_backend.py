@@ -24,7 +24,7 @@ from shopman.craftsman.protocols.demand import DailyDemand, DemandProtocol
 def recipe(db):
     """Simple active recipe."""
     return Recipe.objects.create(
-        code="croissant-v1",
+        ref="croissant-v1",
         name="Croissant Tradicional",
         output_ref="CROISSANT",
         batch_size=Decimal("10"),
@@ -191,7 +191,7 @@ class TestSuggestWithDemandBackend:
         tomorrow = date.today() + timedelta(days=1)
 
         recipe_b = Recipe.objects.create(
-            code="baguete-v1",
+            ref="baguete-v1",
             name="Baguete",
             output_ref="BAGUETE",
             batch_size=Decimal("5"),

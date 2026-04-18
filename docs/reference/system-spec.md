@@ -27,7 +27,7 @@
 |---|-----------|------------------------|
 | P1 | Core é sagrado | `Session.data`, `Order.data`, `Directive.payload`, `Channel.config` são `JSONField` — extensíveis sem migração; chaves catalogadas em `docs/reference/data-schemas.md`. |
 | P2 | Config-driven, não OOP-driven | Sem classes de Flow. Lifecycle é despachado por `ChannelConfig` (8 aspectos) + `dispatch(order, phase)`. |
-| P3 | Identificadores textuais como `ref` | Exceções deliberadas: `Product.sku`, `Recipe.code` (slug descritivo), `WorkOrder.ref` (sequencial `WO-YYYY-NNNNN`). |
+| P3 | Identificadores textuais como `ref` | Exceção deliberada: `Product.sku` (campo SKU de produto). `WorkOrder.ref` é sequencial (`WO-YYYY-NNNNN`). |
 | P4 | Monetário inteiro em centavos com sufixo `_q` | `price_q=1500` ⇒ R$ 15,00. `monetary_mult`/`monetary_div` são canônicos (`ROUND_HALF_UP`). |
 | P5 | Directives em vez de Celery | Tabela `Directive` + dispatch via signal post-commit + backoff `2^attempts` + max 5. Idempotente via `dedupe_key`. |
 | P6 | Zero resíduos em renames | Sem aliases `OldName = NewName`, sem `# formerly X`. |
@@ -61,7 +61,7 @@ Cada pacote abaixo é pip-instalável (`shopman-<nome>`), vive em `packages/<nom
 
 **Nuance pro**
 - `format_money` usa vírgula decimal e ponto de milhares (pt-BR), invertendo o default do Python.
-- `_is_manychat_brazilian` checa três condições (len=11, DDD≥11, digits[2]=='9') — sem isso, números austríacos (+43) seriam mutilados.
+- `_is_phone_brazilian` checa três condições (len=11, DDD≥11, digits[2]=='9') — sem isso, números austríacos (+43) seriam mutilados.
 
 ### 1.2 offerman (`shopman-offerman`)
 
@@ -152,7 +152,7 @@ Cada pacote abaixo é pip-instalável (`shopman-<nome>`), vive em `packages/<nom
 **Escopo**: produção em lote (NUNCA por-pedido). WorkOrder = batch antecipado (bake 50 croissants para amanhã).
 
 **Modelos**
-- `Recipe(code[slug unique], output_ref, batch_size, steps[JSON list], is_active, meta)`.
+- `Recipe(ref[slug unique], output_ref, batch_size, steps[JSON list], is_active, meta)`.
 - `RecipeItem(recipe, input_ref, quantity, unit, is_optional, sort_order)` — coeficiente francês: `qty_needed = item.qty × (wo.qty / recipe.batch_size)`.
 - `WorkOrder(ref[WO-YYYY-NNNNN], recipe FK, output_ref[copiado no plan, imutável], quantity, finished|null, status∈{PLANNED,STARTED,FINISHED,VOID}, rev[optimistic concurrency], target_date, source_ref, position_ref, operator_ref, meta{_recipe_snapshot})`.
 - `WorkOrderEvent(seq[monotônico por WO], kind∈{PLANNED,ADJUSTED,STARTED,FINISHED,VOIDED}, payload, idempotency_key[unique null], actor)` — append-only; PK composta (work_order, seq).
@@ -556,7 +556,7 @@ Cada Core viável standalone (Offerman = e-commerce catálogo, Stockman = estoqu
 
 ### 6.1 Nomenclatura e tipos
 - Personas: Offerman/Stockman/Craftsman/Orderman/Guestman/Doorman/Payman.
-- `ref` (slug); exceções Product.sku, Recipe.code, WorkOrder.ref.
+- `ref` (slug); exceção Product.sku. WorkOrder.ref é sequencial.
 - Monetário `_q` centavos via monetary_mult/div ROUND_HALF_UP.
 - Phone E.164 via normalize_phone.
 - Namespace `shopman.*` PEP 420.
