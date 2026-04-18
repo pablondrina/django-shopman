@@ -1,0 +1,344 @@
+{% load static %}
+{% comment %}
+  Reusable address picker (iFood-style). Used in checkout and account.
+
+  Expected context:
+    picker_addresses   — list of dicts with: id, label, route, street_number,
+                         complement, neighborhood, city, state_code,
+                         postal_code, latitude, longitude, place_id,
+                         formatted_address, delivery_instructions, is_default.
+    picker_preselected_id — int or None (best-guess id from suggest_address).
+    picker_mode        — "checkout" or "account".
+    picker_name_prefix — optional form input name prefix; defaults to "addr_".
+    picker_show_saved  — bool; if False, never render the saved list.
+
+  Emits (via regular hidden inputs inside the picker form):
+    <prefix>route, <prefix>street_number, <prefix>complement,
+    <prefix>neighborhood, <prefix>city, <prefix>state_code,
+    <prefix>postal_code, <prefix>place_id, <prefix>formatted_address,
+    <prefix>latitude, <prefix>longitude, <prefix>delivery_instructions,
+    <prefix>is_verified, saved_address_id.
+
+  Caller is responsible for placing this inside a <form>.
+{% endcomment %}
+
+{% with name_prefix=picker_name_prefix|default:"addr_" %}
+<div x-data="addressPicker({
+       initialAddresses: {{ picker_addresses_json|default:'[]' }},
+       preselectedId: {{ picker_preselected_id|default:'null' }},
+       initialDraft: {{ picker_initial_draft_json|default:'null' }},
+       shopLocation: {{ picker_shop_location_json|default:'null' }},
+       cepLookupUrl: '{% url 'storefront:cep_lookup' %}',
+       reverseGeocodeUrl: '/api/geocode/reverse',
+       csrfToken: '{{ csrf_token }}',
+       mode: '{{ picker_mode|default:'checkout' }}'
+     })"
+     x-init="init()"
+     @address:created.window="openLabelModal($event.detail.id || $event.detail.value?.id)"
+     class="space-y-4 address-picker"
+     data-address-picker>
+
+  {% comment %}── Saved addresses (radio list) ──{% endcomment %}
+  {% if picker_show_saved|default:True %}
+  <div x-show="hasSaved && view === 'saved'" x-cloak class="space-y-2">
+    <div class="flex items-center justify-between">
+      <p class="text-sm font-medium text-on-surface-strong dark:text-on-surface-dark-strong">
+        Seus endereços
+      </p>
+      <button type="button" @click="startNew()"
+              class="text-sm font-medium text-primary hover:opacity-75 dark:text-primary-dark focus:outline-hidden focus:underline">
+        + Novo endereço
+      </button>
+    </div>
+
+    <template x-for="addr in addresses" :key="addr.id">
+      <label class="flex items-start gap-3 rounded-radius border p-3 cursor-pointer min-h-[44px] transition"
+             :class="Number(selectedId) === Number(addr.id)
+                       ? 'border-primary bg-primary/5 dark:border-primary-dark dark:bg-primary-dark/5'
+                       : 'border-outline bg-surface hover:bg-surface-alt dark:border-outline-dark dark:bg-surface-dark dark:hover:bg-surface-dark-alt'">
+        <input type="radio" name="saved_address_id"
+               :value="addr.id"
+               :checked="Number(selectedId) === Number(addr.id)"
+               @change="selectSaved(addr.id)"
+               class="sr-only">
+        <span class="material-symbols-rounded text-xl mt-0.5 text-primary dark:text-primary-dark shrink-0" aria-hidden="true">
+          location_on
+        </span>
+        <span class="flex flex-col min-w-0 flex-1">
+          <span class="flex items-center gap-2">
+            <span class="font-medium text-sm text-on-surface-strong dark:text-on-surface-dark-strong truncate"
+                  x-text="addr.label || 'Endereço'"></span>
+            <template x-if="addr.is_default">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium
+                           bg-primary/15 text-primary dark:bg-primary-dark/15 dark:text-primary-dark shrink-0">
+                Padrão
+              </span>
+            </template>
+          </span>
+          <span class="text-xs text-on-surface/70 dark:text-on-surface-dark/70 truncate"
+                x-text="addr.formatted_address"></span>
+          <template x-if="addr.complement">
+            <span class="text-xs text-on-surface/50 dark:text-on-surface-dark/50" x-text="addr.complement"></span>
+          </template>
+        </span>
+      </label>
+    </template>
+  </div>
+
+  {% comment %}── No-saved empty row + new-address shortcut ──{% endcomment %}
+  <div x-show="!hasSaved && view === 'saved'" x-cloak>
+    <button type="button" @click="startNew()"
+            class="w-full flex items-center justify-center gap-2 rounded-radius border border-dashed border-outline bg-surface p-4 text-sm text-on-surface hover:border-primary hover:text-primary dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark dark:hover:border-primary-dark dark:hover:text-primary-dark focus:outline-hidden focus:ring-2 focus:ring-primary min-h-[44px]">
+      <span class="material-symbols-rounded text-base" aria-hidden="true">add_location</span>
+      Adicionar endereço
+    </button>
+  </div>
+  {% endif %}
+
+  {% comment %}── New/edit address form ──{% endcomment %}
+  <div x-show="view === 'new'" x-cloak class="space-y-3">
+
+    <div class="flex items-center justify-between gap-2">
+      <p class="text-sm font-medium text-on-surface-strong dark:text-on-surface-dark-strong">
+        Novo endereço
+      </p>
+      <template x-if="hasSaved">
+        <button type="button" @click="view = 'saved'; search = ''"
+                class="text-sm text-on-surface/70 hover:text-on-surface dark:text-on-surface-dark/70 dark:hover:text-on-surface-dark focus:outline-hidden focus:underline">
+          Voltar
+        </button>
+      </template>
+    </div>
+
+    {% comment %}── Unified search (Places + CEP fallback) — geo como link discreto abaixo ──{% endcomment %}
+    <div>
+      <div class="relative">
+        <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-on-surface/40 dark:text-on-surface-dark/40" aria-hidden="true">
+          <span class="material-symbols-rounded text-base">search</span>
+        </span>
+        <input type="text"
+               x-ref="searchInput"
+               x-model="search"
+               x-init="$nextTick(() => mountAutocomplete($el))"
+               @keydown.enter.prevent="onSearchEnter()"
+               placeholder="Buscar endereço ou CEP"
+               autocomplete="off"
+               class="w-full rounded-radius border border-outline bg-surface pl-10 pr-3 py-2 text-on-surface placeholder-on-surface/40 focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark min-h-[44px]">
+      </div>
+      <button type="button"
+              @click="useMyLocation()"
+              :disabled="searching"
+              class="mt-2 w-full inline-flex items-center justify-center gap-2 rounded-radius border border-outline bg-surface px-4 py-2.5 text-sm font-medium text-on-surface hover:bg-surface-alt hover:border-primary/40 dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark dark:hover:bg-surface-dark-alt min-h-[44px] focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark disabled:opacity-50 transition">
+        <span class="material-symbols-rounded text-base" aria-hidden="true">my_location</span>
+        Usar minha localização
+      </button>
+    </div>
+
+    <p x-show="searching" x-cloak class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">
+      Buscando…
+    </p>
+    <p x-show="searchError" x-cloak x-text="searchError"
+       class="text-xs text-warning dark:text-warning-dark"></p>
+
+    {% comment %}── Sugestão aceita: resumo + botão "ajustar no mapa" ──{% endcomment %}
+    <div x-show="draft.route || draft.formatted_address" x-cloak
+         class="rounded-radius border border-outline bg-surface-alt p-3 dark:border-outline-dark dark:bg-surface-dark-alt">
+      <div class="flex items-start gap-2">
+        <span class="material-symbols-rounded text-base text-primary dark:text-primary-dark mt-0.5" aria-hidden="true">
+          location_on
+        </span>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm text-on-surface-strong dark:text-on-surface-dark-strong truncate"
+             x-text="draft.formatted_address || (draft.route + (draft.street_number ? ', ' + draft.street_number : ''))">
+          </p>
+          <template x-if="draft.neighborhood || draft.city">
+            <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 truncate"
+               x-text="[draft.neighborhood, draft.city].filter(Boolean).join(' · ')"></p>
+          </template>
+        </div>
+        <button type="button" @click="openMap()"
+                title="Ajustar no mapa" aria-label="Ajustar no mapa"
+                class="shrink-0 flex h-11 w-11 items-center justify-center rounded-full text-on-surface/50 hover:bg-primary/10 hover:text-primary dark:text-on-surface-dark/50 dark:hover:bg-primary-dark/10 dark:hover:text-primary-dark focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark transition">
+          <span class="material-symbols-rounded text-lg" aria-hidden="true">edit_location_alt</span>
+        </button>
+      </div>
+    </div>
+
+    {% comment %}── Campos editáveis (só aparecem após escolher um endereço) ──{% endcomment %}
+    <div x-show="draft.route || draft.formatted_address" x-cloak class="space-y-3">
+      <div class="grid grid-cols-3 gap-2">
+        <div class="col-span-1">
+          <label class="block text-xs font-medium text-on-surface dark:text-on-surface-dark mb-1">
+            Número
+          </label>
+          <input type="text" x-ref="street_number" x-model="draft.street_number"
+                 inputmode="numeric"
+                 placeholder="123"
+                 class="w-full rounded-radius border border-outline bg-surface px-3 py-2 text-on-surface placeholder-on-surface/40 focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark text-sm min-h-[44px]">
+        </div>
+        <div class="col-span-2">
+          <label class="block text-xs font-medium text-on-surface dark:text-on-surface-dark mb-1">
+            Complemento (opcional)
+          </label>
+          <input type="text" x-ref="complement" x-model="draft.complement"
+                 placeholder="Apto, bloco, referência"
+                 class="w-full rounded-radius border border-outline bg-surface px-3 py-2 text-on-surface placeholder-on-surface/40 focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark text-sm min-h-[44px]">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-on-surface dark:text-on-surface-dark mb-1">
+          Instruções para o entregador (opcional)
+        </label>
+        <textarea x-model="draft.delivery_instructions"
+                  rows="2"
+                  placeholder="Interfone, portaria, referência…"
+                  class="w-full rounded-radius border border-outline bg-surface px-3 py-2 text-on-surface placeholder-on-surface/40 focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark text-sm resize-none"></textarea>
+      </div>
+    </div>
+  </div>
+
+  {% comment %}── Hidden inputs ──{% endcomment %}
+  <input type="hidden" name="{{ name_prefix }}route"               :value="draft.route">
+  <input type="hidden" name="{{ name_prefix }}street_number"       :value="draft.street_number">
+  <input type="hidden" name="{{ name_prefix }}complement"          :value="draft.complement">
+  <input type="hidden" name="{{ name_prefix }}neighborhood"        :value="draft.neighborhood">
+  <input type="hidden" name="{{ name_prefix }}city"                :value="draft.city">
+  <input type="hidden" name="{{ name_prefix }}state_code"          :value="draft.state_code">
+  <input type="hidden" name="{{ name_prefix }}postal_code"         :value="draft.postal_code">
+  <input type="hidden" name="{{ name_prefix }}place_id"            :value="draft.place_id">
+  <input type="hidden" name="{{ name_prefix }}formatted_address"   :value="draft.formatted_address">
+  <input type="hidden" name="{{ name_prefix }}latitude"            :value="draft.latitude ?? ''">
+  <input type="hidden" name="{{ name_prefix }}longitude"           :value="draft.longitude ?? ''">
+  <input type="hidden" name="{{ name_prefix }}delivery_instructions" :value="draft.delivery_instructions">
+  <input type="hidden" name="{{ name_prefix }}is_verified"         :value="draft.is_verified ? 'true' : 'false'">
+  {% comment %}saved_address_id already emitted as the radio above when view === 'saved'{% endcomment %}
+
+  {% comment %}── Map modal (bottom sheet ~85vh, swipe-to-dismiss) ──{% endcomment %}
+  <template x-teleport="body">
+    <div x-show="showMap" x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         @keydown.escape.window="showMap && closeMap()"
+         class="fixed inset-0 z-[70] flex items-end justify-center bg-black/50"
+         role="dialog" aria-modal="true" aria-label="Ajustar endereço no mapa">
+      <div @click.stop
+           x-transition:enter="transition ease-out duration-300"
+           x-transition:enter-start="translate-y-full"
+           x-transition:enter-end="translate-y-0"
+           x-transition:leave="transition ease-in duration-200"
+           x-transition:leave-start="translate-y-0"
+           x-transition:leave-end="translate-y-full"
+           data-swipe-dismiss
+           x-data="{ dragStartY: null, dragY: 0 }"
+           @touchstart="dragStartY = $event.touches[0].clientY; dragY = 0"
+           @touchmove="if (dragStartY != null) { const dy = $event.touches[0].clientY - dragStartY; if (dy > 0) { dragY = dy; $el.style.transform = 'translateY(' + dy + 'px)'; } }"
+           @touchend="if (dragY > 80) { $el.style.transform = ''; closeMap(); } else { $el.style.transform = ''; } dragStartY = null; dragY = 0"
+           class="w-full max-w-3xl bg-surface dark:bg-surface-dark rounded-t-2xl flex flex-col"
+           style="height: 85vh; padding-bottom: env(safe-area-inset-bottom, 0)">
+        <div class="flex justify-center pt-3 pb-1" aria-hidden="true">
+          <div class="w-10 h-1 rounded-full bg-outline dark:bg-outline-dark"></div>
+        </div>
+        <div class="flex items-center justify-between px-4 py-2 border-b border-outline dark:border-outline-dark">
+          <h3 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">
+            Ajuste o pin no endereço
+          </h3>
+          <button type="button" @click="closeMap()" aria-label="Fechar mapa"
+                  class="p-2 -m-2 text-on-surface/60 hover:text-on-surface dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark focus:outline-hidden focus:ring-2 focus:ring-primary rounded">
+            <span class="material-symbols-rounded text-xl" aria-hidden="true">close</span>
+          </button>
+        </div>
+        <div class="flex-1 min-h-0 relative">
+          <div x-ref="mapEl" class="absolute inset-0" role="application" aria-label="Mapa do endereço"></div>
+        </div>
+        <div class="flex gap-2 p-3 border-t border-outline dark:border-outline-dark">
+          <button type="button" @click="closeMap()"
+                  class="flex-1 rounded-radius border border-outline bg-surface px-3 py-2 text-sm font-medium text-on-surface hover:bg-surface-alt dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark dark:hover:bg-surface-dark-alt min-h-[44px] focus:outline-hidden focus:ring-2 focus:ring-primary">
+            Cancelar
+          </button>
+          <button type="button" @click="confirmMap()"
+                  class="flex-[2] rounded-radius bg-primary px-3 py-2 text-sm font-semibold text-on-primary hover:opacity-90 dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px] focus:outline-hidden focus:ring-2 focus:ring-primary focus:ring-offset-2">
+            Confirmar localização
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  {% comment %}── Label modal (post-save, gentle prompt) ──{% endcomment %}
+  <template x-teleport="body">
+    <div x-show="showLabelModal" x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         @keydown.escape.window="showLabelModal && closeLabelModal()"
+         @click="closeLabelModal()"
+         class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/50"
+         role="dialog" aria-modal="true" aria-label="Como salvar este endereço">
+      <div @click.stop
+           x-transition:enter="transition ease-out duration-300"
+           x-transition:enter-start="translate-y-full sm:translate-y-0 sm:opacity-0"
+           x-transition:enter-end="translate-y-0 sm:opacity-100"
+           x-transition:leave="transition ease-in duration-200"
+           x-transition:leave-start="translate-y-0 sm:opacity-100"
+           x-transition:leave-end="translate-y-full sm:translate-y-0 sm:opacity-0"
+           class="w-full sm:max-w-md bg-surface dark:bg-surface-dark rounded-t-2xl sm:rounded-2xl p-5"
+           style="padding-bottom: max(1.25rem, env(safe-area-inset-bottom, 0))">
+        <div class="flex justify-center pb-2 sm:hidden" aria-hidden="true">
+          <div class="w-10 h-1 rounded-full bg-outline dark:bg-outline-dark"></div>
+        </div>
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">
+            Como você quer chamar este endereço?
+          </h3>
+          <button type="button" @click="closeLabelModal()" aria-label="Fechar"
+                  class="p-2 -m-2 text-on-surface/60 hover:text-on-surface dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark focus:outline-hidden focus:ring-2 focus:ring-primary rounded">
+            <span class="material-symbols-rounded text-xl" aria-hidden="true">close</span>
+          </button>
+        </div>
+        <div class="grid grid-cols-3 gap-2 mt-3">
+          <button type="button" @click="labelDraft = 'home'; labelCustom = ''; saveLabel()"
+                  class="flex flex-col items-center gap-1 rounded-radius border border-outline bg-surface p-3 hover:border-primary hover:bg-primary/5 dark:border-outline-dark dark:bg-surface-dark dark:hover:border-primary-dark dark:hover:bg-primary-dark/5 focus:outline-hidden focus:ring-2 focus:ring-primary min-h-[72px]">
+            <span class="material-symbols-rounded text-xl text-primary dark:text-primary-dark" aria-hidden="true">home</span>
+            <span class="text-xs font-medium text-on-surface dark:text-on-surface-dark">Casa</span>
+          </button>
+          <button type="button" @click="labelDraft = 'work'; labelCustom = ''; saveLabel()"
+                  class="flex flex-col items-center gap-1 rounded-radius border border-outline bg-surface p-3 hover:border-primary hover:bg-primary/5 dark:border-outline-dark dark:bg-surface-dark dark:hover:border-primary-dark dark:hover:bg-primary-dark/5 focus:outline-hidden focus:ring-2 focus:ring-primary min-h-[72px]">
+            <span class="material-symbols-rounded text-xl text-primary dark:text-primary-dark" aria-hidden="true">work</span>
+            <span class="text-xs font-medium text-on-surface dark:text-on-surface-dark">Trabalho</span>
+          </button>
+          <div x-data="{ editing: false }" class="col-span-1">
+            <button x-show="!editing" type="button" @click="editing = true; $nextTick(() => $refs.customInput.focus())"
+                    class="w-full h-full flex flex-col items-center gap-1 rounded-radius border border-outline bg-surface p-3 hover:border-primary hover:bg-primary/5 dark:border-outline-dark dark:bg-surface-dark dark:hover:border-primary-dark dark:hover:bg-primary-dark/5 focus:outline-hidden focus:ring-2 focus:ring-primary min-h-[72px]">
+              <span class="material-symbols-rounded text-xl text-primary dark:text-primary-dark" aria-hidden="true">more_horiz</span>
+              <span class="text-xs font-medium text-on-surface dark:text-on-surface-dark">Outro…</span>
+            </button>
+            <div x-show="editing" x-cloak class="flex flex-col gap-1">
+              <input type="text" x-ref="customInput" x-model="labelCustom"
+                     placeholder="Ex: Casa da vovó"
+                     @keydown.enter.prevent="labelDraft = 'other'; saveLabel()"
+                     class="w-full rounded-radius border border-outline bg-surface px-2 py-1.5 text-on-surface text-xs focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark">
+              <button type="button" @click="labelDraft = 'other'; saveLabel()"
+                      class="rounded-radius bg-primary text-on-primary text-xs font-medium py-1.5 dark:bg-primary-dark dark:text-on-primary-dark">
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+        <button type="button" @click="closeLabelModal()"
+                class="w-full mt-3 text-sm text-on-surface/60 hover:text-on-surface dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark focus:outline-hidden focus:underline py-2 min-h-[44px]">
+          Agora não
+        </button>
+      </div>
+    </div>
+  </template>
+
+</div>
+{% endwith %}
