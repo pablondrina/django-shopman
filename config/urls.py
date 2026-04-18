@@ -8,6 +8,8 @@ from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from shopman.shop.views.health import HealthCheckView, ReadyCheckView
+
 logger = logging.getLogger(__name__)
 
 
@@ -21,6 +23,9 @@ def _include_optional(route: str, module: str):
 
 
 urlpatterns = [
+    # Health / readiness probes — público, sem auth, no topo para precedência.
+    path("health/", HealthCheckView.as_view(), name="health"),
+    path("ready/", ReadyCheckView.as_view(), name="ready"),
     path("admin/", admin.site.urls),
     # OpenAPI
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
