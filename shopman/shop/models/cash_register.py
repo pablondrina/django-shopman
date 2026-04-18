@@ -52,6 +52,7 @@ class CashRegisterSession(models.Model):
         ordering = ["-opened_at"]
         verbose_name = "Sessão de Caixa"
         verbose_name_plural = "Sessões de Caixa"
+        permissions = [("operate_pos", "Pode operar o PDV (abrir/fechar caixa, sangria, balcão)")]
 
     def __str__(self) -> str:
         return f"Caixa {self.operator.username} — {self.opened_at:%d/%m/%Y %H:%M} [{self.status}]"

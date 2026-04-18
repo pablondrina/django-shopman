@@ -271,6 +271,13 @@ class Shop(models.Model):
     class Meta:
         verbose_name = "loja"
         verbose_name_plural = "loja"
+        permissions = [
+            ("manage_orders", "Pode confirmar/rejeitar/avançar/cancelar pedidos"),
+            ("manage_production", "Pode criar WorkOrders e avançar produção"),
+            ("manage_catalog", "Pode criar/editar Product, Listing e Collection"),
+            ("manage_customers", "Pode criar/editar Customer, grupos e loyalty"),
+            ("view_reports", "Pode acessar dashboard e relatórios analíticos"),
+        ]
 
     def __str__(self):
         return self.name

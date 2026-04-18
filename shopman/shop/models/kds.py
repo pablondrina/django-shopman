@@ -78,6 +78,7 @@ class KDSTicket(models.Model):
         verbose_name = "ticket KDS"
         verbose_name_plural = "tickets KDS"
         ordering = ["created_at"]
+        permissions = [("operate_kds", "Pode operar telas KDS (check, done, expedition)")]
 
     def __str__(self):
         return f"KDS #{self.pk} — {self.order.ref} → {self.kds_instance.ref}"

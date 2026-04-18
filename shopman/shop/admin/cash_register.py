@@ -59,3 +59,6 @@ class CashRegisterSessionAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+    def has_view_permission(self, request, obj=None):
+        return request.user.has_perm("shop.operate_pos")

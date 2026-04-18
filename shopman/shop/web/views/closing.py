@@ -26,7 +26,7 @@ from shopman.shop.projections.closing import build_day_closing
 logger = logging.getLogger(__name__)
 
 TEMPLATE = "gestao/fechamento/index.html"
-PERMISSION = "shop.add_dayclosing"
+PERMISSION = "shop.perform_closing"
 
 
 def closing_view(request, admin_site):

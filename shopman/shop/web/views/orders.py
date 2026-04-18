@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 from shopman.orderman.models import Directive, Order
@@ -27,10 +27,15 @@ NOTIFICATION_SEND = "notification.send"
 logger = logging.getLogger(__name__)
 
 
-def _staff_required(request):
-    """Check staff auth; return redirect response or None."""
-    if not request.user.is_staff:
+PERM = "shop.manage_orders"
+
+
+def _perm_required(request):
+    """Redirect to login if not staff; 403 if missing manage_orders perm."""
+    if not request.user.is_authenticated or not request.user.is_staff:
         return redirect(f"/admin/login/?next={request.path}")
+    if not request.user.has_perm(PERM):
+        return HttpResponseForbidden("Você não tem permissão para esta ação.")
     return None
 
 
@@ -38,7 +43,7 @@ class OperatorOrdersView(View):
     """Main operator dashboard page."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        denied = _staff_required(request)
+        denied = _perm_required(request)
         if denied:
             return denied
 
@@ -61,7 +66,7 @@ class OrderListPartialView(View):
     """HTMX partial: returns order grid for polling updates."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        denied = _staff_required(request)
+        denied = _perm_required(request)
         if denied:
             return denied
 
@@ -79,7 +84,7 @@ class OrderDetailPartialView(View):
     """HTMX partial: expanded detail for a single order card."""
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
-        denied = _staff_required(request)
+        denied = _perm_required(request)
         if denied:
             return denied
 
@@ -98,7 +103,7 @@ class OrderConfirmView(View):
     """POST /pedidos/<ref>/confirm/ — confirm an order."""
 
     def post(self, request: HttpRequest, ref: str) -> HttpResponse:
-        denied = _staff_required(request)
+        denied = _perm_required(request)
         if denied:
             return denied
 
@@ -125,7 +130,7 @@ class OrderRejectView(View):
     """POST /pedidos/<ref>/reject/ — operador recusa o pedido (motivo obrigatório)."""
 
     def post(self, request: HttpRequest, ref: str) -> HttpResponse:
-        denied = _staff_required(request)
+        denied = _perm_required(request)
         if denied:
             return denied
 
@@ -158,7 +163,7 @@ class OrderAdvanceView(View):
     """POST /pedidos/<ref>/advance/ — advance to next status."""
 
     def post(self, request: HttpRequest, ref: str) -> HttpResponse:
-        denied = _staff_required(request)
+        denied = _perm_required(request)
         if denied:
             return denied
 
@@ -179,7 +184,7 @@ class OrderNotesView(View):
     """POST /pedidos/<ref>/notes/ — save internal notes."""
 
     def post(self, request: HttpRequest, ref: str) -> HttpResponse:
-        denied = _staff_required(request)
+        denied = _perm_required(request)
         if denied:
             return denied
 
@@ -194,7 +199,7 @@ class OrderMarkPaidView(View):
     """POST /pedidos/<ref>/mark-paid/ — operador confirma recebimento manual (dinheiro/counter)."""
 
     def post(self, request: HttpRequest, ref: str) -> HttpResponse:
-        denied = _staff_required(request)
+        denied = _perm_required(request)
         if denied:
             return denied
 

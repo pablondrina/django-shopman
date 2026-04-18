@@ -25,7 +25,7 @@ from shopman.shop.projections.production import build_production_board
 logger = logging.getLogger(__name__)
 
 TEMPLATE = "gestao/producao/index.html"
-PERMISSION = "craftsman.add_workorder"
+PERMISSION = "shop.manage_production"
 
 
 def production_view(request, admin_site):
@@ -174,8 +174,8 @@ def bulk_create_work_orders(request: HttpRequest) -> HttpResponse:
     Expects JSON body: {"date": "YYYY-MM-DD", "orders": [{"recipe_ref": "...", "quantity": N}, ...]}
     Returns HTMX partial with result summary.
     """
-    if not request.user.is_staff:
-        return HttpResponse("Unauthorized", status=403)
+    if not request.user.has_perm(PERMISSION):
+        return HttpResponse("Você não tem permissão para esta ação.", status=403)
 
     if request.method != "POST":
         return HttpResponse("Method not allowed", status=405)

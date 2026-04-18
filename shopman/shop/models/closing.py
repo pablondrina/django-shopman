@@ -27,6 +27,7 @@ class DayClosing(models.Model):
         verbose_name = "fechamento do dia"
         verbose_name_plural = "fechamentos do dia"
         ordering = ["-date"]
+        permissions = [("perform_closing", "Pode executar fechamento do dia")]
 
     def __str__(self):
         return f"Fechamento {self.date}"

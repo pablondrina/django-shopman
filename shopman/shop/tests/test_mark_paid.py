@@ -6,7 +6,8 @@ POST /pedidos/<ref>/mark-paid/ → marks dinheiro/counter orders as paid.
 
 from __future__ import annotations
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Permission, User
+from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
 from shopman.orderman.ids import generate_idempotency_key, generate_session_key
 from shopman.orderman.models import Order, Session
@@ -51,6 +52,9 @@ class MarkPaidTests(TestCase):
         super().setUp()
         self.staff = User.objects.create_user("staff_user", password="pw", is_staff=True)
         self.regular = User.objects.create_user("regular_user", password="pw", is_staff=False)
+        ct = ContentType.objects.get(app_label="shop", model="shop")
+        perm = Permission.objects.get(content_type=ct, codename="manage_orders")
+        self.staff.user_permissions.add(perm)
         self.channel = Channel.objects.create(
             ref="balcao",
             name="Balcão",

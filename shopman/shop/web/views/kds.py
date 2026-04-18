@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
@@ -23,10 +23,15 @@ from shopman.shop.projections.kds import (
 logger = logging.getLogger(__name__)
 
 
-def _staff_required(request):
-    """Check staff auth; return redirect response or None."""
-    if not request.user.is_staff:
+PERM = "shop.operate_kds"
+
+
+def _perm_required(request):
+    """Redirect to login if not staff; 403 if missing operate_kds perm."""
+    if not request.user.is_authenticated or not request.user.is_staff:
         return redirect(f"/admin/login/?next={request.path}")
+    if not request.user.has_perm(PERM):
+        return HttpResponseForbidden("Você não tem permissão para esta ação.")
     return None
 
 
@@ -34,7 +39,7 @@ class KDSIndexView(View):
     """GET /kds/ — list active KDS instances."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        denied = _staff_required(request)
+        denied = _perm_required(request)
         if denied:
             return denied
 
@@ -52,7 +57,7 @@ class KDSDisplayView(View):
     """GET /kds/<ref>/ — main KDS display for a specific instance."""
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
-        denied = _staff_required(request)
+        denied = _perm_required(request)
         if denied:
             return denied
 
@@ -75,7 +80,7 @@ class KDSTicketListPartialView(View):
     """HTMX partial: ticket grid for polling updates."""
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
-        denied = _staff_required(request)
+        denied = _perm_required(request)
         if denied:
             return denied
 
@@ -95,7 +100,7 @@ class KDSTicketCheckItemView(View):
     """POST /kds/ticket/<pk>/check/ — toggle item checkbox."""
 
     def post(self, request: HttpRequest, pk: int) -> HttpResponse:
-        denied = _staff_required(request)
+        denied = _perm_required(request)
         if denied:
             return denied
 
@@ -124,7 +129,7 @@ class KDSTicketDoneView(View):
     """POST /kds/ticket/<pk>/done/ — mark ticket as done."""
 
     def post(self, request: HttpRequest, pk: int) -> HttpResponse:
-        denied = _staff_required(request)
+        denied = _perm_required(request)
         if denied:
             return denied
 
@@ -158,7 +163,7 @@ class KDSExpeditionActionView(View):
     """POST /kds/expedition/<pk>/action/ — dispatch or complete order."""
 
     def post(self, request: HttpRequest, pk: int) -> HttpResponse:
-        denied = _staff_required(request)
+        denied = _perm_required(request)
         if denied:
             return denied
 
