@@ -140,6 +140,16 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
             ),
         },
     },
+    "PAYMENT_CARD_INTRO": {
+        WILDCARD: {
+            WILDCARD: CopyEntry(
+                message=(
+                    "Você será levado ao ambiente seguro do Stripe. "
+                    "Voltamos assim que confirmar."
+                ),
+            ),
+        },
+    },
     "PAYMENT_CONFIRMED": {
         WILDCARD: {
             AUDIENCE_RETURNING: CopyEntry(

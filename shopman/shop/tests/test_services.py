@@ -519,7 +519,7 @@ class TestPaymentService:
             intent_ref="INT-002",
             status="pending",
             amount_q=5000,
-            client_secret="cs_test_123",
+            metadata={"checkout_url": "https://checkout.stripe.com/c/pay/cs_test_xyz"},
         )
         mock_get_adapter.return_value = adapter
 
@@ -527,7 +527,7 @@ class TestPaymentService:
 
         initiate(order)
 
-        assert order.data["payment"]["client_secret"] == "cs_test_123"
+        assert order.data["payment"]["checkout_url"] == "https://checkout.stripe.com/c/pay/cs_test_xyz"
         assert order.data["payment"]["intent_ref"] == "INT-002"
 
     def test_initiate_counter_noop(self):

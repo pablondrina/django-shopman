@@ -1,5 +1,10 @@
 """
-Stripe payment adapter — card payments via Stripe with 3D Secure.
+Stripe payment adapter — card payments via Stripe Checkout (hosted redirect).
+
+Delegação total: criamos uma `CheckoutSession` via API e devolvemos a `session.url`
+pública do Stripe. O cliente é redirecionado para `checkout.stripe.com` e a UI
+inteira é do Stripe (PCI scope = SAQ A — nenhum dado de cartão toca o servidor).
+Após pagamento, o webhook `checkout.session.completed` confirma o intent.
 
 Persists via PaymentService (DB) + communicates with Stripe API.
 Requires: pip install stripe
@@ -43,15 +48,17 @@ def create_intent(
     metadata: dict | None = None,
     **config,
 ) -> PaymentIntent:
-    """Create a Stripe PaymentIntent + persist via PaymentService.
+    """Create a Stripe Checkout Session + persist via PaymentService.
 
-    The client_secret is used by the frontend (Stripe Elements) to confirm payment.
+    Returns a `PaymentIntent` whose `metadata["checkout_url"]` is the Stripe-hosted
+    URL the client must be redirected to. `gateway_id` is the Checkout Session id
+    (`cs_...`); the actual `payment_intent` id is filled in later by the webhook.
     """
     from shopman.payman import PaymentService
 
     metadata = metadata or {}
     stripe_config = _get_config()
-    capture_method = stripe_config.get("capture_method", "manual")
+    domain = stripe_config.get("domain", "http://localhost:8000").rstrip("/")
     stripe_currency = currency.lower()
 
     db_intent = PaymentService.create_intent(
@@ -63,36 +70,47 @@ def create_intent(
     )
 
     stripe = _get_stripe()
-    stripe_intent = stripe.PaymentIntent.create(
-        amount=amount_q,
-        currency=stripe_currency,
-        capture_method=capture_method,
+    session = stripe.checkout.Session.create(
+        mode="payment",
+        payment_method_types=["card"],
+        line_items=[{
+            "price_data": {
+                "currency": stripe_currency,
+                "product_data": {"name": f"Pedido {order_ref}"},
+                "unit_amount": amount_q,
+            },
+            "quantity": 1,
+        }],
+        success_url=f"{domain}/pedido/{order_ref}/confirmacao/",
+        cancel_url=f"{domain}/pedido/{order_ref}/pagamento/",
         metadata={
             "shopman_ref": db_intent.ref,
             "order_ref": order_ref,
             **metadata,
         },
+        payment_intent_data={
+            "metadata": {
+                "shopman_ref": db_intent.ref,
+                "order_ref": order_ref,
+            },
+        },
     )
 
-    db_intent.gateway_id = stripe_intent.id
+    db_intent.gateway_id = session.id
     db_intent.gateway_data = {
         **metadata,
-        "stripe_status": stripe_intent.status,
+        "checkout_session_id": session.id,
+        "checkout_url": session.url,
     }
     db_intent.save(update_fields=["gateway_id", "gateway_data"])
 
-    status = "pending"
-    if stripe_intent.status == "requires_action":
-        status = "requires_action"
-
     return PaymentIntent(
         intent_ref=db_intent.ref,
-        status=status,
+        status="pending",
         amount_q=amount_q,
         currency=currency,
-        client_secret=stripe_intent.client_secret,
-        gateway_id=stripe_intent.id,
-        metadata=metadata,
+        gateway_id=session.id,
+        metadata={"checkout_url": session.url},
     )
 
 
@@ -283,7 +301,37 @@ def handle_webhook(payload: bytes, sig_header: str) -> dict:
 
     intent_ref = None
 
-    if event.type == "payment_intent.succeeded":
+    if event.type == "checkout.session.completed":
+        session = event.data.object
+        session_metadata = getattr(session, "metadata", None) or {}
+        shopman_ref = session_metadata.get("shopman_ref")
+        payment_intent_id = getattr(session, "payment_intent", None)
+        if shopman_ref:
+            intent_ref = shopman_ref
+            # Promote gateway_id from session id to payment_intent id so
+            # downstream refund/cancel calls hit the canonical Stripe object.
+            if payment_intent_id:
+                try:
+                    db_intent = PaymentService.get(shopman_ref)
+                    if db_intent.gateway_id != payment_intent_id:
+                        db_intent.gateway_id = payment_intent_id
+                        db_intent.save(update_fields=["gateway_id"])
+                except PaymentError:
+                    pass
+            try:
+                PaymentService.authorize(
+                    shopman_ref, gateway_id=payment_intent_id or shopman_ref,
+                )
+            except PaymentError:
+                pass
+            try:
+                PaymentService.capture(
+                    shopman_ref, gateway_id=payment_intent_id or shopman_ref,
+                )
+            except PaymentError:
+                pass
+
+    elif event.type == "payment_intent.succeeded":
         stripe_intent = event.data.object
         shopman_ref = stripe_intent.metadata.get("shopman_ref")
         if shopman_ref:

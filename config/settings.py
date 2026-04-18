@@ -576,6 +576,9 @@ SHOPMAN_STRIPE = {
     "secret_key": STRIPE_SECRET_KEY,
     "webhook_secret": os.environ.get("STRIPE_WEBHOOK_SECRET", ""),
     "capture_method": os.environ.get("STRIPE_CAPTURE_METHOD", "manual"),
+    # Public origin used to build absolute success_url / cancel_url passed to
+    # Stripe Checkout. Must include scheme (http://localhost:8000 in dev).
+    "domain": os.environ.get("SHOPMAN_DOMAIN", "http://localhost:8000"),
 }
 
 SHOPMAN_EFI = {

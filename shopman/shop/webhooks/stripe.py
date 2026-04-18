@@ -74,7 +74,7 @@ class StripeWebhookView(APIView):
         intent_ref = result.get("intent_ref")
         event_type = result.get("event_type", "")
 
-        if event_type == "payment_intent.succeeded" and intent_ref:
+        if event_type in ("payment_intent.succeeded", "checkout.session.completed") and intent_ref:
             self._trigger_order_hooks(intent_ref)
 
         logger.info(
