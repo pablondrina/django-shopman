@@ -7,7 +7,9 @@
     "css:build": "tailwindcss -i ./static/src/input.css -o ./shopman/shop/static/storefront/css/output.css --minify",
     "css:watch": "tailwindcss -i ./static/src/input.css -o ./shopman/shop/static/storefront/css/output.css --watch",
     "v2:build": "node node_modules/@tailwindcss/cli/dist/index.mjs -i ./static/src/style-v2.css -o ./shopman/shop/static/storefront/css/output-v2.css --minify",
-    "v2:watch": "node node_modules/@tailwindcss/cli/dist/index.mjs -i ./static/src/style-v2.css -o ./shopman/shop/static/storefront/css/output-v2.css --watch"
+    "v2:watch": "node node_modules/@tailwindcss/cli/dist/index.mjs -i ./static/src/style-v2.css -o ./shopman/shop/static/storefront/css/output-v2.css --watch",
+    "gestao:build": "node node_modules/@tailwindcss/cli/dist/index.mjs -i ./static/src/style-gestao.css -o ./shopman/shop/static/storefront/css/output-gestao.css --minify",
+    "gestao:watch": "node node_modules/@tailwindcss/cli/dist/index.mjs -i ./static/src/style-gestao.css -o ./shopman/shop/static/storefront/css/output-gestao.css --watch"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.2.2",

@@ -1,42 +1,45 @@
-{% extends "kds/base.html" %}
+{% extends "gestao/base.html" %}
 {% block title %}{{ instance.name }} — KDS{% endblock %}
+{% block page_title %}{{ instance.name }}{% endblock %}
+{% block nav_active_kds %}active{% endblock %}
+{% block main_class %}overflow-hidden flex flex-col{% endblock %}
 
-{% block body %}
-<div x-data="kdsDisplay()" x-init="init()">
+{% block navbar_actions %}
+<a href="/kds/" class="btn-icon" title="Voltar à lista" aria-label="Voltar à lista">
+  <span class="material-symbols-rounded text-xl" aria-hidden="true">arrow_back</span>
+</a>
+{% endblock %}
 
-  <header class="kds-header">
-    <div class="kds-header-left">
-      <a href="/kds/" class="kds-btn-icon" title="Voltar" aria-label="Voltar">
-        <span class="material-symbols-rounded" aria-hidden="true">arrow_back</span>
-      </a>
-      <h1>
-        <span class="material-symbols-rounded" aria-hidden="true">{% if instance.type == "prep" %}skillet{% elif instance.type == "picking" %}inventory_2{% else %}local_shipping{% endif %}</span>
-        {{ instance.name }}
-      </h1>
-      <span class="kds-queue-count" x-text="ticketCount + ' pendente' + (ticketCount !== 1 ? 's' : '')"></span>
-    </div>
-    <div class="kds-header-right">
-      <span class="kds-clock" x-text="clock" aria-label="Hora atual"></span>
-      <button type="button"
-              class="kds-btn-icon"
+{% block content %}
+<div id="kds-display-root" x-data="kdsDisplay()" x-init="init()"
+     class="h-full flex flex-col min-h-0">
+
+  {% comment %}Surface toolbar: ticket count + sound + fullscreen (inside kdsDisplay scope){% endcomment %}
+  <div class="px-4 py-2 flex items-center gap-2 shrink-0
+               border-b border-outline dark:border-outline-dark
+               bg-surface-alt dark:bg-surface-dark-alt">
+    <span class="text-xs font-mono tabular-nums text-on-surface/40 dark:text-on-surface-dark/40"
+          x-text="ticketCount + ' pendente' + (ticketCount !== 1 ? 's' : '')"></span>
+    <div class="ml-auto flex items-center gap-1">
+      <button type="button" class="btn-icon"
               @click="toggleSound()"
               :title="soundEnabled ? 'Som ativo' : 'Som desativado'"
               :aria-label="soundEnabled ? 'Desativar som' : 'Ativar som'">
-        <span class="material-symbols-rounded" x-text="soundEnabled ? 'volume_up' : 'volume_off'" aria-hidden="true"></span>
+        <span class="material-symbols-rounded text-xl" x-text="soundEnabled ? 'volume_up' : 'volume_off'" aria-hidden="true"></span>
       </button>
-      <button type="button"
-              class="kds-btn-icon"
+      <button type="button" class="btn-icon"
               @click="toggleFullscreen()"
               title="Tela cheia"
               aria-label="Alternar tela cheia">
-        <span class="material-symbols-rounded" aria-hidden="true" x-text="isFullscreen ? 'close_fullscreen' : 'open_in_full'"></span>
+        <span class="material-symbols-rounded text-xl" aria-hidden="true" x-text="isFullscreen ? 'close_fullscreen' : 'open_in_full'"></span>
       </button>
     </div>
-  </header>
+  </div>
 
-  <main class="kds-main" role="main" aria-live="polite">
+  <main class="flex-1 overflow-auto p-4" role="main" aria-live="polite">
     <div id="ticket-grid"
-         class="kds-grid"
+         class="grid gap-3 items-start"
+         style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr))"
          hx-get="/kds/{{ instance.ref }}/tickets/"
          hx-trigger="every {{ instance.config.refresh_interval_seconds|default:5 }}s"
          hx-target="#ticket-grid"
@@ -46,31 +49,9 @@
   </main>
 
 </div>
+{% endblock %}
 
-<style>
-  .kds-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 0.75rem;
-    align-items: start;
-  }
-
-  /* Large screens: 3-4 columns */
-  @media (min-width: 1280px) {
-    .kds-grid {
-      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    }
-  }
-
-  /* Small screens: stack */
-  @media (max-width: 480px) {
-    .kds-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-</style>
-
-<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+{% block extra_js %}
 <script>
   {% include "kds/partials/kds_js.html" %}
 </script>

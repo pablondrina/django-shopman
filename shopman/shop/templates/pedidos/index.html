@@ -1,82 +1,82 @@
-{% extends "pedidos/base.html" %}
+{% extends "gestao/base.html" %}
 {% block title %}Gestor de Pedidos — {{ shop.name|default:"Loja" }}{% endblock %}
+{% block page_title %}Pedidos{% endblock %}
+{% block nav_active_pedidos %}active{% endblock %}
+{% block main_class %}overflow-hidden flex flex-col{% endblock %}
 
-{% block body %}
-<div x-data="gestorPedidos()" x-init="init()">
+{% block content %}
+<div id="gestor-pedidos-root" x-data="gestorPedidos()" x-init="init()" class="flex flex-col h-full min-h-0">
 
-  {# ── Header ── #}
-  <header class="ped-header">
-    <div class="ped-header-left">
-      <h1>{{ shop.name|default:"Loja" }}</h1>
-      <span class="ped-queue-count" x-text="orderCount + ' pedidos'"></span>
-    </div>
-    <div class="ped-header-right">
-      <span class="ped-clock" x-text="clock"></span>
-      <a href="/admin/" class="ped-btn ped-btn--link" title="Admin / Dashboard">
-        <span class="material-symbols-rounded ped-icon-sm" aria-hidden="true">assignment</span>
-        Admin
-      </a>
-      <button type="button" class="ped-btn-icon"
-              @click="toggleSound()"
-              :title="soundEnabled ? 'Desativar som' : 'Ativar som'"
-              :aria-label="soundEnabled ? 'Desativar som' : 'Ativar som'">
-        <span class="material-symbols-rounded ped-icon-md" x-text="soundEnabled ? 'volume_up' : 'volume_off'"></span>
-      </button>
-      <button type="button" class="ped-btn-icon"
-              @click="toggleFullscreen()"
-              :title="isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'"
-              :aria-label="isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'">
-        <span class="material-symbols-rounded ped-icon-md" x-text="isFullscreen ? 'close_fullscreen' : 'open_in_full'" aria-hidden="true"></span>
-      </button>
-    </div>
-  </header>
+  {% comment %}Filter pills + surface-specific toolbar{% endcomment %}
+  <nav class="px-4 py-2 flex items-center gap-2 flex-wrap shrink-0
+               border-b border-outline dark:border-outline-dark
+               bg-surface-alt dark:bg-surface-dark-alt"
+       aria-label="Filtro de status">
 
-  {# ── Filter pills ── #}
-  <nav class="ped-filters" aria-label="Filtro de status">
     <button @click="setFilter('all')"
-            :class="filter === 'all' ? 'ped-pill ped-pill--active' : 'ped-pill'">
+            :class="filter === 'all' ? 'pill pill--active' : 'pill'">
       Todos (<span id="count-all">{{ counts.all }}</span>)
     </button>
     <button @click="setFilter('new')"
-            :class="filter === 'new' ? 'ped-pill ped-pill--active' : 'ped-pill'">
+            :class="filter === 'new' ? 'pill pill--active' : 'pill'">
       Aguardando (<span id="count-new">{{ counts.new }}</span>)
     </button>
     <button @click="setFilter('confirmed')"
-            :class="filter === 'confirmed' ? 'ped-pill ped-pill--active' : 'ped-pill'">
+            :class="filter === 'confirmed' ? 'pill pill--active' : 'pill'">
       Confirmados (<span id="count-confirmed">{{ counts.confirmed }}</span>)
     </button>
     <button @click="setFilter('preparing')"
-            :class="filter === 'preparing' ? 'ped-pill ped-pill--active' : 'ped-pill'">
+            :class="filter === 'preparing' ? 'pill pill--active' : 'pill'">
       Preparando (<span id="count-preparing">{{ counts.preparing }}</span>)
     </button>
     <button @click="setFilter('ready')"
-            :class="filter === 'ready' ? 'ped-pill ped-pill--active' : 'ped-pill'">
+            :class="filter === 'ready' ? 'pill pill--active' : 'pill'">
       Prontos (<span id="count-ready">{{ counts.ready }}</span>)
     </button>
     <button @click="setFilter('dispatched')"
-            :class="filter === 'dispatched' ? 'ped-pill ped-pill--active' : 'ped-pill'">
+            :class="filter === 'dispatched' ? 'pill pill--active' : 'pill'">
       Em Entrega (<span id="count-dispatched">{{ counts.dispatched }}</span>)
     </button>
     <button @click="setFilter('delivered')"
-            :class="filter === 'delivered' ? 'ped-pill ped-pill--active' : 'ped-pill'">
+            :class="filter === 'delivered' ? 'pill pill--active' : 'pill'">
       Entregues (<span id="count-delivered">{{ counts.delivered }}</span>)
     </button>
+
+    {% comment %}Sound + fullscreen inside gestorPedidos scope{% endcomment %}
+    <div class="ml-auto flex items-center gap-1">
+      <span class="text-xs font-mono tabular-nums text-on-surface/40 dark:text-on-surface-dark/40"
+            x-text="orderCount + ' pedidos'"></span>
+      <button type="button" class="btn-icon"
+              @click="toggleSound()"
+              :title="soundEnabled ? 'Desativar som' : 'Ativar som'"
+              :aria-label="soundEnabled ? 'Desativar som' : 'Ativar som'">
+        <span class="material-symbols-rounded text-xl" x-text="soundEnabled ? 'volume_up' : 'volume_off'" aria-hidden="true"></span>
+      </button>
+      <button type="button" class="btn-icon"
+              @click="toggleFullscreen()"
+              :title="isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'"
+              :aria-label="isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'">
+        <span class="material-symbols-rounded text-xl" x-text="isFullscreen ? 'close_fullscreen' : 'open_in_full'" aria-hidden="true"></span>
+      </button>
+    </div>
   </nav>
 
-  {# ── Order grid (HTMX polling) ── #}
-  <main class="ped-main" aria-live="polite">
+  {% comment %}Order grid (HTMX polling){% endcomment %}
+  <main class="flex-1 overflow-auto p-4" aria-live="polite">
     <div id="order-grid"
          hx-get="/pedidos/list/"
          hx-trigger="every 5s"
          hx-target="#order-grid"
          hx-swap="innerHTML"
-         hx-vals='js:{"filter": Alpine.$data(document.querySelector("[x-data]")).filter}'>
+         hx-vals='js:{"filter": Alpine.$data(document.getElementById("gestor-pedidos-root")).filter}'>
       {% include "pedidos/partials/order_list.html" %}
     </div>
   </main>
 
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
   {% include "pedidos/partials/pedidos_js.html" %}
 </script>

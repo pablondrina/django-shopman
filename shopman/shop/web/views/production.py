@@ -24,7 +24,7 @@ from shopman.shop.projections.production import build_production_board
 
 logger = logging.getLogger(__name__)
 
-TEMPLATE = "admin/shop/production.html"
+TEMPLATE = "gestao/producao/index.html"
 PERMISSION = "craftsman.add_workorder"
 
 
