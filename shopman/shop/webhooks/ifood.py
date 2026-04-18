@@ -88,22 +88,22 @@ class IFoodWebhookView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        existing = (
+        existing_ref = (
             Order.objects.filter(
                 channel_ref=ifood_ingest.IFOOD_CHANNEL_REF,
                 external_ref=external_ref,
             )
-            .only("ref")
+            .values_list("ref", flat=True)
             .first()
         )
-        if existing is not None:
+        if existing_ref is not None:
             logger.info(
                 "ifood_webhook: replay detected for external_ref=%s (order=%s)",
                 external_ref,
-                existing.ref,
+                existing_ref,
             )
             return Response(
-                {"status": "already_processed", "order_ref": existing.ref},
+                {"status": "already_processed", "order_ref": existing_ref},
                 status=status.HTTP_200_OK,
             )
 
