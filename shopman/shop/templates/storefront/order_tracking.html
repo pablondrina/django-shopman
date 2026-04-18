@@ -212,12 +212,13 @@
   {% endif %}
 
   {% comment %}── Share / reorder ──{% endcomment %}
+  {% omotenashi 'TRACKING_REORDER_CTA' as reorder_cta %}
   <div class="flex gap-3">
     <form method="post" action="{% url 'storefront:reorder' ref=tracking.order_ref %}" class="flex-1">
       {% csrf_token %}
       <button type="submit"
               class="w-full rounded-radius border border-outline px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-alt focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:text-on-surface-dark min-h-[44px]">
-        Pedir novamente
+        {{ reorder_cta.title }}
       </button>
     </form>
     <a href="{% url 'storefront:menu' %}"

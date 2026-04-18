@@ -199,8 +199,9 @@
   {% endfor %}
   </div>
 {% else %}
+  {% omotenashi 'MENU_EMPTY' as menu_empty %}
   <div class="card text-center py-12">
-    <p class="text-on-surface dark:text-on-surface-dark">Nenhum produto disponível no momento.</p>
+    <p class="text-on-surface dark:text-on-surface-dark">{{ menu_empty.message }}</p>
   </div>
 {% endif %}
 

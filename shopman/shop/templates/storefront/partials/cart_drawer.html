@@ -145,12 +145,13 @@ the cascading ``cartUpdated`` reload destroys the source element.
           </div>
 
           {% if item.is_awaiting_confirmation %}
+          {% omotenashi 'PICKUP_READY_NOTICE' as ready_notice %}
           <div class="flex flex-col gap-0.5">
             <span class="inline-flex items-center gap-1 self-start rounded-full bg-info/10 px-2 py-0.5 text-[11px] font-medium text-info dark:bg-info-dark/10 dark:text-info-dark">
               <span class="material-symbols-rounded text-xs" aria-hidden="true">schedule</span>
               Aguardando confirmação
             </span>
-            <p class="text-[11px] text-on-surface/70 dark:text-on-surface-dark/70">Avisamos quando chegar.</p>
+            <p class="text-[11px] text-on-surface/70 dark:text-on-surface-dark/70">{{ ready_notice.message }}</p>
           </div>
           {% endif %}
 

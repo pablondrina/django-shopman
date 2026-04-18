@@ -124,6 +124,48 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "CHECKOUT_COUPON_PROMPT": {
         WILDCARD: {WILDCARD: CopyEntry(title="Tem cupom de desconto?")},
     },
+    "CHECKOUT_CONFIRM_CTA": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Confirmar pedido")},
+    },
+
+    # ── Cart microcopy ────────────────────────────────────────────
+    "CART_PAGE_TITLE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Seu carrinho")},
+    },
+    "CART_UNAVAILABLE_BANNER": {
+        WILDCARD: {WILDCARD: CopyEntry(message="O estoque de alguns itens mudou. Veja as opções em cada item abaixo.")},
+    },
+    "PICKUP_READY_NOTICE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Avisamos quando ficar pronto.")},
+    },
+
+    # ── Menu empty state ──────────────────────────────────────────
+    "MENU_EMPTY": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Nenhum produto disponível no momento.")},
+    },
+
+    # ── Home sections ─────────────────────────────────────────────
+    "HOME_AVAILABILITY_HEADING": {
+        WILDCARD: {
+            WILDCARD: CopyEntry(
+                title="Direto do forno",
+                message="Disponibilidade em tempo real",
+            ),
+        },
+    },
+    "HOME_WHATSAPP_CTA": {
+        WILDCARD: {
+            WILDCARD: CopyEntry(
+                title="Dúvidas? Ou algum pedido especial?",
+                message="Fale com a gente direto pelo WhatsApp. Respondemos o mais rápido possível.",
+            ),
+        },
+    },
+
+    # ── Tracking tail ─────────────────────────────────────────────
+    "TRACKING_REORDER_CTA": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Pedir novamente")},
+    },
 
     # ── Payment ───────────────────────────────────────────────────
     "PAYMENT_WAITING": {
