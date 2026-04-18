@@ -26,7 +26,7 @@ from .serializers import (
 )
 class ProfileView(APIView):
     """
-    GET /api/account/profile/
+    GET /api/v1/account/profile/
 
     Returns authenticated customer's profile.
     Auth: Django auth via AuthCustomerMiddleware.
@@ -54,7 +54,7 @@ class ProfileView(APIView):
 )
 class AddressListView(APIView):
     """
-    GET /api/account/addresses/
+    GET /api/v1/account/addresses/
 
     Returns authenticated customer's addresses.
     Auth: Django auth via AuthCustomerMiddleware.
@@ -87,7 +87,7 @@ class AddressListView(APIView):
 )
 class OrderHistoryView(APIView):
     """
-    GET /api/account/orders/
+    GET /api/v1/account/orders/
 
     Returns last 20 orders for the authenticated customer.
     Auth: Django auth via AuthCustomerMiddleware.

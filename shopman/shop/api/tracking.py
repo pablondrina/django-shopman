@@ -20,7 +20,7 @@ from .serializers import OrderTrackingSerializer
 )
 class OrderTrackingView(APIView):
     """
-    GET /api/tracking/{ref}/
+    GET /api/v1/tracking/{ref}/
 
     Returns order status, timeline, items, fulfillments, and payment status.
     Auth: AllowAny (ref is opaque).

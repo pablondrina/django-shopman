@@ -15,7 +15,7 @@ from shopman.shop.services import availability as avail_service
 
 class AvailabilityView(APIView):
     """
-    GET /api/availability/<sku>/?channel=<channel_ref>
+    GET /api/v1/availability/<sku>/?channel=<channel_ref>
 
     Returns the current availability status for a SKU, optionally scoped
     to a channel (listing gate + channel-specific stock scope).

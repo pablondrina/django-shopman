@@ -3,7 +3,7 @@
 Verifies:
 1. Stockman/Offerman model changes fire ``send_event`` to every channel that
    lists the SKU, with the correct event type and payload shape.
-2. Cache invalidation accompanies each emit so the next ``/api/availability``
+2. Cache invalidation accompanies each emit so the next ``/api/v1/availability``
    call sees fresh data.
 3. ``/storefront/sku/<sku>/state/`` returns the badge HTML and a parseable
    ``HX-Trigger`` header carrying the canonical state.
@@ -122,7 +122,7 @@ def test_emit_falls_back_to_all_active_channels_when_sku_has_no_listing(
 def test_emit_invalidates_per_channel_availability_cache(
     mock_send, baguete, listings_for_baguete,
 ):
-    """The cache used by ``/api/availability/`` must be cleared on every emit."""
+    """The cache used by ``/api/v1/availability/`` must be cleared on every emit."""
     from shopman.shop.handlers._sse_emitters import _emit_for_sku
 
     cache.set("availability:BAGUETE:web", {"stale": True}, 30)
