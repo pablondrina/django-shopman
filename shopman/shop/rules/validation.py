@@ -13,6 +13,8 @@ from typing import Any
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
+from shopman.shop.rules import BaseRule
+
 _DAY_NAMES_PT = {
     "monday": "segunda",
     "tuesday": "terça",
@@ -24,7 +26,7 @@ _DAY_NAMES_PT = {
 }
 
 
-class BusinessHoursRule:
+class BusinessHoursRule(BaseRule):
     """Annotates orders placed outside business hours.
 
     Does NOT block checkout — sets session.data["outside_business_hours"] = True
@@ -90,7 +92,7 @@ class BusinessHoursRule:
         return None
 
 
-class DeliveryZoneRule:
+class DeliveryZoneRule(BaseRule):
     """Bloqueia checkout quando o endereço de entrega está fora das zonas cobertas.
 
     Ativado apenas quando fulfillment_type == "delivery" e
@@ -118,7 +120,7 @@ class DeliveryZoneRule:
             )
 
 
-class MinimumOrderRule:
+class MinimumOrderRule(BaseRule):
     """Minimum order value for delivery orders.
 
     Applies when fulfillment_type is "delivery".

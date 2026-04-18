@@ -85,6 +85,7 @@ INSTALLED_APPS = [
     "unfold.contrib.import_export",
     "django_ratelimit",
     "django_eventstream",
+    "simple_history",
     # Shopman core apps
     "shopman.utils",
     "shopman.offerman",
@@ -122,6 +123,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "shopman.doorman.middleware.AuthCustomerMiddleware",
+    "simple_history.middleware.HistoryRequestMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "shopman.shop.middleware.ChannelParamMiddleware",
@@ -263,6 +265,14 @@ SHOPMAN_WHATSAPP = {
 SHOPMAN_IFOOD = {
     "webhook_token": os.environ.get("IFOOD_WEBHOOK_TOKEN", ""),
     "merchant_id": os.environ.get("IFOOD_MERCHANT_ID", ""),
+    "catalog_api_token": os.environ.get("IFOOD_CATALOG_API_TOKEN", ""),
+    "catalog_api_base": os.environ.get("IFOOD_CATALOG_API_BASE", "https://merchant-api.ifood.com.br"),
+}
+
+# iFood catalog projection (WP-GAP-15). Uncomment to enable Shopman → iFood menu sync.
+# When set, product_created and price_changed signals enqueue catalog.project_sku directives.
+SHOPMAN_CATALOG_PROJECTION_ADAPTERS: dict = {
+    # "ifood": "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection",
 }
 
 # ── OTP Delivery Chain (depends on MANYCHAT_API_TOKEN above) ──────
@@ -660,6 +670,16 @@ SHOPMAN_HAPPY_HOUR_DISCOUNT_PERCENT = int(
 SHOPMAN_EMPLOYEE_DISCOUNT_PERCENT = int(
     os.environ.get("SHOPMAN_EMPLOYEE_DISCOUNT_PERCENT", "20")
 )
+
+# ── Rules security — allowed module prefixes for RuleConfig.rule_path ──
+# Any rule_path not starting with one of these prefixes is rejected at clean()
+# and at load time (defense-in-depth). Extend with care — adding a prefix
+# effectively grants staff the ability to instantiate arbitrary classes from
+# that module, which is a security surface.
+SHOPMAN_RULES_ALLOWED_MODULE_PREFIXES = [
+    "shopman.shop.rules.",
+    "shopman.shop.modifiers.",
+]
 
 # ── Logging ────────────────────────────────────────────────────────────
 
