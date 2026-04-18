@@ -88,13 +88,13 @@ node_modules/.package-lock.json: package.json
 	npm install --silent
 	@echo "✓ node_modules pronto"
 
-css: node_modules/.package-lock.json ## Build CSS (Tailwind v3 para v1/POS + v4 para storefront v2)
+css: node_modules/.package-lock.json ## Build CSS (Tailwind v4 storefront + v4 gestao)
 	npm run css:build
-	npm run v2:build
-	@echo "✓ CSS compilado (output.css + output-v2.css)"
+	npm run gestao:build
+	@echo "✓ CSS compilado (output-v2.css + output-gestao.css)"
 
-css-watch: node_modules/.package-lock.json ## CSS watch mode v4 (storefront v2)
-	npm run v2:watch
+css-watch: node_modules/.package-lock.json ## CSS watch mode v4 (storefront)
+	npm run css:watch
 
 fonts: ## Baixa fontes WOFF2 para self-hosting (Inter + Playfair Display)
 	@echo "── Baixando fontes ──"
@@ -143,7 +143,7 @@ run: css ## Sobe servidor + directive worker (0.0.0.0:8000)
 dev: node_modules/.package-lock.json ## Dev: CSS watch + directive worker + server (0.0.0.0:8000)
 	@echo "── Dev mode: CSS watch + directive worker + Django server ──"
 	@echo "  Ctrl+C para parar tudo."
-	npm run v2:watch &
+	npm run css:watch &
 	$(PYTHON) manage.py process_directives --watch &
 	$(PYTHON) manage.py runserver 0.0.0.0:8000
 

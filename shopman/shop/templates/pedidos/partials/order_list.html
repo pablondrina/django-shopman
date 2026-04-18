@@ -1,12 +1,12 @@
 {% if orders %}
-<div class="ped-grid">
+<div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr))">
   {% for o in orders %}
     {% include "pedidos/partials/card.html" %}
   {% endfor %}
 </div>
 {% else %}
-<div class="ped-empty">
-  <span class="material-symbols-rounded" aria-hidden="true">done_all</span>
-  <p>Nenhum pedido ativo</p>
+<div class="text-center py-16 text-on-surface/40 dark:text-on-surface-dark/40">
+  <span class="material-symbols-rounded text-5xl block mb-4" aria-hidden="true">done_all</span>
+  <p class="text-lg">Nenhum pedido ativo</p>
 </div>
 {% endif %}

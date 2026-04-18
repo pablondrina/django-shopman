@@ -1,0 +1,266 @@
+@import '../../node_modules/@tailwindcss/cli/node_modules/tailwindcss';
+
+@source "../../shopman/shop/templates/gestao/**/*.html";
+@source "../../shopman/shop/templates/pedidos/**/*.html";
+@source "../../shopman/shop/templates/kds/**/*.html";
+@source "../../shopman/shop/templates/pos/**/*.html";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+
+    /* Fonts — Instrument Sans */
+    --font-body: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-title: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+
+    /* Light Theme — Industrial (Penguin UI) */
+    --color-surface: var(--color-stone-50);
+    --color-surface-alt: var(--color-white);
+    --color-on-surface: var(--color-stone-600);
+    --color-on-surface-strong: var(--color-stone-900);
+    --color-primary: var(--color-stone-900);
+    --color-on-primary: var(--color-stone-50);
+    --color-secondary: var(--color-yellow-700);
+    --color-on-secondary: var(--color-stone-50);
+    --color-outline: var(--color-stone-200);
+    --color-outline-strong: var(--color-stone-600);
+
+    /* Dark Theme — Industrial (Penguin UI) */
+    --color-surface-dark: var(--color-stone-950);
+    --color-surface-dark-alt: var(--color-stone-900);
+    --color-on-surface-dark: var(--color-stone-300);
+    --color-on-surface-dark-strong: var(--color-white);
+    --color-primary-dark: var(--color-amber-400);
+    --color-on-primary-dark: var(--color-black);
+    --color-secondary-dark: var(--color-stone-700);
+    --color-on-secondary-dark: var(--color-white);
+    --color-outline-dark: var(--color-stone-700);
+    --color-outline-dark-strong: var(--color-stone-400);
+
+    /* Semantic Colors */
+    --color-info: var(--color-cyan-700);
+    --color-on-info: var(--color-stone-100);
+    --color-success: var(--color-lime-700);
+    --color-on-success: var(--color-white);
+    --color-warning: var(--color-amber-500);
+    --color-on-warning: var(--color-white);
+    --color-danger: var(--color-orange-600);
+    --color-on-danger: var(--color-stone-100);
+
+    /* Border Radius */
+    --radius-radius: var(--radius-sm);
+}
+
+/* ── Base layer ── */
+@layer base {
+    [x-cloak] { display: none !important; }
+
+    html { scroll-behavior: smooth; }
+
+    ::selection {
+        background-color: var(--color-primary-dark);
+        color: var(--color-on-primary-dark);
+    }
+
+    body {
+        font-family: var(--font-body);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+        font-family: var(--font-title);
+    }
+
+    /* Material Symbols defaults */
+    .material-symbols-rounded {
+        font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+        font-size: 1em;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        vertical-align: -0.125em;
+    }
+}
+
+/* Touch target (WCAG 2.5.5) */
+@utility touch-target {
+    min-height: 44px;
+    min-width: 44px;
+}
+
+/* ── Components layer ── */
+@layer components {
+    /* Card surface */
+    .card {
+        @apply bg-surface-alt dark:bg-surface-dark-alt
+               border border-outline dark:border-outline-dark
+               rounded-xl p-4;
+    }
+
+    /* Buttons */
+    .btn-primary {
+        @apply bg-primary dark:bg-primary-dark
+               text-on-primary dark:text-on-primary-dark
+               px-4 py-3 rounded-lg font-semibold text-sm touch-target
+               inline-flex items-center justify-center gap-2
+               hover:opacity-90 active:opacity-80 transition-opacity
+               disabled:opacity-40 disabled:cursor-not-allowed;
+    }
+    .btn-secondary {
+        @apply bg-surface-alt dark:bg-surface-dark-alt
+               text-on-surface dark:text-on-surface-dark
+               border border-outline dark:border-outline-dark
+               px-4 py-3 rounded-lg font-semibold text-sm touch-target
+               inline-flex items-center justify-center gap-2
+               hover:opacity-80 transition-opacity
+               disabled:opacity-40 disabled:cursor-not-allowed;
+    }
+    .btn-danger {
+        @apply bg-danger text-on-danger
+               px-4 py-3 rounded-lg font-semibold text-sm touch-target
+               inline-flex items-center justify-center gap-2
+               hover:opacity-90 transition-opacity
+               disabled:opacity-40 disabled:cursor-not-allowed;
+    }
+    .btn-success {
+        @apply bg-success text-on-success
+               px-4 py-3 rounded-lg font-semibold text-sm touch-target
+               inline-flex items-center justify-center gap-2
+               hover:opacity-90 transition-opacity
+               disabled:opacity-40 disabled:cursor-not-allowed;
+    }
+
+    /* Icon button */
+    .btn-icon {
+        @apply w-10 h-10 flex items-center justify-center rounded-lg
+               text-on-surface/60 dark:text-on-surface-dark/60
+               hover:bg-outline/40 dark:hover:bg-outline-dark/40
+               hover:text-on-surface-strong dark:hover:text-on-surface-dark-strong
+               transition-colors;
+    }
+
+    /* Forms */
+    .input-field {
+        @apply w-full
+               bg-surface dark:bg-surface-dark
+               border border-outline dark:border-outline-dark
+               rounded-lg px-4 py-3
+               text-on-surface dark:text-on-surface-dark
+               text-sm touch-target
+               placeholder:text-on-surface/40 dark:placeholder:text-on-surface-dark/40
+               focus:outline-none focus:ring-2 focus:ring-primary/30 dark:focus:ring-primary-dark/30;
+    }
+    .textarea-field {
+        @apply w-full
+               bg-surface dark:bg-surface-dark
+               border border-outline dark:border-outline-dark
+               rounded-lg px-3 py-2
+               text-on-surface dark:text-on-surface-dark
+               text-sm resize-y
+               placeholder:text-on-surface/40 dark:placeholder:text-on-surface-dark/40
+               focus:outline-none focus:ring-2 focus:ring-primary/30 dark:focus:ring-primary-dark/30;
+    }
+    .select-field {
+        @apply w-full
+               bg-surface dark:bg-surface-dark
+               border border-outline dark:border-outline-dark
+               rounded-lg px-3 py-2
+               text-on-surface dark:text-on-surface-dark
+               text-sm touch-target
+               focus:outline-none focus:ring-2 focus:ring-primary/30 dark:focus:ring-primary-dark/30;
+    }
+
+    /* Badges */
+    .badge,
+    .badge-info,
+    .badge-success,
+    .badge-warning,
+    .badge-danger,
+    .badge-neutral {
+        @apply inline-flex items-center gap-1 px-2 py-0.5
+               rounded-full text-xs font-semibold border;
+    }
+    .badge-info    { @apply bg-info/10    border-info/30    text-info; }
+    .badge-success { @apply bg-success/10 border-success/30 text-success; }
+    .badge-warning { @apply bg-warning/10 border-warning/30 text-warning; }
+    .badge-danger  { @apply bg-danger/10  border-danger/30  text-danger; }
+    .badge-neutral {
+        @apply bg-surface dark:bg-surface-dark
+               border-outline dark:border-outline-dark
+               text-on-surface/70 dark:text-on-surface-dark/70;
+    }
+
+
+    /* Filter pills */
+    .pill {
+        @apply px-3 py-1.5 rounded-full text-xs font-medium
+               border border-outline dark:border-outline-dark
+               text-on-surface/60 dark:text-on-surface-dark/60
+               hover:bg-outline/30 dark:hover:bg-outline-dark/30
+               touch-target inline-flex items-center bg-transparent cursor-pointer transition-colors;
+    }
+    .pill--active {
+        @apply bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark border-transparent
+               hover:opacity-90;
+    }
+
+    /* HTMX loading */
+    .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
+    .htmx-request .htmx-indicator,
+    .htmx-request.htmx-indicator { opacity: 1; }
+
+    .htmx-swapping { opacity: 0; transition: opacity 150ms ease-out; }
+    .htmx-settling { opacity: 1; transition: opacity 150ms ease-in; }
+
+    /* Loading state on cards during HTMX request */
+    .htmx-request { opacity: 0.6; pointer-events: none; }
+}
+
+/* ── Keyframes ── */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+@keyframes slideUp {
+    from { transform: translateY(1rem); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes flash-green {
+    0%, 100% { background-color: transparent; }
+    50%      { background-color: var(--color-success); }
+}
+@keyframes pulse-gentle {
+    0%, 100% { opacity: 1;   }
+    50%      { opacity: 0.6; }
+}
+
+/* ── Utilities ── */
+@layer utilities {
+    .animate-fade-in     { animation: fadeIn      0.2s ease-out; }
+    .animate-slide-up    { animation: slideUp     0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+    .animate-flash       { animation: flash-green 0.5s ease-in-out; }
+    .animate-pulse-gentle{ animation: pulse-gentle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+    .fill-icon { font-variation-settings: 'FILL' 1; }
+
+    /* Mono numerics */
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+
+    /* Scrollbar hide */
+    .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
+}

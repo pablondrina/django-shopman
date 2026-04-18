@@ -1,36 +1,36 @@
-{# ── Order items ── #}
-<div style="margin-bottom: 0.75rem;">
-  <h4 class="ped-detail-heading">Itens</h4>
-  <table class="ped-detail-table">
-    <thead>
+{% comment %}Order items{% endcomment %}
+<div class="mb-3">
+  <h4 class="text-sm font-semibold mb-2">Itens</h4>
+  <table class="w-full text-xs border-collapse">
+    <thead class="text-on-surface/40 dark:text-on-surface-dark/40 text-left">
       <tr>
-        <th>Item</th>
-        <th class="text-center">Qtd</th>
-        <th class="text-right">Unit.</th>
-        <th class="text-right">Total</th>
+        <th class="py-1">Item</th>
+        <th class="py-1 text-center">Qtd</th>
+        <th class="py-1 text-right">Unit.</th>
+        <th class="py-1 text-right">Total</th>
       </tr>
     </thead>
     <tbody>
       {% for item in items %}
-      <tr>
-        <td>{{ item.name }}</td>
-        <td class="text-center">{{ item.qty }}</td>
-        <td class="text-right">{{ item.unit_price_display }}</td>
-        <td class="text-right">{{ item.total_display }}</td>
+      <tr class="border-t border-outline dark:border-outline-dark">
+        <td class="py-1">{{ item.name }}</td>
+        <td class="py-1 text-center">{{ item.qty }}</td>
+        <td class="py-1 text-right">{{ item.unit_price_display }}</td>
+        <td class="py-1 text-right">{{ item.total_display }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
 
-{# ── Mini timeline ── #}
+{% comment %}Mini timeline{% endcomment %}
 {% if timeline %}
-<div style="margin-bottom: 0.75rem;">
-  <h4 class="ped-detail-heading">Historico</h4>
-  <div class="ped-timeline">
+<div class="mb-3">
+  <h4 class="text-sm font-semibold mb-2">Histórico</h4>
+  <div class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">
     {% for event in timeline %}
-    <div class="ped-timeline-event">
-      <span class="ped-timeline-time">{{ event.timestamp|date:"H:i" }}</span>
+    <div class="flex gap-2 py-0.5">
+      <span class="font-mono tabular-nums whitespace-nowrap text-on-surface/40 dark:text-on-surface-dark/40">{{ event.timestamp|date:"H:i" }}</span>
       <span>{{ event.label }}</span>
     </div>
     {% endfor %}
@@ -38,21 +38,20 @@
 </div>
 {% endif %}
 
-{# ── Internal notes ── #}
+{% comment %}Internal notes{% endcomment %}
 <div>
-  <h4 class="ped-detail-heading">
+  <h4 class="text-sm font-semibold mb-1">
     <label for="notes-{{ order.ref }}">Notas internas</label>
   </h4>
-  <div class="ped-notes">
+  <div class="flex gap-2 items-start">
     <textarea id="notes-{{ order.ref }}"
               name="notes"
               rows="2"
-              class="ped-textarea"
+              class="textarea-field flex-1"
               hx-post="/pedidos/{{ order.ref }}/notes/"
               hx-trigger="change"
-              hx-target="next .ped-notes-feedback"
-              hx-swap="innerHTML"
-              style="flex: 1;">{{ internal_notes }}</textarea>
-    <span class="ped-notes-feedback"></span>
+              hx-target="next .notes-feedback"
+              hx-swap="innerHTML">{{ internal_notes }}</textarea>
+    <span class="notes-feedback"></span>
   </div>
 </div>
