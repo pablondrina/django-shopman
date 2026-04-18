@@ -232,7 +232,7 @@ def recipe(db, croissant, ingredient):
     from shopman.craftsman.models import Recipe, RecipeItem
 
     recipe = Recipe.objects.create(
-        code="croissant",
+        ref="croissant",
         name="Receita Croissant",
         output_ref=croissant.sku,
         batch_size=Decimal("10"),  # Produces 10 units

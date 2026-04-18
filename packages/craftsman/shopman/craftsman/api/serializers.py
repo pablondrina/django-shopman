@@ -33,7 +33,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         model = Recipe
         fields = [
             "id",
-            "code",
+            "ref",
             "name",
             "output_ref",
             "batch_size",
@@ -83,7 +83,7 @@ class WorkOrderEventSerializer(serializers.ModelSerializer):
 class WorkOrderSerializer(serializers.ModelSerializer):
     """Serializer for WorkOrder model."""
 
-    recipe_code = serializers.CharField(source="recipe.code", read_only=True)
+    recipe_ref = serializers.CharField(source="recipe.ref", read_only=True)
     recipe_name = serializers.CharField(source="recipe.name", read_only=True)
     loss = serializers.DecimalField(
         max_digits=12, decimal_places=3, read_only=True, allow_null=True,
@@ -109,7 +109,7 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             "id",
             "ref",
             "recipe",
-            "recipe_code",
+            "recipe_ref",
             "recipe_name",
             "output_ref",
             "quantity",
@@ -136,7 +136,7 @@ class WorkOrderSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "id",
             "ref",
-            "recipe_code",
+            "recipe_ref",
             "recipe_name",
             "output_ref",
             "finished",
@@ -156,7 +156,7 @@ class WorkOrderSerializer(serializers.ModelSerializer):
 class WorkOrderListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for list views (without nested items/events)."""
 
-    recipe_code = serializers.CharField(source="recipe.code", read_only=True)
+    recipe_ref = serializers.CharField(source="recipe.ref", read_only=True)
     loss = serializers.DecimalField(
         max_digits=12, decimal_places=3, read_only=True, allow_null=True,
     )
@@ -175,7 +175,7 @@ class WorkOrderListSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "ref",
-            "recipe_code",
+            "recipe_ref",
             "output_ref",
             "quantity",
             "finished",
@@ -296,8 +296,8 @@ class VoidSerializer(serializers.Serializer):
 class PlanSerializer(serializers.Serializer):
     """Serializer for plan action."""
 
-    recipe_code = serializers.SlugField(
-        help_text="Recipe code (slug)",
+    recipe_ref = serializers.SlugField(
+        help_text="Recipe ref (slug)",
     )
     quantity = serializers.DecimalField(
         max_digits=12, decimal_places=3, min_value=Decimal("0.001"),
@@ -339,7 +339,7 @@ class NeedSerializer(serializers.Serializer):
 class SuggestionSerializer(serializers.Serializer):
     """Serializer for production suggestions."""
 
-    recipe_code = serializers.CharField(source="recipe.code")
+    recipe_ref = serializers.CharField(source="recipe.ref")
     recipe_name = serializers.CharField(source="recipe.name")
     output_ref = serializers.CharField(source="recipe.output_ref")
     quantity = serializers.DecimalField(max_digits=12, decimal_places=3)
@@ -350,7 +350,7 @@ class CraftQueueItemSerializer(serializers.Serializer):
     """Serializer for craft.queue() projection items."""
 
     ref = serializers.CharField()
-    recipe_code = serializers.CharField()
+    recipe_ref = serializers.CharField()
     output_ref = serializers.CharField()
     status = serializers.CharField()
     target_date = serializers.DateField(allow_null=True)

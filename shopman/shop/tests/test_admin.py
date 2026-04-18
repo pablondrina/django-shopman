@@ -265,7 +265,7 @@ class TestProductionAdminView:
         from shopman.shop.web.views.production import production_view
 
         recipe = Recipe.objects.create(
-            code="croissant-v1",
+            ref="croissant-v1",
             name="Croissant Tradicional",
             output_ref="croissant",
             batch_size=10,
@@ -289,7 +289,7 @@ class TestProductionAdminView:
         from shopman.shop.web.views.production import production_view
 
         recipe = Recipe.objects.create(
-            code="baguette-v1",
+            ref="baguette-v1",
             name="Baguette",
             output_ref="baguette",
             batch_size=10,

@@ -57,7 +57,7 @@
         <label class="block text-sm font-medium mb-1">Receita</label>
         <select name="recipe" class="w-full border rounded px-3 py-2">
           {% for recipe in recipes %}
-          <option value="{{ recipe.pk }}">{{ recipe.code }} — {{ recipe.name }}</option>
+          <option value="{{ recipe.pk }}">{{ recipe.ref }} — {{ recipe.name }}</option>
           {% endfor %}
         </select>
       </div>

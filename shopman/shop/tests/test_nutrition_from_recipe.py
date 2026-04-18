@@ -34,7 +34,7 @@ def _make_product(sku: str = "PAO", unit_weight_g: int = 50, **extra) -> Product
 
 def _make_recipe_with_items(sku: str = "PAO", batch_size: Decimal = Decimal("10")) -> Recipe:
     recipe = Recipe.objects.create(
-        code=f"{sku.lower()}-v1",
+        ref=f"{sku.lower()}-v1",
         name=f"Receita {sku}",
         output_ref=sku,
         batch_size=batch_size,
@@ -138,7 +138,7 @@ class TestFillNutritionFromRecipe:
     def test_recipe_without_nutrition_meta_fills_only_ingredients(self):
         product = _make_product(sku="PAOSIMPLES")
         recipe = Recipe.objects.create(
-            code="paosimples-v1",
+            ref="paosimples-v1",
             name="Simples",
             output_ref="PAOSIMPLES",
             batch_size=Decimal("5"),
@@ -174,7 +174,7 @@ class TestRecipeSignal:
     def test_saving_recipe_materializes_on_product(self):
         product = _make_product(sku="PAO-SIGNAL")
         recipe = Recipe.objects.create(
-            code="pao-signal-v1",
+            ref="pao-signal-v1",
             name="Signal Test",
             output_ref="PAO-SIGNAL",
             batch_size=Decimal("10"),

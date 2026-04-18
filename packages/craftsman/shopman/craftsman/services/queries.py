@@ -35,7 +35,7 @@ class CraftQueueItem:
     """Operational queue row for the production floor."""
 
     ref: str
-    recipe_code: str
+    recipe_ref: str
     output_ref: str
     status: str
     target_date: object
@@ -286,7 +286,7 @@ class CraftQueries:
             items.append(
                 CraftQueueItem(
                     ref=order.ref,
-                    recipe_code=order.recipe.code,
+                    recipe_ref=order.recipe.ref,
                     output_ref=order.output_ref,
                     status=order.status,
                     target_date=order.target_date,

@@ -19,13 +19,12 @@ except ImportError:
 _MIN_BR_DDD = 11
 
 
-def _is_manychat_brazilian(digits: str) -> bool:
+def _is_phone_brazilian(digits: str) -> bool:
     """
-    Detect the Manychat bug: +DDD9XXXXXXXX (11 digits, no country code 55).
+    Detect Brazilian phone without country code: DDD9XXXXXXXX (11 digits, no leading 55).
 
-    The pattern is: 2-digit DDD (>= 11) + 9-digit mobile (starts with 9).
-    This conflicts with real international numbers (e.g., Austria +43),
-    so we only apply the heuristic when the pattern matches strongly.
+    Pattern: 2-digit DDD (>= 11) + 9-digit mobile (starts with 9).
+    Heuristic only — conflicts with some international numbers (e.g., Austria +43).
     """
     if len(digits) != 11:
         return False
@@ -83,7 +82,7 @@ def normalize_phone(
         return ""
 
     # Manychat bug detection: +DDD9XXXXXXXX without 55 prefix
-    if has_plus and _is_manychat_brazilian(digits):
+    if has_plus and _is_phone_brazilian(digits):
         digits = f"55{digits}"
         has_plus = True
 
@@ -151,7 +150,7 @@ def is_valid_phone(value: str, default_region: str = "BR") -> bool:
         digits = re.sub(r"[^\d]", "", value)
 
         # Apply Manychat fix before validation
-        if has_plus and _is_manychat_brazilian(digits):
+        if has_plus and _is_phone_brazilian(digits):
             digits = f"55{digits}"
 
         raw = f"+{digits}" if has_plus else digits

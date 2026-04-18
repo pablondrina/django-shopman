@@ -177,7 +177,7 @@ class OperatorAlertProjection:
 class ProductionSuggestionProjection:
     """A production suggestion row."""
 
-    recipe_code: str
+    recipe_ref: str
     recipe_name: str
     output_ref: str
     quantity: str
@@ -515,7 +515,7 @@ def _production_suggestions(target_date: date) -> list[ProductionSuggestionProje
         avg = basis.get("avg_demand", Decimal("0"))
         safety = basis.get("safety_pct", Decimal("0"))
         rows.append(ProductionSuggestionProjection(
-            recipe_code=s.recipe.code,
+            recipe_ref=s.recipe.ref,
             recipe_name=s.recipe.name,
             output_ref=s.recipe.output_ref,
             quantity=str(s.quantity),

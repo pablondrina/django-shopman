@@ -54,7 +54,7 @@ class TestRecipeProductRelationship:
         )
 
         recipe = Recipe.objects.create(
-            code="hidden-recipe",
+            ref="hidden-recipe",
             name="Hidden Recipe",
             output_ref=hidden.sku,
             batch_size=Decimal("10"),
@@ -79,7 +79,7 @@ class TestRecipeProductRelationship:
         )
 
         recipe = Recipe.objects.create(
-            code="paused-recipe",
+            ref="paused-recipe",
             name="Paused Recipe",
             output_ref=paused.sku,
             batch_size=Decimal("10"),
@@ -137,7 +137,7 @@ class TestRecipeIngredients:
         )
 
         recipe = Recipe.objects.create(
-            code="croissant-full",
+            ref="croissant-full",
             name="Croissant Completo",
             output_ref=croissant.sku,
             batch_size=Decimal("10"),
@@ -189,7 +189,7 @@ class TestRecipeIngredients:
         )
 
         recipe = Recipe.objects.create(
-            code="cost-recipe",
+            ref="cost-recipe",
             name="Recipe with Cost",
             output_ref=croissant.sku,
             batch_size=Decimal("10"),
@@ -265,7 +265,7 @@ class TestBundleProduction:
         )
 
         recipe = Recipe.objects.create(
-            code="combo-manha",
+            ref="combo-manha",
             name="Combo Café da Manhã",
             output_ref=combo.sku,
             batch_size=Decimal("1"),
@@ -323,7 +323,7 @@ class TestProductionWorkflow:
     ):
         """Compare product sale price with production cost."""
         recipe = Recipe.objects.create(
-            code="cost-analysis",
+            ref="cost-analysis",
             name="Cost Analysis Recipe",
             output_ref=croissant.sku,
             batch_size=Decimal("10"),

@@ -48,7 +48,7 @@ class WorkOrderCardProjection:
 
     pk: int
     ref: str
-    recipe_code: str
+    recipe_ref: str
     recipe_name: str
     output_ref: str
     status: str
@@ -87,8 +87,8 @@ class RecipeOptionProjection:
     """A recipe available for quick production form."""
 
     pk: int
-    code: str
-    name: str  # output_ref or recipe code display
+    ref: str
+    name: str  # output_ref or recipe ref display
 
 
 @dataclass(frozen=True)
@@ -186,8 +186,8 @@ def build_production_board(
     )
 
     recipes = tuple(
-        RecipeOptionProjection(pk=r.pk, code=r.code, name=r.output_ref or r.code)
-        for r in Recipe.objects.filter(is_active=True).order_by("code")
+        RecipeOptionProjection(pk=r.pk, ref=r.ref, name=r.output_ref or r.ref)
+        for r in Recipe.objects.filter(is_active=True).order_by("ref")
     )
 
     positions_qs = Position.objects.all().order_by("name")
@@ -237,8 +237,8 @@ def _build_wo_card(wo: WorkOrder) -> WorkOrderCardProjection:
     return WorkOrderCardProjection(
         pk=wo.pk,
         ref=wo.ref,
-        recipe_code=wo.recipe.code,
-        recipe_name=wo.recipe.output_ref or wo.recipe.code,
+        recipe_ref=wo.recipe.ref,
+        recipe_name=wo.recipe.output_ref or wo.recipe.ref,
         output_ref=wo.output_ref,
         status=wo.status,
         status_label=WO_STATUS_LABELS.get(wo.status, wo.status),

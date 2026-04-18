@@ -35,7 +35,7 @@ def anon_client():
 @pytest.fixture
 def recipe(db):
     return Recipe.objects.create(
-        code="croissant-v1",
+        ref="croissant-v1",
         name="Croissant Tradicional",
         output_ref="croissant",
         batch_size=Decimal("10"),
@@ -393,10 +393,10 @@ class TestReadEndpoints:
         assert resp.status_code == 200
         # Paginated response: {count, next, previous, results}
         assert resp.data["count"] == 1
-        assert resp.data["results"][0]["code"] == "croissant-v1"
+        assert resp.data["results"][0]["ref"] == "croissant-v1"
 
     def test_retrieve_recipe(self, api_client, recipe):
-        resp = api_client.get(f"/api/craftsman/recipes/{recipe.code}/")
+        resp = api_client.get(f"/api/craftsman/recipes/{recipe.ref}/")
         assert resp.status_code == 200
         assert resp.data["name"] == "Croissant Tradicional"
 

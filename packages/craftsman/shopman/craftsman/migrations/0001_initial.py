@@ -31,7 +31,7 @@ class Migration(migrations.Migration):
             name='Recipe',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('code', models.SlugField(help_text='Identificador unico (ex: croissant-v1)', unique=True, verbose_name='Codigo')),
+                ('ref', models.SlugField(help_text='Identificador unico (ex: croissant-v1)', unique=True, verbose_name='Ref')),
                 ('name', models.CharField(max_length=200, verbose_name='Nome')),
                 ('output_ref', models.CharField(help_text='Referencia do produto (ex: SKU, slug)', max_length=100, verbose_name='Produto de Saida')),
                 ('batch_size', models.DecimalField(decimal_places=3, default=Decimal('1'), help_text='Unidades produzidas por batelada', max_digits=12, verbose_name='Tamanho do Lote')),

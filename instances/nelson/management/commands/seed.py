@@ -852,7 +852,7 @@ class Command(BaseCommand):
 
         recipes_data = [
             {
-                "code": "baguete",
+                "ref": "baguete",
                 "name": "Baguete Francesa",
                 "output_ref": "BAGUETE",
                 "batch_size": Decimal("25"),
@@ -865,7 +865,7 @@ class Command(BaseCommand):
                 ],
             },
             {
-                "code": "baguete-campagne",
+                "ref": "baguete-campagne",
                 "name": "Baguette de Campagne",
                 "output_ref": "BAGUETE-CAMPAGNE",
                 "batch_size": Decimal("12"),
@@ -879,7 +879,7 @@ class Command(BaseCommand):
                 ],
             },
             {
-                "code": "campagne",
+                "ref": "campagne",
                 "name": "Pain de Campagne",
                 "output_ref": "CAMPAGNE-OVAL",
                 "batch_size": Decimal("10"),
@@ -893,7 +893,7 @@ class Command(BaseCommand):
                 ],
             },
             {
-                "code": "italiano-rustico",
+                "ref": "italiano-rustico",
                 "name": "Italiano Rustico",
                 "output_ref": "ITALIANO-RUSTICO",
                 "batch_size": Decimal("8"),
@@ -906,7 +906,7 @@ class Command(BaseCommand):
                 ],
             },
             {
-                "code": "ciabatta",
+                "ref": "ciabatta",
                 "name": "Ciabatta",
                 "output_ref": "CIABATTA",
                 "batch_size": Decimal("20"),
@@ -919,7 +919,7 @@ class Command(BaseCommand):
                 ],
             },
             {
-                "code": "focaccia-alecrim",
+                "ref": "focaccia-alecrim",
                 "name": "Focaccia Alecrim",
                 "output_ref": "FOCACCIA-ALECRIM",
                 "batch_size": Decimal("8"),
@@ -933,7 +933,7 @@ class Command(BaseCommand):
                 ],
             },
             {
-                "code": "focaccia-cebola",
+                "ref": "focaccia-cebola",
                 "name": "Focaccia Cebola Roxa",
                 "output_ref": "FOCACCIA-CEBOLA",
                 "batch_size": Decimal("6"),
@@ -948,7 +948,7 @@ class Command(BaseCommand):
                 ],
             },
             {
-                "code": "pao-forma",
+                "ref": "pao-forma",
                 "name": "Pao de Forma Artesanal",
                 "output_ref": "PAO-FORMA",
                 "batch_size": Decimal("12"),
@@ -962,7 +962,7 @@ class Command(BaseCommand):
                 ],
             },
             {
-                "code": "challah",
+                "ref": "challah",
                 "name": "Challah",
                 "output_ref": "CHALLAH",
                 "batch_size": Decimal("8"),
@@ -977,7 +977,7 @@ class Command(BaseCommand):
                 ],
             },
             {
-                "code": "croissant",
+                "ref": "croissant",
                 "name": "Croissant Manteiga",
                 "output_ref": "CROISSANT",
                 "batch_size": Decimal("48"),
@@ -992,7 +992,7 @@ class Command(BaseCommand):
                 ],
             },
             {
-                "code": "pain-chocolat",
+                "ref": "pain-chocolat",
                 "name": "Pain au Chocolat",
                 "output_ref": "PAIN-CHOCOLAT",
                 "batch_size": Decimal("36"),
@@ -1008,7 +1008,7 @@ class Command(BaseCommand):
                 ],
             },
             {
-                "code": "brioche",
+                "ref": "brioche",
                 "name": "Brioche Nanterre",
                 "output_ref": "BRIOCHE",
                 "batch_size": Decimal("12"),
@@ -1022,7 +1022,7 @@ class Command(BaseCommand):
                 ],
             },
             {
-                "code": "chausson",
+                "ref": "chausson",
                 "name": "Chausson aux Pommes",
                 "output_ref": "CHAUSSON",
                 "batch_size": Decimal("12"),
@@ -1035,7 +1035,7 @@ class Command(BaseCommand):
                 ],
             },
             {
-                "code": "madeleine",
+                "ref": "madeleine",
                 "name": "Madeleine",
                 "output_ref": "MADELEINE",
                 "batch_size": Decimal("24"),
@@ -1081,7 +1081,7 @@ class Command(BaseCommand):
 
         for rd in recipes_data:
             recipe, _ = Recipe.objects.update_or_create(
-                code=rd["code"],
+                ref=rd["ref"],
                 defaults={
                     "name": rd["name"],
                     "output_ref": rd["output_ref"],
@@ -1122,7 +1122,7 @@ class Command(BaseCommand):
         tomorrow = today + timedelta(days=1)
         tz_info = timezone.get_current_timezone()
 
-        # Production schedule: (recipe_code, qty, start_hour, start_min, finish_hour, finish_min)
+        # Production schedule: (recipe_ref, qty, start_hour, start_min, finish_hour, finish_min)
         PRODUCTION_SCHEDULE = [
             ("baguete",          Decimal("25"),  4, 0,  6, 0),
             ("croissant",        Decimal("48"),  5, 0,  7, 30),
@@ -1150,8 +1150,8 @@ class Command(BaseCommand):
         wo_count = 0
 
         # Today: 2 finished (via craft.plan + craft.finish) + 1 planned
-        for code, qty, sh, sm, fh, fm in PRODUCTION_SCHEDULE:
-            recipe = Recipe.objects.get(code=code)
+        for ref, qty, sh, sm, fh, fm in PRODUCTION_SCHEDULE:
+            recipe = Recipe.objects.get(ref=ref)
             existing = WorkOrder.objects.filter(
                 recipe=recipe, target_date=today,
             ).first()
@@ -1160,7 +1160,7 @@ class Command(BaseCommand):
                 continue
 
             wo = craft.plan(recipe, quantity=qty, date=today, position_ref="vitrine")
-            should_finish = code != "focaccia-alecrim"  # focaccia still in production
+            should_finish = ref != "focaccia-alecrim"  # focaccia still in production
             if should_finish:
                 finished = int(qty * Decimal("0.95"))
                 craft.finish(wo, finished=finished, actor="seed")
@@ -1174,13 +1174,13 @@ class Command(BaseCommand):
             wo_count += 1
 
         # Tomorrow: 4 planned orders (via craft.plan → creates planned quants)
-        for code, qty in [
+        for ref, qty in [
             ("baguete", Decimal("30")),
             ("baguete-campagne", Decimal("15")),
             ("croissant", Decimal("60")),
             ("focaccia-alecrim", Decimal("10")),
         ]:
-            recipe = Recipe.objects.get(code=code)
+            recipe = Recipe.objects.get(ref=ref)
             existing = WorkOrder.objects.filter(
                 recipe=recipe, target_date=tomorrow,
             ).first()

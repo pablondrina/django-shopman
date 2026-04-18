@@ -141,7 +141,7 @@ class CraftPlanning:
             kind=WorkOrderEvent.Kind.PLANNED,
             payload={
                 "quantity": str(quantity),
-                "recipe": recipe.code,
+                "recipe": recipe.ref,
                 "output_ref": recipe.output_ref,
                 "target_date": str(date) if date else None,
                 "source_ref": wo.source_ref,
