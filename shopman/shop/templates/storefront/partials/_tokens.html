@@ -1,0 +1,68 @@
+{% comment %}
+  ── Penguin UI v2 Tokens ──
+  Runtime override: Django injects shop colors into Penguin CSS variables.
+  Build-time: style-v2.css defines defaults via @theme.
+  This partial maps storefront.design_tokens → Penguin token names.
+{% endcomment %}
+
+{% load static %}
+
+{# Dark mode + theme-color — runs before paint to prevent FOUC, syncs URL bar tint with actual resolved mode #}
+<script>
+(function(){
+  var m='{{ storefront.design_tokens.color_mode }}';
+  var hasBanner={% if shop_status.message %}true{% else %}false{% endif %};
+  var h=document.documentElement;
+  var DARK='#1c1917', LIGHT='#ffffff';
+
+  function syncThemeColor(isDark){
+    // Banner uses inverted tokens, so when present the top region is the opposite of the page theme.
+    var topIsDark = hasBanner ? !isDark : isDark;
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if(!meta){meta=document.createElement('meta');meta.name='theme-color';document.head.appendChild(meta);}
+    meta.setAttribute('content', topIsDark ? DARK : LIGHT);
+  }
+
+  function apply(isDark){
+    h.classList.toggle('dark', isDark);
+    syncThemeColor(isDark);
+  }
+
+  if(m==='dark'){apply(true);}
+  else if(m==='auto'){
+    var q=window.matchMedia('(prefers-color-scheme: dark)');
+    apply(q.matches);
+    q.addEventListener('change',function(e){apply(e.matches);});
+  }
+  else {apply(false);}
+})();
+</script>
+
+{# Fonts (Google Fonts CDN) — brand fonts + Material Symbols for iconography #}
+{% with t=storefront.design_tokens %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ t.heading_font|urlencode }}:ital,wght@0,400;0,600;0,700;1,400;1,600&family={{ t.body_font|urlencode }}:wght@400;500;600;700&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap">
+{% endwith %}
+
+{# Compiled Tailwind v4 (Penguin UI tokens) #}
+<link rel="stylesheet" href="{% static 'storefront/css/output-v2.css' %}">
+
+{# Alpine.js #}
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+
+{# Haptic feedback helper — exposes window.triggerHaptic #}
+<script defer src="{% static 'storefront/js/haptic.js' %}"></script>
+
+{# Fermata countdown/announce helpers — WP-FERMATA-UI #}
+<script defer src="{% static 'storefront/js/fermata.js' %}"></script>
+
+{# Runtime token overrides — maps Django design_tokens to Penguin CSS vars #}
+{% with t=storefront.design_tokens dark=storefront.design_tokens.dark %}
+<style>
+  :root {
+    --font-body: '{{ t.body_font }}', ui-sans-serif, system-ui, sans-serif;
+    --font-title: '{{ t.heading_font }}', ui-serif, Georgia, serif;
+  }
+</style>
+{% endwith %}
