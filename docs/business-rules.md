@@ -476,8 +476,8 @@ employee_discount:
 
 ```yaml
 happy_hour:
-  percent: 10              # Fixo
-  janela: 16:00 – 18:00   # Configurável
+  percent: 25              # Configurável via RuleConfig "happy_hour"
+  janela: 17:30 – 18:00   # Configurável via RuleConfig "happy_hour"
   exclusão: NÃO acumula com desconto funcionário
   aplicação: pós-pricing, sobre unit_price_q
 ```

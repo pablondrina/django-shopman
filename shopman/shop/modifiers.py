@@ -260,8 +260,12 @@ class EmployeeDiscountModifier:
             return
 
         config = getattr(channel, "config", None) or {}
-        rules = config.get("rules", {})
-        percent = rules.get("employee_discount_percent", self.discount_percent)
+        channel_rules = config.get("rules", {})
+        if "employee_discount_percent" in channel_rules:
+            percent = channel_rules["employee_discount_percent"]
+        else:
+            from shopman.shop.rules.engine import get_rule_params
+            percent = get_rule_params("employee_discount").get("discount_percent", self.discount_percent)
 
         items = session.items or []
         modified = False
