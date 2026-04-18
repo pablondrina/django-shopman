@@ -80,6 +80,8 @@ def register_all() -> None:
     _register_validators()
     _register_stock_signals()
     _register_sse_emitters()
+    _register_catalog_projection_handler()
+    _register_catalog_signals()
 
 
 # ── Individual registrations ──
@@ -251,6 +253,39 @@ def _register_stock_signals() -> None:
 
         import shopman.craftsman.contrib.stockman.handlers  # noqa: F401
         logger.info("shopman.handlers: loaded craftsman→stockman signal handlers.")
+    except ImportError:
+        pass
+
+
+def _register_catalog_projection_handler() -> None:
+    """Register CatalogProjectHandler for each configured projection adapter.
+
+    Adapter map lives in SHOPMAN_CATALOG_PROJECTION_ADAPTERS (dotted paths).
+    Missing setting → silent skip. Present-but-broken → raise.
+    """
+    adapter_map = getattr(settings, "SHOPMAN_CATALOG_PROJECTION_ADAPTERS", {})
+    if not adapter_map:
+        return
+    from shopman.shop.handlers.catalog_projection import CatalogProjectHandler
+
+    for listing_ref, dotted_path in adapter_map.items():
+        module_path, class_name = dotted_path.rsplit(".", 1)
+        import importlib as _il
+        module = _il.import_module(module_path)
+        backend_cls = getattr(module, class_name)
+        registry.register_directive_handler(CatalogProjectHandler(backend=backend_cls()))
+        logger.info("shopman.handlers: registered CatalogProjectHandler for %s", listing_ref)
+
+
+def _register_catalog_signals() -> None:
+    """Wire Offerman product_created / price_changed → catalog projection directives."""
+    try:
+        from shopman.offerman.signals import price_changed, product_created
+
+        from shopman.shop.handlers.catalog_projection import on_price_changed, on_product_created
+        product_created.connect(on_product_created, weak=False)
+        price_changed.connect(on_price_changed, weak=False)
+        logger.info("shopman.handlers: connected offerman catalog projection signals.")
     except ImportError:
         pass
 
