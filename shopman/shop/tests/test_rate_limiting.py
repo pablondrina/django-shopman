@@ -119,12 +119,12 @@ def test_api_checkout_rate_limited(client: Client):
         "fulfillment_type": "pickup",
     }
     for _ in range(3):
-        resp = client.post("/api/checkout/", data=payload, content_type="application/json")
+        resp = client.post("/api/v1/checkout/", data=payload, content_type="application/json")
         assert resp.status_code != 429, (
             f"Should not be rate limited before 3 requests (got {resp.status_code})"
         )
 
-    resp = client.post("/api/checkout/", data=payload, content_type="application/json")
+    resp = client.post("/api/v1/checkout/", data=payload, content_type="application/json")
     assert resp.status_code == 429
 
 
@@ -132,7 +132,7 @@ def test_api_checkout_rate_limited(client: Client):
 def test_api_checkout_normal_use_passes(client: Client):
     """Single API checkout POST is not rate-limited."""
     resp = client.post(
-        "/api/checkout/",
+        "/api/v1/checkout/",
         data={"name": "Test", "phone": "+5511999990008", "fulfillment_type": "pickup"},
         content_type="application/json",
     )

@@ -280,7 +280,7 @@ class TestWelcomeGateMiddleware:
 
     def test_api_not_gated(self, client: Client, nameless_customer):
         _login_as_customer(client, nameless_customer)
-        resp = client.get("/api/availability/")
+        resp = client.get("/api/v1/availability/")
         assert resp.get("Location", "") != "/bem-vindo/"
         if resp.status_code == 302:
             assert "/bem-vindo/" not in resp["Location"]

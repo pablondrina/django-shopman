@@ -1,4 +1,4 @@
-"""Tests for GET /api/availability/<sku>/ — WP-CL2-11."""
+"""Tests for GET /api/v1/availability/<sku>/ — WP-CL2-11."""
 
 from __future__ import annotations
 
@@ -138,4 +138,4 @@ class TestAvailabilityView:
 
     def test_url_resolves_correctly(self, db):
         url = reverse("api-availability", kwargs={"sku": "PAO-001"})
-        assert url == "/api/availability/PAO-001/"
+        assert url == "/api/v1/availability/PAO-001/"

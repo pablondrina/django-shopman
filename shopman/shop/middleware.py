@@ -8,6 +8,9 @@ from django.shortcuts import redirect
 
 from .models import Shop
 
+API_V1_PREFIX = "/api/v1/"
+API_VERSION = "1"
+
 # Valid origin_channel values that can be set via ?channel= URL parameter
 VALID_CHANNEL_PARAMS = {"whatsapp", "instagram", "web"}
 
@@ -75,6 +78,25 @@ class OnboardingMiddleware:
             return redirect(self.SETUP_PATH)
 
         return self.get_response(request)
+
+
+class APIVersionHeaderMiddleware:
+    """Stamp every `/api/v1/` response with `X-API-Version: 1`.
+
+    Informational header for debugging, telemetry and client-side assertion
+    (clients can sanity-check they're talking to the expected major version
+    without parsing the URL). Applied only to the versioned storefront API;
+    OpenAPI schema/docs and core-app APIs are unaffected.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        if request.path.startswith(API_V1_PREFIX):
+            response["X-API-Version"] = API_VERSION
+        return response
 
 
 class WelcomeGateMiddleware:

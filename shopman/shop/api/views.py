@@ -25,7 +25,7 @@ from .serializers import (
 
 class CartView(APIView):
     """
-    GET /api/cart/
+    GET /api/v1/cart/
 
     Returns the current cart contents.
     """
@@ -40,7 +40,7 @@ class CartView(APIView):
 
 class CartAddItemView(APIView):
     """
-    POST /api/cart/items/
+    POST /api/v1/cart/items/
 
     Add an item to the cart. Requires sku and optional qty.
     """
@@ -100,8 +100,8 @@ class CartAddItemView(APIView):
 
 class CartItemView(APIView):
     """
-    PATCH /api/cart/items/{line_id}/ — update quantity
-    DELETE /api/cart/items/{line_id}/ — remove item
+    PATCH /api/v1/cart/items/{line_id}/ — update quantity
+    DELETE /api/v1/cart/items/{line_id}/ — remove item
     """
 
     permission_classes = [AllowAny]
@@ -141,7 +141,7 @@ class CartItemView(APIView):
 @method_decorator(ratelimit(key="user_or_ip", rate="3/m", method="POST", block=False), name="post")
 class CheckoutView(APIView):
     """
-    POST /api/checkout/
+    POST /api/v1/checkout/
 
     Commit the cart as an order.
     """

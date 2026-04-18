@@ -29,7 +29,7 @@
        initialDraft: {{ picker_initial_draft_json|default:'null' }},
        shopLocation: {{ picker_shop_location_json|default:'null' }},
        cepLookupUrl: '{% url 'storefront:cep_lookup' %}',
-       reverseGeocodeUrl: '/api/geocode/reverse',
+       reverseGeocodeUrl: '/api/v1/geocode/reverse',
        csrfToken: '{{ csrf_token }}',
        mode: '{{ picker_mode|default:'checkout' }}'
      })"

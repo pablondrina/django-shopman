@@ -56,7 +56,7 @@ def _serialize_annotated(items: list[dict]) -> list[dict]:
 )
 class ProductListView(APIView):
     """
-    GET /api/catalog/products/
+    GET /api/v1/catalog/products/
 
     Public product listing with prices and availability.
     """
@@ -103,7 +103,7 @@ class ProductListView(APIView):
 )
 class ProductDetailView(APIView):
     """
-    GET /api/catalog/products/{sku}/
+    GET /api/v1/catalog/products/{sku}/
 
     Product detail with price and availability. Substitutes are NOT returned
     here (AVAILABILITY-PLAN §5) — they belong exclusively to the stock-error
@@ -130,7 +130,7 @@ class ProductDetailView(APIView):
 )
 class CollectionListView(APIView):
     """
-    GET /api/catalog/collections/
+    GET /api/v1/catalog/collections/
 
     Active collections with product counts.
     """

@@ -126,6 +126,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "shopman.shop.middleware.ChannelParamMiddleware",
     "shopman.shop.middleware.OnboardingMiddleware",
+    "shopman.shop.middleware.APIVersionHeaderMiddleware",
     "shopman.shop.middleware.WelcomeGateMiddleware",
 ]
 

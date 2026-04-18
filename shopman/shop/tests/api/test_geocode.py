@@ -1,4 +1,4 @@
-"""Tests for POST /api/geocode/reverse — WP-ADDR-1."""
+"""Tests for POST /api/v1/geocode/reverse — WP-ADDR-1."""
 
 from __future__ import annotations
 

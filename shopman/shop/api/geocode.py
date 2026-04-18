@@ -26,7 +26,7 @@ from shopman.shop.services.geocoding import GeocodingError, reverse_geocode
 )
 class ReverseGeocodeView(APIView):
     """
-    POST /api/geocode/reverse
+    POST /api/v1/geocode/reverse
 
     Body: {"lat": float, "lng": float}
 
