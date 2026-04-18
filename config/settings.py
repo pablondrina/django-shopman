@@ -269,8 +269,9 @@ SHOPMAN_IFOOD = {
     "catalog_api_base": os.environ.get("IFOOD_CATALOG_API_BASE", "https://merchant-api.ifood.com.br"),
 }
 
-# iFood catalog projection (WP-GAP-15). Uncomment to enable Shopman → iFood menu sync.
-# When set, product_created and price_changed signals enqueue catalog.project_sku directives.
+# Catalog projection adapters — enable by uncommenting the desired backend.
+# Missing key → handler not registered (silent skip).
+# Present but broken path → raises at boot (configured-but-wrong).
 SHOPMAN_CATALOG_PROJECTION_ADAPTERS: dict = {
     # "ifood": "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection",
 }

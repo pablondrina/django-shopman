@@ -3,16 +3,14 @@ Catalog projection handler + Offerman signal receivers.
 
 CatalogProjectHandler — processes ``catalog.project_sku`` directives:
   - Checks iFood channel is active.
-  - Fetches current ProjectedItem for the SKU from Offerman.
-  - Calls IFoodCatalogProjection.project().
-  - On 429: schedules retry honoring Retry-After.
-  - On other error: exponential backoff (2**attempts minutes), max 5 attempts.
+  - Resolves the SKU to a ProjectedItem via CatalogService.
+  - Calls the backend adapter to push to the external API.
+  - Handles 429 rate limiting (honoring Retry-After).
+  - Implements exponential backoff up to _MAX_ATTEMPTS.
 
-Signal receivers (connected from handlers.__init__._register_catalog_signals):
-  on_product_created — fires when Offerman emits ``product_created``.
-  on_price_changed   — fires when Offerman emits ``price_changed``.
-Both receivers create a ``catalog.project_sku`` Directive (idempotent via
-dedupe_key = ``catalog.project_sku:{listing_ref}:{sku}:{content_hash}``).
+Signal receivers (on_product_created, on_price_changed) enqueue directives
+with SHA-256-based dedupe keys so the same event is never processed twice
+while a directive is still queued or running.
 """
 
 from __future__ import annotations
@@ -22,11 +20,10 @@ import json
 import logging
 from datetime import timedelta
 
-from django.conf import settings
 from django.utils import timezone
 
+from shopman.offerman.protocols.projection import ProjectedItem
 from shopman.orderman.models import Directive
-
 from shopman.shop.directives import CATALOG_PROJECT_SKU
 
 logger = logging.getLogger(__name__)
@@ -34,70 +31,98 @@ logger = logging.getLogger(__name__)
 _MAX_ATTEMPTS = 5
 
 
-class CatalogProjectHandler:
-    """Processes ``catalog.project_sku`` directives for the iFood channel."""
+# ── Handler ───────────────────────────────────────────────────────────────────
 
+
+class CatalogProjectHandler:
     topic = CATALOG_PROJECT_SKU
 
     def __init__(self, backend) -> None:
-        self._backend = backend
+        self.backend = backend
 
-    def handle(self, *, message: Directive, ctx: dict) -> None:
+    def handle(self, message: Directive, ctx: dict) -> None:
         payload = message.payload
-        sku = payload.get("sku")
+        sku = payload["sku"]
         listing_ref = payload.get("listing_ref", "ifood")
 
-        if not sku:
-            message.status = "failed"
-            message.last_error = "missing sku in payload"
-            message.save(update_fields=["status", "last_error", "updated_at"])
-            return
-
-        # Guard: channel must exist and be active.
-        if not _ifood_channel_active():
-            logger.info("catalog_projection: ifood channel inactive — skipping sku=%s", sku)
+        if not _ifood_channel_active(listing_ref):
             message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
+            message.save(update_fields=["status"])
             return
 
-        # Resolve current ProjectedItem for this SKU.
         item = _get_projected_item(sku, listing_ref)
         if item is None:
-            logger.info("catalog_projection: sku=%s not in listing %s — skipping", sku, listing_ref)
             message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
+            message.save(update_fields=["status"])
             return
 
         from shopman.shop.adapters.catalog_projection_ifood import IFoodRateLimitError
 
         try:
-            result = self._backend.project([item], channel="ifood")
+            result = self.backend.project([item], channel=listing_ref)
         except IFoodRateLimitError as exc:
             message.available_at = timezone.now() + timedelta(seconds=exc.retry_after)
-            message.last_error = f"rate_limited retry_after={exc.retry_after}s"
-            message.save(update_fields=["available_at", "last_error", "updated_at"])
-            logger.info("catalog_projection: rate limited sku=%s retry_after=%ds", sku, exc.retry_after)
+            message.save(update_fields=["available_at"])
+            logger.warning(
+                "catalog_projection: rate limited for %s/%s, retry in %ds",
+                listing_ref, sku, exc.retry_after,
+            )
             return
-        except Exception as exc:
-            _handle_transient_error(message, str(exc))
-            return
+
+        message.attempts += 1
 
         if result.success:
             message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
-            logger.info("catalog_projection: done sku=%s projected=%d", sku, result.projected)
-        else:
-            error_str = "; ".join(result.errors)
-            _handle_transient_error(message, error_str)
+            message.save(update_fields=["status", "attempts"])
+            return
+
+        if message.attempts >= _MAX_ATTEMPTS:
+            message.status = "failed"
+            message.last_error = "; ".join(result.errors)
+            message.save(update_fields=["status", "attempts", "last_error"])
+            logger.error(
+                "catalog_projection: max attempts reached for %s/%s: %s",
+                listing_ref, sku, message.last_error,
+            )
+            return
+
+        backoff_minutes = 2 ** message.attempts
+        message.available_at = timezone.now() + timedelta(minutes=backoff_minutes)
+        message.save(update_fields=["attempts", "available_at"])
+        logger.info(
+            "catalog_projection: transient error for %s/%s, retry in %dm",
+            listing_ref, sku, backoff_minutes,
+        )
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+
+def _ifood_channel_active(listing_ref: str) -> bool:
+    from shopman.shop.models import Channel
+    return Channel.objects.filter(ref=listing_ref, is_active=True).exists()
+
+
+def _get_projected_item(sku: str, listing_ref: str) -> ProjectedItem | None:
+    from shopman.offerman.service import CatalogService
+    items = CatalogService.get_projection_items(listing_ref)
+    for item in items:
+        if item.sku == sku:
+            return item
+    return None
+
+
+def _projection_listing_refs() -> list[str]:
+    from django.conf import settings
+    return list(getattr(settings, "SHOPMAN_CATALOG_PROJECTION_ADAPTERS", {}).keys())
 
 
 # ── Signal receivers ──────────────────────────────────────────────────────────
 
 
 def on_product_created(sender, instance, sku: str, **kwargs) -> None:
-    """Enqueue catalog.project_sku for all configured projection listings."""
     for listing_ref in _projection_listing_refs():
-        _enqueue_project(sku=sku, listing_ref=listing_ref, trigger="product_created")
+        _enqueue_project(sku, listing_ref, trigger="product_created", extra={})
 
 
 def on_price_changed(
@@ -105,48 +130,30 @@ def on_price_changed(
     instance,
     listing_ref: str,
     sku: str,
-    old_price_q,
-    new_price_q,
+    old_price_q: int,
+    new_price_q: int,
     **kwargs,
 ) -> None:
-    """Enqueue catalog.project_sku when a listing item price changes."""
     if listing_ref not in _projection_listing_refs():
         return
     _enqueue_project(
-        sku=sku,
-        listing_ref=listing_ref,
+        sku,
+        listing_ref,
         trigger="price_changed",
-        extra={"price_q": int(new_price_q)},
+        extra={"old_price_q": old_price_q, "new_price_q": new_price_q},
     )
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+def _enqueue_project(sku: str, listing_ref: str, trigger: str, extra: dict) -> None:
+    fingerprint_data = json.dumps({"trigger": trigger, **extra}, sort_keys=True)
+    fingerprint = hashlib.sha256(fingerprint_data.encode()).hexdigest()[:16]
+    dedupe_key = f"{CATALOG_PROJECT_SKU}:{listing_ref}:{sku}:{fingerprint}"
 
-
-def _enqueue_project(
-    sku: str,
-    listing_ref: str,
-    trigger: str,
-    extra: dict | None = None,
-) -> None:
-    data: dict = {"sku": sku, "listing_ref": listing_ref, "trigger": trigger}
-    if extra:
-        data.update(extra)
-
-    content_hash = hashlib.sha256(
-        json.dumps(data, sort_keys=True).encode()
-    ).hexdigest()[:16]
-    dedupe_key = f"catalog.project_sku:{listing_ref}:{sku}:{content_hash}"
-
-    already_queued = Directive.objects.filter(
+    exists = Directive.objects.filter(
         dedupe_key=dedupe_key,
-        status__in=["queued", "running"],
+        status__in=("queued", "running"),
     ).exists()
-    if already_queued:
-        logger.debug(
-            "catalog_projection: dedupe skip sku=%s listing=%s trigger=%s",
-            sku, listing_ref, trigger,
-        )
+    if exists:
         return
 
     Directive.objects.create(
@@ -154,48 +161,4 @@ def _enqueue_project(
         payload={"sku": sku, "listing_ref": listing_ref},
         dedupe_key=dedupe_key,
     )
-    logger.info(
-        "catalog_projection: enqueued sku=%s listing=%s trigger=%s",
-        sku, listing_ref, trigger,
-    )
-
-
-def _projection_listing_refs() -> list[str]:
-    """Return listing refs for all configured catalog projection adapters."""
-    adapters = getattr(settings, "SHOPMAN_CATALOG_PROJECTION_ADAPTERS", {})
-    return list(adapters.keys())
-
-
-def _ifood_channel_active() -> bool:
-    from shopman.shop.models import Channel
-    return Channel.objects.filter(ref="ifood", is_active=True).exists()
-
-
-def _get_projected_item(sku: str, listing_ref: str):
-    """Return the ProjectedItem for ``sku`` in ``listing_ref``, or None."""
-    try:
-        from shopman.offerman.service import CatalogService
-        items = CatalogService.get_projection_items(listing_ref)
-        return next((i for i in items if i.sku == sku), None)
-    except Exception as exc:
-        logger.warning("catalog_projection: error fetching projection items: %s", exc)
-        return None
-
-
-def _handle_transient_error(message: Directive, error: str) -> None:
-    message.attempts += 1
-    message.last_error = error[:500]
-    if message.attempts >= _MAX_ATTEMPTS:
-        message.status = "failed"
-        logger.error(
-            "catalog_projection: terminal failure after %d attempts: %s",
-            message.attempts, error,
-        )
-    else:
-        backoff_minutes = 2 ** message.attempts
-        message.available_at = timezone.now() + timedelta(minutes=backoff_minutes)
-        logger.warning(
-            "catalog_projection: transient error attempt=%d backoff=%dmin: %s",
-            message.attempts, backoff_minutes, error,
-        )
-    message.save(update_fields=["status", "attempts", "available_at", "last_error", "updated_at"])
+    logger.debug("catalog_projection: enqueued %s for %s/%s", trigger, listing_ref, sku)

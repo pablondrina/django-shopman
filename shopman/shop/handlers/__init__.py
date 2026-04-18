@@ -258,11 +258,7 @@ def _register_stock_signals() -> None:
 
 
 def _register_catalog_projection_handler() -> None:
-    """Register CatalogProjectHandler for each configured projection adapter.
-
-    Adapter map lives in SHOPMAN_CATALOG_PROJECTION_ADAPTERS (dotted paths).
-    Missing setting → silent skip. Present-but-broken → raise.
-    """
+    """Register CatalogProjectHandler for each configured projection adapter."""
     adapter_map = getattr(settings, "SHOPMAN_CATALOG_PROJECTION_ADAPTERS", {})
     if not adapter_map:
         return
@@ -270,8 +266,7 @@ def _register_catalog_projection_handler() -> None:
 
     for listing_ref, dotted_path in adapter_map.items():
         module_path, class_name = dotted_path.rsplit(".", 1)
-        import importlib as _il
-        module = _il.import_module(module_path)
+        module = importlib.import_module(module_path)
         backend_cls = getattr(module, class_name)
         registry.register_directive_handler(CatalogProjectHandler(backend=backend_cls()))
         logger.info("shopman.handlers: registered CatalogProjectHandler for %s", listing_ref)
