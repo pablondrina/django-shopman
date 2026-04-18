@@ -11,7 +11,7 @@ PYTHON := $(shell [ -f .venv/bin/python ] && echo $(CURDIR)/.venv/bin/python || 
 # Python: usa venv se existir, senao o do PATH
 PYTHON := $(shell [ -f .venv/bin/python ] && echo $(CURDIR)/.venv/bin/python || echo python)
 
-.PHONY: help install test test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework lint clean migrate run dev seed coverage css css-watch fonts
+.PHONY: help install test test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework lint clean migrate run dev seed coverage css css-watch fonts up down logs db-shell
 
 help: ## Mostra este help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -25,6 +25,7 @@ install: ## Instala deps + apps da suite em modo editável
 		"django-csp>=4.0,<5.0" \
 		"django-ratelimit>=4.1,<5.0" \
 		"django-redis>=5.4,<6.0" \
+		"psycopg[binary]>=3.2,<4.0" \
 		phonenumbers pytest pytest-django
 	# Instala cada app em modo editável
 	$(PYTHON) -m pip install -e packages/utils
@@ -110,6 +111,23 @@ fonts: ## Baixa fontes WOFF2 para self-hosting (Inter + Playfair Display)
 		curl -sLO "https://fonts.gstatic.com/s/playfairdisplay/v37/nuFRD-vYSZviVYUb_rj3ij__anPXDTnCjmHKM4nYO7KN_giUbtbK-F2rA0s.woff2" && mv nuFRD-vYSZviVYUb_rj3ij__anPXDTnCjmHKM4nYO7KN_giUbtbK-F2rA0s.woff2 playfair-display-latin-600-italic.woff2
 	@echo "✓ Fontes baixadas"
 	@ls -la shopman/shop/static/storefront/fonts/*.woff2 2>/dev/null | wc -l | xargs -I{} echo "  {} arquivos woff2"
+
+# ── Infra (Docker: Postgres + Redis) ──────────────────────────────────
+
+up: ## Sobe Postgres + Redis via docker compose (aguarda healthcheck)
+	docker compose up -d
+	@echo "Aguardando Postgres..."
+	@until docker compose exec -T postgres pg_isready -U shopman >/dev/null 2>&1; do sleep 1; done
+	@echo "✓ Postgres + Redis prontos"
+
+down: ## Para Postgres + Redis
+	docker compose down
+
+logs: ## Stream dos logs dos services
+	docker compose logs -f
+
+db-shell: ## psql no Postgres do docker
+	docker compose exec postgres psql -U shopman -d shopman
 
 # ── Server ────────────────────────────────────────────────────────────
 

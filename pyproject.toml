@@ -28,6 +28,7 @@ dependencies = [
     "django-redis>=5.4,<6.0",
     "django-eventstream>=5.3,<6.0",
     "daphne>=4.1,<5.0",
+    "psycopg[binary]>=3.2,<4.0",
 ]
 
 [project.optional-dependencies]

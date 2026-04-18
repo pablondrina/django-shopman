@@ -167,13 +167,32 @@ TEMPLATES = [
     },
 ]
 
-# ⚠️ PRODUÇÃO: Usar PostgreSQL. SQLite não suporta concorrência.
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": os.path.join(BASE_DIR, "db.sqlite3"),
+# Database — Postgres quando DATABASE_URL estiver setado; SQLite como fallback leve.
+# Postgres é o default documentado (`make up` + docker-compose) para exercitar
+# select_for_update() e os testes de concorrência do Stockman.
+import urllib.parse as _urlparse
+
+_DB_URL = os.environ.get("DATABASE_URL", "").strip()
+if _DB_URL:
+    _parsed = _urlparse.urlparse(_DB_URL)
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": _parsed.path.lstrip("/"),
+            "USER": _parsed.username or "",
+            "PASSWORD": _parsed.password or "",
+            "HOST": _parsed.hostname or "",
+            "PORT": _parsed.port or 5432,
+            "CONN_MAX_AGE": 60,
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": os.path.join(BASE_DIR, "db.sqlite3"),
+        }
+    }
 
 # Cache: django-ratelimit exige backend compartilhado (Redis/Memcached), não LocMem.
 # Dev sem Redis: LocMem + checks silenciados (rate limit só no processo atual).

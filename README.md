@@ -38,9 +38,11 @@ Cada app é um pacote pip independente. Comunicação entre apps via `typing.Pro
 ## Quickstart
 
 ```bash
-# 1. Clonar e instalar
+# 1. Clonar, subir Postgres+Redis via docker, instalar deps
 git clone https://github.com/pablondrina/django-shopman.git
 cd django-shopman
+cp .env.example .env
+make up           # docker compose: postgres:16-alpine + redis:7-alpine
 make install
 
 # 2. Criar banco e popular com dados demo (Nelson Boulangerie)
@@ -54,6 +56,11 @@ make run
 # → http://localhost:8000/pedidos/ (gestor de pedidos)
 # → http://localhost:8000/kds/     (kitchen display)
 ```
+
+> Postgres é o default de dev — casa com os testes de concorrência do Stockman
+> (`select_for_update`). Sem Docker? Deixe `DATABASE_URL` comentado no `.env` e o
+> settings cai no fallback SQLite (mas os testes de concorrência serão pulados).
+> Detalhes em [`docs/getting-started/quickstart.md`](docs/getting-started/quickstart.md).
 
 ## Caminhos de Uso
 
