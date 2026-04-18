@@ -7,11 +7,47 @@ This module only handles admin-specific table formatting (``format_html``).
 from __future__ import annotations
 
 import json
+import re
+from pathlib import Path
 
 from django.urls import reverse
 from django.utils.html import format_html
 
 from shopman.shop.projections.dashboard import build_dashboard
+
+_OMOTENASHI_TAG = re.compile(r"\{%[-\s]*omotenashi\b")
+_STOREFRONT_TEMPLATES = Path(__file__).parents[1] / "templates" / "storefront"
+
+
+def _omotenashi_health() -> dict:
+    """Compute Omotenashi copy health stats for the admin dashboard widget."""
+    html_files = sorted(_STOREFRONT_TEMPLATES.rglob("*.html"))
+    total = len(html_files)
+    using = sum(
+        1 for f in html_files if _OMOTENASHI_TAG.search(f.read_text(encoding="utf-8"))
+    )
+    pct = round(using / total * 100) if total else 0
+
+    try:
+        from shopman.shop.models import OmotenashiCopy
+
+        active_overrides = OmotenashiCopy.objects.filter(active=True).count()
+        recent_changes = list(
+            OmotenashiCopy.history.order_by("-history_date")
+            .values("key", "history_type", "history_date", "history_user__username")[:5]
+        )
+    except Exception:
+        active_overrides = 0
+        recent_changes = []
+
+    return {
+        "total_templates": total,
+        "using_omotenashi": using,
+        "pct": pct,
+        "active_overrides": active_overrides,
+        "recent_changes": recent_changes,
+    }
+
 
 # ── Main callback ────────────────────────────────────────────────────
 
@@ -45,6 +81,7 @@ def dashboard_callback(request, context):
         "table_operator_alerts": _build_operator_alerts_table(proj.operator_alerts),
         "production_suggestions": proj.production_suggestions,
         "table_sugestao_producao": _build_suggestions_table(proj.production_suggestions),
+        "omotenashi_health": _omotenashi_health(),
     })
     return context
 

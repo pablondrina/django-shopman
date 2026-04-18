@@ -12,6 +12,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
+from simple_history.models import HistoricalRecords
 
 
 class OmotenashiCopy(models.Model):
@@ -39,6 +40,8 @@ class OmotenashiCopy(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    history = HistoricalRecords()
 
     class Meta:
         verbose_name = "cópia omotenashi"

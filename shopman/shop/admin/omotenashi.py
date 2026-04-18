@@ -37,7 +37,7 @@ class OmotenashiCopyForm(forms.ModelForm):
 @admin.register(OmotenashiCopy)
 class OmotenashiCopyAdmin(ModelAdmin):
     form = OmotenashiCopyForm
-    list_display = ("key", "moment", "audience", "title_short", "active")
+    list_display = ("key", "moment", "audience", "title_short", "active", "updated_at")
     list_filter = ("key", "moment", "audience", "active")
     list_editable = ("active",)
     search_fields = ("key", "title", "message")

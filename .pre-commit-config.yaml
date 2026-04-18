@@ -1,0 +1,10 @@
+repos:
+  - repo: local
+    hooks:
+      - id: lint-omotenashi-copy
+        name: Omotenashi copy lint (warning mode)
+        language: python
+        entry: python scripts/lint_omotenashi_copy.py
+        types: [html]
+        pass_filenames: false
+        # Remove --error flag after 2 sprints to switch to error mode
