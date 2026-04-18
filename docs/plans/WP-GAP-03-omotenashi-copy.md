@@ -60,6 +60,9 @@ Duas fases sequenciais. Fase 2 depende de Fase 1 ter sido mergeada.
   - [templates/storefront/cart.html](../../shopman/shop/templates/storefront/cart.html) — carrinho vazio, estoque, CTA checkout.
   - [templates/storefront/checkout.html](../../shopman/shop/templates/storefront/checkout.html) — intro + confirmação.
   - [templates/storefront/order_tracking.html](../../shopman/shop/templates/storefront/order_tracking.html) — status + agradecimento final.
+- **Copy fixes específicos** (identificados em auditoria 2026-04-18):
+  - Substituir "Avisamos quando chegar." por "Avisamos quando ficar pronto." (mais genérico, cobre pickup + delivery — "chegar" enviesa para delivery).
+  - Grep em templates por "quando chegar" para achar todas ocorrências; migrar via `{% omotenashi "pickup_ready_notice" %}` com novo default.
 - Listar strings candidatas em PR description (antes vs depois).
 - Testes em `shopman/shop/tests/test_omotenashi_tag.py`:
   - Tag resolve via DB quando record active existe.
