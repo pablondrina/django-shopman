@@ -64,8 +64,8 @@ def test_cart_add_sends_rich_error_ui_marker(db, product):
     assert resp["HX-Retarget"] == "#stock-error-modal"
     assert resp["HX-Reswap"] == "innerHTML"
     body = resp.content.decode("utf-8")
-    assert "Apenas 2 unidades disponíveis" in body, (
-        "title must reflect the unified copy for partial shortage"
+    assert "Adicionar 2 dispon" in body, (
+        "primary CTA must appear for shortage with partial stock remaining"
     )
 
 
@@ -88,8 +88,8 @@ def test_cart_set_qty_uses_same_contract_as_add(db, product):
     assert resp["X-Shopman-Error-UI"] == "1"
     assert resp["HX-Retarget"] == "#stock-error-modal"
     body = resp.content.decode("utf-8")
-    assert "Indisponível" in body, (
-        "sold-out copy uses the unified 'Indisponível' label"
+    assert "não está disponível no momento" in body, (
+        "sold-out shortage must show unavailable copy"
     )
 
 
@@ -274,5 +274,85 @@ def test_modal_tags_picker_origin_cart_when_called_from_cart(db, product):
         )
     body = resp.content.decode("utf-8")
     assert "origin: 'cart'" in body
+
+
+# ── Kintsugi variant tests (WP-GAP-14) ────────────────────────────────────
+
+
+def test_planned_variant_shows_reserve_cta(db, product):
+    """is_planned=True → 'planned' variant with 'Reservar no próximo lote' CTA."""
+    client = Client()
+    exc = CartUnavailableError(
+        sku=product.sku,
+        requested_qty=2,
+        available_qty=0,
+        error_code="insufficient_stock",
+        is_paused=False,
+        substitutes=[],
+        is_planned=True,
+    )
+    with patch("shopman.shop.web.cart.CartService.add_item", side_effect=exc):
+        resp = client.post("/cart/add/", {"sku": product.sku, "qty": "2"})
+    assert resp.status_code == 422
+    body = resp.content.decode("utf-8")
+    assert "Reservar no próximo lote" in body, (
+        "planned variant must offer a pre-reserve CTA"
+    )
+    assert "A caminho" in body, (
+        "planned variant title comes from KINTSUGI_PLANNED_OFFER omotenashi key"
+    )
+
+
+def test_paused_variant_shows_warm_copy(db, product):
+    """is_paused=True → 'paused' variant with warm 'Voltamos em breve' copy."""
+    client = Client()
+    exc = CartUnavailableError(
+        sku=product.sku,
+        requested_qty=1,
+        available_qty=0,
+        error_code="paused",
+        is_paused=True,
+        substitutes=[],
+    )
+    with patch("shopman.shop.web.cart.CartService.add_item", side_effect=exc):
+        resp = client.post("/cart/add/", {"sku": product.sku, "qty": "1"})
+    assert resp.status_code == 422
+    body = resp.content.decode("utf-8")
+    assert "Voltamos em breve" in body, (
+        "paused variant title comes from KINTSUGI_PAUSED_COPY omotenashi key"
+    )
+    assert "Adicionar" not in body or "Reservar" not in body, (
+        "paused variant must not show add/reserve CTAs"
+    )
+
+
+def test_substitute_image_rendered_when_provided(db, product):
+    """When a substitute has image_url, an <img> element appears in the modal."""
+    client = Client()
+    exc = CartUnavailableError(
+        sku=product.sku,
+        requested_qty=1,
+        available_qty=0,
+        error_code="below_stock",
+        is_paused=False,
+        substitutes=[
+            {
+                "sku": "IMG-ALT",
+                "name": "Pão com Imagem",
+                "image_url": "https://cdn.test/pao.jpg",
+                "price_display": "R$ 7,00",
+                "price_q": 700,
+                "available_qty": 10,
+                "can_order": True,
+                "target_qty": 1,
+            }
+        ],
+    )
+    with patch("shopman.shop.web.cart.CartService.add_item", side_effect=exc):
+        resp = client.post("/cart/add/", {"sku": product.sku, "qty": "1"})
+    body = resp.content.decode("utf-8")
+    assert "https://cdn.test/pao.jpg" in body, (
+        "substitute with image_url must render an <img> with that URL"
+    )
 
 

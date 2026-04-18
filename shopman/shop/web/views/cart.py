@@ -63,10 +63,13 @@ class AddToCartView(View):
 
         if not product.is_sellable:
             response = render(request, "storefront/partials/stock_error_modal.html", {
-                "title": "Produto indisponível",
-                "message": f"{product.name} não está disponível no momento.",
+                "error_variant": "paused",
                 "sku": sku,
                 "product_name": product.name,
+                "product_image_url": getattr(product, "image_url", None) or "",
+                "requested_qty": qty,
+                "available_qty": 0,
+                "substitutes": [],
                 "picker_origin": _picker_origin(request),
             })
             response["HX-Retarget"] = "#stock-error-modal"
@@ -98,43 +101,36 @@ class AddToCartView(View):
 
 
 def _stock_error_response(request: HttpRequest, product, exc: CartUnavailableError) -> HttpResponse:
-    """Render the actionable stock-error modal.
-
-    Contract with `docs/plans/STOCK-UX-PLAN.md`: modal is acionável (1-click
-    actions), never purely informational. Context fields drive rendering:
-
-    - `primary_action` = None | "accept_available"
-      Drives the primary CTA label/payload.
-    - `available_qty`, `requested_qty` — used by the primary CTA payload.
-    - `substitutes` — list of `{sku, name, price_display, ...}`; each row
-      is a 1-click button that POSTs cart_set_qty for that SKU.
-    - `error_code`, `is_paused` — select copy variant.
-    """
+    """Render the kintsugi stock-error modal (3 variants: shortage/planned/paused)."""
     requested = int(exc.requested_qty)
     available = int(exc.available_qty)
+
+    is_truly_paused = exc.is_paused or exc.error_code in {"paused", "not_in_listing"}
+    if exc.is_planned and not is_truly_paused:
+        error_variant = "planned"
+    elif is_truly_paused:
+        error_variant = "paused"
+    else:
+        error_variant = "shortage"
+
     primary_action = None
     primary_qty = 0
-
-    if exc.is_paused or exc.error_code in {"paused", "not_in_listing"} or available == 0:
-        title = "Indisponível"
-        message = f"{product.name} não está disponível no momento."
-    else:
-        unit_word = "unidade disponível" if available == 1 else "unidades disponíveis"
-        title = f"Apenas {available} {unit_word}"
-        message = f"Você pediu {requested} de {product.name}."
+    if error_variant == "shortage" and available > 0:
         primary_action = "accept_available"
         primary_qty = available
 
     response = render(request, "storefront/partials/stock_error_modal.html", {
-        "title": title,
-        "message": message,
+        "error_variant": error_variant,
         "sku": exc.sku,
         "product_name": product.name,
+        "product_image_url": getattr(product, "image_url", None) or "",
         "requested_qty": requested,
         "available_qty": available,
         "substitutes": exc.substitutes,
         "error_code": exc.error_code,
         "is_paused": exc.is_paused,
+        "is_planned": exc.is_planned,
+        "planned_target_date": exc.planned_target_date,
         "primary_action": primary_action,
         "primary_qty": primary_qty,
         "picker_origin": _picker_origin(request),

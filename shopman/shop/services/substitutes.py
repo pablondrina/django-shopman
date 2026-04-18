@@ -96,6 +96,7 @@ def find(sku: str, *, qty: Decimal = Decimal("1"), channel: str | None = None, l
         result.append({
             "sku": product.sku,
             "name": product.name,
+            "image_url": getattr(product, "image_url", "") or "",
             "price_q": price_q,
             "price_display": price_display,
             "available_qty": int(available_qty),

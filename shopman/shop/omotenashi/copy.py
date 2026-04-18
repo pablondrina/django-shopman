@@ -258,6 +258,18 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
             ),
         },
     },
+    "KINTSUGI_SHORTAGE_GENERIC": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Ih, o último acabou de sair")},
+    },
+    "KINTSUGI_SHORTAGE_SUBSTITUTES_INTRO": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Que tal um destes no lugar?")},
+    },
+    "KINTSUGI_PLANNED_OFFER": {
+        WILDCARD: {WILDCARD: CopyEntry(title="A caminho", message="O próximo lote sai em breve. Quer pré-reservar?")},
+    },
+    "KINTSUGI_PAUSED_COPY": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Voltamos em breve!", message="Esse item está temporariamente fora do cardápio.")},
+    },
 }
 
 

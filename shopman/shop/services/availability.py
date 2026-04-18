@@ -514,6 +514,7 @@ def reserve(
             "hold_id": None,
             "available_qty": status["available_qty"],
             "is_paused": status["is_paused"],
+            "is_planned": status.get("is_planned", False),
             "error_code": status.get("error_code") or (
                 "paused" if status["is_paused"] else "insufficient_stock"
             ),
@@ -573,6 +574,7 @@ def reserve(
                 "hold_id": None,
                 "available_qty": partial["available_qty"],
                 "is_paused": False,
+                "is_planned": False,
                 "error_code": "insufficient_stock",
                 "substitutes": substitutes.find(sku, qty=qty_d, channel=channel_ref),
             }
@@ -586,6 +588,7 @@ def reserve(
             "hold_id": None,
             "available_qty": status["available_qty"],
             "is_paused": False,
+            "is_planned": False,
             "error_code": result.get("error_code", "hold_failed"),
             "substitutes": substitutes.find(sku, qty=qty_d, channel=channel_ref),
         }

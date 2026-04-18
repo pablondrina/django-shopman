@@ -31,6 +31,8 @@ class CartUnavailableError(Exception):
         is_paused: bool,
         substitutes: list[dict],
         error_code: str,
+        is_planned: bool = False,
+        planned_target_date=None,
     ):
         super().__init__(f"unavailable: sku={sku} qty={requested_qty} avail={available_qty}")
         self.sku = sku
@@ -39,6 +41,8 @@ class CartUnavailableError(Exception):
         self.is_paused = is_paused
         self.substitutes = substitutes
         self.error_code = error_code
+        self.is_planned = is_planned
+        self.planned_target_date = planned_target_date
 
 
 class CartService:
@@ -126,6 +130,7 @@ class CartService:
                 is_paused=result["is_paused"],
                 substitutes=result["substitutes"],
                 error_code=result["error_code"],
+                is_planned=result.get("is_planned", False),
             )
 
         # Cart activity → renew the TTL on every hold of this session so a
@@ -180,6 +185,7 @@ class CartService:
                     is_paused=result["is_paused"],
                     substitutes=result["substitutes"],
                     error_code=result["error_code"],
+                    is_planned=result.get("is_planned", False),
                 )
 
         availability.bump_session_hold_expiry(session_key)
