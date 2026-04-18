@@ -293,6 +293,82 @@ Chave Django settings: `STOCKMAN`
 | `EXPIRED_BATCH_SIZE` | `200` | Batch para release_expired |
 | `VALIDATE_INPUT_SKUS` | `True` | Validar SKUs antes de operações |
 
+## Integridade de `_quantity`
+
+### Por que é cache
+
+`Quant._quantity` é um campo **denormalizado** — ele armazena o resultado de
+`Σ(moves.delta)` para que consultas de disponibilidade sejam O(1) em vez de
+O(N moves). Performance essencial em catálogos com muitos produtos.
+
+### Por que pode divergir
+
+Três vetores conhecidos de divergência silenciosa:
+
+| Vetor | Exemplo | Risco |
+|-------|---------|-------|
+| Queryset bypass | `Quant.objects.filter(...).update(_quantity=X)` | Alto — skipa Move ledger completamente |
+| Seed/fixture direto | `Quant.objects.create(_quantity=50)` sem Moves | Médio — inofensivo em teste, perigoso em seed prod |
+| SQL direto | `UPDATE stockman_quant SET _quantity=X` via psql/migração | Baixo — requer acesso ao banco |
+
+### Como detectar
+
+```bash
+# Dry-run: lista divergências sem corrigir (exit 1 se há divergência)
+python manage.py recompute_quant_quantities --dry-run
+
+# Filtrar por SKU
+python manage.py recompute_quant_quantities --dry-run --sku croissant
+```
+
+Output (quando há divergência):
+```
+      pk  sku                             position      current      computed        delta
+--------  ----------------------------  ------------  -----------  -----------  -----------
+      42  croissant                     1                   50.000      100.000      +50.000
+```
+
+### Como corrigir
+
+```bash
+# Aplica recalculate() nos divergentes — Move ledger ganha
+python manage.py recompute_quant_quantities --apply
+```
+
+`recalculate()` logga `ERROR quant.quantity_mismatch` com detalhes estruturados
+(pickável por Sentry/SIEM):
+
+```json
+{"pk": 42, "sku": "croissant", "position": "1", "current": 50.0, "computed": 100.0, "delta": 50.0}
+```
+
+### Política: nunca bypassar o Move ledger
+
+**REGRA**: `Quant._quantity` é escrito apenas por `Move.save()`. Qualquer outro
+código que precise "ajustar" estoque deve criar um `Move`.
+
+```python
+# ❌ NUNCA — bypassa Move ledger, quebra invariante
+Quant.objects.filter(sku='croissant').update(_quantity=100)
+
+# ✅ SEMPRE — cria Move, atualiza cache atomicamente
+stock.adjust('croissant', vitrine, Decimal('100'), reason='Ajuste de inventário')
+```
+
+A tentativa de uso direto de `.update(_quantity=...)` levanta `ValueError`
+explicativo. O escape hatch `_allow_quantity_update=True` existe apenas para
+`Move.save()` e `recompute_quant_quantities --apply` (internos do sistema).
+
+### Cron recomendado
+
+```cron
+0 3 * * * /app/manage.py recompute_quant_quantities --dry-run >> /var/log/shopman/quant-audit.log 2>&1
+```
+
+Se houver divergência: corrigir com `--apply` e investigar a causa raiz.
+
+---
+
 ## Exceções
 
 `StockError` com códigos estruturados:
