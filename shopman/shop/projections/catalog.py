@@ -82,6 +82,11 @@ class CatalogItemProjection:
     # Cart state (populated when the builder receives a request)
     qty_in_cart: int = 0
 
+    # Available quantity for stock-aware UX. None = demand-based/untracked
+    # (sem teto). Integer = exato. Permite o menu abrir o modal de estoque
+    # client-side quando requested > available, sem esperar o POST falhar.
+    available_qty: int | None = None
+
     @property
     def detail_url(self) -> str:
         """Convenience for templates — build the PDP URL."""
@@ -93,10 +98,22 @@ class CatalogItemProjection:
 
 @dataclass(frozen=True)
 class CatalogSectionProjection:
-    """A grouping of items under a category — `category=None` means uncategorized."""
+    """A grouping of items under a category or a dynamic collection.
+
+    - ``category`` populated = seção vinda de Collection (estática).
+    - ``dynamic_ref`` populado = seção vinda de resolver dinâmico
+      (``Destaques``, ``Recém saídos do forno``, etc.).
+    - ``ref`` (sempre presente) identifica a seção no scroll-spy e na pill.
+    """
 
     category: CategoryProjection | None
     items: tuple[CatalogItemProjection, ...]
+    ref: str = ""
+    label: str = ""
+    icon: str = ""
+    description: str = ""
+    is_dynamic: bool = False
+    dynamic_ref: str | None = None
 
 
 @dataclass(frozen=True)
@@ -186,7 +203,14 @@ def build_catalog(
         qty_in_cart_by_sku=qty_in_cart_by_sku,
     )
 
-    sections = _build_sections(items_flat, group_index, categories)
+    static_sections = _build_sections(items_flat, group_index, categories)
+    # Dinâmicas só em visão full (sem filtro de coleção específica)
+    if active_collection is None:
+        items_by_sku = {item.sku: item for item in items_flat}
+        dynamic_sections = _build_dynamic_sections(channel_ref, items_by_sku)
+        sections = dynamic_sections + static_sections
+    else:
+        sections = static_sections
     featured = tuple(item for item in items_flat if item.is_featured)
 
     return CatalogProjection(
@@ -274,7 +298,7 @@ def build_catalog_items_for_skus(
 ) -> tuple[CatalogItemProjection, ...]:
     """Build ``CatalogItemProjection``s for an ad-hoc list of SKUs.
 
-    Consumed by sibling projections (PDP alternatives / cross-sell cards)
+    Consumed by sibling projections (PDP substitutes / cross-sell cards)
     that need the same card shape as the menu but for an explicit SKU set
     rather than a collection section. Preserves the caller's SKU order,
     silently drops SKUs whose ``Product`` is missing or unpublished.
@@ -374,8 +398,9 @@ def _build_items(
 
         effective_q = price.final_unit_price_q
 
+        raw_avail = avail_map.get(p.sku)
         availability = _resolve_availability(
-            avail_map.get(p.sku),
+            raw_avail,
             p,
             low_stock_threshold=low_stock_threshold,
         )
@@ -385,6 +410,16 @@ def _build_items(
             Availability.LOW_STOCK,
             Availability.PLANNED_OK,
         )
+        available_qty: int | None = None
+        if raw_avail is not None and not raw_avail.get("is_paused", False):
+            policy = raw_avail.get("availability_policy", "planned_ok")
+            if policy != "demand_ok":
+                total = raw_avail.get("total_promisable")
+                if total is not None:
+                    try:
+                        available_qty = int(Decimal(str(total)))
+                    except (TypeError, ValueError):
+                        available_qty = None
 
         meta = p.metadata if isinstance(p.metadata, dict) else {}
         dietary = meta.get("dietary_info") or []
@@ -408,6 +443,7 @@ def _build_items(
                 availability=availability,
                 availability_label=avail_label,
                 can_add_to_cart=can_add,
+                available_qty=available_qty,
                 dietary_info=tuple(str(d) for d in dietary),
                 is_new=bool(meta.get("is_new", False)),
                 is_featured=p.sku in popular,
@@ -422,16 +458,20 @@ def _batch_availability(skus: list[str], channel_ref: str) -> dict[str, dict | N
     when stockman isn't wired up (keeps projections callable in minimal envs).
     """
     try:
-        from shopman.stockman.services.availability import (
-            availability_for_skus,
-            availability_scope_for_channel,
-        )
+        from shopman.stockman.services.availability import availability_for_skus
     except ImportError:
         return {}
 
     try:
-        scope = availability_scope_for_channel(channel_ref)
-        return availability_for_skus(skus, **scope)
+        from shopman.shop.adapters import stock as stock_adapter
+
+        scope = stock_adapter.get_channel_scope(channel_ref)
+        return availability_for_skus(
+            skus,
+            safety_margin=scope["safety_margin"],
+            allowed_positions=scope["allowed_positions"],
+            excluded_positions=scope.get("excluded_positions"),
+        )
     except Exception as e:
         logger.warning("batch_availability_failed: %s", e, exc_info=True)
         return {}
@@ -448,10 +488,54 @@ def _build_sections(
         slice_items = tuple(items_flat[start:end])
         if not slice_items:
             continue
+        category = category_by_ref.get(col_ref) if col_ref else None
         sections.append(
             CatalogSectionProjection(
-                category=category_by_ref.get(col_ref) if col_ref else None,
+                category=category,
                 items=slice_items,
+                ref=category.ref if category else "outros",
+                label=category.name if category else "Outros",
+                icon=category.icon if category else "restaurant_menu",
+            )
+        )
+    return tuple(sections)
+
+
+def _build_dynamic_sections(
+    channel_ref: str,
+    items_by_sku: dict[str, CatalogItemProjection],
+) -> tuple[CatalogSectionProjection, ...]:
+    """Resolve dinâmicas configuradas em Shop.defaults['menu']['dynamic_collections']."""
+    from shopman.shop import dynamic_collections as dyn
+    from shopman.shop.models import Shop
+
+    shop = Shop.load()
+    menu_cfg = (shop.defaults or {}).get("menu", {}) if shop else {}
+    dyn_refs = menu_cfg.get("dynamic_collections") or []
+    if not isinstance(dyn_refs, list) or not dyn_refs:
+        return ()
+
+    sections: list[CatalogSectionProjection] = []
+    for ref in dyn_refs:
+        section = dyn.resolve(ref, channel_ref=channel_ref)
+        if section is None:
+            continue
+        # Reusa CatalogItemProjection já construídos (mesmo pricing/availability)
+        proj_items = tuple(
+            items_by_sku[p.sku] for p in section.products if p.sku in items_by_sku
+        )
+        if not proj_items:
+            continue
+        sections.append(
+            CatalogSectionProjection(
+                category=None,
+                items=proj_items,
+                ref=section.meta.ref,
+                label=section.meta.label,
+                icon=section.meta.icon,
+                description=section.meta.description,
+                is_dynamic=True,
+                dynamic_ref=section.meta.ref,
             )
         )
     return tuple(sections)

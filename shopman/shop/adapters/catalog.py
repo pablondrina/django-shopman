@@ -101,11 +101,11 @@ def bulk_sku_to_collection_id(skus: list[str]) -> dict[str, int]:
     return result
 
 
-def find_alternatives(sku: str, limit: int = 8) -> list:
-    """Busca alternativas para o SKU via Offerman."""
-    from shopman.offerman import find_alternatives as _find_alternatives
+def find_substitutes(sku: str, limit: int = 8) -> list:
+    """Busca substitutos para o SKU via Offerman."""
+    from shopman.offerman import find_substitutes as _find_substitutes
 
-    return _find_alternatives(sku, limit=limit)
+    return _find_substitutes(sku, limit=limit)
 
 
 def bulk_listing_price_map(skus: list[str], listing_ref: str) -> dict[str, int]:

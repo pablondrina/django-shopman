@@ -776,11 +776,11 @@ class TestCatalogBackendAdapter:
 
 
 class TestSuggestions:
-    """find_alternatives and find_similar tests."""
+    """find_substitutes tests."""
 
-    def test_find_alternatives_with_keywords(self, db):
-        """find_alternatives returns products with common keywords."""
-        from shopman.offerman.contrib.suggestions.suggestions import find_alternatives
+    def test_find_substitutes_with_keywords(self, db):
+        """find_substitutes returns products with common keywords."""
+        from shopman.offerman.contrib.substitutes.substitutes import find_substitutes
         from shopman.offerman.models import Collection, CollectionItem
 
         coll = Collection.objects.create(ref="paes", name="Paes")
@@ -796,38 +796,21 @@ class TestSuggestions:
         p3.keywords.add("doce")
         CollectionItem.objects.create(collection=coll, product=p3, is_primary=True)
 
-        alternatives = find_alternatives("PAO-INT")
-        skus = [a.sku for a in alternatives]
+        substitutes = find_substitutes("PAO-INT")
+        skus = [a.sku for a in substitutes]
         assert "PAO-7G" in skus  # Shares 'integral' keyword
         assert "BOLO" not in skus  # No common keyword
 
-    def test_find_alternatives_no_keywords(self, db):
-        """find_alternatives returns empty when product has no keywords."""
-        from shopman.offerman.contrib.suggestions.suggestions import find_alternatives
+    def test_find_substitutes_no_keywords(self, db):
+        """find_substitutes returns empty when product has no keywords."""
+        from shopman.offerman.contrib.substitutes.substitutes import find_substitutes
 
         Product.objects.create(sku="NAKED", name="No Keywords", base_price_q=100)
-        assert find_alternatives("NAKED") == []
+        assert find_substitutes("NAKED") == []
 
-    def test_find_alternatives_nonexistent(self, db):
-        """find_alternatives returns empty for unknown SKU."""
-        from shopman.offerman.contrib.suggestions.suggestions import find_alternatives
+    def test_find_substitutes_nonexistent(self, db):
+        """find_substitutes returns empty for unknown SKU."""
+        from shopman.offerman.contrib.substitutes.substitutes import find_substitutes
 
-        assert find_alternatives("GHOST") == []
+        assert find_substitutes("GHOST") == []
 
-    def test_find_similar_same_collection(self, db):
-        """find_similar returns products from same collection with keywords."""
-        from shopman.offerman.contrib.suggestions.suggestions import find_similar
-        from shopman.offerman.models import Collection, CollectionItem
-
-        coll = Collection.objects.create(ref="paes", name="Paes")
-        p1 = Product.objects.create(sku="SIM-1", name="Product 1", base_price_q=400)
-        p1.keywords.add("artesanal")
-        CollectionItem.objects.create(collection=coll, product=p1, is_primary=True)
-
-        p2 = Product.objects.create(sku="SIM-2", name="Product 2", base_price_q=500)
-        p2.keywords.add("artesanal")
-        CollectionItem.objects.create(collection=coll, product=p2, is_primary=True)
-
-        similar = find_similar("SIM-1")
-        skus = [s.sku for s in similar]
-        assert "SIM-2" in skus

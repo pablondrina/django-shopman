@@ -1,6 +1,8 @@
-"""Shopman middleware — onboarding redirect + channel param capture."""
+"""Shopman middleware — onboarding redirect + channel param capture + welcome gate."""
 
 from __future__ import annotations
+
+from urllib.parse import urlencode
 
 from django.shortcuts import redirect
 
@@ -73,3 +75,60 @@ class OnboardingMiddleware:
             return redirect(self.SETUP_PATH)
 
         return self.get_response(request)
+
+
+class WelcomeGateMiddleware:
+    """Redirect authenticated customers without a name to /bem-vindo/.
+
+    The gate fires only for storefront HTML pages. Static, API, webhooks,
+    logout, admin and the welcome page itself are exempt.
+    """
+
+    WELCOME_PATH = "/bem-vindo/"
+    EXEMPT_PREFIXES = (
+        "/bem-vindo/",
+        "/logout/",
+        "/login/",
+        "/static/",
+        "/media/",
+        "/api/",
+        "/admin/",
+        "/gestao/",
+        "/webhooks/",
+        "/favicon",
+        "/manifest.json",
+        "/sw.js",
+        "/offline/",
+        "/robots.txt",
+        "/sitemap.xml",
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if self._should_gate(request):
+            query = urlencode({"next": request.get_full_path()})
+            return redirect(f"{self.WELCOME_PATH}?{query}")
+        return self.get_response(request)
+
+    def _should_gate(self, request) -> bool:
+        user = getattr(request, "user", None)
+        if user is None or not user.is_authenticated:
+            return False
+
+        path = request.path
+        if any(path.startswith(p) for p in self.EXEMPT_PREFIXES):
+            return False
+
+        # Only gate safe navigations (GET). Don't interrupt form submits or HTMX swaps.
+        if request.method != "GET":
+            return False
+        if request.headers.get("HX-Request"):
+            return False
+
+        customer = getattr(request, "customer", None)
+        if customer is None:
+            return False
+        from .web.views.welcome import needs_confirmation
+        return needs_confirmation((customer.name or "").strip())

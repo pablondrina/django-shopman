@@ -9,6 +9,8 @@
   <title>POS — {{ shop.brand_name|default:shop.name }}</title>
   {% include "storefront/partials/_design_tokens_no_alpine.html" %}
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  {# HTMX SSE extension — disables paused/sold-out tiles in real time (WP-AV-10). #}
+  <script src="https://unpkg.com/htmx-ext-sse@2.2.2"></script>
   <script>
   document.addEventListener('htmx:configRequest', function(e) {
     var csrfToken = document.querySelector('meta[name="csrf-token"]').content;
@@ -28,6 +30,21 @@
       lastOrderRef: '',
       lastOrderTotal: '',
       successMsg: '',
+
+      // SKUs paused / out-of-stock pushed via SSE — tiles read this to disable
+      // tap-to-add. Updated by the @sku-state.window listener on <body>.
+      unavailableSkus: {},
+
+      isUnavailable: function(sku) { return !!this.unavailableSkus[sku]; },
+
+      onSkuState: function(detail) {
+        if (!detail || !detail.sku) return;
+        if (detail.can_add_to_cart) {
+          delete this.unavailableSkus[detail.sku];
+        } else {
+          this.unavailableSkus[detail.sku] = true;
+        }
+      },
       showDiscountModal: false,
       discountType: 'percent',
       discountValue: '',
@@ -156,7 +173,10 @@
 <body class="h-screen flex flex-col overflow-hidden bg-background text-foreground font-body"
       x-data="posApp()"
       @keydown.window="handleKey($event)"
-      @htmx:after-swap.window="onSaleComplete($event)">
+      @htmx:after-swap.window="onSaleComplete($event)"
+      @sku-state.window="onSkuState($event.detail)"
+      hx-ext="sse"
+      sse-connect="{% url 'storefront:stock_events' channel_ref=pos_channel_ref|default:'balcao' %}">
 
   {# ── Header ── #}
   <header class="bg-surface border-b border-border px-4 py-2 flex items-center justify-between shrink-0">
@@ -199,14 +219,22 @@
       <div class="flex-1 overflow-y-auto p-3 grid gap-2 content-start"
            style="grid-template-columns: repeat(auto-fill, minmax(110px, 1fr))">
         {% for p in products %}
-        <div class="bg-surface border border-border rounded-xl p-2.5 cursor-pointer text-center transition-all duration-100 active:scale-95 flex flex-col items-center gap-1 min-h-[84px] justify-center hover:border-primary/50 hover:shadow-sm select-none relative"
+        <div class="bg-surface border border-border rounded-xl p-2.5 text-center transition-all duration-100 flex flex-col items-center gap-1 min-h-[84px] justify-center select-none relative"
+             :class="isUnavailable('{{ p.sku }}') ? 'opacity-40 cursor-not-allowed grayscale' : 'cursor-pointer active:scale-95 hover:border-primary/50 hover:shadow-sm'"
+             data-sku="{{ p.sku }}"
+             hx-get="{% url 'storefront:sku_state' p.sku %}?channel_ref={{ pos_channel_ref|default:'balcao' }}"
+             hx-trigger="sse:stock-update[JSON.parse(event.data).sku=='{{ p.sku }}'],sse:product-paused[JSON.parse(event.data).sku=='{{ p.sku }}'],sse:listing-changed[JSON.parse(event.data).sku=='{{ p.sku }}']"
+             hx-swap="none"
              x-show="matchesTile('{{ p.name|escapejs }}', '{{ p.sku }}', '{{ p.collection_ref }}')"
-             @click="addItem({sku:'{{ p.sku }}', name:'{{ p.name|escapejs }}', price_q:{{ p.price_q }}, is_d1:{{ p.is_d1|yesno:'true,false' }}})">
+             @click="if (isUnavailable('{{ p.sku }}')) return; addItem({sku:'{{ p.sku }}', name:'{{ p.name|escapejs }}', price_q:{{ p.price_q }}, is_d1:{{ p.is_d1|yesno:'true,false' }}})">
           {% if p.is_d1 %}
           <span class="absolute top-1 right-1 text-[9px] font-bold px-1 py-0.5 rounded bg-warning/20 text-warning-foreground leading-none">D-1</span>
           {% endif %}
           <span class="text-xs font-semibold leading-tight">{{ p.name }}</span>
           <span class="text-[0.6875rem] text-primary font-bold">{{ p.price_display }}</span>
+          <span x-show="isUnavailable('{{ p.sku }}')" x-cloak class="absolute inset-0 flex items-center justify-center bg-background/60 rounded-xl text-[10px] font-bold uppercase tracking-wide text-warning-foreground">
+            Indisponível
+          </span>
         </div>
         {% empty %}
         <div class="col-span-full text-center text-muted-foreground text-sm py-8">Nenhum produto cadastrado.</div>

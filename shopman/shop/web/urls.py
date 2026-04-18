@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from django.urls import path
 from django.views.generic import TemplateView
+from django_eventstream.views import events as eventstream_view
 
 from shopman.shop.web import views
 from shopman.shop.web.views.pwa import ManifestView, OfflineView, ServiceWorkerView
@@ -26,9 +27,35 @@ urlpatterns = [
         name="robots_txt",
     ),
     path("sitemap.xml", views.SitemapView.as_view(), name="sitemap"),
+    # Server-Sent Events: per-channel availability push
+    # (stock-update, product-paused, listing-changed). One SSE connection per
+    # open tab, scoped to a single sales channel via the slug parameter.
+    path(
+        "storefront/stock/events/<slug:channel_ref>/",
+        eventstream_view,
+        {"format-channels": ["stock-{channel_ref}"]},
+        name="stock_events",
+    ),
+    # SSE: per-order status push. Tracking pages subscribe to this channel
+    # so customer sees ``new → confirmed → preparing → ready → delivered``
+    # without polling. Emitted by handlers/_sse_emitters.py on order_changed.
+    path(
+        "pedido/<str:ref>/events/",
+        eventstream_view,
+        {"format-channels": ["order-{ref}"]},
+        name="order_events",
+    ),
+    # Per-SKU availability badge — target of the HTMX SSE swap. Returns the
+    # badge HTML and emits a ``sku-state`` HX-Trigger so cards refresh their
+    # Alpine state (max, can_add) without a second request.
+    path(
+        "storefront/sku/<str:sku>/state/",
+        views.SkuStateView.as_view(),
+        name="sku_state",
+    ),
     # Menu
     path("menu/", views.MenuView.as_view(), name="menu"),
-    path("menu/search/", views.MenuSearchView.as_view(), name="menu_search"),
+    path("prototipo/menu/", TemplateView.as_view(template_name="storefront/prototype_menu.html"), name="prototype_menu"),
     path("menu/<slug:collection>/", views.MenuView.as_view(), name="menu_collection"),
     path("produto/<str:sku>/", views.ProductDetailView.as_view(), name="product_detail"),
     path("dicas/", views.TipsView.as_view(), name="dicas"),
@@ -36,19 +63,12 @@ urlpatterns = [
     path("cart/", views.CartView.as_view(), name="cart"),
     path("cart/add/", views.AddToCartView.as_view(), name="cart_add"),
     path("cart/set-qty/", views.CartSetQtyBySkuView.as_view(), name="cart_set_qty"),
-    path("cart/update/", views.UpdateCartItemView.as_view(), name="cart_update"),
-    path("cart/remove/", views.RemoveCartItemView.as_view(), name="cart_remove"),
-    path("cart/content/", views.CartContentPartialView.as_view(), name="cart_content"),
-    path("cart/content/v2/", views.CartContentV2View.as_view(), name="cart_content_v2"),
+    path("cart/page/", views.CartPageContentView.as_view(), name="cart_page_content"),
     path("cart/summary/", views.CartSummaryView.as_view(), name="cart_summary"),
-    path("cart/floating-bar/", views.FloatingCartBarView.as_view(), name="floating_cart_bar"),
-    path("cart/check/", views.CartCheckView.as_view(), name="cart_check"),
-    path("cart/drawer/", views.CartDrawerContentView.as_view(), name="cart_drawer"),
-    path("cart/drawer/v2/", views.CartDrawerContentV2View.as_view(), name="cart_drawer_v2"),
+    path("cart/drawer/", views.CartDrawerContentProjView.as_view(), name="cart_drawer"),
     path("cart/quick-add/<str:sku>/", views.QuickAddView.as_view(), name="cart_quick_add"),
     path("cart/coupon/", views.ApplyCouponView.as_view(), name="cart_apply_coupon"),
     path("cart/coupon/remove/", views.RemoveCouponView.as_view(), name="cart_remove_coupon"),
-    path("cart/alternatives/<str:sku>/", views.CartAlternativesView.as_view(), name="cart_alternatives"),
     # Checkout
     path("checkout/", views.CheckoutView.as_view(), name="checkout"),
     path(
@@ -80,6 +100,7 @@ urlpatterns = [
     path("minha-conta/enderecos/<int:pk>/", views.AddressUpdateView.as_view(), name="address_update"),
     path("minha-conta/enderecos/<int:pk>/delete/", views.AddressDeleteView.as_view(), name="address_delete"),
     path("minha-conta/enderecos/<int:pk>/default/", views.AddressSetDefaultView.as_view(), name="address_set_default"),
+    path("minha-conta/enderecos/<int:pk>/label/", views.AddressLabelUpdateView.as_view(), name="address_label_update"),
     path("minha-conta/perfil/", views.ProfileUpdateView.as_view(), name="profile_update"),
     path("minha-conta/perfil/display/", views.ProfileDisplayView.as_view(), name="profile_display"),
     path("minha-conta/perfil/edit/", views.ProfileEditView.as_view(), name="profile_edit"),
@@ -89,6 +110,7 @@ urlpatterns = [
     path("minha-conta/excluir/", views.AccountDeleteView.as_view(), name="account_delete"),
     # Auth
     path("login/", views.LoginView.as_view(), name="login"),
+    path("bem-vindo/", views.WelcomeView.as_view(), name="welcome"),
     path("auth/access/<str:token>/", views.AccessLinkLoginView.as_view(), name="access_link_login"),
     path("auth/device-check/", views.DeviceCheckLoginView.as_view(), name="device_check_login"),
     # Device management

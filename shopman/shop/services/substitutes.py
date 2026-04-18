@@ -48,14 +48,18 @@ def find(sku: str, *, qty: Decimal = Decimal("1"), channel: str | None = None, l
     avail_map: dict[str, dict | None] = {}
     if HAS_STOCKMAN:
         try:
-            from shopman.stockman.services.availability import (
-                availability_for_skus,
-                availability_scope_for_channel,
-            )
+            from shopman.stockman.services.availability import availability_for_skus
+
+            from shopman.shop.adapters import stock as stock_adapter
 
             skus = [p.sku for p in candidates]
-            scope = availability_scope_for_channel(channel_ref)
-            avail_map = availability_for_skus(skus, **scope)
+            scope = stock_adapter.get_channel_scope(channel_ref)
+            avail_map = availability_for_skus(
+                skus,
+                safety_margin=scope["safety_margin"],
+                allowed_positions=scope["allowed_positions"],
+                excluded_positions=scope.get("excluded_positions"),
+            )
         except Exception as e:
             logger.warning("substitutes_availability_failed: %s", e, exc_info=True)
 

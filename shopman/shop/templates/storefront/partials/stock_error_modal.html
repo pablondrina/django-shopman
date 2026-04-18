@@ -1,27 +1,117 @@
-<div class="modal-overlay" @click.self="dismissStockModal()">
-  <div class="modal-card text-center">
-    <div class="flex justify-center mb-3">
-      <span class="material-symbols-rounded icon-xl text-warning" aria-hidden="true">sentiment_dissatisfied</span>
-    </div>
-    <h3 class="text-h4 text-foreground mb-2">{{ title }}</h3>
-    <p class="text-muted-foreground text-sm mb-4">{{ message }}</p>
+{% comment %}
+Stock-error modal (acionável, 1-clique) — rendered by ``_stock_error_response``.
 
-    {% if alternatives %}
-    <div class="mb-5 text-left">
-      <p class="text-xs uppercase tracking-wide text-muted-foreground mb-2">Que tal uma destas?</p>
-      <ul class="space-y-2">
-        {% for alt in alternatives %}
+See docs/plans/STOCK-UX-PLAN.md.
+
+Return flow (WP-STOCK-UX-1b):
+- ``picker_origin == "pdp"`` + alternativa → redirect pra ``/cart/`` (PDP do
+  produto original ficaria inconsistente com o item que acabou de entrar).
+- Caso contrário → fica na página, só fecha o modal.
+- Sempre emite um toast com o nome do produto adicionado.
+
+Content is injected into ``<div id="stock-error-modal">`` via HX-Retarget.
+{% endcomment %}
+<div x-data="{
+       open: true,
+       busy: false,
+       origin: '{{ picker_origin|default:'menu'|escapejs }}',
+       async pickAction(sku, qty, name, isAlternative) {
+         if (this.busy) return;
+         this.busy = true;
+         const body = new FormData();
+         body.append('sku', sku);
+         body.append('qty', String(qty));
+         try {
+           const resp = await fetch('{% url 'storefront:cart_set_qty' %}', {
+             method: 'POST',
+             headers: {
+               'X-CSRFToken': document.querySelector('meta[name=\'csrf-token\']').content,
+               'HX-Request': 'true',
+             },
+             body,
+           });
+           if (resp.ok) {
+             htmx.trigger(document.body, 'cartUpdated');
+             window.dispatchEvent(new CustomEvent('notify', {
+               detail: { variant: 'success', message: 'Adicionamos ' + name + ' ao carrinho.' },
+             }));
+             if (isAlternative && this.origin === 'pdp') {
+               window.location.href = '{% url 'storefront:cart' %}';
+               return;
+             }
+             this.open = false;
+           } else if (resp.status === 422 && resp.headers.get('X-Shopman-Error-UI') === '1') {
+             /* Re-render modal with the new failure. */
+             const html = await resp.text();
+             const _sink = document.getElementById('stock-error-modal');
+             _sink.innerHTML = html;
+             htmx.process(_sink);
+             if (window.Alpine) window.Alpine.initTree(_sink);
+           } else {
+             window.dispatchEvent(new CustomEvent('notify', {
+               detail: { variant: 'warning', message: 'Não foi possível atualizar o carrinho. Tente novamente.' },
+             }));
+           }
+         } catch (e) {
+           window.dispatchEvent(new CustomEvent('notify', {
+             detail: { variant: 'danger', message: 'Sem conexão. Verifique sua internet.' },
+           }));
+         } finally {
+           this.busy = false;
+         }
+       }
+     }"
+     x-cloak
+     :class="open ? 'flex' : 'hidden'"
+     @keydown.escape.window="open = false"
+     class="fixed inset-0 z-[70] items-end sm:items-center justify-center p-0 sm:p-4 transition-opacity">
+
+  {# Backdrop #}
+  <div @click="open = false" class="absolute inset-0 bg-black/40"></div>
+
+  {# Panel #}
+  <div role="alertdialog" aria-modal="true" aria-labelledby="stock-error-title"
+       class="relative z-[1] w-full sm:max-w-md rounded-t-2xl sm:rounded-radius border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt shadow-2xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5">
+
+    <div class="flex items-start gap-3">
+      <span class="material-symbols-rounded text-warning shrink-0 text-2xl" aria-hidden="true">warning</span>
+      <div class="flex-1 min-w-0">
+        <h3 id="stock-error-title" class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ title }}</h3>
+        <p class="mt-1 text-sm text-on-surface dark:text-on-surface-dark">{{ message }}</p>
+      </div>
+      <button type="button" @click="open = false" aria-label="Fechar"
+              class="shrink-0 p-1 -m-1 text-on-surface/60 hover:text-on-surface-strong dark:text-on-surface-dark-strong dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark-strong focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary rounded">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    {% comment %}── Primary action (1 clique, mesmo SKU) ──{% endcomment %}
+    {% if primary_action == "accept_available" %}
+    <button type="button"
+            :disabled="busy"
+            @click="pickAction('{{ sku|escapejs }}', {{ primary_qty }}, '{{ product_name|escapejs }}', false)"
+            class="mt-4 w-full rounded-radius bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:bg-primary-dark dark:text-on-primary-dark disabled:opacity-60 min-h-[44px]">
+      <span x-show="!busy">Adicionar {{ primary_qty }} disponíve{{ primary_qty|pluralize:"l,is" }}</span>
+      <span x-show="busy" x-cloak>Adicionando…</span>
+    </button>
+    {% endif %}
+
+    {% comment %}── Alternativas (1 clique cada, SKU diferente) ──{% endcomment %}
+    {% if substitutes %}
+    <div class="mt-4 pt-4 border-t border-outline dark:border-outline-dark">
+      <p class="text-xs font-semibold uppercase tracking-wide text-on-surface/70 dark:text-on-surface-dark/70 mb-2">
+        Que tal esses?
+      </p>
+      <ul class="space-y-2" x-auto-animate>
+        {% for alt in substitutes %}
         <li>
-          <button
-            type="button"
-            hx-post="{% url 'storefront:cart_add' %}"
-            hx-vals='{"sku": "{{ alt.sku }}", "qty": 1}'
-            hx-swap="none"
-            @click="dismissStockModal()"
-            class="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-border hover:bg-muted transition-colors"
-          >
-            <span class="text-sm text-foreground truncate">{{ alt.name }}</span>
-            <span class="text-sm font-medium text-primary whitespace-nowrap">{{ alt.price_display }}</span>
+          <button type="button"
+                  :disabled="busy"
+                  @click="pickAction('{{ alt.sku|escapejs }}', {{ alt.target_qty|default:1 }}, '{{ alt.name|escapejs }}', true)"
+                  class="w-full flex items-center justify-between gap-3 p-3 rounded-radius border border-outline hover:border-primary hover:bg-primary/5 dark:border-outline-dark dark:hover:border-primary-dark dark:hover:bg-primary-dark/5 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark transition text-left disabled:opacity-60"
+                  aria-label="Adicionar {{ alt.name }} ao carrinho">
+            <span class="text-sm font-medium text-on-surface-strong dark:text-on-surface-dark-strong truncate">{{ alt.name }}</span>
+            <span class="text-sm font-semibold text-primary dark:text-primary-dark whitespace-nowrap tabular-nums">{{ alt.price_display }}</span>
           </button>
         </li>
         {% endfor %}
@@ -29,12 +119,11 @@
     </div>
     {% endif %}
 
-    <button
-      @click="dismissStockModal()"
-      class="w-full py-3 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
-      style="min-height: var(--touch-min);"
-    >
-      Entendi
+    {% comment %}── Close (secundário, discreto) ──{% endcomment %}
+    <button type="button"
+            @click="open = false"
+            class="mt-4 w-full text-center text-xs text-on-surface/60 hover:text-on-surface dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark focus:outline-hidden focus-visible:underline py-2">
+      Fechar
     </button>
   </div>
 </div>

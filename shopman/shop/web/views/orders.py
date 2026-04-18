@@ -106,9 +106,10 @@ class OrderConfirmView(View):
         if order.status != "new":
             return HttpResponse("Pedido não está aguardando confirmação", status=422)
 
-        from shopman.shop.lifecycle import ensure_confirmable
+        from shopman.shop.lifecycle import ensure_confirmable, ensure_payment_captured
 
         try:
+            ensure_payment_captured(order)
             ensure_confirmable(order)
         except Exception as exc:
             logger.exception("ensure_confirmable failed for order %s", ref)

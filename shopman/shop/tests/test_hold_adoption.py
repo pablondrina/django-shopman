@@ -201,7 +201,7 @@ class TestReconcileSimple:
         adapter.release_holds.assert_not_called()
 
     @patch("shopman.shop.services.availability._expand_if_bundle", return_value=None)
-    @patch("shopman.shop.services.availability.alternatives")
+    @patch("shopman.shop.services.availability.substitutes")
     @patch("shopman.shop.services.availability._load_session_holds_for_sku")
     @patch("shopman.shop.services.availability.get_adapter")
     @patch("shopman.shop.services.availability.check")
@@ -231,14 +231,14 @@ class TestReconcileSimple:
         assert result["hold_ids"] == ["hold:GROW"]
 
     @patch("shopman.shop.services.availability._expand_if_bundle", return_value=None)
-    @patch("shopman.shop.services.availability.alternatives")
+    @patch("shopman.shop.services.availability.substitutes")
     @patch("shopman.shop.services.availability._load_session_holds_for_sku")
     @patch("shopman.shop.services.availability.get_adapter")
     @patch("shopman.shop.services.availability.check")
     def test_reconcile_grow_shortage_returns_error(
         self, mock_check, mock_get_adapter, mock_load_sku, mock_alts, mock_expand,
     ):
-        """Insufficient stock on grow → ok=False, no mutation, alternatives set."""
+        """Insufficient stock on grow → ok=False, no mutation, substitutes set."""
         from shopman.shop.services.availability import reconcile
 
         mock_load_sku.return_value = [("hold:A", Decimal("5"))]
@@ -251,7 +251,7 @@ class TestReconcileSimple:
 
         assert result["ok"] is False
         assert result["error_code"] == "insufficient_stock"
-        assert result["alternatives"] == [{"sku": "ALT-1"}]
+        assert result["substitutes"] == [{"sku": "ALT-1"}]
         adapter.create_hold.assert_not_called()
         adapter.release_holds.assert_not_called()
 
@@ -397,7 +397,7 @@ class TestCartReconcileIntegration:
             "available_qty": Decimal("0"),
             "is_paused": False,
             "error_code": None,
-            "alternatives": [],
+            "substitutes": [],
         }
 
         CartService.update_qty(request, "line-1", 5)
@@ -425,7 +425,7 @@ class TestCartReconcileIntegration:
             "available_qty": Decimal("3"),
             "is_paused": False,
             "error_code": "insufficient_stock",
-            "alternatives": [],
+            "substitutes": [],
         }
 
         with pytest.raises(CartUnavailableError) as excinfo:
@@ -451,7 +451,7 @@ class TestCartReconcileIntegration:
             "available_qty": Decimal("0"),
             "is_paused": False,
             "error_code": None,
-            "alternatives": [],
+            "substitutes": [],
         }
 
         CartService.remove_item(request, "line-1")

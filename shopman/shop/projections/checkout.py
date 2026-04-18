@@ -57,6 +57,8 @@ class CheckoutProjection:
 
     # Saved addresses
     saved_addresses: tuple[SavedAddressProjection, ...]
+    # Id of the address to pre-select (default → geo → last → most-used → None)
+    preselected_address_id: int | None
 
     # Payment methods available on this channel
     payment_methods: tuple[PaymentMethodOptionProjection, ...]
@@ -105,15 +107,19 @@ def build_checkout(
     customer_phone = ""
     customer_name = ""
     saved_addresses: tuple[SavedAddressProjection, ...] = ()
+    preselected_address_id: int | None = None
     loyalty_balance_q = 0
     loyalty_value_display: str | None = None
 
     if customer_info:
         customer_phone = customer_info.phone or ""
         customer_name = customer_info.name or ""
-        saved_addresses, loyalty_balance_q, loyalty_value_display = _load_customer_context(
-            customer_info,
-        )
+        (
+            saved_addresses,
+            preselected_address_id,
+            loyalty_balance_q,
+            loyalty_value_display,
+        ) = _load_customer_context(customer_info)
 
     payment_methods = _payment_methods(channel_ref)
     pickup_slots, earliest_slot_ref = _pickup_slots(cart)
@@ -125,6 +131,7 @@ def build_checkout(
         customer_name=customer_name,
         is_authenticated=customer_info is not None,
         saved_addresses=saved_addresses,
+        preselected_address_id=preselected_address_id,
         payment_methods=payment_methods,
         default_payment_method=payment_methods[0].ref if payment_methods else "cash",
         has_pickup=True,
@@ -146,9 +153,10 @@ def build_checkout(
 
 def _load_customer_context(
     customer_info,
-) -> tuple[tuple[SavedAddressProjection, ...], int, str | None]:
-    """Return (saved_addresses, loyalty_balance_q, loyalty_value_display)."""
+) -> tuple[tuple[SavedAddressProjection, ...], int | None, int, str | None]:
+    """Return (saved_addresses, preselected_address_id, loyalty_balance_q, loyalty_value_display)."""
     saved_addresses: tuple[SavedAddressProjection, ...] = ()
+    preselected_id: int | None = None
     loyalty_balance_q = 0
     loyalty_value_display: str | None = None
 
@@ -158,6 +166,7 @@ def _load_customer_context(
 
         customer_obj = customer_service.get_by_uuid(customer_info.uuid)
         if customer_obj:
+            raw_addresses = list(address_service.addresses(customer_obj.ref))
             saved_addresses = tuple(
                 SavedAddressProjection(
                     id=addr.id,
@@ -165,9 +174,30 @@ def _load_customer_context(
                     complement=addr.complement or "",
                     label=addr.display_label or addr.formatted_address or "",
                     is_default=addr.is_default,
+                    route=addr.route or "",
+                    street_number=addr.street_number or "",
+                    neighborhood=addr.neighborhood or "",
+                    city=addr.city or "",
+                    state_code=addr.state_code or "",
+                    postal_code=addr.postal_code or "",
+                    latitude=float(addr.latitude) if addr.latitude is not None else None,
+                    longitude=float(addr.longitude) if addr.longitude is not None else None,
+                    place_id=addr.place_id or "",
+                    delivery_instructions=addr.delivery_instructions or "",
                 )
-                for addr in address_service.addresses(customer_obj.ref)
+                for addr in raw_addresses
             )
+
+            # Smart pre-selection: default → geo → last → most-used.
+            # Geo branch requires a prior opt-in that we don't persist yet;
+            # the server-side cascade skips it (location=None) and falls
+            # through to the default/last/most-used tiers.
+            try:
+                suggested = address_service.suggest_address(customer_obj.ref)
+                if suggested is not None:
+                    preselected_id = suggested.id
+            except Exception:
+                logger.exception("checkout_projection_suggest_address_failed")
 
             try:
                 from shopman.guestman.contrib.loyalty import LoyaltyService
@@ -180,7 +210,7 @@ def _load_customer_context(
     except Exception:
         logger.exception("checkout_projection_customer_context_failed")
 
-    return saved_addresses, loyalty_balance_q, loyalty_value_display
+    return saved_addresses, preselected_id, loyalty_balance_q, loyalty_value_display
 
 
 def _payment_methods(channel_ref: str) -> tuple[PaymentMethodOptionProjection, ...]:

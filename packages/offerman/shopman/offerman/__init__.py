@@ -18,16 +18,12 @@ def __getattr__(name):
         from shopman.offerman.exceptions import CatalogError
 
         return CatalogError
-    elif name == "find_alternatives":
-        from shopman.offerman.contrib.suggestions.suggestions import find_alternatives
+    elif name == "find_substitutes":
+        from shopman.offerman.contrib.substitutes.substitutes import find_substitutes
 
-        return find_alternatives
-    elif name == "find_similar":
-        from shopman.offerman.contrib.suggestions.suggestions import find_similar
-
-        return find_similar
+        return find_substitutes
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = ["CatalogService", "CatalogError", "find_alternatives", "find_similar"]
+__all__ = ["CatalogService", "CatalogError", "find_substitutes"]
 __version__ = "0.3.0"

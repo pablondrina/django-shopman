@@ -1,82 +1,67 @@
 {% comment %}
-── Shop Status Badge ──
-   Pill badge showing open/closed status with relative time when <1h.
-   Uses shop_status from context processor (is_open, opens_at, closes_at, message).
-
-   Alpine.js computes real-time relative display from opens_at/closes_at.
-   SSR fallback: shows shop_status.message directly if JS is disabled.
-
-   Usage: include "storefront/partials/shop_status_badge.html"
+  ── Shop Status Badge (Penguin UI badge) ──
+  Alpine for DOM: real-time countdown tick every 60s.
+  Data source: shop_status from context processor (is_open, opens_at, closes_at).
 {% endcomment %}
-
-<div x-data="shopStatusBadge()" x-init="tick(); setInterval(() => tick(), 60000)"
-     class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-caption font-medium
-            bg-muted/60 border border-border">
-  {# Dot indicator #}
-  <span class="w-1.5 h-1.5 rounded-full shrink-0"
-        :class="isOpen ? 'bg-[rgb(var(--success))] animate-pulse' : 'bg-[rgb(var(--muted-foreground))]'"></span>
-  {# Text — SSR fallback in noscript-friendly way #}
-  <span x-text="label" class="text-foreground/80">{{ shop_status.message }}</span>
+<div x-data="shopStatusBadge()" x-init="tick(); setInterval(() => tick(), 60000)">
+  {# Open #}
+  <span x-show="isOpen" x-cloak
+        class="rounded-radius w-fit border border-success bg-success px-2 py-1 text-xs font-medium text-on-success"
+        x-text="label">
+  </span>
+  {# Closed #}
+  <span x-show="!isOpen" x-cloak
+        class="rounded-radius w-fit border border-outline bg-surface-alt px-2 py-1 text-xs font-medium text-on-surface dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark"
+        x-text="label">
+  </span>
+  {# SSR fallback #}
+  <noscript>
+    {% if shop_status.is_open %}
+    <span class="rounded-radius w-fit border border-success bg-success px-2 py-1 text-xs font-medium text-on-success">Aberto</span>
+    {% else %}
+    <span class="rounded-radius w-fit border border-outline bg-surface-alt px-2 py-1 text-xs font-medium text-on-surface dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark">{{ shop_status.message }}</span>
+    {% endif %}
+  </noscript>
 </div>
 
 <script>
-  document.addEventListener('alpine:init', () => {
-    Alpine.data('shopStatusBadge', () => ({
-      isOpen: {{ shop_status.is_open|yesno:"true,false" }},
-      opensAt: '{{ shop_status.opens_at|default:"" }}',
-      closesAt: '{{ shop_status.closes_at|default:"" }}',
-      label: '',
+document.addEventListener('alpine:init', () => {
+  Alpine.data('shopStatusBadge', () => ({
+    isOpen: {{ shop_status.is_open|yesno:"true,false" }},
+    label: '',
+    opensAt: '{{ shop_status.opens_at|default:"" }}',
+    closesAt: '{{ shop_status.closes_at|default:"" }}',
 
-      tick() {
-        const now = new Date();
-        const nowMin = now.getHours() * 60 + now.getMinutes();
+    tick() {
+      const now = new Date();
+      const nowMin = now.getHours() * 60 + now.getMinutes();
 
-        if (!this.opensAt || !this.closesAt) {
-          this.label = '{{ shop_status.message }}';
-          return;
-        }
-
-        const openMin = this._toMin(this.opensAt);
+      if (this.isOpen && this.closesAt) {
         const closeMin = this._toMin(this.closesAt);
-
-        this.isOpen = nowMin >= openMin && nowMin < closeMin;
-
-        if (this.isOpen) {
-          const untilClose = closeMin - nowMin;
-          if (untilClose <= 60) {
-            const rounded = Math.ceil(untilClose / 15) * 15;
-            this.label = 'Aberto. Fecha em ' + rounded + 'min';
-          } else {
-            this.label = 'Aberto até ' + this._fmtHour(this.closesAt);
-          }
+        const left = closeMin - nowMin;
+        if (left > 0 && left <= 60) {
+          const rounded = Math.ceil(left / 15) * 15;
+          this.label = 'Aberto — fecha em ' + rounded + 'min';
         } else {
-          const untilOpen = openMin - nowMin;
-          if (untilOpen > 0 && untilOpen <= 60) {
-            const rounded = Math.ceil(untilOpen / 15) * 15;
-            this.label = 'Fechado. Abre em ' + rounded + 'min';
-          } else if (untilOpen > 60) {
-            this.label = 'Fechado. Abre às ' + this._fmtHour(this.opensAt);
-          } else {
-            {# Past closing — tomorrow or next weekday #}
-            const day = now.getDay();
-            if (day === 6) {
-              this.label = 'Fechado. Abre segunda às ' + this._fmtHour(this.opensAt);
-            } else {
-              this.label = 'Fechado. Abre amanhã às ' + this._fmtHour(this.opensAt);
-            }
-          }
+          this.label = 'Aberto — ate ' + this._fmtHour(this.closesAt);
         }
-      },
-
-      _toMin(timeStr) {
-        const parts = timeStr.split(':');
-        return parseInt(parts[0]) * 60 + parseInt(parts[1] || 0);
-      },
-
-      _fmtHour(timeStr) {
-        const h = parseInt(timeStr.split(':')[0]);
-        return h + 'h';
+      } else if (this.isOpen) {
+        this.label = 'Aberto agora';
+      } else if (this.opensAt) {
+        this.label = 'Fechado — abre as ' + this._fmtHour(this.opensAt);
+      } else {
+        this.label = 'Fechado';
       }
-    }));
-  });
+    },
+
+    _toMin(t) {
+      const p = t.split(':');
+      return parseInt(p[0]) * 60 + parseInt(p[1] || 0);
+    },
+    _fmtHour(t) {
+      const p = t.split(':');
+      return parseInt(p[0]) + 'h' + (p[1] && p[1] !== '00' ? p[1] : '');
+    }
+  }));
+});
 </script>

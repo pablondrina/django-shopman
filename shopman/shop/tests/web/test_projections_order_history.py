@@ -5,8 +5,9 @@ shape, filter behaviour, status colour/label mapping, and graceful degradation.
 """
 from __future__ import annotations
 
-import pytest
 from dataclasses import FrozenInstanceError
+
+import pytest
 
 from shopman.shop.projections.order_history import (
     FILTER_OPTIONS,

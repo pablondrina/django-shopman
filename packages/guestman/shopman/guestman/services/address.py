@@ -3,10 +3,19 @@
 All operations that modify >1 record use transaction.atomic().
 """
 
+from __future__ import annotations
+
+import math
+
 from django.db import transaction
+from django.db.models import Count
 from shopman.guestman.exceptions import CustomerError
 from shopman.guestman.models import CustomerAddress
 from shopman.guestman.services.customer import get
+
+# Max distance (km) between device location and a saved address
+# for them to count as "geo-compatible" in the pre-selection cascade.
+GEO_MATCH_RADIUS_KM = 0.5
 
 
 def addresses(customer_ref: str) -> list[CustomerAddress]:
@@ -54,6 +63,16 @@ def address_belongs_to_other_customer(customer_ref: str, address_id: int) -> boo
     return CustomerAddress.objects.filter(pk=address_id).exclude(
         customer__ref=customer_ref
     ).exists()
+
+
+def find_by_place_id(customer_ref: str, place_id: str) -> CustomerAddress | None:
+    """Return an existing address with the same place_id (dedup helper)."""
+    if not place_id:
+        return None
+    cust = get(customer_ref)
+    if not cust:
+        return None
+    return cust.addresses.filter(place_id=place_id).first()
 
 
 def add_address(
@@ -161,6 +180,10 @@ def update_address(customer_ref: str, address_id: int, **fields) -> CustomerAddr
         "complement",
         "delivery_instructions",
         "is_default",
+        "latitude",
+        "longitude",
+        "place_id",
+        "is_verified",
     }
     updates: list[str] = []
     for key, value in fields.items():
@@ -194,3 +217,84 @@ def delete_all_addresses(customer_ref: str) -> int:
         raise CustomerError("CUSTOMER_NOT_FOUND", customer_ref=customer_ref)
     deleted, _ = cust.addresses.all().delete()
     return deleted
+
+
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Great-circle distance between two points (km). Small, pure, no deps."""
+    r = 6371.0
+    p1 = math.radians(lat1)
+    p2 = math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlam = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlam / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(a))
+
+
+def suggest_address(
+    customer_ref: str,
+    location: tuple[float, float] | None = None,
+) -> CustomerAddress | None:
+    """Best-guess delivery address for a customer (iFood-style cascade).
+
+    Order of preference:
+      1. Default address (is_default=True).
+      2. Geo-compatible: saved address within GEO_MATCH_RADIUS_KM of `location`
+         (only if location is provided and device/customer gave opt-in earlier).
+      3. Last used in an order (most recent `created_at`).
+      4. Most used historically (highest usage count — inferred from related
+         orders if a reverse relation exists; else most recently created).
+      5. None.
+
+    `location` is (lat, lng). When None, step 2 is skipped.
+    """
+    cust = get(customer_ref)
+    if not cust:
+        return None
+
+    qs = cust.addresses.all()
+    if not qs.exists():
+        return None
+
+    # 1. Default address.
+    default = qs.filter(is_default=True).first()
+    if default is not None:
+        return default
+
+    # 2. Geo-compatible (needs opt-in location from caller).
+    if location is not None:
+        lat, lng = location
+        best = None
+        best_dist = GEO_MATCH_RADIUS_KM
+        for addr in qs.exclude(latitude__isnull=True).exclude(longitude__isnull=True):
+            dist = _haversine_km(lat, lng, float(addr.latitude), float(addr.longitude))
+            if dist <= best_dist:
+                best = addr
+                best_dist = dist
+        if best is not None:
+            return best
+
+    # 3. Last used — proxied by the most recently updated/created address.
+    # (We don't have a dedicated CustomerAddress.last_used_at; updated_at is
+    # the closest signal we keep in sync when an address is edited or picked.)
+    latest = qs.order_by("-updated_at", "-created_at").first()
+    if latest is not None:
+        return latest
+
+    # 4. Most used historically — if there is a related-name that counts usage
+    # (e.g., orders linking back to the address), fall through; otherwise the
+    # "latest" above already served as our best proxy. We try one more pass
+    # using .annotate() against a plausible reverse accessor to stay robust
+    # to future schema changes without hard-coding any model name.
+    try:
+        most_used = (
+            qs.annotate(_uses=Count("orders"))
+            .order_by("-_uses", "-updated_at")
+            .first()
+        )
+        if most_used is not None:
+            return most_used
+    except Exception:
+        # Reverse accessor `orders` does not exist — graceful fallback.
+        pass
+
+    return qs.first()

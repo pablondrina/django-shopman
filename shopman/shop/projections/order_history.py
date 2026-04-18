@@ -1,7 +1,7 @@
 """OrderHistoryProjection — read model for the order history page (Fase 3).
 
 Translates a customer's order list into an immutable projection consumed
-by the ``storefront/v2/order_history.html`` template.
+by the ``storefront/order_history.html`` template.
 
 ``build_order_history``  → full history page projection.
 
@@ -15,7 +15,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from django.utils import timezone
-
 from shopman.utils.monetary import format_money
 
 from .types import (

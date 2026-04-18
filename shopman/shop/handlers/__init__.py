@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 ALL_HANDLERS = [
     # Lifecycle
     "shopman.shop.handlers.confirmation.ConfirmationTimeoutHandler",
+    "shopman.shop.handlers.confirmation.StaleNewOrderAlertHandler",
     # Mock PIX (dev/test only; only fires when payment_mock scheduled a directive)
     "shopman.shop.handlers.mock_pix.MockPixConfirmHandler",
     # Fulfillment
@@ -78,6 +79,7 @@ def register_all() -> None:
     _register_pricing_modifiers()
     _register_validators()
     _register_stock_signals()
+    _register_sse_emitters()
 
 
 # ── Individual registrations ──
@@ -106,8 +108,12 @@ def _register_notification_handlers() -> None:
 
 
 def _register_confirmation_handler() -> None:
-    from shopman.shop.handlers.confirmation import ConfirmationTimeoutHandler
+    from shopman.shop.handlers.confirmation import (
+        ConfirmationTimeoutHandler,
+        StaleNewOrderAlertHandler,
+    )
     registry.register_directive_handler(ConfirmationTimeoutHandler())
+    registry.register_directive_handler(StaleNewOrderAlertHandler())
 
 
 def _register_mock_pix_handler() -> None:
@@ -216,6 +222,18 @@ def _register_instance_modifiers() -> None:
 def _register_validators() -> None:
     from shopman.shop.rules.validation import DeliveryZoneRule
     registry.register_validator(DeliveryZoneRule())
+
+
+def _register_sse_emitters() -> None:
+    """Wire SSE push emitters (WP-AV-10).
+
+    Signals fire on Hold/Move/Product/ListingItem changes and publish to the
+    per-channel SSE stream so storefront and POS clients refresh their badges
+    without polling.
+    """
+    from shopman.shop.handlers._sse_emitters import _connect
+
+    _connect()
 
 
 def _register_stock_signals() -> None:

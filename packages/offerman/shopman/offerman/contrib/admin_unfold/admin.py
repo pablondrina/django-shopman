@@ -9,6 +9,12 @@ from django.contrib import admin, messages
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from import_export.admin import ExportMixin, ImportExportModelAdmin
+from shopman.offerman.contrib.admin_unfold.nutrition_form import (
+    MACRONUTRIENTS,
+    MICRONUTRIENTS,
+    SERVING_FIELDS,
+    ProductAdminForm,
+)
 from shopman.offerman.models import (
     Collection,
     CollectionItem,
@@ -191,6 +197,7 @@ class _ProductImportExportBase(ImportExportModelAdmin, BaseModelAdmin):
 class ProductAdmin(_ProductImportExportBase):
     from shopman.offerman.contrib.admin_unfold.resources import ProductResource
 
+    form = ProductAdminForm
     resource_classes = [ProductResource]
 
     autocomplete_extra_fields = ["base_price_q"]
@@ -248,9 +255,32 @@ class ProductAdmin(_ProductImportExportBase):
             },
         ),
         (
+            "Ingredientes",
+            {
+                "fields": ("ingredients_text",),
+                "description": (
+                    "Lista humana em pt-BR, ordem decrescente de peso "
+                    "(ANVISA RDC 360/2003). Pode ser preenchido automaticamente "
+                    "a partir da Recipe ativa."
+                ),
+            },
+        ),
+        (
+            "Informações Nutricionais — Porção",
+            {"fields": SERVING_FIELDS},
+        ),
+        (
+            "Informações Nutricionais — Macronutrientes",
+            {"fields": MACRONUTRIENTS},
+        ),
+        (
+            "Informações Nutricionais — Micronutrientes",
+            {"fields": MICRONUTRIENTS},
+        ),
+        (
             "Metadata",
             {
-                "fields": ("metadata", "uuid", "created_at", "updated_at"),
+                "fields": ("metadata", "nutrition_facts", "uuid", "created_at", "updated_at"),
                 "classes": ("collapse",),
             },
         ),

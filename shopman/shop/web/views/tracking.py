@@ -11,7 +11,7 @@ from shopman.orderman.models import Order
 from shopman.utils.monetary import format_money
 
 from ..cart import CartService
-from ._helpers import _carrier_tracking_url, _format_opening_hours, _get_price_q, _is_v2_request, _line_item_is_d1
+from ._helpers import _carrier_tracking_url, _format_opening_hours, _get_price_q, _line_item_is_d1
 
 logger = logging.getLogger(__name__)
 
@@ -226,31 +226,10 @@ class OrderTrackingView(View):
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
         order = get_object_or_404(Order, ref=ref)
 
-        if _is_v2_request(request):
-            from shopman.shop.projections import build_order_tracking
+        from shopman.shop.projections import build_order_tracking
 
-            proj = build_order_tracking(order)
-            return render(request, "storefront/v2/order_tracking.html", {"tracking": proj})
-
-        ctx = _build_tracking_context(order)
-
-        from shopman.shop.models import Shop
-        shop = Shop.load()
-        whatsapp_url = ""
-        if shop:
-            for link in (shop.social_links or []):
-                if "wa.me" in link or "whatsapp.com" in link:
-                    whatsapp_url = link
-                    break
-            if not whatsapp_url and shop.phone:
-                digits = "".join(c for c in shop.phone if c.isdigit())
-                whatsapp_url = f"https://wa.me/{digits}"
-
-        share_text = f"Meu pedido {order.ref} na {shop.name if shop else 'loja'}"
-
-        ctx["whatsapp_url"] = whatsapp_url
-        ctx["share_text"] = share_text
-        return render(request, "storefront/tracking.html", ctx)
+        proj = build_order_tracking(order)
+        return render(request, "storefront/order_tracking.html", {"tracking": proj})
 
 
 STATUS_ICONS = {
@@ -308,20 +287,13 @@ class OrderStatusPartialView(View):
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
         order = get_object_or_404(Order, ref=ref)
 
-        if _is_v2_request(request):
-            from shopman.shop.projections import build_order_tracking_status
+        from shopman.shop.projections import build_order_tracking_status
 
-            proj = build_order_tracking_status(order)
-            response = render(
-                request, "storefront/v2/partials/order_status.html", {"tracking_status": proj}
-            )
-            if proj.is_terminal:
-                response.status_code = 286
-            return response
-
-        ctx = _build_tracking_context(order)
-        response = render(request, "storefront/partials/order_status.html", ctx)
-        if order.status in _TERMINAL_STATUSES:
+        proj = build_order_tracking_status(order)
+        response = render(
+            request, "storefront/partials/order_status.html", {"tracking_status": proj}
+        )
+        if proj.is_terminal:
             response.status_code = 286
         return response
 
@@ -362,8 +334,12 @@ class OrderCancelView(View):
         logger.info("customer_self_cancel order=%s", order.ref)
 
         if request.headers.get("HX-Request"):
-            ctx = _build_tracking_context(order)
-            return render(request, "storefront/partials/order_status.html", ctx)
+            from shopman.shop.projections import build_order_tracking_status
+
+            proj = build_order_tracking_status(order)
+            return render(
+                request, "storefront/partials/order_status.html", {"tracking_status": proj}
+            )
         return redirect("storefront:order_tracking", ref=ref)
 
 
@@ -377,7 +353,7 @@ class CepLookupView(View):
         cep = (request.GET.get("cep") or request.GET.get("cep_sheet", "")).strip().replace("-", "").replace(".", "")
         if not cep or len(cep) != 8 or not cep.isdigit():
             return HttpResponse(
-                '<p class="text-error text-xs mt-1">CEP inv\u00e1lido (8 d\u00edgitos)</p>',
+                '<p class="text-warning text-xs mt-1">CEP precisa de 8 d\u00edgitos. Confira e tente de novo.</p>',
             )
 
         try:
@@ -388,7 +364,7 @@ class CepLookupView(View):
 
             if data.get("erro"):
                 return HttpResponse(
-                    '<p class="text-error text-xs mt-1">CEP n\u00e3o encontrado</p>',
+                    '<p class="text-warning text-xs mt-1">N\u00e3o encontrei esse CEP. Quer digitar o endere\u00e7o manualmente?</p>',
                 )
 
             logradouro = data.get("logradouro", "")

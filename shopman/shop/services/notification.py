@@ -117,6 +117,7 @@ def _build_context(order, payload: dict, template: str) -> dict:
         "items": order.snapshot.get("items", []),
         "reason": payload.get("reason"),
         "fulfillment_type": fulfillment_type,
+        "outside_business_hours": bool(order.data.get("outside_business_hours", False)),
     }
 
     customer_data = order.data.get("customer", {})
@@ -138,14 +139,21 @@ def _build_context(order, payload: dict, template: str) -> dict:
 
 def _qualify_template(template: str, context: dict) -> str:
     """
-    Qualifica o nome do template com base no fulfillment_type quando relevante.
+    Qualifica o nome do template com base em atributos do pedido.
 
     order_ready → order_ready_pickup ou order_ready_delivery
+    order_received → order_received_outside_hours (quando a flag está ativa),
+        degrada silenciosamente pro `order_received` se a variante não existir.
     """
     if template in ("order_ready", "order.ready"):
         ft = context.get("fulfillment_type", "pickup")
         suffix = "delivery" if ft == "delivery" else "pickup"
         return f"{template}_{suffix}"
+    if template == "order_received" and context.get("outside_business_hours"):
+        from shopman.shop.models import NotificationTemplate
+        variant = "order_received_outside_hours"
+        if NotificationTemplate.objects.filter(event=variant, is_active=True).exists():
+            return variant
     return template
 
 

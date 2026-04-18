@@ -88,7 +88,7 @@ class CartAddItemView(APIView):
                     "requested_qty": exc.requested_qty,
                     "available_qty": exc.available_qty,
                     "is_paused": exc.is_paused,
-                    "alternatives": exc.alternatives,
+                    "substitutes": exc.substitutes,
                 },
                 status=status.HTTP_409_CONFLICT,
             )

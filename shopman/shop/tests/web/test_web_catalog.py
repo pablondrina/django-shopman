@@ -1,4 +1,4 @@
-"""Tests for storefront catalog views: MenuView, MenuSearchView, ProductDetailView."""
+"""Tests for storefront catalog views: MenuView, ProductDetailView."""
 from __future__ import annotations
 
 from datetime import timedelta
@@ -18,7 +18,7 @@ class TestMenuView:
         resp = client.get("/menu/")
         assert resp.status_code == 200
 
-    def test_menu_with_products(self, client: Client, collection, collection_item, product):
+    def test_menu_with_products(self, client: Client, collection, collection_item, product, listing_item):
         resp = client.get("/menu/")
         assert resp.status_code == 200
         assert b"paes" in resp.content.lower() or b"P\xc3\xa3es" in resp.content
@@ -50,34 +50,6 @@ class TestMenuView:
     def test_menu_sets_csrf_cookie(self, client: Client):
         resp = client.get("/menu/")
         assert "csrftoken" in resp.cookies
-
-
-# ── MenuSearchView ────────────────────────────────────────────────────
-
-
-class TestMenuSearchView:
-    def test_search_empty_query(self, client: Client):
-        resp = client.get("/menu/search/")
-        assert resp.status_code == 200
-        assert resp.content == b""
-
-    def test_search_short_query(self, client: Client, product):
-        resp = client.get("/menu/search/?q=P")
-        assert resp.status_code == 200
-        # Should return hint, not results
-        assert b"PAO-FRANCES" not in resp.content
-
-    def test_search_finds_product(self, client: Client, product):
-        resp = client.get("/menu/search/?q=Francês")
-        assert resp.status_code == 200
-
-    def test_search_no_results(self, client: Client, product):
-        resp = client.get("/menu/search/?q=ZZZNOTFOUND")
-        assert resp.status_code == 200
-
-    def test_search_excludes_unpublished(self, client: Client, product_unpublished):
-        resp = client.get("/menu/search/?q=Rascunho")
-        assert resp.status_code == 200
 
 
 # ── ProductDetailView ─────────────────────────────────────────────────
@@ -137,18 +109,21 @@ class TestProductDetailView:
         assert projection.original_price_display == "R$ 0,90"
         assert projection.promotion_label is not None
 
-    def test_pdp_shows_alternatives_when_sold_out(self, client: Client, product_unavailable, product):
-        """When product is unavailable (paused), PDP shows alternatives section."""
+    def test_pdp_shows_indisponivel_badge_when_paused(self, client: Client, product_unavailable):
+        """PDP de produto indisponível mostra badge 'Indisponível' e NÃO exibe
+        seção de substitutos (AVAILABILITY-PLAN §5 — substitutos só no modal)."""
         resp = client.get(f"/produto/{product_unavailable.sku}/")
         assert resp.status_code == 200
-        # Badge should show "Indisponível"
-        assert "Indisponível" in resp.content.decode()
-        # The alternatives section heading should be present (even if empty list, no alternatives found)
-        # Since product_unavailable has no keywords, alternatives will be empty — that's OK.
-        # We verify the view doesn't crash and the badge is correct.
+        body = resp.content.decode()
+        assert "Indisponível" in body
+        # Qualquer título de seção que pudesse sugerir substitutos deve estar ausente.
+        for forbidden in ("Outras opções", "No lugar deste", "Veja alternativas", "Substitutos"):
+            assert forbidden not in body, f"PDP não deve listar substitutos ('{forbidden}' vazou)"
 
-    def test_pdp_hides_alternatives_when_available(self, client: Client, product):
-        """When product is available, no alternatives section is shown."""
+    def test_pdp_never_shows_substitutes_section_when_available(self, client: Client, product):
+        """Mesmo com produto disponível, PDP nunca renderiza seção de substitutos."""
         resp = client.get(f"/produto/{product.sku}/")
         assert resp.status_code == 200
-        assert "Produtos Similares" not in resp.content.decode()
+        body = resp.content.decode()
+        for forbidden in ("Outras opções", "No lugar deste", "Veja alternativas", "Substitutos"):
+            assert forbidden not in body

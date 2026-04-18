@@ -40,6 +40,7 @@ def _config(**overrides):
         kwargs["confirmation"] = ChannelConfig.Confirmation(
             mode=overrides["confirmation_mode"],
             timeout_minutes=overrides.get("confirmation_timeout", 5),
+            stale_new_alert_minutes=overrides.get("confirmation_stale_new_alert_minutes", 0),
         )
     if "payment_timing" in overrides or "payment_method" in overrides:
         kwargs["payment"] = ChannelConfig.Payment(
@@ -62,11 +63,12 @@ def _config(**overrides):
 
 class TestDispatch:
     @patch("shopman.shop.lifecycle.ChannelConfig")
+    @patch("shopman.shop.lifecycle.notification")
     @patch("shopman.shop.lifecycle.loyalty")
     @patch("shopman.shop.lifecycle.customer")
     @patch("shopman.shop.lifecycle.stock")
     def test_dispatch_calls_correct_phase(
-        self, mock_stock, mock_customer, mock_loyalty, mock_cc,
+        self, mock_stock, mock_customer, mock_loyalty, mock_notification, mock_cc,
     ):
         mock_cc.for_channel.return_value = _config(confirmation_mode="manual")
         order = _make_order()
@@ -105,17 +107,48 @@ class TestConfirmability:
 
         ensure_confirmable(order)
 
+class TestPaymentGuard:
+    """`ensure_payment_captured` is applied on the operator confirm action."""
+
+    def test_blocks_pending_upfront_payment(self):
+        from shopman.shop.lifecycle import ensure_payment_captured
+        order = _make_order(data={"payment": {"method": "pix", "status": "pending"}})
+        with pytest.raises(InvalidTransition, match="Pagamento"):
+            ensure_payment_captured(order)
+
+    def test_accepts_captured_payment(self):
+        from shopman.shop.lifecycle import ensure_payment_captured
+        order = _make_order(data={"payment": {"method": "pix", "status": "captured"}})
+        ensure_payment_captured(order)
+
+    def test_accepts_cash_on_delivery(self):
+        from shopman.shop.lifecycle import ensure_payment_captured
+        order = _make_order(data={"payment": {"method": "cash", "status": "pending"}})
+        ensure_payment_captured(order)
+
+    def test_accepts_portuguese_cash_aliases(self):
+        from shopman.shop.lifecycle import ensure_payment_captured
+        for method in ("dinheiro", "debito", "credito", "balcao"):
+            order = _make_order(data={"payment": {"method": method, "status": "pending"}})
+            ensure_payment_captured(order)
+
+    def test_accepts_empty_payment(self):
+        from shopman.shop.lifecycle import ensure_payment_captured
+        order = _make_order(data={})
+        ensure_payment_captured(order)
+
 
 # ── on_commit ──
 
 
 class TestOnCommit:
     @patch("shopman.shop.lifecycle.ChannelConfig")
+    @patch("shopman.shop.lifecycle.notification")
     @patch("shopman.shop.lifecycle.loyalty")
     @patch("shopman.shop.lifecycle.customer")
     @patch("shopman.shop.lifecycle.stock")
     def test_calls_customer_ensure_and_stock_hold(
-        self, mock_stock, mock_customer, mock_loyalty, mock_cc,
+        self, mock_stock, mock_customer, mock_loyalty, mock_notification, mock_cc,
     ):
         mock_cc.for_channel.return_value = _config(confirmation_mode="manual")
         order = _make_order()
@@ -179,11 +212,12 @@ class TestOnCommit:
         order.transition_status.assert_not_called()
 
     @patch("shopman.shop.lifecycle.ChannelConfig")
+    @patch("shopman.shop.lifecycle.notification")
     @patch("shopman.shop.lifecycle.loyalty")
     @patch("shopman.shop.lifecycle.customer")
     @patch("shopman.shop.lifecycle.stock")
     def test_manual_confirmation_no_auto_action(
-        self, mock_stock, mock_customer, mock_loyalty, mock_cc,
+        self, mock_stock, mock_customer, mock_loyalty, mock_notification, mock_cc,
     ):
         mock_cc.for_channel.return_value = _config(confirmation_mode="manual")
         order = _make_order()
@@ -191,12 +225,13 @@ class TestOnCommit:
         order.transition_status.assert_not_called()
 
     @patch("shopman.shop.lifecycle.ChannelConfig")
+    @patch("shopman.shop.lifecycle.notification")
     @patch("shopman.shop.lifecycle.payment")
     @patch("shopman.shop.lifecycle.loyalty")
     @patch("shopman.shop.lifecycle.customer")
     @patch("shopman.shop.lifecycle.stock")
     def test_payment_at_commit(
-        self, mock_stock, mock_customer, mock_loyalty, mock_payment, mock_cc,
+        self, mock_stock, mock_customer, mock_loyalty, mock_payment, mock_notification, mock_cc,
     ):
         mock_cc.for_channel.return_value = _config(
             confirmation_mode="manual", payment_timing="at_commit",
@@ -206,11 +241,12 @@ class TestOnCommit:
         mock_payment.initiate.assert_called_once_with(order)
 
     @patch("shopman.shop.lifecycle.ChannelConfig")
+    @patch("shopman.shop.lifecycle.notification")
     @patch("shopman.shop.lifecycle.loyalty")
     @patch("shopman.shop.lifecycle.customer")
     @patch("shopman.shop.lifecycle.stock")
     def test_no_payment_at_commit_when_post_commit(
-        self, mock_stock, mock_customer, mock_loyalty, mock_cc,
+        self, mock_stock, mock_customer, mock_loyalty, mock_notification, mock_cc,
     ):
         mock_cc.for_channel.return_value = _config(
             confirmation_mode="manual", payment_timing="post_commit",
@@ -282,11 +318,12 @@ class TestOnCommitAvailabilityCheck:
         )
 
     @patch("shopman.shop.lifecycle.ChannelConfig")
+    @patch("shopman.shop.lifecycle.notification")
     @patch("shopman.shop.lifecycle.loyalty")
     @patch("shopman.shop.lifecycle.customer")
     @patch("shopman.shop.lifecycle.stock")
     def test_no_check_when_check_on_commit_false(
-        self, mock_stock, mock_customer, mock_loyalty, mock_cc,
+        self, mock_stock, mock_customer, mock_loyalty, mock_notification, mock_cc,
     ):
         mock_cc.for_channel.return_value = _config(
             confirmation_mode="manual",
@@ -563,11 +600,12 @@ class TestMarketplaceChannelScenario:
     confirmation.mode=manual, stock.check_on_commit=True."""
 
     @patch("shopman.shop.lifecycle.ChannelConfig")
+    @patch("shopman.shop.lifecycle.notification")
     @patch("shopman.shop.lifecycle.availability")
     @patch("shopman.shop.lifecycle.customer")
     @patch("shopman.shop.lifecycle.stock")
     def test_commit_manual_no_auto_action(
-        self, mock_stock, mock_customer, mock_availability, mock_cc,
+        self, mock_stock, mock_customer, mock_availability, mock_notification, mock_cc,
     ):
         mock_cc.for_channel.return_value = _config(
             confirmation_mode="manual",
@@ -696,3 +734,100 @@ class TestChannelConfigIntegration:
 
         dispatch(order, "on_commit")
         order.transition_status.assert_not_called()
+
+
+class TestStaleNewAlertHandler:
+    """Handler que disparar OperatorAlert('stale_new_order') para pedidos manuais esquecidos."""
+
+    @pytest.mark.django_db
+    def test_schedules_directive_when_manual_mode_has_stale_minutes(self):
+        from shopman.orderman.models import Directive
+
+        mock_cfg = MagicMock()
+        mock_cfg.for_channel.return_value = _config(
+            confirmation_mode="manual", confirmation_stale_new_alert_minutes=30,
+        )
+        with patch("shopman.shop.lifecycle.ChannelConfig", mock_cfg), \
+             patch("shopman.shop.lifecycle.notification"), \
+             patch("shopman.shop.lifecycle.loyalty"), \
+             patch("shopman.shop.lifecycle.customer"), \
+             patch("shopman.shop.lifecycle.stock"):
+            order = _make_order()
+            dispatch(order, "on_commit")
+
+        directive = Directive.objects.filter(topic="order.stale_new_alert").first()
+        assert directive is not None
+        assert directive.payload["order_ref"] == "ORD-001"
+
+    @pytest.mark.django_db
+    def test_does_not_schedule_when_stale_minutes_is_zero(self):
+        from shopman.orderman.models import Directive
+
+        mock_cfg = MagicMock()
+        mock_cfg.for_channel.return_value = _config(
+            confirmation_mode="manual", confirmation_stale_new_alert_minutes=0,
+        )
+        with patch("shopman.shop.lifecycle.ChannelConfig", mock_cfg), \
+             patch("shopman.shop.lifecycle.notification"), \
+             patch("shopman.shop.lifecycle.loyalty"), \
+             patch("shopman.shop.lifecycle.customer"), \
+             patch("shopman.shop.lifecycle.stock"):
+            order = _make_order()
+            dispatch(order, "on_commit")
+
+        assert not Directive.objects.filter(topic="order.stale_new_alert").exists()
+
+    @pytest.mark.django_db
+    def test_handler_creates_alert_when_order_still_new(self):
+        from datetime import datetime, timedelta
+
+        from django.utils import timezone
+        from shopman.orderman.models import Directive, Order
+        from shopman.shop.handlers.confirmation import StaleNewOrderAlertHandler
+        from shopman.shop.models import Channel, OperatorAlert
+
+        Channel.objects.get_or_create(ref="ifood", defaults={"name": "iFood"})
+        order = Order.objects.create(
+            ref="ORD-STALE-1", channel_ref="ifood", status="new",
+            total_q=1000, handle_type="ifood", handle_ref="X",
+            data={},
+        )
+        past = timezone.now() - timedelta(minutes=1)
+        directive = Directive.objects.create(
+            topic="order.stale_new_alert",
+            payload={"order_ref": order.ref, "alert_at": past.isoformat()},
+            available_at=past,
+        )
+        StaleNewOrderAlertHandler().handle(message=directive, ctx={})
+
+        alert = OperatorAlert.objects.filter(type="stale_new_order", order_ref=order.ref).first()
+        assert alert is not None
+        directive.refresh_from_db()
+        assert directive.status == "done"
+
+    @pytest.mark.django_db
+    def test_handler_noops_when_order_already_resolved(self):
+        from datetime import datetime, timedelta
+
+        from django.utils import timezone
+        from shopman.orderman.models import Directive, Order
+        from shopman.shop.handlers.confirmation import StaleNewOrderAlertHandler
+        from shopman.shop.models import Channel, OperatorAlert
+
+        Channel.objects.get_or_create(ref="ifood", defaults={"name": "iFood"})
+        order = Order.objects.create(
+            ref="ORD-STALE-2", channel_ref="ifood", status="confirmed",
+            total_q=1000, handle_type="ifood", handle_ref="Y",
+            data={},
+        )
+        past = timezone.now() - timedelta(minutes=1)
+        directive = Directive.objects.create(
+            topic="order.stale_new_alert",
+            payload={"order_ref": order.ref, "alert_at": past.isoformat()},
+            available_at=past,
+        )
+        StaleNewOrderAlertHandler().handle(message=directive, ctx={})
+
+        assert not OperatorAlert.objects.filter(order_ref=order.ref).exists()
+        directive.refresh_from_db()
+        assert directive.status == "done"

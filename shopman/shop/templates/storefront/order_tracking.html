@@ -48,19 +48,29 @@
     </div>
   </div>
 
-  {% comment %}── Live status (HTMX polling) ──{% endcomment %}
+  {% comment %}── Live status — SSE push (server emits on order_changed) ──{% endcomment %}
   {% comment %}
-  Load immediately on page load; swap=outerHTML so the partial's own
-  <div id="order-status-area"> replaces this shell. Active orders poll
-  every 10s; terminal orders only load once (the partial stops re-requesting).
+  Active orders subscribe to ``order-{ref}`` and refetch the partial whenever
+  the server pushes ``order-update``. A 60s safety poll covers the case where
+  the SSE connection drops (mobile background tabs, proxy timeouts). Terminal
+  orders skip both — the partial renders once with final state.
   {% endcomment %}
-  <div id="order-status-area"
-       hx-get="{% url 'storefront:order_status_partial' ref=tracking.order_ref %}"
-       hx-trigger="load{% if tracking.is_active %}, every 10s{% endif %}"
-       hx-swap="outerHTML"
-       aria-live="polite">
+  {% if tracking.is_active %}
+  <div hx-ext="sse"
+       sse-connect="{% url 'storefront:order_events' ref=tracking.order_ref %}">
+    <div id="order-status-area"
+         hx-get="{% url 'storefront:order_status_partial' ref=tracking.order_ref %}"
+         hx-trigger="load, sse:order-update, every 60s"
+         hx-swap="outerHTML"
+         aria-live="polite">
+      {% include "storefront/partials/order_status.html" with tracking_status=tracking %}
+    </div>
+  </div>
+  {% else %}
+  <div id="order-status-area" aria-live="polite">
     {% include "storefront/partials/order_status.html" with tracking_status=tracking %}
   </div>
+  {% endif %}
 
   {% comment %}── ETA ──{% endcomment %}
   {% if tracking.eta_display %}

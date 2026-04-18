@@ -6,13 +6,13 @@ and graceful degradation when services are unavailable.
 """
 from __future__ import annotations
 
-import pytest
 from dataclasses import FrozenInstanceError
+
+import pytest
 
 from shopman.shop.projections.account import (
     CustomerProfileProjection,
     LoyaltyProjection,
-    LoyaltyTransactionProjection,
     build_account,
 )
 from shopman.shop.projections.types import (

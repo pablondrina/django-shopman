@@ -9,10 +9,10 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from shopman.orderman.models import Order
+from shopman.utils.monetary import format_money
 
 from shopman.shop.projections.types import ORDER_STATUS_LABELS_PT
 from shopman.shop.web.views.auth import get_authenticated_customer
-from shopman.utils.monetary import format_money
 
 from .serializers import (
     AddressSerializer,

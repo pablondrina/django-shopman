@@ -19,7 +19,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from django.utils import timezone
-
 from shopman.utils.monetary import format_money
 
 from .types import (

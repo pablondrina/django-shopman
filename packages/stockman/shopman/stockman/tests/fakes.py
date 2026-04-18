@@ -96,3 +96,22 @@ class DemandOkSkuValidator(OrderableSkuValidator):
             shelflife_days=None,
             metadata=None,
         )
+
+
+class PerishableSkuValidator(OrderableSkuValidator):
+    """Validator that reports every SKU as perishable with ``shelflife_days=0``."""
+
+    def get_sku_info(self, sku: str) -> SkuInfo | None:
+        return SkuInfo(
+            sku=sku,
+            name=sku,
+            description=None,
+            is_published=True,
+            is_sellable=True,
+            unit="un",
+            category=None,
+            base_price_q=None,
+            availability_policy="planned_ok",
+            shelflife_days=0,
+            metadata=None,
+        )

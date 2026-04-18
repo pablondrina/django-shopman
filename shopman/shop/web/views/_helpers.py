@@ -10,7 +10,6 @@ from shopman.offerman.service import CatalogService
 from shopman.utils.monetary import format_money
 
 from shopman.shop.services.storefront_context import (
-    companion_skus,
     popular_skus,
     session_pricing_hints,
 )
@@ -18,19 +17,6 @@ from shopman.shop.services.storefront_context import (
 from ..constants import HAS_STOCKMAN, STOREFRONT_CHANNEL_REF
 
 logger = logging.getLogger(__name__)
-
-
-def _is_v2_request(request: HttpRequest) -> bool:
-    """True for v2 surfaces (default). False only when ``?v1`` is present.
-
-    v2 is now the default storefront. ``?v1`` opts back into the legacy
-    templates. For HTMX requests, inspects ``HX-Current-URL`` (the
-    originating page URL sent by HTMX) to detect v1 pages.
-    """
-    current = request.headers.get("HX-Current-URL") or ""
-    if "v1" in current:
-        return False
-    return request.GET.get("v1") is None
 
 
 def _get_channel_listing_ref() -> str | None:
@@ -77,17 +63,17 @@ def _get_availability(sku: str, *, target_date: date | None = None) -> dict | No
     if not HAS_STOCKMAN:
         return None
     try:
-        from shopman.stockman.services.availability import (
-            availability_for_sku,
-            availability_scope_for_channel,
-        )
+        from shopman.stockman.services.availability import availability_for_sku
 
-        scope = availability_scope_for_channel(STOREFRONT_CHANNEL_REF)
+        from shopman.shop.adapters import stock as stock_adapter
+
+        scope = stock_adapter.get_channel_scope(STOREFRONT_CHANNEL_REF)
         return availability_for_sku(
             sku,
             target_date=target_date,
             safety_margin=scope["safety_margin"],
             allowed_positions=scope["allowed_positions"],
+            excluded_positions=scope.get("excluded_positions"),
         )
     except Exception as e:
         logger.warning("availability_lookup_failed sku=%s: %s", sku, e, exc_info=True)
@@ -158,10 +144,9 @@ def _availability_badge(avail: dict | None, product: Product) -> dict:
     NOT the raw breakdown from availability_for_sku(). Returns:
       {label, css_class, can_add_to_cart}
 
-    Customer-facing states:
+    Customer-facing states (AVAILABILITY-PLAN vocabulary):
     - available: can_order=True → no badge (implicit)
-    - sold-out: can_order=False, had_stock=True, not paused → "Esgotado"
-    - unavailable: can_order=False otherwise → "Indisponível"
+    - qualquer caso de can_order=False (paused, sold-out, etc.) → "Indisponível"
     """
     if not product.is_sellable:
         return {"label": "Indisponível", "css_class": "badge-unavailable", "can_add_to_cart": False}
@@ -177,8 +162,6 @@ def _availability_badge(avail: dict | None, product: Product) -> dict:
     )
     if state == "available":
         return {"label": "", "css_class": "badge-available", "can_add_to_cart": True}
-    if state == "sold_out":
-        return {"label": "Esgotado", "css_class": "badge-sold-out", "can_add_to_cart": False}
     return {"label": "Indisponível", "css_class": "badge-unavailable", "can_add_to_cart": False}
 
 
@@ -298,13 +281,17 @@ def _annotate_products(
     avail_map: dict[str, dict | None] = {}
     if HAS_STOCKMAN:
         try:
-            from shopman.stockman.services.availability import (
-                availability_for_skus,
-                availability_scope_for_channel,
-            )
+            from shopman.stockman.services.availability import availability_for_skus
 
-            scope = availability_scope_for_channel(STOREFRONT_CHANNEL_REF)
-            avail_map = availability_for_skus(skus, **scope)
+            from shopman.shop.adapters import stock as stock_adapter
+
+            scope = stock_adapter.get_channel_scope(STOREFRONT_CHANNEL_REF)
+            avail_map = availability_for_skus(
+                skus,
+                safety_margin=scope["safety_margin"],
+                allowed_positions=scope["allowed_positions"],
+                excluded_positions=scope.get("excluded_positions"),
+            )
         except Exception as e:
             logger.warning("batch_availability_failed: %s", e, exc_info=True)
 
@@ -352,12 +339,25 @@ def _annotate_products(
         effective_q = price.final_unit_price_q
         price_display = f"R$ {format_money(effective_q)}" if effective_q else None
 
+        # available_qty for stepper clamp (WP-AV-07). None when Stockman
+        # hasn't reported a number (untracked SKU or demand_ok policy).
+        available_qty = None
+        if avail_raw is not None:
+            total = avail_raw.get("total_promisable")
+            if total is not None:
+                try:
+                    from decimal import Decimal as _D
+                    available_qty = int(_D(str(total)))
+                except Exception:
+                    available_qty = None
+
         result.append({
             "product": p,
             "price_q": effective_q,
             "price_display": price_display,
             "badge": badge,
             "availability": avail,
+            "available_qty": available_qty,
             "promo_badge": promo_badge,
             "has_promo_price": has_promo_price,
             "promo_price_display": promo_price_display,
@@ -580,28 +580,6 @@ def _hero_data(listing_ref: str | None = None, request: HttpRequest | None = Non
     except Exception as e:
         logger.warning("hero_data_failed: %s", e, exc_info=True)
     return None
-
-
-def _cross_sell_products(
-    sku: str,
-    listing_ref: str | None = None,
-    limit: int = 3,
-    request: HttpRequest | None = None,
-) -> list[dict]:
-    """Annotated companion products for the given SKU ("Compre junto")."""
-    top_skus = companion_skus(sku, limit=limit)
-    if not top_skus:
-        return []
-    try:
-        from shopman.offerman.models import Product as Prod
-
-        products = list(Prod.objects.filter(sku__in=top_skus, is_published=True))
-        if not products:
-            return []
-        return _annotate_products(products, listing_ref=listing_ref, request=request)
-    except Exception as e:
-        logger.warning("cross_sell_products_failed sku=%s: %s", sku, e, exc_info=True)
-        return []
 
 
 def _allergen_info(product: Product) -> dict | None:

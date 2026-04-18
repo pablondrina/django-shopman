@@ -20,7 +20,7 @@ from shopman.stockman.models.move import Move
 from shopman.stockman.models.quant import Quant
 from shopman.stockman.services.availability import promise_decision_for_sku
 from shopman.stockman.services.queries import _resolve_stock_profile
-from shopman.stockman.shelflife import filter_valid_quants
+from shopman.stockman.services.scope import quants_eligible_for
 
 logger = logging.getLogger('shopman.stockman')
 
@@ -34,10 +34,26 @@ def _parse_hold_id(hold_id: str) -> int:
     raise StockError('INVALID_HOLD', hold_id=hold_id)
 
 
-def _find_quant_for_hold(sku: str, product, target_date: date, quantity: Decimal) -> Quant | None:
-    """Find a quant with enough availability for the hold (FIFO)."""
-    quants = Quant.objects.filter(sku=sku)
-    quants = filter_valid_quants(quants, product, target_date)
+def _find_quant_for_hold(
+    sku: str,
+    product,
+    target_date: date,
+    quantity: Decimal,
+    *,
+    allowed_positions: list[str] | None = None,
+    excluded_positions: list[str] | None = None,
+) -> Quant | None:
+    """Find a quant with enough availability for the hold (FIFO).
+
+    Uses the canonical :func:`quants_eligible_for` scope so hold eligibility
+    matches the availability read (shelflife, batch expiry, channel positions).
+    """
+    quants = quants_eligible_for(
+        sku,
+        target_date=target_date,
+        allowed_positions=allowed_positions,
+        excluded_positions=excluded_positions,
+    )
 
     # Annotate held_qty to avoid N+1
     now = timezone.now()
@@ -68,7 +84,10 @@ class StockHolds:
 
     @classmethod
     def hold(cls, quantity, product, target_date=None,
-             expires_at=None, **metadata):
+             expires_at=None, *,
+             allowed_positions: list[str] | None = None,
+             excluded_positions: list[str] | None = None,
+             **metadata):
         """
         Create quantity hold.
 
@@ -77,6 +96,11 @@ class StockHolds:
             product: Product-like object or SKU string
             target_date: Desired date (None = today)
             expires_at: Expiration datetime (optional)
+            allowed_positions: Channel-scoped position allowlist. When set,
+                the hold will only consider quants at those positions.
+            excluded_positions: Channel-scoped position denylist. Typically
+                used by remote channels to exclude staff-only positions
+                (e.g. ``ontem``) from customer-facing reservations.
 
         Returns:
             hold_id in format "hold:{pk}"
@@ -93,7 +117,11 @@ class StockHolds:
         sku = profile["sku"]
 
         with transaction.atomic():
-            decision = promise_decision_for_sku(sku, quantity, target_date=target)
+            decision = promise_decision_for_sku(
+                sku, quantity, target_date=target,
+                allowed_positions=allowed_positions,
+                excluded_positions=excluded_positions,
+            )
             policy = profile["availability_policy"] or decision.availability_policy
             approved = decision.approved
             available = decision.available_qty
@@ -116,7 +144,11 @@ class StockHolds:
                     reason_code=decision.reason_code,
                 )
 
-            quant = _find_quant_for_hold(sku, product, target, quantity)
+            quant = _find_quant_for_hold(
+                sku, product, target, quantity,
+                allowed_positions=allowed_positions,
+                excluded_positions=excluded_positions,
+            )
 
             if quant:
                 quant = Quant.objects.select_for_update().get(pk=quant.pk)

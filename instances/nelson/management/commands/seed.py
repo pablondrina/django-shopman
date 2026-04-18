@@ -164,6 +164,9 @@ class Command(BaseCommand):
                     "sunday":    {"open": "07:00", "close": "13:00"},
                 },
                 "defaults": {
+                    "menu": {
+                        "dynamic_collections": ["featured", "fresh_from_oven"],
+                    },
                     "notifications": {"backend": "console"},
                     "pickup_slots": [
                         {"ref": "slot-09", "label": "A partir das 09h", "starts_at": "09:00"},
@@ -530,6 +533,58 @@ class Command(BaseCommand):
         )
         combo.keywords.add("combo", "cafe-da-manha", "promocao")
         products["COMBO-PETIT-DEJ"] = combo
+
+        # Direct-override ingredients + nutrition (products without Recipe).
+        # Exercises the "manual override" path of the PDP data schema:
+        # ``auto_filled=False`` in nutrition_facts blocks any later derivation.
+        DIRECT_OVERRIDES = {
+            "SUCO-LARANJA": {
+                "ingredients_text": (
+                    "Laranja natural. CONTÉM: naturalmente açúcares da fruta. "
+                    "Sem adição de açúcar ou conservantes."
+                ),
+                "nutrition_facts": {
+                    "serving_size_g": 200,
+                    "servings_per_container": 1,
+                    "energy_kcal": 90.0,
+                    "carbohydrates_g": 21.0,
+                    "sugars_g": 17.0,
+                    "proteins_g": 1.4,
+                    "total_fat_g": 0.4,
+                    "saturated_fat_g": 0.0,
+                    "trans_fat_g": 0.0,
+                    "fiber_g": 0.5,
+                    "sodium_mg": 2.0,
+                    "auto_filled": False,
+                },
+            },
+            "CHOCOLATE-QUENTE": {
+                "ingredients_text": (
+                    "Chocolate belga 54% cacau, leite integral, açúcar. "
+                    "CONTÉM: leite, soja. PODE CONTER: glúten, amendoim (contaminação cruzada)."
+                ),
+                "nutrition_facts": {
+                    "serving_size_g": 240,
+                    "servings_per_container": 1,
+                    "energy_kcal": 310.0,
+                    "carbohydrates_g": 36.0,
+                    "sugars_g": 30.0,
+                    "proteins_g": 8.5,
+                    "total_fat_g": 14.0,
+                    "saturated_fat_g": 9.0,
+                    "trans_fat_g": 0.0,
+                    "fiber_g": 2.0,
+                    "sodium_mg": 80.0,
+                    "auto_filled": False,
+                },
+            },
+        }
+        for sku, payload in DIRECT_OVERRIDES.items():
+            if sku in products:
+                p = products[sku]
+                p.ingredients_text = payload["ingredients_text"]
+                p.nutrition_facts = payload["nutrition_facts"]
+                p.save(update_fields=["ingredients_text", "nutrition_facts"])
 
         # D-1 eligible: breads that can be sold next day at discount
         d1_skus = ["BAGUETE", "BATARD", "CIABATTA", "FENDU", "TABATIERE", "PAO-HAMBURGER"]
@@ -994,6 +1049,36 @@ class Command(BaseCommand):
             },
         ]
 
+        # Perfil nutricional por insumo (valores aproximados por 100g).
+        # Alimenta RecipeItem.meta e, via signal, materializa
+        # Product.nutrition_facts + Product.ingredients_text no PDP.
+        # Ref: TACO / USDA simplificado — valores didáticos.
+        INGREDIENT_PROFILES = {
+            "INS-FARINHA-T65":  {"label": "Farinha de trigo T65",   "nutrition": {"energy_kcal": 364, "carbohydrates_g": 76, "sugars_g": 0.3, "proteins_g": 10, "total_fat_g": 1.0, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 2.7, "sodium_mg": 2}},
+            "INS-FARINHA-T55":  {"label": "Farinha de trigo T55",   "nutrition": {"energy_kcal": 364, "carbohydrates_g": 76, "sugars_g": 0.3, "proteins_g": 10, "total_fat_g": 1.0, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 2.7, "sodium_mg": 2}},
+            "INS-FARINHA-T45":  {"label": "Farinha de trigo T45",   "nutrition": {"energy_kcal": 364, "carbohydrates_g": 76, "sugars_g": 0.3, "proteins_g": 10, "total_fat_g": 1.0, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 2.7, "sodium_mg": 2}},
+            "INS-FARINHA-INT":  {"label": "Farinha de trigo integral", "nutrition": {"energy_kcal": 340, "carbohydrates_g": 72, "sugars_g": 0.4, "proteins_g": 13, "total_fat_g": 2.5, "saturated_fat_g": 0.4, "trans_fat_g": 0, "fiber_g": 10.7, "sodium_mg": 2}},
+            "INS-CENTEIO":      {"label": "Farinha de centeio",     "nutrition": {"energy_kcal": 338, "carbohydrates_g": 76, "sugars_g": 1.0, "proteins_g": 10, "total_fat_g": 1.7, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 15.0, "sodium_mg": 2}},
+            "INS-AGUA":         {"label": "Água",                   "nutrition": {"energy_kcal": 0,   "carbohydrates_g": 0,  "sugars_g": 0,   "proteins_g": 0,  "total_fat_g": 0,   "saturated_fat_g": 0,   "trans_fat_g": 0, "fiber_g": 0,    "sodium_mg": 0}},
+            "INS-FERMENTO-NAT": {"label": "Fermento natural (levain)", "nutrition": {"energy_kcal": 220, "carbohydrates_g": 45, "sugars_g": 0.5, "proteins_g": 7,  "total_fat_g": 0.5, "saturated_fat_g": 0.1, "trans_fat_g": 0, "fiber_g": 1.8,  "sodium_mg": 5}},
+            "INS-FERMENTO-BIO": {"label": "Fermento biológico",     "nutrition": {"energy_kcal": 105, "carbohydrates_g": 12, "sugars_g": 0,   "proteins_g": 13, "total_fat_g": 1.5, "saturated_fat_g": 0.2, "trans_fat_g": 0, "fiber_g": 8.1,  "sodium_mg": 30}},
+            "INS-SAL":          {"label": "Sal marinho",            "nutrition": {"energy_kcal": 0,   "carbohydrates_g": 0,  "sugars_g": 0,   "proteins_g": 0,  "total_fat_g": 0,   "saturated_fat_g": 0,   "trans_fat_g": 0, "fiber_g": 0,    "sodium_mg": 38758}},
+            "INS-ACUCAR":       {"label": "Açúcar",                 "nutrition": {"energy_kcal": 387, "carbohydrates_g": 100, "sugars_g": 100, "proteins_g": 0, "total_fat_g": 0,   "saturated_fat_g": 0,   "trans_fat_g": 0, "fiber_g": 0,    "sodium_mg": 1}},
+            "INS-MANTEIGA-FR":  {"label": "Manteiga francesa",      "nutrition": {"energy_kcal": 717, "carbohydrates_g": 0.1, "sugars_g": 0.1, "proteins_g": 0.9, "total_fat_g": 81, "saturated_fat_g": 51,  "trans_fat_g": 3.3, "fiber_g": 0,  "sodium_mg": 11}},
+            "INS-LEITE":        {"label": "Leite integral",         "nutrition": {"energy_kcal": 61,  "carbohydrates_g": 4.8, "sugars_g": 4.8, "proteins_g": 3.2, "total_fat_g": 3.3, "saturated_fat_g": 1.9, "trans_fat_g": 0.1, "fiber_g": 0,  "sodium_mg": 40}},
+            "INS-OVOS":         {"label": "Ovos",                   "nutrition": {"energy_kcal": 155, "carbohydrates_g": 1.1, "sugars_g": 1.1, "proteins_g": 13,  "total_fat_g": 11,  "saturated_fat_g": 3.3, "trans_fat_g": 0,   "fiber_g": 0,  "sodium_mg": 124}},
+            "INS-AZEITE":       {"label": "Azeite extra virgem",    "nutrition": {"energy_kcal": 884, "carbohydrates_g": 0,   "sugars_g": 0,   "proteins_g": 0,  "total_fat_g": 100, "saturated_fat_g": 14,  "trans_fat_g": 0,   "fiber_g": 0,  "sodium_mg": 2}},
+            "INS-MALTE":        {"label": "Malte",                  "nutrition": {"energy_kcal": 360, "carbohydrates_g": 78, "sugars_g": 60,  "proteins_g": 10, "total_fat_g": 1.8, "saturated_fat_g": 0.3, "trans_fat_g": 0,   "fiber_g": 7,  "sodium_mg": 23}},
+            "INS-CHOCOLATE-70": {"label": "Chocolate amargo 70%",   "nutrition": {"energy_kcal": 598, "carbohydrates_g": 46, "sugars_g": 24,  "proteins_g": 7.8, "total_fat_g": 43, "saturated_fat_g": 24,  "trans_fat_g": 0,   "fiber_g": 11, "sodium_mg": 20}},
+            "INS-CEBOLA-ROXA":  {"label": "Cebola roxa",            "nutrition": {"energy_kcal": 40,  "carbohydrates_g": 9,   "sugars_g": 4.2, "proteins_g": 1.1, "total_fat_g": 0.1, "saturated_fat_g": 0,   "trans_fat_g": 0,   "fiber_g": 1.7, "sodium_mg": 4}},
+            "INS-AZEITONA":     {"label": "Azeitonas pretas",       "nutrition": {"energy_kcal": 115, "carbohydrates_g": 6.3, "sugars_g": 0,   "proteins_g": 0.8, "total_fat_g": 10.7, "saturated_fat_g": 1.4, "trans_fat_g": 0,  "fiber_g": 3.2, "sodium_mg": 735}},
+            "INS-ALECRIM":      {"label": "Alecrim",                "nutrition": {"energy_kcal": 131, "carbohydrates_g": 21, "sugars_g": 0,   "proteins_g": 3.3, "total_fat_g": 5.9, "saturated_fat_g": 2.8, "trans_fat_g": 0,   "fiber_g": 14, "sodium_mg": 26}},
+            "INS-GERGELIM":     {"label": "Gergelim",               "nutrition": {"energy_kcal": 573, "carbohydrates_g": 23, "sugars_g": 0.3, "proteins_g": 18,  "total_fat_g": 50, "saturated_fat_g": 7,   "trans_fat_g": 0,   "fiber_g": 12, "sodium_mg": 11}},
+            "INS-MACA":         {"label": "Maçã",                   "nutrition": {"energy_kcal": 52,  "carbohydrates_g": 14, "sugars_g": 10,  "proteins_g": 0.3, "total_fat_g": 0.2, "saturated_fat_g": 0,   "trans_fat_g": 0,   "fiber_g": 2.4, "sodium_mg": 1}},
+            "INS-CANELA":       {"label": "Canela",                 "nutrition": {"energy_kcal": 247, "carbohydrates_g": 81, "sugars_g": 2.2, "proteins_g": 4,   "total_fat_g": 1.2, "saturated_fat_g": 0.3, "trans_fat_g": 0,   "fiber_g": 53, "sodium_mg": 10}},
+            "INS-LIMAO":        {"label": "Limão",                  "nutrition": {"energy_kcal": 29,  "carbohydrates_g": 9,  "sugars_g": 2.5, "proteins_g": 1.1, "total_fat_g": 0.3, "saturated_fat_g": 0,   "trans_fat_g": 0,   "fiber_g": 2.8, "sodium_mg": 2}},
+        }
+
         for rd in recipes_data:
             recipe, _ = Recipe.objects.update_or_create(
                 code=rd["code"],
@@ -1005,10 +1090,12 @@ class Command(BaseCommand):
             )
             RecipeItem.objects.filter(recipe=recipe).delete()
             for input_ref, qty in rd["items"]:
+                meta = INGREDIENT_PROFILES.get(input_ref, {})
                 RecipeItem.objects.create(
                     recipe=recipe,
                     input_ref=input_ref,
                     quantity=qty,
+                    meta=meta,
                 )
 
         # Work orders — use CraftService to exercise the full signal chain
@@ -1072,7 +1159,7 @@ class Command(BaseCommand):
                 wo_count += 1
                 continue
 
-            wo = craft.plan(recipe, quantity=qty, date=today)
+            wo = craft.plan(recipe, quantity=qty, date=today, position_ref="vitrine")
             should_finish = code != "focaccia-alecrim"  # focaccia still in production
             if should_finish:
                 finished = int(qty * Decimal("0.95"))
@@ -1101,7 +1188,7 @@ class Command(BaseCommand):
                 wo_count += 1
                 continue
 
-            craft.plan(recipe, quantity=qty, date=tomorrow)
+            craft.plan(recipe, quantity=qty, date=tomorrow, position_ref="vitrine")
             wo_count += 1
 
         # Historical production (last 35 days) — one WO per product per day
@@ -1236,9 +1323,12 @@ class Command(BaseCommand):
             "handle_label": "Comanda",
             "handle_placeholder": "Ex: 42",
         }
-        # Remote: não reserva estoque na posição "ontem" (D-1 físico no balcão); balcão usa allowed_positions omitido (= todas).
+        # Remote: D-1 (posição "ontem") é staff-only — visível apenas no balcão.
+        # Usamos excluded_positions (denylist) para que posições novas herdem
+        # visibilidade automaticamente e só precisemos listar o que é de fato
+        # restrito.
         _remote_stock = {
-            "allowed_positions": ["deposito", "vitrine", "producao"],
+            "excluded_positions": ["ontem"],
             "hold_ttl_minutes": 30,
         }
         _remote_config = {
@@ -1247,7 +1337,7 @@ class Command(BaseCommand):
             "stock": _remote_stock,
         }
         _marketplace_config = {
-            "confirmation": {"mode": "manual"},
+            "confirmation": {"mode": "manual", "stale_new_alert_minutes": 30},
             "payment": {"method": "external", "timing": "external"},
             "stock": {**_remote_stock, "check_on_commit": True},
         }
@@ -2101,6 +2191,8 @@ class Command(BaseCommand):
         from shopman.shop.models import NotificationTemplate
 
         FALLBACK_TEMPLATES = {
+            "order_received": {"subject": "Pedido {order_ref} recebido", "body": "Ola{customer_name_greeting}! Recebemos seu pedido *{order_ref}*. Ja estamos olhando com carinho e logo confirmamos. Total: *{total}*."},
+            "order_received_outside_hours": {"subject": "Pedido {order_ref} recebido", "body": "Ola{customer_name_greeting}! Recebemos seu pedido *{order_ref}* fora do nosso horario de atendimento. Vamos processar assim que abrirmos. Total: *{total}*."},
             "order_confirmed": {"subject": "Pedido {order_ref} confirmado", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* foi confirmado. Total: *{total}*.\n\nObrigado pela preferencia!"},
             "order_preparing": {"subject": "Pedido {order_ref} em preparo", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* esta sendo preparado.\n\nAvisaremos quando estiver pronto!"},
             "order_ready_pickup": {"subject": "Pedido {order_ref} pronto para retirada", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* esta pronto para retirada! \U0001f389\n\nVenha buscar. Obrigado!"},

@@ -18,6 +18,7 @@ FULFILLMENT_UPDATE = "fulfillment.update"
 
 # Confirmation
 CONFIRMATION_TIMEOUT = "confirmation.timeout"
+ORDER_STALE_NEW_ALERT = "order.stale_new_alert"
 
 
 # Fiscal

@@ -1,3 +1,17 @@
-{% if cart.count %}
-<span class="cart-notification-pill rounded-full">{{ cart.count }}</span>
-{% endif %}
+{% comment %}
+v2 cart badge — rendered in the navbar and re-emitted by AddToCartView /
+QuickAddView / CartSummaryView so HTMX `hx-target="#cart-badge-header"`
+swaps replace it cleanly. Always present in the DOM (hidden when empty)
+so subsequent swaps still find the target id.
+
+Accepts either `cart_count` (context processor, page load) or `cart.count`
+(CartService dict used by the cart/ endpoints).
+{% endcomment %}
+{% firstof cart_count cart.count 0 as count %}
+<span id="cart-badge-header"
+      class="{% if count %}inline-flex{% else %}hidden{% endif %} min-w-5 h-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-on-primary dark:bg-primary-dark dark:text-on-primary-dark tabular-nums"
+      hx-get="{% url 'storefront:cart_summary' %}"
+      hx-trigger="cartUpdated from:body"
+      hx-swap="outerHTML"
+      aria-live="polite"
+      aria-atomic="true">{% if count %}{{ count }}{% endif %}</span>

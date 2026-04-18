@@ -21,8 +21,8 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
   {% endif %}
 </header>
 
-{% if cart.has_waiting_items %}
-<div x-data="fermataPoll(30000)" hidden aria-hidden="true"></div>
+{% if cart.has_awaiting_confirmation_items %}
+<div x-data="window.confirmationPoll(30000)" hidden aria-hidden="true"></div>
 {% endif %}
 
 {% if cart.is_empty %}
@@ -74,7 +74,7 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
             class="p-4 sm:p-5 flex gap-4"
             x-data="{
               qty: {{ item.qty }},
-              max: {% if item.is_waiting_production %}{{ item.qty }}{% elif item.available_qty is not None %}{{ item.available_qty }}{% else %}99{% endif %},
+              max: {% if item.is_awaiting_confirmation %}{{ item.qty }}{% elif item.available_qty is not None %}{{ item.available_qty }}{% else %}99{% endif %},
               busy: false,
               get effectiveMax() { return Math.min(99, this.max); },
               get showMaxHint() { return this.qty >= (this.effectiveMax - 2) && this.effectiveMax > 0; },
@@ -145,31 +145,31 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
               </button>
             </div>
 
-            {% if item.is_waiting_production %}
+            {% if item.is_awaiting_confirmation %}
             <div class="flex flex-col gap-1">
               <span class="inline-flex items-center gap-1.5 self-start rounded-full bg-info/10 px-2.5 py-1 text-xs font-medium text-info dark:bg-info-dark/10 dark:text-info-dark">
                 <span class="material-symbols-rounded text-sm" aria-hidden="true">schedule</span>
-                Aguardando produção
+                Aguardando confirmação
               </span>
               <p class="text-xs text-on-surface/70 dark:text-on-surface-dark/70">Avisamos quando chegar.</p>
             </div>
             {% endif %}
 
-            {% if item.is_arrived_pending_confirmation %}
-            <div x-data="fermataCountdown('{{ item.fermata_deadline_iso }}', '{{ item.fermata_deadline_display }}')"
+            {% if item.is_ready_for_confirmation %}
+            <div x-data="window.confirmationCountdown('{{ item.confirmation_deadline_iso }}', '{{ item.confirmation_deadline_display }}')"
                  class="rounded-radius border border-success/40 bg-success/5 p-3 dark:border-success-dark/40 dark:bg-success-dark/5"
                  role="status">
               <div class="flex items-center gap-2">
                 <span class="material-symbols-rounded text-success dark:text-success-dark" aria-hidden="true">celebration</span>
                 <p class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">
-                  Chegou! Confirme até <span x-text="deadlineLabel"></span>
+                  Tudo pronto! Confirme até <span x-text="deadlineLabel"></span>
                 </p>
               </div>
               <p class="mt-1 text-xs text-on-surface dark:text-on-surface-dark tabular-nums" aria-live="polite">
                 Tempo restante: <span x-text="countdownLabel"></span>
               </p>
             </div>
-            <div x-data="fermataArrivedAnnounce('{{ item.line_id }}', '{{ item.name|escapejs }}', '{{ item.fermata_deadline_display }}')"></div>
+            <div x-data="window.confirmationReadyAnnounce('{{ item.line_id }}', '{{ item.name|escapejs }}', '{{ item.confirmation_deadline_display }}')"></div>
             {% endif %}
 
             {% if not item.is_available %}
@@ -330,10 +330,10 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
         <span class="material-symbols-rounded text-base" aria-hidden="true">lock</span>
         Finalizar pedido
       </button>
-      {% elif cart.has_arrived_items %}
+      {% elif cart.has_ready_for_confirmation_items %}
       <a href="{% url 'storefront:checkout' %}" class="btn-primary w-full">
         <span class="material-symbols-rounded text-base" aria-hidden="true">priority_high</span>
-        Confirmar agora — produto pronto
+        Confirmar agora — tudo pronto
       </a>
       {% else %}
       <a href="{% url 'storefront:checkout' %}" class="btn-primary w-full">

@@ -61,6 +61,10 @@ if DEBUG:
 SHOPMAN_INSTANCE_APPS = _csv_env_list("SHOPMAN_INSTANCE_APPS")
 
 INSTALLED_APPS = [
+    # Daphne — replaces runserver with ASGI handler so django-eventstream's
+    # SSE views can stream without monopolizing a worker. MUST be at the top
+    # so its `runserver` overrides the staticfiles one.
+    "daphne",
     # Unfold admin theme (MUST be before django.contrib.admin)
     "unfold",
     "unfold.contrib.filters",
@@ -80,6 +84,7 @@ INSTALLED_APPS = [
     "import_export",
     "unfold.contrib.import_export",
     "django_ratelimit",
+    "django_eventstream",
     # Shopman core apps
     "shopman.utils",
     "shopman.offerman",
@@ -100,6 +105,7 @@ INSTALLED_APPS = [
     "shopman.guestman.contrib.loyalty",
     "shopman.guestman.contrib.preferences",
     "shopman.guestman.contrib.timeline",
+    "shopman.guestman.contrib.merge",
     "shopman.guestman.contrib.admin_unfold",
     "shopman.doorman.contrib.admin_unfold",
     # Shopman orchestrator
@@ -120,6 +126,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "shopman.shop.middleware.ChannelParamMiddleware",
     "shopman.shop.middleware.OnboardingMiddleware",
+    "shopman.shop.middleware.WelcomeGateMiddleware",
 ]
 
 AUTHENTICATION_BACKENDS = [
@@ -153,6 +160,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "shopman.shop.context_processors.shop",
+                "shopman.shop.context_processors.omotenashi",
                 "shopman.shop.context_processors.cart_count",
             ],
         },
@@ -594,6 +602,15 @@ SHOPMAN_EFI_WEBHOOK = {
     # the proxy. The shared token is still verified as defense-in-depth.
     "mtls_header": os.environ.get("EFI_MTLS_HEADER", "HTTP_X_SSL_CLIENT_VERIFY"),
 }
+
+# ── Server-Sent Events (django-eventstream) ──────────────────────────
+# Persistence backend for SSE events. The ORM backend is sufficient for a
+# single-process deployment (daphne running standalone). When scaling out to
+# multiple workers, additionally set ``EVENTSTREAM_REDIS = {"host": ..., ...}``
+# so ``send_event`` from any worker reaches every active SSE listener.
+EVENTSTREAM_STORAGE_CLASS = "django_eventstream.storage.DjangoModelStorage"
+
+ASGI_APPLICATION = "config.asgi.application"
 
 # ── Storefront channel ────────────────────────────────────────────────
 # Ref of the Channel that powers the web storefront. Override in instance settings

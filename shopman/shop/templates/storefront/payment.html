@@ -1,299 +1,187 @@
 {% extends "storefront/base.html" %}
+{% load static %}
 
-{% block title %}Pagamento — Pedido {{ order.ref }}{% endblock %}
+{% block bottom_bar %}{% endblock %}
+
+{% block title %}Pagamento{% endblock %}
+{% block meta_description %}Conclua o pagamento do seu pedido — {{ storefront.brand_name }}.{% endblock %}
+
+{% block extra_head %}
+{% if payment.method == "card" and payment.stripe_publishable_key %}
+<meta name="stripe-key" content="{{ payment.stripe_publishable_key }}">
+<script src="https://js.stripe.com/v3/" defer></script>
+{% endif %}
+{% endblock %}
 
 {% block content %}
+<div class="max-w-md mx-auto">
 
-<div class="max-w-lg mx-auto" x-data="paymentPage()">
-  <h1 class="text-h1 text-foreground mb-2 text-center">
-    {% if method == "card" %}Pagamento com Cartão{% else %}Pagamento PIX{% endif %}
-  </h1>
-  <p class="text-muted-foreground text-center mb-6">
-    Pedido <strong class="font-mono">{{ order.ref }}</strong>
-  </p>
+  <div class="mb-6 text-center">
+    <h1 class="text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Pagamento</h1>
+    <p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60 mt-1">Pedido {{ payment.order_ref }}</p>
+  </div>
 
-  <div class="bg-surface rounded-xl shadow-sm p-6 space-y-6">
-    {# Total #}
-    <div class="text-center">
-      <p class="text-sm text-muted-foreground">Valor a pagar</p>
-      <p class="text-[32px] font-bold text-primary leading-tight">{{ total_display }}</p>
+  <div class="rounded-radius border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt p-6 space-y-6">
+
+    <div class="flex items-center justify-between text-lg font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">
+      <span>Total</span>
+      <span>{{ payment.total_display }}</span>
     </div>
 
-    {% if method == "card" %}
-    {# ═══ CARD (Stripe Elements) ═══ #}
-    <div x-show="!cardProcessing">
-      <div id="stripe-payment-element" class="mb-4"></div>
-      <p x-show="cardError" x-text="cardError" class="text-sm text-error mb-3" x-cloak></p>
-      <button
-        type="button"
-        @click="submitCard()"
-        :disabled="cardSubmitting"
-        x-show="!cardError"
-        class="touch-target w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-lg hover:bg-primary-hover shadow-sm hover:shadow-md transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        style="min-height: var(--touch-min)">
-        <span x-show="!cardSubmitting">Pagar {{ total_display }}</span>
-        <span x-show="cardSubmitting" x-cloak class="flex items-center justify-center gap-2">
-          <span class="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full"></span>
-          Processando...
-        </span>
-      </button>
-      <button
-        type="button"
-        x-show="cardError"
-        x-cloak
-        @click="retryCard()"
-        class="touch-target w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-medium text-lg hover:bg-primary-hover shadow-sm hover:shadow-md transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        style="min-height: var(--touch-min)">
-        Tentar com outro cartão
-      </button>
-    </div>
-
-    {% else %}
-    {# ═══ PIX ═══ #}
-
-    {% if payment.qr_code %}
-    {# QR Code — SVG preferred, image fallback #}
-    <div class="flex justify-center">
-      {% if payment.qr_svg %}
-      <div class="w-60 h-60 flex items-center justify-center">
-        {{ payment.qr_svg|safe }}
-      </div>
-      {% elif payment.qr_code|slice:":4" == "<svg" %}
-      <div class="w-60 h-60 flex items-center justify-center">
-        {{ payment.qr_code|safe }}
-      </div>
-      {% elif payment.qr_code|slice:":4" == "data" or payment.qr_code|slice:":4" == "http" %}
-      <img src="{{ payment.qr_code }}" alt="QR Code PIX"
-           class="w-60 h-60 rounded-lg border border-border">
-      {% else %}
-      <div class="w-60 h-60 flex items-center justify-center bg-background rounded-lg border border-border">
-        <p class="text-muted-foreground text-sm text-center px-4">
-          QR Code gerado. Use o código abaixo para copiar e colar.
-        </p>
-      </div>
-      {% endif %}
-    </div>
-    {% endif %}
-
-    {% if payment.copy_paste %}
-    {# Copy-paste code (Alpine-driven) #}
-    <div>
-      <label class="block text-sm font-medium text-foreground mb-1">PIX Copia e Cola</label>
-      <div class="relative">
-        <input
-          type="text"
-          readonly
-          value="{{ payment.copy_paste }}"
-          x-ref="pixCode"
-          class="w-full px-4 py-2.5 pr-24 rounded-lg border border-border bg-background text-foreground text-sm font-mono truncate">
-        <button
-          type="button"
-          @click="copyPix()"
-          class="absolute top-1 right-1 px-4 py-2 bg-primary text-primary-foreground text-sm rounded-lg hover:bg-primary-hover transition-colors"
-          style="min-height: var(--touch-min)">
-          <span x-text="copied ? 'Copiado!' : 'Copiar'"></span>
-        </button>
-      </div>
-      <p x-show="copied" x-transition class="mt-1 text-sm text-success" x-cloak>Copiado para a área de transferência</p>
-    </div>
-    {% endif %}
-
-    {% if payment.expires_at %}
-    {# Expiry countdown — color transitions: normal → yellow (2min) → red (expired) #}
-    <div class="text-center" x-data="pixTimer('{{ payment.expires_at }}')">
-      <p class="text-sm text-muted-foreground">Expira em</p>
-      <p class="text-2xl font-bold transition-colors duration-500"
-         :class="timerColor"
-         x-text="display">
-        --:--
-      </p>
-      <p x-show="expired" x-cloak class="text-sm text-error mt-1">
-        PIX expirado
-      </p>
-    </div>
-    {% endif %}
-    {% endif %}
-
-    {# Polling status (both methods) — stops after 180 attempts (15 min) #}
-    <div x-data="{ pollCount: 0, maxPolls: 180, stopped: false }">
-      <div
-        id="payment-status"
-        hx-get="{% url 'storefront:payment_status_partial' ref=order.ref %}"
-        hx-trigger="every 5s"
-        hx-swap="innerHTML"
-        @htmx:before-request.camel="pollCount++; if (pollCount > maxPolls) { stopped = true; $event.preventDefault(); }">
-        <div class="flex items-center justify-center gap-2 py-3">
-          <div class="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full"></div>
-          <span class="text-sm text-muted-foreground">Aguardando pagamento...</span>
+    {% comment %}── PIX ──{% endcomment %}
+    {% if payment.method == "pix" %}
+    <div x-data="{
+      copied: false,
+      countdown: null,
+      expiresAt: '{{ payment.pix_expires_at|default:'' }}',
+      timeLeft: '',
+      totalSecs: 0,
+      secsLeft: 0,
+      init() {
+        if (this.expiresAt) {
+          this.totalSecs = Math.max(0, Math.floor((new Date(this.expiresAt) - Date.now()) / 1000));
+          this.secsLeft = this.totalSecs;
+          this.startCountdown();
+        }
+      },
+      startCountdown() {
+        this.tick();
+        this.countdown = setInterval(() => this.tick(), 1000);
+      },
+      tick() {
+        const diff = Math.max(0, Math.floor((new Date(this.expiresAt) - Date.now()) / 1000));
+        this.secsLeft = diff;
+        if (diff === 0) { clearInterval(this.countdown); this.timeLeft = 'expirado'; return; }
+        const m = Math.floor(diff / 60), s = diff % 60;
+        this.timeLeft = m + ':' + String(s).padStart(2, '0');
+      },
+      get progressPct() {
+        if (!this.totalSecs) return 100;
+        return Math.round((this.secsLeft / this.totalSecs) * 100);
+      },
+      copy() {
+        if (!navigator.clipboard) return;
+        navigator.clipboard.writeText('{{ payment.pix_copy_paste|default:'' }}').then(() => {
+          this.copied = true;
+          setTimeout(() => this.copied = false, 3000);
+        });
+      }
+    }">
+      {% if payment.pix_qr_code %}
+      <div class="flex justify-center">
+        <div class="rounded-radius border border-outline dark:border-outline-dark p-3 bg-white inline-block">
+          <img src="data:image/png;base64,{{ payment.pix_qr_code }}"
+               alt="QR Code PIX" class="w-48 h-48 object-contain" loading="eager">
         </div>
       </div>
-
-      {# Max polling reached — manual fallback #}
-      <p x-show="stopped" x-cloak class="text-center text-sm text-muted-foreground py-2">
-        Verificação automática pausada. Use o botão abaixo para verificar manualmente.
-      </p>
-
-      {# Manual recheck (always visible) #}
-      <div class="text-center">
-        <button
-          type="button"
-          hx-get="{% url 'storefront:payment_status_partial' ref=order.ref %}"
-          hx-target="#payment-status"
-          hx-swap="innerHTML"
-          class="text-sm text-primary hover:text-primary-hover font-medium transition-colors px-4 py-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          style="min-height: var(--touch-min)">
-          Já paguei — verificar agora
-        </button>
+      {% else %}
+      <div class="flex justify-center text-on-surface/30 dark:text-on-surface-dark/30 py-6">
+        <span class="material-symbols-rounded text-6xl" aria-hidden="true">qr_code_2</span>
       </div>
+      {% endif %}
+
+      {% if payment.pix_copy_paste %}
+      <div>
+        <p class="text-sm font-medium text-on-surface dark:text-on-surface-dark mb-2">Copia e cola:</p>
+        <div class="flex gap-2">
+          <input type="text" readonly value="{{ payment.pix_copy_paste }}"
+                 class="flex-1 rounded-radius border border-outline bg-surface-alt px-3 py-2 text-xs text-on-surface/70 font-mono truncate dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark/70 min-h-[44px]"
+                 aria-label="Código PIX copia e cola">
+          <button type="button" @click="copy()"
+                  class="shrink-0 rounded-radius border border-outline px-3 py-2 text-sm font-medium text-on-surface hover:bg-surface-alt focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:text-on-surface-dark min-h-[44px] transition-colors"
+                  aria-live="polite">
+            <span x-show="!copied">Copiar</span>
+            <span x-show="copied" x-cloak class="text-success">Copiado!</span>
+          </button>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if payment.pix_expires_at %}
+      <div x-show="timeLeft && timeLeft !== 'expirado'" class="space-y-1.5">
+        <div class="h-1.5 w-full rounded-full bg-outline dark:bg-outline-dark overflow-hidden">
+          <div class="h-full rounded-full transition-all duration-1000"
+               :class="progressPct > 30 ? 'bg-primary dark:bg-primary-dark' : 'bg-danger dark:bg-danger-dark'"
+               :style="'width: ' + progressPct + '%'"></div>
+        </div>
+        <p class="text-center text-sm text-on-surface/60 dark:text-on-surface-dark/60">
+          Expira em <span class="font-mono font-semibold" x-text="timeLeft"></span>
+        </p>
+      </div>
+      <p x-show="timeLeft === 'expirado'" x-cloak
+         class="text-center text-sm font-medium text-danger dark:text-danger-dark">
+        PIX expirado
+      </p>
+      {% endif %}
     </div>
 
-    {% if debug %}
-    {# DEV: Mock payment confirmation #}
-    <div class="border-t border-border pt-4 mt-2">
-      <p class="text-xs text-muted-foreground text-center mb-2">Ambiente de desenvolvimento</p>
-      <form method="post" action="{% url 'storefront:mock_payment_confirm' ref=order.ref %}">
-        {% csrf_token %}
-        <button
-          type="submit"
-          class="touch-target w-full py-2.5 bg-success text-success-foreground rounded-xl font-medium hover:bg-success/90 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          style="min-height: var(--touch-min)">
-          Simular Pagamento {% if method == "card" %}Cartão{% else %}PIX{% endif %} Confirmado
+    {% comment %}Polling partial — updates status every 5s{% endcomment %}
+    <div id="payment-status-area"
+         hx-get="{{ payment.status_url }}"
+         hx-trigger="load, every 5s"
+         hx-swap="outerHTML"
+         aria-live="polite">
+    </div>
+
+    {% endif %}
+
+    {% comment %}── Card (Stripe Elements) ──{% endcomment %}
+    {% if payment.method == "card" %}
+    <div x-data="{ loading: true, error: '' }" x-init="
+      const stripe = Stripe(document.querySelector('meta[name=stripe-key]').content);
+      const elements = stripe.elements({ clientSecret: '{{ payment.stripe_client_secret|default:'' }}' });
+      const card = elements.create('payment');
+      card.mount('#stripe-payment-element');
+      card.on('ready', () => loading = false);
+      document.getElementById('stripe-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        loading = true;
+        const { error } = await stripe.confirmPayment({
+          elements,
+          confirmParams: { return_url: window.location.origin + '/pedido/{{ payment.order_ref }}/' }
+        });
+        if (error) { this.error = error.message; loading = false; }
+      });
+    ">
+      <div id="stripe-payment-element" :class="{ 'opacity-50': loading }"></div>
+      <p x-show="error" class="text-sm text-danger mt-2" x-text="error" aria-live="polite"></p>
+      <form id="stripe-form" class="mt-4">
+        <button type="submit"
+                :disabled="loading"
+                class="w-full rounded-radius bg-primary px-6 py-3 font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary min-h-[44px] transition-opacity disabled:opacity-50 dark:bg-primary-dark dark:text-on-primary-dark">
+          <span x-show="loading">Carregando…</span>
+          <span x-show="!loading" x-cloak>Pagar {{ payment.total_display }}</span>
         </button>
       </form>
     </div>
+
+    {% comment %}Polling partial{% endcomment %}
+    <div id="payment-status-area"
+         hx-get="{{ payment.status_url }}"
+         hx-trigger="load, every 5s"
+         hx-swap="outerHTML"
+         aria-live="polite">
+    </div>
     {% endif %}
+
+    {% comment %}── Dev mock confirm ──{% endcomment %}
+    {% if payment.is_debug %}
+    <form method="post" action="{% url 'storefront:mock_payment_confirm' ref=payment.order_ref %}">
+      {% csrf_token %}
+      <button type="submit"
+              class="w-full rounded-radius border border-warning/40 bg-warning/10 px-4 py-2 text-sm font-medium text-warning hover:bg-warning/20 focus:outline-hidden min-h-[44px]">
+        [DEV] Simular pagamento confirmado
+      </button>
+    </form>
+    {% endif %}
+
   </div>
+
+  <p class="mt-4 text-center text-sm text-on-surface/50 dark:text-on-surface-dark/50">
+    <a href="{% url 'storefront:order_tracking' ref=payment.order_ref %}"
+       class="underline underline-offset-2 hover:text-primary dark:hover:text-primary-dark">
+      Acompanhar pedido
+    </a>
+  </p>
 </div>
-
-<script>
-function paymentPage() {
-  return {
-    copied: false,
-    cardSubmitting: false,
-    cardProcessing: false,
-    cardError: '',
-
-    copyPix() {
-      var input = this.$refs.pixCode;
-      if (!input) return;
-      navigator.clipboard.writeText(input.value).then(() => {
-        this.copied = true;
-        setTimeout(() => { this.copied = false; }, 3000);
-      }).catch(() => {
-        // Fallback: select + execCommand
-        input.select();
-        document.execCommand('copy');
-        this.copied = true;
-        setTimeout(() => { this.copied = false; }, 3000);
-      });
-    },
-
-    submitCard() {
-      if (!window._stripeInstance || !window._stripeElements) {
-        this.cardError = 'Stripe não inicializado. Recarregue a página.';
-        return;
-      }
-      this.cardSubmitting = true;
-      this.cardError = '';
-      var self = this;
-
-      window._stripeInstance.confirmPayment({
-        elements: window._stripeElements,
-        confirmParams: {
-          return_url: window.location.origin + '/pedido/{{ order.ref }}/',
-        },
-      }).then(function(result) {
-        if (result.error) {
-          self.cardError = result.error.message;
-          self.cardSubmitting = false;
-        }
-        // If successful, Stripe redirects to return_url
-      });
-    },
-
-    retryCard() {
-      this.cardError = '';
-      this.cardSubmitting = false;
-      // Re-mount Stripe Elements to clear previous card data
-      var container = document.getElementById('stripe-payment-element');
-      if (container && window._stripeElements) {
-        container.innerHTML = '';
-        window._stripeElements.mount(container);
-      }
-    }
-  };
-}
-
-function pixTimer(expiresAtISO) {
-  return {
-    expired: false,
-    display: '--:--',
-    timerColor: 'text-foreground',
-    _interval: null,
-
-    init() {
-      var expiresAt = new Date(expiresAtISO);
-      var self = this;
-
-      function update() {
-        var now = new Date();
-        var diff = Math.max(0, Math.floor((expiresAt - now) / 1000));
-        var min = Math.floor(diff / 60);
-        var sec = diff % 60;
-
-        if (diff <= 0) {
-          self.display = 'Expirado';
-          self.timerColor = 'text-error';
-          self.expired = true;
-          if (self._interval) clearInterval(self._interval);
-          return;
-        }
-
-        self.display = min.toString().padStart(2, '0') + ':' + sec.toString().padStart(2, '0');
-
-        // Color transitions: green (>2min), yellow (<=2min), red (<=30s)
-        if (diff <= 30) {
-          self.timerColor = 'text-error';
-        } else if (diff <= 120) {
-          self.timerColor = 'text-warning';
-        } else {
-          self.timerColor = 'text-foreground';
-        }
-      }
-
-      update();
-      this._interval = setInterval(update, 1000);
-    },
-
-    destroy() {
-      if (this._interval) clearInterval(this._interval);
-    }
-  };
-}
-
-{% if method == "card" %}
-// Stripe Elements initialization
-(function() {
-  var clientSecret = '{{ payment.client_secret|default:"" }}';
-  if (!clientSecret) return;
-
-  var script = document.createElement('script');
-  script.src = 'https://js.stripe.com/v3/';
-  script.onload = function() {
-    var stripeKey = document.querySelector('meta[name="stripe-publishable-key"]');
-    if (!stripeKey) return;
-
-    var stripe = Stripe(stripeKey.content);
-    var elements = stripe.elements({ clientSecret: clientSecret });
-    var paymentElement = elements.create('payment');
-    paymentElement.mount('#stripe-payment-element');
-
-    window._stripeInstance = stripe;
-    window._stripeElements = elements;
-  };
-  document.head.appendChild(script);
-})();
-{% endif %}
-</script>
-
 {% endblock %}

@@ -4,7 +4,6 @@ Small, pure queries that collect contextual state used by storefront-facing
 read paths (v1 views and projection builders):
 
 - ``popular_skus`` — most-favourited SKUs across customer insights.
-- ``companion_skus`` — SKUs frequently bought alongside a given SKU.
 - ``happy_hour_state`` — current happy-hour window + discount percent.
 - ``session_pricing_hints`` — fulfillment type + subtotal from the active
   cart session, matching what DiscountModifier sees at checkout.
@@ -87,7 +86,6 @@ def fresh_from_oven_skus(limit: int = 6, max_age_minutes: int = 60) -> list[dict
     """
     try:
         from django.db.models import Max, Sum
-
         from shopman.stockman.models import Move
 
         cutoff = timezone.now() - timedelta(minutes=max_age_minutes)
@@ -123,43 +121,6 @@ def fresh_from_oven_skus(limit: int = 6, max_age_minutes: int = 60) -> list[dict
     except Exception as e:
         logger.warning("fresh_from_oven_failed: %s", e, exc_info=True)
         return []
-
-
-def companion_skus(sku: str, limit: int = 4) -> list[str]:
-    """Return SKUs most often bought alongside ``sku``.
-
-    Aggregates ``favorite_product_samples_for_sku`` from guestman insights —
-    customers who favourite ``sku`` reveal which other products tend to sit
-    in the same basket. Pure read over insights; the caller is responsible
-    for loading/annotating the resulting SKUs into whichever projection
-    shape it needs.
-    """
-    try:
-        insights = InsightService.favorite_product_samples_for_sku(sku, limit=100)
-    except Exception as e:
-        logger.warning("companion_skus_failed sku=%s: %s", sku, e, exc_info=True)
-        return []
-
-    counts: dict[str, int] = {}
-    for favorites in insights:
-        if not favorites:
-            continue
-        has_sku = any(
-            (f.get("sku") if isinstance(f, dict) else str(f)) == sku
-            for f in favorites
-        )
-        if not has_sku:
-            continue
-        for fav in favorites:
-            fav_sku = fav.get("sku") if isinstance(fav, dict) else str(fav)
-            if not fav_sku or fav_sku == sku:
-                continue
-            qty = fav.get("qty", 1) if isinstance(fav, dict) else 1
-            counts[fav_sku] = counts.get(fav_sku, 0) + qty
-
-    if not counts:
-        return []
-    return sorted(counts, key=counts.get, reverse=True)[:limit]
 
 
 def happy_hour_state() -> dict:
@@ -219,7 +180,7 @@ def minimum_order_progress(
         channel = Channel.objects.filter(ref=channel_ref).first()
         if channel:
             rules = ChannelConfig.for_channel(channel).rules
-            if "shop.minimum_order" in rules.validators:
+            if rules.validators is None or "shop.minimum_order" in rules.validators:
                 shop = Shop.load()
                 raw = (
                     shop.defaults.get("rules", {}).get("minimum_order_q")

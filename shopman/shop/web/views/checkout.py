@@ -26,8 +26,88 @@ from shopman.shop.services.storefront_context import minimum_order_progress
 
 from ..cart import CHANNEL_REF, CartService
 from ..constants import get_default_ddd
-from ._helpers import _get_availability, _is_v2_request
+from ._helpers import _get_availability
 from .tracking import CepLookupView, OrderConfirmationView  # noqa: F401
+
+
+def _address_picker_context(checkout, *, form_data: dict | None = None) -> dict:
+    """Serialise saved addresses + shop location + optional draft for the picker.
+
+    The picker expects JSON injected into ``x-data="addressPicker({...})"``.
+    Django's auto-escaping turns ``"`` into ``&quot;`` which the browser
+    unescapes when reading the attribute — the resulting JSON is valid
+    JavaScript. **Never** mark_safe the JSON: raw ``"`` chars break the HTML
+    attribute at the first occurrence, yielding an empty Alpine component
+    and an invisible picker.
+
+    ``form_data`` is the POST payload (present on error re-renders) used to
+    hydrate the picker's ``draft`` and force the "new address" view so the
+    user does not lose what they typed.
+    """
+    import json as _json
+
+    from django.conf import settings
+
+    from shopman.shop.models import Shop
+
+    addresses = [
+        {
+            "id": addr.id,
+            "label": addr.label,
+            "formatted_address": addr.formatted_address,
+            "complement": addr.complement,
+            "is_default": addr.is_default,
+            "route": addr.route,
+            "street_number": addr.street_number,
+            "neighborhood": addr.neighborhood,
+            "city": addr.city,
+            "state_code": addr.state_code,
+            "postal_code": addr.postal_code,
+            "latitude": addr.latitude,
+            "longitude": addr.longitude,
+            "place_id": addr.place_id,
+            "delivery_instructions": addr.delivery_instructions,
+        }
+        for addr in getattr(checkout, "saved_addresses", ()) or ()
+    ]
+
+    shop_location = None
+    try:
+        shop = Shop.load()
+        if shop and shop.latitude and shop.longitude:
+            shop_location = {
+                "lat": float(shop.latitude),
+                "lng": float(shop.longitude),
+            }
+    except Exception:
+        shop_location = None
+
+    initial_draft = None
+    if form_data:
+        draft = {
+            "route": form_data.get("addr_route", ""),
+            "street_number": form_data.get("addr_street_number", ""),
+            "complement": form_data.get("addr_complement", ""),
+            "neighborhood": form_data.get("addr_neighborhood", ""),
+            "city": form_data.get("addr_city", ""),
+            "state_code": form_data.get("addr_state_code", ""),
+            "postal_code": form_data.get("addr_postal_code", ""),
+            "place_id": form_data.get("addr_place_id", ""),
+            "formatted_address": form_data.get("addr_formatted_address", ""),
+            "delivery_instructions": form_data.get("addr_delivery_instructions", ""),
+            "latitude": form_data.get("addr_latitude") or None,
+            "longitude": form_data.get("addr_longitude") or None,
+        }
+        if any(v for v in draft.values() if v not in (None, "")):
+            initial_draft = draft
+
+    return {
+        "picker_addresses_json": _json.dumps(addresses),
+        "picker_shop_location_json": _json.dumps(shop_location),
+        "picker_initial_draft_json": _json.dumps(initial_draft),
+        "picker_preselected_id": getattr(checkout, "preselected_address_id", None),
+        "google_maps_api_key": getattr(settings, "GOOGLE_MAPS_API_KEY", ""),
+    }
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
@@ -126,24 +206,17 @@ class CheckoutView(View):
         if customer_info is None:
             return redirect("/login/?next=/checkout/")
 
-        if request.GET.get("v1") is not None:
-            ctx = self._checkout_page_context(request, cart)
-            ctx["form_data"] = {
-                "phone": customer_info.phone or "",
-                "name": customer_info.name or "",
-            }
-            return render(request, "storefront/checkout.html", ctx)
-
         from shopman.shop.projections import build_checkout
 
         checkout = build_checkout(request=request, channel_ref=CHANNEL_REF)
-        return render(request, "storefront/v2/checkout.html", {
+        return render(request, "storefront/checkout.html", {
             "checkout": checkout,
             "errors": {},
             "form_data": {
                 "phone": customer_info.phone or "",
                 "name": customer_info.name or "",
             },
+            **_address_picker_context(checkout),
         })
 
     def post(self, request: HttpRequest) -> HttpResponse:
@@ -208,13 +281,23 @@ class CheckoutView(View):
 
         session_key = cart["session_key"]
 
-        # Set handle on session for history lookup
+        # Set handle on session for history lookup. Abandon any prior open
+        # sessions with the same handle first — unique constraint
+        # (channel_ref, handle_type, handle_ref) permits only one open session
+        # per customer per channel, so stale sessions from earlier attempts
+        # must be closed before this one claims the handle.
         from shopman.orderman.models import Session as OmniSession
 
         try:
             omni_session = OmniSession.objects.get(
                 session_key=session_key, state="open"
             )
+            OmniSession.objects.filter(
+                channel_ref=omni_session.channel_ref,
+                handle_type="phone",
+                handle_ref=phone,
+                state="open",
+            ).exclude(pk=omni_session.pk).update(state="abandoned")
             omni_session.handle_type = "phone"
             omni_session.handle_ref = phone
             omni_session.save(update_fields=["handle_type", "handle_ref"])
@@ -256,13 +339,14 @@ class CheckoutView(View):
         if not self._payment_method_available(chosen_method):
             errors["payment_method"] = "Método de pagamento indisponível. Selecione outro."
 
-        minimum_order_warning = minimum_order_progress(cart["subtotal_q"])
-        if minimum_order_warning:
-            errors["minimum_order"] = (
-                "Faltam "
-                f"{minimum_order_warning['remaining_display']} para atingir o pedido mínimo de "
-                f"{minimum_order_warning['minimum_display']}."
-            )
+        if fulfillment_type == "delivery":
+            minimum_order_warning = minimum_order_progress(cart["subtotal_q"])
+            if minimum_order_warning:
+                errors["minimum_order"] = (
+                    "Faltam "
+                    f"{minimum_order_warning['remaining_display']} para atingir o pedido mínimo de "
+                    f"{minimum_order_warning['minimum_display']}."
+                )
 
         address_errors = self._validate_checkout_form(
             fulfillment_type=fulfillment_type,
@@ -401,12 +485,24 @@ class CheckoutView(View):
                 idempotency_key=idempotency_key,
             )
         except Exception as exc:
-            # Map orderman ValidationError to user-visible checkout error
+            # Map both orderman ValidationError and Django ValidationError
+            # (raised by rules.validation — e.g. MinimumOrderRule, BusinessHoursRule)
+            # into user-visible checkout errors. Unknown exceptions still bubble.
+            from django.core.exceptions import ValidationError as DjangoValidationError
             from shopman.orderman.exceptions import ValidationError as OrderingValidationError
 
+            field: str | None = None
+            message: str | None = None
             if isinstance(exc, OrderingValidationError):
                 field = "delivery_address" if exc.code == "delivery_zone_not_covered" else "checkout"
-                errors[field] = exc.message
+                message = exc.message
+            elif isinstance(exc, DjangoValidationError):
+                msgs = exc.messages if hasattr(exc, "messages") else [str(exc)]
+                message = msgs[0] if msgs else str(exc)
+                field = "checkout"
+
+            if field and message:
+                errors[field] = message
                 return self._render_with_errors(
                     request, cart, errors, name, phone_raw, notes,
                     extra_form_data={
@@ -616,11 +712,12 @@ class CheckoutView(View):
 
         errors = {}
 
-        if fulfillment_type == "pickup" and not delivery_time_slot:
-            errors["delivery_time_slot"] = "Selecione um horário de retirada."
+        # Time slot is pickup-only — delivery has no scheduling UI.
+        if fulfillment_type != "pickup":
             return errors
 
         if not delivery_time_slot:
+            errors["delivery_time_slot"] = "Selecione um horário de retirada."
             return errors
 
         slots = get_slots()
@@ -666,9 +763,11 @@ class CheckoutView(View):
             has_number = bool((addr_data.get("street_number") or "").strip())
             has_saved_flat_address = bool(delivery_address)
             if not has_saved_flat_address and not has_route:
-                errors["delivery_address"] = "Informe o endereço de entrega."
+                errors["delivery_address"] = (
+                    "Escolha um endereço salvo ou adicione um novo para entregarmos."
+                )
             if has_route and not has_number:
-                errors["addr_street_number"] = "Informe o número do endereço."
+                errors["addr_street_number"] = "Falta só o número do endereço."
         if not payment_method:
             errors["payment_method"] = "Selecione uma forma de pagamento."
         return errors
@@ -809,21 +908,14 @@ class CheckoutView(View):
         if extra_form_data:
             form_data.update(extra_form_data)
 
-        if request.GET.get("v1") is not None:
-            ctx = self._checkout_page_context(request, cart)
-            ctx["errors"] = errors
-            ctx["form_data"] = form_data
-            if repricing_warnings:
-                ctx["repricing_warnings"] = repricing_warnings
-            return render(request, "storefront/checkout.html", ctx)
-
         from shopman.shop.projections import build_checkout
 
         checkout = build_checkout(request=request, channel_ref=CHANNEL_REF)
-        return render(request, "storefront/v2/checkout.html", {
+        return render(request, "storefront/checkout.html", {
             "checkout": checkout,
             "errors": errors,
             "form_data": form_data,
+            **_address_picker_context(checkout, form_data=form_data),
         })
 
 

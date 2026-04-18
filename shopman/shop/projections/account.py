@@ -1,7 +1,7 @@
 """CustomerProfileProjection — read model for the account page (Fase 3).
 
 Translates a Customer + loyalty account + addresses + order history into
-one immutable projection consumed by the ``storefront/v2/account.html``
+one immutable projection consumed by the ``storefront/account.html``
 template.
 
 ``build_account``  → full account page projection.
@@ -16,7 +16,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from django.utils import timezone
-
 from shopman.utils.monetary import format_money
 
 from .types import (

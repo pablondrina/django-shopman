@@ -2,7 +2,7 @@
 module.exports = {
   darkMode: 'class',
   content: [
-    './shopman/templates/**/*.html',
+    './shopman/shop/templates/**/*.html',
   ],
   theme: {
     extend: {

@@ -48,14 +48,14 @@
 {# Compiled Tailwind v4 (Penguin UI tokens) #}
 <link rel="stylesheet" href="{% static 'storefront/css/output-v2.css' %}">
 
+{# Planned-hold confirmation helpers (countdown, poll, announce) — exposed on ``window.*`` for use via ``x-data="window.confirmationCountdown(...)"``. Loaded SYNCHRONOUSLY before Alpine so the globals exist when Alpine walks the DOM. #}
+<script src="{% static 'storefront/js/confirmation.js' %}?v=6"></script>
+
 {# Alpine.js #}
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
 
 {# Haptic feedback helper — exposes window.triggerHaptic #}
 <script defer src="{% static 'storefront/js/haptic.js' %}"></script>
-
-{# Fermata countdown/announce helpers — WP-FERMATA-UI #}
-<script defer src="{% static 'storefront/js/fermata.js' %}"></script>
 
 {# Runtime token overrides — maps Django design_tokens to Penguin CSS vars #}
 {% with t=storefront.design_tokens dark=storefront.design_tokens.dark %}

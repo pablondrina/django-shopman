@@ -75,6 +75,44 @@ class TestStockContract:
         assert callable(getattr(mod, "receive_return", None))
 
 
+class TestChannelScopeResolution:
+    """``get_channel_scope`` must resolve ``excluded_positions`` from
+    ``ChannelConfig.stock`` so the scope gate (shared by check and reserve)
+    sees the configured denylist for a given channel."""
+
+    def test_scope_reads_excluded_positions_from_channel_config(self, db):
+        from shopman.shop.adapters import stock
+        from shopman.shop.models import Channel
+
+        Channel.objects.update_or_create(
+            ref="test-remote",
+            defaults={
+                "name": "Test Remote",
+                "kind": "web",
+                "is_active": True,
+                "config": {"stock": {"excluded_positions": ["ontem"]}},
+            },
+        )
+        scope = stock.get_channel_scope("test-remote")
+        assert scope["excluded_positions"] == ["ontem"]
+
+    def test_scope_defaults_empty_when_channel_has_no_denylist(self, db):
+        from shopman.shop.adapters import stock
+        from shopman.shop.models import Channel
+
+        Channel.objects.update_or_create(
+            ref="test-pos",
+            defaults={
+                "name": "Test POS",
+                "kind": "pos",
+                "is_active": True,
+                "config": {"stock": {"check_on_commit": True}},
+            },
+        )
+        scope = stock.get_channel_scope("test-pos")
+        assert scope["excluded_positions"] == []
+
+
 # ── Payment adapter contracts ──
 
 

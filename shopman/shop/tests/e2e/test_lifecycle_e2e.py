@@ -532,3 +532,73 @@ class TestE2E9StockHoldFailure(TestCase):
 
         # Transaction rolled back — no Order was created
         self.assertEqual(Order.objects.count(), 0)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# E2E-10: WhatsApp channel — auto_confirm + manychat notification backend
+# ─────────────────────────────────────────────────────────────────────
+
+
+_WHATSAPP_CONFIG = {
+    "confirmation": {"mode": "auto_confirm", "timeout_minutes": 5},
+    "payment": {"method": ["pix"], "timing": "post_commit"},
+    "notifications": {"backend": "manychat"},
+    "stock": {"check_on_commit": False},
+}
+
+
+class TestE2E10WhatsappChannel(TestCase):
+    """WhatsApp (ManyChat) channel: commit → order_received → auto_confirm directive.
+
+    Cobre o gap da audit: nenhum E2E exercita channel_ref="whatsapp" com
+    handle_type="manychat". Valida que:
+      1. A notificação "order_received" dispara no on_commit (R2).
+      2. Um Directive de confirmation.timeout é agendado (auto_confirm).
+      3. O handle_type/handle_ref chegam no Order corretamente pro ManyChat.
+    """
+
+    def setUp(self):
+        self.channel = _make_channel(ref="whatsapp", kind="whatsapp", config=_WHATSAPP_CONFIG)
+        self.patchers, self.mocks = _start_patches()
+
+    def tearDown(self):
+        _stop_patches(self.patchers)
+
+    def test_whatsapp_commit_emits_order_received_and_schedules_auto_confirm(self):
+        session = Session.objects.create(
+            session_key=generate_session_key(),
+            channel_ref=self.channel.ref,
+            state="open",
+            items=[{"sku": "PAO-FRANCES", "qty": 2, "unit_price_q": 80, "line_id": "L1"}],
+            handle_type="manychat",
+            handle_ref="mc_subscriber_12345",
+        )
+        result = CommitService.commit(
+            session_key=session.session_key,
+            channel_ref=self.channel.ref,
+            idempotency_key=generate_idempotency_key(),
+        )
+        order = Order.objects.get(ref=result["order_ref"])
+
+        # Order foi criado no canal WhatsApp com handle=manychat
+        self.assertEqual(order.channel_ref, "whatsapp")
+        self.assertEqual(order.handle_type, "manychat")
+        self.assertEqual(order.handle_ref, "mc_subscriber_12345")
+        # Status fica em NEW porque o modo é auto_confirm (timeout pra confirmar)
+        self.assertEqual(order.status, Order.Status.NEW)
+
+        # Notificação "order_received" disparou no _on_commit (R2 do audit)
+        send_calls = [c.args for c in self.mocks["send"].call_args_list]
+        self.assertIn(
+            (order, "order_received"),
+            send_calls,
+            f"Expected order_received call; got {send_calls}",
+        )
+
+        # Directive de confirmation.timeout foi agendada
+        directive = Directive.objects.filter(
+            topic="confirmation.timeout",
+            payload__order_ref=order.ref,
+        ).first()
+        self.assertIsNotNone(directive)
+        self.assertEqual(directive.payload["action"], "confirm")

@@ -14,6 +14,7 @@ from shopman.guestman.contrib.consent import ConsentService
 from shopman.guestman.contrib.preferences import PreferenceService
 from shopman.guestman.services import address as address_service
 from shopman.guestman.services import customer as customer_service
+
 from shopman.shop.projections.account import (
     FOOD_PREFERENCE_OPTIONS,
     NOTIFICATION_CHANNELS,
@@ -21,12 +22,60 @@ from shopman.shop.projections.account import (
 )
 from shopman.shop.projections.types import FoodPrefProjection, NotificationPrefProjection
 
-from ._helpers import _is_v2_request
 from .auth import get_authenticated_customer
 
 
 def _get_customer_addresses(customer_ref: str):
     return address_service.addresses(customer_ref)
+
+
+def _parse_coordinates(post) -> tuple[float, float] | None:
+    """Read latitude/longitude from request.POST, tolerant of empty strings."""
+    try:
+        lat_raw = (post.get("latitude") or "").strip()
+        lng_raw = (post.get("longitude") or "").strip()
+        if not lat_raw or not lng_raw:
+            return None
+        return float(lat_raw), float(lng_raw)
+    except (ValueError, TypeError):
+        return None
+
+
+def _account_picker_context() -> dict:
+    """Picker context for the account page (empty saved list + shop location).
+
+    The account page uses the picker as a composition form only (add new
+    address); saved addresses live in the ``address_list`` partial. So the
+    picker starts on the "new" view with no preselection.
+
+    Note: valores JSON são devolvidos como string crua (sem mark_safe) para
+    que o auto-escape do template transforme ``"`` em ``&quot;`` dentro do
+    atributo ``x-data="..."`` — o browser desescapa em JS válido. Usar
+    mark_safe aqui quebra a parseabilidade do atributo (checkout faz igual).
+    """
+    import json as _json
+
+    from django.conf import settings
+
+    from shopman.shop.models import Shop
+
+    shop_location = None
+    try:
+        shop = Shop.load()
+        if shop and shop.latitude and shop.longitude:
+            shop_location = {
+                "lat": float(shop.latitude),
+                "lng": float(shop.longitude),
+            }
+    except Exception:
+        shop_location = None
+
+    return {
+        "picker_addresses_json": "[]",
+        "picker_shop_location_json": _json.dumps(shop_location),
+        "picker_preselected_id": None,
+        "google_maps_api_key": getattr(settings, "GOOGLE_MAPS_API_KEY", ""),
+    }
 
 
 def _get_customer_preferences(customer_ref: str):
@@ -50,11 +99,12 @@ class AccountView(View):
     def _render_account(self, request: HttpRequest, customer) -> HttpResponse:
         account = build_account(customer)
         addresses = _get_customer_addresses(customer.ref)
-        tmpl = "storefront/v2/account.html" if _is_v2_request(request) else "storefront/account.html"
+        tmpl = "storefront/account.html"
         return render(request, tmpl, {
             "account": account,
             "customer": customer,   # for HTMX partials (profile_display, address_form)
             "addresses": addresses, # for address_list include
+            **_account_picker_context(),
         })
 
     def post(self, request: HttpRequest) -> HttpResponse:
@@ -77,12 +127,17 @@ class AddressCreateView(View):
         street_number = request.POST.get("street_number", "").strip()
         neighborhood = request.POST.get("neighborhood", "").strip()
         city = request.POST.get("city", "").strip()
+        state_code = request.POST.get("state_code", "").strip()
+        postal_code = request.POST.get("postal_code", "").strip()
         complement = request.POST.get("complement", "").strip()
         delivery_instructions = request.POST.get("delivery_instructions", "").strip()
+        place_id = request.POST.get("place_id", "").strip()
         is_default = request.POST.get("is_default") == "on"
 
+        coordinates = _parse_coordinates(request.POST)
+
         if not formatted_address:
-            # Build formatted_address from components
+            # Build formatted_address from components as a friendly fallback.
             parts = []
             if route:
                 parts.append(route)
@@ -93,21 +148,22 @@ class AddressCreateView(View):
             if city:
                 parts.append(f"- {city}")
             formatted_address = " ".join(parts) if parts else ""
-
-        v2 = _is_v2_request(request)
-        if not formatted_address:
-            form_tmpl = "storefront/v2/partials/address_form.html" if v2 else "storefront/partials/address_form.html"
+        if not formatted_address or not route:
+            form_tmpl = "storefront/partials/address_form.html"
             return render(request, form_tmpl, {
                 "customer": customer,
-                "form_errors": {"formatted_address": "Endereço é obrigatório."},
+                "form_errors": {"formatted_address": "Informe um endereço válido."},
                 "form_data": request.POST,
+                **_account_picker_context(),
             })
 
-        address_service.add_address(
+        created = address_service.add_address(
             customer_ref=customer.ref,
             label=label,
             label_custom=label_custom,
             formatted_address=formatted_address,
+            place_id=place_id or None,
+            coordinates=coordinates,
             complement=complement,
             delivery_instructions=delivery_instructions,
             is_default=is_default,
@@ -116,15 +172,27 @@ class AddressCreateView(View):
                 "street_number": street_number,
                 "neighborhood": neighborhood,
                 "city": city,
+                "state_code": state_code,
+                "postal_code": postal_code,
             },
         )
 
         addresses = _get_customer_addresses(customer.ref)
-        list_tmpl = "storefront/v2/partials/address_list.html" if v2 else "storefront/partials/address_list.html"
-        return render(request, list_tmpl, {
+        list_tmpl = "storefront/partials/address_list.html"
+        response = render(request, list_tmpl, {
             "addresses": addresses,
             "customer": customer,
         })
+        # Nudge the picker to open its post-save label prompt. The form only
+        # sends label="home" as default; if the customer came in without a
+        # deliberate choice, we give them the gentle Casa/Trabalho/Outro
+        # modal. Always emit — the picker itself decides whether to show.
+        import json as _json
+
+        response["HX-Trigger"] = _json.dumps({
+            "address:created": {"id": created.pk},
+        })
+        return response
 
 
 class AddressUpdateView(View):
@@ -149,6 +217,9 @@ class AddressUpdateView(View):
         street_number = request.POST.get("street_number", "").strip()
         neighborhood = request.POST.get("neighborhood", "").strip()
         city = request.POST.get("city", "").strip()
+        state_code = request.POST.get("state_code", addr.state_code).strip()
+        postal_code = request.POST.get("postal_code", addr.postal_code).strip()
+        place_id = request.POST.get("place_id", addr.place_id).strip()
         complement = request.POST.get("complement", "").strip()
         delivery_instructions = request.POST.get("delivery_instructions", "").strip()
 
@@ -164,26 +235,30 @@ class AddressUpdateView(View):
                 parts.append(f"- {city}")
             formatted_address = " ".join(parts) if parts else ""
 
-        address_service.update_address(
-            customer.ref,
-            pk,
-            label=label,
-            label_custom=label_custom,
-            formatted_address=formatted_address,
-            route=route,
-            street_number=street_number,
-            neighborhood=neighborhood,
-            city=city,
-            complement=complement,
-            delivery_instructions=delivery_instructions,
-        )
+        coordinates = _parse_coordinates(request.POST)
+        update_fields = {
+            "label": label,
+            "label_custom": label_custom,
+            "formatted_address": formatted_address,
+            "route": route,
+            "street_number": street_number,
+            "neighborhood": neighborhood,
+            "city": city,
+            "state_code": state_code,
+            "postal_code": postal_code,
+            "complement": complement,
+            "delivery_instructions": delivery_instructions,
+            "place_id": place_id,
+        }
+        if coordinates is not None:
+            update_fields["latitude"] = coordinates[0]
+            update_fields["longitude"] = coordinates[1]
+            update_fields["is_verified"] = True
+
+        address_service.update_address(customer.ref, pk, **update_fields)
 
         addresses = _get_customer_addresses(customer.ref)
-        list_tmpl = (
-            "storefront/v2/partials/address_list.html"
-            if _is_v2_request(request)
-            else "storefront/partials/address_list.html"
-        )
+        list_tmpl = "storefront/partials/address_list.html"
         return render(request, list_tmpl, {
             "addresses": addresses,
             "customer": customer,
@@ -206,11 +281,7 @@ class AddressDeleteView(View):
         address_service.delete_address(auth_customer.ref, pk)
 
         addresses = _get_customer_addresses(auth_customer.ref)
-        list_tmpl = (
-            "storefront/v2/partials/address_list.html"
-            if _is_v2_request(request)
-            else "storefront/partials/address_list.html"
-        )
+        list_tmpl = "storefront/partials/address_list.html"
         return render(request, list_tmpl, {
             "addresses": addresses,
             "customer": auth_customer,
@@ -224,11 +295,7 @@ class ProfileDisplayView(View):
         customer = get_authenticated_customer(request)
         if not customer:
             return HttpResponse("Autenticação necessária.", status=401)
-        tmpl = (
-            "storefront/v2/partials/profile_display.html"
-            if _is_v2_request(request)
-            else "storefront/partials/profile_display.html"
-        )
+        tmpl = "storefront/partials/profile_display.html"
         return render(request, tmpl, {"customer": customer})
 
 
@@ -239,11 +306,7 @@ class ProfileEditView(View):
         customer = get_authenticated_customer(request)
         if not customer:
             return HttpResponse("Autenticação necessária.", status=401)
-        tmpl = (
-            "storefront/v2/partials/profile_form.html"
-            if _is_v2_request(request)
-            else "storefront/partials/profile_form.html"
-        )
+        tmpl = "storefront/partials/profile_form.html"
         return render(request, tmpl, {"customer": customer})
 
 
@@ -263,14 +326,8 @@ class ProfileUpdateView(View):
         errors = {}
         if not first_name:
             errors["first_name"] = "Nome é obrigatório."
-
-        v2 = _is_v2_request(request)
         if errors:
-            form_tmpl = (
-                "storefront/v2/partials/profile_form.html"
-                if v2
-                else "storefront/partials/profile_form.html"
-            )
+            form_tmpl = "storefront/partials/profile_form.html"
             return render(request, form_tmpl, {
                 "customer": customer,
                 "errors": errors,
@@ -294,12 +351,34 @@ class ProfileUpdateView(View):
             birthday=birthday,
         )
 
-        display_tmpl = (
-            "storefront/v2/partials/profile_display.html"
-            if v2
-            else "storefront/partials/profile_display.html"
-        )
+        display_tmpl = "storefront/partials/profile_display.html"
         return render(request, display_tmpl, {"customer": customer})
+
+
+class AddressLabelUpdateView(View):
+    """HTMX: lightweight label-only update invoked by the post-save modal.
+
+    The address picker surfaces a gentle "Casa / Trabalho / Outro" prompt after
+    a new address is saved. This endpoint updates just the label and
+    label_custom fields without re-running the full create flow.
+    """
+
+    def post(self, request: HttpRequest, pk: int) -> HttpResponse:
+        customer = get_authenticated_customer(request)
+        if not customer:
+            return HttpResponse("", status=401)
+
+        if address_service.address_belongs_to_other_customer(customer.ref, pk):
+            return HttpResponse("", status=403)
+        if not address_service.get_address(customer.ref, pk):
+            return HttpResponse("", status=404)
+
+        label = request.POST.get("label", "home")
+        label_custom = request.POST.get("label_custom", "").strip()
+        address_service.update_address(
+            customer.ref, pk, label=label, label_custom=label_custom,
+        )
+        return HttpResponse("", status=204)
 
 
 class AddressSetDefaultView(View):
@@ -318,11 +397,7 @@ class AddressSetDefaultView(View):
         address_service.set_default_address(auth_customer.ref, pk)
 
         addresses = _get_customer_addresses(auth_customer.ref)
-        list_tmpl = (
-            "storefront/v2/partials/address_list.html"
-            if _is_v2_request(request)
-            else "storefront/partials/address_list.html"
-        )
+        list_tmpl = "storefront/partials/address_list.html"
         return render(request, list_tmpl, {
             "addresses": addresses,
             "customer": auth_customer,
@@ -362,11 +437,7 @@ class NotificationPrefsToggleView(View):
             )
             for key, label, description in NOTIFICATION_CHANNELS
         )
-        tmpl = (
-            "storefront/v2/partials/notification_prefs.html"
-            if _is_v2_request(request)
-            else "storefront/partials/notification_prefs.html"
-        )
+        tmpl = "storefront/partials/notification_prefs.html"
         return render(request, tmpl, {"notification_prefs": notification_prefs})
 
 
@@ -396,11 +467,7 @@ class FoodPreferenceToggleView(View):
             FoodPrefProjection(key=k, label=label, is_active=k in active_keys)
             for k, label in FOOD_PREFERENCE_OPTIONS
         )
-        tmpl = (
-            "storefront/v2/partials/food_prefs.html"
-            if _is_v2_request(request)
-            else "storefront/partials/food_prefs.html"
-        )
+        tmpl = "storefront/partials/food_prefs.html"
         return render(request, tmpl, {"food_pref_options": food_pref_options})
 
 

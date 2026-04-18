@@ -1,44 +1,41 @@
 {% extends "storefront/base.html" %}
+{% load static %}
+
+{% block bottom_bar %}{% endblock %}
 
 {% block title %}Carrinho{% endblock %}
+{% block meta_description %}Seu carrinho — {{ storefront.brand_name }}.{% endblock %}
+
+{% block breadcrumb %}
+<nav class="mb-6" aria-label="Breadcrumb">
+  <ol x-data="breadcrumb()" class="flex items-center text-sm overflow-hidden">
+    <li data-bc>
+      <a href="{% url 'storefront:home' %}" class="text-on-surface hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">Início</a>
+    </li>
+    <li data-bc-ellipsis hidden class="flex items-center text-on-surface/40 dark:text-on-surface-dark/40">
+      {% include "storefront/partials/_breadcrumb_chevron.html" %}<a :href="ellipsisHref" class="hover:text-primary dark:hover:text-primary-dark focus:outline-hidden focus:underline">…</a>
+    </li>
+    <li data-bc class="flex items-center">
+      {% include "storefront/partials/_breadcrumb_chevron.html" %}
+      <a href="{% url 'storefront:menu' %}" class="text-on-surface hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">Cardápio</a>
+    </li>
+    <li data-bc class="flex items-center min-w-0">
+      {% include "storefront/partials/_breadcrumb_chevron.html" %}
+      <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong truncate" aria-current="page">Carrinho</span>
+    </li>
+  </ol>
+</nav>
+{% endblock %}
 
 {% block content %}
-
-<div class="mb-6">
-  <a href="{% url 'storefront:menu' %}" class="text-secondary hover:text-secondary-hover font-medium text-sm transition-colors">
-    &larr; Continuar comprando
-  </a>
-</div>
-
-<h1 class="text-h1 text-foreground mb-6">Seu Carrinho</h1>
-
-{# Closing awareness — shows only when closing within 1h #}
-<div class="mb-4">
-  {% include "storefront/partials/closing_awareness.html" %}
-</div>
-
-{% if minimum_order_warning %}
-<div class="mb-4 p-3 rounded-lg bg-warning-light border border-warning text-warning-foreground text-sm flex items-center gap-2">
-  <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-  </svg>
-  Faltam <strong>{{ minimum_order_warning.remaining_display }}</strong> para o pedido mínimo de {{ minimum_order_warning.minimum_display }}
-</div>
-{% endif %}
-
-<div id="cart-warnings"
-     hx-get="{% url 'storefront:cart_check' %}"
-     hx-trigger="load, cartUpdated from:body"
-     hx-swap="innerHTML">
-</div>
-
-<div id="cart-content"
-     hx-get="{% url 'storefront:cart_content' %}"
+{% comment %}
+The inner partial re-renders on cartUpdated so steppers, delete, coupon,
+and upsell stay in sync with the projection without page reloads.
+{% endcomment %}
+<div id="cart-page-content"
+     hx-get="{% url 'storefront:cart_page_content' %}"
      hx-trigger="cartUpdated from:body"
      hx-swap="innerHTML">
-  {% include "storefront/partials/cart_content.html" %}
+  {% include "storefront/partials/_cart_page_content.html" %}
 </div>
-
-<!-- Cart badge in header is updated automatically via hx-trigger="cartUpdated from:body" in base.html -->
-
 {% endblock %}

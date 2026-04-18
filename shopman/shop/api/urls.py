@@ -8,6 +8,7 @@ from . import views
 from .account import AddressListView, OrderHistoryView, ProfileView
 from .availability import AvailabilityView
 from .catalog import CollectionListView, ProductDetailView, ProductListView
+from .geocode import ReverseGeocodeView
 from .tracking import OrderTrackingView
 
 urlpatterns = [
@@ -29,4 +30,6 @@ urlpatterns = [
     path("account/profile/", ProfileView.as_view(), name="api-account-profile"),
     path("account/addresses/", AddressListView.as_view(), name="api-account-addresses"),
     path("account/orders/", OrderHistoryView.as_view(), name="api-account-orders"),
+    # Geocoding (server-side — key stays on the server)
+    path("geocode/reverse", ReverseGeocodeView.as_view(), name="api-geocode-reverse"),
 ]

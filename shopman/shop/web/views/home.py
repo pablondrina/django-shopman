@@ -17,6 +17,29 @@ class HomeView(View):
     """
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        if request.GET.get("v1") is not None:
-            return render(request, "storefront/home.html")
-        return render(request, "storefront/v2/home.html")
+        context = {"last_order_ref": self._last_order_ref(request)}
+        return render(request, "storefront/home.html", context)
+
+    @staticmethod
+    def _last_order_ref(request: HttpRequest) -> str | None:
+        """Resolve ref do último pedido do cliente logado para o quick-reorder."""
+        customer_info = getattr(request, "customer", None)
+        if customer_info is None:
+            return None
+        try:
+            from shopman.guestman.services import customer as customer_service
+            from shopman.orderman.models import Order
+
+            cust = customer_service.get_by_uuid(str(customer_info.uuid))
+            if cust is None:
+                return None
+            last = (
+                Order.objects
+                .filter(data__customer_ref=cust.ref)
+                .order_by("-created_at")
+                .values_list("ref", flat=True)
+                .first()
+            )
+            return last
+        except Exception:
+            return None

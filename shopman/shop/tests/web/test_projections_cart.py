@@ -109,6 +109,68 @@ class TestPopulatedCart:
 
 
 # ──────────────────────────────────────────────────────────────────────
+# Availability — own-hold correction
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestAvailabilityOwnHoldCorrection:
+    """Regression: a cart line is only flagged unavailable when the shortage
+    is real (external), not when the customer's own hold is the reason
+    ``total_promisable`` hit zero.
+
+    Previously the cart compared ``total_promisable < line.qty`` without
+    knowing that ``total_promisable`` excludes the session's own hold.
+    A customer who bought the entire physical stock saw "Acabou no momento"
+    next to their own N units — nonsensical.
+    """
+
+    def test_cart_holding_all_physical_stock_shows_no_warning(
+        self, client, channel, product,
+    ):
+        """Stock=5, cart=5 (all reserved by own hold) → no warning."""
+        from datetime import date
+        from decimal import Decimal
+
+        from shopman.stockman import stock
+        from shopman.stockman.models import Position, PositionKind
+
+        from shopman.shop.tests.web.conftest import _ensure_listing_item
+
+        _ensure_listing_item(channel, product, price_q=90)
+        position, _ = Position.objects.get_or_create(
+            ref="loja",
+            defaults={
+                "name": "Loja Principal",
+                "kind": PositionKind.PHYSICAL,
+                "is_saleable": True,
+            },
+        )
+        stock.receive(
+            quantity=Decimal("5"),
+            sku=product.sku,
+            position=position,
+            target_date=date.today(),
+            reason="own-hold regression seed",
+        )
+
+        resp = client.post("/cart/add/", {"sku": product.sku, "qty": 5})
+        assert resp.status_code in (200, 201), (
+            "adding all available stock must succeed — hold protects the qty"
+        )
+
+        request = _request_with_cart_session(client)
+        proj = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
+
+        assert len(proj.items) == 1
+        item = proj.items[0]
+        assert item.qty == 5
+        assert item.is_available is True, (
+            "session holding all its own stock must NOT be flagged unavailable"
+        )
+        assert item.availability_warning is None
+
+
+# ──────────────────────────────────────────────────────────────────────
 # Minimum order progress
 # ──────────────────────────────────────────────────────────────────────
 
@@ -142,7 +204,13 @@ class TestMinimumOrderProgress:
         assert 0 <= progress.percent <= 100
 
     def test_no_progress_when_rule_inactive(self, cart_session):
-        # Default channel config has no minimum_order validator.
+        # Explicitly disable validators on the channel ([] = run none).
+        from shopman.shop.models import Channel
+        channel = Channel.objects.get(ref=STOREFRONT_CHANNEL_REF)
+        channel.config = channel.config or {}
+        channel.config.setdefault("rules", {})["validators"] = []
+        channel.save(update_fields=["config"])
+
         request = _request_with_cart_session(cart_session)
         proj = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
         assert proj.minimum_order_progress is None

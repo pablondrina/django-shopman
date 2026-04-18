@@ -1,75 +1,75 @@
 {% load storefront_tags %}
 <div id="profile-section">
   <div class="flex items-center justify-between mb-4">
-    <h3 class="text-h4 text-foreground">Editar dados</h3>
-    <button
-      type="button"
-      hx-get="{% url 'storefront:profile_display' %}"
-      hx-target="#profile-section"
-      hx-swap="outerHTML"
-      class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-    >
+    <h3 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Editar dados</h3>
+    <button type="button"
+            hx-get="{% url 'storefront:profile_display' %}"
+            hx-target="#profile-section"
+            hx-swap="outerHTML"
+            class="text-sm font-medium text-on-surface/60 hover:text-on-surface transition dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark">
       Cancelar
     </button>
   </div>
 
-  <form
-    hx-post="{% url 'storefront:profile_update' %}"
-    hx-target="#profile-section"
-    hx-swap="outerHTML"
-    class="space-y-4"
-  >
+  <form hx-post="{% url 'storefront:profile_update' %}"
+        hx-target="#profile-section"
+        hx-swap="outerHTML"
+        class="space-y-4">
     {% csrf_token %}
 
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div>
-        <label for="first_name" class="block text-sm font-medium text-foreground mb-1">Como quer ser chamado?</label>
-        <input
-          type="text"
-          id="first_name"
-          name="first_name"
-          value="{{ customer.first_name|default:'' }}"
-          class="w-full px-4 py-2.5 rounded-lg border {% if errors.first_name %}border-error{% else %}border-border{% endif %} bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
-          placeholder="Ex: Ana, Jr, Dona Maria..."
-        >
+        <label for="first_name" class="block text-sm font-medium text-on-surface dark:text-on-surface-dark mb-1">
+          Como quer ser chamado?
+        </label>
+        <input type="text"
+               id="first_name"
+               name="first_name"
+               value="{{ customer.first_name|default:'' }}"
+               placeholder="Ex: Ana, Jr, Dona Maria..."
+               class="w-full px-4 py-2.5 rounded-radius border
+                      {% if errors.first_name %}border-danger dark:border-danger-dark{% else %}border-outline dark:border-outline-dark{% endif %}
+                      bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark
+                      focus:outline-hidden focus:ring-2 focus:ring-primary dark:focus:ring-primary-dark transition">
         {% if errors.first_name %}
-        <p class="mt-1 text-sm text-error">{{ errors.first_name }}</p>
+        <p class="mt-1 text-sm text-danger dark:text-danger-dark">{{ errors.first_name }}</p>
         {% endif %}
       </div>
 
       <div>
-        <label for="email" class="block text-sm font-medium text-foreground mb-1">Email</label>
-        <input
-          type="email"
-          id="email"
-          name="email"
-          value="{{ customer.email|default:'' }}"
-          class="w-full px-4 py-2.5 rounded-lg border border-border bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
-          placeholder="seu@email.com"
-        >
+        <label for="email" class="block text-sm font-medium text-on-surface dark:text-on-surface-dark mb-1">Email</label>
+        <input type="email"
+               id="email"
+               name="email"
+               value="{{ customer.email|default:'' }}"
+               placeholder="seu@email.com"
+               class="w-full px-4 py-2.5 rounded-radius border border-outline dark:border-outline-dark
+                      bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark
+                      focus:outline-hidden focus:ring-2 focus:ring-primary dark:focus:ring-primary-dark transition">
       </div>
 
       <div>
-        <label for="birthday" class="block text-sm font-medium text-foreground mb-1">Data de nascimento</label>
-        <input
-          type="date"
-          id="birthday"
-          name="birthday"
-          value="{{ customer.birthday|date:'Y-m-d' }}"
-          class="w-full px-4 py-2.5 rounded-lg border border-border bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
-        >
+        <label for="birthday" class="block text-sm font-medium text-on-surface dark:text-on-surface-dark mb-1">
+          Data de nascimento
+        </label>
+        <input type="date"
+               id="birthday"
+               name="birthday"
+               value="{{ customer.birthday|date:'Y-m-d' }}"
+               class="w-full px-4 py-2.5 rounded-radius border border-outline dark:border-outline-dark
+                      bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark
+                      focus:outline-hidden focus:ring-2 focus:ring-primary dark:focus:ring-primary-dark transition">
       </div>
     </div>
 
-    <div class="pt-2">
-      <p class="text-xs text-muted-foreground mb-3">
+    <div class="pt-1">
+      <p class="text-xs text-on-surface/50 dark:text-on-surface-dark/50 mb-3">
         Telefone: <span class="font-medium">{{ customer.phone|format_phone }}</span>
-        <span class="text-muted-foreground/50">(não editável)</span>
+        <span class="opacity-50">(não editável)</span>
       </p>
-      <button
-        type="submit"
-        class="px-6 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary-hover transition-colors"
-      >
+      <button type="submit"
+              class="px-6 py-2.5 rounded-radius bg-primary text-white font-medium hover:opacity-90 transition
+                     min-h-[44px] dark:bg-primary-dark">
         Salvar
       </button>
     </div>

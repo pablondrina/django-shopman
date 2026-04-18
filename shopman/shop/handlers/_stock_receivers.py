@@ -1,6 +1,6 @@
 """
 Stock signal receivers — auto-commit sessions after hold materialization,
-and production voided → release holds + notify fermata sessions.
+and production voided → release holds + notify sessions with planned holds.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def on_production_voided(sender, product_ref, date, action, work_order, **kwargs):
-    """When production is voided, release demand holds and notify fermata sessions."""
+    """When production is voided, release demand holds and notify sessions with planned holds."""
     if action != "voided":
         return
 
@@ -39,7 +39,7 @@ def on_production_voided(sender, product_ref, date, action, work_order, **kwargs
     if not session_keys:
         return
 
-    # Notify fermata sessions
+    # Notify sessions that had planned holds for this SKU/date
     try:
         from shopman.orderman.models import Directive, Session
 
@@ -70,7 +70,18 @@ def on_production_voided(sender, product_ref, date, action, work_order, **kwargs
 
 
 def on_holds_materialized(sender, hold_ids, sku, target_date, **kwargs):
-    """React when planned holds are materialized (stock became physical)."""
+    """React when planned holds are materialized (stock became physical).
+
+    Two responsibilities:
+    1. Fire an **active notification** to the shopper (AVAILABILITY-PLAN §8):
+       "seu produto chegou, você tem até HH:MM pra confirmar". Honours
+       ``feedback_transparent_timeouts`` — the shopper left the site, the
+       storefront toast would never reach them. Uses the existing notification
+       registry to route through WhatsApp / SMS / email based on
+       customer preferences.
+    2. Auto-commit the session when every planned hold has materialized
+       (existing behaviour — ADR-007).
+    """
     if not hold_ids:
         return
 
@@ -100,6 +111,18 @@ def on_holds_materialized(sender, hold_ids, sku, target_date, **kwargs):
         check_result = (
             (session.data or {}).get("checks", {}).get("stock", {}).get("result", {})
         )
+
+        # (1) Active notification — fire for every materialization event,
+        # independent of auto-commit. The shopper needs to know their
+        # reserved item arrived.
+        try:
+            _notify_stock_arrived(session, sku=sku, target_date=target_date)
+        except Exception:
+            logger.warning(
+                "on_holds_materialized: notify failed session=%s sku=%s",
+                session.session_key, sku, exc_info=True,
+            )
+
         if not check_result.get("has_planned_holds"):
             continue
 
@@ -113,6 +136,61 @@ def on_holds_materialized(sender, hold_ids, sku, target_date, **kwargs):
                 "Failed to auto-commit session %s:%s",
                 session.channel_ref, session.session_key, exc_info=True,
             )
+
+
+def _notify_stock_arrived(session, *, sku: str, target_date) -> None:
+    """Dispatch a ``stock.arrived`` notification for the session's shopper.
+
+    Resolves the customer from the session, looks up the product name, and
+    calls the canonical ``notify()`` registry which routes via the
+    customer's preferred channel (ManyChat, SMS, email). Silent no-op when
+    the session has no associated customer yet (anonymous cart).
+    """
+    from shopman.shop.notifications import notify
+
+    customer = getattr(session, "customer", None)
+    if customer is None:
+        customer_id = (session.data or {}).get("customer_id")
+        if customer_id:
+            try:
+                from shopman.guestman.models import Customer
+
+                customer = Customer.objects.filter(pk=customer_id).first()
+            except Exception:
+                customer = None
+    if customer is None:
+        logger.debug(
+            "stock.arrived not dispatched (session %s has no customer)",
+            session.session_key,
+        )
+        return
+
+    product_name = sku
+    try:
+        from shopman.offerman.models import Product
+
+        product = Product.objects.filter(sku=sku).first()
+        if product is not None:
+            product_name = product.name
+    except Exception:
+        pass
+
+    try:
+        notify(
+            event="stock.arrived",
+            recipient=customer,
+            context={
+                "sku": sku,
+                "product_name": product_name,
+                "target_date": str(target_date) if target_date else None,
+                "session_key": session.session_key,
+            },
+        )
+    except Exception:
+        logger.warning(
+            "stock.arrived dispatch failed sku=%s customer=%s",
+            sku, getattr(customer, "pk", None), exc_info=True,
+        )
 
 
 def _all_holds_materialized(check_result: dict) -> bool:

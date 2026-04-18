@@ -20,8 +20,12 @@ from shopman.stockman.models.quant import Quant
 
 logger = logging.getLogger('shopman.stockman')
 
-# Default TTL for holds after stock materializes (minutes)
-DEFAULT_MATERIALIZED_HOLD_TTL_MINUTES = 60
+# Default TTL for holds after stock materializes (minutes).
+#
+# Matches the normal cart-hold default: once a planned hold materializes
+# it behaves like any other ready-stock reservation. Client-side activity
+# (``bump_session_hold_expiry``) extends it normally from this point on.
+DEFAULT_MATERIALIZED_HOLD_TTL_MINUTES = 30
 
 
 class StockPlanning:

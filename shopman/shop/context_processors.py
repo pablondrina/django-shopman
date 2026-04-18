@@ -13,6 +13,8 @@ def shop(request: HttpRequest) -> dict:
     # Customer display name for nav
     customer_info = getattr(request, "customer", None)
     customer_name = customer_info.name if customer_info else ""
+    customer_phone = (customer_info.phone if customer_info else "") or ""
+    customer_email = (customer_info.email if customer_info else "") or ""
     # Use first_name for greeting if available
     if customer_name and " " in customer_name:
         customer_name = customer_name.split()[0]
@@ -58,6 +60,8 @@ def shop(request: HttpRequest) -> dict:
     return {
         "storefront": shop_instance,
         "customer_name": customer_name,
+        "customer_phone": customer_phone,
+        "customer_email": customer_email,
         "google_maps_api_key": settings.GOOGLE_MAPS_API_KEY,
         "stripe_publishable_key": getattr(settings, "STRIPE_PUBLISHABLE_KEY", ""),
         "shop_location": shop_location,
@@ -65,7 +69,26 @@ def shop(request: HttpRequest) -> dict:
         "opening_hours_display": opening_hours_display,
         "handle_label": handle_label,
         "handle_placeholder": handle_placeholder,
+        "storefront_channel_ref": getattr(
+            settings, "SHOPMAN_STOREFRONT_CHANNEL_REF", "web"
+        ),
+        "pos_channel_ref": getattr(settings, "SHOPMAN_POS_CHANNEL_REF", "balcao"),
     }
+
+
+def omotenashi(request: HttpRequest) -> dict:
+    """Inject OmotenashiContext (QUANDO + QUEM) into every template.
+
+    Consumed by the `{% omotenashi %}` tag and by storefront partials that
+    currently duplicate time-of-day logic in Alpine.
+    """
+    from shopman.shop.omotenashi import OmotenashiContext
+
+    try:
+        ctx = OmotenashiContext.from_request(request)
+    except Exception:
+        ctx = OmotenashiContext.from_request(None)
+    return {"omotenashi_ctx": ctx}
 
 
 def cart_count(request: HttpRequest) -> dict:
