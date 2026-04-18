@@ -1,5 +1,5 @@
 {% extends "storefront/base.html" %}
-{% load static storefront_tags %}
+{% load static storefront_tags omotenashi_tags %}
 
 {% block title %}{{ storefront.brand_name }} — {{ storefront.tagline }}{% endblock %}
 {% block meta_description %}{{ storefront.description|truncatewords:30 }}{% endblock %}
@@ -252,9 +252,10 @@
 {% endif %}
 
 {# ── Direto do Forno (HTMX for server) ── #}
+{% omotenashi 'HOME_AVAILABILITY_HEADING' as home_availability %}
 <section class="py-12 md:py-16 border-t border-outline dark:border-outline-dark">
-  <h2 class="font-title text-xl lg:text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong text-center mb-2 tracking-tight">Direto do forno</h2>
-  <p class="text-on-surface/60 dark:text-on-surface-dark/60 text-center mb-10 text-sm tracking-wide">Disponibilidade em tempo real</p>
+  <h2 class="font-title text-xl lg:text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong text-center mb-2 tracking-tight">{{ home_availability.title }}</h2>
+  <p class="text-on-surface/60 dark:text-on-surface-dark/60 text-center mb-10 text-sm tracking-wide">{{ home_availability.message }}</p>
 
   <div id="home-availability"
        hx-get="{% url 'storefront:menu' %}?partial=availability_preview"
@@ -404,16 +405,17 @@
 
 {# ── Fale com a gente — CTA WhatsApp (complemento ao rodapé institucional) ── #}
 {% if storefront.whatsapp_url %}
+{% omotenashi 'HOME_WHATSAPP_CTA' as whatsapp_cta %}
 <section class="relative overflow-hidden mt-6 md:mt-10 md:rounded-2xl md:mx-auto md:max-w-5xl">
   <img src="https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=1600&q=80"
        alt="" loading="lazy" class="absolute inset-0 w-full h-full object-cover">
   <div class="absolute inset-0 bg-gradient-to-br from-black/70 via-black/50 to-black/30"></div>
   <div class="relative z-10 px-6 py-16 md:py-20 text-center">
     <p class="font-title text-2xl md:text-3xl font-bold text-white tracking-tight leading-tight drop-shadow">
-      Dúvidas? Ou algum pedido especial?
+      {{ whatsapp_cta.title }}
     </p>
     <p class="mt-3 text-sm md:text-base text-white/80 tracking-wide drop-shadow">
-      Fale com a gente direto pelo WhatsApp. Respondemos o mais rápido possível.
+      {{ whatsapp_cta.message }}
     </p>
     <a href="{{ storefront.whatsapp_url }}" target="_blank" rel="noopener"
        class="mt-6 inline-flex items-center gap-2 rounded-radius bg-success px-6 py-3 text-base font-semibold text-on-success hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white min-h-[44px] transition">

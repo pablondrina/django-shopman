@@ -1,3 +1,4 @@
+{% load omotenashi_tags %}
 {% comment %}
 v2 cart page inner content — body of the cart page that re-renders on
 ``cartUpdated from:body``. Hosted by ``storefront/cart.html`` and
@@ -12,8 +13,9 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
 ``hx-post`` because their submit element survives the swap.
 {% endcomment %}
 
+{% omotenashi 'CART_PAGE_TITLE' as cart_page_title %}
 <header class="mb-6">
-  <h1 class="text-2xl lg:text-3xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Seu carrinho</h1>
+  <h1 class="text-2xl lg:text-3xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ cart_page_title.title }}</h1>
   {% if not cart.is_empty %}
   <p class="mt-1 text-sm text-on-surface dark:text-on-surface-dark">
     {{ cart.items_count }} {{ cart.items_count|pluralize:"item,itens" }} · {{ cart.subtotal_display }}
@@ -26,11 +28,12 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
 {% endif %}
 
 {% if cart.is_empty %}
+  {% omotenashi 'CART_EMPTY' as cart_empty %}
   {# ── Empty state ── #}
   <div class="card text-center py-16">
     <span class="material-symbols-rounded text-6xl text-on-surface/30 dark:text-on-surface-dark/30 block mb-4" aria-hidden="true">shopping_cart</span>
-    <h2 class="text-lg font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-2">Seu carrinho está vazio</h2>
-    <p class="text-sm text-on-surface dark:text-on-surface-dark mb-6 max-w-sm mx-auto">Explore o cardápio e monte seu pedido.</p>
+    <h2 class="text-lg font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-2">{{ cart_empty.title }}</h2>
+    <p class="text-sm text-on-surface dark:text-on-surface-dark mb-6 max-w-sm mx-auto">{{ cart_empty.message }}</p>
     <a href="{% url 'storefront:menu' %}" class="btn-primary inline-flex items-center gap-2">
       <span class="material-symbols-rounded text-base" aria-hidden="true">restaurant_menu</span>
       Ver cardápio
@@ -56,10 +59,11 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
 
   {% comment %}── Unavailable banner: só contexto, ações ficam por linha ──{% endcomment %}
   {% if cart.has_unavailable_items %}
+  {% omotenashi 'CART_UNAVAILABLE_BANNER' as unavailable_banner %}
   <div class="card mb-4 flex items-center gap-3 border-warning/40 bg-warning/5" role="alert">
     <span class="material-symbols-rounded text-warning shrink-0" aria-hidden="true">info</span>
     <p class="text-sm text-on-surface dark:text-on-surface-dark">
-      O estoque de alguns itens mudou. Veja as opções em cada item abaixo.
+      {{ unavailable_banner.message }}
     </p>
   </div>
   {% endif %}
@@ -146,12 +150,13 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
             </div>
 
             {% if item.is_awaiting_confirmation %}
+            {% omotenashi 'PICKUP_READY_NOTICE' as ready_notice %}
             <div class="flex flex-col gap-1">
               <span class="inline-flex items-center gap-1.5 self-start rounded-full bg-info/10 px-2.5 py-1 text-xs font-medium text-info dark:bg-info-dark/10 dark:text-info-dark">
                 <span class="material-symbols-rounded text-sm" aria-hidden="true">schedule</span>
                 Aguardando confirmação
               </span>
-              <p class="text-xs text-on-surface/70 dark:text-on-surface-dark/70">Avisamos quando chegar.</p>
+              <p class="text-xs text-on-surface/70 dark:text-on-surface-dark/70">{{ ready_notice.message }}</p>
             </div>
             {% endif %}
 
@@ -266,11 +271,12 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
           </form>
         </div>
         {% else %}
+        {% omotenashi 'CHECKOUT_COUPON_PROMPT' as coupon_prompt %}
         <div x-data="{ open: false }">
           <button type="button" x-show="!open" @click="open = true; $nextTick(() => $refs.coupon2 && $refs.coupon2.focus())"
                   class="inline-flex items-center gap-1.5 text-sm text-on-surface hover:text-primary focus:outline-hidden focus:text-primary dark:text-on-surface-dark dark:hover:text-primary-dark">
             <span class="material-symbols-rounded text-base" aria-hidden="true">local_offer</span>
-            Tem cupom de desconto?
+            {{ coupon_prompt.title }}
           </button>
           <form x-show="open" x-cloak class="flex items-center gap-2"
                 hx-post="{% url 'storefront:cart_apply_coupon' %}" hx-swap="none"

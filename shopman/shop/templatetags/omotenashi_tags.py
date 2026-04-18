@@ -1,10 +1,10 @@
 """Template tags for omotenashi copy and human time formatting.
 
 Usage:
-    {% omotenashi "CART_EMPTY" %}              {# renders the resolved message inline #}
-    {% omotenashi "CART_EMPTY" as entry %}     {# exposes .title / .message #}
-      <h2>{{ entry.title }}</h2>
-      <p>{{ entry.message }}</p>
+    {% omotenashi "CART_EMPTY" %}                             {# renders resolved entry inline #}
+    {% omotenashi "CART_EMPTY" as entry %}                    {# exposes .title / .message #}
+    {% omotenashi "CART_EMPTY" moment="manha" as entry %}     {# override moment #}
+    {% omotenashi "CART_EMPTY" audience="returning" as e %}   {# override audience #}
 
     {{ order.created_at|human_time }}          {# "há 3 min" #}
     {% human_eta order.eta %}                  {# "pronto por volta das 11h20" #}
@@ -12,6 +12,7 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta
 
 from django import template
@@ -19,23 +20,40 @@ from django.utils import timezone
 
 from shopman.shop.omotenashi import resolve_copy
 from shopman.shop.omotenashi.context import AUDIENCE_ANON
+from shopman.shop.omotenashi.copy import CopyEntry
+
+logger = logging.getLogger(__name__)
 
 register = template.Library()
 
 
-# ── {% omotenashi KEY [as VAR] %} ──────────────────────────────────────
+# ── {% omotenashi KEY [moment=...] [audience=...] [as VAR] %} ──────────
 
 
 @register.simple_tag(takes_context=True)
-def omotenashi(context, key: str):
-    """Resolve a copy entry and return it. Renders inline if not captured with `as`.
+def omotenashi(context, key: str, moment: str | None = None, audience: str | None = None):
+    """Resolve a copy entry with cascade (DB → code defaults → neutral fallback).
 
-    Uses the `omotenashi_ctx` provided by the context processor.
+    `moment` and `audience` kwargs override the values inferred from
+    `omotenashi_ctx` (the context processor). When the cascade ends with an
+    empty entry — i.e. neither DB nor defaults have the key — a WARNING is
+    logged so the missing entry surfaces in operational logs.
     """
     ctx = context.get("omotenashi_ctx")
-    moment = getattr(ctx, "moment", "*")
-    audience = getattr(ctx, "audience", AUDIENCE_ANON)
-    return resolve_copy(key, moment=moment, audience=audience)
+    effective_moment = moment if moment is not None else getattr(ctx, "moment", "*")
+    effective_audience = (
+        audience if audience is not None else getattr(ctx, "audience", AUDIENCE_ANON)
+    )
+    entry = resolve_copy(key, moment=effective_moment, audience=effective_audience)
+    if not entry:
+        logger.warning(
+            "omotenashi: key=%r moment=%r audience=%r resolved to empty entry",
+            key,
+            effective_moment,
+            effective_audience,
+        )
+        return CopyEntry()
+    return entry
 
 
 # ── {{ value|human_time }} ─────────────────────────────────────────────
