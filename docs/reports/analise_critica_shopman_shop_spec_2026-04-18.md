@@ -17,7 +17,7 @@ O principal freio hoje é outro: o "core enxuto" ainda não está enxuto. O paco
 - `register_all()` é a lista autoritativa de handlers, modifiers, validators e sinais. A ideia é que o framework suba pronto, sem wiring manual espalhado.
 - O sistema usa `Directive` como barramento de efeitos assíncronos, em vez de acoplamento direto entre eventos e side effects.
 
-Referências: [apps.py](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/apps.py), [handlers/__init__.py:68](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/handlers/__init__.py:68)
+Referências: [apps.py](../../shopman/shop/apps.py), [handlers/__init__.py:68](../../shopman/shop/handlers/__init__.py#L68)
 
 ### 2) Configuração canônica por canal
 
@@ -26,7 +26,7 @@ Referências: [apps.py](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/
 - O contrato é deliberadamente permissivo: campos ausentes herdam, campos explícitos sobrescrevem.
 - O design assume que o canal pode ser remoto, POS, marketplace, web ou WhatsApp, mas o comportamento é sempre derivado de configuração, não de classes de flow.
 
-Referências: [config.py:13](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/config.py:13), [config.py:191](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/config.py:191), [channel.py:13](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/models/channel.py:13)
+Referências: [config.py:13](../../shopman/shop/config.py#L13), [config.py:191](../../shopman/shop/config.py#L191), [channel.py:13](../../shopman/shop/models/channel.py#L13)
 
 ### 3) Lifecycle de pedidos
 
@@ -38,7 +38,7 @@ Referências: [config.py:13](/Users/pablovalentini/Dev/Claude/django-shopman/sho
 - `on_completed` consolida loyalty e fiscal.
 - `on_cancelled` e `on_returned` fazem reversões explícitas de stock, payment, fiscal e notificação.
 
-Referência: [lifecycle.py:157](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/lifecycle.py:157)
+Referência: [lifecycle.py:157](../../shopman/shop/lifecycle.py#L157)
 
 ### 4) Regras e policy engine
 
@@ -46,7 +46,7 @@ Referência: [lifecycle.py:157](/Users/pablovalentini/Dev/Claude/django-shopman/
 - O modelo mental é bom: handlers são estáticos; rules são operacionais e alteráveis em runtime.
 - Na prática, a migração para rules está incompleta: pricing modifiers ainda são registrados fora do ciclo DB-driven, e o engine hoje cobre validators com prioridade maior do que modifiers.
 
-Referência: [rules/engine.py:1](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/rules/engine.py:1)
+Referência: [rules/engine.py:1](../../shopman/shop/rules/engine.py#L1)
 
 ### 5) Omotenashi-first e UX contextual
 
@@ -55,7 +55,7 @@ Referência: [rules/engine.py:1](/Users/pablovalentini/Dev/Claude/django-shopman
 - `storefront_context` materializa sugestões vivas: popularidade, happy hour, minimum order progress, upsell e pricing hints.
 - Há esforço real de `WhatsApp-first` e `mobile-first`: WhatsApp via ManyChat, onboarding leve, PWA, service worker, HTMX, partials e SSE.
 
-Referências: [omotenashi/context.py:57](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/omotenashi/context.py:57), [omotenashi/copy.py:281](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/omotenashi/copy.py:281), [services/storefront_context.py:46](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/services/storefront_context.py:46), [adapters/notification_manychat.py:1](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/adapters/notification_manychat.py:1), [web/views/pwa.py:18](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/web/views/pwa.py:18)
+Referências: [omotenashi/context.py:57](../../shopman/shop/omotenashi/context.py#L57), [omotenashi/copy.py:281](../../shopman/shop/omotenashi/copy.py#L281), [services/storefront_context.py:46](../../shopman/shop/services/storefront_context.py#L46), [adapters/notification_manychat.py:1](../../shopman/shop/adapters/notification_manychat.py#L1), [web/views/pwa.py:18](../../shopman/shop/web/views/pwa.py#L18)
 
 ### 6) Projections como read models
 
@@ -64,7 +64,7 @@ Referências: [omotenashi/context.py:57](/Users/pablovalentini/Dev/Claude/django
 - A ideia é boa: views ficam finas e a inteligência vai para builders/testáveis.
 - O problema é que parte dessa inteligência ainda se duplica entre view layer, helpers e projection layer.
 
-Referências: [projections/catalog.py:110](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/projections/catalog.py:110), [projections/cart.py:160](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/projections/cart.py:160), [projections/order_tracking.py:132](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/projections/order_tracking.py:132), [projections/payment.py:78](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/projections/payment.py:78)
+Referências: [projections/catalog.py:110](../../shopman/shop/projections/catalog.py#L110), [projections/cart.py:160](../../shopman/shop/projections/cart.py#L160), [projections/order_tracking.py:132](../../shopman/shop/projections/order_tracking.py#L132), [projections/payment.py:78](../../shopman/shop/projections/payment.py#L78)
 
 ## Análise por entidade
 
@@ -82,7 +82,7 @@ Pontos fracos:
 - `NotificationTemplate.save()` ainda tem `TODO` de invalidation;
 - `defaults` e `integrations` são `JSONField` com schema implícito, não validado em profundidade.
 
-Referências: [models/shop.py:89](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/models/shop.py:89), [models/shop.py:399](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/models/shop.py:399), [models/shop.py:435](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/models/shop.py:435)
+Referências: [models/shop.py:89](../../shopman/shop/models/shop.py#L89), [models/shop.py:399](../../shopman/shop/models/shop.py#L399), [models/shop.py:435](../../shopman/shop/models/shop.py#L435)
 
 ### `Channel`
 
@@ -101,7 +101,7 @@ Gaps:
 - o `kind` não dirige o lifecycle em `shopman/shop`;
 - o contrato é mais por convenção do que por schema.
 
-Referência: [models/channel.py:13](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/models/channel.py:13)
+Referência: [models/channel.py:13](../../shopman/shop/models/channel.py#L13)
 
 ### Rules, Promotion, Coupon, DeliveryZone, KDS, CashRegister, Alerts, Closing
 
@@ -115,7 +115,7 @@ O conjunto de models administrativos mostra uma plataforma de operação, não s
 
 Isso é robusto, mas também confirma que o pacote é altamente verticalizado em operação de comércio físico/food.
 
-Referências: [models/rules.py](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/models/rules.py), [models/delivery.py](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/models/delivery.py), [models/kds.py](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/models/kds.py), [models/cash_register.py](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/models/cash_register.py), [models/alerts.py](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/models/alerts.py), [models/closing.py](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/models/closing.py)
+Referências: [models/rules.py](../../shopman/shop/models/rules.py), [models/delivery.py](../../shopman/shop/models/delivery.py), [models/kds.py](../../shopman/shop/models/kds.py), [models/cash_register.py](../../shopman/shop/models/cash_register.py), [models/alerts.py](../../shopman/shop/models/alerts.py), [models/closing.py](../../shopman/shop/models/closing.py)
 
 ### Adapters
 
@@ -126,7 +126,7 @@ Os adapters são o principal mecanismo de agnosticidade:
 
 Isso é bom porque reduz acoplamento de aplicação com infraestrutura. Mas a agnosticidade é incompleta: o pacote ainda conhece nomes e semânticas específicas de kernel em vários pontos.
 
-Referências: [adapters/__init__.py](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/adapters/__init__.py), [adapters/payment_mock.py](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/adapters/payment_mock.py), [adapters/payment_stripe.py](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/adapters/payment_stripe.py), [adapters/payment_efi.py](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/adapters/payment_efi.py), [adapters/notification_manychat.py](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/adapters/notification_manychat.py)
+Referências: [adapters/__init__.py](../../shopman/shop/adapters/__init__.py), [adapters/payment_mock.py](../../shopman/shop/adapters/payment_mock.py), [adapters/payment_stripe.py](../../shopman/shop/adapters/payment_stripe.py), [adapters/payment_efi.py](../../shopman/shop/adapters/payment_efi.py), [adapters/notification_manychat.py](../../shopman/shop/adapters/notification_manychat.py)
 
 ## UI/UX: Omotenashi, Mobile, WhatsApp
 
@@ -136,7 +136,7 @@ Referências: [adapters/__init__.py](/Users/pablovalentini/Dev/Claude/django-sho
 - `WelcomeView` é uma boa peça de onboarding: nome limpo, proteção contra open redirect, retomada do fluxo onde o usuário parou.
 - `Auth` e `CustomerLookup` protegem PII e evitam exposição desnecessária.
 
-Referências: [web/views/auth.py:53](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/web/views/auth.py:53), [web/views/welcome.py:41](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/web/views/welcome.py:41), [web/views/pwa.py:62](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/web/views/pwa.py:62), [web/views/tracking.py:1](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/web/views/tracking.py:1)
+Referências: [web/views/auth.py:53](../../shopman/shop/web/views/auth.py#L53), [web/views/welcome.py:41](../../shopman/shop/web/views/welcome.py#L41), [web/views/pwa.py:62](../../shopman/shop/web/views/pwa.py#L62), [web/views/tracking.py:1](../../shopman/shop/web/views/tracking.py#L1)
 
 ## Robustez, segurança e higiene arquitetural
 
@@ -149,7 +149,7 @@ Referências: [web/views/auth.py:53](/Users/pablovalentini/Dev/Claude/django-sho
 - O checkout tem rate limit, idempotency key e validação de telefone/nome.
 - O lookup de cliente só expõe PII quando a identidade está verificada.
 
-Referências: [tests/test_invariants.py:99](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/tests/test_invariants.py:99), [tests/test_conformance.py:12](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/tests/test_conformance.py:12), [tests/test_security_headers.py](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/tests/test_security_headers.py), [webhooks/stripe.py:27](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/webhooks/stripe.py:27), [web/views/checkout.py:113](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/web/views/checkout.py:113), [web/views/auth.py:209](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/web/views/auth.py:209)
+Referências: [tests/test_invariants.py:99](../../shopman/shop/tests/test_invariants.py#L99), [tests/test_conformance.py:12](../../shopman/shop/tests/test_conformance.py#L12), [tests/test_security_headers.py](../../shopman/shop/tests/test_security_headers.py), [webhooks/stripe.py:27](../../shopman/shop/webhooks/stripe.py#L27), [web/views/checkout.py:113](../../shopman/shop/web/views/checkout.py#L113), [web/views/auth.py:209](../../shopman/shop/web/views/auth.py#L209)
 
 ### O que está frágil
 
@@ -163,37 +163,37 @@ if (config.payment or {}).get("timing") == "external":
 
 Mas `config.payment` é dataclass, não dict. O `except` engole o erro e o guard pode não funcionar como esperado. Isso é um defeito de correção, não só de estilo.
 
-Referência: [lifecycle.py:107](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/lifecycle.py:107)
+Referência: [lifecycle.py:107](../../shopman/shop/lifecycle.py#L107)
 
 #### 2) Validação de config ainda é rasa
 
 `ChannelConfig.validate()` cobre enums básicos, mas não valida profundamente `lifecycle`, `notifications.routing`, `rules`, nem a forma completa do JSON de `Shop.defaults` e `Channel.config`.
 
-Referência: [config.py:229](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/config.py:229)
+Referência: [config.py:229](../../shopman/shop/config.py#L229)
 
 #### 3) Cache e invalidation incompletos
 
 `NotificationTemplate.save()` ainda marca cache invalidation como `TODO`. Isso quebra o contrato implícito de copy editável em runtime.
 
-Referência: [models/shop.py:435](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/models/shop.py:435)
+Referência: [models/shop.py:435](../../shopman/shop/models/shop.py#L435)
 
 #### 4) Acoplamento com kernel e imports profundos
 
 Apesar do discurso de agnosticidade, ainda há imports profundamente específicos de integração. O caso mais sensível dentro do pacote é o carregamento de `shopman.craftsman.contrib.stockman.handlers` no bootstrap de sinais. Isso é um acoplamento de implementação, não apenas de contrato público.
 
-Referência: [handlers/__init__.py:246](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/handlers/__init__.py:246)
+Referência: [handlers/__init__.py:246](../../shopman/shop/handlers/__init__.py#L246)
 
 #### 5) Duplicação de lógica de tracking
 
 Tracking tem lógica na view e na projection, o que enfraquece a promessa de `view = renderização fina sobre read model`.
 
-Referências: [web/views/tracking.py:90](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/web/views/tracking.py:90), [projections/order_tracking.py:132](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/projections/order_tracking.py:132)
+Referências: [web/views/tracking.py:90](../../shopman/shop/web/views/tracking.py#L90), [projections/order_tracking.py:132](../../shopman/shop/projections/order_tracking.py#L132)
 
 #### 6) `kind` de canal não está operacionalizado
 
 `Channel.kind` promete comportamento por tipo de canal, mas `shopman/shop` não usa essa chave como eixo real de despacho. O comportamento vem de config, refs e canais de adapter, não de uma taxonomia viva de `kind`.
 
-Referência: [models/channel.py:23](/Users/pablovalentini/Dev/Claude/django-shopman/shopman/shop/models/channel.py:23)
+Referência: [models/channel.py:23](../../shopman/shop/models/channel.py#L23)
 
 ## Distância entre intenção e realizado
 

@@ -16,7 +16,7 @@ Como solucao standalone para `catalog/offers`, ele ja e util. Como base universa
 
 ### 1. `Product`
 
-Arquivo principal: [`packages/offerman/shopman/offerman/models/product.py:35`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/models/product.py:35>)
+Arquivo principal: [`packages/offerman/shopman/offerman/models/product.py:35`](../../packages/offerman/shopman/offerman/models/product.py#L35)
 
 Spec percebida:
 
@@ -50,7 +50,7 @@ Nuances importantes:
 
 ### 2. `Collection` e `CollectionItem`
 
-Arquivos principais: [`packages/offerman/shopman/offerman/models/collection.py:11`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/models/collection.py:11>)
+Arquivos principais: [`packages/offerman/shopman/offerman/models/collection.py:11`](../../packages/offerman/shopman/offerman/models/collection.py#L11)
 
 Spec percebida:
 
@@ -77,7 +77,7 @@ Nuances importantes:
 
 ### 3. `Listing` e `ListingItem`
 
-Arquivos principais: [`packages/offerman/shopman/offerman/models/listing.py:13`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/models/listing.py:13>)
+Arquivos principais: [`packages/offerman/shopman/offerman/models/listing.py:13`](../../packages/offerman/shopman/offerman/models/listing.py#L13)
 
 Spec percebida:
 
@@ -104,7 +104,7 @@ Nuances importantes:
 
 ### 4. `ProductComponent`
 
-Arquivo principal: [`packages/offerman/shopman/offerman/models/product_component.py:11`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/models/product_component.py:11>)
+Arquivo principal: [`packages/offerman/shopman/offerman/models/product_component.py:11`](../../packages/offerman/shopman/offerman/models/product_component.py#L11)
 
 Spec percebida:
 
@@ -127,7 +127,7 @@ Nuances importantes:
 
 ### 5. `CatalogService`
 
-Arquivo principal: [`packages/offerman/shopman/offerman/service.py:33`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/service.py:33>)
+Arquivo principal: [`packages/offerman/shopman/offerman/service.py:33`](../../packages/offerman/shopman/offerman/service.py#L33)
 
 Superficie publica percebida:
 
@@ -157,9 +157,9 @@ Contratos reais:
 
 Arquivos principais:
 
-- [`packages/offerman/shopman/offerman/protocols/catalog.py:8`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/protocols/catalog.py:8>)
-- [`packages/offerman/shopman/offerman/protocols/projection.py:18`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/protocols/projection.py:18>)
-- [`packages/offerman/shopman/offerman/protocols/cost.py:23`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/protocols/cost.py:23>)
+- [`packages/offerman/shopman/offerman/protocols/catalog.py:8`](../../packages/offerman/shopman/offerman/protocols/catalog.py#L8)
+- [`packages/offerman/shopman/offerman/protocols/projection.py:18`](../../packages/offerman/shopman/offerman/protocols/projection.py#L18)
+- [`packages/offerman/shopman/offerman/protocols/cost.py:23`](../../packages/offerman/shopman/offerman/protocols/cost.py#L23)
 
 Spec percebida:
 
@@ -181,10 +181,10 @@ Lacuna importante:
 
 Arquivos principais:
 
-- [`packages/offerman/shopman/offerman/adapters/catalog_backend.py:10`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/adapters/catalog_backend.py:10>)
-- [`packages/offerman/shopman/offerman/adapters/sku_validator.py:28`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/adapters/sku_validator.py:28>)
-- [`packages/offerman/shopman/offerman/adapters/product_info.py:26`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/adapters/product_info.py:26>)
-- [`packages/offerman/shopman/offerman/adapters/noop.py:18`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/adapters/noop.py:18>)
+- [`packages/offerman/shopman/offerman/adapters/catalog_backend.py:10`](../../packages/offerman/shopman/offerman/adapters/catalog_backend.py#L10)
+- [`packages/offerman/shopman/offerman/adapters/sku_validator.py:28`](../../packages/offerman/shopman/offerman/adapters/sku_validator.py#L28)
+- [`packages/offerman/shopman/offerman/adapters/product_info.py:26`](../../packages/offerman/shopman/offerman/adapters/product_info.py#L26)
+- [`packages/offerman/shopman/offerman/adapters/noop.py:18`](../../packages/offerman/shopman/offerman/adapters/noop.py#L18)
 
 Spec percebida:
 
@@ -240,63 +240,63 @@ Nuances importantes:
 
 ### 1. Bug de zero price no admin de listing
 
-- Arquivos: [`packages/offerman/shopman/offerman/admin/listing.py:39-46`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/admin/listing.py:39>) e [`packages/offerman/shopman/offerman/contrib/admin_unfold/admin.py:134-141`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/contrib/admin_unfold/admin.py:134>)
+- Arquivos: [`packages/offerman/shopman/offerman/admin/listing.py:39-46`](../../packages/offerman/shopman/offerman/admin/listing.py#L39) e [`packages/offerman/shopman/offerman/contrib/admin_unfold/admin.py:134-141`](../../packages/offerman/shopman/offerman/contrib/admin_unfold/admin.py#L134)
 - Problema: `if not instance.price_q` sobrescreve `0` com `base_price_q`.
 - Impacto: promocoes gratuitas e itens zerados nao sao representaveis no admin.
 - Correcao: testar `None`/campo em branco, nao truthiness numerica.
 
 ### 2. Snapshot de projecao escolhe a tier errada
 
-- Arquivo: [`packages/offerman/shopman/offerman/service.py:394-429`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/service.py:394>)
+- Arquivo: [`packages/offerman/shopman/offerman/service.py:394-429`](../../packages/offerman/shopman/offerman/service.py#L394)
 - Problema: ordenacao `product__sku, -min_qty` faz `get_projection_items()` escolher o maior `min_qty` por SKU, nao a tier canonica.
 - Impacto: a snapshot do canal pode herdar preco de atacado em vez do preco base desejado.
 - Correcao: definir tier canonica explicitamente, em geral `min_qty=1` ou um flag de `is_default_tier`.
 
 ### 3. Projecao incremental nao detecta remocoes de SKUs
 
-- Arquivo: [`packages/offerman/shopman/offerman/service.py:433-465`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/service.py:433>)
+- Arquivo: [`packages/offerman/shopman/offerman/service.py:433-465`](../../packages/offerman/shopman/offerman/service.py#L433)
 - Problema: `retract()` so enxerga itens ainda presentes na snapshot atual e fora do estado publicavel.
 - Impacto: um SKU removido da listagem pode continuar existindo no canal externo ate um `full_sync`.
 - Correcao: guardar diff de ultima sincronizacao ou exigir `full_sync` para remocao estrutural.
 
 ### 4. API publica expõe listagem bruta em vez da oferta canônica
 
-- Arquivos: [`packages/offerman/shopman/offerman/api/views.py:122-148`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/api/views.py:122>)
+- Arquivos: [`packages/offerman/shopman/offerman/api/views.py:122-148`](../../packages/offerman/shopman/offerman/api/views.py#L122)
 - Problema: `ListingViewSet.items()` retorna todos os `ListingItem` da listagem, sem aplicar `is_published`, `is_sellable` ou validade do item.
 - Impacto: vazamento de rows que nao sao realmente ofertaveis.
 - Correcao: ou filtrar pelos mesmos invariantes do service, ou mover a rota para um contexto administrativo.
 
 ### 5. Validacao temporal das rotas nao acompanha o modelo
 
-- Arquivos: [`packages/offerman/shopman/offerman/api/views.py:104-135`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/api/views.py:104>) e [`packages/offerman/shopman/offerman/models/listing.py:58-67`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/models/listing.py:58>)
+- Arquivos: [`packages/offerman/shopman/offerman/api/views.py:104-135`](../../packages/offerman/shopman/offerman/api/views.py#L104) e [`packages/offerman/shopman/offerman/models/listing.py:58-67`](../../packages/offerman/shopman/offerman/models/listing.py#L58)
 - Problema: o modelo conhece `is_valid()`, mas as rotas publicas filtram so `is_active`.
 - Impacto: listagens e colecoes futuras/expiradas continuam visiveis no API layer.
 - Correcao: alinhar `get_queryset()` com a semantica de validade, ou documentar que a API e administrativa e nao comercial.
 
 ### 6. `ProductInfo` nao cobre o micro-PIM ja presente no modelo
 
-- Arquivos: [`packages/offerman/shopman/offerman/protocols/catalog.py:8-27`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/protocols/catalog.py:8>) e [`packages/offerman/shopman/offerman/models/product.py:35-337`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/models/product.py:35>)
+- Arquivos: [`packages/offerman/shopman/offerman/protocols/catalog.py:8-27`](../../packages/offerman/shopman/offerman/protocols/catalog.py#L8) e [`packages/offerman/shopman/offerman/models/product.py:35-337`](../../packages/offerman/shopman/offerman/models/product.py#L35)
 - Problema: o DTO publico nao transporta partes importantes da verdade do dominio.
 - Impacto: integracoes externas nao conseguem reproduzir um PDP rico sem consultar o banco de Offerman.
 - Correcao: ampliar o contrato ou separar `ProductInfo` basico de um `ProjectedProduct` mais rico.
 
 ### 7. Semantica de `category` varia entre adapters
 
-- Arquivos: [`packages/offerman/shopman/offerman/adapters/catalog_backend.py:24-39`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/adapters/catalog_backend.py:24>), [`packages/offerman/shopman/offerman/adapters/product_info.py:38-50`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/adapters/product_info.py:38>) e [`packages/offerman/shopman/offerman/adapters/sku_validator.py:92-107`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/adapters/sku_validator.py:92>)
+- Arquivos: [`packages/offerman/shopman/offerman/adapters/catalog_backend.py:24-39`](../../packages/offerman/shopman/offerman/adapters/catalog_backend.py#L24), [`packages/offerman/shopman/offerman/adapters/product_info.py:38-50`](../../packages/offerman/shopman/offerman/adapters/product_info.py#L38) e [`packages/offerman/shopman/offerman/adapters/sku_validator.py:92-107`](../../packages/offerman/shopman/offerman/adapters/sku_validator.py#L92)
 - Problema: ora o campo representa `collection.ref`, ora `collection.name`.
 - Impacto: consumidores externos nao conseguem depender de um identificador estavel.
 - Correcao: padronizar em `ref` e, se necessario, adicionar um campo humano separado.
 
 ### 8. Fallback silencioso demais em precificacao
 
-- Arquivos: [`packages/offerman/shopman/offerman/service.py:96-106`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/service.py:96>) e [`packages/offerman/shopman/offerman/service.py:187-208`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/service.py:187>)
+- Arquivos: [`packages/offerman/shopman/offerman/service.py:96-106`](../../packages/offerman/shopman/offerman/service.py#L96) e [`packages/offerman/shopman/offerman/service.py:187-208`](../../packages/offerman/shopman/offerman/service.py#L187)
 - Problema: channel/listing inexistente cai para preco base sem erro.
 - Impacto: erro de configuracao pode virar preco aparentemente valido.
 - Correcao: oferecer modo estrito ou levantar erro quando o canal/listing e informado mas nao existe.
 
 ### 9. Busca e sugestao ainda estao subdimensionadas para catalogo robusto
 
-- Arquivos: [`packages/offerman/shopman/offerman/service.py:263-291`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/service.py:263>) e [`packages/offerman/shopman/offerman/contrib/substitutes/substitutes.py:68-99`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/offerman/shopman/offerman/contrib/substitutes/substitutes.py:68>)
+- Arquivos: [`packages/offerman/shopman/offerman/service.py:263-291`](../../packages/offerman/shopman/offerman/service.py#L263) e [`packages/offerman/shopman/offerman/contrib/substitutes/substitutes.py:68-99`](../../packages/offerman/shopman/offerman/contrib/substitutes/substitutes.py#L68)
 - Problema: substitutos usam keywords + colecao + preco, sem compatibilidade de unidade, embalagem, alergeno ou perecibilidade.
 - Impacto: sugestoes podem ser comercialmente improvaveis em catalogos mais complexos.
 - Correcao: incluir sinais de unidade, categoria funcional e restricoes de substituicao.

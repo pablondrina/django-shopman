@@ -24,7 +24,7 @@ O problema central e que o pacote promete agnosticidade, core enxuto e separacao
 
 ### `AccessLink`
 
-Arquivo-chave: [`packages/doorman/shopman/doorman/models/access_link.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/doorman/shopman/doorman/models/access_link.py:46>)
+Arquivo-chave: [`packages/doorman/shopman/doorman/models/access_link.py`](../../packages/doorman/shopman/doorman/models/access_link.py#L46)
 
 - Token de troca web vindo de chat, email ou API.
 - O banco nunca guarda plaintext; guarda `token_hash` HMAC-SHA256.
@@ -43,7 +43,7 @@ Contrato implicito:
 
 ### `VerificationCode`
 
-Arquivo-chave: [`packages/doorman/shopman/doorman/models/verification_code.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/doorman/shopman/doorman/models/verification_code.py:64>)
+Arquivo-chave: [`packages/doorman/shopman/doorman/models/verification_code.py`](../../packages/doorman/shopman/doorman/models/verification_code.py#L64)
 
 - OTP de 6 digitos, sempre armazenado como HMAC.
 - `target_value` e o endereco de login, aceitando telefone E.164 ou email.
@@ -61,7 +61,7 @@ Nuance importante:
 
 ### `TrustedDevice`
 
-Arquivo-chave: [`packages/doorman/shopman/doorman/models/device_trust.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/doorman/shopman/doorman/models/device_trust.py:44>)
+Arquivo-chave: [`packages/doorman/shopman/doorman/models/device_trust.py`](../../packages/doorman/shopman/doorman/models/device_trust.py#L44)
 
 - Dispositivo confiavel e um token aleatorio guardado como HMAC.
 - Cookie bruto vive no browser como HttpOnly.
@@ -77,7 +77,7 @@ Leitura funcional:
 
 ### `CustomerUser`
 
-Arquivo-chave: [`packages/doorman/shopman/doorman/models/customer_user.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/doorman/shopman/doorman/models/customer_user.py:10>)
+Arquivo-chave: [`packages/doorman/shopman/doorman/models/customer_user.py`](../../packages/doorman/shopman/doorman/models/customer_user.py#L10)
 
 - E o bridge 1:1 entre `User` do Django e `customer_id` externo.
 - O relacionamento e desacoplado por UUID, nao por FK.
@@ -90,7 +90,7 @@ Contrato real:
 
 ### `AuthCustomerInfo` e `CustomerResolver`
 
-Arquivo-chave: [`packages/doorman/shopman/doorman/protocols/customer.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/doorman/shopman/doorman/protocols/customer.py:8>)
+Arquivo-chave: [`packages/doorman/shopman/doorman/protocols/customer.py`](../../packages/doorman/shopman/doorman/protocols/customer.py#L8)
 
 - `AuthCustomerInfo` e o DTO minimo para autenticacao: `uuid`, `name`, `phone`, `email`, `is_active`.
 - `CustomerResolver` precisa resolver por telefone, email e UUID, e tambem criar por telefone/email.
@@ -103,7 +103,7 @@ Forca da spec:
 
 ### OTP login
 
-Arquivo-chave: [`packages/doorman/shopman/doorman/services/verification.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/doorman/shopman/doorman/services/verification.py:67>)
+Arquivo-chave: [`packages/doorman/shopman/doorman/services/verification.py`](../../packages/doorman/shopman/doorman/services/verification.py#L67)
 
 - Normaliza o target via adapter.
 - Checa permissao de login.
@@ -122,7 +122,7 @@ Arquivo-chave: [`packages/doorman/shopman/doorman/services/verification.py`](</U
 
 ### Access link exchange
 
-Arquivo-chave: [`packages/doorman/shopman/doorman/services/access_link.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/doorman/shopman/doorman/services/access_link.py:83>)
+Arquivo-chave: [`packages/doorman/shopman/doorman/services/access_link.py`](../../packages/doorman/shopman/doorman/services/access_link.py#L83)
 
 - Cria token curto para um `customer`.
 - Gera URL completa com `reverse("shopman_auth:access-exchange")` e token em querystring.
@@ -138,7 +138,7 @@ Arquivo-chave: [`packages/doorman/shopman/doorman/services/access_link.py`](</Us
 
 ### Device trust
 
-Arquivo-chave: [`packages/doorman/shopman/doorman/services/device_trust.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/doorman/shopman/doorman/services/device_trust.py:37>)
+Arquivo-chave: [`packages/doorman/shopman/doorman/services/device_trust.py`](../../packages/doorman/shopman/doorman/services/device_trust.py#L37)
 
 - Ao confirmar OTP, o cliente pode receber cookie HttpOnly com token HMAC.
 - `check_device_trust()` valida cookie + customer ownership.
@@ -162,9 +162,9 @@ Arquivo-chave: [`packages/doorman/shopman/doorman/services/device_trust.py`](</U
 
 Arquivos-chave:
 
-- [`packages/doorman/shopman/doorman/views/verification_code.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/doorman/shopman/doorman/views/verification_code.py:22>)
-- [`packages/doorman/shopman/doorman/views/access_link.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/doorman/shopman/doorman/views/access_link.py:24>)
-- [`packages/doorman/shopman/doorman/views/access_link_request.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/doorman/shopman/doorman/views/access_link_request.py:20>)
+- [`packages/doorman/shopman/doorman/views/verification_code.py`](../../packages/doorman/shopman/doorman/views/verification_code.py#L22)
+- [`packages/doorman/shopman/doorman/views/access_link.py`](../../packages/doorman/shopman/doorman/views/access_link.py#L24)
+- [`packages/doorman/shopman/doorman/views/access_link_request.py`](../../packages/doorman/shopman/doorman/views/access_link_request.py#L20)
 
 - `VerificationCodeRequestView` aceita form e JSON.
 - `VerificationCodeVerifyView` aceita form e JSON.
@@ -180,8 +180,8 @@ Arquivos-chave:
 
 Arquivos-chave:
 
-- [`packages/doorman/shopman/doorman/api/views.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/doorman/shopman/doorman/api/views.py:20>)
-- [`packages/doorman/shopman/doorman/api/serializers.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/doorman/shopman/doorman/api/serializers.py:6>)
+- [`packages/doorman/shopman/doorman/api/views.py`](../../packages/doorman/shopman/doorman/api/views.py#L20)
+- [`packages/doorman/shopman/doorman/api/serializers.py`](../../packages/doorman/shopman/doorman/api/serializers.py#L6)
 
 - `POST /api/auth/request-code/`
 - `POST /api/auth/verify-code/`
@@ -190,7 +190,7 @@ Arquivos-chave:
 
 ### Admin
 
-Arquivo-chave: [`packages/doorman/shopman/doorman/admin.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/doorman/shopman/doorman/admin.py:16>)
+Arquivo-chave: [`packages/doorman/shopman/doorman/admin.py`](../../packages/doorman/shopman/doorman/admin.py#L16)
 
 - Admin e essencialmente read-only.
 - Mostra estados, mas nunca deixa editar entidades de auth.
@@ -200,9 +200,9 @@ Arquivo-chave: [`packages/doorman/shopman/doorman/admin.py`](</Users/pablovalent
 
 Arquivos-chave:
 
-- [`packages/doorman/shopman/doorman/templates/auth/code_request.html`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/doorman/shopman/doorman/templates/auth/code_request.html:1>)
-- [`packages/doorman/shopman/doorman/templates/auth/code_verify.html`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/doorman/shopman/doorman/templates/auth/code_verify.html:1>)
-- [`packages/doorman/shopman/doorman/templates/auth/access_link_request.html`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/doorman/shopman/doorman/templates/auth/access_link_request.html:1>)
+- [`packages/doorman/shopman/doorman/templates/auth/code_request.html`](../../packages/doorman/shopman/doorman/templates/auth/code_request.html#L1)
+- [`packages/doorman/shopman/doorman/templates/auth/code_verify.html`](../../packages/doorman/shopman/doorman/templates/auth/code_verify.html#L1)
+- [`packages/doorman/shopman/doorman/templates/auth/access_link_request.html`](../../packages/doorman/shopman/doorman/templates/auth/access_link_request.html#L1)
 
 - A experiencia web existe, mas e minima, sem sistema visual, sem hierarquia forte e sem narrativa de onboarding.
 - Os formularios estao corretos em HTML basico, porem ainda parecem prototipo funcional, nao uma experiencia omotenashi-first.
@@ -232,7 +232,7 @@ Gaps reais:
 
 ## Concorrencia e robustez
 
-Arquivo-chave: [`packages/doorman/shopman/doorman/services/_user_bridge.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/doorman/shopman/doorman/services/_user_bridge.py:22>)
+Arquivo-chave: [`packages/doorman/shopman/doorman/services/_user_bridge.py`](../../packages/doorman/shopman/doorman/services/_user_bridge.py#L22)
 
 - A intencao de tratar corrida na criacao de `CustomerUser` existe, via `IntegrityError` retry.
 - Isso protege o link, mas nao serializa a criacao do `User` em si, entao duas requests podem criar usuarios temporarios e matar um depois.
@@ -284,7 +284,7 @@ Resposta curta: parcialmente.
 
 1. Separar o login OTP do reuse artificial de `AccessLink` ou, no minimo, transformar essa dependencia em um hook explicito.
 2. Mapear `ErrorCode` para status HTTP de forma deterministica em views e API.
-3. Corrigir o namespace quebrado em [`packages/doorman/shopman/doorman/templates/auth/access_link_invalid.html`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/doorman/shopman/doorman/templates/auth/access_link_invalid.html:13>).
+3. Corrigir o namespace quebrado em [`packages/doorman/shopman/doorman/templates/auth/access_link_invalid.html`](../../packages/doorman/shopman/doorman/templates/auth/access_link_invalid.html#L13).
 4. Validar `CUSTOMER_RESOLVER_CLASS`, `DELIVERY_CHAIN` e sender classes em startup.
 5. Tornar as validacoes de token/codigo mais resistentes a corrida, idealmente com `select_for_update()` ou updates condicionais.
 6. Remover ou implementar o parametro `sender` em `AccessLinkService.send_access_link()`.

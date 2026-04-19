@@ -10,7 +10,7 @@ O problema principal é que a SPEC implícita no código ainda está fragmentada
 
 ## Arquitetura Percebida
 
-O pacote está dividido de forma sensata em entidades de domínio, serviços, protocolos, adapters, API, admin e contribs opcionais. A melhor decisão arquitetural é tratar `Move` como fonte de verdade e `Quant._quantity` como cache denormalizado, com proteção explícita contra escrita direta ([quant.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/stockman/models/quant.py:23>), [move.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/stockman/models/move.py:1>)).
+O pacote está dividido de forma sensata em entidades de domínio, serviços, protocolos, adapters, API, admin e contribs opcionais. A melhor decisão arquitetural é tratar `Move` como fonte de verdade e `Quant._quantity` como cache denormalizado, com proteção explícita contra escrita direta ([quant.py](../../packages/stockman/shopman/stockman/models/quant.py#L23), [move.py](../../packages/stockman/shopman/stockman/models/move.py#L1)).
 
 Há também um desenho bom de fronteiras: `protocols/sku.py` e `protocols/production.py` definem contratos externos, enquanto `adapters/noop.py`, `adapters/sku_validation.py` e `adapters/production.py` fornecem implementação plugável. Isso ajuda a agnosticidade.
 
@@ -20,7 +20,7 @@ O custo da arquitetura é a dispersão sem um único ponto de orquestração can
 
 ### `Position`
 
-`Position` modela o “onde” do estoque: físico, processo ou virtual ([position.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/stockman/models/position.py:1>), [enums.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/stockman/models/enums.py:1>)).
+`Position` modela o “onde” do estoque: físico, processo ou virtual ([position.py](../../packages/stockman/shopman/stockman/models/position.py#L1), [enums.py](../../packages/stockman/shopman/stockman/models/enums.py#L1)).
 
 O contrato percebido é:
 
@@ -36,7 +36,7 @@ Ponto fraco: não há hierarquia, zona, capacidade, temperatura, ou qualquer mec
 
 ### `Batch`
 
-`Batch` pretende representar rastreabilidade de lote com expiração ([batch.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/stockman/models/batch.py:1>)).
+`Batch` pretende representar rastreabilidade de lote com expiração ([batch.py](../../packages/stockman/shopman/stockman/models/batch.py#L1)).
 
 O contrato percebido é:
 
@@ -46,13 +46,13 @@ O contrato percebido é:
 - `supplier` e `notes` registram origem.
 - `is_expired` responde apenas à data de validade.
 
-Há um problema estrutural aqui: o docstring diz que `Quant.batch` referencia `Batch`, mas o campo real é `CharField`, não FK ([quant.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/stockman/models/quant.py:108>)). Isso enfraquece integridade e rastreabilidade.
+Há um problema estrutural aqui: o docstring diz que `Quant.batch` referencia `Batch`, mas o campo real é `CharField`, não FK ([quant.py](../../packages/stockman/shopman/stockman/models/quant.py#L108)). Isso enfraquece integridade e rastreabilidade.
 
-Mais grave ainda: `BatchQuerySet.active()` usa `quants___quantity__gt=0`, mas `Batch` não tem relação ORM para `Quant`, então esse queryset é quebrado por definição ([batch.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/stockman/models/batch.py:23-25>)). Isso é falha funcional, não só estilo.
+Mais grave ainda: `BatchQuerySet.active()` usa `quants___quantity__gt=0`, mas `Batch` não tem relação ORM para `Quant`, então esse queryset é quebrado por definição ([batch.py](../../packages/stockman/shopman/stockman/models/batch.py#L23-L25)). Isso é falha funcional, não só estilo.
 
 ### `Quant`
 
-`Quant` é o saldo por coordenada espaço-temporal: `sku`, `position`, `target_date`, `batch` e `_quantity` ([quant.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/stockman/models/quant.py:71>)).
+`Quant` é o saldo por coordenada espaço-temporal: `sku`, `position`, `target_date`, `batch` e `_quantity` ([quant.py](../../packages/stockman/shopman/stockman/models/quant.py#L71)).
 
 O contrato percebido é:
 
@@ -68,7 +68,7 @@ O core é bom, mas há uma fraqueza importante: o pacote trata `Quant._quantity`
 
 ### `Move`
 
-`Move` é o ledger imutável de variações de quantidade ([move.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/stockman/models/move.py:1>)).
+`Move` é o ledger imutável de variações de quantidade ([move.py](../../packages/stockman/shopman/stockman/models/move.py#L1)).
 
 O contrato percebido é:
 
@@ -85,7 +85,7 @@ Ponto fraco: a imutabilidade é só por override de `save()` e `delete()`. `Quer
 
 ### `Hold`
 
-`Hold` é a reserva temporária, tanto de estoque físico quanto de demanda futura ([hold.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/stockman/models/hold.py:1>)).
+`Hold` é a reserva temporária, tanto de estoque físico quanto de demanda futura ([hold.py](../../packages/stockman/shopman/stockman/models/hold.py#L1)).
 
 O contrato percebido é:
 
@@ -101,7 +101,7 @@ Ponto fraco: o modelo não guarda ator/usuário da reserva, confirmação ou lib
 
 ### `StockAlert`
 
-`StockAlert` define gatilho de estoque mínimo por SKU e opcionalmente por posição ([alert.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/models/alert.py:1>)).
+`StockAlert` define gatilho de estoque mínimo por SKU e opcionalmente por posição ([alert.py](../../packages/stockman/shopman/models/alert.py#L1)).
 
 O contrato percebido é:
 
@@ -115,7 +115,7 @@ O modelo é simples e funcional, mas o disparo efetivo depende de hooks externos
 
 ### Ledger e saldo
 
-A regra central é clara: `Quant._quantity == Σ(moves.delta)` ([quant.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/models/quant.py:79-83>), [recompute_quant_quantities.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/management/commands/recompute_quant_quantities.py:1>)).
+A regra central é clara: `Quant._quantity == Σ(moves.delta)` ([quant.py](../../packages/stockman/shopman/models/quant.py#L79-L83), [recompute_quant_quantities.py](../../packages/stockman/shopman/management/commands/recompute_quant_quantities.py#L1)).
 
 Isso é bem apoiado por:
 
@@ -124,7 +124,7 @@ Isso é bem apoiado por:
 - comando de manutenção `recompute_quant_quantities`.
 - testes de invariant e concurrency.
 
-O problema é que a própria suíte de testes expõe uma SPEC que o código não implementa mais. Em `test_quantity_invariant.py`, aparecem chamadas como `stock.confirm_hold()`, `stock.release_hold()` e `stock.fulfill_hold()`, mas `StockService` só expõe `confirm()`, `release()` e `fulfill()` ([service.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/service.py:24-33>), [test_quantity_invariant.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/tests/test_quantity_invariant.py:114-216>)). Isso é drift de interface.
+O problema é que a própria suíte de testes expõe uma SPEC que o código não implementa mais. Em `test_quantity_invariant.py`, aparecem chamadas como `stock.confirm_hold()`, `stock.release_hold()` e `stock.fulfill_hold()`, mas `StockService` só expõe `confirm()`, `release()` e `fulfill()` ([service.py](../../packages/stockman/shopman/service.py#L24-L33), [test_quantity_invariant.py](../../packages/stockman/shopman/tests/test_quantity_invariant.py#L114-L216)). Isso é drift de interface.
 
 ### Disponibilidade
 
@@ -134,9 +134,9 @@ Existem três camadas de leitura:
 - `availability_for_sku()` / `availability_for_skus()` para leitura de promessa.
 - `promise_decision_for_sku()` para decisão explícita de compromisso.
 
-O contrato percebido é bom, mas não é uniforme. `StockQueries.available()` não usa o mesmo gate canônico de `quants_eligible_for()` e não exclui batch expirado ([queries.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/services/queries.py:49-111>), [scope.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/services/scope.py:1-77>)). Já `availability_for_sku()` usa `quants_eligible_for()`, então os dois caminhos podem divergir.
+O contrato percebido é bom, mas não é uniforme. `StockQueries.available()` não usa o mesmo gate canônico de `quants_eligible_for()` e não exclui batch expirado ([queries.py](../../packages/stockman/shopman/services/queries.py#L49-L111), [scope.py](../../packages/stockman/shopman/services/scope.py#L1-L77)). Já `availability_for_sku()` usa `quants_eligible_for()`, então os dois caminhos podem divergir.
 
-Também há um bug de shelf-life quando o SKU entra como string e o código sintetiza um `SimpleNamespace` com atributo `shelflife`, enquanto `filter_valid_quants()` e `is_valid_for_date()` esperam `shelf_life_days` ([queries.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/services/queries.py:73-82>), [shelflife.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/shelflife.py:1-54>), [availability.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/services/availability.py:222-234>)). Isso quebra a validade por shelf-life em cenários que usam apenas `sku` string + validator.
+Também há um bug de shelf-life quando o SKU entra como string e o código sintetiza um `SimpleNamespace` com atributo `shelflife`, enquanto `filter_valid_quants()` e `is_valid_for_date()` esperam `shelf_life_days` ([queries.py](../../packages/stockman/shopman/services/queries.py#L73-L82), [shelflife.py](../../packages/stockman/shopman/shelflife.py#L1-L54), [availability.py](../../packages/stockman/shopman/services/availability.py#L222-L234)). Isso quebra a validade por shelf-life em cenários que usam apenas `sku` string + validator.
 
 ### Holds
 
@@ -155,17 +155,17 @@ O ponto bom é que a lógica reconhece duas modalidades:
 
 O ponto ruim é a ambiguidade na alocação. `_find_quant_for_hold()` exige um único `Quant` com disponibilidade suficiente e não divide hold entre múltiplos quants. Isso limita multi-local e multi-estoque.
 
-Também há uma inconsistência importante de UX/API: o contrato público e os testes misturam o estilo “verbo curto” (`confirm`, `release`, `fulfill`) com um estilo “verbo com sufixo” (`confirm_hold`, `release_hold`, `fulfill_hold`), mas só o primeiro existe de fato ([holds.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/services/holds.py:82-352>), [test_quantity_invariant.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/tests/test_quantity_invariant.py:114-216>)).
+Também há uma inconsistência importante de UX/API: o contrato público e os testes misturam o estilo “verbo curto” (`confirm`, `release`, `fulfill`) com um estilo “verbo com sufixo” (`confirm_hold`, `release_hold`, `fulfill_hold`), mas só o primeiro existe de fato ([holds.py](../../packages/stockman/shopman/services/holds.py#L82-L352), [test_quantity_invariant.py](../../packages/stockman/shopman/tests/test_quantity_invariant.py#L114-L216)).
 
 ### Planning
 
-`plan()` é só um atalho para `receive()` em `target_date` futuro; isso é elegante e enxuto ([planning.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/services/planning.py:34-57>)).
+`plan()` é só um atalho para `receive()` em `target_date` futuro; isso é elegante e enxuto ([planning.py](../../packages/stockman/shopman/services/planning.py#L34-L57)).
 
 `replan()` e `realize()` são os pontos mais frágeis do pacote:
 
-- `replan()` faz lookup por `sku` + `target_date` apenas, então em cenários com várias posições ou lotes pode ajustar o `Quant` errado ([planning.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/services/planning.py:59-77>)).
-- `realize()` faz fallback em cascata para encontrar um `Quant`, o que é pragmático mas pode esconder ambiguidade de dados ([planning.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/services/planning.py:80-116>)).
-- a migração de holds em `realize()` transfere o hold inteiro e não uma fração, então o comentário “up to actual_quantity” não descreve perfeitamente o que o loop faz; há overshoot possível quando um hold individual é maior que o restante necessário ([planning.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/services/planning.py:147-173>)).
+- `replan()` faz lookup por `sku` + `target_date` apenas, então em cenários com várias posições ou lotes pode ajustar o `Quant` errado ([planning.py](../../packages/stockman/shopman/services/planning.py#L59-L77)).
+- `realize()` faz fallback em cascata para encontrar um `Quant`, o que é pragmático mas pode esconder ambiguidade de dados ([planning.py](../../packages/stockman/shopman/services/planning.py#L80-L116)).
+- a migração de holds em `realize()` transfere o hold inteiro e não uma fração, então o comentário “up to actual_quantity” não descreve perfeitamente o que o loop faz; há overshoot possível quando um hold individual é maior que o restante necessário ([planning.py](../../packages/stockman/shopman/services/planning.py#L147-L173)).
 
 ### Alertas
 
@@ -174,9 +174,9 @@ O pacote possui dois níveis:
 - `check_alerts()` faz o cálculo de limiar.
 - `contrib.alerts.handlers` conecta o cálculo ao `post_save` de `Move` e, opcionalmente, cria `Directive` no Orderman.
 
-O desenho é bom, mas o escopo é físico e simplificado. `check_alerts()` calcula estoque físico de hoje, não previsão, não canal, não planejamento futuro ([alerts.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/services/alerts.py:26-86>)). Isso é coerente para alerta operacional, mas estreito para inteligência de abastecimento.
+O desenho é bom, mas o escopo é físico e simplificado. `check_alerts()` calcula estoque físico de hoje, não previsão, não canal, não planejamento futuro ([alerts.py](../../packages/stockman/shopman/services/alerts.py#L26-L86)). Isso é coerente para alerta operacional, mas estreito para inteligência de abastecimento.
 
-O wiring do signal é correto se a app `contrib.alerts` estiver instalada, porque `ready()` importa `handlers` ([contrib/alerts/apps.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/contrib/alerts/apps.py:1-16>), [handlers.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/contrib/alerts/handlers.py:1-134>)). Fora isso, não há auto-discovery do handler no app core.
+O wiring do signal é correto se a app `contrib.alerts` estiver instalada, porque `ready()` importa `handlers` ([contrib/alerts/apps.py](../../packages/stockman/shopman/contrib/alerts/apps.py#L1-L16), [handlers.py](../../packages/stockman/shopman/contrib/alerts/handlers.py#L1-L134)). Fora isso, não há auto-discovery do handler no app core.
 
 ### API Pública
 
@@ -192,13 +192,13 @@ Isso é bom para onboarding e integração headless.
 
 Mas há três problemas de produto:
 
-- `channel_ref` existe na assinatura, mas `availability_scope_for_channel()` devolve sempre `safety_margin=0` e `allowed_positions=None`, então o escopo por canal é uma promessa ainda não implementada ([availability.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/services/availability.py:365-374>), [api/views.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/api/views.py:60-74>)).
-- `IssueView` escolhe um `Quant` por `sku` + `position` apenas, sem distinguir `target_date` ou `batch`, o que é ambíguo em estoque real com múltiplas coordenadas ([api/views.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/api/views.py:319-341>), [queries.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/services/queries.py:169-179>)).
+- `channel_ref` existe na assinatura, mas `availability_scope_for_channel()` devolve sempre `safety_margin=0` e `allowed_positions=None`, então o escopo por canal é uma promessa ainda não implementada ([availability.py](../../packages/stockman/shopman/services/availability.py#L365-L374), [api/views.py](../../packages/stockman/shopman/api/views.py#L60-L74)).
+- `IssueView` escolhe um `Quant` por `sku` + `position` apenas, sem distinguir `target_date` ou `batch`, o que é ambíguo em estoque real com múltiplas coordenadas ([api/views.py](../../packages/stockman/shopman/api/views.py#L319-L341), [queries.py](../../packages/stockman/shopman/services/queries.py#L169-L179)).
 - `HoldListView` e `MoveListView` são úteis, mas não resolvem o fato de que o core não possui um modelo explícito de auditoria de ator para lifecycle de hold.
 
 ## Superfícies Públicas e Contratos
 
-O ponto de entrada principal é `shopman.stockman.stock`, que expõe `StockService` via import tardio ([__init__.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/stockman/__init__.py:15-56>), [service.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/stockman/shopman/stockman/service.py:24-37>)).
+O ponto de entrada principal é `shopman.stockman.stock`, que expõe `StockService` via import tardio ([__init__.py](../../packages/stockman/shopman/stockman/__init__.py#L15-L56), [service.py](../../packages/stockman/shopman/stockman/service.py#L24-L37)).
 
 Contratos percebidos:
 

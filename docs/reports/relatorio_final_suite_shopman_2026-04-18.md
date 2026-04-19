@@ -15,21 +15,21 @@ Consolidar, em um único parecer final, os principais achados dos relatórios de
 
 Relatório-mestre:
 
-- [analise_suite_shopman_spec_2026-04-18.md](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_suite_shopman_spec_2026-04-18.md)
+- [analise_suite_shopman_spec_2026-04-18.md](analise_suite_shopman_spec_2026-04-18.md)
 
 Relatórios por pacote e recortes complementares:
 
-- [analise_critica_shopman_shop_spec_2026-04-18.md](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_critica_shopman_shop_spec_2026-04-18.md)
-- [analise_orderman_spec_2026-04-18.md](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_orderman_spec_2026-04-18.md)
-- [doorman_spec_analysis_2026-04-18.md](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/doorman_spec_analysis_2026-04-18.md)
-- [guestman_spec_analysis_2026-04-18.md](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/guestman_spec_analysis_2026-04-18.md)
-- [analise_critica_offerman_2026-04-18.md](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_critica_offerman_2026-04-18.md)
-- [analise_critica_stockman_spec_2026-04-18.md](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_critica_stockman_spec_2026-04-18.md)
-- [analise_payman_spec_2026-04-18.md](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_payman_spec_2026-04-18.md)
-- [analise_craftsman_spec_2026-04-18.md](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_craftsman_spec_2026-04-18.md)
-- [utils_spec_analysis_2026-04-18.md](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/utils_spec_analysis_2026-04-18.md)
-- [analise_nelson_spec_2026-04-18.md](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_nelson_spec_2026-04-18.md)
-- [analise_critica_codigo_2026-04-18.md](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_critica_codigo_2026-04-18.md)
+- [analise_critica_shopman_shop_spec_2026-04-18.md](analise_critica_shopman_shop_spec_2026-04-18.md)
+- [analise_orderman_spec_2026-04-18.md](analise_orderman_spec_2026-04-18.md)
+- [doorman_spec_analysis_2026-04-18.md](doorman_spec_analysis_2026-04-18.md)
+- [guestman_spec_analysis_2026-04-18.md](guestman_spec_analysis_2026-04-18.md)
+- [analise_critica_offerman_2026-04-18.md](analise_critica_offerman_2026-04-18.md)
+- [analise_critica_stockman_spec_2026-04-18.md](analise_critica_stockman_spec_2026-04-18.md)
+- [analise_payman_spec_2026-04-18.md](analise_payman_spec_2026-04-18.md)
+- [analise_craftsman_spec_2026-04-18.md](analise_craftsman_spec_2026-04-18.md)
+- [utils_spec_analysis_2026-04-18.md](utils_spec_analysis_2026-04-18.md)
+- [analise_nelson_spec_2026-04-18.md](analise_nelson_spec_2026-04-18.md)
+- [analise_critica_codigo_2026-04-18.md](analise_critica_codigo_2026-04-18.md)
 
 ## Síntese executiva
 

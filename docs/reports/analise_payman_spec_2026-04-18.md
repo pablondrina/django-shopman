@@ -14,7 +14,7 @@ O principal problema não é ausência de intenção, e sim assimetria entre int
 
 ### `PaymentIntent`
 
-Arquivo-chave: [`packages/payman/shopman/payman/models/intent.py:8`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/payman/shopman/payman/models/intent.py:8>)
+Arquivo-chave: [`packages/payman/shopman/payman/models/intent.py:8`](../../packages/payman/shopman/payman/models/intent.py#L8)
 
 - A entidade é a âncora do domínio de pagamento e referencia o pedido por `order_ref` como string, sem FK.
 - `ref` é o identificador externo estável, único, com geração automática `PAY-` + 12 hex uppercase quando não fornecido.
@@ -36,7 +36,7 @@ Contrato relevante:
 
 ### `PaymentTransaction`
 
-Arquivo-chave: [`packages/payman/shopman/payman/models/transaction.py:5`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/payman/shopman/payman/models/transaction.py:5>)
+Arquivo-chave: [`packages/payman/shopman/payman/models/transaction.py:5`](../../packages/payman/shopman/payman/models/transaction.py#L5)
 
 - A transação é o registro financeiro imutável ligado ao intent por `PROTECT`.
 - `type` suporta `capture`, `refund`, `chargeback`.
@@ -50,7 +50,7 @@ Gap importante:
 
 ### `PaymentService`
 
-Arquivo-chave: [`packages/payman/shopman/payman/service.py:69`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/payman/shopman/payman/service.py:69>)
+Arquivo-chave: [`packages/payman/shopman/payman/service.py:69`](../../packages/payman/shopman/payman/service.py#L69)
 
 - É a superfície mutável oficial.
 - Todas as operações de escrita usam `@transaction.atomic` e `select_for_update()` via `_get_for_update()`.
@@ -69,7 +69,7 @@ Leitura funcional:
 
 ### Protocol boundary
 
-Arquivo-chave: [`packages/payman/shopman/payman/protocols.py:21`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/payman/shopman/payman/protocols.py:21>)
+Arquivo-chave: [`packages/payman/shopman/payman/protocols.py:21`](../../packages/payman/shopman/payman/protocols.py#L21)
 
 - Existem DTOs frozen para intenção do gateway, resultado de captura, resultado de refund e status.
 - Há um `PaymentBackend` protocol com `create_intent`, `authorize`, `capture`, `refund`, `cancel`, `get_status`.
@@ -78,7 +78,7 @@ Arquivo-chave: [`packages/payman/shopman/payman/protocols.py:21`](</Users/pablov
 
 ## Fluxos e transições
 
-Arquivo de referência: [`packages/payman/shopman/payman/models/intent.py:46`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/payman/shopman/payman/models/intent.py:46>)
+Arquivo de referência: [`packages/payman/shopman/payman/models/intent.py:46`](../../packages/payman/shopman/payman/models/intent.py#L46)
 
 - Pending aceita authorize, fail ou cancel.
 - Authorized aceita capture, fail ou cancel.
@@ -105,7 +105,7 @@ Nuance importante:
 
 ### API read-only
 
-Arquivo-chave: [`packages/payman/shopman/payman/api/views.py:14`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/payman/shopman/payman/api/views.py:14>)
+Arquivo-chave: [`packages/payman/shopman/payman/api/views.py:14`](../../packages/payman/shopman/payman/api/views.py#L14)
 
 - `PaymentIntentViewSet` expõe listagem e detalhe por `ref`.
 - `ActiveIntentView` busca o intent ativo mais recente para um `order_ref`.
@@ -114,7 +114,7 @@ Arquivo-chave: [`packages/payman/shopman/payman/api/views.py:14`](</Users/pablov
 
 ### Serialização
 
-Arquivo-chave: [`packages/payman/shopman/payman/api/serializers.py:8`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/payman/shopman/payman/api/serializers.py:8>)
+Arquivo-chave: [`packages/payman/shopman/payman/api/serializers.py:8`](../../packages/payman/shopman/payman/api/serializers.py#L8)
 
 - O serializer de detalhe inclui o histórico de transações.
 - `gateway_data` não é exposto pela API.
@@ -122,7 +122,7 @@ Arquivo-chave: [`packages/payman/shopman/payman/api/serializers.py:8`](</Users/p
 
 ## Erros
 
-Arquivo-chave: [`packages/payman/shopman/payman/exceptions.py:8`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/payman/shopman/payman/exceptions.py:8>)
+Arquivo-chave: [`packages/payman/shopman/payman/exceptions.py:8`](../../packages/payman/shopman/payman/exceptions.py#L8)
 
 - O pacote usa uma exceção única `PaymentError` com `code`, `message` e `context`.
 - Códigos realmente emitidos pelo serviço: `invalid_amount`, `invalid_transition`, `capture_exceeds_authorized`, `amount_exceeds_captured`, `already_refunded`, `intent_not_found`, `intent_expired`.
@@ -134,7 +134,7 @@ Gaps:
 
 ## Concorrência
 
-Arquivo-chave: [`packages/payman/shopman/payman/tests/test_concurrency.py:1`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/payman/shopman/payman/tests/test_concurrency.py:1>)
+Arquivo-chave: [`packages/payman/shopman/payman/tests/test_concurrency.py:1`](../../packages/payman/shopman/payman/tests/test_concurrency.py#L1)
 
 - O core trata concorrência com `select_for_update` e transação atômica por operação.
 - Os testes de concorrência existem e documentam a intenção de serialização entre capture/cancel.
@@ -147,7 +147,7 @@ Leitura crítica:
 
 ## Segurança
 
-Arquivo-chave: [`packages/payman/shopman/payman/api/views.py:17`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/payman/shopman/payman/api/views.py:17>)
+Arquivo-chave: [`packages/payman/shopman/payman/api/views.py:17`](../../packages/payman/shopman/payman/api/views.py#L17)
 
 - A API exige autenticação, mas não faz autorização por objeto nem por domínio de dados.
 - Isso significa que um usuário autenticado pode listar e recuperar intents de qualquer `order_ref` se a view estiver exposta sem camadas adicionais.

@@ -16,29 +16,29 @@ Como base standalone utilitaria para a suite Shopman, ele serve. Como biblioteca
 
 Arquivos centrais:
 
-- [`packages/utils/shopman/utils/__init__.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/__init__.py>)
-- [`packages/utils/shopman/utils/apps.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/apps.py>)
-- [`packages/utils/shopman/utils/exceptions.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/exceptions.py>)
-- [`packages/utils/shopman/utils/monetary.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/monetary.py>)
-- [`packages/utils/shopman/utils/formatting.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/formatting.py>)
-- [`packages/utils/shopman/utils/phone.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/phone.py>)
-- [`packages/utils/shopman/utils/admin/mixins.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/admin/mixins.py>)
-- [`packages/utils/shopman/utils/admin/views.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/admin/views.py>)
-- [`packages/utils/shopman/utils/contrib/admin_unfold/base.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/contrib/admin_unfold/base.py>)
-- [`packages/utils/shopman/utils/contrib/admin_unfold/badges.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/contrib/admin_unfold/badges.py>)
-- [`packages/utils/shopman/utils/contrib/admin_unfold/tables.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/contrib/admin_unfold/tables.py>)
-- [`packages/utils/shopman/utils/static/shopman_utils/js/autocomplete_autofill.js`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/static/shopman_utils/js/autocomplete_autofill.js>)
+- [`packages/utils/shopman/utils/__init__.py`](../../packages/utils/shopman/utils/__init__.py)
+- [`packages/utils/shopman/utils/apps.py`](../../packages/utils/shopman/utils/apps.py)
+- [`packages/utils/shopman/utils/exceptions.py`](../../packages/utils/shopman/utils/exceptions.py)
+- [`packages/utils/shopman/utils/monetary.py`](../../packages/utils/shopman/utils/monetary.py)
+- [`packages/utils/shopman/utils/formatting.py`](../../packages/utils/shopman/utils/formatting.py)
+- [`packages/utils/shopman/utils/phone.py`](../../packages/utils/shopman/utils/phone.py)
+- [`packages/utils/shopman/utils/admin/mixins.py`](../../packages/utils/shopman/utils/admin/mixins.py)
+- [`packages/utils/shopman/utils/admin/views.py`](../../packages/utils/shopman/utils/admin/views.py)
+- [`packages/utils/shopman/utils/contrib/admin_unfold/base.py`](../../packages/utils/shopman/utils/contrib/admin_unfold/base.py)
+- [`packages/utils/shopman/utils/contrib/admin_unfold/badges.py`](../../packages/utils/shopman/utils/contrib/admin_unfold/badges.py)
+- [`packages/utils/shopman/utils/contrib/admin_unfold/tables.py`](../../packages/utils/shopman/utils/contrib/admin_unfold/tables.py)
+- [`packages/utils/shopman/utils/static/shopman_utils/js/autocomplete_autofill.js`](../../packages/utils/shopman/utils/static/shopman_utils/js/autocomplete_autofill.js)
 
 Configuracao e packaging:
 
-- [`packages/utils/pyproject.toml`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/pyproject.toml>)
-- [`packages/utils/utils_test_settings.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/utils_test_settings.py>)
+- [`packages/utils/pyproject.toml`](../../packages/utils/pyproject.toml)
+- [`packages/utils/utils_test_settings.py`](../../packages/utils/utils_test_settings.py)
 
 ## SPECS Extraidas
 
 ### 1. `UtilsConfig` e contrato de instalacao
 
-Arquivo: [`packages/utils/shopman/utils/apps.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/apps.py>)
+Arquivo: [`packages/utils/shopman/utils/apps.py`](../../packages/utils/shopman/utils/apps.py)
 
 Spec percebida:
 
@@ -55,7 +55,7 @@ Leitura critica:
 
 ### 2. `BaseError`
 
-Arquivo: [`packages/utils/shopman/utils/exceptions.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/exceptions.py>)
+Arquivo: [`packages/utils/shopman/utils/exceptions.py`](../../packages/utils/shopman/utils/exceptions.py)
 
 Spec percebida:
 
@@ -78,7 +78,7 @@ Gaps:
 
 ### 3. `monetary.py`
 
-Arquivo: [`packages/utils/shopman/utils/monetary.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/monetary.py>)
+Arquivo: [`packages/utils/shopman/utils/monetary.py`](../../packages/utils/shopman/utils/monetary.py)
 
 Spec percebida:
 
@@ -106,7 +106,7 @@ Gaps:
 
 ### 4. `formatting.py`
 
-Arquivo: [`packages/utils/shopman/utils/formatting.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/formatting.py>)
+Arquivo: [`packages/utils/shopman/utils/formatting.py`](../../packages/utils/shopman/utils/formatting.py)
 
 Spec percebida:
 
@@ -122,7 +122,7 @@ Leitura critica:
 
 ### 5. `phone.py`
 
-Arquivo: [`packages/utils/shopman/utils/phone.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/phone.py>)
+Arquivo: [`packages/utils/shopman/utils/phone.py`](../../packages/utils/shopman/utils/phone.py)
 
 Spec percebida:
 
@@ -147,13 +147,13 @@ Nuances relevantes:
 
 Gaps e desalinhamentos:
 
-- A docstring de [`is_valid_phone()`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/phone.py:129>) promete comportamento incorreto quando `phonenumbers` nao existe. O codigo nao retorna sempre `True`; ele faz checagem basica de comprimento.
-- O fallback em [`_fallback_normalize()`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/phone.py:108>) ignora `default_region` na pratica e assume BR para números sem `+`.
+- A docstring de [`is_valid_phone()`](../../packages/utils/shopman/utils/phone.py#L129) promete comportamento incorreto quando `phonenumbers` nao existe. O codigo nao retorna sempre `True`; ele faz checagem basica de comprimento.
+- O fallback em [`_fallback_normalize()`](../../packages/utils/shopman/utils/phone.py#L108) ignora `default_region` na pratica e assume BR para números sem `+`.
 - O helper aceita email por heuristica via `@`, o que e util, mas tambem amplia a chance de uso incorreto se o chamador nao passar `contact_type`.
 
 ### 6. `AutofillInlineMixin`
 
-Arquivo: [`packages/utils/shopman/utils/admin/mixins.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/admin/mixins.py>)
+Arquivo: [`packages/utils/shopman/utils/admin/mixins.py`](../../packages/utils/shopman/utils/admin/mixins.py)
 
 Spec percebida:
 
@@ -176,7 +176,7 @@ Gaps:
 
 ### 7. `EnrichedAutocompleteJsonView`
 
-Arquivo: [`packages/utils/shopman/utils/admin/views.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/admin/views.py>)
+Arquivo: [`packages/utils/shopman/utils/admin/views.py`](../../packages/utils/shopman/utils/admin/views.py)
 
 Spec percebida:
 
@@ -198,7 +198,7 @@ Gaps importantes:
 
 ### 8. `contrib/admin_unfold/base.py`
 
-Arquivo: [`packages/utils/shopman/utils/contrib/admin_unfold/base.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/contrib/admin_unfold/base.py>)
+Arquivo: [`packages/utils/shopman/utils/contrib/admin_unfold/base.py`](../../packages/utils/shopman/utils/contrib/admin_unfold/base.py)
 
 Spec percebida:
 
@@ -218,7 +218,7 @@ Gaps:
 
 ### 9. `contrib/admin_unfold/badges.py`
 
-Arquivo: [`packages/utils/shopman/utils/contrib/admin_unfold/badges.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/contrib/admin_unfold/badges.py>)
+Arquivo: [`packages/utils/shopman/utils/contrib/admin_unfold/badges.py`](../../packages/utils/shopman/utils/contrib/admin_unfold/badges.py)
 
 Spec percebida:
 
@@ -239,7 +239,7 @@ Leitura critica:
 
 ### 10. `contrib/admin_unfold/tables.py`
 
-Arquivo: [`packages/utils/shopman/utils/contrib/admin_unfold/tables.py`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/contrib/admin_unfold/tables.py>)
+Arquivo: [`packages/utils/shopman/utils/contrib/admin_unfold/tables.py`](../../packages/utils/shopman/utils/contrib/admin_unfold/tables.py)
 
 Spec percebida:
 
@@ -257,13 +257,13 @@ O que esta bom:
 
 Gaps e bugs:
 
-- [`table_admin_link()`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/contrib/admin_unfold/tables.py:72>) promete inferir `app_label` se vier `None`, mas nao faz isso. Hoje ele monta `admin:None_<model>_change`, o que e bug direto de contrato.
+- [`table_admin_link()`](../../packages/utils/shopman/utils/contrib/admin_unfold/tables.py#L72) promete inferir `app_label` se vier `None`, mas nao faz isso. Hoje ele monta `admin:None_<model>_change`, o que e bug direto de contrato.
 - O helper aceita `url` livre em `table_link()`; isso e aceitavel para codigo interno, mas nao faz validacao de esquema ou host.
-- [`DashboardTable.add_row()`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/contrib/admin_unfold/tables.py:151>) nao valida quantidade de células contra headers, entao a consistencia estrutural depende do chamador.
+- [`DashboardTable.add_row()`](../../packages/utils/shopman/utils/contrib/admin_unfold/tables.py#L151) nao valida quantidade de células contra headers, entao a consistencia estrutural depende do chamador.
 
 ### 11. `static/shopman_utils/js/autocomplete_autofill.js`
 
-Arquivo: [`packages/utils/shopman/utils/static/shopman_utils/js/autocomplete_autofill.js`](</Users/pablovalentini/Dev/Claude/django-shopman/packages/utils/shopman/utils/static/shopman_utils/js/autocomplete_autofill.js>)
+Arquivo: [`packages/utils/shopman/utils/static/shopman_utils/js/autocomplete_autofill.js`](../../packages/utils/shopman/utils/static/shopman_utils/js/autocomplete_autofill.js)
 
 Spec percebida:
 

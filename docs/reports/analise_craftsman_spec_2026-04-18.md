@@ -40,8 +40,8 @@ O que ainda o impede de ser um standalone plenamente robusto e universal não é
 
 Referências:
 
-- [service.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/service.py:24)
-- [__init__.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/__init__.py:25)
+- [service.py](../../packages/craftsman/shopman/craftsman/service.py#L24)
+- [__init__.py](../../packages/craftsman/shopman/craftsman/__init__.py#L25)
 
 ### Receita/BOM
 
@@ -60,8 +60,8 @@ Referências:
 
 Referências:
 
-- [models/recipe.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/models/recipe.py:19)
-- [models/recipe.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/models/recipe.py:113)
+- [models/recipe.py](../../packages/craftsman/shopman/craftsman/models/recipe.py#L19)
+- [models/recipe.py](../../packages/craftsman/shopman/craftsman/models/recipe.py#L113)
 
 ### Ordem de produção
 
@@ -80,9 +80,9 @@ Referências:
 
 Referências:
 
-- [models/work_order.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/models/work_order.py:20)
-- [models/work_order.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/models/work_order.py:164)
-- [models/sequence.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/models/sequence.py:12)
+- [models/work_order.py](../../packages/craftsman/shopman/craftsman/models/work_order.py#L20)
+- [models/work_order.py](../../packages/craftsman/shopman/craftsman/models/work_order.py#L164)
+- [models/sequence.py](../../packages/craftsman/shopman/craftsman/models/sequence.py#L12)
 
 ### Eventos e idempotência
 
@@ -99,7 +99,7 @@ Ponto fraco: `payload` não tem schema formal.
 
 Referência:
 
-- [models/work_order_event.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/models/work_order_event.py:54)
+- [models/work_order_event.py](../../packages/craftsman/shopman/craftsman/models/work_order_event.py#L54)
 
 ### Ledger de materiais
 
@@ -114,7 +114,7 @@ Essa é uma boa decisão: o pacote mantém trilha auditável e recomponível.
 
 Referência:
 
-- [models/work_order_item.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/models/work_order_item.py:22)
+- [models/work_order_item.py](../../packages/craftsman/shopman/craftsman/models/work_order_item.py#L22)
 
 ## Fluxos principais
 
@@ -126,7 +126,7 @@ Referência:
 
 Referência:
 
-- [services/scheduling.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/services/scheduling.py:58)
+- [services/scheduling.py](../../packages/craftsman/shopman/craftsman/services/scheduling.py#L58)
 
 ### `adjust()`
 
@@ -138,7 +138,7 @@ Referência:
 
 Referência:
 
-- [services/scheduling.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/services/scheduling.py:189)
+- [services/scheduling.py](../../packages/craftsman/shopman/craftsman/services/scheduling.py#L189)
 
 ### `start()`
 
@@ -147,7 +147,7 @@ Referência:
 
 Referência:
 
-- [services/scheduling.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/services/scheduling.py:263)
+- [services/scheduling.py](../../packages/craftsman/shopman/craftsman/services/scheduling.py#L263)
 
 ### `finish()`
 
@@ -158,7 +158,7 @@ Referência:
 
 Referência:
 
-- [services/execution.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/services/execution.py:22)
+- [services/execution.py](../../packages/craftsman/shopman/craftsman/services/execution.py#L22)
 
 ## Queries públicas
 
@@ -180,8 +180,8 @@ As queries são projeções operacionais:
 
 Referências:
 
-- [services/queries.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/services/queries.py:66)
-- [services/queries.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/services/queries.py:119)
+- [services/queries.py](../../packages/craftsman/shopman/craftsman/services/queries.py#L66)
+- [services/queries.py](../../packages/craftsman/shopman/craftsman/services/queries.py#L119)
 
 ## Protocolos e integrações
 
@@ -202,12 +202,12 @@ O desenho é bom: fronteiras claras, com degradação controlada quando dependê
 
 Referências:
 
-- [protocols/inventory.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/protocols/inventory.py:1)
-- [protocols/demand.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/protocols/demand.py:1)
-- [protocols/catalog.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/protocols/catalog.py:1)
-- [adapters/stock.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/adapters/stock.py:48)
-- [contrib/demand/backend.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/contrib/demand/backend.py:22)
-- [contrib/stockman/production.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/contrib/stockman/production.py:30)
+- [protocols/inventory.py](../../packages/craftsman/shopman/craftsman/protocols/inventory.py#L1)
+- [protocols/demand.py](../../packages/craftsman/shopman/craftsman/protocols/demand.py#L1)
+- [protocols/catalog.py](../../packages/craftsman/shopman/craftsman/protocols/catalog.py#L1)
+- [adapters/stock.py](../../packages/craftsman/shopman/craftsman/adapters/stock.py#L48)
+- [contrib/demand/backend.py](../../packages/craftsman/shopman/craftsman/contrib/demand/backend.py#L22)
+- [contrib/stockman/production.py](../../packages/craftsman/shopman/craftsman/contrib/stockman/production.py#L30)
 
 ## API e UX
 
@@ -225,11 +225,11 @@ Mas a experiência continua muito admin/API-first:
 
 Referências:
 
-- [api/views.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/api/views.py:43)
-- [views.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/views.py:1)
-- [urls.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/urls.py:1)
-- [templates/crafting/daily_ingredients.html](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/templates/crafting/daily_ingredients.html:1)
-- [admin.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/admin.py:11)
+- [api/views.py](../../packages/craftsman/shopman/craftsman/api/views.py#L43)
+- [views.py](../../packages/craftsman/shopman/craftsman/views.py#L1)
+- [urls.py](../../packages/craftsman/shopman/craftsman/urls.py#L1)
+- [templates/crafting/daily_ingredients.html](../../packages/craftsman/shopman/craftsman/templates/crafting/daily_ingredients.html#L1)
+- [admin.py](../../packages/craftsman/shopman/craftsman/admin.py#L11)
 
 ## Distância entre promessa e realizado
 
@@ -241,8 +241,8 @@ Isso reduz a segurança de uso como core compartilhado para múltiplos negócios
 
 Referências:
 
-- [models/work_order.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/models/work_order.py:105)
-- [models/work_order_event.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/models/work_order_event.py:96)
+- [models/work_order.py](../../packages/craftsman/shopman/craftsman/models/work_order.py#L105)
+- [models/work_order_event.py](../../packages/craftsman/shopman/craftsman/models/work_order_event.py#L96)
 
 ### 2. Side effects externos ainda são ambíguos
 
@@ -254,8 +254,8 @@ Em `strict`, ainda existe o risco clássico de inconsistência entre efeito loca
 
 Referências:
 
-- [services/execution.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/services/execution.py:51)
-- [services/execution.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/services/execution.py:313)
+- [services/execution.py](../../packages/craftsman/shopman/craftsman/services/execution.py#L51)
+- [services/execution.py](../../packages/craftsman/shopman/craftsman/services/execution.py#L313)
 
 ### 3. Payloads sem schema forte
 
@@ -265,8 +265,8 @@ Isso é flexível, mas enfraquece reproducibilidade por SDD e permite deriva sem
 
 Referências:
 
-- [models/work_order_event.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/models/work_order_event.py:54)
-- [api/serializers.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/api/serializers.py:208)
+- [models/work_order_event.py](../../packages/craftsman/shopman/craftsman/models/work_order_event.py#L54)
+- [api/serializers.py](../../packages/craftsman/shopman/craftsman/api/serializers.py#L208)
 
 ### 4. Heurísticas de déficit ainda são simplificadas
 
@@ -276,8 +276,8 @@ Referências:
 
 Referências:
 
-- [services/scheduling.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/services/scheduling.py:391)
-- [services/queries.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/services/queries.py:352)
+- [services/scheduling.py](../../packages/craftsman/shopman/craftsman/services/scheduling.py#L391)
+- [services/queries.py](../../packages/craftsman/shopman/craftsman/services/queries.py#L352)
 
 ### 5. UX ainda não acompanha a ambição operacional
 
@@ -297,7 +297,7 @@ O pacote usa `IsAuthenticated`, mas não separa perfis de:
 
 Referência:
 
-- [api/views.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/craftsman/shopman/craftsman/api/views.py:51)
+- [api/views.py](../../packages/craftsman/shopman/craftsman/api/views.py#L51)
 
 ## Serve como standalone?
 

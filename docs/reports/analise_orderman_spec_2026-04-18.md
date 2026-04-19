@@ -12,7 +12,7 @@ O principal descompasso nao e de robustez, e sim de consistencia de arquitetura.
 
 ### `Session`
 
-Base: [models/session.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/orderman/shopman/orderman/models/session.py:76)
+Base: [models/session.py](../../packages/orderman/shopman/orderman/models/session.py#L76)
 
 SPECS percebidas:
 - E a unidade mutavel pre-commit, equivalente a carrinho/comanda.
@@ -31,7 +31,7 @@ Nuances relevantes:
 
 ### `SessionItem`
 
-Base: [models/session.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/orderman/shopman/orderman/models/session.py:262)
+Base: [models/session.py](../../packages/orderman/shopman/orderman/models/session.py#L262)
 
 SPECS percebidas:
 - Linha persistida de uma sessao, com `qty > 0`, `unit_price_q >= 0` e `line_total_q >= 0`.
@@ -40,7 +40,7 @@ SPECS percebidas:
 
 ### `Order`
 
-Base: [models/order.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/orderman/shopman/orderman/models/order.py:12)
+Base: [models/order.py](../../packages/orderman/shopman/orderman/models/order.py#L12)
 
 SPECS percebidas:
 - E o pedido canonico selado e imutavel.
@@ -66,7 +66,7 @@ SPECS percebidas:
 
 ### `Directive`
 
-Base: [models/directive.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/orderman/shopman/orderman/models/directive.py:10)
+Base: [models/directive.py](../../packages/orderman/shopman/orderman/models/directive.py#L10)
 
 SPECS percebidas:
 - E uma tarefa at-least-once, inicialmente `queued`.
@@ -79,7 +79,7 @@ Nuances relevantes:
 
 ### `IdempotencyKey`
 
-Base: [models/idempotency.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/orderman/shopman/orderman/models/idempotency.py:1)
+Base: [models/idempotency.py](../../packages/orderman/shopman/orderman/models/idempotency.py#L1)
 
 SPECS percebidas:
 - Escopo + chave formam uma barreira de reexecucao.
@@ -88,7 +88,7 @@ SPECS percebidas:
 
 ### `Fulfillment` e `FulfillmentItem`
 
-Base: [models/fulfillment.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/orderman/shopman/orderman/models/fulfillment.py:1)
+Base: [models/fulfillment.py](../../packages/orderman/shopman/orderman/models/fulfillment.py#L1)
 
 SPECS percebidas:
 - Lifecycle separado do `Order`: `pending -> in_progress -> dispatched -> delivered` ou `cancelled`.
@@ -99,7 +99,7 @@ SPECS percebidas:
 
 ### Criacao de sessao
 
-Base: [api/views.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/orderman/shopman/orderman/api/views.py:196)
+Base: [api/views.py](../../packages/orderman/shopman/orderman/api/views.py#L196)
 
 Contrato:
 - `POST /api/sessions` cria uma sessao aberta.
@@ -108,7 +108,7 @@ Contrato:
 
 ### Modificacao de sessao
 
-Bases: [api/serializers.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/orderman/shopman/orderman/api/serializers.py:43), [services/modify.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/orderman/shopman/orderman/services/modify.py:17)
+Bases: [api/serializers.py](../../packages/orderman/shopman/orderman/api/serializers.py#L43), [services/modify.py](../../packages/orderman/shopman/orderman/services/modify.py#L17)
 
 Contrato:
 - Operacoes suportadas: `add_line`, `remove_line`, `set_qty`, `replace_sku`, `set_data`, `merge_lines`.
@@ -118,7 +118,7 @@ Contrato:
 
 ### Commit de sessao
 
-Base: [services/commit.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/orderman/shopman/orderman/services/commit.py:23)
+Base: [services/commit.py](../../packages/orderman/shopman/orderman/services/commit.py#L23)
 
 Contrato:
 - Primeiro resolve idempotencia.
@@ -129,7 +129,7 @@ Contrato:
 
 ### Resolucao de issue
 
-Bases: [services/resolve.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/orderman/shopman/orderman/services/resolve.py:1), [contrib/stock/resolvers.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/orderman/shopman/orderman/contrib/stock/resolvers.py:13)
+Bases: [services/resolve.py](../../packages/orderman/shopman/orderman/services/resolve.py#L1), [contrib/stock/resolvers.py](../../packages/orderman/shopman/orderman/contrib/stock/resolvers.py#L13)
 
 Contrato:
 - `ResolveService` acha a issue por `id`, localiza o resolver por `source`, e delega a aplicacao da action.
@@ -137,7 +137,7 @@ Contrato:
 
 ### Processamento de diretivas
 
-Bases: [dispatch.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/orderman/shopman/orderman/dispatch.py:1), [management/commands/process_directives.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/orderman/shopman/orderman/management/commands/process_directives.py:64)
+Bases: [dispatch.py](../../packages/orderman/shopman/orderman/dispatch.py#L1), [management/commands/process_directives.py](../../packages/orderman/shopman/orderman/management/commands/process_directives.py#L64)
 
 Contrato:
 - O dispatch por signal tenta processar diretivas novas apos commit.
@@ -146,7 +146,7 @@ Contrato:
 
 ## Superficies publicas
 
-Bases: [api/urls.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/orderman/shopman/orderman/api/urls.py:1), [services/__init__.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/orderman/shopman/orderman/services/__init__.py:1), [registry.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/orderman/shopman/orderman/registry.py:103)
+Bases: [api/urls.py](../../packages/orderman/shopman/orderman/api/urls.py#L1), [services/__init__.py](../../packages/orderman/shopman/orderman/services/__init__.py#L1), [registry.py](../../packages/orderman/shopman/orderman/registry.py#L103)
 
 O pacote expoe:
 - API REST para `sessions`, `orders`, `directives` e `channels`.
@@ -172,7 +172,7 @@ O que ainda fica fragil:
 ## Seguranca
 
 Pontos fortes:
-- Defaults de autenticacao/autorizacao sao conservadores: [conf.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/orderman/shopman/orderman/conf.py:6) usa `IsAuthenticated` e `IsAdminUser`.
+- Defaults de autenticacao/autorizacao sao conservadores: [conf.py](../../packages/orderman/shopman/orderman/conf.py#L6) usa `IsAuthenticated` e `IsAdminUser`.
 - `order_stream_view` exige staff.
 - `DirectiveViewSet` exige classe admin.
 - `set_data.path` tem whitelist na API e bloqueia chaves de sistema.
@@ -194,7 +194,7 @@ Mas nao e um produto `WhatsApp-first` ou `mobile-first` no sentido completo. Ess
 
 ## `contrib/refs`
 
-Bases: [contrib/refs/models.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/orderman/shopman/orderman/contrib/refs/models.py:11), [contrib/refs/services.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/orderman/shopman/orderman/contrib/refs/services.py:46), [contrib/refs/sequences.py](/Users/pablovalentini/Dev/Claude/django-shopman/packages/orderman/shopman/orderman/contrib/refs/sequences.py:1)
+Bases: [contrib/refs/models.py](../../packages/orderman/shopman/orderman/contrib/refs/models.py#L11), [contrib/refs/services.py](../../packages/orderman/shopman/orderman/contrib/refs/services.py#L46), [contrib/refs/sequences.py](../../packages/orderman/shopman/orderman/contrib/refs/sequences.py#L1)
 
 Esse subsistema e um bom desenho de extensibilidade, mas hoje ele esta subintegrado:
 - `RefType` e imutavel e versionavel em codigo.

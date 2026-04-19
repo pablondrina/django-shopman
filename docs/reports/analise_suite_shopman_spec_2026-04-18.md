@@ -21,16 +21,16 @@ Domínios cobertos:
 
 Relatórios-base:
 
-- [shopman/shop](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_critica_shopman_shop_spec_2026-04-18.md)
-- [orderman](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_orderman_spec_2026-04-18.md)
-- [doorman](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/doorman_spec_analysis_2026-04-18.md)
-- [guestman](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/guestman_spec_analysis_2026-04-18.md)
-- [offerman](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_critica_offerman_2026-04-18.md)
-- [stockman](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_critica_stockman_spec_2026-04-18.md)
-- [payman](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_payman_spec_2026-04-18.md)
-- [craftsman](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_craftsman_spec_2026-04-18.md)
-- [utils](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/utils_spec_analysis_2026-04-18.md)
-- [instância Nelson](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_nelson_spec_2026-04-18.md)
+- [shopman/shop](analise_critica_shopman_shop_spec_2026-04-18.md)
+- [orderman](analise_orderman_spec_2026-04-18.md)
+- [doorman](doorman_spec_analysis_2026-04-18.md)
+- [guestman](guestman_spec_analysis_2026-04-18.md)
+- [offerman](analise_critica_offerman_2026-04-18.md)
+- [stockman](analise_critica_stockman_spec_2026-04-18.md)
+- [payman](analise_payman_spec_2026-04-18.md)
+- [craftsman](analise_craftsman_spec_2026-04-18.md)
+- [utils](utils_spec_analysis_2026-04-18.md)
+- [instância Nelson](analise_nelson_spec_2026-04-18.md)
 
 ## Veredito executivo
 
@@ -186,7 +186,7 @@ Achado crítico:
 
 Relatório:
 
-- [analise_critica_shopman_shop_spec_2026-04-18.md](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_critica_shopman_shop_spec_2026-04-18.md)
+- [analise_critica_shopman_shop_spec_2026-04-18.md](analise_critica_shopman_shop_spec_2026-04-18.md)
 
 ### `orderman`
 
@@ -206,7 +206,7 @@ Fragilidade:
 
 Relatório:
 
-- [analise_orderman_spec_2026-04-18.md](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_orderman_spec_2026-04-18.md)
+- [analise_orderman_spec_2026-04-18.md](analise_orderman_spec_2026-04-18.md)
 
 ### `doorman`
 
@@ -226,7 +226,7 @@ Fragilidade:
 
 Relatório:
 
-- [doorman_spec_analysis_2026-04-18.md](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/doorman_spec_analysis_2026-04-18.md)
+- [doorman_spec_analysis_2026-04-18.md](doorman_spec_analysis_2026-04-18.md)
 
 ### `guestman`
 
@@ -246,7 +246,7 @@ Fragilidade:
 
 Relatório:
 
-- [guestman_spec_analysis_2026-04-18.md](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/guestman_spec_analysis_2026-04-18.md)
+- [guestman_spec_analysis_2026-04-18.md](guestman_spec_analysis_2026-04-18.md)
 
 ### `offerman`
 
@@ -264,7 +264,7 @@ Fragilidade:
 
 Relatório:
 
-- [analise_critica_offerman_2026-04-18.md](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_critica_offerman_2026-04-18.md)
+- [analise_critica_offerman_2026-04-18.md](analise_critica_offerman_2026-04-18.md)
 
 ### `stockman`
 
@@ -284,7 +284,7 @@ Fragilidade:
 
 Relatório:
 
-- [analise_critica_stockman_spec_2026-04-18.md](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_critica_stockman_spec_2026-04-18.md)
+- [analise_critica_stockman_spec_2026-04-18.md](analise_critica_stockman_spec_2026-04-18.md)
 
 ### `payman`
 
@@ -304,7 +304,7 @@ Fragilidade:
 
 Relatório:
 
-- [analise_payman_spec_2026-04-18.md](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_payman_spec_2026-04-18.md)
+- [analise_payman_spec_2026-04-18.md](analise_payman_spec_2026-04-18.md)
 
 ### `craftsman`
 
@@ -323,7 +323,7 @@ Fragilidade:
 
 Relatório:
 
-- [analise_craftsman_spec_2026-04-18.md](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_craftsman_spec_2026-04-18.md)
+- [analise_craftsman_spec_2026-04-18.md](analise_craftsman_spec_2026-04-18.md)
 
 ### `utils`
 
@@ -339,7 +339,7 @@ Fragilidade:
 
 Relatório:
 
-- [utils_spec_analysis_2026-04-18.md](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/utils_spec_analysis_2026-04-18.md)
+- [utils_spec_analysis_2026-04-18.md](utils_spec_analysis_2026-04-18.md)
 
 ### `instances/nelson`
 
@@ -356,7 +356,7 @@ Fragilidade:
 
 Relatório:
 
-- [analise_nelson_spec_2026-04-18.md](/Users/pablovalentini/Dev/Claude/django-shopman/docs/reports/analise_nelson_spec_2026-04-18.md)
+- [analise_nelson_spec_2026-04-18.md](analise_nelson_spec_2026-04-18.md)
 
 ## Áreas que o software deveria cobrir melhor
 

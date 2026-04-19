@@ -25,7 +25,7 @@ Ao mesmo tempo, ele ainda nao e um core completamente enxuto ou agnostico. Ha ac
 - `created_by` e `source_system` sao campos de auditoria.
 - `save()` normaliza telefone e email e tenta sincronizar `ContactPoint` automaticamente.
 
-Referencia: [customer.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/shopman/guestman/models/customer.py:31>)
+Referencia: [customer.py](../../packages/guestman/shopman/guestman/models/customer.py#L31)
 
 ### ContactPoint
 
@@ -39,7 +39,7 @@ Referencia: [customer.py](</Users/pablovalentini/Dev/Claude/django-shopman/packa
 - O primeiro contato de um tipo e promovido automaticamente a primary.
 - `mark_verified()` grava estado de verificacao, mas nao valida o metodo contra o gate G3.
 
-Referencia: [contact_point.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/shopman/guestman/models/contact_point.py:12>)
+Referencia: [contact_point.py](../../packages/guestman/shopman/guestman/models/contact_point.py#L12)
 
 ### CustomerAddress
 
@@ -49,7 +49,7 @@ Referencia: [contact_point.py](</Users/pablovalentini/Dev/Claude/django-shopman/
 - `is_verified` existe, mas e inferido por `place_id`/fluxo de endereco, nao por um provider real.
 - O modelo assume Google Places e contexto BR.
 
-Referencia: [address.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/shopman/guestman/models/address.py:15>)
+Referencia: [address.py](../../packages/guestman/shopman/guestman/models/address.py#L15)
 
 ### ExternalIdentity
 
@@ -58,7 +58,7 @@ Referencia: [address.py](</Users/pablovalentini/Dev/Claude/django-shopman/packag
 - `(provider, provider_uid)` e unico globalmente.
 - Usa JSON para metadados de provedor.
 
-Referencia: [external_identity.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/shopman/guestman/models/external_identity.py:11>)
+Referencia: [external_identity.py](../../packages/guestman/shopman/guestman/models/external_identity.py#L11)
 
 ### ProcessedEvent
 
@@ -66,7 +66,7 @@ Referencia: [external_identity.py](</Users/pablovalentini/Dev/Claude/django-shop
 - `nonce` e `provider` identificam o evento processado.
 - `cleanup_old_events()` remove eventos antigos com base em configuracao.
 
-Referencia: [processed_event.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/shopman/guestman/models/processed_event.py:1>)
+Referencia: [processed_event.py](../../packages/guestman/shopman/guestman/models/processed_event.py#L1)
 
 ### CustomerGroup
 
@@ -74,7 +74,7 @@ Referencia: [processed_event.py](</Users/pablovalentini/Dev/Claude/django-shopma
 - `listing_ref` conecta o CRM a uma camada de precificacao/listagem externa.
 - `save()` garante um unico grupo default, mas apenas por update best-effort.
 
-Referencia: [group.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/shopman/guestman/models/group.py:7>)
+Referencia: [group.py](../../packages/guestman/shopman/guestman/models/group.py#L7)
 
 ## Superficies Publicas
 
@@ -89,7 +89,7 @@ Referencia: [group.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages
 - `services.address.addresses / default_address / add_address / set_default_address / update_address / delete_address / delete_all_addresses / suggest_address`
 - `services.identity.ensure_contact_point / ensure_external_identity`
 
-Referencia: [customer.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/shopman/guestman/services/customer.py:31>), [address.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/shopman/guestman/services/address.py:21>), [identity.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/shopman/guestman/services/identity.py:1>)
+Referencia: [customer.py](../../packages/guestman/shopman/guestman/services/customer.py#L31), [address.py](../../packages/guestman/shopman/guestman/services/address.py#L21), [identity.py](../../packages/guestman/shopman/guestman/services/identity.py#L1)
 
 ### Gates
 
@@ -100,7 +100,7 @@ Referencia: [customer.py](</Users/pablovalentini/Dev/Claude/django-shopman/packa
 - `G5` replay protection via DB.
 - `G6` merge safety via evidence.
 
-Referencia: [gates.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/shopman/guestman/gates.py:44>)
+Referencia: [gates.py](../../packages/guestman/shopman/guestman/gates.py#L44)
 
 ### Contrib services
 
@@ -127,7 +127,7 @@ Referencia: [gates.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages
 - `GET /api/customers/lookup/`
 - `GET /api/customers/insights/summary/`
 
-Referencia: [api/views.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/shopman/guestman/api/views.py:29>), [api/urls.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/shopman/guestman/api/urls.py:1>)
+Referencia: [api/views.py](../../packages/guestman/shopman/guestman/api/views.py#L29), [api/urls.py](../../packages/guestman/shopman/guestman/api/urls.py#L1)
 
 ## Fluxos e Contratos
 
@@ -222,7 +222,7 @@ O mixin registra a URL como `customers_customer_merge`, mas tenta fazer `reverse
 
 Impacto: a acao de merge no admin tende a quebrar em runtime.
 
-Referencia: [contrib/merge/admin.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/shopman/guestman/contrib/merge/admin.py:21>)
+Referencia: [contrib/merge/admin.py](../../packages/guestman/shopman/guestman/contrib/merge/admin.py#L21)
 
 ### 2. Insights nao zera tudo quando nao ha backend
 
@@ -230,7 +230,7 @@ No ramo sem `ORDER_HISTORY_BACKEND`, o servico reseta apenas `total_orders`, `to
 
 Impacto: dados stale podem sobreviver e contaminar CRM/BI.
 
-Referencia: [contrib/insights/service.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/shopman/guestman/contrib/insights/service.py:72>)
+Referencia: [contrib/insights/service.py](../../packages/guestman/shopman/guestman/contrib/insights/service.py#L72)
 
 ### 3. `favorite_products` e uma feature declarada, nao realizada
 
@@ -238,7 +238,7 @@ O modelo, serializer e admin expoem `favorite_products`, mas o servico nao calcu
 
 Impacto: promessa de insight comportamental sem implementacao de carga.
 
-Referencia: [contrib/insights/models.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/shopman/guestman/contrib/insights/models.py:62>), [contrib/insights/service.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/shopman/guestman/contrib/insights/service.py:177>)
+Referencia: [contrib/insights/models.py](../../packages/guestman/shopman/guestman/contrib/insights/models.py#L62), [contrib/insights/service.py](../../packages/guestman/shopman/guestman/contrib/insights/service.py#L177)
 
 ### 4. ContactPoint verification nao passa pelo gate G3
 
@@ -246,7 +246,7 @@ Referencia: [contrib/insights/models.py](</Users/pablovalentini/Dev/Claude/djang
 
 Impacto: o contrato de verificacao e mais fraco do que o gate prometido.
 
-Referencia: [contact_point.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/shopman/guestman/models/contact_point.py:212>)
+Referencia: [contact_point.py](../../packages/guestman/shopman/guestman/models/contact_point.py#L212)
 
 ### 5. Manychat sync nao e transacional
 
@@ -254,7 +254,7 @@ Referencia: [contact_point.py](</Users/pablovalentini/Dev/Claude/django-shopman/
 
 Impacto: um erro no meio do caminho pode deixar estado parcial.
 
-Referencia: [contrib/manychat/service.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/shopman/guestman/contrib/manychat/service.py:15>)
+Referencia: [contrib/manychat/service.py](../../packages/guestman/shopman/guestman/contrib/manychat/service.py#L15)
 
 ### 6. API depende de configuracao global do projeto
 
@@ -262,7 +262,7 @@ Referencia: [contrib/manychat/service.py](</Users/pablovalentini/Dev/Claude/djan
 
 Impacto: fora do ambiente de testes, filtros e busca podem sumir por configuracao de host.
 
-Referencia: [api/views.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/shopman/guestman/api/views.py:29>), [guestman_test_settings.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/guestman_test_settings.py:1>)
+Referencia: [api/views.py](../../packages/guestman/shopman/guestman/api/views.py#L29), [guestman_test_settings.py](../../packages/guestman/guestman_test_settings.py#L1)
 
 ### 7. Customer cache pode divergir do primary ContactPoint
 
@@ -270,7 +270,7 @@ Referencia: [api/views.py](</Users/pablovalentini/Dev/Claude/django-shopman/pack
 
 Impacto: lookup e representacao podem apontar para um estado incoerente.
 
-Referencia: [customer.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/shopman/guestman/models/customer.py:154>)
+Referencia: [customer.py](../../packages/guestman/shopman/guestman/models/customer.py#L154)
 
 ### 8. Admin Unfold tem bugs de detalhe
 
@@ -279,7 +279,7 @@ Referencia: [customer.py](</Users/pablovalentini/Dev/Claude/django-shopman/packa
 
 Impacto: UI inconsistente e um header malformado.
 
-Referencia: [contrib/admin_unfold/admin.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/shopman/guestman/contrib/admin_unfold/admin.py:168>)
+Referencia: [contrib/admin_unfold/admin.py](../../packages/guestman/shopman/guestman/contrib/admin_unfold/admin.py#L168)
 
 ### 9. Address suggestion usa heuristica especulativa
 
@@ -287,7 +287,7 @@ Referencia: [contrib/admin_unfold/admin.py](</Users/pablovalentini/Dev/Claude/dj
 
 Impacto: o "smart fallback" e mais opinativo do que confiavel.
 
-Referencia: [address.py](</Users/pablovalentini/Dev/Claude/django-shopman/packages/guestman/shopman/guestman/services/address.py:233>)
+Referencia: [address.py](../../packages/guestman/shopman/guestman/services/address.py#L233)
 
 ## Areas que deveriam existir e ainda estao fracas ou ausentes
 
