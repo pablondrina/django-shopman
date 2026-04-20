@@ -135,6 +135,15 @@ class Shop(models.Model):
     short_name = models.CharField("nome curto (PWA)", max_length=30, blank=True)
     tagline = models.CharField("tagline", max_length=200, blank=True)
     description = models.TextField("descrição", blank=True)
+    conservation_tips_default = models.TextField(
+        "dicas de conservação (padrão)",
+        blank=True,
+        help_text=(
+            "Texto exibido no accordion de conservação do PDP quando o produto "
+            "não tiver dica específica (Product.storage_tip). Cada produto pode "
+            "sobrescrever individualmente."
+        ),
+    )
     primary_color = models.CharField("cor primária", max_length=9, default="#1a1a1a")
     logo = models.FileField(
         "logotipo", upload_to="branding/", blank=True,
@@ -262,6 +271,13 @@ class Shop(models.Model):
     class Meta:
         verbose_name = "loja"
         verbose_name_plural = "loja"
+        permissions = [
+            ("manage_orders", "Pode confirmar/rejeitar/avançar/cancelar pedidos"),
+            ("manage_production", "Pode criar WorkOrders e avançar produção"),
+            ("manage_catalog", "Pode criar/editar Product, Listing e Collection"),
+            ("manage_customers", "Pode criar/editar Customer, grupos e loyalty"),
+            ("view_reports", "Pode acessar dashboard e relatórios analíticos"),
+        ]
 
     def __str__(self):
         return self.name
@@ -321,6 +337,23 @@ class Shop(models.Model):
         if not digits.startswith("55"):
             digits = f"55{digits}"
         return f"tel:+{digits}"
+
+    @property
+    def whatsapp_url(self) -> str:
+        """Phone as wa.me URI: 554333231997 → https://wa.me/554333231997.
+
+        Prefers an explicit wa.me / whatsapp.com entry in social_links if present;
+        otherwise falls back to deriving from `phone`.
+        """
+        for link in (self.social_links or []):
+            if "wa.me" in link or "whatsapp.com" in link:
+                return link
+        digits = "".join(c for c in self.phone if c.isdigit())
+        if not digits:
+            return ""
+        if not digits.startswith("55"):
+            digits = f"55{digits}"
+        return f"https://wa.me/{digits}"
 
     @property
     def full_address(self) -> str:

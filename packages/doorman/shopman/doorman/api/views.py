@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from ..conf import get_doorman_settings
+from ..error_codes import ErrorCode
 from ..models import VerificationCode
 from ..services.verification import AuthService
 from ..utils import get_client_ip
@@ -15,6 +16,8 @@ from .serializers import (
     VerifyCodeResponseSerializer,
     VerifyCodeSerializer,
 )
+
+_RATE_LIMIT_CODES = frozenset({ErrorCode.RATE_LIMIT, ErrorCode.COOLDOWN, ErrorCode.IP_RATE_LIMIT})
 
 
 class RequestCodeView(APIView):
@@ -42,9 +45,14 @@ class RequestCodeView(APIView):
         )
 
         if not result.success:
+            http_status = (
+                status.HTTP_429_TOO_MANY_REQUESTS
+                if result.error_code in _RATE_LIMIT_CODES
+                else status.HTTP_400_BAD_REQUEST
+            )
             return Response(
-                {"detail": result.error},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
+                {"detail": result.error, "error_code": result.error_code},
+                status=http_status,
             )
 
         data = RequestCodeResponseSerializer(
@@ -78,6 +86,7 @@ class VerifyCodeView(APIView):
             return Response(
                 {
                     "detail": result.error,
+                    "error_code": result.error_code,
                     "attempts_remaining": result.attempts_remaining,
                 },
                 status=status.HTTP_400_BAD_REQUEST,

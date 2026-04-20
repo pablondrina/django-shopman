@@ -38,7 +38,7 @@ class ProductInfoBackend:
         try:
             product = Product.objects.get(sku=sku)
             primary_item = product.collection_items.filter(is_primary=True).first()
-            category = primary_item.collection.name if primary_item else None
+            category = primary_item.collection.ref if primary_item else None
             return ProductInfo(
                 sku=product.sku,
                 name=product.name,
@@ -96,7 +96,7 @@ class ProductInfoBackend:
             if sku in found:
                 p = found[sku]
                 primary_item = p.collection_items.filter(is_primary=True).first()
-                category = primary_item.collection.name if primary_item else None
+                category = primary_item.collection.ref if primary_item else None
                 result[sku] = ProductInfo(
                     sku=p.sku,
                     name=p.name,
@@ -134,7 +134,7 @@ class ProductInfoBackend:
         result = []
         for p in qs:
             primary_item = p.collection_items.filter(is_primary=True).first()
-            category = primary_item.collection.name if primary_item else None
+            category = primary_item.collection.ref if primary_item else None
             result.append(
                 ProductInfo(
                     sku=p.sku,

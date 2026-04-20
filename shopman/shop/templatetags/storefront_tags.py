@@ -152,57 +152,196 @@ def product_image(product, size="card", css_class=""):
     )
 
 
+_AVAILABILITY_SCHEMA_MAP = {
+    "available": "https://schema.org/InStock",
+    "low_stock": "https://schema.org/LimitedAvailability",
+    "planned_ok": "https://schema.org/PreOrder",
+    "unavailable": "https://schema.org/OutOfStock",
+}
+
+
 @register.simple_tag(takes_context=True)
-def json_ld_product(context, product, price_q=None, badge=None):
+def json_ld_product(context, product, price_q=None, badge=None, availability=None):
     """Render JSON-LD Product schema for SEO.
 
-    Usage: {% json_ld_product product price_q=price_q badge=badge %}
+    Usage: {% json_ld_product product price_q=price_q availability=product.availability %}
+
+    Accepts either a badge dict (legacy, css_class based) or an Availability enum.
     """
-    shop = context.get("shop")
+    shop = context.get("shop") or context.get("storefront")
     request = context.get("request")
 
     data = {
         "@context": "https://schema.org",
         "@type": "Product",
-        "name": product.name,
-        "sku": product.sku,
+        "name": getattr(product, "name", ""),
+        "sku": getattr(product, "sku", ""),
     }
 
-    # Description
-    desc = getattr(product, "short_description", "") or getattr(product, "description", "")
+    # Description (first non-empty: short, long, plain description)
+    desc = (
+        getattr(product, "short_description", "")
+        or getattr(product, "long_description", "")
+        or getattr(product, "description", "")
+    )
     if desc:
         data["description"] = desc
 
-    # Image
+    # Image — support both ImageField (model) and image_url (projection)
+    image_url = None
     image = getattr(product, "image", None)
-    if image and hasattr(image, "url") and image.name:
-        if request:
-            data["image"] = request.build_absolute_uri(image.url)
-        else:
-            data["image"] = image.url
+    if image and hasattr(image, "url") and getattr(image, "name", None):
+        image_url = image.url
+    elif getattr(product, "image_url", None):
+        image_url = product.image_url
+    if image_url:
+        if request and image_url.startswith("/"):
+            image_url = request.build_absolute_uri(image_url)
+        data["image"] = image_url
+
+    # Absolute URL to the PDP
+    if request:
+        try:
+            data["url"] = request.build_absolute_uri()
+        except Exception:
+            pass
 
     # Brand
-    if shop:
-        data["brand"] = {"@type": "Brand", "name": getattr(shop, "name", "")}
+    brand_name = getattr(shop, "brand_name", None) or getattr(shop, "name", "")
+    if brand_name:
+        data["brand"] = {"@type": "Brand", "name": brand_name}
 
     # Offer
     if price_q is not None:
         offer = {
             "@type": "Offer",
             "priceCurrency": "BRL",
-            "price": f"{price_q / 100:.2f}",
+            "price": f"{int(price_q) / 100:.2f}",
         }
-        # Availability
-        if badge:
+        if request:
+            try:
+                offer["url"] = request.build_absolute_uri()
+            except Exception:
+                pass
+        avail_key = None
+        if availability is not None:
+            avail_key = str(getattr(availability, "value", availability)).lower()
+        elif badge:
             css = badge.get("css_class", "") if isinstance(badge, dict) else ""
             if css in ("badge-available", "badge-d1", "badge-preparing"):
-                offer["availability"] = "https://schema.org/InStock"
+                avail_key = "available"
             elif css == "badge-sold-out":
-                offer["availability"] = "https://schema.org/OutOfStock"
+                avail_key = "unavailable"
             else:
-                offer["availability"] = "https://schema.org/LimitedAvailability"
+                avail_key = "low_stock"
+        if avail_key:
+            offer["availability"] = _AVAILABILITY_SCHEMA_MAP.get(
+                avail_key, "https://schema.org/LimitedAvailability",
+            )
         data["offers"] = offer
 
-    # Escape `</` to prevent `</script>` injection inside JSON payload.
+    payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+    return mark_safe(f'<script type="application/ld+json">{payload}</script>')
+
+
+@register.simple_tag(takes_context=True)
+def json_ld_bakery(context):
+    """Render JSON-LD Bakery (LocalBusiness) schema for the homepage."""
+    shop = context.get("storefront") or context.get("shop")
+    request = context.get("request")
+    if not shop:
+        return ""
+
+    data = {
+        "@context": "https://schema.org",
+        "@type": "Bakery",
+        "name": getattr(shop, "brand_name", None) or getattr(shop, "name", ""),
+    }
+    desc = getattr(shop, "description", "") or getattr(shop, "tagline", "")
+    if desc:
+        data["description"] = desc
+
+    if request:
+        try:
+            data["url"] = request.build_absolute_uri("/")
+        except Exception:
+            pass
+
+    logo = getattr(shop, "logo", None)
+    if logo and hasattr(logo, "url") and getattr(logo, "name", None):
+        img = logo.url
+        if request and img.startswith("/"):
+            img = request.build_absolute_uri(img)
+        data["image"] = img
+        data["logo"] = img
+
+    address = {}
+    if getattr(shop, "street", ""):
+        address["streetAddress"] = shop.street
+    if getattr(shop, "city", "") or getattr(shop, "default_city", ""):
+        address["addressLocality"] = getattr(shop, "city", None) or shop.default_city
+    if getattr(shop, "state_code", ""):
+        address["addressRegion"] = shop.state_code
+    if getattr(shop, "postal_code", ""):
+        address["postalCode"] = shop.postal_code
+    if address:
+        address["@type"] = "PostalAddress"
+        address["addressCountry"] = "BR"
+        data["address"] = address
+
+    if getattr(shop, "latitude", None) and getattr(shop, "longitude", None):
+        data["geo"] = {
+            "@type": "GeoCoordinates",
+            "latitude": float(shop.latitude),
+            "longitude": float(shop.longitude),
+        }
+
+    phone = getattr(shop, "phone", "") or getattr(shop, "whatsapp", "")
+    if phone:
+        data["telephone"] = phone
+
+    payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+    return mark_safe(f'<script type="application/ld+json">{payload}</script>')
+
+
+@register.simple_tag
+def json_ld_breadcrumb(items):
+    """Render JSON-LD BreadcrumbList from [(name, url), ...]."""
+    if not items:
+        return ""
+    data = {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {
+                "@type": "ListItem",
+                "position": i + 1,
+                "name": name,
+                "item": url,
+            }
+            for i, (name, url) in enumerate(items)
+        ],
+    }
+    payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+    return mark_safe(f'<script type="application/ld+json">{payload}</script>')
+
+
+@register.simple_tag
+def json_ld_faq(pairs):
+    """Render JSON-LD FAQPage from [(question, answer), ...]."""
+    if not pairs:
+        return ""
+    data = {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": q,
+                "acceptedAnswer": {"@type": "Answer", "text": a},
+            }
+            for q, a in pairs
+        ],
+    }
     payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
     return mark_safe(f'<script type="application/ld+json">{payload}</script>')

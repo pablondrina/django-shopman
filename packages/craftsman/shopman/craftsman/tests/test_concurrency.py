@@ -42,7 +42,7 @@ requires_postgres = pytest.mark.skipif(
 
 def _make_recipe(code: str) -> Recipe:
     return Recipe.objects.create(
-        code=code,
+        ref=code,
         name=f"Recipe {code}",
         output_ref=code,
         batch_size=Decimal("10"),

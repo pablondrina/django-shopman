@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 ALL_HANDLERS = [
     # Lifecycle
     "shopman.shop.handlers.confirmation.ConfirmationTimeoutHandler",
+    "shopman.shop.handlers.confirmation.StaleNewOrderAlertHandler",
     # Mock PIX (dev/test only; only fires when payment_mock scheduled a directive)
     "shopman.shop.handlers.mock_pix.MockPixConfirmHandler",
     # Fulfillment
@@ -78,6 +79,9 @@ def register_all() -> None:
     _register_pricing_modifiers()
     _register_validators()
     _register_stock_signals()
+    _register_sse_emitters()
+    _register_catalog_projection_handler()
+    _register_catalog_signals()
 
 
 # ── Individual registrations ──
@@ -106,8 +110,12 @@ def _register_notification_handlers() -> None:
 
 
 def _register_confirmation_handler() -> None:
-    from shopman.shop.handlers.confirmation import ConfirmationTimeoutHandler
+    from shopman.shop.handlers.confirmation import (
+        ConfirmationTimeoutHandler,
+        StaleNewOrderAlertHandler,
+    )
     registry.register_directive_handler(ConfirmationTimeoutHandler())
+    registry.register_directive_handler(StaleNewOrderAlertHandler())
 
 
 def _register_mock_pix_handler() -> None:
@@ -218,6 +226,18 @@ def _register_validators() -> None:
     registry.register_validator(DeliveryZoneRule())
 
 
+def _register_sse_emitters() -> None:
+    """Wire SSE push emitters (WP-AV-10).
+
+    Signals fire on Hold/Move/Product/ListingItem changes and publish to the
+    per-channel SSE stream so storefront and POS clients refresh their badges
+    without polling.
+    """
+    from shopman.shop.handlers._sse_emitters import _connect
+
+    _connect()
+
+
 def _register_stock_signals() -> None:
     from shopman.stockman.signals import holds_materialized
 
@@ -233,6 +253,34 @@ def _register_stock_signals() -> None:
 
         import shopman.craftsman.contrib.stockman.handlers  # noqa: F401
         logger.info("shopman.handlers: loaded craftsman→stockman signal handlers.")
+    except ImportError:
+        pass
+
+
+def _register_catalog_projection_handler() -> None:
+    """Register CatalogProjectHandler for each configured projection adapter."""
+    adapter_map = getattr(settings, "SHOPMAN_CATALOG_PROJECTION_ADAPTERS", {})
+    if not adapter_map:
+        return
+    from shopman.shop.handlers.catalog_projection import CatalogProjectHandler
+
+    for listing_ref, dotted_path in adapter_map.items():
+        module_path, class_name = dotted_path.rsplit(".", 1)
+        module = importlib.import_module(module_path)
+        backend_cls = getattr(module, class_name)
+        registry.register_directive_handler(CatalogProjectHandler(backend=backend_cls()))
+        logger.info("shopman.handlers: registered CatalogProjectHandler for %s", listing_ref)
+
+
+def _register_catalog_signals() -> None:
+    """Wire Offerman product_created / price_changed → catalog projection directives."""
+    try:
+        from shopman.offerman.signals import price_changed, product_created
+
+        from shopman.shop.handlers.catalog_projection import on_price_changed, on_product_created
+        product_created.connect(on_product_created, weak=False)
+        price_changed.connect(on_price_changed, weak=False)
+        logger.info("shopman.handlers: connected offerman catalog projection signals.")
     except ImportError:
         pass
 

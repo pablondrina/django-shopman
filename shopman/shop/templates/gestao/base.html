@@ -1,0 +1,228 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>{% block title %}Gestão{% endblock %}</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:FILL@0..1&display=swap">
+  <link rel="stylesheet" href="{% static 'storefront/css/output-gestao.css' %}">
+
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+
+  {% block extra_head %}{% endblock %}
+
+  {% comment %}Dark-first: apply .dark before paint to prevent FOUC.{% endcomment %}
+  <script>
+  (function() {
+    var stored = localStorage.getItem('gestao_theme');
+    var h = document.documentElement;
+    if (stored === 'light') { h.classList.remove('dark'); }
+    else { h.classList.add('dark'); }
+  })();
+  </script>
+</head>
+<body class="h-screen overflow-hidden bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark font-body"
+      x-data="gestaoShell()">
+
+  <script>
+  document.addEventListener('htmx:configRequest', function(e) {
+    e.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
+  });
+  </script>
+
+  <div class="h-full flex">
+
+    {% comment %}Mobile backdrop overlay{% endcomment %}
+    <div x-show="drawerOpen"
+         x-cloak
+         class="fixed inset-0 z-40 bg-black/50 md:hidden"
+         @click="drawerOpen = false"
+         aria-hidden="true"></div>
+
+    {% comment %}Sidebar — icon-only, 56px wide{% endcomment %}
+    <aside :class="drawerOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'"
+           class="fixed md:relative md:translate-x-0 z-50 inset-y-0 left-0
+                  w-14 flex flex-col shrink-0 h-full
+                  bg-surface-alt dark:bg-surface-dark-alt
+                  border-r border-outline dark:border-outline-dark
+                  transition-transform duration-200"
+           role="navigation"
+           aria-label="Navegação operador">
+
+      {% comment %}Brand icon{% endcomment %}
+      <div class="h-14 flex items-center justify-center border-b border-outline dark:border-outline-dark shrink-0">
+        <span class="material-symbols-rounded text-2xl text-on-surface/40 dark:text-on-surface-dark/40" aria-hidden="true">store</span>
+      </div>
+
+      {% comment %}Nav links{% endcomment %}
+      <nav class="flex-1 py-3 flex flex-col items-center gap-1 overflow-y-auto scrollbar-hide" aria-label="Áreas operacionais">
+
+        {% url 'storefront:gestor_pedidos' as url_pedidos %}
+        <a href="{{ url_pedidos }}"
+           class="btn-icon {% block nav_active_pedidos %}{% endblock %}"
+           title="Pedidos"
+           aria-label="Pedidos">
+          <span class="material-symbols-rounded text-xl" aria-hidden="true">receipt_long</span>
+        </a>
+
+        {% url 'storefront:kds_index' as url_kds %}
+        <a href="{{ url_kds }}"
+           class="btn-icon {% block nav_active_kds %}{% endblock %}"
+           title="KDS — Cozinha"
+           aria-label="KDS">
+          <span class="material-symbols-rounded text-xl" aria-hidden="true">kitchen</span>
+        </a>
+
+        {% url 'storefront:pos' as url_pos %}
+        <a href="{{ url_pos }}"
+           class="btn-icon {% block nav_active_pos %}{% endblock %}"
+           title="Ponto de Venda"
+           aria-label="Ponto de Venda">
+          <span class="material-symbols-rounded text-xl" aria-hidden="true">point_of_sale</span>
+        </a>
+
+        {% url 'admin:shop_production' as url_producao %}
+        <a href="{{ url_producao|default:'/admin/' }}"
+           class="btn-icon {% block nav_active_producao %}{% endblock %}"
+           title="Produção"
+           aria-label="Produção">
+          <span class="material-symbols-rounded text-xl" aria-hidden="true">factory</span>
+        </a>
+
+        {% url 'admin:shop_closing' as url_fechamento %}
+        <a href="{{ url_fechamento|default:'/admin/' }}"
+           class="btn-icon {% block nav_active_fechamento %}{% endblock %}"
+           title="Fechamento do Dia"
+           aria-label="Fechamento">
+          <span class="material-symbols-rounded text-xl" aria-hidden="true">lock_clock</span>
+        </a>
+
+        <a href="/admin/"
+           class="btn-icon"
+           title="Dashboard — Admin"
+           aria-label="Dashboard">
+          <span class="material-symbols-rounded text-xl" aria-hidden="true">dashboard</span>
+        </a>
+
+      </nav>
+
+      {% comment %}Theme toggle at bottom{% endcomment %}
+      <div class="h-14 flex items-center justify-center border-t border-outline dark:border-outline-dark shrink-0">
+        <button type="button"
+                @click="toggleTheme()"
+                class="btn-icon"
+                :title="isDark ? 'Mudar para modo claro' : 'Mudar para modo escuro'"
+                :aria-label="isDark ? 'Mudar para modo claro' : 'Mudar para modo escuro'">
+          <span class="material-symbols-rounded text-xl"
+                x-text="isDark ? 'light_mode' : 'dark_mode'"
+                aria-hidden="true"></span>
+        </button>
+      </div>
+
+    </aside>
+
+    {% comment %}Main column: navbar + content{% endcomment %}
+    <div class="flex-1 flex flex-col overflow-hidden min-w-0">
+
+      {% comment %}Top navbar{% endcomment %}
+      <header class="h-14 px-4 flex items-center gap-3 shrink-0
+                     bg-surface-alt dark:bg-surface-dark-alt
+                     border-b border-outline dark:border-outline-dark"
+              role="banner">
+
+        {% comment %}Hamburger — mobile only{% endcomment %}
+        <button type="button"
+                @click="drawerOpen = !drawerOpen"
+                class="btn-icon md:hidden"
+                aria-label="Abrir menu de navegação"
+                :aria-expanded="drawerOpen.toString()">
+          <span class="material-symbols-rounded text-xl" aria-hidden="true">menu</span>
+        </button>
+
+        {% comment %}Page title{% endcomment %}
+        <h1 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong truncate flex-1 min-w-0">
+          {% block page_title %}{% endblock %}
+        </h1>
+
+        {% comment %}Surface-specific toolbar actions{% endcomment %}
+        <div class="flex items-center gap-2">
+          {% block navbar_actions %}{% endblock %}
+        </div>
+
+        {% comment %}Clock{% endcomment %}
+        <span class="font-mono text-sm text-on-surface/50 dark:text-on-surface-dark/50 tabular-nums hidden sm:block shrink-0"
+              x-text="clock"
+              aria-label="Hora atual"></span>
+
+        {% comment %}User{% endcomment %}
+        <span class="text-xs text-on-surface/50 dark:text-on-surface-dark/50 hidden sm:block truncate max-w-24 shrink-0">
+          {{ request.user.get_short_name|default:request.user.username }}
+        </span>
+
+      </header>
+
+      {% comment %}Flash messages{% endcomment %}
+      {% if messages %}
+      <div class="px-4 pt-3 flex flex-col gap-2 shrink-0">
+        {% for message in messages %}
+        <div class="px-3 py-2 rounded-lg text-sm font-medium
+                    {% if 'error' in message.tags %}bg-danger/10 text-danger border border-danger/30
+                    {% elif 'success' in message.tags %}bg-success/10 text-success border border-success/30
+                    {% elif 'warning' in message.tags %}bg-warning/10 text-warning border border-warning/30
+                    {% else %}bg-info/10 text-info border border-info/30{% endif %}">
+          {{ message }}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% comment %}Page content{% endcomment %}
+      <main class="flex-1 {% block main_class %}overflow-auto{% endblock %}" role="main">
+        {% block content %}{% endblock %}
+      </main>
+
+    </div>
+  </div>
+
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+
+  <script>
+  function gestaoShell() {
+    return {
+      drawerOpen: false,
+      isDark: document.documentElement.classList.contains('dark'),
+      clock: '',
+
+      init() {
+        this.updateClock();
+        setInterval(() => this.updateClock(), 1000);
+      },
+
+      updateClock() {
+        var now = new Date();
+        this.clock = now.getHours().toString().padStart(2, '0') + ':' +
+                     now.getMinutes().toString().padStart(2, '0');
+      },
+
+      toggleTheme() {
+        var h = document.documentElement;
+        var makeDark = !h.classList.contains('dark');
+        h.classList.toggle('dark', makeDark);
+        this.isDark = makeDark;
+        localStorage.setItem('gestao_theme', makeDark ? 'dark' : 'light');
+      }
+    };
+  }
+  </script>
+
+  {% block extra_js %}{% endblock %}
+
+</body>
+</html>

@@ -45,7 +45,7 @@ def _add_to_cart(client):
     product = _setup_product()
     with patch("shopman.shop.services.availability.reserve", return_value={
         "ok": True, "hold_id": "fake-hold", "available_qty": 999,
-        "is_paused": False, "error_code": None, "alternatives": [],
+        "is_paused": False, "error_code": None, "substitutes": [],
     }):
         client.post("/cart/add/", {"sku": product.sku, "qty": "1"})
 
@@ -141,6 +141,6 @@ class TestCheckoutDefaultsContext:
 
         with patch("shopman.shop.services.checkout_defaults.CheckoutDefaultsService.get_defaults") as mock_get:
             mock_get.side_effect = Exception("DB error")
-            resp = client.get("/checkout/?v1")
+            resp = client.get("/checkout/")
 
         assert resp.status_code == 200

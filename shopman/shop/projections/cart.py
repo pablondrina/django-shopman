@@ -79,6 +79,18 @@ class CartItemProjection:
     # Availability snapshot at render-time.
     is_available: bool
     availability_warning: str | None  # short message when qty > stock
+    available_qty: int | None         # how many are actually available (None = demand-based, no ceiling)
+
+    # Planned-hold lifecycle state (AVAILABILITY-PLAN §8): the line is
+    # either awaiting confirmation of planned production
+    # (``is_awaiting_confirmation``) or the planned stock has materialized
+    # and the shopper must confirm before the TTL runs out
+    # (``is_ready_for_confirmation``). Both are False on a vanilla
+    # ready-stock line.
+    is_awaiting_confirmation: bool
+    is_ready_for_confirmation: bool
+    confirmation_deadline_iso: str | None       # ISO 8601 UTC, fuels the Alpine countdown
+    confirmation_deadline_display: str | None   # pre-formatted HH:MM for badge copy / toast
 
 
 @dataclass(frozen=True)
@@ -132,6 +144,8 @@ class CartProjection:
 
     # Warnings
     has_unavailable_items: bool
+    has_awaiting_confirmation_items: bool    # ≥1 line still pre-materialization
+    has_ready_for_confirmation_items: bool   # ≥1 line materialized, awaiting shopper confirmation
 
     # Minimum order + upsell context
     minimum_order_progress: MinimumOrderProgressProjection | None
@@ -162,6 +176,8 @@ def build_cart(
     items = tuple(_build_item(item, image_by_sku) for item in raw_items)
     items_count = sum(int(item.qty) for item in items)
     has_unavailable_items = any(not item.is_available for item in items)
+    has_awaiting_confirmation_items = any(item.is_awaiting_confirmation for item in items)
+    has_ready_for_confirmation_items = any(item.is_ready_for_confirmation for item in items)
 
     subtotal_q = int(raw.get("subtotal_q", 0) or 0)
     original_subtotal_q = int(raw.get("original_subtotal_q", subtotal_q) or subtotal_q)
@@ -230,6 +246,8 @@ def build_cart(
             _money(coupon_discount_q) if coupon_discount_q else None
         ),
         has_unavailable_items=has_unavailable_items,
+        has_awaiting_confirmation_items=has_awaiting_confirmation_items,
+        has_ready_for_confirmation_items=has_ready_for_confirmation_items,
         minimum_order_progress=min_order,
         upsell=upsell,
     )
@@ -247,9 +265,20 @@ def _build_item(raw: dict, image_by_sku: dict[str, str | None]) -> CartItemProje
     total_price_q = int(raw.get("line_total_q") or 0)
 
     is_unavailable = bool(raw.get("is_unavailable", False))
+    available_qty = raw.get("available_qty")
+    if available_qty is not None:
+        available_qty = int(available_qty)
+
+    # ``is_unavailable`` already reflects the own-hold correction (see
+    # CartService.get_cart). When true, the stock really fell behind what
+    # this session reserved — surface the exact delta.
     warning: str | None = None
     if is_unavailable:
-        warning = "Estoque insuficiente"
+        if available_qty is not None and available_qty > 0:
+            unit_word = "unidade disponível" if available_qty == 1 else "unidades disponíveis"
+            warning = f"Apenas {available_qty} {unit_word}"
+        else:
+            warning = "Indisponível"
 
     return CartItemProjection(
         line_id=str(raw.get("line_id") or ""),
@@ -265,6 +294,11 @@ def _build_item(raw: dict, image_by_sku: dict[str, str | None]) -> CartItemProje
         discount_label=raw.get("discount_label"),
         is_available=not is_unavailable,
         availability_warning=warning,
+        available_qty=available_qty,
+        is_awaiting_confirmation=bool(raw.get("is_awaiting_confirmation", False)),
+        is_ready_for_confirmation=bool(raw.get("is_ready_for_confirmation", False)),
+        confirmation_deadline_iso=raw.get("confirmation_deadline_iso"),
+        confirmation_deadline_display=raw.get("confirmation_deadline_display"),
     )
 
 

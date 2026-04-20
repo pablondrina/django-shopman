@@ -1,58 +1,17 @@
 {% comment %}
 ── Temporal Greeting ──
-   Time-aware greeting with optional customer name.
-   Uses customer_name from context processor.
+   Server-side: consumes `omotenashi_ctx` from the context processor.
+   Replaces the former Alpine duplication of time-of-day logic.
 
-   Alpine computes greeting prefix from current hour.
-   SSR fallback: generic "Bem-vindo".
-
-   Usage: include "storefront/partials/temporal_greeting.html"
-   Optional: include "..." with show_context_line=True
+   Usage:
+     include "storefront/partials/temporal_greeting.html"
+     include "storefront/partials/temporal_greeting.html" with show_context_line=True
 {% endcomment %}
-
-{% with name=customer_name %}
-<div x-data="temporalGreeting()" x-init="update()" class="text-center">
-  <p class="text-h1 md:text-display font-heading text-foreground leading-tight"
-     x-text="message">
-    {# SSR fallback #}
-    {% if name %}Olá, {{ name }}.{% else %}Bem-vindo.{% endif %}
-  </p>
-
-  {% if show_context_line %}
-  <p class="text-muted-foreground mt-2 text-body"
-     x-show="contextLine" x-text="contextLine" x-cloak></p>
+<div class="text-center">
+  <h1 class="text-2xl lg:text-3xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">
+    {{ omotenashi_ctx.greeting_with_name|default:"Bem-vindo" }}
+  </h1>
+  {% if show_context_line and omotenashi_ctx.shop_hint %}
+  <p class="mt-2 text-sm text-on-surface dark:text-on-surface-dark">{{ omotenashi_ctx.shop_hint }}</p>
   {% endif %}
 </div>
-
-<script>
-  document.addEventListener('alpine:init', () => {
-    Alpine.data('temporalGreeting', () => ({
-      name: '{{ name|escapejs }}',
-      message: '',
-      contextLine: '',
-
-      update() {
-        const h = new Date().getHours();
-        let prefix;
-        if (h < 12) prefix = 'Bom dia';
-        else if (h < 18) prefix = 'Boa tarde';
-        else prefix = 'Boa noite';
-
-        const namePart = this.name ? ', ' + this.name.split(' ')[0] : '';
-        this.message = prefix + namePart + '.';
-
-        {% if show_context_line %}
-        {# Contextual line — objective, structural, not flowery #}
-        if (h < 7) this.contextLine = 'Abrimos às {{ shop_status.opens_at|default:"7:00" }}h — encomende agora.';
-        else if (h < 10) this.contextLine = 'Pães frescos do dia.';
-        else if (h < 12) this.contextLine = 'Pão artesanal, fermentação natural.';
-        else if (h < 14) this.contextLine = 'Sanduíches e saladas prontos.';
-        else if (h < 16) this.contextLine = '';
-        else if (h < 18) this.contextLine = '';
-        else this.contextLine = 'Encomende para amanhã.';
-        {% endif %}
-      }
-    }));
-  });
-</script>
-{% endwith %}

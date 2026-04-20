@@ -476,8 +476,8 @@ employee_discount:
 
 ```yaml
 happy_hour:
-  percent: 10              # Fixo
-  janela: 16:00 – 18:00   # Configurável
+  percent: 25              # Configurável via RuleConfig "happy_hour"
+  janela: 17:30 – 18:00   # Configurável via RuleConfig "happy_hour"
   exclusão: NÃO acumula com desconto funcionário
   aplicação: pós-pricing, sobre unit_price_q
 ```
@@ -910,12 +910,24 @@ defaults:
 
 ### A.5 Posições de Estoque
 
-| Ref       | Nome                  | Tipo     | Vendável |
-|-----------|-----------------------|----------|----------|
-| deposito  | Depósito              | physical | não      |
-| vitrine   | Vitrine / Exposição   | physical | sim      |
-| producao  | Área de Produção      | physical | não      |
-| ontem     | Vitrine D-1 (ontem)   | physical | sim      |
+| Ref       | Nome                  | Tipo     | Vendável | Visível no canal remoto? |
+|-----------|-----------------------|----------|----------|--------------------------|
+| deposito  | Depósito              | physical | não      | —                        |
+| vitrine   | Vitrine / Exposição   | physical | sim      | sim                      |
+| producao  | Área de Produção      | physical | não      | —                        |
+| ontem     | Vitrine D-1 (ontem)   | physical | sim      | **não (staff-only)**     |
+
+> **D-1 é staff-only.** Canais remotos (`web`, `delivery`, `whatsapp`, `ifood`)
+> declaram `ChannelConfig.stock.excluded_positions = ["ontem"]` para que os
+> quants nesta posição não apareçam em `availability.check` nem sejam usados
+> por `availability.reserve`. O balcão (`balcao`) não exclui nada — é onde o
+> operador vende o D-1 com markdown.
+
+> **Contrato check ↔ reserve.** Para qualquer SKU × canal × qty, o
+> `available_qty` devolvido por `availability.check` é exatamente o que
+> `availability.reserve` consegue holdar. O gate canônico é
+> `shopman.stockman.services.scope.quants_eligible_for`, consumido por ambos
+> os caminhos. Divergência fica impossível por construção.
 
 ### A.6 Promoções Ativas
 

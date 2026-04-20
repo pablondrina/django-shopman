@@ -5,6 +5,7 @@ from .account import (
     AccountView,
     AddressCreateView,
     AddressDeleteView,
+    AddressLabelUpdateView,
     AddressSetDefaultView,
     AddressUpdateView,
     DataExportView,
@@ -26,23 +27,15 @@ from .bridge import BridgeTokenView
 from .cart import (
     AddToCartView,
     ApplyCouponView,
-    CartCheckView,
-    CartContentPartialView,
-    CartContentV2View,
-    CartDrawerContentV2View,
-    CartDrawerContentView,
+    CartDrawerContentProjView,
+    CartPageContentView,
     CartSetQtyBySkuView,
     CartSummaryView,
     CartView,
-    FloatingCartBarView,
     QuickAddView,
-    RemoveCartItemView,
     RemoveCouponView,
-    UpdateCartItemView,
 )
 from .catalog import (
-    CartAlternativesView,
-    MenuSearchView,
     MenuView,
     ProductDetailView,
     TipsView,
@@ -88,11 +81,12 @@ from .pos import (
 )
 from .production import bulk_create_work_orders
 from .pwa import OfflineView
+from .sse_state import SkuStateView
 from .tracking import OrderCancelView, OrderStatusPartialView, OrderTrackingView, ReorderView
+from .welcome import WelcomeView
 
 __all__ = [
     "BridgeTokenView",
-    "CartAlternativesView",
     "TipsView",
     "HomeView",
     "AccountDeleteView",
@@ -102,15 +96,13 @@ __all__ = [
     "ApplyCouponView",
     "AddressCreateView",
     "AddressDeleteView",
+    "AddressLabelUpdateView",
     "AddressSetDefaultView",
     "AddressUpdateView",
-    "CartCheckView",
-    "CartContentPartialView",
-    "CartContentV2View",
+    "CartPageContentView",
     "CartSetQtyBySkuView",
     "CartSummaryView",
-    "CartDrawerContentV2View",
-    "CartDrawerContentView",
+    "CartDrawerContentProjView",
     "CepLookupView",
     "CartView",
     "QuickAddView",
@@ -123,10 +115,8 @@ __all__ = [
     "DeviceListView",
     "DeviceRevokeAllView",
     "DeviceRevokeView",
-    "FloatingCartBarView",
     "FoodPreferenceToggleView",
     "HowItWorksView",
-    "MenuSearchView",
     "NotificationPrefsToggleView",
     "LoginView",
     "MenuView",
@@ -152,11 +142,9 @@ __all__ = [
     "ProfileUpdateView",
     "ReorderView",
     "OrderListPartialView",
-    "RemoveCartItemView",
     "RemoveCouponView",
     "RequestCodeView",
     "SitemapView",
-    "UpdateCartItemView",
     "VerifyCodeView",
     "KDSDisplayView",
     "KDSExpeditionActionView",
@@ -173,4 +161,6 @@ __all__ = [
     "pos_shift_summary",
     "pos_view",
     "bulk_create_work_orders",
+    "WelcomeView",
+    "SkuStateView",
 ]

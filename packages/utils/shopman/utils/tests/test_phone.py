@@ -55,18 +55,18 @@ class TestNormalizePhoneBrazilian:
         assert normalize_phone("(021) 99988-7766") == "+5521999887766"
 
 
-class TestNormalizePhoneManychat:
-    """Manychat bug: +DDD9XXXXXXXX missing country code 55."""
+class TestNormalizePhoneNoBrazilianCC:
+    """Brazilian phone without country code: +DDD9XXXXXXXX instead of +55DDD9XXXXXXXX."""
 
-    def test_manychat_bug_detected(self):
-        """+43984049009 → +5543984049009 (Manychat bug, not Austria)."""
+    def test_brazilian_no_cc_detected(self):
+        """+43984049009 → +5543984049009 (Brazilian DDD, not Austria)."""
         assert normalize_phone("+43984049009") == "+5543984049009"
 
-    def test_manychat_bug_sao_paulo(self):
+    def test_brazilian_no_cc_sao_paulo(self):
         """+11999887766 → +5511999887766"""
         assert normalize_phone("+11999887766") == "+5511999887766"
 
-    def test_manychat_bug_rio(self):
+    def test_brazilian_no_cc_rio(self):
         """+21999887766 → +5521999887766"""
         assert normalize_phone("+21999887766") == "+5521999887766"
 

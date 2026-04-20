@@ -15,8 +15,6 @@ from shopman.shop.projections.order_tracking import (
     build_order_tracking_status,
 )
 from shopman.shop.projections.types import (
-    ORDER_STATUS_COLORS,
-    FulfillmentProjection,
     OrderItemProjection,
     TimelineEventProjection,
 )

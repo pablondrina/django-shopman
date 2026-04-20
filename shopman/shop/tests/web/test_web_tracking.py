@@ -25,7 +25,7 @@ class TestReorderView:
                     requested_qty=2,
                     available_qty=0,
                     is_paused=False,
-                    alternatives=[],
+                    substitutes=[],
                     error_code="insufficient_stock",
                 )
 
@@ -60,7 +60,7 @@ class TestReorderView:
                     requested_qty=2,
                     available_qty=0,
                     is_paused=False,
-                    alternatives=[],
+                    substitutes=[],
                     error_code="insufficient_stock",
                 )
 

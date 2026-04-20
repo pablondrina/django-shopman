@@ -55,7 +55,7 @@ class Command(BaseCommand):
 
         RECIPES = [
             {
-                "code": "croissant-v1",
+                "ref": "croissant-v1",
                 "name": "Croissant Tradicional",
                 "output_ref": "croissant",
                 "batch_size": Decimal("30"),
@@ -69,7 +69,7 @@ class Command(BaseCommand):
                 ],
             },
             {
-                "code": "pao-frances-v1",
+                "ref": "pao-frances-v1",
                 "name": "Pao Frances",
                 "output_ref": "pao-frances",
                 "batch_size": Decimal("50"),
@@ -82,7 +82,7 @@ class Command(BaseCommand):
                 ],
             },
             {
-                "code": "baguette-v1",
+                "ref": "baguette-v1",
                 "name": "Baguette",
                 "output_ref": "baguette",
                 "batch_size": Decimal("40"),
@@ -95,7 +95,7 @@ class Command(BaseCommand):
                 ],
             },
             {
-                "code": "brioche-v1",
+                "ref": "brioche-v1",
                 "name": "Brioche",
                 "output_ref": "brioche",
                 "batch_size": Decimal("20"),
@@ -113,7 +113,7 @@ class Command(BaseCommand):
         created = []
         for data in RECIPES:
             recipe, was_created = Recipe.objects.get_or_create(
-                code=data["code"],
+                ref=data["ref"],
                 defaults={
                     "name": data["name"],
                     "output_ref": data["output_ref"],

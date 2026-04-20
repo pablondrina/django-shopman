@@ -121,6 +121,14 @@ class ShopAdmin(ModelAdmin):
         ("Branding", {
             "fields": ("brand_name", "short_name", "tagline", "description", "logo"),
         }),
+        ("Conteúdo padrão do PDP", {
+            "fields": ("conservation_tips_default",),
+            "description": (
+                "Texto exibido na seção de conservação do PDP quando o produto "
+                "não tiver dica específica. Cada SKU pode sobrescrever em "
+                "Product.storage_tip."
+            ),
+        }),
         ("Paleta de Cores", {
             "fields": (
                 "primary_color", "secondary_color", "accent_color",

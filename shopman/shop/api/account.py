@@ -1,4 +1,7 @@
-"""Storefront Account API — profile, addresses, order history."""
+"""Storefront Account API — profile, addresses, order history.
+
+Consumes projections from the projection layer where applicable.
+"""
 from __future__ import annotations
 
 from drf_spectacular.utils import extend_schema, extend_schema_view
@@ -8,8 +11,8 @@ from rest_framework.views import APIView
 from shopman.orderman.models import Order
 from shopman.utils.monetary import format_money
 
+from shopman.shop.projections.types import ORDER_STATUS_LABELS_PT
 from shopman.shop.web.views.auth import get_authenticated_customer
-from shopman.shop.web.views.tracking import STATUS_LABELS
 
 from .serializers import (
     AddressSerializer,
@@ -23,7 +26,7 @@ from .serializers import (
 )
 class ProfileView(APIView):
     """
-    GET /api/account/profile/
+    GET /api/v1/account/profile/
 
     Returns authenticated customer's profile.
     Auth: Django auth via AuthCustomerMiddleware.
@@ -51,7 +54,7 @@ class ProfileView(APIView):
 )
 class AddressListView(APIView):
     """
-    GET /api/account/addresses/
+    GET /api/v1/account/addresses/
 
     Returns authenticated customer's addresses.
     Auth: Django auth via AuthCustomerMiddleware.
@@ -84,7 +87,7 @@ class AddressListView(APIView):
 )
 class OrderHistoryView(APIView):
     """
-    GET /api/account/orders/
+    GET /api/v1/account/orders/
 
     Returns last 20 orders for the authenticated customer.
     Auth: Django auth via AuthCustomerMiddleware.
@@ -109,7 +112,7 @@ class OrderHistoryView(APIView):
                 "created_at": order.created_at,
                 "total_display": f"R$ {format_money(order.total_q)}",
                 "status": order.status,
-                "status_label": STATUS_LABELS.get(order.status, order.status),
+                "status_label": ORDER_STATUS_LABELS_PT.get(order.status, order.status),
             })
         serializer = OrderHistoryItemSerializer(data, many=True)
         return Response(serializer.data)

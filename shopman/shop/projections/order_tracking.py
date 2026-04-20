@@ -19,7 +19,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from django.utils import timezone
-
 from shopman.utils.monetary import format_money
 
 from .types import (
@@ -38,7 +37,7 @@ logger = logging.getLogger(__name__)
 _TERMINAL_STATUSES = frozenset({"completed", "cancelled", "returned"})
 _CANCELLABLE_STATUSES = frozenset({"new", "confirmed"})
 
-_EVENT_LABELS: dict[str, str | None] = {
+EVENT_LABELS: dict[str, str | None] = {
     "created": "Pedido criado",
     "status_changed": None,
     "payment.captured": "Pagamento confirmado",
@@ -50,7 +49,7 @@ _EVENT_LABELS: dict[str, str | None] = {
     "fulfillment.delivered": "Pedido entregue",
 }
 
-_FULFILLMENT_STATUS_LABELS: dict[str, str] = {
+FULFILLMENT_STATUS_LABELS: dict[str, str] = {
     "pending": "Aguardando",
     "in_progress": "Em separação",
     "dispatched": "Saiu para entrega",
@@ -240,7 +239,7 @@ def _build_timeline(order: Order) -> tuple[TimelineEventProjection, ...]:
         if event.type == "status_changed" and status_key:
             label = ORDER_STATUS_LABELS_PT.get(status_key, status_key)
         else:
-            label = _EVENT_LABELS.get(event.type)
+            label = EVENT_LABELS.get(event.type)
             if label is None:
                 label = event.type.replace(".", " ").replace("_", " ").title()
 
@@ -290,7 +289,7 @@ def _build_fulfillments(
         tracking_url = ful.tracking_url or _carrier_tracking_url(ful.carrier, ful.tracking_code)
         proj = FulfillmentProjection(
             status=ful.status,
-            status_label=_FULFILLMENT_STATUS_LABELS.get(ful.status, ful.status),
+            status_label=FULFILLMENT_STATUS_LABELS.get(ful.status, ful.status),
             tracking_code=ful.tracking_code or None,
             tracking_url=tracking_url,
             carrier=ful.carrier or None,

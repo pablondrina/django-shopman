@@ -14,7 +14,7 @@ from .views.health import HealthCheckView
 from .views.logout import LogoutView
 from .views.verification_code import VerificationCodeRequestView, VerificationCodeVerifyView
 
-app_name = "shopman_auth"
+app_name = "doorman"
 
 urlpatterns = [
     # Access Link (link de acesso do Manychat / chat → web)

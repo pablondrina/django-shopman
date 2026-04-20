@@ -44,6 +44,9 @@ class Listing(models.Model):
 
     is_active = models.BooleanField(default=True, verbose_name=_("ativo"))
 
+    # Last set of SKUs successfully projected — used to detect removals on incremental sync.
+    projected_skus = models.JSONField(default=list, verbose_name=_("SKUs projetados"))
+
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("criado em"))
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("atualizado em"))
 

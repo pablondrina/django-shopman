@@ -222,7 +222,7 @@ class SessionAdmin(ModelAdmin):
         try:
             result = CommitService.commit(
                 session_key=obj.session_key,
-                channel_ref=obj.channel.ref,
+                channel_ref=obj.channel_ref,
                 idempotency_key=idempotency_key,
                 ctx={"actor": actor},
             )
@@ -409,7 +409,7 @@ class SessionAdmin(ModelAdmin):
         try:
             ResolveService.resolve(
                 session_key=session.session_key,
-                channel_ref=session.channel.ref,
+                channel_ref=session.channel_ref,
                 issue_id=issue_id,
                 action_id=action_id,
                 ctx={"actor": getattr(getattr(request, "user", None), "username", None) or "admin"},
@@ -451,7 +451,7 @@ class SessionAdmin(ModelAdmin):
             attempts=1,
             payload={
                 "session_key": session.session_key,
-                "channel_ref": session.channel.ref,
+                "channel_ref": session.channel_ref,
                 "rev": session.rev,
                 "items": session.items,
             },
@@ -503,7 +503,7 @@ class SessionAdmin(ModelAdmin):
                 attempts=1,
                 payload={
                     "session_key": session.session_key,
-                    "channel_ref": session.channel.ref,
+                    "channel_ref": session.channel_ref,
                     "rev": session.rev,
                     "items": session.items,
                 },
@@ -532,7 +532,7 @@ class SessionAdmin(ModelAdmin):
         try:
             result = CommitService.commit(
                 session_key=session.session_key,
-                channel_ref=session.channel.ref,
+                channel_ref=session.channel_ref,
                 idempotency_key=new_idempotency_key,
                 ctx={"actor": actor},
             )

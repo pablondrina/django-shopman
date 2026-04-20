@@ -1,53 +1,51 @@
 from __future__ import annotations
 
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import render
 from django.views import View
 from shopman.offerman.models import Product
 
-from shopman.shop.services.storefront_context import (
-    minimum_order_progress,
-    upsell_suggestion,
-)
-
 from ..cart import CartService, CartUnavailableError
 from ._helpers import (
-    _get_availability,
     _get_price_q,
-    _is_v2_request,
     _line_item_is_d1,
 )
 
 
-def _cart_summary_template(request: HttpRequest) -> str:
-    """Pick the cart-badge partial that matches the originating surface."""
-    return (
-        "storefront/v2/partials/cart_summary.html"
-        if _is_v2_request(request)
-        else "storefront/partials/cart_summary.html"
+def _picker_origin(request: HttpRequest) -> str:
+    """Which page is the modal being opened from.
+
+    Drives the return flow (STOCK-UX-PLAN / WP-STOCK-UX-1b): picking an
+    alternative from the PDP redirects to ``/cart/`` so the shopper sees
+    the item they actually added; everywhere else stays in place.
+
+    Reads HTMX's ``HX-Current-URL`` (always sent for HTMX requests), with
+    ``Referer`` as fallback.
+    """
+    current_url = (
+        request.headers.get("HX-Current-URL")
+        or request.META.get("HTTP_REFERER")
+        or ""
     )
+    path = urlparse(current_url).path
+    if path.startswith("/produto/"):
+        return "pdp"
+    if path.startswith("/cart"):
+        return "cart"
+    return "menu"
 
 
 class CartView(View):
-    """Cart page.
-
-    v2 (default): full Penguin UI cart page driven by ``CartProjection``.
-    ``?v1``: legacy behaviour — redirect to menu with cart drawer open.
-    """
+    """Full cart page driven by ``CartProjection``."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        if request.GET.get("v1") is not None:
-            from django.urls import reverse
-
-            return redirect(reverse("storefront:menu") + "?open_cart=1", permanent=False)
-
         from shopman.shop.projections import build_cart
         from shopman.shop.web.constants import STOREFRONT_CHANNEL_REF
 
         cart = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
-        return render(request, "storefront/v2/cart.html", {"cart": cart})
+        return render(request, "storefront/cart.html", {"cart": cart})
 
 
 class AddToCartView(View):
@@ -65,8 +63,14 @@ class AddToCartView(View):
 
         if not product.is_sellable:
             response = render(request, "storefront/partials/stock_error_modal.html", {
-                "title": "Produto indisponível",
-                "message": f"{product.name} não está disponível no momento. Confira outras opções no cardápio.",
+                "error_variant": "paused",
+                "sku": sku,
+                "product_name": product.name,
+                "product_image_url": getattr(product, "image_url", None) or "",
+                "requested_qty": qty,
+                "available_qty": 0,
+                "substitutes": [],
+                "picker_origin": _picker_origin(request),
             })
             response["HX-Retarget"] = "#stock-error-modal"
             response["HX-Reswap"] = "innerHTML"
@@ -90,30 +94,46 @@ class AddToCartView(View):
             return _stock_error_response(request, product, exc)
 
         cart = CartService.get_cart(request)
-        response = render(request, _cart_summary_template(request), {"cart": cart})
+        response = render(request, "storefront/partials/cart_summary.html", {"cart": cart})
         response["HX-Trigger"] = "cartUpdated"
         response["X-Cart-Item-Name"] = quote(product.name, safe="")
         return response
 
 
 def _stock_error_response(request: HttpRequest, product, exc: CartUnavailableError) -> HttpResponse:
-    """Render the stock-error modal with available qty + alternatives."""
-    if exc.error_code == "below_min_qty":
-        message = f"Quantidade mínima: {exc.available_qty} unidades para {product.name}."
-    elif exc.available_qty == 0:
-        message = f"{product.name} está esgotado no momento."
+    """Render the kintsugi stock-error modal (3 variants: shortage/planned/paused)."""
+    requested = int(exc.requested_qty)
+    available = int(exc.available_qty)
+
+    is_truly_paused = exc.is_paused or exc.error_code in {"paused", "not_in_listing"}
+    if exc.is_planned and not is_truly_paused:
+        error_variant = "planned"
+    elif is_truly_paused:
+        error_variant = "paused"
     else:
-        message = (
-            f"Restam apenas {exc.available_qty} de {product.name}. "
-            f"Você pediu {exc.requested_qty}."
-        )
-        if exc.error_code in {"paused", "not_in_listing"}:
-            message = f"{product.name} não está disponível no momento."
+        error_variant = "shortage"
+
+    primary_action = None
+    primary_qty = 0
+    if error_variant == "shortage" and available > 0:
+        primary_action = "accept_available"
+        primary_qty = available
+
     response = render(request, "storefront/partials/stock_error_modal.html", {
-        "title": "Estoque insuficiente",
-        "message": message,
-        "alternatives": exc.alternatives,
+        "error_variant": error_variant,
         "sku": exc.sku,
+        "product_name": product.name,
+        "product_image_url": getattr(product, "image_url", None) or "",
+        "requested_qty": requested,
+        "available_qty": available,
+        "substitutes": exc.substitutes,
+        "error_code": exc.error_code,
+        "is_paused": exc.is_paused,
+        "is_planned": exc.is_planned,
+        "planned_target_date": exc.planned_target_date,
+        "primary_action": primary_action,
+        "primary_qty": primary_qty,
+        "picker_origin": _picker_origin(request),
     })
     response["HX-Retarget"] = "#stock-error-modal"
     response["HX-Reswap"] = "innerHTML"
@@ -122,28 +142,10 @@ def _stock_error_response(request: HttpRequest, product, exc: CartUnavailableErr
     return response
 
 
-class CartDrawerContentView(View):
-    """HTMX: return cart drawer content (items, subtotal, progress, upsell)."""
+class CartPageContentView(View):
+    """HTMX: cart page inner content driven by ``CartProjection``.
 
-    def get(self, request: HttpRequest) -> HttpResponse:
-        cart = CartService.get_cart(request)
-        ctx: dict = {"cart": cart}
-
-        if cart["items"]:
-            # Minimum order progress
-            ctx["min_order_progress"] = minimum_order_progress(cart["subtotal_q"])
-
-            # Upsell suggestion
-            cart_skus = {item.get("sku", "") for item in cart["items"]}
-            ctx["upsell"] = upsell_suggestion(cart_skus)
-
-        return render(request, "storefront/partials/cart_drawer.html", ctx)
-
-
-class CartContentV2View(View):
-    """HTMX: v2 cart page inner content driven by ``CartProjection``.
-
-    Companion to ``CartView`` v2 — the page wraps the partial in a
+    Companion to ``CartView`` — the page wraps the partial in a
     ``#cart-page-content`` div that listens for ``cartUpdated from:body``
     and refetches this URL, so stepper/delete/coupon/upsell actions
     refresh the cart in place without a full page reload.
@@ -156,25 +158,20 @@ class CartContentV2View(View):
         cart = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
         return render(
             request,
-            "storefront/v2/partials/_cart_page_content.html",
+            "storefront/partials/_cart_page_content.html",
             {"cart": cart},
         )
 
 
-class CartDrawerContentV2View(View):
-    """HTMX: v2 cart drawer driven by ``CartProjection``.
-
-    Companion to ``CartView`` v2 — the v2 base template opens this
-    URL so the drawer renders with the same typed read model as the
-    full cart page. v1 drawer stays untouched on ``cart_drawer``.
-    """
+class CartDrawerContentProjView(View):
+    """HTMX: cart drawer driven by ``CartProjection`` (typed read model)."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
         from shopman.shop.projections import build_cart
         from shopman.shop.web.constants import STOREFRONT_CHANNEL_REF
 
         cart = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
-        return render(request, "storefront/v2/partials/cart_drawer.html", {"cart": cart})
+        return render(request, "storefront/partials/cart_drawer.html", {"cart": cart})
 
 
 class QuickAddView(View):
@@ -207,7 +204,7 @@ class QuickAddView(View):
             return _stock_error_response(request, product, exc)
 
         cart = CartService.get_cart(request)
-        response = render(request, _cart_summary_template(request), {"cart": cart})
+        response = render(request, "storefront/partials/cart_summary.html", {"cart": cart})
         response["HX-Trigger"] = "cartUpdated"
         response["X-Cart-Item-Name"] = quote(product.name, safe="")
         return response
@@ -268,61 +265,10 @@ class CartSetQtyBySkuView(View):
             return _stock_error_response(request, product, exc)
 
         cart = CartService.get_cart(request)
-        response = render(request, _cart_summary_template(request), {"cart": cart})
+        response = render(request, "storefront/partials/cart_summary.html", {"cart": cart})
         response["HX-Trigger"] = "cartUpdated"
         response["X-Cart-Item-Name"] = quote(product.name, safe="")
         return response
-
-
-class UpdateCartItemView(View):
-    """HTMX: update item qty, return updated cart item row + summary."""
-
-    def post(self, request: HttpRequest) -> HttpResponse:
-        line_id = request.POST.get("line_id", "").strip()
-        qty = int(request.POST.get("qty", 1))
-        if qty < 1:
-            qty = 1
-
-        CartService.update_qty(request, line_id=line_id, qty=qty)
-        cart = CartService.get_cart(request)
-
-        # Find the updated item
-        item = next((i for i in cart["items"] if i["line_id"] == line_id), None)
-        if not item:
-            return HttpResponse("")
-
-        # Drawer: sem swap no botão — HX-Trigger recarrega drawer + badge
-        if request.POST.get("compact") == "1":
-            response = HttpResponse("")
-            response["HX-Trigger"] = "cartUpdated"
-            return response
-
-        response = render(request, "storefront/partials/cart_item.html", {"item": item})
-        response["HX-Trigger"] = "cartUpdated"
-        return response
-
-
-class RemoveCartItemView(View):
-    """HTMX: remove item from cart."""
-
-    def post(self, request: HttpRequest) -> HttpResponse:
-        line_id = request.POST.get("line_id", "").strip()
-        CartService.remove_item(request, line_id=line_id)
-
-        response = HttpResponse("")
-        response["HX-Trigger"] = "cartUpdated"
-        return response
-
-
-class CartContentPartialView(View):
-    """HTMX: return cart content partial (items + subtotal + actions or empty state)."""
-
-    def get(self, request: HttpRequest) -> HttpResponse:
-        cart = CartService.get_cart(request)
-        ctx: dict = {"cart": cart}
-        if cart.get("items"):
-            ctx["minimum_order_warning"] = minimum_order_progress(cart["subtotal_q"])
-        return render(request, "storefront/partials/cart_content.html", ctx)
 
 
 class CartSummaryView(View):
@@ -330,14 +276,7 @@ class CartSummaryView(View):
 
     def get(self, request: HttpRequest) -> HttpResponse:
         cart = CartService.get_cart(request)
-        return render(request, _cart_summary_template(request), {"cart": cart})
-
-
-class FloatingCartBarView(View):
-    """HTMX partial: floating cart bar shown when cart is non-empty."""
-
-    def get(self, request: HttpRequest) -> HttpResponse:
-        return render(request, "storefront/partials/floating_cart_bar.html")
+        return render(request, "storefront/partials/cart_summary.html", {"cart": cart})
 
 
 class ApplyCouponView(View):
@@ -354,106 +293,40 @@ class ApplyCouponView(View):
     def post(self, request: HttpRequest) -> HttpResponse:
         code = request.POST.get("code", "").strip()
         if not code:
-            return render(request, "storefront/partials/coupon_section.html", {
-                "coupon_error": self.ERROR_MESSAGES["empty_code"],
-            })
+            return self._notify(self.ERROR_MESSAGES["empty_code"], "warning")
 
         result = CartService.apply_coupon(request, code)
         if result["ok"]:
-            # Check if coupon actually won any item (maior desconto ganha)
             cart = CartService.get_cart(request)
             coupon_info = cart.get("coupon")
             if coupon_info and coupon_info.get("discount_q", 0) == 0:
-                # Coupon lost to a better promo — remove it and inform user
                 CartService.remove_coupon(request)
-                return render(request, "storefront/partials/coupon_section.html", {
-                    "coupon_error": "Você já tem um desconto melhor aplicado automaticamente.",
-                })
-            # Trigger drawer reload so breakdown/subtotal reflect the discount
-            cart = CartService.get_cart(request)
-            coupon_info = cart.get("coupon")
-            response = render(request, "storefront/partials/coupon_section.html", {
-                "coupon": coupon_info,
-            })
+                return self._notify(
+                    "Você já tem um desconto melhor aplicado automaticamente.", "info"
+                )
+            response = HttpResponse("")
             response["HX-Trigger"] = "cartUpdated"
             return response
 
         error_key = result.get("error", "invalid_coupon")
-        return render(request, "storefront/partials/coupon_section.html", {
-            "coupon_error": self.ERROR_MESSAGES.get(error_key, "Cupom inválido."),
-        })
+        return self._notify(self.ERROR_MESSAGES.get(error_key, "Cupom inválido."), "warning")
+
+    @staticmethod
+    def _notify(message: str, variant: str) -> HttpResponse:
+        import json
+
+        response = HttpResponse("")
+        response["HX-Trigger"] = json.dumps({"notify": {"variant": variant, "message": message}})
+        return response
 
 
 class RemoveCouponView(View):
-    """HTMX: remove coupon from the cart, return coupon section partial."""
+    """HTMX: remove coupon from the cart; drawer reloads via cartUpdated."""
 
     def post(self, request: HttpRequest) -> HttpResponse:
         CartService.remove_coupon(request)
-        # Return empty coupon section + trigger drawer reload
-        response = render(request, "storefront/partials/coupon_section.html", {
-            "coupon": None,
-        })
+        response = HttpResponse("")
         response["HX-Trigger"] = "cartUpdated"
         return response
 
 
-class CartCheckView(View):
-    """HTMX: revalidate stock for all cart items, return warnings."""
-
-    def get(self, request: HttpRequest) -> HttpResponse:
-        from decimal import Decimal
-
-        cart = CartService.get_cart(request)
-        items = cart.get("items", [])
-        if not items:
-            return render(request, "storefront/partials/cart_warnings.html", {"warnings": []})
-
-        warnings = []
-        skus = [item.get("sku", "") for item in items if item.get("sku")]
-        product_names = dict(
-            Product.objects.filter(sku__in=skus).values_list("sku", "name")
-        ) if skus else {}
-
-        # Get qty held by this session's own holds so we don't double-count.
-        # _get_availability() returns stock MINUS active holds. If this session
-        # already has holds for these SKUs, available_qty is artificially low.
-        session_held = _get_session_held_qty(request)
-
-        for item in items:
-            sku = item.get("sku", "")
-            qty = int(Decimal(str(item.get("qty", 0))))
-            avail = _get_availability(sku)
-            if avail is None:
-                continue
-            if avail.get("availability_policy") == "demand_ok" and not avail.get("is_paused", False):
-                continue
-            available_qty = int(avail.get("total_promisable", Decimal("0")))
-
-            # Add back what this session holds — it's our own reservation.
-            available_qty += session_held.get(sku, 0)
-
-            if qty > available_qty:
-                warnings.append({
-                    "line_id": item.get("line_id", ""),
-                    "name": product_names.get(sku, sku),
-                    "sku": sku,
-                    "requested_qty": qty,
-                    "available_qty": available_qty,
-                })
-
-        return render(request, "storefront/partials/cart_warnings.html", {"warnings": warnings})
-
-
-def _get_session_held_qty(request: HttpRequest) -> dict[str, int]:
-    """Get qty held per SKU by the current session's active stock holds."""
-    session_key = request.session.get("cart_session_key")
-    if not session_key:
-        return {}
-    from shopman.stockman import StockHolds
-
-    holds = StockHolds.find_active_by_reference(session_key)
-
-    held: dict[str, int] = {}
-    for h in holds:
-        held[h.sku] = held.get(h.sku, 0) + int(h.quantity)
-    return held

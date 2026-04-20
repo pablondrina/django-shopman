@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Permission, User
+from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
 from shopman.orderman.models import Order
 
@@ -11,6 +12,9 @@ class PedidoConfirmTests(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.staff = User.objects.create_user("staff_confirm", password="pw", is_staff=True)
+        ct = ContentType.objects.get(app_label="shop", model="shop")
+        perm = Permission.objects.get(content_type=ct, codename="manage_orders")
+        self.staff.user_permissions.add(perm)
         self.client.force_login(self.staff)
         Channel.objects.create(ref="balcao", name="Balcao", is_active=True)
 

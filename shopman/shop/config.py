@@ -35,6 +35,10 @@ class ChannelConfig:
         # "auto_cancel"  — auto-CANCELA após timeout se operador não confirma
         # "manual"       — aguarda aprovação explícita, sem timeout
         timeout_minutes: int = 5  # para mode=auto_confirm ou auto_cancel
+        stale_new_alert_minutes: int = 0
+        # Opt-in para mode=manual: após X minutos em NEW sem decisão do operador,
+        # dispara OperatorAlert("stale_new_order"). 0 (default) desabilita.
+        # Usado em canais marketplace (iFood) para escalar pedidos esquecidos.
 
     # ── 2. Pagamento ──
 
@@ -76,8 +80,12 @@ class ChannelConfig:
     class Stock:
         hold_ttl_minutes: int | None = None  # None = sem expiração
         safety_margin: int = 0
-        planned_hold_ttl_hours: int = 48  # TTL for planned holds (fermata timeout)
+        planned_hold_ttl_hours: int = 48  # TTL applied to planned holds after materialization
         allowed_positions: list[str] | None = None  # None = all saleable positions
+        excluded_positions: list[str] = field(default_factory=list)
+        # Denylist aplicada depois de ``allowed_positions``. Uso típico: canais
+        # remotos declaram ``excluded_positions=["ontem"]`` para manter D-1
+        # (staff-only) fora do escopo de check/reserve do cliente.
         check_on_commit: bool = False  # validate per-item availability at commit
         low_stock_threshold: int = 5  # acima de 0 e <= este valor → "Últimas unidades" no cardápio
 
@@ -112,14 +120,18 @@ class ChannelConfig:
     class Rules:
         """Validators, modifiers e checks ativos neste canal.
 
+        Tri-state (alinhado com ModifyService):
+        - None  = rodar TODOS (default — canal não restringe)
+        - []    = desativar todos
+        - ["x"] = rodar apenas os listados
+
         Herança via cascata (deep_merge no nível de dict):
         - Chave ausente = herda do nível anterior
         - Lista explícita = sobreescreve
-        - Lista vazia [] = desativa
         """
 
-        validators: list[str] = field(default_factory=list)
-        modifiers: list[str] = field(default_factory=list)
+        validators: list[str] | None = None
+        modifiers: list[str] | None = None
         checks: list[str] = field(default_factory=list)
 
     # ── Campos ──
@@ -222,13 +234,13 @@ class ChannelConfig:
             raise ValueError(
                 f"timeout_minutes deve ser > 0 para mode={self.confirmation.mode}",
             )
-        valid_methods = {"counter", "pix", "card", "external"}
+        valid_methods = {"counter", "cash", "pix", "card", "external"}
         for m in self.payment.available_methods:
             if m not in valid_methods:
                 raise ValueError(f"payment.method inválido: {m}")
         if "pix" in self.payment.available_methods and self.payment.timeout_minutes <= 0:
             raise ValueError("timeout_minutes deve ser > 0 para method=pix")
-        valid_timings = {"pre_commit", "at_commit", "post_commit", "external"}
+        valid_timings = {"at_commit", "post_commit", "external"}
         if self.payment.timing not in valid_timings:
             raise ValueError(f"payment.timing inválido: {self.payment.timing}")
         if self.fulfillment.timing not in valid_timings:

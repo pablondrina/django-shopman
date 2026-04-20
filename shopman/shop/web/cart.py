@@ -14,11 +14,13 @@ from shopman.shop.services import availability
 from shopman.shop.web.constants import STOREFRONT_CHANNEL_REF as CHANNEL_REF
 
 
+
+
 class CartUnavailableError(Exception):
     """Raised by CartService.add_item when stock is insufficient.
 
     Carries the available quantity and alternative suggestions so the view
-    layer can render a meaningful response (modal with alternatives).
+    layer can render a meaningful response (modal with substitutes).
     """
 
     def __init__(
@@ -27,16 +29,20 @@ class CartUnavailableError(Exception):
         requested_qty: int,
         available_qty: int,
         is_paused: bool,
-        alternatives: list[dict],
+        substitutes: list[dict],
         error_code: str,
+        is_planned: bool = False,
+        planned_target_date=None,
     ):
         super().__init__(f"unavailable: sku={sku} qty={requested_qty} avail={available_qty}")
         self.sku = sku
         self.requested_qty = requested_qty
         self.available_qty = available_qty
         self.is_paused = is_paused
-        self.alternatives = alternatives
+        self.substitutes = substitutes
         self.error_code = error_code
+        self.is_planned = is_planned
+        self.planned_target_date = planned_target_date
 
 
 class CartService:
@@ -99,7 +105,7 @@ class CartService:
 
         Inline availability check + hold creation: calls services.availability.reserve()
         BEFORE ModifyService.modify_session(). On shortage, raises CartUnavailableError
-        with alternatives populated so the caller can render a "no stock" UI.
+        with substitutes populated so the caller can render a "no stock" UI.
 
         For merges (existing line), checks availability for the *additional* qty only
         and adopts an additional hold tagged with the same session_key.
@@ -122,9 +128,15 @@ class CartService:
                 requested_qty=delta_qty,
                 available_qty=int(result["available_qty"]),
                 is_paused=result["is_paused"],
-                alternatives=result["alternatives"],
+                substitutes=result["substitutes"],
                 error_code=result["error_code"],
+                is_planned=result.get("is_planned", False),
             )
+
+        # Cart activity → renew the TTL on every hold of this session so a
+        # shopper who is actively building the cart doesn't lose earlier
+        # reservations to the 30-minute TTL mid-flow.
+        availability.bump_session_hold_expiry(session_key)
 
         # Merge: if SKU already in cart, increment qty instead of adding new line
         if existing:
@@ -171,9 +183,12 @@ class CartService:
                     requested_qty=qty,
                     available_qty=int(result["available_qty"]),
                     is_paused=result["is_paused"],
-                    alternatives=result["alternatives"],
+                    substitutes=result["substitutes"],
                     error_code=result["error_code"],
+                    is_planned=result.get("is_planned", False),
                 )
+
+        availability.bump_session_hold_expiry(session_key)
 
         return ModifyService.modify_session(
             session_key=session_key,
@@ -201,6 +216,8 @@ class CartService:
                 session_key=session_key,
                 channel_ref=CHANNEL_REF,
             )
+
+        availability.bump_session_hold_expiry(session_key)
 
         return ModifyService.modify_session(
             session_key=session_key,
@@ -268,17 +285,33 @@ class CartService:
             for p in Product.objects.filter(sku__in=skus).only("sku", "name")
         }
 
-        # Batch availability check to flag unavailable items
+        # Batch availability check to flag unavailable items.
+        #
+        # The cart must answer: "given this session's own holds, can we still
+        # honour the line qty?" — not "is the product free for anyone now?".
+        # ``total_promisable`` excludes ALL holds (including this session's),
+        # so naively comparing it with ``line.qty`` flags a line as
+        # unavailable even when the shortage is caused entirely by the
+        # customer's own reservation. The fix: read the real ``held_ready``
+        # total plus this session's own hold for the SKU, and compute
+        # ``max_orderable_by_me = ready_physical - (held_ready - own_hold) - margin``.
         avail_map: dict[str, dict | None] = {}
+        own_holds_by_sku: dict[str, Decimal] = {}
         try:
             from shopman.shop.web.constants import HAS_STOCKMAN
             if HAS_STOCKMAN:
-                from shopman.stockman.services.availability import (
-                    availability_for_skus,
-                    availability_scope_for_channel,
+                from shopman.stockman.services.availability import availability_for_skus
+
+                from shopman.shop.adapters import stock as stock_adapter
+
+                scope = stock_adapter.get_channel_scope(CHANNEL_REF)
+                avail_map = availability_for_skus(
+                    skus,
+                    safety_margin=scope["safety_margin"],
+                    allowed_positions=scope["allowed_positions"],
+                    excluded_positions=scope.get("excluded_positions"),
                 )
-                scope = availability_scope_for_channel(CHANNEL_REF)
-                avail_map = availability_for_skus(skus, **scope)
+                own_holds_by_sku = availability.own_holds_by_sku(session_key, skus)
         except Exception:
             import logging
             logging.getLogger(__name__).warning(
@@ -291,17 +324,49 @@ class CartService:
                 item["name"] = product.name
             item["price_display"] = f"R$ {format_money(item.get('unit_price_q', 0))}"
             item["total_display"] = f"R$ {format_money(item.get('line_total_q', 0))}"
-            # Flag if current qty exceeds available stock
-            avail = avail_map.get(item.get("sku", ""))
-            if avail is not None:
-                from decimal import Decimal as _D
-                if avail.get("availability_policy") == "demand_ok" and not avail.get("is_paused", False):
-                    item["is_unavailable"] = False
-                    continue
-                total_avail = avail.get("total_promisable", _D("0"))
-                item["is_unavailable"] = int(total_avail) < int(Decimal(str(item.get("qty", 0))))
+
+            sku = item.get("sku", "")
+
+            # Planned-hold classification (AVAILABILITY-PLAN §8): populated
+            # for every line so templates can branch on awaiting / ready
+            # independently of the availability map outcome.
+            planned = availability.classify_planned_hold_for_session_sku(session_key, sku)
+            item["is_awaiting_confirmation"] = planned["is_awaiting_confirmation"]
+            item["is_ready_for_confirmation"] = planned["is_ready_for_confirmation"]
+            deadline = planned.get("deadline")
+            if deadline is not None:
+                item["confirmation_deadline_iso"] = deadline.isoformat()
+                try:
+                    from django.utils import timezone as _tz
+
+                    local_dl = _tz.localtime(deadline)
+                    item["confirmation_deadline_display"] = local_dl.strftime("%H:%M")
+                except Exception:
+                    item["confirmation_deadline_display"] = deadline.strftime("%H:%M")
             else:
+                item["confirmation_deadline_iso"] = None
+                item["confirmation_deadline_display"] = None
+
+            avail = avail_map.get(sku)
+            own_qty = int(Decimal(str(item.get("qty", 0))))
+            if avail is None:
                 item["is_unavailable"] = False
+                item["available_qty"] = None
+                continue
+            if avail.get("availability_policy") == "demand_ok" and not avail.get("is_paused", False):
+                item["is_unavailable"] = False
+                item["available_qty"] = None
+                continue
+
+            own_hold = int(own_holds_by_sku.get(sku, Decimal("0")))
+            ready_physical = int(avail.get("ready_physical", 0) or 0)
+            held_ready = int(avail.get("held_ready", 0) or 0)
+            margin = int(avail.get("safety_margin", 0) or 0)
+            other_holds = max(0, held_ready - own_hold)
+            max_orderable = max(0, ready_physical - other_holds - margin)
+
+            item["available_qty"] = max_orderable
+            item["is_unavailable"] = max_orderable < own_qty
 
         # Read discount info from session.pricing (persisted by DiscountModifier)
         pricing = session.pricing or {}

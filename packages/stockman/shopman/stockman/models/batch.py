@@ -22,7 +22,9 @@ class BatchQuerySet(models.QuerySet):
 
     def active(self):
         """Batches with remaining stock (at least one non-empty quant)."""
-        return self.filter(quants___quantity__gt=0).distinct()
+        from shopman.stockman.models.quant import Quant
+        live_refs = Quant.objects.filter(_quantity__gt=0).exclude(batch='').values('batch')
+        return self.filter(ref__in=live_refs)
 
     def expiring_before(self, date):
         """Batches expiring on or before the given date."""

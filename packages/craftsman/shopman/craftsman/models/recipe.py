@@ -26,10 +26,10 @@ class Recipe(models.Model):
     - steps: etapas de producao (referencia, nao tracking)
     """
 
-    code = models.SlugField(
+    ref = models.SlugField(
         unique=True,
         max_length=50,
-        verbose_name=_("Codigo"),
+        verbose_name=_("Ref"),
         help_text=_("Identificador unico (ex: croissant-v1)"),
     )
     name = models.CharField(

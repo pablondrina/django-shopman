@@ -1,166 +1,374 @@
 {% extends "storefront/base.html" %}
-{% load static %}
+{% load static storefront_tags omotenashi_tags %}
 
 {% block title %}{{ storefront.brand_name }} — {{ storefront.tagline }}{% endblock %}
 {% block meta_description %}{{ storefront.description|truncatewords:30 }}{% endblock %}
+{% block extra_meta %}
+  {% json_ld_bakery %}
+{% endblock %}
 
-{% block footer_class %}block{% endblock %}
+{% block bottom_bar %}{% endblock %}
 
 {% block content %}
 
-{% comment %}
-  ── Hero Section (Omotenashi v2) ──
-  Structure: Logo → Badge → Voice (greeting + context) → CTAs
-  Data sources:
-  - storefront (Shop model) → logo, brand_name
-  - shop_status (context processor) → is_open, opens_at, closes_at
-  - customer_name (context processor) → personalized greeting
-{% endcomment %}
-<section class="text-center py-12 md:py-20">
+{# ── Hero Carousel (full-bleed mobile, omotenashi greeting, CTAs inside) ── #}
+{% url 'storefront:menu' as menu_url %}
+<section class="-mx-4 -mt-6 mb-8 md:mx-0 md:mt-0 md:pt-4">
+  <div x-data="{
+    autoplayIntervalTime: 5000,
+    total: 4,
+    currentSlideIndex: 1,
+    isPaused: false,
+    autoplayInterval: null,
+    touchStartX: 0,
+    heroGreeting: '',
+    contextA: '', ctaLabelA: '', ctaHrefA: '',
+    contextB: '', ctaLabelB: '', ctaHrefB: '',
 
-  {# Logo — identity, separated from voice #}
-  {% if storefront.logo.name %}
-  <img src="{{ storefront.logo.url }}" alt="{{ storefront.brand_name }}"
-       class="h-14 md:h-16 w-auto mx-auto mb-6 object-contain">
-  {% endif %}
+    init() {
+      this.autoplay();
+      const h = new Date().getHours();
+      const name = '{{ customer_name|default:"" }}';
+      const opensAt = '{{ shop_status.opens_at|default:"7:00" }}'.split(':')[0] || '7';
+      const closesAtStr = '{{ shop_status.closes_at|default:"" }}';
+      const closesAt = closesAtStr ? parseInt(closesAtStr.split(':')[0]) : 19;
+      const mu = '{{ menu_url }}';
+      let prefix;
+      if (h < 5) prefix = 'Boa noite';
+      else if (h < 12) prefix = 'Bom dia';
+      else if (h < 18) prefix = 'Boa tarde';
+      else prefix = 'Boa noite';
+      this.heroGreeting = name ? prefix + ', ' + name + '.' : prefix + '.';
 
-  {# Status badge — operational truth #}
-  <div class="flex justify-center mb-6">
-    {% include "storefront/partials/shop_status_badge.html" %}
-  </div>
+      if (h < 7) {
+        this.contextA = 'Encomende agora para retirada às ' + opensAt + 'h.';
+        this.ctaLabelA = 'Encomende agora'; this.ctaHrefA = mu;
+        this.contextB = 'Pão fresquinho te espera pela manhã.';
+        this.ctaLabelB = 'Ver cardápio'; this.ctaHrefB = mu;
+      } else if (h < 10) {
+        this.contextA = 'Croissants acabaram de sair do forno.';
+        this.ctaLabelA = 'Ver pães'; this.ctaHrefA = mu + '#paes';
+        this.contextB = 'Pão artesanal, fermentação natural, feito aqui.';
+        this.ctaLabelB = 'Ver pães'; this.ctaHrefB = mu + '#paes';
+      } else if (h < 12) {
+        this.contextA = 'Fresquinho do forno para você.';
+        this.ctaLabelA = 'Ver pães'; this.ctaHrefA = mu + '#paes';
+        this.contextB = 'Pão artesanal, fermentação natural, feito aqui.';
+        this.ctaLabelB = 'Ver pães'; this.ctaHrefB = mu + '#paes';
+      } else if (h < 14) {
+        this.contextA = 'Sanduíches e saladas prontos para o almoço.';
+        this.ctaLabelA = 'Ver sanduíches'; this.ctaHrefA = mu + '#combos';
+        this.contextB = 'Que tal um combo para o almoço?';
+        this.ctaLabelB = 'Ver combos'; this.ctaHrefB = mu + '#combos';
+      } else if (h < 16) {
+        this.contextA = 'Uma pausa para um café?';
+        this.contextB = 'Cafés especiais e doces artesanais.';
+      } else if (h >= closesAt) {
+        this.contextA = 'Encomende para amanhã.';
+        this.ctaLabelA = 'Encomende para amanhã'; this.ctaHrefA = mu;
+        this.contextB = 'Fornada fresca às ' + opensAt + 'h.';
+        this.ctaLabelB = 'Encomende para amanhã'; this.ctaHrefB = mu;
+      } else {
+        this.contextA = 'Últimos pedidos do dia.';
+        this.contextB = 'Garanta o pão de amanhã.';
+      }
+    },
+    previous() {
+      this.currentSlideIndex = this.currentSlideIndex === 1 ? this.total : this.currentSlideIndex - 1;
+    },
+    next() {
+      this.currentSlideIndex = this.currentSlideIndex === this.total ? 1 : this.currentSlideIndex + 1;
+    },
+    autoplay() {
+      this.autoplayInterval = setInterval(() => { if (!this.isPaused) this.next() }, this.autoplayIntervalTime);
+    },
+    setAutoplayInterval(t) {
+      clearInterval(this.autoplayInterval);
+      this.autoplayIntervalTime = t || this.autoplayIntervalTime;
+      this.autoplay();
+    }
+  }"
+  @mouseenter="isPaused = true" @mouseleave="isPaused = false"
+  @focusin="isPaused = true"   @focusout="isPaused = false"
+  @touchstart.passive="touchStartX = $event.changedTouches[0].screenX"
+  @touchend.passive="const dx = $event.changedTouches[0].screenX - touchStartX; if (Math.abs(dx) > 50) { dx < 0 ? next() : previous(); setAutoplayInterval() }"
+  class="relative overflow-hidden md:rounded-2xl"
+  aria-roledescription="carousel"
+  aria-label="Destaques da loja">
 
-  {# Voice — temporal greeting + contextual line #}
-  {% include "storefront/partials/temporal_greeting.html" with show_context_line=True %}
+    {# Slides #}
+    <div class="relative h-[85svh] md:h-96 select-none">
 
-  {# CTAs — contextual + general, side by side when both present #}
-  <div class="mt-8 flex gap-3 justify-center flex-wrap" x-data="homeCta()">
-    {# Contextual CTA (appears based on time of day) #}
-    <a x-show="ctaLabel" x-cloak
-       :href="ctaHref"
-       x-text="ctaLabel"
-       class="inline-flex items-center justify-center px-6 py-3 min-w-[160px] max-w-[200px]
-              rounded-xl bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]
-              font-semibold text-body-sm transition-all active:scale-[0.97] hover:opacity-90
-              shadow-sm"
-       style="min-height: var(--touch-min);"></a>
-    {# General CTA — always visible #}
-    {% url 'storefront:menu' as menu_url %}
-    <a href="{{ menu_url }}"
-       class="inline-flex items-center justify-center px-6 py-3 min-w-[160px] max-w-[200px]
-              rounded-xl border border-border text-foreground
-              font-semibold text-body-sm transition-all active:scale-[0.97]
-              hover:bg-surface-hover"
-       :class="!ctaLabel && 'bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] border-transparent shadow-sm hover:opacity-90'"
-       style="min-height: var(--touch-min);">
-      Ver Cardápio
-    </a>
+      {# Slide 1 — Greeting A #}
+      <div x-show="currentSlideIndex === 1" x-cloak
+           x-transition.opacity.duration.1000ms
+           class="absolute inset-0"
+           role="tabpanel" aria-label="Slide 1 de 4">
+        <img src="https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1200&q=80"
+             alt="" class="absolute inset-0 w-full h-full object-cover"
+             loading="eager" fetchpriority="high" decoding="async">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/20"></div>
+        <div class="relative z-10 flex flex-col items-center h-full px-6 pt-8 pb-14 text-center">
+          <div class="flex-1 flex flex-col items-center justify-center">
+            {% if storefront.logo.name %}
+            <img src="{{ storefront.logo.url }}" alt="{{ storefront.brand_name }}" class="h-10 md:h-14 w-auto object-contain mb-4 drop-shadow-lg">
+            {% endif %}
+            <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg"
+               x-text="heroGreeting">Bem-vindo.</p>
+            <p class="text-sm md:text-base text-white/80 mt-3 tracking-wide drop-shadow"
+               x-text="contextA"></p>
+          </div>
+          <div class="flex gap-3">
+            <a x-show="ctaLabelA" x-cloak :href="ctaHrefA" x-text="ctaLabelA"
+               class="whitespace-nowrap rounded-radius bg-white px-5 py-2.5 text-center text-sm font-medium tracking-wide text-neutral-900 transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target"></a>
+            <a href="{{ menu_url }}"
+               class="whitespace-nowrap rounded-radius border border-white/50 px-5 py-2.5 text-center text-sm font-medium tracking-wide text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target"
+               :class="!ctaLabelA && 'bg-white !text-neutral-900 border-white hover:bg-white/90'">
+              Ver Cardápio
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {# Slide 2 — Peça. Acompanhe. Aproveite. #}
+      <div x-show="currentSlideIndex === 2" x-cloak
+           x-transition.opacity.duration.1000ms
+           class="absolute inset-0"
+           role="tabpanel" aria-label="Slide 2 de 4">
+        <img src="https://images.unsplash.com/photo-1517433670267-08bbd4be890f?auto=format&fit=crop&w=1200&q=80"
+             alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/20"></div>
+        <div class="relative z-10 flex flex-col items-center h-full px-6 pt-8 pb-14 text-center">
+          <div class="flex-1 flex flex-col items-center justify-center">
+            <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg">Peça. Acompanhe.<br>Aproveite.</p>
+            <p class="text-sm md:text-base text-white/80 mt-4 tracking-wide drop-shadow">Retire na loja ou receba em casa.</p>
+          </div>
+          <div class="flex gap-3">
+            <a href="{{ menu_url }}"
+               class="whitespace-nowrap rounded-radius bg-white px-5 py-2.5 text-center text-sm font-medium tracking-wide text-neutral-900 transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target">
+              Ver Cardápio
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {# Slide 3 — Reorder (customer) or Greeting B (anonymous) #}
+      <div x-show="currentSlideIndex === 3" x-cloak
+           x-transition.opacity.duration.1000ms
+           class="absolute inset-0"
+           role="tabpanel" aria-label="Slide 3 de 4">
+        <img src="https://images.unsplash.com/photo-1568254183919-78a4f43a2877?auto=format&fit=crop&w=1200&q=80"
+             alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/20"></div>
+        <div class="relative z-10 flex flex-col items-center h-full px-6 pt-8 pb-14 text-center">
+          <div class="flex-1 flex flex-col items-center justify-center">
+            {% if customer_name %}
+            <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg">Quer repetir seu<br>último pedido, {{ customer_name }}?</p>
+            <p class="text-sm md:text-base text-white/80 mt-3 tracking-wide drop-shadow">Com um toque, seu favorito volta ao carrinho.</p>
+            {% else %}
+            <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg"
+               x-text="heroGreeting">Bem-vindo.</p>
+            <p class="text-sm md:text-base text-white/80 mt-3 tracking-wide drop-shadow"
+               x-text="contextB"></p>
+            {% endif %}
+          </div>
+          <div class="flex gap-3">
+            {% if customer_name %}
+            <a href="{% url 'storefront:order_history' %}"
+               class="whitespace-nowrap rounded-radius bg-white px-5 py-2.5 text-center text-sm font-medium tracking-wide text-neutral-900 transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target">
+              Pedir de novo
+            </a>
+            {% else %}
+            <a x-show="ctaLabelB" x-cloak :href="ctaHrefB" x-text="ctaLabelB"
+               class="whitespace-nowrap rounded-radius bg-white px-5 py-2.5 text-center text-sm font-medium tracking-wide text-neutral-900 transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target"></a>
+            <a href="{{ menu_url }}"
+               class="whitespace-nowrap rounded-radius border border-white/50 px-5 py-2.5 text-center text-sm font-medium tracking-wide text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target"
+               :class="!ctaLabelB && 'bg-white !text-neutral-900 border-white hover:bg-white/90'">
+              Ver Cardápio
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      {# Slide 4 — Feito à mão, todo dia #}
+      <div x-show="currentSlideIndex === 4" x-cloak
+           x-transition.opacity.duration.1000ms
+           class="absolute inset-0"
+           role="tabpanel" aria-label="Slide 4 de 4">
+        <img src="https://images.unsplash.com/photo-1608198093002-ad4e005484ec?auto=format&fit=crop&w=1200&q=80"
+             alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/20"></div>
+        <div class="relative z-10 flex flex-col items-center h-full px-6 pt-8 pb-14 text-center">
+          <div class="flex-1 flex flex-col items-center justify-center">
+            <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg">Feito à mão,<br>todo dia</p>
+            <p class="text-sm md:text-base text-white/80 mt-4 tracking-wide drop-shadow">Do forno para a sua mesa.</p>
+          </div>
+          <div class="flex gap-3">
+            <a href="{{ menu_url }}"
+               class="whitespace-nowrap rounded-radius bg-white px-5 py-2.5 text-center text-sm font-medium tracking-wide text-neutral-900 transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target">
+              Ver Cardápio
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# Prev / Next #}
+    <button @click="previous(); setAutoplayInterval()"
+            class="absolute left-3 top-1/2 z-20 -translate-y-1/2 flex size-8 items-center justify-center rounded-full
+                   bg-white/20 text-white backdrop-blur-sm
+                   hover:bg-white/30 transition focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white"
+            aria-label="Slide anterior">
+      <span class="material-symbols-rounded text-base" aria-hidden="true">chevron_left</span>
+    </button>
+    <button @click="next(); setAutoplayInterval()"
+            class="absolute right-3 top-1/2 z-20 -translate-y-1/2 flex size-8 items-center justify-center rounded-full
+                   bg-white/20 text-white backdrop-blur-sm
+                   hover:bg-white/30 transition focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white"
+            aria-label="Próximo slide">
+      <span class="material-symbols-rounded text-base" aria-hidden="true">chevron_right</span>
+    </button>
+
+    {# Indicators #}
+    <div class="absolute bottom-4 left-0 right-0 z-20 flex justify-center gap-1.5" role="tablist" aria-label="Slides">
+      <template x-for="i in total" :key="i">
+        <button @click="currentSlideIndex = i; setAutoplayInterval()" role="tab"
+                :aria-selected="currentSlideIndex === i"
+                :aria-label="'Slide ' + i"
+                :class="currentSlideIndex === i ? 'w-6 bg-white' : 'w-2 bg-white/40'"
+                class="h-2 rounded-full transition-all duration-300 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white"></button>
+      </template>
+    </div>
   </div>
 </section>
 
-{# Closing awareness — shows only when closing within 1h #}
-<div class="max-w-2xl mx-auto px-4 mb-4">
-  {% include "storefront/partials/closing_awareness.html" %}
-</div>
+{# ── Closing awareness (Penguin UI banner) ── #}
+{% include "storefront/partials/closing_awareness.html" %}
 
-{# ── Quick Reorder (returning customers) ── #}
-<div class="max-w-2xl mx-auto mb-8">
-  {% include "storefront/partials/quick_reorder.html" %}
-</div>
+{# ── Quick Reorder (returning customers with a prior order) ── #}
+{% if customer_name and last_order_ref %}
+{% include "storefront/partials/quick_reorder.html" %}
+{% endif %}
 
-{# ── Direto do Forno (real-time availability from offerman + stockman) ── #}
-<section class="py-12 border-t border-border">
-  <h2 class="text-h2 font-heading text-foreground text-center mb-2">Direto do forno</h2>
-  <p class="text-muted-foreground text-center mb-8 text-body-sm">Disponibilidade em tempo real</p>
+{# ── Direto do Forno (HTMX for server) ── #}
+{% omotenashi 'HOME_AVAILABILITY_HEADING' as home_availability %}
+<section class="py-12 md:py-16 border-t border-outline dark:border-outline-dark">
+  <h2 class="font-title text-xl lg:text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong text-center mb-2 tracking-tight">{{ home_availability.title }}</h2>
+  <p class="text-on-surface/60 dark:text-on-surface-dark/60 text-center mb-10 text-sm tracking-wide">{{ home_availability.message }}</p>
 
   <div id="home-availability"
        hx-get="{% url 'storefront:menu' %}?partial=availability_preview"
        hx-trigger="load, every 60s"
        hx-swap="innerHTML"
        class="max-w-2xl mx-auto">
-    {# HTMX loads availability preview — offerman for catalog, stockman for promise #}
-    <div class="flex justify-center py-8">
-      <div class="w-6 h-6 border-2 border-[rgb(var(--primary))] border-t-transparent rounded-full animate-spin"></div>
-    </div>
+    {# Skeleton: responsive card placeholders (horizontal mobile, vertical desktop) #}
+    <ul class="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-hidden="true">
+      <li class="flex rounded-radius overflow-hidden border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt flex-row sm:flex-col">
+        <div class="w-28 h-28 sm:w-full sm:h-44 shrink-0 bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse"></div>
+        <div class="p-3 sm:p-4 space-y-2 sm:space-y-3 flex-1">
+          <div class="h-4 rounded bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse"></div>
+          <div class="h-3 rounded bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse w-3/4"></div>
+          <div class="h-3 rounded bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse w-1/2"></div>
+        </div>
+      </li>
+      <li class="hidden sm:flex rounded-radius overflow-hidden border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt flex-col">
+        <div class="h-44 bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse"></div>
+        <div class="p-4 space-y-3">
+          <div class="h-4 rounded bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse"></div>
+          <div class="h-3 rounded bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse w-3/4"></div>
+          <div class="h-3 rounded bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse w-1/2"></div>
+        </div>
+      </li>
+      <li class="hidden lg:flex rounded-radius overflow-hidden border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt flex-col">
+        <div class="h-44 bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse"></div>
+        <div class="p-4 space-y-3">
+          <div class="h-4 rounded bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse w-2/3"></div>
+          <div class="h-3 rounded bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse w-3/4"></div>
+          <div class="h-3 rounded bg-on-surface/10 dark:bg-on-surface-dark/10 motion-safe:animate-pulse w-1/2"></div>
+        </div>
+      </li>
+    </ul>
   </div>
 
   <div class="text-center mt-6">
     <a href="{{ menu_url }}"
-       class="text-[rgb(var(--primary))] hover:text-[rgb(var(--primary-hover))] font-medium text-body-sm transition-colors">
-      Ver cardápio completo →
+       class="font-medium text-primary underline-offset-2 hover:underline focus:underline focus:outline-hidden dark:text-primary-dark text-sm">
+      Ver cardápio completo &rarr;
     </a>
   </div>
 </section>
 
-{# ── Como Funciona ── #}
-<section class="py-12 border-t border-border">
-  <h2 class="text-h2 font-heading text-foreground text-center mb-10">Como Funciona</h2>
+{# ── Como Funciona (Penguin UI steps + cards) ── #}
+<section class="py-12 md:py-16 border-t border-outline dark:border-outline-dark">
+  <h2 class="font-title text-xl lg:text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong text-center mb-12 tracking-tight">Como Funciona</h2>
 
   <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
 
-    {# Dimensão 1: Pedido Online #}
+    {# Pedido Online (Penguin UI steps pattern) #}
     <div>
-      <h3 class="text-h3 text-foreground mb-6 flex items-center gap-2">
-        <span class="w-8 h-8 rounded-full bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] text-sm font-bold flex items-center justify-center shrink-0">1</span>
+      <h3 class="text-lg font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-6 flex items-center gap-2">
+        <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary font-bold text-on-primary text-sm dark:bg-primary-dark dark:text-on-primary-dark">1</span>
         Pedido Online
       </h3>
-      <div class="space-y-4">
-        <div class="flex gap-3">
-          <div class="w-6 h-6 rounded-full bg-[rgb(var(--primary))]/10 text-[rgb(var(--primary))] flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold">1</div>
+      <ol class="space-y-4" aria-label="passos do pedido online">
+        <li class="flex gap-3">
+          <span class="flex size-6 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt font-medium text-on-surface text-xs dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark mt-0.5">1</span>
           <div>
-            <p class="text-foreground font-medium text-body-sm">Escolha</p>
-            <p class="text-muted-foreground text-body-sm">Navegue pelo cardápio e adicione ao carrinho.</p>
+            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Escolha</p>
+            <p class="text-on-surface dark:text-on-surface-dark text-sm">Navegue pelo cardápio e adicione ao carrinho.</p>
           </div>
-        </div>
-        <div class="flex gap-3">
-          <div class="w-6 h-6 rounded-full bg-[rgb(var(--primary))]/10 text-[rgb(var(--primary))] flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold">2</div>
+        </li>
+        <li class="flex gap-3">
+          <span class="flex size-6 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt font-medium text-on-surface text-xs dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark mt-0.5">2</span>
           <div>
-            <p class="text-foreground font-medium text-body-sm">Pague</p>
-            <p class="text-muted-foreground text-body-sm">PIX rápido e seguro. Confirmação instantânea.</p>
+            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Pague</p>
+            <p class="text-on-surface dark:text-on-surface-dark text-sm">PIX rápido e seguro. Confirmação instantânea.</p>
           </div>
-        </div>
-        <div class="flex gap-3">
-          <div class="w-6 h-6 rounded-full bg-[rgb(var(--primary))]/10 text-[rgb(var(--primary))] flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold">3</div>
+        </li>
+        <li class="flex gap-3">
+          <span class="flex size-6 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt font-medium text-on-surface text-xs dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark mt-0.5">3</span>
           <div>
-            <p class="text-foreground font-medium text-body-sm">Retire ou Receba</p>
-            <p class="text-muted-foreground text-body-sm">Acompanhe em tempo real. Retire na loja ou receba em casa.</p>
+            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Retire ou Receba</p>
+            <p class="text-on-surface dark:text-on-surface-dark text-sm">Acompanhe em tempo real. Retire na loja ou receba em casa.</p>
           </div>
-        </div>
-      </div>
+        </li>
+      </ol>
     </div>
 
-    {# Dimensão 2: Visita à Loja #}
+    {# Na Loja #}
     <div>
-      <h3 class="text-h3 text-foreground mb-6 flex items-center gap-2">
-        <span class="w-8 h-8 rounded-full bg-[rgb(var(--secondary))] text-[rgb(var(--secondary-foreground))] text-sm font-bold flex items-center justify-center shrink-0">2</span>
+      <h3 class="text-lg font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-6 flex items-center gap-2">
+        <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary font-bold text-on-secondary text-sm dark:bg-secondary-dark dark:text-on-secondary-dark">2</span>
         Na Loja
       </h3>
       <div class="space-y-4">
         <div class="flex gap-3">
-          <div class="w-6 h-6 rounded-full bg-[rgb(var(--secondary))]/10 text-[rgb(var(--secondary-foreground))] flex items-center justify-center shrink-0 mt-0.5">
-            <span class="material-symbols-rounded" style="font-size: 14px;" aria-hidden="true">storefront</span>
+          <div class="flex size-6 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt mt-0.5">
+            <span class="material-symbols-rounded text-sm text-on-surface dark:text-on-surface-dark" aria-hidden="true">shelves</span>
           </div>
           <div>
-            <p class="text-foreground font-medium text-body-sm">Pães no autosserviço</p>
-            <p class="text-muted-foreground text-body-sm">Escolha direto da prateleira. Pese, embale e leve ao caixa.</p>
+            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Pães no autosserviço</p>
+            <p class="text-on-surface dark:text-on-surface-dark text-sm">Escolha direto da prateleira. Pese, embale e leve ao caixa.</p>
           </div>
         </div>
         <div class="flex gap-3">
-          <div class="w-6 h-6 rounded-full bg-[rgb(var(--secondary))]/10 text-[rgb(var(--secondary-foreground))] flex items-center justify-center shrink-0 mt-0.5">
-            <span class="material-symbols-rounded" style="font-size: 14px;" aria-hidden="true">coffee</span>
+          <div class="flex size-6 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt mt-0.5">
+            <span class="material-symbols-rounded text-sm text-on-surface dark:text-on-surface-dark" aria-hidden="true">coffee</span>
           </div>
           <div>
-            <p class="text-foreground font-medium text-body-sm">Cafés e doces no balcão</p>
-            <p class="text-muted-foreground text-body-sm">Peça ao atendente. Preparamos na hora.</p>
+            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Cafés e doces no balcão</p>
+            <p class="text-on-surface dark:text-on-surface-dark text-sm">Peça ao atendente. Preparamos na hora.</p>
           </div>
         </div>
         <div class="flex gap-3">
-          <div class="w-6 h-6 rounded-full bg-[rgb(var(--secondary))]/10 text-[rgb(var(--secondary-foreground))] flex items-center justify-center shrink-0 mt-0.5">
-            <span class="material-symbols-rounded" style="font-size: 14px;" aria-hidden="true">schedule</span>
+          <div class="flex size-6 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt mt-0.5">
+            <span class="material-symbols-rounded text-sm text-on-surface dark:text-on-surface-dark" aria-hidden="true">schedule</span>
           </div>
           <div>
-            <p class="text-foreground font-medium text-body-sm">Horários</p>
-            <p class="text-muted-foreground text-body-sm">
-              {% for entry in opening_hours_display %}{{ entry.label }}: {{ entry.hours }}{% if not forloop.last %} · {% endif %}{% empty %}Consulte nossos horários{% endfor %}
+            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Horários</p>
+            <p class="text-on-surface dark:text-on-surface-dark text-sm">
+              {% for entry in opening_hours_display %}{{ entry.label }}: {{ entry.hours }}{% if not forloop.last %} &middot; {% endif %}{% empty %}Consulte nossos horários{% endfor %}
             </p>
           </div>
         </div>
@@ -170,90 +378,54 @@
   </div>
 </section>
 
-{# ── Tomorrow Hook (Gate 3 — Ressonância) ── #}
-{# Visible afternoon/evening: seed the next visit #}
-<section x-data="{ visible: false }" x-init="visible = new Date().getHours() >= 14"
-         x-show="visible" x-transition x-cloak
-         class="py-8 border-t border-border">
+{# ── Tomorrow Hook (Gate 3) ── #}
+<section x-data="{
+    show: false,
+    msg: '',
+    init() {
+      const h = new Date().getHours();
+      if (h < 14) return;
+      this.show = true;
+      const closesAt = parseInt('{{ shop_status.closes_at|default:"19:00" }}'.split(':')[0]) || 19;
+      const opensAt = '{{ shop_status.opens_at|default:"7:00" }}'.split(':')[0] || '7';
+      this.msg = h >= closesAt
+        ? 'Encomende agora para retirada a partir das ' + opensAt + 'h.'
+        : 'Fornada fresca às ' + opensAt + 'h.';
+    }
+  }"
+  x-show="show" x-transition x-cloak
+  class="py-10 md:py-12 border-t border-outline dark:border-outline-dark">
   <div class="max-w-2xl mx-auto text-center">
-    <p class="text-overline font-semibold text-muted-foreground uppercase tracking-widest">Amanhã</p>
-    <p class="text-body text-foreground font-medium mt-2"
-       x-text="new Date().getHours() >= {{ shop_status.closes_at|default:'19:00'|truncatechars:2 }}
-               ? 'Encomende agora para retirada a partir das {{ shop_status.opens_at|default:'7:00'|truncatechars:1 }}h.'
-               : 'Fornada fresca às {{ shop_status.opens_at|default:'7:00'|truncatechars:1 }}h.'">
+    <p class="text-xs font-semibold text-on-surface/40 dark:text-on-surface-dark/40 uppercase tracking-[0.2em]">Amanhã</p>
+    <p class="font-title text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-lg mt-3" x-text="msg">
       Fornada fresca amanhã.
     </p>
   </div>
 </section>
 
-{# ── Contato / Localização ── #}
-<section class="py-12 border-t border-border">
-  <div class="max-w-2xl mx-auto text-center">
-    {% if storefront.full_address %}
-    <p class="text-foreground mb-2">
-      {% if storefront.maps_url %}
-      <a href="{{ storefront.maps_url }}" target="_blank" rel="noopener"
-         class="hover:text-[rgb(var(--primary))] transition-colors underline underline-offset-2">
-        {{ storefront.full_address }}
-      </a>
-      {% else %}
-      {{ storefront.full_address }}
-      {% endif %}
+{# ── Fale com a gente — CTA WhatsApp (complemento ao rodapé institucional) ── #}
+{% if storefront.whatsapp_url %}
+{% omotenashi 'HOME_WHATSAPP_CTA' as whatsapp_cta %}
+<section class="relative overflow-hidden mt-6 md:mt-10 md:rounded-2xl md:mx-auto md:max-w-5xl">
+  <img src="https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=1600&q=80"
+       alt="" loading="lazy" class="absolute inset-0 w-full h-full object-cover">
+  <div class="absolute inset-0 bg-gradient-to-br from-black/70 via-black/50 to-black/30"></div>
+  <div class="relative z-10 px-6 py-16 md:py-20 text-center">
+    <p class="font-title text-2xl md:text-3xl font-bold text-white tracking-tight leading-tight drop-shadow">
+      {{ whatsapp_cta.title }}
     </p>
-    {% endif %}
-
-    <div class="flex items-center justify-center gap-4 mt-4">
-      {% if storefront.phone %}
-      <a href="{{ storefront.phone_url }}"
-         class="inline-flex items-center gap-2 px-4 py-2 bg-[rgb(var(--success))] text-[rgb(var(--success-foreground))]
-                rounded-lg text-body-sm font-medium hover:opacity-90 transition-colors"
-         style="min-height: var(--touch-min);">
-        WhatsApp
-      </a>
-      {% endif %}
-      {% if storefront.social_links_resolved %}
-      {% for link in storefront.social_links_resolved %}
-      <a href="{{ link.url }}" target="_blank" rel="noopener" title="{{ link.label }}"
-         class="text-muted-foreground hover:text-[rgb(var(--primary))] transition-colors">
-        {{ link.icon_svg|safe }}
-      </a>
-      {% endfor %}
-      {% endif %}
-    </div>
+    <p class="mt-3 text-sm md:text-base text-white/80 tracking-wide drop-shadow">
+      {{ whatsapp_cta.message }}
+    </p>
+    <a href="{{ storefront.whatsapp_url }}" target="_blank" rel="noopener"
+       class="mt-6 inline-flex items-center gap-2 rounded-radius bg-success px-6 py-3 text-base font-semibold text-on-success hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white min-h-[44px] transition">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5 shrink-0" aria-hidden="true">
+        <path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.524 3.659 1.435 5.168L2 22l4.968-1.41A9.952 9.952 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.946 7.946 0 01-4.073-1.117l-.291-.174-3.027.86.875-2.944-.19-.302A7.951 7.951 0 014 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8zm4.406-5.918c-.242-.121-1.432-.706-1.655-.787-.222-.08-.384-.121-.545.121-.162.242-.625.787-.767.949-.14.162-.282.182-.524.061-.242-.121-1.022-.376-1.947-1.199-.72-.64-1.205-1.432-1.347-1.674-.14-.242-.015-.373.106-.494.108-.109.242-.282.363-.424.121-.141.162-.242.242-.404.081-.162.04-.303-.02-.424-.061-.121-.545-1.317-.747-1.803-.196-.471-.397-.406-.545-.414-.14-.007-.302-.009-.464-.009-.162 0-.424.06-.646.302-.222.242-.848.829-.848 2.02 0 1.192.868 2.344.988 2.506.121.162 1.708 2.607 4.138 3.654.578.249 1.03.398 1.382.51.58.184 1.108.158 1.525.096.465-.069 1.432-.586 1.634-1.151.2-.566.2-1.051.14-1.151-.06-.1-.222-.162-.464-.283z"/>
+      </svg>
+      Falar pelo WhatsApp
+    </a>
   </div>
 </section>
-
-{# ── Home CTA logic (Alpine) ── #}
-<script>
-  document.addEventListener('alpine:init', () => {
-    Alpine.data('homeCta', () => ({
-      ctaLabel: '',
-      ctaHref: '',
-
-      init() {
-        const h = new Date().getHours();
-        const closesAtStr = '{{ shop_status.closes_at|default:"" }}';
-        const closesAt = closesAtStr ? parseInt(closesAtStr.split(':')[0]) : 19;
-
-        if (h < 7) {
-          this.ctaLabel = 'Encomende agora';
-          this.ctaHref = '{% url "storefront:menu" %}';
-        } else if (h < 12) {
-          this.ctaLabel = 'Ver pães';
-          this.ctaHref = '{% url "storefront:menu" %}#paes';
-        } else if (h < 14) {
-          this.ctaLabel = 'Ver sanduíches';
-          this.ctaHref = '{% url "storefront:menu" %}#combos';
-        } else if (h >= closesAt) {
-          this.ctaLabel = 'Encomende para amanhã';
-          this.ctaHref = '{% url "storefront:menu" %}';
-        } else {
-          this.ctaLabel = '';
-          this.ctaHref = '';
-        }
-      }
-    }));
-  });
-</script>
+{% endif %}
 
 {% endblock %}

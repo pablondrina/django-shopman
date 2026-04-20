@@ -182,12 +182,23 @@ def get_earliest_slot_for_skus(skus: list[str]) -> dict:
             latest_time = t
             bottleneck_sku = sku
 
-    # Find the first slot whose starts_at >= latest_time
+    # Also consider current clock: a slot that already started but is still
+    # running (no later slot has begun) is the correct default for a
+    # customer placing an order mid-afternoon. Without this, we'd suggest
+    # a morning slot whose window is long past.
+    from datetime import datetime as _dt
+
+    now_t = _dt.now().time()
+    effective_earliest = max(latest_time, now_t)
+
+    # Find the first slot whose starts_at >= effective_earliest. Falls back
+    # to the last slot (latest starts_at) when all slots already started —
+    # that one is the currently-running slot.
     sorted_slots = sorted(slots, key=lambda s: _parse_time(s["starts_at"]))
-    chosen = sorted_slots[-1]  # default to last slot
+    chosen = sorted_slots[-1]
     for slot in sorted_slots:
         slot_start = _parse_time(slot["starts_at"])
-        if slot_start >= latest_time:
+        if slot_start >= effective_earliest:
             chosen = slot
             break
 

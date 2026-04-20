@@ -18,6 +18,7 @@ FULFILLMENT_UPDATE = "fulfillment.update"
 
 # Confirmation
 CONFIRMATION_TIMEOUT = "confirmation.timeout"
+ORDER_STALE_NEW_ALERT = "order.stale_new_alert"
 
 
 # Fiscal
@@ -33,6 +34,9 @@ LOYALTY_REDEEM = "loyalty.redeem"
 
 # Returns
 RETURN_PROCESS = "return.process"
+
+# Catalog projection
+CATALOG_PROJECT_SKU = "catalog.project_sku"
 
 
 # ── Queue helper ──

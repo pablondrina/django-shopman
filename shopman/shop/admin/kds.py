@@ -23,3 +23,15 @@ class KDSInstanceAdmin(ModelAdmin):
         }),
         ("Configuração", {"fields": ("target_time_minutes", "sound_enabled", "is_active", "config")}),
     ]
+
+    def has_add_permission(self, request):
+        return request.user.has_perm("shop.operate_kds")
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.has_perm("shop.operate_kds")
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.has_perm("shop.operate_kds")
+
+    def has_view_permission(self, request, obj=None):
+        return request.user.has_perm("shop.operate_kds")

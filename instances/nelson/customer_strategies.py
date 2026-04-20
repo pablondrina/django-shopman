@@ -23,12 +23,10 @@ def nelson_handle_balcao(order):
     2. CPF present → resolve/create customer by document number.
     3. Neither → skip (anonymous walk-in).
     """
+    from shopman.shop.adapters import get_adapter
     from shopman.shop.services.customer import (
         _SkipAnonymous,
-        _add_identifier,
-        _find_by_identifier,
         _get_customer_data,
-        _get_customer_service,
         _handle_phone,
         _maybe_update_name,
         _split_name,
@@ -43,32 +41,26 @@ def nelson_handle_balcao(order):
         return _handle_phone(order)
 
     if cpf:
-        svc = _get_customer_service()
+        adapter = get_adapter("customer")
         cpf_normalized = "".join(filter(str.isdigit, cpf))
         if not cpf_normalized:
             raise _SkipAnonymous()
 
-        customer = svc.get_by_document(cpf_normalized)
+        customer = adapter.get_customer_by_identifier("cpf", cpf_normalized)
         if customer:
-            _maybe_update_name(customer, name)
-            return customer
-
-        customer = _find_by_identifier("cpf", cpf_normalized)
-        if customer:
-            _maybe_update_name(customer, name)
+            _maybe_update_name(adapter, customer, name)
             return customer
 
         first_name, last_name = _split_name(name)
         ref = f"CLI-{uuid.uuid4().hex[:8].upper()}"
-        customer = svc.create(
+        customer = adapter.create_customer(
             ref=ref,
             first_name=first_name or "Cliente",
             last_name=last_name or f"CPF {cpf_normalized[-4:]}",
-            document=cpf_normalized,
             customer_type="individual",
             source_system="balcao",
         )
-        _add_identifier(customer, "cpf", cpf_normalized, is_primary=True)
+        adapter.create_identifier(customer["ref"], "cpf", cpf_normalized, is_primary=True)
         return customer
 
     raise _SkipAnonymous()

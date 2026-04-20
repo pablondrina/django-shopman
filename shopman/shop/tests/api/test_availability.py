@@ -1,4 +1,4 @@
-"""Tests for GET /api/availability/<sku>/ — WP-CL2-11."""
+"""Tests for GET /api/v1/availability/<sku>/ — WP-CL2-11."""
 
 from __future__ import annotations
 
@@ -104,8 +104,10 @@ class TestAvailabilityView:
         assert resp.status_code == 200
         data = resp.json()
         assert data["ok"] is False
-        assert data["badge_class"] == "badge-sold-out"
-        assert data["badge_text"] == "Esgotado"
+        # AVAILABILITY-PLAN §2: um único rótulo "Indisponível" para qualquer
+        # estado não-orderável (esgotado, pausado, fora do canal).
+        assert data["badge_class"] == "badge-unavailable"
+        assert data["badge_text"] == "Indisponível"
 
     def test_not_in_listing(self, client, product):
         with patch("shopman.shop.api.availability.avail_service.check", return_value=NOT_IN_LISTING_RESULT):
@@ -136,4 +138,4 @@ class TestAvailabilityView:
 
     def test_url_resolves_correctly(self, db):
         url = reverse("api-availability", kwargs={"sku": "PAO-001"})
-        assert url == "/api/availability/PAO-001/"
+        assert url == "/api/v1/availability/PAO-001/"

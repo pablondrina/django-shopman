@@ -1,6 +1,6 @@
 """CustomerGroup model."""
 
-from django.db import models
+from django.db import models, transaction
 from django.utils.translation import gettext_lazy as _
 
 
@@ -54,7 +54,10 @@ class CustomerGroup(models.Model):
 
     def save(self, *args, **kwargs):
         if self.is_default:
-            CustomerGroup.objects.filter(is_default=True).exclude(pk=self.pk).update(
-                is_default=False
-            )
-        super().save(*args, **kwargs)
+            with transaction.atomic():
+                CustomerGroup.objects.select_for_update().filter(
+                    is_default=True
+                ).exclude(pk=self.pk).update(is_default=False)
+                super().save(*args, **kwargs)
+        else:
+            super().save(*args, **kwargs)

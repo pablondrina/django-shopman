@@ -24,6 +24,7 @@ class ProductInfo:
     is_published: bool = True
     is_sellable: bool = True
     keywords: list[str] | None = None
+    image_url: str | None = None
 
 
 @dataclass(frozen=True)

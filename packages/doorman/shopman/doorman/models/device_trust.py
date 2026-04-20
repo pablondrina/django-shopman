@@ -89,7 +89,7 @@ class TrustedDevice(models.Model):
     is_active = models.BooleanField(_("ativo"), default=True)
 
     class Meta:
-        db_table = "shopman_auth_trusted_device"
+        db_table = "doorman_trusted_device"
         verbose_name = _("dispositivo confiável")
         verbose_name_plural = _("dispositivos confiáveis")
         ordering = ["-created_at"]

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from django.db.models import Avg, Count
-from rest_framework import status
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -37,6 +38,7 @@ class CustomerViewSet(
 
     permission_classes = [IsAuthenticated]
     lookup_field = "ref"
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_class = CustomerFilter
     search_fields = ["first_name", "last_name", "ref", "phone", "email"]
 

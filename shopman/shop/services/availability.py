@@ -6,7 +6,7 @@ channels (storefront cart, POS, totem, marketplace inbound). It wraps:
 
 - Stockman.availability (read) — orderable/reserved/breakdown by SKU and channel
 - adapters.stock.create_hold (write) — actual hold creation in Stockman
-- services.alternatives.find (suggest) — fallback alternatives on shortage
+- services.substitutes.find (suggest) — fallback substitutes on shortage
 
 Three verbs:
 
@@ -16,7 +16,7 @@ Three verbs:
     reserve(sku, qty, *, session_key, channel_ref, ttl_minutes=30) -> dict
         Write. Checks first; if available, creates a hold tagged with session_key
         as `reference` so the order's CommitService can adopt it. On shortage,
-        populates `alternatives` with suggested SKUs.
+        populates `substitutes` with suggested SKUs.
 
     reconcile(sku, new_qty, *, session_key, channel_ref, ttl_minutes=30) -> dict
         Write. Brings the total reserved quantity for `(session_key, sku)` to
@@ -37,9 +37,146 @@ from decimal import Decimal
 from shopman.shop.adapters import get_adapter
 from shopman.shop.models import Channel
 
-from . import alternatives
+from . import substitutes
 
 logger = logging.getLogger(__name__)
+
+
+def bump_session_hold_expiry(session_key: str, *, ttl_minutes: int = 30) -> int:
+    """Extend the TTL of every active hold tagged with ``session_key``.
+
+    Called from the cart's write paths (add/update/set_qty) so the session's
+    holds stay alive as long as the shopper is active. Orphaned holds from
+    abandoned sessions still die naturally at their TTL — this just keeps
+    the "active shopper" case alive.
+
+    Indefinite holds (``expires_at IS NULL`` — planned holds) are untouched:
+    their TTL only starts after materialization (AVAILABILITY-PLAN §8).
+
+    Returns the number of holds whose ``expires_at`` was bumped.
+    """
+    if not session_key:
+        return 0
+    try:
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from shopman.stockman import Hold, HoldStatus
+    except Exception:
+        return 0
+
+    new_expiry = timezone.now() + timedelta(minutes=ttl_minutes)
+    return (
+        Hold.objects.filter(
+            metadata__reference=session_key,
+            status__in=[HoldStatus.PENDING, HoldStatus.CONFIRMED],
+            expires_at__isnull=False,
+            expires_at__lt=new_expiry,
+        )
+        .update(expires_at=new_expiry)
+    )
+
+
+def classify_planned_hold_for_session_sku(
+    session_key: str, sku: str,
+) -> dict:
+    """Classify the planned-hold state of the session's holds for a SKU.
+
+    Planned holds (AVAILABILITY-PLAN §8) are the "reservation without a
+    running TTL" state that holds on planned production / demand-only
+    quants land on. The marker ``metadata.planned`` is stamped at hold
+    creation by the stock adapter and survives the transition to the
+    ready state — post-materialization the flag remains while
+    ``expires_at`` goes from ``None`` (awaiting confirmation) to a
+    concrete deadline set by ``StockPlanning.realize()``.
+
+    Returns:
+        {
+            "is_awaiting_confirmation": bool,   # any planned hold still pre-materialization
+            "is_ready_for_confirmation": bool,  # all planned holds have materialized
+            "deadline": datetime | None,        # earliest materialized deadline (min expires_at)
+        }
+
+    With multiple holds (split reservation, partial materialization) the
+    rule is binary:
+    - ``is_awaiting_confirmation`` = OR of every hold's pre-materialization state.
+    - ``is_ready_for_confirmation`` = AND of every hold's ready state (ALL
+      must have materialized before the badge flips to "Tudo pronto!").
+    """
+    empty = {
+        "is_awaiting_confirmation": False,
+        "is_ready_for_confirmation": False,
+        "deadline": None,
+    }
+    if not session_key or not sku:
+        return empty
+    try:
+        from django.db.models import Q
+        from django.utils import timezone
+
+        from shopman.stockman import Hold, HoldStatus
+    except Exception:
+        return empty
+
+    holds = list(
+        Hold.objects.filter(
+            metadata__reference=session_key,
+            metadata__planned=True,
+            sku=sku,
+            status__in=[HoldStatus.PENDING, HoldStatus.CONFIRMED],
+        )
+        .filter(Q(expires_at__isnull=True) | Q(expires_at__gte=timezone.now()))
+    )
+    if not holds:
+        return empty
+
+    any_awaiting = any(h.expires_at is None for h in holds)
+    all_ready = all(h.expires_at is not None for h in holds)
+    deadline = None
+    if all_ready:
+        deadline = min(h.expires_at for h in holds)
+
+    return {
+        "is_awaiting_confirmation": any_awaiting,
+        "is_ready_for_confirmation": all_ready,
+        "deadline": deadline,
+    }
+
+
+def own_holds_by_sku(session_key: str, skus: list[str]) -> dict[str, Decimal]:
+    """Sum this session's active hold quantity per SKU (single batch query).
+
+    Canonical helper consumed by the storefront read paths (cart, PDP) that
+    need to distinguish between "this SKU is unavailable to the public" and
+    "this session already holds all of it". Without it, a customer who
+    reserved the last N units sees "indisponível" on every surface — the
+    hold is double-counted against them.
+
+    Empty ``session_key`` or ``skus`` → ``{}`` (anonymous browsing, no cart).
+    Returns ``{sku: held_qty}`` only for SKUs with active holds.
+    """
+    if not session_key or not skus:
+        return {}
+    try:
+        from django.db.models import Q, Sum
+        from django.utils import timezone
+
+        from shopman.stockman import Hold, HoldStatus
+    except Exception:
+        return {}
+
+    rows = (
+        Hold.objects.filter(
+            metadata__reference=session_key,
+            sku__in=skus,
+            status__in=[HoldStatus.PENDING, HoldStatus.CONFIRMED],
+        )
+        .filter(Q(expires_at__isnull=True) | Q(expires_at__gte=timezone.now()))
+        .values("sku")
+        .annotate(total=Sum("quantity"))
+    )
+    return {row["sku"]: row["total"] or Decimal("0") for row in rows}
 
 
 def decide(
@@ -101,21 +238,9 @@ def decide(
             "failed_sku": None,
             "source": "availability.listing_gate",
         }
-    if listing_item is not None and listing_item is not True:
-        min_qty = listing_item.get("min_qty") if isinstance(listing_item, dict) else None
-        if min_qty is not None and qty_d < Decimal(str(min_qty)):
-            return {
-                "approved": False,
-                "sku": sku,
-                "requested_qty": qty_d,
-                "available_qty": Decimal(str(min_qty)),
-                "reason_code": "below_min_qty",
-                "is_paused": False,
-                "is_planned": False,
-                "target_date": target_date,
-                "failed_sku": None,
-                "source": "availability.listing_gate",
-            }
+    # ``ListingItem.min_qty`` is kept in the model but not enforced at the
+    # gate (AVAILABILITY-PLAN §10 — ``below_min_qty`` is YAGNI today).
+    # Future B2B/MOQ scenarios should resurrect this with proper UX.
 
     adapter = get_adapter("stock")
     scope = adapter.get_channel_scope(channel_ref)
@@ -124,8 +249,9 @@ def decide(
         target_date=target_date,
         safety_margin=scope["safety_margin"],
         allowed_positions=scope["allowed_positions"],
+        excluded_positions=scope.get("excluded_positions"),
     )
-    if not info.get("is_paused", False) and not info.get("positions"):
+    if not info.get("is_paused", False) and not info.get("is_tracked", bool(info.get("positions"))):
         return {
             "approved": True,
             "sku": sku,
@@ -146,6 +272,7 @@ def decide(
         target_date=target_date,
         safety_margin=scope["safety_margin"],
         allowed_positions=scope["allowed_positions"],
+        excluded_positions=scope.get("excluded_positions"),
     )
     approved = decision.approved if isinstance(getattr(decision, "approved", None), bool) else qty_d <= info["total_promisable"]
     reason_code = getattr(decision, "reason_code", None)
@@ -353,8 +480,8 @@ def reserve(
     On success: creates a Stockman hold tagged with `reference=session_key` so
     the eventual CommitService can adopt the holds when the order is created.
 
-    On shortage or pause: returns ok=False with `alternatives` populated via
-    services.alternatives.find().
+    On shortage or pause: returns ok=False with `substitutes` populated via
+    services.substitutes.find().
 
     Returns:
         {
@@ -363,7 +490,7 @@ def reserve(
             "available_qty": Decimal,
             "is_paused": bool,
             "error_code": str | None,    # only when ok=False
-            "alternatives": list[dict],  # only when ok=False
+            "substitutes": list[dict],  # only when ok=False
         }
     """
     qty_d = Decimal(str(qty))
@@ -378,7 +505,7 @@ def reserve(
             "available_qty": status["available_qty"],
             "is_paused": False,
             "error_code": None,
-            "alternatives": [],
+            "substitutes": [],
         }
 
     if not status["ok"]:
@@ -387,10 +514,11 @@ def reserve(
             "hold_id": None,
             "available_qty": status["available_qty"],
             "is_paused": status["is_paused"],
+            "is_planned": status.get("is_planned", False),
             "error_code": status.get("error_code") or (
                 "paused" if status["is_paused"] else "insufficient_stock"
             ),
-            "alternatives": alternatives.find(sku, qty=qty_d, channel=channel_ref),
+            "substitutes": substitutes.find(sku, qty=qty_d, channel=channel_ref),
         }
 
     adapter = get_adapter("stock")
@@ -415,10 +543,42 @@ def reserve(
         ttl_minutes=ttl_minutes,
         reference=session_key,
         target_date=target_date,
+        channel_ref=channel_ref,
     )
 
     if not result.get("success"):
-        # Race: stock vanished between check and hold. Surface as shortage.
+        # Stockman's Hold model pins each hold to a single Quant. When the
+        # requested qty fits in the channel's total_promisable but not in any
+        # single quant (stock fragmented across positions/batches), the hold
+        # fails with INSUFFICIENT_AVAILABLE even though check() said ok.
+        #
+        # Split the request into multiple partial holds, one per quant, so
+        # the caller receives the qty it legitimately has access to. All
+        # partial holds share the same session_key reference so CommitService
+        # adopts them together.
+        if result.get("error_code") == "INSUFFICIENT_AVAILABLE":
+            partial = _reserve_across_quants(
+                sku=sku, qty=qty_d,
+                ttl_minutes=ttl_minutes,
+                session_key=session_key,
+                channel_ref=channel_ref,
+                target_date=target_date,
+                adapter=adapter,
+            )
+            if partial["ok"]:
+                return partial
+            # Fall through to 422 with partial["available_qty"] reflecting what
+            # we could actually hold (may be less than status.available_qty).
+            return {
+                "ok": False,
+                "hold_id": None,
+                "available_qty": partial["available_qty"],
+                "is_paused": False,
+                "is_planned": False,
+                "error_code": "insufficient_stock",
+                "substitutes": substitutes.find(sku, qty=qty_d, channel=channel_ref),
+            }
+
         logger.info(
             "availability.reserve: hold failed sku=%s qty=%s code=%s",
             sku, qty_d, result.get("error_code"),
@@ -428,8 +588,9 @@ def reserve(
             "hold_id": None,
             "available_qty": status["available_qty"],
             "is_paused": False,
+            "is_planned": False,
             "error_code": result.get("error_code", "hold_failed"),
-            "alternatives": alternatives.find(sku, qty=qty_d, channel=channel_ref),
+            "substitutes": substitutes.find(sku, qty=qty_d, channel=channel_ref),
         }
 
     return {
@@ -438,7 +599,93 @@ def reserve(
         "available_qty": status["available_qty"],
         "is_paused": False,
         "error_code": None,
-        "alternatives": [],
+        "substitutes": [],
+    }
+
+
+def _reserve_across_quants(
+    *,
+    sku: str,
+    qty: Decimal,
+    ttl_minutes: int,
+    session_key: str,
+    channel_ref: str | None,
+    target_date: date | None,
+    adapter,
+) -> dict:
+    """Split a reservation across multiple quants/batches when no single quant
+    fits the full qty. All partial holds share ``reference=session_key`` so
+    Commit adopts them together.
+
+    Returns the same shape as ``reserve()``; on partial success (stock covered
+    exactly), ``hold_id`` carries the first hold id for compatibility and
+    ``ok=True``. When the combined quant capacity is still short, returns
+    ``ok=False`` with ``available_qty`` reflecting what actually fit.
+    """
+    remaining = Decimal(qty)
+    reserved = Decimal("0")
+    first_hold_id: str | None = None
+    created_hold_ids: list[str] = []
+    attempts = 0
+    # Hard cap to avoid infinite loops if adapter misbehaves.
+    while remaining > 0 and attempts < 32:
+        attempts += 1
+        # Binary search downward: try remaining, then half, etc., until the
+        # adapter accepts a single-quant hold.
+        current_try = remaining
+        accepted = False
+        while current_try > 0:
+            r = adapter.create_hold(
+                sku=sku,
+                qty=current_try,
+                ttl_minutes=ttl_minutes,
+                reference=session_key,
+                target_date=target_date,
+                channel_ref=channel_ref,
+            )
+            if r.get("success"):
+                if first_hold_id is None:
+                    first_hold_id = r["hold_id"]
+                created_hold_ids.append(r["hold_id"])
+                reserved += current_try
+                remaining -= current_try
+                accepted = True
+                break
+            if r.get("error_code") != "INSUFFICIENT_AVAILABLE":
+                break
+            # Halve and retry. Decimal halving is exact enough for integer units.
+            current_try = (current_try // 2)
+        if not accepted:
+            break
+
+    if remaining > 0:
+        # Roll back whatever we reserved so the cart does not end up with a
+        # partial reservation that the customer did not consent to.
+        if created_hold_ids:
+            try:
+                adapter.release_holds(created_hold_ids)
+            except Exception:
+                logger.warning(
+                    "availability.reserve: failed to release partial holds %s",
+                    created_hold_ids,
+                )
+        logger.info(
+            "availability.reserve: split holds insufficient sku=%s asked=%s reserved=%s",
+            sku, qty, reserved,
+        )
+        return {"ok": False, "available_qty": int(reserved)}
+
+    logger.info(
+        "availability.reserve: split across %d holds sku=%s qty=%s",
+        len(created_hold_ids), sku, qty,
+    )
+    return {
+        "ok": True,
+        "hold_id": first_hold_id,
+        "available_qty": int(qty),
+        "is_paused": False,
+        "error_code": None,
+        "substitutes": [],
     }
 
 
@@ -460,7 +707,7 @@ def reconcile(
 
     Grow (`new_qty > current`):
         Runs `check()` first; creates a hold for `(new_qty - current)`. On
-        shortage or hold failure, returns `ok=False` with alternatives and
+        shortage or hold failure, returns `ok=False` with substitutes and
         leaves existing holds untouched.
 
     Shrink (`new_qty < current`):
@@ -485,7 +732,7 @@ def reconcile(
             "available_qty": Decimal,    # only meaningful on shortage
             "is_paused": bool,
             "error_code": str | None,
-            "alternatives": list[dict],
+            "substitutes": list[dict],
         }
     """
     new_qty_d = Decimal(str(new_qty))
@@ -507,23 +754,30 @@ def reconcile(
                 ttl_minutes=ttl_minutes,
             )
     else:
-        # new_qty == 0 on a potential bundle: check if it's actually a bundle
-        # to avoid touching shared-component reservations.
+        # new_qty == 0 on a potential bundle: release the component holds this
+        # session reserved for the bundle, surgically (FIFO, bounded by the
+        # expected per-component qty). Previously this was deferred to
+        # commit-time which left orphan holds when the shopper abandoned the
+        # cart (AVAILABILITY-PLAN Gap D).
         probe = _expand_if_bundle(sku, Decimal("1"))
         if probe is not None:
+            per_unit_components = _expand_if_bundle(sku, Decimal("1")) or []
+            released_ids = _release_bundle_component_holds(
+                session_key=session_key,
+                components=per_unit_components,
+            )
             logger.info(
-                "availability.reconcile: skipping release for bundle %s "
-                "(deferred to commit-time leftover release)",
-                sku,
+                "availability.reconcile: bundle %s released %d component holds",
+                sku, len(released_ids),
             )
             return {
                 "ok": True,
                 "hold_ids": [],
-                "released_ids": [],
+                "released_ids": released_ids,
                 "available_qty": Decimal("0"),
                 "is_paused": False,
                 "error_code": None,
-                "alternatives": [],
+                "substitutes": [],
             }
 
     return _reconcile_simple(
@@ -565,7 +819,7 @@ def _reconcile_simple(
             "available_qty": Decimal("0"),
             "is_paused": False,
             "error_code": None,
-            "alternatives": [],
+            "substitutes": [],
         }
 
     adapter = get_adapter("stock")
@@ -584,7 +838,7 @@ def _reconcile_simple(
                 "available_qty": status["available_qty"],
                 "is_paused": False,
                 "error_code": None,
-                "alternatives": [],
+                "substitutes": [],
             }
 
         if not status["ok"]:
@@ -595,7 +849,7 @@ def _reconcile_simple(
                 "available_qty": status["available_qty"],
                 "is_paused": status.get("is_paused", False),
                 "error_code": status.get("error_code") or "insufficient_stock",
-                "alternatives": alternatives.find(sku, qty=delta, channel=channel_ref),
+                "substitutes": substitutes.find(sku, qty=delta, channel=channel_ref),
             }
 
         result = adapter.create_hold(
@@ -604,8 +858,38 @@ def _reconcile_simple(
             ttl_minutes=ttl_minutes,
             reference=session_key,
             target_date=target_date,
+            channel_ref=channel_ref,
         )
         if not result.get("success"):
+            # Fragmented stock: fall back to multi-quant split reservation.
+            if result.get("error_code") == "INSUFFICIENT_AVAILABLE":
+                split = _reserve_across_quants(
+                    sku=sku, qty=delta,
+                    ttl_minutes=ttl_minutes,
+                    session_key=session_key,
+                    channel_ref=channel_ref,
+                    target_date=target_date,
+                    adapter=adapter,
+                )
+                if split["ok"]:
+                    return {
+                        "ok": True,
+                        "hold_ids": [split["hold_id"]],
+                        "released_ids": [],
+                        "available_qty": status["available_qty"],
+                        "is_paused": False,
+                        "error_code": None,
+                        "substitutes": [],
+                    }
+                return {
+                    "ok": False,
+                    "hold_ids": [],
+                    "released_ids": [],
+                    "available_qty": split["available_qty"],
+                    "is_paused": False,
+                    "error_code": "insufficient_stock",
+                    "substitutes": substitutes.find(sku, qty=delta, channel=channel_ref),
+                }
             logger.info(
                 "availability.reconcile: grow hold failed sku=%s delta=%s code=%s",
                 sku, delta, result.get("error_code"),
@@ -617,7 +901,7 @@ def _reconcile_simple(
                 "available_qty": status["available_qty"],
                 "is_paused": False,
                 "error_code": result.get("error_code", "hold_failed"),
-                "alternatives": alternatives.find(sku, qty=delta, channel=channel_ref),
+                "substitutes": substitutes.find(sku, qty=delta, channel=channel_ref),
             }
         return {
             "ok": True,
@@ -626,7 +910,7 @@ def _reconcile_simple(
             "available_qty": status["available_qty"],
             "is_paused": False,
             "error_code": None,
-            "alternatives": [],
+            "substitutes": [],
         }
 
     # ── Shrink ──
@@ -653,6 +937,7 @@ def _reconcile_simple(
             ttl_minutes=ttl_minutes,
             reference=session_key,
             target_date=target_date,
+            channel_ref=channel_ref,
         )
         if result.get("success"):
             created_ids.append(result["hold_id"])
@@ -670,8 +955,59 @@ def _reconcile_simple(
         "available_qty": Decimal("0"),
         "is_paused": False,
         "error_code": None,
-        "alternatives": [],
+        "substitutes": [],
     }
+
+
+def _release_bundle_component_holds(
+    *,
+    session_key: str,
+    components: list[dict],
+) -> list[str]:
+    """Release this session's holds for each bundle component, up to the
+    per-unit component qty declared in ``components``.
+
+    Surgical vs. "release every hold of this SKU for this session" — we only
+    free what THIS bundle removal should free, by walking the session's
+    existing holds FIFO and stopping when the component's expected qty is
+    covered. If the session has concurrent bundles or simple lines sharing
+    the same component SKU, the remainder stays held; later reconcile/commit
+    flows can re-balance.
+
+    Returns the list of released hold_ids.
+    """
+    adapter = get_adapter("stock")
+    released: list[str] = []
+    for comp in components:
+        comp_sku = comp.get("sku")
+        comp_qty = Decimal(str(comp.get("qty") or 0))
+        if not comp_sku or comp_qty <= 0:
+            continue
+        try:
+            session_holds = adapter.find_holds_by_reference(session_key, sku=comp_sku)
+        except Exception as e:
+            logger.warning(
+                "release_bundle_components: find_holds failed sku=%s: %s",
+                comp_sku, e, exc_info=True,
+            )
+            continue
+        to_free: list[str] = []
+        remaining = comp_qty
+        for hold_id, _sku, held_qty in session_holds:
+            if remaining <= 0:
+                break
+            to_free.append(hold_id)
+            remaining -= held_qty
+        if to_free:
+            try:
+                adapter.release_holds(to_free)
+                released.extend(to_free)
+            except Exception as e:
+                logger.warning(
+                    "release_bundle_components: release_holds failed ids=%s: %s",
+                    to_free, e, exc_info=True,
+                )
+    return released
 
 
 def _reconcile_bundle_components(
@@ -716,7 +1052,7 @@ def _reconcile_bundle_components(
                 "available_qty": result["available_qty"],
                 "is_paused": result.get("is_paused", False),
                 "error_code": result.get("error_code", "hold_failed"),
-                "alternatives": alternatives.find(
+                "substitutes": substitutes.find(
                     bundle_sku, qty=bundle_qty, channel=channel_ref,
                 ),
             }
@@ -730,7 +1066,7 @@ def _reconcile_bundle_components(
         "available_qty": Decimal("0"),
         "is_paused": False,
         "error_code": None,
-        "alternatives": [],
+        "substitutes": [],
     }
 
 
@@ -763,6 +1099,7 @@ def _reserve_bundle_components(
             ttl_minutes=ttl_minutes,
             reference=session_key,
             target_date=target_date,
+            channel_ref=channel_ref,
         )
 
         if not result.get("success"):
@@ -781,7 +1118,7 @@ def _reserve_bundle_components(
                 "is_paused": False,
                 "error_code": result.get("error_code", "hold_failed"),
                 "is_bundle": True,
-                "alternatives": alternatives.find(bundle_sku, qty=bundle_qty, channel=channel_ref),
+                "substitutes": substitutes.find(bundle_sku, qty=bundle_qty, channel=channel_ref),
             }
 
         created_hold_ids.append(result["hold_id"])
@@ -794,5 +1131,5 @@ def _reserve_bundle_components(
         "is_paused": False,
         "error_code": None,
         "is_bundle": True,
-        "alternatives": [],
+        "substitutes": [],
     }

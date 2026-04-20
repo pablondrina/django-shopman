@@ -243,7 +243,7 @@ class TestAllergenAndConservation:
         assert isinstance(proj.conservation, ConservationInfoProjection)
         assert proj.conservation.shelf_life_label == "Melhor consumido no mesmo dia"
         assert proj.conservation.storage_tip == "Consumir fresco."
-        assert proj.conservation.unit_weight_label == "~150g a unidade"
+        assert proj.unit_weight_label == "~150g a unidade"
 
     def test_conservation_plural_days(self, listing, product):
         product.shelf_life_days = 3

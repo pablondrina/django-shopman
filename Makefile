@@ -11,7 +11,7 @@ PYTHON := $(shell [ -f .venv/bin/python ] && echo $(CURDIR)/.venv/bin/python || 
 # Python: usa venv se existir, senao o do PATH
 PYTHON := $(shell [ -f .venv/bin/python ] && echo $(CURDIR)/.venv/bin/python || echo python)
 
-.PHONY: help install test test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework lint clean migrate run dev seed coverage css css-watch fonts
+.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework lint clean migrate run dev seed coverage css css-watch fonts up down logs db-shell
 
 help: ## Mostra este help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -25,8 +25,10 @@ install: ## Instala deps + apps da suite em modo editável
 		"django-csp>=4.0,<5.0" \
 		"django-ratelimit>=4.1,<5.0" \
 		"django-redis>=5.4,<6.0" \
+		"psycopg[binary]>=3.2,<4.0" \
 		phonenumbers pytest pytest-django
 	# Instala cada app em modo editável
+	$(PYTHON) -m pip install -e packages/refs
 	$(PYTHON) -m pip install -e packages/utils
 	$(PYTHON) -m pip install -e packages/offerman
 	$(PYTHON) -m pip install -e packages/stockman
@@ -40,8 +42,12 @@ install: ## Instala deps + apps da suite em modo editável
 
 # ── Testes ────────────────────────────────────────────────────────────
 
-test: test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework ## Roda todos os testes
+test: test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework ## Roda todos os testes
 	@echo "✓ Todos os testes passaram"
+
+test-refs: ## Testes do shopman.refs
+	@echo "── Refs ──"
+	cd packages/refs && $(PYTHON) -m pytest -x -q
 
 test-utils: ## Testes do shopman.utils
 	@echo "── Utils ──"
@@ -87,12 +93,13 @@ node_modules/.package-lock.json: package.json
 	npm install --silent
 	@echo "✓ node_modules pronto"
 
-css: node_modules/.package-lock.json ## Build CSS (Tailwind local, minificado)
-	npx tailwindcss -i ./static/src/input.css -o ./shopman/static/storefront/css/output.css --minify
-	@echo "✓ CSS compilado (~$$(du -h shopman/shop/static/storefront/css/output.css | cut -f1))"
+css: node_modules/.package-lock.json ## Build CSS (Tailwind v4 storefront + v4 gestao)
+	npm run css:build
+	npm run gestao:build
+	@echo "✓ CSS compilado (output-v2.css + output-gestao.css)"
 
-css-watch: node_modules/.package-lock.json ## CSS watch mode (dev)
-	npx tailwindcss -i ./static/src/input.css -o ./shopman/static/storefront/css/output.css --watch
+css-watch: node_modules/.package-lock.json ## CSS watch mode v4 (storefront)
+	npm run css:watch
 
 fonts: ## Baixa fontes WOFF2 para self-hosting (Inter + Playfair Display)
 	@echo "── Baixando fontes ──"
@@ -110,6 +117,23 @@ fonts: ## Baixa fontes WOFF2 para self-hosting (Inter + Playfair Display)
 	@echo "✓ Fontes baixadas"
 	@ls -la shopman/shop/static/storefront/fonts/*.woff2 2>/dev/null | wc -l | xargs -I{} echo "  {} arquivos woff2"
 
+# ── Infra (Docker: Postgres + Redis) ──────────────────────────────────
+
+up: ## Sobe Postgres + Redis via docker compose (aguarda healthcheck)
+	docker compose up -d
+	@echo "Aguardando Postgres..."
+	@until docker compose exec -T postgres pg_isready -U shopman >/dev/null 2>&1; do sleep 1; done
+	@echo "✓ Postgres + Redis prontos"
+
+down: ## Para Postgres + Redis
+	docker compose down
+
+logs: ## Stream dos logs dos services
+	docker compose logs -f
+
+db-shell: ## psql no Postgres do docker
+	docker compose exec postgres psql -U shopman -d shopman
+
 # ── Server ────────────────────────────────────────────────────────────
 
 migrate: ## Cria/atualiza banco de dados
@@ -117,13 +141,14 @@ migrate: ## Cria/atualiza banco de dados
 	@echo "✓ Migrações aplicadas"
 
 run: css ## Sobe servidor + directive worker (0.0.0.0:8000)
+	-$(PYTHON) manage.py refresh_oven
 	$(PYTHON) manage.py process_directives --watch &
 	$(PYTHON) manage.py runserver 0.0.0.0:8000
 
 dev: node_modules/.package-lock.json ## Dev: CSS watch + directive worker + server (0.0.0.0:8000)
 	@echo "── Dev mode: CSS watch + directive worker + Django server ──"
 	@echo "  Ctrl+C para parar tudo."
-	npx tailwindcss -i ./static/src/input.css -o ./shopman/static/storefront/css/output.css --watch &
+	npm run css:watch &
 	$(PYTHON) manage.py process_directives --watch &
 	$(PYTHON) manage.py runserver 0.0.0.0:8000
 

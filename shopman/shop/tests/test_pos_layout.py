@@ -58,8 +58,8 @@ class POSLayoutTests(TestCase):
         content = resp.content.decode()
         # Uses Tailwind class, not old custom CSS class
         self.assertIn("rounded-xl", content)
-        # Design tokens are rendered (Tailwind output.css link present)
-        self.assertIn("output.css", content)
+        # Design tokens are rendered (gestao CSS link present)
+        self.assertIn("output-gestao.css", content)
 
     def test_pos_includes_shift_footer(self) -> None:
         """POS page includes the shift summary footer placeholder."""

@@ -15,6 +15,7 @@ from shopman.stockman.adapters.sku_validation import get_sku_validator
 from shopman.stockman.models import Hold, Quant
 from shopman.stockman.models.enums import HoldStatus
 from shopman.stockman.protocols.sku import PromiseDecision
+from shopman.stockman.services.scope import quants_eligible_for
 
 STARTED_BATCH = "started"
 
@@ -71,6 +72,110 @@ def _planned_supply_for_target(sku: str, target: date) -> Decimal:
     )
 
 
+_ZERO_BREAKDOWN: dict = {
+    "ready": Decimal("0"),
+    "in_production": Decimal("0"),
+    "planned": Decimal("0"),
+    "d1": Decimal("0"),
+}
+
+
+def _zero_availability_dict(
+    sku: str,
+    availability_policy: str,
+    safety_margin: int,
+    *,
+    is_paused: bool,
+    is_tracked: bool = False,
+) -> dict:
+    """Shape for SKUs with no orderable stock (paused or missing).
+
+    Shared by ``availability_for_sku`` and ``availability_for_skus`` so every
+    caller sees the exact same key set regardless of which entrypoint they
+    hit.
+    """
+    zero = Decimal("0")
+    return {
+        "sku": sku,
+        "availability_policy": availability_policy,
+        "total_available": zero,
+        "total_promisable": zero,
+        "total_reserved": zero,
+        "available": zero,
+        "expected": zero,
+        "planned": zero,
+        "ready_physical": zero,
+        "held_ready": zero,
+        "safety_margin": safety_margin,
+        "breakdown": dict(_ZERO_BREAKDOWN),
+        "is_planned": False,
+        "is_paused": is_paused,
+        "is_tracked": is_tracked,
+        "positions": [],
+    }
+
+
+def _build_availability_dict(
+    *,
+    sku: str,
+    availability_policy: str,
+    ready: Decimal,
+    in_production: Decimal,
+    planned: Decimal,
+    d1: Decimal,
+    held_ready: Decimal,
+    held_production: Decimal,
+    held_planned: Decimal,
+    held_d1: Decimal,
+    safety_margin: int,
+    is_planned: bool,
+    positions_data: list,
+    is_tracked: bool = True,
+) -> dict:
+    """Assemble the canonical availability dict from pre-computed buckets.
+
+    Keeps the clamping / policy arithmetic in a single place so both the
+    single-SKU and batch entrypoints stay shape-identical.
+    """
+    zero = Decimal("0")
+    total_held = held_ready + held_production + held_planned + held_d1
+    available = max(ready - held_ready - safety_margin, zero)
+    expected = max(
+        ready + in_production - held_ready - held_production - safety_margin,
+        zero,
+    )
+    planned_clamped = max(planned - held_planned, zero)
+    total_promisable = _policy_promisable_qty(
+        availability_policy,
+        available=available,
+        expected=expected,
+        planned=planned_clamped,
+    )
+    return {
+        "sku": sku,
+        "availability_policy": availability_policy,
+        "total_available": available,
+        "total_promisable": total_promisable,
+        "total_reserved": total_held,
+        "available": available,
+        "expected": expected,
+        "planned": planned_clamped,
+        "ready_physical": ready,
+        "held_ready": held_ready,
+        "safety_margin": safety_margin,
+        "breakdown": {
+            "ready": ready - held_ready,
+            "in_production": in_production - held_production,
+            "planned": planned_clamped - held_planned,
+            "d1": d1 - held_d1,
+        },
+        "is_planned": is_planned,
+        "is_paused": False,
+        "is_tracked": is_tracked,
+        "positions": positions_data,
+    }
+
+
 def availability_for_sku(
     sku: str,
     position=None,
@@ -78,6 +183,7 @@ def availability_for_sku(
     *,
     target_date: date | None = None,
     allowed_positions: list[str] | None = None,
+    excluded_positions: list[str] | None = None,
 ) -> dict:
     """
     Build availability dict for a SKU with breakdown.
@@ -93,57 +199,39 @@ def availability_for_sku(
     If the offering contract marks the SKU as not orderable,
     returns zeros for orderable/available — stock may exist but is not for sale.
 
-    ``allowed_positions``: when not None, only quants at those position refs are
-    considered (e.g. remote channels exclude ``ontem`` so D-1 leftovers there are
-    invisible online). Ignored when ``position`` is set (single-position query).
+    ``allowed_positions`` / ``excluded_positions``: narrow the scope to
+    channel-visible quants. Ignored when ``position`` is set (single-position
+    query).
     """
-    from shopman.stockman.models import Batch
-
-    zero = Decimal("0")
-    zero_breakdown = {"ready": zero, "in_production": zero, "planned": zero, "d1": zero}
     sellable = _sku_is_sellable(sku)
     availability_policy = _sku_availability_policy(sku)
 
     # If product is paused, return zeros (stock exists but not for sale)
     if not sellable:
-        return {
-            "sku": sku,
-            "availability_policy": availability_policy,
-            "total_available": zero,
-            "total_promisable": zero,
-            "total_reserved": zero,
-            "available": zero,
-            "expected": zero,
-            "planned": zero,
-            "breakdown": zero_breakdown,
-            "is_planned": False,
-            "is_paused": True,
-            "positions": [],
-        }
+        return _zero_availability_dict(
+            sku, availability_policy, safety_margin, is_paused=True,
+        )
 
-    today = date.today()
-    target = target_date or today
+    target = target_date or date.today()
 
-    # Expired batch refs for this SKU (loose coupling via string)
-    expired_refs = set(
-        Batch.objects.filter(sku=sku, expiry_date__lt=target)
-        .values_list("ref", flat=True)
-    )
+    is_tracked = Quant.objects.filter(sku=sku).exists()
 
     planned_supply = _planned_supply_for_target(sku, target)
     is_planned = planned_supply > 0
 
-    quants = (
-        Quant.objects.filter(sku=sku)
-        .filter(Q(target_date__isnull=True) | Q(target_date__lte=target))
-        .filter(_quantity__gt=0)
-        .select_related("position")
-    )
-
     if position:
-        quants = quants.filter(position=position)
-    elif allowed_positions is not None:
-        quants = quants.filter(position__ref__in=allowed_positions)
+        quants = (
+            Quant.objects.filter(sku=sku, position=position, _quantity__gt=0)
+            .filter(Q(target_date__isnull=True) | Q(target_date__lte=target))
+            .select_related("position")
+        )
+    else:
+        quants = quants_eligible_for(
+            sku,
+            target_date=target,
+            allowed_positions=allowed_positions,
+            excluded_positions=excluded_positions,
+        )
 
     ready = Decimal("0")
     in_production = Decimal("0")
@@ -156,9 +244,6 @@ def availability_for_sku(
     positions_data = []
 
     for quant in quants:
-        if quant.batch and quant.batch in expired_refs:
-            continue
-
         qty = quant._quantity
         held = quant.held
 
@@ -192,39 +277,22 @@ def availability_for_sku(
                 "batch": quant.batch or None,
             })
 
-    total_held = held_ready + held_production + held_planned + held_d1
-    available = max(ready - held_ready - safety_margin, Decimal("0"))
-    expected = max(
-        ready + in_production - held_ready - held_production - safety_margin,
-        Decimal("0"),
-    )
-    planned = max(planned - held_planned, Decimal("0"))
-    total_promisable = _policy_promisable_qty(
-        availability_policy,
-        available=available,
-        expected=expected,
+    return _build_availability_dict(
+        sku=sku,
+        availability_policy=availability_policy,
+        ready=ready,
+        in_production=in_production,
         planned=planned,
+        d1=d1,
+        held_ready=held_ready,
+        held_production=held_production,
+        held_planned=held_planned,
+        held_d1=held_d1,
+        safety_margin=safety_margin,
+        is_planned=is_planned,
+        positions_data=positions_data,
+        is_tracked=is_tracked,
     )
-
-    return {
-        "sku": sku,
-        "availability_policy": availability_policy,
-        "total_available": available,
-        "total_promisable": total_promisable,
-        "total_reserved": total_held,
-        "available": available,
-        "expected": expected,
-        "planned": planned,
-        "breakdown": {
-            "ready": ready - held_ready,
-            "in_production": in_production - held_production,
-            "planned": planned - held_planned,
-            "d1": d1 - held_d1,
-        },
-        "is_planned": is_planned,
-        "is_paused": False,
-        "positions": positions_data,
-    }
 
 
 def promise_decision_for_sku(
@@ -234,6 +302,7 @@ def promise_decision_for_sku(
     target_date: date | None = None,
     safety_margin: int = 0,
     allowed_positions: list[str] | None = None,
+    excluded_positions: list[str] | None = None,
 ) -> PromiseDecision:
     """Return an explicit operational promise decision for a SKU."""
     qty_d = Decimal(str(qty))
@@ -242,6 +311,7 @@ def promise_decision_for_sku(
         target_date=target_date,
         safety_margin=safety_margin,
         allowed_positions=allowed_positions,
+        excluded_positions=excluded_positions,
     )
     available_qty = info["total_promisable"]
     availability_policy = info.get("availability_policy", "planned_ok")
@@ -282,21 +352,25 @@ def availability_for_skus(
     *,
     target_date: date | None = None,
     allowed_positions: list[str] | None = None,
+    excluded_positions: list[str] | None = None,
 ) -> dict[str, dict]:
     """
     Batch version of availability_for_sku() — same logic, few queries regardless of N.
 
-    Returns {sku: availability_dict} for all requested SKUs. Functionally identical
-    to calling availability_for_sku(sku, safety_margin=..., allowed_positions=...)
-    for each SKU, but uses bulk DB queries to avoid N+1.
+    Returns {sku: availability_dict} for all requested SKUs. Functionally
+    identical to calling availability_for_sku() per SKU: shares the canonical
+    scope gate (shelflife, batch expiry, position allow/deny, target_date) via
+    per-SKU Python filtering on top of a bulk quant fetch.
     """
+    from types import SimpleNamespace
+
     from shopman.stockman.models import Batch
+    from shopman.stockman.shelflife import is_valid_for_date
 
     if not skus:
         return {}
 
     zero = Decimal("0")
-    zero_breakdown = {"ready": zero, "in_production": zero, "planned": zero, "d1": zero}
 
     today = date.today()
     target = target_date or today
@@ -309,6 +383,10 @@ def availability_for_skus(
         sku
         for sku, validation in validations.items()
         if validation.valid and validation.is_published and validation.is_sellable
+    }
+    shelflife_by_sku: dict[str, int | None] = {
+        sku: (info.shelflife_days if info is not None else None)
+        for sku, info in sku_infos.items()
     }
 
     # ── Query 2: expired batch refs grouped by SKU ────────────────────────────
@@ -327,6 +405,13 @@ def availability_for_skus(
         ).values_list("sku", flat=True).distinct()
     )
 
+    # ── Query 3b: which SKUs have ANY Quant at all (scope-independent) ────────
+    tracked_skus: set[str] = set(
+        Quant.objects.filter(sku__in=skus)
+        .values_list("sku", flat=True)
+        .distinct()
+    )
+
     # ── Query 4: physical quants (current/past), select_related position ──────
     quant_qs = (
         Quant.objects.filter(sku__in=skus)
@@ -336,6 +421,8 @@ def availability_for_skus(
     )
     if allowed_positions is not None:
         quant_qs = quant_qs.filter(position__ref__in=allowed_positions)
+    if excluded_positions:
+        quant_qs = quant_qs.exclude(position__ref__in=excluded_positions)
 
     # Fetch all matching quants
     all_quants = list(quant_qs)
@@ -372,20 +459,10 @@ def availability_for_skus(
                 if sku_infos.get(sku) is not None
                 else "planned_ok"
             )
-            result[sku] = {
-                "sku": sku,
-                "availability_policy": availability_policy,
-                "total_available": zero,
-                "total_promisable": zero,
-                "total_reserved": zero,
-                "available": zero,
-                "expected": zero,
-                "planned": zero,
-                "breakdown": dict(zero_breakdown),
-                "is_planned": False,
-                "is_paused": True,
-                "positions": [],
-            }
+            result[sku] = _zero_availability_dict(
+                sku, availability_policy, safety_margin, is_paused=True,
+                is_tracked=(sku in tracked_skus),
+            )
             continue
 
         expired_refs = expired_refs_by_sku.get(sku, set())
@@ -406,8 +483,14 @@ def availability_for_skus(
         held_d1 = Decimal("0")
         positions_data = []
 
+        shelflife_ns = SimpleNamespace(
+            sku=sku, shelf_life_days=shelflife_by_sku.get(sku),
+        )
+
         for quant in quants_by_sku.get(sku, []):
             if quant.batch and quant.batch in expired_refs:
+                continue
+            if not is_valid_for_date(quant, shelflife_ns, target):
                 continue
 
             qty = quant._quantity
@@ -441,61 +524,35 @@ def availability_for_skus(
                     "batch": quant.batch or None,
                 })
 
-        total_held = held_ready + held_production + held_planned + held_d1
-        available = max(ready - held_ready - safety_margin, zero)
-        expected = max(
-            ready + in_production - held_ready - held_production - safety_margin,
-            zero,
-        )
-        planned = max(planned - held_planned, zero)
-        total_promisable = _policy_promisable_qty(
-            availability_policy,
-            available=available,
-            expected=expected,
+        result[sku] = _build_availability_dict(
+            sku=sku,
+            availability_policy=availability_policy,
+            ready=ready,
+            in_production=in_production,
             planned=planned,
+            d1=d1,
+            held_ready=held_ready,
+            held_production=held_production,
+            held_planned=held_planned,
+            held_d1=held_d1,
+            safety_margin=safety_margin,
+            is_planned=is_planned,
+            positions_data=positions_data,
+            is_tracked=(sku in tracked_skus),
         )
-
-        result[sku] = {
-            "sku": sku,
-            "availability_policy": availability_policy,
-            "total_available": available,
-            "total_promisable": total_promisable,
-            "total_reserved": total_held,
-            "available": available,
-            "expected": expected,
-            "planned": planned,
-            "breakdown": {
-                "ready": ready - held_ready,
-                "in_production": in_production - held_production,
-                "planned": planned - held_planned,
-                "d1": d1 - held_d1,
-            },
-            "is_planned": is_planned,
-            "is_paused": False,
-            "positions": positions_data,
-        }
 
     return result
-
-
-def _get_safety_margin(channel_ref: str | None) -> int:
-    """Safety margin for channel. Defaults to 0; override via framework ChannelConfig.stock."""
-    return 0
-
-
-def _get_allowed_positions(channel_ref: str | None) -> list[str] | None:
-    """Allowed stock positions for channel. None = all positions; override via framework ChannelConfig.stock."""
-    return None
 
 
 def availability_scope_for_channel(channel_ref: str | None) -> dict[str, int | list[str] | None]:
     """Único ponto para margem + posições ao calcular disponibilidade por canal.
 
-    O catálogo (o que o canal “oferece”) vem da Listagem vinculada ao canal; estes
+    O catálogo (o que o canal "oferece") vem da Listagem vinculada ao canal; estes
     parâmetros só restringem **de quais posições físicas** o estoque conta para esse
     canal (ex.: remoto sem ``ontem`` para D-1 só no balcão).
+
+    Restrições por canal (safety_margin, allowed_positions) são aplicadas pelo
+    orquestrador shopman.shop antes de chamar stockman — stockman retorna os
+    defaults seguros (sem restrição) e delega ao caller quando necessário.
     """
-    return {
-        "safety_margin": _get_safety_margin(channel_ref),
-        "allowed_positions": _get_allowed_positions(channel_ref),
-    }
+    return {"safety_margin": 0, "allowed_positions": None}

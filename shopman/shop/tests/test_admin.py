@@ -232,9 +232,9 @@ class TestDashboardCallback:
         result = dashboard_callback(request, context)
 
         summary = result["order_summary"]
-        assert "total" in summary
-        assert "new_count" in summary
-        assert "cards" in summary
+        assert hasattr(summary, "total")
+        assert hasattr(summary, "new_count")
+        assert hasattr(summary, "cards")
 
     def test_revenue_structure(self, db):
         from shopman.shop.admin.dashboard import dashboard_callback
@@ -244,13 +244,13 @@ class TestDashboardCallback:
         result = dashboard_callback(request, context)
 
         revenue = result["revenue"]
-        assert "today_q" in revenue
-        assert "today_display" in revenue
-        assert "yesterday_q" in revenue
-        assert "trend_up" in revenue
+        assert hasattr(revenue, "today_q")
+        assert hasattr(revenue, "today_display")
+        assert hasattr(revenue, "yesterday_q")
+        assert hasattr(revenue, "trend_up")
 
     def test_format_brl(self):
-        from shopman.shop.admin.dashboard import _format_brl
+        from shopman.shop.projections.dashboard import _format_brl
 
         assert _format_brl(0) == "R$ 0,00"
         assert _format_brl(1500) == "R$ 15,00"
@@ -265,7 +265,7 @@ class TestProductionAdminView:
         from shopman.shop.web.views.production import production_view
 
         recipe = Recipe.objects.create(
-            code="croissant-v1",
+            ref="croissant-v1",
             name="Croissant Tradicional",
             output_ref="croissant",
             batch_size=10,
@@ -279,7 +279,7 @@ class TestProductionAdminView:
         response = production_view(request, admin.site)
 
         assert response.status_code == 200
-        assert response.context_data["craft_summary"].total_orders == 2
+        assert response.context_data["craft_summary"].total == 2
         assert len(response.context_data["planned_queue"]) == 1
         assert len(response.context_data["started_queue"]) == 1
 
@@ -289,7 +289,7 @@ class TestProductionAdminView:
         from shopman.shop.web.views.production import production_view
 
         recipe = Recipe.objects.create(
-            code="baguette-v1",
+            ref="baguette-v1",
             name="Baguette",
             output_ref="baguette",
             batch_size=10,
@@ -307,6 +307,6 @@ class TestProductionAdminView:
 
         assert response.status_code == 200
         assert response.context_data["selected_date"] == target
-        assert response.context_data["craft_summary"].total_orders == 1
+        assert response.context_data["craft_summary"].total == 1
         assert len(response.context_data["planned_queue"]) == 1
-        assert response.context_data["today_wos"].count() == 1
+        assert len(response.context_data["today_wos"]) == 1

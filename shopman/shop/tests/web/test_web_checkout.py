@@ -13,7 +13,7 @@ pytestmark = pytest.mark.django_db
 DOORMAN_SETTINGS = {
     "CUSTOMER_RESOLVER_CLASS": "shopman.guestman.adapters.auth.CustomerResolver",
     "MESSAGE_SENDER_CLASS": "shopman.doorman.senders.LogSender",
-    "DEVICE_TRUST_COOKIE_NAME": "shopman_auth_dt",
+    "DEVICE_TRUST_COOKIE_NAME": "doorman_dt",
     "LOGOUT_REDIRECT_URL": "/",
 }
 
@@ -65,6 +65,17 @@ class TestCheckoutGet:
         _login_as_customer(cart_session, customer)
         resp = cart_session.get("/checkout/")
         assert resp.status_code == 200
+
+    def test_checkout_renders_address_picker(self, cart_session, customer):
+        """Checkout page must embed the new iFood-style address picker."""
+        _login_as_customer(cart_session, customer)
+        resp = cart_session.get("/checkout/")
+        assert resp.status_code == 200
+        body = resp.content.decode("utf-8")
+        assert "data-address-picker" in body
+        assert "addressPicker(" in body
+        assert "reverseGeocodeUrl" in body
+        assert "Usar minha localiza" in body
 
 
 # ── CheckoutView POST ─────────────────────────────────────────────────
@@ -131,16 +142,18 @@ class TestCheckoutPost:
     def test_minimum_order_warning_shows_on_checkout(
         self, cart_session, channel, customer, shop_instance
     ):
-        # Configure minimum order via Shop.defaults (channel-level config comes in WP-F1)
+        # Configure minimum order via Shop.defaults (channel-level config comes in WP-F1).
+        # Below-minimum cart surfaces the block via CartProjection — the checkout view
+        # renders the projection-backed summary; the stepper/progress bar lives in the
+        # drawer. Here we just assert the projection flags the cart as below minimum.
         shop_instance.defaults = {"rules": {"validators": ["shop.minimum_order"], "minimum_order_q": 50000}}
         shop_instance.save()
 
         _login_as_customer(cart_session, customer)
-        resp = cart_session.get("/checkout/?v1")
+        resp = cart_session.get("/checkout/")
         assert resp.status_code == 200
-        content = resp.content.decode()
-        assert "Faltam" in content
-        assert "pedido mínimo" in content
+        checkout = resp.context["checkout"]
+        assert checkout.cart.minimum_order_progress is not None
 
     def test_checkout_post_validates_stock_without_client_flag(
         self, cart_session, channel, customer

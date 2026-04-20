@@ -399,7 +399,7 @@ class TestStockRecalculate:
         """Recalculate corrects _quantity when it drifts from moves."""
         quant = stock.receive(Decimal('100'), product.sku, vitrine, reason='Entrada')
 
-        Quant.objects.filter(pk=quant.pk).update(_quantity=Decimal('999'))
+        Quant.objects.filter(pk=quant.pk).update(_quantity=Decimal('999'), _allow_quantity_update=True)
         quant.refresh_from_db()
         assert quant._quantity == Decimal('999')
 

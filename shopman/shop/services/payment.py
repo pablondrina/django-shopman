@@ -91,7 +91,10 @@ def initiate(order) -> None:
         if intent.expires_at:
             result["expires_at"] = intent.expires_at.isoformat()
     elif method == "card":
-        result["client_secret"] = intent.client_secret
+        # Stripe Checkout (hosted): redirect URL the client clicks to pay.
+        checkout_url = (intent.metadata or {}).get("checkout_url")
+        if checkout_url:
+            result["checkout_url"] = checkout_url
 
     order.data["payment"] = result
     order.save(update_fields=["data", "updated_at"])

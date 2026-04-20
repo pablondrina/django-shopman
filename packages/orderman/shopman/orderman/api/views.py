@@ -369,6 +369,7 @@ class OrderViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = get_orderman_setting("DEFAULT_PERMISSION_CLASSES")
     pagination_class = OrderCursorPagination
     throttle_classes = [AnonRateThrottle, UserRateThrottle]
+    lookup_field = "ref"
 
 
 class DirectiveViewSet(viewsets.ReadOnlyModelViewSet):

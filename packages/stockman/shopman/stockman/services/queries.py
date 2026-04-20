@@ -94,6 +94,13 @@ class StockQueries:
                 Q(target_date__isnull=True) | Q(target_date__lte=target)
             )
 
+        from shopman.stockman.models.batch import Batch
+        expired_refs = list(
+            Batch.objects.filter(sku=sku, expiry_date__lt=target).values_list('ref', flat=True)
+        )
+        if expired_refs:
+            quants = quants.exclude(batch__in=expired_refs)
+
         total = quants.aggregate(
             t=Coalesce(Sum('_quantity'), Decimal('0'))
         )['t']

@@ -1,5 +1,7 @@
 # Arquitetura — Django Shopman
 
+> ⚠️ **Documento em revisão (2026-04-18)**: este arquivo ainda reflete terminologia anterior em alguns pontos (ex.: `backends/` virou `adapters/` no cleanup-2; os nomes de classes `StockingBackend`, `CustomersBackend` etc. podem estar desatualizados). Para a verdade atual, consulte [docs/reference/system-spec.md](reference/system-spec.md). Correções estruturais deste arquivo em WP separado.
+
 ## Visão Geral
 
 Django Shopman é composto por **8 apps core** independentes e um **orquestrador** (`shopman/`) que os conecta para cenários de negócio concretos. Cada app core é um pacote pip instalável separadamente.
@@ -167,17 +169,20 @@ Setas indicam dependência de pacote. Dependências via Protocol (runtime) são 
       └── stock.commit, notification.send, fulfillment.create, loyalty.earn
 ```
 
-## Presets de Canal
+## Configuração de Canal (cascata `ChannelConfig`)
 
-Cada canal de venda tem um preset (`shopman/presets.py`) que configura o comportamento do pipeline via `ChannelConfig`:
+Não existe sistema de presets factory em código (o conceito foi planejado em planos arquivados mas nunca implementado; referências remanescentes são resíduo). Cada canal é configurado via dict literal em seed, ou pelo admin em runtime, no campo `Channel.config` (JSONField).
 
-| Preset | Confirmação | Pagamento | Stock Hold TTL | Pipeline on_commit | Pipeline on_confirmed |
-|--------|-------------|-----------|----------------|--------------------|-----------------------|
-| `pos()` | immediate | `counter` | 5 min | customer.ensure | stock.commit, notification, loyalty.earn |
-| `remote()` | auto_confirm (10 min) | `pix` (15 min) | 30 min | customer.ensure, stock.hold | pix.generate, notification, loyalty.earn |
-| `marketplace()` | immediate | `external` (pré-pago) | — | customer.ensure | stock.commit |
+A dataclass `ChannelConfig` em [shopman/shop/config.py](../shopman/shop/config.py) define 8 aspectos com defaults sensatos: `confirmation`, `payment`, `fulfillment`, `stock`, `notifications`, `pricing`, `editing`, `rules`. A config efetiva é resolvida por `ChannelConfig.for_channel(channel)` via `deep_merge(dataclass_defaults, shop.defaults, channel.config)` — dicts merged recursivamente, lists replaced.
 
-A configuração cascateia: `Channel.config` → `Shop.defaults` → `ChannelConfig.defaults()`.
+Exemplos (de Nelson seed):
+
+| Canal | Confirmação | Pagamento | Stock hold TTL | Editing | Notes |
+|-------|-------------|-----------|----------------|---------|-------|
+| `balcao` | `immediate` | `counter` | — | `open` | POS screen |
+| `delivery` / `web` | `auto_confirm` (5 min) | `[pix, card]` | 30 min | `open` | Storefront |
+| `whatsapp` | `auto_confirm` (5 min) | `[pix, card]` | 30 min | `open` | Fluxo via bot |
+| `ifood` | `auto_cancel` (5 min) | `external` | — | `locked` | Pré-pago marketplace |
 
 Veja [guia de pagamentos](guides/payments.md) para o fluxo PIX completo.
 

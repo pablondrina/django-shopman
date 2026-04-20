@@ -1,0 +1,188 @@
+{% comment %}
+Date picker — Hoje / Amanhã / Outro dia chips + sheet de calendário.
+
+Scoped dentro do x-data externo do checkout. Reutiliza state herdado:
+  - deliveryDate (string YYYY-MM-DD)
+  - minDate, maxDate (getters)
+  - closedDates, isClosedDate()
+  - fulfillmentType
+  - anyTodaySlotAvailable()
+
+Submete via <input type="hidden" name="delivery_date">.
+{% endcomment %}
+<div x-data="{
+  sheetOpen: false,
+  WEEKDAY_SHORT: ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'],
+  WEEKDAY_FULL: ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'],
+  MONTH_FULL: ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'],
+  viewYear: new Date().getFullYear(),
+  viewMonth: new Date().getMonth(),
+  isoToday() { return new Date().toISOString().slice(0, 10); },
+  isoTomorrow() { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); },
+  parseIso(iso) { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); },
+  get todayWeekday() { return this.WEEKDAY_FULL[this.parseIso(this.isoToday()).getDay()]; },
+  get tomorrowWeekday() { return this.WEEKDAY_FULL[this.parseIso(this.isoTomorrow()).getDay()]; },
+  get todayDisabled() {
+    return this.isClosedDate(this.isoToday())
+      || (this.fulfillmentType === 'pickup' && !this.anyTodaySlotAvailable());
+  },
+  get tomorrowDisabled() { return this.isClosedDate(this.isoTomorrow()); },
+  get isToday() { return this.deliveryDate === this.isoToday(); },
+  get isTomorrow() { return this.deliveryDate === this.isoTomorrow(); },
+  get isCustom() { return this.deliveryDate && !this.isToday && !this.isTomorrow; },
+  get customLabelTop() {
+    if (!this.isCustom) return '';
+    return this.WEEKDAY_FULL[this.parseIso(this.deliveryDate).getDay()];
+  },
+  get customLabelBottom() {
+    if (!this.isCustom) return 'Outro dia';
+    const d = this.parseIso(this.deliveryDate);
+    return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+  },
+  selectToday() { if (!this.todayDisabled) this.deliveryDate = this.isoToday(); },
+  selectTomorrow() { if (!this.tomorrowDisabled) this.deliveryDate = this.isoTomorrow(); },
+  openSheet() {
+    const base = this.deliveryDate || this.minDate;
+    const d = this.parseIso(base);
+    this.viewYear = d.getFullYear();
+    this.viewMonth = d.getMonth();
+    this.sheetOpen = true;
+  },
+  closeSheet() { this.sheetOpen = false; },
+  get viewMonthLabel() { return this.MONTH_FULL[this.viewMonth] + ' ' + this.viewYear; },
+  get canPrevMonth() {
+    const firstOfView = new Date(this.viewYear, this.viewMonth, 1);
+    const minD = this.parseIso(this.minDate);
+    const minFirstMonth = new Date(minD.getFullYear(), minD.getMonth(), 1);
+    return firstOfView > minFirstMonth;
+  },
+  get canNextMonth() {
+    const lastOfView = new Date(this.viewYear, this.viewMonth + 1, 0);
+    return lastOfView < this.parseIso(this.maxDate);
+  },
+  prevMonth() {
+    if (!this.canPrevMonth) return;
+    if (this.viewMonth === 0) { this.viewMonth = 11; this.viewYear--; }
+    else { this.viewMonth--; }
+  },
+  nextMonth() {
+    if (!this.canNextMonth) return;
+    if (this.viewMonth === 11) { this.viewMonth = 0; this.viewYear++; }
+    else { this.viewMonth++; }
+  },
+  get days() {
+    const firstDow = new Date(this.viewYear, this.viewMonth, 1).getDay();
+    const daysInMonth = new Date(this.viewYear, this.viewMonth + 1, 0).getDate();
+    const cells = [];
+    for (let i = 0; i < firstDow; i++) cells.push({ blank: true });
+    for (let d = 1; d <= daysInMonth; d++) {
+      const iso = this.viewYear + '-'
+        + String(this.viewMonth + 1).padStart(2, '0') + '-'
+        + String(d).padStart(2, '0');
+      const disabled = iso < this.minDate || iso > this.maxDate || this.isClosedDate(iso);
+      cells.push({ iso, num: d, disabled, selected: iso === this.deliveryDate });
+    }
+    return cells;
+  },
+  pickDay(iso) { this.deliveryDate = iso; this.closeSheet(); }
+}"
+x-init="if (!deliveryDate) deliveryDate = todayDisabled ? (tomorrowDisabled ? minDate : isoTomorrow()) : isoToday()"
+class="space-y-2">
+
+  <div class="grid grid-cols-2 gap-2">
+    {# Hoje #}
+    <button type="button" @click="selectToday()" :disabled="todayDisabled"
+            :class="todayDisabled
+              ? 'border-outline/60 bg-surface/40 text-on-surface/40 cursor-not-allowed dark:border-outline-dark/60 dark:bg-surface-dark/40 dark:text-on-surface-dark/40'
+              : (isToday
+                ? 'border-primary bg-primary/5 text-on-surface-strong dark:border-primary-dark dark:bg-primary-dark/5 dark:text-on-surface-dark-strong'
+                : 'border-outline bg-surface text-on-surface hover:border-primary/60 dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark')"
+            class="flex items-center justify-center gap-2 rounded-radius border px-3 py-3 min-h-[52px] focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark transition">
+      <span class="text-sm font-semibold leading-none">Hoje</span>
+      <span class="text-[11px] font-medium uppercase tracking-wide leading-none text-on-surface/50 dark:text-on-surface-dark/50" x-text="todayWeekday.slice(0,3)"></span>
+    </button>
+
+    {# Amanhã #}
+    <button type="button" @click="selectTomorrow()" :disabled="tomorrowDisabled"
+            :class="tomorrowDisabled
+              ? 'border-outline/60 bg-surface/40 text-on-surface/40 cursor-not-allowed dark:border-outline-dark/60 dark:bg-surface-dark/40 dark:text-on-surface-dark/40'
+              : (isTomorrow
+                ? 'border-primary bg-primary/5 text-on-surface-strong dark:border-primary-dark dark:bg-primary-dark/5 dark:text-on-surface-dark-strong'
+                : 'border-outline bg-surface text-on-surface hover:border-primary/60 dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark')"
+            class="flex items-center justify-center gap-2 rounded-radius border px-3 py-3 min-h-[52px] focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark transition">
+      <span class="text-sm font-semibold leading-none">Amanhã</span>
+      <span class="text-[11px] font-medium uppercase tracking-wide leading-none text-on-surface/50 dark:text-on-surface-dark/50" x-text="tomorrowWeekday.slice(0,3)"></span>
+    </button>
+  </div>
+
+  {# Ghost-block button: "Escolher outra data" (default) ou "Segunda, 20/04 · alterar" quando custom #}
+  <button type="button" @click="openSheet()"
+          :class="isCustom
+            ? 'border-primary/30 bg-primary/5 text-primary dark:border-primary-dark/30 dark:bg-primary-dark/5 dark:text-primary-dark'
+            : 'border-outline bg-surface text-on-surface hover:bg-surface-alt hover:border-primary/40 dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark dark:hover:bg-surface-dark-alt'"
+          class="w-full inline-flex items-center justify-center gap-2 rounded-radius border px-4 py-2.5 text-sm font-medium min-h-[44px] focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark transition">
+    <span class="material-symbols-rounded text-base" aria-hidden="true">event</span>
+    <span x-text="isCustom ? (customLabelTop + ', ' + customLabelBottom + ' · alterar') : 'Escolher outra data'"></span>
+  </button>
+
+  <input type="hidden" name="delivery_date" :value="deliveryDate">
+
+  {# Sheet com mini-calendário #}
+  <div x-show="sheetOpen" x-cloak x-transition.opacity
+       @keydown.escape.window="closeSheet()"
+       class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div @click="closeSheet()" class="absolute inset-0 bg-black/40"></div>
+    <div role="dialog" aria-modal="true" aria-labelledby="date-sheet-title"
+         class="relative z-[1] w-full sm:max-w-sm rounded-t-2xl sm:rounded-radius border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt shadow-2xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5">
+
+      <div class="flex items-center justify-between mb-4">
+        <button type="button" @click="prevMonth()" :disabled="!canPrevMonth"
+                aria-label="Mês anterior"
+                :class="!canPrevMonth && 'opacity-40 cursor-not-allowed'"
+                class="p-2 -m-2 rounded-radius hover:bg-primary/10 dark:hover:bg-primary-dark/10 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark">
+          <span class="material-symbols-rounded text-xl" aria-hidden="true">chevron_left</span>
+        </button>
+        <h3 id="date-sheet-title" class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong" x-text="viewMonthLabel"></h3>
+        <button type="button" @click="nextMonth()" :disabled="!canNextMonth"
+                aria-label="Próximo mês"
+                :class="!canNextMonth && 'opacity-40 cursor-not-allowed'"
+                class="p-2 -m-2 rounded-radius hover:bg-primary/10 dark:hover:bg-primary-dark/10 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark">
+          <span class="material-symbols-rounded text-xl" aria-hidden="true">chevron_right</span>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-7 gap-1 mb-1">
+        <template x-for="w in WEEKDAY_SHORT" :key="w">
+          <div class="text-center text-[11px] font-medium uppercase tracking-wide text-on-surface/60 dark:text-on-surface-dark/60 py-1" x-text="w"></div>
+        </template>
+      </div>
+
+      <div class="grid grid-cols-7 gap-1">
+        <template x-for="(cell, i) in days" :key="i">
+          <div>
+            <template x-if="cell.blank"><div class="aspect-square"></div></template>
+            <template x-if="!cell.blank">
+              <button type="button"
+                      @click="pickDay(cell.iso)"
+                      :disabled="cell.disabled"
+                      :aria-pressed="cell.selected"
+                      :class="cell.selected
+                        ? 'bg-primary text-on-primary font-semibold dark:bg-primary-dark dark:text-on-primary-dark'
+                        : cell.disabled
+                          ? 'text-on-surface/25 dark:text-on-surface-dark/25 cursor-not-allowed line-through'
+                          : 'text-on-surface hover:bg-primary/10 dark:text-on-surface-dark dark:hover:bg-primary-dark/10'"
+                      class="aspect-square w-full rounded-radius text-sm focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark transition">
+                <span x-text="cell.num"></span>
+              </button>
+            </template>
+          </div>
+        </template>
+      </div>
+
+      <button type="button" @click="closeSheet()"
+              class="mt-5 w-full rounded-radius border border-outline bg-surface px-4 py-2.5 text-sm font-medium text-on-surface hover:bg-surface-alt dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark min-h-[44px] focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark">
+        Fechar
+      </button>
+    </div>
+  </div>
+</div>

@@ -1,5 +1,5 @@
 /* Shopman Storefront — Tailwind Input CSS
- * Build: npx tailwindcss -i ./static/src/input.css -o ./channels/web/static/storefront/css/output.css --minify
+ * Build: npx tailwindcss -i ./static/src/input.css -o ./shopman/shop/static/storefront/css/output.css --minify
  */
 
 @tailwind base;

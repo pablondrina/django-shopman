@@ -52,6 +52,15 @@ class RuleConfigAdmin(ModelAdmin):
     ]
     actions = ["enable_rules", "disable_rules"]
 
+    def has_add_permission(self, request):
+        return request.user.has_perm("shop.manage_rules")
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.has_perm("shop.manage_rules")
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.has_perm("shop.manage_rules")
+
     @admin.display(description="tipo")
     def rule_type_display(self, obj):
         if ".pricing." in obj.rule_path:

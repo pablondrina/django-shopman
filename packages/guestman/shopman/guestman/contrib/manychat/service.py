@@ -1,5 +1,6 @@
 """Manychat sync service."""
 
+from django.db import transaction
 from shopman.guestman.contrib.identifiers.models import CustomerIdentifier, IdentifierType
 from shopman.guestman.models import Customer
 
@@ -41,27 +42,28 @@ class ManychatService:
         if not manychat_id:
             raise ValueError("Subscriber data must contain 'id' field")
 
-        # Try to find existing customer by Manychat ID
-        customer = cls._find_by_manychat_id(manychat_id)
+        with transaction.atomic():
+            # Try to find existing customer by Manychat ID
+            customer = cls._find_by_manychat_id(manychat_id)
 
-        if customer:
-            # Update existing customer
-            cls._update_customer(customer, subscriber_data)
-            return customer, False
+            if customer:
+                # Update existing customer
+                cls._update_customer(customer, subscriber_data)
+                return customer, False
 
-        # Try to find by other identifiers
-        customer = cls._find_by_identifiers(subscriber_data)
+            # Try to find by other identifiers
+            customer = cls._find_by_identifiers(subscriber_data)
 
-        if customer:
-            # Link Manychat ID to existing customer
+            if customer:
+                # Link Manychat ID to existing customer
+                cls._add_manychat_identifiers(customer, subscriber_data, source_system)
+                cls._update_customer(customer, subscriber_data)
+                return customer, False
+
+            # Create new customer
+            customer = cls._create_customer(subscriber_data, source_system)
             cls._add_manychat_identifiers(customer, subscriber_data, source_system)
-            cls._update_customer(customer, subscriber_data)
-            return customer, False
-
-        # Create new customer
-        customer = cls._create_customer(subscriber_data, source_system)
-        cls._add_manychat_identifiers(customer, subscriber_data, source_system)
-        return customer, True
+            return customer, True
 
     @classmethod
     def _find_by_manychat_id(cls, manychat_id: str) -> Customer | None:

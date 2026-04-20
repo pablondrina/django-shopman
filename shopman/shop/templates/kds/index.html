@@ -1,36 +1,34 @@
-{% extends "kds/base.html" %}
+{% extends "gestao/base.html" %}
 {% block title %}KDS — {{ shop.brand_name|default:shop.name }}{% endblock %}
+{% block page_title %}KDS — Cozinha{% endblock %}
+{% block nav_active_kds %}active{% endblock %}
 
-{% block body %}
-<header class="kds-header">
-  <h1>{{ shop.brand_name|default:shop.name }} — KDS</h1>
-</header>
-
-<main class="kds-main">
-  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; max-width: 1000px; margin: 0 auto;">
+{% block content %}
+<div class="p-4">
+  <div class="grid gap-4 max-w-4xl" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr))">
     {% for entry in instances %}
     <a href="/kds/{{ entry.instance.ref }}/"
-       style="display: block; background: var(--kds-surface); border: 1px solid var(--kds-border); border-radius: var(--radius-lg); padding: 1.5rem; text-decoration: none; color: inherit; transition: border-color 0.15s, background 0.15s;"
-       onmouseover="this.style.borderColor='var(--kds-text-muted)'"
-       onmouseout="this.style.borderColor='var(--kds-border)'">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
-        <span class="material-symbols-rounded" style="font-size: 1.5rem; color: var(--kds-text-secondary);" aria-hidden="true">
+       class="card flex flex-col gap-3 no-underline text-inherit hover:border-outline-strong dark:hover:border-outline-dark-strong transition-colors">
+      <div class="flex items-center justify-between">
+        <span class="material-symbols-rounded text-2xl text-on-surface/40 dark:text-on-surface-dark/40" aria-hidden="true">
           {% if entry.instance.type == "prep" %}skillet{% elif entry.instance.type == "picking" %}inventory_2{% else %}local_shipping{% endif %}
         </span>
         {% if entry.pending_count > 0 %}
-        <span class="kds-badge kds-badge-count">{{ entry.pending_count }}</span>
+        <span class="badge-danger">{{ entry.pending_count }}</span>
         {% endif %}
       </div>
-      <h2 style="font-size: 1.125rem; font-weight: 600; margin: 0 0 0.25rem;">{{ entry.instance.name }}</h2>
-      <p style="font-size: 0.8125rem; color: var(--kds-text-muted);">{{ entry.instance.get_type_display }}</p>
+      <div>
+        <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ entry.instance.name }}</h2>
+        <p class="text-xs text-on-surface/40 dark:text-on-surface-dark/40">{{ entry.instance.get_type_display }}</p>
+      </div>
     </a>
     {% empty %}
-    <div style="text-align: center; padding: 4rem 1rem; color: var(--kds-text-muted); grid-column: 1 / -1;">
-      <span class="material-symbols-rounded" style="font-size: 3rem; display: block; margin-bottom: 1rem;" aria-hidden="true">tv_off</span>
-      <p style="font-size: 1.125rem; margin-bottom: 0.5rem;">Nenhuma estacao KDS configurada.</p>
-      <p style="font-size: 0.875rem;">Configure estacoes no admin.</p>
+    <div class="text-center py-16 text-on-surface/40 dark:text-on-surface-dark/40 col-span-full">
+      <span class="material-symbols-rounded text-5xl block mb-4" aria-hidden="true">tv_off</span>
+      <p class="text-lg mb-1">Nenhuma estação KDS configurada.</p>
+      <p class="text-sm">Configure estações no admin.</p>
     </div>
     {% endfor %}
   </div>
-</main>
+</div>
 {% endblock %}

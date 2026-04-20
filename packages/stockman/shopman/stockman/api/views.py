@@ -323,7 +323,11 @@ class IssueView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        quant = StockQueries.get_quant(data["sku"], position=position)
+        quant = (
+            StockQueries.list_quants(data["sku"], position=position, include_future=False, include_empty=False)
+            .order_by("created_at")
+            .first()
+        )
         if not quant:
             return Response(
                 {"detail": "No stock found at this position."},

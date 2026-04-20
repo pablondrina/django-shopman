@@ -46,8 +46,8 @@ class PaymentProjection:
     pix_expires_at: str | None    # ISO datetime string for Alpine countdown
 
     # Card fields (method == "card")
-    stripe_client_secret: str | None
-    stripe_publishable_key: str | None
+    # Stripe Checkout (hosted): URL the client is redirected to.
+    checkout_url: str | None
 
     # Polling endpoint (HTMX)
     status_url: str              # URL for hx-get polling partial
@@ -102,12 +102,10 @@ def build_payment(order: Order) -> PaymentProjection:
         )
         pix_expires_at = payment.get("expires_at") or None
 
-    # Card
-    stripe_client_secret: str | None = None
-    stripe_publishable_key: str | None = None
+    # Card — Stripe Checkout hosted URL
+    checkout_url: str | None = None
     if method == "card":
-        stripe_client_secret = payment.get("client_secret") or None
-        stripe_publishable_key = getattr(settings, "STRIPE_PUBLISHABLE_KEY", None)
+        checkout_url = payment.get("checkout_url") or None
 
     status_url = reverse("storefront:payment_status_partial", kwargs={"ref": order.ref})
 
@@ -118,8 +116,7 @@ def build_payment(order: Order) -> PaymentProjection:
         pix_qr_code=pix_qr_code,
         pix_copy_paste=pix_copy_paste,
         pix_expires_at=pix_expires_at,
-        stripe_client_secret=stripe_client_secret,
-        stripe_publishable_key=stripe_publishable_key,
+        checkout_url=checkout_url,
         status_url=status_url,
         is_debug=settings.DEBUG,
     )

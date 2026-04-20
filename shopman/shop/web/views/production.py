@@ -1,4 +1,8 @@
-"""Quick production registration + bulk create — admin custom views."""
+"""Quick production registration + bulk create — admin custom views.
+
+GET views consume projections from ``shopman.shop.projections.production``.
+POST actions mutate state, then redirect (PRG pattern).
+"""
 
 from __future__ import annotations
 
@@ -11,16 +15,17 @@ from django.contrib import messages
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
-from shopman.craftsman import craft
-from shopman.craftsman.models import Recipe, WorkOrder
+from shopman.craftsman.models import Recipe
 from shopman.craftsman.services.execution import CraftExecution
 from shopman.craftsman.services.scheduling import CraftPlanning
 from shopman.stockman import Position
 
+from shopman.shop.projections.production import build_production_board
+
 logger = logging.getLogger(__name__)
 
-TEMPLATE = "admin/shop/production.html"
-PERMISSION = "craftsman.add_workorder"
+TEMPLATE = "gestao/producao/index.html"
+PERMISSION = "shop.manage_production"
 
 
 def production_view(request, admin_site):
@@ -50,6 +55,7 @@ def production_void_view(request, admin_site):
         return HttpResponseRedirect(reverse("admin:shop_production"))
 
     try:
+        from shopman.craftsman.models import WorkOrder
         wo = WorkOrder.objects.get(pk=wo_id)
         CraftExecution.void(
             order=wo,
@@ -57,8 +63,6 @@ def production_void_view(request, admin_site):
             actor=f"admin:{request.user}",
         )
         messages.success(request, f"Ordem {wo.ref} estornada.")
-    except WorkOrder.DoesNotExist:
-        messages.error(request, "Ordem não encontrada.")
     except Exception as exc:
         logger.warning("production_void_failed wo_id=%s: %s", wo_id, exc, exc_info=True)
         messages.error(request, f"Erro ao estornar: {exc}")
@@ -72,14 +76,12 @@ def _handle_post(request, admin_site):
     quantity_raw = request.POST.get("quantity", "").strip()
     position_id = request.POST.get("position", "").strip()
 
-    # Validate recipe
     try:
         recipe = Recipe.objects.get(pk=recipe_id, is_active=True)
     except (Recipe.DoesNotExist, ValueError, TypeError):
         messages.error(request, "Receita inválida.")
         return _render(request, admin_site)
 
-    # Validate quantity
     try:
         quantity = Decimal(quantity_raw)
         if quantity <= 0:
@@ -88,7 +90,6 @@ def _handle_post(request, admin_site):
         messages.error(request, "Quantidade inválida.")
         return _render(request, admin_site)
 
-    # Resolve position
     position_ref = ""
     if position_id:
         try:
@@ -105,7 +106,6 @@ def _handle_post(request, admin_site):
     actor = f"admin:{request.user}"
 
     try:
-        # Plan a new work order for today
         wo = CraftPlanning.plan(
             recipe,
             quantity,
@@ -114,7 +114,6 @@ def _handle_post(request, admin_site):
             source_ref="quick_production",
         )
 
-        # Finish immediately using the registered final quantity
         CraftExecution.finish(
             order=wo,
             finished=quantity,
@@ -133,7 +132,7 @@ def _handle_post(request, admin_site):
 
 
 def _render(request, admin_site):
-    """Render the production page with form + today's list."""
+    """Render the production page using projection."""
     date_param = (request.GET.get("date") or "").strip()
     try:
         selected_date = date.fromisoformat(date_param) if date_param else date.today()
@@ -142,47 +141,25 @@ def _render(request, admin_site):
     position_ref = (request.GET.get("position_ref") or "").strip()
     operator_ref = (request.GET.get("operator_ref") or "").strip()
 
-    recipes = Recipe.objects.filter(is_active=True).order_by("code")
-    positions = Position.objects.all().order_by("name")
-    default_position = Position.objects.filter(is_default=True).first()
-
-    today_wos = (
-        WorkOrder.objects
-        .filter(target_date=selected_date)
-        .select_related("recipe")
-        .order_by("-created_at")
+    board = build_production_board(
+        selected_date=selected_date,
+        position_ref=position_ref,
+        operator_ref=operator_ref,
     )
-    if position_ref:
-        today_wos = today_wos.filter(position_ref=position_ref)
-    if operator_ref:
-        today_wos = today_wos.filter(operator_ref=operator_ref)
-
-    craft_summary = craft.summary(
-        date=selected_date,
-        position_ref=position_ref or None,
-        operator_ref=operator_ref or None,
-    )
-    queue_items = craft.queue(
-        date=selected_date,
-        position_ref=position_ref or None,
-        operator_ref=operator_ref or None,
-    )
-    planned_queue = [item for item in queue_items if item.status == WorkOrder.Status.PLANNED]
-    started_queue = [item for item in queue_items if item.status == WorkOrder.Status.STARTED]
 
     context = {
         **admin_site.each_context(request),
         "title": "Registro de Produção",
-        "recipes": recipes,
-        "positions": positions,
-        "default_position_id": default_position.pk if default_position else None,
-        "today_wos": today_wos,
-        "craft_summary": craft_summary,
-        "queue_items": queue_items,
-        "planned_queue": planned_queue,
-        "started_queue": started_queue,
-        "selected_position_ref": position_ref,
-        "selected_operator_ref": operator_ref,
+        "board": board,
+        "recipes": board.recipes,
+        "positions": board.positions,
+        "default_position_id": board.default_position_pk,
+        "today_wos": board.work_orders,
+        "craft_summary": board.counts,
+        "planned_queue": board.planned_queue,
+        "started_queue": board.started_queue,
+        "selected_position_ref": board.selected_position_ref,
+        "selected_operator_ref": board.selected_operator_ref,
         "selected_date": selected_date,
     }
     return TemplateResponse(request, TEMPLATE, context)
@@ -194,11 +171,11 @@ def _render(request, admin_site):
 def bulk_create_work_orders(request: HttpRequest) -> HttpResponse:
     """POST /gestao/producao/criar/ — bulk create WorkOrders from suggestions.
 
-    Expects JSON body: {"date": "YYYY-MM-DD", "orders": [{"recipe_code": "...", "quantity": N}, ...]}
+    Expects JSON body: {"date": "YYYY-MM-DD", "orders": [{"recipe_ref": "...", "quantity": N}, ...]}
     Returns HTMX partial with result summary.
     """
-    if not request.user.is_staff:
-        return HttpResponse("Unauthorized", status=403)
+    if not request.user.has_perm(PERMISSION):
+        return HttpResponse("Você não tem permissão para esta ação.", status=403)
 
     if request.method != "POST":
         return HttpResponse("Method not allowed", status=405)
@@ -220,13 +197,11 @@ def bulk_create_work_orders(request: HttpRequest) -> HttpResponse:
             status=422,
         )
 
-    # Parse target date (default: tomorrow)
     try:
         target_date = date.fromisoformat(target_date_str) if target_date_str else date.today() + timedelta(days=1)
     except (ValueError, TypeError):
         target_date = date.today() + timedelta(days=1)
 
-    # Resolve default position
     default_pos = Position.objects.filter(is_default=True).first()
     position_ref = default_pos.ref if default_pos else ""
 
@@ -234,19 +209,19 @@ def bulk_create_work_orders(request: HttpRequest) -> HttpResponse:
     errors = []
 
     for entry in orders_data:
-        recipe_code = entry.get("recipe_code", "")
+        recipe_ref = entry.get("recipe_ref", "")
         try:
             quantity = Decimal(str(entry.get("quantity", 0)))
             if quantity <= 0:
                 continue
         except (InvalidOperation, TypeError):
-            errors.append(f"{recipe_code}: quantidade inválida")
+            errors.append(f"{recipe_ref}: quantidade inválida")
             continue
 
         try:
-            recipe = Recipe.objects.get(code=recipe_code, is_active=True)
+            recipe = Recipe.objects.get(ref=recipe_ref, is_active=True)
         except Recipe.DoesNotExist:
-            errors.append(f"{recipe_code}: receita não encontrada")
+            errors.append(f"{recipe_ref}: receita não encontrada")
             continue
 
         try:
@@ -259,8 +234,8 @@ def bulk_create_work_orders(request: HttpRequest) -> HttpResponse:
             )
             created.append(f"{recipe.output_ref} × {quantity} ({wo.ref})")
         except Exception as exc:
-            errors.append(f"{recipe_code}: {exc}")
-            logger.exception("bulk_create_work_orders failed for %s", recipe_code)
+            errors.append(f"{recipe_ref}: {exc}")
+            logger.exception("bulk_create_work_orders failed for %s", recipe_ref)
 
     parts = []
     if created:

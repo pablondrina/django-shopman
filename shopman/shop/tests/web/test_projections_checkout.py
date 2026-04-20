@@ -77,6 +77,34 @@ class TestCheckoutProjectionShape:
         assert proj.is_authenticated is False
         assert proj.customer_phone == ""
         assert proj.customer_name == ""
+        assert proj.preselected_address_id is None
+
+    def test_preselected_address_uses_default(self, cart_session):
+        """Authenticated customer with a default address gets it pre-selected."""
+        from types import SimpleNamespace
+
+        from shopman.guestman.models import Customer, CustomerAddress, CustomerGroup
+
+        grp, _ = CustomerGroup.objects.get_or_create(
+            ref="regular", defaults={"name": "Regular", "is_default": True}
+        )
+        cust = Customer.objects.create(
+            ref="CUST-CHK", first_name="C", phone="11999999999", group=grp,
+        )
+        non_default = CustomerAddress.objects.create(
+            customer=cust, label="work", formatted_address="Work",
+        )
+        default_addr = CustomerAddress.objects.create(
+            customer=cust, label="home", formatted_address="Home", is_default=True,
+        )
+        request = _request_with_cart_session(cart_session)
+        request.customer = SimpleNamespace(
+            uuid=cust.uuid, phone=cust.phone, name=cust.name,
+        )
+        proj = build_checkout(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
+        assert proj.preselected_address_id == default_addr.id
+        # Structured fields are surfaced for the picker.
+        assert any(a.id == non_default.id for a in proj.saved_addresses)
 
 
 # ──────────────────────────────────────────────────────────────────────

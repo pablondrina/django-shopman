@@ -45,7 +45,7 @@ class TestRecipeValidationI18n:
         """Validation error includes step number via % formatting."""
         with pytest.raises(ValidationError) as exc:
             Recipe.objects.create(
-                code="bad-steps",
+                ref="bad-steps",
                 name="Bad Steps Recipe",
                 output_ref="test",
                 batch_size=Decimal("10"),
@@ -61,7 +61,7 @@ class TestRecipeValidationI18n:
         """Validation error for non-string step includes step number."""
         with pytest.raises(ValidationError) as exc:
             Recipe.objects.create(
-                code="bad-type",
+                ref="bad-type",
                 name="Bad Type Recipe",
                 output_ref="test",
                 batch_size=Decimal("10"),
@@ -75,7 +75,7 @@ class TestRecipeValidationI18n:
     def test_valid_steps_pass(self, db):
         """Valid steps pass validation without issue."""
         recipe = Recipe.objects.create(
-            code="good-steps",
+            ref="good-steps",
             name="Good Recipe",
             output_ref="test",
             batch_size=Decimal("10"),
@@ -163,7 +163,7 @@ class TestProductionBackendExceptions:
         backend = CraftsmanProductionBackend()
 
         recipe = Recipe.objects.create(
-            code="test-recipe",
+            ref="test-recipe",
             name="Test",
             output_ref="test-product",
             batch_size=Decimal("10"),
@@ -204,7 +204,7 @@ class TestAPIExceptionHandling:
     @pytest.fixture
     def recipe(self, db):
         return Recipe.objects.create(
-            code="api-test",
+            ref="api-test",
             name="API Test Recipe",
             output_ref="api-product",
             batch_size=Decimal("10"),

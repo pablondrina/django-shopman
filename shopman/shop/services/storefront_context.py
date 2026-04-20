@@ -4,7 +4,6 @@ Small, pure queries that collect contextual state used by storefront-facing
 read paths (v1 views and projection builders):
 
 - ``popular_skus`` — most-favourited SKUs across customer insights.
-- ``companion_skus`` — SKUs frequently bought alongside a given SKU.
 - ``happy_hour_state`` — current happy-hour window + discount percent.
 - ``session_pricing_hints`` — fulfillment type + subtotal from the active
   cart session, matching what DiscountModifier sees at checkout.
@@ -19,7 +18,8 @@ module reaches into another layer's private helpers.
 from __future__ import annotations
 
 import logging
-from datetime import time
+import math
+from datetime import time, timedelta
 
 from django.conf import settings
 from django.http import HttpRequest
@@ -70,41 +70,57 @@ def popular_skus(limit: int = 5) -> set[str]:
         return set()
 
 
-def companion_skus(sku: str, limit: int = 4) -> list[str]:
-    """Return SKUs most often bought alongside ``sku``.
+def fresh_from_oven_skus(limit: int = 6, max_age_minutes: int = 60) -> list[dict]:
+    """SKUs that recently entered saleable stock from production.
 
-    Aggregates ``favorite_product_samples_for_sku`` from guestman insights —
-    customers who favourite ``sku`` reveal which other products tend to sit
-    in the same basket. Pure read over insights; the caller is responsible
-    for loading/annotating the resulting SKUs into whichever projection
-    shape it needs.
+    Queries Stockman Moves created by ``StockPlanning.realize()`` — the
+    credit side whose reason starts with "Recebido de produção".
+
+    Returns a list of dicts ordered by most-recent first::
+
+        [{"sku": "CROISSANT", "latest": datetime, "freshness_label": "há 15 min"}, ...]
+
+    Freshness labels are rounded UP to the nearest 15-minute interval,
+    capped at 1 h (``max_age_minutes``). Returns an empty list when
+    Stockman is unavailable or nothing was produced recently.
     """
     try:
-        insights = InsightService.favorite_product_samples_for_sku(sku, limit=100)
-    except Exception as e:
-        logger.warning("companion_skus_failed sku=%s: %s", sku, e, exc_info=True)
-        return []
+        from django.db.models import Max, Sum
+        from shopman.stockman.models import Move
 
-    counts: dict[str, int] = {}
-    for favorites in insights:
-        if not favorites:
-            continue
-        has_sku = any(
-            (f.get("sku") if isinstance(f, dict) else str(f)) == sku
-            for f in favorites
+        cutoff = timezone.now() - timedelta(minutes=max_age_minutes)
+        rows = (
+            Move.objects.filter(
+                timestamp__gte=cutoff,
+                quant__position__is_saleable=True,
+                reason__istartswith="Recebido de produção",
+                delta__gt=0,
+            )
+            .values("quant__sku")
+            .annotate(latest=Max("timestamp"), total=Sum("delta"))
+            .order_by("-latest")[:limit]
         )
-        if not has_sku:
-            continue
-        for fav in favorites:
-            fav_sku = fav.get("sku") if isinstance(fav, dict) else str(fav)
-            if not fav_sku or fav_sku == sku:
-                continue
-            qty = fav.get("qty", 1) if isinstance(fav, dict) else 1
-            counts[fav_sku] = counts.get(fav_sku, 0) + qty
 
-    if not counts:
+        now = timezone.now()
+        result = []
+        for row in rows:
+            elapsed = now - row["latest"]
+            minutes = elapsed.total_seconds() / 60
+            if minutes > max_age_minutes:
+                continue
+            bucket = min(math.ceil(minutes / 15) * 15, 60)
+            if bucket <= 0:
+                bucket = 15
+            label = "há 1h" if bucket >= 60 else f"há {bucket} min"
+            result.append({
+                "sku": row["quant__sku"],
+                "latest": row["latest"],
+                "freshness_label": label,
+            })
+        return result
+    except Exception as e:
+        logger.warning("fresh_from_oven_failed: %s", e, exc_info=True)
         return []
-    return sorted(counts, key=counts.get, reverse=True)[:limit]
 
 
 def happy_hour_state() -> dict:
@@ -164,7 +180,7 @@ def minimum_order_progress(
         channel = Channel.objects.filter(ref=channel_ref).first()
         if channel:
             rules = ChannelConfig.for_channel(channel).rules
-            if "shop.minimum_order" in rules.validators:
+            if rules.validators is None or "shop.minimum_order" in rules.validators:
                 shop = Shop.load()
                 raw = (
                     shop.defaults.get("rules", {}).get("minimum_order_q")

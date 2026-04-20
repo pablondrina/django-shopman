@@ -40,6 +40,7 @@
         <div class="relative mb-6">
           <input type="search"
                  x-ref="searchInput"
+                 x-init="$nextTick(() => $el.focus())"
                  placeholder="O que você procura?"
                  class="w-full bg-white/10 text-white placeholder-white/60 rounded-xl px-4 py-3.5 text-base border border-white/20 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
                  style="min-height: var(--touch-min); font-size: 16px;"
@@ -82,12 +83,9 @@ function focusOverlay() {
       }
       this.isOpen = true;
       document.body.style.overflow = 'hidden';
-      if (id === 'search') {
-        this.$nextTick(() => {
-          var input = this.$refs.searchInput;
-          if (input) input.focus();
-        });
-      }
+      // Focus is wired via x-init on the input itself: a `<template x-if>`
+      // recreates the input on every open, so $refs would race the render
+      // tick. x-init runs once the input is in the DOM.
     },
     close() {
       this.isOpen = false;

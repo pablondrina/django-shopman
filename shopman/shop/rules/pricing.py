@@ -13,8 +13,10 @@ from __future__ import annotations
 
 from datetime import time
 
+from shopman.shop.rules import BaseRule
 
-class D1Rule:
+
+class D1Rule(BaseRule):
     """Desconto D-1 — sobras do dia anterior."""
 
     code = "shop.d1_discount"
@@ -26,7 +28,7 @@ class D1Rule:
         self.discount_percent = discount_percent
 
 
-class PromotionRule:
+class PromotionRule(BaseRule):
     """Promoções automáticas + cupons."""
 
     code = "shop.discount"
@@ -38,7 +40,7 @@ class PromotionRule:
         pass
 
 
-class EmployeeRule:
+class EmployeeRule(BaseRule):
     """Desconto para funcionários (customer_group == staff)."""
 
     code = "shop.employee_discount"
@@ -51,19 +53,19 @@ class EmployeeRule:
         self.group = group
 
 
-class HappyHourRule:
+class HappyHourRule(BaseRule):
     """Desconto happy hour — horário configurável."""
 
     code = "shop.happy_hour"
     label = "Happy Hour"
     rule_type = "modifier"
-    default_params = {"discount_percent": 10, "start": "16:00", "end": "18:00"}
+    default_params = {"discount_percent": 25, "start": "17:30", "end": "18:00"}
 
     def __init__(
         self,
         *,
-        discount_percent: int = 10,
-        start: str = "16:00",
+        discount_percent: int = 25,
+        start: str = "17:30",
         end: str = "18:00",
     ):
         self.discount_percent = discount_percent

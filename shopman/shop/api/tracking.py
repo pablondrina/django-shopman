@@ -1,4 +1,7 @@
-"""Storefront Tracking API — order status by ref."""
+"""Storefront Tracking API — order status by ref.
+
+Consumes ``OrderTrackingProjection`` from the projection layer.
+"""
 from __future__ import annotations
 
 from drf_spectacular.utils import extend_schema, extend_schema_view
@@ -7,11 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from shopman.orderman.models import Order
 
-from shopman.shop.services import payment as payment_svc
-from shopman.shop.web.views.tracking import (
-    STATUS_LABELS,
-    _build_tracking_context,
-)
+from shopman.shop.projections.order_tracking import build_order_tracking
 
 from .serializers import OrderTrackingSerializer
 
@@ -21,7 +20,7 @@ from .serializers import OrderTrackingSerializer
 )
 class OrderTrackingView(APIView):
     """
-    GET /api/tracking/{ref}/
+    GET /api/v1/tracking/{ref}/
 
     Returns order status, timeline, items, fulfillments, and payment status.
     Auth: AllowAny (ref is opaque).
@@ -35,22 +34,44 @@ class OrderTrackingView(APIView):
         except Order.DoesNotExist:
             return Response({"detail": "Order not found."}, status=404)
 
-        ctx = _build_tracking_context(order)
-
-        # Merge delivery + pickup fulfillments
-        fulfillments = ctx.get("delivery_fulfillments", []) + ctx.get("pickup_fulfillments", [])
-
-        payment_status = payment_svc.get_payment_status(order)
+        proj = build_order_tracking(order)
 
         data = {
-            "ref": order.ref,
-            "status": order.status,
-            "status_label": STATUS_LABELS.get(order.status, order.status),
-            "total_display": ctx["total_display"],
-            "timeline": ctx["timeline"],
-            "items": ctx["items"],
-            "fulfillments": fulfillments,
-            "payment_status": payment_status,
+            "ref": proj.ref,
+            "status": proj.status,
+            "status_label": proj.status_label,
+            "total_display": proj.total_display,
+            "timeline": [
+                {
+                    "label": e.label,
+                    "event_type": e.event_type,
+                    "timestamp_display": e.timestamp_display,
+                }
+                for e in proj.timeline
+            ],
+            "items": [
+                {
+                    "sku": it.sku,
+                    "name": it.name,
+                    "qty": it.qty,
+                    "unit_price_display": it.unit_price_display,
+                    "total_display": it.total_display,
+                }
+                for it in proj.items
+            ],
+            "fulfillments": [
+                {
+                    "status": f.status,
+                    "status_label": f.status_label,
+                    "tracking_code": f.tracking_code,
+                    "tracking_url": f.tracking_url,
+                    "carrier": f.carrier,
+                    "dispatched_at": f.dispatched_at_display,
+                    "delivered_at": f.delivered_at_display,
+                }
+                for f in proj.fulfillments
+            ],
+            "payment_status": proj.payment_status,
         }
 
         serializer = OrderTrackingSerializer(data)

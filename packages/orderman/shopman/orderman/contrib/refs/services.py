@@ -1,85 +1,23 @@
 """
-Services para contrib/refs.
+Orderman contrib/refs services — thin wrappers over shopman.refs.
 
-API principal para manipulação de Refs.
+Maps the old (target_kind, target_id) convention to the new
+target_type string format used by shopman.refs.
 """
 
 from __future__ import annotations
 
 from typing import Literal, Union
 
-from django.db import transaction
-from django.db.models import Q
-from shopman.orderman.contrib.refs.exceptions import (
-    RefConflict,
-    RefScopeInvalid,
-    RefTypeNotFound,
-)
-from shopman.orderman.contrib.refs.models import Ref
-from shopman.orderman.contrib.refs.registry import get_ref_type
+from shopman.refs.models import Ref
+from shopman.refs.services import attach, deactivate, refs_for, resolve, transfer
 
+_KIND_TO_TYPE = {
+    "SESSION": "orderman.Session",
+    "ORDER": "orderman.Order",
+}
 
-def _normalize_value(value: str) -> str:
-    """Normaliza valor: strip + uppercase."""
-    return value.strip().upper()
-
-
-def _validate_scope(ref_type_slug: str, scope: dict, scope_keys: tuple[str, ...]) -> None:
-    """Valida que scope contém todas as keys necessárias."""
-    provided_keys = set(scope.keys())
-    required_keys = set(scope_keys)
-    missing = required_keys - provided_keys
-    if missing:
-        raise RefScopeInvalid(missing, ref_type_slug)
-
-
-def _build_scope_filter(scope: dict, scope_keys: tuple[str, ...]) -> Q:
-    """Constrói filtro Q para scope (apenas keys relevantes)."""
-    q = Q()
-    for key in scope_keys:
-        # JSONField lookup: scope__key=value
-        q &= Q(**{f"scope__{key}": scope[key]})
-    return q
-
-
-def resolve_ref(
-    ref_type_slug: str,
-    value: str,
-    scope: dict,
-) -> tuple[str, str] | None:
-    """
-    Busca Ref ACTIVE por tipo, valor e scope.
-
-    Args:
-        ref_type_slug: Slug do RefType
-        value: Valor a buscar (será normalizado)
-        scope: Scope de unicidade
-
-    Returns:
-        (target_kind, target_id_str) ou None se não encontrado.
-
-    Raises:
-        RefTypeNotFound: Se RefType não registrado
-        RefScopeInvalid: Se scope inválido
-    """
-    ref_type = get_ref_type(ref_type_slug)
-    if not ref_type:
-        raise RefTypeNotFound(ref_type_slug)
-
-    _validate_scope(ref_type_slug, scope, ref_type.scope_keys)
-    normalized = _normalize_value(value)
-
-    scope_filter = _build_scope_filter(scope, ref_type.scope_keys)
-
-    ref = Ref.objects.filter(
-        ref_type=ref_type_slug,
-        value=normalized,
-        is_active=True,
-    ).filter(scope_filter).first()
-
-    if ref:
-        return (ref.target_kind, ref.target_id)
-    return None
+_TYPE_TO_KIND: dict[str, str] = {v: k for k, v in _KIND_TO_TYPE.items()}
 
 
 def attach_ref(
@@ -89,82 +27,21 @@ def attach_ref(
     value: str,
     scope: dict,
 ) -> Ref:
-    """
-    Associa uma Ref a um target.
+    target_type = _KIND_TO_TYPE[target_kind]
+    return attach(ref_type_slug, value, f"{target_type}:{target_id}", scope=scope)
 
-    Args:
-        target_kind: "SESSION" ou "ORDER"
-        target_id: ID do target (int, UUID, ou string)
-        ref_type_slug: Slug do RefType
-        value: Valor do localizador (será normalizado)
-        scope: Scope de unicidade
 
-    Returns:
-        Ref existente (idempotência) ou nova Ref criada.
-
-    Raises:
-        RefTypeNotFound: Se RefType não registrado
-        RefScopeInvalid: Se scope inválido
-        RefConflict: Se já existe Ref ACTIVE com mesmo (type, value, scope) para outro target
-    """
-    target_id = str(target_id)
-    ref_type = get_ref_type(ref_type_slug)
-    if not ref_type:
-        raise RefTypeNotFound(ref_type_slug)
-
-    # Validar target_kind
-    if ref_type.target_kind not in ("BOTH", target_kind):
-        raise ValueError(
-            f"RefType '{ref_type_slug}' does not support target_kind='{target_kind}'"
-        )
-
-    _validate_scope(ref_type_slug, scope, ref_type.scope_keys)
-    normalized = _normalize_value(value)
-
-    # Extrair apenas as keys relevantes do scope
-    filtered_scope = {k: scope[k] for k in ref_type.scope_keys}
-
-    scope_filter = _build_scope_filter(scope, ref_type.scope_keys)
-
-    with transaction.atomic():
-        # Buscar Refs existentes
-        if ref_type.unique_while_active:
-            # Unicidade apenas entre ACTIVE
-            existing = Ref.objects.select_for_update().filter(
-                ref_type=ref_type_slug,
-                value=normalized,
-                is_active=True,
-            ).filter(scope_filter).first()
-        else:
-            # Unicidade total (UNIQUE_ALL)
-            existing = Ref.objects.select_for_update().filter(
-                ref_type=ref_type_slug,
-                value=normalized,
-            ).filter(scope_filter).first()
-
-        if existing:
-            # Idempotência: mesmo target = retorna existente
-            if existing.target_kind == target_kind and existing.target_id == target_id:
-                return existing
-
-            # Conflito: outro target
-            raise RefConflict(
-                ref_type_slug,
-                normalized,
-                existing.target_kind,
-                str(existing.target_id),
-            )
-
-        # Criar nova Ref
-        ref = Ref.objects.create(
-            ref_type=ref_type_slug,
-            target_kind=target_kind,
-            target_id=target_id,
-            value=normalized,
-            scope=filtered_scope,
-            is_active=True,
-        )
-        return ref
+def resolve_ref(
+    ref_type_slug: str,
+    value: str,
+    scope: dict,
+) -> tuple[str, str] | None:
+    result = resolve(ref_type_slug, value, scope)
+    if result is None:
+        return None
+    target_type, target_id = result
+    kind = _TYPE_TO_KIND.get(target_type, target_type)
+    return (kind, target_id)
 
 
 def deactivate_refs(
@@ -172,27 +49,8 @@ def deactivate_refs(
     target_id: Union[int, str],
     ref_type_slugs: list[str] | None = None,
 ) -> int:
-    """
-    Desativa Refs de um target.
-
-    Args:
-        target_kind: "SESSION" ou "ORDER"
-        target_id: ID do target
-        ref_type_slugs: Se None, desativa todas. Se lista, só as especificadas.
-
-    Returns:
-        Quantidade de Refs desativadas.
-    """
-    queryset = Ref.objects.filter(
-        target_kind=target_kind,
-        target_id=str(target_id),
-        is_active=True,
-    )
-
-    if ref_type_slugs:
-        queryset = queryset.filter(ref_type__in=ref_type_slugs)
-
-    return queryset.update(is_active=False)
+    target_type = _KIND_TO_TYPE[target_kind]
+    return deactivate(f"{target_type}:{target_id}", ref_types=ref_type_slugs)
 
 
 def get_refs_for_target(
@@ -200,66 +58,14 @@ def get_refs_for_target(
     target_id: Union[int, str],
     active_only: bool = True,
 ) -> list[Ref]:
-    """
-    Lista Refs de um target.
-
-    Args:
-        target_kind: "SESSION" ou "ORDER"
-        target_id: ID do target
-        active_only: Se True, retorna apenas ACTIVE
-
-    Returns:
-        Lista de Refs.
-    """
-    queryset = Ref.objects.filter(
-        target_kind=target_kind,
-        target_id=str(target_id),
-    )
-
-    if active_only:
-        queryset = queryset.filter(is_active=True)
-
-    return list(queryset.order_by("created_at"))
+    target_type = _KIND_TO_TYPE[target_kind]
+    return list(refs_for(f"{target_type}:{target_id}", active_only=active_only))
 
 
 def on_session_committed(session_id: Union[int, str], order_id: Union[int, str]) -> None:
-    """
-    Hook chamado após CommitService criar Order.
-
-    Processa carryover de Refs da Session para Order:
-    - expires_on_session_close=True: desativa Ref na Session
-    - copy_to_order=True: cria cópia da Ref para Order
-
-    Args:
-        session_id: ID da Session que foi commitada
-        order_id: ID do Order criado
-    """
-    session_id_str = str(session_id)
-    order_id_str = str(order_id)
-
-    refs = Ref.objects.filter(
-        target_kind="SESSION",
-        target_id=session_id_str,
-        is_active=True,
+    """Transfer all active session refs to the new order."""
+    transfer(
+        f"orderman.Session:{session_id}",
+        f"orderman.Order:{order_id}",
+        actor="lifecycle:commit",
     )
-
-    for ref in refs:
-        ref_type = get_ref_type(ref.ref_type)
-        if not ref_type:
-            continue
-
-        # Copiar para Order se configurado
-        if ref_type.copy_to_order:
-            Ref.objects.create(
-                ref_type=ref.ref_type,
-                target_kind="ORDER",
-                target_id=order_id_str,
-                value=ref.value,
-                scope=ref.scope,
-                is_active=True,
-            )
-
-        # Desativar na Session se configurado
-        if ref_type.expires_on_session_close:
-            ref.is_active = False
-            ref.save(update_fields=["is_active"])

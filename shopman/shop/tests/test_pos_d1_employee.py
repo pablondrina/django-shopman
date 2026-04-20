@@ -35,12 +35,13 @@ class D1BadgePOSTests(TestCase):
 
     def test_product_with_d1_flag_renders_badge(self) -> None:
         """Product with is_d1=True shows D-1 badge in POS grid."""
+        from shopman.shop.projections.pos import POSProductProjection
         self.client.force_login(self.staff)
-        with patch("shopman.shop.web.views.pos._product_dict") as mock_dict:
-            mock_dict.return_value = {
-                "sku": "D1-PROD", "name": "D-1 Product", "price_q": 500,
-                "price_display": "R$ 5,00", "collection_slug": "", "is_d1": True,
-            }
+        mock_product = POSProductProjection(
+            sku="D1-PROD", name="D-1 Product", price_q=500,
+            price_display="R$ 5,00", collection_ref="", is_d1=True,
+        )
+        with patch("shopman.shop.projections.pos._load_products", return_value=[mock_product]):
             resp = self.client.get("/gestao/pos/")
         self.assertEqual(resp.status_code, 200)
         # D-1 badge rendered for is_d1 product
@@ -48,24 +49,24 @@ class D1BadgePOSTests(TestCase):
 
     def test_product_without_d1_has_no_badge(self) -> None:
         """Product with is_d1=False does not show D-1 badge."""
+        from shopman.shop.projections.pos import POSProductProjection
         self.client.force_login(self.staff)
-        with patch("shopman.shop.web.views.pos._product_dict") as mock_dict:
-            mock_dict.return_value = {
-                "sku": "D1-PROD", "name": "D-1 Product", "price_q": 1000,
-                "price_display": "R$ 10,00", "collection_slug": "", "is_d1": False,
-            }
+        mock_product = POSProductProjection(
+            sku="D1-PROD", name="D-1 Product", price_q=1000,
+            price_display="R$ 10,00", collection_ref="", is_d1=False,
+        )
+        with patch("shopman.shop.projections.pos._load_products", return_value=[mock_product]):
             # D-1 badge only appears when is_d1=True; template uses {% if p.is_d1 %}
             resp = self.client.get("/gestao/pos/")
         self.assertEqual(resp.status_code, 200)
 
-    def test_is_d1_flag_in_product_dict(self) -> None:
-        """_product_dict always includes 'is_d1' key."""
-        from shopman.shop.web.views.pos import _product_dict
+    def test_is_d1_flag_in_product_projection(self) -> None:
+        """_product_projection always includes 'is_d1' attribute."""
+        from shopman.shop.projections.pos import _product_projection
         p = Product.objects.get(sku="D1-PROD")
         with patch("shopman.shop.web.views._helpers._line_item_is_d1", return_value=True):
-            result = _product_dict(p, 1000)
-        self.assertIn("is_d1", result)
-        self.assertTrue(result["is_d1"])
+            result = _product_projection(p, 1000)
+        self.assertTrue(result.is_d1)
 
 
 class EmployeeDiscountPOSTests(TestCase):

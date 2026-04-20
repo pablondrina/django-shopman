@@ -1,10 +1,13 @@
 """Offerman catalog backend implementation."""
 
+import logging
 from decimal import Decimal
 
 from shopman.offerman.exceptions import CatalogError
 from shopman.offerman.protocols import BundleComponent, PriceInfo, ProductInfo, SkuValidation
 from shopman.offerman.service import CatalogService
+
+logger = logging.getLogger(__name__)
 
 
 class OffermanCatalogBackend:
@@ -37,6 +40,7 @@ class OffermanCatalogBackend:
             is_published=product.is_published,
             is_sellable=product.is_sellable,
             keywords=list(product.keywords.names()) if product.keywords else None,
+            image_url=product.image_url or None,
         )
 
     def get_price(
@@ -75,5 +79,6 @@ class OffermanCatalogBackend:
                 )
                 for comp in components
             ]
-        except CatalogError:
+        except CatalogError as exc:
+            logger.warning("expand_bundle: failed to expand %s: %s", sku, exc)
             return []

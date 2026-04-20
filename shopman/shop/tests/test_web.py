@@ -200,8 +200,8 @@ class TestAPIBridge:
 
     def test_api_cart_url(self, db):
         url = reverse("api-cart")
-        assert url == "/api/cart/"
+        assert url == "/api/v1/cart/"
 
     def test_api_checkout_url(self, db):
         url = reverse("api-checkout")
-        assert url == "/api/checkout/"
+        assert url == "/api/v1/checkout/"

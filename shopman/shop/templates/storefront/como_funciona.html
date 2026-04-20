@@ -3,102 +3,128 @@
 {% block title %}Como Funciona{% endblock %}
 {% block meta_description %}Saiba como fazer seu pedido na {{ storefront.brand_name }}. Pedido online ou visita na loja.{% endblock %}
 
+{% block breadcrumb %}
+<nav class="mb-6 flex" aria-label="Breadcrumb">
+  <ol class="flex items-center gap-2 text-sm">
+    <li>
+      <a href="{% url 'storefront:home' %}"
+         class="text-on-surface hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">
+        Início
+      </a>
+    </li>
+    {% include "storefront/partials/_breadcrumb_chevron.html" %}
+    <li>
+      <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong" aria-current="page">Como Funciona</span>
+    </li>
+  </ol>
+</nav>
+{% endblock %}
+
 {% block content %}
+<div class="max-w-2xl mx-auto space-y-10">
 
-{# Page header #}
-<div class="mb-10 text-center">
-  <h1 class="text-h1 text-foreground">Como Funciona</h1>
-  <p class="text-muted-foreground mt-2 max-w-lg mx-auto">Duas formas de aproveitar a {{ storefront.brand_name }}.</p>
-</div>
+  {% comment %}── Page header ──{% endcomment %}
+  <div class="text-center">
+    <h1 class="text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Como Funciona</h1>
+    <p class="text-on-surface/60 dark:text-on-surface-dark/60 mt-2">Duas formas de aproveitar a {{ storefront.brand_name }}.</p>
+  </div>
 
-{# ── Dimensão 1: Pedido Online ── #}
-<div class="max-w-2xl mx-auto mb-12">
-  <h3 class="text-h2 text-foreground mb-6 flex items-center gap-3">
-    <span class="w-10 h-10 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center text-lg shrink-0">1</span>
-    Pedido Online
-  </h3>
+  {% comment %}── Dimensão 1: Pedido Online ──{% endcomment %}
+  <div class="rounded-radius border border-outline bg-surface p-6 dark:border-outline-dark dark:bg-surface-dark">
+    <h2 class="text-lg font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-6 flex items-center gap-3">
+      <span class="size-9 rounded-full bg-primary text-white font-bold flex items-center justify-center text-base shrink-0
+                   dark:bg-primary-dark">1</span>
+      Pedido Online
+    </h2>
 
-  <div class="space-y-0">
-    {# Step 1 #}
-    <div class="flex gap-4">
-      <div class="flex flex-col items-center">
-        <div class="w-8 h-8 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shrink-0">1</div>
-        <div class="w-0.5 flex-1 bg-muted"></div>
+    <div class="space-y-0">
+      {% comment %}Step 1{% endcomment %}
+      <div class="flex gap-4">
+        <div class="flex flex-col items-center">
+          <div class="size-8 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shrink-0
+                      dark:bg-primary-dark/10 dark:text-primary-dark">1</div>
+          <div class="w-px flex-1 bg-outline dark:bg-outline-dark mt-1"></div>
+        </div>
+        <div class="pb-6">
+          <h3 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-1">Escolha seus produtos</h3>
+          <p class="text-sm text-on-surface/70 dark:text-on-surface-dark/70 leading-relaxed">Navegue pelo cardápio. Cada produto mostra disponibilidade em tempo real — se está pronto, em preparo, ou esgotado.</p>
+        </div>
       </div>
-      <div class="pb-6">
-        <h4 class="text-h3 text-foreground mb-1">Escolha seus produtos</h4>
-        <p class="text-muted-foreground text-sm leading-relaxed">Navegue pelo cardápio. Cada produto mostra disponibilidade em tempo real — se está pronto, em preparo, ou esgotado.</p>
+
+      {% comment %}Step 2{% endcomment %}
+      <div class="flex gap-4">
+        <div class="flex flex-col items-center">
+          <div class="size-8 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shrink-0
+                      dark:bg-primary-dark/10 dark:text-primary-dark">2</div>
+          <div class="w-px flex-1 bg-outline dark:bg-outline-dark mt-1"></div>
+        </div>
+        <div class="pb-6">
+          <h3 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-1">Pague via PIX</h3>
+          <p class="text-sm text-on-surface/70 dark:text-on-surface-dark/70 leading-relaxed">Escaneie o QR Code ou copie o código PIX. Confirmação instantânea — sem espera.</p>
+        </div>
+      </div>
+
+      {% comment %}Step 3{% endcomment %}
+      <div class="flex gap-4">
+        <div class="flex flex-col items-center">
+          <div class="size-8 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shrink-0
+                      dark:bg-primary-dark/10 dark:text-primary-dark">3</div>
+        </div>
+        <div class="pb-6">
+          <h3 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-1">Retire ou receba</h3>
+          <p class="text-sm text-on-surface/70 dark:text-on-surface-dark/70 leading-relaxed">Acompanhe o preparo em tempo real. Retire na loja no horário combinado ou receba em casa.</p>
+        </div>
       </div>
     </div>
+  </div>
 
-    {# Step 2 #}
-    <div class="flex gap-4">
-      <div class="flex flex-col items-center">
-        <div class="w-8 h-8 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shrink-0">2</div>
-        <div class="w-0.5 flex-1 bg-muted"></div>
+  {% comment %}── Dimensão 2: Na Loja ──{% endcomment %}
+  <div class="rounded-radius border border-outline bg-surface p-6 dark:border-outline-dark dark:bg-surface-dark">
+    <h2 class="text-lg font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-6 flex items-center gap-3">
+      <span class="size-9 rounded-full bg-secondary text-white font-bold flex items-center justify-center text-base shrink-0
+                   dark:bg-secondary-dark">2</span>
+      Na Loja
+    </h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="rounded-radius bg-surface-alt p-4 dark:bg-surface-dark-alt">
+        <h3 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-1">Pães no autosserviço</h3>
+        <p class="text-sm text-on-surface/70 dark:text-on-surface-dark/70 leading-relaxed">Escolha direto da prateleira, pese e embale. Leve ao caixa para pagar.</p>
       </div>
-      <div class="pb-6">
-        <h4 class="text-h3 text-foreground mb-1">Pague via PIX</h4>
-        <p class="text-muted-foreground text-sm leading-relaxed">Escaneie o QR Code ou copie o código PIX. Confirmação instantânea — sem espera.</p>
-      </div>
-    </div>
-
-    {# Step 3 #}
-    <div class="flex gap-4">
-      <div class="flex flex-col items-center">
-        <div class="w-8 h-8 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shrink-0">3</div>
-      </div>
-      <div class="pb-6">
-        <h4 class="text-h3 text-foreground mb-1">Retire ou receba</h4>
-        <p class="text-muted-foreground text-sm leading-relaxed">Acompanhe o preparo em tempo real. Retire na loja no horário combinado ou receba em casa.</p>
+      <div class="rounded-radius bg-surface-alt p-4 dark:bg-surface-dark-alt">
+        <h3 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-1">Cafés e doces no balcão</h3>
+        <p class="text-sm text-on-surface/70 dark:text-on-surface-dark/70 leading-relaxed">Peça ao atendente. Preparamos na hora para você.</p>
       </div>
     </div>
   </div>
-</div>
 
-{# ── Dimensão 2: Visita à Loja ── #}
-<div class="max-w-2xl mx-auto mb-12">
-  <h3 class="text-h2 text-foreground mb-6 flex items-center gap-3">
-    <span class="w-10 h-10 rounded-full bg-secondary text-secondary-foreground font-bold flex items-center justify-center text-lg shrink-0">2</span>
-    Na Loja
-  </h3>
-
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-    <div class="bg-surface rounded-xl p-6 shadow-sm">
-      <h4 class="text-foreground font-semibold mb-2">Pães no autosserviço</h4>
-      <p class="text-muted-foreground text-sm leading-relaxed">Escolha direto da prateleira, pese e embale. Leve ao caixa para pagar.</p>
+  {% comment %}── Info cards ──{% endcomment %}
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div class="rounded-radius border border-outline bg-surface p-5 dark:border-outline-dark dark:bg-surface-dark">
+      <h3 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-1">Encomendas</h3>
+      <p class="text-sm text-on-surface/70 dark:text-on-surface-dark/70 leading-relaxed">Pedidos para o dia seguinte até as 18h. Encomendas com até 7 dias de antecedência.</p>
     </div>
-    <div class="bg-surface rounded-xl p-6 shadow-sm">
-      <h4 class="text-foreground font-semibold mb-2">Cafés e doces no balcão</h4>
-      <p class="text-muted-foreground text-sm leading-relaxed">Peça ao atendente. Preparamos na hora para você.</p>
+    <div class="rounded-radius border border-outline bg-surface p-5 dark:border-outline-dark dark:bg-surface-dark">
+      <h3 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-1">Acompanhamento</h3>
+      <p class="text-sm text-on-surface/70 dark:text-on-surface-dark/70 leading-relaxed">Use seu telefone para consultar o status dos pedidos a qualquer momento.</p>
+    </div>
+    <div class="rounded-radius border border-outline bg-surface p-5 dark:border-outline-dark dark:bg-surface-dark">
+      <h3 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-1">Entrega</h3>
+      <p class="text-sm text-on-surface/70 dark:text-on-surface-dark/70 leading-relaxed">Entregamos em {{ storefront.default_city }}. Retirada na loja no horário de funcionamento.</p>
+    </div>
+    <div class="rounded-radius border border-outline bg-surface p-5 dark:border-outline-dark dark:bg-surface-dark">
+      <h3 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-1">Qualidade</h3>
+      <p class="text-sm text-on-surface/70 dark:text-on-surface-dark/70 leading-relaxed">Produção artesanal com fermentação natural. Ingredientes selecionados.</p>
     </div>
   </div>
-</div>
 
-{# ── Info cards ── #}
-<div class="max-w-2xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-  <div class="bg-surface rounded-xl p-6 shadow-sm">
-    <h4 class="text-foreground font-semibold mb-1">Encomendas</h4>
-    <p class="text-muted-foreground text-sm leading-relaxed">Pedidos para o dia seguinte até as 18h. Encomendas com até 7 dias de antecedência.</p>
+  {% comment %}── CTA ──{% endcomment %}
+  <div class="text-center pb-4">
+    <a href="{% url 'storefront:menu' %}"
+       class="inline-flex items-center justify-center px-6 py-3 rounded-radius bg-primary text-white font-medium
+              hover:opacity-90 transition min-h-[44px] dark:bg-primary-dark">
+      Ver Cardápio
+    </a>
   </div>
-  <div class="bg-surface rounded-xl p-6 shadow-sm">
-    <h4 class="text-foreground font-semibold mb-1">Acompanhamento</h4>
-    <p class="text-muted-foreground text-sm leading-relaxed">Use seu telefone para consultar o status dos pedidos a qualquer momento.</p>
-  </div>
-  <div class="bg-surface rounded-xl p-6 shadow-sm">
-    <h4 class="text-foreground font-semibold mb-1">Entrega</h4>
-    <p class="text-muted-foreground text-sm leading-relaxed">Entregamos em {{ storefront.default_city }}. Retirada na loja no horário de funcionamento.</p>
-  </div>
-  <div class="bg-surface rounded-xl p-6 shadow-sm">
-    <h4 class="text-foreground font-semibold mb-1">Qualidade</h4>
-    <p class="text-muted-foreground text-sm leading-relaxed">Produção artesanal com fermentação natural. Ingredientes selecionados.</p>
-  </div>
-</div>
 
-{# CTA #}
-<div class="text-center mb-8">
-  {% url 'storefront:menu' as menu_url %}
-  {% include "components/_button.html" with href=menu_url variant="primary" size="lg" label="Ver Cardápio" %}
 </div>
-
 {% endblock %}

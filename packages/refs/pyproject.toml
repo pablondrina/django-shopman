@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shopman-refs"
+version = "0.1.0"
+description = "Generic string-ref library for the Shopman suite"
+license = "MIT"
+authors = [
+    {name = "Pablo Valentini", email = "pablondrina@gmail.com"}
+]
+keywords = ["django", "shopman", "refs", "locator"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 5.2",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.12"
+dependencies = [
+    "Django>=5.2,<6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-django",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["shopman.refs*"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "refs_test_settings"
+pythonpath = ["."]
+testpaths = ["shopman/refs/tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP"]
+ignore = [
+    "E501",
+    "E402",
+    "B008",
+]

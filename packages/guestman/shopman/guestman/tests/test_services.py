@@ -205,6 +205,77 @@ class TestAddressService:
         assert new_addr.is_default is True
         assert customer_address.is_default is False
 
+    def test_suggest_address_prefers_default(self, customer):
+        """Default address wins over anything else in the cascade."""
+        address_service.add_address(
+            "CUST-001",
+            label="work",
+            formatted_address="Work, 1",
+        )
+        default = address_service.add_address(
+            "CUST-001",
+            label="home",
+            formatted_address="Home, 1",
+            is_default=True,
+        )
+        suggested = address_service.suggest_address("CUST-001")
+        assert suggested is not None
+        assert suggested.id == default.id
+
+    def test_suggest_address_geo_compatible(self, customer):
+        """When no default exists, a near-by saved address wins the cascade."""
+        address_service.add_address(
+            "CUST-001",
+            label="work",
+            formatted_address="Far, 1",
+            coordinates=(-23.00, -51.00),  # ~80km from target
+        )
+        near = address_service.add_address(
+            "CUST-001",
+            label="home",
+            formatted_address="Near, 1",
+            coordinates=(-23.310001, -51.160001),  # ~0.2m from target
+        )
+        # Target ~same as `near` → geo cascade returns it.
+        result = address_service.suggest_address(
+            "CUST-001", location=(-23.31, -51.16),
+        )
+        assert result is not None
+        assert result.id == near.id
+
+    def test_suggest_address_fallback_to_latest(self, customer):
+        """With no default and no location, the cascade returns the latest."""
+        address_service.add_address(
+            "CUST-001",
+            label="home",
+            formatted_address="Old, 1",
+        )
+        latest = address_service.add_address(
+            "CUST-001",
+            label="work",
+            formatted_address="Recent, 1",
+        )
+        result = address_service.suggest_address("CUST-001")
+        assert result is not None
+        assert result.id == latest.id
+
+    def test_suggest_address_empty_returns_none(self, customer):
+        """No saved addresses → cascade returns None."""
+        assert address_service.suggest_address("CUST-001") is None
+
+    def test_update_address_accepts_coordinates_and_place_id(self, customer, customer_address):
+        """update_address() must propagate lat/lng/place_id (not just components)."""
+        addr = address_service.update_address(
+            "CUST-001",
+            customer_address.id,
+            latitude=-23.55,
+            longitude=-46.63,
+            place_id="ChIJ-example",
+        )
+        assert addr.place_id == "ChIJ-example"
+        assert float(addr.latitude) == -23.55
+        assert float(addr.longitude) == -46.63
+
 
 class TestPreferenceService:
     """Tests for preference service."""

@@ -11,6 +11,12 @@ Rules:
 - Availability is a canonical enum, not a bool
 """
 
+from .account import (
+    CustomerProfileProjection,
+    LoyaltyProjection,
+    LoyaltyTransactionProjection,
+    build_account,
+)
 from .cart import (
     CartItemProjection,
     CartProjection,
@@ -27,6 +33,34 @@ from .catalog import (
     build_catalog_items_for_skus,
 )
 from .checkout import CheckoutProjection, build_checkout
+from .closing import (
+    ClosingItemProjection,
+    DayClosingProjection,
+    build_day_closing,
+)
+from .dashboard import (
+    DashboardProjection,
+    build_dashboard,
+)
+from .kds import (
+    KDSBoardProjection,
+    KDSExpeditionCardProjection,
+    KDSInstanceSummaryProjection,
+    KDSItemProjection,
+    KDSTicketProjection,
+    build_kds_board,
+    build_kds_index,
+    build_kds_ticket,
+)
+from .order_history import OrderHistoryProjection, build_order_history
+from .order_queue import (
+    OperatorOrderProjection,
+    OrderCardProjection,
+    OrderQueueProjection,
+    build_operator_order,
+    build_order_card,
+    build_order_queue,
+)
 from .order_tracking import (
     OrderTrackingProjection,
     OrderTrackingStatusProjection,
@@ -40,22 +74,37 @@ from .payment import (
     build_payment,
     build_payment_status,
 )
+from .pos import (
+    POSProjection,
+    POSShiftSummaryProjection,
+    build_pos,
+    build_pos_shift_summary,
+)
 from .product_detail import (
     AllergenInfoProjection,
     ConservationInfoProjection,
     ProductDetailProjection,
     build_product_detail,
 )
+from .production import (
+    ProductionBoardProjection,
+    ProductionCountsProjection,
+    WorkOrderCardProjection,
+    build_production_board,
+)
 from .types import (
+    ORDER_STATUS_COLORS,
+    ORDER_STATUS_LABELS_PT,
+    PAYMENT_METHOD_LABELS_PT,
     Availability,
     CategoryProjection,
     ComponentProjection,
+    FoodPrefProjection,
     FulfillmentProjection,
     HappyHourProjection,
-    ORDER_STATUS_COLORS,
-    ORDER_STATUS_LABELS_PT,
+    NotificationPrefProjection,
     OrderItemProjection,
-    PAYMENT_METHOD_LABELS_PT,
+    OrderSummaryProjection,
     PaymentMethodOptionProjection,
     PickupSlotProjection,
     SavedAddressProjection,
@@ -63,6 +112,7 @@ from .types import (
 )
 
 __all__ = [
+    # Storefront (Fases 1–3)
     "AllergenInfoProjection",
     "Availability",
     "CartItemProjection",
@@ -74,13 +124,20 @@ __all__ = [
     "CheckoutProjection",
     "ComponentProjection",
     "ConservationInfoProjection",
+    "CustomerProfileProjection",
     "DiscountLineProjection",
+    "FoodPrefProjection",
     "FulfillmentProjection",
     "HappyHourProjection",
+    "LoyaltyProjection",
+    "LoyaltyTransactionProjection",
     "MinimumOrderProgressProjection",
+    "NotificationPrefProjection",
     "ORDER_STATUS_COLORS",
     "ORDER_STATUS_LABELS_PT",
+    "OrderHistoryProjection",
     "OrderItemProjection",
+    "OrderSummaryProjection",
     "OrderTrackingProjection",
     "OrderTrackingStatusProjection",
     "PAYMENT_METHOD_LABELS_PT",
@@ -93,13 +150,44 @@ __all__ = [
     "SavedAddressProjection",
     "TimelineEventProjection",
     "UpsellSuggestionProjection",
+    "build_account",
     "build_cart",
     "build_catalog",
     "build_catalog_items_for_skus",
     "build_checkout",
+    "build_order_history",
     "build_order_tracking",
     "build_order_tracking_status",
     "build_payment",
     "build_payment_status",
     "build_product_detail",
+    # Operator (Fase 4)
+    "ClosingItemProjection",
+    "DayClosingProjection",
+    "KDSBoardProjection",
+    "KDSExpeditionCardProjection",
+    "KDSInstanceSummaryProjection",
+    "KDSItemProjection",
+    "KDSTicketProjection",
+    "OperatorOrderProjection",
+    "OrderCardProjection",
+    "OrderQueueProjection",
+    "ProductionBoardProjection",
+    "ProductionCountsProjection",
+    "WorkOrderCardProjection",
+    "build_day_closing",
+    "build_kds_board",
+    "build_kds_index",
+    "build_kds_ticket",
+    "build_operator_order",
+    "build_order_card",
+    "build_order_queue",
+    "build_production_board",
+    # POS + Dashboard (Fase 5)
+    "DashboardProjection",
+    "POSProjection",
+    "POSShiftSummaryProjection",
+    "build_dashboard",
+    "build_pos",
+    "build_pos_shift_summary",
 ]

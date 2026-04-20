@@ -83,7 +83,8 @@ class TestConfirmationConformance:
             with patch("shopman.shop.lifecycle.customer.ensure"):
                 with patch("shopman.shop.lifecycle.stock.hold"):
                     with patch("shopman.shop.lifecycle.loyalty.redeem"):
-                        dispatch(order, "on_commit")
+                        with patch("shopman.shop.lifecycle.notification.send"):
+                            dispatch(order, "on_commit")
 
         order.transition_status.assert_not_called()
 
@@ -126,8 +127,9 @@ class TestPaymentConformance:
             with patch("shopman.shop.lifecycle.customer.ensure"):
                 with patch("shopman.shop.lifecycle.stock.hold"):
                     with patch("shopman.shop.lifecycle.loyalty.redeem"):
-                        with patch("shopman.shop.lifecycle.payment.initiate") as mock_init:
-                            dispatch(order, "on_commit")
+                        with patch("shopman.shop.lifecycle.notification.send"):
+                            with patch("shopman.shop.lifecycle.payment.initiate") as mock_init:
+                                dispatch(order, "on_commit")
 
         mock_init.assert_not_called()
 
@@ -145,8 +147,9 @@ class TestPaymentConformance:
             with patch("shopman.shop.lifecycle.customer.ensure"):
                 with patch("shopman.shop.lifecycle.stock.hold"):
                     with patch("shopman.shop.lifecycle.loyalty.redeem"):
-                        with patch("shopman.shop.lifecycle.payment.initiate") as mock_init:
-                            dispatch(order, "on_commit")
+                        with patch("shopman.shop.lifecycle.notification.send"):
+                            with patch("shopman.shop.lifecycle.payment.initiate") as mock_init:
+                                dispatch(order, "on_commit")
 
         mock_init.assert_called_once_with(order)
 
@@ -184,8 +187,9 @@ class TestFulfillmentConformance:
             with patch("shopman.shop.lifecycle.customer.ensure"):
                 with patch("shopman.shop.lifecycle.stock.hold"):
                     with patch("shopman.shop.lifecycle.loyalty.redeem"):
-                        with patch("shopman.shop.lifecycle.fulfillment.create") as mock_create:
-                            dispatch(order, "on_commit")
+                        with patch("shopman.shop.lifecycle.notification.send"):
+                            with patch("shopman.shop.lifecycle.fulfillment.create") as mock_create:
+                                dispatch(order, "on_commit")
 
         mock_create.assert_called_once_with(order)
 
@@ -217,8 +221,9 @@ class TestFulfillmentConformance:
             with patch("shopman.shop.lifecycle.customer.ensure"):
                 with patch("shopman.shop.lifecycle.stock.hold"):
                     with patch("shopman.shop.lifecycle.loyalty.redeem"):
-                        with patch("shopman.shop.lifecycle.fulfillment.create") as mock_create:
-                            dispatch(order, "on_commit")
+                        with patch("shopman.shop.lifecycle.notification.send"):
+                            with patch("shopman.shop.lifecycle.fulfillment.create") as mock_create:
+                                dispatch(order, "on_commit")
 
         mock_create.assert_not_called()
 
@@ -240,8 +245,9 @@ class TestStockConformance:
             with patch("shopman.shop.lifecycle.customer.ensure"):
                 with patch("shopman.shop.lifecycle.stock.hold"):
                     with patch("shopman.shop.lifecycle.loyalty.redeem"):
-                        with patch("shopman.shop.lifecycle.availability.decide") as mock_decide:
-                            dispatch(order, "on_commit")
+                        with patch("shopman.shop.lifecycle.notification.send"):
+                            with patch("shopman.shop.lifecycle.availability.decide") as mock_decide:
+                                dispatch(order, "on_commit")
 
         mock_decide.assert_not_called()
 
@@ -276,8 +282,9 @@ class TestStockConformance:
             with patch("shopman.shop.lifecycle.customer.ensure"):
                 with patch("shopman.shop.lifecycle.stock.hold"):
                     with patch("shopman.shop.lifecycle.loyalty.redeem"):
-                        with patch("shopman.shop.lifecycle.availability.decide", return_value=_avail_ok) as mock_decide:
-                            dispatch(order, "on_commit")
+                        with patch("shopman.shop.lifecycle.notification.send"):
+                            with patch("shopman.shop.lifecycle.availability.decide", return_value=_avail_ok) as mock_decide:
+                                dispatch(order, "on_commit")
 
         mock_decide.assert_called_once_with(
             "PAIN-AU-CHOCOLAT", 2, channel_ref="web", target_date=None
@@ -362,11 +369,11 @@ class TestEditingConformance:
 
 
 class TestRulesConformance:
-    def test_rules_defaults_are_empty_lists(self):
-        """Rules default to empty lists — no validators/modifiers active."""
+    def test_rules_defaults(self):
+        """Modifiers/validators default to None (run all). Checks default to [] (opt-in)."""
         cfg = ChannelConfig()
-        assert cfg.rules.validators == []
-        assert cfg.rules.modifiers == []
+        assert cfg.rules.validators is None
+        assert cfg.rules.modifiers is None
         assert cfg.rules.checks == []
 
     def test_rules_survive_cascade(self):

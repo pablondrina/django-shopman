@@ -5,26 +5,23 @@ from django.shortcuts import redirect, render
 from django.views import View
 from shopman.offerman.models import Collection, Product
 from shopman.orderman.models import Order
-from shopman.utils.monetary import format_money
 
-from ._helpers import _is_v2_request
+from shopman.shop.projections.order_history import build_order_history
+
 from .auth import get_authenticated_customer
-from .tracking import STATUS_COLORS, STATUS_LABELS
 
 
 class HowItWorksView(View):
     """Static page explaining the ordering process."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        if _is_v2_request(request):
-            return render(request, "storefront/v2/como_funciona.html")
         return render(request, "storefront/como_funciona.html")
 
 
 class OrderHistoryView(View):
     """Order history — requires session auth (OTP verified)."""
 
-    _ACTIVE_STATUSES = {"new", "confirmed", "preparing", "ready", "dispatched"}
+    _ACTIVE_STATUSES = frozenset({"new", "confirmed", "preparing", "ready", "dispatched"})
 
     def get(self, request: HttpRequest) -> HttpResponse:
         # Badge-only: return active order count for bottom nav polling
@@ -49,58 +46,40 @@ class OrderHistoryView(View):
             return redirect("/login/?next=/meus-pedidos/")
 
         filter_param = request.GET.get("filter", "todos")
-        orders = self._get_orders(customer.phone, filter_param)
-        ctx = {
-            "orders": orders,
-            "phone_value": customer.phone,
-            "active_filter": filter_param,
-            "filter_options": [
-                ("todos", "Todos"),
-                ("ativos", "Ativos"),
-                ("anteriores", "Anteriores"),
-            ],
-        }
-        tmpl = "storefront/v2/history.html" if _is_v2_request(request) else "storefront/history.html"
-        return render(request, tmpl, ctx)
-
-    @classmethod
-    def _get_orders(cls, phone: str, filter_param: str = "todos") -> list[dict]:
-        qs = Order.objects.filter(
-            handle_type="phone",
-            handle_ref=phone,
-        ).order_by("-created_at")
-
-        if filter_param == "ativos":
-            qs = qs.filter(status__in=cls._ACTIVE_STATUSES)
-        elif filter_param == "anteriores":
-            qs = qs.exclude(status__in=cls._ACTIVE_STATUSES)
-
-        enriched = []
-        for order in qs[:50]:
-            enriched.append({
-                "ref": order.ref,
-                "created_at": order.created_at,
-                "total_display": f"R$ {format_money(order.total_q)}",
-                "status": order.status,
-                "status_label": STATUS_LABELS.get(order.status, order.status),
-                "status_color": STATUS_COLORS.get(order.status, "bg-muted text-muted-foreground"),
-            })
-        return enriched
+        history = build_order_history(customer, filter_param=filter_param)
+        return render(request, "storefront/order_history.html", {"history": history})
 
 
 class SitemapView(View):
-    """Generate a simple XML sitemap with menu, collections, and product URLs."""
+    """Generate an XML sitemap with menu, collections, product URLs + images + lastmod."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
         from django.urls import reverse
 
+        from shopman.shop.models import Shop
+
         urls = []
         base = request.build_absolute_uri("/").rstrip("/")
 
+        shop = Shop.load()
+        shop_updated = shop.updated_at.isoformat() if shop and getattr(shop, "updated_at", None) else None
+
         # Home + Menu
-        urls.append({"loc": base + reverse("storefront:home"), "priority": "1.0", "changefreq": "weekly"})
-        urls.append({"loc": base + reverse("storefront:menu"), "priority": "1.0", "changefreq": "daily"})
-        urls.append({"loc": base + reverse("storefront:como_funciona"), "priority": "0.5", "changefreq": "monthly"})
+        urls.append({
+            "loc": base + reverse("storefront:home"),
+            "priority": "1.0", "changefreq": "weekly",
+            "lastmod": shop_updated,
+        })
+        urls.append({
+            "loc": base + reverse("storefront:menu"),
+            "priority": "1.0", "changefreq": "daily",
+            "lastmod": shop_updated,
+        })
+        urls.append({
+            "loc": base + reverse("storefront:como_funciona"),
+            "priority": "0.5", "changefreq": "monthly",
+            "lastmod": shop_updated,
+        })
 
         # Collections
         for col in Collection.objects.filter(is_active=True):
@@ -108,14 +87,25 @@ class SitemapView(View):
                 "loc": base + reverse("storefront:menu_collection", args=[col.ref]),
                 "priority": "0.8",
                 "changefreq": "daily",
+                "lastmod": col.updated_at.isoformat() if getattr(col, "updated_at", None) else None,
             })
 
-        # Products
+        # Products — com <image:image> e lastmod real
         for product in Product.objects.filter(is_published=True):
+            image_url = None
+            if getattr(product, "image", None) and getattr(product.image, "name", ""):
+                image_url = request.build_absolute_uri(product.image.url)
+            elif getattr(product, "image_url", ""):
+                url = product.image_url
+                image_url = url if url.startswith("http") else base + url
+
             urls.append({
                 "loc": base + reverse("storefront:product_detail", args=[product.sku]),
                 "priority": "0.7",
                 "changefreq": "daily",
+                "lastmod": product.updated_at.isoformat() if getattr(product, "updated_at", None) else None,
+                "image_url": image_url,
+                "image_title": product.name,
             })
 
         return render(request, "storefront/sitemap.xml", {"urls": urls}, content_type="application/xml")

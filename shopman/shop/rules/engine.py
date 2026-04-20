@@ -71,11 +71,42 @@ def get_active_rules(channel=None, stage=None):
     return rules
 
 
+def get_rule_params(code: str) -> dict:
+    """Return params dict for the active RuleConfig with `code`.
+
+    Uses the same 1-hour in-process cache as ``get_active_rules()``.
+    Returns ``{}`` if the rule is not found or DB is unavailable.
+    """
+    try:
+        for rc in get_active_rules():
+            if rc.code == code:
+                return rc.params or {}
+    except Exception:
+        pass
+    return {}
+
+
 def load_rule(rule_config):
     """Import and instantiate a rule class from rule_config.rule_path.
 
     Passes rule_config.params as kwargs to the constructor.
+
+    Defense-in-depth: re-checks the whitelist even if the row bypassed clean()
+    (e.g. raw SQL insert or fixture load). The primary gate is RuleConfig.clean().
     """
+    from django.conf import settings
+
+    allowed_prefixes = getattr(
+        settings,
+        "SHOPMAN_RULES_ALLOWED_MODULE_PREFIXES",
+        ["shopman.shop.rules.", "shopman.shop.modifiers."],
+    )
+    if not any(rule_config.rule_path.startswith(p) for p in allowed_prefixes):
+        raise ValueError(
+            f"rule_path '{rule_config.rule_path}' is not in the allowed modules whitelist "
+            f"(SHOPMAN_RULES_ALLOWED_MODULE_PREFIXES). Refusing to import."
+        )
+
     cls = _import_rule_class(rule_config.rule_path)
     if cls is None:
         raise ImportError(f"Cannot import rule: {rule_config.rule_path}")

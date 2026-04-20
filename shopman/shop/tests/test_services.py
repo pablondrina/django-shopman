@@ -179,8 +179,10 @@ class TestAvailabilityListingMembership:
         assert result["ok"] is True
         assert result.get("error_code") is None
 
-    def test_rejects_below_min_qty(self):
-        """ListingItem.min_qty enforced: qty < min_qty → ok=False, error_code=below_min_qty."""
+    def test_min_qty_field_is_no_longer_enforced(self):
+        """``ListingItem.min_qty`` persists as a model field but is NOT a gate
+        (AVAILABILITY-PLAN §10 — ``below_min_qty`` extirpated as YAGNI).
+        Tiny qty on a listing with high min_qty must pass the listing gate."""
         from shopman.offerman.models import ListingItem
 
         from shopman.shop.services import availability
@@ -188,7 +190,6 @@ class TestAvailabilityListingMembership:
         self._make_channel(ref="ifood")
         product = self._make_product(sku="PAO-001")
         listing = self._make_listing("ifood")
-        # min_qty=24 (e.g., pão francês in dozens)
         ListingItem.objects.create(
             listing=listing,
             product=product,
@@ -198,33 +199,7 @@ class TestAvailabilityListingMembership:
             min_qty=Decimal("24"),
         )
 
-        # Order qty=1 < min_qty=24 → reject
         result = availability.check("PAO-001", Decimal("1"), channel_ref="ifood")
-
-        assert result["ok"] is False
-        assert result["error_code"] == "below_min_qty"
-        assert result["available_qty"] == Decimal("24")
-
-    def test_passes_when_qty_meets_min_qty(self):
-        """qty >= min_qty → listing gate passes."""
-        from shopman.offerman.models import ListingItem
-
-        from shopman.shop.services import availability
-
-        self._make_channel(ref="ifood")
-        product = self._make_product(sku="PAO-001")
-        listing = self._make_listing("ifood")
-        ListingItem.objects.create(
-            listing=listing,
-            product=product,
-            price_q=500,
-            is_published=True,
-            is_sellable=True,
-            min_qty=Decimal("5"),
-        )
-
-        # qty=5 == min_qty=5 → passes listing gate (Stockman treats as untracked)
-        result = availability.check("PAO-001", Decimal("5"), channel_ref="ifood")
 
         assert result.get("error_code") != "below_min_qty"
 
@@ -266,6 +241,7 @@ class TestAvailabilityListingMembership:
             target_date=future_date,
             safety_margin=0,
             allowed_positions=None,
+            excluded_positions=None,
         )
 
 
@@ -543,7 +519,7 @@ class TestPaymentService:
             intent_ref="INT-002",
             status="pending",
             amount_q=5000,
-            client_secret="cs_test_123",
+            metadata={"checkout_url": "https://checkout.stripe.com/c/pay/cs_test_xyz"},
         )
         mock_get_adapter.return_value = adapter
 
@@ -551,7 +527,7 @@ class TestPaymentService:
 
         initiate(order)
 
-        assert order.data["payment"]["client_secret"] == "cs_test_123"
+        assert order.data["payment"]["checkout_url"] == "https://checkout.stripe.com/c/pay/cs_test_xyz"
         assert order.data["payment"]["intent_ref"] == "INT-002"
 
     def test_initiate_counter_noop(self):
@@ -1323,12 +1299,12 @@ class TestAvailabilityReserveBundles:
             "failed_sku": None,
         }
 
-    @patch("shopman.shop.services.availability.alternatives")
+    @patch("shopman.shop.services.availability.substitutes")
     @patch("shopman.shop.services.availability.get_adapter")
     @patch("shopman.shop.services.availability._expand_if_bundle")
     @patch("shopman.shop.services.availability.check")
     def test_reserve_bundle_creates_one_hold_per_component(
-        self, mock_check, mock_expand, mock_get_adapter, mock_alternatives
+        self, mock_check, mock_expand, mock_get_adapter, mock_substitutes
     ):
         """reserve(bundle) success → N holds created, all with reference=session_key."""
         from shopman.shop.services.availability import reserve
@@ -1345,7 +1321,7 @@ class TestAvailabilityReserveBundles:
             {"success": True, "hold_id": "hold:2"},
         ]
         mock_get_adapter.return_value = adapter
-        mock_alternatives.find.return_value = []
+        mock_substitutes.find.return_value = []
 
         result = reserve(
             "BUNDLE-001", Decimal("1"),
@@ -1361,14 +1337,14 @@ class TestAvailabilityReserveBundles:
         for call in adapter.create_hold.call_args_list:
             assert call.kwargs["reference"] == "sess-abc"
 
-    @patch("shopman.shop.services.availability.alternatives")
+    @patch("shopman.shop.services.availability.substitutes")
     @patch("shopman.shop.services.availability.get_adapter")
     @patch("shopman.shop.services.availability._expand_if_bundle")
     @patch("shopman.shop.services.availability.check")
     def test_reserve_bundle_failure_releases_created_holds(
-        self, mock_check, mock_expand, mock_get_adapter, mock_alternatives
+        self, mock_check, mock_expand, mock_get_adapter, mock_substitutes
     ):
-        """reserve(bundle) with mid-flight failure → no holds remain, alternatives populated."""
+        """reserve(bundle) with mid-flight failure → no holds remain, substitutes populated."""
         from shopman.shop.services.availability import reserve
 
         mock_check.return_value = self._make_status_bundle_ok()
@@ -1383,7 +1359,7 @@ class TestAvailabilityReserveBundles:
             {"success": False, "error_code": "insufficient_stock"},
         ]
         mock_get_adapter.return_value = adapter
-        mock_alternatives.find.return_value = [{"sku": "ALT-001"}]
+        mock_substitutes.find.return_value = [{"sku": "ALT-001"}]
 
         result = reserve(
             "BUNDLE-001", Decimal("1"),

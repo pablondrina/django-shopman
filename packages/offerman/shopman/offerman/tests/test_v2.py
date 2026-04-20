@@ -327,7 +327,7 @@ class TestSuggestionsScoring:
     """Suggestions use scoring: keywords(x3) + collection(x2) + price(x1)."""
 
     def test_scored_by_keywords(self, db):
-        from shopman.offerman.contrib.suggestions.suggestions import find_alternatives
+        from shopman.offerman.contrib.substitutes.substitutes import find_substitutes
 
         coll = Collection.objects.create(ref="score-col", name="Test")
 
@@ -346,13 +346,13 @@ class TestSuggestionsScoring:
         b.keywords.add("artesanal")
         CollectionItem.objects.create(collection=coll, product=b, is_primary=True)
 
-        results = find_alternatives("REF-1")
+        results = find_substitutes("REF-1")
         skus = [r.sku for r in results]
         # A should come before B (more common keywords)
         assert skus.index("CAND-A") < skus.index("CAND-B")
 
     def test_price_similarity_contributes(self, db):
-        from shopman.offerman.contrib.suggestions.suggestions import find_alternatives
+        from shopman.offerman.contrib.substitutes.substitutes import find_substitutes
 
         coll = Collection.objects.create(ref="price-col", name="Test")
 
@@ -370,33 +370,11 @@ class TestSuggestionsScoring:
         b.keywords.add("doce")
         CollectionItem.objects.create(collection=coll, product=b, is_primary=True)
 
-        results = find_alternatives("PRICE-REF")
+        results = find_substitutes("PRICE-REF")
         skus = [r.sku for r in results]
         # A should score higher (price similarity bonus)
         assert skus.index("PRICE-A") < skus.index("PRICE-B")
 
-    def test_find_similar_uses_scoring(self, db):
-        from shopman.offerman.contrib.suggestions.suggestions import find_similar
-
-        coll = Collection.objects.create(ref="sim-col", name="Test")
-
-        ref = Product.objects.create(sku="SIM-REF", name="Reference", base_price_q=500)
-        ref.keywords.add("cafe", "quente")
-        CollectionItem.objects.create(collection=coll, product=ref, is_primary=True)
-
-        a = Product.objects.create(sku="SIM-A", name="Similar A", base_price_q=600)
-        a.keywords.add("cafe", "quente")
-        CollectionItem.objects.create(collection=coll, product=a, is_primary=True)
-
-        b = Product.objects.create(sku="SIM-B", name="Similar B", base_price_q=400)
-        b.keywords.add("cafe")
-        CollectionItem.objects.create(collection=coll, product=b, is_primary=True)
-
-        results = find_similar("SIM-REF")
-        assert len(results) >= 2
-        # A has more keyword matches, should rank higher
-        skus = [r.sku for r in results]
-        assert skus.index("SIM-A") < skus.index("SIM-B")
 
 
 # ═══════════════════════════════════════════════════════════════════

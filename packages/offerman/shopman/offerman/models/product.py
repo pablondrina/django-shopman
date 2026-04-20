@@ -3,9 +3,11 @@
 import uuid as uuid_lib
 from decimal import ROUND_HALF_UP, Decimal
 
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from shopman.offerman.nutrition import NUTRIENT_FIELDS, NutritionFacts
 from simple_history.models import HistoricalRecords
 from taggit.managers import TaggableManager
 
@@ -83,6 +85,29 @@ class Product(models.Model):
         max_length=300,
         blank=True,
         help_text=_("Breve dica de conservação exibida na página do produto"),
+    )
+
+    # Ingredients list (human text, pt-BR, decreasing weight order — ANVISA).
+    # Authored manually OR materialized from Recipe via
+    # shopman.shop.services.nutrition_from_recipe.
+    ingredients_text = models.TextField(
+        _("ingredientes"),
+        blank=True,
+        help_text=_(
+            "Lista de ingredientes em ordem decrescente de peso (ANVISA). "
+            "Ex: Farinha de trigo, água, fermento natural, sal marinho."
+        ),
+    )
+
+    # Per-serving nutritional facts.
+    # Schema is driven by the ``NutritionFacts`` dataclass
+    # (``shopman.offerman.nutrition``). Admin uses a dedicated form;
+    # never edit as raw JSON.
+    nutrition_facts = models.JSONField(
+        _("informações nutricionais"),
+        default=dict,
+        blank=True,
+        help_text=_("Tabela nutricional por porção (gerenciada via form dedicado)."),
     )
 
     # Base price (in cents)
@@ -182,6 +207,90 @@ class Product(models.Model):
             from shopman.offerman.signals import product_created
 
             product_created.send(sender=self.__class__, instance=self, sku=self.sku)
+
+    def clean(self):
+        """Validate ANVISA invariants on ``nutrition_facts``.
+
+        - If any nutrient is present, ``serving_size_g`` is required.
+        - All numeric values are ≥ 0.
+        - ``trans_fat_g ≤ total_fat_g``, ``saturated_fat_g ≤ total_fat_g``,
+          ``sugars_g ≤ carbohydrates_g``.
+        """
+        super().clean()
+        self._validate_nutrition_facts()
+
+    def _validate_nutrition_facts(self):
+        facts = self.nutrition_facts or {}
+        if not facts:
+            return
+        if not isinstance(facts, dict):
+            raise ValidationError(
+                {"nutrition_facts": _("Deve ser um dicionário.")}
+            )
+
+        try:
+            nf = NutritionFacts.from_dict(facts)
+        except (TypeError, ValueError) as exc:
+            raise ValidationError(
+                {"nutrition_facts": _("Schema inválido: %(err)s") % {"err": exc}}
+            ) from exc
+
+        if nf is None:
+            return
+
+        # Any nutrient requires serving_size_g > 0.
+        if nf.has_any_nutrient and nf.serving_size_g <= 0:
+            raise ValidationError(
+                {"nutrition_facts": _(
+                    "Informe a porção (g) quando qualquer nutriente estiver preenchido."
+                )}
+            )
+
+        # Non-negative values.
+        for field_name in NUTRIENT_FIELDS:
+            value = getattr(nf, field_name)
+            if value is not None and value < 0:
+                raise ValidationError(
+                    {"nutrition_facts": _(
+                        "%(f)s não pode ser negativo."
+                    ) % {"f": field_name}}
+                )
+        if nf.servings_per_container < 1:
+            raise ValidationError(
+                {"nutrition_facts": _("Porções por embalagem deve ser ≥ 1.")}
+            )
+
+        # Structural sub-totals.
+        if (
+            nf.trans_fat_g is not None
+            and nf.total_fat_g is not None
+            and nf.trans_fat_g > nf.total_fat_g
+        ):
+            raise ValidationError(
+                {"nutrition_facts": _(
+                    "Gorduras trans não podem exceder gorduras totais."
+                )}
+            )
+        if (
+            nf.saturated_fat_g is not None
+            and nf.total_fat_g is not None
+            and nf.saturated_fat_g > nf.total_fat_g
+        ):
+            raise ValidationError(
+                {"nutrition_facts": _(
+                    "Gorduras saturadas não podem exceder gorduras totais."
+                )}
+            )
+        if (
+            nf.sugars_g is not None
+            and nf.carbohydrates_g is not None
+            and nf.sugars_g > nf.carbohydrates_g
+        ):
+            raise ValidationError(
+                {"nutrition_facts": _(
+                    "Açúcares não podem exceder carboidratos."
+                )}
+            )
 
     @property
     def base_price(self) -> Decimal:

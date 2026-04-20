@@ -363,6 +363,42 @@ A pessoa sai querendo voltar? Querendo contar pra alguém? Esse é o teste final
 
 ---
 
+## O Que Omotenashi NÃO É
+
+Omotenashi **não é tom afetuoso, não é copy meloso, não é emoji, não é celebração performática**. Se a pessoa sente que está sendo enternecida ou bajulada, falhamos — o esforço apareceu, e isso viola o Teste do Invisível.
+
+Omotenashi é o **fluxo** que conduz a pessoa à sua intenção com o mínimo de atrito e o máximo de respeito pelo contexto. O texto caloroso, quando aparece, é **consequência** — nunca causa.
+
+**A forma certa de ler o framework:**
+
+- **Kikubari antes de copy** — a frase só aparece porque o sistema percebeu algo concreto. Nunca o contrário.
+- **Ma antes de adornos** — cortar é mais omotenashi que embelezar. Uma tela que respira comunica mais cuidado que uma tela enfeitada.
+- **Poka-yoke antes de desculpa** — o erro prevenido por design é mais humano que o erro bem pedido desculpas.
+- **Fluxo antes de frase** — um checkout que resolve o endereço sozinho acolhe mais que um checkout que diz "obrigado".
+
+**Teste prático:** se dá para retirar a palavra "querido", "carinho", "juntos", um emoji ou uma exclamação — e a interação continua tão cuidadosa quanto — o omotenashi está no lugar certo (no fluxo). Se ao tirar sobra só o esqueleto frio, estávamos maquiando.
+
+Omotenashi elegante é **indistinguível de bom design**. Apenas respeita a pessoa. Isso basta.
+
+### Corolários práticos (regras derivadas)
+
+**C1. Sinal de QUEM vira fluxo antes de virar frase.**
+Cada informação que temos sobre a pessoa (aniversário, categoria preferida, tempo desde o último pedido, status de novo/recorrente/VIP) deve alimentar **no mínimo uma decisão de fluxo** antes de gerar copy. Aniversário não é "parabéns!" — é um brinde que já aparece no carrinho. Categoria preferida não é "sabemos que você ama café" — é a ordem do cardápio. Se o sinal só gera frase, é decoração.
+
+**C2. Campo opcional começa como pergunta, não como formulário.**
+"Cupom de desconto?" como link discreto. O input aparece só quando a pessoa responde "sim" ao clicar. O mesmo para observações, endereço alternativo, qualquer extra. O input é a resposta do cliente — não o nosso pedido.
+
+**C3. Transparência radical, tom gentil, zero melodia.**
+Nunca esconder informação negativa. Sempre comunicar com calor. E nunca — nunca — transformar transparência em drama. "Fora da área" vira "ainda não chegamos aí", não "que pena que você mora longe, sentimos muito".
+
+**C4. Copy centralizada, variável, responsável.**
+Toda string de interface crítica vive em um único registro (código + admin), não espalhada em templates. Isso permite revisar tom em um lugar só e evita que engenheiros bem-intencionados derrapem para o meloso.
+
+**C5. O fim da jornada merece yoin, não festa.**
+A ressonância é **silêncio bem escolhido**, um detalhe que surpreende, uma informação útil na hora certa. Não é confete, não é animação de 2 segundos, não é "parabéns pela compra". É a embalagem com uma frase pequena. É o "até amanhã" discreto no rodapé do tracking.
+
+---
+
 ## Princípios de Design
 
 Regras que governam como os protocolos são escritos e implementados:

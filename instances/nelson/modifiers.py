@@ -49,8 +49,12 @@ class D1DiscountModifier:
 
     def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
         config = getattr(channel, "config", None) or {}
-        rules = config.get("rules", {})
-        percent = rules.get("d1_discount_percent", self.discount_percent)
+        channel_rules = config.get("rules", {})
+        if "d1_discount_percent" in channel_rules:
+            percent = channel_rules["d1_discount_percent"]
+        else:
+            from shopman.shop.rules.engine import get_rule_params
+            percent = get_rule_params("d1_discount").get("discount_percent", self.discount_percent)
 
         availability = (session.data or {}).get("availability", {})
 
@@ -95,10 +99,8 @@ class HappyHourModifier:
     """
     Desconto por horário (Happy Hour / "Hora da Xepa").
 
-    Configurável via settings:
-        SHOPMAN_HAPPY_HOUR_START = "17:30"
-        SHOPMAN_HAPPY_HOUR_END = "18:00"
-        SHOPMAN_HAPPY_HOUR_DISCOUNT_PERCENT = 25
+    Params lidos de RuleConfig "happy_hour" (discount_percent, start, end).
+    Fallback: args do construtor → SHOPMAN_HAPPY_HOUR_* settings → constantes do módulo.
 
     Não se aplica a itens com employee_discount.
     Não se aplica ao canal web (evita divergência vitrine vs carrinho).
@@ -114,26 +116,42 @@ class HappyHourModifier:
         start: time | None = None,
         end: time | None = None,
     ):
-        self.discount_percent = discount_percent
-
-        if start is None:
-            raw = getattr(settings, "SHOPMAN_HAPPY_HOUR_START", "17:30")
-            h, m = map(int, raw.split(":"))
-            start = time(h, m)
-        if end is None:
-            raw = getattr(settings, "SHOPMAN_HAPPY_HOUR_END", "18:00")
-            h, m = map(int, raw.split(":"))
-            end = time(h, m)
-
-        self.start = start
-        self.end = end
+        self._discount_percent = discount_percent
+        self._start = start
+        self._end = end
 
     def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
         if (session.data or {}).get("origin_channel") == "web":
             return
 
+        # Resolve params: RuleConfig > constructor arg > settings > module constant
+        from shopman.shop.rules.engine import get_rule_params
+        rc = get_rule_params("happy_hour")
+
+        discount_percent = rc.get("discount_percent", self._discount_percent)
+
+        if "start" in rc:
+            h, m = map(int, rc["start"].split(":"))
+            start = time(h, m)
+        elif self._start is not None:
+            start = self._start
+        else:
+            raw = getattr(settings, "SHOPMAN_HAPPY_HOUR_START", "17:30")
+            h, m = map(int, raw.split(":"))
+            start = time(h, m)
+
+        if "end" in rc:
+            h, m = map(int, rc["end"].split(":"))
+            end = time(h, m)
+        elif self._end is not None:
+            end = self._end
+        else:
+            raw = getattr(settings, "SHOPMAN_HAPPY_HOUR_END", "18:00")
+            h, m = map(int, raw.split(":"))
+            end = time(h, m)
+
         now = timezone.localtime().time()
-        if not (self.start <= now < self.end):
+        if not (start <= now < end):
             return
 
         items = session.items or []
@@ -144,18 +162,18 @@ class HappyHourModifier:
                 continue
 
             original_q = item.get("unit_price_q", 0)
-            discount_q = monetary_div(original_q * self.discount_percent, 100)
+            discount_q = monetary_div(original_q * discount_percent, 100)
             item["unit_price_q"] = original_q - discount_q
             item["line_total_q"] = item["unit_price_q"] * int(item.get("qty", 1))
             item.setdefault("modifiers_applied", []).append(
-                {"type": "happy_hour", "discount_percent": self.discount_percent}
+                {"type": "happy_hour", "discount_percent": discount_percent}
             )
             modified = True
 
         if modified:
             session.update_items(items)
             total_discount_q = sum(
-                monetary_div(item.get("unit_price_q", 0) * self.discount_percent, 100 - self.discount_percent)
+                monetary_div(item.get("unit_price_q", 0) * discount_percent, 100 - discount_percent)
                 * int(item.get("qty", 1))
                 for item in items
                 if any(m.get("type") == "happy_hour" for m in item.get("modifiers_applied", []))

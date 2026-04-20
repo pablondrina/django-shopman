@@ -17,6 +17,7 @@ class OperatorAlert(models.Model):
         ("marketplace_rejected_unavailable", "Marketplace rejeitado: indisponível"),
         ("marketplace_rejected_oos", "Marketplace rejeitado: sem estoque"),
         ("pos_rejected_unavailable", "POS rejeitado: produto indisponível"),
+        ("stale_new_order", "Pedido parado aguardando confirmação"),
     ]
     SEVERITY_CHOICES = [
         ("warning", "Aviso"),

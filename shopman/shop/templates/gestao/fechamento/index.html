@@ -1,0 +1,78 @@
+{% extends "gestao/base.html" %}
+{% block title %}Fechamento do Dia — {{ shop.name|default:"Loja" }}{% endblock %}
+{% block page_title %}Fechamento do Dia{% endblock %}
+{% block nav_active_fechamento %}active{% endblock %}
+
+{% block content %}
+<div class="p-4 space-y-6 max-w-3xl">
+
+  {% if existing_closing %}
+  <div class="card">
+    <p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60">{{ closing.existing_closing_display }}</p>
+  </div>
+  {% endif %}
+
+  {% if has_old_d1 %}
+  <div class="bg-warning/10 border border-warning/30 rounded-xl p-4">
+    <p class="text-sm font-medium text-warning">Atenção: há estoque D-1 com mais de 1 dia na posição "ontem".</p>
+  </div>
+  {% endif %}
+
+  {% if items %}
+  <form method="post">
+    {% csrf_token %}
+    <div class="card mb-4">
+      <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-4">Produtos com estoque vendável</h2>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm border-collapse">
+          <thead class="text-on-surface/60 dark:text-on-surface-dark/60 text-left">
+            <tr class="border-b border-outline dark:border-outline-dark">
+              <th class="py-2 pr-4 font-semibold">SKU</th>
+              <th class="py-2 pr-4 font-semibold">Produto</th>
+              <th class="py-2 pr-4 font-semibold">Disponível</th>
+              <th class="py-2 pr-4 font-semibold">Tipo</th>
+              <th class="py-2 pr-4 font-semibold">Não vendido</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
+            <tr class="border-b border-outline dark:border-outline-dark">
+              <td class="py-2 pr-4 font-mono text-xs">{{ item.sku }}</td>
+              <td class="py-2 pr-4">{{ item.name }}</td>
+              <td class="py-2 pr-4">{{ item.qty_available }}</td>
+              <td class="py-2 pr-4">
+                <span class="badge {{ item.badge_css }}">{{ item.badge_label }}</span>
+              </td>
+              <td class="py-2 pr-4">
+                {% if not existing_closing %}
+                <input type="number" name="qty_{{ item.sku }}" value="0" min="0" max="{{ item.qty_available }}" class="w-20 border border-outline dark:border-outline-dark rounded-lg px-2 py-1 text-sm bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark focus:outline-none focus:ring-1 focus:ring-primary/30 dark:focus:ring-primary-dark/30" />
+                {% else %}
+                <span class="text-on-surface/40 dark:text-on-surface-dark/40">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr class="border-t border-outline dark:border-outline-dark font-medium">
+              <td class="py-2 pr-4" colspan="2">Total</td>
+              <td class="py-2 pr-4">{{ closing.total_available }}</td>
+              <td colspan="2"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    {% if not existing_closing %}
+    <button type="submit" class="btn-primary">Executar fechamento</button>
+    {% endif %}
+  </form>
+  {% else %}
+  <div class="card">
+    <p class="text-sm text-on-surface/40 dark:text-on-surface-dark/40">Nenhum produto com estoque vendável para fechamento.</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

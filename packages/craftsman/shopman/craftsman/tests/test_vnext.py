@@ -21,7 +21,7 @@ from shopman.craftsman.models import (
 def recipe(db):
     """Simple recipe: 10 croissants."""
     return Recipe.objects.create(
-        code="croissant-v1",
+        ref="croissant-v1",
         name="Croissant Tradicional",
         output_ref="croissant",
         batch_size=Decimal("10"),
@@ -42,7 +42,7 @@ def recipe_with_items(recipe):
 def recipe_simple(db):
     """Minimal recipe without steps."""
     return Recipe.objects.create(
-        code="pao-simples",
+        ref="pao-simples",
         name="Pao Simples",
         output_ref="pao",
         batch_size=Decimal("1"),
@@ -53,7 +53,7 @@ def recipe_simple(db):
 def sub_recipe(db):
     """Sub-recipe for multilevel BOM: massa-base produces massa."""
     r = Recipe.objects.create(
-        code="massa-base",
+        ref="massa-base",
         name="Massa Base",
         output_ref="massa",
         batch_size=Decimal("5"),
@@ -788,7 +788,7 @@ class TestModels:
     def test_recipe_validation(self, db):
         with pytest.raises(Exception):
             Recipe.objects.create(
-                code="bad", name="Bad", output_ref="x", batch_size=Decimal("0"),
+                ref="bad", name="Bad", output_ref="x", batch_size=Decimal("0"),
             )
 
     def test_recipe_str(self, recipe):
@@ -1293,7 +1293,7 @@ class TestSuggest:
         assert friday.weekday() == 4
 
         recipe_fri = Recipe.objects.create(
-            code="croissant-fri", name="Croissant Fri", output_ref="croissant-fri",
+            ref="croissant-fri", name="Croissant Fri", output_ref="croissant-fri",
             batch_size=Decimal("10"),
         )
 
@@ -1460,7 +1460,7 @@ class TestAdjustValidations:
         # recipe_with_items uses: farinha, agua, fermento
         # We create a sub-recipe where "croissant" (output of recipe) is an ingredient
         intermediate = Recipe.objects.create(
-            code="pain-complet",
+            ref="pain-complet",
             name="Pain Complet",
             output_ref="pain-complet",
             batch_size=Decimal("10"),
@@ -1486,7 +1486,7 @@ class TestAdjustValidations:
     def test_adjust_downstream_deficit_forced(self, recipe, tomorrow):
         """force=True allows adjusting despite downstream deficit (with warning)."""
         intermediate = Recipe.objects.create(
-            code="pain-complet-force",
+            ref="pain-complet-force",
             name="Pain Complet Force",
             output_ref="pain-complet-force",
             batch_size=Decimal("10"),

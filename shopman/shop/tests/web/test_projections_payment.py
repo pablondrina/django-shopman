@@ -61,8 +61,7 @@ class TestPaymentProjectionPix:
 
     def test_card_fields_are_none_for_pix(self, order_with_payment):
         proj = build_payment(order_with_payment)
-        assert proj.stripe_client_secret is None
-        assert proj.stripe_publishable_key is None
+        assert proj.checkout_url is None
 
     def test_status_url_is_correct(self, order_with_payment):
         proj = build_payment(order_with_payment)
@@ -89,14 +88,13 @@ class TestPaymentProjectionCard:
             data={
                 "payment": {
                     "method": "card",
-                    "client_secret": "pi_test_secret_123",
-                    "status": "pending",
+                    "checkout_url": "https://checkout.stripe.com/c/pay/cs_test_xyz",
                 },
             },
         )
         proj = build_payment(order)
         assert proj.method == "card"
-        assert proj.stripe_client_secret == "pi_test_secret_123"
+        assert proj.checkout_url == "https://checkout.stripe.com/c/pay/cs_test_xyz"
         assert proj.pix_qr_code is None
         assert proj.pix_copy_paste is None
 

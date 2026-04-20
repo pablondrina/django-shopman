@@ -20,8 +20,12 @@ from shopman.stockman.models.quant import Quant
 
 logger = logging.getLogger('shopman.stockman')
 
-# Default TTL for holds after stock materializes (minutes)
-DEFAULT_MATERIALIZED_HOLD_TTL_MINUTES = 60
+# Default TTL for holds after stock materializes (minutes).
+#
+# Matches the normal cart-hold default: once a planned hold materializes
+# it behaves like any other ready-stock reservation. Client-side activity
+# (``bump_session_hold_expiry``) extends it normally from this point on.
+DEFAULT_MATERIALIZED_HOLD_TTL_MINUTES = 30
 
 
 class StockPlanning:
@@ -54,16 +58,16 @@ class StockPlanning:
 
     @classmethod
     def replan(cls, quantity, product, target_date,
-               reason, user=None):
+               reason, user=None, position=None, batch=''):
         """
         Adjust existing plan.
 
-        Finds Quant(sku, target_date) and adjusts quantity.
+        Finds Quant(sku, target_date, position, batch) and adjusts quantity.
         """
         from shopman.stockman.services.movements import StockMovements
         from shopman.stockman.services.queries import StockQueries
 
-        quant = StockQueries.get_quant(product.sku, target_date=target_date)
+        quant = StockQueries.get_quant(product.sku, target_date=target_date, position=position, batch=batch)
 
         if quant is None:
             raise StockError('QUANT_NOT_FOUND', product=str(product), target_date=target_date)

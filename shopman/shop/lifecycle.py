@@ -65,7 +65,14 @@ def has_availability_approval(order) -> bool:
 
 
 def ensure_confirmable(order) -> None:
-    """Enforce the operational precondition for moving an order into CONFIRMED."""
+    """Enforce the operational precondition for moving an order into CONFIRMED.
+
+    Note: this checks availability only. The payment guard is applied by the
+    operator-action view (``OrderConfirmView``) via :func:`ensure_payment_captured`.
+    Automatic confirmation paths (immediate/auto_confirm) rely on the channel's
+    ``confirmation.mode`` to govern timing and are intentionally decoupled from
+    payment capture.
+    """
     from shopman.orderman.exceptions import InvalidTransition
 
     if has_availability_approval(order):
@@ -78,6 +85,71 @@ def ensure_confirmable(order) -> None:
             "order_ref": order.ref,
             "status": order.status,
             "availability_decision": (order.data or {}).get("availability_decision"),
+        },
+    )
+
+
+# Payment methods que NÃO passam por captura de intent (Payman). Inclui:
+# - channel-level: counter, cash, external (enum canônico em ChannelConfig)
+# - order-level PT-BR (POS grava direto do POST): dinheiro, balcao, debito, credito
+# - ocasionais: credit, debit, money
+# Métodos como "pix"/"card" NÃO estão aqui — esses precisam de intent captured.
+_OFFLINE_PAYMENT_METHODS = {
+    "counter", "external",
+    "cash", "dinheiro", "money",
+    "balcao",
+    "debito", "credito", "credit", "debit",
+    "",
+}
+_ACCEPTED_PAYMENT_STATUSES = {"captured", "paid", "refunded"}
+
+
+def ensure_payment_captured(order) -> None:
+    """Raise InvalidTransition when an upfront Shopman payment intent is not captured.
+
+    Guard is skipped for channels whose ``payment.timing`` is ``external``
+    (marketplace, POS) — those payments are handled outside Shopman and the
+    order payload's ``payment.method`` string is not a Payman intent.
+    """
+    from shopman.orderman.exceptions import InvalidTransition
+
+    payment = (order.data or {}).get("payment") or {}
+    if not payment:
+        return
+
+    # External timing channels (iFood, POS) manage payment outside Shopman;
+    # the guard doesn't apply.
+    try:
+        config = ChannelConfig.for_channel(order.channel_ref)
+        if (config.payment or {}).get("timing") == "external":
+            return
+    except Exception:
+        pass
+
+    method = str(payment.get("method") or "").lower()
+    if method in _OFFLINE_PAYMENT_METHODS:
+        return
+
+    status = str(payment.get("status") or "").lower()
+    if status in _ACCEPTED_PAYMENT_STATUSES:
+        return
+
+    intent_ref = payment.get("intent_ref")
+    if intent_ref:
+        from shopman.shop.services.payment import get_payment_status
+        live_status = (get_payment_status(order) or "").lower()
+        if live_status in _ACCEPTED_PAYMENT_STATUSES:
+            return
+
+    raise InvalidTransition(
+        code="payment_not_captured",
+        message="Pagamento ainda não foi confirmado. Aguarde a captura antes de confirmar o pedido.",
+        context={
+            "order_ref": order.ref,
+            "status": order.status,
+            "payment_method": method,
+            "payment_status": status or None,
+            "intent_ref": intent_ref,
         },
     )
 
@@ -146,6 +218,13 @@ def _on_commit(order, config: ChannelConfig) -> None:
         payment.initiate(order)
     if config.fulfillment.timing == "at_commit":
         fulfillment.create(order)
+
+    # Fire "order_received" for non-immediate modes: o cliente fica esperando
+    # (auto_confirm 5min, manual indefinido) — sem esse aviso, silêncio total.
+    # Em `immediate`, o _on_confirmed dispara `order_confirmed` logo em seguida,
+    # então duplicar aqui seria ruído.
+    if config.confirmation.mode != "immediate":
+        notification.send(order, "order_received")
 
     _handle_confirmation(order, config)
 
@@ -280,7 +359,18 @@ def _handle_confirmation(order, config: ChannelConfig) -> None:
         )
         return
 
-    # manual: wait for operator — no action
+    # manual: aguarda operador, mas agenda alerta de "stale" se configurado.
+    stale_minutes = getattr(config.confirmation, "stale_new_alert_minutes", 0)
+    if stale_minutes and stale_minutes > 0:
+        alert_at = timezone.now() + timedelta(minutes=stale_minutes)
+        Directive.objects.create(
+            topic="order.stale_new_alert",
+            payload={
+                "order_ref": order.ref,
+                "alert_at": alert_at.isoformat(),
+            },
+            available_at=alert_at,
+        )
 
 
 def _check_availability(order, config: ChannelConfig) -> bool:

@@ -120,12 +120,12 @@ class AccessLink(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="shopman_auth_access_links",
+        related_name="doorman_access_links",
         verbose_name=_("usuário"),
     )
 
     class Meta:
-        db_table = "shopman_auth_access_link"
+        db_table = "doorman_access_link"
         verbose_name = _("link de acesso")
         verbose_name_plural = _("links de acesso")
         ordering = ["-created_at"]

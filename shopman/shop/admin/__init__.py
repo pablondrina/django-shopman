@@ -5,6 +5,7 @@ from shopman.shop.admin.cash_register import CashRegisterSessionAdmin  # noqa: F
 from shopman.shop.admin.channel import ChannelAdmin  # noqa: F401
 from shopman.shop.admin.closing import DayClosingAdmin  # noqa: F401
 from shopman.shop.admin.kds import KDSInstanceAdmin  # noqa: F401
+from shopman.shop.admin.omotenashi import OmotenashiCopyAdmin  # noqa: F401
 from shopman.shop.admin.orders import (  # noqa: F401
     ExpiryStatusFilter,
     FulfillmentOrderInline,

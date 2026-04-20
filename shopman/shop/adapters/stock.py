@@ -77,10 +77,16 @@ def create_hold(
     target_date: date | None = None,
     reference: str | None = None,
     planned_hold_ttl_hours: int = 48,
+    channel_ref: str | None = None,
     **metadata,
 ) -> dict:
     """
     Create a stock hold for a SKU.
+
+    When ``channel_ref`` is provided, the channel's stock scope
+    (``allowed_positions`` / ``excluded_positions`` from ``ChannelConfig.stock``)
+    is resolved and passed through to the Stockman hold so eligibility matches
+    the availability read.
 
     Returns:
         {"success": bool, "hold_id": str | None, "error_code": str | None,
@@ -107,12 +113,18 @@ def create_hold(
     if reference:
         hold_kwargs["reference"] = reference
 
+    scope = get_channel_scope(channel_ref) if channel_ref else {}
+    allowed_positions = scope.get("allowed_positions")
+    excluded_positions = scope.get("excluded_positions")
+
     try:
         hold_id = stock.hold(
             qty,
             product,
             target_date=target_date or date.today(),
             expires_at=expires_at,
+            allowed_positions=allowed_positions,
+            excluded_positions=excluded_positions,
             **hold_kwargs,
         )
 
@@ -121,11 +133,27 @@ def create_hold(
         pk = int(hold_id.split(":")[1])
         hold = Hold.objects.get(pk=pk)
 
+        # Planned holds (AVAILABILITY-PLAN §8): holds on planned quants and
+        # demand-only holds (quant=None) are INDEFINITE. The TTL starts
+        # running only at materialization (``planning.realize()`` fills in
+        # ``expires_at`` when the planned stock is produced). The old 48h
+        # TTL on planned holds meant customers could silently lose their
+        # reservation before production caught up — unacceptable.
+        #
+        # ``metadata.planned`` is the durable marker used by the cart
+        # projection to classify the line as "Aguardando confirmação" or
+        # "Tudo pronto! Confirme": once materialize() runs, the hold keeps
+        # the flag AND gets a TTL, which is how the UI distinguishes a
+        # post-materialization hold from a vanilla 30-min cart hold.
         is_planned = False
-        if hold.quant and hold.quant.target_date is not None:
-            is_planned = True
-            hold.expires_at = timezone.now() + timedelta(hours=planned_hold_ttl_hours)
-            hold.save(update_fields=["expires_at"])
+        is_indefinite = hold.quant is None or (
+            hold.quant is not None and hold.quant.target_date is not None
+        )
+        if is_indefinite:
+            is_planned = hold.quant is not None and hold.quant.target_date is not None
+            hold.expires_at = None
+            hold.metadata = {**(hold.metadata or {}), "planned": True}
+            hold.save(update_fields=["expires_at", "metadata"])
 
         return {
             "success": True,
@@ -287,12 +315,13 @@ def get_availability(
     target_date: date | None = None,
     safety_margin: int = 0,
     allowed_positions: list[str] | None = None,
+    excluded_positions: list[str] | None = None,
 ) -> dict:
     """Return availability info for a SKU.
 
     Delegates to Stockman's availability_for_sku(). Returns a dict with
     keys: sku, total_available, total_promisable, total_reserved,
-    breakdown, is_planned, is_paused, positions.
+    breakdown, is_planned, is_paused, is_tracked, positions.
     """
     from shopman.stockman.services.availability import availability_for_sku
 
@@ -301,17 +330,37 @@ def get_availability(
         target_date=target_date,
         safety_margin=safety_margin,
         allowed_positions=allowed_positions,
+        excluded_positions=excluded_positions,
     )
 
 
 def get_channel_scope(channel_ref: str | None) -> dict:
-    """Return stock scope for a channel: safety_margin + allowed_positions.
+    """Return stock scope for a channel.
 
-    Used by availability.check() to narrow stock visibility per channel.
+    Keys: ``safety_margin`` (int), ``allowed_positions`` (list[str] | None),
+    ``excluded_positions`` (list[str] | None).
+
+    The scope is resolved from ``ChannelConfig.stock`` (cascade: defaults →
+    Shop.defaults → Channel.config). When no ``channel_ref`` is given the
+    Stockman stub is returned so non-channel-scoped callers keep working.
     """
-    from shopman.stockman.services.availability import availability_scope_for_channel
+    if not channel_ref:
+        from shopman.stockman.services.availability import (
+            availability_scope_for_channel,
+        )
 
-    return availability_scope_for_channel(channel_ref)
+        base = availability_scope_for_channel(channel_ref)
+        base.setdefault("excluded_positions", None)
+        return base
+
+    from shopman.shop.config import ChannelConfig
+
+    cfg = ChannelConfig.for_channel(channel_ref)
+    return {
+        "safety_margin": cfg.stock.safety_margin,
+        "allowed_positions": cfg.stock.allowed_positions,
+        "excluded_positions": cfg.stock.excluded_positions,
+    }
 
 
 def get_promise_decision(
@@ -321,6 +370,7 @@ def get_promise_decision(
     target_date: date | None = None,
     safety_margin: int = 0,
     allowed_positions: list[str] | None = None,
+    excluded_positions: list[str] | None = None,
 ):
     """Return Stockman's explicit operational promise decision for a SKU."""
     from shopman.stockman.services.availability import promise_decision_for_sku
@@ -331,4 +381,5 @@ def get_promise_decision(
         target_date=target_date,
         safety_margin=safety_margin,
         allowed_positions=allowed_positions,
+        excluded_positions=excluded_positions,
     )

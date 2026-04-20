@@ -2,6 +2,21 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 
+class PaymentTransactionQuerySet(models.QuerySet):
+    """Guards against bulk updates that bypass the immutability contract."""
+
+    def update(self, **kwargs):
+        raise ValueError(
+            "Transações são imutáveis. "
+            "Use PaymentService para criar novas transações em vez de atualizar existentes."
+        )
+
+
+class PaymentTransactionManager(models.Manager):
+    def get_queryset(self):
+        return PaymentTransactionQuerySet(self.model, using=self._db)
+
+
 class PaymentTransaction(models.Model):
     """
     Movimentação financeira vinculada a um PaymentIntent.
@@ -15,6 +30,8 @@ class PaymentTransaction(models.Model):
         CAPTURE = "capture", _("Captura")
         REFUND = "refund", _("Reembolso")
         CHARGEBACK = "chargeback", _("Chargeback")
+
+    objects = PaymentTransactionManager()
 
     intent = models.ForeignKey(
         "payman.PaymentIntent",

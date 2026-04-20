@@ -24,7 +24,7 @@ class MergeAdminMixin:
             path(
                 "merge/",
                 self.admin_site.admin_view(self.merge_view),
-                name="customers_customer_merge",
+                name="guestman_customer_merge",
             ),
         ]
         return custom + urls
@@ -100,7 +100,7 @@ class MergeAdminMixin:
         }
         return TemplateResponse(
             request,
-            "admin/customers/customer/merge_confirm.html",
+            "admin/attending/customer/merge_confirm.html",
             context,
         )
 

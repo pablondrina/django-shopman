@@ -1,6 +1,6 @@
 # ROADMAP — Django Shopman
 
-> Atualizado em 2026-04-15.
+> Atualizado em 2026-04-16.
 
 ---
 
@@ -71,6 +71,14 @@ Entregue como parte da Fase 1 do PROJECTION-UI-PLAN (item 4). Stepper inline `�
    ↓
 5. (paralelo, a qualquer momento) STOREFRONT-ADDTOCART-UX — pequeno, isolado
 ```
+
+### 6. Backoffice UI — Penguin UI Refactor (Omotenashi-First)
+
+Ver [`docs/plans/BACKOFFICE-UI-PLAN.md`](plans/BACKOFFICE-UI-PLAN.md).
+
+Unificar telas operador (Pedidos, KDS, POS, Produção, Fechamento) sob Penguin UI com tema Industrial. Dark-first, sidebar compartilhado, navegação entre áreas.
+
+**Status:** WP-1 (Shell + CSS Foundation) pronto para iniciar. Plano completo com 6 Work Packages (WP-1 a WP-6).
 
 ---
 
@@ -238,3 +246,7 @@ quando a área correspondente for retomada.
 | Push notifications | PWA stubs prontos, falta backend |
 | Passkeys / WebAuthn | Auth device-bound (quando perfil de risco justificar) |
 | Promotions → core app | Promotion/Coupon hoje em `shop/models.py` (funciona bem no app layer) |
+| Favoritos como coleção dinâmica | `FavoritesResolver` + M2M `Customer.favorites_skus`. Pill "Favoritos" visível só se `request.customer` + tem favoritos. (Anotado durante WP-MENU-V2 em 2026-04-17 por Pablo). |
+| Busca server-side do cardápio (WP-SEO-5) | Substituir filter client-side por endpoint `/api/menu/search?q=` usando `_score_candidates` (keywords + coleção + fuzzy via `difflib.SequenceMatcher`). HTMX com debounce 200ms. Entregue como client-side provisional em 2026-04-17. |
+| Admin UX pra coleções dinâmicas | `Shop.defaults.menu.dynamic_collections` hoje é JSON manual no admin. Criar form dedicado com checkbox por resolver registrado (auto-discovery via `dynamic_collections.all_refs()`) + reordenação drag-and-drop. |
+| Cards/itens do menu — revisão visual | Pablo sinalizou que "os itens do menu merecem atenção" ao aprovar o layout sticky pills + busca. Revisar grid + card (proporção, typography, badge de availability, unit_weight_label próximo ao preço) como polish pass. |

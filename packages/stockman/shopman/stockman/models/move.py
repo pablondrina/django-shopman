@@ -10,6 +10,16 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 
+class MoveQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        if 'delta' in kwargs:
+            raise ValueError(
+                "Move.delta é imutável — não é permitido alterar delta em lote. "
+                "Para corrigir, crie um novo Move com delta inverso."
+            )
+        return super().update(**kwargs)
+
+
 class Move(models.Model):
     """
     Immutable record of quantity change.
@@ -55,6 +65,8 @@ class Move(models.Model):
         verbose_name=_('Usuário'),
     )
 
+    objects = MoveQuerySet.as_manager()
+
     class Meta:
         verbose_name = _('Movimento')
         verbose_name_plural = _('Movimentos')
@@ -84,10 +96,13 @@ class Move(models.Model):
             # Import here to avoid circular import
             from shopman.stockman.models.quant import Quant
 
-            # Update Quant cache using F() for atomicity
+            # Update Quant cache using F() for atomicity.
+            # _allow_quantity_update=True: this is the ONE legitimate bypass of
+            # the QuantQuerySet guard — Move is the source-of-truth writer.
             Quant.objects.filter(pk=self.quant_id).update(
                 _quantity=F('_quantity') + self.delta,
-                updated_at=timezone.now()
+                updated_at=timezone.now(),
+                _allow_quantity_update=True,
             )
 
             # Verify non-negative invariant (catch before DB constraint)

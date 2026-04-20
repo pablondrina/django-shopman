@@ -5,31 +5,19 @@ import logging
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
-from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
 from shopman.offerman.models import Collection, Product
-from shopman.offerman.service import CatalogService
-from shopman.utils.monetary import format_money
 
-from shopman.shop.projections.icons import collection_icon
 from shopman.shop.services.storefront_context import (
-    happy_hour_state,
+    fresh_from_oven_skus,
     popular_skus,
-    session_pricing_hints,
 )
 
 from ._helpers import (
-    _allergen_info,
     _annotate_products,
-    _availability_badge,
-    _cross_sell_products,
-    _get_availability,
     _get_channel_listing_ref,
-    _get_price_q,
-    _hero_data,
-    _to_storefront_avail,
 )
 
 logger = logging.getLogger(__name__)
@@ -47,6 +35,44 @@ def _published_products(listing_ref: str | None) -> QuerySet:
     return qs
 
 
+def _build_search_index(catalog) -> list[dict]:
+    """Índice leve pra busca client-side no overlay do menu.
+
+    Um registro por item de seção, dedupado por sku (o mesmo item pode aparecer
+    em uma dinâmica + sua coleção estática). Inclui keywords pra melhor ranking.
+    """
+    seen: set[str] = set()
+    records: list[dict] = []
+    keywords_by_sku: dict[str, list[str]] = {}
+
+    try:
+        skus_all = [item.sku for sec in catalog.sections for item in sec.items]
+        if skus_all:
+            prods = Product.objects.filter(sku__in=skus_all).prefetch_related("keywords")
+            for p in prods:
+                try:
+                    keywords_by_sku[p.sku] = [str(t.name) for t in p.keywords.all()]
+                except Exception:
+                    keywords_by_sku[p.sku] = []
+    except Exception:
+        keywords_by_sku = {}
+
+    for section in catalog.sections:
+        for item in section.items:
+            if item.sku in seen:
+                continue
+            seen.add(item.sku)
+            records.append({
+                "sku": item.sku,
+                "name": item.name,
+                "price": item.price_display,
+                "image": item.image_url or "",
+                "section": section.label,
+                "keywords": keywords_by_sku.get(item.sku, []),
+            })
+    return records
+
+
 @method_decorator(ensure_csrf_cookie, name="dispatch")
 class MenuView(View):
     """List products grouped by collection."""
@@ -54,338 +80,85 @@ class MenuView(View):
     def get(self, request: HttpRequest, collection: str | None = None) -> HttpResponse:
         listing_ref = _get_channel_listing_ref()
 
-        # HTMX partial: availability preview for home page featured section
         if request.GET.get("partial") == "availability_preview":
             return self._availability_preview(request, listing_ref)
 
-        # v2 is default. ?v1 opts back into the legacy template.
-        if request.GET.get("v1") is None:
-            from shopman.shop.projections import build_catalog
-            from shopman.shop.web.constants import STOREFRONT_CHANNEL_REF
+        from shopman.shop.projections import build_catalog
+        from shopman.shop.web.constants import STOREFRONT_CHANNEL_REF
 
-            if collection is not None:
-                get_object_or_404(Collection, ref=collection, is_active=True)
-            catalog = build_catalog(
-                channel_ref=STOREFRONT_CHANNEL_REF,
-                collection_ref=collection,
-                request=request,
-            )
-            reorder_skipped = request.session.pop("reorder_skipped", None)
-            return render(request, "storefront/v2/menu.html", {
-                "catalog": catalog,
-                "reorder_skipped": reorder_skipped,
-            })
-
-        collections = Collection.objects.filter(is_active=True).order_by("sort_order", "name")
-        active_collection = None
-
-        # Popular SKUs for badge annotation
-        popular = popular_skus(limit=5)
-
-        if collection:
-            active_collection = get_object_or_404(Collection, ref=collection, is_active=True)
-            products = (
-                _published_products(listing_ref)
-                .filter(collection_items__collection=active_collection)
-                .order_by("collection_items__sort_order", "name")
-                .distinct()
-            )
-            sections = [{"collection": active_collection, "products": _annotate_products(list(products), listing_ref=listing_ref, popular_skus=popular, request=request)}]
-        else:
-            sections = []
-            for col in collections:
-                products = (
-                    _published_products(listing_ref)
-                    .filter(collection_items__collection=col)
-                    .order_by("collection_items__sort_order", "name")
-                    .distinct()
-                )
-                if products.exists():
-                    sections.append({"collection": col, "products": _annotate_products(list(products), listing_ref=listing_ref, popular_skus=popular, request=request)})
-
-            # Products not in any collection
-            uncategorized = (
-                _published_products(listing_ref)
-                .exclude(collection_items__isnull=False)
-                .order_by("name")
-                .distinct()
-            )
-            if uncategorized.exists():
-                sections.append({
-                    "collection": None,
-                    "products": _annotate_products(list(uncategorized), listing_ref=listing_ref, popular_skus=popular, request=request),
-                })
-
-        # Active promotions
-        promotions = self._get_active_promotions()
-
-        # Hero section data (only on main menu, not collection-filtered)
-        hero = _hero_data(listing_ref=listing_ref, request=request) if not collection else None
-
-        # Ícones Material Symbols por coleção (ref → ligature name)
-        collection_icons = {col.ref: collection_icon(col.ref) for col in collections}
-
-        happy_hour_info = happy_hour_state()
-
-        # Reorder feedback: items skipped due to unavailability
+        if collection is not None:
+            get_object_or_404(Collection, ref=collection, is_active=True)
+        catalog = build_catalog(
+            channel_ref=STOREFRONT_CHANNEL_REF,
+            collection_ref=collection,
+            request=request,
+        )
         reorder_skipped = request.session.pop("reorder_skipped", None)
-
         return render(request, "storefront/menu.html", {
-            "sections": sections,
-            "collections": collections,
-            "active_collection": active_collection,
-            "promotions": promotions,
-            "hero": hero,
-            "collection_icons": collection_icons,
-            "happy_hour_info": happy_hour_info,
+            "catalog": catalog,
             "reorder_skipped": reorder_skipped,
+            "catalog_search_index_json": _build_search_index(catalog),
         })
 
     def _availability_preview(self, request: HttpRequest, listing_ref: str | None) -> HttpResponse:
-        """HTMX partial for home: produtos com disponibilidade + preço/promo (mesmo annotate do cardápio)."""
-        popular = popular_skus(limit=6)
-        qs = _published_products(listing_ref)
-        if popular:
-            products = list(qs.filter(sku__in=popular).distinct()[:6])
+        """HTMX partial for home: produtos com disponibilidade + preço/promo.
+
+        Prioritises "fresh from the oven" (recent production moves) and falls
+        back to popular SKUs when nothing was produced in the last hour.
+        """
+        fresh = fresh_from_oven_skus(limit=6)
+        freshness_map: dict[str, str] = {}
+
+        if fresh:
+            fresh_skus = [f["sku"] for f in fresh]
+            freshness_map = {f["sku"]: f["freshness_label"] for f in fresh}
+            qs = _published_products(listing_ref)
+            products_by_sku = {p.sku: p for p in qs.filter(sku__in=fresh_skus)}
+            products = [products_by_sku[s] for s in fresh_skus if s in products_by_sku]
         else:
-            products = list(qs.order_by("name")[:6])
-        items = _annotate_products(products, listing_ref=listing_ref, popular_skus=popular, request=request)
-        return render(request, "storefront/partials/availability_preview.html", {"items": items})
+            products = []
 
-    @staticmethod
-    def _get_active_promotions() -> list[dict]:
-        """Fetch active promotions for display in the catalog."""
-        try:
-            from shopman.shop.models import Promotion
-
-            now = timezone.now()
-            promos = Promotion.objects.filter(
-                is_active=True,
-                valid_from__lte=now,
-                valid_until__gte=now,
-            ).order_by("-valid_from")[:5]
-            result = []
-            for p in promos:
-                if p.type == "percent":
-                    discount_label = f"{p.value}% OFF"
-                else:
-                    discount_label = f"R$ {format_money(p.value)} OFF"
-                result.append({
-                    "name": p.name,
-                    "discount_label": discount_label,
-                    "type": p.type,
-                    "value": p.value,
-                })
-            return result
-        except Exception as e:
-            logger.warning("active_promotions_failed: %s", e, exc_info=True)
-            return []
-
-
-class MenuSearchView(View):
-    """HTMX partial: search products by name.
-
-    Uses TrigramSimilarity on PostgreSQL for fuzzy matching (tolerates typos).
-    Falls back to icontains on SQLite for local dev.
-    """
-
-    def get(self, request: HttpRequest) -> HttpResponse:
-        q = request.GET.get("q", "").strip()
-        if len(q) < 2:
-            if q:
-                return render(request, "storefront/partials/search_results.html", {
-                    "items": [],
-                    "query": q,
-                    "hint": True,
-                })
-            return HttpResponse("")
-
-        listing_ref = _get_channel_listing_ref()
-        products = self._search(q, listing_ref)
-
-        items = _annotate_products(list(products), listing_ref=listing_ref, request=request)
-
-        # If fuzzy returns nothing, show popular products as fallback
-        popular_fallback = []
-        if not items:
-            popular = popular_skus(limit=4)
+        if not products:
+            popular = popular_skus(limit=6)
+            qs = _published_products(listing_ref)
             if popular:
-                fallback_qs = _published_products(listing_ref).filter(sku__in=popular).distinct()[:4]
-                popular_fallback = _annotate_products(list(fallback_qs), listing_ref=listing_ref, request=request)
+                products = list(qs.filter(sku__in=popular).distinct()[:6])
+            else:
+                products = list(qs.order_by("name")[:6])
 
-        return render(request, "storefront/partials/search_results.html", {
-            "items": items,
-            "query": q,
-            "popular_fallback": popular_fallback,
-        })
+        items = _annotate_products(
+            products, listing_ref=listing_ref,
+            popular_skus=popular_skus(limit=6) if not fresh else set(),
+            request=request,
+        )
 
-    @staticmethod
-    def _search(q: str, listing_ref: str | None) -> QuerySet:
-        """Search with TrigramSimilarity (PostgreSQL) or icontains fallback (SQLite)."""
-        from django.db import connection
+        for item in items:
+            item["freshness_label"] = freshness_map.get(item["product"].sku, "")
 
-        base = _published_products(listing_ref)
-
-        if connection.vendor == "postgresql":
-            try:
-                from django.contrib.postgres.search import TrigramSimilarity
-
-                return (
-                    base.annotate(
-                        similarity=TrigramSimilarity("name", q),
-                    )
-                    .filter(similarity__gt=0.1)
-                    .order_by("-similarity")
-                    .distinct()[:20]
-                )
-            except ImportError:
-                pass
-
-        # SQLite fallback: simple icontains
-        return base.filter(name__icontains=q).order_by("name").distinct()[:20]
-
-
-def _load_alternatives(sku: str, listing_ref: str | None, request: HttpRequest | None = None) -> list[dict]:
-    """Load alternative products. Delegates to the centralized alternatives service."""
-    from shopman.shop.services.alternatives import find as _find_alternatives
-
-    return _find_alternatives(sku, limit=4)
-
-
-
-class CartAlternativesView(View):
-    """HTMX partial: alternatives for an out-of-stock cart item."""
-
-    def get(self, request: HttpRequest, sku: str) -> HttpResponse:
-        listing_ref = _get_channel_listing_ref()
-        alternatives = _load_alternatives(sku, listing_ref, request=request)
-        return render(request, "storefront/partials/cart_alternatives.html", {
-            "sku": sku,
-            "alternatives": alternatives,
-        })
+        return render(
+            request,
+            "storefront/partials/availability_preview.html",
+            {"items": items, "has_fresh": bool(freshness_map)},
+        )
 
 
 class ProductDetailView(View):
     """Product detail page."""
 
     def get(self, request: HttpRequest, sku: str) -> HttpResponse:
-        # v2 is default. ?v1 opts back into the legacy template.
-        if request.GET.get("v1") is None:
-            from django.http import Http404
+        from django.http import Http404
 
-            from shopman.shop.projections import build_product_detail
-            from shopman.shop.web.constants import STOREFRONT_CHANNEL_REF
+        from shopman.shop.projections import build_product_detail
+        from shopman.shop.web.constants import STOREFRONT_CHANNEL_REF
 
-            projection = build_product_detail(
-                sku=sku,
-                channel_ref=STOREFRONT_CHANNEL_REF,
-                request=request,
-            )
-            if projection is None:
-                raise Http404("Product not found")
-            return render(
-                request,
-                "storefront/v2/product_detail.html",
-                {"product": projection},
-            )
-
-        product = get_object_or_404(Product, sku=sku, is_published=True)
-        listing_ref = _get_channel_listing_ref()
-        base_price_q = _get_price_q(product, listing_ref=listing_ref)
-        avail_raw = _get_availability(product.sku)
-        avail = _to_storefront_avail(avail_raw, product)
-        badge = _availability_badge(avail, product)
-        ft_hint, sub_hint = session_pricing_hints(request)
-        try:
-            from shopman.offerman.models import CollectionItem
-
-            cols = list(
-                CollectionItem.objects.filter(product=product).values_list(
-                    "collection__ref", flat=True,
-                ),
-            )
-        except Exception:
-            logger.exception("product_collections_failed sku=%s", product.sku)
-            cols = []
-
-        price = CatalogService.get_price(
-            product.sku,
-            qty=1,
-            listing=listing_ref,
-            context={
-                "sku_collections": cols,
-                "session_total_q": sub_hint,
-                "fulfillment_type": ft_hint,
-            },
-            list_unit_price_q=base_price_q,
+        projection = build_product_detail(
+            sku=sku,
+            channel_ref=STOREFRONT_CHANNEL_REF,
+            request=request,
         )
-        price_q = price.final_unit_price_q
-        promo_badge = None
-        has_promo_price = False
-        promo_price_display = None
-        promo_original_price_display = None
-        if price.adjustments and price.final_unit_price_q < price.list_unit_price_q:
-            adj = price.adjustments[0]
-            has_promo_price = True
-            promo_price_display = f"R$ {format_money(price.final_unit_price_q)}"
-            promo_original_price_display = f"R$ {format_money(price.list_unit_price_q)}"
-            promo_badge = {
-                "name": adj.metadata.get("promotion_name", adj.label),
-                "label": adj.metadata.get("badge_label", adj.label),
-            }
-
-        # Bundle: expand components for display
-        components = []
-        if product.is_bundle:
-            try:
-                components = CatalogService.expand(product.sku)
-            except Exception:
-                logger.exception("bundle_expand_failed sku=%s", product.sku)
-
-        # Alternatives when unavailable
-        alternatives = []
-        if not badge["can_add_to_cart"]:
-            alternatives = _load_alternatives(product.sku, listing_ref, request=request)
-
-        # Cross-sell ("Compre junto")
-        cross_sell = []
-        if badge["can_add_to_cart"]:
-            cross_sell = _cross_sell_products(product.sku, listing_ref=listing_ref, request=request)
-
-        # Allergen / dietary info
-        allergen = _allergen_info(product)
-
-        # Breadcrumb: find first collection for this product
-        breadcrumb_collection = None
-        try:
-            from shopman.offerman.models import CollectionItem
-
-            ci = CollectionItem.objects.filter(product=product).select_related("collection").first()
-            if ci and ci.collection.is_active:
-                breadcrumb_collection = ci.collection
-        except Exception:
-            logger.exception("breadcrumb_collection_failed sku=%s", product.sku)
-
-        # Available quantity for JS notice
-        available_qty = int(avail["available_qty"]) if avail and avail.get("available_qty") is not None else None
-
-        return render(request, "storefront/product_detail.html", {
-            "product": product,
-            "price_q": price_q,
-            "price_display": f"R$ {format_money(price_q)}" if price_q else None,
-            "badge": badge,
-            "availability": avail,
-            "promo_badge": promo_badge,
-            "has_promo_price": has_promo_price,
-            "promo_price_display": promo_price_display,
-            "promo_original_price_display": promo_original_price_display,
-            "components": components,
-            "alternatives": alternatives,
-            "cross_sell": cross_sell,
-            "allergen": allergen,
-            "breadcrumb_collection": breadcrumb_collection,
-            "available_qty": available_qty,
-        })
+        if projection is None:
+            raise Http404("Product not found")
+        return render(request, "storefront/product_detail.html", {"product": projection})
 
 
 class TipsView(View):

@@ -61,6 +61,10 @@ if DEBUG:
 SHOPMAN_INSTANCE_APPS = _csv_env_list("SHOPMAN_INSTANCE_APPS")
 
 INSTALLED_APPS = [
+    # Daphne — replaces runserver with ASGI handler so django-eventstream's
+    # SSE views can stream without monopolizing a worker. MUST be at the top
+    # so its `runserver` overrides the staticfiles one.
+    "daphne",
     # Unfold admin theme (MUST be before django.contrib.admin)
     "unfold",
     "unfold.contrib.filters",
@@ -80,7 +84,10 @@ INSTALLED_APPS = [
     "import_export",
     "unfold.contrib.import_export",
     "django_ratelimit",
+    "django_eventstream",
+    "simple_history",
     # Shopman core apps
+    "shopman.refs",
     "shopman.utils",
     "shopman.offerman",
     "shopman.stockman",
@@ -90,6 +97,7 @@ INSTALLED_APPS = [
     "shopman.guestman",
     "shopman.doorman",
     # Shopman core Unfold contribs
+    "shopman.refs.contrib.admin_unfold",
     "shopman.offerman.contrib.admin_unfold",
     "shopman.stockman.contrib.admin_unfold",
     "shopman.craftsman.contrib.admin_unfold",
@@ -100,6 +108,7 @@ INSTALLED_APPS = [
     "shopman.guestman.contrib.loyalty",
     "shopman.guestman.contrib.preferences",
     "shopman.guestman.contrib.timeline",
+    "shopman.guestman.contrib.merge",
     "shopman.guestman.contrib.admin_unfold",
     "shopman.doorman.contrib.admin_unfold",
     # Shopman orchestrator
@@ -116,10 +125,13 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "shopman.doorman.middleware.AuthCustomerMiddleware",
+    "simple_history.middleware.HistoryRequestMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "shopman.shop.middleware.ChannelParamMiddleware",
     "shopman.shop.middleware.OnboardingMiddleware",
+    "shopman.shop.middleware.APIVersionHeaderMiddleware",
+    "shopman.shop.middleware.WelcomeGateMiddleware",
 ]
 
 AUTHENTICATION_BACKENDS = [
@@ -153,19 +165,39 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "shopman.shop.context_processors.shop",
+                "shopman.shop.context_processors.omotenashi",
                 "shopman.shop.context_processors.cart_count",
             ],
         },
     },
 ]
 
-# ⚠️ PRODUÇÃO: Usar PostgreSQL. SQLite não suporta concorrência.
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": os.path.join(BASE_DIR, "db.sqlite3"),
+# Database — Postgres quando DATABASE_URL estiver setado; SQLite como fallback leve.
+# Postgres é o default documentado (`make up` + docker-compose) para exercitar
+# select_for_update() e os testes de concorrência do Stockman.
+import urllib.parse as _urlparse
+
+_DB_URL = os.environ.get("DATABASE_URL", "").strip()
+if _DB_URL:
+    _parsed = _urlparse.urlparse(_DB_URL)
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": _parsed.path.lstrip("/"),
+            "USER": _parsed.username or "",
+            "PASSWORD": _parsed.password or "",
+            "HOST": _parsed.hostname or "",
+            "PORT": _parsed.port or 5432,
+            "CONN_MAX_AGE": 60,
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": os.path.join(BASE_DIR, "db.sqlite3"),
+        }
+    }
 
 # Cache: django-ratelimit exige backend compartilhado (Redis/Memcached), não LocMem.
 # Dev sem Redis: LocMem + checks silenciados (rate limit só no processo atual).
@@ -235,6 +267,15 @@ SHOPMAN_WHATSAPP = {
 SHOPMAN_IFOOD = {
     "webhook_token": os.environ.get("IFOOD_WEBHOOK_TOKEN", ""),
     "merchant_id": os.environ.get("IFOOD_MERCHANT_ID", ""),
+    "catalog_api_token": os.environ.get("IFOOD_CATALOG_API_TOKEN", ""),
+    "catalog_api_base": os.environ.get("IFOOD_CATALOG_API_BASE", "https://merchant-api.ifood.com.br"),
+}
+
+# Catalog projection adapters — enable by uncommenting the desired backend.
+# Missing key → handler not registered (silent skip).
+# Present but broken path → raises at boot (configured-but-wrong).
+SHOPMAN_CATALOG_PROJECTION_ADAPTERS: dict = {
+    # "ifood": "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection",
 }
 
 # ── OTP Delivery Chain (depends on MANYCHAT_API_TOKEN above) ──────
@@ -568,6 +609,9 @@ SHOPMAN_STRIPE = {
     "secret_key": STRIPE_SECRET_KEY,
     "webhook_secret": os.environ.get("STRIPE_WEBHOOK_SECRET", ""),
     "capture_method": os.environ.get("STRIPE_CAPTURE_METHOD", "manual"),
+    # Public origin used to build absolute success_url / cancel_url passed to
+    # Stripe Checkout. Must include scheme (http://localhost:8000 in dev).
+    "domain": os.environ.get("SHOPMAN_DOMAIN", "http://localhost:8000"),
 }
 
 SHOPMAN_EFI = {
@@ -595,6 +639,15 @@ SHOPMAN_EFI_WEBHOOK = {
     "mtls_header": os.environ.get("EFI_MTLS_HEADER", "HTTP_X_SSL_CLIENT_VERIFY"),
 }
 
+# ── Server-Sent Events (django-eventstream) ──────────────────────────
+# Persistence backend for SSE events. The ORM backend is sufficient for a
+# single-process deployment (daphne running standalone). When scaling out to
+# multiple workers, additionally set ``EVENTSTREAM_REDIS = {"host": ..., ...}``
+# so ``send_event`` from any worker reaches every active SSE listener.
+EVENTSTREAM_STORAGE_CLASS = "django_eventstream.storage.DjangoModelStorage"
+
+ASGI_APPLICATION = "config.asgi.application"
+
 # ── Storefront channel ────────────────────────────────────────────────
 # Ref of the Channel that powers the web storefront. Override in instance settings
 # if this instance uses a different ref (e.g. "site", "loja").
@@ -620,6 +673,16 @@ SHOPMAN_HAPPY_HOUR_DISCOUNT_PERCENT = int(
 SHOPMAN_EMPLOYEE_DISCOUNT_PERCENT = int(
     os.environ.get("SHOPMAN_EMPLOYEE_DISCOUNT_PERCENT", "20")
 )
+
+# ── Rules security — allowed module prefixes for RuleConfig.rule_path ──
+# Any rule_path not starting with one of these prefixes is rejected at clean()
+# and at load time (defense-in-depth). Extend with care — adding a prefix
+# effectively grants staff the ability to instantiate arbitrary classes from
+# that module, which is a security surface.
+SHOPMAN_RULES_ALLOWED_MODULE_PREFIXES = [
+    "shopman.shop.rules.",
+    "shopman.shop.modifiers.",
+]
 
 # ── Logging ────────────────────────────────────────────────────────────
 

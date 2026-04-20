@@ -6,6 +6,7 @@ from .channel import Channel
 from .closing import DayClosing
 from .delivery import DeliveryZone
 from .kds import KDSInstance, KDSTicket
+from .omotenashi_copy import OmotenashiCopy
 from .rules import Coupon, Promotion, RuleConfig
 from .shop import NotificationTemplate, Shop
 
@@ -23,4 +24,5 @@ __all__ = [
     "DeliveryZone",
     "CashRegisterSession",
     "CashMovement",
+    "OmotenashiCopy",
 ]

@@ -3,7 +3,7 @@
 from decimal import Decimal
 
 
-def format_quantity(value: Decimal, decimal_places: int = 2) -> str:
+def format_quantity(value: Decimal | None, decimal_places: int = 2) -> str:
     """
     Format a quantity value.
 

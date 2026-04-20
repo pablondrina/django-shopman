@@ -39,6 +39,9 @@ class ShopmanConfig(AppConfig):
         # 4. Connect production_changed → production_lifecycle.dispatch_production
         self._connect_production_flow_signal()
 
+        # 5. Connect Recipe post_save → materialize Product ingredients + nutrition
+        self._connect_recipe_nutrition_signal()
+
     def _register_handlers(self):
         """Register all directive handlers, modifiers, validators, and stock signals.
 
@@ -106,3 +109,40 @@ class ShopmanConfig(AppConfig):
             weak=False,
         )
         logger.info("ShopmanConfig: production flow signal connected.")
+
+    def _connect_recipe_nutrition_signal(self):
+        """Materialize Product ingredients + nutrition whenever a Recipe is saved.
+
+        Idempotent: the service refuses to overwrite manual overrides
+        (``nutrition_facts["auto_filled"]=False``). See
+        ``docs/decisions/adr-008-pdp-nutrition.md``.
+        """
+        from django.db.models.signals import post_save
+        from shopman.craftsman.models import Recipe
+        from shopman.offerman.models import Product
+
+        from shopman.shop.services.nutrition_from_recipe import (
+            fill_nutrition_from_recipe,
+        )
+
+        def on_recipe_saved(sender, instance: Recipe, created: bool, **kwargs):
+            if not instance.is_active:
+                return
+            product = Product.objects.filter(sku=instance.output_ref).first()
+            if product is None:
+                return
+            try:
+                fill_nutrition_from_recipe(product)
+            except Exception:
+                logger.exception(
+                    "nutrition_from_recipe: failed for product=%s recipe=%s",
+                    instance.output_ref, instance.code,
+                )
+
+        post_save.connect(
+            on_recipe_saved,
+            sender=Recipe,
+            dispatch_uid="shopman.shop.services.nutrition_from_recipe.on_recipe_saved",
+            weak=False,
+        )
+        logger.info("ShopmanConfig: recipe nutrition signal connected.")

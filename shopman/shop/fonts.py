@@ -7,6 +7,7 @@ All fonts are verified to support Latin Extended and weight 400-700.
 
 HEADING_FONTS = [
     ("Inter", "Inter"),
+    ("Instrument Sans", "Instrument Sans"),
     ("Playfair Display", "Playfair Display"),
     ("Cormorant Garamond", "Cormorant Garamond"),
     ("Lora", "Lora"),
@@ -21,6 +22,7 @@ HEADING_FONTS = [
 
 BODY_FONTS = [
     ("Inter", "Inter"),
+    ("Instrument Sans", "Instrument Sans"),
     ("DM Sans", "DM Sans"),
     ("Work Sans", "Work Sans"),
     ("Plus Jakarta Sans", "Plus Jakarta Sans"),

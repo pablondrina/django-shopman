@@ -56,7 +56,7 @@ def _serialize_annotated(items: list[dict]) -> list[dict]:
 )
 class ProductListView(APIView):
     """
-    GET /api/catalog/products/
+    GET /api/v1/catalog/products/
 
     Public product listing with prices and availability.
     """
@@ -99,13 +99,16 @@ class ProductListView(APIView):
 
 
 @extend_schema_view(
-    get=extend_schema(tags=["catalog"], summary="Product detail with alternatives"),
+    get=extend_schema(tags=["catalog"], summary="Product detail"),
 )
 class ProductDetailView(APIView):
     """
-    GET /api/catalog/products/{sku}/
+    GET /api/v1/catalog/products/{sku}/
 
-    Product detail with price, availability, and alternatives if sold out.
+    Product detail with price and availability. Substitutes are NOT returned
+    here (AVAILABILITY-PLAN §5) — they belong exclusively to the stock-error
+    modal flow; expose through the modal endpoint if/when a mobile client
+    needs them.
     """
 
     permission_classes = [AllowAny]
@@ -119,16 +122,6 @@ class ProductDetailView(APIView):
         listing_ref = _get_channel_listing_ref()
         annotated = _annotate_products([product], listing_ref=listing_ref)
         data = _serialize_annotated(annotated)[0]
-
-        # Add alternatives if not orderable
-        badge_class = data["badge"]["css_class"]
-        alternatives = []
-        if badge_class in ("badge-sold-out", "badge-unavailable"):
-            from shopman.shop.services.alternatives import find as _find_alternatives
-
-            alternatives = _find_alternatives(sku, limit=4)
-
-        data["alternatives"] = alternatives
         return Response(data)
 
 
@@ -137,7 +130,7 @@ class ProductDetailView(APIView):
 )
 class CollectionListView(APIView):
     """
-    GET /api/catalog/collections/
+    GET /api/v1/catalog/collections/
 
     Active collections with product counts.
     """

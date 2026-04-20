@@ -1,4 +1,4 @@
-@import 'tailwindcss';
+@import '../../node_modules/@tailwindcss/cli/node_modules/tailwindcss';
 
 @source "../../shopman/shop/templates/storefront/v2/**/*.html";
 @source "../../shopman/shop/static/storefront/v2/js/**/*.js";
@@ -7,45 +7,45 @@
 
 @theme {
 
-    /* Fonts — Penguin UI defaults, overridden at runtime by Django tokens */
+    /* Fonts — Instrument Sans (body + titles) */
     --font-body: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
-    --font-title: 'Montserrat', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    --font-title: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 
-    /* Light Theme */
-    --color-surface: var(--color-white);
-    --color-surface-alt: var(--color-neutral-50);
-    --color-on-surface: var(--color-neutral-600);
-    --color-on-surface-strong: var(--color-neutral-900);
-    --color-primary: var(--color-black);
-    --color-on-primary: var(--color-neutral-100);
-    --color-secondary: var(--color-neutral-800);
-    --color-on-secondary: var(--color-white);
-    --color-outline: var(--color-neutral-300);
-    --color-outline-strong: var(--color-neutral-800);
+    /* Light Theme — Industrial (Penguin UI) */
+    --color-surface: var(--color-stone-50);
+    --color-surface-alt: var(--color-white);
+    --color-on-surface: var(--color-stone-600);
+    --color-on-surface-strong: var(--color-stone-900);
+    --color-primary: var(--color-stone-900);
+    --color-on-primary: var(--color-stone-50);
+    --color-secondary: var(--color-yellow-700);
+    --color-on-secondary: var(--color-stone-50);
+    --color-outline: var(--color-stone-100);
+    --color-outline-strong: var(--color-stone-600);
 
-    /* Dark Theme */
-    --color-surface-dark: var(--color-neutral-950);
-    --color-surface-dark-alt: var(--color-neutral-900);
-    --color-on-surface-dark: var(--color-neutral-300);
+    /* Dark Theme — Industrial (Penguin UI) */
+    --color-surface-dark: var(--color-stone-950);
+    --color-surface-dark-alt: var(--color-stone-900);
+    --color-on-surface-dark: var(--color-stone-300);
     --color-on-surface-dark-strong: var(--color-white);
-    --color-primary-dark: var(--color-white);
+    --color-primary-dark: var(--color-amber-400);
     --color-on-primary-dark: var(--color-black);
-    --color-secondary-dark: var(--color-neutral-300);
-    --color-on-secondary-dark: var(--color-black);
-    --color-outline-dark: var(--color-neutral-700);
-    --color-outline-dark-strong: var(--color-neutral-300);
+    --color-secondary-dark: var(--color-stone-700);
+    --color-on-secondary-dark: var(--color-white);
+    --color-outline-dark: var(--color-stone-700);
+    --color-outline-dark-strong: var(--color-blue-500);
 
-    /* Semantic Colors (Material Design 3 pairs) */
-    --color-info: var(--color-sky-500);
-    --color-on-info: var(--color-white);
-    --color-success: var(--color-green-500);
+    /* Semantic Colors */
+    --color-info: var(--color-cyan-700);
+    --color-on-info: var(--color-stone-100);
+    --color-success: var(--color-lime-800);
     --color-on-success: var(--color-white);
-    --color-warning: var(--color-amber-500);
+    --color-warning: var(--color-amber-600);
     --color-on-warning: var(--color-white);
-    --color-danger: var(--color-red-500);
-    --color-on-danger: var(--color-white);
+    --color-danger: var(--color-orange-700);
+    --color-on-danger: var(--color-stone-100);
 
     /* Border Radius */
     --radius-radius: var(--radius-sm);
@@ -206,6 +206,9 @@
     .animate-flash       { animation: flash-green 0.6s ease-in-out; }
     .animate-bounce-down { animation: bounce-down 2s   infinite; }
     .animate-pulse-gentle{ animation: pulse-gentle 2s  cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+    /* Material Symbols filled variant */
+    .fill-icon { font-variation-settings: 'FILL' 1; }
 
     /* Reduced motion */
     @media (prefers-reduced-motion: reduce) {

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
 
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
 from rest_framework.decorators import action
@@ -132,7 +133,15 @@ class ListingViewSet(ReadOnlyModelViewSet):
         return ListingSerializer
 
     def get_queryset(self):
-        return Listing.objects.filter(is_active=True)
+        today = timezone.localdate()
+        from django.db.models import Q
+        return Listing.objects.filter(
+            is_active=True,
+        ).filter(
+            Q(valid_from__isnull=True) | Q(valid_from__lte=today),
+        ).filter(
+            Q(valid_until__isnull=True) | Q(valid_until__gte=today),
+        )
 
     @action(detail=True, methods=["get"])
     def items(self, request, ref=None):

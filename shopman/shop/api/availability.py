@@ -15,7 +15,7 @@ from shopman.shop.services import availability as avail_service
 
 class AvailabilityView(APIView):
     """
-    GET /api/availability/<sku>/?channel=<channel_ref>
+    GET /api/v1/availability/<sku>/?channel=<channel_ref>
 
     Returns the current availability status for a SKU, optionally scoped
     to a channel (listing gate + channel-specific stock scope).
@@ -63,13 +63,11 @@ class AvailabilityView(APIView):
 
 
 def _badge_for(result: dict) -> tuple[str, str]:
-    """Derive Portuguese badge text and CSS class from an availability result."""
+    """Derive Portuguese badge text and CSS class from an availability result.
+
+    Vocabulário canônico (AVAILABILITY-PLAN §2): qualquer estado que não seja
+    "pode pedir agora" vira "Indisponível" — um único rótulo.
+    """
     if result["ok"]:
         return "Disponível", "badge-available"
-    code = result.get("error_code", "")
-    if code == "insufficient_stock":
-        return "Esgotado", "badge-sold-out"
-    if code == "below_min_qty":
-        qty = result.get("available_qty", "")
-        return f"Mín. {qty} un.", "badge-min-qty"
     return "Indisponível", "badge-unavailable"
