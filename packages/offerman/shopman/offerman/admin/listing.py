@@ -41,7 +41,7 @@ class ListingAdmin(admin.ModelAdmin):
         instances = formset.save(commit=False)
         for instance in instances:
             if isinstance(instance, ListingItem) and instance.product_id:
-                if not instance.price_q:
+                if instance.price_q is None:
                     instance.price_q = instance.product.base_price_q
             instance.save()
         for obj in formset.deleted_objects:

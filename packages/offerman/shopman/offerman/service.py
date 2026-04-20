@@ -395,7 +395,7 @@ class CatalogService:
             ListingItem.objects.filter(listing=listing)
             .select_related("product")
             .prefetch_related("product__keywords", "product__collection_items__collection")
-            .order_by("product__sku", "-min_qty")
+            .order_by("product__sku", "min_qty")
         )
 
         snapshot: dict[str, ProjectedItem] = {}
@@ -443,9 +443,16 @@ class CatalogService:
         if backend is None:
             raise CatalogError("PROJECTION_BACKEND_NOT_CONFIGURED", channel=listing_ref)
 
+        from shopman.offerman.models import Listing
+
+        listing = Listing.objects.get(ref=listing_ref)
         items = cls.get_projection_items(listing_ref)
         projectable = [item for item in items if item.is_published and item.is_sellable]
-        retracted = [item.sku for item in items if not (item.is_published and item.is_sellable)]
+
+        current_skus = {item.sku for item in items}
+        unpublished_skus = [item.sku for item in items if not (item.is_published and item.is_sellable)]
+        removed_skus = list(set(listing.projected_skus) - current_skus)
+        retracted = unpublished_skus + removed_skus
 
         project_result = backend.project(projectable, channel=listing_ref, full_sync=full_sync)
         errors = list(project_result.errors)
@@ -456,6 +463,11 @@ class CatalogService:
             retract_result = backend.retract(retracted, channel=listing_ref)
             success = success and retract_result.success
             errors.extend(retract_result.errors)
+
+        if success:
+            Listing.objects.filter(ref=listing_ref).update(
+                projected_skus=sorted({item.sku for item in projectable})
+            )
 
         return ProjectionResult(
             success=success,

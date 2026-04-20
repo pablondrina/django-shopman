@@ -100,6 +100,9 @@ class ProductAdmin(admin.ModelAdmin):
 
     visibility_status.short_description = "Status"
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related("components")
+
     def is_bundle_display(self, obj):
         return obj.is_bundle
 
