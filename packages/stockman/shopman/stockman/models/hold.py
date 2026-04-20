@@ -8,6 +8,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from shopman.refs.fields import RefField
 from shopman.stockman.models.enums import HoldStatus
 
 
@@ -73,10 +74,11 @@ class Hold(models.Model):
     """
 
     # Product SKU
-    sku = models.CharField(
+    sku = RefField(
+        ref_type="SKU",
+        verbose_name=_('SKU'),
         max_length=100,
         db_index=True,
-        verbose_name=_('SKU'),
     )
 
     # Link to stock (None = demand)

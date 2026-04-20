@@ -8,6 +8,7 @@ from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from shopman.offerman.nutrition import NUTRIENT_FIELDS, NutritionFacts
+from shopman.refs.fields import RefField
 from simple_history.models import HistoricalRecords
 from taggit.managers import TaggableManager
 
@@ -38,10 +39,12 @@ class Product(models.Model):
     uuid = models.UUIDField(default=uuid_lib.uuid4, editable=False, unique=True, verbose_name=_("UUID"))
 
     # Identification
-    sku = models.CharField(
-        _("SKU"),
+    sku = RefField(
+        ref_type="SKU",
+        verbose_name=_("SKU"),
         max_length=100,
         unique=True,
+        db_index=False,
     )
     name = models.CharField(_("nome"), max_length=200)
     short_description = models.CharField(

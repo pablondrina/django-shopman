@@ -39,10 +39,8 @@ class RefField(CharField):
 
     def deconstruct(self):
         name, path, args, kwargs = super().deconstruct()
-        if self.ref_type:
-            kwargs["ref_type"] = self.ref_type
-        else:
-            # No ref_type: masquerade as plain CharField so existing CharField→RefField
-            # conversions produce no migration.
-            path = "django.db.models.CharField"
+        # Always masquerade as plain CharField: ref_type is runtime-only metadata
+        # managed by RefSourceRegistry, not DB schema. This ensures CharField→RefField
+        # conversions produce zero migration churn regardless of ref_type.
+        path = "django.db.models.CharField"
         return name, path, args, kwargs

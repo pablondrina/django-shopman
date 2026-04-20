@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from shopman.refs.fields import RefField
 
 
 class Channel(models.Model):
@@ -25,7 +26,7 @@ class Channel(models.Model):
     Cascata: canal.config ← shop.defaults ← defaults hardcoded.
     """
 
-    ref = models.CharField(_("código"), max_length=64, unique=True)
+    ref = RefField(ref_type="CHANNEL", verbose_name=_("código"), max_length=64, unique=True, db_index=False)
     name = models.CharField(_("nome"), max_length=128, blank=True, default="")
     kind = models.CharField(
         _("tipo"),

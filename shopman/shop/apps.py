@@ -42,6 +42,27 @@ class ShopmanConfig(AppConfig):
         # 5. Connect Recipe post_save → materialize Product ingredients + nutrition
         self._connect_recipe_nutrition_signal()
 
+        # 6. Register CHANNEL RefType
+        self._register_ref_types()
+
+    def _register_ref_types(self):
+        try:
+            from shopman.refs import register_ref_type
+            from shopman.refs.types import RefType
+            channel = RefType(
+                slug="CHANNEL",
+                label="Canal",
+                allowed_targets=("shop.Channel",),
+                unique_scope="all",
+                normalizer="upper_strip",
+            )
+            try:
+                register_ref_type(channel)
+            except ValueError:
+                pass
+        except ImportError:
+            pass
+
     def _register_handlers(self):
         """Register all directive handlers, modifiers, validators, and stock signals.
 
