@@ -380,12 +380,12 @@ class TestCartReconcileIntegration:
         request.session = {"cart_session_key": session_key}
         return request
 
-    @patch("shopman.shop.web.cart.ModifyService")
-    @patch("shopman.shop.web.cart.availability")
+    @patch("shopman.storefront.cart.ModifyService")
+    @patch("shopman.storefront.cart.availability")
     def test_update_qty_calls_reconcile_with_absolute_new_qty(
         self, mock_availability, mock_modify,
     ):
-        from shopman.shop.web.cart import CartService
+        from shopman.storefront.cart import CartService
 
         self._setup_cart()
         request = self._request_with_session("sess-test-1")
@@ -408,12 +408,12 @@ class TestCartReconcileIntegration:
         assert call_kwargs["new_qty"] == Decimal("5")
         assert call_kwargs["session_key"] == "sess-test-1"
 
-    @patch("shopman.shop.web.cart.ModifyService")
-    @patch("shopman.shop.web.cart.availability")
+    @patch("shopman.storefront.cart.ModifyService")
+    @patch("shopman.storefront.cart.availability")
     def test_update_qty_shortage_raises_and_does_not_modify(
         self, mock_availability, mock_modify,
     ):
-        from shopman.shop.web.cart import CartService, CartUnavailableError
+        from shopman.storefront.cart import CartService, CartUnavailableError
 
         self._setup_cart()
         request = self._request_with_session("sess-test-1")
@@ -434,12 +434,12 @@ class TestCartReconcileIntegration:
         assert excinfo.value.sku == "X"
         mock_modify.modify_session.assert_not_called()
 
-    @patch("shopman.shop.web.cart.ModifyService")
-    @patch("shopman.shop.web.cart.availability")
+    @patch("shopman.storefront.cart.ModifyService")
+    @patch("shopman.storefront.cart.availability")
     def test_remove_item_calls_reconcile_with_zero(
         self, mock_availability, mock_modify,
     ):
-        from shopman.shop.web.cart import CartService
+        from shopman.storefront.cart import CartService
 
         self._setup_cart()
         request = self._request_with_session("sess-test-1")

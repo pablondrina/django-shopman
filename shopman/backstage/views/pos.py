@@ -21,7 +21,7 @@ from shopman.backstage.projections.pos import build_pos, build_pos_shift_summary
 logger = logging.getLogger(__name__)
 
 
-PERM = "shop.operate_pos"
+PERM = "backstage.operate_pos"
 
 
 def _perm_required(request):

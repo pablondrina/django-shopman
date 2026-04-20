@@ -45,7 +45,7 @@ def _fake_now(hour: int, minute: int = 0) -> object:
 
 class TestValidateSlot(TestCase):
     def _call(self, slot_ref: str, fulfillment: str, delivery_date: str = "") -> dict:
-        with patch("shopman.shop.services.pickup_slots.get_slots", return_value=FAKE_SLOTS):
+        with patch("shopman.storefront.services.pickup_slots.get_slots", return_value=FAKE_SLOTS):
             return CheckoutView._validate_slot(slot_ref, fulfillment, delivery_date)
 
     def _call_at_hour(
@@ -53,8 +53,8 @@ class TestValidateSlot(TestCase):
     ) -> dict:
         fake = _fake_now(hour)
         with (
-            patch("shopman.shop.services.pickup_slots.get_slots", return_value=FAKE_SLOTS),
-            patch("shopman.shop.web.views.checkout.timezone.localtime", return_value=fake),
+            patch("shopman.storefront.services.pickup_slots.get_slots", return_value=FAKE_SLOTS),
+            patch("shopman.storefront.views.checkout.timezone.localtime", return_value=fake),
         ):
             return CheckoutView._validate_slot(slot_ref, fulfillment, delivery_date)
 

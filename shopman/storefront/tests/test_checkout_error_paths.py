@@ -62,7 +62,7 @@ class CartExpiredRedirectTests(TestCase):
         session.save()
 
         # Patch get_cart to return empty (simulates expired session cleanup)
-        with patch("shopman.shop.web.views.checkout.CartService.get_cart") as mock_cart:
+        with patch("shopman.storefront.views.checkout.CartService.get_cart") as mock_cart:
             mock_cart.return_value = {
                 "items": [],
                 "subtotal_q": 0,

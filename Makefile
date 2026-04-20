@@ -83,7 +83,7 @@ test-doorman: ## Testes do shopman.auth
 
 test-framework: ## Testes do framework (orquestração)
 	@echo "── Framework ──"
-	$(PYTHON) -m pytest shopman/shop/tests -x -q
+	$(PYTHON) -m pytest shopman/shop/tests shopman/storefront/tests shopman/backstage/tests -x -q
 
 # ── CSS & Frontend ───────────────────────────────────────────────────
 # npm é invisível — tudo via make. node_modules instala sob demanda.

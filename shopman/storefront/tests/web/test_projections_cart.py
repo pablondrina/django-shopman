@@ -134,7 +134,7 @@ class TestAvailabilityOwnHoldCorrection:
         from shopman.stockman import stock
         from shopman.stockman.models import Position, PositionKind
 
-        from shopman.shop.tests.web.conftest import _ensure_listing_item
+        from shopman.storefront.tests.web.conftest import _ensure_listing_item
 
         _ensure_listing_item(channel, product, price_q=90)
         position, _ = Position.objects.get_or_create(

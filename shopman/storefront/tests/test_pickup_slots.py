@@ -194,7 +194,7 @@ class GetEarliestSlotTests(TestCase):
 
         # Freeze wall clock at 07:00 so slot comparisons are deterministic
         self._dt_patcher = patch(
-            "shopman.shop.services.pickup_slots._wall_clock",
+            "shopman.storefront.services.pickup_slots._wall_clock",
             return_value=time(7, 0),
         )
         self._dt_patcher.start()

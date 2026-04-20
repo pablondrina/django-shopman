@@ -1,6 +1,6 @@
 """Backstage views — operator-facing surfaces (KDS, POS, Gestor, Fechamento, Produção)."""
 
-from .closing import DayClosingView
+from .closing import closing_view
 from .kds import (
     KDSDisplayView,
     KDSExpeditionActionView,
@@ -32,7 +32,7 @@ from .pos import (
 from .production import bulk_create_work_orders
 
 __all__ = [
-    "DayClosingView",
+    "closing_view",
     "KDSDisplayView",
     "KDSExpeditionActionView",
     "KDSIndexView",

@@ -13,7 +13,7 @@ class TestShopStatusVsBusinessHoursRule:
     """Sem horários no Shop, vitrine e validador não devem divergir (sempre "aberto")."""
 
     def test_shop_status_open_without_hours(self):
-        from shopman.shop.web.views._helpers import _shop_status
+        from shopman.storefront.views._helpers import _shop_status
 
         shop = MagicMock()
         shop.opening_hours = None

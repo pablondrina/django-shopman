@@ -23,7 +23,7 @@ from shopman.backstage.projections.kds import (
 logger = logging.getLogger(__name__)
 
 
-PERM = "shop.operate_kds"
+PERM = "backstage.operate_kds"
 
 
 def _perm_required(request):

@@ -8,11 +8,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from shopman.offerman.models import Collection, CollectionItem, Product
 
-from shopman.shop.web.views._helpers import (
+from shopman.storefront.views._helpers import (
     _annotate_products,
     _get_channel_listing_ref,
 )
-from shopman.shop.web.views.catalog import _published_products
+from shopman.storefront.views.catalog import _published_products
 
 from .serializers import CollectionSerializer, ProductListItemSerializer
 

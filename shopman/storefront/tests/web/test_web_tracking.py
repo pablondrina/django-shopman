@@ -29,7 +29,7 @@ class TestReorderView:
                     error_code="insufficient_stock",
                 )
 
-        with patch("shopman.shop.web.views.tracking.CartService.add_item", side_effect=raise_for_oos):
+        with patch("shopman.storefront.views.tracking.CartService.add_item", side_effect=raise_for_oos):
             resp = client.post(f"/meus-pedidos/{order_items.ref}/reorder/")
 
         assert resp.status_code == 302
@@ -41,7 +41,7 @@ class TestReorderView:
         self, client: Client, order_items,
     ):
         """No skipped items → reorder_skipped not in session."""
-        with patch("shopman.shop.web.views.tracking.CartService.add_item"):
+        with patch("shopman.storefront.views.tracking.CartService.add_item"):
             resp = client.post(f"/meus-pedidos/{order_items.ref}/reorder/")
 
         assert resp.status_code == 302
@@ -64,7 +64,7 @@ class TestReorderView:
                     error_code="insufficient_stock",
                 )
 
-        with patch("shopman.shop.web.views.tracking.CartService.add_item", side_effect=raise_for_oos):
+        with patch("shopman.storefront.views.tracking.CartService.add_item", side_effect=raise_for_oos):
             client.post(f"/meus-pedidos/{order_items.ref}/reorder/")
 
         # Follow redirect to menu — banner should appear

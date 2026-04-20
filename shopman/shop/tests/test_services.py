@@ -876,8 +876,8 @@ class TestCancellationService:
 
 class TestKDSService:
 
-    @patch("shopman.shop.models.KDSTicket")
-    @patch("shopman.shop.models.KDSInstance")
+    @patch("shopman.backstage.models.KDSTicket")
+    @patch("shopman.backstage.models.KDSInstance")
     def test_dispatch_creates_tickets(self, mock_kds_inst, mock_ticket_cls):
         """Test that dispatch routes items to correct KDS instances."""
         from shopman.shop.services.kds import dispatch

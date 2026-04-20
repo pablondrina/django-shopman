@@ -13,7 +13,7 @@ from shopman.utils.monetary import format_money
 
 from shopman.shop.adapters import get_adapter
 
-from ..web.constants import HAS_STOCKMAN, STOREFRONT_CHANNEL_REF
+from shopman.storefront.constants import HAS_STOCKMAN, STOREFRONT_CHANNEL_REF
 
 logger = logging.getLogger(__name__)
 

@@ -194,7 +194,7 @@ class PosCloseGranularErrorTests(TestCase):
 
     def test_pos_close_commit_error_returns_granular_message(self) -> None:
         """CommitService failure → error partial with detail message."""
-        with patch("shopman.shop.web.views.pos.CommitService.commit") as mock_commit:
+        with patch("shopman.backstage.views.pos.CommitService.commit") as mock_commit:
             mock_commit.side_effect = Exception("Sessão expirada")
 
             resp = self.client.post("/gestao/pos/close/", self._close_payload())
@@ -204,7 +204,7 @@ class PosCloseGranularErrorTests(TestCase):
 
     def test_pos_close_modify_error_stock_message(self) -> None:
         """ModifyService failure with stock keyword → stock-specific message."""
-        with patch("shopman.shop.web.views.pos.ModifyService.modify_session") as mock_modify:
+        with patch("shopman.backstage.views.pos.ModifyService.modify_session") as mock_modify:
             mock_modify.side_effect = Exception("Estoque insuficiente para SKU X")
 
             resp = self.client.post("/gestao/pos/close/", self._close_payload())

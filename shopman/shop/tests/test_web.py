@@ -51,13 +51,13 @@ class TestHomeViewXFrame:
         assert reverse("storefront:account") == "/minha-conta/"
 
     def test_gestor_pedidos(self, db):
-        assert reverse("storefront:gestor_pedidos") == "/pedidos/"
+        assert reverse("backstage:gestor_pedidos") == "/pedidos/"
 
     def test_kds_index(self, db):
-        assert reverse("storefront:kds_index") == "/kds/"
+        assert reverse("backstage:kds_index") == "/kds/"
 
     def test_pos(self, db):
-        assert reverse("storefront:pos") == "/gestao/pos/"
+        assert reverse("backstage:pos") == "/gestao/pos/"
 
 
 class TestWebhookURLs:
@@ -74,27 +74,27 @@ class TestWebhookURLs:
 
 
 class TestViewImports:
-    """Refactored views are correctly imported via the bridge."""
+    """Views are correctly importable from storefront."""
 
-    def test_checkout_view_is_refactored(self):
-        from shopman.shop.web.views import CheckoutView
+    def test_checkout_view_is_importable(self):
+        from shopman.storefront.views import CheckoutView
 
-        assert CheckoutView.__module__ == "shopman.shop.web.views.checkout"
+        assert CheckoutView.__module__ == "shopman.storefront.views.checkout"
 
-    def test_order_cancel_view_is_refactored(self):
-        from shopman.shop.web.views import OrderCancelView
+    def test_order_cancel_view_is_importable(self):
+        from shopman.storefront.views import OrderCancelView
 
-        assert OrderCancelView.__module__ == "shopman.shop.web.views.tracking"
+        assert OrderCancelView.__module__ == "shopman.storefront.views.tracking"
 
-    def test_other_views_from_shopman(self):
-        from shopman.shop.web.views import MenuView
+    def test_menu_view_from_storefront(self):
+        from shopman.storefront.views import MenuView
 
-        assert "shopman.shop.web" in MenuView.__module__
+        assert "shopman.storefront" in MenuView.__module__
 
-    def test_tracking_view_from_shopman(self):
-        from shopman.shop.web.views import OrderTrackingView
+    def test_tracking_view_from_storefront(self):
+        from shopman.storefront.views import OrderTrackingView
 
-        assert "shopman.shop.web" in OrderTrackingView.__module__
+        assert "shopman.storefront" in OrderTrackingView.__module__
 
 
 # ── Webhook import tests ────────────────────────────────────────────
@@ -146,7 +146,7 @@ class TestCheckoutUsesService:
     def test_checkout_calls_service(self):
         import inspect
 
-        from shopman.shop.web.views.checkout import CheckoutView
+        from shopman.storefront.views.checkout import CheckoutView
 
         source = inspect.getsource(CheckoutView.post)
         assert "checkout_process(" in source
@@ -160,7 +160,7 @@ class TestOrderCancelUsesService:
     def test_cancel_calls_service(self):
         import inspect
 
-        from shopman.shop.web.views.tracking import OrderCancelView
+        from shopman.storefront.views.tracking import OrderCancelView
 
         source = inspect.getsource(OrderCancelView.post)
         assert "cancel(order" in source

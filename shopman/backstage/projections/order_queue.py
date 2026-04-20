@@ -20,7 +20,7 @@ from shopman.utils.monetary import format_money
 from shopman.shop.services import payment as payment_svc
 from shopman.shop.services.order_helpers import get_fulfillment_type
 
-from .types import (
+from shopman.shop.projections.types import (
     ORDER_STATUS_COLORS,
     ORDER_STATUS_LABELS_PT,
     PAYMENT_METHOD_LABELS_PT,

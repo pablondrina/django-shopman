@@ -75,7 +75,7 @@ class TestManageOrdersPerm(TestCase):
 class TestOperateKdsPerm(TestCase):
     def setUp(self):
         self.client = Client()
-        self.perm = _get_perm("shop", "kdsticket", "operate_kds")
+        self.perm = _get_perm("backstage", "kdsticket", "operate_kds")
         _create_shop()
 
     def test_staff_without_perm_gets_403(self):
@@ -100,7 +100,7 @@ class TestOperateKdsPerm(TestCase):
 class TestOperatePosPerm(TestCase):
     def setUp(self):
         self.client = Client()
-        self.perm = _get_perm("shop", "cashregistersession", "operate_pos")
+        self.perm = _get_perm("backstage", "cashregistersession", "operate_pos")
         _create_shop()  # required: OnboardingMiddleware redirects /gestao/ if no Shop
 
     def test_staff_without_perm_gets_403(self):

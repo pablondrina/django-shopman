@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 from shopman.utils.monetary import format_money
 
 from .cart import CartProjection, build_cart
-from .types import (
+from shopman.shop.projections.types import (
     PAYMENT_METHOD_LABELS_PT,
     PaymentMethodOptionProjection,
     PickupSlotProjection,

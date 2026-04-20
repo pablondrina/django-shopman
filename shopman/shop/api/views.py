@@ -11,8 +11,8 @@ from shopman.orderman.ids import generate_idempotency_key
 from shopman.orderman.services.commit import CommitService
 from shopman.utils.phone import normalize_phone
 
-from shopman.shop.web.cart import CHANNEL_REF, CartService
-from shopman.shop.web.views._helpers import _get_price_q, _line_item_is_d1
+from shopman.storefront.cart import CHANNEL_REF, CartService
+from shopman.storefront.views._helpers import _get_price_q, _line_item_is_d1
 
 from .serializers import (
     AddItemSerializer,
@@ -69,7 +69,7 @@ class CartAddItemView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        from shopman.shop.web.cart import CartUnavailableError
+        from shopman.storefront.cart import CartUnavailableError
 
         try:
             CartService.add_item(

@@ -24,4 +24,4 @@ class DayClosingAdmin(ModelAdmin):
         return False
 
     def has_view_permission(self, request, obj=None):
-        return request.user.has_perm("shop.perform_closing")
+        return request.user.has_perm("backstage.perform_closing")

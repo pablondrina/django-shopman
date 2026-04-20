@@ -32,7 +32,7 @@ from shopman.storefront.services.storefront_context import (
 )
 from shopman.storefront.cart import CartService
 
-from .types import Availability
+from shopman.shop.projections.types import Availability
 
 if TYPE_CHECKING:
     from django.http import HttpRequest  # noqa: F401

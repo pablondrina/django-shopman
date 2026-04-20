@@ -35,7 +35,7 @@ from .catalog import (
     _cart_qty_by_sku,
     _resolve_availability,
 )
-from .types import (
+from shopman.shop.projections.types import (
     AVAILABILITY_LABELS_PT,
     Availability,
     CategoryProjection,
@@ -577,7 +577,7 @@ def _shelf_life_label(shelf_life_days: int | None) -> str | None:
 def _breadcrumb_category(product: Product) -> CategoryProjection | None:
     from django.urls import NoReverseMatch, reverse
 
-    from .icons import collection_icon
+    from shopman.shop.projections.icons import collection_icon
 
     ci = (
         CollectionItem.objects.filter(product=product, collection__is_active=True)

@@ -16,9 +16,9 @@ class Command(BaseCommand):
             return p
 
         shop_shop = lambda c: _perm("shop", "shop", c)
-        shop_kdst = lambda c: _perm("shop", "kdsticket", c)
-        shop_cash = lambda c: _perm("shop", "cashregistersession", c)
-        shop_dclo = lambda c: _perm("shop", "dayclosing", c)
+        shop_kdst = lambda c: _perm("backstage", "kdsticket", c)
+        shop_cash = lambda c: _perm("backstage", "cashregistersession", c)
+        shop_dclo = lambda c: _perm("backstage", "dayclosing", c)
         shop_rule = lambda c: _perm("shop", "ruleconfig", c)
 
         groups = {

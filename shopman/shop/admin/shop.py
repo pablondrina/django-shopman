@@ -72,8 +72,8 @@ class ShopAdmin(ModelAdmin):
     inlines = [DeliveryZoneInline]
 
     def get_urls(self):
-        from shopman.shop.web.views.closing import closing_view
-        from shopman.shop.web.views.production import production_view, production_void_view
+        from shopman.backstage.views.closing import closing_view
+        from shopman.backstage.views.production import production_view, production_void_view
 
         urls = super().get_urls()
         custom = [

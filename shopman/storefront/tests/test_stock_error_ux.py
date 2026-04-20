@@ -53,7 +53,7 @@ def test_cart_add_sends_rich_error_ui_marker(db, product):
         substitutes=[],
     )
     with patch(
-        "shopman.shop.web.cart.CartService.add_item", side_effect=exc,
+        "shopman.storefront.cart.CartService.add_item", side_effect=exc,
     ):
         resp = client.post("/cart/add/", {"sku": product.sku, "qty": "5"})
 
@@ -81,7 +81,7 @@ def test_cart_set_qty_uses_same_contract_as_add(db, product):
         substitutes=[],
     )
     with patch(
-        "shopman.shop.web.cart.CartService.add_item", side_effect=exc,
+        "shopman.storefront.cart.CartService.add_item", side_effect=exc,
     ):
         resp = client.post("/cart/set-qty/", {"sku": product.sku, "qty": "3"})
     assert resp.status_code == 422
@@ -106,7 +106,7 @@ def test_stock_error_modal_html_has_penguin_tokens(db, product):
         is_paused=False,
         substitutes=[],
     )
-    with patch("shopman.shop.web.cart.CartService.add_item", side_effect=exc):
+    with patch("shopman.storefront.cart.CartService.add_item", side_effect=exc):
         resp = client.post("/cart/add/", {"sku": product.sku, "qty": "99"})
     body = resp.content.decode("utf-8")
 
@@ -135,7 +135,7 @@ def test_modal_has_primary_action_when_stock_remains(db, product):
         is_paused=False,
         substitutes=[],
     )
-    with patch("shopman.shop.web.cart.CartService.add_item", side_effect=exc):
+    with patch("shopman.storefront.cart.CartService.add_item", side_effect=exc):
         resp = client.post("/cart/add/", {"sku": product.sku, "qty": "10"})
     body = resp.content.decode("utf-8")
 
@@ -166,7 +166,7 @@ def test_modal_renders_substitutes_as_one_click_buttons(db, product):
              "available_qty": 3, "can_order": True, "target_qty": 1},
         ],
     )
-    with patch("shopman.shop.web.cart.CartService.add_item", side_effect=exc):
+    with patch("shopman.storefront.cart.CartService.add_item", side_effect=exc):
         resp = client.post("/cart/add/", {"sku": product.sku, "qty": "1"})
     body = resp.content.decode("utf-8")
 
@@ -196,7 +196,7 @@ def test_sold_out_without_substitutes_shows_no_primary_action(db, product):
         is_paused=False,
         substitutes=[],
     )
-    with patch("shopman.shop.web.cart.CartService.add_item", side_effect=exc):
+    with patch("shopman.storefront.cart.CartService.add_item", side_effect=exc):
         resp = client.post("/cart/add/", {"sku": product.sku, "qty": "1"})
     body = resp.content.decode("utf-8")
 
@@ -222,7 +222,7 @@ def test_modal_tags_picker_origin_pdp_when_called_from_pdp(db, product):
         is_paused=False,
         substitutes=[],
     )
-    with patch("shopman.shop.web.cart.CartService.add_item", side_effect=exc):
+    with patch("shopman.storefront.cart.CartService.add_item", side_effect=exc):
         resp = client.post(
             "/cart/add/",
             {"sku": product.sku, "qty": "1"},
@@ -245,7 +245,7 @@ def test_modal_tags_picker_origin_menu_when_called_from_home(db, product):
         is_paused=False,
         substitutes=[],
     )
-    with patch("shopman.shop.web.cart.CartService.add_item", side_effect=exc):
+    with patch("shopman.storefront.cart.CartService.add_item", side_effect=exc):
         resp = client.post(
             "/cart/add/",
             {"sku": product.sku, "qty": "1"},
@@ -266,7 +266,7 @@ def test_modal_tags_picker_origin_cart_when_called_from_cart(db, product):
         is_paused=False,
         substitutes=[],
     )
-    with patch("shopman.shop.web.cart.CartService.add_item", side_effect=exc):
+    with patch("shopman.storefront.cart.CartService.add_item", side_effect=exc):
         resp = client.post(
             "/cart/add/",
             {"sku": product.sku, "qty": "1"},
@@ -291,7 +291,7 @@ def test_planned_variant_shows_reserve_cta(db, product):
         substitutes=[],
         is_planned=True,
     )
-    with patch("shopman.shop.web.cart.CartService.add_item", side_effect=exc):
+    with patch("shopman.storefront.cart.CartService.add_item", side_effect=exc):
         resp = client.post("/cart/add/", {"sku": product.sku, "qty": "2"})
     assert resp.status_code == 422
     body = resp.content.decode("utf-8")
@@ -314,7 +314,7 @@ def test_paused_variant_shows_warm_copy(db, product):
         is_paused=True,
         substitutes=[],
     )
-    with patch("shopman.shop.web.cart.CartService.add_item", side_effect=exc):
+    with patch("shopman.storefront.cart.CartService.add_item", side_effect=exc):
         resp = client.post("/cart/add/", {"sku": product.sku, "qty": "1"})
     assert resp.status_code == 422
     body = resp.content.decode("utf-8")
@@ -348,7 +348,7 @@ def test_substitute_image_rendered_when_provided(db, product):
             }
         ],
     )
-    with patch("shopman.shop.web.cart.CartService.add_item", side_effect=exc):
+    with patch("shopman.storefront.cart.CartService.add_item", side_effect=exc):
         resp = client.post("/cart/add/", {"sku": product.sku, "qty": "1"})
     body = resp.content.decode("utf-8")
     assert "https://cdn.test/pao.jpg" in body, (

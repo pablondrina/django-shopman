@@ -36,8 +36,8 @@ from shopman.storefront.services.storefront_context import (
     session_pricing_hints,
 )
 
-from .icons import collection_icon
-from .types import (
+from shopman.shop.projections.icons import collection_icon
+from shopman.shop.projections.types import (
     AVAILABILITY_LABELS_PT,
     Availability,
     CategoryProjection,

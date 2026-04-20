@@ -10,10 +10,8 @@ from django.urls import reverse
 from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe
 
+from shopman.backstage.models import DayClosing, KDSInstance, OperatorAlert
 from shopman.shop.models import (
-    DayClosing,
-    KDSInstance,
-    OperatorAlert,
     RuleConfig,
     Shop,
 )
@@ -262,7 +260,7 @@ class TestProductionAdminView:
     def test_get_exposes_operational_summary_and_queue(self, db, rf, admin_user):
         from datetime import date
 
-        from shopman.shop.web.views.production import production_view
+        from shopman.backstage.views.production import production_view
 
         recipe = Recipe.objects.create(
             ref="croissant-v1",
@@ -286,7 +284,7 @@ class TestProductionAdminView:
     def test_get_filters_by_date_position_and_operator(self, db, rf, admin_user):
         from datetime import date, timedelta
 
-        from shopman.shop.web.views.production import production_view
+        from shopman.backstage.views.production import production_view
 
         recipe = Recipe.objects.create(
             ref="baguette-v1",

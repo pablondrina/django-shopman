@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 from django.utils import timezone
 from shopman.utils.monetary import format_money
 
-from .types import (
+from shopman.shop.projections.types import (
     ORDER_STATUS_COLORS,
     ORDER_STATUS_LABELS_PT,
     FoodPrefProjection,

@@ -37,5 +37,5 @@ urlpatterns = [
     path("kds/ticket/<int:pk>/done/", views.KDSTicketDoneView.as_view(), name="kds_ticket_done"),
     path("kds/expedition/<int:pk>/action/", views.KDSExpeditionActionView.as_view(), name="kds_expedition_action"),
     # Closing
-    path("gestao/fechamento/", views.DayClosingView.as_view(), name="day_closing"),
+    path("gestao/fechamento/", views.closing_view, name="day_closing"),
 ]

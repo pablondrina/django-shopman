@@ -435,8 +435,8 @@ UNFOLD = {
                 "collapsible": True,
                 "items": [
                     {"title": "Regras", "icon": "tune", "link": reverse_lazy("admin:shop_ruleconfig_changelist")},
-                    {"title": "Promoções", "icon": "sell", "link": reverse_lazy("admin:shop_promotion_changelist")},
-                    {"title": "Cupons", "icon": "confirmation_number", "link": reverse_lazy("admin:shop_coupon_changelist")},
+                    {"title": "Promoções", "icon": "sell", "link": reverse_lazy("admin:storefront_promotion_changelist")},
+                    {"title": "Cupons", "icon": "confirmation_number", "link": reverse_lazy("admin:storefront_coupon_changelist")},
                 ],
             },
             {
@@ -448,10 +448,10 @@ UNFOLD = {
                     {"title": "Fechamento", "icon": "point_of_sale", "link": reverse_lazy("admin:shop_closing")},
                     {"title": "Receitas", "icon": "menu_book", "link": reverse_lazy("admin:craftsman_recipe_changelist")},
                     {"title": "Ordens de Producao", "icon": "manufacturing", "link": reverse_lazy("admin:craftsman_workorder_changelist")},
-                    {"title": "Alertas", "icon": "warning", "link": reverse_lazy("admin:shop_operatoralert_changelist")},
-                    {"title": "KDS", "icon": "kitchen", "link": reverse_lazy("admin:shop_kdsinstance_changelist")},
+                    {"title": "Alertas", "icon": "warning", "link": reverse_lazy("admin:backstage_operatoralert_changelist")},
+                    {"title": "KDS", "icon": "kitchen", "link": reverse_lazy("admin:backstage_kdsinstance_changelist")},
                     {"title": "Diretivas", "icon": "conversion_path", "link": reverse_lazy("admin:orderman_directive_changelist")},
-                    {"title": "Fechamento Diário", "icon": "event_available", "link": reverse_lazy("admin:shop_dayclosing_changelist")},
+                    {"title": "Fechamento Diário", "icon": "event_available", "link": reverse_lazy("admin:backstage_dayclosing_changelist")},
                 ],
             },
             {

@@ -12,7 +12,7 @@ from shopman.orderman.models import Order
 from shopman.utils.monetary import format_money
 
 from shopman.shop.projections.types import ORDER_STATUS_LABELS_PT
-from shopman.shop.web.views.auth import get_authenticated_customer
+from shopman.storefront.views.auth import get_authenticated_customer
 
 from .serializers import (
     AddressSerializer,

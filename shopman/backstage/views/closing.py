@@ -26,10 +26,10 @@ from shopman.backstage.projections.closing import build_day_closing
 logger = logging.getLogger(__name__)
 
 TEMPLATE = "gestao/fechamento/index.html"
-PERMISSION = "shop.perform_closing"
+PERMISSION = "backstage.perform_closing"
 
 
-def closing_view(request, admin_site):
+def closing_view(request, admin_site=None):
     """GET: show closing form. POST: execute closing."""
     if not request.user.has_perm(PERMISSION):
         messages.error(request, "Sem permissão para fechamento do dia.")
@@ -41,7 +41,7 @@ def closing_view(request, admin_site):
     return _render(request, admin_site)
 
 
-def _handle_post(request, admin_site):
+def _handle_post(request, admin_site=None):
     """Execute day closing: move D-1 eligible, register losses."""
     today = date.today()
 
@@ -129,12 +129,13 @@ def _issue_from_saleable(sku, quantity, reason):
         remaining -= take
 
 
-def _render(request, admin_site):
+def _render(request, admin_site=None):
     """Render the closing page using projection."""
     closing = build_day_closing()
 
+    admin_context = admin_site.each_context(request) if admin_site else {}
     context = {
-        **admin_site.each_context(request),
+        **admin_context,
         "title": "Fechamento do Dia",
         "closing": closing,
         "items": closing.items,

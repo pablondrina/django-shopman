@@ -5,7 +5,7 @@ from __future__ import annotations
 from django.conf import settings
 from django.http import HttpRequest
 
-from .models import Shop
+from shopman.shop.models import Shop
 
 
 def shop(request: HttpRequest) -> dict:
@@ -35,7 +35,7 @@ def shop(request: HttpRequest) -> dict:
         }
 
     try:
-        from .web.views._helpers import _format_opening_hours, _shop_status
+        from shopman.storefront.views._helpers import _format_opening_hours, _shop_status
 
         shop_status = _shop_status()
         opening_hours_display = _format_opening_hours()

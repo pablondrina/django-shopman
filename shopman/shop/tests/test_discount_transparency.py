@@ -63,7 +63,7 @@ class CartDiscountTransparencyTests(TestCase):
         )
 
     def _get_cart(self, session: Session) -> dict:
-        from shopman.shop.web.cart import CartService
+        from shopman.storefront.cart import CartService
         request = self.client.get("/").wsgi_request
         request.session["cart_session_key"] = session.session_key
         return CartService.get_cart(request)
