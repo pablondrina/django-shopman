@@ -11,8 +11,11 @@ from django.utils.translation import gettext_lazy as _
 from django.views import View
 
 from ..conf import get_doorman_settings
+from ..error_codes import ErrorCode
 from ..services.access_link import AccessLinkService
 from ..utils import get_client_ip
+
+_RATE_LIMIT_CODES = frozenset({ErrorCode.EMAIL_RATE_LIMIT, ErrorCode.IP_RATE_LIMIT})
 
 logger = logging.getLogger("shopman.doorman.views.access_link")
 
@@ -79,10 +82,9 @@ class AccessLinkRequestView(View):
         result = AccessLinkService.send_access_link(email, ip_address=ip_address)
 
         if not result.success:
-            is_rate_limit = "Too many" in (result.error or "")
-            status = 429 if is_rate_limit else 400
+            http_status = 429 if result.error_code in _RATE_LIMIT_CODES else 400
             if is_json:
-                return JsonResponse({"error": result.error}, status=status)
+                return JsonResponse({"error": result.error}, status=http_status)
             return render(
                 request,
                 template_name,

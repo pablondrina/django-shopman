@@ -7,6 +7,11 @@ clientes (customers), canais (orderman) e pedidos com dados da Nelson.
 Uso:
     python manage.py seed          # seed normal
     python manage.py seed --flush  # apaga tudo e recria
+
+IMPORTANTE — Não-determinismo deliberado:
+    Este seed usa random.choice, uuid4 e now() intencionalmente para gerar dados
+    realistas a cada execução. Não é adequado como fixture de testes. Para testes
+    deterministicos use TestCase com fixtures ou factories dedicadas.
 """
 from __future__ import annotations
 

@@ -85,17 +85,33 @@ class StockHolds:
     @classmethod
     def hold(cls, quantity, product, target_date=None,
              expires_at=None, *,
+             created_by=None,
              allowed_positions: list[str] | None = None,
              excluded_positions: list[str] | None = None,
              **metadata):
         """
         Create quantity hold.
 
+        Allocation model — 1:1 hold:quant by design:
+            Each hold is anchored to exactly one Quant (or None for demand_ok holds).
+            ``_find_quant_for_hold`` selects the best single Quant that can satisfy
+            the full quantity. Splitting across multiple Quants is a deliberate
+            non-goal for v1 — it would require a redesign of the fulfill flow, which
+            assumes a single-quant anchor per hold.
+
+        Demand-mode fallback:
+            When ``policy == 'demand_ok'`` and no single Quant satisfies the
+            requested quantity, a floating hold is created with ``quant=None``.
+            This allows forward-selling (pre-orders, made-to-order items) without
+            a physical Quant reservation. The hold is fulfilled later when stock
+            arrives.
+
         Args:
             quantity: Amount to hold
             product: Product-like object or SKU string
             target_date: Desired date (None = today)
             expires_at: Expiration datetime (optional)
+            created_by: User creating the hold (optional, stored on Hold.created_by)
             allowed_positions: Channel-scoped position allowlist. When set,
                 the hold will only consider quants at those positions.
             excluded_positions: Channel-scoped position denylist. Typically
@@ -161,7 +177,8 @@ class StockHolds:
                         target_date=target,
                         status=HoldStatus.PENDING,
                         expires_at=expires_at,
-                        metadata=metadata
+                        created_by=created_by,
+                        metadata=metadata,
                     )
                     logger.info(
                         "stock.hold.created",
@@ -170,6 +187,7 @@ class StockHolds:
                             "qty": str(quantity),
                             "target": str(target),
                             "hold_id": hold.hold_id,
+                            "created_by": created_by.pk if created_by else None,
                         },
                     )
                     return hold.hold_id
@@ -182,7 +200,8 @@ class StockHolds:
                     target_date=target,
                     status=HoldStatus.PENDING,
                     expires_at=expires_at,
-                    metadata=metadata
+                    created_by=created_by,
+                    metadata=metadata,
                 )
                 logger.info(
                     "stock.hold.demand",

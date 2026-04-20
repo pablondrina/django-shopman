@@ -607,6 +607,69 @@ Estas chaves são lidas diretamente de `channel.config` como dict bruto, sem pas
 
 ---
 
+## Shop.defaults
+
+Configurações padrão da loja — camada intermediária na cascata de configuração de canais.
+
+```
+ChannelConfig.defaults() ← Shop.defaults ← Channel.config
+```
+
+O schema é idêntico ao `ChannelConfig` (ver seção `Channel.config` acima). Chaves ausentes
+em `Shop.defaults` herdam os defaults de código do `ChannelConfig`. Canais que não sobrescrevem
+uma chave específica herdam a da loja.
+
+**Campo**: `Shop.defaults` (JSONField, `shopman/shop/models/shop.py`).
+**Mergeado por**: `ChannelConfig.for_channel()` via `deep_merge`.
+
+### Exemplo
+
+```json
+{
+  "confirmation": {"mode": "auto_confirm", "timeout_minutes": 10},
+  "stock": {"hold_ttl_minutes": 30, "safety_margin": 2},
+  "notifications": {"backend": "manychat", "fallback_chain": ["sms"]}
+}
+```
+
+---
+
+## Shop.integrations
+
+Seleção de adapters por tipo. Sobreescreve `settings.py` sem exigir redeploy.
+
+**Campo**: `Shop.integrations` (JSONField, `shopman/shop/models/shop.py`).
+**Lido por**: `shopman.shop.adapters.get_adapter()`.
+
+### Schema
+
+```json
+{
+  "payment": {
+    "pix":  "<módulo Python>",
+    "card": "<módulo Python>"
+  },
+  "notification": {
+    "default": "<módulo Python>"
+  },
+  "fiscal": "<módulo Python>"
+}
+```
+
+Adapters aceitos por tipo:
+
+| Tipo | Chaves | Adapters disponíveis |
+|------|--------|----------------------|
+| `payment` | `pix`, `card`, `external` | `payment_efi`, `payment_stripe` |
+| `notification` | `default`, por backend | `notification_manychat`, `notification_console` |
+| `fiscal` | (string) | `fiscal_nfce` |
+
+### Prioridade de resolução
+
+`Shop.integrations` → `settings.SHOPMAN_*_ADAPTERS` → defaults de código.
+
+---
+
 ## Regras de Governança
 
 1. **Toda nova chave** em qualquer JSONField deve ser adicionada a este documento antes do merge.
