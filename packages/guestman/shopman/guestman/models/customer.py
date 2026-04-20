@@ -21,6 +21,7 @@ import uuid as uuid_lib
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from shopman.refs.fields import RefField
 
 
 class CustomerType(models.TextChoices):
@@ -40,10 +41,12 @@ class Customer(models.Model):
     """
 
     # Identification (ref + uuid pattern - see spec 000 section 12.2)
-    ref = models.CharField(
-        _("referência"),
+    ref = RefField(
+        ref_type="CUSTOMER",
+        verbose_name=_("referência"),
         max_length=50,
         unique=True,
+        db_index=False,
         help_text=_("Referência única do cliente (ex: CLI-001)"),
     )
     uuid = models.UUIDField(default=uuid_lib.uuid4, editable=False, unique=True)

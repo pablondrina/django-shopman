@@ -16,6 +16,7 @@ from django.db import models
 from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
 from django.utils.translation import gettext_lazy as _
+from shopman.refs.fields import RefField
 
 logger = logging.getLogger('shopman.stockman')
 
@@ -83,10 +84,11 @@ class Quant(models.Model):
     - Use `recompute_quant_quantities` management command in cron for health checks.
     """
 
-    sku = models.CharField(
+    sku = RefField(
+        ref_type="SKU",
+        verbose_name=_('SKU'),
         max_length=100,
         db_index=True,
-        verbose_name=_('SKU'),
     )
 
     # Space-time coordinates

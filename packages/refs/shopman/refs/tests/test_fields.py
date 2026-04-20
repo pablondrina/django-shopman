@@ -51,12 +51,13 @@ class TestRefFieldDeconstruct:
         _, path, _, _ = field.deconstruct()
         assert path == "django.db.models.CharField"
 
-    def test_with_ref_type_deconstructs_as_reffield(self):
+    def test_with_ref_type_deconstructs_as_charfield(self):
+        """ref_type fields also masquerade as CharField for zero-migration churn."""
         field = RefField(ref_type="SKU")
         field.set_attributes_from_name("sku")
         _, path, _, kwargs = field.deconstruct()
-        assert path == "shopman.refs.fields.RefField"
-        assert kwargs["ref_type"] == "SKU"
+        assert path == "django.db.models.CharField"
+        assert "ref_type" not in kwargs
 
     def test_without_ref_type_no_ref_type_in_kwargs(self):
         field = RefField()
@@ -84,6 +85,15 @@ class TestRefFieldDeconstruct:
         ref_field.set_attributes_from_name("slug")
         plain = CharField(max_length=64, db_index=True)
         plain.set_attributes_from_name("slug")
+        assert ref_field.deconstruct() == plain.deconstruct()
+
+    def test_zero_migration_churn_with_ref_type(self):
+        """RefField(ref_type='SKU', max_length=100) produces same deconstruct as CharField(max_length=100)."""
+        from django.db.models import CharField
+        ref_field = RefField(ref_type="SKU", max_length=100, db_index=False)
+        ref_field.set_attributes_from_name("sku")
+        plain = CharField(max_length=100)
+        plain.set_attributes_from_name("sku")
         assert ref_field.deconstruct() == plain.deconstruct()
 
 

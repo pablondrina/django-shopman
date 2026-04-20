@@ -8,6 +8,7 @@ from django.db import models, transaction
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 from shopman.orderman.ids import generate_line_id
+from shopman.refs.fields import RefField
 from shopman.utils.monetary import monetary_mult
 
 # =============================================================================
@@ -269,7 +270,7 @@ class SessionItem(models.Model):
         verbose_name=_("sessão"),
     )
     line_id = models.CharField(_("ID da linha"), max_length=64)
-    sku = models.CharField(_("SKU"), max_length=64, blank=True, default="")
+    sku = RefField(ref_type="SKU", verbose_name=_("SKU"), max_length=64, blank=True, default="", db_index=False)
     name = models.CharField(_("nome"), max_length=200, blank=True, default="")
     qty = models.DecimalField(_("quantidade"), max_digits=12, decimal_places=3)
     unit_price_q = models.BigIntegerField(_("preço unitário (q)"), default=0)

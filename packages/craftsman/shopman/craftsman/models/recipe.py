@@ -14,6 +14,7 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from shopman.refs.fields import RefField
 
 
 class Recipe(models.Model):
@@ -129,10 +130,12 @@ class RecipeItem(models.Model):
         related_name="items",
         verbose_name=_("Receita"),
     )
-    input_ref = models.CharField(
-        max_length=100,
+    input_ref = RefField(
+        ref_type="SKU",
         verbose_name=_("Insumo"),
+        max_length=100,
         help_text=_("Referencia do material de entrada"),
+        db_index=False,
     )
     quantity = models.DecimalField(
         max_digits=12,
