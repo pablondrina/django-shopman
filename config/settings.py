@@ -97,6 +97,7 @@ INSTALLED_APPS = [
     "shopman.guestman",
     "shopman.doorman",
     # Shopman core Unfold contribs
+    "shopman.refs.contrib.admin_unfold",
     "shopman.offerman.contrib.admin_unfold",
     "shopman.stockman.contrib.admin_unfold",
     "shopman.craftsman.contrib.admin_unfold",
