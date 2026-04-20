@@ -34,10 +34,11 @@ class Ref(models.Model):
         help_text="Tipo do target associado",
     )
 
-    target_id = models.UUIDField(
+    target_id = models.CharField(
+        max_length=64,
         db_index=True,
         verbose_name=_("ID do alvo"),
-        help_text="ID do target (Session.id ou Order.id)",
+        help_text="ID do target como string (int para Session/Order, UUID para outros)",
     )
 
     value = models.CharField(
