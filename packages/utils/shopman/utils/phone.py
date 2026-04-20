@@ -101,10 +101,10 @@ def normalize_phone(
             pass
 
     # Fallback: manual normalization (when phonenumbers not installed)
-    return _fallback_normalize(digits, has_plus)
+    return _fallback_normalize(digits, has_plus, default_region)
 
 
-def _fallback_normalize(digits: str, has_plus: bool) -> str:
+def _fallback_normalize(digits: str, has_plus: bool, default_region: str = "BR") -> str:
     """Fallback normalization without phonenumbers library."""
     if has_plus:
         # With explicit +, trust the caller but reject too-short numbers
@@ -112,16 +112,18 @@ def _fallback_normalize(digits: str, has_plus: bool) -> str:
             return ""
         return f"+{digits}"
 
-    # Brazilian: 10-11 digits without country code (DDD + number)
-    if len(digits) in (10, 11):
-        return f"+55{digits}"
+    if default_region == "BR":
+        # Brazilian: 10-11 digits without country code (DDD + number)
+        if len(digits) in (10, 11):
+            return f"+55{digits}"
 
-    # Already has country code
-    if len(digits) >= 12 and digits.startswith("55"):
-        return f"+{digits}"
+        # Already has country code
+        if len(digits) >= 12 and digits.startswith("55"):
+            return f"+{digits}"
 
-    # Too short — BR numbers need at least 10 digits (DDD + 8-9 digit number)
-    # 9 digits or fewer without country code = missing DDD, reject
+        return ""
+
+    # Non-BR regions without phonenumbers: require explicit + or reject
     return ""
 
 
@@ -135,7 +137,7 @@ def is_valid_phone(value: str, default_region: str = "BR") -> bool:
 
     Returns:
         True if the number is valid according to the numbering plan.
-        Always returns True if phonenumbers is not installed (graceful degradation).
+        When phonenumbers is not installed, falls back to a digit-length check (>= 10).
     """
     if not value or "@" in value:
         return False

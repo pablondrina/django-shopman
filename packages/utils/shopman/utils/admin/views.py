@@ -41,6 +41,8 @@ class EnrichedAutocompleteJsonView(AutocompleteJsonView):
     def serialize_result(self, obj, to_field_name):
         result = super().serialize_result(obj, to_field_name)
         model_admin = self.admin_site._registry.get(type(obj))
+        if model_admin is None and obj._meta.proxy:
+            model_admin = self.admin_site._registry.get(obj._meta.concrete_model)
         if model_admin:
             for field in getattr(model_admin, "autocomplete_extra_fields", ()):
                 if hasattr(obj, field):

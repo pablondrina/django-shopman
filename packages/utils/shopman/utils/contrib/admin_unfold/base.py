@@ -7,8 +7,17 @@ sensible defaults for textarea fields.
 
 from django import forms
 from django.contrib.admin.widgets import AdminTextareaWidget
-from unfold.admin import ModelAdmin, StackedInline, TabularInline
-from unfold.widgets import UnfoldAdminTextareaWidget
+
+try:
+    from unfold.admin import ModelAdmin, StackedInline, TabularInline
+    from unfold.widgets import UnfoldAdminTextareaWidget
+except ImportError:
+    from django.contrib.admin import ModelAdmin, StackedInline, TabularInline  # type: ignore[assignment]
+    UnfoldAdminTextareaWidget = None  # type: ignore[assignment,misc]
+
+_TEXTAREA_WIDGET_TYPES = tuple(
+    t for t in (forms.Textarea, AdminTextareaWidget, UnfoldAdminTextareaWidget) if t is not None
+)
 
 
 class _TextareaCustomizationMixin:
@@ -20,9 +29,7 @@ class _TextareaCustomizationMixin:
         for _field_name, field in formset.form.base_fields.items():
             widget = field.widget
 
-            if isinstance(
-                widget, (forms.Textarea, AdminTextareaWidget, UnfoldAdminTextareaWidget)
-            ):
+            if isinstance(widget, _TEXTAREA_WIDGET_TYPES):
                 if not hasattr(widget, "attrs"):
                     widget.attrs = {}
 
@@ -63,9 +70,7 @@ class BaseModelAdmin(ModelAdmin):
         for _field_name, field in form.base_fields.items():
             widget = field.widget
 
-            if isinstance(
-                widget, (forms.Textarea, AdminTextareaWidget, UnfoldAdminTextareaWidget)
-            ):
+            if isinstance(widget, _TEXTAREA_WIDGET_TYPES):
                 if not hasattr(widget, "attrs"):
                     widget.attrs = {}
 
