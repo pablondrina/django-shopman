@@ -211,6 +211,11 @@ class ContactPoint(models.Model):
 
     def mark_verified(self, method: str, ref: str | None = None):
         """Mark contact as verified."""
+        valid = {v.value for v in self.VerificationMethod}
+        if method not in valid:
+            raise ValueError(
+                f"Método de verificação inválido: {method!r}. Válidos: {sorted(valid)}"
+            )
         self.is_verified = True
         self.verification_method = method
         self.verified_at = timezone.now()

@@ -169,7 +169,7 @@ class CustomerAdmin(BaseModelAdmin):
     def customer_type_badge(self, obj):
         colors = {
             "individual": "blue",
-            "company": "green",
+            "business": "green",
         }
         color = colors.get(obj.customer_type, "base")
         return unfold_badge(obj.get_customer_type_display(), color)
@@ -242,7 +242,7 @@ class CustomerAdmin(BaseModelAdmin):
     def export_selected_csv(self, request, queryset):
         """Export selected customers as CSV."""
         response = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = 'attachment; filename=guestman.csv"'
+        response["Content-Disposition"] = 'attachment; filename="guestman.csv"'
         writer = csv.writer(response)
         writer.writerow([
             "ref", "first_name", "last_name", "customer_type",

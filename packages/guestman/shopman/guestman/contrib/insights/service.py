@@ -125,6 +125,9 @@ class InsightService:
             channel_counts = Counter(o.channel_ref for o in orders)
             insight.preferred_channel = channel_counts.most_common(1)[0][0]
 
+        # Favorite products (top 5 SKUs by frequency)
+        insight.favorite_products = backend.get_favorite_products(customer_ref, limit=5)
+
         # Calculate RFM scores
         insight.rfm_recency = cls._calculate_recency_score(
             insight.days_since_last_order

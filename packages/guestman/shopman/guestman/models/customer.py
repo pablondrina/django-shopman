@@ -162,13 +162,19 @@ class Customer(models.Model):
         if self.email:
             self.email = self.email.lower().strip()
 
-        # Set default group
+        # Set default group (select_for_update prevents race between concurrent creates)
         if not self.group_id:
+            from django.db import transaction
             from shopman.guestman.models import CustomerGroup
 
-            default_group = CustomerGroup.objects.filter(is_default=True).first()
-            if default_group:
-                self.group = default_group
+            with transaction.atomic():
+                default_group = (
+                    CustomerGroup.objects.select_for_update()
+                    .filter(is_default=True)
+                    .first()
+                )
+                if default_group:
+                    self.group = default_group
 
         super().save(*args, **kwargs)
 

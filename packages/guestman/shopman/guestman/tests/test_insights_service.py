@@ -66,6 +66,9 @@ class MockOrderHistoryBackend:
     def get_customer_orders(self, customer_ref: str, limit: int = 10) -> list[OrderSummary]:
         return self._orders[:limit]
 
+    def get_favorite_products(self, customer_ref: str, limit: int = 5) -> list[dict]:
+        return []
+
 
 # ── Recalculate ──
 
