@@ -395,6 +395,7 @@ class PaymentService:
         cls._require_can_transition(intent, PaymentIntent.Status.CANCELLED, "cancel")
 
         intent.status = PaymentIntent.Status.CANCELLED
+        intent.cancel_reason = reason
         intent.save()
 
         payment_cancelled.send(
@@ -493,10 +494,14 @@ class PaymentService:
 
     @classmethod
     def get_active_intent(cls, order_ref: str) -> PaymentIntent | None:
-        """Retorna o intent não-terminal mais recente para o pedido."""
+        """Retorna o intent não-terminal e não-expirado mais recente para o pedido."""
+        now = timezone.now()
         return (
             PaymentIntent.objects.filter(order_ref=order_ref)
             .exclude(status__in=PaymentIntent.TERMINAL_STATUSES)
+            .filter(
+                models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=now)
+            )
             .order_by("-created_at")
             .first()
         )
