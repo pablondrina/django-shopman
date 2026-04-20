@@ -1,6 +1,6 @@
 """Unfold admin dashboard callback — operator dashboard widgets.
 
-Data is built by ``shopman.shop.projections.dashboard.build_dashboard()``.
+Data is built by ``shopman.backstage.projections.dashboard.build_dashboard()``.
 This module only handles admin-specific table formatting (``format_html``).
 """
 
@@ -13,10 +13,10 @@ from pathlib import Path
 from django.urls import reverse
 from django.utils.html import format_html
 
-from shopman.shop.projections.dashboard import build_dashboard
+from shopman.backstage.projections.dashboard import build_dashboard
 
 _OMOTENASHI_TAG = re.compile(r"\{%[-\s]*omotenashi\b")
-_STOREFRONT_TEMPLATES = Path(__file__).parents[1] / "templates" / "storefront"
+_STOREFRONT_TEMPLATES = Path(__file__).parents[2] / "storefront" / "templates" / "storefront"
 
 
 def _omotenashi_health() -> dict:

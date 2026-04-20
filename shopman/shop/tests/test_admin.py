@@ -206,7 +206,7 @@ class TestBatchAdminExtension:
 
 class TestDashboardCallback:
     def test_returns_context_with_kpis(self, db):
-        from shopman.shop.admin.dashboard import dashboard_callback
+        from shopman.backstage.admin.dashboard import dashboard_callback
 
         request = RequestFactory().get("/admin/")
         context = {}
@@ -223,7 +223,7 @@ class TestDashboardCallback:
         assert "operator_alerts" in result
 
     def test_order_summary_structure(self, db):
-        from shopman.shop.admin.dashboard import dashboard_callback
+        from shopman.backstage.admin.dashboard import dashboard_callback
 
         request = RequestFactory().get("/admin/")
         context = {}
@@ -235,7 +235,7 @@ class TestDashboardCallback:
         assert hasattr(summary, "cards")
 
     def test_revenue_structure(self, db):
-        from shopman.shop.admin.dashboard import dashboard_callback
+        from shopman.backstage.admin.dashboard import dashboard_callback
 
         request = RequestFactory().get("/admin/")
         context = {}
@@ -248,7 +248,7 @@ class TestDashboardCallback:
         assert hasattr(revenue, "trend_up")
 
     def test_format_brl(self):
-        from shopman.shop.projections.dashboard import _format_brl
+        from shopman.backstage.projections.dashboard import _format_brl
 
         assert _format_brl(0) == "R$ 0,00"
         assert _format_brl(1500) == "R$ 15,00"

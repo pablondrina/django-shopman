@@ -1009,13 +1009,13 @@ class TestKDSService:
 
 class TestCheckoutService:
 
-    @patch("shopman.shop.services.checkout.Channel")
-    @patch("shopman.shop.services.checkout.ChannelConfig")
-    @patch("shopman.shop.services.checkout.CommitService")
-    @patch("shopman.shop.services.checkout.ModifyService")
+    @patch("shopman.storefront.services.checkout.Channel")
+    @patch("shopman.storefront.services.checkout.ChannelConfig")
+    @patch("shopman.storefront.services.checkout.CommitService")
+    @patch("shopman.storefront.services.checkout.ModifyService")
     def test_process_applies_data_and_commits(self, mock_modify, mock_commit, mock_cfg, mock_channel):
         from shopman.shop.config import ChannelConfig
-        from shopman.shop.services.checkout import process
+        from shopman.storefront.services.checkout import process
 
         mock_cfg.for_channel.return_value = ChannelConfig()
         mock_commit.commit.return_value = {"order_ref": "ORD-001", "status": "committed"}
@@ -1031,13 +1031,13 @@ class TestCheckoutService:
         mock_commit.commit.assert_called_once()
         assert result["order_ref"] == "ORD-001"
 
-    @patch("shopman.shop.services.checkout.Channel")
-    @patch("shopman.shop.services.checkout.ChannelConfig")
-    @patch("shopman.shop.services.checkout.CommitService")
-    @patch("shopman.shop.services.checkout.ModifyService")
+    @patch("shopman.storefront.services.checkout.Channel")
+    @patch("shopman.storefront.services.checkout.ChannelConfig")
+    @patch("shopman.storefront.services.checkout.CommitService")
+    @patch("shopman.storefront.services.checkout.ModifyService")
     def test_process_skips_modify_with_no_data(self, mock_modify, mock_commit, mock_cfg, mock_channel):
         from shopman.shop.config import ChannelConfig
-        from shopman.shop.services.checkout import process
+        from shopman.storefront.services.checkout import process
 
         mock_cfg.for_channel.return_value = ChannelConfig()
         mock_commit.commit.return_value = {"order_ref": "ORD-002", "status": "committed"}
@@ -1398,7 +1398,6 @@ class TestNoForbiddenImports:
         "shopman.shop.services.fiscal",
         "shopman.shop.services.cancellation",
         "shopman.shop.services.kds",
-        "shopman.shop.services.checkout",
     ]
 
     @pytest.mark.parametrize("module_path", SERVICE_MODULES)

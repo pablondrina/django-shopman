@@ -317,7 +317,7 @@ UNFOLD = {
     "SITE_TITLE": _unfold_site_title,
     "SITE_HEADER": _unfold_site_title,
     "SITE_SYMBOL": "store",
-    "DASHBOARD_CALLBACK": "shopman.shop.admin.dashboard.dashboard_callback",
+    "DASHBOARD_CALLBACK": "shopman.backstage.admin.dashboard.dashboard_callback",
     "SHOW_HISTORY": True,
     "SHOW_VIEW_ON_SITE": False,
     "SHOW_BACK_BUTTON": True,

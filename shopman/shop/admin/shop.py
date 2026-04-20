@@ -1,4 +1,4 @@
-"""Shop admin — singleton with branding, colors, typography, and custom admin URLs."""
+"""Shop admin — singleton with branding, colors, typography."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ import json
 
 from django import forms
 from django.contrib import admin
-from django.urls import path
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from unfold.admin import ModelAdmin
@@ -15,16 +14,6 @@ from unfold.widgets import UnfoldAdminColorInputWidget
 from shopman.shop.admin.widgets import FontPreviewWidget
 from shopman.shop.colors import oklch_to_hex
 from shopman.shop.models import NotificationTemplate, Shop
-from shopman.storefront.models import DeliveryZone
-
-
-class DeliveryZoneInline(admin.TabularInline):
-    model = DeliveryZone
-    extra = 0
-    fields = ("name", "zone_type", "match_value", "fee_q", "sort_order", "is_active")
-    ordering = ("zone_type", "sort_order", "name")
-    verbose_name = "zona de entrega"
-    verbose_name_plural = "zonas de entrega"
 
 
 class ShopForm(forms.ModelForm):
@@ -69,37 +58,6 @@ def _token_value_to_hex(val: str) -> str:
 class ShopAdmin(ModelAdmin):
     form = ShopForm
     readonly_fields = ("color_preview", "storefront_preview")
-    inlines = [DeliveryZoneInline]
-
-    def get_urls(self):
-        from shopman.backstage.views.closing import closing_view
-        from shopman.backstage.views.production import production_view, production_void_view
-
-        urls = super().get_urls()
-        custom = [
-            path(
-                "production/",
-                self.admin_site.admin_view(
-                    lambda request: production_view(request, self.admin_site)
-                ),
-                name="shop_production",
-            ),
-            path(
-                "production/void/",
-                self.admin_site.admin_view(
-                    lambda request: production_void_view(request, self.admin_site)
-                ),
-                name="shop_production_void",
-            ),
-            path(
-                "closing/",
-                self.admin_site.admin_view(
-                    lambda request: closing_view(request, self.admin_site)
-                ),
-                name="shop_closing",
-            ),
-        ]
-        return custom + urls
 
     fieldsets = (
         ("Identidade", {

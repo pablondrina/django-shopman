@@ -577,7 +577,7 @@ def _shelf_life_label(shelf_life_days: int | None) -> str | None:
 def _breadcrumb_category(product: Product) -> CategoryProjection | None:
     from django.urls import NoReverseMatch, reverse
 
-    from shopman.shop.projections.icons import collection_icon
+    from shopman.storefront.projections.icons import collection_icon
 
     ci = (
         CollectionItem.objects.filter(product=product, collection__is_active=True)

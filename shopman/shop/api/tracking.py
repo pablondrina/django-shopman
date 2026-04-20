@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from shopman.orderman.models import Order
 
-from shopman.shop.projections.order_tracking import build_order_tracking
+from shopman.storefront.projections.order_tracking import build_order_tracking
 
 from .serializers import OrderTrackingSerializer
 
