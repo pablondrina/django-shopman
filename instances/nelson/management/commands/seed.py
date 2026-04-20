@@ -857,7 +857,7 @@ class Command(BaseCommand):
             {
                 "ref": "baguete",
                 "name": "Baguete Francesa",
-                "output_ref": "BAGUETE",
+                "output_sku": "BAGUETE",
                 "batch_size": Decimal("25"),
                 "items": [
                     ("INS-FARINHA-T65", Decimal("5.000")),
@@ -870,7 +870,7 @@ class Command(BaseCommand):
             {
                 "ref": "baguete-campagne",
                 "name": "Baguette de Campagne",
-                "output_ref": "BAGUETE-CAMPAGNE",
+                "output_sku": "BAGUETE-CAMPAGNE",
                 "batch_size": Decimal("12"),
                 "items": [
                     ("INS-FARINHA-T65", Decimal("2.000")),
@@ -884,7 +884,7 @@ class Command(BaseCommand):
             {
                 "ref": "campagne",
                 "name": "Pain de Campagne",
-                "output_ref": "CAMPAGNE-OVAL",
+                "output_sku": "CAMPAGNE-OVAL",
                 "batch_size": Decimal("10"),
                 "items": [
                     ("INS-FARINHA-T65", Decimal("2.500")),
@@ -898,7 +898,7 @@ class Command(BaseCommand):
             {
                 "ref": "italiano-rustico",
                 "name": "Italiano Rustico",
-                "output_ref": "ITALIANO-RUSTICO",
+                "output_sku": "ITALIANO-RUSTICO",
                 "batch_size": Decimal("8"),
                 "items": [
                     ("INS-FARINHA-T65", Decimal("3.500")),
@@ -911,7 +911,7 @@ class Command(BaseCommand):
             {
                 "ref": "ciabatta",
                 "name": "Ciabatta",
-                "output_ref": "CIABATTA",
+                "output_sku": "CIABATTA",
                 "batch_size": Decimal("20"),
                 "items": [
                     ("INS-FARINHA-T55", Decimal("3.000")),
@@ -924,7 +924,7 @@ class Command(BaseCommand):
             {
                 "ref": "focaccia-alecrim",
                 "name": "Focaccia Alecrim",
-                "output_ref": "FOCACCIA-ALECRIM",
+                "output_sku": "FOCACCIA-ALECRIM",
                 "batch_size": Decimal("8"),
                 "items": [
                     ("INS-FARINHA-T55", Decimal("2.000")),
@@ -938,7 +938,7 @@ class Command(BaseCommand):
             {
                 "ref": "focaccia-cebola",
                 "name": "Focaccia Cebola Roxa",
-                "output_ref": "FOCACCIA-CEBOLA",
+                "output_sku": "FOCACCIA-CEBOLA",
                 "batch_size": Decimal("6"),
                 "items": [
                     ("INS-FARINHA-T55", Decimal("2.000")),
@@ -953,7 +953,7 @@ class Command(BaseCommand):
             {
                 "ref": "pao-forma",
                 "name": "Pao de Forma Artesanal",
-                "output_ref": "PAO-FORMA",
+                "output_sku": "PAO-FORMA",
                 "batch_size": Decimal("12"),
                 "items": [
                     ("INS-FARINHA-T55", Decimal("3.000")),
@@ -967,7 +967,7 @@ class Command(BaseCommand):
             {
                 "ref": "challah",
                 "name": "Challah",
-                "output_ref": "CHALLAH",
+                "output_sku": "CHALLAH",
                 "batch_size": Decimal("8"),
                 "items": [
                     ("INS-FARINHA-T45", Decimal("2.000")),
@@ -982,7 +982,7 @@ class Command(BaseCommand):
             {
                 "ref": "croissant",
                 "name": "Croissant Manteiga",
-                "output_ref": "CROISSANT",
+                "output_sku": "CROISSANT",
                 "batch_size": Decimal("48"),
                 "items": [
                     ("INS-FARINHA-T45", Decimal("3.000")),
@@ -997,7 +997,7 @@ class Command(BaseCommand):
             {
                 "ref": "pain-chocolat",
                 "name": "Pain au Chocolat",
-                "output_ref": "PAIN-CHOCOLAT",
+                "output_sku": "PAIN-CHOCOLAT",
                 "batch_size": Decimal("36"),
                 "items": [
                     ("INS-FARINHA-T45", Decimal("2.500")),
@@ -1013,7 +1013,7 @@ class Command(BaseCommand):
             {
                 "ref": "brioche",
                 "name": "Brioche Nanterre",
-                "output_ref": "BRIOCHE",
+                "output_sku": "BRIOCHE",
                 "batch_size": Decimal("12"),
                 "items": [
                     ("INS-FARINHA-T45", Decimal("2.000")),
@@ -1027,7 +1027,7 @@ class Command(BaseCommand):
             {
                 "ref": "chausson",
                 "name": "Chausson aux Pommes",
-                "output_ref": "CHAUSSON",
+                "output_sku": "CHAUSSON",
                 "batch_size": Decimal("12"),
                 "items": [
                     ("INS-FARINHA-T45", Decimal("1.500")),
@@ -1040,7 +1040,7 @@ class Command(BaseCommand):
             {
                 "ref": "madeleine",
                 "name": "Madeleine",
-                "output_ref": "MADELEINE",
+                "output_sku": "MADELEINE",
                 "batch_size": Decimal("24"),
                 "items": [
                     ("INS-FARINHA-T45", Decimal("0.500")),
@@ -1087,16 +1087,16 @@ class Command(BaseCommand):
                 ref=rd["ref"],
                 defaults={
                     "name": rd["name"],
-                    "output_ref": rd["output_ref"],
+                    "output_sku": rd["output_sku"],
                     "batch_size": rd["batch_size"],
                 },
             )
             RecipeItem.objects.filter(recipe=recipe).delete()
-            for input_ref, qty in rd["items"]:
-                meta = INGREDIENT_PROFILES.get(input_ref, {})
+            for input_sku, qty in rd["items"]:
+                meta = INGREDIENT_PROFILES.get(input_sku, {})
                 RecipeItem.objects.create(
                     recipe=recipe,
-                    input_ref=input_ref,
+                    input_sku=input_sku,
                     quantity=qty,
                     meta=meta,
                 )
@@ -1196,7 +1196,7 @@ class Command(BaseCommand):
 
         # Historical production (last 35 days) — one WO per product per day
         # This feeds the pickup slot service's median calculation and craft.suggest()
-        recipes_by_output = {r.output_ref: r for r in Recipe.objects.all()}
+        recipes_by_output = {r.output_sku: r for r in Recipe.objects.all()}
         history_count = 0
         for days_ago in range(1, 36):
             wo_date = today - timedelta(days=days_ago)
@@ -1221,14 +1221,14 @@ class Command(BaseCommand):
 
                 wo = WorkOrder.objects.create(
                     recipe=recipe,
-                    output_ref=sku,
+                    output_sku=sku,
                     quantity=qty,
                     finished=Decimal(str(finished)),
                     status=WorkOrder.Status.FINISHED,
                     target_date=wo_date,
                     started_at=datetime.combine(wo_date, time(start_h, 0), tzinfo=tz_info),
                     finished_at=finish_dt,
-                    position_ref=recipe.output_ref,
+                    position_ref=recipe.output_sku,
                 )
 
                 # Waste: ~25% of WOs have some waste (5-15% of finished_qty)
