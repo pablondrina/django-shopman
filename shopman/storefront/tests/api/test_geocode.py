@@ -71,7 +71,7 @@ class TestReverseGeocodeEndpoint:
         """On success the view returns the service result verbatim."""
         url = reverse("api-geocode-reverse")
         with patch(
-            "shopman.shop.api.geocode.reverse_geocode",
+            "shopman.storefront.api.geocode.reverse_geocode",
             return_value=_stub_result(),
         ):
             resp = client.post(
@@ -91,7 +91,7 @@ class TestReverseGeocodeEndpoint:
         settings.GOOGLE_MAPS_API_KEY = "AIzaSecretShouldStaySecret"
         url = reverse("api-geocode-reverse")
         with patch(
-            "shopman.shop.api.geocode.reverse_geocode",
+            "shopman.storefront.api.geocode.reverse_geocode",
             return_value=_stub_result(),
         ):
             resp = client.post(
@@ -106,7 +106,7 @@ class TestReverseGeocodeEndpoint:
     def test_propagates_service_failure_as_502(self, client):
         url = reverse("api-geocode-reverse")
         with patch(
-            "shopman.shop.api.geocode.reverse_geocode",
+            "shopman.storefront.api.geocode.reverse_geocode",
             side_effect=GeocodingError("upstream down"),
         ):
             resp = client.post(

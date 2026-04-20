@@ -55,7 +55,7 @@ class DiscountModifier:
     order = 20
 
     def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
-        from shopman.storefront.models import Coupon, Promotion
+        from shopman.shop.adapters import get_adapter
 
         # Inject fulfillment_type from session data into ctx for matching
         fulfillment_type = (session.data or {}).get("fulfillment_type", "")
@@ -64,31 +64,13 @@ class DiscountModifier:
 
         now = timezone.now()
 
-        # Collect active AUTO-promotions (exclude coupon-only promotions)
-        promotions = list(
-            Promotion.objects.filter(
-                is_active=True,
-                valid_from__lte=now,
-                valid_until__gte=now,
-            ).exclude(
-                coupons__isnull=False,
-            )
-        )
+        adapter = get_adapter("promotion")
+        promotions = adapter.get_active_promotions(now) if adapter else []
 
-        # Collect coupon (if applied)
         coupon_code = (session.data or {}).get("coupon_code")
         coupon_promo = None
-        if coupon_code:
-            try:
-                coupon = Coupon.objects.select_related("promotion").get(
-                    code=coupon_code, is_active=True,
-                )
-                if coupon.is_available:
-                    promo = coupon.promotion
-                    if promo.is_active and promo.valid_from <= now <= promo.valid_until:
-                        coupon_promo = promo
-            except Coupon.DoesNotExist:
-                pass
+        if coupon_code and adapter:
+            coupon_promo = adapter.get_coupon_promotion(coupon_code, now)
 
         if not promotions and not coupon_promo:
             if not session.pricing:
@@ -313,7 +295,7 @@ class DeliveryFeeModifier:
     order = 70
 
     def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
-        from shopman.storefront.models import DeliveryZone
+        from shopman.shop.adapters import get_adapter
 
         data = session.data or {}
         fulfillment_type = data.get("fulfillment_type", "")
@@ -328,7 +310,10 @@ class DeliveryFeeModifier:
             # Endereço ainda não preenchido (pré-checkout) — não calcular taxa
             return
 
-        zone = DeliveryZone.match(postal_code=postal_code, neighborhood=neighborhood)
+        adapter = get_adapter("promotion")
+        if adapter is None:
+            return
+        zone = adapter.match_delivery_zone(postal_code, neighborhood)
 
         if zone is None:
             # Endereço fora da área de entrega

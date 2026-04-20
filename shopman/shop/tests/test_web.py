@@ -194,7 +194,7 @@ class TestTemplatetagsBridge:
 
 class TestAPIBridge:
     def test_api_urls_importable(self):
-        from shopman.shop.api.urls import urlpatterns
+        from shopman.storefront.api.urls import urlpatterns
 
         assert len(urlpatterns) > 0
 

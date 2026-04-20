@@ -9,11 +9,14 @@ from __future__ import annotations
 import logging
 from decimal import Decimal
 
+from django.conf import settings
+
 from shopman.utils.monetary import format_money
 
 from shopman.shop.adapters import get_adapter
 
-from shopman.storefront.constants import HAS_STOCKMAN, STOREFRONT_CHANNEL_REF
+HAS_STOCKMAN = True
+STOREFRONT_CHANNEL_REF: str = getattr(settings, "SHOPMAN_STOREFRONT_CHANNEL_REF", "web")
 
 logger = logging.getLogger(__name__)
 

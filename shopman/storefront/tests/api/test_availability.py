@@ -89,7 +89,7 @@ class TestAvailabilityView:
         assert resp.status_code == 404
 
     def test_available_sku(self, client, product):
-        with patch("shopman.shop.api.availability.avail_service.check", return_value=AVAILABLE_RESULT):
+        with patch("shopman.storefront.api.availability.avail_service.check", return_value=AVAILABLE_RESULT):
             resp = client.get(self._url(product.sku))
         assert resp.status_code == 200
         data = resp.json()
@@ -99,7 +99,7 @@ class TestAvailabilityView:
         assert data["is_bundle"] is False
 
     def test_sold_out_sku(self, client, product):
-        with patch("shopman.shop.api.availability.avail_service.check", return_value=SOLD_OUT_RESULT):
+        with patch("shopman.storefront.api.availability.avail_service.check", return_value=SOLD_OUT_RESULT):
             resp = client.get(self._url(product.sku))
         assert resp.status_code == 200
         data = resp.json()
@@ -110,7 +110,7 @@ class TestAvailabilityView:
         assert data["badge_text"] == "Indisponível"
 
     def test_not_in_listing(self, client, product):
-        with patch("shopman.shop.api.availability.avail_service.check", return_value=NOT_IN_LISTING_RESULT):
+        with patch("shopman.storefront.api.availability.avail_service.check", return_value=NOT_IN_LISTING_RESULT):
             resp = client.get(self._url(product.sku))
         assert resp.status_code == 200
         data = resp.json()
@@ -119,20 +119,20 @@ class TestAvailabilityView:
         assert data["badge_text"] == "Indisponível"
 
     def test_cache_prevents_double_call(self, client, product):
-        with patch("shopman.shop.api.availability.avail_service.check", return_value=AVAILABLE_RESULT) as mock_check:
+        with patch("shopman.storefront.api.availability.avail_service.check", return_value=AVAILABLE_RESULT) as mock_check:
             client.get(self._url(product.sku))
             client.get(self._url(product.sku))
         # check() should only be called once (second call hits cache)
         assert mock_check.call_count == 1
 
     def test_channel_param_passed_to_check(self, client, product):
-        with patch("shopman.shop.api.availability.avail_service.check", return_value=AVAILABLE_RESULT) as mock_check:
+        with patch("shopman.storefront.api.availability.avail_service.check", return_value=AVAILABLE_RESULT) as mock_check:
             client.get(self._url(product.sku) + "?channel=web")
         mock_check.assert_called_once_with(product.sku, Decimal("1"), channel_ref="web")
 
     def test_no_auth_required(self, client, product):
         """Endpoint is public — no credentials needed."""
-        with patch("shopman.shop.api.availability.avail_service.check", return_value=AVAILABLE_RESULT):
+        with patch("shopman.storefront.api.availability.avail_service.check", return_value=AVAILABLE_RESULT):
             resp = client.get(self._url(product.sku))
         assert resp.status_code == 200
 
