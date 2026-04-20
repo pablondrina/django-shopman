@@ -12,7 +12,8 @@ from shopman.refs.registry import get_all_ref_types, get_ref_type, register_ref_
 
 default_app_config = "shopman.refs.apps.RefsConfig"
 
-_SERVICE_NAMES = frozenset({
+_LAZY_NAMES = frozenset({
+    # Services
     "attach",
     "resolve",
     "resolve_partial",
@@ -22,12 +23,17 @@ _SERVICE_NAMES = frozenset({
     "refs_for",
     "target_str",
     "parse_target",
+    # Bulk
+    "RefBulk",
 })
 
 
 def __getattr__(name):
-    """Lazy import of service functions to avoid AppRegistryNotReady during app loading."""
-    if name in _SERVICE_NAMES:
+    """Lazy import to avoid AppRegistryNotReady during app loading."""
+    if name in _LAZY_NAMES:
+        if name == "RefBulk":
+            from shopman.refs.bulk import RefBulk
+            return RefBulk
         from shopman.refs import services
         return getattr(services, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
@@ -49,4 +55,6 @@ __all__ = [
     # Helpers
     "target_str",
     "parse_target",
+    # Bulk operations (lazily loaded)
+    "RefBulk",
 ]
