@@ -725,9 +725,9 @@ class Command(BaseCommand):
         )
 
         # Listing items (all products in all listings)
-        # iFood uses pricing.policy="external" (marketplace defines prices),
-        # so its listing prices are reference-only. No markup applied.
-        markup_map = {"balcao": 0, "delivery": 0, "ifood": 30, "web": 0}
+        # iFood uses pricing.policy="external": the marketplace controls final prices,
+        # so listing prices are reference-only — no markup stored on our side.
+        markup_map = {"balcao": 0, "delivery": 0, "ifood": 0, "web": 0}
         for listing_obj in [balcao, delivery, ifood, web]:
             ListingItem.objects.filter(listing=listing_obj).delete()
             markup = Decimal(markup_map[listing_obj.ref]) / 100
@@ -741,7 +741,7 @@ class Command(BaseCommand):
                     is_sellable=product.is_sellable,
                 )
 
-        self.stdout.write(f"  ✅ {len(products)} produtos ({Product.objects.filter(unit_weight_g__isnull=False).count()} com peso), 7 colecoes, 4 listagens")
+        self.stdout.write(f"  ✅ {len(products)} produtos ({Product.objects.filter(unit_weight_g__isnull=False).count()} com peso), {len(all_cols)} colecoes, 4 listagens")
         return products
 
     # ────────────────────────────────────────────────────────────────
