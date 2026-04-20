@@ -87,6 +87,7 @@ INSTALLED_APPS = [
     "django_eventstream",
     "simple_history",
     # Shopman core apps
+    "shopman.refs",
     "shopman.utils",
     "shopman.offerman",
     "shopman.stockman",
