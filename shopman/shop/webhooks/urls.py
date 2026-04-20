@@ -10,6 +10,6 @@ app_name = "webhooks"
 
 urlpatterns = [
     path("efi/pix/", EfiPixWebhookView.as_view(), name="efi-pix-webhook"),
-    path("ifood/", IFoodWebhookView.as_view(), name="ifood-webhook"),
     path("stripe/", StripeWebhookView.as_view(), name="stripe-webhook"),
+    path("ifood/", IFoodWebhookView.as_view(), name="ifood-webhook"),
 ]

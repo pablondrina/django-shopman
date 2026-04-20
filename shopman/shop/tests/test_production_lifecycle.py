@@ -21,7 +21,7 @@ pytestmark = pytest.mark.django_db
 class TestProductionFlowName:
     def test_default_is_standard(self):
         recipe = Recipe.objects.create(
-            code="pf-test",
+            ref="pf-test",
             name="PF Test",
             output_sku="SKU-PF",
             batch_size=Decimal("1"),
@@ -30,7 +30,7 @@ class TestProductionFlowName:
 
     def test_meta_overrides(self):
         recipe = Recipe.objects.create(
-            code="pf-forecast",
+            ref="pf-forecast",
             name="Forecast",
             output_sku="SKU-F",
             batch_size=Decimal("1"),
@@ -42,7 +42,7 @@ class TestProductionFlowName:
 class TestDispatchMapping:
     def test_planned_triggers_on_planned(self):
         recipe = Recipe.objects.create(
-            code="pf-plan",
+            ref="pf-plan",
             name="Plan",
             output_sku="SKU-P",
             batch_size=Decimal("1"),
@@ -57,7 +57,7 @@ class TestDispatchMapping:
 
     def test_start_triggers_on_started_only_once(self):
         recipe = Recipe.objects.create(
-            code="pf-adj",
+            ref="pf-adj",
             name="Adj",
             output_sku="SKU-A",
             batch_size=Decimal("1"),
@@ -74,7 +74,7 @@ class TestDispatchMapping:
 
     def test_forecast_flow_logs_on_finish(self):
         recipe = Recipe.objects.create(
-            code="pf-fc",
+            ref="pf-fc",
             name="Fc",
             output_sku="SKU-FC",
             batch_size=Decimal("1"),

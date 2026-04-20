@@ -74,8 +74,8 @@ class TestHappyHourRule:
 
     def test_default_params(self):
         assert HappyHourRule.default_params == {
-            "discount_percent": 10,
-            "start": "16:00",
+            "discount_percent": 25,
+            "start": "17:30",
             "end": "18:00",
         }
 
@@ -277,10 +277,12 @@ class TestEngine:
         assert rule.end == time(22, 0)
 
     def test_load_rule_bad_path_raises(self):
-        rc = self._create_rule(
-            code="bad_path",
-            rule_path="shopman.shop.rules.nonexistent.FakeRule",
+        rc = self._create_rule(code="bad_path")
+        # Bypass full_clean to inject an unresolvable path directly
+        RuleConfig.objects.filter(pk=rc.pk).update(
+            rule_path="shopman.shop.rules.nonexistent.FakeRule"
         )
+        rc.refresh_from_db()
         with pytest.raises(ImportError):
             load_rule(rc)
 

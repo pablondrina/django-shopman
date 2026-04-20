@@ -57,12 +57,23 @@ def _create_pos_order(payment_method: str = "dinheiro") -> Order:
     return Order.objects.get(ref=result["order_ref"])
 
 
+
+def _grant_pos_perm(user):
+    from django.contrib.auth.models import Permission
+    from django.contrib.contenttypes.models import ContentType
+    from shopman.shop.models import CashRegisterSession
+    ct = ContentType.objects.get_for_model(CashRegisterSession)
+    perm = Permission.objects.get(content_type=ct, codename="operate_pos")
+    user.user_permissions.add(perm)
+
+
 class PosCancelLastTests(TestCase):
     def setUp(self) -> None:
         super().setUp()
         from shopman.shop.models import Shop
         Shop.objects.create(name="Test Shop", brand_name="Test")
         self.staff = User.objects.create_user("staff_user", password="pw", is_staff=True)
+        _grant_pos_perm(self.staff)
         self.regular = User.objects.create_user("regular_user", password="pw", is_staff=False)
         self.channel = Channel.objects.create(
             ref="balcao",
@@ -136,6 +147,7 @@ class PosCloseGranularErrorTests(TestCase):
         from shopman.shop.models import Shop
         Shop.objects.create(name="Test Shop", brand_name="Test")
         self.staff = User.objects.create_user("staff_user", password="pw", is_staff=True)
+        _grant_pos_perm(self.staff)
         self.channel = Channel.objects.create(
             ref="balcao",
             name="Balcão",

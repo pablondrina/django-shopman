@@ -17,10 +17,15 @@ Configuration lives in Shop.defaults["pickup_slots"] (admin-editable):
 from __future__ import annotations
 
 import logging
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
 from statistics import median
 
 logger = logging.getLogger(__name__)
+
+
+def _wall_clock() -> time:
+    return datetime.now().time()
+
 
 # ── Defaults ─────────────────────────────────────────────────────────
 
@@ -186,9 +191,7 @@ def get_earliest_slot_for_skus(skus: list[str]) -> dict:
     # running (no later slot has begun) is the correct default for a
     # customer placing an order mid-afternoon. Without this, we'd suggest
     # a morning slot whose window is long past.
-    from datetime import datetime as _dt
-
-    now_t = _dt.now().time()
+    now_t = _wall_clock()
     effective_earliest = max(latest_time, now_t)
 
     # Find the first slot whose starts_at >= effective_earliest. Falls back

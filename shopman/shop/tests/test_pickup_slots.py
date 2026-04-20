@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.test import TestCase
 from django.utils import timezone
@@ -76,7 +77,7 @@ class GetTypicalReadyTimesTests(TestCase):
 
         Shop.objects.create(name="Test", brand_name="Test")
         self.recipe = Recipe.objects.create(
-            code="test-bread",
+            ref="test-bread",
             name="Test Bread",
             output_sku="BREAD-SKU",
             batch_size=Decimal("50"),
@@ -151,7 +152,7 @@ class GetEarliestSlotTests(TestCase):
 
         # Bread: finishes at 5:30 → slot-09
         self.bread_recipe = Recipe.objects.create(
-            code="bread", name="Bread", output_sku="BREAD", batch_size=Decimal("50"),
+            ref="bread", name="Bread", output_sku="BREAD", batch_size=Decimal("50"),
         )
         for days_ago in range(1, 4):
             d = today - timedelta(days=days_ago)
@@ -165,7 +166,7 @@ class GetEarliestSlotTests(TestCase):
 
         # Cake: finishes at 11:30 → slot-12
         self.cake_recipe = Recipe.objects.create(
-            code="cake", name="Cake", output_sku="CAKE", batch_size=Decimal("10"),
+            ref="cake", name="Cake", output_sku="CAKE", batch_size=Decimal("10"),
         )
         for days_ago in range(1, 4):
             d = today - timedelta(days=days_ago)
@@ -179,7 +180,7 @@ class GetEarliestSlotTests(TestCase):
 
         # Brigadeiro: finishes at 13:30 → slot-15
         self.brig_recipe = Recipe.objects.create(
-            code="brigadeiro", name="Brigadeiro", output_sku="BRIGADEIRO", batch_size=Decimal("100"),
+            ref="brigadeiro", name="Brigadeiro", output_sku="BRIGADEIRO", batch_size=Decimal("100"),
         )
         for days_ago in range(1, 4):
             d = today - timedelta(days=days_ago)
@@ -190,6 +191,17 @@ class GetEarliestSlotTests(TestCase):
                 started_at=datetime.combine(d, time(10, 0), tzinfo=tz_info),
                 finished_at=datetime.combine(d, time(13, 30), tzinfo=tz_info),
             )
+
+        # Freeze wall clock at 07:00 so slot comparisons are deterministic
+        self._dt_patcher = patch(
+            "shopman.shop.services.pickup_slots._wall_clock",
+            return_value=time(7, 0),
+        )
+        self._dt_patcher.start()
+
+    def tearDown(self):
+        self._dt_patcher.stop()
+        super().tearDown()
 
     def test_bread_only_gets_first_slot(self):
         result = get_earliest_slot_for_skus(["BREAD"])

@@ -34,6 +34,16 @@ def _make_channel():
     )[0]
 
 
+
+def _grant_pos_perm(user):
+    from django.contrib.auth.models import Permission
+    from django.contrib.contenttypes.models import ContentType
+    from shopman.shop.models import CashRegisterSession
+    ct = ContentType.objects.get_for_model(CashRegisterSession)
+    perm = Permission.objects.get(content_type=ct, codename="operate_pos")
+    user.user_permissions.add(perm)
+
+
 class POSKeyboardShortcutTemplateTests(TestCase):
     def setUp(self) -> None:
         super().setUp()
@@ -41,6 +51,7 @@ class POSKeyboardShortcutTemplateTests(TestCase):
         _make_channel()
         User = get_user_model()
         self.staff = User.objects.create_user(username="kb_staff", password="x", is_staff=True)
+        _grant_pos_perm(self.staff)
         self.client.force_login(self.staff)
         # WP-R16: POS requires an open cash register session
         from shopman.shop.models import CashRegisterSession

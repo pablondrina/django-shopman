@@ -46,6 +46,16 @@ def _make_session(items=None):
     return session
 
 
+
+def _grant_pos_perm(user):
+    from django.contrib.auth.models import Permission
+    from django.contrib.contenttypes.models import ContentType
+    from shopman.shop.models import CashRegisterSession
+    ct = ContentType.objects.get_for_model(CashRegisterSession)
+    perm = Permission.objects.get(content_type=ct, codename="operate_pos")
+    user.user_permissions.add(perm)
+
+
 class ManualDiscountModifierTests(TestCase):
     def setUp(self) -> None:
         super().setUp()
@@ -101,6 +111,7 @@ class POSCloseWithDiscountTests(TestCase):
         Product.objects.create(sku="POS-ITEM-1", name="Item 1", base_price_q=1000, is_published=True, is_sellable=True)
         User = get_user_model()
         self.staff = User.objects.create_user(username="pos_staff", password="x", is_staff=True)
+        _grant_pos_perm(self.staff)
 
     def _close_sale(self, items, manual_discount=None):
         payload = {
