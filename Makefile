@@ -11,7 +11,7 @@ PYTHON := $(shell [ -f .venv/bin/python ] && echo $(CURDIR)/.venv/bin/python || 
 # Python: usa venv se existir, senao o do PATH
 PYTHON := $(shell [ -f .venv/bin/python ] && echo $(CURDIR)/.venv/bin/python || echo python)
 
-.PHONY: help install test test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework lint clean migrate run dev seed coverage css css-watch fonts up down logs db-shell
+.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework lint clean migrate run dev seed coverage css css-watch fonts up down logs db-shell
 
 help: ## Mostra este help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -28,6 +28,7 @@ install: ## Instala deps + apps da suite em modo editável
 		"psycopg[binary]>=3.2,<4.0" \
 		phonenumbers pytest pytest-django
 	# Instala cada app em modo editável
+	$(PYTHON) -m pip install -e packages/refs
 	$(PYTHON) -m pip install -e packages/utils
 	$(PYTHON) -m pip install -e packages/offerman
 	$(PYTHON) -m pip install -e packages/stockman
@@ -41,8 +42,12 @@ install: ## Instala deps + apps da suite em modo editável
 
 # ── Testes ────────────────────────────────────────────────────────────
 
-test: test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework ## Roda todos os testes
+test: test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework ## Roda todos os testes
 	@echo "✓ Todos os testes passaram"
+
+test-refs: ## Testes do shopman.refs
+	@echo "── Refs ──"
+	cd packages/refs && $(PYTHON) -m pytest -x -q
 
 test-utils: ## Testes do shopman.utils
 	@echo "── Utils ──"

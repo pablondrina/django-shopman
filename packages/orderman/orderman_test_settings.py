@@ -13,8 +13,8 @@ INSTALLED_APPS = [
     "django.contrib.auth",
     "rest_framework",
     "shopman.utils",
+    "shopman.refs",
     "shopman.orderman",
-    "shopman.orderman.contrib.refs",
 ]
 
 DATABASES = {
