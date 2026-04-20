@@ -361,6 +361,13 @@ class CommitService:
         session.commit_token = idempotency_key
         session.save()
 
+        # Carryover refs from session to order (optional contrib)
+        try:
+            from shopman.orderman.contrib.refs.services import on_session_committed
+            on_session_committed(session.pk, order.pk)
+        except ImportError:
+            pass
+
         # Preorder reminder: D-1 notification if delivery_date is future
         if order_data.get("is_preorder") and order_data.get("delivery_date"):
             from datetime import date as date_type

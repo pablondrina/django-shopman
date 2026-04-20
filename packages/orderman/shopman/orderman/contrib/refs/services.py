@@ -6,8 +6,7 @@ API principal para manipulação de Refs.
 
 from __future__ import annotations
 
-from typing import Literal
-from uuid import UUID
+from typing import Literal, Union
 
 from django.db import transaction
 from django.db.models import Q
@@ -47,7 +46,7 @@ def resolve_ref(
     ref_type_slug: str,
     value: str,
     scope: dict,
-) -> tuple[str, UUID] | None:
+) -> tuple[str, str] | None:
     """
     Busca Ref ACTIVE por tipo, valor e scope.
 
@@ -57,7 +56,7 @@ def resolve_ref(
         scope: Scope de unicidade
 
     Returns:
-        (target_kind, target_id) ou None se não encontrado.
+        (target_kind, target_id_str) ou None se não encontrado.
 
     Raises:
         RefTypeNotFound: Se RefType não registrado
@@ -85,7 +84,7 @@ def resolve_ref(
 
 def attach_ref(
     target_kind: Literal["SESSION", "ORDER"],
-    target_id: UUID,
+    target_id: Union[int, str],
     ref_type_slug: str,
     value: str,
     scope: dict,
@@ -95,7 +94,7 @@ def attach_ref(
 
     Args:
         target_kind: "SESSION" ou "ORDER"
-        target_id: ID do target
+        target_id: ID do target (int, UUID, ou string)
         ref_type_slug: Slug do RefType
         value: Valor do localizador (será normalizado)
         scope: Scope de unicidade
@@ -108,6 +107,7 @@ def attach_ref(
         RefScopeInvalid: Se scope inválido
         RefConflict: Se já existe Ref ACTIVE com mesmo (type, value, scope) para outro target
     """
+    target_id = str(target_id)
     ref_type = get_ref_type(ref_type_slug)
     if not ref_type:
         raise RefTypeNotFound(ref_type_slug)
@@ -169,7 +169,7 @@ def attach_ref(
 
 def deactivate_refs(
     target_kind: Literal["SESSION", "ORDER"],
-    target_id: UUID,
+    target_id: Union[int, str],
     ref_type_slugs: list[str] | None = None,
 ) -> int:
     """
@@ -185,7 +185,7 @@ def deactivate_refs(
     """
     queryset = Ref.objects.filter(
         target_kind=target_kind,
-        target_id=target_id,
+        target_id=str(target_id),
         is_active=True,
     )
 
@@ -197,7 +197,7 @@ def deactivate_refs(
 
 def get_refs_for_target(
     target_kind: Literal["SESSION", "ORDER"],
-    target_id: UUID,
+    target_id: Union[int, str],
     active_only: bool = True,
 ) -> list[Ref]:
     """
@@ -213,7 +213,7 @@ def get_refs_for_target(
     """
     queryset = Ref.objects.filter(
         target_kind=target_kind,
-        target_id=target_id,
+        target_id=str(target_id),
     )
 
     if active_only:
@@ -222,7 +222,7 @@ def get_refs_for_target(
     return list(queryset.order_by("created_at"))
 
 
-def on_session_committed(session_id: UUID, order_id: UUID) -> None:
+def on_session_committed(session_id: Union[int, str], order_id: Union[int, str]) -> None:
     """
     Hook chamado após CommitService criar Order.
 
@@ -234,9 +234,12 @@ def on_session_committed(session_id: UUID, order_id: UUID) -> None:
         session_id: ID da Session que foi commitada
         order_id: ID do Order criado
     """
+    session_id_str = str(session_id)
+    order_id_str = str(order_id)
+
     refs = Ref.objects.filter(
         target_kind="SESSION",
-        target_id=session_id,
+        target_id=session_id_str,
         is_active=True,
     )
 
@@ -250,7 +253,7 @@ def on_session_committed(session_id: UUID, order_id: UUID) -> None:
             Ref.objects.create(
                 ref_type=ref.ref_type,
                 target_kind="ORDER",
-                target_id=order_id,
+                target_id=order_id_str,
                 value=ref.value,
                 scope=ref.scope,
                 is_active=True,

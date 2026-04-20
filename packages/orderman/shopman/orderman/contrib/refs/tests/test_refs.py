@@ -105,7 +105,7 @@ class AttachRefTests(TestCase):
 
         assert ref.ref_type == "POS_TABLE"
         assert ref.target_kind == "SESSION"
-        assert ref.target_id == session_id
+        assert ref.target_id == str(session_id)
         assert ref.value == "12"  # Normalizado (uppercase, mas "12" já é)
         assert ref.is_active is True
 
@@ -179,7 +179,7 @@ class ResolveRefTests(TestCase):
         result = resolve_ref("POS_TABLE", "12", scope)
 
         assert result is not None
-        assert result == ("SESSION", session_id)
+        assert result == ("SESSION", str(session_id))
 
     def test_resolve_returns_none_for_inactive(self):
         """resolve_ref retorna None para Ref inativa."""

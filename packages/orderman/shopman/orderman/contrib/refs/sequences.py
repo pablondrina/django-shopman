@@ -8,8 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Literal
-from uuid import UUID
+from typing import Literal, Union
 
 from django.db import transaction
 from shopman.orderman.contrib.refs.exceptions import RefScopeInvalid, RefTypeNotFound
@@ -59,7 +58,7 @@ def generate_sequence_value(
 
 def attach_sequence_ref(
     target_kind: Literal["SESSION", "ORDER"],
-    target_id: UUID,
+    target_id: Union[int, str],
     ref_type_slug: str,
     scope: dict,
     pad_width: int = 3,
