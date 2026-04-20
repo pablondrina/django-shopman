@@ -1,0 +1,366 @@
+{% extends "storefront/base.html" %}
+{% load storefront_tags omotenashi_tags %}
+
+{% block title %}Minha Conta{% endblock %}
+
+{% block extra_head %}
+  {% include "storefront/partials/address_picker_head.html" %}
+{% endblock %}
+
+{% block breadcrumb %}
+<nav class="mb-6" aria-label="Breadcrumb">
+  <ol x-data="breadcrumb()" class="flex items-center text-sm overflow-hidden">
+    <li data-bc>
+      <a href="{% url 'storefront:home' %}" class="text-on-surface hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">Início</a>
+    </li>
+    <li data-bc-ellipsis hidden class="flex items-center text-on-surface/40 dark:text-on-surface-dark/40">
+      {% include "storefront/partials/_breadcrumb_chevron.html" %}<a :href="ellipsisHref" class="hover:text-primary dark:hover:text-primary-dark focus:outline-hidden focus:underline">…</a>
+    </li>
+    <li data-bc class="flex items-center min-w-0">
+      {% include "storefront/partials/_breadcrumb_chevron.html" %}
+      <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong truncate" aria-current="page">Minha Conta</span>
+    </li>
+  </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto"
+     x-data="{ tab: '{{ active_tab|default:'perfil' }}', showAddressForm: false }">
+
+  {% comment %}── Header ──{% endcomment %}
+  <div class="text-center mb-6">
+    <h1 class="text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-1">
+      {% if account.customer_first_name %}Olá, {{ account.customer_first_name }}!{% else %}Minha Conta{% endif %}
+    </h1>
+    <p class="text-on-surface/60 dark:text-on-surface-dark/60">{{ account.customer_phone|format_phone }}</p>
+  </div>
+
+  {% comment %}── Tabs ──{% endcomment %}
+  <div class="flex gap-1 mb-6 overflow-x-auto overflow-y-hidden border-b border-outline dark:border-outline-dark">
+    {% for val, label in account.tab_options %}
+    <button type="button"
+            @click="tab = '{{ val }}'"
+            class="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px"
+            :class="tab === '{{ val }}'
+              ? 'text-primary border-primary dark:text-primary-dark dark:border-primary-dark'
+              : 'text-on-surface/60 border-transparent hover:text-on-surface hover:border-outline dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark dark:hover:border-outline-dark'"
+            style="min-height: var(--touch-min)">
+      {% if val == 'perfil' %}<span class="material-symbols-rounded text-base" aria-hidden="true">person</span>
+      {% elif val == 'pedidos' %}<span class="material-symbols-rounded text-base" aria-hidden="true">receipt_long</span>
+      {% elif val == 'fidelidade' %}<span class="material-symbols-rounded text-base" aria-hidden="true">loyalty</span>
+      {% elif val == 'config' %}<span class="material-symbols-rounded text-base" aria-hidden="true">settings</span>
+      {% endif %}
+      {{ label }}
+    </button>
+    {% endfor %}
+  </div>
+
+  {% comment %}════ TAB: Perfil ════{% endcomment %}
+  <div x-show="tab === 'perfil'" x-cloak class="space-y-4">
+
+    {% comment %}── Dados pessoais ──{% endcomment %}
+    <div class="rounded-radius border border-outline bg-white p-5 dark:border-outline-dark dark:bg-surface-dark">
+      {% include "storefront/partials/profile_display.html" with customer=customer %}
+    </div>
+
+    {% comment %}── Endereços ──{% endcomment %}
+    <div class="rounded-radius border border-outline bg-white p-5 dark:border-outline-dark dark:bg-surface-dark">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Endereços</h3>
+        <button type="button"
+                @click="showAddressForm = !showAddressForm"
+                class="text-sm font-medium text-primary hover:opacity-75 transition dark:text-primary-dark">
+          + Novo endereço
+        </button>
+      </div>
+
+      {% comment %}Address form — bottom sheet mobile, inline desktop{% endcomment %}
+      <div x-show="showAddressForm" x-cloak>
+        <div class="md:hidden fixed inset-0 bg-black/50 z-[60] flex items-end justify-center"
+             x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+             @keydown.escape.window="showAddressForm = false">
+          <div @click.stop
+               x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-y-full" x-transition:enter-end="translate-y-0"
+               x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-y-0" x-transition:leave-end="translate-y-full"
+               data-swipe-dismiss
+               class="bg-surface dark:bg-surface-dark rounded-t-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-6"
+               style="padding-bottom: calc(1.5rem + var(--safe-area-bottom, 0px))">
+            <div class="w-10 h-1 rounded-full bg-outline dark:bg-outline-dark mx-auto mb-4" aria-hidden="true"></div>
+            <h3 class="text-base font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-4">Novo endereço</h3>
+            {% include "storefront/partials/address_form.html" with customer=customer %}
+          </div>
+        </div>
+        <div class="hidden md:block mb-4 rounded-radius border border-primary/30 bg-primary/5 p-4
+                    dark:border-primary-dark/30 dark:bg-primary-dark/5">
+          {% include "storefront/partials/address_form.html" with customer=customer %}
+        </div>
+      </div>
+
+      <div id="address-list">
+        {% include "storefront/partials/address_list.html" with addresses=addresses customer=customer %}
+      </div>
+    </div>
+  </div>
+
+  {% comment %}════ TAB: Pedidos ════{% endcomment %}
+  <div x-show="tab === 'pedidos'" x-cloak>
+    {% if account.recent_orders %}
+    <div class="space-y-3">
+      {% for order in account.recent_orders %}
+      <a href="{% url 'storefront:order_tracking' ref=order.ref %}"
+         class="block rounded-radius border border-outline bg-white p-5 hover:bg-surface-alt transition
+                dark:border-outline-dark dark:bg-surface-dark dark:hover:bg-surface-dark-alt">
+        <div class="flex items-center justify-between">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-3 mb-1">
+              <span class="font-mono font-bold text-on-surface-strong dark:text-on-surface-dark-strong text-sm">{{ order.ref }}</span>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ order.status_color }}">
+                {{ order.status_label }}
+              </span>
+            </div>
+            <p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60">{{ order.created_at_display }}</p>
+          </div>
+          <div class="text-right flex-shrink-0 ml-4">
+            <p class="font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ order.total_display }}</p>
+            <span class="text-xs text-primary dark:text-primary-dark">Ver detalhes →</span>
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-16">
+      <p class="text-on-surface/60 dark:text-on-surface-dark/60 mb-4">Nenhum pedido ainda</p>
+      <a href="{% url 'storefront:menu' %}"
+         class="inline-flex items-center justify-center px-6 py-3 rounded-radius bg-primary text-white font-medium
+                hover:opacity-90 transition min-h-[44px] dark:bg-primary-dark">
+        Ver cardápio
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  {% comment %}════ TAB: Fidelidade ════{% endcomment %}
+  <div x-show="tab === 'fidelidade'" x-cloak>
+    {% if account.loyalty %}
+    <div class="rounded-radius border border-outline bg-white p-6 dark:border-outline-dark dark:bg-surface-dark space-y-5">
+
+      {% comment %}── Tier + pontos ──{% endcomment %}
+      <div class="flex flex-wrap items-center gap-3">
+        {% if account.loyalty.tier == 'platinum' %}
+          <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-info/15 text-info dark:bg-info-dark/15 dark:text-info-dark">
+            {{ account.loyalty.tier_display }}
+          </span>
+        {% elif account.loyalty.tier == 'gold' %}
+          <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-warning/15 text-warning dark:bg-warning-dark/15 dark:text-warning-dark">
+            {{ account.loyalty.tier_display }}
+          </span>
+        {% elif account.loyalty.tier == 'silver' %}
+          <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border border-outline text-on-surface dark:border-outline-dark dark:text-on-surface-dark">
+            {{ account.loyalty.tier_display }}
+          </span>
+        {% else %}
+          <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-surface-alt text-on-surface dark:bg-surface-dark-alt dark:text-on-surface-dark">
+            {{ account.loyalty.tier_display }}
+          </span>
+        {% endif %}
+        <div class="flex items-baseline gap-1"
+             x-data="{
+               displayed: 0,
+               target: {{ account.loyalty.points_balance }}
+             }"
+             x-init="
+               const start = performance.now();
+               const duration = 1200;
+               const step = (now) => {
+                 const elapsed = now - start;
+                 const progress = Math.min(elapsed / duration, 1);
+                 const ease = 1 - Math.pow(1 - progress, 3);
+                 displayed = Math.round(ease * target);
+                 if (progress < 1) requestAnimationFrame(step);
+               };
+               requestAnimationFrame(step);
+             ">
+          <span class="text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong" x-text="displayed"></span>
+          <span class="text-sm text-on-surface/60 dark:text-on-surface-dark/60">pontos disponíveis</span>
+        </div>
+      </div>
+
+      {% comment %}── Stamp grid ──{% endcomment %}
+      {% if account.loyalty.stamps_target > 0 %}
+      <div>
+        <p class="text-xs uppercase tracking-wide text-on-surface/50 dark:text-on-surface-dark/50 mb-2">Cartela de carimbos</p>
+        <div class="grid grid-cols-5 gap-2 mb-2">
+          {% for i in account.loyalty.stamps_range %}
+          <div class="aspect-square rounded-radius flex items-center justify-center
+                      {% if i <= account.loyalty.stamps_current %}
+                        bg-primary/10 border-2 border-primary dark:bg-primary-dark/10 dark:border-primary-dark
+                      {% else %}
+                        border-2 border-outline dark:border-outline-dark
+                      {% endif %}">
+            {% if i <= account.loyalty.stamps_current %}
+            <svg class="size-4 text-primary dark:text-primary-dark" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+            </svg>
+            {% else %}
+            <span class="text-on-surface/30 dark:text-on-surface-dark/30 text-xs font-medium">{{ i }}</span>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% if account.loyalty.stamps_completed > 0 %}
+        <p class="text-xs text-on-surface/50 dark:text-on-surface-dark/50">
+          {{ account.loyalty.stamps_completed }} cartela{{ account.loyalty.stamps_completed|pluralize:"s" }} completa{{ account.loyalty.stamps_completed|pluralize:"s" }}
+        </p>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% comment %}── Transaction history ──{% endcomment %}
+      {% if account.loyalty.transactions %}
+      <div class="border-t border-outline dark:border-outline-dark pt-4">
+        <p class="text-xs uppercase tracking-wide text-on-surface/50 dark:text-on-surface-dark/50 mb-3">Últimas movimentações</p>
+        <div class="space-y-2">
+          {% for tx in account.loyalty.transactions %}
+          <div class="flex items-center justify-between text-sm">
+            <div class="flex items-center gap-2">
+              {% if tx.is_credit %}
+              <span class="font-medium text-success dark:text-success-dark">+{{ tx.points }}</span>
+              {% else %}
+              <span class="font-medium text-danger dark:text-danger-dark">{{ tx.points }}</span>
+              {% endif %}
+              <span class="text-on-surface/60 dark:text-on-surface-dark/60">{{ tx.description }}</span>
+            </div>
+            <span class="text-on-surface/40 dark:text-on-surface-dark/40 text-xs">{{ tx.date_display }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+    {% else %}
+    <div class="rounded-radius border border-outline bg-white p-12 text-center dark:border-outline-dark dark:bg-surface-dark">
+      <p class="text-on-surface/60 dark:text-on-surface-dark/60">Programa de fidelidade não disponível.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  {% comment %}════ TAB: Config ════{% endcomment %}
+  <div x-show="tab === 'config'" x-cloak class="space-y-4">
+
+    {% comment %}── Notificações ──{% endcomment %}
+    <div class="rounded-radius border border-outline bg-white p-5 dark:border-outline-dark dark:bg-surface-dark">
+      <h3 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-4">Notificações</h3>
+      <div id="notification-prefs">
+        {% include "storefront/partials/notification_prefs.html" with notification_prefs=account.notification_prefs %}
+      </div>
+    </div>
+
+    {% comment %}── Preferências alimentares ──{% endcomment %}
+    <div class="rounded-radius border border-outline bg-white p-5 dark:border-outline-dark dark:bg-surface-dark">
+      <h3 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-1">Preferências alimentares</h3>
+      <p class="text-xs text-on-surface/50 dark:text-on-surface-dark/50 mb-3">Toque para ativar ou desativar</p>
+      <div id="food-prefs" class="flex flex-wrap gap-2">
+        {% include "storefront/partials/food_prefs.html" with food_pref_options=account.food_pref_options %}
+      </div>
+    </div>
+
+    {% comment %}── Dispositivos confiáveis ──{% endcomment %}
+    <div class="rounded-radius border border-outline bg-white p-5 dark:border-outline-dark dark:bg-surface-dark">
+      <h3 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-1">Dispositivos confiáveis</h3>
+      <p class="text-xs text-on-surface/50 dark:text-on-surface-dark/50 mb-4">Dispositivos que podem acessar sua conta sem código de verificação.</p>
+      <div id="device-list-container"
+           hx-get="{% url 'storefront:device_list' %}"
+           hx-trigger="load"
+           hx-swap="innerHTML">
+        <p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60 text-center py-4">Carregando...</p>
+      </div>
+    </div>
+
+    {% comment %}── Privacidade e dados ──{% endcomment %}
+    <div class="rounded-radius border border-outline bg-white p-5 dark:border-outline-dark dark:bg-surface-dark">
+      <h3 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-4">Privacidade e dados</h3>
+
+      <a href="{% url 'storefront:data_export' %}"
+         class="flex items-center justify-between py-3 border-b border-outline/50 dark:border-outline-dark/50 group">
+        <div>
+          <p class="text-sm font-medium text-on-surface dark:text-on-surface-dark">Exportar meus dados</p>
+          <p class="text-xs text-on-surface/50 dark:text-on-surface-dark/50">Baixar todos os seus dados em formato JSON</p>
+        </div>
+        <svg class="size-5 text-on-surface/40 group-hover:text-primary transition dark:text-on-surface-dark/40 dark:group-hover:text-primary-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+      </a>
+
+      <div x-data="{ showDelete: false }" class="pt-3">
+        <button type="button" @click="showDelete = true"
+                class="text-sm text-danger hover:opacity-75 transition dark:text-danger-dark">
+          Excluir minha conta
+        </button>
+
+        <div x-show="showDelete" x-cloak
+             x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+             @click="showDelete = false"
+             @keydown.escape.window="showDelete && (showDelete = false)"
+             class="fixed inset-0 bg-black/50 z-[60]"
+             aria-hidden="true">
+        </div>
+
+        <div x-show="showDelete" x-cloak
+             x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-y-full" x-transition:enter-end="translate-y-0"
+             x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-y-0" x-transition:leave-end="translate-y-full"
+             @click.stop
+             role="dialog" aria-modal="true" aria-label="Excluir conta permanentemente"
+             class="fixed bottom-0 left-0 right-0 z-[60] bg-surface dark:bg-surface-dark rounded-t-2xl shadow-xl max-w-lg mx-auto"
+             style="padding-bottom: max(1.5rem, var(--safe-area-bottom, 0px))">
+          <div class="flex justify-center pt-3 pb-2" aria-hidden="true">
+            <div class="w-10 h-1 rounded-full bg-outline dark:bg-outline-dark"></div>
+          </div>
+          <div class="px-6 pb-2">
+            <h3 class="text-lg font-bold text-danger dark:text-danger-dark mb-2">Excluir conta permanentemente?</h3>
+            <p class="text-sm text-on-surface/70 dark:text-on-surface-dark/70 mb-2">Esta ação é irreversível. Todos os seus dados serão anonimizados conforme a LGPD:</p>
+            <ul class="text-sm text-on-surface/70 dark:text-on-surface-dark/70 mb-6 space-y-1 list-disc list-inside">
+              <li>Nome será substituído por "Anonimizado"</li>
+              <li>Telefone e email serão removidos</li>
+              <li>Histórico de pedidos será preservado sem identificação</li>
+            </ul>
+            <div class="flex gap-3">
+              <button type="button" @click="showDelete = false"
+                      class="flex-1 py-3 border border-outline dark:border-outline-dark text-on-surface dark:text-on-surface-dark
+                             rounded-radius font-medium hover:bg-surface-alt dark:hover:bg-surface-dark-alt transition min-h-[44px]">
+                Cancelar
+              </button>
+              <button type="button"
+                      hx-post="{% url 'storefront:account_delete' %}"
+                      hx-target="body"
+                      class="flex-1 py-3 bg-danger text-white dark:bg-danger-dark rounded-radius font-medium hover:opacity-90 transition min-h-[44px]">
+                Excluir conta
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% comment %}── Logout (yoin before redirect) ──{% endcomment %}
+    {% omotenashi 'LOGOUT_FAREWELL' as farewell %}
+    <div class="text-center py-2">
+      <a href="#"
+         @click.prevent="window.dispatchEvent(new CustomEvent('notify', { detail: { variant: 'info', message: '{{ farewell.message|escapejs }}' } })); setTimeout(() => $refs.logoutForm.submit(), 450)"
+         class="text-sm text-on-surface/50 hover:text-danger transition dark:text-on-surface-dark/50 dark:hover:text-danger-dark">
+        Sair da conta
+      </a>
+    </div>
+
+  </div>
+
+</div>
+
+<form x-ref="logoutForm" method="post" action="{% url 'doorman:logout' %}" class="hidden">
+  {% csrf_token %}
+</form>
+{% endblock %}

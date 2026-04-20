@@ -478,7 +478,7 @@ def _create_alert(order, alert_type: str) -> None:
     kept *outside* the try block so that structural bugs (missing model,
     bad field, typo) surface loudly instead of being silently swallowed.
     """
-    from shopman.shop.models import OperatorAlert
+    from shopman.backstage.models import OperatorAlert
 
     message = f"Pedido {order.ref}: {alert_type.replace('_', ' ')}"
     try:

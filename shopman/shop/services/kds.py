@@ -42,7 +42,7 @@ def dispatch(order) -> list:
     SYNC — tickets must be ready for the KDS display.
     """
     from shopman.shop.adapters import get_adapter
-    from shopman.shop.models import KDSInstance, KDSTicket
+    from shopman.backstage.models import KDSInstance, KDSTicket
 
     # Idempotent check
     if KDSTicket.objects.filter(order=order).exists():
@@ -139,7 +139,7 @@ def cancel_tickets(order) -> int:
 
     SYNC — tickets must be cancelled immediately when order is cancelled.
     """
-    from shopman.shop.models import KDSTicket
+    from shopman.backstage.models import KDSTicket
 
     count = KDSTicket.objects.filter(order=order, status="open").update(status="cancelled")
     if count:
@@ -158,7 +158,7 @@ def on_all_tickets_done(order) -> bool:
 
     SYNC — checks and transitions immediately.
     """
-    from shopman.shop.models import KDSTicket
+    from shopman.backstage.models import KDSTicket
 
     tickets = KDSTicket.objects.filter(order=order)
     if not tickets.exists():

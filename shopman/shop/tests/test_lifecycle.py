@@ -784,7 +784,8 @@ class TestStaleNewAlertHandler:
         from django.utils import timezone
         from shopman.orderman.models import Directive, Order
         from shopman.shop.handlers.confirmation import StaleNewOrderAlertHandler
-        from shopman.shop.models import Channel, OperatorAlert
+        from shopman.shop.models import Channel
+        from shopman.backstage.models import OperatorAlert
 
         Channel.objects.get_or_create(ref="ifood", defaults={"name": "iFood"})
         order = Order.objects.create(
@@ -812,7 +813,8 @@ class TestStaleNewAlertHandler:
         from django.utils import timezone
         from shopman.orderman.models import Directive, Order
         from shopman.shop.handlers.confirmation import StaleNewOrderAlertHandler
-        from shopman.shop.models import Channel, OperatorAlert
+        from shopman.shop.models import Channel
+        from shopman.backstage.models import OperatorAlert
 
         Channel.objects.get_or_create(ref="ifood", defaults={"name": "iFood"})
         order = Order.objects.create(

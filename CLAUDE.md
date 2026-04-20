@@ -16,34 +16,48 @@ packages/               8 apps pip-instaláveis (sem dependência entre si)
 └── payman/             Pagamentos: intents, transactions, service                   [shopman-payman]
 
 shopman/                Namespace package (PEP 420) — sem __init__.py
-└── shop/               Orquestrador (app Django, name="shopman.shop", label="shop")  [django-shopman]
-    ├── lifecycle.py    dispatch() — coordenação config-driven por ChannelConfig
-    ├── production_lifecycle.py  dispatch_production() — lifecycle de WorkOrders
-    ├── services/       services (availability, alternatives, stock, payment, customer, checkout, pricing, etc.)
-    ├── adapters/       adapters (stock, payment_efi, payment_stripe, notification_*, etc.)
-    ├── rules/          engine.py, pricing.py, validation.py — regras configuráveis via admin
-    ├── models/         Shop, Promotion, Coupon, RuleConfig, OperatorAlert, KDS*, DayClosing
-    ├── handlers/       directive handlers (notification, fulfillment, fiscal, loyalty, returns, etc.)
-    ├── setup.py        register_all() — registro centralizado de handlers
-    ├── config.py       ChannelConfig dataclass (8 aspectos)
-    ├── protocols.py    Contratos (NotificationBackend, CustomerBackend, etc. — Stock é módulo)
-    ├── topics.py       Constantes de tópicos de directives
-    ├── notifications.py Registry + dispatch de notificações
-    ├── confirmation.py Helpers de confirmação
-    ├── modifiers.py    D1, Discount, Employee, HappyHour modifiers
-    ├── webhooks/       efi.py, stripe.py
-    ├── admin/          shop, orders, alerts, kds, closing, rules, dashboard, widgets
-    ├── web/            Storefront (Django templates + HTMX)
-    │   ├── views/      19 módulos (catalog, cart, checkout, tracking, auth, kds, pedidos, pos, etc.)
-    │   ├── cart.py     CartService
-    │   ├── urls.py     Todas as URLs
-    │   └── templates/  78 templates (storefront, kds, pedidos, pos, components)
-    ├── api/            API REST (DRF) — views, serializers, catalog, account, tracking
-    ├── context_processors.py  shop() + cart_count()
-    ├── middleware.py   ChannelParamMiddleware, OnboardingMiddleware
-    ├── management/commands/   seed, cleanup_d1, cleanup_stale_sessions, suggest_production
-    ├── apps.py         ShopmanConfig (signal wiring + handler registration + rules boot)
-    └── tests/          7 test modules + web/ + integration/ + e2e/
+├── shop/               Orquestrador (app Django, label="shop") — ZERO views    [django-shopman]
+│   ├── lifecycle.py    dispatch() — coordenação config-driven por ChannelConfig
+│   ├── production_lifecycle.py  dispatch_production() — lifecycle de WorkOrders
+│   ├── services/       services de orquestração (availability, cancellation, stock, payment, customer, etc.)
+│   ├── adapters/       adapters swappable (stock, payment_efi, payment_stripe, notification_*, etc.)
+│   ├── rules/          engine.py, pricing.py, validation.py — regras configuráveis via admin
+│   ├── models/         Shop, Channel, RuleConfig, NotificationTemplate, OmotenashiCopy
+│   ├── handlers/       directive handlers (notification, fulfillment, fiscal, loyalty, returns, etc.)
+│   ├── config.py       ChannelConfig dataclass (8 aspectos)
+│   ├── protocols.py    Contratos (NotificationBackend, CustomerBackend, etc.)
+│   ├── notifications.py Registry + dispatch de notificações
+│   ├── modifiers.py    D1, Discount, Employee, HappyHour modifiers
+│   ├── webhooks/       efi.py, stripe.py, ifood.py
+│   ├── admin/          admin registrations dos models de shop
+│   ├── api/            API REST (DRF) — views, serializers, catalog, account, tracking
+│   ├── projections/    types.py (shared projection types — Availability, OrderItem, etc.)
+│   ├── middleware.py   APIVersionHeaderMiddleware
+│   ├── management/commands/   seed, cleanup_d1, cleanup_stale_sessions, suggest_production
+│   ├── apps.py         ShopmanConfig (signal wiring + handler registration + rules boot)
+│   └── tests/          lifecycle, services, adapters, handlers, integration, e2e
+│
+├── storefront/         Superfície customer (app Django, label="storefront")
+│   ├── views/          14 módulos (catalog, cart, checkout, tracking, auth, payment, etc.)
+│   ├── projections/    8 módulos (cart, catalog, checkout, order_tracking, payment, etc.)
+│   ├── services/       checkout, checkout_defaults, storefront_context, pickup_slots, ifood_*
+│   ├── models/         Promotion, Coupon, DeliveryZone
+│   ├── cart.py         CartService
+│   ├── omotenashi/     UX context builder
+│   ├── context_processors.py  shop() + omotenashi() + cart_count()
+│   ├── middleware.py   ChannelParamMiddleware, WelcomeGateMiddleware
+│   ├── urls.py         URLs customer (menu, cart, checkout, tracking, account, auth)
+│   ├── templates/storefront/  57 templates
+│   └── tests/          web views, projections, checkout, omotenashi
+│
+└── backstage/          Superfícies operador (app Django, label="backstage")
+    ├── views/          5 módulos (kds, orders, pos, production, closing)
+    ├── projections/    6 módulos (kds, order_queue, pos, closing, production, dashboard)
+    ├── models/         KDSInstance, KDSTicket, DayClosing, OperatorAlert, CashRegister*
+    ├── middleware.py   OnboardingMiddleware
+    ├── urls.py         URLs operador (pedidos, gestao/pos, kds, gestao/producao, fechamento)
+    ├── templates/      kds/, pedidos/, pos/, gestao/ (19 templates)
+    └── tests/          POS, KDS, operator tests
 
 config/                 Django project wrapper (settings.py, urls.py, wsgi.py, asgi.py)
 manage.py               Django management entrypoint (repo root)
@@ -51,6 +65,16 @@ pyproject.toml          Build + test config (repo root)
 
 instances/              Instâncias Django (não são pip packages)
 └── nelson/             Nelson Boulangerie (futuro repo shopman-nelson)
+```
+
+### Regra de Dependência (3 apps)
+
+```
+storefront ──imports──→ shop ←──imports── backstage
+     ↓                   ↓                    ↓
+  (never)            packages/            (never)
+                   ↗  ↑  ↑  ↖
+          offerman stockman orderman craftsman ...
 ```
 
 ### Conceitos Primários

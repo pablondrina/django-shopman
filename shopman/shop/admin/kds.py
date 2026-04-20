@@ -5,7 +5,7 @@ from __future__ import annotations
 from django.contrib import admin
 from unfold.admin import ModelAdmin
 
-from shopman.shop.models import KDSInstance
+from shopman.backstage.models import KDSInstance
 
 
 @admin.register(KDSInstance)

@@ -471,7 +471,7 @@ class CartService:
     @staticmethod
     def apply_coupon(request: HttpRequest, code: str) -> dict:
         """Validate and apply a coupon code to the cart session."""
-        from shopman.shop.models import Coupon
+        from shopman.storefront.models import Coupon
 
         session_key = CartService._get_session_key(request)
         if not session_key:

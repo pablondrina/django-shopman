@@ -1,98 +1,13 @@
-"""Projections — typed read models.
+"""Projections — shared typed read models.
 
-Projections translate domain state into what the UI (and later, the API) needs
-to consume. Views call a builder, pass the result to the template. Templates
-consume a stable interface instead of domain model internals.
+Shared types (Availability, OrderItem, etc.) live here as canonical home.
+Surface-specific projections now live in storefront/ and backstage/.
 
-Rules:
-- Projections are read-only and immutable (frozen dataclasses)
-- Never expose PKs, querysets, or model instances
-- Monetary values are dual: raw (`_q` in cents) + display (pre-formatted string)
-- Availability is a canonical enum, not a bool
+NOTE: Transitional re-exports kept for dead code in shop/web/views/ and
+shop/tests/web/. Delete those directories to remove this block.
 """
 
-from .account import (
-    CustomerProfileProjection,
-    LoyaltyProjection,
-    LoyaltyTransactionProjection,
-    build_account,
-)
-from .cart import (
-    CartItemProjection,
-    CartProjection,
-    DiscountLineProjection,
-    MinimumOrderProgressProjection,
-    UpsellSuggestionProjection,
-    build_cart,
-)
-from .catalog import (
-    CatalogItemProjection,
-    CatalogProjection,
-    CatalogSectionProjection,
-    build_catalog,
-    build_catalog_items_for_skus,
-)
-from .checkout import CheckoutProjection, build_checkout
-from .closing import (
-    ClosingItemProjection,
-    DayClosingProjection,
-    build_day_closing,
-)
-from .dashboard import (
-    DashboardProjection,
-    build_dashboard,
-)
-from .kds import (
-    KDSBoardProjection,
-    KDSExpeditionCardProjection,
-    KDSInstanceSummaryProjection,
-    KDSItemProjection,
-    KDSTicketProjection,
-    build_kds_board,
-    build_kds_index,
-    build_kds_ticket,
-)
-from .order_history import OrderHistoryProjection, build_order_history
-from .order_queue import (
-    OperatorOrderProjection,
-    OrderCardProjection,
-    OrderQueueProjection,
-    build_operator_order,
-    build_order_card,
-    build_order_queue,
-)
-from .order_tracking import (
-    OrderTrackingProjection,
-    OrderTrackingStatusProjection,
-    PickupInfoProjection,
-    build_order_tracking,
-    build_order_tracking_status,
-)
-from .payment import (
-    PaymentProjection,
-    PaymentStatusProjection,
-    build_payment,
-    build_payment_status,
-)
-from .pos import (
-    POSProjection,
-    POSShiftSummaryProjection,
-    build_pos,
-    build_pos_shift_summary,
-)
-from .product_detail import (
-    AllergenInfoProjection,
-    ConservationInfoProjection,
-    ProductDetailProjection,
-    build_product_detail,
-)
-from .production import (
-    ProductionBoardProjection,
-    ProductionCountsProjection,
-    WorkOrderCardProjection,
-    build_production_board,
-)
-from .types import (
+from .types import (  # noqa: F401
     ORDER_STATUS_COLORS,
     ORDER_STATUS_LABELS_PT,
     PAYMENT_METHOD_LABELS_PT,
@@ -111,83 +26,16 @@ from .types import (
     TimelineEventProjection,
 )
 
-__all__ = [
-    # Storefront (Fases 1–3)
-    "AllergenInfoProjection",
-    "Availability",
-    "CartItemProjection",
-    "CartProjection",
-    "CatalogItemProjection",
-    "CatalogProjection",
-    "CatalogSectionProjection",
-    "CategoryProjection",
-    "CheckoutProjection",
-    "ComponentProjection",
-    "ConservationInfoProjection",
-    "CustomerProfileProjection",
-    "DiscountLineProjection",
-    "FoodPrefProjection",
-    "FulfillmentProjection",
-    "HappyHourProjection",
-    "LoyaltyProjection",
-    "LoyaltyTransactionProjection",
-    "MinimumOrderProgressProjection",
-    "NotificationPrefProjection",
-    "ORDER_STATUS_COLORS",
-    "ORDER_STATUS_LABELS_PT",
-    "OrderHistoryProjection",
-    "OrderItemProjection",
-    "OrderSummaryProjection",
-    "OrderTrackingProjection",
-    "OrderTrackingStatusProjection",
-    "PAYMENT_METHOD_LABELS_PT",
-    "PaymentMethodOptionProjection",
-    "PaymentProjection",
-    "PaymentStatusProjection",
-    "PickupInfoProjection",
-    "PickupSlotProjection",
-    "ProductDetailProjection",
-    "SavedAddressProjection",
-    "TimelineEventProjection",
-    "UpsellSuggestionProjection",
-    "build_account",
-    "build_cart",
-    "build_catalog",
-    "build_catalog_items_for_skus",
-    "build_checkout",
-    "build_order_history",
-    "build_order_tracking",
-    "build_order_tracking_status",
-    "build_payment",
-    "build_payment_status",
-    "build_product_detail",
-    # Operator (Fase 4)
-    "ClosingItemProjection",
-    "DayClosingProjection",
-    "KDSBoardProjection",
-    "KDSExpeditionCardProjection",
-    "KDSInstanceSummaryProjection",
-    "KDSItemProjection",
-    "KDSTicketProjection",
-    "OperatorOrderProjection",
-    "OrderCardProjection",
-    "OrderQueueProjection",
-    "ProductionBoardProjection",
-    "ProductionCountsProjection",
-    "WorkOrderCardProjection",
-    "build_day_closing",
-    "build_kds_board",
-    "build_kds_index",
-    "build_kds_ticket",
-    "build_operator_order",
-    "build_order_card",
-    "build_order_queue",
-    "build_production_board",
-    # POS + Dashboard (Fase 5)
-    "DashboardProjection",
-    "POSProjection",
-    "POSShiftSummaryProjection",
-    "build_dashboard",
-    "build_pos",
-    "build_pos_shift_summary",
-]
+# ── Transitional re-exports (remove after deleting shop/web/ + shop/tests/web/) ──
+
+from shopman.storefront.projections import (  # noqa: E402, F401
+    build_cart,
+    build_catalog,
+    build_checkout,
+    build_order_history,
+    build_order_tracking,
+    build_order_tracking_status,
+    build_payment,
+    build_payment_status,
+    build_product_detail,
+)

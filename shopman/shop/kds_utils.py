@@ -28,7 +28,7 @@ def dispatch_to_kds(order) -> list:
     """
     from shopman.offerman.models import CollectionItem, ProductComponent
 
-    from shopman.shop.models import KDSInstance, KDSTicket
+    from shopman.backstage.models import KDSInstance, KDSTicket
 
     # 1. Get all active KDS instances (exclude expedition — it's query-based)
     instances = list(

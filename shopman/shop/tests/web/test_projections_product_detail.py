@@ -13,7 +13,7 @@ import pytest
 from django.utils import timezone
 from shopman.offerman.models import ListingItem, Product
 
-from shopman.shop.models import Promotion
+from shopman.storefront.models import Promotion
 from shopman.shop.projections import build_product_detail
 from shopman.shop.projections.product_detail import (
     AllergenInfoProjection,

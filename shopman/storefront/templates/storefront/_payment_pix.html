@@ -1,0 +1,85 @@
+{% comment %}── PIX (QR + copia-e-cola + countdown) ──{% endcomment %}
+<div x-data="{
+  copied: false,
+  countdown: null,
+  expiresAt: '{{ payment.pix_expires_at|default:'' }}',
+  timeLeft: '',
+  totalSecs: 0,
+  secsLeft: 0,
+  init() {
+    if (this.expiresAt) {
+      this.totalSecs = Math.max(0, Math.floor((new Date(this.expiresAt) - Date.now()) / 1000));
+      this.secsLeft = this.totalSecs;
+      this.startCountdown();
+    }
+  },
+  startCountdown() {
+    this.tick();
+    this.countdown = setInterval(() => this.tick(), 1000);
+  },
+  tick() {
+    const diff = Math.max(0, Math.floor((new Date(this.expiresAt) - Date.now()) / 1000));
+    this.secsLeft = diff;
+    if (diff === 0) { clearInterval(this.countdown); this.timeLeft = 'expirado'; return; }
+    const m = Math.floor(diff / 60), s = diff % 60;
+    this.timeLeft = m + ':' + String(s).padStart(2, '0');
+  },
+  get progressPct() {
+    if (!this.totalSecs) return 100;
+    return Math.round((this.secsLeft / this.totalSecs) * 100);
+  },
+  copy() {
+    if (!navigator.clipboard) return;
+    navigator.clipboard.writeText('{{ payment.pix_copy_paste|default:'' }}').then(() => {
+      this.copied = true;
+      setTimeout(() => this.copied = false, 3000);
+    });
+  }
+}">
+  {% if payment.pix_qr_code %}
+  <div class="flex justify-center">
+    <div class="rounded-radius border border-outline dark:border-outline-dark p-3 bg-white inline-block">
+      <img src="data:image/png;base64,{{ payment.pix_qr_code }}"
+           alt="QR Code PIX" class="w-48 h-48 object-contain" loading="eager">
+    </div>
+  </div>
+  {% else %}
+  <div class="flex justify-center text-on-surface/30 dark:text-on-surface-dark/30 py-6">
+    <span class="material-symbols-rounded text-6xl" aria-hidden="true">qr_code_2</span>
+  </div>
+  {% endif %}
+
+  {% if payment.pix_copy_paste %}
+  <div>
+    <p class="text-sm font-medium text-on-surface dark:text-on-surface-dark mb-2">Copia e cola:</p>
+    <div class="flex gap-2">
+      <input type="text" readonly value="{{ payment.pix_copy_paste }}"
+             class="flex-1 rounded-radius border border-outline bg-surface-alt px-3 py-2 text-xs text-on-surface/70 font-mono truncate dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark/70 min-h-[44px]"
+             aria-label="Código PIX copia e cola">
+      <button type="button" @click="copy()"
+              class="shrink-0 rounded-radius border border-outline px-3 py-2 text-sm font-medium text-on-surface hover:bg-surface-alt focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:text-on-surface-dark min-h-[44px] transition-colors"
+              aria-live="polite">
+        <span x-show="!copied">Copiar</span>
+        <span x-show="copied" x-cloak class="text-success">Copiado!</span>
+      </button>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if payment.pix_expires_at %}
+  <div x-show="timeLeft && timeLeft !== 'expirado'" class="space-y-1.5">
+    <div class="h-1.5 w-full rounded-full bg-outline dark:bg-outline-dark overflow-hidden">
+      <div class="h-full rounded-full transition-all duration-1000"
+           :class="progressPct > 30 ? 'bg-primary dark:bg-primary-dark' : 'bg-danger dark:bg-danger-dark'"
+           :style="'width: ' + progressPct + '%'"></div>
+    </div>
+    <p class="text-center text-sm text-on-surface/60 dark:text-on-surface-dark/60">
+      Expira em <span class="font-mono font-semibold" x-text="timeLeft"></span>
+    </p>
+  </div>
+  <p x-show="timeLeft === 'expirado'" x-cloak
+     class="text-center text-sm font-medium text-danger dark:text-danger-dark">
+    PIX expirado
+  </p>
+  {% endif %}
+</div>

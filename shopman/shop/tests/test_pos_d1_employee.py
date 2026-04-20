@@ -26,7 +26,7 @@ def _make_channel():
 def _grant_pos_perm(user):
     from django.contrib.auth.models import Permission
     from django.contrib.contenttypes.models import ContentType
-    from shopman.shop.models import CashRegisterSession
+    from shopman.backstage.models import CashRegisterSession
     ct = ContentType.objects.get_for_model(CashRegisterSession)
     perm = Permission.objects.get(content_type=ct, codename="operate_pos")
     user.user_permissions.add(perm)
@@ -41,7 +41,7 @@ class D1BadgePOSTests(TestCase):
         self.staff = User.objects.create_user(username="d1_staff", password="x", is_staff=True)
         _grant_pos_perm(self.staff)
         Product.objects.create(sku="D1-PROD", name="D-1 Product", base_price_q=1000, is_published=True, is_sellable=True)
-        from shopman.shop.models import CashRegisterSession
+        from shopman.backstage.models import CashRegisterSession
         CashRegisterSession.objects.create(operator=self.staff, opening_amount_q=0)
 
     def test_product_with_d1_flag_renders_badge(self) -> None:
@@ -88,7 +88,7 @@ class EmployeeDiscountPOSTests(TestCase):
         User = get_user_model()
         self.staff = User.objects.create_user(username="emp_staff", password="x", is_staff=True)
         _grant_pos_perm(self.staff)
-        from shopman.shop.models import CashRegisterSession
+        from shopman.backstage.models import CashRegisterSession
         CashRegisterSession.objects.create(operator=self.staff, opening_amount_q=0)
 
     def test_customer_lookup_returns_group(self) -> None:

@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /menu/
+Allow: /produto/
+Allow: /como-funciona/
+Disallow: /admin/
+Disallow: /api/
+Disallow: /checkout/
+Disallow: /cart/
+Disallow: /minha-conta/
+Disallow: /meus-pedidos/
+Disallow: /webhooks/
+
+Sitemap: {{ request.scheme }}://{{ request.get_host }}/sitemap.xml

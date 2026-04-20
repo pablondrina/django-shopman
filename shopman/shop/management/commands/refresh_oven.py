@@ -108,7 +108,7 @@ class Command(BaseCommand):
 
             # Shift KDS ticket completed_at if present
             try:
-                from shopman.shop.models import KDSTicket
+                from shopman.backstage.models import KDSTicket
 
                 tickets = list(
                     KDSTicket.objects.filter(order=order, completed_at__isnull=False)

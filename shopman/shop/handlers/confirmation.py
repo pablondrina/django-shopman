@@ -100,7 +100,7 @@ class StaleNewOrderAlertHandler:
 
     def handle(self, *, message: Directive, ctx: dict) -> None:
         from shopman.orderman.models import Order
-        from shopman.shop.models import OperatorAlert
+        from shopman.backstage.models import OperatorAlert
 
         payload = message.payload
         order_ref = payload["order_ref"]

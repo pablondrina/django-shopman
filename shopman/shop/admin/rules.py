@@ -6,7 +6,9 @@ from django.contrib import admin
 from django.utils import timezone
 from unfold.admin import ModelAdmin
 
-from shopman.shop.models import Coupon, Promotion, RuleConfig
+from shopman.shop.models import RuleConfig
+
+from shopman.storefront.models import Coupon, Promotion
 
 # ── RuleConfig ────────────────────────────────────────────────────────
 

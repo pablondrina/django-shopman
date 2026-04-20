@@ -1,0 +1,117 @@
+{% extends "storefront/base.html" %}
+{% load storefront_tags %}
+
+{% block title %}Meus Pedidos{% endblock %}
+
+{% block breadcrumb %}
+<nav class="mb-6 flex" aria-label="Breadcrumb">
+  <ol class="flex items-center gap-2 text-sm">
+    <li>
+      <a href="{% url 'storefront:home' %}"
+         class="text-on-surface hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">
+        Início
+      </a>
+    </li>
+    {% include "storefront/partials/_breadcrumb_chevron.html" %}
+    <li>
+      <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong" aria-current="page">Meus Pedidos</span>
+    </li>
+  </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto"
+     data-pull-refresh
+     hx-get="{% url 'storefront:order_history' %}"
+     hx-trigger="pull-refresh"
+     hx-target="this"
+     hx-select=".max-w-2xl"
+     hx-swap="outerHTML">
+
+  <div class="text-center mb-6">
+    <h1 class="text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-1">Meus Pedidos</h1>
+    <p class="text-on-surface/60 dark:text-on-surface-dark/60">{{ phone_value|format_phone }}</p>
+  </div>
+
+  {% comment %}── Filter pills ──{% endcomment %}
+  <div class="flex gap-2 justify-center mb-6 flex-wrap">
+    {% for value, label in filter_options %}
+    <a href="?filter={{ value }}"
+       class="px-4 py-2 rounded-full text-sm font-medium transition-colors min-h-[36px] flex items-center
+         {% if active_filter == value %}
+           bg-primary text-white dark:bg-primary-dark
+         {% else %}
+           border border-outline text-on-surface hover:bg-surface-alt dark:border-outline-dark dark:text-on-surface-dark dark:hover:bg-surface-dark-alt
+         {% endif %}">
+      {{ label }}
+    </a>
+    {% endfor %}
+  </div>
+
+  {% if orders %}
+  <div class="space-y-3">
+    {% for order in orders %}
+    <a href="{% url 'storefront:order_tracking' ref=order.ref %}"
+       class="block rounded-radius border border-outline bg-surface p-5 hover:bg-surface-alt transition
+              dark:border-outline-dark dark:bg-surface-dark dark:hover:bg-surface-dark-alt">
+      <div class="flex items-center justify-between">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-3 mb-1">
+            <span class="font-mono font-bold text-on-surface-strong dark:text-on-surface-dark-strong text-sm">{{ order.ref }}</span>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ order.status_color }}">
+              {{ order.status_label }}
+            </span>
+          </div>
+          <p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60">
+            {{ order.created_at|date:"d/m/Y" }} às {{ order.created_at|time:"H:i" }}
+          </p>
+        </div>
+        <div class="text-right flex-shrink-0 ml-4 flex flex-col items-end gap-1.5">
+          <p class="font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ order.total_display }}</p>
+          <span class="text-xs text-primary dark:text-primary-dark">Ver detalhes →</span>
+        </div>
+      </div>
+      <form method="post" action="{% url 'storefront:reorder' ref=order.ref %}"
+            class="mt-3 pt-3 border-t border-outline/40 dark:border-outline-dark/40"
+            @click.stop>
+        {% csrf_token %}
+        <button type="submit"
+                class="w-full py-2 rounded-radius text-xs font-medium border border-outline text-on-surface
+                       hover:bg-surface-alt transition flex items-center justify-center gap-1.5
+                       dark:border-outline-dark dark:text-on-surface-dark dark:hover:bg-surface-dark-alt
+                       min-h-[36px]">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          Pedir novamente
+        </button>
+      </form>
+    </a>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <div class="text-center py-16">
+    <div class="size-20 mx-auto mb-5 text-on-surface/10 dark:text-on-surface-dark/10">
+      <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="1.5"
+           stroke-linecap="round" stroke-linejoin="round">
+        <rect x="20" y="15" width="60" height="70" rx="6"/>
+        <path d="M35 35h30M35 47h20M35 59h25"/>
+        <circle cx="70" cy="72" r="16" fill="var(--color-surface)" stroke-width="2"/>
+        <path d="M70 64v8l5 3" stroke-width="2"/>
+      </svg>
+    </div>
+    <p class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong text-lg mb-1">Nenhum pedido ainda</p>
+    <p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60 mb-6">Seus pedidos aparecerão aqui</p>
+    <a href="{% url 'storefront:menu' %}"
+       class="inline-flex items-center justify-center px-6 py-3 rounded-radius bg-primary text-white font-medium
+              hover:opacity-90 transition min-h-[44px] dark:bg-primary-dark">
+      Ver cardápio
+    </a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

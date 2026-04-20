@@ -32,16 +32,14 @@ from shopman.craftsman.models import Recipe, RecipeItem, WorkOrder, WorkOrderIte
 from shopman.guestman.models import ContactPoint, Customer, CustomerAddress, CustomerGroup
 
 # ── Shopman (orchestrator) ────────────────────────────────────────────
-from shopman.shop.models import (
+from shopman.shop.models import RuleConfig, Shop
+from shopman.backstage.models import (
     CashMovement,
     CashRegisterSession,
-    Coupon,
     DayClosing,
     KDSInstance,
-    Promotion,
-    RuleConfig,
-    Shop,
 )
+from shopman.storefront.models import Coupon, Promotion
 
 # ── Offerman (catalogo) ──────────────────────────────────────────────
 from shopman.offerman.models import (
@@ -206,7 +204,7 @@ class Command(BaseCommand):
     # ────────────────────────────────────────────────────────────────
 
     def _seed_delivery_zones(self):
-        from shopman.shop.models import DeliveryZone
+        from shopman.storefront.models import DeliveryZone
 
         shop = Shop.objects.get(pk=1)
         # Londrina — CEP prefixes: 860xx e 861xx (regiao metropolitana)
@@ -306,7 +304,7 @@ class Command(BaseCommand):
             model.objects.all().delete()
 
         # KDS
-        from shopman.shop.models import KDSTicket
+        from shopman.backstage.models import KDSTicket
 
         KDSTicket.objects.all().delete()
         KDSInstance.objects.all().delete()

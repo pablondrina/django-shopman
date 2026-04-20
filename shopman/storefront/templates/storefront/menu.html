@@ -1,0 +1,334 @@
+{% extends "storefront/base.html" %}
+{% load static omotenashi_tags %}
+
+{% block title %}Cardápio{% endblock %}
+{% block meta_description %}Cardápio com disponibilidade em tempo real — {{ storefront.brand_name }}.{% endblock %}
+
+{% block breadcrumb %}
+<nav class="mb-6" aria-label="Breadcrumb">
+  <ol x-data="breadcrumb()" class="flex items-center text-sm overflow-hidden">
+    <li data-bc>
+      <a href="{% url 'storefront:home' %}" class="text-on-surface hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">Início</a>
+    </li>
+    <li data-bc-ellipsis hidden class="flex items-center text-on-surface/40 dark:text-on-surface-dark/40">
+      {% include "storefront/partials/_breadcrumb_chevron.html" %}<a :href="ellipsisHref" class="hover:text-primary dark:hover:text-primary-dark focus:outline-hidden focus:underline">…</a>
+    </li>
+    <li data-bc class="flex items-center">
+      {% include "storefront/partials/_breadcrumb_chevron.html" %}
+      <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong" aria-current="page">Cardápio</span>
+    </li>
+  </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+
+{# ── Happy Hour banner ── #}
+{% if catalog.happy_hour %}
+<div class="card mb-6 flex items-center gap-3 animate-fade-in" role="status" aria-live="polite">
+  <span class="badge-warning shrink-0">Happy Hour</span>
+  <p class="text-sm text-on-surface dark:text-on-surface-dark">
+    Até {{ catalog.happy_hour.end }} &mdash; {{ catalog.happy_hour.discount_percent }}% de desconto em tudo
+  </p>
+</div>
+{% endif %}
+
+{% if reorder_skipped %}
+<div x-data="{ show: true }" x-show="show" class="mb-4 flex items-start gap-3 px-4 py-3 rounded-xl bg-muted border border-border" role="status" aria-live="polite">
+  <span class="material-symbols-rounded shrink-0 text-muted-foreground mt-0.5" aria-hidden="true">info</span>
+  <p class="text-body-sm text-foreground flex-1">
+    {{ reorder_skipped|length }} item{% if reorder_skipped|length != 1 %}(s){% endif %} indisponível{% if reorder_skipped|length != 1 %}(is){% endif %} e não foi adicionado ao carrinho:
+    <span class="font-medium">{{ reorder_skipped|join:", " }}</span>
+  </p>
+  <button @click="show = false" class="shrink-0 text-muted-foreground hover:text-foreground" aria-label="Fechar aviso">
+    <span class="material-symbols-rounded text-base" aria-hidden="true">close</span>
+  </button>
+</div>
+{% endif %}
+
+{% comment %}── Page header ──{% endcomment %}
+{% omotenashi 'MENU_SUBTITLE' as menu_subtitle %}
+<header class="mb-4">
+  <h1 class="text-2xl lg:text-3xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Cardápio</h1>
+  <p class="mt-1 text-sm text-on-surface dark:text-on-surface-dark">{{ menu_subtitle.message }}</p>
+</header>
+
+{% if catalog.has_items %}
+<div x-data="menuNav()" x-init="init()" class="-mx-4">
+
+  {% comment %}── Navbar sticky: botão híbrido (manage_search) + pills rail ──{% endcomment %}
+  <div x-ref="navbar"
+       class="sticky top-0 border-b border-outline bg-surface-alt/95 backdrop-blur dark:border-outline-dark dark:bg-surface-dark-alt/95"
+       style="z-index: 9999;">
+    <div class="flex items-stretch gap-2 px-4 py-2.5">
+      {% comment %}Position 0 — ghost square, não faz parte do rail. Vira close quando overlay aberto.{% endcomment %}
+      <button type="button"
+              @click="searchOpen ? closeSearch() : openSearch()"
+              :aria-label="searchOpen ? 'Fechar busca' : 'Abrir menu e busca'"
+              class="shrink-0 inline-flex size-11 items-center justify-center rounded-radius text-on-surface hover:bg-surface hover:text-primary dark:text-on-surface-dark dark:hover:bg-surface-dark dark:hover:text-primary-dark transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-dark">
+        <span class="material-symbols-rounded text-2xl" aria-hidden="true"
+              x-text="searchOpen ? 'close' : 'manage_search'"></span>
+      </button>
+
+      {% comment %}Pills rail (default){% endcomment %}
+      <div x-ref="rail"
+           x-show="!searchOpen"
+           class="flex-1 overflow-x-auto overflow-y-hidden flex items-center gap-2 scroll-smooth"
+           style="scrollbar-width: none;">
+        {% for section in catalog.sections %}
+        <button type="button"
+                id="pill-{{ section.ref }}"
+                @click="jumpTo('{{ section.ref }}')"
+                :class="active === '{{ section.ref }}'
+                          ? 'bg-primary text-white border-primary dark:bg-primary-dark dark:border-primary-dark'
+                          : 'bg-white text-on-surface border-outline hover:border-primary/40 dark:bg-surface-dark dark:text-on-surface-dark dark:border-outline-dark'"
+                class="shrink-0 inline-flex items-center gap-1.5 px-5 rounded-full border-2 text-sm font-semibold transition whitespace-nowrap"
+                style="min-height: 44px;">
+          <span>{{ section.label }}</span>
+        </button>
+        {% endfor %}
+        {% comment %}"Todos" na ÚLTIMA posição — rola pro topo{% endcomment %}
+        <button type="button"
+                id="pill-todos"
+                @click="jumpTo('__top__')"
+                class="shrink-0 inline-flex items-center gap-1.5 px-5 rounded-full border-2 border-outline bg-white text-on-surface hover:border-primary/40 dark:bg-surface-dark dark:text-on-surface-dark dark:border-outline-dark text-sm font-semibold transition whitespace-nowrap"
+                style="min-height: 44px;">
+          <span class="material-symbols-rounded text-base" aria-hidden="true">vertical_align_top</span>
+          Todos
+        </button>
+      </div>
+
+      {% comment %}Campo de busca (substitui pills quando overlay aberto){% endcomment %}
+      <div x-show="searchOpen" x-cloak class="flex-1 flex items-center">
+        <input type="text"
+               x-ref="searchInput"
+               x-model="searchQuery"
+               @input.debounce.200ms="runSearch()"
+               placeholder="Buscar produto ou categoria"
+               autocomplete="off"
+               class="flex-1 bg-transparent text-base sm:text-lg text-on-surface-strong dark:text-on-surface-dark-strong placeholder:text-on-surface/40 dark:placeholder:text-on-surface-dark/40 focus:outline-none"
+               style="min-height: 44px;">
+        <button x-show="searchQuery" @click="searchQuery=''; $refs.searchInput.focus(); runSearch()"
+                type="button" aria-label="Limpar"
+                class="shrink-0 inline-flex size-9 items-center justify-center rounded-full text-on-surface/50 hover:bg-surface dark:text-on-surface-dark/50 dark:hover:bg-surface-dark">
+          <span class="material-symbols-rounded text-lg" aria-hidden="true">cancel</span>
+        </button>
+      </div>
+    </div>
+    <style>[x-ref=rail]::-webkit-scrollbar { display: none; }</style>
+  </div>
+
+  {% comment %}── Painel integrado abaixo da navbar: categorias ou resultados ──{% endcomment %}
+  <template x-teleport="body">
+    <div x-show="searchOpen" x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 -translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-150"
+         @keydown.escape.window="searchOpen && closeSearch()"
+         class="fixed left-0 right-0 bottom-0 bg-white dark:bg-surface-dark overflow-y-auto"
+         :style="`top: ${panelTop}px; z-index: 9990;`"
+         role="dialog" aria-modal="true" aria-label="Buscar e navegar">
+
+      {% comment %}Empty query: lista de categorias (mesmas pills){% endcomment %}
+      <div x-show="!searchQuery.trim()" class="divide-y divide-outline dark:divide-outline-dark">
+        <p class="px-4 pt-5 pb-2 text-xs font-semibold uppercase tracking-wide text-on-surface/50 dark:text-on-surface-dark/50">Categorias</p>
+        {% for section in catalog.sections %}
+        <button type="button"
+                @click="jumpToAndClose('{{ section.ref }}')"
+                class="w-full flex items-center gap-4 px-4 py-4 hover:bg-surface-alt dark:hover:bg-surface-dark-alt text-left transition">
+          <span class="shrink-0 inline-flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary dark:bg-primary-dark/10 dark:text-primary-dark">
+            <span class="material-symbols-rounded text-xl" aria-hidden="true">{{ section.icon|default:"restaurant_menu" }}</span>
+          </span>
+          <span class="flex-1 min-w-0">
+            <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ section.label }}</span>
+            <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 mt-0.5 block">{{ section.items|length }} itens</span>
+          </span>
+          <span class="material-symbols-rounded text-on-surface/30 dark:text-on-surface-dark/30" aria-hidden="true">chevron_right</span>
+        </button>
+        {% endfor %}
+      </div>
+
+      {% comment %}Query ativa: resultados filtrados client-side{% endcomment %}
+      <div x-show="searchQuery.trim()" class="divide-y divide-outline dark:divide-outline-dark">
+        <p class="px-4 pt-5 pb-2 text-xs font-semibold uppercase tracking-wide text-on-surface/50 dark:text-on-surface-dark/50">
+          <span x-show="searchResults.length" x-text="searchResults.length + ' resultado(s)'"></span>
+          <span x-show="!searchResults.length">Sem resultados</span>
+        </p>
+        <template x-for="r in searchResults" :key="r.sku">
+          <a :href="'/produto/' + r.sku + '/'"
+             class="w-full flex items-center gap-4 px-4 py-3 hover:bg-surface-alt dark:hover:bg-surface-dark-alt text-left transition">
+            <span class="shrink-0 size-12 rounded bg-surface-alt dark:bg-surface-dark-alt flex items-center justify-center overflow-hidden">
+              <template x-if="r.image"><img :src="r.image" :alt="r.name" loading="lazy" class="w-full h-full object-cover"></template>
+              <template x-if="!r.image"><span class="material-symbols-rounded text-2xl text-on-surface/30 dark:text-on-surface-dark/30" aria-hidden="true">bakery_dining</span></template>
+            </span>
+            <span class="flex-1 min-w-0">
+              <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong block truncate" x-text="r.name"></span>
+              <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 block" x-text="r.section"></span>
+            </span>
+            <span class="text-sm font-bold text-primary dark:text-primary-dark" x-text="r.price"></span>
+          </a>
+        </template>
+        <div x-show="!searchResults.length" class="text-center py-16 text-on-surface/50 dark:text-on-surface-dark/50">
+          <span class="material-symbols-rounded text-6xl mb-3 block" aria-hidden="true">search_off</span>
+          <p class="text-base">Nada encontrado para "<span class="font-medium" x-text="searchQuery"></span>"</p>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  {% comment %}Index de todos os itens pra busca client-side (JSON embutido){% endcomment %}
+  {{ catalog_search_index_json|json_script:"menu-search-index" }}
+</div>
+{% endif %}
+
+{% comment %}── Sections (agrupadas por dinâmica/categoria, scroll-spy via data-pill) ──{% endcomment %}
+{% if catalog.has_items %}
+  <div class="px-4 py-6 space-y-10">
+  {% for section in catalog.sections %}
+  <section id="section-{{ section.ref }}" data-pill="{{ section.ref }}" class="animate-fade-in">
+    <h2 class="text-lg font-bold text-on-surface-strong dark:text-on-surface-dark-strong flex items-center gap-2 mb-3">
+      <span class="material-symbols-rounded text-xl" aria-hidden="true">{{ section.icon|default:"restaurant_menu" }}</span>
+      {{ section.label }}
+    </h2>
+    {% if section.description %}
+    <p class="text-sm text-on-surface/70 dark:text-on-surface-dark/70 mb-4">{{ section.description }}</p>
+    {% endif %}
+    {% include "storefront/partials/_catalog_item_grid.html" with items=section.items %}
+  </section>
+  {% endfor %}
+  </div>
+{% else %}
+  {% omotenashi 'MENU_EMPTY' as menu_empty %}
+  <div class="card text-center py-12">
+    <p class="text-on-surface dark:text-on-surface-dark">{{ menu_empty.message }}</p>
+  </div>
+{% endif %}
+
+<script>
+function menuNav() {
+  return {
+    active: '',
+    searchOpen: false,
+    searchQuery: '',
+    searchResults: [],
+    navHeight: 0,
+    panelTop: 0,
+    _lockActiveUntil: 0,
+    _lastScrollRun: 0,
+    _items: [],
+
+    init() {
+      window.addEventListener('scroll', () => this.onScroll(), { passive: true });
+      window.addEventListener('resize', () => this.measureNav(), { passive: true });
+      // Primeira seção = primeiro pill ativo
+      const first = document.querySelector('[data-pill]');
+      if (first) this.active = first.dataset.pill;
+      // Carrega índice de busca
+      const idx = document.getElementById('menu-search-index');
+      if (idx) {
+        try { this._items = JSON.parse(idx.textContent) || []; }
+        catch (e) { this._items = []; }
+      }
+      this.$nextTick(() => { this.measureNav(); this.onScroll(); });
+    },
+
+    measureNav() {
+      this.navHeight = this.$refs.navbar ? this.$refs.navbar.offsetHeight : 0;
+    },
+
+    onScroll() {
+      const now = Date.now();
+      if (now - this._lastScrollRun < 40) return;
+      this._lastScrollRun = now;
+      if (now < this._lockActiveUntil) return;
+      const markerY = (this.navHeight || 65) + 32;
+      const sections = [...document.querySelectorAll('[data-pill]')];
+      if (!sections.length) return;
+      let closest = null, closestDist = Infinity;
+      sections.forEach(s => {
+        const r = s.getBoundingClientRect();
+        if (r.top <= markerY + 8) {
+          const dist = markerY - r.top;
+          if (dist < closestDist) { closestDist = dist; closest = s.dataset.pill; }
+        }
+      });
+      if (!closest) {
+        const lastRect = sections[sections.length - 1].getBoundingClientRect();
+        closest = lastRect.top > markerY ? sections[0].dataset.pill : sections[sections.length - 1].dataset.pill;
+      }
+      if (closest && closest !== this.active) {
+        this.active = closest;
+        this.centerPillInRail(closest);
+      }
+    },
+
+    jumpTo(ref) {
+      this.measureNav();
+      if (ref === '__top__') {
+        this._lockActiveUntil = Date.now() + 600;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        const first = document.querySelector('[data-pill]');
+        if (first) { this.active = first.dataset.pill; this.centerPillInRail(this.active); }
+        return;
+      }
+      this._lockActiveUntil = Date.now() + 600;
+      this.active = ref;
+      const el = document.getElementById('section-' + ref);
+      if (el) {
+        const target = el.getBoundingClientRect().top + window.scrollY - this.navHeight - 12;
+        window.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+      }
+      this.centerPillInRail(ref);
+    },
+
+    centerPillInRail(ref) {
+      this.$nextTick(() => {
+        const pill = document.getElementById('pill-' + ref);
+        if (pill) pill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      });
+    },
+
+    openSearch() {
+      this.measureNav();
+      const navRect = this.$refs.navbar ? this.$refs.navbar.getBoundingClientRect() : { bottom: this.navHeight };
+      this.panelTop = Math.max(0, Math.round(navRect.bottom));
+      this.searchOpen = true;
+      document.body.style.overflow = 'hidden';
+      this.$nextTick(() => this.$refs.searchInput && this.$refs.searchInput.focus());
+    },
+
+    closeSearch() {
+      this.searchOpen = false;
+      this.searchQuery = '';
+      this.searchResults = [];
+      document.body.style.overflow = '';
+    },
+
+    jumpToAndClose(ref) {
+      this.closeSearch();
+      setTimeout(() => this.jumpTo(ref), 180);
+    },
+
+    runSearch() {
+      const q = (this.searchQuery || '').trim().toLowerCase();
+      if (!q) { this.searchResults = []; return; }
+      // Score simples: prefix match > contains; name > keywords
+      const hits = [];
+      for (const it of this._items) {
+        const name = (it.name || '').toLowerCase();
+        const kws = (it.keywords || []).map(k => k.toLowerCase());
+        let score = 0;
+        if (name.startsWith(q)) score = 100;
+        else if (name.includes(q)) score = 60;
+        else if (kws.some(k => k.includes(q))) score = 30;
+        if (score > 0) hits.push({ ...it, _score: score });
+      }
+      hits.sort((a, b) => b._score - a._score);
+      this.searchResults = hits.slice(0, 20);
+    },
+  };
+}
+</script>
+
+{% endblock %}

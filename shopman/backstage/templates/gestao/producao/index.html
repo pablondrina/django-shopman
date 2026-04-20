@@ -1,0 +1,165 @@
+{% extends "gestao/base.html" %}
+{% block title %}Produção — {{ shop.name|default:"Loja" }}{% endblock %}
+{% block page_title %}Produção{% endblock %}
+{% block nav_active_producao %}active{% endblock %}
+
+{% block content %}
+<div class="p-4 space-y-6 max-w-6xl">
+
+  {% comment %}Filter form{% endcomment %}
+  <form method="get" class="card grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div>
+      <label class="block text-xs font-semibold text-on-surface/60 dark:text-on-surface-dark/60 mb-1">Data</label>
+      <input type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}" class="input-field" />
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-on-surface/60 dark:text-on-surface-dark/60 mb-1">Posição</label>
+      <select name="position_ref" class="select-field">
+        <option value="">Todas</option>
+        {% for position in positions %}
+        <option value="{{ position.ref }}" {% if selected_position_ref == position.ref %}selected{% endif %}>{{ position.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-on-surface/60 dark:text-on-surface-dark/60 mb-1">Operador</label>
+      <input type="text" name="operator_ref" value="{{ selected_operator_ref }}" placeholder="user:joao" class="input-field" />
+    </div>
+    <div class="flex items-end">
+      <button type="submit" class="btn-primary">Filtrar</button>
+    </div>
+  </form>
+
+  {% comment %}Summary metrics{% endcomment %}
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="card">
+      <div class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 mb-1">Ordens</div>
+      <div class="text-2xl font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ craft_summary.total_orders }}</div>
+    </div>
+    <div class="card">
+      <div class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 mb-1">Planejado</div>
+      <div class="text-lg font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ craft_summary.planned_qty }}</div>
+      <div class="text-xs text-on-surface/40 dark:text-on-surface-dark/40">{{ craft_summary.planned_orders }} ordem(ns)</div>
+    </div>
+    <div class="card">
+      <div class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 mb-1">Iniciado</div>
+      <div class="text-lg font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ craft_summary.started_qty }}</div>
+      <div class="text-xs text-on-surface/40 dark:text-on-surface-dark/40">{{ craft_summary.started_orders }} ordem(ns)</div>
+    </div>
+    <div class="card">
+      <div class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 mb-1">Finalizado</div>
+      <div class="text-lg font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ craft_summary.finished_qty }}</div>
+      <div class="text-xs text-on-surface/40 dark:text-on-surface-dark/40">Perda {{ craft_summary.loss_qty }}</div>
+    </div>
+  </div>
+
+  {% comment %}Quick registration form{% endcomment %}
+  <div class="card">
+    <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-4">Registro rápido</h2>
+    <form method="post" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {% csrf_token %}
+      <div>
+        <label class="block text-xs font-semibold text-on-surface/60 dark:text-on-surface-dark/60 mb-1">Receita</label>
+        <select name="recipe" class="select-field">
+          {% for recipe in recipes %}
+          <option value="{{ recipe.pk }}">{{ recipe.ref }} — {{ recipe.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-on-surface/60 dark:text-on-surface-dark/60 mb-1">Quantidade</label>
+        <input type="number" step="0.001" min="0.001" name="quantity" class="input-field" />
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-on-surface/60 dark:text-on-surface-dark/60 mb-1">Posição</label>
+        <select name="position" class="select-field">
+          <option value="">Padrão</option>
+          {% for position in positions %}
+          <option value="{{ position.pk }}" {% if default_position_id == position.pk %}selected{% endif %}>{{ position.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="flex items-end">
+        <button type="submit" class="btn-primary">Registrar</button>
+      </div>
+    </form>
+  </div>
+
+  {% comment %}Queues{% endcomment %}
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+    <section class="card">
+      <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-4">Backlog Planejado</h2>
+      {% if planned_queue %}
+      <div class="space-y-3">
+        {% for item in planned_queue %}
+        <div class="border border-outline dark:border-outline-dark rounded-lg p-3">
+          <div class="font-medium text-sm">{{ item.output_sku }} <span class="text-on-surface/40 dark:text-on-surface-dark/40">({{ item.ref }})</span></div>
+          <div class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">Planejado: {{ item.planned_qty }}</div>
+          <div class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">Posto: {{ item.position_ref|default:"-" }}</div>
+          <div class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">Responsável: {{ item.operator_ref|default:"-" }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-sm text-on-surface/40 dark:text-on-surface-dark/40">Nenhuma ordem planejada.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-4">Execução Iniciada</h2>
+      {% if started_queue %}
+      <div class="space-y-3">
+        {% for item in started_queue %}
+        <div class="border border-outline dark:border-outline-dark rounded-lg p-3">
+          <div class="font-medium text-sm">{{ item.output_sku }} <span class="text-on-surface/40 dark:text-on-surface-dark/40">({{ item.ref }})</span></div>
+          <div class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">Planejado: {{ item.planned_qty }} · Iniciado: {{ item.started_qty }}</div>
+          <div class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">Posto: {{ item.position_ref|default:"-" }}</div>
+          <div class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">Responsável: {{ item.operator_ref|default:"-" }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-sm text-on-surface/40 dark:text-on-surface-dark/40">Nenhuma ordem iniciada.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  {% comment %}Orders table{% endcomment %}
+  <section class="card">
+    <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-4">Ordens da Data</h2>
+    {% if today_wos %}
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm border-collapse">
+        <thead class="text-on-surface/60 dark:text-on-surface-dark/60 text-left">
+          <tr class="border-b border-outline dark:border-outline-dark">
+            <th class="py-2 pr-4 font-semibold">Ref</th>
+            <th class="py-2 pr-4 font-semibold">Produto</th>
+            <th class="py-2 pr-4 font-semibold">Status</th>
+            <th class="py-2 pr-4 font-semibold">Planejado</th>
+            <th class="py-2 pr-4 font-semibold">Iniciado</th>
+            <th class="py-2 pr-4 font-semibold">Finalizado</th>
+            <th class="py-2 pr-4 font-semibold">Desvio Exec.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for wo in today_wos %}
+          <tr class="border-b border-outline dark:border-outline-dark">
+            <td class="py-2 pr-4 font-mono text-xs">{{ wo.ref }}</td>
+            <td class="py-2 pr-4">{{ wo.output_sku }}</td>
+            <td class="py-2 pr-4">{{ wo.status }}</td>
+            <td class="py-2 pr-4">{{ wo.planned_qty }}</td>
+            <td class="py-2 pr-4">{{ wo.started_qty|default:"-" }}</td>
+            <td class="py-2 pr-4">{{ wo.finished_qty|default:"-" }}</td>
+            <td class="py-2 pr-4">{{ wo.loss|default:"-" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <p class="text-sm text-on-surface/40 dark:text-on-surface-dark/40">Nenhuma ordem agendada para a data filtrada.</p>
+    {% endif %}
+  </section>
+
+</div>
+{% endblock %}

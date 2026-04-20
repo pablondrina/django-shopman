@@ -61,7 +61,9 @@ class KDSDisplayView(View):
         if denied:
             return denied
 
-        from shopman.shop.models import KDSInstance, Shop
+        from shopman.shop.models import Shop
+
+        from shopman.backstage.models import KDSInstance
 
         instance = get_object_or_404(KDSInstance, ref=ref, is_active=True)
         board = build_kds_board(ref)
@@ -84,7 +86,7 @@ class KDSTicketListPartialView(View):
         if denied:
             return denied
 
-        from shopman.shop.models import KDSInstance
+        from shopman.backstage.models import KDSInstance
 
         instance = get_object_or_404(KDSInstance, ref=ref, is_active=True)
         board = build_kds_board(ref)
@@ -104,7 +106,7 @@ class KDSTicketCheckItemView(View):
         if denied:
             return denied
 
-        from shopman.shop.models import KDSTicket
+        from shopman.backstage.models import KDSTicket
 
         ticket = get_object_or_404(KDSTicket, pk=pk)
         index = int(request.POST.get("index", 0))
@@ -135,7 +137,7 @@ class KDSTicketDoneView(View):
 
         from shopman.orderman.exceptions import InvalidTransition
 
-        from shopman.shop.models import KDSTicket
+        from shopman.backstage.models import KDSTicket
 
         ticket = get_object_or_404(KDSTicket, pk=pk)
 

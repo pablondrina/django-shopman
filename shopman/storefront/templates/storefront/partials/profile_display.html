@@ -1,0 +1,35 @@
+{% load storefront_tags %}
+<div id="profile-section">
+  <div class="flex items-center justify-between mb-4">
+    <h3 class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Dados pessoais</h3>
+    <button type="button"
+            hx-get="{% url 'storefront:profile_edit' %}"
+            hx-target="#profile-section"
+            hx-swap="outerHTML"
+            class="text-sm font-medium text-primary hover:opacity-75 transition dark:text-primary-dark">
+      Editar
+    </button>
+  </div>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div>
+      <p class="text-xs uppercase tracking-wide text-on-surface/50 dark:text-on-surface-dark/50 mb-1">Nome</p>
+      <p class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ customer.name|default:"—" }}</p>
+    </div>
+    <div>
+      <p class="text-xs uppercase tracking-wide text-on-surface/50 dark:text-on-surface-dark/50 mb-1">Telefone</p>
+      <p class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ customer.phone|format_phone }}</p>
+    </div>
+    {% if customer.email %}
+    <div>
+      <p class="text-xs uppercase tracking-wide text-on-surface/50 dark:text-on-surface-dark/50 mb-1">Email</p>
+      <p class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ customer.email }}</p>
+    </div>
+    {% endif %}
+    {% if customer.birthday %}
+    <div>
+      <p class="text-xs uppercase tracking-wide text-on-surface/50 dark:text-on-surface-dark/50 mb-1">Data de nascimento</p>
+      <p class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ customer.birthday|date:"d/m/Y" }}</p>
+    </div>
+    {% endif %}
+  </div>
+</div>

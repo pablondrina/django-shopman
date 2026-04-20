@@ -1,0 +1,43 @@
+{% extends "gestao/base.html" %}
+{% load storefront_tags %}
+{% block title %}Abrir Caixa — {{ shop.brand_name|default:shop.name }}{% endblock %}
+{% block page_title %}Abrir Caixa{% endblock %}
+{% block nav_active_pos %}active{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center p-8 min-h-full">
+  <div class="w-full max-w-sm">
+    <div class="card rounded-2xl p-8 shadow-md">
+      <div class="text-center mb-6">
+        <span class="material-symbols-rounded text-primary dark:text-primary-dark text-5xl block mb-2" aria-hidden="true">point_of_sale</span>
+        <h1 class="font-title font-bold text-2xl text-on-surface-strong dark:text-on-surface-dark-strong">{{ shop.brand_name|default:shop.name }}</h1>
+        <p class="text-on-surface/60 dark:text-on-surface-dark/60 text-sm mt-1">POS — Abrir Caixa</p>
+      </div>
+
+      <form method="post" action="/gestao/pos/caixa/abrir/">
+        {% csrf_token %}
+        <div class="flex flex-col gap-4">
+          <div>
+            <label class="block text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-1.5" for="opening_amount">
+              Fundo de troco (R$)
+            </label>
+            <input id="opening_amount" name="opening_amount" type="number" min="0" step="0.01"
+                   class="input-field"
+                   placeholder="0,00"
+                   value="0">
+            <p class="text-xs text-on-surface/40 dark:text-on-surface-dark/40 mt-1">Valor em dinheiro disponível no caixa ao abrir o turno.</p>
+          </div>
+
+          <button type="submit" class="btn-primary w-full text-base font-bold">
+            Abrir Caixa
+          </button>
+        </div>
+      </form>
+
+      <p class="text-center text-xs text-on-surface/40 dark:text-on-surface-dark/40 mt-4">
+        Operador: <strong>{{ request.user.get_short_name|default:request.user.username }}</strong>
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}

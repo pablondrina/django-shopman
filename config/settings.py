@@ -113,6 +113,9 @@ INSTALLED_APPS = [
     "shopman.doorman.contrib.admin_unfold",
     # Shopman orchestrator
     "shopman.shop",
+    # Shopman surfaces
+    "shopman.storefront",
+    "shopman.backstage",
     # Optional instance/distribution apps
     *SHOPMAN_INSTANCE_APPS,
 ]
@@ -128,10 +131,10 @@ MIDDLEWARE = [
     "simple_history.middleware.HistoryRequestMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "shopman.shop.middleware.ChannelParamMiddleware",
-    "shopman.shop.middleware.OnboardingMiddleware",
+    "shopman.storefront.middleware.ChannelParamMiddleware",
+    "shopman.backstage.middleware.OnboardingMiddleware",
     "shopman.shop.middleware.APIVersionHeaderMiddleware",
-    "shopman.shop.middleware.WelcomeGateMiddleware",
+    "shopman.storefront.middleware.WelcomeGateMiddleware",
 ]
 
 AUTHENTICATION_BACKENDS = [
@@ -164,9 +167,9 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "shopman.shop.context_processors.shop",
-                "shopman.shop.context_processors.omotenashi",
-                "shopman.shop.context_processors.cart_count",
+                "shopman.storefront.context_processors.shop",
+                "shopman.storefront.context_processors.omotenashi",
+                "shopman.storefront.context_processors.cart_count",
             ],
         },
     },

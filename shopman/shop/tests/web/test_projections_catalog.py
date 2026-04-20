@@ -14,7 +14,7 @@ import pytest
 from django.utils import timezone
 from shopman.offerman.models import CollectionItem, ListingItem, Product
 
-from shopman.shop.models import Promotion
+from shopman.storefront.models import Promotion
 from shopman.shop.projections import build_catalog
 from shopman.shop.projections.catalog import (
     CatalogItemProjection,

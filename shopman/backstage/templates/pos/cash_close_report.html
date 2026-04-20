@@ -1,0 +1,63 @@
+{% extends "gestao/base.html" %}
+{% load storefront_tags %}
+{% block title %}Fechamento de Caixa{% endblock %}
+{% block page_title %}Fechamento de Caixa{% endblock %}
+{% block nav_active_pos %}active{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center p-8 min-h-full">
+  <div class="w-full max-w-md">
+    <div class="card rounded-2xl p-8 shadow-md">
+      <div class="text-center mb-6">
+        <span class="material-symbols-rounded text-success text-4xl block mb-2" aria-hidden="true">task_alt</span>
+        <h1 class="font-title font-bold text-xl text-on-surface-strong dark:text-on-surface-dark-strong">Caixa Fechado</h1>
+        <p class="text-on-surface/60 dark:text-on-surface-dark/60 text-sm">{{ session.opened_at|date:"d/m/Y H:i" }} → {{ session.closed_at|date:"H:i" }}</p>
+      </div>
+
+      {% comment %}Summary table{% endcomment %}
+      <div class="flex flex-col gap-0 text-sm mb-6">
+        <div class="flex justify-between py-2 border-b border-outline dark:border-outline-dark">
+          <span class="text-on-surface/60 dark:text-on-surface-dark/60">Abertura</span>
+          <span class="font-semibold tabular-nums">R$ {{ session.opening_amount_q|format_money }}</span>
+        </div>
+
+        {% for mov in session.movements.all %}
+        <div class="flex justify-between py-2 border-b border-outline dark:border-outline-dark">
+          <span class="text-on-surface/60 dark:text-on-surface-dark/60">{{ mov.get_movement_type_display }}{% if mov.reason %} ({{ mov.reason }}){% endif %}</span>
+          <span class="tabular-nums {% if mov.movement_type == 'sangria' %}text-danger{% else %}text-success{% endif %}">
+            {% if mov.movement_type == 'sangria' %}&minus;{% else %}+{% endif %}R$ {{ mov.amount_q|format_money }}
+          </span>
+        </div>
+        {% endfor %}
+
+        <div class="flex justify-between py-2 border-b border-outline dark:border-outline-dark">
+          <span class="text-on-surface/60 dark:text-on-surface-dark/60">Esperado em caixa</span>
+          <span class="font-semibold tabular-nums">R$ {{ session.expected_amount_q|format_money }}</span>
+        </div>
+        <div class="flex justify-between py-2 border-b border-outline dark:border-outline-dark">
+          <span class="text-on-surface/60 dark:text-on-surface-dark/60">Informado no fechamento</span>
+          <span class="font-semibold tabular-nums">R$ {{ session.closing_amount_q|format_money }}</span>
+        </div>
+        <div class="flex justify-between py-2.5 mt-1 rounded-lg px-3
+          {% if session.difference_q == 0 %}bg-success/10 text-success
+          {% elif session.difference_q > 0 %}bg-info/10 text-info
+          {% else %}bg-danger/10 text-danger{% endif %}">
+          <span class="font-bold">Diferença</span>
+          <span class="font-bold tabular-nums">
+            {% if session.difference_q >= 0 %}+{% endif %}R$ {{ session.difference_q|format_money }}
+          </span>
+        </div>
+      </div>
+
+      {% if session.notes %}
+      <p class="text-xs text-on-surface/40 dark:text-on-surface-dark/40 italic mb-4">Obs: {{ session.notes }}</p>
+      {% endif %}
+
+      <a href="/gestao/pos/"
+         class="btn-primary w-full text-base font-bold text-center">
+        Novo Turno
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

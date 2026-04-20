@@ -1,0 +1,30 @@
+{% load omotenashi_tags %}
+{% omotenashi 'KINTSUGI_RATE_LIMITED' as rl %}
+<div class="rounded-radius border border-warning/30 bg-warning/5 p-4 dark:border-warning-dark/30 dark:bg-warning-dark/5"
+     x-data="{
+       secondsLeft: {{ rate_limit_seconds|default:120 }},
+       timeLabel: '',
+       init() { this.tick(); this.iv = setInterval(() => this.tick(), 1000); },
+       tick() {
+         if (this.secondsLeft <= 0) { clearInterval(this.iv); this.timeLabel = 'pronto'; return; }
+         const m = Math.floor(this.secondsLeft / 60), s = this.secondsLeft % 60;
+         this.timeLabel = m + ':' + String(s).padStart(2, '0');
+         this.secondsLeft--;
+       }
+     }">
+  <div class="flex items-start gap-3">
+    <span class="material-symbols-rounded text-warning dark:text-warning-dark shrink-0" aria-hidden="true">hourglass_top</span>
+    <div class="text-sm space-y-1">
+      <p class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ rl.title }}</p>
+      <p class="text-on-surface dark:text-on-surface-dark">
+        Tente novamente em <strong class="font-mono tabular-nums" x-text="timeLabel">—</strong>.
+      </p>
+      {% if storefront.whatsapp_url %}
+      <p class="text-on-surface dark:text-on-surface-dark">
+        Prefere falar com a gente?
+        <a href="{{ storefront.whatsapp_url }}" target="_blank" rel="noopener" class="underline underline-offset-2 hover:text-primary dark:hover:text-primary-dark">WhatsApp</a>.
+      </p>
+      {% endif %}
+    </div>
+  </div>
+</div>

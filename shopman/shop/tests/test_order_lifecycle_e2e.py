@@ -111,7 +111,7 @@ def test_delivery_complete_lifecycle(delivery_order):
 @pytest.mark.django_db
 def test_cancellation_while_preparing_cleans_kds_tickets(channel):
     """Order cancelled while preparing: KDS open tickets become cancelled."""
-    from shopman.shop.models import KDSInstance, KDSTicket
+    from shopman.backstage.models import KDSInstance, KDSTicket
 
     order = Order.objects.create(
         ref="E2E-CANCEL-001",

@@ -1,0 +1,68 @@
+{# OTP code entry — embedded inside login card (Penguin UI tokens) #}
+
+{% if error_message %}
+<div class="mb-4 flex items-start gap-2 rounded-radius border border-danger bg-danger/10 p-3 text-sm text-danger dark:border-danger-dark dark:bg-danger-dark/10 dark:text-danger-dark" role="alert">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5 shrink-0 mt-0.5" aria-hidden="true">
+    <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd"/>
+  </svg>
+  <span>{{ error_message }}</span>
+</div>
+{% endif %}
+
+<div class="space-y-4">
+  <div class="flex w-full flex-col gap-1 text-on-surface dark:text-on-surface-dark">
+    <label for="auth-code-input" class="w-fit pl-0.5 text-sm font-medium">Código de verificação</label>
+    <input type="text" id="auth-code-input" name="code" maxlength="6" pattern="[0-9]{6}"
+      inputmode="numeric" autocomplete="one-time-code"
+      placeholder="000000"
+      class="w-full rounded-radius border border-outline bg-surface-alt text-center text-2xl font-mono tracking-[0.5em] placeholder:text-on-surface/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:border-outline-dark dark:bg-surface-dark-alt/50 dark:placeholder:text-on-surface-dark/30 dark:focus-visible:outline-primary-dark"
+      style="min-height: 56px; padding: 0.5rem 0.75rem;"
+      autofocus>
+  </div>
+
+  <button type="button" id="auth-verify-btn"
+    hx-post="{% url 'storefront:verify_code' %}"
+    hx-target="#auth-section"
+    hx-swap="innerHTML"
+    hx-include="#auth-code-input"
+    hx-vals='{"phone": "{{ phone }}"}'
+    hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+    class="flex w-full items-center justify-center gap-2 rounded-radius bg-primary px-4 py-2.5 text-sm font-medium text-on-primary transition hover:opacity-90 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark"
+    style="min-height: 44px;">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true">
+      <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd"/>
+    </svg>
+    Verificar
+  </button>
+</div>
+
+<div class="mt-4 text-center">
+  <button type="button" id="resend-btn" disabled
+    hx-post="{% url 'storefront:request_code' %}"
+    hx-target="#auth-section"
+    hx-swap="innerHTML"
+    hx-vals='{"phone": "{{ phone }}"}'
+    hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+    class="text-sm text-on-surface/60 hover:text-on-surface disabled:opacity-50 disabled:cursor-not-allowed transition dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark">
+    Reenviar código (<span id="resend-timer">60</span>s)
+  </button>
+</div>
+
+<script>
+(function() {
+  var seconds = 60;
+  var timerEl = document.getElementById('resend-timer');
+  var btnEl = document.getElementById('resend-btn');
+  var interval = setInterval(function() {
+    seconds--;
+    if (timerEl) timerEl.textContent = seconds;
+    if (seconds <= 0) {
+      clearInterval(interval);
+      if (btnEl) {
+        btnEl.disabled = false;
+        btnEl.textContent = 'Reenviar c\u00f3digo';
+      }
+    }
+  }, 1000);
+})();
+</script>

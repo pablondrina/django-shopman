@@ -54,7 +54,9 @@ def pos_view(request: HttpRequest) -> HttpResponse:
     if denied:
         return denied
 
-    from shopman.shop.models import CashRegisterSession, Shop
+    from shopman.shop.models import Shop
+
+    from shopman.backstage.models import CashRegisterSession
 
     shop = Shop.load()
     cash_session = CashRegisterSession.get_open_for_operator(request.user)
@@ -358,7 +360,7 @@ def pos_cash_open(request: HttpRequest) -> HttpResponse:
     if denied:
         return HttpResponse("Unauthorized", status=403)
 
-    from shopman.shop.models import CashRegisterSession
+    from shopman.backstage.models import CashRegisterSession
 
     existing = CashRegisterSession.get_open_for_operator(request.user)
     if existing:
@@ -385,7 +387,7 @@ def pos_cash_sangria(request: HttpRequest) -> HttpResponse:
     if denied:
         return HttpResponse("Unauthorized", status=403)
 
-    from shopman.shop.models import CashMovement, CashRegisterSession
+    from shopman.backstage.models import CashMovement, CashRegisterSession
 
     session = CashRegisterSession.get_open_for_operator(request.user)
     if not session:
@@ -438,7 +440,7 @@ def pos_cash_close(request: HttpRequest) -> HttpResponse:
     if denied:
         return HttpResponse("Unauthorized", status=403)
 
-    from shopman.shop.models import CashRegisterSession
+    from shopman.backstage.models import CashRegisterSession
 
     session = CashRegisterSession.get_open_for_operator(request.user)
     if not session:

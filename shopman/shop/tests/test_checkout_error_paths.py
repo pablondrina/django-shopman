@@ -49,7 +49,7 @@ class CartExpiredRedirectTests(TestCase):
     def setUp(self):
         _make_shop()
         _make_channels()
-        from shopman.shop.models import CashRegisterSession
+        from shopman.backstage.models import CashRegisterSession
         staff = _make_staff()
         CashRegisterSession.objects.get_or_create(operator=staff, defaults={"opening_amount_q": 0})
 

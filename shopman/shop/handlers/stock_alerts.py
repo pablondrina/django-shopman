@@ -32,7 +32,7 @@ def check_and_alert(sku: str | None = None) -> int:
     if not triggered:
         return 0
 
-    from shopman.shop.models import OperatorAlert
+    from shopman.backstage.models import OperatorAlert
 
     debounce_cutoff = timezone.now() - timedelta(hours=1)
     created = 0

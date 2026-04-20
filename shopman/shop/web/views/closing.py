@@ -20,7 +20,7 @@ from django.urls import reverse
 from shopman.stockman import Position, Quant
 from shopman.stockman.services.movements import StockMovements
 
-from shopman.shop.models import DayClosing
+from shopman.backstage.models import DayClosing
 from shopman.shop.projections.closing import build_day_closing
 
 logger = logging.getLogger(__name__)

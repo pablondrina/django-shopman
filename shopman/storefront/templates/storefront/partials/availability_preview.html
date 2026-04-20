@@ -1,0 +1,170 @@
+{% comment %}
+── Availability preview (v2) ──
+  HTMX partial for home "Direto do forno" section.
+  Consumes _annotate_products() dicts (not CatalogItemProjection).
+  Keys: product, price_display, badge, availability, has_promo_price,
+        promo_price_display, promo_original_price_display, promo_badge, is_popular.
+{% endcomment %}
+{% if items %}
+<ul class="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  {% for item in items %}
+  <li class="flex"
+      x-data="{
+        qty: 0,
+        max: {% if item.available_qty is not None %}{{ item.available_qty }}{% else %}99{% endif %},
+        busy: false,
+        get effectiveMax() { return Math.min(99, this.max); },
+        get showMaxHint() { return this.qty > 0 && this.qty >= (this.effectiveMax - 2) && this.effectiveMax > 0; },
+        async set(next) {
+          if (this.busy) return;
+          const ceiling = this.effectiveMax;
+          if (next > ceiling) {
+            const word = ceiling === 1 ? 'unidade disponível' : 'unidades disponíveis';
+            window.dispatchEvent(new CustomEvent('notify', {
+              detail: { variant: 'warning', message: 'Apenas ' + ceiling + ' ' + word + '.' },
+            }));
+            next = ceiling;
+          }
+          const target = Math.max(0, next);
+          const prev = this.qty;
+          this.busy = true;
+          const body = new FormData();
+          body.append('sku', '{{ item.product.sku }}');
+          body.append('qty', String(target));
+          try {
+            const resp = await fetch('{% url 'storefront:cart_set_qty' %}', {
+              method: 'POST',
+              headers: {
+                'X-CSRFToken': document.querySelector('meta[name=\'csrf-token\']').content,
+                'HX-Request': 'true',
+              },
+              body,
+            });
+            if (resp.ok) {
+              this.qty = target;
+              htmx.trigger(document.body, 'cartUpdated');
+            } else if (resp.status === 422 && resp.headers.get('X-Shopman-Error-UI') === '1') {
+              const html = await resp.text();
+              const _sink = document.getElementById('stock-error-modal');
+             _sink.innerHTML = html;
+             htmx.process(_sink);
+             if (window.Alpine) window.Alpine.initTree(_sink);
+              this.qty = prev;
+            } else {
+              this.qty = prev;
+              window.dispatchEvent(new CustomEvent('notify', { detail: { variant: 'warning', message: 'Não foi possível atualizar o carrinho. Tente novamente.' } }));
+            }
+          } catch (e) {
+            this.qty = prev;
+            window.dispatchEvent(new CustomEvent('notify', { detail: { variant: 'danger', message: 'Sem conexão. Verifique sua internet.' } }));
+          } finally {
+            this.busy = false;
+          }
+        }
+      }">
+
+    <article class="group flex flex-row sm:flex-col rounded-radius overflow-hidden border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt w-full">
+
+      <a href="{% url 'storefront:product_detail' item.product.sku %}"
+         class="block shrink-0 w-28 h-28 sm:w-full sm:h-44 overflow-hidden focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
+         aria-label="Ver detalhes de {{ item.product.name }}">
+        {% if item.product.image_url %}
+        <img src="{{ item.product.image_url }}" alt="{{ item.product.name }}" loading="lazy"
+             class="w-full h-full object-cover transition duration-700 ease-out group-hover:scale-105">
+        {% else %}
+        <div class="w-full h-full flex items-center justify-center text-on-surface/30 dark:text-on-surface-dark/30 bg-surface-alt dark:bg-surface-dark-alt">
+          <span class="material-symbols-rounded text-4xl sm:text-5xl" aria-hidden="true">bakery_dining</span>
+        </div>
+        {% endif %}
+      </a>
+
+      <div class="flex flex-col gap-1.5 sm:gap-3 p-3 sm:p-4 flex-1 min-w-0">
+        <div class="flex items-start justify-between gap-2">
+          <h3 class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong leading-tight line-clamp-2">
+            <a href="{% url 'storefront:product_detail' item.product.sku %}"
+               class="hover:text-primary dark:hover:text-primary-dark focus:outline-hidden focus:underline">
+              {{ item.product.name }}
+            </a>
+          </h3>
+          {% if item.is_popular %}
+          <span class="badge-info shrink-0 text-[10px] sm:text-xs">Popular</span>
+          {% endif %}
+        </div>
+
+        {% if item.freshness_label %}
+        <p class="inline-flex items-center gap-1 text-[10px] sm:text-xs font-medium text-primary dark:text-primary-dark">
+          <span class="material-symbols-rounded text-xs" aria-hidden="true">local_fire_department</span>
+          {{ item.freshness_label }}
+        </p>
+        {% elif item.product.short_description %}
+        <p class="text-xs text-on-surface dark:text-on-surface-dark line-clamp-1 sm:line-clamp-2 hidden sm:block">{{ item.product.short_description }}</p>
+        {% endif %}
+
+        {% if item.badge and not item.badge.can_add_to_cart %}
+        <div>
+          <span class="badge-danger text-[10px] sm:text-xs">{{ item.badge.label }}</span>
+        </div>
+        {% endif %}
+
+        <div class="mt-auto pt-1 sm:pt-2 flex items-end justify-between gap-2">
+          <div class="min-w-0">
+            {% if item.has_promo_price %}
+              <p class="text-[10px] sm:text-xs text-on-surface/70 dark:text-on-surface-dark/70 line-through">{{ item.promo_original_price_display }}</p>
+              <p class="text-sm sm:text-base font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.promo_price_display }}</p>
+              {% if item.promo_badge.label %}
+              <span class="badge-warning mt-0.5 sm:mt-1 text-[10px] sm:text-xs">{{ item.promo_badge.label }}</span>
+              {% endif %}
+            {% else %}
+              <p class="text-sm sm:text-base font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.price_display }}</p>
+            {% endif %}
+          </div>
+
+          {% if item.badge.can_add_to_cart %}
+          <div @click.stop class="shrink-0">
+            <template x-if="qty === 0">
+              <button type="button"
+                      class="btn-primary text-xs px-2.5 py-1.5 sm:px-3 sm:py-2"
+                      :disabled="busy"
+                      @click="set(1)">
+                <span class="material-symbols-rounded text-sm sm:hidden" aria-hidden="true">add</span>
+                <span class="hidden sm:inline">Adicionar</span>
+              </button>
+            </template>
+            <template x-if="qty > 0">
+              <div class="inline-flex items-center rounded-radius border border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark"
+                   role="group" aria-label="Quantidade no carrinho">
+                <button type="button"
+                        class="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-on-surface dark:text-on-surface-dark hover:bg-surface-alt dark:hover:bg-surface-dark-alt rounded-l-radius disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
+                        :disabled="busy"
+                        @click="set(qty - 1)">
+                  <span class="material-symbols-rounded text-base sm:text-lg" aria-hidden="true">remove</span>
+                </button>
+                <span class="min-w-[2ch] px-0.5 sm:px-1 text-center text-xs sm:text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums"
+                      x-text="qty" aria-live="polite"></span>
+                <button type="button"
+                        class="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-on-surface dark:text-on-surface-dark hover:bg-surface-alt dark:hover:bg-surface-dark-alt rounded-r-radius disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
+                        :disabled="busy || qty >= effectiveMax"
+                        :aria-label="qty >= effectiveMax ? 'Estoque máximo atingido' : 'Aumentar quantidade'"
+                        @click="set(qty + 1)">
+                  <span class="material-symbols-rounded text-base sm:text-lg" aria-hidden="true">add</span>
+                </button>
+              </div>
+            </template>
+            <p x-show="showMaxHint" x-cloak
+               class="mt-1 text-[10px] text-on-surface/60 dark:text-on-surface-dark/60 tabular-nums text-right"
+               aria-live="polite">
+              máx. <span x-text="effectiveMax"></span>
+            </p>
+          </div>
+          {% elif item.badge %}
+          <span class="badge-danger text-[10px] sm:text-xs shrink-0">{{ item.badge.label }}</span>
+          {% endif %}
+        </div>
+      </div>
+    </article>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="text-center text-on-surface/60 dark:text-on-surface-dark/60 text-sm py-6">Nenhum produto disponível no momento.</p>
+{% endif %}

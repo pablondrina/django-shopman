@@ -1,0 +1,49 @@
+{% comment %}
+── Quick Reorder (Penguin UI card) ──
+   Shows last order summary with one-tap reorder for returning customers.
+
+   TODO(customer_summary): Replace mock data with customer_summary projection.
+   Source: guestman (identity) + orderman (last order).
+
+   Usage: include "storefront/partials/quick_reorder.html"
+   Requires: customer_name in context.
+{% endcomment %}
+<section class="max-w-2xl mx-auto mb-8">
+  <article x-data="{ show: true }" x-show="show"
+           class="group flex rounded-radius flex-col overflow-hidden border border-outline bg-surface-alt text-on-surface dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark">
+    <div class="flex flex-col gap-4 p-6">
+      <div class="flex items-start justify-between">
+        <div class="flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5 text-primary dark:text-primary-dark shrink-0" aria-hidden="true">
+            <path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H4.598a.75.75 0 00-.75.75v3.634a.75.75 0 001.5 0v-2.033l.312.311a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.06-7.386a.75.75 0 00-1.5 0v2.033l-.312-.311a7 7 0 00-11.712 3.138.75.75 0 001.449.39 5.5 5.5 0 019.201-2.466l.312.311H11.6a.75.75 0 000 1.5h3.634a.75.75 0 00.75-.75V4.038z" clip-rule="evenodd" />
+          </svg>
+          <h3 class="text-lg font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Repetir ultimo pedido</h3>
+        </div>
+        <button @click="show = false"
+                class="text-on-surface hover:text-on-surface-strong dark:text-on-surface-dark dark:hover:text-on-surface-dark-strong shrink-0"
+                aria-label="Dispensar">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" class="size-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <p class="text-sm">Seu pedido anterior</p>
+
+      {% if last_order_ref %}
+      <form method="post" action="{% url 'storefront:reorder' ref=last_order_ref %}">
+        {% csrf_token %}
+        <button type="submit"
+           class="w-full flex items-center justify-center gap-2 whitespace-nowrap bg-primary px-4 py-2 text-center text-sm font-medium tracking-wide text-on-primary transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:opacity-100 active:outline-offset-0 dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark rounded-radius touch-target">
+          Repetir Agora
+        </button>
+      </form>
+      {% else %}
+      <a href="{% url 'storefront:menu' %}"
+         class="flex items-center justify-center gap-2 whitespace-nowrap bg-primary px-4 py-2 text-center text-sm font-medium tracking-wide text-on-primary transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:opacity-100 active:outline-offset-0 dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark rounded-radius touch-target">
+        Ver cardápio
+      </a>
+      {% endif %}
+    </div>
+  </article>
+</section>

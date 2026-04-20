@@ -1,0 +1,11 @@
+{% load omotenashi_tags %}
+{# OTP verified — a brief, quiet yoin before redirect. #}
+{% omotenashi 'LOGIN_WELCOME_BACK' as welcome %}
+<div class="flex items-center gap-2 rounded-radius border border-success bg-success/10 p-3 dark:border-success-dark dark:bg-success-dark/10"
+     x-data
+     x-init="$nextTick(() => window.dispatchEvent(new CustomEvent('notify', { detail: { variant: 'success', message: '{{ welcome.message|escapejs }}' } })))">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5 shrink-0 text-success dark:text-success-dark" aria-hidden="true">
+    <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.06l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clip-rule="evenodd"/>
+  </svg>
+  <span class="text-sm font-medium text-on-surface-strong dark:text-on-surface-dark-strong">Identidade confirmada</span>
+</div>

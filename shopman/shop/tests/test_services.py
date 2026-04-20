@@ -897,7 +897,9 @@ class TestKDSService:
     def test_on_all_tickets_done_transitions_to_ready(self):
         from shopman.orderman.models import Order
 
-        from shopman.shop.models import Channel, KDSInstance, KDSTicket
+        from shopman.shop.models import Channel
+
+        from shopman.backstage.models import KDSInstance, KDSTicket
         channel = Channel.objects.create(ref="kds-test", name="KDS Test")
         order = Order.objects.create(
             ref="KDS-ORD-001", channel_ref=channel.ref, status=Order.Status.PREPARING, total_q=1000,
@@ -918,7 +920,9 @@ class TestKDSService:
         """cancel_tickets() sets status=cancelled on all open tickets."""
         from shopman.orderman.models import Order
 
-        from shopman.shop.models import Channel, KDSInstance, KDSTicket
+        from shopman.shop.models import Channel
+
+        from shopman.backstage.models import KDSInstance, KDSTicket
         channel = Channel.objects.create(ref="kds-cancel-1", name="KDS Cancel 1")
         order = Order.objects.create(
             ref="KDS-CANCEL-001", channel_ref=channel.ref, status=Order.Status.PREPARING, total_q=1000,
@@ -942,7 +946,9 @@ class TestKDSService:
         """cancel_tickets() returns 0 without error when no open tickets exist."""
         from shopman.orderman.models import Order
 
-        from shopman.shop.models import Channel, KDSInstance, KDSTicket
+        from shopman.shop.models import Channel
+
+        from shopman.backstage.models import KDSInstance, KDSTicket
         channel = Channel.objects.create(ref="kds-cancel-2", name="KDS Cancel 2")
         order = Order.objects.create(
             ref="KDS-CANCEL-002", channel_ref=channel.ref, status=Order.Status.PREPARING, total_q=1000,
@@ -976,7 +982,9 @@ class TestKDSService:
     def test_on_all_tickets_done_noop_if_not_all_done(self):
         from shopman.orderman.models import Order
 
-        from shopman.shop.models import Channel, KDSInstance, KDSTicket
+        from shopman.shop.models import Channel
+
+        from shopman.backstage.models import KDSInstance, KDSTicket
         channel = Channel.objects.create(ref="kds-test2", name="KDS Test 2")
         order = Order.objects.create(
             ref="KDS-ORD-002", channel_ref=channel.ref, status=Order.Status.PREPARING, total_q=1000,

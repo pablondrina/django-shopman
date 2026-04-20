@@ -55,7 +55,7 @@ class DiscountModifier:
     order = 20
 
     def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
-        from shopman.shop.models import Coupon, Promotion
+        from shopman.storefront.models import Coupon, Promotion
 
         # Inject fulfillment_type from session data into ctx for matching
         fulfillment_type = (session.data or {}).get("fulfillment_type", "")
@@ -313,7 +313,7 @@ class DeliveryFeeModifier:
     order = 70
 
     def apply(self, *, channel: Any, session: Any, ctx: dict) -> None:
-        from shopman.shop.models import DeliveryZone
+        from shopman.storefront.models import DeliveryZone
 
         data = session.data or {}
         fulfillment_type = data.get("fulfillment_type", "")

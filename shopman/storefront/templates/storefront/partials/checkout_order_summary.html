@@ -1,0 +1,58 @@
+{# Fragmento HTMX: resumo do pedido no checkout (WP-S3 — totais após cupom) #}
+<div class="bg-surface rounded-xl shadow-sm p-6 sticky top-24">
+  <h3 class="text-h4 text-foreground mb-4">Resumo do Pedido</h3>
+
+  {% if minimum_order_warning %}
+  <div class="mb-4 p-3 rounded-lg bg-warning-light border border-warning text-warning-foreground text-sm" role="status">
+    Faltam <strong>{{ minimum_order_warning.remaining_display }}</strong> para o pedido mínimo de {{ minimum_order_warning.minimum_display }}
+  </div>
+  {% endif %}
+
+  <div class="space-y-3 mb-4">
+    {% for item in cart.items %}
+    <div class="flex justify-between items-start text-sm">
+      <div class="flex-1 min-w-0 pr-3">
+        <p class="text-foreground font-medium truncate">{{ item.name|default:item.sku }}</p>
+        <p class="text-muted-foreground">
+          {{ item.qty|floatformat:"0" }}x
+          {% if item.original_price_display %}<span class="line-through text-muted-foreground/50">{{ item.original_price_display }}</span>{% endif %}
+          {{ item.price_display }}
+        </p>
+      </div>
+      <p class="text-foreground font-medium flex-shrink-0">{{ item.total_display }}</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="border-t border-border pt-3 space-y-2 text-sm">
+    {% if cart.has_discount %}
+    <div class="flex justify-between text-muted-foreground">
+      <span>Antes dos descontos</span>
+      <span class="line-through">{{ cart.original_subtotal_display }}</span>
+    </div>
+    {% if cart.discount_lines %}
+      {% for row in cart.discount_lines %}
+      <div class="flex justify-between gap-2 text-success text-sm">
+        <span class="truncate pr-2 min-w-0" title="{{ row.label }}">{{ row.label }}</span>
+        <span class="shrink-0">-{{ row.amount_display }}</span>
+      </div>
+      {% endfor %}
+    {% else %}
+    <div class="flex justify-between text-success">
+      <span>Descontos</span>
+      <span>-{{ cart.total_discount_display }}</span>
+    </div>
+    {% endif %}
+    {% endif %}
+    {% if cart.delivery_fee_display %}
+    <div class="flex justify-between text-muted-foreground">
+      <span>Taxa de entrega</span>
+      <span class="{% if cart.delivery_fee_q == 0 %}text-success font-medium{% endif %}">{{ cart.delivery_fee_display }}</span>
+    </div>
+    {% endif %}
+    <div class="flex justify-between items-center {% if cart.has_discount or cart.delivery_fee_display %}pt-2 border-t border-border{% endif %}">
+      <span class="font-heading font-bold text-foreground">Total</span>
+      <span class="text-lg font-bold text-primary">{% if cart.delivery_fee_display %}{{ cart.grand_total_display }}{% else %}{{ cart.subtotal_display }}{% endif %}</span>
+    </div>
+  </div>
+</div>

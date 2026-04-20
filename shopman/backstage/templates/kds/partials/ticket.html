@@ -1,0 +1,125 @@
+{% if is_expedition %}
+{% comment %}Expedition card (order-based){% endcomment %}
+<article class="card flex flex-col gap-2.5 p-4" data-kds-ticket>
+  <div class="flex items-center justify-between gap-2">
+    <div class="flex items-center gap-1.5 text-base">
+      <span class="material-symbols-rounded text-base" aria-hidden="true">{{ t.channel_icon }}</span>
+      <strong>#{{ t.ref }}</strong>
+    </div>
+    <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 inline-flex items-center gap-1">
+      <span class="material-symbols-rounded text-base" aria-hidden="true">{{ t.fulfillment_icon }}</span>
+      {{ t.fulfillment_label }}
+    </span>
+  </div>
+
+  {% if t.customer_name %}
+  <div class="text-sm text-on-surface/60 dark:text-on-surface-dark/60">{{ t.customer_name }}</div>
+  {% endif %}
+
+  <div class="text-sm text-on-surface/60 dark:text-on-surface-dark/60">
+    {{ t.items_count }} item{{ t.items_count|pluralize:"s" }} &middot; {{ t.total_display }}
+  </div>
+
+  <div class="mt-auto flex gap-2">
+    {% if t.is_delivery %}
+    <button class="btn-primary w-full text-base font-bold"
+            hx-post="/kds/expedition/{{ t.pk }}/action/"
+            hx-vals='{"action": "dispatch"}'
+            hx-target="closest [data-kds-ticket]"
+            hx-swap="outerHTML"
+            hx-confirm="Despachar pedido #{{ t.ref }}?">
+      <span class="material-symbols-rounded" aria-hidden="true">local_shipping</span>
+      DESPACHAR
+    </button>
+    {% else %}
+    <button class="btn-success w-full text-base font-bold"
+            hx-post="/kds/expedition/{{ t.pk }}/action/"
+            hx-vals='{"action": "complete"}'
+            hx-target="closest [data-kds-ticket]"
+            hx-swap="outerHTML"
+            hx-confirm="Entregar pedido #{{ t.ref }}?">
+      <span class="material-symbols-rounded" aria-hidden="true">check_circle</span>
+      ENTREGAR
+    </button>
+    {% endif %}
+  </div>
+</article>
+
+{% else %}
+{% comment %}Prep / Picking ticket card{% endcomment %}
+<article class="card flex flex-col gap-2.5 p-4
+                {% if t.status == 'in_progress' %}border-2 border-info{% endif %}"
+         data-kds-ticket
+         data-elapsed="{{ t.elapsed_seconds }}"
+         x-data="{ elapsed: {{ t.elapsed_seconds }} }"
+         x-init="$el._kdsTimer = setInterval(() => elapsed++, 1000)">
+
+  {% comment %}Card header: ref + status + timer{% endcomment %}
+  <div class="flex items-center justify-between gap-2">
+    <div class="flex items-center gap-1.5 text-base">
+      <span class="material-symbols-rounded text-base" aria-hidden="true">{{ t.channel_icon }}</span>
+      <strong>#{{ t.order_ref }}</strong>
+      {% if t.status == "in_progress" %}
+      <span class="badge-info">Preparando</span>
+      {% endif %}
+    </div>
+    <div class="font-mono text-base font-semibold tabular-nums flex items-center gap-1"
+         :class="elapsed < {{ instance.target_time_minutes }}*60 ? 'text-success' : (elapsed < {{ instance.target_time_minutes }}*120 ? 'text-warning' : 'text-danger')"
+         :title="'Meta: ' + {{ instance.target_time_minutes }} + ' min'">
+      <span class="material-symbols-rounded text-base" aria-hidden="true"
+            x-show="elapsed >= {{ instance.target_time_minutes }}*120">priority_high</span>
+      <span x-text="Math.floor(elapsed/60) + ':' + String(Math.floor(elapsed%60)).padStart(2,'0')"></span>
+    </div>
+  </div>
+
+  {% comment %}Customer / fulfillment info{% endcomment %}
+  {% if t.customer_name %}
+  <div class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 flex items-center gap-1.5">
+    <span class="material-symbols-rounded text-base" aria-hidden="true">{{ t.fulfillment_icon }}</span>
+    {{ t.customer_name }}
+  </div>
+  {% endif %}
+
+  {% comment %}Items with checkboxes{% endcomment %}
+  <div class="border-t border-outline dark:border-outline-dark pt-2 flex flex-col gap-1" role="list">
+    {% for item in t.items %}
+    <div class="flex items-center gap-2 min-h-12 cursor-pointer px-0.5 py-1 rounded
+                hover:bg-outline/20 dark:hover:bg-outline-dark/20 transition-colors
+                {% if item.checked %}opacity-40 line-through{% endif %}"
+         role="listitem"
+         hx-post="/kds/ticket/{{ t.pk }}/check/"
+         hx-vals='{"index": "{{ forloop.counter0 }}"}'
+         hx-target="closest [data-kds-ticket]"
+         hx-swap="outerHTML">
+      <span class="material-symbols-rounded text-xl" aria-hidden="true">{% if item.checked %}check_box{% else %}check_box_outline_blank{% endif %}</span>
+      <span class="text-base flex-1 leading-tight">
+        <span class="font-semibold tabular-nums">{{ item.qty }}&times;</span> {{ item.name }}
+      </span>
+    </div>
+    {% if item.notes %}
+    <div class="text-xs pl-8 flex items-start gap-1 font-semibold leading-relaxed text-warning">
+      <span class="material-symbols-rounded text-base" aria-hidden="true">warning</span>
+      {{ item.notes }}
+    </div>
+    {% endif %}
+    {% if item.stock_warning %}
+    <div class="text-xs pl-8 flex items-start gap-1 font-semibold leading-relaxed
+                {% if item.stock_warning == 'Sem estoque' %}text-danger{% else %}text-warning{% endif %}">
+      <span class="material-symbols-rounded text-base" aria-hidden="true">inventory_2</span>
+      {{ item.stock_warning }}
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+
+  {% comment %}PRONTO button{% endcomment %}
+  <button class="btn-success w-full text-base font-bold"
+          hx-post="/kds/ticket/{{ t.pk }}/done/"
+          hx-target="closest [data-kds-ticket]"
+          hx-swap="outerHTML"
+          hx-indicator="closest [data-kds-ticket]">
+    <span class="material-symbols-rounded" aria-hidden="true">done_all</span>
+    PRONTO
+  </button>
+</article>
+{% endif %}

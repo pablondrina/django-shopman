@@ -359,13 +359,13 @@ class TestRuleConfigAdmin:
     def test_promotion_registered_in_admin(self):
         from django.contrib import admin
 
-        from shopman.shop.models import Promotion
+        from shopman.storefront.models import Promotion
 
         assert Promotion in admin.site._registry
 
     def test_coupon_registered_in_admin(self):
         from django.contrib import admin
 
-        from shopman.shop.models import Coupon
+        from shopman.storefront.models import Coupon
 
         assert Coupon in admin.site._registry

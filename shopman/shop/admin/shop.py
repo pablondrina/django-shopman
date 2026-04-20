@@ -14,7 +14,8 @@ from unfold.widgets import UnfoldAdminColorInputWidget
 
 from shopman.shop.admin.widgets import FontPreviewWidget
 from shopman.shop.colors import oklch_to_hex
-from shopman.shop.models import DeliveryZone, NotificationTemplate, Shop
+from shopman.shop.models import NotificationTemplate, Shop
+from shopman.storefront.models import DeliveryZone
 
 
 class DeliveryZoneInline(admin.TabularInline):

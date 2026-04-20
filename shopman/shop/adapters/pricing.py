@@ -6,7 +6,7 @@ from django.utils import timezone
 from shopman.offerman.protocols import ContextualPrice, PriceAdjustment
 from shopman.utils.monetary import format_money
 
-from shopman.shop.models import Promotion
+from shopman.storefront.models import Promotion
 from shopman.shop.modifiers import DiscountModifier
 
 
