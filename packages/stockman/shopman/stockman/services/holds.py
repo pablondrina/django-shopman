@@ -210,6 +210,7 @@ class StockHolds:
                         "qty": str(quantity),
                         "target": str(target),
                         "hold_id": hold.hold_id,
+                        "created_by": created_by.pk if created_by else None,
                     },
                 )
                 return hold.hold_id
@@ -221,11 +222,15 @@ class StockHolds:
             )
 
     @classmethod
-    def confirm(cls, hold_id):
+    def confirm(cls, hold_id, actor=None):
         """
         Confirm hold (checkout started).
 
         Transition: PENDING -> CONFIRMED
+
+        Args:
+            hold_id: Hold identifier in "hold:{pk}" format.
+            actor: User performing the action (logged to metadata).
         """
         pk = _parse_hold_id(hold_id)
 
@@ -243,19 +248,27 @@ class StockHolds:
                 )
 
             hold.status = HoldStatus.CONFIRMED
-            hold.save(update_fields=['status'])
+            if actor is not None:
+                hold.metadata['confirmed_by'] = actor.pk
+            update_fields = ['status'] + (['metadata'] if actor is not None else [])
+            hold.save(update_fields=update_fields)
             logger.info(
                 "stock.hold.confirmed",
-                extra={"hold_id": hold_id},
+                extra={"hold_id": hold_id, "actor": actor.pk if actor else None},
             )
             return hold
 
     @classmethod
-    def release(cls, hold_id, reason='Liberado'):
+    def release(cls, hold_id, reason='Liberado', actor=None):
         """
         Release hold (cancellation).
 
         Transition: PENDING|CONFIRMED -> RELEASED
+
+        Args:
+            hold_id: Hold identifier in "hold:{pk}" format.
+            reason: Human-readable release reason (stored in metadata).
+            actor: User performing the action (logged to metadata).
         """
         pk = _parse_hold_id(hold_id)
 
@@ -275,21 +288,29 @@ class StockHolds:
             hold.status = HoldStatus.RELEASED
             hold.resolved_at = timezone.now()
             hold.metadata['release_reason'] = reason
+            if actor is not None:
+                hold.metadata['released_by'] = actor.pk
             hold.save(update_fields=['status', 'resolved_at', 'metadata'])
             logger.info(
                 "stock.hold.released",
-                extra={"hold_id": hold_id, "reason": reason},
+                extra={"hold_id": hold_id, "reason": reason, "actor": actor.pk if actor else None},
             )
             return hold
 
     @classmethod
-    def fulfill(cls, hold_id, user=None):
+    def fulfill(cls, hold_id, user=None, actor=None):
         """
         Fulfill hold (deliver to customer).
 
         1. Validates status is CONFIRMED
         2. Creates negative Move on linked Quant
         3. Transition: CONFIRMED -> FULFILLED
+
+        Args:
+            hold_id: Hold identifier in "hold:{pk}" format.
+            user: User attached to the Move record (ledger authorship).
+            actor: User performing the fulfillment action (logged to metadata).
+                   Falls back to `user` when not provided.
 
         Returns:
             Created Move
@@ -324,13 +345,17 @@ class StockHolds:
                 user=user
             )
 
+            _actor = actor or user
             hold.status = HoldStatus.FULFILLED
             hold.resolved_at = timezone.now()
-            hold.save(update_fields=['status', 'resolved_at'])
+            if _actor is not None:
+                hold.metadata['fulfilled_by'] = _actor.pk
+            update_fields = ['status', 'resolved_at'] + (['metadata'] if _actor is not None else [])
+            hold.save(update_fields=update_fields)
 
             logger.info(
                 "stock.hold.fulfilled",
-                extra={"hold_id": hold_id, "qty": str(hold.quantity)},
+                extra={"hold_id": hold_id, "qty": str(hold.quantity), "actor": _actor.pk if _actor else None},
             )
             return move
 

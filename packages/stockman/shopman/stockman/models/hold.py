@@ -3,6 +3,7 @@ Hold model — Temporary quantity reservation.
 """
 
 
+from django.conf import settings
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
@@ -113,6 +114,15 @@ class Hold(models.Model):
         db_index=True,
         verbose_name=_('Expira em'),
         help_text=_('Se não concluído até esta data, será liberado automaticamente'),
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='stock_holds',
+        verbose_name=_('criado por'),
     )
 
     created_at = models.DateTimeField(default=timezone.now, verbose_name=_('criado em'))
