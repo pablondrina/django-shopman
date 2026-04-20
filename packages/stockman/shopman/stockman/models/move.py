@@ -10,6 +10,16 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 
+class MoveQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        if 'delta' in kwargs:
+            raise ValueError(
+                "Move.delta é imutável — não é permitido alterar delta em lote. "
+                "Para corrigir, crie um novo Move com delta inverso."
+            )
+        return super().update(**kwargs)
+
+
 class Move(models.Model):
     """
     Immutable record of quantity change.
@@ -54,6 +64,8 @@ class Move(models.Model):
         blank=True,
         verbose_name=_('Usuário'),
     )
+
+    objects = MoveQuerySet.as_manager()
 
     class Meta:
         verbose_name = _('Movimento')

@@ -122,10 +122,10 @@ class TestQuantityInvariantAfterOperations:
         hold = stock.hold(Decimal('20'), prod, today)
         assert_quantity_invariant(quant)
 
-        stock.confirm_hold(hold)
+        stock.confirm(hold)
         assert_quantity_invariant(quant)
 
-        stock.fulfill_hold(hold)
+        stock.fulfill(hold)
         assert_quantity_invariant(quant)
 
     def test_invariant_after_hold_release(self):
@@ -138,7 +138,7 @@ class TestQuantityInvariantAfterOperations:
         hold = stock.hold(Decimal('15'), prod, today)
         assert_quantity_invariant(quant)
 
-        stock.release_hold(hold)
+        stock.release(hold)
         assert_quantity_invariant(quant)
 
     def test_invariant_across_multiple_quants(self):
@@ -179,17 +179,17 @@ class TestQuantityInvariantAfterOperations:
         # 4-6: hold / confirm / fulfill
         hold1 = stock.hold(Decimal('20'), prod, today)
         assert_quantity_invariant(quant)
-        stock.confirm_hold(hold1)
+        stock.confirm(hold1)
         assert_quantity_invariant(quant)
-        stock.fulfill_hold(hold1)
+        stock.fulfill(hold1)
         assert_quantity_invariant(quant)
 
         # 7-9: hold / confirm / release
         hold2 = stock.hold(Decimal('15'), prod, today)
         assert_quantity_invariant(quant)
-        stock.confirm_hold(hold2)
+        stock.confirm(hold2)
         assert_quantity_invariant(quant)
-        stock.release_hold(hold2)
+        stock.release(hold2)
         assert_quantity_invariant(quant)
 
         # 10-12: issue
@@ -211,9 +211,9 @@ class TestQuantityInvariantAfterOperations:
         # 16-18: another hold cycle
         hold3 = stock.hold(Decimal('10'), prod, today)
         assert_quantity_invariant(quant)
-        stock.confirm_hold(hold3)
+        stock.confirm(hold3)
         assert_quantity_invariant(quant)
-        stock.fulfill_hold(hold3)
+        stock.fulfill(hold3)
         assert_quantity_invariant(quant)
 
         # 19-21: receive + issue + adjust

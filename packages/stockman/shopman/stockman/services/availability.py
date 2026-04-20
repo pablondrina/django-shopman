@@ -544,24 +544,15 @@ def availability_for_skus(
     return result
 
 
-def _get_safety_margin(channel_ref: str | None) -> int:
-    """Safety margin for channel. Defaults to 0; override via framework ChannelConfig.stock."""
-    return 0
-
-
-def _get_allowed_positions(channel_ref: str | None) -> list[str] | None:
-    """Allowed stock positions for channel. None = all positions; override via framework ChannelConfig.stock."""
-    return None
-
-
 def availability_scope_for_channel(channel_ref: str | None) -> dict[str, int | list[str] | None]:
     """Único ponto para margem + posições ao calcular disponibilidade por canal.
 
-    O catálogo (o que o canal “oferece”) vem da Listagem vinculada ao canal; estes
+    O catálogo (o que o canal "oferece") vem da Listagem vinculada ao canal; estes
     parâmetros só restringem **de quais posições físicas** o estoque conta para esse
     canal (ex.: remoto sem ``ontem`` para D-1 só no balcão).
+
+    Restrições por canal (safety_margin, allowed_positions) são aplicadas pelo
+    orquestrador shopman.shop antes de chamar stockman — stockman retorna os
+    defaults seguros (sem restrição) e delega ao caller quando necessário.
     """
-    return {
-        "safety_margin": _get_safety_margin(channel_ref),
-        "allowed_positions": _get_allowed_positions(channel_ref),
-    }
+    return {"safety_margin": 0, "allowed_positions": None}

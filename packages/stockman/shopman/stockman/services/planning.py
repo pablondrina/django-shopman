@@ -58,16 +58,16 @@ class StockPlanning:
 
     @classmethod
     def replan(cls, quantity, product, target_date,
-               reason, user=None):
+               reason, user=None, position=None, batch=''):
         """
         Adjust existing plan.
 
-        Finds Quant(sku, target_date) and adjusts quantity.
+        Finds Quant(sku, target_date, position, batch) and adjusts quantity.
         """
         from shopman.stockman.services.movements import StockMovements
         from shopman.stockman.services.queries import StockQueries
 
-        quant = StockQueries.get_quant(product.sku, target_date=target_date)
+        quant = StockQueries.get_quant(product.sku, target_date=target_date, position=position, batch=batch)
 
         if quant is None:
             raise StockError('QUANT_NOT_FOUND', product=str(product), target_date=target_date)
