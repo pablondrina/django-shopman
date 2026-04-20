@@ -25,7 +25,7 @@ def reserve_materials(work_order) -> None:
         "production.reserve_materials: wo=%s qty=%s ref=%s",
         work_order.ref,
         work_order.quantity,
-        work_order.output_ref,
+        work_order.output_sku,
     )
 
 
@@ -39,7 +39,7 @@ def emit_goods(work_order) -> None:
         "production.emit_goods: wo=%s finished=%s ref=%s",
         work_order.ref,
         work_order.finished,
-        work_order.output_ref,
+        work_order.output_sku,
     )
 
 

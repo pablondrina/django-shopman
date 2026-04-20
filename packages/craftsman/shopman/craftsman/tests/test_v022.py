@@ -7,7 +7,7 @@ Covers:
 - Hardening: CheckConstraints (DB-level), clean()/full_clean()
 - BOM Snapshot: plan-time freeze, finish uses snapshot, backward compat
 - Consumed validation: warning for unknown item_refs
-- suggest(output_refs=): filter parameter
+- suggest(output_skus=): filter parameter
 - Concurrency: simulated optimistic locking scenarios
 - API: plan endpoint, query endpoints (expected, needs, suggest), pagination
 """
@@ -39,7 +39,7 @@ def recipe(db):
     return Recipe.objects.create(
         ref="croissant-v1",
         name="Croissant Tradicional",
-        output_ref="croissant",
+        output_sku="croissant",
         batch_size=Decimal("10"),
         steps=["Mistura", "Modelagem", "Forno"],
     )
@@ -48,9 +48,9 @@ def recipe(db):
 @pytest.fixture
 def recipe_with_items(recipe):
     """Recipe with 3 ingredients."""
-    RecipeItem.objects.create(recipe=recipe, input_ref="farinha", quantity=Decimal("5"), unit="kg", sort_order=0)
-    RecipeItem.objects.create(recipe=recipe, input_ref="agua", quantity=Decimal("3"), unit="L", sort_order=1)
-    RecipeItem.objects.create(recipe=recipe, input_ref="fermento", quantity=Decimal("0.100"), unit="kg", sort_order=2)
+    RecipeItem.objects.create(recipe=recipe, input_sku="farinha", quantity=Decimal("5"), unit="kg", sort_order=0)
+    RecipeItem.objects.create(recipe=recipe, input_sku="agua", quantity=Decimal("3"), unit="L", sort_order=1)
+    RecipeItem.objects.create(recipe=recipe, input_sku="fermento", quantity=Decimal("0.100"), unit="kg", sort_order=2)
     return recipe
 
 
@@ -60,11 +60,11 @@ def recipe_b(db):
     r = Recipe.objects.create(
         ref="baguette-v1",
         name="Baguette",
-        output_ref="baguette",
+        output_sku="baguette",
         batch_size=Decimal("5"),
     )
-    RecipeItem.objects.create(recipe=r, input_ref="farinha", quantity=Decimal("3"), unit="kg", sort_order=0)
-    RecipeItem.objects.create(recipe=r, input_ref="agua", quantity=Decimal("2"), unit="L", sort_order=1)
+    RecipeItem.objects.create(recipe=r, input_sku="farinha", quantity=Decimal("3"), unit="kg", sort_order=0)
+    RecipeItem.objects.create(recipe=r, input_sku="agua", quantity=Decimal("2"), unit="L", sort_order=1)
     return r
 
 
@@ -182,7 +182,7 @@ class TestCheckConstraints:
         """Recipe.batch_size must be > 0 at DB level."""
         with pytest.raises((IntegrityError, ValidationError)):
             Recipe.objects.create(
-                ref="bad-batch", name="Bad", output_ref="x",
+                ref="bad-batch", name="Bad", output_sku="x",
                 batch_size=Decimal("0"),
             )
 
@@ -190,7 +190,7 @@ class TestCheckConstraints:
         """RecipeItem.quantity must be > 0 at DB level."""
         with pytest.raises((IntegrityError, ValidationError)):
             RecipeItem.objects.create(
-                recipe=recipe, input_ref="test",
+                recipe=recipe, input_sku="test",
                 quantity=Decimal("0"), unit="kg",
             )
 
@@ -198,7 +198,7 @@ class TestCheckConstraints:
         """WorkOrder.quantity must be > 0 at DB level."""
         with pytest.raises((IntegrityError, ValidationError)):
             WorkOrder.objects.create(
-                recipe=recipe, output_ref="croissant",
+                recipe=recipe, output_sku="croissant",
                 quantity=Decimal("0"),
             )
 
@@ -206,7 +206,7 @@ class TestCheckConstraints:
         """WorkOrder.quantity must be > 0 — negative also rejected."""
         with pytest.raises((IntegrityError, ValidationError)):
             WorkOrder.objects.create(
-                recipe=recipe, output_ref="croissant",
+                recipe=recipe, output_sku="croissant",
                 quantity=Decimal("-5"),
             )
 
@@ -218,7 +218,7 @@ class TestWorkOrderClean:
         """save() without update_fields calls full_clean()."""
         with pytest.raises(ValidationError):
             WorkOrder.objects.create(
-                recipe=recipe, output_ref="croissant",
+                recipe=recipe, output_sku="croissant",
                 quantity=Decimal("-1"),
             )
 
@@ -248,7 +248,7 @@ class TestBOMSnapshot:
         snapshot = wo.meta["_recipe_snapshot"]
         assert snapshot["batch_size"] == "10"
         assert len(snapshot["items"]) == 3
-        assert snapshot["items"][0]["input_ref"] == "farinha"
+        assert snapshot["items"][0]["input_sku"] == "farinha"
         assert Decimal(snapshot["items"][0]["quantity"]) == Decimal("5")
         assert snapshot["items"][0]["unit"] == "kg"
 
@@ -264,7 +264,7 @@ class TestBOMSnapshot:
         wo = craft.plan(recipe_with_items, 100)
 
         # Modify recipe AFTER plan (e.g., changing farinha qty)
-        farinha_item = RecipeItem.objects.get(recipe=recipe_with_items, input_ref="farinha")
+        farinha_item = RecipeItem.objects.get(recipe=recipe_with_items, input_sku="farinha")
         farinha_item.quantity = Decimal("10")
         farinha_item.save()
 
@@ -351,10 +351,10 @@ class TestConsumedValidation:
 
 
 class TestSuggestFilter:
-    """craft.suggest(output_refs=...) filters recipes."""
+    """craft.suggest(output_skus=...) filters recipes."""
 
-    def test_suggest_with_output_refs_filter(self, recipe, recipe_b, tomorrow, settings):
-        """suggest(output_refs=["croissant"]) only returns croissant suggestion."""
+    def test_suggest_with_output_skus_filter(self, recipe, recipe_b, tomorrow, settings):
+        """suggest(output_skus=["croissant"]) only returns croissant suggestion."""
         from shopman.craftsman.protocols.demand import DailyDemand
 
         mock_backend = MagicMock()
@@ -370,10 +370,10 @@ class TestSuggestFilter:
             "django.utils.module_loading.import_string",
             return_value=mock_backend_class,
         ):
-            suggestions = craft.suggest(tomorrow, output_refs=["croissant"])
+            suggestions = craft.suggest(tomorrow, output_skus=["croissant"])
 
         assert len(suggestions) == 1
-        assert suggestions[0].recipe.output_ref == "croissant"
+        assert suggestions[0].recipe.output_sku == "croissant"
         # history() should only be called for croissant, not baguette
         assert mock_backend.history.call_count == 1
         mock_backend.history.assert_called_once_with(
@@ -400,7 +400,7 @@ class TestSuggestFilter:
             suggestions = craft.suggest(tomorrow)
 
         assert len(suggestions) == 2
-        refs = {s.recipe.output_ref for s in suggestions}
+        refs = {s.recipe.output_sku for s in suggestions}
         assert refs == {"croissant", "baguette"}
 
 
@@ -498,7 +498,7 @@ class TestPlanEndpoint:
             format="json",
         )
         assert resp.status_code == 201
-        assert resp.data["output_ref"] == "croissant"
+        assert resp.data["output_sku"] == "croissant"
         assert resp.data["quantity"] == "100.000"
         assert resp.data["target_date"] == str(tomorrow)
         assert resp.data["status"] == "planned"
@@ -588,16 +588,16 @@ class TestExpectedEndpoint:
         craft.plan(recipe, 50, date=tomorrow)
 
         resp = api_client.get(
-            f"/api/craftsman/queries/expected/?output_ref=croissant&date={tomorrow}",
+            f"/api/craftsman/queries/expected/?output_sku=croissant&date={tomorrow}",
         )
         assert resp.status_code == 200
-        assert resp.data["output_ref"] == "croissant"
+        assert resp.data["output_sku"] == "croissant"
         assert resp.data["total"] == "150"
 
     def test_expected_zero_when_none(self, api_client, tomorrow):
         """Expected returns 0 when no matching WOs."""
         resp = api_client.get(
-            f"/api/craftsman/queries/expected/?output_ref=nada&date={tomorrow}",
+            f"/api/craftsman/queries/expected/?output_sku=nada&date={tomorrow}",
         )
         assert resp.status_code == 200
         assert resp.data["total"] == "0"
@@ -610,18 +610,18 @@ class TestExpectedEndpoint:
 
     def test_expected_missing_date(self, api_client):
         """Missing date returns 400."""
-        resp = api_client.get("/api/craftsman/queries/expected/?output_ref=croissant")
+        resp = api_client.get("/api/craftsman/queries/expected/?output_sku=croissant")
         assert resp.status_code == 400
 
     def test_expected_invalid_date(self, api_client):
         """Invalid date format returns 400."""
-        resp = api_client.get("/api/craftsman/queries/expected/?output_ref=croissant&date=invalid")
+        resp = api_client.get("/api/craftsman/queries/expected/?output_sku=croissant&date=invalid")
         assert resp.status_code == 400
         assert resp.data["error"] == "INVALID_DATE"
 
     def test_expected_requires_auth(self, anon_client, tomorrow):
         """Expected requires authentication."""
-        resp = anon_client.get(f"/api/craftsman/queries/expected/?output_ref=x&date={tomorrow}")
+        resp = anon_client.get(f"/api/craftsman/queries/expected/?output_sku=x&date={tomorrow}")
         assert resp.status_code in (401, 403)
 
 
@@ -699,12 +699,12 @@ class TestSuggestEndpoint:
         assert resp.status_code == 200
         assert len(resp.data) == 1
         assert resp.data[0]["recipe_ref"] == "croissant-v1"
-        assert resp.data[0]["output_ref"] == "croissant"
+        assert resp.data[0]["output_sku"] == "croissant"
         assert "quantity" in resp.data[0]
         assert "basis" in resp.data[0]
 
-    def test_suggest_with_output_refs_filter(self, api_client, recipe, recipe_b, tomorrow, settings):
-        """Suggest with output_refs filter returns only matching recipes."""
+    def test_suggest_with_output_skus_filter(self, api_client, recipe, recipe_b, tomorrow, settings):
+        """Suggest with output_skus filter returns only matching recipes."""
         from shopman.craftsman.protocols.demand import DailyDemand
 
         mock_backend = MagicMock()
@@ -721,12 +721,12 @@ class TestSuggestEndpoint:
             return_value=mock_backend_class,
         ):
             resp = api_client.get(
-                f"/api/craftsman/queries/suggest/?date={tomorrow}&output_refs=croissant",
+                f"/api/craftsman/queries/suggest/?date={tomorrow}&output_skus=croissant",
             )
 
         assert resp.status_code == 200
         assert len(resp.data) == 1
-        assert resp.data[0]["output_ref"] == "croissant"
+        assert resp.data[0]["output_sku"] == "croissant"
 
     def test_suggest_missing_date(self, api_client):
         """Missing date returns 400."""

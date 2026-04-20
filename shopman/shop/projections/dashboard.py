@@ -108,7 +108,7 @@ class WorkOrderRowProjection:
     """A work order row for the production table."""
 
     ref: str
-    output_ref: str
+    output_sku: str
     quantity: str
     status: str
     url: str
@@ -179,7 +179,7 @@ class ProductionSuggestionProjection:
 
     recipe_ref: str
     recipe_name: str
-    output_ref: str
+    output_sku: str
     quantity: str
     avg_demand: str
     committed: str
@@ -343,7 +343,7 @@ def _production(today: date) -> ProductionKPIProjection:
     for wo in wo_today.order_by("status", "ref")[:10]:
         wos.append(WorkOrderRowProjection(
             ref=wo.ref,
-            output_ref=wo.output_ref,
+            output_sku=wo.output_sku,
             quantity=str(wo.quantity),
             status=wo.status,
             url=reverse("admin:craftsman_workorder_change", args=[wo.pk]),
@@ -517,7 +517,7 @@ def _production_suggestions(target_date: date) -> list[ProductionSuggestionProje
         rows.append(ProductionSuggestionProjection(
             recipe_ref=s.recipe.ref,
             recipe_name=s.recipe.name,
-            output_ref=s.recipe.output_ref,
+            output_sku=s.recipe.output_sku,
             quantity=str(s.quantity),
             avg_demand=f"{avg:.1f}" if avg else "0",
             committed=str(basis.get("committed", Decimal("0"))),

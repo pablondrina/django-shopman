@@ -57,7 +57,7 @@ class Command(BaseCommand):
             {
                 "ref": "croissant-v1",
                 "name": "Croissant Tradicional",
-                "output_ref": "croissant",
+                "output_sku": "croissant",
                 "batch_size": Decimal("30"),
                 "steps": ["Mistura", "Laminacao", "Modelagem", "Forno"],
                 "items": [
@@ -71,7 +71,7 @@ class Command(BaseCommand):
             {
                 "ref": "pao-frances-v1",
                 "name": "Pao Frances",
-                "output_ref": "pao-frances",
+                "output_sku": "pao-frances",
                 "batch_size": Decimal("50"),
                 "steps": ["Mistura", "Fermentacao", "Modelagem", "Forno"],
                 "items": [
@@ -84,7 +84,7 @@ class Command(BaseCommand):
             {
                 "ref": "baguette-v1",
                 "name": "Baguette",
-                "output_ref": "baguette",
+                "output_sku": "baguette",
                 "batch_size": Decimal("40"),
                 "steps": ["Mistura", "Fermentacao", "Modelagem", "Forno"],
                 "items": [
@@ -97,7 +97,7 @@ class Command(BaseCommand):
             {
                 "ref": "brioche-v1",
                 "name": "Brioche",
-                "output_ref": "brioche",
+                "output_sku": "brioche",
                 "batch_size": Decimal("20"),
                 "steps": ["Mistura", "Fermentacao", "Modelagem", "Forno"],
                 "items": [
@@ -116,16 +116,16 @@ class Command(BaseCommand):
                 ref=data["ref"],
                 defaults={
                     "name": data["name"],
-                    "output_ref": data["output_ref"],
+                    "output_sku": data["output_sku"],
                     "batch_size": data["batch_size"],
                     "steps": data["steps"],
                 },
             )
             if was_created:
-                for i, (input_ref, qty, unit) in enumerate(data["items"]):
+                for i, (input_sku, qty, unit) in enumerate(data["items"]):
                     RecipeItem.objects.create(
                         recipe=recipe,
-                        input_ref=input_ref,
+                        input_sku=input_sku,
                         quantity=qty,
                         unit=unit,
                         sort_order=i,

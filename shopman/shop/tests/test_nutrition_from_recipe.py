@@ -36,14 +36,14 @@ def _make_recipe_with_items(sku: str = "PAO", batch_size: Decimal = Decimal("10"
     recipe = Recipe.objects.create(
         ref=f"{sku.lower()}-v1",
         name=f"Receita {sku}",
-        output_ref=sku,
+        output_sku=sku,
         batch_size=batch_size,
         is_active=True,
     )
     # 1 kg farinha, 650 g água, 10 g sal → for a batch of 10 units.
     RecipeItem.objects.create(
         recipe=recipe,
-        input_ref="FARINHA",
+        input_sku="FARINHA",
         quantity=Decimal("1.000"),
         meta={
             "label": "Farinha de trigo",
@@ -56,13 +56,13 @@ def _make_recipe_with_items(sku: str = "PAO", batch_size: Decimal = Decimal("10"
     )
     RecipeItem.objects.create(
         recipe=recipe,
-        input_ref="AGUA",
+        input_sku="AGUA",
         quantity=Decimal("0.650"),
         meta={"label": "Água", "nutrition": {"energy_kcal": 0}},
     )
     RecipeItem.objects.create(
         recipe=recipe,
-        input_ref="SAL",
+        input_sku="SAL",
         quantity=Decimal("0.010"),
         meta={
             "label": "Sal",
@@ -140,12 +140,12 @@ class TestFillNutritionFromRecipe:
         recipe = Recipe.objects.create(
             ref="paosimples-v1",
             name="Simples",
-            output_ref="PAOSIMPLES",
+            output_sku="PAOSIMPLES",
             batch_size=Decimal("5"),
             is_active=True,
         )
         RecipeItem.objects.create(
-            recipe=recipe, input_ref="FARINHA", quantity=Decimal("1.0"),
+            recipe=recipe, input_sku="FARINHA", quantity=Decimal("1.0"),
             meta={"label": "Farinha"},
         )
 
@@ -176,13 +176,13 @@ class TestRecipeSignal:
         recipe = Recipe.objects.create(
             ref="pao-signal-v1",
             name="Signal Test",
-            output_ref="PAO-SIGNAL",
+            output_sku="PAO-SIGNAL",
             batch_size=Decimal("10"),
             is_active=True,
         )
         RecipeItem.objects.create(
             recipe=recipe,
-            input_ref="FARINHA",
+            input_sku="FARINHA",
             quantity=Decimal("1.000"),
             meta={
                 "label": "Farinha",

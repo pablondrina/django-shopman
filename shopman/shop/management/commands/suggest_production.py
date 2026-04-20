@@ -30,14 +30,14 @@ class Command(BaseCommand):
             "--skus",
             nargs="*",
             default=None,
-            help="Filter by product SKUs (output_refs). If omitted, all active recipes.",
+            help="Filter by product SKUs (output_skus). If omitted, all active recipes.",
         )
 
     def handle(self, *args, **options):
         from shopman.craftsman.service import CraftService as craft
 
         target_date = self._parse_date(options["date"])
-        output_refs = options["skus"]
+        output_skus = options["skus"]
 
         # Read season and high_demand_multiplier from Shop.defaults if available
         season_months = None
@@ -67,7 +67,7 @@ class Command(BaseCommand):
 
         suggestions = craft.suggest(
             date=target_date,
-            output_refs=output_refs,
+            output_skus=output_skus,
             season_months=season_months,
             high_demand_multiplier=high_demand_multiplier,
         )
@@ -109,7 +109,7 @@ class Command(BaseCommand):
             hd_str = " | alta demanda ✓" if high_demand_applied else ""
 
             self.stdout.write(
-                f"\n  {s.recipe.name} ({s.recipe.output_ref}):"
+                f"\n  {s.recipe.name} ({s.recipe.output_sku}):"
                 f"\n    Produzir: {s.quantity} unidades"
                 f"\n    Confiança: {confidence_label}{season_str}{waste_str}{hd_str}"
                 f"\n    Demanda média: {avg:.1f} (amostra: {sample} dias)"

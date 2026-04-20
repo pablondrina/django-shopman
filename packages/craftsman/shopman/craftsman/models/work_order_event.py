@@ -11,7 +11,7 @@ Canonical payload schemas per kind:
     planned:
         quantity: str       — planned quantity
         recipe: str         — recipe code
-        output_ref: str     — produced SKU/ref
+        output_sku: str     — produced SKU/ref
         target_date: str — planned date
         source_ref: str     — upstream source/request
         position_ref: str   — planned station/post
@@ -34,7 +34,7 @@ Canonical payload schemas per kind:
         planned_qty: str    — originally planned quantity
         started_qty: str    — quantity that entered production
         loss_qty: str       — waste/loss quantity
-        output_ref: str     — produced SKU/ref
+        output_sku: str     — produced SKU/ref
         target_date: str — production date
         source_ref: str     — upstream source/request
         position_ref: str   — station/post

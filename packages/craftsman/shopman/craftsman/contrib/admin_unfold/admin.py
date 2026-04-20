@@ -55,7 +55,7 @@ class RecipeItemInline(BaseStackedInline):
         (
             None,
             {
-                "fields": ("input_ref", "quantity", "unit"),
+                "fields": ("input_sku", "quantity", "unit"),
             },
         ),
         (
@@ -78,12 +78,12 @@ class RecipeAdmin(BaseModelAdmin):
     list_display = [
         "ref",
         "name",
-        "output_ref",
+        "output_sku",
         "batch_size",
         "is_active",
     ]
     list_filter = ["is_active"]
-    search_fields = ["ref", "name", "output_ref"]
+    search_fields = ["ref", "name", "output_sku"]
     ordering = ["name"]
     prepopulated_fields = {"ref": ("name",)}
 
@@ -98,7 +98,7 @@ class RecipeAdmin(BaseModelAdmin):
             _("Produção"),
             {
                 "classes": ["tab"],
-                "fields": ("output_ref", "batch_size"),
+                "fields": ("output_sku", "batch_size"),
             },
         ),
         (
@@ -203,7 +203,7 @@ class WorkOrderAdmin(BaseModelAdmin):
         ("target_date", RangeDateFilter),
     ]
     list_filter_submit = True
-    search_fields = ["ref", "recipe__name", "output_ref"]
+    search_fields = ["ref", "recipe__name", "output_sku"]
     date_hierarchy = "target_date"
     ordering = ["-created_at"]
     autocomplete_fields = ["recipe"]
@@ -216,7 +216,7 @@ class WorkOrderAdmin(BaseModelAdmin):
     fieldsets = (
         (
             _("Identificação"),
-            {"fields": ("ref", "recipe", "output_ref", "status")},
+            {"fields": ("ref", "recipe", "output_sku", "status")},
         ),
         (
             _("Quantidades"),
@@ -250,7 +250,7 @@ class WorkOrderAdmin(BaseModelAdmin):
 
     readonly_fields = [
         "ref",
-        "output_ref",
+        "output_sku",
         "status",
         "finished",
         "rev",
@@ -261,7 +261,7 @@ class WorkOrderAdmin(BaseModelAdmin):
     @display(description=_("Produto"))
     def product_display(self, obj):
         """Display output product ref."""
-        return obj.output_ref or "-"
+        return obj.output_sku or "-"
 
     @display(description=_("Data"))
     def date_display(self, obj):

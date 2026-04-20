@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_work_order(ref: str) -> dict | None:
-    """Retorna {"ref", "quantity", "output_ref", "finished", "recipe_name"} ou None."""
+    """Retorna {"ref", "quantity", "output_sku", "finished", "recipe_name"} ou None."""
     try:
         from shopman.craftsman.models import WorkOrder
 
@@ -20,7 +20,7 @@ def get_work_order(ref: str) -> dict | None:
         return {
             "ref": wo.ref,
             "quantity": wo.quantity,
-            "output_ref": wo.output_ref,
+            "output_sku": wo.output_sku,
             "finished": wo.finished,
             "recipe_name": wo.recipe.name if wo.recipe else "",
         }
@@ -44,22 +44,22 @@ def get_prep_skus(skus: list[str]) -> set[str]:
         from shopman.craftsman.models import Recipe
 
         return set(
-            Recipe.objects.filter(output_ref__in=skus, is_active=True)
-            .values_list("output_ref", flat=True)
+            Recipe.objects.filter(output_sku__in=skus, is_active=True)
+            .values_list("output_sku", flat=True)
         )
     except ImportError:
         return set()
 
 
 def get_finished_work_orders(skus: list[str], cutoff_date) -> list[tuple]:
-    """Retorna [(output_ref, finished_at)] de WorkOrders concluídas no período."""
+    """Retorna [(output_sku, finished_at)] de WorkOrders concluídas no período."""
     from shopman.craftsman.models import WorkOrder
 
     return list(
         WorkOrder.objects.filter(
-            output_ref__in=skus,
+            output_sku__in=skus,
             status=WorkOrder.Status.FINISHED,
             finished_at__isnull=False,
             finished_at__date__gte=cutoff_date,
-        ).values_list("output_ref", "finished_at")
+        ).values_list("output_sku", "finished_at")
     )

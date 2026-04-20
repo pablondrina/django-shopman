@@ -15,7 +15,7 @@ class RecipeItemSerializer(serializers.ModelSerializer):
         model = RecipeItem
         fields = [
             "id",
-            "input_ref",
+            "input_sku",
             "quantity",
             "unit",
             "sort_order",
@@ -35,7 +35,7 @@ class RecipeSerializer(serializers.ModelSerializer):
             "id",
             "ref",
             "name",
-            "output_ref",
+            "output_sku",
             "batch_size",
             "steps",
             "is_active",
@@ -111,7 +111,7 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             "recipe",
             "recipe_ref",
             "recipe_name",
-            "output_ref",
+            "output_sku",
             "quantity",
             "finished",
             "status",
@@ -138,7 +138,7 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             "ref",
             "recipe_ref",
             "recipe_name",
-            "output_ref",
+            "output_sku",
             "finished",
             "status",
             "rev",
@@ -176,7 +176,7 @@ class WorkOrderListSerializer(serializers.ModelSerializer):
             "id",
             "ref",
             "recipe_ref",
-            "output_ref",
+            "output_sku",
             "quantity",
             "finished",
             "status",
@@ -341,7 +341,7 @@ class SuggestionSerializer(serializers.Serializer):
 
     recipe_ref = serializers.CharField(source="recipe.ref")
     recipe_name = serializers.CharField(source="recipe.name")
-    output_ref = serializers.CharField(source="recipe.output_ref")
+    output_sku = serializers.CharField(source="recipe.output_sku")
     quantity = serializers.DecimalField(max_digits=12, decimal_places=3)
     basis = serializers.DictField()
 
@@ -351,7 +351,7 @@ class CraftQueueItemSerializer(serializers.Serializer):
 
     ref = serializers.CharField()
     recipe_ref = serializers.CharField()
-    output_ref = serializers.CharField()
+    output_sku = serializers.CharField()
     status = serializers.CharField()
     target_date = serializers.DateField(allow_null=True)
     position_ref = serializers.CharField(allow_blank=True)

@@ -52,7 +52,7 @@ class WorkOrder(models.Model):
         related_name="work_orders",
         verbose_name=_("Receita"),
     )
-    output_ref = models.CharField(
+    output_sku = models.CharField(
         max_length=100,
         verbose_name=_("Produto"),
         help_text=_("Copiado da Recipe no plan"),
@@ -143,7 +143,7 @@ class WorkOrder(models.Model):
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["status", "target_date"]),
-            models.Index(fields=["output_ref", "status"]),
+            models.Index(fields=["output_sku", "status"]),
             models.Index(fields=["target_date"]),
         ]
         constraints = [

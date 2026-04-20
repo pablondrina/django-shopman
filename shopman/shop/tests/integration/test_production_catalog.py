@@ -2,13 +2,13 @@
 Integration tests: Craftsman <-> Offerman
 
 Tests the production/catalog integration:
-- Recipe references Offerman products via output_ref (SKU)
-- RecipeItem references ingredients via input_ref (SKU)
+- Recipe references Offerman products via output_sku (SKU)
+- RecipeItem references ingredients via input_sku (SKU)
 - Bundle/combo production
 
 Covers:
-- Recipe.output_ref -> Offerman Product.sku
-- RecipeItem.input_ref -> Offerman Product.sku (ingredient)
+- Recipe.output_sku -> Offerman Product.sku
+- RecipeItem.input_sku -> Offerman Product.sku (ingredient)
 """
 
 from decimal import Decimal
@@ -26,16 +26,16 @@ pytestmark = pytest.mark.django_db
 
 
 class TestRecipeProductRelationship:
-    """Tests for Recipe referencing Offerman Product via output_ref."""
+    """Tests for Recipe referencing Offerman Product via output_sku."""
 
-    def test_recipe_output_ref_matches_product_sku(self, recipe, croissant):
-        """Recipe output_ref should match Offerman Product SKU."""
-        assert recipe.output_ref == croissant.sku
-        assert recipe.output_ref == "CROISSANT"
+    def test_recipe_output_sku_matches_product_sku(self, recipe, croissant):
+        """Recipe output_sku should match Offerman Product SKU."""
+        assert recipe.output_sku == croissant.sku
+        assert recipe.output_sku == "CROISSANT"
 
     def test_recipe_can_find_output_product(self, recipe, croissant):
-        """Recipe output_ref can resolve to Offerman Product."""
-        product = Product.objects.get(sku=recipe.output_ref)
+        """Recipe output_sku can resolve to Offerman Product."""
+        product = Product.objects.get(sku=recipe.output_sku)
         assert product == croissant
         assert product.base_price_q == 800
 
@@ -56,12 +56,12 @@ class TestRecipeProductRelationship:
         recipe = Recipe.objects.create(
             ref="hidden-recipe",
             name="Hidden Recipe",
-            output_ref=hidden.sku,
+            output_sku=hidden.sku,
             batch_size=Decimal("10"),
         )
 
-        assert recipe.output_ref == hidden.sku
-        product = Product.objects.get(sku=recipe.output_ref)
+        assert recipe.output_sku == hidden.sku
+        product = Product.objects.get(sku=recipe.output_sku)
         assert product.is_published is False
 
     def test_recipe_for_paused_product(self, db, collection):
@@ -81,11 +81,11 @@ class TestRecipeProductRelationship:
         recipe = Recipe.objects.create(
             ref="paused-recipe",
             name="Paused Recipe",
-            output_ref=paused.sku,
+            output_sku=paused.sku,
             batch_size=Decimal("10"),
         )
 
-        product = Product.objects.get(sku=recipe.output_ref)
+        product = Product.objects.get(sku=recipe.output_sku)
         assert product.is_sellable is False
 
 
@@ -98,12 +98,12 @@ class TestRecipeIngredients:
     """Tests for Recipe ingredients from Offerman catalog."""
 
     def test_recipe_item_references_product_by_sku(self, recipe, ingredient):
-        """RecipeItem should reference Offerman Product via input_ref."""
+        """RecipeItem should reference Offerman Product via input_sku."""
         item = recipe.items.first()
 
         assert item is not None
-        assert item.input_ref == ingredient.sku
-        assert item.input_ref == "FARINHA"
+        assert item.input_sku == ingredient.sku
+        assert item.input_sku == "FARINHA"
 
     def test_ingredient_is_non_sellable(self, ingredient):
         """Ingredients are typically non-sellable products."""
@@ -139,19 +139,19 @@ class TestRecipeIngredients:
         recipe = Recipe.objects.create(
             ref="croissant-full",
             name="Croissant Completo",
-            output_ref=croissant.sku,
+            output_sku=croissant.sku,
             batch_size=Decimal("10"),
         )
 
         RecipeItem.objects.create(
             recipe=recipe,
-            input_ref=butter.sku,
+            input_sku=butter.sku,
             quantity=Decimal("0.5"),
             unit="kg",
         )
         RecipeItem.objects.create(
             recipe=recipe,
-            input_ref=eggs.sku,
+            input_sku=eggs.sku,
             quantity=Decimal("6"),
             unit="un",
         )
@@ -159,9 +159,9 @@ class TestRecipeIngredients:
         assert recipe.items.count() == 2
 
         # Access ingredient refs
-        input_refs = list(recipe.items.values_list("input_ref", flat=True))
-        assert "MANTEIGA" in input_refs
-        assert "OVOS" in input_refs
+        input_skus = list(recipe.items.values_list("input_sku", flat=True))
+        assert "MANTEIGA" in input_skus
+        assert "OVOS" in input_skus
 
     def test_ingredient_cost_calculation(self, db, collection, croissant):
         """Calculate recipe cost from ingredient prices."""
@@ -191,27 +191,27 @@ class TestRecipeIngredients:
         recipe = Recipe.objects.create(
             ref="cost-recipe",
             name="Recipe with Cost",
-            output_ref=croissant.sku,
+            output_sku=croissant.sku,
             batch_size=Decimal("10"),
         )
 
         RecipeItem.objects.create(
             recipe=recipe,
-            input_ref=flour.sku,
+            input_sku=flour.sku,
             quantity=Decimal("2"),  # 2 kg flour = R$ 10.00
             unit="kg",
         )
         RecipeItem.objects.create(
             recipe=recipe,
-            input_ref=butter.sku,
+            input_sku=butter.sku,
             quantity=Decimal("0.5"),  # 0.5 kg butter = R$ 12.50
             unit="kg",
         )
 
-        # Calculate total cost by resolving input_refs to products
+        # Calculate total cost by resolving input_skus to products
         total_cost = Decimal("0")
         for item in recipe.items.all():
-            product = Product.objects.get(sku=item.input_ref)
+            product = Product.objects.get(sku=item.input_sku)
             ingredient_price = Decimal(product.base_price_q) / 100
             total_cost += item.quantity * ingredient_price
 
@@ -267,12 +267,12 @@ class TestBundleProduction:
         recipe = Recipe.objects.create(
             ref="combo-manha",
             name="Combo Café da Manhã",
-            output_ref=combo.sku,
+            output_sku=combo.sku,
             batch_size=Decimal("1"),
         )
 
         # Recipe produces the combo product
-        product = Product.objects.get(sku=recipe.output_ref)
+        product = Product.objects.get(sku=recipe.output_sku)
         assert product == combo
         assert combo.is_bundle is True
         assert combo.components.count() == 2
@@ -291,7 +291,7 @@ class TestProductionWorkflow:
     ):
         """WorkOrder should reference recipe that produces Offerman product."""
         assert work_order.recipe == recipe
-        product = Product.objects.get(sku=work_order.recipe.output_ref)
+        product = Product.objects.get(sku=work_order.recipe.output_sku)
         assert product == croissant
 
     def test_work_order_completion_with_product(
@@ -314,7 +314,7 @@ class TestProductionWorkflow:
         work_order.save(update_fields=["finished", "status", "finished_at"])
 
         # Verify product reference
-        product = Product.objects.get(sku=work_order.recipe.output_ref)
+        product = Product.objects.get(sku=work_order.recipe.output_sku)
         assert product == croissant
         assert work_order.finished == Decimal("48")
 
@@ -325,13 +325,13 @@ class TestProductionWorkflow:
         recipe = Recipe.objects.create(
             ref="cost-analysis",
             name="Cost Analysis Recipe",
-            output_ref=croissant.sku,
+            output_sku=croissant.sku,
             batch_size=Decimal("10"),
         )
 
         RecipeItem.objects.create(
             recipe=recipe,
-            input_ref=ingredient.sku,
+            input_sku=ingredient.sku,
             quantity=Decimal("0.5"),  # 0.5 kg = R$ 2.50
             unit="kg",
         )
@@ -374,7 +374,7 @@ class TestCatalogQueriesForProduction:
     def test_find_products_with_recipes(self, recipe, croissant, product):
         """Find products that have recipes."""
         products_with_recipes = Product.objects.filter(
-            sku__in=Recipe.objects.values_list("output_ref", flat=True)
+            sku__in=Recipe.objects.values_list("output_sku", flat=True)
         )
 
         assert croissant in products_with_recipes
@@ -384,7 +384,7 @@ class TestCatalogQueriesForProduction:
         """Find all ingredients needed for production planning."""
         # Get all unique ingredient refs from all recipes
         ingredient_refs = RecipeItem.objects.values_list(
-            "input_ref", flat=True
+            "input_sku", flat=True
         ).distinct()
 
         ingredients = Product.objects.filter(sku__in=ingredient_refs)

@@ -118,7 +118,7 @@ class Hold(models.Model):
         help_text=_('Se não concluído até esta data, será liberado automaticamente'),
     )
 
-    created_by = models.ForeignKey(
+    actor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,

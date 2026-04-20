@@ -44,7 +44,7 @@ def _make_recipe(code: str) -> Recipe:
     return Recipe.objects.create(
         ref=code,
         name=f"Recipe {code}",
-        output_ref=code,
+        output_sku=code,
         batch_size=Decimal("10"),
     )
 

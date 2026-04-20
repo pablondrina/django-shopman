@@ -122,7 +122,7 @@ def _handle_post(request, admin_site):
 
         messages.success(
             request,
-            f"Produção registrada: {recipe.output_ref} × {quantity} ({wo.ref})",
+            f"Produção registrada: {recipe.output_sku} × {quantity} ({wo.ref})",
         )
     except Exception as exc:
         logger.exception("Quick production failed")
@@ -232,7 +232,7 @@ def bulk_create_work_orders(request: HttpRequest) -> HttpResponse:
                 position_ref=position_ref,
                 source_ref="dashboard_suggestion",
             )
-            created.append(f"{recipe.output_ref} × {quantity} ({wo.ref})")
+            created.append(f"{recipe.output_sku} × {quantity} ({wo.ref})")
         except Exception as exc:
             errors.append(f"{recipe_ref}: {exc}")
             logger.exception("bulk_create_work_orders failed for %s", recipe_ref)

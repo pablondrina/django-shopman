@@ -4,7 +4,7 @@ Design (see ``docs/decisions/adr-008-pdp-nutrition.md``):
 
 - Product is the surface. Projection reads ``product.ingredients_text``
   and ``product.nutrition_facts`` directly, never imports Craftsman.
-- When a Recipe is active and its ``output_ref`` matches a Product SKU,
+- When a Recipe is active and its ``output_sku`` matches a Product SKU,
   this service materializes both fields on the product. Called from:
   - a post_save signal on Recipe (shop.apps wires it);
   - a management command for bulk backfill.
@@ -29,7 +29,7 @@ Ingredient profile lookup:
 
   Items without ``nutrition`` are ignored for nutritional totals but
   still contribute to ``ingredients_text`` (using ``label`` when
-  present, otherwise ``input_ref``).
+  present, otherwise ``input_sku``).
 """
 
 from __future__ import annotations
@@ -72,7 +72,7 @@ def fill_nutrition_from_recipe(product: Product) -> bool:
         return False
 
     recipe = (
-        Recipe.objects.filter(output_ref=product.sku, is_active=True)
+        Recipe.objects.filter(output_sku=product.sku, is_active=True)
         .order_by("-updated_at")
         .first()
     )
@@ -122,14 +122,14 @@ def _is_auto_filled(nutrition_facts: dict[str, Any] | None) -> bool:
 def _build_ingredients_text(items) -> str:
     """Join RecipeItem labels in decreasing-weight order (already sorted).
 
-    Falls back to ``input_ref`` when the item has no ``meta["label"]``.
+    Falls back to ``input_sku`` when the item has no ``meta["label"]``.
     """
     names: list[str] = []
     for item in items:
         meta = item.meta if isinstance(item.meta, dict) else {}
         label = (meta.get("label") or "").strip()
         if not label:
-            label = item.input_ref
+            label = item.input_sku
         if label:
             names.append(label)
     if not names:

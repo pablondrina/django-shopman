@@ -267,7 +267,7 @@ class TestProductionAdminView:
         recipe = Recipe.objects.create(
             ref="croissant-v1",
             name="Croissant Tradicional",
-            output_ref="croissant",
+            output_sku="croissant",
             batch_size=10,
         )
         craft.plan(recipe, 100, date=date.today(), position_ref="forno")
@@ -291,7 +291,7 @@ class TestProductionAdminView:
         recipe = Recipe.objects.create(
             ref="baguette-v1",
             name="Baguette",
-            output_ref="baguette",
+            output_sku="baguette",
             batch_size=10,
         )
         target = date.today() + timedelta(days=1)

@@ -23,7 +23,7 @@ class TestProductionFlowName:
         recipe = Recipe.objects.create(
             code="pf-test",
             name="PF Test",
-            output_ref="SKU-PF",
+            output_sku="SKU-PF",
             batch_size=Decimal("1"),
         )
         assert production_flow_name_for(recipe) == "standard"
@@ -32,7 +32,7 @@ class TestProductionFlowName:
         recipe = Recipe.objects.create(
             code="pf-forecast",
             name="Forecast",
-            output_ref="SKU-F",
+            output_sku="SKU-F",
             batch_size=Decimal("1"),
             meta={"production_flow": "forecast"},
         )
@@ -44,7 +44,7 @@ class TestDispatchMapping:
         recipe = Recipe.objects.create(
             code="pf-plan",
             name="Plan",
-            output_ref="SKU-P",
+            output_sku="SKU-P",
             batch_size=Decimal("1"),
         )
         today = timezone.localdate()
@@ -59,7 +59,7 @@ class TestDispatchMapping:
         recipe = Recipe.objects.create(
             code="pf-adj",
             name="Adj",
-            output_ref="SKU-A",
+            output_sku="SKU-A",
             batch_size=Decimal("1"),
         )
         today = timezone.localdate()
@@ -76,7 +76,7 @@ class TestDispatchMapping:
         recipe = Recipe.objects.create(
             code="pf-fc",
             name="Fc",
-            output_ref="SKU-FC",
+            output_sku="SKU-FC",
             batch_size=Decimal("1"),
             meta={"production_flow": "forecast"},
         )

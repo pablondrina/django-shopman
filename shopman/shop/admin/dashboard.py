@@ -143,7 +143,7 @@ def _build_production_table(wos):
     for wo in wos:
         rows.append([
             format_html('<a href="{}" class="font-medium">{}</a>', wo.url, wo.ref),
-            wo.output_ref,
+            wo.output_sku,
             wo.quantity,
             format_html(
                 '<span class="inline-block rounded px-2 py-0.5 text-xs font-medium text-white {}">{}</span>',
@@ -216,7 +216,7 @@ def _build_suggestions_table(suggestions):
     for s in suggestions:
         rows.append([
             s.recipe_name,
-            s.output_ref,
+            s.output_sku,
             format_html('<span class="font-medium">{}</span>', s.quantity),
             s.avg_demand,
             s.safety_pct or "\u2014",

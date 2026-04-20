@@ -50,7 +50,7 @@ class WorkOrderCardProjection:
     ref: str
     recipe_ref: str
     recipe_name: str
-    output_ref: str
+    output_sku: str
     status: str
     status_label: str
     status_color: str
@@ -88,7 +88,7 @@ class RecipeOptionProjection:
 
     pk: int
     ref: str
-    name: str  # output_ref or recipe ref display
+    name: str  # output_sku or recipe ref display
 
 
 @dataclass(frozen=True)
@@ -186,7 +186,7 @@ def build_production_board(
     )
 
     recipes = tuple(
-        RecipeOptionProjection(pk=r.pk, ref=r.ref, name=r.output_ref or r.ref)
+        RecipeOptionProjection(pk=r.pk, ref=r.ref, name=r.output_sku or r.ref)
         for r in Recipe.objects.filter(is_active=True).order_by("ref")
     )
 
@@ -238,8 +238,8 @@ def _build_wo_card(wo: WorkOrder) -> WorkOrderCardProjection:
         pk=wo.pk,
         ref=wo.ref,
         recipe_ref=wo.recipe.ref,
-        recipe_name=wo.recipe.output_ref or wo.recipe.ref,
-        output_ref=wo.output_ref,
+        recipe_name=wo.recipe.output_sku or wo.recipe.ref,
+        output_sku=wo.output_sku,
         status=wo.status,
         status_label=WO_STATUS_LABELS.get(wo.status, wo.status),
         status_color=WO_STATUS_COLORS.get(wo.status, "bg-muted text-muted-foreground"),

@@ -36,7 +36,7 @@ class CraftQueueItem:
 
     ref: str
     recipe_ref: str
-    output_ref: str
+    output_sku: str
     status: str
     target_date: object
     position_ref: str
@@ -67,9 +67,9 @@ class CraftQueries:
     """Read-only query methods."""
 
     @classmethod
-    def expected(cls, output_ref, date):
+    def expected(cls, output_sku, date):
         """
-        Sum of active WorkOrder quantities for output_ref on date.
+        Sum of active WorkOrder quantities for output_sku on date.
 
         Used by the availability system (spec 016).
 
@@ -79,7 +79,7 @@ class CraftQueries:
         from shopman.craftsman.models import WorkOrder
 
         result = WorkOrder.objects.filter(
-            output_ref=output_ref,
+            output_sku=output_sku,
             status__in=[WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED],
             target_date=date,
         ).aggregate(total=Sum("quantity"))
@@ -109,10 +109,10 @@ class CraftQueries:
             coefficient = wo.quantity / wo.recipe.batch_size
             for ri in wo.recipe.items.filter(is_optional=False).order_by("sort_order"):
                 if expand:
-                    for item_ref, qty, unit in _expand_bom(ri.input_ref, ri.quantity * coefficient, ri.unit):
+                    for item_ref, qty, unit in _expand_bom(ri.input_sku, ri.quantity * coefficient, ri.unit):
                         _aggregate(aggregated, item_ref, qty, unit)
                 else:
-                    _aggregate(aggregated, ri.input_ref, ri.quantity * coefficient, ri.unit)
+                    _aggregate(aggregated, ri.input_sku, ri.quantity * coefficient, ri.unit)
 
         return list(aggregated.values())
 
@@ -120,7 +120,7 @@ class CraftQueries:
     def suggest(
         cls,
         date,
-        output_refs=None,
+        output_skus=None,
         *,
         season_months: list | None = None,
         high_demand_multiplier: Decimal | None = None,
@@ -130,7 +130,7 @@ class CraftQueries:
 
         Args:
             date: production date
-            output_refs: optional list of output_ref strings to filter recipes.
+            output_skus: optional list of output_sku strings to filter recipes.
                          If None, all active recipes are considered.
             season_months: optional list of month ints to filter history by season.
                            e.g. [10, 11, 12, 1, 2, 3] for hot season.
@@ -139,14 +139,14 @@ class CraftQueries:
                                     Saturday (5), multiply suggested qty by this factor.
 
         Algorithm:
-            For each active Recipe (optionally filtered by output_refs):
+            For each active Recipe (optionally filtered by output_skus):
             1. Get historical demand via DemandProtocol.history()
             2. Filter by season_months if provided
             3. Estimate true demand (extrapolate if soldout_at set)
             4. confidence = "high" / "medium" / "low" based on sample_size
             5. avg_demand = average of estimates
             6. Apply waste adjustment if waste_rate > 15%
-            7. committed = DemandProtocol.committed(output_ref, date)
+            7. committed = DemandProtocol.committed(output_sku, date)
             8. quantity = (avg_demand + committed) * (1 + SAFETY_STOCK_PERCENT)
             9. Apply high_demand_multiplier on Fri/Sat if provided
 
@@ -173,11 +173,11 @@ class CraftQueries:
 
         suggestions = []
         recipes = Recipe.objects.filter(is_active=True)
-        if output_refs:
-            recipes = recipes.filter(output_ref__in=output_refs)
+        if output_skus:
+            recipes = recipes.filter(output_sku__in=output_skus)
         for recipe in recipes:
             history = backend.history(
-                recipe.output_ref,
+                recipe.output_sku,
                 days=historical_days,
                 same_weekday=same_weekday,
             )
@@ -209,7 +209,7 @@ class CraftQueries:
                 if waste_rate > Decimal("0.15"):
                     avg_demand = avg_demand * (1 - waste_rate)
 
-            committed = backend.committed(recipe.output_ref, date)
+            committed = backend.committed(recipe.output_sku, date)
 
             raw_qty = (avg_demand + committed) * (1 + safety_pct)
 
@@ -287,7 +287,7 @@ class CraftQueries:
                 CraftQueueItem(
                     ref=order.ref,
                     recipe_ref=order.recipe.ref,
-                    output_ref=order.output_ref,
+                    output_sku=order.output_sku,
                     status=order.status,
                     target_date=order.target_date,
                     position_ref=order.position_ref or "",
@@ -388,7 +388,7 @@ def _aggregate(agg, item_ref, quantity, unit):
     if key in agg:
         agg[key].quantity += quantity
     else:
-        has_recipe = Recipe.objects.filter(output_ref=item_ref, is_active=True).exists()
+        has_recipe = Recipe.objects.filter(output_sku=item_ref, is_active=True).exists()
         agg[key] = Need(item_ref=item_ref, quantity=quantity, unit=unit, has_recipe=has_recipe)
 
 
@@ -423,11 +423,11 @@ def _expand_bom(item_ref, quantity, unit, depth=0):
     if depth > 5:
         raise CraftError("BOM_CYCLE", item_ref=item_ref, depth=depth)
 
-    sub_recipe = Recipe.objects.filter(output_ref=item_ref, is_active=True).first()
+    sub_recipe = Recipe.objects.filter(output_sku=item_ref, is_active=True).first()
     if sub_recipe:
         sub_coefficient = quantity / sub_recipe.batch_size
         for ri in sub_recipe.items.filter(is_optional=False).order_by("sort_order"):
-            yield from _expand_bom(ri.input_ref, ri.quantity * sub_coefficient, ri.unit, depth + 1)
+            yield from _expand_bom(ri.input_sku, ri.quantity * sub_coefficient, ri.unit, depth + 1)
     else:
         yield (item_ref, quantity, unit)
 

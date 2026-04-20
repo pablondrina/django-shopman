@@ -96,7 +96,7 @@ class CraftsmanProductionBackend:
 
         try:
             recipe = Recipe.objects.filter(
-                output_ref=sku,
+                output_sku=sku,
                 is_active=True,
             ).first()
 
@@ -156,7 +156,7 @@ class CraftsmanProductionBackend:
 
             return ProductionStatus(
                 request_id=f"production:{wo.pk}",
-                sku=wo.output_ref,
+                sku=wo.output_sku,
                 quantity=wo.quantity,
                 status=status_map[wo.status],
                 target_date=wo.target_date,
@@ -222,7 +222,7 @@ class CraftsmanProductionBackend:
         )
 
         if sku:
-            qs = qs.filter(output_ref=sku)
+            qs = qs.filter(output_sku=sku)
 
         if target_date:
             qs = qs.filter(target_date=target_date)
@@ -232,7 +232,7 @@ class CraftsmanProductionBackend:
             results.append(
                 ProductionStatus(
                     request_id=f"production:{wo.pk}",
-                    sku=wo.output_ref,
+                    sku=wo.output_sku,
                     quantity=wo.quantity,
                     status=ProductionStatusEnum.PLANNED if wo.status == WorkOrder.Status.PLANNED else ProductionStatusEnum.STARTED,
                     target_date=wo.target_date,

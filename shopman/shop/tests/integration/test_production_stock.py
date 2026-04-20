@@ -71,7 +71,7 @@ class TestProductionOutputToStock:
         # Create and complete first work order
         wo1 = WorkOrder.objects.create(
             recipe=recipe,
-            output_ref=recipe.output_ref,
+            output_sku=recipe.output_sku,
             quantity=Decimal("50"),
             finished=Decimal("48"),
             status=WorkOrder.Status.FINISHED,
@@ -91,7 +91,7 @@ class TestProductionOutputToStock:
         # Create and complete second work order
         wo2 = WorkOrder.objects.create(
             recipe=recipe,
-            output_ref=recipe.output_ref,
+            output_sku=recipe.output_sku,
             quantity=Decimal("30"),
             finished=Decimal("28"),
             status=WorkOrder.Status.FINISHED,

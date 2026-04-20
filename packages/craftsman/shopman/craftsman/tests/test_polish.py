@@ -47,7 +47,7 @@ class TestRecipeValidationI18n:
             Recipe.objects.create(
                 ref="bad-steps",
                 name="Bad Steps Recipe",
-                output_ref="test",
+                output_sku="test",
                 batch_size=Decimal("10"),
                 steps=["Mistura", "", "Forno"],
             )
@@ -63,7 +63,7 @@ class TestRecipeValidationI18n:
             Recipe.objects.create(
                 ref="bad-type",
                 name="Bad Type Recipe",
-                output_ref="test",
+                output_sku="test",
                 batch_size=Decimal("10"),
                 steps=["Mistura", 42, "Forno"],
             )
@@ -77,7 +77,7 @@ class TestRecipeValidationI18n:
         recipe = Recipe.objects.create(
             ref="good-steps",
             name="Good Recipe",
-            output_ref="test",
+            output_sku="test",
             batch_size=Decimal("10"),
             steps=["Mistura", "Modelagem", "Forno"],
         )
@@ -165,7 +165,7 @@ class TestProductionBackendExceptions:
         recipe = Recipe.objects.create(
             ref="test-recipe",
             name="Test",
-            output_ref="test-product",
+            output_sku="test-product",
             batch_size=Decimal("10"),
         )
 
@@ -206,14 +206,14 @@ class TestAPIExceptionHandling:
         return Recipe.objects.create(
             ref="api-test",
             name="API Test Recipe",
-            output_ref="api-product",
+            output_sku="api-product",
             batch_size=Decimal("10"),
         )
 
     @pytest.fixture
     def recipe_with_items(self, recipe):
         RecipeItem.objects.create(
-            recipe=recipe, input_ref="farinha", quantity=Decimal("5"), unit="kg",
+            recipe=recipe, input_sku="farinha", quantity=Decimal("5"), unit="kg",
         )
         return recipe
 

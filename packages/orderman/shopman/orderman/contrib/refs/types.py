@@ -24,10 +24,14 @@ POS_TAB = RefType(
 
 ORDER_REF = RefType(
     slug="ORDER_REF",
-    label="Referencia do Pedido",
+    label="Referência do Pedido",
     allowed_targets=("orderman.Order",),
-    scope_keys=("store_id",),
+    scope_keys=("channel_ref", "business_date"),
     unique_scope="all",
+    normalizer="upper_strip",
+    validator=r"^[A-Z]{2,5}-\d{6}-[A-Z]{2}\d{2}$",
+    generator="alpha_numeric",
+    generator_format="{channel_ref}-{date:%y%m%d}-{code}",
 )
 
 EXTERNAL_ORDER = RefType(

@@ -93,7 +93,7 @@
       <div class="space-y-3">
         {% for item in planned_queue %}
         <div class="border border-outline dark:border-outline-dark rounded-lg p-3">
-          <div class="font-medium text-sm">{{ item.output_ref }} <span class="text-on-surface/40 dark:text-on-surface-dark/40">({{ item.ref }})</span></div>
+          <div class="font-medium text-sm">{{ item.output_sku }} <span class="text-on-surface/40 dark:text-on-surface-dark/40">({{ item.ref }})</span></div>
           <div class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">Planejado: {{ item.planned_qty }}</div>
           <div class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">Posto: {{ item.position_ref|default:"-" }}</div>
           <div class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">Responsável: {{ item.operator_ref|default:"-" }}</div>
@@ -111,7 +111,7 @@
       <div class="space-y-3">
         {% for item in started_queue %}
         <div class="border border-outline dark:border-outline-dark rounded-lg p-3">
-          <div class="font-medium text-sm">{{ item.output_ref }} <span class="text-on-surface/40 dark:text-on-surface-dark/40">({{ item.ref }})</span></div>
+          <div class="font-medium text-sm">{{ item.output_sku }} <span class="text-on-surface/40 dark:text-on-surface-dark/40">({{ item.ref }})</span></div>
           <div class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">Planejado: {{ item.planned_qty }} · Iniciado: {{ item.started_qty }}</div>
           <div class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">Posto: {{ item.position_ref|default:"-" }}</div>
           <div class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">Responsável: {{ item.operator_ref|default:"-" }}</div>
@@ -145,7 +145,7 @@
           {% for wo in today_wos %}
           <tr class="border-b border-outline dark:border-outline-dark">
             <td class="py-2 pr-4 font-mono text-xs">{{ wo.ref }}</td>
-            <td class="py-2 pr-4">{{ wo.output_ref }}</td>
+            <td class="py-2 pr-4">{{ wo.output_sku }}</td>
             <td class="py-2 pr-4">{{ wo.status }}</td>
             <td class="py-2 pr-4">{{ wo.planned_qty }}</td>
             <td class="py-2 pr-4">{{ wo.started_qty|default:"-" }}</td>

@@ -16,13 +16,13 @@ if not apps.is_installed("shopman.craftsman.contrib.admin_unfold"):
     class RecipeItemInline(admin.TabularInline):
         model = RecipeItem
         extra = 1
-        fields = ("input_ref", "quantity", "unit", "sort_order", "is_optional")
+        fields = ("input_sku", "quantity", "unit", "sort_order", "is_optional")
 
     @admin.register(Recipe)
     class RecipeAdmin(admin.ModelAdmin):
-        list_display = ("ref", "name", "output_ref", "batch_size", "is_active")
+        list_display = ("ref", "name", "output_sku", "batch_size", "is_active")
         list_filter = ("is_active",)
-        search_fields = ("ref", "name", "output_ref")
+        search_fields = ("ref", "name", "output_sku")
         inlines = [RecipeItemInline]
         readonly_fields = ("created_at", "updated_at")
 
@@ -40,9 +40,9 @@ if not apps.is_installed("shopman.craftsman.contrib.admin_unfold"):
 
     @admin.register(WorkOrder)
     class WorkOrderAdmin(admin.ModelAdmin):
-        list_display = ("ref", "recipe", "output_ref", "quantity", "finished", "status", "target_date", "source_ref")
+        list_display = ("ref", "recipe", "output_sku", "quantity", "finished", "status", "target_date", "source_ref")
         list_filter = ("status", "target_date")
-        search_fields = ("ref", "output_ref", "source_ref")
+        search_fields = ("ref", "output_sku", "source_ref")
         readonly_fields = ("ref", "rev", "created_at", "updated_at", "started_at", "finished_at")
         inlines = [WorkOrderItemInline, WorkOrderEventInline]
         actions = ["finish_work_orders", "void_work_orders"]

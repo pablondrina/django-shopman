@@ -149,7 +149,7 @@ class ShopmanConfig(AppConfig):
         def on_recipe_saved(sender, instance: Recipe, created: bool, **kwargs):
             if not instance.is_active:
                 return
-            product = Product.objects.filter(sku=instance.output_ref).first()
+            product = Product.objects.filter(sku=instance.output_sku).first()
             if product is None:
                 return
             try:
@@ -157,7 +157,7 @@ class ShopmanConfig(AppConfig):
             except Exception:
                 logger.exception(
                     "nutrition_from_recipe: failed for product=%s recipe=%s",
-                    instance.output_ref, instance.code,
+                    instance.output_sku, instance.code,
                 )
 
         post_save.connect(

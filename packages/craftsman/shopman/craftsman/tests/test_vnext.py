@@ -23,7 +23,7 @@ def recipe(db):
     return Recipe.objects.create(
         ref="croissant-v1",
         name="Croissant Tradicional",
-        output_ref="croissant",
+        output_sku="croissant",
         batch_size=Decimal("10"),
         steps=["Mistura", "Modelagem", "Forno"],
     )
@@ -32,9 +32,9 @@ def recipe(db):
 @pytest.fixture
 def recipe_with_items(recipe):
     """Recipe with 3 ingredients."""
-    RecipeItem.objects.create(recipe=recipe, input_ref="farinha", quantity=Decimal("5"), unit="kg", sort_order=0)
-    RecipeItem.objects.create(recipe=recipe, input_ref="agua", quantity=Decimal("3"), unit="L", sort_order=1)
-    RecipeItem.objects.create(recipe=recipe, input_ref="fermento", quantity=Decimal("0.100"), unit="kg", sort_order=2)
+    RecipeItem.objects.create(recipe=recipe, input_sku="farinha", quantity=Decimal("5"), unit="kg", sort_order=0)
+    RecipeItem.objects.create(recipe=recipe, input_sku="agua", quantity=Decimal("3"), unit="L", sort_order=1)
+    RecipeItem.objects.create(recipe=recipe, input_sku="fermento", quantity=Decimal("0.100"), unit="kg", sort_order=2)
     return recipe
 
 
@@ -44,7 +44,7 @@ def recipe_simple(db):
     return Recipe.objects.create(
         ref="pao-simples",
         name="Pao Simples",
-        output_ref="pao",
+        output_sku="pao",
         batch_size=Decimal("1"),
     )
 
@@ -55,11 +55,11 @@ def sub_recipe(db):
     r = Recipe.objects.create(
         ref="massa-base",
         name="Massa Base",
-        output_ref="massa",
+        output_sku="massa",
         batch_size=Decimal("5"),
     )
-    RecipeItem.objects.create(recipe=r, input_ref="farinha", quantity=Decimal("3"), unit="kg")
-    RecipeItem.objects.create(recipe=r, input_ref="agua", quantity=Decimal("2"), unit="L")
+    RecipeItem.objects.create(recipe=r, input_sku="farinha", quantity=Decimal("3"), unit="kg")
+    RecipeItem.objects.create(recipe=r, input_sku="agua", quantity=Decimal("2"), unit="L")
     return r
 
 
@@ -79,7 +79,7 @@ class TestPlan:
 
         assert wo.ref.startswith("WO-")
         assert wo.recipe == recipe
-        assert wo.output_ref == "croissant"
+        assert wo.output_sku == "croissant"
         assert wo.quantity == Decimal("100")
         assert wo.finished is None
         assert wo.status == WorkOrder.Status.PLANNED
@@ -112,7 +112,7 @@ class TestPlan:
         assert ev.kind == "planned"
         assert ev.payload["quantity"] == "50"
         assert ev.payload["recipe"] == "croissant-v1"
-        assert ev.payload["output_ref"] == "croissant"
+        assert ev.payload["output_sku"] == "croissant"
         assert ev.payload["target_date"] == str(tomorrow)
         assert ev.payload["source_ref"] == "listing:balcao"
         assert ev.payload["position_ref"] == "station:forno-01"
@@ -125,9 +125,9 @@ class TestPlan:
         ], date=tomorrow)
 
         assert len(orders) == 2
-        assert orders[0].output_ref == "croissant"
+        assert orders[0].output_sku == "croissant"
         assert orders[0].quantity == Decimal("100")
-        assert orders[1].output_ref == "pao"
+        assert orders[1].output_sku == "pao"
         assert orders[1].quantity == Decimal("45")
 
     def test_plan_with_kwargs(self, recipe):
@@ -326,7 +326,7 @@ class TestFloorExecution:
 
         ev = wo.events.order_by("seq").last()
         assert ev.kind == "finished"
-        assert ev.payload["output_ref"] == "croissant"
+        assert ev.payload["output_sku"] == "croissant"
         assert ev.payload["target_date"] == str(tomorrow)
         assert ev.payload["source_ref"] == "listing:ifood"
         assert ev.payload["position_ref"] == "station:forno-02"
@@ -632,7 +632,7 @@ class TestNeeds:
     def test_needs_has_recipe_flag(self, recipe_with_items, sub_recipe, tomorrow):
         """massa is a sub-recipe, so has_recipe=True."""
         RecipeItem.objects.create(
-            recipe=recipe_with_items, input_ref="massa", quantity=Decimal("2"), unit="kg", sort_order=10,
+            recipe=recipe_with_items, input_sku="massa", quantity=Decimal("2"), unit="kg", sort_order=10,
         )
         craft.plan(recipe_with_items, 10, date=tomorrow)
 
@@ -644,7 +644,7 @@ class TestNeeds:
     def test_needs_expand(self, recipe_with_items, sub_recipe, tomorrow):
         """Expand sub-recipe to raw materials."""
         RecipeItem.objects.create(
-            recipe=recipe_with_items, input_ref="massa", quantity=Decimal("5"), unit="kg", sort_order=10,
+            recipe=recipe_with_items, input_sku="massa", quantity=Decimal("5"), unit="kg", sort_order=10,
         )
         craft.plan(recipe_with_items, 10, date=tomorrow)
 
@@ -788,19 +788,19 @@ class TestModels:
     def test_recipe_validation(self, db):
         with pytest.raises(Exception):
             Recipe.objects.create(
-                ref="bad", name="Bad", output_ref="x", batch_size=Decimal("0"),
+                ref="bad", name="Bad", output_sku="x", batch_size=Decimal("0"),
             )
 
     def test_recipe_str(self, recipe):
         assert "Croissant" in str(recipe)
 
     def test_recipe_item_unique(self, recipe):
-        RecipeItem.objects.create(recipe=recipe, input_ref="farinha", quantity=Decimal("5"), unit="kg")
+        RecipeItem.objects.create(recipe=recipe, input_sku="farinha", quantity=Decimal("5"), unit="kg")
         with pytest.raises(Exception):
-            RecipeItem.objects.create(recipe=recipe, input_ref="farinha", quantity=Decimal("3"), unit="kg")
+            RecipeItem.objects.create(recipe=recipe, input_sku="farinha", quantity=Decimal("3"), unit="kg")
 
     def test_work_order_auto_ref(self, recipe):
-        wo = WorkOrder.objects.create(recipe=recipe, output_ref="croissant", quantity=Decimal("10"))
+        wo = WorkOrder.objects.create(recipe=recipe, output_sku="croissant", quantity=Decimal("10"))
         assert wo.ref.startswith("WO-2026-")
 
     def test_work_order_status_choices(self):
@@ -1131,7 +1131,7 @@ class TestSuggest:
             craft.suggest(tomorrow)
 
         mock_backend.history.assert_called_once_with(
-            recipe.output_ref,
+            recipe.output_sku,
             days=14,
             same_weekday=False,
         )
@@ -1293,7 +1293,7 @@ class TestSuggest:
         assert friday.weekday() == 4
 
         recipe_fri = Recipe.objects.create(
-            ref="croissant-fri", name="Croissant Fri", output_ref="croissant-fri",
+            ref="croissant-fri", name="Croissant Fri", output_sku="croissant-fri",
             batch_size=Decimal("10"),
         )
 
@@ -1310,7 +1310,7 @@ class TestSuggest:
         with patch("django.utils.module_loading.import_string", return_value=mock_backend_class):
             suggestions = craft.suggest(friday, high_demand_multiplier=Decimal("1.5"))
 
-        s = next(sg for sg in suggestions if sg.recipe.output_ref == "croissant-fri")
+        s = next(sg for sg in suggestions if sg.recipe.output_sku == "croissant-fri")
         # avg=100, safety=20% => 100*1.2=120, then *1.5 = 180
         assert s.basis["high_demand_applied"] is True
         assert s.quantity == Decimal("180")
@@ -1462,17 +1462,17 @@ class TestAdjustValidations:
         intermediate = Recipe.objects.create(
             ref="pain-complet",
             name="Pain Complet",
-            output_ref="pain-complet",
+            output_sku="pain-complet",
             batch_size=Decimal("10"),
         )
         RecipeItem.objects.create(
             recipe=intermediate,
-            input_ref="croissant",  # uses croissant output
+            input_sku="croissant",  # uses croissant output
             quantity=Decimal("2"),
             unit="un",
         )
 
-        # Plan croissant WO (recipe output_ref="croissant")
+        # Plan croissant WO (recipe output_sku="croissant")
         wo_croissant = craft.plan(recipe, 100, date=tomorrow)
         # Plan downstream WO that needs croissant as ingredient
         craft.plan(intermediate, 50, date=tomorrow)
@@ -1488,12 +1488,12 @@ class TestAdjustValidations:
         intermediate = Recipe.objects.create(
             ref="pain-complet-force",
             name="Pain Complet Force",
-            output_ref="pain-complet-force",
+            output_sku="pain-complet-force",
             batch_size=Decimal("10"),
         )
         RecipeItem.objects.create(
             recipe=intermediate,
-            input_ref="croissant",
+            input_sku="croissant",
             quantity=Decimal("5"),
             unit="un",
         )

@@ -26,7 +26,7 @@ def recipe(db):
     return Recipe.objects.create(
         ref="croissant-v1",
         name="Croissant Tradicional",
-        output_ref="CROISSANT",
+        output_sku="CROISSANT",
         batch_size=Decimal("10"),
         steps=["Mistura", "Forno"],
     )
@@ -193,7 +193,7 @@ class TestSuggestWithDemandBackend:
         recipe_b = Recipe.objects.create(
             ref="baguete-v1",
             name="Baguete",
-            output_ref="BAGUETE",
+            output_sku="BAGUETE",
             batch_size=Decimal("5"),
             steps=["Mistura", "Forno"],
         )
@@ -220,7 +220,7 @@ class TestSuggestWithDemandBackend:
                 suggestions = craft.suggest(tomorrow)
 
         assert len(suggestions) == 2
-        refs = {s.recipe.output_ref for s in suggestions}
+        refs = {s.recipe.output_sku for s in suggestions}
         assert refs == {"CROISSANT", "BAGUETE"}
 
 

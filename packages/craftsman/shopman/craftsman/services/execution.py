@@ -100,7 +100,7 @@ class CraftExecution:
             else:
                 coefficient = started_qty / recipe.batch_size
                 recipe_item_data = [
-                    {"input_ref": ri.input_ref, "quantity": str(ri.quantity), "unit": ri.unit}
+                    {"input_sku": ri.input_sku, "quantity": str(ri.quantity), "unit": ri.unit}
                     for ri in recipe.items.filter(is_optional=False).order_by("sort_order")
                 ]
 
@@ -112,14 +112,14 @@ class CraftExecution:
             for item_data in recipe_item_data:
                 req_qty = Decimal(item_data["quantity"]) * coefficient
                 requirements.append({
-                    "item_ref": item_data["input_ref"],
+                    "item_ref": item_data["input_sku"],
                     "quantity": req_qty,
                     "unit": item_data["unit"],
                 })
                 all_items.append(WorkOrderItem(
                     work_order=order,
                     kind=WorkOrderItem.Kind.REQUIREMENT,
-                    item_ref=item_data["input_ref"],
+                    item_ref=item_data["input_sku"],
                     quantity=req_qty,
                     unit=item_data["unit"],
                     recorded_at=now,
@@ -163,7 +163,7 @@ class CraftExecution:
                 all_items.append(WorkOrderItem(
                     work_order=order,
                     kind=WorkOrderItem.Kind.OUTPUT,
-                    item_ref=order.output_ref,
+                    item_ref=order.output_sku,
                     quantity=finished_decimal,
                     unit="",
                     recorded_at=now,
@@ -187,7 +187,7 @@ class CraftExecution:
                     all_items.append(WorkOrderItem(
                         work_order=order,
                         kind=WorkOrderItem.Kind.WASTE,
-                        item_ref=order.output_ref,
+                        item_ref=order.output_sku,
                         quantity=auto_waste,
                         unit="",
                         recorded_at=now,
@@ -199,7 +199,7 @@ class CraftExecution:
                     all_items.append(WorkOrderItem(
                         work_order=order,
                         kind=WorkOrderItem.Kind.WASTE,
-                        item_ref=order.output_ref,
+                        item_ref=order.output_sku,
                         quantity=waste_decimal,
                         unit="",
                         recorded_at=now,
@@ -240,7 +240,7 @@ class CraftExecution:
                     "planned_qty": str(order.quantity),
                     "started_qty": str(started_qty),
                     "loss_qty": str(waste_total),
-                    "output_ref": order.output_ref,
+                    "output_sku": order.output_sku,
                     "target_date": str(order.target_date) if order.target_date else None,
                     "source_ref": order.source_ref,
                     "position_ref": order.position_ref,
@@ -254,7 +254,7 @@ class CraftExecution:
 
         production_changed.send(
             sender=WorkOrder,
-            product_ref=order.output_ref,
+            product_ref=order.output_sku,
             date=order.target_date,
             action="finished",
             work_order=order,
@@ -300,7 +300,7 @@ class CraftExecution:
 
         production_changed.send(
             sender=WorkOrder,
-            product_ref=order.output_ref,
+            product_ref=order.output_sku,
             date=order.target_date,
             action="voided",
             work_order=order,
@@ -336,7 +336,7 @@ class CraftExecution:
             backend.consume(consumed, ref=order.ref)
 
             backend.receive(
-                [MaterialProduced(sku=order.output_ref, quantity=produced_decimal)],
+                [MaterialProduced(sku=order.output_sku, quantity=produced_decimal)],
                 ref=order.ref,
             )
 

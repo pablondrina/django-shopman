@@ -91,7 +91,7 @@ class WorkOrderViewSet(
         status_param = self.request.query_params.get("status")
         position_ref = self.request.query_params.get("position_ref")
         operator_ref = self.request.query_params.get("operator_ref")
-        output_ref = self.request.query_params.get("output_ref")
+        output_sku = self.request.query_params.get("output_sku")
 
         if target_date:
             try:
@@ -105,8 +105,8 @@ class WorkOrderViewSet(
             qs = qs.filter(position_ref=position_ref)
         if operator_ref:
             qs = qs.filter(operator_ref=operator_ref)
-        if output_ref:
-            qs = qs.filter(output_ref=output_ref)
+        if output_sku:
+            qs = qs.filter(output_sku=output_sku)
         if self.action == "retrieve":
             qs = qs.prefetch_related("items", "events")
         return qs
@@ -330,16 +330,16 @@ class QueryViewSet(viewsets.ViewSet):
     @action(detail=False, methods=["get"])
     def expected(self, request):
         """
-        Sum of active WorkOrder quantities for output_ref on date.
+        Sum of active WorkOrder quantities for output_sku on date.
 
-        GET /api/craftsman/queries/expected/?output_ref=croissant&date=2026-02-27
+        GET /api/craftsman/queries/expected/?output_sku=croissant&date=2026-02-27
         """
-        output_ref = request.query_params.get("output_ref")
+        output_sku = request.query_params.get("output_sku")
         date_str = request.query_params.get("date")
 
-        if not output_ref or not date_str:
+        if not output_sku or not date_str:
             return Response(
-                {"error": "MISSING_PARAMS", "detail": "output_ref and date are required."},
+                {"error": "MISSING_PARAMS", "detail": "output_sku and date are required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -351,9 +351,9 @@ class QueryViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        total = craft.expected(output_ref, d)
+        total = craft.expected(output_sku, d)
         return Response({
-            "output_ref": output_ref,
+            "output_sku": output_sku,
             "date": date_str,
             "total": str(total),
         })
@@ -390,7 +390,7 @@ class QueryViewSet(viewsets.ViewSet):
         """
         Production suggestions based on demand history.
 
-        GET /api/craftsman/queries/suggest/?date=2026-02-27&output_refs=croissant,baguette
+        GET /api/craftsman/queries/suggest/?date=2026-02-27&output_skus=croissant,baguette
         """
         date_str = request.query_params.get("date")
 
@@ -408,8 +408,8 @@ class QueryViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        output_refs_param = request.query_params.get("output_refs")
-        output_refs = [r.strip() for r in output_refs_param.split(",")] if output_refs_param else None
+        output_skus_param = request.query_params.get("output_skus")
+        output_skus = [r.strip() for r in output_skus_param.split(",")] if output_skus_param else None
         season_months_param = request.query_params.get("season_months")
         season_months = None
         if season_months_param:
@@ -440,7 +440,7 @@ class QueryViewSet(viewsets.ViewSet):
 
         result = craft.suggest(
             d,
-            output_refs=output_refs,
+            output_skus=output_skus,
             season_months=season_months,
             high_demand_multiplier=high_demand_multiplier,
         )

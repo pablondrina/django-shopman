@@ -88,13 +88,13 @@ class CraftPlanning:
 
         production_changed.send(
             sender=WorkOrder,
-            product_ref=wo.output_ref,
+            product_ref=wo.output_sku,
             date=date,
             action="planned",
             work_order=wo,
         )
 
-        logger.info("WorkOrder %s planned: %s x %s", wo.ref, quantity, recipe.output_ref)
+        logger.info("WorkOrder %s planned: %s x %s", wo.ref, quantity, recipe.output_sku)
         return wo
 
     @classmethod
@@ -119,7 +119,7 @@ class CraftPlanning:
         snapshot = {
             "batch_size": str(recipe.batch_size),
             "items": [
-                {"input_ref": ri.input_ref, "quantity": str(ri.quantity), "unit": ri.unit}
+                {"input_sku": ri.input_sku, "quantity": str(ri.quantity), "unit": ri.unit}
                 for ri in recipe.items.filter(is_optional=False).order_by("sort_order")
             ],
         }
@@ -128,7 +128,7 @@ class CraftPlanning:
 
         wo = WorkOrder.objects.create(
             recipe=recipe,
-            output_ref=recipe.output_ref,
+            output_sku=recipe.output_sku,
             quantity=quantity,
             status=WorkOrder.Status.PLANNED,
             target_date=date,
@@ -142,7 +142,7 @@ class CraftPlanning:
             payload={
                 "quantity": str(quantity),
                 "recipe": recipe.ref,
-                "output_ref": recipe.output_ref,
+                "output_sku": recipe.output_sku,
                 "target_date": str(date) if date else None,
                 "source_ref": wo.source_ref,
                 "position_ref": wo.position_ref,
@@ -177,7 +177,7 @@ class CraftPlanning:
         for wo in orders:
             production_changed.send(
                 sender=WorkOrder,
-                product_ref=wo.output_ref,
+                product_ref=wo.output_sku,
                 date=date,
                 action="planned",
                 work_order=wo,
@@ -251,7 +251,7 @@ class CraftPlanning:
 
         production_changed.send(
             sender=WorkOrder,
-            product_ref=order.output_ref,
+            product_ref=order.output_sku,
             date=order.target_date,
             action="adjusted",
             work_order=order,
@@ -318,7 +318,7 @@ class CraftPlanning:
 
         production_changed.send(
             sender=WorkOrder,
-            product_ref=order.output_ref,
+            product_ref=order.output_sku,
             date=order.target_date,
             action="started",
             work_order=order,
@@ -347,7 +347,7 @@ def _validate_committed_holds(order, new_quantity: Decimal) -> None:
         from django.utils.module_loading import import_string
 
         backend = import_string(backend_path)()
-        committed = backend.committed(order.output_ref, order.target_date)
+        committed = backend.committed(order.output_sku, order.target_date)
 
         if new_quantity < committed:
             raise CraftError(
@@ -393,7 +393,7 @@ def _validate_shared_ingredients(order, new_quantity: Decimal) -> None:
         # Own new ingredient needs
         own_needs: dict[str, Decimal] = {}
         for ri in recipe.items.filter(is_optional=False):
-            own_needs[ri.input_ref] = ri.quantity * coefficient_new
+            own_needs[ri.input_sku] = ri.quantity * coefficient_new
 
         if not own_needs:
             return
@@ -413,9 +413,9 @@ def _validate_shared_ingredients(order, new_quantity: Decimal) -> None:
         for other in other_wos:
             other_coeff = other.quantity / other.recipe.batch_size
             for ri in other.recipe.items.filter(is_optional=False):
-                if ri.input_ref in own_needs:
-                    other_needs[ri.input_ref] = (
-                        other_needs.get(ri.input_ref, Decimal("0"))
+                if ri.input_sku in own_needs:
+                    other_needs[ri.input_sku] = (
+                        other_needs.get(ri.input_sku, Decimal("0"))
                         + ri.quantity * other_coeff
                     )
 
@@ -452,7 +452,7 @@ def _validate_shared_ingredients(order, new_quantity: Decimal) -> None:
 
 def _validate_downstream_deficit(order, new_quantity: Decimal, *, force: bool) -> None:
     """
-    V3 (downstream): If this WO's output_ref is used as input_ref by other active
+    V3 (downstream): If this WO's output_sku is used as input_sku by other active
     recipes, check if reducing will create ingredient shortage for other active WOs.
 
     force=False → raise CraftError("DOWNSTREAM_DEFICIT") if deficit found.
@@ -466,7 +466,7 @@ def _validate_downstream_deficit(order, new_quantity: Decimal, *, force: bool) -
         # Is this WO's output used as an input in other recipes?
         downstream_recipes = list(
             Recipe.objects.filter(
-                items__input_ref=order.output_ref,
+                items__input_sku=order.output_sku,
                 is_active=True,
             )
             .distinct()
@@ -499,14 +499,14 @@ def _validate_downstream_deficit(order, new_quantity: Decimal, *, force: bool) -
 
         for downstream_wo in downstream_wos:
             coeff = downstream_wo.quantity / downstream_wo.recipe.batch_size
-            for ri in downstream_wo.recipe.items.filter(input_ref=order.output_ref):
+            for ri in downstream_wo.recipe.items.filter(input_sku=order.output_sku):
                 total_needed = ri.quantity * coeff
                 # This WO was supposed to provide some of the supply; reduction reduces it
                 if total_needed > 0:
                     shortage = min(reduction, total_needed)
                     deficit_items.append({
                         "wo_ref": downstream_wo.ref,
-                        "sku": order.output_ref,
+                        "sku": order.output_sku,
                         "shortage": float(shortage),
                     })
 

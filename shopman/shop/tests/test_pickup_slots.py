@@ -78,7 +78,7 @@ class GetTypicalReadyTimesTests(TestCase):
         self.recipe = Recipe.objects.create(
             code="test-bread",
             name="Test Bread",
-            output_ref="BREAD-SKU",
+            output_sku="BREAD-SKU",
             batch_size=Decimal("50"),
         )
         # Create 5 days of history with finished_at around 6:00 AM
@@ -88,7 +88,7 @@ class GetTypicalReadyTimesTests(TestCase):
             d = today - timedelta(days=days_ago)
             WorkOrder.objects.create(
                 recipe=self.recipe,
-                output_ref="BREAD-SKU",
+                output_sku="BREAD-SKU",
                 quantity=Decimal("50"),
                 finished=Decimal("48"),
                 status="finished",
@@ -117,7 +117,7 @@ class GetTypicalReadyTimesTests(TestCase):
         d = today - timedelta(days=6)
         WorkOrder.objects.create(
             recipe=self.recipe,
-            output_ref="BREAD-SKU",
+            output_sku="BREAD-SKU",
             quantity=Decimal("50"),
             finished=Decimal("48"),
             status="finished",
@@ -151,12 +151,12 @@ class GetEarliestSlotTests(TestCase):
 
         # Bread: finishes at 5:30 → slot-09
         self.bread_recipe = Recipe.objects.create(
-            code="bread", name="Bread", output_ref="BREAD", batch_size=Decimal("50"),
+            code="bread", name="Bread", output_sku="BREAD", batch_size=Decimal("50"),
         )
         for days_ago in range(1, 4):
             d = today - timedelta(days=days_ago)
             WorkOrder.objects.create(
-                recipe=self.bread_recipe, output_ref="BREAD",
+                recipe=self.bread_recipe, output_sku="BREAD",
                 quantity=Decimal("50"), finished=Decimal("48"), status="finished",
                 target_date=d,
                 started_at=datetime.combine(d, time(4, 0), tzinfo=tz_info),
@@ -165,12 +165,12 @@ class GetEarliestSlotTests(TestCase):
 
         # Cake: finishes at 11:30 → slot-12
         self.cake_recipe = Recipe.objects.create(
-            code="cake", name="Cake", output_ref="CAKE", batch_size=Decimal("10"),
+            code="cake", name="Cake", output_sku="CAKE", batch_size=Decimal("10"),
         )
         for days_ago in range(1, 4):
             d = today - timedelta(days=days_ago)
             WorkOrder.objects.create(
-                recipe=self.cake_recipe, output_ref="CAKE",
+                recipe=self.cake_recipe, output_sku="CAKE",
                 quantity=Decimal("10"), finished=Decimal("9"), status="finished",
                 target_date=d,
                 started_at=datetime.combine(d, time(8, 0), tzinfo=tz_info),
@@ -179,12 +179,12 @@ class GetEarliestSlotTests(TestCase):
 
         # Brigadeiro: finishes at 13:30 → slot-15
         self.brig_recipe = Recipe.objects.create(
-            code="brigadeiro", name="Brigadeiro", output_ref="BRIGADEIRO", batch_size=Decimal("100"),
+            code="brigadeiro", name="Brigadeiro", output_sku="BRIGADEIRO", batch_size=Decimal("100"),
         )
         for days_ago in range(1, 4):
             d = today - timedelta(days=days_ago)
             WorkOrder.objects.create(
-                recipe=self.brig_recipe, output_ref="BRIGADEIRO",
+                recipe=self.brig_recipe, output_sku="BRIGADEIRO",
                 quantity=Decimal("100"), finished=Decimal("95"), status="finished",
                 target_date=d,
                 started_at=datetime.combine(d, time(10, 0), tzinfo=tz_info),

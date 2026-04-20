@@ -37,7 +37,7 @@ def recipe(db):
     return Recipe.objects.create(
         ref="croissant-v1",
         name="Croissant Tradicional",
-        output_ref="croissant",
+        output_sku="croissant",
         batch_size=Decimal("10"),
     )
 
@@ -45,10 +45,10 @@ def recipe(db):
 @pytest.fixture
 def recipe_with_items(recipe):
     RecipeItem.objects.create(
-        recipe=recipe, input_ref="farinha", quantity=Decimal("5"), unit="kg", sort_order=0,
+        recipe=recipe, input_sku="farinha", quantity=Decimal("5"), unit="kg", sort_order=0,
     )
     RecipeItem.objects.create(
-        recipe=recipe, input_ref="agua", quantity=Decimal("3"), unit="L", sort_order=1,
+        recipe=recipe, input_sku="agua", quantity=Decimal("3"), unit="L", sort_order=1,
     )
     return recipe
 
@@ -386,7 +386,7 @@ class TestReadEndpoints:
         resp = api_client.get(f"/api/craftsman/work-orders/{wo.ref}/")
         assert resp.status_code == 200
         assert resp.data["ref"] == wo.ref
-        assert resp.data["output_ref"] == "croissant"
+        assert resp.data["output_sku"] == "croissant"
 
     def test_list_recipes(self, api_client, recipe):
         resp = api_client.get("/api/craftsman/recipes/")

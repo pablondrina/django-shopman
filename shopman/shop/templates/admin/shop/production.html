@@ -87,7 +87,7 @@
       <div class="space-y-3">
         {% for item in planned_queue %}
         <div class="border rounded p-3">
-          <div class="font-medium">{{ item.output_ref }} <span class="text-gray-500 text-sm">({{ item.ref }})</span></div>
+          <div class="font-medium">{{ item.output_sku }} <span class="text-gray-500 text-sm">({{ item.ref }})</span></div>
           <div class="text-sm text-gray-600">Planejado: {{ item.planned_qty }}</div>
           <div class="text-sm text-gray-600">Posto: {{ item.position_ref|default:"-" }}</div>
           <div class="text-sm text-gray-600">Responsável: {{ item.operator_ref|default:"-" }}</div>
@@ -105,7 +105,7 @@
       <div class="space-y-3">
         {% for item in started_queue %}
         <div class="border rounded p-3">
-          <div class="font-medium">{{ item.output_ref }} <span class="text-gray-500 text-sm">({{ item.ref }})</span></div>
+          <div class="font-medium">{{ item.output_sku }} <span class="text-gray-500 text-sm">({{ item.ref }})</span></div>
           <div class="text-sm text-gray-600">Planejado: {{ item.planned_qty }} · Iniciado: {{ item.started_qty }}</div>
           <div class="text-sm text-gray-600">Posto: {{ item.position_ref|default:"-" }}</div>
           <div class="text-sm text-gray-600">Responsável: {{ item.operator_ref|default:"-" }}</div>
@@ -138,7 +138,7 @@
           {% for wo in today_wos %}
           <tr class="border-b">
             <td class="py-2 pr-4">{{ wo.ref }}</td>
-            <td class="py-2 pr-4">{{ wo.output_ref }}</td>
+            <td class="py-2 pr-4">{{ wo.output_sku }}</td>
             <td class="py-2 pr-4">{{ wo.status }}</td>
             <td class="py-2 pr-4">{{ wo.planned_qty }}</td>
             <td class="py-2 pr-4">{{ wo.started_qty|default:"-" }}</td>

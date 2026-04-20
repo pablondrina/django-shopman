@@ -85,7 +85,7 @@ class StockHolds:
     @classmethod
     def hold(cls, quantity, product, target_date=None,
              expires_at=None, *,
-             created_by=None,
+             actor=None,
              allowed_positions: list[str] | None = None,
              excluded_positions: list[str] | None = None,
              **metadata):
@@ -111,7 +111,7 @@ class StockHolds:
             product: Product-like object or SKU string
             target_date: Desired date (None = today)
             expires_at: Expiration datetime (optional)
-            created_by: User creating the hold (optional, stored on Hold.created_by)
+            actor: User creating the hold (optional, stored on Hold.actor)
             allowed_positions: Channel-scoped position allowlist. When set,
                 the hold will only consider quants at those positions.
             excluded_positions: Channel-scoped position denylist. Typically
@@ -177,7 +177,7 @@ class StockHolds:
                         target_date=target,
                         status=HoldStatus.PENDING,
                         expires_at=expires_at,
-                        created_by=created_by,
+                        actor=actor,
                         metadata=metadata,
                     )
                     logger.info(
@@ -187,7 +187,7 @@ class StockHolds:
                             "qty": str(quantity),
                             "target": str(target),
                             "hold_id": hold.hold_id,
-                            "created_by": created_by.pk if created_by else None,
+                            "actor": actor.pk if actor else None,
                         },
                     )
                     return hold.hold_id
@@ -200,7 +200,7 @@ class StockHolds:
                     target_date=target,
                     status=HoldStatus.PENDING,
                     expires_at=expires_at,
-                    created_by=created_by,
+                    actor=actor,
                     metadata=metadata,
                 )
                 logger.info(
@@ -210,7 +210,7 @@ class StockHolds:
                         "qty": str(quantity),
                         "target": str(target),
                         "hold_id": hold.hold_id,
-                        "created_by": created_by.pk if created_by else None,
+                        "actor": actor.pk if actor else None,
                     },
                 )
                 return hold.hold_id

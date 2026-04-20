@@ -234,14 +234,14 @@ def recipe(db, croissant, ingredient):
     recipe = Recipe.objects.create(
         ref="croissant",
         name="Receita Croissant",
-        output_ref=croissant.sku,
+        output_sku=croissant.sku,
         batch_size=Decimal("10"),  # Produces 10 units
     )
 
     # Add ingredient
     RecipeItem.objects.create(
         recipe=recipe,
-        input_ref=ingredient.sku,
+        input_sku=ingredient.sku,
         quantity=Decimal("0.5"),  # 0.5kg per batch
         unit="kg",
     )
@@ -256,7 +256,7 @@ def work_order(db, recipe, today, position_producao, position_loja):
 
     return WorkOrder.objects.create(
         recipe=recipe,
-        output_ref=recipe.output_ref,
+        output_sku=recipe.output_sku,
         quantity=Decimal("50"),
         status=WorkOrder.Status.PLANNED,
         target_date=today,

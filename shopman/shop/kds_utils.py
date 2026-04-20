@@ -99,8 +99,8 @@ def dispatch_to_kds(order) -> list:
         from shopman.craftsman.models import Recipe
 
         prep_skus = set(
-            Recipe.objects.filter(output_ref__in=all_skus, is_active=True)
-            .values_list("output_ref", flat=True)
+            Recipe.objects.filter(output_sku__in=all_skus, is_active=True)
+            .values_list("output_sku", flat=True)
         )
     except ImportError:
         prep_skus = set()
