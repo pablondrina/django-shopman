@@ -10,22 +10,16 @@ from django.views import View
 from shopman.orderman.models import Order
 from shopman.utils.monetary import format_money
 
+from shopman.shop.projections.order_tracking import (
+    EVENT_LABELS,
+    FULFILLMENT_STATUS_LABELS,
+)
+from shopman.shop.projections.types import ORDER_STATUS_LABELS_PT as STATUS_LABELS
+
 from ..cart import CartService
 from ._helpers import _carrier_tracking_url, _format_opening_hours, _get_price_q, _line_item_is_d1
 
 logger = logging.getLogger(__name__)
-
-STATUS_LABELS = {
-    "new": "Recebido",
-    "confirmed": "Confirmado",
-    "preparing": "Em Preparo",
-    "ready": "Pronto",
-    "dispatched": "Saiu para entrega",
-    "delivered": "Entregue",
-    "completed": "Concluído",
-    "cancelled": "Cancelado",
-    "returned": "Devolvido",
-}
 
 STATUS_COLORS = {
     "new": "bg-info-light text-foreground border border-info/30",
@@ -37,26 +31,6 @@ STATUS_COLORS = {
     "completed": "bg-success-light text-foreground border border-success/30",
     "cancelled": "bg-error-light text-foreground border border-error/30",
     "returned": "bg-muted text-muted-foreground",
-}
-
-FULFILLMENT_STATUS_LABELS = {
-    "pending": "Aguardando",
-    "in_progress": "Em separação",
-    "dispatched": "Saiu para entrega",
-    "delivered": "Entregue",
-    "cancelled": "Cancelado",
-}
-
-EVENT_LABELS = {
-    "created": "Pedido criado",
-    "status_changed": None,
-    "payment.captured": "Pagamento confirmado",
-    "payment.refunded": "Pagamento estornado",
-    "return_initiated": "Devolução solicitada",
-    "refund_processed": "Reembolso processado",
-    "fiscal_cancelled": "Nota fiscal cancelada",
-    "fulfillment.dispatched": "Saiu para entrega",
-    "fulfillment.delivered": "Pedido entregue",
 }
 
 _CANCELLABLE_STATUSES = {Order.Status.NEW, Order.Status.CONFIRMED}
