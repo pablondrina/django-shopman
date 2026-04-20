@@ -145,7 +145,7 @@ class VerificationCode(models.Model):
     )
 
     class Meta:
-        db_table = "shopman_auth_verification_code"
+        db_table = "doorman_verification_code"
         verbose_name = _("código de verificação")
         verbose_name_plural = _("códigos de verificação")
         ordering = ["-created_at"]

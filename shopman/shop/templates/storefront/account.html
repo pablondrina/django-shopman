@@ -360,7 +360,7 @@
 
 </div>
 
-<form x-ref="logoutForm" method="post" action="{% url 'shopman_auth:logout' %}" class="hidden">
+<form x-ref="logoutForm" method="post" action="{% url 'doorman:logout' %}" class="hidden">
   {% csrf_token %}
 </form>
 {% endblock %}

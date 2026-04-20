@@ -28,8 +28,6 @@ from ._user_bridge import get_or_create_user_for_customer
 if TYPE_CHECKING:
     from django.http import HttpRequest
 
-    from ..senders import MessageSenderProtocol
-
 logger = logging.getLogger("shopman.doorman.access_link")
 User = get_user_model()
 
@@ -146,7 +144,7 @@ class AccessLinkService:
         except Exception:
             domain = doorman_settings.DEFAULT_DOMAIN
 
-        path = reverse("shopman_auth:access-exchange")
+        path = reverse("doorman:access-exchange")
         protocol = "https" if doorman_settings.USE_HTTPS else "http"
 
         return f"{protocol}://{domain}{path}?t={token}"
@@ -187,7 +185,13 @@ class AccessLinkService:
         try:
             Gates.access_link_validity(token, required_audience)
         except GateError as e:
-            return AuthResult(success=False, error=e.message, error_code=ErrorCode.TOKEN_EXPIRED)
+            if "already used" in e.message:
+                code = ErrorCode.TOKEN_USED
+            elif "expired" in e.message.lower():
+                code = ErrorCode.TOKEN_EXPIRED
+            else:
+                code = ErrorCode.TOKEN_INVALID
+            return AuthResult(success=False, error=e.message, error_code=code)
 
         # Fetch customer info via adapter
         adapter = get_adapter()
@@ -275,7 +279,6 @@ class AccessLinkService:
         cls,
         email: str,
         ip_address: str | None = None,
-        sender: MessageSenderProtocol | None = None,
     ) -> AccessLinkEmailResult:
         """
         Send an access link to the given email address.
@@ -283,7 +286,6 @@ class AccessLinkService:
         Args:
             email: Customer email address.
             ip_address: Client IP for rate limiting.
-            sender: Custom sender (default: EmailSender via Django templates).
 
         Returns:
             AccessLinkEmailResult with success status.
@@ -367,7 +369,7 @@ class AccessLinkService:
             )
 
         # Send email with the access link URL
-        sent = cls._send_access_link_email(email, token_result.url, ttl, sender)
+        sent = cls._send_access_link_email(email, token_result.url, ttl)
         if not sent:
             return AccessLinkEmailResult(
                 success=False, error="Failed to send email.",
@@ -387,7 +389,6 @@ class AccessLinkService:
         email: str,
         url: str,
         ttl_minutes: int,
-        sender: MessageSenderProtocol | None = None,
     ) -> bool:
         """Send the access link email using Django templates."""
         from django.core.mail import EmailMultiAlternatives

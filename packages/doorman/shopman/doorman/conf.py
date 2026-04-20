@@ -87,7 +87,7 @@ class DoormanSettings:
     # to skip OTP on subsequent logins.
     DEVICE_TRUST_ENABLED: bool = True
     DEVICE_TRUST_TTL_DAYS: int = 30
-    DEVICE_TRUST_COOKIE_NAME: str = "shopman_auth_dt"
+    DEVICE_TRUST_COOKIE_NAME: str = "doorman_dt"
 
     # Access Link email login (one-click login via email)
     ACCESS_LINK_ENABLED: bool = True

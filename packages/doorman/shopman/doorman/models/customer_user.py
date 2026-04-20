@@ -21,7 +21,7 @@ class CustomerUser(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="shopman_auth_customer_user",
+        related_name="doorman_customer_user",
         verbose_name=_("usuário"),
     )
 
@@ -44,7 +44,7 @@ class CustomerUser(models.Model):
     )
 
     class Meta:
-        db_table = "shopman_auth_customer_user"
+        db_table = "doorman_customer_user"
         verbose_name = _("perfil de usuário")
         verbose_name_plural = _("perfis de usuário")
 

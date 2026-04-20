@@ -125,7 +125,7 @@ Arquivo-chave: [`packages/doorman/shopman/doorman/services/verification.py`](../
 Arquivo-chave: [`packages/doorman/shopman/doorman/services/access_link.py`](../../packages/doorman/shopman/doorman/services/access_link.py#L83)
 
 - Cria token curto para um `customer`.
-- Gera URL completa com `reverse("shopman_auth:access-exchange")` e token em querystring.
+- Gera URL completa com `reverse("doorman:access-exchange")` e token em querystring.
 - Emite signal de criacao.
 - Na troca, procura o token por HMAC.
 - Valida gate de expiracao/uso/audience.

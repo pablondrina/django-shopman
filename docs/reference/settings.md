@@ -157,7 +157,7 @@
 |---------|------|---------|-----------|
 | `DEVICE_TRUST_ENABLED` | bool | `True` | Habilita confiança de dispositivo |
 | `DEVICE_TRUST_TTL_DAYS` | int | `30` | TTL do cookie (dias) |
-| `DEVICE_TRUST_COOKIE_NAME` | str | `"shopman_auth_dt"` | Nome do cookie |
+| `DEVICE_TRUST_COOKIE_NAME` | str | `"doorman_dt"` | Nome do cookie |
 
 ### Delivery (envio de códigos)
 

@@ -21,7 +21,7 @@ User = get_user_model()
 DOORMAN_SETTINGS = {
     "CUSTOMER_RESOLVER_CLASS": "shopman.guestman.adapters.auth.CustomerResolver",
     "MESSAGE_SENDER_CLASS": "shopman.doorman.senders.LogSender",
-    "DEVICE_TRUST_COOKIE_NAME": "shopman_auth_dt",
+    "DEVICE_TRUST_COOKIE_NAME": "doorman_dt",
     "LOGOUT_REDIRECT_URL": "/",
 }
 
@@ -204,13 +204,13 @@ def test_logout_clears_session(customer):
 @override_settings(DOORMAN=DOORMAN_SETTINGS)
 def test_logout_clears_device_trust_cookie(customer):
     request = _make_request("post", "/auth/logout/")
-    request.COOKIES["shopman_auth_dt"] = "some-token"
+    request.COOKIES["doorman_dt"] = "some-token"
 
     response = LogoutView.as_view()(request)
 
     assert response.status_code == 302
-    assert "shopman_auth_dt" in response.cookies
-    assert response.cookies["shopman_auth_dt"]["max-age"] == 0
+    assert "doorman_dt" in response.cookies
+    assert response.cookies["doorman_dt"]["max-age"] == 0
 
 
 @pytest.mark.django_db

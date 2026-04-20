@@ -255,7 +255,7 @@
 
   {# Logout form #}
   {% if request.user.is_authenticated %}
-  <form id="nav-logout-form" method="post" action="{% url 'shopman_auth:logout' %}" class="hidden">{% csrf_token %}</form>
+  <form id="nav-logout-form" method="post" action="{% url 'doorman:logout' %}" class="hidden">{% csrf_token %}</form>
   {% endif %}
 
   {# Stock-error modal sentinel — populated by 422 responses with HX-Retarget #}

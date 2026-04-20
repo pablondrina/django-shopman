@@ -135,7 +135,7 @@ class TestDeviceTrustService:
         """Valid cookie → trusted."""
         cid = uuid.uuid4()
         device, raw_token = TrustedDevice.create_for_customer(customer_id=cid)
-        request = self._make_request(cookies={"shopman_auth_dt": raw_token})
+        request = self._make_request(cookies={"doorman_dt": raw_token})
 
         assert DeviceTrustService.check_device_trust(request, cid)
 
@@ -143,7 +143,7 @@ class TestDeviceTrustService:
         """Cookie for different customer → not trusted."""
         cid = uuid.uuid4()
         device, raw_token = TrustedDevice.create_for_customer(customer_id=cid)
-        request = self._make_request(cookies={"shopman_auth_dt": raw_token})
+        request = self._make_request(cookies={"doorman_dt": raw_token})
 
         other_cid = uuid.uuid4()
         assert not DeviceTrustService.check_device_trust(request, other_cid)
@@ -153,7 +153,7 @@ class TestDeviceTrustService:
         """When disabled, always returns False."""
         cid = uuid.uuid4()
         device, raw_token = TrustedDevice.create_for_customer(customer_id=cid)
-        request = self._make_request(cookies={"shopman_auth_dt": raw_token})
+        request = self._make_request(cookies={"doorman_dt": raw_token})
 
         assert not DeviceTrustService.check_device_trust(request, cid)
 
@@ -169,8 +169,8 @@ class TestDeviceTrustService:
         assert device is not None
 
         # Check that the cookie was set
-        assert "shopman_auth_dt" in response.cookies
-        cookie = response.cookies["shopman_auth_dt"]
+        assert "doorman_dt" in response.cookies
+        cookie = response.cookies["doorman_dt"]
         assert cookie["httponly"]
         assert cookie["samesite"] == "Lax"
 
@@ -213,7 +213,7 @@ class TestDeviceTrustService:
 
         cid = uuid.uuid4()
         device, raw_token = TrustedDevice.create_for_customer(customer_id=cid)
-        request = self._make_request(cookies={"shopman_auth_dt": raw_token})
+        request = self._make_request(cookies={"doorman_dt": raw_token})
         response = HttpResponse()
 
         DeviceTrustService.revoke_device(request, response)
@@ -221,8 +221,8 @@ class TestDeviceTrustService:
         device.refresh_from_db()
         assert not device.is_active
         # Cookie should be deleted
-        assert "shopman_auth_dt" in response.cookies
-        assert response.cookies["shopman_auth_dt"]["max-age"] == 0
+        assert "doorman_dt" in response.cookies
+        assert response.cookies["doorman_dt"]["max-age"] == 0
 
     def test_revoke_device_without_cookie(self):
         """revoke_device without cookie should just clear cookie."""
@@ -233,7 +233,7 @@ class TestDeviceTrustService:
 
         # Should not raise
         DeviceTrustService.revoke_device(request, response)
-        assert "shopman_auth_dt" in response.cookies
+        assert "doorman_dt" in response.cookies
 
     def test_revoke_all_returns_count(self):
         """revoke_all should return count of revoked devices."""

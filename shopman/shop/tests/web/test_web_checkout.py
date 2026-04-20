@@ -13,7 +13,7 @@ pytestmark = pytest.mark.django_db
 DOORMAN_SETTINGS = {
     "CUSTOMER_RESOLVER_CLASS": "shopman.guestman.adapters.auth.CustomerResolver",
     "MESSAGE_SENDER_CLASS": "shopman.doorman.senders.LogSender",
-    "DEVICE_TRUST_COOKIE_NAME": "shopman_auth_dt",
+    "DEVICE_TRUST_COOKIE_NAME": "doorman_dt",
     "LOGOUT_REDIRECT_URL": "/",
 }
 

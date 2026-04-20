@@ -109,7 +109,7 @@ class VerificationCodeRequestView(View):
             if validated != get_doorman_settings().LOGIN_REDIRECT_URL:
                 request.session["doorman_next"] = validated
 
-        return redirect("shopman_auth:code-verify")
+        return redirect("doorman:code-verify")
 
 
 class VerificationCodeVerifyView(View):
@@ -135,7 +135,7 @@ class VerificationCodeVerifyView(View):
     def get(self, request):
         target = request.session.get("auth_target") or request.session.get("auth_phone")
         if not target:
-            return redirect("shopman_auth:code-request")
+            return redirect("doorman:code-request")
         return render(request, self.get_template_name(), {"target": target, "phone": target})
 
     def post(self, request):
