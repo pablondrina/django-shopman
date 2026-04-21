@@ -35,7 +35,7 @@ def shop(request: HttpRequest) -> dict:
         }
 
     try:
-        from shopman.storefront.views._helpers import _format_opening_hours, _shop_status
+        from shopman.storefront.projections.shop_status import _format_opening_hours, _shop_status
 
         shop_status = _shop_status()
         opening_hours_display = _format_opening_hours()
