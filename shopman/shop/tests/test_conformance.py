@@ -146,7 +146,7 @@ class TestC01RemoteChannelPix(TestCase):
     def test_payment_initiate_on_confirmed(self):
         session = _session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         # immediate → confirmed
         self.assertEqual(order.status, Order.Status.CONFIRMED)
@@ -156,7 +156,7 @@ class TestC01RemoteChannelPix(TestCase):
     def test_stock_hold_called_on_commit(self):
         session = _session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
         self.mocks["hold"].assert_called_once_with(order)
 
 
@@ -179,7 +179,7 @@ class TestC02RemoteChannelCard(TestCase):
     def test_payment_initiate_called_for_card(self):
         session = _session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         self.assertEqual(order.status, Order.Status.CONFIRMED)
         self.mocks["initiate"].assert_called_once_with(order)
@@ -204,7 +204,7 @@ class TestC03PosCounter(TestCase):
     def test_no_payment_initiate_for_counter(self):
         session = _session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         self.assertEqual(order.status, Order.Status.CONFIRMED)
         # External payment → no initiate
@@ -214,7 +214,7 @@ class TestC03PosCounter(TestCase):
         """Counter payment: stock.fulfill runs on on_confirmed (no on_paid)."""
         session = _session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         # on_confirmed: payment.timing == "external", method != "external" → stock.fulfill
         self.mocks["fulfill"].assert_called_once_with(order)
@@ -239,7 +239,7 @@ class TestC04MarketplaceExternal(TestCase):
     def test_no_payment_initiate_for_external(self):
         session = _session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         # manual → still new
         self.assertEqual(order.status, Order.Status.NEW)
@@ -269,7 +269,7 @@ class TestC05ImmediateConfirmation(TestCase):
     def test_order_confirmed_immediately(self):
         session = _session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
         self.assertEqual(order.status, Order.Status.CONFIRMED)
 
     def test_no_confirmation_directive_created(self):
@@ -299,7 +299,7 @@ class TestC06AutoConfirmConfirmation(TestCase):
     def test_order_remains_new_after_commit(self):
         session = _session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
         self.assertEqual(order.status, Order.Status.NEW)
 
     def test_confirmation_timeout_directive_created(self):
@@ -315,7 +315,7 @@ class TestC06AutoConfirmConfirmation(TestCase):
         """ConfirmationTimeoutHandler auto-confirms if order is still new."""
         session = _session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
         self.assertEqual(order.status, Order.Status.NEW)
 
         # Simulate timeout: auto-confirm
@@ -342,7 +342,7 @@ class TestC07ManualConfirmation(TestCase):
     def test_order_stays_new_indefinitely(self):
         session = _session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
         self.assertEqual(order.status, Order.Status.NEW)
 
     def test_no_confirmation_directive_for_manual(self):
@@ -355,7 +355,7 @@ class TestC07ManualConfirmation(TestCase):
     def test_operator_can_confirm_manually(self):
         session = _session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         order.transition_status(Order.Status.CONFIRMED, actor="operator")
         order.refresh_from_db()
@@ -382,7 +382,7 @@ class TestC07bAutoCancelConfirmation(TestCase):
     def test_order_remains_new_after_commit(self):
         session = _session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
         self.assertEqual(order.status, Order.Status.NEW)
 
     def test_confirmation_timeout_directive_has_cancel_action(self):
@@ -403,7 +403,7 @@ class TestC07bAutoCancelConfirmation(TestCase):
 
         session = _session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
         self.assertEqual(order.status, Order.Status.NEW)
 
         directive = Directive.objects.filter(
@@ -429,7 +429,7 @@ class TestC07bAutoCancelConfirmation(TestCase):
 
         session = _session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         # Operator confirms within the window.
         ensure_confirmable(order)
@@ -474,7 +474,7 @@ class TestC08LatePayment(TestCase):
     def test_late_payment_triggers_refund_not_fulfill(self):
         session = _session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         # Operator cancels before webhook
         order.transition_status(Order.Status.CANCELLED, actor="operator")
@@ -508,7 +508,7 @@ class TestC09FulfillmentAtCommit(TestCase):
     def test_fulfillment_created_on_commit(self):
         session = _session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         # fulfillment.create called during on_commit (at_commit timing)
         self.mocks["create"].assert_called()
@@ -538,7 +538,7 @@ class TestC10FulfillmentPostCommit(TestCase):
     def test_fulfillment_created_on_ready(self):
         session = _session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         # transition_status emits order_changed → dispatch(on_ready) via signal
         order.transition_status(Order.Status.PREPARING, actor="test")
@@ -570,7 +570,7 @@ class TestC11StockUnavailableAtCommit(TestCase):
         try:
             session = _session(self.channel)
             result = _commit(session, self.channel)
-            order = Order.objects.get(ref=result["order_ref"])
+            order = Order.objects.get(ref=result.order_ref)
             self.assertEqual(order.status, Order.Status.CANCELLED)
         finally:
             _stop(patchers)
@@ -580,7 +580,7 @@ class TestC11StockUnavailableAtCommit(TestCase):
         try:
             session = _session(self.channel)
             result = _commit(session, self.channel)
-            order = Order.objects.get(ref=result["order_ref"])
+            order = Order.objects.get(ref=result.order_ref)
             # stock.hold is patched so _verify_holds gets empty hold_ids
             # Order may be cancelled by _verify_holds — that's expected.
             # For a full success path, use check_on_commit=False (see C-01).
@@ -636,7 +636,7 @@ class TestC12PartialQtyHold(TestCase):
                 ])
                 result = _commit(session, self.channel)
 
-            order = Order.objects.get(ref=result["order_ref"])
+            order = Order.objects.get(ref=result.order_ref)
             self.assertEqual(order.status, Order.Status.CANCELLED)
         finally:
             _stop(patchers)
@@ -697,7 +697,7 @@ class TestC13BundleHoldExpansion(TestCase):
                 ])
                 result = _commit(session, self.channel)
 
-            order = Order.objects.get(ref=result["order_ref"])
+            order = Order.objects.get(ref=result.order_ref)
             hold_ids = order.data.get("hold_ids", [])
             hold_skus = {h["sku"] for h in hold_ids}
 
@@ -727,7 +727,7 @@ class TestC14ReturnWithRefund(TestCase):
     def test_return_calls_revert_refund_cancel_notify(self):
         session = _session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         # Advance through typical lifecycle: confirmed → preparing → ready → dispatched → delivered → returned
         order.transition_status(Order.Status.CONFIRMED, actor="test")
@@ -748,7 +748,7 @@ class TestC14ReturnWithRefund(TestCase):
         """Cancellation path: stock.release + payment.refund + notification (via signal)."""
         session = _session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         # transition_status emits order_changed → dispatch(on_cancelled) via signal
         order.transition_status(Order.Status.CANCELLED, actor="operator")

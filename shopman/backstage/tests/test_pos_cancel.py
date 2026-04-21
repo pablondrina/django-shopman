@@ -54,7 +54,7 @@ def _create_pos_order(payment_method: str = "dinheiro") -> Order:
         idempotency_key=generate_idempotency_key(),
         ctx={"actor": "test"},
     )
-    return Order.objects.get(ref=result["order_ref"])
+    return Order.objects.get(ref=result.order_ref)
 
 
 

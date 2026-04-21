@@ -1017,8 +1017,9 @@ class TestCheckoutService:
         from shopman.shop.config import ChannelConfig
         from shopman.storefront.services.checkout import process
 
+        from shopman.orderman.services.commit import CommitResult
         mock_cfg.for_channel.return_value = ChannelConfig()
-        mock_commit.commit.return_value = {"order_ref": "ORD-001", "status": "committed"}
+        mock_commit.commit.return_value = CommitResult(order_ref="ORD-001", status="committed", total_q=1000, items_count=1)
 
         result = process(
             session_key="sess-123",
@@ -1029,7 +1030,7 @@ class TestCheckoutService:
 
         mock_modify.modify_session.assert_called_once()
         mock_commit.commit.assert_called_once()
-        assert result["order_ref"] == "ORD-001"
+        assert result.order_ref == "ORD-001"
 
     @patch("shopman.storefront.services.checkout.Channel")
     @patch("shopman.storefront.services.checkout.ChannelConfig")
@@ -1039,8 +1040,9 @@ class TestCheckoutService:
         from shopman.shop.config import ChannelConfig
         from shopman.storefront.services.checkout import process
 
+        from shopman.orderman.services.commit import CommitResult
         mock_cfg.for_channel.return_value = ChannelConfig()
-        mock_commit.commit.return_value = {"order_ref": "ORD-002", "status": "committed"}
+        mock_commit.commit.return_value = CommitResult(order_ref="ORD-002", status="committed", total_q=500, items_count=1)
 
         process(
             session_key="sess-456",

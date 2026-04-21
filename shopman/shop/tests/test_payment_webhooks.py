@@ -65,7 +65,7 @@ def _create_order_with_payment(channel_ref: str = "web", payment_method: str = "
         idempotency_key=generate_idempotency_key(),
         ctx={"actor": "test"},
     )
-    return Order.objects.get(ref=result["order_ref"])
+    return Order.objects.get(ref=result.order_ref)
 
 
 def _create_pix_intent(order: Order) -> object:

@@ -44,7 +44,7 @@ def _create_order(channel_ref: str = "balcao", payment_method: str = "dinheiro")
         idempotency_key=generate_idempotency_key(),
         ctx={"actor": "test"},
     )
-    return Order.objects.get(ref=result["order_ref"])
+    return Order.objects.get(ref=result.order_ref)
 
 
 class MarkPaidTests(TestCase):

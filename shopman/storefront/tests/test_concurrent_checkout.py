@@ -82,7 +82,7 @@ class DoubleSubmitIdempotencyTests(TestCase):
             idempotency_key="IDEM-KEY-UNIQUE-001",
         )
 
-        self.assertEqual(result1["order_ref"], result2["order_ref"])
+        self.assertEqual(result1.order_ref, result2.order_ref)
         # Only 1 order in DB
         order_count = Order.objects.filter(session_key=session.session_key).count()
         self.assertEqual(order_count, 1)
@@ -108,7 +108,7 @@ class DoubleSubmitIdempotencyTests(TestCase):
             idempotency_key="IDEM-KEY-UNIQUE-002B",
         )
 
-        self.assertEqual(result1["order_ref"], result2["order_ref"])
+        self.assertEqual(result1.order_ref, result2.order_ref)
         order_count = Order.objects.filter(session_key=session.session_key).count()
         self.assertEqual(order_count, 1)
 
@@ -209,7 +209,7 @@ class ConcurrentOversellTests(TransactionTestCase):
                 channel_ref=self.channel.ref,
                 idempotency_key=idem_key,
             )
-            return (True, result["order_ref"], None)
+            return (True, result.order_ref, None)
         except Exception as exc:
             return (False, None, str(exc))
 

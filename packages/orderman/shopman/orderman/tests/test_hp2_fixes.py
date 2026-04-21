@@ -37,7 +37,7 @@ def _create_committed_session(channel_ref: str = "pos") -> tuple[Session, Order]
         idempotency_key=generate_idempotency_key(),
         ctx={"actor": "test"},
     )
-    order = Order.objects.get(ref=result["order_ref"])
+    order = Order.objects.get(ref=result.order_ref)
     return session, order
 
 

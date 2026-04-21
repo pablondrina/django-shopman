@@ -244,17 +244,17 @@ def pos_close(request: HttpRequest) -> HttpResponse:
             status=400,
         )
 
-    logger.info("pos_close order=%s total=%s", result["order_ref"], result["total_q"])
+    logger.info("pos_close order=%s total=%s", result.order_ref, result.total_q)
 
-    total_display = f"R$ {format_money(result['total_q'])}"
+    total_display = f"R$ {format_money(result.total_q)}"
 
     # Return HTML partial with data attributes for Alpine to read
     response = HttpResponse(
         f'<div id="pos-result" '
-        f'data-order-ref="{result["order_ref"]}" '
+        f'data-order-ref="{result.order_ref}" '
         f'data-total-display="{total_display}" '
         f'class="pos-success">'
-        f'Pedido {result["order_ref"]} &mdash; {total_display}'
+        f'Pedido {result.order_ref} &mdash; {total_display}'
         f'</div>'
     )
     # Trigger shift summary refresh via HTMX event

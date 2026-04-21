@@ -65,7 +65,7 @@ def _commit_card_order(channel_ref: str = "web") -> Order:
         idempotency_key=generate_idempotency_key(),
         ctx={"actor": "test"},
     )
-    return Order.objects.get(ref=result["order_ref"])
+    return Order.objects.get(ref=result.order_ref)
 
 
 # ══════════════════════════════════════════════════════════════

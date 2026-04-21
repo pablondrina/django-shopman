@@ -229,5 +229,5 @@ def _auto_commit_session(session):
 
     logger.info(
         "Auto-commit successful: session=%s:%s order=%s",
-        session.channel_ref, session.session_key, result.get("order_ref"),
+        session.channel_ref, session.session_key, result.order_ref,
     )

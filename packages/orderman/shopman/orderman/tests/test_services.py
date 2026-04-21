@@ -133,10 +133,10 @@ class TestCommitService(TestCase):
             channel_ref="pos",
             idempotency_key="IDEM-1",
         )
-        assert result["status"] == "committed"
-        assert result["total_q"] == 2000
+        assert result.status == "committed"
+        assert result.total_q == 2000
 
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
         assert order.total_q == 2000
         assert order.items.count() == 1
 
@@ -179,7 +179,7 @@ class TestCommitService(TestCase):
             channel_config={"rules": {"checks": ["stock"]}},
         )
 
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
         commitment = order.snapshot["commitment"]
         assert commitment["session_rev"] == 0
         assert commitment["required_checks"] == ["stock"]
@@ -195,7 +195,7 @@ class TestCommitService(TestCase):
         )
         r1 = CommitService.commit(session_key="S-3", channel_ref="pos", idempotency_key="IDEM-3")
         r2 = CommitService.commit(session_key="S-3", channel_ref="pos", idempotency_key="IDEM-3")
-        assert r1["order_ref"] == r2["order_ref"]
+        assert r1.order_ref == r2.order_ref
 
     def test_commit_empty_session_raises(self):
         Session.objects.create(session_key="S-4", channel_ref=self.channel.ref)
@@ -227,8 +227,8 @@ class TestCommitService(TestCase):
             channel_ref="bare",
             idempotency_key="IDEM-BARE-1",
         )
-        assert result["status"] == "committed"
-        directives = Directive.objects.filter(payload__order_ref=result["order_ref"])
+        assert result.status == "committed"
+        directives = Directive.objects.filter(payload__order_ref=result.order_ref)
         assert directives.count() == 0
 
     def test_commit_marketplace_no_directives(self):
@@ -248,7 +248,7 @@ class TestCommitService(TestCase):
             idempotency_key="IDEM-MKT-1",
         )
         directives = list(Directive.objects.filter(
-            payload__order_ref=result["order_ref"],
+            payload__order_ref=result.order_ref,
         ))
         assert len(directives) == 0
 

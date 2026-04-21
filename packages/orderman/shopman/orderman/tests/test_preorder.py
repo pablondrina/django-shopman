@@ -63,7 +63,7 @@ class PreorderCommitTests(TestCase):
             idempotency_key=generate_idempotency_key(),
         )
 
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
         self.assertTrue(order.data.get("is_preorder"))
         self.assertEqual(order.data["delivery_date"], friday)
 
@@ -78,7 +78,7 @@ class PreorderCommitTests(TestCase):
             idempotency_key=generate_idempotency_key(),
         )
 
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
         self.assertFalse(order.data.get("is_preorder", False))
 
     def test_no_delivery_date_not_preorder(self) -> None:
@@ -91,7 +91,7 @@ class PreorderCommitTests(TestCase):
             idempotency_key=generate_idempotency_key(),
         )
 
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
         self.assertNotIn("is_preorder", order.data)
 
     def test_preorder_copies_time_slot_and_notes(self) -> None:
@@ -109,7 +109,7 @@ class PreorderCommitTests(TestCase):
             idempotency_key=generate_idempotency_key(),
         )
 
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
         self.assertEqual(order.data["delivery_time_slot"], "manha")
         self.assertEqual(order.data["order_notes"], "Embalagem para presente")
 

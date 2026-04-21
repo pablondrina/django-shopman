@@ -142,7 +142,7 @@ class TestHoldCorrectQuantities(TestCase):
             {"sku": "CROIS-01", "qty": 2, "unit_price_q": 500, "line_id": "L1"},
         ])
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         hold_ids = order.data.get("hold_ids", [])
         self.assertEqual(len(hold_ids), 1)
@@ -165,7 +165,7 @@ class TestHoldCorrectQuantities(TestCase):
             {"sku": "CAFE-01",  "qty": 1, "unit_price_q": 800, "line_id": "L2"},
         ])
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         hold_ids = order.data.get("hold_ids", [])
         self.assertEqual(len(hold_ids), 2)
@@ -196,7 +196,7 @@ class TestHoldCorrectQuantities(TestCase):
             {"sku": "PAO-01", "qty": 5, "unit_price_q": 100, "line_id": "L1"},
         ])
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         hold_ids = order.data.get("hold_ids", [])
         self.assertEqual(len(hold_ids), 1)
@@ -251,7 +251,7 @@ class TestBundleExpansion(TestCase):
             {"sku": "COMBO-01", "qty": 1, "unit_price_q": 1200, "line_id": "L1"},
         ])
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         hold_ids = order.data.get("hold_ids", [])
         # Bundle produces 2 holds (one per component)
@@ -292,7 +292,7 @@ class TestBundleExpansion(TestCase):
             {"sku": "COMBO-01", "qty": 2, "unit_price_q": 1200, "line_id": "L1"},
         ])
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         # CROIS-01: 2 (per combo) × 2 (ordered) = 4
         self.assertAlmostEqual(created.get("CROIS-01", 0), 4.0)
@@ -334,7 +334,7 @@ class TestPartialStock(TestCase):
             {"sku": "OOS-SKU",  "qty": 1, "unit_price_q": 800, "line_id": "L2"},
         ])
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         hold_ids = order.data.get("hold_ids", [])
         held_skus = {h["sku"] for h in hold_ids}
@@ -387,7 +387,7 @@ class TestVerifyHolds(TestCase):
             {"sku": "MISSING-SKU","qty": 1, "unit_price_q": 800, "line_id": "L2"},
         ])
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         # _verify_holds sees MISSING-SKU not in hold_ids → cancels order
         self.assertEqual(order.status, Order.Status.CANCELLED)
@@ -404,7 +404,7 @@ class TestVerifyHolds(TestCase):
             {"sku": "CROIS-01", "qty": 2, "unit_price_q": 500, "line_id": "L1"},
         ])
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         # Order confirmed (immediate mode), not cancelled
         self.assertEqual(order.status, Order.Status.CONFIRMED)
@@ -470,7 +470,7 @@ class TestSessionHoldsAdoption(TestCase):
             {"sku": "CROIS-01", "qty": 2, "unit_price_q": 500, "line_id": "L1"},
         ])
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         hold_ids = order.data.get("hold_ids", [])
         # Session hold was adopted (not a fresh create)

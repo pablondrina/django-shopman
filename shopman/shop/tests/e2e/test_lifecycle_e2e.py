@@ -160,7 +160,7 @@ class TestE2E1LocalCheckout(TestCase):
         session = _make_session(self.channel)
         result = _commit(session, self.channel)
 
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         # on_commit → auto_confirm → on_confirmed → stock.fulfill
         self.assertEqual(order.status, Order.Status.CONFIRMED)
@@ -187,7 +187,7 @@ class TestE2E2WebPixHappyPath(TestCase):
 
         session = _make_session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         # on_commit → immediate confirmation → on_confirmed
         order.transition_status(Order.Status.CONFIRMED, actor="test")
@@ -218,7 +218,7 @@ class TestE2E3WebPixCancelledBeforeWebhook(TestCase):
     def test_cancel_before_pix_webhook(self):
         session = _make_session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         order.transition_status(Order.Status.CONFIRMED, actor="test")
         order.transition_status(Order.Status.CANCELLED, actor="operator")
@@ -253,7 +253,7 @@ class TestE2E4WebPixWebhookAfterCancellation(TestCase):
 
         session = _make_session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         # Operator cancels
         order.transition_status(Order.Status.CONFIRMED, actor="test")
@@ -307,7 +307,7 @@ class TestE2E5MarketplaceInsufficientStock(TestCase):
 
         session = _make_session(self.channel)
         result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         # on_commit cancels when availability fails (check_on_commit=True)
         order.refresh_from_db()
@@ -352,7 +352,7 @@ class TestE2E6DuplicateCommit(TestCase):
         )
 
         # Same order_ref returned
-        self.assertEqual(result1["order_ref"], result2["order_ref"])
+        self.assertEqual(result1.order_ref, result2.order_ref)
         # Only one Order created
         self.assertEqual(Order.objects.count(), 1)
 
@@ -578,7 +578,7 @@ class TestE2E10WhatsappChannel(TestCase):
             channel_ref=self.channel.ref,
             idempotency_key=generate_idempotency_key(),
         )
-        order = Order.objects.get(ref=result["order_ref"])
+        order = Order.objects.get(ref=result.order_ref)
 
         # Order foi criado no canal WhatsApp com handle=manychat
         self.assertEqual(order.channel_ref, "whatsapp")

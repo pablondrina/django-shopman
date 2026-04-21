@@ -215,8 +215,8 @@ class CheckoutView(APIView):
 
         data = CheckoutResponseSerializer(
             {
-                "order_ref": result["order_ref"],
-                "status": result["status"],
+                "order_ref": result.order_ref,
+                "status": result.status,
             }
         ).data
         return Response(data, status=status.HTTP_201_CREATED)
