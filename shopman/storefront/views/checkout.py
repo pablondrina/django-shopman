@@ -165,7 +165,7 @@ class CheckoutView(View):
                 )
             raise
 
-        order_ref = commit_result["order_ref"]
+        order_ref = commit_result.order_ref
 
         # ── Post-commit side effects (HTTP concerns) ──────────────────────
         self._ensure_customer(intent, order_ref)

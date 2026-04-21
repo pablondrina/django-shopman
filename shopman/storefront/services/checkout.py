@@ -7,7 +7,7 @@ Core: ModifyService, CommitService
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 
 from shopman.orderman.services.commit import CommitService
 from shopman.orderman.services.modify import ModifyService
@@ -18,7 +18,15 @@ from shopman.shop.models import Channel
 logger = logging.getLogger(__name__)
 
 
-def process(session_key: str, channel_ref: str, data: dict, *, idempotency_key: str, ctx: dict | None = None) -> dict:
+@dataclass(frozen=True)
+class CheckoutResult:
+    order_ref: str
+    status: str  # "committed" | "already_committed"
+    total_q: int
+    items_count: int
+
+
+def process(session_key: str, channel_ref: str, data: dict, *, idempotency_key: str, ctx: dict | None = None) -> CheckoutResult:
     """
     Process a checkout: validate, apply data, and commit.
 
@@ -34,7 +42,7 @@ def process(session_key: str, channel_ref: str, data: dict, *, idempotency_key: 
         ctx: Additional context.
 
     Returns:
-        dict with order_ref and commit result.
+        CheckoutResult with order_ref and commit result.
 
     SYNC — called from the checkout view.
     """
@@ -56,7 +64,7 @@ def process(session_key: str, channel_ref: str, data: dict, *, idempotency_key: 
         )
 
     # 3. Commit
-    result = CommitService.commit(
+    commit = CommitService.commit(
         session_key=session_key,
         channel_ref=channel_ref,
         idempotency_key=idempotency_key,
@@ -64,8 +72,13 @@ def process(session_key: str, channel_ref: str, data: dict, *, idempotency_key: 
         channel_config=resolved_config,
     )
 
-    logger.info("checkout.process: order %s committed for channel %s", result.get("order_ref"), channel_ref)
-    return result
+    logger.info("checkout.process: order %s committed for channel %s", commit.order_ref, channel_ref)
+    return CheckoutResult(
+        order_ref=commit.order_ref,
+        status=commit.status,
+        total_q=commit.total_q,
+        items_count=commit.items_count,
+    )
 
 
 def _build_ops_from_data(data: dict) -> list[dict]:
