@@ -22,6 +22,8 @@ from shopman.storefront.projections.account import (
 )
 from shopman.shop.projections.types import FoodPrefProjection, NotificationPrefProjection
 
+from shopman.storefront.services.address_picker import address_picker_context
+
 from .auth import get_authenticated_customer
 
 
@@ -42,40 +44,8 @@ def _parse_coordinates(post) -> tuple[float, float] | None:
 
 
 def _account_picker_context() -> dict:
-    """Picker context for the account page (empty saved list + shop location).
-
-    The account page uses the picker as a composition form only (add new
-    address); saved addresses live in the ``address_list`` partial. So the
-    picker starts on the "new" view with no preselection.
-
-    Note: valores JSON são devolvidos como string crua (sem mark_safe) para
-    que o auto-escape do template transforme ``"`` em ``&quot;`` dentro do
-    atributo ``x-data="..."`` — o browser desescapa em JS válido. Usar
-    mark_safe aqui quebra a parseabilidade do atributo (checkout faz igual).
-    """
-    import json as _json
-
-    from django.conf import settings
-
-    from shopman.shop.models import Shop
-
-    shop_location = None
-    try:
-        shop = Shop.load()
-        if shop and shop.latitude and shop.longitude:
-            shop_location = {
-                "lat": float(shop.latitude),
-                "lng": float(shop.longitude),
-            }
-    except Exception:
-        shop_location = None
-
-    return {
-        "picker_addresses_json": "[]",
-        "picker_shop_location_json": _json.dumps(shop_location),
-        "picker_preselected_id": None,
-        "google_maps_api_key": getattr(settings, "GOOGLE_MAPS_API_KEY", ""),
-    }
+    """Picker context for the account page (empty saved list + shop location)."""
+    return address_picker_context()
 
 
 def _get_customer_preferences(customer_ref: str):

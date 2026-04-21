@@ -1,4 +1,4 @@
-"""Tests for server-side slot validation in CheckoutView._validate_slot().
+"""Tests for server-side slot validation (_validate_slot).
 
 Covers:
 - Slot inexistente → erro
@@ -16,7 +16,7 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from shopman.storefront.views.checkout import CheckoutView
+from shopman.storefront.intents.checkout import _validate_slot
 
 FAKE_SLOTS = [
     {"ref": "slot-09", "label": "A partir das 09h", "starts_at": "09:00"},
@@ -46,7 +46,7 @@ def _fake_now(hour: int, minute: int = 0) -> object:
 class TestValidateSlot(TestCase):
     def _call(self, slot_ref: str, fulfillment: str, delivery_date: str = "") -> dict:
         with patch("shopman.storefront.services.pickup_slots.get_slots", return_value=FAKE_SLOTS):
-            return CheckoutView._validate_slot(slot_ref, fulfillment, delivery_date)
+            return _validate_slot(slot_ref, fulfillment, delivery_date)
 
     def _call_at_hour(
         self, slot_ref: str, fulfillment: str, delivery_date: str, hour: int
@@ -54,9 +54,9 @@ class TestValidateSlot(TestCase):
         fake = _fake_now(hour)
         with (
             patch("shopman.storefront.services.pickup_slots.get_slots", return_value=FAKE_SLOTS),
-            patch("shopman.storefront.views.checkout.timezone.localtime", return_value=fake),
+            patch("shopman.storefront.intents.checkout.timezone.localtime", return_value=fake),
         ):
-            return CheckoutView._validate_slot(slot_ref, fulfillment, delivery_date)
+            return _validate_slot(slot_ref, fulfillment, delivery_date)
 
     # ── Slot inexistente ──────────────────────────────────────────────────
 
