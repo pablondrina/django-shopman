@@ -113,6 +113,10 @@ def _fallback_normalize(digits: str, has_plus: bool, default_region: str = "BR")
         return f"+{digits}"
 
     if default_region == "BR":
+        # iOS autofill trunk prefix: 0+DDD+number → strip leading 0
+        if digits.startswith("0") and len(digits) in (11, 12):
+            digits = digits[1:]
+
         # Brazilian: 10-11 digits without country code (DDD + number)
         if len(digits) in (10, 11):
             return f"+55{digits}"
