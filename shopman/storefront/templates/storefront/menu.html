@@ -81,10 +81,10 @@
                 @click="jumpTo('{{ section.ref }}')"
                 :class="active === '{{ section.ref }}'
                           ? 'bg-primary text-white border-primary dark:bg-primary-dark dark:border-primary-dark'
-                          : 'bg-white text-on-surface border-outline hover:border-primary/40 dark:bg-surface-dark dark:text-on-surface-dark dark:border-outline-dark'"
+                          : '{% if catalog.favorite_category_ref == section.ref %}border-primary/60 dark:border-primary-dark/60{% else %}border-outline dark:border-outline-dark{% endif %} bg-white text-on-surface hover:border-primary/40 dark:bg-surface-dark dark:text-on-surface-dark'"
                 class="shrink-0 inline-flex items-center gap-1.5 px-5 rounded-full border-2 text-sm font-semibold transition whitespace-nowrap"
                 style="min-height: 44px;">
-          <span>{{ section.label }}</span>
+          <span>{{ section.label }}</span>{% if catalog.favorite_category_ref == section.ref %}<span class="material-symbols-rounded text-xs text-primary dark:text-primary-dark" aria-hidden="true" title="Seu favorito">favorite</span>{% endif %}
         </button>
         {% endfor %}
         {% comment %}"Todos" na ÚLTIMA posição — rola pro topo{% endcomment %}

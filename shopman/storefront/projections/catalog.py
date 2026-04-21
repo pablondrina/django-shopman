@@ -126,6 +126,7 @@ class CatalogProjection:
     featured: tuple[CatalogItemProjection, ...]
     active_category_ref: str | None
     happy_hour: HappyHourProjection | None = None
+    favorite_category_ref: str | None = None
     has_items: bool = field(init=False)
 
     def __post_init__(self) -> None:
@@ -155,8 +156,11 @@ def build_catalog(
       hints (fulfillment type + subtotal) so prices shown on the menu match
       what the checkout will apply.
     """
+    from shopman.storefront.omotenashi.context import OmotenashiContext
+
     config = ChannelConfig.for_channel(channel_ref)
     low_stock_threshold = Decimal(str(config.stock.low_stock_threshold))
+    favorite_category_ref: str | None = OmotenashiContext.from_request(request).favorite_category
 
     categories = _build_categories()
 
@@ -191,6 +195,7 @@ def build_catalog(
             featured=(),
             active_category_ref=collection_ref if active_collection else None,
             happy_hour=_happy_hour_projection(happy_hour_state()),
+            favorite_category_ref=favorite_category_ref,
         )
 
     items_flat = _build_items(
@@ -220,6 +225,7 @@ def build_catalog(
         featured=featured,
         active_category_ref=collection_ref if active_collection else None,
         happy_hour=_happy_hour_projection(happy_hour_state()),
+        favorite_category_ref=favorite_category_ref,
     )
 
 
