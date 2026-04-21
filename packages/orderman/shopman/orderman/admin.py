@@ -226,7 +226,7 @@ class SessionAdmin(ModelAdmin):
                 idempotency_key=idempotency_key,
                 ctx={"actor": actor},
             )
-            order_ref = result.get("order_ref", "")
+            order_ref = result.order_ref
 
             # Executa diretivas pós-commit automaticamente (ergonomia no admin)
             # Em produção, workers fazem isso; no admin, executamos inline para melhor UX
@@ -538,7 +538,7 @@ class SessionAdmin(ModelAdmin):
             )
             self.message_user(
                 request,
-                _("Verificação atualizada. Sessão commitada com sucesso. Ordem %(ref)s criada.") % {"ref": result.get("order_ref")},
+                _("Verificação atualizada. Sessão commitada com sucesso. Ordem %(ref)s criada.") % {"ref": result.order_ref},
             )
             return "committed"
         except CommitError as exc:

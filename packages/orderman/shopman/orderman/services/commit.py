@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import copy
 import logging
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -18,6 +19,14 @@ from shopman.orderman.models import Directive, IdempotencyKey, Order, OrderItem,
 from shopman.utils.monetary import monetary_mult
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class CommitResult:
+    order_ref: str
+    status: str  # "committed" | "already_committed"
+    total_q: int
+    items_count: int
 
 
 class CommitService:
@@ -43,7 +52,7 @@ class CommitService:
         idempotency_key: str,
         ctx: dict | None = None,
         channel_config: dict | None = None,
-    ) -> dict:
+    ) -> CommitResult:
         """
         Fecha uma sessão e cria um Order.
 
@@ -57,7 +66,7 @@ class CommitService:
                 Testes podem omitir para usar comportamento padrão.
 
         Returns:
-            dict com order_ref e dados do pedido
+            CommitResult com order_ref e dados do pedido
 
         Raises:
             CommitError: Se commit falhar
@@ -70,8 +79,7 @@ class CommitService:
         try:
             idem = CommitService._acquire_idempotency_lock(idem_scope, idempotency_key)
         except IdempotencyCacheHit as cache_hit:
-            # Cached response from previous successful commit
-            return cache_hit.cached_response
+            return CommitResult(**cache_hit.cached_response)
 
         try:
             # 2. Execute commit in atomic transaction
@@ -85,7 +93,7 @@ class CommitService:
 
             # 3. Mark idempotency key as done (outside transaction)
             idem.status = "done"
-            idem.response_body = response
+            idem.response_body = asdict(response)
             idem.response_code = 201
             idem.save(update_fields=["status", "response_body", "response_code"])
 
@@ -174,7 +182,7 @@ class CommitService:
         idempotency_key: str,
         ctx: dict,
         channel_config: dict | None = None,
-    ) -> dict:
+    ) -> CommitResult:
         """
         Execute the actual commit logic in an atomic transaction.
         """
@@ -198,7 +206,12 @@ class CommitService:
             # Return existing order (idempotency)
             order = Order.objects.filter(session_key=session_key, channel_ref=channel_ref).first()
             if order:
-                return {"order_ref": order.ref, "status": "already_committed"}
+                return CommitResult(
+                    order_ref=order.ref,
+                    status="already_committed",
+                    total_q=order.total_q,
+                    items_count=order.items.count(),
+                )
             raise CommitError(code="already_committed", message="Sessão já foi fechada")
 
         if session.state == "abandoned":
@@ -408,12 +421,12 @@ class CommitService:
             except (ValueError, TypeError):
                 pass
 
-        return {
-            "order_ref": order.ref,
-            "status": "committed",
-            "total_q": order.total_q,
-            "items_count": len(session.items),
-        }
+        return CommitResult(
+            order_ref=order.ref,
+            status="committed",
+            total_q=order.total_q,
+            items_count=len(session.items),
+        )
 
     @staticmethod
     def _build_commitment_snapshot(

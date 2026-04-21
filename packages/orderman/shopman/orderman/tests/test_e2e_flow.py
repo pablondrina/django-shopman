@@ -91,8 +91,8 @@ class EndToEndFlowTests(TestCase):
             idempotency_key=idempotency_key,
         )
 
-        self.assertIn("order_ref", result)
-        order_ref = result["order_ref"]
+        self.assertIsNotNone(result.order_ref)
+        order_ref = result.order_ref
 
         # Verificar que sessão foi commitada
         session.refresh_from_db()
@@ -117,7 +117,7 @@ class EndToEndFlowTests(TestCase):
             channel_ref=self.channel.ref,
             idempotency_key=idempotency_key,
         )
-        self.assertEqual(result2["order_ref"], order_ref)
+        self.assertEqual(result2.order_ref, order_ref)
         self.assertEqual(Order.objects.count(), 1)  # Não cria duplicado
 
         # 3c. Tentar commit com nova chave retorna mesmo resultado (idempotência por session)
@@ -129,7 +129,7 @@ class EndToEndFlowTests(TestCase):
             idempotency_key=generate_idempotency_key(),
         )
         # Retorna o mesmo order_ref devido à idempotência por sessão
-        self.assertEqual(result3["order_ref"], order_ref)
+        self.assertEqual(result3.order_ref, order_ref)
         self.assertEqual(Order.objects.count(), 1)
 
         # 4. Transições de status

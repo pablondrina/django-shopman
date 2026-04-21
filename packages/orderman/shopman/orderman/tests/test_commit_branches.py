@@ -50,7 +50,12 @@ class CommitIdempotencyTests(TestCase):
 
     def test_commit_returns_cached_response(self) -> None:
         """Should return cached response for completed idempotency key."""
-        cached_response = {"order_ref": "ORD-CACHED-001", "status": "success"}
+        cached_response = {
+            "order_ref": "ORD-CACHED-001",
+            "status": "already_committed",
+            "total_q": 1500,
+            "items_count": 2,
+        }
         IdempotencyKey.objects.create(
             scope=f"commit:{self.channel.ref}",
             key="done-key",
@@ -64,7 +69,9 @@ class CommitIdempotencyTests(TestCase):
             idempotency_key="done-key",
         )
 
-        self.assertEqual(result, cached_response)
+        from shopman.orderman.services.commit import CommitResult
+
+        self.assertEqual(result, CommitResult(**cached_response))
 
 
 class CommitSessionNotFoundTests(TestCase):
@@ -148,8 +155,8 @@ class CommitAlreadyCommittedTests(TestCase):
             idempotency_key="key-already",
         )
 
-        self.assertEqual(result["order_ref"], "ORD-ALREADY-001")
-        self.assertEqual(result["status"], "already_committed")
+        self.assertEqual(result.order_ref, "ORD-ALREADY-001")
+        self.assertEqual(result.status, "already_committed")
 
     def test_commit_raises_when_committed_but_no_order(self) -> None:
         """Should raise CommitError when session committed but order missing."""
@@ -240,7 +247,7 @@ class CommitHoldExpiryTests(TestCase):
             channel_config={"rules": {"checks": ["stock"]}},
         )
 
-        self.assertIn("order_ref", result)
+        self.assertTrue(result.order_ref)
 
     def test_commit_raises_for_expired_hold_expires_at_in_result(self) -> None:
         """Should raise CommitError when hold_expires_at in result is expired."""

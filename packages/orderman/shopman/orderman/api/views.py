@@ -25,6 +25,7 @@ Configuração de Throttling:
 from __future__ import annotations
 
 import logging
+from dataclasses import asdict
 
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -344,12 +345,12 @@ class SessionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
             extra={
                 "session_key": session_key,
                 "channel_ref": channel_ref,
-                "order_ref": result.get("order_ref"),
+                "order_ref": result.order_ref,
             },
         )
 
-        http_status = status.HTTP_201_CREATED if result.get("status") == "committed" else status.HTTP_200_OK
-        return Response(result, status=http_status)
+        http_status = status.HTTP_201_CREATED if result.status == "committed" else status.HTTP_200_OK
+        return Response(asdict(result), status=http_status)
 
 
 class OrderViewSet(viewsets.ReadOnlyModelViewSet):
