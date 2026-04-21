@@ -6,7 +6,7 @@ projections the v2 payment template and its HTMX polling partial consume.
 ``build_payment``        → full page (PIX QR code or Stripe card).
 ``build_payment_status`` → polling partial — checks expiry, paid, cancelled.
 
-Never imports from ``shopman.shop.web.views.*``.
+Never imports from ``shopman.storefront.views.*``.
 """
 
 from __future__ import annotations

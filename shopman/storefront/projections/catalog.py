@@ -6,7 +6,7 @@ stock, ``services.storefront_context`` for session/happy-hour/popularity)
 and emits a frozen, immutable shape the templates consume without ever
 touching Django model instances.
 
-The projection never imports from ``shopman.shop.web.*`` — everything it
+The projection never imports from ``shopman.storefront.views.*`` — everything it
 needs lives under ``services`` or in sibling projection modules. Business
 rules like the low-stock threshold come from ``ChannelConfig`` so they're
 Admin-configurable per channel.

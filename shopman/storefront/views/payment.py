@@ -11,7 +11,7 @@ from shopman.orderman.models import Order
 
 from shopman.shop.services import payment as payment_svc
 
-logger = logging.getLogger("shopman.shop.web.payment")
+logger = logging.getLogger("shopman.storefront.views.payment")
 
 
 class PaymentView(View):

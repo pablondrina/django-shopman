@@ -4,7 +4,7 @@ Translates operational KPIs, charts, and table data into immutable
 projections. Replaces the inline data building in
 ``shopman.shop.admin.dashboard.dashboard_callback``.
 
-Never imports from ``shopman.shop.web.views.*``.
+Never imports from ``shopman.backstage.views.*``.
 """
 
 from __future__ import annotations

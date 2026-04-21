@@ -2,9 +2,9 @@
 
 Translates the active order queue into immutable projections for the operator
 dashboard. Replaces the inline ``_enrich_order`` / ``_status_counts`` logic
-from ``shopman.shop.web.views.orders``.
+from ``shopman.backstage.views.orders``.
 
-Never imports from ``shopman.shop.web.views.*``.
+Never imports from ``shopman.backstage.views.*``.
 """
 
 from __future__ import annotations

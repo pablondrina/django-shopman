@@ -2,9 +2,9 @@
 
 Translates Craftsman work orders, queue items, and summary into immutable
 projections for the operator production page. Replaces the inline context
-building from ``shopman.shop.web.views.production``.
+building from ``shopman.backstage.views.production``.
 
-Never imports from ``shopman.shop.web.views.*``.
+Never imports from ``shopman.backstage.views.*``.
 """
 
 from __future__ import annotations

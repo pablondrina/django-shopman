@@ -2,9 +2,9 @@
 
 Translates product listings, collections, and cash session state into
 immutable projections for the POS page. Replaces the inline ``_load_products``
-logic from ``shopman.shop.web.views.pos``.
+logic from ``shopman.backstage.views.pos``.
 
-Never imports from ``shopman.shop.web.views.*``.
+Never imports from ``shopman.backstage.views.*``.
 """
 
 from __future__ import annotations

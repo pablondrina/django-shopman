@@ -5,7 +5,7 @@ by the ``storefront/order_history.html`` template.
 
 ``build_order_history``  → full history page projection.
 
-Never imports from ``shopman.shop.web.views.*``.
+Never imports from ``shopman.storefront.views.*``.
 """
 
 from __future__ import annotations

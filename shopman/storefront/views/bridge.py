@@ -13,7 +13,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.views import View
 
-logger = logging.getLogger("shopman.shop.web.bridge")
+logger = logging.getLogger("shopman.storefront.views.bridge")
 
 # Maps AccessLink.source → origin_channel value
 SOURCE_TO_ORIGIN = {

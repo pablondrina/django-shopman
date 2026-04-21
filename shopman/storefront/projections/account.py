@@ -6,7 +6,7 @@ template.
 
 ``build_account``  → full account page projection.
 
-Never imports from ``shopman.shop.web.views.*``.
+Never imports from ``shopman.storefront.views.*``.
 """
 
 from __future__ import annotations
