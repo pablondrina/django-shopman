@@ -17,7 +17,9 @@ from shopman.storefront.projections.order_tracking import (
 from shopman.shop.projections.types import ORDER_STATUS_LABELS_PT as STATUS_LABELS
 
 from ..cart import CartService
-from ._helpers import _carrier_tracking_url, _format_opening_hours, _get_price_q, _line_item_is_d1
+from ._helpers import _get_price_q, _line_item_is_d1
+from ..projections.order_tracking import _carrier_tracking_url
+from ..projections.shop_status import _format_opening_hours
 
 logger = logging.getLogger(__name__)
 

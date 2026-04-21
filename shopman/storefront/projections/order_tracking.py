@@ -34,6 +34,25 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+CARRIER_TRACKING_URLS: dict[str, str] = {
+    "correios": "https://rastreamento.correios.com.br/?objetos={code}",
+    "jadlog": "https://www.jadlog.com.br/tracking?code={code}",
+}
+
+
+def _carrier_tracking_url(carrier: str, tracking_code: str) -> str | None:
+    """Build a tracking URL for known carriers.
+
+    Returns URL string or None if carrier is unknown or tracking_code is empty.
+    """
+    if not carrier or not tracking_code:
+        return None
+    template = CARRIER_TRACKING_URLS.get(carrier.lower())
+    if template:
+        return template.format(code=tracking_code)
+    return None
+
+
 _TERMINAL_STATUSES = frozenset({"completed", "cancelled", "returned"})
 _CANCELLABLE_STATUSES = frozenset({"new", "confirmed"})
 
@@ -280,8 +299,6 @@ def _build_fulfillments(
     order: Order,
 ) -> tuple[tuple[FulfillmentProjection, ...], tuple[FulfillmentProjection, ...]]:
     """Return (delivery_fulfillments, pickup_fulfillments)."""
-    from shopman.storefront.views._helpers import _carrier_tracking_url
-
     delivery: list[FulfillmentProjection] = []
     pickup: list[FulfillmentProjection] = []
 
@@ -308,7 +325,7 @@ def _pickup_info() -> PickupInfoProjection | None:
     """Load store address and opening hours for pickup fulfillments."""
     try:
         from shopman.shop.models import Shop
-        from shopman.storefront.views._helpers import _format_opening_hours
+        from shopman.storefront.projections.shop_status import _format_opening_hours
 
         shop = Shop.load()
         if not shop:

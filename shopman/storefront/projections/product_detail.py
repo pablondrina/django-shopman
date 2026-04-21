@@ -618,3 +618,27 @@ def _money(value_q: int | None) -> str:
     if not value_q:
         return "R$ 0,00"
     return f"R$ {format_money(int(value_q))}"
+
+
+def _allergen_info(product: Product) -> dict | None:
+    """Extract allergen and dietary info from product.metadata.
+
+    Returns dict with keys: allergens (list), dietary_info (list), serves (str|None)
+    or None if no info available.
+    """
+    meta = getattr(product, "metadata", None)
+    if not meta or not isinstance(meta, dict):
+        return None
+
+    allergens = meta.get("allergens", [])
+    dietary = meta.get("dietary_info", [])
+    serves = meta.get("serves")
+
+    if not allergens and not dietary and not serves:
+        return None
+
+    return {
+        "allergens": allergens if isinstance(allergens, list) else [],
+        "dietary_info": dietary if isinstance(dietary, list) else [],
+        "serves": str(serves) if serves else None,
+    }
