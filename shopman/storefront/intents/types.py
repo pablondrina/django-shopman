@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date as date_type
 from typing import Generic, TypeVar
 
 
@@ -86,6 +87,48 @@ class IntentResult:
     errors: dict[str, str]
     form_data: dict
     repricing_warnings: list
+
+
+# ── Account intents ───────────────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class ProfileUpdateIntent:
+    first_name: str
+    last_name: str
+    email: str
+    birthday: date_type | None
+
+
+@dataclass(frozen=True)
+class AddressIntent:
+    label: str
+    label_custom: str
+    formatted_address: str
+    route: str
+    street_number: str
+    neighborhood: str
+    city: str
+    state_code: str
+    postal_code: str
+    complement: str
+    delivery_instructions: str
+    place_id: str | None
+    is_default: bool
+    coordinates: tuple[float, float] | None
+    is_verified: bool
+
+
+@dataclass
+class ProfileUpdateResult:
+    intent: ProfileUpdateIntent | None
+    errors: dict[str, str]
+
+
+@dataclass
+class AddressIntentResult:
+    intent: AddressIntent | None
+    errors: dict[str, str]
+    form_data: dict
 
 
 # ── Auth intents ──────────────────────────────────────────────────────────────
