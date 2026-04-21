@@ -20,14 +20,10 @@ def dispatch_to_kds(order) -> list:
     Returns list of created KDSTicket instances.
     """
     from shopman.shop.adapters import get_adapter
-    from shopman.backstage.models import KDSInstance, KDSTicket
+    from shopman.shop.adapters import kds as kds_adapter
 
     # 1. Get all active KDS instances (exclude expedition — it's query-based)
-    instances = list(
-        KDSInstance.objects.filter(is_active=True)
-        .exclude(type="expedition")
-        .prefetch_related("collections")
-    )
+    instances = kds_adapter.get_active_prep_instances()
     if not instances:
         return []
 
@@ -96,11 +92,7 @@ def dispatch_to_kds(order) -> list:
     inst_by_pk = {inst.pk: inst for inst in instances}
 
     for inst_pk, items in instance_items.items():
-        ticket = KDSTicket.objects.create(
-            order=order,
-            kds_instance=inst_by_pk[inst_pk],
-            items=items,
-        )
+        ticket = kds_adapter.create_ticket(order, inst_by_pk[inst_pk], items)
         tickets.append(ticket)
 
     logger.info(

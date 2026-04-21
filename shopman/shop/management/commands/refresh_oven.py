@@ -108,16 +108,10 @@ class Command(BaseCommand):
 
             # Shift KDS ticket completed_at if present
             try:
-                from shopman.backstage.models import KDSTicket
+                from shopman.shop.adapters import kds as kds_adapter
 
-                tickets = list(
-                    KDSTicket.objects.filter(order=order, completed_at__isnull=False)
-                    .values_list("pk", "completed_at")
-                )
-                for tkt_pk, tkt_time in tickets:
-                    KDSTicket.objects.filter(pk=tkt_pk).update(
-                        completed_at=tkt_time + delta,
-                    )
+                for tkt_pk, tkt_time in kds_adapter.get_completed_ticket_timestamps(order):
+                    kds_adapter.shift_ticket_completed_at(tkt_pk, tkt_time + delta)
             except Exception:
                 pass
 

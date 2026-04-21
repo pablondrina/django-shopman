@@ -32,20 +32,14 @@ def check_and_alert(sku: str | None = None) -> int:
     if not triggered:
         return 0
 
-    from shopman.backstage.models import OperatorAlert
+    from shopman.shop.adapters import alert as alert_adapter
 
     debounce_cutoff = timezone.now() - timedelta(hours=1)
     created = 0
 
     for alert, available in triggered:
         # Debounce: skip if recent alert exists for this SKU
-        recent = OperatorAlert.objects.filter(
-            type="stock_low",
-            created_at__gte=debounce_cutoff,
-            message__contains=alert.sku,
-        ).exists()
-
-        if recent:
+        if alert_adapter.recent_exists("stock_low", debounce_cutoff, message_contains=alert.sku):
             logger.debug(
                 "stock_alert: debounced for sku=%s (alert exists within 1h)",
                 alert.sku,
@@ -53,10 +47,10 @@ def check_and_alert(sku: str | None = None) -> int:
             continue
 
         position_label = str(alert.position) if alert.position else "todas as posições"
-        OperatorAlert.objects.create(
-            type="stock_low",
-            severity="warning",
-            message=(
+        alert_adapter.create(
+            "stock_low",
+            "warning",
+            (
                 f"Estoque baixo: {alert.sku} ({available} restantes, "
                 f"mínimo {alert.min_quantity}) — {position_label}"
             ),

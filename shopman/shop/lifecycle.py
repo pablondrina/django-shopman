@@ -478,15 +478,10 @@ def _create_alert(order, alert_type: str) -> None:
     kept *outside* the try block so that structural bugs (missing model,
     bad field, typo) surface loudly instead of being silently swallowed.
     """
-    from shopman.backstage.models import OperatorAlert
+    from shopman.shop.adapters import alert as alert_adapter
 
     message = f"Pedido {order.ref}: {alert_type.replace('_', ' ')}"
     try:
-        OperatorAlert.objects.create(
-            type=alert_type,
-            severity="warning",
-            message=message,
-            order_ref=order.ref,
-        )
+        alert_adapter.create(alert_type, "warning", message, order_ref=order.ref)
     except Exception:
         logger.exception("lifecycle._create_alert: failed for order %s", order.ref)

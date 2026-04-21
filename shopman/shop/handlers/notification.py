@@ -88,12 +88,12 @@ class NotificationSendHandler:
     def _escalate(self, order_ref: str, template: str, last_error: str | None) -> None:
         """Cria OperatorAlert quando entrega de notificação é exaurida."""
         try:
-            from shopman.backstage.models import OperatorAlert
+            from shopman.shop.adapters import alert as alert_adapter
 
-            OperatorAlert.objects.create(
-                type="notification_failed",
-                severity="error",
-                message=(
+            alert_adapter.create(
+                "notification_failed",
+                "error",
+                (
                     f"Notificação '{template}' falhou após 5 tentativas "
                     f"para pedido {order_ref}. Último erro: {last_error or 'desconhecido'}"
                 ),

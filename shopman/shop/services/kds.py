@@ -42,18 +42,14 @@ def dispatch(order) -> list:
     SYNC — tickets must be ready for the KDS display.
     """
     from shopman.shop.adapters import get_adapter
-    from shopman.backstage.models import KDSInstance, KDSTicket
+    from shopman.shop.adapters import kds as kds_adapter
 
     # Idempotent check
-    if KDSTicket.objects.filter(order=order).exists():
+    if kds_adapter.ticket_exists_for_order(order):
         return []
 
     # Get active KDS instances (exclude expedition — query-based)
-    instances = list(
-        KDSInstance.objects.filter(is_active=True)
-        .exclude(type="expedition")
-        .prefetch_related("collections")
-    )
+    instances = kds_adapter.get_active_prep_instances()
     if not instances:
         return []
 
@@ -115,11 +111,7 @@ def dispatch(order) -> list:
     inst_by_pk = {inst.pk: inst for inst in instances}
 
     for inst_pk, items in instance_items.items():
-        ticket = KDSTicket.objects.create(
-            order=order,
-            kds_instance=inst_by_pk[inst_pk],
-            items=items,
-        )
+        ticket = kds_adapter.create_ticket(order, inst_by_pk[inst_pk], items)
         tickets.append(ticket)
 
     logger.info("kds.dispatch: %d tickets for order %s", len(tickets), order.ref)
@@ -139,9 +131,9 @@ def cancel_tickets(order) -> int:
 
     SYNC — tickets must be cancelled immediately when order is cancelled.
     """
-    from shopman.backstage.models import KDSTicket
+    from shopman.shop.adapters import kds as kds_adapter
 
-    count = KDSTicket.objects.filter(order=order, status="open").update(status="cancelled")
+    count = kds_adapter.cancel_open_tickets(order)
     if count:
         logger.info("kds.cancel_tickets: cancelled %d tickets for order=%s", count, order.ref)
     return count
@@ -158,9 +150,9 @@ def on_all_tickets_done(order) -> bool:
 
     SYNC — checks and transitions immediately.
     """
-    from shopman.backstage.models import KDSTicket
+    from shopman.shop.adapters import kds as kds_adapter
 
-    tickets = KDSTicket.objects.filter(order=order)
+    tickets = kds_adapter.get_tickets(order)
     if not tickets.exists():
         return False
 

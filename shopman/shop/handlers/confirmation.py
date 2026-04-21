@@ -100,7 +100,6 @@ class StaleNewOrderAlertHandler:
 
     def handle(self, *, message: Directive, ctx: dict) -> None:
         from shopman.orderman.models import Order
-        from shopman.backstage.models import OperatorAlert
 
         payload = message.payload
         order_ref = payload["order_ref"]
@@ -127,10 +126,12 @@ class StaleNewOrderAlertHandler:
             return
 
         try:
-            OperatorAlert.objects.create(
-                type="stale_new_order",
-                severity="warning",
-                message=f"Pedido {order.ref} aguardando decisão há muito tempo",
+            from shopman.shop.adapters import alert as alert_adapter
+
+            alert_adapter.create(
+                "stale_new_order",
+                "warning",
+                f"Pedido {order.ref} aguardando decisão há muito tempo",
                 order_ref=order.ref,
             )
         except Exception:

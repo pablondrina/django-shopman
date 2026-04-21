@@ -6,7 +6,6 @@ from django.utils import timezone
 from shopman.offerman.protocols import ContextualPrice, PriceAdjustment
 from shopman.utils.monetary import format_money
 
-from shopman.storefront.models import Promotion
 from shopman.shop.modifiers import DiscountModifier
 
 
@@ -38,6 +37,8 @@ class StorefrontPricingBackend:
 
         best_discount_q = 0
         best_promo = None
+
+        from shopman.storefront.models import Promotion
 
         now = timezone.now()
         promotions = list(
