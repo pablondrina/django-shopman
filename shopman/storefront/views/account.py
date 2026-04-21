@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 
 from django.http import HttpRequest, HttpResponse
@@ -29,18 +30,6 @@ from .auth import get_authenticated_customer
 
 def _get_customer_addresses(customer_ref: str):
     return address_service.addresses(customer_ref)
-
-
-def _parse_coordinates(post) -> tuple[float, float] | None:
-    """Read latitude/longitude from request.POST, tolerant of empty strings."""
-    try:
-        lat_raw = (post.get("latitude") or "").strip()
-        lng_raw = (post.get("longitude") or "").strip()
-        if not lat_raw or not lng_raw:
-            return None
-        return float(lat_raw), float(lng_raw)
-    except (ValueError, TypeError):
-        return None
 
 
 def _account_picker_context() -> dict:
@@ -86,82 +75,48 @@ class AddressCreateView(View):
     """HTMX: create new address, return updated address list."""
 
     def post(self, request: HttpRequest) -> HttpResponse:
+        from ..intents.account import interpret_address_create
+
         customer = get_authenticated_customer(request)
         if not customer:
             return HttpResponse("Autenticação necessária.", status=401)
 
-        label = request.POST.get("label", "home")
-        label_custom = request.POST.get("label_custom", "").strip()
-        formatted_address = request.POST.get("formatted_address", "").strip()
-        route = request.POST.get("route", "").strip()
-        street_number = request.POST.get("street_number", "").strip()
-        neighborhood = request.POST.get("neighborhood", "").strip()
-        city = request.POST.get("city", "").strip()
-        state_code = request.POST.get("state_code", "").strip()
-        postal_code = request.POST.get("postal_code", "").strip()
-        complement = request.POST.get("complement", "").strip()
-        delivery_instructions = request.POST.get("delivery_instructions", "").strip()
-        place_id = request.POST.get("place_id", "").strip()
-        is_default = request.POST.get("is_default") == "on"
-
-        coordinates = _parse_coordinates(request.POST)
-
-        if not formatted_address:
-            # Build formatted_address from components as a friendly fallback.
-            parts = []
-            if route:
-                parts.append(route)
-            if street_number:
-                parts.append(street_number)
-            if neighborhood:
-                parts.append(f"- {neighborhood}")
-            if city:
-                parts.append(f"- {city}")
-            formatted_address = " ".join(parts) if parts else ""
-        if not formatted_address or not route:
-            form_tmpl = "storefront/partials/address_form.html"
-            return render(request, form_tmpl, {
+        result = interpret_address_create(request)
+        if not result.intent:
+            return render(request, "storefront/partials/address_form.html", {
                 "customer": customer,
-                "form_errors": {"formatted_address": "Informe um endereço válido."},
-                "form_data": request.POST,
+                "form_errors": result.errors,
+                "form_data": result.form_data,
                 **_account_picker_context(),
             })
 
+        intent = result.intent
         created = address_service.add_address(
             customer_ref=customer.ref,
-            label=label,
-            label_custom=label_custom,
-            formatted_address=formatted_address,
-            place_id=place_id or None,
-            coordinates=coordinates,
-            complement=complement,
-            delivery_instructions=delivery_instructions,
-            is_default=is_default,
+            label=intent.label,
+            label_custom=intent.label_custom,
+            formatted_address=intent.formatted_address,
+            place_id=intent.place_id,
+            coordinates=intent.coordinates,
+            complement=intent.complement,
+            delivery_instructions=intent.delivery_instructions,
+            is_default=intent.is_default,
             components={
-                "route": route,
-                "street_number": street_number,
-                "neighborhood": neighborhood,
-                "city": city,
-                "state_code": state_code,
-                "postal_code": postal_code,
+                "route": intent.route,
+                "street_number": intent.street_number,
+                "neighborhood": intent.neighborhood,
+                "city": intent.city,
+                "state_code": intent.state_code,
+                "postal_code": intent.postal_code,
             },
         )
 
         addresses = _get_customer_addresses(customer.ref)
-        list_tmpl = "storefront/partials/address_list.html"
-        response = render(request, list_tmpl, {
+        response = render(request, "storefront/partials/address_list.html", {
             "addresses": addresses,
             "customer": customer,
         })
-        # Nudge the picker to open its post-save label prompt. The form only
-        # sends label="home" as default; if the customer came in without a
-        # deliberate choice, we give them the gentle Casa/Trabalho/Outro
-        # modal. Always emit — the picker itself decides whether to show.
-        import json as _json
-
-        response["HX-Trigger"] = _json.dumps({
-            "address:created": {"id": created.pk},
-        })
+        response["HX-Trigger"] = json.dumps({"address:created": {"id": created.pk}})
         return response
 
 
@@ -169,6 +124,8 @@ class AddressUpdateView(View):
     """HTMX: update existing address, return updated item."""
 
     def post(self, request: HttpRequest, pk: int) -> HttpResponse:
+        from ..intents.account import interpret_address_update
+
         auth_customer = get_authenticated_customer(request)
         if not auth_customer:
             return HttpResponse("Autenticação necessária.", status=401)
@@ -178,60 +135,37 @@ class AddressUpdateView(View):
         addr = address_service.get_address(auth_customer.ref, pk)
         if not addr:
             return HttpResponse("Endereço não encontrado.", status=404)
-        customer = auth_customer
 
-        label = request.POST.get("label", addr.label)
-        label_custom = request.POST.get("label_custom", "").strip()
-        formatted_address = request.POST.get("formatted_address", addr.formatted_address).strip()
-        route = request.POST.get("route", "").strip()
-        street_number = request.POST.get("street_number", "").strip()
-        neighborhood = request.POST.get("neighborhood", "").strip()
-        city = request.POST.get("city", "").strip()
-        state_code = request.POST.get("state_code", addr.state_code).strip()
-        postal_code = request.POST.get("postal_code", addr.postal_code).strip()
-        place_id = request.POST.get("place_id", addr.place_id).strip()
-        complement = request.POST.get("complement", "").strip()
-        delivery_instructions = request.POST.get("delivery_instructions", "").strip()
+        result = interpret_address_update(request, addr)
+        intent = result.intent
+        if not intent:
+            return HttpResponse("Dados inválidos.", status=400)
 
-        if not formatted_address:
-            parts = []
-            if route:
-                parts.append(route)
-            if street_number:
-                parts.append(street_number)
-            if neighborhood:
-                parts.append(f"- {neighborhood}")
-            if city:
-                parts.append(f"- {city}")
-            formatted_address = " ".join(parts) if parts else ""
-
-        coordinates = _parse_coordinates(request.POST)
-        update_fields = {
-            "label": label,
-            "label_custom": label_custom,
-            "formatted_address": formatted_address,
-            "route": route,
-            "street_number": street_number,
-            "neighborhood": neighborhood,
-            "city": city,
-            "state_code": state_code,
-            "postal_code": postal_code,
-            "complement": complement,
-            "delivery_instructions": delivery_instructions,
-            "place_id": place_id,
+        update_fields: dict = {
+            "label": intent.label,
+            "label_custom": intent.label_custom,
+            "formatted_address": intent.formatted_address,
+            "route": intent.route,
+            "street_number": intent.street_number,
+            "neighborhood": intent.neighborhood,
+            "city": intent.city,
+            "state_code": intent.state_code,
+            "postal_code": intent.postal_code,
+            "complement": intent.complement,
+            "delivery_instructions": intent.delivery_instructions,
+            "place_id": intent.place_id,
         }
-        if coordinates is not None:
-            update_fields["latitude"] = coordinates[0]
-            update_fields["longitude"] = coordinates[1]
+        if intent.coordinates is not None:
+            update_fields["latitude"] = intent.coordinates[0]
+            update_fields["longitude"] = intent.coordinates[1]
             update_fields["is_verified"] = True
 
-        address_service.update_address(customer.ref, pk, **update_fields)
+        address_service.update_address(auth_customer.ref, pk, **update_fields)
 
-        addresses = _get_customer_addresses(customer.ref)
-        list_tmpl = "storefront/partials/address_list.html"
-        return render(request, list_tmpl, {
+        addresses = _get_customer_addresses(auth_customer.ref)
+        return render(request, "storefront/partials/address_list.html", {
             "addresses": addresses,
-            "customer": customer,
+            "customer": auth_customer,
         })
 
 
@@ -284,45 +218,28 @@ class ProfileUpdateView(View):
     """HTMX: update customer profile, return display partial."""
 
     def post(self, request: HttpRequest) -> HttpResponse:
+        from ..intents.account import interpret_profile_update
+
         customer = get_authenticated_customer(request)
         if not customer:
             return HttpResponse("Autenticação necessária.", status=401)
 
-        first_name = request.POST.get("first_name", "").strip()
-        last_name = request.POST.get("last_name", "").strip()
-        email = request.POST.get("email", "").strip()
-        birthday_raw = request.POST.get("birthday", "").strip()
-
-        errors = {}
-        if not first_name:
-            errors["first_name"] = "Nome é obrigatório."
-        if errors:
-            form_tmpl = "storefront/partials/profile_form.html"
-            return render(request, form_tmpl, {
+        result = interpret_profile_update(request)
+        if not result.intent:
+            return render(request, "storefront/partials/profile_form.html", {
                 "customer": customer,
-                "errors": errors,
+                "errors": result.errors,
             })
 
-        if birthday_raw:
-            from datetime import date as date_type
-
-            try:
-                birthday = date_type.fromisoformat(birthday_raw)
-            except ValueError:
-                birthday = customer.birthday
-        else:
-            birthday = None
-
+        intent = result.intent
         customer = customer_service.update(
             customer.ref,
-            first_name=first_name,
-            last_name=last_name,
-            email=email,
-            birthday=birthday,
+            first_name=intent.first_name,
+            last_name=intent.last_name,
+            email=intent.email,
+            birthday=intent.birthday,
         )
-
-        display_tmpl = "storefront/partials/profile_display.html"
-        return render(request, display_tmpl, {"customer": customer})
+        return render(request, "storefront/partials/profile_display.html", {"customer": customer})
 
 
 class AddressLabelUpdateView(View):

@@ -1,8 +1,9 @@
-"""Checkout intent types."""
+"""Intent types for storefront POST views."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date as date_type
 
 
 @dataclass(frozen=True)
@@ -30,6 +31,46 @@ class CheckoutIntent:
     stock_check_unavailable: bool
     idempotency_key: str
     checkout_data: dict              # assembled for services.checkout.process()
+
+
+@dataclass(frozen=True)
+class ProfileUpdateIntent:
+    first_name: str
+    last_name: str
+    email: str
+    birthday: date_type | None
+
+
+@dataclass(frozen=True)
+class AddressIntent:
+    label: str
+    label_custom: str
+    formatted_address: str
+    route: str
+    street_number: str
+    neighborhood: str
+    city: str
+    state_code: str
+    postal_code: str
+    complement: str
+    delivery_instructions: str
+    place_id: str | None
+    is_default: bool
+    coordinates: tuple[float, float] | None
+    is_verified: bool
+
+
+@dataclass
+class ProfileUpdateResult:
+    intent: ProfileUpdateIntent | None
+    errors: dict[str, str]
+
+
+@dataclass
+class AddressIntentResult:
+    intent: AddressIntent | None
+    errors: dict[str, str]
+    form_data: dict
 
 
 @dataclass
