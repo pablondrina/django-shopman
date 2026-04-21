@@ -5,13 +5,9 @@ from urllib.parse import quote, urlparse
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.views import View
-from shopman.offerman.models import Product
 
 from ..cart import CartService, CartUnavailableError
-from ._helpers import (
-    _get_price_q,
-    _line_item_is_d1,
-)
+from ..intents.cart import interpret_add_to_cart, interpret_set_qty
 
 
 def _picker_origin(request: HttpRequest) -> str:
@@ -57,20 +53,20 @@ class AddToCartView(View):
         if qty < 1:
             qty = 1
 
-        product = Product.objects.filter(sku=sku, is_published=True).first()
-        if not product:
+        result = interpret_add_to_cart(sku, qty, picker_origin=_picker_origin(request))
+        if result.error_type == "not_found":
             return HttpResponse("", status=404)
-
-        if not product.is_sellable:
+        if result.error_type == "not_sellable":
+            ctx = result.error_context
             response = render(request, "storefront/partials/stock_error_modal.html", {
                 "error_variant": "paused",
-                "sku": sku,
-                "product_name": product.name,
-                "product_image_url": getattr(product, "image_url", None) or "",
-                "requested_qty": qty,
+                "sku": ctx["product"].sku,
+                "product_name": ctx["product"].name,
+                "product_image_url": getattr(ctx["product"], "image_url", None) or "",
+                "requested_qty": ctx["qty"],
                 "available_qty": 0,
                 "substitutes": [],
-                "picker_origin": _picker_origin(request),
+                "picker_origin": ctx["picker_origin"],
             })
             response["HX-Retarget"] = "#stock-error-modal"
             response["HX-Reswap"] = "innerHTML"
@@ -78,25 +74,22 @@ class AddToCartView(View):
             response.status_code = 422
             return response
 
-        price_q = _get_price_q(product)
-        if price_q is None:
-            price_q = 0
-
+        intent = result.intent
         try:
             CartService.add_item(
                 request,
-                sku=sku,
-                qty=qty,
-                unit_price_q=price_q,
-                is_d1=_line_item_is_d1(product),
+                sku=intent.sku,
+                qty=intent.qty,
+                unit_price_q=intent.unit_price_q,
+                is_d1=intent.is_d1,
             )
         except CartUnavailableError as exc:
-            return _stock_error_response(request, product, exc)
+            return _stock_error_response(request, intent.product, exc)
 
         cart = CartService.get_cart(request)
         response = render(request, "storefront/partials/cart_summary.html", {"cart": cart})
         response["HX-Trigger"] = "cartUpdated"
-        response["X-Cart-Item-Name"] = quote(product.name, safe="")
+        response["X-Cart-Item-Name"] = quote(intent.product.name, safe="")
         return response
 
 
@@ -182,31 +175,28 @@ class QuickAddView(View):
         if qty < 1:
             qty = 1
 
-        product = Product.objects.filter(sku=sku, is_published=True).first()
-        if not product:
+        result = interpret_add_to_cart(sku, qty)
+        if result.error_type == "not_found":
             return HttpResponse("", status=404)
-        if not product.is_sellable:
+        if result.error_type == "not_sellable":
             return HttpResponse("", status=409)
 
-        price_q = _get_price_q(product)
-        if price_q is None:
-            price_q = 0
-
+        intent = result.intent
         try:
             CartService.add_item(
                 request,
-                sku=sku,
-                qty=qty,
-                unit_price_q=price_q,
-                is_d1=_line_item_is_d1(product),
+                sku=intent.sku,
+                qty=intent.qty,
+                unit_price_q=intent.unit_price_q,
+                is_d1=intent.is_d1,
             )
         except CartUnavailableError as exc:
-            return _stock_error_response(request, product, exc)
+            return _stock_error_response(request, intent.product, exc)
 
         cart = CartService.get_cart(request)
         response = render(request, "storefront/partials/cart_summary.html", {"cart": cart})
         response["HX-Trigger"] = "cartUpdated"
-        response["X-Cart-Item-Name"] = quote(product.name, safe="")
+        response["X-Cart-Item-Name"] = quote(intent.product.name, safe="")
         return response
 
 
@@ -235,39 +225,33 @@ class CartSetQtyBySkuView(View):
         if qty < 0:
             qty = 0
 
-        product = Product.objects.filter(sku=sku, is_published=True).first()
-        if not product:
+        cart = CartService.get_cart(request)
+        result = interpret_set_qty(sku, qty, cart)
+        if result.error_type == "not_found":
             return HttpResponse("", status=404)
 
-        # Resolve any existing cart line for this SKU.
-        cart = CartService.get_cart(request)
-        line = next(
-            (item for item in cart.get("items") or [] if item.get("sku") == sku),
-            None,
-        )
-
+        intent = result.intent
         try:
-            if qty == 0:
-                if line is not None:
-                    CartService.remove_item(request, line_id=line["line_id"])
-            elif line is not None:
-                CartService.update_qty(request, line_id=line["line_id"], qty=qty)
+            if intent.action == "remove":
+                if intent.line_id is not None:
+                    CartService.remove_item(request, line_id=intent.line_id)
+            elif intent.action == "update":
+                CartService.update_qty(request, line_id=intent.line_id, qty=intent.qty)
             else:
-                price_q = _get_price_q(product) or 0
                 CartService.add_item(
                     request,
-                    sku=sku,
-                    qty=qty,
-                    unit_price_q=price_q,
-                    is_d1=_line_item_is_d1(product),
+                    sku=intent.sku,
+                    qty=intent.qty,
+                    unit_price_q=intent.unit_price_q,
+                    is_d1=intent.is_d1,
                 )
         except CartUnavailableError as exc:
-            return _stock_error_response(request, product, exc)
+            return _stock_error_response(request, intent.product, exc)
 
         cart = CartService.get_cart(request)
         response = render(request, "storefront/partials/cart_summary.html", {"cart": cart})
         response["HX-Trigger"] = "cartUpdated"
-        response["X-Cart-Item-Name"] = quote(product.name, safe="")
+        response["X-Cart-Item-Name"] = quote(intent.product.name, safe="")
         return response
 
 

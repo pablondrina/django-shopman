@@ -1,8 +1,47 @@
-"""Checkout intent types."""
+"""Storefront intent types."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+
+@dataclass
+class AddToCartIntent:
+    """Domain data for adding one SKU to the cart."""
+
+    sku: str
+    qty: int
+    unit_price_q: int
+    is_d1: bool
+    picker_origin: str
+    product: object  # Product instance — carried for error-modal rendering
+
+
+@dataclass
+class SetQtyIntent:
+    """Domain data for setting an absolute quantity for one SKU."""
+
+    sku: str
+    qty: int
+    action: str          # "add" | "update" | "remove"
+    line_id: str | None  # for "update" / "remove"
+    unit_price_q: int    # for "add"
+    is_d1: bool          # for "add"
+    product: object      # Product instance — carried for error-modal rendering
+
+
+@dataclass
+class CartIntentResult:
+    """Result of a cart interpret function.
+
+    On success: ``intent`` is set, ``error_type`` is None.
+    On failure: ``intent`` is None, ``error_type`` names the failure,
+    ``error_context`` carries context for the view to render the response.
+    """
+
+    intent: object | None
+    error_type: str | None   # "not_found" | "not_sellable"
+    error_context: dict
 
 
 @dataclass(frozen=True)
