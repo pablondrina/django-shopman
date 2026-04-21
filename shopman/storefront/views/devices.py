@@ -16,7 +16,7 @@ from django.views import View
 
 from ..constants import HAS_AUTH
 
-logger = logging.getLogger("shopman.shop.web.devices")
+logger = logging.getLogger("shopman.storefront.views.devices")
 
 
 def _geolocate_ip(ip: str) -> str:

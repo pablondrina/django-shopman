@@ -10,7 +10,7 @@ model instances.
 Substitutos NÃO pertencem à PDP (AVAILABILITY-PLAN §5) — só aparecem no
 modal de erro de estoque. Por isso este projection não os carrega.
 
-Never imports from ``shopman.shop.web.*``.
+Never imports from ``shopman.storefront.views.*``.
 """
 
 from __future__ import annotations

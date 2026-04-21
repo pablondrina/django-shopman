@@ -11,7 +11,7 @@ from shopman.utils.phone import normalize_phone
 
 from ..constants import HAS_AUTH
 
-logger = logging.getLogger("shopman.shop.web.auth")
+logger = logging.getLogger("shopman.storefront.views.auth")
 
 
 def get_authenticated_customer(request: HttpRequest):

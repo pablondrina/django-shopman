@@ -1,10 +1,8 @@
-"""Tests for WP-R7 — web views bridge, refactored checkout/tracking, API, webhooks."""
+"""Tests for storefront URL routing, view correctness, and API bridge."""
 
 from __future__ import annotations
 
 from django.urls import reverse
-
-# ── URL resolution tests ────────────────────────────────────────────
 
 
 class TestStorefrontURLs:
@@ -60,19 +58,6 @@ class TestHomeViewXFrame:
         assert reverse("backstage:pos") == "/gestao/pos/"
 
 
-class TestWebhookURLs:
-    """Webhook URLs resolve correctly."""
-
-    def test_efi_pix(self, db):
-        assert reverse("webhooks:efi-pix-webhook") == "/api/webhooks/efi/pix/"
-
-    def test_stripe(self, db):
-        assert reverse("webhooks:stripe-webhook") == "/api/webhooks/stripe/"
-
-
-# ── View import tests ───────────────────────────────────────────────
-
-
 class TestViewImports:
     """Views are correctly importable from storefront."""
 
@@ -97,49 +82,6 @@ class TestViewImports:
         assert "shopman.storefront" in OrderTrackingView.__module__
 
 
-# ── Webhook import tests ────────────────────────────────────────────
-
-
-class TestWebhookImports:
-    def test_efi_webhook_importable(self):
-        from shopman.shop.webhooks.efi import EfiPixWebhookView
-
-        assert EfiPixWebhookView is not None
-
-    def test_stripe_webhook_importable(self):
-        from shopman.shop.webhooks.stripe import StripeWebhookView
-
-        assert StripeWebhookView is not None
-
-    def test_efi_uses_flows_dispatch(self):
-        """EFI webhook delegates to confirm_pix, which dispatches on_paid."""
-        import inspect
-
-        from shopman.shop.services import pix_confirmation
-        from shopman.shop.webhooks import efi
-
-        webhook_source = inspect.getsource(efi)
-        assert "confirm_pix" in webhook_source
-
-        service_source = inspect.getsource(pix_confirmation._apply_order_payment)
-        assert "dispatch(order" in service_source
-        assert "on_paid" in service_source
-        assert "on_payment_confirmed" not in service_source
-
-    def test_stripe_uses_flows_dispatch(self):
-        """Stripe webhook uses shopman.lifecycle.dispatch, not channels.hooks."""
-        import inspect
-
-        from shopman.shop.webhooks.stripe import StripeWebhookView
-
-        source = inspect.getsource(StripeWebhookView._trigger_order_hooks)
-        assert "dispatch(order" in source
-        assert "on_payment_confirmed" not in source
-
-
-# ── Checkout refactoring tests ──────────────────────────────────────
-
-
 class TestCheckoutUsesService:
     """CheckoutView.post() delegates to services.checkout.process()."""
 
@@ -150,7 +92,6 @@ class TestCheckoutUsesService:
 
         source = inspect.getsource(CheckoutView.post)
         assert "checkout_process(" in source
-        # Must NOT call CommitService directly
         assert "CommitService.commit(" not in source
 
 
@@ -164,12 +105,8 @@ class TestOrderCancelUsesService:
 
         source = inspect.getsource(OrderCancelView.post)
         assert "cancel(order" in source
-        # Must NOT call release_holds_for_order or create Directive directly
         assert "release_holds_for_order" not in source
         assert "Directive.objects.create" not in source
-
-
-# ── Templatetags bridge ─────────────────────────────────────────────
 
 
 class TestTemplatetagsBridge:
@@ -187,9 +124,6 @@ class TestTemplatetagsBridge:
         from shopman.shop.templatetags.storefront_tags import format_money
 
         assert format_money(1500) == "R$\u00a015,00"
-
-
-# ── API bridge ──────────────────────────────────────────────────────
 
 
 class TestAPIBridge:

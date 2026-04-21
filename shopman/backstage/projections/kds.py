@@ -2,9 +2,9 @@
 
 Translates KDS instances, tickets, and expedition orders into immutable
 projections. Replaces the inline ``_enrich_ticket`` / ``_enrich_expedition_order``
-logic from ``shopman.shop.web.views.kds``.
+logic from ``shopman.backstage.views.kds``.
 
-Never imports from ``shopman.shop.web.views.*``.
+Never imports from ``shopman.backstage.views.*``.
 """
 
 from __future__ import annotations

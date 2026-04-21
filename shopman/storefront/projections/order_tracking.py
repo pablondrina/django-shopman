@@ -5,11 +5,11 @@ Translates an Order + its events/fulfillments into two immutable projections:
 ``build_order_tracking``        → full tracking page.
 ``build_order_tracking_status`` → HTMX polling partial (status badge + timeline).
 
-Mirrors the logic in ``shopman.shop.web.views.tracking._build_tracking_context``
+Mirrors the logic in ``shopman.storefront.views.tracking._build_tracking_context``
 but shaped into frozen dataclasses and using Penguin UI semantic colour tokens
 instead of raw Tailwind classes.
 
-Never imports from ``shopman.shop.web.views.*``.
+Never imports from ``shopman.storefront.views.*``.
 """
 
 from __future__ import annotations

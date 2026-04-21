@@ -2,9 +2,9 @@
 
 Translates saleable stock, product classifications, and closing history into
 immutable projections. Replaces the inline ``_build_items`` / ``_has_old_d1_stock``
-logic from ``shopman.shop.web.views.closing``.
+logic from ``shopman.backstage.views.closing``.
 
-Never imports from ``shopman.shop.web.views.*``.
+Never imports from ``shopman.backstage.views.*``.
 """
 
 from __future__ import annotations

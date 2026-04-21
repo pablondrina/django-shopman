@@ -6,7 +6,7 @@ payment methods, pickup slots, and shop config. It does NOT carry transient
 form state (errors, POST values) — those travel separately in the view
 context so the projection remains a stable read model.
 
-Never imports from ``shopman.shop.web.views.*``.
+Never imports from ``shopman.storefront.views.*``.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""WP-S6 — Flow Review: alinhamento storefront vs regras e fumaça de cancelamento."""
+"""Tests for shop status helpers (storefront display layer)."""
 
 from __future__ import annotations
 

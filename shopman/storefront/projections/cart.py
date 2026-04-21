@@ -10,10 +10,8 @@ Higher-order context — minimum order progress and the upsell suggestion
 — comes from ``services.storefront_context`` so v1 and v2 surfaces agree
 on exactly the same guidance.
 
-Never imports from ``shopman.shop.web.views.*``. The single import from
-``shopman.shop.web.cart`` pulls ``CartService``, which is a service in
-all but filename — it lives under ``web/`` for historical reasons and
-has no view dependencies.
+Never imports from ``shopman.storefront.views.*``. Imports ``CartService``
+from ``shopman.storefront.cart`` — a service with no view dependencies.
 """
 
 from __future__ import annotations
