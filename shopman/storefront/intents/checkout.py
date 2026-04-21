@@ -15,9 +15,8 @@ from datetime import timedelta
 from django.utils import timezone
 
 from shopman.orderman.ids import generate_idempotency_key
-from shopman.utils.phone import normalize_phone
 
-from ..constants import get_default_ddd
+from ._phone import normalize_phone_input as _try_normalize_phone
 from .types import CheckoutIntent, IntentResult
 
 logger = logging.getLogger(__name__)
@@ -322,25 +321,6 @@ def _build_form_data(
         "addr_formatted_address": addr_data.get("formatted_address", ""),
         "addr_place_id": addr_data.get("place_id", ""),
     }
-
-
-# ── Phone helpers ─────────────────────────────────────────────────────────────
-
-
-def _try_normalize_phone(phone_raw: str) -> str:
-    """Normalize phone, adding default DDD for 8-9 digit numbers."""
-    if not phone_raw:
-        return ""
-    try:
-        phone = normalize_phone(phone_raw)
-        if not phone:
-            digits = "".join(c for c in phone_raw if c.isdigit())
-            if 8 <= len(digits) <= 9:
-                phone = normalize_phone(f"{get_default_ddd()}{digits}")
-        return phone or ""
-    except (ValueError, TypeError):
-        logger.exception("phone_normalization_failed")
-        return ""
 
 
 # ── Address helpers ───────────────────────────────────────────────────────────

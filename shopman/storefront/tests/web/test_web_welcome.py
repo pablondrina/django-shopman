@@ -20,7 +20,7 @@ from django.contrib.auth.models import User
 from django.test import Client
 from shopman.guestman.models import Customer
 
-from shopman.storefront.views.welcome import clean_display_name, needs_confirmation
+from shopman.storefront.intents.auth import clean_display_name, needs_confirmation
 
 pytestmark = pytest.mark.django_db
 
