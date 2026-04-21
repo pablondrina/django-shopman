@@ -177,7 +177,7 @@ class TestCheckoutPost:
         _login_as_customer(cart_session, customer)
 
         with patch(
-            "shopman.storefront.views.checkout._get_availability",
+            "shopman.storefront.views._helpers._get_availability",
             return_value={
                 "breakdown": {"ready": 0, "in_production": 1, "d1": 0},
             },

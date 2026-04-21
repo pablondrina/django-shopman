@@ -167,14 +167,13 @@ class StockCheckDegradationTests(TestCase):
 
     def test_all_unavailable_returns_service_down_flag(self) -> None:
         """When every _get_availability returns None → service_unavailable=True."""
-        from shopman.storefront.views.checkout import CheckoutView
+        from shopman.storefront.intents.checkout import _check_cart_stock
 
-        view = CheckoutView()
         cart = self._make_cart()
         request = self._make_request()
 
-        with patch("shopman.storefront.views.checkout._get_availability", return_value=None):
-            errors, service_unavailable = view._check_cart_stock(request, cart)
+        with patch("shopman.storefront.views._helpers._get_availability", return_value=None):
+            errors, service_unavailable = _check_cart_stock(request, cart)
 
         self.assertTrue(service_unavailable)
         self.assertEqual(errors, [])
@@ -182,10 +181,8 @@ class StockCheckDegradationTests(TestCase):
     def test_partial_unavailable_not_flagged_as_service_down(self) -> None:
         """When only some items fail → service_unavailable=False (partial degradation)."""
         from decimal import Decimal
+        from shopman.storefront.intents.checkout import _check_cart_stock
 
-        from shopman.storefront.views.checkout import CheckoutView
-
-        view = CheckoutView()
         cart = self._make_cart(skus=("SKU-A", "SKU-B"))
         request = self._make_request()
 
@@ -194,34 +191,31 @@ class StockCheckDegradationTests(TestCase):
         def _avail(sku, **kwargs):
             return avail_ok if sku == "SKU-A" else None
 
-        with patch("shopman.storefront.views.checkout._get_availability", side_effect=_avail):
-            errors, service_unavailable = view._check_cart_stock(request, cart)
+        with patch("shopman.storefront.views._helpers._get_availability", side_effect=_avail):
+            errors, service_unavailable = _check_cart_stock(request, cart)
 
         self.assertFalse(service_unavailable)
 
     def test_empty_cart_returns_no_service_down(self) -> None:
         """Empty cart → ([], False)."""
-        from shopman.storefront.views.checkout import CheckoutView
+        from shopman.storefront.intents.checkout import _check_cart_stock
 
-        view = CheckoutView()
         request = self._make_request()
-        errors, service_unavailable = view._check_cart_stock(request, {"items": []})
+        errors, service_unavailable = _check_cart_stock(request, {"items": []})
         self.assertFalse(service_unavailable)
         self.assertEqual(errors, [])
 
     def test_stock_available_no_errors_no_flag(self) -> None:
         """Normal stock → ([], False)."""
         from decimal import Decimal
+        from shopman.storefront.intents.checkout import _check_cart_stock
 
-        from shopman.storefront.views.checkout import CheckoutView
-
-        view = CheckoutView()
         cart = self._make_cart(skus=("SKU-C",))
         request = self._make_request()
         avail = {"total_promisable": Decimal("5"), "breakdown": {"ready": Decimal("5"), "in_production": Decimal("0"), "d1": Decimal("0")}}
 
-        with patch("shopman.storefront.views.checkout._get_availability", return_value=avail):
-            errors, service_unavailable = view._check_cart_stock(request, cart)
+        with patch("shopman.storefront.views._helpers._get_availability", return_value=avail):
+            errors, service_unavailable = _check_cart_stock(request, cart)
 
         self.assertFalse(service_unavailable)
         self.assertEqual(errors, [])
