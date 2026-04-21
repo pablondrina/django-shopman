@@ -1,0 +1,23 @@
+{% comment %}
+  ── Urgency Badge: slim banner shown sitewide when shop is closing within 1h.
+  Driven server-side by omotenashi_ctx.moment == "fechando".
+  Alpine handles dismiss; the animated dot signals time pressure.
+{% endcomment %}
+{% if omotenashi_ctx.moment == "fechando" %}
+<div x-data="{ show: true }" x-show="show" x-transition
+     role="status" aria-live="polite"
+     class="relative flex items-center justify-center gap-2 bg-warning/10 border-b border-warning/25 px-4 py-2">
+  <span class="relative inline-flex size-2 shrink-0" aria-hidden="true">
+    <span class="absolute inline-flex h-full w-full motion-safe:animate-ping rounded-full bg-warning opacity-75"></span>
+    <span class="relative inline-flex size-2 rounded-full bg-warning"></span>
+  </span>
+  <p class="text-xs sm:text-sm font-medium text-warning">Últimos pedidos — fechamos em breve</p>
+  <button @click="show = false"
+          class="absolute right-4 top-1/2 -translate-y-1/2 text-warning/60 hover:text-warning transition-colors"
+          aria-label="Dispensar aviso">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="2.5" class="size-4">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+    </svg>
+  </button>
+</div>
+{% endif %}

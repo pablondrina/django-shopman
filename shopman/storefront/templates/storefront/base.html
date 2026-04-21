@@ -175,6 +175,9 @@
     </ul>
   </nav>
 
+  {# Urgency badge — shown sitewide when closing within 1h (moment=fechando) #}
+  {% include "storefront/partials/urgency_badge.html" %}
+
   {# HTMX global loading indicator #}
   <div class="htmx-indicator fixed top-0 left-0 right-0 h-0.5 z-[60] bg-primary dark:bg-primary-dark"></div>
 

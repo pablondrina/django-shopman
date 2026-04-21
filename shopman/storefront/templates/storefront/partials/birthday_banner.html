@@ -1,0 +1,27 @@
+{% comment %}
+  ── Birthday Banner: warm greeting shown on the customer's birthday.
+  Driven server-side by omotenashi_ctx.is_birthday and customer_name.
+  Alpine handles dismiss.
+{% endcomment %}
+{% if omotenashi_ctx.is_birthday and omotenashi_ctx.customer_name %}
+<div x-data="{ show: true }" x-show="show" x-transition
+     role="status" aria-live="polite"
+     class="relative flex items-start gap-3 border border-success/25 bg-success/10 rounded-radius p-4 max-w-2xl mx-auto mb-6">
+  <div class="rounded-full bg-success/15 p-1.5 text-success shrink-0" aria-hidden="true">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5">
+      <path fill-rule="evenodd" d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813A3.75 3.75 0 0 0 7.466 7.89l.813-2.846A.75.75 0 0 1 9 4.5Zm9-3a.75.75 0 0 1 .728.568l.258 1.036a2.625 2.625 0 0 0 1.91 1.91l1.036.258a.75.75 0 0 1 0 1.456l-1.036.258a2.625 2.625 0 0 0-1.91 1.91l-.258 1.036a.75.75 0 0 1-1.456 0l-.258-1.036a2.625 2.625 0 0 0-1.91-1.91l-1.036-.258a.75.75 0 0 1 0-1.456l1.036-.258a2.625 2.625 0 0 0 1.91-1.91l.258-1.036A.75.75 0 0 1 18 1.5Z" clip-rule="evenodd" />
+    </svg>
+  </div>
+  <div class="flex-1 min-w-0">
+    <p class="text-sm font-semibold text-success">Feliz aniversário, {{ omotenashi_ctx.customer_name }}!</p>
+    <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 mt-0.5">Que o seu dia seja especial. Aqui está tudo pronto para você.</p>
+  </div>
+  <button @click="show = false"
+          class="shrink-0 text-on-surface/40 dark:text-on-surface-dark/40 hover:text-on-surface dark:hover:text-on-surface-dark transition-colors"
+          aria-label="Dispensar">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="2.5" class="size-4">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+    </svg>
+  </button>
+</div>
+{% endif %}
