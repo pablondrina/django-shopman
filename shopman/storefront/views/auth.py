@@ -10,6 +10,12 @@ from django_ratelimit.decorators import ratelimit
 from shopman.utils.phone import normalize_phone
 
 from ..constants import HAS_AUTH
+from ..intents.auth import (
+    interpret_device_check_login,
+    interpret_login,
+    interpret_request_code,
+    interpret_verify_code,
+)
 
 logger = logging.getLogger("shopman.storefront.views.auth")
 
@@ -27,27 +33,6 @@ def get_authenticated_customer(request: HttpRequest):
     from shopman.guestman.services import customer as customer_service
 
     return customer_service.get_by_uuid(customer_info.uuid)
-
-
-def _normalize_phone_with_ddd(phone_raw: str) -> str:
-    """
-    Normalize phone to E.164 via libphonenumber.
-
-    Single fallback: if input has 8-9 digits (no DDD), prepend the shop's default DDD.
-    Everything else is handled by normalize_phone / libphonenumber — no heuristics.
-    """
-    from ..constants import get_default_ddd
-
-    phone = normalize_phone(phone_raw)
-    if phone:
-        return phone
-
-    # Only fallback: short number without DDD
-    digits = "".join(c for c in phone_raw if c.isdigit())
-    if 8 <= len(digits) <= 9:
-        return normalize_phone(f"{get_default_ddd()}{digits}")
-
-    return ""
 
 
 class LoginView(View):
@@ -96,53 +81,40 @@ class LoginView(View):
         })
 
     def post(self, request: HttpRequest) -> HttpResponse:
-        next_url = request.GET.get("next", request.POST.get("next", ""))
         step = request.POST.get("step", "phone")
 
         if step == "phone":
-            return self._handle_phone(request, next_url)
+            return self._handle_phone(request)
         elif step == "name":
-            return self._handle_name(request, next_url)
+            return self._handle_name(request)
 
         return redirect("storefront:login")
 
-    def _handle_phone(self, request, next_url):
-        phone_raw = request.POST.get("phone", "").strip()
-        delivery_method = request.POST.get("delivery_method", "whatsapp")
-        if delivery_method not in ("whatsapp", "sms"):
-            delivery_method = "whatsapp"
+    def _handle_phone(self, request):
+        result = interpret_login(request)
+        next_url = result.form_data.get("next", "")
 
-        if not phone_raw:
+        if result.intent is None:
+            error = list(result.errors.values())[0] if result.errors else ""
             return render(request, "storefront/login.html", {
                 "step": "phone",
-                "error": "Telefone é obrigatório.",
+                "error": error,
+                "phone_value": result.form_data.get("phone", ""),
                 "next": next_url,
             })
 
-        try:
-            phone = _normalize_phone_with_ddd(phone_raw)
-        except Exception:
-            logger.exception("Phone normalization failed for raw input")
-            phone = ""
+        intent = result.intent
+        phone = intent.phone
+        delivery_method = intent.delivery_method
 
-        if not phone:
-            return render(request, "storefront/login.html", {
-                "step": "phone",
-                "error": "Telefone inválido. Informe com DDD, ex: (43) 99999-9999",
-                "phone_value": phone_raw,
-                "next": next_url,
-            })
-
-        # Check if customer exists
         from shopman.guestman.services import customer as customer_service
 
         customer = customer_service.get_by_phone(phone)
 
-        # Send OTP code
         if HAS_AUTH:
             from shopman.doorman.services.verification import AuthService
 
-            result = AuthService.request_code(
+            auth_result = AuthService.request_code(
                 target_value=phone,
                 purpose="login",
                 delivery_method=delivery_method,
@@ -150,25 +122,24 @@ class LoginView(View):
             )
 
             # WhatsApp failed → auto-fallback to SMS
-            if not result.success and delivery_method == "whatsapp":
+            if not auth_result.success and delivery_method == "whatsapp":
                 logger.info("WhatsApp delivery failed for %s, falling back to SMS", phone)
                 delivery_method = "sms"
-                result = AuthService.request_code(
+                auth_result = AuthService.request_code(
                     target_value=phone,
                     purpose="login",
                     delivery_method="sms",
                     ip_address=request.META.get("REMOTE_ADDR"),
                 )
 
-            if not result.success:
+            if not auth_result.success:
                 return render(request, "storefront/login.html", {
                     "step": "phone",
                     "error": "Não foi possível enviar o código. Verifique o número e tente novamente.",
-                    "phone_value": phone_raw,
+                    "phone_value": result.form_data.get("phone", ""),
                     "next": next_url,
                 })
 
-        # Store phone in session for post-login name step
         request.session["login_phone"] = phone
 
         return render(request, "storefront/login.html", {
@@ -179,28 +150,30 @@ class LoginView(View):
             "next": next_url,
         })
 
-    def _handle_name(self, request, next_url):
-        """After OTP for new customers: save name and redirect."""
-        phone = request.session.get("login_phone", "")
-        name = request.POST.get("name", "").strip()
+    def _handle_name(self, request):
+        result = interpret_login(request)
+        next_url = result.form_data.get("next", "")
 
-        if not name:
+        if result.intent is None:
+            error = list(result.errors.values())[0] if result.errors else ""
+            phone = request.session.get("login_phone", "")
             return render(request, "storefront/login.html", {
                 "step": "name",
                 "phone_value": phone,
-                "error": "Nome é obrigatório.",
+                "error": error,
                 "next": next_url,
             })
 
-        # Update customer name
+        intent = result.intent
+        phone = request.session.get("login_phone", "")
+
         from shopman.guestman.services import customer as customer_service
 
         customer_obj = customer_service.get_by_phone(phone)
         if customer_obj and not customer_obj.first_name:
-            customer_obj.first_name = name
+            customer_obj.first_name = intent.name
             customer_obj.save(update_fields=["first_name"])
 
-        # Clean up session
         request.session.pop("login_phone", None)
 
         return redirect(next_url or "/")
@@ -273,31 +246,25 @@ class RequestCodeView(View):
         if getattr(request, "limited", False):
             return render(request, "storefront/partials/rate_limited.html", status=429)
 
-        phone_raw = request.POST.get("phone", "").strip()
-        if not phone_raw:
+        result = interpret_request_code(request)
+        if result.intent is None:
+            error_msg = list(result.errors.values())[0] if result.errors else "Telefone inválido."
             return render(request, "storefront/partials/auth_error.html", {
-                "error_message": "Telefone não informado.",
+                "error_message": error_msg,
             })
 
-        try:
-            phone = normalize_phone(phone_raw)
-        except Exception:
-            logger.exception("Phone normalization failed in RequestCodeView for raw input")
-            return render(request, "storefront/partials/auth_error.html", {
-                "error_message": "Telefone inválido.",
-            })
+        phone = result.intent.phone
 
         from shopman.doorman.services.verification import AuthService
 
-        ip = request.META.get("REMOTE_ADDR")
-        result = AuthService.request_code(
+        auth_result = AuthService.request_code(
             target_value=phone,
             purpose="login",
             delivery_method="whatsapp",
-            ip_address=ip,
+            ip_address=request.META.get("REMOTE_ADDR"),
         )
 
-        if not result.success:
+        if not auth_result.success:
             _send_translations = {
                 "Too many attempts. Please wait a few minutes.": "Muitas tentativas. Aguarde alguns minutos.",
                 "Please wait before requesting a new code.": "Aguarde antes de solicitar um novo código.",
@@ -305,7 +272,7 @@ class RequestCodeView(View):
                 "Failed to send code.": "Falha ao enviar código.",
                 "Error sending code.": "Erro ao enviar código.",
             }
-            raw = result.error or ""
+            raw = auth_result.error or ""
             error_msg = _send_translations.get(raw, raw) or "Erro ao enviar código."
             return render(request, "storefront/partials/auth_error.html", {
                 "error_message": error_msg,
@@ -329,42 +296,36 @@ class VerifyCodeView(View):
         if getattr(request, "limited", False):
             return render(request, "storefront/partials/rate_limited.html", status=429)
 
-        phone_raw = request.POST.get("phone", "").strip()
-        code_input = request.POST.get("code", "").strip()
-
-        if not phone_raw or not code_input:
+        result = interpret_verify_code(request)
+        if result.intent is None:
+            error_msg = list(result.errors.values())[0] if result.errors else "Código inválido."
+            phone = result.form_data.get("phone", "")
             return render(request, "storefront/partials/auth_error.html", {
-                "error_message": "Código não informado.",
-                "phone": phone_raw,
+                "error_message": error_msg,
+                "phone": phone,
             })
 
-        try:
-            phone = normalize_phone(phone_raw)
-        except Exception:
-            logger.exception("Phone normalization failed in VerifyCodeView for raw input")
-            return render(request, "storefront/partials/auth_error.html", {
-                "error_message": "Telefone inválido.",
-            })
+        phone = result.intent.phone
+        code_input = result.intent.code
 
         from shopman.doorman.services.verification import AuthService
 
-        result = AuthService.verify_for_login(
+        auth_result = AuthService.verify_for_login(
             target_value=phone,
             code_input=code_input,
             request=request,
         )
 
-        if not result.success:
-            # Translate Auth error messages to PT-BR
+        if not auth_result.success:
             _error_translations = {
                 "Incorrect code.": "Código incorreto.",
                 "Code expired. Please request a new one.": "Código expirado. Solicite um novo.",
                 "Account not found. Please contact support.": "Conta não encontrada.",
             }
-            raw_error = result.error or ""
+            raw_error = auth_result.error or ""
             error_msg = _error_translations.get(raw_error, raw_error) or "Código inválido."
-            if result.attempts_remaining is not None and result.attempts_remaining > 0:
-                error_msg += f" ({result.attempts_remaining} tentativa(s) restante(s))"
+            if auth_result.attempts_remaining is not None and auth_result.attempts_remaining > 0:
+                error_msg += f" ({auth_result.attempts_remaining} tentativa(s) restante(s))"
             return render(request, "storefront/partials/auth_verify_code.html", {
                 "phone": phone,
                 "error_message": error_msg,
@@ -380,7 +341,7 @@ class VerifyCodeView(View):
 
         DeviceTrustService.trust_device(
             response=response,
-            customer_id=result.customer.uuid,
+            customer_id=auth_result.customer.uuid,
             request=request,
         )
 
@@ -430,15 +391,11 @@ class DeviceCheckLoginView(View):
         if not HAS_AUTH:
             return JsonResponse({"trusted": False})
 
-        phone_raw = request.POST.get("phone", "").strip()
-        if not phone_raw:
+        result = interpret_device_check_login(request)
+        if result.intent is None:
             return JsonResponse({"trusted": False})
 
-        try:
-            phone = normalize_phone(phone_raw)
-        except Exception:
-            logger.exception("Phone normalization failed in device check for raw input")
-            return JsonResponse({"trusted": False})
+        phone = result.intent.phone
 
         from shopman.guestman.services import customer as customer_service
 
@@ -449,7 +406,6 @@ class DeviceCheckLoginView(View):
         from shopman.doorman.services.device_trust import DeviceTrustService
 
         if DeviceTrustService.check_device_trust(request, customer.uuid):
-            # Django login
             from django.contrib.auth import login
             from shopman.doorman.protocols.customer import AuthCustomerInfo
             from shopman.doorman.services._user_bridge import get_or_create_user_for_customer
