@@ -36,33 +36,18 @@
   </button>
 </div>
 
-<div class="mt-4 text-center">
-  <button type="button" id="resend-btn" disabled
+<div class="mt-4 text-center"
+     x-data="{ seconds: 60, done: false, init() { const iv = setInterval(() => { this.seconds--; if (this.seconds <= 0) { clearInterval(iv); this.done = true; } }, 1000); } }">
+  <button type="button"
+    disabled
+    :disabled="!done"
     hx-post="{% url 'storefront:request_code' %}"
     hx-target="#auth-section"
     hx-swap="innerHTML"
     hx-vals='{"phone": "{{ phone }}"}'
     hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
     class="text-sm text-on-surface/60 hover:text-on-surface disabled:opacity-50 disabled:cursor-not-allowed transition dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark">
-    Reenviar código (<span id="resend-timer">60</span>s)
+    <span x-show="!done">Reenviar código (<span x-text="seconds"></span>s)</span>
+    <span x-show="done" x-cloak>Reenviar código</span>
   </button>
 </div>
-
-<script>
-(function() {
-  var seconds = 60;
-  var timerEl = document.getElementById('resend-timer');
-  var btnEl = document.getElementById('resend-btn');
-  var interval = setInterval(function() {
-    seconds--;
-    if (timerEl) timerEl.textContent = seconds;
-    if (seconds <= 0) {
-      clearInterval(interval);
-      if (btnEl) {
-        btnEl.disabled = false;
-        btnEl.textContent = 'Reenviar c\u00f3digo';
-      }
-    }
-  }, 1000);
-})();
-</script>
