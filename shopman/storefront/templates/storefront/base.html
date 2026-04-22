@@ -137,7 +137,7 @@
           </li>
           <li class="border-t border-outline dark:border-outline-dark">
             <button type="button"
-                    x-on:click="document.getElementById('nav-logout-form').submit()"
+                    @click="$dispatch('nav:logout')"
                     class="block w-full text-left bg-surface-alt px-4 py-2 text-sm text-danger hover:bg-danger/5 focus-visible:bg-danger/10 focus-visible:outline-hidden dark:bg-surface-dark-alt dark:text-danger-dark dark:hover:bg-danger-dark/5 dark:focus-visible:bg-danger-dark/10">
               Sair
             </button>
@@ -258,7 +258,8 @@
 
   {# Logout form #}
   {% if request.user.is_authenticated %}
-  <form id="nav-logout-form" method="post" action="{% url 'doorman:logout' %}" class="hidden">{% csrf_token %}</form>
+  <form method="post" action="{% url 'doorman:logout' %}" class="hidden"
+        x-data @nav:logout.window="$el.submit()">{% csrf_token %}</form>
   {% endif %}
 
   {# Stock-error modal sentinel — populated by 422 responses with HX-Retarget #}

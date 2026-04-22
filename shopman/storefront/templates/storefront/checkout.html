@@ -181,7 +181,7 @@
               Editar nome
             </button>
             <button type="button"
-                    @click="document.getElementById('nav-logout-form').submit()"
+                    @click="$dispatch('nav:logout')"
                     title="Trocar conta" aria-label="Trocar conta"
                     class="shrink-0 flex h-8 w-8 items-center justify-center rounded-full text-on-surface/40 hover:bg-primary/10 hover:text-primary dark:text-on-surface-dark/40 dark:hover:bg-primary-dark/10 dark:hover:text-primary-dark focus:outline-hidden transition">
               <span class="material-symbols-rounded text-base" aria-hidden="true">autorenew</span>
