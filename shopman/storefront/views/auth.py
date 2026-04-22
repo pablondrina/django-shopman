@@ -81,8 +81,8 @@ class LoginView(View):
         trusted_name = ""
         if HAS_AUTH:
             try:
+                from shopman.doorman import TrustedDevice
                 from shopman.doorman.conf import doorman_settings
-                from shopman.doorman.models.device_trust import TrustedDevice
                 raw_token = request.COOKIES.get(doorman_settings.DEVICE_TRUST_COOKIE_NAME)
                 if raw_token:
                     device = TrustedDevice.verify_token(raw_token)
