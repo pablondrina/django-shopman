@@ -60,6 +60,20 @@ class ShopmanConfig(AppConfig):
                 register_ref_type(channel)
             except ValueError:
                 pass
+            order_ref = RefType(
+                slug="ORDER_REF",
+                label="Referência do Pedido",
+                allowed_targets=("orderman.Order",),
+                scope_keys=("channel_ref",),
+                unique_scope="all",
+                normalizer="upper_strip",
+                generator="alpha_numeric",
+                generator_format="{channel_ref}-{date:%d%m%y}-{code}",
+            )
+            try:
+                register_ref_type(order_ref)
+            except ValueError:
+                pass
         except ImportError:
             pass
 

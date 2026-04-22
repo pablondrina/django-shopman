@@ -317,7 +317,7 @@ class CommitService:
 
         # Create Order + OrderItems
         order = Order.objects.create(
-            ref=generate_order_ref(),
+            ref=generate_order_ref(channel_ref=channel_ref),
             channel_ref=channel_ref,
             session_key=session_key,
             handle_type=session.handle_type,

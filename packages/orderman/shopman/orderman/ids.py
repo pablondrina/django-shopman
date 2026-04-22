@@ -19,15 +19,24 @@ def _generate_id(prefix: str, length: int = 8) -> str:
     return f"{prefix}-{random_part}"
 
 
-def generate_order_ref() -> str:
-    """
-    Gera referência única para Order.
+def generate_order_ref(channel_ref: str = "ORD") -> str:
+    """Generate order ref via shopman.refs library.
 
-    Formato: ORD-YYYYMMDD-XXXXXXXX
+    Format: {CHANNEL_REF}-{DDMMYY}-{CODE} e.g. WEB-210426-AB09.
+    Falls back to ORD-YYYYMMDD-XXXXXXXX if the refs library is unavailable
+    (standalone orderman tests, fresh installs before ORDER_REF is registered).
     """
-    date_part = timezone.localdate().strftime("%Y%m%d")
-    random_part = "".join(secrets.choice(_SAFE_CHARS) for _ in range(8))
-    return f"ORD-{date_part}-{random_part}"
+    try:
+        from shopman.refs.generators import generate_value
+        scope = {
+            "channel_ref": channel_ref.upper(),
+            "business_date": timezone.localdate().isoformat(),
+        }
+        return generate_value("ORDER_REF", scope)
+    except (ImportError, LookupError):
+        date_part = timezone.localdate().strftime("%Y%m%d")
+        random_part = "".join(secrets.choice(_SAFE_CHARS) for _ in range(8))
+        return f"ORD-{date_part}-{random_part}"
 
 
 def generate_session_key() -> str:
