@@ -131,6 +131,7 @@ class CartProjection:
 
     delivery_fee_q: int | None
     delivery_fee_display: str | None
+    delivery_is_free: bool
     grand_total_q: int
     grand_total_display: str
 
@@ -235,6 +236,7 @@ def build_cart(
         ),
         delivery_fee_q=(int(delivery_fee_q) if delivery_fee_q is not None else None),
         delivery_fee_display=raw.get("delivery_fee_display"),
+        delivery_is_free=(delivery_fee_q is not None and int(delivery_fee_q) == 0),
         grand_total_q=grand_total_q,
         grand_total_display=_money(grand_total_q),
         coupon_code=coupon_code,
