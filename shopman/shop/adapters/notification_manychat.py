@@ -18,21 +18,23 @@ logger = logging.getLogger(__name__)
 MESSAGE_TEMPLATES: dict[str, str] = {
     "order_confirmed": (
         "Ola{customer_name_greeting}! Seu pedido {order_ref} foi confirmado."
-        " Total: {total}. Obrigado pela preferencia! \U0001f950"
+        " Total: {total}. Obrigado pela preferencia! \U0001f950{tracking_suffix}"
     ),
     "order_ready_pickup": (
         "Ola{customer_name_greeting}! Seu pedido {order_ref} esta pronto"
-        " para retirada! \U0001f389\n\nVenha buscar. Obrigado!"
+        " para retirada! \U0001f389\n\nVenha buscar. Obrigado!{tracking_suffix}"
     ),
     "order_ready_delivery": (
         "Ola{customer_name_greeting}! Seu pedido {order_ref} esta pronto"
-        " e sera enviado em breve! \U0001f4e6"
+        " e sera enviado em breve! \U0001f4e6{tracking_suffix}"
     ),
     "order_dispatched": (
         "Ola{customer_name_greeting}! Seu pedido {order_ref} saiu para"
-        " entrega! \U0001f697"
+        " entrega! \U0001f697{tracking_suffix}"
     ),
-    "order_delivered": "Pedido {order_ref} entregue. Obrigado pela preferencia! \u2b50",
+    "order_delivered": (
+        "Pedido {order_ref} entregue. Obrigado pela preferencia! \u2b50{reorder_suffix}"
+    ),
     "order_cancelled": (
         "Seu pedido {order_ref} foi cancelado. Qualquer duvida, estamos aqui."
     ),
@@ -119,6 +121,12 @@ def _build_message(template: str, context: dict) -> str:
     ctx = dict(context)
     ctx["customer_name_greeting"] = (
         f", {ctx['customer_name']}" if ctx.get("customer_name") else ""
+    )
+    ctx["tracking_suffix"] = (
+        f"\nAcompanhe: {ctx['tracking_url']}" if ctx.get("tracking_url") else ""
+    )
+    ctx["reorder_suffix"] = (
+        f"\nPeca de novo: {ctx['reorder_url']}" if ctx.get("reorder_url") else ""
     )
 
     # 1. Try DB template
