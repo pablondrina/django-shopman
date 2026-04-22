@@ -5,10 +5,24 @@
 
 {% if payment_status.is_paid %}
 {% omotenashi 'PAYMENT_CONFIRMED' as paid %}
-<div class="rounded-radius border border-success/30 bg-success/10 p-5 text-center text-success">
-  <span class="material-symbols-rounded text-4xl block mb-2" aria-hidden="true">check_circle</span>
-  <p class="font-semibold text-base">{{ paid.title }}</p>
-  <p class="text-sm mt-1 text-on-surface dark:text-on-surface-dark">{{ paid.message }}</p>
+<div class="rounded-radius border border-success/30 bg-success/10 p-5 text-center"
+     x-data="{ show: false }" x-init="$nextTick(() => show = true)">
+  <div x-show="show" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100">
+    <span class="material-symbols-rounded text-4xl block mb-2 text-success" aria-hidden="true">check_circle</span>
+    <p class="font-semibold text-base text-success">{{ paid.title }}</p>
+    <p class="text-sm mt-1 text-on-surface dark:text-on-surface-dark">{{ paid.message }}</p>
+    {% if payment_status.order_ref %}
+    <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 mt-2 font-mono">{{ payment_status.order_ref }}</p>
+    {% endif %}
+    {% if payment_status.eta_display %}
+    <p class="text-sm text-on-surface dark:text-on-surface-dark mt-2 font-medium">Previsão: {{ payment_status.eta_display }}</p>
+    {% endif %}
+    <a href="{% url 'storefront:order_tracking' ref=payment_status.order_ref %}"
+       class="inline-flex items-center justify-center gap-2 mt-4 rounded-radius bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px]">
+      <span class="material-symbols-rounded text-base" aria-hidden="true">delivery_dining</span>
+      Acompanhar pedido
+    </a>
+  </div>
 </div>
 
 {% elif payment_status.is_expired %}

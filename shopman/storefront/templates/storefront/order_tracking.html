@@ -175,6 +175,54 @@
   </div>
   {% endif %}
 
+  {% comment %}── Rating (yoin R4 — shown once after delivery/pickup) ──{% endcomment %}
+  {% if tracking.can_rate %}
+  {% omotenashi 'TRACKING_RATE_PROMPT' as rate_prompt %}
+  <div class="rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt p-5"
+       x-data="{ rating: 0, submitted: false, hovering: 0 }" id="rating-block">
+    <template x-if="!submitted">
+      <div class="text-center space-y-3">
+        <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ rate_prompt.title }}</h2>
+        <p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60">{{ rate_prompt.message }}</p>
+        <div class="flex justify-center gap-1" role="radiogroup" aria-label="Avaliação">
+          <template x-for="star in [1,2,3,4,5]" :key="star">
+            <button type="button"
+                    @click="rating = star"
+                    @mouseenter="hovering = star"
+                    @mouseleave="hovering = 0"
+                    :aria-label="star + ' estrela' + (star > 1 ? 's' : '')"
+                    :aria-checked="star <= rating"
+                    role="radio"
+                    class="p-1 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary rounded transition min-h-[44px] min-w-[44px] flex items-center justify-center">
+              <span class="material-symbols-rounded text-3xl transition-colors"
+                    :class="star <= (hovering || rating) ? 'text-warning dark:text-warning-dark' : 'text-on-surface/20 dark:text-on-surface-dark/20'"
+                    aria-hidden="true">star</span>
+            </button>
+          </template>
+        </div>
+        <button x-show="rating > 0" x-cloak
+                type="button"
+                @click="fetch('{% url 'storefront:order_rate' ref=tracking.order_ref %}', {
+                  method: 'POST',
+                  headers: { 'X-CSRFToken': document.querySelector('meta[name=csrf-token]').content, 'Content-Type': 'application/x-www-form-urlencoded' },
+                  body: 'rating=' + rating
+                }).then(() => submitted = true)"
+                class="inline-flex items-center justify-center rounded-radius bg-primary px-5 py-2 text-sm font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px] transition">
+          Enviar
+        </button>
+      </div>
+    </template>
+    <template x-if="submitted">
+      <div class="text-center py-2">
+        {% omotenashi 'TRACKING_RATE_THANKS' as rate_thanks %}
+        <span class="material-symbols-rounded text-3xl text-success dark:text-success-dark block mb-1" aria-hidden="true">check_circle</span>
+        <p class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ rate_thanks.title }}</p>
+        <p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60 mt-1">{{ rate_thanks.message }}</p>
+      </div>
+    </template>
+  </div>
+  {% endif %}
+
   {% comment %}── Cancel ──{% endcomment %}
   {% if tracking.can_cancel %}
   <div class="rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt p-5">

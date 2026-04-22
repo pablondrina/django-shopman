@@ -241,6 +241,15 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
 
     # ── Kintsugi ──────────────────────────────────────────────────
+    # ── Rating ────────────────────────────────────────────────────
+    "TRACKING_RATE_PROMPT": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Como foi?", message="Sua opinião nos ajuda a melhorar.")},
+    },
+    "TRACKING_RATE_THANKS": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Obrigado!", message="Valorizamos muito seu retorno.")},
+    },
+
+    # ── Kintsugi ──────────────────────────────────────────────────
     "KINTSUGI_ITEM_REMOVED": {
         WILDCARD: {WILDCARD: CopyEntry(title="Removido.")},
     },

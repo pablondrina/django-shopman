@@ -13,6 +13,20 @@ Stepper / delete / upsell use Alpine + native ``fetch`` then dispatch
 the cascading ``cartUpdated`` reload destroys the source element.
 {% endcomment %}
 
+{# ── Undo listener (kintsugi K2) — re-adds item removed from cart ── #}
+<div x-data x-on:cart-undo.window="
+  const d = $event.detail;
+  if (!d || !d.sku) return;
+  const body = new FormData();
+  body.append('sku', d.sku);
+  body.append('qty', String(d.qty || 1));
+  fetch('{% url 'storefront:cart_set_qty' %}', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': document.querySelector('meta[name=\'csrf-token\']').content, 'HX-Request': 'true' },
+    body,
+  }).finally(() => htmx.trigger(document.body, 'cartUpdated'));
+" hidden aria-hidden="true"></div>
+
 {% if cart.has_awaiting_confirmation_items %}
 <div x-data="window.confirmationPoll(30000)" hidden aria-hidden="true"></div>
 {% endif %}
@@ -72,7 +86,6 @@ the cascading ``cartUpdated`` reload destroys the source element.
             busy: false,
             prevQty: {{ item.qty }},
             get effectiveMax() { return Math.min(99, this.max); },
-            get showMaxHint() { return this.qty >= (this.effectiveMax - 2) && this.effectiveMax > 0; },
             set(next, opts) {
               if (this.busy) return;
               const ceiling = this.effectiveMax;
@@ -104,7 +117,13 @@ the cascading ``cartUpdated`` reload destroys the source element.
                 htmx.trigger(document.body, 'cartUpdated');
                 if (wasRemoval && !(opts && opts.silent)) {
                   window.dispatchEvent(new CustomEvent('notify', {
-                    detail: { variant: 'info', message: '{{ item.name|escapejs }} removido do carrinho.' },
+                    detail: {
+                      variant: 'info',
+                      message: '{{ item.name|escapejs }} removido.',
+                      actionLabel: 'Desfazer',
+                      actionEvent: 'cart-undo',
+                      actionDetail: { sku: '{{ item.sku|escapejs }}', qty: prev },
+                    },
                   }));
                 }
               });
@@ -188,21 +207,31 @@ the cascading ``cartUpdated`` reload destroys the source element.
                 <span class="material-symbols-rounded text-base" aria-hidden="true">remove</span>
               </button>
               <span class="w-8 text-center text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums" x-text="qty" aria-live="polite"></span>
-              <button type="button"
-                      class="w-9 h-9 flex items-center justify-center text-on-surface dark:text-on-surface-dark hover:bg-surface dark:hover:bg-surface-dark rounded-r-radius disabled:opacity-40 disabled:cursor-not-allowed focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
-                      :disabled="busy || qty >= effectiveMax"
-                      @click="set(qty + 1)"
-                      :aria-label="qty >= effectiveMax ? 'Estoque máximo atingido' : 'Aumentar quantidade'">
-                <span class="material-symbols-rounded text-base" aria-hidden="true">add</span>
-              </button>
+              <div class="relative" x-data="{ maxTip: false }">
+                <button type="button"
+                        class="w-9 h-9 flex items-center justify-center text-on-surface dark:text-on-surface-dark hover:bg-surface dark:hover:bg-surface-dark rounded-r-radius disabled:opacity-40 disabled:cursor-not-allowed focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
+                        :disabled="busy || qty >= effectiveMax"
+                        @click="set(qty + 1)"
+                        @pointerdown="if (qty >= effectiveMax) { maxTip = true; setTimeout(() => maxTip = false, 2000) }"
+                        :aria-label="qty >= effectiveMax ? 'Máximo por pedido: ' + effectiveMax : 'Aumentar quantidade'">
+                  <span class="material-symbols-rounded text-base" aria-hidden="true">add</span>
+                </button>
+                <div x-show="maxTip" x-cloak
+                     x-transition:enter="transition ease-out duration-150"
+                     x-transition:enter-start="opacity-0 translate-y-1"
+                     x-transition:enter-end="opacity-100 translate-y-0"
+                     x-transition:leave="transition ease-in duration-100"
+                     x-transition:leave-start="opacity-100"
+                     x-transition:leave-end="opacity-0"
+                     class="absolute bottom-full right-0 mb-2 whitespace-nowrap rounded-radius bg-on-surface-strong dark:bg-on-surface-dark-strong text-surface dark:text-surface-dark text-xs px-2.5 py-1.5 shadow-md z-10"
+                     role="tooltip">
+                  <span x-text="'Máximo por pedido: ' + effectiveMax"></span>
+                  <div class="absolute top-full right-3 w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-on-surface-strong dark:border-t-on-surface-dark-strong" aria-hidden="true"></div>
+                </div>
+              </div>
             </div>
             <p class="text-sm font-bold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums">{{ item.total_display }}</p>
           </div>
-          <p x-show="showMaxHint" x-cloak
-             class="text-[10px] text-on-surface/60 dark:text-on-surface-dark/60 tabular-nums"
-             aria-live="polite">
-            máx. <span x-text="effectiveMax"></span>
-          </p>
         </div>
       </li>
       {% endfor %}
@@ -251,27 +280,27 @@ the cascading ``cartUpdated`` reload destroys the source element.
   </div>
 
   {# ── Totals ── #}
-  <div class="border-t border-outline dark:border-outline-dark px-4 py-3 space-y-1 bg-surface-alt dark:bg-surface-dark-alt">
+  <div class="border-t border-outline dark:border-outline-dark px-4 py-3 space-y-1.5 bg-surface-alt dark:bg-surface-dark-alt">
     {% if cart.has_discount %}
-    <div class="flex justify-between text-xs text-on-surface/70 dark:text-on-surface-dark/70">
+    <div class="flex justify-between text-sm text-on-surface/70 dark:text-on-surface-dark/70">
       <span>Subtotal</span>
       <span class="line-through tabular-nums">{{ cart.original_subtotal_display }}</span>
     </div>
     {% for row in cart.discount_lines %}
-    <div class="flex justify-between text-xs gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
+    <div class="flex justify-between text-sm gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
       <span class="truncate min-w-0" title="{{ row.label }}">{{ row.label }}</span>
       <span class="text-success font-medium tabular-nums shrink-0">-{{ row.amount_display }}</span>
     </div>
     {% endfor %}
     {% endif %}
     {% if cart.delivery_fee_display %}
-    <div class="flex justify-between text-xs text-on-surface/70 dark:text-on-surface-dark/70">
+    <div class="flex justify-between text-sm text-on-surface/70 dark:text-on-surface-dark/70">
       <span>Taxa de entrega</span>
       <span class="tabular-nums">{{ cart.delivery_fee_display }}</span>
     </div>
     {% endif %}
-    <div class="flex justify-between items-baseline pt-3 mt-2 border-t border-outline dark:border-outline-dark">
-      <span class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Total</span>
+    <div class="flex justify-between items-baseline pt-3 mt-3 border-t border-outline dark:border-outline-dark">
+      <span class="text-lg font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Total</span>
       <span class="text-xl font-bold text-primary dark:text-primary-dark tabular-nums">{{ cart.grand_total_display }}</span>
     </div>
   </div>

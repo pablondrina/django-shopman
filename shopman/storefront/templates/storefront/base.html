@@ -268,13 +268,16 @@
   <div x-data="{
     notifications: [],
     displayDuration: 4000,
-    addNotification({ variant, title, message, sticky }) {
+    addNotification({ variant, title, message, sticky, actionLabel, actionEvent, actionDetail }) {
       const id = Date.now();
       if (this.notifications.length >= 5) this.notifications.splice(0, this.notifications.length - 4);
-      this.notifications.push({ id, variant: variant || 'info', title, message, sticky: !!sticky });
+      this.notifications.push({ id, variant: variant || 'info', title, message, sticky: !!sticky, actionLabel: actionLabel || '', actionEvent: actionEvent || '', actionDetail: actionDetail || null });
     },
     removeNotification(id) {
       setTimeout(() => { this.notifications = this.notifications.filter(n => n.id !== id); }, 400);
+    },
+    fireAction(notification) {
+      if (notification.actionEvent) window.dispatchEvent(new CustomEvent(notification.actionEvent, { detail: notification.actionDetail }));
     }
   }" x-on:notify.window="addNotification($event.detail)">
     <div x-on:mouseenter="$dispatch('pause-auto-dismiss')" x-on:mouseleave="$dispatch('resume-auto-dismiss')" class="group pointer-events-none fixed inset-x-8 top-0 z-99 flex max-w-full flex-col gap-2 bg-transparent px-6 py-6 md:bottom-0 md:left-[unset] md:right-0 md:top-[unset] md:max-w-sm">
@@ -342,7 +345,11 @@
                   <h3 x-show="notification.title" class="text-sm font-semibold text-info" x-text="notification.title"></h3>
                   <p x-show="notification.message" class="text-pretty text-sm" x-text="notification.message"></p>
                 </div>
-                <button type="button" class="ml-auto" aria-label="dispensar" x-on:click="isVisible = false; removeNotification(notification.id)">
+                <button x-show="notification.actionLabel" type="button"
+                        class="ml-auto shrink-0 text-sm font-semibold text-primary hover:text-primary/80 dark:text-primary-dark dark:hover:text-primary-dark/80 underline underline-offset-2 min-h-[44px] px-2"
+                        x-text="notification.actionLabel"
+                        x-on:click="fireAction(notification); isVisible = false; removeNotification(notification.id)"></button>
+                <button x-show="!notification.actionLabel" type="button" class="ml-auto" aria-label="dispensar" x-on:click="isVisible = false; removeNotification(notification.id)">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" class="size-5 shrink-0"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
               </div>

@@ -20,7 +20,7 @@
   Until then, instantiate with a plain list of dicts shaped as above.
 {% endcomment %}
 
-<ol class="space-y-0" role="list">
+<ol x-data x-auto-animate class="space-y-0" role="list">
   {% for step in steps %}
     <li class="{% if not forloop.last %}pb-6{% endif %}">
       <div class="flex gap-3">

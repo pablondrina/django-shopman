@@ -131,8 +131,10 @@
       {% endfor %}
     </div>
     {% else %}
+    {% omotenashi 'HISTORY_EMPTY' as empty %}
     <div class="text-center py-16">
-      <p class="text-on-surface/60 dark:text-on-surface-dark/60 mb-4">Nenhum pedido ainda</p>
+      <p class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong text-lg mb-1">{{ empty.title }}</p>
+      <p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60 mb-6">{{ empty.message }}</p>
       <a href="{% url 'storefront:menu' %}"
          class="inline-flex items-center justify-center px-6 py-3 rounded-radius bg-primary text-white font-medium
                 hover:opacity-90 transition min-h-[44px] dark:bg-primary-dark">

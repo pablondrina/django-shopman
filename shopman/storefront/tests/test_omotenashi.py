@@ -199,14 +199,10 @@ def test_human_eta_tag_with_timedelta():
 
 def test_human_eta_tag_with_future_datetime_today():
     tpl = Template("{% load omotenashi_tags %}{% human_eta v %}")
-    later = timezone.localtime().replace(hour=11, minute=20, second=0, microsecond=0)
-    if later <= timezone.localtime():
-        later = later + timedelta(days=1)
-        out = tpl.render(Context({"v": later}))
-        assert "amanhã" in out
-    else:
-        out = tpl.render(Context({"v": later}))
-        assert "por volta das" in out
+    # +2h guarantees ≥60 min so we never hit the "em X min" branch
+    later = timezone.localtime() + timedelta(hours=2)
+    out = tpl.render(Context({"v": later}))
+    assert "por volta das" in out or "amanhã" in out
 
 
 # ── Birthday detection ─────────────────────────────────────────────────
