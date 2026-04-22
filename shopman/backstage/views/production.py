@@ -13,6 +13,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from shopman.craftsman.models import Recipe
@@ -180,11 +181,13 @@ def bulk_create_work_orders(request: HttpRequest) -> HttpResponse:
     if request.method != "POST":
         return HttpResponse("Method not allowed", status=405)
 
+    _PARTIAL = "gestao/producao/partials/bulk_create_result.html"
+
     try:
         body = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
         return HttpResponse(
-            '<div class="text-red-600">Dados inválidos</div>',
+            render_to_string(_PARTIAL, {"error": "Dados inválidos"}, request=request),
             status=400,
         )
 
@@ -193,7 +196,7 @@ def bulk_create_work_orders(request: HttpRequest) -> HttpResponse:
 
     if not orders_data:
         return HttpResponse(
-            '<div class="text-red-600">Nenhuma ordem informada</div>',
+            render_to_string(_PARTIAL, {"error": "Nenhuma ordem informada"}, request=request),
             status=422,
         )
 
@@ -237,19 +240,6 @@ def bulk_create_work_orders(request: HttpRequest) -> HttpResponse:
             errors.append(f"{recipe_ref}: {exc}")
             logger.exception("bulk_create_work_orders failed for %s", recipe_ref)
 
-    parts = []
-    if created:
-        items_html = "".join(f"<li>{c}</li>" for c in created)
-        parts.append(
-            f'<div class="text-green-700 mb-2">'
-            f'{len(created)} ordem(ns) criada(s) para {target_date}:'
-            f'<ul class="list-disc ml-4 mt-1">{items_html}</ul></div>'
-        )
-    if errors:
-        items_html = "".join(f"<li>{e}</li>" for e in errors)
-        parts.append(
-            f'<div class="text-red-600">'
-            f'Erros:<ul class="list-disc ml-4 mt-1">{items_html}</ul></div>'
-        )
-
-    return HttpResponse("".join(parts))
+    return HttpResponse(
+        render_to_string(_PARTIAL, {"created": created, "errors": errors, "target_date": target_date}, request=request),
+    )

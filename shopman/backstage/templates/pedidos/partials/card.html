@@ -107,14 +107,12 @@
               placeholder="Informe o motivo..."
               rows="2"></textarea>
     <button class="btn-danger w-full mt-2"
-            @click="
-              if (!rejectReason.trim()) return;
-              htmx.ajax('POST', '/pedidos/{{ o.ref }}/reject/', {
-                target: $el.closest('[data-order-card]'),
-                swap: 'outerHTML',
-                values: { reason: rejectReason }
-              });
-            ">
+            type="button"
+            hx-post="/pedidos/{{ o.ref }}/reject/"
+            hx-target="closest [data-order-card]"
+            hx-swap="outerHTML"
+            :hx-vals='JSON.stringify({reason: rejectReason})'
+            :disabled="!rejectReason.trim()">
       <span class="material-symbols-rounded text-base" aria-hidden="true">block</span>
       Confirmar Rejeição
     </button>
@@ -122,8 +120,11 @@
 
   {% comment %}Expanded detail (lazy-loaded accordion){% endcomment %}
   <div x-show="expanded" x-cloak
-       x-effect="if (expanded && !$el._loaded) { $el._loaded = true; htmx.ajax('GET', '/pedidos/{{ o.ref }}/detail/', {target: $el.querySelector('.order-detail'), swap: 'innerHTML'}); }">
-    <div class="order-detail border-t border-outline dark:border-outline-dark px-4 py-3">
+       x-effect="if (expanded && !$el._loaded) { $el._loaded = true; $el.querySelector('.order-detail').dispatchEvent(new Event('load-detail')); }">
+    <div class="order-detail border-t border-outline dark:border-outline-dark px-4 py-3"
+         hx-get="/pedidos/{{ o.ref }}/detail/"
+         hx-trigger="load-detail"
+         hx-swap="innerHTML">
       <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">Carregando...</span>
     </div>
   </div>

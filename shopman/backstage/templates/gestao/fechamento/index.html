@@ -19,7 +19,10 @@
   {% endif %}
 
   {% if items %}
-  <form method="post">
+  <form hx-post="."
+        hx-target="body"
+        hx-swap="outerHTML"
+        hx-push-url="true">
     {% csrf_token %}
     <div class="card mb-4">
       <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-4">Produtos com estoque vendável</h2>
@@ -65,7 +68,10 @@
     </div>
 
     {% if not existing_closing %}
-    <button type="submit" class="btn-primary">Executar fechamento</button>
+    <button type="submit" class="btn-primary">
+      <span class="htmx-indicator material-symbols-rounded animate-spin text-sm mr-1" aria-hidden="true">progress_activity</span>
+      Executar fechamento
+    </button>
     {% endif %}
   </form>
   {% else %}

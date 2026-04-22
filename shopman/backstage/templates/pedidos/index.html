@@ -65,7 +65,7 @@
   <main class="flex-1 overflow-auto p-4" aria-live="polite">
     <div id="order-grid"
          hx-get="/pedidos/list/"
-         hx-trigger="every 5s"
+         hx-trigger="every 5s, filter-change"
          hx-target="#order-grid"
          hx-swap="innerHTML"
          hx-vals='js:{"filter": Alpine.$data(document.getElementById("gestor-pedidos-root")).filter}'>

@@ -4,10 +4,15 @@
 {% block nav_active_producao %}active{% endblock %}
 
 {% block content %}
-<div class="p-4 space-y-6 max-w-6xl">
+<div id="production-page-content" class="p-4 space-y-6 max-w-6xl">
 
   {% comment %}Filter form{% endcomment %}
-  <form method="get" class="card grid grid-cols-1 md:grid-cols-4 gap-4">
+  <form hx-get="."
+        hx-target="#production-page-content"
+        hx-select="#production-page-content"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+        class="card grid grid-cols-1 md:grid-cols-4 gap-4">
     <div>
       <label class="block text-xs font-semibold text-on-surface/60 dark:text-on-surface-dark/60 mb-1">Data</label>
       <input type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}" class="input-field" />
@@ -26,7 +31,10 @@
       <input type="text" name="operator_ref" value="{{ selected_operator_ref }}" placeholder="user:joao" class="input-field" />
     </div>
     <div class="flex items-end">
-      <button type="submit" class="btn-primary">Filtrar</button>
+      <button type="submit" class="btn-primary">
+        <span class="htmx-indicator material-symbols-rounded animate-spin text-sm mr-1" aria-hidden="true">progress_activity</span>
+        Filtrar
+      </button>
     </div>
   </form>
 
@@ -56,7 +64,11 @@
   {% comment %}Quick registration form{% endcomment %}
   <div class="card">
     <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-4">Registro rápido</h2>
-    <form method="post" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <form hx-post="."
+          hx-target="body"
+          hx-swap="outerHTML"
+          hx-push-url="true"
+          class="grid grid-cols-1 md:grid-cols-4 gap-4">
       {% csrf_token %}
       <div>
         <label class="block text-xs font-semibold text-on-surface/60 dark:text-on-surface-dark/60 mb-1">Receita</label>
@@ -80,7 +92,10 @@
         </select>
       </div>
       <div class="flex items-end">
-        <button type="submit" class="btn-primary">Registrar</button>
+        <button type="submit" class="btn-primary">
+          <span class="htmx-indicator material-symbols-rounded animate-spin text-sm mr-1" aria-hidden="true">progress_activity</span>
+          Registrar
+        </button>
       </div>
     </form>
   </div>

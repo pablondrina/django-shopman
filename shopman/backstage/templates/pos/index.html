@@ -14,7 +14,7 @@
 <div id="pos-root"
      x-data="posApp()"
      @keydown.window="handleKey($event)"
-     @htmx:after-swap.window="onSaleComplete($event)"
+     @htmx:after-swap.camel.window="onSaleComplete($event)"
      @sku-state.window="onSkuState($event.detail)"
      hx-ext="sse"
      sse-connect="{% url 'storefront:stock_events' channel_ref=pos_channel_ref|default:'pdv' %}"
@@ -294,7 +294,10 @@
        @keydown.escape.window="open = false">
     <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="open = false"></div>
     <form class="relative bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark rounded-2xl p-6 w-full max-w-sm shadow-xl"
-          method="post" action="/gestao/pos/caixa/fechar/">
+          hx-post="/gestao/pos/caixa/fechar/"
+          hx-target="body"
+          hx-swap="outerHTML"
+          hx-push-url="true">
       {% csrf_token %}
       <h2 class="font-title font-bold text-lg mb-4">Fechar Caixa</h2>
       <div class="flex flex-col gap-3">
@@ -306,7 +309,10 @@
                   placeholder="Observações (opcional)" x-model="notes"></textarea>
         <div class="flex gap-2 mt-1">
           <button type="button" class="btn-secondary flex-1 py-2.5 rounded-xl" @click="open = false">Cancelar</button>
-          <button type="submit" class="btn-danger flex-1 py-2.5 rounded-xl disabled:opacity-40" :disabled="closing === ''">Fechar Caixa</button>
+          <button type="submit" class="btn-danger flex-1 py-2.5 rounded-xl disabled:opacity-40" :disabled="closing === ''">
+            <span class="htmx-indicator material-symbols-rounded animate-spin text-base mr-1" aria-hidden="true">progress_activity</span>
+            Fechar Caixa
+          </button>
         </div>
       </div>
     </form>

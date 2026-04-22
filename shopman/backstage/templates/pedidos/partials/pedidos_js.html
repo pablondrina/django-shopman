@@ -79,7 +79,7 @@ function gestorPedidos() {
     setFilter(f) {
       this.filter = f;
       sessionStorage.setItem('gestor_filter', f);
-      htmx.ajax('GET', '/pedidos/list/?filter=' + f, {target: '#order-grid', swap: 'innerHTML'});
+      document.getElementById('order-grid').dispatchEvent(new Event('filter-change'));
     },
 
     toggleSound() {

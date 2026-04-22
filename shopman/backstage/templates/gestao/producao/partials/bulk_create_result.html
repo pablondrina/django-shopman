@@ -1,0 +1,20 @@
+{% comment %}Partial: result of bulk_create_work_orders POST. Context: created, errors, target_date, error.{% endcomment %}
+{% if error %}
+<p class="text-danger text-sm">{{ error }}</p>
+{% endif %}
+{% if created %}
+<div class="text-success text-sm mb-2">
+  {{ created|length }} ordem(ns) criada(s) para {{ target_date }}:
+  <ul class="list-disc ml-4 mt-1">
+    {% for item in created %}<li>{{ item }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+{% if errors %}
+<div class="text-danger text-sm">
+  Erros:
+  <ul class="list-disc ml-4 mt-1">
+    {% for err in errors %}<li>{{ err }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
