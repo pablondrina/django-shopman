@@ -64,15 +64,21 @@
       {% comment %}Nav links{% endcomment %}
       <nav class="flex-1 py-3 flex flex-col items-center gap-1 overflow-y-auto scrollbar-hide" aria-label="Áreas operacionais">
 
-        {% url 'storefront:gestor_pedidos' as url_pedidos %}
+        {% url 'backstage:gestor_pedidos' as url_pedidos %}
         <a href="{{ url_pedidos }}"
-           class="btn-icon {% block nav_active_pedidos %}{% endblock %}"
+           class="btn-icon relative {% block nav_active_pedidos %}{% endblock %}"
            title="Pedidos"
            aria-label="Pedidos">
           <span class="material-symbols-rounded text-xl" aria-hidden="true">receipt_long</span>
+          {% if new_orders_count %}
+          <span class="absolute top-0.5 right-0.5 min-w-[1rem] h-4 px-0.5 rounded-full
+                       bg-warning text-on-warning text-[9px] font-bold
+                       flex items-center justify-center leading-none"
+                aria-label="{{ new_orders_count }} pedidos novos">{{ new_orders_count }}</span>
+          {% endif %}
         </a>
 
-        {% url 'storefront:kds_index' as url_kds %}
+        {% url 'backstage:kds_index' as url_kds %}
         <a href="{{ url_kds }}"
            class="btn-icon {% block nav_active_kds %}{% endblock %}"
            title="KDS — Cozinha"
@@ -80,7 +86,7 @@
           <span class="material-symbols-rounded text-xl" aria-hidden="true">kitchen</span>
         </a>
 
-        {% url 'storefront:pos' as url_pos %}
+        {% url 'backstage:pos' as url_pos %}
         <a href="{{ url_pos }}"
            class="btn-icon {% block nav_active_pos %}{% endblock %}"
            title="Ponto de Venda"

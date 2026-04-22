@@ -1,9 +1,9 @@
 @import '../../node_modules/@tailwindcss/cli/node_modules/tailwindcss';
 
-@source "../../shopman/shop/templates/gestao/**/*.html";
-@source "../../shopman/shop/templates/pedidos/**/*.html";
-@source "../../shopman/shop/templates/kds/**/*.html";
-@source "../../shopman/shop/templates/pos/**/*.html";
+@source "../../shopman/backstage/templates/gestao/**/*.html";
+@source "../../shopman/backstage/templates/pedidos/**/*.html";
+@source "../../shopman/backstage/templates/kds/**/*.html";
+@source "../../shopman/backstage/templates/pos/**/*.html";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
