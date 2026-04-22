@@ -1,5 +1,5 @@
-{# HTMX polling partial — status badge + timeline. #}
-{# Rendered by OrderStatusPartialView; swapped into #order-status-area via innerHTML. #}
+{# HTMX polling partial — status badge + timeline (inner content only). #}
+{# Swap target is #order-status-area in order_tracking.html (innerHTML swap keeps HTMX attrs). #}
 {# Accepts: tracking_status (OrderTrackingStatusProjection or OrderTrackingProjection). #}
 {% with ts=tracking_status %}
   <div class="rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt p-5 space-y-4">
