@@ -169,6 +169,7 @@ class CheckoutView(View):
 
         # ── Post-commit side effects (HTTP concerns) ──────────────────────
         self._ensure_customer(intent, order_ref)
+        self._persist_new_address(intent, order_ref)
         self._save_checkout_defaults(request, intent, order_ref)
         request.session.pop("cart_session_key", None)
 
@@ -243,6 +244,64 @@ class CheckoutView(View):
                 )
             except IntegrityError:
                 pass  # race condition — already created by concurrent request
+
+    @staticmethod
+    def _persist_new_address(intent: CheckoutIntent, order_ref: str) -> None:
+        """Persist a new delivery address to the customer's address book (omotenashi).
+
+        Skipped when fulfillment is not delivery, a saved address was already used,
+        the address text is absent, the customer can't be found, or the exact
+        formatted_address already exists in their book.
+        """
+        if intent.fulfillment_type != "delivery":
+            return
+        if intent.saved_address_id:
+            return
+        if not intent.delivery_address:
+            return
+
+        try:
+            from shopman.guestman.services import address as address_service
+            from shopman.guestman.services import customer as customer_service
+
+            customer_obj = customer_service.get_by_phone(intent.customer_phone)
+            if not customer_obj:
+                return
+
+            if address_service.has_address(customer_obj.ref, intent.delivery_address):
+                return
+
+            structured = intent.delivery_address_structured or {}
+
+            lat = structured.get("latitude")
+            lng = structured.get("longitude")
+            coordinates = (float(lat), float(lng)) if lat and lng else None
+
+            components = {
+                "street_number": structured.get("street_number", ""),
+                "route": structured.get("route", ""),
+                "neighborhood": structured.get("neighborhood", ""),
+                "city": structured.get("city", ""),
+                "state_code": structured.get("state_code", ""),
+                "postal_code": structured.get("postal_code", ""),
+            }
+
+            is_first = not address_service.has_any_address(customer_obj.ref)
+
+            address_service.add_address(
+                customer_ref=customer_obj.ref,
+                label="other",
+                label_custom="Entrega",
+                formatted_address=intent.delivery_address,
+                place_id=structured.get("place_id") or None,
+                components=components,
+                coordinates=coordinates,
+                complement=structured.get("complement", ""),
+                delivery_instructions=structured.get("delivery_instructions", ""),
+                is_default=is_first,
+            )
+        except Exception:
+            logger.exception("persist_new_address_failed order=%s", order_ref)
 
     def _save_checkout_defaults(
         self, request: HttpRequest, intent: CheckoutIntent, order_ref: str
