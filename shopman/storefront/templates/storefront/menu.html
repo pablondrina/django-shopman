@@ -45,8 +45,7 @@
 
   {% comment %}── Navbar sticky: botão híbrido (manage_search) + pills rail ──{% endcomment %}
   <div x-ref="navbar"
-       class="sticky top-0 border-b border-outline bg-surface-alt/95 backdrop-blur dark:border-outline-dark dark:bg-surface-dark-alt/95"
-       style="z-index: 9999;">
+       class="sticky top-0 z-40 border-b border-outline bg-surface-alt/95 backdrop-blur dark:border-outline-dark dark:bg-surface-dark-alt/95">
     <div class="flex items-stretch gap-2 px-4 py-2.5">
       {% comment %}Position 0 — ghost square, não faz parte do rail. Vira close quando overlay aberto.{% endcomment %}
       <button type="button"
@@ -113,8 +112,8 @@
          x-transition:enter-end="opacity-100 translate-y-0"
          x-transition:leave="transition ease-in duration-150"
          @keydown.escape.window="searchOpen && closeSearch()"
-         class="fixed left-0 right-0 bottom-0 bg-white dark:bg-surface-dark overflow-y-auto"
-         :style="`top: ${panelTop}px; z-index: 9990;`"
+         class="fixed left-0 right-0 bottom-0 z-40 bg-white dark:bg-surface-dark overflow-y-auto"
+         :style="`top: ${panelTop}px`"
          role="dialog" aria-modal="true" aria-label="Buscar e navegar">
 
       {% comment %}Empty query: lista de categorias (mesmas pills){% endcomment %}
