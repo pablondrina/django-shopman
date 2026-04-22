@@ -127,7 +127,7 @@
 
         {# SSE-driven availability slot: refetches per-SKU badge on push (WP-AV-10). #}
         <div hx-get="{% url 'storefront:sku_state' item.sku %}?channel_ref={{ storefront_channel_ref|default:'web' }}"
-             hx-trigger="sse:stock-update[JSON.parse(event.data).sku=='{{ item.sku }}'],sse:product-paused[JSON.parse(event.data).sku=='{{ item.sku }}'],sse:listing-changed[JSON.parse(event.data).sku=='{{ item.sku }}']"
+             hx-trigger="sse:stock-update[JSON.parse(event.data).sku=='{{ item.sku }}'],sse:product-paused[JSON.parse(event.data).sku=='{{ item.sku }}'],sse:listing-changed[JSON.parse(event.data).sku=='{{ item.sku }}'], every 60s"
              hx-swap="innerHTML">
           {% if item.availability != "available" %}
             {% include "storefront/components/availability_badge.html" with state=item.availability.value %}
@@ -155,13 +155,18 @@
 
           {% if item.can_add_to_cart %}
           <div @click.stop class="shrink-0">
-            <template x-if="qty === 0">
+            <template x-if="qty === 0 && canAdd">
               <button type="button"
                       class="btn-primary text-xs px-2.5 py-1.5 sm:px-3 sm:py-2"
                       :disabled="busy"
                       @click="set(1)">
                 <span class="material-symbols-rounded text-sm sm:hidden" aria-hidden="true">add</span>
                 <span class="hidden sm:inline">Adicionar</span>
+              </button>
+            </template>
+            <template x-if="qty === 0 && !canAdd">
+              <button type="button" class="btn-secondary text-xs px-2.5 py-1.5 sm:px-3 sm:py-2 opacity-70 cursor-not-allowed shrink-0" disabled aria-disabled="true">
+                Indisponível
               </button>
             </template>
             <template x-if="qty > 0">
