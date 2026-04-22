@@ -33,7 +33,8 @@
               x-data="{ count: {{ cart_count|default:0 }} }"
               x-init="document.body.addEventListener('htmx:afterSettle', e => {
                 if (e.detail?.target?.id === 'cart-badge-header') {
-                  count = parseInt(e.detail.target.textContent) || 0;
+                  const badge = document.getElementById('cart-badge-header');
+                  count = badge ? (parseInt(badge.textContent.trim()) || 0) : 0;
                 }
               })">
           <span class="material-symbols-rounded text-xl {% if active_url == 'cart' %}fill-icon{% endif %}" aria-hidden="true">shopping_bag</span>
