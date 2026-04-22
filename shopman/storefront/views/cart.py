@@ -203,7 +203,7 @@ class QuickAddView(View):
 class CartSetQtyBySkuView(View):
     """HTMX: set absolute qty for a SKU, return cart summary badge.
 
-    Powers the inline stepper on v2 catalog cards: the card knows the SKU
+    Powers the inline stepper on catalog cards: the card knows the SKU
     (not the Orderman ``line_id``) and pushes an absolute quantity each
     time the user taps ``+`` or ``−``. Resolves the open session line for
     the SKU and dispatches to ``CartService``:

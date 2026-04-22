@@ -19,14 +19,14 @@ pytestmark = pytest.mark.django_db
 
 def _request_with_cart_session(client):
     rf = RequestFactory()
-    request = rf.get("/checkout/?v2")
+    request = rf.get("/checkout/")
     request.session = client.session  # type: ignore[attr-defined]
     return request
 
 
 def _request_anonymous(client):
     rf = RequestFactory()
-    request = rf.get("/checkout/?v2")
+    request = rf.get("/checkout/")
     request.session = client.session  # type: ignore[attr-defined]
     request.customer = None
     return request
@@ -63,7 +63,7 @@ class TestCheckoutProjectionShape:
 
     def test_empty_cart_is_allowed(self, client):
         rf = RequestFactory()
-        request = rf.get("/checkout/?v2")
+        request = rf.get("/checkout/")
         request.session = client.session  # type: ignore[attr-defined]
         proj = build_checkout(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
         assert isinstance(proj, CheckoutProjection)

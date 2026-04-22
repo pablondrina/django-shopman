@@ -1,11 +1,11 @@
 {% load omotenashi_tags %}
 {% comment %}
-v2 cart drawer — consumes CartProjection (typed read model).
+Cart drawer — consumes CartProjection (typed read model).
 
-Opened from v2/base.html via hx-get storefront:cart_drawer, replaced
+Opened via hx-get storefront:cart_drawer, replaces
 innerHTML of #cart-drawer-content on open-cart-drawer and cartUpdated.
 Uses Penguin UI tokens (surface / on-surface / primary / warning / danger)
-and Material Symbols Rounded — no v1 design tokens, no raw dict access.
+and Material Symbols Rounded.
 
 Stepper / delete / upsell use Alpine + native ``fetch`` then dispatch
 ``cartUpdated`` — same pattern as ``_cart_page_content.html``. Avoids

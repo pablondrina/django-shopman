@@ -30,7 +30,7 @@ def _request_with_cart_session(client):
     builder reads it via ``CartService.get_cart(request)``.
     """
     rf = RequestFactory()
-    request = rf.get("/carrinho/?v2")
+    request = rf.get("/carrinho/")
     request.session = client.session  # type: ignore[attr-defined]
     return request
 
@@ -43,7 +43,7 @@ def _request_with_cart_session(client):
 class TestEmptyCart:
     def test_empty_cart_has_stable_shape(self, client):
         rf = RequestFactory()
-        request = rf.get("/carrinho/?v2")
+        request = rf.get("/carrinho/")
         request.session = client.session  # type: ignore[attr-defined]
 
         proj = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)

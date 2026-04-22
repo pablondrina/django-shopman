@@ -1,7 +1,7 @@
 """PaymentProjection — read models for the payment page (Fase 2).
 
 Translates Payman intent state + order.data["payment"] into immutable
-projections the v2 payment template and its HTMX polling partial consume.
+projections the payment template and its HTMX polling partial consume.
 
 ``build_payment``        → full page (PIX QR code or Stripe card).
 ``build_payment_status`` → polling partial — checks expiry, paid, cancelled.

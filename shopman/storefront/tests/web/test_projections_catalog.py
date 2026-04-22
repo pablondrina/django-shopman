@@ -285,7 +285,7 @@ class TestCartAnnotation:
 
         _publish_on_listing(listing, product)
         rf = RequestFactory()
-        request = rf.get("/menu/?v2")
+        request = rf.get("/menu/")
         from django.contrib.sessions.backends.db import SessionStore
         request.session = SessionStore()  # type: ignore[attr-defined]
 
@@ -302,7 +302,7 @@ class TestCartAnnotation:
         from django.test import RequestFactory
 
         rf = RequestFactory()
-        request = rf.get("/menu/?v2")
+        request = rf.get("/menu/")
         request.session = cart_session.session  # type: ignore[attr-defined]
 
         proj = build_catalog(channel_ref="web", request=request)
@@ -318,7 +318,7 @@ class TestCartAnnotation:
         _publish_on_listing(listing, croissant)
 
         rf = RequestFactory()
-        request = rf.get("/menu/?v2")
+        request = rf.get("/menu/")
         request.session = cart_session.session  # type: ignore[attr-defined]
 
         proj = build_catalog(channel_ref="web", request=request)

@@ -65,7 +65,7 @@ class ServiceWorkerView(View):
     def get(self, request: HttpRequest) -> HttpResponse:
         config = Shop.load() or Shop()
         slug = config.short_name.lower().replace(" ", "-")
-        cache_name = f"{slug}-v2"
+        cache_name = slug
 
         js = f"""\
 // {config.brand_name} — Service Worker

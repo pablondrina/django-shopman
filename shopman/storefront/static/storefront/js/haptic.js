@@ -1,5 +1,5 @@
 /*
- * Haptic feedback helper for v2 storefront.
+ * Haptic feedback helper for storefront.
  *
  * Exposes window.triggerHaptic(pattern) as a thin wrapper around
  * navigator.vibrate. Browsers without vibrate support (Safari desktop,

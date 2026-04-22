@@ -1,7 +1,7 @@
 {% comment %}
-  ── Penguin UI v2 Tokens ──
+  ── Penguin UI Tokens ──
   Runtime override: Django injects shop colors into Penguin CSS variables.
-  Build-time: style-v2.css defines defaults via @theme.
+  Build-time: style.css defines defaults via @theme.
   This partial maps storefront.design_tokens → Penguin token names.
 {% endcomment %}
 
@@ -46,7 +46,7 @@
 {% endwith %}
 
 {# Compiled Tailwind v4 (Penguin UI tokens) #}
-<link rel="stylesheet" href="{% static 'storefront/css/output-v2.css' %}">
+<link rel="stylesheet" href="{% static 'storefront/css/output.css' %}">
 
 {# Planned-hold confirmation helpers (countdown, poll, announce) — exposed on ``window.*`` for use via ``x-data="window.confirmationCountdown(...)"``. Loaded SYNCHRONOUSLY before Alpine so the globals exist when Alpine walks the DOM. #}
 <script src="{% static 'storefront/js/confirmation.js' %}?v=6"></script>

@@ -67,7 +67,7 @@ def product_unavailable(db):
 
 
 class TestAvailabilityBadgePartialSSR:
-    """v2 product detail renders static availability badge from projection."""
+    """Product detail renders static availability badge from projection."""
 
     def test_product_detail_sold_out_renders_unavailable_badge(self, client, product_unavailable):
         resp = client.get(f"/produto/{product_unavailable.sku}/")

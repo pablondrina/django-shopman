@@ -96,7 +96,7 @@ class TestServiceWorkerView:
     def test_contains_cache_name(self, client_db):
         resp = client_db.get("/sw.js")
         content = resp.content.decode()
-        assert "CACHE_NAME = 'demo-v2'" in content
+        assert "CACHE_NAME = 'demo'" in content
 
     def test_precaches_offline_url(self, client_db):
         resp = client_db.get("/sw.js")

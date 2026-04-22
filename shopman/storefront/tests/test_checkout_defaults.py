@@ -4,7 +4,7 @@ Tests for WP-R7 — Checkout Defaults Pre-fill.
 Covers:
 - Authenticated customer with saved defaults sees them in context
 - New customer sees empty defaults
-- checkout projection passed to template context (v2 default)
+- checkout projection passed to template context
 """
 
 from __future__ import annotations
@@ -67,7 +67,7 @@ def _login_as_customer(client, customer):
 
 
 class TestCheckoutDefaultsContext:
-    """CheckoutView GET passes checkout projection to template context (v2 default)."""
+    """CheckoutView GET passes checkout projection to template context."""
 
     @pytest.fixture(autouse=True)
     def setup(self, db):

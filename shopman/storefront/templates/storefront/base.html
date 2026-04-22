@@ -372,7 +372,7 @@
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
         </button>
       </div>
-      {# Content (HTMX-loaded) — v2 URL renders CartProjection-driven partial #}
+      {# Content (HTMX-loaded) — renders CartProjection-driven partial #}
       <div id="cart-drawer-content" class="flex-1 flex flex-col overflow-hidden"
            hx-get="{% url 'storefront:cart_drawer' %}"
            hx-trigger="open-cart-drawer from:window, cartUpdated from:body"

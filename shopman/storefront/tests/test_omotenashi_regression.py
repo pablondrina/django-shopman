@@ -1,6 +1,6 @@
 """Regression guards against cold-tone strings drifting back into templates.
 
-These tests scan the v2 storefront templates for strings that have explicit
+These tests scan the storefront templates for strings that have explicit
 omotenashi replacements. They don't check copy quality — they only fence the
 known-bad spellings.
 
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-TEMPLATES_ROOT = Path(__file__).resolve().parents[1] / "templates" / "storefront" / "v2"
+TEMPLATES_ROOT = Path(__file__).resolve().parents[1] / "templates" / "storefront"
 
 # Substring → expected replacement key or doc pointer.
 #
@@ -40,7 +40,7 @@ def _iter_template_files():
 
 @pytest.mark.parametrize("forbidden,reason", sorted(FORBIDDEN_ISOLATED.items()))
 def test_forbidden_isolated_strings_absent(forbidden: str, reason: str):
-    """Cold strings with known replacements must not appear in v2 templates."""
+    """Cold strings with known replacements must not appear in storefront templates."""
     offenders: list[str] = []
     for f in _iter_template_files():
         if f.name in ALLOW_FILES:

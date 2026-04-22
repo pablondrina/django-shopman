@@ -199,7 +199,7 @@ class TestCartAnnotation:
         from django.test import RequestFactory
 
         rf = RequestFactory()
-        request = rf.get(f"/produto/{product.sku}/?v2")
+        request = rf.get(f"/produto/{product.sku}/")
         request.session = cart_session.session  # type: ignore[attr-defined]
 
         proj = build_product_detail(

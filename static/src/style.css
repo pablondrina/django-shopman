@@ -1,7 +1,7 @@
 @import '../../node_modules/@tailwindcss/cli/node_modules/tailwindcss';
 
-@source "../../shopman/shop/templates/storefront/v2/**/*.html";
-@source "../../shopman/shop/static/storefront/v2/js/**/*.js";
+@source "../../shopman/storefront/templates/**/*.html";
+@source "../../shopman/storefront/static/**/*.js";
 
 @custom-variant dark (&:where(.dark, .dark *));
 

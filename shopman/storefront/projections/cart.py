@@ -7,8 +7,7 @@ into an immutable frozen dataclass the template consumes without ever
 touching mutable dicts or Django model instances.
 
 Higher-order context — minimum order progress and the upsell suggestion
-— comes from ``services.storefront_context`` so v1 and v2 surfaces agree
-on exactly the same guidance.
+— comes from ``services.storefront_context``.
 
 Never imports from ``shopman.storefront.views.*``. Imports ``CartService``
 from ``shopman.storefront.cart`` — a service with no view dependencies.
