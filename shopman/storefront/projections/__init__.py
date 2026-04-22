@@ -22,6 +22,7 @@ from .catalog import (
     build_catalog_items_for_skus,
 )
 from .checkout import CheckoutProjection, build_checkout
+from .order_confirmation import OrderConfirmationProjection, build_order_confirmation
 from .order_history import OrderHistoryProjection, build_order_history
 from .order_tracking import (
     OrderTrackingProjection,
@@ -57,6 +58,7 @@ __all__ = [
     "LoyaltyProjection",
     "LoyaltyTransactionProjection",
     "MinimumOrderProgressProjection",
+    "OrderConfirmationProjection",
     "OrderHistoryProjection",
     "OrderTrackingProjection",
     "OrderTrackingStatusProjection",
@@ -70,6 +72,7 @@ __all__ = [
     "build_catalog",
     "build_catalog_items_for_skus",
     "build_checkout",
+    "build_order_confirmation",
     "build_order_history",
     "build_order_tracking",
     "build_order_tracking_status",
