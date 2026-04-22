@@ -27,7 +27,7 @@ from shopman.shop.models import Channel
 
 
 def _create_pos_order(payment_method: str = "dinheiro") -> Order:
-    channel = Channel.objects.get(ref="balcao")
+    channel = Channel.objects.get(ref="pdv")
     session_key = generate_session_key()
     Session.objects.create(
         session_key=session_key,
@@ -40,7 +40,7 @@ def _create_pos_order(payment_method: str = "dinheiro") -> Order:
     )
     ModifyService.modify_session(
         session_key=session_key,
-        channel_ref="balcao",
+        channel_ref="pdv",
         ops=[
             {"op": "add_line", "sku": "TEST-SKU", "qty": 1, "unit_price_q": 1000},
             {"op": "set_data", "path": "payment.method", "value": payment_method},
@@ -50,7 +50,7 @@ def _create_pos_order(payment_method: str = "dinheiro") -> Order:
     )
     result = CommitService.commit(
         session_key=session_key,
-        channel_ref="balcao",
+        channel_ref="pdv",
         idempotency_key=generate_idempotency_key(),
         ctx={"actor": "test"},
     )
@@ -76,7 +76,7 @@ class PosCancelLastTests(TestCase):
         _grant_pos_perm(self.staff)
         self.regular = User.objects.create_user("regular_user", password="pw", is_staff=False)
         self.channel = Channel.objects.create(
-            ref="balcao",
+            ref="pdv",
             name="Balcão",
             is_active=True,
         )
@@ -149,7 +149,7 @@ class PosCloseGranularErrorTests(TestCase):
         self.staff = User.objects.create_user("staff_user", password="pw", is_staff=True)
         _grant_pos_perm(self.staff)
         self.channel = Channel.objects.create(
-            ref="balcao",
+            ref="pdv",
             name="Balcão",
             is_active=True,
         )
@@ -169,12 +169,12 @@ class PosCloseGranularErrorTests(TestCase):
         }
 
     def test_pos_close_channel_not_found(self) -> None:
-        """No balcao channel → 500 with channel error message."""
+        """No pdv channel → 500 with channel error message."""
         self.channel.delete()
 
         resp = self.client.post("/gestao/pos/close/", self._close_payload())
         self.assertEqual(resp.status_code, 500)
-        self.assertIn("balc", resp.content.decode().lower())
+        self.assertIn("pdv", resp.content.decode().lower())
 
     def test_pos_close_empty_cart(self) -> None:
         """Empty items list → 422."""

@@ -57,7 +57,7 @@ class SessionChannelRefFieldTest(TestCase):
         """session.channel_ref returns the string value — no AttributeError."""
         session = Session.objects.create(
             session_key="SESS-HP2-1",
-            channel_ref="balcao",
+            channel_ref="pdv",
             state="open",
             pricing_policy="internal",
             edit_policy="open",
@@ -65,11 +65,11 @@ class SessionChannelRefFieldTest(TestCase):
             items=[],
             data={"checks": {}, "issues": []},
         )
-        self.assertEqual(session.channel_ref, "balcao")
+        self.assertEqual(session.channel_ref, "pdv")
 
     def test_session_has_no_channel_fk(self) -> None:
         """Accessing session.channel raises AttributeError — proving the FK doesn't exist."""
-        session = Session(session_key="X", channel_ref="balcao", state="open")
+        session = Session(session_key="X", channel_ref="pdv", state="open")
         with self.assertRaises(AttributeError):
             _ = session.channel.ref  # noqa: B018 — intentionally triggering the old bug
 

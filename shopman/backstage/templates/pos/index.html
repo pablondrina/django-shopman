@@ -17,7 +17,7 @@
      @htmx:after-swap.window="onSaleComplete($event)"
      @sku-state.window="onSkuState($event.detail)"
      hx-ext="sse"
-     sse-connect="{% url 'storefront:stock_events' channel_ref=pos_channel_ref|default:'balcao' %}"
+     sse-connect="{% url 'storefront:stock_events' channel_ref=pos_channel_ref|default:'pdv' %}"
      class="h-full flex flex-col overflow-hidden">
 
   {% comment %}Main 2-column{% endcomment %}
@@ -55,7 +55,7 @@
         <div class="bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark rounded-xl p-2.5 text-center transition-all duration-100 flex flex-col items-center gap-1 min-h-[84px] justify-center select-none relative"
              :class="isUnavailable('{{ p.sku }}') ? 'opacity-40 cursor-not-allowed grayscale' : 'cursor-pointer active:scale-95 hover:border-outline-strong dark:hover:border-outline-dark-strong hover:shadow-sm'"
              data-sku="{{ p.sku }}"
-             hx-get="{% url 'storefront:sku_state' p.sku %}?channel_ref={{ pos_channel_ref|default:'balcao' }}"
+             hx-get="{% url 'storefront:sku_state' p.sku %}?channel_ref={{ pos_channel_ref|default:'pdv' }}"
              hx-trigger="sse:stock-update[JSON.parse(event.data).sku=='{{ p.sku }}'],sse:product-paused[JSON.parse(event.data).sku=='{{ p.sku }}'],sse:listing-changed[JSON.parse(event.data).sku=='{{ p.sku }}']"
              hx-swap="none"
              x-show="matchesTile('{{ p.name|escapejs }}', '{{ p.sku }}', '{{ p.collection_ref }}')"

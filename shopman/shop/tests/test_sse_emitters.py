@@ -51,7 +51,7 @@ def web_channel(db):
 
 @pytest.fixture
 def balcao_channel(db):
-    return Channel.objects.create(ref="balcao", name="Balcão", is_active=True)
+    return Channel.objects.create(ref="pdv", name="Balcão", is_active=True)
 
 
 @pytest.fixture
@@ -70,7 +70,7 @@ def listings_for_baguete(baguete, web_channel, balcao_channel):
     """BAGUETE is listed on both 'web' and 'balcao'."""
     web_listing = Listing.objects.create(ref="web", name="Web", is_active=True)
     balcao_listing = Listing.objects.create(
-        ref="balcao", name="Balcão", is_active=True,
+        ref="pdv", name="Balcão", is_active=True,
     )
     ListingItem.objects.create(
         listing=web_listing, product=baguete, price_q=500,
@@ -97,7 +97,7 @@ def test_emit_targets_every_channel_listing_the_sku(
     _emit_for_sku("BAGUETE", event_type="stock-update")
 
     channels_called = sorted(call.args[0] for call in mock_send.call_args_list)
-    assert channels_called == ["stock-balcao", "stock-web"]
+    assert channels_called == ["stock-pdv", "stock-web"]
     for call in mock_send.call_args_list:
         assert call.args[1] == "stock-update"
         assert call.args[2] == {"sku": "BAGUETE"}
@@ -114,7 +114,7 @@ def test_emit_falls_back_to_all_active_channels_when_sku_has_no_listing(
     _emit_for_sku("BAGUETE", event_type="stock-update")
 
     channels_called = sorted(call.args[0] for call in mock_send.call_args_list)
-    assert channels_called == ["stock-balcao", "stock-web"]
+    assert channels_called == ["stock-pdv", "stock-web"]
 
 
 @pytest.mark.django_db
@@ -126,13 +126,13 @@ def test_emit_invalidates_per_channel_availability_cache(
     from shopman.shop.handlers._sse_emitters import _emit_for_sku
 
     cache.set("availability:BAGUETE:web", {"stale": True}, 30)
-    cache.set("availability:BAGUETE:balcao", {"stale": True}, 30)
+    cache.set("availability:BAGUETE:pdv", {"stale": True}, 30)
     cache.set("availability:BAGUETE:default", {"stale": True}, 30)
 
     _emit_for_sku("BAGUETE", event_type="stock-update")
 
     assert cache.get("availability:BAGUETE:web") is None
-    assert cache.get("availability:BAGUETE:balcao") is None
+    assert cache.get("availability:BAGUETE:pdv") is None
     assert cache.get("availability:BAGUETE:default") is None
 
 

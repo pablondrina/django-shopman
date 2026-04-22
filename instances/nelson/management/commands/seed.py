@@ -710,9 +710,9 @@ class Command(BaseCommand):
         )
 
         # Listings
-        balcao, _ = Listing.objects.update_or_create(
-            ref="balcao",
-            defaults={"name": "Balcao", "is_active": True, "priority": 10},
+        pdv, _ = Listing.objects.update_or_create(
+            ref="pdv",
+            defaults={"name": "PDV", "is_active": True, "priority": 10},
         )
         delivery, _ = Listing.objects.update_or_create(
             ref="delivery",
@@ -730,8 +730,8 @@ class Command(BaseCommand):
         # Listing items (all products in all listings)
         # iFood uses pricing.policy="external": the marketplace controls final prices,
         # so listing prices are reference-only — no markup stored on our side.
-        markup_map = {"balcao": 0, "delivery": 0, "ifood": 0, "web": 0}
-        for listing_obj in [balcao, delivery, ifood, web]:
+        markup_map = {"pdv": 0, "delivery": 0, "ifood": 0, "web": 0}
+        for listing_obj in [pdv, delivery, ifood, web]:
             ListingItem.objects.filter(listing=listing_obj).delete()
             markup = Decimal(markup_map[listing_obj.ref]) / 100
             for _sku, product in products.items():
@@ -1352,7 +1352,7 @@ class Command(BaseCommand):
         }
         channels_data = [
             # (ref, name, kind, config_overrides)
-            ("balcao", "Balcao / PDV", "pos", _pos_config),
+            ("pdv", "PDV", "pos", _pos_config),
             ("delivery", "Delivery Proprio", "web", _remote_config),
             ("ifood", "iFood", "ifood", {
                 **_marketplace_config,
@@ -1389,7 +1389,7 @@ class Command(BaseCommand):
         order_count = 0
         customer_list = list(customers.values())
         product_list = list(products.values())
-        channel_list = [channels["balcao"], channels["delivery"], channels["whatsapp"]]
+        channel_list = [channels["pdv"], channels["delivery"], channels["whatsapp"]]
 
         # Seasonal demand multiplier based on current month
         current_month = now.month
@@ -1646,7 +1646,7 @@ class Command(BaseCommand):
         from shopman.orderman.ids import generate_session_key
 
         for channel_ref, items in [
-            ("balcao", [
+            ("pdv", [
                 {"line_id": uuid.uuid4().hex[:8], "sku": "CROISSANT", "name": "Croissant Tradicional", "qty": 2, "unit_price_q": 1300, "line_total_q": 2600},
                 {"line_id": uuid.uuid4().hex[:8], "sku": "PAIN-CHOCOLAT", "name": "Pain au Chocolat", "qty": 1, "unit_price_q": 1500, "line_total_q": 1500},
             ]),

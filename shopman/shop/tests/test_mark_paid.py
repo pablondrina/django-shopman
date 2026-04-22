@@ -17,7 +17,7 @@ from shopman.orderman.services.modify import ModifyService
 from shopman.shop.models import Channel
 
 
-def _create_order(channel_ref: str = "balcao", payment_method: str = "dinheiro") -> Order:
+def _create_order(channel_ref: str = "pdv", payment_method: str = "dinheiro") -> Order:
     session_key = generate_session_key()
     Session.objects.create(
         session_key=session_key,
@@ -56,7 +56,7 @@ class MarkPaidTests(TestCase):
         perm = Permission.objects.get(content_type=ct, codename="manage_orders")
         self.staff.user_permissions.add(perm)
         self.channel = Channel.objects.create(
-            ref="balcao",
+            ref="pdv",
             name="Balcão",
             is_active=True,
         )

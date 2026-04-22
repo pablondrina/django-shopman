@@ -44,7 +44,7 @@ def product(db):
 
 @pytest.fixture
 def product_in_listing(product, db):
-    listing = Listing.objects.create(ref="balcao", name="Balcão", is_active=True, priority=10)
+    listing = Listing.objects.create(ref="pdv", name="PDV", is_active=True, priority=10)
     ListingItem.objects.create(
         listing=listing,
         product=product,

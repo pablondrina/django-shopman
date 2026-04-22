@@ -15,7 +15,7 @@ from shopman.shop.models import Channel
 
 def _make_channel():
     return Channel.objects.get_or_create(
-        ref="balcao",
+        ref="pdv",
         defaults={"name": "Balcão", "is_active": True},
     )[0]
 
@@ -39,7 +39,7 @@ def _make_session(items=None):
             )
         ModifyService.modify_session(
             session_key=session_key,
-            channel_ref="balcao",
+            channel_ref="pdv",
             ops=[{"op": "add_line", "sku": i["sku"], "qty": i["qty"], "unit_price_q": i["unit_price_q"]} for i in items],
         )
     session.refresh_from_db()

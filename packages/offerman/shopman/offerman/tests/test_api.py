@@ -148,7 +148,7 @@ def ifood_listing(db):
 @pytest.fixture
 def balcao_listing(db):
     return Listing.objects.create(
-        ref="balcao",
+        ref="pdv",
         name="Balcão",
         is_active=True,
         priority=0,
@@ -307,7 +307,7 @@ class TestProductPrice:
     def test_price_with_base_price(self, api_client, baguete):
         resp = api_client.get(
             f"/api/offerman/products/{baguete.sku}/price/",
-            {"channel_ref": "balcao"},
+            {"channel_ref": "pdv"},
         )
         assert resp.status_code == 200
         assert resp.data["sku"] == "BAGUETE"
@@ -318,7 +318,7 @@ class TestProductPrice:
     def test_price_with_qty(self, api_client, baguete):
         resp = api_client.get(
             f"/api/offerman/products/{baguete.sku}/price/",
-            {"channel_ref": "balcao", "qty": "3"},
+            {"channel_ref": "pdv", "qty": "3"},
         )
         assert resp.status_code == 200
         assert resp.data["total_q"] == 1500
@@ -335,7 +335,7 @@ class TestProductPrice:
     def test_price_from_explicit_listing(self, api_client, baguete, ifood_baguete):
         resp = api_client.get(
             f"/api/offerman/products/{baguete.sku}/price/",
-            {"channel_ref": "balcao", "listing_ref": "ifood"},
+            {"channel_ref": "pdv", "listing_ref": "ifood"},
         )
         assert resp.status_code == 200
         assert resp.data["unit_price_q"] == 600
@@ -347,14 +347,14 @@ class TestProductPrice:
     def test_price_invalid_qty(self, api_client, baguete):
         resp = api_client.get(
             f"/api/offerman/products/{baguete.sku}/price/",
-            {"channel_ref": "balcao", "qty": "abc"},
+            {"channel_ref": "pdv", "qty": "abc"},
         )
         assert resp.status_code == 400
 
     def test_price_zero_qty(self, api_client, baguete):
         resp = api_client.get(
             f"/api/offerman/products/{baguete.sku}/price/",
-            {"channel_ref": "balcao", "qty": "0"},
+            {"channel_ref": "pdv", "qty": "0"},
         )
         assert resp.status_code == 400
 
@@ -425,7 +425,7 @@ class TestListingList:
         assert resp.status_code == 200
         codes = {pl["ref"] for pl in resp.data["results"]}
         assert "ifood" in codes
-        assert "balcao" in codes
+        assert "pdv" in codes
 
     def test_excludes_inactive_listings(self, api_client, ifood_listing, inactive_listing):
         resp = api_client.get("/api/offerman/listings/")
@@ -517,7 +517,7 @@ class TestAuthentication:
     def test_product_price_accessible_without_auth(self, anon_client, baguete):
         resp = anon_client.get(
             f"/api/offerman/products/{baguete.sku}/price/",
-            {"channel_ref": "balcao"},
+            {"channel_ref": "pdv"},
         )
         # 400 because channel doesn't exist in this fixture, but NOT 403
         assert resp.status_code != 403

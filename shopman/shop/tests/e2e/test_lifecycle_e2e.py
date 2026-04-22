@@ -150,7 +150,7 @@ class TestE2E1LocalCheckout(TestCase):
     """Local channel: commit → auto-confirm → stock.fulfill."""
 
     def setUp(self):
-        self.channel = _make_channel(ref="balcao", kind="local", config=_LOCAL_CONFIG)
+        self.channel = _make_channel(ref="pdv", kind="local", config=_LOCAL_CONFIG)
         self.patchers, self.mocks = _start_patches()
 
     def tearDown(self):

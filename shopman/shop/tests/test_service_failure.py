@@ -13,7 +13,7 @@ def _make_order(ref="FAIL-001", total_q=1000):
     from shopman.shop.models import Channel
 
     channel, _ = Channel.objects.get_or_create(
-        ref="balcao",
+        ref="pdv",
         defaults={
             "name": "Balcão",
             "is_active": True,
@@ -136,7 +136,7 @@ class StockCheckDegradationTests(TestCase):
         from shopman.shop.models import Channel
 
         Channel.objects.get_or_create(
-            ref="balcao",
+            ref="pdv",
             defaults={
                 "name": "Balcão",
                 "is_active": True,

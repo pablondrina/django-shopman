@@ -14,7 +14,7 @@ from __future__ import annotations
 import uuid
 
 
-def nelson_handle_balcao(order):
+def nelson_handle_pdv(order):
     """
     Resolve customer for in-person counter (balcão) orders.
 
@@ -58,7 +58,7 @@ def nelson_handle_balcao(order):
             first_name=first_name or "Cliente",
             last_name=last_name or f"CPF {cpf_normalized[-4:]}",
             customer_type="individual",
-            source_system="balcao",
+            source_system="pdv",
         )
         adapter.create_identifier(customer["ref"], "cpf", cpf_normalized, is_primary=True)
         return customer
@@ -68,4 +68,4 @@ def nelson_handle_balcao(order):
 
 # Register on import
 from shopman.shop.services.customer import register_strategy
-register_strategy("balcao", nelson_handle_balcao)
+register_strategy("pdv", nelson_handle_pdv)

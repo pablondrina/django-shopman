@@ -21,7 +21,7 @@ from shopman.orderman.services.modify import ModifyService
 from shopman.shop.models import Channel
 
 
-def _make_channel(ref="balcao"):
+def _make_channel(ref="pdv"):
     return Channel.objects.get_or_create(
         ref=ref,
         defaults={
@@ -31,7 +31,7 @@ def _make_channel(ref="balcao"):
     )[0]
 
 
-def _make_session(channel_ref="balcao", items=None):
+def _make_session(channel_ref="pdv", items=None):
     channel = _make_channel(channel_ref)
     session_key = generate_session_key()
     session = Session.objects.create(

@@ -16,12 +16,12 @@ class PedidoConfirmTests(TestCase):
         perm = Permission.objects.get(content_type=ct, codename="manage_orders")
         self.staff.user_permissions.add(perm)
         self.client.force_login(self.staff)
-        Channel.objects.create(ref="balcao", name="Balcao", is_active=True)
+        Channel.objects.create(ref="pdv", name="Balcao", is_active=True)
 
     def test_confirm_requires_positive_availability_decision(self) -> None:
         order = Order.objects.create(
             ref="ORD-CONF-001",
-            channel_ref="balcao",
+            channel_ref="pdv",
             session_key="sess-confirm-001",
             status=Order.Status.NEW,
             snapshot={"items": [{"sku": "TEST-SKU", "qty": 1}], "data": {}},
@@ -38,7 +38,7 @@ class PedidoConfirmTests(TestCase):
     def test_confirm_succeeds_with_positive_availability_decision(self) -> None:
         order = Order.objects.create(
             ref="ORD-CONF-002",
-            channel_ref="balcao",
+            channel_ref="pdv",
             session_key="sess-confirm-002",
             status=Order.Status.NEW,
             snapshot={"items": [{"sku": "TEST-SKU", "qty": 1}], "data": {}},

@@ -168,7 +168,7 @@ class TestRecalculate:
         orders = [
             OrderSummary(
                 order_ref="ORD-SINGLE",
-                channel_ref="balcao",
+                channel_ref="pdv",
                 ordered_at=now - timedelta(days=3),
                 total_q=5000,
                 items_count=2,

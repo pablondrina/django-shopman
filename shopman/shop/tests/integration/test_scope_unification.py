@@ -56,7 +56,7 @@ def balcao_channel(db):
     from shopman.shop.models import Channel
 
     channel, _ = Channel.objects.update_or_create(
-        ref="balcao",
+        ref="pdv",
         defaults={
             "name": "Balcão / PDV",
             "kind": "pos",
@@ -105,7 +105,7 @@ class TestScopeUnification:
         )
 
         check_result = availability.check(
-            product.sku, Decimal("12"), channel_ref="balcao",
+            product.sku, Decimal("12"), channel_ref="pdv",
         )
         assert check_result["available_qty"] == Decimal("12")
 
@@ -176,6 +176,6 @@ class TestScopeUnification:
 
         reserve = availability.reserve(
             product.sku, Decimal("3"), session_key="test-session",
-            channel_ref="balcao",
+            channel_ref="pdv",
         )
         assert reserve["ok"] is True

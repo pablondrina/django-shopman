@@ -29,7 +29,7 @@ class PreorderCommitTests(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.channel = types.SimpleNamespace(
-            ref="balcao",
+            ref="pdv",
             name="Balcao",
             is_active=True,
         )
@@ -205,7 +205,7 @@ class PreorderCutoffValidationTests(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.channel = types.SimpleNamespace(
-            ref="balcao",
+            ref="pdv",
             name="Balcao",
             is_active=True,
         )

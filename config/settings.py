@@ -657,7 +657,7 @@ ASGI_APPLICATION = "config.asgi.application"
 SHOPMAN_STOREFRONT_CHANNEL_REF = "web"
 
 # Ref of the Channel used for POS/counter orders.
-SHOPMAN_POS_CHANNEL_REF = os.environ.get("SHOPMAN_POS_CHANNEL_REF", "balcao")
+SHOPMAN_POS_CHANNEL_REF = os.environ.get("SHOPMAN_POS_CHANNEL_REF", "pdv")
 
 # ── Instance-specific modifiers ──────────────────────────────────────
 # Dotted paths to modifier classes registered at boot.

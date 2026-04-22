@@ -72,7 +72,7 @@ def shop(request: HttpRequest) -> dict:
         "storefront_channel_ref": getattr(
             settings, "SHOPMAN_STOREFRONT_CHANNEL_REF", "web"
         ),
-        "pos_channel_ref": getattr(settings, "SHOPMAN_POS_CHANNEL_REF", "balcao"),
+        "pos_channel_ref": getattr(settings, "SHOPMAN_POS_CHANNEL_REF", "pdv"),
     }
 
 

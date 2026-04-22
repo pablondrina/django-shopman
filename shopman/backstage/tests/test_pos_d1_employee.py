@@ -17,7 +17,7 @@ def _make_shop():
 def _make_channel():
     from shopman.shop.models import Channel
     return Channel.objects.get_or_create(
-        ref="balcao",
+        ref="pdv",
         defaults={"name": "Balcão", "is_active": True},
     )[0]
 

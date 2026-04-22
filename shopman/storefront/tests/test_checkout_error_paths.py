@@ -23,7 +23,7 @@ def _make_channels():
         },
     )
     Channel.objects.get_or_create(
-        ref="balcao",
+        ref="pdv",
         defaults={
             "name": "Balcão",
             "is_active": True,

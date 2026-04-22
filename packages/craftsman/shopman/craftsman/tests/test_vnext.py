@@ -99,7 +99,7 @@ class TestPlan:
             recipe,
             50,
             date=tomorrow,
-            source_ref="listing:balcao",
+            source_ref="listing:pdv",
             position_ref="station:forno-01",
             operator_ref="user:joao",
         )
@@ -114,7 +114,7 @@ class TestPlan:
         assert ev.payload["recipe"] == "croissant-v1"
         assert ev.payload["output_sku"] == "croissant"
         assert ev.payload["target_date"] == str(tomorrow)
-        assert ev.payload["source_ref"] == "listing:balcao"
+        assert ev.payload["source_ref"] == "listing:pdv"
         assert ev.payload["position_ref"] == "station:forno-01"
         assert ev.payload["operator_ref"] == "user:joao"
 
