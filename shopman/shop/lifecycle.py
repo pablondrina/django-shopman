@@ -120,7 +120,7 @@ def ensure_payment_captured(order) -> None:
     # the guard doesn't apply.
     try:
         config = ChannelConfig.for_channel(order.channel_ref)
-        if (config.payment or {}).get("timing") == "external":
+        if config.payment.timing == "external":
             return
     except Exception:
         pass
