@@ -81,7 +81,7 @@
       <input type="hidden" name="delivery_method" :value="method">
 
       <div class="flex w-full flex-col gap-2 text-on-surface dark:text-on-surface-dark"
-           x-data="phoneMask('{{ phone_prefill|default:phone_value|default:'' }}')" x-init="init()">
+           x-data="phoneMask('{{ phone_value }}')" x-init="init()">
         <label for="phone" class="text-base font-medium text-on-surface-strong dark:text-on-surface-dark-strong">
           Seu telefone
         </label>

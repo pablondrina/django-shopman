@@ -106,7 +106,7 @@ class LoginView(View):
         return render(request, "storefront/login.html", {
             "step": "phone",
             "next": next_url,
-            "phone_prefill": phone_prefill,
+            "phone_value": phone_prefill,
             "trusted_name": trusted_name,
             "login_context": login_context,
         })
@@ -132,6 +132,8 @@ class LoginView(View):
                 "error": error,
                 "phone_value": result.form_data.get("phone", ""),
                 "next": next_url,
+                "trusted_name": "",
+                "login_context": "checkout" if "checkout" in next_url else "direct",
             })
 
         intent = result.intent
