@@ -49,6 +49,11 @@ class Promotion(models.Model):
         blank=True,
         help_text='Segmentos RFM para targeting (vazio = todos). Ex: ["champions", "loyal"]',
     )
+    birthday_only = models.BooleanField(
+        "apenas aniversariantes",
+        default=False,
+        help_text="Se marcado, desconto aplicável somente no dia do aniversário do cliente.",
+    )
     is_active = models.BooleanField("ativa", default=True)
 
     class Meta:

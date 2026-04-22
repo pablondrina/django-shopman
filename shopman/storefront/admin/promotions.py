@@ -42,9 +42,9 @@ class PromotionStatusFilter(admin.SimpleListFilter):
 class PromotionAdmin(ModelAdmin):
     list_display = (
         "name", "type", "value_display", "valid_from", "valid_until",
-        "is_active", "status_display",
+        "birthday_only", "is_active", "status_display",
     )
-    list_filter = (PromotionStatusFilter, "is_active", "type")
+    list_filter = (PromotionStatusFilter, "is_active", "type", "birthday_only")
     search_fields = ("name",)
     inlines = [CouponInline]
 

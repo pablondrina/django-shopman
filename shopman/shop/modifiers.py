@@ -61,6 +61,22 @@ class DiscountModifier:
         if fulfillment_type:
             ctx.setdefault("fulfillment_type", fulfillment_type)
 
+        # Inject is_birthday — needed for birthday_only promotions
+        if "is_birthday" not in ctx:
+            customer_ref = (session.data or {}).get("customer", {}).get("ref")
+            if customer_ref:
+                try:
+                    from shopman.guestman.models import Customer
+                    customer = Customer.objects.filter(ref=customer_ref).only("birthday").first()
+                    if customer and customer.birthday:
+                        today = timezone.localdate()
+                        ctx["is_birthday"] = (
+                            customer.birthday.month == today.month
+                            and customer.birthday.day == today.day
+                        )
+                except Exception:
+                    pass
+
         now = timezone.now()
 
         adapter = get_adapter("promotion")
@@ -201,6 +217,9 @@ class DiscountModifier:
             customer_segment = ctx.get("customer_segment", "")
             customer_group = ctx.get("customer_group", "")
             if customer_segment not in promo.customer_segments and customer_group not in promo.customer_segments:
+                return False
+        if getattr(promo, "birthday_only", False):
+            if not ctx.get("is_birthday"):
                 return False
         return True
 
