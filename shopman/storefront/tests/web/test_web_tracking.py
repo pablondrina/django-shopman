@@ -40,17 +40,18 @@ class TestReorderView:
     def test_reorder_no_session_flag_when_all_added(
         self, client: Client, order_items,
     ):
-        """No skipped items → reorder_skipped not in session."""
+        """No skipped items → reorder_skipped not in session, but reorder_source is."""
         with patch("shopman.storefront.views.tracking.CartService.add_item"):
             resp = client.post(f"/meus-pedidos/{order_items.ref}/reorder/")
 
         assert resp.status_code == 302
         assert client.session.get("reorder_skipped") is None
+        assert client.session.get("reorder_source") is True
 
-    def test_reorder_skipped_banner_shown_on_menu(
+    def test_reorder_skipped_banner_shown_on_cart(
         self, client: Client, order_items, croissant,
     ):
-        """After reorder with skips, the menu page renders the skipped banner."""
+        """After reorder with skips, the cart page renders the skipped banner."""
         from shopman.storefront.cart import CartUnavailableError
 
         def raise_for_oos(request, sku, **kwargs):
@@ -67,9 +68,21 @@ class TestReorderView:
         with patch("shopman.storefront.views.tracking.CartService.add_item", side_effect=raise_for_oos):
             client.post(f"/meus-pedidos/{order_items.ref}/reorder/")
 
-        # Follow redirect to menu — banner should appear
-        resp = client.get("/menu/")
+        resp = client.get("/cart/")
         assert resp.status_code == 200
         assert b"indispon" in resp.content
-        # Session cleared after render
+        assert b"Ver outros pedidos" in resp.content
+        # Session flags cleared after render
         assert client.session.get("reorder_skipped") is None
+        assert client.session.get("reorder_source") is None
+
+    def test_reorder_ver_outros_pedidos_link_shown_without_skips(
+        self, client: Client, order_items,
+    ):
+        """Even with no skips, the cart shows the 'Ver outros pedidos' link."""
+        with patch("shopman.storefront.views.tracking.CartService.add_item"):
+            client.post(f"/meus-pedidos/{order_items.ref}/reorder/")
+
+        resp = client.get("/cart/")
+        assert resp.status_code == 200
+        assert b"Ver outros pedidos" in resp.content

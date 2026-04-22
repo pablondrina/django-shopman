@@ -30,6 +30,37 @@
 
 {% block content %}
 {% comment %}
+Reorder banners — session-sourced, shown once on arrival from ReorderView.
+Sit outside #cart-page-content so they persist through HTMX cart updates.
+{% endcomment %}
+{% if reorder_skipped %}
+<div x-data="{ show: true }" x-show="show" x-cloak
+     class="mb-4 flex items-start gap-3 px-4 py-3 rounded-radius bg-warning/5 border border-warning/30"
+     role="alert" aria-live="polite">
+  <span class="material-symbols-rounded shrink-0 text-warning mt-0.5 text-lg" aria-hidden="true">info</span>
+  <p class="text-sm text-on-surface dark:text-on-surface-dark flex-1">
+    {% with n=reorder_skipped|length %}
+    <span class="font-medium">{{ n }} item{% if n != 1 %}(s){% endif %} indisponível{% if n != 1 %}(is){% endif %}:</span>
+    {{ reorder_skipped|join:", " }}.
+    {% endwith %}
+    <a href="{% url 'storefront:menu' %}"
+       class="underline underline-offset-2 hover:text-primary dark:hover:text-primary-dark">Veja alternativas no cardápio</a>.
+  </p>
+  <button @click="show = false" class="shrink-0 text-on-surface/50 hover:text-on-surface dark:text-on-surface-dark/50 dark:hover:text-on-surface-dark" aria-label="Fechar aviso">
+    <span class="material-symbols-rounded text-base" aria-hidden="true">close</span>
+  </button>
+</div>
+{% endif %}
+{% if from_reorder %}
+<div class="mb-3 flex items-center justify-end">
+  <a href="{% url 'storefront:order_history' %}"
+     class="inline-flex items-center gap-1 text-sm text-on-surface/60 dark:text-on-surface-dark/60 hover:text-primary dark:hover:text-primary-dark">
+    <span class="material-symbols-rounded text-base" aria-hidden="true">receipt_long</span>
+    Ver outros pedidos
+  </a>
+</div>
+{% endif %}
+{% comment %}
 The inner partial re-renders on cartUpdated so steppers, delete, coupon,
 and upsell stay in sync with the projection without page reloads.
 {% endcomment %}

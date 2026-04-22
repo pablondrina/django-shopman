@@ -41,7 +41,13 @@ class CartView(View):
         from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
 
         cart = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
-        return render(request, "storefront/cart.html", {"cart": cart})
+        reorder_skipped = request.session.pop("reorder_skipped", None)
+        from_reorder = request.session.pop("reorder_source", False)
+        return render(request, "storefront/cart.html", {
+            "cart": cart,
+            "reorder_skipped": reorder_skipped,
+            "from_reorder": from_reorder or bool(reorder_skipped),
+        })
 
 
 class AddToCartView(View):

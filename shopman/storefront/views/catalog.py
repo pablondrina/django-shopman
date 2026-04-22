@@ -93,10 +93,8 @@ class MenuView(View):
             collection_ref=collection,
             request=request,
         )
-        reorder_skipped = request.session.pop("reorder_skipped", None)
         return render(request, "storefront/menu.html", {
             "catalog": catalog,
-            "reorder_skipped": reorder_skipped,
             "catalog_search_index_json": _build_search_index(catalog),
         })
 

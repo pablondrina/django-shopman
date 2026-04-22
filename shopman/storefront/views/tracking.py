@@ -255,6 +255,7 @@ class ReorderView(View):
                 name = product.name if product else item.sku
                 skipped.append(name)
 
+        request.session["reorder_source"] = True
         if skipped:
             request.session["reorder_skipped"] = skipped
 
