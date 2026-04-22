@@ -143,7 +143,7 @@
           <span x-show="!searchResults.length">Sem resultados</span>
         </p>
         <template x-for="r in searchResults" :key="r.sku">
-          <a :href="'/produto/' + r.sku + '/'"
+          <a :href="pdpBase.replace('__SKU__', r.sku)"
              class="w-full flex items-center gap-4 px-4 py-3 hover:bg-surface-alt dark:hover:bg-surface-dark-alt text-left transition">
             <span class="shrink-0 size-12 rounded bg-surface-alt dark:bg-surface-dark-alt flex items-center justify-center overflow-hidden">
               <template x-if="r.image"><img :src="r.image" :alt="r.name" loading="lazy" class="w-full h-full object-cover"></template>
@@ -199,6 +199,7 @@ function menuNav() {
     searchOpen: false,
     searchQuery: '',
     searchResults: [],
+    pdpBase: '{% url 'storefront:product_detail' sku='__SKU__' %}',
     navHeight: 0,
     panelTop: 0,
     _lockActiveUntil: 0,
