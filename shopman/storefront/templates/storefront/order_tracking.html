@@ -60,8 +60,8 @@
        sse-connect="{% url 'storefront:order_events' ref=tracking.order_ref %}">
     <div id="order-status-area"
          hx-get="{% url 'storefront:order_status_partial' ref=tracking.order_ref %}"
-         hx-trigger="load, sse:order-update, every 60s"
-         hx-swap="outerHTML"
+         hx-trigger="load, sse:order-update, every 15s"
+         hx-swap="innerHTML"
          aria-live="polite">
       {% include "storefront/partials/order_status.html" with tracking_status=tracking %}
     </div>
