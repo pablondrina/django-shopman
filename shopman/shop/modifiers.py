@@ -46,9 +46,8 @@ class DiscountModifier:
 
     Não se aplica a itens com D-1 (prioridade absoluta).
 
-    Promoções com ``fulfillment_types`` e sessão **sem** ``fulfillment_type`` ainda assim
-    são avaliadas como na vitrine (qualquer tipo permitido que case) — evita cardápio com
-    "Delivery -R$2" e carrinho só com percentual.
+    Promoções com ``fulfillment_types`` só se aplicam depois que o cliente escolhe o tipo
+    de entrega no checkout. Sem ``fulfillment_type`` na sessão → desconto não aplica.
     """
 
     code = "shop.discount"
@@ -190,14 +189,7 @@ class DiscountModifier:
                 if fulfillment_type not in promo.fulfillment_types:
                     return False
             else:
-                # Sessão ainda sem tipo (antes do checkout): mesma regra da vitrine
-                # (`_promo_matches_for_vitrine`) — aceita se *algum* tipo permitido pela
-                # promo fizer match. Caso contrário, promo só-delivery nunca aplicaria no
-                # carrinho e o cardápio mostraria R$ 2 off enquanto o carrinho só 15%.
-                for try_ft in promo.fulfillment_types:
-                    c = {**ctx, "fulfillment_type": try_ft}
-                    if DiscountModifier._matches(promo, sku, c):
-                        return True
+                # fulfillment_type not chosen yet — don't pre-apply fulfillment-restricted promos
                 return False
         if promo.skus and sku not in promo.skus:
             return False
