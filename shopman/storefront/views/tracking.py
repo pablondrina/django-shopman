@@ -173,7 +173,7 @@ def _build_tracking_context(order: Order) -> dict:
 
     status_label = STATUS_LABELS.get(order.status, order.status)
     if order.status == "ready":
-        status_label = "Aguardando motoboy" if is_delivery else "Pronto para retirada"
+        status_label = "Aguardando entregador" if is_delivery else "Pronto para retirada"
     elif order.status == "completed":
         status_label = "Entregue" if is_delivery else "Concluído"
 

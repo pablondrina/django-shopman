@@ -230,7 +230,7 @@ def _status_display(order: Order) -> tuple[str, str]:
 
     label = ORDER_STATUS_LABELS_PT.get(order.status, order.status)
     if order.status == "ready":
-        label = "Aguardando motoboy" if is_delivery else "Pronto para retirada"
+        label = "Aguardando entregador" if is_delivery else "Pronto para retirada"
     elif order.status == "completed":
         label = "Entregue" if is_delivery else "Concluído"
 

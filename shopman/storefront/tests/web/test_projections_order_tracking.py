@@ -170,7 +170,7 @@ class TestStatusColours:
         _Order.objects.filter(pk=order.pk).update(status="ready", data={"fulfillment_type": "delivery"})
         order.refresh_from_db()
         proj = build_order_tracking(order)
-        assert proj.status_label == "Aguardando motoboy"
+        assert proj.status_label == "Aguardando entregador"
 
 
 # ──────────────────────────────────────────────────────────────────────
