@@ -7,6 +7,10 @@
 
 {% block content %}
 <div class="max-w-xl mx-auto space-y-8">
+  {% omotenashi 'CONFIRMATION_HEADING' as confirmation_heading %}
+  {% omotenashi 'CONFIRMATION_ITEMS_HEADING' as confirmation_items_heading %}
+  {% omotenashi 'CONFIRMATION_TRACK_CTA' as confirmation_track_cta %}
+  {% omotenashi 'CONFIRMATION_SHARE_CTA' as confirmation_share_cta %}
 
   {% comment %}── Yoin header — quiet, not performative ──{% endcomment %}
   <header class="text-center pt-6">
@@ -14,7 +18,7 @@
       <span class="material-symbols-rounded text-3xl">check_circle</span>
     </div>
     <h1 class="text-2xl lg:text-3xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">
-      Pedido recebido{% if omotenashi_ctx.customer_name %}, {{ omotenashi_ctx.customer_name }}{% endif %}.
+      {{ confirmation_heading.title }}{% if omotenashi_ctx.customer_name %}, {{ omotenashi_ctx.customer_name }}{% endif %}.
     </h1>
     <p class="mt-2 text-on-surface dark:text-on-surface-dark">
       Começamos a preparar {% human_eta eta %}.
@@ -24,7 +28,7 @@
 
   {% comment %}── Items summary ──{% endcomment %}
   <section class="rounded-radius border border-outline bg-surface dark:border-outline-dark dark:bg-surface-dark p-5">
-    <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-3">Você encomendou</h2>
+    <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-3">{{ confirmation_items_heading.title }}</h2>
     <ul class="divide-y divide-outline dark:divide-outline-dark text-sm">
       {% for item in items %}
       <li class="flex items-start justify-between gap-2 py-2">
@@ -46,7 +50,7 @@
     <a href="{% url 'storefront:order_tracking' ref=order.ref %}"
        class="inline-flex items-center justify-center gap-2 rounded-radius bg-primary px-5 py-3 font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px]">
       <span class="material-symbols-rounded text-base" aria-hidden="true">delivery_dining</span>
-      Acompanhar pedido
+      {{ confirmation_track_cta.title }}
     </a>
 
     <a href="https://wa.me/?text={{ share_text|urlencode }}" target="_blank" rel="noopener"
@@ -54,7 +58,7 @@
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 text-success dark:text-success-dark" aria-hidden="true">
         <path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.524 3.659 1.435 5.168L2 22l4.968-1.41A9.952 9.952 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.946 7.946 0 01-4.073-1.117l-.291-.174-3.027.86.875-2.944-.19-.302A7.951 7.951 0 014 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8z"/>
       </svg>
-      Compartilhar
+      {{ confirmation_share_cta.title }}
     </a>
   </div>
 

@@ -174,6 +174,60 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "TRACKING_REORDER_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Pedir novamente")},
     },
+    "TRACKING_MENU_CTA": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Ver cardápio")},
+    },
+    "TRACKING_ETA_PREFIX": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Previsão:")},
+    },
+    "TRACKING_AUTO_CONFIRM_PREFIX": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Confirmação automática em")},
+    },
+    "TRACKING_ITEMS_HEADING": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Itens do pedido")},
+    },
+    "TRACKING_DELIVERY_HEADING": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Entrega")},
+    },
+    "TRACKING_PICKUP_HEADING": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Retirada")},
+    },
+    "TRACKING_TRACK_SHIPMENT": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Rastrear envio")},
+    },
+    "TRACKING_CANCEL_HEADING": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Cancelar pedido")},
+    },
+    "TRACKING_CANCEL_CTA": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Cancelar este pedido")},
+    },
+    "TRACKING_CANCEL_CONFIRM": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Confirmar cancelamento?")},
+    },
+    "TRACKING_CANCEL_YES": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Sim, cancelar")},
+    },
+    "TRACKING_CANCEL_BACK": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Voltar")},
+    },
+
+    # ── Order confirmation ────────────────────────────────────────
+    "CONFIRMATION_HEADING": {
+        MOMENT_MANHA: {
+            AUDIENCE_VIP: CopyEntry(title="Ótimo começo de dia"),
+            WILDCARD: CopyEntry(title="Pedido recebido"),
+        },
+        WILDCARD: {WILDCARD: CopyEntry(title="Pedido recebido")},
+    },
+    "CONFIRMATION_ITEMS_HEADING": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Você encomendou")},
+    },
+    "CONFIRMATION_TRACK_CTA": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Acompanhar pedido")},
+    },
+    "CONFIRMATION_SHARE_CTA": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Compartilhar")},
+    },
 
     # ── Payment ───────────────────────────────────────────────────
     "PAYMENT_WAITING": {
@@ -199,6 +253,18 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
                 ),
             ),
         },
+    },
+    "PAYMENT_PIX_COPY_LABEL": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Copia e cola:")},
+    },
+    "PAYMENT_PIX_COPY_BTN": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Copiar")},
+    },
+    "PAYMENT_PIX_COPIED": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Copiado!")},
+    },
+    "PAYMENT_PIX_EXPIRES_LABEL": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Expira em")},
     },
     "PAYMENT_CONFIRMED": {
         WILDCARD: {

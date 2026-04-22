@@ -57,14 +57,14 @@ def test_unavailable_string_absent_outside_badge_component():
 
 
 def test_pix_expired_display_is_transient_alpine_state():
-    """In _payment_pix.html, 'PIX expirado' must be inside x-show (visible only when timer hits zero)."""
+    """In _payment_pix.html, PIX expiry copy (via omotenashi) must be inside x-show."""
     content = _read("_payment_pix.html")
-    assert "PIX expirado" in content, "_payment_pix.html must have a PIX expiry state"
-    idx = content.index("PIX expirado")
-    # Within 300 chars before the string there must be an x-show
+    assert "PAYMENT_PIX_EXPIRED" in content, "_payment_pix.html must resolve PAYMENT_PIX_EXPIRED omotenashi key"
+    assert "pix_expired.title" in content, "_payment_pix.html must render pix_expired.title"
+    idx = content.index("pix_expired.title")
     window = content[max(0, idx - 300) : idx + 100]
     assert "x-show" in window, (
-        "'PIX expirado' in _payment_pix.html must be inside an x-show container "
+        "'pix_expired.title' in _payment_pix.html must be inside an x-show container "
         "(transient — not always visible)."
     )
 
