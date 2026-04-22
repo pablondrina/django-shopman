@@ -145,8 +145,8 @@
         </ul>
       </li>
       {% else %}
-      {% url 'storefront:login' as _login_path %}
-      <li><a href="{{ _login_path }}{% if request.path != _login_path %}?next={{ request.path|urlencode }}{% endif %}" class="font-medium text-on-surface underline-offset-2 hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">Entrar</a></li>
+      {% url 'storefront:login' as login_path_d %}
+      <li><a href="{{ login_path_d }}{% if request.path != login_path_d %}?next={{ request.path|urlencode }}{% endif %}" class="font-medium text-on-surface underline-offset-2 hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">Entrar</a></li>
       {% endif %}
     </ul>
     {# Mobile Menu Button #}
@@ -166,8 +166,8 @@
       <li class="py-4"><a href="{% url 'storefront:order_history' %}" class="w-full text-lg font-medium text-on-surface focus:underline dark:text-on-surface-dark">Pedidos</a></li>
       <li class="py-4"><a href="{% url 'storefront:account' %}" class="w-full text-lg font-medium text-on-surface focus:underline dark:text-on-surface-dark">Conta</a></li>
       {% else %}
-      {% url 'storefront:login' as _login_path_m %}
-      <li class="py-4"><a href="{{ _login_path_m }}{% if request.path != _login_path_m %}?next={{ request.path|urlencode }}{% endif %}" class="w-full text-lg font-medium text-on-surface focus:underline dark:text-on-surface-dark">Entrar</a></li>
+      {% url 'storefront:login' as login_path_m %}
+      <li class="py-4"><a href="{{ login_path_m }}{% if request.path != login_path_m %}?next={{ request.path|urlencode }}{% endif %}" class="w-full text-lg font-medium text-on-surface focus:underline dark:text-on-surface-dark">Entrar</a></li>
       {% endif %}
       <li class="py-4">
         <a href="{% url 'storefront:cart' %}" class="w-full text-lg font-bold text-primary focus:underline dark:text-primary-dark">
@@ -218,8 +218,8 @@
         <p class="text-sm mt-1"><a href="{% url 'storefront:order_history' %}" class="underline-offset-2 hover:text-primary focus:underline focus:outline-hidden dark:hover:text-primary-dark">Meus Pedidos</a></p>
         <p class="text-sm mt-1"><a href="{% url 'storefront:account' %}" class="underline-offset-2 hover:text-primary focus:underline focus:outline-hidden dark:hover:text-primary-dark">Minha Conta</a></p>
         {% else %}
-        {% url 'storefront:login' as _login_path_f %}
-        <p class="text-sm mt-1"><a href="{{ _login_path_f }}{% if request.path != _login_path_f %}?next={{ request.path|urlencode }}{% endif %}" class="underline-offset-2 hover:text-primary focus:underline focus:outline-hidden dark:hover:text-primary-dark">Entrar</a></p>
+        {% url 'storefront:login' as login_path_f %}
+        <p class="text-sm mt-1"><a href="{{ login_path_f }}{% if request.path != login_path_f %}?next={{ request.path|urlencode }}{% endif %}" class="underline-offset-2 hover:text-primary focus:underline focus:outline-hidden dark:hover:text-primary-dark">Entrar</a></p>
         {% endif %}
       </div>
       <div>

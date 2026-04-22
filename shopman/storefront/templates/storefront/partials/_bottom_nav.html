@@ -64,8 +64,8 @@
         Conta
       </a>
       {% else %}
-      {% url 'storefront:login' as _login_path_bn %}
-      <a href="{{ _login_path_bn }}{% if request.path != _login_path_bn %}?next={{ request.path|urlencode }}{% endif %}"
+      {% url 'storefront:login' as login_path_bn %}
+      <a href="{{ login_path_bn }}{% if request.path != login_path_bn %}?next={{ request.path|urlencode }}{% endif %}"
          class="flex flex-col items-center justify-center h-full gap-0.5 text-[10px] font-medium transition text-on-surface/60 dark:text-on-surface-dark/60">
         <span class="material-symbols-rounded text-xl" aria-hidden="true">person</span>
         Entrar
