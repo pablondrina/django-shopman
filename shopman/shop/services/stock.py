@@ -73,9 +73,13 @@ def hold(order) -> None:
 
             # 1) Adopt session holds by quantity until comp_qty is met.
             if adopt_session_holds:
-                adopted_pairs, unmet_qty = _adopt_holds_for_qty(
+                adopted_pairs, unmet_qty, overshoot_ids = _adopt_holds_for_qty(
                     session_holds_by_sku, comp_sku, comp_qty,
                 )
+                # Release overshoot holds immediately so their stock is
+                # available when we create the fresh hold below.
+                if overshoot_ids:
+                    adapter.release_holds(overshoot_ids)
             else:
                 adopted_pairs, unmet_qty = [], comp_qty
             for hid, hqty in adopted_pairs:
@@ -225,28 +229,43 @@ def _adopt_holds_for_qty(
     indexed: dict[str, list[tuple[str, Decimal]]],
     sku: str,
     required_qty: Decimal,
-) -> tuple[list[tuple[str, Decimal]], Decimal]:
-    """Consume session holds for `sku` until `required_qty` is met.
+) -> tuple[list[tuple[str, Decimal]], Decimal, list[str]]:
+    """Consume session holds for `sku` until `required_qty` is met exactly.
 
-    Returns `(adopted_pairs, unmet_qty)` where `adopted_pairs` is a list of
-    `(hold_id, capped_qty)` popped from the bucket in FIFO order, and
-    `unmet_qty` is the remaining quantity to cover via a fresh hold (zero
-    when the session holds fully satisfy the requirement).
+    Returns `(adopted_pairs, unmet_qty, overshoot_ids)`:
+    - `adopted_pairs`: holds whose qty fits within the remaining requirement.
+    - `unmet_qty`: qty not covered by adopted holds; caller creates a fresh
+      hold for exactly this amount.
+    - `overshoot_ids`: hold IDs that would have caused over-adoption (their
+      qty > remaining at time of inspection), plus any subsequent holds in the
+      bucket.  Caller MUST release these IMMEDIATELY before creating the fresh
+      hold so the freed units are available for the new reservation.
 
-    Each adopted qty is capped at `min(hold_qty, remaining)` to prevent
-    overshoot: the last hold in a run may have more reserved than needed,
-    and only the needed portion is consumed via the fulfill Move.
+    Overshoot holds are drained from `indexed[sku]` here so the leftover
+    sweep in `hold()` does not attempt to double-release them.
     """
     bucket = indexed.get(sku, [])
     adopted: list[tuple[str, Decimal]] = []
     remaining = required_qty
+    overshoot_ids: list[str] = []
+
     while bucket and remaining > 0:
         hid, hqty = bucket.pop(0)
-        adopted_qty = min(hqty, remaining)
-        adopted.append((hid, adopted_qty))
-        remaining -= adopted_qty
+        if hqty <= remaining:
+            adopted.append((hid, hqty))
+            remaining -= hqty
+        else:
+            # This hold would push us past required_qty.  Schedule it and
+            # every subsequent hold for immediate release, then stop.
+            overshoot_ids.append(hid)
+            while bucket:
+                hid2, _ = bucket.pop(0)
+                overshoot_ids.append(hid2)
+            break
+
+
     unmet = remaining if remaining > 0 else Decimal("0")
-    return adopted, unmet
+    return adopted, unmet, overshoot_ids
 
 
 def _retag_hold_for_order(hold_id: str, order_ref: str) -> None:

@@ -126,35 +126,34 @@ class TestHoldAdoptionByQuantity:
     @patch("shopman.shop.services.stock._retag_hold_for_order")
     @patch("shopman.shop.services.stock._load_session_holds")
     @patch("shopman.shop.services.stock.get_adapter")
-    def test_overshoot_adoption_capped(
+    def test_overshoot_hold_released_and_fresh_hold_created(
         self, mock_get_adapter, mock_load, mock_retag,
     ):
-        """Last adopted hold qty is capped at the remaining need, preventing overshoot."""
+        """Overshoot hold is released immediately; fresh hold covers exact remainder."""
         from shopman.shop.services.stock import hold
 
         adapter = MagicMock()
         adapter.expand_bundle.side_effect = Exception("NOT_A_BUNDLE")
+        adapter.create_hold.return_value = {"success": True, "hold_id": "hold:FRESH"}
         mock_get_adapter.return_value = adapter
         mock_load.return_value = {
             "X": [
                 ("hold:A", Decimal("2")),
-                ("hold:B", Decimal("3")),  # only 2 of 3 units needed
+                ("hold:B", Decimal("3")),  # would overshoot: 2+3=5 > required=4
             ],
         }
 
         order = _make_order(items=[{"sku": "X", "qty": "4"}])
         hold(order)
 
-        # Both adopted, no release, no fresh hold.
-        adapter.create_hold.assert_not_called()
-        adapter.release_holds.assert_not_called()
+        # hold:B released immediately; fresh hold for the remaining 2 created.
+        adapter.release_holds.assert_called_once_with(["hold:B"])
+        adapter.create_hold.assert_called_once()
+        assert adapter.create_hold.call_args.kwargs["qty"] == Decimal("2")
+
         entries = order.data["hold_ids"]
-        assert len(entries) == 2
-        # Total recorded qty must not exceed ordered qty.
+        assert {e["hold_id"] for e in entries} == {"hold:A", "hold:FRESH"}
         assert sum(Decimal(str(e["qty"])) for e in entries) == Decimal("4")
-        # hold:B is capped from 3 to 2 (remaining after hold:A covered 2 of 4)
-        b_entry = next(e for e in entries if e["hold_id"] == "hold:B")
-        assert Decimal(str(b_entry["qty"])) == Decimal("2")
 
     @patch("shopman.shop.services.stock._retag_hold_for_order")
     @patch("shopman.shop.services.stock._load_session_holds")
