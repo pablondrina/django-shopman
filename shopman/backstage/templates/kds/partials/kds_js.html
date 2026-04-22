@@ -45,8 +45,8 @@ function kdsDisplay() {
       /* Sync elapsed timers from server data to prevent drift */
       tickets.forEach(function(el) {
         var serverElapsed = parseInt(el.getAttribute('data-elapsed'));
-        if (!isNaN(serverElapsed) && el.__x) {
-          el.__x.$data.elapsed = serverElapsed;
+        if (!isNaN(serverElapsed)) {
+          var _d = Alpine.$data(el); if (_d) _d.elapsed = serverElapsed;
         }
       });
 

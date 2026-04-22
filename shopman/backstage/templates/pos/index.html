@@ -386,13 +386,13 @@
          @open-cash-close.window="$dispatch('open-cash-close-modal')">
       <button type="button"
               class="px-2.5 py-1 rounded-lg text-xs font-semibold border border-outline dark:border-outline-dark text-on-surface/40 dark:text-on-surface-dark/40 hover:bg-outline/30 dark:hover:bg-outline-dark/30"
-              @click="document.querySelector('#pos-sangria-modal').__x.$data.open = true">
+              @click="Alpine.$data(document.querySelector('#pos-sangria-modal')).open = true">
         <span class="material-symbols-rounded text-xs" aria-hidden="true" style="vertical-align:-1px">swap_vert</span>
         Sangria
       </button>
       <button type="button"
               class="px-2.5 py-1 rounded-lg text-xs font-semibold border border-danger/30 text-danger hover:bg-danger/10"
-              @click="document.querySelector('#pos-cash-close-modal').__x.$data.open = true">
+              @click="Alpine.$data(document.querySelector('#pos-cash-close-modal')).open = true">
         <span class="material-symbols-rounded text-xs" aria-hidden="true" style="vertical-align:-1px">lock</span>
         Fechar Caixa
       </button>
