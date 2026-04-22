@@ -1879,6 +1879,19 @@ class Command(BaseCommand):
             },
         )
 
+        # Promotion: Parabéns! — 10% off no dia do aniversário
+        Promotion.objects.update_or_create(
+            name="Parabéns! Desconto de aniversário",
+            defaults={
+                "type": Promotion.PERCENT,
+                "value": 10,
+                "valid_from": now,
+                "valid_until": now + timedelta(days=365),
+                "birthday_only": True,
+                "is_active": True,
+            },
+        )
+
         # Coupons
         Coupon.objects.update_or_create(
             code="NELSON10",
@@ -1893,7 +1906,7 @@ class Command(BaseCommand):
             defaults={"promotion": promo_funcionario, "max_uses": 0, "is_active": True},
         )
 
-        self.stdout.write("  ✅ 5 promotions, 3 coupons")
+        self.stdout.write("  ✅ 6 promotions, 3 coupons")
 
     # ────────────────────────────────────────────────────────────────
     # Payments (PaymentIntent + PaymentTransaction)
