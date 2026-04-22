@@ -2,31 +2,33 @@
 
 from __future__ import annotations
 
-import json
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 def send(recipient: str, template: str, context: dict | None = None, **config) -> bool:
-    """
-    Log notification to console.
+    ctx = context or {}
+    order_ref = ctx.get("order_ref") or ctx.get("order", {}).get("ref", "")
+    status = ctx.get("status_label") or ctx.get("status", "")
+    shop_name = ctx.get("shop_name", "Loja")
 
-    Args:
-        recipient: Recipient identifier (phone, email, etc.).
-        template: Event template name (e.g. "order_confirmed").
-        context: Template variables.
+    lines = [
+        f"📱 *{shop_name}*",
+        f"Evento: `{template}`",
+    ]
+    if order_ref:
+        lines.append(f"Pedido: *{order_ref}*")
+    if status:
+        lines.append(f"Status: {status}")
+    for key in ("customer_name", "total_display", "eta_display"):
+        if ctx.get(key):
+            lines.append(f"{key}: {ctx[key]}")
 
-    Returns:
-        Always True.
-    """
     logger.info(
-        "\n%s\nNOTIFICATION: %s\nTo: %s\nContext: %s\n%s",
-        "=" * 50,
-        template,
+        "\n╔══ NOTIFICAÇÃO ══╗\nTo: %s\n%s\n╚════════════════╝",
         recipient,
-        json.dumps(context or {}, indent=2, default=str),
-        "=" * 50,
+        "\n".join(lines),
     )
     return True
 
