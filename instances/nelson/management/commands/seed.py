@@ -1287,6 +1287,9 @@ class Command(BaseCommand):
 
         customers = {}
         for ref, first, last, ctype, group, phone in customers_data:
+            extras = {}
+            if ref == "CLI-001":
+                extras["birthday"] = date.today()
             c, _ = Customer.objects.update_or_create(
                 ref=ref,
                 defaults={
@@ -1295,6 +1298,7 @@ class Command(BaseCommand):
                     "customer_type": ctype,
                     "group": group,
                     "phone": phone,
+                    **extras,
                 },
             )
             ContactPoint.objects.update_or_create(
