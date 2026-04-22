@@ -3,6 +3,9 @@
   Driven server-side by omotenashi_ctx.is_birthday and customer_name.
   Alpine handles dismiss.
 {% endcomment %}
+{% load omotenashi_tags %}
+{% omotenashi 'BIRTHDAY_BANNER_TITLE' as bday_title %}
+{% omotenashi 'BIRTHDAY_BANNER_SUB' as bday_sub %}
 {% if omotenashi_ctx.is_birthday and omotenashi_ctx.customer_name %}
 <div x-data="{ show: true }" x-show="show" x-transition
      role="status" aria-live="polite"
@@ -13,8 +16,8 @@
     </svg>
   </div>
   <div class="flex-1 min-w-0">
-    <p class="text-sm font-semibold text-success">Feliz aniversário, {{ omotenashi_ctx.customer_name }}!</p>
-    <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 mt-0.5">Que o seu dia seja especial. Aqui está tudo pronto para você.</p>
+    <p class="text-sm font-semibold text-success">{{ bday_title.title }}, {{ omotenashi_ctx.customer_name }}!</p>
+    <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 mt-0.5">{{ bday_sub.message }}</p>
   </div>
   <button @click="show = false"
           class="shrink-0 text-on-surface/40 dark:text-on-surface-dark/40 hover:text-on-surface dark:hover:text-on-surface-dark transition-colors"

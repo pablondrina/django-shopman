@@ -1,7 +1,7 @@
 {% if devices %}
 <div class="space-y-3">
   {% for device in devices %}
-  <div class="flex items-center justify-between p-3 rounded-lg bg-surface-alt dark:bg-surface-dark-alt" id="device-{{ device.id }}">
+  <div class="flex items-center justify-between p-3 rounded-radius bg-surface-alt dark:bg-surface-dark-alt" id="device-{{ device.id }}">
     <div class="flex items-center gap-3">
       <span class="material-symbols-rounded text-2xl text-on-surface/60 dark:text-on-surface-dark/60" aria-hidden="true">
         {% if "iPhone" in device.label or "Android" in device.label %}smartphone
@@ -33,7 +33,7 @@
       hx-target="#device-{{ device.id }}"
       hx-swap="outerHTML"
       hx-confirm="Revogar acesso deste dispositivo?"
-      class="text-sm text-danger hover:text-danger font-medium transition-colors flex-shrink-0 ml-3"
+      class="text-sm text-danger dark:text-danger-dark hover:text-danger dark:hover:text-danger-dark font-medium transition-colors flex-shrink-0 ml-3"
     >
       Revogar
     </button>
@@ -49,7 +49,7 @@
     hx-target="#device-list-container"
     hx-swap="innerHTML"
     hx-confirm="Revogar TODOS os dispositivos? Você precisará fazer login novamente."
-    class="text-sm text-danger hover:text-danger font-medium transition-colors"
+    class="text-sm text-danger dark:text-danger-dark hover:text-danger dark:hover:text-danger-dark font-medium transition-colors"
   >
     Revogar todos os dispositivos
   </button>

@@ -3,6 +3,9 @@
   Alpine for DOM: auto-appears when closing within 1h, ticks every 60s.
   Data source: shop_status from context processor.
 {% endcomment %}
+{% load omotenashi_tags %}
+{% omotenashi 'CLOSING_AWARENESS_PREFIX' as cls_pre %}
+{% omotenashi 'CLOSING_AWARENESS_SUFFIX' as cls_suf %}
 <div x-data="closingAwareness()" x-init="check(); setInterval(() => check(), 60000)">
   <div x-show="show" x-transition x-cloak
        class="relative flex border-warning bg-warning/10 p-4 text-on-surface dark:text-on-surface-dark border-b border-warning/25 rounded-radius mb-4 max-w-2xl mx-auto">
@@ -41,7 +44,7 @@ document.addEventListener('alpine:init', () => {
 
       if (left > 0 && left <= 60) {
         const rounded = Math.ceil(left / 15) * 15;
-        this.message = 'Últimos pedidos — fechamos em ' + rounded + ' minutos';
+        this.message = '{{ cls_pre.message|escapejs }}' + ' ' + rounded + ' {{ cls_suf.message|escapejs }}';
         this.show = true;
       } else {
         this.show = false;

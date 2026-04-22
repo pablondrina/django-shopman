@@ -3,6 +3,12 @@
   Alpine for DOM: real-time countdown tick every 60s.
   Data source: shop_status from context processor (is_open, opens_at, closes_at).
 {% endcomment %}
+{% load omotenashi_tags %}
+{% omotenashi 'SHOP_STATUS_OPEN' as ss_open %}
+{% omotenashi 'SHOP_STATUS_OPEN_UNTIL' as ss_open_until %}
+{% omotenashi 'SHOP_STATUS_OPEN_CLOSING_SOON' as ss_open_soon %}
+{% omotenashi 'SHOP_STATUS_CLOSED' as ss_closed %}
+{% omotenashi 'SHOP_STATUS_CLOSED_OPENS_AT' as ss_closed_opens %}
 <div x-data="shopStatusBadge()" x-init="tick(); setInterval(() => tick(), 60000)">
   {# Open #}
   <span x-show="isOpen" x-cloak
@@ -41,16 +47,16 @@ document.addEventListener('alpine:init', () => {
         const left = closeMin - nowMin;
         if (left > 0 && left <= 60) {
           const rounded = Math.ceil(left / 15) * 15;
-          this.label = 'Aberto — fecha em ' + rounded + 'min';
+          this.label = '{{ ss_open_soon.message|escapejs }}' + ' ' + rounded + 'min';
         } else {
-          this.label = 'Aberto — ate ' + this._fmtHour(this.closesAt);
+          this.label = '{{ ss_open_until.message|escapejs }}' + ' ' + this._fmtHour(this.closesAt);
         }
       } else if (this.isOpen) {
-        this.label = 'Aberto agora';
+        this.label = '{{ ss_open.message|escapejs }}';
       } else if (this.opensAt) {
-        this.label = 'Fechado — abre as ' + this._fmtHour(this.opensAt);
+        this.label = '{{ ss_closed_opens.message|escapejs }}' + ' ' + this._fmtHour(this.opensAt);
       } else {
-        this.label = 'Fechado';
+        this.label = '{{ ss_closed.message|escapejs }}';
       }
     },
 

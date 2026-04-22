@@ -3,6 +3,8 @@
   Driven server-side by omotenashi_ctx.moment == "fechando".
   Alpine handles dismiss; the animated dot signals time pressure.
 {% endcomment %}
+{% load omotenashi_tags %}
+{% omotenashi 'URGENCY_BANNER_MESSAGE' as urgency_msg %}
 {% if omotenashi_ctx.moment == "fechando" %}
 <div x-data="{ show: true }" x-show="show" x-transition
      role="status" aria-live="polite"
@@ -11,7 +13,7 @@
     <span class="absolute inline-flex h-full w-full motion-safe:animate-ping rounded-full bg-warning opacity-75"></span>
     <span class="relative inline-flex size-2 rounded-full bg-warning"></span>
   </span>
-  <p class="text-xs sm:text-sm font-medium text-warning">Últimos pedidos — fechamos em breve</p>
+  <p class="text-xs sm:text-sm font-medium text-warning">{{ urgency_msg.message }}</p>
   <button @click="show = false"
           class="absolute right-4 top-1/2 -translate-y-1/2 text-warning/60 hover:text-warning transition-colors"
           aria-label="Dispensar aviso">

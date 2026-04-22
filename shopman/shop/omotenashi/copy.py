@@ -339,8 +339,29 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "BIRTHDAY_BANNER_SUB": {
         WILDCARD: {WILDCARD: CopyEntry(message="Que o seu dia seja especial. Aqui está tudo pronto para você.")},
     },
+    "CLOSING_AWARENESS_PREFIX": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Últimos pedidos — fechamos em")},
+    },
     "CLOSING_AWARENESS_SUFFIX": {
         WILDCARD: {WILDCARD: CopyEntry(message="minutos")},
+    },
+    "CLOSING_AWARENESS_OLD_D1_ALERT": {
+        WILDCARD: {WILDCARD: CopyEntry(message='Atenção: há estoque D-1 com mais de 1 dia na posição "ontem".')},
+    },
+    "SHOP_STATUS_OPEN": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Aberto agora")},
+    },
+    "SHOP_STATUS_OPEN_UNTIL": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Aberto — até")},
+    },
+    "SHOP_STATUS_OPEN_CLOSING_SOON": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Aberto — fecha em")},
+    },
+    "SHOP_STATUS_CLOSED": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Fechado")},
+    },
+    "SHOP_STATUS_CLOSED_OPENS_AT": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Fechado — abre às")},
     },
 
     # ── Kintsugi ──────────────────────────────────────────────────
