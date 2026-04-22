@@ -130,31 +130,7 @@
                 <span class="hidden sm:inline">Adicionar</span>
               </button>
             </template>
-            <template x-if="qty > 0">
-              <div class="inline-flex items-center rounded-radius border border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark"
-                   role="group" aria-label="Quantidade no carrinho">
-                <button type="button"
-                        class="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-on-surface dark:text-on-surface-dark hover:bg-surface-alt dark:hover:bg-surface-dark-alt rounded-l-radius disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
-                        :disabled="busy"
-                        @click="set(qty - 1)">
-                  <span class="material-symbols-rounded text-base sm:text-lg" aria-hidden="true">remove</span>
-                </button>
-                <span class="min-w-[2ch] px-0.5 sm:px-1 text-center text-xs sm:text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums"
-                      x-text="qty" aria-live="polite"></span>
-                <button type="button"
-                        class="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-on-surface dark:text-on-surface-dark hover:bg-surface-alt dark:hover:bg-surface-dark-alt rounded-r-radius disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
-                        :disabled="busy || qty >= effectiveMax"
-                        :aria-label="qty >= effectiveMax ? 'Estoque máximo atingido' : 'Aumentar quantidade'"
-                        @click="set(qty + 1)">
-                  <span class="material-symbols-rounded text-base sm:text-lg" aria-hidden="true">add</span>
-                </button>
-              </div>
-            </template>
-            <p x-show="showMaxHint" x-cloak
-               class="mt-1 text-[10px] text-on-surface/60 dark:text-on-surface-dark/60 tabular-nums text-right"
-               aria-live="polite">
-              máx. <span x-text="effectiveMax"></span>
-            </p>
+            {% include "storefront/components/_qty_stepper.html" %}
           </div>
           {% elif item.badge %}
           <span class="badge-danger text-[10px] sm:text-xs shrink-0">{{ item.badge.label }}</span>

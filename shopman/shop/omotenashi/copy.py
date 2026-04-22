@@ -329,6 +329,20 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Obrigado!", message="Valorizamos muito seu retorno.")},
     },
 
+    # ── Status banners ────────────────────────────────────────────
+    "URGENCY_BANNER_MESSAGE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Últimos pedidos — fechamos em breve")},
+    },
+    "BIRTHDAY_BANNER_TITLE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Feliz aniversário!")},
+    },
+    "BIRTHDAY_BANNER_SUB": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Que o seu dia seja especial. Aqui está tudo pronto para você.")},
+    },
+    "CLOSING_AWARENESS_SUFFIX": {
+        WILDCARD: {WILDCARD: CopyEntry(message="minutos")},
+    },
+
     # ── Kintsugi ──────────────────────────────────────────────────
     "KINTSUGI_ITEM_REMOVED": {
         WILDCARD: {WILDCARD: CopyEntry(title="Removido.")},
