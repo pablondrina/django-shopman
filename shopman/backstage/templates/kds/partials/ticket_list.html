@@ -1,8 +1,8 @@
 {% for t in tickets %}
   {% include "kds/partials/ticket.html" %}
 {% empty %}
-<div style="text-align: center; padding: 4rem 1rem; color: var(--kds-text-muted); grid-column: 1 / -1;">
-  <span class="material-symbols-rounded" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.5;" aria-hidden="true">done_all</span>
-  <p style="font-size: 1.125rem;">{% if is_expedition %}Nenhum pedido pronto.{% else %}Nenhum ticket pendente.{% endif %}</p>
+<div class="text-center py-16 col-span-full text-on-surface/40 dark:text-on-surface-dark/40">
+  <span class="material-symbols-rounded text-5xl block mb-4 opacity-50" aria-hidden="true">done_all</span>
+  <p class="text-lg">{% if is_expedition %}Nenhum pedido pronto.{% else %}Nenhum ticket pendente.{% endif %}</p>
 </div>
 {% endfor %}

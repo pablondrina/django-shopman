@@ -109,10 +109,13 @@ def test_cancelled_order_has_navigation_recovery():
 def test_cancel_refused_has_whatsapp_recovery():
     """order_tracking.html cancel-refused block must offer WhatsApp as recovery path."""
     content = _read("order_tracking.html")
-    assert "cancel_refused_message" in content, (
-        "order_tracking.html must handle cancel_refused_message"
+    assert "cancel_refused" in content, (
+        "order_tracking.html must handle cancel_refused state"
     )
-    idx = content.index("cancel_refused_message")
+    assert "KINTSUGI_CANCEL_REFUSED" in content, (
+        "order_tracking.html cancel-refused block must use KINTSUGI_CANCEL_REFUSED omotenashi copy"
+    )
+    idx = content.index("cancel_refused")
     block = content[idx : idx + 600]
     assert "whatsapp_url" in block, (
         "Cancel-refused block must offer WhatsApp contact as recovery path"
