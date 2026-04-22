@@ -216,11 +216,7 @@
         </div>
         <button x-show="rating > 0" x-cloak
                 type="button"
-                @click="fetch('{% url 'storefront:order_rate' ref=tracking.order_ref %}', {
-                  method: 'POST',
-                  headers: { 'X-CSRFToken': document.querySelector('meta[name=csrf-token]').content, 'Content-Type': 'application/x-www-form-urlencoded' },
-                  body: 'rating=' + rating
-                }).then(() => submitted = true)"
+                @click="htmx.ajax('POST', '{% url 'storefront:order_rate' ref=tracking.order_ref %}', { values: { rating: String(rating) }, swap: 'none' }).then(() => submitted = true)"
                 class="inline-flex items-center justify-center rounded-radius bg-primary px-5 py-2 text-sm font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px] transition">
           Enviar
         </button>
