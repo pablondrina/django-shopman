@@ -197,7 +197,7 @@
 {% include "storefront/partials/quick_reorder.html" %}
 {% endif %}
 
-{# ── WhatsApp welcome banner (bridge auth from notification link) ── #}
+{# ── WhatsApp welcome banner (access link from notification) ── #}
 {% if request.session.origin_channel == 'whatsapp' %}
 {% omotenashi 'WELCOME_WHATSAPP' as welcome_wa %}
 <div class="rounded-radius border border-success/30 bg-success/10 px-4 py-3 flex items-center gap-3 text-sm" role="status">

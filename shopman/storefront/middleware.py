@@ -17,7 +17,7 @@ class ChannelParamMiddleware:
     the value is persisted as origin_channel in the Django session.
     This is later propagated to Orderman Session.data for notification routing.
 
-    Only sets once per session (doesn't overwrite bridge-token origin).
+    Only sets once per session (doesn't overwrite access-link origin).
     """
 
     def __init__(self, get_response):

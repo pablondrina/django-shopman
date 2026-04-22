@@ -133,7 +133,7 @@ def _build_context(order, payload: dict, template: str) -> dict:
             from uuid import UUID
 
             from shopman.doorman.protocols.customer import AuthCustomerInfo
-            from shopman.shop.services.deep_links import build_reorder_url, build_tracking_url
+            from shopman.shop.services.access_urls import build_reorder_access_url, build_tracking_access_url
 
             auth_customer = AuthCustomerInfo(
                 uuid=UUID(str(customer_uuid)),
@@ -143,10 +143,10 @@ def _build_context(order, payload: dict, template: str) -> dict:
                 is_active=True,
             )
             order_ref = payload.get("order_ref") or order.ref
-            context["tracking_url"] = build_tracking_url(None, auth_customer, order_ref)
-            context["reorder_url"] = build_reorder_url(None, auth_customer, order_ref)
+            context["tracking_url"] = build_tracking_access_url(None, auth_customer, order_ref)
+            context["reorder_url"] = build_reorder_access_url(None, auth_customer, order_ref)
         except Exception:
-            logger.debug("deep_links: could not build tracking/reorder URLs", exc_info=True)
+            logger.debug("access_urls: could not build tracking/reorder URLs", exc_info=True)
 
     if order.total_q:
         context["total"] = f"R$ {order.total_q / 100:,.2f}"

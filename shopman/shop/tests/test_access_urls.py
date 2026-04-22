@@ -2,7 +2,7 @@
 Tests for M4 — WhatsApp→Storefront E2E Flow.
 
 Covers:
-  1. deep_links.py — build_bridge_url / build_tracking_url / build_reorder_url
+  1. access_urls.py — build_access_url / build_tracking_access_url / build_reorder_access_url
   2. notification._build_context — tracking_url/reorder_url injected when UUID present
   3. notification_manychat._build_message — tracking_suffix/reorder_suffix computed
   4. order_confirmation view — share_text includes shop name
@@ -20,7 +20,7 @@ CUSTOMER_UUID = UUID("12345678-1234-5678-1234-567812345678")
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 1. deep_links.py
+# 1. access_urls.py
 # ══════════════════════════════════════════════════════════════════════
 
 
@@ -30,86 +30,86 @@ def _make_customer(uuid=CUSTOMER_UUID, name="Ana", phone="+5511999990001"):
     return AuthCustomerInfo(uuid=uuid, name=name, phone=phone, email=None, is_active=True)
 
 
-class TestBuildBridgeUrl:
+class TestBuildAccessUrl:
     def test_returns_none_when_no_customer(self):
-        from shopman.shop.services.deep_links import build_bridge_url
+        from shopman.shop.services.access_urls import build_access_url
 
-        assert build_bridge_url(None, None) is None
+        assert build_access_url(None, None) is None
 
     def test_returns_none_when_customer_lacks_uuid(self):
-        from shopman.shop.services.deep_links import build_bridge_url
+        from shopman.shop.services.access_urls import build_access_url
 
         customer = SimpleNamespace()  # no uuid attribute
-        assert build_bridge_url(None, customer) is None
+        assert build_access_url(None, customer) is None
 
-    def test_returns_bridge_url_with_token_and_next(self):
-        from shopman.shop.services.deep_links import build_bridge_url
+    def test_returns_access_url_with_token_and_next(self):
+        from shopman.shop.services.access_urls import build_access_url
 
         token_result = MagicMock()
         token_result.token = "tok_abc123"
 
         with (
             patch("shopman.doorman.services.access_link.AccessLinkService.create_token", return_value=token_result),
-            patch("shopman.shop.services.deep_links._resolve_domain", return_value="https://example.com"),
+            patch("shopman.shop.services.access_urls._resolve_domain", return_value="https://example.com"),
         ):
-            url = build_bridge_url(None, _make_customer(), next_url="/menu/")
+            url = build_access_url(None, _make_customer(), next_url="/menu/")
 
-        assert url == "https://example.com/bridge/?t=tok_abc123&next=%2Fmenu%2F"
+        assert url == "https://example.com/a/?t=tok_abc123&next=%2Fmenu%2F"
 
     def test_returns_none_on_token_creation_failure(self):
-        from shopman.shop.services.deep_links import build_bridge_url
+        from shopman.shop.services.access_urls import build_access_url
 
         with patch("shopman.doorman.services.access_link.AccessLinkService.create_token", side_effect=Exception("DB error")):
-            url = build_bridge_url(None, _make_customer())
+            url = build_access_url(None, _make_customer())
 
         assert url is None
 
     def test_uses_request_for_domain(self):
         from django.test import RequestFactory
 
-        from shopman.shop.services.deep_links import build_bridge_url
+        from shopman.shop.services.access_urls import build_access_url
 
         token_result = MagicMock()
         token_result.token = "tok_req"
         request = RequestFactory().get("/")
 
         with patch("shopman.doorman.services.access_link.AccessLinkService.create_token", return_value=token_result):
-            url = build_bridge_url(request, _make_customer(), next_url="/pedido/ORD-1/")
+            url = build_access_url(request, _make_customer(), next_url="/pedido/ORD-1/")
 
         assert url is not None
-        assert "/bridge/" in url
+        assert "/a/" in url
         assert "t=tok_req" in url
         assert "next=%2Fpedido%2FORD-1%2F" in url
         assert "testserver" in url  # RequestFactory default host
 
 
-class TestBuildTrackingAndReorderUrl:
-    def test_tracking_url_points_to_pedido(self):
-        from shopman.shop.services.deep_links import build_tracking_url
+class TestBuildTrackingAndReorderAccessUrl:
+    def test_tracking_access_url_points_to_pedido(self):
+        from shopman.shop.services.access_urls import build_tracking_access_url
 
         token_result = MagicMock()
         token_result.token = "tok_tracking"
 
         with (
             patch("shopman.doorman.services.access_link.AccessLinkService.create_token", return_value=token_result),
-            patch("shopman.shop.services.deep_links._resolve_domain", return_value="https://shop.test"),
+            patch("shopman.shop.services.access_urls._resolve_domain", return_value="https://shop.test"),
         ):
-            url = build_tracking_url(None, _make_customer(), "ORD-999")
+            url = build_tracking_access_url(None, _make_customer(), "ORD-999")
 
         assert url is not None
         assert "next=%2Fpedido%2FORD-999%2F" in url
 
-    def test_reorder_url_points_to_reorder_path(self):
-        from shopman.shop.services.deep_links import build_reorder_url
+    def test_reorder_access_url_points_to_reorder_path(self):
+        from shopman.shop.services.access_urls import build_reorder_access_url
 
         token_result = MagicMock()
         token_result.token = "tok_reorder"
 
         with (
             patch("shopman.doorman.services.access_link.AccessLinkService.create_token", return_value=token_result),
-            patch("shopman.shop.services.deep_links._resolve_domain", return_value="https://shop.test"),
+            patch("shopman.shop.services.access_urls._resolve_domain", return_value="https://shop.test"),
         ):
-            url = build_reorder_url(None, _make_customer(), "ORD-999")
+            url = build_reorder_access_url(None, _make_customer(), "ORD-999")
 
         assert url is not None
         assert "reorder" in url
@@ -148,13 +148,13 @@ class TestNotificationContextEnrichment:
         token_result.token = "tok_ctx"
         with (
             patch("shopman.doorman.services.access_link.AccessLinkService.create_token", return_value=token_result),
-            patch("shopman.shop.services.deep_links._resolve_domain", return_value="https://shop.test"),
+            patch("shopman.shop.services.access_urls._resolve_domain", return_value="https://shop.test"),
         ):
             ctx = _build_context(order, payload, "order_confirmed")
 
         assert "tracking_url" in ctx
         assert ctx["tracking_url"] is not None
-        assert "/bridge/" in ctx["tracking_url"]
+        assert "/a/" in ctx["tracking_url"]
         assert "reorder_url" in ctx
         assert ctx["reorder_url"] is not None
 
@@ -201,9 +201,9 @@ class TestManychatMessageSuffixes:
             return _build_message(template, ctx)
 
     def test_tracking_suffix_appended_when_url_present(self):
-        msg = self._build("order_confirmed", tracking_url="https://shop.test/bridge/?t=abc&next=/pedido/ORD-042/")
+        msg = self._build("order_confirmed", tracking_url="https://shop.test/a/?t=abc&next=/pedido/ORD-042/")
         assert "Acompanhe:" in msg
-        assert "bridge" in msg
+        assert "/a/" in msg
 
     def test_tracking_suffix_absent_when_url_missing(self):
         msg = self._build("order_confirmed")
@@ -211,9 +211,9 @@ class TestManychatMessageSuffixes:
         assert "{tracking_suffix}" not in msg
 
     def test_reorder_suffix_appended_when_url_present(self):
-        msg = self._build("order_delivered", reorder_url="https://shop.test/bridge/?t=xyz&next=/meus-pedidos/ORD-042/reorder/")
+        msg = self._build("order_delivered", reorder_url="https://shop.test/a/?t=xyz&next=/meus-pedidos/ORD-042/reorder/")
         assert "Peca de novo:" in msg
-        assert "bridge" in msg
+        assert "/a/" in msg
 
     def test_reorder_suffix_absent_when_url_missing(self):
         msg = self._build("order_delivered")
@@ -255,4 +255,3 @@ class TestOrderConfirmationShareText:
             "WhatsApp share link in order_confirmation.html must use share_text|urlencode "
             "so that the shop name is included in the shared message"
         )
-
