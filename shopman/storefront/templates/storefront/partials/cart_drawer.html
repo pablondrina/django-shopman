@@ -356,8 +356,12 @@ the cascading ``cartUpdated`` reload destroys the source element.
     {% if cart.minimum_order_progress %}
     <button type="button" class="btn-secondary w-full opacity-70 cursor-not-allowed" disabled>
       <span class="material-symbols-rounded text-base" aria-hidden="true">lock</span>
-      Faltam {{ cart.minimum_order_progress.remaining_display }}
+      Faltam {{ cart.minimum_order_progress.remaining_display }} para o mínimo
     </button>
+    <a href="{% url 'storefront:menu' %}" class="flex items-center justify-center gap-1.5 w-full py-2 text-sm font-medium text-primary dark:text-primary-dark hover:underline">
+      <span class="material-symbols-rounded text-base" aria-hidden="true">add_shopping_cart</span>
+      Adicionar mais itens
+    </a>
     {% elif cart.has_ready_for_confirmation_items %}
     <a href="{% url 'storefront:cart' %}" class="btn-primary w-full">
       <span class="material-symbols-rounded text-base" aria-hidden="true">priority_high</span>

@@ -138,6 +138,9 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "PICKUP_READY_NOTICE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Avisamos quando ficar pronto.")},
     },
+    "MIN_ORDER_WARNING": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Adicionar mais itens")},
+    },
 
     # ── Menu empty state ──────────────────────────────────────────
     "MENU_EMPTY": {

@@ -192,7 +192,7 @@ def build_cart(
     min_order = None
     upsell = None
     if items:
-        min_order_raw = minimum_order_progress(subtotal_q, channel_ref=channel_ref)
+        min_order_raw = minimum_order_progress(original_subtotal_q, channel_ref=channel_ref)
         if min_order_raw:
             min_order = MinimumOrderProgressProjection(
                 minimum_q=int(min_order_raw["minimum_q"]),

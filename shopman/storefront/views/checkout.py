@@ -46,7 +46,7 @@ class CheckoutView(View):
             "checkout_defaults": {},
             "saved_addresses": [],
             "payment_methods": get_payment_methods(CHANNEL_REF),
-            "minimum_order_warning": minimum_order_progress(cart["subtotal_q"]),
+            "minimum_order_warning": minimum_order_progress(cart.get("original_subtotal_q") or cart["subtotal_q"]),
             "max_preorder_days": max_preorder_days,
             "closed_dates_json": _json.dumps(closed_dates),
             "debug": settings.DEBUG,
@@ -346,7 +346,7 @@ class CheckoutOrderSummaryView(View):
             "storefront/partials/checkout_order_summary.html",
             {
                 "cart": cart,
-                "minimum_order_warning": minimum_order_progress(cart["subtotal_q"]),
+                "minimum_order_warning": minimum_order_progress(cart.get("original_subtotal_q") or cart["subtotal_q"]),
             },
         )
 
