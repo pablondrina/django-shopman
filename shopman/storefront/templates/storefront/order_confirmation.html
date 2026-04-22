@@ -61,7 +61,9 @@
   {% comment %}── Tomorrow hook (yoin tail when closing) ──{% endcomment %}
   {% omotenashi 'TRACKING_TOMORROW_HOOK' as tomorrow %}
   {% if tomorrow.message %}
-  <p class="text-center text-sm text-on-surface/60 dark:text-on-surface-dark/60 pt-2">{{ tomorrow.message }}</p>
+  <p class="text-center text-sm text-on-surface/60 dark:text-on-surface-dark/60 pt-2">
+    {{ tomorrow.message }}{% if omotenashi_ctx.customer_name %} Até amanhã, {{ omotenashi_ctx.customer_name }}.{% else %} Até lá.{% endif %}
+  </p>
   {% endif %}
 
 </div>

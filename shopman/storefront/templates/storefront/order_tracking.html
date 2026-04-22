@@ -164,11 +164,12 @@
   </div>
   {% endif %}
 
-  {% comment %}── Cancel refused (kintsugi — when backend signals can_cancel=False after an attempt) ──{% endcomment %}
-  {% if tracking.cancel_refused_message %}
+  {% comment %}── Cancel refused (kintsugi — when cancel view redirects with ?refused=1) ──{% endcomment %}
+  {% if cancel_refused %}
+  {% omotenashi 'KINTSUGI_CANCEL_REFUSED' as refused_msg %}
   <div class="rounded-radius border border-warning/30 bg-warning/5 p-4 text-sm text-on-surface dark:text-on-surface-dark" role="alert">
     <span class="material-symbols-rounded align-middle mr-1 text-warning" aria-hidden="true">info</span>
-    {{ tracking.cancel_refused_message }}
+    {{ refused_msg.message }}
     {% if storefront.whatsapp_url %}
     <a href="{{ storefront.whatsapp_url }}" target="_blank" rel="noopener" class="underline underline-offset-2 hover:text-primary dark:hover:text-primary-dark">Falar com a gente</a>.
     {% endif %}
@@ -256,7 +257,9 @@
   {% comment %}── Tomorrow hook (yoin at the tail of the day) ──{% endcomment %}
   {% omotenashi 'TRACKING_TOMORROW_HOOK' as tomorrow %}
   {% if tomorrow.message %}
-  <p class="text-center text-sm text-on-surface/60 dark:text-on-surface-dark/60">{{ tomorrow.message }}</p>
+  <p class="text-center text-sm text-on-surface/60 dark:text-on-surface-dark/60">
+    {{ tomorrow.message }}{% if omotenashi_ctx.customer_name %} Até amanhã, {{ omotenashi_ctx.customer_name }}.{% else %} Até lá.{% endif %}
+  </p>
   {% endif %}
 
   {% comment %}── Share / reorder ──{% endcomment %}
