@@ -41,13 +41,23 @@
       {% endif %}
 
       {% if last_order_ref %}
-      <form method="post" action="{% url 'storefront:reorder' ref=last_order_ref %}">
-        {% csrf_token %}
-        <button type="submit"
-           class="w-full flex items-center justify-center gap-2 whitespace-nowrap bg-primary px-4 py-2 text-center text-sm font-medium tracking-wide text-on-primary transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:opacity-100 active:outline-offset-0 dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark rounded-radius touch-target">
-          Repetir Agora
-        </button>
-      </form>
+      <button x-data="{ loading: false }"
+              hx-post="{% url 'storefront:reorder' ref=last_order_ref %}"
+              hx-target="body"
+              hx-push-url="true"
+              @htmx:before-request="loading = true"
+              @htmx:after-request="loading = false"
+              :disabled="loading"
+              class="w-full flex items-center justify-center gap-2 whitespace-nowrap bg-primary px-4 py-2 text-center text-sm font-medium tracking-wide text-on-primary transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:opacity-100 active:outline-offset-0 dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark rounded-radius touch-target disabled:opacity-60 disabled:cursor-wait">
+        <span x-show="!loading">Repetir Agora</span>
+        <span x-show="loading" class="flex items-center gap-2">
+          <svg class="animate-spin size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+          Adicionando…
+        </span>
+      </button>
       {% else %}
       <a href="{% url 'storefront:menu' %}"
          class="flex items-center justify-center gap-2 whitespace-nowrap bg-primary px-4 py-2 text-center text-sm font-medium tracking-wide text-on-primary transition hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:opacity-100 active:outline-offset-0 dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark rounded-radius touch-target">
