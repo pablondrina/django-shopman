@@ -146,7 +146,7 @@ def _register_customer_strategies() -> None:
 
 
 def _register_fiscal_handlers() -> None:
-    backend = _load_optional_backend("SHOPMAN_FISCAL_BACKEND", "fiscal")
+    backend = _load_optional_backend("SHOPMAN_FISCAL_ADAPTER", "fiscal")
     if not backend:
         return
     from shopman.shop.handlers.fiscal import NFCeCancelHandler, NFCeEmitHandler
@@ -163,7 +163,7 @@ def _register_accounting_handler() -> None:
 
 
 def _register_return_handler() -> None:
-    fiscal_backend = _load_optional_backend("SHOPMAN_FISCAL_BACKEND", "fiscal")
+    fiscal_backend = _load_optional_backend("SHOPMAN_FISCAL_ADAPTER", "fiscal")
     from shopman.shop.handlers.returns import ReturnHandler
     registry.register_directive_handler(ReturnHandler(fiscal_backend=fiscal_backend))
 

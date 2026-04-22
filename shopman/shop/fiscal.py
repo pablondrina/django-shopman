@@ -66,10 +66,14 @@ class FiscalPool:
             from django.conf import settings
             from django.utils.module_loading import import_string
 
-            self._backends = [
-                import_string(path)()
-                for path in getattr(settings, "SHOPMAN_FISCAL_BACKENDS", [])
-            ]
+            adapter = getattr(settings, "SHOPMAN_FISCAL_ADAPTER", None)
+            if adapter is None:
+                paths = []
+            elif isinstance(adapter, list):
+                paths = adapter
+            else:
+                paths = [adapter]
+            self._backends = [import_string(path)() for path in paths if path]
         return self._backends
 
     def get_backend(self, identifier=None):

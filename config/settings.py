@@ -587,13 +587,8 @@ SHOPMAN_NOTIFICATION_ADAPTERS = {
 
 SHOPMAN_STOCK_ADAPTER = "shopman.shop.adapters.stock"
 
-SHOPMAN_FISCAL_ADAPTER = None
-SHOPMAN_FISCAL_BACKEND = None
+SHOPMAN_FISCAL_ADAPTER = None   # str path or list[str] of FiscalBackend subclasses
 SHOPMAN_ACCOUNTING_BACKEND = None
-
-# List of dotted paths to FiscalBackend implementations.
-# Example: ["myinstance.adapters.fiscal_focus.FocusNFCeBackend"]
-SHOPMAN_FISCAL_BACKENDS: list[str] = []
 
 # SMS adapter for OTP delivery. None = fallback to notification_sms if available.
 SHOPMAN_SMS_ADAPTER = None
