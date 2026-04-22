@@ -37,7 +37,7 @@ class PaymentProjection:
     """
 
     order_ref: str
-    method: str          # "pix", "card", "cash", "counter"
+    method: str          # "pix", "card", "cash", "external"
     total_display: str
 
     # PIX fields (method == "pix")

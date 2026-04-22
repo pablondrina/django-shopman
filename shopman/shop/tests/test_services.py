@@ -530,7 +530,7 @@ class TestPaymentService:
         assert order.data["payment"]["checkout_url"] == "https://checkout.stripe.com/c/pay/cs_test_xyz"
         assert order.data["payment"]["intent_ref"] == "INT-002"
 
-    def test_initiate_counter_noop(self):
+    def test_initiate_cash_noop(self):
         from shopman.shop.services.payment import initiate
 
         order = _make_order(data={"payment": {"method": "cash"}})

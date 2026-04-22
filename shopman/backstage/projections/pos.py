@@ -74,7 +74,7 @@ class POSProjection:
 # ── Constants ──────────────────────────────────────────────────────────
 
 _PAYMENT_METHODS = (
-    POSPaymentMethodProjection(ref="counter", label="Dinheiro"),
+    POSPaymentMethodProjection(ref="cash", label="Dinheiro"),
     POSPaymentMethodProjection(ref="pix", label="PIX"),
     POSPaymentMethodProjection(ref="card", label="Cartão"),
 )

@@ -141,7 +141,7 @@ class TestHappyPaths:
         """
         HP-5: POS → add items → selecionar cliente → fechar venda.
 
-        Point of sale flow for counter sales.
+        Point of sale flow for cash/POS sales.
         """
         # Login as admin
         page.goto(f"{base_url}/admin/login/")

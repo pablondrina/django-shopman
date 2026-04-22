@@ -196,7 +196,7 @@ class OrderNotesView(View):
 
 
 class OrderMarkPaidView(View):
-    """POST /pedidos/<ref>/mark-paid/ — operador confirma recebimento manual (dinheiro/counter)."""
+    """POST /pedidos/<ref>/mark-paid/ — operador confirma recebimento manual (dinheiro/cash)."""
 
     def post(self, request: HttpRequest, ref: str) -> HttpResponse:
         denied = _perm_required(request)

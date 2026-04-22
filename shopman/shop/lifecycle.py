@@ -10,7 +10,7 @@ No Flow classes — behavior is purely configuration-driven.
 
 Timing × Phase table:
     payment.timing:
-        "external"    → no payment.initiate (counter/marketplace)
+        "external"    → no payment.initiate (cash/marketplace)
         "at_commit"   → payment.initiate on commit
         "post_commit" → payment.initiate on confirmed (default)
 
@@ -90,12 +90,12 @@ def ensure_confirmable(order) -> None:
 
 
 # Payment methods que NÃO passam por captura de intent (Payman). Inclui:
-# - channel-level: counter, cash, external (enum canônico em ChannelConfig)
+# - channel-level: cash, external (enum canônico em ChannelConfig)
 # - order-level PT-BR (POS grava direto do POST): dinheiro, debito, credito
 # - ocasionais: credit, debit, money
 # Métodos como "pix"/"card" NÃO estão aqui — esses precisam de intent captured.
 _OFFLINE_PAYMENT_METHODS = {
-    "counter", "external",
+    "external",
     "cash", "dinheiro", "money",
     "debito", "credito", "credit", "debit",
     "",

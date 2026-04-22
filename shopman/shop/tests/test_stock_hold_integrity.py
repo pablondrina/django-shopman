@@ -31,7 +31,7 @@ def _make_channel(ref, config=None):
         ref=ref, name=ref, kind="web",
         config=config or {
             "confirmation": {"mode": "immediate"},
-            "payment": {"method": "counter", "timing": "external"},
+            "payment": {"method": "cash", "timing": "external"},
             "stock": {"check_on_commit": False},
         },
     )
@@ -354,7 +354,7 @@ class TestVerifyHolds(TestCase):
         # Use check_on_commit=True so _verify_holds runs
         self.channel = _make_channel("verify-1", config={
             "confirmation": {"mode": "immediate"},
-            "payment": {"method": "counter", "timing": "external"},
+            "payment": {"method": "cash", "timing": "external"},
             "stock": {"check_on_commit": True},
         })
         self.patchers, self.mocks = _start_lifecycle_patches()

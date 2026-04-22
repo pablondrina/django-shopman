@@ -12,7 +12,7 @@ implementations of the individual packages.
 Scenarios:
   C-01  Remote channel + PIX payment
   C-02  Remote channel + card payment
-  C-03  POS channel + counter (external) payment
+  C-03  POS channel + cash (external) payment
   C-04  Marketplace channel + external payment
   C-05  Immediate confirmation
   C-06  Optimistic confirmation (auto-confirm after timeout)
@@ -185,15 +185,15 @@ class TestC02RemoteChannelCard(TestCase):
         self.mocks["initiate"].assert_called_once_with(order)
 
 
-# ── C-03: POS channel + counter payment ──────────────────────────────
+# ── C-03: POS channel + cash payment ──────────────────────────────
 
-class TestC03PosCounter(TestCase):
-    """C-03: POS (counter) — no payment.initiate, stock.fulfill on confirmed."""
+class TestC03PosCash(TestCase):
+    """C-03: POS (cash) — no payment.initiate, stock.fulfill on confirmed."""
 
     def setUp(self):
         self.channel = _channel("c03-pos", {
             "confirmation": {"mode": "immediate"},
-            "payment": {"method": "counter", "timing": "external"},
+            "payment": {"method": "cash", "timing": "external"},
             "stock": {"check_on_commit": True},
         })
         self.patchers, self.mocks = _start_patches()
@@ -201,7 +201,7 @@ class TestC03PosCounter(TestCase):
     def tearDown(self):
         _stop(self.patchers)
 
-    def test_no_payment_initiate_for_counter(self):
+    def test_no_payment_initiate_for_cash(self):
         session = _session(self.channel)
         result = _commit(session, self.channel)
         order = Order.objects.get(ref=result.order_ref)
@@ -210,8 +210,8 @@ class TestC03PosCounter(TestCase):
         # External payment → no initiate
         self.mocks["initiate"].assert_not_called()
 
-    def test_stock_fulfill_called_on_confirmed_for_counter(self):
-        """Counter payment: stock.fulfill runs on on_confirmed (no on_paid)."""
+    def test_stock_fulfill_called_on_confirmed_for_cash(self):
+        """Cash payment: stock.fulfill runs on on_confirmed (no on_paid)."""
         session = _session(self.channel)
         result = _commit(session, self.channel)
         order = Order.objects.get(ref=result.order_ref)
@@ -522,7 +522,7 @@ class TestC10FulfillmentPostCommit(TestCase):
     def setUp(self):
         self.channel = _channel("c10-fulfill-post-commit", {
             "confirmation": {"mode": "immediate"},
-            "payment": {"method": "counter", "timing": "external"},
+            "payment": {"method": "cash", "timing": "external"},
             "fulfillment": {"timing": "post_commit"},
         })
         self.patchers, self.mocks = _start_patches()

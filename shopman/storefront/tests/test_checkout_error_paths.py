@@ -97,7 +97,7 @@ class PaymentMethodUnavailableTests(TestCase):
         _make_shop()
         _make_channels()
 
-    def test_payment_method_available_counter(self) -> None:
+    def test_payment_method_available_cash(self) -> None:
         """cash is available when channel returns only cash."""
         from shopman.storefront.intents.checkout import get_payment_methods
         with patch("shopman.storefront.intents.checkout.get_payment_methods", return_value=["cash"]) as mock:

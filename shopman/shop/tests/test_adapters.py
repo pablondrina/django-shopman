@@ -191,7 +191,7 @@ class TestGetAdapter:
         assert adapter is not None
         assert adapter.__name__ == "shopman.shop.adapters.notification_console"
 
-    def test_counter_method_returns_none(self):
+    def test_cash_method_returns_none(self):
         from shopman.shop.adapters import get_adapter
 
         adapter = get_adapter("payment", method="cash")

@@ -70,7 +70,7 @@ PAYMENT_METHOD_LABELS_PT: dict[str, str] = {
     "pix": "PIX",
     "card": "Cartão",
     "cash": "Dinheiro / Maquininha",
-    "counter": "Pagar no balcão",
+
     "external": "Pago online",
 }
 
@@ -141,7 +141,7 @@ class PickupSlotProjection:
 class PaymentMethodOptionProjection:
     """A payment method available on the channel."""
 
-    ref: str    # "pix", "card", "cash", "counter"
+    ref: str    # "pix", "card", "cash", "external"
     label: str  # pt-BR label
     is_default: bool
 

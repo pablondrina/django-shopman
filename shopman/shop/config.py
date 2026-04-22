@@ -44,9 +44,9 @@ class ChannelConfig:
 
     @dataclass
     class Payment:
-        method: str | list[str] = "counter"
+        method: str | list[str] = "cash"
         # str or list[str]:
-        # "counter"  — no caixa/entrega
+        # "cash"     — dinheiro / maquininha no ato
         # "pix"      — PIX com QR code
         # "card"     — cartão via Stripe
         # "external" — já pago (marketplace)
@@ -234,7 +234,7 @@ class ChannelConfig:
             raise ValueError(
                 f"timeout_minutes deve ser > 0 para mode={self.confirmation.mode}",
             )
-        valid_methods = {"counter", "cash", "pix", "card", "external"}
+        valid_methods = {"cash", "pix", "card", "external"}
         for m in self.payment.available_methods:
             if m not in valid_methods:
                 raise ValueError(f"payment.method inválido: {m}")

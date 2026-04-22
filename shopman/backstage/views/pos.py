@@ -142,7 +142,7 @@ def pos_close(request: HttpRequest) -> HttpResponse:
 
     customer_name = body.get("customer_name", "").strip()
     customer_phone = body.get("customer_phone", "").strip()
-    payment_method = body.get("payment_method", "counter")
+    payment_method = body.get("payment_method", "cash")
 
     try:
         channel = Channel.objects.get(ref=POS_CHANNEL_REF)

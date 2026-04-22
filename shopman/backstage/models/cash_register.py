@@ -74,7 +74,7 @@ class CashRegisterSession(models.Model):
                 created_at__lte=timezone.now(),
             )
             .exclude(status="cancelled")
-            .filter(data__payment__method="counter")
+            .filter(data__payment__method="cash")
             .aggregate(t=Sum("total_q"))["t"]
         ) or 0
 

@@ -1,7 +1,7 @@
 """
 Tests for PedidoMarkPaidView — WP-R4.
 
-POST /pedidos/<ref>/mark-paid/ → marks dinheiro/counter orders as paid.
+POST /pedidos/<ref>/mark-paid/ → marks dinheiro/cash orders as paid.
 """
 
 from __future__ import annotations

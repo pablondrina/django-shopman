@@ -356,10 +356,10 @@ class TestOnConfirmed:
     @patch("shopman.shop.lifecycle.notification")
     @patch("shopman.shop.lifecycle.payment")
     @patch("shopman.shop.lifecycle.stock")
-    def test_external_counter_fulfills_stock(
+    def test_external_cash_fulfills_stock(
         self, mock_stock, mock_payment, mock_notification, mock_cc,
     ):
-        """Counter payment (external timing) fulfills stock on confirmed."""
+        """Cash payment (external timing) fulfills stock on confirmed."""
         mock_cc.for_channel.return_value = _config(
             payment_timing="external", payment_method="cash",
         )
@@ -529,7 +529,7 @@ class TestNotificationPhases:
 
 
 class TestLocalChannelScenario:
-    """Local channel: payment.timing=external, payment.method=counter,
+    """Local channel: payment.timing=external, payment.method=cash,
     confirmation.mode=immediate, stock.check_on_commit=True."""
 
     @patch("shopman.shop.lifecycle.ChannelConfig")

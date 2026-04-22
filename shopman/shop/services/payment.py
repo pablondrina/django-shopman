@@ -37,7 +37,7 @@ def initiate(order) -> None:
     payment_data = order.data.get("payment", {})
     method = payment_data.get("method")
 
-    if not method or method in ("counter", "external"):
+    if not method or method in ("cash", "external"):
         return
 
     # Idempotent: skip if intent already exists
@@ -151,7 +151,7 @@ def refund(order) -> None:
     intent_ref = payment_data.get("intent_ref")
 
     if not intent_ref:
-        # Smart no-op: no payment to refund (counter, external, etc.)
+        # Smart no-op: no payment to refund (cash, external, etc.)
         return
 
     # Idempotency via Payman — skip if already refunded
@@ -181,7 +181,7 @@ def get_payment_status(order) -> str | None:
     Retorna o status canônico de pagamento via Payman.
 
     Consulta PaymentService pelo intent_ref. Retorna None para pedidos
-    sem intent (counter, external, dinheiro).
+    sem intent (cash, external, dinheiro).
     """
     intent_ref = (order.data or {}).get("payment", {}).get("intent_ref")
     if not intent_ref:
