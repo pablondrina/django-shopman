@@ -1,4 +1,4 @@
-"""POS (Balcao) — point of sale view for counter operations."""
+"""POS (PDV) — point of sale view for counter operations."""
 
 from __future__ import annotations
 
