@@ -39,6 +39,7 @@
   deliveryDate: '{{ form_data.delivery_date|default:'' }}',
   deliverySlot: '{{ form_data.delivery_time_slot|default:checkout.earliest_slot_ref|default:'' }}',
   showModal: false,
+  submitting: false,
   closedDates: {{ checkout.closed_dates_json }},
   maxPreorderDays: {{ checkout.max_preorder_days }},
   pickupSlotTimes: [{% for slot in checkout.pickup_slots %}'{{ slot.starts_at }}'{% if not forloop.last %},{% endif %}{% endfor %}],
@@ -148,7 +149,8 @@
       </div>
       {% endif %}
 
-      <form method="post" action="{% url 'storefront:checkout' %}" id="checkout-form" novalidate>
+      <form method="post" action="{% url 'storefront:checkout' %}" id="checkout-form" novalidate
+            @submit="submitting = true">
         {% csrf_token %}
 
         {% comment %}── 1. Contato (sempre concluído — requer autenticação) ──{% endcomment %}
@@ -411,9 +413,9 @@
               {% omotenashi 'CHECKOUT_CONFIRM_CTA' as confirm_cta %}
               <div class="sticky bottom-0 bg-surface dark:bg-surface-dark border-t border-outline dark:border-outline-dark -mx-5 px-5 py-4 lg:static lg:border-none lg:mx-0 lg:px-0 lg:py-0">
                 <button type="submit"
-                        class="w-full rounded-radius bg-primary px-6 py-3 font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px] transition-opacity disabled:opacity-50"
-                        hx-indicator="#checkout-submitting">
-                  <span id="checkout-submitting" class="htmx-indicator mr-2">
+                        :disabled="submitting"
+                        class="w-full rounded-radius bg-primary px-6 py-3 font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px] transition-opacity disabled:opacity-50">
+                  <span x-show="submitting" x-cloak class="mr-2">
                     <svg class="inline w-4 h-4 motion-safe:animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
                   </span>
                   {{ confirm_cta.title }}
