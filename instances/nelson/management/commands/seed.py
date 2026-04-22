@@ -756,7 +756,7 @@ class Command(BaseCommand):
 
         # Ref "ontem": sobras D-1 apos transferencia manual (fim do dia). Estoque com lote D-1
         # deve ficar aqui — canais remotos usam stock.allowed_positions sem "ontem", entao vitrine
-        # API e reservas online ignoram esse saldo; balcao/PDV (allowed_positions omitido) ve tudo.
+        # API e reservas online ignoram esse saldo; PDV (allowed_positions omitido) ve tudo.
         positions = {}
         for ref, name, kind, saleable in [
             ("deposito", "Deposito", PositionKind.PHYSICAL, False),

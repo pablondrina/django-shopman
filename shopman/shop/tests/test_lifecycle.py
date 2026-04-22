@@ -128,7 +128,7 @@ class TestPaymentGuard:
 
     def test_accepts_portuguese_cash_aliases(self):
         from shopman.shop.lifecycle import ensure_payment_captured
-        for method in ("dinheiro", "debito", "credito", "balcao"):
+        for method in ("dinheiro", "debito", "credito"):
             order = _make_order(data={"payment": {"method": method, "status": "pending"}})
             ensure_payment_captured(order)
 

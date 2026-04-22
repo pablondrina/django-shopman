@@ -76,7 +76,7 @@ class MarkPaidTests(TestCase):
     def test_mark_paid_transitions_new_to_confirmed(self) -> None:
         """mark-paid on a new order → transitions to confirmed."""
         order = _create_order()
-        # Force back to "new" to test the transition (balcao may auto-confirm)
+        # Force back to "new" to test the transition (PDV may auto-confirm)
         Order.objects.filter(pk=order.pk).update(status="new")
         order.refresh_from_db()
 

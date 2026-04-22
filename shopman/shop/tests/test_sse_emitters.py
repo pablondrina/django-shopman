@@ -50,7 +50,7 @@ def web_channel(db):
 
 
 @pytest.fixture
-def balcao_channel(db):
+def pdv_channel(db):
     return Channel.objects.create(ref="pdv", name="Balcão", is_active=True)
 
 
@@ -66,10 +66,10 @@ def baguete(db):
 
 
 @pytest.fixture
-def listings_for_baguete(baguete, web_channel, balcao_channel):
-    """BAGUETE is listed on both 'web' and 'balcao'."""
+def listings_for_baguete(baguete, web_channel, pdv_channel):
+    """BAGUETE is listed on both 'web' and 'pdv'."""
     web_listing = Listing.objects.create(ref="web", name="Web", is_active=True)
-    balcao_listing = Listing.objects.create(
+    pdv_listing = Listing.objects.create(
         ref="pdv", name="Balcão", is_active=True,
     )
     ListingItem.objects.create(
@@ -77,10 +77,10 @@ def listings_for_baguete(baguete, web_channel, balcao_channel):
         is_published=True, is_sellable=True,
     )
     ListingItem.objects.create(
-        listing=balcao_listing, product=baguete, price_q=500,
+        listing=pdv_listing, product=baguete, price_q=500,
         is_published=True, is_sellable=True,
     )
-    return [web_listing, balcao_listing]
+    return [web_listing, pdv_listing]
 
 
 # ── Emit helper unit tests ──────────────────────────────────────────
@@ -106,7 +106,7 @@ def test_emit_targets_every_channel_listing_the_sku(
 @pytest.mark.django_db
 @patch("django_eventstream.send_event")
 def test_emit_falls_back_to_all_active_channels_when_sku_has_no_listing(
-    mock_send, baguete, web_channel, balcao_channel,
+    mock_send, baguete, web_channel, pdv_channel,
 ):
     """SKUs without Listing membership broadcast to every active channel."""
     from shopman.shop.handlers._sse_emitters import _emit_for_sku

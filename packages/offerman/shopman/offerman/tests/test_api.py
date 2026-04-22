@@ -146,7 +146,7 @@ def ifood_listing(db):
 
 
 @pytest.fixture
-def balcao_listing(db):
+def pdv_listing(db):
     return Listing.objects.create(
         ref="pdv",
         name="Balcão",
@@ -420,7 +420,7 @@ class TestCollectionDetail:
 class TestListingList:
     """GET /api/offerman/listings/"""
 
-    def test_list_active_listings(self, api_client, ifood_listing, balcao_listing):
+    def test_list_active_listings(self, api_client, ifood_listing, pdv_listing):
         resp = api_client.get("/api/offerman/listings/")
         assert resp.status_code == 200
         codes = {pl["ref"] for pl in resp.data["results"]}

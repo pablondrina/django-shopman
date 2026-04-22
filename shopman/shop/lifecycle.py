@@ -91,13 +91,12 @@ def ensure_confirmable(order) -> None:
 
 # Payment methods que NÃO passam por captura de intent (Payman). Inclui:
 # - channel-level: counter, cash, external (enum canônico em ChannelConfig)
-# - order-level PT-BR (POS grava direto do POST): dinheiro, balcao, debito, credito
+# - order-level PT-BR (POS grava direto do POST): dinheiro, debito, credito
 # - ocasionais: credit, debit, money
 # Métodos como "pix"/"card" NÃO estão aqui — esses precisam de intent captured.
 _OFFLINE_PAYMENT_METHODS = {
     "counter", "external",
     "cash", "dinheiro", "money",
-    "balcao",
     "debito", "credito", "credit", "debit",
     "",
 }

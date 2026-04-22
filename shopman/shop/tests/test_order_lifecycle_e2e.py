@@ -169,7 +169,7 @@ def test_returned_is_in_terminal_statuses():
 @pytest.mark.django_db
 def test_dispatched_requires_delivery_invariant(channel):
     """Kernel enforces dispatched-requires-delivery for any non-delivery fulfillment."""
-    for ft in ("pickup", "balcao", "totem"):
+    for ft in ("pickup", "counter", "totem"):
         order = Order.objects.create(
             ref=f"E2E-GUARD-{ft}",
             channel_ref=channel.ref,

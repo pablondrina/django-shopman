@@ -8,7 +8,7 @@ o cliente clicava "aceitar N", e o servidor voltava 422 porque o reserve
 não conseguia colocar holds suficientes.
 
 Cobre também a regra de D-1 (posição ``ontem`` é staff-only: canais remotos
-não veem, balcão vê).
+não veem, PDV vê).
 """
 
 from decimal import Decimal
@@ -52,7 +52,7 @@ def web_channel(db):
 
 
 @pytest.fixture
-def balcao_channel(db):
+def pdv_channel(db):
     from shopman.shop.models import Channel
 
     channel, _ = Channel.objects.update_or_create(
@@ -91,9 +91,9 @@ class TestScopeUnification:
         assert check_result["available_qty"] == Decimal("5")
 
     def test_staff_channel_sees_ontem(
-        self, product, position_loja, position_ontem, balcao_channel,
+        self, product, position_loja, position_ontem, pdv_channel,
     ):
-        """Balcão (staff) without excluded_positions must count all
+        """PDV (staff) without excluded_positions must count all
         saleable positions, including ontem."""
         StockMovements.receive(
             Decimal("5"), product.sku, position=position_loja,
@@ -165,9 +165,9 @@ class TestScopeUnification:
         assert reserve["ok"] is False
 
     def test_staff_channel_can_reserve_ontem(
-        self, product, position_ontem, balcao_channel,
+        self, product, position_ontem, pdv_channel,
     ):
-        """Balcão reserves at ontem normally — the denylist is a per-channel
+        """PDV reserves at ontem normally — the denylist is a per-channel
         scoping concern, not a global rule."""
         StockMovements.receive(
             Decimal("10"), product.sku, position=position_ontem,
