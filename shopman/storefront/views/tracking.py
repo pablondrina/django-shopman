@@ -413,10 +413,13 @@ class OrderConfirmationView(View):
         prep_minutes = getattr(shop, "prep_time_minutes", None) or 30
         eta = timezone.localtime(order.created_at) + timezone.timedelta(minutes=prep_minutes)
 
+        share_text = f"Fiz um pedido em {shop.name}! Acompanhe: {share_url}"
+
         return render(request, "storefront/order_confirmation.html", {
             "order": order,
             "items": enriched_items,
             "total_display": f"R$ {format_money(order.total_q)}",
             "share_url": share_url,
+            "share_text": share_text,
             "eta": eta,
         })

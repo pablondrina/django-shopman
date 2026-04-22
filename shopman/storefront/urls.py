@@ -14,8 +14,8 @@ app_name = "storefront"
 urlpatterns = [
     # Home
     path("", views.HomeView.as_view(), name="home"),
-    # Bridge token
-    path("bridge/", views.BridgeTokenView.as_view(), name="bridge_token"),
+    # AccessLink entry — pre-authenticated link from notifications
+    path("a/", views.AccessLinkEntryView.as_view(), name="access_link_entry"),
     # PWA
     path("manifest.json", ManifestView.as_view(), name="manifest"),
     path("sw.js", ServiceWorkerView.as_view(), name="service_worker"),

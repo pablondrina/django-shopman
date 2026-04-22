@@ -1,8 +1,9 @@
 """
-Bridge token view — validates ?t=<token> and binds session.
+AccessLink entry view — validates ?t=<token> and binds session.
 
-Bridge token from WhatsApp/Instagram — first-class entry paths.
-creates authenticated session and sets origin_channel.
+Pre-authenticated entry from WhatsApp/Instagram notifications.
+Exchanges the AccessLink token, creates an authenticated session,
+sets origin_channel, and redirects to the intended destination.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.views import View
 
-logger = logging.getLogger("shopman.storefront.views.bridge")
+logger = logging.getLogger("shopman.storefront.views.access")
 
 # Maps AccessLink.source → origin_channel value
 SOURCE_TO_ORIGIN = {
@@ -23,11 +24,11 @@ SOURCE_TO_ORIGIN = {
 }
 
 
-class BridgeTokenView(View):
+class AccessLinkEntryView(View):
     """
     Handles ?t=<token> on any storefront URL.
 
-    Validates the bridge token (AccessLink), authenticates the user,
+    Validates the AccessLink token, authenticates the user,
     sets origin_channel on the Django session, and redirects to the
     target URL (default: /menu/).
 
@@ -45,7 +46,7 @@ class BridgeTokenView(View):
 
         if not result.success:
             logger.warning(
-                "Bridge token invalid: %s (error=%s)",
+                "AccessLink invalid: %s (error=%s)",
                 token_str[:8],
                 result.error,
             )
@@ -57,7 +58,7 @@ class BridgeTokenView(View):
         request.session["origin_channel"] = origin
 
         logger.info(
-            "Bridge token exchanged: customer=%s origin=%s",
+            "AccessLink exchanged: customer=%s origin=%s",
             result.customer.uuid if result.customer else "?",
             origin,
         )
@@ -103,6 +104,6 @@ class BridgeTokenView(View):
                 if meta.get("channel") == "whatsapp":
                     return "whatsapp"
         except Exception:
-            logger.exception("bridge_resolve_origin_failed")
+            logger.exception("access_link_resolve_origin_failed")
 
         return SOURCE_TO_ORIGIN.get(source, "web")

@@ -127,6 +127,27 @@ def _build_context(order, payload: dict, template: str) -> dict:
         customer_data.get("phone", "") if isinstance(customer_data, dict) else ""
     )
 
+    customer_uuid = customer_data.get("uuid") if isinstance(customer_data, dict) else None
+    if customer_uuid:
+        try:
+            from uuid import UUID
+
+            from shopman.doorman.protocols.customer import AuthCustomerInfo
+            from shopman.shop.services.access_urls import build_reorder_access_url, build_tracking_access_url
+
+            auth_customer = AuthCustomerInfo(
+                uuid=UUID(str(customer_uuid)),
+                name=customer_data.get("name", ""),
+                phone=customer_data.get("phone"),
+                email=customer_data.get("email"),
+                is_active=True,
+            )
+            order_ref = payload.get("order_ref") or order.ref
+            context["tracking_url"] = build_tracking_access_url(None, auth_customer, order_ref)
+            context["reorder_url"] = build_reorder_access_url(None, auth_customer, order_ref)
+        except Exception:
+            logger.debug("access_urls: could not build tracking/reorder URLs", exc_info=True)
+
     if order.total_q:
         context["total"] = f"R$ {order.total_q / 100:,.2f}"
 

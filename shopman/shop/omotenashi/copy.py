@@ -161,6 +161,14 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
             ),
         },
     },
+    "WELCOME_WHATSAPP": {
+        WILDCARD: {
+            WILDCARD: CopyEntry(
+                title="Bem-vindo de volta",
+                message="Seu carrinho e endereços estão salvos.",
+            ),
+        },
+    },
 
     # ── Tracking tail ─────────────────────────────────────────────
     "TRACKING_REORDER_CTA": {

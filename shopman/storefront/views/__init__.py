@@ -23,7 +23,7 @@ from .auth import (
     RequestCodeView,
     VerifyCodeView,
 )
-from .bridge import BridgeTokenView
+from .access import AccessLinkEntryView
 from .cart import (
     AddToCartView,
     ApplyCouponView,
@@ -63,7 +63,7 @@ __all__ = [
     "AddressSetDefaultView",
     "AddressUpdateView",
     "ApplyCouponView",
-    "BridgeTokenView",
+    "AccessLinkEntryView",
     "CartDrawerContentProjView",
     "CartPageContentView",
     "CartSetQtyBySkuView",

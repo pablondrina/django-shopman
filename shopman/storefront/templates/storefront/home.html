@@ -199,6 +199,18 @@
 {% include "storefront/partials/quick_reorder.html" %}
 {% endif %}
 
+{# ── WhatsApp welcome banner (access link from notification) ── #}
+{% if request.session.origin_channel == 'whatsapp' %}
+{% omotenashi 'WELCOME_WHATSAPP' as welcome_wa %}
+<div class="rounded-radius border border-success/30 bg-success/10 px-4 py-3 flex items-center gap-3 text-sm" role="status">
+  <span class="material-symbols-rounded text-success text-xl shrink-0" aria-hidden="true">chat</span>
+  <div>
+    <p class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ welcome_wa.title }}</p>
+    <p class="text-on-surface/70 dark:text-on-surface-dark/70">{{ welcome_wa.message }}</p>
+  </div>
+</div>
+{% endif %}
+
 {# ── Direto do Forno (HTMX for server) ── #}
 {% omotenashi 'HOME_AVAILABILITY_HEADING' as home_availability %}
 <section class="py-12 md:py-16 border-t border-outline dark:border-outline-dark">
