@@ -119,6 +119,12 @@
         <p class="text-xs text-on-surface dark:text-on-surface-dark line-clamp-1 sm:line-clamp-2 hidden sm:block">{{ item.short_description }}</p>
         {% endif %}
 
+        {% if item.allergens %}
+        <p class="text-[10px] text-on-surface/50 dark:text-on-surface-dark/50 leading-tight hidden sm:block">
+          <span class="font-medium">Contém:</span> {{ item.allergens|join:", " }}
+        </p>
+        {% endif %}
+
         {# SSE-driven availability slot: refetches per-SKU badge on push (WP-AV-10). #}
         <div hx-get="{% url 'storefront:sku_state' item.sku %}?channel_ref={{ storefront_channel_ref|default:'web' }}"
              hx-trigger="sse:stock-update[JSON.parse(event.data).sku=='{{ item.sku }}'],sse:product-paused[JSON.parse(event.data).sku=='{{ item.sku }}'],sse:listing-changed[JSON.parse(event.data).sku=='{{ item.sku }}']"

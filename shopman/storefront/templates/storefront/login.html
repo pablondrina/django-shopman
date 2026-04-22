@@ -1,5 +1,5 @@
 {% extends "storefront/base.html" %}
-{% load storefront_tags %}
+{% load storefront_tags omotenashi_tags %}
 
 {% block title %}Entrar{% endblock %}
 
@@ -86,6 +86,8 @@
         {% if error %}
         <p class="text-base text-danger dark:text-danger-dark" role="alert">{{ error }}</p>
         {% endif %}
+        {% omotenashi 'CHECKOUT_PHONE_PURPOSE' as phone_purpose %}
+        {% if phone_purpose %}<p class="text-sm text-on-surface/50 dark:text-on-surface-dark/50 text-center">{{ phone_purpose.message }}</p>{% endif %}
       </div>
 
       <button type="submit"

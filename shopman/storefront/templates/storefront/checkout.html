@@ -157,6 +157,8 @@
                 </button>
               </div>
               <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">{{ checkout.customer_phone|format_phone }}</p>
+              {% omotenashi 'CHECKOUT_PHONE_PURPOSE' as phone_purpose %}
+              {% if phone_purpose %}<p class="text-xs text-on-surface/40 dark:text-on-surface-dark/40">{{ phone_purpose.message }}</p>{% endif %}
             </div>
 
             {# Trocar conta — icon-only top-right com tooltip #}

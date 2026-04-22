@@ -80,6 +80,7 @@ class CatalogItemProjection:
     is_featured: bool
 
     # Cart state (populated when the builder receives a request)
+    allergens: tuple[str, ...] = ()
     qty_in_cart: int = 0
 
     # Available quantity for stock-aware UX. None = demand-based/untracked
@@ -431,6 +432,8 @@ def _build_items(
         dietary = meta.get("dietary_info") or []
         if not isinstance(dietary, list):
             dietary = []
+        allergens_raw = meta.get("allergens") or []
+        allergens = tuple(str(a) for a in allergens_raw if a) if isinstance(allergens_raw, list) else ()
 
         result.append(
             CatalogItemProjection(
@@ -451,6 +454,7 @@ def _build_items(
                 can_add_to_cart=can_add,
                 available_qty=available_qty,
                 dietary_info=tuple(str(d) for d in dietary),
+                allergens=allergens,
                 is_new=bool(meta.get("is_new", False)),
                 is_featured=p.sku in popular,
                 qty_in_cart=int(qty_in_cart_by_sku.get(p.sku, 0)),
