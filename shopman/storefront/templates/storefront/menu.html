@@ -285,7 +285,10 @@ function menuNav() {
     centerPillInRail(ref) {
       this.$nextTick(() => {
         const pill = document.getElementById('pill-' + ref);
-        if (pill) pill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        const rail = this.$refs.rail;
+        if (!pill || !rail) return;
+        const target = pill.offsetLeft - (rail.offsetWidth / 2) + (pill.offsetWidth / 2);
+        rail.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
       });
     },
 
