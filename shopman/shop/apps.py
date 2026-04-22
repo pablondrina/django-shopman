@@ -120,10 +120,15 @@ class ShopmanConfig(AppConfig):
         from shopman.shop.lifecycle import dispatch
 
         def on_order_changed(sender, order, event_type, actor, **kwargs):
+            from django.db import transaction as _tx
+
             if event_type == "created":
-                dispatch(order, "on_commit")
+                phase = "on_commit"
             elif event_type == "status_changed":
-                dispatch(order, f"on_{order.status}")
+                phase = f"on_{order.status}"
+            else:
+                return
+            _tx.on_commit(lambda: dispatch(order, phase))
 
         order_changed.connect(
             on_order_changed,
