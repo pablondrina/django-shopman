@@ -298,7 +298,7 @@ class StockHolds:
             return hold
 
     @classmethod
-    def fulfill(cls, hold_id, user=None, actor=None):
+    def fulfill(cls, hold_id, user=None, actor=None, *, quantity: Decimal | None = None):
         """
         Fulfill hold (deliver to customer).
 
@@ -311,6 +311,9 @@ class StockHolds:
             user: User attached to the Move record (ledger authorship).
             actor: User performing the fulfillment action (logged to metadata).
                    Falls back to `user` when not provided.
+            quantity: Override the Move delta. When provided, only this amount
+                is decremented from the quant (the hold may have reserved more
+                due to session hold over-adoption). Defaults to `hold.quantity`.
 
         Returns:
             Created Move
@@ -338,9 +341,10 @@ class StockHolds:
 
             quant = Quant.objects.select_for_update().get(pk=hold.quant_id)
 
+            consume_qty = quantity if quantity is not None else hold.quantity
             move = Move.objects.create(
                 quant=quant,
-                delta=-hold.quantity,
+                delta=-consume_qty,
                 reason=f"Entrega hold:{hold.pk}",
                 user=user
             )

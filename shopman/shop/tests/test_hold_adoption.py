@@ -126,10 +126,10 @@ class TestHoldAdoptionByQuantity:
     @patch("shopman.shop.services.stock._retag_hold_for_order")
     @patch("shopman.shop.services.stock._load_session_holds")
     @patch("shopman.shop.services.stock.get_adapter")
-    def test_overshoot_adoption_accepted(
+    def test_overshoot_adoption_capped(
         self, mock_get_adapter, mock_load, mock_retag,
     ):
-        """Last adopted hold overshoots required_qty — accepted per plan."""
+        """Last adopted hold qty is capped at the remaining need, preventing overshoot."""
         from shopman.shop.services.stock import hold
 
         adapter = MagicMock()
@@ -138,7 +138,7 @@ class TestHoldAdoptionByQuantity:
         mock_load.return_value = {
             "X": [
                 ("hold:A", Decimal("2")),
-                ("hold:B", Decimal("3")),  # total=5, required=4
+                ("hold:B", Decimal("3")),  # only 2 of 3 units needed
             ],
         }
 
@@ -150,6 +150,11 @@ class TestHoldAdoptionByQuantity:
         adapter.release_holds.assert_not_called()
         entries = order.data["hold_ids"]
         assert len(entries) == 2
+        # Total recorded qty must not exceed ordered qty.
+        assert sum(Decimal(str(e["qty"])) for e in entries) == Decimal("4")
+        # hold:B is capped from 3 to 2 (remaining after hold:A covered 2 of 4)
+        b_entry = next(e for e in entries if e["hold_id"] == "hold:B")
+        assert Decimal(str(b_entry["qty"])) == Decimal("2")
 
     @patch("shopman.shop.services.stock._retag_hold_for_order")
     @patch("shopman.shop.services.stock._load_session_holds")

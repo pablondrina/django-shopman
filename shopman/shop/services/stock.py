@@ -140,7 +140,8 @@ def fulfill(order) -> None:
         hold_id = entry.get("hold_id")
         if not hold_id:
             continue
-        result = adapter.fulfill_hold(hold_id)
+        qty = Decimal(str(entry["qty"])) if entry.get("qty") is not None else None
+        result = adapter.fulfill_hold(hold_id, qty=qty)
         if not result.get("success"):
             errors += 1
             logger.warning(
@@ -228,23 +229,22 @@ def _adopt_holds_for_qty(
     """Consume session holds for `sku` until `required_qty` is met.
 
     Returns `(adopted_pairs, unmet_qty)` where `adopted_pairs` is a list of
-    `(hold_id, hold_qty)` popped from the bucket in FIFO order, and
+    `(hold_id, capped_qty)` popped from the bucket in FIFO order, and
     `unmet_qty` is the remaining quantity to cover via a fresh hold (zero
     when the session holds fully satisfy the requirement).
 
-    Over-adoption (last hold's qty pushes the total past required_qty) is
-    accepted: the excess stays reserved to the order, commit consolidates
-    everything in `order.data["hold_ids"]`, and `fulfill_hold` drains each
-    hold fully at pay-time. Splitting the tail hold would require a new
-    Stockman API and the minor drift is absorbed.
+    Each adopted qty is capped at `min(hold_qty, remaining)` to prevent
+    overshoot: the last hold in a run may have more reserved than needed,
+    and only the needed portion is consumed via the fulfill Move.
     """
     bucket = indexed.get(sku, [])
     adopted: list[tuple[str, Decimal]] = []
     remaining = required_qty
     while bucket and remaining > 0:
         hid, hqty = bucket.pop(0)
-        adopted.append((hid, hqty))
-        remaining -= hqty
+        adopted_qty = min(hqty, remaining)
+        adopted.append((hid, adopted_qty))
+        remaining -= adopted_qty
     unmet = remaining if remaining > 0 else Decimal("0")
     return adopted, unmet
 

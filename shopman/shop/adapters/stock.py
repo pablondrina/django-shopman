@@ -184,11 +184,15 @@ def create_hold(
         }
 
 
-def fulfill_hold(hold_id: str) -> dict:
+def fulfill_hold(hold_id: str, *, qty: Decimal | None = None) -> dict:
     """
     Fulfill a confirmed hold (decrements stock).
 
     Handles PENDING → CONFIRMED → FULFILLED transition automatically.
+
+    `qty` overrides the hold's reserved quantity for the Move delta, allowing
+    partially-adopted holds (where the session hold exceeded the ordered qty)
+    to consume only the needed amount.
 
     Returns:
         {"success": bool, "error_code": str | None, "message": str | None}
@@ -218,7 +222,7 @@ def fulfill_hold(hold_id: str) -> dict:
                 if hold.status not in (HoldStatus.CONFIRMED, HoldStatus.FULFILLED):
                     raise
 
-        stock.fulfill(hold_id)
+        stock.fulfill(hold_id, quantity=qty)
         return {"success": True, "error_code": None, "message": None}
     except StockError as e:
         return {
