@@ -73,14 +73,16 @@
   {% endif %}
 
   {% comment %}── ETA ──{% endcomment %}
+  {% omotenashi 'TRACKING_ETA_PREFIX' as eta_prefix %}
   {% if tracking.eta_display %}
   <div class="rounded-radius border border-info/30 bg-info/5 p-4 flex items-center gap-3 text-info">
     <span class="material-symbols-rounded text-xl shrink-0" aria-hidden="true">schedule</span>
-    <p class="text-sm font-medium">Previsão: <strong>{{ tracking.eta_display }}</strong></p>
+    <p class="text-sm font-medium">{{ eta_prefix.title }} <strong>{{ tracking.eta_display }}</strong></p>
   </div>
   {% endif %}
 
   {% comment %}── Confirmation countdown (auto_confirm channels) ──{% endcomment %}
+  {% omotenashi 'TRACKING_AUTO_CONFIRM_PREFIX' as confirm_prefix %}
   {% if tracking.confirmation_countdown %}
   <div x-data="{
     expiresAt: '{{ tracking.confirmation_expires_at }}',
@@ -97,14 +99,15 @@
     }
   }" class="rounded-radius border border-warning/30 bg-warning/5 p-4 flex items-center gap-3 text-warning text-sm">
     <span class="material-symbols-rounded text-xl shrink-0" aria-hidden="true">timer</span>
-    <p>Confirmação automática em <strong x-text="timeLeft"></strong></p>
+    <p>{{ confirm_prefix.message }} <strong x-text="timeLeft"></strong></p>
   </div>
   {% endif %}
 
   {% comment %}── Items summary ──{% endcomment %}
+  {% omotenashi 'TRACKING_ITEMS_HEADING' as items_heading %}
   <details class="rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt" open>
     <summary class="flex items-center justify-between p-5 cursor-pointer list-none text-on-surface-strong dark:text-on-surface-dark-strong font-semibold select-none">
-      <span>Itens do pedido</span>
+      <span>{{ items_heading.title }}</span>
       <span class="material-symbols-rounded text-on-surface/40 dark:text-on-surface-dark/40 text-lg" aria-hidden="true">expand_more</span>
     </summary>
     <div class="px-5 pb-5 border-t border-outline dark:border-outline-dark">
@@ -133,10 +136,12 @@
   </details>
 
   {% comment %}── Delivery fulfillments ──{% endcomment %}
+  {% omotenashi 'TRACKING_DELIVERY_HEADING' as delivery_heading %}
+  {% omotenashi 'TRACKING_TRACK_SHIPMENT' as track_shipment %}
   {% for ful in tracking.delivery_fulfillments %}
   <div class="rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt p-5 space-y-2">
     <div class="flex items-center justify-between">
-      <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Entrega</h2>
+      <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ delivery_heading.title }}</h2>
       <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">{{ ful.status_label }}</span>
     </div>
     {% if ful.carrier %}<p class="text-sm text-on-surface dark:text-on-surface-dark">Transportadora: {{ ful.carrier }}</p>{% endif %}
@@ -144,7 +149,7 @@
     {% if ful.tracking_url %}
     <a href="{{ ful.tracking_url }}" target="_blank" rel="noopener"
        class="inline-flex items-center gap-1 text-sm text-primary underline underline-offset-2 hover:text-primary/80 dark:text-primary-dark min-h-[44px]">
-      Rastrear envio
+      {{ track_shipment.title }}
       <span class="material-symbols-rounded text-sm" aria-hidden="true">open_in_new</span>
     </a>
     {% endif %}
@@ -154,12 +159,20 @@
   {% endfor %}
 
   {% comment %}── Pickup info ──{% endcomment %}
+  {% omotenashi 'TRACKING_PICKUP_HEADING' as pickup_heading %}
   {% if tracking.pickup_info %}
   <div class="rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt p-5 space-y-1">
-    <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Retirada</h2>
+    <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ pickup_heading.title }}</h2>
     <p class="text-sm text-on-surface dark:text-on-surface-dark">{{ tracking.pickup_info.address }}</p>
     {% if tracking.pickup_info.opening_hours %}
     <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">{{ tracking.pickup_info.opening_hours }}</p>
+    {% endif %}
+    {% if tracking.pickup_info.google_maps_url %}
+    <a href="{{ tracking.pickup_info.google_maps_url }}" target="_blank" rel="noopener"
+       class="inline-flex items-center gap-1.5 text-sm text-primary dark:text-primary-dark underline underline-offset-2 hover:text-primary/80 dark:hover:text-primary-dark/80 mt-1">
+      <span class="material-symbols-rounded text-base" aria-hidden="true">directions</span>
+      Como chegar
+    </a>
     {% endif %}
   </div>
   {% endif %}
@@ -225,28 +238,33 @@
   {% endif %}
 
   {% comment %}── Cancel ──{% endcomment %}
+  {% omotenashi 'TRACKING_CANCEL_HEADING' as cancel_heading %}
+  {% omotenashi 'TRACKING_CANCEL_CTA' as cancel_cta %}
+  {% omotenashi 'TRACKING_CANCEL_CONFIRM' as cancel_confirm %}
+  {% omotenashi 'TRACKING_CANCEL_YES' as cancel_yes %}
+  {% omotenashi 'TRACKING_CANCEL_BACK' as cancel_back %}
   {% if tracking.can_cancel %}
   <div class="rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt p-5">
-    <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-3">Cancelar pedido</h2>
+    <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-3">{{ cancel_heading.title }}</h2>
     <form method="post" action="{% url 'storefront:order_cancel' ref=tracking.order_ref %}"
           x-data="{ confirming: false }">
       {% csrf_token %}
       <template x-if="!confirming">
         <button type="button" @click="confirming = true"
                 class="text-sm text-danger underline underline-offset-2 hover:text-danger/80 focus:outline-hidden min-h-[44px]">
-          Cancelar este pedido
+          {{ cancel_cta.title }}
         </button>
       </template>
       <template x-if="confirming">
         <div class="flex items-center gap-3">
-          <span class="text-sm text-on-surface dark:text-on-surface-dark">Confirmar cancelamento?</span>
+          <span class="text-sm text-on-surface dark:text-on-surface-dark">{{ cancel_confirm.message }}</span>
           <button type="submit"
                   class="rounded-radius bg-danger px-4 py-2 text-sm font-semibold text-white hover:bg-danger/90 focus:outline-hidden focus:ring-2 focus:ring-danger min-h-[44px]">
-            Sim, cancelar
+            {{ cancel_yes.title }}
           </button>
           <button type="button" @click="confirming = false"
                   class="text-sm text-on-surface/60 dark:text-on-surface-dark/60 underline min-h-[44px]">
-            Voltar
+            {{ cancel_back.title }}
           </button>
         </div>
       </template>
@@ -264,6 +282,7 @@
 
   {% comment %}── Share / reorder ──{% endcomment %}
   {% omotenashi 'TRACKING_REORDER_CTA' as reorder_cta %}
+  {% omotenashi 'TRACKING_MENU_CTA' as menu_cta %}
   <div class="flex gap-3">
     <form method="post" action="{% url 'storefront:reorder' ref=tracking.order_ref %}" class="flex-1">
       {% csrf_token %}
@@ -274,7 +293,7 @@
     </form>
     <a href="{% url 'storefront:menu' %}"
        class="flex-1 inline-flex items-center justify-center rounded-radius bg-primary px-4 py-2 text-sm font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px]">
-      Ver cardápio
+      {{ menu_cta.title }}
     </a>
   </div>
 

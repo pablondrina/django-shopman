@@ -88,6 +88,7 @@ class PickupInfoProjection:
 
     address: str
     opening_hours: str
+    google_maps_url: str | None
 
 
 @dataclass(frozen=True)
@@ -333,9 +334,16 @@ def _pickup_info() -> PickupInfoProjection | None:
 
         hours_list = _format_opening_hours()
         hours_str = "; ".join(f"{h['label']}: {h['hours']}" for h in hours_list)
+        google_maps_url = None
+        if shop.latitude and shop.longitude:
+            google_maps_url = (
+                f"https://www.google.com/maps/dir/?api=1"
+                f"&destination={shop.latitude},{shop.longitude}"
+            )
         return PickupInfoProjection(
             address=shop.formatted_address or "",
             opening_hours=hours_str,
+            google_maps_url=google_maps_url,
         )
     except Exception:
         logger.exception("order_tracking_projection_pickup_info_failed")
