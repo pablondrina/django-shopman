@@ -80,8 +80,6 @@
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
     if (slotMin > nowMin) return true;
-    // Slot já começou: mantém só o que está rodando agora (o último que iniciou,
-    // sem nenhum mais recente após). O slot de 09h só some quando 12h inicia.
     return !this.pickupSlotTimes.some(t => {
       const [lh, lm] = t.split(':').map(Number);
       const lMin = lh * 60 + lm;
@@ -100,13 +98,46 @@
     const d = new Date();
     d.setDate(d.getDate() + this.maxPreorderDays);
     return d.toISOString().slice(0, 10);
+  },
+  step: (() => {
+    const s = new URLSearchParams(window.location.search).get('step');
+    if (['fulfillment', 'address', 'when', 'payment'].includes(s)) return s;
+    return '{% if errors.payment_method %}payment{% elif errors.delivery_date or errors.delivery_time_slot %}when{% elif errors.delivery_address or errors.addr_street_number %}address{% else %}fulfillment{% endif %}';
+  })(),
+  init() {
+    window.addEventListener('popstate', () => {
+      const s = new URLSearchParams(window.location.search).get('step');
+      this.step = ['fulfillment', 'address', 'when', 'payment'].includes(s) ? s : 'fulfillment';
+    });
+  },
+  effectiveSteps() {
+    return this.fulfillmentType === 'delivery'
+      ? ['fulfillment', 'address', 'when', 'payment']
+      : ['fulfillment', 'when', 'payment'];
+  },
+  isDone(s) {
+    const steps = this.effectiveSteps();
+    return steps.indexOf(s) < steps.indexOf(this.step);
+  },
+  isUpcoming(s) {
+    const steps = this.effectiveSteps();
+    return steps.indexOf(s) > steps.indexOf(this.step);
+  },
+  nextFrom(s) {
+    const steps = this.effectiveSteps();
+    const i = steps.indexOf(s);
+    return i >= 0 && i < steps.length - 1 ? steps[i + 1] : null;
+  },
+  goTo(s) {
+    this.step = s;
+    history.pushState({step: s}, '', '?step=' + s);
   }
 }">
 
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-    {% comment %}Left column — form{% endcomment %}
-    <div class="lg:col-span-2 space-y-6">
+    {% comment %}Left column — stepped form{% endcomment %}
+    <div class="lg:col-span-2 space-y-3">
       <h1 class="text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Finalizar Pedido</h1>
 
       {% if errors %}
@@ -117,11 +148,11 @@
       </div>
       {% endif %}
 
-      <form method="post" action="{% url 'storefront:checkout' %}" id="checkout-form" class="space-y-6" novalidate>
+      <form method="post" action="{% url 'storefront:checkout' %}" id="checkout-form" novalidate>
         {% csrf_token %}
 
-        {% comment %}── Greeting ──{% endcomment %}
-        <section class="rounded-radius border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt px-5 py-4"
+        {% comment %}── 1. Contato (sempre concluído — requer autenticação) ──{% endcomment %}
+        <section class="rounded-radius border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt overflow-hidden"
                  x-data="{
                    customerName: '{{ form_data.name|default:checkout.customer_name|escapejs }}',
                    showNameModal: false,
@@ -134,206 +165,270 @@
                    }
                  }"
                  x-init="if (!customerName) { nameDraft = ''; showNameModal = true; }">
-          <div class="flex items-center gap-3">
-            {# Avatar: iniciais ou ícone genérico quando sem nome #}
-            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary dark:bg-primary-dark/10 dark:text-primary-dark text-sm font-bold select-none" aria-hidden="true">
-              <span x-show="customerName" x-text="initials"></span>
-              <span x-show="!customerName" x-cloak class="material-symbols-rounded text-lg">person</span>
+          <div class="flex items-center gap-3 px-5 py-4">
+            <span class="flex size-5 shrink-0 items-center justify-center rounded-full bg-success text-on-success" aria-hidden="true">
+              <span class="material-symbols-rounded text-sm">check</span>
             </span>
-
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-1">
-                <p class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong truncate">
-                  <span x-show="customerName">Olá, <span x-text="customerName.split(' ')[0]"></span>!</span>
-                  <span x-show="!customerName" x-cloak>Seja bem-vindo(a)!</span>
-                </p>
-                {# Edit name — icon-only com tooltip #}
-                <button type="button"
-                        @click="nameDraft = customerName; showNameModal = true; $nextTick(() => $refs.nameInput && $refs.nameInput.focus())"
-                        title="Editar nome"
-                        aria-label="Editar nome"
-                        class="shrink-0 flex h-11 w-11 items-center justify-center rounded-full text-on-surface/50 hover:bg-primary/10 hover:text-primary dark:text-on-surface-dark/50 dark:hover:bg-primary-dark/10 dark:hover:text-primary-dark focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark transition">
-                  <span class="material-symbols-rounded text-lg" aria-hidden="true">edit</span>
-                </button>
-              </div>
-              <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">{{ checkout.customer_phone|format_phone }}</p>
-              {% omotenashi 'CHECKOUT_PHONE_PURPOSE' as phone_purpose %}
-              {% if phone_purpose %}<p class="text-xs text-on-surface/40 dark:text-on-surface-dark/40">{{ phone_purpose.message }}</p>{% endif %}
+            <p class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Contato</p>
+            <div class="flex-1 min-w-0">
+              <span class="text-sm text-on-surface/60 dark:text-on-surface-dark/60 truncate">
+                <span x-show="customerName" x-cloak><span x-text="customerName.split(' ')[0]"></span> · </span>{{ checkout.customer_phone|format_phone }}
+              </span>
             </div>
-
-            {# Trocar conta — icon-only top-right com tooltip #}
+            <button type="button"
+                    @click="nameDraft = customerName; showNameModal = true; $nextTick(() => $refs.nameInput && $refs.nameInput.focus())"
+                    class="shrink-0 text-xs text-primary hover:underline dark:text-primary-dark focus:outline-hidden focus-visible:underline">
+              Editar nome
+            </button>
             <button type="button"
                     @click="document.getElementById('nav-logout-form').submit()"
-                    title="Trocar conta"
-                    aria-label="Trocar conta"
-                    class="shrink-0 flex h-11 w-11 items-center justify-center rounded-full text-on-surface/50 hover:bg-primary/10 hover:text-primary dark:text-on-surface-dark/50 dark:hover:bg-primary-dark/10 dark:hover:text-primary-dark focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark transition">
-              <span class="material-symbols-rounded text-xl" aria-hidden="true">autorenew</span>
+                    title="Trocar conta" aria-label="Trocar conta"
+                    class="shrink-0 flex h-8 w-8 items-center justify-center rounded-full text-on-surface/40 hover:bg-primary/10 hover:text-primary dark:text-on-surface-dark/40 dark:hover:bg-primary-dark/10 dark:hover:text-primary-dark focus:outline-hidden transition">
+              <span class="material-symbols-rounded text-base" aria-hidden="true">autorenew</span>
             </button>
           </div>
-
+          {% omotenashi 'CHECKOUT_PHONE_PURPOSE' as phone_purpose %}
+          {% if phone_purpose %}<p class="px-5 pb-3 -mt-1 text-xs text-on-surface/40 dark:text-on-surface-dark/40">{{ phone_purpose.message }}</p>{% endif %}
           <input type="hidden" name="phone" value="{{ checkout.customer_phone }}">
           <input type="hidden" name="name" :value="customerName">
-
           {% if errors.phone or errors.name %}
-          <p class="mt-3 text-xs text-danger">{% if errors.phone %}{{ errors.phone }}{% else %}{{ errors.name }}{% endif %}</p>
+          <p class="px-5 pb-3 text-xs text-danger">{% if errors.phone %}{{ errors.phone }}{% else %}{{ errors.name }}{% endif %}</p>
           {% endif %}
-
           {% include "storefront/components/name_modal.html" %}
         </section>
 
-        {% comment %}── Fulfillment ──{% endcomment %}
-        <section class="rounded-radius border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt p-5 space-y-4">
-          <h2 class="flex items-center gap-2.5 text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">
-            <span class="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs text-primary dark:bg-primary-dark/10 dark:text-primary-dark" aria-hidden="true">1</span>
-            Entrega
-          </h2>
-
-          {% comment %}Delivery date — Hoje/Amanhã/Escolher outra data (apresentado antes do modo){% endcomment %}
-          <div>
-            {% include "storefront/components/date_picker.html" %}
-            {% if errors.delivery_date %}
-            <p class="mt-1 text-xs text-danger">{{ errors.delivery_date }}</p>
-            {% endif %}
+        {% comment %}── 2. Como receber ──{% endcomment %}
+        <section class="rounded-radius border bg-surface-alt dark:bg-surface-dark-alt overflow-hidden transition-colors"
+                 :class="step === 'fulfillment' ? 'border-primary dark:border-primary-dark' : isDone('fulfillment') ? 'border-outline dark:border-outline-dark' : 'border-outline/50 dark:border-outline-dark/50 opacity-70'">
+          <div x-show="isDone('fulfillment')" x-cloak class="flex items-center gap-3 px-5 py-4">
+            <span class="flex size-5 shrink-0 items-center justify-center rounded-full bg-success text-on-success" aria-hidden="true">
+              <span class="material-symbols-rounded text-sm">check</span>
+            </span>
+            <p class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Como receber</p>
+            <span class="flex-1 text-sm text-on-surface/60 dark:text-on-surface-dark/60 truncate" x-text="fulfillmentLabel"></span>
+            <button type="button" @click="goTo('fulfillment')"
+                    class="shrink-0 text-xs text-primary hover:underline dark:text-primary-dark">Editar</button>
           </div>
-
-          {% comment %}Pickup slots — horário só faz sentido na retirada{% endcomment %}
-          <div x-show="fulfillmentType === 'pickup'" x-cloak>
-            <label for="delivery_time_slot" class="block text-sm font-medium text-on-surface dark:text-on-surface-dark mb-1">
-              Horário <span aria-hidden="true" class="text-danger">*</span>
-            </label>
-            <select id="delivery_time_slot" name="delivery_time_slot" x-model="deliverySlot"
-                    class="w-full rounded-radius border border-outline bg-surface px-3 py-2 text-on-surface focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark min-h-[44px]"
-                    {% if errors.delivery_time_slot %}aria-invalid="true"{% endif %}>
-              <option value="">Selecione um horário</option>
-              {% for slot in checkout.pickup_slots %}
-              <template x-if="isSlotAvailableForToday('{{ slot.ref }}', '{{ slot.starts_at }}')">
-                <option value="{{ slot.ref }}" {% if slot.ref == form_data.delivery_time_slot or slot.ref == checkout.earliest_slot_ref %}selected{% endif %}>{{ slot.label }}</option>
-              </template>
-              {% endfor %}
-            </select>
-            {% if errors.delivery_time_slot %}
-            <p class="mt-1 text-xs text-danger">{{ errors.delivery_time_slot }}</p>
-            {% endif %}
-          </div>
-
-          {% comment %}Fulfillment chips — retirar vs entregar (sem label — os chips falam){% endcomment %}
-          <div>
-            <div class="flex gap-3">
-              <label class="flex-1 flex items-start gap-3 rounded-radius border p-3 cursor-pointer min-h-[44px]"
-                     :class="fulfillmentType === 'pickup' ? 'border-primary bg-primary/5 dark:border-primary-dark dark:bg-primary-dark/5' : 'border-outline dark:border-outline-dark'">
-                <input type="radio" name="fulfillment_type" value="pickup" x-model="fulfillmentType" class="sr-only">
-                <span class="material-symbols-rounded text-xl mt-0.5" aria-hidden="true">storefront</span>
-                <span class="flex flex-col">
-                  <span class="font-medium text-sm">Retirar</span>
-                  {% if checkout.pickup_hint %}
-                  <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 mt-0.5">{{ checkout.pickup_hint }}</span>
-                  {% endif %}
-                </span>
-              </label>
-              {% if checkout.has_delivery %}
-              <label class="flex-1 flex items-start gap-3 rounded-radius border p-3 cursor-pointer min-h-[44px]"
-                     :class="fulfillmentType === 'delivery' ? 'border-primary bg-primary/5 dark:border-primary-dark dark:bg-primary-dark/5' : 'border-outline dark:border-outline-dark'">
-                <input type="radio" name="fulfillment_type" value="delivery" x-model="fulfillmentType" class="sr-only">
-                <span class="material-symbols-rounded text-xl mt-0.5" aria-hidden="true">local_shipping</span>
-                <span class="flex flex-col">
-                  <span class="font-medium text-sm">Entregar</span>
-                  {% if checkout.delivery_hint %}
-                  <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 mt-0.5">{{ checkout.delivery_hint }}</span>
-                  {% endif %}
-                </span>
-              </label>
-              {% endif %}
+          <div x-show="step === 'fulfillment'">
+            <div class="flex items-center gap-3 px-5 py-4">
+              <span class="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary dark:bg-primary-dark dark:text-on-primary-dark" aria-current="step">
+                <span class="material-symbols-rounded text-sm" aria-hidden="true">radio_button_checked</span>
+              </span>
+              <p class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Como receber</p>
+            </div>
+            <div class="px-5 pb-5 space-y-4 border-t border-outline dark:border-outline-dark">
+              <div class="flex gap-3 pt-4">
+                <label class="flex-1 flex items-start gap-3 rounded-radius border p-3 cursor-pointer min-h-[44px]"
+                       :class="fulfillmentType === 'pickup' ? 'border-primary bg-primary/5 dark:border-primary-dark dark:bg-primary-dark/5' : 'border-outline dark:border-outline-dark'">
+                  <input type="radio" name="fulfillment_type" value="pickup" x-model="fulfillmentType" class="sr-only">
+                  <span class="material-symbols-rounded text-xl mt-0.5" aria-hidden="true">storefront</span>
+                  <span class="flex flex-col">
+                    <span class="font-medium text-sm">Retirar</span>
+                    {% if checkout.pickup_hint %}<span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 mt-0.5">{{ checkout.pickup_hint }}</span>{% endif %}
+                  </span>
+                </label>
+                {% if checkout.has_delivery %}
+                <label class="flex-1 flex items-start gap-3 rounded-radius border p-3 cursor-pointer min-h-[44px]"
+                       :class="fulfillmentType === 'delivery' ? 'border-primary bg-primary/5 dark:border-primary-dark dark:bg-primary-dark/5' : 'border-outline dark:border-outline-dark'">
+                  <input type="radio" name="fulfillment_type" value="delivery" x-model="fulfillmentType" class="sr-only">
+                  <span class="material-symbols-rounded text-xl mt-0.5" aria-hidden="true">local_shipping</span>
+                  <span class="flex flex-col">
+                    <span class="font-medium text-sm">Entregar</span>
+                    {% if checkout.delivery_hint %}<span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 mt-0.5">{{ checkout.delivery_hint }}</span>{% endif %}
+                  </span>
+                </label>
+                {% endif %}
+              </div>
+              <button type="button" @click="goTo(nextFrom('fulfillment'))"
+                      class="w-full rounded-radius bg-primary px-6 py-3 font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px] transition">
+                Continuar
+              </button>
             </div>
           </div>
-
-          {% comment %}Delivery address — iFood-style picker (unified search + map + opt-in geo){% endcomment %}
-          <div x-show="fulfillmentType === 'delivery'" x-cloak>
-            {% include "storefront/partials/address_picker.html" with picker_mode="checkout" picker_name_prefix="addr_" picker_show_saved=True %}
-            {% if errors.delivery_address %}
-            <p class="mt-2 text-xs text-danger">{{ errors.delivery_address }}</p>
-            {% endif %}
-            {% if errors.addr_street_number %}
-            <p class="mt-2 text-xs text-danger">{{ errors.addr_street_number }}</p>
-            {% endif %}
+          <div x-show="isUpcoming('fulfillment')" x-cloak class="flex items-center gap-3 px-5 py-4">
+            <span class="flex size-5 shrink-0 items-center justify-center text-on-surface/30 dark:text-on-surface-dark/30" aria-hidden="true">
+              <span class="material-symbols-rounded text-sm">radio_button_unchecked</span>
+            </span>
+            <p class="text-sm font-semibold text-on-surface/40 dark:text-on-surface-dark/40">Como receber</p>
           </div>
         </section>
 
-        {% comment %}── Payment ──{% endcomment %}
-        <section class="rounded-radius border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt p-5 space-y-4">
-          <h2 class="flex items-center gap-2.5 text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">
-            <span class="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs text-primary dark:bg-primary-dark/10 dark:text-primary-dark" aria-hidden="true">2</span>
-            Pagamento
-          </h2>
+        {% comment %}── 3. Endereço (só para entrega) ──{% endcomment %}
+        <section x-show="fulfillmentType === 'delivery' || isDone('address')" x-cloak
+                 class="rounded-radius border bg-surface-alt dark:bg-surface-dark-alt overflow-hidden transition-colors"
+                 :class="step === 'address' ? 'border-primary dark:border-primary-dark' : isDone('address') ? 'border-outline dark:border-outline-dark' : 'border-outline/50 dark:border-outline-dark/50 opacity-70'">
+          <div x-show="isDone('address')" x-cloak class="flex items-center gap-3 px-5 py-4">
+            <span class="flex size-5 shrink-0 items-center justify-center rounded-full bg-success text-on-success" aria-hidden="true">
+              <span class="material-symbols-rounded text-sm">check</span>
+            </span>
+            <p class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Endereço</p>
+            <span class="flex-1 text-sm text-on-surface/60 dark:text-on-surface-dark/60 truncate">Endereço informado</span>
+            <button type="button" @click="goTo('address')"
+                    class="shrink-0 text-xs text-primary hover:underline dark:text-primary-dark">Editar</button>
+          </div>
+          <div x-show="step === 'address'">
+            <div class="flex items-center gap-3 px-5 py-4">
+              <span class="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary dark:bg-primary-dark dark:text-on-primary-dark" aria-current="step">
+                <span class="material-symbols-rounded text-sm" aria-hidden="true">radio_button_checked</span>
+              </span>
+              <p class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Endereço de entrega</p>
+            </div>
+            <div class="px-5 pb-5 border-t border-outline dark:border-outline-dark pt-4 space-y-4">
+              {% include "storefront/partials/address_picker.html" with picker_mode="checkout" picker_name_prefix="addr_" picker_show_saved=True %}
+              {% if errors.delivery_address %}<p class="text-xs text-danger">{{ errors.delivery_address }}</p>{% endif %}
+              {% if errors.addr_street_number %}<p class="text-xs text-danger">{{ errors.addr_street_number }}</p>{% endif %}
+              <button type="button" @click="goTo(nextFrom('address'))"
+                      class="w-full rounded-radius bg-primary px-6 py-3 font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px] transition">
+                Continuar
+              </button>
+            </div>
+          </div>
+          <div x-show="isUpcoming('address')" x-cloak class="flex items-center gap-3 px-5 py-4">
+            <span class="flex size-5 shrink-0 items-center justify-center text-on-surface/30 dark:text-on-surface-dark/30" aria-hidden="true">
+              <span class="material-symbols-rounded text-sm">radio_button_unchecked</span>
+            </span>
+            <p class="text-sm font-semibold text-on-surface/40 dark:text-on-surface-dark/40">Endereço de entrega</p>
+          </div>
+        </section>
 
-          <div class="grid grid-cols-2 gap-3">
-            {% for method in checkout.payment_methods %}
-            <label class="flex items-center justify-center gap-2 rounded-radius border p-3 cursor-pointer min-h-[44px]"
-                   :class="paymentMethod === '{{ method.ref }}' ? 'border-primary bg-primary/5 dark:border-primary-dark dark:bg-primary-dark/5' : 'border-outline dark:border-outline-dark'">
-              <input type="radio" name="payment_method" value="{{ method.ref }}" x-model="paymentMethod" class="sr-only">
-              {% if method.ref == "pix" %}
-              <span class="material-symbols-rounded text-xl" aria-hidden="true">qr_code_2</span>
-              {% elif method.ref == "card" %}
-              <span class="material-symbols-rounded text-xl" aria-hidden="true">credit_card</span>
-              {% else %}
-              <span class="material-symbols-rounded text-xl" aria-hidden="true">payments</span>
+        {% comment %}── 4. Quando ──{% endcomment %}
+        <section class="rounded-radius border bg-surface-alt dark:bg-surface-dark-alt overflow-hidden transition-colors"
+                 :class="step === 'when' ? 'border-primary dark:border-primary-dark' : isDone('when') ? 'border-outline dark:border-outline-dark' : 'border-outline/50 dark:border-outline-dark/50 opacity-70'">
+          <div x-show="isDone('when')" x-cloak class="flex items-center gap-3 px-5 py-4">
+            <span class="flex size-5 shrink-0 items-center justify-center rounded-full bg-success text-on-success" aria-hidden="true">
+              <span class="material-symbols-rounded text-sm">check</span>
+            </span>
+            <p class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Quando</p>
+            <span class="flex-1 text-sm text-on-surface/60 dark:text-on-surface-dark/60 truncate">
+              <span x-show="dateHuman" x-text="dateHuman"></span><span x-show="dateHuman && slotLabel"> · </span><span x-show="slotLabel" x-text="slotLabel"></span>
+            </span>
+            <button type="button" @click="goTo('when')"
+                    class="shrink-0 text-xs text-primary hover:underline dark:text-primary-dark">Editar</button>
+          </div>
+          <div x-show="step === 'when'">
+            <div class="flex items-center gap-3 px-5 py-4">
+              <span class="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary dark:bg-primary-dark dark:text-on-primary-dark" aria-current="step">
+                <span class="material-symbols-rounded text-sm" aria-hidden="true">radio_button_checked</span>
+              </span>
+              <p class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Quando</p>
+            </div>
+            <div class="px-5 pb-5 border-t border-outline dark:border-outline-dark pt-4 space-y-4">
+              {% include "storefront/components/date_picker.html" %}
+              {% if errors.delivery_date %}<p class="text-xs text-danger">{{ errors.delivery_date }}</p>{% endif %}
+              <div x-show="fulfillmentType === 'pickup'" x-cloak>
+                <label for="delivery_time_slot" class="block text-sm font-medium text-on-surface dark:text-on-surface-dark mb-1">
+                  Horário <span aria-hidden="true" class="text-danger">*</span>
+                </label>
+                <select id="delivery_time_slot" name="delivery_time_slot" x-model="deliverySlot"
+                        class="w-full rounded-radius border border-outline bg-surface px-3 py-2 text-on-surface focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark min-h-[44px]"
+                        {% if errors.delivery_time_slot %}aria-invalid="true"{% endif %}>
+                  <option value="">Selecione um horário</option>
+                  {% for slot in checkout.pickup_slots %}
+                  <template x-if="isSlotAvailableForToday('{{ slot.ref }}', '{{ slot.starts_at }}')">
+                    <option value="{{ slot.ref }}" {% if slot.ref == form_data.delivery_time_slot or slot.ref == checkout.earliest_slot_ref %}selected{% endif %}>{{ slot.label }}</option>
+                  </template>
+                  {% endfor %}
+                </select>
+                {% if errors.delivery_time_slot %}<p class="mt-1 text-xs text-danger">{{ errors.delivery_time_slot }}</p>{% endif %}
+              </div>
+              <button type="button" @click="goTo(nextFrom('when'))"
+                      class="w-full rounded-radius bg-primary px-6 py-3 font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px] transition">
+                Continuar
+              </button>
+            </div>
+          </div>
+          <div x-show="isUpcoming('when')" x-cloak class="flex items-center gap-3 px-5 py-4">
+            <span class="flex size-5 shrink-0 items-center justify-center text-on-surface/30 dark:text-on-surface-dark/30" aria-hidden="true">
+              <span class="material-symbols-rounded text-sm">radio_button_unchecked</span>
+            </span>
+            <p class="text-sm font-semibold text-on-surface/40 dark:text-on-surface-dark/40">Quando</p>
+          </div>
+        </section>
+
+        {% comment %}── 5. Pagamento + notas + fidelidade + envio ──{% endcomment %}
+        <section class="rounded-radius border bg-surface-alt dark:bg-surface-dark-alt overflow-hidden transition-colors"
+                 :class="step === 'payment' ? 'border-primary dark:border-primary-dark' : isDone('payment') ? 'border-outline dark:border-outline-dark' : 'border-outline/50 dark:border-outline-dark/50 opacity-70'">
+          <div x-show="isDone('payment')" x-cloak class="flex items-center gap-3 px-5 py-4">
+            <span class="flex size-5 shrink-0 items-center justify-center rounded-full bg-success text-on-success" aria-hidden="true">
+              <span class="material-symbols-rounded text-sm">check</span>
+            </span>
+            <p class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Pagamento</p>
+            <span class="flex-1 text-sm text-on-surface/60 dark:text-on-surface-dark/60 truncate" x-text="paymentLabel"></span>
+            <button type="button" @click="goTo('payment')"
+                    class="shrink-0 text-xs text-primary hover:underline dark:text-primary-dark">Editar</button>
+          </div>
+          <div x-show="step === 'payment'">
+            <div class="flex items-center gap-3 px-5 py-4">
+              <span class="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary dark:bg-primary-dark dark:text-on-primary-dark" aria-current="step">
+                <span class="material-symbols-rounded text-sm" aria-hidden="true">radio_button_checked</span>
+              </span>
+              <p class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Pagamento</p>
+            </div>
+            <div class="px-5 pb-5 border-t border-outline dark:border-outline-dark pt-4 space-y-4">
+              <div class="grid grid-cols-2 gap-3">
+                {% for method in checkout.payment_methods %}
+                <label class="flex items-center justify-center gap-2 rounded-radius border p-3 cursor-pointer min-h-[44px]"
+                       :class="paymentMethod === '{{ method.ref }}' ? 'border-primary bg-primary/5 dark:border-primary-dark dark:bg-primary-dark/5' : 'border-outline dark:border-outline-dark'">
+                  <input type="radio" name="payment_method" value="{{ method.ref }}" x-model="paymentMethod" class="sr-only">
+                  {% if method.ref == "pix" %}<span class="material-symbols-rounded text-xl" aria-hidden="true">qr_code_2</span>
+                  {% elif method.ref == "card" %}<span class="material-symbols-rounded text-xl" aria-hidden="true">credit_card</span>
+                  {% else %}<span class="material-symbols-rounded text-xl" aria-hidden="true">payments</span>{% endif %}
+                  <span class="font-medium text-sm">{{ method.label }}</span>
+                </label>
+                {% endfor %}
+              </div>
+              {% if errors.payment_method %}<p class="text-xs text-danger">{{ errors.payment_method }}</p>{% endif %}
+
+              {% comment %}── Notas (Padrão C) ──{% endcomment %}
+              {% omotenashi 'CHECKOUT_NOTES_PROMPT' as notes_prompt %}
+              <div x-data="{ open: {% if form_data.notes %}true{% else %}false{% endif %} }">
+                <button type="button" x-show="!open" @click="open = true; $nextTick(() => $refs.notes && $refs.notes.focus())"
+                        class="inline-flex items-center gap-1.5 text-sm text-on-surface hover:text-primary focus:outline-hidden dark:text-on-surface-dark dark:hover:text-primary-dark">
+                  <span class="material-symbols-rounded text-base" aria-hidden="true">edit_note</span>
+                  {{ notes_prompt.title }}
+                </button>
+                <div x-show="open" x-cloak>
+                  <label for="notes" class="block text-sm font-medium text-on-surface dark:text-on-surface-dark mb-2">{{ notes_prompt.title }}</label>
+                  <textarea id="notes" name="notes" rows="2" x-ref="notes" x-model="notes"
+                            placeholder="Troco, alergia, observação de entrega…"
+                            class="w-full rounded-radius border border-outline bg-surface px-3 py-2 text-on-surface placeholder-on-surface/40 focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark resize-none"></textarea>
+                </div>
+              </div>
+
+              {% comment %}── Fidelidade ──{% endcomment %}
+              {% if checkout.loyalty_balance_q > 0 %}
+              <label class="flex items-start gap-3 cursor-pointer rounded-radius border border-primary/30 bg-primary/5 dark:border-primary-dark/30 dark:bg-primary-dark/5 p-3">
+                <input type="checkbox" name="use_loyalty" value="true" x-model="useLoyalty"
+                       class="mt-0.5 rounded border-outline text-primary focus:ring-primary dark:border-outline-dark">
+                <span class="flex flex-col text-sm text-on-surface dark:text-on-surface-dark">
+                  <span>Usar pontos de fidelidade — <strong class="text-on-surface-strong dark:text-on-surface-dark-strong">{{ checkout.loyalty_value_display }}</strong></span>
+                  <span x-show="useLoyalty" x-cloak class="text-xs text-success mt-0.5">Você economiza {{ checkout.loyalty_value_display }} neste pedido.</span>
+                </span>
+              </label>
               {% endif %}
-              <span class="font-medium text-sm">{{ method.label }}</span>
-            </label>
-            {% endfor %}
-          </div>
-          {% if errors.payment_method %}
-          <p class="text-xs text-danger">{{ errors.payment_method }}</p>
-          {% endif %}
-        </section>
 
-        {% comment %}── Notes (reveal on demand — Padrão C) ──{% endcomment %}
-        {% omotenashi 'CHECKOUT_NOTES_PROMPT' as notes_prompt %}
-        <section class="rounded-radius border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt p-5"
-                 x-data="{ open: {% if form_data.notes %}true{% else %}false{% endif %} }">
-          <button type="button" x-show="!open" @click="open = true; $nextTick(() => $refs.notes && $refs.notes.focus())"
-                  class="inline-flex items-center gap-1.5 text-sm text-on-surface hover:text-primary focus:outline-hidden focus:text-primary dark:text-on-surface-dark dark:hover:text-primary-dark">
-            <span class="material-symbols-rounded text-base" aria-hidden="true">edit_note</span>
-            {{ notes_prompt.title }}
-          </button>
-          <div x-show="open" x-cloak>
-            <label for="notes" class="block text-sm font-medium text-on-surface dark:text-on-surface-dark mb-2">{{ notes_prompt.title }}</label>
-            <textarea id="notes" name="notes" rows="2" x-ref="notes" x-model="notes"
-                      placeholder="Troco, alergia, observação de entrega…"
-                      class="w-full rounded-radius border border-outline bg-surface px-3 py-2 text-on-surface placeholder-on-surface/40 focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark resize-none"></textarea>
+              {% comment %}── Confirmar (sticky mobile) ──{% endcomment %}
+              {% omotenashi 'CHECKOUT_CONFIRM_CTA' as confirm_cta %}
+              <div class="sticky bottom-0 bg-surface dark:bg-surface-dark border-t border-outline dark:border-outline-dark -mx-5 px-5 py-4 lg:static lg:border-none lg:mx-0 lg:px-0 lg:py-0">
+                <button type="submit"
+                        class="w-full rounded-radius bg-primary px-6 py-3 font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px] transition-opacity disabled:opacity-50"
+                        hx-indicator="#checkout-submitting">
+                  <span id="checkout-submitting" class="htmx-indicator mr-2">
+                    <svg class="inline w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                  </span>
+                  {{ confirm_cta.title }}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div x-show="isUpcoming('payment')" x-cloak class="flex items-center gap-3 px-5 py-4">
+            <span class="flex size-5 shrink-0 items-center justify-center text-on-surface/30 dark:text-on-surface-dark/30" aria-hidden="true">
+              <span class="material-symbols-rounded text-sm">radio_button_unchecked</span>
+            </span>
+            <p class="text-sm font-semibold text-on-surface/40 dark:text-on-surface-dark/40">Pagamento</p>
           </div>
         </section>
 
-        {% comment %}── Loyalty ──{% endcomment %}
-        {% if checkout.loyalty_balance_q > 0 %}
-        <section class="rounded-radius border border-primary/30 bg-primary/5 dark:border-primary-dark/30 dark:bg-primary-dark/5 p-5">
-          <label class="flex items-start gap-3 cursor-pointer">
-            <input type="checkbox" name="use_loyalty" value="true" x-model="useLoyalty"
-                   class="mt-0.5 rounded border-outline text-primary focus:ring-primary dark:border-outline-dark">
-            <span class="flex flex-col text-sm text-on-surface dark:text-on-surface-dark">
-              <span>
-                Usar seus pontos de fidelidade —
-                <strong class="text-on-surface-strong dark:text-on-surface-dark-strong">{{ checkout.loyalty_value_display }}</strong>
-              </span>
-              <span x-show="useLoyalty" x-cloak class="text-xs text-success mt-0.5">
-                Você economiza {{ checkout.loyalty_value_display }} neste pedido.
-              </span>
-            </span>
-          </label>
-        </section>
-        {% endif %}
-
-        {% comment %}── Submit (mobile sticky) ──{% endcomment %}
-        {% omotenashi 'CHECKOUT_CONFIRM_CTA' as confirm_cta %}
-        <div class="sticky bottom-0 bg-surface dark:bg-surface-dark border-t border-outline dark:border-outline-dark -mx-4 px-4 py-4 lg:static lg:border-none lg:mx-0 lg:px-0 lg:py-0">
-          <button type="submit"
-                  class="w-full rounded-radius bg-primary px-6 py-3 font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px] transition-opacity disabled:opacity-50"
-                  hx-indicator="#checkout-submitting">
-            <span id="checkout-submitting" class="htmx-indicator mr-2">
-              <svg class="inline w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-            </span>
-            {{ confirm_cta.title }}
-          </button>
-        </div>
       </form>
     </div>
 
