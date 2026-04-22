@@ -180,9 +180,9 @@
                    inc() { if (this.qty < this.effectiveMax) { this.qty++; } else { this.clampQty(); } },
                    dec() { if (this.qty > 1) this.qty--; },
                    async maybeOpenStockModal() {
-                     /* Cruzou a qty crítica? Abrir modal acionável imediatamente.
-                        `available` vem da projeção e é estático; confirmamos via servidor
-                        (que tem os substitutes + mensagem contextual). */
+                     /* fetch() (não hx-post): chamado programaticamente a partir do stepper,
+                        não de um click num elemento com hx-post. Além disso, lê e escreve
+                        estado Alpine reativo (qty → inCart). hx-vals não acessa o escopo Alpine. */
                      if (this.available === null) return;
                      if (this.qty <= this.available) return;
                      if (this.checking || this.lastChecked === this.qty) return;
@@ -232,7 +232,8 @@
           </button>
         </div>
 
-        {# Add button — cart_set_qty is idempotent (absolute qty). Rich error UI on 422. #}
+        {# Add button — fetch() (não hx-post): precisa de qty do escopo Alpine como input e
+           atualiza inCart/justAdded como output. hx-vals não acessa estado Alpine reativo. #}
         <button type="button"
                 class="btn-primary flex-1"
                 @click="(async () => {
