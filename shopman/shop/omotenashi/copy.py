@@ -302,6 +302,30 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "LOGOUT_FAREWELL": {
         WILDCARD: {WILDCARD: CopyEntry(message="Até logo.")},
     },
+    "LOGIN_PHONE_HEADING": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Vamos entrar?")},
+    },
+    "LOGIN_PHONE_SUBTITLE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Vamos enviar um código para seu WhatsApp. É seguro e não exige senha.")},
+    },
+    "LOGIN_PHONE_CTA_WA": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Receber código no WhatsApp")},
+    },
+    "LOGIN_PHONE_CTA_SMS": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Prefiro receber por SMS")},
+    },
+    "LOGIN_CODE_HEADING": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Digite o código recebido")},
+    },
+    "LOGIN_NAME_HEADING": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Como você quer ser chamado(a)?")},
+    },
+    "LOGIN_NAME_SUBTITLE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Pode ser seu primeiro nome ou um apelido. O que for mais natural.")},
+    },
+    "LOGIN_NAME_CTA": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Confirmar")},
+    },
 
     # ── History / account empty states ────────────────────────────
     "HISTORY_EMPTY": {

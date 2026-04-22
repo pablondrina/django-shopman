@@ -75,9 +75,40 @@ class LoginView(View):
         if getattr(request, "customer", None) is not None:
             return redirect(next_url or "/")
 
+        # Device trust pre-fill (F-03): if a trusted-device cookie exists, look up
+        # the associated customer so we can pre-fill the phone and greet by name.
+        phone_prefill = ""
+        trusted_name = ""
+        if HAS_AUTH:
+            try:
+                from shopman.doorman.conf import doorman_settings
+                from shopman.doorman.models.device_trust import TrustedDevice
+                raw_token = request.COOKIES.get(doorman_settings.DEVICE_TRUST_COOKIE_NAME)
+                if raw_token:
+                    device = TrustedDevice.verify_token(raw_token)
+                    if device:
+                        from shopman.guestman.services import customer as customer_service
+                        trusted_customer = customer_service.get_by_uuid(device.customer_id)
+                        if trusted_customer:
+                            phone_prefill = trusted_customer.phone or ""
+                            trusted_name = trusted_customer.first_name or ""
+            except Exception:
+                logger.debug("device_trust_prefill_failed", exc_info=True)
+
+        # login_context drives copy variation in the template (F-10)
+        if trusted_name:
+            login_context = "trusted"
+        elif next_url and "checkout" in next_url:
+            login_context = "checkout"
+        else:
+            login_context = "direct"
+
         return render(request, "storefront/login.html", {
             "step": "phone",
             "next": next_url,
+            "phone_prefill": phone_prefill,
+            "trusted_name": trusted_name,
+            "login_context": login_context,
         })
 
     def post(self, request: HttpRequest) -> HttpResponse:
@@ -332,9 +363,21 @@ class VerifyCodeView(View):
             })
 
         # Django auth already called by verify_for_login(request=request)
+        # Resolve customer name to pass explicitly — omotenashi_ctx.customer_name is
+        # None at this point because AuthCustomerMiddleware ran before auth happened.
+        confirmed_name = ""
+        try:
+            from shopman.guestman.services import customer as customer_service
+            confirmed_customer = customer_service.get_by_uuid(auth_result.customer.uuid)
+            if confirmed_customer:
+                confirmed_name = confirmed_customer.first_name or ""
+        except Exception:
+            logger.debug("auth_confirmed_name_lookup_failed", exc_info=True)
+
         # Trust device (set cookie for skip-OTP on next visit)
         response = render(request, "storefront/partials/auth_confirmed.html", {
             "phone": phone,
+            "customer_name": confirmed_name,
         })
 
         from shopman.doorman.services.device_trust import DeviceTrustService

@@ -1,5 +1,12 @@
 {# OTP code entry — embedded inside login card (Penguin UI tokens) #}
 
+<div x-data="{ show: false }"
+     x-show="show"
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0 translate-y-2"
+     x-transition:enter-end="opacity-100 translate-y-0"
+     x-init="$nextTick(() => show = true)">
+
 {% if error_message %}
 <div class="mb-4 flex items-start gap-2 rounded-radius border border-danger bg-danger/10 p-3 text-sm text-danger dark:border-danger-dark dark:bg-danger-dark/10 dark:text-danger-dark" role="alert">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5 shrink-0 mt-0.5" aria-hidden="true">
@@ -17,7 +24,7 @@
       placeholder="000000"
       class="w-full rounded-radius border border-outline bg-surface-alt text-center text-2xl font-mono tracking-[0.5em] placeholder:text-on-surface/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:border-outline-dark dark:bg-surface-dark-alt/50 dark:placeholder:text-on-surface-dark/30 dark:focus-visible:outline-primary-dark"
       style="min-height: 56px; padding: 0.5rem 0.75rem;"
-      autofocus>
+      x-init="$nextTick(() => $el.focus())">
   </div>
 
   <button type="button" id="auth-verify-btn"
@@ -50,4 +57,6 @@
     <span x-show="!done">Reenviar código (<span x-text="seconds"></span>s)</span>
     <span x-show="done" x-cloak>Reenviar código</span>
   </button>
+</div>
+
 </div>

@@ -18,6 +18,7 @@ class TestDiscountModifierMatches:
         promo.skus = []
         promo.collections = []
         promo.customer_segments = []
+        promo.birthday_only = False
 
         ctx = {
             "fulfillment_type": "",
@@ -31,6 +32,7 @@ class TestDiscountModifierMatches:
         promo.skus = []
         promo.collections = []
         promo.customer_segments = []
+        promo.birthday_only = False
 
         ctx = {
             "fulfillment_type": "pickup",
@@ -44,6 +46,7 @@ class TestDiscountModifierMatches:
         promo.skus = []
         promo.collections = []
         promo.customer_segments = []
+        promo.birthday_only = False
 
         ctx = {
             "fulfillment_type": "delivery",
