@@ -139,7 +139,7 @@ See docs/plans/STOCK-UX-PLAN.md and docs/plans/WP-GAP-14-availability-substitute
               class="w-full rounded-xl bg-primary px-4 text-sm font-semibold text-on-primary hover:bg-primary/90 dark:bg-primary-dark dark:text-on-primary-dark disabled:opacity-60 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary transition min-h-[48px] flex items-center justify-center gap-2">
         <span x-show="!busy">Adicionar {{ primary_qty }} disponíve{{ primary_qty|pluralize:"l,is" }}</span>
         <span x-show="busy" x-cloak class="flex items-center gap-2">
-          <svg class="size-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+          <svg class="size-4 motion-safe:animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
           Adicionando…
         </span>
       </button>
@@ -228,7 +228,7 @@ See docs/plans/STOCK-UX-PLAN.md and docs/plans/WP-GAP-14-availability-substitute
               class="w-full rounded-xl bg-primary px-4 text-sm font-semibold text-on-primary hover:bg-primary/90 dark:bg-primary-dark dark:text-on-primary-dark disabled:opacity-60 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary transition min-h-[48px] flex items-center justify-center gap-2">
         <span x-show="!busy">Reservar no próximo lote</span>
         <span x-show="busy" x-cloak class="flex items-center gap-2">
-          <svg class="size-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+          <svg class="size-4 motion-safe:animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
           Reservando…
         </span>
       </button>

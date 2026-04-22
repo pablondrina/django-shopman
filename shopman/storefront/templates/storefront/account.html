@@ -245,7 +245,8 @@
     </div>
     {% else %}
     <div class="rounded-radius border border-outline bg-white p-12 text-center dark:border-outline-dark dark:bg-surface-dark">
-      <p class="text-on-surface/60 dark:text-on-surface-dark/60">Programa de fidelidade não disponível.</p>
+      {% omotenashi 'LOYALTY_UNAVAILABLE' as loyalty_unavailable %}
+      <p class="text-on-surface/60 dark:text-on-surface-dark/60">{{ loyalty_unavailable.message }}</p>
     </div>
     {% endif %}
   </div>

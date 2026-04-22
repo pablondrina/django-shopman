@@ -36,8 +36,10 @@ class OrderHistoryView(View):
             ).count()
             if count:
                 return HttpResponse(
-                    f'<span class="absolute -top-1 -right-1 bg-primary text-white text-[10px] font-bold '
-                    f'rounded-full w-4 h-4 flex items-center justify-center">{count}</span>'
+                    f'<span data-order-count="{count}" '
+                    f'class="absolute -top-1 -right-1 bg-primary text-white text-[10px] font-bold '
+                    f'rounded-full w-4 h-4 flex items-center justify-center motion-safe:animate-pulse">'
+                    f'{count}</span>'
                 )
             return HttpResponse("")
 

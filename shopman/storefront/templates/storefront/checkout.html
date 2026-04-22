@@ -34,7 +34,7 @@
 {% block content %}
 <div x-data="{
   fulfillmentType: '{{ form_data.fulfillment_type|default:'pickup' }}',
-  paymentMethod: '{{ checkout.default_payment_method }}',
+  paymentMethod: '{{ checkout_defaults.payment_method|default:checkout.default_payment_method }}',
   useLoyalty: {% if checkout.loyalty_balance_q %}true{% else %}false{% endif %},
   deliveryDate: '{{ form_data.delivery_date|default:'' }}',
   deliverySlot: '{{ form_data.delivery_time_slot|default:checkout.earliest_slot_ref|default:'' }}',
@@ -414,7 +414,7 @@
                         class="w-full rounded-radius bg-primary px-6 py-3 font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px] transition-opacity disabled:opacity-50"
                         hx-indicator="#checkout-submitting">
                   <span id="checkout-submitting" class="htmx-indicator mr-2">
-                    <svg class="inline w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                    <svg class="inline w-4 h-4 motion-safe:animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
                   </span>
                   {{ confirm_cta.title }}
                 </button>

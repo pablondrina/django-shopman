@@ -48,7 +48,18 @@
       <a href="{% url 'storefront:account' %}"
          class="flex flex-col items-center justify-center h-full gap-0.5 text-[10px] font-medium transition
                 {% if active_url == 'account' or active_url == 'order_history' %}text-primary dark:text-primary-dark{% else %}text-on-surface/60 dark:text-on-surface-dark/60{% endif %}">
-        <span class="material-symbols-rounded text-xl {% if active_url == 'account' or active_url == 'order_history' %}fill-icon{% endif %}" aria-hidden="true">person</span>
+        <span class="relative"
+              x-data="{ hasActive: false }"
+              x-init="new MutationObserver(() => { hasActive = !!$el.querySelector('[data-order-count]') }).observe($el, { childList: true, subtree: true })"
+              hx-get="{% url 'storefront:order_history' %}?badge_only=1"
+              hx-trigger="load, every 30s"
+              hx-target="find .order-badge-slot"
+              hx-swap="innerHTML">
+          <span class="material-symbols-rounded text-xl {% if active_url == 'account' or active_url == 'order_history' %}fill-icon{% endif %}"
+                :class="hasActive ? 'fill-icon' : ''"
+                aria-hidden="true">person</span>
+          <span class="order-badge-slot"></span>
+        </span>
         Conta
       </a>
       {% else %}

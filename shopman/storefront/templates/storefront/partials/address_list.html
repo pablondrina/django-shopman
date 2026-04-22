@@ -1,3 +1,4 @@
+{% load omotenashi_tags %}
 {% if addresses %}
 <div x-data x-auto-animate class="space-y-3">
   {% for addr in addresses %}
@@ -184,5 +185,6 @@
   {% endfor %}
 </div>
 {% else %}
-<p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60 text-center py-4">Nenhum endereço cadastrado.</p>
+{% omotenashi 'ADDRESSES_EMPTY' as addresses_empty %}
+<p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60 text-center py-4">{{ addresses_empty.message }}</p>
 {% endif %}

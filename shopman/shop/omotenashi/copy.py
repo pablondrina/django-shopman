@@ -247,6 +247,12 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
             ),
         },
     },
+    "ADDRESSES_EMPTY": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Nenhum endereço cadastrado.")},
+    },
+    "LOYALTY_UNAVAILABLE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Programa de fidelidade não disponível.")},
+    },
 
     # ── Kintsugi ──────────────────────────────────────────────────
     # ── Rating ────────────────────────────────────────────────────

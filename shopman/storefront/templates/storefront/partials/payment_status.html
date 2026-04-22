@@ -66,7 +66,7 @@
 <div class="flex items-center justify-center gap-2 text-sm text-on-surface/60 dark:text-on-surface-dark/60 py-2"
      x-data="{ phase: 'short' }"
      x-init="setTimeout(() => phase = 'long', 10000)">
-  <svg class="w-4 h-4 animate-spin shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+  <svg class="w-4 h-4 motion-safe:animate-spin shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
   </svg>
