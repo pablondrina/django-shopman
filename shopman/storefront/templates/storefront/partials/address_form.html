@@ -9,11 +9,43 @@
       hx-target="#address-list"
       hx-swap="innerHTML"
       hx-on::after-request="if (event.detail.successful) { showAddressForm = false }"
+      x-data="{ addrLabel: 'home', addrCustom: '' }"
       class="space-y-4">
   {% csrf_token %}
   <input type="hidden" name="customer_phone" value="{{ customer.phone }}">
 
   {% include "storefront/partials/address_picker.html" with picker_mode="account" picker_name_prefix="" picker_show_saved=False %}
+
+  {% comment %}── Label (Casa / Trabalho / Outro) ──{% endcomment %}
+  <input type="hidden" name="label" :value="addrLabel">
+  <input type="hidden" name="label_custom" :value="addrCustom">
+  <div>
+    <p class="text-sm font-medium text-on-surface dark:text-on-surface-dark mb-2">Salvar como</p>
+    <div class="flex gap-2 flex-wrap">
+      <button type="button"
+              @click="addrLabel = 'home'"
+              :class="addrLabel === 'home' ? 'bg-primary text-on-primary dark:bg-primary-dark dark:text-on-primary-dark' : 'bg-surface-alt text-on-surface dark:bg-surface-dark-alt dark:text-on-surface-dark'"
+              class="rounded-radius px-3 py-1.5 text-sm font-medium border border-outline dark:border-outline-dark transition min-h-[36px]">
+        Casa
+      </button>
+      <button type="button"
+              @click="addrLabel = 'work'"
+              :class="addrLabel === 'work' ? 'bg-primary text-on-primary dark:bg-primary-dark dark:text-on-primary-dark' : 'bg-surface-alt text-on-surface dark:bg-surface-dark-alt dark:text-on-surface-dark'"
+              class="rounded-radius px-3 py-1.5 text-sm font-medium border border-outline dark:border-outline-dark transition min-h-[36px]">
+        Trabalho
+      </button>
+      <button type="button"
+              @click="addrLabel = 'other'"
+              :class="addrLabel === 'other' ? 'bg-primary text-on-primary dark:bg-primary-dark dark:text-on-primary-dark' : 'bg-surface-alt text-on-surface dark:bg-surface-dark-alt dark:text-on-surface-dark'"
+              class="rounded-radius px-3 py-1.5 text-sm font-medium border border-outline dark:border-outline-dark transition min-h-[36px]">
+        Outro
+      </button>
+    </div>
+    <div x-show="addrLabel === 'other'" x-cloak class="mt-2">
+      <input type="text" x-model="addrCustom" placeholder="Ex: Academia, Escritório…"
+             class="w-full rounded-radius border border-outline bg-surface px-3 py-2 text-sm text-on-surface placeholder:text-on-surface/40 focus:outline-none focus:ring-2 focus:ring-primary dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark dark:placeholder:text-on-surface-dark/40 dark:focus:ring-primary-dark">
+    </div>
+  </div>
 
   <label class="flex items-center gap-2">
     <input type="checkbox" name="is_default" id="addr-default"
