@@ -13,11 +13,11 @@
   <meta property="og:url" content="{% block og_url %}{{ request.scheme }}://{{ request.get_host }}{{ request.path }}{% endblock %}">
   <meta property="og:locale" content="pt_BR">
   <meta property="og:site_name" content="{{ storefront.brand_name }}">
-  <meta property="og:image" content="{% block og_image %}{% if storefront.logo %}{{ request.scheme }}://{{ request.get_host }}{{ storefront.logo.url }}{% endif %}{% endblock %}">
+  <meta property="og:image" content="{% block og_image %}{% if storefront.logo_url %}{{ request.scheme }}://{{ request.get_host }}{{ storefront.logo_url }}{% endif %}{% endblock %}">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="{% block twitter_title %}{{ storefront.brand_name }}{% endblock %}">
   <meta name="twitter:description" content="{% block twitter_description %}{{ storefront.tagline }}{% endblock %}">
-  <meta name="twitter:image" content="{% block twitter_image %}{% if storefront.logo %}{{ request.scheme }}://{{ request.get_host }}{{ storefront.logo.url }}{% endif %}{% endblock %}">
+  <meta name="twitter:image" content="{% block twitter_image %}{% if storefront.logo_url %}{{ request.scheme }}://{{ request.get_host }}{{ storefront.logo_url }}{% endif %}{% endblock %}">
   {% block extra_meta %}{% endblock %}
 
   {# PWA #}
@@ -73,8 +73,8 @@
   <nav x-data="{ mobileMenuIsOpen: false }" x-on:click.away="mobileMenuIsOpen = false" class="flex items-center justify-between border-b border-outline bg-surface-alt px-6 py-4 dark:border-outline-dark dark:bg-surface-dark-alt" aria-label="{{ storefront.brand_name }} menu">
     {# Brand Logo #}
     <a href="{% url 'storefront:home' %}" class="flex items-center gap-2 text-xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">
-      {% if storefront.logo.name %}
-      <img src="{{ storefront.logo.url }}" alt="{{ storefront.brand_name }}" class="h-10 w-auto object-contain">
+      {% if storefront.logo_name %}
+      <img src="{{ storefront.logo_url }}" alt="{{ storefront.brand_name }}" class="h-10 w-auto object-contain">
       {% else %}
       <span class="material-symbols-rounded text-2xl text-primary dark:text-primary-dark" aria-hidden="true">storefront</span>
       <span>{{ storefront.brand_name }}</span>
@@ -239,9 +239,9 @@
           <a href="mailto:{{ storefront.email }}" class="underline-offset-2 hover:text-primary focus:underline focus:outline-hidden dark:hover:text-primary-dark">{{ storefront.email }}</a>
         </p>
         {% endif %}
-        {% if storefront.social_links_resolved %}
+        {% if storefront.social_links %}
         <div class="flex gap-3 mt-3">
-          {% for link in storefront.social_links_resolved %}
+          {% for link in storefront.social_links %}
           <a href="{{ link.url }}" target="_blank" rel="noopener" title="{{ link.label }}"
              class="text-on-surface hover:text-primary dark:text-on-surface-dark dark:hover:text-primary-dark transition">
             {{ link.icon_svg|safe }}

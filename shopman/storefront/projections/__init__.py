@@ -31,6 +31,7 @@ from .order_tracking import (
     build_order_tracking,
     build_order_tracking_status,
 )
+from .shop import ShopProjection, SocialLinkProjection, build_shop_projection
 from .payment import (
     PaymentProjection,
     PaymentStatusProjection,
@@ -66,6 +67,8 @@ __all__ = [
     "PaymentStatusProjection",
     "PickupInfoProjection",
     "ProductDetailProjection",
+    "ShopProjection",
+    "SocialLinkProjection",
     "UpsellSuggestionProjection",
     "build_account",
     "build_cart",
@@ -79,4 +82,5 @@ __all__ = [
     "build_payment",
     "build_payment_status",
     "build_product_detail",
+    "build_shop_projection",
 ]

@@ -57,8 +57,10 @@ def shop(request: HttpRequest) -> dict:
         handle_label = "Identificador"
         handle_placeholder = ""
 
+    from shopman.storefront.projections.shop import build_shop_projection
+
     return {
-        "storefront": shop_instance,
+        "storefront": build_shop_projection(shop_instance),
         "customer_name": customer_name,
         "customer_phone": customer_phone,
         "customer_email": customer_email,

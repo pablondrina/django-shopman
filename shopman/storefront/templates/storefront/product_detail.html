@@ -8,8 +8,8 @@
 {% block og_type %}product{% endblock %}
 {% block twitter_title %}{{ product.name }}{% endblock %}
 {% block twitter_description %}{{ product.short_description|default:product.name|truncatechars:200 }}{% endblock %}
-{% block og_image %}{% if product.image %}{{ request.scheme }}://{{ request.get_host }}{{ product.image.url }}{% elif storefront.logo %}{{ request.scheme }}://{{ request.get_host }}{{ storefront.logo.url }}{% endif %}{% endblock %}
-{% block twitter_image %}{% if product.image %}{{ request.scheme }}://{{ request.get_host }}{{ product.image.url }}{% elif storefront.logo %}{{ request.scheme }}://{{ request.get_host }}{{ storefront.logo.url }}{% endif %}{% endblock %}
+{% block og_image %}{% if product.image %}{{ request.scheme }}://{{ request.get_host }}{{ product.image.url }}{% elif storefront.logo_url %}{{ request.scheme }}://{{ request.get_host }}{{ storefront.logo_url }}{% endif %}{% endblock %}
+{% block twitter_image %}{% if product.image %}{{ request.scheme }}://{{ request.get_host }}{{ product.image.url }}{% elif storefront.logo_url %}{{ request.scheme }}://{{ request.get_host }}{{ storefront.logo_url }}{% endif %}{% endblock %}
 {% block extra_meta %}
   {% if product.keywords.all %}<meta name="keywords" content="{% for kw in product.keywords.all %}{{ kw.name }}{% if not forloop.last %}, {% endif %}{% endfor %}">{% endif %}
   {% json_ld_product product price_q=product.base_price_q availability=product.availability %}
