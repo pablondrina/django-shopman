@@ -339,6 +339,12 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "BIRTHDAY_BANNER_SUB": {
         WILDCARD: {WILDCARD: CopyEntry(message="Que o seu dia seja especial. Aqui está tudo pronto para você.")},
     },
+    "BIRTHDAY_HERO_HEADING": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Feliz aniversário")},
+    },
+    "BIRTHDAY_HERO_SUB": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Seu desconto especial de aniversário já está ativo.")},
+    },
     "CLOSING_AWARENESS_PREFIX": {
         WILDCARD: {WILDCARD: CopyEntry(message="Últimos pedidos — fechamos em")},
     },

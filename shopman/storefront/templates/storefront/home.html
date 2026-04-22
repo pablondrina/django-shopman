@@ -14,6 +14,8 @@
 {# ── Hero Carousel (full-bleed mobile, omotenashi greeting, CTAs inside) ── #}
 {% url 'storefront:menu' as menu_url %}
 {% omotenashi 'MENU_SUBTITLE' as hero_subtitle %}
+{% omotenashi 'BIRTHDAY_HERO_HEADING' as bday_hero_heading %}
+{% omotenashi 'BIRTHDAY_HERO_SUB' as bday_hero_sub %}
 <section class="-mx-4 -mt-6 mb-8 md:mx-0 md:mt-0 md:pt-4">
   <div x-data="{
     autoplayIntervalTime: 5000,
@@ -52,7 +54,7 @@
     {# Slides #}
     <div class="relative h-[85svh] md:h-96 select-none">
 
-      {# Slide 1 — Greeting A #}
+      {# Slide 1 — Birthday (authenticated, today) or Greeting A #}
       <div x-show="currentSlideIndex === 1" x-cloak
            x-transition.opacity.duration.1000ms
            class="absolute inset-0"
@@ -66,14 +68,20 @@
             {% if storefront.logo.name %}
             <img src="{{ storefront.logo.url }}" alt="{{ storefront.brand_name }}" class="h-10 md:h-14 w-auto object-contain mb-4 drop-shadow-lg">
             {% endif %}
+            {% if omotenashi_ctx.is_birthday %}
+            <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg">{{ bday_hero_heading.title }}{% if omotenashi_ctx.customer_name %}, {{ omotenashi_ctx.customer_name }}{% endif %}! 🎂</p>
+            <p class="text-sm md:text-base text-white/80 mt-3 tracking-wide drop-shadow">{{ bday_hero_sub.message }}</p>
+            {% else %}
             <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg">{{ omotenashi_ctx.greeting_with_name }}.</p>
             {% if omotenashi_ctx.shop_hint %}
             <p class="text-sm md:text-base text-white/80 mt-3 tracking-wide drop-shadow">{{ omotenashi_ctx.shop_hint }}</p>
-            {% endif %}          </div>
+            {% endif %}
+            {% endif %}
+          </div>
           <div class="flex gap-3">
             <a href="{{ menu_url }}"
                class="whitespace-nowrap rounded-radius bg-white px-5 py-2.5 text-center text-sm font-medium tracking-wide text-neutral-900 transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target">
-              Ver Cardápio
+              {% if omotenashi_ctx.is_birthday %}Ver minha oferta de aniversário{% else %}Ver Cardápio{% endif %}
             </a>
           </div>
         </div>
@@ -199,8 +207,10 @@
   </div>
 </section>
 
-{# ── Birthday banner (authenticated customers on their birthday) ── #}
+{# ── Birthday banner — only shown when hero is not displaying birthday slide ── #}
+{% if not omotenashi_ctx.is_birthday %}
 {% include "storefront/partials/birthday_banner.html" %}
+{% endif %}
 
 {# ── Closing awareness (Penguin UI banner) ── #}
 {% include "storefront/partials/closing_awareness.html" %}
