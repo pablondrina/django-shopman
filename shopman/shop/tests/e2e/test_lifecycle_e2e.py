@@ -146,7 +146,7 @@ def _commit(session, channel):
 # E2E-1: local checkout, balcão payment, immediate confirmation
 # ─────────────────────────────────────────────────────────────────────
 
-class TestE2E1LocalCheckout(TestCase):
+class TestE2E1LocalCheckout(TransactionTestCase):
     """Local channel: commit → auto-confirm → stock.fulfill."""
 
     def setUp(self):
@@ -205,7 +205,7 @@ class TestE2E2WebPixHappyPath(TestCase):
 # E2E-3: web PIX — cancellation before webhook
 # ─────────────────────────────────────────────────────────────────────
 
-class TestE2E3WebPixCancelledBeforeWebhook(TestCase):
+class TestE2E3WebPixCancelledBeforeWebhook(TransactionTestCase):
     """Operator cancels order before PIX webhook arrives."""
 
     def setUp(self):
@@ -220,7 +220,8 @@ class TestE2E3WebPixCancelledBeforeWebhook(TestCase):
         result = _commit(session, self.channel)
         order = Order.objects.get(ref=result.order_ref)
 
-        order.transition_status(Order.Status.CONFIRMED, actor="test")
+        # on_commit already confirmed (mode=immediate); go straight to CANCELLED
+        order.refresh_from_db()
         order.transition_status(Order.Status.CANCELLED, actor="operator")
         order.refresh_from_db()
 
@@ -280,7 +281,7 @@ class TestE2E4WebPixWebhookAfterCancellation(TestCase):
 # E2E-5: marketplace — insufficient availability → auto-cancel
 # ─────────────────────────────────────────────────────────────────────
 
-class TestE2E5MarketplaceInsufficientStock(TestCase):
+class TestE2E5MarketplaceInsufficientStock(TransactionTestCase):
     """Marketplace on_commit rejects order when availability.check fails."""
 
     def setUp(self):
@@ -503,11 +504,11 @@ class TestE2E8TerminalErrorDirectiveFails(TestCase):
 # E2E-9: stock.hold failure during commit
 # ─────────────────────────────────────────────────────────────────────
 
-class TestE2E9StockHoldFailure(TestCase):
-    """If stock.hold raises, the order is created but the flow surfaces the error.
+class TestE2E9StockHoldFailure(TransactionTestCase):
+    """If stock.hold raises in on_commit, the order is committed and the exception propagates.
 
-    The flow does NOT silently swallow stock failures — they propagate so the
-    signal handler can surface them to the operator.
+    The order DB row survives (committed before on_commit fired). The exception
+    still surfaces to the caller so it can be logged/retried.
     """
 
     def setUp(self):
@@ -523,15 +524,13 @@ class TestE2E9StockHoldFailure(TestCase):
 
         session = _make_session(self.channel)
 
-        # CommitService._do_commit is @transaction.atomic. When stock.hold raises
-        # inside the signal handler (on_order_changed → flows.dispatch → on_commit),
-        # the exception propagates through order_changed.send(), aborting the
-        # transaction and rolling back the Order creation.
+        # dispatch() runs in on_commit (after the order is committed), so the
+        # RuntimeError propagates from on_commit back to the caller.
         with self.assertRaises(RuntimeError):
             _commit(session, self.channel)
 
-        # Transaction rolled back — no Order was created
-        self.assertEqual(Order.objects.count(), 0)
+        # The Order was committed before on_commit fired — it exists in the DB.
+        self.assertEqual(Order.objects.count(), 1)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -547,7 +546,7 @@ _WHATSAPP_CONFIG = {
 }
 
 
-class TestE2E10WhatsappChannel(TestCase):
+class TestE2E10WhatsappChannel(TransactionTestCase):
     """WhatsApp (ManyChat) channel: commit → order_received → auto_confirm directive.
 
     Cobre o gap da audit: nenhum E2E exercita channel_ref="whatsapp" com

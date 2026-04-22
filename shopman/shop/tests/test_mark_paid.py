@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
-from django.test import TestCase
+from django.test import TransactionTestCase as TestCase
 from shopman.orderman.ids import generate_idempotency_key, generate_session_key
 from shopman.orderman.models import Order, Session
 from shopman.orderman.services.commit import CommitService

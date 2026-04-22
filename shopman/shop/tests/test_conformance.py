@@ -31,7 +31,7 @@ from __future__ import annotations
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
-from django.test import TestCase
+from django.test import TestCase, TransactionTestCase
 from shopman.orderman.ids import generate_idempotency_key, generate_session_key
 from shopman.orderman.models import Directive, Order, Session
 from shopman.orderman.services import CommitService
@@ -129,7 +129,7 @@ def _commit(session, channel):
 
 # ── C-01: Remote channel + PIX payment ───────────────────────────────
 
-class TestC01RemoteChannelPix(TestCase):
+class TestC01RemoteChannelPix(TransactionTestCase):
     """C-01: Remote channel with PIX → payment.initiate called on confirmed."""
 
     def setUp(self):
@@ -162,7 +162,7 @@ class TestC01RemoteChannelPix(TestCase):
 
 # ── C-02: Remote channel + card payment ──────────────────────────────
 
-class TestC02RemoteChannelCard(TestCase):
+class TestC02RemoteChannelCard(TransactionTestCase):
     """C-02: Remote channel with card → payment.initiate on confirmed, same as PIX."""
 
     def setUp(self):
@@ -187,7 +187,7 @@ class TestC02RemoteChannelCard(TestCase):
 
 # ── C-03: POS channel + cash payment ──────────────────────────────
 
-class TestC03PosCash(TestCase):
+class TestC03PosCash(TransactionTestCase):
     """C-03: POS (cash) — no payment.initiate, stock.fulfill on confirmed."""
 
     def setUp(self):
@@ -222,7 +222,7 @@ class TestC03PosCash(TestCase):
 
 # ── C-04: Marketplace + external payment ─────────────────────────────
 
-class TestC04MarketplaceExternal(TestCase):
+class TestC04MarketplaceExternal(TransactionTestCase):
     """C-04: Marketplace — external payment, manual confirmation."""
 
     def setUp(self):
@@ -253,7 +253,7 @@ class TestC04MarketplaceExternal(TestCase):
 
 # ── C-05: Immediate confirmation ─────────────────────────────────────
 
-class TestC05ImmediateConfirmation(TestCase):
+class TestC05ImmediateConfirmation(TransactionTestCase):
     """C-05: immediate mode → order transitions to CONFIRMED on commit."""
 
     def setUp(self):
@@ -283,7 +283,7 @@ class TestC05ImmediateConfirmation(TestCase):
 
 # ── C-06: auto_confirm confirmation ──────────────────────────────────
 
-class TestC06AutoConfirmConfirmation(TestCase):
+class TestC06AutoConfirmConfirmation(TransactionTestCase):
     """C-06: auto_confirm mode → confirmation.timeout directive created."""
 
     def setUp(self):
@@ -364,7 +364,7 @@ class TestC07ManualConfirmation(TestCase):
 
 # ── C-07b: auto_cancel confirmation ──────────────────────────────────
 
-class TestC07bAutoCancelConfirmation(TestCase):
+class TestC07bAutoCancelConfirmation(TransactionTestCase):
     """C-07b: auto_cancel mode → auto-CANCEL after timeout if operator
     does not explicitly confirm. Mirror of C-06 (auto_confirm) with the
     terminal action flipped."""
@@ -491,7 +491,7 @@ class TestC08LatePayment(TestCase):
 
 # ── C-09: Fulfillment at_commit timing ───────────────────────────────
 
-class TestC09FulfillmentAtCommit(TestCase):
+class TestC09FulfillmentAtCommit(TransactionTestCase):
     """C-09: fulfillment.timing=at_commit → fulfillment.create on on_commit."""
 
     def setUp(self):
@@ -516,7 +516,7 @@ class TestC09FulfillmentAtCommit(TestCase):
 
 # ── C-10: Fulfillment post_commit timing ─────────────────────────────
 
-class TestC10FulfillmentPostCommit(TestCase):
+class TestC10FulfillmentPostCommit(TransactionTestCase):
     """C-10: fulfillment.timing=post_commit → fulfillment.create on on_ready."""
 
     def setUp(self):
@@ -551,7 +551,7 @@ class TestC10FulfillmentPostCommit(TestCase):
 
 # ── C-11: Stock unavailable at commit → rejection ────────────────────
 
-class TestC11StockUnavailableAtCommit(TestCase):
+class TestC11StockUnavailableAtCommit(TransactionTestCase):
     """C-11: check_on_commit=True, stock unavailable → order cancelled."""
 
     def setUp(self):
@@ -590,7 +590,7 @@ class TestC11StockUnavailableAtCommit(TestCase):
 
 # ── C-12: Partial qty hold ────────────────────────────────────────────
 
-class TestC12PartialQtyHold(TestCase):
+class TestC12PartialQtyHold(TransactionTestCase):
     """C-12: stock.hold leaves a SKU absent (adapter failure) → _verify_holds cancels."""
 
     def setUp(self):
@@ -644,7 +644,7 @@ class TestC12PartialQtyHold(TestCase):
 
 # ── C-13: Bundle → hold expansion ────────────────────────────────────
 
-class TestC13BundleHoldExpansion(TestCase):
+class TestC13BundleHoldExpansion(TransactionTestCase):
     """C-13: Bundle order → hold expansion runs, components held separately."""
 
     def setUp(self):
@@ -711,7 +711,7 @@ class TestC13BundleHoldExpansion(TestCase):
 
 # ── C-14: Return with refund + stock reversal ─────────────────────────
 
-class TestC14ReturnWithRefund(TestCase):
+class TestC14ReturnWithRefund(TransactionTestCase):
     """C-14: on_returned → stock.revert + payment.refund + fiscal.cancel + notification."""
 
     def setUp(self):
@@ -729,8 +729,7 @@ class TestC14ReturnWithRefund(TestCase):
         result = _commit(session, self.channel)
         order = Order.objects.get(ref=result.order_ref)
 
-        # Advance through typical lifecycle: confirmed → preparing → ready → dispatched → delivered → returned
-        order.transition_status(Order.Status.CONFIRMED, actor="test")
+        # on_commit already confirmed (mode=immediate); advance through remaining lifecycle
         order.transition_status(Order.Status.PREPARING, actor="test")
         order.transition_status(Order.Status.READY, actor="test")
         order.transition_status(Order.Status.DISPATCHED, actor="test")
