@@ -1,4 +1,5 @@
-{% load static %}
+{% load static omotenashi_tags %}
+{% omotenashi 'KINTSUGI_CEP_NOT_FOUND' as cep_copy %}
 {% comment %}
   Reusable address picker (iFood-style). Used in checkout and account.
 
@@ -31,7 +32,8 @@
        cepLookupUrl: '{% url 'storefront:cep_lookup' %}',
        reverseGeocodeUrl: '/api/v1/geocode/reverse',
        csrfToken: '{{ csrf_token }}',
-       mode: '{{ picker_mode|default:'checkout' }}'
+       mode: '{{ picker_mode|default:'checkout' }}',
+       cepNotFoundMessage: '{{ cep_copy.message|escapejs }}'
      })"
      x-init="init()"
      @address:created.window="openLabelModal($event.detail.id || $event.detail.value?.id)"

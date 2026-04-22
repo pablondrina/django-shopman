@@ -5,10 +5,23 @@
 
 {% if payment_status.is_paid %}
 {% omotenashi 'PAYMENT_CONFIRMED' as paid %}
-<div class="rounded-radius border border-success/30 bg-success/10 p-5 text-center text-success">
+<div class="rounded-radius border border-success/30 bg-success/10 p-5 text-center text-success"
+     x-data="{ countdown: 3 }"
+     x-init="
+       const dest = '{% url 'storefront:order_tracking' ref=payment_status.order_ref %}';
+       const iv = setInterval(() => { if (--countdown <= 0) { clearInterval(iv); window.location.href = dest; } }, 1000);
+     ">
   <span class="material-symbols-rounded text-4xl block mb-2" aria-hidden="true">check_circle</span>
   <p class="font-semibold text-base">{{ paid.title }}</p>
   <p class="text-sm mt-1 text-on-surface dark:text-on-surface-dark">{{ paid.message }}</p>
+  <a href="{% url 'storefront:order_tracking' ref=payment_status.order_ref %}"
+     class="mt-4 inline-flex items-center gap-1.5 rounded-radius bg-success px-4 py-2 text-sm font-semibold text-white hover:bg-success/90 focus:outline-hidden focus:ring-2 focus:ring-success min-h-[44px]">
+    <span class="material-symbols-rounded text-base" aria-hidden="true">delivery_dining</span>
+    Acompanhar pedido
+  </a>
+  <p class="text-xs mt-2 text-on-surface/50 dark:text-on-surface-dark/50" aria-live="polite">
+    Redirecionando em <span x-text="countdown"></span>s…
+  </p>
 </div>
 
 {% elif payment_status.is_expired %}

@@ -12,7 +12,7 @@
     </div>
 
     {% if ts.timeline %}
-    <ol aria-label="Histórico do pedido">
+    <ol x-data x-auto-animate aria-label="Histórico do pedido">
       {% for event in ts.timeline %}
       <li class="relative flex gap-3 {% if not forloop.last %}pb-6{% endif %}">
         {% if not forloop.last %}

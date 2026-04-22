@@ -131,8 +131,10 @@
       {% endfor %}
     </div>
     {% else %}
+    {% omotenashi 'HISTORY_EMPTY' as acct_empty %}
     <div class="text-center py-16">
-      <p class="text-on-surface/60 dark:text-on-surface-dark/60 mb-4">Nenhum pedido ainda</p>
+      <p class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong mb-1">{{ acct_empty.title }}</p>
+      <p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60 mb-4">{{ acct_empty.message }}</p>
       <a href="{% url 'storefront:menu' %}"
          class="inline-flex items-center justify-center px-6 py-3 rounded-radius bg-primary text-white font-medium
                 hover:opacity-90 transition min-h-[44px] dark:bg-primary-dark">
@@ -369,7 +371,7 @@
     {% omotenashi 'LOGOUT_FAREWELL' as farewell %}
     <div class="text-center py-2">
       <a href="#"
-         @click.prevent="window.dispatchEvent(new CustomEvent('notify', { detail: { variant: 'info', message: '{{ farewell.message|escapejs }}' } })); setTimeout(() => $refs.logoutForm.submit(), 450)"
+         @click.prevent="window.dispatchEvent(new CustomEvent('notify', { detail: { variant: 'info', message: '{% if omotenashi_ctx.customer_name %}Até logo, {{ omotenashi_ctx.customer_name|escapejs }}.{% else %}{{ farewell.message|escapejs }}{% endif %}' } })); setTimeout(() => $refs.logoutForm.submit(), 450)"
          class="text-sm text-on-surface/50 hover:text-danger transition dark:text-on-surface-dark/50 dark:hover:text-danger-dark">
         Sair da conta
       </a>

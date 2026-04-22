@@ -214,8 +214,8 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Bom apetite. Até a próxima.")},
     },
     "TRACKING_TOMORROW_HOOK": {
-        MOMENT_FECHANDO: {WILDCARD: CopyEntry(message="Fornada fresca amanhã. Até lá.")},
-        MOMENT_FECHADO: {WILDCARD: CopyEntry(message="Fornada fresca amanhã. Até lá.")},
+        MOMENT_FECHANDO: {WILDCARD: CopyEntry(message="Fornada fresca amanhã.")},
+        MOMENT_FECHADO: {WILDCARD: CopyEntry(message="Fornada fresca amanhã.")},
     },
 
     # ── Auth ──────────────────────────────────────────────────────

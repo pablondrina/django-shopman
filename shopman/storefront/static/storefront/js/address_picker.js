@@ -62,6 +62,7 @@
         reverseGeocodeUrl: "",
         csrfToken: "",
         mode: "checkout",
+        cepNotFoundMessage: "",
       },
       config || {},
     );
@@ -332,7 +333,7 @@
             }
           } else {
             this.searchError =
-              "Não encontrei esse CEP. Digite a rua no campo de busca.";
+              cfg.cepNotFoundMessage || "Não encontrei esse CEP. Digite a rua no campo de busca.";
           }
         } catch (e) {
           this.searchError =

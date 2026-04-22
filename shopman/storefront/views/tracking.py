@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import logging
 
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views import View
 from shopman.orderman.models import Order
 from shopman.utils.monetary import format_money
@@ -205,7 +206,10 @@ class OrderTrackingView(View):
         from shopman.storefront.projections import build_order_tracking
 
         proj = build_order_tracking(order)
-        return render(request, "storefront/order_tracking.html", {"tracking": proj})
+        ctx: dict = {"tracking": proj}
+        if request.GET.get("refused"):
+            ctx["cancel_refused"] = True
+        return render(request, "storefront/order_tracking.html", ctx)
 
 
 STATUS_ICONS = {
@@ -294,7 +298,9 @@ class OrderCancelView(View):
                     "Não é possível cancelar este pedido no status atual.</div>",
                     status=422,
                 )
-            return redirect("storefront:order_tracking", ref=ref)
+            return HttpResponseRedirect(
+                reverse("storefront:order_tracking", kwargs={"ref": ref}) + "?refused=1"
+            )
 
         if payment_svc.get_payment_status(order) == "captured":
             if request.headers.get("HX-Request"):
@@ -303,7 +309,9 @@ class OrderCancelView(View):
                     "Pagamento já confirmado. Entre em contato para cancelar.</div>",
                     status=422,
                 )
-            return redirect("storefront:order_tracking", ref=ref)
+            return HttpResponseRedirect(
+                reverse("storefront:order_tracking", kwargs={"ref": ref}) + "?refused=1"
+            )
 
         cancel(order, reason="customer_requested", actor="customer.self_cancel")
 
