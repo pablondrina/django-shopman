@@ -149,7 +149,7 @@ class Command(BaseCommand):
                 "latitude": -23.3045,
                 "longitude": -51.1628,
                 "phone": "554333231997",
-                "email": "contato@example.com",
+                "email": "nelson@boulangerie.com.br",
                 "default_ddd": "43",
                 "social_links": [
                     "https://wa.me/554333231997",
@@ -158,13 +158,13 @@ class Command(BaseCommand):
                     "http://www.example.com.br",
                 ],
                 "opening_hours": {
-                    # monday: fechado (boulangerie típica)
-                    "tuesday":   {"open": "07:00", "close": "19:00"},
-                    "wednesday": {"open": "07:00", "close": "19:00"},
-                    "thursday":  {"open": "07:00", "close": "19:00"},
-                    "friday":    {"open": "07:00", "close": "19:00"},
-                    "saturday":  {"open": "07:00", "close": "19:00"},
-                    "sunday":    {"open": "07:00", "close": "13:00"},
+                    "monday":    {"open": "09:00", "close": "18:00"},
+                    "tuesday":   {"open": "09:00", "close": "18:00"},
+                    "wednesday": {"open": "09:00", "close": "18:00"},
+                    "thursday":  {"open": "09:00", "close": "18:00"},
+                    "friday":    {"open": "09:00", "close": "18:00"},
+                    "saturday":  {"open": "09:00", "close": "18:00"},
+                    # sunday: fechado
                 },
                 "defaults": {
                     "menu": {
