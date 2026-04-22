@@ -165,9 +165,7 @@
               </button>
             </template>
             <template x-if="qty === 0 && !canAdd">
-              <button type="button" class="btn-secondary text-xs px-2.5 py-1.5 sm:px-3 sm:py-2 opacity-70 cursor-not-allowed shrink-0" disabled aria-disabled="true">
-                Indisponível
-              </button>
+              <span class="shrink-0">{% include "storefront/components/availability_badge.html" with state="unavailable" %}</span>
             </template>
             {% include "storefront/components/_qty_stepper.html" %}
           </div>
