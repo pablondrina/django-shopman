@@ -21,57 +21,9 @@
     isPaused: false,
     autoplayInterval: null,
     touchStartX: 0,
-    heroGreeting: '',
-    contextA: '', ctaLabelA: '', ctaHrefA: '',
-    contextB: '', ctaLabelB: '', ctaHrefB: '',
 
     init() {
       this.autoplay();
-      const h = new Date().getHours();
-      const name = '{{ customer_name|default:"" }}';
-      const opensAt = '{{ shop_status.opens_at|default:"7:00" }}'.split(':')[0] || '7';
-      const closesAtStr = '{{ shop_status.closes_at|default:"" }}';
-      const closesAt = closesAtStr ? parseInt(closesAtStr.split(':')[0]) : 19;
-      const mu = '{{ menu_url }}';
-      let prefix;
-      if (h < 5) prefix = 'Boa noite';
-      else if (h < 12) prefix = 'Bom dia';
-      else if (h < 18) prefix = 'Boa tarde';
-      else prefix = 'Boa noite';
-      this.heroGreeting = name ? prefix + ', ' + name + '.' : prefix + '.';
-
-      if (h < 7) {
-        this.contextA = 'Encomende agora para retirada às ' + opensAt + 'h.';
-        this.ctaLabelA = 'Encomende agora'; this.ctaHrefA = mu;
-        this.contextB = 'Pão fresquinho te espera pela manhã.';
-        this.ctaLabelB = 'Ver cardápio'; this.ctaHrefB = mu;
-      } else if (h < 10) {
-        this.contextA = 'Croissants acabaram de sair do forno.';
-        this.ctaLabelA = 'Ver pães'; this.ctaHrefA = mu + '#paes';
-        this.contextB = 'Pão artesanal, fermentação natural, feito aqui.';
-        this.ctaLabelB = 'Ver pães'; this.ctaHrefB = mu + '#paes';
-      } else if (h < 12) {
-        this.contextA = 'Fresquinho do forno para você.';
-        this.ctaLabelA = 'Ver pães'; this.ctaHrefA = mu + '#paes';
-        this.contextB = 'Pão artesanal, fermentação natural, feito aqui.';
-        this.ctaLabelB = 'Ver pães'; this.ctaHrefB = mu + '#paes';
-      } else if (h < 14) {
-        this.contextA = 'Sanduíches e saladas prontos para o almoço.';
-        this.ctaLabelA = 'Ver sanduíches'; this.ctaHrefA = mu + '#combos';
-        this.contextB = 'Que tal um combo para o almoço?';
-        this.ctaLabelB = 'Ver combos'; this.ctaHrefB = mu + '#combos';
-      } else if (h < 16) {
-        this.contextA = 'Uma pausa para um café?';
-        this.contextB = 'Cafés especiais e doces artesanais.';
-      } else if (h >= closesAt) {
-        this.contextA = 'Encomende para amanhã.';
-        this.ctaLabelA = 'Encomende para amanhã'; this.ctaHrefA = mu;
-        this.contextB = 'Fornada fresca às ' + opensAt + 'h.';
-        this.ctaLabelB = 'Encomende para amanhã'; this.ctaHrefB = mu;
-      } else {
-        this.contextA = 'Últimos pedidos do dia.';
-        this.contextB = 'Garanta o pão de amanhã.';
-      }
     },
     previous() {
       this.currentSlideIndex = this.currentSlideIndex === 1 ? this.total : this.currentSlideIndex - 1;
@@ -113,17 +65,14 @@
             {% if storefront.logo.name %}
             <img src="{{ storefront.logo.url }}" alt="{{ storefront.brand_name }}" class="h-10 md:h-14 w-auto object-contain mb-4 drop-shadow-lg">
             {% endif %}
-            <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg"
-               x-text="heroGreeting">Bem-vindo.</p>
-            <p class="text-sm md:text-base text-white/80 mt-3 tracking-wide drop-shadow"
-               x-text="contextA"></p>
+            <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg">{{ omotenashi_ctx.greeting_with_name }}.</p>
+            {% if omotenashi_ctx.shop_hint %}
+            <p class="text-sm md:text-base text-white/80 mt-3 tracking-wide drop-shadow">{{ omotenashi_ctx.shop_hint }}</p>
+            {% endif %}
           </div>
           <div class="flex gap-3">
-            <a x-show="ctaLabelA" x-cloak :href="ctaHrefA" x-text="ctaLabelA"
-               class="whitespace-nowrap rounded-radius bg-white px-5 py-2.5 text-center text-sm font-medium tracking-wide text-neutral-900 transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target"></a>
             <a href="{{ menu_url }}"
-               class="whitespace-nowrap rounded-radius border border-white/50 px-5 py-2.5 text-center text-sm font-medium tracking-wide text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target"
-               :class="!ctaLabelA && 'bg-white !text-neutral-900 border-white hover:bg-white/90'">
+               class="whitespace-nowrap rounded-radius bg-white px-5 py-2.5 text-center text-sm font-medium tracking-wide text-neutral-900 transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target">
               Ver Cardápio
             </a>
           </div>
@@ -166,10 +115,10 @@
             <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg">Quer repetir seu<br>último pedido, {{ customer_name }}?</p>
             <p class="text-sm md:text-base text-white/80 mt-3 tracking-wide drop-shadow">Com um toque, seu favorito volta ao carrinho.</p>
             {% else %}
-            <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg"
-               x-text="heroGreeting">Bem-vindo.</p>
-            <p class="text-sm md:text-base text-white/80 mt-3 tracking-wide drop-shadow"
-               x-text="contextB"></p>
+            <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg">{{ omotenashi_ctx.greeting_with_name }}.</p>
+            {% if omotenashi_ctx.shop_hint %}
+            <p class="text-sm md:text-base text-white/80 mt-3 tracking-wide drop-shadow">{{ omotenashi_ctx.shop_hint }}</p>
+            {% endif %}
             {% endif %}
           </div>
           <div class="flex gap-3">
@@ -179,11 +128,8 @@
               Pedir de novo
             </a>
             {% else %}
-            <a x-show="ctaLabelB" x-cloak :href="ctaHrefB" x-text="ctaLabelB"
-               class="whitespace-nowrap rounded-radius bg-white px-5 py-2.5 text-center text-sm font-medium tracking-wide text-neutral-900 transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target"></a>
             <a href="{{ menu_url }}"
-               class="whitespace-nowrap rounded-radius border border-white/50 px-5 py-2.5 text-center text-sm font-medium tracking-wide text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target"
-               :class="!ctaLabelB && 'bg-white !text-neutral-900 border-white hover:bg-white/90'">
+               class="whitespace-nowrap rounded-radius bg-white px-5 py-2.5 text-center text-sm font-medium tracking-wide text-neutral-900 transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target">
               Ver Cardápio
             </a>
             {% endif %}
@@ -381,30 +327,18 @@
   </div>
 </section>
 
-{# ── Tomorrow Hook (Gate 3) ── #}
-<section x-data="{
-    show: false,
-    msg: '',
-    init() {
-      const h = new Date().getHours();
-      if (h < 14) return;
-      this.show = true;
-      const closesAt = parseInt('{{ shop_status.closes_at|default:"19:00" }}'.split(':')[0]) || 19;
-      const opensAt = '{{ shop_status.opens_at|default:"7:00" }}'.split(':')[0] || '7';
-      this.msg = h >= closesAt
-        ? 'Encomende agora para retirada a partir das ' + opensAt + 'h.'
-        : 'Fornada fresca às ' + opensAt + 'h.';
-    }
-  }"
-  x-show="show" x-transition x-cloak
-  class="py-10 md:py-12 border-t border-outline dark:border-outline-dark">
+{# ── Tomorrow Hook (Gate 3) — server-side, só aparece a partir da tarde ── #}
+{% if omotenashi_ctx.moment == "tarde" or omotenashi_ctx.moment == "fechando" or omotenashi_ctx.moment == "fechado" %}
+{% omotenashi 'TRACKING_TOMORROW_HOOK' as tomorrow_hook %}
+{% if tomorrow_hook %}
+<section class="py-10 md:py-12 border-t border-outline dark:border-outline-dark">
   <div class="max-w-2xl mx-auto text-center">
     <p class="text-xs font-semibold text-on-surface/40 dark:text-on-surface-dark/40 uppercase tracking-[0.2em]">Amanhã</p>
-    <p class="font-title text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-lg mt-3" x-text="msg">
-      Fornada fresca amanhã.
-    </p>
+    <p class="font-title text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-lg mt-3">{{ tomorrow_hook.message }}</p>
   </div>
 </section>
+{% endif %}
+{% endif %}
 
 {# ── Fale com a gente — CTA WhatsApp (complemento ao rodapé institucional) ── #}
 {% if storefront.whatsapp_url %}

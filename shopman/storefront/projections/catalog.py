@@ -87,6 +87,9 @@ class CatalogItemProjection:
     # client-side quando requested > available, sem esperar o POST falhar.
     available_qty: int | None = None
 
+    # Allergens from product.metadata["allergens"] — shown as inline badge.
+    allergens: tuple[str, ...] = field(default_factory=tuple)
+
     @property
     def detail_url(self) -> str:
         """Convenience for templates — build the PDP URL."""
@@ -431,6 +434,8 @@ def _build_items(
         dietary = meta.get("dietary_info") or []
         if not isinstance(dietary, list):
             dietary = []
+        allergens_raw = meta.get("allergens") or []
+        allergens = tuple(str(a) for a in allergens_raw if a) if isinstance(allergens_raw, list) else ()
 
         result.append(
             CatalogItemProjection(
@@ -454,6 +459,7 @@ def _build_items(
                 is_new=bool(meta.get("is_new", False)),
                 is_featured=p.sku in popular,
                 qty_in_cart=int(qty_in_cart_by_sku.get(p.sku, 0)),
+                allergens=allergens,
             ),
         )
     return result

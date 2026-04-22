@@ -128,6 +128,14 @@
           {% endif %}
         </div>
 
+        {# Allergen badge inline — critical info, never hidden #}
+        {% if item.allergens %}
+        <p class="inline-flex items-center gap-1 rounded-full bg-warning/10 border border-warning/30 text-warning px-2 py-0.5 text-[10px] sm:text-xs w-fit" aria-label="Alérgenos">
+          <span class="material-symbols-rounded text-xs sm:text-sm" aria-hidden="true">warning</span>
+          Contém {{ item.allergens|join:" · " }}
+        </p>
+        {% endif %}
+
         {# Price + action #}
         <div class="mt-auto pt-1 sm:pt-2 flex items-end justify-between gap-2">
           <div class="min-w-0">

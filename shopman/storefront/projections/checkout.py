@@ -83,6 +83,10 @@ class CheckoutProjection:
     # Dev toggle
     is_debug: bool
 
+    # Fulfillment contextual hints shown below the pickup/delivery chips
+    pickup_hint: str = ""
+    delivery_hint: str = ""
+
 
 # ──────────────────────────────────────────────────────────────────────
 # Builder
@@ -143,6 +147,8 @@ def build_checkout(
         max_preorder_days=max_preorder_days,
         closed_dates_json=json.dumps(closed_dates),
         is_debug=settings.DEBUG,
+        pickup_hint="Gratuita",
+        delivery_hint="",
     )
 
 

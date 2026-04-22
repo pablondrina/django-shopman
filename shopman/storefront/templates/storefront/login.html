@@ -1,5 +1,5 @@
 {% extends "storefront/base.html" %}
-{% load storefront_tags %}
+{% load storefront_tags omotenashi_tags %}
 
 {% block title %}Entrar{% endblock %}
 
@@ -245,9 +245,10 @@
   </div>
 
   {% if step == "phone" %}
+  {% omotenashi 'CHECKOUT_PHONE_PURPOSE' as phone_purpose %}
   <p class="mt-6 flex items-center justify-center gap-2 text-sm text-on-surface/60 dark:text-on-surface-dark/60">
     <span class="material-symbols-rounded text-base" aria-hidden="true">lock</span>
-    Seu número fica seguro com a gente.
+    {{ phone_purpose.message|default:"Seu número fica seguro com a gente." }}
   </p>
   {% endif %}
 

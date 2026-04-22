@@ -156,7 +156,8 @@
                   <span class="material-symbols-rounded text-lg" aria-hidden="true">edit</span>
                 </button>
               </div>
-              <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">{{ checkout.customer_phone|format_phone }}</p>
+              {% omotenashi 'CHECKOUT_PHONE_PURPOSE' as phone_purpose %}
+              <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">{{ checkout.customer_phone|format_phone }}{% if phone_purpose.message %} · {{ phone_purpose.message }}{% endif %}</p>
             </div>
 
             {# Trocar conta — icon-only top-right com tooltip #}
