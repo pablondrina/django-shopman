@@ -250,8 +250,7 @@ def pos_close(request: HttpRequest) -> HttpResponse:
 
     # Return HTML partial with data attributes for Alpine to read
     response = HttpResponse(
-        f'<div id="pos-result" '
-        f'data-order-ref="{result.order_ref}" '
+        f'<div data-order-ref="{result.order_ref}" '
         f'data-total-display="{total_display}" '
         f'class="pos-success">'
         f'Pedido {result.order_ref} &mdash; {total_display}'

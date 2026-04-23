@@ -420,6 +420,7 @@ document.addEventListener('alpine:init', function() {
     customerName: '',
     customerGroup: '',
     paymentMethod: 'dinheiro',
+    tenderedInput: '',
     lastOrderRef: '',
     lastOrderTotal: '',
     successMsg: '',
@@ -521,8 +522,9 @@ document.addEventListener('alpine:init', function() {
     onSaleComplete: function(evt) {
       var target = evt.detail.target;
       if (target && target.id === 'pos-result') {
-        var ref = target.dataset.orderRef;
-        var total = target.dataset.totalDisplay;
+        var el = target.querySelector('[data-order-ref]');
+        var ref = el ? el.dataset.orderRef : null;
+        var total = el ? el.dataset.totalDisplay : null;
         if (ref) {
           this.lastOrderRef = ref;
           this.lastOrderTotal = total;
@@ -531,7 +533,11 @@ document.addEventListener('alpine:init', function() {
           this.customerPhone = '';
           this.customerName = '';
           this.customerGroup = '';
+          this.paymentMethod = 'dinheiro';
+          this.tenderedInput = '';
+          this.expandedNoteIdx = -1;
           this.clearDiscount();
+          if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
           var self = this;
           setTimeout(function() { self.successMsg = ''; }, 5000);
         }

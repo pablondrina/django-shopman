@@ -20,6 +20,8 @@ POS_TAB = RefType(
     allowed_targets=("orderman.Session",),
     scope_keys=("store_id", "business_date"),
     unique_scope="active",
+    generator="date_sequence",
+    generator_format="{value:03d}",
 )
 
 ORDER_REF = RefType(
@@ -29,9 +31,9 @@ ORDER_REF = RefType(
     scope_keys=("channel_ref", "business_date"),
     unique_scope="all",
     normalizer="upper_strip",
-    validator=r"^[A-Z]{2,5}-\d{6}-[A-Z]{2}\d{2}$",
-    generator="alpha_numeric",
-    generator_format="{channel_ref}-{date:%y%m%d}-{code}",
+    validator=r"^[A-Z]{2,5}-\d{6}-[A-Z0-9]{4}$",
+    generator="short_uuid",
+    generator_format="{channel_ref}-{date:%d%m%y}-{code:4}",
 )
 
 EXTERNAL_ORDER = RefType(
