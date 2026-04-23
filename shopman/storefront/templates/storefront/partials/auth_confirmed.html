@@ -1,20 +1,44 @@
 {% load omotenashi_tags %}
-{# OTP verified — show success + explicit device trust question. data-auth-success signals parent. #}
+{# OTP verified — clean success banner, then bottom sheet trust prompt after 0.5s. #}
 {% omotenashi 'LOGIN_WELCOME_BACK' as welcome %}
 {% omotenashi 'DEVICE_TRUST_PROMPT' as trust_prompt %}
 {% omotenashi 'DEVICE_TRUST_CTA' as trust_cta %}
 {% omotenashi 'DEVICE_TRUST_SKIP_CTA' as skip_cta %}
-<div class="space-y-3"
-     data-auth-success
-     x-data="{ show: false, trust: true, trustError: false }"
-     x-init="
-       document.querySelector('meta[name=csrf-token]').content = '{{ csrf_token }}';
-       $nextTick(() => show = true);
-       if (navigator.vibrate) navigator.vibrate(10);
-       const name = '{{ customer_name|escapejs }}';
-       const msg = name ? 'Pronto, ' + name + '!' : '{{ welcome.message|escapejs }}';
-       $nextTick(() => window.dispatchEvent(new CustomEvent('notify', { detail: { variant: 'success', message: msg } })));
-     ">
+
+<div data-auth-success
+     x-data="{
+       show: false,
+       modal: false,
+       trustError: false,
+       autoTimer: null,
+       init() {
+         document.querySelector('meta[name=csrf-token]').content = '{{ csrf_token }}';
+         this.$nextTick(() => { this.show = true; });
+         if (navigator.vibrate) navigator.vibrate(10);
+         const name = '{{ customer_name|escapejs }}';
+         const msg = name ? ('Pronto, ' + name + '!') : '{{ welcome.message|escapejs }}';
+         this.$nextTick(() => window.dispatchEvent(new CustomEvent('notify', { detail: { variant: 'success', message: msg } })));
+         setTimeout(() => { this.modal = true; }, 500);
+         this.autoTimer = setTimeout(() => { this.skip(); }, 6000);
+         this.$el.addEventListener('htmx:afterRequest', (e) => {
+           if (e.detail.successful) {
+             clearTimeout(this.autoTimer);
+             this.modal = false;
+             setTimeout(() => { this.doRedirect(); }, 300);
+           } else {
+             this.trustError = true;
+           }
+         });
+       },
+       doRedirect() {
+         window.dispatchEvent(new CustomEvent('auth-confirmed'));
+       },
+       skip() {
+         clearTimeout(this.autoTimer);
+         this.modal = false;
+         setTimeout(() => { this.doRedirect(); }, 300);
+       }
+     }">
 
   {% comment %}── Sucesso ──{% endcomment %}
   <div class="flex items-center gap-2 rounded-radius border border-success bg-success/10 p-3 dark:border-success-dark dark:bg-success-dark/10"
@@ -30,51 +54,71 @@
     </span>
   </div>
 
-  {% comment %}── Pergunta de trust ──{% endcomment %}
-  <div class="rounded-radius border border-outline bg-surface-alt p-4 space-y-3 dark:border-outline-dark dark:bg-surface-dark-alt/50"
-       x-show="show"
-       x-transition:enter="transition ease-out duration-400"
-       x-transition:enter-start="opacity-0 translate-y-1"
-       x-transition:enter-end="opacity-100 translate-y-0">
-    <div class="flex items-start gap-2">
-      <span class="material-symbols-rounded text-xl text-primary dark:text-primary-dark mt-0.5 shrink-0" aria-hidden="true">devices</span>
+  {% comment %}── Backdrop ──{% endcomment %}
+  <div x-show="modal" x-cloak
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 bg-black/40 z-40"
+       @click="skip()"
+       aria-hidden="true">
+  </div>
+
+  {% comment %}── Bottom sheet ──{% endcomment %}
+  <div x-show="modal" x-cloak
+       x-transition:enter="transition ease-out duration-300"
+       x-transition:enter-start="opacity-0 translate-y-full"
+       x-transition:enter-end="opacity-100 translate-y-0"
+       x-transition:leave="transition ease-in duration-200"
+       x-transition:leave-start="opacity-100 translate-y-0"
+       x-transition:leave-end="opacity-0 translate-y-full"
+       class="fixed bottom-0 inset-x-0 z-50 rounded-t-2xl bg-surface dark:bg-surface-dark border-t border-outline dark:border-outline-dark shadow-xl px-5 pt-4 pb-8"
+       role="dialog"
+       aria-modal="true"
+       aria-labelledby="trust-sheet-title"
+       @click.stop>
+
+    {% comment %}── Drag handle ──{% endcomment %}
+    <div class="mx-auto mb-4 h-1.5 w-10 rounded-full bg-outline dark:bg-outline-dark" aria-hidden="true"></div>
+
+    {% comment %}── Icon + copy ──{% endcomment %}
+    <div class="flex items-start gap-3 mb-5">
+      <span class="material-symbols-rounded text-2xl text-primary dark:text-primary-dark shrink-0 mt-0.5" aria-hidden="true">devices</span>
       <div>
-        <p class="text-sm font-medium text-on-surface-strong dark:text-on-surface-dark-strong leading-snug">{{ trust_prompt.title }}</p>
-        <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 mt-0.5">{{ trust_prompt.message }}</p>
+        <p id="trust-sheet-title" class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong leading-snug">{{ trust_prompt.title }}</p>
+        <p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60 mt-1">{{ trust_prompt.message }}</p>
       </div>
     </div>
 
-    <label class="flex items-center gap-2.5 cursor-pointer select-none" style="min-height: 44px;">
-      <input type="checkbox" x-model="trust"
-             class="size-4 rounded accent-primary dark:accent-primary-dark cursor-pointer"
-             aria-describedby="trust-desc">
-      <span class="text-sm text-on-surface dark:text-on-surface-dark" id="trust-desc">{{ trust_cta.title }}</span>
-    </label>
-
-    {% comment %}── Botão: trust=true → HTMX POST; trust=false → dispatch event ──{% endcomment %}
+    {% comment %}── Erro HTMX ──{% endcomment %}
     <div x-show="trustError" x-cloak
-         class="flex items-center gap-2 rounded-radius border border-danger bg-danger/10 p-3 text-sm text-danger dark:border-danger-dark dark:bg-danger-dark/10 dark:text-danger-dark"
+         class="flex items-center gap-2 rounded-radius border border-danger bg-danger/10 p-3 text-sm text-danger dark:border-danger-dark dark:bg-danger-dark/10 dark:text-danger-dark mb-3"
          role="alert">
       <span class="material-symbols-rounded text-base shrink-0" aria-hidden="true">error</span>
       Não foi possível salvar. Tente novamente.
     </div>
-    <button x-show="trust"
-            hx-post="{% url 'storefront:trust_device' %}"
-            hx-target="#auth-section"
-            hx-swap="innerHTML"
-            hx-vals='{"trust": "1"}'
-            hx-on::response-error="trustError = true"
-            hx-on::send-error="trustError = true"
-            style="min-height: 44px;"
-            class="w-full rounded-radius bg-primary px-4 py-2.5 text-sm font-medium text-on-primary transition hover:opacity-90 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark">
-      Continuar
-    </button>
-    <button x-show="!trust" x-cloak
-            @click="window.dispatchEvent(new CustomEvent('auth-confirmed'))"
-            style="min-height: 44px;"
-            class="w-full rounded-radius bg-primary px-4 py-2.5 text-sm font-medium text-on-primary transition hover:opacity-90 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark">
-      Continuar
-    </button>
+
+    {% comment %}── Botões ──{% endcomment %}
+    <div class="flex flex-col gap-2">
+      <button type="button"
+              hx-post="{% url 'storefront:trust_device' %}"
+              hx-vals='{"trust": "1"}'
+              hx-swap="none"
+              style="min-height: 44px;"
+              class="w-full rounded-radius bg-primary px-4 py-2.5 text-sm font-medium text-on-primary transition hover:opacity-90 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark">
+        {{ trust_cta.title }}
+      </button>
+      <button type="button"
+              @click="skip()"
+              style="min-height: 44px;"
+              class="w-full rounded-radius border border-outline px-4 py-2.5 text-sm font-medium text-on-surface transition hover:bg-surface-alt active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:border-outline-dark dark:text-on-surface-dark dark:hover:bg-surface-dark-alt dark:focus-visible:outline-primary-dark">
+        {{ skip_cta.title }}
+      </button>
+    </div>
+
   </div>
 
 </div>

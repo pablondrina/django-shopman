@@ -466,11 +466,10 @@ class DeviceCheckLoginView(View):
 
 
 class TrustDeviceView(View):
-    """HTMX: record device trust decision after OTP login.
+    """HTMX: set device trust cookie after OTP login.
 
-    Called from auth_confirmed.html. If trust=1, sets the trust cookie and
-    returns a confirmation partial. If trust=0, returns a no-op partial that
-    dispatches the auth-confirmed event client-side.
+    Called from auth_confirmed.html with hx-swap="none". Sets the trust cookie
+    and returns 200; client-side Alpine handles the redirect on success.
     """
 
     def post(self, request: HttpRequest) -> HttpResponse:
