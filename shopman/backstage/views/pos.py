@@ -118,8 +118,8 @@ def pos_close(request: HttpRequest) -> HttpResponse:
     payload_str = request.POST.get("payload", "")
     if not payload_str:
         return HttpResponse(
-            '<div id="pos-result" class="pos-success" style="background:var(--error-light);color:rgb(var(--error-foreground))">'
-            'Carrinho vazio</div>',
+            '<div class="px-3 py-2 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm font-semibold">'
+            'Carrinho vazio — adicione produtos antes de fechar.</div>',
             status=422,
         )
 
@@ -127,16 +127,16 @@ def pos_close(request: HttpRequest) -> HttpResponse:
         body = json.loads(payload_str)
     except (json.JSONDecodeError, ValueError):
         return HttpResponse(
-            '<div id="pos-result" class="pos-success" style="background:var(--error-light);color:rgb(var(--error-foreground))">'
-            'Dados inv&aacute;lidos</div>',
+            '<div class="px-3 py-2 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm font-semibold">'
+            'Dados inválidos. Tente novamente.</div>',
             status=400,
         )
 
     items = body.get("items", [])
     if not items:
         return HttpResponse(
-            '<div id="pos-result" class="pos-success" style="background:var(--error-light);color:rgb(var(--error-foreground))">'
-            'Carrinho vazio</div>',
+            '<div class="px-3 py-2 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm font-semibold">'
+            'Carrinho vazio — adicione produtos antes de fechar.</div>',
             status=422,
         )
 
@@ -148,7 +148,8 @@ def pos_close(request: HttpRequest) -> HttpResponse:
         channel = Channel.objects.get(ref=POS_CHANNEL_REF)
     except Channel.DoesNotExist:
         return HttpResponse(
-            f'<div id="pos-result">Canal {POS_CHANNEL_REF} n&atilde;o configurado</div>',
+            f'<div class="px-3 py-2 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm font-semibold">'
+            f'Canal {POS_CHANNEL_REF} não configurado. Contacte o suporte.</div>',
             status=500,
         )
 
@@ -224,9 +225,13 @@ def pos_close(request: HttpRequest) -> HttpResponse:
         else:
             error_msg = f"Erro ao montar pedido: {e}"
         return HttpResponse(
-            f'<div id="pos-result" class="pos-error" '
-            f'style="background:var(--error-light);color:rgb(var(--error-foreground))">'
-            f'{error_msg}</div>',
+            f'<div class="px-3 py-2 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">'
+            f'<span class="font-semibold">Produto indisponível</span> — {e}'
+            f'<br><span class="text-xs text-on-surface/50 dark:text-on-surface-dark/50">Remova o item e tente novamente.</span></div>'
+            if ("insuficiente" in str(e).lower() or "estoque" in str(e).lower() or "stock" in str(e).lower() or "unavailable" in str(e).lower())
+            else f'<div class="px-3 py-2 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">'
+            f'<span class="font-semibold">Erro ao montar pedido</span> — {e}'
+            f'<br><span class="text-xs text-on-surface/50 dark:text-on-surface-dark/50">Tente novamente ou limpe o carrinho.</span></div>',
             status=422,
         )
 
@@ -241,9 +246,9 @@ def pos_close(request: HttpRequest) -> HttpResponse:
     except Exception as e:
         logger.exception("pos_close commit_failed")
         return HttpResponse(
-            f'<div id="pos-result" class="pos-error" '
-            f'style="background:var(--error-light);color:rgb(var(--error-foreground))">'
-            f'Erro ao finalizar: {e}</div>',
+            f'<div class="px-3 py-2 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">'
+            f'<span class="font-semibold">Erro ao finalizar pedido</span> — {e}'
+            f'<br><span class="text-xs text-on-surface/50 dark:text-on-surface-dark/50">Tente novamente. Se persistir, limpe o carrinho.</span></div>',
             status=400,
         )
 
@@ -255,8 +260,9 @@ def pos_close(request: HttpRequest) -> HttpResponse:
     response = HttpResponse(
         f'<div data-order-ref="{result.order_ref}" '
         f'data-total-display="{total_display}" '
-        f'class="pos-success">'
-        f'Pedido {result.order_ref} &mdash; {total_display}'
+        f'class="px-3 py-2 rounded-lg bg-success/10 border border-success/30 text-success text-sm font-semibold flex items-center justify-between gap-2">'
+        f'<span>✓ Pedido confirmado</span>'
+        f'<span class="tabular-nums">{result.order_ref} · {total_display}</span>'
         f'</div>'
     )
     # Trigger shift summary refresh via HTMX event
