@@ -6,8 +6,9 @@
 {% omotenashi 'DEVICE_TRUST_SKIP_CTA' as skip_cta %}
 <div class="space-y-3"
      data-auth-success
-     x-data="{ show: false, trust: true }"
+     x-data="{ show: false, trust: true, trustError: false }"
      x-init="
+       document.querySelector('meta[name=csrf-token]').content = '{{ csrf_token }}';
        $nextTick(() => show = true);
        if (navigator.vibrate) navigator.vibrate(10);
        const name = '{{ customer_name|escapejs }}';
@@ -51,12 +52,19 @@
     </label>
 
     {% comment %}── Botão: trust=true → HTMX POST; trust=false → dispatch event ──{% endcomment %}
+    <div x-show="trustError" x-cloak
+         class="flex items-center gap-2 rounded-radius border border-danger bg-danger/10 p-3 text-sm text-danger dark:border-danger-dark dark:bg-danger-dark/10 dark:text-danger-dark"
+         role="alert">
+      <span class="material-symbols-rounded text-base shrink-0" aria-hidden="true">error</span>
+      Não foi possível salvar. Tente novamente.
+    </div>
     <button x-show="trust"
             hx-post="{% url 'storefront:trust_device' %}"
             hx-target="#auth-section"
             hx-swap="innerHTML"
             hx-vals='{"trust": "1"}'
-            hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+            hx-on::response-error="trustError = true"
+            hx-on::send-error="trustError = true"
             style="min-height: 44px;"
             class="w-full rounded-radius bg-primary px-4 py-2.5 text-sm font-medium text-on-primary transition hover:opacity-90 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark">
       Continuar
