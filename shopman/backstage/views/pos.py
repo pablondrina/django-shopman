@@ -352,6 +352,211 @@ def pos_cancel_last(request: HttpRequest) -> HttpResponse:
     )
 
 
+# ── Comandas / Parked Sessions ──────────────────────────────────────
+
+
+def _build_session_ops(body: dict, username: str) -> list[dict]:
+    """Build ModifyService ops from a cart payload dict."""
+    ops = []
+    for item in body.get("items", []):
+        op = {
+            "op": "add_line",
+            "sku": item["sku"],
+            "qty": int(item.get("qty", 1)),
+            "unit_price_q": int(item["unit_price_q"]),
+        }
+        note = str(item.get("note", "") or "").strip()
+        if note:
+            op["meta"] = {"note": note}
+        ops.append(op)
+
+    customer_name = body.get("customer_name", "").strip()
+    customer_phone = body.get("customer_phone", "").strip()
+    if customer_name:
+        ops.append({"op": "set_data", "path": "customer.name", "value": customer_name})
+    if customer_phone:
+        ops.append({"op": "set_data", "path": "customer.phone", "value": customer_phone})
+
+    payment_method = body.get("payment_method", "dinheiro")
+    ops.append({"op": "set_data", "path": "payment.method", "value": payment_method})
+
+    manual_discount = body.get("manual_discount") or {}
+    if manual_discount and int(manual_discount.get("discount_q", 0)) > 0:
+        ops.extend([
+            {"op": "set_data", "path": "manual_discount.type", "value": manual_discount.get("type", "percent")},
+            {"op": "set_data", "path": "manual_discount.value", "value": manual_discount.get("value", 0)},
+            {"op": "set_data", "path": "manual_discount.discount_q", "value": int(manual_discount.get("discount_q", 0))},
+            {"op": "set_data", "path": "manual_discount.reason", "value": manual_discount.get("reason", "")},
+        ])
+    return ops
+
+
+@require_POST
+def pos_park(request: HttpRequest) -> HttpResponse:
+    """POST /gestor/pos/park/ — save current cart as a parked comanda."""
+    denied = _perm_required(request)
+    if denied:
+        return HttpResponse("Unauthorized", status=403)
+
+    payload_str = request.POST.get("payload", "")
+    if not payload_str:
+        return HttpResponse('<span class="text-xs text-warning">Carrinho vazio</span>', status=422)
+
+    try:
+        body = json.loads(payload_str)
+    except (json.JSONDecodeError, ValueError):
+        return HttpResponse('<span class="text-xs text-danger">Dados inválidos</span>', status=400)
+
+    if not body.get("items"):
+        return HttpResponse('<span class="text-xs text-warning">Carrinho vazio</span>', status=422)
+
+    try:
+        channel = Channel.objects.get(ref=POS_CHANNEL_REF)
+    except Channel.DoesNotExist:
+        return HttpResponse(f'<span>Canal {POS_CHANNEL_REF} não configurado</span>', status=500)
+
+    from django.utils import timezone as tz
+    from shopman.refs.generators import generate_value
+    from shopman.shop.config import ChannelConfig
+    from shopman.shop.models import Shop
+
+    shop = Shop.load()
+    config = ChannelConfig.for_channel(channel)
+
+    comanda = generate_value("POS_TAB", {
+        "store_id": str(shop.pk),
+        "business_date": tz.localdate().isoformat(),
+    })
+
+    session_key = generate_session_key()
+    Session.objects.create(
+        session_key=session_key,
+        channel_ref=channel.ref,
+        state="open",
+        pricing_policy=config.pricing.policy,
+        edit_policy=config.editing.policy,
+        handle_type="pos",
+        handle_ref=f"pos:{request.user.username}",
+    )
+
+    ops = _build_session_ops(body, request.user.username)
+    ops.extend([
+        {"op": "set_data", "path": "parked", "value": True},
+        {"op": "set_data", "path": "comanda", "value": comanda},
+        {"op": "set_data", "path": "parked_by", "value": request.user.username},
+    ])
+
+    try:
+        ModifyService.modify_session(
+            session_key=session_key,
+            channel_ref=channel.ref,
+            ops=ops,
+            ctx={"actor": f"pos:{request.user.username}"},
+            channel_config=config.to_dict(),
+        )
+    except Exception as e:
+        logger.exception("pos_park modify_failed")
+        return HttpResponse(f'<span class="text-xs text-danger">Erro: {e}</span>', status=422)
+
+    logger.info("pos_park comanda=%s session=%s operator=%s", comanda, session_key, request.user.username)
+
+    response = HttpResponse(
+        f'<span data-comanda="{comanda}" class="text-xs text-success font-semibold">'
+        f'Comanda {comanda} estacionada</span>'
+    )
+    response["HX-Trigger"] = "sessionParked"
+    return response
+
+
+@require_GET
+def pos_sessions(request: HttpRequest) -> HttpResponse:
+    """GET /gestor/pos/sessions/ — HTMX: parked session tab list."""
+    denied = _perm_required(request)
+    if denied:
+        return HttpResponse("", status=403)
+
+    from django.utils import timezone as tz
+    from shopman.utils.monetary import format_money as _fm
+
+    sessions_qs = Session.objects.filter(
+        channel_ref=POS_CHANNEL_REF,
+        state="open",
+        data__parked=True,
+        created_at__date=tz.localdate(),
+    ).order_by("created_at")
+
+    sessions = []
+    for s in sessions_qs:
+        data = s.data or {}
+        items = s.items or []
+        item_count = sum(int(it.get("qty", 1)) for it in items)
+        total_q = sum(int(it.get("qty", 1)) * int(it.get("unit_price_q", 0)) for it in items)
+        discount_q = int((data.get("manual_discount") or {}).get("discount_q", 0))
+        sessions.append({
+            "session_key": s.session_key,
+            "comanda": data.get("comanda", "?"),
+            "item_count": item_count,
+            "total_display": f"R$ {_fm(max(0, total_q - discount_q))}",
+            "customer_name": (data.get("customer") or {}).get("name", ""),
+        })
+
+    return render(request, "pos/partials/session_tabs.html", {"sessions": sessions})
+
+
+@require_GET
+def pos_load_session(request: HttpRequest, session_key: str) -> HttpResponse:
+    """GET /gestor/pos/session/<key>/load/ — return session data as JSON for Alpine."""
+    denied = _perm_required(request)
+    if denied:
+        return HttpResponse('{"error":"forbidden"}', content_type="application/json", status=403)
+
+    try:
+        session = Session.objects.get(
+            session_key=session_key,
+            channel_ref=POS_CHANNEL_REF,
+            state="open",
+        )
+    except Session.DoesNotExist:
+        return HttpResponse('{"error":"not_found"}', content_type="application/json", status=404)
+
+    data = session.data or {}
+    customer = data.get("customer") or {}
+    payment = data.get("payment") or {}
+    discount = data.get("manual_discount") or {}
+
+    items = [
+        {
+            "sku": it["sku"],
+            "name": it.get("name", it["sku"]),
+            "price_q": it.get("unit_price_q", 0),
+            "qty": int(it.get("qty", 1)),
+            "note": (it.get("meta") or {}).get("note", ""),
+            "is_d1": False,
+        }
+        for it in (session.items or [])
+    ]
+
+    session.data["parked"] = False
+    session.save(update_fields=["data"])
+
+    import json as _json
+    payload = _json.dumps({
+        "session_key": session_key,
+        "comanda": data.get("comanda", ""),
+        "items": items,
+        "customer_phone": customer.get("phone", ""),
+        "customer_name": customer.get("name", ""),
+        "customer_group": customer.get("group", ""),
+        "payment_method": payment.get("method", "dinheiro"),
+        "discount_type": discount.get("type", "percent"),
+        "discount_value": str(discount.get("value", "")) if discount.get("value") else "",
+        "discount_reason": discount.get("reason", "cortesia"),
+    })
+    response = HttpResponse(payload, content_type="application/json")
+    response["HX-Trigger"] = "sessionLoaded"
+    return response
+
+
 # ── Cash Register Views ──────────────────────────────────────────────
 
 

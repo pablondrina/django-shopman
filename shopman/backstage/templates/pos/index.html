@@ -20,6 +20,23 @@
      sse-connect="{% url 'storefront:stock_events' channel_ref=pos_channel_ref|default:'pdv' %}"
      class="h-full flex flex-col overflow-hidden">
 
+  {% comment %}Parked session tab bar{% endcomment %}
+  <div class="flex items-center gap-1.5 px-3 py-1.5 border-b border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt shrink-0 overflow-x-auto">
+    <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark shrink-0">
+      <span class="material-symbols-rounded text-xs" aria-hidden="true">point_of_sale</span>
+      <span x-show="!activeComanda" x-cloak>Nova venda</span>
+      <span x-show="activeComanda" x-cloak>Comanda <span x-text="activeComanda"></span></span>
+      <span x-show="itemCount > 0" x-cloak class="opacity-70"
+            x-text="'· ' + itemCount + (itemCount===1?' item':' itens') + ' · ' + formatMoney(totalQ)"></span>
+    </div>
+    <div id="pos-session-tabs"
+         hx-get="/gestor/pos/sessions/"
+         hx-trigger="load, sessionParked from:body"
+         hx-swap="innerHTML"
+         class="flex items-center gap-1.5">
+    </div>
+  </div>
+
   {% comment %}Main 2-column{% endcomment %}
   <main class="flex-1 flex overflow-hidden min-h-0">
 
@@ -229,12 +246,12 @@
           Fechar Venda <span class="text-on-primary/60 dark:text-on-primary-dark/60 text-sm font-normal">(F8)</span>
         </button>
 
-        {% comment %}Action row: clear + discount + cancel{% endcomment %}
+        {% comment %}Action row: clear + discount + estacionar{% endcomment %}
         <div class="flex gap-1.5">
           <button type="button"
                   class="flex-1 py-2 text-xs font-semibold bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark rounded-lg text-on-surface/60 dark:text-on-surface-dark/60 hover:bg-outline/30 dark:hover:bg-outline-dark/30 disabled:opacity-40"
                   :disabled="cart.length === 0"
-                  @click="cart = []; clearDiscount(); document.getElementById('pos-result').innerHTML = ''"
+                  @click="cart = []; clearDiscount(); tenderedInput = ''; expandedNoteIdx = -1; activeComanda = ''; document.getElementById('pos-result').innerHTML = ''"
                   title="Limpar carrinho">
             Limpar <span class="text-on-surface/40 dark:text-on-surface-dark/40">(F5)</span>
           </button>
@@ -246,6 +263,20 @@
             % Desc <span class="text-on-surface/40 dark:text-on-surface-dark/40">(F6)</span>
           </button>
           <button type="button"
+                  class="flex-1 py-2 text-xs font-semibold bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark rounded-lg text-on-surface/60 dark:text-on-surface-dark/60 hover:bg-outline/30 dark:hover:bg-outline-dark/30 disabled:opacity-40"
+                  :disabled="cart.length === 0"
+                  title="Estacionar comanda"
+                  hx-post="/gestor/pos/park/"
+                  hx-vals="js:{payload: Alpine.$data(document.getElementById('pos-root')).cartPayload()}"
+                  hx-target="#pos-park-result"
+                  hx-swap="innerHTML"
+                  hx-on::after-request="if(event.detail.successful && event.detail.xhr.status < 300){ cart=[]; customerPhone=''; customerName=''; customerGroup=''; clearDiscount(); tenderedInput=''; paymentMethod='dinheiro'; expandedNoteIdx=-1; activeComanda=''; document.getElementById('pos-result').innerHTML=''; }">
+            <span class="material-symbols-rounded text-xs align-middle" aria-hidden="true">pause_circle</span>
+            Estacionar
+          </button>
+        </div>
+        <div class="flex gap-1.5">
+          <button type="button"
                   x-show="lastOrderRef"
                   x-cloak
                   class="flex-1 py-2 text-xs font-semibold bg-danger/10 border border-danger/30 rounded-lg text-danger hover:bg-danger/20"
@@ -253,9 +284,10 @@
                   hx-vals="js:{order_ref: lastOrderRef}"
                   hx-target="#pos-cancel-result"
                   hx-swap="innerHTML">
-            Cancelar
+            Cancelar último
           </button>
         </div>
+        <div id="pos-park-result" class="min-h-[1rem] text-xs"></div>
         <div id="pos-cancel-result"></div>
       </div>
     </div>
@@ -438,6 +470,7 @@ document.addEventListener('alpine:init', function() {
     customerGroup: '',
     paymentMethod: 'dinheiro',
     tenderedInput: '',
+    activeComanda: '',
     lastOrderRef: '',
     lastOrderTotal: '',
     successMsg: '',
@@ -565,11 +598,33 @@ document.addEventListener('alpine:init', function() {
           this.paymentMethod = 'dinheiro';
           this.tenderedInput = '';
           this.expandedNoteIdx = -1;
+          this.activeComanda = '';
           this.clearDiscount();
           if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
           var self = this;
           setTimeout(function() { self.successMsg = ''; }, 5000);
         }
+      }
+    },
+
+    loadSession: function(d) {
+      this.cart = d.items || [];
+      this.customerPhone = d.customer_phone || '';
+      this.customerName = d.customer_name || '';
+      this.customerGroup = d.customer_group || '';
+      this.paymentMethod = d.payment_method || 'dinheiro';
+      this.tenderedInput = '';
+      this.activeComanda = d.comanda || '';
+      this.expandedNoteIdx = -1;
+      document.getElementById('pos-result').innerHTML = '';
+      document.getElementById('pos-customer-result').innerHTML = '';
+      document.getElementById('pos-park-result').innerHTML = '';
+      if (d.discount_value) {
+        this.discountType = d.discount_type || 'percent';
+        this.discountValue = d.discount_value;
+        this.discountReason = d.discount_reason || 'cortesia';
+      } else {
+        this.clearDiscount();
       }
     },
 
