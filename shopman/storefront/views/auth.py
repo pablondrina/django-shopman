@@ -145,6 +145,7 @@ class LoginView(View):
         customer = customer_service.get_by_phone(phone)
 
         if HAS_AUTH:
+            from shopman.doorman.error_codes import ErrorCode
             from shopman.doorman.services.verification import AuthService
 
             auth_result = AuthService.request_code(
@@ -154,21 +155,19 @@ class LoginView(View):
                 ip_address=request.META.get("REMOTE_ADDR"),
             )
 
-            # WhatsApp failed → auto-fallback to SMS
-            if not auth_result.success and delivery_method == "whatsapp":
-                logger.info("WhatsApp delivery failed for %s, falling back to SMS", phone)
-                delivery_method = "sms"
-                auth_result = AuthService.request_code(
-                    target_value=phone,
-                    purpose="login",
-                    delivery_method="sms",
-                    ip_address=request.META.get("REMOTE_ADDR"),
-                )
-
             if not auth_result.success:
+                _error_map = {
+                    ErrorCode.RATE_LIMIT: "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+                    ErrorCode.COOLDOWN: "Aguarde antes de solicitar um novo código.",
+                    ErrorCode.IP_RATE_LIMIT: "Muitas tentativas deste local. Tente mais tarde.",
+                }
+                error_msg = _error_map.get(
+                    auth_result.error_code,
+                    "Não foi possível enviar o código. Verifique o número e tente novamente.",
+                )
                 return render(request, "storefront/login.html", {
                     "step": "phone",
-                    "error": "Não foi possível enviar o código. Verifique o número e tente novamente.",
+                    "error": error_msg,
                     "phone_value": result.form_data.get("phone", ""),
                     "next": next_url,
                 })

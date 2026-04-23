@@ -224,7 +224,7 @@ class TestDeviceTrust:
         assert user_id is not None
 
     def test_device_trust_expired_requires_otp(self, client: Client, customer):
-        """Expired device trust does NOT auto-login."""
+        """Expired device trust returns 204 (HTMX no-swap) and does NOT auto-login."""
         device, raw_token = TrustedDevice.create_for_customer(
             customer_id=customer.uuid,
             user_agent="Mozilla/5.0 Test",
@@ -239,12 +239,11 @@ class TestDeviceTrust:
 
         response = client.post("/auth/device-check/", {"phone": customer.phone})
 
-        data = response.json()
-        assert data["trusted"] is False
+        assert response.status_code == 204
         assert client.session.get("_auth_user_id") is None
 
     def test_device_trust_wrong_customer(self, client: Client, customer):
-        """Device trusted for one customer cannot login as another."""
+        """Device trusted for one customer returns 204 when phone doesn't match."""
         other = Customer.objects.create(
             ref="AUTH-OTHER", first_name="Pedro", last_name="Lima", phone="5543999880099",
         )
@@ -261,8 +260,7 @@ class TestDeviceTrust:
 
         response = client.post("/auth/device-check/", {"phone": customer.phone})
 
-        data = response.json()
-        assert data["trusted"] is False
+        assert response.status_code == 204
 
     def test_verify_code_no_longer_sets_cookie_directly(self, client: Client, customer):
         """OTP verification no longer auto-trusts — cookie deferred to TrustDeviceView."""
