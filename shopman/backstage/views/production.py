@@ -25,7 +25,7 @@ from shopman.backstage.projections.production import build_production_board
 
 logger = logging.getLogger(__name__)
 
-TEMPLATE = "gestao/producao/index.html"
+TEMPLATE = "gestor/producao/index.html"
 PERMISSION = "shop.manage_production"
 
 
@@ -170,7 +170,7 @@ def _render(request, admin_site):
 
 
 def bulk_create_work_orders(request: HttpRequest) -> HttpResponse:
-    """POST /gestao/producao/criar/ — bulk create WorkOrders from suggestions.
+    """POST /gestor/producao/criar/ — bulk create WorkOrders from suggestions.
 
     Expects JSON body: {"date": "YYYY-MM-DD", "orders": [{"recipe_ref": "...", "quantity": N}, ...]}
     Returns HTMX partial with result summary.
@@ -181,7 +181,7 @@ def bulk_create_work_orders(request: HttpRequest) -> HttpResponse:
     if request.method != "POST":
         return HttpResponse("Method not allowed", status=405)
 
-    _PARTIAL = "gestao/producao/partials/bulk_create_result.html"
+    _PARTIAL = "gestor/producao/partials/bulk_create_result.html"
 
     try:
         body = json.loads(request.body)

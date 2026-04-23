@@ -49,7 +49,7 @@ def _resolve_customer(phone: str):
 
 @require_GET
 def pos_view(request: HttpRequest) -> HttpResponse:
-    """GET /gestao/pos/ — main POS page."""
+    """GET /gestor/pos/ — main POS page."""
     denied = _perm_required(request)
     if denied:
         return denied
@@ -78,7 +78,7 @@ def pos_view(request: HttpRequest) -> HttpResponse:
 
 @require_POST
 def pos_customer_lookup(request: HttpRequest) -> HttpResponse:
-    """POST /gestao/pos/customer-lookup/ — HTMX: return customer name partial."""
+    """POST /gestor/pos/customer-lookup/ — HTMX: return customer name partial."""
     denied = _perm_required(request)
     if denied:
         return HttpResponse("", status=403)
@@ -109,7 +109,7 @@ def pos_customer_lookup(request: HttpRequest) -> HttpResponse:
 
 @require_POST
 def pos_close(request: HttpRequest) -> HttpResponse:
-    """POST /gestao/pos/close/ — HTMX: create order, return result partial."""
+    """POST /gestor/pos/close/ — HTMX: create order, return result partial."""
     denied = _perm_required(request)
     if denied:
         return HttpResponse("Unauthorized", status=403)
@@ -264,7 +264,7 @@ def pos_close(request: HttpRequest) -> HttpResponse:
 
 @require_GET
 def pos_shift_summary(request: HttpRequest) -> HttpResponse:
-    """GET /gestao/pos/shift-summary/ — HTMX partial: today's shift totals."""
+    """GET /gestor/pos/shift-summary/ — HTMX partial: today's shift totals."""
     denied = _perm_required(request)
     if denied:
         return HttpResponse("", status=403)
@@ -281,7 +281,7 @@ def pos_shift_summary(request: HttpRequest) -> HttpResponse:
 
 @require_POST
 def pos_cancel_last(request: HttpRequest) -> HttpResponse:
-    """POST /gestao/pos/cancel-last/ — HTMX: cancel the last POS order (within 5 min)."""
+    """POST /gestor/pos/cancel-last/ — HTMX: cancel the last POS order (within 5 min)."""
     denied = _perm_required(request)
     if denied:
         return HttpResponse("Unauthorized", status=403)
@@ -355,7 +355,7 @@ def pos_cancel_last(request: HttpRequest) -> HttpResponse:
 
 @require_POST
 def pos_cash_open(request: HttpRequest) -> HttpResponse:
-    """POST /gestao/pos/caixa/abrir/ — open a new cash register session."""
+    """POST /gestor/pos/caixa/abrir/ — open a new cash register session."""
     denied = _perm_required(request)
     if denied:
         return HttpResponse("Unauthorized", status=403)
@@ -364,7 +364,7 @@ def pos_cash_open(request: HttpRequest) -> HttpResponse:
 
     existing = CashRegisterSession.get_open_for_operator(request.user)
     if existing:
-        return redirect("/gestao/pos/")
+        return redirect("/gestor/pos/")
 
     try:
         opening_raw = request.POST.get("opening_amount", "0").strip().replace(",", ".")
@@ -377,12 +377,12 @@ def pos_cash_open(request: HttpRequest) -> HttpResponse:
         opening_amount_q=max(0, opening_amount_q),
     )
     logger.info("pos_cash_open operator=%s opening_q=%s", request.user.username, opening_amount_q)
-    return redirect("/gestao/pos/")
+    return redirect("/gestor/pos/")
 
 
 @require_POST
 def pos_cash_sangria(request: HttpRequest) -> HttpResponse:
-    """POST /gestao/pos/caixa/sangria/ — HTMX: register a cash movement."""
+    """POST /gestor/pos/caixa/sangria/ — HTMX: register a cash movement."""
     denied = _perm_required(request)
     if denied:
         return HttpResponse("Unauthorized", status=403)
@@ -435,7 +435,7 @@ def pos_cash_sangria(request: HttpRequest) -> HttpResponse:
 
 @require_POST
 def pos_cash_close(request: HttpRequest) -> HttpResponse:
-    """POST /gestao/pos/caixa/fechar/ — close the current cash register session."""
+    """POST /gestor/pos/caixa/fechar/ — close the current cash register session."""
     denied = _perm_required(request)
     if denied:
         return HttpResponse("Unauthorized", status=403)

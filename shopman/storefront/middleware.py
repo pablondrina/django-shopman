@@ -48,7 +48,7 @@ class WelcomeGateMiddleware:
         "/media/",
         "/api/",
         "/admin/",
-        "/gestao/",
+        "/gestor/",
         "/webhooks/",
         "/favicon",
         "/manifest.json",

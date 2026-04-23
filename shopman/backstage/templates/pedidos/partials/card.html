@@ -47,7 +47,7 @@
   <div class="px-4 pb-3 flex gap-2 flex-wrap">
     {% if o.can_confirm %}
       <button class="btn-success flex-1"
-              hx-post="/pedidos/{{ o.ref }}/confirm/"
+              hx-post="/gestor/pedidos/{{ o.ref }}/confirm/"
               hx-target="closest [data-order-card]"
               hx-swap="outerHTML">
         <span class="material-symbols-rounded text-base" aria-hidden="true">check</span>
@@ -63,7 +63,7 @@
 
     {% if o.can_advance %}
       <button class="btn-primary flex-1"
-              hx-post="/pedidos/{{ o.ref }}/advance/"
+              hx-post="/gestor/pedidos/{{ o.ref }}/advance/"
               hx-target="closest [data-order-card]"
               hx-swap="outerHTML"
               hx-indicator="closest [data-order-card]">
@@ -83,7 +83,7 @@
                 x-show="confirming"
                 x-cloak
                 @click.away="confirming = false"
-                hx-post="/pedidos/{{ o.ref }}/mark-paid/"
+                hx-post="/gestor/pedidos/{{ o.ref }}/mark-paid/"
                 hx-target="closest [data-order-card]"
                 hx-swap="outerHTML">
           <span class="material-symbols-rounded text-base" aria-hidden="true">check_circle</span>
@@ -108,7 +108,7 @@
               rows="2"></textarea>
     <button class="btn-danger w-full mt-2"
             type="button"
-            hx-post="/pedidos/{{ o.ref }}/reject/"
+            hx-post="/gestor/pedidos/{{ o.ref }}/reject/"
             hx-target="closest [data-order-card]"
             hx-swap="outerHTML"
             :hx-vals='JSON.stringify({reason: rejectReason})'
@@ -122,7 +122,7 @@
   <div x-show="expanded" x-cloak
        x-effect="if (expanded && !$el._loaded) { $el._loaded = true; $el.querySelector('.order-detail').dispatchEvent(new Event('load-detail')); }">
     <div class="order-detail border-t border-outline dark:border-outline-dark px-4 py-3"
-         hx-get="/pedidos/{{ o.ref }}/detail/"
+         hx-get="/gestor/pedidos/{{ o.ref }}/detail/"
          hx-trigger="load-detail"
          hx-swap="innerHTML">
       <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">Carregando...</span>

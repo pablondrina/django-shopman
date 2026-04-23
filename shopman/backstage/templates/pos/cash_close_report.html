@@ -1,4 +1,4 @@
-{% extends "gestao/base.html" %}
+{% extends "gestor/base.html" %}
 {% load storefront_tags %}
 {% block title %}Fechamento de Caixa{% endblock %}
 {% block page_title %}Fechamento de Caixa{% endblock %}
@@ -53,7 +53,7 @@
       <p class="text-xs text-on-surface/40 dark:text-on-surface-dark/40 italic mb-4">Obs: {{ session.notes }}</p>
       {% endif %}
 
-      <a href="/gestao/pos/"
+      <a href="/gestor/pos/"
          class="btn-primary w-full text-base font-bold text-center">
         Novo Turno
       </a>

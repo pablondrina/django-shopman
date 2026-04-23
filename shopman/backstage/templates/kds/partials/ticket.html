@@ -23,7 +23,7 @@
   <div class="mt-auto flex gap-2">
     {% if t.is_delivery %}
     <button class="btn-primary w-full text-base font-bold"
-            hx-post="/kds/expedition/{{ t.pk }}/action/"
+            hx-post="/gestor/kds/expedition/{{ t.pk }}/action/"
             hx-vals='{"action": "dispatch"}'
             hx-target="closest [data-kds-ticket]"
             hx-swap="outerHTML"
@@ -33,7 +33,7 @@
     </button>
     {% else %}
     <button class="btn-success w-full text-base font-bold"
-            hx-post="/kds/expedition/{{ t.pk }}/action/"
+            hx-post="/gestor/kds/expedition/{{ t.pk }}/action/"
             hx-vals='{"action": "complete"}'
             hx-target="closest [data-kds-ticket]"
             hx-swap="outerHTML"
@@ -87,7 +87,7 @@
                 hover:bg-outline/20 dark:hover:bg-outline-dark/20 transition-colors
                 {% if item.checked %}opacity-40 line-through{% endif %}"
          role="listitem"
-         hx-post="/kds/ticket/{{ t.pk }}/check/"
+         hx-post="/gestor/kds/ticket/{{ t.pk }}/check/"
          hx-vals='{"index": "{{ forloop.counter0 }}"}'
          hx-target="closest [data-kds-ticket]"
          hx-swap="outerHTML">
@@ -114,7 +114,7 @@
 
   {% comment %}PRONTO button{% endcomment %}
   <button class="btn-success w-full text-base font-bold"
-          hx-post="/kds/ticket/{{ t.pk }}/done/"
+          hx-post="/gestor/kds/ticket/{{ t.pk }}/done/"
           hx-target="closest [data-kds-ticket]"
           hx-swap="outerHTML"
           hx-indicator="closest [data-kds-ticket]">

@@ -93,10 +93,10 @@ node_modules/.package-lock.json: package.json
 	npm install --silent
 	@echo "✓ node_modules pronto"
 
-css: node_modules/.package-lock.json ## Build CSS (Tailwind v4 storefront + v4 gestao)
+css: node_modules/.package-lock.json ## Build CSS (Tailwind v4 storefront + v4 gestor)
 	npm run css:build
-	npm run gestao:build
-	@echo "✓ CSS compilado (output.css + output-gestao.css)"
+	npm run gestor:build
+	@echo "✓ CSS compilado (output.css + output-gestor.css)"
 
 css-watch: node_modules/.package-lock.json ## CSS watch mode v4 (storefront)
 	npm run css:watch

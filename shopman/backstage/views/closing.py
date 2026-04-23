@@ -25,7 +25,7 @@ from shopman.backstage.projections.closing import build_day_closing
 
 logger = logging.getLogger(__name__)
 
-TEMPLATE = "gestao/fechamento/index.html"
+TEMPLATE = "gestor/fechamento/index.html"
 PERMISSION = "backstage.perform_closing"
 
 

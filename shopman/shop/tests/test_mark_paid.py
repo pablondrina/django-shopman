@@ -1,7 +1,7 @@
 """
 Tests for PedidoMarkPaidView — WP-R4.
 
-POST /pedidos/<ref>/mark-paid/ → marks dinheiro/cash orders as paid.
+POST /gestor/pedidos/<ref>/mark-paid/ → marks dinheiro/cash orders as paid.
 """
 
 from __future__ import annotations
@@ -14,7 +14,16 @@ from shopman.orderman.models import Order, Session
 from shopman.orderman.services.commit import CommitService
 from shopman.orderman.services.modify import ModifyService
 
-from shopman.shop.models import Channel
+from shopman.shop.models import Channel, Shop
+
+
+def _create_shop():
+    return Shop.objects.create(
+        name="Test Shop",
+        default_ddd="11",
+        currency="BRL",
+        timezone="America/Sao_Paulo",
+    )
 
 
 def _create_order(channel_ref: str = "pdv", payment_method: str = "dinheiro") -> Order:
@@ -60,12 +69,13 @@ class MarkPaidTests(TestCase):
             name="Balcão",
             is_active=True,
         )
+        _create_shop()  # required: OnboardingMiddleware redirects /gestor/ if no Shop
         self.client.force_login(self.staff)
 
     def test_mark_paid_happy_path(self) -> None:
         """POST mark-paid → marked_paid_by recorded (Payman is canonical status source)."""
         order = _create_order()
-        resp = self.client.post(f"/pedidos/{order.ref}/mark-paid/")
+        resp = self.client.post(f"/gestor/pedidos/{order.ref}/mark-paid/")
         self.assertEqual(resp.status_code, 200)
 
         order.refresh_from_db()
@@ -80,7 +90,7 @@ class MarkPaidTests(TestCase):
         Order.objects.filter(pk=order.pk).update(status="new")
         order.refresh_from_db()
 
-        self.client.post(f"/pedidos/{order.ref}/mark-paid/")
+        self.client.post(f"/gestor/pedidos/{order.ref}/mark-paid/")
 
         order.refresh_from_db()
         self.assertEqual(order.status, "confirmed")
@@ -88,8 +98,8 @@ class MarkPaidTests(TestCase):
     def test_mark_paid_idempotent(self) -> None:
         """mark-paid twice → no error, marked_paid_by unchanged."""
         order = _create_order()
-        self.client.post(f"/pedidos/{order.ref}/mark-paid/")
-        resp2 = self.client.post(f"/pedidos/{order.ref}/mark-paid/")
+        self.client.post(f"/gestor/pedidos/{order.ref}/mark-paid/")
+        resp2 = self.client.post(f"/gestor/pedidos/{order.ref}/mark-paid/")
 
         self.assertEqual(resp2.status_code, 200)
         order.refresh_from_db()
@@ -99,7 +109,7 @@ class MarkPaidTests(TestCase):
         """Non-staff user → redirected to login."""
         order = _create_order()
         self.client.force_login(self.regular)
-        resp = self.client.post(f"/pedidos/{order.ref}/mark-paid/")
+        resp = self.client.post(f"/gestor/pedidos/{order.ref}/mark-paid/")
 
         # Redirected to admin login
         self.assertIn(resp.status_code, [302, 403])
@@ -107,7 +117,7 @@ class MarkPaidTests(TestCase):
     def test_mark_paid_records_operator(self) -> None:
         """mark-paid stores operator username."""
         order = _create_order()
-        self.client.post(f"/pedidos/{order.ref}/mark-paid/")
+        self.client.post(f"/gestor/pedidos/{order.ref}/mark-paid/")
 
         order.refresh_from_db()
         self.assertEqual(
@@ -120,7 +130,7 @@ class MarkPaidTests(TestCase):
         order = _create_order()
         order.transition_status("confirmed", actor="test")
 
-        resp = self.client.post(f"/pedidos/{order.ref}/mark-paid/")
+        resp = self.client.post(f"/gestor/pedidos/{order.ref}/mark-paid/")
         self.assertEqual(resp.status_code, 200)
 
         order.refresh_from_db()

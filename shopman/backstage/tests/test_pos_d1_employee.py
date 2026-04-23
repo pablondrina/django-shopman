@@ -53,7 +53,7 @@ class D1BadgePOSTests(TestCase):
             price_display="R$ 5,00", collection_ref="", is_d1=True,
         )
         with patch("shopman.backstage.projections.pos._load_products", return_value=[mock_product]):
-            resp = self.client.get("/gestao/pos/")
+            resp = self.client.get("/gestor/pos/")
         self.assertEqual(resp.status_code, 200)
         # D-1 badge rendered for is_d1 product
         self.assertContains(resp, "D-1")
@@ -68,7 +68,7 @@ class D1BadgePOSTests(TestCase):
         )
         with patch("shopman.backstage.projections.pos._load_products", return_value=[mock_product]):
             # D-1 badge only appears when is_d1=True; template uses {% if p.is_d1 %}
-            resp = self.client.get("/gestao/pos/")
+            resp = self.client.get("/gestor/pos/")
         self.assertEqual(resp.status_code, 200)
 
     def test_is_d1_flag_in_product_projection(self) -> None:
@@ -103,7 +103,7 @@ class EmployeeDiscountPOSTests(TestCase):
             group=grp,
         )
         self.client.force_login(self.staff)
-        resp = self.client.post("/gestao/pos/customer-lookup/", {"phone": "5543999001122"})
+        resp = self.client.post("/gestor/pos/customer-lookup/", {"phone": "5543999001122"})
         self.assertEqual(resp.status_code, 200)
         content = resp.content.decode()
         self.assertIn("data-customer-group", content)
@@ -119,7 +119,7 @@ class EmployeeDiscountPOSTests(TestCase):
             phone="5543999001133",
         )
         self.client.force_login(self.staff)
-        resp = self.client.post("/gestao/pos/customer-lookup/", {"phone": "5543999001133"})
+        resp = self.client.post("/gestor/pos/customer-lookup/", {"phone": "5543999001133"})
         self.assertEqual(resp.status_code, 200)
         content = resp.content.decode()
         self.assertIn('data-customer-group=""', content)
@@ -127,6 +127,6 @@ class EmployeeDiscountPOSTests(TestCase):
     def test_pos_template_has_employee_banner(self) -> None:
         """POS template has employee discount banner (x-show='isStaff')."""
         self.client.force_login(self.staff)
-        resp = self.client.get("/gestao/pos/")
+        resp = self.client.get("/gestor/pos/")
         self.assertContains(resp, "isStaff")
         self.assertContains(resp, "Desconto funcionário")

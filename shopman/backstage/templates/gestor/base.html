@@ -6,13 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>{% block title %}Gestão{% endblock %}</title>
+  <title>{% block title %}Gestor{% endblock %}</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:FILL@0..1&display=swap">
-  <link rel="stylesheet" href="{% static 'storefront/css/output-gestao.css' %}">
+  <link rel="stylesheet" href="{% static 'storefront/css/output-gestor.css' %}">
 
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 
@@ -21,7 +21,7 @@
   {% comment %}Dark-first: apply .dark before paint to prevent FOUC.{% endcomment %}
   <script>
   (function() {
-    var stored = localStorage.getItem('gestao_theme');
+    var stored = localStorage.getItem('gestor_theme');
     var h = document.documentElement;
     if (stored === 'light') { h.classList.remove('dark'); }
     else { h.classList.add('dark'); }
@@ -29,7 +29,7 @@
   </script>
 </head>
 <body class="h-screen overflow-hidden bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark font-body"
-      x-data="gestaoShell()">
+      x-data="gestorShell()">
 
   <script>
   document.addEventListener('htmx:configRequest', function(e) {
@@ -200,7 +200,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
 
   <script>
-  function gestaoShell() {
+  function gestorShell() {
     return {
       drawerOpen: false,
       isDark: document.documentElement.classList.contains('dark'),
@@ -222,7 +222,7 @@
         var makeDark = !h.classList.contains('dark');
         h.classList.toggle('dark', makeDark);
         this.isDark = makeDark;
-        localStorage.setItem('gestao_theme', makeDark ? 'dark' : 'light');
+        localStorage.setItem('gestor_theme', makeDark ? 'dark' : 'light');
       }
     };
   }

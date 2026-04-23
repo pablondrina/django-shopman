@@ -8,15 +8,15 @@ from shopman.shop.models import Shop
 
 
 class OnboardingMiddleware:
-    """Redirect staff to /gestao/setup/ if no Shop exists.
+    """Redirect staff to /gestor/setup/ if no Shop exists.
 
     Uses Shop.load() (cached singleton) so this costs zero DB queries
     in normal operation. Only falls through to .exists() if cache miss
     returns None AND objects.first() returns None.
     """
 
-    SETUP_PATH = "/gestao/setup/"
-    GUARDED_PREFIXES = ("/admin/", "/gestao/")
+    SETUP_PATH = "/gestor/setup/"
+    GUARDED_PREFIXES = ("/admin/", "/gestor/")
     SKIP_PREFIXES = ("/static/", "/media/", "/api/", "/favicon")
 
     def __init__(self, get_response):

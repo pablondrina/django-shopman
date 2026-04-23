@@ -52,24 +52,24 @@ class TestManageOrdersPerm(TestCase):
     def test_staff_without_perm_gets_403(self):
         u = _staff("staff_no_perm")
         self.client.force_login(u)
-        resp = self.client.get("/pedidos/")
+        resp = self.client.get("/gestor/pedidos/")
         self.assertEqual(resp.status_code, 403)
 
     def test_staff_with_perm_gets_200(self):
         u = _staff("staff_with_perm", permissions=[self.perm])
         self.client.force_login(u)
-        resp = self.client.get("/pedidos/")
+        resp = self.client.get("/gestor/pedidos/")
         self.assertEqual(resp.status_code, 200)
 
     def test_superuser_passes(self):
         u = User.objects.create_superuser("super", password="test")
         self.client.force_login(u)
-        resp = self.client.get("/pedidos/")
+        resp = self.client.get("/gestor/pedidos/")
         self.assertEqual(resp.status_code, 200)
 
     def test_unauthenticated_redirects_to_login(self):
-        resp = self.client.get("/pedidos/")
-        self.assertRedirects(resp, "/admin/login/?next=/pedidos/", fetch_redirect_response=False)
+        resp = self.client.get("/gestor/pedidos/")
+        self.assertRedirects(resp, "/admin/login/?next=/gestor/pedidos/", fetch_redirect_response=False)
 
 
 class TestOperateKdsPerm(TestCase):
@@ -81,19 +81,19 @@ class TestOperateKdsPerm(TestCase):
     def test_staff_without_perm_gets_403(self):
         u = _staff("kds_no_perm")
         self.client.force_login(u)
-        resp = self.client.get("/kds/")
+        resp = self.client.get("/gestor/kds/")
         self.assertEqual(resp.status_code, 403)
 
     def test_staff_with_perm_passes_check(self):
         u = _staff("kds_op", permissions=[self.perm])
         self.client.force_login(u)
-        resp = self.client.get("/kds/")
+        resp = self.client.get("/gestor/kds/")
         self.assertNotEqual(resp.status_code, 403)
 
     def test_superuser_passes(self):
         u = User.objects.create_superuser("super_kds", password="test")
         self.client.force_login(u)
-        resp = self.client.get("/kds/")
+        resp = self.client.get("/gestor/kds/")
         self.assertNotEqual(resp.status_code, 403)
 
 
@@ -101,24 +101,24 @@ class TestOperatePosPerm(TestCase):
     def setUp(self):
         self.client = Client()
         self.perm = _get_perm("backstage", "cashregistersession", "operate_pos")
-        _create_shop()  # required: OnboardingMiddleware redirects /gestao/ if no Shop
+        _create_shop()  # required: OnboardingMiddleware redirects /gestor/ if no Shop
 
     def test_staff_without_perm_gets_403(self):
         u = _staff("pos_no_perm")
         self.client.force_login(u)
-        resp = self.client.get("/gestao/pos/")
+        resp = self.client.get("/gestor/pos/")
         self.assertEqual(resp.status_code, 403)
 
     def test_staff_with_perm_gets_200(self):
         u = _staff("pos_op", permissions=[self.perm])
         self.client.force_login(u)
-        resp = self.client.get("/gestao/pos/")
+        resp = self.client.get("/gestor/pos/")
         self.assertEqual(resp.status_code, 200)
 
     def test_superuser_passes(self):
         u = User.objects.create_superuser("super_pos", password="test")
         self.client.force_login(u)
-        resp = self.client.get("/gestao/pos/")
+        resp = self.client.get("/gestor/pos/")
         self.assertEqual(resp.status_code, 200)
 
 
@@ -135,17 +135,17 @@ class TestGroupCaixa(TestCase):
 
     def test_caixa_can_access_orders(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/pedidos/")
+        resp = self.client.get("/gestor/pedidos/")
         self.assertEqual(resp.status_code, 200)
 
     def test_caixa_can_access_pos(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/gestao/pos/")
+        resp = self.client.get("/gestor/pos/")
         self.assertEqual(resp.status_code, 200)
 
     def test_caixa_cannot_access_kds(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/kds/")
+        resp = self.client.get("/gestor/kds/")
         self.assertEqual(resp.status_code, 403)
 
 
@@ -162,17 +162,17 @@ class TestGroupCozinha(TestCase):
 
     def test_cozinha_can_access_kds(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/kds/")
+        resp = self.client.get("/gestor/kds/")
         self.assertNotEqual(resp.status_code, 403)
 
     def test_cozinha_cannot_access_pos(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/gestao/pos/")
+        resp = self.client.get("/gestor/pos/")
         self.assertEqual(resp.status_code, 403)
 
     def test_cozinha_cannot_access_orders(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/pedidos/")
+        resp = self.client.get("/gestor/pedidos/")
         self.assertEqual(resp.status_code, 403)
 
 
@@ -189,17 +189,17 @@ class TestGroupGerente(TestCase):
 
     def test_gerente_can_access_orders(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/pedidos/")
+        resp = self.client.get("/gestor/pedidos/")
         self.assertEqual(resp.status_code, 200)
 
     def test_gerente_can_access_pos(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/gestao/pos/")
+        resp = self.client.get("/gestor/pos/")
         self.assertEqual(resp.status_code, 200)
 
     def test_gerente_cannot_access_kds(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/kds/")
+        resp = self.client.get("/gestor/kds/")
         self.assertEqual(resp.status_code, 403)
 
 

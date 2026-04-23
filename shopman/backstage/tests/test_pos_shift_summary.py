@@ -56,7 +56,7 @@ class ShiftSummaryViewTests(TestCase):
 
     def test_summary_zero_sales(self) -> None:
         """Shift summary with no orders shows 0 sales."""
-        resp = self.client.get("/gestao/pos/shift-summary/")
+        resp = self.client.get("/gestor/pos/shift-summary/")
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "0")
 
@@ -64,7 +64,7 @@ class ShiftSummaryViewTests(TestCase):
         """Shift summary counts completed orders."""
         _make_order(self.channel, "SHIFT-001", 1000, status="confirmed")
         _make_order(self.channel, "SHIFT-002", 2000, status="completed")
-        resp = self.client.get("/gestao/pos/shift-summary/")
+        resp = self.client.get("/gestor/pos/shift-summary/")
         self.assertEqual(resp.status_code, 200)
         content = resp.content.decode()
         self.assertIn("2", content)
@@ -73,7 +73,7 @@ class ShiftSummaryViewTests(TestCase):
         """Cancelled orders are not counted in shift summary."""
         _make_order(self.channel, "SHIFT-003", 1000, status="confirmed")
         _make_order(self.channel, "SHIFT-004", 500, status="cancelled")
-        resp = self.client.get("/gestao/pos/shift-summary/")
+        resp = self.client.get("/gestor/pos/shift-summary/")
         self.assertEqual(resp.status_code, 200)
         content = resp.content.decode()
         # Only 1 non-cancelled order
@@ -83,14 +83,14 @@ class ShiftSummaryViewTests(TestCase):
         """Shift summary shows correct total."""
         _make_order(self.channel, "SHIFT-005", 1500, status="confirmed")
         _make_order(self.channel, "SHIFT-006", 2500, status="confirmed")
-        resp = self.client.get("/gestao/pos/shift-summary/")
+        resp = self.client.get("/gestor/pos/shift-summary/")
         self.assertEqual(resp.status_code, 200)
         # Total = R$ 40,00
         self.assertContains(resp, "40,00")
 
     def test_pos_footer_triggers_htmx_load(self) -> None:
         """POS page footer has hx-get for shift summary with auto-refresh."""
-        resp = self.client.get("/gestao/pos/")
+        resp = self.client.get("/gestor/pos/")
         self.assertContains(resp, "shift-summary")
         self.assertContains(resp, "every 60s")
 
@@ -105,6 +105,6 @@ class ShiftSummaryViewTests(TestCase):
             "customer_name": "", "customer_phone": "", "payment_method": "dinheiro",
             "manual_discount": None,
         })
-        resp = self.client.post("/gestao/pos/close/", {"payload": payload})
+        resp = self.client.post("/gestor/pos/close/", {"payload": payload})
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp["HX-Trigger"], "posOrderCreated")

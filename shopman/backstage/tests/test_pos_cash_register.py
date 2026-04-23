@@ -89,16 +89,16 @@ class CashRegisterViewTests(TestCase):
 
     def test_pos_without_open_register_shows_cash_open_page(self) -> None:
         """POS redirects to 'Abrir Caixa' if no open session."""
-        resp = self.client.get("/gestao/pos/")
+        resp = self.client.get("/gestor/pos/")
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Abrir Caixa")
         self.assertTemplateUsed(resp, "pos/cash_open.html")
 
     def test_open_cash_register(self) -> None:
         """POST /caixa/abrir/ creates a session and redirects to POS."""
-        resp = self.client.post("/gestao/pos/caixa/abrir/", {"opening_amount": "50.00"})
+        resp = self.client.post("/gestor/pos/caixa/abrir/", {"opening_amount": "50.00"})
         self.assertEqual(resp.status_code, 302)
-        self.assertRedirects(resp, "/gestao/pos/")
+        self.assertRedirects(resp, "/gestor/pos/")
 
         from shopman.backstage.models import CashRegisterSession
         session = CashRegisterSession.get_open_for_operator(self.staff)
@@ -109,7 +109,7 @@ class CashRegisterViewTests(TestCase):
         """POS shows product grid when a register is open."""
         from shopman.backstage.models import CashRegisterSession
         CashRegisterSession.objects.create(operator=self.staff, opening_amount_q=0)
-        resp = self.client.get("/gestao/pos/")
+        resp = self.client.get("/gestor/pos/")
         self.assertEqual(resp.status_code, 200)
         self.assertTemplateUsed(resp, "pos/index.html")
 
@@ -117,19 +117,19 @@ class CashRegisterViewTests(TestCase):
         """Opening a register when one is already open redirects to POS."""
         from shopman.backstage.models import CashRegisterSession
         CashRegisterSession.objects.create(operator=self.staff, opening_amount_q=0)
-        resp = self.client.post("/gestao/pos/caixa/abrir/", {"opening_amount": "0"})
-        self.assertRedirects(resp, "/gestao/pos/")
+        resp = self.client.post("/gestor/pos/caixa/abrir/", {"opening_amount": "0"})
+        self.assertRedirects(resp, "/gestor/pos/")
 
     def test_sangria_without_open_register(self) -> None:
         """Sangria with no open register returns 422."""
-        resp = self.client.post("/gestao/pos/caixa/sangria/", {"movement_type": "sangria", "amount": "50"})
+        resp = self.client.post("/gestor/pos/caixa/sangria/", {"movement_type": "sangria", "amount": "50"})
         self.assertEqual(resp.status_code, 422)
 
     def test_sangria_with_open_register(self) -> None:
         """Sangria creates a CashMovement."""
         from shopman.backstage.models import CashMovement, CashRegisterSession
         session = CashRegisterSession.objects.create(operator=self.staff, opening_amount_q=10000)
-        resp = self.client.post("/gestao/pos/caixa/sangria/", {
+        resp = self.client.post("/gestor/pos/caixa/sangria/", {
             "movement_type": "sangria", "amount": "20.00", "reason": "retirada",
         })
         self.assertEqual(resp.status_code, 200)
@@ -139,7 +139,7 @@ class CashRegisterViewTests(TestCase):
         """Closing register renders report template."""
         from shopman.backstage.models import CashRegisterSession
         CashRegisterSession.objects.create(operator=self.staff, opening_amount_q=5000)
-        resp = self.client.post("/gestao/pos/caixa/fechar/", {
+        resp = self.client.post("/gestor/pos/caixa/fechar/", {
             "closing_amount": "50.00", "notes": "turno tranquilo",
         })
         self.assertEqual(resp.status_code, 200)

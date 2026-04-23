@@ -39,15 +39,15 @@ class ChannelParamMiddleware:
 
 
 class OnboardingMiddleware:
-    """Redirect staff to /gestao/setup/ if no Shop exists.
+    """Redirect staff to /gestor/setup/ if no Shop exists.
 
     Uses Shop.load() (cached singleton) so this costs zero DB queries
     in normal operation. Only falls through to .exists() if cache miss
     returns None AND objects.first() returns None.
     """
 
-    SETUP_PATH = "/gestao/setup/"
-    GUARDED_PREFIXES = ("/admin/", "/gestao/")
+    SETUP_PATH = "/gestor/setup/"
+    GUARDED_PREFIXES = ("/admin/", "/gestor/")
     # Static files and API should never trigger redirect
     SKIP_PREFIXES = ("/static/", "/media/", "/api/", "/favicon")
 
@@ -115,7 +115,7 @@ class WelcomeGateMiddleware:
         "/media/",
         "/api/",
         "/admin/",
-        "/gestao/",
+        "/gestor/",
         "/webhooks/",
         "/favicon",
         "/manifest.json",

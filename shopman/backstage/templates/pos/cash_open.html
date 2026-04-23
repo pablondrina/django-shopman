@@ -1,4 +1,4 @@
-{% extends "gestao/base.html" %}
+{% extends "gestor/base.html" %}
 {% load storefront_tags %}
 {% block title %}Abrir Caixa — {{ shop.brand_name|default:shop.name }}{% endblock %}
 {% block page_title %}Abrir Caixa{% endblock %}
@@ -14,7 +14,7 @@
         <p class="text-on-surface/60 dark:text-on-surface-dark/60 text-sm mt-1">POS — Abrir Caixa</p>
       </div>
 
-      <form hx-post="/gestao/pos/caixa/abrir/"
+      <form hx-post="/gestor/pos/caixa/abrir/"
             hx-target="body"
             hx-swap="outerHTML"
             hx-push-url="true">

@@ -111,7 +111,7 @@ class TestHappyPaths:
         page.wait_for_load_state("networkidle")
 
         # Visit Gestor de Pedidos
-        page.goto(f"{base_url}/pedidos/")
+        page.goto(f"{base_url}/gestor/pedidos/")
         page.wait_for_load_state("networkidle")
 
         # Page should load (may be empty if no orders seeded)
@@ -131,7 +131,7 @@ class TestHappyPaths:
         page.wait_for_load_state("networkidle")
 
         # Visit KDS index
-        page.goto(f"{base_url}/kds/")
+        page.goto(f"{base_url}/gestor/kds/")
         page.wait_for_load_state("networkidle")
 
         # Page should load with KDS stations listed
@@ -151,7 +151,7 @@ class TestHappyPaths:
         page.wait_for_load_state("networkidle")
 
         # Visit POS
-        page.goto(f"{base_url}/gestao/pos/")
+        page.goto(f"{base_url}/gestor/pos/")
         page.wait_for_load_state("networkidle")
 
         # POS page should load
@@ -269,9 +269,9 @@ class TestNavigation:
         assert response.status in (200, 302), f"{path} returned {response.status}"
 
     @pytest.mark.parametrize("path", [
-        "/pedidos/",
-        "/kds/",
-        "/gestao/pos/",
+        "/gestor/pedidos/",
+        "/gestor/kds/",
+        "/gestor/pos/",
     ])
     def test_operator_pages_require_auth(self, page, base_url, path):
         """Operator pages should redirect to login."""

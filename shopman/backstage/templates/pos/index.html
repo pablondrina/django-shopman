@@ -1,4 +1,4 @@
-{% extends "gestao/base.html" %}
+{% extends "gestor/base.html" %}
 {% load storefront_tags %}
 {% block title %}POS — {{ shop.brand_name|default:shop.name }}{% endblock %}
 {% block page_title %}Ponto de Venda{% endblock %}
@@ -14,7 +14,7 @@
 <div id="pos-root"
      x-data="posApp()"
      @keydown.window="handleKey($event)"
-     @htmx:after-swap.camel.window="onSaleComplete($event)"
+     @htmx:after-swap.window="onSaleComplete($event)"
      @sku-state.window="onSkuState($event.detail)"
      hx-ext="sse"
      sse-connect="{% url 'storefront:stock_events' channel_ref=pos_channel_ref|default:'pdv' %}"
@@ -160,13 +160,13 @@
                  class="w-full px-2.5 py-1.5 border border-outline dark:border-outline-dark rounded-lg text-sm bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark placeholder:text-on-surface/40 focus:outline-none focus:ring-1 focus:ring-primary/30 dark:focus:ring-primary-dark/30"
                  placeholder="Telefone do cliente"
                  x-model="customerPhone"
-                 hx-post="/gestao/pos/customer-lookup/"
+                 hx-post="/gestor/pos/customer-lookup/"
                  hx-trigger="blur changed, keydown[key=='Enter'] changed"
                  hx-target="#pos-customer-result"
                  hx-swap="innerHTML"
                  hx-include="[name='phone']">
           <div id="pos-customer-result" class="text-xs text-secondary dark:text-primary-dark font-semibold mt-1 min-h-[1rem]"
-               @htmx:after-swap.camel="
+               @htmx:after-swap="
                  var span = $el.querySelector('[data-customer-group]');
                  if (span) {
                    customerName = span.dataset.customerName || '';
@@ -205,7 +205,7 @@
                 type="button"
                 class="btn-primary w-full text-base font-bold min-h-12"
                 :disabled="cart.length === 0"
-                hx-post="/gestao/pos/close/"
+                hx-post="/gestor/pos/close/"
                 hx-vals="js:{payload: Alpine.$data(document.getElementById('pos-root')).cartPayload()}"
                 hx-target="#pos-result"
                 hx-swap="innerHTML">
@@ -232,7 +232,7 @@
                   x-show="lastOrderRef"
                   x-cloak
                   class="flex-1 py-2 text-xs font-semibold bg-danger/10 border border-danger/30 rounded-lg text-danger hover:bg-danger/20"
-                  hx-post="/gestao/pos/cancel-last/"
+                  hx-post="/gestor/pos/cancel-last/"
                   hx-vals="js:{order_ref: lastOrderRef}"
                   hx-target="#pos-cancel-result"
                   hx-swap="innerHTML">
@@ -254,7 +254,7 @@
     <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="open = false"></div>
     <div class="relative bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark rounded-2xl p-6 w-full max-w-sm shadow-xl">
       <h2 class="font-title font-bold text-lg mb-4">Movimentação de Caixa</h2>
-      <form hx-post="/gestao/pos/caixa/sangria/"
+      <form hx-post="/gestor/pos/caixa/sangria/"
             hx-target="#pos-sangria-result"
             hx-swap="innerHTML"
             hx-on::after-request="if(event.detail.successful){ amount=''; reason=''; open=false; }">
@@ -294,7 +294,7 @@
        @keydown.escape.window="open = false">
     <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="open = false"></div>
     <form class="relative bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark rounded-2xl p-6 w-full max-w-sm shadow-xl"
-          hx-post="/gestao/pos/caixa/fechar/"
+          hx-post="/gestor/pos/caixa/fechar/"
           hx-target="body"
           hx-swap="outerHTML"
           hx-push-url="true">
@@ -380,7 +380,7 @@
   {% comment %}Shift summary footer{% endcomment %}
   <footer class="bg-surface-alt dark:bg-surface-dark-alt border-t border-outline dark:border-outline-dark px-4 py-2 flex items-center justify-between text-xs text-on-surface/40 dark:text-on-surface-dark/40 shrink-0">
     <div id="pos-shift-footer" class="flex items-center gap-4"
-         hx-get="/gestao/pos/shift-summary/"
+         hx-get="/gestor/pos/shift-summary/"
          hx-trigger="load, posOrderCreated from:body, every 60s"
          hx-swap="innerHTML">
       <span>Carregando turno…</span>

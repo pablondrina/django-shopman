@@ -123,7 +123,7 @@ class POSCloseWithDiscountTests(TestCase):
         }
         self.client.force_login(self.staff)
         return self.client.post(
-            "/gestao/pos/close/",
+            "/gestor/pos/close/",
             {"payload": json.dumps(payload)},
         )
 

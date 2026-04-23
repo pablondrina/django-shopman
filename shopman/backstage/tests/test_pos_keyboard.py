@@ -58,7 +58,7 @@ class POSKeyboardShortcutTemplateTests(TestCase):
         CashRegisterSession.objects.create(operator=self.staff, opening_amount_q=0)
 
     def _content(self):
-        return self.client.get("/gestao/pos/").content.decode()
+        return self.client.get("/gestor/pos/").content.decode()
 
     def test_global_keydown_handler_present(self) -> None:
         """Template binds @keydown.window to handleKey."""

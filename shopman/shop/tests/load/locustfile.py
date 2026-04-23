@@ -211,7 +211,7 @@ class OperatorUser(HttpUser):
     @task(3)
     def gestor_pedidos(self):
         """GET /pedidos/ — order management panel."""
-        self.client.get("/pedidos/", name="/pedidos/")
+        self.client.get("/gestor/pedidos/", name="/gestor/pedidos/")
 
     @task(2)
     def gestor_list_partial(self):
@@ -253,7 +253,7 @@ class KDSUser(HttpUser):
     @task(3)
     def kds_index(self):
         """GET /kds/ — KDS station list."""
-        self.client.get("/kds/", name="/kds/")
+        self.client.get("/gestor/kds/", name="/gestor/kds/")
 
     @task(5)
     def kds_display(self):

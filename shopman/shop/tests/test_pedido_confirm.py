@@ -5,7 +5,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
 from shopman.orderman.models import Order
 
-from shopman.shop.models import Channel
+from shopman.shop.models import Channel, Shop
 
 
 class PedidoConfirmTests(TestCase):
@@ -17,6 +17,9 @@ class PedidoConfirmTests(TestCase):
         self.staff.user_permissions.add(perm)
         self.client.force_login(self.staff)
         Channel.objects.create(ref="pdv", name="PDV", is_active=True)
+        Shop.objects.create(  # required: OnboardingMiddleware redirects /gestor/ if no Shop
+            name="Test Shop", default_ddd="11", currency="BRL", timezone="America/Sao_Paulo"
+        )
 
     def test_confirm_requires_positive_availability_decision(self) -> None:
         order = Order.objects.create(
@@ -29,7 +32,7 @@ class PedidoConfirmTests(TestCase):
             total_q=1500,
         )
 
-        resp = self.client.post(f"/pedidos/{order.ref}/confirm/")
+        resp = self.client.post(f"/gestor/pedidos/{order.ref}/confirm/")
 
         self.assertEqual(resp.status_code, 422)
         order.refresh_from_db()
@@ -52,7 +55,7 @@ class PedidoConfirmTests(TestCase):
             total_q=1500,
         )
 
-        resp = self.client.post(f"/pedidos/{order.ref}/confirm/")
+        resp = self.client.post(f"/gestor/pedidos/{order.ref}/confirm/")
 
         self.assertEqual(resp.status_code, 200)
         order.refresh_from_db()

@@ -49,13 +49,13 @@ class TestHomeViewXFrame:
         assert reverse("storefront:account") == "/minha-conta/"
 
     def test_gestor_pedidos(self, db):
-        assert reverse("backstage:gestor_pedidos") == "/pedidos/"
+        assert reverse("backstage:gestor_pedidos") == "/gestor/pedidos/"
 
     def test_kds_index(self, db):
-        assert reverse("backstage:kds_index") == "/kds/"
+        assert reverse("backstage:kds_index") == "/gestor/kds/"
 
     def test_pos(self, db):
-        assert reverse("backstage:pos") == "/gestao/pos/"
+        assert reverse("backstage:pos") == "/gestor/pos/"
 
 
 class TestViewImports:

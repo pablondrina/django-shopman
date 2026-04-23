@@ -85,7 +85,7 @@ class PosCancelLastTests(TestCase):
     def test_cancel_last_happy_path(self) -> None:
         """POST cancel-last within 5min → order cancelled."""
         order = _create_pos_order()
-        resp = self.client.post("/gestao/pos/cancel-last/", {"order_ref": order.ref})
+        resp = self.client.post("/gestor/pos/cancel-last/", {"order_ref": order.ref})
 
         self.assertEqual(resp.status_code, 200)
         order.refresh_from_db()
@@ -94,7 +94,7 @@ class PosCancelLastTests(TestCase):
     def test_cancel_last_success_message(self) -> None:
         """Successful cancellation returns feedback with order ref."""
         order = _create_pos_order()
-        resp = self.client.post("/gestao/pos/cancel-last/", {"order_ref": order.ref})
+        resp = self.client.post("/gestor/pos/cancel-last/", {"order_ref": order.ref})
 
         self.assertContains(resp, order.ref)
         self.assertContains(resp, "cancelada")
@@ -107,7 +107,7 @@ class PosCancelLastTests(TestCase):
             created_at=timezone.now() - timedelta(minutes=6)
         )
 
-        resp = self.client.post("/gestao/pos/cancel-last/", {"order_ref": order.ref})
+        resp = self.client.post("/gestor/pos/cancel-last/", {"order_ref": order.ref})
 
         self.assertEqual(resp.status_code, 422)
         order.refresh_from_db()
@@ -118,12 +118,12 @@ class PosCancelLastTests(TestCase):
         order = _create_pos_order()
         self.client.force_login(self.regular)
 
-        resp = self.client.post("/gestao/pos/cancel-last/", {"order_ref": order.ref})
+        resp = self.client.post("/gestor/pos/cancel-last/", {"order_ref": order.ref})
         self.assertEqual(resp.status_code, 403)
 
     def test_cancel_last_unknown_ref(self) -> None:
         """Unknown order ref → 404."""
-        resp = self.client.post("/gestao/pos/cancel-last/", {"order_ref": "NONEXISTENT"})
+        resp = self.client.post("/gestor/pos/cancel-last/", {"order_ref": "NONEXISTENT"})
         self.assertEqual(resp.status_code, 404)
 
     def test_cancel_last_wrong_status(self) -> None:
@@ -132,12 +132,12 @@ class PosCancelLastTests(TestCase):
         # Force to completed (terminal) bypassing transition rules
         Order.objects.filter(pk=order.pk).update(status="completed")
 
-        resp = self.client.post("/gestao/pos/cancel-last/", {"order_ref": order.ref})
+        resp = self.client.post("/gestor/pos/cancel-last/", {"order_ref": order.ref})
         self.assertEqual(resp.status_code, 422)
 
     def test_cancel_last_missing_ref(self) -> None:
         """POST without order_ref → 422."""
-        resp = self.client.post("/gestao/pos/cancel-last/", {})
+        resp = self.client.post("/gestor/pos/cancel-last/", {})
         self.assertEqual(resp.status_code, 422)
 
 
@@ -172,24 +172,24 @@ class PosCloseGranularErrorTests(TestCase):
         """No pdv channel → 500 with channel error message."""
         self.channel.delete()
 
-        resp = self.client.post("/gestao/pos/close/", self._close_payload())
+        resp = self.client.post("/gestor/pos/close/", self._close_payload())
         self.assertEqual(resp.status_code, 500)
         self.assertIn("pdv", resp.content.decode().lower())
 
     def test_pos_close_empty_cart(self) -> None:
         """Empty items list → 422."""
         import json
-        resp = self.client.post("/gestao/pos/close/", {"payload": json.dumps({"items": []})})
+        resp = self.client.post("/gestor/pos/close/", {"payload": json.dumps({"items": []})})
         self.assertEqual(resp.status_code, 422)
 
     def test_pos_close_invalid_payload(self) -> None:
         """Non-JSON payload → 400."""
-        resp = self.client.post("/gestao/pos/close/", {"payload": "not-json"})
+        resp = self.client.post("/gestor/pos/close/", {"payload": "not-json"})
         self.assertEqual(resp.status_code, 400)
 
     def test_pos_close_missing_payload(self) -> None:
         """No payload key → 422."""
-        resp = self.client.post("/gestao/pos/close/", {})
+        resp = self.client.post("/gestor/pos/close/", {})
         self.assertEqual(resp.status_code, 422)
 
     def test_pos_close_commit_error_returns_granular_message(self) -> None:
@@ -197,7 +197,7 @@ class PosCloseGranularErrorTests(TestCase):
         with patch("shopman.backstage.views.pos.CommitService.commit") as mock_commit:
             mock_commit.side_effect = Exception("Sessão expirada")
 
-            resp = self.client.post("/gestao/pos/close/", self._close_payload())
+            resp = self.client.post("/gestor/pos/close/", self._close_payload())
 
         self.assertEqual(resp.status_code, 400)
         self.assertIn("Erro ao finalizar", resp.content.decode())
@@ -207,7 +207,7 @@ class PosCloseGranularErrorTests(TestCase):
         with patch("shopman.backstage.views.pos.ModifyService.modify_session") as mock_modify:
             mock_modify.side_effect = Exception("Estoque insuficiente para SKU X")
 
-            resp = self.client.post("/gestao/pos/close/", self._close_payload())
+            resp = self.client.post("/gestor/pos/close/", self._close_payload())
 
         self.assertEqual(resp.status_code, 422)
         content = resp.content.decode()

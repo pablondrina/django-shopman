@@ -1,11 +1,11 @@
-{% extends "gestao/base.html" %}
+{% extends "gestor/base.html" %}
 {% block title %}{{ instance.name }} — KDS{% endblock %}
 {% block page_title %}{{ instance.name }}{% endblock %}
 {% block nav_active_kds %}active{% endblock %}
 {% block main_class %}overflow-hidden flex flex-col{% endblock %}
 
 {% block navbar_actions %}
-<a href="/kds/" class="btn-icon" title="Voltar à lista" aria-label="Voltar à lista">
+<a href="/gestor/kds/" class="btn-icon" title="Voltar à lista" aria-label="Voltar à lista">
   <span class="material-symbols-rounded text-xl" aria-hidden="true">arrow_back</span>
 </a>
 {% endblock %}
@@ -40,7 +40,7 @@
     <div id="ticket-grid"
          class="grid gap-3 items-start"
          style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr))"
-         hx-get="/kds/{{ instance.ref }}/tickets/"
+         hx-get="/gestor/kds/{{ instance.ref }}/tickets/"
          hx-trigger="every {{ instance.config.refresh_interval_seconds|default:5 }}s"
          hx-target="#ticket-grid"
          hx-swap="innerHTML">

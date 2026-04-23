@@ -44,7 +44,7 @@ class POSLayoutTests(TestCase):
     def test_pos_loads_for_staff(self) -> None:
         """Staff can access POS page."""
         self.client.force_login(self.staff)
-        resp = self.client.get("/gestao/pos/")
+        resp = self.client.get("/gestor/pos/")
         self.assertEqual(resp.status_code, 200)
 
     def test_pos_redirects_non_staff(self) -> None:
@@ -52,36 +52,36 @@ class POSLayoutTests(TestCase):
         User = get_user_model()
         user = User.objects.create_user(username="regular", password="x", is_staff=False)
         self.client.force_login(user)
-        resp = self.client.get("/gestao/pos/")
+        resp = self.client.get("/gestor/pos/")
         self.assertEqual(resp.status_code, 302)
 
     def test_pos_context_has_payment_methods(self) -> None:
         """POS context includes payment_methods list."""
         self.client.force_login(self.staff)
-        resp = self.client.get("/gestao/pos/")
+        resp = self.client.get("/gestor/pos/")
         self.assertIn("payment_methods", resp.context)
         self.assertGreater(len(resp.context["payment_methods"]), 0)
 
     def test_pos_template_uses_tailwind_classes(self) -> None:
         """POS template uses Tailwind-based design tokens (no inline pos-tile CSS)."""
         self.client.force_login(self.staff)
-        resp = self.client.get("/gestao/pos/")
+        resp = self.client.get("/gestor/pos/")
         content = resp.content.decode()
         # Uses Tailwind class, not old custom CSS class
         self.assertIn("rounded-xl", content)
-        # Design tokens are rendered (gestao CSS link present)
-        self.assertIn("output-gestao.css", content)
+        # Design tokens are rendered (gestor CSS link present)
+        self.assertIn("output-gestor.css", content)
 
     def test_pos_includes_shift_footer(self) -> None:
         """POS page includes the shift summary footer placeholder."""
         self.client.force_login(self.staff)
-        resp = self.client.get("/gestao/pos/")
+        resp = self.client.get("/gestor/pos/")
         self.assertContains(resp, "pos-shift-footer")
 
     def test_pos_includes_keyboard_hints(self) -> None:
         """POS page shows keyboard shortcut hints on buttons."""
         self.client.force_login(self.staff)
-        resp = self.client.get("/gestao/pos/")
+        resp = self.client.get("/gestor/pos/")
         self.assertContains(resp, "F8")
         self.assertContains(resp, "F5")
         self.assertContains(resp, "F6")
