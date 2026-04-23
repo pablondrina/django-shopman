@@ -60,6 +60,8 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
     delivery_time_slot = post.get("delivery_time_slot", "").strip()
     saved_address_id_raw = post.get("saved_address_id", "").strip()
     addr_data = _parse_address_data(post)
+    if not delivery_address and addr_data.get("formatted_address"):
+        delivery_address = addr_data["formatted_address"]
 
     form_data = _build_form_data(
         name_raw, phone_raw, notes, fulfillment_type, delivery_address,
