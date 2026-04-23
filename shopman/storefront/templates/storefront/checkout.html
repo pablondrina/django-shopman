@@ -103,7 +103,7 @@
   step: (() => {
     const s = new URLSearchParams(window.location.search).get('step');
     if (['fulfillment', 'address', 'when', 'payment'].includes(s)) return s;
-    return '{% if errors.payment_method %}payment{% elif errors.delivery_date or errors.delivery_time_slot %}when{% elif errors.delivery_address or errors.addr_street_number %}address{% else %}fulfillment{% endif %}';
+    return '{% if errors.payment_method %}payment{% elif errors.delivery_date or errors.delivery_time_slot %}when{% elif errors.delivery_address or errors.street_number %}address{% else %}fulfillment{% endif %}';
   })(),
   init() {
     window.addEventListener('popstate', () => {
@@ -276,9 +276,9 @@
               <p class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Endereço de entrega</p>
             </div>
             <div class="px-5 pb-5 border-t border-outline dark:border-outline-dark pt-4 space-y-4">
-              {% include "storefront/partials/address_picker.html" with picker_mode="checkout" picker_name_prefix="addr_" picker_show_saved=True %}
+              {% include "storefront/partials/address_picker.html" with picker_mode="checkout" picker_show_saved=True %}
               {% if errors.delivery_address %}<p class="text-xs text-danger">{{ errors.delivery_address }}</p>{% endif %}
-              {% if errors.addr_street_number %}<p class="text-xs text-danger">{{ errors.addr_street_number }}</p>{% endif %}
+              {% if errors.street_number %}<p class="text-xs text-danger">{{ errors.street_number }}</p>{% endif %}
               <button type="button" @click="goTo(nextFrom('address'))"
                       class="w-full rounded-radius bg-primary px-6 py-3 font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px] transition">
                 Continuar

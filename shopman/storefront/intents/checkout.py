@@ -266,24 +266,24 @@ def _resolve_payment_method(post, payment_methods: list[str]) -> str:
 
 def _parse_address_data(post) -> dict:
     addr_data = {
-        "route": post.get("addr_route", "").strip(),
-        "street_number": post.get("addr_street_number", "").strip(),
-        "complement": post.get("addr_complement", "").strip(),
-        "neighborhood": post.get("addr_neighborhood", "").strip(),
-        "city": post.get("addr_city", "").strip(),
-        "state_code": post.get("addr_state_code", "").strip(),
-        "postal_code": post.get("addr_postal_code", "").strip(),
-        "place_id": post.get("addr_place_id", "").strip(),
-        "formatted_address": post.get("addr_formatted_address", "").strip(),
-        "delivery_instructions": post.get("addr_delivery_instructions", "").strip(),
-        "is_verified": post.get("addr_is_verified", "") == "true",
+        "route": post.get("route", "").strip(),
+        "street_number": post.get("street_number", "").strip(),
+        "complement": post.get("complement", "").strip(),
+        "neighborhood": post.get("neighborhood", "").strip(),
+        "city": post.get("city", "").strip(),
+        "state_code": post.get("state_code", "").strip(),
+        "postal_code": post.get("postal_code", "").strip(),
+        "place_id": post.get("place_id", "").strip(),
+        "formatted_address": post.get("formatted_address", "").strip(),
+        "delivery_instructions": post.get("delivery_instructions", "").strip(),
+        "is_verified": post.get("is_verified", "") == "true",
     }
     try:
-        addr_data["latitude"] = float(post.get("addr_latitude", ""))
+        addr_data["latitude"] = float(post.get("latitude", ""))
     except (ValueError, TypeError):
         addr_data["latitude"] = None
     try:
-        addr_data["longitude"] = float(post.get("addr_longitude", ""))
+        addr_data["longitude"] = float(post.get("longitude", ""))
     except (ValueError, TypeError):
         addr_data["longitude"] = None
     return addr_data
@@ -312,16 +312,16 @@ def _build_form_data(
         "delivery_time_slot": delivery_time_slot,
         "saved_address_id": saved_address_id_raw,
         "payment_method": payment_method,
-        "addr_route": addr_data.get("route", ""),
-        "addr_street_number": addr_data.get("street_number", ""),
-        "addr_complement": addr_data.get("complement", ""),
-        "addr_neighborhood": addr_data.get("neighborhood", ""),
-        "addr_city": addr_data.get("city", ""),
-        "addr_state_code": addr_data.get("state_code", ""),
-        "addr_postal_code": addr_data.get("postal_code", ""),
-        "addr_delivery_instructions": addr_data.get("delivery_instructions", ""),
-        "addr_formatted_address": addr_data.get("formatted_address", ""),
-        "addr_place_id": addr_data.get("place_id", ""),
+        "route": addr_data.get("route", ""),
+        "street_number": addr_data.get("street_number", ""),
+        "complement": addr_data.get("complement", ""),
+        "neighborhood": addr_data.get("neighborhood", ""),
+        "city": addr_data.get("city", ""),
+        "state_code": addr_data.get("state_code", ""),
+        "postal_code": addr_data.get("postal_code", ""),
+        "delivery_instructions": addr_data.get("delivery_instructions", ""),
+        "formatted_address": addr_data.get("formatted_address", ""),
+        "place_id": addr_data.get("place_id", ""),
     }
 
 
@@ -392,7 +392,7 @@ def _validate_checkout_form(
                 "Escolha um endereço salvo ou adicione um novo para entregarmos."
             )
         if has_route and not has_number:
-            errors["addr_street_number"] = "Falta só o número do endereço."
+            errors["street_number"] = "Falta só o número do endereço."
     if not payment_method:
         errors["payment_method"] = "Selecione uma forma de pagamento."
     return errors

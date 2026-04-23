@@ -65,18 +65,18 @@ def address_picker_context(
     initial_draft = None
     if form_data:
         draft = {
-            "route": form_data.get("addr_route", ""),
-            "street_number": form_data.get("addr_street_number", ""),
-            "complement": form_data.get("addr_complement", ""),
-            "neighborhood": form_data.get("addr_neighborhood", ""),
-            "city": form_data.get("addr_city", ""),
-            "state_code": form_data.get("addr_state_code", ""),
-            "postal_code": form_data.get("addr_postal_code", ""),
-            "place_id": form_data.get("addr_place_id", ""),
-            "formatted_address": form_data.get("addr_formatted_address", ""),
-            "delivery_instructions": form_data.get("addr_delivery_instructions", ""),
-            "latitude": form_data.get("addr_latitude") or None,
-            "longitude": form_data.get("addr_longitude") or None,
+            "route": form_data.get("route", ""),
+            "street_number": form_data.get("street_number", ""),
+            "complement": form_data.get("complement", ""),
+            "neighborhood": form_data.get("neighborhood", ""),
+            "city": form_data.get("city", ""),
+            "state_code": form_data.get("state_code", ""),
+            "postal_code": form_data.get("postal_code", ""),
+            "place_id": form_data.get("place_id", ""),
+            "formatted_address": form_data.get("formatted_address", ""),
+            "delivery_instructions": form_data.get("delivery_instructions", ""),
+            "latitude": form_data.get("latitude") or None,
+            "longitude": form_data.get("longitude") or None,
         }
         if any(v for v in draft.values() if v not in (None, "")):
             initial_draft = draft

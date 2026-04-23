@@ -10,7 +10,7 @@
                          formatted_address, delivery_instructions, is_default.
     picker_preselected_id — int or None (best-guess id from suggest_address).
     picker_mode        — "checkout" or "account".
-    picker_name_prefix — optional form input name prefix; defaults to "addr_".
+    picker_name_prefix — optional form input name prefix; defaults to "".
     picker_show_saved  — bool; if False, never render the saved list.
 
   Emits (via regular hidden inputs inside the picker form):
@@ -23,7 +23,7 @@
   Caller is responsible for placing this inside a <form>.
 {% endcomment %}
 
-{% with name_prefix=picker_name_prefix|default:"addr_" %}
+{% with name_prefix=picker_name_prefix|default:"" %}
 <div x-data="addressPicker({
        initialAddresses: {{ picker_addresses_json|default:'[]' }},
        preselectedId: {{ picker_preselected_id|default:'null' }},
