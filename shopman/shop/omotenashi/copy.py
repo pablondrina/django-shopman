@@ -326,6 +326,21 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "LOGIN_NAME_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Confirmar")},
     },
+    "DEVICE_TRUST_PROMPT": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Salvar este dispositivo?", message="Entre sem código pelos próximos 30 dias.")},
+    },
+    "DEVICE_TRUST_CTA": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Salvar por 30 dias")},
+    },
+    "DEVICE_TRUST_SKIP_CTA": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Agora não")},
+    },
+    "DEVICE_TRUST_SAVED": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Dispositivo salvo por 30 dias.")},
+    },
+    "DEVICE_TRUST_GREETING": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Bem-vindo de volta")},
+    },
 
     # ── History / account empty states ────────────────────────────
     "HISTORY_EMPTY": {

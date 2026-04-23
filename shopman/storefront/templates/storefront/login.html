@@ -67,6 +67,27 @@
 
     {% if step == "phone" %}
     {% comment %}═══ Step 1: Phone ═══{% endcomment %}
+
+    {% if login_context == "trusted" %}
+    {% comment %}── Dispositivo confiável: botão de skip-OTP + resultado inline ──{% endcomment %}
+    <div id="trusted-device-section" class="mb-6">
+      <button type="button"
+              hx-post="{% url 'storefront:device_check_login' %}"
+              hx-target="#trusted-device-section"
+              hx-swap="innerHTML"
+              hx-vals='{"phone": "{{ phone_prefill|escapejs }}"{% if next %}, "next": "{% url 'storefront:login' %}?step=post-login&next={{ next|urlencode }}"{% else %}, "next": "{% url 'storefront:login' %}?step=post-login"{% endif %}'
+              hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+              style="min-height: 52px;"
+              class="flex w-full items-center justify-center gap-2 rounded-radius border-2 border-primary bg-primary/5 px-4 py-3 text-sm font-medium text-primary transition hover:bg-primary/10 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:border-primary-dark dark:bg-primary-dark/10 dark:text-primary-dark dark:hover:bg-primary-dark/15 dark:focus-visible:outline-primary-dark">
+        <span class="material-symbols-rounded text-xl" aria-hidden="true">verified_user</span>
+        Entrar sem código
+      </button>
+      <p class="mt-2 text-center text-xs text-on-surface/50 dark:text-on-surface-dark/50">
+        Dispositivo reconhecido — ou use seu telefone abaixo
+      </p>
+    </div>
+    {% endif %}
+
     <p class="mb-6 text-center text-base sm:text-lg text-on-surface/70 dark:text-on-surface-dark/70">
       {{ login_phone_subtitle.message }}
     </p>
@@ -218,14 +239,8 @@
     </div>
 
     <script>
-    document.body.addEventListener('htmx:afterSwap', function(evt) {
-      if (evt.detail.target.id === 'auth-section') {
-        if (evt.detail.target.querySelector('[data-auth-success]')) {
-          setTimeout(function() {
-            window.location.href = '{% url "storefront:login" %}?step=post-login{% if next %}&next={{ next|urlencode }}{% endif %}';
-          }, 800);
-        }
-      }
+    window.addEventListener('auth-confirmed', function() {
+      window.location.href = '{% url "storefront:login" %}?step=post-login{% if next %}&next={{ next|urlencode }}{% endif %}';
     });
     </script>
 

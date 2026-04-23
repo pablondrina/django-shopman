@@ -201,7 +201,7 @@ class TestDeviceTrust:
     """DeviceTrust: skip-OTP on revisits."""
 
     def test_device_trust_skips_otp(self, client: Client, customer):
-        """Trusted device allows auto-login without OTP."""
+        """Trusted device auto-logins and returns greeting HTML (no OTP needed)."""
         device, raw_token = TrustedDevice.create_for_customer(
             customer_id=customer.uuid,
             user_agent="Mozilla/5.0 Test",
@@ -215,9 +215,9 @@ class TestDeviceTrust:
         response = client.post("/auth/device-check/", {"phone": customer.phone})
 
         assert response.status_code == 200
-        data = response.json()
-        assert data["trusted"] is True
-        assert data["name"] == customer.name
+        content = response.content.decode()
+        # Returns greeting HTML, not JSON
+        assert "Bem-vindo de volta" in content
 
         # Django auth user should be set
         user_id = client.session.get("_auth_user_id")
@@ -264,8 +264,8 @@ class TestDeviceTrust:
         data = response.json()
         assert data["trusted"] is False
 
-    def test_verify_code_sets_device_trust_cookie(self, client: Client, customer):
-        """Successful OTP verification sets device trust cookie on response."""
+    def test_verify_code_no_longer_sets_cookie_directly(self, client: Client, customer):
+        """OTP verification no longer auto-trusts — cookie deferred to TrustDeviceView."""
         with patch("shopman.doorman.services.verification.AuthService") as mock_vs:
             from shopman.doorman.protocols.customer import AuthCustomerInfo
 
@@ -289,7 +289,24 @@ class TestDeviceTrust:
             from shopman.doorman.conf import doorman_settings
 
             cookie_name = doorman_settings.DEVICE_TRUST_COOKIE_NAME
-            assert cookie_name in response.cookies
+            # Cookie not set here anymore — user must confirm via TrustDeviceView
+            assert cookie_name not in response.cookies
+
+    def test_trust_device_view_sets_cookie(self, client: Client, customer):
+        """TrustDeviceView sets device trust cookie when trust=1."""
+        _login_as_customer(client, customer)
+        response = client.post("/auth/trust-device/", {"trust": "1"})
+        assert response.status_code == 200
+        from shopman.doorman.conf import doorman_settings
+        assert doorman_settings.DEVICE_TRUST_COOKIE_NAME in response.cookies
+
+    def test_trust_device_view_no_cookie_when_skipped(self, client: Client, customer):
+        """TrustDeviceView does NOT set cookie when trust=0."""
+        _login_as_customer(client, customer)
+        response = client.post("/auth/trust-device/", {"trust": "0"})
+        assert response.status_code == 200
+        from shopman.doorman.conf import doorman_settings
+        assert doorman_settings.DEVICE_TRUST_COOKIE_NAME not in response.cookies
 
 
 # ── Rate Limiting ──────────────────────────────────────────────────

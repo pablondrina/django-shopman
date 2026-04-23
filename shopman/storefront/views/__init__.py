@@ -21,6 +21,7 @@ from .auth import (
     DeviceCheckLoginView,
     LoginView,
     RequestCodeView,
+    TrustDeviceView,
     VerifyCodeView,
 )
 from .access import AccessLinkEntryView
@@ -76,6 +77,7 @@ __all__ = [
     "DataExportView",
     "DeviceCheckLoginView",
     "DeviceListView",
+    "TrustDeviceView",
     "DeviceRevokeAllView",
     "DeviceRevokeView",
     "FoodPreferenceToggleView",
