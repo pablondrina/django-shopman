@@ -195,6 +195,9 @@ def pos_close(request: HttpRequest) -> HttpResponse:
                 ops.append({"op": "set_data", "path": "customer.group", "value": customer_obj.group.ref})
 
     ops.append({"op": "set_data", "path": "payment.method", "value": payment_method})
+    tendered_amount_q = body.get("tendered_amount_q")
+    if tendered_amount_q and payment_method in ("cash", "dinheiro"):
+        ops.append({"op": "set_data", "path": "payment.tendered_q", "value": int(tendered_amount_q)})
     ops.append({"op": "set_data", "path": "origin_channel", "value": "pos"})
     ops.append({"op": "set_data", "path": "fulfillment_type", "value": "pickup"})
 
