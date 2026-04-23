@@ -376,21 +376,11 @@ class VerifyCodeView(View):
         except Exception:
             logger.debug("auth_confirmed_name_lookup_failed", exc_info=True)
 
-        # Trust device (set cookie for skip-OTP on next visit)
-        response = render(request, "storefront/partials/auth_confirmed.html", {
+        # Render confirmation — trust decision deferred to user via TrustDeviceView
+        return render(request, "storefront/partials/auth_confirmed.html", {
             "phone": phone,
             "customer_name": confirmed_name,
         })
-
-        from shopman.doorman.services.device_trust import DeviceTrustService
-
-        DeviceTrustService.trust_device(
-            response=response,
-            customer_id=auth_result.customer.uuid,
-            request=request,
-        )
-
-        return response
 
 
 class AccessLinkLoginView(View):
@@ -465,6 +455,48 @@ class DeviceCheckLoginView(View):
             user, _ = get_or_create_user_for_customer(customer_info)
             login(request, user, backend="shopman.doorman.backends.PhoneOTPBackend")
 
-            return JsonResponse({"trusted": True, "name": customer.name})
+            next_url = request.POST.get("next", "")
+            return render(request, "storefront/partials/auth_trusted_greeting.html", {
+                "customer_name": customer.first_name or customer.name,
+                "next_url": next_url,
+            })
 
         return JsonResponse({"trusted": False})
+
+
+class TrustDeviceView(View):
+    """HTMX: record device trust decision after OTP login.
+
+    Called from auth_confirmed.html. If trust=1, sets the trust cookie and
+    returns a confirmation partial. If trust=0, returns a no-op partial that
+    dispatches the auth-confirmed event client-side.
+    """
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        if not HAS_AUTH:
+            return HttpResponse(
+                '<div x-data x-init="window.dispatchEvent(new CustomEvent(\'auth-confirmed\'))"></div>'
+            )
+
+        customer_info = getattr(request, "customer", None)
+        if customer_info is None:
+            return HttpResponse(
+                '<div x-data x-init="window.dispatchEvent(new CustomEvent(\'auth-confirmed\'))"></div>'
+            )
+
+        trust = request.POST.get("trust", "0") == "1"
+
+        if trust:
+            from shopman.doorman.services.device_trust import DeviceTrustService
+
+            response = render(request, "storefront/partials/auth_device_saved.html")
+            DeviceTrustService.trust_device(
+                response=response,
+                customer_id=customer_info.uuid,
+                request=request,
+            )
+            return response
+
+        return HttpResponse(
+            '<div x-data x-init="window.dispatchEvent(new CustomEvent(\'auth-confirmed\'))"></div>'
+        )

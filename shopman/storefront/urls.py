@@ -106,6 +106,7 @@ urlpatterns = [
     path("bem-vindo/", views.WelcomeView.as_view(), name="welcome"),
     path("auth/access/<str:token>/", views.AccessLinkLoginView.as_view(), name="access_link_login"),
     path("auth/device-check/", views.DeviceCheckLoginView.as_view(), name="device_check_login"),
+    path("auth/trust-device/", views.TrustDeviceView.as_view(), name="trust_device"),
     # Device management
     path("auth/devices/", views.DeviceListView.as_view(), name="device_list"),
     path("auth/devices/<uuid:device_id>/", views.DeviceRevokeView.as_view(), name="device_revoke"),
