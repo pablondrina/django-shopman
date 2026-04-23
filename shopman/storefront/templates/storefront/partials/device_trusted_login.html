@@ -1,0 +1,13 @@
+{% load omotenashi_tags %}
+{% omotenashi 'DEVICE_TRUST_GREETING' as greeting %}
+{# Returned by DeviceCheckLoginView (HTMX) — auto-login via trusted device. #}
+{# Shows greeting toast and redirects; replaces the auto-check trigger div. #}
+<div id="device-auto-check"
+     x-data
+     x-init="
+       const name = '{{ customer_name|escapejs }}';
+       const msg = name ? '{{ greeting.title|escapejs }}, ' + name + '!' : '{{ greeting.title|escapejs }}!';
+       window.dispatchEvent(new CustomEvent('notify', { detail: { variant: 'success', message: msg } }));
+       setTimeout(() => window.location.href = '{{ redirect_url|escapejs }}', 1200);
+     ">
+</div>

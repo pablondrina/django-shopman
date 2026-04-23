@@ -376,17 +376,36 @@ class VerifyCodeView(View):
         except Exception:
             logger.debug("auth_confirmed_name_lookup_failed", exc_info=True)
 
-        # Trust device (set cookie for skip-OTP on next visit)
-        response = render(request, "storefront/partials/auth_confirmed.html", {
+        return render(request, "storefront/partials/auth_confirmed.html", {
             "phone": phone,
             "customer_name": confirmed_name,
+            "has_auth": HAS_AUTH,
         })
+
+
+class TrustDeviceView(View):
+    """HTMX: explicit trust-device action after OTP verification.
+
+    Called when the user confirms "Confiar neste dispositivo por 30 dias?"
+    in auth_confirmed.html. Sets the device-trust cookie and returns a
+    feedback partial that triggers the authDone redirect event.
+    """
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        if not HAS_AUTH:
+            return HttpResponse("")
+
+        customer_info = getattr(request, "customer", None)
+        if customer_info is None:
+            return HttpResponse("", status=401)
+
+        response = render(request, "storefront/partials/trust_device_saved.html", {})
 
         from shopman.doorman.services.device_trust import DeviceTrustService
 
         DeviceTrustService.trust_device(
             response=response,
-            customer_id=auth_result.customer.uuid,
+            customer_id=customer_info.uuid,
             request=request,
         )
 
@@ -450,6 +469,8 @@ class DeviceCheckLoginView(View):
 
         from shopman.doorman.services.device_trust import DeviceTrustService
 
+        is_htmx = request.META.get("HTTP_HX_REQUEST") == "true"
+
         if DeviceTrustService.check_device_trust(request, customer.uuid):
             from django.contrib.auth import login
             from shopman.doorman.protocols.customer import AuthCustomerInfo
@@ -465,6 +486,16 @@ class DeviceCheckLoginView(View):
             user, _ = get_or_create_user_for_customer(customer_info)
             login(request, user, backend="shopman.doorman.backends.PhoneOTPBackend")
 
+            if is_htmx:
+                next_url = request.POST.get("next", "") or "/"
+                return render(request, "storefront/partials/device_trusted_login.html", {
+                    "customer_name": customer.first_name or customer.name,
+                    "redirect_url": next_url,
+                })
+
             return JsonResponse({"trusted": True, "name": customer.name})
+
+        if is_htmx:
+            return HttpResponse("")
 
         return JsonResponse({"trusted": False})

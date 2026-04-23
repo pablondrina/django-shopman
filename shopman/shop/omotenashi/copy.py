@@ -299,6 +299,21 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "LOGIN_WELCOME_BACK": {
         WILDCARD: {WILDCARD: CopyEntry(message="Bem-vinda de volta.")},
     },
+    "DEVICE_TRUST_PROMPT": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Confiar neste dispositivo por 30 dias?")},
+    },
+    "DEVICE_TRUST_CONFIRM": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Sim, confiar")},
+    },
+    "DEVICE_TRUST_SKIP": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Agora não")},
+    },
+    "DEVICE_TRUST_SAVED": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Dispositivo salvo por 30 dias.")},
+    },
+    "DEVICE_TRUST_GREETING": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Bem-vindo de volta")},
+    },
     "LOGOUT_FAREWELL": {
         WILDCARD: {WILDCARD: CopyEntry(message="Até logo.")},
     },

@@ -67,6 +67,20 @@
 
     {% if step == "phone" %}
     {% comment %}═══ Step 1: Phone ═══{% endcomment %}
+
+    {% if trusted_name %}
+    {# Trusted device: Alpine triggers HTMX device-check after init (CSRF listener is ready by then). #}
+    <div id="device-auto-check"
+         x-data
+         x-init="htmx.trigger($el, 'device-check')"
+         hx-post="{% url 'storefront:device_check_login' %}"
+         hx-trigger="device-check"
+         hx-vals='{"phone": "{{ phone_value }}", "next": "{{ next }}"}'
+         hx-target="this"
+         hx-swap="outerHTML">
+    </div>
+    {% endif %}
+
     <p class="mb-6 text-center text-base sm:text-lg text-on-surface/70 dark:text-on-surface-dark/70">
       {{ login_phone_subtitle.message }}
     </p>
@@ -221,9 +235,9 @@
     document.body.addEventListener('htmx:afterSwap', function(evt) {
       if (evt.detail.target.id === 'auth-section') {
         if (evt.detail.target.querySelector('[data-auth-success]')) {
-          setTimeout(function() {
+          window.addEventListener('authDone', function() {
             window.location.href = '{% url "storefront:login" %}?step=post-login{% if next %}&next={{ next|urlencode }}{% endif %}';
-          }, 800);
+          }, { once: true });
         }
       }
     });

@@ -1,0 +1,14 @@
+{% load omotenashi_tags %}
+{% omotenashi 'DEVICE_TRUST_SAVED' as trust_saved %}
+{# Returned by TrustDeviceView — replaces #trust-section, triggers authDone redirect. #}
+<div id="trust-section"
+     x-data
+     x-init="
+       window.dispatchEvent(new CustomEvent('notify', { detail: { variant: 'success', message: '{{ trust_saved.message|escapejs }}' } }));
+       setTimeout(() => window.dispatchEvent(new CustomEvent('authDone')), 1200);
+     "
+     class="flex items-center gap-2 rounded-radius border border-success bg-success/10 p-3
+            text-sm font-medium text-success dark:border-success-dark dark:bg-success-dark/10 dark:text-success-dark">
+  <span class="material-symbols-rounded text-base" aria-hidden="true">verified_user</span>
+  {{ trust_saved.message }}
+</div>

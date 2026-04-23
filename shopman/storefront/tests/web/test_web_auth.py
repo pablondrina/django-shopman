@@ -264,8 +264,8 @@ class TestDeviceTrust:
         data = response.json()
         assert data["trusted"] is False
 
-    def test_verify_code_sets_device_trust_cookie(self, client: Client, customer):
-        """Successful OTP verification sets device trust cookie on response."""
+    def test_verify_code_does_not_auto_set_device_trust_cookie(self, client: Client, customer):
+        """OTP verification no longer auto-trusts — trust is now explicit via trust-device endpoint."""
         with patch("shopman.doorman.services.verification.AuthService") as mock_vs:
             from shopman.doorman.protocols.customer import AuthCustomerInfo
 
@@ -289,7 +289,23 @@ class TestDeviceTrust:
             from shopman.doorman.conf import doorman_settings
 
             cookie_name = doorman_settings.DEVICE_TRUST_COOKIE_NAME
-            assert cookie_name in response.cookies
+            assert cookie_name not in response.cookies
+
+    def test_trust_device_endpoint_sets_cookie(self, client: Client, customer):
+        """POST /auth/trust-device/ sets device trust cookie for authenticated customer."""
+        _login_as_customer(client, customer)
+
+        from shopman.doorman.conf import doorman_settings
+
+        response = client.post("/auth/trust-device/")
+
+        assert response.status_code == 200
+        assert doorman_settings.DEVICE_TRUST_COOKIE_NAME in response.cookies
+
+    def test_trust_device_endpoint_requires_auth(self, client: Client):
+        """POST /auth/trust-device/ returns 401 for unauthenticated requests."""
+        response = client.post("/auth/trust-device/")
+        assert response.status_code == 401
 
 
 # ── Rate Limiting ──────────────────────────────────────────────────

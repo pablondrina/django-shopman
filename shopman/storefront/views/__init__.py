@@ -21,6 +21,7 @@ from .auth import (
     DeviceCheckLoginView,
     LoginView,
     RequestCodeView,
+    TrustDeviceView,
     VerifyCodeView,
 )
 from .access import AccessLinkEntryView
@@ -105,6 +106,7 @@ __all__ = [
     "SitemapView",
     "SkuStateView",
     "TipsView",
+    "TrustDeviceView",
     "VerifyCodeView",
     "WelcomeView",
 ]
