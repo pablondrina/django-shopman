@@ -416,19 +416,21 @@ class AccessLinkLoginView(View):
 
 
 class DeviceCheckLoginView(View):
-    """Check if device is trusted and auto-login if so.
+    """HTMX: auto-login via device trust and show greeting, or 204 to fall through.
 
-    Called from account page to attempt skip-OTP login.
-    Returns JSON for HTMX consumption.
+    Fires on button click from login.html when a trusted-device cookie is present.
+    If trusted, logs the user in and returns auth_trusted_greeting.html (greeting +
+    delayed redirect).  If not trusted, returns 204 so HTMX skips the swap and the
+    normal phone form stays visible.
     """
 
     def post(self, request: HttpRequest) -> HttpResponse:
         if not HAS_AUTH:
-            return JsonResponse({"trusted": False})
+            return HttpResponse(status=204)
 
         result = interpret_device_check_login(request)
         if result.intent is None:
-            return JsonResponse({"trusted": False})
+            return HttpResponse(status=204)
 
         phone = result.intent.phone
 
@@ -436,32 +438,32 @@ class DeviceCheckLoginView(View):
 
         customer = customer_service.get_by_phone(phone)
         if not customer:
-            return JsonResponse({"trusted": False})
+            return HttpResponse(status=204)
 
         from shopman.doorman.services.device_trust import DeviceTrustService
 
-        if DeviceTrustService.check_device_trust(request, customer.uuid):
-            from django.contrib.auth import login
-            from shopman.doorman.protocols.customer import AuthCustomerInfo
-            from shopman.doorman.services._user_bridge import get_or_create_user_for_customer
+        if not DeviceTrustService.check_device_trust(request, customer.uuid):
+            return HttpResponse(status=204)
 
-            customer_info = AuthCustomerInfo(
-                uuid=customer.uuid,
-                name=customer.name,
-                phone=customer.phone,
-                email=getattr(customer, "email", None) or None,
-                is_active=True,
-            )
-            user, _ = get_or_create_user_for_customer(customer_info)
-            login(request, user, backend="shopman.doorman.backends.PhoneOTPBackend")
+        from django.contrib.auth import login
+        from shopman.doorman.protocols.customer import AuthCustomerInfo
+        from shopman.doorman.services._user_bridge import get_or_create_user_for_customer
 
-            next_url = request.POST.get("next", "")
-            return render(request, "storefront/partials/auth_trusted_greeting.html", {
-                "customer_name": customer.first_name or customer.name,
-                "next_url": next_url,
-            })
+        customer_info = AuthCustomerInfo(
+            uuid=customer.uuid,
+            name=customer.name,
+            phone=customer.phone,
+            email=getattr(customer, "email", None) or None,
+            is_active=True,
+        )
+        user, _ = get_or_create_user_for_customer(customer_info)
+        login(request, user, backend="shopman.doorman.backends.PhoneOTPBackend")
 
-        return JsonResponse({"trusted": False})
+        next_url = request.POST.get("next", "")
+        return render(request, "storefront/partials/auth_trusted_greeting.html", {
+            "customer_name": customer.first_name or customer.name,
+            "next_url": next_url,
+        })
 
 
 class TrustDeviceView(View):

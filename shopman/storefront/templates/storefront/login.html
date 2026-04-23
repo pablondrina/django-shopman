@@ -75,7 +75,7 @@
               hx-post="{% url 'storefront:device_check_login' %}"
               hx-target="#trusted-device-section"
               hx-swap="innerHTML"
-              hx-vals='{"phone": "{{ phone_prefill|escapejs }}"{% if next %}, "next": "{% url 'storefront:login' %}?step=post-login&next={{ next|urlencode }}"{% else %}, "next": "{% url 'storefront:login' %}?step=post-login"{% endif %}'
+              hx-vals='{"phone": "{{ phone_value|escapejs }}"{% if next %}, "next": "{% url 'storefront:login' %}?step=post-login&next={{ next|urlencode }}"{% else %}, "next": "{% url 'storefront:login' %}?step=post-login"{% endif %}'
               hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
               style="min-height: 52px;"
               class="flex w-full items-center justify-center gap-2 rounded-radius border-2 border-primary bg-primary/5 px-4 py-3 text-sm font-medium text-primary transition hover:bg-primary/10 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:border-primary-dark dark:bg-primary-dark/10 dark:text-primary-dark dark:hover:bg-primary-dark/15 dark:focus-visible:outline-primary-dark">
