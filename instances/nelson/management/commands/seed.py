@@ -1658,6 +1658,7 @@ class Command(BaseCommand):
                     "customer": {"name": "Camila iFood"},
                     "payment": {"method": "external", "timing": "external"},
                     "fulfillment_type": "delivery",
+                    "availability_decision": {"approved": True, "source": "seed", "decisions": []},
                 },
             )
             OrderItem.objects.create(
@@ -1691,6 +1692,7 @@ class Command(BaseCommand):
                     "customer": {"name": "Rafael iFood"},
                     "payment": {"method": "external", "timing": "external"},
                     "fulfillment_type": "delivery",
+                    "availability_decision": {"approved": True, "source": "seed", "decisions": []},
                 },
             )
             OrderItem.objects.create(

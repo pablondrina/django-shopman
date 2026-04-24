@@ -78,6 +78,13 @@ def ensure_confirmable(order) -> None:
     if has_availability_approval(order):
         return
 
+    try:
+        config = ChannelConfig.for_channel(order.channel_ref)
+        if config.payment.timing == "external":
+            return
+    except Exception:
+        pass
+
     raise InvalidTransition(
         code="availability_not_approved",
         message="Pedido não pode ser confirmado sem decisão positiva de disponibilidade",
