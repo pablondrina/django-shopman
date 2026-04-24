@@ -1,108 +1,122 @@
-{% comment %}Two-zone layout: Entrada (new) and Saída (ready){% endcomment %}
+<div class="h-full flex min-h-0">
 
-{% with entrada=zone_queue.entrada saida_pickup=zone_queue.saida_pickup saida_delivery=zone_queue.saida_delivery preparo_count=zone_queue.preparo_count %}
-
-{% comment %}Preparo awareness strip{% endcomment %}
-{% if preparo_count %}
-<div class="mb-4 flex items-center gap-2 px-3 py-2 rounded-lg
-            bg-info/10 border border-info/20 text-sm
-            text-on-surface/60 dark:text-on-surface-dark/60">
-  <span class="material-symbols-rounded text-base" aria-hidden="true">kitchen</span>
-  <span>
-    {{ preparo_count }} pedido{{ preparo_count|pluralize:"s" }} em preparo na cozinha
-    <span class="text-on-surface/40 dark:text-on-surface-dark/40">— KDS ativo</span>
-  </span>
-  <a href="/gestor/kds/" class="ml-auto text-xs underline opacity-60 hover:opacity-100">Ver KDS</a>
-</div>
-{% endif %}
-
-{% comment %}Two-zone grid{% endcomment %}
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-
-  {% comment %}ZONA ENTRADA — pedidos novos aguardando decisão{% endcomment %}
-  <section aria-label="Entrada — pedidos aguardando confirmação">
-    <header class="flex items-center gap-2 mb-3 pb-2 border-b border-outline dark:border-outline-dark">
-      <span class="material-symbols-rounded text-xl text-warning" aria-hidden="true">inbox</span>
-      <h2 class="font-semibold text-sm text-on-surface dark:text-on-surface-dark">Entrada</h2>
-      {% if entrada %}
-      <span class="inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full
-                   text-xs font-bold px-1.5 bg-warning text-on-warning">
-        {{ entrada|length }}
+  {% comment %}ENTRADA zone — new orders awaiting confirm/reject{% endcomment %}
+  <section class="flex flex-col shrink-0 border-r border-outline dark:border-outline-dark overflow-hidden"
+           style="width: 320px"
+           aria-label="Entrada — pedidos novos">
+    <header class="px-3 py-2 flex items-center gap-2 shrink-0
+                   bg-warning/10 dark:bg-warning/5
+                   border-b border-outline dark:border-outline-dark">
+      <span class="material-symbols-rounded text-base text-warning" aria-hidden="true">move_to_inbox</span>
+      <span class="text-xs font-bold uppercase tracking-widest text-warning">Entrada</span>
+      <span class="ml-auto min-w-[1.25rem] h-5 px-1 rounded-full text-xs font-bold
+                   flex items-center justify-center
+                   bg-warning text-on-warning tabular-nums">
+        {{ queue.entrada|length }}
       </span>
-      {% endif %}
     </header>
-
-    {% if entrada %}
-    <div class="flex flex-col gap-3">
-      {% for o in entrada %}
+    <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+      {% for o in queue.entrada %}
         {% include "pedidos/partials/card.html" %}
+      {% empty %}
+        <div class="flex flex-col items-center justify-center h-full text-center py-8
+                    text-on-surface/25 dark:text-on-surface-dark/25">
+          <span class="material-symbols-rounded text-4xl mb-2" aria-hidden="true">move_to_inbox</span>
+          <p class="text-sm">Nenhum pedido aguardando</p>
+        </div>
       {% endfor %}
     </div>
-    {% else %}
-    <div class="text-center py-10 text-on-surface/40 dark:text-on-surface-dark/40">
-      <span class="material-symbols-rounded text-4xl block mb-2" aria-hidden="true">inbox</span>
-      <p class="text-sm">Nenhum pedido aguardando</p>
-    </div>
-    {% endif %}
   </section>
 
-  {% comment %}ZONA SAÍDA — pedidos prontos para entrega{% endcomment %}
-  <section aria-label="Saída — pedidos prontos">
-    <header class="flex items-center gap-2 mb-3 pb-2 border-b border-outline dark:border-outline-dark">
-      <span class="material-symbols-rounded text-xl text-success" aria-hidden="true">output</span>
-      <h2 class="font-semibold text-sm text-on-surface dark:text-on-surface-dark">Saída</h2>
-      {% with total_saida=saida_pickup|length|add:saida_delivery|length %}
-      {% if total_saida %}
-      <span class="inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full
-                   text-xs font-bold px-1.5 bg-success text-on-success">
-        {{ total_saida }}
+  {% comment %}Middle strip — preparing count{% endcomment %}
+  <div class="flex flex-col items-center justify-center shrink-0 w-8 overflow-hidden
+              bg-info/5 dark:bg-info/10
+              border-r border-outline dark:border-outline-dark"
+       title="{{ queue.preparing_count }} pedido{{ queue.preparing_count|pluralize:'s' }} sendo preparado{{ queue.preparing_count|pluralize:'s' }}">
+    <span class="text-xs font-bold text-info tabular-nums select-none"
+          style="writing-mode: vertical-lr; letter-spacing: 0.05em;">
+      {{ queue.preparing_count }} prep.
+    </span>
+    {% if queue.dispatched_count %}
+    <span class="text-xs font-semibold text-on-surface/30 dark:text-on-surface-dark/30 mt-3 tabular-nums select-none"
+          style="writing-mode: vertical-lr; letter-spacing: 0.04em;">
+      {{ queue.dispatched_count }} entregando
+    </span>
+    {% endif %}
+  </div>
+
+  {% comment %}SAÍDA zone — ready orders split by fulfillment type{% endcomment %}
+  <section class="flex flex-col flex-1 overflow-hidden"
+           aria-label="Saída — pedidos prontos">
+    <header class="px-3 py-2 flex items-center gap-2 shrink-0
+                   bg-success/10 dark:bg-success/5
+                   border-b border-outline dark:border-outline-dark">
+      <span class="material-symbols-rounded text-base text-success" aria-hidden="true">outbox</span>
+      <span class="text-xs font-bold uppercase tracking-widest text-success">Saída</span>
+      <span class="ml-auto min-w-[1.25rem] h-5 px-1 rounded-full text-xs font-bold
+                   flex items-center justify-center
+                   bg-success text-on-success tabular-nums">
+        {{ queue.saida_count }}
       </span>
-      {% endif %}
-      {% endwith %}
     </header>
 
-    {% if saida_pickup or saida_delivery %}
-    <div class="flex flex-col gap-4">
+    <div class="flex flex-1 overflow-hidden">
 
-      {% if saida_pickup %}
-      <div>
-        <div class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide
-                    text-on-surface/50 dark:text-on-surface-dark/50 mb-2">
-          <span class="material-symbols-rounded text-sm" aria-hidden="true">storefront</span>
-          Retirada
+      {% comment %}Retirada sub-zone{% endcomment %}
+      <div class="flex flex-col flex-1 border-r border-outline dark:border-outline-dark overflow-hidden">
+        <div class="px-3 py-1.5 flex items-center gap-1.5 shrink-0
+                    border-b border-outline dark:border-outline-dark
+                    bg-surface-alt dark:bg-surface-dark-alt">
+          <span class="material-symbols-rounded text-base text-on-surface/50 dark:text-on-surface-dark/50" aria-hidden="true">storefront</span>
+          <span class="text-xs font-semibold text-on-surface/50 dark:text-on-surface-dark/50 uppercase tracking-wide">Retirada</span>
+          <span class="ml-auto text-xs font-mono tabular-nums text-on-surface/35 dark:text-on-surface-dark/35">
+            {{ queue.saida_retirada|length }}
+          </span>
         </div>
-        <div class="flex flex-col gap-3">
-          {% for o in saida_pickup %}
+        <div class="flex-1 overflow-y-auto p-2 flex flex-col gap-2">
+          {% for o in queue.saida_retirada %}
             {% include "pedidos/partials/card.html" %}
+          {% empty %}
+            <div class="flex flex-col items-center justify-center h-full
+                        text-on-surface/20 dark:text-on-surface-dark/20 text-center py-6">
+              <span class="material-symbols-rounded text-3xl mb-1" aria-hidden="true">done_all</span>
+              <p class="text-xs">Sem retiradas</p>
+            </div>
           {% endfor %}
         </div>
       </div>
-      {% endif %}
 
-      {% if saida_delivery %}
-      <div>
-        <div class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide
-                    text-on-surface/50 dark:text-on-surface-dark/50 mb-2">
-          <span class="material-symbols-rounded text-sm" aria-hidden="true">local_shipping</span>
-          Delivery
+      {% comment %}Delivery sub-zone{% endcomment %}
+      <div class="flex flex-col flex-1 overflow-hidden">
+        <div class="px-3 py-1.5 flex items-center gap-1.5 shrink-0
+                    border-b border-outline dark:border-outline-dark
+                    bg-surface-alt dark:bg-surface-dark-alt">
+          <span class="material-symbols-rounded text-base text-on-surface/50 dark:text-on-surface-dark/50" aria-hidden="true">local_shipping</span>
+          <span class="text-xs font-semibold text-on-surface/50 dark:text-on-surface-dark/50 uppercase tracking-wide">Delivery</span>
+          <span class="ml-auto text-xs font-mono tabular-nums text-on-surface/35 dark:text-on-surface-dark/35">
+            {{ queue.saida_delivery|length }}
+          </span>
         </div>
-        <div class="flex flex-col gap-3">
-          {% for o in saida_delivery %}
+        <div class="flex-1 overflow-y-auto p-2 flex flex-col gap-2">
+          {% for o in queue.saida_delivery %}
             {% include "pedidos/partials/card.html" %}
+          {% empty %}
+            <div class="flex flex-col items-center justify-center h-full
+                        text-on-surface/20 dark:text-on-surface-dark/20 text-center py-6">
+              <span class="material-symbols-rounded text-3xl mb-1" aria-hidden="true">local_shipping</span>
+              <p class="text-xs">Sem deliveries</p>
+            </div>
           {% endfor %}
         </div>
       </div>
-      {% endif %}
 
     </div>
-    {% else %}
-    <div class="text-center py-10 text-on-surface/40 dark:text-on-surface-dark/40">
-      <span class="material-symbols-rounded text-4xl block mb-2" aria-hidden="true">done_all</span>
-      <p class="text-sm">Nenhum pedido pronto</p>
-    </div>
-    {% endif %}
   </section>
 
 </div>
 
-{% endwith %}
+{% comment %}Sync order count to Alpine root{% endcomment %}
+<template x-data x-init="
+  var root = document.getElementById('gestor-pedidos-root');
+  if (root) Alpine.$data(root).orderCount = {{ queue.entrada|length }} + {{ queue.saida_count }};
+"></template>

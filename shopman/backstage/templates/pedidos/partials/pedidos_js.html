@@ -11,7 +11,6 @@ function gestorPedidos() {
     ariaAnnouncement: '',
 
     init() {
-      this.syncState();
       this.updateClock();
       this.updateLastUpdatedText();
       setInterval(() => this.updateClock(), 1000);
@@ -59,7 +58,6 @@ function gestorPedidos() {
         window.dispatchEvent(new CustomEvent('ped-toast', { detail: { msg: msg } }));
       });
 
-      /* Legacy fallback */
       document.addEventListener('htmx:afterSwap', (e) => {
         if (e.detail.target.id === 'order-grid') {
           this.offline = false;
@@ -74,7 +72,7 @@ function gestorPedidos() {
         }
       });
 
-      /* Global keyboard shortcuts */
+      /* Global keyboard shortcut: Escape collapses all cards */
       document.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
         if (e.key === 'Escape') {
@@ -90,7 +88,10 @@ function gestorPedidos() {
     },
 
     syncState() {
-      var cards = document.querySelectorAll('[data-order-card]');
+      var grid = document.getElementById('order-grid');
+      if (!grid) return;
+
+      var cards = grid.querySelectorAll('[data-order-card]');
       var newCount = cards.length;
 
       if (newCount > this.previousCount && this.previousCount > 0) {

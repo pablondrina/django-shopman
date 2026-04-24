@@ -49,7 +49,7 @@ class OperatorOrdersView(View):
         if denied:
             return denied
 
-        zone_queue = build_two_zone_queue()
+        queue = build_two_zone_queue()
 
         from shopman.backstage.models import OperatorAlert
         from shopman.shop.models import Shop
@@ -58,26 +58,24 @@ class OperatorOrdersView(View):
         alerts = list(OperatorAlert.objects.filter(acknowledged=False)[:10])
 
         return render(request, "pedidos/index.html", {
-            "zone_queue": zone_queue,
-            "counts": zone_queue.counts,
+            "queue": queue,
             "shop": shop,
             "alerts": alerts,
         })
 
 
 class OrderListPartialView(View):
-    """HTMX partial: returns two-zone order grid for polling updates."""
+    """HTMX partial: returns order grid for polling updates."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
         denied = _perm_required(request)
         if denied:
             return denied
 
-        zone_queue = build_two_zone_queue()
+        queue = build_two_zone_queue()
 
         return render(request, "pedidos/partials/order_list.html", {
-            "zone_queue": zone_queue,
-            "counts": zone_queue.counts,
+            "queue": queue,
         })
 
 

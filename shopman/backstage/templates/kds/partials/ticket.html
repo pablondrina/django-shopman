@@ -21,6 +21,7 @@
     {{ t.items_count }} item{{ t.items_count|pluralize:"s" }} &middot; {{ t.total_display }}
   </div>
 
+  {% if not is_readonly %}
   <div class="mt-auto flex gap-2">
     {% if t.is_delivery %}
     <button class="btn-primary w-full text-base font-bold inline-flex items-center justify-center gap-2"
@@ -52,6 +53,7 @@
     </button>
     {% endif %}
   </div>
+  {% endif %}
 </article>
 
 {% else %}
@@ -95,6 +97,16 @@
   {% comment %}Items with checkboxes (K4: keyboard accessible, K6: focus management){% endcomment %}
   <div class="border-t border-outline dark:border-outline-dark pt-2 flex flex-col gap-1" role="list">
     {% for item in t.items %}
+    {% if is_readonly %}
+    <div class="flex items-center gap-2 min-h-12 px-0.5 py-1 rounded
+                {% if item.checked %}opacity-40 line-through{% endif %}"
+         role="listitem">
+      <span class="material-symbols-rounded text-xl" aria-hidden="true">{% if item.checked %}check_box{% else %}check_box_outline_blank{% endif %}</span>
+      <span class="text-base flex-1 leading-tight">
+        <span class="font-semibold tabular-nums">{{ item.qty }}&times;</span> {{ item.name }}
+      </span>
+    </div>
+    {% else %}
     <div class="flex items-center gap-2 min-h-12 cursor-pointer px-0.5 py-1 rounded
                 hover:bg-outline/20 dark:hover:bg-outline-dark/20 transition-colors
                 {% if item.checked %}opacity-40 line-through{% endif %}"
@@ -110,6 +122,7 @@
         <span class="font-semibold tabular-nums">{{ item.qty }}&times;</span> {{ item.name }}
       </span>
     </div>
+    {% endif %}
     {% if item.notes %}
     <div class="text-xs pl-8 flex items-start gap-1 font-semibold leading-relaxed text-warning">
       <span class="material-symbols-rounded text-base" aria-hidden="true">warning</span>
@@ -127,6 +140,7 @@
   </div>
 
   {% comment %}K7: PRONTO button with loading state{% endcomment %}
+  {% if not is_readonly %}
   <button class="btn-success w-full text-base font-bold kds-btn-done inline-flex items-center justify-center gap-2"
           :disabled="loading"
           hx-post="/gestor/kds/ticket/{{ t.pk }}/done/"
@@ -138,5 +152,6 @@
     <span x-show="loading" class="material-symbols-rounded animate-spin" aria-hidden="true">progress_activity</span>
     PRONTO
   </button>
+  {% endif %}
 </article>
 {% endif %}

@@ -26,38 +26,48 @@ logger = logging.getLogger(__name__)
 PERM = "backstage.operate_kds"
 
 
-def _perm_required(request):
-    """Redirect to login if not staff; 403 if missing operate_kds perm."""
+def _staff_required(request):
+    """Redirect to login if not authenticated+staff. No perm check."""
     if not request.user.is_authenticated or not request.user.is_staff:
         return redirect(f"/admin/login/?next={request.path}")
+    return None
+
+
+def _perm_required(request):
+    """Redirect to login if not staff; 403 if missing operate_kds perm."""
+    denied = _staff_required(request)
+    if denied:
+        return denied
     if not request.user.has_perm(PERM):
         return HttpResponseForbidden("Você não tem permissão para esta ação.")
     return None
 
 
 class KDSIndexView(View):
-    """GET /kds/ — list active KDS instances."""
+    """GET /kds/ — list active KDS instances. Staff can view; only editors can interact."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        denied = _perm_required(request)
+        denied = _staff_required(request)
         if denied:
             return denied
 
         from shopman.shop.models import Shop
         instances = build_kds_index()
         shop = Shop.load()
+        is_readonly = not request.user.has_perm(PERM)
 
         return render(request, "kds/index.html", {
             "instances": instances,
             "shop": shop,
+            "is_readonly": is_readonly,
         })
 
 
 class KDSDisplayView(View):
-    """GET /kds/<ref>/ — main KDS display for a specific instance."""
+    """GET /kds/<ref>/ — main KDS display. Staff can view; only editors can interact."""
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
-        denied = _perm_required(request)
+        denied = _staff_required(request)
         if denied:
             return denied
 
@@ -68,6 +78,7 @@ class KDSDisplayView(View):
         instance = get_object_or_404(KDSInstance, ref=ref, is_active=True)
         board = build_kds_board(ref)
         shop = Shop.load()
+        is_readonly = not request.user.has_perm(PERM)
 
         return render(request, "kds/display.html", {
             "instance": instance,
@@ -75,6 +86,7 @@ class KDSDisplayView(View):
             "tickets": board.tickets,
             "is_expedition": board.is_expedition,
             "shop": shop,
+            "is_readonly": is_readonly,
         })
 
 
@@ -82,7 +94,7 @@ class KDSTicketListPartialView(View):
     """HTMX partial: ticket grid for polling updates."""
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
-        denied = _perm_required(request)
+        denied = _staff_required(request)
         if denied:
             return denied
 
@@ -90,11 +102,13 @@ class KDSTicketListPartialView(View):
 
         instance = get_object_or_404(KDSInstance, ref=ref, is_active=True)
         board = build_kds_board(ref)
+        is_readonly = not request.user.has_perm(PERM)
 
         return render(request, "kds/partials/ticket_list.html", {
             "tickets": board.tickets,
             "instance": instance,
             "is_expedition": board.is_expedition,
+            "is_readonly": is_readonly,
         })
 
 

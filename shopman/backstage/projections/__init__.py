@@ -23,9 +23,11 @@ from .order_queue import (
     OperatorOrderProjection,
     OrderCardProjection,
     OrderQueueProjection,
+    TwoZoneQueueProjection,
     build_operator_order,
     build_order_card,
     build_order_queue,
+    build_two_zone_queue,
 )
 from .pos import (
     POSProjection,
@@ -52,6 +54,7 @@ __all__ = [
     "OperatorOrderProjection",
     "OrderCardProjection",
     "OrderQueueProjection",
+    "TwoZoneQueueProjection",
     "POSProjection",
     "POSShiftSummaryProjection",
     "ProductionBoardProjection",
@@ -65,6 +68,7 @@ __all__ = [
     "build_operator_order",
     "build_order_card",
     "build_order_queue",
+    "build_two_zone_queue",
     "build_pos",
     "build_pos_shift_summary",
     "build_production_board",

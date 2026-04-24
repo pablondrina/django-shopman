@@ -42,22 +42,19 @@
   </div>
   {% endif %}
 
-  {% comment %}Toolbar: connection status + sound + fullscreen{% endcomment %}
+  {% comment %}Toolbar: connection status + order count + sound + fullscreen{% endcomment %}
   <div class="px-4 py-2 flex items-center gap-2 shrink-0
               border-b border-outline dark:border-outline-dark
               bg-surface-alt dark:bg-surface-dark-alt">
-    <span class="text-xs text-on-surface/50 dark:text-on-surface-dark/50 font-medium">
-      Gestor de Pedidos
+    <span class="text-xs text-on-surface/30 dark:text-on-surface-dark/30 flex items-center gap-1">
+      <span class="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+            :class="offline ? 'bg-danger' : 'bg-success'"
+            :style="!offline && 'animation: ped-pulse 2s ease-in-out infinite'"></span>
+      <span x-text="lastUpdatedText"></span>
     </span>
+    <span class="text-xs font-mono tabular-nums text-on-surface/40 dark:text-on-surface-dark/40"
+          x-text="orderCount + ' pedidos'"></span>
     <div class="ml-auto flex items-center gap-1">
-      <span class="text-xs text-on-surface/30 dark:text-on-surface-dark/30 flex items-center gap-1">
-        <span class="inline-block w-1.5 h-1.5 rounded-full shrink-0"
-              :class="offline ? 'bg-danger' : 'bg-success'"
-              :style="!offline && 'animation: ped-pulse 2s ease-in-out infinite'"></span>
-        <span x-text="lastUpdatedText"></span>
-      </span>
-      <span class="text-xs font-mono tabular-nums text-on-surface/40 dark:text-on-surface-dark/40"
-            x-text="orderCount + ' pedidos'"></span>
       <button type="button" class="btn-icon"
               @click="toggleSound()"
               :title="soundEnabled ? 'Desativar som' : 'Ativar som'"
@@ -84,12 +81,13 @@
     <span x-text="msg"></span>
   </div>
 
-  {% comment %}ARIA live region for screen readers{% endcomment %}
+  {% comment %}ARIA live region{% endcomment %}
   <div class="sr-only" aria-live="assertive" aria-atomic="true" x-text="ariaAnnouncement"></div>
 
-  {% comment %}Two-zone order grid (HTMX polling every 5s){% endcomment %}
-  <main class="flex-1 overflow-auto p-4">
+  {% comment %}Two-zone order grid (HTMX polling){% endcomment %}
+  <div class="flex-1 overflow-hidden">
     <div id="order-grid"
+         class="h-full"
          hx-get="/gestor/pedidos/list/"
          hx-trigger="every 5s"
          hx-target="#order-grid"
@@ -99,7 +97,7 @@
          x-on:htmx:send-error="$dispatch('ped-error')">
       {% include "pedidos/partials/order_list.html" %}
     </div>
-  </main>
+  </div>
 
 </div>
 

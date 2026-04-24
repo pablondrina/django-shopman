@@ -129,13 +129,15 @@ class OrderQueueProjection:
 
 @dataclass(frozen=True)
 class TwoZoneQueueProjection:
-    """Two-zone read model: Entrada (new) and Saída (ready), plus preparo awareness."""
+    """Two-zone operator queue: Entrada (new) + Saída (ready)."""
 
-    entrada: tuple[OrderCardProjection, ...]       # status == "new"
-    saida_pickup: tuple[OrderCardProjection, ...]  # status == "ready", pickup
-    saida_delivery: tuple[OrderCardProjection, ...]  # status == "ready", delivery
-    preparo_count: int                             # status == "preparing"
-    counts: dict[str, int]                         # full status counts
+    entrada: tuple[OrderCardProjection, ...]
+    preparing_count: int
+    saida_retirada: tuple[OrderCardProjection, ...]
+    saida_delivery: tuple[OrderCardProjection, ...]
+    dispatched_count: int
+    saida_count: int
+    total_count: int
 
 
 # ── Builders ───────────────────────────────────────────────────────────
@@ -169,31 +171,6 @@ def build_order_queue(
         orders=cards,
         counts=counts,
         active_filter=filter_status,
-    )
-
-
-def build_two_zone_queue() -> TwoZoneQueueProjection:
-    """Build the two-zone operator queue: Entrada (new) and Saída (ready)."""
-    all_orders = list(
-        Order.objects.filter(status__in=ACTIVE_STATUSES)
-        .prefetch_related("items")
-        .order_by("created_at")
-    )
-
-    counts = _status_counts(all_orders)
-
-    entrada = tuple(_build_card(o) for o in all_orders if o.status == "new")
-
-    ready = [o for o in all_orders if o.status == "ready"]
-    saida_pickup = tuple(_build_card(o) for o in ready if not _is_delivery(o))
-    saida_delivery = tuple(_build_card(o) for o in ready if _is_delivery(o))
-
-    return TwoZoneQueueProjection(
-        entrada=entrada,
-        saida_pickup=saida_pickup,
-        saida_delivery=saida_delivery,
-        preparo_count=counts.get("preparing", 0),
-        counts=counts,
     )
 
 
@@ -241,6 +218,33 @@ def build_operator_order(order: Order) -> OperatorOrderProjection:
 def build_order_card(order: Order) -> OrderCardProjection:
     """Build a single order card projection (for HTMX partial re-renders)."""
     return _build_card(order)
+
+
+def build_two_zone_queue() -> TwoZoneQueueProjection:
+    """Build the two-zone operator queue: Entrada (new) + Saída (ready)."""
+    all_orders = list(
+        Order.objects.filter(status__in=ACTIVE_STATUSES)
+        .prefetch_related("items")
+        .order_by("created_at")
+    )
+
+    entrada = tuple(_build_card(o) for o in all_orders if o.status == "new")
+    preparing_count = sum(1 for o in all_orders if o.status == "preparing")
+    dispatched_count = sum(1 for o in all_orders if o.status == "dispatched")
+
+    ready_orders = [o for o in all_orders if o.status == "ready"]
+    saida_retirada = tuple(_build_card(o) for o in ready_orders if not _is_delivery(o))
+    saida_delivery = tuple(_build_card(o) for o in ready_orders if _is_delivery(o))
+
+    return TwoZoneQueueProjection(
+        entrada=entrada,
+        preparing_count=preparing_count,
+        saida_retirada=saida_retirada,
+        saida_delivery=saida_delivery,
+        dispatched_count=dispatched_count,
+        saida_count=len(saida_retirada) + len(saida_delivery),
+        total_count=len(all_orders),
+    )
 
 
 # ── Internals ──────────────────────────────────────────────────────────
@@ -294,7 +298,7 @@ def _build_card(order: Order) -> OrderCardProjection:
         fulfillment_icon=fulfillment_icon,
         fulfillment_label=fulfillment_label,
         can_confirm=order.status == "new",
-        can_advance=order.status in ("confirmed", "preparing", "ready", "dispatched", "delivered"),
+        can_advance=order.status == "ready",
         next_status=next_status,
         next_action_label=next_label,
         payment_method=method,
