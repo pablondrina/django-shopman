@@ -1,6 +1,7 @@
 {% if is_expedition %}
-{% comment %}Expedition card (order-based){% endcomment %}
-<article class="card flex flex-col gap-2.5 p-4" data-kds-ticket>
+{% comment %}Expedition card (order-based) — K10: richer confirm{% endcomment %}
+<article class="card flex flex-col gap-2.5 p-4" data-kds-ticket
+         x-data="{ loading: false }">
   <div class="flex items-center justify-between gap-2">
     <div class="flex items-center gap-1.5 text-base">
       <span class="material-symbols-rounded text-base" aria-hidden="true">{{ t.channel_icon }}</span>
@@ -22,23 +23,31 @@
 
   <div class="mt-auto flex gap-2">
     {% if t.is_delivery %}
-    <button class="btn-primary w-full text-base font-bold"
+    <button class="btn-primary w-full text-base font-bold inline-flex items-center justify-center gap-2"
+            :disabled="loading"
             hx-post="/gestor/kds/expedition/{{ t.pk }}/action/"
             hx-vals='{"action": "dispatch"}'
             hx-target="closest [data-kds-ticket]"
             hx-swap="outerHTML"
-            hx-confirm="Despachar pedido #{{ t.ref }}?">
-      <span class="material-symbols-rounded" aria-hidden="true">local_shipping</span>
+            hx-confirm="Despachar #{{ t.ref }}?&#10;{{ t.customer_name }} · {{ t.items_count }} item{{ t.items_count|pluralize:'s' }} · {{ t.total_display }}"
+            hx-on::before-request="loading = true"
+            hx-on::after-request="loading = false">
+      <span class="material-symbols-rounded" aria-hidden="true" x-show="!loading">local_shipping</span>
+      <span x-show="loading" class="material-symbols-rounded animate-spin" aria-hidden="true">progress_activity</span>
       DESPACHAR
     </button>
     {% else %}
-    <button class="btn-success w-full text-base font-bold"
+    <button class="btn-success w-full text-base font-bold inline-flex items-center justify-center gap-2"
+            :disabled="loading"
             hx-post="/gestor/kds/expedition/{{ t.pk }}/action/"
             hx-vals='{"action": "complete"}'
             hx-target="closest [data-kds-ticket]"
             hx-swap="outerHTML"
-            hx-confirm="Entregar pedido #{{ t.ref }}?">
-      <span class="material-symbols-rounded" aria-hidden="true">check_circle</span>
+            hx-confirm="Entregar #{{ t.ref }}?&#10;{{ t.customer_name }} · {{ t.items_count }} item{{ t.items_count|pluralize:'s' }} · {{ t.total_display }}"
+            hx-on::before-request="loading = true"
+            hx-on::after-request="loading = false">
+      <span class="material-symbols-rounded" aria-hidden="true" x-show="!loading">check_circle</span>
+      <span x-show="loading" class="material-symbols-rounded animate-spin" aria-hidden="true">progress_activity</span>
       ENTREGAR
     </button>
     {% endif %}
@@ -46,15 +55,16 @@
 </article>
 
 {% else %}
-{% comment %}Prep / Picking ticket card{% endcomment %}
+{% comment %}Prep / Picking ticket card — K3 K4 K6 K7 K12{% endcomment %}
 <article class="card flex flex-col gap-2.5 p-4
                 {% if t.status == 'in_progress' %}border-2 border-info{% endif %}"
          data-kds-ticket
          data-elapsed="{{ t.elapsed_seconds }}"
-         x-data="{ elapsed: {{ t.elapsed_seconds }} }"
-         x-init="$el._kdsTimer = setInterval(() => elapsed++, 1000)">
+         x-data="{ elapsed: {{ t.elapsed_seconds }}, loading: false }"
+         x-init="$el._kdsTimer = setInterval(() => elapsed++, 1000)"
+         @keydown.enter.prevent="if (!loading) $el.querySelector('.kds-btn-done')?.click()">
 
-  {% comment %}Card header: ref + status + timer{% endcomment %}
+  {% comment %}Card header: ref + status + timer (K12: target context){% endcomment %}
   <div class="flex items-center justify-between gap-2">
     <div class="flex items-center gap-1.5 text-base">
       <span class="material-symbols-rounded text-base" aria-hidden="true">{{ t.channel_icon }}</span>
@@ -64,11 +74,12 @@
       {% endif %}
     </div>
     <div class="font-mono text-base font-semibold tabular-nums flex items-center gap-1"
-         :class="elapsed < {{ instance.target_time_minutes }}*60 ? 'text-success' : (elapsed < {{ instance.target_time_minutes }}*120 ? 'text-warning' : 'text-danger')"
-         :title="'Meta: ' + {{ instance.target_time_minutes }} + ' min'">
+         :class="elapsed < {{ t.target_seconds }} ? 'text-success' : (elapsed < {{ t.target_seconds }}*2 ? 'text-warning' : 'text-danger')"
+         :title="'Meta: {{ instance.target_time_minutes }} min'">
       <span class="material-symbols-rounded text-base" aria-hidden="true"
-            x-show="elapsed >= {{ instance.target_time_minutes }}*120">priority_high</span>
+            x-show="elapsed >= {{ t.target_seconds }}*2">priority_high</span>
       <span x-text="Math.floor(elapsed/60) + ':' + String(Math.floor(elapsed%60)).padStart(2,'0')"></span>
+      <span class="text-xs font-normal opacity-60" aria-hidden="true">/{{ instance.target_time_minutes }}min</span>
     </div>
   </div>
 
@@ -80,17 +91,20 @@
   </div>
   {% endif %}
 
-  {% comment %}Items with checkboxes{% endcomment %}
+  {% comment %}Items with checkboxes (K4: keyboard accessible, K6: focus management){% endcomment %}
   <div class="border-t border-outline dark:border-outline-dark pt-2 flex flex-col gap-1" role="list">
     {% for item in t.items %}
     <div class="flex items-center gap-2 min-h-12 cursor-pointer px-0.5 py-1 rounded
                 hover:bg-outline/20 dark:hover:bg-outline-dark/20 transition-colors
                 {% if item.checked %}opacity-40 line-through{% endif %}"
          role="listitem"
+         tabindex="0"
+         @keydown.space.prevent="$el.click()"
          hx-post="/gestor/kds/ticket/{{ t.pk }}/check/"
          hx-vals='{"index": "{{ forloop.counter0 }}"}'
          hx-target="closest [data-kds-ticket]"
-         hx-swap="outerHTML">
+         hx-swap="outerHTML settle:50ms"
+         hx-on::after-swap="requestAnimationFrame(function() { var card = document.querySelector('[data-kds-ticket][data-elapsed] [role=listitem]:not(.opacity-40)'); if (card) card.focus(); })">
       <span class="material-symbols-rounded text-xl" aria-hidden="true">{% if item.checked %}check_box{% else %}check_box_outline_blank{% endif %}</span>
       <span class="text-base flex-1 leading-tight">
         <span class="font-semibold tabular-nums">{{ item.qty }}&times;</span> {{ item.name }}
@@ -112,13 +126,16 @@
     {% endfor %}
   </div>
 
-  {% comment %}PRONTO button{% endcomment %}
-  <button class="btn-success w-full text-base font-bold"
+  {% comment %}K7: PRONTO button with loading state{% endcomment %}
+  <button class="btn-success w-full text-base font-bold kds-btn-done inline-flex items-center justify-center gap-2"
+          :disabled="loading"
           hx-post="/gestor/kds/ticket/{{ t.pk }}/done/"
           hx-target="closest [data-kds-ticket]"
           hx-swap="outerHTML"
-          hx-indicator="closest [data-kds-ticket]">
-    <span class="material-symbols-rounded" aria-hidden="true">done_all</span>
+          hx-on::before-request="loading = true"
+          hx-on::after-request="loading = false">
+    <span class="material-symbols-rounded" aria-hidden="true" x-show="!loading">done_all</span>
+    <span x-show="loading" class="material-symbols-rounded animate-spin" aria-hidden="true">progress_activity</span>
     PRONTO
   </button>
 </article>

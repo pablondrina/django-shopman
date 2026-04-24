@@ -34,7 +34,9 @@ def cancel_open_tickets(order) -> int:
     """Cancel all open tickets for order. Returns count cancelled."""
     from shopman.backstage.models import KDSTicket
 
-    return KDSTicket.objects.filter(order=order, status="open").update(status="cancelled")
+    return KDSTicket.objects.filter(
+        order=order, status__in=["pending", "in_progress"]
+    ).update(status="cancelled")
 
 
 def get_tickets(order):

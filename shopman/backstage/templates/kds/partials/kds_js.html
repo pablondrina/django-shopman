@@ -4,26 +4,67 @@ function kdsDisplay() {
 
   return {
     soundEnabled: sessionStorage.getItem('kds_sound_' + ref) !== 'false',
+    volumeLevel: sessionStorage.getItem('kds_volume_' + ref) || 'medium',
     previousCount: 0,
     ticketCount: 0,
     clock: '',
     isFullscreen: false,
+    offline: false,
+    lastUpdated: Date.now(),
+    lastUpdatedText: '',
+    ariaAnnouncement: '',
+
+    get volumeLabel() {
+      return this.volumeLevel === 'low' ? 'Baixo' : (this.volumeLevel === 'high' ? 'Alto' : 'Médio');
+    },
+
+    get volumeGain() {
+      if (this.volumeLevel === 'low') return 0.1;
+      if (this.volumeLevel === 'high') return 0.5;
+      return 0.25;
+    },
 
     init() {
       this.syncState();
       this.updateClock();
+      this.updateLastUpdatedText();
       setInterval(() => this.updateClock(), 1000);
+      setInterval(() => this.updateLastUpdatedText(), 1000);
 
-      /* Track fullscreen state */
       var self = this;
       document.addEventListener('fullscreenchange', function() {
         self.isFullscreen = !!document.fullscreenElement;
       });
 
-      /* On HTMX swap: sync timers, count tickets, play sound */
+      /* K1/K2: HTMX lifecycle events via Alpine dispatch */
+      this.$el.addEventListener('kds-synced', () => {
+        this.offline = false;
+        this.lastUpdated = Date.now();
+        this.syncState();
+      });
+
+      this.$el.addEventListener('kds-error', () => {
+        this.offline = true;
+      });
+
+      /* Legacy fallback: direct htmx event (for initial load) */
       document.addEventListener('htmx:afterSwap', (e) => {
         if (e.detail.target.id === 'ticket-grid') {
+          this.offline = false;
+          this.lastUpdated = Date.now();
           this.syncState();
+        }
+      });
+
+      document.addEventListener('htmx:sendError', (e) => {
+        if (e.detail.target && e.detail.target.id === 'ticket-grid') {
+          this.offline = true;
+        }
+      });
+
+      document.addEventListener('htmx:responseError', (e) => {
+        if (e.detail.target && e.detail.target.id === 'ticket-grid') {
+          this.offline = true;
         }
       });
     },
@@ -35,18 +76,35 @@ function kdsDisplay() {
       var tickets = grid.querySelectorAll('[data-kds-ticket]');
       var newCount = tickets.length;
 
-      /* Sound: new tickets or ticket going late */
+      /* K8: Screen reader announcements */
+      if (newCount > this.previousCount && this.previousCount > 0) {
+        var diff = newCount - this.previousCount;
+        this.ariaAnnouncement = diff + ' novo' + (diff > 1 ? 's' : '') + ' ticket' + (diff > 1 ? 's' : '');
+      }
+
+      /* Sound: new tickets */
       if (newCount > this.previousCount && this.soundEnabled) {
         this.playSound('new');
       }
       this.previousCount = newCount;
       this.ticketCount = newCount;
 
-      /* Sync elapsed timers from server data to prevent drift */
+      /* Sync elapsed timers from server to prevent drift */
       tickets.forEach(function(el) {
         var serverElapsed = parseInt(el.getAttribute('data-elapsed'));
         if (!isNaN(serverElapsed)) {
           var _d = Alpine.$data(el); if (_d) _d.elapsed = serverElapsed;
+        }
+      });
+
+      /* K3: Apply late pulse class */
+      tickets.forEach(function(el) {
+        var elapsed = parseInt(el.getAttribute('data-elapsed'));
+        var isLate = !isNaN(elapsed) && elapsed >= targetMinutes * 120;
+        if (isLate) {
+          el.classList.add('kds-late-pulse');
+        } else {
+          el.classList.remove('kds-late-pulse');
         }
       });
 
@@ -61,6 +119,9 @@ function kdsDisplay() {
         });
         if (hasLate) {
           this.playSound('urgent');
+          if (this.ariaAnnouncement === '') {
+            this.ariaAnnouncement = 'Ticket atrasado requer atenção';
+          }
         }
       }
     },
@@ -70,9 +131,30 @@ function kdsDisplay() {
       this.clock = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
     },
 
+    /* K5: Last updated text */
+    updateLastUpdatedText() {
+      var ago = Math.floor((Date.now() - this.lastUpdated) / 1000);
+      if (ago < 5) {
+        this.lastUpdatedText = 'agora';
+      } else if (ago < 60) {
+        this.lastUpdatedText = 'há ' + ago + 's';
+      } else {
+        this.lastUpdatedText = 'há ' + Math.floor(ago / 60) + 'min';
+      }
+    },
+
     toggleSound() {
       this.soundEnabled = !this.soundEnabled;
       sessionStorage.setItem('kds_sound_' + ref, this.soundEnabled ? 'true' : 'false');
+    },
+
+    /* K9: Volume cycling */
+    cycleVolume() {
+      var levels = ['low', 'medium', 'high'];
+      var idx = levels.indexOf(this.volumeLevel);
+      this.volumeLevel = levels[(idx + 1) % 3];
+      sessionStorage.setItem('kds_volume_' + ref, this.volumeLevel);
+      this.playSound('new');
     },
 
     playSound(type) {
@@ -83,20 +165,20 @@ function kdsDisplay() {
         osc.connect(gain);
         gain.connect(ctx.destination);
 
+        var vol = this.volumeGain;
+
         if (type === 'urgent') {
-          /* Two-tone alert for late tickets */
           osc.frequency.value = 880;
           osc.type = 'square';
-          gain.gain.value = 0.25;
+          gain.gain.value = vol;
           osc.start();
           osc.frequency.setValueAtTime(660, ctx.currentTime + 0.15);
           gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
           osc.stop(ctx.currentTime + 0.35);
         } else {
-          /* Single tone for new tickets */
           osc.frequency.value = 1046;
           osc.type = 'sine';
-          gain.gain.value = 0.35;
+          gain.gain.value = vol;
           osc.start();
           gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
           osc.stop(ctx.currentTime + 0.2);

@@ -52,6 +52,7 @@ class KDSTicketProjection:
     fulfillment_icon: str
     created_at_display: str
     elapsed_seconds: int
+    target_seconds: int  # target SLA in seconds (for K12 timer context)
     timer_class: str  # "timer-ok", "timer-warning", "timer-late"
     items: tuple[KDSItemProjection, ...]
     status: str
@@ -230,6 +231,7 @@ def _build_ticket(ticket, instance) -> KDSTicketProjection:
         fulfillment_icon=fulfillment_icon,
         created_at_display=_format_datetime(ticket.created_at),
         elapsed_seconds=int(elapsed),
+        target_seconds=int(target_sec),
         timer_class=timer_class,
         items=items,
         status=ticket.status,
