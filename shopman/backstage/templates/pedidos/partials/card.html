@@ -5,7 +5,17 @@
                 {% elif o.status == 'ready' %}border-l-4 border-l-success{% endif %}"
          data-order-card
          data-ref="{{ o.ref }}"
-         x-data="{ expanded: false, rejectMode: false, rejectReason: '', confirming: false, loading: false, paidRevert: false }">
+         x-data="{ expanded: false, rejectMode: false, rejectReason: '', confirming: false, loading: false, paidRevert: false }"
+         x-init="(function() {
+           var zone = $el.closest('[data-zone]');
+           if (zone && zone.dataset.zone === 'entrada' && '{{ o.status }}' !== 'new') {
+             setTimeout(function() {
+               $el.style.transition = 'opacity 0.5s';
+               $el.style.opacity = '0';
+               setTimeout(function() { $el.remove(); }, 600);
+             }, 1500);
+           }
+         })()"
 
   {% comment %}O8: Card header — semantic button for accessibility{% endcomment %}
   <button type="button"

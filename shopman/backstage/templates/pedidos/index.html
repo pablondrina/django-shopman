@@ -81,6 +81,17 @@
     <span x-text="msg"></span>
   </div>
 
+  {% comment %}Success toast container{% endcomment %}
+  <div id="ped-toast-success" x-data="{ show: false, msg: '' }" x-cloak
+       @ped-toast-success.window="msg = $event.detail.msg; show = true; setTimeout(() => show = false, 3000)"
+       x-show="show" x-transition.opacity
+       class="fixed bottom-16 left-1/2 -translate-x-1/2 z-50
+              bg-success text-on-success px-4 py-2 rounded-lg shadow-lg text-sm font-semibold
+              flex items-center gap-2" role="status">
+    <span class="material-symbols-rounded text-base" aria-hidden="true">check_circle</span>
+    <span x-text="msg"></span>
+  </div>
+
   {% comment %}ARIA live region{% endcomment %}
   <div class="sr-only" aria-live="assertive" aria-atomic="true" x-text="ariaAnnouncement"></div>
 

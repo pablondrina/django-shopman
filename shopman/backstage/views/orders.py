@@ -8,6 +8,7 @@ POST actions mutate state, then re-render via projection builders.
 """
 from __future__ import annotations
 
+import json
 import logging
 
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
@@ -122,7 +123,9 @@ class OrderConfirmView(View):
         order.transition_status("confirmed", actor=f"operator:{request.user.username}")
 
         card = build_order_card(order)
-        return render(request, "pedidos/partials/card.html", {"o": card})
+        response = render(request, "pedidos/partials/card.html", {"o": card})
+        response["HX-Trigger"] = json.dumps({"ped-toast-success": {"msg": f"Pedido #{ref} confirmado", "sound": "success"}})
+        return response
 
 
 class OrderRejectView(View):
@@ -155,7 +158,9 @@ class OrderRejectView(View):
         )
 
         logger.info("operator_reject order=%s reason=%s", order.ref, reason)
-        return HttpResponse("")
+        response = render(request, "pedidos/partials/card_rejected.html", {"ref": order.ref})
+        response["HX-Trigger"] = json.dumps({"ped-toast-success": {"msg": f"Pedido #{order.ref} rejeitado", "sound": "reject"}})
+        return response
 
 
 class OrderAdvanceView(View):
@@ -176,7 +181,9 @@ class OrderAdvanceView(View):
         order.transition_status(next_status, actor=f"operator:{request.user.username}")
 
         card = build_order_card(order)
-        return render(request, "pedidos/partials/card.html", {"o": card})
+        response = render(request, "pedidos/partials/card.html", {"o": card})
+        response["HX-Trigger"] = json.dumps({"ped-toast-success": {"msg": f"Pedido #{ref}: {card.status_label}", "sound": "success"}})
+        return response
 
 
 class OrderNotesView(View):
@@ -237,7 +244,9 @@ class OrderMarkPaidView(View):
         dispatch(order, "on_paid")
 
         card = build_order_card(order)
-        return render(request, "pedidos/partials/card.html", {"o": card})
+        response = render(request, "pedidos/partials/card.html", {"o": card})
+        response["HX-Trigger"] = json.dumps({"ped-toast-success": {"msg": f"Pagamento registrado — #{order.ref}", "sound": "success"}})
+        return response
 
 
 class AlertAcknowledgeView(View):

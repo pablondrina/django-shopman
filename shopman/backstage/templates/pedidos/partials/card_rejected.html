@@ -1,0 +1,13 @@
+<div id="order-{{ ref }}"
+     x-data="{}"
+     x-init="setTimeout(function() {
+       $el.style.transition = 'opacity 0.4s';
+       $el.style.opacity = '0';
+       setTimeout(function() { $el.remove(); }, 500);
+     }, 2000)"
+     class="card p-3 flex items-center gap-2 border-l-4 border-l-danger opacity-60">
+  <span class="material-symbols-rounded text-base text-danger shrink-0" aria-hidden="true">block</span>
+  <span class="text-sm text-on-surface/60 dark:text-on-surface-dark/60">
+    Pedido <strong class="font-mono">#{{ ref }}</strong> rejeitado
+  </span>
+</div>

@@ -72,6 +72,14 @@ function gestorPedidos() {
         }
       });
 
+      /* Play sound on successful operator actions */
+      document.addEventListener('ped-toast-success', (e) => {
+        if (this.soundEnabled) {
+          var sound = e.detail && e.detail.sound ? e.detail.sound : 'success';
+          this.playSound(sound);
+        }
+      });
+
       /* Global keyboard shortcut: Escape collapses all cards */
       document.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
@@ -154,6 +162,21 @@ function gestorPedidos() {
           osc.frequency.setValueAtTime(660, ctx.currentTime + 0.15);
           gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
           osc.stop(ctx.currentTime + 0.35);
+        } else if (type === 'success') {
+          osc.frequency.value = 880;
+          osc.type = 'sine';
+          gain.gain.value = 0.2;
+          osc.start();
+          osc.frequency.setValueAtTime(1108.73, ctx.currentTime + 0.1);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+          osc.stop(ctx.currentTime + 0.3);
+        } else if (type === 'reject') {
+          osc.frequency.value = 330;
+          osc.type = 'sine';
+          gain.gain.value = 0.15;
+          osc.start();
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+          osc.stop(ctx.currentTime + 0.5);
         } else {
           osc.frequency.value = 1046;
           osc.type = 'sine';
