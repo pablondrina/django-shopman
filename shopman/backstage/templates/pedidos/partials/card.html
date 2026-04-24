@@ -140,23 +140,23 @@
   </div>
 
   {% comment %}O4: Reject form with confirmation dialog{% endcomment %}
-  <div x-show="rejectMode" x-cloak class="px-4 pb-3">
+  <form x-show="rejectMode" x-cloak class="px-4 pb-3"
+        hx-post="/gestor/pedidos/{{ o.ref }}/reject/"
+        hx-target="closest [data-order-card]"
+        hx-swap="outerHTML"
+        hx-confirm="Tem certeza que deseja rejeitar o pedido #{{ o.ref }}? Esta ação não pode ser desfeita."
+        x-on:htmx:before-request="loading = true"
+        x-on:htmx:after-request="loading = false">
     <label for="reject-{{ o.ref }}" class="text-sm font-semibold block mb-1">Motivo da rejeição</label>
     <textarea id="reject-{{ o.ref }}"
+              name="reason"
               x-model="rejectReason"
               class="textarea-field"
               placeholder="Informe o motivo..."
               rows="2"></textarea>
     <button class="btn-danger w-full mt-2 inline-flex items-center justify-center gap-1"
-            type="button"
-            :disabled="!rejectReason.trim() || loading"
-            hx-post="/gestor/pedidos/{{ o.ref }}/reject/"
-            hx-target="closest [data-order-card]"
-            hx-swap="outerHTML"
-            hx-confirm="Tem certeza que deseja rejeitar o pedido #{{ o.ref }}? Esta ação não pode ser desfeita."
-            :hx-vals='JSON.stringify({reason: rejectReason})'
-            x-on:htmx:before-request="loading = true"
-            x-on:htmx:after-request="loading = false">
+            type="submit"
+            :disabled="!rejectReason.trim() || loading">
       <span class="material-symbols-rounded text-base" aria-hidden="true" x-show="!loading">block</span>
       <span x-show="loading" class="material-symbols-rounded text-base animate-spin" aria-hidden="true">progress_activity</span>
       Confirmar Rejeição
