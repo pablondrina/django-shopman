@@ -142,6 +142,7 @@ migrate: ## Cria/atualiza banco de dados
 
 run: css ## Sobe servidor + directive worker (0.0.0.0:8000)
 	-$(PYTHON) manage.py refresh_oven
+	lsof -ti:8000 | xargs kill -9 2>/dev/null || true
 	$(PYTHON) manage.py process_directives --watch &
 	$(PYTHON) manage.py runserver 0.0.0.0:8000
 
