@@ -58,9 +58,9 @@
               hx-trigger="change"
               hx-target="next .notes-feedback"
               hx-swap="innerHTML"
-              hx-on::before-request="saving = true"
-              hx-on::after-request="saving = false"
-              hx-on::response-error="$dispatch('ped-toast', { msg: 'Erro ao salvar notas' })">{{ internal_notes }}</textarea>
+              x-on:htmx:before-request="saving = true"
+              x-on:htmx:after-request="saving = false"
+              x-on:htmx:response-error="$dispatch('ped-toast', { msg: 'Erro ao salvar notas' })">{{ internal_notes }}</textarea>
     <span class="notes-feedback text-xs text-on-surface/40 dark:text-on-surface-dark/40 whitespace-nowrap flex items-center gap-1">
       <span x-show="saving" class="material-symbols-rounded text-base animate-spin" aria-hidden="true">progress_activity</span>
     </span>

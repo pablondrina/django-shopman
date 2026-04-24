@@ -192,8 +192,8 @@
                  hx-swap="innerHTML"
                  hx-include="[name='phone']">
           <div id="pos-customer-result" class="text-xs text-secondary dark:text-primary-dark font-semibold mt-1 min-h-[1rem] flex items-center gap-1"
-               @htmx:after-swap="
-                 var span = $el.querySelector('[data-customer-group]');
+               x-on:htmx:after-swap="
+                 let span = $el.querySelector('[data-customer-group]');
                  if (span) {
                    customerName = span.dataset.customerName || '';
                    customerGroup = span.dataset.customerGroup || '';
@@ -281,7 +281,7 @@
                   hx-vals="js:{payload: Alpine.$data(document.getElementById('pos-root')).cartPayload()}"
                   hx-target="#pos-park-result"
                   hx-swap="innerHTML"
-                  hx-on::after-request="if(event.detail.successful && event.detail.xhr.status < 300){ cart=[]; customerPhone=''; customerName=''; customerGroup=''; clearDiscount(); tenderedInput=''; paymentMethod='cash'; expandedNoteIdx=-1; activeComanda=''; document.getElementById('pos-result').innerHTML=''; }">
+                  x-on:htmx:after-request="if(event.detail.successful && event.detail.xhr.status < 300){ cart=[]; customerPhone=''; customerName=''; customerGroup=''; clearDiscount(); tenderedInput=''; paymentMethod='cash'; expandedNoteIdx=-1; activeComanda=''; document.getElementById('pos-result').innerHTML=''; }">
             <span class="material-symbols-rounded text-xs align-middle" aria-hidden="true">pause_circle</span>
             Estacionar
           </button>
@@ -317,7 +317,7 @@
       <form hx-post="/gestor/pos/caixa/sangria/"
             hx-target="#pos-sangria-result"
             hx-swap="innerHTML"
-            hx-on::after-request="if(event.detail.successful){ amount=''; reason=''; open=false; }">
+            x-on:htmx:after-request="if(event.detail.successful){ amount=''; reason=''; open=false; }">
         {% csrf_token %}
         <div class="flex flex-col gap-3">
           <div class="flex gap-2">

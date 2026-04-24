@@ -124,9 +124,9 @@
          hx-target="#order-grid"
          hx-swap="innerHTML"
          hx-vals='js:{"filter": Alpine.$data(document.getElementById("gestor-pedidos-root")).filter}'
-         hx-on::after-swap="$dispatch('ped-synced')"
-         hx-on::response-error="$dispatch('ped-error')"
-         hx-on::send-error="$dispatch('ped-error')">
+         x-on:htmx:after-swap="$dispatch('ped-synced')"
+         x-on:htmx:response-error="$dispatch('ped-error')"
+         x-on:htmx:send-error="$dispatch('ped-error')">
       {% include "pedidos/partials/order_list.html" %}
     </div>
   </main>

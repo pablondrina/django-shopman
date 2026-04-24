@@ -442,7 +442,7 @@ def pos_park(request: HttpRequest) -> HttpResponse:
         pricing_policy=config.pricing.policy,
         edit_policy=config.editing.policy,
         handle_type="pos",
-        handle_ref=f"pos:{request.user.username}",
+        handle_ref=f"pos:{request.user.username}:{session_key[:8]}",
     )
 
     ops = _build_session_ops(body, request.user.username)
@@ -488,8 +488,8 @@ def pos_sessions(request: HttpRequest) -> HttpResponse:
         channel_ref=POS_CHANNEL_REF,
         state="open",
         data__parked=True,
-        created_at__date=tz.localdate(),
-    ).order_by("created_at")
+        opened_at__date=tz.localdate(),
+    ).order_by("opened_at")
 
     sessions = []
     for s in sessions_qs:

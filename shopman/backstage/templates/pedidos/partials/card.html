@@ -55,8 +55,8 @@
               hx-post="/gestor/pedidos/{{ o.ref }}/confirm/"
               hx-target="closest [data-order-card]"
               hx-swap="outerHTML"
-              hx-on::before-request="loading = true"
-              hx-on::after-request="loading = false">
+              x-on:htmx:before-request="loading = true"
+              x-on:htmx:after-request="loading = false">
         <span class="material-symbols-rounded text-base" aria-hidden="true" x-show="!loading">check</span>
         <span x-show="loading" class="material-symbols-rounded text-base animate-spin" aria-hidden="true">progress_activity</span>
         Confirmar
@@ -75,8 +75,8 @@
               hx-post="/gestor/pedidos/{{ o.ref }}/advance/"
               hx-target="closest [data-order-card]"
               hx-swap="outerHTML"
-              hx-on::before-request="loading = true"
-              hx-on::after-request="loading = false">
+              x-on:htmx:before-request="loading = true"
+              x-on:htmx:after-request="loading = false">
         <span x-show="loading" class="material-symbols-rounded text-base animate-spin" aria-hidden="true">progress_activity</span>
         {{ o.next_action_label }}
       </button>
@@ -99,8 +99,8 @@
                 hx-post="/gestor/pedidos/{{ o.ref }}/mark-paid/"
                 hx-target="closest [data-order-card]"
                 hx-swap="outerHTML"
-                hx-on::before-request="loading = true"
-                hx-on::after-request="loading = false">
+                x-on:htmx:before-request="loading = true"
+                x-on:htmx:after-request="loading = false">
           <span class="material-symbols-rounded text-base" aria-hidden="true" x-show="!loading">check_circle</span>
           <span x-show="loading" class="material-symbols-rounded text-base animate-spin" aria-hidden="true">progress_activity</span>
           Confirmar Pagamento
@@ -130,8 +130,8 @@
             hx-swap="outerHTML"
             hx-confirm="Tem certeza que deseja rejeitar o pedido #{{ o.ref }}? Esta ação não pode ser desfeita."
             :hx-vals='JSON.stringify({reason: rejectReason})'
-            hx-on::before-request="loading = true"
-            hx-on::after-request="loading = false">
+            x-on:htmx:before-request="loading = true"
+            x-on:htmx:after-request="loading = false">
       <span class="material-symbols-rounded text-base" aria-hidden="true" x-show="!loading">block</span>
       <span x-show="loading" class="material-symbols-rounded text-base animate-spin" aria-hidden="true">progress_activity</span>
       Confirmar Rejeição

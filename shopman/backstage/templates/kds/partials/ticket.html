@@ -30,8 +30,8 @@
             hx-target="closest [data-kds-ticket]"
             hx-swap="outerHTML"
             hx-confirm="Despachar #{{ t.ref }}?&#10;{{ t.customer_name }} · {{ t.items_count }} item{{ t.items_count|pluralize:'s' }} · {{ t.total_display }}"
-            hx-on::before-request="loading = true"
-            hx-on::after-request="loading = false">
+            x-on:htmx:before-request="loading = true"
+            x-on:htmx:after-request="loading = false">
       <span class="material-symbols-rounded" aria-hidden="true" x-show="!loading">local_shipping</span>
       <span x-show="loading" class="material-symbols-rounded animate-spin" aria-hidden="true">progress_activity</span>
       DESPACHAR
@@ -44,8 +44,8 @@
             hx-target="closest [data-kds-ticket]"
             hx-swap="outerHTML"
             hx-confirm="Entregar #{{ t.ref }}?&#10;{{ t.customer_name }} · {{ t.items_count }} item{{ t.items_count|pluralize:'s' }} · {{ t.total_display }}"
-            hx-on::before-request="loading = true"
-            hx-on::after-request="loading = false">
+            x-on:htmx:before-request="loading = true"
+            x-on:htmx:after-request="loading = false">
       <span class="material-symbols-rounded" aria-hidden="true" x-show="!loading">check_circle</span>
       <span x-show="loading" class="material-symbols-rounded animate-spin" aria-hidden="true">progress_activity</span>
       ENTREGAR
@@ -104,7 +104,7 @@
          hx-vals='{"index": "{{ forloop.counter0 }}"}'
          hx-target="closest [data-kds-ticket]"
          hx-swap="outerHTML settle:50ms"
-         hx-on::after-swap="requestAnimationFrame(function() { var card = document.querySelector('[data-kds-ticket][data-elapsed] [role=listitem]:not(.opacity-40)'); if (card) card.focus(); })">
+         hx-on::after-swap="requestAnimationFrame(function() { let card = document.querySelector('[data-kds-ticket][data-elapsed] [role=listitem]:not(.opacity-40)'); if (card) card.focus(); })">
       <span class="material-symbols-rounded text-xl" aria-hidden="true">{% if item.checked %}check_box{% else %}check_box_outline_blank{% endif %}</span>
       <span class="text-base flex-1 leading-tight">
         <span class="font-semibold tabular-nums">{{ item.qty }}&times;</span> {{ item.name }}
@@ -132,8 +132,8 @@
           hx-post="/gestor/kds/ticket/{{ t.pk }}/done/"
           hx-target="closest [data-kds-ticket]"
           hx-swap="outerHTML"
-          hx-on::before-request="loading = true"
-          hx-on::after-request="loading = false">
+          x-on:htmx:before-request="loading = true"
+          x-on:htmx:after-request="loading = false">
     <span class="material-symbols-rounded" aria-hidden="true" x-show="!loading">done_all</span>
     <span x-show="loading" class="material-symbols-rounded animate-spin" aria-hidden="true">progress_activity</span>
     PRONTO
