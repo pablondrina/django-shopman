@@ -3,7 +3,7 @@
         class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border border-outline dark:border-outline-dark text-on-surface dark:text-on-surface-dark hover:bg-primary/10 dark:hover:bg-primary-dark/10 hover:border-primary/30 dark:hover:border-primary-dark/30 whitespace-nowrap shrink-0 transition-colors"
         hx-get="/gestor/pos/session/{{ s.session_key }}/load/"
         hx-swap="none"
-        hx-on::after-request="if(event.detail.successful){ let d=JSON.parse(event.detail.xhr.responseText); Alpine.$data(document.getElementById('pos-root')).loadSession(d); htmx.trigger(document.getElementById('pos-session-tabs'), 'load'); }">
+        x-on:htmx:after-request="if(event.detail.successful){ let d=JSON.parse(event.detail.xhr.responseText); loadSession(d); htmx.trigger(document.getElementById('pos-session-tabs'), 'load'); }">
   <span class="material-symbols-rounded text-xs" aria-hidden="true">receipt</span>
   <span class="font-bold">{{ s.comanda }}</span>
   <span class="text-on-surface/50 dark:text-on-surface-dark/50">

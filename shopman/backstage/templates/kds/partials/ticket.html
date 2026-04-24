@@ -61,7 +61,8 @@
          data-kds-ticket
          data-elapsed="{{ t.elapsed_seconds }}"
          x-data="{ elapsed: {{ t.elapsed_seconds }}, loading: false }"
-         x-init="$el._kdsTimer = setInterval(() => elapsed++, 1000)"
+         x-init="$el._kdsTimer = setInterval(() => elapsed++, 1000);
+                  requestAnimationFrame(() => { let item = $el.querySelector('[role=listitem]:not(.opacity-40)'); if (item) item.focus(); })"
          @keydown.enter.prevent="if (!loading) $el.querySelector('.kds-btn-done')?.click()">
 
   {% comment %}Card header: ref + status + timer (K12: target context){% endcomment %}
@@ -103,8 +104,7 @@
          hx-post="/gestor/kds/ticket/{{ t.pk }}/check/"
          hx-vals='{"index": "{{ forloop.counter0 }}"}'
          hx-target="closest [data-kds-ticket]"
-         hx-swap="outerHTML settle:50ms"
-         hx-on::after-swap="requestAnimationFrame(function() { let card = document.querySelector('[data-kds-ticket][data-elapsed] [role=listitem]:not(.opacity-40)'); if (card) card.focus(); })">
+         hx-swap="outerHTML settle:50ms">
       <span class="material-symbols-rounded text-xl" aria-hidden="true">{% if item.checked %}check_box{% else %}check_box_outline_blank{% endif %}</span>
       <span class="text-base flex-1 leading-tight">
         <span class="font-semibold tabular-nums">{{ item.qty }}&times;</span> {{ item.name }}
