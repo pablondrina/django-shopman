@@ -47,8 +47,9 @@ def cancel(
         )
         return False
 
-    order.transition_status(Order.Status.CANCELLED, actor=actor)
-
+    # Write cancellation context FIRST — transition_status fires the
+    # order_changed signal via on_commit, and lifecycle handlers need
+    # cancellation_reason and cancelled_by already in order.data.
     data = dict(order.data or {})
     data["cancellation_reason"] = reason
     data["cancelled_by"] = actor
@@ -56,6 +57,8 @@ def cancel(
         data.update(extra_data)
     order.data = data
     order.save(update_fields=["data", "updated_at"])
+
+    order.transition_status(Order.Status.CANCELLED, actor=actor)
 
     logger.info("cancellation.cancel: order %s cancelled by %s — %s", order.ref, actor, reason)
     return True
