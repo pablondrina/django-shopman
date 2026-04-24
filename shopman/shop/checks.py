@@ -194,3 +194,35 @@ def check_fiscal_adapter(app_configs, **kwargs):
             )
 
     return warnings
+
+
+@register()
+def check_listing_channel_parity(app_configs, **kwargs):
+    """Warn when a Listing.ref has no matching Channel.ref (convention: channel.ref == listing.ref)."""
+    warnings = []
+
+    from django.db.utils import OperationalError, ProgrammingError
+
+    try:
+        from shopman.offerman.models import Listing
+        from shopman.shop.models import Channel
+
+        listing_refs = set(Listing.objects.filter(is_active=True).values_list("ref", flat=True))
+        channel_refs = set(Channel.objects.values_list("ref", flat=True))
+
+        orphans = listing_refs - channel_refs
+        for ref in sorted(orphans):
+            warnings.append(
+                Warning(
+                    f"Listing '{ref}' não tem Channel com ref correspondente.",
+                    hint=(
+                        "A convenção do Shopman é channel.ref == listing.ref. "
+                        "Crie um Channel com este ref ou desative o Listing."
+                    ),
+                    id="SHOPMAN_W004",
+                )
+            )
+    except (OperationalError, ProgrammingError, ImportError):
+        pass  # tables not ready or offerman not installed
+
+    return warnings
