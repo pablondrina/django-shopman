@@ -76,8 +76,8 @@ def hold(order) -> None:
                 adopted_pairs, unmet_qty, overshoot_ids = _adopt_holds_for_qty(
                     session_holds_by_sku, comp_sku, comp_qty,
                 )
-                # Release overshoot holds immediately so their stock is
-                # available when we create the fresh hold below.
+                # Release surplus holds (holds beyond the one that covered
+                # the requirement).
                 if overshoot_ids:
                     adapter.release_holds(overshoot_ids)
             else:
@@ -230,19 +230,17 @@ def _adopt_holds_for_qty(
     sku: str,
     required_qty: Decimal,
 ) -> tuple[list[tuple[str, Decimal]], Decimal, list[str]]:
-    """Consume session holds for `sku` until `required_qty` is met exactly.
+    """Consume session holds for `sku` until `required_qty` is met.
 
     Returns `(adopted_pairs, unmet_qty, overshoot_ids)`:
-    - `adopted_pairs`: holds whose qty fits within the remaining requirement.
+    - `adopted_pairs`: holds adopted for this order (may over-cover qty).
     - `unmet_qty`: qty not covered by adopted holds; caller creates a fresh
       hold for exactly this amount.
-    - `overshoot_ids`: hold IDs that would have caused over-adoption (their
-      qty > remaining at time of inspection), plus any subsequent holds in the
-      bucket.  Caller MUST release these IMMEDIATELY before creating the fresh
-      hold so the freed units are available for the new reservation.
+    - `overshoot_ids`: surplus holds beyond what's needed, to be released.
 
-    Overshoot holds are drained from `indexed[sku]` here so the leftover
-    sweep in `hold()` does not attempt to double-release them.
+    When a single hold exceeds the remaining requirement, it is adopted whole
+    — the over-reservation is benign and avoids splitting (which would need a
+    new Stockman API).  Any *subsequent* holds in the bucket are released.
     """
     bucket = indexed.get(sku, [])
     adopted: list[tuple[str, Decimal]] = []
@@ -255,14 +253,14 @@ def _adopt_holds_for_qty(
             adopted.append((hid, hqty))
             remaining -= hqty
         else:
-            # This hold would push us past required_qty.  Schedule it and
-            # every subsequent hold for immediate release, then stop.
-            overshoot_ids.append(hid)
+            # Hold exceeds remaining — adopt it whole (benign over-reservation).
+            adopted.append((hid, hqty))
+            remaining = Decimal("0")
+            # Release any subsequent holds — they're surplus.
             while bucket:
                 hid2, _ = bucket.pop(0)
                 overshoot_ids.append(hid2)
             break
-
 
     unmet = remaining if remaining > 0 else Decimal("0")
     return adopted, unmet, overshoot_ids

@@ -126,34 +126,32 @@ class TestHoldAdoptionByQuantity:
     @patch("shopman.shop.services.stock._retag_hold_for_order")
     @patch("shopman.shop.services.stock._load_session_holds")
     @patch("shopman.shop.services.stock.get_adapter")
-    def test_overshoot_hold_released_and_fresh_hold_created(
+    def test_overshoot_hold_adopted_whole(
         self, mock_get_adapter, mock_load, mock_retag,
     ):
-        """Overshoot hold is released immediately; fresh hold covers exact remainder."""
+        """Overshoot hold is adopted whole — over-reservation is benign."""
         from shopman.shop.services.stock import hold
 
         adapter = MagicMock()
         adapter.expand_bundle.side_effect = Exception("NOT_A_BUNDLE")
-        adapter.create_hold.return_value = {"success": True, "hold_id": "hold:FRESH"}
         mock_get_adapter.return_value = adapter
         mock_load.return_value = {
             "X": [
                 ("hold:A", Decimal("2")),
-                ("hold:B", Decimal("3")),  # would overshoot: 2+3=5 > required=4
+                ("hold:B", Decimal("3")),  # overshoots: 2+3=5 > required=4
             ],
         }
 
         order = _make_order(items=[{"sku": "X", "qty": "4"}])
         hold(order)
 
-        # hold:B released immediately; fresh hold for the remaining 2 created.
-        adapter.release_holds.assert_called_once_with(["hold:B"])
-        adapter.create_hold.assert_called_once()
-        assert adapter.create_hold.call_args.kwargs["qty"] == Decimal("2")
+        # Both holds adopted whole; no fresh hold needed; no release.
+        adapter.release_holds.assert_not_called()
+        adapter.create_hold.assert_not_called()
 
         entries = order.data["hold_ids"]
-        assert {e["hold_id"] for e in entries} == {"hold:A", "hold:FRESH"}
-        assert sum(Decimal(str(e["qty"])) for e in entries) == Decimal("4")
+        assert {e["hold_id"] for e in entries} == {"hold:A", "hold:B"}
+        assert sum(Decimal(str(e["qty"])) for e in entries) == Decimal("5")
 
     @patch("shopman.shop.services.stock._retag_hold_for_order")
     @patch("shopman.shop.services.stock._load_session_holds")

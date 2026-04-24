@@ -122,8 +122,8 @@ def test_cancellation_while_preparing_cleans_kds_tickets(channel):
     order.transition_status(Order.Status.PREPARING, actor="test")
 
     inst = KDSInstance.objects.create(ref="e2e-kds-1", name="E2E KDS", type="prep")
-    t1 = KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="open")
-    t2 = KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="open")
+    t1 = KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="pending")
+    t2 = KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="in_progress")
 
     from shopman.shop.services.kds import cancel_tickets
     count = cancel_tickets(order)

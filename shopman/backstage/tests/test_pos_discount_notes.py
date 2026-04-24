@@ -131,7 +131,7 @@ class POSCloseWithDiscountTests(TestCase):
         """POS close works without manual discount."""
         resp = self._close_sale([{"sku": "POS-ITEM-1", "qty": 1, "unit_price_q": 1000}])
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "pos-result")
+        self.assertContains(resp, "data-order-ref")
 
     def test_close_with_discount_payload_accepted(self) -> None:
         """POS close accepts manual_discount in payload."""

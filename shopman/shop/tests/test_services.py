@@ -928,8 +928,8 @@ class TestKDSService:
             ref="KDS-CANCEL-001", channel_ref=channel.ref, status=Order.Status.PREPARING, total_q=1000,
         )
         inst = KDSInstance.objects.create(ref="prep-cancel-1", name="Prep Cancel", type="prep")
-        t1 = KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="open")
-        t2 = KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="open")
+        t1 = KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="pending")
+        t2 = KDSTicket.objects.create(order=order, kds_instance=inst, items=[], status="in_progress")
 
         from shopman.shop.services.kds import cancel_tickets
 
