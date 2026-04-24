@@ -140,20 +140,19 @@ migrate: ## Cria/atualiza banco de dados
 	$(PYTHON) manage.py migrate
 	@echo "✓ Migrações aplicadas"
 
-run: css ## Sobe servidor + directive worker (0.0.0.0:8000)
+run: css ## Sobe servidor + ngrok + directive worker (0.0.0.0:8000)
 	-$(PYTHON) manage.py refresh_oven
 	lsof -ti:8000 | xargs kill -9 2>/dev/null || true
 	$(PYTHON) manage.py process_directives --watch &
+	ngrok http 8000 --domain=shopman.ngrok-free.app > /dev/null &
 	$(PYTHON) manage.py runserver 0.0.0.0:8000
 
-tunnel: ## Abre túnel ngrok com domínio fixo (shopman.ngrok-free.app)
-	ngrok http 8000 --domain=shopman.ngrok-free.app
-
-dev: node_modules/.package-lock.json ## Dev: CSS watch + directive worker + server (0.0.0.0:8000)
-	@echo "── Dev mode: CSS watch + directive worker + Django server ──"
+dev: node_modules/.package-lock.json ## Dev: CSS watch + ngrok + directive worker + server (0.0.0.0:8000)
+	@echo "── Dev mode: CSS watch + ngrok + directive worker + Django server ──"
 	@echo "  Ctrl+C para parar tudo."
 	npm run css:watch &
 	$(PYTHON) manage.py process_directives --watch &
+	ngrok http 8000 --domain=shopman.ngrok-free.app > /dev/null &
 	$(PYTHON) manage.py runserver 0.0.0.0:8000
 
 seed: ## Popula banco com dados demo da instancia ativa (flush + recria)
