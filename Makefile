@@ -144,7 +144,7 @@ run: css ## Sobe servidor + ngrok + directive worker (0.0.0.0:8000)
 	-$(PYTHON) manage.py refresh_oven
 	lsof -ti:8000 | xargs kill -9 2>/dev/null || true
 	$(PYTHON) manage.py process_directives --watch &
-	ngrok http 8000 --domain=shopman.ngrok-free.app > /dev/null &
+	ngrok http 8000 --domain=lathlike-thelma-undiaphanously.ngrok-free.dev > /dev/null &
 	$(PYTHON) manage.py runserver 0.0.0.0:8000
 
 dev: node_modules/.package-lock.json ## Dev: CSS watch + ngrok + directive worker + server (0.0.0.0:8000)
@@ -152,7 +152,7 @@ dev: node_modules/.package-lock.json ## Dev: CSS watch + ngrok + directive worke
 	@echo "  Ctrl+C para parar tudo."
 	npm run css:watch &
 	$(PYTHON) manage.py process_directives --watch &
-	ngrok http 8000 --domain=shopman.ngrok-free.app > /dev/null &
+	ngrok http 8000 --domain=lathlike-thelma-undiaphanously.ngrok-free.dev > /dev/null &
 	$(PYTHON) manage.py runserver 0.0.0.0:8000
 
 seed: ## Popula banco com dados demo da instancia ativa (flush + recria)
