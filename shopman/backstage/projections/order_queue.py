@@ -127,6 +127,17 @@ class OrderQueueProjection:
     active_filter: str
 
 
+@dataclass(frozen=True)
+class TwoZoneQueueProjection:
+    """Two-zone read model: Entrada (new) and Saída (ready), plus preparo awareness."""
+
+    entrada: tuple[OrderCardProjection, ...]       # status == "new"
+    saida_pickup: tuple[OrderCardProjection, ...]  # status == "ready", pickup
+    saida_delivery: tuple[OrderCardProjection, ...]  # status == "ready", delivery
+    preparo_count: int                             # status == "preparing"
+    counts: dict[str, int]                         # full status counts
+
+
 # ── Builders ───────────────────────────────────────────────────────────
 
 
@@ -158,6 +169,31 @@ def build_order_queue(
         orders=cards,
         counts=counts,
         active_filter=filter_status,
+    )
+
+
+def build_two_zone_queue() -> TwoZoneQueueProjection:
+    """Build the two-zone operator queue: Entrada (new) and Saída (ready)."""
+    all_orders = list(
+        Order.objects.filter(status__in=ACTIVE_STATUSES)
+        .prefetch_related("items")
+        .order_by("created_at")
+    )
+
+    counts = _status_counts(all_orders)
+
+    entrada = tuple(_build_card(o) for o in all_orders if o.status == "new")
+
+    ready = [o for o in all_orders if o.status == "ready"]
+    saida_pickup = tuple(_build_card(o) for o in ready if not _is_delivery(o))
+    saida_delivery = tuple(_build_card(o) for o in ready if _is_delivery(o))
+
+    return TwoZoneQueueProjection(
+        entrada=entrada,
+        saida_pickup=saida_pickup,
+        saida_delivery=saida_delivery,
+        preparo_count=counts.get("preparing", 0),
+        counts=counts,
     )
 
 

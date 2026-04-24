@@ -7,7 +7,7 @@
 {% block content %}
 <div id="gestor-pedidos-root" x-data="gestorPedidos()" x-init="init()" class="flex flex-col h-full min-h-0">
 
-  {% comment %}O3: Offline banner{% endcomment %}
+  {% comment %}Offline banner{% endcomment %}
   <div x-show="offline" x-cloak x-transition.opacity
        class="px-4 py-2 bg-danger text-on-danger text-sm font-semibold flex items-center gap-2 shrink-0"
        role="alert">
@@ -15,7 +15,7 @@
     Sem conexão — reconectando automaticamente…
   </div>
 
-  {% comment %}O7: Operator alerts banner{% endcomment %}
+  {% comment %}Operator alerts banner{% endcomment %}
   {% if alerts %}
   <div class="px-4 py-2 shrink-0 flex flex-col gap-1
               border-b border-outline dark:border-outline-dark
@@ -42,85 +42,13 @@
   </div>
   {% endif %}
 
-  {% comment %}Filter pills + surface-specific toolbar{% endcomment %}
-  <nav class="px-4 py-2 flex items-center gap-2 flex-wrap shrink-0
-               border-b border-outline dark:border-outline-dark
-               bg-surface-alt dark:bg-surface-dark-alt"
-       aria-label="Filtro de status">
-
-    {% comment %}Primary actions: operator workflow statuses{% endcomment %}
-    <button @click="setFilter('new')"
-            :class="filter === 'new' ? 'pill pill--active' : 'pill'"
-            class="text-sm font-semibold px-4 py-2">
-      Novos
-      <span class="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full text-xs font-bold px-1
-                   bg-on-surface/10 dark:bg-on-surface-dark/10"
-            id="count-new">{{ counts.new }}</span>
-    </button>
-    <button @click="setFilter('confirmed')"
-            :class="filter === 'confirmed' ? 'pill pill--active' : 'pill'"
-            class="text-sm font-semibold px-4 py-2">
-      Confirmados
-      <span class="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full text-xs font-bold px-1
-                   bg-on-surface/10 dark:bg-on-surface-dark/10"
-            id="count-confirmed">{{ counts.confirmed }}</span>
-    </button>
-
-    {% comment %}Secondary: consultation statuses dropdown{% endcomment %}
-    <div class="relative" x-data="{ open: false }" @keydown.escape.window="open = false">
-      <button type="button"
-              @click="open = !open"
-              :class="['preparing','ready','dispatched','delivered','all'].includes(filter) ? 'pill pill--active' : 'pill'"
-              class="flex items-center gap-0.5">
-        <span x-show="filter === 'preparing'" x-cloak>Preparando</span>
-        <span x-show="filter === 'ready'" x-cloak>Prontos</span>
-        <span x-show="filter === 'dispatched'" x-cloak>Em Entrega</span>
-        <span x-show="filter === 'delivered'" x-cloak>Entregues</span>
-        <span x-show="filter === 'all'" x-cloak>Todos</span>
-        <span x-show="!['preparing','ready','dispatched','delivered','all'].includes(filter)">Outros status</span>
-        <span class="material-symbols-rounded text-base leading-none transition-transform"
-              :style="open ? 'transform:rotate(180deg)' : ''"
-              aria-hidden="true">expand_more</span>
-      </button>
-      <div x-show="open" x-cloak @click.outside="open = false"
-           class="absolute top-full left-0 mt-1 z-40
-                  bg-surface dark:bg-surface-dark border border-outline dark:border-outline-dark
-                  rounded-xl shadow-xl py-1 w-48 text-sm">
-        <button @click="setFilter('preparing'); open = false"
-                :class="filter === 'preparing' ? 'font-semibold text-primary dark:text-primary-dark' : 'text-on-surface dark:text-on-surface-dark'"
-                class="w-full text-left px-4 py-2 hover:bg-outline/20 dark:hover:bg-outline-dark/20 flex items-center justify-between gap-2">
-          Preparando
-          <span class="text-xs opacity-50" id="count-preparing">{{ counts.preparing }}</span>
-        </button>
-        <button @click="setFilter('ready'); open = false"
-                :class="filter === 'ready' ? 'font-semibold text-primary dark:text-primary-dark' : 'text-on-surface dark:text-on-surface-dark'"
-                class="w-full text-left px-4 py-2 hover:bg-outline/20 dark:hover:bg-outline-dark/20 flex items-center justify-between gap-2">
-          Prontos
-          <span class="text-xs opacity-50" id="count-ready">{{ counts.ready }}</span>
-        </button>
-        <button @click="setFilter('dispatched'); open = false"
-                :class="filter === 'dispatched' ? 'font-semibold text-primary dark:text-primary-dark' : 'text-on-surface dark:text-on-surface-dark'"
-                class="w-full text-left px-4 py-2 hover:bg-outline/20 dark:hover:bg-outline-dark/20 flex items-center justify-between gap-2">
-          Em Entrega
-          <span class="text-xs opacity-50" id="count-dispatched">{{ counts.dispatched }}</span>
-        </button>
-        <button @click="setFilter('delivered'); open = false"
-                :class="filter === 'delivered' ? 'font-semibold text-primary dark:text-primary-dark' : 'text-on-surface dark:text-on-surface-dark'"
-                class="w-full text-left px-4 py-2 hover:bg-outline/20 dark:hover:bg-outline-dark/20 flex items-center justify-between gap-2">
-          Entregues
-          <span class="text-xs opacity-50" id="count-delivered">{{ counts.delivered }}</span>
-        </button>
-        <hr class="my-1 border-outline dark:border-outline-dark">
-        <button @click="setFilter('all'); open = false"
-                :class="filter === 'all' ? 'font-semibold text-primary dark:text-primary-dark' : 'text-on-surface/60 dark:text-on-surface-dark/60'"
-                class="w-full text-left px-4 py-2 hover:bg-outline/20 dark:hover:bg-outline-dark/20 flex items-center justify-between gap-2">
-          Todos
-          <span class="text-xs opacity-50" id="count-all">{{ counts.all }}</span>
-        </button>
-      </div>
-    </div>
-
-    {% comment %}O5: Last updated + sound + fullscreen{% endcomment %}
+  {% comment %}Toolbar: connection status + sound + fullscreen{% endcomment %}
+  <div class="px-4 py-2 flex items-center gap-2 shrink-0
+              border-b border-outline dark:border-outline-dark
+              bg-surface-alt dark:bg-surface-dark-alt">
+    <span class="text-xs text-on-surface/50 dark:text-on-surface-dark/50 font-medium">
+      Gestor de Pedidos
+    </span>
     <div class="ml-auto flex items-center gap-1">
       <span class="text-xs text-on-surface/30 dark:text-on-surface-dark/30 flex items-center gap-1">
         <span class="inline-block w-1.5 h-1.5 rounded-full shrink-0"
@@ -143,9 +71,9 @@
         <span class="material-symbols-rounded text-xl" x-text="isFullscreen ? 'close_fullscreen' : 'open_in_full'" aria-hidden="true"></span>
       </button>
     </div>
-  </nav>
+  </div>
 
-  {% comment %}O2: Error toast container{% endcomment %}
+  {% comment %}Error toast container{% endcomment %}
   <div id="ped-toast" x-data="{ show: false, msg: '' }" x-cloak
        @ped-toast.window="msg = $event.detail.msg; show = true; setTimeout(() => show = false, 4000)"
        x-show="show" x-transition.opacity
@@ -159,14 +87,13 @@
   {% comment %}ARIA live region for screen readers{% endcomment %}
   <div class="sr-only" aria-live="assertive" aria-atomic="true" x-text="ariaAnnouncement"></div>
 
-  {% comment %}Order grid (HTMX polling){% endcomment %}
+  {% comment %}Two-zone order grid (HTMX polling every 5s){% endcomment %}
   <main class="flex-1 overflow-auto p-4">
     <div id="order-grid"
          hx-get="/gestor/pedidos/list/"
-         hx-trigger="every 5s, filter-change"
+         hx-trigger="every 5s"
          hx-target="#order-grid"
          hx-swap="innerHTML"
-         hx-vals='js:{"filter": Alpine.$data(document.getElementById("gestor-pedidos-root")).filter}'
          x-on:htmx:after-swap="$dispatch('ped-synced')"
          x-on:htmx:response-error="$dispatch('ped-error')"
          x-on:htmx:send-error="$dispatch('ped-error')">

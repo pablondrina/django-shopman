@@ -1638,7 +1638,80 @@ class Command(BaseCommand):
 
             order_count += 1
 
-        self.stdout.write(f"  ✅ {order_count} pedidos (35 dias + live)")
+        # ── iFood orders — manual confirmation showcase ───────────────────
+        ifood_channel = channels["ifood"]
+        ifood_specs = [
+            {
+                "status": "new",
+                "minutes_ago": random.randint(2, 8),
+                "customer_name": "Carlos Moreira",
+                "items": [
+                    {"sku": "CROISSANT", "name": "Croissant Tradicional", "qty": 2, "unit_price_q": 1300},
+                    {"sku": "ESPRESSO", "name": "Espresso", "qty": 1, "unit_price_q": 800},
+                ],
+            },
+            {
+                "status": "confirmed",
+                "minutes_ago": random.randint(6, 12),
+                "customer_name": "Marina Souza",
+                "items": [
+                    {"sku": "BAGUETE", "name": "Baguete Francesa", "qty": 2, "unit_price_q": 1300},
+                    {"sku": "SUCO-LARANJA", "name": "Suco de Laranja", "qty": 1, "unit_price_q": 1200},
+                ],
+            },
+        ]
+        for spec in ifood_specs:
+            order_time = now - timedelta(minutes=spec["minutes_ago"])
+            items_data = []
+            total_q = 0
+            for item in spec["items"]:
+                line_total_q = item["unit_price_q"] * item["qty"]
+                total_q += line_total_q
+                items_data.append({**item, "line_total_q": line_total_q})
+
+            ref = f"IF-{uuid.uuid4().hex[:8].upper()}"
+            order = Order.objects.create(
+                ref=ref,
+                channel_ref=ifood_channel.ref,
+                status=spec["status"],
+                total_q=total_q,
+                handle_type="external",
+                handle_ref=ref,
+                created_at=order_time,
+                data={
+                    "fulfillment_type": "delivery",
+                    "customer": {"name": spec["customer_name"]},
+                    "payment": {"method": "external"},
+                },
+            )
+            for item in items_data:
+                OrderItem.objects.create(
+                    order=order,
+                    line_id=f"L-{uuid.uuid4().hex[:8]}",
+                    sku=item["sku"],
+                    name=item["name"],
+                    qty=Decimal(str(item["qty"])),
+                    unit_price_q=item["unit_price_q"],
+                    line_total_q=item["line_total_q"],
+                )
+            OrderEvent.objects.create(
+                order=order,
+                type="status_change",
+                seq=0,
+                payload={"new_status": "new"},
+                created_at=order_time,
+            )
+            if spec["status"] == "confirmed":
+                OrderEvent.objects.create(
+                    order=order,
+                    type="status_change",
+                    seq=1,
+                    payload={"new_status": "confirmed"},
+                    created_at=order_time + timedelta(minutes=2),
+                )
+            order_count += 1
+
+        self.stdout.write(f"  ✅ {order_count} pedidos (35 dias + live + ifood)")
 
     # ────────────────────────────────────────────────────────────────
     # Sessoes abertas (Orderman)

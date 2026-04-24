@@ -1,6 +1,5 @@
 function gestorPedidos() {
   return {
-    filter: sessionStorage.getItem('gestor_filter') || 'all',
     soundEnabled: sessionStorage.getItem('gestor_sound') !== 'false',
     previousCount: 0,
     orderCount: 0,
@@ -23,7 +22,6 @@ function gestorPedidos() {
         self.isFullscreen = !!document.fullscreenElement;
       });
 
-      /* O3: HTMX lifecycle for offline detection */
       this.$el.addEventListener('ped-synced', () => {
         this.offline = false;
         this.lastUpdated = Date.now();
@@ -52,7 +50,7 @@ function gestorPedidos() {
         });
       }
 
-      /* O2: Global HTMX error handler for action buttons (422 responses) */
+      /* Global HTMX error handler for action buttons (422 responses) */
       document.addEventListener('htmx:responseError', (e) => {
         var target = e.detail.target;
         if (target && target.id === 'order-grid') return;
@@ -61,7 +59,7 @@ function gestorPedidos() {
         window.dispatchEvent(new CustomEvent('ped-toast', { detail: { msg: msg } }));
       });
 
-      /* Legacy fallback: direct htmx event */
+      /* Legacy fallback */
       document.addEventListener('htmx:afterSwap', (e) => {
         if (e.detail.target.id === 'order-grid') {
           this.offline = false;
@@ -76,7 +74,7 @@ function gestorPedidos() {
         }
       });
 
-      /* O12: Global keyboard shortcuts */
+      /* Global keyboard shortcuts */
       document.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
         if (e.key === 'Escape') {
@@ -92,13 +90,9 @@ function gestorPedidos() {
     },
 
     syncState() {
-      var grid = document.getElementById('order-grid');
-      if (!grid) return;
-
-      var cards = grid.querySelectorAll('[data-order-card]');
+      var cards = document.querySelectorAll('[data-order-card]');
       var newCount = cards.length;
 
-      /* Screen reader announcement */
       if (newCount > this.previousCount && this.previousCount > 0) {
         var diff = newCount - this.previousCount;
         this.ariaAnnouncement = diff + ' novo' + (diff > 1 ? 's' : '') + ' pedido' + (diff > 1 ? 's' : '');
@@ -108,12 +102,10 @@ function gestorPedidos() {
         this.playSound('new');
       }
 
-      /* Check for orders waiting too long (>4min without confirmation) */
       if (this.soundEnabled) {
         var hasUrgent = false;
         cards.forEach(function(el) {
-          var timer = el.querySelector('.timer-urgent');
-          if (timer) hasUrgent = true;
+          if (el.querySelector('.timer-urgent')) hasUrgent = true;
         });
         if (hasUrgent) {
           this.playSound('urgent');
@@ -129,7 +121,6 @@ function gestorPedidos() {
       this.clock = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
     },
 
-    /* O5: Last updated text */
     updateLastUpdatedText() {
       var ago = Math.floor((Date.now() - this.lastUpdated) / 1000);
       if (ago < 5) {
@@ -139,12 +130,6 @@ function gestorPedidos() {
       } else {
         this.lastUpdatedText = 'há ' + Math.floor(ago / 60) + 'min';
       }
-    },
-
-    setFilter(f) {
-      this.filter = f;
-      sessionStorage.setItem('gestor_filter', f);
-      document.getElementById('order-grid').dispatchEvent(new Event('filter-change'));
     },
 
     toggleSound() {

@@ -1,21 +1,108 @@
-{% if orders %}
-<div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr))">
-  {% for o in orders %}
-    {% include "pedidos/partials/card.html" %}
-  {% endfor %}
-</div>
+{% comment %}Two-zone layout: Entrada (new) and Saída (ready){% endcomment %}
 
-{% comment %}Update status counts in filter pills{% endcomment %}
-<template x-data x-init="
-  var ids = ['all','new','confirmed','preparing','ready','dispatched','delivered'];
-  var vals = [{{ counts.all }},{{ counts.new }},{{ counts.confirmed }},{{ counts.preparing }},{{ counts.ready }},{{ counts.dispatched }},{{ counts.delivered }}];
-  ids.forEach(function(id, i) { var el = document.getElementById('count-' + id); if (el) el.textContent = vals[i]; });
-"></template>
+{% with entrada=zone_queue.entrada saida_pickup=zone_queue.saida_pickup saida_delivery=zone_queue.saida_delivery preparo_count=zone_queue.preparo_count %}
 
-{% else %}
-<div class="text-center py-16 text-on-surface/40 dark:text-on-surface-dark/40">
-  <span class="material-symbols-rounded text-5xl block mb-4" aria-hidden="true">done_all</span>
-  <p class="text-lg">Nenhum pedido ativo</p>
-  <p class="text-sm mt-1">Novos pedidos aparecerão aqui automaticamente.</p>
+{% comment %}Preparo awareness strip{% endcomment %}
+{% if preparo_count %}
+<div class="mb-4 flex items-center gap-2 px-3 py-2 rounded-lg
+            bg-info/10 border border-info/20 text-sm
+            text-on-surface/60 dark:text-on-surface-dark/60">
+  <span class="material-symbols-rounded text-base" aria-hidden="true">kitchen</span>
+  <span>
+    {{ preparo_count }} pedido{{ preparo_count|pluralize:"s" }} em preparo na cozinha
+    <span class="text-on-surface/40 dark:text-on-surface-dark/40">— KDS ativo</span>
+  </span>
+  <a href="/gestor/kds/" class="ml-auto text-xs underline opacity-60 hover:opacity-100">Ver KDS</a>
 </div>
 {% endif %}
+
+{% comment %}Two-zone grid{% endcomment %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+
+  {% comment %}ZONA ENTRADA — pedidos novos aguardando decisão{% endcomment %}
+  <section aria-label="Entrada — pedidos aguardando confirmação">
+    <header class="flex items-center gap-2 mb-3 pb-2 border-b border-outline dark:border-outline-dark">
+      <span class="material-symbols-rounded text-xl text-warning" aria-hidden="true">inbox</span>
+      <h2 class="font-semibold text-sm text-on-surface dark:text-on-surface-dark">Entrada</h2>
+      {% if entrada %}
+      <span class="inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full
+                   text-xs font-bold px-1.5 bg-warning text-on-warning">
+        {{ entrada|length }}
+      </span>
+      {% endif %}
+    </header>
+
+    {% if entrada %}
+    <div class="flex flex-col gap-3">
+      {% for o in entrada %}
+        {% include "pedidos/partials/card.html" %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-10 text-on-surface/40 dark:text-on-surface-dark/40">
+      <span class="material-symbols-rounded text-4xl block mb-2" aria-hidden="true">inbox</span>
+      <p class="text-sm">Nenhum pedido aguardando</p>
+    </div>
+    {% endif %}
+  </section>
+
+  {% comment %}ZONA SAÍDA — pedidos prontos para entrega{% endcomment %}
+  <section aria-label="Saída — pedidos prontos">
+    <header class="flex items-center gap-2 mb-3 pb-2 border-b border-outline dark:border-outline-dark">
+      <span class="material-symbols-rounded text-xl text-success" aria-hidden="true">output</span>
+      <h2 class="font-semibold text-sm text-on-surface dark:text-on-surface-dark">Saída</h2>
+      {% with total_saida=saida_pickup|length|add:saida_delivery|length %}
+      {% if total_saida %}
+      <span class="inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full
+                   text-xs font-bold px-1.5 bg-success text-on-success">
+        {{ total_saida }}
+      </span>
+      {% endif %}
+      {% endwith %}
+    </header>
+
+    {% if saida_pickup or saida_delivery %}
+    <div class="flex flex-col gap-4">
+
+      {% if saida_pickup %}
+      <div>
+        <div class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide
+                    text-on-surface/50 dark:text-on-surface-dark/50 mb-2">
+          <span class="material-symbols-rounded text-sm" aria-hidden="true">storefront</span>
+          Retirada
+        </div>
+        <div class="flex flex-col gap-3">
+          {% for o in saida_pickup %}
+            {% include "pedidos/partials/card.html" %}
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if saida_delivery %}
+      <div>
+        <div class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide
+                    text-on-surface/50 dark:text-on-surface-dark/50 mb-2">
+          <span class="material-symbols-rounded text-sm" aria-hidden="true">local_shipping</span>
+          Delivery
+        </div>
+        <div class="flex flex-col gap-3">
+          {% for o in saida_delivery %}
+            {% include "pedidos/partials/card.html" %}
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+    {% else %}
+    <div class="text-center py-10 text-on-surface/40 dark:text-on-surface-dark/40">
+      <span class="material-symbols-rounded text-4xl block mb-2" aria-hidden="true">done_all</span>
+      <p class="text-sm">Nenhum pedido pronto</p>
+    </div>
+    {% endif %}
+  </section>
+
+</div>
+
+{% endwith %}
