@@ -10,6 +10,15 @@ from .session import DecimalEncoder
 class Directive(models.Model):
     """Tarefa assíncrona (at-least-once)."""
 
+    class Status:
+        QUEUED = "queued"
+        RUNNING = "running"
+        DONE = "done"
+        FAILED = "failed"
+
+        VALID = frozenset({QUEUED, RUNNING, DONE, FAILED})
+
+
     topic = models.CharField(_("tópico"), max_length=64, db_index=True)
     status = models.CharField(
         _("status"),
@@ -50,6 +59,15 @@ class Directive(models.Model):
     created_at = models.DateTimeField(_("criado em"), auto_now_add=True)
     started_at = models.DateTimeField(_("iniciado em"), null=True, blank=True)
     updated_at = models.DateTimeField(_("atualizado em"), auto_now=True)
+
+
+    def save(self, *args, **kwargs):
+        if self.status not in self.Status.VALID:
+            raise ValueError(
+                f"Invalid directive status: {self.status!r}. "
+                f"Valid: {sorted(self.Status.VALID)}"
+            )
+        super().save(*args, **kwargs)
 
     class Meta:
         app_label = "orderman"

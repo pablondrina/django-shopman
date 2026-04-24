@@ -42,7 +42,7 @@ class LoyaltyEarnHandler:
         # Need a customer handle to find the customer
         if not order.handle_ref:
             logger.debug("loyalty.earn: no handle_ref on order %s, skipping", order_ref)
-            message.status = "completed"
+            message.status = "done"
             message.save(update_fields=["status", "updated_at"])
             return
 
@@ -55,14 +55,14 @@ class LoyaltyEarnHandler:
 
         if not customer:
             logger.debug("loyalty.earn: no customer for handle_ref=%s, skipping", order.handle_ref)
-            message.status = "completed"
+            message.status = "done"
             message.save(update_fields=["status", "updated_at"])
             return
 
         # Calculate points: 1 point per R$ 1,00 (100 centavos)
         points = order.total_q // 100
         if points <= 0:
-            message.status = "completed"
+            message.status = "done"
             message.save(update_fields=["status", "updated_at"])
             return
 
@@ -81,7 +81,7 @@ class LoyaltyEarnHandler:
 
             logger.info("loyalty.earn: +%d points for %s (order %s)", points, customer["ref"], order_ref)
 
-            message.status = "completed"
+            message.status = "done"
             message.save(update_fields=["status", "updated_at"])
 
         except Exception:
@@ -107,7 +107,7 @@ class LoyaltyRedeemHandler:
         points = int(payload.get("points", 0))
 
         if not order_ref or points <= 0:
-            message.status = "completed"
+            message.status = "done"
             message.save(update_fields=["status", "updated_at"])
             return
 
@@ -122,7 +122,7 @@ class LoyaltyRedeemHandler:
 
         if not order.handle_ref:
             logger.debug("loyalty.redeem: no handle_ref on order %s, skipping", order_ref)
-            message.status = "completed"
+            message.status = "done"
             message.save(update_fields=["status", "updated_at"])
             return
 
@@ -134,7 +134,7 @@ class LoyaltyRedeemHandler:
 
         if not customer:
             logger.debug("loyalty.redeem: no customer for handle_ref=%s, skipping", order.handle_ref)
-            message.status = "completed"
+            message.status = "done"
             message.save(update_fields=["status", "updated_at"])
             return
 
@@ -149,7 +149,7 @@ class LoyaltyRedeemHandler:
 
             logger.info("loyalty.redeem: -%d points for %s (order %s)", points, customer["ref"], order_ref)
 
-            message.status = "completed"
+            message.status = "done"
             message.save(update_fields=["status", "updated_at"])
 
         except Exception:
