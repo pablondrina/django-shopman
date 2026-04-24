@@ -161,10 +161,10 @@
       <span x-show="loading" class="material-symbols-rounded text-base animate-spin" aria-hidden="true">progress_activity</span>
       Confirmar Rejeição
     </button>
-    <button class="btn-ghost w-full mt-1 text-xs" @click="rejectMode = false; rejectReason = ''">
+    <button type="button" class="btn-ghost w-full mt-1 text-xs" @click="rejectMode = false; rejectReason = ''">
       Cancelar
     </button>
-  </div>
+  </form>
 
   {% comment %}Expanded detail (O11: better loading state){% endcomment %}
   <div x-show="expanded" x-cloak

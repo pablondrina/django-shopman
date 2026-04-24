@@ -316,13 +316,13 @@ def _production(today: date) -> ProductionKPIProjection:
 
     wo_today = WorkOrder.objects.filter(created_at__date=today)
     total = wo_today.count()
-    done = wo_today.filter(status="done").count()
-    open_count = wo_today.filter(status="open").count()
+    done = wo_today.filter(status="finished").count()
+    open_count = wo_today.filter(status__in=["planned", "started"]).count()
     progress = int((done / total * 100) if total > 0 else 0)
 
     tracker: list[WorkOrderTrackerProjection] = []
     for wo in wo_today.order_by("ref"):
-        if wo.status == "done":
+        if wo.status == "finished":
             tracker.append(WorkOrderTrackerProjection(
                 color="bg-green-500", tooltip=f"{wo.ref}: Concluída",
             ))

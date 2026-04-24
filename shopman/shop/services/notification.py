@@ -76,6 +76,16 @@ def deliver_order_notification(order, template: str, payload: dict) -> tuple[boo
             logger.debug("notification.deliver: no recipient for backend=%s order=%s, skipping", backend_name, order.ref)
             continue
 
+        from shopman.shop.notifications import get_backend as _get_backend
+        backend_module = _get_backend(backend_name)
+        if backend_module and hasattr(backend_module, "is_available"):
+            if not backend_module.is_available():
+                logger.debug(
+                    "notification.deliver: backend=%s not configured, skipping order=%s",
+                    backend_name, order.ref,
+                )
+                continue
+
         any_attempted = True
 
         if backend_name == "manychat" and order.handle_type == "manychat":
