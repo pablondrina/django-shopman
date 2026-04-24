@@ -17,6 +17,7 @@ import logging
 from datetime import datetime
 
 from django.utils import timezone
+from shopman.orderman.exceptions import DirectiveTerminalError, DirectiveTransientError
 from shopman.orderman.models import Directive
 
 from shopman.shop.directives import CONFIRMATION_TIMEOUT, ORDER_STALE_NEW_ALERT
@@ -43,21 +44,19 @@ class ConfirmationTimeoutHandler:
             expires_at = timezone.make_aware(expires_at)
 
         if timezone.now() < expires_at:
+            # Defer: not yet expired, reschedule
+            message.status = "queued"
             message.available_at = expires_at
-            message.save(update_fields=["available_at", "updated_at"])
+            message.save(update_fields=["status", "available_at", "updated_at"])
             return
 
         try:
             order = Order.objects.get(ref=order_ref)
         except Order.DoesNotExist:
-            message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
             return
 
         if order.status != Order.Status.NEW:
             # Operator already resolved the order within the window — noop.
-            message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
             return
 
         if action == "confirm":
@@ -74,16 +73,7 @@ class ConfirmationTimeoutHandler:
                 order_ref,
             )
         else:
-            logger.error(
-                "confirmation.timeout: unknown action %r for order %s",
-                action, order_ref,
-            )
-            message.status = "failed"
-            message.save(update_fields=["status", "updated_at"])
-            return
-
-        message.status = "done"
-        message.save(update_fields=["status", "updated_at"])
+            raise DirectiveTerminalError(f"unknown action: {action!r}")
 
 
 class StaleNewOrderAlertHandler:
@@ -108,21 +98,19 @@ class StaleNewOrderAlertHandler:
             alert_at = timezone.make_aware(alert_at)
 
         if timezone.now() < alert_at:
+            # Defer: not yet time, reschedule
+            message.status = "queued"
             message.available_at = alert_at
-            message.save(update_fields=["available_at", "updated_at"])
+            message.save(update_fields=["status", "available_at", "updated_at"])
             return
 
         try:
             order = Order.objects.get(ref=order_ref)
         except Order.DoesNotExist:
-            message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
             return
 
         if order.status != Order.Status.NEW:
             # Operador já resolveu — nada a fazer.
-            message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
             return
 
         try:
@@ -134,11 +122,8 @@ class StaleNewOrderAlertHandler:
                 f"Pedido {order.ref} aguardando decisão há muito tempo",
                 order_ref=order.ref,
             )
-        except Exception:
-            logger.exception("stale_new_alert: failed to create alert for order %s", order_ref)
-
-        message.status = "done"
-        message.save(update_fields=["status", "updated_at"])
+        except Exception as exc:
+            raise DirectiveTransientError(str(exc)) from exc
 
 
 __all__ = ["ConfirmationTimeoutHandler", "StaleNewOrderAlertHandler"]

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 
+from shopman.orderman.exceptions import DirectiveTerminalError
 from shopman.orderman.models import Directive
 
 logger = logging.getLogger(__name__)
@@ -37,19 +38,13 @@ class MockPixConfirmHandler:
         payload = message.payload or {}
         txid = payload.get("txid")
         if not txid:
-            logger.error("mock_pix.confirm: missing txid in payload=%r", payload)
-            message.status = "failed"
-            message.save(update_fields=["status", "updated_at"])
-            return
+            raise DirectiveTerminalError("missing txid in payload")
 
         confirm_pix(
             txid=txid,
             e2e_id=payload.get("e2e_id", ""),
             valor=payload.get("valor", ""),
         )
-
-        message.status = "done"
-        message.save(update_fields=["status", "updated_at"])
 
 
 __all__ = ["MockPixConfirmHandler", "MOCK_PIX_CONFIRM"]

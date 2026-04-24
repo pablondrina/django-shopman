@@ -59,9 +59,39 @@ def _process_directive(directive) -> None:
     directive.started_at = now
     directive.save(update_fields=["status", "attempts", "started_at", "updated_at"])
 
+    from shopman.orderman.exceptions import DirectiveTerminalError, DirectiveTransientError
+
     _local.dispatching = True
     try:
         handler.handle(message=directive, ctx={"actor": "signal_dispatch"})
+        # Auto-complete: only if handler didn't change status (e.g. deferral)
+        directive.refresh_from_db()
+        if directive.status == "running":
+            directive.status = "done"
+            directive.save(update_fields=["status", "updated_at"])
+    except DirectiveTerminalError as exc:
+        logger.error(
+            "Directive %s #%s terminal failure (attempt %d): %s",
+            directive.topic, directive.pk, directive.attempts, exc,
+        )
+        directive.status = "failed"
+        directive.error_code = "terminal"
+        directive.last_error = str(exc)[:500]
+        directive.save(update_fields=["status", "error_code", "last_error", "updated_at"])
+    except DirectiveTransientError as exc:
+        logger.warning(
+            "Directive %s #%s transient failure (attempt %d/%d): %s",
+            directive.topic, directive.pk, directive.attempts, MAX_ATTEMPTS, exc,
+        )
+        if directive.attempts >= MAX_ATTEMPTS:
+            directive.status = "failed"
+            directive.error_code = "terminal"
+        else:
+            directive.status = "queued"
+            directive.error_code = "transient"
+            directive.available_at = now + timedelta(seconds=_backoff_seconds(directive.attempts))
+        directive.last_error = str(exc)[:500]
+        directive.save(update_fields=["status", "error_code", "available_at", "last_error", "updated_at"])
     except Exception as exc:
         logger.exception(
             "Directive %s #%s failed (attempt %d/%d)",
@@ -69,11 +99,13 @@ def _process_directive(directive) -> None:
         )
         if directive.attempts >= MAX_ATTEMPTS:
             directive.status = "failed"
+            directive.error_code = "terminal"
         else:
             directive.status = "queued"
+            directive.error_code = "transient"
             directive.available_at = now + timedelta(seconds=_backoff_seconds(directive.attempts))
         directive.last_error = str(exc)[:500]
-        directive.save(update_fields=["status", "available_at", "last_error", "updated_at"])
+        directive.save(update_fields=["status", "error_code", "available_at", "last_error", "updated_at"])
     finally:
         _local.dispatching = False
 

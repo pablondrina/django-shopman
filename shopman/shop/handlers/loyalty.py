@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 
+from shopman.orderman.exceptions import DirectiveTerminalError, DirectiveTransientError
 from shopman.orderman.models import Directive
 
 from shopman.shop.adapters import get_adapter
@@ -26,24 +27,16 @@ class LoyaltyEarnHandler:
         order_ref = payload.get("order_ref")
 
         if not order_ref:
-            message.status = "failed"
-            message.last_error = "missing order_ref"
-            message.save(update_fields=["status", "last_error", "updated_at"])
-            return
+            raise DirectiveTerminalError("missing order_ref")
 
         try:
             order = Order.objects.get(ref=order_ref)
         except Order.DoesNotExist:
-            message.status = "failed"
-            message.last_error = f"Order not found: {order_ref}"
-            message.save(update_fields=["status", "last_error", "updated_at"])
-            return
+            raise DirectiveTerminalError(f"Order not found: {order_ref}")
 
         # Need a customer handle to find the customer
         if not order.handle_ref:
             logger.debug("loyalty.earn: no handle_ref on order %s, skipping", order_ref)
-            message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
             return
 
         # Find customer by phone
@@ -55,15 +48,11 @@ class LoyaltyEarnHandler:
 
         if not customer:
             logger.debug("loyalty.earn: no customer for handle_ref=%s, skipping", order.handle_ref)
-            message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
             return
 
         # Calculate points: 1 point per R$ 1,00 (100 centavos)
         points = order.total_q // 100
         if points <= 0:
-            message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
             return
 
         try:
@@ -81,19 +70,8 @@ class LoyaltyEarnHandler:
 
             logger.info("loyalty.earn: +%d points for %s (order %s)", points, customer["ref"], order_ref)
 
-            message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
-
-        except Exception:
-            logger.exception("loyalty.earn: failed for order %s", order_ref)
-            attempts = (message.attempts or 0) + 1
-            message.attempts = attempts
-            if attempts >= 3:
-                message.status = "failed"
-                message.last_error = "max retries exceeded"
-            else:
-                message.status = "queued"
-            message.save(update_fields=["status", "last_error", "attempts", "updated_at"])
+        except Exception as exc:
+            raise DirectiveTransientError(str(exc)) from exc
 
 
 class LoyaltyRedeemHandler:
@@ -107,23 +85,16 @@ class LoyaltyRedeemHandler:
         points = int(payload.get("points", 0))
 
         if not order_ref or points <= 0:
-            message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
             return
 
         try:
             from shopman.orderman.models import Order
             order = Order.objects.get(ref=order_ref)
         except Order.DoesNotExist:
-            message.status = "failed"
-            message.last_error = f"Order not found: {order_ref}"
-            message.save(update_fields=["status", "last_error", "updated_at"])
-            return
+            raise DirectiveTerminalError(f"Order not found: {order_ref}")
 
         if not order.handle_ref:
             logger.debug("loyalty.redeem: no handle_ref on order %s, skipping", order_ref)
-            message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
             return
 
         try:
@@ -134,8 +105,6 @@ class LoyaltyRedeemHandler:
 
         if not customer:
             logger.debug("loyalty.redeem: no customer for handle_ref=%s, skipping", order.handle_ref)
-            message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
             return
 
         try:
@@ -149,16 +118,5 @@ class LoyaltyRedeemHandler:
 
             logger.info("loyalty.redeem: -%d points for %s (order %s)", points, customer["ref"], order_ref)
 
-            message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
-
-        except Exception:
-            logger.exception("loyalty.redeem: failed for order %s", order_ref)
-            attempts = (message.attempts or 0) + 1
-            message.attempts = attempts
-            if attempts >= 3:
-                message.status = "failed"
-                message.last_error = "max retries exceeded"
-            else:
-                message.status = "queued"
-            message.save(update_fields=["status", "last_error", "attempts", "updated_at"])
+        except Exception as exc:
+            raise DirectiveTransientError(str(exc)) from exc

@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 
 from django.conf import settings
+from shopman.orderman.exceptions import DirectiveTerminalError, DirectiveTransientError
 from shopman.orderman.models import Directive
 
 from shopman.shop.directives import NOTIFICATION_SEND
@@ -48,42 +49,31 @@ class NotificationSendHandler:
         template = payload.get("template", "generic")
 
         if not order_ref:
-            message.status = "failed"
-            message.last_error = "missing order_ref"
-            message.save(update_fields=["status", "last_error", "updated_at"])
-            return
+            raise DirectiveTerminalError("missing order_ref")
 
         try:
             order = Order.objects.get(ref=order_ref)
         except Order.DoesNotExist:
-            message.status = "failed"
-            message.last_error = f"Order not found: {order_ref}"
-            message.save(update_fields=["status", "last_error", "updated_at"])
-            return
+            raise DirectiveTerminalError(f"Order not found: {order_ref}")
 
         # Guarda: pular reminders de pagamento se já pago
         if template == "payment.reminder":
             payment_status = payment_svc.get_payment_status(order) or ""
             if payment_status in ("paid", "captured", "succeeded") or order.status not in ("new", "created"):
-                message.status = "done"
-                message.save(update_fields=["status", "updated_at"])
                 return
 
         success, last_error = notification_svc.deliver_order_notification(order, template, payload)
 
         if success:
-            message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
             return
 
-        # Todos os backends falharam
-        message.last_error = (last_error or "all backends failed")[:500]
+        # Todos os backends falharam — escalate if exhausted, then raise
         exhausted = message.attempts >= 5
-        message.status = "failed" if exhausted else "queued"
-        message.save(update_fields=["status", "last_error", "updated_at"])
-
         if exhausted:
             self._escalate(order_ref, template, last_error)
+            raise DirectiveTerminalError(last_error or "all backends failed after 5 attempts")
+
+        raise DirectiveTransientError(last_error or "all backends failed")
 
     def _escalate(self, order_ref: str, template: str, last_error: str | None) -> None:
         """Cria OperatorAlert quando entrega de notificação é exaurida."""
@@ -126,17 +116,15 @@ class NotificationSendHandler:
         for backend_name in ["email", "console"]:
             result = notify(event=template, recipient=recipient, context=context, backend=backend_name)
             if result.success:
-                message.status = "done"
-                message.save(update_fields=["status", "updated_at"])
                 return
 
-        message.last_error = (result.error if result else "unknown")[:500]
+        # All backends failed
         exhausted = message.attempts >= 5
-        message.status = "failed" if exhausted else "queued"
-        message.save(update_fields=["status", "last_error", "updated_at"])
-
         if exhausted:
             self._escalate("", event, result.error if result else None)
+            raise DirectiveTerminalError((result.error if result else "unknown")[:500])
+
+        raise DirectiveTransientError((result.error if result else "unknown")[:500])
 
 
 __all__ = ["NotificationSendHandler"]

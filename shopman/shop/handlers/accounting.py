@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 from datetime import date
 
+from shopman.orderman.exceptions import DirectiveTerminalError
 from shopman.orderman.models import Directive
 from shopman.orderman.protocols import AccountingBackend
 
@@ -32,8 +33,6 @@ class PurchaseToPayableHandler:
         if reference:
             existing = self.backend.list_entries(reference=reference, limit=1)
             if existing:
-                message.status = "done"
-                message.save(update_fields=["status", "updated_at"])
                 return
 
         result = self.backend.create_payable(
@@ -47,14 +46,11 @@ class PurchaseToPayableHandler:
         )
 
         if result.success:
-            message.status = "done"
             message.payload["entry_id"] = result.entry_id
-            message.save(update_fields=["status", "payload", "updated_at"])
-        else:
-            message.status = "failed"
-            message.last_error = f"Failed to create payable: {result.error_message}"
-            message.save(update_fields=["status", "last_error", "updated_at"])
-            raise RuntimeError(f"Failed to create payable: {result.error_message}")
+            message.save(update_fields=["payload", "updated_at"])
+            return
+
+        raise DirectiveTerminalError(f"Failed to create payable: {result.error_message}")
 
 
 __all__ = ["PurchaseToPayableHandler"]

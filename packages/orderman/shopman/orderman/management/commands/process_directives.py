@@ -171,8 +171,12 @@ class Command(BaseCommand):
 
                 try:
                     handler.handle(message=directive, ctx={"actor": "process_directives"})
+                    # Auto-complete: only if handler didn't change status (e.g. deferral)
+                    directive.refresh_from_db()
+                    if directive.status == "running":
+                        directive.status = "done"
                     directive.error_code = ""
-                    directive.save(update_fields=["error_code", "updated_at"])
+                    directive.save(update_fields=["status", "error_code", "updated_at"])
                     processed += 1
                 except DirectiveTerminalError as exc:
                     logger.error(

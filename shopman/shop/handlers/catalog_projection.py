@@ -6,7 +6,7 @@ CatalogProjectHandler — processes ``catalog.project_sku`` directives:
   - Resolves the SKU to a ProjectedItem via CatalogService.
   - Calls the backend adapter to push to the external API.
   - Handles 429 rate limiting (honoring Retry-After).
-  - Implements exponential backoff up to _MAX_ATTEMPTS.
+  - Uses DirectiveTransientError for retryable failures.
 
 Signal receivers (on_product_created, on_price_changed) enqueue directives
 with SHA-256-based dedupe keys so the same event is never processed twice
@@ -23,12 +23,11 @@ from datetime import timedelta
 from django.utils import timezone
 
 from shopman.offerman.protocols.projection import ProjectedItem
+from shopman.orderman.exceptions import DirectiveTerminalError, DirectiveTransientError
 from shopman.orderman.models import Directive
 from shopman.shop.directives import CATALOG_PROJECT_SKU
 
 logger = logging.getLogger(__name__)
-
-_MAX_ATTEMPTS = 5
 
 
 # ── Handler ───────────────────────────────────────────────────────────────────
@@ -40,20 +39,16 @@ class CatalogProjectHandler:
     def __init__(self, backend) -> None:
         self.backend = backend
 
-    def handle(self, message: Directive, ctx: dict) -> None:
+    def handle(self, *, message: Directive, ctx: dict) -> None:
         payload = message.payload
         sku = payload["sku"]
         listing_ref = payload.get("listing_ref", "ifood")
 
         if not _ifood_channel_active(listing_ref):
-            message.status = "done"
-            message.save(update_fields=["status"])
             return
 
         item = _get_projected_item(sku, listing_ref)
         if item is None:
-            message.status = "done"
-            message.save(update_fields=["status"])
             return
 
         from shopman.shop.adapters.catalog_projection_ifood import IFoodRateLimitError
@@ -61,38 +56,20 @@ class CatalogProjectHandler:
         try:
             result = self.backend.project([item], channel=listing_ref)
         except IFoodRateLimitError as exc:
+            # Rate limit: defer with Retry-After from API response
+            message.status = "queued"
             message.available_at = timezone.now() + timedelta(seconds=exc.retry_after)
-            message.save(update_fields=["available_at"])
+            message.save(update_fields=["status", "available_at", "updated_at"])
             logger.warning(
                 "catalog_projection: rate limited for %s/%s, retry in %ds",
                 listing_ref, sku, exc.retry_after,
             )
             return
 
-        message.attempts += 1
-
         if result.success:
-            message.status = "done"
-            message.save(update_fields=["status", "attempts"])
             return
 
-        if message.attempts >= _MAX_ATTEMPTS:
-            message.status = "failed"
-            message.last_error = "; ".join(result.errors)
-            message.save(update_fields=["status", "attempts", "last_error"])
-            logger.error(
-                "catalog_projection: max attempts reached for %s/%s: %s",
-                listing_ref, sku, message.last_error,
-            )
-            return
-
-        backoff_minutes = 2 ** message.attempts
-        message.available_at = timezone.now() + timedelta(minutes=backoff_minutes)
-        message.save(update_fields=["attempts", "available_at"])
-        logger.info(
-            "catalog_projection: transient error for %s/%s, retry in %dm",
-            listing_ref, sku, backoff_minutes,
-        )
+        raise DirectiveTransientError("; ".join(result.errors))
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

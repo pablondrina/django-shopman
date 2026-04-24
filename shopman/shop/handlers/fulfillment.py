@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 
+from shopman.orderman.exceptions import DirectiveTerminalError
 from shopman.orderman.models import Directive
 
 from shopman.shop.directives import FULFILLMENT_CREATE, FULFILLMENT_UPDATE, NOTIFICATION_SEND
@@ -37,24 +38,16 @@ class FulfillmentCreateHandler:
         order_ref = payload.get("order_ref")
 
         if not order_ref:
-            message.status = "failed"
-            message.last_error = "missing order_ref"
-            message.save(update_fields=["status", "last_error", "updated_at"])
-            return
+            raise DirectiveTerminalError("missing order_ref")
 
         try:
             order = Order.objects.get(ref=order_ref)
         except Order.DoesNotExist:
-            message.status = "failed"
-            message.last_error = f"Order not found: {order_ref}"
-            message.save(update_fields=["status", "last_error", "updated_at"])
-            return
+            raise DirectiveTerminalError(f"Order not found: {order_ref}")
 
         fulfillment_svc.create(order)
 
         logger.info("FulfillmentCreateHandler: created fulfillment for %s", order_ref)
-        message.status = "done"
-        message.save(update_fields=["status", "updated_at"])
 
 
 class FulfillmentUpdateHandler:
@@ -84,38 +77,23 @@ class FulfillmentUpdateHandler:
         new_status = payload.get("new_status")
 
         if not order_ref:
-            message.status = "failed"
-            message.last_error = "missing order_ref"
-            message.save(update_fields=["status", "last_error", "updated_at"])
-            return
+            raise DirectiveTerminalError("missing order_ref")
 
         if not fulfillment_id:
-            message.status = "failed"
-            message.last_error = "missing fulfillment_id"
-            message.save(update_fields=["status", "last_error", "updated_at"])
-            return
+            raise DirectiveTerminalError("missing fulfillment_id")
 
         if not new_status:
-            message.status = "failed"
-            message.last_error = "missing new_status"
-            message.save(update_fields=["status", "last_error", "updated_at"])
-            return
+            raise DirectiveTerminalError("missing new_status")
 
         try:
             order = Order.objects.get(ref=order_ref)
         except Order.DoesNotExist:
-            message.status = "failed"
-            message.last_error = f"Order not found: {order_ref}"
-            message.save(update_fields=["status", "last_error", "updated_at"])
-            return
+            raise DirectiveTerminalError(f"Order not found: {order_ref}")
 
         try:
             fulfillment = Fulfillment.objects.get(pk=fulfillment_id, order=order)
         except Fulfillment.DoesNotExist:
-            message.status = "failed"
-            message.last_error = f"Fulfillment not found: {fulfillment_id}"
-            message.save(update_fields=["status", "last_error", "updated_at"])
-            return
+            raise DirectiveTerminalError(f"Fulfillment not found: {fulfillment_id}")
 
         # Idempotência: já no status alvo
         if fulfillment.status == new_status:
@@ -124,8 +102,6 @@ class FulfillmentUpdateHandler:
                 fulfillment_id,
                 new_status,
             )
-            message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
             return
 
         tracking_code = payload.get("tracking_code")
@@ -134,10 +110,7 @@ class FulfillmentUpdateHandler:
         try:
             fulfillment_svc.update(fulfillment, new_status, tracking_code, carrier)
         except InvalidTransition as exc:
-            message.status = "failed"
-            message.last_error = str(exc)
-            message.save(update_fields=["status", "last_error", "updated_at"])
-            return
+            raise DirectiveTerminalError(str(exc)) from exc
 
         logger.info(
             "FulfillmentUpdateHandler: fulfillment %s → %s for order %s",
@@ -153,9 +126,6 @@ class FulfillmentUpdateHandler:
 
         # Notificações por transição
         self._create_notifications(order, fulfillment, new_status)
-
-        message.status = "done"
-        message.save(update_fields=["status", "updated_at"])
 
     def _sync_order_status(self, order, fulfillment_status: str) -> None:
         """Auto-sync: fulfillment status → order status."""

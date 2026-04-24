@@ -12,6 +12,7 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.utils import timezone
+from shopman.orderman.exceptions import DirectiveTerminalError
 from shopman.orderman.models import Directive, Order
 
 from shopman.shop.directives import RETURN_PROCESS
@@ -155,15 +156,10 @@ class ReturnHandler:
         try:
             order = Order.objects.get(ref=order_ref)
         except Order.DoesNotExist:
-            message.status = "failed"
-            message.last_error = f"Order not found: {order_ref}"
-            message.save(update_fields=["status", "last_error", "updated_at"])
-            return
+            raise DirectiveTerminalError(f"Order not found: {order_ref}")
 
         returns = order.data.get("returns", [])
         if return_index < len(returns) and returns[return_index].get("refund_processed"):
-            message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
             return
 
         stock_adapter = get_adapter("stock")
@@ -184,12 +180,8 @@ class ReturnHandler:
                 order=order, amount_q=refund_total_q, actor="return.process",
                 fiscal_backend=self.fiscal_backend,
             )
-        except Exception:
-            logger.exception("ReturnHandler: Failed to process refund for order=%s", order_ref)
-            message.status = "failed"
-            message.last_error = "Refund processing failed"
-            message.save(update_fields=["status", "last_error", "updated_at"])
-            return
+        except Exception as exc:
+            raise DirectiveTerminalError(f"Refund processing failed: {exc}") from exc
 
         order.refresh_from_db()
         returns = order.data.get("returns", [])
@@ -197,9 +189,6 @@ class ReturnHandler:
             returns[return_index]["refund_processed"] = True
             order.data["returns"] = returns
             order.save(update_fields=["data", "updated_at"])
-
-        message.status = "done"
-        message.save(update_fields=["status", "updated_at"])
 
 
 __all__ = ["ReturnHandler", "ReturnService", "ReturnResult"]

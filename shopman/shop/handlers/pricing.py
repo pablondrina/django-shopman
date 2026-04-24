@@ -29,11 +29,7 @@ class OffermanPricingBackend:
                 if item and item.get("is_sellable"):
                     return item["price_q"]
 
-<<<<<<< HEAD
         # 2. Preço do canal (canal.ref == listing.ref por convenção)
-=======
-        # 2. Preço do canal (via listing do canal)
->>>>>>> 697306a (fix(CC-1): pricing handler uses channel.ref convention, not listing_ref)
         channel_listing = getattr(channel, "ref", None) if channel else None
         if channel_listing:
             item = self._get_listing_item(catalog, channel_listing, sku, qty=qty)

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 
+from shopman.orderman.exceptions import DirectiveTerminalError
 from shopman.orderman.models import Directive
 from shopman.orderman.protocols import FiscalBackend
 
@@ -33,14 +34,9 @@ class NFCeEmitHandler:
         try:
             order = Order.objects.get(ref=order_ref)
         except Order.DoesNotExist:
-            message.status = "failed"
-            message.last_error = "Order not found"
-            message.save(update_fields=["status", "last_error", "updated_at"])
-            return
+            raise DirectiveTerminalError("Order not found")
 
         if order.data.get("nfce_access_key"):
-            message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
             return
 
         result = self.backend.emit(
@@ -55,13 +51,9 @@ class NFCeEmitHandler:
             order.data["nfce_danfe_url"] = result.danfe_url
             order.data["nfce_qrcode_url"] = result.qrcode_url
             order.save(update_fields=["data", "updated_at"])
-            message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
-        else:
-            message.status = "failed"
-            message.last_error = f"NFC-e emission failed: {result.error_message}"
-            message.save(update_fields=["status", "last_error", "updated_at"])
-            raise RuntimeError(f"NFC-e emission failed: {result.error_message}")
+            return
+
+        raise DirectiveTerminalError(f"NFC-e emission failed: {result.error_message}")
 
 
 class NFCeCancelHandler:
@@ -82,14 +74,9 @@ class NFCeCancelHandler:
         try:
             order = Order.objects.get(ref=order_ref)
         except Order.DoesNotExist:
-            message.status = "failed"
-            message.last_error = "Order not found"
-            message.save(update_fields=["status", "last_error", "updated_at"])
-            return
+            raise DirectiveTerminalError("Order not found")
 
         if order.data.get("nfce_cancelled"):
-            message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
             return
 
         result = self.backend.cancel(reference=order_ref, reason=reason)
@@ -98,13 +85,9 @@ class NFCeCancelHandler:
             order.data["nfce_cancelled"] = True
             order.data["nfce_cancellation_protocol"] = result.protocol_number
             order.save(update_fields=["data", "updated_at"])
-            message.status = "done"
-            message.save(update_fields=["status", "updated_at"])
-        else:
-            message.status = "failed"
-            message.last_error = f"NFC-e cancellation failed: {result.error_message}"
-            message.save(update_fields=["status", "last_error", "updated_at"])
-            raise RuntimeError(f"NFC-e cancellation failed: {result.error_message}")
+            return
+
+        raise DirectiveTerminalError(f"NFC-e cancellation failed: {result.error_message}")
 
 
 __all__ = ["NFCeEmitHandler", "NFCeCancelHandler"]
