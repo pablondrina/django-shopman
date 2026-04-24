@@ -2265,22 +2265,6 @@ class Command(BaseCommand):
         if col_cafes:
             kds_cafes.collections.add(col_cafes)
 
-        # KDS Padaria — Prep: pães, folhados, doces de forno
-        kds_padaria, _ = KDSInstance.objects.update_or_create(
-            ref="padaria",
-            defaults={
-                "name": "Padaria",
-                "type": "prep",
-                "target_time_minutes": 5,
-                "sound_enabled": True,
-                "is_active": True,
-            },
-        )
-        kds_padaria.collections.clear()
-        for col in [col_paes, col_focaccias, col_brioches, col_doces, col_folhados]:
-            if col:
-                kds_padaria.collections.add(col)
-
         # KDS Encomendas — Picking: pedidos agendados (future-dated)
         KDSInstance.objects.update_or_create(
             ref="encomendas",
@@ -2293,19 +2277,9 @@ class Command(BaseCommand):
             },
         )
 
-        # KDS Expedição — mostra pedidos prontos (READY)
-        KDSInstance.objects.update_or_create(
-            ref="expedicao",
-            defaults={
-                "name": "Expedição",
-                "type": "expedition",
-                "target_time_minutes": 5,
-                "sound_enabled": True,
-                "is_active": True,
-            },
-        )
+        KDSInstance.objects.filter(ref__in=["padaria", "expedicao"]).delete()
 
-        self.stdout.write("  ✅ 5 estações KDS (Lanches, Cafés, Padaria, Encomendas, Expedição)")
+        self.stdout.write("  ✅ 3 estações KDS (Cafés, Lanches, Encomendas)")
 
     # ────────────────────────────────────────────────────────────────
     # Notification Templates
