@@ -343,7 +343,8 @@ class TestOnConfirmed:
     @patch("shopman.shop.lifecycle.ChannelConfig")
     @patch("shopman.shop.lifecycle.notification")
     @patch("shopman.shop.lifecycle.payment")
-    def test_post_commit_initiates_payment(self, mock_payment, mock_notification, mock_cc):
+    @patch("shopman.shop.services.kds.dispatch")
+    def test_post_commit_initiates_payment(self, mock_kds_dispatch, mock_payment, mock_notification, mock_cc):
         mock_cc.for_channel.return_value = _config(
             payment_timing="post_commit", payment_method="pix",
         )
@@ -356,8 +357,9 @@ class TestOnConfirmed:
     @patch("shopman.shop.lifecycle.notification")
     @patch("shopman.shop.lifecycle.payment")
     @patch("shopman.shop.lifecycle.stock")
+    @patch("shopman.shop.services.kds.dispatch")
     def test_external_cash_fulfills_stock(
-        self, mock_stock, mock_payment, mock_notification, mock_cc,
+        self, mock_kds_dispatch, mock_stock, mock_payment, mock_notification, mock_cc,
     ):
         """Cash payment (external timing) fulfills stock on confirmed."""
         mock_cc.for_channel.return_value = _config(
@@ -373,8 +375,9 @@ class TestOnConfirmed:
     @patch("shopman.shop.lifecycle.notification")
     @patch("shopman.shop.lifecycle.payment")
     @patch("shopman.shop.lifecycle.stock")
+    @patch("shopman.shop.services.kds.dispatch")
     def test_external_marketplace_no_fulfill(
-        self, mock_stock, mock_payment, mock_notification, mock_cc,
+        self, mock_kds_dispatch, mock_stock, mock_payment, mock_notification, mock_cc,
     ):
         """Marketplace payment (external timing, external method) does NOT fulfill on confirmed."""
         mock_cc.for_channel.return_value = _config(
@@ -428,12 +431,11 @@ class TestOnPaid:
 class TestOnPreparing:
     @patch("shopman.shop.lifecycle.ChannelConfig")
     @patch("shopman.shop.lifecycle.notification")
-    @patch("shopman.shop.services.kds.dispatch")
-    def test_dispatches_kds_and_notifies(self, mock_kds_dispatch, mock_notification, mock_cc):
+    def test_notifies_preparing(self, mock_notification, mock_cc):
+        """on_preparing now only notifies — KDS dispatch moved to on_confirmed."""
         mock_cc.for_channel.return_value = _config()
         order = _make_order()
         dispatch(order, "on_preparing")
-        mock_kds_dispatch.assert_called_once_with(order)
         mock_notification.send.assert_called_once_with(order, "order_preparing")
 
 
@@ -558,8 +560,9 @@ class TestLocalChannelScenario:
     @patch("shopman.shop.lifecycle.ChannelConfig")
     @patch("shopman.shop.lifecycle.notification")
     @patch("shopman.shop.lifecycle.stock")
+    @patch("shopman.shop.services.kds.dispatch")
     def test_confirmed_fulfills_stock_no_payment(
-        self, mock_stock, mock_notification, mock_cc,
+        self, mock_kds_dispatch, mock_stock, mock_notification, mock_cc,
     ):
         mock_cc.for_channel.return_value = _config(
             payment_timing="external", payment_method="cash",
@@ -575,7 +578,8 @@ class TestRemoteChannelScenario:
     @patch("shopman.shop.lifecycle.ChannelConfig")
     @patch("shopman.shop.lifecycle.notification")
     @patch("shopman.shop.lifecycle.payment")
-    def test_confirmed_initiates_payment(self, mock_payment, mock_notification, mock_cc):
+    @patch("shopman.shop.services.kds.dispatch")
+    def test_confirmed_initiates_payment(self, mock_kds_dispatch, mock_payment, mock_notification, mock_cc):
         mock_cc.for_channel.return_value = _config(
             payment_timing="post_commit", payment_method="pix",
         )
@@ -625,8 +629,9 @@ class TestMarketplaceChannelScenario:
     @patch("shopman.shop.lifecycle.notification")
     @patch("shopman.shop.lifecycle.payment")
     @patch("shopman.shop.lifecycle.stock")
+    @patch("shopman.shop.services.kds.dispatch")
     def test_confirmed_no_payment_no_fulfill(
-        self, mock_stock, mock_payment, mock_notification, mock_cc,
+        self, mock_kds_dispatch, mock_stock, mock_payment, mock_notification, mock_cc,
     ):
         mock_cc.for_channel.return_value = _config(
             payment_timing="external", payment_method="external",

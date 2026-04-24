@@ -138,7 +138,7 @@ class WorkOrderViewSet(
         ).first()
         if not recipe:
             return Response(
-                {"error": "RECIPE_NOT_FOUND", "detail": f"Recipe '{data["recipe_ref"]}' not found or inactive."},
+                {"error": "RECIPE_NOT_FOUND", "detail": f"Recipe '{data['recipe_ref']}' not found or inactive."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 

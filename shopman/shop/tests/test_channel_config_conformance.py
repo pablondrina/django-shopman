@@ -165,7 +165,8 @@ class TestPaymentConformance:
             with patch("shopman.shop.lifecycle.payment.initiate") as mock_init:
                 with patch("shopman.shop.lifecycle.stock.fulfill"):
                     with patch("shopman.shop.lifecycle.notification.send"):
-                        dispatch(order, "on_confirmed")
+                        with patch("shopman.shop.services.kds.dispatch"):
+                            dispatch(order, "on_confirmed")
 
         mock_init.assert_called_once_with(order)
 
@@ -307,7 +308,8 @@ class TestNotificationsConformance:
         with _patch_config(cfg):
             with patch("shopman.shop.lifecycle.stock.fulfill"):
                 with patch("shopman.shop.lifecycle.notification.send") as mock_notify:
-                    dispatch(order, "on_confirmed")
+                    with patch("shopman.shop.services.kds.dispatch"):
+                        dispatch(order, "on_confirmed")
 
         mock_notify.assert_called_with(order, "order_confirmed")
 
