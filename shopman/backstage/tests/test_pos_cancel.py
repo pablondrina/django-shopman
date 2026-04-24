@@ -26,7 +26,7 @@ from shopman.orderman.services.modify import ModifyService
 from shopman.shop.models import Channel
 
 
-def _create_pos_order(payment_method: str = "dinheiro") -> Order:
+def _create_pos_order(payment_method: str = "cash") -> Order:
     channel = Channel.objects.get(ref="pdv")
     session_key = generate_session_key()
     Session.objects.create(
@@ -155,7 +155,7 @@ class PosCloseGranularErrorTests(TestCase):
         )
         self.client.force_login(self.staff)
 
-    def _close_payload(self, items=None, payment_method: str = "dinheiro") -> dict:
+    def _close_payload(self, items=None, payment_method: str = "cash") -> dict:
         import json
         if items is None:
             items = [{"sku": "TEST-SKU", "qty": 1, "unit_price_q": 1000}]

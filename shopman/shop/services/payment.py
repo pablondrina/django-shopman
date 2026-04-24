@@ -181,7 +181,7 @@ def get_payment_status(order) -> str | None:
     Retorna o status canônico de pagamento via Payman.
 
     Consulta PaymentService pelo intent_ref. Retorna None para pedidos
-    sem intent (cash, external, dinheiro).
+    sem intent (cash, external).
     """
     intent_ref = (order.data or {}).get("payment", {}).get("intent_ref")
     if not intent_ref:

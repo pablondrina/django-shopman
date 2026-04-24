@@ -212,14 +212,14 @@
                   :class="paymentMethod === '{{ pm.ref }}' ? 'bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark border-transparent' : 'bg-transparent text-on-surface dark:text-on-surface-dark border-outline dark:border-outline-dark hover:bg-outline/30 dark:hover:bg-outline-dark/30'"
                   @click="paymentMethod = '{{ pm.ref }}'">{{ pm.label }}</button>
           {% empty %}
-          <button type="button" class="flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors" :class="paymentMethod === 'dinheiro' ? 'bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark border-transparent' : 'bg-transparent text-on-surface dark:text-on-surface-dark border-outline dark:border-outline-dark'" @click="paymentMethod = 'dinheiro'">Dinheiro</button>
+          <button type="button" class="flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors" :class="paymentMethod === 'cash' ? 'bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark border-transparent' : 'bg-transparent text-on-surface dark:text-on-surface-dark border-outline dark:border-outline-dark'" @click="paymentMethod = 'cash'">Dinheiro</button>
           <button type="button" class="flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors" :class="paymentMethod === 'pix' ? 'bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark border-transparent' : 'bg-transparent text-on-surface dark:text-on-surface-dark border-outline dark:border-outline-dark'" @click="paymentMethod = 'pix'">PIX</button>
-          <button type="button" class="flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors" :class="paymentMethod === 'cartao' ? 'bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark border-transparent' : 'bg-transparent text-on-surface dark:text-on-surface-dark border-outline dark:border-outline-dark'" @click="paymentMethod = 'cartao'">Cartão</button>
+          <button type="button" class="flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors" :class="paymentMethod === 'card' ? 'bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark border-transparent' : 'bg-transparent text-on-surface dark:text-on-surface-dark border-outline dark:border-outline-dark'" @click="paymentMethod = 'card'">Cartão</button>
           {% endfor %}
         </div>
 
         {% comment %}Troco — cash only{% endcomment %}
-        <div x-show="paymentMethod === 'dinheiro'" x-cloak class="flex flex-col gap-1.5">
+        <div x-show="paymentMethod === 'cash'" x-cloak class="flex flex-col gap-1.5">
           <input type="number" min="0" step="0.01"
                  class="input-field text-center tabular-nums"
                  placeholder="Valor recebido (R$)"
@@ -281,7 +281,7 @@
                   hx-vals="js:{payload: Alpine.$data(document.getElementById('pos-root')).cartPayload()}"
                   hx-target="#pos-park-result"
                   hx-swap="innerHTML"
-                  hx-on::after-request="if(event.detail.successful && event.detail.xhr.status < 300){ cart=[]; customerPhone=''; customerName=''; customerGroup=''; clearDiscount(); tenderedInput=''; paymentMethod='dinheiro'; expandedNoteIdx=-1; activeComanda=''; document.getElementById('pos-result').innerHTML=''; }">
+                  hx-on::after-request="if(event.detail.successful && event.detail.xhr.status < 300){ cart=[]; customerPhone=''; customerName=''; customerGroup=''; clearDiscount(); tenderedInput=''; paymentMethod='cash'; expandedNoteIdx=-1; activeComanda=''; document.getElementById('pos-result').innerHTML=''; }">
             <span class="material-symbols-rounded text-xs align-middle" aria-hidden="true">pause_circle</span>
             Estacionar
           </button>
@@ -500,7 +500,7 @@ document.addEventListener('alpine:init', function() {
     customerPhone: '',
     customerName: '',
     customerGroup: '',
-    paymentMethod: 'dinheiro',
+    paymentMethod: 'cash',
     tenderedInput: '',
     activeComanda: '',
     lastOrderRef: '',
@@ -555,13 +555,13 @@ document.addEventListener('alpine:init', function() {
     get totalQ() { return Math.max(0, this.subtotalQ - this.discountQ); },
 
     get tenderedQ() {
-      if (this.paymentMethod !== 'dinheiro') return 0;
+      if (this.paymentMethod !== 'cash') return 0;
       var v = parseFloat(String(this.tenderedInput).replace(',', '.'));
       return isNaN(v) || v <= 0 ? 0 : Math.round(v * 100);
     },
 
     get trocoQ() {
-      if (this.paymentMethod !== 'dinheiro' || this.tenderedQ <= 0) return 0;
+      if (this.paymentMethod !== 'cash' || this.tenderedQ <= 0) return 0;
       return Math.max(0, this.tenderedQ - this.totalQ);
     },
 
@@ -611,7 +611,7 @@ document.addEventListener('alpine:init', function() {
         customer_name: this.customerName,
         customer_phone: this.customerPhone.trim(),
         payment_method: this.paymentMethod,
-        tendered_amount_q: (this.paymentMethod === 'dinheiro' && this.tenderedQ > 0) ? this.tenderedQ : null,
+        tendered_amount_q: (this.paymentMethod === 'cash' && this.tenderedQ > 0) ? this.tenderedQ : null,
         manual_discount: this.discountQ > 0 ? {
           type: this.discountType,
           value: parseFloat(this.discountValue),
@@ -635,7 +635,7 @@ document.addEventListener('alpine:init', function() {
           this.customerPhone = '';
           this.customerName = '';
           this.customerGroup = '';
-          this.paymentMethod = 'dinheiro';
+          this.paymentMethod = 'cash';
           this.tenderedInput = '';
           this.expandedNoteIdx = -1;
           this.activeComanda = '';
@@ -652,7 +652,7 @@ document.addEventListener('alpine:init', function() {
       this.customerPhone = d.customer_phone || '';
       this.customerName = d.customer_name || '';
       this.customerGroup = d.customer_group || '';
-      this.paymentMethod = d.payment_method || 'dinheiro';
+      this.paymentMethod = d.payment_method || 'cash';
       this.tenderedInput = '';
       this.activeComanda = d.comanda || '';
       this.expandedNoteIdx = -1;

@@ -89,15 +89,12 @@ def ensure_confirmable(order) -> None:
     )
 
 
-# Payment methods que NÃO passam por captura de intent (Payman). Inclui:
-# - channel-level: cash, external (enum canônico em ChannelConfig)
-# - order-level PT-BR (POS grava direto do POST): dinheiro, debito, credito
-# - ocasionais: credit, debit, money
-# Métodos como "pix"/"card" NÃO estão aqui — esses precisam de intent captured.
+# Payment methods que NÃO passam por captura de intent (Payman).
+# Canonical refs: cash, credit, debit, external.
+# "pix" e "card" NÃO estão aqui — esses precisam de intent captured.
 _OFFLINE_PAYMENT_METHODS = {
     "external",
-    "cash", "dinheiro", "money",
-    "debito", "credito", "credit", "debit",
+    "cash", "credit", "debit",
     "",
 }
 _ACCEPTED_PAYMENT_STATUSES = {"captured", "paid", "refunded"}
@@ -229,8 +226,13 @@ def _on_commit(order, config: ChannelConfig) -> None:
 
 
 def _on_confirmed(order, config: ChannelConfig) -> None:
-    """Order confirmed: initiate payment (if post_commit), fulfill stock
-    (if no digital payment), notify."""
+    """Order confirmed: dispatch KDS tickets, initiate payment (if post_commit),
+    fulfill stock (if no digital payment), notify."""
+    try:
+        from shopman.shop.services import kds
+        kds.dispatch(order)
+    except ImportError:
+        pass
     if config.payment.timing == "post_commit":
         payment.initiate(order)
     if config.payment.timing == "external" and config.payment.method != "external":
@@ -254,12 +256,7 @@ def _on_paid(order, config: ChannelConfig) -> None:
 
 
 def _on_preparing(order, config: ChannelConfig) -> None:
-    """Order in preparation: dispatch to KDS (if enabled) + notify."""
-    try:
-        from shopman.shop.services import kds
-        kds.dispatch(order)
-    except ImportError:
-        pass
+    """Order in preparation: notify."""
     notification.send(order, "order_preparing")
 
 

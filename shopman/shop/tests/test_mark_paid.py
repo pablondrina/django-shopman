@@ -1,7 +1,7 @@
 """
 Tests for PedidoMarkPaidView — WP-R4.
 
-POST /gestor/pedidos/<ref>/mark-paid/ → marks dinheiro/cash orders as paid.
+POST /gestor/pedidos/<ref>/mark-paid/ → marks cash orders as paid.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ def _create_shop():
     )
 
 
-def _create_order(channel_ref: str = "pdv", payment_method: str = "dinheiro") -> Order:
+def _create_order(channel_ref: str = "pdv", payment_method: str = "cash") -> Order:
     session_key = generate_session_key()
     Session.objects.create(
         session_key=session_key,

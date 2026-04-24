@@ -82,7 +82,7 @@
       </button>
     {% endif %}
 
-    {% if o.payment_method == "dinheiro" or o.payment_method == "cash" %}
+    {% if o.payment_method == "cash" %}
       {% if o.payment_status != "captured" %}
         {% comment %}O13: Two-step payment with revert option{% endcomment %}
         <button class="btn-success flex-1 inline-flex items-center justify-center gap-1"

@@ -118,7 +118,7 @@ class POSCloseWithDiscountTests(TestCase):
             "items": items,
             "customer_name": "",
             "customer_phone": "",
-            "payment_method": "dinheiro",
+            "payment_method": "cash",
             "manual_discount": manual_discount,
         }
         self.client.force_login(self.staff)

@@ -66,6 +66,7 @@ def deliver_order_notification(order, template: str, payload: dict) -> tuple[boo
     context["template"] = template
 
     last_error: str | None = None
+    any_attempted = False
     for backend_name in backend_chain:
         if backend_name == "none":
             continue
@@ -74,6 +75,8 @@ def deliver_order_notification(order, template: str, payload: dict) -> tuple[boo
         if not recipient:
             last_error = f"No recipient for backend {backend_name}"
             continue
+
+        any_attempted = True
 
         if backend_name == "manychat" and order.handle_type == "manychat":
             context["subscriber_id"] = order.handle_ref
@@ -88,6 +91,11 @@ def deliver_order_notification(order, template: str, payload: dict) -> tuple[boo
             "notification backend %s failed for order %s, trying next in chain",
             backend_name, order.ref,
         )
+
+    if not any_attempted:
+        # No recipient for any backend — notifications not configured, not a failure.
+        logger.info("notification.deliver: no recipient for any backend, skipping order=%s template=%s", order.ref, template)
+        return True, None
 
     return False, last_error
 

@@ -197,7 +197,7 @@ def pos_close(request: HttpRequest) -> HttpResponse:
 
     ops.append({"op": "set_data", "path": "payment.method", "value": payment_method})
     tendered_amount_q = body.get("tendered_amount_q")
-    if tendered_amount_q and payment_method in ("cash", "dinheiro"):
+    if tendered_amount_q and payment_method == "cash":
         ops.append({"op": "set_data", "path": "payment.tendered_q", "value": int(tendered_amount_q)})
     ops.append({"op": "set_data", "path": "origin_channel", "value": "pos"})
     ops.append({"op": "set_data", "path": "fulfillment_type", "value": "pickup"})
@@ -383,7 +383,7 @@ def _build_session_ops(body: dict, username: str) -> list[dict]:
     if customer_phone:
         ops.append({"op": "set_data", "path": "customer.phone", "value": customer_phone})
 
-    payment_method = body.get("payment_method", "dinheiro")
+    payment_method = body.get("payment_method", "cash")
     ops.append({"op": "set_data", "path": "payment.method", "value": payment_method})
 
     manual_discount = body.get("manual_discount") or {}
@@ -553,7 +553,7 @@ def pos_load_session(request: HttpRequest, session_key: str) -> HttpResponse:
         "customer_phone": customer.get("phone", ""),
         "customer_name": customer.get("name", ""),
         "customer_group": customer.get("group", ""),
-        "payment_method": payment.get("method", "dinheiro"),
+        "payment_method": payment.get("method", "cash"),
         "discount_type": discount.get("type", "percent"),
         "discount_value": str(discount.get("value", "")) if discount.get("value") else "",
         "discount_reason": discount.get("reason", "cortesia"),

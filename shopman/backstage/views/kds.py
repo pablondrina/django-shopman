@@ -119,6 +119,12 @@ class KDSTicketCheckItemView(View):
 
             ticket.save(update_fields=["items", "status"])
 
+            # When KDS operator starts working on a ticket, advance order
+            # from "confirmed" → "preparing" (captures real prep start time).
+            order = ticket.order
+            if order.status == "confirmed" and order.can_transition_to("preparing"):
+                order.transition_status("preparing", actor=f"kds:{request.user.username}")
+
         proj = build_kds_ticket(ticket.pk)
         return render(request, "kds/partials/ticket.html", {
             "t": proj,

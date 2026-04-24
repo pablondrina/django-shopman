@@ -102,7 +102,7 @@ class ShiftSummaryViewTests(TestCase):
         Product.objects.create(sku="SHIFT-PROD", name="Prod", base_price_q=500, is_published=True, is_sellable=True)
         payload = json.dumps({
             "items": [{"sku": "SHIFT-PROD", "qty": 1, "unit_price_q": 500}],
-            "customer_name": "", "customer_phone": "", "payment_method": "dinheiro",
+            "customer_name": "", "customer_phone": "", "payment_method": "cash",
             "manual_discount": None,
         })
         resp = self.client.post("/gestor/pos/close/", {"payload": payload})

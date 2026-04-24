@@ -126,9 +126,9 @@ class TestPaymentGuard:
         order = _make_order(data={"payment": {"method": "cash", "status": "pending"}})
         ensure_payment_captured(order)
 
-    def test_accepts_portuguese_cash_aliases(self):
+    def test_accepts_canonical_offline_methods(self):
         from shopman.shop.lifecycle import ensure_payment_captured
-        for method in ("dinheiro", "debito", "credito"):
+        for method in ("cash", "credit", "debit"):
             order = _make_order(data={"payment": {"method": method, "status": "pending"}})
             ensure_payment_captured(order)
 
