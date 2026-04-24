@@ -9,11 +9,9 @@
          x-init="(function() {
            var zone = $el.closest('[data-zone]');
            if (zone && zone.dataset.zone === 'entrada' && '{{ o.status }}' !== 'new') {
-             setTimeout(function() {
-               $el.style.transition = 'opacity 0.5s';
-               $el.style.opacity = '0';
-               setTimeout(function() { $el.remove(); }, 600);
-             }, 1500);
+             $el.style.transition = 'opacity 0.3s ease-out';
+             $el.style.opacity = '0';
+             setTimeout(function() { $el.remove(); }, 350);
            }
          })()"
 
