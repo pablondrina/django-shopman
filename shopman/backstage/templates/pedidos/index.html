@@ -55,6 +55,9 @@
     <span class="text-xs font-mono tabular-nums text-on-surface/40 dark:text-on-surface-dark/40"
           x-text="orderCount + ' pedidos'"></span>
     <div class="ml-auto flex items-center gap-1">
+      <a href="/gestor/pedidos/historico/" class="btn-icon" title="Histórico" aria-label="Histórico">
+        <span class="material-symbols-rounded text-xl" aria-hidden="true">history</span>
+      </a>
       <button type="button" class="btn-icon"
               @click="toggleSound()"
               :title="soundEnabled ? 'Desativar som' : 'Ativar som'"

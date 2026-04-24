@@ -18,6 +18,7 @@ urlpatterns = [
     path("gestor/pedidos/<str:ref>/advance/", views.OrderAdvanceView.as_view(), name="gestor_advance"),
     path("gestor/pedidos/<str:ref>/notes/", views.OrderNotesView.as_view(), name="gestor_notes"),
     path("gestor/pedidos/<str:ref>/mark-paid/", views.OrderMarkPaidView.as_view(), name="gestor_mark_paid"),
+    path("gestor/pedidos/historico/", views.OrderHistoricoView.as_view(), name="gestor_historico"),
     path("gestor/pedidos/alerts/<int:pk>/ack/", views.AlertAcknowledgeView.as_view(), name="gestor_alert_ack"),
     # POS (Balcão)
     path("gestor/pos/", views.pos_view, name="pos"),

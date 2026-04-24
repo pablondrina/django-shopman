@@ -280,6 +280,25 @@ class OrderMarkPaidView(View):
         return response
 
 
+class OrderHistoricoView(View):
+    """GET /gestor/pedidos/historico/ — recent completed/delivered/cancelled orders."""
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        denied = _perm_required(request)
+        if denied:
+            return denied
+
+        from shopman.orderman.models import Order as _Order
+
+        orders = list(
+            _Order.objects.filter(status__in=("completed", "delivered", "cancelled"))
+            .prefetch_related("items")
+            .order_by("-updated_at")[:20]
+        )
+        cards = [build_order_card(o) for o in orders]
+        return render(request, "pedidos/historico.html", {"orders": cards})
+
+
 class AlertAcknowledgeView(View):
     """POST /pedidos/alerts/<pk>/ack/ — dismiss an operator alert."""
 

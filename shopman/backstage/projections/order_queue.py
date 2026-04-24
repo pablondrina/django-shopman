@@ -60,8 +60,8 @@ NEXT_STATUS_MAP: dict[str, str] = {
 NEXT_ACTION_LABELS: dict[str, str] = {
     "confirmed": "Iniciar Preparo \u25b8",
     "preparing": "Marcar Pronto \u25b8",
-    "ready": "Marcar Retirado",
-    "dispatched": "Marcar Entregue \u2713",
+    "ready": "Marcar como Retirado",
+    "dispatched": "Marcar como Entregue",
     "delivered": "Concluir \u2713",
 }
 

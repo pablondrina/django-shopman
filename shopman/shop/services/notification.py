@@ -73,7 +73,7 @@ def deliver_order_notification(order, template: str, payload: dict) -> tuple[boo
 
         recipient = _resolve_recipient(order, backend_name)
         if not recipient:
-            last_error = f"No recipient for backend {backend_name}"
+            logger.debug("notification.deliver: no recipient for backend=%s order=%s, skipping", backend_name, order.ref)
             continue
 
         any_attempted = True

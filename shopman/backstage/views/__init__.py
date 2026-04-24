@@ -15,6 +15,7 @@ from .orders import (
     OrderAdvanceView,
     OrderConfirmView,
     OrderDetailPartialView,
+    OrderHistoricoView,
     OrderListPartialView,
     OrderMarkPaidView,
     OrderNotesView,
