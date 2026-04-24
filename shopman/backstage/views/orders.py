@@ -12,7 +12,7 @@ import json
 import logging
 
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views import View
 from shopman.orderman.models import Directive, Order
@@ -31,6 +31,25 @@ logger = logging.getLogger(__name__)
 
 
 PERM = "shop.manage_orders"
+
+
+def _get_order_or_err(request: HttpRequest, ref: str):
+    """Return (order, None) on success, or (None, error_response) when not found.
+
+    HTMX requests get an inline error card; full-page loads redirect to the queue.
+    """
+    try:
+        return Order.objects.get(ref=ref), None
+    except Order.DoesNotExist:
+        if request.headers.get("HX-Request"):
+            return None, HttpResponse(
+                f'<div class="card p-3 flex items-center gap-2 border-l-4 border-l-danger">'
+                f'<span class="material-symbols-rounded text-base text-danger" aria-hidden="true">error</span>'
+                f'<span class="text-sm">Pedido <strong class="font-mono">#{ref}</strong> não encontrado</span>'
+                f'</div>',
+                status=404,
+            )
+        return None, redirect("backstage:gestor_pedidos")
 
 
 def _perm_required(request):
@@ -88,7 +107,9 @@ class OrderDetailPartialView(View):
         if denied:
             return denied
 
-        order = get_object_or_404(Order, ref=ref)
+        order, err = _get_order_or_err(request, ref)
+        if err:
+            return err
         detail = build_operator_order(order)
 
         return render(request, "pedidos/partials/detail.html", {
@@ -107,7 +128,9 @@ class OrderConfirmView(View):
         if denied:
             return denied
 
-        order = get_object_or_404(Order, ref=ref)
+        order, err = _get_order_or_err(request, ref)
+        if err:
+            return err
         if order.status != "new":
             return HttpResponse("Pedido não está aguardando confirmação", status=422)
 
@@ -140,7 +163,9 @@ class OrderRejectView(View):
         if not reason:
             return HttpResponse("Motivo obrigatório", status=422)
 
-        order = get_object_or_404(Order, ref=ref)
+        order, err = _get_order_or_err(request, ref)
+        if err:
+            return err
         cancel(
             order,
             reason=reason,
@@ -171,7 +196,9 @@ class OrderAdvanceView(View):
         if denied:
             return denied
 
-        order = get_object_or_404(Order, ref=ref)
+        order, err = _get_order_or_err(request, ref)
+        if err:
+            return err
 
         from shopman.backstage.projections.order_queue import _next_status
         next_status = _next_status(order)
@@ -194,7 +221,9 @@ class OrderNotesView(View):
         if denied:
             return denied
 
-        order = get_object_or_404(Order, ref=ref)
+        order, err = _get_order_or_err(request, ref)
+        if err:
+            return err
         order.data["internal_notes"] = request.POST.get("notes", "")
         order.save(update_fields=["data", "updated_at"])
 
@@ -214,7 +243,9 @@ class OrderMarkPaidView(View):
         if denied:
             return denied
 
-        order = get_object_or_404(Order, ref=ref)
+        order, err = _get_order_or_err(request, ref)
+        if err:
+            return err
 
         payment_data = dict(order.data.get("payment", {}))
         if payment_data.get("marked_paid_by"):

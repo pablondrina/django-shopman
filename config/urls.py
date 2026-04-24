@@ -12,6 +12,8 @@ from shopman.shop.views.health import HealthCheckView, ReadyCheckView
 
 logger = logging.getLogger(__name__)
 
+handler404 = "shopman.backstage.views.errors.custom_404"
+
 
 def _include_optional(route: str, module: str):
     """Include a URL module, logging a warning if it fails to import."""
