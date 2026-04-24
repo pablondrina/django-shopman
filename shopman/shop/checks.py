@@ -8,11 +8,13 @@ Errors (block runserver/migrate --deploy in production):
   SHOPMAN_E002  ALLOWED_HOSTS is empty or contains '*'
   SHOPMAN_E003  PIX or CARD payment adapter is payment_mock
   SHOPMAN_E004  A webhook integration has no token configured
+  SHOPMAN_E005  Guestman (Manychat) webhook secret not configured
 
 Warnings (non-blocking, logged at startup):
   SHOPMAN_W001  Database backend is SQLite
   SHOPMAN_W002  Notification backend is console while DEBUG=False
   SHOPMAN_W003  No fiscal adapter configured while a fiscal-enabled channel exists
+  SHOPMAN_W004  OFFERMAN pricing backend not configured
 """
 
 from __future__ import annotations
@@ -144,6 +146,22 @@ def check_notification_backend(app_configs, **kwargs):
                         id="SHOPMAN_W002",
                     )
                 )
+    return warnings
+
+
+@register()
+def check_pricing_backend(app_configs, **kwargs):
+    warnings = []
+    if not settings.DEBUG:
+        offerman = getattr(settings, "OFFERMAN", {}) or {}
+        if not offerman.get("PRICING_BACKEND"):
+            warnings.append(
+                Warning(
+                    "OFFERMAN['PRICING_BACKEND'] não está configurado.",
+                    hint="Defina OFFERMAN['PRICING_BACKEND'] com o backend de precificação contextual (ex: shopman.shop.adapters.pricing.StorefrontPricingBackend).",
+                    id="SHOPMAN_W004",
+                )
+            )
     return warnings
 
 
