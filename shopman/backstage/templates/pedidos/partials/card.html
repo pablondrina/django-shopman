@@ -55,11 +55,27 @@
       </span>
       <span class="font-bold text-sm tabular-nums">{{ o.total_display }}</span>
     </div>
+    {% if o.payment_pending %}
+    <div class="mt-1.5">
+      <span class="badge-warning text-xs inline-flex items-center gap-1">
+        <span class="material-symbols-rounded text-xs" aria-hidden="true">hourglass_top</span>
+        Aguardando pagamento
+      </span>
+    </div>
+    {% endif %}
   </div>
 
   {% comment %}O1: Action buttons with loading states{% endcomment %}
   <div class="px-4 pb-3 flex gap-2 flex-wrap">
     {% if o.can_confirm %}
+      {% if o.payment_pending %}
+      <button class="btn-primary flex-1 inline-flex items-center justify-center gap-1 opacity-50 cursor-not-allowed"
+              disabled
+              title="Aguardando captura do pagamento">
+        <span class="material-symbols-rounded text-base" aria-hidden="true">hourglass_top</span>
+        Aguardando pagamento…
+      </button>
+      {% else %}
       <button class="btn-success flex-1 inline-flex items-center justify-center gap-1"
               :disabled="loading"
               hx-post="/gestor/pedidos/{{ o.ref }}/confirm/"
@@ -71,6 +87,7 @@
         <span x-show="loading" class="material-symbols-rounded text-base animate-spin" aria-hidden="true">progress_activity</span>
         Confirmar
       </button>
+      {% endif %}
       <button class="btn-danger"
               @click="rejectMode = !rejectMode"
               :aria-expanded="rejectMode.toString()">

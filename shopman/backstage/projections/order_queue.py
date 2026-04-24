@@ -38,6 +38,9 @@ logger = logging.getLogger(__name__)
 
 ACTIVE_STATUSES = ("new", "confirmed", "preparing", "ready", "dispatched", "delivered")
 
+_PAYMENT_COMPLETE = frozenset({"captured", "paid"})
+_OFFLINE_METHODS = frozenset({"cash", "credit", "debit", "external", ""})
+
 CHANNEL_ICONS: dict[str, str] = {
     "web": "language",
     "whatsapp": "chat",
@@ -94,6 +97,7 @@ class OrderCardProjection:
     payment_method: str
     payment_method_label: str
     payment_status: str
+    payment_pending: bool
     has_notes: bool
 
 
@@ -306,8 +310,18 @@ def _build_card(order: Order) -> OrderCardProjection:
         payment_method=method,
         payment_method_label=PAYMENT_METHOD_LABELS_PT.get(method, method),
         payment_status=payment_svc.get_payment_status(order) or "",
+        payment_pending=_is_payment_pending(order, method, payment_svc.get_payment_status(order) or ""),
         has_notes=bool(order.data.get("internal_notes")),
     )
+
+
+def _is_payment_pending(order: Order, method: str, payment_status: str) -> bool:
+    """True when the order needs payment capture before it can be confirmed."""
+    if order.status != "new":
+        return False
+    if method in _OFFLINE_METHODS:
+        return False
+    return payment_status not in _PAYMENT_COMPLETE
 
 
 def _timer_class(status: str, elapsed: float) -> str:

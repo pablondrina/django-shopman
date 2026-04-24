@@ -91,6 +91,8 @@ def dispatch(order) -> list:
             matched = type_col_map.get((item_type, col_id), [])
         if not matched:
             matched = catchall_map.get(item_type, [])
+        if not matched and item_type == "prep":
+            matched = catchall_map.get("picking", [])
 
         if not matched:
             logger.warning(
