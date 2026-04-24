@@ -2140,6 +2140,12 @@ class Command(BaseCommand):
         col_lanches = Collection.objects.filter(ref="lanches").first()
         col_salgados = Collection.objects.filter(ref="salgados").first()
         col_cafes = Collection.objects.filter(ref="cafes-bebidas").first()
+        col_paes = Collection.objects.filter(ref="paes-artesanais").first()
+        col_focaccias = Collection.objects.filter(ref="focaccias").first()
+        col_brioches = Collection.objects.filter(ref="brioches").first()
+        col_doces = Collection.objects.filter(ref="paes-doces").first()
+        col_folhados = Collection.objects.filter(ref="croissants-folhados").first()
+        col_combos = Collection.objects.filter(ref="combos").first()
 
         # Remove old KDS instances that no longer exist
         KDSInstance.objects.filter(ref__in=["paes", "folhados", "salgados"]).delete()
@@ -2156,7 +2162,7 @@ class Command(BaseCommand):
             },
         )
         kds_lanches.collections.clear()
-        for col in [col_lanches, col_salgados]:
+        for col in [col_lanches, col_salgados, col_combos]:
             if col:
                 kds_lanches.collections.add(col)
 
@@ -2174,6 +2180,22 @@ class Command(BaseCommand):
         kds_cafes.collections.clear()
         if col_cafes:
             kds_cafes.collections.add(col_cafes)
+
+        # KDS Padaria — Prep: pães, folhados, doces de forno
+        kds_padaria, _ = KDSInstance.objects.update_or_create(
+            ref="padaria",
+            defaults={
+                "name": "Padaria",
+                "type": "prep",
+                "target_time_minutes": 5,
+                "sound_enabled": True,
+                "is_active": True,
+            },
+        )
+        kds_padaria.collections.clear()
+        for col in [col_paes, col_focaccias, col_brioches, col_doces, col_folhados]:
+            if col:
+                kds_padaria.collections.add(col)
 
         # KDS Encomendas — Picking: pedidos agendados (future-dated)
         KDSInstance.objects.update_or_create(
@@ -2199,7 +2221,7 @@ class Command(BaseCommand):
             },
         )
 
-        self.stdout.write("  ✅ 4 estações KDS (Lanches, Cafés, Encomendas, Expedição)")
+        self.stdout.write("  ✅ 5 estações KDS (Lanches, Cafés, Padaria, Encomendas, Expedição)")
 
     # ────────────────────────────────────────────────────────────────
     # Notification Templates

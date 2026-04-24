@@ -48,34 +48,77 @@
                bg-surface-alt dark:bg-surface-dark-alt"
        aria-label="Filtro de status">
 
-    <button @click="setFilter('all')"
-            :class="filter === 'all' ? 'pill pill--active' : 'pill'">
-      Todos (<span id="count-all">{{ counts.all }}</span>)
-    </button>
+    {% comment %}Primary actions: operator workflow statuses{% endcomment %}
     <button @click="setFilter('new')"
-            :class="filter === 'new' ? 'pill pill--active' : 'pill'">
-      Aguardando (<span id="count-new">{{ counts.new }}</span>)
+            :class="filter === 'new' ? 'pill pill--active' : 'pill'"
+            class="text-sm font-semibold px-4 py-2">
+      Novos
+      <span class="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full text-xs font-bold px-1
+                   bg-on-surface/10 dark:bg-on-surface-dark/10"
+            id="count-new">{{ counts.new }}</span>
     </button>
     <button @click="setFilter('confirmed')"
-            :class="filter === 'confirmed' ? 'pill pill--active' : 'pill'">
-      Confirmados (<span id="count-confirmed">{{ counts.confirmed }}</span>)
+            :class="filter === 'confirmed' ? 'pill pill--active' : 'pill'"
+            class="text-sm font-semibold px-4 py-2">
+      Confirmados
+      <span class="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full text-xs font-bold px-1
+                   bg-on-surface/10 dark:bg-on-surface-dark/10"
+            id="count-confirmed">{{ counts.confirmed }}</span>
     </button>
-    <button @click="setFilter('preparing')"
-            :class="filter === 'preparing' ? 'pill pill--active' : 'pill'">
-      Preparando (<span id="count-preparing">{{ counts.preparing }}</span>)
-    </button>
-    <button @click="setFilter('ready')"
-            :class="filter === 'ready' ? 'pill pill--active' : 'pill'">
-      Prontos (<span id="count-ready">{{ counts.ready }}</span>)
-    </button>
-    <button @click="setFilter('dispatched')"
-            :class="filter === 'dispatched' ? 'pill pill--active' : 'pill'">
-      Em Entrega (<span id="count-dispatched">{{ counts.dispatched }}</span>)
-    </button>
-    <button @click="setFilter('delivered')"
-            :class="filter === 'delivered' ? 'pill pill--active' : 'pill'">
-      Entregues (<span id="count-delivered">{{ counts.delivered }}</span>)
-    </button>
+
+    {% comment %}Secondary: consultation statuses dropdown{% endcomment %}
+    <div class="relative" x-data="{ open: false }" @keydown.escape.window="open = false">
+      <button type="button"
+              @click="open = !open"
+              :class="['preparing','ready','dispatched','delivered','all'].includes(filter) ? 'pill pill--active' : 'pill'"
+              class="flex items-center gap-0.5">
+        <span x-show="filter === 'preparing'" x-cloak>Preparando</span>
+        <span x-show="filter === 'ready'" x-cloak>Prontos</span>
+        <span x-show="filter === 'dispatched'" x-cloak>Em Entrega</span>
+        <span x-show="filter === 'delivered'" x-cloak>Entregues</span>
+        <span x-show="filter === 'all'" x-cloak>Todos</span>
+        <span x-show="!['preparing','ready','dispatched','delivered','all'].includes(filter)">Outros status</span>
+        <span class="material-symbols-rounded text-base leading-none transition-transform"
+              :style="open ? 'transform:rotate(180deg)' : ''"
+              aria-hidden="true">expand_more</span>
+      </button>
+      <div x-show="open" x-cloak @click.outside="open = false"
+           class="absolute top-full left-0 mt-1 z-40
+                  bg-surface dark:bg-surface-dark border border-outline dark:border-outline-dark
+                  rounded-xl shadow-xl py-1 w-48 text-sm">
+        <button @click="setFilter('preparing'); open = false"
+                :class="filter === 'preparing' ? 'font-semibold text-primary dark:text-primary-dark' : 'text-on-surface dark:text-on-surface-dark'"
+                class="w-full text-left px-4 py-2 hover:bg-outline/20 dark:hover:bg-outline-dark/20 flex items-center justify-between gap-2">
+          Preparando
+          <span class="text-xs opacity-50" id="count-preparing">{{ counts.preparing }}</span>
+        </button>
+        <button @click="setFilter('ready'); open = false"
+                :class="filter === 'ready' ? 'font-semibold text-primary dark:text-primary-dark' : 'text-on-surface dark:text-on-surface-dark'"
+                class="w-full text-left px-4 py-2 hover:bg-outline/20 dark:hover:bg-outline-dark/20 flex items-center justify-between gap-2">
+          Prontos
+          <span class="text-xs opacity-50" id="count-ready">{{ counts.ready }}</span>
+        </button>
+        <button @click="setFilter('dispatched'); open = false"
+                :class="filter === 'dispatched' ? 'font-semibold text-primary dark:text-primary-dark' : 'text-on-surface dark:text-on-surface-dark'"
+                class="w-full text-left px-4 py-2 hover:bg-outline/20 dark:hover:bg-outline-dark/20 flex items-center justify-between gap-2">
+          Em Entrega
+          <span class="text-xs opacity-50" id="count-dispatched">{{ counts.dispatched }}</span>
+        </button>
+        <button @click="setFilter('delivered'); open = false"
+                :class="filter === 'delivered' ? 'font-semibold text-primary dark:text-primary-dark' : 'text-on-surface dark:text-on-surface-dark'"
+                class="w-full text-left px-4 py-2 hover:bg-outline/20 dark:hover:bg-outline-dark/20 flex items-center justify-between gap-2">
+          Entregues
+          <span class="text-xs opacity-50" id="count-delivered">{{ counts.delivered }}</span>
+        </button>
+        <hr class="my-1 border-outline dark:border-outline-dark">
+        <button @click="setFilter('all'); open = false"
+                :class="filter === 'all' ? 'font-semibold text-primary dark:text-primary-dark' : 'text-on-surface/60 dark:text-on-surface-dark/60'"
+                class="w-full text-left px-4 py-2 hover:bg-outline/20 dark:hover:bg-outline-dark/20 flex items-center justify-between gap-2">
+          Todos
+          <span class="text-xs opacity-50" id="count-all">{{ counts.all }}</span>
+        </button>
+      </div>
+    </div>
 
     {% comment %}O5: Last updated + sound + fullscreen{% endcomment %}
     <div class="ml-auto flex items-center gap-1">

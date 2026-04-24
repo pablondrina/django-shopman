@@ -93,6 +93,10 @@ def dispatch(order) -> list:
             matched = catchall_map.get(item_type, [])
 
         if not matched:
+            logger.warning(
+                "kds.dispatch: no KDS instance for sku=%s type=%s col=%s — skipped",
+                item.sku, item_type, col_id,
+            )
             continue
 
         item_dict = {
