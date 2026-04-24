@@ -95,6 +95,7 @@ def check_webhook_tokens(app_configs, **kwargs):
     integrations = [
         ("SHOPMAN_EFI_WEBHOOK", "EFI", "EFI_WEBHOOK_TOKEN"),
         ("SHOPMAN_IFOOD", "iFood", "IFOOD_WEBHOOK_TOKEN"),
+        ("SHOPMAN_GUESTMAN_WEBHOOK", "Guestman", "GUESTMAN_WEBHOOK_SECRET"),
     ]
     for attr, name, env_var in integrations:
         cfg = getattr(settings, attr, {}) or {}
