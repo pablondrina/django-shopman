@@ -1479,6 +1479,7 @@ class Command(BaseCommand):
                     handle_type="phone",
                     handle_ref=handle_ref,
                     created_at=order_time,
+                    data={"availability_decision": {"approved": True, "source": "seed", "decisions": []}},
                 )
 
                 for _idx, item in enumerate(items_data):
@@ -1580,6 +1581,7 @@ class Command(BaseCommand):
                 handle_type="phone",
                 handle_ref=handle_ref,
                 created_at=order_time,
+                data={"availability_decision": {"approved": True, "source": "seed", "decisions": []}},
             )
 
             for item in items_data:
