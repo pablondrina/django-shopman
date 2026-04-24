@@ -409,7 +409,7 @@ def _check_availability(order, config: ChannelConfig) -> bool:
 def _verify_holds(order) -> bool:
     """Defense-in-depth: verify held SKUs match ordered SKUs after stock.hold().
     Returns False if order was cancelled."""
-    held_skus = {h.get("sku") for h in (order.data or {}).get("hold_ids", [])}
+    held_skus = {h.get("sku") for h in (order.data or {}).get("hold_ids", []) if h.get("hold_id") or h.get("untracked")}
     ordered_skus = {item["sku"] for item in order.snapshot.get("items", [])}
     missing = ordered_skus - held_skus
 

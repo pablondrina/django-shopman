@@ -60,6 +60,14 @@ def hold(order) -> None:
     adapter = get_adapter("stock")
     hold_ids: list[dict] = []
 
+    # Prior availability decisions (from _check_availability at on_commit).
+    # Keyed by item SKU. Empty for channels that skip the availability gate (e.g. POS).
+    prior_decisions = {
+        d["sku"]: d
+        for d in (order.data or {}).get("availability_decision", {}).get("decisions", [])
+        if d.get("sku")
+    }
+
     for item in items:
         sku = item["sku"]
         qty = Decimal(str(item["qty"]))
@@ -70,6 +78,11 @@ def hold(order) -> None:
         for comp in components:
             comp_sku = comp["sku"]
             comp_qty = Decimal(str(comp["qty"]))
+
+            # SKUs not tracked by Stockman need no hold — skip silently.
+            if _is_untracked(comp_sku, prior_decisions, adapter):
+                hold_ids.append({"sku": comp_sku, "hold_id": None, "qty": 0, "untracked": True})
+                continue
 
             # 1) Adopt session holds by quantity until comp_qty is met.
             if adopt_session_holds:
@@ -274,3 +287,16 @@ def _retag_hold_for_order(hold_id: str, order_ref: str) -> None:
     """
     adapter = get_adapter("stock")
     adapter.retag_hold_reference(hold_id, f"order:{order_ref}")
+
+
+def _is_untracked(sku: str, prior_decisions: dict[str, dict], adapter) -> bool:
+    """Return True if the SKU is not tracked by Stockman (no Quants exist).
+
+    Checks the cached availability decision first; falls back to a direct
+    query for channels that skip the availability gate (e.g. POS).
+    """
+    if sku in prior_decisions:
+        d = prior_decisions[sku]
+        return d.get("untracked", False) or d.get("source") == "stock.untracked"
+    info = adapter.get_availability(sku)
+    return not info.get("is_paused", False) and not info.get("is_tracked", bool(info.get("positions")))
