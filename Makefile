@@ -146,6 +146,9 @@ run: css ## Sobe servidor + directive worker (0.0.0.0:8000)
 	$(PYTHON) manage.py process_directives --watch &
 	$(PYTHON) manage.py runserver 0.0.0.0:8000
 
+tunnel: ## Abre túnel ngrok com domínio fixo (shopman.ngrok-free.app)
+	ngrok http 8000 --domain=shopman.ngrok-free.app
+
 dev: node_modules/.package-lock.json ## Dev: CSS watch + directive worker + server (0.0.0.0:8000)
 	@echo "── Dev mode: CSS watch + directive worker + Django server ──"
 	@echo "  Ctrl+C para parar tudo."
