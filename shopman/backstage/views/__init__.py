@@ -10,6 +10,7 @@ from .kds import (
     KDSTicketListPartialView,
 )
 from .orders import (
+    AlertAcknowledgeView,
     OperatorOrdersView,
     OrderAdvanceView,
     OrderConfirmView,
@@ -50,6 +51,7 @@ __all__ = [
     "OrderMarkPaidView",
     "OrderNotesView",
     "OrderRejectView",
+    "AlertAcknowledgeView",
     "bulk_create_work_orders",
     "pos_cancel_last",
     "pos_cash_close",

@@ -12,6 +12,7 @@ import logging
 
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views import View
 from shopman.orderman.models import Directive, Order
 
@@ -50,8 +51,11 @@ class OperatorOrdersView(View):
         filter_status = request.GET.get("filter", "all")
         queue = build_order_queue(filter_status=filter_status)
 
+        from shopman.backstage.models import OperatorAlert
         from shopman.shop.models import Shop
+
         shop = Shop.load()
+        alerts = list(OperatorAlert.objects.filter(acknowledged=False)[:10])
 
         return render(request, "pedidos/index.html", {
             "queue": queue,
@@ -59,6 +63,7 @@ class OperatorOrdersView(View):
             "counts": queue.counts,
             "filter": queue.active_filter,
             "shop": shop,
+            "alerts": alerts,
         })
 
 
@@ -192,7 +197,12 @@ class OrderNotesView(View):
         order.data["internal_notes"] = request.POST.get("notes", "")
         order.save(update_fields=["data", "updated_at"])
 
-        return HttpResponse('<span class="ped-notes-saved">Salvo</span>')
+        now = timezone.localtime(timezone.now()).strftime("%H:%M")
+        return HttpResponse(
+            f'<span class="text-xs text-success flex items-center gap-1">'
+            f'<span class="material-symbols-rounded text-base" aria-hidden="true">check</span>'
+            f'Salvo às {now}</span>'
+        )
 
 
 class OrderMarkPaidView(View):
@@ -234,3 +244,17 @@ class OrderMarkPaidView(View):
 
         card = build_order_card(order)
         return render(request, "pedidos/partials/card.html", {"o": card})
+
+
+class AlertAcknowledgeView(View):
+    """POST /pedidos/alerts/<pk>/ack/ — dismiss an operator alert."""
+
+    def post(self, request: HttpRequest, pk: int) -> HttpResponse:
+        denied = _perm_required(request)
+        if denied:
+            return denied
+
+        from shopman.backstage.models import OperatorAlert
+
+        OperatorAlert.objects.filter(pk=pk).update(acknowledged=True)
+        return HttpResponse("")

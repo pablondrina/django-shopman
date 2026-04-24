@@ -1,6 +1,7 @@
-{% comment %}Order items{% endcomment %}
+{% comment %}Order items (O14: empty state){% endcomment %}
 <div class="mb-3">
   <h4 class="text-sm font-semibold mb-2">Itens</h4>
+  {% if items %}
   <table class="w-full text-xs border-collapse">
     <thead class="text-on-surface/40 dark:text-on-surface-dark/40 text-left">
       <tr>
@@ -21,37 +22,47 @@
       {% endfor %}
     </tbody>
   </table>
+  {% else %}
+  <p class="text-xs text-on-surface/40 dark:text-on-surface-dark/40">Nenhum item no pedido.</p>
+  {% endif %}
 </div>
 
-{% comment %}Mini timeline{% endcomment %}
-{% if timeline %}
+{% comment %}Mini timeline (O14: empty state){% endcomment %}
 <div class="mb-3">
   <h4 class="text-sm font-semibold mb-2">Histórico</h4>
+  {% if timeline %}
   <div class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">
     {% for event in timeline %}
     <div class="flex gap-2 py-0.5">
-      <span class="font-mono tabular-nums whitespace-nowrap text-on-surface/40 dark:text-on-surface-dark/40">{{ event.timestamp|date:"H:i" }}</span>
+      <span class="font-mono tabular-nums whitespace-nowrap text-on-surface/40 dark:text-on-surface-dark/40">{{ event.timestamp_display }}</span>
       <span>{{ event.label }}</span>
     </div>
     {% endfor %}
   </div>
+  {% else %}
+  <p class="text-xs text-on-surface/40 dark:text-on-surface-dark/40">Sem eventos registrados.</p>
+  {% endif %}
 </div>
-{% endif %}
 
-{% comment %}Internal notes{% endcomment %}
+{% comment %}Internal notes (O6: save feedback with timestamp){% endcomment %}
 <div>
   <h4 class="text-sm font-semibold mb-1">
-    <label for="notes-{{ order.ref }}">Notas internas</label>
+    <label for="notes-{{ detail.ref }}">Notas internas</label>
   </h4>
-  <div class="flex gap-2 items-start">
-    <textarea id="notes-{{ order.ref }}"
+  <div class="flex gap-2 items-start" x-data="{ saving: false }">
+    <textarea id="notes-{{ detail.ref }}"
               name="notes"
               rows="2"
               class="textarea-field flex-1"
-              hx-post="/gestor/pedidos/{{ order.ref }}/notes/"
+              hx-post="/gestor/pedidos/{{ detail.ref }}/notes/"
               hx-trigger="change"
               hx-target="next .notes-feedback"
-              hx-swap="innerHTML">{{ internal_notes }}</textarea>
-    <span class="notes-feedback"></span>
+              hx-swap="innerHTML"
+              hx-on::before-request="saving = true"
+              hx-on::after-request="saving = false"
+              hx-on::response-error="$dispatch('ped-toast', { msg: 'Erro ao salvar notas' })">{{ internal_notes }}</textarea>
+    <span class="notes-feedback text-xs text-on-surface/40 dark:text-on-surface-dark/40 whitespace-nowrap flex items-center gap-1">
+      <span x-show="saving" class="material-symbols-rounded text-base animate-spin" aria-hidden="true">progress_activity</span>
+    </span>
   </div>
 </div>

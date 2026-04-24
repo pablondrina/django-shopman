@@ -5,13 +5,13 @@
                 {% elif o.status == 'ready' %}border-l-4 border-l-success{% endif %}"
          data-order-card
          data-ref="{{ o.ref }}"
-         x-data="{ expanded: false, rejectMode: false, rejectReason: '', confirming: false }">
+         x-data="{ expanded: false, rejectMode: false, rejectReason: '', confirming: false, loading: false, paidRevert: false }">
 
-  {% comment %}Card header (clickable to expand){% endcomment %}
-  <div class="flex items-center justify-between px-4 py-3 cursor-pointer
-              hover:bg-outline/20 dark:hover:bg-outline-dark/20 gap-2"
-       @click="expanded = !expanded" role="button" tabindex="0"
-       @keydown.enter="expanded = !expanded"
+  {% comment %}O8: Card header — semantic button for accessibility{% endcomment %}
+  <button type="button"
+       class="flex items-center justify-between px-4 py-3 cursor-pointer w-full text-left
+              hover:bg-outline/20 dark:hover:bg-outline-dark/20 gap-2 bg-transparent border-0"
+       @click="expanded = !expanded"
        :aria-expanded="expanded.toString()">
     <div class="flex items-center gap-1.5 text-sm min-w-0">
       <span class="material-symbols-rounded text-base" aria-hidden="true">{{ o.channel_icon }}</span>
@@ -21,10 +21,14 @@
     <div class="font-mono text-sm font-semibold tabular-nums flex items-center gap-1 shrink-0
                 {{ o.timer_class }}"
          x-data="{ elapsed: {{ o.elapsed_seconds }} }"
-         x-init="setInterval(() => elapsed++, 1000)"
-         x-text="Math.floor(elapsed / 60) + ':' + String(elapsed % 60).padStart(2, '0')">
+         x-init="setInterval(() => elapsed++, 1000)">
+      {% comment %}O9: Urgency text label for color-blind operators{% endcomment %}
+      {% if o.timer_class == 'timer-urgent' %}
+      <span class="text-xs font-bold text-danger">Urgente</span>
+      {% endif %}
+      <span x-text="Math.floor(elapsed / 60) + ':' + String(elapsed % 60).padStart(2, '0')"></span>
     </div>
-  </div>
+  </button>
 
   {% comment %}Card body{% endcomment %}
   <div class="px-4 pb-3">
@@ -43,14 +47,18 @@
     </div>
   </div>
 
-  {% comment %}Action buttons{% endcomment %}
+  {% comment %}O1: Action buttons with loading states{% endcomment %}
   <div class="px-4 pb-3 flex gap-2 flex-wrap">
     {% if o.can_confirm %}
-      <button class="btn-success flex-1"
+      <button class="btn-success flex-1 inline-flex items-center justify-center gap-1"
+              :disabled="loading"
               hx-post="/gestor/pedidos/{{ o.ref }}/confirm/"
               hx-target="closest [data-order-card]"
-              hx-swap="outerHTML">
-        <span class="material-symbols-rounded text-base" aria-hidden="true">check</span>
+              hx-swap="outerHTML"
+              hx-on::before-request="loading = true"
+              hx-on::after-request="loading = false">
+        <span class="material-symbols-rounded text-base" aria-hidden="true" x-show="!loading">check</span>
+        <span x-show="loading" class="material-symbols-rounded text-base animate-spin" aria-hidden="true">progress_activity</span>
         Confirmar
       </button>
       <button class="btn-danger"
@@ -62,35 +70,43 @@
     {% endif %}
 
     {% if o.can_advance %}
-      <button class="btn-primary flex-1"
+      <button class="btn-primary flex-1 inline-flex items-center justify-center gap-1"
+              :disabled="loading"
               hx-post="/gestor/pedidos/{{ o.ref }}/advance/"
               hx-target="closest [data-order-card]"
               hx-swap="outerHTML"
-              hx-indicator="closest [data-order-card]">
+              hx-on::before-request="loading = true"
+              hx-on::after-request="loading = false">
+        <span x-show="loading" class="material-symbols-rounded text-base animate-spin" aria-hidden="true">progress_activity</span>
         {{ o.next_action_label }}
       </button>
     {% endif %}
 
     {% if o.payment_method == "dinheiro" or o.payment_method == "cash" %}
       {% if o.payment_status != "captured" %}
-        <button class="btn-success flex-1"
+        {% comment %}O13: Two-step payment with revert option{% endcomment %}
+        <button class="btn-success flex-1 inline-flex items-center justify-center gap-1"
                 @click.stop="confirming = true"
-                x-show="!confirming">
+                x-show="!confirming && !paidRevert">
           <span class="material-symbols-rounded text-base" aria-hidden="true">payments</span>
           Marcar Pago
         </button>
-        <button class="btn-success flex-1"
+        <button class="btn-success flex-1 inline-flex items-center justify-center gap-1"
                 x-show="confirming"
                 x-cloak
+                :disabled="loading"
                 @click.away="confirming = false"
                 hx-post="/gestor/pedidos/{{ o.ref }}/mark-paid/"
                 hx-target="closest [data-order-card]"
-                hx-swap="outerHTML">
-          <span class="material-symbols-rounded text-base" aria-hidden="true">check_circle</span>
+                hx-swap="outerHTML"
+                hx-on::before-request="loading = true"
+                hx-on::after-request="loading = false">
+          <span class="material-symbols-rounded text-base" aria-hidden="true" x-show="!loading">check_circle</span>
+          <span x-show="loading" class="material-symbols-rounded text-base animate-spin" aria-hidden="true">progress_activity</span>
           Confirmar Pagamento
         </button>
       {% else %}
-        <span class="badge-success px-2.5">
+        <span class="badge-success px-2.5 inline-flex items-center gap-1">
           <span class="material-symbols-rounded text-base" aria-hidden="true">check_circle</span>
           Pago
         </span>
@@ -98,7 +114,7 @@
     {% endif %}
   </div>
 
-  {% comment %}Reject form (inline){% endcomment %}
+  {% comment %}O4: Reject form with confirmation dialog{% endcomment %}
   <div x-show="rejectMode" x-cloak class="px-4 pb-3">
     <label for="reject-{{ o.ref }}" class="text-sm font-semibold block mb-1">Motivo da rejeição</label>
     <textarea id="reject-{{ o.ref }}"
@@ -106,26 +122,36 @@
               class="textarea-field"
               placeholder="Informe o motivo..."
               rows="2"></textarea>
-    <button class="btn-danger w-full mt-2"
+    <button class="btn-danger w-full mt-2 inline-flex items-center justify-center gap-1"
             type="button"
+            :disabled="!rejectReason.trim() || loading"
             hx-post="/gestor/pedidos/{{ o.ref }}/reject/"
             hx-target="closest [data-order-card]"
             hx-swap="outerHTML"
+            hx-confirm="Tem certeza que deseja rejeitar o pedido #{{ o.ref }}? Esta ação não pode ser desfeita."
             :hx-vals='JSON.stringify({reason: rejectReason})'
-            :disabled="!rejectReason.trim()">
-      <span class="material-symbols-rounded text-base" aria-hidden="true">block</span>
+            hx-on::before-request="loading = true"
+            hx-on::after-request="loading = false">
+      <span class="material-symbols-rounded text-base" aria-hidden="true" x-show="!loading">block</span>
+      <span x-show="loading" class="material-symbols-rounded text-base animate-spin" aria-hidden="true">progress_activity</span>
       Confirmar Rejeição
+    </button>
+    <button class="btn-ghost w-full mt-1 text-xs" @click="rejectMode = false; rejectReason = ''">
+      Cancelar
     </button>
   </div>
 
-  {% comment %}Expanded detail (lazy-loaded accordion){% endcomment %}
+  {% comment %}Expanded detail (O11: better loading state){% endcomment %}
   <div x-show="expanded" x-cloak
        x-effect="if (expanded && !$el._loaded) { $el._loaded = true; $el.querySelector('.order-detail').dispatchEvent(new Event('load-detail')); }">
     <div class="order-detail border-t border-outline dark:border-outline-dark px-4 py-3"
          hx-get="/gestor/pedidos/{{ o.ref }}/detail/"
          hx-trigger="load-detail"
          hx-swap="innerHTML">
-      <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">Carregando...</span>
+      <div class="flex items-center gap-2 text-xs text-on-surface/40 dark:text-on-surface-dark/40">
+        <span class="material-symbols-rounded text-base animate-spin" aria-hidden="true">progress_activity</span>
+        Carregando detalhes…
+      </div>
     </div>
   </div>
 </article>

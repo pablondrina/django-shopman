@@ -4,9 +4,18 @@
     {% include "pedidos/partials/card.html" %}
   {% endfor %}
 </div>
+
+{% comment %}Update status counts in filter pills{% endcomment %}
+<template x-data x-init="
+  var ids = ['all','new','confirmed','preparing','ready','dispatched','delivered'];
+  var vals = [{{ counts.all }},{{ counts.new }},{{ counts.confirmed }},{{ counts.preparing }},{{ counts.ready }},{{ counts.dispatched }},{{ counts.delivered }}];
+  ids.forEach(function(id, i) { var el = document.getElementById('count-' + id); if (el) el.textContent = vals[i]; });
+"></template>
+
 {% else %}
 <div class="text-center py-16 text-on-surface/40 dark:text-on-surface-dark/40">
   <span class="material-symbols-rounded text-5xl block mb-4" aria-hidden="true">done_all</span>
   <p class="text-lg">Nenhum pedido ativo</p>
+  <p class="text-sm mt-1">Novos pedidos aparecerão aqui automaticamente.</p>
 </div>
 {% endif %}

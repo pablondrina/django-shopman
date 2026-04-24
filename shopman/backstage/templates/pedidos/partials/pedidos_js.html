@@ -6,16 +6,32 @@ function gestorPedidos() {
     orderCount: 0,
     clock: '',
     isFullscreen: false,
+    offline: false,
+    lastUpdated: Date.now(),
+    lastUpdatedText: '',
+    ariaAnnouncement: '',
 
     init() {
       this.syncState();
       this.updateClock();
+      this.updateLastUpdatedText();
       setInterval(() => this.updateClock(), 1000);
+      setInterval(() => this.updateLastUpdatedText(), 1000);
 
-      /* Track fullscreen state */
       var self = this;
       document.addEventListener('fullscreenchange', function() {
         self.isFullscreen = !!document.fullscreenElement;
+      });
+
+      /* O3: HTMX lifecycle for offline detection */
+      this.$el.addEventListener('ped-synced', () => {
+        this.offline = false;
+        this.lastUpdated = Date.now();
+        this.syncState();
+      });
+
+      this.$el.addEventListener('ped-error', () => {
+        this.offline = true;
       });
 
       /* Pause polling when any card is being interacted with */
@@ -36,10 +52,41 @@ function gestorPedidos() {
         });
       }
 
-      /* On HTMX swap: count orders, play sound for new ones */
+      /* O2: Global HTMX error handler for action buttons (422 responses) */
+      document.addEventListener('htmx:responseError', (e) => {
+        var target = e.detail.target;
+        if (target && target.id === 'order-grid') return;
+        var xhr = e.detail.xhr;
+        var msg = xhr && xhr.responseText ? xhr.responseText : 'Erro ao processar ação';
+        window.dispatchEvent(new CustomEvent('ped-toast', { detail: { msg: msg } }));
+      });
+
+      /* Legacy fallback: direct htmx event */
       document.addEventListener('htmx:afterSwap', (e) => {
         if (e.detail.target.id === 'order-grid') {
+          this.offline = false;
+          this.lastUpdated = Date.now();
           this.syncState();
+        }
+      });
+
+      document.addEventListener('htmx:sendError', (e) => {
+        if (e.detail.target && e.detail.target.id === 'order-grid') {
+          this.offline = true;
+        }
+      });
+
+      /* O12: Global keyboard shortcuts */
+      document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        if (e.key === 'Escape') {
+          var cards = document.querySelectorAll('[data-order-card]');
+          cards.forEach(function(card) {
+            try {
+              var d = Alpine.$data(card);
+              if (d) { d.expanded = false; d.rejectMode = false; d.confirming = false; }
+            } catch (ex) {}
+          });
         }
       });
     },
@@ -50,6 +97,12 @@ function gestorPedidos() {
 
       var cards = grid.querySelectorAll('[data-order-card]');
       var newCount = cards.length;
+
+      /* Screen reader announcement */
+      if (newCount > this.previousCount && this.previousCount > 0) {
+        var diff = newCount - this.previousCount;
+        this.ariaAnnouncement = diff + ' novo' + (diff > 1 ? 's' : '') + ' pedido' + (diff > 1 ? 's' : '');
+      }
 
       if (newCount > this.previousCount && this.soundEnabled) {
         this.playSound('new');
@@ -76,6 +129,18 @@ function gestorPedidos() {
       this.clock = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
     },
 
+    /* O5: Last updated text */
+    updateLastUpdatedText() {
+      var ago = Math.floor((Date.now() - this.lastUpdated) / 1000);
+      if (ago < 5) {
+        this.lastUpdatedText = 'agora';
+      } else if (ago < 60) {
+        this.lastUpdatedText = 'há ' + ago + 's';
+      } else {
+        this.lastUpdatedText = 'há ' + Math.floor(ago / 60) + 'min';
+      }
+    },
+
     setFilter(f) {
       this.filter = f;
       sessionStorage.setItem('gestor_filter', f);
@@ -96,7 +161,6 @@ function gestorPedidos() {
         gain.connect(ctx.destination);
 
         if (type === 'urgent') {
-          /* Two-tone alert for overdue orders */
           osc.frequency.value = 880;
           osc.type = 'square';
           gain.gain.value = 0.25;
@@ -105,7 +169,6 @@ function gestorPedidos() {
           gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
           osc.stop(ctx.currentTime + 0.35);
         } else {
-          /* Single tone for new orders */
           osc.frequency.value = 1046;
           osc.type = 'sine';
           gain.gain.value = 0.35;
