@@ -10,7 +10,7 @@ Invariantes garantidos:
 - dispatch() é idempotente: não cria duplicatas se já há tickets para o pedido
 - cancel_tickets() é idempotente: retorna 0 sem erro se não há tickets abertos
 - Tickets órfãos (Order cancelado mas tickets ainda abertos) não podem ocorrer se
-  BaseFlow.on_cancelled() chamar cancel_tickets() corretamente
+  lifecycle on_cancelled chamar cancel_tickets() corretamente
 
 Core: KDSInstance, KDSTicket (models), Recipe (craftsman), CollectionItem (offerman)
 """
@@ -129,7 +129,7 @@ def cancel_tickets(order) -> int:
     """
     Cancel all open KDS tickets for this order.
 
-    Called by BaseFlow.on_cancelled() to prevent tickets from becoming orphans
+    Called by lifecycle on_cancelled to prevent tickets from becoming orphans
     (kitchen producing items for an already-cancelled order).
 
     Idempotent: safe to call even if there are no open tickets.

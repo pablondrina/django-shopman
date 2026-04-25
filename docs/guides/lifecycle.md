@@ -39,7 +39,7 @@ shopman/
 
 ## Lifecycle — Dispatch Config-Driven
 
-O comportamento de cada canal é 100% configurado via `ChannelConfig` — sem classes de Flow ou herança Python. `dispatch()` lê o config e chama os services corretos para cada fase.
+O comportamento de cada canal é 100% configurado via `ChannelConfig` — sem classes de lifecycle ou herança Python. `dispatch()` lê o config e chama os services corretos para cada fase.
 
 ### Como dispatch() Funciona
 

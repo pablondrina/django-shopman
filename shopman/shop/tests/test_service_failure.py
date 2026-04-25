@@ -172,7 +172,7 @@ class StockCheckDegradationTests(TestCase):
         cart = self._make_cart()
         request = self._make_request()
 
-        with patch("shopman.storefront.views._helpers._get_availability", return_value=None):
+        with patch("shopman.storefront.services.product_cards.get_availability", return_value=None):
             errors, service_unavailable = _check_cart_stock(request, cart)
 
         self.assertTrue(service_unavailable)
@@ -192,7 +192,7 @@ class StockCheckDegradationTests(TestCase):
         def _avail(sku, **kwargs):
             return avail_ok if sku == "SKU-A" else None
 
-        with patch("shopman.storefront.views._helpers._get_availability", side_effect=_avail):
+        with patch("shopman.storefront.services.product_cards.get_availability", side_effect=_avail):
             errors, service_unavailable = _check_cart_stock(request, cart)
 
         self.assertFalse(service_unavailable)
@@ -216,7 +216,7 @@ class StockCheckDegradationTests(TestCase):
         request = self._make_request()
         avail = {"total_promisable": Decimal("5"), "breakdown": {"ready": Decimal("5"), "in_production": Decimal("0"), "d1": Decimal("0")}}
 
-        with patch("shopman.storefront.views._helpers._get_availability", return_value=avail):
+        with patch("shopman.storefront.services.product_cards.get_availability", return_value=avail):
             errors, service_unavailable = _check_cart_stock(request, cart)
 
         self.assertFalse(service_unavailable)

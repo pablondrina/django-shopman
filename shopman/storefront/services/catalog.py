@@ -25,6 +25,42 @@ def ensure_active_collection(collection_ref: str):
     return get_object_or_404(Collection, ref=collection_ref, is_active=True)
 
 
+def product_exists(sku: str) -> bool:
+    from shopman.offerman.models import Product
+
+    return Product.objects.filter(sku=sku).exists()
+
+
+def get_published_product(sku: str):
+    from shopman.offerman.models import Product
+
+    return Product.objects.filter(sku=sku, is_published=True).first()
+
+
+def get_sellable_published_product(sku: str):
+    from shopman.offerman.models import Product
+
+    return Product.objects.filter(sku=sku, is_published=True, is_sellable=True).first()
+
+
+def active_collections_with_counts() -> list[dict]:
+    from shopman.offerman.models import Collection, CollectionItem
+
+    data = []
+    for collection in Collection.objects.filter(is_active=True).order_by("sort_order", "name"):
+        count = CollectionItem.objects.filter(
+            collection=collection,
+            product__is_published=True,
+        ).count()
+        data.append({
+            "ref": collection.ref,
+            "name": collection.name,
+            "description": getattr(collection, "description", None) or "",
+            "product_count": count,
+        })
+    return data
+
+
 def search_index(catalog) -> list[dict]:
     """Build the lightweight client-side search index for the menu overlay."""
     from shopman.offerman.models import Product

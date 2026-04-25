@@ -8,9 +8,9 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from shopman.orderman.models import Order
 
 from shopman.storefront.projections.order_tracking import build_order_tracking
+from shopman.storefront.services import orders as order_service
 
 from .serializers import OrderTrackingSerializer
 
@@ -29,9 +29,8 @@ class OrderTrackingView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, ref: str):
-        try:
-            order = Order.objects.get(ref=ref)
-        except Order.DoesNotExist:
+        order = order_service.find_order(ref)
+        if order is None:
             return Response({"detail": "Order not found."}, status=404)
 
         proj = build_order_tracking(order)

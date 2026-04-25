@@ -28,7 +28,7 @@ from shopman.shop.models import Channel
 
 def _make_channel(ref, config=None):
     return Channel.objects.create(
-        ref=ref, name=ref, kind="web",
+        ref=ref, name=ref,
         config=config or {
             "confirmation": {"mode": "immediate"},
             "payment": {"method": "cash", "timing": "external"},

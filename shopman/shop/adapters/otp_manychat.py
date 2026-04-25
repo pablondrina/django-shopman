@@ -2,7 +2,7 @@
 
 Uses the same ManyChat API infrastructure as the notification adapter.
 Supports two modes:
-1. Flow-based (recommended): triggers a ManyChat flow with the code as token
+1. Automation-based (recommended): triggers a ManyChat automation with the code as token
 2. Text-based (fallback): sends a plain text message with the code
 """
 

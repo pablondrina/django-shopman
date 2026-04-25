@@ -6,13 +6,12 @@ from rest_framework.pagination import CursorPagination
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from shopman.offerman.models import Collection, CollectionItem, Product
 
-from shopman.storefront.views._helpers import (
-    _annotate_products,
-    _get_channel_listing_ref,
+from shopman.storefront.services import catalog as catalog_service
+from shopman.storefront.services.product_cards import (
+    annotate_products,
+    get_channel_listing_ref,
 )
-from shopman.storefront.views.catalog import _published_products
 
 from .serializers import CollectionSerializer, ProductListItemSerializer
 
@@ -23,7 +22,7 @@ class ProductCursorPagination(CursorPagination):
 
 
 def _serialize_annotated(items: list[dict]) -> list[dict]:
-    """Convert _annotate_products() output to serializer-ready dicts."""
+    """Convert annotate_products() output to serializer-ready dicts."""
     result = []
     for item in items:
         p = item["product"]
@@ -64,8 +63,8 @@ class ProductListView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        listing_ref = _get_channel_listing_ref()
-        qs = _published_products(listing_ref).order_by("name").distinct()
+        listing_ref = get_channel_listing_ref()
+        qs = catalog_service.published_products(listing_ref).order_by("name").distinct()
 
         # Filter by collection ref
         collection_slug = request.query_params.get("collection")
@@ -89,7 +88,7 @@ class ProductListView(APIView):
         page = paginator.paginate_queryset(qs, request)
         products = list(page) if page is not None else list(qs[:20])
 
-        annotated = _annotate_products(products, listing_ref=listing_ref)
+        annotated = annotate_products(products, listing_ref=listing_ref)
         data = _serialize_annotated(annotated)
         serializer = ProductListItemSerializer(data, many=True)
 
@@ -114,13 +113,12 @@ class ProductDetailView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, sku: str):
-        try:
-            product = Product.objects.get(sku=sku, is_published=True)
-        except Product.DoesNotExist:
+        product = catalog_service.get_published_product(sku)
+        if product is None:
             return Response({"detail": "Product not found."}, status=404)
 
-        listing_ref = _get_channel_listing_ref()
-        annotated = _annotate_products([product], listing_ref=listing_ref)
+        listing_ref = get_channel_listing_ref()
+        annotated = annotate_products([product], listing_ref=listing_ref)
         data = _serialize_annotated(annotated)[0]
         return Response(data)
 
@@ -138,18 +136,6 @@ class CollectionListView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        collections = Collection.objects.filter(is_active=True).order_by("sort_order", "name")
-        data = []
-        for col in collections:
-            count = CollectionItem.objects.filter(
-                collection=col,
-                product__is_published=True,
-            ).count()
-            data.append({
-                "ref": col.ref,
-                "name": col.name,
-                "description": getattr(col, "description", None) or "",
-                "product_count": count,
-            })
+        data = catalog_service.active_collections_with_counts()
         serializer = CollectionSerializer(data, many=True)
         return Response(serializer.data)

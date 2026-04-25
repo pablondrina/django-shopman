@@ -122,7 +122,7 @@ class ChannelViewSet(viewsets.ReadOnlyModelViewSet):
         class ChannelSerializer(drf_serializers.ModelSerializer):
             class Meta:
                 model = Channel
-                fields = ("id", "ref", "name", "kind", "display_order", "is_active")
+                fields = ("id", "ref", "name", "display_order", "is_active")
 
         return ChannelSerializer
 

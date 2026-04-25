@@ -1339,24 +1339,23 @@ class Command(BaseCommand):
             "stock": _remote_stock,
         }
         channels_data = [
-            # (ref, name, kind, config_overrides)
-            ("pdv", "PDV", "pos", _pos_config),
-            ("delivery", "Delivery Proprio", "web", _remote_config),
-            ("ifood", "iFood", "ifood", {
+            # (ref, name, config_overrides)
+            ("pdv", "PDV", _pos_config),
+            ("delivery", "Delivery Proprio", _remote_config),
+            ("ifood", "iFood", {
                 **_marketplace_config,
                 "pricing": {"policy": "external"},
                 "editing": {"policy": "locked"},
             }),
-            ("whatsapp", "WhatsApp", "whatsapp", _whatsapp_config),
-            ("web", "E-commerce", "web", _remote_config),
+            ("whatsapp", "WhatsApp", _whatsapp_config),
+            ("web", "E-commerce", _remote_config),
         ]
 
-        for ref, name, kind, config_data in channels_data:
+        for ref, name, config_data in channels_data:
             ch, _ = Channel.objects.update_or_create(
                 ref=ref,
                 defaults={
                     "name": name,
-                    "kind": kind,
                     "is_active": True,
                     "config": config_data,
                 },

@@ -25,7 +25,6 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('ref', models.CharField(max_length=64, unique=True, verbose_name='código')),
                 ('name', models.CharField(blank=True, default='', max_length=128, verbose_name='nome')),
-                ('kind', models.CharField(default='base', help_text='Tipo comportamental do canal. Usado pelo framework para resolver a classe de Flow: base, local, pos, totem, remote, web, whatsapp, manychat, marketplace, ifood.', max_length=32, verbose_name='tipo')),
                 ('config', models.JSONField(blank=True, default=dict, help_text='Override de ChannelConfig para este canal. Mesmo schema do ChannelConfig.to_dict(). Apenas as chaves presentes sobrescrevem os defaults da loja.', verbose_name='configuração')),
                 ('display_order', models.PositiveIntegerField(db_index=True, default=0, verbose_name='ordem de exibição')),
                 ('is_active', models.BooleanField(default=True, verbose_name='ativo')),

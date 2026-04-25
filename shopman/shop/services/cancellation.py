@@ -26,7 +26,7 @@ def cancel(
     - Operator reject / cancel
     - PIX / payment timeout
 
-    Transitions the order to CANCELLED. The Flow.on_cancelled() handler
+    Transitions the order to CANCELLED. The lifecycle on_cancelled handler
     releases stock via ``stock.release`` (``order.data[\"hold_ids\"]``).
 
     Args:

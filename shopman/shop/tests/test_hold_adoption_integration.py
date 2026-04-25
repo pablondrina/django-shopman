@@ -45,7 +45,6 @@ def _setup_world(stock_qty: int = 100) -> Product:
     Channel.objects.create(
         ref=CHANNEL_REF,
         name="Web",
-        kind="web",
         is_active=True,
     )
     product = Product.objects.create(

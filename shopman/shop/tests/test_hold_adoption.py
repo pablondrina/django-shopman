@@ -355,7 +355,6 @@ class TestCartReconcileIntegration:
             ref="web",
             defaults={
                 "name": "Web",
-                "kind": "web",
             },
         )
         session = Session.objects.create(

@@ -8,10 +8,8 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from shopman.orderman.models import Order
-from shopman.utils.monetary import format_money
 
-from shopman.shop.projections.types import ORDER_STATUS_LABELS_PT
+from shopman.storefront.services import orders as order_service
 from shopman.storefront.views.auth import get_authenticated_customer
 
 from .serializers import (
@@ -100,19 +98,6 @@ class OrderHistoryView(APIView):
         if not customer:
             return Response({"detail": "Authentication required."}, status=401)
 
-        orders = Order.objects.filter(
-            handle_type="phone",
-            handle_ref=customer.phone,
-        ).order_by("-created_at")[:20]
-
-        data = []
-        for order in orders:
-            data.append({
-                "ref": order.ref,
-                "created_at": order.created_at,
-                "total_display": f"R$ {format_money(order.total_q)}",
-                "status": order.status,
-                "status_label": ORDER_STATUS_LABELS_PT.get(order.status, order.status),
-            })
+        data = order_service.order_history_for_phone(customer.phone, limit=20)
         serializer = OrderHistoryItemSerializer(data, many=True)
         return Response(serializer.data)

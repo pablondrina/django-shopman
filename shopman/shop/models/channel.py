@@ -20,24 +20,12 @@ class Channel(models.Model):
     O `ref` é o identificador agnóstico que conecta o canal a qualquer
     recurso do framework (ChannelConfig, Listing, etc.) por convenção de nomes.
 
-    O `kind` descreve o tipo comportamental do canal — usado pelo framework
-    para resolver a classe de Flow correspondente.
-
     O `config` armazena overrides de ChannelConfig para este canal.
     Cascata: canal.config ← shop.defaults ← defaults hardcoded.
     """
 
     ref = RefField(ref_type="CHANNEL", verbose_name=_("código"), max_length=64, unique=True, db_index=False)
     name = models.CharField(_("nome"), max_length=128, blank=True, default="")
-    kind = models.CharField(
-        _("tipo"),
-        max_length=32,
-        default="base",
-        help_text=_(
-            "Tipo comportamental do canal. O comportamento operacional é "
-            "resolvido por ChannelConfig, sem classes de Flow."
-        ),
-    )
     shop = models.ForeignKey(
         "shop.Shop",
         on_delete=models.SET_NULL,

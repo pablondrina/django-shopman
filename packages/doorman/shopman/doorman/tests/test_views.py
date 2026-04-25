@@ -263,12 +263,12 @@ class TestVerificationCodeVerifyViewJSON:
 
 
 # ===================================================
-# Full Flow: Request -> Verify
+# Full journey: Request -> Verify
 # ===================================================
 
 
 @pytest.mark.django_db
-class TestFullFlow:
+class TestFullJourney:
     """End-to-end flow: request code -> verify -> session created."""
 
     @_PATCH_BUILD_URL
@@ -277,8 +277,8 @@ class TestFullFlow:
         from shopman.guestman.models import Customer
 
         Customer.objects.create(
-            ref="FLOW-001",
-            first_name="Flow",
+            ref="VERIFY-001",
+            first_name="Verify",
             last_name="Test",
             phone="+5541888888888",
         )

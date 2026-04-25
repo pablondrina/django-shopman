@@ -3,7 +3,7 @@ Tests for shopman.lifecycle — declarative dispatch by ChannelConfig.
 
 Uses mocking for services to test dispatch coordination in isolation.
 All behavior is driven by ChannelConfig (payment.timing, fulfillment.timing,
-confirmation.mode, stock.check_on_commit) — no Flow classes.
+confirmation.mode, stock.check_on_commit) — no lifecycle classes.
 """
 
 from __future__ import annotations

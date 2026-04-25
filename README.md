@@ -16,7 +16,7 @@ O Shopman é composto por **3 camadas**:
 
 | Camada | Pip package | Descrição |
 |--------|-------------|-----------|
-| **Framework** | `django-shopman` | Orquestrador que integra os core apps via Flows, Services e Adapters |
+| **Framework** | `django-shopman` | Orquestrador que integra os core apps via Lifecycles, Services e Adapters |
 | **Core Apps** | `shopman-*` | 8 pacotes pip independentes, cada um com domínio próprio |
 | **Instância** | — | Configuração específica do negócio (ex: Nelson Boulangerie) |
 
@@ -66,7 +66,7 @@ make run
 
 | Objetivo | Caminho |
 |----------|---------|
-| Estudar a arquitetura | Ler [`docs/architecture.md`](docs/architecture.md) e [`docs/guides/flows.md`](docs/guides/flows.md) |
+| Estudar a arquitetura | Ler [`docs/architecture.md`](docs/architecture.md) e [`docs/guides/lifecycle.md`](docs/guides/lifecycle.md) |
 | Rodar a demo | `make install && make migrate && make seed && make run` |
 | Ver o que funciona hoje | [`docs/status.md`](docs/status.md) — estado factual por módulo |
 | Usar como base do seu negócio | Fork, criar instância em `instances/`, configurar `Shop` no admin |
@@ -104,7 +104,7 @@ django-shopman/
 │   └── nelson/                 # Nelson Boulangerie (demo)
 │
 ├── docs/                       # Documentação completa
-│   ├── guides/                 # Flows, auth, repo workflow, etc.
+│   ├── guides/                 # Lifecycle, auth, repo workflow, etc.
 │   ├── reference/              # Data schemas, protocols, glossário
 │   └── decisions/              # ADRs (Architecture Decision Records)
 │
@@ -176,7 +176,7 @@ make lint             # Ruff check
 - [Arquitetura](docs/architecture.md) — diagrama de camadas, Protocol/Adapter
 - [Quickstart](docs/getting-started/quickstart.md) — instalação passo a passo
 - [Um Dia na Padaria](docs/getting-started/dia-na-padaria.md) — tutorial narrativo
-- [Flows](docs/guides/flows.md) — guia de Flows, Services, Adapters
+- [Lifecycle](docs/guides/lifecycle.md) — guia de Lifecycles, Services, Adapters
 - [Auth](docs/guides/auth.md) — autenticação OTP e device trust
 - [Repo Workflow](docs/guides/repo-workflow.md) — como manter monorepo e repos sincronizados
 - [Data Schemas](docs/reference/data-schemas.md) — chaves em Session.data, Order.data

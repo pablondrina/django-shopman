@@ -106,7 +106,7 @@ def _stop(patchers):
 
 
 def _channel(ref, config):
-    return Channel.objects.create(ref=ref, name=ref, kind="web", config=config)
+    return Channel.objects.create(ref=ref, name=ref, config=config)
 
 
 def _session(channel, items=None):

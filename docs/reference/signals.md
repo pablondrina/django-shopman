@@ -121,7 +121,7 @@ Registrado por: `ShopmanConfig.ready()` via `setup.register_all()` → `_registe
 
 **Efeito:** Auto-commit de sessões que estavam aguardando produção. Quando todos os holds de uma sessão são materializados, executa `CommitService.commit()` automaticamente.
 
-**Guia:** [stockman.md](../guides/stockman.md), [flows.md](../guides/flows.md)
+**Guia:** [stockman.md](../guides/stockman.md), [lifecycle.md](../guides/lifecycle.md)
 
 ---
 
@@ -143,16 +143,16 @@ Emitido quando um `Order` é criado ou muda de status.
 
 | Receiver | Arquivo |
 |----------|---------|
-| `on_order_changed()` | `shopman/apps.py` → `flows.dispatch()` — resolve Flow class e chama `on_<phase>()` |
+| `on_order_changed()` | `shopman/apps.py` → `lifecycle.dispatch()` — resolve `ChannelConfig` e chama a função de fase |
 
 **Efeitos por `event_type`:**
-- `"created"` → `dispatch(order, "on_commit")` → `Flow.on_commit()` (customer.ensure, stock.hold, confirmation)
+- `"created"` → `dispatch(order, "on_commit")` → handler funcional de `on_commit` (customer.ensure, stock.hold, confirmation)
   - Se `confirmation_mode == "immediate"` → auto-confirma
   - Se `confirmation_mode == "auto_confirm"` → cria directive `confirmation.timeout` (action=confirm)
   - Se `confirmation_mode == "auto_cancel"` → cria directive `confirmation.timeout` (action=cancel)
-- `"status_changed"` → `dispatch(order, f"on_{status}")` → Flow method correspondente
+- `"status_changed"` → `dispatch(order, f"on_{status}")` → handler funcional da fase correspondente
 
-**Guia:** [orderman.md](../guides/orderman.md), [flows.md](../guides/flows.md)
+**Guia:** [orderman.md](../guides/orderman.md), [lifecycle.md](../guides/lifecycle.md)
 
 ---
 

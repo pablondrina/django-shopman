@@ -30,7 +30,7 @@ def interpret_add_to_cart(
     """
     from shopman.offerman.models import Product
 
-    from shopman.storefront.views._helpers import _get_price_q, _line_item_is_d1
+    from shopman.storefront.services.product_cards import get_price_q, line_item_is_d1
 
     product = Product.objects.filter(sku=sku, is_published=True).first()
     if not product:
@@ -47,8 +47,8 @@ def interpret_add_to_cart(
         intent=AddToCartIntent(
             sku=sku,
             qty=qty,
-            unit_price_q=_get_price_q(product) or 0,
-            is_d1=_line_item_is_d1(product),
+            unit_price_q=get_price_q(product) or 0,
+            is_d1=line_item_is_d1(product),
             picker_origin=picker_origin,
             product=product,
         ),
@@ -68,7 +68,7 @@ def interpret_set_qty(sku: str, qty: int, cart: dict) -> CartIntentResult:
     """
     from shopman.offerman.models import Product
 
-    from shopman.storefront.views._helpers import _get_price_q, _line_item_is_d1
+    from shopman.storefront.services.product_cards import get_price_q, line_item_is_d1
 
     product = Product.objects.filter(sku=sku, is_published=True).first()
     if not product:
@@ -95,8 +95,8 @@ def interpret_set_qty(sku: str, qty: int, cart: dict) -> CartIntentResult:
             qty=qty,
             action=action,
             line_id=line_id,
-            unit_price_q=_get_price_q(product) or 0 if action == "add" else 0,
-            is_d1=_line_item_is_d1(product),
+            unit_price_q=get_price_q(product) or 0 if action == "add" else 0,
+            is_d1=line_item_is_d1(product),
             product=product,
         ),
         error_type=None,

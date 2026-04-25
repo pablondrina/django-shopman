@@ -122,7 +122,7 @@ class OrderTimestampTests(TestCase):
         self.assertGreaterEqual(prep_time.total_seconds(), 0)
 
 
-class IFoodChannelFlowTests(TestCase):
+class IFoodChannelLifecycleTests(TestCase):
     """Testes de fluxo realista para canal iFood."""
 
     def setUp(self) -> None:
@@ -245,7 +245,7 @@ class IFoodChannelFlowTests(TestCase):
             order.transition_status(Order.STATUS_DISPATCHED, actor="test")
 
 
-class EcommerceChannelFlowTests(TestCase):
+class EcommerceChannelLifecycleTests(TestCase):
     """Testes de fluxo realista para canal E-commerce."""
 
     def setUp(self) -> None:
@@ -254,7 +254,7 @@ class EcommerceChannelFlowTests(TestCase):
             name="Loja Virtual",
         )
 
-    def test_ecommerce_delivery_flow(self) -> None:
+    def test_ecommerce_delivery_lifecycle(self) -> None:
         """E-commerce com entrega."""
         order = Order.objects.create(
             ref="ECOM-001",
@@ -273,7 +273,7 @@ class EcommerceChannelFlowTests(TestCase):
 
         self.assertEqual(order.status, Order.STATUS_COMPLETED)
 
-    def test_ecommerce_pickup_flow(self) -> None:
+    def test_ecommerce_pickup_lifecycle(self) -> None:
         """E-commerce com retirada na loja (sem dispatched)."""
         order = Order.objects.create(
             ref="ECOM-002",
@@ -305,12 +305,12 @@ class EcommerceChannelFlowTests(TestCase):
         self.assertEqual(order.status, Order.STATUS_CANCELLED)
 
 
-class PDVChannelFlowTests(TestCase):
+class PDVChannelLifecycleTests(TestCase):
     """Testes de fluxo realista para canal PDV (balcão).
 
     PDV usa fluxo simplificado: new → confirmed → completed (sem delivery states).
     Lifecycle config é baked no order.snapshot["lifecycle"] no momento do commit
-    (via ChannelConfig.flow.transitions no framework). Aqui usamos diretamente.
+        (via ChannelConfig.lifecycle.transitions no framework). Aqui usamos diretamente.
     """
 
     _PDV_TRANSITIONS = {
@@ -601,11 +601,11 @@ class EdgeCaseTests(TestCase):
         self.assertTrue(order.can_transition_to(Order.STATUS_CANCELLED))
 
 
-class SessionToOrderFlowTests(TestCase):
+class SessionToOrderLifecycleTests(TestCase):
     """Testes de fluxo Session → Order."""
 
     def setUp(self) -> None:
-        self.channel = types.SimpleNamespace(ref="flow", name="Flow Test")
+        self.channel = types.SimpleNamespace(ref="lifecycle", name="Lifecycle Test")
 
     def test_session_items_preserved_in_order_snapshot(self) -> None:
         """Items da Session são preservados no snapshot do Order."""

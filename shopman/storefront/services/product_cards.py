@@ -16,7 +16,7 @@ from ..constants import HAS_STOCKMAN, STOREFRONT_CHANNEL_REF
 logger = logging.getLogger(__name__)
 
 
-def _get_channel_listing_ref() -> str | None:
+def get_channel_listing_ref() -> str | None:
     """Ref da Listagem do canal web — por convenção, igual ao ref do canal."""
     try:
         from shopman.shop.models import Channel
@@ -28,10 +28,10 @@ def _get_channel_listing_ref() -> str | None:
         return None
 
 
-def _get_price_q(product: Product, listing_ref: str | None = None) -> int | None:
+def get_price_q(product: Product, listing_ref: str | None = None) -> int | None:
     """Get price from channel listing, falling back to base_price_q."""
     if listing_ref is None:
-        listing_ref = _get_channel_listing_ref()
+        listing_ref = get_channel_listing_ref()
     if listing_ref:
         item = (
             ListingItem.objects.filter(
@@ -48,7 +48,7 @@ def _get_price_q(product: Product, listing_ref: str | None = None) -> int | None
     return product.base_price_q
 
 
-def _get_availability(sku: str, *, target_date: date | None = None) -> dict | None:
+def get_availability(sku: str, *, target_date: date | None = None) -> dict | None:
     """Breakdown de estoque para o canal storefront.
 
     **Listagem** (Listing / ListingItem + ``_published_products``): define o catálogo
@@ -77,9 +77,9 @@ def _get_availability(sku: str, *, target_date: date | None = None) -> dict | No
         return None
 
 
-def _line_item_is_d1(product: Product, *, listing_ref: str | None = None) -> bool:
+def line_item_is_d1(product: Product, *, listing_ref: str | None = None) -> bool:
     """True if SKU has only D-1 stock in its availability scope. POS internal use only."""
-    avail = _get_availability(product.sku)
+    avail = get_availability(product.sku)
     if not avail:
         return False
     from decimal import Decimal
@@ -225,7 +225,7 @@ def _best_auto_promotion_discount_q(
     return best_discount_q, best_promo
 
 
-def _annotate_products(
+def annotate_products(
     products: list[Product],
     listing_ref: str | None = None,
     popular_skus: set[str] | None = None,
@@ -236,7 +236,7 @@ def _annotate_products(
 ) -> list[dict]:
     """Build template-ready list with canonical price quote and availability."""
     if listing_ref is None:
-        listing_ref = _get_channel_listing_ref()
+        listing_ref = get_channel_listing_ref()
 
     if request is not None and (session_total_q is None or fulfillment_type is None):
         ft_hint, sub_hint = session_pricing_hints(request)

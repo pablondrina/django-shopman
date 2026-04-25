@@ -10,7 +10,7 @@ Invariantes verificadas:
    quanto padrão split (payment = ...; payment.get("status")).
 2. Fulfillment tem um único caminho de criação (via service).
 3. Handlers delegam para services — sem Fulfillment.objects.create() em handlers.
-4. lifecycle.py não contém classes Flow.
+4. lifecycle dispatchers não contêm classes de lifecycle.
 5. ChannelConfig governa os aspectos declarados.
 6. Templates não usam inline event handlers (onclick, onchange, etc.).
 7. except Exception: pass (sem log) proibido em business logic.
@@ -224,30 +224,26 @@ class TestHandlersDelegateToServices:
         )
 
 
-# ── Invariant 4: lifecycle.py has no Flow classes ──
+# ── Invariant 4: lifecycle dispatchers are function tables ──
 
 
-class TestNoFlowClassesInLifecycle:
-    """lifecycle.py must not define class *Flow* — behavior is config-driven."""
+class TestNoLifecycleClasses:
+    """Lifecycle dispatchers must remain table/function driven."""
 
     LIFECYCLE_FILE = FRAMEWORK_ROOT / "lifecycle.py"
+    PRODUCTION_LIFECYCLE_FILE = FRAMEWORK_ROOT / "production_lifecycle.py"
 
-    def test_no_flow_classes_in_lifecycle(self):
-        if not self.LIFECYCLE_FILE.exists():
-            pytest.skip("lifecycle.py not found")
+    @pytest.mark.parametrize("path", [LIFECYCLE_FILE, PRODUCTION_LIFECYCLE_FILE])
+    def test_no_classes_in_lifecycle_dispatchers(self, path):
+        if not path.exists():
+            pytest.skip(f"{path.name} not found")
 
-        source = self.LIFECYCLE_FILE.read_text()
-        tree = ast.parse(source)
+        tree = ast.parse(path.read_text())
+        classes = [node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
 
-        flow_classes = [
-            node.name
-            for node in ast.walk(tree)
-            if isinstance(node, ast.ClassDef) and "Flow" in node.name
-        ]
-
-        assert not flow_classes, (
-            "lifecycle.py must not define Flow classes — use _PHASE_HANDLERS dict instead. "
-            f"Found: {flow_classes}"
+        assert not classes, (
+            f"{path.name} must not define lifecycle classes; use phase handler maps. "
+            f"Found: {classes}"
         )
 
     def test_lifecycle_uses_phase_handlers_dict(self):
@@ -259,6 +255,23 @@ class TestNoFlowClassesInLifecycle:
         assert "_PHASE_HANDLERS" in source, (
             "lifecycle.py must define _PHASE_HANDLERS dict for phase dispatch"
         )
+
+    def test_production_lifecycle_uses_phase_handlers_dict(self):
+        if not self.PRODUCTION_LIFECYCLE_FILE.exists():
+            pytest.skip("production_lifecycle.py not found")
+
+        source = self.PRODUCTION_LIFECYCLE_FILE.read_text()
+        assert "_PRODUCTION_PHASE_HANDLERS" in source, (
+            "production_lifecycle.py must define _PRODUCTION_PHASE_HANDLERS for dispatch"
+        )
+
+
+def test_channel_model_has_no_kind_field():
+    """Channel behavior is resolved by ChannelConfig; no channel kind taxonomy."""
+    from shopman.shop.models import Channel
+
+    field_names = {field.name for field in Channel._meta.fields}
+    assert "kind" not in field_names
 
 
 # ── Invariant 5: ChannelConfig governs declared aspects ──

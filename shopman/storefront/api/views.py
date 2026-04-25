@@ -6,13 +6,13 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from shopman.offerman.models import Product
 from shopman.utils.phone import normalize_phone
 
 from shopman.shop.services import checkout as checkout_service
 from shopman.shop.services import sessions as session_service
 from shopman.storefront.cart import CHANNEL_REF, CartService
-from shopman.storefront.views._helpers import _get_price_q, _line_item_is_d1
+from shopman.storefront.services import catalog as catalog_service
+from shopman.storefront.services.product_cards import get_price_q, line_item_is_d1
 
 from .serializers import (
     AddItemSerializer,
@@ -54,15 +54,14 @@ class CartAddItemView(APIView):
         sku = serializer.validated_data["sku"]
         qty = serializer.validated_data["qty"]
 
-        try:
-            product = Product.objects.get(sku=sku, is_published=True, is_sellable=True)
-        except Product.DoesNotExist:
+        product = catalog_service.get_sellable_published_product(sku)
+        if product is None:
             return Response(
                 {"detail": "Product not found or unavailable."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        price_q = _get_price_q(product)
+        price_q = get_price_q(product)
         if price_q is None:
             return Response(
                 {"detail": "No price available for this product."},
@@ -77,7 +76,7 @@ class CartAddItemView(APIView):
                 sku,
                 qty,
                 price_q,
-                is_d1=_line_item_is_d1(product),
+                is_d1=line_item_is_d1(product),
             )
         except CartUnavailableError as exc:
             return Response(

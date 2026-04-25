@@ -522,7 +522,7 @@ def _check_cart_stock(
 ) -> tuple[list[dict], bool]:
     from decimal import Decimal
 
-    from shopman.storefront.views._helpers import _get_availability
+    from shopman.storefront.services.product_cards import get_availability
 
     items = cart.get("items", [])
     if not items:
@@ -535,7 +535,7 @@ def _check_cart_stock(
     for item in items:
         sku = item.get("sku", "")
         qty = int(Decimal(str(item.get("qty", 0))))
-        avail = _get_availability(sku, target_date=target_date)
+        avail = get_availability(sku, target_date=target_date)
         if avail is None:
             skipped += 1
             continue

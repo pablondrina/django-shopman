@@ -575,7 +575,7 @@ Lido por: `NotificationHandler._resolve_backend_chain`, `setup._check_registered
 
 Lido por: `setup.py` (registro), validators, modifiers.
 
-### 7. Flow — como o pedido transita entre status?
+### 7. Lifecycle — como o pedido transita entre status?
 
 | Campo | Tipo | Default | Descrição |
 |-------|------|---------|-----------|
@@ -586,20 +586,15 @@ Lido por: `setup.py` (registro), validators, modifiers.
 
 Lido por: `hooks.on_payment_confirmed`, `FulfillmentUpdateHandler`.
 
-### Chaves legadas (fora do ChannelConfig schema)
+### Chaves fora do ChannelConfig schema
 
 Estas chaves são lidas diretamente de `channel.config` como dict bruto, sem passar pelo `ChannelConfig`:
 
 | Chave | Lido por | Descrição |
 |-------|----------|-----------|
-| `pix.timeout_minutes` | hooks._build_directive_payload | Legado: agora via `payment.timeout_minutes` |
 | `cutoff_hour` | CheckoutView._get_cutoff_info | Hora de corte para pedidos do dia (default 18) |
-| `required_checks_on_commit` | StockCheckValidator, CommitService | Lista de checks obrigatórios no commit |
-| `stock.checkout_hold_expiration_minutes` | StockHoldHandler._get_hold_ttl | Legado: agora via `stock.hold_ttl_minutes` |
-| `rules.d1_discount_percent` | D1DiscountModifier, _helpers | Percentual de desconto D-1 |
-| `rules.minimum_order_q` | _helpers._minimum_order_progress | Valor mínimo de pedido (centavos) |
-| `notification_routing` | NotificationHandler | Legado: agora via `notifications` |
-| `confirmation_flow.*` | confirmation.py helpers | Legado: agora via `confirmation.*` e `payment.*` |
+| `rules.d1_discount_percent` | D1DiscountModifier, product_cards | Percentual de desconto D-1 |
+| `rules.minimum_order_q` | product_cards.minimum_order_progress | Valor mínimo de pedido (centavos) |
 
 ### Presets
 
@@ -686,4 +681,4 @@ Adapters aceitos por tipo:
 7. **CommitService propaga exatamente estas chaves**: `customer`, `fulfillment_type`, `delivery_address`, `delivery_address_structured`, `delivery_date`, `delivery_time_slot`, `order_notes`, `origin_channel`, `payment`, `delivery_fee_q`. Mais `is_preorder` (computado).
 8. **Order.snapshot é imutável**. Nunca editar após o commit. Contém `items`, `data`, `pricing`, `rev`.
 9. **Directive.payload varia por topic**. Cada handler documenta as chaves que lê e escreve na sua seção acima.
-10. **Channel.config usa ChannelConfig dataclass**. Chaves fora do schema devem ser documentadas na seção "Chaves legadas".
+10. **Channel.config usa ChannelConfig dataclass**. Chaves fora do schema devem ser documentadas na seção "Chaves fora do ChannelConfig schema".

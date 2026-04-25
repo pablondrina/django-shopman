@@ -6,7 +6,7 @@ Signal `order_changed` → dispatch(order, phase) → services.
 dispatch() reads ChannelConfig and calls the appropriate services based on
 payment.timing, fulfillment.timing, confirmation.mode, and stock.check_on_commit.
 
-No Flow classes — behavior is purely configuration-driven.
+No lifecycle classes — behavior is purely configuration-driven.
 
 Timing × Phase table:
     payment.timing:

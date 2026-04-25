@@ -9,22 +9,16 @@ from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
 
 from shopman.storefront.services import catalog as catalog_service
+from shopman.storefront.services.product_cards import (
+    annotate_products,
+    get_channel_listing_ref,
+)
 from shopman.storefront.services.storefront_context import (
     fresh_from_oven_skus,
     popular_skus,
 )
 
-from ._helpers import (
-    _annotate_products,
-    _get_channel_listing_ref,
-)
-
 logger = logging.getLogger(__name__)
-
-
-def _published_products(listing_ref: str | None):
-    """Backward-compatible wrapper for API modules; canonical logic is service-owned."""
-    return catalog_service.published_products(listing_ref)
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
@@ -32,7 +26,7 @@ class MenuView(View):
     """List products grouped by collection."""
 
     def get(self, request: HttpRequest, collection: str | None = None) -> HttpResponse:
-        listing_ref = _get_channel_listing_ref()
+        listing_ref = get_channel_listing_ref()
 
         if request.GET.get("partial") == "availability_preview":
             return self._availability_preview(request, listing_ref)
@@ -78,7 +72,7 @@ class MenuView(View):
             else:
                 products = list(qs.order_by("name")[:6])
 
-        items = _annotate_products(
+        items = annotate_products(
             products, listing_ref=listing_ref,
             popular_skus=popular_skus(limit=6) if not fresh else set(),
             request=request,

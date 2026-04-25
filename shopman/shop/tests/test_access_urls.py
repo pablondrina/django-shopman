@@ -1,5 +1,5 @@
 """
-Tests for M4 — WhatsApp→Storefront E2E Flow.
+Tests for M4 — WhatsApp→Storefront E2E lifecycle.
 
 Covers:
   1. access_urls.py — build_access_url / build_tracking_access_url / build_reorder_access_url

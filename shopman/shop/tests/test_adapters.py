@@ -88,7 +88,6 @@ class TestChannelScopeResolution:
             ref="test-remote",
             defaults={
                 "name": "Test Remote",
-                "kind": "web",
                 "is_active": True,
                 "config": {"stock": {"excluded_positions": ["ontem"]}},
             },
@@ -104,7 +103,6 @@ class TestChannelScopeResolution:
             ref="test-pos",
             defaults={
                 "name": "Test POS",
-                "kind": "pos",
                 "is_active": True,
                 "config": {"stock": {"check_on_commit": True}},
             },

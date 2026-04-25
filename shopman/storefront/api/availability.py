@@ -8,9 +8,9 @@ from django.core.cache import cache
 from django.http import Http404
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from shopman.offerman.models import Product
 
 from shopman.shop.services import availability as avail_service
+from shopman.storefront.services import catalog as catalog_service
 
 
 class AvailabilityView(APIView):
@@ -36,7 +36,7 @@ class AvailabilityView(APIView):
     permission_classes = []
 
     def get(self, request, sku):
-        if not Product.objects.filter(sku=sku).exists():
+        if not catalog_service.product_exists(sku):
             raise Http404
 
         channel_ref = request.GET.get("channel")

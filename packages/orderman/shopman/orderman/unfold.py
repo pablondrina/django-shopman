@@ -2,19 +2,18 @@ from __future__ import annotations
 
 from django.apps import apps
 
-_KIND_ICONS = {
-    "pos": "point_of_sale",
+_CHANNEL_ICONS = {
+    "pdv": "point_of_sale",
     "totem": "tablet",
     "web": "language",
+    "delivery": "language",
     "whatsapp": "chat",
-    "manychat": "chat",
-    "marketplace": "store",
     "ifood": "delivery_dining",
 }
 
 
-def _icon_for_kind(kind: str) -> str:
-    return _KIND_ICONS.get(kind, "storefront")
+def _icon_for_channel(ref: str) -> str:
+    return _CHANNEL_ICONS.get(ref, "storefront")
 
 
 def _order_items_by_channel():
@@ -38,7 +37,7 @@ def _order_items_by_channel():
         items.append(
             {
                 "title": channel.name or channel.ref,
-                "icon": _icon_for_kind(channel.kind),
+                "icon": _icon_for_channel(channel.ref),
                 # Use o mesmo parâmetro do filtro de FK do Django Admin: channel__id__exact
                 "link": f"/admin/orderman/order/?channel__id__exact={channel.id}&status__exact=new",
             }

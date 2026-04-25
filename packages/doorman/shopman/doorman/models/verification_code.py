@@ -65,7 +65,7 @@ class VerificationCode(models.Model):
     """
     OTP code for verification.
 
-    Flows:
+    Scenarios:
     - LOGIN: Customer provides phone -> code -> session
     - VERIFY_CONTACT: Customer adds contact -> code -> verified
     """

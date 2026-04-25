@@ -177,11 +177,11 @@ class TestCheckoutPost:
         _login_as_customer(cart_session, customer)
 
         with patch(
-            "shopman.storefront.views._helpers._get_availability",
+            "shopman.storefront.services.product_cards.get_availability",
             return_value={
                 "breakdown": {"ready": 0, "in_production": 1, "d1": 0},
             },
-        ) as mock_get_availability:
+        ) as mockget_availability:
             resp = cart_session.post(
                 "/checkout/",
                 {
@@ -194,8 +194,8 @@ class TestCheckoutPost:
             )
 
         assert resp.status_code in (200, 302)
-        assert mock_get_availability.called
-        assert mock_get_availability.call_args.kwargs["target_date"] == future_date
+        assert mockget_availability.called
+        assert mockget_availability.call_args.kwargs["target_date"] == future_date
 
 
 # ── OrderConfirmationView ─────────────────────────────────────────────

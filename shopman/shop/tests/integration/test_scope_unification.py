@@ -44,7 +44,6 @@ def web_channel(db):
         ref="web",
         defaults={
             "name": "E-commerce",
-            "kind": "web",
             "is_active": True,
             "config": {"stock": {"excluded_positions": ["ontem"]}},
         },
@@ -60,7 +59,6 @@ def pdv_channel(db):
         ref="pdv",
         defaults={
             "name": "Balcão / PDV",
-            "kind": "pos",
             "is_active": True,
             "config": {"stock": {}},
         },

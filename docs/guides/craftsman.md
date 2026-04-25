@@ -100,7 +100,6 @@ Chave Django settings: `CRAFTSMAN`
 | `HISTORICAL_DAYS` | 28 | Dias de histórico para sugestões |
 | `SAME_WEEKDAY_ONLY` | True | Usar mesmo dia da semana no histórico |
 
-## Nota sobre compatibilidade de nomes
+## Guia canônico
 
-Este guia substitui o antigo `guides/crafting.md` (nomenclatura anterior do pacote; arquivo removido).
-
+Este é o guia canônico do Craftsman.

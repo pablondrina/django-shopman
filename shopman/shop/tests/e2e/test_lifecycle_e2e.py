@@ -113,11 +113,10 @@ _MARKETPLACE_CONFIG = {
 }
 
 
-def _make_channel(ref="test", kind="local", config=None, **kwargs):
+def _make_channel(ref="test", config=None, **kwargs):
     channel = Channel.objects.create(
         ref=ref,
         name=ref.title(),
-        kind=kind,
         config=config or {},
         **kwargs,
     )
@@ -150,7 +149,7 @@ class TestE2E1LocalCheckout(TransactionTestCase):
     """Local channel: commit → auto-confirm → stock.fulfill."""
 
     def setUp(self):
-        self.channel = _make_channel(ref="pdv", kind="local", config=_LOCAL_CONFIG)
+        self.channel = _make_channel(ref="pdv", config=_LOCAL_CONFIG)
         self.patchers, self.mocks = _start_patches()
 
     def tearDown(self):
@@ -176,7 +175,7 @@ class TestE2E2WebPixHappyPath(TestCase):
     """Remote channel: commit → confirmed → on_paid → stock.fulfill."""
 
     def setUp(self):
-        self.channel = _make_channel(ref="web", kind="web", config=_REMOTE_CONFIG)
+        self.channel = _make_channel(ref="web", config=_REMOTE_CONFIG)
         self.patchers, self.mocks = _start_patches()
 
     def tearDown(self):
@@ -209,7 +208,7 @@ class TestE2E3WebPixCancelledBeforeWebhook(TransactionTestCase):
     """Operator cancels order before PIX webhook arrives."""
 
     def setUp(self):
-        self.channel = _make_channel(ref="web-cancel", kind="web", config=_REMOTE_CONFIG)
+        self.channel = _make_channel(ref="web-cancel", config=_REMOTE_CONFIG)
         self.patchers, self.mocks = _start_patches()
 
     def tearDown(self):
@@ -243,7 +242,7 @@ class TestE2E4WebPixWebhookAfterCancellation(TestCase):
     """
 
     def setUp(self):
-        self.channel = _make_channel(ref="web-late", kind="web", config=_REMOTE_CONFIG)
+        self.channel = _make_channel(ref="web-late", config=_REMOTE_CONFIG)
         self.patchers, self.mocks = _start_patches()
 
     def tearDown(self):
@@ -285,7 +284,7 @@ class TestE2E5MarketplaceInsufficientStock(TransactionTestCase):
     """Marketplace on_commit rejects order when availability.check fails."""
 
     def setUp(self):
-        self.channel = _make_channel(ref="ifood", kind="marketplace", config=_MARKETPLACE_CONFIG)
+        self.channel = _make_channel(ref="ifood", config=_MARKETPLACE_CONFIG)
         self.patchers, self.mocks = _start_patches()
 
     def tearDown(self):
@@ -325,7 +324,7 @@ class TestE2E6DuplicateCommit(TestCase):
     """Duplicate commit with same idempotency_key returns cached result."""
 
     def setUp(self):
-        self.channel = _make_channel(ref="idem-test", kind="local", config=_LOCAL_CONFIG)
+        self.channel = _make_channel(ref="idem-test", config=_LOCAL_CONFIG)
         self.patchers, self.mocks = _start_patches()
 
     def tearDown(self):
@@ -370,7 +369,7 @@ class TestE2E7ConcurrentCommits(TransactionTestCase):
     """
 
     def setUp(self):
-        self.channel = _make_channel(ref="race-test", kind="local", config=_LOCAL_CONFIG)
+        self.channel = _make_channel(ref="race-test", config=_LOCAL_CONFIG)
         self.patchers, self.mocks = _start_patches()
 
     def tearDown(self):
@@ -425,7 +424,7 @@ class TestE2E8NotificationFailureDirectiveRetry(TestCase):
     """When a directive handler raises DirectiveTransientError, worker retries."""
 
     def setUp(self):
-        self.channel = _make_channel(ref="notif-test", kind="local", config=_LOCAL_CONFIG)
+        self.channel = _make_channel(ref="notif-test", config=_LOCAL_CONFIG)
         self.patchers, self.mocks = _start_patches()
 
     def tearDown(self):
@@ -466,7 +465,7 @@ class TestE2E8TerminalErrorDirectiveFails(TestCase):
     """When a directive handler raises DirectiveTerminalError, it is marked failed immediately."""
 
     def setUp(self):
-        self.channel = _make_channel(ref="terminal-test", kind="local", config=_LOCAL_CONFIG)
+        self.channel = _make_channel(ref="terminal-test", config=_LOCAL_CONFIG)
         self.patchers, self.mocks = _start_patches()
 
     def tearDown(self):
@@ -512,7 +511,7 @@ class TestE2E9StockHoldFailure(TransactionTestCase):
     """
 
     def setUp(self):
-        self.channel = _make_channel(ref="stock-fail", kind="web", config=_REMOTE_CONFIG)
+        self.channel = _make_channel(ref="stock-fail", config=_REMOTE_CONFIG)
         self.patchers, self.mocks = _start_patches()
 
     def tearDown(self):
@@ -557,7 +556,7 @@ class TestE2E10WhatsappChannel(TransactionTestCase):
     """
 
     def setUp(self):
-        self.channel = _make_channel(ref="whatsapp", kind="whatsapp", config=_WHATSAPP_CONFIG)
+        self.channel = _make_channel(ref="whatsapp", config=_WHATSAPP_CONFIG)
         self.patchers, self.mocks = _start_patches()
 
     def tearDown(self):

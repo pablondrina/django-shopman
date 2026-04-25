@@ -1,8 +1,7 @@
 """
-Invariant: lifecycle.py must have zero Flow classes.
+Invariant: lifecycle.py must stay table/function driven.
 
-All behavior is driven by ChannelConfig — no Flow subclasses.
-dispatch() is a pure function.
+All behavior is driven by ChannelConfig; dispatch() is a pure function.
 """
 
 from __future__ import annotations
@@ -13,7 +12,7 @@ import inspect
 import shopman.shop.lifecycle as lifecycle_module
 
 
-class TestNoLegacyFlowClasses:
+class TestLifecycleDispatchShape:
     def test_no_class_definitions_in_lifecycle(self):
         """lifecycle.py must not define any classes."""
         source = inspect.getsource(lifecycle_module)
@@ -21,16 +20,16 @@ class TestNoLegacyFlowClasses:
         classes = [node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
         assert classes == [], f"lifecycle.py must have zero classes, found: {classes}"
 
-    def test_no_flow_registry(self):
-        """lifecycle.py must not have a _registry dict for Flow classes."""
+    def test_no_lifecycle_registry(self):
+        """lifecycle.py must not have a dynamic registry."""
         assert not hasattr(lifecycle_module, "_registry"), (
-            "lifecycle.py must not have a _registry (Flow class registry was removed)"
+            "lifecycle.py must not have a _registry; use explicit phase handler maps"
         )
 
-    def test_no_get_flow_function(self):
-        """lifecycle.py must not have get_flow() — dispatch reads config directly."""
-        assert not hasattr(lifecycle_module, "get_flow"), (
-            "lifecycle.py must not have get_flow() (replaced by config-driven dispatch)"
+    def test_no_dynamic_lifecycle_resolver(self):
+        """lifecycle.py must not have a dynamic resolver — dispatch reads config directly."""
+        assert not hasattr(lifecycle_module, "get_lifecycle"), (
+            "lifecycle.py must not have get_lifecycle() (use config-driven dispatch)"
         )
 
     def test_dispatch_is_callable(self):

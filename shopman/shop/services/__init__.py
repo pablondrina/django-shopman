@@ -23,7 +23,7 @@ SYNC services:
     fulfillment.create(order)    — Create fulfillment record
     fulfillment.update(f, s)     — Update fulfillment status
     pricing.resolve(sku, qty)    — Resolve price
-    cancellation.cancel(order)   — Cancel order (WP-S6: único caminho; Flow libera stock)
+    cancellation.cancel(order)   — Cancel order; lifecycle releases stock
     kds.dispatch(order)          — Route items to KDS instances
     kds.on_all_tickets_done(order) — Transition to READY
     checkout.process(...)        — Validate + modify session + commit

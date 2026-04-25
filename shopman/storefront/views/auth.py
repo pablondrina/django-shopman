@@ -325,7 +325,7 @@ class AccessLinkLoginView(View):
     """Consume an access link and create an authenticated session.
 
     URL: /auth/access/<token>/
-    Flow: WhatsApp link → this view → session created → redirect
+    Lifecycle: WhatsApp link → this view → session created → redirect
     """
 
     def get(self, request: HttpRequest, token: str) -> HttpResponse:

@@ -3,7 +3,7 @@ Manychat webhook endpoint.
 
 Receives webhooks from Manychat and syncs subscribers to Guestman.
 
-Flow:
+Lifecycle:
     1. Validates HMAC signature (G4)
     2. Checks replay protection (G5)
     3. Calls ManychatService.sync_subscriber()

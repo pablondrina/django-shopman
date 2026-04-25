@@ -202,7 +202,7 @@ notificações: manychat (WhatsApp) → fallback [sms, email]
 validadores: [horário comercial, pedido mínimo]
 modificadores: [promoções, happy hour]
 checks: [estoque]
-flow: auto_sync_fulfillment = true
+lifecycle: auto_sync_fulfillment = true
 pipeline:
   commit:             [customer.ensure, stock.hold, checkout.infer_defaults]
   confirmed:          [pix.generate, notificar:order_confirmed]
@@ -320,10 +320,10 @@ rules:
   checks:     [string]   # Checks pré-commit obrigatórios
 ```
 
-### 4.7 Fluxo
+### 4.7 Lifecycle
 
 ```yaml
-flow:
+lifecycle:
   transitions:          { status: [status] } | null   # Transições customizadas
   terminal_statuses:    [status] | null               # Estados terminais
   auto_transitions:     { event: status } | null      # Ex: on_payment_confirm → processing

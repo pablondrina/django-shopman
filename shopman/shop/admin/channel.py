@@ -61,7 +61,7 @@ class ChannelForm(forms.ModelForm):
 
     class Meta:
         model = Channel
-        fields = ("ref", "name", "kind", "shop", "display_order", "is_active")
+        fields = ("ref", "name", "shop", "display_order", "is_active")
 
     _ASPECTS = (
         "confirmation", "payment", "fulfillment", "stock",
@@ -119,8 +119,8 @@ class ChannelAdmin(ModelAdmin):
     """Admin para canais de venda com configuração por aspecto."""
 
     form = ChannelForm
-    list_display = ("ref", "name", "kind", "is_active", "display_order")
-    list_filter = ("kind", "is_active")
+    list_display = ("ref", "name", "is_active", "display_order")
+    list_filter = ("is_active",)
     search_fields = ("ref", "name")
     ordering = ("display_order", "ref")
     actions = ("inject_simulated_ifood_order",)
@@ -212,7 +212,7 @@ class ChannelAdmin(ModelAdmin):
             )
 
     fieldsets = (
-        (None, {"fields": ("ref", "name", "kind", "shop", "display_order", "is_active")}),
+        (None, {"fields": ("ref", "name", "shop", "display_order", "is_active")}),
         ("Confirmação", {"fields": ("confirmation",), "classes": ("tab",)}),
         ("Pagamento", {"fields": ("payment",), "classes": ("tab",)}),
         ("Fulfillment", {"fields": ("fulfillment",), "classes": ("tab",)}),

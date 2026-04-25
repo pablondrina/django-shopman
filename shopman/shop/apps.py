@@ -34,10 +34,10 @@ class ShopmanConfig(AppConfig):
         self._register_rules()
 
         # 3. Connect order_changed → lifecycle.dispatch
-        self._connect_flow_signal()
+        self._connect_lifecycle_signal()
 
         # 4. Connect production_changed → production_lifecycle.dispatch_production
-        self._connect_production_flow_signal()
+        self._connect_production_lifecycle_signal()
 
         # 5. Connect Recipe post_save → materialize Product ingredients + nutrition
         self._connect_recipe_nutrition_signal()
@@ -109,7 +109,7 @@ class ShopmanConfig(AppConfig):
         )
         logger.info("ShopmanConfig: rules engine wired.")
 
-    def _connect_flow_signal(self):
+    def _connect_lifecycle_signal(self):
         """Connect Core signal order_changed → lifecycle.dispatch().
 
         This replaces the old channels.hooks.on_order_lifecycle signal handler.
@@ -135,9 +135,9 @@ class ShopmanConfig(AppConfig):
             dispatch_uid="shopman.shop.lifecycle.on_order_changed",
             weak=False,
         )
-        logger.info("ShopmanConfig: flow signal connected.")
+        logger.info("ShopmanConfig: lifecycle signal connected.")
 
-    def _connect_production_flow_signal(self):
+    def _connect_production_lifecycle_signal(self):
         """Connect Core signal production_changed → production_lifecycle.dispatch_production()."""
         from shopman.craftsman.signals import production_changed
 
@@ -148,7 +148,7 @@ class ShopmanConfig(AppConfig):
             dispatch_uid="shopman.shop.production_lifecycle.on_production_changed",
             weak=False,
         )
-        logger.info("ShopmanConfig: production flow signal connected.")
+        logger.info("ShopmanConfig: production lifecycle signal connected.")
 
     def _connect_recipe_nutrition_signal(self):
         """Materialize Product ingredients + nutrition whenever a Recipe is saved.

@@ -247,8 +247,6 @@ def test_storefront_views_delegate_kernel_commands():
     violations = []
 
     for path in _py_files(STOREFRONT_ROOT / "views"):
-        if path.name == "_helpers.py":
-            continue
         for line, module in _imports(path):
             if _matches_prefix(module, forbidden):
                 violations.append((path, line, module))
@@ -259,4 +257,31 @@ def test_storefront_views_delegate_kernel_commands():
             f"{_format_violations(violations)}\n\n"
             "Keep HTTP, HTMX, and rendering in views; route domain commands through "
             "shopman.storefront.services.*."
+        )
+
+
+def test_storefront_api_delegates_kernel_commands():
+    """Storefront public APIs must keep kernel reads/writes behind services."""
+    forbidden = (
+        "shopman.guestman",
+        "shopman.doorman",
+        "shopman.orderman",
+        "shopman.offerman",
+        "shopman.stockman",
+        "shopman.payman",
+        "shopman.craftsman",
+    )
+    violations = []
+
+    for path in _py_files(STOREFRONT_ROOT / "api"):
+        for line, module in _imports(path):
+            if _matches_prefix(module, forbidden):
+                violations.append((path, line, module))
+
+    if violations:
+        pytest.fail(
+            "Storefront APIs imported kernel modules directly:\n"
+            f"{_format_violations(violations)}\n\n"
+            "Route API reads and commands through shopman.storefront.services.* "
+            "or shopman.shop.services.*."
         )

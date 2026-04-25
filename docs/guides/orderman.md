@@ -30,7 +30,6 @@ from shopman.orderman.services.resolve import ResolveService
 from shopman.orderman.services.write import SessionWriteService
 ```
 
-## Nota sobre compatibilidade de nomes
+## Guia canônico
 
-Este guia substitui o antigo `guides/ordering.md` (nomenclatura anterior do pacote; arquivo removido).
-
+Este é o guia canônico do Orderman.

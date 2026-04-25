@@ -26,7 +26,7 @@
 | # | Princípio | Consequência de código |
 |---|-----------|------------------------|
 | P1 | Core é sagrado | `Session.data`, `Order.data`, `Directive.payload`, `Channel.config` são `JSONField` — extensíveis sem migração; chaves catalogadas em `docs/reference/data-schemas.md`. |
-| P2 | Config-driven, não OOP-driven | Sem classes de Flow. Lifecycle é despachado por `ChannelConfig` (8 aspectos) + `dispatch(order, phase)`. |
+| P2 | Config-driven, não OOP-driven | Sem classes de lifecycle. Lifecycle é despachado por `ChannelConfig` (8 aspectos) + `dispatch(order, phase)`. |
 | P3 | Identificadores textuais como `ref` | Exceção deliberada: `Product.sku` (campo SKU de produto). `WorkOrder.ref` é sequencial (`WO-YYYY-NNNNN`). |
 | P4 | Monetário inteiro em centavos com sufixo `_q` | `price_q=1500` ⇒ R$ 15,00. `monetary_mult`/`monetary_div` são canônicos (`ROUND_HALF_UP`). |
 | P5 | Directives em vez de Celery | Tabela `Directive` + dispatch via signal post-commit + backoff `2^attempts` + max 5. Idempotente via `dedupe_key`. |
@@ -312,7 +312,7 @@ Cada pacote abaixo é pip-instalável (`shopman-<nome>`), vive em `packages/<nom
 
 **Shop** (singleton via `.load()` cacheado): identidade, endereço Google Places estruturado, contato, operação (`opening_hours[JSON]`, currency, timezone), branding (colors OKLCH/RGB, fonts Google), `defaults[JSON]`, `integrations[JSON dict adapter→módulo]`.
 
-**Channel**: `ref` canônico, `kind`, `config[JSON]`, `integrations[JSON]` (overrides adapter por canal).
+**Channel**: `ref` canônico, `name`, `display_order`, `is_active`, `config[JSON]`, `integrations[JSON]` (overrides adapter por canal).
 
 **ChannelConfig** (`shopman/shop/config.py`, 8 aspectos):
 

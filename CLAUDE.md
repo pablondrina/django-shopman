@@ -79,7 +79,7 @@ storefront ──imports──→ shop ←──imports── backstage
 
 ### Conceitos Primários
 
-- **Lifecycle** (`lifecycle.py`): Coordenação de lifecycle. Signal `order_changed` → `dispatch(order, phase)` → services. Comportamento 100% config-driven via `ChannelConfig` — sem classes de Flow.
+- **Lifecycle** (`lifecycle.py`): Coordenação de lifecycle. Signal `order_changed` → `dispatch(order, phase)` → services. Comportamento 100% config-driven via `ChannelConfig` — sem classes de lifecycle ou herança Python.
 - **Services** (`services/`): Lógica de negócio. Cada service usa Core services (StockService, PaymentService, CatalogService, etc.) via adapters.
 - **Adapters** (`adapters/`): Swappable via settings. `get_adapter("payment", method="pix")` → `payment_efi`.
 - **Rules** (`rules/`): Regras configuráveis via admin com `RuleConfig` no DB. Engine avalia rules ativas por contexto.

@@ -27,6 +27,35 @@ def active_order_count_for_phone(phone: str) -> int:
     ).count()
 
 
+def order_history_for_phone(phone: str, *, limit: int = 20) -> list[dict]:
+    from shopman.orderman.models import Order
+    from shopman.utils.monetary import format_money
+
+    from shopman.shop.projections.types import ORDER_STATUS_LABELS_PT
+
+    orders = Order.objects.filter(
+        handle_type="phone",
+        handle_ref=phone,
+    ).order_by("-created_at")[:limit]
+
+    return [
+        {
+            "ref": order.ref,
+            "created_at": order.created_at,
+            "total_display": f"R$ {format_money(order.total_q)}",
+            "status": order.status,
+            "status_label": ORDER_STATUS_LABELS_PT.get(order.status, order.status),
+        }
+        for order in orders
+    ]
+
+
+def find_order(ref: str):
+    from shopman.orderman.models import Order
+
+    return Order.objects.filter(ref=ref).first()
+
+
 def last_reorder_context(*, customer_uuid, min_days: int) -> tuple[str | None, list[dict]]:
     """Return the last old-enough order ref and sealed snapshot items for reorder."""
     from shopman.guestman.services import customer as customer_service
@@ -88,14 +117,14 @@ def add_reorder_items(request, order, *, cart_service=None) -> list[str]:
     from shopman.offerman.models import Product
 
     from shopman.storefront.cart import CartService, CartUnavailableError
-    from shopman.storefront.views._helpers import _get_price_q, _line_item_is_d1
+    from shopman.storefront.services.product_cards import get_price_q, line_item_is_d1
 
     cart_service = cart_service or CartService
     skipped: list[str] = []
     for item in order.items.all():
         product = Product.objects.filter(sku=item.sku, is_published=True).first()
         if product and product.is_sellable:
-            price_q = _get_price_q(product)
+            price_q = get_price_q(product)
             if price_q is None:
                 price_q = 0
             try:
@@ -104,7 +133,7 @@ def add_reorder_items(request, order, *, cart_service=None) -> list[str]:
                     sku=item.sku,
                     qty=int(item.qty),
                     unit_price_q=price_q,
-                    is_d1=_line_item_is_d1(product),
+                    is_d1=line_item_is_d1(product),
                 )
             except CartUnavailableError:
                 skipped.append(product.name or item.sku)
