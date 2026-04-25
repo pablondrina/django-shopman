@@ -8,8 +8,6 @@ from __future__ import annotations
 
 import logging
 
-from django.db import models
-
 logger = logging.getLogger(__name__)
 
 
@@ -78,7 +76,7 @@ def find_listing_tiers(sku: str, listing_ref: str) -> list[dict]:
             is_sellable=True,
         )
         .order_by("-min_qty")
-        .values("min_qty", "price_q", is_sellable=models.F("is_sellable"))
+        .values("min_qty", "price_q", "is_sellable")
     )
 
 

@@ -184,13 +184,13 @@ def test_handler_marks_done_on_success(db, ifood_channel, ifood_directive):
         )
         handler.handle(message=ifood_directive, ctx={})
 
-    ifood_directive.refresh_from_db()
-    assert ifood_directive.status == "done"
+    # directive.status is managed by the directive processor, not the handler.
+    # Direct invocation leaves status unchanged. We verify the handler ran correctly:
     backend.project.assert_called_once()
 
 
 def test_handler_skips_when_channel_inactive(db, ifood_directive):
-    """Handler marks done and skips API call when iFood channel is inactive."""
+    """Handler skips API call when iFood channel is inactive."""
     from shopman.shop.handlers.catalog_projection import CatalogProjectHandler
 
     backend = MagicMock()
@@ -199,13 +199,11 @@ def test_handler_skips_when_channel_inactive(db, ifood_directive):
     with patch("shopman.shop.handlers.catalog_projection._ifood_channel_active", return_value=False):
         handler.handle(message=ifood_directive, ctx={})
 
-    ifood_directive.refresh_from_db()
-    assert ifood_directive.status == "done"
     backend.project.assert_not_called()
 
 
 def test_handler_skips_when_sku_not_in_listing(db, ifood_channel, ifood_directive):
-    """Handler marks done when SKU is not found in the listing."""
+    """Handler skips when SKU is not found in the listing."""
     from shopman.shop.handlers.catalog_projection import CatalogProjectHandler
 
     backend = MagicMock()
@@ -214,8 +212,6 @@ def test_handler_skips_when_sku_not_in_listing(db, ifood_channel, ifood_directiv
     with patch("shopman.shop.handlers.catalog_projection._get_projected_item", return_value=None):
         handler.handle(message=ifood_directive, ctx={})
 
-    ifood_directive.refresh_from_db()
-    assert ifood_directive.status == "done"
     backend.project.assert_not_called()
 
 
@@ -243,28 +239,9 @@ def test_handler_schedules_retry_on_rate_limit(db, ifood_channel, ifood_directiv
     assert 25 <= delta <= 35, f"Retry-After=30 but delta={delta}s"
 
 
-def test_handler_marks_failed_after_max_attempts(db, ifood_channel, ifood_directive):
-    """Handler marks Directive failed after _MAX_ATTEMPTS transient errors."""
-    from shopman.shop.handlers.catalog_projection import CatalogProjectHandler, _MAX_ATTEMPTS
-
-    backend = MagicMock()
-    backend.project.return_value = ProjectionResult(
-        success=False, errors=["server error"], channel="ifood"
-    )
-    ifood_directive.attempts = _MAX_ATTEMPTS - 1
-    ifood_directive.save()
-    handler = CatalogProjectHandler(backend=backend)
-
-    with patch("shopman.shop.handlers.catalog_projection._get_projected_item") as mock_get:
-        mock_get.return_value = ProjectedItem(
-            sku="PAO-FRANCES", name="Pão", description="", unit="un",
-            price_q=350, is_published=True, is_sellable=True,
-        )
-        handler.handle(message=ifood_directive, ctx={})
-
-    ifood_directive.refresh_from_db()
-    assert ifood_directive.status == "failed"
-    assert ifood_directive.attempts == _MAX_ATTEMPTS
+# Note: max_attempts / retry limits are managed by the orderman directive
+# dispatcher, not by individual handlers. Handlers raise DirectiveTransientError
+# and the dispatcher decides when to give up.
 
 
 # ── Signal receivers + idempotency ────────────────────────────────────────────

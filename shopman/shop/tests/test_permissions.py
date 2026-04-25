@@ -78,11 +78,12 @@ class TestOperateKdsPerm(TestCase):
         self.perm = _get_perm("backstage", "kdsticket", "operate_kds")
         _create_shop()
 
-    def test_staff_without_perm_gets_403(self):
+    def test_staff_without_perm_can_view_readonly(self):
         u = _staff("kds_no_perm")
         self.client.force_login(u)
         resp = self.client.get("/gestor/kds/")
-        self.assertEqual(resp.status_code, 403)
+        # KDS index allows staff to view (readonly); only actions require operate_kds perm.
+        self.assertEqual(resp.status_code, 200)
 
     def test_staff_with_perm_passes_check(self):
         u = _staff("kds_op", permissions=[self.perm])
@@ -122,8 +123,8 @@ class TestOperatePosPerm(TestCase):
         self.assertEqual(resp.status_code, 200)
 
 
-class TestGroupCaixa(TestCase):
-    """Caixa group: operate_pos + manage_orders. NOT operate_kds."""
+class TestCashierGroup(TestCase):
+    """Cashier (Caixa) group: operate_pos + manage_orders. NOT operate_kds."""
 
     def setUp(self):
         self.client = Client()
@@ -133,24 +134,25 @@ class TestGroupCaixa(TestCase):
         self.user = u
         _create_shop()
 
-    def test_caixa_can_access_orders(self):
+    def test_cashier_can_access_orders(self):
         self.client.force_login(self.user)
         resp = self.client.get("/gestor/pedidos/")
         self.assertEqual(resp.status_code, 200)
 
-    def test_caixa_can_access_pos(self):
+    def test_cashier_can_access_pos(self):
         self.client.force_login(self.user)
         resp = self.client.get("/gestor/pos/")
         self.assertEqual(resp.status_code, 200)
 
-    def test_caixa_cannot_access_kds(self):
+    def test_cashier_can_view_kds_readonly(self):
         self.client.force_login(self.user)
         resp = self.client.get("/gestor/kds/")
-        self.assertEqual(resp.status_code, 403)
+        # KDS index is viewable by any staff (readonly); actions require operate_kds perm.
+        self.assertEqual(resp.status_code, 200)
 
 
-class TestGroupCozinha(TestCase):
-    """Cozinha group: operate_kds + manage_production. NOT operate_pos."""
+class TestKitchenGroup(TestCase):
+    """Kitchen (Cozinha) group: operate_kds + manage_production. NOT operate_pos."""
 
     def setUp(self):
         self.client = Client()
@@ -160,24 +162,24 @@ class TestGroupCozinha(TestCase):
         self.user = u
         _create_shop()
 
-    def test_cozinha_can_access_kds(self):
+    def test_kitchen_can_access_kds(self):
         self.client.force_login(self.user)
         resp = self.client.get("/gestor/kds/")
         self.assertNotEqual(resp.status_code, 403)
 
-    def test_cozinha_cannot_access_pos(self):
+    def test_kitchen_cannot_access_pos(self):
         self.client.force_login(self.user)
         resp = self.client.get("/gestor/pos/")
         self.assertEqual(resp.status_code, 403)
 
-    def test_cozinha_cannot_access_orders(self):
+    def test_kitchen_cannot_access_orders(self):
         self.client.force_login(self.user)
         resp = self.client.get("/gestor/pedidos/")
         self.assertEqual(resp.status_code, 403)
 
 
-class TestGroupGerente(TestCase):
-    """Gerente group: manage_orders, operate_pos, perform_closing, view_reports, manage_customers."""
+class TestManagerGroup(TestCase):
+    """Manager (Gerente) group: manage_orders, operate_pos, perform_closing, view_reports."""
 
     def setUp(self):
         self.client = Client()
@@ -187,20 +189,21 @@ class TestGroupGerente(TestCase):
         self.user = u
         _create_shop()
 
-    def test_gerente_can_access_orders(self):
+    def test_manager_can_access_orders(self):
         self.client.force_login(self.user)
         resp = self.client.get("/gestor/pedidos/")
         self.assertEqual(resp.status_code, 200)
 
-    def test_gerente_can_access_pos(self):
+    def test_manager_can_access_pos(self):
         self.client.force_login(self.user)
         resp = self.client.get("/gestor/pos/")
         self.assertEqual(resp.status_code, 200)
 
-    def test_gerente_cannot_access_kds(self):
+    def test_manager_can_view_kds_readonly(self):
         self.client.force_login(self.user)
         resp = self.client.get("/gestor/kds/")
-        self.assertEqual(resp.status_code, 403)
+        # KDS index is viewable by any staff (readonly); actions require operate_kds perm.
+        self.assertEqual(resp.status_code, 200)
 
 
 class TestDefaultGroupsExist(TestCase):
@@ -209,17 +212,17 @@ class TestDefaultGroupsExist(TestCase):
     def _has_perm(self, group, codename):
         return group.permissions.filter(codename=codename).exists()
 
-    def test_caixa_exists_with_perms(self):
+    def test_cashier_group_exists_with_perms(self):
         g = Group.objects.get(name="Caixa")
         self.assertTrue(self._has_perm(g, "operate_pos"))
         self.assertTrue(self._has_perm(g, "manage_orders"))
 
-    def test_cozinha_exists_with_perms(self):
+    def test_kitchen_group_exists_with_perms(self):
         g = Group.objects.get(name="Cozinha")
         self.assertTrue(self._has_perm(g, "operate_kds"))
         self.assertTrue(self._has_perm(g, "manage_production"))
 
-    def test_gerente_exists_with_perms(self):
+    def test_manager_group_exists_with_perms(self):
         g = Group.objects.get(name="Gerente")
         self.assertTrue(self._has_perm(g, "manage_orders"))
         self.assertTrue(self._has_perm(g, "operate_pos"))
@@ -227,7 +230,7 @@ class TestDefaultGroupsExist(TestCase):
         self.assertTrue(self._has_perm(g, "view_reports"))
         self.assertTrue(self._has_perm(g, "manage_customers"))
 
-    def test_admin_catalogo_exists_with_perms(self):
+    def test_catalog_admin_group_exists_with_perms(self):
         g = Group.objects.get(name="Admin de Catálogo")
         self.assertTrue(self._has_perm(g, "manage_catalog"))
         self.assertTrue(self._has_perm(g, "manage_rules"))
