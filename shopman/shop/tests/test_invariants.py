@@ -385,8 +385,7 @@ class TestNoBareExceptPass:
     """except Exception: pass (without logging) is prohibited in business logic.
 
     Every catch-all must at minimum log — silent swallowing hides bugs.
-    Adapter base classes will own the try/except pattern; until then,
-    individual sites must still log.
+    Covers: services/, handlers/, adapters/, lifecycle.py, omotenashi/.
     """
 
     BUSINESS_FILES = _source_files(
@@ -396,8 +395,8 @@ class TestNoBareExceptPass:
     )
 
     def _get_files(self):
-        """Business logic files: services/, handlers/, lifecycle.py, omotenashi/."""
-        files = list(_source_files("services", "handlers"))
+        """Business logic files: services/, handlers/, adapters/, lifecycle.py, omotenashi/."""
+        files = list(_source_files("services", "handlers", "adapters"))
         lifecycle = FRAMEWORK_ROOT / "lifecycle.py"
         if lifecycle.exists():
             files.append(lifecycle)

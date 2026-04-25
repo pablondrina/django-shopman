@@ -260,6 +260,7 @@ def release_holds_for_reference(reference: str) -> int:
                 pass
         return count
     except Exception:
+        logger.warning("release_all_holds: unexpected error", exc_info=True)
         return 0
 
 

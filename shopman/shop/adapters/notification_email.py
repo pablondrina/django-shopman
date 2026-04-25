@@ -143,6 +143,7 @@ def send(recipient: str, template: str, context: dict | None = None, **config) -
     try:
         html_body = _render_html(template, context or {})
     except Exception:
+        logger.debug("email: HTML render failed for template=%s, sending plain text", template, exc_info=True)
         html_body = None
 
     from_email = config.get("from_email") or getattr(

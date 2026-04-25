@@ -15,9 +15,12 @@ Usage:
     adapter = get_adapter("fiscal")
 """
 
+import logging
 from importlib import import_module
 
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 # Mapping from adapter type → settings key
 _SETTINGS_MAP = {
@@ -83,6 +86,7 @@ def _from_shop_integrations(adapter_type: str, method=None):
         else:
             return _resolve_module(value), True
     except Exception:
+        logger.debug("_from_shop_integrations: DB lookup failed for %s", adapter_type, exc_info=True)
         return None, False
 
 

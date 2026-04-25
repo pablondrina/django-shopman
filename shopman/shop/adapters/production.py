@@ -25,6 +25,7 @@ def get_work_order(ref: str) -> dict | None:
             "recipe_name": wo.recipe.name if wo.recipe else "",
         }
     except Exception:
+        logger.debug("get_work_order: lookup failed for ref=%s", ref, exc_info=True)
         return None
 
 

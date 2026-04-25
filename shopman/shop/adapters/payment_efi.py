@@ -184,7 +184,7 @@ def create_intent(
                 message="Falha na criação da cobrança Efi",
             )
         except Exception:
-            pass
+            logger.warning("Efi create_intent: could not mark intent as failed for order %s", order_ref, exc_info=True)
         logger.exception("Efi create_intent error for order %s", order_ref)
         raise
 

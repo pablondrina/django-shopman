@@ -107,6 +107,7 @@ def _api_call(endpoint: str, payload: dict, config: dict) -> dict:
     except URLError as e:
         return {"success": False, "error": f"URL error: {e.reason}"}
     except Exception as e:
+        logger.warning("manychat._send_whatsapp: unexpected error: %s", e, exc_info=True)
         return {"success": False, "error": str(e)}
 
 
@@ -135,7 +136,7 @@ def _build_message(template: str, context: dict) -> str:
         try:
             return tpl_body.format_map(_SafeFormatMap(ctx))
         except Exception:
-            pass
+            logger.debug("manychat._build_message: DB template format failed for %s", template, exc_info=True)
 
     # 2. Hardcoded fallback
     tpl = MESSAGE_TEMPLATES.get(template)
@@ -143,7 +144,7 @@ def _build_message(template: str, context: dict) -> str:
         try:
             return tpl.format_map(_SafeFormatMap(ctx))
         except Exception:
-            pass
+            logger.debug("manychat._build_message: hardcoded template format failed for %s", template, exc_info=True)
 
     # 3. Generic fallback
     order_ref = context.get("order_ref", "")
@@ -168,7 +169,7 @@ def _load_db_template(event: str) -> str | None:
         if obj:
             return obj.body
     except Exception:
-        pass
+        logger.debug("manychat._load_db_template: lookup failed for event=%s", event, exc_info=True)
     return None
 
 
