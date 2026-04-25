@@ -113,6 +113,6 @@ class Command(BaseCommand):
                 for tkt_pk, tkt_time in kds_adapter.get_completed_ticket_timestamps(order):
                     kds_adapter.shift_ticket_completed_at(tkt_pk, tkt_time + delta)
             except Exception:
-                pass
+                pass  # KDS adapter may not be available; non-critical for oven refresh
 
         self.stdout.write(f"  Pedidos: {len(live_orders)} orders atualizados.")

@@ -5,7 +5,7 @@
 {% block main_class %}overflow-hidden flex flex-col{% endblock %}
 
 {% block content %}
-<div id="gestor-pedidos-root" x-data="gestorPedidos()" x-init="init()" class="flex flex-col h-full min-h-0">
+<div id="gestor-pedidos-root" x-data="gestorPedidos()" x-init="init()" @sync-order-count.window="orderCount = $event.detail.count" class="flex flex-col h-full min-h-0">
 
   {% comment %}Offline banner{% endcomment %}
   <div x-show="offline" x-cloak x-transition.opacity
@@ -100,7 +100,7 @@
 
   {% comment %}Two-zone order grid (HTMX polling){% endcomment %}
   <div class="flex-1 overflow-hidden">
-    <div id="order-grid"
+    <div id="order-grid" x-ref="orderGrid"
          class="h-full"
          hx-get="/gestor/pedidos/list/"
          hx-trigger="every 5s"

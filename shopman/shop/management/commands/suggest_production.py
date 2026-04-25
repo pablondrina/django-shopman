@@ -60,7 +60,7 @@ class Command(BaseCommand):
                 if hdm is not None:
                     high_demand_multiplier = D(str(hdm))
         except Exception:
-            pass
+            self.stderr.write("Warning: could not load Shop defaults for production hints")
 
         self.stdout.write(f"\nSugestão de produção para {target_date}")
         self.stdout.write("=" * 60)

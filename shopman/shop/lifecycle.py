@@ -83,7 +83,8 @@ def ensure_confirmable(order) -> None:
         if config.payment.timing == "external":
             return
     except Exception:
-        pass
+        # Config lookup failed — fall through to strict path (require approval).
+        logger.warning("ensure_confirmable: config lookup failed for channel=%s", order.channel_ref)
 
     raise InvalidTransition(
         code="availability_not_approved",
@@ -127,7 +128,8 @@ def ensure_payment_captured(order) -> None:
         if config.payment.timing == "external":
             return
     except Exception:
-        pass
+        # Config lookup failed — fall through to strict path (check payment).
+        logger.warning("ensure_payment_captured: config lookup failed for channel=%s", order.channel_ref)
 
     method = str(payment.get("method") or "").lower()
     if method in _OFFLINE_PAYMENT_METHODS:

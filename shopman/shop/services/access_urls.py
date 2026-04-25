@@ -107,11 +107,12 @@ def _resolve_domain(request_or_shop) -> str:
         protocol = "https" if doorman_settings.USE_HTTPS else "http"
         return f"{protocol}://{domain}"
     except Exception:
-        pass
+        logger.debug("access_urls._get_base_url: Site lookup failed", exc_info=True)
 
     # Final fallback
     try:
         from django.conf import settings
         return getattr(settings, "SHOPMAN_BASE_URL", "https://localhost:8000")
     except Exception:
+        logger.debug("access_urls._get_base_url: settings fallback failed", exc_info=True)
         return "https://localhost:8000"

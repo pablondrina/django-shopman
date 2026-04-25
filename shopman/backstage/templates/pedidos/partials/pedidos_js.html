@@ -32,7 +32,7 @@ function gestorPedidos() {
       });
 
       /* Pause polling when any card is being interacted with */
-      var grid = document.getElementById('order-grid');
+      var grid = this.$refs.orderGrid;
       if (grid) {
         grid.addEventListener('htmx:beforeRequest', function(e) {
           var cards = document.querySelectorAll('[data-order-card]');
@@ -96,7 +96,7 @@ function gestorPedidos() {
     },
 
     syncState() {
-      var grid = document.getElementById('order-grid');
+      var grid = this.$refs.orderGrid;
       if (!grid) return;
 
       var cards = grid.querySelectorAll('[data-order-card]');

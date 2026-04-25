@@ -10,12 +10,15 @@ This replaces Alpine-side `new Date().getHours()` duplication scattered across
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from typing import Any
 
 from django.http import HttpRequest
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 # ── Moments of the day ─────────────────────────────────────────────────
 #
@@ -216,7 +219,7 @@ def _customer_signals(
             is_birthday = _is_birthday(customer.birthday, today)
             days_since, fav_cat = _history_signals(customer)
     except Exception:
-        pass
+        logger.debug("omotenashi._who: customer lookup failed", exc_info=True)
 
     audience = _audience_for(days_since)
     return audience, name, is_birthday, days_since, fav_cat

@@ -13,6 +13,10 @@ See docs/omotenashi.md and docs/plans/OMOTENASHI-PLAN.md.
 
 from __future__ import annotations
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 from collections.abc import Iterable
 from dataclasses import dataclass
 
@@ -467,8 +471,8 @@ def _load_db_cache() -> dict[str, dict[tuple[str, str], CopyEntry]]:
                 message=row.message or "",
             )
     except Exception:
-        # Model not migrated yet, or DB not reachable — fall back to defaults silently.
-        pass
+        # Model not migrated yet, or DB not reachable — fall back to defaults.
+        logger.debug("omotenashi.copy: DB cache load failed, using defaults", exc_info=True)
 
     _DB_CACHE = cache
     return cache

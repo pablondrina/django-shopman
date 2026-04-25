@@ -140,6 +140,5 @@
 
 {% comment %}Sync order count to Alpine root{% endcomment %}
 <template x-data x-init="
-  var root = document.getElementById('gestor-pedidos-root');
-  if (root) Alpine.$data(root).orderCount = {{ queue.entrada|length }} + {{ queue.saida_count }};
+  $dispatch('sync-order-count', { count: {{ queue.entrada|length }} + {{ queue.saida_count }} });
 "></template>

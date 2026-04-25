@@ -29,7 +29,7 @@
       <span x-show="itemCount > 0" x-cloak class="opacity-70"
             x-text="'· ' + itemCount + (itemCount===1?' item':' itens') + ' · ' + formatMoney(totalQ)"></span>
     </div>
-    <div id="pos-session-tabs"
+    <div id="pos-session-tabs" x-ref="sessionTabs"
          hx-get="/gestor/pos/sessions/"
          hx-trigger="load, sessionParked from:body"
          hx-swap="innerHTML"
@@ -45,7 +45,7 @@
 
       {% comment %}Filters bar{% endcomment %}
       <div class="px-3 py-2 flex flex-col gap-2 border-b border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt shrink-0">
-        <input id="pos-search" type="text"
+        <input id="pos-search" x-ref="search" type="text"
                class="input-field"
                placeholder="Buscar produto... (/)"
                x-model="search">
@@ -191,7 +191,7 @@
                  hx-target="#pos-customer-result"
                  hx-swap="innerHTML"
                  hx-include="[name='phone']">
-          <div id="pos-customer-result" class="text-xs text-secondary dark:text-primary-dark font-semibold mt-1 min-h-[1rem] flex items-center gap-1"
+          <div id="pos-customer-result" x-ref="customerResult" class="text-xs text-secondary dark:text-primary-dark font-semibold mt-1 min-h-[1rem] flex items-center gap-1"
                x-on:htmx:after-swap="
                  let span = $el.querySelector('[data-customer-group]');
                  if (span) {
@@ -241,10 +241,10 @@
              x-text="successMsg"></div>
 
         {% comment %}Sale result{% endcomment %}
-        <div id="pos-result"></div>
+        <div id="pos-result" x-ref="result"></div>
 
         {% comment %}Close sale button{% endcomment %}
-        <button id="pos-close-btn"
+        <button id="pos-close-btn" x-ref="closeBtn"
                 type="button"
                 class="btn-primary w-full text-base font-bold min-h-12 flex items-center justify-center gap-2"
                 :disabled="cart.length === 0"
@@ -262,7 +262,7 @@
           <button type="button"
                   class="flex-1 py-2 text-xs font-semibold bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark rounded-lg text-on-surface/60 dark:text-on-surface-dark/60 hover:bg-outline/30 dark:hover:bg-outline-dark/30 disabled:opacity-40"
                   :disabled="cart.length === 0"
-                  @click="cart = []; clearDiscount(); tenderedInput = ''; expandedNoteIdx = -1; activeTab = ''; document.getElementById('pos-result').innerHTML = ''"
+                  @click="cart = []; clearDiscount(); tenderedInput = ''; expandedNoteIdx = -1; activeTab = ''; $refs.result.innerHTML = ''"
                   title="Limpar carrinho">
             Limpar <span class="text-on-surface/40 dark:text-on-surface-dark/40">(F5)</span>
           </button>
@@ -281,7 +281,7 @@
                   hx-vals="js:{payload: Alpine.$data(document.getElementById('pos-root')).cartPayload()}"
                   hx-target="#pos-park-result"
                   hx-swap="innerHTML"
-                  x-on:htmx:after-request="if(event.detail.successful && event.detail.xhr.status < 300){ cart=[]; customerPhone=''; customerName=''; customerGroup=''; clearDiscount(); tenderedInput=''; paymentMethod='cash'; expandedNoteIdx=-1; activeTab=''; document.getElementById('pos-result').innerHTML=''; }">
+                  x-on:htmx:after-request="if(event.detail.successful && event.detail.xhr.status < 300){ cart=[]; customerPhone=''; customerName=''; customerGroup=''; clearDiscount(); tenderedInput=''; paymentMethod='cash'; expandedNoteIdx=-1; activeTab=''; $refs.result.innerHTML=''; }">
             <span class="material-symbols-rounded text-xs align-middle" aria-hidden="true">pause_circle</span>
             Estacionar
           </button>
@@ -298,7 +298,7 @@
             Cancelar último
           </button>
         </div>
-        <div id="pos-park-result" class="min-h-[1rem] text-xs"></div>
+        <div id="pos-park-result" x-ref="parkResult" class="min-h-[1rem] text-xs"></div>
         <div id="pos-cancel-result"></div>
       </div>
     </div>
@@ -656,9 +656,9 @@ document.addEventListener('alpine:init', function() {
       this.tenderedInput = '';
       this.activeTab = d.tab || '';
       this.expandedNoteIdx = -1;
-      document.getElementById('pos-result').innerHTML = '';
-      document.getElementById('pos-customer-result').innerHTML = '';
-      document.getElementById('pos-park-result').innerHTML = '';
+      this.$refs.result.innerHTML = '';
+      this.$refs.customerResult.innerHTML = '';
+      this.$refs.parkResult.innerHTML = '';
       if (d.discount_value) {
         this.discountType = d.discount_type || 'percent';
         this.discountValue = d.discount_value;
@@ -673,19 +673,19 @@ document.addEventListener('alpine:init', function() {
       var inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
       if (e.key === 'Escape') {
         if (this.showDiscountModal) { this.showDiscountModal = false; e.preventDefault(); return; }
-        if (!inInput) { this.cart = []; document.getElementById('pos-result').innerHTML = ''; }
+        if (!inInput) { this.cart = []; this.$refs.result.innerHTML = ''; }
         return;
       }
-      if (e.key === '/' && !inInput) { e.preventDefault(); var s = document.getElementById('pos-search'); if (s) s.focus(); return; }
+      if (e.key === '/' && !inInput) { e.preventDefault(); if (this.$refs.search) this.$refs.search.focus(); return; }
       if (inInput) return;
       if (e.key === 'F1') { e.preventDefault(); this.activeCollection = this.collections[0] || ''; }
       else if (e.key === 'F2') { e.preventDefault(); this.activeCollection = this.collections[1] || ''; }
       else if (e.key === 'F3') { e.preventDefault(); this.activeCollection = this.collections[2] || ''; }
       else if (e.key === 'F4') { e.preventDefault(); this.activeCollection = this.collections[3] || ''; }
-      else if (e.key === 'F5') { e.preventDefault(); this.cart = []; document.getElementById('pos-result').innerHTML = ''; }
+      else if (e.key === 'F5') { e.preventDefault(); this.cart = []; this.$refs.result.innerHTML = ''; }
       else if (e.key === 'F6') { e.preventDefault(); if (this.cart.length > 0) this.showDiscountModal = true; }
-      else if (e.key === 'F8') { e.preventDefault(); var btn = document.getElementById('pos-close-btn'); if (btn && !btn.disabled) htmx.trigger(btn, 'click'); }
-      else if (e.key === 'Enter' && this.cart.length > 0) { e.preventDefault(); var btn2 = document.getElementById('pos-close-btn'); if (btn2 && !btn2.disabled) htmx.trigger(btn2, 'click'); }
+      else if (e.key === 'F8') { e.preventDefault(); if (this.$refs.closeBtn && !this.$refs.closeBtn.disabled) htmx.trigger(this.$refs.closeBtn, 'click'); }
+      else if (e.key === 'Enter' && this.cart.length > 0) { e.preventDefault(); if (this.$refs.closeBtn && !this.$refs.closeBtn.disabled) htmx.trigger(this.$refs.closeBtn, 'click'); }
     },
   }; });
 });

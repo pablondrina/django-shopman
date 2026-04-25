@@ -16,11 +16,14 @@ como lista de refs (``["featured", "fresh_from_oven"]``).
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import TYPE_CHECKING, Protocol
 
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from shopman.offerman.models import Product
@@ -77,8 +80,7 @@ def resolve(ref: str, *, channel_ref: str, limit: int = 20) -> DynamicSection | 
     try:
         products = resolver.resolve(channel_ref, limit=limit)
     except Exception:
-        import logging
-        logging.getLogger(__name__).exception(
+        logger.exception(
             "dynamic_collections.resolve failed ref=%s channel=%s", ref, channel_ref,
         )
         return None
@@ -165,7 +167,7 @@ class FreshFromOvenResolver:
             )
             recent_skus = list(recent_skus)
         except Exception:
-            # Campo/model pode variar entre versões; fail-safe vazio
+            logger.debug("fresh_from_oven: query failed, returning empty", exc_info=True)
             return []
 
         if not recent_skus:

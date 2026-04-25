@@ -70,7 +70,7 @@ function kdsDisplay() {
     },
 
     syncState() {
-      var grid = document.getElementById('ticket-grid');
+      var grid = this.$refs.ticketGrid;
       if (!grid) return;
 
       var tickets = grid.querySelectorAll('[data-kds-ticket]');

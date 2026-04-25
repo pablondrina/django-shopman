@@ -209,7 +209,7 @@ def _maybe_update_name(adapter, customer: dict, name: str) -> None:
         try:
             adapter.update_customer(customer["ref"], first_name=first_name, last_name=last_name)
         except Exception:
-            pass
+            logger.debug("customer.update_name: failed for ref=%s", customer.get("ref"), exc_info=True)
 
 
 def _save_delivery_address(customer: dict, order) -> None:
