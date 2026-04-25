@@ -333,7 +333,7 @@ class TestE2E6DuplicateCommit(TestCase):
 
     def test_duplicate_commit_idempotent(self):
         session_key = generate_session_key()
-        session = Session.objects.create(
+        Session.objects.create(
             session_key=session_key,
             channel_ref=self.channel.ref,
             state="open",

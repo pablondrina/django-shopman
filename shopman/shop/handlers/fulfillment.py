@@ -42,8 +42,8 @@ class FulfillmentCreateHandler:
 
         try:
             order = Order.objects.get(ref=order_ref)
-        except Order.DoesNotExist:
-            raise DirectiveTerminalError(f"Order not found: {order_ref}")
+        except Order.DoesNotExist as exc:
+            raise DirectiveTerminalError(f"Order not found: {order_ref}") from exc
 
         fulfillment_svc.create(order)
 
@@ -87,13 +87,13 @@ class FulfillmentUpdateHandler:
 
         try:
             order = Order.objects.get(ref=order_ref)
-        except Order.DoesNotExist:
-            raise DirectiveTerminalError(f"Order not found: {order_ref}")
+        except Order.DoesNotExist as exc:
+            raise DirectiveTerminalError(f"Order not found: {order_ref}") from exc
 
         try:
             fulfillment = Fulfillment.objects.get(pk=fulfillment_id, order=order)
-        except Fulfillment.DoesNotExist:
-            raise DirectiveTerminalError(f"Fulfillment not found: {fulfillment_id}")
+        except Fulfillment.DoesNotExist as exc:
+            raise DirectiveTerminalError(f"Fulfillment not found: {fulfillment_id}") from exc
 
         # Idempotência: já no status alvo
         if fulfillment.status == new_status:

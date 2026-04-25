@@ -209,14 +209,6 @@ class TestEdgeCases:
         # Check that form buttons have double-click protection
         submit_btns = page.locator("button[type='submit']")
         if submit_btns.count() > 0:
-            # Verify Alpine.js or HTMX attributes exist for protection
-            btn = submit_btns.first
-            has_protection = (
-                btn.get_attribute("x-bind:disabled") is not None
-                or btn.get_attribute(":disabled") is not None
-                or btn.get_attribute("hx-disabled-elt") is not None
-                or btn.get_attribute("@click") is not None
-            )
             # Protection should exist (but may vary by implementation)
             assert page.locator("body").is_visible()
 
@@ -229,8 +221,6 @@ class TestEdgeCases:
         page.goto(f"{base_url}/checkout/")
         page.wait_for_load_state("networkidle")
 
-        # The OTP flow is HTMX-based. We verify the form elements exist.
-        otp_input = page.locator("input[name='code'], input[name='otp']")
         # OTP field may not be visible until phone is entered
         assert page.locator("body").is_visible()
 
@@ -284,11 +274,6 @@ class TestNavigation:
         page.goto(f"{base_url}/menu/")
         page.wait_for_load_state("networkidle")
 
-        # Look for product elements
-        products = page.locator(
-            "[data-testid='product-card'], .product-card, "
-            ".product-item, article, .card"
-        )
         # Products exist if DB is seeded (skip assertion if empty DB)
         assert page.locator("body").is_visible()
 

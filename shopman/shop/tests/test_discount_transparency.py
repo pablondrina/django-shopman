@@ -81,7 +81,7 @@ class CartDiscountTransparencyTests(TestCase):
         self.assertTrue(cart["has_discount"])
         labels = [line["label"] for line in cart["discount_lines"]]
         self.assertIn("D-1", labels)
-        d1_line = next(l for l in cart["discount_lines"] if l["label"] == "D-1")
+        d1_line = next(line for line in cart["discount_lines"] if line["label"] == "D-1")
         self.assertEqual(d1_line["amount_q"], 1000)
 
     def test_happy_hour_discount_appears_in_discount_lines(self) -> None:

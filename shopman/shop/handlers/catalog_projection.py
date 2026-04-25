@@ -21,10 +21,10 @@ import logging
 from datetime import timedelta
 
 from django.utils import timezone
-
 from shopman.offerman.protocols.projection import ProjectedItem
-from shopman.orderman.exceptions import DirectiveTerminalError, DirectiveTransientError
+from shopman.orderman.exceptions import DirectiveTransientError
 from shopman.orderman.models import Directive
+
 from shopman.shop.directives import CATALOG_PROJECT_SKU
 
 logger = logging.getLogger(__name__)

@@ -32,6 +32,7 @@ def _channels_for_sku(sku: str) -> list[str]:
     has no Listing yet (rare — products created before listing setup).
     """
     from shopman.offerman.models import ListingItem
+
     from shopman.shop.models import Channel
 
     refs = (

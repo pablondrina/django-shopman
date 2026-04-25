@@ -155,8 +155,8 @@ class ReturnHandler:
 
         try:
             order = Order.objects.get(ref=order_ref)
-        except Order.DoesNotExist:
-            raise DirectiveTerminalError(f"Order not found: {order_ref}")
+        except Order.DoesNotExist as exc:
+            raise DirectiveTerminalError(f"Order not found: {order_ref}") from exc
 
         returns = order.data.get("returns", [])
         if return_index < len(returns) and returns[return_index].get("refund_processed"):

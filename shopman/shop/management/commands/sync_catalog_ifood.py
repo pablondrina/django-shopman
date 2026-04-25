@@ -31,13 +31,14 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         from shopman.offerman.service import CatalogService
+
         from shopman.shop.adapters.catalog_projection_ifood import IFoodCatalogProjection
         from shopman.shop.models import Channel
 
         try:
             channel = Channel.objects.get(ref="ifood")
-        except Channel.DoesNotExist:
-            raise CommandError("Channel 'ifood' not found. Create it in the admin first.")
+        except Channel.DoesNotExist as exc:
+            raise CommandError("Channel 'ifood' not found. Create it in the admin first.") from exc
 
         if not channel.is_active:
             self.stdout.write(self.style.WARNING("Channel 'ifood' is not active — skipping sync."))

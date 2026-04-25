@@ -16,7 +16,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import requests
-
 from shopman.offerman.protocols.projection import ProjectedItem, ProjectionResult
 
 if TYPE_CHECKING:

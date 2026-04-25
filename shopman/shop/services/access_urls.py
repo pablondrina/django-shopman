@@ -47,8 +47,8 @@ def build_access_url(
         return None
 
     try:
-        from shopman.doorman.services.access_link import AccessLinkService
         from shopman.doorman.models import AccessLink
+        from shopman.doorman.services.access_link import AccessLinkService
 
         result = AccessLinkService.create_token(
             customer=customer,

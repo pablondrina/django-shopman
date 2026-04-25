@@ -507,8 +507,7 @@ class TestC09FulfillmentAtCommit(TransactionTestCase):
 
     def test_fulfillment_created_on_commit(self):
         session = _session(self.channel)
-        result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result.order_ref)
+        _commit(session, self.channel)
 
         # fulfillment.create called during on_commit (at_commit timing)
         self.mocks["create"].assert_called()
@@ -579,8 +578,7 @@ class TestC11StockUnavailableAtCommit(TransactionTestCase):
         patchers, mocks = _start_patches()
         try:
             session = _session(self.channel)
-            result = _commit(session, self.channel)
-            order = Order.objects.get(ref=result.order_ref)
+            _commit(session, self.channel)
             # stock.hold is patched so _verify_holds gets empty hold_ids
             # Order may be cancelled by _verify_holds — that's expected.
             # For a full success path, use check_on_commit=False (see C-01).

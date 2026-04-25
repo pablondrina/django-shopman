@@ -181,6 +181,7 @@ class StockCheckDegradationTests(TestCase):
     def test_partial_unavailable_not_flagged_as_service_down(self) -> None:
         """When only some items fail → service_unavailable=False (partial degradation)."""
         from decimal import Decimal
+
         from shopman.storefront.intents.checkout import _check_cart_stock
 
         cart = self._make_cart(skus=("SKU-A", "SKU-B"))
@@ -208,6 +209,7 @@ class StockCheckDegradationTests(TestCase):
     def test_stock_available_no_errors_no_flag(self) -> None:
         """Normal stock → ([], False)."""
         from decimal import Decimal
+
         from shopman.storefront.intents.checkout import _check_cart_stock
 
         cart = self._make_cart(skus=("SKU-C",))

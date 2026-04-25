@@ -31,8 +31,8 @@ class LoyaltyEarnHandler:
 
         try:
             order = Order.objects.get(ref=order_ref)
-        except Order.DoesNotExist:
-            raise DirectiveTerminalError(f"Order not found: {order_ref}")
+        except Order.DoesNotExist as exc:
+            raise DirectiveTerminalError(f"Order not found: {order_ref}") from exc
 
         # Need a customer handle to find the customer
         if not order.handle_ref:
@@ -90,8 +90,8 @@ class LoyaltyRedeemHandler:
         try:
             from shopman.orderman.models import Order
             order = Order.objects.get(ref=order_ref)
-        except Order.DoesNotExist:
-            raise DirectiveTerminalError(f"Order not found: {order_ref}")
+        except Order.DoesNotExist as exc:
+            raise DirectiveTerminalError(f"Order not found: {order_ref}") from exc
 
         if not order.handle_ref:
             logger.debug("loyalty.redeem: no handle_ref on order %s, skipping", order_ref)

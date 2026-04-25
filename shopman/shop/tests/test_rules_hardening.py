@@ -115,8 +115,9 @@ class TestRuleConfigAdminPermission(TestCase):
         self.privileged_user.user_permissions.add(perm)
 
     def test_staff_without_perm_cannot_change(self):
-        from shopman.shop.admin.rules import RuleConfigAdmin
         from django.contrib.admin.sites import AdminSite
+
+        from shopman.shop.admin.rules import RuleConfigAdmin
 
         admin_instance = RuleConfigAdmin(RuleConfig, AdminSite())
         rf = RequestFactory()
@@ -127,8 +128,9 @@ class TestRuleConfigAdminPermission(TestCase):
         assert not admin_instance.has_delete_permission(request)
 
     def test_staff_with_perm_can_change(self):
-        from shopman.shop.admin.rules import RuleConfigAdmin
         from django.contrib.admin.sites import AdminSite
+
+        from shopman.shop.admin.rules import RuleConfigAdmin
 
         admin_instance = RuleConfigAdmin(RuleConfig, AdminSite())
         rf = RequestFactory()

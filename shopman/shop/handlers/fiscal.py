@@ -33,8 +33,8 @@ class NFCeEmitHandler:
 
         try:
             order = Order.objects.get(ref=order_ref)
-        except Order.DoesNotExist:
-            raise DirectiveTerminalError("Order not found")
+        except Order.DoesNotExist as exc:
+            raise DirectiveTerminalError("Order not found") from exc
 
         if order.data.get("nfce_access_key"):
             return
@@ -73,8 +73,8 @@ class NFCeCancelHandler:
 
         try:
             order = Order.objects.get(ref=order_ref)
-        except Order.DoesNotExist:
-            raise DirectiveTerminalError("Order not found")
+        except Order.DoesNotExist as exc:
+            raise DirectiveTerminalError("Order not found") from exc
 
         if order.data.get("nfce_cancelled"):
             return

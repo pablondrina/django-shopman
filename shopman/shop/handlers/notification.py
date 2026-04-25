@@ -53,8 +53,8 @@ class NotificationSendHandler:
 
         try:
             order = Order.objects.get(ref=order_ref)
-        except Order.DoesNotExist:
-            raise DirectiveTerminalError(f"Order not found: {order_ref}")
+        except Order.DoesNotExist as exc:
+            raise DirectiveTerminalError(f"Order not found: {order_ref}") from exc
 
         # Guarda: pular reminders de pagamento se já pago
         if template == "payment.reminder":

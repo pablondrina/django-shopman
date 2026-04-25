@@ -61,7 +61,6 @@ def bump_session_hold_expiry(session_key: str, *, ttl_minutes: int = 30) -> int:
         from datetime import timedelta
 
         from django.utils import timezone
-
         from shopman.stockman import Hold, HoldStatus
     except Exception:
         return 0
@@ -114,7 +113,6 @@ def classify_planned_hold_for_session_sku(
     try:
         from django.db.models import Q
         from django.utils import timezone
-
         from shopman.stockman import Hold, HoldStatus
     except Exception:
         return empty
@@ -161,7 +159,6 @@ def own_holds_by_sku(session_key: str, skus: list[str]) -> dict[str, Decimal]:
     try:
         from django.db.models import Q, Sum
         from django.utils import timezone
-
         from shopman.stockman import Hold, HoldStatus
     except Exception:
         return {}

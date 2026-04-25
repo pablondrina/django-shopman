@@ -14,8 +14,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 from uuid import UUID
 
-import pytest
-
 CUSTOMER_UUID = UUID("12345678-1234-5678-1234-567812345678")
 
 

@@ -10,7 +10,6 @@ import logging
 from decimal import Decimal
 
 from django.conf import settings
-
 from shopman.utils.monetary import format_money
 
 from shopman.shop.adapters import get_adapter

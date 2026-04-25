@@ -12,11 +12,20 @@ def create_groups(apps, schema_editor):
         p, _ = Permission.objects.get_or_create(content_type=ct, codename=codename)
         return p
 
-    shop_shop = lambda c: _perm("shop", "shop", c)
-    shop_kdst = lambda c: _perm("shop", "kdsticket", c)
-    shop_cash = lambda c: _perm("shop", "cashregistersession", c)
-    shop_dclo = lambda c: _perm("shop", "dayclosing", c)
-    shop_rule = lambda c: _perm("shop", "ruleconfig", c)
+    def shop_shop(c):
+        return _perm("shop", "shop", c)
+
+    def shop_kdst(c):
+        return _perm("shop", "kdsticket", c)
+
+    def shop_cash(c):
+        return _perm("shop", "cashregistersession", c)
+
+    def shop_dclo(c):
+        return _perm("shop", "dayclosing", c)
+
+    def shop_rule(c):
+        return _perm("shop", "ruleconfig", c)
 
     groups = {
         "Caixa": [

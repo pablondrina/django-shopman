@@ -784,13 +784,14 @@ class TestStaleNewAlertHandler:
 
     @pytest.mark.django_db
     def test_handler_creates_alert_when_order_still_new(self):
-        from datetime import datetime, timedelta
+        from datetime import timedelta
 
         from django.utils import timezone
         from shopman.orderman.models import Directive, Order
+
+        from shopman.backstage.models import OperatorAlert
         from shopman.shop.handlers.confirmation import StaleNewOrderAlertHandler
         from shopman.shop.models import Channel
-        from shopman.backstage.models import OperatorAlert
 
         Channel.objects.get_or_create(ref="ifood", defaults={"name": "iFood"})
         order = Order.objects.create(
@@ -813,13 +814,14 @@ class TestStaleNewAlertHandler:
 
     @pytest.mark.django_db
     def test_handler_noops_when_order_already_resolved(self):
-        from datetime import datetime, timedelta
+        from datetime import timedelta
 
         from django.utils import timezone
         from shopman.orderman.models import Directive, Order
+
+        from shopman.backstage.models import OperatorAlert
         from shopman.shop.handlers.confirmation import StaleNewOrderAlertHandler
         from shopman.shop.models import Channel
-        from shopman.backstage.models import OperatorAlert
 
         Channel.objects.get_or_create(ref="ifood", defaults={"name": "iFood"})
         order = Order.objects.create(

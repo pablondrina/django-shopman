@@ -177,6 +177,7 @@ class TestIngredientAvailability:
             purpose="workorder",
             purpose_id="WO-001",
         )
+        assert hold_id
 
         # Check availability reduced
         available = stock.available(ingredient, target_date=today, position=position_producao)

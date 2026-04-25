@@ -28,7 +28,6 @@ from shopman.stockman.models import Hold
 
 from shopman.shop.models import Channel, Shop
 
-
 # ── Fixtures ─────────────────────────────────────────────────────────
 
 

@@ -151,6 +151,7 @@ def _build_context(order, payload: dict, template: str) -> dict:
             from uuid import UUID
 
             from shopman.doorman.protocols.customer import AuthCustomerInfo
+
             from shopman.shop.services.access_urls import build_reorder_access_url, build_tracking_access_url
 
             auth_customer = AuthCustomerInfo(

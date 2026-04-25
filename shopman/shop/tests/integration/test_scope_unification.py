@@ -14,8 +14,9 @@ não veem, PDV vê).
 from decimal import Decimal
 
 import pytest
-from shopman.shop.services import availability
 from shopman.stockman.services.movements import StockMovements
+
+from shopman.shop.services import availability
 
 pytestmark = pytest.mark.django_db
 

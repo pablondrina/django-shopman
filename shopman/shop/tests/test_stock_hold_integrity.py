@@ -291,8 +291,7 @@ class TestBundleExpansion(TestCase):
         session = _make_session(self.channel, items=[
             {"sku": "COMBO-01", "qty": 2, "unit_price_q": 1200, "line_id": "L1"},
         ])
-        result = _commit(session, self.channel)
-        order = Order.objects.get(ref=result.order_ref)
+        _commit(session, self.channel)
 
         # CROIS-01: 2 (per combo) × 2 (ordered) = 4
         self.assertAlmostEqual(created.get("CROIS-01", 0), 4.0)

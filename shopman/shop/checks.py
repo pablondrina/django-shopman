@@ -222,6 +222,7 @@ def check_listing_channel_parity(app_configs, **kwargs):
 
     try:
         from shopman.offerman.models import Listing
+
         from shopman.shop.models import Channel
 
         listing_refs = set(Listing.objects.filter(is_active=True).values_list("ref", flat=True))

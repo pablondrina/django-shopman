@@ -243,8 +243,9 @@ class TestSetupGroupsIdempotent(TestCase):
     """setup_groups command can run multiple times without duplicating perms."""
 
     def test_idempotent(self):
-        from django.core.management import call_command
         from io import StringIO
+
+        from django.core.management import call_command
 
         out = StringIO()
         call_command("setup_groups", stdout=out)

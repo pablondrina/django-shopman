@@ -44,13 +44,13 @@ class DynamicSection:
     """Resultado de um resolver: metadados + produtos."""
 
     meta: DynamicCollectionMeta
-    products: tuple["Product", ...]
+    products: tuple[Product, ...]
 
 
 class DynamicCollectionResolver(Protocol):
     meta: DynamicCollectionMeta
 
-    def resolve(self, channel_ref: str, limit: int = 20) -> list["Product"]:
+    def resolve(self, channel_ref: str, limit: int = 20) -> list[Product]:
         ...
 
 
@@ -104,7 +104,7 @@ class FeaturedResolver:
 
     WINDOW_DAYS = 30
 
-    def resolve(self, channel_ref: str, limit: int = 20) -> list["Product"]:
+    def resolve(self, channel_ref: str, limit: int = 20) -> list[Product]:
         from django.db.models import Count
         from shopman.offerman.models import Product
         from shopman.orderman.models import OrderItem
@@ -150,7 +150,7 @@ class FreshFromOvenResolver:
 
     WINDOW_MINUTES = 60
 
-    def resolve(self, channel_ref: str, limit: int = 20) -> list["Product"]:
+    def resolve(self, channel_ref: str, limit: int = 20) -> list[Product]:
         try:
             from shopman.craftsman.models import WorkOrder
         except ImportError:
@@ -191,7 +191,7 @@ class NewArrivalsResolver:
 
     WINDOW_DAYS = 14
 
-    def resolve(self, channel_ref: str, limit: int = 20) -> list["Product"]:
+    def resolve(self, channel_ref: str, limit: int = 20) -> list[Product]:
         from shopman.offerman.models import Product
 
         since = timezone.now() - timedelta(days=self.WINDOW_DAYS)
