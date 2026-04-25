@@ -8,22 +8,15 @@ Fluxo operacional e lacunas: ``docs/guides/day-closing.md``.
 
 from __future__ import annotations
 
-import logging
 from datetime import date
-from decimal import Decimal
 
 from django.contrib import messages
-from django.db import transaction
 from django.http import HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
-from shopman.stockman import Position, Quant
-from shopman.stockman.services.movements import StockMovements
 
-from shopman.backstage.models import DayClosing
 from shopman.backstage.projections.closing import build_day_closing
-
-logger = logging.getLogger(__name__)
+from shopman.backstage.services.closing import perform_day_closing
 
 TEMPLATE = "gestor/fechamento/index.html"
 PERMISSION = "backstage.perform_closing"
@@ -43,90 +36,22 @@ def closing_view(request, admin_site=None):
 
 def _handle_post(request, admin_site=None):
     """Execute day closing: move D-1 eligible, register losses."""
-    today = date.today()
-
-    if DayClosing.objects.filter(date=today).exists():
-        messages.error(request, "Fechamento de hoje já foi realizado.")
+    closing = build_day_closing()
+    try:
+        closing_date = perform_day_closing(
+            user=request.user,
+            items=closing.items,
+            quantities_by_sku={
+                item.sku: request.POST.get(f"qty_{item.sku}", "0")
+                for item in closing.items
+            },
+        )
+    except ValueError as exc:
+        messages.error(request, str(exc))
         return HttpResponseRedirect(reverse("admin:shop_closing"))
 
-    closing = build_day_closing()
-    snapshot = []
-
-    with transaction.atomic():
-        for item in closing.items:
-            sku = item.sku
-            raw_qty = request.POST.get(f"qty_{sku}", "0").strip()
-            try:
-                qty_unsold = int(raw_qty)
-            except (ValueError, TypeError):
-                qty_unsold = 0
-
-            if qty_unsold <= 0:
-                snapshot.append({
-                    "sku": sku,
-                    "qty_remaining": item.qty_available,
-                    "qty_d1": 0,
-                    "qty_loss": 0,
-                })
-                continue
-
-            qty_unsold = min(qty_unsold, item.qty_available)
-            qty_d1 = 0
-            qty_loss = 0
-
-            if item.classification == "d1":
-                ontem_pos = Position.objects.filter(ref="ontem").first()
-                if ontem_pos:
-                    _issue_from_saleable(sku, qty_unsold, f"fechamento:{today}")
-                    StockMovements.receive(
-                        quantity=Decimal(qty_unsold),
-                        sku=sku,
-                        position=ontem_pos,
-                        batch="D-1",
-                        reason=f"d1:{today}",
-                        user=request.user,
-                    )
-                    qty_d1 = qty_unsold
-            elif item.classification == "loss":
-                _issue_from_saleable(sku, qty_unsold, f"perda:{today}")
-                qty_loss = qty_unsold
-
-            snapshot.append({
-                "sku": sku,
-                "qty_remaining": item.qty_available - qty_unsold,
-                "qty_d1": qty_d1,
-                "qty_loss": qty_loss,
-            })
-
-        DayClosing.objects.create(
-            date=today,
-            closed_by=request.user,
-            data=snapshot,
-        )
-
-    messages.success(request, f"Fechamento do dia {today} realizado com sucesso.")
+    messages.success(request, f"Fechamento do dia {closing_date} realizado com sucesso.")
     return HttpResponseRedirect(reverse("admin:shop_closing"))
-
-
-def _issue_from_saleable(sku, quantity, reason):
-    """Issue stock from saleable positions (excluding 'ontem')."""
-    quants = (
-        Quant.objects.filter(
-            sku=sku,
-            position__is_saleable=True,
-            _quantity__gt=0,
-        )
-        .exclude(position__ref="ontem")
-        .select_for_update()
-        .order_by("pk")
-    )
-    remaining = Decimal(quantity)
-    for quant in quants:
-        if remaining <= 0:
-            break
-        take = min(remaining, quant._quantity)
-        StockMovements.issue(quantity=take, quant=quant, reason=reason)
-        remaining -= take
 
 
 def _render(request, admin_site=None):

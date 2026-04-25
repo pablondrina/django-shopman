@@ -194,6 +194,7 @@ def test_backstage_views_do_not_drive_order_lifecycle_directly():
     forbidden_imports = (
         "shopman.shop.lifecycle",
         "shopman.craftsman.services",
+        "shopman.stockman",
     )
 
     for path in _py_files(BACKSTAGE_ROOT / "views"):
