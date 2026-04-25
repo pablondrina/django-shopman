@@ -7,10 +7,10 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from shopman.offerman.models import Product
-from shopman.orderman.ids import generate_idempotency_key
-from shopman.orderman.services.commit import CommitService
 from shopman.utils.phone import normalize_phone
 
+from shopman.shop.services import checkout as checkout_service
+from shopman.shop.services import sessions as session_service
 from shopman.storefront.cart import CHANNEL_REF, CartService
 from shopman.storefront.views._helpers import _get_price_q, _line_item_is_d1
 
@@ -175,39 +175,20 @@ class CheckoutView(APIView):
 
         phone = normalize_phone(phone_raw) or phone_raw
 
-        # Set customer data on session
-        from shopman.orderman.services.modify import ModifyService
-
-        ops = [
-            {"op": "set_data", "path": "customer.name", "value": name},
-            {"op": "set_data", "path": "customer.phone", "value": phone},
-            {"op": "set_data", "path": "fulfillment_type", "value": fulfillment_type},
-        ]
+        checkout_data = {
+            "customer": {"name": name, "phone": phone},
+            "fulfillment_type": fulfillment_type,
+        }
         if notes:
-            ops.append({"op": "set_data", "path": "customer.notes", "value": notes})
+            checkout_data["order_notes"] = notes
         if delivery_address:
-            ops.append({"op": "set_data", "path": "delivery_address", "value": delivery_address})
+            checkout_data["delivery_address"] = delivery_address
 
-        ModifyService.modify_session(
+        result = checkout_service.process(
             session_key=session_key,
             channel_ref=CHANNEL_REF,
-            ops=ops,
-        )
-
-        # Set session handle for customer tracking
-        from shopman.orderman.models import Session
-
-        session_obj = Session.objects.get(session_key=session_key)
-        session_obj.handle_type = "phone"
-        session_obj.handle_ref = phone
-        session_obj.save(update_fields=["handle_type", "handle_ref"])
-
-        # Commit
-        idempotency_key = generate_idempotency_key()
-        result = CommitService.commit(
-            session_key=session_key,
-            channel_ref=CHANNEL_REF,
-            idempotency_key=idempotency_key,
+            data=checkout_data,
+            idempotency_key=session_service.new_idempotency_key(),
         )
 
         # Clear cart

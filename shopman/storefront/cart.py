@@ -4,13 +4,12 @@ from collections import defaultdict
 from decimal import Decimal
 
 from django.http import HttpRequest
-from shopman.orderman.ids import generate_session_key
 from shopman.orderman.models import Session
-from shopman.orderman.services.modify import ModifyService
 from shopman.utils.monetary import format_money
 
 from shopman.shop.models import Channel
 from shopman.shop.services import availability
+from shopman.shop.services import sessions as session_service
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF as CHANNEL_REF
 
 
@@ -71,19 +70,13 @@ class CartService:
             except Session.DoesNotExist:
                 pass
 
-        # Create new session
-        session_key = generate_session_key()
         origin_channel = request.session.get("origin_channel", "web")
-        from shopman.shop.config import ChannelConfig
 
-        config = ChannelConfig.for_channel(channel)
-        cart_session = Session.objects.create(
-            session_key=session_key,
-            channel_ref=channel.ref,
-            pricing_policy=config.pricing.policy,
-            edit_policy=config.editing.policy,
+        cart_session = session_service.create_session(
+            channel.ref,
             data={"origin_channel": origin_channel},
         )
+        session_key = cart_session.session_key
         request.session["cart_session_key"] = session_key
         return cart_session, session_key
 
@@ -139,7 +132,7 @@ class CartService:
         # Merge: if SKU already in cart, increment qty instead of adding new line
         if existing:
             new_qty = int(Decimal(str(existing["qty"]))) + qty
-            return ModifyService.modify_session(
+            return session_service.modify_session(
                 session_key=session_key,
                 channel_ref=CHANNEL_REF,
                 ops=[{"op": "set_qty", "line_id": existing["line_id"], "qty": new_qty}],
@@ -148,7 +141,7 @@ class CartService:
         op: dict = {"op": "add_line", "sku": sku, "qty": qty, "unit_price_q": unit_price_q}
         if is_d1:
             op["is_d1"] = True
-        return ModifyService.modify_session(
+        return session_service.modify_session(
             session_key=session_key,
             channel_ref=CHANNEL_REF,
             ops=[op],
@@ -188,7 +181,7 @@ class CartService:
 
         availability.bump_session_hold_expiry(session_key)
 
-        return ModifyService.modify_session(
+        return session_service.modify_session(
             session_key=session_key,
             channel_ref=CHANNEL_REF,
             ops=[{"op": "set_qty", "line_id": line_id, "qty": qty}],
@@ -217,7 +210,7 @@ class CartService:
 
         availability.bump_session_hold_expiry(session_key)
 
-        return ModifyService.modify_session(
+        return session_service.modify_session(
             session_key=session_key,
             channel_ref=CHANNEL_REF,
             ops=[{"op": "remove_line", "line_id": line_id}],
@@ -505,7 +498,7 @@ class CartService:
         session.save(update_fields=["data"])
 
         # Re-run modify to trigger DiscountModifier (coupon)
-        ModifyService.modify_session(
+        session_service.modify_session(
             session_key=session_key,
             channel_ref=CHANNEL_REF,
             ops=[],
@@ -532,7 +525,7 @@ class CartService:
         session.save(update_fields=["data"])
 
         # Re-run modify to clear coupon pricing
-        ModifyService.modify_session(
+        session_service.modify_session(
             session_key=session_key,
             channel_ref=CHANNEL_REF,
             ops=[],
@@ -552,15 +545,6 @@ class CartService:
             return
 
         channel = CartService._get_channel()
-        try:
-            session = Session.objects.get(
-                session_key=session_key,
-                channel_ref=channel.ref,
-                state="open",
-            )
-            session.state = "abandoned"
-            session.save(update_fields=["state"])
-        except Session.DoesNotExist:
-            pass
+        session_service.abandon_session(session_key=session_key, channel_ref=channel.ref)
 
         request.session.pop("cart_session_key", None)

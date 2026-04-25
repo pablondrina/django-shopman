@@ -1005,17 +1005,16 @@ class TestKDSService:
 
 class TestCheckoutService:
 
-    @patch("shopman.storefront.services.checkout.Channel")
-    @patch("shopman.storefront.services.checkout.ChannelConfig")
-    @patch("shopman.storefront.services.checkout.CommitService")
-    @patch("shopman.storefront.services.checkout.ModifyService")
-    def test_process_applies_data_and_commits(self, mock_modify, mock_commit, mock_cfg, mock_channel):
+    @patch("shopman.shop.services.checkout.Channel")
+    @patch("shopman.shop.services.checkout.ChannelConfig")
+    @patch("shopman.shop.services.checkout.sessions")
+    def test_process_applies_data_and_commits(self, mock_sessions, mock_cfg, mock_channel):
         from shopman.orderman.services.commit import CommitResult
 
         from shopman.shop.config import ChannelConfig
-        from shopman.storefront.services.checkout import process
+        from shopman.shop.services.checkout import process
         mock_cfg.for_channel.return_value = ChannelConfig()
-        mock_commit.commit.return_value = CommitResult(order_ref="ORD-001", status="committed", total_q=1000, items_count=1)
+        mock_sessions.commit_session.return_value = CommitResult(order_ref="ORD-001", status="committed", total_q=1000, items_count=1)
 
         result = process(
             session_key="sess-123",
@@ -1024,21 +1023,20 @@ class TestCheckoutService:
             idempotency_key="idem-123",
         )
 
-        mock_modify.modify_session.assert_called_once()
-        mock_commit.commit.assert_called_once()
+        mock_sessions.modify_session.assert_called_once()
+        mock_sessions.commit_session.assert_called_once()
         assert result.order_ref == "ORD-001"
 
-    @patch("shopman.storefront.services.checkout.Channel")
-    @patch("shopman.storefront.services.checkout.ChannelConfig")
-    @patch("shopman.storefront.services.checkout.CommitService")
-    @patch("shopman.storefront.services.checkout.ModifyService")
-    def test_process_skips_modify_with_no_data(self, mock_modify, mock_commit, mock_cfg, mock_channel):
+    @patch("shopman.shop.services.checkout.Channel")
+    @patch("shopman.shop.services.checkout.ChannelConfig")
+    @patch("shopman.shop.services.checkout.sessions")
+    def test_process_skips_modify_with_no_data(self, mock_sessions, mock_cfg, mock_channel):
         from shopman.orderman.services.commit import CommitResult
 
         from shopman.shop.config import ChannelConfig
-        from shopman.storefront.services.checkout import process
+        from shopman.shop.services.checkout import process
         mock_cfg.for_channel.return_value = ChannelConfig()
-        mock_commit.commit.return_value = CommitResult(order_ref="ORD-002", status="committed", total_q=500, items_count=1)
+        mock_sessions.commit_session.return_value = CommitResult(order_ref="ORD-002", status="committed", total_q=500, items_count=1)
 
         process(
             session_key="sess-456",
@@ -1047,8 +1045,8 @@ class TestCheckoutService:
             idempotency_key="idem-456",
         )
 
-        mock_modify.modify_session.assert_not_called()
-        mock_commit.commit.assert_called_once()
+        mock_sessions.modify_session.assert_not_called()
+        mock_sessions.commit_session.assert_called_once()
 
 
 # ══════════════════════════════════════════════════════════════════════

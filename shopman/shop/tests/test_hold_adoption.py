@@ -382,10 +382,10 @@ class TestCartReconcileIntegration:
         request.session = {"cart_session_key": session_key}
         return request
 
-    @patch("shopman.storefront.cart.ModifyService")
+    @patch("shopman.storefront.cart.session_service")
     @patch("shopman.storefront.cart.availability")
     def test_update_qty_calls_reconcile_with_absolute_new_qty(
-        self, mock_availability, mock_modify,
+        self, mock_availability, mock_session_service,
     ):
         from shopman.storefront.cart import CartService
 
@@ -410,10 +410,10 @@ class TestCartReconcileIntegration:
         assert call_kwargs["new_qty"] == Decimal("5")
         assert call_kwargs["session_key"] == "sess-test-1"
 
-    @patch("shopman.storefront.cart.ModifyService")
+    @patch("shopman.storefront.cart.session_service")
     @patch("shopman.storefront.cart.availability")
     def test_update_qty_shortage_raises_and_does_not_modify(
-        self, mock_availability, mock_modify,
+        self, mock_availability, mock_session_service,
     ):
         from shopman.storefront.cart import CartService, CartUnavailableError
 
@@ -434,12 +434,12 @@ class TestCartReconcileIntegration:
             CartService.update_qty(request, "line-1", 999)
 
         assert excinfo.value.sku == "X"
-        mock_modify.modify_session.assert_not_called()
+        mock_session_service.modify_session.assert_not_called()
 
-    @patch("shopman.storefront.cart.ModifyService")
+    @patch("shopman.storefront.cart.session_service")
     @patch("shopman.storefront.cart.availability")
     def test_remove_item_calls_reconcile_with_zero(
-        self, mock_availability, mock_modify,
+        self, mock_availability, mock_session_service,
     ):
         from shopman.storefront.cart import CartService
 
@@ -462,4 +462,4 @@ class TestCartReconcileIntegration:
         call_kwargs = mock_availability.reconcile.call_args.kwargs
         assert call_kwargs["sku"] == "X"
         assert call_kwargs["new_qty"] == Decimal("0")
-        mock_modify.modify_session.assert_called_once()
+        mock_session_service.modify_session.assert_called_once()

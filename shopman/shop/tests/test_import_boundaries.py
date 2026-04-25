@@ -163,3 +163,26 @@ def test_framework_does_not_import_protected_kernel_internals():
             "Use package-level exports, public services, settings, or protocol "
             "adapters instead of models.<submodule> or contrib.<submodule> imports."
         )
+
+
+def test_surfaces_do_not_import_orderman_write_primitives():
+    """Surfaces must create/modify/commit sessions through shop services."""
+    forbidden = (
+        "shopman.orderman.ids",
+        "shopman.orderman.services.commit",
+        "shopman.orderman.services.modify",
+    )
+    violations = []
+    for root in (STOREFRONT_ROOT, BACKSTAGE_ROOT):
+        for path in _py_files(root, skip_parts={"tests", "projections"}):
+            for line, module in _imports(path):
+                if _matches_prefix(module, forbidden):
+                    violations.append((path, line, module))
+
+    if violations:
+        pytest.fail(
+            "Surfaces imported Orderman write primitives directly:\n"
+            f"{_format_violations(violations)}\n\n"
+            "Use shopman.shop.services.sessions or shopman.shop.services.checkout "
+            "so session writes have one canonical orchestration path."
+        )

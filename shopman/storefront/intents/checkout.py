@@ -13,7 +13,8 @@ import logging
 from datetime import timedelta
 
 from django.utils import timezone
-from shopman.orderman.ids import generate_idempotency_key
+
+from shopman.shop.services import sessions as session_service
 
 from ._phone import normalize_phone_input as _try_normalize_phone
 from .types import CheckoutIntent, IntentResult
@@ -37,12 +38,11 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
      7. Validate address/form
      8. Check repricing (non-blocking)
      9. Check stock
-    10. Set session handle [side effect]
-    11. Validate preorder
-    12. Validate slot
-    13. Build checkout_data
-    14. Resolve loyalty
-    15. Generate idempotency key
+    10. Validate preorder
+    11. Validate slot
+    12. Build checkout_data
+    13. Resolve loyalty
+    14. Generate idempotency key
     """
     from ..cart import CartService
 
@@ -154,15 +154,12 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
             repricing_warnings=repricing_warnings,
         )
 
-    # ── Step 10: Set session handle [side effect] ─────────────────────────
-    _set_session_handle(session_key, channel_ref, phone)
-
-    # ── Step 11: Validate preorder ────────────────────────────────────────
+    # ── Step 10: Validate preorder ────────────────────────────────────────
     if delivery_date:
         preorder_errors = _validate_preorder(delivery_date)
         errors.update(preorder_errors)
 
-    # ── Step 12: Validate slot ────────────────────────────────────────────
+    # ── Step 11: Validate slot ────────────────────────────────────────────
     slot_errors = _validate_slot(delivery_time_slot, fulfillment_type, delivery_date)
     errors.update(slot_errors)
 
@@ -174,7 +171,7 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
             repricing_warnings=repricing_warnings,
         )
 
-    # ── Step 13: Build checkout_data ──────────────────────────────────────
+    # ── Step 12: Build checkout_data ──────────────────────────────────────
     checkout_data: dict = {
         "customer": {"name": name, "phone": phone},
         "fulfillment_type": fulfillment_type,
@@ -196,7 +193,7 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
     if chosen_method in ("pix", "card"):
         checkout_data["payment"] = {"method": chosen_method}
 
-    # ── Step 14: Resolve loyalty ──────────────────────────────────────────
+    # ── Step 13: Resolve loyalty ──────────────────────────────────────────
     loyalty_redeem = post.get("use_loyalty") == "true"
     loyalty_balance_q = 0
     if loyalty_redeem:
@@ -206,8 +203,8 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
         else:
             loyalty_redeem = False
 
-    # ── Step 15: Generate idempotency key ─────────────────────────────────
-    idempotency_key = generate_idempotency_key()
+    # ── Step 14: Generate idempotency key ─────────────────────────────────
+    idempotency_key = session_service.new_idempotency_key()
 
     intent = CheckoutIntent(
         session_key=session_key,
@@ -348,27 +345,6 @@ def _resolve_saved_address(request, saved_address_id_raw: str) -> str:
         return " ".join(parts)
     except (ValueError, Exception):
         return ""
-
-
-# ── Session handle ────────────────────────────────────────────────────────────
-
-
-def _set_session_handle(session_key: str, channel_ref: str, phone: str) -> None:
-    """Link session to phone handle, abandoning stale sessions for the same phone."""
-    from shopman.orderman.models import Session as OmniSession
-    try:
-        omni_session = OmniSession.objects.get(session_key=session_key, state="open")
-        OmniSession.objects.filter(
-            channel_ref=omni_session.channel_ref,
-            handle_type="phone",
-            handle_ref=phone,
-            state="open",
-        ).exclude(pk=omni_session.pk).update(state="abandoned")
-        omni_session.handle_type = "phone"
-        omni_session.handle_ref = phone
-        omni_session.save(update_fields=["handle_type", "handle_ref"])
-    except OmniSession.DoesNotExist:
-        pass
 
 
 # ── Validation helpers ────────────────────────────────────────────────────────

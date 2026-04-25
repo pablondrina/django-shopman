@@ -19,13 +19,14 @@ SYNC services:
     payment.capture(order)       — Capture payment
     payment.refund(order)        — Refund (smart no-op)
     customer.ensure(order)       — Resolve/create customer
+    sessions.create/modify/commit — Canonical surface-to-Orderman session writes
     fulfillment.create(order)    — Create fulfillment record
     fulfillment.update(f, s)     — Update fulfillment status
     pricing.resolve(sku, qty)    — Resolve price
     cancellation.cancel(order)   — Cancel order (WP-S6: único caminho; Flow libera stock)
     kds.dispatch(order)          — Route items to KDS instances
     kds.on_all_tickets_done(order) — Transition to READY
-    checkout.process(...)        — Validate + commit
+    checkout.process(...)        — Validate + modify session + commit
 
 ASYNC services (create Directives):
     notification.send(order, t)  — Queue notification

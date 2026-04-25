@@ -8,15 +8,13 @@ import logging
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
-from shopman.orderman.ids import generate_idempotency_key, generate_session_key
 from shopman.orderman.models import Session
-from shopman.orderman.services.commit import CommitService
-from shopman.orderman.services.modify import ModifyService
 from shopman.utils.monetary import format_money
 
 from shopman.backstage.constants import POS_CHANNEL_REF
 from shopman.backstage.projections.pos import build_pos, build_pos_shift_summary
 from shopman.shop.models import Channel
+from shopman.shop.services import sessions as session_service
 
 logger = logging.getLogger(__name__)
 
@@ -152,19 +150,15 @@ def pos_close(request: HttpRequest) -> HttpResponse:
             status=500,
         )
 
-    session_key = generate_session_key()
     from shopman.shop.config import ChannelConfig
 
     config = ChannelConfig.for_channel(channel)
-    Session.objects.create(
-        session_key=session_key,
-        channel_ref=channel.ref,
-        state="open",
-        pricing_policy=config.pricing.policy,
-        edit_policy=config.editing.policy,
+    session = session_service.create_session(
+        channel.ref,
         handle_type="pos" if not customer_phone else "phone",
         handle_ref=customer_phone or f"pos:{request.user.username}",
     )
+    session_key = session.session_key
 
     manual_discount = body.get("manual_discount") or {}
 
@@ -209,7 +203,7 @@ def pos_close(request: HttpRequest) -> HttpResponse:
         ops.append({"op": "set_data", "path": "manual_discount.reason", "value": manual_discount.get("reason", "")})
 
     try:
-        ModifyService.modify_session(
+        session_service.modify_session(
             session_key=session_key,
             channel_ref=channel.ref,
             ops=ops,
@@ -230,10 +224,10 @@ def pos_close(request: HttpRequest) -> HttpResponse:
         )
 
     try:
-        result = CommitService.commit(
+        result = session_service.commit_session(
             session_key=session_key,
             channel_ref=channel.ref,
-            idempotency_key=generate_idempotency_key(),
+            idempotency_key=session_service.new_idempotency_key(),
             ctx={"actor": f"pos:{request.user.username}"},
             channel_config=config.to_dict(),
         )
@@ -429,13 +423,15 @@ def pos_park(request: HttpRequest) -> HttpResponse:
         "business_date": tz.localdate().isoformat(),
     })
 
-    session_key = generate_session_key()
-    Session.objects.create(
+    session = session_service.create_session(
+        channel.ref,
+        handle_type="pos",
+        handle_ref=f"pos:{request.user.username}",
+    )
+    session_key = session.session_key
+    session_service.assign_handle(
         session_key=session_key,
         channel_ref=channel.ref,
-        state="open",
-        pricing_policy=config.pricing.policy,
-        edit_policy=config.editing.policy,
         handle_type="pos",
         handle_ref=f"pos:{request.user.username}:{session_key[:8]}",
     )
@@ -448,7 +444,7 @@ def pos_park(request: HttpRequest) -> HttpResponse:
     ])
 
     try:
-        ModifyService.modify_session(
+        session_service.modify_session(
             session_key=session_key,
             channel_ref=channel.ref,
             ops=ops,
