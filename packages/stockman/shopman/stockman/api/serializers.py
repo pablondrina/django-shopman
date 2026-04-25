@@ -111,6 +111,8 @@ class IssueSerializer(serializers.Serializer):
     position_ref = serializers.CharField()
     reference = serializers.CharField(max_length=100)
     notes = serializers.CharField(required=False, allow_blank=True, default="")
+    batch_ref = serializers.CharField(required=False, allow_blank=True, default="")
+    target_date = serializers.DateField(required=False, allow_null=True, default=None)
 
 
 class MoveResponseSerializer(serializers.Serializer):

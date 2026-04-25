@@ -32,6 +32,11 @@ class StockmanSettings:
     # Validate SKUs via external backend before stock operations
     VALIDATE_INPUT_SKUS: bool = True
 
+    # Optional dotted path to a callable:
+    #   (channel_ref: str | None) -> {"safety_margin": int, "allowed_positions": list[str] | None}
+    # The orchestrator can wire ChannelConfig.stock here without Stockman importing shopman.shop.
+    CHANNEL_SCOPE_RESOLVER: str | None = None
+
 
 def get_stockman_settings() -> StockmanSettings:
     """Load settings from Django settings."""

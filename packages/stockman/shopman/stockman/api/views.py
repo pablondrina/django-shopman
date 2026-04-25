@@ -6,6 +6,7 @@ from django.db.models import Q
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from rest_framework import status
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -36,6 +37,14 @@ from .serializers import (
     QuantSerializer,
     ReceiveSerializer,
 )
+
+
+class StockmanPagination(PageNumberPagination):
+    """Explicit API pagination independent of project-level DRF PAGE_SIZE."""
+
+    page_size = 50
+    page_size_query_param = "page_size"
+    max_page_size = 500
 
 
 class AvailabilityView(APIView):
@@ -323,10 +332,11 @@ class IssueView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        quant = (
-            StockQueries.list_quants(data["sku"], position=position, include_future=False, include_empty=False)
-            .order_by("created_at")
-            .first()
+        quant = StockQueries.get_quant(
+            data["sku"],
+            position=position,
+            target_date=data.get("target_date"),
+            batch=data.get("batch_ref", ""),
         )
         if not quant:
             return Response(
@@ -389,9 +399,7 @@ class MoveListView(APIView):
         if date_to:
             qs = qs.filter(timestamp__date__lte=date_to)
 
-        from rest_framework.pagination import PageNumberPagination
-
-        paginator = PageNumberPagination()
+        paginator = StockmanPagination()
         page = paginator.paginate_queryset(qs, request)
         serializer = MoveSerializer(page, many=True)
         return paginator.get_paginated_response(serializer.data)
@@ -419,9 +427,7 @@ class HoldListView(APIView):
                 & (Q(expires_at__isnull=True) | Q(expires_at__gte=now))
             )
 
-        from rest_framework.pagination import PageNumberPagination
-
-        paginator = PageNumberPagination()
+        paginator = StockmanPagination()
         page = paginator.paginate_queryset(qs, request)
         serializer = HoldSerializer(page, many=True)
         return paginator.get_paginated_response(serializer.data)

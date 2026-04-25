@@ -8,7 +8,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
-from shopman.stockman.models import Hold, HoldStatus, Move, Position, PositionKind, StockAlert
+from shopman.stockman.models import Batch, Hold, HoldStatus, Move, Position, PositionKind, StockAlert
 from shopman.stockman.services.movements import StockMovements
 
 User = get_user_model()
@@ -441,6 +441,47 @@ class IssueTests(StockmanAPITestBase):
         issue_move = Move.objects.order_by("-timestamp").first()
         assert issue_move.delta < 0
 
+    def test_issue_can_target_batch_and_date(self):
+        """Issue must debit the exact quant coordinate requested by the caller."""
+        target = date.today()
+        batch_a = Batch.objects.create(ref="API-BATCH-A", sku=self.product.sku)
+        batch_b = Batch.objects.create(ref="API-BATCH-B", sku=self.product.sku)
+        quant_a = StockMovements.receive(
+            Decimal("20"),
+            self.product.sku,
+            position=self.vitrine,
+            target_date=target,
+            batch=batch_a.ref,
+            reason="Batch A",
+        )
+        quant_b = StockMovements.receive(
+            Decimal("30"),
+            self.product.sku,
+            position=self.vitrine,
+            target_date=target,
+            batch=batch_b.ref,
+            reason="Batch B",
+        )
+
+        resp = self.client.post(
+            f"{BASE_URL}/issue/",
+            {
+                "sku": self.product.sku,
+                "qty": "7.000",
+                "position_ref": "vitrine",
+                "reference": "SALE-001",
+                "batch_ref": batch_b.ref,
+                "target_date": target.isoformat(),
+            },
+            format="json",
+        )
+
+        assert resp.status_code == 201
+        quant_a.refresh_from_db()
+        quant_b.refresh_from_db()
+        assert quant_a._quantity == Decimal("20.000")
+        assert quant_b._quantity == Decimal("23.000")
+
 
 # ══════════════════════════════════════════════════════════════════
 # HISTORY (MOVES / HOLDS)
@@ -462,6 +503,16 @@ class MoveHistoryTests(StockmanAPITestBase):
         assert "count" in data
         assert "results" in data
         assert data["count"] == 2
+
+    @override_settings(REST_FRAMEWORK={})
+    def test_moves_paginates_without_global_page_size(self):
+        """Regression: manual pagination must not depend on project PAGE_SIZE."""
+        StockMovements.receive(Decimal("20"), self.product.sku, position=self.vitrine, reason="Produção")
+
+        resp = self.client.get(f"{BASE_URL}/moves/")
+
+        assert resp.status_code == 200
+        assert resp.json()["count"] == 1
 
     def test_moves_filter_by_sku(self):
         StockMovements.receive(Decimal("20"), self.product.sku, position=self.vitrine, reason="Produção")
@@ -531,6 +582,23 @@ class HoldHistoryTests(StockmanAPITestBase):
         assert hold["sku"] == "PAO-FORMA"
         assert Decimal(hold["quantity"]) == Decimal("5.000")
         assert hold["status"] == "pending"
+
+    @override_settings(REST_FRAMEWORK={})
+    def test_holds_paginate_without_global_page_size(self):
+        """Regression: manual pagination must not depend on project PAGE_SIZE."""
+        quant = StockMovements.receive(Decimal("20"), self.product.sku, position=self.vitrine, reason="Produção")
+        Hold.objects.create(
+            sku=self.product.sku,
+            quant=quant,
+            quantity=Decimal("5"),
+            target_date=date.today(),
+            status=HoldStatus.PENDING,
+        )
+
+        resp = self.client.get(f"{BASE_URL}/holds/")
+
+        assert resp.status_code == 200
+        assert resp.json()["count"] == 1
 
     def test_holds_filter_by_sku(self):
         quant_pao = StockMovements.receive(Decimal("20"), self.product.sku, position=self.vitrine, reason="Produção")

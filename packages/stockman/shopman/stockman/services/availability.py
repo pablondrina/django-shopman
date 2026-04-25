@@ -544,6 +544,20 @@ def availability_for_skus(
     return result
 
 
+def _resolve_channel_scope(channel_ref: str | None) -> dict:
+    """Resolve optional channel stock scope without importing the orchestrator."""
+    from shopman.stockman.conf import stockman_settings
+
+    resolver_path = getattr(stockman_settings, "CHANNEL_SCOPE_RESOLVER", None)
+    if not resolver_path or not channel_ref:
+        return {"safety_margin": 0, "allowed_positions": None}
+
+    from django.utils.module_loading import import_string
+
+    resolver = import_string(resolver_path)
+    return resolver(channel_ref)
+
+
 def availability_scope_for_channel(channel_ref: str | None) -> dict[str, int | list[str] | None]:
     """Único ponto para margem + posições ao calcular disponibilidade por canal.
 
@@ -551,8 +565,13 @@ def availability_scope_for_channel(channel_ref: str | None) -> dict[str, int | l
     parâmetros só restringem **de quais posições físicas** o estoque conta para esse
     canal (ex.: remoto sem ``ontem`` para D-1 só no balcão).
 
-    Restrições por canal (safety_margin, allowed_positions) são aplicadas pelo
-    orquestrador shopman.shop antes de chamar stockman — stockman retorna os
-    defaults seguros (sem restrição) e delega ao caller quando necessário.
+    If ``STOCKMAN["CHANNEL_SCOPE_RESOLVER"]`` is configured, Stockman calls that
+    resolver to get ``safety_margin`` and ``allowed_positions`` for the channel.
+    This keeps the package standalone while letting the orchestrator project
+    ChannelConfig.stock into Stockman's canonical availability path.
     """
-    return {"safety_margin": 0, "allowed_positions": None}
+    scope = _resolve_channel_scope(channel_ref)
+    return {
+        "safety_margin": scope.get("safety_margin", 0),
+        "allowed_positions": scope.get("allowed_positions"),
+    }

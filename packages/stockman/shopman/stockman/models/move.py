@@ -11,13 +11,19 @@ from django.utils.translation import gettext_lazy as _
 
 
 class MoveQuerySet(models.QuerySet):
+    """QuerySet guard for the immutable movement ledger."""
+
     def update(self, **kwargs):
-        if 'delta' in kwargs:
-            raise ValueError(
-                "Move.delta é imutável — não é permitido alterar delta em lote. "
-                "Para corrigir, crie um novo Move com delta inverso."
-            )
-        return super().update(**kwargs)
+        raise ValueError(
+            "Movimentos são imutáveis. "
+            "Para corrigir, crie um novo Move com delta inverso."
+        )
+
+    def delete(self):
+        raise ValueError(
+            "Movimentos são imutáveis. "
+            "Para estornar, crie um novo Move com delta inverso."
+        )
 
 
 class Move(models.Model):
@@ -128,5 +134,4 @@ class Move(models.Model):
     def __str__(self) -> str:
         signal = '+' if self.delta > 0 else ''
         return f"{signal}{self.delta} | {self.reason}"
-
 
