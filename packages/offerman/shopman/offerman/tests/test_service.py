@@ -408,6 +408,32 @@ class TestCatalogProjection:
         assert channel == "ifood"
         assert full_sync is False
         assert configured.retract_calls == [(["PAUSED"], "ifood")]
+        listing.refresh_from_db()
+        assert listing.projection_metadata["last_projected_skus"] == ["BAGUETE"]
+
+    @override_settings(
+        OFFERMAN={
+            "PROJECTION_BACKENDS": {
+                "ifood": "shopman.offerman.tests.test_service.FakeProjectionBackend",
+            }
+        }
+    )
+    def test_project_listing_retracts_skus_removed_since_last_success(self, db):
+        listing = Listing.objects.create(
+            ref="ifood",
+            name="iFood",
+            projection_metadata={"last_projected_skus": ["BAGUETE", "OLD-SKU"]},
+        )
+        visible = Product.objects.create(sku="BAGUETE", name="Baguete", base_price_q=500)
+        ListingItem.objects.create(listing=listing, product=visible, price_q=650)
+
+        result = CatalogService.project_listing("ifood")
+        configured = get_projection_backend("ifood")
+
+        assert result.success is True
+        assert configured.retract_calls == [(["OLD-SKU"], "ifood")]
+        listing.refresh_from_db()
+        assert listing.projection_metadata["last_projected_skus"] == ["BAGUETE"]
 
     def test_project_listing_requires_backend(self, db):
         Listing.objects.create(ref="ifood", name="iFood")
@@ -813,4 +839,3 @@ class TestSuggestions:
         from shopman.offerman.contrib.substitutes.substitutes import find_substitutes
 
         assert find_substitutes("GHOST") == []
-

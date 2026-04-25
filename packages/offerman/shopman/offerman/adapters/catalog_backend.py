@@ -80,5 +80,5 @@ class OffermanCatalogBackend:
                 for comp in components
             ]
         except CatalogError as exc:
-            logger.warning("expand_bundle: failed to expand %s: %s", sku, exc)
+            logger.warning("expand_bundle failed for sku=%s: %s", sku, exc)
             return []

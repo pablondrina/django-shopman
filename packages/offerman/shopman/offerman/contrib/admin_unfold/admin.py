@@ -314,8 +314,18 @@ class ProductAdmin(_ProductImportExportBase):
 
         return format_html(" ".join(str(b) for b in badges))
 
+    def get_queryset(self, request):
+        from django.db.models import Exists, OuterRef
+        from shopman.offerman.models import ProductComponent
+
+        return super().get_queryset(request).annotate(
+            has_components=Exists(ProductComponent.objects.filter(parent=OuterRef("pk"))),
+        )
+
     @display(description="Bundle", boolean=True)
     def is_bundle_display(self, obj):
+        if hasattr(obj, "has_components"):
+            return obj.has_components
         return obj.is_bundle
 
     @display(description=_("Custo"))

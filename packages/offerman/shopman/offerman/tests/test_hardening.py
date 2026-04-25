@@ -363,3 +363,28 @@ class TestCollectionDeepHierarchy:
         assert len(ancestors) == 2
         assert ancestors[0].pk == root.pk
         assert ancestors[1].pk == mid.pk
+
+
+class TestProductAdminBundleAnnotation:
+    """Product admin must resolve bundle status without per-row queries."""
+
+    def test_bundle_status_uses_annotation(self, db, product_a, product_b):
+        from django.apps import apps
+        from django.contrib.admin.sites import AdminSite
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        if not apps.is_installed("django.contrib.admin"):
+            pytest.skip("django.contrib.admin is optional in standalone offerman settings")
+
+        from shopman.offerman.admin.product import ProductAdmin
+
+        ProductComponent.objects.create(parent=product_a, component=product_b, qty=Decimal("1"))
+        admin = ProductAdmin(Product, AdminSite())
+
+        with CaptureQueriesContext(connection) as ctx:
+            products = list(admin.get_queryset(None).filter(sku__in=[product_a.sku, product_b.sku]))
+            flags = [admin.is_bundle_display(product) for product in products]
+
+        assert len(ctx) == 1
+        assert flags == [True, False]

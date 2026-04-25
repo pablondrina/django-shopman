@@ -1,6 +1,7 @@
 """Product admin."""
 
 from django.contrib import admin
+from django.db.models import Exists, OuterRef
 from django.utils.html import format_html
 from shopman.offerman.models import Product, ProductComponent
 
@@ -101,9 +102,13 @@ class ProductAdmin(admin.ModelAdmin):
     visibility_status.short_description = "Status"
 
     def get_queryset(self, request):
-        return super().get_queryset(request).prefetch_related("components")
+        return super().get_queryset(request).annotate(
+            has_components=Exists(ProductComponent.objects.filter(parent=OuterRef("pk"))),
+        )
 
     def is_bundle_display(self, obj):
+        if hasattr(obj, "has_components"):
+            return obj.has_components
         return obj.is_bundle
 
     is_bundle_display.boolean = True

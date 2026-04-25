@@ -1,10 +1,12 @@
 """Tests for Offerman REST API (SPEC-001)."""
 from __future__ import annotations
 
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
 from django.contrib.auth.models import User
+from django.utils import timezone
 from rest_framework.test import APIClient
 from shopman.offerman.models import (
     Collection,
@@ -432,6 +434,35 @@ class TestListingList:
         codes = {pl["ref"] for pl in resp.data["results"]}
         assert "ifood" in codes
         assert "promo-old" not in codes
+
+    def test_excludes_expired_and_future_listings(self, api_client):
+        today = timezone.localdate()
+        Listing.objects.create(
+            ref="expired",
+            name="Expired",
+            is_active=True,
+            valid_until=today - timedelta(days=1),
+        )
+        Listing.objects.create(
+            ref="future",
+            name="Future",
+            is_active=True,
+            valid_from=today + timedelta(days=1),
+        )
+        Listing.objects.create(
+            ref="current",
+            name="Current",
+            is_active=True,
+            valid_from=today - timedelta(days=1),
+            valid_until=today + timedelta(days=1),
+        )
+
+        resp = api_client.get("/api/offerman/listings/")
+
+        codes = {pl["ref"] for pl in resp.data["results"]}
+        assert "current" in codes
+        assert "expired" not in codes
+        assert "future" not in codes
 
 
 class TestListingItems:

@@ -443,15 +443,14 @@ class CatalogService:
         if backend is None:
             raise CatalogError("PROJECTION_BACKEND_NOT_CONFIGURED", channel=listing_ref)
 
-        from shopman.offerman.models import Listing
-
-        listing = Listing.objects.get(ref=listing_ref)
+        listing = cls._get_valid_listing(listing_ref)
         items = cls.get_projection_items(listing_ref)
         projectable = [item for item in items if item.is_published and item.is_sellable]
 
         current_skus = {item.sku for item in items}
         unpublished_skus = [item.sku for item in items if not (item.is_published and item.is_sellable)]
-        removed_skus = list(set(listing.projected_skus) - current_skus)
+        previous_skus = set(listing.projection_metadata.get("last_projected_skus", []))
+        removed_skus = sorted(previous_skus - current_skus)
         retracted = unpublished_skus + removed_skus
 
         project_result = backend.project(projectable, channel=listing_ref, full_sync=full_sync)
@@ -465,9 +464,10 @@ class CatalogService:
             errors.extend(retract_result.errors)
 
         if success:
-            Listing.objects.filter(ref=listing_ref).update(
-                projected_skus=sorted({item.sku for item in projectable})
-            )
+            metadata = dict(listing.projection_metadata or {})
+            metadata["last_projected_skus"] = sorted({item.sku for item in projectable})
+            listing.projection_metadata = metadata
+            listing.save(update_fields=["projection_metadata"])
 
         return ProjectionResult(
             success=success,
