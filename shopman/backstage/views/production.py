@@ -8,20 +8,16 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import date, timedelta
-from decimal import Decimal, InvalidOperation
+from datetime import date
 
 from django.contrib import messages
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
 from django.urls import reverse
-from shopman.craftsman.models import Recipe
-from shopman.craftsman.services.execution import CraftExecution
-from shopman.craftsman.services.scheduling import CraftPlanning
-from shopman.stockman import Position
 
 from shopman.backstage.projections.production import build_production_board
+from shopman.shop.services import production as production_service
 
 logger = logging.getLogger(__name__)
 
@@ -56,14 +52,11 @@ def production_void_view(request, admin_site):
         return HttpResponseRedirect(reverse("admin:shop_production"))
 
     try:
-        from shopman.craftsman.models import WorkOrder
-        wo = WorkOrder.objects.get(pk=wo_id)
-        CraftExecution.void(
-            order=wo,
-            reason="Estornado via produção rápida",
+        wo_ref = production_service.void_work_order(
+            wo_id,
             actor=f"admin:{request.user}",
         )
-        messages.success(request, f"Ordem {wo.ref} estornada.")
+        messages.success(request, f"Ordem {wo_ref} estornada.")
     except Exception as exc:
         logger.warning("production_void_failed wo_id=%s: %s", wo_id, exc, exc_info=True)
         messages.error(request, f"Erro ao estornar: {exc}")
@@ -77,54 +70,22 @@ def _handle_post(request, admin_site):
     quantity_raw = request.POST.get("quantity", "").strip()
     position_id = request.POST.get("position", "").strip()
 
-    try:
-        recipe = Recipe.objects.get(pk=recipe_id, is_active=True)
-    except (Recipe.DoesNotExist, ValueError, TypeError):
-        messages.error(request, "Receita inválida.")
-        return _render(request, admin_site)
-
-    try:
-        quantity = Decimal(quantity_raw)
-        if quantity <= 0:
-            raise ValueError
-    except (InvalidOperation, ValueError, TypeError):
-        messages.error(request, "Quantidade inválida.")
-        return _render(request, admin_site)
-
-    position_ref = ""
-    if position_id:
-        try:
-            pos = Position.objects.get(pk=position_id)
-            position_ref = pos.ref
-        except Position.DoesNotExist:
-            pass
-
-    if not position_ref:
-        default_pos = Position.objects.filter(is_default=True).first()
-        if default_pos:
-            position_ref = default_pos.ref
-
     actor = f"admin:{request.user}"
 
     try:
-        wo = CraftPlanning.plan(
-            recipe,
-            quantity,
-            date=date.today(),
-            position_ref=position_ref,
-            source_ref="quick_production",
-        )
-
-        CraftExecution.finish(
-            order=wo,
-            finished=quantity,
+        output_sku, wo_ref, quantity = production_service.quick_finish(
+            recipe_id=recipe_id,
+            quantity=quantity_raw,
+            position_id=position_id,
             actor=actor,
         )
 
         messages.success(
             request,
-            f"Produção registrada: {recipe.output_sku} × {quantity} ({wo.ref})",
+            f"Produção registrada: {output_sku} × {quantity} ({wo_ref})",
         )
+    except ValueError as exc:
+        messages.error(request, str(exc))
     except Exception as exc:
         logger.exception("Quick production failed")
         messages.error(request, f"Erro ao registrar produção: {exc}")
@@ -200,46 +161,19 @@ def bulk_create_work_orders(request: HttpRequest) -> HttpResponse:
             status=422,
         )
 
-    try:
-        target_date = date.fromisoformat(target_date_str) if target_date_str else date.today() + timedelta(days=1)
-    except (ValueError, TypeError):
-        target_date = date.today() + timedelta(days=1)
-
-    default_pos = Position.objects.filter(is_default=True).first()
-    position_ref = default_pos.ref if default_pos else ""
-
-    created = []
-    errors = []
-
-    for entry in orders_data:
-        recipe_ref = entry.get("recipe_ref", "")
-        try:
-            quantity = Decimal(str(entry.get("quantity", 0)))
-            if quantity <= 0:
-                continue
-        except (InvalidOperation, TypeError):
-            errors.append(f"{recipe_ref}: quantidade inválida")
-            continue
-
-        try:
-            recipe = Recipe.objects.get(ref=recipe_ref, is_active=True)
-        except Recipe.DoesNotExist:
-            errors.append(f"{recipe_ref}: receita não encontrada")
-            continue
-
-        try:
-            wo = CraftPlanning.plan(
-                recipe,
-                quantity,
-                date=target_date,
-                position_ref=position_ref,
-                source_ref="dashboard_suggestion",
-            )
-            created.append(f"{recipe.output_sku} × {quantity} ({wo.ref})")
-        except Exception as exc:
-            errors.append(f"{recipe_ref}: {exc}")
-            logger.exception("bulk_create_work_orders failed for %s", recipe_ref)
+    result = production_service.bulk_plan(
+        target_date_value=target_date_str,
+        entries=orders_data,
+    )
 
     return HttpResponse(
-        render_to_string(_PARTIAL, {"created": created, "errors": errors, "target_date": target_date}, request=request),
+        render_to_string(
+            _PARTIAL,
+            {
+                "created": result.created,
+                "errors": result.errors,
+                "target_date": result.target_date,
+            },
+            request=request,
+        ),
     )

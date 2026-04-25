@@ -191,7 +191,10 @@ def test_surfaces_do_not_import_orderman_write_primitives():
 def test_backstage_views_do_not_drive_order_lifecycle_directly():
     """Backstage HTTP views must delegate order lifecycle commands to shop services."""
     violations = []
-    forbidden_imports = ("shopman.shop.lifecycle",)
+    forbidden_imports = (
+        "shopman.shop.lifecycle",
+        "shopman.craftsman.services",
+    )
 
     for path in _py_files(BACKSTAGE_ROOT / "views"):
         for line, module in _imports(path):
@@ -208,6 +211,6 @@ def test_backstage_views_do_not_drive_order_lifecycle_directly():
         pytest.fail(
             "Backstage views drove order lifecycle directly:\n"
             f"{_format_violations(violations)}\n\n"
-            "Move operator/KDS commands into shopman.shop.services and keep "
+            "Move operator/KDS/production commands into shopman.shop.services and keep "
             "views focused on HTTP, permissions, and rendering."
         )
