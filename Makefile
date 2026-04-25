@@ -140,11 +140,15 @@ migrate: ## Cria/atualiza banco de dados
 	$(PYTHON) manage.py migrate
 	@echo "✓ Migrações aplicadas"
 
-run: css ## Sobe servidor + ngrok + directive worker (0.0.0.0:8000)
+run: css ## Sobe servidor + tunnel + directive worker (0.0.0.0:8000)
 	-$(PYTHON) manage.py refresh_oven
 	lsof -ti:8000 | xargs kill -9 2>/dev/null || true
+	killall cloudflared 2>/dev/null || true
+	killall ngrok 2>/dev/null || true
 	$(PYTHON) manage.py process_directives --watch &
-	ngrok http 8000 --domain=lathlike-thelma-undiaphanously.ngrok-free.dev > /dev/null &
+	cloudflared tunnel --url http://localhost:8000 2>&1 | tee .tunnel.log &
+	@sleep 3
+	@grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' .tunnel.log | head -1 || echo "⚠ Tunnel URL not yet available — check .tunnel.log"
 	$(PYTHON) manage.py runserver 0.0.0.0:8000
 
 dev: node_modules/.package-lock.json ## Dev: CSS watch + ngrok + directive worker + server (0.0.0.0:8000)
