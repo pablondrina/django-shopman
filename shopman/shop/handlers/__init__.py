@@ -250,9 +250,6 @@ def _register_stock_signals() -> None:
 
         from shopman.shop.handlers._stock_receivers import on_production_voided
         production_changed.connect(on_production_voided, weak=False)
-
-        import shopman.craftsman.contrib.stockman.handlers  # noqa: F401
-        logger.info("shopman.handlers: loaded craftsman→stockman signal handlers.")
     except ImportError:
         pass
 

@@ -28,6 +28,7 @@ import logging
 from dataclasses import asdict
 
 from rest_framework import mixins, status, viewsets
+from rest_framework import serializers as drf_serializers
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
 from rest_framework.exceptions import ValidationError as DRFValidationError
@@ -37,6 +38,7 @@ from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from shopman.orderman.conf import get_orderman_setting
 from shopman.orderman.exceptions import CommitError, IssueResolveError, SessionError, ValidationError
 from shopman.orderman.ids import generate_idempotency_key, generate_session_key
+from shopman.orderman.integrations import get_shop_channel_model
 from shopman.orderman.models import Directive, Order, Session
 from shopman.orderman.services import CommitService, ModifyService, ResolveService
 
@@ -106,14 +108,16 @@ class ChannelViewSet(viewsets.ReadOnlyModelViewSet):
 
     @property
     def queryset(self):
-        from shopman.shop.models import Channel
+        Channel = get_shop_channel_model()
+        if Channel is None:
+            raise NotFound("Channels are provided by the host shop app.")
         return Channel.objects.all()
 
     @property
     def serializer_class(self):
-        from rest_framework import serializers as drf_serializers
-
-        from shopman.shop.models import Channel
+        Channel = get_shop_channel_model()
+        if Channel is None:
+            raise NotFound("Channels are provided by the host shop app.")
 
         class ChannelSerializer(drf_serializers.ModelSerializer):
             class Meta:

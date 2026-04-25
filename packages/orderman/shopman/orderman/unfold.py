@@ -19,7 +19,7 @@ def _icon_for_kind(kind: str) -> str:
 
 def _order_items_by_channel():
     """Itens do grupo 'Pedidos' (dinâmico por Channel ativo)."""
-    from shopman.shop.models import Channel
+    from shopman.orderman.integrations import get_shop_channel_model
 
     items = [
         # Default operacional: cair em "Novos"
@@ -30,9 +30,11 @@ def _order_items_by_channel():
         },
     ]
 
-    for channel in Channel.objects.filter(is_active=True).order_by(
-        "display_order", "id"
-    ):
+    Channel = get_shop_channel_model()
+    if Channel is None:
+        return items
+
+    for channel in Channel.objects.filter(is_active=True).order_by("display_order", "id"):
         items.append(
             {
                 "title": channel.name or channel.ref,

@@ -9,6 +9,7 @@ from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
+from shopman.orderman.integrations import get_shop_channel_model
 
 # Unfold is optional - fallback to standard Django admin if not installed
 try:
@@ -122,7 +123,9 @@ class CanalVendaFilter(admin.SimpleListFilter):
     parameter_name = "channel_ref"
 
     def lookups(self, request, model_admin):
-        from shopman.shop.models import Channel
+        Channel = get_shop_channel_model()
+        if Channel is None:
+            return []
         qs = Channel.objects.filter(is_active=True).order_by(
             "display_order", "name", "ref"
         )
@@ -596,11 +599,15 @@ class SessionAdmin(ModelAdmin):
         # Supra-filtro por canal (barra rápida) — preserva contexto e mantém intenção do status (tabs).
         extra_context = extra_context or {}
 
-        from shopman.shop.models import Channel
-        channels = list(
-            Channel.objects.filter(is_active=True).order_by(
-                "display_order", "name", "ref"
+        Channel = get_shop_channel_model()
+        channels = (
+            list(
+                Channel.objects.filter(is_active=True).order_by(
+                    "display_order", "name", "ref"
+                )
             )
+            if Channel is not None
+            else []
         )
 
         def _qs_for_channel(channel_id: str | None) -> str:
@@ -957,11 +964,16 @@ class OrderAdmin(ModelAdmin):
 
         # Supra-filtro por canal (barra rápida) — preserva contexto e mantém intenção do status (tabs).
         extra_context = extra_context or {}
-        from shopman.shop.models import Channel
-        channels = list(
-            Channel.objects.filter(is_active=True).order_by(
-                "display_order", "name", "ref"
+
+        Channel = get_shop_channel_model()
+        channels = (
+            list(
+                Channel.objects.filter(is_active=True).order_by(
+                    "display_order", "name", "ref"
+                )
             )
+            if Channel is not None
+            else []
         )
 
         def _qs_for_channel(channel_id: str | None) -> str:
