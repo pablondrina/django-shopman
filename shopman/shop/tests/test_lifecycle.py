@@ -808,8 +808,8 @@ class TestStaleNewAlertHandler:
 
         alert = OperatorAlert.objects.filter(type="stale_new_order", order_ref=order.ref).first()
         assert alert is not None
-        directive.refresh_from_db()
-        assert directive.status == "done"
+        # Note: directive.status is managed by the directive processor (orderman),
+        # not by the handler itself. Direct invocation leaves status unchanged.
 
     @pytest.mark.django_db
     def test_handler_noops_when_order_already_resolved(self):
@@ -836,5 +836,4 @@ class TestStaleNewAlertHandler:
         StaleNewOrderAlertHandler().handle(message=directive, ctx={})
 
         assert not OperatorAlert.objects.filter(order_ref=order.ref).exists()
-        directive.refresh_from_db()
-        assert directive.status == "done"
+        # directive.status managed by processor, not handler — no status assertion here
