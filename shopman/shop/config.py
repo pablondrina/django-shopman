@@ -222,7 +222,9 @@ class ChannelConfig:
         if channel and channel.config:
             base = deep_merge(base, channel.config)
 
-        return cls.from_dict(base)
+        config = cls.from_dict(base)
+        config.validate()
+        return config
 
     # ── Validação ──
 
@@ -235,6 +237,8 @@ class ChannelConfig:
                 f"timeout_minutes deve ser > 0 para mode={self.confirmation.mode}",
             )
         valid_methods = {"cash", "pix", "card", "external"}
+        if not self.payment.available_methods:
+            raise ValueError("payment.method deve declarar pelo menos um método")
         for m in self.payment.available_methods:
             if m not in valid_methods:
                 raise ValueError(f"payment.method inválido: {m}")
@@ -245,10 +249,32 @@ class ChannelConfig:
             raise ValueError(f"payment.timing inválido: {self.payment.timing}")
         if self.fulfillment.timing not in valid_timings:
             raise ValueError(f"fulfillment.timing inválido: {self.fulfillment.timing}")
+        if self.stock.hold_ttl_minutes is not None and self.stock.hold_ttl_minutes <= 0:
+            raise ValueError("stock.hold_ttl_minutes deve ser > 0 ou null")
+        if self.stock.safety_margin < 0:
+            raise ValueError("stock.safety_margin deve ser >= 0")
+        if self.stock.planned_hold_ttl_hours <= 0:
+            raise ValueError("stock.planned_hold_ttl_hours deve ser > 0")
+        if self.stock.low_stock_threshold < 0:
+            raise ValueError("stock.low_stock_threshold deve ser >= 0")
+        if self.stock.allowed_positions is not None and not isinstance(self.stock.allowed_positions, list):
+            raise ValueError("stock.allowed_positions deve ser uma lista ou null")
+        if not isinstance(self.stock.excluded_positions, list):
+            raise ValueError("stock.excluded_positions deve ser uma lista")
+        if self.notifications.backend not in {"manychat", "email", "console", "sms", "webhook", "none"}:
+            raise ValueError(f"notifications.backend inválido: {self.notifications.backend}")
+        if not isinstance(self.notifications.fallback_chain, list):
+            raise ValueError("notifications.fallback_chain deve ser uma lista")
         if self.pricing.policy not in ("internal", "external"):
             raise ValueError(f"pricing.policy inválido: {self.pricing.policy}")
         if self.editing.policy not in ("open", "locked"):
             raise ValueError(f"editing.policy inválido: {self.editing.policy}")
+        if self.rules.validators is not None and not isinstance(self.rules.validators, list):
+            raise ValueError("rules.validators deve ser uma lista ou null")
+        if self.rules.modifiers is not None and not isinstance(self.rules.modifiers, list):
+            raise ValueError("rules.modifiers deve ser uma lista ou null")
+        if not isinstance(self.rules.checks, list):
+            raise ValueError("rules.checks deve ser uma lista")
 
 
 def _safe_init(cls, data: dict):

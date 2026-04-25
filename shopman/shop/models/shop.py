@@ -282,6 +282,20 @@ class Shop(models.Model):
     def __str__(self):
         return self.name
 
+    def clean(self):
+        super().clean()
+        if not self.defaults:
+            return
+        from shopman.shop.config import ChannelConfig, deep_merge
+
+        try:
+            config = ChannelConfig.from_dict(
+                deep_merge(ChannelConfig.defaults(), self.defaults)
+            )
+            config.validate()
+        except ValueError as exc:
+            raise ValidationError({"defaults": str(exc)}) from exc
+
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         cache.delete(SHOP_CACHE_KEY)

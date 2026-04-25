@@ -10,6 +10,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
+from django.core.exceptions import ValidationError
 
 from shopman.shop.config import ChannelConfig
 
@@ -55,14 +56,6 @@ class TestConfirmationConformance:
         cfg = _config()
         cfg.confirmation.mode = "immediate"
 
-        patches = [
-            patch("shopman.shop.lifecycle.customer.ensure"),
-            patch("shopman.shop.lifecycle.stock.hold"),
-            patch("shopman.shop.lifecycle.loyalty.redeem"),
-            patch("shopman.shop.lifecycle.payment.initiate"),
-            patch("shopman.shop.lifecycle.fulfillment.create"),
-            _patch_config(cfg),
-        ]
         with _patch_config(cfg):
             with patch("shopman.shop.lifecycle.customer.ensure"):
                 with patch("shopman.shop.lifecycle.stock.hold"):
@@ -410,3 +403,43 @@ class TestCascadeConformance:
         cfg = ChannelConfig.from_dict(merged)
         assert cfg.payment.method == "pix"
         assert cfg.payment.timing == "post_commit"  # sibling preserved
+
+
+@pytest.mark.django_db
+class TestResolvedConfigValidation:
+    def test_for_channel_rejects_invalid_channel_config(self):
+        """Runtime config resolution fails early instead of silently no-oping."""
+        from shopman.shop.models import Channel
+
+        channel = Channel.objects.create(
+            ref="bad-payment",
+            name="Bad Payment",
+            config={"payment": {"method": "crypto"}},
+        )
+
+        with pytest.raises(ValueError, match="payment.method"):
+            ChannelConfig.for_channel(channel)
+
+    def test_channel_model_clean_rejects_invalid_config(self):
+        from shopman.shop.models import Channel
+
+        channel = Channel(
+            ref="bad-stock",
+            name="Bad Stock",
+            config={"stock": {"safety_margin": -1}},
+        )
+
+        with pytest.raises(ValidationError) as exc_info:
+            channel.full_clean()
+
+        assert "config" in exc_info.value.message_dict
+
+    def test_shop_model_clean_rejects_invalid_defaults(self):
+        from shopman.shop.models import Shop
+
+        shop = Shop(name="Bad Defaults", defaults={"confirmation": {"mode": "maybe"}})
+
+        with pytest.raises(ValidationError) as exc_info:
+            shop.full_clean()
+
+        assert "defaults" in exc_info.value.message_dict

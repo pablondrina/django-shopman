@@ -7,6 +7,7 @@ ChannelConfig e qualquer recurso do framework por convenção de nomes.
 
 from __future__ import annotations
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from shopman.refs.fields import RefField
@@ -33,9 +34,8 @@ class Channel(models.Model):
         max_length=32,
         default="base",
         help_text=_(
-            "Tipo comportamental do canal. Usado pelo framework para resolver "
-            "a classe de Flow: base, local, pos, totem, remote, web, whatsapp, "
-            "manychat, marketplace, ifood."
+            "Tipo comportamental do canal. O comportamento operacional é "
+            "resolvido por ChannelConfig, sem classes de Flow."
         ),
     )
     shop = models.ForeignKey(
@@ -92,4 +92,13 @@ class Channel(models.Model):
         if self.config:
             base = deep_merge(base, self.config)
 
-        return ChannelConfig.from_dict(base)
+        config = ChannelConfig.from_dict(base)
+        config.validate()
+        return config
+
+    def clean(self):
+        super().clean()
+        try:
+            self.get_config()
+        except ValueError as exc:
+            raise ValidationError({"config": str(exc)}) from exc

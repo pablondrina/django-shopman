@@ -7,10 +7,11 @@ import json
 from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
+from django.core.exceptions import ValidationError
 from django.utils.safestring import mark_safe
 from unfold.admin import ModelAdmin
 
-from shopman.shop.config import ChannelConfig
+from shopman.shop.config import ChannelConfig, deep_merge
 from shopman.shop.models import Channel
 
 
@@ -77,6 +78,7 @@ class ChannelForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+        config = {}
         for aspect in self._ASPECTS:
             raw = cleaned.get(aspect, "").strip()
             if not raw:
@@ -86,6 +88,15 @@ class ChannelForm(forms.ModelForm):
                 cleaned[aspect] = json.loads(raw)
             except json.JSONDecodeError as e:
                 self.add_error(aspect, f"JSON inválido: {e}")
+                continue
+            config[aspect] = cleaned[aspect]
+        try:
+            resolved = ChannelConfig.from_dict(
+                deep_merge(ChannelConfig.defaults(), config)
+            )
+            resolved.validate()
+        except ValueError as e:
+            raise ValidationError(f"ChannelConfig inválido: {e}") from e
         return cleaned
 
     def save(self, commit=True):
