@@ -21,7 +21,11 @@ from typing import TYPE_CHECKING
 
 from django.db import models
 from django.utils import timezone
-from shopman.offerman.conf import get_pricing_backend, get_projection_backend
+from shopman.offerman.conf import (
+    get_pricing_backend,
+    get_projection_backend,
+    get_projection_backend_channels,
+)
 from shopman.offerman.exceptions import CatalogError
 from shopman.offerman.protocols import ContextualPrice, ProjectedItem, ProjectionResult
 
@@ -475,3 +479,31 @@ class CatalogService:
             errors=errors,
             channel=listing_ref,
         )
+
+    @classmethod
+    def project_catalogs(
+        cls,
+        listing_refs: list[str] | tuple[str, ...] | None = None,
+        *,
+        full_sync: bool = False,
+    ) -> dict[str, ProjectionResult]:
+        """
+        Project one or more external catalog listings.
+
+        When ``listing_refs`` is omitted, every listing ref with a configured
+        projection backend is projected. This keeps Offerman as the source of
+        truth for multiple external catalogs (WhatsApp, Google, Meta/IG,
+        marketplaces) without hard-coding platform names in the kernel.
+        """
+        refs = list(listing_refs) if listing_refs is not None else get_projection_backend_channels()
+        results: dict[str, ProjectionResult] = {}
+        for listing_ref in refs:
+            try:
+                results[listing_ref] = cls.project_listing(listing_ref, full_sync=full_sync)
+            except CatalogError as exc:
+                results[listing_ref] = ProjectionResult(
+                    success=False,
+                    errors=[str(exc)],
+                    channel=listing_ref,
+                )
+        return results

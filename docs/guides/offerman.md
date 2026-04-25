@@ -198,6 +198,14 @@ result = CatalogService.project_listing("ifood")
 # ProjectionResult(success=True, projected=42, channel="ifood")
 ```
 
+**`CatalogService.project_catalogs(listing_refs=None, full_sync=False)`** — Sincroniza múltiplos catálogos externos configurados.
+```python
+results = CatalogService.project_catalogs()
+# {"google": ProjectionResult(...), "meta_ig": ProjectionResult(...), "whatsapp": ProjectionResult(...)}
+```
+
+Offerman deve ser a fonte da verdade da oferta comercial também para catálogos externos. Cada destino externo é uma `Listing` canônica (`whatsapp`, `google`, `meta_ig`, `ifood`, etc.) com um `CatalogProjectionBackend` configurado em `OFFERMAN["PROJECTION_BACKENDS"]`. O kernel não conhece APIs específicas de plataforma; adapters no orquestrador ou na instância traduzem `ProjectedItem` para o contrato de Google, WhatsApp, Meta/IG ou marketplace.
+
 ## Protocols
 
 ### CatalogBackend

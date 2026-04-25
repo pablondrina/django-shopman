@@ -139,6 +139,11 @@ def get_projection_backend(channel: str):
     return existing
 
 
+def get_projection_backend_channels() -> list[str]:
+    """Return listing refs with configured projection backends."""
+    return sorted((offerman_settings.PROJECTION_BACKENDS or {}).keys())
+
+
 def reset_projection_backends():
     """Reset projection backend singletons (for tests)."""
     _projection_backend_instances.clear()

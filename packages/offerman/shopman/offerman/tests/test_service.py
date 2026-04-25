@@ -6,6 +6,7 @@ import pytest
 from django.test import override_settings
 from shopman.offerman.conf import (
     get_projection_backend,
+    get_projection_backend_channels,
     reset_pricing_backend,
     reset_projection_backends,
 )
@@ -442,6 +443,48 @@ class TestCatalogProjection:
             CatalogService.project_listing("ifood")
 
         assert exc.value.code == "PROJECTION_BACKEND_NOT_CONFIGURED"
+
+    @override_settings(
+        OFFERMAN={
+            "PROJECTION_BACKENDS": {
+                "google": "shopman.offerman.tests.test_service.FakeProjectionBackend",
+                "meta_ig": "shopman.offerman.tests.test_service.FakeProjectionBackend",
+                "whatsapp": "shopman.offerman.tests.test_service.FakeProjectionBackend",
+            }
+        }
+    )
+    def test_project_catalogs_projects_configured_external_catalogs(self, db):
+        product = Product.objects.create(sku="CROISSANT", name="Croissant", base_price_q=790)
+        for ref in ("whatsapp", "google", "meta_ig"):
+            listing = Listing.objects.create(ref=ref, name=ref.title())
+            ListingItem.objects.create(listing=listing, product=product, price_q=790)
+
+        results = CatalogService.project_catalogs(full_sync=True)
+
+        assert list(results) == ["google", "meta_ig", "whatsapp"]
+        assert get_projection_backend_channels() == ["google", "meta_ig", "whatsapp"]
+        for ref, result in results.items():
+            assert result.success is True
+            assert result.projected == 1
+            backend = get_projection_backend(ref)
+            projected_items, channel, full_sync = backend.project_calls[0]
+            assert [item.sku for item in projected_items] == ["CROISSANT"]
+            assert channel == ref
+            assert full_sync is True
+
+    @override_settings(
+        OFFERMAN={
+            "PROJECTION_BACKENDS": {
+                "google": "shopman.offerman.tests.test_service.FakeProjectionBackend",
+            }
+        }
+    )
+    def test_project_catalogs_returns_result_for_catalog_errors(self, db):
+        results = CatalogService.project_catalogs(["google"])
+
+        assert set(results) == {"google"}
+        assert results["google"].success is False
+        assert "LISTING_NOT_FOUND" in results["google"].errors[0]
 
     def test_expired_listing_excludes_products(self, db):
         """Expired listing should not return products as available."""
