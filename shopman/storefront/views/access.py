@@ -14,14 +14,9 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.views import View
 
-logger = logging.getLogger("shopman.storefront.views.access")
+from ..services import access as access_service
 
-# Maps AccessLink.source → origin_channel value
-SOURCE_TO_ORIGIN = {
-    "manychat": "whatsapp",  # Default Manychat → WhatsApp; overridden by metadata
-    "api": "web",
-    "internal": "web",
-}
+logger = logging.getLogger("shopman.storefront.views.access")
 
 
 class AccessLinkEntryView(View):
@@ -70,40 +65,9 @@ class AccessLinkEntryView(View):
     @staticmethod
     def _exchange_token(token_str: str, request: HttpRequest):
         """Exchange AccessLink token for Django session."""
-        from shopman.doorman.services.access_link import AccessLinkService
-
-        return AccessLinkService.exchange(
-            token_str=token_str,
-            request=request,
-            preserve_session_keys=["cart_session_key"],
-        )
+        return access_service.exchange_token(token_str, request)
 
     @staticmethod
     def _resolve_origin(result) -> str:
         """Determine origin_channel from exchange result."""
-        # Try metadata first (set by Manychat webhook with explicit channel)
-        if result.customer:
-            # The token's metadata may contain explicit origin
-            pass
-
-        # Default mapping from source
-        # For Manychat, check if it's Instagram or WhatsApp
-        source = "web"
-        try:
-            from shopman.doorman.models import AccessLink
-
-            token = AccessLink.objects.filter(
-                customer_id=result.customer.uuid,
-            ).order_by("-created_at").first()
-            if token:
-                source = token.source
-                # Check metadata for explicit channel
-                meta = token.metadata or {}
-                if meta.get("channel") == "instagram":
-                    return "instagram"
-                if meta.get("channel") == "whatsapp":
-                    return "whatsapp"
-        except Exception:
-            logger.exception("access_link_resolve_origin_failed")
-
-        return SOURCE_TO_ORIGIN.get(source, "web")
+        return access_service.resolve_origin(result)

@@ -8,6 +8,8 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 
+from ..services import orders as order_service
+
 REORDER_MIN_DAYS = 7  # show reorder card only after this many days since last order
 
 
@@ -38,28 +40,9 @@ class HomeView(View):
         if customer_info is None:
             return None, []
         try:
-            from django.utils import timezone
-            from shopman.guestman.services import customer as customer_service
-            from shopman.orderman.models import Order
-
-            cust = customer_service.get_by_uuid(str(customer_info.uuid))
-            if cust is None:
-                return None, []
-            last = (
-                Order.objects
-                .filter(data__customer_ref=cust.ref)
-                .order_by("-created_at")
-                .values("ref", "snapshot", "created_at")
-                .first()
+            return order_service.last_reorder_context(
+                customer_uuid=customer_info.uuid,
+                min_days=REORDER_MIN_DAYS,
             )
-            if not last:
-                return None, []
-
-            days_since = (timezone.now() - last["created_at"]).days
-            if days_since <= REORDER_MIN_DAYS:
-                return None, []
-
-            items = last["snapshot"].get("items") or []
-            return last["ref"], items
         except Exception:
             return None, []

@@ -4,9 +4,9 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views import View
 from shopman.offerman.models import Collection, Product
-from shopman.orderman.models import Order
 
 from shopman.storefront.projections.order_history import build_order_history
+from shopman.storefront.services import orders as order_service
 
 from .auth import get_authenticated_customer
 
@@ -21,19 +21,13 @@ class HowItWorksView(View):
 class OrderHistoryView(View):
     """Order history — requires session auth (OTP verified)."""
 
-    _ACTIVE_STATUSES = frozenset({"new", "confirmed", "preparing", "ready", "dispatched"})
-
     def get(self, request: HttpRequest) -> HttpResponse:
         # Badge-only: return active order count for bottom nav polling
         if request.GET.get("badge_only"):
             customer = get_authenticated_customer(request)
             if not customer:
                 return HttpResponse("")
-            count = Order.objects.filter(
-                handle_type="phone",
-                handle_ref=customer.phone,
-                status__in=self._ACTIVE_STATUSES,
-            ).count()
+            count = order_service.active_order_count_for_phone(customer.phone)
             if count:
                 return HttpResponse(
                     f'<span data-order-count="{count}" '

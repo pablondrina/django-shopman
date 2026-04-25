@@ -2,22 +2,21 @@ from __future__ import annotations
 
 from django.conf import settings
 from django.http import Http404, HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect, render
 from django.views import View
-from shopman.orderman.models import Order
 
-from shopman.shop.services import payment as payment_svc
+from ..services import orders as order_service
 
 
 class PaymentView(View):
     """Payment page — PIX (QR code) or Card (Stripe Elements)."""
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
-        order = get_object_or_404(Order, ref=ref)
+        order = order_service.get_order(ref)
 
-        if payment_svc.get_payment_status(order) == "captured":
+        if order_service.payment_status(order) == "captured":
             return redirect("storefront:order_tracking", ref=ref)
-        if order.status == "cancelled":
+        if order_service.is_cancelled(order):
             return redirect("storefront:order_tracking", ref=ref)
 
         from shopman.storefront.projections import build_payment
@@ -30,7 +29,7 @@ class PaymentStatusView(View):
     """HTMX partial: polls payment status, redirects when paid."""
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
-        order = get_object_or_404(Order, ref=ref)
+        order = order_service.get_order(ref)
 
         from shopman.storefront.projections import build_payment_status
 
@@ -54,8 +53,8 @@ class MockPaymentConfirmView(View):
         if not settings.DEBUG:
             raise Http404
 
-        order = get_object_or_404(Order, ref=ref)
+        order = order_service.get_order(ref)
 
-        payment_svc.mock_confirm(order)
+        order_service.mock_confirm_payment(order)
 
         return redirect("storefront:order_tracking", ref=ref)

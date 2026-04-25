@@ -5,31 +5,22 @@ from __future__ import annotations
 import logging
 
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views import View
-from shopman.orderman.models import Order
 
 from ..cart import CartService
+from ..services import orders as order_service
 from ._helpers import _get_price_q, _line_item_is_d1
 
 logger = logging.getLogger(__name__)
-
-_CANCELLABLE_STATUSES = {Order.Status.NEW, Order.Status.CONFIRMED}
-
-
-def _effective_config(channel):
-    """Return the effective ChannelConfig with cascade channel←shop←defaults."""
-    from shopman.shop.config import ChannelConfig
-
-    return ChannelConfig.for_channel(channel)
 
 
 class OrderTrackingView(View):
     """Full order tracking page with HTMX polling for status updates."""
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
-        order = get_object_or_404(Order, ref=ref)
+        order = order_service.get_order(ref)
 
         from shopman.storefront.projections import build_order_tracking
 
@@ -48,7 +39,7 @@ class ReorderView(View):
 
         from shopman.storefront.cart import CartUnavailableError
 
-        order = get_object_or_404(Order, ref=ref)
+        order = order_service.get_order(ref)
         skipped: list[str] = []
         for item in order.items.all():
             product = Product.objects.filter(sku=item.sku, is_published=True).first()
@@ -81,7 +72,7 @@ class OrderStatusPartialView(View):
     """HTMX partial: returns status badge + timeline for polling."""
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
-        order = get_object_or_404(Order, ref=ref)
+        order = order_service.get_order(ref)
 
         from shopman.storefront.projections import build_order_tracking_status
 
@@ -98,12 +89,9 @@ class OrderCancelView(View):
     """Customer self-service cancellation from tracking page."""
 
     def post(self, request: HttpRequest, ref: str) -> HttpResponse:
-        from shopman.shop.services import payment as payment_svc
-        from shopman.shop.services.cancellation import cancel
+        order = order_service.get_order(ref)
 
-        order = get_object_or_404(Order, ref=ref)
-
-        if order.status not in _CANCELLABLE_STATUSES:
+        if not order_service.can_cancel(order):
             if request.headers.get("HX-Request"):
                 return HttpResponse(
                     '<div class="toast toast-error" role="alert" aria-live="assertive">'
@@ -114,7 +102,7 @@ class OrderCancelView(View):
                 reverse("storefront:order_tracking", kwargs={"ref": ref}) + "?refused=1"
             )
 
-        if payment_svc.get_payment_status(order) == "captured":
+        if order_service.payment_status(order) == "captured":
             if request.headers.get("HX-Request"):
                 return HttpResponse(
                     '<div class="toast toast-warning" role="alert" aria-live="assertive">'
@@ -125,7 +113,7 @@ class OrderCancelView(View):
                 reverse("storefront:order_tracking", kwargs={"ref": ref}) + "?refused=1"
             )
 
-        cancel(order, reason="customer_requested", actor="customer.self_cancel")
+        order_service.cancel(order)
 
         logger.info("customer_self_cancel order=%s", order.ref)
 
@@ -196,12 +184,10 @@ class OrderConfirmationView(View):
     """Order confirmation page — shown after checkout for manual-confirm channels."""
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
-        order = get_object_or_404(Order, ref=ref)
+        order = order_service.get_order(ref)
 
-        if order.channel_ref:
-            cfg = _effective_config(order.channel_ref).confirmation
-            if cfg.mode == "auto_confirm":
-                return redirect("storefront:order_tracking", ref=ref)
+        if order_service.should_skip_confirmation(order):
+            return redirect("storefront:order_tracking", ref=ref)
 
         from shopman.storefront.projections import build_order_confirmation
 

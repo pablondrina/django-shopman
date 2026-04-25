@@ -22,6 +22,12 @@ def set_missing_first_name(*, phone: str, name: str) -> None:
         customer.save(update_fields=["first_name"])
 
 
+def update_customer_name(customer_ref: str, *, first_name: str, last_name: str):
+    from shopman.guestman.services import customer as customer_service
+
+    return customer_service.update(customer_ref, first_name=first_name, last_name=last_name)
+
+
 def trusted_device_prefill(request) -> tuple[str, str]:
     """Return (phone, first_name) from a trusted device cookie when valid."""
     try:

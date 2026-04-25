@@ -11,9 +11,9 @@ from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
-from shopman.guestman.services import customer as customer_service
 
 from ..intents.auth import clean_display_name, interpret_welcome, needs_confirmation
+from ..services import auth as auth_service
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
@@ -31,7 +31,7 @@ class WelcomeView(View):
         if not needs_confirmation(customer_info.name or ""):
             return self._resume(request)
 
-        cust = customer_service.get_by_uuid(str(customer_info.uuid))
+        cust = auth_service.customer_by_uuid(str(customer_info.uuid))
         raw = f"{cust.first_name} {cust.last_name}".strip() if cust else ""
         suggested = clean_display_name(raw)
 
@@ -54,14 +54,14 @@ class WelcomeView(View):
 
         intent = result.intent
 
-        cust = customer_service.get_by_uuid(intent.customer_uuid)
+        cust = auth_service.customer_by_uuid(intent.customer_uuid)
         if cust is None:
             return redirect("storefront:login")
 
         parts = intent.name.split(" ", 1)
         first_name = parts[0]
         last_name = parts[1] if len(parts) > 1 else ""
-        customer_service.update(cust.ref, first_name=first_name, last_name=last_name)
+        auth_service.update_customer_name(cust.ref, first_name=first_name, last_name=last_name)
 
         # Bust the cached AuthCustomerInfo on request.user so navbar picks up the new name
         if hasattr(request.user, "_shopman_customer_info"):

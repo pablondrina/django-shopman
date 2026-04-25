@@ -234,11 +234,17 @@ def test_storefront_views_do_not_import_payment_kernel_directly():
 
 
 def test_storefront_account_auth_views_delegate_kernel_commands():
-    """Account/auth/device views must keep Guestman/Doorman/Orderman behind services."""
+    """Storefront views must keep Guestman/Doorman/Orderman behind local services."""
     guarded_views = {
+        STOREFRONT_ROOT / "views" / "access.py",
         STOREFRONT_ROOT / "views" / "account.py",
         STOREFRONT_ROOT / "views" / "auth.py",
         STOREFRONT_ROOT / "views" / "devices.py",
+        STOREFRONT_ROOT / "views" / "home.py",
+        STOREFRONT_ROOT / "views" / "info.py",
+        STOREFRONT_ROOT / "views" / "payment.py",
+        STOREFRONT_ROOT / "views" / "tracking.py",
+        STOREFRONT_ROOT / "views" / "welcome.py",
     }
     forbidden = (
         "shopman.guestman",
@@ -254,7 +260,7 @@ def test_storefront_account_auth_views_delegate_kernel_commands():
 
     if violations:
         pytest.fail(
-            "Storefront account/auth views imported kernel command modules directly:\n"
+            "Storefront views imported kernel command modules directly:\n"
             f"{_format_violations(violations)}\n\n"
             "Keep HTTP, HTMX, and rendering in views; route domain commands through "
             "shopman.storefront.services.*."
