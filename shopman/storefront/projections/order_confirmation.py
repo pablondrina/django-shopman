@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from shopman.utils.monetary import format_money
+
 from shopman.shop.projections.types import OrderItemProjection
 
 if TYPE_CHECKING:
@@ -40,6 +41,7 @@ def build_order_confirmation(order: Order, *, share_url: str) -> OrderConfirmati
     eta: datetime | None = None
     try:
         from django.utils import timezone
+
         from shopman.shop.models import Shop
 
         shop = Shop.load()

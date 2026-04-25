@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date as date_type
-from typing import Generic, TypeVar
 
 
 @dataclass
@@ -133,11 +132,8 @@ class AddressIntentResult:
 
 # ── Auth intents ──────────────────────────────────────────────────────────────
 
-T = TypeVar("T")
-
-
 @dataclass
-class AuthResult(Generic[T]):
+class AuthResult[T]:
     """Result of an auth intent extraction.
 
     On success: ``intent`` is set, ``errors`` is empty.

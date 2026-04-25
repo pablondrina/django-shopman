@@ -6,7 +6,6 @@ from __future__ import annotations
 
 from datetime import datetime
 
-import pytest
 from django.template.loader import render_to_string
 from django.utils import timezone
 

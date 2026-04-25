@@ -6,14 +6,12 @@ from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
 
-import pytest
 from django.test import RequestFactory, TestCase
 from django.utils import timezone
-
 from shopman.guestman.models import Customer, CustomerGroup
 from shopman.orderman.models import Order
-from shopman.storefront.views.home import REORDER_MIN_DAYS, HomeView
 
+from shopman.storefront.views.home import REORDER_MIN_DAYS, HomeView
 
 ITEMS = [
     {"line_id": "L1", "sku": "CROIS-01", "name": "Croissant Clássico", "qty": 2,

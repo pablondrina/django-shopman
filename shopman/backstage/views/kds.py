@@ -71,9 +71,8 @@ class KDSDisplayView(View):
         if denied:
             return denied
 
-        from shopman.shop.models import Shop
-
         from shopman.backstage.models import KDSInstance
+        from shopman.shop.models import Shop
 
         instance = get_object_or_404(KDSInstance, ref=ref, is_active=True)
         board = build_kds_board(ref)

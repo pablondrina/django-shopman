@@ -20,7 +20,6 @@ from shopman.orderman.models import Directive, Order
 from shopman.backstage.projections.order_queue import (
     build_operator_order,
     build_order_card,
-    build_order_queue,
     build_two_zone_queue,
 )
 from shopman.shop.services.cancellation import cancel

@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from shopman.storefront.intents.auth import (
     clean_display_name,
     interpret_device_check_login,

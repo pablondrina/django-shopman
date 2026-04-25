@@ -16,13 +16,12 @@ from shopman.guestman.contrib.preferences import PreferenceService
 from shopman.guestman.services import address as address_service
 from shopman.guestman.services import customer as customer_service
 
+from shopman.shop.projections.types import FoodPrefProjection, NotificationPrefProjection
 from shopman.storefront.projections.account import (
     FOOD_PREFERENCE_OPTIONS,
     NOTIFICATION_CHANNELS,
     build_account,
 )
-from shopman.shop.projections.types import FoodPrefProjection, NotificationPrefProjection
-
 from shopman.storefront.services.address_picker import address_picker_context
 
 from .auth import get_authenticated_customer

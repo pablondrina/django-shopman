@@ -9,11 +9,10 @@ from __future__ import annotations
 from django.contrib import admin
 from django.urls import path
 
-from shopman.shop.admin.shop import ShopAdmin
-from shopman.shop.models import Shop
-
 from shopman.backstage.views.closing import closing_view
 from shopman.backstage.views.production import production_view, production_void_view
+from shopman.shop.admin.shop import ShopAdmin
+from shopman.shop.models import Shop
 
 admin.site.unregister(Shop)
 

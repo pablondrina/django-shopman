@@ -99,7 +99,6 @@ class PaymentMethodUnavailableTests(TestCase):
 
     def test_payment_method_available_cash(self) -> None:
         """cash is available when channel returns only cash."""
-        from shopman.storefront.intents.checkout import get_payment_methods
         with patch("shopman.storefront.intents.checkout.get_payment_methods", return_value=["cash"]) as mock:
             methods = mock("web")
             self.assertIn("cash", methods)
@@ -107,8 +106,9 @@ class PaymentMethodUnavailableTests(TestCase):
 
     def test_payment_method_unavailable_returns_false(self) -> None:
         """pix not in channel methods → not available."""
-        from shopman.storefront.intents.checkout import _resolve_payment_method
         from unittest.mock import MagicMock
+
+        from shopman.storefront.intents.checkout import _resolve_payment_method
         post = MagicMock()
         post.get.return_value = "pix"
         result = _resolve_payment_method(post, ["cash"])

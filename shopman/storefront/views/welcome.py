@@ -11,7 +11,6 @@ from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
-
 from shopman.guestman.services import customer as customer_service
 
 from ..intents.auth import clean_display_name, interpret_welcome, needs_confirmation

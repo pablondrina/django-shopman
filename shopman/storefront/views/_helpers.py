@@ -194,8 +194,8 @@ def _best_auto_promotion_discount_q(
     (``services.storefront_context.session_pricing_hints``) para coincidir
     com o que o modificador aplica no checkout.
     """
-    from shopman.storefront.models import Promotion
     from shopman.shop.modifiers import DiscountModifier
+    from shopman.storefront.models import Promotion
 
     now = timezone.now()
     promotions = list(

@@ -61,6 +61,7 @@ def _create_pos_order(payment_method: str = "cash") -> Order:
 def _grant_pos_perm(user):
     from django.contrib.auth.models import Permission
     from django.contrib.contenttypes.models import ContentType
+
     from shopman.backstage.models import CashRegisterSession
     ct = ContentType.objects.get_for_model(CashRegisterSession)
     perm = Permission.objects.get(content_type=ct, codename="operate_pos")

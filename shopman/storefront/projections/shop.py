@@ -40,7 +40,7 @@ class ShopProjection:
     social_links: tuple[SocialLinkProjection, ...]
 
 
-def build_shop_projection(shop: "Shop") -> ShopProjection:
+def build_shop_projection(shop: Shop) -> ShopProjection:
     logo_name = shop.logo.name if shop.logo else ""
     logo_url = shop.logo.url if shop.logo else ""
 

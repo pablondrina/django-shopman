@@ -39,7 +39,6 @@ class HomeView(View):
             return None, []
         try:
             from django.utils import timezone
-
             from shopman.guestman.services import customer as customer_service
             from shopman.orderman.models import Order
 

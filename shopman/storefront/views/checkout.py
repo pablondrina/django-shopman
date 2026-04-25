@@ -10,9 +10,8 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django_ratelimit.decorators import ratelimit
-
 from shopman.guestman.contrib.loyalty import LoyaltyService
-from shopman.shop.models import Channel
+
 from shopman.storefront.services.checkout_defaults import CheckoutDefaultsService
 from shopman.storefront.services.storefront_context import minimum_order_progress
 
@@ -33,7 +32,9 @@ class CheckoutView(View):
     def _checkout_page_context(self, request: HttpRequest, cart: dict) -> dict:
         """Common context for GET and error re-renders."""
         import json as _json
+
         from django.conf import settings
+
         from shopman.shop.models import Shop
 
         shop = Shop.load()
@@ -227,6 +228,7 @@ class CheckoutView(View):
     @staticmethod
     def _ensure_customer(intent: CheckoutIntent, order_ref: str) -> None:
         import uuid as uuid_lib
+
         from django.db import IntegrityError
         from shopman.guestman.services import customer as customer_service
 

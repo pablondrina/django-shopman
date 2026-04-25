@@ -9,12 +9,12 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
+from shopman.shop.projections.types import ORDER_STATUS_COLORS, OrderSummaryProjection
 from shopman.storefront.projections.order_history import (
     FILTER_OPTIONS,
     OrderHistoryProjection,
     build_order_history,
 )
-from shopman.shop.projections.types import ORDER_STATUS_COLORS, OrderSummaryProjection
 
 pytestmark = pytest.mark.django_db
 

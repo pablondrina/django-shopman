@@ -10,16 +10,16 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from shopman.storefront.projections.account import (
-    CustomerProfileProjection,
-    LoyaltyProjection,
-    build_account,
-)
 from shopman.shop.projections.types import (
     FoodPrefProjection,
     NotificationPrefProjection,
     OrderSummaryProjection,
     SavedAddressProjection,
+)
+from shopman.storefront.projections.account import (
+    CustomerProfileProjection,
+    LoyaltyProjection,
+    build_account,
 )
 
 pytestmark = pytest.mark.django_db

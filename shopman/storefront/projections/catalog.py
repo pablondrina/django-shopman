@@ -30,18 +30,17 @@ from shopman.offerman.service import CatalogService
 from shopman.utils.monetary import format_money
 
 from shopman.shop.config import ChannelConfig
-from shopman.storefront.services.storefront_context import (
-    happy_hour_state,
-    popular_skus,
-    session_pricing_hints,
-)
-
-from shopman.storefront.projections.icons import collection_icon
 from shopman.shop.projections.types import (
     AVAILABILITY_LABELS_PT,
     Availability,
     CategoryProjection,
     HappyHourProjection,
+)
+from shopman.storefront.projections.icons import collection_icon
+from shopman.storefront.services.storefront_context import (
+    happy_hour_state,
+    popular_skus,
+    session_pricing_hints,
 )
 
 if TYPE_CHECKING:

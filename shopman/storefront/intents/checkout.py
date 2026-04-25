@@ -13,7 +13,6 @@ import logging
 from datetime import timedelta
 
 from django.utils import timezone
-
 from shopman.orderman.ids import generate_idempotency_key
 
 from ._phone import normalize_phone_input as _try_normalize_phone
@@ -437,7 +436,9 @@ def _validate_slot(
     fulfillment_type: str,
     delivery_date: str,
 ) -> dict[str, str]:
-    from datetime import date as date_type, time as time_type
+    from datetime import date as date_type
+    from datetime import time as time_type
+
     from shopman.storefront.services.pickup_slots import _find_slot_by_ref, get_slots
 
     errors: dict[str, str] = {}
@@ -544,6 +545,7 @@ def _check_cart_stock(
     target_date=None,
 ) -> tuple[list[dict], bool]:
     from decimal import Decimal
+
     from shopman.storefront.views._helpers import _get_availability
 
     items = cart.get("items", [])

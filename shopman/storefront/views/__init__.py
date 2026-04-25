@@ -1,5 +1,6 @@
 """Storefront views — customer-facing web surface (HTMX + Alpine)."""
 
+from .access import AccessLinkEntryView
 from .account import (
     AccountDeleteView,
     AccountView,
@@ -24,7 +25,6 @@ from .auth import (
     TrustDeviceView,
     VerifyCodeView,
 )
-from .access import AccessLinkEntryView
 from .cart import (
     AddToCartView,
     ApplyCouponView,

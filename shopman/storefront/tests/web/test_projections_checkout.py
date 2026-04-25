@@ -10,9 +10,9 @@ from __future__ import annotations
 import pytest
 from django.test import RequestFactory
 
-from shopman.storefront.projections.checkout import CheckoutProjection, build_checkout
 from shopman.shop.projections.types import PaymentMethodOptionProjection, PickupSlotProjection
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
+from shopman.storefront.projections.checkout import CheckoutProjection, build_checkout
 
 pytestmark = pytest.mark.django_db
 

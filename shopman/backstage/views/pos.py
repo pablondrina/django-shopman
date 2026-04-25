@@ -14,9 +14,9 @@ from shopman.orderman.services.commit import CommitService
 from shopman.orderman.services.modify import ModifyService
 from shopman.utils.monetary import format_money
 
-from shopman.shop.models import Channel
 from shopman.backstage.constants import POS_CHANNEL_REF
 from shopman.backstage.projections.pos import build_pos, build_pos_shift_summary
+from shopman.shop.models import Channel
 
 logger = logging.getLogger(__name__)
 
@@ -54,9 +54,8 @@ def pos_view(request: HttpRequest) -> HttpResponse:
     if denied:
         return denied
 
-    from shopman.shop.models import Shop
-
     from shopman.backstage.models import CashRegisterSession
+    from shopman.shop.models import Shop
 
     shop = Shop.load()
     cash_session = CashRegisterSession.get_open_for_operator(request.user)
@@ -219,11 +218,6 @@ def pos_close(request: HttpRequest) -> HttpResponse:
         )
     except Exception as e:
         logger.exception("pos_close modify_failed")
-        _msg = str(e).lower()
-        if "insuficiente" in _msg or "estoque" in _msg or "stock" in _msg or "unavailable" in _msg:
-            error_msg = f"Produto indispon&iacute;vel: {e}"
-        else:
-            error_msg = f"Erro ao montar pedido: {e}"
         return HttpResponse(
             f'<div class="px-3 py-2 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">'
             f'<span class="font-semibold">Produto indisponível</span> — {e}'
@@ -423,6 +417,7 @@ def pos_park(request: HttpRequest) -> HttpResponse:
 
     from django.utils import timezone as tz
     from shopman.refs.generators import generate_value
+
     from shopman.shop.config import ChannelConfig
     from shopman.shop.models import Shop
 

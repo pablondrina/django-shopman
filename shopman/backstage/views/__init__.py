@@ -48,6 +48,7 @@ __all__ = [
     "OrderAdvanceView",
     "OrderConfirmView",
     "OrderDetailPartialView",
+    "OrderHistoricoView",
     "OrderListPartialView",
     "OrderMarkPaidView",
     "OrderNotesView",
@@ -60,6 +61,9 @@ __all__ = [
     "pos_cash_sangria",
     "pos_close",
     "pos_customer_lookup",
+    "pos_load_session",
+    "pos_park",
+    "pos_sessions",
     "pos_shift_summary",
     "pos_view",
 ]

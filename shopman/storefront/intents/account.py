@@ -13,7 +13,6 @@ from .types import (
     ProfileUpdateResult,
 )
 
-
 # ── Public API ────────────────────────────────────────────────────────────────
 
 

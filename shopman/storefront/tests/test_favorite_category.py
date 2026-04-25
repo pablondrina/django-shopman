@@ -93,8 +93,9 @@ class TestFavoriteCategoryFromOrders:
         assert result == "pao"
 
     def test_higher_qty_wins(self, product_a1, product_b1, customer):
-        from shopman.storefront.omotenashi.context import _favorite_category_from_orders
         from shopman.orderman.models import Order
+
+        from shopman.storefront.omotenashi.context import _favorite_category_from_orders
 
         _make_order(customer, [("PAO-01", 1)])
         _make_order(customer, [("DOCE-01", 5)])  # higher qty → doce wins
@@ -107,8 +108,9 @@ class TestFavoriteCategoryFromOrders:
         assert result == "doce"
 
     def test_two_products_same_collection(self, product_a1, product_a2, product_b1, customer):
-        from shopman.storefront.omotenashi.context import _favorite_category_from_orders
         from shopman.orderman.models import Order
+
+        from shopman.storefront.omotenashi.context import _favorite_category_from_orders
 
         # 1 pao-01 + 1 pao-02 = 2 pao total vs 1 doce
         _make_order(customer, [("PAO-01", 1), ("PAO-02", 1), ("DOCE-01", 1)])
@@ -166,6 +168,7 @@ class TestCatalogProjectionFavorite:
         from unittest.mock import MagicMock
 
         from shopman.offerman.models import Listing, ListingItem
+
         from shopman.storefront.projections.catalog import build_catalog
 
         # Seed a listing so the product appears
@@ -189,6 +192,7 @@ class TestCatalogProjectionFavorite:
     def test_no_orders_favorite_is_none(self, product_a1):
         """Without customer orders, favorite_category_ref is None."""
         from shopman.offerman.models import Listing, ListingItem
+
         from shopman.storefront.projections.catalog import build_catalog
 
         listing = Listing.objects.create(ref="nelson2", name="Nelson2", is_active=True)

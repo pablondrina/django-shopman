@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import pytest
 from django.test import TestCase
-
 from shopman.guestman.models import Customer, CustomerAddress, CustomerGroup
+
 from shopman.storefront.intents.types import CheckoutIntent
 from shopman.storefront.views.checkout import CheckoutView
-
 
 PHONE = "+5543999990001"
 FORMATTED = "Rua das Flores, 123, Centro, Londrina - PR, 86020-000"

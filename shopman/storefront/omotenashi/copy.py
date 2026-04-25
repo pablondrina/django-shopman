@@ -5,9 +5,9 @@ post-save signal (on OmotenashiCopy) reaches a single _DB_CACHE instance.
 """
 
 from shopman.shop.omotenashi.copy import (  # noqa: F401
-    OMOTENASHI_DEFAULTS,
-    MOMENT_CHOICES,
     AUDIENCE_CHOICES,
+    MOMENT_CHOICES,
+    OMOTENASHI_DEFAULTS,
     WILDCARD,
     CopyEntry,
     all_keys,

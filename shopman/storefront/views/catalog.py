@@ -83,8 +83,8 @@ class MenuView(View):
         if request.GET.get("partial") == "availability_preview":
             return self._availability_preview(request, listing_ref)
 
-        from shopman.storefront.projections import build_catalog
         from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
+        from shopman.storefront.projections import build_catalog
 
         if collection is not None:
             get_object_or_404(Collection, ref=collection, is_active=True)
@@ -146,8 +146,8 @@ class ProductDetailView(View):
     def get(self, request: HttpRequest, sku: str) -> HttpResponse:
         from django.http import Http404
 
-        from shopman.storefront.projections import build_product_detail
         from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
+        from shopman.storefront.projections import build_product_detail
 
         projection = build_product_detail(
             sku=sku,

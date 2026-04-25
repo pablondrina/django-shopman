@@ -10,13 +10,13 @@ import pytest
 from django.test import RequestFactory
 from shopman.orderman.models import Session
 
+from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
 from shopman.storefront.projections import build_cart
 from shopman.storefront.projections.cart import (
     CartItemProjection,
     CartProjection,
     MinimumOrderProgressProjection,
 )
-from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
 
 pytestmark = pytest.mark.django_db
 

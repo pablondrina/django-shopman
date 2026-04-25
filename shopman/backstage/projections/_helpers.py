@@ -5,8 +5,6 @@ from __future__ import annotations
 import logging
 from datetime import date
 
-from django.conf import settings
-
 from shopman.backstage.constants import POS_CHANNEL_REF
 
 logger = logging.getLogger(__name__)

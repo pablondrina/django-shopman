@@ -29,6 +29,7 @@ def address_picker_context(
     picker's ``draft`` so the user doesn't lose what they typed.
     """
     from django.conf import settings
+
     from shopman.shop.models import Shop
 
     addresses = []

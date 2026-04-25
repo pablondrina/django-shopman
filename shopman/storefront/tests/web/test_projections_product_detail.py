@@ -13,6 +13,7 @@ import pytest
 from django.utils import timezone
 from shopman.offerman.models import ListingItem, Product
 
+from shopman.shop.projections.types import Availability
 from shopman.storefront.models import Promotion
 from shopman.storefront.projections import build_product_detail
 from shopman.storefront.projections.product_detail import (
@@ -20,7 +21,6 @@ from shopman.storefront.projections.product_detail import (
     ConservationInfoProjection,
     ProductDetailProjection,
 )
-from shopman.shop.projections.types import Availability
 
 pytestmark = pytest.mark.django_db
 

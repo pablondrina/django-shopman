@@ -19,7 +19,6 @@ from shopman.shop.models import OmotenashiCopy
 from shopman.storefront.omotenashi import OmotenashiContext
 from shopman.storefront.omotenashi.context import (
     AUDIENCE_ANON,
-    AUDIENCE_RETURNING,
     MOMENT_MANHA,
     MOMENT_TARDE,
 )

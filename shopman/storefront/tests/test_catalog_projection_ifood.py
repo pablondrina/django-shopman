@@ -14,17 +14,15 @@ Coverage:
 
 from __future__ import annotations
 
-from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 import pytest
 from django.test import override_settings
 from django.utils import timezone
-
 from shopman.offerman.protocols.projection import ProjectedItem, ProjectionResult
 from shopman.orderman.models import Directive
-from shopman.shop.directives import CATALOG_PROJECT_SKU
 
+from shopman.shop.directives import CATALOG_PROJECT_SKU
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -286,11 +284,14 @@ def test_idempotency_same_price_signal_twice(db):
     """Same price_changed event fired twice → only 1 Directive (dedupe)."""
     from shopman.shop.handlers.catalog_projection import on_price_changed
 
-    kwargs = dict(
-        sender=None, instance=None,
-        listing_ref="ifood", sku="CROISSANT",
-        old_price_q=800, new_price_q=900,
-    )
+    kwargs = {
+        "sender": None,
+        "instance": None,
+        "listing_ref": "ifood",
+        "sku": "CROISSANT",
+        "old_price_q": 800,
+        "new_price_q": 900,
+    }
     on_price_changed(**kwargs)
     on_price_changed(**kwargs)
 
@@ -334,6 +335,7 @@ def test_signal_noop_when_no_adapters_configured(db):
 def test_sync_catalog_ifood_dry_run(db, capsys):
     """--dry-run prints items and makes no API calls."""
     from django.core.management import call_command
+
     from shopman.shop.models import Channel
 
     Channel.objects.create(ref="ifood", name="iFood", is_active=True)
@@ -358,6 +360,7 @@ def test_sync_catalog_ifood_dry_run(db, capsys):
 def test_sync_catalog_ifood_full_sync(db, ifood_settings):
     """--full calls backend.project(full_sync=True) and reports success."""
     from django.core.management import call_command
+
     from shopman.shop.models import Channel
 
     Channel.objects.create(ref="ifood", name="iFood", is_active=True)

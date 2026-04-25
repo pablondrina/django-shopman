@@ -29,17 +29,17 @@ from shopman.offerman.service import CatalogError, CatalogService
 from shopman.utils.monetary import format_money
 
 from shopman.shop.config import ChannelConfig
-from shopman.storefront.services.storefront_context import session_pricing_hints
-
-from .catalog import (
-    _cart_qty_by_sku,
-    _resolve_availability,
-)
 from shopman.shop.projections.types import (
     AVAILABILITY_LABELS_PT,
     Availability,
     CategoryProjection,
     ComponentProjection,
+)
+from shopman.storefront.services.storefront_context import session_pricing_hints
+
+from .catalog import (
+    _cart_qty_by_sku,
+    _resolve_availability,
 )
 
 if TYPE_CHECKING:

@@ -14,8 +14,6 @@ from shopman.shop.services import availability
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF as CHANNEL_REF
 
 
-
-
 class CartUnavailableError(Exception):
     """Raised by CartService.add_item when stock is insufficient.
 

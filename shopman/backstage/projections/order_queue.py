@@ -17,9 +17,6 @@ from django.utils import timezone
 from shopman.orderman.models import Order
 from shopman.utils.monetary import format_money
 
-from shopman.shop.services import payment as payment_svc
-from shopman.shop.services.order_helpers import get_fulfillment_type
-
 from shopman.shop.projections.types import (
     ORDER_STATUS_COLORS,
     ORDER_STATUS_LABELS_PT,
@@ -27,6 +24,8 @@ from shopman.shop.projections.types import (
     OrderItemProjection,
     TimelineEventProjection,
 )
+from shopman.shop.services import payment as payment_svc
+from shopman.shop.services.order_helpers import get_fulfillment_type
 
 if TYPE_CHECKING:
     pass

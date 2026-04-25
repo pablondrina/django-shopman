@@ -18,13 +18,14 @@ from typing import TYPE_CHECKING
 
 from shopman.utils.monetary import format_money
 
-from .cart import CartProjection, build_cart
 from shopman.shop.projections.types import (
     PAYMENT_METHOD_LABELS_PT,
     PaymentMethodOptionProjection,
     PickupSlotProjection,
     SavedAddressProjection,
 )
+
+from .cart import CartProjection, build_cart
 
 if TYPE_CHECKING:
     from django.http import HttpRequest

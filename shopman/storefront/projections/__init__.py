@@ -31,7 +31,6 @@ from .order_tracking import (
     build_order_tracking,
     build_order_tracking_status,
 )
-from .shop import ShopProjection, SocialLinkProjection, build_shop_projection
 from .payment import (
     PaymentProjection,
     PaymentStatusProjection,
@@ -44,6 +43,7 @@ from .product_detail import (
     ProductDetailProjection,
     build_product_detail,
 )
+from .shop import ShopProjection, SocialLinkProjection, build_shop_projection
 
 __all__ = [
     "AllergenInfoProjection",

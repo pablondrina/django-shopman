@@ -23,10 +23,9 @@ from django.test import TestCase
 from shopman.orderman.exceptions import ValidationError as OrderingValidationError
 
 from shopman.shop.models import Shop
-
-from shopman.storefront.models import DeliveryZone
 from shopman.shop.modifiers import DeliveryFeeModifier
 from shopman.shop.rules.validation import DeliveryZoneRule
+from shopman.storefront.models import DeliveryZone
 
 
 def _make_shop():

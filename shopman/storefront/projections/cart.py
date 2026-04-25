@@ -23,13 +23,12 @@ from typing import TYPE_CHECKING
 from shopman.offerman.models import Product
 from shopman.utils.monetary import format_money
 
+from shopman.shop.projections.types import Availability
+from shopman.storefront.cart import CartService
 from shopman.storefront.services.storefront_context import (
     minimum_order_progress,
     upsell_suggestion,
 )
-from shopman.storefront.cart import CartService
-
-from shopman.shop.projections.types import Availability
 
 if TYPE_CHECKING:
     from django.http import HttpRequest  # noqa: F401

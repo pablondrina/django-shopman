@@ -13,7 +13,7 @@ import logging
 from decimal import Decimal
 
 from django.conf import settings
-from django.http import Http404, HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.views import View
 from shopman.offerman.models import Product

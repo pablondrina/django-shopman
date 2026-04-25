@@ -37,8 +37,8 @@ class CartView(View):
     """Full cart page driven by ``CartProjection``."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        from shopman.storefront.projections import build_cart
         from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
+        from shopman.storefront.projections import build_cart
 
         cart = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
         reorder_skipped = request.session.pop("reorder_skipped", None)
@@ -151,8 +151,8 @@ class CartPageContentView(View):
     """
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        from shopman.storefront.projections import build_cart
         from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
+        from shopman.storefront.projections import build_cart
 
         cart = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
         return render(
@@ -166,8 +166,8 @@ class CartDrawerContentProjView(View):
     """HTMX: cart drawer driven by ``CartProjection`` (typed read model)."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        from shopman.storefront.projections import build_cart
         from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
+        from shopman.storefront.projections import build_cart
 
         cart = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
         return render(request, "storefront/partials/cart_drawer.html", {"cart": cart})
