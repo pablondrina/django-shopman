@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import logging
 
-from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
-from shopman.offerman.models import Collection, Product
 
+from shopman.storefront.services import catalog as catalog_service
 from shopman.storefront.services.storefront_context import (
     fresh_from_oven_skus,
     popular_skus,
@@ -23,54 +22,9 @@ from ._helpers import (
 logger = logging.getLogger(__name__)
 
 
-def _published_products(listing_ref: str | None) -> QuerySet:
-    """Base queryset: visible in the current listing."""
-    qs = Product.objects.filter(is_published=True)
-    if listing_ref:
-        qs = qs.filter(
-            listing_items__listing__ref=listing_ref,
-            listing_items__listing__is_active=True,
-            listing_items__is_published=True,
-        )
-    return qs
-
-
-def _build_search_index(catalog) -> list[dict]:
-    """Índice leve pra busca client-side no overlay do menu.
-
-    Um registro por item de seção, dedupado por sku (o mesmo item pode aparecer
-    em uma dinâmica + sua coleção estática). Inclui keywords pra melhor ranking.
-    """
-    seen: set[str] = set()
-    records: list[dict] = []
-    keywords_by_sku: dict[str, list[str]] = {}
-
-    try:
-        skus_all = [item.sku for sec in catalog.sections for item in sec.items]
-        if skus_all:
-            prods = Product.objects.filter(sku__in=skus_all).prefetch_related("keywords")
-            for p in prods:
-                try:
-                    keywords_by_sku[p.sku] = [str(t.name) for t in p.keywords.all()]
-                except Exception:
-                    keywords_by_sku[p.sku] = []
-    except Exception:
-        keywords_by_sku = {}
-
-    for section in catalog.sections:
-        for item in section.items:
-            if item.sku in seen:
-                continue
-            seen.add(item.sku)
-            records.append({
-                "sku": item.sku,
-                "name": item.name,
-                "price": item.price_display,
-                "image": item.image_url or "",
-                "section": section.label,
-                "keywords": keywords_by_sku.get(item.sku, []),
-            })
-    return records
+def _published_products(listing_ref: str | None):
+    """Backward-compatible wrapper for API modules; canonical logic is service-owned."""
+    return catalog_service.published_products(listing_ref)
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
@@ -87,7 +41,7 @@ class MenuView(View):
         from shopman.storefront.projections import build_catalog
 
         if collection is not None:
-            get_object_or_404(Collection, ref=collection, is_active=True)
+            catalog_service.ensure_active_collection(collection)
         catalog = build_catalog(
             channel_ref=STOREFRONT_CHANNEL_REF,
             collection_ref=collection,
@@ -95,7 +49,7 @@ class MenuView(View):
         )
         return render(request, "storefront/menu.html", {
             "catalog": catalog,
-            "catalog_search_index_json": _build_search_index(catalog),
+            "catalog_search_index_json": catalog_service.search_index(catalog),
         })
 
     def _availability_preview(self, request: HttpRequest, listing_ref: str | None) -> HttpResponse:
@@ -110,7 +64,7 @@ class MenuView(View):
         if fresh:
             fresh_skus = [f["sku"] for f in fresh]
             freshness_map = {f["sku"]: f["freshness_label"] for f in fresh}
-            qs = _published_products(listing_ref)
+            qs = catalog_service.published_products(listing_ref)
             products_by_sku = {p.sku: p for p in qs.filter(sku__in=fresh_skus)}
             products = [products_by_sku[s] for s in fresh_skus if s in products_by_sku]
         else:
@@ -118,7 +72,7 @@ class MenuView(View):
 
         if not products:
             popular = popular_skus(limit=6)
-            qs = _published_products(listing_ref)
+            qs = catalog_service.published_products(listing_ref)
             if popular:
                 products = list(qs.filter(sku__in=popular).distinct()[:6])
             else:

@@ -82,3 +82,33 @@ def should_skip_confirmation(order) -> bool:
 
     cfg = ChannelConfig.for_channel(order.channel_ref).confirmation
     return cfg.mode == "auto_confirm"
+
+
+def add_reorder_items(request, order, *, cart_service=None) -> list[str]:
+    from shopman.offerman.models import Product
+
+    from shopman.storefront.cart import CartService, CartUnavailableError
+    from shopman.storefront.views._helpers import _get_price_q, _line_item_is_d1
+
+    cart_service = cart_service or CartService
+    skipped: list[str] = []
+    for item in order.items.all():
+        product = Product.objects.filter(sku=item.sku, is_published=True).first()
+        if product and product.is_sellable:
+            price_q = _get_price_q(product)
+            if price_q is None:
+                price_q = 0
+            try:
+                cart_service.add_item(
+                    request,
+                    sku=item.sku,
+                    qty=int(item.qty),
+                    unit_price_q=price_q,
+                    is_d1=_line_item_is_d1(product),
+                )
+            except CartUnavailableError:
+                skipped.append(product.name or item.sku)
+        else:
+            name = product.name if product else item.sku
+            skipped.append(name)
+    return skipped

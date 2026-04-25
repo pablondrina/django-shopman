@@ -11,7 +11,6 @@ from django.views import View
 
 from ..cart import CartService
 from ..services import orders as order_service
-from ._helpers import _get_price_q, _line_item_is_d1
 
 logger = logging.getLogger(__name__)
 
@@ -35,31 +34,8 @@ class ReorderView(View):
     """POST: re-add all items from a past order to the cart."""
 
     def post(self, request: HttpRequest, ref: str) -> HttpResponse:
-        from shopman.offerman.models import Product
-
-        from shopman.storefront.cart import CartUnavailableError
-
         order = order_service.get_order(ref)
-        skipped: list[str] = []
-        for item in order.items.all():
-            product = Product.objects.filter(sku=item.sku, is_published=True).first()
-            if product and product.is_sellable:
-                price_q = _get_price_q(product)
-                if price_q is None:
-                    price_q = 0
-                try:
-                    CartService.add_item(
-                        request,
-                        sku=item.sku,
-                        qty=int(item.qty),
-                        unit_price_q=price_q,
-                        is_d1=_line_item_is_d1(product),
-                    )
-                except CartUnavailableError:
-                    skipped.append(product.name or item.sku)
-            else:
-                name = product.name if product else item.sku
-                skipped.append(name)
+        skipped = order_service.add_reorder_items(request, order, cart_service=CartService)
 
         request.session["reorder_source"] = True
         if skipped:
