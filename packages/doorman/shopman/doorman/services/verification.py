@@ -93,6 +93,18 @@ class AuthService:
                 error="Invalid login target.",
                 error_code=ErrorCode.INVALID_TARGET,
             )
+        if purpose not in VerificationCode.Purpose.values:
+            return CodeRequestResult(
+                success=False,
+                error="Invalid verification purpose.",
+                error_code=ErrorCode.INVALID_INPUT,
+            )
+        if delivery_method not in VerificationCode.DeliveryMethod.values:
+            return CodeRequestResult(
+                success=False,
+                error="Invalid delivery method.",
+                error_code=ErrorCode.INVALID_INPUT,
+            )
         if not adapter.is_login_allowed(target_value, delivery_method):
             return CodeRequestResult(
                 success=False,
@@ -243,7 +255,9 @@ class AuthService:
             )
 
         # Find valid code
-        code = cls._get_valid_code(target_value, VerificationCode.Purpose.LOGIN)
+        code = cls._get_valid_code(
+            target_value, VerificationCode.Purpose.LOGIN, for_update=True
+        )
         if not code:
             return VerifyResult(
                 success=False,
@@ -377,10 +391,19 @@ class AuthService:
     # ===========================================
 
     @classmethod
-    def _get_valid_code(cls, target_value: str, purpose: str) -> VerificationCode | None:
+    def _get_valid_code(
+        cls,
+        target_value: str,
+        purpose: str,
+        *,
+        for_update: bool = False,
+    ) -> VerificationCode | None:
         """Get the most recent valid code for target and purpose."""
+        queryset = VerificationCode.objects
+        if for_update:
+            queryset = queryset.select_for_update()
         try:
-            return VerificationCode.objects.filter(
+            return queryset.filter(
                 target_value=target_value,
                 purpose=purpose,
                 status__in=[VerificationCode.Status.PENDING, VerificationCode.Status.SENT],

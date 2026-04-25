@@ -88,6 +88,11 @@ class AccessLinkCreateView(View):
             ttl_minutes=data.get("ttl_minutes"),
             metadata=data.get("metadata"),
         )
+        if not result.success:
+            return JsonResponse(
+                {"error": result.error, "error_code": result.error_code},
+                status=400,
+            )
 
         return JsonResponse(
             {

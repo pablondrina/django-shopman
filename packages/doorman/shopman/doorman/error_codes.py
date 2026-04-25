@@ -5,10 +5,10 @@ Every error path in auth services returns a specific ErrorCode,
 enabling programmatic handling by API consumers and frontends.
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class ErrorCode(str, Enum):
+class ErrorCode(StrEnum):
     """Error codes for auth operations."""
 
     # Verification code errors

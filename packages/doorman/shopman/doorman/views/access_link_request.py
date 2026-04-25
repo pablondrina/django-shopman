@@ -16,6 +16,9 @@ from ..services.access_link import AccessLinkService
 from ..utils import get_client_ip
 
 _RATE_LIMIT_CODES = frozenset({ErrorCode.EMAIL_RATE_LIMIT, ErrorCode.IP_RATE_LIMIT})
+_PRIVATE_ACCOUNT_CODES = frozenset(
+    {ErrorCode.ACCOUNT_NOT_FOUND, ErrorCode.ACCOUNT_INACTIVE}
+)
 
 logger = logging.getLogger("shopman.doorman.views.access_link")
 
@@ -82,6 +85,10 @@ class AccessLinkRequestView(View):
         result = AccessLinkService.send_access_link(email, ip_address=ip_address)
 
         if not result.success:
+            if result.error_code in _PRIVATE_ACCOUNT_CODES:
+                if is_json:
+                    return JsonResponse({"success": True})
+                return render(request, template_name, {"sent": True, "email": email})
             http_status = 429 if result.error_code in _RATE_LIMIT_CODES else 400
             if is_json:
                 return JsonResponse({"error": result.error}, status=http_status)

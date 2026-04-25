@@ -241,15 +241,11 @@ class TestAccessLinkLifecycle:
         result1 = AccessLinkService.exchange(access_link._raw_token, request1)
         assert result1.success
 
-        # Move used_at past the reuse window
-        access_link.refresh_from_db()
-        access_link.used_at = timezone.now() - timedelta(seconds=120)
-        access_link.save()
-
-        # Second exchange: should fail
+        # Second exchange must fail immediately. There is no replay window.
         request2 = self._make_request()
         result2 = AccessLinkService.exchange(access_link._raw_token, request2)
         assert not result2.success
+        assert result2.error_code == "token_used"
 
     def test_expired_token_rejected(self, expired_access_link):
         """Expired token must be rejected."""
@@ -463,11 +459,21 @@ class TestGates:
     def test_g7_used_token_raises(self, customer, access_link, django_user_model):
         user = django_user_model.objects.create_user(username="gateuser")
         access_link.mark_used(user)
-        access_link.used_at = timezone.now() - timedelta(seconds=120)
-        access_link.save()
 
         with pytest.raises(GateError, match="already used"):
             Gates.access_link_validity(access_link)
+
+    def test_create_token_rejects_invalid_ttl(self, customer):
+        result = AccessLinkService.create_token(customer, ttl_minutes=0)
+
+        assert not result.success
+        assert result.error_code == "invalid_input"
+
+    def test_create_token_rejects_invalid_scope(self, customer):
+        result = AccessLinkService.create_token(customer, audience="admin")
+
+        assert not result.success
+        assert result.error_code == "invalid_input"
 
     def test_g7_wrong_audience_raises(self, access_link):
         with pytest.raises(GateError, match="audience"):

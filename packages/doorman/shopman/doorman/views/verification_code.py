@@ -11,8 +11,7 @@ from django.utils.translation import gettext_lazy as _
 from django.views import View
 
 from ..conf import get_doorman_settings
-from ..models import AccessLink, VerificationCode
-from ..services.access_link import AccessLinkService
+from ..models import VerificationCode
 from ..services.verification import AuthService
 from ..utils import get_client_ip, normalize_phone, safe_redirect_url
 
@@ -140,7 +139,6 @@ class VerificationCodeVerifyView(View):
 
     def post(self, request):
         template_name = self.get_template_name()
-        settings = get_doorman_settings()
 
         # Parse input
         is_json = request.content_type == "application/json"
@@ -196,17 +194,6 @@ class VerificationCodeVerifyView(View):
                     "attempts_remaining": result.attempts_remaining,
                 },
             )
-
-        # Create session via access link
-        token_result = AccessLinkService.create_token(
-            customer=result.customer,
-            source=AccessLink.Source.INTERNAL,
-        )
-        AccessLinkService.exchange(
-            token_result.token,
-            request,
-            preserve_session_keys=settings.PRESERVE_SESSION_KEYS,
-        )
 
         # Get next URL from session before clearing
         next_url = request.session.pop("doorman_next", None)

@@ -34,9 +34,6 @@ class Gates:
     # G7: Access Link Validity
     # ===========================================
 
-    # Janela de reuso do token (segundos) - para lidar com prefetch de navegadores
-    ACCESS_LINK_REUSE_WINDOW_SECONDS = 60
-
     @classmethod
     def access_link_validity(
         cls,
@@ -54,10 +51,7 @@ class Gates:
             GateError: If token is invalid
         """
         if token.used_at:
-            # Permite reuso dentro da janela (para lidar com prefetch de navegadores)
-            reuse_window = timedelta(seconds=cls.ACCESS_LINK_REUSE_WINDOW_SECONDS)
-            if timezone.now() - token.used_at > reuse_window:
-                raise GateError("G7_AccessLinkValidity", "Token already used.")
+            raise GateError("G7_AccessLinkValidity", "Token already used.")
 
         if token.is_expired:
             raise GateError("G7_AccessLinkValidity", "Token expired.")

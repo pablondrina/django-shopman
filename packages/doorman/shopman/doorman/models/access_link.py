@@ -181,27 +181,30 @@ class AccessLink(models.Model):
         The DB stores only the HMAC-SHA256 digest.
         """
         raw_token = secrets.token_urlsafe(32)
-        kwargs = dict(
-            customer_id=customer_id,
-            token_hash=_hash_token(raw_token),
-            audience=audience,
-            source=source,
-            metadata=metadata or {},
-        )
+        kwargs = {
+            "customer_id": customer_id,
+            "token_hash": _hash_token(raw_token),
+            "audience": audience,
+            "source": source,
+            "metadata": metadata or {},
+        }
         if expires_at is not None:
             kwargs["expires_at"] = expires_at
         link = cls.objects.create(**kwargs)
         return link, raw_token
 
     @classmethod
-    def get_by_token(cls, raw_token: str) -> "AccessLink | None":
+    def get_by_token(cls, raw_token: str, *, for_update: bool = False) -> "AccessLink | None":
         """
         Look up an AccessLink by raw token.
 
         Computes HMAC and queries by hash — never stores or queries plaintext.
         """
         token_hash = _hash_token(raw_token)
+        queryset = cls.objects
+        if for_update:
+            queryset = queryset.select_for_update()
         try:
-            return cls.objects.get(token_hash=token_hash)
+            return queryset.get(token_hash=token_hash)
         except cls.DoesNotExist:
             return None

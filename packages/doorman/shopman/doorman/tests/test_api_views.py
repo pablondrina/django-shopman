@@ -13,7 +13,6 @@ from shopman.doorman.error_codes import ErrorCode
 from shopman.doorman.exceptions import GateError
 from shopman.doorman.views.access_link_request import AccessLinkRequestView
 
-
 # ===========================================
 # RequestCodeView
 # ===========================================
@@ -157,9 +156,11 @@ class TestAccessLinkRequestViewRateLimit:
 
         assert response.status_code == 429
 
-    def test_account_not_found_returns_400(self):
+    def test_account_not_found_returns_generic_success(self):
         response = self._post_json("nobody@example.com")
-        assert response.status_code == 400
+        assert response.status_code == 200
+        data = json.loads(response.content)
+        assert data["success"] is True
 
     def test_invalid_email_returns_400(self):
         response = self._post_json("not-an-email")

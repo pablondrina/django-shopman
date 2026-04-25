@@ -99,7 +99,29 @@ class AccessLinkService:
         Returns:
             TokenResult with token and URL
         """
-        ttl = ttl_minutes or doorman_settings.ACCESS_LINK_EXCHANGE_TTL_MINUTES
+        ttl = (
+            doorman_settings.ACCESS_LINK_EXCHANGE_TTL_MINUTES
+            if ttl_minutes is None
+            else ttl_minutes
+        )
+        if ttl <= 0:
+            return TokenResult(
+                success=False,
+                error="TTL must be greater than zero.",
+                error_code=ErrorCode.INVALID_INPUT,
+            )
+        if audience not in AccessLink.Audience.values:
+            return TokenResult(
+                success=False,
+                error="Invalid access link audience.",
+                error_code=ErrorCode.INVALID_INPUT,
+            )
+        if source not in AccessLink.Source.values:
+            return TokenResult(
+                success=False,
+                error="Invalid access link source.",
+                error_code=ErrorCode.INVALID_INPUT,
+            )
         expires_at = timezone.now() + timedelta(minutes=ttl)
 
         link, raw_token = AccessLink.create_with_token(
@@ -176,7 +198,7 @@ class AccessLinkService:
             AuthResult with user and customer
         """
         # Find token (lookup by HMAC hash, never plaintext)
-        token = AccessLink.get_by_token(token_str)
+        token = AccessLink.get_by_token(token_str, for_update=True)
         if token is None:
             logger.warning("Invalid token attempted")
             return AuthResult(success=False, error="Invalid token.", error_code=ErrorCode.TOKEN_INVALID)
