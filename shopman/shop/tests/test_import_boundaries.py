@@ -215,3 +215,19 @@ def test_backstage_views_do_not_drive_order_lifecycle_directly():
             "Move operator/KDS/production commands into shopman.shop.services and keep "
             "views focused on HTTP, permissions, and rendering."
         )
+
+
+def test_storefront_views_do_not_import_payment_kernel_directly():
+    """Storefront payment views must delegate Payman commands to shop services."""
+    violations = []
+    for path in _py_files(STOREFRONT_ROOT / "views", skip_parts={"tests"}):
+        for line, module in _imports(path):
+            if _matches_prefix(module, ("shopman.payman",)):
+                violations.append((path, line, module))
+
+    if violations:
+        pytest.fail(
+            "Storefront views imported Payman directly:\n"
+            f"{_format_violations(violations)}\n\n"
+            "Use shopman.shop.services.payment for payment command flows."
+        )

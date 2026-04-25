@@ -595,6 +595,47 @@ class TestPaymentService:
         assert "status" not in order.data["payment"]
         assert order.data["payment"]["transaction_id"] == "TXN-001"
 
+    @patch("shopman.shop.lifecycle.ensure_confirmable")
+    @patch("shopman.payman.PaymentService")
+    @patch("shopman.shop.services.payment.get_payment_status", return_value=None)
+    def test_mock_confirm_captures_and_confirms_new_order(
+        self, mock_status, mock_payment_service, mock_ensure,
+    ):
+        from shopman.shop.services.payment import mock_confirm
+
+        pending = MagicMock(status="pending")
+        authorized = MagicMock(status="authorized")
+        mock_payment_service.get.side_effect = [pending, authorized]
+
+        order = _make_order(
+            status="new",
+            data={"payment": {"method": "pix", "intent_ref": "INT-001", "amount_q": 5000}},
+        )
+
+        result = mock_confirm(order)
+
+        assert result is True
+        mock_payment_service.authorize.assert_called_once_with(
+            "INT-001",
+            gateway_id="mock_confirm_INT-001",
+        )
+        mock_payment_service.capture.assert_called_once_with("INT-001")
+        order.emit_event.assert_called_once()
+        order.transition_status.assert_called_once_with("confirmed", actor="payment.pix")
+
+    @patch("shopman.payman.PaymentService")
+    @patch("shopman.shop.services.payment.get_payment_status", return_value="captured")
+    def test_mock_confirm_noop_when_already_captured(self, mock_status, mock_payment_service):
+        from shopman.shop.services.payment import mock_confirm
+
+        order = _make_order(data={"payment": {"method": "pix", "intent_ref": "INT-001"}})
+
+        result = mock_confirm(order)
+
+        assert result is False
+        mock_payment_service.get.assert_not_called()
+        order.save.assert_not_called()
+
 
 # ══════════════════════════════════════════════════════════════════════
 # services/notification.py

@@ -18,6 +18,8 @@ from __future__ import annotations
 import json
 import logging
 
+from django.utils import timezone
+
 from shopman.shop.adapters import get_adapter
 from shopman.shop.adapters.payment_types import PaymentIntent
 
@@ -204,6 +206,57 @@ def can_cancel(order) -> bool:
     if order.status not in _CANCELLABLE_STATUSES:
         return False
     return get_payment_status(order) != "captured"
+
+
+def mock_confirm(order) -> bool:
+    """DEV helper: simulate capture for local payment testing.
+
+    Payman remains the canonical status source. This helper only drives the
+    local intent through authorize/capture, records display metadata, emits the
+    payment event, and confirms the order if it is still new.
+    """
+    if get_payment_status(order) == "captured":
+        return False
+
+    from shopman.payman import PaymentError, PaymentService
+
+    payment_data = dict((order.data or {}).get("payment", {}))
+    intent_ref = payment_data.get("intent_ref")
+    if intent_ref:
+        try:
+            intent = PaymentService.get(intent_ref)
+            if intent.status == "pending":
+                PaymentService.authorize(intent_ref, gateway_id=f"mock_confirm_{intent_ref}")
+                intent = PaymentService.get(intent_ref)
+            if intent.status in ("pending", "authorized"):
+                PaymentService.capture(intent_ref)
+        except PaymentError as exc:
+            logger.warning(
+                "mock_confirm: payment transition failed: %s",
+                exc,
+                extra={"intent_ref": intent_ref, "order_ref": order.ref},
+            )
+
+    payment_data["captured_at"] = timezone.now().isoformat()
+    data = dict(order.data or {})
+    data["payment"] = payment_data
+    order.data = data
+    order.save(update_fields=["data", "updated_at"])
+
+    method = payment_data.get("method", "pix")
+    order.emit_event(
+        event_type="payment.captured",
+        actor="mock_payment",
+        payload={"method": method, "amount_q": payment_data.get("amount_q", order.total_q)},
+    )
+
+    if order.status == "new":
+        from shopman.shop.lifecycle import ensure_confirmable
+
+        ensure_confirmable(order)
+        order.transition_status("confirmed", actor=f"payment.{method}")
+
+    return True
 
 
 # ── helpers ──
