@@ -9,7 +9,6 @@ from decimal import Decimal
 
 import pytest
 from django.contrib.auth import get_user_model
-
 from shopman.stockman import stock
 from shopman.stockman.models import Hold, Position, PositionKind
 

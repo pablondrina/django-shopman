@@ -20,13 +20,12 @@ from django.db.models import Count, Q
 from django.template.response import TemplateResponse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from shopman.utils.contrib.admin_unfold.badges import unfold_badge
+from shopman.utils.contrib.admin_unfold.base import BaseModelAdmin, BaseTabularInline
+from unfold.decorators import display
 
 from shopman.refs.bulk import RefBulk
 from shopman.refs.models import Ref, RefSequence
-from shopman.utils.contrib.admin_unfold.badges import unfold_badge
-from shopman.utils.contrib.admin_unfold.base import BaseModelAdmin, BaseTabularInline
-from unfold.contrib.filters.admin.dropdown_filters import ChoicesDropdownFilter
-from unfold.decorators import display
 
 # ── Unregister basic admins ───────────────────────────────────────────────────
 

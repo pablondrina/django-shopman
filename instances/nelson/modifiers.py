@@ -19,7 +19,6 @@ from typing import Any
 
 from django.conf import settings
 from django.utils import timezone
-
 from shopman.utils.monetary import monetary_div
 
 logger = logging.getLogger(__name__)

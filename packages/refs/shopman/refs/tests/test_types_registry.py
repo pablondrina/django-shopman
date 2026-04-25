@@ -4,10 +4,8 @@ Tests for RefType dataclass and RefTypeRegistry.
 
 import pytest
 
-from shopman.refs.exceptions import RefError
 from shopman.refs.registry import RefTypeRegistry, clear_ref_types, get_ref_type, register_ref_type
 from shopman.refs.types import RefType
-
 
 # ── fixtures ─────────────────────────────────────────────────────────────────
 

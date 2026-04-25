@@ -704,7 +704,7 @@ class TestCatalogSearchFilters:
         coll = Collection.objects.create(ref="paes", name="Paes")
         p1 = Product.objects.create(sku="PAO-INT", name="Pao Integral")
         p2 = Product.objects.create(sku="PAO-FR", name="Pao Frances")
-        p3 = Product.objects.create(sku="BOLO-INT", name="Bolo Integral")
+        Product.objects.create(sku="BOLO-INT", name="Bolo Integral")
         CollectionItem.objects.create(collection=coll, product=p1)
         CollectionItem.objects.create(collection=coll, product=p2)
         # p3 NOT in collection

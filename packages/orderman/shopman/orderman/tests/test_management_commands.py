@@ -31,7 +31,7 @@ class ProcessDirectivesCommandTests(TestCase):
 
     def _create_queued(self, topic="dummy.topic", **kwargs):
         """Create a queued directive bypassing post_save signal dispatch."""
-        defaults = dict(topic=topic, payload={}, status="queued")
+        defaults = {"topic": topic, "payload": {}, "status": "queued"}
         defaults.update(kwargs)
         objs = Directive.objects.bulk_create([Directive(**defaults)])
         return objs[0]

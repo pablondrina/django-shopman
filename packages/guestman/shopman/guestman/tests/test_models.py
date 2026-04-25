@@ -3,6 +3,7 @@
 from decimal import Decimal
 
 import pytest
+from django.db import IntegrityError
 
 # Contrib models
 from shopman.guestman.contrib.identifiers.models import CustomerIdentifier, IdentifierType
@@ -128,7 +129,7 @@ class TestCustomerIdentifier:
         )
 
         # Same identifier for different customer should fail
-        with pytest.raises(Exception):  # IntegrityError
+        with pytest.raises(IntegrityError):
             CustomerIdentifier.objects.create(
                 customer=customer_vip,
                 identifier_type=IdentifierType.EMAIL,
@@ -185,7 +186,7 @@ class TestCustomerPreference:
 
     def test_unique_per_customer_category_key(self, customer, customer_preference):
         """Test uniqueness constraint."""
-        with pytest.raises(Exception):  # IntegrityError
+        with pytest.raises(IntegrityError):
             CustomerPreference.objects.create(
                 customer=customer,
                 category="dietary",

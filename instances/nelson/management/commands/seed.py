@@ -24,24 +24,8 @@ from decimal import Decimal
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-
-# ── Craftsman (producao) ─────────────────────────────────────────────
 from shopman.craftsman.models import Recipe, RecipeItem, WorkOrder, WorkOrderItem
-
-# ── Customers (clientes) ─────────────────────────────────────────────
 from shopman.guestman.models import ContactPoint, Customer, CustomerAddress, CustomerGroup
-
-# ── Shopman (orchestrator) ────────────────────────────────────────────
-from shopman.shop.models import RuleConfig, Shop
-from shopman.backstage.models import (
-    CashMovement,
-    CashRegisterSession,
-    DayClosing,
-    KDSInstance,
-)
-from shopman.storefront.models import Coupon, Promotion
-
-# ── Offerman (catalogo) ──────────────────────────────────────────────
 from shopman.offerman.models import (
     Collection,
     CollectionItem,
@@ -50,8 +34,6 @@ from shopman.offerman.models import (
     Product,
     ProductComponent,
 )
-
-# ── Orderman (pedidos) ───────────────────────────────────────────────
 from shopman.orderman.models import (
     Directive,
     Fulfillment,
@@ -61,16 +43,18 @@ from shopman.orderman.models import (
     OrderItem,
     Session,
 )
-
-# ── Shop (canais — parte do orquestrador, não do core) ──────────────
-from shopman.shop.models import Channel
-
-# ── Payments ─────────────────────────────────────────────────────────
 from shopman.payman.models import PaymentIntent, PaymentTransaction
-
-# ── Stockman (estoque) ──────────────────────────────────────────────
 from shopman.stockman import stock
 from shopman.stockman.models import Position, PositionKind, StockAlert
+
+from shopman.backstage.models import (
+    CashMovement,
+    CashRegisterSession,
+    DayClosing,
+    KDSInstance,
+)
+from shopman.shop.models import Channel, RuleConfig, Shop
+from shopman.storefront.models import Coupon, Promotion
 
 
 class Command(BaseCommand):
@@ -2226,11 +2210,6 @@ class Command(BaseCommand):
         col_lanches = Collection.objects.filter(ref="lanches").first()
         col_salgados = Collection.objects.filter(ref="salgados").first()
         col_cafes = Collection.objects.filter(ref="cafes-bebidas").first()
-        col_paes = Collection.objects.filter(ref="paes-artesanais").first()
-        col_focaccias = Collection.objects.filter(ref="focaccias").first()
-        col_brioches = Collection.objects.filter(ref="brioches").first()
-        col_doces = Collection.objects.filter(ref="paes-doces").first()
-        col_folhados = Collection.objects.filter(ref="croissants-folhados").first()
         col_combos = Collection.objects.filter(ref="combos").first()
 
         # Remove old KDS instances that no longer exist

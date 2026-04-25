@@ -190,7 +190,7 @@ class TestSuggestWithDemandBackend:
         """suggest() returns suggestions for all active recipes with demand."""
         tomorrow = date.today() + timedelta(days=1)
 
-        recipe_b = Recipe.objects.create(
+        Recipe.objects.create(
             ref="baguete-v1",
             name="Baguete",
             output_sku="BAGUETE",

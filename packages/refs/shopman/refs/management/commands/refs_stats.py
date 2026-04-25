@@ -25,6 +25,7 @@ class Command(BaseCommand):
 
     def _show_ref_counts(self, ref_type_filter):
         from django.db.models import Count, Q
+
         from shopman.refs.models import Ref
 
         qs = Ref.objects.values("ref_type").annotate(

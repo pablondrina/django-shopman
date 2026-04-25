@@ -453,7 +453,7 @@ class ProductAdmin(_ProductImportExportBase):
         skipped = 0
         max_sort = CollectionItem.objects.filter(collection=collection).count()
         for product in queryset:
-            _, was_created = CollectionItem.objects.get_or_create(
+            _collection_item, was_created = CollectionItem.objects.get_or_create(
                 collection=collection,
                 product=product,
                 defaults={"sort_order": max_sort, "is_primary": False},

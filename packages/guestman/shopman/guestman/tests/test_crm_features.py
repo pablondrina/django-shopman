@@ -620,7 +620,7 @@ class TestTimelineEventModel:
 
     def test_ordering(self, customer):
         """Events ordered by most recent first."""
-        e1 = TimelineEvent.objects.create(
+        TimelineEvent.objects.create(
             customer=customer, event_type="order", title="First"
         )
         e2 = TimelineEvent.objects.create(

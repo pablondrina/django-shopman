@@ -9,9 +9,6 @@ import uuid
 from datetime import date
 
 from django.test import TestCase
-from shopman.refs.exceptions import RefConflict, RefScopeInvalid
-from shopman.refs.models import Ref
-from shopman.refs.registry import clear_ref_types, get_ref_type, register_ref_type
 from shopman.orderman.contrib.refs.services import (
     attach_ref,
     deactivate_refs,
@@ -26,7 +23,9 @@ from shopman.orderman.contrib.refs.types import (
     POS_TAB,
     POS_TABLE,
 )
-
+from shopman.refs.exceptions import RefConflict, RefScopeInvalid
+from shopman.refs.models import Ref
+from shopman.refs.registry import clear_ref_types, register_ref_type
 
 # ── Type definitions ──────────────────────────────────────────────────────────
 

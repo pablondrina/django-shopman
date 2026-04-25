@@ -5,7 +5,6 @@ from decimal import Decimal
 
 import pytest
 from django.test import override_settings
-
 from shopman.stockman import stock
 from shopman.stockman.models import Batch, Move, Position, PositionKind
 from shopman.stockman.services.availability import availability_scope_for_channel

@@ -16,6 +16,7 @@ import logging
 import threading
 from collections.abc import Callable
 from datetime import date
+from importlib.util import find_spec
 from typing import Any
 
 from django.db import transaction
@@ -33,10 +34,8 @@ logger = logging.getLogger(__name__)
 def _craftsman_available() -> bool:
     """Check if Craftsman is available."""
     try:
-        from shopman.craftsman.service import craft
-
-        return True
-    except ImportError:
+        return find_spec("shopman.craftsman.service") is not None
+    except ModuleNotFoundError:
         return False
 
 

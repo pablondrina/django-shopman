@@ -7,7 +7,7 @@ target_type string format used by shopman.refs.
 
 from __future__ import annotations
 
-from typing import Literal, Union
+from typing import Literal
 
 from shopman.refs.models import Ref
 from shopman.refs.services import attach, deactivate, refs_for, resolve, transfer
@@ -22,7 +22,7 @@ _TYPE_TO_KIND: dict[str, str] = {v: k for k, v in _KIND_TO_TYPE.items()}
 
 def attach_ref(
     target_kind: Literal["SESSION", "ORDER"],
-    target_id: Union[int, str],
+    target_id: int | str,
     ref_type_slug: str,
     value: str,
     scope: dict,
@@ -46,7 +46,7 @@ def resolve_ref(
 
 def deactivate_refs(
     target_kind: Literal["SESSION", "ORDER"],
-    target_id: Union[int, str],
+    target_id: int | str,
     ref_type_slugs: list[str] | None = None,
 ) -> int:
     target_type = _KIND_TO_TYPE[target_kind]
@@ -55,14 +55,14 @@ def deactivate_refs(
 
 def get_refs_for_target(
     target_kind: Literal["SESSION", "ORDER"],
-    target_id: Union[int, str],
+    target_id: int | str,
     active_only: bool = True,
 ) -> list[Ref]:
     target_type = _KIND_TO_TYPE[target_kind]
     return list(refs_for(f"{target_type}:{target_id}", active_only=active_only))
 
 
-def on_session_committed(session_id: Union[int, str], order_id: Union[int, str]) -> None:
+def on_session_committed(session_id: int | str, order_id: int | str) -> None:
     """Transfer all active session refs to the new order."""
     transfer(
         f"orderman.Session:{session_id}",

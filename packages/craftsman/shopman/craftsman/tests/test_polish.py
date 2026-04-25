@@ -162,7 +162,7 @@ class TestProductionBackendExceptions:
 
         backend = CraftsmanProductionBackend()
 
-        recipe = Recipe.objects.create(
+        Recipe.objects.create(
             ref="test-recipe",
             name="Test",
             output_sku="test-product",
@@ -182,10 +182,10 @@ class TestProductionBackendExceptions:
 
             with patch(
                 "shopman.stockman.protocols.production.ProductionResult",
-            ) as MockResult, patch(
+            ), patch(
                 "shopman.stockman.protocols.production.ProductionStatusEnum",
             ):
-                result = backend.request_production(mock_request)
+                backend.request_production(mock_request)
 
             # CraftError should be logged as warning, not error
             if mock_logger.warning.called:
@@ -225,7 +225,7 @@ class TestAPIExceptionHandling:
         try:
             # This should raise StaleRevision because expected_rev=0 but actual is 1
             craft.finish(wo, finished=93, expected_rev=0)
-            assert False, "Should have raised StaleRevision"
+            raise AssertionError("Should have raised StaleRevision")
         except StaleRevision as e:
             assert e.code == "STALE_REVISION"
 
@@ -236,7 +236,7 @@ class TestAPIExceptionHandling:
 
         try:
             craft.finish(wo, finished=50, expected_rev=1)
-            assert False, "Should have raised CraftError"
+            raise AssertionError("Should have raised CraftError")
         except CraftError as e:
             assert e.code == "TERMINAL_STATUS"
 
@@ -247,7 +247,7 @@ class TestAPIExceptionHandling:
 
         try:
             craft.void(wo, reason="test", expected_rev=1)
-            assert False, "Should have raised CraftError"
+            raise AssertionError("Should have raised CraftError")
         except CraftError as e:
             assert e.code == "VOID_FROM_DONE"
 

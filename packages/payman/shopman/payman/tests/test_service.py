@@ -254,7 +254,7 @@ class QueryTests(TestCase):
         PaymentService.create_intent("ORD-Q3", 5000, "pix", ref="PAY-OLD")
         PaymentService.cancel("PAY-OLD")
 
-        active = PaymentService.create_intent("ORD-Q3", 5000, "card", ref="PAY-NEW")
+        PaymentService.create_intent("ORD-Q3", 5000, "card", ref="PAY-NEW")
 
         found = PaymentService.get_active_intent("ORD-Q3")
         self.assertIsNotNone(found)

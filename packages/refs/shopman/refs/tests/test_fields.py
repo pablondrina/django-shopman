@@ -4,11 +4,8 @@ Tests for shopman.refs.fields.RefField.
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from shopman.refs.fields import RefField
 from shopman.refs.registry import _ref_source_registry
-
 
 # ── Basic CharField compatibility ─────────────────────────────────────────────
 

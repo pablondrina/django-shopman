@@ -304,8 +304,6 @@ class TestResolvePartial:
 
     def test_multiple_matches_raises_ambiguous(self):
         """Two active refs with same suffix → AmbiguousRef."""
-        scope_a = {"store_id": 1, "business_date": "2026-04-20"}
-        scope_b = {"store_id": 2, "business_date": "2026-04-20"}
         # Use ORDER_CODE (unique_scope=none) so we can have same suffix in different scopes
         attach("ORDER_CODE", "POS-260420-AZ19", "orderman.Order:1",
                scope={"store_id": 1, "business_date": "2026-04-20"})
@@ -342,7 +340,6 @@ class TestResolveObject:
 
     def test_returns_none_when_object_deleted(self, scope, user):
         attach("TABLE", "5", user, scope=scope)
-        pk = user.pk
         user.delete()
         result = resolve_object("TABLE", "5", scope=scope)
         assert result is None
@@ -438,7 +435,6 @@ class TestTransfer:
 
     def test_transfer_model_instances(self, scope, user):
         attach("TABLE", "5", "orderman.Session:10", scope=scope)
-        other = User.objects.create_user(username="other", password="x")
         # Just test it accepts instances without error
         transfer("orderman.Session:10", "orderman.Session:20")
         ref = Ref.objects.get(ref_type="TABLE", value="5")

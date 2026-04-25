@@ -21,12 +21,12 @@ pytestmark = pytest.mark.django_db
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def make_ref_type(**kwargs) -> RefType:
-    defaults = dict(
-        slug="TEST_REF",
-        label="Test",
-        generator="sequence",
-        generator_format="{value}",
-    )
+    defaults = {
+        "slug": "TEST_REF",
+        "label": "Test",
+        "generator": "sequence",
+        "generator_format": "{value}",
+    }
     defaults.update(kwargs)
     return RefType(**defaults)
 

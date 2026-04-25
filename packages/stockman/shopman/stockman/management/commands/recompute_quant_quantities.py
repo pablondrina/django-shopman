@@ -21,7 +21,6 @@ import sys
 from django.core.management.base import BaseCommand
 from django.db.models import Sum
 from django.db.models.functions import Coalesce
-
 from shopman.stockman.models.quant import Quant
 
 logger = logging.getLogger('shopman.stockman')
@@ -73,7 +72,7 @@ class Command(BaseCommand):
 
         # --apply
         fixed = 0
-        for quant, computed in divergent:
+        for quant, _computed in divergent:
             quant.recalculate()
             fixed += 1
 

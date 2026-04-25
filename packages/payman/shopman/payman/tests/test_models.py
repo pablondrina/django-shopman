@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+from django.db import IntegrityError
+from django.db.models.deletion import ProtectedError
 from django.test import TestCase
 from django.utils import timezone
 from shopman.payman.models import PaymentIntent, PaymentTransaction
@@ -31,7 +33,7 @@ class PaymentIntentCreationTests(TestCase):
         PaymentIntent.objects.create(
             ref="PAY-DUP", order_ref="ORD-001", method="pix", amount_q=1000,
         )
-        with self.assertRaises(Exception):
+        with self.assertRaises(IntegrityError):
             PaymentIntent.objects.create(
                 ref="PAY-DUP", order_ref="ORD-002", method="pix", amount_q=2000,
             )
@@ -133,7 +135,7 @@ class PaymentTransactionCreationTests(TestCase):
         PaymentTransaction.objects.create(
             intent=self.intent, type="capture", amount_q=10000,
         )
-        with self.assertRaises(Exception):
+        with self.assertRaises(ProtectedError):
             self.intent.delete()
 
     def test_chargeback_transaction(self) -> None:

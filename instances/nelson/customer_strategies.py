@@ -25,10 +25,10 @@ def nelson_handle_pdv(order):
     """
     from shopman.shop.adapters import get_adapter
     from shopman.shop.services.customer import (
-        _SkipAnonymous,
         _get_customer_data,
         _handle_phone,
         _maybe_update_name,
+        _SkipAnonymous,
         _split_name,
     )
 
@@ -68,4 +68,5 @@ def nelson_handle_pdv(order):
 
 # Register on import
 from shopman.shop.services.customer import register_strategy
+
 register_strategy("pdv", nelson_handle_pdv)

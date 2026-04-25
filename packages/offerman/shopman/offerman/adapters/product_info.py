@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from importlib.util import find_spec
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -17,9 +18,8 @@ logger = logging.getLogger(__name__)
 def _crafting_protocols_available() -> bool:
     """Check if Craftsman protocols are available."""
     try:
-        from shopman.craftsman.protocols.catalog import ProductInfo, SkuValidationResult
-        return True
-    except ImportError:
+        return find_spec("shopman.craftsman.protocols.catalog") is not None
+    except ModuleNotFoundError:
         return False
 
 

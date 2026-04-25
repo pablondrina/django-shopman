@@ -25,7 +25,6 @@ from datetime import date
 from types import SimpleNamespace
 
 from django.db.models import QuerySet
-
 from shopman.stockman.models.quant import Quant
 from shopman.stockman.services.queries import _resolve_stock_profile
 from shopman.stockman.shelflife import filter_valid_quants

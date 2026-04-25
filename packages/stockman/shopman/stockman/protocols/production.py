@@ -13,7 +13,7 @@ Vocabulary mapping (Stockman → Craftsman):
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Protocol, runtime_checkable
 
 # ══════════════════════════════════════════════════════════════
@@ -21,7 +21,7 @@ from typing import Any, Protocol, runtime_checkable
 # ══════════════════════════════════════════════════════════════
 
 
-class ProductionPriority(str, Enum):
+class ProductionPriority(StrEnum):
     """Prioridade de produção."""
 
     LOW = "low"
@@ -30,7 +30,7 @@ class ProductionPriority(str, Enum):
     URGENT = "urgent"
 
 
-class ProductionStatusEnum(str, Enum):
+class ProductionStatusEnum(StrEnum):
     """Status de um pedido de produção."""
 
     PLANNED = "planned"  # WorkOrder planejada

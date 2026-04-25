@@ -753,7 +753,6 @@ class TestMergeAudit:
         assert audit.can_undo is False
 
     def test_audit_counts_match_result(self, source, target, evidence):
-        now = timezone.now()
         ContactPoint.objects.create(
             customer=source,
             type=ContactPoint.Type.INSTAGRAM,

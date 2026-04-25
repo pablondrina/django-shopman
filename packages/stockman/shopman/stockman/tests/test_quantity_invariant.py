@@ -14,7 +14,7 @@ is DB-agnostic, but we mark it consistent with WP-GAP-04 / test_concurrency.py.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -22,8 +22,7 @@ import pytest
 from django.conf import settings
 from django.db.models import Sum
 from django.db.models.functions import Coalesce
-
-from shopman.stockman import StockError, stock
+from shopman.stockman import stock
 from shopman.stockman.models import Position, PositionKind, Quant
 
 pytestmark = pytest.mark.django_db
@@ -86,7 +85,6 @@ class TestQuantityInvariantAfterOperations:
         """Basic receive → issue sequence preserves invariant."""
         pos = _make_position('vitrine-inv-1')
         prod = _product('INV-BASIC')
-        today = date.today()
 
         quant = stock.receive(Decimal('100'), prod.sku, pos, reason='Entrada')
         assert_quantity_invariant(quant)
@@ -146,7 +144,6 @@ class TestQuantityInvariantAfterOperations:
         pos_a = _make_position('vitrine-inv-5a')
         pos_b = _make_position('vitrine-inv-5b')
         prod = _product('INV-MULTI')
-        today = date.today()
 
         quant_a = stock.receive(Decimal('100'), prod.sku, pos_a, reason='Entrada A')
         quant_b = stock.receive(Decimal('200'), prod.sku, pos_b, reason='Entrada B')
@@ -166,7 +163,6 @@ class TestQuantityInvariantAfterOperations:
         pos = _make_position('vitrine-inv-6')
         prod = _product('INV-20OPS')
         today = date.today()
-        tomorrow = today + timedelta(days=1)
 
         # 1-3: receive
         quant = stock.receive(Decimal('200'), prod.sku, pos, reason='Entrada 1')

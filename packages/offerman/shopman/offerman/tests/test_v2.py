@@ -299,7 +299,7 @@ class TestGetDescendantsMaxDepth:
     def test_explicit_max_depth_overrides_settings(self, db):
         root = Collection.objects.create(ref="exp-root", name="Root")
         child = Collection.objects.create(ref="exp-child", name="Child", parent=root)
-        grandchild = Collection.objects.create(ref="exp-gchild", name="GChild", parent=child)
+        Collection.objects.create(ref="exp-gchild", name="GChild", parent=child)
 
         # With max_depth=1, only direct children
         descendants = root.get_descendants(max_depth=1)

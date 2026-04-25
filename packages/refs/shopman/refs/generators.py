@@ -163,9 +163,12 @@ class AlphaNumericGenerator:
 
     def _encode(self, n: int) -> str:
         L, D = len(self.LETTERS), len(self.DIGITS)
-        d2 = n % D; n //= D
-        d1 = n % D; n //= D
-        l2 = n % L; n //= L
+        d2 = n % D
+        n //= D
+        d1 = n % D
+        n //= D
+        l2 = n % L
+        n //= L
         l1 = n % L
         return self.LETTERS[l1] + self.LETTERS[l2] + self.DIGITS[d1] + self.DIGITS[d2]
 

@@ -96,6 +96,7 @@ class Command(BaseCommand):
 
     def _audit_duplicates(self, ref_type):
         from django.db.models import Count
+
         from shopman.refs.models import Ref
 
         qs = Ref.objects.filter(is_active=True)

@@ -59,13 +59,13 @@ def day_scope():
 
 
 def _make_ref(**kwargs) -> Ref:
-    defaults = dict(
-        ref_type="SKU",
-        value="CROISSANT",
-        target_type="offerman.Product",
-        target_id="1",
-        scope={},
-    )
+    defaults = {
+        "ref_type": "SKU",
+        "value": "CROISSANT",
+        "target_type": "offerman.Product",
+        "target_id": "1",
+        "scope": {},
+    }
     defaults.update(kwargs)
     return Ref.objects.create(**defaults)
 

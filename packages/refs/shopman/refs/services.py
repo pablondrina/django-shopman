@@ -42,10 +42,10 @@ def parse_target(target: str) -> tuple[str, str]:
         if not type_part or not id_part:
             raise ValueError
         return type_part, id_part
-    except ValueError:
+    except ValueError as err:
         raise ValueError(
             f"Invalid target string: {target!r}. Expected format: 'app_label.ModelName:pk'"
-        )
+        ) from err
 
 
 def _coerce_target(target: Any) -> tuple[str, str]:

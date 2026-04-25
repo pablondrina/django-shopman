@@ -14,8 +14,8 @@ class OrdermanConfig(AppConfig):
 
     def _register_ref_types(self):
         try:
-            from shopman.refs import register_ref_type
             from shopman.orderman.contrib.refs.types import DEFAULT_REF_TYPES
+            from shopman.refs import register_ref_type
             for ref_type in DEFAULT_REF_TYPES:
                 try:
                     register_ref_type(ref_type)

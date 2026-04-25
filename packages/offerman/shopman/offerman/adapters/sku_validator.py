@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from importlib.util import find_spec
 from typing import TYPE_CHECKING
 
 from django.db import models
@@ -19,9 +20,8 @@ logger = logging.getLogger(__name__)
 def _stocking_protocols_available() -> bool:
     """Check if Stockman protocols are available."""
     try:
-        from shopman.stockman.protocols.sku import SkuInfo, SkuValidationResult
-        return True
-    except ImportError:
+        return find_spec("shopman.stockman.protocols.sku") is not None
+    except ModuleNotFoundError:
         return False
 
 
