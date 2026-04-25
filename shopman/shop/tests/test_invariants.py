@@ -12,6 +12,10 @@ Invariantes verificadas:
 3. Handlers delegam para services — sem Fulfillment.objects.create() em handlers.
 4. lifecycle.py não contém classes Flow.
 5. ChannelConfig governa os aspectos declarados.
+6. Templates não usam inline event handlers (onclick, onchange, etc.).
+7. except Exception: pass (sem log) proibido em business logic.
+8. Deprecated naming (comanda, parked) não aparece em data keys.
+9. Templates não usam document.getElementById (exceções documentadas).
 """
 
 from __future__ import annotations
@@ -25,12 +29,25 @@ import pytest
 # ── Root do framework ──
 FRAMEWORK_ROOT = Path(__file__).parent.parent
 
+# ── Root do projeto (shopman/) ──
+PROJECT_ROOT = FRAMEWORK_ROOT.parent
+
 
 def _source_files(*sub_paths: str) -> list[Path]:
     """Return .py files under each sub_path relative to FRAMEWORK_ROOT."""
     files = []
     for sp in sub_paths:
         files.extend((FRAMEWORK_ROOT / sp).rglob("*.py"))
+    return files
+
+
+def _template_files(*sub_paths: str) -> list[Path]:
+    """Return .html template files under each sub_path relative to PROJECT_ROOT."""
+    files = []
+    for sp in sub_paths:
+        root = PROJECT_ROOT / sp
+        if root.exists():
+            files.extend(root.rglob("*.html"))
     return files
 
 
@@ -316,4 +333,230 @@ class TestNoLegacyFlowsModule:
             "flows.py was renamed to lifecycle.py. Use 'from shopman.shop.lifecycle import dispatch'. "
             "Violations:\n"
             + "\n".join(f"  {p}:{ln}: {line}" for p, ln, line in real_hits)
+        )
+
+
+# ── Invariant 7: No inline event handlers in templates ──
+
+
+class TestNoInlineEventHandlers:
+    """Templates must use Alpine (@click, @change) or HTMX, never onclick/onchange/onsubmit.
+
+    Exception: offline.html (no Alpine loaded on that page).
+    """
+
+    ALL_TEMPLATES = _template_files(
+        "backstage/templates",
+        "storefront/templates",
+        "shop/templates",
+    )
+
+    HANDLERS = r'\b(onclick|onchange|onsubmit|onload|onfocus|onblur|onkeydown|onkeyup)\s*='
+
+    # Pages where Alpine is not available
+    EXCEPTIONS = {"offline.html"}
+
+    def test_no_inline_handlers(self):
+        rx = re.compile(self.HANDLERS)
+        violations = []
+        for path in self.ALL_TEMPLATES:
+            if path.name in self.EXCEPTIONS:
+                continue
+            try:
+                for lineno, line in enumerate(path.read_text().splitlines(), 1):
+                    stripped = line.strip()
+                    if stripped.startswith("{#") or stripped.startswith("<!--"):
+                        continue
+                    if rx.search(stripped):
+                        violations.append((path, lineno, stripped))
+            except (OSError, UnicodeDecodeError):
+                pass
+        assert not violations, (
+            "Templates must use Alpine (@click) or HTMX, never inline event handlers "
+            "(onclick, onchange, etc.). Violations:\n"
+            + "\n".join(f"  {p}:{ln}: {line}" for p, ln, line in violations)
+        )
+
+
+# ── Invariant 8: No bare except Exception: pass ──
+
+
+class TestNoBareExceptPass:
+    """except Exception: pass (without logging) is prohibited in business logic.
+
+    Every catch-all must at minimum log — silent swallowing hides bugs.
+    Adapter base classes will own the try/except pattern; until then,
+    individual sites must still log.
+    """
+
+    BUSINESS_FILES = _source_files(
+        "services",
+        "handlers",
+        "lifecycle.py".replace(".py", ""),  # lifecycle is a file not dir, handle below
+    )
+
+    def _get_files(self):
+        """Business logic files: services/, handlers/, lifecycle.py, omotenashi/."""
+        files = list(_source_files("services", "handlers"))
+        lifecycle = FRAMEWORK_ROOT / "lifecycle.py"
+        if lifecycle.exists():
+            files.append(lifecycle)
+        omotenashi = FRAMEWORK_ROOT / "omotenashi"
+        if omotenashi.exists():
+            files.extend(omotenashi.rglob("*.py"))
+        return [f for f in files if "test_" not in f.name]
+
+    def test_no_silent_exception_swallowing(self):
+        """Find except Exception blocks followed by only pass (no logging)."""
+        violations = []
+        for path in self._get_files():
+            try:
+                lines = path.read_text().splitlines()
+            except (OSError, UnicodeDecodeError):
+                continue
+            for i, line in enumerate(lines):
+                stripped = line.strip()
+                # Match: except Exception[:as x]:
+                if not re.match(r"except\s+Exception", stripped):
+                    continue
+                # Look at next non-blank line(s) for pass without logger
+                j = i + 1
+                block_lines = []
+                while j < len(lines):
+                    next_stripped = lines[j].strip()
+                    if not next_stripped or next_stripped.startswith("#"):
+                        j += 1
+                        continue
+                    block_lines.append(next_stripped)
+                    if len(block_lines) >= 3:
+                        break
+                    j += 1
+                # Bare pass with no logging?
+                block_text = " ".join(block_lines)
+                if block_lines and block_lines[0] == "pass" and "logger" not in block_text and "logging" not in block_text and "self.stderr" not in block_text:
+                    violations.append((path, i + 1, stripped))
+        assert not violations, (
+            "except Exception: pass (without logging) is forbidden in business logic. "
+            "Every catch-all must log. Violations:\n"
+            + "\n".join(f"  {p}:{ln}: {line}" for p, ln, line in violations)
+        )
+
+
+# ── Invariant 9: No deprecated naming in data keys ──
+
+
+class TestNoDeprecatedDataKeys:
+    """Deprecated Session/Order data key names must not appear in data access patterns.
+
+    Renames: comanda→tab, parked→standby, parked_by→standby_operator.
+
+    Only checks patterns that access .data dict keys or set_data/get operations,
+    not Portuguese prose in comments or docstrings.
+    """
+
+    ALL_PY = _source_files(".")
+
+    DEPRECATED_KEYS = {
+        "comanda": "tab",
+        "parked": "standby",
+        "parked_by": "standby_operator",
+    }
+
+    # Patterns that indicate actual data key usage (not prose):
+    #   data["key"], data.get("key"), data__key, set_data("key"), "key": value
+    DATA_ACCESS_PATTERNS = [
+        r"""data\s*\[\s*['"]{}['"]\s*\]""",       # data["key"] or data['key']
+        r"""\.get\(\s*['"]{}['"]""",                # .get("key"
+        r"""set_data\(\s*['"]{}['"]""",             # set_data("key"
+        r"""data__{}""",                            # data__key (ORM filter)
+        r"""['"]{}['"]\s*:""",                      # "key": value (dict literal)
+    ]
+
+    def test_no_deprecated_data_keys(self):
+        violations = []
+        for old_key, new_key in self.DEPRECATED_KEYS.items():
+            patterns = [p.format(re.escape(old_key)) for p in self.DATA_ACCESS_PATTERNS]
+            combined = re.compile("|".join(patterns))
+            for path in self.ALL_PY:
+                if "test_" in path.name or "migration" in str(path):
+                    continue
+                try:
+                    for lineno, line in enumerate(path.read_text().splitlines(), 1):
+                        stripped = line.strip()
+                        if stripped.startswith("#"):
+                            continue
+                        if combined.search(stripped):
+                            violations.append(
+                                (path, lineno, f"{stripped}  [use '{new_key}' instead of '{old_key}']")
+                            )
+                except (OSError, UnicodeDecodeError):
+                    pass
+        assert not violations, (
+            "Deprecated data key names found in data access patterns. "
+            "Use the canonical English names. Violations:\n"
+            + "\n".join(f"  {p}:{ln}: {line}" for p, ln, line in violations)
+        )
+
+
+# ── Invariant 10: No document.getElementById in templates ──
+
+
+class TestNoGetElementByIdInTemplates:
+    """Templates must use Alpine $refs or $dispatch, not document.getElementById.
+
+    Documented exceptions:
+    - hx-vals="js:{...Alpine.$data(document.getElementById(...))...}" — HTMX+Alpine bridge
+    - IntersectionObserver callbacks (menu scroll spy) — no Alpine equivalent
+    - _design_tokens*.html / _tokens.html — FOUC-prevention scripts run pre-Alpine
+    - stock_error_modal.html — HTMX oob-swap sink pattern
+    - partials/_bottom_nav.html — cross-fragment badge update (HTMX target)
+    """
+
+    ALL_TEMPLATES = _template_files(
+        "backstage/templates",
+        "storefront/templates",
+        "shop/templates",
+    )
+
+    # Files with documented legitimate exceptions
+    EXCEPTION_FILES = {
+        # HTMX hx-vals bridge: Alpine.$data(document.getElementById('pos-root'))
+        "pos/index.html",
+        # FOUC-prevention (pre-Alpine dark mode init)
+        "_tokens.html",
+        "_design_tokens_no_alpine.html",
+        # IntersectionObserver for scroll spy
+        "prototype_menu.html",
+        "menu.html",
+        # HTMX oob-swap sink pattern
+        "stock_error_modal.html",
+        "availability_preview.html",
+        "_catalog_item_grid.html",
+        "product_detail.html",
+        # Cross-fragment cart badge update
+        "_bottom_nav.html",
+    }
+
+    def test_no_get_element_by_id(self):
+        pattern = re.compile(r"document\.getElementById")
+        violations = []
+        for path in self.ALL_TEMPLATES:
+            # Check if this file matches any exception
+            rel = str(path)
+            if any(exc in rel for exc in self.EXCEPTION_FILES):
+                continue
+            try:
+                for lineno, line in enumerate(path.read_text().splitlines(), 1):
+                    stripped = line.strip()
+                    if stripped.startswith("{#") or stripped.startswith("<!--"):
+                        continue
+                    if pattern.search(stripped):
+                        violations.append((path, lineno, stripped))
+            except (OSError, UnicodeDecodeError):
+                pass
+        assert not violations, (
+            "Templates must use Alpine $refs/$dispatch, not document.getElementById. "
+            "If this is a legitimate exception, add the filename to EXCEPTION_FILES "
+            "with a comment explaining why. Violations:\n"
+            + "\n".join(f"  {p}:{ln}: {line}" for p, ln, line in violations)
         )

@@ -173,7 +173,7 @@ def _notify_stock_arrived(session, *, sku: str, target_date) -> None:
         if product is not None:
             product_name = product.name
     except Exception:
-        pass
+        logger.debug("stock_arrived: product lookup failed for sku=%s", sku, exc_info=True)
 
     try:
         notify(
