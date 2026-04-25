@@ -15,16 +15,14 @@ from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views import View
-from shopman.orderman.models import Directive, Order
+from shopman.orderman.models import Order
 
 from shopman.backstage.projections.order_queue import (
     build_operator_order,
     build_order_card,
     build_two_zone_queue,
 )
-from shopman.shop.services.cancellation import cancel
-
-NOTIFICATION_SEND = "notification.send"
+from shopman.shop.services import operator_orders
 
 logger = logging.getLogger(__name__)
 
@@ -130,19 +128,11 @@ class OrderConfirmView(View):
         order, err = _get_order_or_err(request, ref)
         if err:
             return err
-        if order.status != "new":
-            return HttpResponse("Pedido não está aguardando confirmação", status=422)
-
-        from shopman.shop.lifecycle import ensure_confirmable, ensure_payment_captured
-
         try:
-            ensure_payment_captured(order)
-            ensure_confirmable(order)
+            operator_orders.confirm_order(order, actor=f"operator:{request.user.username}")
         except Exception as exc:
             logger.exception("ensure_confirmable failed for order %s", ref)
             return HttpResponse(str(exc), status=422)
-
-        order.transition_status("confirmed", actor=f"operator:{request.user.username}")
 
         card = build_order_card(order)
         response = render(request, "pedidos/partials/card.html", {"o": card})
@@ -165,23 +155,13 @@ class OrderRejectView(View):
         order, err = _get_order_or_err(request, ref)
         if err:
             return err
-        cancel(
+        operator_orders.reject_order(
             order,
             reason=reason,
             actor=f"operator:{request.user.username}",
-            extra_data={"rejected_by": request.user.username},
+            rejected_by=request.user.username,
         )
 
-        Directive.objects.create(
-            topic=NOTIFICATION_SEND,
-            payload={
-                "order_ref": order.ref,
-                "template": "order_rejected",
-                "reason": reason,
-            },
-        )
-
-        logger.info("operator_reject order=%s reason=%s", order.ref, reason)
         response = render(request, "pedidos/partials/card_rejected.html", {"ref": order.ref})
         response["HX-Trigger"] = json.dumps({"ped-toast-success": {"msg": f"Pedido #{order.ref} rejeitado", "sound": "reject"}})
         return response
@@ -199,12 +179,10 @@ class OrderAdvanceView(View):
         if err:
             return err
 
-        from shopman.backstage.projections.order_queue import _next_status
-        next_status = _next_status(order)
-        if not next_status:
+        try:
+            operator_orders.advance_order(order, actor=f"operator:{request.user.username}")
+        except ValueError:
             return HttpResponse("", status=422)
-
-        order.transition_status(next_status, actor=f"operator:{request.user.username}")
 
         card = build_order_card(order)
         response = render(request, "pedidos/partials/card.html", {"o": card})
@@ -223,8 +201,7 @@ class OrderNotesView(View):
         order, err = _get_order_or_err(request, ref)
         if err:
             return err
-        order.data["internal_notes"] = request.POST.get("notes", "")
-        order.save(update_fields=["data", "updated_at"])
+        operator_orders.save_internal_notes(order, notes=request.POST.get("notes", ""))
 
         now = timezone.localtime(timezone.now()).strftime("%H:%M")
         return HttpResponse(
@@ -246,32 +223,19 @@ class OrderMarkPaidView(View):
         if err:
             return err
 
-        payment_data = dict(order.data.get("payment", {}))
-        if payment_data.get("marked_paid_by"):
+        try:
+            changed = operator_orders.mark_paid(
+                order,
+                actor=f"operator:{request.user.username}",
+                operator_username=request.user.username,
+            )
+        except Exception as exc:
+            logger.exception("mark_paid failed for order %s", ref)
+            return HttpResponse(str(exc), status=422)
+
+        if not changed:
             card = build_order_card(order)
             return render(request, "pedidos/partials/card.html", {"o": card})
-
-        payment_data["marked_paid_by"] = request.user.username
-        updated_data = dict(order.data)
-        updated_data["payment"] = payment_data
-        Order.objects.filter(pk=order.pk).update(data=updated_data)
-        order.data = updated_data
-
-        if order.status == "new":
-            from shopman.shop.lifecycle import ensure_confirmable
-
-            try:
-                ensure_confirmable(order)
-            except Exception as exc:
-                logger.exception("ensure_confirmable failed for order %s in mark_paid", ref)
-                return HttpResponse(str(exc), status=422)
-
-            order.transition_status("confirmed", actor=f"operator:{request.user.username}")
-
-        logger.info("mark_paid order=%s operator=%s", order.ref, request.user.username)
-
-        from shopman.shop.lifecycle import dispatch
-        dispatch(order, "on_paid")
 
         card = build_order_card(order)
         response = render(request, "pedidos/partials/card.html", {"o": card})

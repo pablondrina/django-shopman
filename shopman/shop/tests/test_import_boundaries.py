@@ -186,3 +186,28 @@ def test_surfaces_do_not_import_orderman_write_primitives():
             "Use shopman.shop.services.sessions or shopman.shop.services.checkout "
             "so session writes have one canonical orchestration path."
         )
+
+
+def test_backstage_views_do_not_drive_order_lifecycle_directly():
+    """Backstage HTTP views must delegate order lifecycle commands to shop services."""
+    violations = []
+    forbidden_imports = ("shopman.shop.lifecycle",)
+
+    for path in _py_files(BACKSTAGE_ROOT / "views"):
+        for line, module in _imports(path):
+            if _matches_prefix(module, forbidden_imports):
+                violations.append((path, line, module))
+
+        tree = ast.parse(path.read_text(), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                if node.func.attr == "transition_status":
+                    violations.append((path, node.lineno, "transition_status"))
+
+    if violations:
+        pytest.fail(
+            "Backstage views drove order lifecycle directly:\n"
+            f"{_format_violations(violations)}\n\n"
+            "Move operator/KDS commands into shopman.shop.services and keep "
+            "views focused on HTTP, permissions, and rendering."
+        )

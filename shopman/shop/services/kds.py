@@ -20,6 +20,7 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 
+from django.utils import timezone
 from shopman.orderman.models import Order
 
 logger = logging.getLogger(__name__)
@@ -145,7 +146,7 @@ def cancel_tickets(order) -> int:
     return count
 
 
-def on_all_tickets_done(order) -> bool:
+def on_all_tickets_done(order, *, actor: str = "kds.all_done") -> bool:
     """
     Check if all KDS tickets are done and transition order to READY.
 
@@ -168,9 +169,53 @@ def on_all_tickets_done(order) -> bool:
 
     if order.status == Order.Status.READY:
         return False
+    if not order.can_transition_to(Order.Status.READY):
+        return False
 
-    order.transition_status(Order.Status.READY, actor="kds.all_done")
+    order.transition_status(Order.Status.READY, actor=actor)
     logger.info("kds.on_all_tickets_done: order %s → READY", order.ref)
     return True
 
 
+def toggle_ticket_item(ticket, *, index: int, actor: str) -> bool:
+    """Toggle a KDS ticket item and start preparation when work begins."""
+    if not 0 <= index < len(ticket.items):
+        return False
+
+    ticket.items[index]["checked"] = not ticket.items[index].get("checked", False)
+
+    if ticket.status == "pending" and any(it.get("checked") for it in ticket.items):
+        ticket.status = "in_progress"
+
+    ticket.save(update_fields=["items", "status"])
+
+    order = ticket.order
+    if order.status == Order.Status.CONFIRMED and order.can_transition_to(Order.Status.PREPARING):
+        order.transition_status(Order.Status.PREPARING, actor=actor)
+    return True
+
+
+def complete_ticket(ticket, *, actor: str) -> bool:
+    """Mark a KDS ticket done and move the order to ready when all tickets finish."""
+    for item in ticket.items:
+        item["checked"] = True
+    ticket.status = "done"
+    ticket.completed_at = timezone.now()
+    ticket.save(update_fields=["items", "status", "completed_at"])
+
+    logger.info("kds_done ticket=%d order=%s", ticket.pk, ticket.order.ref)
+    return on_all_tickets_done(ticket.order, actor=actor)
+
+
+def expedition_action(order, *, action: str, actor: str) -> str:
+    """Apply an expedition action and return the new order status."""
+    transitions = {
+        "dispatch": Order.Status.DISPATCHED,
+        "complete": Order.Status.COMPLETED,
+    }
+    next_status = transitions.get(action)
+    if not next_status or not order.can_transition_to(next_status):
+        raise ValueError("Ação inválida")
+    order.transition_status(next_status, actor=actor)
+    logger.info("kds_expedition %s order=%s", action, order.ref)
+    return next_status
