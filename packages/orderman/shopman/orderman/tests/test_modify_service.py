@@ -183,6 +183,22 @@ class ModifyServiceReplaceSKUTests(ModifyServiceBaseTests):
 
         self.assertEqual(ctx.exception.code, "unknown_line_id")
 
+    def test_replace_sku_negative_unit_price_raises_error(self) -> None:
+        """Should reject negative prices before database constraints."""
+        with self.assertRaises(ValidationError) as ctx:
+            ModifyService.modify_session(
+                session_key=self.session.session_key,
+                channel_ref=self.channel.ref,
+                ops=[{
+                    "op": "replace_sku",
+                    "line_id": "L1",
+                    "sku": "NEW-SKU",
+                    "unit_price_q": -1,
+                }],
+            )
+
+        self.assertEqual(ctx.exception.code, "invalid_unit_price_q")
+
 
 class ModifyServiceSetDataTests(ModifyServiceBaseTests):
     """Tests for set_data operation."""
@@ -240,6 +256,56 @@ class ModifyServiceSetDataTests(ModifyServiceBaseTests):
 
         self.session.refresh_from_db()
         self.assertEqual(self.session.data["customer"]["address"]["city"], "São Paulo")
+
+    def test_set_data_normalizes_path(self) -> None:
+        """Should canonicalize data paths before writing."""
+        ModifyService.modify_session(
+            session_key=self.session.session_key,
+            channel_ref=self.channel.ref,
+            ops=[{
+                "op": "set_data",
+                "path": "Customer.Ref",
+                "value": "CUST-001",
+            }],
+        )
+
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.data["customer"]["ref"], "CUST-001")
+        self.assertNotIn("Customer", self.session.data)
+
+    def test_set_data_rejects_non_mapping_intermediate(self) -> None:
+        """Should raise domain error when an intermediate path is not an object."""
+        self.session.data = {"customer": "Jane Doe"}
+        self.session.save(update_fields=["data"])
+
+        with self.assertRaises(ValidationError) as ctx:
+            ModifyService.modify_session(
+                session_key=self.session.session_key,
+                channel_ref=self.channel.ref,
+                ops=[{
+                    "op": "set_data",
+                    "path": "customer.name",
+                    "value": "Jane Doe",
+                }],
+            )
+
+        self.assertEqual(ctx.exception.code, "invalid_data_path")
+
+    def test_add_line_negative_unit_price_raises_error(self) -> None:
+        """Should reject negative prices before database constraints."""
+        with self.assertRaises(ValidationError) as ctx:
+            ModifyService.modify_session(
+                session_key=self.session.session_key,
+                channel_ref=self.channel.ref,
+                ops=[{
+                    "op": "add_line",
+                    "sku": "SKU-NEG",
+                    "qty": 1,
+                    "unit_price_q": -1,
+                }],
+            )
+
+        self.assertEqual(ctx.exception.code, "invalid_unit_price_q")
 
 
 class ModifyServiceMergeLinesTests(ModifyServiceBaseTests):

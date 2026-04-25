@@ -98,6 +98,62 @@ class SessionApiTests(TestCase):
         self.assertEqual(r.data["data"]["checks"], {})
         self.assertEqual(r.data["data"]["issues"], [])
 
+    def test_modify_allows_canonical_checkout_data_paths(self) -> None:
+        self._mk_channel(ref="pos")
+        s = self.client.post("/api/sessions", {"channel_ref": "pos"}, format="json").data
+
+        payload = {
+            "channel_ref": "pos",
+            "ops": [
+                {"op": "set_data", "path": "customer_ref", "value": "CUST-001"},
+                {"op": "set_data", "path": "delivery_date", "value": "2026-04-30"},
+                {"op": "set_data", "path": "delivery_time_slot", "value": "manha"},
+                {"op": "set_data", "path": "order_notes", "value": "Sem cortar"},
+                {"op": "set_data", "path": "fulfillment_type", "value": "pickup"},
+            ],
+        }
+
+        r = self.client.post(f"/api/sessions/{s['session_key']}/modify", payload, format="json")
+
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual(r.data["data"]["customer_ref"], "CUST-001")
+        self.assertEqual(r.data["data"]["delivery_date"], "2026-04-30")
+        self.assertEqual(r.data["data"]["delivery_time_slot"], "manha")
+        self.assertEqual(r.data["data"]["order_notes"], "Sem cortar")
+        self.assertEqual(r.data["data"]["fulfillment_type"], "pickup")
+
+    def test_modify_rejects_negative_unit_price_in_api_validation(self) -> None:
+        self._mk_channel(ref="pos")
+        s = self.client.post("/api/sessions", {"channel_ref": "pos"}, format="json").data
+
+        r = self.client.post(
+            f"/api/sessions/{s['session_key']}/modify",
+            {
+                "channel_ref": "pos",
+                "ops": [{"op": "add_line", "sku": "LATTE", "qty": 1, "unit_price_q": -1}],
+            },
+            format="json",
+        )
+
+        self.assertEqual(r.status_code, 400, r.data)
+        self.assertIn("ops", r.data)
+
+    def test_modify_rejects_nested_scalar_checkout_path(self) -> None:
+        self._mk_channel(ref="pos")
+        s = self.client.post("/api/sessions", {"channel_ref": "pos"}, format="json").data
+
+        r = self.client.post(
+            f"/api/sessions/{s['session_key']}/modify",
+            {
+                "channel_ref": "pos",
+                "ops": [{"op": "set_data", "path": "customer_ref.value", "value": "CUST-001"}],
+            },
+            format="json",
+        )
+
+        self.assertEqual(r.status_code, 400, r.data)
+        self.assertIn("ops", r.data)
+
     def test_modify_enqueues_check_directives_when_channel_config_has_checks(self) -> None:
         # Check directive enqueue requires channel_config — tested via ModifyService directly.
         from shopman.orderman.services import ModifyService

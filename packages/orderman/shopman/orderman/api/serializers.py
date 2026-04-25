@@ -59,7 +59,16 @@ class OperationSerializer(serializers.Serializer):
     # Paths que começam com estes prefixos são permitidos
     ALLOWED_DATA_PATHS = {
         "customer",      # customer.name, customer.phone, etc
+        "customer_ref",  # canonical customer ref copied to Order.data
         "delivery",      # delivery.address, delivery.notes, etc
+        "delivery_address",
+        "delivery_address_structured",
+        "delivery_date",
+        "delivery_time_slot",
+        "delivery_fee_q",
+        "fulfillment_type",
+        "order_notes",
+        "origin_channel",
         "payment",       # payment.method, payment.installments, etc
         "notes",         # notes (string simples)
         "meta",          # meta.* (dados arbitrários)
@@ -75,6 +84,21 @@ class OperationSerializer(serializers.Serializer):
         "table",         # table (mesa - restaurantes)
         "tab",           # tab (comanda label)
         "standby",       # standby, standby_operator (session em espera)
+    }
+
+    NESTABLE_DATA_PATHS = {
+        "customer",
+        "delivery",
+        "delivery_address_structured",
+        "payment",
+        "meta",
+        "extra",
+        "custom",
+        "discounts",
+        "fees",
+        "coupon",
+        "source",
+        "operator",
     }
 
     # Paths explicitamente proibidos (críticos do sistema)
@@ -96,7 +120,7 @@ class OperationSerializer(serializers.Serializer):
     sku = serializers.CharField(required=False, allow_blank=False)
     qty = serializers.DecimalField(required=False, max_digits=12, decimal_places=3)
     line_id = serializers.CharField(required=False, allow_blank=False)
-    unit_price_q = serializers.IntegerField(required=False)
+    unit_price_q = serializers.IntegerField(required=False, min_value=0)
     meta = serializers.DictField(required=False)
     path = serializers.CharField(required=False, allow_blank=False, max_length=128)
     value = serializers.JSONField(required=False)
@@ -117,9 +141,12 @@ class OperationSerializer(serializers.Serializer):
 
         # Normaliza path
         path = value.strip().lower()
+        path_segments = path.split(".")
+        if any(not segment for segment in path_segments):
+            raise serializers.ValidationError(f"Path '{value}' inválido.")
 
         # Verifica paths proibidos
-        root_path = path.split(".")[0]
+        root_path = path_segments[0]
         if root_path in self.FORBIDDEN_DATA_PATHS or path.startswith("__"):
             raise serializers.ValidationError(
                 f"Path '{value}' não permitido. Este campo é gerenciado pelo sistema."
@@ -132,14 +159,17 @@ class OperationSerializer(serializers.Serializer):
                 f"Path '{value}' não permitido. Paths válidos começam com: {allowed}"
             )
 
+        if len(path_segments) > 1 and root_path not in self.NESTABLE_DATA_PATHS:
+            raise serializers.ValidationError(f"Path '{value}' não aceita subcampos.")
+
         # Limita profundidade (máximo 5 níveis)
-        depth = len(path.split("."))
+        depth = len(path_segments)
         if depth > 5:
             raise serializers.ValidationError(
                 f"Path muito profundo ({depth} níveis). Máximo permitido: 5"
             )
 
-        return value
+        return path
 
     def validate(self, attrs: dict) -> dict:
         op = attrs.get("op")

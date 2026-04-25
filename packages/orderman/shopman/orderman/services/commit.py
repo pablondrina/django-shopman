@@ -296,7 +296,7 @@ class CommitService:
         order_data = {}
         session_data = session.data or {}
         for key in (
-            "customer", "fulfillment_type", "delivery_address",
+            "customer", "customer_ref", "fulfillment_type", "delivery_address",
             "delivery_address_structured", "delivery_date",
             "delivery_time_slot", "order_notes",
             "origin_channel", "payment",
@@ -304,6 +304,12 @@ class CommitService:
         ):
             if key in session_data:
                 order_data[key] = session_data[key]
+
+        customer_data = session_data.get("customer")
+        if "customer_ref" not in order_data and isinstance(customer_data, dict):
+            customer_ref = customer_data.get("ref")
+            if customer_ref:
+                order_data["customer_ref"] = customer_ref
 
         # Compute is_preorder flag
         delivery_date_str = session_data.get("delivery_date")

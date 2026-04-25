@@ -197,6 +197,16 @@ class ModifyService:
         return qty
 
     @staticmethod
+    def _parse_non_negative_price_q(value: Any) -> int:
+        try:
+            price = int(value)
+        except (TypeError, ValueError) as exc:
+            raise ValidationError(code="invalid_unit_price_q", message="unit_price_q inválido") from exc
+        if price < 0:
+            raise ValidationError(code="invalid_unit_price_q", message="unit_price_q deve ser >= 0")
+        return price
+
+    @staticmethod
     def _op_add_line(items: list[dict], data: dict, op: dict, session: Session) -> tuple[list[dict], dict]:
         if not op.get("sku"):
             raise ValidationError(code="missing_sku", message="SKU é obrigatório")
@@ -215,7 +225,7 @@ class ModifyService:
             "meta": op.get("meta", {}),
         }
         if "unit_price_q" in op:
-            line["unit_price_q"] = int(op["unit_price_q"])
+            line["unit_price_q"] = ModifyService._parse_non_negative_price_q(op["unit_price_q"])
         if op.get("is_d1"):
             line["is_d1"] = True
         items.append(line)
@@ -257,7 +267,7 @@ class ModifyService:
             if item["line_id"] == line_id:
                 item["sku"] = op["sku"]
                 if "unit_price_q" in op:
-                    item["unit_price_q"] = int(op["unit_price_q"])
+                    item["unit_price_q"] = ModifyService._parse_non_negative_price_q(op["unit_price_q"])
                 if "meta" in op:
                     item["meta"] = op["meta"]
                 break
@@ -267,14 +277,23 @@ class ModifyService:
 
     @staticmethod
     def _op_set_data(items: list[dict], data: dict, op: dict) -> tuple[list[dict], dict]:
-        path = op["path"]
+        path = str(op["path"]).strip().lower()
         value = op["value"]
 
         keys = path.split(".")
+        if any(not key for key in keys):
+            raise ValidationError(code="invalid_data_path", message="Path de dados inválido")
         target = data
         for key in keys[:-1]:
-            if key not in target:
+            current = target.get(key)
+            if current is None:
                 target[key] = {}
+                current = target[key]
+            if not isinstance(current, dict):
+                raise ValidationError(
+                    code="invalid_data_path",
+                    message=f"Path intermediário não é objeto: {key}",
+                )
             target = target[key]
         target[keys[-1]] = value
 

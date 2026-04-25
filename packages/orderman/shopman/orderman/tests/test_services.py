@@ -287,6 +287,46 @@ class TestSessionWriteService(TestCase):
 
 @pytest.mark.django_db
 class TestCustomerOrderHistoryService(TestCase):
+    def test_commit_seals_customer_ref_for_history_contract(self):
+        session = Session.objects.create(
+            session_key="sess-hist-commit",
+            channel_ref="web",
+            state="open",
+            items=[{"line_id": "L-1", "sku": "SKU-1", "qty": 1, "unit_price_q": 2500}],
+            data={"customer_ref": "CUST-HIST-001", "checks": {}, "issues": []},
+        )
+
+        result = CommitService.commit(
+            session_key=session.session_key,
+            channel_ref=session.channel_ref,
+            idempotency_key="IDEM-HIST-COMMIT",
+        )
+
+        order = Order.objects.get(ref=result.order_ref)
+        orders = CustomerOrderHistoryService.list_customer_orders("CUST-HIST-001")
+
+        assert order.data["customer_ref"] == "CUST-HIST-001"
+        assert len(orders) == 1
+        assert orders[0].order_ref == order.ref
+
+    def test_commit_derives_customer_ref_from_customer_payload(self):
+        session = Session.objects.create(
+            session_key="sess-hist-customer-payload",
+            channel_ref="web",
+            state="open",
+            items=[{"line_id": "L-1", "sku": "SKU-1", "qty": 1, "unit_price_q": 2500}],
+            data={"customer": {"ref": "CUST-HIST-002"}, "checks": {}, "issues": []},
+        )
+
+        result = CommitService.commit(
+            session_key=session.session_key,
+            channel_ref=session.channel_ref,
+            idempotency_key="IDEM-HIST-CUSTOMER",
+        )
+
+        order = Order.objects.get(ref=result.order_ref)
+        assert order.data["customer_ref"] == "CUST-HIST-002"
+
     def test_reads_orders_via_customer_ref_contract(self):
         Order.objects.create(
             ref="ORD-HIST-001",
