@@ -231,3 +231,31 @@ def test_storefront_views_do_not_import_payment_kernel_directly():
             f"{_format_violations(violations)}\n\n"
             "Use shopman.shop.services.payment for payment command flows."
         )
+
+
+def test_storefront_account_auth_views_delegate_kernel_commands():
+    """Account/auth/device views must keep Guestman/Doorman/Orderman behind services."""
+    guarded_views = {
+        STOREFRONT_ROOT / "views" / "account.py",
+        STOREFRONT_ROOT / "views" / "auth.py",
+        STOREFRONT_ROOT / "views" / "devices.py",
+    }
+    forbidden = (
+        "shopman.guestman",
+        "shopman.doorman",
+        "shopman.orderman",
+    )
+    violations = []
+
+    for path in guarded_views:
+        for line, module in _imports(path):
+            if _matches_prefix(module, forbidden):
+                violations.append((path, line, module))
+
+    if violations:
+        pytest.fail(
+            "Storefront account/auth views imported kernel command modules directly:\n"
+            f"{_format_violations(violations)}\n\n"
+            "Keep HTTP, HTMX, and rendering in views; route domain commands through "
+            "shopman.storefront.services.*."
+        )

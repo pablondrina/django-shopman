@@ -16,6 +16,7 @@ from ..intents.auth import (
     interpret_request_code,
     interpret_verify_code,
 )
+from ..services import auth as auth_service
 
 logger = logging.getLogger("shopman.storefront.views.auth")
 
@@ -30,9 +31,7 @@ def get_authenticated_customer(request: HttpRequest):
     if customer_info is None:
         return None
 
-    from shopman.guestman.services import customer as customer_service
-
-    return customer_service.get_by_uuid(customer_info.uuid)
+    return auth_service.customer_by_uuid(customer_info.uuid)
 
 
 class LoginView(View):
@@ -46,9 +45,7 @@ class LoginView(View):
         if step == "post-login":
             phone = request.session.get("login_phone", "")
             if phone:
-                from shopman.guestman.services import customer as customer_service
-
-                customer = customer_service.get_by_phone(phone)
+                customer = auth_service.customer_by_phone(phone)
                 if customer and customer.first_name:
                     # Existing customer with name → done
                     request.session.pop("login_phone", None)
@@ -80,19 +77,8 @@ class LoginView(View):
         phone_prefill = ""
         trusted_name = ""
         if HAS_AUTH:
-            try:
-                from shopman.doorman import TrustedDevice
-                from shopman.doorman.conf import doorman_settings
-                raw_token = request.COOKIES.get(doorman_settings.DEVICE_TRUST_COOKIE_NAME)
-                if raw_token:
-                    device = TrustedDevice.verify_token(raw_token)
-                    if device:
-                        from shopman.guestman.services import customer as customer_service
-                        trusted_customer = customer_service.get_by_uuid(device.customer_id)
-                        if trusted_customer:
-                            phone_prefill = trusted_customer.phone or ""
-                            trusted_name = trusted_customer.first_name or ""
-            except Exception:
+            phone_prefill, trusted_name = auth_service.trusted_device_prefill(request)
+            if not phone_prefill and not trusted_name:
                 logger.debug("device_trust_prefill_failed", exc_info=True)
 
         # login_context drives copy variation in the template (F-10)
@@ -140,31 +126,17 @@ class LoginView(View):
         phone = intent.phone
         delivery_method = intent.delivery_method
 
-        from shopman.guestman.services import customer as customer_service
-
-        customer = customer_service.get_by_phone(phone)
+        customer = auth_service.customer_by_phone(phone)
 
         if HAS_AUTH:
-            from shopman.doorman.error_codes import ErrorCode
-            from shopman.doorman.services.verification import AuthService
-
-            auth_result = AuthService.request_code(
-                target_value=phone,
-                purpose="login",
+            auth_result = auth_service.request_code(
+                phone=phone,
                 delivery_method=delivery_method,
                 ip_address=request.META.get("REMOTE_ADDR"),
             )
 
             if not auth_result.success:
-                _error_map = {
-                    ErrorCode.RATE_LIMIT: "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
-                    ErrorCode.COOLDOWN: "Aguarde antes de solicitar um novo código.",
-                    ErrorCode.IP_RATE_LIMIT: "Muitas tentativas deste local. Tente mais tarde.",
-                }
-                error_msg = _error_map.get(
-                    auth_result.error_code,
-                    "Não foi possível enviar o código. Verifique o número e tente novamente.",
-                )
+                error_msg = auth_service.request_code_error_message(auth_result)
                 return render(request, "storefront/login.html", {
                     "step": "phone",
                     "error": error_msg,
@@ -199,12 +171,7 @@ class LoginView(View):
         intent = result.intent
         phone = request.session.get("login_phone", "")
 
-        from shopman.guestman.services import customer as customer_service
-
-        customer_obj = customer_service.get_by_phone(phone)
-        if customer_obj and not customer_obj.first_name:
-            customer_obj.first_name = intent.name
-            customer_obj.save(update_fields=["first_name"])
+        auth_service.set_missing_first_name(phone=phone, name=intent.name)
 
         request.session.pop("login_phone", None)
 
@@ -229,9 +196,7 @@ class CustomerLookupView(View):
         customer_info = getattr(request, "customer", None)
         is_verified = customer_info is not None and customer_info.phone == phone
 
-        from shopman.guestman.services import customer as customer_service
-
-        customer = customer_service.get_by_phone(phone)
+        customer = auth_service.customer_by_phone(phone)
         if not customer:
             return JsonResponse({"found": False, "can_verify": False})
 
@@ -287,25 +252,14 @@ class RequestCodeView(View):
 
         phone = result.intent.phone
 
-        from shopman.doorman.services.verification import AuthService
-
-        auth_result = AuthService.request_code(
-            target_value=phone,
-            purpose="login",
+        auth_result = auth_service.request_code(
+            phone=phone,
             delivery_method="whatsapp",
             ip_address=request.META.get("REMOTE_ADDR"),
         )
 
         if not auth_result.success:
-            _send_translations = {
-                "Too many attempts. Please wait a few minutes.": "Muitas tentativas. Aguarde alguns minutos.",
-                "Please wait before requesting a new code.": "Aguarde antes de solicitar um novo código.",
-                "Too many attempts from this location.": "Muitas tentativas deste local.",
-                "Failed to send code.": "Falha ao enviar código.",
-                "Error sending code.": "Erro ao enviar código.",
-            }
-            raw = auth_result.error or ""
-            error_msg = _send_translations.get(raw, raw) or "Erro ao enviar código."
+            error_msg = auth_service.request_code_partial_error_message(auth_result)
             return render(request, "storefront/partials/auth_error.html", {
                 "error_message": error_msg,
                 "phone": phone,
@@ -340,24 +294,14 @@ class VerifyCodeView(View):
         phone = result.intent.phone
         code_input = result.intent.code
 
-        from shopman.doorman.services.verification import AuthService
-
-        auth_result = AuthService.verify_for_login(
-            target_value=phone,
+        auth_result = auth_service.verify_for_login(
+            phone=phone,
             code_input=code_input,
             request=request,
         )
 
         if not auth_result.success:
-            _error_translations = {
-                "Incorrect code.": "Código incorreto.",
-                "Code expired. Please request a new one.": "Código expirado. Solicite um novo.",
-                "Account not found. Please contact support.": "Conta não encontrada.",
-            }
-            raw_error = auth_result.error or ""
-            error_msg = _error_translations.get(raw_error, raw_error) or "Código inválido."
-            if auth_result.attempts_remaining is not None and auth_result.attempts_remaining > 0:
-                error_msg += f" ({auth_result.attempts_remaining} tentativa(s) restante(s))"
+            error_msg = auth_service.verify_error_message(auth_result)
             return render(request, "storefront/partials/auth_verify_code.html", {
                 "phone": phone,
                 "error_message": error_msg,
@@ -366,13 +310,8 @@ class VerifyCodeView(View):
         # Django auth already called by verify_for_login(request=request)
         # Resolve customer name to pass explicitly — omotenashi_ctx.customer_name is
         # None at this point because AuthCustomerMiddleware ran before auth happened.
-        confirmed_name = ""
-        try:
-            from shopman.guestman.services import customer as customer_service
-            confirmed_customer = customer_service.get_by_uuid(auth_result.customer.uuid)
-            if confirmed_customer:
-                confirmed_name = confirmed_customer.first_name or ""
-        except Exception:
+        confirmed_name = auth_service.confirmed_customer_name(auth_result)
+        if not confirmed_name:
             logger.debug("auth_confirmed_name_lookup_failed", exc_info=True)
 
         # Render confirmation — trust decision deferred to user via TrustDeviceView
@@ -393,14 +332,7 @@ class AccessLinkLoginView(View):
         if not HAS_AUTH:
             return redirect("/")
 
-        from shopman.doorman.services.access_link import AccessLinkService
-        from shopman.doorman.utils import safe_redirect_url
-
-        result = AccessLinkService.exchange(
-            token_str=token,
-            request=request,
-            preserve_session_keys=["cart"],
-        )
+        result = auth_service.exchange_access_link(token=token, request=request)
 
         if not result.success:
             logger.warning("Access link exchange failed: %s", result.error)
@@ -410,7 +342,7 @@ class AccessLinkLoginView(View):
 
         # Django auth already called by AccessLinkService.exchange(request=request)
         # Redirect based on token audience or next param
-        next_url = safe_redirect_url(request.GET.get("next"), request)
+        next_url = auth_service.safe_redirect_url(request.GET.get("next"), request)
         return redirect(next_url)
 
 
@@ -433,30 +365,9 @@ class DeviceCheckLoginView(View):
 
         phone = result.intent.phone
 
-        from shopman.guestman.services import customer as customer_service
-
-        customer = customer_service.get_by_phone(phone)
+        customer = auth_service.trusted_device_login(request, phone=phone)
         if not customer:
             return HttpResponse(status=204)
-
-        from shopman.doorman.services.device_trust import DeviceTrustService
-
-        if not DeviceTrustService.check_device_trust(request, customer.uuid):
-            return HttpResponse(status=204)
-
-        from django.contrib.auth import login
-        from shopman.doorman.protocols.customer import AuthCustomerInfo
-        from shopman.doorman.services._user_bridge import get_or_create_user_for_customer
-
-        customer_info = AuthCustomerInfo(
-            uuid=customer.uuid,
-            name=customer.name,
-            phone=customer.phone,
-            email=getattr(customer, "email", None) or None,
-            is_active=True,
-        )
-        user, _ = get_or_create_user_for_customer(customer_info)
-        login(request, user, backend="shopman.doorman.backends.PhoneOTPBackend")
 
         next_url = request.POST.get("next", "")
         return render(request, "storefront/partials/auth_trusted_greeting.html", {
@@ -487,10 +398,8 @@ class TrustDeviceView(View):
         trust = request.POST.get("trust", "0") == "1"
 
         if trust:
-            from shopman.doorman.services.device_trust import DeviceTrustService
-
             response = render(request, "storefront/partials/auth_device_saved.html")
-            DeviceTrustService.trust_device(
+            auth_service.trust_device(
                 response=response,
                 customer_id=customer_info.uuid,
                 request=request,
