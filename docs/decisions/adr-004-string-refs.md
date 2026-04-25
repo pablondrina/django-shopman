@@ -72,6 +72,17 @@ borda onde o dado entra: services do framework e adapters validam SKU contra
 o catálogo antes de persistir. Testes de invariante garantem que o contrato
 `sku` é consistente entre cores.
 
+### 4. `shopman-refs` é oficial, mas não obrigatório para todo kernel
+
+`shopman-refs` fornece registro, geração e resolução de refs para projetos que
+querem essa conveniência. Kernels que só precisam armazenar uma string usam
+`shopman.utils.refs.RefField`, que decompõe como `django.db.models.CharField`.
+
+Quando `shopman-refs` está instalado, esse wrapper usa o `RefField` real e
+participa do registry. Quando não está, ele cai para um `CharField` compatível.
+Assim, `refs` é cidadão de primeira classe na suíte composta, mas não vira
+dependência invisível para kernels que continuam semanticamente standalone.
+
 ## Consequências
 
 ### Positivas

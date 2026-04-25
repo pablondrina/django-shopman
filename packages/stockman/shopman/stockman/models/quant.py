@@ -16,7 +16,7 @@ from django.db import models
 from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
 from django.utils.translation import gettext_lazy as _
-from shopman.refs.fields import RefField
+from shopman.utils.refs import RefField
 
 logger = logging.getLogger('shopman.stockman')
 

@@ -9,6 +9,7 @@ description = "Shopman Offerman — Product Catalog"
 requires-python = ">=3.12"
 dependencies = [
     "Django>=5.2,<6.0",
+    "shopman-utils>=0.3.0",
     "django-taggit>=5.0",
     "django-simple-history>=3.4",
 ]
@@ -38,4 +39,4 @@ include = ["shopman.offerman*"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "offerman_test_settings"
-pythonpath = ["."]
+pythonpath = [".", "../utils"]

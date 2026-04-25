@@ -30,4 +30,4 @@ include = ["shopman.craftsman*"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "craftsman_test_settings"
-pythonpath = ["."]
+pythonpath = [".", "../utils"]

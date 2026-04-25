@@ -8,8 +8,8 @@ from django.db import models, transaction
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 from shopman.orderman.ids import generate_line_id
-from shopman.refs.fields import RefField
 from shopman.utils.monetary import monetary_mult
+from shopman.utils.refs import RefField
 
 # =============================================================================
 # CONVENÇÕES DE VALORES MONETÁRIOS E QUANTIDADES

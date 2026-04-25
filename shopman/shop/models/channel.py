@@ -10,7 +10,7 @@ from __future__ import annotations
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-from shopman.refs.fields import RefField
+from shopman.utils.refs import RefField
 
 
 class Channel(models.Model):

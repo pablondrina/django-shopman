@@ -8,7 +8,7 @@ from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from shopman.offerman.nutrition import NUTRIENT_FIELDS, NutritionFacts
-from shopman.refs.fields import RefField
+from shopman.utils.refs import RefField
 from simple_history.models import HistoricalRecords
 from taggit.managers import TaggableManager
 
@@ -337,4 +337,3 @@ class Product(models.Model):
             return None
         margin = self.base_price_q - cost_q
         return Decimal(margin * 100 / self.base_price_q).quantize(Decimal("0.1"))
-

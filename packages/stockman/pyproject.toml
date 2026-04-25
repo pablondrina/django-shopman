@@ -30,4 +30,4 @@ include = ["shopman.stockman*"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "stockman_test_settings"
-pythonpath = ["."]
+pythonpath = [".", "../utils"]
