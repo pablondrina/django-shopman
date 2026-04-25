@@ -10,14 +10,12 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django_ratelimit.decorators import ratelimit
-from shopman.guestman.contrib.loyalty import LoyaltyService
 
-from shopman.storefront.services.checkout_defaults import CheckoutDefaultsService
 from shopman.storefront.services.storefront_context import minimum_order_progress
 
 from ..cart import CHANNEL_REF, CartService
-from ..intents.checkout import get_payment_methods, interpret_checkout
-from ..intents.types import CheckoutIntent
+from ..intents.checkout import interpret_checkout
+from ..services import checkout as checkout_service
 from ..services.address_picker import address_picker_context
 from .tracking import CepLookupView, OrderConfirmationView  # noqa: F401
 
@@ -28,81 +26,6 @@ logger = logging.getLogger(__name__)
 @method_decorator(ratelimit(key="user_or_ip", rate="3/m", method="POST", block=False), name="post")
 class CheckoutView(View):
     """Checkout: review order and submit."""
-
-    def _checkout_page_context(self, request: HttpRequest, cart: dict) -> dict:
-        """Common context for GET and error re-renders."""
-        import json as _json
-
-        from django.conf import settings
-
-        from shopman.shop.models import Shop
-
-        shop = Shop.load()
-        shop_defaults = (shop.defaults or {}) if shop else {}
-        max_preorder_days = int(shop_defaults.get("max_preorder_days", 30))
-        closed_dates = shop_defaults.get("closed_dates", [])
-
-        ctx: dict = {
-            "cart": cart,
-            "checkout_defaults": {},
-            "saved_addresses": [],
-            "payment_methods": get_payment_methods(CHANNEL_REF),
-            "minimum_order_warning": minimum_order_progress(cart.get("original_subtotal_q") or cart["subtotal_q"]),
-            "max_preorder_days": max_preorder_days,
-            "closed_dates_json": _json.dumps(closed_dates),
-            "debug": settings.DEBUG,
-        }
-
-        try:
-            from shopman.storefront.services.pickup_slots import annotate_slots_for_checkout
-            cart_skus = [item["sku"] for item in cart.get("items", []) if item.get("sku")]
-            ctx.update(annotate_slots_for_checkout(cart_skus))
-        except Exception:
-            logger.exception("pickup_slots_failed")
-
-        customer_info = getattr(request, "customer", None)
-        ctx["customer_info"] = customer_info
-        ctx["is_verified"] = customer_info is not None
-        if customer_info is None:
-            return ctx
-
-        from shopman.guestman.services import address as address_service
-        from shopman.guestman.services import customer as customer_service
-
-        customer_obj = customer_service.get_by_uuid(customer_info.uuid)
-        if customer_obj:
-            ctx["saved_addresses"] = [
-                {
-                    "id": addr.id,
-                    "formatted_address": addr.formatted_address,
-                    "complement": addr.complement,
-                    "delivery_instructions": addr.delivery_instructions,
-                    "is_default": addr.is_default,
-                    "label": addr.display_label,
-                }
-                for addr in address_service.addresses(customer_obj.ref)
-            ]
-            try:
-                checkout_defaults = CheckoutDefaultsService.get_defaults(
-                    customer_ref=customer_obj.ref,
-                    channel_ref=CHANNEL_REF,
-                )
-                if checkout_defaults:
-                    ctx["checkout_defaults"] = checkout_defaults
-            except Exception:
-                logger.exception("checkout_defaults_failed")
-
-            try:
-                from shopman.utils.monetary import format_money
-                balance = LoyaltyService.get_balance(customer_obj.ref)
-                ctx["loyalty_balance"] = balance
-                ctx["loyalty_value_display"] = f"R$ {format_money(balance)}" if balance > 0 else None
-            except Exception:
-                logger.exception("loyalty_balance_failed")
-                ctx["loyalty_balance"] = 0
-                ctx["loyalty_value_display"] = None
-
-        return ctx
 
     def get(self, request: HttpRequest) -> HttpResponse:
         cart = CartService.get_cart(request)
@@ -150,7 +73,7 @@ class CheckoutView(View):
 
         # ── Process ───────────────────────────────────────────────────────
         intent = result.intent
-        from shopman.storefront.services.checkout import process as checkout_process
+        checkout_process = checkout_service.process
         try:
             commit_result = checkout_process(
                 session_key=intent.session_key,
@@ -159,7 +82,7 @@ class CheckoutView(View):
                 idempotency_key=intent.idempotency_key,
             )
         except Exception as exc:
-            errors = self._map_checkout_error(exc)
+            errors = checkout_service.map_checkout_error(exc)
             if errors:
                 return self._render_with_errors(
                     request, cart, errors, result.form_data, result.repricing_warnings
@@ -177,9 +100,7 @@ class CheckoutView(View):
         # ── Present ───────────────────────────────────────────────────────
         if intent.payment_method in ("pix", "card"):
             try:
-                from shopman.orderman.models import Order as _Order
-                _order = _Order.objects.get(ref=order_ref)
-                if (_order.data or {}).get("payment", {}).get("error"):
+                if checkout_service.order_has_payment_error(order_ref):
                     from django.contrib import messages
                     messages.warning(request, "Pagamento será processado em breve. Acompanhe seu pedido.")
                     return redirect("storefront:order_tracking", ref=order_ref)
@@ -213,124 +134,26 @@ class CheckoutView(View):
         })
 
     @staticmethod
-    def _map_checkout_error(exc: Exception) -> dict[str, str] | None:
-        from django.core.exceptions import ValidationError as DjangoValidationError
-        from shopman.orderman.exceptions import ValidationError as OrderingValidationError
-
-        if isinstance(exc, OrderingValidationError):
-            field = "delivery_address" if exc.code == "delivery_zone_not_covered" else "checkout"
-            return {field: exc.message}
-        if isinstance(exc, DjangoValidationError):
-            msgs = exc.messages if hasattr(exc, "messages") else [str(exc)]
-            return {"checkout": msgs[0] if msgs else str(exc)}
-        return None
-
-    @staticmethod
-    def _ensure_customer(intent: CheckoutIntent, order_ref: str) -> None:
-        import uuid as uuid_lib
-
-        from django.db import IntegrityError
-        from shopman.guestman.services import customer as customer_service
-
-        customer_obj = customer_service.get_by_phone(intent.customer_phone)
-        if customer_obj:
-            if intent.customer_name and not customer_obj.first_name:
-                customer_obj.first_name = intent.customer_name
-                customer_obj.save(update_fields=["first_name"])
-        else:
-            try:
-                customer_service.create(
-                    ref=f"WEB-{str(uuid_lib.uuid4())[:8].upper()}",
-                    first_name=intent.customer_name,
-                    phone=intent.customer_phone,
-                )
-            except IntegrityError:
-                pass  # race condition — already created by concurrent request
-
-    @staticmethod
-    def _persist_new_address(intent: CheckoutIntent, order_ref: str) -> None:
-        """Persist a new delivery address to the customer's address book (omotenashi).
-
-        Skipped when fulfillment is not delivery, a saved address was already used,
-        the address text is absent, the customer can't be found, or the exact
-        formatted_address already exists in their book.
-        """
-        if intent.fulfillment_type != "delivery":
-            return
-        if intent.saved_address_id:
-            return
-        if not intent.delivery_address:
-            return
-
+    def _ensure_customer(intent, order_ref: str) -> None:
         try:
-            from shopman.guestman.services import address as address_service
-            from shopman.guestman.services import customer as customer_service
+            checkout_service.ensure_customer(intent)
+        except Exception:
+            logger.exception("ensure_customer_failed order=%s", order_ref)
 
-            customer_obj = customer_service.get_by_phone(intent.customer_phone)
-            if not customer_obj:
-                return
-
-            if address_service.has_address(customer_obj.ref, intent.delivery_address):
-                return
-
-            structured = intent.delivery_address_structured or {}
-
-            lat = structured.get("latitude")
-            lng = structured.get("longitude")
-            coordinates = (float(lat), float(lng)) if lat and lng else None
-
-            components = {
-                "street_number": structured.get("street_number", ""),
-                "route": structured.get("route", ""),
-                "neighborhood": structured.get("neighborhood", ""),
-                "city": structured.get("city", ""),
-                "state_code": structured.get("state_code", ""),
-                "postal_code": structured.get("postal_code", ""),
-            }
-
-            is_first = not address_service.has_any_address(customer_obj.ref)
-
-            address_service.add_address(
-                customer_ref=customer_obj.ref,
-                label="other",
-                label_custom="Entrega",
-                formatted_address=intent.delivery_address,
-                place_id=structured.get("place_id") or None,
-                components=components,
-                coordinates=coordinates,
-                complement=structured.get("complement", ""),
-                delivery_instructions=structured.get("delivery_instructions", ""),
-                is_default=is_first,
-            )
+    @staticmethod
+    def _persist_new_address(intent, order_ref: str) -> None:
+        try:
+            checkout_service.persist_new_address(intent)
         except Exception:
             logger.exception("persist_new_address_failed order=%s", order_ref)
 
-    def _save_checkout_defaults(
-        self, request: HttpRequest, intent: CheckoutIntent, order_ref: str
-    ) -> None:
-        if not request.POST.get("save_as_default"):
-            return
-        from shopman.guestman.services import customer as customer_service
-        customer_obj = customer_service.get_by_phone(intent.customer_phone)
-        if not customer_obj:
-            return
+    @staticmethod
+    def _save_checkout_defaults(request: HttpRequest, intent, order_ref: str) -> None:
         try:
-            defaults_data: dict = {
-                "fulfillment_type": intent.fulfillment_type,
-                "payment_method": intent.payment_method,
-            }
-            if intent.fulfillment_type == "delivery":
-                if intent.saved_address_id:
-                    defaults_data["delivery_address_id"] = intent.saved_address_id
-                if intent.delivery_time_slot:
-                    defaults_data["delivery_time_slot"] = intent.delivery_time_slot
-            if intent.notes:
-                defaults_data["order_notes"] = intent.notes
-            CheckoutDefaultsService.save_defaults(
-                customer_ref=customer_obj.ref,
-                channel_ref=CHANNEL_REF,
-                data=defaults_data,
-                source=f"order:{order_ref}",
+            checkout_service.save_defaults(
+                intent,
+                order_ref=order_ref,
+                enabled=bool(request.POST.get("save_as_default")),
             )
         except Exception:
             logger.exception("save_checkout_defaults_failed order=%s", order_ref)
@@ -376,10 +199,6 @@ class SimulateIFoodView(View):
         from django.conf import settings
         from django.contrib import messages
         from django.http import Http404
-        from shopman.orderman.models import Session
-
-        from shopman.shop.services import ifood_ingest
-        from shopman.storefront.services.ifood_simulation import session_to_ifood_payload
 
         if not settings.DEBUG:
             raise Http404()
@@ -391,12 +210,11 @@ class SimulateIFoodView(View):
 
         channel = CartService._get_channel()
         try:
-            cart_session = Session.objects.get(
+            cart_session = checkout_service.get_open_cart_session(
                 session_key=session_key,
                 channel_ref=channel.ref,
-                state="open",
             )
-        except Session.DoesNotExist:
+        except Exception:
             messages.warning(request, "Carrinho não encontrado.")
             return redirect("storefront:cart")
 
@@ -405,19 +223,14 @@ class SimulateIFoodView(View):
             return redirect("storefront:cart")
 
         try:
-            payload = session_to_ifood_payload(cart_session)
-            order = ifood_ingest.ingest(payload)
-        except ifood_ingest.IFoodIngestError as e:
-            logger.exception("simulate_ifood: ingest failed")
-            messages.error(request, f"Falha ao simular pedido iFood: {e.message}")
-            return redirect("storefront:checkout")
+            order = checkout_service.simulate_ifood_order(cart_session)
         except Exception as e:
-            logger.exception("simulate_ifood: unexpected error")
-            messages.error(request, f"Erro inesperado: {e}")
+            logger.exception("simulate_ifood: ingest failed")
+            error_message = getattr(e, "message", str(e))
+            messages.error(request, f"Falha ao simular pedido iFood: {error_message}")
             return redirect("storefront:checkout")
 
-        cart_session.state = "closed"
-        cart_session.save(update_fields=["state", "updated_at"])
+        checkout_service.close_cart_session(cart_session)
         request.session.pop("cart_session_key", None)
 
         messages.success(

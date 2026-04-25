@@ -239,6 +239,7 @@ def test_storefront_account_auth_views_delegate_kernel_commands():
         STOREFRONT_ROOT / "views" / "access.py",
         STOREFRONT_ROOT / "views" / "account.py",
         STOREFRONT_ROOT / "views" / "auth.py",
+        STOREFRONT_ROOT / "views" / "checkout.py",
         STOREFRONT_ROOT / "views" / "devices.py",
         STOREFRONT_ROOT / "views" / "home.py",
         STOREFRONT_ROOT / "views" / "info.py",
