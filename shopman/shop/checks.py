@@ -14,7 +14,8 @@ Warnings (non-blocking, logged at startup):
   SHOPMAN_W001  Database backend is SQLite
   SHOPMAN_W002  Notification backend is console while DEBUG=False
   SHOPMAN_W003  No fiscal adapter configured while a fiscal-enabled channel exists
-  SHOPMAN_W004  OFFERMAN pricing backend not configured
+  SHOPMAN_W004  Listing.ref has no matching Channel.ref
+  SHOPMAN_W005  OFFERMAN pricing backend not configured
 """
 
 from __future__ import annotations
@@ -95,7 +96,6 @@ def check_webhook_tokens(app_configs, **kwargs):
     integrations = [
         ("SHOPMAN_EFI_WEBHOOK", "EFI", "EFI_WEBHOOK_TOKEN"),
         ("SHOPMAN_IFOOD", "iFood", "IFOOD_WEBHOOK_TOKEN"),
-        ("SHOPMAN_GUESTMAN_WEBHOOK", "Guestman", "GUESTMAN_WEBHOOK_SECRET"),
     ]
     for attr, name, env_var in integrations:
         cfg = getattr(settings, attr, {}) or {}
@@ -150,6 +150,22 @@ def check_notification_backend(app_configs, **kwargs):
     return warnings
 
 
+@register(deploy=True)
+def check_guestman_webhook_secret(app_configs, **kwargs):
+    errors = []
+    if not settings.DEBUG:
+        secret = getattr(settings, "MANYCHAT_WEBHOOK_SECRET", "")
+        if not secret:
+            errors.append(
+                Error(
+                    "MANYCHAT_WEBHOOK_SECRET não está configurado em produção.",
+                    hint="Defina MANYCHAT_WEBHOOK_SECRET via variável de ambiente. O endpoint Manychat rejeita webhooks sem assinatura HMAC válida.",
+                    id="SHOPMAN_E005",
+                )
+            )
+    return errors
+
+
 @register()
 def check_pricing_backend(app_configs, **kwargs):
     warnings = []
@@ -160,7 +176,7 @@ def check_pricing_backend(app_configs, **kwargs):
                 Warning(
                     "OFFERMAN['PRICING_BACKEND'] não está configurado.",
                     hint="Defina OFFERMAN['PRICING_BACKEND'] com o backend de precificação contextual (ex: shopman.shop.adapters.pricing.StorefrontPricingBackend).",
-                    id="SHOPMAN_W004",
+                    id="SHOPMAN_W005",
                 )
             )
     return warnings
