@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
             name='Customer',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('ref', models.CharField(help_text='Referência única do cliente (ex: CLI-001)', max_length=50, unique=True, verbose_name='referência')),
+                ('ref', models.CharField(db_index=True, help_text='Referência única do cliente (ex: CLI-001)', max_length=50, unique=True, verbose_name='referência')),
                 ('uuid', models.UUIDField(default=uuid.uuid4, editable=False, unique=True)),
                 ('first_name', models.CharField(max_length=100, verbose_name='nome')),
                 ('last_name', models.CharField(blank=True, max_length=100, verbose_name='sobrenome')),

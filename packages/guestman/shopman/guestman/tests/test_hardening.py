@@ -480,3 +480,40 @@ class TestCleanupDryRun:
         assert "Would delete 1" in out.getvalue()
         # Record still exists
         assert ProcessedEvent.objects.filter(nonce="old-001").exists()
+
+
+class TestGuestmanHardeningRegressions:
+    """Regression coverage for Guestman package boundaries."""
+
+    def test_merge_template_path_uses_guestman_namespace(self):
+        """Merge admin templates must not live under a stale app namespace."""
+        import inspect
+
+        from shopman.guestman.contrib.merge.admin import MergeAdminMixin
+
+        source = inspect.getsource(MergeAdminMixin.merge_view)
+
+        assert "admin/guestman/customer/merge_confirm.html" in source
+        assert "admin/attending/customer/merge_confirm.html" not in source
+
+    def test_customer_group_save_keeps_single_default(self, db):
+        """Saving a new default demotes previous defaults."""
+        from shopman.guestman.models import CustomerGroup
+
+        first = CustomerGroup.objects.create(
+            ref="grp-default-1",
+            name="Default 1",
+            is_default=True,
+        )
+        second = CustomerGroup.objects.create(
+            ref="grp-default-2",
+            name="Default 2",
+            is_default=True,
+        )
+
+        first.refresh_from_db()
+        second.refresh_from_db()
+
+        assert not first.is_default
+        assert second.is_default
+        assert CustomerGroup.objects.filter(is_default=True).count() == 1

@@ -1,6 +1,6 @@
 """Order history protocol for cross-app communication."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Protocol, runtime_checkable
 
@@ -15,6 +15,7 @@ class OrderSummary:
     total_q: int  # centavos
     items_count: int
     status: str
+    items: list[dict] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -71,24 +72,5 @@ class OrderHistoryBackend(Protocol):
 
         Returns:
             OrderStats with totals and averages
-        """
-        ...
-
-    def get_favorite_products(
-        self,
-        customer_ref: str,
-        limit: int = 5,
-    ) -> list[dict]:
-        """
-        Return top products by purchase frequency.
-
-        Each dict: {sku, name, qty, last_order_at (ISO string)}
-
-        Args:
-            customer_ref: Customer ref
-            limit: Maximum number of products to return
-
-        Returns:
-            List of product dicts ordered by frequency descending
         """
         ...

@@ -21,6 +21,7 @@ import hmac
 import json
 
 import pytest
+from django.db import IntegrityError
 from django.test import RequestFactory
 from shopman.guestman.contrib.identifiers.models import CustomerIdentifier, IdentifierType
 from shopman.guestman.contrib.manychat.service import ManychatService
@@ -100,6 +101,30 @@ class TestManychatServiceSync:
             identifier_type=IdentifierType.MANYCHAT,
             identifier_value="mc-subscriber-001",
         ).exists()
+
+    def test_new_subscriber_rolls_back_when_identifier_link_fails(
+        self,
+        subscriber_data,
+        monkeypatch,
+    ):
+        """Customer and identifiers are one atomic unit."""
+        def failing_add_identifiers(*args, **kwargs):
+            raise IntegrityError("forced identifier failure")
+
+        monkeypatch.setattr(
+            ManychatService,
+            "_add_manychat_identifiers",
+            failing_add_identifiers,
+        )
+
+        with pytest.raises(IntegrityError, match="forced identifier failure"):
+            ManychatService.sync_subscriber(subscriber_data)
+
+        hash_value = hashlib.md5(subscriber_data["id"].encode()).hexdigest()[:8]
+        hash_value = hash_value.upper()
+        expected_ref = f"MC-{hash_value}"
+
+        assert not Customer.objects.filter(ref=expected_ref).exists()
 
     def test_existing_by_manychat_id_updates(self, subscriber_data):
         """Scenario 2: Existing by Manychat ID → updates, no duplicate."""

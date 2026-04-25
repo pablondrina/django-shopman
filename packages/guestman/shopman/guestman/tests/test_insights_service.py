@@ -66,9 +66,6 @@ class MockOrderHistoryBackend:
     def get_customer_orders(self, customer_ref: str, limit: int = 10) -> list[OrderSummary]:
         return self._orders[:limit]
 
-    def get_favorite_products(self, customer_ref: str, limit: int = 5) -> list[dict]:
-        return []
-
 
 # ── Recalculate ──
 
@@ -93,6 +90,10 @@ class TestRecalculate:
                 total_q=33333,
                 items_count=3,
                 status="completed",
+                items=[
+                    {"sku": "CROISSANT", "name": "Croissant", "qty": 2},
+                    {"sku": "BAGUETTE", "name": "Baguette", "qty": 1},
+                ],
             )
             for i in range(10)
         ]
@@ -120,6 +121,8 @@ class TestRecalculate:
         assert insight.rfm_frequency is not None
         assert insight.rfm_monetary is not None
         assert insight.rfm_segment != ""
+        assert insight.favorite_products[0]["sku"] == "CROISSANT"
+        assert insight.favorite_products[0]["qty"] == 20
         assert insight.churn_risk is not None
         assert insight.calculation_version == "v2"
 
@@ -154,6 +157,7 @@ class TestRecalculate:
         assert insight.total_orders == 0
         assert insight.days_since_last_order is None
         assert insight.average_days_between_orders is None
+        assert insight.favorite_products == []
 
     def test_recalculate_single_order(self, customer, settings):
         """Single order → no average_days_between."""
@@ -173,6 +177,7 @@ class TestRecalculate:
                 total_q=5000,
                 items_count=2,
                 status="completed",
+                items=[],
             ),
         ]
         backend = MockOrderHistoryBackend(stats=stats, orders=orders)

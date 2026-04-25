@@ -100,7 +100,7 @@ class MergeAdminMixin:
         }
         return TemplateResponse(
             request,
-            "admin/attending/customer/merge_confirm.html",
+            "admin/guestman/customer/merge_confirm.html",
             context,
         )
 

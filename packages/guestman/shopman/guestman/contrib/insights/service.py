@@ -3,7 +3,7 @@
 import logging
 from collections import Counter
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.utils.module_loading import import_string
@@ -118,15 +118,14 @@ class InsightService:
             insight.preferred_hour = Counter(hours).most_common(1)[0][0]
 
             # Channels used
-            channels = list(set(o.channel_ref for o in orders))
+            channels = list({o.channel_ref for o in orders})
             insight.channels_used = channels
 
             # Preferred channel
             channel_counts = Counter(o.channel_ref for o in orders)
             insight.preferred_channel = channel_counts.most_common(1)[0][0]
 
-        # Favorite products (top 5 SKUs by frequency)
-        insight.favorite_products = backend.get_favorite_products(customer_ref, limit=5)
+        insight.favorite_products = cls._calculate_favorite_products(orders, limit=5)
 
         # Calculate RFM scores
         insight.rfm_recency = cls._calculate_recency_score(
@@ -199,6 +198,53 @@ class InsightService:
         if samples:
             return samples
         return cls.favorite_product_samples(limit=limit)
+
+    @classmethod
+    def _calculate_favorite_products(cls, orders: list, limit: int = 5) -> list[dict]:
+        """Calculate favorite products from the canonical order-history payload."""
+        sku_qty: Counter = Counter()
+        sku_meta: dict[str, dict] = {}
+        for order in orders:
+            for item in getattr(order, "items", []) or []:
+                sku = item.get("sku")
+                if not sku:
+                    continue
+                sku_qty[sku] += cls._item_quantity(item)
+                ordered_at = order.ordered_at
+                if sku not in sku_meta or ordered_at > sku_meta[sku]["last_order_at"]:
+                    sku_meta[sku] = {
+                        "name": item.get("name", ""),
+                        "last_order_at": ordered_at,
+                    }
+
+        favorites = []
+        for sku, qty in sku_qty.most_common(limit):
+            meta = sku_meta[sku]
+            last_at = meta["last_order_at"]
+            favorites.append({
+                "sku": sku,
+                "name": meta["name"],
+                "qty": cls._serialize_quantity(qty),
+                "last_order_at": (
+                    last_at.isoformat()
+                    if hasattr(last_at, "isoformat")
+                    else str(last_at)
+                ),
+            })
+        return favorites
+
+    @staticmethod
+    def _item_quantity(item: dict) -> Decimal:
+        try:
+            return Decimal(str(item.get("qty", 1) or 1))
+        except (InvalidOperation, TypeError, ValueError):
+            return Decimal("1")
+
+    @staticmethod
+    def _serialize_quantity(value: Decimal):
+        if value == value.to_integral_value():
+            return int(value)
+        return float(value)
 
     # ======================================================================
     # RFM Calculation Helpers
