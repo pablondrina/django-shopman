@@ -199,7 +199,11 @@ class ConsumedItemSerializer(serializers.Serializer):
     """Serializer for consumed item in finish action."""
 
     item_ref = serializers.CharField()
-    quantity = serializers.DecimalField(max_digits=12, decimal_places=3, min_value=0)
+    quantity = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        min_value=Decimal("0.001"),
+    )
     unit = serializers.CharField(required=False, default="")
     meta = serializers.DictField(required=False, default=dict)
 
@@ -210,6 +214,7 @@ class FinishSerializer(serializers.Serializer):
 
     finished = serializers.DecimalField(
         max_digits=12, decimal_places=3,
+        min_value=Decimal("0.001"),
         help_text="Final finished quantity",
     )
     consumed = ConsumedItemSerializer(
@@ -217,7 +222,10 @@ class FinishSerializer(serializers.Serializer):
         help_text="Explicit consumption [{item_ref, quantity, unit, meta?}]",
     )
     wasted = serializers.DecimalField(
-        max_digits=12, decimal_places=3, required=False, allow_null=True,
+        max_digits=12, decimal_places=3,
+        min_value=Decimal("0.001"),
+        required=False,
+        allow_null=True,
         help_text="Waste quantity (Decimal) or omit for auto-calc",
     )
     expected_rev = serializers.IntegerField(

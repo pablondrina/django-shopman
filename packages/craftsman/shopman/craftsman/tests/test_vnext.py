@@ -6,6 +6,8 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import IntegrityError
 from shopman.craftsman import CraftError, StaleRevision, craft
 from shopman.craftsman.models import (
     Recipe,
@@ -447,6 +449,65 @@ class TestFinish:
         assert result2.pk == result1.pk
         assert result2.finished == Decimal("93")  # original value preserved
 
+    def test_finish_idempotency_key_is_scoped_to_work_order(self, recipe_with_items):
+        wo1 = craft.plan(recipe_with_items, 100)
+        wo2 = craft.plan(recipe_with_items, 50)
+        craft.finish(wo1, finished=93, expected_rev=0, idempotency_key="finish-conflict")
+
+        with pytest.raises(CraftError) as exc:
+            craft.finish(wo2, finished=45, expected_rev=0, idempotency_key="finish-conflict")
+
+        assert exc.value.code == "IDEMPOTENCY_CONFLICT"
+
+    def test_finish_rejects_zero_finished_quantity(self, recipe_with_items):
+        wo = craft.plan(recipe_with_items, 100)
+
+        with pytest.raises(CraftError) as exc:
+            craft.finish(wo, finished=0, expected_rev=0)
+
+        assert exc.value.code == "INVALID_QUANTITY"
+
+    def test_finish_rejects_zero_consumed_quantity(self, recipe_with_items):
+        wo = craft.plan(recipe_with_items, 100)
+
+        with pytest.raises(CraftError) as exc:
+            craft.finish(
+                wo,
+                finished=93,
+                consumed=[{"item_ref": "farinha", "quantity": 0, "unit": "kg"}],
+                expected_rev=0,
+            )
+
+        assert exc.value.code == "INVALID_QUANTITY"
+
+    def test_finish_rejects_invalid_finished_item_ref(self, recipe_with_items):
+        wo = craft.plan(recipe_with_items, 100)
+
+        with pytest.raises(CraftError) as exc:
+            craft.finish(
+                wo,
+                finished=[{"item_ref": "", "quantity": 93}],
+                expected_rev=0,
+            )
+
+        assert exc.value.code == "INVALID_REF"
+
+    def test_finish_rejects_malformed_finished_item(self, recipe_with_items):
+        wo = craft.plan(recipe_with_items, 100)
+
+        with pytest.raises(CraftError) as exc:
+            craft.finish(wo, finished=["croissant"], expected_rev=0)
+
+        assert exc.value.code == "INVALID_PAYLOAD"
+
+    def test_finish_rejects_negative_waste(self, recipe_with_items):
+        wo = craft.plan(recipe_with_items, 100)
+
+        with pytest.raises(CraftError) as exc:
+            craft.finish(wo, finished=93, wasted=-1, expected_rev=0)
+
+        assert exc.value.code == "INVALID_QUANTITY"
+
     def test_finish_bumps_rev(self, recipe):
         wo = craft.plan(recipe, 100)
         craft.finish(wo, finished=93, expected_rev=0)
@@ -757,7 +818,7 @@ class TestFloorProjections:
         assert queue[0].started_qty == Decimal("96")
 
     def test_floor_summary_aggregates_operational_quantities(self, recipe, tomorrow):
-        planned = craft.plan(recipe, 100, date=tomorrow, position_ref="forno")
+        craft.plan(recipe, 100, date=tomorrow, position_ref="forno")
         started = craft.plan(recipe, 80, date=tomorrow, position_ref="forno")
         craft.start(started, quantity=Decimal("75"), expected_rev=0, position_ref="forno")
         finished = craft.plan(recipe, 50, date=tomorrow, position_ref="forno")
@@ -786,7 +847,7 @@ class TestFloorProjections:
 
 class TestModels:
     def test_recipe_validation(self, db):
-        with pytest.raises(Exception):
+        with pytest.raises(DjangoValidationError):
             Recipe.objects.create(
                 ref="bad", name="Bad", output_sku="x", batch_size=Decimal("0"),
             )
@@ -796,7 +857,7 @@ class TestModels:
 
     def test_recipe_item_unique(self, recipe):
         RecipeItem.objects.create(recipe=recipe, input_sku="farinha", quantity=Decimal("5"), unit="kg")
-        with pytest.raises(Exception):
+        with pytest.raises(IntegrityError):
             RecipeItem.objects.create(recipe=recipe, input_sku="farinha", quantity=Decimal("3"), unit="kg")
 
     def test_work_order_auto_ref(self, recipe):
@@ -1292,7 +1353,7 @@ class TestSuggest:
         friday = date(2026, 2, 27)  # weekday() == 4
         assert friday.weekday() == 4
 
-        recipe_fri = Recipe.objects.create(
+        Recipe.objects.create(
             ref="croissant-fri", name="Croissant Fri", output_sku="croissant-fri",
             batch_size=Decimal("10"),
         )

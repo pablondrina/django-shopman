@@ -130,6 +130,16 @@ class TestFinishEndpoint:
         assert resp.status_code == 400
         assert "finished" in resp.data
 
+    def test_finish_zero_finished_returns_400(self, api_client, recipe):
+        wo = craft.plan(recipe, 100)
+        resp = api_client.post(
+            f"/api/craftsman/work-orders/{wo.ref}/finish/",
+            {"finished": "0"},
+            format="json",
+        )
+        assert resp.status_code == 400
+        assert "finished" in resp.data
+
     def test_finish_with_valid_consumed(self, api_client, recipe_with_items):
         wo = craft.plan(recipe_with_items, 100)
         resp = api_client.post(
@@ -145,6 +155,31 @@ class TestFinishEndpoint:
             format="json",
         )
         assert resp.status_code == 200
+
+    def test_finish_consumed_zero_quantity_returns_400(self, api_client, recipe_with_items):
+        wo = craft.plan(recipe_with_items, 100)
+        resp = api_client.post(
+            f"/api/craftsman/work-orders/{wo.ref}/finish/",
+            {
+                "finished": "93",
+                "consumed": [
+                    {"item_ref": "farinha", "quantity": "0", "unit": "kg"},
+                ],
+            },
+            format="json",
+        )
+        assert resp.status_code == 400
+        assert "consumed" in resp.data
+
+    def test_finish_zero_waste_returns_400(self, api_client, recipe_with_items):
+        wo = craft.plan(recipe_with_items, 100)
+        resp = api_client.post(
+            f"/api/craftsman/work-orders/{wo.ref}/finish/",
+            {"finished": "93", "wasted": "0"},
+            format="json",
+        )
+        assert resp.status_code == 400
+        assert "wasted" in resp.data
 
     def test_finish_consumed_missing_item_ref_returns_400(self, api_client, recipe_with_items):
         wo = craft.plan(recipe_with_items, 100)
@@ -261,7 +296,7 @@ class TestOperationalQueries:
         assert finished.ref not in refs
 
     def test_summary_returns_operational_totals(self, api_client, recipe):
-        planned = craft.plan(recipe, 100, date="2026-02-27", position_ref="forno")
+        craft.plan(recipe, 100, date="2026-02-27", position_ref="forno")
         started = craft.plan(recipe, 80, date="2026-02-27", position_ref="forno")
         craft.start(started, quantity=Decimal("75"), expected_rev=0, position_ref="forno")
         finished = craft.plan(recipe, 50, date="2026-02-27", position_ref="forno")

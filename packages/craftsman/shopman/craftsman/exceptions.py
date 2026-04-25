@@ -23,6 +23,8 @@ class CraftError(BaseError):
 
     _default_messages = {
         "INVALID_QUANTITY": "Quantity must be greater than zero",
+        "INVALID_REF": "Reference must be a non-empty string",
+        "INVALID_PAYLOAD": "Payload item must be an object",
         "INVALID_STATUS": "Work order is not in the expected status for this operation",
         "TERMINAL_STATUS": "Cannot modify a work order in terminal status",
         "VOID_FROM_DONE": "Cannot void a completed work order",
@@ -33,6 +35,7 @@ class CraftError(BaseError):
         "COMMITTED_HOLDS": "Quantity below committed orders for this date",
         "INSUFFICIENT_MATERIALS": "Insufficient shared ingredients for rescheduled quantity",
         "DOWNSTREAM_DEFICIT": "Reducing this work order creates ingredient shortage for downstream production",
+        "IDEMPOTENCY_CONFLICT": "Idempotency key was already used for another work order",
     }
 
 

@@ -15,6 +15,29 @@ from shopman.craftsman.services.scheduling import _check_rev, _next_seq
 logger = logging.getLogger(__name__)
 
 
+def _positive_decimal(value, *, field: str = "quantity") -> Decimal:
+    try:
+        quantity = Decimal(str(value))
+    except Exception as exc:
+        raise CraftError("INVALID_QUANTITY", field=field, quantity=value) from exc
+    if quantity <= 0:
+        raise CraftError("INVALID_QUANTITY", field=field, quantity=float(quantity))
+    return quantity
+
+
+def _required_ref(value, *, field: str) -> str:
+    ref = str(value or "").strip()
+    if not ref:
+        raise CraftError("INVALID_REF", field=field)
+    return ref
+
+
+def _mapping_item(value, *, field: str) -> dict:
+    if not isinstance(value, dict):
+        raise CraftError("INVALID_PAYLOAD", field=field)
+    return value
+
+
 class CraftExecution:
     """Finish and void operations."""
 
@@ -38,15 +61,17 @@ class CraftExecution:
         from shopman.craftsman.signals import production_changed
 
         # Normalize finished quantity (pure computation, safe outside transaction)
-        if isinstance(finished, (int, float, Decimal)):
-            finished_decimal = Decimal(str(finished))
+        if isinstance(finished, (int, float, Decimal, str)):
+            finished_decimal = _positive_decimal(finished, field="finished")
             finished_items = None
         else:
             finished_items = finished
-            finished_decimal = sum(Decimal(str(p["quantity"])) for p in finished)
-
-        if finished_decimal < 0:
-            raise CraftError("INVALID_QUANTITY", quantity=float(finished_decimal))
+            if not finished_items:
+                raise CraftError("INVALID_QUANTITY", field="finished")
+            finished_decimal = Decimal("0")
+            for p in finished_items:
+                p = _mapping_item(p, field="finished")
+                finished_decimal += _positive_decimal(p.get("quantity"), field="finished.quantity")
 
         with transaction.atomic():
             WorkOrder.objects.select_for_update().get(pk=order.pk)
@@ -57,6 +82,13 @@ class CraftExecution:
                     idempotency_key=idempotency_key,
                 ).select_related("work_order").first()
                 if existing:
+                    if existing.work_order_id != order.pk:
+                        raise CraftError(
+                            "IDEMPOTENCY_CONFLICT",
+                            idempotency_key=idempotency_key,
+                            work_order=order.ref,
+                            existing_work_order=existing.work_order.ref,
+                        )
                     return existing.work_order
 
             if order.status == WorkOrder.Status.FINISHED:
@@ -148,11 +180,14 @@ class CraftExecution:
                     ))
             else:
                 for c in consumed:
+                    c = _mapping_item(c, field="consumed")
+                    consumed_ref = _required_ref(c.get("item_ref"), field="consumed.item_ref")
+                    consumed_quantity = _positive_decimal(c.get("quantity"), field="consumed.quantity")
                     all_items.append(WorkOrderItem(
                         work_order=order,
                         kind=WorkOrderItem.Kind.CONSUMPTION,
-                        item_ref=c["item_ref"],
-                        quantity=Decimal(str(c["quantity"])),
+                        item_ref=consumed_ref,
+                        quantity=consumed_quantity,
                         unit=c.get("unit", ""),
                         recorded_at=now,
                         recorded_by=actor or "",
@@ -171,11 +206,14 @@ class CraftExecution:
                 ))
             else:
                 for p in finished_items:
+                    p = _mapping_item(p, field="finished")
+                    output_ref = _required_ref(p.get("item_ref"), field="finished.item_ref")
+                    output_quantity = _positive_decimal(p.get("quantity"), field="finished.quantity")
                     all_items.append(WorkOrderItem(
                         work_order=order,
                         kind=WorkOrderItem.Kind.OUTPUT,
-                        item_ref=p["item_ref"],
-                        quantity=Decimal(str(p["quantity"])),
+                        item_ref=output_ref,
+                        quantity=output_quantity,
                         unit=p.get("unit", ""),
                         recorded_at=now,
                         recorded_by=actor or "",
@@ -193,25 +231,27 @@ class CraftExecution:
                         recorded_at=now,
                         recorded_by=actor or "",
                     ))
-            elif isinstance(wasted, (int, float, Decimal)):
-                waste_decimal = Decimal(str(wasted))
-                if waste_decimal > 0:
-                    all_items.append(WorkOrderItem(
-                        work_order=order,
-                        kind=WorkOrderItem.Kind.WASTE,
-                        item_ref=order.output_sku,
-                        quantity=waste_decimal,
-                        unit="",
-                        recorded_at=now,
-                        recorded_by=actor or "",
-                    ))
+            elif isinstance(wasted, (int, float, Decimal, str)):
+                waste_decimal = _positive_decimal(wasted, field="wasted")
+                all_items.append(WorkOrderItem(
+                    work_order=order,
+                    kind=WorkOrderItem.Kind.WASTE,
+                    item_ref=order.output_sku,
+                    quantity=waste_decimal,
+                    unit="",
+                    recorded_at=now,
+                    recorded_by=actor or "",
+                ))
             else:
                 for w in wasted:
+                    w = _mapping_item(w, field="wasted")
+                    waste_ref = _required_ref(w.get("item_ref"), field="wasted.item_ref")
+                    waste_quantity = _positive_decimal(w.get("quantity"), field="wasted.quantity")
                     all_items.append(WorkOrderItem(
                         work_order=order,
                         kind=WorkOrderItem.Kind.WASTE,
-                        item_ref=w["item_ref"],
-                        quantity=Decimal(str(w["quantity"])),
+                        item_ref=waste_ref,
+                        quantity=waste_quantity,
                         unit=w.get("unit", ""),
                         recorded_at=now,
                         recorded_by=actor or "",
