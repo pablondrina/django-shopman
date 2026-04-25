@@ -73,7 +73,8 @@ class OperationSerializer(serializers.Serializer):
         "source",        # source.* (origem do pedido)
         "operator",      # operator.* (operador/vendedor)
         "table",         # table (mesa - restaurantes)
-        "tab",           # tab (comanda)
+        "tab",           # tab (comanda label)
+        "standby",       # standby, standby_operator (session em espera)
     }
 
     # Paths explicitamente proibidos (críticos do sistema)

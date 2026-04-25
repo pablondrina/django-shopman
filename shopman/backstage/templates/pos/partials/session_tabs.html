@@ -5,7 +5,7 @@
         hx-swap="none"
         x-on:htmx:after-request="if(event.detail.successful){ let d=JSON.parse(event.detail.xhr.responseText); loadSession(d); htmx.trigger(document.getElementById('pos-session-tabs'), 'load'); }">
   <span class="material-symbols-rounded text-xs" aria-hidden="true">receipt</span>
-  <span class="font-bold">{{ s.comanda }}</span>
+  <span class="font-bold">{{ s.tab }}</span>
   <span class="text-on-surface/50 dark:text-on-surface-dark/50">
     {{ s.item_count }} item{% if s.item_count != 1 %}s{% endif %} · {{ s.total_display }}
   </span>

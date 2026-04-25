@@ -82,6 +82,7 @@ O comportamento de cada canal é 100% configurado via `ChannelConfig` — sem cl
 | Fase | Trigger | Ações |
 |------|---------|-------|
 | `on_commit` | Order criada | `customer.ensure()`, `stock.hold()`, `loyalty.redeem()`, `handle_confirmation()` |
+| (guard) | Antes de CONFIRMED | `ensure_confirmable()` — exige `availability_decision.approved == True` em `order.data`. Sem decisão positiva, `InvalidTransition("availability_not_approved")`. Exceção: canais com `payment.timing == "external"` (marketplace). Ver §Availability Approval abaixo |
 | `on_confirmed` | Status → CONFIRMED | `payment.initiate()` (se post_commit), `stock.fulfill()` (se counter), `notification.send` |
 | `on_paid` | Webhook de pagamento | `stock.fulfill()`, `notification.send("payment_confirmed")` |
 | `on_preparing` | Status → PREPARING | `kds.dispatch()`, `notification.send` |
@@ -91,6 +92,33 @@ O comportamento de cada canal é 100% configurado via `ChannelConfig` — sem cl
 | `on_completed` | Status → COMPLETED | `loyalty.earn()`, `fiscal.emit()` |
 | `on_cancelled` | Status → CANCELLED | `kds.cancel_tickets()`, `stock.release()`, `payment.refund()`, `notification.send` |
 | `on_returned` | Status → RETURNED | `stock.revert()`, `payment.refund()`, `fiscal.cancel()`, `notification.send` |
+
+### Availability Approval (Guard de Confirmação)
+
+Antes de transitar para CONFIRMED, todo pedido deve ter uma decisão positiva de disponibilidade em `order.data["availability_decision"]`. Isso é enforced por `ensure_confirmable()` em `lifecycle.py`.
+
+**Fluxo:**
+
+1. Pedido criado (status NEW) — operador vê na fila
+2. Operador avalia disponibilidade dos itens (via Gestor Pedidos)
+3. Três ações possíveis:
+   - `approve_order(order)` — aprova integralmente (`approved: True`)
+   - `approve_with_adjustments(order, decisions)` — aprova com ajustes de quantidade por SKU
+   - `reject_order(order)` — rejeita (`approved: False`, cancela o pedido)
+4. Ao aprovar, `_record_availability_decision()` grava em `order.data["availability_decision"]`
+5. `ensure_confirmable()` verifica: sem decisão positiva → `InvalidTransition("availability_not_approved")`
+
+**Exceção:** canais com `payment.timing == "external"` (marketplace como iFood) pulam esse guard — o marketplace gerencia sua própria confirmação.
+
+**Schema** de `availability_decision`:
+```json
+{
+  "approved": true,
+  "decisions": [{"sku": "PAO-001", "original_qty": 5, "approved_qty": 3, "action": "adjusted"}],
+  "decided_at": "2026-04-24T10:00:00Z",
+  "decided_by": "operator_username"
+}
+```
 
 ---
 

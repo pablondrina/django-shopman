@@ -24,8 +24,8 @@
   <div class="flex items-center gap-1.5 px-3 py-1.5 border-b border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt shrink-0 overflow-x-auto">
     <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark shrink-0">
       <span class="material-symbols-rounded text-xs" aria-hidden="true">point_of_sale</span>
-      <span x-show="!activeComanda" x-cloak>Nova venda</span>
-      <span x-show="activeComanda" x-cloak>Comanda <span x-text="activeComanda"></span></span>
+      <span x-show="!activeTab" x-cloak>Nova venda</span>
+      <span x-show="activeTab" x-cloak>Tab <span x-text="activeTab"></span></span>
       <span x-show="itemCount > 0" x-cloak class="opacity-70"
             x-text="'· ' + itemCount + (itemCount===1?' item':' itens') + ' · ' + formatMoney(totalQ)"></span>
     </div>
@@ -262,7 +262,7 @@
           <button type="button"
                   class="flex-1 py-2 text-xs font-semibold bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark rounded-lg text-on-surface/60 dark:text-on-surface-dark/60 hover:bg-outline/30 dark:hover:bg-outline-dark/30 disabled:opacity-40"
                   :disabled="cart.length === 0"
-                  @click="cart = []; clearDiscount(); tenderedInput = ''; expandedNoteIdx = -1; activeComanda = ''; document.getElementById('pos-result').innerHTML = ''"
+                  @click="cart = []; clearDiscount(); tenderedInput = ''; expandedNoteIdx = -1; activeTab = ''; document.getElementById('pos-result').innerHTML = ''"
                   title="Limpar carrinho">
             Limpar <span class="text-on-surface/40 dark:text-on-surface-dark/40">(F5)</span>
           </button>
@@ -276,12 +276,12 @@
           <button type="button"
                   class="flex-1 py-2 text-xs font-semibold bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark rounded-lg text-on-surface/60 dark:text-on-surface-dark/60 hover:bg-outline/30 dark:hover:bg-outline-dark/30 disabled:opacity-40"
                   :disabled="cart.length === 0"
-                  title="Estacionar comanda"
+                  title="Standby tab"
                   hx-post="/gestor/pos/park/"
                   hx-vals="js:{payload: Alpine.$data(document.getElementById('pos-root')).cartPayload()}"
                   hx-target="#pos-park-result"
                   hx-swap="innerHTML"
-                  x-on:htmx:after-request="if(event.detail.successful && event.detail.xhr.status < 300){ cart=[]; customerPhone=''; customerName=''; customerGroup=''; clearDiscount(); tenderedInput=''; paymentMethod='cash'; expandedNoteIdx=-1; activeComanda=''; document.getElementById('pos-result').innerHTML=''; }">
+                  x-on:htmx:after-request="if(event.detail.successful && event.detail.xhr.status < 300){ cart=[]; customerPhone=''; customerName=''; customerGroup=''; clearDiscount(); tenderedInput=''; paymentMethod='cash'; expandedNoteIdx=-1; activeTab=''; document.getElementById('pos-result').innerHTML=''; }">
             <span class="material-symbols-rounded text-xs align-middle" aria-hidden="true">pause_circle</span>
             Estacionar
           </button>
@@ -502,7 +502,7 @@ document.addEventListener('alpine:init', function() {
     customerGroup: '',
     paymentMethod: 'cash',
     tenderedInput: '',
-    activeComanda: '',
+    activeTab: '',
     lastOrderRef: '',
     lastOrderTotal: '',
     successMsg: '',
@@ -638,7 +638,7 @@ document.addEventListener('alpine:init', function() {
           this.paymentMethod = 'cash';
           this.tenderedInput = '';
           this.expandedNoteIdx = -1;
-          this.activeComanda = '';
+          this.activeTab = '';
           this.clearDiscount();
           if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
           var self = this;
@@ -654,7 +654,7 @@ document.addEventListener('alpine:init', function() {
       this.customerGroup = d.customer_group || '';
       this.paymentMethod = d.payment_method || 'cash';
       this.tenderedInput = '';
-      this.activeComanda = d.comanda || '';
+      this.activeTab = d.tab || '';
       this.expandedNoteIdx = -1;
       document.getElementById('pos-result').innerHTML = '';
       document.getElementById('pos-customer-result').innerHTML = '';

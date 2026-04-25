@@ -1,6 +1,6 @@
 # ROADMAP — Django Shopman
 
-> Atualizado em 2026-04-16.
+> Atualizado em 2026-04-25.
 
 ---
 
@@ -23,11 +23,9 @@ Cinco frentes abertas. Ordem recomendada:
 
 Há ~58 arquivos modificados + untracked (handlers, services, ADR-007, novos iFood/PIX mock) resultantes de trabalho backend que ainda não fechou. Antes de tocar em qualquer outra coisa, fechar essa leva em commits semânticos agrupados por tema. Plano de 9 commits (C1-C9) aguardando execução — ver registro na sessão de trabalho ou gerar novamente com análise do `git status`.
 
-### 2. Consolidação semântica de nomes — refactor grande
+### 2. ~~Consolidação semântica de nomes~~ — **Cancelado**
 
-Ver [`docs/plans/NAMING-CONSOLIDATION-PLAN.md`](plans/NAMING-CONSOLIDATION-PLAN.md).
-
-**Tese:** hoje a palavra "shop" é usada para dois conceitos incompatíveis — a camada orquestradora (`shopman/shop/`) e as instâncias deployadas (que **são** lojas reais). Proposta: renomear `shopman/shop/` → `shopman/hub/` (Django label `hub`) e `instances/` → `shops/`, devolvendo "shop" ao seu sentido único de "loja real deployada". Packages continuam sendo "Core". URL namespace `storefront` já está correto (zero templates precisam mudar). Impacto médio — ~1 dia focado com testes verdes a cada passo. Aguarda aprovação explícita do Pablo sobre 4 pontos listados no plano.
+❌ Cancelado — nomenclatura atual (`shopman/shop/`, `instances/`) é definitiva. Ver memória de projeto `naming_consolidation_cancelled`.
 
 ### 3. ~~Extração de valor do `proto/` antes de descartar~~ — **concluído 2026-04-15**
 
@@ -109,9 +107,9 @@ A Suite está funcional como MVP: storefront completo (menu → cart → checkou
 | Pagamentos: PIX (EFI) | Estável | `packages/payman/` + adapters |
 | Loyalty: earn, redeem, tiers, stamps | Implementado | `guestman/contrib/loyalty/`, checkout |
 | Disponibilidade na UI | Parcial | catalog views + `_helpers.py` |
-| Storefront HTMX | Beta | `shopman/shop/web/` |
-| KDS (kitchen display) | Implementado | `shopman/shop/web/views/kds.py` |
-| POS (point of sale) | Implementado | `shopman/shop/web/views/pos.py` |
+| Storefront HTMX | Beta | `shopman/storefront/` |
+| KDS (kitchen display) | Implementado | `shopman/backstage/views/kds.py` |
+| POS (point of sale) | Implementado | `shopman/backstage/views/pos.py` |
 | Admin (Unfold) + dashboard | Implementado | `shopman/shop/admin/` |
 | Rules engine (promotions, coupons) | Implementado | `shopman/shop/rules/` |
 | Fechamento do dia | Implementado | `shopman/shop/models/closing.py` |

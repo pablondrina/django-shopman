@@ -399,7 +399,7 @@ def _build_session_ops(body: dict, username: str) -> list[dict]:
 
 @require_POST
 def pos_park(request: HttpRequest) -> HttpResponse:
-    """POST /gestor/pos/park/ — save current cart as a parked comanda."""
+    """POST /gestor/pos/park/ — save current cart as a standby tab."""
     denied = _perm_required(request)
     if denied:
         return HttpResponse("Unauthorized", status=403)
@@ -429,7 +429,7 @@ def pos_park(request: HttpRequest) -> HttpResponse:
     shop = Shop.load()
     config = ChannelConfig.for_channel(channel)
 
-    comanda = generate_value("POS_TAB", {
+    tab = generate_value("POS_TAB", {
         "store_id": str(shop.pk),
         "business_date": tz.localdate().isoformat(),
     })
@@ -447,9 +447,9 @@ def pos_park(request: HttpRequest) -> HttpResponse:
 
     ops = _build_session_ops(body, request.user.username)
     ops.extend([
-        {"op": "set_data", "path": "parked", "value": True},
-        {"op": "set_data", "path": "comanda", "value": comanda},
-        {"op": "set_data", "path": "parked_by", "value": request.user.username},
+        {"op": "set_data", "path": "standby", "value": True},
+        {"op": "set_data", "path": "tab", "value": tab},
+        {"op": "set_data", "path": "standby_operator", "value": request.user.username},
     ])
 
     try:
@@ -464,11 +464,11 @@ def pos_park(request: HttpRequest) -> HttpResponse:
         logger.exception("pos_park modify_failed")
         return HttpResponse(f'<span class="text-xs text-danger">Erro: {e}</span>', status=422)
 
-    logger.info("pos_park comanda=%s session=%s operator=%s", comanda, session_key, request.user.username)
+    logger.info("pos_park tab=%s session=%s operator=%s", tab, session_key, request.user.username)
 
     response = HttpResponse(
-        f'<span data-comanda="{comanda}" class="text-xs text-success font-semibold">'
-        f'Comanda {comanda} estacionada</span>'
+        f'<span data-tab="{tab}" class="text-xs text-success font-semibold">'
+        f'Tab {tab} em standby</span>'
     )
     response["HX-Trigger"] = "sessionParked"
     return response
@@ -476,7 +476,7 @@ def pos_park(request: HttpRequest) -> HttpResponse:
 
 @require_GET
 def pos_sessions(request: HttpRequest) -> HttpResponse:
-    """GET /gestor/pos/sessions/ — HTMX: parked session tab list."""
+    """GET /gestor/pos/sessions/ — HTMX: standby session tab list."""
     denied = _perm_required(request)
     if denied:
         return HttpResponse("", status=403)
@@ -487,7 +487,7 @@ def pos_sessions(request: HttpRequest) -> HttpResponse:
     sessions_qs = Session.objects.filter(
         channel_ref=POS_CHANNEL_REF,
         state="open",
-        data__parked=True,
+        data__standby=True,
         opened_at__date=tz.localdate(),
     ).order_by("opened_at")
 
@@ -500,7 +500,7 @@ def pos_sessions(request: HttpRequest) -> HttpResponse:
         discount_q = int((data.get("manual_discount") or {}).get("discount_q", 0))
         sessions.append({
             "session_key": s.session_key,
-            "comanda": data.get("comanda", "?"),
+            "tab": data.get("tab", "?"),
             "item_count": item_count,
             "total_display": f"R$ {_fm(max(0, total_q - discount_q))}",
             "customer_name": (data.get("customer") or {}).get("name", ""),
@@ -542,13 +542,13 @@ def pos_load_session(request: HttpRequest, session_key: str) -> HttpResponse:
         for it in (session.items or [])
     ]
 
-    session.data["parked"] = False
+    session.data["standby"] = False
     session.save(update_fields=["data"])
 
     import json as _json
     payload = _json.dumps({
         "session_key": session_key,
-        "comanda": data.get("comanda", ""),
+        "tab": data.get("tab", ""),
         "items": items,
         "customer_phone": customer.get("phone", ""),
         "customer_name": customer.get("name", ""),

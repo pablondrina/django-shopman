@@ -8,7 +8,7 @@
 
 ## Session.data
 
-Unidade mutável pré-commit (carrinho/comanda). Populado pelo App (views, CartService, handlers).
+Unidade mutável pré-commit (carrinho). Populado pelo App (views, CartService, handlers).
 O Core não impõe schema — a governança é por convenção documentada aqui.
 
 ### Chaves de negócio (populadas por views/services)
@@ -32,6 +32,9 @@ O Core não impõe schema — a governança é por convenção documentada aqui.
 | `delivery_address_id` | `int` | `web/views/checkout.py` | `checkout_defaults.py` | FK para `CustomerAddress.pk`. Usada para inferir defaults na sessão. **Não propagada ao Order.data** — somente em Session.data |
 | `stock_check_unavailable` | `list[dict]` | `lifecycle._check_availability` (via `check_on_commit`) | — | SKUs rejeitados por indisponibilidade durante check pré-commit. Cada entry: `{sku, error_code}`. Presente quando pedido é cancelado por `auto_reject_unavailable` |
 | `manual_discount` | `dict` | POS `pos_close` view | `ModifyService` (via `set_data`) | Desconto manual do operador: `{type, value, discount_q, reason}`. `type`: `"percent"` ou `"fixed"` |
+| `standby` | `bool` | POS `pos_park` view | POS `pos_sessions`, `pos_resume` | `True` quando sessão está em espera (operador estacionou para atender outro cliente). Filtrado via `data__standby=True` |
+| `standby_operator` | `string` | POS `pos_park` view | POS `pos_sessions` | Username do operador que colocou em standby |
+| `tab` | `string` | POS `pos_park` view (via `generate_value("POS_TAB")`) | POS `pos_sessions`, `pos_resume`, template tabs | Label da comanda (RefType POS_TAB, formato curto). Ex: `"PDV-2504-A3X"` |
 
 ### Chaves de sistema (geridas pelo Core)
 
@@ -45,7 +48,7 @@ O Core não impõe schema — a governança é por convenção documentada aqui.
 O `ModifyService` aceita operações `set_data` nas seguintes paths:
 `customer`, `delivery`, `payment`, `notes`, `meta`, `extra`, `custom`, `tags`,
 `discounts`, `fees`, `tip`, `coupon`, `source`, `operator`, `table`, `tab`,
-`fulfillment_type`, `delivery_address`, `delivery_address_structured`,
+`standby`, `fulfillment_type`, `delivery_address`, `delivery_address_structured`,
 `delivery_date`, `delivery_time_slot`, `order_notes`.
 
 Paths **proibidas** (geridas pelo sistema): `checks`, `issues`, `state`, `status`,
@@ -128,6 +131,8 @@ for key in (
 | `nfce_qrcode_url` | `string` | NFCeEmitHandler | — | URL do QR code |
 | `nfce_cancelled` | `bool` | NFCeCancelHandler | NFCeCancelHandler (idempotência) | NFCe cancelada |
 | `nfce_cancellation_protocol` | `string` | NFCeCancelHandler | — | Protocolo de cancelamento |
+| `availability_decision` | `dict` | `lifecycle.approve_with_adjustments()`, `lifecycle.approve_order()`, `lifecycle.reject_order()` | `lifecycle.has_availability_approval()`, `lifecycle.ensure_confirmable()`, `services/stock.py` | Decisão do operador sobre disponibilidade: `{approved: bool, decisions: [{sku, original_qty, approved_qty, action}], decided_at, decided_by}`. Guard para confirmação |
+| `cancelled_by` | `string` | `services/cancellation.py` | `hooks._on_cancelled` | Identificador de quem cancelou: `"customer"` ou `"operator:<username>"` |
 | `session_key` | `string` | hooks._on_cancelled | hooks._on_cancelled | Chave de sessão original (referência para release holds) |
 | `hold_ids` | `list[dict]` | `StockService.hold(order)` | `StockService.fulfill(order)`, `StockService.release(order)` | Holds do Stockman adotados no commit. Cada entry: `{sku, hold_id, qty}` |
 | `loyalty` | `dict` | `LoyaltyRedeemModifier` | `services/loyalty.py` | Dados de resgate de pontos: `{redeem_points_q: int}` |
