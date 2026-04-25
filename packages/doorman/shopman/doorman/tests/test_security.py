@@ -18,7 +18,6 @@ from unittest.mock import patch
 import pytest
 from django.test import RequestFactory, override_settings
 from django.utils import timezone
-
 from shopman.doorman.exceptions import GateError
 from shopman.doorman.gates import Gates
 from shopman.doorman.models import AccessLink, VerificationCode
@@ -596,7 +595,6 @@ class TestAccessLinkUtilities:
         """_get_or_create_user handles concurrent creation via IntegrityError."""
 
         from django.contrib.auth import get_user_model
-
         from shopman.doorman.models import CustomerUser
 
         User = get_user_model()

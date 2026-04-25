@@ -2,7 +2,6 @@
 
 import pytest
 from django.utils import timezone
-
 from shopman.doorman.models import AccessLink, VerificationCode
 
 

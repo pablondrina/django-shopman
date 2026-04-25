@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from django.test import RequestFactory, override_settings
-
 from shopman.doorman.services.access_link import AccessLinkService
 from shopman.doorman.views.access_link_request import AccessLinkRequestView
 

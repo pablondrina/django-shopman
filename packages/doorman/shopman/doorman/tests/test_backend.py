@@ -9,7 +9,6 @@ from django.apps import apps
 from django.contrib.auth import get_user_model, login
 from django.contrib.sessions.backends.db import SessionStore
 from django.test import RequestFactory, override_settings
-
 from shopman.doorman.backends import PhoneOTPBackend
 from shopman.doorman.models import CustomerUser
 from shopman.doorman.services.verification import AuthService

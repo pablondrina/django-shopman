@@ -14,6 +14,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     # Guestman (dependency for CustomerResolver)
     "shopman.guestman",
+    "shopman.guestman.contrib.identifiers",
     # Auth
     "shopman.doorman",
 ]

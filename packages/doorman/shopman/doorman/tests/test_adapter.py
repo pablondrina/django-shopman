@@ -15,7 +15,6 @@ from unittest.mock import patch
 
 import pytest
 from django.test import override_settings
-
 from shopman.doorman.adapter import DefaultAuthAdapter
 from shopman.doorman.conf import get_adapter, reset_adapter
 from shopman.doorman.protocols.customer import AuthCustomerInfo
@@ -175,7 +174,10 @@ class CustomAdapter(DefaultAuthAdapter):
         return "/custom-login-redirect/"
 
 
-@override_settings(DOORMAN={"AUTH_ADAPTER": "shopman.doorman.tests.test_adapter.CustomAdapter"})
+CUSTOM_ADAPTER_PATH = f"{CustomAdapter.__module__}.CustomAdapter"
+
+
+@override_settings(DOORMAN={"AUTH_ADAPTER": CUSTOM_ADAPTER_PATH})
 def test_custom_adapter_loaded():
     reset_adapter()
     adapter = get_adapter()
@@ -183,7 +185,7 @@ def test_custom_adapter_loaded():
     assert adapter.should_auto_create_customer() is False
 
 
-@override_settings(DOORMAN={"AUTH_ADAPTER": "shopman.doorman.tests.test_adapter.CustomAdapter"})
+@override_settings(DOORMAN={"AUTH_ADAPTER": CUSTOM_ADAPTER_PATH})
 def test_custom_adapter_login_allowed():
     reset_adapter()
     adapter = get_adapter()
@@ -191,7 +193,7 @@ def test_custom_adapter_login_allowed():
     assert adapter.is_login_allowed("+5500000000000", "whatsapp") is False
 
 
-@override_settings(DOORMAN={"AUTH_ADAPTER": "shopman.doorman.tests.test_adapter.CustomAdapter"})
+@override_settings(DOORMAN={"AUTH_ADAPTER": CUSTOM_ADAPTER_PATH})
 def test_custom_adapter_redirect_url():
     reset_adapter()
     adapter = get_adapter()

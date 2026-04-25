@@ -7,7 +7,6 @@ from unittest.mock import patch
 
 import pytest
 from rest_framework.test import APIRequestFactory
-
 from shopman.doorman.api.views import RequestCodeView, VerifyCodeView
 from shopman.doorman.error_codes import ErrorCode
 from shopman.doorman.exceptions import GateError

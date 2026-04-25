@@ -25,4 +25,4 @@ include = ["shopman.doorman*"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "doorman_test_settings"
-pythonpath = ["."]
+pythonpath = [".", "../guestman", "../utils"]

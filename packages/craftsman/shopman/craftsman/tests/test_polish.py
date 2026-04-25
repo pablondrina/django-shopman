@@ -158,6 +158,7 @@ class TestProductionBackendExceptions:
 
     def test_create_wo_craft_error_logged_as_warning(self, db):
         """CraftError (business logic) is logged at warning level."""
+        pytest.importorskip("shopman.stockman.protocols.production")
         from shopman.craftsman.contrib.stockman.production import CraftsmanProductionBackend
 
         backend = CraftsmanProductionBackend()

@@ -3,7 +3,6 @@ Auth utilities.
 """
 
 from django.utils.http import url_has_allowed_host_and_scheme
-
 from shopman.utils.phone import normalize_phone  # noqa: F401
 
 

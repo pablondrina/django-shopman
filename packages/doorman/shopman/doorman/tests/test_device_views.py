@@ -8,7 +8,6 @@ import uuid
 
 import pytest
 from django.test import RequestFactory
-
 from shopman.doorman.models.device_trust import TrustedDevice
 from shopman.doorman.protocols.customer import AuthCustomerInfo
 from shopman.doorman.views.devices import DeviceListView, DeviceRevokeView

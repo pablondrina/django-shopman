@@ -8,7 +8,6 @@ from datetime import timedelta
 import pytest
 from django.test import RequestFactory, override_settings
 from django.utils import timezone
-
 from shopman.doorman.models import TrustedDevice
 from shopman.doorman.services.device_trust import DeviceTrustService
 
@@ -187,7 +186,6 @@ class TestDeviceTrustService:
     def test_trust_device_emits_signal(self):
         """trust_device should emit device_trusted signal."""
         from django.http import HttpResponse
-
         from shopman.doorman.signals import device_trusted
 
         received = []

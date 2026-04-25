@@ -9,11 +9,10 @@ the Unfold versions.
 """
 
 from django.contrib import admin
-from unfold.decorators import display
-
 from shopman.doorman.models import AccessLink, CustomerUser, TrustedDevice, VerificationCode
 from shopman.utils.contrib.admin_unfold.badges import unfold_badge
 from shopman.utils.contrib.admin_unfold.base import BaseModelAdmin
+from unfold.decorators import display
 
 # Unregister basic admins
 for model in [CustomerUser, AccessLink, VerificationCode, TrustedDevice]:

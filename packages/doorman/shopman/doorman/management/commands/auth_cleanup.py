@@ -8,7 +8,6 @@ Usage:
 """
 
 from django.core.management.base import BaseCommand
-
 from shopman.doorman.services.access_link import AccessLinkService
 from shopman.doorman.services.device_trust import DeviceTrustService
 from shopman.doorman.services.verification import AuthService
@@ -38,7 +37,6 @@ class Command(BaseCommand):
             from datetime import timedelta
 
             from django.utils import timezone
-
             from shopman.doorman.models import AccessLink, TrustedDevice, VerificationCode
 
             cutoff = timezone.now() - timedelta(days=days)

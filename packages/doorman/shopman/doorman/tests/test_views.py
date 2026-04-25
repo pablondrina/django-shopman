@@ -16,7 +16,6 @@ import pytest
 from django.contrib.sessions.backends.db import SessionStore
 from django.http import HttpResponseRedirect
 from django.test import RequestFactory, override_settings
-
 from shopman.doorman.models import VerificationCode
 from shopman.doorman.models.verification_code import generate_raw_code
 from shopman.doorman.services.access_link import AccessLinkService

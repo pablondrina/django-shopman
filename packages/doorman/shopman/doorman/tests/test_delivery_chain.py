@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import pytest
 from django.test import override_settings
-
 from shopman.doorman.adapter import DefaultAuthAdapter
 from shopman.doorman.conf import reset_adapter
 from shopman.doorman.services.verification import AuthService

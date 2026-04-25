@@ -3,12 +3,11 @@
 import uuid
 
 import django.db.models.deletion
-from django.conf import settings
-from django.db import migrations, models
-
 import shopman.doorman.models.access_link
 import shopman.doorman.models.device_trust
 import shopman.doorman.models.verification_code
+from django.conf import settings
+from django.db import migrations, models
 
 
 class Migration(migrations.Migration):

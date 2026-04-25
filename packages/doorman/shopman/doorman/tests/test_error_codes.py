@@ -14,7 +14,6 @@ from unittest.mock import patch
 import pytest
 from django.test import override_settings
 from django.utils import timezone
-
 from shopman.doorman.conf import validate_settings
 from shopman.doorman.error_codes import ErrorCode
 from shopman.doorman.models import AccessLink, VerificationCode

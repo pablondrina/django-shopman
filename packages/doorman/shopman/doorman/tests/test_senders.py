@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from django.test import override_settings
-
 from shopman.doorman.senders import (
     ConsoleSender,
     EmailSender,
