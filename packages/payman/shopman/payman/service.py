@@ -48,6 +48,7 @@ import uuid
 from typing import TYPE_CHECKING
 
 from django.db import models, transaction
+from django.db.models import Q
 from django.utils import timezone
 from shopman.payman.exceptions import PaymentError
 from shopman.payman.models.intent import PaymentIntent
@@ -499,17 +500,23 @@ class PaymentService:
         return (
             PaymentIntent.objects.filter(order_ref=order_ref)
             .exclude(status__in=PaymentIntent.TERMINAL_STATUSES)
-            .filter(
-                models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=now)
-            )
+            .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=now))
             .order_by("-created_at")
             .first()
         )
 
     @classmethod
-    def get_by_gateway_id(cls, gateway_id: str) -> PaymentIntent | None:
-        """Busca intent por gateway_id (ID externo do gateway)."""
-        return PaymentIntent.objects.filter(gateway_id=gateway_id).first()
+    def get_by_gateway_id(
+        cls,
+        gateway_id: str,
+        *,
+        gateway: str | None = None,
+    ) -> PaymentIntent | None:
+        """Busca intent por ID externo, opcionalmente restrito ao gateway."""
+        qs = PaymentIntent.objects.filter(gateway_id=gateway_id)
+        if gateway is not None:
+            qs = qs.filter(gateway=gateway)
+        return qs.order_by("-created_at").first()
 
     # ================================================================
     # Aggregates

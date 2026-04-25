@@ -82,7 +82,7 @@ class PaymentIntent(models.Model):
     captured_at = models.DateTimeField(null=True, blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
     expires_at = models.DateTimeField(null=True, blank=True)
-    cancel_reason = models.CharField(max_length=255, blank=True, default="")
+    cancel_reason = models.CharField(max_length=500, blank=True, default="")
 
     class Meta:
         app_label = "payman"
@@ -96,7 +96,7 @@ class PaymentIntent(models.Model):
             ),
             models.UniqueConstraint(
                 fields=["gateway", "gateway_id"],
-                condition=~models.Q(gateway_id=""),
+                condition=models.Q(gateway_id__gt=""),
                 name="pay_intent_gateway_id_unique",
             ),
         ]

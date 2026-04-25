@@ -364,7 +364,7 @@ def handle_webhook(payload: bytes, sig_header: str) -> dict:
         charge = event.data.object
         stripe_intent_id = charge.payment_intent
         if stripe_intent_id:
-            db_intent = PaymentService.get_by_gateway_id(stripe_intent_id)
+            db_intent = PaymentService.get_by_gateway_id(stripe_intent_id, gateway="stripe")
             if db_intent:
                 intent_ref = db_intent.ref
                 try:

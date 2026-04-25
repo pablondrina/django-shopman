@@ -45,7 +45,7 @@ def confirm_pix(*, txid: str, e2e_id: str = "", valor: str = "") -> None:
     """
     from shopman.payman import PaymentError, PaymentService
 
-    db_intent = PaymentService.get_by_gateway_id(txid)
+    db_intent = PaymentService.get_by_gateway_id(txid, gateway="efi")
 
     if db_intent is None:
         order = (

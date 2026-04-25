@@ -30,6 +30,7 @@ class PaymentIntentSerializer(serializers.ModelSerializer):
             "captured_at",
             "cancelled_at",
             "expires_at",
+            "cancel_reason",
             "transactions",
         ]
 

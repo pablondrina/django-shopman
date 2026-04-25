@@ -11,6 +11,12 @@ class PaymentTransactionQuerySet(models.QuerySet):
             "Use PaymentService para criar novas transações em vez de atualizar existentes."
         )
 
+    def delete(self):
+        raise ValueError(
+            "Transações são imutáveis. "
+            "Para estornar, crie uma Transaction de refund."
+        )
+
 
 class PaymentTransactionManager(models.Manager):
     def get_queryset(self):
