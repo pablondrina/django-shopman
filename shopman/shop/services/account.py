@@ -9,8 +9,12 @@ from __future__ import annotations
 import hashlib
 import logging
 
-from shopman.shop.projections.types import FoodPrefProjection, NotificationPrefProjection
-from shopman.storefront.projections.account import FOOD_PREFERENCE_OPTIONS, NOTIFICATION_CHANNELS
+from shopman.shop.projections.types import (
+    FOOD_PREFERENCE_OPTIONS,
+    NOTIFICATION_CHANNELS,
+    FoodPrefProjection,
+    NotificationPrefProjection,
+)
 
 logger = logging.getLogger(__name__)
 

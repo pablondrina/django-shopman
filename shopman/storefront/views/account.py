@@ -9,13 +9,13 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
 
-logger = logging.getLogger(__name__)
-
+from shopman.shop.services import account as account_service
 from shopman.storefront.projections.account import build_account
-from shopman.storefront.services import account as account_service
 from shopman.storefront.services.address_picker import address_picker_context
 
 from .auth import get_authenticated_customer
+
+logger = logging.getLogger(__name__)
 
 
 def _get_customer_addresses(customer_ref: str):

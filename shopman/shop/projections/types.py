@@ -98,6 +98,24 @@ ORDER_STATUS_COLORS: dict[str, str] = {
     "returned": "bg-surface-alt text-on-surface/60 border border-outline",
 }
 
+NOTIFICATION_CHANNELS: tuple[tuple[str, str, str], ...] = (
+    ("whatsapp", "WhatsApp", "Receber atualizações de pedidos via WhatsApp"),
+    ("email", "Email", "Receber novidades e promoções por email"),
+    ("sms", "SMS", "Receber notificações por SMS"),
+    ("push", "Push", "Notificações push no navegador"),
+)
+
+FOOD_PREFERENCE_OPTIONS: tuple[tuple[str, str], ...] = (
+    ("sem_gluten", "Sem Glúten"),
+    ("sem_lactose", "Sem Lactose"),
+    ("vegano", "Vegano"),
+    ("vegetariano", "Vegetariano"),
+    ("sem_acucar", "Sem Açúcar"),
+    ("sem_nozes", "Sem Nozes"),
+    ("organico", "Orgânico"),
+    ("integral", "Integral"),
+)
+
 
 @dataclass(frozen=True)
 class SavedAddressProjection:

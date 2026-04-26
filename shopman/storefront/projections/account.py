@@ -19,6 +19,8 @@ from django.utils import timezone
 from shopman.utils.monetary import format_money
 
 from shopman.shop.projections.types import (
+    FOOD_PREFERENCE_OPTIONS,
+    NOTIFICATION_CHANNELS,
     ORDER_STATUS_COLORS,
     ORDER_STATUS_LABELS_PT,
     FoodPrefProjection,
@@ -33,24 +35,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _DEFAULT_CHANNEL_REF = "web"
-
-NOTIFICATION_CHANNELS: list[tuple[str, str, str]] = [
-    ("whatsapp", "WhatsApp", "Receber atualizações de pedidos via WhatsApp"),
-    ("email", "Email", "Receber novidades e promoções por email"),
-    ("sms", "SMS", "Receber notificações por SMS"),
-    ("push", "Push", "Notificações push no navegador"),
-]
-
-FOOD_PREFERENCE_OPTIONS: list[tuple[str, str]] = [
-    ("sem_gluten", "Sem Glúten"),
-    ("sem_lactose", "Sem Lactose"),
-    ("vegano", "Vegano"),
-    ("vegetariano", "Vegetariano"),
-    ("sem_acucar", "Sem Açúcar"),
-    ("sem_nozes", "Sem Nozes"),
-    ("organico", "Orgânico"),
-    ("integral", "Integral"),
-]
 
 TAB_OPTIONS: tuple[tuple[str, str], ...] = (
     ("perfil", "Perfil"),
