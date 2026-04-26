@@ -494,7 +494,7 @@ Write-back: `entry_id` (string)
 
 ## Channel.config
 
-Configuração do canal. Schema formal via `ChannelConfig` dataclass (7 aspectos) em `shopman/config.py`.
+Configuração do canal. Schema formal via `ChannelConfig` dataclass em `shopman/shop/config.py`.
 
 ### Cascata de configuração
 
@@ -502,7 +502,7 @@ Configuração do canal. Schema formal via `ChannelConfig` dataclass (7 aspectos
 ChannelConfig.defaults() ← Shop.defaults ← Channel.config
 ```
 
-O método `ChannelConfig.effective(channel)` faz o merge profundo (deep_merge).
+O método `ChannelConfig.for_channel(channel_or_ref)` faz o merge profundo (deep_merge).
 Chave ausente no override = herda. Chave presente (mesmo None) = sobreescreve.
 
 ### 1. Confirmation — como o pedido é aceito?

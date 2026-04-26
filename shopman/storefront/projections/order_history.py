@@ -12,23 +12,14 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from django.utils import timezone
 from shopman.utils.monetary import format_money
 
-from shopman.shop.projections.types import (
-    ORDER_STATUS_COLORS,
-    ORDER_STATUS_LABELS_PT,
-    OrderSummaryProjection,
-)
-
-if TYPE_CHECKING:
-    from shopman.guestman.models import Customer
+from shopman.shop.projections.types import OrderSummaryProjection
+from shopman.shop.services import customer_orders
 
 logger = logging.getLogger(__name__)
-
-_ACTIVE_STATUSES = frozenset({"new", "confirmed", "preparing", "ready", "dispatched"})
 
 FILTER_OPTIONS: tuple[tuple[str, str], ...] = (
     ("todos", "Todos"),
@@ -59,7 +50,7 @@ class OrderHistoryProjection:
 
 
 def build_order_history(
-    customer: Customer,
+    customer,
     *,
     filter_param: str = "todos",
 ) -> OrderHistoryProjection:
@@ -83,43 +74,27 @@ def build_order_history(
 
 
 def _fetch_orders(
-    customer: Customer,
+    customer,
     filter_param: str,
 ) -> tuple[OrderSummaryProjection, ...]:
-    try:
-        from shopman.orderman.models import Order
-
-        qs = Order.objects.filter(
-            handle_type="phone",
-            handle_ref=customer.phone,
-        ).order_by("-created_at")
-
-        if filter_param == "ativos":
-            qs = qs.filter(status__in=_ACTIVE_STATUSES)
-        elif filter_param == "anteriores":
-            qs = qs.exclude(status__in=_ACTIVE_STATUSES)
-
-        return tuple(
-            OrderSummaryProjection(
-                ref=order.ref,
-                created_at_display=_fmt_datetime(order.created_at),
-                total_q=order.total_q,
-                total_display=f"R$ {format_money(order.total_q)}",
-                status=order.status,
-                status_label=ORDER_STATUS_LABELS_PT.get(order.status, order.status),
-                status_color=ORDER_STATUS_COLORS.get(
-                    order.status,
-                    "bg-surface-alt text-on-surface/60 border border-outline",
-                ),
-                item_count=order.items.count(),
-            )
-            for order in qs[:50]
+    summaries = customer_orders.history_summaries_for_phone(
+        customer.phone,
+        filter_param=filter_param,
+        limit=50,
+    )
+    return tuple(
+        OrderSummaryProjection(
+            ref=order.ref,
+            created_at_display=_fmt_datetime(order.created_at),
+            total_q=order.total_q,
+            total_display=f"R$ {format_money(order.total_q)}",
+            status=order.status,
+            status_label=order.status_label,
+            status_color=order.status_color,
+            item_count=order.item_count,
         )
-    except Exception:
-        logger.exception(
-            "order_history_projection_failed customer=%s", customer.ref
-        )
-        return ()
+        for order in summaries
+    )
 
 
 def _fmt_datetime(dt) -> str:
@@ -128,6 +103,7 @@ def _fmt_datetime(dt) -> str:
         local = timezone.localtime(dt)
         return local.strftime("%d/%m/%Y às %H:%M")
     except Exception:
+        logger.debug("order_history_projection_datetime_format_failed dt=%r", dt, exc_info=True)
         return str(dt)
 
 

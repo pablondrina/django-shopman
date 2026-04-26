@@ -59,7 +59,7 @@ def get_slots() -> list[dict]:
             if slots:
                 return slots
     except Exception:
-        pass
+        logger.debug("pickup_slots: could not load configured slots", exc_info=True)
     return list(DEFAULT_SLOTS)
 
 
@@ -71,7 +71,7 @@ def get_slot_config() -> dict:
         if shop:
             return (shop.defaults or {}).get("pickup_slot_config", {})
     except Exception:
-        pass
+        logger.debug("pickup_slots: could not load slot config", exc_info=True)
     return {}
 
 

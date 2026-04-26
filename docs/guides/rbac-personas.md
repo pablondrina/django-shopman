@@ -16,13 +16,13 @@ Superuser (`is_superuser=True`) passa em tudo — sem necessidade de grupo.
 |------------|--------|-----------------|---------|
 | `shop.manage_orders` | `Shop` | Confirmar, rejeitar, avançar, cancelar pedidos; adicionar notas; mark_paid | `/pedidos/*` |
 | `shop.operate_kds` | `KDSTicket` | Check item, marcar ticket done, ações de expedição | `/kds/*` |
-| `shop.operate_pos` | `CashRegisterSession` | Abrir/fechar caixa, sangria, lookup de cliente, fechar venda | `/gestao/pos/*` |
-| `shop.manage_production` | `Shop` | Criar WorkOrders, avançar produção | `/gestao/producao/*` |
+| `shop.operate_pos` | `CashRegisterSession` | Abrir/fechar caixa, sangria, lookup de cliente, fechar venda | `/gestor/pos/*` |
+| `shop.manage_production` | `Shop` | Criar WorkOrders, avançar produção | `/gestor/producao/*` |
 | `shop.perform_closing` | `DayClosing` | Executar fechamento do dia, registrar perdas, mover D-1 | `/admin/shop/closing/` |
 | `shop.manage_catalog` | `Shop` | Criar/editar Product, Listing, Collection | Admin |
 | `shop.manage_customers` | `Shop` | Criar/editar Customer, grupos, loyalty | Admin |
 | `shop.manage_rules` | `RuleConfig` | Criar/editar regras de pricing e validação | Admin |
-| `shop.view_reports` | `Shop` | Dashboard e relatórios analíticos | Admin + `/gestao/*` |
+| `shop.view_reports` | `Shop` | Dashboard e relatórios analíticos | Admin + `/gestor/*` |
 
 ---
 

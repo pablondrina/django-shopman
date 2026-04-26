@@ -7,6 +7,8 @@ module owns the Orderman session writes and POS order commands.
 from __future__ import annotations
 
 import logging
+import secrets
+import string
 from dataclasses import dataclass
 from datetime import timedelta
 
@@ -98,13 +100,8 @@ def park_session(
     """Save the current POS cart as a standby session."""
     channel, config = _channel_and_config(channel_ref)
 
-    from shopman.refs.generators import generate_value
-
     shop = Shop.load()
-    tab = generate_value("POS_TAB", {
-        "store_id": str(shop.pk),
-        "business_date": timezone.localdate().isoformat(),
-    })
+    tab = _generate_pos_tab(shop_id=str(shop.pk) if shop else "")
 
     session = session_service.create_session(
         channel.ref,
@@ -134,6 +131,21 @@ def park_session(
     )
     logger.info("pos_park tab=%s session=%s operator=%s", tab, session.session_key, operator_username)
     return PosParkResult(tab=tab, session_key=session.session_key)
+
+
+def _generate_pos_tab(*, shop_id: str) -> str:
+    scope = {
+        "store_id": shop_id,
+        "business_date": timezone.localdate().isoformat(),
+    }
+    try:
+        from shopman.refs.generators import generate_value
+
+        return generate_value("POS_TAB", scope)
+    except (ImportError, LookupError):
+        alphabet = string.ascii_uppercase.replace("O", "").replace("I", "") + string.digits.replace("0", "").replace("1", "")
+        suffix = "".join(secrets.choice(alphabet) for _ in range(4))
+        return f"TAB-{timezone.localdate():%y%m%d}-{suffix}"
 
 
 def standby_sessions(*, channel_ref: str, business_date=None) -> list[dict]:

@@ -1,7 +1,7 @@
 # STOCK-UX-PLAN — Estoque insuficiente (acionável, 1-clique) — spec canônica
 
 > **Este documento é a fonte única da verdade para a UX de estoque insuficiente no storefront.**
-> O conceito vive no repo desde o `EVOLUTION-PLAN.md` (E1 — Disponibilidade + Alternativas)
+> O conceito vive no repo desde `docs/plans/completed/EVOLUTION-PLAN.md` (E1 — Disponibilidade + Alternativas)
 > e em `cart_warnings.html` histórico. Já foi perdido várias vezes — antes de tocar qualquer
 > código de alerta de estoque, **ler este arquivo**. Não reinventar.
 

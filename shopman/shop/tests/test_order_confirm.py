@@ -8,7 +8,7 @@ from shopman.orderman.models import Order
 from shopman.shop.models import Channel, Shop
 
 
-class PedidoConfirmTests(TestCase):
+class OrderConfirmTests(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.staff = User.objects.create_user("staff_confirm", password="pw", is_staff=True)

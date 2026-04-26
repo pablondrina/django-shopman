@@ -1,10 +1,10 @@
 # Arquitetura — Django Shopman
 
-> ⚠️ **Documento em revisão (2026-04-18)**: este arquivo ainda reflete terminologia anterior em alguns pontos (ex.: `backends/` virou `adapters/` no cleanup-2; os nomes de classes `StockingBackend`, `CustomersBackend` etc. podem estar desatualizados). Para a verdade atual, consulte [docs/reference/system-spec.md](reference/system-spec.md). Correções estruturais deste arquivo em WP separado.
+> ⚠️ **Documento em revisão (2026-04-26)**: este arquivo ainda reflete terminologia anterior em alguns pontos. Para a verdade atual, consulte [docs/reference/system-spec.md](reference/system-spec.md). Correções estruturais completas ficam para WP separado.
 
 ## Visão Geral
 
-Django Shopman é composto por **8 apps core** independentes e um **orquestrador** (`shopman/`) que os conecta para cenários de negócio concretos. Cada app core é um pacote pip instalável separadamente.
+Django Shopman é composto por **9 apps core** independentes e um **orquestrador** (`shopman/shop/`) que os conecta para cenários de negócio concretos. Cada app core é um pacote pip instalável separadamente.
 
 ## Diagrama de Camadas
 

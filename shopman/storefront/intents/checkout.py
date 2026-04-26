@@ -113,7 +113,7 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
     # ── Step 6: Check minimum order (delivery only) ───────────────────────
     cart = CartService.get_cart(request)
     if fulfillment_type == "delivery":
-        from shopman.storefront.services.storefront_context import minimum_order_progress
+        from shopman.shop.services.storefront_context import minimum_order_progress
         warning = minimum_order_progress(cart["subtotal_q"])
         if warning:
             errors["minimum_order"] = (

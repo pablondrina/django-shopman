@@ -59,7 +59,7 @@ padrão "Sidebar with top navbar" do Penguin UI.
 **Sidebar items:**
 - Pedidos (`/pedidos/`) — com badge de contagem "new"
 - KDS (`/kds/`) — lista estações
-- POS (`/gestao/pos/`)
+- POS (`/gestor/pos/`)
 - Produção (`/admin/shop/shop/production/`)
 - Dashboard (`/admin/`)
 - Fechamento (`/admin/shop/shop/closing/`)
@@ -91,7 +91,7 @@ Opção light para ambientes com muita luz.
 
 Novo arquivo `static/src/style-gestao.css` com Tailwind v4:
 - `@theme` com tokens Penguin UI (dark-first)
-- `@source` apontando para `templates/gestao/**/*.html`
+- `@source` apontando para os diretórios reais dos templates de backstage
 - Componentes reutilizáveis via `@layer components`
 - Elimina os 460+ linhas de CSS inline em `pedidos/base.html`
 - Elimina os 200+ linhas de CSS inline em `kds/base.html`
@@ -103,7 +103,7 @@ Novo arquivo `static/src/style-gestao.css` com Tailwind v4:
 ### WP-1: Shell + CSS Foundation (gestao/base.html)
 
 **Cria:**
-- `shopman/shop/templates/gestao/base.html` — shell Penguin UI sidebar
+- Shell Penguin UI em `shopman/backstage/templates/` — sidebar compartilhada
 - `static/src/style-gestao.css` — design tokens + components
 - Build target `v3:build` no `package.json`
 

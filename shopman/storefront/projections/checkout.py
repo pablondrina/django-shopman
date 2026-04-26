@@ -24,6 +24,7 @@ from shopman.shop.projections.types import (
     PickupSlotProjection,
     SavedAddressProjection,
 )
+from shopman.shop.services import customer_context
 
 from .cart import CartProjection, build_cart
 
@@ -162,62 +163,44 @@ def _load_customer_context(
     customer_info,
 ) -> tuple[tuple[SavedAddressProjection, ...], int | None, int, str | None]:
     """Return (saved_addresses, preselected_address_id, loyalty_balance_q, loyalty_value_display)."""
-    saved_addresses: tuple[SavedAddressProjection, ...] = ()
-    preselected_id: int | None = None
-    loyalty_balance_q = 0
-    loyalty_value_display: str | None = None
-
     try:
-        from shopman.guestman.services import address as address_service
-        from shopman.guestman.services import customer as customer_service
-
-        customer_obj = customer_service.get_by_uuid(customer_info.uuid)
-        if customer_obj:
-            raw_addresses = list(address_service.addresses(customer_obj.ref))
-            saved_addresses = tuple(
-                SavedAddressProjection(
-                    id=addr.id,
-                    formatted_address=addr.formatted_address or "",
-                    complement=addr.complement or "",
-                    label=addr.display_label or addr.formatted_address or "",
-                    is_default=addr.is_default,
-                    route=addr.route or "",
-                    street_number=addr.street_number or "",
-                    neighborhood=addr.neighborhood or "",
-                    city=addr.city or "",
-                    state_code=addr.state_code or "",
-                    postal_code=addr.postal_code or "",
-                    latitude=float(addr.latitude) if addr.latitude is not None else None,
-                    longitude=float(addr.longitude) if addr.longitude is not None else None,
-                    place_id=addr.place_id or "",
-                    delivery_instructions=addr.delivery_instructions or "",
-                )
-                for addr in raw_addresses
-            )
-
-            # Smart pre-selection: default → geo → last → most-used.
-            # Geo branch requires a prior opt-in that we don't persist yet;
-            # the server-side cascade skips it (location=None) and falls
-            # through to the default/last/most-used tiers.
-            try:
-                suggested = address_service.suggest_address(customer_obj.ref)
-                if suggested is not None:
-                    preselected_id = suggested.id
-            except Exception:
-                logger.exception("checkout_projection_suggest_address_failed")
-
-            try:
-                from shopman.guestman.contrib.loyalty import LoyaltyService
-
-                loyalty_balance_q = LoyaltyService.get_balance(customer_obj.ref)
-                if loyalty_balance_q > 0:
-                    loyalty_value_display = f"R$ {format_money(loyalty_balance_q)}"
-            except Exception:
-                logger.exception("checkout_projection_loyalty_failed")
+        context = customer_context.checkout_customer_context(customer_info.uuid)
     except Exception:
-        logger.exception("checkout_projection_customer_context_failed")
+        logger.debug("checkout_projection_customer_context_failed", exc_info=True)
+        return (), None, 0, None
 
-    return saved_addresses, preselected_id, loyalty_balance_q, loyalty_value_display
+    saved_addresses = tuple(
+        SavedAddressProjection(
+            id=addr.id,
+            formatted_address=addr.formatted_address,
+            complement=addr.complement,
+            label=addr.label,
+            is_default=addr.is_default,
+            route=addr.route,
+            street_number=addr.street_number,
+            neighborhood=addr.neighborhood,
+            city=addr.city,
+            state_code=addr.state_code,
+            postal_code=addr.postal_code,
+            latitude=addr.latitude,
+            longitude=addr.longitude,
+            place_id=addr.place_id,
+            delivery_instructions=addr.delivery_instructions,
+        )
+        for addr in context.saved_addresses
+    )
+
+    loyalty_balance_q = context.loyalty_balance_q
+    loyalty_value_display: str | None = None
+    if loyalty_balance_q > 0:
+        loyalty_value_display = f"R$ {format_money(loyalty_balance_q)}"
+
+    return (
+        saved_addresses,
+        context.preselected_address_id,
+        loyalty_balance_q,
+        loyalty_value_display,
+    )
 
 
 def _payment_methods(channel_ref: str) -> tuple[PaymentMethodOptionProjection, ...]:
@@ -229,6 +212,11 @@ def _payment_methods(channel_ref: str) -> tuple[PaymentMethodOptionProjection, .
         channel = Channel.objects.get(ref=channel_ref)
         methods = ChannelConfig.for_channel(channel).payment.available_methods
     except Exception:
+        logger.debug(
+            "checkout_projection_payment_methods_failed channel=%s",
+            channel_ref,
+            exc_info=True,
+        )
         methods = ["cash"]
 
     return tuple(
@@ -262,7 +250,7 @@ def _pickup_slots(
         earliest = ctx.get("earliest_slot_ref")
         return slots, earliest
     except Exception:
-        logger.exception("checkout_projection_slots_failed")
+        logger.debug("checkout_projection_slots_failed", exc_info=True)
         return (), None
 
 
@@ -276,7 +264,7 @@ def _shop_config() -> tuple[int, list]:
             defaults = shop.defaults or {}
             return int(defaults.get("max_preorder_days", 30)), defaults.get("closed_dates", [])
     except Exception:
-        logger.exception("checkout_projection_shop_config_failed")
+        logger.debug("checkout_projection_shop_config_failed", exc_info=True)
     return 30, []
 
 

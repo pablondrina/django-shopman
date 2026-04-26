@@ -8,16 +8,16 @@
 
 ### 0.1 Vocabulário canônico
 
-- **Shopman Suite**: projeto inteiro (8 pacotes Core + Orquestrador + instâncias).
+- **Shopman Suite**: projeto inteiro (9 pacotes Core + Orquestrador + instâncias).
 - **Shopman** (sem qualificador): a camada orquestradora (`shopman/shop/`, `app_label="shop"`).
-- **Core / packages**: 8 pacotes pip-instaláveis em `packages/*` — sem dependência cruzada entre si.
+- **Core / packages**: 9 pacotes pip-instaláveis em `packages/*` — sem dependência cruzada entre si.
 - **Instância**: aplicação Django concreta em `instances/*` (Nelson Boulangerie é a referência).
 - **Persona naming** (obrigatório): Offerman, Stockman, Craftsman, Orderman, Guestman, Doorman, Payman. Nunca "Offering", "Stocking", "Ordering".
 - **Namespace**: `shopman.*` via PEP 420 (sem `__init__.py` em `shopman/` raiz).
 
 ### 0.2 Visão em três frases
 
-1. **Core é domínio puro**: 8 pacotes ortogonais, pip-instaláveis, independentes entre si, cada um resolvendo de forma excelente um subdomínio de comércio (catálogo, estoque, produção, pedidos, clientes, auth, pagamento, utilitários).
+1. **Core é domínio puro**: 9 pacotes ortogonais, pip-instaláveis, independentes entre si, cada um resolvendo de forma excelente um subdomínio de comércio (refs, catálogo, estoque, produção, pedidos, clientes, auth, pagamento, utilitários).
 2. **Orquestrador é coordenação, não lógica**: `shopman/shop/` conecta os Core via Lifecycle config-driven (`ChannelConfig` + `dispatch()`), Adapters plugáveis, Rules engine DB-driven, Handlers/Directives assíncronos e UIs (Storefront, Pedidos, KDS, POS, Admin).
 3. **Instância é configuração**: `instances/nelson/` é uma aplicação que compõe Core + Orquestrador com seed, branding e estratégias próprias; nunca contamina Core; sempre sobrescreve via padrões bem-definidos.
 
@@ -438,7 +438,7 @@ Sinal `order_changed` (de orderman) → `dispatch(order, phase)` → resolve `Ch
 
 ### 2.9 Middleware + Context Processors
 
-**Middleware**: `ChannelParamMiddleware` (captura `?channel=`), `OnboardingMiddleware` (redireciona staff para `/gestao/setup/` se sem Shop), `WelcomeGateMiddleware` (redireciona cliente autenticado sem nome para `/bem-vindo/`).
+**Middleware**: `ChannelParamMiddleware` (captura `?channel=`), `OnboardingMiddleware` (redireciona staff para `/gestor/setup/` se sem Shop), `WelcomeGateMiddleware` (redireciona cliente autenticado sem nome para `/bem-vindo/`).
 
 **Context processors**: `shop()`, `omotenashi()`, `cart_count()`.
 
@@ -620,10 +620,10 @@ Cada Core viável standalone (Offerman = e-commerce catálogo, Stockman = estoqu
 ## 7. FIDELITY CHECKLIST PARA REIMPLEMENTAÇÃO
 
 ### Gate 1 — Fundamentos
-- 8 pacotes pip-installable criados.
+- 9 pacotes pip-installable criados.
 - admin_unfold standalone por pacote.
 - shopman.utils zero-dep.
-- `make test` passa (~2.448).
+- `pytest --collect-only -q` coleta 717 testes em 2026-04-26; suítes focadas devem passar antes de merge.
 
 ### Gate 2 — Domínio vertical
 - Offerman: bundle recursivo + cycle detection; min_qty cascade; two-level AND.

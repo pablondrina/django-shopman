@@ -75,7 +75,11 @@ class DiscountModifier:
                             and customer.birthday.day == today.day
                         )
                 except Exception:
-                    pass
+                    logger.debug(
+                        "discount_modifier: birthday lookup failed for customer=%s",
+                        customer_ref,
+                        exc_info=True,
+                    )
 
         now = timezone.now()
 
@@ -108,7 +112,11 @@ class DiscountModifier:
                     col_map.setdefault(ci.product.sku, []).append(ci.collection.ref)
                 ctx["sku_collections"] = col_map
             except Exception:
-                pass
+                logger.debug(
+                    "discount_modifier: collection lookup failed for skus=%s",
+                    line_skus,
+                    exc_info=True,
+                )
 
         session_total = sum(item.get("line_total_q", 0) for item in items)
         modified = False

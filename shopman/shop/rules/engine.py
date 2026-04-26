@@ -82,7 +82,7 @@ def get_rule_params(code: str) -> dict:
             if rc.code == code:
                 return rc.params or {}
     except Exception:
-        pass
+        logger.debug("rules.engine: could not load params for rule=%s", code, exc_info=True)
     return {}
 
 

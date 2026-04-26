@@ -139,7 +139,7 @@ class FeaturedResolver:
 
 
 class FreshFromOvenResolver:
-    """Recém saídos do forno: WorkOrders completas nos últimos 60 minutos."""
+    """Recém saídos do forno: WorkOrders finalizadas nos últimos 60 minutos."""
 
     meta = DynamicCollectionMeta(
         ref="fresh_from_oven",
@@ -161,8 +161,8 @@ class FreshFromOvenResolver:
         try:
             recent_skus = (
                 WorkOrder.objects
-                .filter(status="completed", completed_at__gte=since)
-                .values_list("product_sku", flat=True)
+                .filter(status="finished", finished_at__gte=since)
+                .values_list("output_sku", flat=True)
                 .distinct()
             )
             recent_skus = list(recent_skus)

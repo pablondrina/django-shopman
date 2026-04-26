@@ -1,12 +1,12 @@
 # Guia — Lifecycle, Services, Adapters, Rules
 
-> Como `shopman/` orquestra os 8 apps core para cenários de negócio concretos.
+> Como `shopman/` orquestra os 9 apps core para cenários de negócio concretos.
 
 ---
 
 ## Visão Geral
 
-O módulo `shopman/` (em `shopman/shop/`) é o orquestrador do sistema. Ele não contém lógica de domínio — apenas **coordena** os apps core (Offerman, Stockman, Craftsman, Orderman, Guestman, Doorman, Payman) através de 4 conceitos separados:
+O módulo `shopman/` (em `shopman/shop/`) é o orquestrador do sistema. Ele não contém lógica de domínio — apenas **coordena** os apps core (Refs, Offerman, Stockman, Craftsman, Orderman, Guestman, Doorman, Payman) através de 4 conceitos separados:
 
 1. **Lifecycle** (`lifecycle.py`) — **QUANDO**: coordenação config-driven via `dispatch(order, phase)`
 2. **Services** (`services/`) — **O QUE**: lógica de negócio que chama Core services + adapters
@@ -22,7 +22,6 @@ shopman/
 ├── rules/              engine.py, pricing.py, validation.py
 ├── handlers/           directive handlers (notification, fulfillment, fiscal, loyalty, returns, etc.)
 ├── config.py           ChannelConfig dataclass (8 aspectos)
-├── setup.py            register_all() — registro centralizado de handlers
 ├── protocols.py        Contratos de backend (Stock, Customer, Notification, Pricing)
 ├── topics.py           Constantes de tópicos de directives
 ├── notifications.py    Registry + dispatch de notificações
@@ -30,8 +29,7 @@ shopman/
 ├── modifiers.py        D1, Discount, Employee, HappyHour modifiers
 ├── webhooks/           efi.py, stripe.py
 ├── admin/              Unfold admin (shop, orders, alerts, kds, closing, rules, dashboard)
-├── web/                Storefront (Django templates + HTMX)
-├── api/                API REST (DRF)
+├── views/              health/readiness
 └── apps.py             Signal wiring + handler registration + rules boot
 ```
 

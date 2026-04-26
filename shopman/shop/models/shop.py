@@ -452,7 +452,3 @@ class NotificationTemplate(models.Model):
 
     def __str__(self):
         return f"{self.event} — {self.subject}"
-
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        # TODO WP-R3: reconnect template cache invalidation via services

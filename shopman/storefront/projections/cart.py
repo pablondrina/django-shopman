@@ -20,15 +20,15 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from shopman.offerman.models import Product
 from shopman.utils.monetary import format_money
 
 from shopman.shop.projections.types import Availability
-from shopman.storefront.cart import CartService
-from shopman.storefront.services.storefront_context import (
+from shopman.shop.services import catalog_context
+from shopman.shop.services.storefront_context import (
     minimum_order_progress,
     upsell_suggestion,
 )
+from shopman.storefront.cart import CartService
 
 if TYPE_CHECKING:
     from django.http import HttpRequest  # noqa: F401
@@ -302,13 +302,7 @@ def _build_item(raw: dict, image_by_sku: dict[str, str | None]) -> CartItemProje
 
 def _image_by_sku(skus) -> dict[str, str | None]:
     """Resolve image URLs in a single query for rendering thumbnails."""
-    sku_list = [s for s in skus if s]
-    if not sku_list:
-        return {}
-    return {
-        p.sku: (p.image_url or None)
-        for p in Product.objects.filter(sku__in=sku_list).only("sku", "image_url")
-    }
+    return catalog_context.image_urls_by_sku(skus)
 
 
 def _money(value_q: int | None) -> str:

@@ -6,13 +6,14 @@ import logging
 from dataclasses import dataclass
 from decimal import Decimal
 
-from django.shortcuts import get_object_or_404
+from django.http import Http404
 
 from shopman.shop.config import ChannelConfig
 from shopman.shop.projections.types import (
     AVAILABILITY_LABELS_PT,
     Availability,
 )
+from shopman.shop.services import catalog_context
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +31,9 @@ class SkuState:
 
 
 def resolve(*, sku: str, channel_ref: str) -> SkuState:
-    from shopman.offerman.models import Product
-
-    product = get_object_or_404(Product, sku=sku)
+    product = catalog_context.get_product(sku)
+    if product is None:
+        raise Http404
     availability, available_qty, can_add = _resolve_state(
         sku=product.sku,
         is_sellable=product.is_sellable,
@@ -52,53 +53,10 @@ def _resolve_state(
     config = ChannelConfig.for_channel(channel_ref)
     low_stock_threshold = Decimal(str(config.stock.low_stock_threshold))
 
-    raw_avail: dict | None
-    try:
-        from shopman.stockman.services.availability import availability_for_skus
-
-        from shopman.shop.adapters import stock as stock_adapter
-
-        scope = stock_adapter.get_channel_scope(channel_ref)
-        avail_map = availability_for_skus(
-            [sku],
-            safety_margin=scope["safety_margin"],
-            allowed_positions=scope["allowed_positions"],
-            excluded_positions=scope.get("excluded_positions"),
-        )
-        raw_avail = avail_map.get(sku)
-    except Exception:
-        logger.warning(
-            "SkuStateView: availability lookup failed sku=%s channel=%s",
-            sku,
-            channel_ref,
-            exc_info=True,
-        )
-        raw_avail = None
-
-    if not is_sellable:
-        return Availability.UNAVAILABLE, 0, False
-
-    if raw_avail is None:
-        return Availability.AVAILABLE, None, True
-
-    if raw_avail.get("is_paused", False):
-        return Availability.UNAVAILABLE, 0, False
-
-    policy = raw_avail.get("availability_policy", "planned_ok")
-    total_promisable = raw_avail.get("total_promisable") or Decimal("0")
-    if not isinstance(total_promisable, Decimal):
-        total_promisable = Decimal(str(total_promisable))
-
-    if policy == "demand_ok":
-        return Availability.AVAILABLE, None, True
-
-    if total_promisable <= 0:
-        if policy == "planned_ok" and raw_avail.get("is_planned", False):
-            return Availability.PLANNED_OK, 0, True
-        return Availability.UNAVAILABLE, 0, False
-
-    available_qty = int(total_promisable)
-    if total_promisable <= low_stock_threshold:
-        return Availability.LOW_STOCK, available_qty, True
-
-    return Availability.AVAILABLE, available_qty, True
+    raw_avail = catalog_context.availability_for_skus([sku], channel_ref=channel_ref).get(sku)
+    resolved = catalog_context.basic_availability(
+        raw_avail,
+        is_sellable=is_sellable,
+        low_stock_threshold=low_stock_threshold,
+    )
+    return Availability(resolved.status), resolved.available_qty, resolved.can_add_to_cart

@@ -2,16 +2,17 @@ from __future__ import annotations
 
 import logging
 from datetime import date
+from decimal import Decimal
+from typing import Any
 
 from django.http import HttpRequest
 from django.utils import timezone
-from shopman.offerman.models import ListingItem, Product
-from shopman.offerman.service import CatalogService
 from shopman.utils.monetary import format_money
 
-from shopman.storefront.services.storefront_context import session_pricing_hints
+from shopman.shop.services import catalog_context
+from shopman.shop.services.storefront_context import session_pricing_hints
 
-from ..constants import HAS_STOCKMAN, STOREFRONT_CHANNEL_REF
+from ..constants import STOREFRONT_CHANNEL_REF
 
 logger = logging.getLogger(__name__)
 
@@ -28,23 +29,14 @@ def get_channel_listing_ref() -> str | None:
         return None
 
 
-def get_price_q(product: Product, listing_ref: str | None = None) -> int | None:
+def get_price_q(product: Any, listing_ref: str | None = None) -> int | None:
     """Get price from channel listing, falling back to base_price_q."""
     if listing_ref is None:
         listing_ref = get_channel_listing_ref()
     if listing_ref:
-        item = (
-            ListingItem.objects.filter(
-                listing__ref=listing_ref,
-                listing__is_active=True,
-                product=product,
-                is_published=True,
-            )
-            .order_by("-min_qty")
-            .first()
-        )
-        if item:
-            return item.price_q
+        price_q = catalog_context.listing_price_for_product(product, listing_ref)
+        if price_q is not None:
+            return price_q
     return product.base_price_q
 
 
@@ -57,33 +49,18 @@ def get_availability(sku: str, *, target_date: date | None = None) -> dict | Non
     **Disponibilidade** (aqui): quanto existe nas posições que esse canal pode usar,
     mesma regra do checkout — não substitui a listagem, só responde “tem físico?”
     """
-    if not HAS_STOCKMAN:
-        return None
-    try:
-        from shopman.stockman.services.availability import availability_for_sku
-
-        from shopman.shop.adapters import stock as stock_adapter
-
-        scope = stock_adapter.get_channel_scope(STOREFRONT_CHANNEL_REF)
-        return availability_for_sku(
-            sku,
-            target_date=target_date,
-            safety_margin=scope["safety_margin"],
-            allowed_positions=scope["allowed_positions"],
-            excluded_positions=scope.get("excluded_positions"),
-        )
-    except Exception as e:
-        logger.warning("availability_lookup_failed sku=%s: %s", sku, e, exc_info=True)
-        return None
+    return catalog_context.availability_for_sku(
+        sku,
+        channel_ref=STOREFRONT_CHANNEL_REF,
+        target_date=target_date,
+    )
 
 
-def line_item_is_d1(product: Product, *, listing_ref: str | None = None) -> bool:
+def line_item_is_d1(product: Any, *, listing_ref: str | None = None) -> bool:
     """True if SKU has only D-1 stock in its availability scope. POS internal use only."""
     avail = get_availability(product.sku)
     if not avail:
         return False
-    from decimal import Decimal
-
     breakdown = avail.get("breakdown", {})
     ready = breakdown.get("ready", Decimal("0"))
     in_prod = breakdown.get("in_production", Decimal("0"))
@@ -91,7 +68,7 @@ def line_item_is_d1(product: Product, *, listing_ref: str | None = None) -> bool
     return d1 > 0 and ready == 0 and in_prod == 0
 
 
-def _to_storefront_avail(raw_avail: dict | None, product: Product) -> dict | None:
+def _to_storefront_avail(raw_avail: dict | None, product: Any) -> dict | None:
     """Convert raw availability_for_sku result to simplified storefront view.
 
     The storefront never consumes internal breakdown ({ready, in_production, d1}).
@@ -99,29 +76,7 @@ def _to_storefront_avail(raw_avail: dict | None, product: Product) -> dict | Non
         {available_qty, can_order, is_paused, had_stock, state}
     or None if raw_avail is None.
     """
-    if raw_avail is None:
-        return None
-    from decimal import Decimal
-
-    is_paused = raw_avail.get("is_paused", False) or not product.is_sellable
-    availability_policy = raw_avail.get("availability_policy", "planned_ok")
-    total_promisable = raw_avail.get("total_promisable", Decimal("0"))
-    can_order = ((availability_policy == "demand_ok") or total_promisable > 0) and not is_paused
-    # had_stock: is_planned (future production scheduled) or currently available
-    had_stock = can_order or raw_avail.get("is_planned", False) or total_promisable > 0
-    state = _storefront_availability_state(
-        can_order=can_order,
-        had_stock=had_stock,
-        is_paused=is_paused,
-    )
-    return {
-        "available_qty": total_promisable,
-        "can_order": can_order,
-        "is_paused": is_paused,
-        "had_stock": had_stock,
-        "state": state,
-        "availability_policy": availability_policy,
-    }
+    return catalog_context.storefront_availability(raw_avail, is_sellable=product.is_sellable)
 
 
 def _storefront_availability_state(*, can_order: bool, had_stock: bool, is_paused: bool) -> str:
@@ -133,7 +88,7 @@ def _storefront_availability_state(*, can_order: bool, had_stock: bool, is_pause
     return "unavailable"
 
 
-def _availability_badge(avail: dict | None, product: Product) -> dict:
+def _availability_badge(avail: dict | None, product: Any) -> dict:
     """
     Determine the availability badge for a product.
 
@@ -226,7 +181,7 @@ def _best_auto_promotion_discount_q(
 
 
 def annotate_products(
-    products: list[Product],
+    products: list[Any],
     listing_ref: str | None = None,
     popular_skus: set[str] | None = None,
     *,
@@ -249,48 +204,18 @@ def annotate_products(
     if fulfillment_type is None:
         fulfillment_type = ""
 
-    from shopman.offerman.models import CollectionItem
-
     skus = [p.sku for p in products]
 
     # ── Batch: collections per SKU ────────────────────────────────────────────
-    sku_collections: dict[str, list[str]] = {}
-    for ci in CollectionItem.objects.filter(product__sku__in=skus).select_related("collection"):
-        sku_collections.setdefault(ci.product.sku, []).append(ci.collection.ref)
+    sku_collections = catalog_context.collection_refs_by_sku(skus)
 
     # ── Batch: prices — one query for all SKUs ────────────────────────────────
     price_map: dict[str, int] = {}
     if listing_ref:
-        for item in (
-            ListingItem.objects.filter(
-                listing__ref=listing_ref,
-                listing__is_active=True,
-                product__sku__in=skus,
-                is_published=True,
-                is_sellable=True,
-            )
-            .select_related("product")
-            .order_by("-min_qty")
-        ):
-            price_map.setdefault(item.product.sku, item.price_q)
+        price_map = catalog_context.listing_price_map(skus, listing_ref)
 
     # ── Batch: availability — one call for all SKUs ───────────────────────────
-    avail_map: dict[str, dict | None] = {}
-    if HAS_STOCKMAN:
-        try:
-            from shopman.stockman.services.availability import availability_for_skus
-
-            from shopman.shop.adapters import stock as stock_adapter
-
-            scope = stock_adapter.get_channel_scope(STOREFRONT_CHANNEL_REF)
-            avail_map = availability_for_skus(
-                skus,
-                safety_margin=scope["safety_margin"],
-                allowed_positions=scope["allowed_positions"],
-                excluded_positions=scope.get("excluded_positions"),
-            )
-        except Exception as e:
-            logger.warning("batch_availability_failed: %s", e, exc_info=True)
+    avail_map = catalog_context.availability_for_skus(skus, channel_ref=STOREFRONT_CHANNEL_REF)
 
     result = []
     for p in products:
@@ -303,10 +228,10 @@ def annotate_products(
         badge = _availability_badge(avail, p)
         cols = sku_collections.get(p.sku, [])
 
-        price = CatalogService.get_price(
+        price = catalog_context.contextual_price(
             p.sku,
             qty=1,
-            listing=listing_ref,
+            listing_ref=listing_ref,
             context={
                 "sku_collections": cols,
                 "session_total_q": session_total_q,
@@ -362,5 +287,3 @@ def annotate_products(
             "is_popular": popular_skus is not None and p.sku in popular_skus,
         })
     return result
-
-

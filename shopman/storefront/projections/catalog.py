@@ -1,10 +1,9 @@
 """CatalogProjection — read model for the storefront menu/catalog.
 
-Phase 1 pilot of the PROJECTION-UI-PLAN. The builder orchestrates core
-services (``CatalogService`` for pricing, ``stockman.availability`` for
-stock, ``services.storefront_context`` for session/happy-hour/popularity)
-and emits a frozen, immutable shape the templates consume without ever
-touching Django model instances.
+Phase 1 pilot of the PROJECTION-UI-PLAN. The builder orchestrates shop
+services for catalog/price/availability plus ``services.storefront_context``
+for session/happy-hour/popularity, and emits a frozen, immutable shape the
+templates consume without ever touching Django model instances.
 
 The projection never imports from ``shopman.storefront.views.*`` — everything it
 needs lives under ``services`` or in sibling projection modules. Business
@@ -17,16 +16,9 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django.urls import NoReverseMatch, reverse
-from shopman.offerman.models import (
-    Collection,
-    CollectionItem,
-    ListingItem,
-    Product,
-)
-from shopman.offerman.service import CatalogService
 from shopman.utils.monetary import format_money
 
 from shopman.shop.config import ChannelConfig
@@ -36,12 +28,13 @@ from shopman.shop.projections.types import (
     CategoryProjection,
     HappyHourProjection,
 )
-from shopman.storefront.projections.icons import collection_icon
-from shopman.storefront.services.storefront_context import (
+from shopman.shop.services import catalog_context
+from shopman.shop.services.storefront_context import (
     happy_hour_state,
     popular_skus,
     session_pricing_hints,
 )
+from shopman.storefront.projections.icons import collection_icon
 
 if TYPE_CHECKING:
     from django.http import HttpRequest  # noqa: F401
@@ -167,11 +160,9 @@ def build_catalog(
 
     categories = _build_categories()
 
-    active_collection: Collection | None = None
+    active_collection: Any | None = None
     if collection_ref:
-        active_collection = Collection.objects.filter(
-            ref=collection_ref, is_active=True,
-        ).first()
+        active_collection = catalog_context.get_active_collection(collection_ref)
 
     products_by_collection = _fetch_products_by_collection(
         listing_ref=channel_ref,
@@ -183,7 +174,7 @@ def build_catalog(
     qty_in_cart_by_sku = _cart_qty_by_sku(request)
 
     # Flatten once for batching; remember grouping for sections.
-    all_products: list[Product] = []
+    all_products: list[Any] = []
     group_index: list[tuple[str | None, int, int]] = []  # (collection_ref, start, end)
     for col_ref, products in products_by_collection:
         start = len(all_products)
@@ -238,9 +229,8 @@ def build_catalog(
 
 
 def _build_categories() -> tuple[CategoryProjection, ...]:
-    collections = Collection.objects.filter(is_active=True).order_by("sort_order", "name")
     result: list[CategoryProjection] = []
-    for col in collections:
+    for col in catalog_context.active_collections():
         try:
             url = reverse("storefront:menu_collection", args=[col.ref])
         except NoReverseMatch:
@@ -259,44 +249,17 @@ def _build_categories() -> tuple[CategoryProjection, ...]:
 def _fetch_products_by_collection(
     *,
     listing_ref: str,
-    active_collection: Collection | None,
-) -> list[tuple[str | None, list[Product]]]:
+    active_collection: Any | None,
+) -> list[tuple[str | None, list[Any]]]:
     """Return an ordered list of (collection_ref | None, products).
 
     Products MUST have an active ``ListingItem`` on the channel's listing.
     No fallback: missing Listing → empty result (caller's problem to seed it).
     """
-    base = Product.objects.filter(
-        is_published=True,
-        listing_items__listing__ref=listing_ref,
-        listing_items__listing__is_active=True,
-        listing_items__is_published=True,
+    return catalog_context.published_products_by_collection(
+        listing_ref=listing_ref,
+        active_collection=active_collection,
     )
-
-    if active_collection is not None:
-        products = list(
-            base.filter(collection_items__collection=active_collection)
-            .order_by("collection_items__sort_order", "name")
-            .distinct()
-        )
-        return [(active_collection.ref, products)]
-
-    groups: list[tuple[str | None, list[Product]]] = []
-    for col in Collection.objects.filter(is_active=True).order_by("sort_order", "name"):
-        products = list(
-            base.filter(collection_items__collection=col)
-            .order_by("collection_items__sort_order", "name")
-            .distinct()
-        )
-        if products:
-            groups.append((col.ref, products))
-
-    uncategorized = list(
-        base.exclude(collection_items__isnull=False).order_by("name").distinct()
-    )
-    if uncategorized:
-        groups.append((None, uncategorized))
-    return groups
 
 
 def build_catalog_items_for_skus(
@@ -315,10 +278,7 @@ def build_catalog_items_for_skus(
     if not skus:
         return ()
 
-    products_by_sku = {
-        p.sku: p
-        for p in Product.objects.filter(sku__in=skus, is_published=True)
-    }
+    products_by_sku = catalog_context.products_by_sku(skus, only_published=True)
     ordered = [products_by_sku[sku] for sku in skus if sku in products_by_sku]
     if not ordered:
         return ()
@@ -343,7 +303,7 @@ def build_catalog_items_for_skus(
 
 
 def _build_items(
-    products: list[Product],
+    products: list[Any],
     *,
     channel_ref: str,
     popular: set[str],
@@ -355,25 +315,11 @@ def _build_items(
     qty_in_cart_by_sku = qty_in_cart_by_sku or {}
     skus = [p.sku for p in products]
 
-    # Batch: primary collection per SKU (used as `category` and for pricing context).
-    sku_collections: dict[str, list[str]] = {}
-    for ci in CollectionItem.objects.filter(product__sku__in=skus).select_related("collection"):
-        sku_collections.setdefault(ci.product.sku, []).append(ci.collection.ref)
+    # Batch: collections per SKU (used as `category` and for pricing context).
+    sku_collections = catalog_context.collection_refs_by_sku(skus)
 
     # Batch: listing prices.
-    price_map: dict[str, int] = {}
-    for item in (
-        ListingItem.objects.filter(
-            listing__ref=channel_ref,
-            listing__is_active=True,
-            product__sku__in=skus,
-            is_published=True,
-            is_sellable=True,
-        )
-        .select_related("product")
-        .order_by("-min_qty")
-    ):
-        price_map.setdefault(item.product.sku, item.price_q)
+    price_map = catalog_context.listing_price_map(skus, channel_ref)
 
     # Batch: availability for the storefront scope.
     avail_map = _batch_availability(skus, channel_ref)
@@ -383,10 +329,10 @@ def _build_items(
         base_q = price_map.get(p.sku) or p.base_price_q
 
         cols = sku_collections.get(p.sku, [])
-        price = CatalogService.get_price(
+        price = catalog_context.contextual_price(
             p.sku,
             qty=1,
-            listing=channel_ref,
+            listing_ref=channel_ref,
             context={
                 "sku_collections": cols,
                 "session_total_q": session_total_q,
@@ -410,7 +356,7 @@ def _build_items(
         raw_avail = avail_map.get(p.sku)
         availability = _resolve_availability(
             raw_avail,
-            p,
+            is_sellable=p.is_sellable,
             low_stock_threshold=low_stock_threshold,
         )
         avail_label = AVAILABILITY_LABELS_PT[availability]
@@ -469,24 +415,7 @@ def _batch_availability(skus: list[str], channel_ref: str) -> dict[str, dict | N
     """Wrapper around ``stockman.availability_for_skus`` that stays silent
     when stockman isn't wired up (keeps projections callable in minimal envs).
     """
-    try:
-        from shopman.stockman.services.availability import availability_for_skus
-    except ImportError:
-        return {}
-
-    try:
-        from shopman.shop.adapters import stock as stock_adapter
-
-        scope = stock_adapter.get_channel_scope(channel_ref)
-        return availability_for_skus(
-            skus,
-            safety_margin=scope["safety_margin"],
-            allowed_positions=scope["allowed_positions"],
-            excluded_positions=scope.get("excluded_positions"),
-        )
-    except Exception as e:
-        logger.warning("batch_availability_failed: %s", e, exc_info=True)
-        return {}
+    return catalog_context.availability_for_skus(skus, channel_ref=channel_ref)
 
 
 def _build_sections(
@@ -555,8 +484,8 @@ def _build_dynamic_sections(
 
 def _resolve_availability(
     raw_avail: dict | None,
-    product: Product,
     *,
+    is_sellable: bool,
     low_stock_threshold: Decimal,
 ) -> Availability:
     """Map raw stock breakdown + product flags to the canonical enum.
@@ -571,39 +500,17 @@ def _resolve_availability(
     7. 0 < promisable ≤ threshold → LOW_STOCK
     8. Otherwise → AVAILABLE
     """
-    if not product.is_sellable:
-        return Availability.UNAVAILABLE
-    if raw_avail is None:
-        return Availability.AVAILABLE
-
-    if raw_avail.get("is_paused", False):
-        return Availability.UNAVAILABLE
-
-    policy = raw_avail.get("availability_policy", "planned_ok")
-    if policy == "demand_ok":
-        return Availability.AVAILABLE
-
-    total_promisable = raw_avail.get("total_promisable", Decimal("0")) or Decimal("0")
-    if not isinstance(total_promisable, Decimal):
-        total_promisable = Decimal(str(total_promisable))
-
-    if total_promisable <= 0:
-        if policy == "planned_ok" and raw_avail.get("is_planned", False):
-            return Availability.PLANNED_OK
-        return Availability.UNAVAILABLE
-
-    if total_promisable <= low_stock_threshold:
-        return Availability.LOW_STOCK
-
-    return Availability.AVAILABLE
+    resolved = catalog_context.basic_availability(
+        raw_avail,
+        is_sellable=is_sellable,
+        low_stock_threshold=low_stock_threshold,
+    )
+    return Availability(resolved.status)
 
 
-def _product_tags(product: Product) -> tuple[str, ...]:
+def _product_tags(product: Any) -> tuple[str, ...]:
     """Read keywords (django-taggit) defensively — tests often skip tagging."""
-    try:
-        return tuple(t.name for t in product.keywords.all())
-    except Exception:  # pragma: no cover — taggit may be unconfigured
-        return ()
+    return catalog_context.product_tags(product)
 
 
 def _money(value_q: int | None) -> str:

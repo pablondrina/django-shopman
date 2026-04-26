@@ -7,6 +7,7 @@ via RuleConfig params in the admin.
 
 from __future__ import annotations
 
+import logging
 from datetime import time
 from typing import Any
 
@@ -14,6 +15,8 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from shopman.shop.rules import BaseRule
+
+logger = logging.getLogger(__name__)
 
 _DAY_NAMES_PT = {
     "monday": "segunda",
@@ -88,7 +91,7 @@ class BusinessHoursRule(BaseRule):
             if shop and shop.opening_hours:
                 return shop.opening_hours
         except Exception:
-            pass
+            logger.debug("business_hours_rule: could not load shop opening hours", exc_info=True)
         return None
 
 

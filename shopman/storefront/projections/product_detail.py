@@ -1,11 +1,9 @@
 """ProductDetailProjection — read model for the storefront PDP.
 
 Phase 1 / step 2 of the PROJECTION-UI-PLAN. Mirrors the discipline of
-``build_catalog``: the builder orchestrates core services (``CatalogService``
-for pricing + bundle expansion, ``stockman.availability`` for stock,
-``services.storefront_context`` for session pricing) and emits a frozen,
-immutable shape the PDP template consumes without ever touching Django
-model instances.
+``build_catalog``: the builder orchestrates shop services for pricing, bundle
+expansion, availability, and session pricing, then emits a frozen, immutable
+shape the PDP template consumes without ever touching Django model instances.
 
 Substitutos NÃO pertencem à PDP (AVAILABILITY-PLAN §5) — só aparecem no
 modal de erro de estoque. Por isso este projection não os carrega.
@@ -18,14 +16,8 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from shopman.offerman.models import CollectionItem, ListingItem, Product
-from shopman.offerman.nutrition import (
-    NUTRIENT_LABELS_PT,
-    NutritionFacts,
-)
-from shopman.offerman.service import CatalogError, CatalogService
 from shopman.utils.monetary import format_money
 
 from shopman.shop.config import ChannelConfig
@@ -35,7 +27,8 @@ from shopman.shop.projections.types import (
     CategoryProjection,
     ComponentProjection,
 )
-from shopman.storefront.services.storefront_context import session_pricing_hints
+from shopman.shop.services import catalog_context
+from shopman.shop.services.storefront_context import session_pricing_hints
 
 from .catalog import (
     _cart_qty_by_sku,
@@ -187,7 +180,7 @@ def build_product_detail(
     Callers convert ``None`` into a 404. Paused/sold-out remain projection
     state (the PDP renders with an "Indisponível" badge).
     """
-    product = Product.objects.filter(sku=sku, is_published=True).first()
+    product = catalog_context.get_published_product(sku)
     if product is None:
         return None
     if not _sku_listed_in_channel(product, channel_ref):
@@ -196,19 +189,15 @@ def build_product_detail(
     config = ChannelConfig.for_channel(channel_ref)
     low_stock_threshold = Decimal(str(config.stock.low_stock_threshold))
 
-    base_q = _listing_price_q(product, channel_ref) or product.base_price_q
+    base_q = catalog_context.listing_price_for_product(product, channel_ref) or product.base_price_q
 
-    sku_collections = list(
-        CollectionItem.objects.filter(product=product).values_list(
-            "collection__ref", flat=True,
-        )
-    )
+    sku_collections = catalog_context.collection_refs_by_sku([product.sku]).get(product.sku, [])
 
     ft_hint, sub_hint = session_pricing_hints(request)
-    price = CatalogService.get_price(
+    price = catalog_context.contextual_price(
         product.sku,
         qty=1,
-        listing=channel_ref,
+        listing_ref=channel_ref,
         context={
             "sku_collections": sku_collections,
             "session_total_q": sub_hint,
@@ -238,10 +227,10 @@ def build_product_detail(
     own_hold = int(
         _own_holds_service().own_holds_by_sku(session_key, [product.sku]).get(product.sku, 0)
     ) if session_key else 0
-    raw_avail_session = _with_own_hold(raw_avail, own_hold)
+    raw_avail_session = catalog_context.availability_with_own_hold(raw_avail, own_hold)
     availability = _resolve_availability(
         raw_avail_session,
-        product,
+        is_sellable=product.is_sellable,
         low_stock_threshold=low_stock_threshold,
     )
     availability_label = AVAILABILITY_LABELS_PT[availability]
@@ -250,7 +239,7 @@ def build_product_detail(
         Availability.LOW_STOCK,
         Availability.PLANNED_OK,
     )
-    available_qty = _promisable_int(raw_avail_session)
+    available_qty = catalog_context.promisable_int(raw_avail_session)
 
     # Bundle components — expand only if the product declares itself a bundle.
     components = _components(product)
@@ -300,74 +289,22 @@ def build_product_detail(
 # ──────────────────────────────────────────────────────────────────────
 
 
-def _listing_price_q(product: Product, channel_ref: str) -> int | None:
-    item = (
-        ListingItem.objects.filter(
-            listing__ref=channel_ref,
-            listing__is_active=True,
-            product=product,
-            is_published=True,
-        )
-        .order_by("-min_qty")
-        .first()
-    )
-    return item.price_q if item else None
-
-
 def _availability(sku: str, channel_ref: str) -> dict | None:
-    try:
-        from shopman.stockman.services.availability import availability_for_sku
-    except ImportError:
-        return None
-    try:
-        # Use the shop stock adapter scope so PDP, cart, and reserve agree on
-        # excluded_positions (e.g. D-1 staff-only quants). The bare Stockman
-        # ``availability_scope_for_channel`` lacks ``excluded_positions`` and
-        # would over-promise the PDP max vs what reserve can actually hold.
-        from shopman.shop.adapters import stock as stock_adapter
-
-        scope = stock_adapter.get_channel_scope(channel_ref)
-        return availability_for_sku(
-            sku,
-            safety_margin=scope["safety_margin"],
-            allowed_positions=scope["allowed_positions"],
-            excluded_positions=scope.get("excluded_positions"),
-        )
-    except Exception as e:
-        logger.warning("pdp_availability_failed sku=%s: %s", sku, e, exc_info=True)
-        return None
+    return catalog_context.availability_for_sku(sku, channel_ref=channel_ref)
 
 
-def _promisable_int(raw_avail: dict | None) -> int | None:
-    if raw_avail is None:
-        return None
-    total = raw_avail.get("total_promisable")
-    if total is None:
-        return None
-    try:
-        return int(Decimal(str(total)))
-    except (ValueError, ArithmeticError):
-        return None
-
-
-def _sku_listed_in_channel(product: Product, channel_ref: str) -> bool:
+def _sku_listed_in_channel(product: Any, channel_ref: str) -> bool:
     """Is this SKU available in the given channel's listing?
 
     Channels without a ``Listing`` configured fall through to ``True`` so
     internal/fallback channels (e.g. POS) keep working. Strict gating only
     applies when a Listing actually exists with the channel's ref.
     """
-    from shopman.offerman.models import Listing
-
-    if not Listing.objects.filter(ref=channel_ref, is_active=True).exists():
-        return True
-    return ListingItem.objects.filter(
-        listing__ref=channel_ref,
-        listing__is_active=True,
-        product=product,
-        is_published=True,
-        is_sellable=True,
-    ).exists()
+    return catalog_context.listed_in_channel(
+        product,
+        channel_ref,
+        fallback_when_listing_missing=True,
+    )
 
 
 def _session_key(request) -> str:
@@ -377,6 +314,7 @@ def _session_key(request) -> str:
     try:
         return request.session.get("cart_session_key") or ""
     except Exception:
+        logger.debug("product_detail_projection_session_key_failed", exc_info=True)
         return ""
 
 
@@ -387,35 +325,11 @@ def _own_holds_service():
     return availability
 
 
-def _with_own_hold(raw_avail: dict | None, own_hold: int) -> dict | None:
-    """Adjust a raw availability dict by adding back this session's own hold.
-
-    Returns a shallow copy with ``total_promisable`` and ``total_available``
-    bumped by ``own_hold``. Leaves other keys (policy, is_paused, breakdown)
-    untouched so the caller's downstream resolution logic behaves identically
-    to the unscoped path when there is no session (``own_hold=0``).
-    """
-    if raw_avail is None or own_hold <= 0:
-        return raw_avail
-    adjusted = dict(raw_avail)
-    if adjusted.get("total_promisable") is not None:
-        adjusted["total_promisable"] = (
-            Decimal(str(adjusted["total_promisable"])) + Decimal(own_hold)
-        )
-    if adjusted.get("total_available") is not None:
-        adjusted["total_available"] = (
-            Decimal(str(adjusted["total_available"])) + Decimal(own_hold)
-        )
-    return adjusted
-
-
-def _components(product: Product) -> tuple[ComponentProjection, ...]:
+def _components(product: Any) -> tuple[ComponentProjection, ...]:
     if not product.is_bundle:
         return ()
     try:
-        raw = CatalogService.expand(product.sku)
-    except CatalogError:
-        return ()
+        raw = catalog_context.expand_bundle(product.sku)
     except Exception:
         logger.exception("pdp_bundle_expand_failed sku=%s", product.sku)
         return ()
@@ -441,7 +355,7 @@ def _format_component_qty(qty) -> str:
     return f"{value.normalize()}x"
 
 
-def _allergen(product: Product) -> AllergenInfoProjection | None:
+def _allergen(product: Any) -> AllergenInfoProjection | None:
     meta = product.metadata if isinstance(product.metadata, dict) else {}
     allergens_raw = meta.get("allergens") or []
     dietary_raw = meta.get("dietary_info") or []
@@ -460,7 +374,7 @@ def _allergen(product: Product) -> AllergenInfoProjection | None:
     )
 
 
-def _conservation(product: Product) -> ConservationInfoProjection | None:
+def _conservation(product: Any) -> ConservationInfoProjection | None:
     """Resolve conservation panel with per-SKU override → shop-wide default fallback."""
     shelf_life_label = _shelf_life_label(product.shelf_life_days)
     storage_tip = product.storage_tip.strip() if product.storage_tip else None
@@ -471,7 +385,11 @@ def _conservation(product: Product) -> ConservationInfoProjection | None:
             default_tip = (shop.conservation_tips_default or "").strip() if shop else ""
             storage_tip = default_tip or None
         except Exception:
-            pass
+            logger.debug(
+                "product_detail_projection_conservation_tip_failed sku=%s",
+                product.sku,
+                exc_info=True,
+            )
     if not (shelf_life_label or storage_tip):
         return None
     return ConservationInfoProjection(
@@ -480,7 +398,7 @@ def _conservation(product: Product) -> ConservationInfoProjection | None:
     )
 
 
-def _unit_weight_label(product: Product) -> str | None:
+def _unit_weight_label(product: Any) -> str | None:
     return f"~{product.unit_weight_g}g a unidade" if product.unit_weight_g else None
 
 
@@ -509,12 +427,12 @@ _NUTRIENT_ORDER: tuple[str, ...] = (
 )
 
 
-def _nutrition(product: Product) -> NutritionFactsProjection | None:
+def _nutrition(product: Any) -> NutritionFactsProjection | None:
     """Build the PDP-facing nutrition projection from ``product.nutrition_facts``.
 
     Returns ``None`` when there's nothing to show.
     """
-    facts = NutritionFacts.from_dict(product.nutrition_facts or {})
+    facts = catalog_context.nutrition_facts(product)
     if facts is None or not facts.has_any_nutrient:
         return None
 
@@ -526,7 +444,7 @@ def _nutrition(product: Product) -> NutritionFactsProjection | None:
         rows.append(
             NutritionRowProjection(
                 field=field_name,
-                label=NUTRIENT_LABELS_PT[field_name],
+                label=catalog_context.nutrient_label(field_name),
                 value_display=_format_number(value),
                 unit=_NUTRIENT_UNITS[field_name],
                 percent_daily_value=facts.percent_daily_value(field_name),
@@ -574,20 +492,14 @@ def _shelf_life_label(shelf_life_days: int | None) -> str | None:
     return f"Conserva bem por {shelf_life_days} dias"
 
 
-def _breadcrumb_category(product: Product) -> CategoryProjection | None:
+def _breadcrumb_category(product: Any) -> CategoryProjection | None:
     from django.urls import NoReverseMatch, reverse
 
     from shopman.storefront.projections.icons import collection_icon
 
-    ci = (
-        CollectionItem.objects.filter(product=product, collection__is_active=True)
-        .select_related("collection")
-        .order_by("collection__sort_order", "collection__name")
-        .first()
-    )
-    if ci is None:
+    col = catalog_context.breadcrumb_collection(product)
+    if col is None:
         return None
-    col = ci.collection
     try:
         url = reverse("storefront:menu_collection", args=[col.ref])
     except NoReverseMatch:
@@ -600,7 +512,7 @@ def _breadcrumb_category(product: Product) -> CategoryProjection | None:
     )
 
 
-def _gallery(product: Product) -> tuple[str, ...]:
+def _gallery(product: Any) -> tuple[str, ...]:
     """Pull extra gallery URLs from ``metadata.gallery`` when present.
 
     Today ``Product`` has a single ``image_url``; authors can stash extras
@@ -620,7 +532,7 @@ def _money(value_q: int | None) -> str:
     return f"R$ {format_money(int(value_q))}"
 
 
-def _allergen_info(product: Product) -> dict | None:
+def _allergen_info(product: Any) -> dict | None:
     """Extract allergen and dietary info from product.metadata.
 
     Returns dict with keys: allergens (list), dietary_info (list), serves (str|None)

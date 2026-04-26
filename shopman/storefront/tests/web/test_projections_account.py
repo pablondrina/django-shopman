@@ -116,6 +116,33 @@ class TestCustomerProfileLoyalty:
         assert proj.loyalty is not None
         assert isinstance(proj.loyalty.transactions, tuple)
 
+    def test_loyalty_transaction_failure_keeps_account(self, customer, monkeypatch):
+        from shopman.guestman.contrib.loyalty import LoyaltyService
+
+        from shopman.shop.services import customer_context
+
+        LoyaltyService.enroll(customer.ref)
+        debug_calls = []
+
+        def fail_transactions(*args, **kwargs):
+            raise RuntimeError("transactions unavailable")
+
+        def record_debug(message, *args, **kwargs):
+            debug_calls.append((message, kwargs))
+
+        monkeypatch.setattr(LoyaltyService, "get_transactions", fail_transactions)
+        monkeypatch.setattr(customer_context.logger, "debug", record_debug)
+
+        proj = build_account(customer)
+
+        assert proj.loyalty is not None
+        assert proj.loyalty.transactions == ()
+        assert any(
+            "customer_context_loyalty_transactions_failed" in message
+            and kwargs.get("exc_info") is True
+            for message, kwargs in debug_calls
+        )
+
 
 # ──────────────────────────────────────────────────────────────────────
 # Addresses
@@ -136,6 +163,31 @@ class TestCustomerProfileAddresses:
     def test_address_default_flag(self, customer, customer_address):
         proj = build_account(customer)
         assert proj.saved_addresses[0].is_default is True
+
+    def test_address_failure_degrades_to_empty(self, customer, monkeypatch):
+        from shopman.guestman.services import address as address_service
+
+        from shopman.shop.services import customer_context
+
+        debug_calls = []
+
+        def fail_addresses(*args, **kwargs):
+            raise RuntimeError("addresses unavailable")
+
+        def record_debug(message, *args, **kwargs):
+            debug_calls.append((message, kwargs))
+
+        monkeypatch.setattr(address_service, "addresses", fail_addresses)
+        monkeypatch.setattr(customer_context.logger, "debug", record_debug)
+
+        proj = build_account(customer)
+
+        assert proj.saved_addresses == ()
+        assert any(
+            "customer_context_addresses_failed" in message
+            and kwargs.get("exc_info") is True
+            for message, kwargs in debug_calls
+        )
 
 
 # ──────────────────────────────────────────────────────────────────────

@@ -11,17 +11,7 @@ Never imports from ``shopman.storefront.views.*``.
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
-
-from shopman.utils.monetary import format_money
-
-if TYPE_CHECKING:
-    from shopman.orderman.models import Order
-
-logger = logging.getLogger(__name__)
-
 
 # ──────────────────────────────────────────────────────────────────────
 # Dataclasses
@@ -75,83 +65,42 @@ class PaymentStatusProjection:
 # ──────────────────────────────────────────────────────────────────────
 
 
-def build_payment(order: Order) -> PaymentProjection:
+def build_payment(order) -> PaymentProjection:
     """Build the full payment page projection for an Order.
 
     If the order is already paid or cancelled the view should redirect;
     this builder is only called when payment is genuinely pending.
     """
     from django.conf import settings
-    from django.urls import reverse
 
-    payment = order.data.get("payment") or {}
-    method = payment.get("method") or "pix"
-    total_display = f"R$ {format_money(order.total_q)}"
+    from shopman.shop.services import payment_status
 
-    # PIX
-    pix_qr_code: str | None = None
-    pix_copy_paste: str | None = None
-    pix_expires_at: str | None = None
-    if method == "pix":
-        pix_qr_code = payment.get("qr_code") or payment.get("pix_qr_code") or None
-        pix_copy_paste = (
-            payment.get("copy_paste")
-            or payment.get("pix_copy_paste")
-            or payment.get("pix_code")
-            or None
-        )
-        pix_expires_at = payment.get("expires_at") or None
-
-    # Card — Stripe Checkout hosted URL
-    checkout_url: str | None = None
-    if method == "card":
-        checkout_url = payment.get("checkout_url") or None
-
-    status_url = reverse("storefront:payment_status_partial", kwargs={"ref": order.ref})
-
+    read_model = payment_status.build_payment(order, is_debug=settings.DEBUG)
     return PaymentProjection(
-        order_ref=order.ref,
-        method=method,
-        total_display=total_display,
-        pix_qr_code=pix_qr_code,
-        pix_copy_paste=pix_copy_paste,
-        pix_expires_at=pix_expires_at,
-        checkout_url=checkout_url,
-        status_url=status_url,
-        is_debug=settings.DEBUG,
+        order_ref=read_model.order_ref,
+        method=read_model.method,
+        total_display=read_model.total_display,
+        pix_qr_code=read_model.pix_qr_code,
+        pix_copy_paste=read_model.pix_copy_paste,
+        pix_expires_at=read_model.pix_expires_at,
+        checkout_url=read_model.checkout_url,
+        status_url=read_model.status_url,
+        is_debug=read_model.is_debug,
     )
 
 
-def build_payment_status(order: Order) -> PaymentStatusProjection:
+def build_payment_status(order) -> PaymentStatusProjection:
     """Build the polling partial projection for an Order."""
-    from shopman.shop.services import payment as payment_svc
+    from shopman.shop.services import payment_status
 
-    is_paid = payment_svc.get_payment_status(order) == "captured"
-    is_cancelled = order.status == "cancelled"
-
-    is_expired = False
-    payment = order.data.get("payment") or {}
-    expires_at_str = payment.get("expires_at")
-    if expires_at_str and not is_paid and not is_cancelled:
-        try:
-            from django.utils import timezone
-            from django.utils.dateparse import parse_datetime
-
-            expires_at = parse_datetime(expires_at_str)
-            if expires_at and timezone.now() > expires_at:
-                is_expired = True
-        except Exception:
-            logger.exception("payment_status_expiry_parse_failed order=%s", order.ref)
-
-    is_terminal = is_paid or is_cancelled or is_expired
-
+    read_model = payment_status.build_payment_status(order)
     return PaymentStatusProjection(
-        order_ref=order.ref,
-        is_paid=is_paid,
-        is_cancelled=is_cancelled,
-        is_expired=is_expired,
-        is_terminal=is_terminal,
-        redirect_url=f"/pedido/{order.ref}/",
+        order_ref=read_model.order_ref,
+        is_paid=read_model.is_paid,
+        is_cancelled=read_model.is_cancelled,
+        is_expired=read_model.is_expired,
+        is_terminal=read_model.is_terminal,
+        redirect_url=read_model.redirect_url,
     )
 
 

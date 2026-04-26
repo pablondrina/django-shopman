@@ -12,7 +12,7 @@
 | [`docs/status.md`](status.md) | Estado factual — o que funciona, versões, contagem de testes real |
 | [`docs/architecture.md`](architecture.md) | Verdade arquitetural — camadas, Protocol/Adapter, dependências |
 | [`docs/ROADMAP.md`](ROADMAP.md) | Roadmap ativo de correções e próximos passos |
-| [`READINESS-PLAN.md`](../READINESS-PLAN.md) | Roadmap ativo de prontidão para produção (UX, features, infra) |
+| [`docs/plans/WP-GAP-07-pre-prod-migration-playbook.md`](plans/WP-GAP-07-pre-prod-migration-playbook.md) | Playbook ativo de migração/pré-prod |
 | [`docs/plans/completed/`](plans/completed/) | Arquivo de planos de execução concluídos |
 
 ---
@@ -82,15 +82,17 @@ Documentação de consulta rápida gerada a partir do código.
 
 ```
 packages/                            framework/
-├── utils        (utilitários)       ├── shopman/           (orquestrador)
-├── offerman     (catálogo)          │   ├── handlers/      (16 handlers)
-├── stockman     (estoque)           │   ├── backends/      (16 backends)
-├── craftsman    (produção)          │   ├── config.py      (ChannelConfig)
-├── orderman      (pedidos)           │   ├── services/      (11 services)
-├── guestman     (clientes)          │   ├── lifecycle.py       (lifecycle dispatcher))
-├── doorman      (autenticação)      │   ├── setup.py       (registro centralizado)
-└── payman       (pagamentos)        │   └── web/           (storefront)
-                                     └── project/           (settings, urls)
+├── utils        (utilitários)       ├── shop/              (orquestrador)
+├── refs         (refs tipadas)      │   ├── handlers/      (directive handlers)
+├── offerman     (catálogo)          │   ├── adapters/      (integrações swappable)
+├── stockman     (estoque)           │   ├── config.py      (ChannelConfig)
+├── craftsman    (produção)          │   ├── services/      (orquestração)
+├── orderman      (pedidos)           │   ├── lifecycle.py   (dispatcher config-driven)
+├── guestman     (clientes)          │   ├── rules/         (RuleConfig engine)
+├── doorman      (autenticação)      │   └── views/         (health/readiness)
+└── payman       (pagamentos)        ├── storefront/        (customer web/API)
+                                     ├── backstage/         (operador /gestor)
+                                     └── config/            (settings, urls)
 ```
 
 ---

@@ -1,9 +1,9 @@
 # Status — Django Shopman
 
-> Última atualização: 2026-04-06
+> Última atualização: 2026-04-26
 
 Retrato factual do que está implementado e funcionando. Não é um plano — é o estado atual.
-Para gaps e roadmap, ver [ROADMAP.md](ROADMAP.md) e [READINESS-PLAN.md](READINESS-PLAN.md).
+Para gaps e roadmap, ver [ROADMAP.md](ROADMAP.md) e os planos ativos em `docs/plans/`.
 
 ---
 
@@ -11,16 +11,17 @@ Para gaps e roadmap, ver [ROADMAP.md](ROADMAP.md) e [READINESS-PLAN.md](READINES
 
 | Package | Pip | Versão | Testes | Status | Notas |
 |---------|-----|--------|--------|--------|-------|
-| shopman-utils | `shopman-utils` | 0.3.0 | 71 | Estável | Monetário, phone, formatting, admin mixins |
-| shopman-offerman | `shopman-offerman` | 0.3.0 | 188 | Estável | Catálogo, preços, listings, bundles, coleções |
-| shopman-stockman | `shopman-stockman` | 0.3.0 | 162 | Estável | Estoque, holds, moves, posições, alertas |
-| shopman-craftsman | `shopman-craftsman` | 0.3.0 | 207 | Estável | Produção, receitas, work orders, BOM |
-| shopman-orderman | `shopman-orderman` | 0.1.0 | 231 | Estável | Pedidos, sessions, directives, channels |
-| shopman-guestman | `shopman-guestman` | 0.1.0 | 369 | Estável | CRM, clientes, loyalty, RFM, consent |
-| shopman-doorman | `shopman-doorman` | 0.1.0 | 221 | Estável | Auth OTP, device trust, bridge tokens |
-| shopman-payman | `shopman-payman` | 0.1.0 | 111 | Beta | Pagamentos, PIX, Stripe — cobertura parcial (WP-C7) |
+| shopman-utils | `shopman-utils` | 0.3.0 | coleta global | Estável | Monetário, phone, formatting, admin mixins |
+| shopman-refs | `shopman-refs` | 0.1.0 | coleta global | Estável | Registro de refs tipadas, rename/audit, fields |
+| shopman-offerman | `shopman-offerman` | 0.3.0 | coleta global | Estável | Catálogo, preços, listings, bundles, coleções |
+| shopman-stockman | `shopman-stockman` | 0.3.0 | coleta global | Estável | Estoque, holds, moves, posições, alertas |
+| shopman-craftsman | `shopman-craftsman` | 0.3.0 | coleta global | Estável | Produção, receitas, work orders, BOM |
+| shopman-orderman | `shopman-orderman` | 0.1.0 | coleta global | Estável | Pedidos, sessions, directives, channels |
+| shopman-guestman | `shopman-guestman` | 0.1.0 | coleta global | Estável | CRM, clientes, loyalty, RFM, consent |
+| shopman-doorman | `shopman-doorman` | 0.1.0 | coleta global | Estável | Auth OTP, device trust, bridge tokens |
+| shopman-payman | `shopman-payman` | 0.2.0 | coleta global | Beta | Pagamentos, PIX, Stripe — cobertura parcial |
 
-**Total core:** 1.560 testes
+**Coleta atual:** 717 testes (`pytest --collect-only -q`, 2026-04-26).
 
 ---
 
@@ -28,18 +29,15 @@ Para gaps e roadmap, ver [ROADMAP.md](ROADMAP.md) e [READINESS-PLAN.md](READINES
 
 | Módulo | Status | Detalhe |
 |--------|--------|---------|
-| **Flows** (lifecycle de pedidos) | Estável | 10 classes de flow, dispatch via signal `order_changed` |
+| **Lifecycle** (pedidos) | Estável | dispatch funcional config-driven via `ChannelConfig` e signal `order_changed`; sem classes `Flow` |
 | **Services** | Estável | 13 services (checkout, payment, stock, customer, loyalty, etc.) |
 | **Adapters** | Estável | 8 adapters (EFI/PIX, Stripe, ManyChat, email, console, stock interno, mock) |
 | **Handlers** | Estável | 15 handlers de directives (stock, payment, notification, fulfillment, etc.) |
 | **Rules engine** | Estável | Promotions, coupons, modifiers — configurável via admin |
-| **Storefront (web)** | Beta | 18 módulos de views, 80 templates — UX em polish (READINESS R3-R8) |
-| **API REST (DRF)** | Beta | Endpoints core prontos; account/history incompletos |
+| **Storefront (web/API)** | Beta | App próprio `shopman/storefront/`, views/projections/templates/API v1 |
 | **Admin (Unfold)** | Estável | Dashboard, shop config, orders, KDS, alertas, fechamento de caixa |
 
-**Framework:** 410 testes
-
-**Total geral: 1.970 testes**
+**Total geral coletado: 717 testes**
 
 ---
 
@@ -60,7 +58,7 @@ Para gaps e roadmap, ver [ROADMAP.md](ROADMAP.md) e [READINESS-PLAN.md](READINES
 
 Ver [ROADMAP.md](ROADMAP.md) para gaps conhecidos e plano de correção:
 
-- **C1** — 42 blocos `except Exception` silenciosos nas views (sem logging)
+- **C1** — blocos `except Exception` silenciosos remanescentes fora do escopo WP-02
 - **C2** — Thread safety no adapter EFI + cobertura de testes baseline
 - **C4** — Security headers (CSP, HSTS) ausentes
 - **C5** — Queries N+1 no storefront (catalog, cart, tracking)
@@ -68,7 +66,7 @@ Ver [ROADMAP.md](ROADMAP.md) para gaps conhecidos e plano de correção:
 - **C7** — Payman: cobertura de testes insuficiente
 - **C8** — Checkout dedup: lógica duplicada fora do CommitService
 
-Ver [READINESS-PLAN.md](../READINESS-PLAN.md) para itens de UX/operação:
+Ver [ROADMAP.md](ROADMAP.md) e `docs/plans/` para itens de UX/operação:
 
 - **R3-R8** — Storefront: empty states, feedback de erros, responsividade mobile
 - **R14** — Rate limiting (OTP, login, checkout) — concluído em WP-C3

@@ -1605,8 +1605,8 @@ class Command(BaseCommand):
                     created_at=order_time + timedelta(minutes=2),
                 )
 
-                from shopman.shop.kds_utils import dispatch_to_kds
-                tickets = dispatch_to_kds(order)
+                from shopman.shop.services.kds import dispatch
+                tickets = dispatch(order)
 
                 if live_status == "ready":
                     OrderEvent.objects.create(

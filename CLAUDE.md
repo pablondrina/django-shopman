@@ -5,8 +5,9 @@ Instruções para agentes de código que trabalham neste repositório.
 ## Estrutura do Projeto
 
 ```
-packages/               8 apps pip-instaláveis (sem dependência entre si)
+packages/               9 apps pip-instaláveis (sem dependência entre si)
 ├── utils/              Utilitários compartilhados (monetary, phone, admin)          [shopman-utils]
+├── refs/               Registro de refs tipadas, rename/audit e campos reutilizáveis [shopman-refs]
 ├── offerman/           Catálogo: produtos, preços, listings, coleções, bundles      [shopman-offerman]
 ├── stockman/           Estoque: quants, moves, holds, posições, alertas, planejamento [shopman-stockman]
 ├── craftsman/          Produção: receitas, work orders, BOM, sugestão               [shopman-craftsman]
@@ -16,7 +17,7 @@ packages/               8 apps pip-instaláveis (sem dependência entre si)
 └── payman/             Pagamentos: intents, transactions, service                   [shopman-payman]
 
 shopman/                Namespace package (PEP 420) — sem __init__.py
-├── shop/               Orquestrador (app Django, label="shop") — ZERO views    [django-shopman]
+├── shop/               Orquestrador (app Django, label="shop") — health/readiness views [django-shopman]
 │   ├── lifecycle.py    dispatch() — coordenação config-driven por ChannelConfig
 │   ├── production_lifecycle.py  dispatch_production() — lifecycle de WorkOrders
 │   ├── services/       services de orquestração (availability, cancellation, stock, payment, customer, etc.)
@@ -30,8 +31,8 @@ shopman/                Namespace package (PEP 420) — sem __init__.py
 │   ├── modifiers.py    D1, Discount, Employee, HappyHour modifiers
 │   ├── webhooks/       efi.py, stripe.py, ifood.py
 │   ├── admin/          admin registrations dos models de shop
-│   ├── api/            API REST (DRF) — views, serializers, catalog, account, tracking
 │   ├── projections/    types.py (shared projection types — Availability, OrderItem, etc.)
+│   ├── views/          health.py — /health/ e /ready/
 │   ├── middleware.py   APIVersionHeaderMiddleware
 │   ├── management/commands/   seed, cleanup_d1, cleanup_stale_sessions, suggest_production
 │   ├── apps.py         ShopmanConfig (signal wiring + handler registration + rules boot)
@@ -55,7 +56,7 @@ shopman/                Namespace package (PEP 420) — sem __init__.py
     ├── projections/    6 módulos (kds, order_queue, pos, closing, production, dashboard)
     ├── models/         KDSInstance, KDSTicket, DayClosing, OperatorAlert, CashRegister*
     ├── middleware.py   OnboardingMiddleware
-    ├── urls.py         URLs operador (pedidos, gestao/pos, kds, gestao/producao, fechamento)
+    ├── urls.py         URLs operador (/gestor/pedidos, /gestor/pos, /gestor/kds, /gestor/producao, fechamento)
     ├── templates/      kds/, pedidos/, pos/, gestao/ (19 templates)
     └── tests/          POS, KDS, operator tests
 
@@ -113,7 +114,7 @@ make migrate           # Migrações
 
 ## Core é Sagrado — Regras de Integridade
 
-O `packages/` é um conjunto de 8 apps pip-instaláveis, muito bem desenhado, robusto e flexível.
+O `packages/` é um conjunto de 9 apps pip-instaláveis, muito bem desenhado, robusto e flexível.
 Antes de alterar qualquer coisa no Core, **compreenda como ele já resolve o problema**.
 
 1. **Não adicionar campos a modelos do Core sem necessidade comprovada.** Os modelos `Session`, `Order`,
@@ -150,9 +151,9 @@ Antes de alterar qualquer coisa no Core, **compreenda como ele já resolve o pro
 
 - [docs/reference/data-schemas.md](docs/reference/data-schemas.md) — **Obrigatório**: inventário de chaves em Session.data, Order.data, Directive.payload
 - [docs/guides/lifecycle.md](docs/guides/lifecycle.md) — Guia da arquitetura: Lifecycle, Services, Adapters, Rules
-- [PRODUCTION-PLAN.md](PRODUCTION-PLAN.md) — Plano de produção: WP-F0 a WP-F18 (UX, operação, canais, governance)
-- [EVOLUTION-PLAN.md](EVOLUTION-PLAN.md) — Plano completo: WP-E1 a WP-E6 (disponibilidade, loyalty, cartão, dashboard, notificações, API)
 - [docs/ROADMAP.md](docs/ROADMAP.md) — Visão geral de próximos passos e ideias futuras
+- [docs/plans/WP-GAP-07-pre-prod-migration-playbook.md](docs/plans/WP-GAP-07-pre-prod-migration-playbook.md) — Playbook ativo de migração/pré-prod
+- [docs/plans/PROJECTION-UI-PLAN.md](docs/plans/PROJECTION-UI-PLAN.md) — Plano ativo de projections/UI
 - [docs/](docs/README.md) — Documentação completa (guias, ADRs, referência técnica)
 - [docs/reference/glossary.md](docs/reference/glossary.md) — Glossário de termos de domínio
 

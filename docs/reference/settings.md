@@ -243,13 +243,13 @@ Settings flat no `settings.py` do Django (sem dict wrapper).
 
 | Setting | Tipo | Default | Descrição |
 |---------|------|---------|-----------|
-| `SHOPMAN_STOCK_BACKEND` | str | *(auto-detecção)* | Backend de estoque. Se omitido, detecta `StockingBackend` → fallback `NoopStockBackend` |
-| `SHOPMAN_PAYMENT_BACKEND` | str | `"channels.backends.payment_mock.MockPaymentBackend"` | Backend de pagamento |
+| `SHOPMAN_STOCK_BACKEND` | str | *(auto-detecção)* | Backend de estoque. Se omitido, usa backend interno → fallback `NoopStockBackend` |
+| `SHOPMAN_PAYMENT_BACKEND` | str | backend mock interno | Backend de pagamento |
 | `SHOPMAN_FISCAL_BACKEND` | str | *(sem default)* | Backend fiscal. Se ausente, handlers fiscais não são registrados |
 | `SHOPMAN_ACCOUNTING_BACKEND` | str | *(sem default)* | Backend de contabilidade. Se ausente, handler de accounting não é registrado |
 | `SHOPMAN_NOTIFICATIONS` | str | `"console"` | Backend padrão de notificações |
 
-**Guia:** [flows.md](../guides/lifecycle.md)
+**Guia:** [lifecycle.md](../guides/lifecycle.md)
 
 ### Webhook
 
@@ -295,29 +295,29 @@ A loja é configurada via Admin — não há settings no `settings.py`. O model 
 
 ### Cascata de Configuração de Canal
 
-**`ChannelConfig` é o mecanismo primário de configuração de canais.** Substitui o antigo `settings.CONFIRMATION_FLOW`.
+**`ChannelConfig` é o mecanismo primário de configuração de canais.**
 
 ```
 ChannelConfig efetivo = Channel.config ← Shop.defaults ← ChannelConfig.defaults()
 ```
 
-Cada campo de `ChannelConfig` é resolvido na ordem: canal específico → defaults da loja → defaults hardcoded. Veja `ChannelConfig.effective()` em `shopman/config.py`.
+Cada campo de `ChannelConfig` é resolvido na ordem: canal específico → defaults da loja → defaults hardcoded. Veja `ChannelConfig.for_channel()` em `shopman/shop/config.py`.
 
-O módulo `shopman/confirmation.py` mantém fallback legado para `settings.CONFIRMATION_FLOW`, mas o caminho principal é via `ChannelConfig.effective()`.
+Não há dispatch por classes `Flow`; `lifecycle.py` usa `ChannelConfig.for_channel()` e phase handlers funcionais.
 
-**Guia:** [flows.md](../guides/lifecycle.md)
+**Guia:** [lifecycle.md](../guides/lifecycle.md)
 
 ### ChannelConfig — Estrutura
 
 | Seção | Campos principais | Descrição |
 |-------|-------------------|-----------|
 | `confirmation` | `mode` (immediate\|auto_confirm\|auto_cancel\|manual), `timeout_minutes` | Modo de confirmação |
-| `payment` | `method` (counter\|pix\|external), `timeout_minutes` | Método de pagamento |
+| `payment` | `method` (cash\|pix\|card\|external ou lista), `timing`, `timeout_minutes` | Método e timing de pagamento |
 | `stock` | `hold_ttl_minutes`, `safety_margin`, `planned_hold_ttl_hours` | Configuração de reservas |
 | `pipeline` | `on_commit`, `on_confirmed`, `on_payment_confirmed`, `on_ready`, `on_dispatched`, `on_delivered`, `on_completed`, `on_cancelled`, `on_returned` | Handlers por evento do ciclo de vida |
-| `notifications` | `backend`, `fallback`, `routing` | Roteamento de notificações |
+| `notifications` | `backend`, `fallback_chain`, `routing` | Roteamento de notificações |
 | `rules` | `validators`, `modifiers`, `checks` | Regras de negócio do canal |
-| `flow` | `transitions`, `terminal_statuses`, `auto_transitions`, `auto_sync_fulfillment` | Máquina de estados |
+| `lifecycle` | `transitions`, `terminal_statuses` | Overrides de máquina de estados gravados no snapshot |
 
 ### Promoções e Cupons
 

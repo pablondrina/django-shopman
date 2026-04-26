@@ -288,6 +288,39 @@ def test_storefront_api_delegates_kernel_commands():
         )
 
 
+def test_storefront_surface_reads_delegate_kernel_domains():
+    """Storefront services/projections/intents must read kernels through shop services."""
+    forbidden = (
+        "shopman.guestman",
+        "shopman.doorman",
+        "shopman.orderman",
+        "shopman.offerman",
+        "shopman.stockman",
+        "shopman.payman",
+        "shopman.craftsman",
+    )
+    roots = (
+        STOREFRONT_ROOT / "services",
+        STOREFRONT_ROOT / "projections",
+        STOREFRONT_ROOT / "intents",
+    )
+    violations = []
+
+    for root in roots:
+        for path in _py_files(root):
+            for line, module in _imports(path):
+                if _matches_prefix(module, forbidden):
+                    violations.append((path, line, module))
+
+    if violations:
+        pytest.fail(
+            "Storefront service/projection/intent modules imported kernel modules directly:\n"
+            f"{_format_violations(violations)}\n\n"
+            "Route domain reads and commands through shopman.shop.services.* so "
+            "surface modules stay HTTP/template/read-model adapters."
+        )
+
+
 def test_storefront_keeps_customer_auth_commands_in_shop_services():
     """Customer auth/access/device commands belong to the orchestrator."""
     forbidden_service_modules = (

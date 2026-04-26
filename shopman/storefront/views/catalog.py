@@ -8,14 +8,14 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
 
+from shopman.shop.services.storefront_context import (
+    fresh_from_oven_skus,
+    popular_skus,
+)
 from shopman.storefront.services import catalog as catalog_service
 from shopman.storefront.services.product_cards import (
     annotate_products,
     get_channel_listing_ref,
-)
-from shopman.storefront.services.storefront_context import (
-    fresh_from_oven_skus,
-    popular_skus,
 )
 
 logger = logging.getLogger(__name__)

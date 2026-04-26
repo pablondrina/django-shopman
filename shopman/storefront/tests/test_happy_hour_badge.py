@@ -32,11 +32,11 @@ def _fake_modifiers_empty():
 class HappyHourStateTests(TestCase):
     def test_active_during_window(self) -> None:
         """Returns active=True when current time is within the happy hour window."""
-        from shopman.storefront.services.storefront_context import happy_hour_state
+        from shopman.shop.services.storefront_context import happy_hour_state
 
         with override_settings(SHOPMAN_HAPPY_HOUR_START="16:00", SHOPMAN_HAPPY_HOUR_END="18:00"):
             with patch("shopman.orderman.registry.get_modifiers", _fake_modifiers_with_happy_hour):
-                with patch("shopman.storefront.services.storefront_context.timezone") as mock_tz:
+                with patch("shopman.shop.services.storefront_context.timezone") as mock_tz:
                     mock_tz.localtime.return_value.time.return_value = time(17, 0)
                     result = happy_hour_state()
 
@@ -45,11 +45,11 @@ class HappyHourStateTests(TestCase):
 
     def test_inactive_before_window(self) -> None:
         """Returns active=False before happy hour starts."""
-        from shopman.storefront.services.storefront_context import happy_hour_state
+        from shopman.shop.services.storefront_context import happy_hour_state
 
         with override_settings(SHOPMAN_HAPPY_HOUR_START="16:00", SHOPMAN_HAPPY_HOUR_END="18:00"):
             with patch("shopman.orderman.registry.get_modifiers", _fake_modifiers_with_happy_hour):
-                with patch("shopman.storefront.services.storefront_context.timezone") as mock_tz:
+                with patch("shopman.shop.services.storefront_context.timezone") as mock_tz:
                     mock_tz.localtime.return_value.time.return_value = time(15, 59)
                     result = happy_hour_state()
 
@@ -57,11 +57,11 @@ class HappyHourStateTests(TestCase):
 
     def test_inactive_after_window(self) -> None:
         """Returns active=False after happy hour ends."""
-        from shopman.storefront.services.storefront_context import happy_hour_state
+        from shopman.shop.services.storefront_context import happy_hour_state
 
         with override_settings(SHOPMAN_HAPPY_HOUR_START="16:00", SHOPMAN_HAPPY_HOUR_END="18:00"):
             with patch("shopman.orderman.registry.get_modifiers", _fake_modifiers_with_happy_hour):
-                with patch("shopman.storefront.services.storefront_context.timezone") as mock_tz:
+                with patch("shopman.shop.services.storefront_context.timezone") as mock_tz:
                     mock_tz.localtime.return_value.time.return_value = time(18, 0)
                     result = happy_hour_state()
 
@@ -69,11 +69,11 @@ class HappyHourStateTests(TestCase):
 
     def test_inactive_at_exact_end(self) -> None:
         """End hour is exclusive (18:00 → not active)."""
-        from shopman.storefront.services.storefront_context import happy_hour_state
+        from shopman.shop.services.storefront_context import happy_hour_state
 
         with override_settings(SHOPMAN_HAPPY_HOUR_START="16:00", SHOPMAN_HAPPY_HOUR_END="18:00"):
             with patch("shopman.orderman.registry.get_modifiers", _fake_modifiers_with_happy_hour):
-                with patch("shopman.storefront.services.storefront_context.timezone") as mock_tz:
+                with patch("shopman.shop.services.storefront_context.timezone") as mock_tz:
                     mock_tz.localtime.return_value.time.return_value = time(18, 0)
                     result = happy_hour_state()
 
@@ -81,7 +81,7 @@ class HappyHourStateTests(TestCase):
 
     def test_returns_discount_percent(self) -> None:
         """discount_percent comes from settings."""
-        from shopman.storefront.services.storefront_context import happy_hour_state
+        from shopman.shop.services.storefront_context import happy_hour_state
 
         with override_settings(
             SHOPMAN_HAPPY_HOUR_START="16:00",
@@ -89,7 +89,7 @@ class HappyHourStateTests(TestCase):
             SHOPMAN_HAPPY_HOUR_DISCOUNT_PERCENT=15,
         ):
             with patch("shopman.orderman.registry.get_modifiers", _fake_modifiers_with_happy_hour):
-                with patch("shopman.storefront.services.storefront_context.timezone") as mock_tz:
+                with patch("shopman.shop.services.storefront_context.timezone") as mock_tz:
                     mock_tz.localtime.return_value.time.return_value = time(17, 0)
                     result = happy_hour_state()
 
@@ -97,11 +97,11 @@ class HappyHourStateTests(TestCase):
 
     def test_inactive_when_no_modifier_registered(self) -> None:
         """Returns inactive when no happy hour modifier is in the registry."""
-        from shopman.storefront.services.storefront_context import happy_hour_state
+        from shopman.shop.services.storefront_context import happy_hour_state
 
         with override_settings(SHOPMAN_HAPPY_HOUR_START="16:00", SHOPMAN_HAPPY_HOUR_END="18:00"):
             with patch("shopman.orderman.registry.get_modifiers", _fake_modifiers_empty):
-                with patch("shopman.storefront.services.storefront_context.timezone") as mock_tz:
+                with patch("shopman.shop.services.storefront_context.timezone") as mock_tz:
                     mock_tz.localtime.return_value.time.return_value = time(17, 0)
                     result = happy_hour_state()
 

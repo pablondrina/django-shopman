@@ -2,69 +2,41 @@
 
 from __future__ import annotations
 
-from django.shortcuts import get_object_or_404
+from django.http import Http404
 from django.urls import reverse
+
+from shopman.shop.services import catalog_context
 
 
 def published_products(listing_ref: str | None):
-    from shopman.offerman.models import Product
-
-    qs = Product.objects.filter(is_published=True)
-    if listing_ref:
-        qs = qs.filter(
-            listing_items__listing__ref=listing_ref,
-            listing_items__listing__is_active=True,
-            listing_items__is_published=True,
-        )
-    return qs
+    return catalog_context.published_products(listing_ref)
 
 
 def ensure_active_collection(collection_ref: str):
-    from shopman.offerman.models import Collection
-
-    return get_object_or_404(Collection, ref=collection_ref, is_active=True)
+    collection = catalog_context.get_active_collection(collection_ref)
+    if collection is None:
+        raise Http404
+    return collection
 
 
 def product_exists(sku: str) -> bool:
-    from shopman.offerman.models import Product
-
-    return Product.objects.filter(sku=sku).exists()
+    return catalog_context.product_exists(sku)
 
 
 def get_published_product(sku: str):
-    from shopman.offerman.models import Product
-
-    return Product.objects.filter(sku=sku, is_published=True).first()
+    return catalog_context.get_published_product(sku)
 
 
 def get_sellable_published_product(sku: str):
-    from shopman.offerman.models import Product
-
-    return Product.objects.filter(sku=sku, is_published=True, is_sellable=True).first()
+    return catalog_context.get_sellable_published_product(sku)
 
 
 def active_collections_with_counts() -> list[dict]:
-    from shopman.offerman.models import Collection, CollectionItem
-
-    data = []
-    for collection in Collection.objects.filter(is_active=True).order_by("sort_order", "name"):
-        count = CollectionItem.objects.filter(
-            collection=collection,
-            product__is_published=True,
-        ).count()
-        data.append({
-            "ref": collection.ref,
-            "name": collection.name,
-            "description": getattr(collection, "description", None) or "",
-            "product_count": count,
-        })
-    return data
+    return catalog_context.active_collections_with_counts()
 
 
 def search_index(catalog) -> list[dict]:
     """Build the lightweight client-side search index for the menu overlay."""
-    from shopman.offerman.models import Product
-
     seen: set[str] = set()
     records: list[dict] = []
     keywords_by_sku: dict[str, list[str]] = {}
@@ -72,12 +44,7 @@ def search_index(catalog) -> list[dict]:
     try:
         skus_all = [item.sku for sec in catalog.sections for item in sec.items]
         if skus_all:
-            products = Product.objects.filter(sku__in=skus_all).prefetch_related("keywords")
-            for product in products:
-                try:
-                    keywords_by_sku[product.sku] = [str(tag.name) for tag in product.keywords.all()]
-                except Exception:
-                    keywords_by_sku[product.sku] = []
+            keywords_by_sku = catalog_context.keywords_by_sku(skus_all)
     except Exception:
         keywords_by_sku = {}
 
@@ -98,8 +65,6 @@ def search_index(catalog) -> list[dict]:
 
 
 def sitemap_urls(request) -> list[dict]:
-    from shopman.offerman.models import Collection, Product
-
     from shopman.shop.models import Shop
 
     urls = []
@@ -127,7 +92,7 @@ def sitemap_urls(request) -> list[dict]:
         "lastmod": shop_updated,
     })
 
-    for collection in Collection.objects.filter(is_active=True):
+    for collection in catalog_context.active_collections():
         urls.append({
             "loc": base + reverse("storefront:menu_collection", args=[collection.ref]),
             "priority": "0.8",
@@ -139,7 +104,7 @@ def sitemap_urls(request) -> list[dict]:
             ),
         })
 
-    for product in Product.objects.filter(is_published=True):
+    for product in catalog_context.published_products():
         image_url = None
         if getattr(product, "image", None) and getattr(product.image, "name", ""):
             image_url = request.build_absolute_uri(product.image.url)

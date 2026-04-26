@@ -17,7 +17,7 @@ O Shopman é composto por **3 camadas**:
 | Camada | Pip package | Descrição |
 |--------|-------------|-----------|
 | **Framework** | `django-shopman` | Orquestrador que integra os core apps via Lifecycles, Services e Adapters |
-| **Core Apps** | `shopman-*` | 8 pacotes pip independentes, cada um com domínio próprio |
+| **Core Apps** | `shopman-*` | 9 pacotes pip independentes, cada um com domínio próprio |
 | **Instância** | — | Configuração específica do negócio (ex: Nelson Boulangerie) |
 
 ### Core Apps
@@ -27,6 +27,7 @@ Cada app é um pacote pip independente. Comunicação entre apps via `typing.Pro
 | App | Pip Package | Namespace | Domínio | Modelos Principais |
 |-----|-------------|-----------|---------|-------------------|
 | **Utils** | `shopman-utils` | `shopman.utils` | Monetário, formatting, phone | — |
+| **Refs** | `shopman-refs` | `shopman.refs` | Referências tipadas | RefType, RefRecord |
 | **Offerman** | `shopman-offerman` | `shopman.offerman` | Catálogo de produtos | Product, Listing, Collection, Bundle |
 | **Stockman** | `shopman-stockman` | `shopman.stockman` | Estoque físico | Quant, Move, Hold, Position, Batch |
 | **Craftsman** | `shopman-craftsman` | `shopman.craftsman` | Produção e receitas | Recipe, WorkOrder, WorkOrderItem |
@@ -53,8 +54,8 @@ make seed
 make run
 # → http://localhost:8000/        (storefront)
 # → http://localhost:8000/admin/  (admin — admin/admin)
-# → http://localhost:8000/pedidos/ (gestor de pedidos)
-# → http://localhost:8000/kds/     (kitchen display)
+# → http://localhost:8000/gestor/pedidos/ (gestor de pedidos)
+# → http://localhost:8000/gestor/kds/     (kitchen display)
 ```
 
 > Postgres é o default de dev — casa com os testes de concorrência do Stockman
@@ -71,14 +72,15 @@ make run
 | Ver o que funciona hoje | [`docs/status.md`](docs/status.md) — estado factual por módulo |
 | Usar como base do seu negócio | Fork, criar instância em `instances/`, configurar `Shop` no admin |
 | Adotar um core app isolado | `pip install shopman-stockman` (quando publicado no PyPI) |
-| Contribuir ou corrigir | Ver [`CORRECTIONS-PLAN.md`](CORRECTIONS-PLAN.md) para gaps ativos |
+| Contribuir ou corrigir | Ver [`docs/ROADMAP.md`](docs/ROADMAP.md) para gaps ativos |
 
 ## Estrutura do Projeto
 
 ```
 django-shopman/
-├── packages/                   # 8 apps pip-instaláveis (sem dependência entre si)
+├── packages/                   # 9 apps pip-instaláveis (sem dependência entre si)
 │   ├── utils/                  # shopman-utils — Monetário, formatting, phone
+│   ├── refs/                   # shopman-refs — Registro de refs tipadas
 │   ├── offerman/               # shopman-offerman — Catálogo
 │   ├── stockman/               # shopman-stockman — Estoque
 │   ├── craftsman/              # shopman-craftsman — Produção
@@ -93,10 +95,10 @@ django-shopman/
 │       ├── services/           # Lógica de negócio (stock, payment, checkout, etc.)
 │       ├── adapters/           # Integrações swappable (EFI, Stripe, ManyChat, etc.)
 │       ├── handlers/           # Directive handlers (stock, payment, notification, etc.)
-│       ├── models/             # Shop, Promotion, Coupon, KDS, DayClosing
-│       ├── web/                # Storefront (Django templates + HTMX + Alpine.js)
-│       ├── api/                # API REST (DRF + drf-spectacular)
-│       └── admin/              # Admin Unfold (dashboard, pedidos, alertas, KDS)
+│       ├── models/             # Shop, Channel, RuleConfig, NotificationTemplate, OmotenashiCopy
+│       ├── views/              # Health/readiness endpoints
+│       ├── web/                # Legacy helpers/compat; storefront/backstage são apps próprios
+│       └── admin/              # Admin Unfold (shop, regras, notificações)
 │
 ├── config/                     # Django project wrapper (settings.py, urls.py, wsgi.py)
 │

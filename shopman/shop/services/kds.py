@@ -58,10 +58,11 @@ def dispatch(order) -> list:
     if not order_items:
         return []
 
-    skus = [item.sku for item in order_items]
+    catalog = get_adapter("catalog")
+    routable_items = _build_routable_items(order_items)
+    skus = list({item["sku"] for item in routable_items})
 
     # Bulk-query primary collections: sku → collection_id
-    catalog = get_adapter("catalog")
     sku_to_collection = catalog.bulk_sku_to_collection_id(skus)
 
     # Bulk-query recipes: set of SKUs that need prep
@@ -80,12 +81,14 @@ def dispatch(order) -> list:
             for col_id in col_ids:
                 type_col_map[(inst.type, col_id)].append(inst)
 
-    # Route each item
+    # Route each item. Bundles are expanded by _build_routable_items(), so
+    # each component can land in the correct KDS station independently.
     instance_items = defaultdict(list)
 
-    for item in order_items:
-        item_type = "prep" if item.sku in prep_skus else "picking"
-        col_id = sku_to_collection.get(item.sku)
+    for item in routable_items:
+        sku = item["sku"]
+        item_type = "prep" if sku in prep_skus else "picking"
+        col_id = sku_to_collection.get(sku)
 
         matched = []
         if col_id:
@@ -97,16 +100,16 @@ def dispatch(order) -> list:
 
         if not matched:
             logger.warning(
-                "kds.dispatch: no KDS instance for sku=%s type=%s col=%s — skipped",
-                item.sku, item_type, col_id,
+                "kds.dispatch: no KDS instance for sku=%s type=%s col=%s parent=%s - skipped",
+                sku, item_type, col_id, item.get("parent_sku") or "-",
             )
             continue
 
         item_dict = {
-            "sku": item.sku,
-            "name": item.name or item.sku,
-            "qty": int(item.qty),
-            "notes": item.meta.get("notes", "") if item.meta else "",
+            "sku": sku,
+            "name": item["name"],
+            "qty": item["qty"],
+            "notes": item["notes"],
             "checked": False,
         }
 
@@ -123,6 +126,48 @@ def dispatch(order) -> list:
 
     logger.info("kds.dispatch: %d tickets for order %s", len(tickets), order.ref)
     return tickets
+
+
+def _build_routable_items(order_items) -> list[dict]:
+    """Return order items expanded to concrete SKUs for KDS routing."""
+    from shopman.offerman.models import ProductComponent
+
+    skus = [item.sku for item in order_items]
+    bundle_components = defaultdict(list)
+    for pc in (
+        ProductComponent.objects
+        .filter(parent__sku__in=skus)
+        .select_related("component")
+    ):
+        bundle_components[pc.parent.sku].append((
+            pc.component.sku,
+            pc.component.name,
+            pc.qty,
+        ))
+
+    routable_items = []
+    for item in order_items:
+        notes = item.meta.get("notes", "") if item.meta else ""
+        components = bundle_components.get(item.sku, [])
+        if components:
+            for comp_sku, comp_name, comp_qty in components:
+                routable_items.append({
+                    "sku": comp_sku,
+                    "name": f"{comp_name} ({item.name or item.sku})",
+                    "qty": int(item.qty * comp_qty),
+                    "notes": notes,
+                    "parent_sku": item.sku,
+                })
+            continue
+
+        routable_items.append({
+            "sku": item.sku,
+            "name": item.name or item.sku,
+            "qty": int(item.qty),
+            "notes": notes,
+            "parent_sku": None,
+        })
+    return routable_items
 
 
 def cancel_tickets(order) -> int:

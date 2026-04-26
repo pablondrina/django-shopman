@@ -408,48 +408,88 @@ class TestNoBareExceptPass:
     )
 
     def _get_files(self):
-        """Business logic files: services/, handlers/, adapters/, lifecycle.py, omotenashi/."""
+        """Business logic files with catch-all exception observability requirements."""
         files = list(_source_files("services", "handlers", "adapters"))
+        files.extend(_source_files("rules", "templatetags"))
         lifecycle = FRAMEWORK_ROOT / "lifecycle.py"
         if lifecycle.exists():
             files.append(lifecycle)
+        production_lifecycle = FRAMEWORK_ROOT / "production_lifecycle.py"
+        if production_lifecycle.exists():
+            files.append(production_lifecycle)
+        modifiers = FRAMEWORK_ROOT / "modifiers.py"
+        if modifiers.exists():
+            files.append(modifiers)
         omotenashi = FRAMEWORK_ROOT / "omotenashi"
         if omotenashi.exists():
             files.extend(omotenashi.rglob("*.py"))
+        storefront_root = PROJECT_ROOT / "storefront"
+        projections = storefront_root / "projections"
+        if projections.exists():
+            files.extend(projections.rglob("*.py"))
+        pickup_slots = storefront_root / "services" / "pickup_slots.py"
+        if pickup_slots.exists():
+            files.append(pickup_slots)
         return [f for f in files if "test_" not in f.name]
 
-    def test_no_silent_exception_swallowing(self):
-        """Find except Exception blocks followed by only pass (no logging)."""
+    def _handler_has_logger(self, node: ast.ExceptHandler) -> bool:
+        return any(
+            isinstance(child, ast.Call)
+            and isinstance(child.func, ast.Attribute)
+            and isinstance(child.func.value, ast.Name)
+            and child.func.value.id == "logger"
+            for child in ast.walk(ast.Module(body=node.body, type_ignores=[]))
+        )
+
+    def test_no_bare_exception_pass(self):
+        """Find except Exception blocks followed only by pass."""
         violations = []
         for path in self._get_files():
             try:
-                lines = path.read_text().splitlines()
-            except (OSError, UnicodeDecodeError):
+                tree = ast.parse(path.read_text())
+            except (OSError, SyntaxError, UnicodeDecodeError):
                 continue
-            for i, line in enumerate(lines):
-                stripped = line.strip()
-                # Match: except Exception[:as x]:
-                if not re.match(r"except\s+Exception", stripped):
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.ExceptHandler):
                     continue
-                # Look at next non-blank line(s) for pass without logger
-                j = i + 1
-                block_lines = []
-                while j < len(lines):
-                    next_stripped = lines[j].strip()
-                    if not next_stripped or next_stripped.startswith("#"):
-                        j += 1
-                        continue
-                    block_lines.append(next_stripped)
-                    if len(block_lines) >= 3:
-                        break
-                    j += 1
-                # Bare pass with no logging?
-                block_text = " ".join(block_lines)
-                if block_lines and block_lines[0] == "pass" and "logger" not in block_text and "logging" not in block_text and "self.stderr" not in block_text:
-                    violations.append((path, i + 1, stripped))
+                if not isinstance(node.type, ast.Name) or node.type.id != "Exception":
+                    continue
+                if len(node.body) == 1 and isinstance(node.body[0], ast.Pass):
+                    violations.append((path, node.lineno, "except Exception"))
         assert not violations, (
-            "except Exception: pass (without logging) is forbidden in business logic. "
-            "Every catch-all must log. Violations:\n"
+            "except Exception: pass is forbidden in business logic. "
+            "Every catch-all must log or return an explicit fallback. Violations:\n"
+            + "\n".join(f"  {p}:{ln}: {line}" for p, ln, line in violations)
+        )
+
+    def test_wp02_scope_catchalls_are_observable(self):
+        """Projection/rule catch-all fallbacks must log their intentional degradation."""
+        focused_files = list((PROJECT_ROOT / "storefront" / "projections").glob("*.py"))
+        focused_files.extend([
+            PROJECT_ROOT / "storefront" / "services" / "pickup_slots.py",
+            FRAMEWORK_ROOT / "templatetags" / "storefront_tags.py",
+            FRAMEWORK_ROOT / "modifiers.py",
+        ])
+        focused_files.extend((FRAMEWORK_ROOT / "rules").glob("*.py"))
+
+        violations = []
+        for path in focused_files:
+            if not path.exists():
+                continue
+            try:
+                tree = ast.parse(path.read_text())
+            except (OSError, SyntaxError, UnicodeDecodeError):
+                continue
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.ExceptHandler):
+                    continue
+                if not isinstance(node.type, ast.Name) or node.type.id != "Exception":
+                    continue
+                if not self._handler_has_logger(node):
+                    violations.append((path, node.lineno, "except Exception"))
+        assert not violations, (
+            "WP-02 scoped catch-all fallbacks must log with logger.debug(..., exc_info=True) "
+            "or stronger severity for operational loss. Violations:\n"
             + "\n".join(f"  {p}:{ln}: {line}" for p, ln, line in violations)
         )
 

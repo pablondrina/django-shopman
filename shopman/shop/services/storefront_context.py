@@ -22,16 +22,14 @@ import math
 from datetime import time, timedelta
 
 from django.conf import settings
-from django.http import HttpRequest
 from django.utils import timezone
 from shopman.guestman.contrib.insights import InsightService
 from shopman.offerman.models import ListingItem, Product
 from shopman.utils.monetary import format_money
 
-from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
-
 logger = logging.getLogger(__name__)
 
+DEFAULT_STOREFRONT_CHANNEL_REF = "web"
 _MINIMUM_ORDER_Q_DEFAULT = 1000  # R$ 10,00 fallback when the rule is active
 
 
@@ -159,7 +157,7 @@ def happy_hour_state() -> dict:
 
 
 def minimum_order_progress(
-    subtotal_q: int, channel_ref: str = STOREFRONT_CHANNEL_REF,
+    subtotal_q: int, channel_ref: str = DEFAULT_STOREFRONT_CHANNEL_REF,
 ) -> dict | None:
     """Progress toward the minimum order amount configured for ``channel_ref``.
 
@@ -208,7 +206,7 @@ def minimum_order_progress(
 def upsell_suggestion(
     cart_skus: set[str],
     *,
-    channel_ref: str = STOREFRONT_CHANNEL_REF,
+    channel_ref: str = DEFAULT_STOREFRONT_CHANNEL_REF,
 ) -> dict | None:
     """Return one popular SKU not already in ``cart_skus`` (or ``None``).
 
@@ -249,7 +247,7 @@ def upsell_suggestion(
     return None
 
 
-def session_pricing_hints(request: HttpRequest | None) -> tuple[str, int]:
+def session_pricing_hints(request) -> tuple[str, int]:
     """Return ``(fulfillment_type, subtotal_q)`` from the active cart session.
 
     Feeds ``CatalogService.get_price``'s context so the menu shows the same
@@ -266,7 +264,7 @@ def session_pricing_hints(request: HttpRequest | None) -> tuple[str, int]:
         key = request.session.get("cart_session_key")
         if not key:
             return "", 0
-        ch = Channel.objects.filter(ref=STOREFRONT_CHANNEL_REF).first()
+        ch = Channel.objects.filter(ref=DEFAULT_STOREFRONT_CHANNEL_REF).first()
         if not ch:
             return "", 0
         sess = Session.objects.filter(

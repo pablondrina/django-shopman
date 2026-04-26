@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import logging
 
 from django import template
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
 register = template.Library()
+logger = logging.getLogger(__name__)
 
 # Material Symbols Rounded — ligature names (generic SKU hint → icon)
 _PRODUCT_SYMBOL_MAP = {
@@ -204,7 +206,7 @@ def json_ld_product(context, product, price_q=None, badge=None, availability=Non
         try:
             data["url"] = request.build_absolute_uri()
         except Exception:
-            pass
+            logger.debug("json_ld_product: could not build product URL", exc_info=True)
 
     # Brand
     brand_name = getattr(shop, "brand_name", None) or getattr(shop, "name", "")
@@ -222,7 +224,7 @@ def json_ld_product(context, product, price_q=None, badge=None, availability=Non
             try:
                 offer["url"] = request.build_absolute_uri()
             except Exception:
-                pass
+                logger.debug("json_ld_product: could not build offer URL", exc_info=True)
         avail_key = None
         if availability is not None:
             avail_key = str(getattr(availability, "value", availability)).lower()
@@ -265,7 +267,7 @@ def json_ld_bakery(context):
         try:
             data["url"] = request.build_absolute_uri("/")
         except Exception:
-            pass
+            logger.debug("json_ld_bakery: could not build bakery URL", exc_info=True)
 
     logo = getattr(shop, "logo", None)
     if logo and hasattr(logo, "url") and getattr(logo, "name", None):

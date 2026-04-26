@@ -6,9 +6,9 @@
 
 ## Vocabulário (2026-04-15)
 
-- **Shopman Suite** (ou "a suite") = o projeto inteiro: os 8 packages + camada orquestradora + instâncias.
+- **Shopman Suite** (ou "a suite") = o projeto inteiro: os 9 packages + camada orquestradora + instâncias.
 - **Shopman** (sem qualificador) = a **camada orquestradora**, que hoje mora em `shopman/shop/` (Django app `shopman.shop`, label `shop`). Coloquialmente "orquestrador" ou "Maestro" também servem, mas o nome canônico informal é **Shopman**, fechando o padrão persona (Shopman rege; Offerman, Stockman, Craftsman, Orderman, Guestman, Doorman, Payman executam).
-- **Core / packages** = os 8 packages pip-instaláveis em `packages/*`, cada um standalone.
+- **Core / packages** = os 9 packages pip-instaláveis em `packages/*`, cada um standalone.
 - **Instância** = uma aplicação Django concreta em `instances/*` (ex.: Nelson Boulangerie), que consome a Suite.
 
 *Nota:* há tensão de namespace — `shopman.*` como namespace Python contém todos os packages, não só o orquestrador. Na fala isso não atrapalha; se um dia fizer sentido formalizar, o Django app `shopman.shop` poderia ser promovido a `shopman` (label `shopman`). Não urgente.

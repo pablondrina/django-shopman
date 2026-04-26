@@ -7,6 +7,8 @@ degradation when services are unavailable.
 """
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 from django.test import RequestFactory
 
@@ -81,8 +83,6 @@ class TestCheckoutProjectionShape:
 
     def test_preselected_address_uses_default(self, cart_session):
         """Authenticated customer with a default address gets it pre-selected."""
-        from types import SimpleNamespace
-
         from shopman.guestman.models import Customer, CustomerAddress, CustomerGroup
 
         grp, _ = CustomerGroup.objects.get_or_create(
@@ -105,6 +105,73 @@ class TestCheckoutProjectionShape:
         assert proj.preselected_address_id == default_addr.id
         # Structured fields are surfaced for the picker.
         assert any(a.id == non_default.id for a in proj.saved_addresses)
+
+    def test_loyalty_failure_preserves_addresses(
+        self, cart_session, customer, customer_address, monkeypatch
+    ):
+        from shopman.guestman.contrib.loyalty import LoyaltyService
+
+        from shopman.shop.services import customer_context
+
+        debug_calls = []
+
+        def fail_balance(*args, **kwargs):
+            raise RuntimeError("loyalty unavailable")
+
+        def record_debug(message, *args, **kwargs):
+            debug_calls.append((message, kwargs))
+
+        monkeypatch.setattr(LoyaltyService, "get_balance", fail_balance)
+        monkeypatch.setattr(customer_context.logger, "debug", record_debug)
+        request = _request_with_cart_session(cart_session)
+        request.customer = SimpleNamespace(
+            uuid=customer.uuid,
+            phone=customer.phone,
+            name=customer.name,
+        )
+
+        proj = build_checkout(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
+
+        assert len(proj.saved_addresses) == 1
+        assert proj.loyalty_balance_q == 0
+        assert proj.loyalty_value_display is None
+        assert any(
+            "customer_context_loyalty_balance_failed" in message
+            and kwargs.get("exc_info") is True
+            for message, kwargs in debug_calls
+        )
+
+    def test_address_failure_degrades_to_empty(self, cart_session, customer, monkeypatch):
+        from shopman.guestman.services import address as address_service
+
+        from shopman.shop.services import customer_context
+
+        debug_calls = []
+
+        def fail_addresses(*args, **kwargs):
+            raise RuntimeError("addresses unavailable")
+
+        def record_debug(message, *args, **kwargs):
+            debug_calls.append((message, kwargs))
+
+        monkeypatch.setattr(address_service, "addresses", fail_addresses)
+        monkeypatch.setattr(customer_context.logger, "debug", record_debug)
+        request = _request_with_cart_session(cart_session)
+        request.customer = SimpleNamespace(
+            uuid=customer.uuid,
+            phone=customer.phone,
+            name=customer.name,
+        )
+
+        proj = build_checkout(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
+
+        assert proj.saved_addresses == ()
+        assert proj.loyalty_balance_q == 0
+        assert any(
+            "customer_context_addresses_failed" in message
+            and kwargs.get("exc_info") is True
+            for message, kwargs in debug_calls
+        )
 
 
 # ──────────────────────────────────────────────────────────────────────

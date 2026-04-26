@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import Protocol
 
 from django.utils import timezone
 from shopman.utils.monetary import format_money
@@ -21,16 +21,12 @@ from shopman.utils.monetary import format_money
 from shopman.shop.projections.types import (
     FOOD_PREFERENCE_OPTIONS,
     NOTIFICATION_CHANNELS,
-    ORDER_STATUS_COLORS,
-    ORDER_STATUS_LABELS_PT,
     FoodPrefProjection,
     NotificationPrefProjection,
     OrderSummaryProjection,
     SavedAddressProjection,
 )
-
-if TYPE_CHECKING:
-    from shopman.guestman.models import Customer
+from shopman.shop.services import customer_context, customer_orders
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +38,17 @@ TAB_OPTIONS: tuple[tuple[str, str], ...] = (
     ("fidelidade", "Fidelidade"),
     ("config", "Configurações"),
 )
+
+
+class AccountCustomer(Protocol):
+    """Customer shape required by the account projection."""
+
+    ref: str
+    name: str
+    first_name: str
+    phone: str
+    email: str
+    birthday: object | None
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -101,7 +108,7 @@ class CustomerProfileProjection:
 
 
 def build_account(
-    customer: Customer,
+    customer: AccountCustomer,
     *,
     channel_ref: str = _DEFAULT_CHANNEL_REF,
 ) -> CustomerProfileProjection:
@@ -115,7 +122,11 @@ def build_account(
         try:
             birthday_display = customer.birthday.strftime("%d/%m/%Y")
         except Exception:
-            pass
+            logger.debug(
+                "account_projection_birthday_format_failed customer=%s",
+                customer.ref,
+                exc_info=True,
+            )
 
     loyalty = _build_loyalty(customer)
     saved_addresses = _build_addresses(customer)
@@ -144,23 +155,29 @@ def build_account(
 # ──────────────────────────────────────────────────────────────────────
 
 
-def _build_loyalty(customer: Customer) -> LoyaltyProjection | None:
+def _build_loyalty(customer: AccountCustomer) -> LoyaltyProjection | None:
     """Return loyalty projection, or None when unavailable."""
     try:
-        from shopman.guestman.contrib.loyalty import LoyaltyService
-
-        account = LoyaltyService.get_account(customer.ref)
+        account = customer_context.loyalty_account(customer.ref, transaction_limit=5)
         if not account:
             return None
 
-        transactions = _build_loyalty_transactions(customer.ref)
+        transactions = tuple(
+            LoyaltyTransactionProjection(
+                points=t.points,
+                description=t.description,
+                date_display=timezone.localtime(t.created_at).strftime("%d/%m"),
+                is_credit=t.points > 0,
+            )
+            for t in account.transactions
+        )
         stamps_range: tuple[int, ...] = ()
         if account.stamps_target > 0:
             stamps_range = tuple(range(1, account.stamps_target + 1))
 
         return LoyaltyProjection(
             tier=account.tier,
-            tier_display=account.get_tier_display(),
+            tier_display=account.tier_display,
             points_balance=account.points_balance,
             stamps_current=account.stamps_current,
             stamps_target=account.stamps_target,
@@ -169,114 +186,90 @@ def _build_loyalty(customer: Customer) -> LoyaltyProjection | None:
             transactions=transactions,
         )
     except Exception:
-        logger.exception("account_projection_loyalty_failed customer=%s", customer.ref)
+        logger.debug("account_projection_loyalty_failed customer=%s", customer.ref, exc_info=True)
         return None
 
 
-def _build_loyalty_transactions(
-    customer_ref: str,
-) -> tuple[LoyaltyTransactionProjection, ...]:
+def _build_addresses(customer: AccountCustomer) -> tuple[SavedAddressProjection, ...]:
     try:
-        from shopman.guestman.contrib.loyalty import LoyaltyService
-
-        txns = LoyaltyService.get_transactions(customer_ref, limit=5)
-        return tuple(
-            LoyaltyTransactionProjection(
-                points=t.points,
-                description=t.description or "",
-                date_display=timezone.localtime(t.created_at).strftime("%d/%m"),
-                is_credit=t.points > 0,
-            )
-            for t in txns
-        )
-    except Exception:
-        logger.exception("account_projection_loyalty_txns_failed customer=%s", customer_ref)
-        return ()
-
-
-def _build_addresses(customer: Customer) -> tuple[SavedAddressProjection, ...]:
-    try:
-        from shopman.guestman.services import address as address_service
-
         return tuple(
             SavedAddressProjection(
                 id=addr.id,
-                formatted_address=addr.formatted_address or "",
-                complement=addr.complement or "",
-                label=addr.display_label or addr.formatted_address or "",
+                formatted_address=addr.formatted_address,
+                complement=addr.complement,
+                label=addr.label,
                 is_default=addr.is_default,
             )
-            for addr in address_service.addresses(customer.ref)
+            for addr in customer_context.saved_addresses(customer.ref)
         )
     except Exception:
-        logger.exception("account_projection_addresses_failed customer=%s", customer.ref)
+        logger.debug("account_projection_addresses_failed customer=%s", customer.ref, exc_info=True)
         return ()
 
 
 def _build_recent_orders(
-    customer: Customer,
+    customer: AccountCustomer,
 ) -> tuple[OrderSummaryProjection, ...]:
     try:
-        from shopman.orderman.services import CustomerOrderHistoryService
-
-        records = CustomerOrderHistoryService.list_customer_orders(customer.ref, limit=10)
+        records = customer_orders.history_summaries_for_customer_ref(customer.ref, limit=10)
         return tuple(
             OrderSummaryProjection(
-                ref=r.order_ref,
-                created_at_display=_fmt_datetime(r.ordered_at),
+                ref=r.ref,
+                created_at_display=_fmt_datetime(r.created_at),
                 total_q=r.total_q,
                 total_display=f"R$ {format_money(r.total_q)}",
                 status=r.status,
-                status_label=ORDER_STATUS_LABELS_PT.get(r.status, r.status),
-                status_color=ORDER_STATUS_COLORS.get(
-                    r.status, "bg-surface-alt text-on-surface/60 border border-outline"
-                ),
+                status_label=r.status_label,
+                status_color=r.status_color,
                 item_count=r.items_count,
             )
             for r in records
         )
     except Exception:
-        logger.exception("account_projection_orders_failed customer=%s", customer.ref)
+        logger.debug("account_projection_orders_failed customer=%s", customer.ref, exc_info=True)
         return ()
 
 
 def _build_notification_prefs(
-    customer: Customer,
+    customer: AccountCustomer,
 ) -> tuple[NotificationPrefProjection, ...]:
     try:
-        from shopman.guestman.contrib.consent import ConsentService
-
+        channels = tuple(key for key, _label, _description in NOTIFICATION_CHANNELS)
+        enabled_channels = customer_context.enabled_notification_channels(customer.ref, channels)
         return tuple(
             NotificationPrefProjection(
                 key=key,
                 label=label,
                 description=description,
-                enabled=ConsentService.has_consent(customer.ref, key),
+                enabled=key in enabled_channels,
             )
             for key, label, description in NOTIFICATION_CHANNELS
         )
     except Exception:
-        logger.exception("account_projection_notif_prefs_failed customer=%s", customer.ref)
+        logger.debug(
+            "account_projection_notif_prefs_failed customer=%s",
+            customer.ref,
+            exc_info=True,
+        )
         return tuple(
             NotificationPrefProjection(key=key, label=label, description=desc, enabled=False)
             for key, label, desc in NOTIFICATION_CHANNELS
         )
 
 
-def _build_food_prefs(customer: Customer) -> tuple[FoodPrefProjection, ...]:
+def _build_food_prefs(customer: AccountCustomer) -> tuple[FoodPrefProjection, ...]:
     try:
-        from shopman.guestman.contrib.preferences import PreferenceService
-
-        active_keys = {
-            pref.key
-            for pref in PreferenceService.get_preferences(customer.ref, "alimentar")
-        }
+        active_keys = customer_context.active_preference_keys(customer.ref, "alimentar")
         return tuple(
             FoodPrefProjection(key=key, label=label, is_active=key in active_keys)
             for key, label in FOOD_PREFERENCE_OPTIONS
         )
     except Exception:
-        logger.exception("account_projection_food_prefs_failed customer=%s", customer.ref)
+        logger.debug(
+            "account_projection_food_prefs_failed customer=%s",
+            customer.ref,
+            exc_info=True,
+        )
         return tuple(
             FoodPrefProjection(key=key, label=label, is_active=False)
             for key, label in FOOD_PREFERENCE_OPTIONS
@@ -289,6 +282,7 @@ def _fmt_datetime(dt) -> str:
         local = timezone.localtime(dt)
         return local.strftime("%d/%m/%Y às %H:%M")
     except Exception:
+        logger.debug("account_projection_datetime_format_failed dt=%r", dt, exc_info=True)
         return str(dt)
 
 
