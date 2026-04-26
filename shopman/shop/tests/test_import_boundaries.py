@@ -310,6 +310,29 @@ def test_storefront_keeps_customer_auth_commands_in_shop_services():
         )
 
 
+def test_storefront_keeps_checkout_commands_in_shop_services():
+    """Checkout commit and post-commit coordination belongs to the orchestrator."""
+    forbidden_service_modules = (
+        STOREFRONT_ROOT / "services" / "checkout.py",
+        STOREFRONT_ROOT / "services" / "checkout_defaults.py",
+        STOREFRONT_ROOT / "services" / "ifood_simulation.py",
+    )
+    violations = [
+        (path, 1, "shopman.storefront.services")
+        for path in forbidden_service_modules
+        if path.exists()
+    ]
+
+    if violations:
+        pytest.fail(
+            "Storefront reintroduced checkout command services:\n"
+            f"{_format_violations(violations)}\n\n"
+            "Use shopman.shop.services.checkout/checkout_defaults/ifood_simulation "
+            "so checkout commit, customer persistence, and simulated marketplace "
+            "ingest have one canonical orchestration path."
+        )
+
+
 def test_storefront_cart_delegates_write_commands():
     """Storefront cart adapter must call shop cart commands for mutations."""
     path = STOREFRONT_ROOT / "cart.py"

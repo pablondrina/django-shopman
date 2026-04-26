@@ -11,11 +11,11 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django_ratelimit.decorators import ratelimit
 
+from shopman.shop.services import checkout as checkout_service
 from shopman.storefront.services.storefront_context import minimum_order_progress
 
 from ..cart import CHANNEL_REF, CartService
 from ..intents.checkout import interpret_checkout
-from ..services import checkout as checkout_service
 from ..services.address_picker import address_picker_context
 from .tracking import CepLookupView, OrderConfirmationView  # noqa: F401
 

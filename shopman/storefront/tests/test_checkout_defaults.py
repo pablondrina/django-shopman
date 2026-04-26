@@ -139,7 +139,7 @@ class TestCheckoutDefaultsContext:
         _login_as_customer(client, customer)
         _add_to_cart(client)
 
-        with patch("shopman.storefront.services.checkout_defaults.CheckoutDefaultsService.get_defaults") as mock_get:
+        with patch("shopman.shop.services.checkout_defaults.CheckoutDefaultsService.get_defaults") as mock_get:
             mock_get.side_effect = Exception("DB error")
             resp = client.get("/checkout/")
 
