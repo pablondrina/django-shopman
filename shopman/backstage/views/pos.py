@@ -8,13 +8,11 @@ import logging
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
-from shopman.orderman.models import Session
 from shopman.utils.monetary import format_money
 
 from shopman.backstage.constants import POS_CHANNEL_REF
 from shopman.backstage.projections.pos import build_pos, build_pos_shift_summary
-from shopman.shop.models import Channel
-from shopman.shop.services import sessions as session_service
+from shopman.shop.services import pos as pos_service
 
 logger = logging.getLogger(__name__)
 
@@ -29,17 +27,6 @@ def _perm_required(request):
     if not request.user.has_perm(PERM):
         return HttpResponseForbidden("Você não tem permissão para esta ação.")
     return None
-
-
-def _resolve_customer(phone: str):
-    """Look up customer by phone for modifier discounts."""
-    try:
-        from shopman.guestman.services import customer as customer_service
-
-        return customer_service.get_by_phone(phone)
-    except Exception:
-        logger.exception("pos_resolve_customer_failed phone=%s", phone)
-        return None
 
 
 # ── Views ───────────────────────────────────────────────────────────
@@ -85,7 +72,7 @@ def pos_customer_lookup(request: HttpRequest) -> HttpResponse:
         return HttpResponse('<span class="text-muted-foreground">Cliente avulso</span>')
 
     try:
-        customer = _resolve_customer(phone)
+        customer = pos_service.resolve_customer(phone)
         if customer:
             name = f"{customer.first_name} {customer.last_name}".strip()
             group_ref = customer.group.ref if customer.group_id else ""
@@ -137,110 +124,36 @@ def pos_close(request: HttpRequest) -> HttpResponse:
             status=422,
         )
 
-    customer_name = body.get("customer_name", "").strip()
-    customer_phone = body.get("customer_phone", "").strip()
-    payment_method = body.get("payment_method", "cash")
-
     try:
-        channel = Channel.objects.get(ref=POS_CHANNEL_REF)
-    except Channel.DoesNotExist:
-        return HttpResponse(
-            f'<div class="px-3 py-2 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm font-semibold">'
-            f'Canal {POS_CHANNEL_REF} não configurado. Contacte o suporte.</div>',
-            status=500,
-        )
-
-    from shopman.shop.config import ChannelConfig
-
-    config = ChannelConfig.for_channel(channel)
-    session = session_service.create_session(
-        channel.ref,
-        handle_type="pos" if not customer_phone else "phone",
-        handle_ref=customer_phone or f"pos:{request.user.username}",
-    )
-    session_key = session.session_key
-
-    manual_discount = body.get("manual_discount") or {}
-
-    ops = []
-    for item in items:
-        op = {
-            "op": "add_line",
-            "sku": item["sku"],
-            "qty": int(item.get("qty", 1)),
-            "unit_price_q": int(item["unit_price_q"]),
-        }
-        note = str(item.get("note", "") or "").strip()
-        if note:
-            op["meta"] = {"note": note}
-        ops.append(op)
-
-    if customer_name:
-        ops.append({"op": "set_data", "path": "customer.name", "value": customer_name})
-    if customer_phone:
-        ops.append({"op": "set_data", "path": "customer.phone", "value": customer_phone})
-
-    # Resolve customer for modifier discounts (employee, loyalty)
-    if customer_phone:
-        customer_obj = _resolve_customer(customer_phone)
-        if customer_obj:
-            ops.append({"op": "set_data", "path": "customer.ref", "value": customer_obj.ref})
-            if customer_obj.group_id:
-                ops.append({"op": "set_data", "path": "customer.group", "value": customer_obj.group.ref})
-
-    ops.append({"op": "set_data", "path": "payment.method", "value": payment_method})
-    tendered_amount_q = body.get("tendered_amount_q")
-    if tendered_amount_q and payment_method == "cash":
-        ops.append({"op": "set_data", "path": "payment.tendered_q", "value": int(tendered_amount_q)})
-    ops.append({"op": "set_data", "path": "origin_channel", "value": "pos"})
-    ops.append({"op": "set_data", "path": "fulfillment_type", "value": "pickup"})
-
-    # Manual discount (operator-applied, with reason)
-    if manual_discount and int(manual_discount.get("discount_q", 0)) > 0:
-        ops.append({"op": "set_data", "path": "manual_discount.type", "value": manual_discount.get("type", "percent")})
-        ops.append({"op": "set_data", "path": "manual_discount.value", "value": manual_discount.get("value", 0)})
-        ops.append({"op": "set_data", "path": "manual_discount.discount_q", "value": int(manual_discount.get("discount_q", 0))})
-        ops.append({"op": "set_data", "path": "manual_discount.reason", "value": manual_discount.get("reason", "")})
-
-    try:
-        session_service.modify_session(
-            session_key=session_key,
-            channel_ref=channel.ref,
-            ops=ops,
-            ctx={"actor": f"pos:{request.user.username}"},
-            channel_config=config.to_dict(),
+        result = pos_service.close_sale(
+            channel_ref=POS_CHANNEL_REF,
+            payload=body,
+            actor=f"pos:{request.user.username}",
+            operator_username=request.user.username,
         )
     except Exception as e:
-        logger.exception("pos_close modify_failed")
+        logger.exception("pos_close failed")
+        lower = str(e).lower()
+        if lower.startswith("canal "):
+            return HttpResponse(
+                f'<div class="px-3 py-2 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm font-semibold">'
+                f'{e}</div>',
+                status=500,
+            )
+        is_stock_error = (
+            "insuficiente" in lower
+            or "estoque" in lower
+            or "stock" in lower
+            or "unavailable" in lower
+        )
         return HttpResponse(
             f'<div class="px-3 py-2 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">'
-            f'<span class="font-semibold">Produto indisponível</span> — {e}'
-            f'<br><span class="text-xs text-on-surface/50 dark:text-on-surface-dark/50">Remova o item e tente novamente.</span></div>'
-            if ("insuficiente" in str(e).lower() or "estoque" in str(e).lower() or "stock" in str(e).lower() or "unavailable" in str(e).lower())
-            else f'<div class="px-3 py-2 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">'
-            f'<span class="font-semibold">Erro ao montar pedido</span> — {e}'
-            f'<br><span class="text-xs text-on-surface/50 dark:text-on-surface-dark/50">Tente novamente ou limpe o carrinho.</span></div>',
-            status=422,
+            f'<span class="font-semibold">{"Produto indisponível" if is_stock_error else "Erro ao finalizar pedido"}</span> — {e}'
+            f'<br><span class="text-xs text-on-surface/50 dark:text-on-surface-dark/50">'
+            f'{"Remova o item e tente novamente." if is_stock_error else "Tente novamente ou limpe o carrinho."}'
+            f'</span></div>',
+            status=422 if is_stock_error else 400,
         )
-
-    try:
-        result = session_service.commit_session(
-            session_key=session_key,
-            channel_ref=channel.ref,
-            idempotency_key=session_service.new_idempotency_key(),
-            ctx={"actor": f"pos:{request.user.username}"},
-            channel_config=config.to_dict(),
-        )
-    except Exception as e:
-        logger.exception("pos_close commit_failed")
-        return HttpResponse(
-            f'<div class="px-3 py-2 rounded-lg bg-danger/10 border border-danger/30 text-danger text-sm">'
-            f'<span class="font-semibold">Erro ao finalizar pedido</span> — {e}'
-            f'<br><span class="text-xs text-on-surface/50 dark:text-on-surface-dark/50">Tente novamente. Se persistir, limpe o carrinho.</span></div>',
-            status=400,
-        )
-
-    logger.info("pos_close order=%s total=%s", result.order_ref, result.total_q)
 
     total_display = f"R$ {format_money(result.total_q)}"
 
@@ -282,13 +195,6 @@ def pos_cancel_last(request: HttpRequest) -> HttpResponse:
     if denied:
         return HttpResponse("Unauthorized", status=403)
 
-    from datetime import timedelta
-
-    from django.utils import timezone
-    from shopman.orderman.models import Order
-
-    from shopman.shop.services.cancellation import cancel
-
     order_ref = request.POST.get("order_ref", "").strip()
     if not order_ref:
         return HttpResponse(
@@ -299,45 +205,19 @@ def pos_cancel_last(request: HttpRequest) -> HttpResponse:
         )
 
     try:
-        order = Order.objects.get(ref=order_ref)
-    except Order.DoesNotExist:
-        return HttpResponse(
-            f'<div id="pos-cancel-result" class="pos-error" '
-            f'style="background:var(--error-light);color:rgb(var(--error-foreground))">'
-            f'Pedido {order_ref} n&atilde;o encontrado</div>',
-            status=404,
+        pos_service.cancel_recent_order(
+            order_ref=order_ref,
+            actor=f"pos:{request.user.username}",
         )
-
-    # Only allow cancellation within 5 minutes of creation
-    age = timezone.now() - order.created_at
-    if age > timedelta(minutes=5):
-        return HttpResponse(
-            f'<div id="pos-cancel-result" class="pos-error" '
-            f'style="background:var(--error-light);color:rgb(var(--error-foreground))">'
-            f'Pedido {order_ref} criado h&aacute; mais de 5 minutos — cancelamento n&atilde;o permitido</div>',
-            status=422,
-        )
-
-    if order.status not in ("new", "confirmed"):
-        return HttpResponse(
-            f'<div id="pos-cancel-result" class="pos-error" '
-            f'style="background:var(--error-light);color:rgb(var(--error-foreground))">'
-            f'Pedido {order_ref} n&atilde;o pode ser cancelado (status: {order.status})</div>',
-            status=422,
-        )
-
-    try:
-        cancel(order, reason="pos_operator", actor=f"pos:{request.user.username}")
     except Exception as e:
         logger.exception("pos_cancel_last failed for order %s", order_ref)
+        status = 404 if "não encontrado" in str(e) else 422
         return HttpResponse(
             f'<div id="pos-cancel-result" class="pos-error" '
             f'style="background:var(--error-light);color:rgb(var(--error-foreground))">'
-            f'Erro ao cancelar: {e}</div>',
-            status=400,
+            f'{e}</div>',
+            status=status,
         )
-
-    logger.info("pos_cancel_last order=%s operator=%s", order_ref, request.user.username)
 
     return HttpResponse(
         f'<div id="pos-cancel-result" class="pos-success" '
@@ -346,43 +226,7 @@ def pos_cancel_last(request: HttpRequest) -> HttpResponse:
     )
 
 
-# ── Comandas / Parked Sessions ──────────────────────────────────────
-
-
-def _build_session_ops(body: dict, username: str) -> list[dict]:
-    """Build ModifyService ops from a cart payload dict."""
-    ops = []
-    for item in body.get("items", []):
-        op = {
-            "op": "add_line",
-            "sku": item["sku"],
-            "qty": int(item.get("qty", 1)),
-            "unit_price_q": int(item["unit_price_q"]),
-        }
-        note = str(item.get("note", "") or "").strip()
-        if note:
-            op["meta"] = {"note": note}
-        ops.append(op)
-
-    customer_name = body.get("customer_name", "").strip()
-    customer_phone = body.get("customer_phone", "").strip()
-    if customer_name:
-        ops.append({"op": "set_data", "path": "customer.name", "value": customer_name})
-    if customer_phone:
-        ops.append({"op": "set_data", "path": "customer.phone", "value": customer_phone})
-
-    payment_method = body.get("payment_method", "cash")
-    ops.append({"op": "set_data", "path": "payment.method", "value": payment_method})
-
-    manual_discount = body.get("manual_discount") or {}
-    if manual_discount and int(manual_discount.get("discount_q", 0)) > 0:
-        ops.extend([
-            {"op": "set_data", "path": "manual_discount.type", "value": manual_discount.get("type", "percent")},
-            {"op": "set_data", "path": "manual_discount.value", "value": manual_discount.get("value", 0)},
-            {"op": "set_data", "path": "manual_discount.discount_q", "value": int(manual_discount.get("discount_q", 0))},
-            {"op": "set_data", "path": "manual_discount.reason", "value": manual_discount.get("reason", "")},
-        ])
-    return ops
+# ── Standby Sessions ────────────────────────────────────────────────
 
 
 @require_POST
@@ -405,61 +249,19 @@ def pos_park(request: HttpRequest) -> HttpResponse:
         return HttpResponse('<span class="text-xs text-warning">Carrinho vazio</span>', status=422)
 
     try:
-        channel = Channel.objects.get(ref=POS_CHANNEL_REF)
-    except Channel.DoesNotExist:
-        return HttpResponse(f'<span>Canal {POS_CHANNEL_REF} não configurado</span>', status=500)
-
-    from django.utils import timezone as tz
-    from shopman.refs.generators import generate_value
-
-    from shopman.shop.config import ChannelConfig
-    from shopman.shop.models import Shop
-
-    shop = Shop.load()
-    config = ChannelConfig.for_channel(channel)
-
-    tab = generate_value("POS_TAB", {
-        "store_id": str(shop.pk),
-        "business_date": tz.localdate().isoformat(),
-    })
-
-    session = session_service.create_session(
-        channel.ref,
-        handle_type="pos",
-        handle_ref=f"pos:{request.user.username}",
-    )
-    session_key = session.session_key
-    session_service.assign_handle(
-        session_key=session_key,
-        channel_ref=channel.ref,
-        handle_type="pos",
-        handle_ref=f"pos:{request.user.username}:{session_key[:8]}",
-    )
-
-    ops = _build_session_ops(body, request.user.username)
-    ops.extend([
-        {"op": "set_data", "path": "standby", "value": True},
-        {"op": "set_data", "path": "tab", "value": tab},
-        {"op": "set_data", "path": "standby_operator", "value": request.user.username},
-    ])
-
-    try:
-        session_service.modify_session(
-            session_key=session_key,
-            channel_ref=channel.ref,
-            ops=ops,
-            ctx={"actor": f"pos:{request.user.username}"},
-            channel_config=config.to_dict(),
+        result = pos_service.park_session(
+            channel_ref=POS_CHANNEL_REF,
+            payload=body,
+            actor=f"pos:{request.user.username}",
+            operator_username=request.user.username,
         )
     except Exception as e:
-        logger.exception("pos_park modify_failed")
+        logger.exception("pos_park failed")
         return HttpResponse(f'<span class="text-xs text-danger">Erro: {e}</span>', status=422)
 
-    logger.info("pos_park tab=%s session=%s operator=%s", tab, session_key, request.user.username)
-
     response = HttpResponse(
-        f'<span data-tab="{tab}" class="text-xs text-success font-semibold">'
-        f'Tab {tab} em standby</span>'
+        f'<span data-tab="{result.tab}" class="text-xs text-success font-semibold">'
+        f'Tab {result.tab} em standby</span>'
     )
     response["HX-Trigger"] = "sessionParked"
     return response
@@ -472,30 +274,7 @@ def pos_sessions(request: HttpRequest) -> HttpResponse:
     if denied:
         return HttpResponse("", status=403)
 
-    from django.utils import timezone as tz
-    from shopman.utils.monetary import format_money as _fm
-
-    sessions_qs = Session.objects.filter(
-        channel_ref=POS_CHANNEL_REF,
-        state="open",
-        data__standby=True,
-        opened_at__date=tz.localdate(),
-    ).order_by("opened_at")
-
-    sessions = []
-    for s in sessions_qs:
-        data = s.data or {}
-        items = s.items or []
-        item_count = sum(int(it.get("qty", 1)) for it in items)
-        total_q = sum(int(it.get("qty", 1)) * int(it.get("unit_price_q", 0)) for it in items)
-        discount_q = int((data.get("manual_discount") or {}).get("discount_q", 0))
-        sessions.append({
-            "session_key": s.session_key,
-            "tab": data.get("tab", "?"),
-            "item_count": item_count,
-            "total_display": f"R$ {_fm(max(0, total_q - discount_q))}",
-            "customer_name": (data.get("customer") or {}).get("name", ""),
-        })
+    sessions = pos_service.standby_sessions(channel_ref=POS_CHANNEL_REF)
 
     return render(request, "pos/partials/session_tabs.html", {"sessions": sessions})
 
@@ -507,49 +286,15 @@ def pos_load_session(request: HttpRequest, session_key: str) -> HttpResponse:
     if denied:
         return HttpResponse('{"error":"forbidden"}', content_type="application/json", status=403)
 
-    try:
-        session = Session.objects.get(
-            session_key=session_key,
-            channel_ref=POS_CHANNEL_REF,
-            state="open",
-        )
-    except Session.DoesNotExist:
+    payload = pos_service.load_standby_session(
+        channel_ref=POS_CHANNEL_REF,
+        session_key=session_key,
+    )
+    if payload is None:
         return HttpResponse('{"error":"not_found"}', content_type="application/json", status=404)
 
-    data = session.data or {}
-    customer = data.get("customer") or {}
-    payment = data.get("payment") or {}
-    discount = data.get("manual_discount") or {}
-
-    items = [
-        {
-            "sku": it["sku"],
-            "name": it.get("name", it["sku"]),
-            "price_q": it.get("unit_price_q", 0),
-            "qty": int(it.get("qty", 1)),
-            "note": (it.get("meta") or {}).get("note", ""),
-            "is_d1": False,
-        }
-        for it in (session.items or [])
-    ]
-
-    session.data["standby"] = False
-    session.save(update_fields=["data"])
-
     import json as _json
-    payload = _json.dumps({
-        "session_key": session_key,
-        "tab": data.get("tab", ""),
-        "items": items,
-        "customer_phone": customer.get("phone", ""),
-        "customer_name": customer.get("name", ""),
-        "customer_group": customer.get("group", ""),
-        "payment_method": payment.get("method", "cash"),
-        "discount_type": discount.get("type", "percent"),
-        "discount_value": str(discount.get("value", "")) if discount.get("value") else "",
-        "discount_reason": discount.get("reason", "cortesia"),
-    })
-    response = HttpResponse(payload, content_type="application/json")
+    response = HttpResponse(_json.dumps(payload), content_type="application/json")
     response["HX-Trigger"] = "sessionLoaded"
     return response
 
