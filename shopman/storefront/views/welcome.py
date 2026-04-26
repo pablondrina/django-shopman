@@ -12,8 +12,9 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
 
+from shopman.shop.services import auth as auth_service
+
 from ..intents.auth import clean_display_name, interpret_welcome, needs_confirmation
-from ..services import auth as auth_service
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")

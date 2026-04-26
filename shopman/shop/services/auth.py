@@ -1,4 +1,4 @@
-"""Storefront authentication command service."""
+"""Authentication command service for customer-facing entry points."""
 
 from __future__ import annotations
 

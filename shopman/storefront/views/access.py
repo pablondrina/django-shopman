@@ -14,7 +14,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.views import View
 
-from ..services import access as access_service
+from shopman.shop.services import access as access_service
 
 logger = logging.getLogger("shopman.storefront.views.access")
 

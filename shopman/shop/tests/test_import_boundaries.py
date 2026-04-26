@@ -256,8 +256,8 @@ def test_storefront_views_delegate_kernel_commands():
         pytest.fail(
             "Storefront views imported kernel modules directly:\n"
             f"{_format_violations(violations)}\n\n"
-            "Keep HTTP, HTMX, and rendering in views; route domain commands through "
-            "shopman.storefront.services.*."
+            "Keep HTTP, HTMX, and rendering in views; route cross-domain commands "
+            "through shopman.shop.services.*."
         )
 
 
@@ -283,8 +283,30 @@ def test_storefront_api_delegates_kernel_commands():
         pytest.fail(
             "Storefront APIs imported kernel modules directly:\n"
             f"{_format_violations(violations)}\n\n"
-            "Route API reads and commands through shopman.storefront.services.* "
-            "or shopman.shop.services.*."
+            "Route API reads and commands through shopman.shop.services.* or "
+            "surface-local projection services when no orchestration is needed."
+        )
+
+
+def test_storefront_keeps_customer_auth_commands_in_shop_services():
+    """Customer auth/access/device commands belong to the orchestrator."""
+    forbidden_service_modules = (
+        STOREFRONT_ROOT / "services" / "auth.py",
+        STOREFRONT_ROOT / "services" / "access.py",
+        STOREFRONT_ROOT / "services" / "devices.py",
+    )
+    violations = [
+        (path, 1, "shopman.storefront.services")
+        for path in forbidden_service_modules
+        if path.exists()
+    ]
+
+    if violations:
+        pytest.fail(
+            "Storefront reintroduced customer auth/access/device command services:\n"
+            f"{_format_violations(violations)}\n\n"
+            "Use shopman.shop.services.auth/access/devices so Doorman and Guestman "
+            "coordination has one canonical orchestration path."
         )
 
 

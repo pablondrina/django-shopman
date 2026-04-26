@@ -1,4 +1,4 @@
-"""Storefront device command service."""
+"""Trusted-device command service for customer-facing entry points."""
 
 from __future__ import annotations
 
@@ -94,7 +94,7 @@ def revoke_device(*, customer_id, device_id: str) -> str | None:
         return None
 
     device.revoke()
-    logger.info("Device revoked from storefront", extra={"device_id": str(device.id)})
+    logger.info("Trusted device revoked", extra={"device_id": str(device.id)})
     return None
 
 
@@ -103,7 +103,7 @@ def revoke_all(*, customer_id) -> int:
 
     count = DeviceTrustService.revoke_all(customer_id)
     logger.info(
-        "All devices revoked from storefront",
+        "All trusted devices revoked",
         extra={"customer_id": str(customer_id), "count": count},
     )
     return count

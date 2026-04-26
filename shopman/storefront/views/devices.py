@@ -12,8 +12,9 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.views import View
 
+from shopman.shop.services import devices as device_service
+
 from ..constants import HAS_AUTH
-from ..services import devices as device_service
 
 
 def _get_customer_id(request: HttpRequest) -> uuid.UUID | None:

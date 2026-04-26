@@ -9,6 +9,8 @@ from django.views import View
 from django_ratelimit.decorators import ratelimit
 from shopman.utils.phone import normalize_phone
 
+from shopman.shop.services import auth as auth_service
+
 from ..constants import HAS_AUTH
 from ..intents.auth import (
     interpret_device_check_login,
@@ -16,7 +18,6 @@ from ..intents.auth import (
     interpret_request_code,
     interpret_verify_code,
 )
-from ..services import auth as auth_service
 
 logger = logging.getLogger("shopman.storefront.views.auth")
 

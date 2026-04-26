@@ -1,4 +1,4 @@
-"""Storefront access-link service."""
+"""Access-link session service for customer-facing entry points."""
 
 from __future__ import annotations
 
