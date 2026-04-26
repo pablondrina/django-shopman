@@ -129,7 +129,7 @@ class PaymentInitiateFailureTests(TestCase):
 
 
 class StockCheckDegradationTests(TestCase):
-    """_check_cart_stock returns ([], True) when stock service is down."""
+    """cart_stock_errors returns ([], True) when stock service is down."""
 
     def setUp(self):
         _make_shop()
@@ -167,13 +167,17 @@ class StockCheckDegradationTests(TestCase):
 
     def test_all_unavailable_returns_service_down_flag(self) -> None:
         """When every _get_availability returns None → service_unavailable=True."""
-        from shopman.storefront.intents.checkout import _check_cart_stock
+        from shopman.shop.services.checkout_context import cart_stock_errors
 
         cart = self._make_cart()
         request = self._make_request()
 
-        with patch("shopman.storefront.services.product_cards.get_availability", return_value=None):
-            errors, service_unavailable = _check_cart_stock(request, cart)
+        with patch("shopman.shop.services.checkout_context._availability_for_sku", return_value=None):
+            errors, service_unavailable = cart_stock_errors(
+                session_key=request.session.get("cart_session_key", ""),
+                cart=cart,
+                channel_ref="web",
+            )
 
         self.assertTrue(service_unavailable)
         self.assertEqual(errors, [])
@@ -182,7 +186,7 @@ class StockCheckDegradationTests(TestCase):
         """When only some items fail → service_unavailable=False (partial degradation)."""
         from decimal import Decimal
 
-        from shopman.storefront.intents.checkout import _check_cart_stock
+        from shopman.shop.services.checkout_context import cart_stock_errors
 
         cart = self._make_cart(skus=("SKU-A", "SKU-B"))
         request = self._make_request()
@@ -192,17 +196,25 @@ class StockCheckDegradationTests(TestCase):
         def _avail(sku, **kwargs):
             return avail_ok if sku == "SKU-A" else None
 
-        with patch("shopman.storefront.services.product_cards.get_availability", side_effect=_avail):
-            errors, service_unavailable = _check_cart_stock(request, cart)
+        with patch("shopman.shop.services.checkout_context._availability_for_sku", side_effect=_avail):
+            errors, service_unavailable = cart_stock_errors(
+                session_key=request.session.get("cart_session_key", ""),
+                cart=cart,
+                channel_ref="web",
+            )
 
         self.assertFalse(service_unavailable)
 
     def test_empty_cart_returns_no_service_down(self) -> None:
         """Empty cart → ([], False)."""
-        from shopman.storefront.intents.checkout import _check_cart_stock
+        from shopman.shop.services.checkout_context import cart_stock_errors
 
         request = self._make_request()
-        errors, service_unavailable = _check_cart_stock(request, {"items": []})
+        errors, service_unavailable = cart_stock_errors(
+            session_key=request.session.get("cart_session_key", ""),
+            cart={"items": []},
+            channel_ref="web",
+        )
         self.assertFalse(service_unavailable)
         self.assertEqual(errors, [])
 
@@ -210,14 +222,18 @@ class StockCheckDegradationTests(TestCase):
         """Normal stock → ([], False)."""
         from decimal import Decimal
 
-        from shopman.storefront.intents.checkout import _check_cart_stock
+        from shopman.shop.services.checkout_context import cart_stock_errors
 
         cart = self._make_cart(skus=("SKU-C",))
         request = self._make_request()
         avail = {"total_promisable": Decimal("5"), "breakdown": {"ready": Decimal("5"), "in_production": Decimal("0"), "d1": Decimal("0")}}
 
-        with patch("shopman.storefront.services.product_cards.get_availability", return_value=avail):
-            errors, service_unavailable = _check_cart_stock(request, cart)
+        with patch("shopman.shop.services.checkout_context._availability_for_sku", return_value=avail):
+            errors, service_unavailable = cart_stock_errors(
+                session_key=request.session.get("cart_session_key", ""),
+                cart=cart,
+                channel_ref="web",
+            )
 
         self.assertFalse(service_unavailable)
         self.assertEqual(errors, [])

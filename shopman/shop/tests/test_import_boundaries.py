@@ -333,6 +333,31 @@ def test_storefront_keeps_checkout_commands_in_shop_services():
         )
 
 
+def test_storefront_checkout_intent_delegates_domain_resolution():
+    """Checkout intent parsing must not resolve kernel domains directly."""
+    path = STOREFRONT_ROOT / "intents" / "checkout.py"
+    forbidden = (
+        "shopman.guestman",
+        "shopman.offerman",
+        "shopman.stockman",
+        "shopman.orderman",
+    )
+    violations = []
+
+    for line, module in _imports(path):
+        if _matches_prefix(module, forbidden):
+            violations.append((path, line, module))
+
+    if violations:
+        pytest.fail(
+            "Storefront checkout intent imported kernel modules directly:\n"
+            f"{_format_violations(violations)}\n\n"
+            "Keep request/form interpretation in storefront and route customer, "
+            "catalog, stock, and loyalty resolution through "
+            "shopman.shop.services.checkout_context."
+        )
+
+
 def test_storefront_cart_delegates_write_commands():
     """Storefront cart adapter must call shop cart commands for mutations."""
     path = STOREFRONT_ROOT / "cart.py"

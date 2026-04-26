@@ -9,18 +9,15 @@ Helper functions accept raw data so they are testable without a request object.
 
 from __future__ import annotations
 
-import logging
 from datetime import timedelta
 
 from django.utils import timezone
 
+from shopman.shop.services import checkout_context
 from shopman.shop.services import sessions as session_service
 
 from ._phone import normalize_phone_input as _try_normalize_phone
 from .types import CheckoutIntent, IntentResult
-
-logger = logging.getLogger(__name__)
-
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
@@ -80,11 +77,10 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
     # ── Step 3: Resolve customer name ─────────────────────────────────────
     name = name_raw
     if phone and not errors.get("phone"):
-        from shopman.guestman.services import customer as customer_service
-        existing_customer = customer_service.get_by_phone(phone)
         if not name:
-            if existing_customer and existing_customer.first_name:
-                name = existing_customer.name
+            existing_name = checkout_context.customer_name_by_phone(phone)
+            if existing_name:
+                name = existing_name
             else:
                 errors["name"] = "Nome é obrigatório."
     elif not name:
@@ -107,7 +103,7 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
             pass
 
     # ── Step 5: Resolve and validate payment method ───────────────────────
-    payment_methods = get_payment_methods(channel_ref)
+    payment_methods = checkout_context.payment_methods(channel_ref)
     chosen_method = _resolve_payment_method(post, payment_methods)
     form_data["payment_method"] = chosen_method
 
@@ -135,13 +131,16 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
     errors.update(address_errors)
 
     # ── Step 8: Check repricing (non-blocking) ────────────────────────────
-    repricing_warnings = _check_repricing(cart)
+    repricing_warnings = checkout_context.repricing_warnings(cart)
 
     # ── Step 9: Check stock ───────────────────────────────────────────────
     from shopman.shop.services.order_helpers import parse_commitment_date
     commitment_date = parse_commitment_date(delivery_date)
-    stock_errors, stock_check_unavailable = _check_cart_stock(
-        request, cart, target_date=commitment_date
+    stock_errors, stock_check_unavailable = checkout_context.cart_stock_errors(
+        session_key=session_key,
+        cart=cart,
+        channel_ref=channel_ref,
+        target_date=commitment_date,
     )
     if stock_errors:
         errors["stock"] = stock_errors[0]["message"]
@@ -197,7 +196,10 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
     loyalty_redeem = post.get("use_loyalty") == "true"
     loyalty_balance_q = 0
     if loyalty_redeem:
-        loyalty_balance_q = _resolve_loyalty_balance(request)
+        customer_info = getattr(request, "customer", None)
+        loyalty_balance_q = checkout_context.loyalty_balance(
+            customer_info.uuid if customer_info else None
+        )
         if loyalty_balance_q > 0:
             checkout_data["loyalty"] = {"redeem_points_q": loyalty_balance_q}
         else:
@@ -238,16 +240,6 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
 
 
 # ── Payment helpers ───────────────────────────────────────────────────────────
-
-
-def get_payment_methods(channel_ref: str) -> list[str]:
-    from shopman.shop.config import ChannelConfig
-    from shopman.shop.models import Channel
-    try:
-        channel = Channel.objects.get(ref=channel_ref)
-    except Channel.DoesNotExist:
-        return ["cash"]
-    return ChannelConfig.for_channel(channel).payment.available_methods
 
 
 def _resolve_payment_method(post, payment_methods: list[str]) -> str:
@@ -329,22 +321,10 @@ def _resolve_saved_address(request, saved_address_id_raw: str) -> str:
     customer_info = getattr(request, "customer", None)
     if customer_info is None:
         return ""
-    try:
-        from shopman.guestman.services import address as address_service
-        from shopman.guestman.services import customer as customer_service
-
-        customer_obj = customer_service.get_by_uuid(customer_info.uuid)
-        if not customer_obj:
-            return ""
-        addr = address_service.get_address(customer_obj.ref, int(saved_address_id_raw))
-        if not addr:
-            return ""
-        parts = [addr.formatted_address]
-        if addr.complement:
-            parts.append(f"- {addr.complement}")
-        return " ".join(parts)
-    except (ValueError, Exception):
-        return ""
+    return checkout_context.saved_address_text(
+        customer_uuid=customer_info.uuid,
+        address_id_raw=saved_address_id_raw,
+    )
 
 
 # ── Validation helpers ────────────────────────────────────────────────────────
@@ -386,14 +366,7 @@ def _validate_preorder(delivery_date: str) -> dict[str, str]:
         errors["delivery_date"] = "Não é possível encomendar para uma data passada."
         return errors
 
-    try:
-        from shopman.shop.models import Shop
-        shop = Shop.load()
-        max_preorder_days = int((shop.defaults or {}).get("max_preorder_days", 30)) if shop else 30
-        closed_dates = ((shop.defaults or {}).get("closed_dates", [])) if shop else []
-    except Exception:
-        max_preorder_days = 30
-        closed_dates = []
+    max_preorder_days, closed_dates = checkout_context.preorder_config()
 
     max_date = today + timedelta(days=max_preorder_days)
     if chosen_date > max_date:
@@ -469,138 +442,3 @@ def _is_closed_date(date_obj, closed_dates: list) -> tuple[bool, str | None]:
             except ValueError:
                 pass
     return False, None
-
-
-# ── Stock and repricing helpers ───────────────────────────────────────────────
-
-
-def _check_repricing(cart: dict) -> list[dict]:
-    items = cart.get("items", [])
-    if not items:
-        return []
-
-    from shopman.offerman.models import Product
-    from shopman.utils.monetary import format_money
-
-    skus = [item.get("sku", "") for item in items if item.get("sku")]
-    if not skus:
-        return []
-
-    products_by_sku = {
-        p.sku: p
-        for p in Product.objects.filter(sku__in=skus).only("sku", "name", "base_price_q")
-    }
-    warnings = []
-    for item in items:
-        sku = item.get("sku", "")
-        product = products_by_sku.get(sku)
-        if not product:
-            continue
-        cart_price = int(item.get("unit_price_q", 0))
-        current_price = int(product.base_price_q)
-        if cart_price <= 0 or current_price <= 0:
-            continue
-        if abs(current_price - cart_price) / current_price > 0.05:
-            warnings.append({
-                "sku": sku,
-                "name": product.name or sku,
-                "cart_price_display": f"R$ {format_money(cart_price)}",
-                "current_price_display": f"R$ {format_money(current_price)}",
-                "message": (
-                    f"O preço de {product.name or sku} mudou para "
-                    f"R$ {format_money(current_price)}. Deseja continuar?"
-                ),
-            })
-    return warnings
-
-
-def _check_cart_stock(
-    request,
-    cart: dict,
-    *,
-    target_date=None,
-) -> tuple[list[dict], bool]:
-    from decimal import Decimal
-
-    from shopman.storefront.services.product_cards import get_availability
-
-    items = cart.get("items", [])
-    if not items:
-        return [], False
-
-    session_held = _get_session_held_qty(request, target_date=target_date)
-    warnings = []
-    checked = 0
-    skipped = 0
-    for item in items:
-        sku = item.get("sku", "")
-        qty = int(Decimal(str(item.get("qty", 0))))
-        avail = get_availability(sku, target_date=target_date)
-        if avail is None:
-            skipped += 1
-            continue
-        checked += 1
-        if avail.get("availability_policy") == "demand_ok" and not avail.get("is_paused", False):
-            continue
-        available_qty = int(avail.get("total_promisable", Decimal("0"))) + session_held.get(sku, 0)
-        if qty > available_qty:
-            name = item.get("name") or sku
-            message = (
-                f"{name}: disponível {available_qty} unidade(s) no momento."
-                if available_qty > 0
-                else f"{name} está esgotado no momento."
-            )
-            warnings.append({
-                "line_id": item.get("line_id", ""),
-                "sku": sku,
-                "requested_qty": qty,
-                "available_qty": available_qty,
-                "message": message,
-            })
-
-    service_unavailable = skipped > 0 and checked == 0
-    if service_unavailable:
-        logger.warning(
-            "checkout.stock_check_unavailable: %d item(s) skipped",
-            skipped,
-        )
-    return warnings, service_unavailable
-
-
-def _get_session_held_qty(request, *, target_date=None) -> dict[str, int]:
-    session_key = request.session.get("cart_session_key")
-    if not session_key:
-        return {}
-    from shopman.stockman import StockHolds
-    holds = StockHolds.find_active_by_reference(session_key)
-    held: dict[str, int] = {}
-    for hold in holds:
-        if target_date is not None and hold.target_date != target_date:
-            continue
-        held[hold.sku] = held.get(hold.sku, 0) + int(hold.quantity)
-    return held
-
-
-# ── Loyalty helper ────────────────────────────────────────────────────────────
-
-
-def _resolve_loyalty_balance(request) -> int:
-    customer_info = getattr(request, "customer", None)
-    if not customer_info:
-        return 0
-    try:
-        from shopman.guestman.contrib.loyalty import LoyaltyService
-        balance = (
-            LoyaltyService.get_balance_by_uuid(customer_info.uuid)
-            if hasattr(LoyaltyService, "get_balance_by_uuid")
-            else 0
-        )
-        if balance <= 0:
-            from shopman.guestman.services import customer as customer_service
-            customer_obj = customer_service.get_by_uuid(customer_info.uuid)
-            if customer_obj:
-                balance = LoyaltyService.get_balance(customer_obj.ref)
-        return max(0, balance)
-    except Exception:
-        logger.exception("loyalty_balance_failed")
-        return 0

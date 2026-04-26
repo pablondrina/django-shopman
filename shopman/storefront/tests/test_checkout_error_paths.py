@@ -99,7 +99,7 @@ class PaymentMethodUnavailableTests(TestCase):
 
     def test_payment_method_available_cash(self) -> None:
         """cash is available when channel returns only cash."""
-        with patch("shopman.storefront.intents.checkout.get_payment_methods", return_value=["cash"]) as mock:
+        with patch("shopman.shop.services.checkout_context.payment_methods", return_value=["cash"]) as mock:
             methods = mock("web")
             self.assertIn("cash", methods)
             self.assertNotIn("pix", methods)
@@ -132,57 +132,57 @@ class RepricingWarningTests(TestCase):
 
     def test_repricing_detected_over_5_percent(self) -> None:
         """Item added at R$ 8,00 but catalog is R$ 10,00 (25% increase) → warning."""
-        from shopman.storefront.intents.checkout import _check_repricing
+        from shopman.shop.services.checkout_context import repricing_warnings
 
         cart = {
             "items": [
                 {"sku": "REPRICE-SKU-001", "qty": 1, "unit_price_q": 800, "name": "Repriced Product"},
             ]
         }
-        warnings = _check_repricing(cart)
+        warnings = repricing_warnings(cart)
         self.assertEqual(len(warnings), 1)
         self.assertEqual(warnings[0]["sku"], "REPRICE-SKU-001")
         self.assertIn("mudou", warnings[0]["message"])
 
     def test_no_repricing_within_5_percent(self) -> None:
         """Item added at R$ 9,60 with catalog R$ 10,00 (4% diff) → no warning."""
-        from shopman.storefront.intents.checkout import _check_repricing
+        from shopman.shop.services.checkout_context import repricing_warnings
 
         cart = {
             "items": [
                 {"sku": "REPRICE-SKU-001", "qty": 1, "unit_price_q": 960, "name": "Repriced Product"},
             ]
         }
-        warnings = _check_repricing(cart)
+        warnings = repricing_warnings(cart)
         self.assertEqual(len(warnings), 0)
 
     def test_repricing_exact_match_no_warning(self) -> None:
         """Exact price match → no warning."""
-        from shopman.storefront.intents.checkout import _check_repricing
+        from shopman.shop.services.checkout_context import repricing_warnings
 
         cart = {
             "items": [
                 {"sku": "REPRICE-SKU-001", "qty": 1, "unit_price_q": 1000, "name": "Repriced Product"},
             ]
         }
-        warnings = _check_repricing(cart)
+        warnings = repricing_warnings(cart)
         self.assertEqual(len(warnings), 0)
 
     def test_empty_cart_no_repricing(self) -> None:
         """Empty cart → no warnings."""
-        from shopman.storefront.intents.checkout import _check_repricing
-        warnings = _check_repricing({"items": []})
+        from shopman.shop.services.checkout_context import repricing_warnings
+        warnings = repricing_warnings({"items": []})
         self.assertEqual(len(warnings), 0)
 
     def test_unknown_sku_skipped(self) -> None:
         """SKU not in catalog → silently skipped (no crash)."""
-        from shopman.storefront.intents.checkout import _check_repricing
+        from shopman.shop.services.checkout_context import repricing_warnings
         cart = {
             "items": [
                 {"sku": "NONEXISTENT-SKU", "qty": 1, "unit_price_q": 500, "name": "Ghost"},
             ]
         }
-        warnings = _check_repricing(cart)
+        warnings = repricing_warnings(cart)
         self.assertEqual(len(warnings), 0)
 
 
@@ -203,10 +203,10 @@ class RepricingWarningStructureTests(TestCase):
 
     def test_repricing_warning_has_required_keys(self) -> None:
         """Warning dict has sku, name, message, and price display fields."""
-        from shopman.storefront.intents.checkout import _check_repricing
+        from shopman.shop.services.checkout_context import repricing_warnings
 
         cart = {"items": [{"sku": "STRUCT-SKU-001", "qty": 1, "unit_price_q": 500, "name": "Struct Product"}]}
-        warnings = _check_repricing(cart)
+        warnings = repricing_warnings(cart)
 
         self.assertEqual(len(warnings), 1)
         w = warnings[0]
@@ -218,10 +218,10 @@ class RepricingWarningStructureTests(TestCase):
 
     def test_repricing_warning_message_includes_product_name(self) -> None:
         """Warning message identifies the product by name."""
-        from shopman.storefront.intents.checkout import _check_repricing
+        from shopman.shop.services.checkout_context import repricing_warnings
 
         cart = {"items": [{"sku": "STRUCT-SKU-001", "qty": 1, "unit_price_q": 100, "name": "Struct Product"}]}
-        warnings = _check_repricing(cart)
+        warnings = repricing_warnings(cart)
 
         self.assertTrue(len(warnings) > 0)
         self.assertIn("Struct Product", warnings[0]["message"])
