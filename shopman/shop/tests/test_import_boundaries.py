@@ -192,6 +192,7 @@ def test_backstage_views_do_not_drive_order_lifecycle_directly():
     """Backstage HTTP views must delegate order lifecycle commands to shop services."""
     violations = []
     forbidden_imports = (
+        "shopman.orderman",
         "shopman.shop.lifecycle",
         "shopman.craftsman.services",
         "shopman.stockman",

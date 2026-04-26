@@ -219,3 +219,11 @@ def expedition_action(order, *, action: str, actor: str) -> str:
     order.transition_status(next_status, actor=actor)
     logger.info("kds_expedition %s order=%s", action, order.ref)
     return next_status
+
+
+def expedition_action_by_order_id(order_id: int, *, action: str, actor: str) -> str:
+    """Load an order and apply an expedition action."""
+    order = Order.objects.filter(pk=order_id).first()
+    if order is None:
+        raise ValueError("Pedido não encontrado")
+    return expedition_action(order, action=action, actor=actor)

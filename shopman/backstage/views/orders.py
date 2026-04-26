@@ -15,7 +15,6 @@ from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views import View
-from shopman.orderman.models import Order
 
 from shopman.backstage.projections.order_queue import (
     build_operator_order,
@@ -35,18 +34,18 @@ def _get_order_or_err(request: HttpRequest, ref: str):
 
     HTMX requests get an inline error card; full-page loads redirect to the queue.
     """
-    try:
-        return Order.objects.get(ref=ref), None
-    except Order.DoesNotExist:
-        if request.headers.get("HX-Request"):
-            return None, HttpResponse(
-                f'<div class="card p-3 flex items-center gap-2 border-l-4 border-l-danger">'
-                f'<span class="material-symbols-rounded text-base text-danger" aria-hidden="true">error</span>'
-                f'<span class="text-sm">Pedido <strong class="font-mono">#{ref}</strong> não encontrado</span>'
-                f'</div>',
-                status=404,
-            )
-        return None, redirect("backstage:gestor_pedidos")
+    order = operator_orders.find_order(ref)
+    if order is not None:
+        return order, None
+    if request.headers.get("HX-Request"):
+        return None, HttpResponse(
+            f'<div class="card p-3 flex items-center gap-2 border-l-4 border-l-danger">'
+            f'<span class="material-symbols-rounded text-base text-danger" aria-hidden="true">error</span>'
+            f'<span class="text-sm">Pedido <strong class="font-mono">#{ref}</strong> não encontrado</span>'
+            f'</div>',
+            status=404,
+        )
+    return None, redirect("backstage:gestor_pedidos")
 
 
 def _perm_required(request):
@@ -251,13 +250,7 @@ class OrderHistoricoView(View):
         if denied:
             return denied
 
-        from shopman.orderman.models import Order as _Order
-
-        orders = list(
-            _Order.objects.filter(status__in=("completed", "delivered", "cancelled"))
-            .prefetch_related("items")
-            .order_by("-updated_at")[:20]
-        )
+        orders = operator_orders.recent_history(limit=20)
         cards = [build_order_card(o) for o in orders]
         return render(request, "pedidos/historico.html", {"orders": cards})
 

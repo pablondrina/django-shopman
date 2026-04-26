@@ -27,6 +27,26 @@ _NEXT_STATUS_MAP: dict[str, str] = {
 }
 
 
+def find_order(ref: str) -> Order | None:
+    """Return an order by public reference, if it exists."""
+    return Order.objects.filter(ref=ref).first()
+
+
+def recent_history(*, limit: int = 20) -> list[Order]:
+    """Return recent closed orders for the operator history view."""
+    return list(
+        Order.objects.filter(
+            status__in=(
+                Order.Status.COMPLETED,
+                Order.Status.DELIVERED,
+                Order.Status.CANCELLED,
+            )
+        )
+        .prefetch_related("items")
+        .order_by("-updated_at")[:limit]
+    )
+
+
 def confirm_order(order: Order, *, actor: str) -> None:
     """Confirm a manually accepted order."""
     if order.status != Order.Status.NEW:

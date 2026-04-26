@@ -9,7 +9,6 @@ from __future__ import annotations
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
-from shopman.orderman.models import Order
 
 from shopman.backstage.projections.kds import (
     build_kds_board,
@@ -157,12 +156,11 @@ class KDSExpeditionActionView(View):
         if denied:
             return denied
 
-        order = get_object_or_404(Order, pk=pk)
         action = request.POST.get("action", "")
         actor = f"kds:{request.user.username}"
 
         try:
-            kds_service.expedition_action(order, action=action, actor=actor)
+            kds_service.expedition_action_by_order_id(pk, action=action, actor=actor)
         except ValueError:
             return HttpResponse("Ação inválida", status=422)
 
