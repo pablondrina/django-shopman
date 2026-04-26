@@ -358,6 +358,28 @@ def test_storefront_checkout_intent_delegates_domain_resolution():
         )
 
 
+def test_storefront_cart_intent_delegates_product_resolution():
+    """Cart intent parsing must not resolve catalog/stock domains directly."""
+    path = STOREFRONT_ROOT / "intents" / "cart.py"
+    forbidden = (
+        "shopman.offerman",
+        "shopman.stockman",
+    )
+    violations = []
+
+    for line, module in _imports(path):
+        if _matches_prefix(module, forbidden):
+            violations.append((path, line, module))
+
+    if violations:
+        pytest.fail(
+            "Storefront cart intent imported catalog/stock modules directly:\n"
+            f"{_format_violations(violations)}\n\n"
+            "Keep cart intent parsing in storefront and route product price/D-1 "
+            "resolution through shopman.shop.services.cart_context."
+        )
+
+
 def test_storefront_cart_delegates_write_commands():
     """Storefront cart adapter must call shop cart commands for mutations."""
     path = STOREFRONT_ROOT / "cart.py"

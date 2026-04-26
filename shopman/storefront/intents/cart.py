@@ -10,6 +10,8 @@ without a Django request.
 
 from __future__ import annotations
 
+from shopman.shop.services import cart_context
+
 from .types import AddToCartIntent, CartIntentResult, SetQtyIntent
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -28,14 +30,11 @@ def interpret_add_to_cart(
      2. Check is_sellable
      3. Resolve listing price and D-1 flag
     """
-    from shopman.offerman.models import Product
-
-    from shopman.storefront.services.product_cards import get_price_q, line_item_is_d1
-
-    product = Product.objects.filter(sku=sku, is_published=True).first()
-    if not product:
+    product_ctx = cart_context.product_context(sku)
+    if not product_ctx:
         return CartIntentResult(intent=None, error_type="not_found", error_context={})
 
+    product = product_ctx.product
     if not product.is_sellable:
         return CartIntentResult(
             intent=None,
@@ -47,8 +46,8 @@ def interpret_add_to_cart(
         intent=AddToCartIntent(
             sku=sku,
             qty=qty,
-            unit_price_q=get_price_q(product) or 0,
-            is_d1=line_item_is_d1(product),
+            unit_price_q=product_ctx.unit_price_q,
+            is_d1=product_ctx.is_d1,
             picker_origin=picker_origin,
             product=product,
         ),
@@ -66,14 +65,11 @@ def interpret_set_qty(sku: str, qty: int, cart: dict) -> CartIntentResult:
      3. Determine action: "remove" (qty==0) | "update" (line exists) | "add"
      4. Resolve listing price and D-1 flag for "add"
     """
-    from shopman.offerman.models import Product
-
-    from shopman.storefront.services.product_cards import get_price_q, line_item_is_d1
-
-    product = Product.objects.filter(sku=sku, is_published=True).first()
-    if not product:
+    product_ctx = cart_context.product_context(sku)
+    if not product_ctx:
         return CartIntentResult(intent=None, error_type="not_found", error_context={})
 
+    product = product_ctx.product
     line = next(
         (item for item in cart.get("items") or [] if item.get("sku") == sku),
         None,
@@ -95,8 +91,8 @@ def interpret_set_qty(sku: str, qty: int, cart: dict) -> CartIntentResult:
             qty=qty,
             action=action,
             line_id=line_id,
-            unit_price_q=get_price_q(product) or 0 if action == "add" else 0,
-            is_d1=line_item_is_d1(product),
+            unit_price_q=product_ctx.unit_price_q if action == "add" else 0,
+            is_d1=product_ctx.is_d1,
             product=product,
         ),
         error_type=None,
