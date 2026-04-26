@@ -19,7 +19,7 @@ from unittest.mock import patch
 import pytest
 from django.test import Client
 
-from shopman.storefront.cart import CartUnavailableError
+from shopman.shop.services.cart import CartUnavailableError
 
 
 @pytest.fixture

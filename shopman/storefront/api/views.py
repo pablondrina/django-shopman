@@ -68,7 +68,7 @@ class CartAddItemView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        from shopman.storefront.cart import CartUnavailableError
+        from shopman.shop.services.cart import CartUnavailableError
 
         try:
             CartService.add_item(

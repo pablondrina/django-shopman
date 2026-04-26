@@ -338,13 +338,13 @@ class TestReconcileSimple:
 
 
 # ══════════════════════════════════════════════════════════════════════
-# CartService integration — update_qty / remove_item invoke reconcile
+# Cart command integration — update_qty / remove_item invoke reconcile
 # ══════════════════════════════════════════════════════════════════════
 
 
 @pytest.mark.django_db
 class TestCartReconcileIntegration:
-    """Minimal integration: CartService wiring calls reconcile with the
+    """Minimal integration: cart command wiring calls reconcile with the
     line's SKU and the absolute new qty (not a delta).
     """
 
@@ -381,8 +381,8 @@ class TestCartReconcileIntegration:
         request.session = {"cart_session_key": session_key}
         return request
 
-    @patch("shopman.storefront.cart.session_service")
-    @patch("shopman.storefront.cart.availability")
+    @patch("shopman.shop.services.cart.session_service")
+    @patch("shopman.shop.services.cart.availability")
     def test_update_qty_calls_reconcile_with_absolute_new_qty(
         self, mock_availability, mock_session_service,
     ):
@@ -409,12 +409,13 @@ class TestCartReconcileIntegration:
         assert call_kwargs["new_qty"] == Decimal("5")
         assert call_kwargs["session_key"] == "sess-test-1"
 
-    @patch("shopman.storefront.cart.session_service")
-    @patch("shopman.storefront.cart.availability")
+    @patch("shopman.shop.services.cart.session_service")
+    @patch("shopman.shop.services.cart.availability")
     def test_update_qty_shortage_raises_and_does_not_modify(
         self, mock_availability, mock_session_service,
     ):
-        from shopman.storefront.cart import CartService, CartUnavailableError
+        from shopman.shop.services.cart import CartUnavailableError
+        from shopman.storefront.cart import CartService
 
         self._setup_cart()
         request = self._request_with_session("sess-test-1")
@@ -435,8 +436,8 @@ class TestCartReconcileIntegration:
         assert excinfo.value.sku == "X"
         mock_session_service.modify_session.assert_not_called()
 
-    @patch("shopman.storefront.cart.session_service")
-    @patch("shopman.storefront.cart.availability")
+    @patch("shopman.shop.services.cart.session_service")
+    @patch("shopman.shop.services.cart.availability")
     def test_remove_item_calls_reconcile_with_zero(
         self, mock_availability, mock_session_service,
     ):

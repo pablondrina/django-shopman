@@ -285,3 +285,37 @@ def test_storefront_api_delegates_kernel_commands():
             "Route API reads and commands through shopman.storefront.services.* "
             "or shopman.shop.services.*."
         )
+
+
+def test_storefront_cart_delegates_write_commands():
+    """Storefront cart adapter must call shop cart commands for mutations."""
+    path = STOREFRONT_ROOT / "cart.py"
+    source = path.read_text()
+    tree = ast.parse(source, filename=str(path))
+
+    forbidden_names = {
+        "modify_session",
+        "create_session",
+        "abandon_session",
+    }
+    forbidden_availability = {"reserve", "reconcile"}
+    violations: list[tuple[Path, int, str]] = []
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            if (
+                isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "availability"
+                and node.func.attr in forbidden_availability
+            ):
+                violations.append((path, node.lineno, f"availability.{node.func.attr}"))
+            if node.func.attr in forbidden_names:
+                violations.append((path, node.lineno, node.func.attr))
+
+    if violations:
+        pytest.fail(
+            "Storefront cart performed write commands directly:\n"
+            f"{_format_violations(violations)}\n\n"
+            "Keep request/session adaptation in storefront.cart and route cart mutations "
+            "through shopman.shop.services.cart."
+        )

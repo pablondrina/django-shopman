@@ -116,7 +116,8 @@ def should_skip_confirmation(order) -> bool:
 def add_reorder_items(request, order, *, cart_service=None) -> list[str]:
     from shopman.offerman.models import Product
 
-    from shopman.storefront.cart import CartService, CartUnavailableError
+    from shopman.shop.services.cart import CartUnavailableError
+    from shopman.storefront.cart import CartService
     from shopman.storefront.services.product_cards import get_price_q, line_item_is_d1
 
     cart_service = cart_service or CartService

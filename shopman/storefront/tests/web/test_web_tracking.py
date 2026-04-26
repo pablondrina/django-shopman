@@ -16,7 +16,7 @@ class TestReorderView:
         self, client: Client, order_items, product, croissant,
     ):
         """Items that raise CartUnavailableError are collected and stored in session."""
-        from shopman.storefront.cart import CartUnavailableError
+        from shopman.shop.services.cart import CartUnavailableError
 
         def raise_for_oos(request, sku, **kwargs):
             if sku == croissant.sku:
@@ -52,7 +52,7 @@ class TestReorderView:
         self, client: Client, order_items, croissant,
     ):
         """After reorder with skips, the cart page renders the skipped banner."""
-        from shopman.storefront.cart import CartUnavailableError
+        from shopman.shop.services.cart import CartUnavailableError
 
         def raise_for_oos(request, sku, **kwargs):
             if sku == croissant.sku:

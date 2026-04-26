@@ -9,37 +9,8 @@ from shopman.utils.monetary import format_money
 
 from shopman.shop.models import Channel
 from shopman.shop.services import availability
-from shopman.shop.services import sessions as session_service
+from shopman.shop.services import cart as cart_commands
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF as CHANNEL_REF
-
-
-class CartUnavailableError(Exception):
-    """Raised by CartService.add_item when stock is insufficient.
-
-    Carries the available quantity and alternative suggestions so the view
-    layer can render a meaningful response (modal with substitutes).
-    """
-
-    def __init__(
-        self,
-        sku: str,
-        requested_qty: int,
-        available_qty: int,
-        is_paused: bool,
-        substitutes: list[dict],
-        error_code: str,
-        is_planned: bool = False,
-        planned_target_date=None,
-    ):
-        super().__init__(f"unavailable: sku={sku} qty={requested_qty} avail={available_qty}")
-        self.sku = sku
-        self.requested_qty = requested_qty
-        self.available_qty = available_qty
-        self.is_paused = is_paused
-        self.substitutes = substitutes
-        self.error_code = error_code
-        self.is_planned = is_planned
-        self.planned_target_date = planned_target_date
 
 
 class CartService:
@@ -56,27 +27,11 @@ class CartService:
     @staticmethod
     def _get_or_create_session(request: HttpRequest) -> tuple[Session, str]:
         """Return (cart_session, session_key). Creates if needed."""
-        session_key = request.session.get("cart_session_key")
-        channel = CartService._get_channel()
-
-        if session_key:
-            try:
-                cart_session = Session.objects.get(
-                    session_key=session_key,
-                    channel_ref=channel.ref,
-                    state="open",
-                )
-                return cart_session, session_key
-            except Session.DoesNotExist:
-                pass
-
-        origin_channel = request.session.get("origin_channel", "web")
-
-        cart_session = session_service.create_session(
-            channel.ref,
-            data={"origin_channel": origin_channel},
+        cart_session, session_key = cart_commands.get_or_create_session(
+            session_key=request.session.get("cart_session_key"),
+            channel_ref=CHANNEL_REF,
+            origin_channel=request.session.get("origin_channel", "web"),
         )
-        session_key = cart_session.session_key
         request.session["cart_session_key"] = session_key
         return cart_session, session_key
 
@@ -94,139 +49,66 @@ class CartService:
         ``is_d1`` deve refletir a mesma regra da vitrine (estoque só D-1): assim o
         D1DiscountModifier aplica e o DiscountModifier não empilha promoção automática.
 
-        Inline availability check + hold creation: calls services.availability.reserve()
-        BEFORE ModifyService.modify_session(). On shortage, raises CartUnavailableError
-        with substitutes populated so the caller can render a "no stock" UI.
+        Delegates reservation and session mutation to the shop cart command
+        facade. On shortage, raises CartUnavailableError with substitutes
+        populated so the caller can render a "no stock" UI.
 
         For merges (existing line), checks availability for the *additional* qty only
         and adopts an additional hold tagged with the same session_key.
         """
-        session, session_key = CartService._get_or_create_session(request)
-
-        # Determine the qty we actually need to reserve in this call.
-        existing = next((item for item in session.items if item.get("sku") == sku), None)
-        delta_qty = qty  # qty to reserve = qty being added in this request
-
-        result = availability.reserve(
-            sku,
-            Decimal(str(delta_qty)),
-            session_key=session_key,
+        session, session_key = cart_commands.add_item(
+            session_key=CartService._get_session_key(request),
             channel_ref=CHANNEL_REF,
+            origin_channel=request.session.get("origin_channel", "web"),
+            sku=sku,
+            qty=qty,
+            unit_price_q=unit_price_q,
+            is_d1=is_d1,
         )
-        if not result["ok"]:
-            raise CartUnavailableError(
-                sku=sku,
-                requested_qty=delta_qty,
-                available_qty=int(result["available_qty"]),
-                is_paused=result["is_paused"],
-                substitutes=result["substitutes"],
-                error_code=result["error_code"],
-                is_planned=result.get("is_planned", False),
-            )
-
-        # Cart activity → renew the TTL on every hold of this session so a
-        # shopper who is actively building the cart doesn't lose earlier
-        # reservations to the 30-minute TTL mid-flow.
-        availability.bump_session_hold_expiry(session_key)
-
-        # Merge: if SKU already in cart, increment qty instead of adding new line
-        if existing:
-            new_qty = int(Decimal(str(existing["qty"]))) + qty
-            return session_service.modify_session(
-                session_key=session_key,
-                channel_ref=CHANNEL_REF,
-                ops=[{"op": "set_qty", "line_id": existing["line_id"], "qty": new_qty}],
-            )
-
-        op: dict = {"op": "add_line", "sku": sku, "qty": qty, "unit_price_q": unit_price_q}
-        if is_d1:
-            op["is_d1"] = True
-        return session_service.modify_session(
-            session_key=session_key,
-            channel_ref=CHANNEL_REF,
-            ops=[op],
-        )
+        request.session["cart_session_key"] = session_key
+        return session
 
     @staticmethod
     def update_qty(request: HttpRequest, line_id: str, qty: int) -> Session:
         """Update quantity of a cart item.
 
-        Reconciles Stockman holds to the new absolute quantity BEFORE
-        `modify_session` so the reserved qty matches the cart qty. On
-        shortage, raises `CartUnavailableError` and does not mutate the
-        cart.
+        Reconciles holds to the new absolute quantity through the shop cart
+        command facade. On shortage, raises `CartUnavailableError` and does
+        not mutate the cart.
         """
         session_key = CartService._get_session_key(request)
         if not session_key:
             raise ValueError("No active cart")
 
-        line = CartService._get_line(session_key, line_id)
-        if line is not None:
-            result = availability.reconcile(
-                sku=line["sku"],
-                new_qty=Decimal(str(qty)),
-                session_key=session_key,
-                channel_ref=CHANNEL_REF,
-            )
-            if not result["ok"]:
-                raise CartUnavailableError(
-                    sku=line["sku"],
-                    requested_qty=qty,
-                    available_qty=int(result["available_qty"]),
-                    is_paused=result["is_paused"],
-                    substitutes=result["substitutes"],
-                    error_code=result["error_code"],
-                    is_planned=result.get("is_planned", False),
-                )
-
-        availability.bump_session_hold_expiry(session_key)
-
-        return session_service.modify_session(
+        return cart_commands.update_qty(
             session_key=session_key,
             channel_ref=CHANNEL_REF,
-            ops=[{"op": "set_qty", "line_id": line_id, "qty": qty}],
+            line_id=line_id,
+            qty=qty,
         )
 
     @staticmethod
     def remove_item(request: HttpRequest, line_id: str) -> Session:
         """Remove item from cart.
 
-        Reconciles Stockman holds to qty=0 for the line's SKU before
-        `modify_session`, so the removed line doesn't bleed reservations
-        until the next commit.
+        Reconciles holds to qty=0 through the shop cart command facade, so the
+        removed line doesn't bleed reservations until the next commit.
         """
         session_key = CartService._get_session_key(request)
         if not session_key:
             raise ValueError("No active cart")
 
-        line = CartService._get_line(session_key, line_id)
-        if line is not None:
-            availability.reconcile(
-                sku=line["sku"],
-                new_qty=Decimal("0"),
-                session_key=session_key,
-                channel_ref=CHANNEL_REF,
-            )
-
-        availability.bump_session_hold_expiry(session_key)
-
-        return session_service.modify_session(
+        return cart_commands.remove_item(
             session_key=session_key,
             channel_ref=CHANNEL_REF,
-            ops=[{"op": "remove_line", "line_id": line_id}],
+            line_id=line_id,
         )
 
     @staticmethod
     def _get_line(session_key: str, line_id: str) -> dict | None:
         """Return the session line dict matching `line_id`, or None."""
-        channel = CartService._get_channel()
-        try:
-            session = Session.objects.get(
-                session_key=session_key,
-                channel_ref=channel.ref,
-                state="open",
-            )
-        except Session.DoesNotExist:
+        session = cart_commands.get_open_session(session_key=session_key, channel_ref=CHANNEL_REF)
+        if session is None:
             return None
         for item in session.items:
             if item.get("line_id") == line_id:
@@ -485,24 +367,13 @@ class CartService:
         if not promo.is_active or now < promo.valid_from or now > promo.valid_until:
             return {"ok": False, "error": "coupon_expired"}
 
-        # Store coupon in session data and re-run modifiers
-        channel = CartService._get_channel()
-        try:
-            session = Session.objects.get(session_key=session_key, channel_ref=channel.ref, state="open")
-        except Session.DoesNotExist:
-            return {"ok": False, "error": "no_cart"}
-
-        data = session.data or {}
-        data["coupon_code"] = code
-        session.data = data
-        session.save(update_fields=["data"])
-
-        # Re-run modify to trigger DiscountModifier (coupon)
-        session_service.modify_session(
+        session = cart_commands.apply_coupon_code(
             session_key=session_key,
             channel_ref=CHANNEL_REF,
-            ops=[],
+            code=code,
         )
+        if session is None:
+            return {"ok": False, "error": "no_cart"}
 
         return {"ok": True, "code": code, "promotion": promo.name}
 
@@ -513,27 +384,12 @@ class CartService:
         if not session_key:
             return {"ok": False, "error": "no_cart"}
 
-        channel = CartService._get_channel()
-        try:
-            session = Session.objects.get(session_key=session_key, channel_ref=channel.ref, state="open")
-        except Session.DoesNotExist:
-            return {"ok": False, "error": "no_cart"}
-
-        data = session.data or {}
-        data.pop("coupon_code", None)
-        session.data = data
-        session.save(update_fields=["data"])
-
-        # Re-run modify to clear coupon pricing
-        session_service.modify_session(
+        session = cart_commands.remove_coupon_code(
             session_key=session_key,
             channel_ref=CHANNEL_REF,
-            ops=[],
         )
-
-        if not session.pricing:
-            session.pricing = {}
-        session.pricing.pop("coupon", None)
+        if session is None:
+            return {"ok": False, "error": "no_cart"}
 
         return {"ok": True}
 
@@ -544,7 +400,5 @@ class CartService:
         if not session_key:
             return
 
-        channel = CartService._get_channel()
-        session_service.abandon_session(session_key=session_key, channel_ref=channel.ref)
-
+        cart_commands.clear_session(session_key=session_key, channel_ref=CHANNEL_REF)
         request.session.pop("cart_session_key", None)

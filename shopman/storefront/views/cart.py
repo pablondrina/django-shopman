@@ -6,7 +6,9 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.views import View
 
-from ..cart import CartService, CartUnavailableError
+from shopman.shop.services.cart import CartUnavailableError
+
+from ..cart import CartService
 from ..intents.cart import interpret_add_to_cart, interpret_set_qty
 
 
@@ -318,5 +320,4 @@ class RemoveCouponView(View):
         response = HttpResponse("")
         response["HX-Trigger"] = "cartUpdated"
         return response
-
 
