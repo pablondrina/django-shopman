@@ -22,11 +22,12 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from django.contrib.auth.models import User
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 from shopman.craftsman.models import Recipe, RecipeItem, WorkOrder, WorkOrderItem
 from shopman.guestman.models import ContactPoint, Customer, CustomerAddress, CustomerGroup
 from shopman.offerman.models import (
+    AvailabilityPolicy,
     Collection,
     CollectionItem,
     Listing,
@@ -42,6 +43,7 @@ from shopman.orderman.models import (
     OrderEvent,
     OrderItem,
     Session,
+    SessionItem,
 )
 from shopman.payman.models import PaymentIntent, PaymentTransaction
 from shopman.stockman import stock
@@ -53,7 +55,7 @@ from shopman.backstage.models import (
     DayClosing,
     KDSInstance,
 )
-from shopman.shop.models import Channel, RuleConfig, Shop
+from shopman.shop.models import Channel, OmotenashiCopy, RuleConfig, Shop
 from shopman.shop.services.nutrition_from_recipe import fill_nutrition_from_recipe
 from shopman.storefront.models import Coupon, Promotion
 
@@ -81,9 +83,11 @@ class Command(BaseCommand):
         positions = self._seed_positions()
         self._seed_stock(products, positions)
         self._seed_recipes()
+        self._assert_catalog_remote_purchase_data()
         customers = self._seed_customers()
         self._seed_addresses(customers)
         channels = self._seed_channels()
+        self._assert_storefront_products_orderable()
         self._seed_kds()
         self._seed_orders(products, customers, channels)
         self._seed_sessions(channels)
@@ -260,12 +264,34 @@ class Command(BaseCommand):
     def _flush(self):
         self.stdout.write("  Limpando dados anteriores...")
 
-        # Payments
-        for model in [PaymentTransaction, PaymentIntent]:
+        def hard_delete(model):
+            return model._base_manager.all()._raw_delete(model._base_manager.db)
+
+        # Audit tables are data too in local seeds; keep --flush actually clean.
+        for model in [
+            Product.history.model,
+            ListingItem.history.model,
+            RuleConfig.history.model,
+            OmotenashiCopy.history.model,
+        ]:
             model.objects.all().delete()
 
+        # Payments
+        hard_delete(PaymentTransaction)
+        PaymentIntent.objects.all().delete()
+
         # Orderman
-        for model in [FulfillmentItem, Fulfillment, Directive, OrderEvent, OrderItem, Order, Session, Channel]:
+        for model in [
+            FulfillmentItem,
+            Fulfillment,
+            Directive,
+            OrderEvent,
+            OrderItem,
+            Order,
+            SessionItem,
+            Session,
+            Channel,
+        ]:
             model.objects.all().delete()
 
         # Offerman
@@ -275,7 +301,8 @@ class Command(BaseCommand):
         # Stockman
         from shopman.stockman.models import Hold, Move, Quant
 
-        for model in [StockAlert, Hold, Move, Quant, Position]:
+        hard_delete(Move)
+        for model in [StockAlert, Hold, Quant, Position]:
             model.objects.all().delete()
 
         # Craftsman
@@ -795,6 +822,7 @@ class Command(BaseCommand):
                     "shelf_life_days": shelf_life,
                     "is_published": True,
                     "is_sellable": sellable,
+                    "availability_policy": AvailabilityPolicy.PLANNED_OK,
                     "image_url": image,
                     "unit_weight_g": weight_g,
                     "storage_tip": storage,
@@ -818,6 +846,7 @@ class Command(BaseCommand):
                 "unit": "un",
                 "is_published": True,
                 "is_sellable": True,
+                "availability_policy": AvailabilityPolicy.DEMAND_OK,
                 "image_url": f"{IMG}/ct.jpg",
             },
         )
@@ -832,49 +861,306 @@ class Command(BaseCommand):
         combo.save(update_fields=["metadata"])
         products["COMBO-PETIT-DEJ"] = combo
 
+        made_to_order_skus = [
+            "CROQUE-MONSIEUR",
+            "CROQUE-MADAME",
+            "TARTINE-SAUMON",
+            "TARTINE-TOMATE",
+            "ESPRESSO",
+            "ESPRESSO-DUPLO",
+            "CAPPUCCINO",
+            "LATTE",
+            "CHOCOLATE-QUENTE",
+            "CHA-EARL-GREY",
+            "SUCO-LARANJA",
+        ]
+        for sku in made_to_order_skus:
+            product = products.get(sku)
+            if product:
+                product.availability_policy = AvailabilityPolicy.DEMAND_OK
+                product.save(update_fields=["availability_policy"])
+
         # Direct-override ingredients + nutrition (products without Recipe).
         # Exercises the "manual override" path of the PDP data schema:
         # ``auto_filled=False`` in nutrition_facts blocks any later derivation.
+        def nutrition(
+            serving_size_g,
+            servings_per_container,
+            energy_kcal,
+            carbohydrates_g,
+            sugars_g,
+            proteins_g,
+            total_fat_g,
+            saturated_fat_g,
+            fiber_g,
+            sodium_mg,
+        ):
+            return {
+                "serving_size_g": serving_size_g,
+                "servings_per_container": servings_per_container,
+                "energy_kcal": energy_kcal,
+                "carbohydrates_g": carbohydrates_g,
+                "sugars_g": sugars_g,
+                "proteins_g": proteins_g,
+                "total_fat_g": total_fat_g,
+                "saturated_fat_g": saturated_fat_g,
+                "trans_fat_g": 0.0,
+                "fiber_g": fiber_g,
+                "sodium_mg": sodium_mg,
+                "auto_filled": False,
+            }
+
         DIRECT_OVERRIDES = {
+            "BAGUETE-GERGELIM": {
+                "ingredients_text": (
+                    "Farinha de trigo, água, fermento natural, gergelim, azeite extra virgem, sal. "
+                    "CONTÉM: glúten e gergelim."
+                ),
+                "nutrition_facts": nutrition(100, 3, 265.0, 49.0, 1.5, 8.5, 3.8, 0.5, 3.1, 430.0),
+            },
+            "MINI-BAGUETE": {
+                "ingredients_text": (
+                    "Farinha de trigo, água, fermento natural, azeite extra virgem, sal. "
+                    "CONTÉM: glúten."
+                ),
+                "nutrition_facts": nutrition(100, 1, 245.0, 50.0, 1.4, 8.0, 1.4, 0.2, 2.5, 420.0),
+            },
+            "BATARD": {
+                "ingredients_text": (
+                    "Farinha de trigo, água, fermento natural, sal. "
+                    "CONTÉM: glúten."
+                ),
+                "nutrition_facts": nutrition(100, 4, 240.0, 50.0, 1.2, 8.0, 1.0, 0.2, 2.4, 430.0),
+            },
+            "FENDU": {
+                "ingredients_text": (
+                    "Farinha de trigo, água, fermento natural, sal. "
+                    "CONTÉM: glúten."
+                ),
+                "nutrition_facts": nutrition(100, 1, 240.0, 50.0, 1.2, 8.0, 1.0, 0.2, 2.4, 430.0),
+            },
+            "TABATIERE": {
+                "ingredients_text": (
+                    "Farinha de trigo, água, fermento natural, sal. "
+                    "CONTÉM: glúten."
+                ),
+                "nutrition_facts": nutrition(100, 1, 240.0, 50.0, 1.2, 8.0, 1.0, 0.2, 2.4, 430.0),
+            },
+            "CAMPAGNE-REDONDO": {
+                "ingredients_text": (
+                    "Farinha de trigo, farinha de trigo integral, água, fermento natural, farinha de centeio, sal. "
+                    "CONTÉM: glúten."
+                ),
+                "nutrition_facts": nutrition(100, 5, 235.0, 46.0, 1.5, 8.3, 1.3, 0.2, 4.0, 390.0),
+            },
+            "CAMPAGNE-PASSAS": {
+                "ingredients_text": (
+                    "Farinha de trigo, farinha de trigo integral, água, fermento natural, uvas-passas, "
+                    "castanha de caju, castanha-do-pará, farinha de centeio, sal. "
+                    "CONTÉM: glúten e castanhas."
+                ),
+                "nutrition_facts": nutrition(100, 6, 275.0, 48.0, 10.0, 8.0, 5.5, 0.8, 4.2, 340.0),
+            },
+            "PAO-HAMBURGER": {
+                "ingredients_text": (
+                    "Farinha de trigo, água, fermento natural, azeite extra virgem, sal. "
+                    "CONTÉM: glúten."
+                ),
+                "nutrition_facts": nutrition(100, 1, 245.0, 50.0, 1.4, 8.0, 1.4, 0.2, 2.5, 420.0),
+            },
+            "FOCACCIA-BACON": {
+                "ingredients_text": (
+                    "Farinha de trigo, água, fermento natural, azeite extra virgem, cebola, bacon, queijo minas, "
+                    "tomilho, sal. CONTÉM: glúten e leite."
+                ),
+                "nutrition_facts": nutrition(100, 5, 300.0, 38.0, 2.0, 10.0, 12.0, 3.5, 2.0, 620.0),
+            },
+            "MINI-FOCACCIA-ALECRIM": {
+                "ingredients_text": (
+                    "Farinha de trigo, água, fermento natural, azeite extra virgem, alecrim fresco, sal grosso. "
+                    "CONTÉM: glúten."
+                ),
+                "nutrition_facts": nutrition(100, 1, 285.0, 42.0, 1.5, 7.0, 9.5, 1.4, 2.0, 560.0),
+            },
+            "MINI-FOCACCIA-CEBOLA": {
+                "ingredients_text": (
+                    "Farinha de trigo, água, fermento natural, azeite extra virgem, cebola roxa, azeitonas pretas, sal. "
+                    "CONTÉM: glúten."
+                ),
+                "nutrition_facts": nutrition(100, 1, 290.0, 41.0, 2.0, 7.0, 10.0, 1.5, 2.1, 600.0),
+            },
+            "MINI-FOCACCIA-BACON": {
+                "ingredients_text": (
+                    "Farinha de trigo, água, fermento natural, azeite extra virgem, cebola, bacon, queijo minas, "
+                    "tomilho, sal. CONTÉM: glúten e leite."
+                ),
+                "nutrition_facts": nutrition(100, 1, 300.0, 38.0, 2.0, 10.0, 12.0, 3.5, 2.0, 620.0),
+            },
+            "BRIOCHE-BURGER": {
+                "ingredients_text": (
+                    "Farinha de trigo, ovos, manteiga, leite, açúcar, fermento biológico, sal. "
+                    "CONTÉM: glúten, leite e ovos."
+                ),
+                "nutrition_facts": nutrition(100, 2, 330.0, 46.0, 8.0, 9.0, 12.0, 7.0, 1.5, 360.0),
+            },
+            "PAO-HOTDOG": {
+                "ingredients_text": (
+                    "Farinha de trigo, ovos, manteiga, leite, açúcar, fermento biológico, sal. "
+                    "CONTÉM: glúten, leite e ovos."
+                ),
+                "nutrition_facts": nutrition(80, 4, 265.0, 37.0, 6.0, 7.0, 9.5, 5.5, 1.2, 290.0),
+            },
+            "MINI-CROISSANT": {
+                "ingredients_text": (
+                    "Farinha de trigo, manteiga, água, leite, açúcar, ovos, fermento biológico, sal, calda de açúcar. "
+                    "CONTÉM: glúten, leite e ovos."
+                ),
+                "nutrition_facts": nutrition(40, 1, 160.0, 18.0, 5.0, 3.0, 8.5, 5.2, 0.7, 125.0),
+            },
+            "BICHON": {
+                "ingredients_text": (
+                    "Massa folhada com manteiga, creme de limão, açúcar. "
+                    "CONTÉM: glúten e leite."
+                ),
+                "nutrition_facts": nutrition(100, 1, 345.0, 41.0, 15.0, 5.5, 17.0, 10.0, 1.4, 220.0),
+            },
+            "CORNET-CHOCOLATE": {
+                "ingredients_text": (
+                    "Farinha de trigo, leite, ovos, manteiga, açúcar, creme de chocolate, fermento biológico, sal. "
+                    "CONTÉM: glúten, leite, ovos e soja."
+                ),
+                "nutrition_facts": nutrition(100, 1, 330.0, 45.0, 16.0, 7.0, 13.0, 7.5, 1.8, 260.0),
+            },
+            "CORNET": {
+                "ingredients_text": (
+                    "Farinha de trigo, leite, ovos, manteiga, açúcar, creme de confeiteiro, fermento biológico, sal. "
+                    "CONTÉM: glúten, leite e ovos."
+                ),
+                "nutrition_facts": nutrition(100, 1, 315.0, 43.0, 14.0, 7.0, 12.0, 7.0, 1.4, 250.0),
+            },
+            "MELON-PAN": {
+                "ingredients_text": (
+                    "Farinha de trigo, leite, ovos, manteiga, açúcar, fermento biológico, sal. "
+                    "CONTÉM: glúten, leite e ovos."
+                ),
+                "nutrition_facts": nutrition(100, 1, 335.0, 52.0, 15.0, 8.0, 10.0, 6.0, 1.5, 250.0),
+            },
+            "PAIN-RAISINS": {
+                "ingredients_text": (
+                    "Massa brioche, creme de confeiteiro, uvas-passas. "
+                    "CONTÉM: glúten, leite e ovos."
+                ),
+                "nutrition_facts": nutrition(100, 1, 320.0, 48.0, 18.0, 7.0, 10.0, 5.8, 1.8, 260.0),
+            },
+            "BRIOCHE-CHOCOLAT": {
+                "ingredients_text": (
+                    "Farinha de trigo, ovos, manteiga, leite, açúcar, gotas de chocolate, fermento biológico, sal. "
+                    "CONTÉM: glúten, leite, ovos e soja."
+                ),
+                "nutrition_facts": nutrition(90, 1, 310.0, 39.0, 14.0, 7.0, 13.0, 7.5, 1.8, 245.0),
+            },
+            "DELI": {
+                "ingredients_text": (
+                    "Pão amanteigado, milho, bacon, queijo minas. "
+                    "CONTÉM: glúten, leite e ovos."
+                ),
+                "nutrition_facts": nutrition(180, 1, 520.0, 54.0, 8.0, 18.0, 27.0, 12.0, 3.0, 860.0),
+            },
+            "HOTDOG": {
+                "ingredients_text": (
+                    "Pão amanteigado, salsicha viena artesanal, molho da casa. "
+                    "CONTÉM: glúten, leite e ovos."
+                ),
+                "nutrition_facts": nutrition(180, 1, 480.0, 44.0, 7.0, 17.0, 25.0, 10.0, 2.0, 980.0),
+            },
+            "CROQUE-MONSIEUR": {
+                "ingredients_text": (
+                    "Pão de forma artesanal, molho bechamel, presunto, queijo gruyere, manteiga. "
+                    "CONTÉM: glúten e leite."
+                ),
+                "nutrition_facts": nutrition(250, 1, 620.0, 42.0, 8.0, 28.0, 38.0, 22.0, 2.5, 1180.0),
+            },
+            "CROQUE-MADAME": {
+                "ingredients_text": (
+                    "Pão de forma artesanal, molho bechamel, presunto, queijo gruyere, manteiga, ovo. "
+                    "CONTÉM: glúten, leite e ovos."
+                ),
+                "nutrition_facts": nutrition(290, 1, 700.0, 43.0, 8.0, 34.0, 45.0, 24.0, 2.5, 1260.0),
+            },
+            "QUICHE-LORRAINE": {
+                "ingredients_text": (
+                    "Massa brisée, ovos, creme de leite, bacon, queijo, cebola. "
+                    "CONTÉM: glúten, leite e ovos."
+                ),
+                "nutrition_facts": nutrition(200, 1, 560.0, 31.0, 4.0, 18.0, 42.0, 23.0, 2.0, 760.0),
+            },
+            "QUICHE-LEGUMES": {
+                "ingredients_text": (
+                    "Massa brisée, ovos, creme de leite, queijo, abobrinha, tomate, temperos. "
+                    "CONTÉM: glúten, leite e ovos."
+                ),
+                "nutrition_facts": nutrition(200, 1, 470.0, 34.0, 5.0, 15.0, 32.0, 18.0, 3.0, 620.0),
+            },
+            "TARTINE-SAUMON": {
+                "ingredients_text": (
+                    "Pain de campagne, cream cheese, salmão defumado, alcaparras, ervas. "
+                    "CONTÉM: glúten, leite e peixe."
+                ),
+                "nutrition_facts": nutrition(220, 1, 470.0, 46.0, 4.0, 22.0, 18.0, 8.0, 4.0, 940.0),
+            },
+            "TARTINE-TOMATE": {
+                "ingredients_text": (
+                    "Pain de campagne, tomate, burrata, manjericão, azeite extra virgem. "
+                    "CONTÉM: glúten e leite."
+                ),
+                "nutrition_facts": nutrition(200, 1, 430.0, 42.0, 5.0, 16.0, 20.0, 10.0, 4.0, 620.0),
+            },
+            "COMBO-PETIT-DEJ": {
+                "ingredients_text": (
+                    "Composto por Croissant Tradicional e Mini Baguete. "
+                    "CONTÉM: glúten, leite e ovos."
+                ),
+                "nutrition_facts": nutrition(200, 1, 610.0, 74.0, 8.0, 14.0, 27.0, 16.0, 3.2, 620.0),
+            },
+            "ESPRESSO": {
+                "ingredients_text": "Café espresso. NÃO CONTÉM GLÚTEN.",
+                "nutrition_facts": nutrition(40, 1, 2.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0),
+            },
+            "ESPRESSO-DUPLO": {
+                "ingredients_text": "Café espresso em dose dupla. NÃO CONTÉM GLÚTEN.",
+                "nutrition_facts": nutrition(80, 1, 4.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 0.0),
+            },
+            "CAPPUCCINO": {
+                "ingredients_text": (
+                    "Café espresso e leite integral vaporizado. "
+                    "CONTÉM: leite. NÃO CONTÉM GLÚTEN."
+                ),
+                "nutrition_facts": nutrition(180, 1, 105.0, 9.0, 9.0, 6.0, 5.5, 3.4, 0.0, 85.0),
+            },
+            "LATTE": {
+                "ingredients_text": (
+                    "Café espresso e leite integral vaporizado. "
+                    "CONTÉM: leite. NÃO CONTÉM GLÚTEN."
+                ),
+                "nutrition_facts": nutrition(240, 1, 145.0, 12.0, 12.0, 8.0, 7.5, 4.6, 0.0, 115.0),
+            },
+            "CHA-EARL-GREY": {
+                "ingredients_text": "Chá preto Earl Grey com bergamota. NÃO CONTÉM GLÚTEN.",
+                "nutrition_facts": nutrition(200, 1, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+            },
             "SUCO-LARANJA": {
                 "ingredients_text": (
                     "Laranja natural. CONTÉM: naturalmente açúcares da fruta. "
                     "Sem adição de açúcar ou conservantes."
                 ),
-                "nutrition_facts": {
-                    "serving_size_g": 200,
-                    "servings_per_container": 1,
-                    "energy_kcal": 90.0,
-                    "carbohydrates_g": 21.0,
-                    "sugars_g": 17.0,
-                    "proteins_g": 1.4,
-                    "total_fat_g": 0.4,
-                    "saturated_fat_g": 0.0,
-                    "trans_fat_g": 0.0,
-                    "fiber_g": 0.5,
-                    "sodium_mg": 2.0,
-                    "auto_filled": False,
-                },
+                "nutrition_facts": nutrition(200, 1, 90.0, 21.0, 17.0, 1.4, 0.4, 0.0, 0.5, 2.0),
             },
             "CHOCOLATE-QUENTE": {
                 "ingredients_text": (
                     "Chocolate belga 54% cacau, leite integral, açúcar. "
                     "CONTÉM: leite, soja. PODE CONTER: glúten, amendoim (contaminação cruzada)."
                 ),
-                "nutrition_facts": {
-                    "serving_size_g": 240,
-                    "servings_per_container": 1,
-                    "energy_kcal": 310.0,
-                    "carbohydrates_g": 36.0,
-                    "sugars_g": 30.0,
-                    "proteins_g": 8.5,
-                    "total_fat_g": 14.0,
-                    "saturated_fat_g": 9.0,
-                    "trans_fat_g": 0.0,
-                    "fiber_g": 2.0,
-                    "sodium_mg": 80.0,
-                    "auto_filled": False,
-                },
+                "nutrition_facts": nutrition(240, 1, 310.0, 36.0, 30.0, 8.5, 14.0, 9.0, 2.0, 80.0),
             },
         }
         for sku, payload in DIRECT_OVERRIDES.items():
@@ -1087,6 +1373,7 @@ class Command(BaseCommand):
             "ITALIANO-RUSTICO": 8,
             "CAMPAGNE-OVAL": 10,
             "CAMPAGNE-REDONDO": 10,
+            "CAMPAGNE-PASSAS": 6,
             "CIABATTA": 20,
             "PAO-FORMA": 12,
             "CHALLAH": 8,
@@ -1095,8 +1382,11 @@ class Command(BaseCommand):
             "FOCACCIA-CEBOLA": 6,
             "FOCACCIA-BACON": 6,
             "MINI-FOCACCIA-ALECRIM": 15,
+            "MINI-FOCACCIA-CEBOLA": 12,
+            "MINI-FOCACCIA-BACON": 12,
             "BRIOCHE": 12,
             "BRIOCHE-BURGER": 15,
+            "PAO-HOTDOG": 10,
             "CROISSANT": 40,
             "PAIN-CHOCOLAT": 30,
             "MINI-CROISSANT": 25,
@@ -1106,9 +1396,24 @@ class Command(BaseCommand):
             "CORNET": 12,
             "MELON-PAN": 10,
             "PAIN-RAISINS": 12,
+            "BRIOCHE-CHOCOLAT": 12,
             "MADELEINE": 20,
             "DELI": 15,
             "HOTDOG": 12,
+            "QUICHE-LORRAINE": 8,
+            "QUICHE-LEGUMES": 8,
+            "CROQUE-MONSIEUR": 12,
+            "CROQUE-MADAME": 10,
+            "TARTINE-SAUMON": 10,
+            "TARTINE-TOMATE": 10,
+            "COMBO-PETIT-DEJ": 10,
+            "ESPRESSO": 100,
+            "ESPRESSO-DUPLO": 80,
+            "CAPPUCCINO": 60,
+            "LATTE": 60,
+            "CHOCOLATE-QUENTE": 40,
+            "CHA-EARL-GREY": 40,
+            "SUCO-LARANJA": 30,
         }
 
         for sku, qty in stock_data.items():
@@ -1551,6 +1856,58 @@ class Command(BaseCommand):
             f"  ✅ {len(recipes_data)} receitas, {wo_count} ordens de produção"
             f" + {history_count} historico (35 dias — pickup slots + suggest)"
         )
+
+    def _assert_catalog_remote_purchase_data(self):
+        missing = []
+        required_metadata = ("allergens", "dietary_info", "serves")
+        products = Product.objects.filter(is_published=True).prefetch_related("keywords").order_by("sku")
+
+        for product in products:
+            gaps = []
+            metadata = product.metadata if isinstance(product.metadata, dict) else {}
+            for key in required_metadata:
+                if key not in metadata:
+                    gaps.append(f"metadata.{key}")
+            if product.unit_weight_g and not metadata.get("approx_dimensions"):
+                gaps.append("metadata.approx_dimensions")
+            if not product.keywords.exists():
+                gaps.append("keywords")
+            if not product.ingredients_text:
+                gaps.append("ingredients_text")
+            if not product.nutrition_facts:
+                gaps.append("nutrition_facts")
+            if gaps:
+                missing.append(f"{product.sku}: {', '.join(gaps)}")
+
+        if missing:
+            raise CommandError(
+                "Seed catalog remoto incompleto. Corrija os produtos publicados: "
+                + "; ".join(missing)
+            )
+
+        self.stdout.write(f"  ✅ Dados remotos PDP: {products.count()} produtos completos")
+
+    def _assert_storefront_products_orderable(self):
+        from shopman.shop.services import catalog_context
+
+        blocked = []
+        products = Product.objects.filter(is_published=True, is_sellable=True).order_by("sku")
+        for product in products:
+            raw_availability = catalog_context.availability_for_sku(product.sku, channel_ref="web")
+            availability = catalog_context.storefront_availability(
+                raw_availability,
+                is_sellable=product.is_sellable,
+            )
+            if not availability or not availability.get("can_order"):
+                blocked.append(product.sku)
+
+        if blocked:
+            raise CommandError(
+                "Seed storefront incompleto. Produtos publicados/vendáveis sem compra web: "
+                + ", ".join(blocked)
+            )
+
+        self.stdout.write(f"  ✅ Compra web: {products.count()} produtos vendáveis orderable")
 
     # ────────────────────────────────────────────────────────────────
     # Clientes (Customers)
