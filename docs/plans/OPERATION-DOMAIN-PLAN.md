@@ -43,6 +43,11 @@ Campos centrais:
 ## Guardrails
 
 - O operador vê apenas o que precisa fazer agora.
+- Superusuário/admin pode ver e editar todas as colunas operacionais quando
+  pertinente.
+- Operadores específicos devem receber permissões por faixa de coluna. Ex.:
+  quem planeja vê sugestão e planejado; quem executa vê planejado, iniciado e
+  concluído; quem fecha vê concluído e não vendidos.
 - Tarefas fixas do sistema podem ser exigidas, mas a ordem e a copy precisam
   ser administráveis.
 - Nenhuma tarefa crítica deve sumir silenciosamente.
@@ -74,6 +79,29 @@ Campos centrais:
 - Vitrine limpa.
 - Equipamentos desligados ou colocados em modo seguro.
 - Pendências do dia registradas.
+
+## Chão de fábrica
+
+Colunas conceituais, sem inventar status fora do kernel:
+
+- Sugerido: projeção do Craftsman a partir de histórico, sazonalidade,
+  encomendas e rupturas/sobras.
+- Planejado: `WorkOrder.quantity`, editável enquanto a ordem está planejada.
+- Iniciado: quantidade que entrou em produção, via evento `started`.
+- Concluído: `WorkOrder.finished`, quantidade final que entra no estoque.
+- Não vendidos: dado de fechamento cego, pertencente ao fechamento/operação,
+  mas útil como coluna de leitura para supervisão.
+
+Permissões granulares canônicas:
+
+- `shop.view_production_suggested` e `shop.edit_production_suggested`;
+- `shop.view_production_planned` e `shop.edit_production_planned`;
+- `shop.view_production_started` e `shop.edit_production_started`;
+- `shop.view_production_finished` e `shop.edit_production_finished`;
+- `shop.view_production_unsold` e `shop.edit_production_unsold`.
+
+`shop.manage_production` e superusuário mantêm visão total. Operadores sem
+visão total só recebem as colunas compatíveis com a rotina deles.
 
 ## Perguntas abertas
 

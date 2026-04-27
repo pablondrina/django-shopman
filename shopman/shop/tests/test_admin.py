@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 from django.contrib import admin
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Permission, User
+from django.contrib.contenttypes.models import ContentType
 from django.test import Client, RequestFactory
 from django.urls import reverse
 from shopman.craftsman import craft
@@ -38,6 +41,11 @@ def shop(db):
         primary_color="#C5A55A",
         default_ddd="43",
     )
+
+
+def _shop_permission(codename: str) -> Permission:
+    ct = ContentType.objects.get(app_label="shop", model="shop")
+    return Permission.objects.get(content_type=ct, codename=codename)
 
 
 # ── Registration tests ──────────────────────────────────────────────
@@ -308,3 +316,46 @@ class TestProductionAdminView:
         assert response.context_data["craft_summary"].total == 1
         assert len(response.context_data["planned_queue"]) == 1
         assert len(response.context_data["today_wos"]) == 1
+
+    def test_get_allows_finished_column_only_operator(self, db, rf):
+        from datetime import date
+
+        from shopman.backstage.views.production import production_view
+
+        user = User.objects.create_user("finished-op", password="pass", is_staff=True)
+        user.user_permissions.add(_shop_permission("view_production_finished"))
+
+        recipe = Recipe.objects.create(
+            ref="pain-au-chocolat-v1",
+            name="Pain au Chocolat",
+            output_sku="PAIN-AU-CHOCOLAT",
+            batch_size=10,
+        )
+        planned = craft.plan(recipe, 30, date=date.today(), position_ref="forno")
+        finished = craft.plan(recipe, 20, date=date.today(), position_ref="forno")
+        craft.finish(finished, finished=18, actor="test")
+
+        request = rf.get("/admin/shopman/shop/production/")
+        request.user = user
+        response = production_view(request, admin.site)
+
+        assert response.status_code == 200
+        assert response.context_data["production_access"].can_view_finished is True
+        assert response.context_data["production_access"].can_view_planned is False
+        assert len(response.context_data["planned_queue"]) == 0
+        assert len(response.context_data["finished_queue"]) == 1
+        assert response.context_data["today_wos"][0].ref == finished.ref
+        assert planned.ref not in [wo.ref for wo in response.context_data["today_wos"]]
+
+    def test_post_requires_finished_edit_column(self, db, rf):
+        from shopman.backstage.views.production import production_view
+
+        user = User.objects.create_user("finished-viewer", password="pass", is_staff=True)
+        user.user_permissions.add(_shop_permission("view_production_finished"))
+
+        request = rf.post("/admin/shopman/shop/production/", {"recipe": "1", "quantity": "1"})
+        request.user = user
+        with patch("shopman.backstage.views.production.messages"):
+            response = production_view(request, admin.site)
+
+        assert response.status_code == 302

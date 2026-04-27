@@ -46,6 +46,7 @@
   </section>
 
   <section class="grid grid-cols-2 gap-3 md:grid-cols-4">
+    {% if production_access.can_manage_all %}
     <div class="card">
       <div class="flex items-center gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
         <span class="material-symbols-rounded icon-md" aria-hidden="true">assignment</span>
@@ -53,6 +54,8 @@
       </div>
       <div class="metric-value mt-2">{{ craft_summary.total }}</div>
     </div>
+    {% endif %}
+    {% if production_access.can_view_planned %}
     <div class="card">
       <div class="flex items-center gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
         <span class="material-symbols-rounded icon-md" aria-hidden="true">event_note</span>
@@ -61,6 +64,8 @@
       <div class="metric-value mt-2">{{ craft_summary.planned_qty }}</div>
       <p class="field-help">{{ craft_summary.planned_orders }} ordens</p>
     </div>
+    {% endif %}
+    {% if production_access.can_view_started %}
     <div class="card">
       <div class="flex items-center gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
         <span class="material-symbols-rounded icon-md" aria-hidden="true">play_circle</span>
@@ -69,6 +74,8 @@
       <div class="metric-value mt-2">{{ craft_summary.started_qty }}</div>
       <p class="field-help">{{ craft_summary.started_orders }} ordens</p>
     </div>
+    {% endif %}
+    {% if production_access.can_view_finished %}
     <div class="card">
       <div class="flex items-center gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
         <span class="material-symbols-rounded icon-md" aria-hidden="true">task_alt</span>
@@ -77,8 +84,10 @@
       <div class="metric-value mt-2">{{ craft_summary.finished_qty }}</div>
       <p class="field-help">Perda {{ craft_summary.loss_qty }}</p>
     </div>
+    {% endif %}
   </section>
 
+  {% if production_access.can_edit_finished %}
   <section class="card">
     <div class="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
       <div>
@@ -124,8 +133,11 @@
       </div>
     </form>
   </section>
+  {% endif %}
 
+  {% if production_access.can_view_started or production_access.can_view_planned %}
   <section class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+    {% if production_access.can_view_started %}
     <div class="card">
       <div class="mb-4 flex items-center justify-between gap-3">
         <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Em produção agora</h2>
@@ -170,7 +182,9 @@
       </div>
       {% endif %}
     </div>
+    {% endif %}
 
+    {% if production_access.can_view_planned %}
     <div class="card">
       <div class="mb-4 flex items-center justify-between gap-3">
         <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Próximas fornadas</h2>
@@ -211,8 +225,11 @@
       </div>
       {% endif %}
     </div>
+    {% endif %}
   </section>
+  {% endif %}
 
+  {% if production_access.can_view_finished %}
   <section class="card">
     <div class="mb-4 flex items-center justify-between gap-3">
       <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Concluído hoje</h2>
@@ -249,7 +266,9 @@
     </div>
     {% endif %}
   </section>
+  {% endif %}
 
+  {% if production_access.can_manage_all or today_wos %}
   <section class="card">
     <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-4">Histórico da data</h2>
     {% if today_wos %}
@@ -260,10 +279,16 @@
             <th class="py-2 pr-4 font-semibold">Ordem</th>
             <th class="py-2 pr-4 font-semibold">Produto</th>
             <th class="py-2 pr-4 font-semibold">Status</th>
+            {% if production_access.can_view_planned %}
             <th class="py-2 pr-4 font-semibold">Planejado</th>
+            {% endif %}
+            {% if production_access.can_view_started %}
             <th class="py-2 pr-4 font-semibold">Iniciado</th>
+            {% endif %}
+            {% if production_access.can_view_finished %}
             <th class="py-2 pr-4 font-semibold">Concluído</th>
             <th class="py-2 pr-4 font-semibold">Perda</th>
+            {% endif %}
           </tr>
         </thead>
         <tbody>
@@ -272,10 +297,16 @@
             <td class="py-2 pr-4 font-semibold text-on-surface/70 dark:text-on-surface-dark/70">{{ wo.ref }}</td>
             <td class="py-2 pr-4">{{ wo.output_sku }}</td>
             <td class="py-2 pr-4"><span class="{{ wo.status_color }} rounded-full px-2 py-0.5 text-sm font-semibold">{{ wo.status_label }}</span></td>
+            {% if production_access.can_view_planned %}
             <td class="py-2 pr-4 tabular-nums">{{ wo.planned_qty }}</td>
+            {% endif %}
+            {% if production_access.can_view_started %}
             <td class="py-2 pr-4 tabular-nums">{{ wo.started_qty|default:"Não informado" }}</td>
+            {% endif %}
+            {% if production_access.can_view_finished %}
             <td class="py-2 pr-4 tabular-nums">{{ wo.finished_qty|default:"Não informado" }}</td>
             <td class="py-2 pr-4 tabular-nums">{{ wo.loss|default:"Não informado" }}</td>
+            {% endif %}
           </tr>
           {% endfor %}
         </tbody>
@@ -288,6 +319,7 @@
     </div>
     {% endif %}
   </section>
+  {% endif %}
 
 </div>
 {% endblock %}

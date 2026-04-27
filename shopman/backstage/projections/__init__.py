@@ -38,8 +38,10 @@ from .pos import (
 from .production import (
     ProductionBoardProjection,
     ProductionCountsProjection,
+    ProductionSurfaceAccess,
     WorkOrderCardProjection,
     build_production_board,
+    resolve_production_access,
 )
 
 __all__ = [
@@ -59,6 +61,7 @@ __all__ = [
     "POSShiftSummaryProjection",
     "ProductionBoardProjection",
     "ProductionCountsProjection",
+    "ProductionSurfaceAccess",
     "WorkOrderCardProjection",
     "build_dashboard",
     "build_day_closing",
@@ -72,4 +75,5 @@ __all__ = [
     "build_pos",
     "build_pos_shift_summary",
     "build_production_board",
+    "resolve_production_access",
 ]

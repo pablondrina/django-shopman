@@ -102,6 +102,43 @@ class PositionOptionProjection:
 
 
 @dataclass(frozen=True)
+class ProductionSurfaceAccess:
+    """Column-level access for the production board surface."""
+
+    can_manage_all: bool
+    can_view_suggested: bool
+    can_edit_suggested: bool
+    can_view_planned: bool
+    can_edit_planned: bool
+    can_view_started: bool
+    can_edit_started: bool
+    can_view_finished: bool
+    can_edit_finished: bool
+    can_view_unsold: bool
+    can_edit_unsold: bool
+
+    @property
+    def can_access_board(self) -> bool:
+        return any((
+            self.can_manage_all,
+            self.can_view_suggested,
+            self.can_edit_suggested,
+            self.can_view_planned,
+            self.can_edit_planned,
+            self.can_view_started,
+            self.can_edit_started,
+            self.can_view_finished,
+            self.can_edit_finished,
+            self.can_view_unsold,
+            self.can_edit_unsold,
+        ))
+
+    @property
+    def can_see_current_kernel_columns(self) -> bool:
+        return self.can_view_planned or self.can_view_started or self.can_view_finished
+
+
+@dataclass(frozen=True)
 class ProductionBoardProjection:
     """Top-level read model for the production board."""
 
@@ -117,6 +154,7 @@ class ProductionBoardProjection:
     recipes: tuple[RecipeOptionProjection, ...]
     positions: tuple[PositionOptionProjection, ...]
     default_position_pk: int | None
+    access: ProductionSurfaceAccess
 
 
 # ── Builders ───────────────────────────────────────────────────────────
@@ -127,9 +165,11 @@ def build_production_board(
     selected_date: date | None = None,
     position_ref: str = "",
     operator_ref: str = "",
+    access: ProductionSurfaceAccess | None = None,
 ) -> ProductionBoardProjection:
     """Build the production board projection."""
     selected_date = selected_date or date.today()
+    access = access or _full_access()
 
     # Fetch work orders for the selected date
     wos_qs = (
@@ -143,7 +183,10 @@ def build_production_board(
     if operator_ref:
         wos_qs = wos_qs.filter(operator_ref=operator_ref)
 
-    wo_cards = tuple(_build_wo_card(wo) for wo in wos_qs)
+    wo_cards = tuple(
+        card for card in (_build_wo_card(wo) for wo in wos_qs)
+        if _can_view_card(card, access)
+    )
 
     # Craft summary via service
     summary = craft.summary(
@@ -164,18 +207,18 @@ def build_production_board(
             WorkOrder.objects.select_related("recipe").get(ref=item.ref),
         )
         for item in queue_items
-        if item.status == WorkOrder.Status.PLANNED
+        if item.status == WorkOrder.Status.PLANNED and access.can_view_planned
     )
     started_queue = tuple(
         _build_wo_card(
             WorkOrder.objects.select_related("recipe").get(ref=item.ref),
         )
         for item in queue_items
-        if item.status == WorkOrder.Status.STARTED
+        if item.status == WorkOrder.Status.STARTED and access.can_view_started
     )
     finished_queue = tuple(
         wo for wo in wo_cards
-        if wo.status == WorkOrder.Status.FINISHED
+        if wo.status == WorkOrder.Status.FINISHED and access.can_view_finished
     )
 
     counts = ProductionCountsProjection(
@@ -220,6 +263,7 @@ def build_production_board(
         recipes=recipes,
         positions=positions,
         default_position_pk=default_pos.pk if default_pos else None,
+        access=access,
     )
 
 
@@ -261,6 +305,58 @@ def _build_wo_card(wo: WorkOrder) -> WorkOrderCardProjection:
         created_at_display=_format_datetime(wo.created_at),
         can_void=wo.status in (WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED),
     )
+
+
+def resolve_production_access(user) -> ProductionSurfaceAccess:
+    """Resolve canonical column access for the production surface."""
+    if getattr(user, "is_superuser", False) or user.has_perm("shop.manage_production"):
+        return _full_access()
+
+    def view(column: str) -> bool:
+        return user.has_perm(f"shop.view_production_{column}") or edit(column)
+
+    def edit(column: str) -> bool:
+        return user.has_perm(f"shop.edit_production_{column}")
+
+    return ProductionSurfaceAccess(
+        can_manage_all=False,
+        can_view_suggested=view("suggested"),
+        can_edit_suggested=edit("suggested"),
+        can_view_planned=view("planned"),
+        can_edit_planned=edit("planned"),
+        can_view_started=view("started"),
+        can_edit_started=edit("started"),
+        can_view_finished=view("finished"),
+        can_edit_finished=edit("finished"),
+        can_view_unsold=view("unsold"),
+        can_edit_unsold=edit("unsold"),
+    )
+
+
+def _full_access() -> ProductionSurfaceAccess:
+    return ProductionSurfaceAccess(
+        can_manage_all=True,
+        can_view_suggested=True,
+        can_edit_suggested=True,
+        can_view_planned=True,
+        can_edit_planned=True,
+        can_view_started=True,
+        can_edit_started=True,
+        can_view_finished=True,
+        can_edit_finished=True,
+        can_view_unsold=True,
+        can_edit_unsold=True,
+    )
+
+
+def _can_view_card(card: WorkOrderCardProjection, access: ProductionSurfaceAccess) -> bool:
+    if card.status == WorkOrder.Status.PLANNED:
+        return access.can_view_planned
+    if card.status == WorkOrder.Status.STARTED:
+        return access.can_view_started
+    if card.status == WorkOrder.Status.FINISHED:
+        return access.can_view_finished
+    return access.can_manage_all
 
 
 def _wo_started_qty(wo: WorkOrder) -> Decimal | None:

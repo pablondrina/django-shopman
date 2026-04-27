@@ -16,30 +16,34 @@ from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
 from django.urls import reverse
 
-from shopman.backstage.projections.production import build_production_board
+from shopman.backstage.projections.production import (
+    build_production_board,
+    resolve_production_access,
+)
 from shopman.shop.services import production as production_service
 
 logger = logging.getLogger(__name__)
 
 TEMPLATE = "gestor/producao/index.html"
-PERMISSION = "shop.manage_production"
 
 
 def production_view(request, admin_site):
     """GET: form + today's WOs. POST: create + finish WO."""
-    if not request.user.has_perm(PERMISSION):
-        messages.error(request, "Sem permissão para registrar produção.")
+    access = resolve_production_access(request.user)
+    if not access.can_access_board:
+        messages.error(request, "Sem permissão para acessar produção.")
         return HttpResponseRedirect(reverse("admin:index"))
 
     if request.method == "POST":
-        return _handle_post(request, admin_site)
+        return _handle_post(request, admin_site, access)
 
-    return _render(request, admin_site)
+    return _render(request, admin_site, access)
 
 
 def production_void_view(request, admin_site):
     """POST: void a WorkOrder."""
-    if not request.user.has_perm(PERMISSION):
+    access = resolve_production_access(request.user)
+    if not (access.can_manage_all or access.can_edit_planned or access.can_edit_started):
         messages.error(request, "Sem permissão.")
         return HttpResponseRedirect(reverse("admin:index"))
 
@@ -64,8 +68,12 @@ def production_void_view(request, admin_site):
     return HttpResponseRedirect(reverse("admin:shop_production"))
 
 
-def _handle_post(request, admin_site):
+def _handle_post(request, admin_site, access):
     """Create WorkOrder + finish immediately."""
+    if not access.can_edit_finished:
+        messages.error(request, "Sem permissão para informar produção concluída.")
+        return HttpResponseRedirect(reverse("admin:shop_production"))
+
     recipe_id = request.POST.get("recipe")
     quantity_raw = request.POST.get("quantity", "").strip()
     position_id = request.POST.get("position", "").strip()
@@ -93,7 +101,7 @@ def _handle_post(request, admin_site):
     return HttpResponseRedirect(reverse("admin:shop_production"))
 
 
-def _render(request, admin_site):
+def _render(request, admin_site, access):
     """Render the production page using projection."""
     date_param = (request.GET.get("date") or "").strip()
     try:
@@ -107,6 +115,7 @@ def _render(request, admin_site):
         selected_date=selected_date,
         position_ref=position_ref,
         operator_ref=operator_ref,
+        access=access,
     )
 
     context = {
@@ -116,6 +125,7 @@ def _render(request, admin_site):
         "recipes": board.recipes,
         "positions": board.positions,
         "default_position_id": board.default_position_pk,
+        "production_access": board.access,
         "today_wos": board.work_orders,
         "craft_summary": board.counts,
         "planned_queue": board.planned_queue,
@@ -137,7 +147,8 @@ def bulk_create_work_orders(request: HttpRequest) -> HttpResponse:
     Expects JSON body: {"date": "YYYY-MM-DD", "orders": [{"recipe_ref": "...", "quantity": N}, ...]}
     Returns HTMX partial with result summary.
     """
-    if not request.user.has_perm(PERMISSION):
+    access = resolve_production_access(request.user)
+    if not (access.can_manage_all or access.can_edit_planned):
         return HttpResponse("Você não tem permissão para esta ação.", status=403)
 
     if request.method != "POST":
