@@ -354,17 +354,18 @@ def _format_customer_display(value: str) -> str:
         ddd = digits[2:4]
         number = digits[4:]
         if len(number) == 9:
-            return f"+55 {ddd} {number[:5]}-{number[5:]}"
+            return f"({ddd}) {number[:5]}-{number[5:]}"
         if len(number) == 8:
-            return f"+55 {ddd} {number[:4]}-{number[4:]}"
+            return f"({ddd}) {number[:4]}-{number[4:]}"
+
+    if label.startswith("+"):
+        return "+" + digits
 
     if len(digits) == 11:
         return f"({digits[:2]}) {digits[2:7]}-{digits[7:]}"
     if len(digits) == 10:
         return f"({digits[:2]}) {digits[2:6]}-{digits[6:]}"
 
-    if label.startswith("+"):
-        return "+" + digits
     return label
 
 

@@ -95,7 +95,17 @@ class OrderQueueSurfaceTests(TestCase):
     def test_customer_phone_is_formatted_for_operator_scan(self) -> None:
         card = build_order_card(_phone_order("A-PHONE", "+5543984049009"))
 
-        self.assertEqual(card.customer_name, "+55 43 98404-9009")
+        self.assertEqual(card.customer_name, "(43) 98404-9009")
+
+    def test_customer_landline_phone_is_formatted_without_brazil_country_code(self) -> None:
+        card = build_order_card(_phone_order("A-LANDLINE", "554333231997"))
+
+        self.assertEqual(card.customer_name, "(43) 3323-1997")
+
+    def test_international_customer_phone_keeps_country_code(self) -> None:
+        card = build_order_card(_phone_order("A-INTL", "+14155552671"))
+
+        self.assertEqual(card.customer_name, "+14155552671")
 
 
 class OrderAdvanceSurfaceTests(TestCase):
