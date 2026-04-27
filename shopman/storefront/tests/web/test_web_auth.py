@@ -194,6 +194,38 @@ class TestAccessLinkLoginView:
         assert response.url == "/minha-conta/"
 
 
+# ── Login page ─────────────────────────────────────────────────────
+
+
+class TestLoginView:
+    def test_logged_in_login_rejects_external_next(self, client: Client, customer):
+        _login_as_customer(client, customer)
+
+        response = client.get("/login/?next=https://evil.example/phish")
+
+        assert response.status_code == 302
+        assert response.url.startswith("/")
+        assert "evil.example" not in response.url
+
+    @override_settings(RATELIMIT_ENABLE=True)
+    def test_login_phone_request_is_rate_limited(self, client: Client):
+        with patch("shopman.doorman.services.verification.AuthService") as mock_vs:
+            mock_vs.request_code.return_value = type("R", (), {
+                "success": True, "code_id": "x", "expires_at": "x",
+            })()
+
+            payload = {"step": "phone", "phone": "(43) 99999-8888", "delivery_method": "whatsapp"}
+            for _ in range(5):
+                response = client.post("/login/?next=/checkout/", payload)
+                assert response.status_code != 429
+
+            mock_vs.request_code.reset_mock()
+            response = client.post("/login/?next=/checkout/", payload)
+
+            assert response.status_code == 429
+            assert "Muitas tentativas" in response.content.decode()
+
+
 # ── DeviceTrust ────────────────────────────────────────────────────
 
 

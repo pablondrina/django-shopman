@@ -106,12 +106,20 @@ def interpret_verify_code(request) -> AuthResult[VerifyCodeIntent]:
     """Extract VerifyCodeIntent from VerifyCodeView.post()."""
     phone_raw = request.POST.get("phone", "").strip()
     code_input = request.POST.get("code", "").strip()
-    form_data = {"phone": phone_raw, "code": code_input}
+    code_digits = re.sub(r"\D", "", code_input)
+    form_data = {"phone": phone_raw, "code": code_digits or code_input}
 
-    if not phone_raw or not code_input:
+    if not phone_raw or not code_digits:
         return AuthResult(
             intent=None,
             errors={"code": "Código não informado."},
+            form_data=form_data,
+        )
+
+    if len(code_digits) != 6:
+        return AuthResult(
+            intent=None,
+            errors={"code": "Informe os 6 números do código."},
             form_data=form_data,
         )
 
@@ -124,7 +132,7 @@ def interpret_verify_code(request) -> AuthResult[VerifyCodeIntent]:
         )
 
     return AuthResult(
-        intent=VerifyCodeIntent(phone=phone, code=code_input),
+        intent=VerifyCodeIntent(phone=phone, code=code_digits),
         errors={},
         form_data=form_data,
     )
@@ -236,13 +244,13 @@ def _interpret_login_phone(request, next_url: str) -> AuthResult[LoginIntent]:
 
 def _interpret_login_name(request, next_url: str) -> AuthResult[LoginIntent]:
     phone = request.session.get("login_phone", "")
-    name = request.POST.get("name", "").strip()
+    name = clean_display_name(request.POST.get("name", ""))
     form_data = {"name": name, "phone": phone, "next": next_url}
 
     if not name:
         return AuthResult(
             intent=None,
-            errors={"name": "Nome é obrigatório."},
+            errors={"name": "Como podemos te chamar?"},
             form_data=form_data,
         )
 

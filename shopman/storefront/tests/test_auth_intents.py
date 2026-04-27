@@ -168,6 +168,18 @@ class TestInterpretVerifyCode:
         assert result.intent.phone.startswith("+")
         assert result.intent.code == "123456"
 
+    def test_code_accepts_pasted_format(self):
+        req = _post({"phone": "43999998888", "code": "123-456"})
+        result = interpret_verify_code(req)
+        assert result.intent is not None
+        assert result.intent.code == "123456"
+
+    def test_code_requires_six_digits(self):
+        req = _post({"phone": "43999998888", "code": "12345"})
+        result = interpret_verify_code(req)
+        assert result.intent is None
+        assert result.errors["code"] == "Informe os 6 números do código."
+
     def test_form_data_carries_raw_phone(self):
         req = _post({"phone": "43999998888", "code": "123456"})
         result = interpret_verify_code(req)

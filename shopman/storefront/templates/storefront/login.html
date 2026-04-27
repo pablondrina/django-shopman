@@ -13,14 +13,14 @@
 {% omotenashi 'LOGIN_NAME_SUBTITLE' as login_name_subtitle %}
 {% omotenashi 'LOGIN_NAME_CTA' as login_name_cta %}
 
-<div class="max-w-xl mx-auto mt-6 sm:mt-10 px-4"
+<div class="max-w-lg mx-auto mt-3 sm:mt-8 px-4"
      x-data="{ showChangePhoneConfirm: false }">
 
   {% comment %}── Card de autenticação: contexto compacto + formulário em primeiro plano ──{% endcomment %}
   <div class="rounded-radius overflow-hidden border border-outline bg-white shadow-sm dark:border-outline-dark dark:bg-surface-dark">
 
     {% comment %}── Cabeçalho compacto: orienta sem empurrar a ação principal ──{% endcomment %}
-    <div class="relative h-28 sm:h-36">
+    <div class="relative h-28 sm:h-32">
       <img src="https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=1600&q=80"
            alt=""
            aria-hidden="true"
@@ -37,13 +37,13 @@
             {{ login_code_heading.title }}
           </h1>
         {% elif step == "name" %}
-          <p class="font-title text-sm opacity-95 mb-1 drop-shadow-md">Que bom te ver aqui!</p>
+          <p class="font-title text-sm opacity-95 mb-1 drop-shadow-md">Último passo</p>
           <h1 class="font-title text-xl sm:text-2xl font-semibold leading-tight drop-shadow-lg">
             {{ login_name_heading.title }}
           </h1>
         {% else %}
           {% if trusted_name %}
-            <p class="font-title text-sm opacity-95 mb-1 drop-shadow-md">Bem-vindo de volta, {{ trusted_name }}!</p>
+            <p class="font-title text-sm opacity-95 mb-1 drop-shadow-md">Olá, {{ trusted_name }}!</p>
             <h1 class="font-title text-xl sm:text-2xl font-semibold leading-tight drop-shadow-lg">
               Acesse sua conta
             </h1>
@@ -53,7 +53,7 @@
               Entre para continuar
             </h1>
           {% else %}
-            <p class="font-title text-sm opacity-95 mb-1 drop-shadow-md">Bem-vindo(a)!</p>
+            <p class="font-title text-sm opacity-95 mb-1 drop-shadow-md">Boas-vindas</p>
             <h1 class="font-title text-xl sm:text-2xl font-semibold leading-tight drop-shadow-lg">
               {{ login_phone_heading.title }}
             </h1>
@@ -63,7 +63,7 @@
     </div>
 
     {% comment %}── Corpo do card — subtítulo contextual + form ──{% endcomment %}
-    <div class="p-5 sm:p-7">
+    <div class="p-5 sm:p-6">
 
     {% if step == "phone" %}
     {% comment %}═══ Step 1: Phone ═══{% endcomment %}
@@ -83,7 +83,7 @@
         Entrar sem código
       </button>
       <p class="mt-2 text-center text-xs text-on-surface/85 dark:text-on-surface-dark/60">
-        Dispositivo reconhecido. Você também pode usar seu telefone abaixo.
+        Este aparelho já foi confirmado. Você também pode usar o telefone abaixo.
       </p>
     </div>
     {% endif %}
@@ -104,7 +104,7 @@
       <div class="flex w-full flex-col gap-2 text-on-surface dark:text-on-surface-dark"
            x-data="phoneMask('{{ phone_value }}')" x-init="init()">
         <label for="phone" class="text-base font-medium text-on-surface-strong dark:text-on-surface-dark-strong">
-          Seu telefone
+          Telefone com DDD
         </label>
         <div class="flex min-w-0">
           <div class="flex items-center gap-2 rounded-l-radius border-2 border-r-0 border-outline bg-surface-alt px-3 text-base select-none dark:border-outline-dark dark:bg-surface-dark-alt/50">
@@ -129,6 +129,17 @@
         {% endif %}
         {% omotenashi 'CHECKOUT_PHONE_PURPOSE' as phone_purpose %}
         {% if phone_purpose %}<p class="text-sm text-on-surface/85 dark:text-on-surface-dark/60 text-center">{{ phone_purpose.message }}</p>{% endif %}
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 text-xs text-on-surface/75 dark:text-on-surface-dark/60" aria-label="Segurança do login">
+        <div class="flex min-h-10 items-center justify-center gap-1.5 rounded-radius bg-surface-alt px-2 text-center dark:bg-surface-dark-alt/50">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">lock</span>
+          Sem senha
+        </div>
+        <div class="flex min-h-10 items-center justify-center gap-1.5 rounded-radius bg-surface-alt px-2 text-center dark:bg-surface-dark-alt/50">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">timer</span>
+          Código único
+        </div>
       </div>
 
       <button type="submit"
@@ -211,7 +222,7 @@
     {% elif step == "code" %}
     {% comment %}═══ Step 2: OTP ═══{% endcomment %}
     <p class="mb-5 text-center text-sm text-on-surface/85 dark:text-on-surface-dark/70">
-      Enviamos um código para o {% if delivery_method == "sms" %}SMS{% else %}WhatsApp{% endif %} número
+      Enviamos um código por {% if delivery_method == "sms" %}SMS{% else %}WhatsApp{% endif %} para
       <span class="whitespace-nowrap font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ phone_value|format_phone }}</span>.
     </p>
 
@@ -322,8 +333,7 @@
           Trocar de telefone?
         </h3>
         <p class="text-base text-on-surface/85 dark:text-on-surface-dark/70 mb-6">
-          Se trocar agora, você perde o código que acabamos de enviar e vai precisar
-          começar o login de novo. Tudo bem?
+          Ao trocar, o código enviado deixa de valer. Você recebe outro em seguida.
         </p>
         <div class="flex flex-col sm:flex-row-reverse gap-3">
           <a href="{% url 'storefront:login' %}{% if next %}?next={{ next|urlencode }}{% endif %}"
@@ -331,14 +341,14 @@
                     text-base font-semibold px-6 py-3 hover:opacity-90 transition"
              style="min-height: 48px;">
             <span class="material-symbols-rounded icon-sm" aria-hidden="true">autorenew</span>
-            Sim, trocar
+            Trocar telefone
           </a>
           <button type="button" @click="showChangePhoneConfirm = false"
                   class="flex-1 rounded-radius border-2 border-outline dark:border-outline-dark
                          text-base font-medium text-on-surface dark:text-on-surface-dark
                          px-6 py-3 hover:bg-surface-alt dark:hover:bg-surface-dark-alt transition"
                   style="min-height: 48px;">
-            Cancelar, continuo aqui
+            Continuar aqui
           </button>
         </div>
       </div>

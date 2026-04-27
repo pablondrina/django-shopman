@@ -116,7 +116,7 @@ def test_customer_surfaces_keep_focus_first_hierarchy():
 
     assert "h-36 sm:h-44 md:h-auto md:aspect-square" in pdp
     assert "text-3xl" not in pdp
-    assert "h-28 sm:h-36" in login
+    assert "h-28 sm:h-32" in login
     assert "h-44 sm:h-56" not in login
     assert "text-2xl lg:text-3xl" not in menu
     assert "text-2xl lg:text-3xl" not in cart_page
@@ -139,7 +139,7 @@ def test_auth_inputs_stay_readable_on_mobile():
 
     assert "text-lg tabular-nums" in login
     assert "font-mono" not in login
-    assert "text-xl tabular-nums tracking-[0.28em]" in code
+    assert "text-lg sm:text-xl tabular-nums tracking-[0.18em]" in code
     assert "tracking-[0.5em]" not in code
     assert login.count("CHECKOUT_PHONE_PURPOSE") == 1
 
@@ -166,7 +166,7 @@ def test_badges_use_canonical_surface_contract():
     assert "badge-warning" in availability
     assert "badge-info" in availability
     assert "badge-neutral" in availability
-    assert "badge-warning w-fit" in grid
+    assert "badge-warning commerce-promo-badge w-fit" in grid
     assert "badge-neutral w-fit" in preview
     assert "badge-neutral mt-3 w-fit" in pdp
     assert "badge-info self-start" in drawer

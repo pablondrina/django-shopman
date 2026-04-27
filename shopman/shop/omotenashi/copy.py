@@ -301,37 +301,37 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
 
     # ── Auth ──────────────────────────────────────────────────────
     "LOGIN_WELCOME_BACK": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Bem-vinda de volta.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Pronto. Você está entrando.")},
     },
     "LOGOUT_FAREWELL": {
         WILDCARD: {WILDCARD: CopyEntry(message="Até logo.")},
     },
     "LOGIN_PHONE_HEADING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Vamos entrar?")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Entre com seu telefone")},
     },
     "LOGIN_PHONE_SUBTITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Vamos enviar um código para seu WhatsApp. É seguro e não exige senha.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Enviamos um código pelo WhatsApp. Sem senha.")},
     },
     "LOGIN_PHONE_CTA_WA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Receber código no WhatsApp")},
     },
     "LOGIN_PHONE_CTA_SMS": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Prefiro receber por SMS")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Receber por SMS")},
     },
     "LOGIN_CODE_HEADING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Digite o código recebido")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Informe o código")},
     },
     "LOGIN_NAME_HEADING": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Como você quer ser chamado(a)?")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Como podemos te chamar?")},
     },
     "LOGIN_NAME_SUBTITLE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Pode ser seu primeiro nome ou um apelido. O que for mais natural.")},
     },
     "LOGIN_NAME_CTA": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Confirmar")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Continuar")},
     },
     "DEVICE_TRUST_PROMPT": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Salvar este dispositivo?", message="Entre sem código pelos próximos 30 dias.")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Salvar este aparelho?", message="Use só em um aparelho seu. Por 30 dias, você entra sem código.")},
     },
     "DEVICE_TRUST_CTA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Salvar por 30 dias")},

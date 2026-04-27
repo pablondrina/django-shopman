@@ -106,7 +106,9 @@ def verify_error_message(auth_result) -> str:
     raw_error = auth_result.error or ""
     error_msg = translations.get(raw_error, raw_error) or "Código inválido."
     if auth_result.attempts_remaining is not None and auth_result.attempts_remaining > 0:
-        error_msg += f" ({auth_result.attempts_remaining} tentativa(s) restante(s))"
+        count = auth_result.attempts_remaining
+        suffix = "tentativa restante" if count == 1 else "tentativas restantes"
+        error_msg += f" ({count} {suffix})"
     return error_msg
 
 

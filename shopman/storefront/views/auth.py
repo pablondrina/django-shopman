@@ -6,6 +6,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
 from django.views import View
+from django_ratelimit.core import is_ratelimited
 from django_ratelimit.decorators import ratelimit
 from shopman.utils.phone import normalize_phone
 
@@ -20,6 +21,19 @@ from ..intents.auth import (
 )
 
 logger = logging.getLogger("shopman.storefront.views.auth")
+
+
+def _safe_next(request: HttpRequest, next_url: str | None) -> str:
+    return auth_service.safe_redirect_url(next_url, request) if next_url else ""
+
+
+def _auth_phone_rate_key(group, request) -> str:
+    raw_phone = request.POST.get("phone", "")
+    try:
+        normalized = normalize_phone(raw_phone)
+    except Exception:
+        normalized = ""
+    return normalized or raw_phone.strip() or request.META.get("REMOTE_ADDR", "")
 
 
 def get_authenticated_customer(request: HttpRequest):
@@ -39,7 +53,7 @@ class LoginView(View):
     """Dedicated login page: phone → OTP → logged in → redirect to ?next="""
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        next_url = request.GET.get("next", "")
+        next_url = _safe_next(request, request.GET.get("next", ""))
         step = request.GET.get("step", "")
 
         # Post-login: server decides based on real state (not stale session flag)
@@ -110,7 +124,7 @@ class LoginView(View):
 
     def _handle_phone(self, request):
         result = interpret_login(request)
-        next_url = result.form_data.get("next", "")
+        next_url = _safe_next(request, result.form_data.get("next", ""))
 
         if result.intent is None:
             error = list(result.errors.values())[0] if result.errors else ""
@@ -126,6 +140,23 @@ class LoginView(View):
         intent = result.intent
         phone = intent.phone
         delivery_method = intent.delivery_method
+
+        if is_ratelimited(
+            request,
+            group="storefront.login.request_code",
+            key=_auth_phone_rate_key,
+            rate="5/m",
+            method="POST",
+            increment=True,
+        ):
+            return render(request, "storefront/login.html", {
+                "step": "phone",
+                "error": "Muitas tentativas. Aguarde alguns minutos antes de pedir outro código.",
+                "phone_value": result.form_data.get("phone", ""),
+                "next": next_url,
+                "trusted_name": "",
+                "login_context": "checkout" if "checkout" in next_url else "direct",
+            }, status=429)
 
         customer = auth_service.customer_by_phone(phone)
 
@@ -157,7 +188,7 @@ class LoginView(View):
 
     def _handle_name(self, request):
         result = interpret_login(request)
-        next_url = result.form_data.get("next", "")
+        next_url = _safe_next(request, result.form_data.get("next", ""))
 
         if result.intent is None:
             error = list(result.errors.values())[0] if result.errors else ""
@@ -233,7 +264,7 @@ class CustomerLookupView(View):
         })
 
 
-@method_decorator(ratelimit(key="post:phone", rate="5/m", method="POST", block=False), name="post")
+@method_decorator(ratelimit(key=_auth_phone_rate_key, rate="5/m", method="POST", block=False), name="post")
 class RequestCodeView(View):
     """HTMX: request verification code for phone verification during checkout."""
 
@@ -272,7 +303,7 @@ class RequestCodeView(View):
         })
 
 
-@method_decorator(ratelimit(key="post:phone", rate="10/m", method="POST", block=False), name="post")
+@method_decorator(ratelimit(key=_auth_phone_rate_key, rate="10/m", method="POST", block=False), name="post")
 class VerifyCodeView(View):
     """HTMX: verify verification code for phone during checkout."""
 
@@ -370,7 +401,7 @@ class DeviceCheckLoginView(View):
         if not customer:
             return HttpResponse(status=204)
 
-        next_url = request.POST.get("next", "")
+        next_url = auth_service.safe_redirect_url(request.POST.get("next", ""), request)
         return render(request, "storefront/partials/auth_trusted_greeting.html", {
             "customer_name": customer.first_name or customer.name,
             "next_url": next_url,
