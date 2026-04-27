@@ -25,30 +25,25 @@
         hx-push-url="true">
     {% csrf_token %}
     <div class="card mb-4">
-      <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-4">Produtos com estoque vendável</h2>
+      <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-1.5">Contagem final</h2>
+      <p class="field-help mb-4">Informe apenas o que sobrou fisicamente. O sistema trata destino e perdas automaticamente.</p>
       <div class="overflow-x-auto">
         <table class="min-w-full text-sm border-collapse">
           <thead class="text-on-surface/60 dark:text-on-surface-dark/60 text-left">
             <tr class="border-b border-outline dark:border-outline-dark">
               <th class="py-2 pr-4 font-semibold">SKU</th>
               <th class="py-2 pr-4 font-semibold">Produto</th>
-              <th class="py-2 pr-4 font-semibold">Disponível</th>
-              <th class="py-2 pr-4 font-semibold">Tipo</th>
-              <th class="py-2 pr-4 font-semibold">Não vendido</th>
+              <th class="py-2 pr-4 font-semibold text-right">Sobraram</th>
             </tr>
           </thead>
           <tbody>
             {% for item in items %}
             <tr class="border-b border-outline dark:border-outline-dark">
-              <td class="py-2 pr-4 font-mono text-xs">{{ item.sku }}</td>
+              <td class="py-2 pr-4 text-sm font-semibold tabular-nums text-on-surface/70 dark:text-on-surface-dark/70">{{ item.sku }}</td>
               <td class="py-2 pr-4">{{ item.name }}</td>
-              <td class="py-2 pr-4">{{ item.qty_available }}</td>
-              <td class="py-2 pr-4">
-                <span class="badge {{ item.badge_css }}">{{ item.badge_label }}</span>
-              </td>
-              <td class="py-2 pr-4">
+              <td class="py-2 pl-4 text-right">
                 {% if not existing_closing %}
-                <input type="number" name="qty_{{ item.sku }}" value="0" min="0" max="{{ item.qty_available }}" class="input-field w-24 py-2" />
+                <input type="number" name="qty_{{ item.sku }}" value="0" min="0" inputmode="numeric" class="input-field w-24 py-2 text-right tabular-nums ml-auto" aria-label="Quantidade que sobrou de {{ item.name }}" />
                 {% else %}
                 <span class="text-on-surface/70 dark:text-on-surface-dark/70">Fechado</span>
                 {% endif %}
@@ -56,21 +51,14 @@
             </tr>
             {% endfor %}
           </tbody>
-          <tfoot>
-            <tr class="border-t border-outline dark:border-outline-dark font-medium">
-              <td class="py-2 pr-4" colspan="2">Total</td>
-              <td class="py-2 pr-4">{{ closing.total_available }}</td>
-              <td colspan="2"></td>
-            </tr>
-          </tfoot>
         </table>
       </div>
     </div>
 
     {% if not existing_closing %}
     <button type="submit" class="btn-primary">
-      <span class="htmx-indicator material-symbols-rounded animate-spin text-sm mr-1" aria-hidden="true">progress_activity</span>
-      Executar fechamento
+      <span class="htmx-indicator material-symbols-rounded animate-spin icon-sm mr-1" aria-hidden="true">progress_activity</span>
+      Registrar contagem final
     </button>
     {% endif %}
   </form>

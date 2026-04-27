@@ -34,13 +34,13 @@ def perform_day_closing(
     with transaction.atomic():
         for item in items:
             sku = item.sku
-            qty_unsold = _parse_qty(quantities_by_sku.get(sku, "0"))
+            qty_reported = _parse_qty(quantities_by_sku.get(sku, "0"))
 
-            if qty_unsold <= 0:
-                snapshot.append(_snapshot(item, qty_d1=0, qty_loss=0))
+            if qty_reported <= 0:
+                snapshot.append(_snapshot(item, qty_reported=qty_reported, qty_d1=0, qty_loss=0))
                 continue
 
-            qty_unsold = min(qty_unsold, item.qty_available)
+            qty_unsold = min(qty_reported, item.qty_available)
             qty_d1 = 0
             qty_loss = 0
 
@@ -61,7 +61,15 @@ def perform_day_closing(
                 _issue_from_saleable(sku, qty_unsold, f"perda:{closing_date}")
                 qty_loss = qty_unsold
 
-            snapshot.append(_snapshot(item, qty_unsold=qty_unsold, qty_d1=qty_d1, qty_loss=qty_loss))
+            snapshot.append(
+                _snapshot(
+                    item,
+                    qty_reported=qty_reported,
+                    qty_unsold=qty_unsold,
+                    qty_d1=qty_d1,
+                    qty_loss=qty_loss,
+                )
+            )
 
         DayClosing.objects.create(
             date=closing_date,
@@ -79,9 +87,12 @@ def _parse_qty(raw_qty) -> int:
         return 0
 
 
-def _snapshot(item, *, qty_unsold: int = 0, qty_d1: int, qty_loss: int) -> dict:
+def _snapshot(item, *, qty_reported: int, qty_unsold: int = 0, qty_d1: int, qty_loss: int) -> dict:
     return {
         "sku": item.sku,
+        "qty_reported": qty_reported,
+        "qty_applied": qty_unsold,
+        "qty_discrepancy": qty_reported - qty_unsold,
         "qty_remaining": item.qty_available - qty_unsold,
         "qty_d1": qty_d1,
         "qty_loss": qty_loss,
