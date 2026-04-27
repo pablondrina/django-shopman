@@ -157,6 +157,10 @@ def test_auth_inputs_stay_readable_on_mobile():
     assert "Usamos só para avisar sobre seu pedido." not in login
     assert "CHECKOUT_PHONE_PURPOSE" not in login
     assert "aria-label=\"Brasil, código do país +55\"" in login
+    assert "pointer-events-none absolute left-4" in login
+    assert "'pl-[5.75rem]'" in login
+    assert "role=\"button\"" in login
+    assert "x-on:click.prevent.stop" in login
     assert "function phoneInput(initialValue)" in login
     assert "function nationalDigits(value)" in login
     assert "Usar número de outro país" in login
