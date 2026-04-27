@@ -103,6 +103,101 @@ def quick_finish(
     return recipe.output_sku, work_order.ref, qty
 
 
+def plan_work_order(
+    *,
+    recipe_id,
+    quantity,
+    target_date_value,
+    position_id="",
+    operator_ref: str = "",
+    actor: str,
+) -> tuple[str, str, Decimal]:
+    """Create a planned WorkOrder for the production board."""
+    from shopman.craftsman.services.scheduling import CraftPlanning
+
+    recipe = _get_active_recipe(recipe_id)
+    qty = _positive_decimal(quantity, error="Quantidade planejada inválida.")
+    position_ref = _position_ref(position_id)
+    target_date = _target_date_or_today(target_date_value)
+
+    work_order = CraftPlanning.plan(
+        recipe,
+        qty,
+        date=target_date,
+        position_ref=position_ref,
+        operator_ref=str(operator_ref or "").strip(),
+        source_ref="manual_production",
+        actor=actor,
+    )
+    return recipe.output_sku, work_order.ref, qty
+
+
+def adjust_work_order(
+    *,
+    work_order_id,
+    quantity,
+    reason: str,
+    actor: str,
+) -> tuple[str, Decimal]:
+    """Adjust the planned quantity of a WorkOrder."""
+    from shopman.craftsman.models import WorkOrder
+    from shopman.craftsman.services.scheduling import CraftPlanning
+
+    qty = _positive_decimal(quantity, error="Quantidade planejada inválida.")
+    work_order = WorkOrder.objects.get(pk=work_order_id)
+    CraftPlanning.adjust(
+        work_order,
+        quantity=qty,
+        reason=str(reason or "").strip() or "Ajuste no chão de fábrica",
+        actor=actor,
+    )
+    return work_order.ref, qty
+
+
+def start_work_order(
+    *,
+    work_order_id,
+    quantity,
+    position_id="",
+    operator_ref: str = "",
+    note: str = "",
+    actor: str,
+) -> tuple[str, Decimal]:
+    """Mark a planned WorkOrder as started."""
+    from shopman.craftsman.models import WorkOrder
+    from shopman.craftsman.services.scheduling import CraftPlanning
+
+    qty = _positive_decimal(quantity, error="Quantidade iniciada inválida.")
+    work_order = WorkOrder.objects.get(pk=work_order_id)
+    position_ref = _position_ref(position_id) if position_id else work_order.position_ref
+    operator = str(operator_ref or "").strip() or work_order.operator_ref
+    CraftPlanning.start(
+        work_order,
+        quantity=qty,
+        position_ref=position_ref,
+        operator_ref=operator,
+        note=str(note or "").strip(),
+        actor=actor,
+    )
+    return work_order.ref, qty
+
+
+def finish_work_order(
+    *,
+    work_order_id,
+    quantity,
+    actor: str,
+) -> tuple[str, Decimal]:
+    """Finish an existing WorkOrder with the actual produced quantity."""
+    from shopman.craftsman.models import WorkOrder
+    from shopman.craftsman.services.execution import CraftExecution
+
+    qty = _positive_decimal(quantity, error="Quantidade concluída inválida.")
+    work_order = WorkOrder.objects.get(pk=work_order_id)
+    CraftExecution.finish(order=work_order, finished=qty, actor=actor)
+    return work_order.ref, qty
+
+
 def bulk_plan(
     *,
     target_date_value,
@@ -190,3 +285,10 @@ def _target_date(value) -> date:
         return date.fromisoformat(value) if value else date.today() + timedelta(days=1)
     except (ValueError, TypeError):
         return date.today() + timedelta(days=1)
+
+
+def _target_date_or_today(value) -> date:
+    try:
+        return date.fromisoformat(value) if value else date.today()
+    except (ValueError, TypeError):
+        return date.today()

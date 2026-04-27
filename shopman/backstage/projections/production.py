@@ -102,6 +102,20 @@ class PositionOptionProjection:
 
 
 @dataclass(frozen=True)
+class ProductionSuggestionProjection:
+    """A suggested production row from Craftsman demand planning."""
+
+    recipe_pk: int
+    recipe_ref: str
+    recipe_name: str
+    output_sku: str
+    quantity: str
+    committed: str
+    avg_demand: str
+    confidence: str
+
+
+@dataclass(frozen=True)
 class ProductionSurfaceAccess:
     """Column-level access for the production board surface."""
 
@@ -153,6 +167,7 @@ class ProductionBoardProjection:
     finished_queue: tuple[WorkOrderCardProjection, ...]
     recipes: tuple[RecipeOptionProjection, ...]
     positions: tuple[PositionOptionProjection, ...]
+    suggestions: tuple[ProductionSuggestionProjection, ...]
     default_position_pk: int | None
     access: ProductionSurfaceAccess
 
@@ -249,6 +264,7 @@ def build_production_board(
         )
         for p in positions_qs
     )
+    suggestions = tuple(_build_suggestion(s) for s in _production_suggestions(selected_date))
 
     return ProductionBoardProjection(
         selected_date=selected_date.isoformat(),
@@ -262,6 +278,7 @@ def build_production_board(
         finished_queue=finished_queue,
         recipes=recipes,
         positions=positions,
+        suggestions=suggestions if access.can_view_suggested else (),
         default_position_pk=default_pos.pk if default_pos else None,
         access=access,
     )
@@ -304,6 +321,35 @@ def _build_wo_card(wo: WorkOrder) -> WorkOrderCardProjection:
         started_at_display=_format_datetime(wo.started_at) if hasattr(wo, "started_at") and wo.started_at else "",
         created_at_display=_format_datetime(wo.created_at),
         can_void=wo.status in (WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED),
+    )
+
+
+def _production_suggestions(selected_date: date) -> list:
+    try:
+        return craft.suggest(date=selected_date)
+    except Exception:
+        logger.exception("production_suggestions_failed date=%s", selected_date)
+        return []
+
+
+def _build_suggestion(suggestion) -> ProductionSuggestionProjection:
+    basis = suggestion.basis or {}
+    avg = basis.get("avg_demand", Decimal("0")) or Decimal("0")
+    committed = basis.get("committed", Decimal("0")) or Decimal("0")
+    confidence = str(basis.get("confidence", "") or "")
+    return ProductionSuggestionProjection(
+        recipe_pk=suggestion.recipe.pk,
+        recipe_ref=suggestion.recipe.ref,
+        recipe_name=suggestion.recipe.name or suggestion.recipe.ref,
+        output_sku=suggestion.recipe.output_sku,
+        quantity=_qty(suggestion.quantity),
+        committed=_qty(committed),
+        avg_demand=f"{avg:.1f}" if avg else "0",
+        confidence={
+            "high": "Alta",
+            "medium": "Média",
+            "low": "Baixa",
+        }.get(confidence, "Sem histórico"),
     )
 
 

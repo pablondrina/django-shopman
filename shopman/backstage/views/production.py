@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import date
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
@@ -69,36 +70,83 @@ def production_void_view(request, admin_site):
 
 
 def _handle_post(request, admin_site, access):
-    """Create WorkOrder + finish immediately."""
-    if not access.can_edit_finished:
-        messages.error(request, "Sem permissão para informar produção concluída.")
-        return HttpResponseRedirect(reverse("admin:shop_production"))
-
-    recipe_id = request.POST.get("recipe")
-    quantity_raw = request.POST.get("quantity", "").strip()
-    position_id = request.POST.get("position", "").strip()
-
+    """Mutate production through the canonical Craftsman lifecycle."""
+    action = (request.POST.get("action") or "quick_finish").strip()
     actor = f"admin:{request.user}"
 
     try:
-        output_sku, wo_ref, quantity = production_service.quick_finish(
-            recipe_id=recipe_id,
-            quantity=quantity_raw,
-            position_id=position_id,
-            actor=actor,
-        )
-
-        messages.success(
-            request,
-            f"Produção registrada: {output_sku} × {quantity} ({wo_ref})",
-        )
+        if action == "plan":
+            is_suggestion = request.POST.get("source") == "suggested"
+            can_plan = access.can_edit_planned or (is_suggestion and access.can_edit_suggested)
+            if not can_plan:
+                messages.error(request, "Sem permissão para planejar produção.")
+            else:
+                output_sku, wo_ref, quantity = production_service.plan_work_order(
+                    recipe_id=request.POST.get("recipe"),
+                    quantity=request.POST.get("quantity", "").strip(),
+                    target_date_value=request.POST.get("target_date", "").strip(),
+                    position_id=request.POST.get("position", "").strip(),
+                    operator_ref=request.POST.get("operator_ref", "").strip(),
+                    actor=actor,
+                )
+                messages.success(request, f"Planejado: {output_sku} × {quantity} ({wo_ref})")
+        elif action == "adjust":
+            if not access.can_edit_planned:
+                messages.error(request, "Sem permissão para ajustar planejamento.")
+            else:
+                wo_ref, quantity = production_service.adjust_work_order(
+                    work_order_id=request.POST.get("wo_id"),
+                    quantity=request.POST.get("quantity", "").strip(),
+                    reason=request.POST.get("reason", "").strip(),
+                    actor=actor,
+                )
+                messages.success(request, f"Planejamento ajustado: {wo_ref} × {quantity}")
+        elif action == "start":
+            if not access.can_edit_started:
+                messages.error(request, "Sem permissão para iniciar produção.")
+            else:
+                wo_ref, quantity = production_service.start_work_order(
+                    work_order_id=request.POST.get("wo_id"),
+                    quantity=request.POST.get("quantity", "").strip(),
+                    position_id=request.POST.get("position", "").strip(),
+                    operator_ref=request.POST.get("operator_ref", "").strip(),
+                    note=request.POST.get("note", "").strip(),
+                    actor=actor,
+                )
+                messages.success(request, f"Produção iniciada: {wo_ref} × {quantity}")
+        elif action == "finish":
+            if not access.can_edit_finished:
+                messages.error(request, "Sem permissão para concluir produção.")
+            else:
+                wo_ref, quantity = production_service.finish_work_order(
+                    work_order_id=request.POST.get("wo_id"),
+                    quantity=request.POST.get("quantity", "").strip(),
+                    actor=actor,
+                )
+                messages.success(request, f"Produção concluída: {wo_ref} × {quantity}")
+        elif action == "quick_finish":
+            if not access.can_edit_finished:
+                messages.error(request, "Sem permissão para informar produção concluída.")
+            else:
+                output_sku, wo_ref, quantity = production_service.quick_finish(
+                    recipe_id=request.POST.get("recipe"),
+                    quantity=request.POST.get("quantity", "").strip(),
+                    position_id=request.POST.get("position", "").strip(),
+                    actor=actor,
+                )
+                messages.success(
+                    request,
+                    f"Entrada direta registrada: {output_sku} × {quantity} ({wo_ref})",
+                )
+        else:
+            messages.error(request, "Ação de produção inválida.")
     except ValueError as exc:
         messages.error(request, str(exc))
     except Exception as exc:
-        logger.exception("Quick production failed")
+        logger.exception("Production action failed action=%s", action)
         messages.error(request, f"Erro ao registrar produção: {exc}")
 
-    return HttpResponseRedirect(reverse("admin:shop_production"))
+    return HttpResponseRedirect(_production_redirect(request))
 
 
 def _render(request, admin_site, access):
@@ -131,11 +179,27 @@ def _render(request, admin_site, access):
         "planned_queue": board.planned_queue,
         "started_queue": board.started_queue,
         "finished_queue": board.finished_queue,
+        "suggestions": board.suggestions,
         "selected_position_ref": board.selected_position_ref,
         "selected_operator_ref": board.selected_operator_ref,
         "selected_date": selected_date,
     }
     return TemplateResponse(request, TEMPLATE, context)
+
+
+def _production_redirect(request) -> str:
+    params = {}
+    date_value = (request.POST.get("target_date") or request.POST.get("date") or "").strip()
+    if date_value:
+        params["date"] = date_value
+    position_ref = (request.POST.get("position_ref") or "").strip()
+    operator_ref = (request.POST.get("operator_ref_filter") or "").strip()
+    if position_ref:
+        params["position_ref"] = position_ref
+    if operator_ref:
+        params["operator_ref"] = operator_ref
+    base = reverse("admin:shop_production")
+    return f"{base}?{urlencode(params)}" if params else base
 
 
 # ── Bulk Create (from dashboard suggestions) ────────────────────────

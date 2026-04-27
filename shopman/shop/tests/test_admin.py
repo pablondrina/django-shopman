@@ -359,3 +359,106 @@ class TestProductionAdminView:
             response = production_view(request, admin.site)
 
         assert response.status_code == 302
+
+    def test_post_can_plan_start_and_finish_canonical_lifecycle(self, db, rf, admin_user):
+        from datetime import date
+
+        from shopman.backstage.views.production import production_view
+        from shopman.craftsman.models import WorkOrder
+
+        recipe = Recipe.objects.create(
+            ref="rustico-v1",
+            name="Italiano Rústico",
+            output_sku="ITALIANO-RUSTICO",
+            batch_size=10,
+        )
+
+        plan_request = rf.post(
+            "/admin/shopman/shop/production/",
+            {
+                "action": "plan",
+                "recipe": str(recipe.pk),
+                "quantity": "12",
+                "target_date": date.today().isoformat(),
+                "operator_ref": "user:ana",
+            },
+        )
+        plan_request.user = admin_user
+        with patch("shopman.backstage.views.production.messages"):
+            response = production_view(plan_request, admin.site)
+
+        assert response.status_code == 302
+        work_order = WorkOrder.objects.get(output_sku="ITALIANO-RUSTICO")
+        assert work_order.status == WorkOrder.Status.PLANNED
+        assert work_order.operator_ref == "user:ana"
+
+        start_request = rf.post(
+            "/admin/shopman/shop/production/",
+            {
+                "action": "start",
+                "wo_id": str(work_order.pk),
+                "quantity": "11",
+                "target_date": date.today().isoformat(),
+                "operator_ref": "user:bia",
+            },
+        )
+        start_request.user = admin_user
+        with patch("shopman.backstage.views.production.messages"):
+            response = production_view(start_request, admin.site)
+
+        assert response.status_code == 302
+        work_order.refresh_from_db()
+        assert work_order.status == WorkOrder.Status.STARTED
+        assert work_order.started_qty == 11
+        assert work_order.operator_ref == "user:bia"
+
+        finish_request = rf.post(
+            "/admin/shopman/shop/production/",
+            {
+                "action": "finish",
+                "wo_id": str(work_order.pk),
+                "quantity": "10",
+                "target_date": date.today().isoformat(),
+            },
+        )
+        finish_request.user = admin_user
+        with patch("shopman.backstage.views.production.messages"):
+            response = production_view(finish_request, admin.site)
+
+        assert response.status_code == 302
+        work_order.refresh_from_db()
+        assert work_order.status == WorkOrder.Status.FINISHED
+        assert work_order.finished == 10
+        assert work_order.loss == 1
+
+    def test_suggested_editor_can_turn_suggestion_into_plan(self, db, rf):
+        from datetime import date
+
+        from shopman.backstage.views.production import production_view
+        from shopman.craftsman.models import WorkOrder
+
+        user = User.objects.create_user("suggestion-op", password="pass", is_staff=True)
+        user.user_permissions.add(_shop_permission("edit_production_suggested"))
+        recipe = Recipe.objects.create(
+            ref="bagel-v1",
+            name="Bagel",
+            output_sku="BAGEL",
+            batch_size=10,
+        )
+
+        request = rf.post(
+            "/admin/shopman/shop/production/",
+            {
+                "action": "plan",
+                "source": "suggested",
+                "recipe": str(recipe.pk),
+                "quantity": "9",
+                "target_date": date.today().isoformat(),
+            },
+        )
+        request.user = user
+        with patch("shopman.backstage.views.production.messages"):
+            response = production_view(request, admin.site)
+
+        assert response.status_code == 302
+        assert WorkOrder.objects.get(output_sku="BAGEL").quantity == 9

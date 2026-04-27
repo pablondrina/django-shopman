@@ -4,109 +4,422 @@
 {% block nav_active_producao %}active{% endblock %}
 
 {% block content %}
-<div id="production-page-content" class="p-4 space-y-6 max-w-6xl">
+<div id="production-page-content" class="h-full min-h-0 overflow-y-auto p-3 space-y-4 lg:p-4">
 
-  <section class="card">
-    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-      <div>
-        <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Produção do dia</h2>
-        <p class="field-help">Use os filtros quando precisar ver outro posto, data ou responsável.</p>
-      </div>
-      <form hx-get="."
-            hx-target="#production-page-content"
-            hx-select="#production-page-content"
-            hx-swap="outerHTML"
-            hx-push-url="true"
-            class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:min-w-[42rem]">
-        <div>
-          <label class="field-label">Data</label>
-          <input type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}" class="input-field" />
+  <section class="card p-0 overflow-hidden">
+    <div class="p-4 border-b border-outline dark:border-outline-dark">
+      <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div class="max-w-2xl">
+          <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Produção do dia</h2>
+          <p class="field-help">Planeje, inicie e conclua cada SKU no ponto certo. O fechamento recebe apenas o que sobrou fisicamente.</p>
         </div>
+        <form hx-get="."
+              hx-target="#production-page-content"
+              hx-select="#production-page-content"
+              hx-swap="outerHTML"
+              hx-push-url="true"
+              class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[10rem_12rem_12rem_10rem]">
+          <div>
+            <label class="field-label">Data</label>
+            <input type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}" class="input-field" />
+          </div>
+          <div>
+            <label class="field-label">Posto</label>
+            <select name="position_ref" class="select-field">
+              <option value="">Todos</option>
+              {% for position in positions %}
+              <option value="{{ position.ref }}" {% if selected_position_ref == position.ref %}selected{% endif %}>{{ position.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="field-label">Responsável</label>
+            <input type="text" name="operator_ref" value="{{ selected_operator_ref }}" placeholder="Nome ou usuário" class="input-field" />
+          </div>
+          <div class="flex items-end">
+            <button type="submit" class="btn-primary w-full">
+              <span class="htmx-indicator material-symbols-rounded animate-spin icon-sm" aria-hidden="true">progress_activity</span>
+              Filtrar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-px bg-outline dark:bg-outline-dark md:grid-cols-4">
+      {% if production_access.can_manage_all %}
+      <div class="bg-surface-alt dark:bg-surface-dark-alt p-4">
+        <div class="flex min-w-0 items-center gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
+          <span class="material-symbols-rounded icon-md shrink-0" aria-hidden="true">assignment</span>
+          <span class="metric-label min-w-0 truncate">Ordens</span>
+        </div>
+        <div class="metric-value mt-2">{{ craft_summary.total }}</div>
+      </div>
+      {% endif %}
+      {% if production_access.can_view_planned %}
+      <div class="bg-surface-alt dark:bg-surface-dark-alt p-4">
+        <div class="flex min-w-0 items-center gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
+          <span class="material-symbols-rounded icon-md shrink-0" aria-hidden="true">event_note</span>
+          <span class="metric-label min-w-0 truncate">Planejado</span>
+        </div>
+        <div class="metric-value mt-2">{{ craft_summary.planned_qty }}</div>
+        <p class="field-help">{{ craft_summary.planned_orders }} ordem(ns)</p>
+      </div>
+      {% endif %}
+      {% if production_access.can_view_started %}
+      <div class="bg-surface-alt dark:bg-surface-dark-alt p-4">
+        <div class="flex min-w-0 items-center gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
+          <span class="material-symbols-rounded icon-md shrink-0" aria-hidden="true">play_circle</span>
+          <span class="metric-label min-w-0 truncate">Em produção</span>
+        </div>
+        <div class="metric-value mt-2">{{ craft_summary.started_qty }}</div>
+        <p class="field-help">{{ craft_summary.started_orders }} ordem(ns)</p>
+      </div>
+      {% endif %}
+      {% if production_access.can_view_finished %}
+      <div class="bg-surface-alt dark:bg-surface-dark-alt p-4">
+        <div class="flex min-w-0 items-center gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
+          <span class="material-symbols-rounded icon-md shrink-0" aria-hidden="true">task_alt</span>
+          <span class="metric-label min-w-0 truncate">Concluído</span>
+        </div>
+        <div class="metric-value mt-2">{{ craft_summary.finished_qty }}</div>
+        <p class="field-help">Perda {{ craft_summary.loss_qty }}</p>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if production_access.can_view_suggested or production_access.can_edit_planned %}
+  <section class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,26rem)]">
+    {% if production_access.can_view_suggested %}
+    <div class="card">
+      <div class="mb-4 flex items-center justify-between gap-3">
         <div>
-          <label class="field-label">Posto</label>
-          <select name="position_ref" class="select-field">
-            <option value="">Todos</option>
-            {% for position in positions %}
-            <option value="{{ position.ref }}" {% if selected_position_ref == position.ref %}selected{% endif %}>{{ position.name }}</option>
+          <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Sugestão</h2>
+          <p class="field-help">Demanda prevista, encomendas e segurança operacional.</p>
+        </div>
+        <span class="count-badge bg-surface dark:bg-surface-dark text-on-surface/70 dark:text-on-surface-dark/70">{{ suggestions|length }}</span>
+      </div>
+      {% if suggestions %}
+      <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+        {% for suggestion in suggestions %}
+        <article class="rounded-lg border border-outline dark:border-outline-dark p-3">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <h3 class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong truncate">{{ suggestion.output_sku }}</h3>
+              <p class="field-help">{{ suggestion.recipe_name }}</p>
+            </div>
+            <span class="badge-info">Sugestão</span>
+          </div>
+          <dl class="mt-3 grid grid-cols-3 gap-2 text-sm">
+            <div>
+              <dt class="text-on-surface/60 dark:text-on-surface-dark/60">Sugerido</dt>
+              <dd class="font-semibold tabular-nums">{{ suggestion.quantity }}</dd>
+            </div>
+            <div>
+              <dt class="text-on-surface/60 dark:text-on-surface-dark/60">Encom.</dt>
+              <dd class="font-semibold tabular-nums">{{ suggestion.committed }}</dd>
+            </div>
+            <div>
+              <dt class="text-on-surface/60 dark:text-on-surface-dark/60">Conf.</dt>
+              <dd class="font-semibold">{{ suggestion.confidence }}</dd>
+            </div>
+          </dl>
+          {% if production_access.can_edit_suggested or production_access.can_edit_planned %}
+          <form method="post" class="mt-3 grid grid-cols-[1fr_auto] gap-2">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="plan" />
+            <input type="hidden" name="source" value="suggested" />
+            <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}" />
+            <input type="hidden" name="recipe" value="{{ suggestion.recipe_pk }}" />
+            <input type="hidden" name="quantity" value="{{ suggestion.quantity }}" />
+            <button type="submit" class="btn-quiet w-full col-span-2">
+              <span class="material-symbols-rounded icon-sm" aria-hidden="true">add_task</span>
+              Planejar sugerido
+            </button>
+          </form>
+          {% endif %}
+        </article>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state min-h-36">
+        <span class="material-symbols-rounded icon-xl mb-2" aria-hidden="true">auto_graph</span>
+        <p class="text-sm">Sem sugestão automática para esta data.</p>
+        <p class="field-help">Planeje manualmente quando o histórico ainda não for suficiente.</p>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if production_access.can_edit_planned %}
+    <div class="card">
+      <div class="mb-4">
+        <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Planejar produção</h2>
+        <p class="field-help">Cria uma ordem planejada. Início e conclusão ficam registrados depois.</p>
+      </div>
+      <form method="post" class="space-y-3">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="plan" />
+        <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}" />
+        <div>
+          <label class="field-label">Receita</label>
+          <select name="recipe" class="select-field" required>
+            {% for recipe in recipes %}
+            <option value="{{ recipe.pk }}">{{ recipe.ref }} · {{ recipe.name }}</option>
+            {% empty %}
+            <option value="">Nenhuma receita ativa</option>
             {% endfor %}
           </select>
         </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="field-label">Quantidade</label>
+            <input type="number" step="0.001" min="0.001" name="quantity" inputmode="decimal" class="input-field tabular-nums" required />
+          </div>
+          <div>
+            <label class="field-label">Destino</label>
+            <select name="position" class="select-field">
+              <option value="">Padrão</option>
+              {% for position in positions %}
+              <option value="{{ position.pk }}" {% if default_position_id == position.pk %}selected{% endif %}>{{ position.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
         <div>
-          <label class="field-label">Operador</label>
-          <input type="text" name="operator_ref" value="{{ selected_operator_ref }}" placeholder="Nome ou usuário" class="input-field" />
+          <label class="field-label">Responsável</label>
+          <input type="text" name="operator_ref" value="{{ selected_operator_ref }}" placeholder="Opcional" class="input-field" />
         </div>
-        <div class="flex items-end">
-          <button type="submit" class="btn-primary w-full">
-            <span class="htmx-indicator material-symbols-rounded animate-spin icon-sm" aria-hidden="true">progress_activity</span>
-            Filtrar
-          </button>
-        </div>
+        <button type="submit" class="btn-primary w-full">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">event_note</span>
+          Criar planejamento
+        </button>
       </form>
     </div>
-  </section>
-
-  <section class="grid grid-cols-2 gap-3 md:grid-cols-4">
-    {% if production_access.can_manage_all %}
-    <div class="card">
-      <div class="flex items-center gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
-        <span class="material-symbols-rounded icon-md" aria-hidden="true">assignment</span>
-        <span class="metric-label">Ordens</span>
-      </div>
-      <div class="metric-value mt-2">{{ craft_summary.total }}</div>
-    </div>
     {% endif %}
+  </section>
+  {% endif %}
+
+  {% if production_access.can_view_started or production_access.can_view_planned %}
+  <section class="grid grid-cols-1 gap-4 xl:grid-cols-2">
     {% if production_access.can_view_planned %}
     <div class="card">
-      <div class="flex items-center gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
-        <span class="material-symbols-rounded icon-md" aria-hidden="true">event_note</span>
-        <span class="metric-label">Planejado</span>
+      <div class="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Planejado</h2>
+          <p class="field-help">Ajuste ou envie para produção.</p>
+        </div>
+        <span class="count-badge bg-info/10 text-info">{{ craft_summary.planned }}</span>
       </div>
-      <div class="metric-value mt-2">{{ craft_summary.planned_qty }}</div>
-      <p class="field-help">{{ craft_summary.planned_orders }} ordens</p>
+      {% if planned_queue %}
+      <div class="space-y-3">
+        {% for item in planned_queue %}
+        <article class="rounded-lg border border-outline dark:border-outline-dark p-3">
+          <div class="flex flex-wrap items-start justify-between gap-2">
+            <div class="min-w-0">
+              <h3 class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.output_sku }}</h3>
+              <p class="field-help">{{ item.recipe_name }}</p>
+            </div>
+            <span class="badge-info">{{ item.status_label }}</span>
+          </div>
+          <dl class="mt-3 grid grid-cols-3 gap-3 text-sm">
+            <div>
+              <dt class="text-on-surface/60 dark:text-on-surface-dark/60">Planejado</dt>
+              <dd class="font-semibold tabular-nums">{{ item.planned_qty }}</dd>
+            </div>
+            <div>
+              <dt class="text-on-surface/60 dark:text-on-surface-dark/60">Posto</dt>
+              <dd>{{ item.position_ref|default:"Padrão" }}</dd>
+            </div>
+            <div>
+              <dt class="text-on-surface/60 dark:text-on-surface-dark/60">Resp.</dt>
+              <dd>{{ item.operator_ref|default:"Livre" }}</dd>
+            </div>
+          </dl>
+
+          {% if production_access.can_edit_started %}
+          <form method="post" class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[7rem_1fr_auto]">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="start" />
+            <input type="hidden" name="wo_id" value="{{ item.pk }}" />
+            <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}" />
+            <input type="number" step="0.001" min="0.001" name="quantity" value="{{ item.planned_qty }}" inputmode="decimal" class="input-field py-2 tabular-nums" aria-label="Quantidade iniciada de {{ item.output_sku }}" required />
+            <input type="text" name="operator_ref" value="{{ item.operator_ref }}" placeholder="Responsável" class="input-field py-2" aria-label="Responsável por {{ item.output_sku }}" />
+            <button type="submit" class="btn-primary py-2">
+              <span class="material-symbols-rounded icon-sm" aria-hidden="true">play_arrow</span>
+              Iniciar
+            </button>
+          </form>
+          {% endif %}
+
+          {% if production_access.can_edit_planned %}
+          <details class="mt-2">
+            <summary class="cursor-pointer text-sm font-medium text-on-surface/70 dark:text-on-surface-dark/70">Ajustar planejamento</summary>
+            <form method="post" class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[7rem_1fr_auto]">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="adjust" />
+              <input type="hidden" name="wo_id" value="{{ item.pk }}" />
+              <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}" />
+              <input type="number" step="0.001" min="0.001" name="quantity" value="{{ item.planned_qty }}" inputmode="decimal" class="input-field py-2 tabular-nums" required />
+              <input type="text" name="reason" placeholder="Motivo" class="input-field py-2" />
+              <button type="submit" class="btn-quiet py-2">Ajustar</button>
+            </form>
+          </details>
+          {% endif %}
+        </article>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state min-h-40">
+        <span class="material-symbols-rounded icon-xl mb-2" aria-hidden="true">event_available</span>
+        <p class="text-sm">Nada aguardando início neste filtro.</p>
+      </div>
+      {% endif %}
     </div>
     {% endif %}
+
     {% if production_access.can_view_started %}
     <div class="card">
-      <div class="flex items-center gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
-        <span class="material-symbols-rounded icon-md" aria-hidden="true">play_circle</span>
-        <span class="metric-label">Em produção</span>
+      <div class="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Em produção</h2>
+          <p class="field-help">Registre apenas quando a fornada estiver concluída.</p>
+        </div>
+        <span class="count-badge bg-warning/10 text-warning">{{ craft_summary.started }}</span>
       </div>
-      <div class="metric-value mt-2">{{ craft_summary.started_qty }}</div>
-      <p class="field-help">{{ craft_summary.started_orders }} ordens</p>
-    </div>
-    {% endif %}
-    {% if production_access.can_view_finished %}
-    <div class="card">
-      <div class="flex items-center gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
-        <span class="material-symbols-rounded icon-md" aria-hidden="true">task_alt</span>
-        <span class="metric-label">Concluído</span>
+      {% if started_queue %}
+      <div class="space-y-3">
+        {% for item in started_queue %}
+        <article class="rounded-lg border border-outline dark:border-outline-dark p-3">
+          <div class="flex flex-wrap items-start justify-between gap-2">
+            <div class="min-w-0">
+              <h3 class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.output_sku }}</h3>
+              <p class="field-help">{{ item.recipe_name }}</p>
+            </div>
+            <span class="badge-warning">{{ item.status_label }}</span>
+          </div>
+          <dl class="mt-3 grid grid-cols-4 gap-3 text-sm">
+            <div>
+              <dt class="text-on-surface/60 dark:text-on-surface-dark/60">Planejado</dt>
+              <dd class="font-semibold tabular-nums">{{ item.planned_qty }}</dd>
+            </div>
+            <div>
+              <dt class="text-on-surface/60 dark:text-on-surface-dark/60">Iniciado</dt>
+              <dd class="font-semibold tabular-nums">{{ item.started_qty }}</dd>
+            </div>
+            <div>
+              <dt class="text-on-surface/60 dark:text-on-surface-dark/60">Posto</dt>
+              <dd>{{ item.position_ref|default:"Padrão" }}</dd>
+            </div>
+            <div>
+              <dt class="text-on-surface/60 dark:text-on-surface-dark/60">Resp.</dt>
+              <dd>{{ item.operator_ref|default:"Livre" }}</dd>
+            </div>
+          </dl>
+          {% if production_access.can_edit_finished %}
+          <form method="post" class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[7rem_1fr_auto]">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="finish" />
+            <input type="hidden" name="wo_id" value="{{ item.pk }}" />
+            <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}" />
+            <input type="number" step="0.001" min="0.001" name="quantity" value="{{ item.started_qty }}" inputmode="decimal" class="input-field py-2 tabular-nums" aria-label="Quantidade concluída de {{ item.output_sku }}" required />
+            <span class="field-help self-center">O sistema calcula perda pela diferença.</span>
+            <button type="submit" class="btn-success py-2">
+              <span class="material-symbols-rounded icon-sm" aria-hidden="true">task_alt</span>
+              Concluir
+            </button>
+          </form>
+          {% endif %}
+        </article>
+        {% endfor %}
       </div>
-      <div class="metric-value mt-2">{{ craft_summary.finished_qty }}</div>
-      <p class="field-help">Perda {{ craft_summary.loss_qty }}</p>
+      {% else %}
+      <div class="empty-state min-h-40">
+        <span class="material-symbols-rounded icon-xl mb-2" aria-hidden="true">countertops</span>
+        <p class="text-sm">Nada em produção neste filtro.</p>
+      </div>
+      {% endif %}
     </div>
     {% endif %}
   </section>
+  {% endif %}
+
+  {% if production_access.can_view_finished or production_access.can_view_unsold %}
+  <section class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,24rem)]">
+    {% if production_access.can_view_finished %}
+    <div class="card">
+      <div class="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Concluído</h2>
+          <p class="field-help">Entrada de acabado no estoque e base para disponibilidade.</p>
+        </div>
+        <span class="count-badge bg-success/10 text-success">{{ craft_summary.finished }}</span>
+      </div>
+      {% if finished_queue %}
+      <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+        {% for item in finished_queue %}
+        <article class="rounded-lg border border-outline dark:border-outline-dark p-3">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <h3 class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.output_sku }}</h3>
+              <p class="field-help">{{ item.finished_qty }} concluído(s)</p>
+            </div>
+            <span class="badge-success">{{ item.status_label }}</span>
+          </div>
+          <dl class="mt-3 grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <dt class="text-on-surface/60 dark:text-on-surface-dark/60">Rendimento</dt>
+              <dd class="font-semibold tabular-nums">{{ item.yield_rate|default:"Não informado" }}</dd>
+            </div>
+            <div>
+              <dt class="text-on-surface/60 dark:text-on-surface-dark/60">Perda</dt>
+              <dd class="font-semibold tabular-nums">{{ item.loss|default:"0" }}</dd>
+            </div>
+          </dl>
+        </article>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state min-h-32">
+        <span class="material-symbols-rounded icon-xl mb-2" aria-hidden="true">inventory</span>
+        <p class="text-sm">Nenhuma produção concluída neste filtro.</p>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if production_access.can_view_unsold %}
+    <div class="card">
+      <div class="flex items-start gap-3">
+        <span class="material-symbols-rounded icon-md text-on-surface/70 dark:text-on-surface-dark/70" aria-hidden="true">lock_clock</span>
+        <div>
+          <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Não vendidos</h2>
+          <p class="field-help">No fim do dia, informe apenas o que sobrou fisicamente. O sistema trata destino e perdas automaticamente.</p>
+        </div>
+      </div>
+      <a href="{% url 'backstage:day_closing' %}" class="btn-quiet w-full mt-4">
+        <span class="material-symbols-rounded icon-sm" aria-hidden="true">fact_check</span>
+        Abrir fechamento
+      </a>
+    </div>
+    {% endif %}
+  </section>
+  {% endif %}
 
   {% if production_access.can_edit_finished %}
-  <section class="card">
-    <div class="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Registrar produção concluída</h2>
-        <p class="field-help">Use quando a produção já terminou e precisa entrar no estoque.</p>
-      </div>
-      <span class="badge-neutral w-fit">Registro imediato</span>
-    </div>
-    <form hx-post="."
-          hx-target="body"
-          hx-swap="outerHTML"
-          hx-push-url="true"
-          class="grid grid-cols-1 gap-4 md:grid-cols-4">
+  <details class="card">
+    <summary class="cursor-pointer text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Entrada direta</summary>
+    <p class="field-help mt-1">Atalho para registrar algo que já terminou sem passar pelas etapas. Use só quando a ordem não foi planejada antes.</p>
+    <form method="post" class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
       {% csrf_token %}
+      <input type="hidden" name="action" value="quick_finish" />
+      <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}" />
       <div class="md:col-span-2">
         <label class="field-label">Receita</label>
         <select name="recipe" class="select-field" required>
           {% for recipe in recipes %}
-          <option value="{{ recipe.pk }}">{{ recipe.ref }} • {{ recipe.name }}</option>
+          <option value="{{ recipe.pk }}">{{ recipe.ref }} · {{ recipe.name }}</option>
           {% empty %}
           <option value="">Nenhuma receita ativa</option>
           {% endfor %}
@@ -126,146 +439,13 @@
         </select>
       </div>
       <div class="md:col-span-4 flex justify-end">
-        <button type="submit" class="btn-primary w-full sm:w-auto">
-          <span class="htmx-indicator material-symbols-rounded animate-spin icon-sm" aria-hidden="true">progress_activity</span>
-          Registrar entrada
+        <button type="submit" class="btn-quiet w-full sm:w-auto">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">add_circle</span>
+          Registrar entrada direta
         </button>
       </div>
     </form>
-  </section>
-  {% endif %}
-
-  {% if production_access.can_view_started or production_access.can_view_planned %}
-  <section class="grid grid-cols-1 gap-6 xl:grid-cols-2">
-    {% if production_access.can_view_started %}
-    <div class="card">
-      <div class="mb-4 flex items-center justify-between gap-3">
-        <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Em produção agora</h2>
-        <span class="count-badge bg-warning/10 text-warning">{{ craft_summary.started }}</span>
-      </div>
-      {% if started_queue %}
-      <div class="space-y-3">
-        {% for item in started_queue %}
-        <article class="rounded-lg border border-outline dark:border-outline-dark p-3">
-          <div class="flex flex-wrap items-start justify-between gap-2">
-            <div>
-              <h3 class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.output_sku }}</h3>
-              <p class="field-help">{{ item.recipe_name }}</p>
-            </div>
-            <span class="badge-warning">{{ item.status_label }}</span>
-          </div>
-          <dl class="mt-3 grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <dt class="text-on-surface/60 dark:text-on-surface-dark/60">Planejado</dt>
-              <dd class="font-semibold tabular-nums">{{ item.planned_qty }}</dd>
-            </div>
-            <div>
-              <dt class="text-on-surface/60 dark:text-on-surface-dark/60">Iniciado</dt>
-              <dd class="font-semibold tabular-nums">{{ item.started_qty }}</dd>
-            </div>
-            <div>
-              <dt class="text-on-surface/60 dark:text-on-surface-dark/60">Posto</dt>
-              <dd>{{ item.position_ref|default:"Não informado" }}</dd>
-            </div>
-            <div>
-              <dt class="text-on-surface/60 dark:text-on-surface-dark/60">Responsável</dt>
-              <dd>{{ item.operator_ref|default:"Não informado" }}</dd>
-            </div>
-          </dl>
-        </article>
-        {% endfor %}
-      </div>
-      {% else %}
-      <div class="empty-state min-h-40">
-        <span class="material-symbols-rounded icon-xl mb-2" aria-hidden="true">countertops</span>
-        <p class="text-sm">Nada em produção neste filtro.</p>
-      </div>
-      {% endif %}
-    </div>
-    {% endif %}
-
-    {% if production_access.can_view_planned %}
-    <div class="card">
-      <div class="mb-4 flex items-center justify-between gap-3">
-        <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Próximas fornadas</h2>
-        <span class="count-badge bg-info/10 text-info">{{ craft_summary.planned }}</span>
-      </div>
-      {% if planned_queue %}
-      <div class="space-y-3">
-        {% for item in planned_queue %}
-        <article class="rounded-lg border border-outline dark:border-outline-dark p-3">
-          <div class="flex flex-wrap items-start justify-between gap-2">
-            <div>
-              <h3 class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.output_sku }}</h3>
-              <p class="field-help">{{ item.recipe_name }}</p>
-            </div>
-            <span class="badge-info">{{ item.status_label }}</span>
-          </div>
-          <dl class="mt-3 grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <dt class="text-on-surface/60 dark:text-on-surface-dark/60">Quantidade</dt>
-              <dd class="font-semibold tabular-nums">{{ item.planned_qty }}</dd>
-            </div>
-            <div>
-              <dt class="text-on-surface/60 dark:text-on-surface-dark/60">Posto</dt>
-              <dd>{{ item.position_ref|default:"Não informado" }}</dd>
-            </div>
-            <div class="col-span-2">
-              <dt class="text-on-surface/60 dark:text-on-surface-dark/60">Responsável</dt>
-              <dd>{{ item.operator_ref|default:"Não informado" }}</dd>
-            </div>
-          </dl>
-        </article>
-        {% endfor %}
-      </div>
-      {% else %}
-      <div class="empty-state min-h-40">
-        <span class="material-symbols-rounded icon-xl mb-2" aria-hidden="true">event_available</span>
-        <p class="text-sm">Nada aguardando início neste filtro.</p>
-      </div>
-      {% endif %}
-    </div>
-    {% endif %}
-  </section>
-  {% endif %}
-
-  {% if production_access.can_view_finished %}
-  <section class="card">
-    <div class="mb-4 flex items-center justify-between gap-3">
-      <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Concluído hoje</h2>
-      <span class="count-badge bg-success/10 text-success">{{ craft_summary.finished }}</span>
-    </div>
-    {% if finished_queue %}
-    <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-      {% for item in finished_queue %}
-      <article class="rounded-lg border border-outline dark:border-outline-dark p-3">
-        <div class="flex items-start justify-between gap-2">
-          <div>
-            <h3 class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.output_sku }}</h3>
-            <p class="field-help">{{ item.finished_qty }} concluído(s)</p>
-          </div>
-          <span class="badge-success">{{ item.status_label }}</span>
-        </div>
-        <dl class="mt-3 grid grid-cols-2 gap-3 text-sm">
-          <div>
-            <dt class="text-on-surface/60 dark:text-on-surface-dark/60">Rendimento</dt>
-            <dd class="font-semibold tabular-nums">{{ item.yield_rate|default:"Não informado" }}</dd>
-          </div>
-          <div>
-            <dt class="text-on-surface/60 dark:text-on-surface-dark/60">Perda</dt>
-            <dd class="font-semibold tabular-nums">{{ item.loss|default:"0" }}</dd>
-          </div>
-        </dl>
-      </article>
-      {% endfor %}
-    </div>
-    {% else %}
-    <div class="empty-state min-h-32">
-      <span class="material-symbols-rounded icon-xl mb-2" aria-hidden="true">inventory</span>
-      <p class="text-sm">Nenhuma produção concluída neste filtro.</p>
-    </div>
-    {% endif %}
-  </section>
+  </details>
   {% endif %}
 
   {% if production_access.can_manage_all or today_wos %}
@@ -279,12 +459,8 @@
             <th class="py-2 pr-4 font-semibold">Ordem</th>
             <th class="py-2 pr-4 font-semibold">Produto</th>
             <th class="py-2 pr-4 font-semibold">Status</th>
-            {% if production_access.can_view_planned %}
-            <th class="py-2 pr-4 font-semibold">Planejado</th>
-            {% endif %}
-            {% if production_access.can_view_started %}
-            <th class="py-2 pr-4 font-semibold">Iniciado</th>
-            {% endif %}
+            {% if production_access.can_view_planned %}<th class="py-2 pr-4 font-semibold">Planejado</th>{% endif %}
+            {% if production_access.can_view_started %}<th class="py-2 pr-4 font-semibold">Iniciado</th>{% endif %}
             {% if production_access.can_view_finished %}
             <th class="py-2 pr-4 font-semibold">Concluído</th>
             <th class="py-2 pr-4 font-semibold">Perda</th>
@@ -296,13 +472,9 @@
           <tr class="border-b border-outline dark:border-outline-dark">
             <td class="py-2 pr-4 font-semibold text-on-surface/70 dark:text-on-surface-dark/70">{{ wo.ref }}</td>
             <td class="py-2 pr-4">{{ wo.output_sku }}</td>
-            <td class="py-2 pr-4"><span class="{{ wo.status_color }} rounded-full px-2 py-0.5 text-sm font-semibold">{{ wo.status_label }}</span></td>
-            {% if production_access.can_view_planned %}
-            <td class="py-2 pr-4 tabular-nums">{{ wo.planned_qty }}</td>
-            {% endif %}
-            {% if production_access.can_view_started %}
-            <td class="py-2 pr-4 tabular-nums">{{ wo.started_qty|default:"Não informado" }}</td>
-            {% endif %}
+            <td class="py-2 pr-4"><span class="badge {{ wo.status_color }}">{{ wo.status_label }}</span></td>
+            {% if production_access.can_view_planned %}<td class="py-2 pr-4 tabular-nums">{{ wo.planned_qty }}</td>{% endif %}
+            {% if production_access.can_view_started %}<td class="py-2 pr-4 tabular-nums">{{ wo.started_qty|default:"Não informado" }}</td>{% endif %}
             {% if production_access.can_view_finished %}
             <td class="py-2 pr-4 tabular-nums">{{ wo.finished_qty|default:"Não informado" }}</td>
             <td class="py-2 pr-4 tabular-nums">{{ wo.loss|default:"Não informado" }}</td>

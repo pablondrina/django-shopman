@@ -38,6 +38,7 @@ from .pos import (
 from .production import (
     ProductionBoardProjection,
     ProductionCountsProjection,
+    ProductionSuggestionProjection,
     ProductionSurfaceAccess,
     WorkOrderCardProjection,
     build_production_board,
@@ -61,6 +62,7 @@ __all__ = [
     "POSShiftSummaryProjection",
     "ProductionBoardProjection",
     "ProductionCountsProjection",
+    "ProductionSuggestionProjection",
     "ProductionSurfaceAccess",
     "WorkOrderCardProjection",
     "build_dashboard",
