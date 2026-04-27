@@ -4,11 +4,11 @@
 {% block nav_active_producao %}active{% endblock %}
 
 {% block content %}
-<div id="production-page-content" class="h-full min-h-0 overflow-y-auto p-3 space-y-4 lg:p-4">
+<div id="production-page-content" class="h-full min-h-0 overflow-y-auto p-2 space-y-3 lg:p-3">
 
   <section class="card p-0 overflow-hidden">
-    <div class="p-4 border-b border-outline dark:border-outline-dark">
-      <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+    <div class="p-3 border-b border-outline dark:border-outline-dark">
+      <div class="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
         <div class="max-w-2xl">
           <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Produção do dia</h2>
           <p class="field-help">Controle por SKU, etapa e permissão. O fechamento recebe apenas o que sobrou fisicamente.</p>
@@ -18,7 +18,7 @@
               hx-select="#production-page-content"
               hx-swap="outerHTML"
               hx-push-url="true"
-              class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[10rem_12rem_12rem_12rem_10rem]">
+              class="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-[10rem_12rem_12rem_12rem_auto]">
           <div>
             <label class="field-label">Data</label>
             <input type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}" class="input-field" />
@@ -45,10 +45,10 @@
               {% endfor %}
             </select>
           </div>
-          <div class="flex items-end">
-            <button type="submit" class="btn-primary w-full">
+          <div class="flex items-end sm:justify-end xl:justify-start">
+            <button type="submit" class="btn-primary h-11 min-h-11 w-11 min-w-11 p-0" title="Filtrar" aria-label="Filtrar">
+              <span class="material-symbols-rounded icon-sm" aria-hidden="true">filter_alt</span>
               <span class="htmx-indicator material-symbols-rounded animate-spin icon-sm" aria-hidden="true">progress_activity</span>
-              Filtrar
             </button>
           </div>
         </form>
@@ -57,49 +57,49 @@
 
     <div class="grid grid-cols-2 gap-px bg-outline dark:bg-outline-dark md:grid-cols-4">
       {% if production_access.can_manage_all %}
-      <div class="bg-surface-alt dark:bg-surface-dark-alt p-4">
+      <div class="bg-surface-alt dark:bg-surface-dark-alt p-3">
         <div class="flex min-w-0 items-center gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
           <span class="material-symbols-rounded icon-md shrink-0" aria-hidden="true">assignment</span>
           <span class="metric-label min-w-0 truncate">Ordens</span>
         </div>
-        <div class="metric-value mt-2">{{ craft_summary.total }}</div>
+        <div class="metric-value mt-1">{{ craft_summary.total }}</div>
       </div>
       {% endif %}
       {% if production_access.can_view_planned %}
-      <div class="bg-surface-alt dark:bg-surface-dark-alt p-4">
+      <div class="bg-surface-alt dark:bg-surface-dark-alt p-3">
         <div class="flex min-w-0 items-center gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
           <span class="material-symbols-rounded icon-md shrink-0" aria-hidden="true">event_note</span>
           <span class="metric-label min-w-0 truncate">Planejado</span>
         </div>
-        <div class="metric-value mt-2">{{ craft_summary.planned_qty }}</div>
-        <p class="field-help">{{ craft_summary.planned_orders }} ordem(ns)</p>
+        <div class="metric-value mt-1">{{ craft_summary.planned_qty }}</div>
+        <p class="mt-0.5 text-xs text-on-surface/60 dark:text-on-surface-dark/60">{{ craft_summary.planned_orders }} ordem(ns)</p>
       </div>
       {% endif %}
       {% if production_access.can_view_started %}
-      <div class="bg-surface-alt dark:bg-surface-dark-alt p-4">
+      <div class="bg-surface-alt dark:bg-surface-dark-alt p-3">
         <div class="flex min-w-0 items-center gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
           <span class="material-symbols-rounded icon-md shrink-0" aria-hidden="true">play_circle</span>
           <span class="metric-label min-w-0 truncate">Em produção</span>
         </div>
-        <div class="metric-value mt-2">{{ craft_summary.started_qty }}</div>
-        <p class="field-help">{{ craft_summary.started_orders }} ordem(ns)</p>
+        <div class="metric-value mt-1">{{ craft_summary.started_qty }}</div>
+        <p class="mt-0.5 text-xs text-on-surface/60 dark:text-on-surface-dark/60">{{ craft_summary.started_orders }} ordem(ns)</p>
       </div>
       {% endif %}
       {% if production_access.can_view_finished %}
-      <div class="bg-surface-alt dark:bg-surface-dark-alt p-4">
+      <div class="bg-surface-alt dark:bg-surface-dark-alt p-3">
         <div class="flex min-w-0 items-center gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
           <span class="material-symbols-rounded icon-md shrink-0" aria-hidden="true">task_alt</span>
           <span class="metric-label min-w-0 truncate">Concluído</span>
         </div>
-        <div class="metric-value mt-2">{{ craft_summary.finished_qty }}</div>
-        <p class="field-help">Perda {{ craft_summary.loss_qty }}</p>
+        <div class="metric-value mt-1">{{ craft_summary.finished_qty }}</div>
+        <p class="mt-0.5 text-xs text-on-surface/60 dark:text-on-surface-dark/60">Perda {{ craft_summary.loss_qty }}</p>
       </div>
       {% endif %}
     </div>
   </section>
 
   <section class="card p-0 overflow-hidden">
-    <div class="flex flex-col gap-3 border-b border-outline dark:border-outline-dark p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div class="flex flex-col gap-2 border-b border-outline dark:border-outline-dark p-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Matriz de produção</h2>
         <p class="field-help">SKUs agrupados pela receita-base que consomem. Cada coluna respeita a permissão do perfil.</p>
@@ -109,21 +109,21 @@
 
     {% if matrix_groups %}
     <div class="overflow-x-auto">
-      <table class="w-full min-w-[72rem] border-collapse text-left text-sm">
+      <table class="w-full min-w-[50rem] border-collapse text-left text-sm">
         <thead class="bg-surface dark:bg-surface-dark text-xs font-semibold uppercase text-on-surface/60 dark:text-on-surface-dark/60">
           <tr>
-            <th class="sticky left-0 z-20 w-64 border-b border-outline bg-surface dark:border-outline-dark dark:bg-surface-dark px-4 py-3">SKU</th>
-            {% if production_access.can_view_suggested %}<th class="w-44 border-b border-outline dark:border-outline-dark px-3 py-3">Sugerido</th>{% endif %}
-            {% if production_access.can_view_planned %}<th class="w-64 border-b border-outline dark:border-outline-dark px-3 py-3">Planejado</th>{% endif %}
-            {% if production_access.can_view_started %}<th class="w-64 border-b border-outline dark:border-outline-dark px-3 py-3">Em produção</th>{% endif %}
-            {% if production_access.can_view_finished %}<th class="w-48 border-b border-outline dark:border-outline-dark px-3 py-3">Concluído</th>{% endif %}
-            {% if production_access.can_view_unsold %}<th class="w-44 border-b border-outline dark:border-outline-dark px-3 py-3">Não vendidos</th>{% endif %}
+            <th class="sticky left-0 z-20 w-48 border-b border-outline bg-surface dark:border-outline-dark dark:bg-surface-dark px-3 py-2">SKU</th>
+            {% if production_access.can_view_suggested %}<th class="w-32 border-b border-outline dark:border-outline-dark px-2 py-2">Sugerido</th>{% endif %}
+            {% if production_access.can_view_planned %}<th class="w-32 border-b border-outline dark:border-outline-dark px-2 py-2">Planejado</th>{% endif %}
+            {% if production_access.can_view_started %}<th class="w-36 border-b border-outline dark:border-outline-dark px-2 py-2">Em produção</th>{% endif %}
+            {% if production_access.can_view_finished %}<th class="w-28 border-b border-outline dark:border-outline-dark px-2 py-2">Concluído</th>{% endif %}
+            {% if production_access.can_view_unsold %}<th class="w-20 border-b border-outline dark:border-outline-dark px-2 py-2">Sobras</th>{% endif %}
           </tr>
         </thead>
         <tbody class="divide-y divide-outline dark:divide-outline-dark">
           {% for group in matrix_groups %}
           <tr>
-            <td colspan="6" class="bg-surface dark:bg-surface-dark px-4 py-2 text-xs font-semibold uppercase text-on-surface/60 dark:text-on-surface-dark/60">
+            <td colspan="6" class="bg-surface dark:bg-surface-dark px-3 py-1.5 text-xs font-semibold uppercase text-on-surface/60 dark:text-on-surface-dark/60">
               <div class="flex items-center gap-2">
                 <span class="material-symbols-rounded icon-sm" aria-hidden="true">grain</span>
                 <span>{{ group.name }}</span>
@@ -134,57 +134,60 @@
           {% for group_row in group.rows %}
           {% with row=group_row.row usage=group_row.usage %}
           <tr class="align-top hover:bg-outline/20 dark:hover:bg-outline-dark/20">
-            <th class="sticky left-0 z-10 border-r border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt px-4 py-3">
-              <div class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ row.output_sku }}</div>
-              <div class="field-help mt-0 truncate">{{ row.recipe_name }}</div>
+            <th class="sticky left-0 z-10 border-r border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt px-3 py-2">
+              <div class="text-sm font-semibold leading-tight text-on-surface-strong dark:text-on-surface-dark-strong">{{ row.output_sku }}</div>
+              <div class="mt-0.5 truncate text-xs text-on-surface/60 dark:text-on-surface-dark/60">{{ row.recipe_name }}</div>
               {% if usage %}
-              <div class="mt-2 inline-flex items-center rounded-full border border-outline dark:border-outline-dark px-2 py-0.5 text-xs font-semibold text-on-surface/70 dark:text-on-surface-dark/70">
+              <div class="mt-1 inline-flex items-center rounded-full border border-outline dark:border-outline-dark px-1.5 py-0.5 text-xs font-medium text-on-surface/70 dark:text-on-surface-dark/70">
                 {{ usage.quantity_display }}/lote · {{ usage.per_unit_display }}/un.
               </div>
               {% endif %}
             </th>
 
             {% if production_access.can_view_suggested %}
-            <td class="px-3 py-3">
+            <td class="px-2 py-2">
               {% if row.suggestion %}
-              <div class="space-y-2">
-                <div class="flex items-center justify-between gap-2">
-                  <span class="text-lg font-semibold tabular-nums text-on-surface-strong dark:text-on-surface-dark-strong">{{ row.suggestion.quantity }}</span>
-                  <span class="badge-info">{{ row.suggestion.confidence }}</span>
+              <div class="space-y-1.5">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-base font-semibold tabular-nums text-on-surface-strong dark:text-on-surface-dark-strong">{{ row.suggestion.quantity }}</span>
+                  <span class="badge-info shrink-0">{{ row.suggestion.confidence }}</span>
+                  {% if production_access.can_edit_suggested or production_access.can_edit_planned %}
+                  <form method="post" class="ml-auto">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="set_planned" />
+                    <input type="hidden" name="source" value="suggested" />
+                    <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}" />
+                    <input type="hidden" name="position_ref" value="{{ selected_position_ref }}" />
+                    <input type="hidden" name="operator_ref" value="{{ selected_operator_ref }}" />
+                    <input type="hidden" name="operator_ref_filter" value="{{ selected_operator_ref }}" />
+                    <input type="hidden" name="base_recipe" value="{{ selected_base_recipe }}" />
+                    <input type="hidden" name="recipe" value="{{ row.suggestion.recipe_pk }}" />
+                    <input type="hidden" name="quantity" value="{{ row.suggestion.quantity }}" />
+                    <button type="submit" class="btn-quiet h-8 min-h-8 w-8 min-w-8 p-0" title="Usar sugestão" aria-label="Usar sugestão para {{ row.output_sku }}">
+                      <span class="material-symbols-rounded icon-sm" aria-hidden="true">add_task</span>
+                    </button>
+                  </form>
+                  {% endif %}
                 </div>
-                <div class="grid grid-cols-2 gap-2 text-xs text-on-surface/70 dark:text-on-surface-dark/70">
+                <div class="flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-on-surface/70 dark:text-on-surface-dark/70">
                   <span>Encom. <strong class="font-semibold tabular-nums text-on-surface-strong dark:text-on-surface-dark-strong">{{ row.suggestion.committed }}</strong></span>
                   <span>Média <strong class="font-semibold tabular-nums text-on-surface-strong dark:text-on-surface-dark-strong">{{ row.suggestion.avg_demand }}</strong></span>
                 </div>
-                {% if production_access.can_edit_suggested or production_access.can_edit_planned %}
-                <form method="post">
-                  {% csrf_token %}
-                  <input type="hidden" name="action" value="set_planned" />
-                  <input type="hidden" name="source" value="suggested" />
-                  <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}" />
-                  <input type="hidden" name="position_ref" value="{{ selected_position_ref }}" />
-                  <input type="hidden" name="operator_ref" value="{{ selected_operator_ref }}" />
-                  <input type="hidden" name="operator_ref_filter" value="{{ selected_operator_ref }}" />
-                  <input type="hidden" name="base_recipe" value="{{ selected_base_recipe }}" />
-                  <input type="hidden" name="recipe" value="{{ row.suggestion.recipe_pk }}" />
-                  <input type="hidden" name="quantity" value="{{ row.suggestion.quantity }}" />
-                  <button type="submit" class="btn-quiet w-full py-2">
-                    <span class="material-symbols-rounded icon-sm" aria-hidden="true">add_task</span>
-                    Planejar
-                  </button>
-                </form>
-                {% endif %}
               </div>
               {% else %}
-              <span class="text-on-surface/40 dark:text-on-surface-dark/40">Sem sugestão</span>
+              <span class="text-xs text-on-surface/40 dark:text-on-surface-dark/40">Sem sugestão</span>
               {% endif %}
             </td>
             {% endif %}
 
             {% if production_access.can_view_planned %}
-            <td class="px-3 py-3">
+            <td class="px-2 py-2">
               {% if production_access.can_edit_planned and row.recipe_pk %}
-              <form method="post" class="mb-3 space-y-2">
+              <form method="post"
+                    class="flex items-center gap-1.5"
+                    x-data="{ original: '{{ row.planned_qty }}', dirty: false }"
+                    @input="dirty = $event.target.value !== original"
+                    @keydown.enter.prevent="$el.requestSubmit()">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="set_planned" />
                 <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}" />
@@ -193,32 +196,22 @@
                 <input type="hidden" name="operator_ref_filter" value="{{ selected_operator_ref }}" />
                 <input type="hidden" name="base_recipe" value="{{ selected_base_recipe }}" />
                 <input type="hidden" name="recipe" value="{{ row.recipe_pk }}" />
-                <label class="field-label" for="planned-{{ row.recipe_pk }}-{{ usage.output_sku|default:'direct' }}">Planejado</label>
-                <div class="grid grid-cols-[minmax(5rem,1fr)_auto] gap-2">
-                  <input id="planned-{{ row.recipe_pk }}-{{ usage.output_sku|default:'direct' }}" type="number" step="0.001" min="0" name="quantity" value="{{ row.planned_qty }}" inputmode="decimal" class="input-field h-10 tabular-nums" required />
-                  <button type="submit" class="btn-primary h-10 px-3">
-                    <span class="material-symbols-rounded icon-sm" aria-hidden="true">check</span>
-                    Salvar
-                  </button>
-                </div>
+                <label class="sr-only" for="planned-{{ row.recipe_pk }}-{{ usage.output_sku|default:'direct' }}">Planejado</label>
+                <input id="planned-{{ row.recipe_pk }}-{{ usage.output_sku|default:'direct' }}" type="number" step="0.001" min="0" max="9999" name="quantity" value="{{ row.planned_qty }}" inputmode="decimal" class="input-field h-8 min-h-8 w-14 px-1.5 py-1 text-right font-semibold tabular-nums" required />
+                <button type="submit" class="btn-primary h-8 min-h-8 w-8 min-w-8 p-0 transition-opacity" :class="dirty ? 'opacity-100' : 'opacity-35'" :disabled="!dirty" title="Salvar planejado" aria-label="Salvar planejado de {{ row.output_sku }}">
+                  <span class="material-symbols-rounded icon-sm" aria-hidden="true">check</span>
+                </button>
               </form>
               {% endif %}
               {% if row.planned_orders %}
-              <div class="space-y-2">
-                <div class="flex items-center justify-between gap-2">
-                  <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">Total</span>
-                  <span class="badge-neutral tabular-nums">{{ row.planned_qty }}</span>
-                </div>
+              <div class="mt-1.5 space-y-1">
                 {% for item in row.planned_orders %}
-                <div class="rounded-lg border border-outline dark:border-outline-dark p-2" x-data="{ startOpen: false }">
-                  <div class="flex items-center justify-between gap-2">
-                    <span class="badge-neutral tabular-nums">{{ item.planned_qty }}</span>
-                    <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 truncate">{{ item.operator_ref|default:"Livre" }}</span>
-                  </div>
+                <div class="flex items-center gap-1.5 text-xs" x-data="{ startOpen: false }">
+                  <span class="badge-neutral tabular-nums">{{ item.planned_qty }}</span>
+                  <span class="min-w-0 flex-1 truncate text-on-surface/60 dark:text-on-surface-dark/60">{{ item.operator_ref|default:"Livre" }}</span>
                   {% if production_access.can_edit_started %}
-                  <button type="button" class="btn-primary mt-2 w-full py-2" @click="startOpen = true">
+                  <button type="button" class="btn-primary h-8 min-h-8 w-8 min-w-8 p-0" @click="startOpen = true" title="Iniciar" aria-label="Iniciar {{ item.output_sku }}">
                     <span class="material-symbols-rounded icon-sm" aria-hidden="true">play_arrow</span>
-                    Iniciar
                   </button>
                   {% endif %}
 
@@ -267,30 +260,23 @@
               </div>
               {% else %}
               {% if not production_access.can_edit_planned %}
-              <span class="text-on-surface/40 dark:text-on-surface-dark/40">Sem ordem</span>
+              <span class="text-xs text-on-surface/40 dark:text-on-surface-dark/40">Sem ordem</span>
               {% endif %}
               {% endif %}
             </td>
             {% endif %}
 
             {% if production_access.can_view_started %}
-            <td class="px-3 py-3">
+            <td class="px-2 py-2">
               {% if row.started_orders %}
-              <div class="space-y-2">
-                <div class="flex items-center justify-between gap-2">
-                  <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">Total</span>
-                  <span class="badge-warning tabular-nums">{{ row.started_qty }}</span>
-                </div>
+              <div class="space-y-1">
                 {% for item in row.started_orders %}
-                <div class="rounded-lg border border-outline dark:border-outline-dark p-2" x-data="{ finishOpen: false }">
-                  <div class="flex items-center justify-between gap-2">
-                    <span class="badge-warning tabular-nums">{{ item.started_qty }}</span>
-                    <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 truncate">{{ item.operator_ref|default:"Livre" }}</span>
-                  </div>
+                <div class="flex items-center gap-1.5 text-xs" x-data="{ finishOpen: false }">
+                  <span class="badge-warning tabular-nums">{{ item.started_qty }}</span>
+                  <span class="min-w-0 flex-1 truncate text-on-surface/60 dark:text-on-surface-dark/60">{{ item.operator_ref|default:"Livre" }}</span>
                   {% if production_access.can_edit_finished %}
-                  <button type="button" class="btn-success mt-2 w-full py-2" @click="finishOpen = true">
+                  <button type="button" class="btn-success h-8 min-h-8 w-8 min-w-8 p-0" @click="finishOpen = true" title="Concluir" aria-label="Concluir {{ item.output_sku }}">
                     <span class="material-symbols-rounded icon-sm" aria-hidden="true">task_alt</span>
-                    Concluir
                   </button>
                   <div x-show="finishOpen" x-cloak x-transition class="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4" @click.self="finishOpen = false" @keydown.escape.window="finishOpen = false" role="dialog" aria-modal="true">
                     <form method="post" class="surface-modal max-w-sm">
@@ -318,42 +304,34 @@
                 {% endfor %}
               </div>
               {% else %}
-              <span class="text-on-surface/40 dark:text-on-surface-dark/40">Nada em produção</span>
+              <span class="text-xs text-on-surface/40 dark:text-on-surface-dark/40">Nada em produção</span>
               {% endif %}
             </td>
             {% endif %}
 
             {% if production_access.can_view_finished %}
-            <td class="px-3 py-3">
+            <td class="px-2 py-2">
               {% if row.finished_orders %}
-              <div class="space-y-2">
-                <div class="flex items-center justify-between gap-2">
-                  <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">Total</span>
-                  <span class="badge-success tabular-nums">{{ row.finished_qty }}</span>
-                </div>
+              <div class="space-y-1">
                 {% for item in row.finished_orders %}
-                <div class="rounded-lg border border-outline dark:border-outline-dark p-2">
-                  <div class="flex items-center justify-between gap-2">
-                    <span class="font-semibold tabular-nums text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.finished_qty }}</span>
-                    <span class="badge-success">{{ item.yield_rate|default:"OK" }}</span>
-                  </div>
-                  <div class="mt-1 text-xs text-on-surface/70 dark:text-on-surface-dark/70">Perda <strong class="font-semibold tabular-nums text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.loss|default:"0" }}</strong></div>
+                <div class="flex items-center gap-1.5 text-xs">
+                  <span class="badge-success tabular-nums">{{ item.finished_qty }}</span>
+                  <span class="badge-success">{{ item.yield_rate|default:"OK" }}</span>
+                  <span class="truncate text-on-surface/60 dark:text-on-surface-dark/60">Perda <strong class="font-semibold tabular-nums text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.loss|default:"0" }}</strong></span>
                 </div>
                 {% endfor %}
               </div>
               {% else %}
-              <span class="text-on-surface/40 dark:text-on-surface-dark/40">Nada concluído</span>
+              <span class="text-xs text-on-surface/40 dark:text-on-surface-dark/40">Nada concluído</span>
               {% endif %}
             </td>
             {% endif %}
 
             {% if production_access.can_view_unsold %}
-            <td class="px-3 py-3">
-              <a href="{% url 'backstage:day_closing' %}" class="btn-quiet w-full py-2">
+            <td class="px-2 py-2">
+              <a href="{% url 'backstage:day_closing' %}" class="btn-quiet h-8 min-h-8 w-8 min-w-8 p-0" title="Informar sobras" aria-label="Informar sobras no fechamento">
                 <span class="material-symbols-rounded icon-sm" aria-hidden="true">fact_check</span>
-                Fechamento
               </a>
-              <p class="field-help">Informe só a sobra física.</p>
             </td>
             {% endif %}
           </tr>
