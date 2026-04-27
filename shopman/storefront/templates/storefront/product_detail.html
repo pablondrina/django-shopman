@@ -66,33 +66,10 @@
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
 
-  {# ── Image ── #}
-  <figure class="relative aspect-square rounded-radius overflow-hidden bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark">
-    {% if product.image_url %}
-    <img src="{{ product.image_url }}" alt="{{ product.name }}" class="w-full h-full object-cover"
-         loading="eager" fetchpriority="high" decoding="async">
-    {% else %}
-    <div class="w-full h-full flex items-center justify-center text-on-surface/30 dark:text-on-surface-dark/30">
-      <span class="material-symbols-rounded text-6xl" aria-hidden="true">bakery_dining</span>
-    </div>
-    {% endif %}
-
-    {# Availability badge — SSE refresh target (WP-AV-10). #}
-    <div class="absolute top-3 right-3"
-         hx-get="{% url 'storefront:sku_state' product.sku %}?channel_ref={{ storefront_channel_ref|default:'web' }}"
-         hx-trigger="sse:stock-update[JSON.parse(event.data).sku=='{{ product.sku }}'],sse:product-paused[JSON.parse(event.data).sku=='{{ product.sku }}'],sse:listing-changed[JSON.parse(event.data).sku=='{{ product.sku }}']"
-         hx-swap="innerHTML">
-      {% if product.availability != "available" %}
-        {% include "storefront/components/availability_badge.html" with state=product.availability.value %}
-      {% endif %}
-    </div>
-
-  </figure>
-
   {# ── Info ── #}
-  <div class="flex flex-col">
+  <div class="order-1 md:order-2 flex flex-col">
     <div class="flex items-start justify-between gap-3">
-      <h1 class="text-2xl lg:text-3xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong leading-tight">{{ product.name }}</h1>
+      <h1 class="text-2xl font-semibold text-on-surface-strong dark:text-on-surface-dark-strong leading-tight">{{ product.name }}</h1>
     </div>
 
     {% if product.short_description %}
@@ -101,7 +78,7 @@
 
     {% if product.allergen and product.allergen.serves %}
     <div class="mt-3 inline-flex items-center gap-1.5 rounded-full bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark px-3 py-1 text-xs text-on-surface dark:text-on-surface-dark w-fit">
-      <span class="material-symbols-rounded text-base" aria-hidden="true">group</span>
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true">group</span>
       Serve {{ product.allergen.serves }}
     </div>
     {% endif %}
@@ -109,7 +86,7 @@
     {# Allergen badge inline — critical info never hidden behind an accordion #}
     {% if product.allergen and product.allergen.allergens %}
     <p class="mt-3 inline-flex items-center gap-1.5 rounded-full bg-warning/10 border border-warning/30 text-warning px-3 py-1 text-xs w-fit" aria-label="Alérgenos">
-      <span class="material-symbols-rounded text-sm" aria-hidden="true">warning</span>
+      <span class="material-symbols-rounded icon-xs" aria-hidden="true">warning</span>
       Contém {{ product.allergen.allergens|join:" · " }}
     </p>
     {% endif %}
@@ -118,9 +95,9 @@
     <div class="mt-6">
       {% if product.has_promotion %}
         <p class="text-xs text-on-surface/70 dark:text-on-surface-dark/70 line-through">{{ product.original_price_display }}</p>
-        <p class="text-3xl font-bold text-primary dark:text-primary-dark">{{ product.price_display }}</p>
+        <p class="text-2xl font-semibold text-primary dark:text-primary-dark">{{ product.price_display }}</p>
       {% else %}
-        <p class="text-3xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ product.price_display }}</p>
+        <p class="text-2xl font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ product.price_display }}</p>
       {% endif %}
       {% if product.unit_weight_label %}
       <p class="mt-1 text-xs text-on-surface/60 dark:text-on-surface-dark/60">{{ product.unit_weight_label }}</p>
@@ -130,11 +107,11 @@
     {# Bundle components #}
     {% if product.is_bundle and product.components %}
     <section class="mt-6">
-      <h2 class="text-xs font-bold uppercase tracking-wide text-on-surface dark:text-on-surface-dark mb-2">Contém</h2>
+      <h2 class="text-xs font-semibold uppercase tracking-wide text-on-surface dark:text-on-surface-dark mb-2">Contém</h2>
       <ul class="flex flex-wrap gap-2">
         {% for comp in product.components %}
         <li class="inline-flex items-center gap-2 rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt px-3 py-1.5 text-sm">
-          <span class="material-symbols-rounded text-base text-primary dark:text-primary-dark" aria-hidden="true">restaurant_menu</span>
+          <span class="material-symbols-rounded icon-sm text-primary dark:text-primary-dark" aria-hidden="true">restaurant_menu</span>
           <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ comp.name }}</span>
           {% if comp.qty_display %}<span class="text-xs text-on-surface dark:text-on-surface-dark">{{ comp.qty_display }}</span>{% endif %}
         </li>
@@ -150,7 +127,7 @@
 
     {# Add to cart (Alpine state, HTMX transport) #}
     {% if product.can_add_to_cart %}
-    <div class="mt-8"
+    <div class="mt-6"
          data-sku="{{ product.sku }}"
          @sku-state.window="
            if ($event.detail.sku !== '{{ product.sku }}') return;
@@ -188,16 +165,16 @@
                      if (this.checking || this.lastChecked === this.qty) return;
                      this.checking = true;
                      this.lastChecked = this.qty;
-	                     try {
-	                       const result = await window.ShopmanCart.setQty({
-	                         url: '{% url 'storefront:cart_set_qty' %}',
-	                         sku: '{{ product.sku|escapejs }}',
-	                         qty: this.qty,
-	                       });
-	                       if (result.ok) {
-	                         inCart = this.qty;
-	                       }
-	                     } finally { this.checking = false; }
+                     try {
+                       const result = await window.ShopmanCart.setQty({
+                         url: '{% url 'storefront:cart_set_qty' %}',
+                         sku: '{{ product.sku|escapejs }}',
+                         qty: this.qty,
+                       });
+                       if (result.ok) {
+                         inCart = this.qty;
+                       }
+                     } finally { this.checking = false; }
                    } }">
 
       <div class="flex items-center gap-3">
@@ -206,7 +183,7 @@
           <button type="button" @click="dec()" :disabled="qty <= 1"
                   class="w-11 h-11 flex items-center justify-center text-on-surface dark:text-on-surface-dark hover:bg-surface dark:hover:bg-surface-dark rounded-l-radius disabled:opacity-40 disabled:cursor-not-allowed touch-target focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
                   aria-label="Diminuir quantidade">
-            <span class="material-symbols-rounded text-xl" aria-hidden="true">remove</span>
+            <span class="material-symbols-rounded icon-md" aria-hidden="true">remove</span>
           </button>
           <input x-model.number="qty" type="number" min="1" :max="effectiveMax" inputmode="numeric"
                  @change="clampQty()" @blur="clampQty()"
@@ -215,7 +192,7 @@
           <button type="button" @click="inc()" :disabled="qty >= effectiveMax"
                   class="w-11 h-11 flex items-center justify-center text-on-surface dark:text-on-surface-dark hover:bg-surface dark:hover:bg-surface-dark rounded-r-radius disabled:opacity-40 disabled:cursor-not-allowed touch-target focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
                   :aria-label="qty >= effectiveMax ? 'Estoque máximo atingido' : 'Aumentar quantidade'">
-            <span class="material-symbols-rounded text-xl" aria-hidden="true">add</span>
+            <span class="material-symbols-rounded icon-md" aria-hidden="true">add</span>
           </button>
         </div>
 
@@ -225,17 +202,17 @@
         {% endcomment %}
         <button type="button"
                 class="btn-primary flex-1"
-	                @click="(async () => {
-	                  const result = await window.ShopmanCart.setQty({
-	                    url: '{% url 'storefront:cart_set_qty' %}',
-	                    sku: '{{ product.sku|escapejs }}',
-	                    qty,
-	                  });
-	                  if (result.ok) {
-	                    inCart = qty; justAdded = true;
-	                    setTimeout(() => justAdded = false, 1600);
-	                  }
-	                })()">
+                @click="(async () => {
+                  const result = await window.ShopmanCart.setQty({
+                    url: '{% url 'storefront:cart_set_qty' %}',
+                    sku: '{{ product.sku|escapejs }}',
+                    qty,
+                  });
+                  if (result.ok) {
+                    inCart = qty; justAdded = true;
+                    setTimeout(() => justAdded = false, 1600);
+                  }
+                })()">
           <span x-show="!justAdded" x-cloak>
             <template x-if="inCart === 0">
               <span>Adicionar — {{ product.price_display }}</span>
@@ -256,7 +233,7 @@
       </p>
     </div>
     {% else %}
-    <button type="button" class="btn-secondary mt-8 opacity-70 cursor-not-allowed" disabled>
+    <button type="button" class="btn-secondary mt-6 opacity-70 cursor-not-allowed" disabled>
       {{ product.availability_label }}
     </button>
     {% endif %}
@@ -271,9 +248,9 @@
       {% if product.allergen.allergens %}
       <details class="card group p-0">
         <summary class="flex items-center gap-2 cursor-pointer list-none p-4 text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong select-none">
-          <span class="material-symbols-rounded text-base text-warning" aria-hidden="true">warning</span>
+          <span class="material-symbols-rounded icon-sm text-warning" aria-hidden="true">warning</span>
           Alérgenos
-          <span class="material-symbols-rounded text-base ml-auto transition-transform group-open:rotate-180" aria-hidden="true">expand_more</span>
+          <span class="material-symbols-rounded icon-sm ml-auto transition-transform group-open:rotate-180" aria-hidden="true">expand_more</span>
         </summary>
         <div class="px-4 pb-4 border-t border-outline dark:border-outline-dark pt-3">
           <div class="flex flex-wrap gap-1.5">
@@ -288,9 +265,9 @@
       {% if product.allergen.dietary_info %}
       <details class="card group p-0">
         <summary class="flex items-center gap-2 cursor-pointer list-none p-4 text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong select-none">
-          <span class="material-symbols-rounded text-base text-success" aria-hidden="true">eco</span>
+          <span class="material-symbols-rounded icon-sm text-success" aria-hidden="true">eco</span>
           Informações dietéticas
-          <span class="material-symbols-rounded text-base ml-auto transition-transform group-open:rotate-180" aria-hidden="true">expand_more</span>
+          <span class="material-symbols-rounded icon-sm ml-auto transition-transform group-open:rotate-180" aria-hidden="true">expand_more</span>
         </summary>
         <div class="px-4 pb-4 border-t border-outline dark:border-outline-dark pt-3">
           <div class="flex flex-wrap gap-1.5">
@@ -305,9 +282,9 @@
       {% if product.conservation.has_any %}
       <details class="card group p-0">
         <summary class="flex items-center gap-2 cursor-pointer list-none p-4 text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong select-none">
-          <span class="material-symbols-rounded text-base text-primary dark:text-primary-dark" aria-hidden="true">schedule</span>
+          <span class="material-symbols-rounded icon-sm text-primary dark:text-primary-dark" aria-hidden="true">schedule</span>
           Conservação
-          <span class="material-symbols-rounded text-base ml-auto transition-transform group-open:rotate-180" aria-hidden="true">expand_more</span>
+          <span class="material-symbols-rounded icon-sm ml-auto transition-transform group-open:rotate-180" aria-hidden="true">expand_more</span>
         </summary>
         <div class="px-4 pb-4 border-t border-outline dark:border-outline-dark pt-3 space-y-1.5">
           {% if product.conservation.shelf_life_label %}
@@ -323,9 +300,9 @@
       {% if product.ingredients_text %}
       <details class="card group p-0">
         <summary class="flex items-center gap-2 cursor-pointer list-none p-4 text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong select-none">
-          <span class="material-symbols-rounded text-base text-primary dark:text-primary-dark" aria-hidden="true">list_alt</span>
+          <span class="material-symbols-rounded icon-sm text-primary dark:text-primary-dark" aria-hidden="true">list_alt</span>
           Ingredientes
-          <span class="material-symbols-rounded text-base ml-auto transition-transform group-open:rotate-180" aria-hidden="true">expand_more</span>
+          <span class="material-symbols-rounded icon-sm ml-auto transition-transform group-open:rotate-180" aria-hidden="true">expand_more</span>
         </summary>
         <div class="px-4 pb-4 border-t border-outline dark:border-outline-dark pt-3">
           <p class="text-sm text-on-surface dark:text-on-surface-dark whitespace-pre-line leading-relaxed">{{ product.ingredients_text }}</p>
@@ -336,9 +313,9 @@
       {% if product.nutrition.has_any %}
       <details class="card group p-0">
         <summary class="flex items-center gap-2 cursor-pointer list-none p-4 text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong select-none">
-          <span class="material-symbols-rounded text-base text-primary dark:text-primary-dark" aria-hidden="true">nutrition</span>
+          <span class="material-symbols-rounded icon-sm text-primary dark:text-primary-dark" aria-hidden="true">nutrition</span>
           Informações nutricionais
-          <span class="material-symbols-rounded text-base ml-auto transition-transform group-open:rotate-180" aria-hidden="true">expand_more</span>
+          <span class="material-symbols-rounded icon-sm ml-auto transition-transform group-open:rotate-180" aria-hidden="true">expand_more</span>
         </summary>
         <div class="px-4 pb-4 border-t border-outline dark:border-outline-dark pt-3 space-y-3">
           {% if product.nutrition.serving_size_display %}
@@ -354,7 +331,7 @@
           <div class="flex items-baseline justify-between gap-3 rounded-radius bg-surface-alt dark:bg-surface-dark-alt px-3 py-2">
             <span class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Valor energético</span>
             <span class="text-right">
-              <span class="text-lg font-bold text-primary dark:text-primary-dark">{{ product.nutrition.energy_kcal_display }}</span>
+              <span class="text-lg font-semibold text-primary dark:text-primary-dark">{{ product.nutrition.energy_kcal_display }}</span>
               <span class="text-xs text-on-surface dark:text-on-surface-dark ml-1">kcal</span>
               {% if product.nutrition.energy_pdv is not None %}
               <span class="block text-xs text-on-surface/70 dark:text-on-surface-dark/70">{{ product.nutrition.energy_pdv }}% VD</span>
@@ -389,6 +366,28 @@
     </div>
 
   </div>
+
+  {# ── Image ── #}
+  <figure class="relative order-2 md:order-1 aspect-video sm:aspect-square rounded-radius overflow-hidden bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark">
+    {% if product.image_url %}
+    <img src="{{ product.image_url }}" alt="{{ product.name }}" class="w-full h-full object-cover"
+         loading="eager" fetchpriority="high" decoding="async">
+    {% else %}
+    <div class="w-full h-full flex items-center justify-center text-on-surface/30 dark:text-on-surface-dark/30">
+      <span class="material-symbols-rounded icon-display" aria-hidden="true">bakery_dining</span>
+    </div>
+    {% endif %}
+
+    {# Availability badge — SSE refresh target (WP-AV-10). #}
+    <div class="absolute top-3 right-3"
+         hx-get="{% url 'storefront:sku_state' product.sku %}?channel_ref={{ storefront_channel_ref|default:'web' }}"
+         hx-trigger="sse:stock-update[JSON.parse(event.data).sku=='{{ product.sku }}'],sse:product-paused[JSON.parse(event.data).sku=='{{ product.sku }}'],sse:listing-changed[JSON.parse(event.data).sku=='{{ product.sku }}']"
+         hx-swap="innerHTML">
+      {% if product.availability != "available" %}
+        {% include "storefront/components/availability_badge.html" with state=product.availability.value %}
+      {% endif %}
+    </div>
+  </figure>
 </div>
 
 {% comment %}

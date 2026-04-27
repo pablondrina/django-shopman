@@ -43,7 +43,7 @@
              class="w-full h-full object-cover transition duration-700 ease-out group-hover:scale-105">
         {% else %}
         <div class="w-full h-full flex items-center justify-center text-on-surface/30 dark:text-on-surface-dark/30 bg-surface-alt dark:bg-surface-dark-alt">
-          <span class="material-symbols-rounded text-4xl sm:text-5xl" aria-hidden="true">bakery_dining</span>
+          <span class="material-symbols-rounded icon-xl" aria-hidden="true">bakery_dining</span>
         </div>
         {% endif %}
       </a>
@@ -85,7 +85,7 @@
         {# Allergen badge inline — critical info, never hidden #}
         {% if item.allergens %}
         <p class="inline-flex items-center gap-1 rounded-full bg-warning/10 border border-warning/30 text-warning px-2 py-0.5 text-[10px] sm:text-xs w-fit" aria-label="Alérgenos">
-          <span class="material-symbols-rounded text-xs sm:text-sm" aria-hidden="true">warning</span>
+          <span class="material-symbols-rounded icon-xs" aria-hidden="true">warning</span>
           Contém {{ item.allergens|join:" · " }}
         </p>
         {% endif %}
@@ -95,9 +95,9 @@
           <div class="min-w-0">
             {% if item.has_promotion %}
               <p class="text-[10px] sm:text-xs text-on-surface/70 dark:text-on-surface-dark/70 line-through tabular-nums">{{ item.original_price_display }}</p>
-              <p class="text-sm sm:text-base font-bold text-primary dark:text-primary-dark tabular-nums">{{ item.price_display }}</p>
+              <p class="text-sm sm:text-base font-semibold text-primary dark:text-primary-dark tabular-nums">{{ item.price_display }}</p>
             {% else %}
-              <p class="text-sm sm:text-base font-bold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums">{{ item.price_display }}</p>
+              <p class="text-sm sm:text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums">{{ item.price_display }}</p>
             {% endif %}
           </div>
 
@@ -105,10 +105,10 @@
           <div @click.stop class="shrink-0">
             <template x-if="qty === 0 && canAdd">
               <button type="button"
-                      class="btn-primary text-xs px-2.5 py-1.5 sm:px-3 sm:py-2"
+                      class="btn-primary size-11 px-0 py-0 sm:size-auto sm:px-3 sm:py-2 sm:text-xs"
                       :disabled="busy"
                       @click="set(1)">
-                <span class="material-symbols-rounded text-sm sm:hidden" aria-hidden="true">add</span>
+                <span class="material-symbols-rounded icon-sm sm:hidden" aria-hidden="true">add</span>
                 <span class="hidden sm:inline">Adicionar</span>
               </button>
             </template>

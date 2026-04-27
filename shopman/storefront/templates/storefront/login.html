@@ -16,11 +16,11 @@
 <div class="max-w-xl mx-auto mt-6 sm:mt-10 px-4"
      x-data="{ showChangePhoneConfirm: false }">
 
-  {% comment %}── Card com hero-image no topo + formulário em baixo ──{% endcomment %}
+  {% comment %}── Card de autenticação: contexto compacto + formulário em primeiro plano ──{% endcomment %}
   <div class="rounded-radius overflow-hidden border border-outline bg-white shadow-sm dark:border-outline-dark dark:bg-surface-dark">
 
-    {% comment %}── Hero — imagem de fundo + overlay + copy do step ──{% endcomment %}
-    <div class="relative h-44 sm:h-56">
+    {% comment %}── Cabeçalho compacto: orienta sem empurrar a ação principal ──{% endcomment %}
+    <div class="relative h-28 sm:h-36">
       <img src="https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=1600&q=80"
            alt=""
            aria-hidden="true"
@@ -32,29 +32,29 @@
            style="background: radial-gradient(ellipse at center, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 70%);"></div>
       <div class="relative z-10 h-full flex flex-col items-center justify-center text-center px-6 sm:px-8 text-white">
         {% if step == "code" %}
-          <p class="font-title text-base sm:text-lg/tight opacity-95 mb-1 drop-shadow-md">Oi{% if customer_name %}, {{ customer_name }}{% endif %}!</p>
-          <h1 class="font-title text-2xl sm:text-3xl font-bold leading-tight drop-shadow-lg">
+          <p class="font-title text-sm opacity-95 mb-1 drop-shadow-md">Oi{% if customer_name %}, {{ customer_name }}{% endif %}!</p>
+          <h1 class="font-title text-xl sm:text-2xl font-semibold leading-tight drop-shadow-lg">
             {{ login_code_heading.title }}
           </h1>
         {% elif step == "name" %}
-          <p class="font-title text-base sm:text-lg/tight opacity-95 mb-1 drop-shadow-md">Que bom te ver aqui!</p>
-          <h1 class="font-title text-2xl sm:text-3xl font-bold leading-tight drop-shadow-lg">
+          <p class="font-title text-sm opacity-95 mb-1 drop-shadow-md">Que bom te ver aqui!</p>
+          <h1 class="font-title text-xl sm:text-2xl font-semibold leading-tight drop-shadow-lg">
             {{ login_name_heading.title }}
           </h1>
         {% else %}
           {% if trusted_name %}
-            <p class="font-title text-base sm:text-lg/tight opacity-95 mb-1 drop-shadow-md">Bem-vindo de volta, {{ trusted_name }}!</p>
-            <h1 class="font-title text-2xl sm:text-3xl font-bold leading-tight drop-shadow-lg">
+            <p class="font-title text-sm opacity-95 mb-1 drop-shadow-md">Bem-vindo de volta, {{ trusted_name }}!</p>
+            <h1 class="font-title text-xl sm:text-2xl font-semibold leading-tight drop-shadow-lg">
               Acesse sua conta
             </h1>
           {% elif login_context == "checkout" %}
-            <p class="font-title text-base sm:text-lg/tight opacity-95 mb-1 drop-shadow-md">Só mais um passo</p>
-            <h1 class="font-title text-2xl sm:text-3xl font-bold leading-tight drop-shadow-lg">
+            <p class="font-title text-sm opacity-95 mb-1 drop-shadow-md">Só mais um passo</p>
+            <h1 class="font-title text-xl sm:text-2xl font-semibold leading-tight drop-shadow-lg">
               Entre para continuar
             </h1>
           {% else %}
-            <p class="font-title text-base sm:text-lg/tight opacity-95 mb-1 drop-shadow-md">Bem-vindo(a)!</p>
-            <h1 class="font-title text-2xl sm:text-3xl font-bold leading-tight drop-shadow-lg">
+            <p class="font-title text-sm opacity-95 mb-1 drop-shadow-md">Bem-vindo(a)!</p>
+            <h1 class="font-title text-xl sm:text-2xl font-semibold leading-tight drop-shadow-lg">
               {{ login_phone_heading.title }}
             </h1>
           {% endif %}
@@ -63,7 +63,7 @@
     </div>
 
     {% comment %}── Corpo do card — subtítulo contextual + form ──{% endcomment %}
-    <div class="p-6 sm:p-8">
+    <div class="p-5 sm:p-7">
 
     {% if step == "phone" %}
     {% comment %}═══ Step 1: Phone ═══{% endcomment %}
@@ -79,7 +79,7 @@
               hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
               style="min-height: 52px;"
               class="flex w-full items-center justify-center gap-2 rounded-radius border-2 border-primary bg-primary/5 px-4 py-3 text-sm font-medium text-primary transition hover:bg-primary/10 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:border-primary-dark dark:bg-primary-dark/10 dark:text-primary-dark dark:hover:bg-primary-dark/15 dark:focus-visible:outline-primary-dark">
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">verified_user</span>
+        <span class="material-symbols-rounded icon-md" aria-hidden="true">verified_user</span>
         Entrar sem código
       </button>
       <p class="mt-2 text-center text-xs text-on-surface/50 dark:text-on-surface-dark/50">
@@ -88,7 +88,7 @@
     </div>
     {% endif %}
 
-    <p class="mb-6 text-center text-base sm:text-lg text-on-surface/70 dark:text-on-surface-dark/70">
+    <p class="mb-5 text-center text-sm text-on-surface/70 dark:text-on-surface-dark/70">
       {{ login_phone_subtitle.message }}
     </p>
 
@@ -107,8 +107,8 @@
           Seu telefone
         </label>
         <div class="flex">
-          <div class="flex items-center gap-2 rounded-l-radius border-2 border-r-0 border-outline bg-surface-alt px-4 text-lg select-none dark:border-outline-dark dark:bg-surface-dark-alt/50">
-            <span class="text-xl leading-none">🇧🇷</span>
+          <div class="flex items-center gap-2 rounded-l-radius border-2 border-r-0 border-outline bg-surface-alt px-4 text-base select-none dark:border-outline-dark dark:bg-surface-dark-alt/50">
+            <span class="text-lg leading-none">🇧🇷</span>
             <span class="font-medium">+55</span>
           </div>
           <input type="tel" id="phone" name="phone"
@@ -116,7 +116,7 @@
                  required autofocus inputmode="numeric"
                  placeholder="(43) 99999-9999" maxlength="16" autocomplete="tel-national"
                  style="min-height: 64px;"
-                 class="w-full rounded-r-radius border-2 border-outline bg-white px-4 py-4 text-2xl font-mono tracking-wide text-on-surface-strong
+                 class="w-full rounded-r-radius border-2 border-outline bg-white px-4 py-4 text-xl font-mono tracking-wide text-on-surface-strong
                         placeholder:text-on-surface/30
                         focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none
                         dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark-strong dark:placeholder:text-on-surface-dark/30
@@ -135,11 +135,11 @@
               :disabled="loading"
               style="min-height: 56px;"
               class="flex w-full items-center justify-center gap-3 rounded-radius bg-primary text-white dark:bg-primary-dark
-                     text-lg font-bold px-6 py-4 hover:opacity-90 transition active:scale-[0.99]
+                     text-sm sm:text-base font-semibold px-6 py-4 hover:opacity-90 transition active:scale-[0.99]
                      focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary
                      dark:focus-visible:outline-primary-dark disabled:opacity-60 disabled:cursor-wait">
         <span x-show="!loading" class="flex items-center gap-3">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6 shrink-0" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5 shrink-0" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
           {{ login_cta_wa.title }}
         </span>
         <span x-show="loading" x-cloak class="flex items-center gap-2">
@@ -210,7 +210,7 @@
 
     {% elif step == "code" %}
     {% comment %}═══ Step 2: OTP ═══{% endcomment %}
-    <p class="mb-6 text-center text-base sm:text-lg text-on-surface/70 dark:text-on-surface-dark/70">
+    <p class="mb-5 text-center text-sm text-on-surface/70 dark:text-on-surface-dark/70">
       Enviamos um código para o {% if delivery_method == "sms" %}SMS{% else %}WhatsApp{% endif %} número
       <span class="whitespace-nowrap font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ phone_value|format_phone }}</span>.
     </p>
@@ -233,7 +233,7 @@
               @click="showChangePhoneConfirm = true"
               class="inline-flex items-center gap-2 text-base text-on-surface hover:text-primary transition dark:text-on-surface-dark dark:hover:text-primary-dark"
               style="min-height: 44px;">
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">autorenew</span>
+        <span class="material-symbols-rounded icon-md" aria-hidden="true">autorenew</span>
         Usar outro telefone
       </button>
     </div>
@@ -246,7 +246,7 @@
 
     {% elif step == "name" %}
     {% comment %}═══ Step 3: Name (new customer only) ═══{% endcomment %}
-    <p class="mb-6 text-base sm:text-lg text-on-surface/70 dark:text-on-surface-dark/70">
+    <p class="mb-5 text-sm text-on-surface/70 dark:text-on-surface-dark/70">
       {{ login_name_subtitle.message }}
     </p>
 
@@ -267,7 +267,7 @@
                autocomplete="given-name" maxlength="60"
                placeholder="Ex: Joana"
                style="min-height: 64px;"
-               class="w-full rounded-radius border-2 border-outline bg-white px-5 py-4 text-2xl text-on-surface-strong
+               class="w-full rounded-radius border-2 border-outline bg-white px-5 py-4 text-xl text-on-surface-strong
                       placeholder:text-on-surface/30
                       focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none
                       dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark-strong dark:placeholder:text-on-surface-dark/30
@@ -282,7 +282,7 @@
               :disabled="loading"
               style="min-height: 56px;"
               class="w-full rounded-radius bg-primary text-white dark:bg-primary-dark
-                     text-lg font-bold px-6 py-4 hover:opacity-90 transition active:scale-[0.99]
+                     text-base font-semibold px-6 py-4 hover:opacity-90 transition active:scale-[0.99]
                      focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary
                      dark:focus-visible:outline-primary-dark disabled:opacity-60 disabled:cursor-wait">
         {{ login_name_cta.title }}
@@ -326,7 +326,7 @@
           <div class="w-10 h-1 rounded-full bg-outline dark:bg-outline-dark"></div>
         </div>
         <h3 id="change-phone-title"
-            class="font-title text-xl sm:text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-2">
+            class="font-title text-xl font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-2">
           Trocar de telefone?
         </h3>
         <p class="text-base text-on-surface/70 dark:text-on-surface-dark/70 mb-6">
@@ -336,9 +336,9 @@
         <div class="flex flex-col sm:flex-row-reverse gap-3">
           <a href="{% url 'storefront:login' %}{% if next %}?next={{ next|urlencode }}{% endif %}"
              class="flex-1 inline-flex items-center justify-center gap-2 rounded-radius bg-primary text-white dark:bg-primary-dark
-                    text-base font-bold px-6 py-3 hover:opacity-90 transition"
+                    text-base font-semibold px-6 py-3 hover:opacity-90 transition"
              style="min-height: 48px;">
-            <span class="material-symbols-rounded text-lg" aria-hidden="true">autorenew</span>
+            <span class="material-symbols-rounded icon-sm" aria-hidden="true">autorenew</span>
             Sim, trocar
           </a>
           <button type="button" @click="showChangePhoneConfirm = false"

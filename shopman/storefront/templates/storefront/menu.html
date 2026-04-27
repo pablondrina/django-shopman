@@ -36,7 +36,7 @@
 {% comment %}── Page header ──{% endcomment %}
 {% omotenashi 'MENU_SUBTITLE' as menu_subtitle %}
 <header class="mb-4">
-  <h1 class="text-2xl lg:text-3xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Cardápio</h1>
+  <h1 class="text-2xl font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Cardápio</h1>
   <p class="mt-1 text-sm text-on-surface dark:text-on-surface-dark">{{ menu_subtitle.message }}</p>
 </header>
 
@@ -52,7 +52,7 @@
               @click="searchOpen ? closeSearch() : openSearch()"
               :aria-label="searchOpen ? 'Fechar busca' : 'Abrir menu e busca'"
               class="shrink-0 inline-flex size-11 items-center justify-center rounded-radius text-on-surface hover:bg-surface hover:text-primary dark:text-on-surface-dark dark:hover:bg-surface-dark dark:hover:text-primary-dark transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-dark">
-        <span class="material-symbols-rounded text-2xl" aria-hidden="true"
+        <span class="material-symbols-rounded icon-lg" aria-hidden="true"
               x-text="searchOpen ? 'close' : 'manage_search'"></span>
       </button>
 
@@ -70,7 +70,7 @@
                           : '{% if catalog.favorite_category_ref == section.ref %}border-primary/60 dark:border-primary-dark/60{% else %}border-outline dark:border-outline-dark{% endif %} bg-white text-on-surface hover:border-primary/40 dark:bg-surface-dark dark:text-on-surface-dark'"
                 class="shrink-0 inline-flex items-center gap-1.5 px-5 rounded-full border-2 text-sm font-semibold transition whitespace-nowrap"
                 style="min-height: 44px;">
-          <span>{{ section.label }}</span>{% if catalog.favorite_category_ref == section.ref %}<span class="material-symbols-rounded text-xs text-primary dark:text-primary-dark" aria-hidden="true" title="Seu favorito">favorite</span>{% endif %}
+          <span>{{ section.label }}</span>{% if catalog.favorite_category_ref == section.ref %}<span class="material-symbols-rounded icon-xs text-primary dark:text-primary-dark" aria-hidden="true" title="Seu favorito">favorite</span>{% endif %}
         </button>
         {% endfor %}
         {% comment %}"Todos" na ÚLTIMA posição — rola pro topo{% endcomment %}
@@ -79,7 +79,7 @@
                 @click="jumpTo('__top__')"
                 class="shrink-0 inline-flex items-center gap-1.5 px-5 rounded-full border-2 border-outline bg-white text-on-surface hover:border-primary/40 dark:bg-surface-dark dark:text-on-surface-dark dark:border-outline-dark text-sm font-semibold transition whitespace-nowrap"
                 style="min-height: 44px;">
-          <span class="material-symbols-rounded text-base" aria-hidden="true">vertical_align_top</span>
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">vertical_align_top</span>
           Todos
         </button>
       </div>
@@ -99,7 +99,7 @@
         <button x-show="searchQuery" @click="searchQuery=''; $refs.searchInput.focus(); runSearch()"
                 type="button" aria-label="Limpar"
                 class="shrink-0 inline-flex size-9 items-center justify-center rounded-full text-on-surface/50 hover:bg-surface dark:text-on-surface-dark/50 dark:hover:bg-surface-dark">
-          <span class="material-symbols-rounded text-lg" aria-hidden="true">cancel</span>
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">cancel</span>
         </button>
       </div>
     </div>
@@ -126,13 +126,13 @@
                 @click="jumpToAndClose('{{ section.ref }}')"
                 class="w-full flex items-center gap-4 px-4 py-4 hover:bg-surface-alt dark:hover:bg-surface-dark-alt text-left transition">
           <span class="shrink-0 inline-flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary dark:bg-primary-dark/10 dark:text-primary-dark">
-            <span class="material-symbols-rounded text-xl" aria-hidden="true">{{ section.icon|default:"restaurant_menu" }}</span>
+            <span class="material-symbols-rounded icon-md" aria-hidden="true">{{ section.icon|default:"restaurant_menu" }}</span>
           </span>
           <span class="flex-1 min-w-0">
             <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ section.label }}</span>
             <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 mt-0.5 block">{{ section.items|length }} itens</span>
           </span>
-          <span class="material-symbols-rounded text-on-surface/30 dark:text-on-surface-dark/30" aria-hidden="true">chevron_right</span>
+          <span class="material-symbols-rounded icon-sm text-on-surface/30 dark:text-on-surface-dark/30" aria-hidden="true">chevron_right</span>
         </button>
         {% endfor %}
       </div>
@@ -148,17 +148,17 @@
              class="w-full flex items-center gap-4 px-4 py-3 hover:bg-surface-alt dark:hover:bg-surface-dark-alt text-left transition">
             <span class="shrink-0 size-12 rounded bg-surface-alt dark:bg-surface-dark-alt flex items-center justify-center overflow-hidden">
               <template x-if="r.image"><img :src="r.image" :alt="r.name" loading="lazy" class="w-full h-full object-cover"></template>
-              <template x-if="!r.image"><span class="material-symbols-rounded text-2xl text-on-surface/30 dark:text-on-surface-dark/30" aria-hidden="true">bakery_dining</span></template>
+              <template x-if="!r.image"><span class="material-symbols-rounded icon-lg text-on-surface/30 dark:text-on-surface-dark/30" aria-hidden="true">bakery_dining</span></template>
             </span>
             <span class="flex-1 min-w-0">
               <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong block truncate" x-text="r.name"></span>
               <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 block" x-text="r.section"></span>
             </span>
-            <span class="text-sm font-bold text-primary dark:text-primary-dark" x-text="r.price"></span>
+            <span class="text-sm font-semibold text-primary dark:text-primary-dark" x-text="r.price"></span>
           </a>
         </template>
         <div x-show="!searchResults.length" class="text-center py-16 text-on-surface/50 dark:text-on-surface-dark/50">
-          <span class="material-symbols-rounded text-6xl mb-3 block" aria-hidden="true">search_off</span>
+          <span class="material-symbols-rounded icon-display mb-3 block" aria-hidden="true">search_off</span>
           <p class="text-base">Nada encontrado para "<span class="font-medium" x-text="searchQuery"></span>"</p>
         </div>
       </div>
@@ -172,8 +172,8 @@
   <div class="px-4 py-6 space-y-10">
   {% for section in catalog.sections %}
   <section id="section-{{ section.ref }}" data-pill="{{ section.ref }}" class="animate-fade-in">
-    <h2 class="text-lg font-bold text-on-surface-strong dark:text-on-surface-dark-strong flex items-center gap-2 mb-3">
-      <span class="material-symbols-rounded text-xl" aria-hidden="true">{{ section.icon|default:"restaurant_menu" }}</span>
+    <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong flex items-center gap-2 mb-3">
+      <span class="material-symbols-rounded icon-md" aria-hidden="true">{{ section.icon|default:"restaurant_menu" }}</span>
       {{ section.label }}
     </h2>
     {% if section.description %}

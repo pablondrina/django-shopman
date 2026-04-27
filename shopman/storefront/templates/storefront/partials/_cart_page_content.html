@@ -15,7 +15,7 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
 
 {% omotenashi 'CART_PAGE_TITLE' as cart_page_title %}
 <header class="mb-6">
-  <h1 class="text-2xl lg:text-3xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ cart_page_title.title }}</h1>
+  <h1 class="text-2xl font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ cart_page_title.title }}</h1>
   {% if not cart.is_empty %}
   <p class="mt-1 text-sm text-on-surface dark:text-on-surface-dark">
     {{ cart.items_count }} {{ cart.items_count|pluralize:"item,itens" }} · {{ cart.subtotal_display }}
@@ -31,11 +31,11 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
   {% omotenashi 'CART_EMPTY' as cart_empty %}
   {# ── Empty state ── #}
   <div class="card text-center py-16">
-    <span class="material-symbols-rounded text-6xl text-on-surface/30 dark:text-on-surface-dark/30 block mb-4" aria-hidden="true">shopping_cart</span>
-    <h2 class="text-lg font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-2">{{ cart_empty.title }}</h2>
+    <span class="material-symbols-rounded icon-display text-on-surface/30 dark:text-on-surface-dark/30 block mb-4" aria-hidden="true">shopping_cart</span>
+    <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-2">{{ cart_empty.title }}</h2>
     <p class="text-sm text-on-surface dark:text-on-surface-dark mb-6 max-w-sm mx-auto">{{ cart_empty.message }}</p>
     <a href="{% url 'storefront:menu' %}" class="btn-primary inline-flex items-center gap-2">
-      <span class="material-symbols-rounded text-base" aria-hidden="true">restaurant_menu</span>
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true">restaurant_menu</span>
       Ver cardápio
     </a>
   </div>
@@ -44,7 +44,7 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
   {# ── Minimum order warning ── #}
   {% if cart.minimum_order_progress %}
   <div class="card mb-4 flex items-start gap-3 border-warning/40" role="status">
-    <span class="material-symbols-rounded text-warning shrink-0" aria-hidden="true">info</span>
+    <span class="material-symbols-rounded icon-md text-warning shrink-0" aria-hidden="true">info</span>
     <div class="flex-1">
       <p class="text-sm text-on-surface dark:text-on-surface-dark">
         Faltam <strong class="text-on-surface-strong dark:text-on-surface-dark-strong">{{ cart.minimum_order_progress.remaining_display }}</strong>
@@ -61,7 +61,7 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
   {% if cart.has_unavailable_items %}
   {% omotenashi 'CART_UNAVAILABLE_BANNER' as unavailable_banner %}
   <div class="card mb-4 flex items-center gap-3 border-warning/40 bg-warning/5" role="alert">
-    <span class="material-symbols-rounded text-warning shrink-0" aria-hidden="true">info</span>
+    <span class="material-symbols-rounded icon-md text-warning shrink-0" aria-hidden="true">info</span>
     <p class="text-sm text-on-surface dark:text-on-surface-dark">
       {{ unavailable_banner.message }}
     </p>
@@ -118,7 +118,7 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
             <img src="{{ item.image_url }}" alt="{{ item.name }}" loading="lazy" class="w-full h-full object-cover">
             {% else %}
             <div class="w-full h-full flex items-center justify-center text-on-surface/30 dark:text-on-surface-dark/30">
-              <span class="material-symbols-rounded text-2xl" aria-hidden="true">bakery_dining</span>
+              <span class="material-symbols-rounded icon-lg" aria-hidden="true">bakery_dining</span>
             </div>
             {% endif %}
           </div>
@@ -145,7 +145,7 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
                       :disabled="busy"
                       @click="set(0)"
                       aria-label="Remover {{ item.name }}">
-                <span class="material-symbols-rounded text-base" aria-hidden="true">delete</span>
+                <span class="material-symbols-rounded icon-sm" aria-hidden="true">delete</span>
               </button>
             </div>
 
@@ -153,7 +153,7 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
             {% omotenashi 'PICKUP_READY_NOTICE' as ready_notice %}
             <div class="flex flex-col gap-1">
               <span class="inline-flex items-center gap-1.5 self-start rounded-full bg-info/10 px-2.5 py-1 text-xs font-medium text-info dark:bg-info-dark/10 dark:text-info-dark">
-                <span class="material-symbols-rounded text-sm" aria-hidden="true">schedule</span>
+                <span class="material-symbols-rounded icon-xs" aria-hidden="true">schedule</span>
                 Aguardando confirmação
               </span>
               <p class="text-xs text-on-surface/70 dark:text-on-surface-dark/70">{{ ready_notice.message }}</p>
@@ -165,7 +165,7 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
                  class="rounded-radius border border-success/40 bg-success/5 p-3 dark:border-success-dark/40 dark:bg-success-dark/5"
                  role="status">
               <div class="flex items-center gap-2">
-                <span class="material-symbols-rounded text-success dark:text-success-dark" aria-hidden="true">celebration</span>
+                <span class="material-symbols-rounded icon-md text-success dark:text-success-dark" aria-hidden="true">celebration</span>
                 <p class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">
                   Tudo pronto! Confirme até <span x-text="deadlineLabel"></span>
                 </p>
@@ -181,7 +181,7 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
             <div class="rounded-radius border border-warning/40 bg-warning/5 p-3 dark:border-warning-dark/40 dark:bg-warning-dark/5"
                  role="alert">
               <div class="flex items-start gap-2">
-                <span class="material-symbols-rounded text-warning dark:text-warning-dark text-base mt-0.5 shrink-0" aria-hidden="true">warning</span>
+                <span class="material-symbols-rounded icon-sm text-warning dark:text-warning-dark mt-0.5 shrink-0" aria-hidden="true">warning</span>
                 <div class="flex-1 min-w-0">
                   <p class="text-sm font-medium text-on-surface-strong dark:text-on-surface-dark-strong">
                     {{ item.availability_warning }}
@@ -198,7 +198,7 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
                         @click="set({{ item.available_qty }})"
                         class="inline-flex items-center gap-1.5 rounded-radius bg-primary px-4 py-2 text-sm font-semibold text-white hover:opacity-90 dark:bg-primary-dark transition disabled:opacity-50"
                         style="min-height: 44px;">
-                  <span class="material-symbols-rounded text-base" aria-hidden="true">check</span>
+                  <span class="material-symbols-rounded icon-sm" aria-hidden="true">check</span>
                   Aceitar {{ item.available_qty }}
                 </button>
                 {% endif %}
@@ -207,7 +207,7 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
                         @click="set(0)"
                         class="inline-flex items-center gap-1.5 rounded-radius border border-outline px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-alt dark:border-outline-dark dark:text-on-surface-dark dark:hover:bg-surface-dark-alt transition disabled:opacity-50"
                         style="min-height: 44px;">
-                  <span class="material-symbols-rounded text-base" aria-hidden="true">close</span>
+                  <span class="material-symbols-rounded icon-sm" aria-hidden="true">close</span>
                   Remover do carrinho
                 </button>
               </div>
@@ -222,7 +222,7 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
                         :disabled="busy || qty <= 1"
                         @click="set(qty - 1)"
                         aria-label="Diminuir quantidade">
-                  <span class="material-symbols-rounded text-lg" aria-hidden="true">remove</span>
+                  <span class="material-symbols-rounded icon-md" aria-hidden="true">remove</span>
                 </button>
                 <span class="w-10 text-center text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums" x-text="qty" aria-live="polite"></span>
                 <button type="button"
@@ -230,10 +230,10 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
                         :disabled="busy || qty >= effectiveMax"
                         @click="set(qty + 1)"
                         :aria-label="qty >= effectiveMax ? 'Estoque máximo atingido' : 'Aumentar quantidade'">
-                  <span class="material-symbols-rounded text-lg" aria-hidden="true">add</span>
+                  <span class="material-symbols-rounded icon-md" aria-hidden="true">add</span>
                 </button>
               </div>
-              <p class="self-end sm:self-auto shrink-0 max-w-full text-base font-bold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums">{{ item.total_display }}</p>
+              <p class="self-end sm:self-auto shrink-0 max-w-full mr-1 text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums">{{ item.total_display }}</p>
             </div>
             {# Hint inline (AVAILABILITY-PLAN §7): discreto, aparece perto do limite #}
             <p x-show="showMaxHint" x-cloak
@@ -255,7 +255,7 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
         {% if cart.coupon_code %}
         <div class="flex items-center justify-between gap-3">
           <div class="flex items-center gap-2 min-w-0">
-            <span class="material-symbols-rounded text-success shrink-0" aria-hidden="true">verified</span>
+            <span class="material-symbols-rounded icon-md text-success shrink-0" aria-hidden="true">verified</span>
             <p class="text-sm text-on-surface dark:text-on-surface-dark truncate">
               Cupom <strong class="text-on-surface-strong dark:text-on-surface-dark-strong">{{ cart.coupon_code }}</strong>
               {% if cart.coupon_discount_display %}
@@ -275,7 +275,7 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
         <div x-data="{ open: false }">
           <button type="button" x-show="!open" @click="open = true; $nextTick(() => $refs.coupon2 && $refs.coupon2.focus())"
                   class="inline-flex items-center gap-1.5 text-sm text-on-surface hover:text-primary focus:outline-hidden focus:text-primary dark:text-on-surface-dark dark:hover:text-primary-dark">
-            <span class="material-symbols-rounded text-base" aria-hidden="true">local_offer</span>
+            <span class="material-symbols-rounded icon-sm" aria-hidden="true">local_offer</span>
             {{ coupon_prompt.title }}
           </button>
           <form x-show="open" x-cloak class="flex items-center gap-2"
@@ -298,7 +298,7 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
     {# ── Summary column ── #}
     <aside class="space-y-4 lg:sticky lg:top-6 lg:self-start">
       <div class="card">
-        <h2 class="text-xs font-bold uppercase tracking-wide text-on-surface dark:text-on-surface-dark mb-3">Resumo</h2>
+        <h2 class="text-xs font-semibold uppercase tracking-wide text-on-surface dark:text-on-surface-dark mb-3">Resumo</h2>
 
         {% if cart.has_discount %}
         <div class="flex justify-between text-sm mb-2">
@@ -326,35 +326,35 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
         {% endif %}
 
         <div class="flex justify-between items-baseline pt-3 mt-3 border-t border-outline dark:border-outline-dark">
-          <span class="font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Total</span>
-          <span class="text-xl font-bold text-primary dark:text-primary-dark tabular-nums">{{ cart.grand_total_display }}</span>
+          <span class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Total</span>
+          <span class="text-lg font-semibold text-primary dark:text-primary-dark tabular-nums">{{ cart.grand_total_display }}</span>
         </div>
       </div>
 
       {% if cart.minimum_order_progress %}
       <button type="button" class="btn-secondary w-full opacity-70 cursor-not-allowed" disabled>
-        <span class="material-symbols-rounded text-base" aria-hidden="true">lock</span>
+        <span class="material-symbols-rounded icon-sm" aria-hidden="true">lock</span>
         Faltam {{ cart.minimum_order_progress.remaining_display }} para o mínimo
       </button>
       <a href="{% url 'storefront:menu' %}" class="flex items-center justify-center gap-1.5 w-full py-2 text-sm font-medium text-primary dark:text-primary-dark hover:underline">
-        <span class="material-symbols-rounded text-base" aria-hidden="true">add_shopping_cart</span>
+        <span class="material-symbols-rounded icon-sm" aria-hidden="true">add_shopping_cart</span>
         Adicionar mais itens
       </a>
       {% elif cart.has_ready_for_confirmation_items %}
       <a href="{% url 'storefront:checkout' %}" class="btn-primary w-full">
-        <span class="material-symbols-rounded text-base" aria-hidden="true">priority_high</span>
+        <span class="material-symbols-rounded icon-sm" aria-hidden="true">priority_high</span>
         Confirmar agora — tudo pronto
       </a>
       {% else %}
       <a href="{% url 'storefront:checkout' %}" class="btn-primary w-full">
-        <span class="material-symbols-rounded text-base" aria-hidden="true">payments</span>
+        <span class="material-symbols-rounded icon-sm" aria-hidden="true">payments</span>
         Finalizar pedido
       </a>
       {% endif %}
 
       <a href="{% url 'storefront:menu' %}"
          class="btn-secondary w-full flex items-center justify-center gap-1.5">
-        <span class="material-symbols-rounded text-base" aria-hidden="true">arrow_back</span>
+        <span class="material-symbols-rounded icon-sm" aria-hidden="true">arrow_back</span>
         Continuar comprando
       </a>
 
@@ -364,14 +364,14 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
       {% endcomment %}
       {% if cart.upsell %}
       <div class="card" x-data="{ busy: false }">
-        <h3 class="text-xs font-bold uppercase tracking-wide text-on-surface dark:text-on-surface-dark mb-3">Que tal adicionar?</h3>
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-on-surface dark:text-on-surface-dark mb-3">Que tal adicionar?</h3>
         <div class="flex items-center gap-3">
           <div class="shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-surface dark:bg-surface-dark border border-outline dark:border-outline-dark">
             {% if cart.upsell.image_url %}
             <img src="{{ cart.upsell.image_url }}" alt="{{ cart.upsell.name }}" loading="lazy" class="w-full h-full object-cover">
             {% else %}
             <div class="w-full h-full flex items-center justify-center text-on-surface/30 dark:text-on-surface-dark/30">
-              <span class="material-symbols-rounded text-xl" aria-hidden="true">bakery_dining</span>
+              <span class="material-symbols-rounded icon-md" aria-hidden="true">bakery_dining</span>
             </div>
             {% endif %}
           </div>

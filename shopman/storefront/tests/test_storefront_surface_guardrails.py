@@ -107,6 +107,39 @@ def test_ios_form_focus_does_not_auto_zoom():
     assert "font-size: 16px" in css
 
 
+def test_customer_surfaces_keep_focus_first_hierarchy():
+    menu = _read_template("menu.html")
+    pdp = _read_template("product_detail.html")
+    login = _read_template("login.html")
+    cart_page = _read_template("partials/_cart_page_content.html")
+
+    assert "order-2 md:order-1 aspect-video sm:aspect-square" in pdp
+    assert "order-1 md:order-2 flex flex-col" in pdp
+    assert "text-3xl" not in pdp
+    assert "h-28 sm:h-36" in login
+    assert "h-44 sm:h-56" not in login
+    assert "text-2xl lg:text-3xl" not in menu
+    assert "text-2xl lg:text-3xl" not in cart_page
+
+
+def test_customer_surfaces_use_canonical_icon_scale():
+    css = CSS_SOURCE.read_text(encoding="utf-8")
+    menu = _read_template("menu.html")
+    pdp = _read_template("product_detail.html")
+    grid = _read_template("partials/_catalog_item_grid.html")
+    drawer = _read_template("partials/cart_drawer.html")
+    bottom_nav = _read_template("partials/_bottom_nav.html")
+
+    for token in ("icon-xs", "icon-sm", "icon-md", "icon-lg", "icon-xl", "icon-display"):
+        assert f".{token}" in css
+
+    assert "material-symbols-rounded icon-lg" in menu
+    assert "material-symbols-rounded icon-display" in pdp
+    assert "material-symbols-rounded icon-xl" in grid
+    assert "material-symbols-rounded icon-display" in drawer
+    assert "material-symbols-rounded icon-md" in bottom_nav
+
+
 def test_viewport_chrome_follows_top_surface_color():
     base = _read_template("base.html")
     tokens = _read_template("partials/_tokens.html")
