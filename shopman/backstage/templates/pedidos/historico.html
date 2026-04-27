@@ -27,7 +27,7 @@
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 mb-0.5">
           <strong class="text-sm tabular-nums">#{{ o.ref }}</strong>
-          <span class="badge badge-{{ o.status }}">{{ o.status_label }}</span>
+          <span class="badge {{ o.status_color }}">{{ o.status_label }}</span>
           {% if o.customer_name %}
           <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 truncate">{{ o.customer_name }}</span>
           {% endif %}

@@ -35,6 +35,8 @@ function gestorPedidos() {
       var grid = this.$refs.orderGrid;
       if (grid) {
         grid.addEventListener('htmx:beforeRequest', function(e) {
+          var source = (e.detail && e.detail.elt) || e.target;
+          if (source !== grid) return;
           var cards = document.querySelectorAll('[data-order-card]');
           var hasInteraction = false;
           cards.forEach(function(card) {

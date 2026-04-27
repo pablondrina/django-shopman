@@ -89,3 +89,19 @@ def test_backstage_empty_states_and_icons_use_canonical_scale():
     assert "empty-state" in sources["kds/index.html"]
     assert "icon-display" in sources["pos/index.html"]
     assert "icon-md" in sources["gestor/base.html"]
+
+
+def test_backstage_order_queue_keeps_all_action_areas_visible_and_responsive():
+    order_list = (TEMPLATES / "pedidos" / "partials" / "order_list.html").read_text(encoding="utf-8")
+    card = (TEMPLATES / "pedidos" / "partials" / "card.html").read_text(encoding="utf-8")
+    js = (TEMPLATES / "pedidos" / "partials" / "pedidos_js.html").read_text(encoding="utf-8")
+
+    assert "Preparo" in order_list
+    assert "queue.preparo" in order_list
+    assert "queue.total_count" in order_list
+    assert "writing-mode" not in order_list
+    assert "overflow-y-auto p-3 space-y-4" in order_list
+    assert "badge {{ o.status_color }}" in card
+    assert "shrink-0 p-0" in card
+    assert "var source = (e.detail && e.detail.elt) || e.target;" in js
+    assert "if (source !== grid) return;" in js

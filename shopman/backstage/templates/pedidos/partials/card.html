@@ -1,8 +1,8 @@
 <article id="order-{{ o.ref }}"
-         class="card overflow-hidden flex flex-col p-0
+         class="card overflow-hidden flex flex-col shrink-0 p-0
                 {% if o.status == 'new' %}border-l-4 border-l-warning
-                {% elif o.status == 'preparing' %}border-l-4 border-l-info
-                {% elif o.status == 'ready' %}border-l-4 border-l-success{% endif %}"
+                {% elif o.status == 'confirmed' or o.status == 'preparing' %}border-l-4 border-l-info
+                {% elif o.status == 'ready' or o.status == 'dispatched' or o.status == 'delivered' %}border-l-4 border-l-success{% endif %}"
          data-order-card
          data-ref="{{ o.ref }}"
          x-data="{ expanded: false, rejectMode: false, rejectReason: '', confirming: false, loading: false, paidRevert: false }"
@@ -21,10 +21,10 @@
               hover:bg-outline/20 dark:hover:bg-outline-dark/20 gap-2 bg-transparent border-0"
        @click="expanded = !expanded"
        :aria-expanded="expanded.toString()">
-    <div class="flex items-center gap-1.5 text-sm min-w-0">
-      <span class="material-symbols-rounded icon-sm" aria-hidden="true">{{ o.channel_icon }}</span>
-      <strong>#{{ o.ref }}</strong>
-      <span class="badge badge-{{ o.status }}">{{ o.status_label }}</span>
+    <div class="flex items-center gap-1.5 text-sm min-w-0 flex-wrap">
+      <span class="material-symbols-rounded icon-sm shrink-0" aria-hidden="true">{{ o.channel_icon }}</span>
+      <strong class="tabular-nums">#{{ o.ref }}</strong>
+      <span class="badge {{ o.status_color }}">{{ o.status_label }}</span>
     </div>
     <div class="font-mono text-sm font-semibold tabular-nums flex items-center gap-1 shrink-0
                 {{ o.timer_class }}"
@@ -64,7 +64,7 @@
   </div>
 
   {% comment %}O1: Action buttons with loading states{% endcomment %}
-  <div class="px-4 pb-3 flex gap-2 flex-wrap">
+  <div class="px-4 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
     {% if o.can_confirm %}
       {% if o.payment_pending %}
       <button class="btn-primary flex-1 inline-flex items-center justify-center gap-1 opacity-50 cursor-not-allowed"
@@ -102,6 +102,7 @@
               hx-swap="outerHTML"
               x-on:htmx:before-request="loading = true"
               x-on:htmx:after-request="loading = false">
+        <span class="material-symbols-rounded icon-sm" aria-hidden="true" x-show="!loading">arrow_forward</span>
         <span x-show="loading" class="material-symbols-rounded icon-sm animate-spin" aria-hidden="true">progress_activity</span>
         {{ o.next_action_label }}
       </button>

@@ -1,14 +1,17 @@
-<div class="h-full flex min-h-0">
+<div class="h-full min-h-0 overflow-y-auto p-3 space-y-4 lg:overflow-hidden lg:grid lg:grid-cols-[minmax(18rem,1fr)_minmax(18rem,1fr)_minmax(23rem,1.2fr)] lg:gap-3 lg:space-y-0">
 
-  {% comment %}ENTRADA zone — new orders awaiting confirm/reject{% endcomment %}
-  <section class="flex flex-col flex-1 border-r border-outline dark:border-outline-dark overflow-hidden"
+  {% comment %}ENTRADA — new orders awaiting confirm/reject{% endcomment %}
+  <section class="card p-0 flex flex-col min-h-[18rem] overflow-hidden lg:min-h-0"
            data-zone="entrada"
            aria-label="Entrada, pedidos novos">
-    <header class="px-3 py-2 flex items-center gap-2 shrink-0
+    <header class="px-3 py-2.5 flex items-center gap-2 shrink-0
                    bg-warning/10 dark:bg-warning/5
                    border-b border-outline dark:border-outline-dark">
-      <span class="material-symbols-rounded icon-sm text-warning" aria-hidden="true">move_to_inbox</span>
-      <span class="text-xs font-semibold uppercase tracking-wide text-warning">Entrada</span>
+      <span class="material-symbols-rounded icon-md text-warning" aria-hidden="true">move_to_inbox</span>
+      <div class="min-w-0">
+        <h2 class="text-sm font-semibold text-warning leading-tight">Entrada</h2>
+        <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">Confirmar ou rejeitar</p>
+      </div>
       <span class="ml-auto count-badge bg-warning text-on-warning">
         {{ queue.entrada|length }}
       </span>
@@ -17,58 +20,75 @@
       {% for o in queue.entrada %}
         {% include "pedidos/partials/card.html" %}
       {% empty %}
-        <div class="flex flex-col items-center justify-center h-full text-center py-8
-                    text-on-surface/60 dark:text-on-surface-dark/60">
-          <span class="material-symbols-rounded icon-xl mb-2" aria-hidden="true">move_to_inbox</span>
+        <div class="empty-state h-full py-8">
+          <span class="material-symbols-rounded icon-display mb-2" aria-hidden="true">move_to_inbox</span>
           <p class="text-sm">Nenhum pedido aguardando</p>
         </div>
       {% endfor %}
     </div>
   </section>
 
-  {% comment %}Middle strip — preparing count{% endcomment %}
-  <div class="flex flex-col items-center justify-center shrink-0 w-8 overflow-hidden
-              bg-info/5 dark:bg-info/10
-              border-r border-outline dark:border-outline-dark"
-       title="{{ queue.preparing_count }} pedido{{ queue.preparing_count|pluralize:'s' }} sendo preparado{{ queue.preparing_count|pluralize:'s' }}">
-    <span class="text-xs font-semibold text-info tabular-nums select-none"
-          style="writing-mode: vertical-lr; letter-spacing: 0.05em;">
-      {{ queue.preparing_count }} prep.
-    </span>
-  </div>
+  {% comment %}PREPARO — confirmed/preparing orders that need kitchen action{% endcomment %}
+  <section class="card p-0 flex flex-col min-h-[18rem] overflow-hidden lg:min-h-0"
+           data-zone="preparo"
+           aria-label="Preparo, pedidos em produção">
+    <header class="px-3 py-2.5 flex items-center gap-2 shrink-0
+                   bg-info/10 dark:bg-info/5
+                   border-b border-outline dark:border-outline-dark">
+      <span class="material-symbols-rounded icon-md text-info" aria-hidden="true">skillet</span>
+      <div class="min-w-0">
+        <h2 class="text-sm font-semibold text-info leading-tight">Preparo</h2>
+        <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">Iniciar ou marcar pronto</p>
+      </div>
+      <span class="ml-auto count-badge bg-info text-on-info">
+        {{ queue.preparo|length }}
+      </span>
+    </header>
+    <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+      {% for o in queue.preparo %}
+        {% include "pedidos/partials/card.html" %}
+      {% empty %}
+        <div class="empty-state h-full py-8">
+          <span class="material-symbols-rounded icon-display mb-2" aria-hidden="true">skillet</span>
+          <p class="text-sm">Nenhum pedido em preparo</p>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
 
-  {% comment %}SAÍDA zone — ready orders split by fulfillment type{% endcomment %}
-  <section class="flex flex-col overflow-hidden" style="flex: 2"
-           aria-label="Saída, pedidos prontos">
-    <header class="px-3 py-2 flex items-center gap-2 shrink-0
+  {% comment %}SAÍDA — ready and delivery handoff{% endcomment %}
+  <section class="card p-0 flex flex-col min-h-[22rem] overflow-hidden lg:min-h-0"
+           data-zone="saida"
+           aria-label="Saída, pedidos prontos e entrega">
+    <header class="px-3 py-2.5 flex items-center gap-2 shrink-0
                    bg-success/10 dark:bg-success/5
                    border-b border-outline dark:border-outline-dark">
-      <span class="material-symbols-rounded icon-sm text-success" aria-hidden="true">outbox</span>
-      <span class="text-xs font-semibold uppercase tracking-wide text-success">Saída</span>
+      <span class="material-symbols-rounded icon-md text-success" aria-hidden="true">outbox</span>
+      <div class="min-w-0">
+        <h2 class="text-sm font-semibold text-success leading-tight">Saída</h2>
+        <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">Retirada, coleta e entrega</p>
+      </div>
       <span class="ml-auto count-badge bg-success text-on-success">
         {{ queue.saida_count }}
       </span>
     </header>
 
-    <div class="flex flex-1 overflow-hidden">
-
-      {% comment %}A retirar sub-zone{% endcomment %}
-      <div class="flex flex-col flex-1 border-r border-outline dark:border-outline-dark overflow-hidden">
-        <div class="px-3 py-1.5 flex items-center gap-1.5 shrink-0
+    <div class="flex-1 min-h-0 overflow-y-auto p-3 space-y-3 2xl:overflow-hidden 2xl:grid 2xl:grid-cols-2 2xl:gap-3 2xl:space-y-0">
+      <div class="flex flex-col min-h-[12rem] overflow-hidden rounded-lg border border-outline dark:border-outline-dark">
+        <div class="px-3 py-2 flex items-center gap-2 shrink-0
                     border-b border-outline dark:border-outline-dark
-                    bg-surface-alt dark:bg-surface-dark-alt">
+                    bg-surface dark:bg-surface-dark">
           <span class="material-symbols-rounded icon-sm text-on-surface/70 dark:text-on-surface-dark/70" aria-hidden="true">storefront</span>
-          <span class="text-xs font-semibold text-on-surface/50 dark:text-on-surface-dark/50 uppercase tracking-wide">A retirar</span>
-          <span class="ml-auto count-badge bg-surface dark:bg-surface-dark text-on-surface/70 dark:text-on-surface-dark/70">
+          <span class="text-xs font-semibold text-on-surface/70 dark:text-on-surface-dark/70 uppercase tracking-wide">A retirar</span>
+          <span class="ml-auto count-badge bg-surface-alt dark:bg-surface-dark-alt text-on-surface/70 dark:text-on-surface-dark/70">
             {{ queue.saida_retirada|length }}
           </span>
         </div>
-        <div class="flex-1 overflow-y-auto p-2 flex flex-col gap-2">
+        <div class="flex-1 overflow-y-auto p-2.5 flex flex-col gap-2.5">
           {% for o in queue.saida_retirada %}
             {% include "pedidos/partials/card.html" %}
           {% empty %}
-            <div class="flex flex-col items-center justify-center h-full
-                        text-on-surface/60 dark:text-on-surface-dark/60 text-center py-6">
+            <div class="empty-state h-full py-6">
               <span class="material-symbols-rounded icon-lg mb-1" aria-hidden="true">done_all</span>
               <p class="text-sm">Sem retiradas</p>
             </div>
@@ -76,59 +96,45 @@
         </div>
       </div>
 
-      {% comment %}Delivery column — A coletar (ready) + Em trânsito (dispatched){% endcomment %}
-      <div class="flex flex-col flex-1 overflow-hidden">
-
-        {% comment %}A coletar sub-zone — ready delivery orders{% endcomment %}
-        <div class="flex flex-col flex-1 min-h-0 border-b border-outline dark:border-outline-dark overflow-hidden">
-          <div class="px-3 py-1.5 flex items-center gap-1.5 shrink-0
-                      border-b border-outline dark:border-outline-dark
-                      bg-surface-alt dark:bg-surface-dark-alt">
-            <span class="material-symbols-rounded icon-sm text-on-surface/70 dark:text-on-surface-dark/70" aria-hidden="true">inventory_2</span>
-            <span class="text-xs font-semibold text-on-surface/50 dark:text-on-surface-dark/50 uppercase tracking-wide">A coletar</span>
-            <span class="ml-auto count-badge bg-surface dark:bg-surface-dark text-on-surface/70 dark:text-on-surface-dark/70">
-              {{ queue.saida_delivery|length }}
-            </span>
-          </div>
-          <div class="flex-1 overflow-y-auto p-2 flex flex-col gap-2">
+      <div class="flex flex-col min-h-[12rem] overflow-hidden rounded-lg border border-outline dark:border-outline-dark">
+        <div class="px-3 py-2 flex items-center gap-2 shrink-0
+                    border-b border-outline dark:border-outline-dark
+                    bg-surface dark:bg-surface-dark">
+          <span class="material-symbols-rounded icon-sm text-on-surface/70 dark:text-on-surface-dark/70" aria-hidden="true">local_shipping</span>
+          <span class="text-xs font-semibold text-on-surface/70 dark:text-on-surface-dark/70 uppercase tracking-wide">Delivery</span>
+          <span class="ml-auto count-badge bg-surface-alt dark:bg-surface-dark-alt text-on-surface/70 dark:text-on-surface-dark/70">
+            {{ queue.saida_delivery_count }}
+          </span>
+        </div>
+        <div class="flex-1 min-h-0 overflow-y-auto">
+          <div class="p-2.5 flex flex-col gap-2.5 border-b border-outline dark:border-outline-dark">
+            <div class="flex items-center gap-2 text-xs font-semibold text-on-surface/60 dark:text-on-surface-dark/60">
+              <span class="material-symbols-rounded icon-sm" aria-hidden="true">inventory_2</span>
+              A coletar
+            </div>
             {% for o in queue.saida_delivery %}
               {% include "pedidos/partials/card.html" %}
             {% empty %}
-              <div class="flex flex-col items-center justify-center h-full
-                          text-on-surface/60 dark:text-on-surface-dark/60 text-center py-6">
-                <span class="material-symbols-rounded icon-lg mb-1" aria-hidden="true">inventory_2</span>
-                <p class="text-sm">Sem pedidos</p>
+              <div class="empty-state py-4">
+                <p class="text-sm">Sem pedidos para coleta</p>
               </div>
             {% endfor %}
           </div>
-        </div>
-
-        {% comment %}Em trânsito sub-zone — dispatched delivery orders{% endcomment %}
-        <div class="flex flex-col flex-1 min-h-0 overflow-hidden">
-          <div class="px-3 py-1.5 flex items-center gap-1.5 shrink-0
-                      border-b border-outline dark:border-outline-dark
-                      bg-surface-alt dark:bg-surface-dark-alt">
-            <span class="material-symbols-rounded icon-sm text-on-surface/70 dark:text-on-surface-dark/70" aria-hidden="true">near_me</span>
-            <span class="text-xs font-semibold text-on-surface/50 dark:text-on-surface-dark/50 uppercase tracking-wide">Em trânsito</span>
-            <span class="ml-auto count-badge bg-surface dark:bg-surface-dark text-on-surface/70 dark:text-on-surface-dark/70">
-              {{ queue.saida_delivery_transit|length }}
-            </span>
-          </div>
-          <div class="flex-1 overflow-y-auto p-2 flex flex-col gap-2">
+          <div class="p-2.5 flex flex-col gap-2.5">
+            <div class="flex items-center gap-2 text-xs font-semibold text-on-surface/60 dark:text-on-surface-dark/60">
+              <span class="material-symbols-rounded icon-sm" aria-hidden="true">near_me</span>
+              Entrega
+            </div>
             {% for o in queue.saida_delivery_transit %}
               {% include "pedidos/partials/card.html" %}
             {% empty %}
-              <div class="flex flex-col items-center justify-center h-full
-                          text-on-surface/60 dark:text-on-surface-dark/60 text-center py-6">
-                <span class="material-symbols-rounded icon-lg mb-1" aria-hidden="true">near_me</span>
-                <p class="text-sm">Sem entregas</p>
+              <div class="empty-state py-4">
+                <p class="text-sm">Sem entregas em andamento</p>
               </div>
             {% endfor %}
           </div>
         </div>
-
       </div>
-
     </div>
   </section>
 
@@ -136,5 +142,5 @@
 
 {% comment %}Sync order count to Alpine root{% endcomment %}
 <template x-data x-init="
-  $dispatch('sync-order-count', { count: {{ queue.entrada|length }} + {{ queue.saida_count }} });
+  $dispatch('sync-order-count', { count: {{ queue.total_count }} });
 "></template>
