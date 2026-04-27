@@ -82,9 +82,11 @@ class TestProductDetailView:
         channel,
     ):
         product.unit_weight_g = 400
+        product.shelf_life_days = 3
+        product.storage_tip = "Guarde em saco de pano."
         product.metadata = {
             "allergens": ["glúten"],
-            "dietary_info": ["vegano", "sem lactose"],
+            "dietary_info": ["100% vegetal", "sem lactose"],
             "serves": "2 a 4 pessoas",
             "approx_dimensions": "aprox. 24 x 12 x 10 cm",
         }
@@ -105,13 +107,17 @@ class TestProductDetailView:
 
         assert resp.status_code == 200
         body = resp.content.decode()
-        assert "Alérgenos" in body
+        assert "Contém glúten" not in body
+        assert "Serve 2 a 4 pessoas" not in body
+        assert body.index("Ingredientes") < body.index("Conservação") < body.index("Peso e medidas")
         assert "Informações dietéticas" in body
         assert "Peso e medidas" in body
         assert "aprox. 24 x 12 x 10 cm" in body
         assert "Ingredientes" in body
         assert "Farinha de trigo, água, fermento natural, sal marinho." in body
-        assert "Informações nutricionais" in body
+        assert "Alérgenos:" in body
+        assert "100% vegetal" in body
+        assert "Valor energético" in body
 
     def test_product_detail_fallback_base_price(self, client: Client, product):
         resp = client.get(f"/produto/{product.sku}/")
