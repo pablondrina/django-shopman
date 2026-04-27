@@ -10,6 +10,11 @@ sob o design system Penguin UI com tema Industrial. Cada tela aplica os
 três portões do omotenashi: **Antecipar** (contexto proativo), **Estar
 Presente** (foco + ma), **Ressoar** (fechamento com significado).
 
+Além do filtro de omotenashi, cada entrega de UI deve passar pelo
+[`Filtro de Design de Superfícies`](../reference/design-surface-filter.md):
+tipografia, ícones, espaçamentos, contraste, badges, formulários, estados,
+responsividade e foco operacional.
+
 ---
 
 ## Estado Atual
