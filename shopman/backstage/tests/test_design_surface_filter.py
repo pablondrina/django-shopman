@@ -115,6 +115,10 @@ def test_backstage_order_queue_keeps_all_action_areas_visible_and_responsive():
     assert "preparoCollapsed ? '4rem' : 'minmax(17rem,1fr)'" in order_list
     assert "saidaCollapsed ? '4rem' : 'minmax(34rem,2fr)'" in order_list
     assert "toggleZone('preparo')" in order_list
+    assert '<button type="button"' in order_list
+    assert 'aria-label="Recolher ou expandir Preparos"' in order_list
+    assert "focus-visible:ring-2" in order_list
+    assert "inline-flex h-9 w-9 shrink-0" in order_list
     assert "x-text=\"preparoCollapsed ? 'chevron_right' : 'expand_more'\"" in order_list
     assert "lg:grid-cols-2" in order_list
     assert "writing-mode" not in order_list
