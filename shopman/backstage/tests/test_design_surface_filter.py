@@ -146,6 +146,8 @@ def test_backstage_production_uses_high_volume_matrix_surface():
     assert "Receita-base" in production
     assert "base_recipe" in production
     assert "set_planned" in production
+    assert "openRow" in production
+    assert "Detalhes de" in production
     assert 'max="9999"' in production
     assert 'title="Usar sugestão"' in production
     assert 'title="Salvar planejado"' in production

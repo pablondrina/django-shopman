@@ -108,7 +108,7 @@
     </div>
 
     {% if matrix_groups %}
-    <div class="overflow-x-auto">
+    <div class="overflow-x-auto" x-data="{ openRow: '' }">
       <table class="w-full min-w-[50rem] border-collapse text-left text-sm">
         <thead class="bg-surface dark:bg-surface-dark text-xs font-semibold uppercase text-on-surface/60 dark:text-on-surface-dark/60">
           <tr>
@@ -133,46 +133,43 @@
           </tr>
           {% for group_row in group.rows %}
           {% with row=group_row.row usage=group_row.usage %}
-          <tr class="align-top hover:bg-outline/20 dark:hover:bg-outline-dark/20">
-            <th class="sticky left-0 z-10 border-r border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt px-3 py-2">
-              <div class="text-sm font-semibold leading-tight text-on-surface-strong dark:text-on-surface-dark-strong">{{ row.output_sku }}</div>
-              <div class="mt-0.5 truncate text-xs text-on-surface/60 dark:text-on-surface-dark/60">{{ row.recipe_name }}</div>
-              {% if usage %}
-              <div class="mt-1 inline-flex items-center rounded-full border border-outline dark:border-outline-dark px-1.5 py-0.5 text-xs font-medium text-on-surface/70 dark:text-on-surface-dark/70">
-                {{ usage.quantity_display }}/lote · {{ usage.per_unit_display }}/un.
+          <tr class="align-middle hover:bg-outline/20 dark:hover:bg-outline-dark/20">
+            <th class="sticky left-0 z-10 border-r border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt px-2 py-1.5">
+              <div class="flex min-w-0 items-center gap-1.5">
+                <button type="button"
+                        class="btn-ghost h-7 min-h-7 w-7 min-w-7 p-0"
+                        title="Detalhes"
+                        aria-label="Detalhes de {{ row.output_sku }}"
+                        @click="openRow = openRow === '{{ row.recipe_pk }}-{{ usage.output_sku|default:'direct' }}' ? '' : '{{ row.recipe_pk }}-{{ usage.output_sku|default:'direct' }}'">
+                  <span class="material-symbols-rounded icon-sm" aria-hidden="true" x-text="openRow === '{{ row.recipe_pk }}-{{ usage.output_sku|default:'direct' }}' ? 'expand_less' : 'expand_more'">expand_more</span>
+                </button>
+                <span class="min-w-0 truncate text-sm font-semibold leading-tight text-on-surface-strong dark:text-on-surface-dark-strong">{{ row.output_sku }}</span>
               </div>
-              {% endif %}
             </th>
 
             {% if production_access.can_view_suggested %}
-            <td class="px-2 py-2">
+            <td class="px-2 py-1.5">
               {% if row.suggestion %}
-              <div class="space-y-1.5">
-                <div class="flex items-center gap-1.5">
-                  <span class="text-base font-semibold tabular-nums text-on-surface-strong dark:text-on-surface-dark-strong">{{ row.suggestion.quantity }}</span>
-                  <span class="badge-info shrink-0">{{ row.suggestion.confidence }}</span>
-                  {% if production_access.can_edit_suggested or production_access.can_edit_planned %}
-                  <form method="post" class="ml-auto">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="set_planned" />
-                    <input type="hidden" name="source" value="suggested" />
-                    <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}" />
-                    <input type="hidden" name="position_ref" value="{{ selected_position_ref }}" />
-                    <input type="hidden" name="operator_ref" value="{{ selected_operator_ref }}" />
-                    <input type="hidden" name="operator_ref_filter" value="{{ selected_operator_ref }}" />
-                    <input type="hidden" name="base_recipe" value="{{ selected_base_recipe }}" />
-                    <input type="hidden" name="recipe" value="{{ row.suggestion.recipe_pk }}" />
-                    <input type="hidden" name="quantity" value="{{ row.suggestion.quantity }}" />
-                    <button type="submit" class="btn-quiet h-8 min-h-8 w-8 min-w-8 p-0" title="Usar sugestão" aria-label="Usar sugestão para {{ row.output_sku }}">
-                      <span class="material-symbols-rounded icon-sm" aria-hidden="true">add_task</span>
-                    </button>
-                  </form>
-                  {% endif %}
-                </div>
-                <div class="flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-on-surface/70 dark:text-on-surface-dark/70">
-                  <span>Encom. <strong class="font-semibold tabular-nums text-on-surface-strong dark:text-on-surface-dark-strong">{{ row.suggestion.committed }}</strong></span>
-                  <span>Média <strong class="font-semibold tabular-nums text-on-surface-strong dark:text-on-surface-dark-strong">{{ row.suggestion.avg_demand }}</strong></span>
-                </div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-sm font-semibold tabular-nums text-on-surface-strong dark:text-on-surface-dark-strong">{{ row.suggestion.quantity }}</span>
+                <span class="badge-info shrink-0">{{ row.suggestion.confidence }}</span>
+                {% if production_access.can_edit_suggested or production_access.can_edit_planned %}
+                <form method="post" class="ml-auto">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="set_planned" />
+                  <input type="hidden" name="source" value="suggested" />
+                  <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}" />
+                  <input type="hidden" name="position_ref" value="{{ selected_position_ref }}" />
+                  <input type="hidden" name="operator_ref" value="{{ selected_operator_ref }}" />
+                  <input type="hidden" name="operator_ref_filter" value="{{ selected_operator_ref }}" />
+                  <input type="hidden" name="base_recipe" value="{{ selected_base_recipe }}" />
+                  <input type="hidden" name="recipe" value="{{ row.suggestion.recipe_pk }}" />
+                  <input type="hidden" name="quantity" value="{{ row.suggestion.quantity }}" />
+                  <button type="submit" class="btn-quiet h-7 min-h-7 w-7 min-w-7 p-0" title="Usar sugestão" aria-label="Usar sugestão para {{ row.output_sku }}">
+                    <span class="material-symbols-rounded icon-sm" aria-hidden="true">add_task</span>
+                  </button>
+                </form>
+                {% endif %}
               </div>
               {% else %}
               <span class="text-xs text-on-surface/40 dark:text-on-surface-dark/40">Sem sugestão</span>
@@ -181,7 +178,8 @@
             {% endif %}
 
             {% if production_access.can_view_planned %}
-            <td class="px-2 py-2">
+            <td class="px-2 py-1.5">
+              <div class="flex items-center gap-1.5">
               {% if production_access.can_edit_planned and row.recipe_pk %}
               <form method="post"
                     class="flex items-center gap-1.5"
@@ -204,13 +202,13 @@
               </form>
               {% endif %}
               {% if row.planned_orders %}
-              <div class="mt-1.5 space-y-1">
                 {% for item in row.planned_orders %}
                 <div class="flex items-center gap-1.5 text-xs" x-data="{ startOpen: false }">
+                  {% if not production_access.can_edit_planned %}
                   <span class="badge-neutral tabular-nums">{{ item.planned_qty }}</span>
-                  <span class="min-w-0 flex-1 truncate text-on-surface/60 dark:text-on-surface-dark/60">{{ item.operator_ref|default:"Livre" }}</span>
+                  {% endif %}
                   {% if production_access.can_edit_started %}
-                  <button type="button" class="btn-primary h-8 min-h-8 w-8 min-w-8 p-0" @click="startOpen = true" title="Iniciar" aria-label="Iniciar {{ item.output_sku }}">
+                  <button type="button" class="btn-primary h-7 min-h-7 w-7 min-w-7 p-0" @click="startOpen = true" title="Iniciar" aria-label="Iniciar {{ item.output_sku }}">
                     <span class="material-symbols-rounded icon-sm" aria-hidden="true">play_arrow</span>
                   </button>
                   {% endif %}
@@ -257,25 +255,24 @@
                   {% endif %}
                 </div>
                 {% endfor %}
-              </div>
               {% else %}
               {% if not production_access.can_edit_planned %}
               <span class="text-xs text-on-surface/40 dark:text-on-surface-dark/40">Sem ordem</span>
               {% endif %}
               {% endif %}
+              </div>
             </td>
             {% endif %}
 
             {% if production_access.can_view_started %}
-            <td class="px-2 py-2">
+            <td class="px-2 py-1.5">
               {% if row.started_orders %}
-              <div class="space-y-1">
+              <div class="flex items-center gap-1">
                 {% for item in row.started_orders %}
                 <div class="flex items-center gap-1.5 text-xs" x-data="{ finishOpen: false }">
                   <span class="badge-warning tabular-nums">{{ item.started_qty }}</span>
-                  <span class="min-w-0 flex-1 truncate text-on-surface/60 dark:text-on-surface-dark/60">{{ item.operator_ref|default:"Livre" }}</span>
                   {% if production_access.can_edit_finished %}
-                  <button type="button" class="btn-success h-8 min-h-8 w-8 min-w-8 p-0" @click="finishOpen = true" title="Concluir" aria-label="Concluir {{ item.output_sku }}">
+                  <button type="button" class="btn-success h-7 min-h-7 w-7 min-w-7 p-0" @click="finishOpen = true" title="Concluir" aria-label="Concluir {{ item.output_sku }}">
                     <span class="material-symbols-rounded icon-sm" aria-hidden="true">task_alt</span>
                   </button>
                   <div x-show="finishOpen" x-cloak x-transition class="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4" @click.self="finishOpen = false" @keydown.escape.window="finishOpen = false" role="dialog" aria-modal="true">
@@ -310,14 +307,13 @@
             {% endif %}
 
             {% if production_access.can_view_finished %}
-            <td class="px-2 py-2">
+            <td class="px-2 py-1.5">
               {% if row.finished_orders %}
-              <div class="space-y-1">
+              <div class="flex flex-wrap items-center gap-1">
                 {% for item in row.finished_orders %}
                 <div class="flex items-center gap-1.5 text-xs">
                   <span class="badge-success tabular-nums">{{ item.finished_qty }}</span>
                   <span class="badge-success">{{ item.yield_rate|default:"OK" }}</span>
-                  <span class="truncate text-on-surface/60 dark:text-on-surface-dark/60">Perda <strong class="font-semibold tabular-nums text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.loss|default:"0" }}</strong></span>
                 </div>
                 {% endfor %}
               </div>
@@ -328,12 +324,44 @@
             {% endif %}
 
             {% if production_access.can_view_unsold %}
-            <td class="px-2 py-2">
-              <a href="{% url 'backstage:day_closing' %}" class="btn-quiet h-8 min-h-8 w-8 min-w-8 p-0" title="Informar sobras" aria-label="Informar sobras no fechamento">
+            <td class="px-2 py-1.5">
+              <a href="{% url 'backstage:day_closing' %}" class="btn-quiet h-7 min-h-7 w-7 min-w-7 p-0" title="Informar sobras" aria-label="Informar sobras no fechamento">
                 <span class="material-symbols-rounded icon-sm" aria-hidden="true">fact_check</span>
               </a>
             </td>
             {% endif %}
+          </tr>
+          <tr x-show="openRow === '{{ row.recipe_pk }}-{{ usage.output_sku|default:'direct' }}'" x-cloak>
+            <td colspan="6" class="bg-surface/70 dark:bg-surface-dark/70 px-3 py-2 text-xs text-on-surface/70 dark:text-on-surface-dark/70">
+              <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <div>
+                  <span class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Receita</span>
+                  <div>{{ row.recipe_name }}</div>
+                </div>
+                {% if usage %}
+                <div>
+                  <span class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Receita-base</span>
+                  <div>{{ group.name }} · {{ usage.quantity_display }}/lote · {{ usage.per_unit_display }}/un.</div>
+                </div>
+                {% endif %}
+                {% if row.suggestion %}
+                <div>
+                  <span class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Demanda</span>
+                  <div>Encom. {{ row.suggestion.committed }} · Média {{ row.suggestion.avg_demand }} · {{ row.suggestion.confidence }}</div>
+                </div>
+                {% endif %}
+                {% if row.planned_orders or row.started_orders or row.finished_orders %}
+                <div>
+                  <span class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Ordens</span>
+                  <div class="flex flex-wrap gap-1">
+                    {% for item in row.planned_orders %}<span class="badge-neutral">{{ item.ref }} · {{ item.operator_ref|default:"Livre" }}</span>{% endfor %}
+                    {% for item in row.started_orders %}<span class="badge-warning">{{ item.ref }} · {{ item.operator_ref|default:"Livre" }}</span>{% endfor %}
+                    {% for item in row.finished_orders %}<span class="badge-success">{{ item.ref }} · perda {{ item.loss|default:"0" }}</span>{% endfor %}
+                  </div>
+                </div>
+                {% endif %}
+              </div>
+            </td>
           </tr>
           {% endwith %}
           {% endfor %}
