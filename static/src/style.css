@@ -257,6 +257,49 @@
         text-overflow: ellipsis;
     }
 
+    .composition-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
+        gap: 0.5rem;
+    }
+    .composition-main { min-width: 0; }
+    .composition-end {
+        justify-self: end;
+        flex-shrink: 0;
+    }
+    .composition-inline {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        min-width: 0;
+        column-gap: 0.375rem;
+        row-gap: 0.25rem;
+    }
+    .composition-form-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .composition-form-row > input,
+    .composition-form-row > select,
+    .composition-form-row > textarea {
+        flex: 1 1 12rem;
+        min-width: 0;
+    }
+    .composition-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    .composition-actions > * {
+        flex: 1 1 10rem;
+    }
+    @media (min-width: 40rem) {
+        .composition-actions > * { flex: 0 0 auto; }
+    }
+
     /* HTMX loading states */
     .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
     .htmx-request .htmx-indicator,

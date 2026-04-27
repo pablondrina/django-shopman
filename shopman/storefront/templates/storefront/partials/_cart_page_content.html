@@ -125,15 +125,15 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
 
           {# Body #}
           <div class="flex-1 min-w-0 flex flex-col gap-2">
-            <div class="flex items-start justify-between gap-2">
-              <div class="min-w-0">
+            <div class="composition-row">
+              <div class="composition-main">
                 <h3 class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong leading-tight truncate">{{ item.name }}</h3>
                 {% if item.original_price_display %}
-                <p class="mt-1 text-xs text-on-surface dark:text-on-surface-dark">
+                <p class="composition-inline mt-1 text-xs text-on-surface dark:text-on-surface-dark">
                   <span class="line-through opacity-70">{{ item.original_price_display }}</span>
-                  <span class="text-primary dark:text-primary-dark font-medium ml-1">{{ item.price_display }}</span>
+                  <span class="text-primary dark:text-primary-dark font-medium">{{ item.price_display }}</span>
                   {% if item.discount_label %}
-                  <span class="badge-success ml-1">{{ item.discount_label }}</span>
+                  <span class="badge-success">{{ item.discount_label }}</span>
                   {% endif %}
                 </p>
                 {% else %}
@@ -141,7 +141,7 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
                 {% endif %}
               </div>
               <button type="button"
-                      class="shrink-0 p-1.5 rounded-md text-on-surface hover:text-danger hover:bg-danger/10 dark:text-on-surface-dark transition focus:outline-hidden focus-visible:ring-2 focus-visible:ring-danger disabled:opacity-40"
+                      class="composition-end p-1.5 rounded-md text-on-surface hover:text-danger hover:bg-danger/10 dark:text-on-surface-dark transition focus:outline-hidden focus-visible:ring-2 focus-visible:ring-danger disabled:opacity-40"
                       :disabled="busy"
                       @click="set(0)"
                       aria-label="Remover {{ item.name }}">
@@ -253,17 +253,17 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
       {% endcomment %}
       <div class="card mt-4">
         {% if cart.coupon_code %}
-        <div class="flex items-center justify-between gap-3">
-          <div class="flex items-center gap-2 min-w-0">
+        <div class="composition-row items-center">
+          <div class="composition-main flex items-center gap-2">
             <span class="material-symbols-rounded icon-md text-success shrink-0" aria-hidden="true">verified</span>
-            <p class="text-sm text-on-surface dark:text-on-surface-dark truncate">
+            <p class="composition-inline text-sm text-on-surface dark:text-on-surface-dark">
               Cupom <strong class="text-on-surface-strong dark:text-on-surface-dark-strong">{{ cart.coupon_code }}</strong>
               {% if cart.coupon_discount_display %}
-              <span class="text-success font-medium ml-1">-{{ cart.coupon_discount_display }}</span>
+              <span class="text-success font-medium">-{{ cart.coupon_discount_display }}</span>
               {% endif %}
             </p>
           </div>
-          <form hx-post="{% url 'storefront:cart_remove_coupon' %}" hx-swap="none">
+          <form class="composition-end" hx-post="{% url 'storefront:cart_remove_coupon' %}" hx-swap="none">
             {% csrf_token %}
             <button type="submit" class="text-sm text-danger font-medium hover:underline focus:outline-hidden focus:underline">
               Remover
@@ -278,12 +278,12 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
             <span class="material-symbols-rounded icon-sm" aria-hidden="true">local_offer</span>
             {{ coupon_prompt.title }}
           </button>
-          <form x-show="open" x-cloak class="flex items-center gap-2"
+          <form x-show="open" x-cloak class="composition-form-row"
                 hx-post="{% url 'storefront:cart_apply_coupon' %}" hx-swap="none"
                 @keydown.escape="open = false">
             {% csrf_token %}
             <input type="text" name="code" x-ref="coupon2" placeholder="Código do cupom" autocomplete="off"
-                   class="flex-1 min-w-0 px-4 py-2 rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt text-sm text-on-surface-strong dark:text-on-surface-dark-strong uppercase focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark">
+                   class="px-4 py-2 rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt text-sm text-on-surface-strong dark:text-on-surface-dark-strong uppercase focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark">
             <button type="submit" class="btn-primary text-sm px-4 shrink-0">Aplicar</button>
             <button type="button" @click="open = false" aria-label="Fechar"
                     class="shrink-0 p-2 text-on-surface/85 hover:text-on-surface-strong dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark-strong focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary rounded">

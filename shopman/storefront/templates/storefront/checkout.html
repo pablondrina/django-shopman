@@ -519,11 +519,11 @@
           <p class="text-xs font-medium uppercase tracking-wide text-on-surface/85 dark:text-on-surface-dark/60 mb-2">Itens</p>
           <ul class="space-y-2 text-sm">
             {% for item in cart.items %}
-            <li class="flex items-start justify-between gap-2">
-              <span class="text-on-surface dark:text-on-surface-dark">
+            <li class="composition-row">
+              <span class="composition-main text-on-surface dark:text-on-surface-dark">
                 <span class="font-medium">{{ item.qty }}×</span> {{ item.name }}
               </span>
-              <span class="shrink-0 font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.total_display }}</span>
+              <span class="composition-end font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.total_display }}</span>
             </li>
             {% endfor %}
           </ul>
@@ -531,18 +531,18 @@
 
         <div class="border-t border-outline dark:border-outline-dark pt-4 space-y-1 text-sm">
           {% if cart.has_discount %}
-          <div class="flex justify-between text-on-surface dark:text-on-surface-dark">
-            <span>Subtotal</span>
-            <span>{{ cart.original_subtotal_display }}</span>
+          <div class="composition-row text-on-surface dark:text-on-surface-dark">
+            <span class="composition-main">Subtotal</span>
+            <span class="composition-end">{{ cart.original_subtotal_display }}</span>
           </div>
-          <div class="flex justify-between text-success">
-            <span>Desconto</span>
-            <span>− {{ cart.discount_total_display }}</span>
+          <div class="composition-row text-success">
+            <span class="composition-main">Desconto</span>
+            <span class="composition-end">− {{ cart.discount_total_display }}</span>
           </div>
           {% endif %}
-          <div class="flex justify-between font-semibold text-on-surface-strong dark:text-on-surface-dark-strong text-base pt-1">
-            <span>Total</span>
-            <span>{{ cart.grand_total_display }}</span>
+          <div class="composition-row font-semibold text-on-surface-strong dark:text-on-surface-dark-strong text-base pt-1">
+            <span class="composition-main">Total</span>
+            <span class="composition-end">{{ cart.grand_total_display }}</span>
           </div>
         </div>
         {% endwith %}

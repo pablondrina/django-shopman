@@ -14,49 +14,49 @@
 
   <div class="space-y-3 mb-4">
     {% for item in cart.items %}
-    <div class="flex justify-between items-start text-sm">
-      <div class="flex-1 min-w-0 pr-3">
+    <div class="composition-row text-sm">
+      <div class="composition-main">
         <p class="text-on-surface dark:text-on-surface-dark font-medium truncate">{{ item.name|default:item.sku }}</p>
-        <p class="text-on-surface/85 dark:text-on-surface-dark/60">
+        <p class="composition-inline text-on-surface/85 dark:text-on-surface-dark/60">
           {{ item.qty|floatformat:"0" }}x
           {% if item.original_price_display %}<span class="line-through text-on-surface/40 dark:text-on-surface-dark/40">{{ item.original_price_display }}</span>{% endif %}
           {{ item.price_display }}
         </p>
       </div>
-      <p class="text-on-surface dark:text-on-surface-dark font-medium flex-shrink-0">{{ item.total_display }}</p>
+      <p class="composition-end text-on-surface dark:text-on-surface-dark font-medium">{{ item.total_display }}</p>
     </div>
     {% endfor %}
   </div>
 
   <div class="border-t border-outline dark:border-outline-dark pt-3 space-y-2 text-sm">
     {% if cart.has_discount %}
-    <div class="flex justify-between text-on-surface/85 dark:text-on-surface-dark/60">
-      <span>Antes dos descontos</span>
-      <span class="line-through">{{ cart.original_subtotal_display }}</span>
+    <div class="composition-row text-on-surface/85 dark:text-on-surface-dark/60">
+      <span class="composition-main">Antes dos descontos</span>
+      <span class="composition-end line-through">{{ cart.original_subtotal_display }}</span>
     </div>
     {% if cart.discount_lines %}
       {% for row in cart.discount_lines %}
-      <div class="flex justify-between gap-2 text-success dark:text-success-dark text-sm">
-        <span class="truncate pr-2 min-w-0" title="{{ row.label }}">{{ row.label }}</span>
-        <span class="shrink-0">-{{ row.amount_display }}</span>
+      <div class="composition-row text-success dark:text-success-dark text-sm">
+        <span class="composition-main truncate" title="{{ row.label }}">{{ row.label }}</span>
+        <span class="composition-end">-{{ row.amount_display }}</span>
       </div>
       {% endfor %}
     {% else %}
-    <div class="flex justify-between text-success dark:text-success-dark">
-      <span>Descontos</span>
-      <span>-{{ cart.total_discount_display }}</span>
+    <div class="composition-row text-success dark:text-success-dark">
+      <span class="composition-main">Descontos</span>
+      <span class="composition-end">-{{ cart.total_discount_display }}</span>
     </div>
     {% endif %}
     {% endif %}
     {% if cart.delivery_fee_display %}
-    <div class="flex justify-between text-on-surface/85 dark:text-on-surface-dark/60">
-      <span>Taxa de entrega</span>
-      <span class="{% if cart.delivery_is_free %}text-success dark:text-success-dark font-medium{% endif %}">{{ cart.delivery_fee_display }}</span>
+    <div class="composition-row text-on-surface/85 dark:text-on-surface-dark/60">
+      <span class="composition-main">Taxa de entrega</span>
+      <span class="composition-end {% if cart.delivery_is_free %}text-success dark:text-success-dark font-medium{% endif %}">{{ cart.delivery_fee_display }}</span>
     </div>
     {% endif %}
-    <div class="flex justify-between items-center {% if cart.has_discount or cart.delivery_fee_display %}pt-2 border-t border-outline dark:border-outline-dark{% endif %}">
-      <span class="font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Total</span>
-      <span class="text-lg font-bold text-primary dark:text-primary-dark">{% if cart.delivery_fee_display %}{{ cart.grand_total_display }}{% else %}{{ cart.subtotal_display }}{% endif %}</span>
+    <div class="composition-row items-center {% if cart.has_discount or cart.delivery_fee_display %}pt-2 border-t border-outline dark:border-outline-dark{% endif %}">
+      <span class="composition-main font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Total</span>
+      <span class="composition-end text-lg font-bold text-primary dark:text-primary-dark">{% if cart.delivery_fee_display %}{{ cart.grand_total_display }}{% else %}{{ cart.subtotal_display }}{% endif %}</span>
     </div>
   </div>
 </div>
