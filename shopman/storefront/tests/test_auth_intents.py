@@ -81,6 +81,12 @@ class TestInterpretLoginPhone:
         assert result.intent.phone.startswith("+")
         assert result.intent.delivery_method == "whatsapp"
 
+    def test_ios_autofill_zero_before_ddd_returns_intent(self):
+        req = _post({"step": "phone", "phone": "(043) 98404-9009"})
+        result = interpret_login(req)
+        assert result.intent is not None
+        assert result.intent.phone == "+5543984049009"
+
     def test_delivery_method_sms(self):
         req = _post({"step": "phone", "phone": "43999998888", "delivery_method": "sms"})
         result = interpret_login(req)
@@ -139,6 +145,12 @@ class TestInterpretRequestCode:
         result = interpret_request_code(req)
         assert result.intent is not None
         assert result.intent.phone.startswith("+")
+
+    def test_ios_autofill_zero_before_ddd(self):
+        req = _post({"phone": "(043) 98404-9009"})
+        result = interpret_request_code(req)
+        assert result.intent is not None
+        assert result.intent.phone == "+5543984049009"
 
 
 # ── interpret_verify_code ─────────────────────────────────────────────────────

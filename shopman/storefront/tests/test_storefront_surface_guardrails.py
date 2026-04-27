@@ -154,6 +154,10 @@ def test_auth_inputs_stay_readable_on_mobile():
     assert "Código único. Não exige senha." in login
     assert "Usamos só para avisar sobre seu pedido." not in login
     assert "CHECKOUT_PHONE_PURPOSE" not in login
+    assert "aria-label=\"Brasil, código do país +55\"" in login
+    assert "function nationalDigits(value)" in login
+    assert "d.indexOf('0') === 0" in login
+    assert "material-symbols-rounded icon-sm\" aria-hidden=\"true\">sms" in login
 
 
 def test_mobile_nav_labels_use_base_small_type():
