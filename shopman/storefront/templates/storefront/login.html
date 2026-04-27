@@ -18,20 +18,35 @@
   <img src="https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=1800&q=82"
        alt=""
        aria-hidden="true"
-       class="absolute inset-0 h-full w-full object-cover"
+       class="absolute inset-0 h-full w-full object-cover md:hidden"
        loading="eager"
        fetchpriority="high">
-  <div class="absolute inset-0 bg-black/45" aria-hidden="true"></div>
-  <div class="absolute inset-0" aria-hidden="true"
+  <div class="absolute inset-0 bg-black/45 md:hidden" aria-hidden="true"></div>
+  <div class="absolute inset-0 md:hidden" aria-hidden="true"
        style="background: linear-gradient(180deg, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.62) 100%);"></div>
 
   <div class="relative z-10 mx-auto flex min-h-[calc(100svh-8rem)] max-w-6xl items-center justify-center px-4 py-8 sm:min-h-[calc(100svh-10rem)] sm:py-12">
 
-  {% comment %}── Card de autenticação: imagem ambiente fora; ação em primeiro plano ──{% endcomment %}
-  <div class="w-full max-w-lg overflow-hidden rounded-radius border border-outline bg-white shadow-2xl dark:border-outline-dark dark:bg-surface-dark">
+  {% comment %}── Card de autenticação: mobile ambient; desktop split image + action ──{% endcomment %}
+  <div class="grid w-full max-w-lg overflow-hidden rounded-radius border border-outline bg-white shadow-2xl dark:border-outline-dark dark:bg-surface-dark md:max-w-5xl md:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)]">
+
+    <div class="relative hidden min-h-[560px] md:block" aria-hidden="true">
+      <img src="https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=1200&q=82"
+           alt=""
+           class="absolute inset-0 h-full w-full object-cover">
+      <div class="absolute inset-0 bg-black/30"></div>
+      <div class="absolute inset-x-0 bottom-0 p-8 text-white">
+        <p class="font-title text-2xl font-semibold leading-tight drop-shadow-lg">{{ storefront.brand_name }}</p>
+        <p class="mt-2 max-w-xs text-sm leading-relaxed text-white/90 drop-shadow">
+          Pedido simples, confirmação por código e acompanhamento pelo telefone.
+        </p>
+      </div>
+    </div>
+
+    <div>
 
     {% comment %}── Cabeçalho compacto: só orientação, sem competir com o formulário ──{% endcomment %}
-    <div class="border-b border-outline px-5 py-5 text-center dark:border-outline-dark sm:px-6">
+    <div class="border-b border-outline px-5 py-5 text-center dark:border-outline-dark sm:px-6 md:text-left">
         {% if step == "code" %}
           <p class="font-title text-sm text-on-surface/85 dark:text-on-surface-dark/70">Oi{% if customer_name %}, {{ customer_name }}{% endif %}.</p>
           <h1 class="mt-1 font-title text-xl sm:text-2xl font-semibold leading-tight text-on-surface-strong dark:text-on-surface-dark-strong">
@@ -46,7 +61,7 @@
           {% if trusted_name %}
             <p class="font-title text-sm text-on-surface/85 dark:text-on-surface-dark/70">Olá, {{ trusted_name }}.</p>
             <h1 class="mt-1 font-title text-xl sm:text-2xl font-semibold leading-tight text-on-surface-strong dark:text-on-surface-dark-strong">
-              Acesse sua conta
+              Entre sem código
             </h1>
           {% elif login_context == "checkout" %}
             <p class="font-title text-sm text-on-surface/85 dark:text-on-surface-dark/70">Só mais um passo</p>
@@ -71,6 +86,9 @@
     {% if login_context == "trusted" %}
     {% comment %}── Dispositivo confiável: botão de skip-OTP + resultado inline ──{% endcomment %}
     <div id="trusted-device-section" class="mb-6">
+      <p class="mb-3 text-sm text-on-surface/85 dark:text-on-surface-dark/70">
+        Este aparelho já foi confirmado. Se quiser, entre direto.
+      </p>
       <button type="button"
               hx-post="{% url 'storefront:device_check_login' %}"
               hx-target="#trusted-device-section"
@@ -82,13 +100,13 @@
         <span class="material-symbols-rounded icon-md" aria-hidden="true">verified_user</span>
         Entrar sem código
       </button>
-      <p class="mt-2 text-center text-xs text-on-surface/85 dark:text-on-surface-dark/60">
-        Este aparelho já foi confirmado. Você também pode usar o telefone abaixo.
+      <p class="mt-4 text-center text-xs text-on-surface/85 dark:text-on-surface-dark/60">
+        Ou confirme outro telefone abaixo.
       </p>
     </div>
     {% endif %}
 
-    <p class="mb-5 text-center text-sm text-on-surface/85 dark:text-on-surface-dark/70">
+    <p class="mb-5 text-center text-sm text-on-surface/85 dark:text-on-surface-dark/70 md:text-left">
       {{ login_phone_subtitle.message }}
     </p>
 
@@ -128,18 +146,7 @@
         <p class="text-base text-danger dark:text-danger-dark" role="alert">{{ error }}</p>
         {% endif %}
         {% omotenashi 'CHECKOUT_PHONE_PURPOSE' as phone_purpose %}
-        {% if phone_purpose %}<p class="text-sm text-on-surface/85 dark:text-on-surface-dark/60 text-center">{{ phone_purpose.message }}</p>{% endif %}
-      </div>
-
-      <div class="grid grid-cols-2 gap-2 text-xs text-on-surface/75 dark:text-on-surface-dark/60" aria-label="Segurança do login">
-        <div class="flex min-h-10 items-center justify-center gap-1.5 rounded-radius bg-surface-alt px-2 text-center dark:bg-surface-dark-alt/50">
-          <span class="material-symbols-rounded icon-sm" aria-hidden="true">lock</span>
-          Sem senha
-        </div>
-        <div class="flex min-h-10 items-center justify-center gap-1.5 rounded-radius bg-surface-alt px-2 text-center dark:bg-surface-dark-alt/50">
-          <span class="material-symbols-rounded icon-sm" aria-hidden="true">timer</span>
-          Código único
-        </div>
+        {% if phone_purpose %}<p class="text-sm text-on-surface/85 dark:text-on-surface-dark/60">{{ phone_purpose.message }}</p>{% endif %}
       </div>
 
       <button type="submit"
@@ -170,6 +177,11 @@
           {{ login_cta_sms.title }}
         </button>
       </div>
+
+      <p class="flex items-center justify-center gap-1.5 text-xs text-on-surface/85 dark:text-on-surface-dark/60">
+        <span class="material-symbols-rounded icon-sm" aria-hidden="true">lock</span>
+        Código único. Não usamos senha.
+      </p>
     </form>
 
     <script>
@@ -303,6 +315,7 @@
     {% endif %}
 
     </div>{% comment %}── /corpo do card ──{% endcomment %}
+    </div>{% comment %}── /coluna de formulário ──{% endcomment %}
   </div>
   </div>
 

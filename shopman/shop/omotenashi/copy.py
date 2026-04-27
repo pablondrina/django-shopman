@@ -120,7 +120,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
 
     # ── Checkout microcopy ────────────────────────────────────────
     "CHECKOUT_PHONE_PURPOSE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Usamos só para avisar quando seu pedido estiver pronto.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Usamos só para avisar sobre seu pedido.")},
     },
     "CHECKOUT_NOTES_PROMPT": {
         WILDCARD: {WILDCARD: CopyEntry(title="Algo mais que devemos saber?")},

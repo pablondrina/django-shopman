@@ -118,7 +118,10 @@ def test_customer_surfaces_keep_focus_first_hierarchy():
     assert "h-36 sm:h-44 md:h-auto md:aspect-square" in pdp
     assert "text-3xl" not in pdp
     assert "w-screen -translate-x-1/2 -my-6" in login
+    assert "md:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)]" in login
+    assert "hidden min-h-[560px] md:block" in login
     assert "bg-white shadow-2xl" in login
+    assert "grid grid-cols-2 gap-2 text-xs" not in login
     assert "h-28 sm:h-32" not in login
     assert "h-44 sm:h-56" not in login
     assert "shopping_bag" in how_it_works
