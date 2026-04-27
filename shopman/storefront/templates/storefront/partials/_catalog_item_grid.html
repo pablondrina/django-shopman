@@ -80,14 +80,14 @@
         </div>
 
         {# Price + action #}
-        <div class="mt-auto pt-1 sm:pt-2 flex items-end justify-between gap-2">
-          <div class="min-w-0">
+        <div class="commerce-card-footer">
+          <div class="commerce-price-stack">
             {% if item.has_promotion %}
               <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/70 line-through tabular-nums">{{ item.original_price_display }}</p>
-              <div class="flex items-center gap-1.5">
+              <div class="commerce-price-row">
                 <p class="text-sm sm:text-base font-semibold text-primary dark:text-primary-dark tabular-nums">{{ item.price_display }}</p>
                 {% if item.promotion_label %}
-                <span class="badge-warning w-fit px-2 py-0.5 font-medium">{{ item.promotion_label }}</span>
+                <span class="badge-warning commerce-promo-badge w-fit px-2 py-0.5 font-medium">{{ item.promotion_label }}</span>
                 {% endif %}
               </div>
             {% else %}
@@ -96,7 +96,7 @@
           </div>
 
           {% if item.can_add_to_cart %}
-          <div @click.stop class="shrink-0">
+          <div @click.stop class="commerce-action">
             <template x-if="qty === 0 && canAdd">
               <button type="button"
                       class="btn-primary size-11 px-0 py-0 sm:size-auto sm:px-3 sm:py-2 sm:text-xs"
@@ -112,7 +112,7 @@
             {% include "storefront/components/_qty_stepper.html" %}
           </div>
           {% else %}
-          <button type="button" class="btn-secondary text-xs px-2.5 py-1.5 sm:px-3 sm:py-2 opacity-70 cursor-not-allowed shrink-0" disabled aria-disabled="true">
+          <button type="button" class="btn-secondary commerce-action text-xs px-2.5 py-1.5 sm:px-3 sm:py-2 opacity-70 cursor-not-allowed" disabled aria-disabled="true">
             {{ item.availability_label }}
           </button>
           {% endif %}

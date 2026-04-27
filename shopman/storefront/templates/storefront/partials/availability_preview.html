@@ -59,14 +59,14 @@
         </div>
         {% endif %}
 
-        <div class="mt-auto pt-1 sm:pt-2 flex items-end justify-between gap-2">
-          <div class="min-w-0">
+        <div class="commerce-card-footer">
+          <div class="commerce-price-stack">
             {% if item.has_promo_price %}
               <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/70 line-through">{{ item.promo_original_price_display }}</p>
-              <div class="flex items-center gap-1.5">
+              <div class="commerce-price-row">
                 <p class="text-sm sm:text-base font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.promo_price_display }}</p>
                 {% if item.promo_badge.label %}
-                <span class="badge-warning px-2 py-0.5 font-medium">{{ item.promo_badge.label }}</span>
+                <span class="badge-warning commerce-promo-badge px-2 py-0.5 font-medium">{{ item.promo_badge.label }}</span>
                 {% endif %}
               </div>
             {% else %}
@@ -75,7 +75,7 @@
           </div>
 
           {% if item.badge.can_add_to_cart %}
-          <div @click.stop class="shrink-0">
+          <div @click.stop class="commerce-action">
             <template x-if="qty === 0">
               <button type="button"
                       class="btn-primary text-xs px-2.5 py-1.5 sm:px-3 sm:py-2"
@@ -88,7 +88,7 @@
             {% include "storefront/components/_qty_stepper.html" %}
           </div>
           {% elif item.badge %}
-          <span class="badge-danger shrink-0">{{ item.badge.label }}</span>
+          <span class="badge-danger commerce-action">{{ item.badge.label }}</span>
           {% endif %}
         </div>
       </div>

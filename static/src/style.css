@@ -224,6 +224,39 @@
                text-on-surface dark:text-on-surface-dark;
     }
 
+    /* Commerce layout primitives */
+    .commerce-card-footer {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: end;
+        column-gap: 0.5rem;
+        row-gap: 0.5rem;
+        margin-top: auto;
+        padding-top: 0.25rem;
+    }
+    @media (min-width: 40rem) {
+        .commerce-card-footer { padding-top: 0.5rem; }
+    }
+    .commerce-price-stack { min-width: 0; }
+    .commerce-price-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        max-width: 100%;
+        column-gap: 0.375rem;
+        row-gap: 0.25rem;
+    }
+    .commerce-action {
+        justify-self: end;
+        align-self: end;
+        flex-shrink: 0;
+    }
+    .commerce-promo-badge {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
     /* HTMX loading states */
     .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
     .htmx-request .htmx-indicator,
