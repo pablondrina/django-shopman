@@ -119,6 +119,7 @@ class TestTemplatetagsBridge:
         from shopman.shop.templatetags.storefront_tags import format_phone
 
         assert format_phone("+5543999999999") == "(43) 99999-9999"
+        assert format_phone("+12025551234") == "+1 202-555-1234"
 
     def test_format_money_filter(self):
         from shopman.shop.templatetags.storefront_tags import format_money

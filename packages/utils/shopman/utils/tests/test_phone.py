@@ -70,6 +70,10 @@ class TestNormalizePhoneNoBrazilianCC:
         """+21999887766 → +5521999887766"""
         assert normalize_phone("+21999887766") == "+5521999887766"
 
+    def test_repair_can_be_disabled_for_explicit_international_entry(self):
+        """International UI paths must not force the Brazilian Manychat repair."""
+        assert normalize_phone("+436641234567", repair_brazilian_plus=False) == "+436641234567"
+
 
 class TestNormalizePhoneInternational:
     """International numbers."""
@@ -119,6 +123,9 @@ class TestIsValidPhone:
 
     def test_valid_us(self):
         assert is_valid_phone("+12025551234") is True
+
+    def test_valid_international_without_brazilian_plus_repair(self):
+        assert is_valid_phone("+436641234567", repair_brazilian_plus=False) is True
 
     def test_email_not_valid(self):
         assert is_valid_phone("test@email.com") is False

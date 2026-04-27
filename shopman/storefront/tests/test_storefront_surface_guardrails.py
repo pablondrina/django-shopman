@@ -106,6 +106,7 @@ def test_ios_form_focus_does_not_auto_zoom():
     assert "maximum-scale" not in base
     assert "@media (max-width: 767px)" in css
     assert "font-size: 16px" in css
+    assert "overflow-x: clip" in css
 
 
 def test_customer_surfaces_keep_focus_first_hierarchy():
@@ -152,10 +153,15 @@ def test_auth_inputs_stay_readable_on_mobile():
     assert "tracking-[0.5em]" not in code
     assert "Vamos enviar um código pelo WhatsApp." not in login
     assert "Código único. Não exige senha." in login
+    assert "novalidate" in login
     assert "Usamos só para avisar sobre seu pedido." not in login
     assert "CHECKOUT_PHONE_PURPOSE" not in login
     assert "aria-label=\"Brasil, código do país +55\"" in login
+    assert "function phoneInput(initialValue)" in login
     assert "function nationalDigits(value)" in login
+    assert "Usar número de outro país" in login
+    assert "name=\"phone_region\"" in login
+    assert "submittedPhone()" in login
     assert "d.indexOf('0') === 0" in login
     assert "material-symbols-rounded icon-sm\" aria-hidden=\"true\">sms" in login
 

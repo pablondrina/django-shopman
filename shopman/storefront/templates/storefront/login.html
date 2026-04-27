@@ -107,31 +107,38 @@
           action="{% url 'storefront:login' %}{% if next %}?next={{ next|urlencode }}{% endif %}"
           x-data="{ method: 'whatsapp', loading: false }"
           @submit="loading = true"
+          novalidate
           class="space-y-6">
       {% csrf_token %}
       <input type="hidden" name="step" value="phone">
       <input type="hidden" name="delivery_method" :value="method">
 
       <div class="flex w-full flex-col gap-2 text-on-surface dark:text-on-surface-dark"
-           x-data="phoneMask('{{ phone_value }}')" x-init="init()">
+           x-data="phoneInput('{{ phone_value|escapejs }}')" x-init="init()">
         <label for="phone" class="text-base font-medium text-on-surface-strong dark:text-on-surface-dark-strong">
-          Telefone com DDD
+          Telefone
         </label>
         <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/70">
           {{ login_phone_subtitle.message }}
         </p>
+        <input type="hidden" name="phone" :value="submittedPhone()">
+        <input type="hidden" name="phone_region" :value="international ? 'INTL' : 'BR'">
         <div class="flex min-w-0">
-          <div aria-label="Brasil, código do país +55"
+          <div x-show="!international"
+               aria-label="Brasil, código do país +55"
                class="flex shrink-0 cursor-default items-center gap-2 rounded-l-radius border-2 border-r-0 border-outline bg-surface-alt px-3 text-base select-none dark:border-outline-dark dark:bg-surface-dark-alt/50">
             <span class="text-lg leading-none">🇧🇷</span>
             <span class="font-medium">+55</span>
           </div>
-          <input type="tel" id="phone" name="phone"
+          <input type="tel" id="phone"
                  x-ref="input" x-model="display" @input="onInput()" @paste="onPaste()"
-                 required autofocus inputmode="numeric"
-                 placeholder="(43) 99999-9999" maxlength="16" autocomplete="tel-national"
+                 required autofocus :inputmode="international ? 'tel' : 'numeric'"
+                 :placeholder="international ? '+1 202 555 1234' : '(43) 99999-9999'"
+                 :maxlength="international ? 24 : 16"
+                 :autocomplete="international ? 'tel' : 'tel-national'"
                  style="min-height: 58px;"
-                 class="min-w-0 w-full rounded-r-radius border-2 border-outline bg-white px-3 py-3 text-lg tabular-nums text-on-surface-strong
+                 :class="international ? 'rounded-radius' : 'rounded-r-radius'"
+                 class="min-w-0 w-full border-2 border-outline bg-white px-3 py-3 text-lg tabular-nums text-on-surface-strong
                         placeholder:text-on-surface/85
                         focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none
                         dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark-strong dark:placeholder:text-on-surface-dark/60
@@ -139,6 +146,11 @@
                         {% if error %}border-danger dark:border-danger-dark{% endif %}">
         </div>
         <div x-show="feedback" x-cloak class="text-sm" :class="feedbackClass" x-html="feedback"></div>
+        <button type="button"
+                @click.prevent="toggleInternational()"
+                class="w-fit text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:text-primary-dark dark:focus-visible:outline-primary-dark">
+          <span x-text="international ? 'Usar número do Brasil' : 'Usar número de outro país'"></span>
+        </button>
         {% if error %}
         <p class="text-base text-danger dark:text-danger-dark" role="alert">{{ error }}</p>
         {% endif %}
@@ -181,8 +193,11 @@
     </form>
 
     <script>
-    function phoneMask(initialValue) {
+    function phoneInput(initialValue) {
       var checkIcon = '<svg class="w-3 h-3 inline" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>';
+      function isInternational(value) {
+        return value && value.trim().indexOf('+') === 0 && value.replace(/\D/g, '').indexOf('55') !== 0;
+      }
       function nationalDigits(value) {
         var d = value.replace(/\D/g, '');
         if (d.indexOf('55') === 0 && d.length > 11) d = d.slice(2);
@@ -200,23 +215,48 @@
         if (d.length <= 10) return '(' + d.slice(0,2) + ') ' + d.slice(2, d.length-4) + '-' + d.slice(d.length-4);
         return '(' + d.slice(0,2) + ') ' + d.slice(2,7) + '-' + d.slice(7);
       }
+      function internationalValue(value) {
+        var raw = value.trim();
+        if (!raw) return '';
+        if (raw.indexOf('+') !== 0) raw = '+' + raw.replace(/[^\d]/g, '');
+        return '+' + raw.slice(1).replace(/[^\d]/g, '');
+      }
       return {
-        display: initialValue ? mask(initialValue) : '',
+        international: isInternational(initialValue || ''),
+        display: isInternational(initialValue || '') ? internationalValue(initialValue) : (initialValue ? mask(initialValue) : ''),
         feedback: '', feedbackClass: '',
         init: function() { if (this.display) this.validate(); },
         get digits() { return this.display.replace(/\D/g, ''); },
+        submittedPhone: function() {
+          if (this.international) return internationalValue(this.display);
+          var d = nationalDigits(this.display);
+          return d ? '+55' + d : '';
+        },
+        toggleInternational: function() {
+          this.international = !this.international;
+          this.display = '';
+          this.feedback = '';
+          var self = this;
+          this.$nextTick(function() { self.$refs.input.focus(); });
+        },
         onInput: function() {
           var pos = this.$refs.input.selectionStart, old = this.display.length;
-          this.display = mask(this.display);
+          this.display = this.international ? internationalValue(this.display) : mask(this.display);
           var delta = this.display.length - old;
           var self = this;
           this.$nextTick(function() { self.$refs.input.setSelectionRange(Math.max(0, pos+delta), Math.max(0, pos+delta)); });
           this.validate();
         },
-        onPaste: function() { var self = this; this.$nextTick(function() { self.display = mask(self.display); self.validate(); }); },
+        onPaste: function() { var self = this; this.$nextTick(function() { self.display = self.international ? internationalValue(self.display) : mask(self.display); self.validate(); }); },
         validate: function() {
           var d = this.digits, len = d.length;
           if (!len) { this.feedback = ''; return; }
+          if (this.international) {
+            if (this.display.trim().indexOf('+') !== 0) { this.setInfo('Inclua + e o código do país'); return; }
+            if (len < 8) { this.setInfo('Digite o telefone completo'); return; }
+            this.setOk('Número internacional');
+            return;
+          }
           if (len < 2) { this.setInfo('DDD + n\u00famero'); return; }
           var ddd = parseInt(d.slice(0,2));
           if (ddd < 11) { this.setError('DDD inv\u00e1lido'); return; }

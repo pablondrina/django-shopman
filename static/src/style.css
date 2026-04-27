@@ -82,6 +82,7 @@
         font-family: var(--font-body);
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
+        overflow-x: clip;
     }
 
     /* iOS viewport-fit safe areas. The top strip is the status bar region

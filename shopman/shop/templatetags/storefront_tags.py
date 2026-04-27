@@ -7,6 +7,11 @@ from django import template
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
+try:
+    import phonenumbers
+except ImportError:
+    phonenumbers = None  # type: ignore[assignment]
+
 register = template.Library()
 logger = logging.getLogger(__name__)
 
@@ -26,7 +31,7 @@ _DEFAULT_PRODUCT_SYMBOL = "restaurant_menu"
 
 @register.filter
 def format_phone(value: str) -> str:
-    """Format E.164 phone for display: +5543999999999 → (43) 99999-9999"""
+    """Format E.164 phone for display."""
     if not value:
         return value
     digits = "".join(c for c in value if c.isdigit())
@@ -40,6 +45,16 @@ def format_phone(value: str) -> str:
         ddd = digits[2:4]
         num = digits[4:]
         return f"({ddd}) {num[:4]}-{num[4:]}"
+    if value.startswith("+") and phonenumbers is not None:
+        try:
+            parsed = phonenumbers.parse(value, None)
+            if phonenumbers.is_valid_number(parsed):
+                return phonenumbers.format_number(
+                    parsed,
+                    phonenumbers.PhoneNumberFormat.INTERNATIONAL,
+                )
+        except phonenumbers.NumberParseException:
+            pass
     return value
 
 

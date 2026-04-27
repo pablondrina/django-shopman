@@ -41,6 +41,7 @@ def normalize_phone(
     value: str,
     default_region: str = "BR",
     contact_type: str | None = None,
+    repair_brazilian_plus: bool = True,
 ) -> str:
     """
     Normalize phone number to E.164 format.
@@ -56,6 +57,8 @@ def normalize_phone(
         value: Raw phone number, email, or Instagram handle.
         default_region: ISO country code for numbers without country code.
         contact_type: Optional hint ("instagram", "email", etc.)
+        repair_brazilian_plus: Repair known Brazilian numbers sent as
+            +DDD9XXXXXXXX instead of +55DDD9XXXXXXXX.
 
     Returns:
         Normalized value (E.164 for phones, lowercase for email/Instagram).
@@ -82,7 +85,7 @@ def normalize_phone(
         return ""
 
     # Manychat bug detection: +DDD9XXXXXXXX without 55 prefix
-    if has_plus and _is_phone_brazilian(digits):
+    if repair_brazilian_plus and has_plus and _is_phone_brazilian(digits):
         digits = f"55{digits}"
         has_plus = True
 
@@ -131,13 +134,19 @@ def _fallback_normalize(digits: str, has_plus: bool, default_region: str = "BR")
     return ""
 
 
-def is_valid_phone(value: str, default_region: str = "BR") -> bool:
+def is_valid_phone(
+    value: str,
+    default_region: str = "BR",
+    repair_brazilian_plus: bool = True,
+) -> bool:
     """
     Validate phone number.
 
     Args:
         value: Phone number string.
         default_region: ISO country code.
+        repair_brazilian_plus: Repair known Brazilian numbers sent as
+            +DDD9XXXXXXXX instead of +55DDD9XXXXXXXX.
 
     Returns:
         True if the number is valid according to the numbering plan.
@@ -156,7 +165,7 @@ def is_valid_phone(value: str, default_region: str = "BR") -> bool:
         digits = re.sub(r"[^\d]", "", value)
 
         # Apply Manychat fix before validation
-        if has_plus and _is_phone_brazilian(digits):
+        if repair_brazilian_plus and has_plus and _is_phone_brazilian(digits):
             digits = f"55{digits}"
 
         raw = f"+{digits}" if has_plus else digits

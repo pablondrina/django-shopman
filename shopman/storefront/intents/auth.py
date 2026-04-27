@@ -78,7 +78,9 @@ def interpret_login(request) -> AuthResult[LoginIntent]:
 def interpret_request_code(request) -> AuthResult[RequestCodeIntent]:
     """Extract RequestCodeIntent from RequestCodeView.post()."""
     phone_raw = request.POST.get("phone", "").strip()
-    form_data = {"phone": phone_raw}
+    phone_region = request.POST.get("phone_region", "BR")
+    international = phone_region == "INTL"
+    form_data = {"phone": phone_raw, "phone_region": phone_region}
 
     if not phone_raw:
         return AuthResult(
@@ -87,7 +89,7 @@ def interpret_request_code(request) -> AuthResult[RequestCodeIntent]:
             form_data=form_data,
         )
 
-    phone = normalize_phone_input(phone_raw)
+    phone = normalize_phone_input(phone_raw, international=international)
     if not phone:
         return AuthResult(
             intent=None,
@@ -108,6 +110,7 @@ def interpret_verify_code(request) -> AuthResult[VerifyCodeIntent]:
     code_input = request.POST.get("code", "").strip()
     code_digits = re.sub(r"\D", "", code_input)
     form_data = {"phone": phone_raw, "code": code_digits or code_input}
+    international = phone_raw.startswith("+") and not phone_raw.startswith("+55")
 
     if not phone_raw or not code_digits:
         return AuthResult(
@@ -123,7 +126,7 @@ def interpret_verify_code(request) -> AuthResult[VerifyCodeIntent]:
             form_data=form_data,
         )
 
-    phone = normalize_phone_input(phone_raw)
+    phone = normalize_phone_input(phone_raw, international=international)
     if not phone:
         return AuthResult(
             intent=None,
@@ -208,11 +211,18 @@ def interpret_welcome(request) -> AuthResult[WelcomeIntent]:
 
 def _interpret_login_phone(request, next_url: str) -> AuthResult[LoginIntent]:
     phone_raw = request.POST.get("phone", "").strip()
+    phone_region = request.POST.get("phone_region", "BR")
+    international = phone_region == "INTL"
     delivery_method = request.POST.get("delivery_method", "whatsapp")
     if delivery_method not in ("whatsapp", "sms"):
         delivery_method = "whatsapp"
 
-    form_data = {"phone": phone_raw, "delivery_method": delivery_method, "next": next_url}
+    form_data = {
+        "phone": phone_raw,
+        "phone_region": phone_region,
+        "delivery_method": delivery_method,
+        "next": next_url,
+    }
 
     if not phone_raw:
         return AuthResult(
@@ -221,11 +231,16 @@ def _interpret_login_phone(request, next_url: str) -> AuthResult[LoginIntent]:
             form_data=form_data,
         )
 
-    phone = normalize_phone_input(phone_raw)
+    phone = normalize_phone_input(phone_raw, international=international)
     if not phone:
+        error_message = (
+            "Informe o telefone com + e o código do país."
+            if international
+            else "Telefone inválido. Informe com DDD, ex: (43) 99999-9999"
+        )
         return AuthResult(
             intent=None,
-            errors={"phone": "Telefone inválido. Informe com DDD, ex: (43) 99999-9999"},
+            errors={"phone": error_message},
             form_data=form_data,
         )
 

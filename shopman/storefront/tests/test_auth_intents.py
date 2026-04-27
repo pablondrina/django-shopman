@@ -87,6 +87,18 @@ class TestInterpretLoginPhone:
         assert result.intent is not None
         assert result.intent.phone == "+5543984049009"
 
+    def test_international_phone_returns_intent(self):
+        req = _post({"step": "phone", "phone": "+12025551234", "phone_region": "INTL"})
+        result = interpret_login(req)
+        assert result.intent is not None
+        assert result.intent.phone == "+12025551234"
+
+    def test_international_mode_does_not_apply_brazilian_plus_repair(self):
+        req = _post({"step": "phone", "phone": "+436641234567", "phone_region": "INTL"})
+        result = interpret_login(req)
+        assert result.intent is not None
+        assert result.intent.phone == "+436641234567"
+
     def test_delivery_method_sms(self):
         req = _post({"step": "phone", "phone": "43999998888", "delivery_method": "sms"})
         result = interpret_login(req)
@@ -151,6 +163,12 @@ class TestInterpretRequestCode:
         result = interpret_request_code(req)
         assert result.intent is not None
         assert result.intent.phone == "+5543984049009"
+
+    def test_international_phone(self):
+        req = _post({"phone": "+351912345678", "phone_region": "INTL"})
+        result = interpret_request_code(req)
+        assert result.intent is not None
+        assert result.intent.phone == "+351912345678"
 
 
 # ── interpret_verify_code ─────────────────────────────────────────────────────
