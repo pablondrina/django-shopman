@@ -108,9 +108,12 @@ def test_ios_form_focus_does_not_auto_zoom():
 
 
 def test_viewport_chrome_follows_top_surface_color():
+    base = _read_template("base.html")
     tokens = _read_template("partials/_tokens.html")
     css = CSS_SOURCE.read_text(encoding="utf-8")
 
+    assert 'apple-mobile-web-app-status-bar-style" content="{% if shop_status.message %}' in base
+    assert "black-translucent" not in base
     assert "syncViewportChrome()" in tokens
     assert "document.elementFromPoint" in tokens
     assert "--shopman-safe-top-color" in tokens

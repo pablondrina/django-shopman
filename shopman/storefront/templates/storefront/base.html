@@ -25,7 +25,7 @@
   {# theme-color: valor inicial estático (para SSR/crawlers); FOUC script em _tokens.html ajusta em runtime baseado no modo resolvido + presença do banner #}
   <meta name="theme-color" content="{% if shop_status.message %}{% if storefront.color_mode == 'dark' %}#ffffff{% else %}#1c1917{% endif %}{% else %}{% if storefront.color_mode == 'dark' %}#1c1917{% else %}#ffffff{% endif %}{% endif %}">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="{% if shop_status.message %}{% if storefront.color_mode == 'dark' %}default{% else %}black{% endif %}{% else %}{% if storefront.color_mode == 'dark' %}black{% else %}default{% endif %}{% endif %}">
   <link rel="icon" href="{% static 'storefront/icon-192.svg' %}" type="image/svg+xml">
   <link rel="apple-touch-icon" href="{% static 'storefront/icon-192.svg' %}">
 
