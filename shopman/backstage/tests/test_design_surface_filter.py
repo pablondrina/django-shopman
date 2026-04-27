@@ -30,6 +30,8 @@ def test_backstage_shell_keeps_accessible_viewport_and_canonical_css():
 
     assert "maximum-scale" not in base
     assert "output-gestor.css" in base
+    assert 'class="h-full md:flex"' in base
+    assert "md:w-[calc(100vw-3.5rem)]" in base
     assert "overflow-x: clip" in css
     assert "@media (max-width: 767px)" in css
     assert "font-size: 16px" in css
@@ -51,6 +53,7 @@ def test_backstage_design_tokens_expose_canonical_components():
         ".field-label",
         ".metric-value",
         ".count-badge",
+        ".order-timer",
         ".segmented-action",
     ):
         assert token in css
@@ -94,14 +97,25 @@ def test_backstage_empty_states_and_icons_use_canonical_scale():
 def test_backstage_order_queue_keeps_all_action_areas_visible_and_responsive():
     order_list = (TEMPLATES / "pedidos" / "partials" / "order_list.html").read_text(encoding="utf-8")
     card = (TEMPLATES / "pedidos" / "partials" / "card.html").read_text(encoding="utf-8")
+    index = (TEMPLATES / "pedidos" / "index.html").read_text(encoding="utf-8")
     js = (TEMPLATES / "pedidos" / "partials" / "pedidos_js.html").read_text(encoding="utf-8")
 
-    assert "Preparo" in order_list
+    assert "Preparos" in order_list
     assert "queue.preparo" in order_list
     assert "queue.total_count" in order_list
+    assert "w-full min-w-0" in index
+    assert "h-full w-full min-w-0" in index
+    assert "orders.zone.preparo" in order_list
+    assert "|| 'collapsed'" in order_list
+    assert "lg:grid-cols-[minmax(17rem,1fr)_minmax(17rem,1fr)_minmax(34rem,2fr)]" in order_list
+    assert "lg:grid-cols-2" in order_list
     assert "writing-mode" not in order_list
     assert "overflow-y-auto p-3 space-y-4" in order_list
     assert "badge {{ o.status_color }}" in card
-    assert "shrink-0 p-0" in card
+    assert "shrink-0 w-full min-w-0 p-0" in card
+    assert '})()">' in card
+    assert "order-timer {{ o.timer_class }}" in card
+    assert "elapsed >= 3600" in card
+    assert "font-mono" not in card
     assert "var source = (e.detail && e.detail.elt) || e.target;" in js
     assert "if (source !== grid) return;" in js

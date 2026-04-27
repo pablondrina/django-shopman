@@ -36,6 +36,18 @@ def _order(ref: str, status: str, fulfillment_type: str = "pickup") -> Order:
     return order
 
 
+def _phone_order(ref: str, phone: str) -> Order:
+    order = _order(ref, "new")
+    order.data = {
+        "customer": {"phone": phone},
+        "fulfillment_type": "pickup",
+        "payment": {"method": "cash"},
+    }
+    order.handle_ref = phone
+    order.save(update_fields=["data", "handle_ref", "updated_at"])
+    return order
+
+
 class OrderQueueSurfaceTests(TestCase):
     def test_confirmed_and_preparing_orders_are_visible_in_preparo(self) -> None:
         _order("Q-NEW", "new")
@@ -79,6 +91,11 @@ class OrderQueueSurfaceTests(TestCase):
 
         self.assertTrue(card.can_confirm)
         self.assertFalse(card.can_advance)
+
+    def test_customer_phone_is_formatted_for_operator_scan(self) -> None:
+        card = build_order_card(_phone_order("A-PHONE", "+5543984049009"))
+
+        self.assertEqual(card.customer_name, "+55 43 98404-9009")
 
 
 class OrderAdvanceSurfaceTests(TestCase):

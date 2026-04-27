@@ -5,7 +5,7 @@
 {% block main_class %}overflow-hidden flex flex-col{% endblock %}
 
 {% block content %}
-<div id="gestor-pedidos-root" x-data="gestorPedidos()" x-init="init()" @sync-order-count.window="orderCount = $event.detail.count" class="flex flex-col h-full min-h-0">
+<div id="gestor-pedidos-root" x-data="gestorPedidos()" x-init="init()" @sync-order-count.window="orderCount = $event.detail.count" class="flex flex-col h-full min-h-0 w-full">
 
   {% comment %}Offline banner{% endcomment %}
   <div x-show="offline" x-cloak x-transition.opacity
@@ -99,9 +99,9 @@
   <div class="sr-only" aria-live="assertive" aria-atomic="true" x-text="ariaAnnouncement"></div>
 
   {% comment %}Two-zone order grid (HTMX polling){% endcomment %}
-  <div class="flex-1 overflow-hidden">
+  <div class="flex-1 overflow-hidden w-full min-w-0">
     <div id="order-grid" x-ref="orderGrid"
-         class="h-full"
+         class="h-full w-full min-w-0"
          hx-get="/gestor/pedidos/list/"
          hx-trigger="every 5s"
          hx-target="#order-grid"

@@ -1,12 +1,26 @@
-<div class="h-full min-h-0 overflow-y-auto p-3 space-y-4 lg:overflow-hidden lg:grid lg:grid-cols-[minmax(18rem,1fr)_minmax(18rem,1fr)_minmax(23rem,1.2fr)] lg:gap-3 lg:space-y-0">
+<div class="h-full w-full min-w-0 min-h-0 overflow-y-auto p-3 space-y-4 lg:overflow-hidden lg:grid lg:grid-cols-[minmax(17rem,1fr)_minmax(17rem,1fr)_minmax(34rem,2fr)] lg:gap-3 lg:space-y-0">
 
   {% comment %}ENTRADA — new orders awaiting confirm/reject{% endcomment %}
-  <section class="card p-0 flex flex-col min-h-[18rem] overflow-hidden lg:min-h-0"
+  <section class="card p-0 flex flex-col overflow-hidden w-full min-w-0"
            data-zone="entrada"
-           aria-label="Entrada, pedidos novos">
-    <header class="px-3 py-2.5 flex items-center gap-2 shrink-0
+           aria-label="Entrada, pedidos novos"
+           x-data="{
+             collapsed: (sessionStorage.getItem('orders.zone.entrada') || 'open') === 'collapsed',
+             toggle() {
+               this.collapsed = !this.collapsed;
+               sessionStorage.setItem('orders.zone.entrada', this.collapsed ? 'collapsed' : 'open');
+             }
+           }"
+           :class="collapsed ? 'min-h-0 lg:self-start' : 'min-h-[18rem] lg:min-h-0'">
+    <div role="button"
+            tabindex="0"
+            class="px-3 py-2.5 flex items-center gap-2 shrink-0 w-full text-left
                    bg-warning/10 dark:bg-warning/5
-                   border-b border-outline dark:border-outline-dark">
+                   border-b border-outline dark:border-outline-dark"
+            @click="toggle()"
+            @keydown.enter.prevent="toggle()"
+            @keydown.space.prevent="toggle()"
+            :aria-expanded="(!collapsed).toString()">
       <span class="material-symbols-rounded icon-md text-warning" aria-hidden="true">move_to_inbox</span>
       <div class="min-w-0">
         <h2 class="text-sm font-semibold text-warning leading-tight">Entrada</h2>
@@ -15,8 +29,11 @@
       <span class="ml-auto count-badge bg-warning text-on-warning">
         {{ queue.entrada|length }}
       </span>
-    </header>
-    <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+      <span class="material-symbols-rounded icon-sm text-on-surface/50 dark:text-on-surface-dark/50 transition-transform"
+            :class="collapsed ? '-rotate-90' : ''"
+            aria-hidden="true">expand_more</span>
+    </div>
+    <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-3" x-show="!collapsed" x-cloak>
       {% for o in queue.entrada %}
         {% include "pedidos/partials/card.html" %}
       {% empty %}
@@ -29,22 +46,39 @@
   </section>
 
   {% comment %}PREPARO — confirmed/preparing orders that need kitchen action{% endcomment %}
-  <section class="card p-0 flex flex-col min-h-[18rem] overflow-hidden lg:min-h-0"
+  <section class="card p-0 flex flex-col overflow-hidden w-full min-w-0"
            data-zone="preparo"
-           aria-label="Preparo, pedidos em produção">
-    <header class="px-3 py-2.5 flex items-center gap-2 shrink-0
+           aria-label="Preparos, pedidos em produção"
+           x-data="{
+             collapsed: (sessionStorage.getItem('orders.zone.preparo') || 'collapsed') === 'collapsed',
+             toggle() {
+               this.collapsed = !this.collapsed;
+               sessionStorage.setItem('orders.zone.preparo', this.collapsed ? 'collapsed' : 'open');
+             }
+           }"
+           :class="collapsed ? 'min-h-0 lg:self-start' : 'min-h-[18rem] lg:min-h-0'">
+    <div role="button"
+            tabindex="0"
+            class="px-3 py-2.5 flex items-center gap-2 shrink-0 w-full text-left
                    bg-info/10 dark:bg-info/5
-                   border-b border-outline dark:border-outline-dark">
+                   border-b border-outline dark:border-outline-dark"
+            @click="toggle()"
+            @keydown.enter.prevent="toggle()"
+            @keydown.space.prevent="toggle()"
+            :aria-expanded="(!collapsed).toString()">
       <span class="material-symbols-rounded icon-md text-info" aria-hidden="true">skillet</span>
       <div class="min-w-0">
-        <h2 class="text-sm font-semibold text-info leading-tight">Preparo</h2>
+        <h2 class="text-sm font-semibold text-info leading-tight">Preparos</h2>
         <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">Iniciar ou marcar pronto</p>
       </div>
       <span class="ml-auto count-badge bg-info text-on-info">
         {{ queue.preparo|length }}
       </span>
-    </header>
-    <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+      <span class="material-symbols-rounded icon-sm text-on-surface/50 dark:text-on-surface-dark/50 transition-transform"
+            :class="collapsed ? '-rotate-90' : ''"
+            aria-hidden="true">expand_more</span>
+    </div>
+    <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-3" x-show="!collapsed" x-cloak>
       {% for o in queue.preparo %}
         {% include "pedidos/partials/card.html" %}
       {% empty %}
@@ -57,12 +91,26 @@
   </section>
 
   {% comment %}SAÍDA — ready and delivery handoff{% endcomment %}
-  <section class="card p-0 flex flex-col min-h-[22rem] overflow-hidden lg:min-h-0"
+  <section class="card p-0 flex flex-col overflow-hidden w-full min-w-0"
            data-zone="saida"
-           aria-label="Saída, pedidos prontos e entrega">
-    <header class="px-3 py-2.5 flex items-center gap-2 shrink-0
+           aria-label="Saída, pedidos prontos e entrega"
+           x-data="{
+             collapsed: (sessionStorage.getItem('orders.zone.saida') || 'open') === 'collapsed',
+             toggle() {
+               this.collapsed = !this.collapsed;
+               sessionStorage.setItem('orders.zone.saida', this.collapsed ? 'collapsed' : 'open');
+             }
+           }"
+           :class="collapsed ? 'min-h-0 lg:self-start' : 'min-h-[22rem] lg:min-h-0'">
+    <div role="button"
+            tabindex="0"
+            class="px-3 py-2.5 flex items-center gap-2 shrink-0 w-full text-left
                    bg-success/10 dark:bg-success/5
-                   border-b border-outline dark:border-outline-dark">
+                   border-b border-outline dark:border-outline-dark"
+            @click="toggle()"
+            @keydown.enter.prevent="toggle()"
+            @keydown.space.prevent="toggle()"
+            :aria-expanded="(!collapsed).toString()">
       <span class="material-symbols-rounded icon-md text-success" aria-hidden="true">outbox</span>
       <div class="min-w-0">
         <h2 class="text-sm font-semibold text-success leading-tight">Saída</h2>
@@ -71,9 +119,14 @@
       <span class="ml-auto count-badge bg-success text-on-success">
         {{ queue.saida_count }}
       </span>
-    </header>
+      <span class="material-symbols-rounded icon-sm text-on-surface/50 dark:text-on-surface-dark/50 transition-transform"
+            :class="collapsed ? '-rotate-90' : ''"
+            aria-hidden="true">expand_more</span>
+    </div>
 
-    <div class="flex-1 min-h-0 overflow-y-auto p-3 space-y-3 2xl:overflow-hidden 2xl:grid 2xl:grid-cols-2 2xl:gap-3 2xl:space-y-0">
+    <div class="flex-1 min-h-0 overflow-y-auto p-3 space-y-3 lg:overflow-hidden lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0"
+         x-show="!collapsed"
+         x-cloak>
       <div class="flex flex-col min-h-[12rem] overflow-hidden rounded-lg border border-outline dark:border-outline-dark">
         <div class="px-3 py-2 flex items-center gap-2 shrink-0
                     border-b border-outline dark:border-outline-dark

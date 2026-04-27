@@ -193,8 +193,11 @@ def build_operator_order(order: Order) -> OperatorOrderProjection:
     )
 
     timeline = _build_timeline(order)
-    customer_name = (
-        order.data.get("customer", {}).get("name", "")
+    customer_data = order.data.get("customer", {})
+    customer_name = _format_customer_display(
+        customer_data.get("name", "")
+        or customer_data.get("phone", "")
+        or order.data.get("customer_phone", "")
         or order.handle_ref
         or ""
     )
@@ -279,8 +282,11 @@ def _build_card(order: Order) -> OrderCardProjection:
     fulfillment_icon = "local_shipping" if is_delivery else "storefront"
     fulfillment_label = "Delivery" if is_delivery else "Retirada"
 
-    customer_name = (
-        order.data.get("customer", {}).get("name", "")
+    customer_data = order.data.get("customer", {})
+    customer_name = _format_customer_display(
+        customer_data.get("name", "")
+        or customer_data.get("phone", "")
+        or order.data.get("customer_phone", "")
         or order.handle_ref
         or ""
     )
@@ -326,6 +332,40 @@ def _is_payment_pending(order: Order, method: str, payment_status: str) -> bool:
     if method in _OFFLINE_METHODS:
         return False
     return payment_status not in _PAYMENT_COMPLETE
+
+
+def _format_customer_display(value: str) -> str:
+    label = (value or "").strip()
+    if not label:
+        return ""
+
+    digits = "".join(ch for ch in label if ch.isdigit())
+    if not digits:
+        return label
+
+    looks_like_phone = label.startswith("+") or label.startswith("(") or len(digits) >= 10
+    if not looks_like_phone:
+        return label
+
+    if digits.startswith("0") and len(digits) in (11, 12):
+        digits = digits[1:]
+
+    if digits.startswith("55") and len(digits) in (12, 13):
+        ddd = digits[2:4]
+        number = digits[4:]
+        if len(number) == 9:
+            return f"+55 {ddd} {number[:5]}-{number[5:]}"
+        if len(number) == 8:
+            return f"+55 {ddd} {number[:4]}-{number[4:]}"
+
+    if len(digits) == 11:
+        return f"({digits[:2]}) {digits[2:7]}-{digits[7:]}"
+    if len(digits) == 10:
+        return f"({digits[:2]}) {digits[2:6]}-{digits[6:]}"
+
+    if label.startswith("+"):
+        return "+" + digits
+    return label
 
 
 def _timer_class(status: str, elapsed: float) -> str:

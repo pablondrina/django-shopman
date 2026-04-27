@@ -48,7 +48,7 @@
   });
   </script>
 
-  <div class="h-full flex">
+  <div class="h-full md:flex">
 
     {% comment %}Mobile backdrop overlay{% endcomment %}
     <div x-show="drawerOpen"
@@ -146,7 +146,7 @@
     </aside>
 
     {% comment %}Main column: navbar + content{% endcomment %}
-    <div class="flex-1 flex flex-col overflow-hidden min-w-0">
+    <div class="h-full w-full md:w-[calc(100vw-3.5rem)] flex flex-col overflow-hidden min-w-0 shrink-0">
 
       {% comment %}Top navbar{% endcomment %}
       <header class="h-14 px-4 flex items-center gap-3 shrink-0

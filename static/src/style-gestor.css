@@ -261,6 +261,25 @@
                min-w-5 h-5 px-1 text-xs font-semibold tabular-nums;
     }
 
+    .order-timer {
+        @apply inline-flex items-center gap-1 rounded-full border px-2 py-0.5
+               text-sm font-semibold tabular-nums leading-tight;
+    }
+    .timer-ok {
+        @apply bg-success/10 border-success/30 text-success;
+    }
+    .timer-warning {
+        @apply bg-warning/10 border-warning/30 text-warning;
+    }
+    .timer-urgent {
+        @apply bg-danger/10 border-danger/30 text-danger;
+    }
+    .timer-muted {
+        @apply bg-surface dark:bg-surface-dark
+               border-outline dark:border-outline-dark
+               text-on-surface/70 dark:text-on-surface-dark/70;
+    }
+
     .segmented-action {
         @apply flex-1 rounded-lg border border-outline dark:border-outline-dark
                px-3 py-2 text-sm font-medium transition-colors
