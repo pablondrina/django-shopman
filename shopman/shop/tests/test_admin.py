@@ -419,7 +419,7 @@ class TestProductionAdminView:
 
         assert response.status_code == 302
 
-    def test_post_can_plan_start_and_finish_canonical_lifecycle(self, db, rf, admin_user):
+    def test_post_can_set_planned_start_and_finish_canonical_lifecycle(self, db, rf, admin_user):
         from datetime import date
 
         from shopman.backstage.views.production import production_view
@@ -435,7 +435,7 @@ class TestProductionAdminView:
         plan_request = rf.post(
             "/admin/shopman/shop/production/",
             {
-                "action": "plan",
+                "action": "set_planned",
                 "recipe": str(recipe.pk),
                 "quantity": "12",
                 "target_date": date.today().isoformat(),
@@ -450,6 +450,25 @@ class TestProductionAdminView:
         work_order = WorkOrder.objects.get(output_sku="ITALIANO-RUSTICO")
         assert work_order.status == WorkOrder.Status.PLANNED
         assert work_order.operator_ref == "user:ana"
+
+        adjust_request = rf.post(
+            "/admin/shopman/shop/production/",
+            {
+                "action": "set_planned",
+                "recipe": str(recipe.pk),
+                "quantity": "14",
+                "target_date": date.today().isoformat(),
+                "operator_ref": "user:ana",
+            },
+        )
+        adjust_request.user = admin_user
+        with patch("shopman.backstage.views.production.messages"):
+            response = production_view(adjust_request, admin.site)
+
+        assert response.status_code == 302
+        assert WorkOrder.objects.filter(output_sku="ITALIANO-RUSTICO").count() == 1
+        work_order.refresh_from_db()
+        assert work_order.quantity == 14
 
         start_request = rf.post(
             "/admin/shopman/shop/production/",
@@ -490,6 +509,37 @@ class TestProductionAdminView:
         assert work_order.finished == 10
         assert work_order.loss == 1
 
+    def test_post_can_clear_planned_quantity_from_matrix(self, db, rf, admin_user):
+        from datetime import date
+
+        from shopman.backstage.views.production import production_view
+        from shopman.craftsman.models import WorkOrder
+
+        recipe = Recipe.objects.create(
+            ref="focaccia-v1",
+            name="Focaccia",
+            output_sku="FOCACCIA",
+            batch_size=10,
+        )
+
+        for quantity in ("8", "0"):
+            request = rf.post(
+                "/admin/shopman/shop/production/",
+                {
+                    "action": "set_planned",
+                    "recipe": str(recipe.pk),
+                    "quantity": quantity,
+                    "target_date": date.today().isoformat(),
+                },
+            )
+            request.user = admin_user
+            with patch("shopman.backstage.views.production.messages"):
+                response = production_view(request, admin.site)
+            assert response.status_code == 302
+
+        work_order = WorkOrder.objects.get(output_sku="FOCACCIA")
+        assert work_order.status == WorkOrder.Status.VOID
+
     def test_suggested_editor_can_turn_suggestion_into_plan(self, db, rf):
         from datetime import date
 
@@ -508,7 +558,7 @@ class TestProductionAdminView:
         request = rf.post(
             "/admin/shopman/shop/production/",
             {
-                "action": "plan",
+                "action": "set_planned",
                 "source": "suggested",
                 "recipe": str(recipe.pk),
                 "quantity": "9",

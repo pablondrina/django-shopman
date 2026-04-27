@@ -145,11 +145,13 @@ def test_backstage_production_uses_high_volume_matrix_surface():
     assert "matrix_rows|length" in production
     assert "Receita-base" in production
     assert "base_recipe" in production
+    assert "set_planned" in production
     assert "quantity_display" in production
     assert "per_unit_display" in production
-    assert "adjustOpen" in production
+    assert "adjustOpen" not in production
     assert "startOpen" in production
     assert "finishOpen" in production
     assert "surface-modal max-w-sm" in production
     assert "sticky left-0" in production
+    assert "Planejar manualmente" not in production
     assert "Planejar sugerido" not in production

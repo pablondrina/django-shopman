@@ -75,32 +75,26 @@ def _handle_post(request, admin_site, access):
     actor = f"admin:{request.user}"
 
     try:
-        if action == "plan":
+        if action == "set_planned":
             is_suggestion = request.POST.get("source") == "suggested"
-            can_plan = access.can_edit_planned or (is_suggestion and access.can_edit_suggested)
-            if not can_plan:
+            can_set_planned = access.can_edit_planned or (is_suggestion and access.can_edit_suggested)
+            if not can_set_planned:
                 messages.error(request, "Sem permissão para planejar produção.")
             else:
-                output_sku, wo_ref, quantity = production_service.plan_work_order(
+                output_sku, wo_ref, quantity, result = production_service.set_planned_quantity(
                     recipe_id=request.POST.get("recipe"),
                     quantity=request.POST.get("quantity", "").strip(),
                     target_date_value=request.POST.get("target_date", "").strip(),
-                    position_id=request.POST.get("position", "").strip(),
+                    position_ref=request.POST.get("position_ref", "").strip(),
                     operator_ref=request.POST.get("operator_ref", "").strip(),
                     actor=actor,
                 )
-                messages.success(request, f"Planejado: {output_sku} × {quantity} ({wo_ref})")
-        elif action == "adjust":
-            if not access.can_edit_planned:
-                messages.error(request, "Sem permissão para ajustar planejamento.")
-            else:
-                wo_ref, quantity = production_service.adjust_work_order(
-                    work_order_id=request.POST.get("wo_id"),
-                    quantity=request.POST.get("quantity", "").strip(),
-                    reason=request.POST.get("reason", "").strip(),
-                    actor=actor,
-                )
-                messages.success(request, f"Planejamento ajustado: {wo_ref} × {quantity}")
+                if result == "cleared":
+                    messages.success(request, f"Planejamento zerado: {output_sku}")
+                elif result == "unchanged":
+                    messages.info(request, f"Planejamento mantido: {output_sku} × {quantity}")
+                else:
+                    messages.success(request, f"Planejado: {output_sku} × {quantity} ({wo_ref})")
         elif action == "start":
             if not access.can_edit_started:
                 messages.error(request, "Sem permissão para iniciar produção.")

@@ -16,7 +16,7 @@ from decimal import Decimal
 
 from django.utils import timezone
 from shopman.craftsman import craft
-from shopman.craftsman.models import Recipe, WorkOrder
+from shopman.craftsman.models import Recipe, RecipeItem, WorkOrder
 from shopman.stockman import Position
 
 logger = logging.getLogger(__name__)
@@ -48,6 +48,7 @@ class WorkOrderCardProjection:
 
     pk: int
     ref: str
+    recipe_pk: int
     recipe_ref: str
     recipe_name: str
     base_usages: tuple["BaseRecipeUsageProjection", ...]
@@ -142,6 +143,7 @@ class ProductionSuggestionProjection:
 class ProductionMatrixRowProjection:
     """A high-volume production matrix row grouped by SKU."""
 
+    recipe_pk: int | None
     output_sku: str
     recipe_name: str
     base_usages: tuple[BaseRecipeUsageProjection, ...]
@@ -316,6 +318,17 @@ def build_production_board(
         RecipeOptionProjection(pk=r.pk, ref=r.ref, name=r.output_sku or r.ref)
         for r in Recipe.objects.filter(is_active=True).order_by("ref")
     )
+    consumed_recipe_skus = set(
+        RecipeItem.objects.filter(recipe__is_active=True)
+        .exclude(input_sku="")
+        .values_list("input_sku", flat=True)
+    )
+    matrix_recipes = tuple(
+        Recipe.objects.filter(is_active=True)
+        .exclude(output_sku__in=consumed_recipe_skus)
+        .prefetch_related("items")
+        .order_by("ref")
+    )
 
     positions_qs = Position.objects.all().order_by("name")
     default_pos = Position.objects.filter(is_default=True).first()
@@ -330,7 +343,7 @@ def build_production_board(
     )
     suggestions = tuple(_build_suggestion(s) for s in _production_suggestions(selected_date))
     visible_suggestions = suggestions if access.can_view_suggested else ()
-    all_matrix_rows = _build_matrix_rows(wo_cards, visible_suggestions)
+    all_matrix_rows = _build_matrix_rows(matrix_recipes, wo_cards, visible_suggestions)
     base_recipes = _build_group_options(all_matrix_rows)
     matrix_rows = tuple(
         row for row in all_matrix_rows
@@ -381,6 +394,7 @@ def _build_wo_card(wo: WorkOrder) -> WorkOrderCardProjection:
     return WorkOrderCardProjection(
         pk=wo.pk,
         ref=wo.ref,
+        recipe_pk=wo.recipe_id,
         recipe_ref=wo.recipe.ref,
         recipe_name=wo.recipe.output_sku or wo.recipe.ref,
         base_usages=base_usages,
@@ -434,6 +448,7 @@ def _build_suggestion(suggestion) -> ProductionSuggestionProjection:
 
 
 def _build_matrix_rows(
+    recipes: tuple[Recipe, ...],
     work_orders: tuple[WorkOrderCardProjection, ...],
     suggestions: tuple[ProductionSuggestionProjection, ...],
 ) -> tuple[ProductionMatrixRowProjection, ...]:
@@ -443,6 +458,7 @@ def _build_matrix_rows(
         return rows.setdefault(
             output_sku,
             {
+                "recipe_pk": None,
                 "recipe_name": output_sku,
                 "base_usages": (),
                 "suggestion": None,
@@ -452,14 +468,22 @@ def _build_matrix_rows(
             },
         )
 
+    for recipe in recipes:
+        row = row_for(recipe.output_sku)
+        row["recipe_pk"] = recipe.pk
+        row["recipe_name"] = recipe.output_sku or recipe.ref
+        row["base_usages"] = _base_recipe_usages(recipe)
+
     for suggestion in suggestions:
         row = row_for(suggestion.output_sku)
+        row["recipe_pk"] = suggestion.recipe_pk
         row["recipe_name"] = suggestion.recipe_name or suggestion.output_sku
         row["base_usages"] = suggestion.base_usages
         row["suggestion"] = suggestion
 
     for work_order in work_orders:
         row = row_for(work_order.output_sku)
+        row["recipe_pk"] = work_order.recipe_pk
         row["recipe_name"] = work_order.recipe_name or row["recipe_name"]
         row["base_usages"] = work_order.base_usages
         if work_order.status == WorkOrder.Status.PLANNED:
@@ -471,6 +495,7 @@ def _build_matrix_rows(
 
     return tuple(
         ProductionMatrixRowProjection(
+            recipe_pk=row["recipe_pk"],
             output_sku=output_sku,
             recipe_name=row["recipe_name"],
             base_usages=row["base_usages"],

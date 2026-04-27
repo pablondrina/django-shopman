@@ -98,53 +98,6 @@
     </div>
   </section>
 
-  {% if production_access.can_edit_planned %}
-  <details class="card">
-    <summary class="cursor-pointer text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Planejar manualmente</summary>
-    <form method="post" class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[minmax(14rem,1fr)_8rem_minmax(10rem,12rem)_minmax(10rem,14rem)_auto]">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="plan" />
-      <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}" />
-      <input type="hidden" name="position_ref" value="{{ selected_position_ref }}" />
-      <input type="hidden" name="operator_ref_filter" value="{{ selected_operator_ref }}" />
-      <input type="hidden" name="base_recipe" value="{{ selected_base_recipe }}" />
-      <div>
-        <label class="field-label">Receita</label>
-        <select name="recipe" class="select-field" required>
-          {% for recipe in recipes %}
-          <option value="{{ recipe.pk }}">{{ recipe.ref }} · {{ recipe.name }}</option>
-          {% empty %}
-          <option value="">Nenhuma receita ativa</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <label class="field-label">Quantidade</label>
-        <input type="number" step="0.001" min="0.001" name="quantity" inputmode="decimal" class="input-field tabular-nums" required />
-      </div>
-      <div>
-        <label class="field-label">Destino</label>
-        <select name="position" class="select-field">
-          <option value="">Padrão</option>
-          {% for position in positions %}
-          <option value="{{ position.pk }}" {% if default_position_id == position.pk %}selected{% endif %}>{{ position.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <label class="field-label">Responsável</label>
-        <input type="text" name="operator_ref" value="{{ selected_operator_ref }}" placeholder="Opcional" class="input-field" />
-      </div>
-      <div class="flex items-end">
-        <button type="submit" class="btn-primary w-full">
-          <span class="material-symbols-rounded icon-sm" aria-hidden="true">event_note</span>
-          Planejar
-        </button>
-      </div>
-    </form>
-  </details>
-  {% endif %}
-
   <section class="card p-0 overflow-hidden">
     <div class="flex flex-col gap-3 border-b border-outline dark:border-outline-dark p-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -206,10 +159,11 @@
                 {% if production_access.can_edit_suggested or production_access.can_edit_planned %}
                 <form method="post">
                   {% csrf_token %}
-                  <input type="hidden" name="action" value="plan" />
+                  <input type="hidden" name="action" value="set_planned" />
                   <input type="hidden" name="source" value="suggested" />
                   <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}" />
                   <input type="hidden" name="position_ref" value="{{ selected_position_ref }}" />
+                  <input type="hidden" name="operator_ref" value="{{ selected_operator_ref }}" />
                   <input type="hidden" name="operator_ref_filter" value="{{ selected_operator_ref }}" />
                   <input type="hidden" name="base_recipe" value="{{ selected_base_recipe }}" />
                   <input type="hidden" name="recipe" value="{{ row.suggestion.recipe_pk }}" />
@@ -229,6 +183,26 @@
 
             {% if production_access.can_view_planned %}
             <td class="px-3 py-3">
+              {% if production_access.can_edit_planned and row.recipe_pk %}
+              <form method="post" class="mb-3 space-y-2">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="set_planned" />
+                <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}" />
+                <input type="hidden" name="position_ref" value="{{ selected_position_ref }}" />
+                <input type="hidden" name="operator_ref" value="{{ selected_operator_ref }}" />
+                <input type="hidden" name="operator_ref_filter" value="{{ selected_operator_ref }}" />
+                <input type="hidden" name="base_recipe" value="{{ selected_base_recipe }}" />
+                <input type="hidden" name="recipe" value="{{ row.recipe_pk }}" />
+                <label class="field-label" for="planned-{{ row.recipe_pk }}-{{ usage.output_sku|default:'direct' }}">Planejado</label>
+                <div class="grid grid-cols-[minmax(5rem,1fr)_auto] gap-2">
+                  <input id="planned-{{ row.recipe_pk }}-{{ usage.output_sku|default:'direct' }}" type="number" step="0.001" min="0" name="quantity" value="{{ row.planned_qty }}" inputmode="decimal" class="input-field h-10 tabular-nums" required />
+                  <button type="submit" class="btn-primary h-10 px-3">
+                    <span class="material-symbols-rounded icon-sm" aria-hidden="true">check</span>
+                    Salvar
+                  </button>
+                </div>
+              </form>
+              {% endif %}
               {% if row.planned_orders %}
               <div class="space-y-2">
                 <div class="flex items-center justify-between gap-2">
@@ -236,15 +210,9 @@
                   <span class="badge-neutral tabular-nums">{{ row.planned_qty }}</span>
                 </div>
                 {% for item in row.planned_orders %}
-                <div class="rounded-lg border border-outline dark:border-outline-dark p-2" x-data="{ adjustOpen: false, startOpen: false }">
+                <div class="rounded-lg border border-outline dark:border-outline-dark p-2" x-data="{ startOpen: false }">
                   <div class="flex items-center justify-between gap-2">
-                    {% if production_access.can_edit_planned %}
-                    <button type="button" class="btn-quiet min-w-20 py-2 tabular-nums" @click="adjustOpen = true" aria-label="Ajustar planejamento de {{ item.output_sku }}">
-                      {{ item.planned_qty }}
-                    </button>
-                    {% else %}
                     <span class="badge-neutral tabular-nums">{{ item.planned_qty }}</span>
-                    {% endif %}
                     <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 truncate">{{ item.operator_ref|default:"Livre" }}</span>
                   </div>
                   {% if production_access.can_edit_started %}
@@ -252,38 +220,6 @@
                     <span class="material-symbols-rounded icon-sm" aria-hidden="true">play_arrow</span>
                     Iniciar
                   </button>
-                  {% endif %}
-
-                  {% if production_access.can_edit_planned %}
-                  <div x-show="adjustOpen" x-cloak x-transition class="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4" @click.self="adjustOpen = false" @keydown.escape.window="adjustOpen = false" role="dialog" aria-modal="true">
-                    <form method="post" class="surface-modal max-w-sm">
-                      {% csrf_token %}
-                      <input type="hidden" name="action" value="adjust" />
-                      <input type="hidden" name="wo_id" value="{{ item.pk }}" />
-                      <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}" />
-                      <input type="hidden" name="position_ref" value="{{ selected_position_ref }}" />
-                      <input type="hidden" name="operator_ref_filter" value="{{ selected_operator_ref }}" />
-                      <input type="hidden" name="base_recipe" value="{{ selected_base_recipe }}" />
-                      <div class="mb-4">
-                        <h3 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Ajustar {{ item.output_sku }}</h3>
-                        <p class="field-help">O motivo fica registrado na ordem {{ item.ref }}.</p>
-                      </div>
-                      <div class="space-y-3">
-                        <div>
-                          <label class="field-label">Nova quantidade</label>
-                          <input type="number" step="0.001" min="0.001" name="quantity" value="{{ item.planned_qty }}" inputmode="decimal" class="input-field tabular-nums" required />
-                        </div>
-                        <div>
-                          <label class="field-label">Motivo</label>
-                          <input type="text" name="reason" placeholder="Ex.: encomenda extra" class="input-field" required />
-                        </div>
-                      </div>
-                      <div class="mt-4 flex gap-2">
-                        <button type="button" class="btn-secondary flex-1" @click="adjustOpen = false">Cancelar</button>
-                        <button type="submit" class="btn-primary flex-1">Ajustar</button>
-                      </div>
-                    </form>
-                  </div>
                   {% endif %}
 
                   {% if production_access.can_edit_started %}
@@ -330,7 +266,9 @@
                 {% endfor %}
               </div>
               {% else %}
+              {% if not production_access.can_edit_planned %}
               <span class="text-on-surface/40 dark:text-on-surface-dark/40">Sem ordem</span>
+              {% endif %}
               {% endif %}
             </td>
             {% endif %}

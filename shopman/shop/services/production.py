@@ -103,55 +103,72 @@ def quick_finish(
     return recipe.output_sku, work_order.ref, qty
 
 
-def plan_work_order(
+def set_planned_quantity(
     *,
     recipe_id,
     quantity,
     target_date_value,
-    position_id="",
+    position_ref: str = "",
     operator_ref: str = "",
     actor: str,
-) -> tuple[str, str, Decimal]:
-    """Create a planned WorkOrder for the production board."""
+) -> tuple[str, str, Decimal, str]:
+    """Create or adjust the single planned WorkOrder behind a matrix cell."""
+    from shopman.craftsman.models import WorkOrder
+    from shopman.craftsman.services.execution import CraftExecution
     from shopman.craftsman.services.scheduling import CraftPlanning
 
     recipe = _get_active_recipe(recipe_id)
-    qty = _positive_decimal(quantity, error="Quantidade planejada inválida.")
-    position_ref = _position_ref(position_id)
+    qty = _non_negative_decimal(quantity, error="Quantidade planejada inválida.")
     target_date = _target_date_or_today(target_date_value)
+    position = str(position_ref or "").strip() or _default_position_ref()
+    operator = str(operator_ref or "").strip()
 
-    work_order = CraftPlanning.plan(
-        recipe,
-        qty,
-        date=target_date,
-        position_ref=position_ref,
-        operator_ref=str(operator_ref or "").strip(),
-        source_ref="manual_production",
-        actor=actor,
+    planned_orders = list(
+        WorkOrder.objects.filter(
+            recipe=recipe,
+            target_date=target_date,
+            position_ref=position,
+            status=WorkOrder.Status.PLANNED,
+        ).order_by("created_at")
     )
-    return recipe.output_sku, work_order.ref, qty
 
+    if qty == 0:
+        for work_order in planned_orders:
+            CraftExecution.void(
+                order=work_order,
+                reason="Planejamento zerado na matriz",
+                actor=actor,
+            )
+        return recipe.output_sku, "", qty, "cleared"
 
-def adjust_work_order(
-    *,
-    work_order_id,
-    quantity,
-    reason: str,
-    actor: str,
-) -> tuple[str, Decimal]:
-    """Adjust the planned quantity of a WorkOrder."""
-    from shopman.craftsman.models import WorkOrder
-    from shopman.craftsman.services.scheduling import CraftPlanning
+    if not planned_orders:
+        work_order = CraftPlanning.plan(
+            recipe,
+            qty,
+            date=target_date,
+            position_ref=position,
+            operator_ref=operator,
+            source_ref="production_matrix",
+            actor=actor,
+        )
+        return recipe.output_sku, work_order.ref, qty, "created"
 
-    qty = _positive_decimal(quantity, error="Quantidade planejada inválida.")
-    work_order = WorkOrder.objects.get(pk=work_order_id)
+    if len(planned_orders) > 1:
+        raise ValueError(
+            "Há mais de um planejamento aberto para este SKU. Ajuste a ordem específica antes de usar a matriz."
+        )
+
+    work_order = planned_orders[0]
+    if work_order.quantity == qty:
+        return recipe.output_sku, work_order.ref, qty, "unchanged"
+
     CraftPlanning.adjust(
         work_order,
         quantity=qty,
-        reason=str(reason or "").strip() or "Ajuste no chão de fábrica",
+        reason="Planejamento informado na matriz",
         actor=actor,
     )
-    return work_order.ref, qty
+    return recipe.output_sku, work_order.ref, qty, "adjusted"
 
 
 def start_work_order(
@@ -256,6 +273,16 @@ def _positive_decimal(value, *, error: str = "quantidade inválida") -> Decimal:
     try:
         qty = Decimal(str(value).strip())
         if qty <= 0:
+            raise ValueError
+    except (InvalidOperation, ValueError, TypeError) as exc:
+        raise ValueError(error) from exc
+    return qty
+
+
+def _non_negative_decimal(value, *, error: str = "quantidade inválida") -> Decimal:
+    try:
+        qty = Decimal(str(value).strip())
+        if qty < 0:
             raise ValueError
     except (InvalidOperation, ValueError, TypeError) as exc:
         raise ValueError(error) from exc
