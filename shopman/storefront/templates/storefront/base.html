@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>{% block title %}Cardápio{% endblock %} — {{ storefront.brand_name }}</title>
+  <title>{% block title %}Cardápio{% endblock %} · {{ storefront.brand_name }}</title>
   <meta name="description" content="{% block meta_description %}{{ storefront.tagline }} em {{ storefront.default_city }}. {{ storefront.description|truncatewords:20 }}{% endblock %}">
   <link rel="canonical" href="{% block canonical_url %}{{ request.scheme }}://{{ request.get_host }}{{ request.path }}{% endblock %}">
   <meta property="og:title" content="{% block og_title %}{{ storefront.brand_name }}{% endblock %}">
@@ -254,8 +254,8 @@
         {% endif %}
       </div>
     </div>
-    <div class="border-t border-outline dark:border-outline-dark text-center py-4 text-xs text-on-surface/50 dark:text-on-surface-dark/50">
-      &copy; {{ storefront.brand_name }} — Todos os direitos reservados.
+    <div class="border-t border-outline dark:border-outline-dark text-center py-4 text-xs text-on-surface/85 dark:text-on-surface-dark/60">
+      &copy; {{ storefront.brand_name }} · Todos os direitos reservados.
     </div>
   </footer>
 

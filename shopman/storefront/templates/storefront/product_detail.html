@@ -3,7 +3,7 @@
 
 {% block title %}{{ product.name }}{% endblock %}
 {% block meta_description %}{{ product.short_description|default:product.long_description|default:product.name|truncatechars:160 }}{% endblock %}
-{% block og_title %}{{ product.name }} — {{ storefront.brand_name }}{% endblock %}
+{% block og_title %}{{ product.name }} · {{ storefront.brand_name }}{% endblock %}
 {% block og_description %}{{ product.short_description|default:product.long_description|default:product.name|truncatechars:200 }}{% endblock %}
 {% block og_type %}product{% endblock %}
 {% block twitter_title %}{{ product.name }}{% endblock %}
@@ -36,7 +36,7 @@
 {% endblock %}
 
 {% block breadcrumb %}
-<nav class="mb-6" aria-label="Breadcrumb">
+<nav class="mb-4" aria-label="Breadcrumb">
   <ol x-data="breadcrumb()" class="flex items-center text-sm overflow-hidden">
     <li data-bc>
       <a href="{% url 'storefront:home' %}" class="text-on-surface hover:text-primary focus:outline-hidden focus:underline dark:text-on-surface-dark dark:hover:text-primary-dark">Início</a>
@@ -99,16 +99,16 @@
     {% endif %}
 
     {% if product.allergen and product.allergen.serves %}
-    <div class="mt-3 inline-flex items-center gap-1.5 rounded-full bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark px-3 py-1 text-xs text-on-surface dark:text-on-surface-dark w-fit">
-      <span class="material-symbols-rounded icon-sm" aria-hidden="true">group</span>
+    <div class="badge-neutral mt-3 w-fit">
+      <span class="material-symbols-rounded" aria-hidden="true">group</span>
       Serve {{ product.allergen.serves }}
     </div>
     {% endif %}
 
     {# Allergen badge inline — critical info never hidden behind an accordion #}
     {% if product.allergen and product.allergen.allergens %}
-    <p class="mt-3 inline-flex items-center gap-1.5 rounded-full bg-warning/10 border border-warning/30 text-warning px-3 py-1 text-xs w-fit" aria-label="Alérgenos">
-      <span class="material-symbols-rounded icon-xs" aria-hidden="true">warning</span>
+    <p class="badge-warning mt-3 w-fit" aria-label="Alérgenos">
+      <span class="material-symbols-rounded" aria-hidden="true">warning</span>
       Contém {{ product.allergen.allergens|join:" · " }}
     </p>
     {% endif %}
@@ -116,13 +116,13 @@
     {# Price #}
     <div class="mt-3">
       {% if product.has_promotion %}
-        <p class="text-xs text-on-surface/70 dark:text-on-surface-dark/70 line-through">{{ product.original_price_display }}</p>
+        <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/70 line-through">{{ product.original_price_display }}</p>
         <p class="text-2xl font-semibold text-primary dark:text-primary-dark">{{ product.price_display }}</p>
       {% else %}
         <p class="text-2xl font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ product.price_display }}</p>
       {% endif %}
       {% if product.unit_weight_label %}
-      <p class="mt-1 text-xs text-on-surface/60 dark:text-on-surface-dark/60">{{ product.unit_weight_label }}</p>
+      <p class="mt-1 text-xs text-on-surface/85 dark:text-on-surface-dark/60">{{ product.unit_weight_label }}</p>
       {% endif %}
     </div>
 
@@ -251,7 +251,7 @@
 
       {# Hint inline (AVAILABILITY-PLAN §7): discreto, aparece perto do limite #}
       <p x-show="showMaxHint" x-cloak
-         class="mt-1 text-xs text-on-surface/60 dark:text-on-surface-dark/60 tabular-nums"
+         class="mt-1 text-xs text-on-surface/85 dark:text-on-surface-dark/60 tabular-nums"
          aria-live="polite">
         máx. <span x-text="effectiveMax"></span>
       </p>
@@ -343,7 +343,7 @@
         </summary>
         <div class="px-4 pb-4 border-t border-outline dark:border-outline-dark pt-3 space-y-3">
           {% if product.nutrition.serving_size_display %}
-          <p class="text-xs uppercase tracking-wide text-on-surface/70 dark:text-on-surface-dark/70">
+          <p class="text-xs uppercase tracking-wide text-on-surface/85 dark:text-on-surface-dark/70">
             Porção: <span class="text-on-surface-strong dark:text-on-surface-dark-strong font-semibold">{{ product.nutrition.serving_size_display }}</span>
             {% if product.nutrition.servings_per_container > 1 %}
             · {{ product.nutrition.servings_per_container }} porções por embalagem
@@ -358,14 +358,14 @@
               <span class="text-lg font-semibold text-primary dark:text-primary-dark">{{ product.nutrition.energy_kcal_display }}</span>
               <span class="text-xs text-on-surface dark:text-on-surface-dark ml-1">kcal</span>
               {% if product.nutrition.energy_pdv is not None %}
-              <span class="block text-xs text-on-surface/70 dark:text-on-surface-dark/70">{{ product.nutrition.energy_pdv }}% VD</span>
+              <span class="block text-xs text-on-surface/85 dark:text-on-surface-dark/70">{{ product.nutrition.energy_pdv }}% VD</span>
               {% endif %}
             </span>
           </div>
           {% endif %}
 
           <table class="w-full text-sm">
-            <thead class="text-xs uppercase tracking-wide text-on-surface/70 dark:text-on-surface-dark/70">
+            <thead class="text-xs uppercase tracking-wide text-on-surface/85 dark:text-on-surface-dark/70">
               <tr>
                 <th scope="col" class="text-left py-1.5 font-medium">Nutriente</th>
                 <th scope="col" class="text-right py-1.5 font-medium">Quantidade</th>
@@ -377,12 +377,12 @@
               <tr>
                 <th scope="row" class="text-left py-1.5 font-normal text-on-surface-strong dark:text-on-surface-dark-strong">{{ row.label }}</th>
                 <td class="text-right py-1.5 text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums">{{ row.value_display }} <span class="text-xs text-on-surface dark:text-on-surface-dark">{{ row.unit }}</span></td>
-                <td class="text-right py-1.5 text-on-surface dark:text-on-surface-dark tabular-nums">{% if row.percent_daily_value is not None %}{{ row.percent_daily_value }}%{% else %}—{% endif %}</td>
+                <td class="text-right py-1.5 text-on-surface dark:text-on-surface-dark tabular-nums">{% if row.percent_daily_value is not None %}{{ row.percent_daily_value }}%{% else %}·{% endif %}</td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
-          <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">% Valores Diários de referência com base em uma dieta de 2000 kcal (ANVISA).</p>
+          <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/60">% Valores Diários de referência com base em uma dieta de 2000 kcal (ANVISA).</p>
         </div>
       </details>
       {% endif %}

@@ -2,7 +2,7 @@
 {% load static omotenashi_tags %}
 
 {% block title %}Cardápio{% endblock %}
-{% block meta_description %}Cardápio com disponibilidade em tempo real — {{ storefront.brand_name }}.{% endblock %}
+{% block meta_description %}Cardápio com disponibilidade em tempo real · {{ storefront.brand_name }}.{% endblock %}
 
 {% block breadcrumb %}
 <nav class="mb-6" aria-label="Breadcrumb">
@@ -26,9 +26,12 @@
 {# ── Happy Hour banner ── #}
 {% if catalog.happy_hour %}
 <div class="card mb-6 flex items-center gap-3 animate-fade-in" role="status" aria-live="polite">
-  <span class="badge-warning shrink-0">Happy Hour</span>
+  <span class="badge-warning shrink-0">
+    <span class="material-symbols-rounded" aria-hidden="true">local_activity</span>
+    Happy Hour
+  </span>
   <p class="text-sm text-on-surface dark:text-on-surface-dark">
-    Até {{ catalog.happy_hour.end }} &mdash; {{ catalog.happy_hour.discount_percent }}% de desconto em tudo
+    Até {{ catalog.happy_hour.end }} · {{ catalog.happy_hour.discount_percent }}% de desconto em tudo
   </p>
 </div>
 {% endif %}
@@ -94,11 +97,11 @@
                autocomplete="off"
                role="searchbox"
                aria-controls="menu-search-results"
-               class="flex-1 bg-transparent text-base sm:text-lg text-on-surface-strong dark:text-on-surface-dark-strong placeholder:text-on-surface/40 dark:placeholder:text-on-surface-dark/40 focus:outline-none"
+               class="flex-1 bg-transparent text-base sm:text-lg text-on-surface-strong dark:text-on-surface-dark-strong placeholder:text-on-surface/85 dark:placeholder:text-on-surface-dark/60 focus:outline-none"
                style="min-height: 44px;">
         <button x-show="searchQuery" @click="searchQuery=''; $refs.searchInput.focus(); runSearch()"
                 type="button" aria-label="Limpar"
-                class="shrink-0 inline-flex size-9 items-center justify-center rounded-full text-on-surface/50 hover:bg-surface dark:text-on-surface-dark/50 dark:hover:bg-surface-dark">
+                class="shrink-0 inline-flex size-9 items-center justify-center rounded-full text-on-surface/85 hover:bg-surface dark:text-on-surface-dark/60 dark:hover:bg-surface-dark">
           <span class="material-symbols-rounded icon-sm" aria-hidden="true">cancel</span>
         </button>
       </div>
@@ -120,7 +123,7 @@
 
       {% comment %}Empty query: lista de categorias (mesmas pills){% endcomment %}
       <div x-show="!searchQuery.trim()" class="divide-y divide-outline dark:divide-outline-dark">
-        <p class="px-4 pt-5 pb-2 text-xs font-semibold uppercase tracking-wide text-on-surface/50 dark:text-on-surface-dark/50">Categorias</p>
+        <p class="px-4 pt-5 pb-2 text-xs font-semibold uppercase tracking-wide text-on-surface/85 dark:text-on-surface-dark/60">Categorias</p>
         {% for section in catalog.sections %}
         <button type="button"
                 @click="jumpToAndClose('{{ section.ref }}')"
@@ -130,7 +133,7 @@
           </span>
           <span class="flex-1 min-w-0">
             <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ section.label }}</span>
-            <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 mt-0.5 block">{{ section.items|length }} itens</span>
+            <span class="text-xs text-on-surface/85 dark:text-on-surface-dark/60 mt-0.5 block">{{ section.items|length }} itens</span>
           </span>
           <span class="material-symbols-rounded icon-sm text-on-surface/30 dark:text-on-surface-dark/30" aria-hidden="true">chevron_right</span>
         </button>
@@ -139,7 +142,7 @@
 
       {% comment %}Query ativa: resultados filtrados client-side{% endcomment %}
       <div x-show="searchQuery.trim()" id="menu-search-results" class="divide-y divide-outline dark:divide-outline-dark" aria-live="polite">
-        <p class="px-4 pt-5 pb-2 text-xs font-semibold uppercase tracking-wide text-on-surface/50 dark:text-on-surface-dark/50">
+        <p class="px-4 pt-5 pb-2 text-xs font-semibold uppercase tracking-wide text-on-surface/85 dark:text-on-surface-dark/60">
           <span x-show="searchResults.length" x-text="searchSummary()"></span>
           <span x-show="!searchResults.length">Sem resultados</span>
         </p>
@@ -152,12 +155,12 @@
             </span>
             <span class="flex-1 min-w-0">
               <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong block truncate" x-text="r.name"></span>
-              <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 block" x-text="r.section"></span>
+              <span class="text-xs text-on-surface/85 dark:text-on-surface-dark/60 block" x-text="r.section"></span>
             </span>
             <span class="text-sm font-semibold text-primary dark:text-primary-dark" x-text="r.price"></span>
           </a>
         </template>
-        <div x-show="!searchResults.length" class="text-center py-16 text-on-surface/50 dark:text-on-surface-dark/50">
+        <div x-show="!searchResults.length" class="text-center py-16 text-on-surface/85 dark:text-on-surface-dark/60">
           <span class="material-symbols-rounded icon-display mb-3 block" aria-hidden="true">search_off</span>
           <p class="text-base">Nada encontrado para "<span class="font-medium" x-text="searchQuery"></span>"</p>
         </div>
@@ -177,7 +180,7 @@
       {{ section.label }}
     </h2>
     {% if section.description %}
-    <p class="text-sm text-on-surface/70 dark:text-on-surface-dark/70 mb-4">{{ section.description }}</p>
+    <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/70 mb-4">{{ section.description }}</p>
     {% endif %}
     {% include "storefront/partials/_catalog_item_grid.html" with items=section.items %}
   </section>

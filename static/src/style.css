@@ -42,10 +42,18 @@
     --color-on-info: var(--color-stone-100);
     --color-success: var(--color-lime-800);
     --color-on-success: var(--color-white);
-    --color-warning: var(--color-amber-600);
+    --color-warning: var(--color-amber-700);
     --color-on-warning: var(--color-white);
     --color-danger: var(--color-orange-700);
     --color-on-danger: var(--color-stone-100);
+    --color-info-dark: var(--color-cyan-400);
+    --color-on-info-dark: var(--color-stone-950);
+    --color-success-dark: var(--color-lime-400);
+    --color-on-success-dark: var(--color-stone-950);
+    --color-warning-dark: var(--color-amber-400);
+    --color-on-warning-dark: var(--color-stone-950);
+    --color-danger-dark: var(--color-orange-400);
+    --color-on-danger-dark: var(--color-stone-950);
 
     /* Border Radius */
     --radius-radius: var(--radius-sm);
@@ -184,8 +192,8 @@
                rounded-lg px-4 py-3
                text-on-surface dark:text-on-surface-dark
                font-body text-sm touch-target
-               placeholder:text-on-surface placeholder:opacity-50
-               dark:placeholder:text-on-surface-dark dark:placeholder:opacity-50;
+               placeholder:text-on-surface/85
+               dark:placeholder:text-on-surface-dark/60;
     }
 
     /* Badges (base + semantic variants) */
@@ -195,13 +203,21 @@
     .badge-warning,
     .badge-danger,
     .badge-neutral {
-        @apply inline-flex items-center gap-1 px-2.5 py-1
-               rounded-lg text-xs font-medium border;
+        @apply inline-flex items-center gap-1.5 px-2.5 py-1
+               rounded-full text-xs font-semibold border whitespace-nowrap leading-none;
     }
-    .badge-info    { @apply bg-info/10    border-info/30    text-info; }
-    .badge-success { @apply bg-success/10 border-success/30 text-success; }
-    .badge-warning { @apply bg-warning/10 border-warning/30 text-warning; }
-    .badge-danger  { @apply bg-danger/10  border-danger/30  text-danger; }
+    .badge .material-symbols-rounded,
+    .badge-info .material-symbols-rounded,
+    .badge-success .material-symbols-rounded,
+    .badge-warning .material-symbols-rounded,
+    .badge-danger .material-symbols-rounded,
+    .badge-neutral .material-symbols-rounded {
+        font-size: 0.875rem;
+    }
+    .badge-info    { @apply bg-info/10    border-info/30    text-info    dark:bg-info/15; }
+    .badge-success { @apply bg-success/10 border-success/30 text-success dark:bg-success/15; }
+    .badge-warning { @apply bg-warning/10 border-warning/30 text-warning dark:bg-warning/15; }
+    .badge-danger  { @apply bg-danger/10  border-danger/30  text-danger  dark:bg-danger/15; }
     .badge-neutral {
         @apply bg-surface-alt dark:bg-surface-dark-alt
                border-outline dark:border-outline-dark

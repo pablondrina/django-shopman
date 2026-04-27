@@ -166,11 +166,11 @@ the cascading ``cartUpdated`` reload destroys the source element.
           {% if item.is_awaiting_confirmation %}
           {% omotenashi 'PICKUP_READY_NOTICE' as ready_notice %}
           <div class="flex flex-col gap-0.5">
-            <span class="inline-flex items-center gap-1 self-start rounded-full bg-info/10 px-2 py-0.5 text-[11px] font-medium text-info dark:bg-info-dark/10 dark:text-info-dark">
-              <span class="material-symbols-rounded icon-xs" aria-hidden="true">schedule</span>
+            <span class="badge-info self-start">
+              <span class="material-symbols-rounded" aria-hidden="true">schedule</span>
               Aguardando confirmação
             </span>
-            <p class="text-[11px] text-on-surface/70 dark:text-on-surface-dark/70">{{ ready_notice.message }}</p>
+            <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/70">{{ ready_notice.message }}</p>
           </div>
           {% endif %}
 
@@ -271,7 +271,7 @@ the cascading ``cartUpdated`` reload destroys the source element.
                class="flex-1 min-w-0 px-3 py-2 rounded-radius border border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark text-sm text-on-surface-strong dark:text-on-surface-dark-strong uppercase focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark">
         <button type="submit" class="btn-primary text-sm px-4 shrink-0">Aplicar</button>
         <button type="button" @click="open = false" aria-label="Fechar"
-                class="shrink-0 p-2 text-on-surface/60 hover:text-on-surface-strong dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark-strong focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary rounded">
+                class="shrink-0 p-2 text-on-surface/85 hover:text-on-surface-strong dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark-strong focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary rounded">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
         </button>
       </form>
@@ -282,19 +282,19 @@ the cascading ``cartUpdated`` reload destroys the source element.
   {# ── Totals ── #}
   <div class="border-t border-outline dark:border-outline-dark px-4 py-3 space-y-1.5 bg-surface-alt dark:bg-surface-dark-alt">
     {% if cart.has_discount %}
-    <div class="flex justify-between text-sm text-on-surface/70 dark:text-on-surface-dark/70">
+    <div class="flex justify-between text-sm text-on-surface/85 dark:text-on-surface-dark/70">
       <span>Subtotal</span>
       <span class="line-through tabular-nums">{{ cart.original_subtotal_display }}</span>
     </div>
     {% for row in cart.discount_lines %}
-    <div class="flex justify-between text-sm gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
+    <div class="flex justify-between text-sm gap-2 text-on-surface/85 dark:text-on-surface-dark/70">
       <span class="truncate min-w-0" title="{{ row.label }}">{{ row.label }}</span>
       <span class="text-success font-medium tabular-nums shrink-0">-{{ row.amount_display }}</span>
     </div>
     {% endfor %}
     {% endif %}
     {% if cart.delivery_fee_display %}
-    <div class="flex justify-between text-sm text-on-surface/70 dark:text-on-surface-dark/70">
+    <div class="flex justify-between text-sm text-on-surface/85 dark:text-on-surface-dark/70">
       <span>Taxa de entrega</span>
       <span class="tabular-nums">{{ cart.delivery_fee_display }}</span>
     </div>
@@ -365,7 +365,7 @@ the cascading ``cartUpdated`` reload destroys the source element.
     {% elif cart.has_ready_for_confirmation_items %}
     <a href="{% url 'storefront:cart' %}" class="btn-primary w-full">
       <span class="material-symbols-rounded icon-sm" aria-hidden="true">priority_high</span>
-      Confirmar agora — tudo pronto
+      Confirmar agora · tudo pronto
     </a>
     {% else %}
     <a href="{% url 'storefront:cart' %}" class="btn-primary w-full">

@@ -4,6 +4,7 @@ STOREFRONT_ROOT = Path(__file__).parents[1]
 TEMPLATES = STOREFRONT_ROOT / "templates" / "storefront"
 STATIC_JS = STOREFRONT_ROOT / "static" / "storefront" / "js"
 CSS_SOURCE = STOREFRONT_ROOT.parents[1] / "static" / "src" / "style.css"
+OMOTENASHI_COPY_SOURCE = STOREFRONT_ROOT.parent / "shop" / "omotenashi" / "copy.py"
 
 
 def _read_template(name: str) -> str:
@@ -140,6 +141,118 @@ def test_auth_inputs_stay_readable_on_mobile():
     assert "font-mono" not in login
     assert "text-xl tabular-nums tracking-[0.28em]" in code
     assert "tracking-[0.5em]" not in code
+    assert login.count("CHECKOUT_PHONE_PURPOSE") == 1
+
+
+def test_mobile_nav_labels_use_base_small_type():
+    bottom_nav = _read_template("partials/_bottom_nav.html")
+
+    assert "text-xs font-medium" in bottom_nav
+    assert "text-[10px] font-medium" not in bottom_nav
+    assert "text-[9px]" not in bottom_nav
+
+
+def test_badges_use_canonical_surface_contract():
+    css = CSS_SOURCE.read_text(encoding="utf-8")
+    availability = _read_template("components/availability_badge.html")
+    grid = _read_template("partials/_catalog_item_grid.html")
+    preview = _read_template("partials/availability_preview.html")
+    pdp = _read_template("product_detail.html")
+    drawer = _read_template("partials/cart_drawer.html")
+
+    assert "rounded-full text-xs font-semibold" in css
+    assert ".badge .material-symbols-rounded" in css
+    assert "badge-success" in availability
+    assert "badge-warning" in availability
+    assert "badge-info" in availability
+    assert "badge-neutral" in availability
+    assert "badge-warning w-fit" in grid
+    assert "badge-neutral w-fit" in preview
+    assert "badge-neutral mt-3 w-fit" in pdp
+    assert "badge-info self-start" in drawer
+
+
+def test_storefront_visible_copy_avoids_micro_type_and_loose_dashes():
+    templates = [
+        "base.html",
+        "cart.html",
+        "checkout.html",
+        "home.html",
+        "login.html",
+        "menu.html",
+        "offline.html",
+        "order_tracking.html",
+        "payment.html",
+        "product_detail.html",
+        "partials/_catalog_item_grid.html",
+        "partials/availability_preview.html",
+        "partials/profile_display.html",
+    ]
+
+    for template in templates:
+        source = _read_template(template)
+        assert "text-[10px]" not in source, template
+        assert "text-[9px]" not in source, template
+        assert "&mdash;" not in source, template
+
+    omotenashi_copy = OMOTENASHI_COPY_SOURCE.read_text(encoding="utf-8")
+    for phrase in (
+        "Ainda nem abrimos —",
+        "Olhe à vontade —",
+        "Ainda processando —",
+        "Geramos um novo para você —",
+        "Últimos pedidos —",
+        "Aberto —",
+        "Fechado —",
+        "Tente novamente em alguns minutos —",
+    ):
+        assert phrase not in omotenashi_copy
+
+
+def test_storefront_contrast_uses_accessible_penguin_tokens():
+    css = CSS_SOURCE.read_text(encoding="utf-8")
+    assert "--color-warning: var(--color-amber-700);" in css
+    assert "--color-warning-dark: var(--color-amber-400);" in css
+    assert "--color-success-dark: var(--color-lime-400);" in css
+    assert "--color-danger-dark: var(--color-orange-400);" in css
+    assert "placeholder:text-on-surface/85" in css
+    assert "dark:placeholder:text-on-surface-dark/60" in css
+
+    templates = [
+        "base.html",
+        "cart.html",
+        "checkout.html",
+        "home.html",
+        "login.html",
+        "menu.html",
+        "offline.html",
+        "order_tracking.html",
+        "payment.html",
+        "product_detail.html",
+        "partials/_bottom_nav.html",
+        "partials/_cart_page_content.html",
+        "partials/_catalog_item_grid.html",
+        "partials/availability_preview.html",
+        "partials/cart_drawer.html",
+        "partials/checkout_order_summary.html",
+    ]
+
+    low_contrast_tokens = (
+        "text-on-surface/50",
+        "text-on-surface/60",
+        "text-on-surface/70",
+        "text-on-surface-dark/50",
+        "placeholder:text-on-surface/30",
+        "placeholder:text-on-surface/40",
+        "placeholder:text-on-surface/50",
+        "placeholder:text-on-surface-dark/30",
+        "placeholder:text-on-surface-dark/40",
+        "placeholder:text-on-surface-dark/50",
+    )
+    for template in templates:
+        source = _read_template(template)
+        for token in low_contrast_tokens:
+            assert token not in source, f"{template} uses {token}"
 
 
 def test_checkout_account_switch_preserves_cart_and_returns_to_checkout_login():

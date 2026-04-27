@@ -6,7 +6,7 @@
             hx-get="{% url 'storefront:profile_display' %}"
             hx-target="#profile-section"
             hx-swap="outerHTML"
-            class="text-sm font-medium text-on-surface/60 hover:text-on-surface transition dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark">
+            class="text-sm font-medium text-on-surface/85 hover:text-on-surface transition dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark">
       Cancelar
     </button>
   </div>
@@ -63,7 +63,7 @@
     </div>
 
     <div class="pt-1">
-      <p class="text-xs text-on-surface/50 dark:text-on-surface-dark/50 mb-3">
+      <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/60 mb-3">
         Telefone: <span class="font-medium">{{ customer.phone|format_phone }}</span>
         <span class="opacity-50">(não editável)</span>
       </p>

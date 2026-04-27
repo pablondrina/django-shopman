@@ -3,7 +3,7 @@
   {% for device in devices %}
   <div class="flex items-center justify-between p-3 rounded-radius bg-surface-alt dark:bg-surface-dark-alt" id="device-{{ device.id }}">
     <div class="flex items-center gap-3">
-      <span class="material-symbols-rounded text-2xl text-on-surface/60 dark:text-on-surface-dark/60" aria-hidden="true">
+      <span class="material-symbols-rounded text-2xl text-on-surface/85 dark:text-on-surface-dark/60" aria-hidden="true">
         {% if "iPhone" in device.label or "Android" in device.label %}smartphone
         {% elif "Mac" in device.label %}laptop_mac
         {% elif "Windows" in device.label %}desktop_windows
@@ -16,7 +16,7 @@
           <span class="ml-1 inline-block px-1.5 py-0.5 rounded text-xs bg-success/10 text-success">Este dispositivo</span>
           {% endif %}
         </p>
-        <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-on-surface/60 dark:text-on-surface-dark/60">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-on-surface/85 dark:text-on-surface-dark/60">
           {% if device.last_used_at %}
           <span>Último uso: {{ device.last_used_at|date:"d/m/Y" }} às {{ device.last_used_at|time:"H:i" }}</span>
           {% endif %}
@@ -57,5 +57,5 @@
 {% endif %}
 
 {% else %}
-<p class="text-on-surface/60 dark:text-on-surface-dark/60 text-sm text-center py-4">Nenhum dispositivo registrado ainda. Após fazer login com código de verificação, seu dispositivo aparecerá aqui.</p>
+<p class="text-on-surface/85 dark:text-on-surface-dark/60 text-sm text-center py-4">Nenhum dispositivo registrado ainda. Após fazer login com código de verificação, seu dispositivo aparecerá aqui.</p>
 {% endif %}

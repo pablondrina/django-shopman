@@ -12,22 +12,22 @@
   </div>
   <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
     <div>
-      <p class="text-xs uppercase tracking-wide text-on-surface/50 dark:text-on-surface-dark/50 mb-1">Nome</p>
-      <p class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ customer.name|default:"—" }}</p>
+      <p class="text-xs uppercase tracking-wide text-on-surface/85 dark:text-on-surface-dark/60 mb-1">Nome</p>
+      <p class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ customer.name|default:"Não informado" }}</p>
     </div>
     <div>
-      <p class="text-xs uppercase tracking-wide text-on-surface/50 dark:text-on-surface-dark/50 mb-1">Telefone</p>
+      <p class="text-xs uppercase tracking-wide text-on-surface/85 dark:text-on-surface-dark/60 mb-1">Telefone</p>
       <p class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ customer.phone|format_phone }}</p>
     </div>
     {% if customer.email %}
     <div>
-      <p class="text-xs uppercase tracking-wide text-on-surface/50 dark:text-on-surface-dark/50 mb-1">Email</p>
+      <p class="text-xs uppercase tracking-wide text-on-surface/85 dark:text-on-surface-dark/60 mb-1">Email</p>
       <p class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ customer.email }}</p>
     </div>
     {% endif %}
     {% if customer.birthday %}
     <div>
-      <p class="text-xs uppercase tracking-wide text-on-surface/50 dark:text-on-surface-dark/50 mb-1">Data de nascimento</p>
+      <p class="text-xs uppercase tracking-wide text-on-surface/85 dark:text-on-surface-dark/60 mb-1">Data de nascimento</p>
       <p class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ customer.birthday|date:"d/m/Y" }}</p>
     </div>
     {% endif %}

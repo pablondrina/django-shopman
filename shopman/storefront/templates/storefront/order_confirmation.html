@@ -23,7 +23,7 @@
     <p class="mt-2 text-on-surface dark:text-on-surface-dark">
       Começamos a preparar {% human_eta confirmation.eta %}.
     </p>
-    <p class="mt-4 text-xs text-on-surface/60 dark:text-on-surface-dark/60 font-mono">{{ confirmation.order_ref }}</p>
+    <p class="mt-4 text-xs text-on-surface/85 dark:text-on-surface-dark/60 font-mono">{{ confirmation.order_ref }}</p>
   </header>
 
   {% comment %}── Items summary ──{% endcomment %}
@@ -65,7 +65,7 @@
   {% comment %}── Tomorrow hook (yoin tail when closing) ──{% endcomment %}
   {% omotenashi 'TRACKING_TOMORROW_HOOK' as tomorrow %}
   {% if tomorrow.message %}
-  <p class="text-center text-sm text-on-surface/60 dark:text-on-surface-dark/60 pt-2">
+  <p class="text-center text-sm text-on-surface/85 dark:text-on-surface-dark/60 pt-2">
     {{ tomorrow.message }}{% if omotenashi_ctx.customer_name %} Até amanhã, {{ omotenashi_ctx.customer_name }}.{% else %} Até lá.{% endif %}
   </p>
   {% endif %}

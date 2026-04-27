@@ -17,7 +17,7 @@
     <p class="font-semibold text-base text-success">{{ paid.title }}</p>
     <p class="text-sm mt-1 text-on-surface dark:text-on-surface-dark">{{ paid.message }}</p>
     {% if payment_status.order_ref %}
-    <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 mt-2 font-mono">{{ payment_status.order_ref }}</p>
+    <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/60 mt-2 font-mono">{{ payment_status.order_ref }}</p>
     {% endif %}
     {% if payment_status.eta_display %}
     <p class="text-sm text-on-surface dark:text-on-surface-dark mt-2 font-medium">Previsão: {{ payment_status.eta_display }}</p>
@@ -27,7 +27,7 @@
       <span class="material-symbols-rounded text-base" aria-hidden="true">delivery_dining</span>
       Acompanhar pedido
     </a>
-    <p class="text-xs mt-2 text-on-surface/50 dark:text-on-surface-dark/50" aria-live="polite">
+    <p class="text-xs mt-2 text-on-surface/85 dark:text-on-surface-dark/60" aria-live="polite">
       Redirecionando em <span x-text="countdown"></span>s…
     </p>
   </div>
@@ -63,7 +63,7 @@
 
 {% else %}
 {% omotenashi 'PAYMENT_WAITING' as waiting %}
-<div class="flex items-center justify-center gap-2 text-sm text-on-surface/60 dark:text-on-surface-dark/60 py-2"
+<div class="flex items-center justify-center gap-2 text-sm text-on-surface/85 dark:text-on-surface-dark/60 py-2"
      x-data="{ phase: 'short' }"
      x-init="setTimeout(() => phase = 'long', 10000)">
   <svg class="w-4 h-4 motion-safe:animate-spin shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">

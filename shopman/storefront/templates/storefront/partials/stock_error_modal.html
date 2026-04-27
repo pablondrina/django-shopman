@@ -95,7 +95,7 @@ See docs/plans/STOCK-UX-PLAN.md and docs/plans/WP-GAP-14-availability-substitute
           <img src="{{ product_image_url }}" alt="{{ product_name }}"
                class="size-full object-cover grayscale opacity-50">
           <div class="absolute inset-0 flex items-center justify-center">
-            <span class="material-symbols-rounded text-on-surface/70 dark:text-on-surface-dark/70 text-xl" aria-hidden="true">inventory_2</span>
+            <span class="material-symbols-rounded text-on-surface/85 dark:text-on-surface-dark/70 text-xl" aria-hidden="true">inventory_2</span>
           </div>
         </div>
         {% else %}
@@ -104,7 +104,7 @@ See docs/plans/STOCK-UX-PLAN.md and docs/plans/WP-GAP-14-availability-substitute
         </div>
         {% endif %}
         <div class="min-w-0">
-          <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 truncate">{{ product_name }}</p>
+          <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/60 truncate">{{ product_name }}</p>
           <h3 id="stock-error-title"
               class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong leading-snug">
             {% if shortage_copy.title %}{{ shortage_copy.title }}{% else %}Ih, acabou{% endif %}
@@ -114,7 +114,7 @@ See docs/plans/STOCK-UX-PLAN.md and docs/plans/WP-GAP-14-availability-substitute
       <button type="button"
               @click="open = false"
               aria-label="Fechar"
-              class="shrink-0 size-11 flex items-center justify-center rounded-lg text-on-surface/50 hover:text-on-surface-strong dark:text-on-surface-dark/50 dark:hover:text-on-surface-dark-strong focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary transition">
+              class="shrink-0 size-11 flex items-center justify-center rounded-lg text-on-surface/85 hover:text-on-surface-strong dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark-strong focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary transition">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
       </button>
     </div>
@@ -151,7 +151,7 @@ See docs/plans/STOCK-UX-PLAN.md and docs/plans/WP-GAP-14-availability-substitute
       {% else %}
       <div>
       {% endif %}
-        <p class="text-xs font-semibold uppercase tracking-wide text-on-surface/60 dark:text-on-surface-dark/60 mb-3">
+        <p class="text-xs font-semibold uppercase tracking-wide text-on-surface/85 dark:text-on-surface-dark/60 mb-3">
           {% if subs_intro.message %}{{ subs_intro.message }}{% else %}Que tal esses?{% endif %}
         </p>
         <ul class="space-y-2" role="list">
@@ -183,7 +183,7 @@ See docs/plans/STOCK-UX-PLAN.md and docs/plans/WP-GAP-14-availability-substitute
 
       <button type="button"
               @click="open = false"
-              class="w-full text-center text-xs text-on-surface/50 hover:text-on-surface dark:text-on-surface-dark/50 dark:hover:text-on-surface-dark focus:outline-hidden focus-visible:underline rounded-lg min-h-[44px] transition">
+              class="w-full text-center text-xs text-on-surface/85 hover:text-on-surface dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark focus:outline-hidden focus-visible:underline rounded-lg min-h-[44px] transition">
         Fechar
       </button>
     </div>
@@ -197,7 +197,7 @@ See docs/plans/STOCK-UX-PLAN.md and docs/plans/WP-GAP-14-availability-substitute
           <span class="material-symbols-rounded text-primary dark:text-primary-dark text-2xl" aria-hidden="true">schedule</span>
         </div>
         <div class="min-w-0">
-          <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 truncate">{{ product_name }}</p>
+          <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/60 truncate">{{ product_name }}</p>
           <h3 id="stock-error-title"
               class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong leading-snug">
             {% if planned_copy.title %}{{ planned_copy.title }}{% else %}A caminho{% endif %}
@@ -207,7 +207,7 @@ See docs/plans/STOCK-UX-PLAN.md and docs/plans/WP-GAP-14-availability-substitute
       <button type="button"
               @click="open = false"
               aria-label="Fechar"
-              class="shrink-0 size-11 flex items-center justify-center rounded-lg text-on-surface/50 hover:text-on-surface-strong dark:text-on-surface-dark/50 dark:hover:text-on-surface-dark-strong focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary transition">
+              class="shrink-0 size-11 flex items-center justify-center rounded-lg text-on-surface/85 hover:text-on-surface-strong dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark-strong focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary transition">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
       </button>
     </div>
@@ -235,7 +235,7 @@ See docs/plans/STOCK-UX-PLAN.md and docs/plans/WP-GAP-14-availability-substitute
 
       {% if substitutes %}
       <div class="border-t border-outline dark:border-outline-dark pt-4">
-        <p class="text-xs font-semibold uppercase tracking-wide text-on-surface/60 dark:text-on-surface-dark/60 mb-3">
+        <p class="text-xs font-semibold uppercase tracking-wide text-on-surface/85 dark:text-on-surface-dark/60 mb-3">
           {% if subs_intro.message %}{{ subs_intro.message }}{% else %}Ou escolha uma alternativa{% endif %}
         </p>
         <ul class="space-y-2" role="list">
@@ -267,7 +267,7 @@ See docs/plans/STOCK-UX-PLAN.md and docs/plans/WP-GAP-14-availability-substitute
 
       <button type="button"
               @click="open = false"
-              class="w-full text-center text-xs text-on-surface/50 hover:text-on-surface dark:text-on-surface-dark/50 dark:hover:text-on-surface-dark focus:outline-hidden focus-visible:underline rounded-lg min-h-[44px] transition">
+              class="w-full text-center text-xs text-on-surface/85 hover:text-on-surface dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark focus:outline-hidden focus-visible:underline rounded-lg min-h-[44px] transition">
         Fechar
       </button>
     </div>
@@ -288,7 +288,7 @@ See docs/plans/STOCK-UX-PLAN.md and docs/plans/WP-GAP-14-availability-substitute
         </div>
         {% endif %}
         <div class="min-w-0">
-          <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 truncate">{{ product_name }}</p>
+          <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/60 truncate">{{ product_name }}</p>
           <h3 id="stock-error-title"
               class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong leading-snug">
             {% if paused_copy.title %}{{ paused_copy.title }}{% else %}Voltamos em breve{% endif %}
@@ -298,7 +298,7 @@ See docs/plans/STOCK-UX-PLAN.md and docs/plans/WP-GAP-14-availability-substitute
       <button type="button"
               @click="open = false"
               aria-label="Fechar"
-              class="shrink-0 size-11 flex items-center justify-center rounded-lg text-on-surface/50 hover:text-on-surface-strong dark:text-on-surface-dark/50 dark:hover:text-on-surface-dark-strong focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary transition">
+              class="shrink-0 size-11 flex items-center justify-center rounded-lg text-on-surface/85 hover:text-on-surface-strong dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark-strong focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary transition">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
       </button>
     </div>
@@ -310,7 +310,7 @@ See docs/plans/STOCK-UX-PLAN.md and docs/plans/WP-GAP-14-availability-substitute
 
       {% if substitutes %}
       <div>
-        <p class="text-xs font-semibold uppercase tracking-wide text-on-surface/60 dark:text-on-surface-dark/60 mb-3">
+        <p class="text-xs font-semibold uppercase tracking-wide text-on-surface/85 dark:text-on-surface-dark/60 mb-3">
           {% if subs_intro.message %}{{ subs_intro.message }}{% else %}Que tal esses?{% endif %}
         </p>
         <ul class="space-y-2" role="list">

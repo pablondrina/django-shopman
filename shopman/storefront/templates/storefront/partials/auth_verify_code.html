@@ -22,7 +22,7 @@
     <input type="text" id="auth-code-input" name="code" maxlength="6" pattern="[0-9]{6}"
       inputmode="numeric" autocomplete="one-time-code"
       placeholder="000000"
-      class="w-full rounded-radius border border-outline bg-surface-alt text-center text-xl tabular-nums tracking-[0.28em] placeholder:text-on-surface/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:border-outline-dark dark:bg-surface-dark-alt/50 dark:placeholder:text-on-surface-dark/30 dark:focus-visible:outline-primary-dark"
+      class="w-full rounded-radius border border-outline bg-surface-alt text-center text-xl tabular-nums tracking-[0.28em] placeholder:text-on-surface/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:border-outline-dark dark:bg-surface-dark-alt/50 dark:placeholder:text-on-surface-dark/60 dark:focus-visible:outline-primary-dark"
       style="min-height: 56px; padding: 0.5rem 0.5rem 0.5rem 0.85rem;"
       x-init="$nextTick(() => $el.focus())">
   </div>
@@ -53,7 +53,7 @@
     hx-swap="innerHTML"
     hx-vals='{"phone": "{{ phone }}"}'
     hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-    class="text-sm text-on-surface/60 hover:text-on-surface disabled:opacity-50 disabled:cursor-not-allowed transition dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark">
+    class="text-sm text-on-surface/85 hover:text-on-surface disabled:opacity-50 disabled:cursor-not-allowed transition dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark">
     <span x-show="!done">Reenviar código (<span x-text="seconds"></span>s)</span>
     <span x-show="done" x-cloak>Reenviar código</span>
   </button>

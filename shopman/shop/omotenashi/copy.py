@@ -54,12 +54,12 @@ class CopyEntry:
 OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     # ── Menu ──────────────────────────────────────────────────────
     "MENU_SUBTITLE": {
-        MOMENT_MADRUGADA: {WILDCARD: CopyEntry(message="Ainda nem abrimos — olhe o cardápio à vontade.")},
+        MOMENT_MADRUGADA: {WILDCARD: CopyEntry(message="Ainda nem abrimos. Olhe o cardápio à vontade.")},
         MOMENT_MANHA: {WILDCARD: CopyEntry(message="Fresquinho do forno.")},
         MOMENT_ALMOCO: {WILDCARD: CopyEntry(message="Cardápio do almoço.")},
         MOMENT_TARDE: {WILDCARD: CopyEntry(message="Para o café da tarde.")},
         MOMENT_FECHANDO: {WILDCARD: CopyEntry(message="Últimos pedidos do dia.")},
-        MOMENT_FECHADO: {WILDCARD: CopyEntry(message="Olhe à vontade — atendemos assim que abrirmos.")},
+        MOMENT_FECHADO: {WILDCARD: CopyEntry(message="Olhe à vontade. Atendemos assim que abrirmos.")},
     },
 
     # ── Cart empty ────────────────────────────────────────────────
@@ -241,13 +241,13 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Aguardando seu banco confirmar…")},
     },
     "PAYMENT_WAITING_LONG": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Ainda processando — pode levar até 1 minuto.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Ainda processando. Pode levar até 1 minuto.")},
     },
     "PAYMENT_PIX_EXPIRED": {
         WILDCARD: {
             WILDCARD: CopyEntry(
                 title="Este PIX expirou",
-                message="Geramos um novo para você — é só continuar.",
+                message="Geramos um novo para você. É só continuar.",
             ),
         },
     },
@@ -377,7 +377,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
 
     # ── Status banners ────────────────────────────────────────────
     "URGENCY_BANNER_MESSAGE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Últimos pedidos — fechamos em breve")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Últimos pedidos. Fechamos em breve")},
     },
     "BIRTHDAY_BANNER_TITLE": {
         WILDCARD: {WILDCARD: CopyEntry(title="Feliz aniversário!")},
@@ -392,7 +392,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Seu desconto especial de aniversário já está ativo.")},
     },
     "CLOSING_AWARENESS_PREFIX": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Últimos pedidos — fechamos em")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Últimos pedidos. Fechamos em")},
     },
     "CLOSING_AWARENESS_SUFFIX": {
         WILDCARD: {WILDCARD: CopyEntry(message="minutos")},
@@ -404,16 +404,16 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Aberto agora")},
     },
     "SHOP_STATUS_OPEN_UNTIL": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Aberto — até")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Aberto até")},
     },
     "SHOP_STATUS_OPEN_CLOSING_SOON": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Aberto — fecha em")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Aberto. Fecha em")},
     },
     "SHOP_STATUS_CLOSED": {
         WILDCARD: {WILDCARD: CopyEntry(message="Fechado")},
     },
     "SHOP_STATUS_CLOSED_OPENS_AT": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Fechado — abre às")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Fechado. Abre às")},
     },
 
     # ── Kintsugi ──────────────────────────────────────────────────
@@ -430,7 +430,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {
             WILDCARD: CopyEntry(
                 title="Muitas tentativas",
-                message="Tente novamente em alguns minutos — ou fale com a gente pelo WhatsApp.",
+                message="Tente novamente em alguns minutos ou fale com a gente pelo WhatsApp.",
             ),
         },
     },

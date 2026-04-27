@@ -82,13 +82,13 @@
         <span class="material-symbols-rounded icon-md" aria-hidden="true">verified_user</span>
         Entrar sem código
       </button>
-      <p class="mt-2 text-center text-xs text-on-surface/50 dark:text-on-surface-dark/50">
-        Dispositivo reconhecido — ou use seu telefone abaixo
+      <p class="mt-2 text-center text-xs text-on-surface/85 dark:text-on-surface-dark/60">
+        Dispositivo reconhecido. Você também pode usar seu telefone abaixo.
       </p>
     </div>
     {% endif %}
 
-    <p class="mb-5 text-center text-sm text-on-surface/70 dark:text-on-surface-dark/70">
+    <p class="mb-5 text-center text-sm text-on-surface/85 dark:text-on-surface-dark/70">
       {{ login_phone_subtitle.message }}
     </p>
 
@@ -117,9 +117,9 @@
                  placeholder="(43) 99999-9999" maxlength="16" autocomplete="tel-national"
                  style="min-height: 58px;"
                  class="min-w-0 w-full rounded-r-radius border-2 border-outline bg-white px-3 py-3 text-lg tabular-nums text-on-surface-strong
-                        placeholder:text-on-surface/30
+                        placeholder:text-on-surface/85
                         focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none
-                        dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark-strong dark:placeholder:text-on-surface-dark/30
+                        dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark-strong dark:placeholder:text-on-surface-dark/60
                         dark:focus:border-primary-dark dark:focus:ring-primary-dark/20
                         {% if error %}border-danger dark:border-danger-dark{% endif %}">
         </div>
@@ -128,7 +128,7 @@
         <p class="text-base text-danger dark:text-danger-dark" role="alert">{{ error }}</p>
         {% endif %}
         {% omotenashi 'CHECKOUT_PHONE_PURPOSE' as phone_purpose %}
-        {% if phone_purpose %}<p class="text-sm text-on-surface/50 dark:text-on-surface-dark/50 text-center">{{ phone_purpose.message }}</p>{% endif %}
+        {% if phone_purpose %}<p class="text-sm text-on-surface/85 dark:text-on-surface-dark/60 text-center">{{ phone_purpose.message }}</p>{% endif %}
       </div>
 
       <button type="submit"
@@ -154,7 +154,7 @@
       <div class="text-center pt-2">
         <button type="submit" @click="method = 'sms'"
                 :disabled="loading"
-                class="text-base text-on-surface/70 hover:text-on-surface-strong transition underline underline-offset-4 dark:text-on-surface-dark/70 dark:hover:text-on-surface-dark-strong disabled:opacity-50"
+                class="text-base text-on-surface/85 hover:text-on-surface-strong transition underline underline-offset-4 dark:text-on-surface-dark/70 dark:hover:text-on-surface-dark-strong disabled:opacity-50"
                 style="min-height: 44px;">
           {{ login_cta_sms.title }}
         </button>
@@ -193,9 +193,9 @@
           var ddd = parseInt(d.slice(0,2));
           if (ddd < 11) { this.setError('DDD inv\u00e1lido'); return; }
           if (len < 10) { this.setInfo((10-len) + '+ d\u00edgitos restantes'); return; }
-          if (len === 10) { this.setOk('Fixo \u2014 DDD ' + d.slice(0,2)); return; }
+          if (len === 10) { this.setOk('Fixo · DDD ' + d.slice(0,2)); return; }
           if (len === 11) {
-            if (d[2] === '9') this.setOk('Celular \u2014 DDD ' + d.slice(0,2));
+            if (d[2] === '9') this.setOk('Celular · DDD ' + d.slice(0,2));
             else this.setError('Celular deve come\u00e7ar com 9 ap\u00f3s o DDD');
             return;
           }
@@ -210,7 +210,7 @@
 
     {% elif step == "code" %}
     {% comment %}═══ Step 2: OTP ═══{% endcomment %}
-    <p class="mb-5 text-center text-sm text-on-surface/70 dark:text-on-surface-dark/70">
+    <p class="mb-5 text-center text-sm text-on-surface/85 dark:text-on-surface-dark/70">
       Enviamos um código para o {% if delivery_method == "sms" %}SMS{% else %}WhatsApp{% endif %} número
       <span class="whitespace-nowrap font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ phone_value|format_phone }}</span>.
     </p>
@@ -246,7 +246,7 @@
 
     {% elif step == "name" %}
     {% comment %}═══ Step 3: Name (new customer only) ═══{% endcomment %}
-    <p class="mb-5 text-sm text-on-surface/70 dark:text-on-surface-dark/70">
+    <p class="mb-5 text-sm text-on-surface/85 dark:text-on-surface-dark/70">
       {{ login_name_subtitle.message }}
     </p>
 
@@ -268,9 +268,9 @@
                placeholder="Ex: Joana"
                style="min-height: 64px;"
                class="w-full rounded-radius border-2 border-outline bg-white px-5 py-4 text-xl text-on-surface-strong
-                      placeholder:text-on-surface/30
+                      placeholder:text-on-surface/85
                       focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none
-                      dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark-strong dark:placeholder:text-on-surface-dark/30
+                      dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark-strong dark:placeholder:text-on-surface-dark/60
                       dark:focus:border-primary-dark dark:focus:ring-primary-dark/20
                       {% if error %}border-danger dark:border-danger-dark{% endif %}">
         {% if error %}
@@ -293,14 +293,6 @@
 
     </div>{% comment %}── /corpo do card ──{% endcomment %}
   </div>
-
-  {% if step == "phone" %}
-  {% omotenashi 'CHECKOUT_PHONE_PURPOSE' as phone_purpose %}
-  <p class="mt-6 flex items-center justify-center gap-2 text-sm text-on-surface/60 dark:text-on-surface-dark/60">
-    <span class="material-symbols-rounded text-base" aria-hidden="true">lock</span>
-    {{ phone_purpose.message|default:"Seu número fica seguro com a gente." }}
-  </p>
-  {% endif %}
 
   {% comment %}── Modal de confirmação ao trocar telefone ──{% endcomment %}
   {% if step == "code" %}
@@ -329,7 +321,7 @@
             class="font-title text-xl font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-2">
           Trocar de telefone?
         </h3>
-        <p class="text-base text-on-surface/70 dark:text-on-surface-dark/70 mb-6">
+        <p class="text-base text-on-surface/85 dark:text-on-surface-dark/70 mb-6">
           Se trocar agora, você perde o código que acabamos de enviar e vai precisar
           começar o login de novo. Tudo bem?
         </p>

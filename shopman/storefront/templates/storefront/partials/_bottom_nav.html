@@ -11,24 +11,24 @@
   <ul class="flex items-stretch justify-around h-14">
     <li class="flex-1">
       <a href="{% url 'storefront:home' %}"
-         class="flex flex-col items-center justify-center h-full gap-0.5 text-[10px] font-medium transition
-                {% if active_url == 'home' %}text-primary dark:text-primary-dark{% else %}text-on-surface/60 dark:text-on-surface-dark/60{% endif %}">
+         class="flex flex-col items-center justify-center h-full gap-0.5 text-xs font-medium transition
+                {% if active_url == 'home' %}text-primary dark:text-primary-dark{% else %}text-on-surface/85 dark:text-on-surface-dark/60{% endif %}">
         <span class="material-symbols-rounded icon-md {% if active_url == 'home' %}fill-icon{% endif %}" aria-hidden="true">home</span>
         Início
       </a>
     </li>
     <li class="flex-1">
       <a href="{% url 'storefront:menu' %}"
-         class="flex flex-col items-center justify-center h-full gap-0.5 text-[10px] font-medium transition
-                {% if active_url == 'menu' or active_url == 'product_detail' %}text-primary dark:text-primary-dark{% else %}text-on-surface/60 dark:text-on-surface-dark/60{% endif %}">
+         class="flex flex-col items-center justify-center h-full gap-0.5 text-xs font-medium transition
+                {% if active_url == 'menu' or active_url == 'product_detail' %}text-primary dark:text-primary-dark{% else %}text-on-surface/85 dark:text-on-surface-dark/60{% endif %}">
         <span class="material-symbols-rounded icon-md {% if active_url == 'menu' or active_url == 'product_detail' %}fill-icon{% endif %}" aria-hidden="true">restaurant_menu</span>
         Cardápio
       </a>
     </li>
     <li class="flex-1">
       <a href="{% url 'storefront:cart' %}"
-         class="flex flex-col items-center justify-center h-full gap-0.5 text-[10px] font-medium transition relative
-                {% if active_url == 'cart' %}text-primary dark:text-primary-dark{% else %}text-on-surface/60 dark:text-on-surface-dark/60{% endif %}">
+         class="flex flex-col items-center justify-center h-full gap-0.5 text-xs font-medium transition relative
+                {% if active_url == 'cart' %}text-primary dark:text-primary-dark{% else %}text-on-surface/85 dark:text-on-surface-dark/60{% endif %}">
         <span class="relative"
               x-data="{ count: {{ cart_count|default:0 }} }"
               x-init="document.body.addEventListener('htmx:afterSettle', e => {
@@ -39,7 +39,7 @@
               })">
           <span class="material-symbols-rounded icon-md {% if active_url == 'cart' %}fill-icon{% endif %}" aria-hidden="true">shopping_bag</span>
           <span x-show="count > 0" x-cloak x-text="count"
-                class="absolute -top-1.5 -right-2.5 flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-primary text-[9px] font-bold text-on-primary dark:bg-primary-dark dark:text-on-primary-dark"></span>
+                class="absolute -top-1.5 -right-2.5 flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-primary px-1 text-xs font-bold leading-none text-on-primary dark:bg-primary-dark dark:text-on-primary-dark"></span>
         </span>
         Carrinho
       </a>
@@ -47,8 +47,8 @@
     <li class="flex-1">
       {% if request.user.is_authenticated %}
       <a href="{% url 'storefront:account' %}"
-         class="flex flex-col items-center justify-center h-full gap-0.5 text-[10px] font-medium transition
-                {% if active_url == 'account' or active_url == 'order_history' %}text-primary dark:text-primary-dark{% else %}text-on-surface/60 dark:text-on-surface-dark/60{% endif %}">
+         class="flex flex-col items-center justify-center h-full gap-0.5 text-xs font-medium transition
+                {% if active_url == 'account' or active_url == 'order_history' %}text-primary dark:text-primary-dark{% else %}text-on-surface/85 dark:text-on-surface-dark/60{% endif %}">
         <span class="relative"
               x-data="{ hasActive: false }"
               x-init="new MutationObserver(() => { hasActive = !!$el.querySelector('[data-order-count]') }).observe($el, { childList: true, subtree: true })"
@@ -66,7 +66,7 @@
       {% else %}
       {% url 'storefront:login' as login_path_bn %}
       <a href="{{ login_path_bn }}{% if request.path != login_path_bn %}?next={{ request.path|urlencode }}{% endif %}"
-         class="flex flex-col items-center justify-center h-full gap-0.5 text-[10px] font-medium transition text-on-surface/60 dark:text-on-surface-dark/60">
+         class="flex flex-col items-center justify-center h-full gap-0.5 text-xs font-medium transition text-on-surface/85 dark:text-on-surface-dark/60">
         <span class="material-symbols-rounded icon-md" aria-hidden="true">person</span>
         Entrar
       </a>

@@ -4,14 +4,14 @@
 {% block bottom_bar %}{% endblock %}
 
 {% block title %}Pagamento{% endblock %}
-{% block meta_description %}Conclua o pagamento do seu pedido — {{ storefront.brand_name }}.{% endblock %}
+{% block meta_description %}Conclua o pagamento do seu pedido · {{ storefront.brand_name }}.{% endblock %}
 
 {% block content %}
 <div class="max-w-md mx-auto">
 
   <div class="mb-6 text-center">
     <h1 class="text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Pagamento</h1>
-    <p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60 mt-1">Pedido {{ payment.order_ref }}</p>
+    <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/60 mt-1">Pedido {{ payment.order_ref }}</p>
   </div>
 
   <div class="rounded-radius border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt p-6 space-y-6">
@@ -48,7 +48,7 @@
 
   </div>
 
-  <p class="mt-4 text-center text-sm text-on-surface/50 dark:text-on-surface-dark/50">
+  <p class="mt-4 text-center text-sm text-on-surface/85 dark:text-on-surface-dark/60">
     <a href="{% url 'storefront:order_tracking' ref=payment.order_ref %}"
        class="underline underline-offset-2 hover:text-primary dark:hover:text-primary-dark">
       Acompanhar pedido

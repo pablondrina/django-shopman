@@ -39,13 +39,16 @@
             </a>
           </h3>
           {% if item.is_popular %}
-          <span class="badge-info shrink-0 text-[10px] sm:text-xs">Popular</span>
+          <span class="badge-info shrink-0">
+            <span class="material-symbols-rounded" aria-hidden="true">local_fire_department</span>
+            Popular
+          </span>
           {% endif %}
         </div>
 
         {% if item.freshness_label %}
-        <p class="inline-flex items-center gap-1 text-[10px] sm:text-xs font-medium text-primary dark:text-primary-dark">
-          <span class="material-symbols-rounded text-xs" aria-hidden="true">local_fire_department</span>
+        <p class="badge-neutral w-fit">
+          <span class="material-symbols-rounded" aria-hidden="true">local_fire_department</span>
           {{ item.freshness_label }}
         </p>
         {% elif item.product.short_description %}
@@ -54,17 +57,17 @@
 
         {% if item.badge and not item.badge.can_add_to_cart %}
         <div>
-          <span class="badge-danger text-[10px] sm:text-xs">{{ item.badge.label }}</span>
+          <span class="badge-danger">{{ item.badge.label }}</span>
         </div>
         {% endif %}
 
         <div class="mt-auto pt-1 sm:pt-2 flex items-end justify-between gap-2">
           <div class="min-w-0">
             {% if item.has_promo_price %}
-              <p class="text-[10px] sm:text-xs text-on-surface/70 dark:text-on-surface-dark/70 line-through">{{ item.promo_original_price_display }}</p>
+              <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/70 line-through">{{ item.promo_original_price_display }}</p>
               <p class="text-sm sm:text-base font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.promo_price_display }}</p>
               {% if item.promo_badge.label %}
-              <span class="badge-warning mt-0.5 sm:mt-1 text-[10px] sm:text-xs">{{ item.promo_badge.label }}</span>
+              <span class="badge-warning mt-1">{{ item.promo_badge.label }}</span>
               {% endif %}
             {% else %}
               <p class="text-sm sm:text-base font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.price_display }}</p>
@@ -85,7 +88,7 @@
             {% include "storefront/components/_qty_stepper.html" %}
           </div>
           {% elif item.badge %}
-          <span class="badge-danger text-[10px] sm:text-xs shrink-0">{{ item.badge.label }}</span>
+          <span class="badge-danger shrink-0">{{ item.badge.label }}</span>
           {% endif %}
         </div>
       </div>
@@ -94,5 +97,5 @@
   {% endfor %}
 </ul>
 {% else %}
-<p class="text-center text-on-surface/60 dark:text-on-surface-dark/60 text-sm py-6">Nenhum produto disponível no momento.</p>
+<p class="text-center text-on-surface/85 dark:text-on-surface-dark/60 text-sm py-6">Nenhum produto disponível no momento.</p>
 {% endif %}

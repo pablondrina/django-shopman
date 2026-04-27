@@ -71,16 +71,15 @@
             <span class="font-medium text-sm text-on-surface-strong dark:text-on-surface-dark-strong truncate"
                   x-text="addr.label || 'Endereço'"></span>
             <template x-if="addr.is_default">
-              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium
-                           bg-primary/15 text-primary dark:bg-primary-dark/15 dark:text-primary-dark shrink-0">
+              <span class="badge-info shrink-0">
                 Padrão
               </span>
             </template>
           </span>
-          <span class="text-xs text-on-surface/70 dark:text-on-surface-dark/70 truncate"
+          <span class="text-xs text-on-surface/85 dark:text-on-surface-dark/70 truncate"
                 x-text="addr.formatted_address"></span>
           <template x-if="addr.complement">
-            <span class="text-xs text-on-surface/50 dark:text-on-surface-dark/50" x-text="addr.complement"></span>
+            <span class="text-xs text-on-surface/85 dark:text-on-surface-dark/60" x-text="addr.complement"></span>
           </template>
         </span>
       </label>
@@ -106,7 +105,7 @@
       </p>
       <template x-if="hasSaved">
         <button type="button" @click="view = 'saved'; search = ''"
-                class="text-sm text-on-surface/70 hover:text-on-surface dark:text-on-surface-dark/70 dark:hover:text-on-surface-dark focus:outline-hidden focus:underline">
+                class="text-sm text-on-surface/85 hover:text-on-surface dark:text-on-surface-dark/70 dark:hover:text-on-surface-dark focus:outline-hidden focus:underline">
           Voltar
         </button>
       </template>
@@ -125,7 +124,7 @@
                @keydown.enter.prevent="onSearchEnter()"
                placeholder="Buscar endereço ou CEP"
                autocomplete="off"
-               class="w-full rounded-radius border border-outline bg-surface pl-10 pr-3 py-2 text-on-surface placeholder-on-surface/40 focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark min-h-[44px]">
+               class="w-full rounded-radius border border-outline bg-surface pl-10 pr-3 py-2 text-on-surface placeholder:text-on-surface/85 focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark min-h-[44px]">
       </div>
       <button type="button"
               @click="useMyLocation()"
@@ -136,7 +135,7 @@
       </button>
     </div>
 
-    <p x-show="searching" x-cloak class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">
+    <p x-show="searching" x-cloak class="text-xs text-on-surface/85 dark:text-on-surface-dark/60">
       Buscando…
     </p>
     <p x-show="searchError" x-cloak x-text="searchError"
@@ -154,13 +153,13 @@
              x-text="draft.formatted_address || (draft.route + (draft.street_number ? ', ' + draft.street_number : ''))">
           </p>
           <template x-if="draft.neighborhood || draft.city">
-            <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 truncate"
+            <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/60 truncate"
                x-text="[draft.neighborhood, draft.city].filter(Boolean).join(' · ')"></p>
           </template>
         </div>
         <button type="button" @click="openMap()"
                 title="Ajustar no mapa" aria-label="Ajustar no mapa"
-                class="shrink-0 flex h-11 w-11 items-center justify-center rounded-full text-on-surface/50 hover:bg-primary/10 hover:text-primary dark:text-on-surface-dark/50 dark:hover:bg-primary-dark/10 dark:hover:text-primary-dark focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark transition">
+                class="shrink-0 flex h-11 w-11 items-center justify-center rounded-full text-on-surface/85 hover:bg-primary/10 hover:text-primary dark:text-on-surface-dark/60 dark:hover:bg-primary-dark/10 dark:hover:text-primary-dark focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark transition">
           <span class="material-symbols-rounded text-lg" aria-hidden="true">edit_location_alt</span>
         </button>
       </div>
@@ -176,7 +175,7 @@
           <input type="text" x-ref="street_number" x-model="draft.street_number"
                  inputmode="numeric"
                  placeholder="123"
-                 class="w-full rounded-radius border border-outline bg-surface px-3 py-2 text-on-surface placeholder-on-surface/40 focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark text-sm min-h-[44px]">
+                 class="w-full rounded-radius border border-outline bg-surface px-3 py-2 text-on-surface placeholder:text-on-surface/85 focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark text-sm min-h-[44px]">
         </div>
         <div class="col-span-2">
           <label class="block text-xs font-medium text-on-surface dark:text-on-surface-dark mb-1">
@@ -184,7 +183,7 @@
           </label>
           <input type="text" x-ref="complement" x-model="draft.complement"
                  placeholder="Apto, bloco, referência"
-                 class="w-full rounded-radius border border-outline bg-surface px-3 py-2 text-on-surface placeholder-on-surface/40 focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark text-sm min-h-[44px]">
+                 class="w-full rounded-radius border border-outline bg-surface px-3 py-2 text-on-surface placeholder:text-on-surface/85 focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark text-sm min-h-[44px]">
         </div>
       </div>
 
@@ -195,7 +194,7 @@
         <textarea x-model="draft.delivery_instructions"
                   rows="2"
                   placeholder="Interfone, portaria, referência…"
-                  class="w-full rounded-radius border border-outline bg-surface px-3 py-2 text-on-surface placeholder-on-surface/40 focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark text-sm resize-none"></textarea>
+                  class="w-full rounded-radius border border-outline bg-surface px-3 py-2 text-on-surface placeholder:text-on-surface/85 focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark text-sm resize-none"></textarea>
       </div>
     </div>
   </div>
@@ -250,7 +249,7 @@
             Ajuste o pin no endereço
           </h3>
           <button type="button" @click="closeMap()" aria-label="Fechar mapa"
-                  class="p-2 -m-2 text-on-surface/60 hover:text-on-surface dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark focus:outline-hidden focus:ring-2 focus:ring-primary rounded">
+                  class="p-2 -m-2 text-on-surface/85 hover:text-on-surface dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark focus:outline-hidden focus:ring-2 focus:ring-primary rounded">
             <span class="material-symbols-rounded text-xl" aria-hidden="true">close</span>
           </button>
         </div>
@@ -301,7 +300,7 @@
             Como você quer chamar este endereço?
           </h3>
           <button type="button" @click="closeLabelModal()" aria-label="Fechar"
-                  class="p-2 -m-2 text-on-surface/60 hover:text-on-surface dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark focus:outline-hidden focus:ring-2 focus:ring-primary rounded">
+                  class="p-2 -m-2 text-on-surface/85 hover:text-on-surface dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark focus:outline-hidden focus:ring-2 focus:ring-primary rounded">
             <span class="material-symbols-rounded text-xl" aria-hidden="true">close</span>
           </button>
         </div>
@@ -335,7 +334,7 @@
           </div>
         </div>
         <button type="button" @click="closeLabelModal()"
-                class="w-full mt-3 text-sm text-on-surface/60 hover:text-on-surface dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark focus:outline-hidden focus:underline py-2 min-h-[44px]">
+                class="w-full mt-3 text-sm text-on-surface/85 hover:text-on-surface dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark focus:outline-hidden focus:underline py-2 min-h-[44px]">
           Agora não
         </button>
       </div>

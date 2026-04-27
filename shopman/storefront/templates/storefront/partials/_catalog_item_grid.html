@@ -59,7 +59,10 @@
             </a>
           </h3>
           {% if item.is_featured %}
-          <span class="badge-info shrink-0 text-[10px] sm:text-xs" title="Popular">Popular</span>
+          <span class="badge-info shrink-0" title="Popular">
+            <span class="material-symbols-rounded" aria-hidden="true">local_fire_department</span>
+            Popular
+          </span>
           {% endif %}
         </div>
 
@@ -68,7 +71,7 @@
         {% endif %}
 
         {% if item.allergens %}
-        <p class="text-[10px] text-on-surface/50 dark:text-on-surface-dark/50 leading-tight hidden sm:block">
+        <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/60 leading-tight hidden sm:block">
           <span class="font-medium">Contém:</span> {{ item.allergens|join:", " }}
         </p>
         {% endif %}
@@ -84,8 +87,8 @@
 
         {# Allergen badge inline — critical info, never hidden #}
         {% if item.allergens %}
-        <p class="inline-flex items-center gap-1 rounded-full bg-warning/10 border border-warning/30 text-warning px-2 py-0.5 text-[10px] sm:text-xs w-fit" aria-label="Alérgenos">
-          <span class="material-symbols-rounded icon-xs" aria-hidden="true">warning</span>
+        <p class="badge-warning w-fit" aria-label="Alérgenos">
+          <span class="material-symbols-rounded" aria-hidden="true">warning</span>
           Contém {{ item.allergens|join:" · " }}
         </p>
         {% endif %}
@@ -94,7 +97,7 @@
         <div class="mt-auto pt-1 sm:pt-2 flex items-end justify-between gap-2">
           <div class="min-w-0">
             {% if item.has_promotion %}
-              <p class="text-[10px] sm:text-xs text-on-surface/70 dark:text-on-surface-dark/70 line-through tabular-nums">{{ item.original_price_display }}</p>
+              <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/70 line-through tabular-nums">{{ item.original_price_display }}</p>
               <p class="text-sm sm:text-base font-semibold text-primary dark:text-primary-dark tabular-nums">{{ item.price_display }}</p>
             {% else %}
               <p class="text-sm sm:text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums">{{ item.price_display }}</p>

@@ -60,7 +60,7 @@
     <p class="text-sm font-medium text-on-surface dark:text-on-surface-dark mb-2">{{ pix_copy_label.title }}</p>
     <div class="flex gap-2">
       <input type="text" readonly value="{{ payment.pix_copy_paste }}"
-             class="flex-1 rounded-radius border border-outline bg-surface-alt px-3 py-2 text-xs text-on-surface/70 font-mono truncate dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark/70 min-h-[44px]"
+             class="flex-1 rounded-radius border border-outline bg-surface-alt px-3 py-2 text-xs text-on-surface/85 font-mono truncate dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark/70 min-h-[44px]"
              aria-label="Código PIX copia e cola">
       <button type="button" @click="copy()"
               class="shrink-0 rounded-radius border border-outline px-3 py-2 text-sm font-medium text-on-surface hover:bg-surface-alt focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:text-on-surface-dark min-h-[44px] transition-colors"
@@ -79,7 +79,7 @@
            :class="progressPct > 30 ? 'bg-primary dark:bg-primary-dark' : 'bg-danger dark:bg-danger-dark'"
            :style="'width: ' + progressPct + '%'"></div>
     </div>
-    <p class="text-center text-sm text-on-surface/60 dark:text-on-surface-dark/60">
+    <p class="text-center text-sm text-on-surface/85 dark:text-on-surface-dark/60">
       {{ pix_expires_label.message }} <span class="font-mono font-semibold" x-text="timeLeft"></span>
     </p>
   </div>

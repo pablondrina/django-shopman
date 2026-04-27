@@ -33,7 +33,7 @@
     <h1 class="text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-1">
       {% if account.customer_first_name %}Olá, {{ account.customer_first_name }}!{% else %}Minha Conta{% endif %}
     </h1>
-    <p class="text-on-surface/60 dark:text-on-surface-dark/60">{{ account.customer_phone|format_phone }}</p>
+    <p class="text-on-surface/85 dark:text-on-surface-dark/60">{{ account.customer_phone|format_phone }}</p>
   </div>
 
   {% comment %}── Tabs ──{% endcomment %}
@@ -44,7 +44,7 @@
             class="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px"
             :class="tab === '{{ val }}'
               ? 'text-primary border-primary dark:text-primary-dark dark:border-primary-dark'
-              : 'text-on-surface/60 border-transparent hover:text-on-surface hover:border-outline dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark dark:hover:border-outline-dark'"
+              : 'text-on-surface/85 border-transparent hover:text-on-surface hover:border-outline dark:text-on-surface-dark/60 dark:hover:text-on-surface-dark dark:hover:border-outline-dark'"
             style="min-height: var(--touch-min)">
       {% if val == 'perfil' %}<span class="material-symbols-rounded text-base" aria-hidden="true">person</span>
       {% elif val == 'pedidos' %}<span class="material-symbols-rounded text-base" aria-hidden="true">receipt_long</span>
@@ -120,7 +120,7 @@
                 {{ order.status_label }}
               </span>
             </div>
-            <p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60">{{ order.created_at_display }}</p>
+            <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/60">{{ order.created_at_display }}</p>
           </div>
           <div class="text-right flex-shrink-0 ml-4">
             <p class="font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ order.total_display }}</p>
@@ -134,7 +134,7 @@
     {% omotenashi 'HISTORY_EMPTY' as empty %}
     <div class="text-center py-16">
       <p class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong text-lg mb-1">{{ empty.title }}</p>
-      <p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60 mb-6">{{ empty.message }}</p>
+      <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/60 mb-6">{{ empty.message }}</p>
       <a href="{% url 'storefront:menu' %}"
          class="inline-flex items-center justify-center px-6 py-3 rounded-radius bg-primary text-white font-medium
                 hover:opacity-90 transition min-h-[44px] dark:bg-primary-dark">
@@ -186,14 +186,14 @@
                requestAnimationFrame(step);
              ">
           <span class="text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong" x-text="displayed"></span>
-          <span class="text-sm text-on-surface/60 dark:text-on-surface-dark/60">pontos disponíveis</span>
+          <span class="text-sm text-on-surface/85 dark:text-on-surface-dark/60">pontos disponíveis</span>
         </div>
       </div>
 
       {% comment %}── Stamp grid ──{% endcomment %}
       {% if account.loyalty.stamps_target > 0 %}
       <div>
-        <p class="text-xs uppercase tracking-wide text-on-surface/50 dark:text-on-surface-dark/50 mb-2">Cartela de carimbos</p>
+        <p class="text-xs uppercase tracking-wide text-on-surface/85 dark:text-on-surface-dark/60 mb-2">Cartela de carimbos</p>
         <div class="grid grid-cols-5 gap-2 mb-2">
           {% for i in account.loyalty.stamps_range %}
           <div class="aspect-square rounded-radius flex items-center justify-center
@@ -213,7 +213,7 @@
           {% endfor %}
         </div>
         {% if account.loyalty.stamps_completed > 0 %}
-        <p class="text-xs text-on-surface/50 dark:text-on-surface-dark/50">
+        <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/60">
           {{ account.loyalty.stamps_completed }} cartela{{ account.loyalty.stamps_completed|pluralize:"s" }} completa{{ account.loyalty.stamps_completed|pluralize:"s" }}
         </p>
         {% endif %}
@@ -223,7 +223,7 @@
       {% comment %}── Transaction history ──{% endcomment %}
       {% if account.loyalty.transactions %}
       <div class="border-t border-outline dark:border-outline-dark pt-4">
-        <p class="text-xs uppercase tracking-wide text-on-surface/50 dark:text-on-surface-dark/50 mb-3">Últimas movimentações</p>
+        <p class="text-xs uppercase tracking-wide text-on-surface/85 dark:text-on-surface-dark/60 mb-3">Últimas movimentações</p>
         <div class="space-y-2">
           {% for tx in account.loyalty.transactions %}
           <div class="flex items-center justify-between text-sm">
@@ -233,7 +233,7 @@
               {% else %}
               <span class="font-medium text-danger dark:text-danger-dark">{{ tx.points }}</span>
               {% endif %}
-              <span class="text-on-surface/60 dark:text-on-surface-dark/60">{{ tx.description }}</span>
+              <span class="text-on-surface/85 dark:text-on-surface-dark/60">{{ tx.description }}</span>
             </div>
             <span class="text-on-surface/40 dark:text-on-surface-dark/40 text-xs">{{ tx.date_display }}</span>
           </div>
@@ -246,7 +246,7 @@
     {% else %}
     <div class="rounded-radius border border-outline bg-white p-12 text-center dark:border-outline-dark dark:bg-surface-dark">
       {% omotenashi 'LOYALTY_UNAVAILABLE' as loyalty_unavailable %}
-      <p class="text-on-surface/60 dark:text-on-surface-dark/60">{{ loyalty_unavailable.message }}</p>
+      <p class="text-on-surface/85 dark:text-on-surface-dark/60">{{ loyalty_unavailable.message }}</p>
     </div>
     {% endif %}
   </div>
@@ -272,7 +272,7 @@
         <span class="material-symbols-rounded text-base text-on-surface/40 dark:text-on-surface-dark/40 transition-transform group-open:rotate-180" aria-hidden="true">expand_more</span>
       </summary>
       <div class="px-5 pb-5 border-t border-outline dark:border-outline-dark pt-4">
-        <p class="text-xs text-on-surface/50 dark:text-on-surface-dark/50 mb-3">Toque para ativar ou desativar</p>
+        <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/60 mb-3">Toque para ativar ou desativar</p>
         <div id="food-prefs" class="flex flex-wrap gap-2">
           {% include "storefront/partials/food_prefs.html" with food_pref_options=account.food_pref_options %}
         </div>
@@ -286,12 +286,12 @@
         <span class="material-symbols-rounded text-base text-on-surface/40 dark:text-on-surface-dark/40 transition-transform group-open:rotate-180" aria-hidden="true">expand_more</span>
       </summary>
       <div class="px-5 pb-5 border-t border-outline dark:border-outline-dark pt-4">
-        <p class="text-xs text-on-surface/50 dark:text-on-surface-dark/50 mb-3">Dispositivos que podem acessar sua conta sem código de verificação.</p>
+        <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/60 mb-3">Dispositivos que podem acessar sua conta sem código de verificação.</p>
         <div id="device-list-container"
              hx-get="{% url 'storefront:device_list' %}"
              hx-trigger="load"
              hx-swap="innerHTML">
-          <p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60 text-center py-4">Carregando...</p>
+          <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/60 text-center py-4">Carregando...</p>
         </div>
       </div>
     </details>
@@ -309,7 +309,7 @@
          class="flex items-center justify-between py-3 border-b border-outline/50 dark:border-outline-dark/50 group">
         <div>
           <p class="text-sm font-medium text-on-surface dark:text-on-surface-dark">Exportar meus dados</p>
-          <p class="text-xs text-on-surface/50 dark:text-on-surface-dark/50">Baixar todos os seus dados em formato JSON</p>
+          <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/60">Baixar todos os seus dados em formato JSON</p>
         </div>
         <svg class="size-5 text-on-surface/40 group-hover:text-primary transition dark:text-on-surface-dark/40 dark:group-hover:text-primary-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
@@ -343,8 +343,8 @@
           </div>
           <div class="px-6 pb-2">
             <h3 class="text-lg font-bold text-danger dark:text-danger-dark mb-2">Excluir conta permanentemente?</h3>
-            <p class="text-sm text-on-surface/70 dark:text-on-surface-dark/70 mb-2">Esta ação é irreversível. Todos os seus dados serão anonimizados conforme a LGPD:</p>
-            <ul class="text-sm text-on-surface/70 dark:text-on-surface-dark/70 mb-6 space-y-1 list-disc list-inside">
+            <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/70 mb-2">Esta ação é irreversível. Todos os seus dados serão anonimizados conforme a LGPD:</p>
+            <ul class="text-sm text-on-surface/85 dark:text-on-surface-dark/70 mb-6 space-y-1 list-disc list-inside">
               <li>Nome será substituído por "Anonimizado"</li>
               <li>Telefone e email serão removidos</li>
               <li>Histórico de pedidos será preservado sem identificação</li>
@@ -373,7 +373,7 @@
     <div class="text-center py-2">
       <a href="#"
          @click.prevent="window.dispatchEvent(new CustomEvent('notify', { detail: { variant: 'info', message: '{{ farewell.message|escapejs }}' } })); setTimeout(() => $refs.logoutForm.submit(), 450)"
-         class="text-sm text-on-surface/50 hover:text-danger transition dark:text-on-surface-dark/50 dark:hover:text-danger-dark">
+         class="text-sm text-on-surface/85 hover:text-danger transition dark:text-on-surface-dark/60 dark:hover:text-danger-dark">
         Sair da conta
       </a>
     </div>

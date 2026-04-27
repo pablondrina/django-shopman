@@ -15,11 +15,20 @@
 {% endcomment %}
 
 {% if state == "available" %}
-  <span class="badge-success" role="status">Disponível</span>
+  <span class="badge-success" role="status">
+    <span class="material-symbols-rounded" aria-hidden="true">check_circle</span>
+    Disponível
+  </span>
 {% elif state == "low_stock" %}
-  <span class="badge-warning" role="status">Últimas unidades</span>
+  <span class="badge-warning" role="status">
+    <span class="material-symbols-rounded" aria-hidden="true">inventory_2</span>
+    Últimas unidades
+  </span>
 {% elif state == "planned_ok" %}
-  <span class="badge-info" role="status">Sob encomenda</span>
+  <span class="badge-info" role="status">
+    <span class="material-symbols-rounded" aria-hidden="true">schedule</span>
+    Sob encomenda
+  </span>
 {% elif state == "unavailable" %}
-  <span class="badge-neutral" role="status">Indisponível</span>
+  <span class="badge-neutral" role="status"><span class="material-symbols-rounded" aria-hidden="true">pause_circle</span> Indisponível</span>
 {% endif %}

@@ -99,7 +99,7 @@ class="space-y-2">
                 : 'border-outline bg-surface text-on-surface hover:border-primary/60 dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark')"
             class="flex items-center justify-center gap-2 rounded-radius border px-3 py-3 min-h-[52px] focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark transition">
       <span class="text-sm font-semibold leading-none">Hoje</span>
-      <span class="text-[11px] font-medium uppercase tracking-wide leading-none text-on-surface/50 dark:text-on-surface-dark/50" x-text="todayWeekday.slice(0,3)"></span>
+      <span class="text-[11px] font-medium uppercase tracking-wide leading-none text-on-surface/85 dark:text-on-surface-dark/60" x-text="todayWeekday.slice(0,3)"></span>
     </button>
 
     {# Amanhã #}
@@ -111,7 +111,7 @@ class="space-y-2">
                 : 'border-outline bg-surface text-on-surface hover:border-primary/60 dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark')"
             class="flex items-center justify-center gap-2 rounded-radius border px-3 py-3 min-h-[52px] focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark transition">
       <span class="text-sm font-semibold leading-none">Amanhã</span>
-      <span class="text-[11px] font-medium uppercase tracking-wide leading-none text-on-surface/50 dark:text-on-surface-dark/50" x-text="tomorrowWeekday.slice(0,3)"></span>
+      <span class="text-[11px] font-medium uppercase tracking-wide leading-none text-on-surface/85 dark:text-on-surface-dark/60" x-text="tomorrowWeekday.slice(0,3)"></span>
     </button>
   </div>
 
@@ -153,7 +153,7 @@ class="space-y-2">
 
       <div class="grid grid-cols-7 gap-1 mb-1">
         <template x-for="w in WEEKDAY_SHORT" :key="w">
-          <div class="text-center text-[11px] font-medium uppercase tracking-wide text-on-surface/60 dark:text-on-surface-dark/60 py-1" x-text="w"></div>
+          <div class="text-center text-[11px] font-medium uppercase tracking-wide text-on-surface/85 dark:text-on-surface-dark/60 py-1" x-text="w"></div>
         </template>
       </div>
 

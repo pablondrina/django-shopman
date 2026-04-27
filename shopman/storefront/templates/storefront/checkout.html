@@ -4,7 +4,7 @@
 {% block bottom_bar %}{% endblock %}
 
 {% block title %}Finalizar Pedido{% endblock %}
-{% block meta_description %}Revise e finalize seu pedido — {{ storefront.brand_name }}.{% endblock %}
+{% block meta_description %}Revise e finalize seu pedido · {{ storefront.brand_name }}.{% endblock %}
 
 {% block extra_head %}
   {% include "storefront/partials/address_picker_head.html" %}
@@ -190,7 +190,7 @@
             </span>
             <p class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Contato</p>
             <div class="flex-1 min-w-0">
-              <span class="text-sm text-on-surface/60 dark:text-on-surface-dark/60 truncate">
+              <span class="text-sm text-on-surface/85 dark:text-on-surface-dark/60 truncate">
                 <span x-show="customerName" x-cloak><span x-text="customerName.split(' ')[0]"></span> · </span>{{ checkout.customer_phone|format_phone }}
               </span>
             </div>
@@ -224,7 +224,7 @@
               <span class="material-symbols-rounded text-sm">check</span>
             </span>
             <p class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Como receber</p>
-            <span class="flex-1 text-sm text-on-surface/60 dark:text-on-surface-dark/60 truncate" x-text="fulfillmentLabel"></span>
+            <span class="flex-1 text-sm text-on-surface/85 dark:text-on-surface-dark/60 truncate" x-text="fulfillmentLabel"></span>
             <button type="button" @click="goTo('fulfillment')"
                     class="shrink-0 text-xs text-primary hover:underline dark:text-primary-dark">Editar</button>
           </div>
@@ -243,7 +243,7 @@
                   <span class="material-symbols-rounded text-xl mt-0.5" aria-hidden="true">storefront</span>
                   <span class="flex flex-col">
                     <span class="font-medium text-sm">Retirar</span>
-                    {% if checkout.pickup_hint %}<span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 mt-0.5">{{ checkout.pickup_hint }}</span>{% endif %}
+                    {% if checkout.pickup_hint %}<span class="text-xs text-on-surface/85 dark:text-on-surface-dark/60 mt-0.5">{{ checkout.pickup_hint }}</span>{% endif %}
                   </span>
                 </label>
                 {% if checkout.has_delivery %}
@@ -253,7 +253,7 @@
                   <span class="material-symbols-rounded text-xl mt-0.5" aria-hidden="true">local_shipping</span>
                   <span class="flex flex-col">
                     <span class="font-medium text-sm">Entregar</span>
-                    {% if checkout.delivery_hint %}<span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 mt-0.5">{{ checkout.delivery_hint }}</span>{% endif %}
+                    {% if checkout.delivery_hint %}<span class="text-xs text-on-surface/85 dark:text-on-surface-dark/60 mt-0.5">{{ checkout.delivery_hint }}</span>{% endif %}
                   </span>
                 </label>
                 {% endif %}
@@ -281,7 +281,7 @@
               <span class="material-symbols-rounded text-sm">check</span>
             </span>
             <p class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Endereço</p>
-            <span class="flex-1 text-sm text-on-surface/60 dark:text-on-surface-dark/60 truncate">Endereço informado</span>
+            <span class="flex-1 text-sm text-on-surface/85 dark:text-on-surface-dark/60 truncate">Endereço informado</span>
             <button type="button" @click="goTo('address')"
                     class="shrink-0 text-xs text-primary hover:underline dark:text-primary-dark">Editar</button>
           </div>
@@ -318,7 +318,7 @@
               <span class="material-symbols-rounded text-sm">check</span>
             </span>
             <p class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Quando</p>
-            <span class="flex-1 text-sm text-on-surface/60 dark:text-on-surface-dark/60 truncate">
+            <span class="flex-1 text-sm text-on-surface/85 dark:text-on-surface-dark/60 truncate">
               <span x-show="dateHuman" x-text="dateHuman"></span><span x-show="dateHuman && slotLabel"> · </span><span x-show="slotLabel" x-text="slotLabel"></span>
             </span>
             <button type="button" @click="goTo('when')"
@@ -376,7 +376,7 @@
               <span class="material-symbols-rounded text-sm">check</span>
             </span>
             <p class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Pagamento</p>
-            <span class="flex-1 text-sm text-on-surface/60 dark:text-on-surface-dark/60 truncate" x-text="paymentLabel"></span>
+            <span class="flex-1 text-sm text-on-surface/85 dark:text-on-surface-dark/60 truncate" x-text="paymentLabel"></span>
             <button type="button" @click="goTo('payment')"
                     class="shrink-0 text-xs text-primary hover:underline dark:text-primary-dark">Editar</button>
           </div>
@@ -414,7 +414,7 @@
                   <label for="notes" class="block text-sm font-medium text-on-surface dark:text-on-surface-dark mb-2">{{ notes_prompt.title }}</label>
                   <textarea id="notes" name="notes" rows="2" x-ref="notes" x-model="notes"
                             placeholder="Troco, alergia, observação de entrega…"
-                            class="w-full rounded-radius border border-outline bg-surface px-3 py-2 text-on-surface placeholder-on-surface/40 focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark resize-none"></textarea>
+                            class="w-full rounded-radius border border-outline bg-surface px-3 py-2 text-on-surface placeholder:text-on-surface/85 focus:outline-hidden focus:ring-2 focus:ring-primary dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark resize-none"></textarea>
                 </div>
               </div>
 
@@ -424,7 +424,7 @@
                 <input type="checkbox" name="use_loyalty" value="true" x-model="useLoyalty"
                        class="mt-0.5 rounded border-outline text-primary focus:ring-primary dark:border-outline-dark">
                 <span class="flex flex-col text-sm text-on-surface dark:text-on-surface-dark">
-                  <span>Usar pontos de fidelidade — <strong class="text-on-surface-strong dark:text-on-surface-dark-strong">{{ checkout.loyalty_value_display }}</strong></span>
+                  <span>Usar pontos de fidelidade · <strong class="text-on-surface-strong dark:text-on-surface-dark-strong">{{ checkout.loyalty_value_display }}</strong></span>
                   <span x-show="useLoyalty" x-cloak class="text-xs text-success mt-0.5">Você economiza {{ checkout.loyalty_value_display }} neste pedido.</span>
                 </span>
               </label>
@@ -465,10 +465,10 @@
           {# Fulfillment + date + slot #}
           <template x-if="fulfillmentLabel">
             <li class="flex items-start gap-2.5">
-              <span class="material-symbols-rounded text-lg text-on-surface/50 dark:text-on-surface-dark/50 shrink-0 leading-none mt-0.5" aria-hidden="true" x-text="fulfillmentIcon"></span>
+              <span class="material-symbols-rounded text-lg text-on-surface/85 dark:text-on-surface-dark/60 shrink-0 leading-none mt-0.5" aria-hidden="true" x-text="fulfillmentIcon"></span>
               <div class="flex-1 min-w-0">
                 <p class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong" x-text="fulfillmentLabel"></p>
-                <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">
+                <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/60">
                   <template x-if="dateHuman && slotLabel"><span><span x-text="dateHuman"></span> · <span x-text="slotLabel"></span></span></template>
                   <template x-if="dateHuman && !slotLabel"><span x-text="dateHuman"></span></template>
                   <template x-if="!dateHuman && slotLabel"><span x-text="slotLabel"></span></template>
@@ -481,7 +481,7 @@
           {# Payment #}
           <template x-if="paymentLabel">
             <li class="flex items-start gap-2.5">
-              <span class="material-symbols-rounded text-lg text-on-surface/50 dark:text-on-surface-dark/50 shrink-0 leading-none mt-0.5" aria-hidden="true" x-text="paymentIcon"></span>
+              <span class="material-symbols-rounded text-lg text-on-surface/85 dark:text-on-surface-dark/60 shrink-0 leading-none mt-0.5" aria-hidden="true" x-text="paymentIcon"></span>
               <div class="flex-1 min-w-0">
                 <p class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong" x-text="paymentLabel"></p>
               </div>
@@ -504,10 +504,10 @@
           {# Notes #}
           <template x-if="notes && notes.trim()">
             <li class="flex items-start gap-2.5">
-              <span class="material-symbols-rounded text-lg text-on-surface/50 dark:text-on-surface-dark/50 shrink-0 leading-none mt-0.5" aria-hidden="true">edit_note</span>
+              <span class="material-symbols-rounded text-lg text-on-surface/85 dark:text-on-surface-dark/60 shrink-0 leading-none mt-0.5" aria-hidden="true">edit_note</span>
               <div class="flex-1 min-w-0">
                 <p class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">Com observação</p>
-                <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 truncate" x-text="notes"></p>
+                <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/60 truncate" x-text="notes"></p>
               </div>
             </li>
           </template>
@@ -516,7 +516,7 @@
         {% comment %}── Items ──{% endcomment %}
         {% with cart=checkout.cart %}
         <div class="border-t border-outline dark:border-outline-dark pt-4">
-          <p class="text-xs font-medium uppercase tracking-wide text-on-surface/60 dark:text-on-surface-dark/60 mb-2">Itens</p>
+          <p class="text-xs font-medium uppercase tracking-wide text-on-surface/85 dark:text-on-surface-dark/60 mb-2">Itens</p>
           <ul class="space-y-2 text-sm">
             {% for item in cart.items %}
             <li class="flex items-start justify-between gap-2">

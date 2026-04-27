@@ -1,6 +1,6 @@
 {% extends "storefront/base.html" %}
 
-{% block title %}Protótipo — Menu{% endblock %}
+{% block title %}Protótipo · Menu{% endblock %}
 {% block bottom_bar %}{% endblock %}
 
 {% block content %}
@@ -56,13 +56,13 @@
                x-model="searchQuery"
                placeholder="Buscar produto ou categoria"
                autocomplete="off"
-               class="flex-1 bg-transparent text-base sm:text-lg text-on-surface-strong dark:text-on-surface-dark-strong placeholder:text-on-surface/40 dark:placeholder:text-on-surface-dark/40 focus:outline-none"
+               class="flex-1 bg-transparent text-base sm:text-lg text-on-surface-strong dark:text-on-surface-dark-strong placeholder:text-on-surface/85 dark:placeholder:text-on-surface-dark/60 focus:outline-none"
                style="min-height: 44px;">
         <button x-show="searchQuery"
                 @click="searchQuery = ''; $refs.searchInput.focus()"
                 type="button"
                 aria-label="Limpar"
-                class="shrink-0 inline-flex size-9 items-center justify-center rounded-full text-on-surface/50 hover:bg-surface dark:text-on-surface-dark/50 dark:hover:bg-surface-dark transition">
+                class="shrink-0 inline-flex size-9 items-center justify-center rounded-full text-on-surface/85 hover:bg-surface dark:text-on-surface-dark/60 dark:hover:bg-surface-dark transition">
           <span class="material-symbols-rounded text-lg" aria-hidden="true">cancel</span>
         </button>
       </div>
@@ -77,7 +77,7 @@
                :data-pill="pill.ref">
         <h2 class="font-title text-2xl sm:text-3xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-4" x-text="pill.label"></h2>
         <p x-show="pill.description" x-text="pill.description"
-           class="text-sm text-on-surface/70 dark:text-on-surface-dark/70 mb-4"></p>
+           class="text-sm text-on-surface/85 dark:text-on-surface-dark/70 mb-4"></p>
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <template x-for="item in pill.items" :key="item.sku">
             <div class="rounded-radius border border-outline bg-white overflow-hidden dark:border-outline-dark dark:bg-surface-dark">
@@ -95,7 +95,7 @@
     </template>
 
     <div class="pt-4 text-center text-xs text-on-surface/40 dark:text-on-surface-dark/40">
-      Protótipo estático — pronto pra wirar no backend quando aprovado.
+      Protótipo estático · pronto para virar backend quando aprovado.
     </div>
   </div>
 
@@ -115,7 +115,7 @@
 
       {% comment %}Vazio: lista de categorias = mesma fonte das pills{% endcomment %}
       <div x-show="!searchQuery.trim()" class="divide-y divide-outline dark:divide-outline-dark">
-        <p class="px-4 pt-5 pb-2 text-xs font-semibold uppercase tracking-wide text-on-surface/50 dark:text-on-surface-dark/50">Categorias</p>
+        <p class="px-4 pt-5 pb-2 text-xs font-semibold uppercase tracking-wide text-on-surface/85 dark:text-on-surface-dark/60">Categorias</p>
         <template x-for="pill in contentPills" :key="pill.ref">
           <button type="button"
                   @click="jumpToAndClose(pill.ref)"
@@ -125,7 +125,7 @@
             </span>
             <span class="flex-1 min-w-0">
               <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong" x-text="pill.label"></span>
-              <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 mt-0.5 block" x-text="pill.items.length + ' itens'"></span>
+              <span class="text-xs text-on-surface/85 dark:text-on-surface-dark/60 mt-0.5 block" x-text="pill.items.length + ' itens'"></span>
             </span>
             <span class="material-symbols-rounded text-on-surface/30 dark:text-on-surface-dark/30" aria-hidden="true">chevron_right</span>
           </button>
@@ -134,7 +134,7 @@
 
       {% comment %}Com texto: resultados. Digita e lista vira resultados.{% endcomment %}
       <div x-show="searchQuery.trim()" class="divide-y divide-outline dark:divide-outline-dark">
-        <p class="px-4 pt-5 pb-2 text-xs font-semibold uppercase tracking-wide text-on-surface/50 dark:text-on-surface-dark/50">
+        <p class="px-4 pt-5 pb-2 text-xs font-semibold uppercase tracking-wide text-on-surface/85 dark:text-on-surface-dark/60">
           <span x-show="searchResults.length" x-text="searchResults.length + ' resultado(s)'"></span>
           <span x-show="!searchResults.length">Sem resultados</span>
         </p>
@@ -147,12 +147,12 @@
             </span>
             <span class="flex-1 min-w-0">
               <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong block truncate" x-text="item.name"></span>
-              <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 block" x-text="item.section"></span>
+              <span class="text-xs text-on-surface/85 dark:text-on-surface-dark/60 block" x-text="item.section"></span>
             </span>
             <span class="text-sm font-bold text-primary dark:text-primary-dark" x-text="item.price"></span>
           </button>
         </template>
-        <div x-show="!searchResults.length" class="text-center py-16 text-on-surface/50 dark:text-on-surface-dark/50">
+        <div x-show="!searchResults.length" class="text-center py-16 text-on-surface/85 dark:text-on-surface-dark/60">
           <span class="material-symbols-rounded text-6xl mb-3 block" aria-hidden="true">search_off</span>
           <p class="text-base">Nada encontrado para "<span class="font-medium" x-text="searchQuery"></span>"</p>
         </div>

@@ -7,7 +7,7 @@
   {% if minimum_order_warning %}
   {% url 'storefront:menu' as menu_url %}
   <div class="mb-4 p-3 rounded-radius bg-warning/5 border border-warning/30 text-on-surface dark:text-on-surface-dark text-sm" role="status">
-    Faltam <strong>{{ minimum_order_warning.remaining_display }}</strong> para o pedido mínimo de {{ minimum_order_warning.minimum_display }} —
+    Faltam <strong>{{ minimum_order_warning.remaining_display }}</strong> para o pedido mínimo de {{ minimum_order_warning.minimum_display }}.
     <a href="{{ menu_url }}" class="underline font-medium hover:text-warning transition-colors">{{ min_order_cta.message }}</a>
   </div>
   {% endif %}
@@ -17,7 +17,7 @@
     <div class="flex justify-between items-start text-sm">
       <div class="flex-1 min-w-0 pr-3">
         <p class="text-on-surface dark:text-on-surface-dark font-medium truncate">{{ item.name|default:item.sku }}</p>
-        <p class="text-on-surface/60 dark:text-on-surface-dark/60">
+        <p class="text-on-surface/85 dark:text-on-surface-dark/60">
           {{ item.qty|floatformat:"0" }}x
           {% if item.original_price_display %}<span class="line-through text-on-surface/40 dark:text-on-surface-dark/40">{{ item.original_price_display }}</span>{% endif %}
           {{ item.price_display }}
@@ -30,7 +30,7 @@
 
   <div class="border-t border-outline dark:border-outline-dark pt-3 space-y-2 text-sm">
     {% if cart.has_discount %}
-    <div class="flex justify-between text-on-surface/60 dark:text-on-surface-dark/60">
+    <div class="flex justify-between text-on-surface/85 dark:text-on-surface-dark/60">
       <span>Antes dos descontos</span>
       <span class="line-through">{{ cart.original_subtotal_display }}</span>
     </div>
@@ -49,7 +49,7 @@
     {% endif %}
     {% endif %}
     {% if cart.delivery_fee_display %}
-    <div class="flex justify-between text-on-surface/60 dark:text-on-surface-dark/60">
+    <div class="flex justify-between text-on-surface/85 dark:text-on-surface-dark/60">
       <span>Taxa de entrega</span>
       <span class="{% if cart.delivery_is_free %}text-success dark:text-success-dark font-medium{% endif %}">{{ cart.delivery_fee_display }}</span>
     </div>

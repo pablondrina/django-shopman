@@ -1,7 +1,7 @@
 {% extends "storefront/base.html" %}
 {% load static storefront_tags omotenashi_tags %}
 
-{% block title %}{{ storefront.brand_name }} — {{ storefront.tagline }}{% endblock %}
+{% block title %}{{ storefront.brand_name }} · {{ storefront.tagline }}{% endblock %}
 {% block meta_description %}{{ storefront.description|truncatewords:30 }}{% endblock %}
 {% block extra_meta %}
   {% json_ld_bakery %}
@@ -227,7 +227,7 @@
   <span class="material-symbols-rounded text-success text-xl shrink-0" aria-hidden="true">chat</span>
   <div>
     <p class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ welcome_wa.title }}</p>
-    <p class="text-on-surface/70 dark:text-on-surface-dark/70">{{ welcome_wa.message }}</p>
+    <p class="text-on-surface/85 dark:text-on-surface-dark/70">{{ welcome_wa.message }}</p>
   </div>
 </div>
 {% endif %}
@@ -236,7 +236,7 @@
 {% omotenashi 'HOME_AVAILABILITY_HEADING' as home_availability %}
 <section class="py-12 md:py-16 border-t border-outline dark:border-outline-dark">
   <h2 class="font-title text-xl lg:text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong text-center mb-2 tracking-tight">{{ home_availability.title }}</h2>
-  <p class="text-on-surface/60 dark:text-on-surface-dark/60 text-center mb-10 text-sm tracking-wide">{{ home_availability.message }}</p>
+  <p class="text-on-surface/85 dark:text-on-surface-dark/60 text-center mb-10 text-sm tracking-wide">{{ home_availability.message }}</p>
 
   <div id="home-availability"
        hx-get="{% url 'storefront:menu' %}?partial=availability_preview"
