@@ -142,6 +142,7 @@ class ProductDetailProjection:
 
     # Unit weight (spec próxima ao preço — "~250g a unidade")
     unit_weight_label: str | None
+    approx_dimensions_label: str | None
 
     # Dietary / allergen
     allergen: AllergenInfoProjection | None
@@ -276,6 +277,7 @@ def build_product_detail(
         is_bundle=product.is_bundle,
         components=components,
         unit_weight_label=_unit_weight_label(product),
+        approx_dimensions_label=_approx_dimensions_label(product),
         allergen=allergen,
         conservation=conservation,
         ingredients_text=ingredients_text,
@@ -400,6 +402,12 @@ def _conservation(product: Any) -> ConservationInfoProjection | None:
 
 def _unit_weight_label(product: Any) -> str | None:
     return f"~{product.unit_weight_g}g a unidade" if product.unit_weight_g else None
+
+
+def _approx_dimensions_label(product: Any) -> str | None:
+    meta = product.metadata if isinstance(product.metadata, dict) else {}
+    raw = meta.get("approx_dimensions") or meta.get("dimensions")
+    return str(raw).strip() if raw else None
 
 
 # Units shown next to each nutrient in the PDP table.

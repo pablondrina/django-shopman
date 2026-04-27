@@ -74,6 +74,45 @@ class TestProductDetailView:
         # Listing price (90 centavos = R$ 0,90) should appear
         assert b"0,90" in resp.content
 
+    def test_product_detail_renders_remote_purchase_details(
+        self,
+        client: Client,
+        product,
+        listing_item,
+        channel,
+    ):
+        product.unit_weight_g = 400
+        product.metadata = {
+            "allergens": ["glúten"],
+            "dietary_info": ["vegano", "sem lactose"],
+            "serves": "2 a 4 pessoas",
+            "approx_dimensions": "aprox. 24 x 12 x 10 cm",
+        }
+        product.ingredients_text = "Farinha de trigo, água, fermento natural, sal marinho."
+        product.nutrition_facts = {
+            "serving_size_g": 100,
+            "servings_per_container": 4,
+            "energy_kcal": 260.0,
+            "carbohydrates_g": 52.0,
+            "proteins_g": 8.0,
+            "total_fat_g": 1.5,
+            "sodium_mg": 430.0,
+            "auto_filled": False,
+        }
+        product.save()
+
+        resp = client.get(f"/produto/{product.sku}/")
+
+        assert resp.status_code == 200
+        body = resp.content.decode()
+        assert "Alérgenos" in body
+        assert "Informações dietéticas" in body
+        assert "Peso e medidas" in body
+        assert "aprox. 24 x 12 x 10 cm" in body
+        assert "Ingredientes" in body
+        assert "Farinha de trigo, água, fermento natural, sal marinho." in body
+        assert "Informações nutricionais" in body
+
     def test_product_detail_fallback_base_price(self, client: Client, product):
         resp = client.get(f"/produto/{product.sku}/")
         assert resp.status_code == 200

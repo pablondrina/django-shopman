@@ -226,6 +226,23 @@ class TestAllergenAndConservation:
         assert proj.allergen.serves == "2"
         assert proj.allergen.has_any is True
 
+    def test_purchase_measurements_from_metadata(self, listing, product):
+        product.unit_weight_g = 400
+        product.metadata = {
+            "serves": "2 a 4 pessoas",
+            "approx_dimensions": "aprox. 24 x 12 x 10 cm",
+        }
+        product.save()
+        _publish_on_listing(listing, product)
+
+        proj = build_product_detail(sku=product.sku, channel_ref="web")
+
+        assert proj is not None
+        assert proj.unit_weight_label == "~400g a unidade"
+        assert proj.approx_dimensions_label == "aprox. 24 x 12 x 10 cm"
+        assert proj.allergen is not None
+        assert proj.allergen.serves == "2 a 4 pessoas"
+
     def test_allergen_is_none_when_metadata_empty(self, listing, product):
         _publish_on_listing(listing, product)
         proj = build_product_detail(sku=product.sku, channel_ref="web")
