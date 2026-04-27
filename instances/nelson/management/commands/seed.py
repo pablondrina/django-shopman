@@ -1194,7 +1194,7 @@ class Command(BaseCommand):
                 "ref": "italiano-rustico",
                 "name": "Italiano Rústico",
                 "output_sku": "ITALIANO-RUSTICO",
-                "batch_size": Decimal("8"),
+                "batch_size": Decimal("18"),
                 "items": [
                     ("INS-FARINHA-T65", Decimal("3.500")),
                     ("INS-AGUA", Decimal("2.500")),

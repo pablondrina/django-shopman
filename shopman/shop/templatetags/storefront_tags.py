@@ -182,12 +182,17 @@ def json_ld_product(context, product, price_q=None, badge=None, availability=Non
 
     # Description (first non-empty: short, long, plain description)
     desc = (
-        getattr(product, "short_description", "")
+        getattr(product, "seo_description", "")
+        or getattr(product, "short_description", "")
         or getattr(product, "long_description", "")
         or getattr(product, "description", "")
     )
     if desc:
         data["description"] = desc
+
+    keywords = getattr(product, "seo_keywords", None)
+    if keywords:
+        data["keywords"] = ", ".join(str(item) for item in keywords if str(item).strip())
 
     # Image — support both ImageField (model) and image_url (projection)
     image_url = None
@@ -212,6 +217,30 @@ def json_ld_product(context, product, price_q=None, badge=None, availability=Non
     brand_name = getattr(shop, "brand_name", None) or getattr(shop, "name", "")
     if brand_name:
         data["brand"] = {"@type": "Brand", "name": brand_name}
+
+    additional_properties = []
+    ingredients_text = getattr(product, "ingredients_text", None)
+    if ingredients_text:
+        additional_properties.append({
+            "@type": "PropertyValue",
+            "name": "Ingredientes",
+            "value": str(ingredients_text),
+        })
+    allergen = getattr(product, "allergen", None)
+    if allergen and getattr(allergen, "allergens", None):
+        additional_properties.append({
+            "@type": "PropertyValue",
+            "name": "Alérgenos",
+            "value": ", ".join(str(item) for item in allergen.allergens),
+        })
+    if allergen and getattr(allergen, "dietary_info", None):
+        additional_properties.append({
+            "@type": "PropertyValue",
+            "name": "Restrições",
+            "value": ", ".join(str(item) for item in allergen.dietary_info),
+        })
+    if additional_properties:
+        data["additionalProperty"] = additional_properties
 
     # Offer
     if price_q is not None:

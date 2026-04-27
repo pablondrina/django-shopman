@@ -19,13 +19,13 @@
        style="z-index: 9999;">
     <div class="flex items-stretch gap-2 px-4 py-2.5">
 
-      {% comment %}Position 0 — botão quadrado ghost. Ícone híbrido menu+busca (manage_search). Vira "close" quando overlay abre.{% endcomment %}
+      {% comment %}Position 0 — botão quadrado ghost de busca. Vira "close" quando overlay abre.{% endcomment %}
       <button type="button"
               @click="searchOpen ? closeSearch() : openSearch()"
-              :aria-label="searchOpen ? 'Fechar busca' : 'Abrir menu e busca'"
+              :aria-label="searchOpen ? 'Fechar busca' : 'Abrir busca'"
               class="shrink-0 inline-flex size-11 items-center justify-center rounded-radius text-on-surface hover:bg-surface hover:text-primary dark:text-on-surface-dark dark:hover:bg-surface-dark dark:hover:text-primary-dark transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-dark">
         <span class="material-symbols-rounded text-2xl" aria-hidden="true"
-              x-text="searchOpen ? 'close' : 'manage_search'"></span>
+              x-text="searchOpen ? 'close' : 'search'"></span>
       </button>
 
       {% comment %}Pills rail (default) — scroll horizontal, pills ≥44px, active centralizada{% endcomment %}

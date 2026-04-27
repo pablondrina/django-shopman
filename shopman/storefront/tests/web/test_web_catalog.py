@@ -23,6 +23,22 @@ class TestMenuView:
         assert resp.status_code == 200
         assert b"paes" in resp.content.lower() or b"P\xc3\xa3es" in resp.content
 
+    def test_menu_card_hides_remote_purchase_badges(
+        self, client: Client, collection, collection_item, product, listing_item,
+    ):
+        product.metadata = {
+            "allergens": ["glúten"],
+            "dietary_info": ["sem lactose"],
+        }
+        product.save(update_fields=["metadata"])
+
+        resp = client.get("/menu/")
+
+        assert resp.status_code == 200
+        body = resp.content.decode()
+        assert "Contém glúten" not in body
+        assert "sem lactose" in body  # still present in the search index
+
     def test_menu_filtered_by_collection(self, client: Client, collection, collection_item, product):
         resp = client.get(f"/menu/{collection.ref}/")
         assert resp.status_code == 200
@@ -119,6 +135,10 @@ class TestProductDetailView:
         assert "Alérgenos:" in body
         assert "100% vegetal" in body
         assert "Valor energético" in body
+        assert '<meta name="keywords"' in body
+        assert "sem lactose" in body
+        assert '"name": "Alérgenos"' in body
+        assert '"name": "Restrições"' in body
 
     def test_product_detail_fallback_base_price(self, client: Client, product):
         resp = client.get(f"/produto/{product.sku}/")

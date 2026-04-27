@@ -65,6 +65,7 @@ def search_index(catalog) -> list[dict]:
                 "image": item.image_url or "",
                 "section": section.label,
                 "keywords": keywords_by_sku.get(item.sku, []),
+                "terms": item.search_terms,
             })
     return records
 

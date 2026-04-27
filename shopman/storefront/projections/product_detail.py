@@ -154,6 +154,10 @@ class ProductDetailProjection:
     ingredients_text: str | None
     nutrition: NutritionFactsProjection | None
 
+    # SEO/search-facing product facts
+    seo_description: str
+    seo_keywords: tuple[str, ...]
+
     # Breadcrumb
     breadcrumb_category: CategoryProjection | None
 
@@ -250,6 +254,12 @@ def build_product_detail(
     ingredients_text = (product.ingredients_text or "").strip() or None
     nutrition = _nutrition(product)
     breadcrumb_category = _breadcrumb_category(product)
+    seo_description = _seo_description(
+        product,
+        allergen=allergen,
+        conservation=conservation,
+    )
+    seo_keywords = _seo_keywords(product, allergen=allergen)
 
     gallery = _gallery(product)
 
@@ -282,6 +292,8 @@ def build_product_detail(
         conservation=conservation,
         ingredients_text=ingredients_text,
         nutrition=nutrition,
+        seo_description=seo_description,
+        seo_keywords=seo_keywords,
         breadcrumb_category=breadcrumb_category,
     )
 
@@ -374,6 +386,48 @@ def _allergen(product: Any) -> AllergenInfoProjection | None:
         dietary_info=dietary,
         serves=serves,
     )
+
+
+def _seo_description(
+    product: Any,
+    *,
+    allergen: AllergenInfoProjection | None,
+    conservation: ConservationInfoProjection | None,
+) -> str:
+    parts = [
+        product.short_description or product.long_description or product.name,
+    ]
+    if allergen and allergen.allergens:
+        parts.append(f"Alérgenos: {', '.join(allergen.allergens)}.")
+    if allergen and allergen.dietary_info:
+        parts.append(f"Restrições: {', '.join(allergen.dietary_info)}.")
+    if conservation and conservation.shelf_life_label:
+        parts.append(conservation.shelf_life_label + ".")
+    return " ".join(str(part).strip() for part in parts if str(part).strip())
+
+
+def _seo_keywords(
+    product: Any,
+    *,
+    allergen: AllergenInfoProjection | None,
+) -> tuple[str, ...]:
+    values = [
+        product.name,
+        product.sku,
+        *catalog_context.product_tags(product),
+    ]
+    if allergen:
+        values.extend(allergen.allergens)
+        values.extend(allergen.dietary_info)
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        text = str(value).strip()
+        key = text.lower()
+        if text and key not in seen:
+            seen.add(key)
+            result.append(text)
+    return tuple(result)
 
 
 def _conservation(product: Any) -> ConservationInfoProjection | None:

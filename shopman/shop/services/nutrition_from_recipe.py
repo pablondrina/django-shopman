@@ -37,6 +37,7 @@ from __future__ import annotations
 import logging
 from dataclasses import asdict
 from decimal import Decimal
+from math import ceil
 from typing import Any
 
 from shopman.offerman.models import Product
@@ -147,9 +148,9 @@ def _sum_nutrition(items, batch_size: Decimal, product: Product) -> NutritionFac
     - The resulting per-unit mass-in-grams is multiplied by
       ``nutrition_per_100g / 100`` to get absolute grams of each nutrient
       in one produced unit.
-    - We then scale to ``serving_size_g`` (defaults to
-      ``product.unit_weight_g`` when available; otherwise we emit the
-      absolute per-unit numbers and set serving_size to unit_weight or 0).
+    - We then scale to a consumer-friendly serving:
+      ``min(100g, product.unit_weight_g)``. A 400g bread is shown per 100g;
+      a 50g bread is shown per unit.
     """
     if not items or batch_size <= 0:
         return None
@@ -177,20 +178,23 @@ def _sum_nutrition(items, batch_size: Decimal, product: Product) -> NutritionFac
     if not has_any_nutrition:
         return None
 
-    serving_size_g = product.unit_weight_g or 0
+    unit_weight_g = int(product.unit_weight_g or 0)
+    serving_size_g = min(100, unit_weight_g) if unit_weight_g > 0 else 100
+    serving_scale = (serving_size_g / unit_weight_g) if unit_weight_g > 0 else 1.0
+    servings_per_container = max(1, ceil(unit_weight_g / serving_size_g)) if unit_weight_g > 0 else 1
 
     return NutritionFacts(
         serving_size_g=int(serving_size_g),
-        servings_per_container=1,
-        energy_kcal=_round(totals["energy_kcal"], 0),
-        carbohydrates_g=_round(totals["carbohydrates_g"], 1),
-        sugars_g=_round(totals["sugars_g"], 1),
-        proteins_g=_round(totals["proteins_g"], 1),
-        total_fat_g=_round(totals["total_fat_g"], 1),
-        saturated_fat_g=_round(totals["saturated_fat_g"], 1),
-        trans_fat_g=_round(totals["trans_fat_g"], 2),
-        fiber_g=_round(totals["fiber_g"], 1),
-        sodium_mg=_round(totals["sodium_mg"], 0),
+        servings_per_container=servings_per_container,
+        energy_kcal=_round(totals["energy_kcal"] * serving_scale, 0),
+        carbohydrates_g=_round(totals["carbohydrates_g"] * serving_scale, 1),
+        sugars_g=_round(totals["sugars_g"] * serving_scale, 1),
+        proteins_g=_round(totals["proteins_g"] * serving_scale, 1),
+        total_fat_g=_round(totals["total_fat_g"] * serving_scale, 1),
+        saturated_fat_g=_round(totals["saturated_fat_g"] * serving_scale, 1),
+        trans_fat_g=_round(totals["trans_fat_g"] * serving_scale, 2),
+        fiber_g=_round(totals["fiber_g"] * serving_scale, 1),
+        sodium_mg=_round(totals["sodium_mg"] * serving_scale, 0),
         auto_filled=True,
     )
 

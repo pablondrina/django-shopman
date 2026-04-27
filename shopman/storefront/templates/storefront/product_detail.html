@@ -2,16 +2,16 @@
 {% load static omotenashi_tags storefront_tags %}
 
 {% block title %}{{ product.name }}{% endblock %}
-{% block meta_description %}{{ product.short_description|default:product.long_description|default:product.name|truncatechars:160 }}{% endblock %}
+{% block meta_description %}{{ product.seo_description|default:product.short_description|default:product.long_description|default:product.name|truncatechars:160 }}{% endblock %}
 {% block og_title %}{{ product.name }} · {{ storefront.brand_name }}{% endblock %}
-{% block og_description %}{{ product.short_description|default:product.long_description|default:product.name|truncatechars:200 }}{% endblock %}
+{% block og_description %}{{ product.seo_description|default:product.short_description|default:product.long_description|default:product.name|truncatechars:200 }}{% endblock %}
 {% block og_type %}product{% endblock %}
 {% block twitter_title %}{{ product.name }}{% endblock %}
-{% block twitter_description %}{{ product.short_description|default:product.name|truncatechars:200 }}{% endblock %}
-{% block og_image %}{% if product.image %}{{ request.scheme }}://{{ request.get_host }}{{ product.image.url }}{% elif storefront.logo_url %}{{ request.scheme }}://{{ request.get_host }}{{ storefront.logo_url }}{% endif %}{% endblock %}
-{% block twitter_image %}{% if product.image %}{{ request.scheme }}://{{ request.get_host }}{{ product.image.url }}{% elif storefront.logo_url %}{{ request.scheme }}://{{ request.get_host }}{{ storefront.logo_url }}{% endif %}{% endblock %}
+{% block twitter_description %}{{ product.seo_description|default:product.short_description|default:product.name|truncatechars:200 }}{% endblock %}
+{% block og_image %}{% if product.image_url %}{% if product.image_url|slice:":4" == "http" %}{{ product.image_url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{{ product.image_url }}{% endif %}{% elif storefront.logo_url %}{{ request.scheme }}://{{ request.get_host }}{{ storefront.logo_url }}{% endif %}{% endblock %}
+{% block twitter_image %}{% if product.image_url %}{% if product.image_url|slice:":4" == "http" %}{{ product.image_url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{{ product.image_url }}{% endif %}{% elif storefront.logo_url %}{{ request.scheme }}://{{ request.get_host }}{{ storefront.logo_url }}{% endif %}{% endblock %}
 {% block extra_meta %}
-  {% if product.keywords.all %}<meta name="keywords" content="{% for kw in product.keywords.all %}{{ kw.name }}{% if not forloop.last %}, {% endif %}{% endfor %}">{% endif %}
+  {% if product.seo_keywords %}<meta name="keywords" content="{{ product.seo_keywords|join:', ' }}">{% endif %}
   {% json_ld_product product price_q=product.base_price_q availability=product.availability %}
   {% spaceless %}
   {% with base_url=request.scheme|add:"://"|add:request.get_host %}
@@ -278,7 +278,7 @@
             {% endif %}
             {% if product.allergen.dietary_info %}
             <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/70">
-              <span class="font-medium">Restrições:</span>&nbsp;
+              <span class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Restrições:</span>&nbsp;
               {{ product.allergen.dietary_info|join:", " }}.
             </p>
             {% endif %}

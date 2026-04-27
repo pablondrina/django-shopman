@@ -53,6 +53,7 @@ class CatalogItemProjection:
     image_url: str | None
     category: str | None
     tags: tuple[str, ...]
+    search_terms: tuple[str, ...]
 
     # Price (dual: raw + display)
     base_price_q: int
@@ -72,7 +73,6 @@ class CatalogItemProjection:
     is_featured: bool
 
     # Cart state (populated when the builder receives a request)
-    allergens: tuple[str, ...] = ()
     qty_in_cart: int = 0
 
     # Available quantity for stock-aware UX. None = demand-based/untracked
@@ -80,7 +80,7 @@ class CatalogItemProjection:
     # client-side quando requested > available, sem esperar o POST falhar.
     available_qty: int | None = None
 
-    # Allergens from product.metadata["allergens"] — shown as inline badge.
+    # Allergens from product.metadata["allergens"] — search/index data only.
     allergens: tuple[str, ...] = field(default_factory=tuple)
 
     @property
@@ -382,6 +382,7 @@ def _build_items(
             dietary = []
         allergens_raw = meta.get("allergens") or []
         allergens = tuple(str(a) for a in allergens_raw if a) if isinstance(allergens_raw, list) else ()
+        tags = _product_tags(p)
 
         result.append(
             CatalogItemProjection(
@@ -391,7 +392,13 @@ def _build_items(
                 short_description=p.short_description or "",
                 image_url=p.image_url or None,
                 category=cols[0] if cols else None,
-                tags=_product_tags(p),
+                tags=tags,
+                search_terms=_search_terms(
+                    p,
+                    tags=tags,
+                    allergens=allergens,
+                    dietary=tuple(str(d) for d in dietary),
+                ),
                 base_price_q=int(effective_q or 0),
                 price_display=_money(effective_q) if effective_q else "",
                 has_promotion=has_promo,
@@ -511,6 +518,27 @@ def _resolve_availability(
 def _product_tags(product: Any) -> tuple[str, ...]:
     """Read keywords (django-taggit) defensively — tests often skip tagging."""
     return catalog_context.product_tags(product)
+
+
+def _search_terms(
+    product: Any,
+    *,
+    tags: tuple[str, ...],
+    allergens: tuple[str, ...],
+    dietary: tuple[str, ...],
+) -> tuple[str, ...]:
+    """Build canonical menu-search terms from product PIM data."""
+    values = [
+        product.sku,
+        product.name,
+        product.short_description or "",
+        product.long_description or "",
+        product.ingredients_text or "",
+        *tags,
+        *allergens,
+        *dietary,
+    ]
+    return tuple(str(value).strip() for value in values if str(value).strip())
 
 
 def _money(value_q: int | None) -> str:

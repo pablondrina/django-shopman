@@ -137,6 +137,30 @@ class TestCatalogItemProjection:
         # Builder should return the item even when stock was never seeded.
         assert item.availability_label  # pt-BR label always present
 
+    def test_item_search_terms_include_remote_purchase_facts(
+        self, listing, collection, collection_item, product,
+    ):
+        from shopman.storefront.services.catalog import search_index
+
+        product.ingredients_text = "Farinha de trigo, água, fermento natural, sal."
+        product.metadata = {
+            "allergens": ["glúten"],
+            "dietary_info": ["100% vegetal", "sem lactose"],
+        }
+        product.save(update_fields=["ingredients_text", "metadata"])
+        _publish_on_listing(listing, product)
+
+        proj = build_catalog(channel_ref="web")
+        item = _find_item(proj, product.sku)
+        assert item is not None
+        assert "fermento natural" in " ".join(item.search_terms)
+        assert "glúten" in item.search_terms
+        assert "100% vegetal" in item.search_terms
+
+        record = next(r for r in search_index(proj) if r["sku"] == product.sku)
+        assert "fermento natural" in " ".join(record["terms"])
+        assert "sem lactose" in record["terms"]
+
     def test_available_when_stock_seeded(self, listing, collection, collection_item, product):
         _publish_on_listing(listing, product)
         _seed_stock(product.sku, Decimal("50"))

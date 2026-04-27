@@ -46,17 +46,17 @@
 {% if catalog.has_items %}
 <div x-data="menuNav()" x-init="init()" class="-mx-4">
 
-  {% comment %}── Navbar sticky: botão híbrido (manage_search) + pills rail ──{% endcomment %}
+  {% comment %}── Navbar sticky: busca + pills rail ──{% endcomment %}
   <div x-ref="navbar"
        class="sticky top-0 z-50 border-b border-outline bg-surface-alt/95 backdrop-blur dark:border-outline-dark dark:bg-surface-dark-alt/95">
     <div class="flex items-stretch gap-2 px-4 py-2.5">
       {% comment %}Position 0 — ghost square, não faz parte do rail. Vira close quando overlay aberto.{% endcomment %}
       <button type="button"
               @click="searchOpen ? closeSearch() : openSearch()"
-              :aria-label="searchOpen ? 'Fechar busca' : 'Abrir menu e busca'"
+              :aria-label="searchOpen ? 'Fechar busca' : 'Abrir busca'"
               class="shrink-0 inline-flex size-11 items-center justify-center rounded-radius text-on-surface hover:bg-surface hover:text-primary dark:text-on-surface-dark dark:hover:bg-surface-dark dark:hover:text-primary-dark transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-primary-dark">
-        <span class="material-symbols-rounded icon-lg" aria-hidden="true"
-              x-text="searchOpen ? 'close' : 'manage_search'"></span>
+        <span class="material-symbols-rounded icon-xl" aria-hidden="true"
+              x-text="searchOpen ? 'close' : 'search'"></span>
       </button>
 
       {% comment %}Pills rail (default){% endcomment %}
@@ -334,7 +334,8 @@ function menuNav() {
         const name = this.normalize(it.name);
         const section = this.normalize(it.section);
         const kws = (it.keywords || []).map(k => this.normalize(k));
-        const terms = this.normalize([it.name, it.section, ...(it.keywords || [])].join(' '));
+        const extra = (it.terms || []).map(t => this.normalize(t));
+        const terms = this.normalize([it.name, it.section, ...(it.keywords || []), ...(it.terms || [])].join(' '));
         let score = 0;
         if (name.startsWith(q)) score = 100;
         else if (name.includes(q)) score = 60;
@@ -342,6 +343,8 @@ function menuNav() {
         else if (section.includes(q)) score = 40;
         else if (kws.some(k => k.startsWith(q))) score = 35;
         else if (kws.some(k => k.includes(q))) score = 25;
+        else if (extra.some(t => t.startsWith(q))) score = 20;
+        else if (extra.some(t => t.includes(q))) score = 15;
         else if (terms.includes(q)) score = 10;
         if (score > 0) hits.push({ ...it, _score: score });
       }

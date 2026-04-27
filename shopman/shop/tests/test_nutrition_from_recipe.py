@@ -87,6 +87,21 @@ class TestFillNutritionFromRecipe:
         # Per unit: (1.000 kg / 10 units) * 1000 = 100 g flour
         # Energy: 100 g * (364 kcal / 100 g) = 364 kcal per unit
         assert product.nutrition_facts["energy_kcal"] == pytest.approx(364.0, abs=2.0)
+        assert product.nutrition_facts["serving_size_g"] == 50
+        assert product.nutrition_facts["servings_per_container"] == 1
+
+    def test_large_bread_uses_100g_serving(self):
+        product = _make_product(unit_weight_g=400)
+        _make_recipe_with_items()
+
+        changed = fill_nutrition_from_recipe(product)
+        product.refresh_from_db()
+
+        assert changed is True
+        assert product.nutrition_facts["serving_size_g"] == 100
+        assert product.nutrition_facts["servings_per_container"] == 4
+        assert product.nutrition_facts["energy_kcal"] == pytest.approx(91.0, abs=1.0)
+        assert product.nutrition_facts["sodium_mg"] == pytest.approx(97.0, abs=1.0)
 
     def test_ingredients_text_in_decreasing_weight_order(self):
         product = _make_product()

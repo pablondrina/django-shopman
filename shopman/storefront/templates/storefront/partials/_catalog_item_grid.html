@@ -70,12 +70,6 @@
         <p class="text-xs text-on-surface dark:text-on-surface-dark line-clamp-1 sm:line-clamp-2 hidden sm:block">{{ item.short_description }}</p>
         {% endif %}
 
-        {% if item.allergens %}
-        <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/60 leading-tight hidden sm:block">
-          <span class="font-medium">Contém:</span> {{ item.allergens|join:", " }}
-        </p>
-        {% endif %}
-
         {# SSE-driven availability slot: refetches per-SKU badge on push (WP-AV-10). #}
         <div hx-get="{% url 'storefront:sku_state' item.sku %}?channel_ref={{ storefront_channel_ref|default:'web' }}"
              hx-trigger="sse:stock-update[JSON.parse(event.data).sku=='{{ item.sku }}'],sse:product-paused[JSON.parse(event.data).sku=='{{ item.sku }}'],sse:listing-changed[JSON.parse(event.data).sku=='{{ item.sku }}'], every 60s"
@@ -84,14 +78,6 @@
             {% include "storefront/components/availability_badge.html" with state=item.availability.value %}
           {% endif %}
         </div>
-
-        {# Allergen badge inline — critical info, never hidden #}
-        {% if item.allergens %}
-        <p class="badge-warning w-fit" aria-label="Alérgenos">
-          <span class="material-symbols-rounded" aria-hidden="true">warning</span>
-          Contém {{ item.allergens|join:" · " }}
-        </p>
-        {% endif %}
 
         {# Price + action #}
         <div class="mt-auto pt-1 sm:pt-2 flex items-end justify-between gap-2">
