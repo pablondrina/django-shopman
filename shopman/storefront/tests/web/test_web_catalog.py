@@ -110,7 +110,8 @@ class TestProductDetailView:
         assert "Contém glúten" not in body
         assert "Serve 2 a 4 pessoas" not in body
         assert body.index("Ingredientes") < body.index("Conservação") < body.index("Peso e medidas")
-        assert "Informações dietéticas" in body
+        assert "Composição" not in body
+        assert "Restrições:" in body
         assert "Peso e medidas" in body
         assert "aprox. 24 x 12 x 10 cm" in body
         assert "Ingredientes" in body

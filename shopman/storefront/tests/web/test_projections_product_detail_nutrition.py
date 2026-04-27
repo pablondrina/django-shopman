@@ -77,6 +77,7 @@ def test_projection_rows_ordered_and_formatted(product_with_nutrition):
     assert labels.index("total_fat_g") < labels.index("saturated_fat_g")
     # Sodium should carry a %VD (480 / 2400 * 100 = 20)
     sodium_row = next(r for r in proj.nutrition.rows if r.field == "sodium_mg")
+    assert sodium_row.label == "Sódio"
     assert sodium_row.percent_daily_value == 20
     assert sodium_row.unit == "mg"
     # Sugars has no ANVISA DRV → None

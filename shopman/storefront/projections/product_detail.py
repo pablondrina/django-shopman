@@ -435,6 +435,12 @@ _NUTRIENT_ORDER: tuple[str, ...] = (
 )
 
 
+def _nutrient_pdp_label(field_name: str) -> str:
+    """Return a PDP label without unit suffix; the value column owns units."""
+    label = catalog_context.nutrient_label(field_name)
+    return label.rsplit(" (", maxsplit=1)[0]
+
+
 def _nutrition(product: Any) -> NutritionFactsProjection | None:
     """Build the PDP-facing nutrition projection from ``product.nutrition_facts``.
 
@@ -452,7 +458,7 @@ def _nutrition(product: Any) -> NutritionFactsProjection | None:
         rows.append(
             NutritionRowProjection(
                 field=field_name,
-                label=catalog_context.nutrient_label(field_name),
+                label=_nutrient_pdp_label(field_name),
                 value_display=_format_number(value),
                 unit=_NUTRIENT_UNITS[field_name],
                 percent_daily_value=facts.percent_daily_value(field_name),

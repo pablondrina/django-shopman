@@ -12,6 +12,7 @@ from import_export.admin import ExportMixin, ImportExportModelAdmin
 from shopman.offerman.contrib.admin_unfold.nutrition_form import (
     MACRONUTRIENTS,
     MICRONUTRIENTS,
+    REMOTE_PURCHASE_FORM_FIELDS,
     SERVING_FIELDS,
     ProductAdminForm,
 )
@@ -262,6 +263,16 @@ class ProductAdmin(_ProductImportExportBase):
                     "Lista humana em pt-BR, ordem decrescente de peso "
                     "(ANVISA RDC 360/2003). Pode ser preenchido automaticamente "
                     "a partir da Recipe ativa."
+                ),
+            },
+        ),
+        (
+            "Compra remota",
+            {
+                "fields": REMOTE_PURCHASE_FORM_FIELDS,
+                "description": (
+                    "Dados exibidos na PDP para reduzir dúvida na compra remota: "
+                    "alérgenos, restrições, rendimento e medidas aproximadas."
                 ),
             },
         ),

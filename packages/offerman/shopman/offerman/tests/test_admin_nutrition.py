@@ -41,6 +41,14 @@ def test_form_renders_nutrition_fields():
     ):
         assert name in form.fields
 
+    for name in (
+        "allergens_text",
+        "dietary_info_text",
+        "serves_text",
+        "approx_dimensions_text",
+    ):
+        assert name in form.fields
+
 
 def test_form_populates_initial_from_instance():
     product = Product.objects.create(
@@ -53,11 +61,21 @@ def test_form_populates_initial_from_instance():
             "proteins_g": 6.0,
             "auto_filled": False,
         },
+        metadata={
+            "allergens": ["glúten", "gergelim"],
+            "dietary_info": ["100% vegetal", "sem lactose"],
+            "serves": "2 a 4 pessoas",
+            "approx_dimensions": "aprox. 24 x 12 x 10 cm",
+        },
     )
     form = ProductAdminForm(instance=product)
     assert form.fields["serving_size_g"].initial == 50
     assert form.fields["energy_kcal"].initial == 180.0
     assert form.fields["proteins_g"].initial == 6.0
+    assert form.fields["allergens_text"].initial == "glúten, gergelim"
+    assert form.fields["dietary_info_text"].initial == "100% vegetal, sem lactose"
+    assert form.fields["serves_text"].initial == "2 a 4 pessoas"
+    assert form.fields["approx_dimensions_text"].initial == "aprox. 24 x 12 x 10 cm"
 
 
 def test_form_serializes_to_json_on_save():
@@ -80,6 +98,35 @@ def test_form_serializes_to_json_on_save():
     assert saved.nutrition_facts["serving_size_g"] == 50
     assert saved.nutrition_facts["energy_kcal"] == 180.0
     assert saved.nutrition_facts["auto_filled"] is False
+
+
+def test_form_serializes_remote_purchase_metadata_on_save():
+    product = Product.objects.create(
+        sku="META",
+        name="Meta",
+        base_price_q=100,
+        metadata={"external_id": "keep"},
+    )
+    data = _base_data(
+        sku="META",
+        name="Meta",
+        metadata='{"external_id": "keep"}',
+        allergens_text="glúten, gergelim",
+        dietary_info_text="100% vegetal, sem lactose",
+        serves_text="2 a 4 pessoas",
+        approx_dimensions_text="aprox. 24 x 12 x 10 cm",
+    )
+    form = ProductAdminForm(data=data, instance=product)
+    assert form.is_valid(), form.errors
+    saved = form.save()
+    saved.refresh_from_db()
+    assert saved.metadata == {
+        "external_id": "keep",
+        "allergens": ["glúten", "gergelim"],
+        "dietary_info": ["100% vegetal", "sem lactose"],
+        "serves": "2 a 4 pessoas",
+        "approx_dimensions": "aprox. 24 x 12 x 10 cm",
+    }
 
 
 def test_form_rejects_invalid_invariant():

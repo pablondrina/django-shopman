@@ -264,7 +264,6 @@
         <div class="px-4 pb-4 border-t border-outline dark:border-outline-dark pt-4 space-y-5">
           {% if product.ingredients_text %}
           <section class="space-y-1.5">
-            <h3 class="text-xs font-semibold uppercase tracking-wide text-on-surface/85 dark:text-on-surface-dark/70">Composição</h3>
             <p class="text-sm text-on-surface dark:text-on-surface-dark whitespace-pre-line leading-relaxed">{{ product.ingredients_text }}</p>
           </section>
           {% endif %}
@@ -279,7 +278,7 @@
             {% endif %}
             {% if product.allergen.dietary_info %}
             <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/70">
-              <span class="font-medium">Informações dietéticas:</span>
+              <span class="font-medium">Restrições:</span>&nbsp;
               {{ product.allergen.dietary_info|join:", " }}.
             </p>
             {% endif %}
@@ -287,47 +286,45 @@
           {% endif %}
 
           {% if product.nutrition.has_any %}
-          <section class="space-y-3">
-            {% if product.nutrition.serving_size_display %}
-            <p class="text-xs uppercase tracking-wide text-on-surface/85 dark:text-on-surface-dark/70">
-              Porção: <span class="text-on-surface-strong dark:text-on-surface-dark-strong font-semibold">{{ product.nutrition.serving_size_display }}</span>
-              {% if product.nutrition.servings_per_container > 1 %}
-              · {{ product.nutrition.servings_per_container }} porções por embalagem
+          <section class="space-y-2.5">
+            <p class="text-sm text-on-surface dark:text-on-surface-dark">
+              <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">Nutrição:</span>&nbsp;
+              {% if product.nutrition.serving_size_display %}
+              porção de {{ product.nutrition.serving_size_display }}{% if product.nutrition.servings_per_container > 1 %}, com {{ product.nutrition.servings_per_container }} porções por embalagem{% endif %}.
+              {% else %}
+              valores aproximados por porção.
               {% endif %}
             </p>
-            {% endif %}
 
-            {% if product.nutrition.energy_kcal_display %}
-            <p class="flex items-baseline justify-between gap-3 rounded-radius bg-surface-alt dark:bg-surface-dark-alt px-3 py-2 text-sm">
-              <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">Valor energético</span>
-              <span class="text-right text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums">
-                {{ product.nutrition.energy_kcal_display }} <span class="text-xs text-on-surface dark:text-on-surface-dark">kcal</span>
-                {% if product.nutrition.energy_pdv is not None %}
-                <span class="block text-xs text-on-surface/85 dark:text-on-surface-dark/70">{{ product.nutrition.energy_pdv }}% VD</span>
-                {% endif %}
-              </span>
+            <div class="space-y-1.5">
+              {% if product.nutrition.energy_kcal_display %}
+              <p class="flex items-baseline justify-between gap-3 text-sm">
+                <span class="text-on-surface dark:text-on-surface-dark">Valor energético</span>
+                <span class="text-right font-medium text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums">
+                  {{ product.nutrition.energy_kcal_display }} kcal
+                  {% if product.nutrition.energy_pdv is not None %}
+                  <span class="text-xs text-on-surface/70 dark:text-on-surface-dark/60">({{ product.nutrition.energy_pdv }}% VD)</span>
+                  {% endif %}
+                </span>
+              </p>
+              {% endif %}
+
+              {% for row in product.nutrition.rows %}
+              <p class="flex items-baseline justify-between gap-3 text-sm">
+                <span class="text-on-surface dark:text-on-surface-dark">{{ row.label }}</span>
+                <span class="text-right font-medium text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums">
+                  {{ row.value_display }} {{ row.unit }}
+                  {% if row.percent_daily_value is not None %}
+                  <span class="text-xs text-on-surface/70 dark:text-on-surface-dark/60">({{ row.percent_daily_value }}% VD)</span>
+                  {% endif %}
+                </span>
+              </p>
+              {% endfor %}
+            </div>
+
+            <p class="text-xs leading-relaxed text-on-surface/85 dark:text-on-surface-dark/60">
+              % VD: Valores Diários de referência com base em uma dieta de 2000 kcal (ANVISA).
             </p>
-            {% endif %}
-
-            <table class="w-full text-sm">
-              <thead class="text-xs uppercase tracking-wide text-on-surface/85 dark:text-on-surface-dark/70">
-                <tr>
-                  <th scope="col" class="text-left py-1.5 font-medium">Nutriente</th>
-                  <th scope="col" class="text-right py-1.5 font-medium">Quantidade</th>
-                  <th scope="col" class="text-right py-1.5 font-medium">% VD</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-outline/40 dark:divide-outline-dark/40">
-                {% for row in product.nutrition.rows %}
-                <tr>
-                  <th scope="row" class="text-left py-1.5 font-normal text-on-surface-strong dark:text-on-surface-dark-strong">{{ row.label }}</th>
-                  <td class="text-right py-1.5 text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums">{{ row.value_display }} <span class="text-xs text-on-surface dark:text-on-surface-dark">{{ row.unit }}</span></td>
-                  <td class="text-right py-1.5 text-on-surface dark:text-on-surface-dark tabular-nums">{% if row.percent_daily_value is not None %}{{ row.percent_daily_value }}%{% else %}·{% endif %}</td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-            <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/60">% Valores Diários de referência com base em uma dieta de 2000 kcal (ANVISA).</p>
           </section>
           {% endif %}
         </div>
