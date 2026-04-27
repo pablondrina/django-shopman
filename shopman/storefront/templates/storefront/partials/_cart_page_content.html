@@ -214,7 +214,7 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
             </div>
             {% endif %}
 
-            <div class="mt-auto pt-2 flex items-center justify-between gap-3">
+            <div class="mt-auto pt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               {# Stepper — Alpine state, htmx.ajax to cart_set_qty (absolute, idempotent). #}
               <div class="inline-flex items-center gap-1 rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt" role="group" aria-label="Quantidade">
                 <button type="button"
@@ -233,7 +233,7 @@ htmx's post-swap cleanup with a TypeError. Coupon forms keep direct
                   <span class="material-symbols-rounded text-lg" aria-hidden="true">add</span>
                 </button>
               </div>
-              <p class="text-base font-bold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums">{{ item.total_display }}</p>
+              <p class="self-end sm:self-auto shrink-0 max-w-full text-base font-bold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums">{{ item.total_display }}</p>
             </div>
             {# Hint inline (AVAILABILITY-PLAN §7): discreto, aparece perto do limite #}
             <p x-show="showMaxHint" x-cloak

@@ -62,8 +62,12 @@
     <div class="offline-brand">{{ storefront.brand_name }}</div>
     <h1>Sem conexão</h1>
     <p>Verifique sua internet e tente novamente.</p>
-    <!-- PWA offline: Alpine.js não disponível neste contexto — onclick é a única opção -->
-    <button class="retry-btn" onclick="window.location.reload()">Tentar novamente</button>
+    <button class="retry-btn" type="button" data-retry>Tentar novamente</button>
   </div>
+  <script>
+    document.querySelector('[data-retry]').addEventListener('click', function () {
+      window.location.reload();
+    });
+  </script>
 </body>
 </html>

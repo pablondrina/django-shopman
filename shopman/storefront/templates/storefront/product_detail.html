@@ -188,29 +188,16 @@
                      if (this.checking || this.lastChecked === this.qty) return;
                      this.checking = true;
                      this.lastChecked = this.qty;
-                     try {
-                       const body = new FormData();
-                       body.append('sku', '{{ product.sku }}');
-                       body.append('qty', String(this.qty));
-                       const resp = await fetch('{% url 'storefront:cart_set_qty' %}', {
-                         method: 'POST',
-                         headers: {
-                           'X-CSRFToken': document.querySelector('meta[name=\'csrf-token\']').content,
-                           'HX-Request': 'true',
-                         },
-                         body,
-                       });
-                       if (resp.status === 422 && resp.headers.get('X-Shopman-Error-UI') === '1') {
-                         const html = await resp.text();
-                         const _sink = document.getElementById('stock-error-modal');
-             _sink.innerHTML = html;
-             htmx.process(_sink);
-             if (window.Alpine) window.Alpine.initTree(_sink);
-                       } else if (resp.ok) {
-                         inCart = this.qty;
-                         htmx.trigger(document.body, 'cartUpdated');
-                       }
-                     } finally { this.checking = false; }
+	                     try {
+	                       const result = await window.ShopmanCart.setQty({
+	                         url: '{% url 'storefront:cart_set_qty' %}',
+	                         sku: '{{ product.sku|escapejs }}',
+	                         qty: this.qty,
+	                       });
+	                       if (result.ok) {
+	                         inCart = this.qty;
+	                       }
+	                     } finally { this.checking = false; }
                    } }">
 
       <div class="flex items-center gap-3">
@@ -232,36 +219,23 @@
           </button>
         </div>
 
-        {# Add button — fetch() (não hx-post): precisa de qty do escopo Alpine como input e
-           atualiza inCart/justAdded como output. hx-vals não acessa estado Alpine reativo. #}
+        {% comment %}
+        Add button: native fetch via the canonical cart helper because the
+        requested quantity lives in this Alpine scope.
+        {% endcomment %}
         <button type="button"
                 class="btn-primary flex-1"
-                @click="(async () => {
-                  const body = new FormData();
-                  body.append('sku', '{{ product.sku }}');
-                  body.append('qty', String(qty));
-                  const resp = await fetch('{% url 'storefront:cart_set_qty' %}', {
-                    method: 'POST',
-                    headers: {
-                      'X-CSRFToken': document.querySelector('meta[name=\'csrf-token\']').content,
-                      'HX-Request': 'true',
-                    },
-                    body,
-                  });
-                  if (resp.ok) {
-                    inCart = qty; justAdded = true;
-                    htmx.trigger(document.body, 'cartUpdated');
-                    setTimeout(() => justAdded = false, 1600);
-                  } else if (resp.status === 422 && resp.headers.get('X-Shopman-Error-UI') === '1') {
-                    const html = await resp.text();
-                    const _sink = document.getElementById('stock-error-modal');
-             _sink.innerHTML = html;
-             htmx.process(_sink);
-             if (window.Alpine) window.Alpine.initTree(_sink);
-                  } else {
-                    window.dispatchEvent(new CustomEvent('notify', { detail: { variant: 'warning', message: 'Não foi possível adicionar ao carrinho. Tente novamente.' } }));
-                  }
-                })()">
+	                @click="(async () => {
+	                  const result = await window.ShopmanCart.setQty({
+	                    url: '{% url 'storefront:cart_set_qty' %}',
+	                    sku: '{{ product.sku|escapejs }}',
+	                    qty,
+	                  });
+	                  if (result.ok) {
+	                    inCart = qty; justAdded = true;
+	                    setTimeout(() => justAdded = false, 1600);
+	                  }
+	                })()">
           <span x-show="!justAdded" x-cloak>
             <template x-if="inCart === 0">
               <span>Adicionar — {{ product.price_display }}</span>

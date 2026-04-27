@@ -129,6 +129,23 @@
     const i = steps.indexOf(s);
     return i >= 0 && i < steps.length - 1 ? steps[i + 1] : null;
   },
+  canAdvance(s) {
+    if (s === 'when') {
+      if (!this.deliveryDate) return false;
+      if (this.fulfillmentType === 'pickup' && !this.deliverySlot) return false;
+    }
+    return true;
+  },
+  continueFrom(s) {
+    if (!this.canAdvance(s)) {
+      window.dispatchEvent(new CustomEvent('notify', {
+        detail: { variant: 'warning', message: 'Escolha data e horário para continuar.' },
+      }));
+      return;
+    }
+    const next = this.nextFrom(s);
+    if (next) this.goTo(next);
+  },
   goTo(s) {
     this.step = s;
     history.pushState({step: s}, '', '?step=' + s);
@@ -241,7 +258,7 @@
                 </label>
                 {% endif %}
               </div>
-              <button type="button" @click="goTo(nextFrom('fulfillment'))"
+              <button type="button" @click="continueFrom('fulfillment')"
                       class="w-full rounded-radius bg-primary px-6 py-3 font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px] transition">
                 Continuar
               </button>
@@ -279,7 +296,7 @@
               {% include "storefront/partials/address_picker.html" with picker_mode="checkout" picker_show_saved=True %}
               {% if errors.delivery_address %}<p class="text-xs text-danger">{{ errors.delivery_address }}</p>{% endif %}
               {% if errors.street_number %}<p class="text-xs text-danger">{{ errors.street_number }}</p>{% endif %}
-              <button type="button" @click="goTo(nextFrom('address'))"
+              <button type="button" @click="continueFrom('address')"
                       class="w-full rounded-radius bg-primary px-6 py-3 font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px] transition">
                 Continuar
               </button>
@@ -333,8 +350,12 @@
                 </select>
                 {% if errors.delivery_time_slot %}<p class="mt-1 text-xs text-danger">{{ errors.delivery_time_slot }}</p>{% endif %}
               </div>
-              <button type="button" @click="goTo(nextFrom('when'))"
-                      class="w-full rounded-radius bg-primary px-6 py-3 font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px] transition">
+              <p x-show="!canAdvance('when')" x-cloak class="text-xs text-warning dark:text-warning-dark" role="status">
+                Escolha data e horário para seguir.
+              </p>
+              <button type="button" @click="continueFrom('when')"
+                      :disabled="!canAdvance('when')"
+                      class="w-full rounded-radius bg-primary px-6 py-3 font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px] transition disabled:opacity-50 disabled:cursor-not-allowed">
                 Continuar
               </button>
             </div>

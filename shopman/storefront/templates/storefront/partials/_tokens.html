@@ -51,6 +51,9 @@
 {# Planned-hold confirmation helpers (countdown, poll, announce) — exposed on ``window.*`` for use via ``x-data="window.confirmationCountdown(...)"``. Loaded SYNCHRONOUSLY before Alpine so the globals exist when Alpine walks the DOM. #}
 <script src="{% static 'storefront/js/confirmation.js' %}?v=6"></script>
 
+{# Canonical cart transport helpers — loaded before Alpine so x-data factories are available during DOM walk. #}
+<script src="{% static 'storefront/js/cart-actions.js' %}?v=1"></script>
+
 {# Alpine.js #}
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
 

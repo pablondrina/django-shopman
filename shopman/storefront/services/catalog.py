@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import logging
+
 from django.http import Http404
 from django.urls import reverse
 
 from shopman.shop.services import catalog_context
+
+logger = logging.getLogger(__name__)
 
 
 def published_products(listing_ref: str | None):
@@ -46,6 +50,7 @@ def search_index(catalog) -> list[dict]:
         if skus_all:
             keywords_by_sku = catalog_context.keywords_by_sku(skus_all)
     except Exception:
+        logger.debug("menu_search_index_keywords_failed", exc_info=True)
         keywords_by_sku = {}
 
     for section in catalog.sections:

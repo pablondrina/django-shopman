@@ -3,8 +3,7 @@
 
 {% block bottom_bar %}{% endblock %}
 
-{% omotenashi 'CART_PAGE_TITLE' as cart_page_title %}
-{% block title %}{{ cart_page_title.title }}{% endblock %}
+{% block title %}{% omotenashi 'CART_PAGE_TITLE' as cart_page_title %}{{ cart_page_title.title }}{% endblock %}
 {% block meta_description %}{{ cart_page_title.title }} — {{ storefront.brand_name }}.{% endblock %}
 
 {% block breadcrumb %}

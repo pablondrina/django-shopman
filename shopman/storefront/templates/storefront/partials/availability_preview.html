@@ -9,59 +9,11 @@
 <ul class="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
   {% for item in items %}
   <li class="flex"
-      x-data="{
-        qty: 0,
-        max: {% if item.available_qty is not None %}{{ item.available_qty }}{% else %}99{% endif %},
-        busy: false,
-        get effectiveMax() { return Math.min(99, this.max); },
-        get showMaxHint() { return this.qty > 0 && this.qty >= (this.effectiveMax - 2) && this.effectiveMax > 0; },
-        async set(next) {
-          if (this.busy) return;
-          const ceiling = this.effectiveMax;
-          if (next > ceiling) {
-            const word = ceiling === 1 ? 'unidade disponível' : 'unidades disponíveis';
-            window.dispatchEvent(new CustomEvent('notify', {
-              detail: { variant: 'warning', message: 'Apenas ' + ceiling + ' ' + word + '.' },
-            }));
-            next = ceiling;
-          }
-          const target = Math.max(0, next);
-          const prev = this.qty;
-          this.busy = true;
-          const body = new FormData();
-          body.append('sku', '{{ item.product.sku }}');
-          body.append('qty', String(target));
-          try {
-            const resp = await fetch('{% url 'storefront:cart_set_qty' %}', {
-              method: 'POST',
-              headers: {
-                'X-CSRFToken': document.querySelector('meta[name=\'csrf-token\']').content,
-                'HX-Request': 'true',
-              },
-              body,
-            });
-            if (resp.ok) {
-              this.qty = target;
-              htmx.trigger(document.body, 'cartUpdated');
-            } else if (resp.status === 422 && resp.headers.get('X-Shopman-Error-UI') === '1') {
-              const html = await resp.text();
-              const _sink = document.getElementById('stock-error-modal');
-             _sink.innerHTML = html;
-             htmx.process(_sink);
-             if (window.Alpine) window.Alpine.initTree(_sink);
-              this.qty = prev;
-            } else {
-              this.qty = prev;
-              window.dispatchEvent(new CustomEvent('notify', { detail: { variant: 'warning', message: 'Não foi possível atualizar o carrinho. Tente novamente.' } }));
-            }
-          } catch (e) {
-            this.qty = prev;
-            window.dispatchEvent(new CustomEvent('notify', { detail: { variant: 'danger', message: 'Sem conexão. Verifique sua internet.' } }));
-          } finally {
-            this.busy = false;
-          }
-        }
-      }">
+      x-data="window.ShopmanCart.line({
+        url: '{% url 'storefront:cart_set_qty' %}',
+        sku: '{{ item.product.sku|escapejs }}',
+        max: {% if item.available_qty is not None %}{{ item.available_qty }}{% else %}99{% endif %}
+      })">
 
     <article class="group flex flex-row sm:flex-col rounded-radius overflow-hidden border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt w-full">
 

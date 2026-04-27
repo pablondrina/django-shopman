@@ -92,6 +92,8 @@
                @input.debounce.200ms="runSearch()"
                placeholder="Buscar produto ou categoria"
                autocomplete="off"
+               role="searchbox"
+               aria-controls="menu-search-results"
                class="flex-1 bg-transparent text-base sm:text-lg text-on-surface-strong dark:text-on-surface-dark-strong placeholder:text-on-surface/40 dark:placeholder:text-on-surface-dark/40 focus:outline-none"
                style="min-height: 44px;">
         <button x-show="searchQuery" @click="searchQuery=''; $refs.searchInput.focus(); runSearch()"
@@ -136,9 +138,9 @@
       </div>
 
       {% comment %}Query ativa: resultados filtrados client-side{% endcomment %}
-      <div x-show="searchQuery.trim()" class="divide-y divide-outline dark:divide-outline-dark">
+      <div x-show="searchQuery.trim()" id="menu-search-results" class="divide-y divide-outline dark:divide-outline-dark" aria-live="polite">
         <p class="px-4 pt-5 pb-2 text-xs font-semibold uppercase tracking-wide text-on-surface/50 dark:text-on-surface-dark/50">
-          <span x-show="searchResults.length" x-text="searchResults.length + ' resultado(s)'"></span>
+          <span x-show="searchResults.length" x-text="searchSummary()"></span>
           <span x-show="!searchResults.length">Sem resultados</span>
         </p>
         <template x-for="r in searchResults" :key="r.sku">
@@ -211,13 +213,33 @@ function menuNav() {
       // Primeira seção = primeiro pill ativo
       const first = document.querySelector('[data-pill]');
       if (first) this.active = first.dataset.pill;
-      // Carrega índice de busca
-      const idx = document.getElementById('menu-search-index');
-      if (idx) {
-        try { this._items = JSON.parse(idx.textContent) || []; }
-        catch (e) { this._items = []; }
-      }
+      this.loadSearchIndex();
       this.$nextTick(() => { this.measureNav(); this.onScroll(); });
+    },
+
+    loadSearchIndex() {
+      const idx = document.getElementById('menu-search-index');
+      if (!idx) {
+        this._items = [];
+        return this._items;
+      }
+      try {
+        const parsed = JSON.parse(idx.textContent) || [];
+        this._items = Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        this._items = [];
+        if (window.ShopmanCart) window.ShopmanCart.notify('warning', 'A busca não carregou. Navegue pelas categorias.');
+      }
+      return this._items;
+    },
+
+    normalize(value) {
+      return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    },
+
+    searchSummary() {
+      const n = this.searchResults.length;
+      return n + ' ' + (n === 1 ? 'resultado' : 'resultados');
     },
 
     measureNav() {
@@ -301,17 +323,24 @@ function menuNav() {
     },
 
     runSearch() {
-      const q = (this.searchQuery || '').trim().toLowerCase();
+      const q = this.normalize((this.searchQuery || '').trim());
       if (!q) { this.searchResults = []; return; }
-      // Score simples: prefix match > contains; name > keywords
+      const items = this._items.length ? this._items : this.loadSearchIndex();
+      // Score simples: nome > categoria > palavras-chave; prefix match > contains.
       const hits = [];
-      for (const it of this._items) {
-        const name = (it.name || '').toLowerCase();
-        const kws = (it.keywords || []).map(k => k.toLowerCase());
+      for (const it of items) {
+        const name = this.normalize(it.name);
+        const section = this.normalize(it.section);
+        const kws = (it.keywords || []).map(k => this.normalize(k));
+        const terms = this.normalize([it.name, it.section, ...(it.keywords || [])].join(' '));
         let score = 0;
         if (name.startsWith(q)) score = 100;
         else if (name.includes(q)) score = 60;
-        else if (kws.some(k => k.includes(q))) score = 30;
+        else if (section.startsWith(q)) score = 50;
+        else if (section.includes(q)) score = 40;
+        else if (kws.some(k => k.startsWith(q))) score = 35;
+        else if (kws.some(k => k.includes(q))) score = 25;
+        else if (terms.includes(q)) score = 10;
         if (score > 0) hits.push({ ...it, _score: score });
       }
       hits.sort((a, b) => b._score - a._score);

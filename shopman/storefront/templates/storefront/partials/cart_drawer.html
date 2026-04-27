@@ -196,7 +196,7 @@ the cascading ``cartUpdated`` reload destroys the source element.
           </p>
           {% endif %}
 
-          <div class="flex items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
             {# Stepper — Alpine ``set()`` posts absolute qty to cart_set_qty (idempotent). #}
             <div class="inline-flex items-center rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt" role="group" aria-label="Quantidade">
               <button type="button"
@@ -230,7 +230,7 @@ the cascading ``cartUpdated`` reload destroys the source element.
                 </div>
               </div>
             </div>
-            <p class="text-sm font-bold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums">{{ item.total_display }}</p>
+            <p class="ml-auto shrink-0 text-sm font-bold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums">{{ item.total_display }}</p>
           </div>
         </div>
       </li>
