@@ -349,6 +349,10 @@ class Command(BaseCommand):
         # Catálogo real Nelson Boulangerie
         # Fonte: https://github.com/pablondrina/nb-catalog
         IMG = "https://raw.githubusercontent.com/pablondrina/nb-catalog/main/img/products"
+        UNSPLASH = "https://images.unsplash.com"
+
+        def unsplash(photo_id: str) -> str:
+            return f"{UNSPLASH}/{photo_id}?auto=format&fit=crop&w=900&q=80"
 
         # (sku, name, short_desc, price_q, unit, shelf_life, available, image, weight_g, storage_tip)
         products_data = [
@@ -434,32 +438,32 @@ class Command(BaseCommand):
              f"{IMG}/ho.jpg", 180, "Melhor consumido quente, no dia"),
             # ── Lanches (montados na hora) ──
             ("CROQUE-MONSIEUR", "Croque Monsieur", "Clássico sanduíche francês gratinado com presunto e queijo gruyere", 2400, "un", 0, True,
-             f"{IMG}/cm.jpg", 250, "Servir quente, imediatamente"),
+             unsplash("photo-1621188988504-f2a8ff685801"), 250, "Servir quente, imediatamente"),
             ("CROQUE-MADAME", "Croque Madame", "Croque monsieur com ovo pochado por cima", 2800, "un", 0, True,
-             f"{IMG}/cmd.jpg", 290, "Servir quente, imediatamente"),
+             unsplash("photo-1621188988280-67c8d6e130a6"), 290, "Servir quente, imediatamente"),
             ("QUICHE-LORRAINE", "Quiche Lorraine", "Quiche clássica de bacon, queijo e cebola", 1800, "un", 0, True,
-             f"{IMG}/ql.jpg", 200, "Melhor consumido quente, no dia"),
+             unsplash("photo-1647275556041-ab0395841a38"), 200, "Melhor consumido quente, no dia"),
             ("QUICHE-LEGUMES", "Quiche de Legumes", "Quiche vegetariana com abobrinha, tomate e queijo", 1800, "un", 0, True,
-             f"{IMG}/qv.jpg", 200, "Melhor consumido quente, no dia"),
+             unsplash("photo-1647275555893-0536f9990b45"), 200, "Melhor consumido quente, no dia"),
             ("TARTINE-SAUMON", "Tartine Saumon", "Fatia de campagne com cream cheese, salmão defumado e alcaparras", 2600, "un", 0, True,
-             f"{IMG}/ts.jpg", 220, "Servir frio, consumir no dia"),
+             unsplash("photo-1600856042179-a78ff49793fd"), 220, "Servir frio, consumir no dia"),
             ("TARTINE-TOMATE", "Tartine Tomate & Burrata", "Fatia de campagne com tomate, burrata e manjericão", 2200, "un", 0, True,
-             f"{IMG}/tt.jpg", 200, "Servir frio, consumir no dia"),
+             unsplash("photo-1580638149300-65f0b9e8fbff"), 200, "Servir frio, consumir no dia"),
             # ── Cafés e Bebidas ──
             ("ESPRESSO", "Espresso", "Café espresso puro, grão especial torrado artesanal", 800, "un", None, True,
-             f"{IMG}/es.jpg", 0, ""),
+             unsplash("photo-1508088405209-fbd63b6a4f50"), 0, ""),
             ("ESPRESSO-DUPLO", "Espresso Duplo", "Dose dupla de espresso", 1000, "un", None, True,
-             f"{IMG}/ed.jpg", 0, ""),
+             unsplash("photo-1507133750040-4a8f57021571"), 0, ""),
             ("CAPPUCCINO", "Cappuccino", "Espresso com leite vaporizado e espuma cremosa", 1200, "un", None, True,
-             f"{IMG}/cp.jpg", 0, ""),
+             unsplash("photo-1506372023823-741c83b836fe"), 0, ""),
             ("LATTE", "Café Latte", "Espresso com bastante leite vaporizado", 1200, "un", None, True,
-             f"{IMG}/lt.jpg", 0, ""),
+             unsplash("photo-1541167760496-1628856ab772"), 0, ""),
             ("CHOCOLATE-QUENTE", "Chocolate Quente", "Chocolate belga com leite vaporizado", 1400, "un", None, True,
-             f"{IMG}/cq.jpg", 0, ""),
+             unsplash("photo-1542990253-0d0f5be5f0ed"), 0, ""),
             ("CHA-EARL-GREY", "Chá Earl Grey", "Chá preto com bergamota, servido em bule", 900, "un", None, True,
-             f"{IMG}/ch.jpg", 0, ""),
+             unsplash("photo-1544787219-7f47ccb76574"), 0, ""),
             ("SUCO-LARANJA", "Suco de Laranja", "Suco natural de laranja espremido na hora", 1200, "un", None, True,
-             f"{IMG}/sl.jpg", 0, ""),
+             unsplash("photo-1612783322374-2e8d108a6299"), 0, ""),
         ]
 
         # Keywords by product (for find_alternatives and search)
