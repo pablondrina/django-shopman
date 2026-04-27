@@ -103,6 +103,9 @@
       {% if product.has_promotion %}
         <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/70 line-through">{{ product.original_price_display }}</p>
         <p class="text-2xl font-semibold text-primary dark:text-primary-dark">{{ product.price_display }}</p>
+        {% if product.promotion_label %}
+        <p class="badge-neutral mt-3 w-fit">{{ product.promotion_label }}</p>
+        {% endif %}
       {% else %}
         <p class="text-2xl font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ product.price_display }}</p>
       {% endif %}
@@ -257,7 +260,7 @@
       {% if product.ingredients_text or product.allergen.allergens or product.allergen.dietary_info or product.nutrition.has_any %}
       <details class="card group p-0">
         <summary class="flex items-center gap-2 cursor-pointer list-none p-4 text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong select-none">
-          <span class="material-symbols-rounded icon-sm text-on-surface/70 dark:text-on-surface-dark/70" aria-hidden="true">list_alt</span>
+          <span class="material-symbols-rounded icon-sm text-on-surface/85 dark:text-on-surface-dark" aria-hidden="true">list_alt</span>
           Ingredientes
           <span class="material-symbols-rounded icon-sm ml-auto transition-transform group-open:rotate-180" aria-hidden="true">expand_more</span>
         </summary>
@@ -268,17 +271,22 @@
           </section>
           {% endif %}
 
+          <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/70 leading-relaxed">
+            <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">Atenção:</span>
+            {{ product.trace_notice }}
+          </p>
+
           {% if product.allergen.allergens or product.allergen.dietary_info %}
           <section class="space-y-2">
             {% if product.allergen.allergens %}
             <p class="text-sm text-on-surface dark:text-on-surface-dark">
-              <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">Alérgenos:</span>
+              <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">Atenção a alergias:</span>
               {{ product.allergen.allergens|join:", " }}.
             </p>
             {% endif %}
             {% if product.allergen.dietary_info %}
             <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/70">
-              <span class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Restrições:</span>&nbsp;
+              <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">Preferências:</span>&nbsp;
               {{ product.allergen.dietary_info|join:", " }}.
             </p>
             {% endif %}
@@ -303,7 +311,7 @@
                 <span class="text-right font-medium text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums">
                   {{ product.nutrition.energy_kcal_display }} kcal
                   {% if product.nutrition.energy_pdv is not None %}
-                  <span class="text-xs text-on-surface/70 dark:text-on-surface-dark/60">({{ product.nutrition.energy_pdv }}% VD)</span>
+                  <span class="text-xs text-on-surface/85 dark:text-on-surface-dark/60">({{ product.nutrition.energy_pdv }}% VD)</span>
                   {% endif %}
                 </span>
               </p>
@@ -315,7 +323,7 @@
                 <span class="text-right font-medium text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums">
                   {{ row.value_display }} {{ row.unit }}
                   {% if row.percent_daily_value is not None %}
-                  <span class="text-xs text-on-surface/70 dark:text-on-surface-dark/60">({{ row.percent_daily_value }}% VD)</span>
+                  <span class="text-xs text-on-surface/85 dark:text-on-surface-dark/60">({{ row.percent_daily_value }}% VD)</span>
                   {% endif %}
                 </span>
               </p>
@@ -334,7 +342,7 @@
       {% if product.conservation.has_any %}
       <details class="card group p-0">
         <summary class="flex items-center gap-2 cursor-pointer list-none p-4 text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong select-none">
-          <span class="material-symbols-rounded icon-sm text-on-surface/70 dark:text-on-surface-dark/70" aria-hidden="true">schedule</span>
+          <span class="material-symbols-rounded icon-sm text-on-surface/85 dark:text-on-surface-dark" aria-hidden="true">schedule</span>
           Conservação
           <span class="material-symbols-rounded icon-sm ml-auto transition-transform group-open:rotate-180" aria-hidden="true">expand_more</span>
         </summary>
@@ -352,7 +360,7 @@
       {% if product.unit_weight_label or product.approx_dimensions_label or product.allergen.serves %}
       <details class="card group p-0">
         <summary class="flex items-center gap-2 cursor-pointer list-none p-4 text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong select-none">
-          <span class="material-symbols-rounded icon-sm text-on-surface/70 dark:text-on-surface-dark/70" aria-hidden="true">straighten</span>
+          <span class="material-symbols-rounded icon-sm text-on-surface/85 dark:text-on-surface-dark" aria-hidden="true">straighten</span>
           Peso e medidas
           <span class="material-symbols-rounded icon-sm ml-auto transition-transform group-open:rotate-180" aria-hidden="true">expand_more</span>
         </summary>

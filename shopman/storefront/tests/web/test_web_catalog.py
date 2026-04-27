@@ -127,18 +127,20 @@ class TestProductDetailView:
         assert "Serve 2 a 4 pessoas" not in body
         assert body.index("Ingredientes") < body.index("Conservação") < body.index("Peso e medidas")
         assert "Composição" not in body
-        assert "Restrições:" in body
+        assert "Preferências:" in body
         assert "Peso e medidas" in body
         assert "aprox. 24 x 12 x 10 cm" in body
         assert "Ingredientes" in body
         assert "Farinha de trigo, água, fermento natural, sal marinho." in body
-        assert "Alérgenos:" in body
+        assert "Atenção a alergias:" in body
+        assert "Pode conter traços" in body
         assert "100% vegetal" in body
         assert "Valor energético" in body
         assert '<meta name="keywords"' in body
         assert "sem lactose" in body
-        assert '"name": "Alérgenos"' in body
-        assert '"name": "Restrições"' in body
+        assert '"name": "Atenção a alergias"' in body
+        assert '"name": "Preferências"' in body
+        assert '"name": "Aviso de produção compartilhada"' in body
 
     def test_product_detail_fallback_base_price(self, client: Client, product):
         resp = client.get(f"/produto/{product.sku}/")

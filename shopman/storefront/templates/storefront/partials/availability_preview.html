@@ -39,16 +39,14 @@
             </a>
           </h3>
           {% if item.is_popular %}
-          <span class="badge-info shrink-0">
-            <span class="material-symbols-rounded" aria-hidden="true">local_fire_department</span>
+          <span class="badge-info shrink-0 px-2 py-0.5 font-medium">
             Popular
           </span>
           {% endif %}
         </div>
 
         {% if item.freshness_label %}
-        <p class="badge-neutral w-fit">
-          <span class="material-symbols-rounded" aria-hidden="true">local_fire_department</span>
+        <p class="badge-neutral w-fit px-2 py-0.5 font-medium">
           {{ item.freshness_label }}
         </p>
         {% elif item.product.short_description %}
@@ -65,10 +63,12 @@
           <div class="min-w-0">
             {% if item.has_promo_price %}
               <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/70 line-through">{{ item.promo_original_price_display }}</p>
-              <p class="text-sm sm:text-base font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.promo_price_display }}</p>
-              {% if item.promo_badge.label %}
-              <span class="badge-warning mt-1">{{ item.promo_badge.label }}</span>
-              {% endif %}
+              <div class="flex items-center gap-1.5">
+                <p class="text-sm sm:text-base font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.promo_price_display }}</p>
+                {% if item.promo_badge.label %}
+                <span class="badge-warning px-2 py-0.5 font-medium">{{ item.promo_badge.label }}</span>
+                {% endif %}
+              </div>
             {% else %}
               <p class="text-sm sm:text-base font-bold text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.price_display }}</p>
             {% endif %}

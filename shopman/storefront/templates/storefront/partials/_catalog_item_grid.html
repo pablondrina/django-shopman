@@ -84,7 +84,12 @@
           <div class="min-w-0">
             {% if item.has_promotion %}
               <p class="text-xs text-on-surface/85 dark:text-on-surface-dark/70 line-through tabular-nums">{{ item.original_price_display }}</p>
-              <p class="text-sm sm:text-base font-semibold text-primary dark:text-primary-dark tabular-nums">{{ item.price_display }}</p>
+              <div class="flex items-center gap-1.5">
+                <p class="text-sm sm:text-base font-semibold text-primary dark:text-primary-dark tabular-nums">{{ item.price_display }}</p>
+                {% if item.promotion_label %}
+                <span class="badge-warning w-fit px-2 py-0.5 font-medium">{{ item.promotion_label }}</span>
+                {% endif %}
+              </div>
             {% else %}
               <p class="text-sm sm:text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums">{{ item.price_display }}</p>
             {% endif %}

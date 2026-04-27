@@ -54,7 +54,7 @@ class CopyEntry:
 OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     # ── Menu ──────────────────────────────────────────────────────
     "MENU_SUBTITLE": {
-        MOMENT_MADRUGADA: {WILDCARD: CopyEntry(message="Ainda nem abrimos. Olhe o cardápio à vontade.")},
+        MOMENT_MADRUGADA: {WILDCARD: CopyEntry(message="A casa ainda está se preparando. Escolha com calma.")},
         MOMENT_MANHA: {WILDCARD: CopyEntry(message="Fresquinho do forno.")},
         MOMENT_ALMOCO: {WILDCARD: CopyEntry(message="Cardápio do almoço.")},
         MOMENT_TARDE: {WILDCARD: CopyEntry(message="Para o café da tarde.")},

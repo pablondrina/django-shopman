@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 from shopman.utils.monetary import format_money
 
 from shopman.shop.config import ChannelConfig
+from shopman.shop.food_safety import TRACE_NOTICE_PT
 from shopman.shop.projections.types import (
     AVAILABILITY_LABELS_PT,
     Availability,
@@ -152,6 +153,7 @@ class ProductDetailProjection:
 
     # Ingredients (human text, pt-BR) + nutritional table
     ingredients_text: str | None
+    trace_notice: str
     nutrition: NutritionFactsProjection | None
 
     # SEO/search-facing product facts
@@ -291,6 +293,7 @@ def build_product_detail(
         allergen=allergen,
         conservation=conservation,
         ingredients_text=ingredients_text,
+        trace_notice=TRACE_NOTICE_PT,
         nutrition=nutrition,
         seo_description=seo_description,
         seo_keywords=seo_keywords,
@@ -398,9 +401,9 @@ def _seo_description(
         product.short_description or product.long_description or product.name,
     ]
     if allergen and allergen.allergens:
-        parts.append(f"Alérgenos: {', '.join(allergen.allergens)}.")
+        parts.append(f"Atenção a alergias: {', '.join(allergen.allergens)}.")
     if allergen and allergen.dietary_info:
-        parts.append(f"Restrições: {', '.join(allergen.dietary_info)}.")
+        parts.append(f"Preferências: {', '.join(allergen.dietary_info)}.")
     if conservation and conservation.shelf_life_label:
         parts.append(conservation.shelf_life_label + ".")
     return " ".join(str(part).strip() for part in parts if str(part).strip())
