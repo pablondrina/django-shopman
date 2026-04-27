@@ -72,7 +72,7 @@
 
         {# SSE-driven availability slot: refetches per-SKU badge on push (WP-AV-10). #}
         <div hx-get="{% url 'storefront:sku_state' item.sku %}?channel_ref={{ storefront_channel_ref|default:'web' }}"
-             hx-trigger="sse:stock-update[JSON.parse(event.data).sku=='{{ item.sku }}'],sse:product-paused[JSON.parse(event.data).sku=='{{ item.sku }}'],sse:listing-changed[JSON.parse(event.data).sku=='{{ item.sku }}'], every 60s"
+             hx-trigger="sse:stock-update[shopmanSseSku(event)=='{{ item.sku }}'],sse:product-paused[shopmanSseSku(event)=='{{ item.sku }}'],sse:listing-changed[shopmanSseSku(event)=='{{ item.sku }}'], every 60s"
              hx-swap="innerHTML">
           {% if item.availability != "available" %}
             {% include "storefront/components/availability_badge.html" with state=item.availability.value %}

@@ -15,6 +15,17 @@
   <link rel="stylesheet" href="{% static 'storefront/css/output-gestor.css' %}">
 
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script>
+  window.shopmanSseSku = function(event) {
+    try {
+      if (!event || !event.data) return "";
+      var data = JSON.parse(event.data);
+      return data && data.sku ? String(data.sku) : "";
+    } catch (err) {
+      return "";
+    }
+  };
+  </script>
 
   {% block extra_head %}{% endblock %}
 

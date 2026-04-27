@@ -120,6 +120,7 @@ def _render(request, admin_site):
         "craft_summary": board.counts,
         "planned_queue": board.planned_queue,
         "started_queue": board.started_queue,
+        "finished_queue": board.finished_queue,
         "selected_position_ref": board.selected_position_ref,
         "selected_operator_ref": board.selected_operator_ref,
         "selected_date": selected_date,

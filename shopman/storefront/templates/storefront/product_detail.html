@@ -80,7 +80,7 @@
     {# Availability badge — SSE refresh target (WP-AV-10). #}
     <div class="absolute top-3 right-3"
          hx-get="{% url 'storefront:sku_state' product.sku %}?channel_ref={{ storefront_channel_ref|default:'web' }}"
-         hx-trigger="sse:stock-update[JSON.parse(event.data).sku=='{{ product.sku }}'],sse:product-paused[JSON.parse(event.data).sku=='{{ product.sku }}'],sse:listing-changed[JSON.parse(event.data).sku=='{{ product.sku }}']"
+         hx-trigger="sse:stock-update[shopmanSseSku(event)=='{{ product.sku }}'],sse:product-paused[shopmanSseSku(event)=='{{ product.sku }}'],sse:listing-changed[shopmanSseSku(event)=='{{ product.sku }}']"
          hx-swap="innerHTML">
       {% if product.availability != "available" %}
         {% include "storefront/components/availability_badge.html" with state=product.availability.value %}

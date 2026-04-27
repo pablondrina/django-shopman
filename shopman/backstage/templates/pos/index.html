@@ -73,7 +73,7 @@
              :class="isUnavailable('{{ p.sku }}') ? 'opacity-40 cursor-not-allowed grayscale' : 'cursor-pointer active:scale-95 hover:shadow-sm'"
              data-sku="{{ p.sku }}"
              hx-get="{% url 'storefront:sku_state' p.sku %}?channel_ref={{ pos_channel_ref|default:'pdv' }}"
-             hx-trigger="sse:stock-update[JSON.parse(event.data).sku=='{{ p.sku }}'],sse:product-paused[JSON.parse(event.data).sku=='{{ p.sku }}'],sse:listing-changed[JSON.parse(event.data).sku=='{{ p.sku }}']"
+             hx-trigger="sse:stock-update[shopmanSseSku(event)=='{{ p.sku }}'],sse:product-paused[shopmanSseSku(event)=='{{ p.sku }}'],sse:listing-changed[shopmanSseSku(event)=='{{ p.sku }}']"
              hx-swap="none"
              x-show="matchesTile('{{ p.name|escapejs }}', '{{ p.sku }}', '{{ p.collection_ref }}')"
              @click="if (isUnavailable('{{ p.sku }}')) return; addItem({sku:'{{ p.sku }}', name:'{{ p.name|escapejs }}', price_q:{{ p.price_q }}, is_d1:{{ p.is_d1|yesno:'true,false' }}})">

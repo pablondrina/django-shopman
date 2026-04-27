@@ -37,6 +37,17 @@
 
   {# HTMX SSE extension — receives stock-update / product-paused / listing-changed events. WP-AV-10. #}
   <script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/sse.js"></script>
+  <script>
+  window.shopmanSseSku = function(event) {
+    try {
+      if (!event || !event.data) return "";
+      var data = JSON.parse(event.data);
+      return data && data.sku ? String(data.sku) : "";
+    } catch (err) {
+      return "";
+    }
+  };
+  </script>
 
   {# auto-animate (2.6 kB ESM via CDN) — declarative list transitions via x-auto-animate #}
   <script type="module">

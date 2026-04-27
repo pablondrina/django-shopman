@@ -113,6 +113,7 @@ class ProductionBoardProjection:
     counts: ProductionCountsProjection
     planned_queue: tuple[WorkOrderCardProjection, ...]
     started_queue: tuple[WorkOrderCardProjection, ...]
+    finished_queue: tuple[WorkOrderCardProjection, ...]
     recipes: tuple[RecipeOptionProjection, ...]
     positions: tuple[PositionOptionProjection, ...]
     default_position_pk: int | None
@@ -172,6 +173,10 @@ def build_production_board(
         for item in queue_items
         if item.status == WorkOrder.Status.STARTED
     )
+    finished_queue = tuple(
+        wo for wo in wo_cards
+        if wo.status == WorkOrder.Status.FINISHED
+    )
 
     counts = ProductionCountsProjection(
         total=summary.total_orders,
@@ -211,6 +216,7 @@ def build_production_board(
         counts=counts,
         planned_queue=planned_queue,
         started_queue=started_queue,
+        finished_queue=finished_queue,
         recipes=recipes,
         positions=positions,
         default_position_pk=default_pos.pk if default_pos else None,

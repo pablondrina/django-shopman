@@ -34,6 +34,8 @@ def dispatch(order) -> list:
     - If item's product has an active Recipe → type = "prep"
     - Otherwise → type = "picking"
     - Match to KDSInstance by type + collection overlap
+    - If no exact type match exists, prefer a collection-specific station
+      before falling back to a generic catch-all
     - Fallback: instances with no collections (catch-all)
 
     Idempotent: skips if tickets already exist for this order.
@@ -90,13 +92,12 @@ def dispatch(order) -> list:
         item_type = "prep" if sku in prep_skus else "picking"
         col_id = sku_to_collection.get(sku)
 
-        matched = []
-        if col_id:
-            matched = type_col_map.get((item_type, col_id), [])
-        if not matched:
-            matched = catchall_map.get(item_type, [])
-        if not matched and item_type == "prep":
-            matched = catchall_map.get("picking", [])
+        matched = _match_instances(
+            item_type=item_type,
+            collection_id=col_id,
+            type_col_map=type_col_map,
+            catchall_map=catchall_map,
+        )
 
         if not matched:
             logger.warning(
@@ -126,6 +127,39 @@ def dispatch(order) -> list:
 
     logger.info("kds.dispatch: %d tickets for order %s", len(tickets), order.ref)
     return tickets
+
+
+def _match_instances(
+    *,
+    item_type: str,
+    collection_id: int | None,
+    type_col_map: dict,
+    catchall_map: dict,
+) -> list:
+    """Return KDS instances for one routable item.
+
+    Recipe tells whether an item is batch production. Collection tells which
+    real workstation owns the item. A collection-specific station must win
+    over a generic catch-all, otherwise drinks and made-to-order items without
+    a Recipe end up in the "Encomendas" bucket.
+    """
+    if collection_id:
+        exact = type_col_map.get((item_type, collection_id), [])
+        if exact:
+            return exact
+
+        fallback_type = "prep" if item_type == "picking" else "picking"
+        collection_specific = type_col_map.get((fallback_type, collection_id), [])
+        if collection_specific:
+            return collection_specific
+
+    catchall = catchall_map.get(item_type, [])
+    if catchall:
+        return catchall
+
+    if item_type == "prep":
+        return catchall_map.get("picking", [])
+    return []
 
 
 def _build_routable_items(order_items) -> list[dict]:
