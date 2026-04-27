@@ -116,7 +116,9 @@ def test_customer_surfaces_keep_focus_first_hierarchy():
 
     assert "h-36 sm:h-44 md:h-auto md:aspect-square" in pdp
     assert "text-3xl" not in pdp
-    assert "h-28 sm:h-32" in login
+    assert "w-screen -translate-x-1/2 -my-6" in login
+    assert "bg-white shadow-2xl" in login
+    assert "h-28 sm:h-32" not in login
     assert "h-44 sm:h-56" not in login
     assert "text-2xl lg:text-3xl" not in menu
     assert "text-2xl lg:text-3xl" not in cart_page

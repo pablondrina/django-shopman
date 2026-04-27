@@ -13,53 +13,53 @@
 {% omotenashi 'LOGIN_NAME_SUBTITLE' as login_name_subtitle %}
 {% omotenashi 'LOGIN_NAME_CTA' as login_name_cta %}
 
-<div class="max-w-lg mx-auto mt-3 sm:mt-8 px-4"
+<div class="relative left-1/2 w-screen -translate-x-1/2 -my-6 overflow-hidden bg-black"
      x-data="{ showChangePhoneConfirm: false }">
+  <img src="https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=1800&q=82"
+       alt=""
+       aria-hidden="true"
+       class="absolute inset-0 h-full w-full object-cover"
+       loading="eager"
+       fetchpriority="high">
+  <div class="absolute inset-0 bg-black/45" aria-hidden="true"></div>
+  <div class="absolute inset-0" aria-hidden="true"
+       style="background: linear-gradient(180deg, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.62) 100%);"></div>
 
-  {% comment %}── Card de autenticação: contexto compacto + formulário em primeiro plano ──{% endcomment %}
-  <div class="rounded-radius overflow-hidden border border-outline bg-white shadow-sm dark:border-outline-dark dark:bg-surface-dark">
+  <div class="relative z-10 mx-auto flex min-h-[calc(100svh-8rem)] max-w-6xl items-center justify-center px-4 py-8 sm:min-h-[calc(100svh-10rem)] sm:py-12">
 
-    {% comment %}── Cabeçalho compacto: orienta sem empurrar a ação principal ──{% endcomment %}
-    <div class="relative h-28 sm:h-32">
-      <img src="https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=1600&q=80"
-           alt=""
-           aria-hidden="true"
-           class="absolute inset-0 h-full w-full object-cover"
-           loading="eager"
-           fetchpriority="high">
-      <div class="absolute inset-0 bg-black/55" aria-hidden="true"></div>
-      <div class="absolute inset-0" aria-hidden="true"
-           style="background: radial-gradient(ellipse at center, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 70%);"></div>
-      <div class="relative z-10 h-full flex flex-col items-center justify-center text-center px-6 sm:px-8 text-white">
+  {% comment %}── Card de autenticação: imagem ambiente fora; ação em primeiro plano ──{% endcomment %}
+  <div class="w-full max-w-lg overflow-hidden rounded-radius border border-outline bg-white shadow-2xl dark:border-outline-dark dark:bg-surface-dark">
+
+    {% comment %}── Cabeçalho compacto: só orientação, sem competir com o formulário ──{% endcomment %}
+    <div class="border-b border-outline px-5 py-5 text-center dark:border-outline-dark sm:px-6">
         {% if step == "code" %}
-          <p class="font-title text-sm opacity-95 mb-1 drop-shadow-md">Oi{% if customer_name %}, {{ customer_name }}{% endif %}!</p>
-          <h1 class="font-title text-xl sm:text-2xl font-semibold leading-tight drop-shadow-lg">
+          <p class="font-title text-sm text-on-surface/85 dark:text-on-surface-dark/70">Oi{% if customer_name %}, {{ customer_name }}{% endif %}.</p>
+          <h1 class="mt-1 font-title text-xl sm:text-2xl font-semibold leading-tight text-on-surface-strong dark:text-on-surface-dark-strong">
             {{ login_code_heading.title }}
           </h1>
         {% elif step == "name" %}
-          <p class="font-title text-sm opacity-95 mb-1 drop-shadow-md">Último passo</p>
-          <h1 class="font-title text-xl sm:text-2xl font-semibold leading-tight drop-shadow-lg">
+          <p class="font-title text-sm text-on-surface/85 dark:text-on-surface-dark/70">Último passo</p>
+          <h1 class="mt-1 font-title text-xl sm:text-2xl font-semibold leading-tight text-on-surface-strong dark:text-on-surface-dark-strong">
             {{ login_name_heading.title }}
           </h1>
         {% else %}
           {% if trusted_name %}
-            <p class="font-title text-sm opacity-95 mb-1 drop-shadow-md">Olá, {{ trusted_name }}!</p>
-            <h1 class="font-title text-xl sm:text-2xl font-semibold leading-tight drop-shadow-lg">
+            <p class="font-title text-sm text-on-surface/85 dark:text-on-surface-dark/70">Olá, {{ trusted_name }}.</p>
+            <h1 class="mt-1 font-title text-xl sm:text-2xl font-semibold leading-tight text-on-surface-strong dark:text-on-surface-dark-strong">
               Acesse sua conta
             </h1>
           {% elif login_context == "checkout" %}
-            <p class="font-title text-sm opacity-95 mb-1 drop-shadow-md">Só mais um passo</p>
-            <h1 class="font-title text-xl sm:text-2xl font-semibold leading-tight drop-shadow-lg">
+            <p class="font-title text-sm text-on-surface/85 dark:text-on-surface-dark/70">Só mais um passo</p>
+            <h1 class="mt-1 font-title text-xl sm:text-2xl font-semibold leading-tight text-on-surface-strong dark:text-on-surface-dark-strong">
               Entre para continuar
             </h1>
           {% else %}
-            <p class="font-title text-sm opacity-95 mb-1 drop-shadow-md">Boas-vindas</p>
-            <h1 class="font-title text-xl sm:text-2xl font-semibold leading-tight drop-shadow-lg">
+            <p class="font-title text-sm text-on-surface/85 dark:text-on-surface-dark/70">Boas-vindas</p>
+            <h1 class="mt-1 font-title text-xl sm:text-2xl font-semibold leading-tight text-on-surface-strong dark:text-on-surface-dark-strong">
               {{ login_phone_heading.title }}
             </h1>
           {% endif %}
         {% endif %}
-      </div>
     </div>
 
     {% comment %}── Corpo do card — subtítulo contextual + form ──{% endcomment %}
@@ -303,6 +303,7 @@
     {% endif %}
 
     </div>{% comment %}── /corpo do card ──{% endcomment %}
+  </div>
   </div>
 
   {% comment %}── Modal de confirmação ao trocar telefone ──{% endcomment %}
