@@ -7,11 +7,11 @@
 {% block content %}
 <div class="flex items-center justify-center p-8 min-h-full">
   <div class="w-full max-w-md">
-    <div class="card rounded-2xl p-8 shadow-md">
+    <div class="card p-6 sm:p-8 shadow-md">
       <div class="text-center mb-6">
-        <span class="material-symbols-rounded text-success text-4xl block mb-2" aria-hidden="true">task_alt</span>
-        <h1 class="font-title font-bold text-xl text-on-surface-strong dark:text-on-surface-dark-strong">Caixa Fechado</h1>
-        <p class="text-on-surface/60 dark:text-on-surface-dark/60 text-sm">{{ session.opened_at|date:"d/m/Y H:i" }} → {{ session.closed_at|date:"H:i" }}</p>
+        <span class="material-symbols-rounded text-success icon-xl block mb-2" aria-hidden="true">task_alt</span>
+        <h1 class="font-title font-semibold text-xl text-on-surface-strong dark:text-on-surface-dark-strong">Caixa Fechado</h1>
+        <p class="text-on-surface/70 dark:text-on-surface-dark/70 text-sm">{{ session.opened_at|date:"d/m/Y H:i" }} <span aria-hidden="true">•</span> {{ session.closed_at|date:"H:i" }}</p>
       </div>
 
       {% comment %}Summary table{% endcomment %}
@@ -50,7 +50,7 @@
       </div>
 
       {% if session.notes %}
-      <p class="text-xs text-on-surface/40 dark:text-on-surface-dark/40 italic mb-4">Obs: {{ session.notes }}</p>
+      <p class="text-sm text-on-surface/70 dark:text-on-surface-dark/70 italic mb-4">Obs: {{ session.notes }}</p>
       {% endif %}
 
       <a href="/gestor/pos/"

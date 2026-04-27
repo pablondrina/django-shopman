@@ -1,5 +1,5 @@
 {% extends "gestor/base.html" %}
-{% block title %}Histórico de Pedidos — Gestor{% endblock %}
+{% block title %}Histórico de Pedidos | Gestor{% endblock %}
 {% block page_title %}Histórico{% endblock %}
 {% block nav_active_pedidos %}active{% endblock %}
 
@@ -11,7 +11,7 @@
        class="btn-icon"
        title="Voltar ao Gestor"
        aria-label="Voltar ao Gestor">
-      <span class="material-symbols-rounded text-xl" aria-hidden="true">arrow_back</span>
+      <span class="material-symbols-rounded icon-md" aria-hidden="true">arrow_back</span>
     </a>
     <span class="text-sm text-on-surface/40 dark:text-on-surface-dark/40">
       Últimos 20 pedidos concluídos, entregues ou cancelados
@@ -22,11 +22,11 @@
   <div class="flex flex-col gap-2 max-w-2xl">
     {% for o in orders %}
     <div class="card p-3 flex items-center gap-3">
-      <span class="material-symbols-rounded text-base text-on-surface/40 dark:text-on-surface-dark/40 shrink-0"
+      <span class="material-symbols-rounded icon-sm text-on-surface/70 dark:text-on-surface-dark/70 shrink-0"
             aria-hidden="true">{{ o.channel_icon }}</span>
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 mb-0.5">
-          <strong class="font-mono text-sm">#{{ o.ref }}</strong>
+          <strong class="text-sm tabular-nums">#{{ o.ref }}</strong>
           <span class="badge badge-{{ o.status }}">{{ o.status_label }}</span>
           {% if o.customer_name %}
           <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 truncate">{{ o.customer_name }}</span>
@@ -45,8 +45,8 @@
   </div>
   {% else %}
   <div class="flex flex-col items-center justify-center h-64
-              text-on-surface/25 dark:text-on-surface-dark/25 text-center">
-    <span class="material-symbols-rounded text-4xl mb-2" aria-hidden="true">history</span>
+              text-on-surface/60 dark:text-on-surface-dark/60 text-center">
+    <span class="material-symbols-rounded icon-xl mb-2" aria-hidden="true">history</span>
     <p class="text-sm">Nenhum pedido concluído ainda</p>
   </div>
   {% endif %}

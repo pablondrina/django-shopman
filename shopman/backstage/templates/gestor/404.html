@@ -1,13 +1,13 @@
 {% extends "gestor/base.html" %}
-{% block title %}Página não encontrada — Gestor{% endblock %}
+{% block title %}Página não encontrada | Gestor{% endblock %}
 {% block page_title %}Não encontrado{% endblock %}
 
 {% block content %}
 <div class="flex flex-col items-center justify-center h-full gap-6 text-center px-8">
-  <span class="material-symbols-rounded text-on-surface/20 dark:text-on-surface-dark/20"
-        style="font-size: 4rem" aria-hidden="true">search_off</span>
+  <span class="material-symbols-rounded icon-display text-on-surface/60 dark:text-on-surface-dark/60"
+        aria-hidden="true">search_off</span>
   <div>
-    <h2 class="text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong mb-2">
+    <h2 class="text-xl font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-2">
       Página não encontrada
     </h2>
     <p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60 max-w-xs mx-auto">
@@ -15,7 +15,7 @@
     </p>
   </div>
   <a href="/gestor/pedidos/" class="btn-primary inline-flex items-center gap-2">
-    <span class="material-symbols-rounded text-base" aria-hidden="true">arrow_back</span>
+    <span class="material-symbols-rounded icon-sm" aria-hidden="true">arrow_back</span>
     Voltar ao Gestor
   </a>
 </div>

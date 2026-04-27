@@ -4,11 +4,11 @@
          x-data="{ loading: false }">
   <div class="flex items-center justify-between gap-2">
     <div class="flex items-center gap-1.5 text-base">
-      <span class="material-symbols-rounded text-base" aria-hidden="true">{{ t.channel_icon }}</span>
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true">{{ t.channel_icon }}</span>
       <strong>#{{ t.ref }}</strong>
     </div>
     <span class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 inline-flex items-center gap-1">
-      <span class="material-symbols-rounded text-base" aria-hidden="true">{{ t.fulfillment_icon }}</span>
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true">{{ t.fulfillment_icon }}</span>
       {{ t.fulfillment_label }}
     </span>
   </div>
@@ -33,9 +33,9 @@
             hx-confirm="Despachar #{{ t.ref }}?&#10;{{ t.customer_name }} · {{ t.items_count }} item{{ t.items_count|pluralize:'s' }} · {{ t.total_display }}"
             x-on:htmx:before-request="loading = true"
             x-on:htmx:after-request="loading = false">
-      <span class="material-symbols-rounded" aria-hidden="true" x-show="!loading">local_shipping</span>
-      <span x-show="loading" class="material-symbols-rounded animate-spin" aria-hidden="true">progress_activity</span>
-      DESPACHAR
+      <span class="material-symbols-rounded icon-md" aria-hidden="true" x-show="!loading">local_shipping</span>
+      <span x-show="loading" class="material-symbols-rounded icon-md animate-spin" aria-hidden="true">progress_activity</span>
+      Despachar
     </button>
     {% else %}
     <button class="btn-success w-full text-base font-bold inline-flex items-center justify-center gap-2"
@@ -47,9 +47,9 @@
             hx-confirm="Entregar #{{ t.ref }}?&#10;{{ t.customer_name }} · {{ t.items_count }} item{{ t.items_count|pluralize:'s' }} · {{ t.total_display }}"
             x-on:htmx:before-request="loading = true"
             x-on:htmx:after-request="loading = false">
-      <span class="material-symbols-rounded" aria-hidden="true" x-show="!loading">check_circle</span>
-      <span x-show="loading" class="material-symbols-rounded animate-spin" aria-hidden="true">progress_activity</span>
-      ENTREGAR
+      <span class="material-symbols-rounded icon-md" aria-hidden="true" x-show="!loading">check_circle</span>
+      <span x-show="loading" class="material-symbols-rounded icon-md animate-spin" aria-hidden="true">progress_activity</span>
+      Entregar
     </button>
     {% endif %}
   </div>
@@ -70,7 +70,7 @@
   {% comment %}Card header: ref + status + timer (K12: target context){% endcomment %}
   <div class="flex items-center justify-between gap-2">
     <div class="flex items-center gap-1.5 text-base">
-      <span class="material-symbols-rounded text-base" aria-hidden="true">{{ t.channel_icon }}</span>
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true">{{ t.channel_icon }}</span>
       <strong>#{{ t.order_ref }}</strong>
       {% if t.status == "in_progress" %}
       <span class="badge-info">Preparando</span>
@@ -79,7 +79,7 @@
     <div class="font-mono text-base font-semibold tabular-nums flex items-center gap-1"
          :class="elapsed < {{ t.target_seconds }} ? 'text-success' : (elapsed < {{ t.target_seconds }}*2 ? 'text-warning' : 'text-danger')"
          :title="'Meta: {{ instance.target_time_minutes }} min'">
-      <span class="material-symbols-rounded text-base" aria-hidden="true"
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true"
             x-show="elapsed >= {{ t.target_seconds }}*2">priority_high</span>
       <span x-text="Math.floor(elapsed/60) + ':' + String(Math.floor(elapsed%60)).padStart(2,'0')"></span>
       <span class="text-xs font-normal opacity-60" aria-hidden="true">/{{ instance.target_time_minutes }}min</span>
@@ -89,7 +89,7 @@
   {% comment %}Customer / fulfillment info{% endcomment %}
   {% if t.customer_name %}
   <div class="text-xs text-on-surface/60 dark:text-on-surface-dark/60 flex items-center gap-1.5">
-    <span class="material-symbols-rounded text-base" aria-hidden="true">{{ t.fulfillment_icon }}</span>
+    <span class="material-symbols-rounded icon-sm" aria-hidden="true">{{ t.fulfillment_icon }}</span>
     {{ t.customer_name }}
   </div>
   {% endif %}
@@ -101,7 +101,7 @@
     <div class="flex items-center gap-2 min-h-12 px-0.5 py-1 rounded
                 {% if item.checked %}opacity-40 line-through{% endif %}"
          role="listitem">
-      <span class="material-symbols-rounded text-xl" aria-hidden="true">{% if item.checked %}check_box{% else %}check_box_outline_blank{% endif %}</span>
+      <span class="material-symbols-rounded icon-md" aria-hidden="true">{% if item.checked %}check_box{% else %}check_box_outline_blank{% endif %}</span>
       <span class="text-base flex-1 leading-tight">
         <span class="font-semibold tabular-nums">{{ item.qty }}&times;</span> {{ item.name }}
       </span>
@@ -117,7 +117,7 @@
          hx-vals='{"index": "{{ forloop.counter0 }}"}'
          hx-target="closest [data-kds-ticket]"
          hx-swap="outerHTML settle:50ms">
-      <span class="material-symbols-rounded text-xl" aria-hidden="true">{% if item.checked %}check_box{% else %}check_box_outline_blank{% endif %}</span>
+      <span class="material-symbols-rounded icon-md" aria-hidden="true">{% if item.checked %}check_box{% else %}check_box_outline_blank{% endif %}</span>
       <span class="text-base flex-1 leading-tight">
         <span class="font-semibold tabular-nums">{{ item.qty }}&times;</span> {{ item.name }}
       </span>
@@ -125,14 +125,14 @@
     {% endif %}
     {% if item.notes %}
     <div class="text-xs pl-8 flex items-start gap-1 font-semibold leading-relaxed text-warning">
-      <span class="material-symbols-rounded text-base" aria-hidden="true">warning</span>
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true">warning</span>
       {{ item.notes }}
     </div>
     {% endif %}
     {% if item.stock_warning %}
     <div class="text-xs pl-8 flex items-start gap-1 font-semibold leading-relaxed
                 {% if item.stock_warning == 'Sem estoque' %}text-danger{% else %}text-warning{% endif %}">
-      <span class="material-symbols-rounded text-base" aria-hidden="true">inventory_2</span>
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true">inventory_2</span>
       {{ item.stock_warning }}
     </div>
     {% endif %}
@@ -148,9 +148,9 @@
           hx-swap="outerHTML"
           x-on:htmx:before-request="loading = true"
           x-on:htmx:after-request="loading = false">
-    <span class="material-symbols-rounded" aria-hidden="true" x-show="!loading">done_all</span>
-    <span x-show="loading" class="material-symbols-rounded animate-spin" aria-hidden="true">progress_activity</span>
-    PRONTO
+    <span class="material-symbols-rounded icon-md" aria-hidden="true" x-show="!loading">done_all</span>
+    <span x-show="loading" class="material-symbols-rounded icon-md animate-spin" aria-hidden="true">progress_activity</span>
+    Pronto
   </button>
   {% endif %}
 </article>

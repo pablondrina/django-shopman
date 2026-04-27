@@ -1,5 +1,5 @@
 {% extends "gestor/base.html" %}
-{% block title %}Gestor de Pedidos — {{ shop.name|default:"Loja" }}{% endblock %}
+{% block title %}Gestor de Pedidos | {{ shop.name|default:"Loja" }}{% endblock %}
 {% block page_title %}Pedidos{% endblock %}
 {% block nav_active_pedidos %}active{% endblock %}
 {% block main_class %}overflow-hidden flex flex-col{% endblock %}
@@ -11,8 +11,8 @@
   <div x-show="offline" x-cloak x-transition.opacity
        class="px-4 py-2 bg-danger text-on-danger text-sm font-semibold flex items-center gap-2 shrink-0"
        role="alert">
-    <span class="material-symbols-rounded text-base" aria-hidden="true">cloud_off</span>
-    Sem conexão — reconectando automaticamente…
+    <span class="material-symbols-rounded icon-sm" aria-hidden="true">cloud_off</span>
+    Sem conexão. Reconectando automaticamente…
   </div>
 
   {% comment %}Operator alerts banner{% endcomment %}
@@ -22,12 +22,12 @@
               bg-warning/10 dark:bg-warning/5">
     {% for alert in alerts %}
     <div class="flex items-center gap-2 text-sm">
-      <span class="material-symbols-rounded text-base {% if alert.severity == 'critical' %}text-danger{% elif alert.severity == 'error' %}text-danger{% else %}text-warning{% endif %}" aria-hidden="true">
+      <span class="material-symbols-rounded icon-sm {% if alert.severity == 'critical' %}text-danger{% elif alert.severity == 'error' %}text-danger{% else %}text-warning{% endif %}" aria-hidden="true">
         {% if alert.severity == 'critical' %}error{% elif alert.severity == 'error' %}warning{% else %}info{% endif %}
       </span>
       <span class="flex-1 {% if alert.severity == 'critical' %}text-danger font-semibold{% endif %}">
         {{ alert.message }}
-        {% if alert.order_ref %}<span class="font-mono text-xs opacity-60">#{{ alert.order_ref }}</span>{% endif %}
+        {% if alert.order_ref %}<span class="text-xs opacity-80 tabular-nums">#{{ alert.order_ref }}</span>{% endif %}
       </span>
       <button class="btn-icon text-xs"
               hx-post="/gestor/pedidos/alerts/{{ alert.pk }}/ack/"
@@ -35,7 +35,7 @@
               hx-swap="outerHTML"
               title="Dispensar"
               aria-label="Dispensar alerta">
-        <span class="material-symbols-rounded text-base" aria-hidden="true">close</span>
+        <span class="material-symbols-rounded icon-sm" aria-hidden="true">close</span>
       </button>
     </div>
     {% endfor %}
@@ -56,19 +56,19 @@
           x-text="orderCount + ' pedidos'"></span>
     <div class="ml-auto flex items-center gap-1">
       <a href="/gestor/pedidos/historico/" class="btn-icon" title="Histórico" aria-label="Histórico">
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">history</span>
+        <span class="material-symbols-rounded icon-md" aria-hidden="true">history</span>
       </a>
       <button type="button" class="btn-icon"
               @click="toggleSound()"
               :title="soundEnabled ? 'Desativar som' : 'Ativar som'"
               :aria-label="soundEnabled ? 'Desativar som' : 'Ativar som'">
-        <span class="material-symbols-rounded text-xl" x-text="soundEnabled ? 'volume_up' : 'volume_off'" aria-hidden="true"></span>
+        <span class="material-symbols-rounded icon-md" x-text="soundEnabled ? 'volume_up' : 'volume_off'" aria-hidden="true"></span>
       </button>
       <button type="button" class="btn-icon"
               @click="toggleFullscreen()"
               :title="isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'"
               :aria-label="isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'">
-        <span class="material-symbols-rounded text-xl" x-text="isFullscreen ? 'close_fullscreen' : 'open_in_full'" aria-hidden="true"></span>
+        <span class="material-symbols-rounded icon-md" x-text="isFullscreen ? 'close_fullscreen' : 'open_in_full'" aria-hidden="true"></span>
       </button>
     </div>
   </div>
@@ -80,7 +80,7 @@
        class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50
               bg-danger text-on-danger px-4 py-2 rounded-lg shadow-lg text-sm font-semibold
               flex items-center gap-2" role="alert">
-    <span class="material-symbols-rounded text-base" aria-hidden="true">error</span>
+    <span class="material-symbols-rounded icon-sm" aria-hidden="true">error</span>
     <span x-text="msg"></span>
   </div>
 
@@ -91,7 +91,7 @@
        class="fixed bottom-16 left-1/2 -translate-x-1/2 z-50
               bg-success text-on-success px-4 py-2 rounded-lg shadow-lg text-sm font-semibold
               flex items-center gap-2" role="status">
-    <span class="material-symbols-rounded text-base" aria-hidden="true">check_circle</span>
+    <span class="material-symbols-rounded icon-sm" aria-hidden="true">check_circle</span>
     <span x-text="msg"></span>
   </div>
 

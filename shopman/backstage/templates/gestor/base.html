@@ -3,7 +3,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>{% block title %}Gestor{% endblock %}</title>
@@ -69,10 +69,10 @@
            class="btn-icon relative {% block nav_active_pedidos %}{% endblock %}"
            title="Pedidos"
            aria-label="Pedidos">
-          <span class="material-symbols-rounded text-xl" aria-hidden="true">receipt_long</span>
+          <span class="material-symbols-rounded icon-md" aria-hidden="true">receipt_long</span>
           {% if new_orders_count %}
-          <span class="absolute top-0.5 right-0.5 min-w-[1rem] h-4 px-0.5 rounded-full
-                       bg-warning text-on-warning text-[9px] font-bold
+          <span class="absolute top-0.5 right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full
+                       bg-warning text-on-warning text-xs font-bold
                        flex items-center justify-center leading-none"
                 aria-label="{{ new_orders_count }} pedidos novos">{{ new_orders_count }}</span>
           {% endif %}
@@ -81,9 +81,9 @@
         {% url 'backstage:kds_index' as url_kds %}
         <a href="{{ url_kds }}"
            class="btn-icon {% block nav_active_kds %}{% endblock %}"
-           title="KDS — Cozinha"
+           title="KDS · Cozinha"
            aria-label="KDS">
-          <span class="material-symbols-rounded text-xl" aria-hidden="true">kitchen</span>
+          <span class="material-symbols-rounded icon-md" aria-hidden="true">kitchen</span>
         </a>
 
         {% url 'backstage:pos' as url_pos %}
@@ -91,7 +91,7 @@
            class="btn-icon {% block nav_active_pos %}{% endblock %}"
            title="Ponto de Venda"
            aria-label="Ponto de Venda">
-          <span class="material-symbols-rounded text-xl" aria-hidden="true">point_of_sale</span>
+          <span class="material-symbols-rounded icon-md" aria-hidden="true">point_of_sale</span>
         </a>
 
         {% url 'admin:shop_production' as url_producao %}
@@ -99,7 +99,7 @@
            class="btn-icon {% block nav_active_producao %}{% endblock %}"
            title="Produção"
            aria-label="Produção">
-          <span class="material-symbols-rounded text-xl" aria-hidden="true">factory</span>
+          <span class="material-symbols-rounded icon-md" aria-hidden="true">factory</span>
         </a>
 
         {% url 'admin:shop_closing' as url_fechamento %}
@@ -107,14 +107,14 @@
            class="btn-icon {% block nav_active_fechamento %}{% endblock %}"
            title="Fechamento do Dia"
            aria-label="Fechamento">
-          <span class="material-symbols-rounded text-xl" aria-hidden="true">lock_clock</span>
+          <span class="material-symbols-rounded icon-md" aria-hidden="true">lock_clock</span>
         </a>
 
         <a href="/admin/"
            class="btn-icon"
-           title="Dashboard — Admin"
+           title="Dashboard · Admin"
            aria-label="Dashboard">
-          <span class="material-symbols-rounded text-xl" aria-hidden="true">dashboard</span>
+          <span class="material-symbols-rounded icon-md" aria-hidden="true">dashboard</span>
         </a>
 
       </nav>
@@ -126,7 +126,7 @@
                 class="btn-icon"
                 :title="isDark ? 'Mudar para modo claro' : 'Mudar para modo escuro'"
                 :aria-label="isDark ? 'Mudar para modo claro' : 'Mudar para modo escuro'">
-          <span class="material-symbols-rounded text-xl"
+          <span class="material-symbols-rounded icon-md"
                 x-text="isDark ? 'light_mode' : 'dark_mode'"
                 aria-hidden="true"></span>
         </button>
@@ -149,7 +149,7 @@
                 class="btn-icon md:hidden"
                 aria-label="Abrir menu de navegação"
                 :aria-expanded="drawerOpen.toString()">
-          <span class="material-symbols-rounded text-xl" aria-hidden="true">menu</span>
+          <span class="material-symbols-rounded icon-md" aria-hidden="true">menu</span>
         </button>
 
         {% comment %}Page title{% endcomment %}

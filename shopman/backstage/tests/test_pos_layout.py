@@ -68,8 +68,10 @@ class POSLayoutTests(TestCase):
         self.client.force_login(self.staff)
         resp = self.client.get("/gestor/pos/")
         content = resp.content.decode()
-        # Uses Tailwind class, not old custom CSS class
-        self.assertIn("rounded-xl", content)
+        # Uses the current compact surface radius and canonical composition tokens.
+        self.assertIn("rounded-lg", content)
+        self.assertIn("segmented-action", content)
+        self.assertIn("btn-quiet", content)
         # Design tokens are rendered (gestor CSS link present)
         self.assertIn("output-gestor.css", content)
 

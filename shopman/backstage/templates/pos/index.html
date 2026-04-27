@@ -1,6 +1,6 @@
 {% extends "gestor/base.html" %}
 {% load storefront_tags %}
-{% block title %}POS — {{ shop.brand_name|default:shop.name }}{% endblock %}
+{% block title %}POS | {{ shop.brand_name|default:shop.name }}{% endblock %}
 {% block page_title %}Ponto de Venda{% endblock %}
 {% block nav_active_pos %}active{% endblock %}
 {% block main_class %}overflow-hidden{% endblock %}
@@ -22,8 +22,8 @@
 
   {% comment %}Parked session tab bar{% endcomment %}
   <div class="flex items-center gap-1.5 px-3 py-1.5 border-b border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt shrink-0 overflow-x-auto">
-    <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark shrink-0">
-      <span class="material-symbols-rounded text-xs" aria-hidden="true">point_of_sale</span>
+    <div class="badge bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark border-transparent shrink-0">
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true">point_of_sale</span>
       <span x-show="!activeTab" x-cloak>Nova venda</span>
       <span x-show="activeTab" x-cloak>Tab <span x-text="activeTab"></span></span>
       <span x-show="itemCount > 0" x-cloak class="opacity-70"
@@ -38,10 +38,10 @@
   </div>
 
   {% comment %}Main 2-column{% endcomment %}
-  <main class="flex-1 flex overflow-hidden min-h-0">
+  <main class="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
 
     {% comment %}LEFT: Products{% endcomment %}
-    <div class="flex-1 flex flex-col overflow-hidden border-r border-outline dark:border-outline-dark min-w-0">
+    <div class="flex-1 flex flex-col overflow-hidden md:border-r border-outline dark:border-outline-dark min-w-0 min-h-0">
 
       {% comment %}Filters bar{% endcomment %}
       <div class="px-3 py-2 flex flex-col gap-2 border-b border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt shrink-0">
@@ -50,15 +50,15 @@
                placeholder="Buscar produto... (/)"
                x-model="search">
         {% if collections %}
-        <div class="flex gap-1.5 flex-wrap">
+        <div class="flex gap-1.5 overflow-x-auto scrollbar-hide md:flex-wrap">
           <button type="button"
-                  class="px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors"
-                  :class="activeCollection === '' ? 'bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark border-transparent' : 'bg-transparent text-on-surface dark:text-on-surface-dark border-outline dark:border-outline-dark hover:bg-outline/30 dark:hover:bg-outline-dark/30'"
+                  class="pill shrink-0"
+                  :class="activeCollection === '' ? 'pill--active' : ''"
                   @click="activeCollection = ''">Todos</button>
           {% for col in collections %}
           <button type="button"
-                  class="px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors"
-                  :class="activeCollection === '{{ col.ref }}' ? 'bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark border-transparent' : 'bg-transparent text-on-surface dark:text-on-surface-dark border-outline dark:border-outline-dark hover:bg-outline/30 dark:hover:bg-outline-dark/30'"
+                  class="pill shrink-0"
+                  :class="activeCollection === '{{ col.ref }}' ? 'pill--active' : ''"
                   @click="activeCollection = '{{ col.ref }}'">{{ col.name }}</button>
           {% endfor %}
         </div>
@@ -69,7 +69,7 @@
       <div class="flex-1 overflow-y-auto p-3 grid gap-2 content-start"
            style="grid-template-columns: repeat(auto-fill, minmax(110px, 1fr))">
         {% for p in products %}
-        <div class="rounded-xl p-2.5 text-center transition-all duration-100 flex flex-col items-center gap-1 min-h-[84px] justify-center select-none relative {% if p.is_d1 %}bg-warning/5 border border-warning/40{% else %}bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark{% endif %}"
+        <div class="rounded-lg p-2.5 text-center transition-all duration-100 flex flex-col items-center gap-1 min-h-[96px] justify-center select-none relative {% if p.is_d1 %}bg-warning/5 border border-warning/40{% else %}bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark{% endif %}"
              :class="isUnavailable('{{ p.sku }}') ? 'opacity-40 cursor-not-allowed grayscale' : 'cursor-pointer active:scale-95 hover:shadow-sm'"
              data-sku="{{ p.sku }}"
              hx-get="{% url 'storefront:sku_state' p.sku %}?channel_ref={{ pos_channel_ref|default:'pdv' }}"
@@ -78,16 +78,16 @@
              x-show="matchesTile('{{ p.name|escapejs }}', '{{ p.sku }}', '{{ p.collection_ref }}')"
              @click="if (isUnavailable('{{ p.sku }}')) return; addItem({sku:'{{ p.sku }}', name:'{{ p.name|escapejs }}', price_q:{{ p.price_q }}, is_d1:{{ p.is_d1|yesno:'true,false' }}})">
           {% if p.is_d1 %}
-          <span class="absolute top-1 right-1 text-[9px] font-bold px-1 py-0.5 rounded badge-warning leading-none">D-1</span>
+          <span class="absolute top-1.5 right-1.5 badge-warning leading-none">D-1</span>
           {% endif %}
           <span class="text-xs font-semibold leading-tight text-on-surface-strong dark:text-on-surface-dark-strong">{{ p.name }}</span>
-          <span class="text-[0.6875rem] text-secondary dark:text-primary-dark font-bold">{{ p.price_display }}</span>
-          <span x-show="isUnavailable('{{ p.sku }}')" x-cloak class="absolute inset-0 flex items-center justify-center bg-surface-alt/60 dark:bg-surface-dark-alt/60 rounded-xl text-[10px] font-bold uppercase tracking-wide text-warning">
+          <span class="text-xs text-secondary dark:text-primary-dark font-bold">{{ p.price_display }}</span>
+          <span x-show="isUnavailable('{{ p.sku }}')" x-cloak class="absolute inset-0 flex items-center justify-center bg-surface-alt/80 dark:bg-surface-dark-alt/80 rounded-lg text-xs font-semibold text-warning">
             Indisponível
           </span>
           <span x-show="!isUnavailable('{{ p.sku }}') && isLowStock('{{ p.sku }}')" x-cloak
                 class="absolute bottom-1 left-0 right-0 flex justify-center">
-            <span class="text-[8px] font-bold badge-warning px-1 py-0.5 rounded leading-none"
+            <span class="badge-warning leading-none"
                   x-text="'Restam ' + lowStockSkus['{{ p.sku }}']"></span>
           </span>
         </div>
@@ -98,11 +98,11 @@
     </div>
 
     {% comment %}RIGHT: Cart sidebar{% endcomment %}
-    <div class="w-80 flex flex-col bg-surface-alt dark:bg-surface-dark-alt shrink-0" style="min-width:260px;max-width:340px">
+    <div class="w-full md:w-80 flex flex-col bg-surface-alt dark:bg-surface-dark-alt shrink-0 border-t md:border-t-0 border-outline dark:border-outline-dark max-h-[44svh] md:max-h-none md:min-w-[260px] md:max-w-[340px]">
 
       {% comment %}Cart header{% endcomment %}
       <div class="px-4 py-2.5 border-b border-outline dark:border-outline-dark font-bold text-sm flex items-center gap-2 shrink-0">
-        <span class="material-symbols-rounded text-on-surface/40 dark:text-on-surface-dark/40 text-base" aria-hidden="true">shopping_cart</span>
+        <span class="material-symbols-rounded icon-sm text-on-surface/50 dark:text-on-surface-dark/50" aria-hidden="true">shopping_cart</span>
         Venda
         <span x-show="cart.length > 0" x-cloak class="text-on-surface/40 dark:text-on-surface-dark/40 font-normal"
               x-text="'(' + itemCount + (itemCount === 1 ? ' item' : ' itens') + ')'"></span>
@@ -110,8 +110,8 @@
 
       {% comment %}Employee discount banner{% endcomment %}
       <div x-show="isStaff" x-cloak
-           class="mx-3 mt-2 px-3 py-2 rounded-lg badge-info text-xs font-semibold flex items-center gap-1.5 shrink-0">
-        <span class="material-symbols-rounded text-base" aria-hidden="true">badge</span>
+           class="mx-3 mt-2 badge-info flex items-center gap-1.5 shrink-0">
+        <span class="material-symbols-rounded icon-sm" aria-hidden="true">badge</span>
         Desconto funcionário 20% aplicado
       </div>
 
@@ -119,9 +119,9 @@
       <div class="flex-1 overflow-y-auto px-3 py-2 min-h-0">
         <template x-if="cart.length === 0">
           <div class="flex flex-col items-center justify-center py-8 px-4 text-center gap-2">
-            <span class="material-symbols-rounded text-5xl text-on-surface/15 dark:text-on-surface-dark/15 select-none" aria-hidden="true">add_shopping_cart</span>
+            <span class="material-symbols-rounded icon-display text-on-surface/30 dark:text-on-surface-dark/30 select-none" aria-hidden="true">add_shopping_cart</span>
             <p class="text-sm font-semibold text-on-surface/50 dark:text-on-surface-dark/50">Carrinho vazio</p>
-            <p class="text-xs text-on-surface/35 dark:text-on-surface-dark/35">Toque em um produto ao lado para começar</p>
+            <p class="text-sm text-on-surface/70 dark:text-on-surface-dark/70">Toque em um produto ao lado para começar</p>
           </div>
         </template>
         <template x-for="(item, idx) in cart" :key="item.sku + idx">
@@ -129,39 +129,41 @@
             <div class="flex items-center gap-2 text-sm">
               <div class="flex-1 min-w-0">
                 <span class="font-medium leading-tight truncate block" x-text="item.name"></span>
-                <span x-show="item.is_d1" class="text-[10px] font-bold badge-warning px-1 rounded leading-none">D-1</span>
+                <span x-show="item.is_d1" class="badge-warning leading-none">D-1</span>
               </div>
               <div class="flex items-center gap-1 shrink-0">
                 <button type="button"
-                        class="w-6 h-6 border border-outline dark:border-outline-dark rounded text-xs flex items-center justify-center hover:bg-outline/30 dark:hover:bg-outline-dark/30"
+                        class="btn-icon-sm"
                         @click="dec(idx)">−</button>
                 <span x-text="item.qty" class="text-center tabular-nums" style="min-width:20px"></span>
                 <button type="button"
-                        class="w-6 h-6 border border-outline dark:border-outline-dark rounded text-xs flex items-center justify-center hover:bg-outline/30 dark:hover:bg-outline-dark/30"
+                        class="btn-icon-sm"
                         @click="inc(idx)">+</button>
               </div>
               <div class="font-semibold tabular-nums shrink-0" style="min-width:56px;text-align:right" x-text="formatMoney(item.qty * item.price_q)"></div>
               <button type="button"
-                      class="w-6 h-6 flex items-center justify-center text-on-surface/40 dark:text-on-surface-dark/40 hover:text-on-surface dark:hover:text-on-surface-dark shrink-0"
+                      class="btn-icon-sm shrink-0"
                       @click="toggleNote(idx)"
                       title="Observação">
-                <span class="material-symbols-rounded text-sm" aria-hidden="true">edit_note</span>
+                <span class="material-symbols-rounded icon-sm" aria-hidden="true">edit_note</span>
               </button>
             </div>
             {% comment %}Note field{% endcomment %}
             <div x-show="expandedNoteIdx === idx" x-cloak class="mt-1.5">
               <input type="text"
-                     class="w-full px-2 py-1 text-xs border border-outline dark:border-outline-dark rounded bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark placeholder:text-on-surface/40 focus:outline-none focus:ring-1 focus:ring-primary/30 dark:focus:ring-primary-dark/30"
+                     class="input-field"
                      placeholder="Observação (ex: sem açúcar)"
                      x-model="item.note">
-              <p x-show="item.note" x-cloak class="text-[10px] italic text-on-surface/40 dark:text-on-surface-dark/40 mt-0.5" x-text="'↳ ' + item.note"></p>
+              <p x-show="item.note" x-cloak class="text-sm italic text-on-surface/70 dark:text-on-surface-dark/70 mt-1" x-text="'• ' + item.note"></p>
             </div>
           </div>
         </template>
       </div>
 
       {% comment %}Cart footer{% endcomment %}
-      <div class="border-t border-outline dark:border-outline-dark px-3 py-3 flex flex-col gap-2.5 shrink-0">
+      <div x-show="cart.length > 0"
+           x-cloak
+           class="border-t border-outline dark:border-outline-dark px-3 py-3 flex flex-col gap-2.5 shrink-0">
 
         {% comment %}Subtotal / discount rows{% endcomment %}
         <div class="flex justify-between text-sm text-on-surface/60 dark:text-on-surface-dark/60" x-show="discountQ > 0" x-cloak>
@@ -183,7 +185,7 @@
         {% comment %}Customer lookup{% endcomment %}
         <div>
           <input type="tel" name="phone"
-                 class="w-full px-2.5 py-1.5 border border-outline dark:border-outline-dark rounded-lg text-sm bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark placeholder:text-on-surface/40 focus:outline-none focus:ring-1 focus:ring-primary/30 dark:focus:ring-primary-dark/30"
+                 class="input-field"
                  placeholder="Telefone do cliente"
                  x-model="customerPhone"
                  hx-post="/gestor/pos/customer-lookup/"
@@ -208,13 +210,13 @@
         <div class="flex gap-1.5">
           {% for pm in payment_methods %}
           <button type="button"
-                  class="flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors"
-                  :class="paymentMethod === '{{ pm.ref }}' ? 'bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark border-transparent' : 'bg-transparent text-on-surface dark:text-on-surface-dark border-outline dark:border-outline-dark hover:bg-outline/30 dark:hover:bg-outline-dark/30'"
+                  class="segmented-action"
+                  :class="paymentMethod === '{{ pm.ref }}' ? 'segmented-action--active' : ''"
                   @click="paymentMethod = '{{ pm.ref }}'">{{ pm.label }}</button>
           {% empty %}
-          <button type="button" class="flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors" :class="paymentMethod === 'cash' ? 'bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark border-transparent' : 'bg-transparent text-on-surface dark:text-on-surface-dark border-outline dark:border-outline-dark'" @click="paymentMethod = 'cash'">Dinheiro</button>
-          <button type="button" class="flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors" :class="paymentMethod === 'pix' ? 'bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark border-transparent' : 'bg-transparent text-on-surface dark:text-on-surface-dark border-outline dark:border-outline-dark'" @click="paymentMethod = 'pix'">PIX</button>
-          <button type="button" class="flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors" :class="paymentMethod === 'card' ? 'bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark border-transparent' : 'bg-transparent text-on-surface dark:text-on-surface-dark border-outline dark:border-outline-dark'" @click="paymentMethod = 'card'">Cartão</button>
+          <button type="button" class="segmented-action" :class="paymentMethod === 'cash' ? 'segmented-action--active' : ''" @click="paymentMethod = 'cash'">Dinheiro</button>
+          <button type="button" class="segmented-action" :class="paymentMethod === 'pix' ? 'segmented-action--active' : ''" @click="paymentMethod = 'pix'">PIX</button>
+          <button type="button" class="segmented-action" :class="paymentMethod === 'card' ? 'segmented-action--active' : ''" @click="paymentMethod = 'card'">Cartão</button>
           {% endfor %}
         </div>
 
@@ -252,7 +254,7 @@
                 hx-vals="js:{payload: Alpine.$data(document.getElementById('pos-root')).cartPayload()}"
                 hx-target="#pos-result"
                 hx-swap="innerHTML">
-          <span class="htmx-indicator material-symbols-rounded animate-spin text-xl leading-none" aria-hidden="true">progress_activity</span>
+          <span class="htmx-indicator material-symbols-rounded animate-spin icon-md leading-none" aria-hidden="true">progress_activity</span>
           <span>Fechar Venda</span>
           <span class="text-on-primary/60 dark:text-on-primary-dark/60 text-sm font-normal">(F8)</span>
         </button>
@@ -260,21 +262,21 @@
         {% comment %}Action row: clear + discount + estacionar{% endcomment %}
         <div class="flex gap-1.5">
           <button type="button"
-                  class="flex-1 py-2 text-xs font-semibold bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark rounded-lg text-on-surface/60 dark:text-on-surface-dark/60 hover:bg-outline/30 dark:hover:bg-outline-dark/30 disabled:opacity-40"
+                  class="btn-quiet flex-1"
                   :disabled="cart.length === 0"
                   @click="cart = []; clearDiscount(); tenderedInput = ''; expandedNoteIdx = -1; activeTab = ''; $refs.result.innerHTML = ''"
                   title="Limpar carrinho">
             Limpar <span class="text-on-surface/40 dark:text-on-surface-dark/40">(F5)</span>
           </button>
           <button type="button"
-                  class="flex-1 py-2 text-xs font-semibold bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark rounded-lg text-on-surface/60 dark:text-on-surface-dark/60 hover:bg-outline/30 dark:hover:bg-outline-dark/30 disabled:opacity-40"
+                  class="btn-quiet flex-1"
                   :disabled="cart.length === 0"
                   @click="showDiscountModal = true"
                   title="Aplicar desconto">
             % Desc <span class="text-on-surface/40 dark:text-on-surface-dark/40">(F6)</span>
           </button>
           <button type="button"
-                  class="flex-1 py-2 text-xs font-semibold bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark rounded-lg text-on-surface/60 dark:text-on-surface-dark/60 hover:bg-outline/30 dark:hover:bg-outline-dark/30 disabled:opacity-40"
+                  class="btn-quiet flex-1"
                   :disabled="cart.length === 0"
                   title="Standby tab"
                   hx-post="/gestor/pos/park/"
@@ -282,7 +284,7 @@
                   hx-target="#pos-park-result"
                   hx-swap="innerHTML"
                   x-on:htmx:after-request="if(event.detail.successful && event.detail.xhr.status < 300){ cart=[]; customerPhone=''; customerName=''; customerGroup=''; clearDiscount(); tenderedInput=''; paymentMethod='cash'; expandedNoteIdx=-1; activeTab=''; $refs.result.innerHTML=''; }">
-            <span class="material-symbols-rounded text-xs align-middle" aria-hidden="true">pause_circle</span>
+            <span class="material-symbols-rounded icon-sm" aria-hidden="true">pause_circle</span>
             Estacionar
           </button>
         </div>
@@ -290,7 +292,7 @@
           <button type="button"
                   x-show="lastOrderRef"
                   x-cloak
-                  class="flex-1 py-2 text-xs font-semibold bg-danger/10 border border-danger/30 rounded-lg text-danger hover:bg-danger/20"
+                  class="btn-danger flex-1"
                   hx-post="/gestor/pos/cancel-last/"
                   hx-vals="js:{order_ref: lastOrderRef}"
                   hx-target="#pos-cancel-result"
@@ -312,7 +314,7 @@
        :class="open ? 'flex' : 'hidden'"
        @keydown.escape.window="open = false">
     <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="open = false"></div>
-    <div class="relative bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark rounded-2xl p-6 w-full max-w-sm shadow-xl">
+    <div class="surface-modal max-w-sm">
       <h2 class="font-title font-bold text-lg mb-4">Movimentação de Caixa</h2>
       <form hx-post="/gestor/pos/caixa/sangria/"
             hx-target="#pos-sangria-result"
@@ -336,8 +338,8 @@
                  class="input-field"
                  placeholder="Motivo (opcional)" x-model="reason">
           <div class="flex gap-2 mt-1">
-            <button type="button" class="btn-secondary flex-1 py-2.5 rounded-xl" @click="open = false">Cancelar</button>
-            <button type="submit" class="btn-primary flex-1 py-2.5 rounded-xl disabled:opacity-40" :disabled="!amount">Confirmar</button>
+            <button type="button" class="btn-secondary flex-1" @click="open = false">Cancelar</button>
+            <button type="submit" class="btn-primary flex-1" :disabled="!amount">Confirmar</button>
           </div>
         </div>
       </form>
@@ -353,7 +355,7 @@
        style="align-items:center;justify-content:center;padding:1rem"
        @keydown.escape.window="open = false">
     <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="open = false"></div>
-    <form class="relative bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark rounded-2xl p-6 w-full max-w-sm shadow-xl"
+    <form class="surface-modal max-w-sm"
           hx-post="/gestor/pos/caixa/fechar/"
           hx-target="body"
           hx-swap="outerHTML"
@@ -368,9 +370,9 @@
                   class="textarea-field"
                   placeholder="Observações (opcional)" x-model="notes"></textarea>
         <div class="flex gap-2 mt-1">
-          <button type="button" class="btn-secondary flex-1 py-2.5 rounded-xl" @click="open = false">Cancelar</button>
-          <button type="submit" class="btn-danger flex-1 py-2.5 rounded-xl disabled:opacity-40" :disabled="closing === ''">
-            <span class="htmx-indicator material-symbols-rounded animate-spin text-base mr-1" aria-hidden="true">progress_activity</span>
+          <button type="button" class="btn-secondary flex-1" @click="open = false">Cancelar</button>
+          <button type="submit" class="btn-danger flex-1" :disabled="closing === ''">
+            <span class="htmx-indicator material-symbols-rounded animate-spin icon-sm mr-1" aria-hidden="true">progress_activity</span>
             Fechar Caixa
           </button>
         </div>
@@ -383,7 +385,7 @@
        class="fixed inset-0 z-50 flex items-center justify-center p-4"
        @click.self="showDiscountModal = false">
     <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
-    <div class="relative bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark rounded-2xl p-6 w-full max-w-sm shadow-xl"
+    <div class="surface-modal max-w-sm"
          @keydown.escape.window="showDiscountModal = false">
       <h2 class="font-title font-bold text-lg mb-4">Aplicar Desconto</h2>
       <div class="flex flex-col gap-3">
@@ -400,7 +402,7 @@
         </div>
         {% comment %}Value{% endcomment %}
         <div>
-          <label class="text-xs font-semibold text-on-surface/40 dark:text-on-surface-dark/40 mb-1 block"
+          <label class="field-label"
                  x-text="discountType === 'percent' ? 'Percentual' : 'Valor em R$'"></label>
           <input type="number" min="0" step="0.01"
                  class="input-field"
@@ -414,7 +416,7 @@
         </div>
         {% comment %}Reason{% endcomment %}
         <div>
-          <label class="text-xs font-semibold text-on-surface/40 dark:text-on-surface-dark/40 mb-1 block">Motivo <span class="text-danger">*</span></label>
+          <label class="field-label">Motivo <span class="text-danger">*</span></label>
           <select class="select-field" x-model="discountReason">
             <option value="cortesia">Cortesia</option>
             <option value="avaria">Avaria</option>
@@ -426,10 +428,10 @@
         {% comment %}Actions{% endcomment %}
         <div class="flex gap-2 mt-1">
           <button type="button"
-                  class="btn-secondary flex-1 py-2.5 rounded-xl"
+                  class="btn-secondary flex-1"
                   @click="showDiscountModal = false; clearDiscount()">Cancelar</button>
           <button type="button"
-                  class="btn-primary flex-1 py-2.5 rounded-xl disabled:opacity-40"
+                  class="btn-primary flex-1"
                   :disabled="!discountValue || parseFloat(discountValue) <= 0 || !discountReason"
                   @click="applyDiscount()">Aplicar</button>
         </div>
@@ -438,49 +440,49 @@
   </div>
 
   {% comment %}Shift summary footer{% endcomment %}
-  <footer class="bg-surface-alt dark:bg-surface-dark-alt border-t border-outline dark:border-outline-dark px-4 py-2 flex items-center justify-between text-xs text-on-surface/40 dark:text-on-surface-dark/40 shrink-0">
-    <div id="pos-shift-footer" class="flex items-center gap-4"
+  <footer class="bg-surface-alt dark:bg-surface-dark-alt border-t border-outline dark:border-outline-dark px-3 md:px-4 py-2 flex flex-nowrap items-center justify-between gap-2 overflow-x-auto scrollbar-hide text-xs md:text-sm text-on-surface/70 dark:text-on-surface-dark/70 shrink-0">
+    <div id="pos-shift-footer" class="flex flex-nowrap items-center gap-4 min-w-max"
          hx-get="/gestor/pos/shift-summary/"
          hx-trigger="load, posOrderCreated from:body, every 60s"
          hx-swap="innerHTML">
-      <span>Carregando turno…</span>
+      <span>Carregando turno...</span>
     </div>
     {% comment %}Keyboard shortcuts legend{% endcomment %}
     <div class="relative" x-data="{ open: false }" @keydown.escape.window="open = false">
       <button type="button"
-              class="w-6 h-6 rounded-full border border-outline dark:border-outline-dark text-on-surface/40 dark:text-on-surface-dark/40 hover:text-on-surface dark:hover:text-on-surface-dark hover:bg-outline/30 dark:hover:bg-outline-dark/30 text-xs font-bold flex items-center justify-center"
+              class="btn-icon-sm rounded-full font-bold"
               @click="open = !open"
               title="Atalhos de teclado">?</button>
       <div x-show="open" x-cloak @click.outside="open = false"
-           class="absolute bottom-8 left-0 z-40 bg-surface dark:bg-surface-dark border border-outline dark:border-outline-dark rounded-xl shadow-xl p-3 w-56 text-xs">
+           class="absolute bottom-8 left-0 z-40 bg-surface dark:bg-surface-dark border border-outline dark:border-outline-dark rounded-lg shadow-xl p-3 w-56 text-sm">
         <p class="font-bold text-on-surface dark:text-on-surface-dark mb-2">Atalhos de teclado</p>
         <table class="w-full text-on-surface/70 dark:text-on-surface-dark/70">
-          <tr><td class="py-0.5 pr-2 font-mono font-semibold">/</td><td>Focar busca</td></tr>
-          <tr><td class="py-0.5 pr-2 font-mono font-semibold">F1–F4</td><td>Filtrar coleção</td></tr>
-          <tr><td class="py-0.5 pr-2 font-mono font-semibold">F5</td><td>Limpar carrinho</td></tr>
-          <tr><td class="py-0.5 pr-2 font-mono font-semibold">F6</td><td>Aplicar desconto</td></tr>
-          <tr><td class="py-0.5 pr-2 font-mono font-semibold">F8</td><td>Fechar venda</td></tr>
-          <tr><td class="py-0.5 pr-2 font-mono font-semibold">Enter</td><td>Fechar venda</td></tr>
-          <tr><td class="py-0.5 pr-2 font-mono font-semibold">Esc</td><td>Fechar modal / limpar</td></tr>
+          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">/</td><td>Focar busca</td></tr>
+          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">F1-F4</td><td>Filtrar coleção</td></tr>
+          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">F5</td><td>Limpar carrinho</td></tr>
+          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">F6</td><td>Aplicar desconto</td></tr>
+          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">F8</td><td>Fechar venda</td></tr>
+          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">Enter</td><td>Fechar venda</td></tr>
+          <tr><td class="py-0.5 pr-2 font-semibold tabular-nums">Esc</td><td>Fechar modal / limpar</td></tr>
         </table>
       </div>
     </div>
 
     {% comment %}Cash register actions in footer{% endcomment %}
-    <div class="flex items-center gap-2"
+    <div class="flex items-center gap-2 shrink-0"
          x-data
          @open-sangria.window="$dispatch('open-sangria-modal')"
          @open-cash-close.window="$dispatch('open-cash-close-modal')">
       <button type="button"
-              class="px-2.5 py-1 rounded-lg text-xs font-semibold border border-outline dark:border-outline-dark text-on-surface/40 dark:text-on-surface-dark/40 hover:bg-outline/30 dark:hover:bg-outline-dark/30"
+              class="btn-quiet"
               @click="Alpine.$data(document.querySelector('#pos-sangria-modal')).open = true">
-        <span class="material-symbols-rounded text-xs" aria-hidden="true" style="vertical-align:-1px">swap_vert</span>
+        <span class="material-symbols-rounded icon-sm" aria-hidden="true">swap_vert</span>
         Sangria
       </button>
       <button type="button"
-              class="px-2.5 py-1 rounded-lg text-xs font-semibold border border-danger/30 text-danger hover:bg-danger/10"
+              class="btn-danger"
               @click="Alpine.$data(document.querySelector('#pos-cash-close-modal')).open = true">
-        <span class="material-symbols-rounded text-xs" aria-hidden="true" style="vertical-align:-1px">lock</span>
+        <span class="material-symbols-rounded icon-sm" aria-hidden="true">lock</span>
         Fechar Caixa
       </button>
     </div>

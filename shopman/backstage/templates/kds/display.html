@@ -1,12 +1,12 @@
 {% extends "gestor/base.html" %}
-{% block title %}{{ instance.name }} — KDS{% endblock %}
+{% block title %}{{ instance.name }} | KDS{% endblock %}
 {% block page_title %}{{ instance.name }}{% endblock %}
 {% block nav_active_kds %}active{% endblock %}
 {% block main_class %}overflow-hidden flex flex-col{% endblock %}
 
 {% block navbar_actions %}
 <a href="/gestor/kds/" class="btn-icon" title="Voltar à lista" aria-label="Voltar à lista">
-  <span class="material-symbols-rounded text-xl" aria-hidden="true">arrow_back</span>
+  <span class="material-symbols-rounded icon-md" aria-hidden="true">arrow_back</span>
 </a>
 {% endblock %}
 
@@ -18,8 +18,8 @@
   <div x-show="offline" x-cloak x-transition.opacity
        class="px-4 py-2 bg-danger text-on-danger text-sm font-semibold flex items-center gap-2 shrink-0"
        role="alert">
-    <span class="material-symbols-rounded text-base" aria-hidden="true">cloud_off</span>
-    Sem conexão — reconectando automaticamente…
+    <span class="material-symbols-rounded icon-sm" aria-hidden="true">cloud_off</span>
+    Sem conexão. Reconectando automaticamente…
   </div>
 
   {% comment %}Surface toolbar: ticket count + heartbeat + sound + volume + fullscreen{% endcomment %}
@@ -44,7 +44,7 @@
                 @click="cycleVolume()"
                 :title="'Volume: ' + volumeLabel"
                 :aria-label="'Volume: ' + volumeLabel">
-          <span class="material-symbols-rounded text-xl" aria-hidden="true"
+          <span class="material-symbols-rounded icon-md" aria-hidden="true"
                 x-text="volumeLevel === 'low' ? 'volume_down' : (volumeLevel === 'high' ? 'volume_up' : 'volume_up')"></span>
         </button>
       </div>
@@ -53,13 +53,13 @@
               @click="toggleSound()"
               :title="soundEnabled ? 'Som ativo' : 'Som desativado'"
               :aria-label="soundEnabled ? 'Desativar som' : 'Ativar som'">
-        <span class="material-symbols-rounded text-xl" x-text="soundEnabled ? 'volume_up' : 'volume_off'" aria-hidden="true"></span>
+        <span class="material-symbols-rounded icon-md" x-text="soundEnabled ? 'volume_up' : 'volume_off'" aria-hidden="true"></span>
       </button>
       <button type="button" class="btn-icon"
               @click="toggleFullscreen()"
               title="Tela cheia"
               aria-label="Alternar tela cheia">
-        <span class="material-symbols-rounded text-xl" aria-hidden="true" x-text="isFullscreen ? 'close_fullscreen' : 'open_in_full'"></span>
+        <span class="material-symbols-rounded icon-md" aria-hidden="true" x-text="isFullscreen ? 'close_fullscreen' : 'open_in_full'"></span>
       </button>
     </div>
   </div>

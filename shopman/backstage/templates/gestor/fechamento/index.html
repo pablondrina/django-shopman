@@ -1,5 +1,5 @@
 {% extends "gestor/base.html" %}
-{% block title %}Fechamento do Dia — {{ shop.name|default:"Loja" }}{% endblock %}
+{% block title %}Fechamento do Dia | {{ shop.name|default:"Loja" }}{% endblock %}
 {% block page_title %}Fechamento do Dia{% endblock %}
 {% block nav_active_fechamento %}active{% endblock %}
 
@@ -13,7 +13,7 @@
   {% endif %}
 
   {% if has_old_d1 %}
-  <div class="bg-warning/10 border border-warning/30 rounded-xl p-4">
+  <div class="card border-warning/30 bg-warning/10">
     <p class="text-sm font-medium text-warning">Atenção: há estoque D-1 com mais de 1 dia na posição "ontem".</p>
   </div>
   {% endif %}
@@ -48,9 +48,9 @@
               </td>
               <td class="py-2 pr-4">
                 {% if not existing_closing %}
-                <input type="number" name="qty_{{ item.sku }}" value="0" min="0" max="{{ item.qty_available }}" class="w-20 border border-outline dark:border-outline-dark rounded-lg px-2 py-1 text-sm bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark focus:outline-none focus:ring-1 focus:ring-primary/30 dark:focus:ring-primary-dark/30" />
+                <input type="number" name="qty_{{ item.sku }}" value="0" min="0" max="{{ item.qty_available }}" class="input-field w-24 py-2" />
                 {% else %}
-                <span class="text-on-surface/40 dark:text-on-surface-dark/40">—</span>
+                <span class="text-on-surface/70 dark:text-on-surface-dark/70">Fechado</span>
                 {% endif %}
               </td>
             </tr>
@@ -75,8 +75,9 @@
     {% endif %}
   </form>
   {% else %}
-  <div class="card">
-    <p class="text-sm text-on-surface/40 dark:text-on-surface-dark/40">Nenhum produto com estoque vendável para fechamento.</p>
+  <div class="card empty-state min-h-48">
+    <span class="material-symbols-rounded icon-xl mb-2" aria-hidden="true">inventory_2</span>
+    <p class="text-sm">Nenhum produto com estoque vendável para fechamento.</p>
   </div>
   {% endif %}
 

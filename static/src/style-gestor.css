@@ -67,6 +67,7 @@
         font-family: var(--font-body);
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
+        overflow-x: clip;
     }
 
     h1, h2, h3, h4, h5, h6 {
@@ -83,6 +84,14 @@
         justify-content: center;
         vertical-align: -0.125em;
     }
+
+    @media (max-width: 767px) {
+        input,
+        select,
+        textarea {
+            font-size: 16px;
+        }
+    }
 }
 
 /* Touch target (WCAG 2.5.5) */
@@ -97,7 +106,34 @@
     .card {
         @apply bg-surface-alt dark:bg-surface-dark-alt
                border border-outline dark:border-outline-dark
-               rounded-xl p-4;
+               rounded-lg p-4;
+    }
+
+    .surface-modal {
+        @apply bg-surface-alt dark:bg-surface-dark-alt
+               border border-outline dark:border-outline-dark
+               rounded-lg p-5 w-full shadow-xl;
+    }
+
+    .empty-state {
+        @apply flex flex-col items-center justify-center text-center
+               text-on-surface/60 dark:text-on-surface-dark/60;
+    }
+
+    .field-label {
+        @apply block text-sm font-medium text-on-surface-strong dark:text-on-surface-dark-strong mb-1.5;
+    }
+
+    .field-help {
+        @apply text-sm text-on-surface/70 dark:text-on-surface-dark/70 mt-1;
+    }
+
+    .metric-label {
+        @apply text-sm text-on-surface/70 dark:text-on-surface-dark/70;
+    }
+
+    .metric-value {
+        @apply text-lg font-semibold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums;
     }
 
     /* Buttons */
@@ -132,11 +168,38 @@
                hover:opacity-90 transition-opacity
                disabled:opacity-40 disabled:cursor-not-allowed;
     }
+    .btn-ghost {
+        @apply text-on-surface dark:text-on-surface-dark
+               px-3 py-2 rounded-lg font-medium text-sm touch-target
+               inline-flex items-center justify-center gap-2
+               hover:bg-outline/30 dark:hover:bg-outline-dark/30
+               transition-colors
+               disabled:opacity-40 disabled:cursor-not-allowed;
+    }
+
+    .btn-quiet {
+        @apply bg-surface-alt dark:bg-surface-dark-alt
+               text-on-surface dark:text-on-surface-dark
+               border border-outline dark:border-outline-dark
+               px-3 py-2 rounded-lg font-medium text-sm touch-target
+               inline-flex items-center justify-center gap-2
+               hover:bg-outline/30 dark:hover:bg-outline-dark/30
+               transition-colors
+               disabled:opacity-40 disabled:cursor-not-allowed;
+    }
 
     /* Icon button */
     .btn-icon {
         @apply w-10 h-10 flex items-center justify-center rounded-lg
                text-on-surface/60 dark:text-on-surface-dark/60
+               hover:bg-outline/40 dark:hover:bg-outline-dark/40
+               hover:text-on-surface-strong dark:hover:text-on-surface-dark-strong
+               transition-colors;
+    }
+
+    .btn-icon-sm {
+        @apply w-8 h-8 flex items-center justify-center rounded-lg
+               text-on-surface/70 dark:text-on-surface-dark/70
                hover:bg-outline/40 dark:hover:bg-outline-dark/40
                hover:text-on-surface-strong dark:hover:text-on-surface-dark-strong
                transition-colors;
@@ -150,7 +213,7 @@
                rounded-lg px-4 py-3
                text-on-surface dark:text-on-surface-dark
                text-sm touch-target
-               placeholder:text-on-surface/40 dark:placeholder:text-on-surface-dark/40
+               placeholder:text-on-surface/70 dark:placeholder:text-on-surface-dark/70
                focus:outline-none focus:ring-2 focus:ring-primary/30 dark:focus:ring-primary-dark/30;
     }
     .textarea-field {
@@ -160,7 +223,7 @@
                rounded-lg px-3 py-2
                text-on-surface dark:text-on-surface-dark
                text-sm resize-y
-               placeholder:text-on-surface/40 dark:placeholder:text-on-surface-dark/40
+               placeholder:text-on-surface/70 dark:placeholder:text-on-surface-dark/70
                focus:outline-none focus:ring-2 focus:ring-primary/30 dark:focus:ring-primary-dark/30;
     }
     .select-field {
@@ -191,6 +254,22 @@
         @apply bg-surface dark:bg-surface-dark
                border-outline dark:border-outline-dark
                text-on-surface/70 dark:text-on-surface-dark/70;
+    }
+
+    .count-badge {
+        @apply inline-flex items-center justify-center rounded-full
+               min-w-5 h-5 px-1 text-xs font-semibold tabular-nums;
+    }
+
+    .segmented-action {
+        @apply flex-1 rounded-lg border border-outline dark:border-outline-dark
+               px-3 py-2 text-sm font-medium transition-colors
+               text-on-surface dark:text-on-surface-dark
+               hover:bg-outline/30 dark:hover:bg-outline-dark/30;
+    }
+
+    .segmented-action--active {
+        @apply bg-primary dark:bg-primary-dark text-on-primary dark:text-on-primary-dark border-transparent;
     }
 
 
@@ -239,6 +318,13 @@
 
 /* ── Utilities ── */
 @layer utilities {
+    .icon-xs { font-size: 0.75rem; }
+    .icon-sm { font-size: 1rem; }
+    .icon-md { font-size: 1.25rem; }
+    .icon-lg { font-size: 1.5rem; }
+    .icon-xl { font-size: 2rem; }
+    .icon-display { font-size: 3rem; }
+
     .animate-fade-in     { animation: fadeIn      0.2s ease-out; }
     .animate-slide-up    { animation: slideUp     0.3s cubic-bezier(0.16, 1, 0.3, 1); }
     .animate-flash       { animation: flash-green 0.5s ease-in-out; }

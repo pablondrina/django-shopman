@@ -6,13 +6,13 @@
   <strong class="text-on-surface-strong dark:text-on-surface-dark-strong">{{ shift_count }}</strong>
   {{ shift_count|pluralize:"venda,vendas" }}
   {% if shift_count > 0 %}
-  &mdash;
+  <span aria-hidden="true">•</span>
   <strong class="text-foreground">R$ {{ shift_total_display }}</strong>
   {% endif %}
 </span>
 {% if last_ref %}
 <span class="flex items-center gap-1.5">
   <span class="material-symbols-rounded text-sm text-on-surface/40 dark:text-on-surface-dark/40" aria-hidden="true">receipt</span>
-  Último: <strong class="text-on-surface-strong dark:text-on-surface-dark-strong">{{ last_ref }}</strong> &mdash; R$ {{ last_total_display }}
+  Último: <strong class="text-on-surface-strong dark:text-on-surface-dark-strong">{{ last_ref }}</strong> <span aria-hidden="true">•</span> R$ {{ last_total_display }}
 </span>
 {% endif %}

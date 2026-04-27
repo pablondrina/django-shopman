@@ -1,10 +1,10 @@
 {% for s in sessions %}
 <button type="button"
-        class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border border-outline dark:border-outline-dark text-on-surface dark:text-on-surface-dark hover:bg-primary/10 dark:hover:bg-primary-dark/10 hover:border-primary/30 dark:hover:border-primary-dark/30 whitespace-nowrap shrink-0 transition-colors"
+        class="btn-quiet whitespace-nowrap shrink-0"
         hx-get="/gestor/pos/session/{{ s.session_key }}/load/"
         hx-swap="none"
         x-on:htmx:after-request="if(event.detail.successful){ let d=JSON.parse(event.detail.xhr.responseText); loadSession(d); htmx.trigger($refs.sessionTabs, 'load'); }">
-  <span class="material-symbols-rounded text-xs" aria-hidden="true">receipt</span>
+  <span class="material-symbols-rounded icon-sm" aria-hidden="true">receipt</span>
   <span class="font-bold">{{ s.tab }}</span>
   <span class="text-on-surface/50 dark:text-on-surface-dark/50">
     {{ s.item_count }} item{% if s.item_count != 1 %}s{% endif %} · {{ s.total_display }}

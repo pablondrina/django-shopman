@@ -1,6 +1,6 @@
 {% extends "gestor/base.html" %}
-{% block title %}KDS — {{ shop.brand_name|default:shop.name }}{% endblock %}
-{% block page_title %}KDS — Cozinha{% endblock %}
+{% block title %}KDS | {{ shop.brand_name|default:shop.name }}{% endblock %}
+{% block page_title %}KDS · Cozinha{% endblock %}
 {% block nav_active_kds %}active{% endblock %}
 
 {% block content %}
@@ -10,7 +10,7 @@
     <a href="/gestor/kds/{{ entry.ref }}/"
        class="card flex flex-col gap-3 no-underline text-inherit hover:border-outline-strong dark:hover:border-outline-dark-strong transition-colors">
       <div class="flex items-center justify-between">
-        <span class="material-symbols-rounded text-2xl text-on-surface/40 dark:text-on-surface-dark/40" aria-hidden="true">
+        <span class="material-symbols-rounded icon-lg text-on-surface/70 dark:text-on-surface-dark/70" aria-hidden="true">
           {% if entry.type == "prep" %}skillet{% elif entry.type == "picking" %}inventory_2{% else %}local_shipping{% endif %}
         </span>
         {% if entry.pending_count > 0 %}
@@ -23,9 +23,9 @@
       </div>
     </a>
     {% empty %}
-    <div class="text-center py-16 text-on-surface/40 dark:text-on-surface-dark/40 col-span-full">
-      <span class="material-symbols-rounded text-5xl block mb-4" aria-hidden="true">tv_off</span>
-      <p class="text-lg mb-1">Nenhuma estação KDS configurada.</p>
+    <div class="empty-state py-16 col-span-full">
+      <span class="material-symbols-rounded icon-display block mb-4" aria-hidden="true">tv_off</span>
+      <p class="text-base font-semibold mb-1">Nenhuma estação KDS configurada.</p>
       <p class="text-sm">Configure estações no admin.</p>
     </div>
     {% endfor %}

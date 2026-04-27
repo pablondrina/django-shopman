@@ -1,17 +1,17 @@
 {% extends "gestor/base.html" %}
 {% load storefront_tags %}
-{% block title %}Abrir Caixa — {{ shop.brand_name|default:shop.name }}{% endblock %}
+{% block title %}Abrir Caixa | {{ shop.brand_name|default:shop.name }}{% endblock %}
 {% block page_title %}Abrir Caixa{% endblock %}
 {% block nav_active_pos %}active{% endblock %}
 
 {% block content %}
 <div class="flex items-center justify-center p-8 min-h-full">
   <div class="w-full max-w-sm">
-    <div class="card rounded-2xl p-8 shadow-md">
+    <div class="card p-6 sm:p-8 shadow-md">
       <div class="text-center mb-6">
-        <span class="material-symbols-rounded text-primary dark:text-primary-dark text-5xl block mb-2" aria-hidden="true">point_of_sale</span>
-        <h1 class="font-title font-bold text-2xl text-on-surface-strong dark:text-on-surface-dark-strong">{{ shop.brand_name|default:shop.name }}</h1>
-        <p class="text-on-surface/60 dark:text-on-surface-dark/60 text-sm mt-1">POS — Abrir Caixa</p>
+        <span class="material-symbols-rounded text-primary dark:text-primary-dark icon-display block mb-2" aria-hidden="true">point_of_sale</span>
+        <h1 class="font-title font-semibold text-xl text-on-surface-strong dark:text-on-surface-dark-strong">{{ shop.brand_name|default:shop.name }}</h1>
+        <p class="text-on-surface/70 dark:text-on-surface-dark/70 text-sm mt-1">POS <span aria-hidden="true">•</span> Abrir caixa</p>
       </div>
 
       <form hx-post="/gestor/pos/caixa/abrir/"
@@ -28,7 +28,7 @@
                    class="input-field"
                    placeholder="0,00"
                    value="0">
-            <p class="text-xs text-on-surface/40 dark:text-on-surface-dark/40 mt-1">Valor em dinheiro disponível no caixa ao abrir o turno.</p>
+            <p class="field-help">Valor em dinheiro disponível no caixa ao abrir o turno.</p>
           </div>
 
           <button type="submit" class="btn-primary w-full text-base font-bold">
@@ -38,7 +38,7 @@
         </div>
       </form>
 
-      <p class="text-center text-xs text-on-surface/40 dark:text-on-surface-dark/40 mt-4">
+      <p class="text-center text-sm text-on-surface/70 dark:text-on-surface-dark/70 mt-4">
         Operador: <strong>{{ request.user.get_short_name|default:request.user.username }}</strong>
       </p>
     </div>

@@ -22,7 +22,7 @@
        @click="expanded = !expanded"
        :aria-expanded="expanded.toString()">
     <div class="flex items-center gap-1.5 text-sm min-w-0">
-      <span class="material-symbols-rounded text-base" aria-hidden="true">{{ o.channel_icon }}</span>
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true">{{ o.channel_icon }}</span>
       <strong>#{{ o.ref }}</strong>
       <span class="badge badge-{{ o.status }}">{{ o.status_label }}</span>
     </div>
@@ -48,7 +48,7 @@
     </div>
     <div class="flex justify-between items-center mt-1.5">
       <span class="text-xs text-on-surface/40 dark:text-on-surface-dark/40 flex items-center gap-1">
-        <span class="material-symbols-rounded text-base" aria-hidden="true">{{ o.fulfillment_icon }}</span>
+        <span class="material-symbols-rounded icon-sm" aria-hidden="true">{{ o.fulfillment_icon }}</span>
         {{ o.fulfillment_label }}
       </span>
       <span class="font-bold text-sm tabular-nums">{{ o.total_display }}</span>
@@ -56,7 +56,7 @@
     {% if o.payment_pending %}
     <div class="mt-1.5">
       <span class="badge-warning text-xs inline-flex items-center gap-1">
-        <span class="material-symbols-rounded text-xs" aria-hidden="true">hourglass_top</span>
+        <span class="material-symbols-rounded icon-sm" aria-hidden="true">hourglass_top</span>
         Aguardando pagamento
       </span>
     </div>
@@ -70,7 +70,7 @@
       <button class="btn-primary flex-1 inline-flex items-center justify-center gap-1 opacity-50 cursor-not-allowed"
               disabled
               title="Aguardando captura do pagamento">
-        <span class="material-symbols-rounded text-base" aria-hidden="true">hourglass_top</span>
+        <span class="material-symbols-rounded icon-sm" aria-hidden="true">hourglass_top</span>
         Aguardando pagamento…
       </button>
       {% else %}
@@ -81,15 +81,15 @@
               hx-swap="outerHTML"
               x-on:htmx:before-request="loading = true"
               x-on:htmx:after-request="loading = false">
-        <span class="material-symbols-rounded text-base" aria-hidden="true" x-show="!loading">check</span>
-        <span x-show="loading" class="material-symbols-rounded text-base animate-spin" aria-hidden="true">progress_activity</span>
+        <span class="material-symbols-rounded icon-sm" aria-hidden="true" x-show="!loading">check</span>
+        <span x-show="loading" class="material-symbols-rounded icon-sm animate-spin" aria-hidden="true">progress_activity</span>
         Confirmar
       </button>
       {% endif %}
       <button class="btn-danger"
               @click="rejectMode = !rejectMode"
               :aria-expanded="rejectMode.toString()">
-        <span class="material-symbols-rounded text-base" aria-hidden="true">close</span>
+        <span class="material-symbols-rounded icon-sm" aria-hidden="true">close</span>
         Rejeitar
       </button>
     {% endif %}
@@ -102,7 +102,7 @@
               hx-swap="outerHTML"
               x-on:htmx:before-request="loading = true"
               x-on:htmx:after-request="loading = false">
-        <span x-show="loading" class="material-symbols-rounded text-base animate-spin" aria-hidden="true">progress_activity</span>
+        <span x-show="loading" class="material-symbols-rounded icon-sm animate-spin" aria-hidden="true">progress_activity</span>
         {{ o.next_action_label }}
       </button>
     {% endif %}
@@ -113,7 +113,7 @@
         <button class="btn-success flex-1 inline-flex items-center justify-center gap-1"
                 @click.stop="confirming = true"
                 x-show="!confirming && !paidRevert">
-          <span class="material-symbols-rounded text-base" aria-hidden="true">payments</span>
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">payments</span>
           Marcar como Pago
         </button>
         <button class="btn-success flex-1 inline-flex items-center justify-center gap-1"
@@ -126,13 +126,13 @@
                 hx-swap="outerHTML"
                 x-on:htmx:before-request="loading = true"
                 x-on:htmx:after-request="loading = false">
-          <span class="material-symbols-rounded text-base" aria-hidden="true" x-show="!loading">check_circle</span>
-          <span x-show="loading" class="material-symbols-rounded text-base animate-spin" aria-hidden="true">progress_activity</span>
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true" x-show="!loading">check_circle</span>
+          <span x-show="loading" class="material-symbols-rounded icon-sm animate-spin" aria-hidden="true">progress_activity</span>
           Confirmar Pagamento
         </button>
       {% else %}
         <span class="badge-success px-2.5 inline-flex items-center gap-1">
-          <span class="material-symbols-rounded text-base" aria-hidden="true">check_circle</span>
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">check_circle</span>
           Pago
         </span>
       {% endif %}
@@ -157,8 +157,8 @@
     <button class="btn-danger w-full mt-2 inline-flex items-center justify-center gap-1"
             type="submit"
             :disabled="!rejectReason.trim() || loading">
-      <span class="material-symbols-rounded text-base" aria-hidden="true" x-show="!loading">block</span>
-      <span x-show="loading" class="material-symbols-rounded text-base animate-spin" aria-hidden="true">progress_activity</span>
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true" x-show="!loading">block</span>
+      <span x-show="loading" class="material-symbols-rounded icon-sm animate-spin" aria-hidden="true">progress_activity</span>
       Confirmar Rejeição
     </button>
     <button type="button" class="btn-ghost w-full mt-1 text-xs" @click="rejectMode = false; rejectReason = ''">
@@ -174,7 +174,7 @@
          hx-trigger="load-detail"
          hx-swap="innerHTML">
       <div class="flex items-center gap-2 text-xs text-on-surface/40 dark:text-on-surface-dark/40">
-        <span class="material-symbols-rounded text-base animate-spin" aria-hidden="true">progress_activity</span>
+        <span class="material-symbols-rounded icon-sm animate-spin" aria-hidden="true">progress_activity</span>
         Carregando detalhes…
       </div>
     </div>
