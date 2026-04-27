@@ -33,6 +33,7 @@ def test_backstage_shell_keeps_accessible_viewport_and_canonical_css():
     assert "overflow-x: clip" in css
     assert "@media (max-width: 767px)" in css
     assert "font-size: 16px" in css
+    assert ".htmx-indicator { display: none;" in css
 
 
 def test_backstage_design_tokens_expose_canonical_components():
