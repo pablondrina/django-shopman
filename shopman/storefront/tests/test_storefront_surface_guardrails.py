@@ -152,6 +152,7 @@ def test_auth_inputs_stay_readable_on_mobile():
     assert "tracking-[0.5em]" not in code
     assert "Vamos enviar um código pelo WhatsApp." not in login
     assert "Código único. Não exige senha." in login
+    assert "Usamos só para avisar sobre seu pedido." not in login
     assert "CHECKOUT_PHONE_PURPOSE" not in login
 
 
