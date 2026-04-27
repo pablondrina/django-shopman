@@ -271,10 +271,12 @@
           </section>
           {% endif %}
 
+          {% if product.trace_notice %}
           <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/70 leading-relaxed">
             <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">Atenção:</span>
             {{ product.trace_notice }}
           </p>
+          {% endif %}
 
           {% if product.allergen.allergens or product.allergen.dietary_info %}
           <section class="space-y-2">

@@ -144,6 +144,14 @@ class Shop(models.Model):
             "sobrescrever individualmente."
         ),
     )
+    food_safety_notice = models.TextField(
+        "aviso de produção compartilhada",
+        blank=True,
+        help_text=(
+            "Aviso exibido na seção de ingredientes do PDP quando a operação "
+            "usa cozinha compartilhada ou tem risco de traços."
+        ),
+    )
     primary_color = models.CharField("cor primária", max_length=9, default="#1a1a1a")
     logo = models.FileField(
         "logotipo", upload_to="branding/", blank=True,

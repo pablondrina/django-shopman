@@ -118,6 +118,10 @@ class Command(BaseCommand):
                 "short_name": "Nelson",
                 "tagline": "Padaria Artesanal",
                 "description": "Segue rigorosamente as normas da panificação artesanal francesa.",
+                "food_safety_notice": (
+                    "Produzido em cozinha compartilhada. Pode conter traços de leite, ovos, "
+                    "castanha-do-brasil, castanha de caju, gergelim e pimenta-do-reino."
+                ),
                 "heading_font": "Instrument Sans",
                 "body_font": "Instrument Sans",
                 "border_radius": "soft",

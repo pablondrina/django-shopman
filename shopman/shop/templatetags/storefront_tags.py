@@ -7,8 +7,6 @@ from django import template
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
-from shopman.shop.food_safety import TRACE_NOTICE_PT
-
 register = template.Library()
 logger = logging.getLogger(__name__)
 
@@ -241,7 +239,7 @@ def json_ld_product(context, product, price_q=None, badge=None, availability=Non
             "name": "Preferências",
             "value": ", ".join(str(item) for item in allergen.dietary_info),
         })
-    trace_notice = getattr(product, "trace_notice", TRACE_NOTICE_PT)
+    trace_notice = getattr(product, "trace_notice", "")
     if trace_notice:
         additional_properties.append({
             "@type": "PropertyValue",

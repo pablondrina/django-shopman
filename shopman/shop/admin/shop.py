@@ -81,11 +81,11 @@ class ShopAdmin(ModelAdmin):
             "fields": ("brand_name", "short_name", "tagline", "description", "logo"),
         }),
         ("Conteúdo padrão do PDP", {
-            "fields": ("conservation_tips_default",),
+            "fields": ("conservation_tips_default", "food_safety_notice"),
             "description": (
                 "Texto exibido na seção de conservação do PDP quando o produto "
-                "não tiver dica específica. Cada SKU pode sobrescrever em "
-                "Product.storage_tip."
+                "não tiver dica específica. O aviso de produção compartilhada "
+                "aparece na seção de ingredientes."
             ),
         }),
         ("Paleta de Cores", {
@@ -262,6 +262,5 @@ class NotificationTemplateAdmin(ModelAdmin):
     list_editable = ("is_active",)
     fields = ("event", "subject", "body", "is_active")
     readonly_fields = ("event",)
-
 
 

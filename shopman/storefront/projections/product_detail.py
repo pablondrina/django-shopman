@@ -21,7 +21,6 @@ from typing import TYPE_CHECKING, Any
 from shopman.utils.monetary import format_money
 
 from shopman.shop.config import ChannelConfig
-from shopman.shop.food_safety import TRACE_NOTICE_PT
 from shopman.shop.projections.types import (
     AVAILABILITY_LABELS_PT,
     Availability,
@@ -293,7 +292,7 @@ def build_product_detail(
         allergen=allergen,
         conservation=conservation,
         ingredients_text=ingredients_text,
-        trace_notice=TRACE_NOTICE_PT,
+        trace_notice=_food_safety_notice(),
         nutrition=nutrition,
         seo_description=seo_description,
         seo_keywords=seo_keywords,
@@ -455,6 +454,17 @@ def _conservation(product: Any) -> ConservationInfoProjection | None:
         shelf_life_label=shelf_life_label,
         storage_tip=storage_tip,
     )
+
+
+def _food_safety_notice() -> str:
+    try:
+        from shopman.shop.models import Shop
+
+        shop = Shop.load()
+        return (shop.food_safety_notice or "").strip() if shop else ""
+    except Exception:
+        logger.exception("product_detail_projection_food_safety_notice_failed")
+        return ""
 
 
 def _unit_weight_label(product: Any) -> str | None:

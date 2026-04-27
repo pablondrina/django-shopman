@@ -33,6 +33,10 @@ def shop_instance(db):
         default_ddd="43",
         city="Londrina",
         state_code="PR",
+        food_safety_notice=(
+            "Produzido em cozinha compartilhada. Pode conter traços de leite, ovos, "
+            "castanha-do-brasil, castanha de caju, gergelim e pimenta-do-reino."
+        ),
     )
 
 # ── Offerman ──────────────────────────────────────────────────────────
