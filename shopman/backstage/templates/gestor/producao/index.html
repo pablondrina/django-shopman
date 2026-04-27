@@ -6,10 +6,13 @@
 {% block content %}
 <div id="production-page-content" class="h-full min-h-0 overflow-y-auto p-2 space-y-3 lg:p-3">
 
-  <section class="card p-0 overflow-hidden">
+  <section class="card p-0 overflow-visible" x-data="{ filtersOpen: false }">
     <div class="flex items-center justify-between gap-2 border-b border-outline dark:border-outline-dark p-2">
       <div class="min-w-0">
-        <h2 class="text-base font-semibold leading-tight text-on-surface-strong dark:text-on-surface-dark-strong">Produção do dia</h2>
+        <div class="flex min-w-0 flex-wrap items-center gap-2">
+          <h2 class="text-base font-semibold leading-tight text-on-surface-strong dark:text-on-surface-dark-strong">Produção do dia</h2>
+          <span class="badge-info tabular-nums">{{ selected_date|date:"d/m/Y" }}</span>
+        </div>
         <div class="mt-1 flex flex-wrap gap-1">
           {% if production_access.can_manage_all %}<span class="badge-neutral">Ordens {{ craft_summary.total }}</span>{% endif %}
           {% if production_access.can_view_planned %}<span class="badge-neutral">Plan. {{ craft_summary.planned_qty }}</span>{% endif %}
@@ -17,11 +20,20 @@
           {% if production_access.can_view_finished %}<span class="badge-success">Feito {{ craft_summary.finished_qty }}</span>{% endif %}
         </div>
       </div>
-      <details class="relative shrink-0">
-        <summary class="btn-quiet h-10 min-h-10 w-10 min-w-10 cursor-pointer list-none p-0" title="Filtros" aria-label="Filtros">
+      <div class="relative shrink-0" @keydown.escape.window="filtersOpen = false">
+        <button type="button"
+                class="btn-quiet h-10 min-h-10 w-10 min-w-10 p-0"
+                title="Filtros"
+                aria-label="Filtros"
+                :aria-expanded="filtersOpen.toString()"
+                @click="filtersOpen = !filtersOpen">
           <span class="material-symbols-rounded icon-sm" aria-hidden="true">tune</span>
-        </summary>
-        <div class="absolute right-0 z-40 mt-2 w-[min(22rem,calc(100vw-1rem))] rounded-lg border border-outline bg-surface-alt p-3 shadow-xl dark:border-outline-dark dark:bg-surface-dark-alt">
+        </button>
+        <div x-show="filtersOpen"
+             x-cloak
+             x-transition
+             @click.outside="filtersOpen = false"
+             class="absolute right-0 z-40 mt-2 w-[min(17rem,calc(100vw-3rem))] rounded-lg border border-outline bg-surface-alt p-3 shadow-xl dark:border-outline-dark dark:bg-surface-dark-alt sm:w-[22rem]">
           <form hx-get="."
                 hx-target="#production-page-content"
                 hx-select="#production-page-content"
@@ -60,7 +72,7 @@
             </button>
           </form>
         </div>
-      </details>
+      </div>
     </div>
   </section>
 

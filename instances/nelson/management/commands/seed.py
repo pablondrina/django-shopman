@@ -1740,157 +1740,285 @@ class Command(BaseCommand):
             if product:
                 fill_nutrition_from_recipe(product)
 
-        # Work orders — use CraftService to exercise the full signal chain
-        # (production_changed → planned quants → inventory protocol)
-        #
-        # Nelson's production schedule (realistic):
-        #   BAGUETE:           start 04:00, finish ~06:00  → slot-09
-        #   BAGUETE-CAMPAGNE:  start 04:00, finish ~06:30  → slot-09
-        #   CAMPAGNE-OVAL:     start 03:30, finish ~08:00  → slot-09
-        #   ITALIANO-RUSTICO:  start 03:30, finish ~08:30  → slot-09
-        #   CIABATTA:          start 05:00, finish ~07:00  → slot-09
-        #   PAO-FORMA:         start 05:00, finish ~07:30  → slot-09
-        #   CHALLAH:           start 05:00, finish ~08:00  → slot-09
-        #   CROISSANT:         start 05:00, finish ~07:30  → slot-09
-        #   PAIN-CHOCOLAT:     start 05:00, finish ~08:00  → slot-09
-        #   BRIOCHE:           start 05:30, finish ~08:30  → slot-09
-        #   FOCACCIA-ALECRIM:  start 07:00, finish ~10:00  → slot-12
-        #   FOCACCIA-CEBOLA:   start 07:30, finish ~10:30  → slot-12
-        #   CHAUSSON:          start 08:00, finish ~11:00  → slot-12
-        #   MADELEINE:         start 09:00, finish ~13:00  → slot-15
-        from shopman.craftsman.service import CraftService as craft
+        # Production data is intentionally time-relative. Re-running the seed on
+        # another day creates the same operational story around that new date:
+        # history behind, a busy current day, and planned work ahead.
+        from shopman.craftsman.models import WorkOrderEvent
 
         today = date.today()
-        tomorrow = today + timedelta(days=1)
         tz_info = timezone.get_current_timezone()
 
-        # Production schedule: (recipe_ref, qty, start_hour, start_min, finish_hour, finish_min)
-        PRODUCTION_SCHEDULE = [
-            ("baguete",          Decimal("25"),  4, 0,  6, 0),
-            ("croissant",        Decimal("48"),  5, 0,  7, 30),
-            ("focaccia-alecrim", Decimal("8"),   7, 0,  10, 0),
+        production_plan = [
+            # recipe_ref, base_qty, start, finish
+            ("baguete", Decimal("28"), (4, 0), (6, 0)),
+            ("baguete-campagne", Decimal("14"), (4, 10), (6, 30)),
+            ("campagne", Decimal("10"), (3, 40), (8, 0)),
+            ("italiano-rustico", Decimal("18"), (3, 50), (8, 30)),
+            ("ciabatta", Decimal("20"), (5, 0), (7, 0)),
+            ("pao-forma", Decimal("12"), (5, 10), (7, 30)),
+            ("challah", Decimal("8"), (5, 20), (8, 0)),
+            ("croissant", Decimal("48"), (5, 0), (7, 30)),
+            ("pain-chocolat", Decimal("36"), (5, 30), (8, 0)),
+            ("brioche", Decimal("12"), (5, 30), (8, 30)),
+            ("focaccia-alecrim", Decimal("8"), (7, 0), (10, 0)),
+            ("focaccia-cebola", Decimal("6"), (7, 30), (10, 30)),
+            ("chausson", Decimal("12"), (8, 0), (11, 0)),
+            ("madeleine", Decimal("24"), (9, 0), (13, 0)),
         ]
+        recipes_by_ref = {r.ref: r for r in Recipe.objects.filter(ref__in=[row[0] for row in production_plan])}
 
-        # Typical finish times per SKU (for historical WOs — covers ALL products with recipes)
-        TYPICAL_FINISH = {
-            "BAGUETE":          (6, 0),
-            "BAGUETE-CAMPAGNE": (6, 30),
-            "CAMPAGNE-OVAL":    (8, 0),
-            "ITALIANO-RUSTICO": (8, 30),
-            "CIABATTA":         (7, 0),
-            "PAO-FORMA":        (7, 30),
-            "CHALLAH":          (8, 0),
-            "CROISSANT":        (7, 30),
-            "PAIN-CHOCOLAT":    (8, 0),
-            "BRIOCHE":          (8, 30),
-            "FOCACCIA-ALECRIM": (10, 0),
-            "FOCACCIA-CEBOLA":  (10, 30),
-            "CHAUSSON":         (11, 0),
-            "MADELEINE":        (13, 0),
-        }
+        def at(day: date, hour_min: tuple[int, int]) -> datetime:
+            return datetime.combine(day, time(hour_min[0], hour_min[1]), tzinfo=tz_info)
+
+        def jittered(hour_min: tuple[int, int], minutes: int) -> tuple[int, int]:
+            total = max(0, min(23 * 60 + 59, hour_min[0] * 60 + hour_min[1] + minutes))
+            return total // 60, total % 60
+
+        def recipe_snapshot(recipe: Recipe) -> dict:
+            return {
+                "batch_size": str(recipe.batch_size),
+                "items": [
+                    {"input_sku": item.input_sku, "quantity": str(item.quantity), "unit": item.unit}
+                    for item in recipe.items.filter(is_optional=False).order_by("sort_order")
+                ],
+            }
+
+        def reset_ledger(work_order: WorkOrder) -> None:
+            work_order.events.all().delete()
+            work_order.items.all().delete()
+
+        def add_event(work_order: WorkOrder, seq: int, kind: str, payload: dict, actor: str, created_at: datetime) -> None:
+            event = WorkOrderEvent.objects.create(
+                work_order=work_order,
+                seq=seq,
+                kind=kind,
+                payload=payload,
+                actor=actor,
+            )
+            WorkOrderEvent.objects.filter(pk=event.pk).update(created_at=created_at)
+
+        def add_finished_items(work_order: WorkOrder, started_qty: Decimal, finished_qty: Decimal, recorded_at: datetime) -> None:
+            coefficient = started_qty / work_order.recipe.batch_size
+            for item in work_order.recipe.items.filter(is_optional=False).order_by("sort_order"):
+                required = (item.quantity * coefficient).quantize(Decimal("0.001"))
+                WorkOrderItem.objects.create(
+                    work_order=work_order,
+                    kind=WorkOrderItem.Kind.REQUIREMENT,
+                    item_ref=item.input_sku,
+                    quantity=required,
+                    unit=item.unit,
+                    recorded_at=recorded_at,
+                    recorded_by="seed",
+                )
+                WorkOrderItem.objects.create(
+                    work_order=work_order,
+                    kind=WorkOrderItem.Kind.CONSUMPTION,
+                    item_ref=item.input_sku,
+                    quantity=required,
+                    unit=item.unit,
+                    recorded_at=recorded_at,
+                    recorded_by="seed",
+                )
+            WorkOrderItem.objects.create(
+                work_order=work_order,
+                kind=WorkOrderItem.Kind.OUTPUT,
+                item_ref=work_order.output_sku,
+                quantity=finished_qty,
+                unit="un",
+                recorded_at=recorded_at,
+                recorded_by="seed",
+            )
+            waste_qty = max(started_qty - finished_qty, Decimal("0"))
+            if waste_qty > 0:
+                WorkOrderItem.objects.create(
+                    work_order=work_order,
+                    kind=WorkOrderItem.Kind.WASTE,
+                    item_ref=work_order.output_sku,
+                    quantity=waste_qty,
+                    unit="un",
+                    recorded_at=recorded_at,
+                    recorded_by="seed",
+                    meta={"reason": "perda natural / não vendido"},
+                )
+
+        def upsert_work_order(
+            *,
+            scope: str,
+            recipe: Recipe,
+            target_date: date,
+            planned_qty: Decimal,
+            status: str,
+            started_qty: Decimal | None = None,
+            finished_qty: Decimal | None = None,
+            start_at: datetime | None = None,
+            finish_at: datetime | None = None,
+            operator_ref: str = "",
+            position_ref: str = "producao",
+        ) -> WorkOrder:
+            source_ref = f"seed:production:{scope}:{target_date.isoformat()}:{recipe.ref}"
+            work_order = WorkOrder.objects.filter(source_ref=source_ref).first()
+            if work_order is None:
+                work_order = WorkOrder(source_ref=source_ref)
+            work_order.recipe = recipe
+            work_order.output_sku = recipe.output_sku
+            work_order.quantity = planned_qty
+            work_order.finished = finished_qty
+            work_order.status = status
+            work_order.target_date = target_date
+            work_order.started_at = start_at
+            work_order.finished_at = finish_at
+            work_order.position_ref = position_ref
+            work_order.operator_ref = operator_ref
+            work_order.meta = {"seed": True, "scope": scope, "_recipe_snapshot": recipe_snapshot(recipe)}
+            work_order.save()
+
+            reset_ledger(work_order)
+            add_event(
+                work_order,
+                0,
+                WorkOrderEvent.Kind.PLANNED,
+                {
+                    "quantity": str(planned_qty),
+                    "recipe": recipe.ref,
+                    "output_sku": recipe.output_sku,
+                    "target_date": target_date.isoformat(),
+                    "source_ref": source_ref,
+                    "position_ref": position_ref,
+                    "operator_ref": operator_ref,
+                },
+                "seed",
+                at(target_date, (3, 0)),
+            )
+            if status in (WorkOrder.Status.STARTED, WorkOrder.Status.FINISHED):
+                effective_started = started_qty or planned_qty
+                add_event(
+                    work_order,
+                    1,
+                    WorkOrderEvent.Kind.STARTED,
+                    {
+                        "quantity": str(effective_started),
+                        "operator_ref": operator_ref,
+                        "position_ref": position_ref,
+                        "note": "seed operacional",
+                    },
+                    "seed",
+                    start_at or at(target_date, (5, 0)),
+                )
+            if status == WorkOrder.Status.FINISHED and finished_qty is not None:
+                effective_started = started_qty or planned_qty
+                add_event(
+                    work_order,
+                    2,
+                    WorkOrderEvent.Kind.FINISHED,
+                    {
+                        "finished_qty": str(finished_qty),
+                        "planned_qty": str(planned_qty),
+                        "started_qty": str(effective_started),
+                        "loss_qty": str(max(effective_started - finished_qty, Decimal("0"))),
+                        "output_sku": recipe.output_sku,
+                        "target_date": target_date.isoformat(),
+                        "source_ref": source_ref,
+                        "position_ref": position_ref,
+                        "operator_ref": operator_ref,
+                    },
+                    "seed",
+                    finish_at or at(target_date, (8, 0)),
+                )
+                add_finished_items(work_order, effective_started, finished_qty, finish_at or at(target_date, (8, 0)))
+            return work_order
+
+        # Remove old seed rows outside the moving demo window. The active window
+        # is overwritten below through stable source_ref values.
+        stale_before = today - timedelta(days=45)
+        WorkOrder.objects.filter(source_ref__startswith="seed:production:", target_date__lt=stale_before).delete()
 
         wo_count = 0
+        history_count = 0
+        future_count = 0
 
-        # Today: 2 finished (via craft.plan + craft.finish) + 1 planned
-        for ref, qty, sh, sm, fh, fm in PRODUCTION_SCHEDULE:
-            recipe = Recipe.objects.get(ref=ref)
-            existing = WorkOrder.objects.filter(
-                recipe=recipe, target_date=today,
-            ).first()
-            if existing:
-                wo_count += 1
-                continue
-
-            wo = craft.plan(recipe, quantity=qty, date=today, position_ref="vitrine")
-            should_finish = ref != "focaccia-alecrim"  # focaccia still in production
-            if should_finish:
-                finished = int(qty * Decimal("0.95"))
-                craft.finish(wo, finished=finished, actor="seed")
-            # Set realistic timestamps
-            start_dt = datetime.combine(today, time(sh, sm), tzinfo=tz_info)
-            finish_dt = datetime.combine(today, time(fh, fm), tzinfo=tz_info) if should_finish else None
-            WorkOrder.objects.filter(pk=wo.pk).update(
-                started_at=start_dt,
-                **({"finished_at": finish_dt} if finish_dt else {}),
+        # Current day: mixed statuses so the matrix is useful immediately.
+        for index, (ref, qty, start_hm, finish_hm) in enumerate(production_plan):
+            recipe = recipes_by_ref[ref]
+            if index in (0, 1, 7, 9):
+                status = WorkOrder.Status.FINISHED
+            elif index in (2, 3, 4, 10, 11):
+                status = WorkOrder.Status.STARTED
+            else:
+                status = WorkOrder.Status.PLANNED
+            started = (qty + Decimal(str(index % 3))).quantize(Decimal("0.001"))
+            finished = None
+            finish_at = None
+            if status == WorkOrder.Status.FINISHED:
+                finished = max(started - Decimal(str((index % 4) + 1)), Decimal("1"))
+                finish_at = at(today, finish_hm)
+            upsert_work_order(
+                scope="today",
+                recipe=recipe,
+                target_date=today,
+                planned_qty=qty,
+                status=status,
+                started_qty=started if status != WorkOrder.Status.PLANNED else None,
+                finished_qty=finished,
+                start_at=at(today, start_hm) if status != WorkOrder.Status.PLANNED else None,
+                finish_at=finish_at,
+                operator_ref=["chef:ana", "chef:joao", "chef:maria"][index % 3],
             )
             wo_count += 1
 
-        # Tomorrow: 4 planned orders (via craft.plan → creates planned quants)
-        for ref, qty in [
-            ("baguete", Decimal("30")),
-            ("baguete-campagne", Decimal("15")),
-            ("croissant", Decimal("60")),
-            ("focaccia-alecrim", Decimal("10")),
-        ]:
-            recipe = Recipe.objects.get(ref=ref)
-            existing = WorkOrder.objects.filter(
-                recipe=recipe, target_date=tomorrow,
-            ).first()
-            if existing:
-                wo_count += 1
+        # Future horizon: planned production for one week ahead.
+        for offset in range(1, 8):
+            target = today + timedelta(days=offset)
+            if target.weekday() == 0:
                 continue
-
-            craft.plan(recipe, quantity=qty, date=tomorrow, position_ref="vitrine")
-            wo_count += 1
-
-        # Historical production (last 35 days) — one WO per product per day
-        # This feeds the pickup slot service's median calculation and craft.suggest()
-        recipes_by_output = {r.output_sku: r for r in Recipe.objects.all()}
-        history_count = 0
-        for days_ago in range(1, 36):
-            wo_date = today - timedelta(days=days_ago)
-            # Skip Mondays (Nelson está fechado)
-            if wo_date.weekday() == 0:
-                continue
-            for sku, (fh, fm) in TYPICAL_FINISH.items():
-                recipe = recipes_by_output.get(sku)
-                if not recipe:
+            day_multiplier = Decimal("1.25") if target.weekday() in (4, 5) else Decimal("1")
+            for index, (ref, qty, _start_hm, _finish_hm) in enumerate(production_plan):
+                if offset > 2 and index % 3 == 2:
                     continue
-                if WorkOrder.objects.filter(recipe=recipe, target_date=wo_date).exists():
-                    continue
-                # Add ±15min jitter to make data realistic
-                jitter = random.randint(-15, 15)
-                finish_minutes = fh * 60 + fm + jitter
-                finish_h = max(0, min(23, finish_minutes // 60))
-                finish_m = max(0, min(59, finish_minutes % 60))
-                start_h = max(0, finish_h - 2)  # ~2h before finish
-                qty = recipe.batch_size or Decimal("20")
-                finished = int(qty * Decimal(str(random.uniform(0.90, 0.98))))
-                finish_dt = datetime.combine(wo_date, time(finish_h, finish_m), tzinfo=tz_info)
-
-                wo = WorkOrder.objects.create(
+                recipe = recipes_by_ref[ref]
+                planned = (qty * day_multiplier).quantize(Decimal("1"))
+                upsert_work_order(
+                    scope=f"future-{offset}",
                     recipe=recipe,
-                    output_sku=sku,
-                    quantity=qty,
-                    finished=Decimal(str(finished)),
-                    status=WorkOrder.Status.FINISHED,
-                    target_date=wo_date,
-                    started_at=datetime.combine(wo_date, time(start_h, 0), tzinfo=tz_info),
-                    finished_at=finish_dt,
-                    position_ref=recipe.output_sku,
+                    target_date=target,
+                    planned_qty=planned,
+                    status=WorkOrder.Status.PLANNED,
+                    operator_ref="chef:planejamento",
                 )
+                future_count += 1
 
-                # Waste: ~25% of WOs have some waste (5-15% of finished_qty)
-                if random.random() < 0.25:
-                    waste_qty = Decimal(str(round(finished * random.uniform(0.05, 0.15))))
-                    if waste_qty > 0:
-                        WorkOrderItem.objects.create(
-                            work_order=wo,
-                            kind=WorkOrderItem.Kind.WASTE,
-                            item_ref=sku,
-                            quantity=waste_qty,
-                            unit="un",
-                            recorded_at=finish_dt,
-                            recorded_by="seed",
-                            meta={"reason": "perda natural — não vendido"},
-                        )
-
+        # Historical production: 35 relative days behind today for BI,
+        # pickup slots and waste patterns.
+        for days_ago in range(1, 36):
+            target = today - timedelta(days=days_ago)
+            if target.weekday() == 0:
+                continue
+            weekday_multiplier = Decimal("1.20") if target.weekday() in (4, 5) else Decimal("1")
+            for index, (ref, qty, start_hm, finish_hm) in enumerate(production_plan):
+                recipe = recipes_by_ref[ref]
+                jitter = random.randint(-12, 12)
+                start = at(target, jittered(start_hm, jitter))
+                finish = at(target, jittered(finish_hm, jitter + random.randint(-6, 10)))
+                planned = (qty * weekday_multiplier).quantize(Decimal("1"))
+                started = planned
+                loss = Decimal(str((index + days_ago) % 4))
+                finished = max(started - loss, Decimal("1"))
+                upsert_work_order(
+                    scope=f"history-{days_ago}",
+                    recipe=recipe,
+                    target_date=target,
+                    planned_qty=planned,
+                    status=WorkOrder.Status.FINISHED,
+                    started_qty=started,
+                    finished_qty=finished,
+                    start_at=start,
+                    finish_at=finish,
+                    operator_ref=["chef:ana", "chef:joao", "chef:maria"][index % 3],
+                )
                 history_count += 1
-            wo_count += 1
 
         self.stdout.write(
-            f"  ✅ {len(recipes_data)} receitas, {wo_count} ordens de produção"
-            f" + {history_count} historico (35 dias — pickup slots + suggest)"
+            f"  ✅ {len(recipes_data)} receitas, {wo_count} ordens de hoje,"
+            f" {future_count} futuras e {history_count} historico movel"
         )
 
     def _assert_catalog_remote_purchase_data(self):

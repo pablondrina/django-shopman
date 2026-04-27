@@ -143,6 +143,9 @@ def test_backstage_production_uses_high_volume_matrix_surface():
     assert "Produção do dia" in production
     assert "Mapa de produção" in production
     assert "Matriz de produção" not in production
+    assert "filtersOpen" in production
+    assert 'aria-label="Filtros"' in production
+    assert 'selected_date|date:"d/m/Y"' in production
     assert "matrix_groups" in production
     assert "matrix_rows|length" in production
     assert "Receita-base" in production
