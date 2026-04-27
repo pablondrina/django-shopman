@@ -112,6 +112,7 @@ def test_customer_surfaces_keep_focus_first_hierarchy():
     menu = _read_template("menu.html")
     pdp = _read_template("product_detail.html")
     login = _read_template("login.html")
+    how_it_works = _read_template("como_funciona.html")
     cart_page = _read_template("partials/_cart_page_content.html")
 
     assert "h-36 sm:h-44 md:h-auto md:aspect-square" in pdp
@@ -120,6 +121,9 @@ def test_customer_surfaces_keep_focus_first_hierarchy():
     assert "bg-white shadow-2xl" in login
     assert "h-28 sm:h-32" not in login
     assert "h-44 sm:h-56" not in login
+    assert "shopping_bag" in how_it_works
+    assert "storefront" in how_it_works
+    assert "size-9 rounded-full bg-secondary" not in how_it_works
     assert "text-2xl lg:text-3xl" not in menu
     assert "text-2xl lg:text-3xl" not in cart_page
 
@@ -178,6 +182,7 @@ def test_storefront_visible_copy_avoids_micro_type_and_loose_dashes():
     templates = [
         "base.html",
         "cart.html",
+        "como_funciona.html",
         "checkout.html",
         "home.html",
         "login.html",
@@ -223,6 +228,7 @@ def test_storefront_contrast_uses_accessible_penguin_tokens():
     templates = [
         "base.html",
         "cart.html",
+        "como_funciona.html",
         "checkout.html",
         "home.html",
         "login.html",
