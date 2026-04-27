@@ -50,6 +50,7 @@ class WorkOrderCardProjection:
     ref: str
     recipe_ref: str
     recipe_name: str
+    base_usages: tuple["BaseRecipeUsageProjection", ...]
     output_sku: str
     status: str
     status_label: str
@@ -92,6 +93,27 @@ class RecipeOptionProjection:
 
 
 @dataclass(frozen=True)
+class BaseRecipeUsageProjection:
+    """How much of a base recipe is used by an output SKU recipe."""
+
+    ref: str
+    output_sku: str
+    name: str
+    quantity_display: str
+    per_unit_display: str
+
+
+@dataclass(frozen=True)
+class BaseRecipeOptionProjection:
+    """A base recipe available as an operational filter."""
+
+    ref: str
+    output_sku: str
+    name: str
+    count: int
+
+
+@dataclass(frozen=True)
 class PositionOptionProjection:
     """A stock position available for production form."""
 
@@ -108,11 +130,47 @@ class ProductionSuggestionProjection:
     recipe_pk: int
     recipe_ref: str
     recipe_name: str
+    base_usages: tuple[BaseRecipeUsageProjection, ...]
     output_sku: str
     quantity: str
     committed: str
     avg_demand: str
     confidence: str
+
+
+@dataclass(frozen=True)
+class ProductionMatrixRowProjection:
+    """A high-volume production matrix row grouped by SKU."""
+
+    output_sku: str
+    recipe_name: str
+    base_usages: tuple[BaseRecipeUsageProjection, ...]
+    suggestion: ProductionSuggestionProjection | None
+    planned_orders: tuple[WorkOrderCardProjection, ...]
+    started_orders: tuple[WorkOrderCardProjection, ...]
+    finished_orders: tuple[WorkOrderCardProjection, ...]
+    planned_qty: str
+    started_qty: str
+    finished_qty: str
+    loss_qty: str
+
+
+@dataclass(frozen=True)
+class ProductionMatrixGroupRowProjection:
+    """A matrix row within a base recipe group."""
+
+    row: ProductionMatrixRowProjection
+    usage: BaseRecipeUsageProjection | None
+
+
+@dataclass(frozen=True)
+class ProductionMatrixGroupProjection:
+    """A group of production matrix rows that share a base recipe."""
+
+    ref: str
+    output_sku: str
+    name: str
+    rows: tuple[ProductionMatrixGroupRowProjection, ...]
 
 
 @dataclass(frozen=True)
@@ -160,14 +218,18 @@ class ProductionBoardProjection:
     selected_date_display: str  # "16/04/2026"
     selected_position_ref: str
     selected_operator_ref: str
+    selected_base_recipe: str
     work_orders: tuple[WorkOrderCardProjection, ...]
     counts: ProductionCountsProjection
     planned_queue: tuple[WorkOrderCardProjection, ...]
     started_queue: tuple[WorkOrderCardProjection, ...]
     finished_queue: tuple[WorkOrderCardProjection, ...]
     recipes: tuple[RecipeOptionProjection, ...]
+    base_recipes: tuple[BaseRecipeOptionProjection, ...]
     positions: tuple[PositionOptionProjection, ...]
     suggestions: tuple[ProductionSuggestionProjection, ...]
+    matrix_rows: tuple[ProductionMatrixRowProjection, ...]
+    matrix_groups: tuple[ProductionMatrixGroupProjection, ...]
     default_position_pk: int | None
     access: ProductionSurfaceAccess
 
@@ -180,6 +242,7 @@ def build_production_board(
     selected_date: date | None = None,
     position_ref: str = "",
     operator_ref: str = "",
+    base_recipe: str = "",
     access: ProductionSurfaceAccess | None = None,
 ) -> ProductionBoardProjection:
     """Build the production board projection."""
@@ -191,6 +254,7 @@ def build_production_board(
         WorkOrder.objects
         .filter(target_date=selected_date)
         .select_related("recipe")
+        .prefetch_related("recipe__items")
         .order_by("-created_at")
     )
     if position_ref:
@@ -219,14 +283,14 @@ def build_production_board(
 
     planned_queue = tuple(
         _build_wo_card(
-            WorkOrder.objects.select_related("recipe").get(ref=item.ref),
+            WorkOrder.objects.select_related("recipe").prefetch_related("recipe__items").get(ref=item.ref),
         )
         for item in queue_items
         if item.status == WorkOrder.Status.PLANNED and access.can_view_planned
     )
     started_queue = tuple(
         _build_wo_card(
-            WorkOrder.objects.select_related("recipe").get(ref=item.ref),
+            WorkOrder.objects.select_related("recipe").prefetch_related("recipe__items").get(ref=item.ref),
         )
         for item in queue_items
         if item.status == WorkOrder.Status.STARTED and access.can_view_started
@@ -265,20 +329,32 @@ def build_production_board(
         for p in positions_qs
     )
     suggestions = tuple(_build_suggestion(s) for s in _production_suggestions(selected_date))
+    visible_suggestions = suggestions if access.can_view_suggested else ()
+    all_matrix_rows = _build_matrix_rows(wo_cards, visible_suggestions)
+    base_recipes = _build_group_options(all_matrix_rows)
+    matrix_rows = tuple(
+        row for row in all_matrix_rows
+        if not base_recipe or any(usage.output_sku == base_recipe for usage in row.base_usages)
+    )
+    matrix_groups = _build_matrix_groups(matrix_rows, base_recipe=base_recipe)
 
     return ProductionBoardProjection(
         selected_date=selected_date.isoformat(),
         selected_date_display=selected_date.strftime("%d/%m/%Y"),
         selected_position_ref=position_ref,
         selected_operator_ref=operator_ref,
+        selected_base_recipe=base_recipe,
         work_orders=wo_cards,
         counts=counts,
         planned_queue=planned_queue,
         started_queue=started_queue,
         finished_queue=finished_queue,
         recipes=recipes,
+        base_recipes=base_recipes,
         positions=positions,
-        suggestions=suggestions if access.can_view_suggested else (),
+        suggestions=visible_suggestions,
+        matrix_rows=matrix_rows,
+        matrix_groups=matrix_groups,
         default_position_pk=default_pos.pk if default_pos else None,
         access=access,
     )
@@ -292,6 +368,7 @@ def _build_wo_card(wo: WorkOrder) -> WorkOrderCardProjection:
     finished_qty = wo.finished
     loss = ""
     yield_rate = ""
+    base_usages = _base_recipe_usages(wo.recipe)
 
     if finished_qty is not None:
         base = started_qty or wo.quantity
@@ -306,6 +383,7 @@ def _build_wo_card(wo: WorkOrder) -> WorkOrderCardProjection:
         ref=wo.ref,
         recipe_ref=wo.recipe.ref,
         recipe_name=wo.recipe.output_sku or wo.recipe.ref,
+        base_usages=base_usages,
         output_sku=wo.output_sku,
         status=wo.status,
         status_label=WO_STATUS_LABELS.get(wo.status, wo.status),
@@ -337,10 +415,12 @@ def _build_suggestion(suggestion) -> ProductionSuggestionProjection:
     avg = basis.get("avg_demand", Decimal("0")) or Decimal("0")
     committed = basis.get("committed", Decimal("0")) or Decimal("0")
     confidence = str(basis.get("confidence", "") or "")
+    base_usages = _base_recipe_usages(suggestion.recipe)
     return ProductionSuggestionProjection(
         recipe_pk=suggestion.recipe.pk,
         recipe_ref=suggestion.recipe.ref,
         recipe_name=suggestion.recipe.name or suggestion.recipe.ref,
+        base_usages=base_usages,
         output_sku=suggestion.recipe.output_sku,
         quantity=_qty(suggestion.quantity),
         committed=_qty(committed),
@@ -351,6 +431,158 @@ def _build_suggestion(suggestion) -> ProductionSuggestionProjection:
             "low": "Baixa",
         }.get(confidence, "Sem histórico"),
     )
+
+
+def _build_matrix_rows(
+    work_orders: tuple[WorkOrderCardProjection, ...],
+    suggestions: tuple[ProductionSuggestionProjection, ...],
+) -> tuple[ProductionMatrixRowProjection, ...]:
+    rows: dict[str, dict] = {}
+
+    def row_for(output_sku: str) -> dict:
+        return rows.setdefault(
+            output_sku,
+            {
+                "recipe_name": output_sku,
+                "base_usages": (),
+                "suggestion": None,
+                "planned": [],
+                "started": [],
+                "finished": [],
+            },
+        )
+
+    for suggestion in suggestions:
+        row = row_for(suggestion.output_sku)
+        row["recipe_name"] = suggestion.recipe_name or suggestion.output_sku
+        row["base_usages"] = suggestion.base_usages
+        row["suggestion"] = suggestion
+
+    for work_order in work_orders:
+        row = row_for(work_order.output_sku)
+        row["recipe_name"] = work_order.recipe_name or row["recipe_name"]
+        row["base_usages"] = work_order.base_usages
+        if work_order.status == WorkOrder.Status.PLANNED:
+            row["planned"].append(work_order)
+        elif work_order.status == WorkOrder.Status.STARTED:
+            row["started"].append(work_order)
+        elif work_order.status == WorkOrder.Status.FINISHED:
+            row["finished"].append(work_order)
+
+    return tuple(
+        ProductionMatrixRowProjection(
+            output_sku=output_sku,
+            recipe_name=row["recipe_name"],
+            base_usages=row["base_usages"],
+            suggestion=row["suggestion"],
+            planned_orders=tuple(row["planned"]),
+            started_orders=tuple(row["started"]),
+            finished_orders=tuple(row["finished"]),
+            planned_qty=_sum_qty(row["planned"], "planned_qty"),
+            started_qty=_sum_qty(row["started"], "started_qty"),
+            finished_qty=_sum_qty(row["finished"], "finished_qty"),
+            loss_qty=_sum_qty(row["finished"], "loss"),
+        )
+        for output_sku, row in sorted(rows.items(), key=lambda item: item[0])
+    )
+
+
+def _build_group_options(
+    matrix_rows: tuple[ProductionMatrixRowProjection, ...],
+) -> tuple[BaseRecipeOptionProjection, ...]:
+    groups: dict[str, dict[str, int | str]] = {}
+    for row in matrix_rows:
+        for usage in row.base_usages:
+            group = groups.setdefault(
+                usage.output_sku,
+                {"ref": usage.ref, "name": usage.name, "count": 0},
+            )
+            group["count"] = int(group["count"]) + 1
+
+    return tuple(
+        BaseRecipeOptionProjection(
+            ref=str(data["ref"]),
+            output_sku=output_sku,
+            name=str(data["name"]),
+            count=int(data["count"]),
+        )
+        for ref, data in sorted(groups.items(), key=lambda item: str(item[1]["name"]))
+        for output_sku in (ref,)
+    )
+
+
+def _build_matrix_groups(
+    matrix_rows: tuple[ProductionMatrixRowProjection, ...],
+    *,
+    base_recipe: str = "",
+) -> tuple[ProductionMatrixGroupProjection, ...]:
+    grouped: dict[str, dict] = {}
+    for row in matrix_rows:
+        usages = row.base_usages
+        if base_recipe:
+            usages = tuple(usage for usage in usages if usage.output_sku == base_recipe)
+        if not usages:
+            group = grouped.setdefault("__direct__", {"name": "Receitas diretas", "output_sku": "", "rows": []})
+            group["rows"].append(ProductionMatrixGroupRowProjection(row=row, usage=None))
+            continue
+        for usage in usages:
+            group = grouped.setdefault(
+                usage.output_sku,
+                {"name": usage.name, "output_sku": usage.output_sku, "rows": []},
+            )
+            group["rows"].append(ProductionMatrixGroupRowProjection(row=row, usage=usage))
+
+    return tuple(
+        ProductionMatrixGroupProjection(
+            ref=ref,
+            output_sku=str(data["output_sku"]),
+            name=data["name"],
+            rows=tuple(data["rows"]),
+        )
+        for ref, data in sorted(grouped.items(), key=lambda item: item[1]["name"])
+    )
+
+
+def _sum_qty(work_orders: list[WorkOrderCardProjection], field_name: str) -> str:
+    total = Decimal("0")
+    for work_order in work_orders:
+        raw = getattr(work_order, field_name, "") or "0"
+        total += Decimal(str(raw))
+    return _qty(total)
+
+
+def _base_recipe_usages(recipe: Recipe) -> tuple[BaseRecipeUsageProjection, ...]:
+    prefetched = getattr(recipe, "_prefetched_objects_cache", {}).get("items")
+    if prefetched is not None:
+        items = tuple(item for item in prefetched if not item.is_optional)
+    else:
+        items = tuple(recipe.items.filter(is_optional=False).order_by("sort_order"))
+    if not items:
+        return ()
+    base_recipes = {
+        base.output_sku: base
+        for base in Recipe.objects.filter(
+            is_active=True,
+            output_sku__in=[item.input_sku for item in items],
+        )
+    }
+    return tuple(
+        BaseRecipeUsageProjection(
+            ref=base_recipes[item.input_sku].ref,
+            output_sku=base_recipes[item.input_sku].output_sku,
+            name=base_recipes[item.input_sku].name or base_recipes[item.input_sku].output_sku,
+            quantity_display=_measure(item.quantity, item.unit),
+            per_unit_display=_measure(item.quantity / recipe.batch_size, item.unit),
+        )
+        for item in items
+        if item.input_sku in base_recipes
+    )
+
+
+def _measure(value: Decimal, unit: str) -> str:
+    normalized = value.quantize(Decimal("0.001")).normalize()
+    text = format(normalized, "f").replace(".", ",")
+    return f"{text} {unit}".strip()
 
 
 def resolve_production_access(user) -> ProductionSurfaceAccess:

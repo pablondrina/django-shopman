@@ -80,7 +80,7 @@ def fill_nutrition_from_recipe(product: Product) -> bool:
     if recipe is None:
         return False
 
-    items = list(recipe.items.all().order_by("-quantity", "sort_order"))
+    items = _expand_recipe_items(recipe)
     if not items:
         return False
 
@@ -118,6 +118,28 @@ def _is_auto_filled(nutrition_facts: dict[str, Any] | None) -> bool:
     if not nutrition_facts:
         return True
     return bool(nutrition_facts.get("auto_filled", False))
+
+
+def _expand_recipe_items(recipe, *, coefficient: Decimal = Decimal("1"), depth: int = 0) -> list:
+    if depth > 5:
+        logger.warning("nutrition_from_recipe: recursive recipe depth exceeded for %s", recipe.ref)
+        return []
+
+    try:
+        from shopman.craftsman.models import Recipe
+    except ImportError:
+        return []
+
+    expanded = []
+    for item in recipe.items.filter(is_optional=False).order_by("-quantity", "sort_order"):
+        sub_recipe = Recipe.objects.filter(output_sku=item.input_sku, is_active=True).first()
+        if sub_recipe:
+            sub_coefficient = coefficient * (item.quantity / sub_recipe.batch_size)
+            expanded.extend(_expand_recipe_items(sub_recipe, coefficient=sub_coefficient, depth=depth + 1))
+            continue
+        item.quantity = item.quantity * coefficient
+        expanded.append(item)
+    return expanded
 
 
 def _build_ingredients_text(items) -> str:

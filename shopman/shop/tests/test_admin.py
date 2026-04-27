@@ -11,7 +11,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.test import Client, RequestFactory
 from django.urls import reverse
 from shopman.craftsman import craft
-from shopman.craftsman.models import Recipe
+from shopman.craftsman.models import Recipe, RecipeItem
 
 from shopman.backstage.models import DayClosing, KDSInstance, OperatorAlert
 from shopman.shop.models import (
@@ -276,6 +276,13 @@ class TestProductionAdminView:
             output_sku="croissant",
             batch_size=10,
         )
+        base = Recipe.objects.create(
+            ref="massa-folhada",
+            name="Massa Folhada",
+            output_sku="MASSA-FOLHADA",
+            batch_size=10,
+        )
+        RecipeItem.objects.create(recipe=recipe, input_sku=base.output_sku, quantity=3, unit="kg")
         craft.plan(recipe, 100, date=date.today(), position_ref="forno")
         started = craft.plan(recipe, 80, date=date.today(), position_ref="forno", operator_ref="user:joao")
         craft.start(started, quantity=75, expected_rev=0, position_ref="forno", operator_ref="user:joao")
@@ -288,6 +295,11 @@ class TestProductionAdminView:
         assert response.context_data["craft_summary"].total == 2
         assert len(response.context_data["planned_queue"]) == 1
         assert len(response.context_data["started_queue"]) == 1
+        assert len(response.context_data["matrix_rows"]) == 1
+        assert response.context_data["matrix_rows"][0].planned_qty == "100"
+        assert response.context_data["matrix_rows"][0].started_qty == "75"
+        assert response.context_data["matrix_groups"][0].name == "Massa Folhada"
+        assert response.context_data["base_recipes"][0].output_sku == "MASSA-FOLHADA"
 
     def test_get_filters_by_date_position_and_operator(self, db, rf, admin_user):
         from datetime import date, timedelta
@@ -316,6 +328,53 @@ class TestProductionAdminView:
         assert response.context_data["craft_summary"].total == 1
         assert len(response.context_data["planned_queue"]) == 1
         assert len(response.context_data["today_wos"]) == 1
+
+    def test_get_filters_matrix_by_base_recipe(self, db, rf, admin_user):
+        from datetime import date
+
+        from shopman.backstage.views.production import production_view
+
+        levain_base = Recipe.objects.create(
+            ref="massa-levain",
+            name="Massa Levain",
+            output_sku="MASSA-LEVAIN",
+            batch_size=10,
+        )
+        folhada_base = Recipe.objects.create(
+            ref="massa-folhada",
+            name="Massa Folhada",
+            output_sku="MASSA-FOLHADA",
+            batch_size=10,
+        )
+        levain = Recipe.objects.create(
+            ref="levain-a",
+            name="Levain A",
+            output_sku="LEVAIN-A",
+            batch_size=10,
+        )
+        folhado = Recipe.objects.create(
+            ref="folhado-a",
+            name="Folhado A",
+            output_sku="FOLHADO-A",
+            batch_size=10,
+        )
+        RecipeItem.objects.create(recipe=levain, input_sku=levain_base.output_sku, quantity=2, unit="kg")
+        RecipeItem.objects.create(recipe=folhado, input_sku=folhada_base.output_sku, quantity=3, unit="kg")
+        craft.plan(levain, 12, date=date.today(), position_ref="forno")
+        craft.plan(folhado, 24, date=date.today(), position_ref="forno")
+
+        request = rf.get("/admin/shopman/shop/production/", {"base_recipe": "MASSA-FOLHADA"})
+        request.user = admin_user
+        response = production_view(request, admin.site)
+
+        assert response.status_code == 200
+        assert response.context_data["selected_base_recipe"] == "MASSA-FOLHADA"
+        assert [row.output_sku for row in response.context_data["matrix_rows"]] == ["FOLHADO-A"]
+        assert {base.output_sku for base in response.context_data["base_recipes"]} == {
+            "MASSA-FOLHADA",
+            "MASSA-LEVAIN",
+        }
+        assert response.context_data["matrix_groups"][0].rows[0].usage.quantity_display == "3 kg"
 
     def test_get_allows_finished_column_only_operator(self, db, rf):
         from datetime import date

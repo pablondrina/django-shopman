@@ -135,3 +135,21 @@ def test_backstage_order_queue_keeps_all_action_areas_visible_and_responsive():
     assert "text-xs font-semibold tabular-nums leading-none" in css
     assert "var source = (e.detail && e.detail.elt) || e.target;" in js
     assert "if (source !== grid) return;" in js
+
+
+def test_backstage_production_uses_high_volume_matrix_surface():
+    production = (TEMPLATES / "gestor" / "producao" / "index.html").read_text(encoding="utf-8")
+
+    assert "Matriz de produção" in production
+    assert "matrix_groups" in production
+    assert "matrix_rows|length" in production
+    assert "Receita-base" in production
+    assert "base_recipe" in production
+    assert "quantity_display" in production
+    assert "per_unit_display" in production
+    assert "adjustOpen" in production
+    assert "startOpen" in production
+    assert "finishOpen" in production
+    assert "surface-modal max-w-sm" in production
+    assert "sticky left-0" in production
+    assert "Planejar sugerido" not in production

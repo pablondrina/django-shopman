@@ -158,11 +158,13 @@ def _render(request, admin_site, access):
         selected_date = date.today()
     position_ref = (request.GET.get("position_ref") or "").strip()
     operator_ref = (request.GET.get("operator_ref") or "").strip()
+    base_recipe = (request.GET.get("base_recipe") or "").strip()
 
     board = build_production_board(
         selected_date=selected_date,
         position_ref=position_ref,
         operator_ref=operator_ref,
+        base_recipe=base_recipe,
         access=access,
     )
 
@@ -171,6 +173,7 @@ def _render(request, admin_site, access):
         "title": "Registro de Produção",
         "board": board,
         "recipes": board.recipes,
+        "base_recipes": board.base_recipes,
         "positions": board.positions,
         "default_position_id": board.default_position_pk,
         "production_access": board.access,
@@ -180,8 +183,11 @@ def _render(request, admin_site, access):
         "started_queue": board.started_queue,
         "finished_queue": board.finished_queue,
         "suggestions": board.suggestions,
+        "matrix_rows": board.matrix_rows,
+        "matrix_groups": board.matrix_groups,
         "selected_position_ref": board.selected_position_ref,
         "selected_operator_ref": board.selected_operator_ref,
+        "selected_base_recipe": board.selected_base_recipe,
         "selected_date": selected_date,
     }
     return TemplateResponse(request, TEMPLATE, context)
@@ -194,10 +200,13 @@ def _production_redirect(request) -> str:
         params["date"] = date_value
     position_ref = (request.POST.get("position_ref") or "").strip()
     operator_ref = (request.POST.get("operator_ref_filter") or "").strip()
+    base_recipe = (request.POST.get("base_recipe") or "").strip()
     if position_ref:
         params["position_ref"] = position_ref
     if operator_ref:
         params["operator_ref"] = operator_ref
+    if base_recipe:
+        params["base_recipe"] = base_recipe
     base = reverse("admin:shop_production")
     return f"{base}?{urlencode(params)}" if params else base
 
