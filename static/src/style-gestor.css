@@ -244,7 +244,7 @@
     .badge-danger,
     .badge-neutral {
         @apply inline-flex items-center gap-1 px-2 py-0.5
-               rounded-full text-xs font-semibold border;
+               rounded-full text-xs font-semibold leading-none border;
     }
     .badge-info    { @apply bg-info/10    border-info/30    text-info; }
     .badge-success { @apply bg-success/10 border-success/30 text-success; }
@@ -258,12 +258,12 @@
 
     .count-badge {
         @apply inline-flex items-center justify-center rounded-full
-               min-w-5 h-5 px-1 text-xs font-semibold tabular-nums;
+               min-w-5 h-5 px-1 text-xs font-semibold tabular-nums leading-none;
     }
 
     .order-timer {
         @apply inline-flex items-center gap-1 rounded-full border px-2 py-0.5
-               text-sm font-semibold tabular-nums leading-tight;
+               text-xs font-semibold tabular-nums leading-none;
     }
     .timer-ok {
         @apply bg-success/10 border-success/30 text-success;
@@ -368,4 +368,22 @@
             transition-duration: 0.01ms !important;
         }
     }
+}
+
+/* Material Symbols CDN ships unlayered defaults, so final icon scale also lives outside Tailwind layers. */
+.material-symbols-rounded.icon-xs { font-size: 0.75rem; }
+.material-symbols-rounded.icon-sm { font-size: 1rem; }
+.material-symbols-rounded.icon-md { font-size: 1.25rem; }
+.material-symbols-rounded.icon-lg { font-size: 1.5rem; }
+.material-symbols-rounded.icon-xl { font-size: 2rem; }
+.material-symbols-rounded.icon-display { font-size: 3rem; }
+
+.badge .material-symbols-rounded,
+.badge-info .material-symbols-rounded,
+.badge-success .material-symbols-rounded,
+.badge-warning .material-symbols-rounded,
+.badge-danger .material-symbols-rounded,
+.badge-neutral .material-symbols-rounded,
+.order-timer .material-symbols-rounded {
+    font-size: 0.875rem;
 }

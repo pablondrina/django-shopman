@@ -60,6 +60,8 @@ def test_backstage_design_tokens_expose_canonical_components():
 
     assert "placeholder:text-on-surface/70" in css
     assert "placeholder:text-on-surface/40" not in css
+    assert ".material-symbols-rounded.icon-sm { font-size: 1rem; }" in css
+    assert ".order-timer .material-symbols-rounded" in css
 
 
 def test_backstage_templates_avoid_micro_type_and_loose_dashes():
@@ -99,6 +101,7 @@ def test_backstage_order_queue_keeps_all_action_areas_visible_and_responsive():
     card = (TEMPLATES / "pedidos" / "partials" / "card.html").read_text(encoding="utf-8")
     index = (TEMPLATES / "pedidos" / "index.html").read_text(encoding="utf-8")
     js = (TEMPLATES / "pedidos" / "partials" / "pedidos_js.html").read_text(encoding="utf-8")
+    css = CSS_SOURCE.read_text(encoding="utf-8")
 
     assert "Preparos" in order_list
     assert "queue.preparo" in order_list
@@ -107,15 +110,24 @@ def test_backstage_order_queue_keeps_all_action_areas_visible_and_responsive():
     assert "h-full w-full min-w-0" in index
     assert "orders.zone.preparo" in order_list
     assert "|| 'collapsed'" in order_list
-    assert "lg:grid-cols-[minmax(17rem,1fr)_minmax(17rem,1fr)_minmax(34rem,2fr)]" in order_list
+    assert "orderGridColumns()" in order_list
+    assert "grid-template-columns" in order_list
+    assert "preparoCollapsed ? '4rem' : 'minmax(17rem,1fr)'" in order_list
+    assert "saidaCollapsed ? '4rem' : 'minmax(34rem,2fr)'" in order_list
+    assert "toggleZone('preparo')" in order_list
+    assert "x-text=\"preparoCollapsed ? 'chevron_right' : 'expand_more'\"" in order_list
     assert "lg:grid-cols-2" in order_list
     assert "writing-mode" not in order_list
     assert "overflow-y-auto p-3 space-y-4" in order_list
     assert "badge {{ o.status_color }}" in card
+    assert "badge-warning text-xs inline-flex" not in card
+    assert "badge-success px-2.5" not in card
     assert "shrink-0 w-full min-w-0 p-0" in card
     assert '})()">' in card
     assert "order-timer {{ o.timer_class }}" in card
     assert "elapsed >= 3600" in card
     assert "font-mono" not in card
+    assert ".order-timer" in css
+    assert "text-xs font-semibold tabular-nums leading-none" in css
     assert "var source = (e.detail && e.detail.elt) || e.target;" in js
     assert "if (source !== grid) return;" in js

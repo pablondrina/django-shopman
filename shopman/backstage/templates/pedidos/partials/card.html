@@ -34,7 +34,7 @@
         <span class="order-timer {{ o.timer_class }}"
               x-data="{ elapsed: {{ o.elapsed_seconds }} }"
               x-init="setInterval(() => elapsed++, 1000)">
-          <span class="material-symbols-rounded icon-sm" aria-hidden="true">schedule</span>
+          <span class="material-symbols-rounded" aria-hidden="true">schedule</span>
           {% if o.timer_class == 'timer-urgent' %}
           <span>Urgente</span>
           {% endif %}
@@ -64,8 +64,8 @@
     </div>
     {% if o.payment_pending %}
     <div class="mt-1.5">
-      <span class="badge-warning text-xs inline-flex items-center gap-1">
-        <span class="material-symbols-rounded icon-sm" aria-hidden="true">hourglass_top</span>
+      <span class="badge-warning">
+        <span class="material-symbols-rounded" aria-hidden="true">hourglass_top</span>
         Aguardando pagamento
       </span>
     </div>
@@ -142,8 +142,8 @@
           Confirmar Pagamento
         </button>
       {% else %}
-        <span class="badge-success px-2.5 inline-flex items-center gap-1">
-          <span class="material-symbols-rounded icon-sm" aria-hidden="true">check_circle</span>
+        <span class="badge-success">
+          <span class="material-symbols-rounded" aria-hidden="true">check_circle</span>
           Pago
         </span>
       {% endif %}
