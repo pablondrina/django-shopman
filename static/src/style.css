@@ -76,6 +76,42 @@
         -moz-osx-font-smoothing: grayscale;
     }
 
+    /* iOS viewport-fit safe areas. The top strip is the status bar region
+       (time, signal, battery) in standalone/PWA contexts. */
+    body::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        right: 0;
+        left: 0;
+        height: env(safe-area-inset-top);
+        background: var(--shopman-safe-top-color, var(--color-surface-alt));
+        pointer-events: none;
+        z-index: 95;
+    }
+
+    body::after {
+        content: "";
+        position: fixed;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        height: env(safe-area-inset-bottom);
+        background: var(--shopman-safe-bottom-color, var(--color-surface));
+        pointer-events: none;
+        z-index: 95;
+    }
+
+    /* iOS Safari zooms focused controls below 16px. Keep pinch zoom enabled,
+       but prevent the disruptive auto-zoom when entering forms. */
+    @media (max-width: 767px) {
+        input,
+        select,
+        textarea {
+            font-size: 16px;
+        }
+    }
+
     /* Headings */
     h1, h2, h3, h4, h5, h6 {
         font-family: var(--font-title);

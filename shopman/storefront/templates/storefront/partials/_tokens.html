@@ -15,12 +15,45 @@
   var h=document.documentElement;
   var DARK='#1c1917', LIGHT='#ffffff';
 
+  function applyViewportChromeColor(color){
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if(!meta){meta=document.createElement('meta');meta.name='theme-color';document.head.appendChild(meta);}
+    meta.setAttribute('content', color);
+    h.style.backgroundColor = color;
+    h.style.setProperty('--shopman-safe-top-color', color);
+  }
+
   function syncThemeColor(isDark){
     // Banner uses inverted tokens, so when present the top region is the opposite of the page theme.
     var topIsDark = hasBanner ? !isDark : isDark;
+    applyViewportChromeColor(topIsDark ? DARK : LIGHT);
+  }
+
+  function solidBackground(el){
+    while(el && el !== document){
+      var style = window.getComputedStyle(el);
+      var color = style && style.backgroundColor;
+      if(color && color !== 'transparent' && color !== 'rgba(0, 0, 0, 0)') return color;
+      el = el.parentElement;
+    }
+    return '';
+  }
+
+  function syncViewportChrome(){
     var meta = document.querySelector('meta[name="theme-color"]');
     if(!meta){meta=document.createElement('meta');meta.name='theme-color';document.head.appendChild(meta);}
-    meta.setAttribute('content', topIsDark ? DARK : LIGHT);
+    var probe = document.elementFromPoint(Math.max(1, Math.floor(window.innerWidth / 2)), 1);
+    var color = solidBackground(probe) || solidBackground(document.body) || meta.getAttribute('content') || LIGHT;
+    applyViewportChromeColor(color);
+  }
+
+  var chromeFrame = 0;
+  function queueViewportChromeSync(){
+    if(chromeFrame) return;
+    chromeFrame = requestAnimationFrame(function(){
+      chromeFrame = 0;
+      syncViewportChrome();
+    });
   }
 
   function apply(isDark){
@@ -35,6 +68,11 @@
     q.addEventListener('change',function(e){apply(e.matches);});
   }
   else {apply(false);}
+
+  window.addEventListener('DOMContentLoaded', queueViewportChromeSync);
+  window.addEventListener('load', queueViewportChromeSync);
+  window.addEventListener('scroll', queueViewportChromeSync, {passive:true});
+  window.addEventListener('resize', queueViewportChromeSync, {passive:true});
 })();
 </script>
 

@@ -45,7 +45,7 @@
 
   {% comment %}── Navbar sticky: botão híbrido (manage_search) + pills rail ──{% endcomment %}
   <div x-ref="navbar"
-       class="sticky top-0 z-40 border-b border-outline bg-surface-alt/95 backdrop-blur dark:border-outline-dark dark:bg-surface-dark-alt/95">
+       class="sticky top-0 z-50 border-b border-outline bg-surface-alt/95 backdrop-blur dark:border-outline-dark dark:bg-surface-dark-alt/95">
     <div class="flex items-stretch gap-2 px-4 py-2.5">
       {% comment %}Position 0 — ghost square, não faz parte do rail. Vira close quando overlay aberto.{% endcomment %}
       <button type="button"
@@ -167,11 +167,8 @@
 
   {% comment %}Index de todos os itens pra busca client-side (JSON embutido){% endcomment %}
   {{ catalog_search_index_json|json_script:"menu-search-index" }}
-</div>
-{% endif %}
 
-{% comment %}── Sections (agrupadas por dinâmica/categoria, scroll-spy via data-pill) ──{% endcomment %}
-{% if catalog.has_items %}
+  {% comment %}── Sections (agrupadas por dinâmica/categoria, scroll-spy via data-pill) ──{% endcomment %}
   <div class="px-4 py-6 space-y-10">
   {% for section in catalog.sections %}
   <section id="section-{{ section.ref }}" data-pill="{{ section.ref }}" class="animate-fade-in">
@@ -186,6 +183,7 @@
   </section>
   {% endfor %}
   </div>
+</div>
 {% else %}
   {% omotenashi 'MENU_EMPTY' as menu_empty %}
   <div class="card text-center py-12">
@@ -204,17 +202,17 @@ function menuNav() {
     navHeight: 0,
     panelTop: 0,
     _lockActiveUntil: 0,
-    _lastScrollRun: 0,
+    _scrollFrame: 0,
     _items: [],
 
     init() {
-      window.addEventListener('scroll', () => this.onScroll(), { passive: true });
-      window.addEventListener('resize', () => this.measureNav(), { passive: true });
+      window.addEventListener('scroll', () => this.queueScrollSpy(), { passive: true });
+      window.addEventListener('resize', () => { this.measureNav(); this.queueScrollSpy(); }, { passive: true });
       // Primeira seção = primeiro pill ativo
       const first = document.querySelector('[data-pill]');
       if (first) this.active = first.dataset.pill;
       this.loadSearchIndex();
-      this.$nextTick(() => { this.measureNav(); this.onScroll(); });
+      this.$nextTick(() => { this.measureNav(); this.updateActiveFromScroll(); });
     },
 
     loadSearchIndex() {
@@ -246,26 +244,25 @@ function menuNav() {
       this.navHeight = this.$refs.navbar ? this.$refs.navbar.offsetHeight : 0;
     },
 
-    onScroll() {
-      const now = Date.now();
-      if (now - this._lastScrollRun < 40) return;
-      this._lastScrollRun = now;
-      if (now < this._lockActiveUntil) return;
+    queueScrollSpy() {
+      if (this._scrollFrame) return;
+      this._scrollFrame = requestAnimationFrame(() => {
+        this._scrollFrame = 0;
+        this.updateActiveFromScroll();
+      });
+    },
+
+    updateActiveFromScroll() {
+      if (Date.now() < this._lockActiveUntil) return;
       const markerY = (this.navHeight || 65) + 32;
       const sections = [...document.querySelectorAll('[data-pill]')];
       if (!sections.length) return;
-      let closest = null, closestDist = Infinity;
+      let closest = sections[0].dataset.pill;
       sections.forEach(s => {
         const r = s.getBoundingClientRect();
-        if (r.top <= markerY + 8) {
-          const dist = markerY - r.top;
-          if (dist < closestDist) { closestDist = dist; closest = s.dataset.pill; }
-        }
+        if (r.top <= markerY && r.bottom > markerY) closest = s.dataset.pill;
+        else if (r.top <= markerY) closest = s.dataset.pill;
       });
-      if (!closest) {
-        const lastRect = sections[sections.length - 1].getBoundingClientRect();
-        closest = lastRect.top > markerY ? sections[0].dataset.pill : sections[sections.length - 1].dataset.pill;
-      }
       if (closest && closest !== this.active) {
         this.active = closest;
         this.centerPillInRail(closest);
@@ -275,13 +272,14 @@ function menuNav() {
     jumpTo(ref) {
       this.measureNav();
       if (ref === '__top__') {
-        this._lockActiveUntil = Date.now() + 600;
+        this._lockActiveUntil = Date.now() + 900;
         window.scrollTo({ top: 0, behavior: 'smooth' });
         const first = document.querySelector('[data-pill]');
         if (first) { this.active = first.dataset.pill; this.centerPillInRail(this.active); }
+        setTimeout(() => { this._lockActiveUntil = 0; this.updateActiveFromScroll(); }, 950);
         return;
       }
-      this._lockActiveUntil = Date.now() + 600;
+      this._lockActiveUntil = Date.now() + 900;
       this.active = ref;
       const el = document.getElementById('section-' + ref);
       if (el) {
@@ -289,6 +287,7 @@ function menuNav() {
         window.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
       }
       this.centerPillInRail(ref);
+      setTimeout(() => { this._lockActiveUntil = 0; this.updateActiveFromScroll(); }, 950);
     },
 
     centerPillInRail(ref) {

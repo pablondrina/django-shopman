@@ -3,6 +3,7 @@ from pathlib import Path
 STOREFRONT_ROOT = Path(__file__).parents[1]
 TEMPLATES = STOREFRONT_ROOT / "templates" / "storefront"
 STATIC_JS = STOREFRONT_ROOT / "static" / "storefront" / "js"
+CSS_SOURCE = STOREFRONT_ROOT.parents[1] / "static" / "src" / "style.css"
 
 
 def _read_template(name: str) -> str:
@@ -74,3 +75,45 @@ def test_cart_surface_keeps_mobile_totals_readable():
     assert "self-end sm:self-auto shrink-0" in cart_page
     assert "flex flex-wrap items-center justify-between" in drawer
     assert "ml-auto shrink-0" in drawer
+
+
+def test_mobile_menu_layers_above_menu_pill_bar():
+    base = _read_template("base.html")
+    menu = _read_template("menu.html")
+
+    assert "z-[80]" in base
+    assert "z-[70]" in base
+    assert "sticky top-0 z-50" in menu
+    assert "fixed left-0 right-0 bottom-0 z-40" in menu
+
+
+def test_menu_pills_keep_scroll_spy_centering():
+    menu = _read_template("menu.html")
+
+    assert "queueScrollSpy()" in menu
+    assert "requestAnimationFrame" in menu
+    assert "updateActiveFromScroll()" in menu
+    assert "centerPillInRail(closest)" in menu
+    assert menu.index('<div x-data="menuNav()"') < menu.index('<section id="section-{{ section.ref }}"')
+    assert menu.index("catalog_search_index_json|json_script") < menu.index("px-4 py-6 space-y-10")
+
+
+def test_ios_form_focus_does_not_auto_zoom():
+    css = CSS_SOURCE.read_text(encoding="utf-8")
+    base = _read_template("base.html")
+
+    assert "maximum-scale" not in base
+    assert "@media (max-width: 767px)" in css
+    assert "font-size: 16px" in css
+
+
+def test_viewport_chrome_follows_top_surface_color():
+    tokens = _read_template("partials/_tokens.html")
+    css = CSS_SOURCE.read_text(encoding="utf-8")
+
+    assert "syncViewportChrome()" in tokens
+    assert "document.elementFromPoint" in tokens
+    assert "--shopman-safe-top-color" in tokens
+    assert "h.style.backgroundColor = color" in tokens
+    assert "env(safe-area-inset-top)" in css
+    assert "body::before" in css
