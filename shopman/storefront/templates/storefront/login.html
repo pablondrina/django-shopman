@@ -106,10 +106,6 @@
     </div>
     {% endif %}
 
-    <p class="mb-5 text-center text-sm text-on-surface/85 dark:text-on-surface-dark/70 md:text-left">
-      {{ login_phone_subtitle.message }}
-    </p>
-
     <form method="post"
           action="{% url 'storefront:login' %}{% if next %}?next={{ next|urlencode }}{% endif %}"
           x-data="{ method: 'whatsapp', loading: false }"
@@ -124,6 +120,9 @@
         <label for="phone" class="text-base font-medium text-on-surface-strong dark:text-on-surface-dark-strong">
           Telefone com DDD
         </label>
+        <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/70">
+          {{ login_phone_subtitle.message }}
+        </p>
         <div class="flex min-w-0">
           <div class="flex items-center gap-2 rounded-l-radius border-2 border-r-0 border-outline bg-surface-alt px-3 text-base select-none dark:border-outline-dark dark:bg-surface-dark-alt/50">
             <span class="text-lg leading-none">🇧🇷</span>
@@ -145,8 +144,6 @@
         {% if error %}
         <p class="text-base text-danger dark:text-danger-dark" role="alert">{{ error }}</p>
         {% endif %}
-        {% omotenashi 'CHECKOUT_PHONE_PURPOSE' as phone_purpose %}
-        {% if phone_purpose %}<p class="text-sm text-on-surface/85 dark:text-on-surface-dark/60">{{ phone_purpose.message }}</p>{% endif %}
       </div>
 
       <button type="submit"
@@ -180,7 +177,7 @@
 
       <p class="flex items-center justify-center gap-1.5 text-xs text-on-surface/85 dark:text-on-surface-dark/60">
         <span class="material-symbols-rounded icon-sm" aria-hidden="true">lock</span>
-        Código único. Não exige senha.
+        Código único. Não exige senha. Usamos só para avisar sobre seu pedido.
       </p>
     </form>
 

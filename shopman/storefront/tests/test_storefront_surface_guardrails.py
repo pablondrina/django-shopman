@@ -150,7 +150,9 @@ def test_auth_inputs_stay_readable_on_mobile():
     assert "font-mono" not in login
     assert "text-lg sm:text-xl tabular-nums tracking-[0.18em]" in code
     assert "tracking-[0.5em]" not in code
-    assert login.count("CHECKOUT_PHONE_PURPOSE") == 1
+    assert "Vamos enviar um código pelo WhatsApp." not in login
+    assert "Código único. Não exige senha." in login
+    assert "CHECKOUT_PHONE_PURPOSE" not in login
 
 
 def test_mobile_nav_labels_use_base_small_type():
