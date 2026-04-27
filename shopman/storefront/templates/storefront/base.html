@@ -262,7 +262,11 @@
   {# Logout form #}
   {% if request.user.is_authenticated %}
   <form method="post" action="{% url 'doorman:logout' %}" class="hidden"
-        x-data @nav:logout.window="$el.submit()">{% csrf_token %}</form>
+        x-data="{ next: '' }"
+        @nav:logout.window="next = $event.detail && $event.detail.next ? $event.detail.next : ''; $nextTick(() => $el.submit())">
+    {% csrf_token %}
+    <input type="hidden" name="next" :value="next">
+  </form>
   {% endif %}
 
   {# Stock-error modal sentinel — populated by 422 responses with HX-Retarget #}

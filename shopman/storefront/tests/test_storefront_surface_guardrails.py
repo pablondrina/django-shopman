@@ -113,13 +113,42 @@ def test_customer_surfaces_keep_focus_first_hierarchy():
     login = _read_template("login.html")
     cart_page = _read_template("partials/_cart_page_content.html")
 
-    assert "order-2 md:order-1 aspect-video sm:aspect-square" in pdp
-    assert "order-1 md:order-2 flex flex-col" in pdp
+    assert "h-36 sm:h-44 md:h-auto md:aspect-square" in pdp
     assert "text-3xl" not in pdp
     assert "h-28 sm:h-36" in login
     assert "h-44 sm:h-56" not in login
     assert "text-2xl lg:text-3xl" not in menu
     assert "text-2xl lg:text-3xl" not in cart_page
+
+
+def test_pdp_cta_price_updates_with_quantity_without_dash():
+    pdp = _read_template("product_detail.html")
+
+    assert "unitPriceQ: {{ product.base_price_q|default:0 }}" in pdp
+    assert "ctaLabel()" in pdp
+    assert "this.unitPriceQ * this.qty" in pdp
+    assert "fixed inset-x-0 bottom-14" in pdp
+    assert "Adicionar —" not in pdp
+    assert "Atualizar para" not in pdp
+
+
+def test_auth_inputs_stay_readable_on_mobile():
+    login = _read_template("login.html")
+    code = _read_template("partials/auth_verify_code.html")
+
+    assert "text-lg tabular-nums" in login
+    assert "font-mono" not in login
+    assert "text-xl tabular-nums tracking-[0.28em]" in code
+    assert "tracking-[0.5em]" not in code
+
+
+def test_checkout_account_switch_preserves_cart_and_returns_to_checkout_login():
+    base = _read_template("base.html")
+    checkout = _read_template("checkout.html")
+
+    assert 'name="next" :value="next"' in base
+    assert "$event.detail && $event.detail.next" in base
+    assert "{ next: '{% url 'storefront:login' %}?next={% url 'storefront:checkout' %}' }" in checkout
 
 
 def test_customer_surfaces_use_canonical_icon_scale():

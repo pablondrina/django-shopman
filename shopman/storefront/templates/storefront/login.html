@@ -106,8 +106,8 @@
         <label for="phone" class="text-base font-medium text-on-surface-strong dark:text-on-surface-dark-strong">
           Seu telefone
         </label>
-        <div class="flex">
-          <div class="flex items-center gap-2 rounded-l-radius border-2 border-r-0 border-outline bg-surface-alt px-4 text-base select-none dark:border-outline-dark dark:bg-surface-dark-alt/50">
+        <div class="flex min-w-0">
+          <div class="flex items-center gap-2 rounded-l-radius border-2 border-r-0 border-outline bg-surface-alt px-3 text-base select-none dark:border-outline-dark dark:bg-surface-dark-alt/50">
             <span class="text-lg leading-none">🇧🇷</span>
             <span class="font-medium">+55</span>
           </div>
@@ -115,8 +115,8 @@
                  x-ref="input" x-model="display" @input="onInput()" @paste="onPaste()"
                  required autofocus inputmode="numeric"
                  placeholder="(43) 99999-9999" maxlength="16" autocomplete="tel-national"
-                 style="min-height: 64px;"
-                 class="w-full rounded-r-radius border-2 border-outline bg-white px-4 py-4 text-xl font-mono tracking-wide text-on-surface-strong
+                 style="min-height: 58px;"
+                 class="min-w-0 w-full rounded-r-radius border-2 border-outline bg-white px-3 py-3 text-lg tabular-nums text-on-surface-strong
                         placeholder:text-on-surface/30
                         focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none
                         dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark-strong dark:placeholder:text-on-surface-dark/30
