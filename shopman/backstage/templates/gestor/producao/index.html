@@ -1,123 +1,88 @@
 {% extends "gestor/base.html" %}
-{% block title %}Chão de fábrica | {{ shop.name|default:"Loja" }}{% endblock %}
-{% block page_title %}Chão de fábrica{% endblock %}
+{% block title %}Produção | {{ shop.name|default:"Loja" }}{% endblock %}
+{% block page_title %}Produção{% endblock %}
 {% block nav_active_producao %}active{% endblock %}
 
 {% block content %}
 <div id="production-page-content" class="h-full min-h-0 overflow-y-auto p-2 space-y-3 lg:p-3">
 
   <section class="card p-0 overflow-hidden">
-    <div class="p-3 border-b border-outline dark:border-outline-dark">
-      <div class="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-        <div class="max-w-2xl">
-          <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Produção do dia</h2>
-          <p class="field-help">Controle por SKU, etapa e permissão. O fechamento recebe apenas o que sobrou fisicamente.</p>
+    <div class="flex items-center justify-between gap-2 border-b border-outline dark:border-outline-dark p-2">
+      <div class="min-w-0">
+        <h2 class="text-base font-semibold leading-tight text-on-surface-strong dark:text-on-surface-dark-strong">Produção do dia</h2>
+        <div class="mt-1 flex flex-wrap gap-1">
+          {% if production_access.can_manage_all %}<span class="badge-neutral">Ordens {{ craft_summary.total }}</span>{% endif %}
+          {% if production_access.can_view_planned %}<span class="badge-neutral">Plan. {{ craft_summary.planned_qty }}</span>{% endif %}
+          {% if production_access.can_view_started %}<span class="badge-warning">Em prod. {{ craft_summary.started_qty }}</span>{% endif %}
+          {% if production_access.can_view_finished %}<span class="badge-success">Feito {{ craft_summary.finished_qty }}</span>{% endif %}
         </div>
-        <form hx-get="."
-              hx-target="#production-page-content"
-              hx-select="#production-page-content"
-              hx-swap="outerHTML"
-              hx-push-url="true"
-              class="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-[10rem_12rem_12rem_12rem_auto]">
-          <div>
-            <label class="field-label">Data</label>
-            <input type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}" class="input-field" />
-          </div>
-          <div>
-            <label class="field-label">Posto</label>
-            <select name="position_ref" class="select-field">
-              <option value="">Todos</option>
-              {% for position in positions %}
-              <option value="{{ position.ref }}" {% if selected_position_ref == position.ref %}selected{% endif %}>{{ position.name }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div>
-            <label class="field-label">Responsável</label>
-            <input type="text" name="operator_ref" value="{{ selected_operator_ref }}" placeholder="Nome ou usuário" class="input-field" />
-          </div>
-          <div>
-            <label class="field-label">Receita-base</label>
-            <select name="base_recipe" class="select-field">
-              <option value="">Todos</option>
-              {% for group in base_recipes %}
-              <option value="{{ group.output_sku }}" {% if selected_base_recipe == group.output_sku %}selected{% endif %}>{{ group.name }} ({{ group.count }})</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="flex items-end sm:justify-end xl:justify-start">
-            <button type="submit" class="btn-primary h-11 min-h-11 w-11 min-w-11 p-0" title="Filtrar" aria-label="Filtrar">
-              <span class="material-symbols-rounded icon-sm" aria-hidden="true">filter_alt</span>
+      </div>
+      <details class="relative shrink-0">
+        <summary class="btn-quiet h-10 min-h-10 w-10 min-w-10 cursor-pointer list-none p-0" title="Filtros" aria-label="Filtros">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">tune</span>
+        </summary>
+        <div class="absolute right-0 z-40 mt-2 w-[min(22rem,calc(100vw-1rem))] rounded-lg border border-outline bg-surface-alt p-3 shadow-xl dark:border-outline-dark dark:bg-surface-dark-alt">
+          <form hx-get="."
+                hx-target="#production-page-content"
+                hx-select="#production-page-content"
+                hx-swap="outerHTML"
+                hx-push-url="true"
+                class="grid grid-cols-1 gap-2">
+            <div>
+              <label class="field-label">Data</label>
+              <input type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}" class="input-field" />
+            </div>
+            <div>
+              <label class="field-label">Posto</label>
+              <select name="position_ref" class="select-field">
+                <option value="">Todos</option>
+                {% for position in positions %}
+                <option value="{{ position.ref }}" {% if selected_position_ref == position.ref %}selected{% endif %}>{{ position.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label class="field-label">Responsável</label>
+              <input type="text" name="operator_ref" value="{{ selected_operator_ref }}" placeholder="Nome ou usuário" class="input-field" />
+            </div>
+            <div>
+              <label class="field-label">Receita-base</label>
+              <select name="base_recipe" class="select-field">
+                <option value="">Todos</option>
+                {% for group in base_recipes %}
+                <option value="{{ group.output_sku }}" {% if selected_base_recipe == group.output_sku %}selected{% endif %}>{{ group.name }} ({{ group.count }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            <button type="submit" class="btn-primary h-10 min-h-10 w-full py-2">
               <span class="htmx-indicator material-symbols-rounded animate-spin icon-sm" aria-hidden="true">progress_activity</span>
+              Filtrar
             </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <div class="grid grid-cols-2 gap-px bg-outline dark:bg-outline-dark md:grid-cols-4">
-      {% if production_access.can_manage_all %}
-      <div class="bg-surface-alt dark:bg-surface-dark-alt p-3">
-        <div class="flex min-w-0 items-center gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
-          <span class="material-symbols-rounded icon-md shrink-0" aria-hidden="true">assignment</span>
-          <span class="metric-label min-w-0 truncate">Ordens</span>
+          </form>
         </div>
-        <div class="metric-value mt-1">{{ craft_summary.total }}</div>
-      </div>
-      {% endif %}
-      {% if production_access.can_view_planned %}
-      <div class="bg-surface-alt dark:bg-surface-dark-alt p-3">
-        <div class="flex min-w-0 items-center gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
-          <span class="material-symbols-rounded icon-md shrink-0" aria-hidden="true">event_note</span>
-          <span class="metric-label min-w-0 truncate">Planejado</span>
-        </div>
-        <div class="metric-value mt-1">{{ craft_summary.planned_qty }}</div>
-        <p class="mt-0.5 text-xs text-on-surface/60 dark:text-on-surface-dark/60">{{ craft_summary.planned_orders }} ordem(ns)</p>
-      </div>
-      {% endif %}
-      {% if production_access.can_view_started %}
-      <div class="bg-surface-alt dark:bg-surface-dark-alt p-3">
-        <div class="flex min-w-0 items-center gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
-          <span class="material-symbols-rounded icon-md shrink-0" aria-hidden="true">play_circle</span>
-          <span class="metric-label min-w-0 truncate">Em produção</span>
-        </div>
-        <div class="metric-value mt-1">{{ craft_summary.started_qty }}</div>
-        <p class="mt-0.5 text-xs text-on-surface/60 dark:text-on-surface-dark/60">{{ craft_summary.started_orders }} ordem(ns)</p>
-      </div>
-      {% endif %}
-      {% if production_access.can_view_finished %}
-      <div class="bg-surface-alt dark:bg-surface-dark-alt p-3">
-        <div class="flex min-w-0 items-center gap-2 text-on-surface/70 dark:text-on-surface-dark/70">
-          <span class="material-symbols-rounded icon-md shrink-0" aria-hidden="true">task_alt</span>
-          <span class="metric-label min-w-0 truncate">Concluído</span>
-        </div>
-        <div class="metric-value mt-1">{{ craft_summary.finished_qty }}</div>
-        <p class="mt-0.5 text-xs text-on-surface/60 dark:text-on-surface-dark/60">Perda {{ craft_summary.loss_qty }}</p>
-      </div>
-      {% endif %}
+      </details>
     </div>
   </section>
 
   <section class="card p-0 overflow-hidden">
     <div class="flex flex-col gap-2 border-b border-outline dark:border-outline-dark p-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Matriz de produção</h2>
-        <p class="field-help">SKUs agrupados pela receita-base que consomem. Cada coluna respeita a permissão do perfil.</p>
+        <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Mapa de produção</h2>
       </div>
-      <span class="count-badge bg-surface dark:bg-surface-dark text-on-surface/70 dark:text-on-surface-dark/70">{{ matrix_rows|length }}</span>
+      <span class="count-badge self-start bg-surface dark:bg-surface-dark text-on-surface/70 dark:text-on-surface-dark/70 sm:self-auto">{{ matrix_rows|length }}</span>
     </div>
 
     {% if matrix_groups %}
     <div class="overflow-x-auto" x-data="{ openRow: '' }">
-      <table class="w-full min-w-[50rem] border-collapse text-left text-sm">
+      <table class="w-full min-w-[44rem] border-collapse text-left text-sm">
         <thead class="bg-surface dark:bg-surface-dark text-xs font-semibold uppercase text-on-surface/60 dark:text-on-surface-dark/60">
           <tr>
-            <th class="sticky left-0 z-20 w-48 border-b border-outline bg-surface dark:border-outline-dark dark:bg-surface-dark px-3 py-2">SKU</th>
-            {% if production_access.can_view_suggested %}<th class="w-32 border-b border-outline dark:border-outline-dark px-2 py-2">Sugerido</th>{% endif %}
-            {% if production_access.can_view_planned %}<th class="w-32 border-b border-outline dark:border-outline-dark px-2 py-2">Planejado</th>{% endif %}
-            {% if production_access.can_view_started %}<th class="w-36 border-b border-outline dark:border-outline-dark px-2 py-2">Em produção</th>{% endif %}
-            {% if production_access.can_view_finished %}<th class="w-28 border-b border-outline dark:border-outline-dark px-2 py-2">Concluído</th>{% endif %}
-            {% if production_access.can_view_unsold %}<th class="w-20 border-b border-outline dark:border-outline-dark px-2 py-2">Sobras</th>{% endif %}
+            <th class="sticky left-0 z-20 w-44 border-b border-outline bg-surface dark:border-outline-dark dark:bg-surface-dark px-2 py-2">SKU</th>
+            {% if production_access.can_view_planned %}<th class="w-28 border-b border-outline dark:border-outline-dark px-2 py-2">Planejado</th>{% endif %}
+            {% if production_access.can_view_started %}<th class="w-16 border-b border-outline dark:border-outline-dark px-2 py-2">Ação</th>{% endif %}
+            {% if production_access.can_view_started %}<th class="w-28 border-b border-outline dark:border-outline-dark px-2 py-2">Em produção</th>{% endif %}
+            {% if production_access.can_view_finished %}<th class="w-24 border-b border-outline dark:border-outline-dark px-2 py-2">Concluído</th>{% endif %}
+            {% if production_access.can_view_unsold %}<th class="w-16 border-b border-outline dark:border-outline-dark px-2 py-2">Sobras</th>{% endif %}
           </tr>
         </thead>
         <tbody class="divide-y divide-outline dark:divide-outline-dark">
@@ -147,36 +112,6 @@
               </div>
             </th>
 
-            {% if production_access.can_view_suggested %}
-            <td class="px-2 py-1.5">
-              {% if row.suggestion %}
-              <div class="flex items-center gap-1.5">
-                <span class="text-sm font-semibold tabular-nums text-on-surface-strong dark:text-on-surface-dark-strong">{{ row.suggestion.quantity }}</span>
-                <span class="badge-info shrink-0">{{ row.suggestion.confidence }}</span>
-                {% if production_access.can_edit_suggested or production_access.can_edit_planned %}
-                <form method="post" class="ml-auto">
-                  {% csrf_token %}
-                  <input type="hidden" name="action" value="set_planned" />
-                  <input type="hidden" name="source" value="suggested" />
-                  <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}" />
-                  <input type="hidden" name="position_ref" value="{{ selected_position_ref }}" />
-                  <input type="hidden" name="operator_ref" value="{{ selected_operator_ref }}" />
-                  <input type="hidden" name="operator_ref_filter" value="{{ selected_operator_ref }}" />
-                  <input type="hidden" name="base_recipe" value="{{ selected_base_recipe }}" />
-                  <input type="hidden" name="recipe" value="{{ row.suggestion.recipe_pk }}" />
-                  <input type="hidden" name="quantity" value="{{ row.suggestion.quantity }}" />
-                  <button type="submit" class="btn-quiet h-7 min-h-7 w-7 min-w-7 p-0" title="Usar sugestão" aria-label="Usar sugestão para {{ row.output_sku }}">
-                    <span class="material-symbols-rounded icon-sm" aria-hidden="true">add_task</span>
-                  </button>
-                </form>
-                {% endif %}
-              </div>
-              {% else %}
-              <span class="text-xs text-on-surface/40 dark:text-on-surface-dark/40">Sem sugestão</span>
-              {% endif %}
-            </td>
-            {% endif %}
-
             {% if production_access.can_view_planned %}
             <td class="px-2 py-1.5">
               <div class="flex items-center gap-1.5">
@@ -200,20 +135,24 @@
                   <span class="material-symbols-rounded icon-sm" aria-hidden="true">check</span>
                 </button>
               </form>
+              {% elif row.planned_qty %}
+              <span class="badge-neutral tabular-nums">{{ row.planned_qty }}</span>
+              {% else %}
+              <span class="text-xs text-on-surface/40 dark:text-on-surface-dark/40">Sem ordem</span>
               {% endif %}
-              {% if row.planned_orders %}
+              </div>
+            </td>
+            {% endif %}
+
+            {% if production_access.can_view_started %}
+            <td class="px-2 py-1.5">
+              <div class="flex items-center gap-1">
                 {% for item in row.planned_orders %}
-                <div class="flex items-center gap-1.5 text-xs" x-data="{ startOpen: false }">
-                  {% if not production_access.can_edit_planned %}
-                  <span class="badge-neutral tabular-nums">{{ item.planned_qty }}</span>
-                  {% endif %}
-                  {% if production_access.can_edit_started %}
+                {% if production_access.can_edit_started %}
+                <div x-data="{ startOpen: false }">
                   <button type="button" class="btn-primary h-7 min-h-7 w-7 min-w-7 p-0" @click="startOpen = true" title="Iniciar" aria-label="Iniciar {{ item.output_sku }}">
                     <span class="material-symbols-rounded icon-sm" aria-hidden="true">play_arrow</span>
                   </button>
-                  {% endif %}
-
-                  {% if production_access.can_edit_started %}
                   <div x-show="startOpen" x-cloak x-transition class="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4" @click.self="startOpen = false" @keydown.escape.window="startOpen = false" role="dialog" aria-modal="true">
                     <form method="post" class="surface-modal max-w-sm">
                       {% csrf_token %}
@@ -252,14 +191,12 @@
                       </div>
                     </form>
                   </div>
-                  {% endif %}
                 </div>
+                {% endif %}
                 {% endfor %}
-              {% else %}
-              {% if not production_access.can_edit_planned %}
-              <span class="text-xs text-on-surface/40 dark:text-on-surface-dark/40">Sem ordem</span>
-              {% endif %}
-              {% endif %}
+                {% if not row.planned_orders %}
+                <span class="text-xs text-on-surface/40 dark:text-on-surface-dark/40">-</span>
+                {% endif %}
               </div>
             </td>
             {% endif %}
@@ -301,7 +238,7 @@
                 {% endfor %}
               </div>
               {% else %}
-              <span class="text-xs text-on-surface/40 dark:text-on-surface-dark/40">Nada em produção</span>
+              <span class="text-xs text-on-surface/40 dark:text-on-surface-dark/40">-</span>
               {% endif %}
             </td>
             {% endif %}
@@ -347,7 +284,26 @@
                 {% if row.suggestion %}
                 <div>
                   <span class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Demanda</span>
-                  <div>Encom. {{ row.suggestion.committed }} · Média {{ row.suggestion.avg_demand }} · {{ row.suggestion.confidence }}</div>
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <span>Encom. {{ row.suggestion.committed }} · Média {{ row.suggestion.avg_demand }} · {{ row.suggestion.confidence }}</span>
+                    {% if production_access.can_edit_suggested or production_access.can_edit_planned %}
+                    <form method="post">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="set_planned" />
+                      <input type="hidden" name="source" value="suggested" />
+                      <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}" />
+                      <input type="hidden" name="position_ref" value="{{ selected_position_ref }}" />
+                      <input type="hidden" name="operator_ref" value="{{ selected_operator_ref }}" />
+                      <input type="hidden" name="operator_ref_filter" value="{{ selected_operator_ref }}" />
+                      <input type="hidden" name="base_recipe" value="{{ selected_base_recipe }}" />
+                      <input type="hidden" name="recipe" value="{{ row.suggestion.recipe_pk }}" />
+                      <input type="hidden" name="quantity" value="{{ row.suggestion.quantity }}" />
+                      <button type="submit" class="btn-quiet h-7 min-h-7 w-7 min-w-7 p-0" title="Usar sugestão" aria-label="Usar sugestão para {{ row.output_sku }}">
+                        <span class="material-symbols-rounded icon-sm" aria-hidden="true">add_task</span>
+                      </button>
+                    </form>
+                    {% endif %}
+                  </div>
                 </div>
                 {% endif %}
                 {% if row.planned_orders or row.started_orders or row.finished_orders %}

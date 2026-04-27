@@ -140,14 +140,18 @@ def test_backstage_order_queue_keeps_all_action_areas_visible_and_responsive():
 def test_backstage_production_uses_high_volume_matrix_surface():
     production = (TEMPLATES / "gestor" / "producao" / "index.html").read_text(encoding="utf-8")
 
-    assert "Matriz de produção" in production
+    assert "Produção do dia" in production
+    assert "Mapa de produção" in production
+    assert "Matriz de produção" not in production
     assert "matrix_groups" in production
     assert "matrix_rows|length" in production
     assert "Receita-base" in production
     assert "base_recipe" in production
+    assert "Ação" in production
     assert "set_planned" in production
     assert "openRow" in production
     assert "Detalhes de" in production
+    assert ">Sugerido<" not in production
     assert 'max="9999"' in production
     assert 'title="Usar sugestão"' in production
     assert 'title="Salvar planejado"' in production
