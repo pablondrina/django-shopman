@@ -310,7 +310,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Entre com seu telefone")},
     },
     "LOGIN_PHONE_SUBTITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Enviamos um código pelo WhatsApp. Sem senha.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Vamos enviar um código pelo WhatsApp.")},
     },
     "LOGIN_PHONE_CTA_WA": {
         WILDCARD: {WILDCARD: CopyEntry(title="Receber código no WhatsApp")},
