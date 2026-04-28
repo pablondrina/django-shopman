@@ -60,7 +60,7 @@ def ensure(order) -> None:
             customer = fn(order)
         else:
             customer = _handle_phone(order)
-    except _SkipAnonymous:
+    except SkipAnonymous:
         return
     except Exception as exc:
         logger.warning("customer.ensure: failed for order %s: %s", order.ref, exc)
@@ -86,7 +86,7 @@ def _handle_manychat(order):
     name = customer_data.get("name", "")
 
     if not subscriber_id:
-        raise _SkipAnonymous()
+        raise SkipAnonymous()
 
     customer = adapter.get_customer_by_identifier("manychat", subscriber_id)
     if customer:
@@ -119,7 +119,7 @@ def _handle_ifood(order):
     name = customer_data.get("name", "")
 
     if not ifood_order_id:
-        raise _SkipAnonymous()
+        raise SkipAnonymous()
 
     customer = adapter.get_customer_by_identifier("ifood", ifood_order_id)
     if customer:
@@ -144,11 +144,11 @@ def _handle_phone(order):
     name = customer_data.get("name", "")
 
     if not phone_raw:
-        raise _SkipAnonymous()
+        raise SkipAnonymous()
 
     phone = _normalize_phone_safe(phone_raw)
     if not phone:
-        raise _SkipAnonymous()
+        raise SkipAnonymous()
 
     customer = adapter.get_customer_by_phone(phone)
     if customer:
@@ -172,8 +172,12 @@ register_strategy("ifood", _handle_ifood)
 # ── helpers ──
 
 
-class _SkipAnonymous(Exception):
+class SkipAnonymous(Exception):
+    """Raised by customer strategies when an order should remain anonymous."""
     pass
+
+
+_SkipAnonymous = SkipAnonymous
 
 
 def _customers_available() -> bool:
