@@ -464,6 +464,7 @@ def _d1_stock() -> list[D1StockRowProjection]:
             product = Product.objects.get(sku=quant.sku)
             name = product.name
         except Exception:
+            logger.debug("d1_stock_product_lookup_failed sku=%s", quant.sku, exc_info=True)
             name = quant.sku
 
         rows.append(D1StockRowProjection(
@@ -495,6 +496,7 @@ def _operator_alerts() -> list[OperatorAlertProjection]:
             for a in qs
         ]
     except Exception:
+        logger.debug("operator_alerts_load_failed", exc_info=True)
         return []
 
 
@@ -507,6 +509,7 @@ def _production_suggestions(target_date: date) -> list[ProductionSuggestionProje
     try:
         suggestions = craft.suggest(date=target_date)
     except Exception:
+        logger.debug("dashboard_suggestions_failed date=%s", target_date, exc_info=True)
         return []
 
     rows: list[ProductionSuggestionProjection] = []

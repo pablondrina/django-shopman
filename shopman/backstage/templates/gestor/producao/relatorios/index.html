@@ -1,0 +1,133 @@
+{% extends "gestor/base.html" %}
+{% block title %}Relatórios de Produção | {{ shop.name|default:"Loja" }}{% endblock %}
+{% block page_title %}Relatórios de Produção{% endblock %}
+{% block nav_active_producao %}active{% endblock %}
+
+{% block navbar_actions %}
+<a href="{% url 'backstage:production' %}" class="btn-icon" title="Produção" aria-label="Voltar para produção">
+  <span class="material-symbols-rounded icon-md" aria-hidden="true">factory</span>
+</a>
+<a href="{% url 'backstage:production_kds' %}" class="btn-icon" title="KDS de produção" aria-label="KDS de produção">
+  <span class="material-symbols-rounded icon-md" aria-hidden="true">tv</span>
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="h-full min-h-0 overflow-y-auto p-3 space-y-3">
+  <section class="card p-3">
+    <form method="get" class="grid gap-3 md:grid-cols-7" aria-label="Filtros dos relatórios de produção">
+      <div>
+        <label class="field-label" for="report_kind">Relatório</label>
+        <select id="report_kind" name="report_kind" class="select-field min-h-11">
+          <option value="history" {% if report_kind == "history" %}selected{% endif %}>Histórico de WOs</option>
+          <option value="operator_productivity" {% if report_kind == "operator_productivity" %}selected{% endif %}>Produtividade</option>
+          <option value="recipe_waste" {% if report_kind == "recipe_waste" %}selected{% endif %}>Desperdício</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label" for="date_from">De</label>
+        <input id="date_from" type="date" name="date_from" value="{{ filters.date_from|date:'Y-m-d' }}" class="input-field min-h-11" />
+      </div>
+      <div>
+        <label class="field-label" for="date_to">Até</label>
+        <input id="date_to" type="date" name="date_to" value="{{ filters.date_to|date:'Y-m-d' }}" class="input-field min-h-11" />
+      </div>
+      <div>
+        <label class="field-label" for="recipe_ref">Receita</label>
+        <select id="recipe_ref" name="recipe_ref" class="select-field min-h-11">
+          <option value="">Todas</option>
+          {% for recipe in reports.available_recipes %}
+          <option value="{{ recipe.ref }}" {% if filters.recipe_ref == recipe.ref %}selected{% endif %}>{{ recipe.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="field-label" for="position_ref">Posição</label>
+        <select id="position_ref" name="position_ref" class="select-field min-h-11">
+          <option value="">Todas</option>
+          {% for position in reports.available_positions %}
+          <option value="{{ position.ref }}" {% if filters.position_ref == position.ref %}selected{% endif %}>{{ position.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="field-label" for="operator_ref">Operador</label>
+        <input id="operator_ref" type="text" name="operator_ref" value="{{ filters.operator_ref }}" class="input-field min-h-11" />
+      </div>
+      <div>
+        <label class="field-label" for="status">Status</label>
+        <select id="status" name="status" class="select-field min-h-11">
+          <option value="">Todos</option>
+          <option value="planned" {% if filters.status == "planned" %}selected{% endif %}>Planejada</option>
+          <option value="started" {% if filters.status == "started" %}selected{% endif %}>Iniciada</option>
+          <option value="finished" {% if filters.status == "finished" %}selected{% endif %}>Finalizada</option>
+          <option value="void" {% if filters.status == "void" %}selected{% endif %}>Cancelada</option>
+        </select>
+      </div>
+      <div class="md:col-span-7 flex flex-wrap gap-2">
+        <button type="submit" class="btn-primary min-h-11">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">search</span>
+          Aplicar filtros
+        </button>
+        <a class="btn-secondary min-h-11"
+           href="?report_kind={{ report_kind }}&date_from={{ filters.date_from|date:'Y-m-d' }}&date_to={{ filters.date_to|date:'Y-m-d' }}&recipe_ref={{ filters.recipe_ref }}&position_ref={{ filters.position_ref }}&operator_ref={{ filters.operator_ref }}&status={{ filters.status }}&format=csv">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">download</span>
+          Baixar CSV
+        </a>
+      </div>
+    </form>
+  </section>
+
+  <section class="card p-0 overflow-hidden">
+    <div class="border-b border-outline dark:border-outline-dark p-3">
+      <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">
+        {% if report_kind == "operator_productivity" %}Produtividade por operador{% elif report_kind == "recipe_waste" %}Desperdício por receita{% else %}Histórico de ordens{% endif %}
+      </h2>
+    </div>
+    <div class="overflow-x-auto">
+      {% if report_kind == "operator_productivity" %}
+      <table class="w-full min-w-[42rem] text-left text-sm">
+        <thead class="bg-surface dark:bg-surface-dark text-xs uppercase text-on-surface/60 dark:text-on-surface-dark/60">
+          <tr><th class="px-3 py-2">Operador</th><th class="px-3 py-2">Ordens</th><th class="px-3 py-2">Qtd total</th><th class="px-3 py-2">Yield médio</th><th class="px-3 py-2">Tempo médio</th></tr>
+        </thead>
+        <tbody class="divide-y divide-outline dark:divide-outline-dark">
+          {% for row in reports.operator_rows %}
+          <tr><td class="px-3 py-2 font-semibold">{{ row.operator_name }}</td><td class="px-3 py-2">{{ row.wo_count }}</td><td class="px-3 py-2 tabular-nums">{{ row.qty_total }}</td><td class="px-3 py-2">{{ row.yield_avg }}</td><td class="px-3 py-2">{{ row.duration_avg_minutes }}</td></tr>
+          {% empty %}
+          <tr><td colspan="5" class="px-3 py-6 text-center text-on-surface/60 dark:text-on-surface-dark/60">Sem dados no período.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% elif report_kind == "recipe_waste" %}
+      <table class="w-full min-w-[42rem] text-left text-sm">
+        <thead class="bg-surface dark:bg-surface-dark text-xs uppercase text-on-surface/60 dark:text-on-surface-dark/60">
+          <tr><th class="px-3 py-2">Receita</th><th class="px-3 py-2">Ordens</th><th class="px-3 py-2">Perda total</th><th class="px-3 py-2">Yield médio</th></tr>
+        </thead>
+        <tbody class="divide-y divide-outline dark:divide-outline-dark">
+          {% for row in reports.waste_rows %}
+          <tr><td class="px-3 py-2 font-semibold">{{ row.recipe_name }}</td><td class="px-3 py-2">{{ row.wo_count }}</td><td class="px-3 py-2 tabular-nums">{{ row.loss_total }}</td><td class="px-3 py-2">{{ row.yield_avg }}</td></tr>
+          {% empty %}
+          <tr><td colspan="4" class="px-3 py-6 text-center text-on-surface/60 dark:text-on-surface-dark/60">Sem dados no período.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <table class="w-full min-w-[72rem] text-left text-sm">
+        <thead class="bg-surface dark:bg-surface-dark text-xs uppercase text-on-surface/60 dark:text-on-surface-dark/60">
+          <tr><th class="px-3 py-2">WO</th><th class="px-3 py-2">Data</th><th class="px-3 py-2">Receita</th><th class="px-3 py-2">Posição</th><th class="px-3 py-2">Planejado</th><th class="px-3 py-2">Iniciado</th><th class="px-3 py-2">Finalizado</th><th class="px-3 py-2">Perda</th><th class="px-3 py-2">Yield</th><th class="px-3 py-2">Operador</th><th class="px-3 py-2">Tempo</th></tr>
+        </thead>
+        <tbody class="divide-y divide-outline dark:divide-outline-dark">
+          {% for row in reports.history_rows %}
+          <tr>
+            <td class="px-3 py-2 font-semibold">{{ row.ref }}</td><td class="px-3 py-2">{{ row.date }}</td><td class="px-3 py-2">{{ row.recipe_name }}</td><td class="px-3 py-2">{{ row.position_ref }}</td><td class="px-3 py-2 tabular-nums">{{ row.qty_planned }}</td><td class="px-3 py-2 tabular-nums">{{ row.qty_started }}</td><td class="px-3 py-2 tabular-nums">{{ row.qty_finished }}</td><td class="px-3 py-2 tabular-nums">{{ row.qty_loss }}</td><td class="px-3 py-2">{{ row.yield_rate }}</td><td class="px-3 py-2">{{ row.operator_ref }}</td><td class="px-3 py-2">{{ row.duration_minutes }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="11" class="px-3 py-6 text-center text-on-surface/60 dark:text-on-surface-dark/60">Sem ordens no período.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </div>
+  </section>
+</div>
+{% endblock %}

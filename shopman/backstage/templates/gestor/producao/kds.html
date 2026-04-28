@@ -1,0 +1,39 @@
+{% extends "gestor/base.html" %}
+{% block title %}KDS de Produção{% endblock %}
+{% block page_title %}KDS de Produção{% endblock %}
+{% block nav_active_producao %}active{% endblock %}
+{% block main_class %}overflow-hidden flex flex-col{% endblock %}
+
+{% block navbar_actions %}
+<a href="{% url 'backstage:production' %}" class="btn-icon" title="Mapa de produção" aria-label="Mapa de produção">
+  <span class="material-symbols-rounded icon-md" aria-hidden="true">table_view</span>
+</a>
+<a href="{% url 'backstage:production_dashboard' %}" class="btn-icon" title="Dashboard" aria-label="Dashboard de produção">
+  <span class="material-symbols-rounded icon-md" aria-hidden="true">monitoring</span>
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="h-full flex flex-col min-h-0" hx-ext="sse" sse-connect="{% if operator.event_scope %}{% url 'backstage:events_scoped' kind='production' scope=operator.event_scope %}{% else %}{% url 'backstage:events' kind='production' %}{% endif %}">
+  <div class="px-4 py-2 flex items-center gap-2 shrink-0 border-b border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt">
+    <span class="text-xs font-mono tabular-nums text-on-surface/50 dark:text-on-surface-dark/50">
+      {{ kds.total_count }} em produção
+    </span>
+    {% if kds.late_count %}
+    <span class="badge-warning">{{ kds.late_count }} atrasadas</span>
+    {% endif %}
+  </div>
+
+  <main class="flex-1 overflow-auto p-4" role="main">
+    <div id="production-kds-grid"
+         class="grid gap-3 items-start"
+         style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr))"
+         hx-get="{% url 'backstage:production_kds_cards' %}?date={{ selected_date|date:'Y-m-d' }}{% if selected_position_ref %}&position_ref={{ selected_position_ref }}{% endif %}"
+         hx-trigger="sse:backstage-production-update, every 5s"
+         hx-target="#production-kds-grid"
+         hx-swap="innerHTML">
+      {% include "gestor/producao/partials/kds_cards.html" %}
+    </div>
+  </main>
+</div>
+{% endblock %}

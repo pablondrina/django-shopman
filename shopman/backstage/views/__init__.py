@@ -1,5 +1,6 @@
 """Backstage views — operator-facing surfaces (KDS, POS, Gestor, Fechamento, Produção)."""
 
+from .alerts import alert_ack, alerts_badge, alerts_panel
 from .closing import closing_view
 from .kds import (
     KDSDisplayView,
@@ -34,10 +35,23 @@ from .pos import (
     pos_shift_summary,
     pos_view,
 )
-from .production import bulk_create_work_orders
+from .production import (
+    bulk_create_work_orders,
+    production_advance_step_view,
+    production_dashboard_view,
+    production_kds_cards_view,
+    production_kds_view,
+    production_reports_view,
+    production_work_order_orders_view,
+    production_view,
+    production_void_view,
+)
 
 __all__ = [
     "closing_view",
+    "alert_ack",
+    "alerts_badge",
+    "alerts_panel",
     "KDSDisplayView",
     "KDSExpeditionActionView",
     "KDSIndexView",
@@ -55,6 +69,14 @@ __all__ = [
     "OrderRejectView",
     "AlertAcknowledgeView",
     "bulk_create_work_orders",
+    "production_advance_step_view",
+    "production_dashboard_view",
+    "production_kds_cards_view",
+    "production_kds_view",
+    "production_reports_view",
+    "production_work_order_orders_view",
+    "production_view",
+    "production_void_view",
     "pos_cancel_last",
     "pos_cash_close",
     "pos_cash_open",

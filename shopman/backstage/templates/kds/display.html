@@ -11,7 +11,7 @@
 {% endblock %}
 
 {% block content %}
-<div id="kds-display-root" x-data="kdsDisplay()" x-init="init()"
+<div id="kds-display-root" x-data="kdsDisplay()" x-init="init()" hx-ext="sse" sse-connect="{% url 'backstage:events_scoped' kind='kds' scope=instance.ref %}"
      class="h-full flex flex-col min-h-0">
 
   {% comment %}K2: Offline banner — shown on network error{% endcomment %}
@@ -72,9 +72,11 @@
          class="grid gap-3 items-start"
          style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr))"
          hx-get="/gestor/kds/{{ instance.ref }}/tickets/"
-         hx-trigger="every {{ instance.config.refresh_interval_seconds|default:5 }}s"
+         hx-trigger="sse:backstage-kds-update, sse:backstage-kds-created, sse:backstage-kds-status-changed, sse:backstage-kds-station-changed, every 30s"
          hx-target="#ticket-grid"
          hx-swap="innerHTML"
+         aria-live="polite"
+         aria-relevant="additions text"
          x-on:htmx:before-request="$dispatch('kds-loading')"
          x-on:htmx:after-swap="$dispatch('kds-synced')"
          x-on:htmx:response-error="$dispatch('kds-error')"

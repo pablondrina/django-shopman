@@ -1,4 +1,33 @@
 {% comment %}Order items (O14: empty state){% endcomment %}
+{% if detail.awaiting_work_orders %}
+<div class="mb-3 rounded-lg border border-warning/30 bg-warning/10 p-2" x-data="{ openProduction: true }">
+  <button type="button"
+          class="btn-quiet min-h-11 w-full justify-between"
+          @click="openProduction = !openProduction"
+          :aria-expanded="openProduction.toString()">
+    <span class="inline-flex items-center gap-1">
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true">precision_manufacturing</span>
+      Aguardando produção
+    </span>
+    <span class="material-symbols-rounded icon-sm" aria-hidden="true" x-text="openProduction ? 'expand_less' : 'expand_more'">expand_less</span>
+  </button>
+  <div x-show="openProduction" x-cloak class="mt-2 space-y-2">
+    {% for wo in detail.awaiting_work_orders %}
+    <div>
+      <div class="mb-1 flex items-center justify-between gap-2 text-xs">
+        <span class="font-semibold">{{ wo.ref }} · {{ wo.output_sku }}</span>
+        <span class="tabular-nums">{{ wo.status_label }} · {{ wo.progress_pct }}%</span>
+      </div>
+      <div class="h-2 overflow-hidden rounded-full bg-warning/20" role="progressbar" aria-valuenow="{{ wo.progress_pct }}" aria-valuemin="0" aria-valuemax="100">
+        <div class="h-full bg-warning" style="width: {{ wo.progress_pct }}%"></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% comment %}Order items (O14: empty state){% endcomment %}
 <div class="mb-3">
   <h4 class="text-sm font-semibold mb-2">Itens</h4>
   {% if items %}

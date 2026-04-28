@@ -3,8 +3,21 @@
 {% block page_title %}Produção{% endblock %}
 {% block nav_active_producao %}active{% endblock %}
 
+{% block navbar_actions %}
+<a href="{% url 'backstage:production_reports' %}" class="btn-icon" title="Relatórios" aria-label="Relatórios de produção">
+  <span class="material-symbols-rounded icon-md" aria-hidden="true">table_chart</span>
+</a>
+<a href="{% url 'backstage:production_dashboard' %}" class="btn-icon" title="Dashboard" aria-label="Dashboard de produção">
+  <span class="material-symbols-rounded icon-md" aria-hidden="true">monitoring</span>
+</a>
+<a href="{% url 'backstage:production_kds' %}" class="btn-icon" title="KDS de produção" aria-label="KDS de produção">
+  <span class="material-symbols-rounded icon-md" aria-hidden="true">tv</span>
+</a>
+{% endblock %}
+
 {% block content %}
 <div id="production-page-content" class="h-full min-h-0 overflow-y-auto p-2 space-y-3 lg:p-3">
+  <div id="production-action-result"></div>
 
   <section class="card p-0 overflow-visible" x-data="{ filtersOpen: false }">
     <div class="flex items-center justify-between gap-2 border-b border-outline dark:border-outline-dark p-2">
@@ -81,8 +94,28 @@
       <div>
         <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Mapa de produção</h2>
       </div>
-      <span class="count-badge self-start bg-surface dark:bg-surface-dark text-on-surface/70 dark:text-on-surface-dark/70 sm:self-auto">{{ matrix_rows|length }}</span>
+      <div class="flex items-center gap-2 self-start sm:self-auto">
+        {% if suggestions and production_access.can_edit_planned %}
+        <form hx-post="{% url 'backstage:bulk_create_work_orders' %}"
+              hx-target="#bulk-create-result"
+              hx-swap="innerHTML"
+              class="flex items-center">
+          {% csrf_token %}
+          <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}" />
+          {% for suggestion in suggestions %}
+          <input type="hidden" name="recipe_ref" value="{{ suggestion.recipe_ref }}" />
+          <input type="hidden" name="quantity" value="{{ suggestion.quantity }}" />
+          {% endfor %}
+          <button type="submit" class="btn-quiet h-8 min-h-8" title="Gerar sugestões" aria-label="Gerar sugestões">
+            <span class="material-symbols-rounded icon-sm" aria-hidden="true">auto_awesome</span>
+            Gerar sugestões
+          </button>
+        </form>
+        {% endif %}
+        <span class="count-badge bg-surface dark:bg-surface-dark text-on-surface/70 dark:text-on-surface-dark/70">{{ matrix_rows|length }}</span>
+      </div>
     </div>
+    <div id="bulk-create-result"></div>
 
     {% if matrix_groups %}
     <div class="overflow-x-auto" x-data="{ openRow: '' }">
@@ -129,6 +162,9 @@
               <div class="flex items-center gap-1.5">
               {% if production_access.can_edit_planned and row.recipe_pk %}
               <form method="post"
+                    hx-post="."
+                    hx-target="#production-action-result"
+                    hx-swap="innerHTML"
                     class="flex items-center gap-1.5"
                     x-data="{ original: '{{ row.planned_qty }}', dirty: false }"
                     @input="dirty = $event.target.value !== original"
@@ -162,11 +198,21 @@
                 {% for item in row.planned_orders %}
                 {% if production_access.can_edit_started %}
                 <div x-data="{ startOpen: false }">
-                  <button type="button" class="btn-primary h-7 min-h-7 w-7 min-w-7 p-0" @click="startOpen = true" title="Iniciar" aria-label="Iniciar {{ item.output_sku }}">
+                  <button type="button" class="btn-primary h-7 min-h-7 w-7 min-w-7 p-0" @click="startOpen = true" title="Iniciar{% if item.serves_orders %} · supre {{ item.serves_orders|length }} pedido(s){% endif %}" aria-label="Iniciar {{ item.output_sku }}">
                     <span class="material-symbols-rounded icon-sm" aria-hidden="true">play_arrow</span>
                   </button>
+                  {% if item.serves_orders %}
+                  <a href="{% url 'backstage:production_work_order_orders' item.ref %}" class="badge-info mt-1 inline-flex" title="Pedidos servidos">
+                    <span class="material-symbols-rounded" aria-hidden="true">link</span>
+                    {{ item.serves_orders|length }}
+                  </a>
+                  {% endif %}
                   <div x-show="startOpen" x-cloak x-transition class="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4" @click.self="startOpen = false" @keydown.escape.window="startOpen = false" role="dialog" aria-modal="true">
-                    <form method="post" class="surface-modal max-w-sm">
+                    <form method="post"
+                          hx-post="."
+                          hx-target="#production-action-result"
+                          hx-swap="innerHTML"
+                          class="surface-modal max-w-sm">
                       {% csrf_token %}
                       <input type="hidden" name="action" value="start" />
                       <input type="hidden" name="wo_id" value="{{ item.pk }}" />
@@ -220,6 +266,12 @@
                 {% for item in row.started_orders %}
                 <div class="flex items-center gap-1.5 text-xs" x-data="{ finishOpen: false }">
                   <span class="badge-warning tabular-nums">{{ item.started_qty }}</span>
+                  {% if item.serves_orders %}
+                  <a href="{% url 'backstage:production_work_order_orders' item.ref %}" class="badge-info" title="Pedidos servidos">
+                    <span class="material-symbols-rounded" aria-hidden="true">link</span>
+                    {{ item.serves_orders|length }}
+                  </a>
+                  {% endif %}
                   {% if production_access.can_edit_finished %}
                   <button type="button" class="btn-success h-7 min-h-7 w-7 min-w-7 p-0" @click="finishOpen = true" title="Concluir" aria-label="Concluir {{ item.output_sku }}">
                     <span class="material-symbols-rounded icon-sm" aria-hidden="true">task_alt</span>
@@ -263,6 +315,12 @@
                 <div class="flex items-center gap-1.5 text-xs">
                   <span class="badge-success tabular-nums">{{ item.finished_qty }}</span>
                   <span class="badge-success">{{ item.yield_rate|default:"OK" }}</span>
+                  {% if item.serves_orders %}
+                  <a href="{% url 'backstage:production_work_order_orders' item.ref %}" class="badge-info" title="Pedidos servidos">
+                    <span class="material-symbols-rounded" aria-hidden="true">link</span>
+                    {{ item.serves_orders|length }}
+                  </a>
+                  {% endif %}
                 </div>
                 {% endfor %}
               </div>
@@ -322,9 +380,9 @@
                 <div>
                   <span class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Ordens</span>
                   <div class="flex flex-wrap gap-1">
-                    {% for item in row.planned_orders %}<span class="badge-neutral">{{ item.ref }} · {{ item.operator_ref|default:"Livre" }}</span>{% endfor %}
-                    {% for item in row.started_orders %}<span class="badge-warning">{{ item.ref }} · {{ item.operator_ref|default:"Livre" }}</span>{% endfor %}
-                    {% for item in row.finished_orders %}<span class="badge-success">{{ item.ref }} · perda {{ item.loss|default:"0" }}</span>{% endfor %}
+                    {% for item in row.planned_orders %}<span class="badge-neutral">{{ item.ref }} · {{ item.operator_ref|default:"Livre" }}{% if item.serves_orders %} · {{ item.serves_orders|length }} pedidos{% endif %}</span>{% endfor %}
+                    {% for item in row.started_orders %}<span class="badge-warning">{{ item.ref }} · {{ item.operator_ref|default:"Livre" }}{% if item.serves_orders %} · {{ item.serves_orders|length }} pedidos{% endif %}</span>{% endfor %}
+                    {% for item in row.finished_orders %}<span class="badge-success">{{ item.ref }} · perda {{ item.loss|default:"0" }}{% if item.serves_orders %} · {{ item.serves_orders|length }} pedidos{% endif %}</span>{% endfor %}
                   </div>
                 </div>
                 {% endif %}

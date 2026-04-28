@@ -1,0 +1,30 @@
+{% if operator.active_alerts_count %}
+<button type="button"
+        class="btn-icon relative {% if operator.critical_alerts_count %}text-danger{% else %}text-warning{% endif %}"
+        title="{{ operator.active_alerts_count }} alertas ativos"
+        aria-label="{{ operator.active_alerts_count }} alertas ativos"
+        @click="alertsOpen = !alertsOpen"
+        hx-get="{% url 'backstage:alerts_panel' %}"
+        hx-target="#operator-alerts-panel"
+        hx-trigger="click once, sse:backstage-alerts-update from:#operator-alerts-badge">
+  <span class="material-symbols-rounded icon-md" aria-hidden="true">
+    {% if operator.critical_alerts_count %}notification_important{% else %}notifications_active{% endif %}
+  </span>
+  <span class="absolute top-0.5 right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full
+               {% if operator.critical_alerts_count %}bg-danger text-on-danger{% else %}bg-warning text-on-warning{% endif %}
+               text-xs font-bold flex items-center justify-center leading-none">
+    {{ operator.active_alerts_count }}
+  </span>
+</button>
+{% else %}
+<button type="button"
+        class="btn-icon text-on-surface/30 dark:text-on-surface-dark/30"
+        title="Sem alertas ativos"
+        aria-label="Sem alertas ativos"
+        @click="alertsOpen = !alertsOpen"
+        hx-get="{% url 'backstage:alerts_panel' %}"
+        hx-target="#operator-alerts-panel"
+        hx-trigger="click once, sse:backstage-alerts-update from:#operator-alerts-badge">
+  <span class="material-symbols-rounded icon-md" aria-hidden="true">notifications</span>
+</button>
+{% endif %}

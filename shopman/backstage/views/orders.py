@@ -21,7 +21,9 @@ from shopman.backstage.projections.order_queue import (
     build_order_card,
     build_two_zone_queue,
 )
-from shopman.shop.services import operator_orders
+from shopman.backstage.services import alerts as alert_service
+from shopman.backstage.services import orders as order_service
+from shopman.backstage.services.exceptions import OrderError
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +36,7 @@ def _get_order_or_err(request: HttpRequest, ref: str):
 
     HTMX requests get an inline error card; full-page loads redirect to the queue.
     """
-    order = operator_orders.find_order(ref)
+    order = order_service.find_order(ref)
     if order is not None:
         return order, None
     if request.headers.get("HX-Request"):
@@ -67,11 +69,10 @@ class OperatorOrdersView(View):
 
         queue = build_two_zone_queue()
 
-        from shopman.backstage.models import OperatorAlert
         from shopman.shop.models import Shop
 
         shop = Shop.load()
-        alerts = list(OperatorAlert.objects.filter(acknowledged=False)[:10])
+        alerts = alert_service.list_active_alerts(limit=10)
 
         return render(request, "pedidos/index.html", {
             "queue": queue,
@@ -128,7 +129,7 @@ class OrderConfirmView(View):
         if err:
             return err
         try:
-            operator_orders.confirm_order(order, actor=f"operator:{request.user.username}")
+            order_service.confirm_order(order, actor=f"operator:{request.user.username}")
         except Exception as exc:
             logger.exception("ensure_confirmable failed for order %s", ref)
             return HttpResponse(str(exc), status=422)
@@ -154,7 +155,7 @@ class OrderRejectView(View):
         order, err = _get_order_or_err(request, ref)
         if err:
             return err
-        operator_orders.reject_order(
+        order_service.reject_order(
             order,
             reason=reason,
             actor=f"operator:{request.user.username}",
@@ -179,8 +180,8 @@ class OrderAdvanceView(View):
             return err
 
         try:
-            operator_orders.advance_order(order, actor=f"operator:{request.user.username}")
-        except ValueError:
+            order_service.advance_order(order, actor=f"operator:{request.user.username}")
+        except OrderError:
             return HttpResponse("", status=422)
 
         card = build_order_card(order)
@@ -200,7 +201,7 @@ class OrderNotesView(View):
         order, err = _get_order_or_err(request, ref)
         if err:
             return err
-        operator_orders.save_internal_notes(order, notes=request.POST.get("notes", ""))
+        order_service.save_internal_notes(order, notes=request.POST.get("notes", ""))
 
         now = timezone.localtime(timezone.now()).strftime("%H:%M")
         return HttpResponse(
@@ -223,7 +224,7 @@ class OrderMarkPaidView(View):
             return err
 
         try:
-            changed = operator_orders.mark_paid(
+            changed = order_service.mark_paid(
                 order,
                 actor=f"operator:{request.user.username}",
                 operator_username=request.user.username,
@@ -250,7 +251,7 @@ class OrderHistoricoView(View):
         if denied:
             return denied
 
-        orders = operator_orders.recent_history(limit=20)
+        orders = order_service.recent_history(limit=20)
         cards = [build_order_card(o) for o in orders]
         return render(request, "pedidos/historico.html", {"orders": cards})
 
@@ -263,7 +264,5 @@ class AlertAcknowledgeView(View):
         if denied:
             return denied
 
-        from shopman.backstage.models import OperatorAlert
-
-        OperatorAlert.objects.filter(pk=pk).update(acknowledged=True)
+        alert_service.ack_alert(pk)
         return HttpResponse("")

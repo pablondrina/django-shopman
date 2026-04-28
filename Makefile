@@ -11,7 +11,7 @@ PYTHON := $(shell [ -f .venv/bin/python ] && echo $(CURDIR)/.venv/bin/python || 
 # Python: usa venv se existir, senao o do PATH
 PYTHON := $(shell [ -f .venv/bin/python ] && echo $(CURDIR)/.venv/bin/python || echo python)
 
-.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework lint clean migrate run dev seed coverage css css-watch fonts up down logs db-shell
+.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework test-coverage lint clean migrate run dev seed coverage css css-watch fonts up down logs db-shell
 
 help: ## Mostra este help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -84,6 +84,11 @@ test-doorman: ## Testes do shopman.auth
 test-framework: ## Testes do framework (orquestração)
 	@echo "── Framework ──"
 	$(PYTHON) -m pytest shopman/shop/tests shopman/storefront/tests shopman/backstage/tests -x -q
+
+test-coverage: ## Cobertura do Backstage com gate de 75%
+	@echo "── Backstage coverage ──"
+	$(PYTHON) -m coverage run --source=shopman/backstage -m pytest shopman/backstage/tests -q
+	$(PYTHON) -m coverage report --include="shopman/backstage/*" --fail-under=75
 
 # ── CSS & Frontend ───────────────────────────────────────────────────
 # npm é invisível — tudo via make. node_modules instala sob demanda.

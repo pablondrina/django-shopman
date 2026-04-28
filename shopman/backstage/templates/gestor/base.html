@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="{% static 'storefront/css/output-gestor.css' %}">
 
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script src="https://unpkg.com/htmx-ext-sse@2.2.2"></script>
   <script>
   window.shopmanSseSku = function(event) {
     try {
@@ -41,6 +42,14 @@
 </head>
 <body class="h-screen overflow-hidden bg-surface dark:bg-surface-dark text-on-surface dark:text-on-surface-dark font-body"
       x-data="gestorShell()">
+
+  <a href="#backstage-main"
+     class="skip-link sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100]
+            focus:rounded-md focus:bg-surface-strong focus:px-3 focus:py-2 focus:text-sm
+            focus:font-semibold focus:text-on-surface-strong focus:shadow-lg focus:outline-none
+            focus:ring-2 focus:ring-info">
+    Pular para o conteúdo principal
+  </a>
 
   <script>
   document.addEventListener('htmx:configRequest', function(e) {
@@ -105,7 +114,7 @@
           <span class="material-symbols-rounded icon-md" aria-hidden="true">point_of_sale</span>
         </a>
 
-        {% url 'admin:shop_production' as url_producao %}
+        {% url 'backstage:production' as url_producao %}
         <a href="{{ url_producao|default:'/admin/' }}"
            class="btn-icon {% block nav_active_producao %}{% endblock %}"
            title="Produção"
@@ -113,8 +122,8 @@
           <span class="material-symbols-rounded icon-md" aria-hidden="true">factory</span>
         </a>
 
-        {% url 'admin:shop_closing' as url_fechamento %}
-        <a href="{{ url_fechamento|default:'/admin/' }}"
+        {% url 'backstage:day_closing' as url_fechamento %}
+        <a href="{{ url_fechamento }}"
            class="btn-icon {% block nav_active_fechamento %}{% endblock %}"
            title="Fechamento do Dia"
            aria-label="Fechamento">
@@ -173,6 +182,51 @@
           {% block navbar_actions %}{% endblock %}
         </div>
 
+        {% if operator.is_active %}
+        <div class="relative shrink-0" x-data="{ alertsOpen: false }" @keydown.escape.window="alertsOpen = false">
+          <div id="operator-alerts-badge"
+             hx-ext="sse"
+             sse-connect="{% if operator.event_scope %}{% url 'backstage:events_scoped' kind='alerts' scope=operator.event_scope %}{% else %}{% url 'backstage:events' kind='alerts' %}{% endif %}"
+             hx-get="{% url 'backstage:alerts_badge' %}"
+             hx-trigger="sse:backstage-alerts-update, every 30s"
+             hx-target="#operator-alerts-badge"
+             hx-swap="innerHTML"
+             class="shrink-0">
+            {% include "gestor/partials/alerts_badge.html" %}
+          </div>
+          <div x-show="alertsOpen"
+               x-cloak
+               x-transition
+               @click.outside="alertsOpen = false"
+               class="absolute right-0 z-[70] mt-2 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-outline bg-surface-alt shadow-xl dark:border-outline-dark dark:bg-surface-dark-alt">
+            <div class="flex items-center justify-between gap-2 border-b border-outline px-3 py-2 dark:border-outline-dark">
+              <span class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Alertas</span>
+              <button type="button" class="btn-quiet h-8 min-h-8 w-8 min-w-8 p-0" @click="alertsOpen = false" title="Fechar" aria-label="Fechar alertas">
+                <span class="material-symbols-rounded icon-sm" aria-hidden="true">close</span>
+              </button>
+            </div>
+            <div id="operator-alerts-panel"
+                 role="status"
+                 aria-live="polite"
+                 aria-relevant="additions"
+                 hx-get="{% url 'backstage:alerts_panel' %}"
+                 hx-trigger="revealed, sse:backstage-alerts-update from:#operator-alerts-badge"
+                 hx-target="#operator-alerts-panel"
+                 hx-swap="innerHTML">
+              {% include "gestor/partials/alerts_panel.html" with alerts=alerts %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        {% if operator.is_active %}
+        <span class="hidden md:inline-flex items-center gap-1 text-xs text-on-surface/50 dark:text-on-surface-dark/50 shrink-0"
+              title="Caixa">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">point_of_sale</span>
+          {% if operator.shift_state == "open" %}Aberto{% else %}Fechado{% endif %}
+        </span>
+        {% endif %}
+
         {% comment %}Clock{% endcomment %}
         <span class="font-mono text-sm text-on-surface/50 dark:text-on-surface-dark/50 tabular-nums hidden sm:block shrink-0"
               x-text="clock"
@@ -201,7 +255,7 @@
       {% endif %}
 
       {% comment %}Page content{% endcomment %}
-      <main class="flex-1 {% block main_class %}overflow-auto{% endblock %}" role="main">
+      <main id="backstage-main" tabindex="-1" class="flex-1 {% block main_class %}overflow-auto{% endblock %}" role="main">
         {% block content %}{% endblock %}
       </main>
 

@@ -30,3 +30,16 @@ def recent_exists(type: str, since, *, message_contains: str | None = None) -> b
     if message_contains is not None:
         qs = qs.filter(message__contains=message_contains)
     return qs.exists()
+
+
+def connect_saved(receiver, *, dispatch_uid: str, weak: bool = False) -> None:
+    """Connect a receiver to OperatorAlert post-save without leaking imports."""
+    from django.db.models.signals import post_save
+    from shopman.backstage.models import OperatorAlert
+
+    post_save.connect(
+        receiver,
+        sender=OperatorAlert,
+        dispatch_uid=dispatch_uid,
+        weak=weak,
+    )

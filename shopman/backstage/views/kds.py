@@ -15,7 +15,8 @@ from shopman.backstage.projections.kds import (
     build_kds_index,
     build_kds_ticket,
 )
-from shopman.shop.services import kds as kds_service
+from shopman.backstage.services import kds as kds_service
+from shopman.backstage.services.exceptions import KDSError
 
 PERM = "backstage.operate_kds"
 
@@ -113,16 +114,16 @@ class KDSTicketCheckItemView(View):
         if denied:
             return denied
 
-        from shopman.backstage.models import KDSTicket
-
-        ticket = get_object_or_404(KDSTicket, pk=pk)
         index = int(request.POST.get("index", 0))
 
-        kds_service.toggle_ticket_item(
-            ticket,
-            index=index,
-            actor=f"kds:{request.user.username}",
-        )
+        try:
+            ticket = kds_service.check_ticket_item(
+                ticket_pk=pk,
+                index=index,
+                actor=f"kds:{request.user.username}",
+            )
+        except KDSError:
+            return HttpResponse("Ticket não encontrado", status=404)
 
         proj = build_kds_ticket(ticket.pk)
         return render(request, "kds/partials/ticket.html", {
@@ -140,10 +141,10 @@ class KDSTicketDoneView(View):
         if denied:
             return denied
 
-        from shopman.backstage.models import KDSTicket
-
-        ticket = get_object_or_404(KDSTicket, pk=pk)
-        kds_service.complete_ticket(ticket, actor=f"kds:{request.user.username}")
+        try:
+            kds_service.mark_ticket_done(ticket_pk=pk, actor=f"kds:{request.user.username}")
+        except KDSError:
+            return HttpResponse("Ticket não encontrado", status=404)
 
         return HttpResponse("")
 
@@ -160,8 +161,8 @@ class KDSExpeditionActionView(View):
         actor = f"kds:{request.user.username}"
 
         try:
-            kds_service.expedition_action_by_order_id(pk, action=action, actor=actor)
-        except ValueError:
+            kds_service.expedition_action(order_id=pk, action=action, actor=actor)
+        except KDSError:
             return HttpResponse("Ação inválida", status=422)
 
         return HttpResponse("")

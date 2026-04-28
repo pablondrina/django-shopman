@@ -264,7 +264,11 @@ class TestDashboardCallback:
         assert _format_brl(None) == "R$ 0,00"
 
 
-class TestProductionAdminView:
+class TestProductionBackstageView:
+    def test_backstage_url_resolves_production_surface(self, db):
+        assert reverse("backstage:production") == "/gestor/producao/"
+        assert reverse("backstage:production_void") == "/gestor/producao/void/"
+
     def test_get_exposes_operational_summary_and_queue(self, db, rf, admin_user):
         from datetime import date
 
@@ -287,9 +291,9 @@ class TestProductionAdminView:
         started = craft.plan(recipe, 80, date=date.today(), position_ref="forno", operator_ref="user:joao")
         craft.start(started, quantity=75, expected_rev=0, position_ref="forno", operator_ref="user:joao")
 
-        request = rf.get("/admin/shopman/shop/production/")
+        request = rf.get("/gestor/producao/")
         request.user = admin_user
-        response = production_view(request, admin.site)
+        response = production_view(request)
 
         assert response.status_code == 200
         assert response.context_data["craft_summary"].total == 2
@@ -317,11 +321,11 @@ class TestProductionAdminView:
         craft.plan(recipe, 50, date=target, position_ref="bancada", operator_ref="user:maria")
 
         request = rf.get(
-            "/admin/shopman/shop/production/",
+            "/gestor/producao/",
             {"date": target.isoformat(), "position_ref": "forno", "operator_ref": "user:joao"},
         )
         request.user = admin_user
-        response = production_view(request, admin.site)
+        response = production_view(request)
 
         assert response.status_code == 200
         assert response.context_data["selected_date"] == target
@@ -363,9 +367,9 @@ class TestProductionAdminView:
         craft.plan(levain, 12, date=date.today(), position_ref="forno")
         craft.plan(folhado, 24, date=date.today(), position_ref="forno")
 
-        request = rf.get("/admin/shopman/shop/production/", {"base_recipe": "MASSA-FOLHADA"})
+        request = rf.get("/gestor/producao/", {"base_recipe": "MASSA-FOLHADA"})
         request.user = admin_user
-        response = production_view(request, admin.site)
+        response = production_view(request)
 
         assert response.status_code == 200
         assert response.context_data["selected_base_recipe"] == "MASSA-FOLHADA"
@@ -394,9 +398,9 @@ class TestProductionAdminView:
         finished = craft.plan(recipe, 20, date=date.today(), position_ref="forno")
         craft.finish(finished, finished=18, actor="test")
 
-        request = rf.get("/admin/shopman/shop/production/")
+        request = rf.get("/gestor/producao/")
         request.user = user
-        response = production_view(request, admin.site)
+        response = production_view(request)
 
         assert response.status_code == 200
         assert response.context_data["production_access"].can_view_finished is True
@@ -412,10 +416,10 @@ class TestProductionAdminView:
         user = User.objects.create_user("finished-viewer", password="pass", is_staff=True)
         user.user_permissions.add(_shop_permission("view_production_finished"))
 
-        request = rf.post("/admin/shopman/shop/production/", {"recipe": "1", "quantity": "1"})
+        request = rf.post("/gestor/producao/", {"recipe": "1", "quantity": "1"})
         request.user = user
         with patch("shopman.backstage.views.production.messages"):
-            response = production_view(request, admin.site)
+            response = production_view(request)
 
         assert response.status_code == 302
 
@@ -433,7 +437,7 @@ class TestProductionAdminView:
         )
 
         plan_request = rf.post(
-            "/admin/shopman/shop/production/",
+            "/gestor/producao/",
             {
                 "action": "set_planned",
                 "recipe": str(recipe.pk),
@@ -444,7 +448,7 @@ class TestProductionAdminView:
         )
         plan_request.user = admin_user
         with patch("shopman.backstage.views.production.messages"):
-            response = production_view(plan_request, admin.site)
+            response = production_view(plan_request)
 
         assert response.status_code == 302
         work_order = WorkOrder.objects.get(output_sku="ITALIANO-RUSTICO")
@@ -452,7 +456,7 @@ class TestProductionAdminView:
         assert work_order.operator_ref == "user:ana"
 
         adjust_request = rf.post(
-            "/admin/shopman/shop/production/",
+            "/gestor/producao/",
             {
                 "action": "set_planned",
                 "recipe": str(recipe.pk),
@@ -463,7 +467,7 @@ class TestProductionAdminView:
         )
         adjust_request.user = admin_user
         with patch("shopman.backstage.views.production.messages"):
-            response = production_view(adjust_request, admin.site)
+            response = production_view(adjust_request)
 
         assert response.status_code == 302
         assert WorkOrder.objects.filter(output_sku="ITALIANO-RUSTICO").count() == 1
@@ -471,7 +475,7 @@ class TestProductionAdminView:
         assert work_order.quantity == 14
 
         start_request = rf.post(
-            "/admin/shopman/shop/production/",
+            "/gestor/producao/",
             {
                 "action": "start",
                 "wo_id": str(work_order.pk),
@@ -482,7 +486,7 @@ class TestProductionAdminView:
         )
         start_request.user = admin_user
         with patch("shopman.backstage.views.production.messages"):
-            response = production_view(start_request, admin.site)
+            response = production_view(start_request)
 
         assert response.status_code == 302
         work_order.refresh_from_db()
@@ -491,7 +495,7 @@ class TestProductionAdminView:
         assert work_order.operator_ref == "user:bia"
 
         finish_request = rf.post(
-            "/admin/shopman/shop/production/",
+            "/gestor/producao/",
             {
                 "action": "finish",
                 "wo_id": str(work_order.pk),
@@ -501,7 +505,7 @@ class TestProductionAdminView:
         )
         finish_request.user = admin_user
         with patch("shopman.backstage.views.production.messages"):
-            response = production_view(finish_request, admin.site)
+            response = production_view(finish_request)
 
         assert response.status_code == 302
         work_order.refresh_from_db()
@@ -524,7 +528,7 @@ class TestProductionAdminView:
 
         for quantity in ("8", "0"):
             request = rf.post(
-                "/admin/shopman/shop/production/",
+                "/gestor/producao/",
                 {
                     "action": "set_planned",
                     "recipe": str(recipe.pk),
@@ -534,7 +538,7 @@ class TestProductionAdminView:
             )
             request.user = admin_user
             with patch("shopman.backstage.views.production.messages"):
-                response = production_view(request, admin.site)
+                response = production_view(request)
             assert response.status_code == 302
 
         work_order = WorkOrder.objects.get(output_sku="FOCACCIA")
@@ -556,7 +560,7 @@ class TestProductionAdminView:
         )
 
         request = rf.post(
-            "/admin/shopman/shop/production/",
+            "/gestor/producao/",
             {
                 "action": "set_planned",
                 "source": "suggested",
@@ -567,7 +571,7 @@ class TestProductionAdminView:
         )
         request.user = user
         with patch("shopman.backstage.views.production.messages"):
-            response = production_view(request, admin.site)
+            response = production_view(request)
 
         assert response.status_code == 302
         assert WorkOrder.objects.get(output_sku="BAGEL").quantity == 9

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.utils import timezone
@@ -43,6 +43,16 @@ WO_STATUS_COLORS: dict[str, str] = {
 
 
 @dataclass(frozen=True)
+class OrderRefProjection:
+    """A compact order reference served by a production work order."""
+
+    ref: str
+    status: str
+    status_label: str
+    qty_required: str
+
+
+@dataclass(frozen=True)
 class WorkOrderCardProjection:
     """A single work order card on the production board."""
 
@@ -66,6 +76,8 @@ class WorkOrderCardProjection:
     target_date_display: str
     started_at_display: str
     created_at_display: str
+    progress_pct: int
+    serves_orders: tuple[OrderRefProjection, ...]
     can_void: bool
 
 
@@ -236,6 +248,143 @@ class ProductionBoardProjection:
     access: ProductionSurfaceAccess
 
 
+@dataclass(frozen=True)
+class ProductionLateWorkOrderProjection:
+    """A started work order that exceeded its configured target window."""
+
+    pk: int
+    ref: str
+    output_sku: str
+    operator_ref: str
+    elapsed_minutes: int
+    target_minutes: int
+
+
+@dataclass(frozen=True)
+class ProductionDashboardProjection:
+    """Top-level read model for the production dashboard."""
+
+    selected_date: str
+    selected_date_display: str
+    planned_orders: int
+    started_orders: int
+    finished_orders: int
+    void_orders: int
+    planned_qty: str
+    started_qty: str
+    finished_qty: str
+    loss_qty: str
+    average_yield_rate: str
+    capacity_percent: int | None
+    late_orders: tuple[ProductionLateWorkOrderProjection, ...]
+
+
+@dataclass(frozen=True)
+class ProductionKDSCardProjection:
+    """A started work order card for the production KDS."""
+
+    pk: int
+    ref: str
+    output_sku: str
+    recipe_name: str
+    started_qty: str
+    operator_ref: str
+    position_ref: str
+    started_at_display: str
+    elapsed_seconds: int
+    elapsed_minutes: int
+    target_seconds: int
+    timer_class: str
+    current_step: str
+    current_step_index: int | None
+    total_steps: int
+    current_step_name: str
+    step_progress_pct: int
+    next_step_name: str
+    time_remaining_min: int | None
+    can_finish: bool
+
+
+@dataclass(frozen=True)
+class ProductionKDSProjection:
+    """Top-level read model for the production KDS."""
+
+    selected_date: str
+    selected_date_display: str
+    cards: tuple[ProductionKDSCardProjection, ...]
+    total_count: int
+    late_count: int
+
+
+@dataclass(frozen=True)
+class ProductionReportFilters:
+    """Normalized filters for production reports."""
+
+    date_from: date
+    date_to: date
+    report_kind: str
+    recipe_ref: str = ""
+    position_ref: str = ""
+    operator_ref: str = ""
+    status: str = ""
+
+
+@dataclass(frozen=True)
+class WorkOrderReportRow:
+    """A work order history row for production audit reports."""
+
+    ref: str
+    date: str
+    recipe_ref: str
+    recipe_name: str
+    position_ref: str
+    qty_planned: str
+    qty_started: str
+    qty_finished: str
+    qty_loss: str
+    yield_rate: str
+    operator_ref: str
+    started_at: str
+    finished_at: str
+    duration_minutes: str
+
+
+@dataclass(frozen=True)
+class OperatorProductivityRow:
+    """Aggregated productivity by production operator."""
+
+    operator_ref: str
+    operator_name: str
+    wo_count: int
+    qty_total: str
+    yield_avg: str
+    duration_avg_minutes: str
+
+
+@dataclass(frozen=True)
+class RecipeWasteRow:
+    """Aggregated waste by recipe."""
+
+    recipe_ref: str
+    recipe_name: str
+    wo_count: int
+    loss_total: str
+    yield_avg: str
+    capacity_utilization: str
+
+
+@dataclass(frozen=True)
+class ProductionReportsProjection:
+    """Top-level read model for production reports."""
+
+    filters: ProductionReportFilters
+    history_rows: tuple[WorkOrderReportRow, ...]
+    operator_rows: tuple[OperatorProductivityRow, ...]
+    waste_rows: tuple[RecipeWasteRow, ...]
+    available_recipes: tuple[RecipeOptionProjection, ...]
+    available_positions: tuple[PositionOptionProjection, ...]
+
+
 # ── Builders ───────────────────────────────────────────────────────────
 
 
@@ -373,6 +522,118 @@ def build_production_board(
     )
 
 
+def build_production_dashboard(
+    *,
+    selected_date: date | None = None,
+    position_ref: str = "",
+) -> ProductionDashboardProjection:
+    """Build the dashboard projection for the selected production day."""
+    selected_date = selected_date or date.today()
+    summary = craft.summary(date=selected_date, position_ref=position_ref or None)
+
+    wos = list(
+        WorkOrder.objects.filter(target_date=selected_date)
+        .select_related("recipe")
+        .order_by("created_at")
+    )
+    if position_ref:
+        wos = [wo for wo in wos if wo.position_ref == position_ref]
+
+    finished = [wo for wo in wos if wo.status == WorkOrder.Status.FINISHED and wo.yield_rate is not None]
+    if finished:
+        average = sum((wo.yield_rate or Decimal("0")) for wo in finished) / Decimal(len(finished))
+        average_yield_rate = f"{int(average * 100)}%"
+    else:
+        average_yield_rate = ""
+
+    capacity_total = Decimal("0")
+    planned_total = Decimal("0")
+    seen_recipes: set[int] = set()
+    for wo in wos:
+        planned_total += wo.quantity
+        if wo.recipe_id in seen_recipes:
+            continue
+        seen_recipes.add(wo.recipe_id)
+        capacity_total += _decimal_meta(wo.recipe.meta, "capacity_per_day")
+    capacity_percent = int((planned_total / capacity_total) * 100) if capacity_total else None
+
+    late = tuple(_late_projection(wo) for wo in wos if _is_late_started(wo))
+
+    return ProductionDashboardProjection(
+        selected_date=selected_date.isoformat(),
+        selected_date_display=selected_date.strftime("%d/%m/%Y"),
+        planned_orders=summary.planned_orders,
+        started_orders=summary.started_orders,
+        finished_orders=summary.finished_orders,
+        void_orders=summary.void_orders,
+        planned_qty=_qty(summary.planned_qty),
+        started_qty=_qty(summary.started_qty),
+        finished_qty=_qty(summary.finished_qty),
+        loss_qty=_qty(summary.loss_qty),
+        average_yield_rate=average_yield_rate,
+        capacity_percent=capacity_percent,
+        late_orders=late,
+    )
+
+
+def build_production_kds(
+    *,
+    selected_date: date | None = None,
+    position_ref: str = "",
+    access: ProductionSurfaceAccess | None = None,
+) -> ProductionKDSProjection:
+    """Build a KDS-style board for started production work orders."""
+    selected_date = selected_date or date.today()
+    access = access or _full_access()
+
+    qs = (
+        WorkOrder.objects.filter(
+            target_date=selected_date,
+            status=WorkOrder.Status.STARTED,
+        )
+        .select_related("recipe")
+        .order_by("started_at", "created_at")
+    )
+    if position_ref:
+        qs = qs.filter(position_ref=position_ref)
+
+    cards = tuple(_build_production_kds_card(wo, access=access) for wo in qs)
+
+    return ProductionKDSProjection(
+        selected_date=selected_date.isoformat(),
+        selected_date_display=selected_date.strftime("%d/%m/%Y"),
+        cards=cards,
+        total_count=len(cards),
+        late_count=sum(1 for card in cards if card.timer_class == "timer-late"),
+    )
+
+
+def build_production_reports(filters: dict | ProductionReportFilters | None = None) -> ProductionReportsProjection:
+    """Build production report rows for the requested filter set."""
+    normalized = _normalize_report_filters(filters)
+    qs = _report_queryset(normalized)
+    work_orders = list(qs)
+    history_rows = tuple(_work_order_report_row(wo) for wo in work_orders)
+
+    recipes = tuple(
+        RecipeOptionProjection(pk=r.pk, ref=r.ref, name=r.output_sku or r.ref)
+        for r in Recipe.objects.filter(is_active=True).order_by("ref")
+    )
+    positions = tuple(
+        PositionOptionProjection(pk=p.pk, ref=p.ref, name=p.name, is_default=p.is_default)
+        for p in Position.objects.all().order_by("name")
+    )
+
+    return ProductionReportsProjection(
+        filters=normalized,
+        history_rows=history_rows,
+        operator_rows=_operator_productivity_rows(work_orders),
+        waste_rows=_recipe_waste_rows(work_orders),
+        available_recipes=recipes,
+        available_positions=positions,
+    )
+
+
 # ── Internals ──────────────────────────────────────────────────────────
 
 
@@ -412,8 +673,391 @@ def _build_wo_card(wo: WorkOrder) -> WorkOrderCardProjection:
         target_date_display=wo.target_date.strftime("%d/%m/%Y") if wo.target_date else "",
         started_at_display=_format_datetime(wo.started_at) if hasattr(wo, "started_at") and wo.started_at else "",
         created_at_display=_format_datetime(wo.created_at),
+        progress_pct=_work_order_progress_pct(wo),
+        serves_orders=_order_refs_for_work_order(wo),
         can_void=wo.status in (WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED),
     )
+
+
+def _build_production_kds_card(
+    wo: WorkOrder,
+    *,
+    access: ProductionSurfaceAccess,
+) -> ProductionKDSCardProjection:
+    now = timezone.now()
+    started_at = wo.started_at or wo.created_at
+    elapsed = max(0, int((now - started_at).total_seconds()))
+    target_minutes = _target_minutes(wo)
+    target_seconds = target_minutes * 60
+    if elapsed < target_seconds:
+        timer_class = "timer-ok"
+    elif elapsed < target_seconds * 2:
+        timer_class = "timer-warning"
+    else:
+        timer_class = "timer-late"
+
+    step_state = _production_step_state(wo, elapsed)
+    current_step = step_state["current_step_name"] or "Produção"
+
+    return ProductionKDSCardProjection(
+        pk=wo.pk,
+        ref=wo.ref,
+        output_sku=wo.output_sku,
+        recipe_name=wo.recipe.name or wo.recipe.ref,
+        started_qty=_qty(wo.started_qty or wo.quantity),
+        operator_ref=wo.operator_ref or "",
+        position_ref=wo.position_ref or "",
+        started_at_display=_format_datetime(started_at),
+        elapsed_seconds=elapsed,
+        elapsed_minutes=elapsed // 60,
+        target_seconds=target_seconds,
+        timer_class=timer_class,
+        current_step=str(current_step),
+        current_step_index=step_state["current_step_index"],
+        total_steps=step_state["total_steps"],
+        current_step_name=step_state["current_step_name"],
+        step_progress_pct=step_state["step_progress_pct"],
+        next_step_name=step_state["next_step_name"],
+        time_remaining_min=step_state["time_remaining_min"],
+        can_finish=access.can_edit_finished,
+    )
+
+
+def build_work_order_card(ref: str) -> WorkOrderCardProjection:
+    """Build a single work order card by ref for cross-area projections."""
+    wo = WorkOrder.objects.select_related("recipe").prefetch_related("recipe__items", "events").get(ref=ref)
+    return _build_wo_card(wo)
+
+
+def _order_refs_for_work_order(wo: WorkOrder) -> tuple[OrderRefProjection, ...]:
+    refs = tuple(dict.fromkeys((wo.meta or {}).get("serves_order_refs") or ()))
+    if not refs:
+        return ()
+
+    try:
+        from shopman.orderman.models import Order
+        from shopman.shop.projections.types import ORDER_STATUS_LABELS_PT
+    except Exception:
+        logger.debug("production.order_ref_import_failed wo=%s", wo.ref, exc_info=True)
+        return ()
+
+    orders = (
+        Order.objects.filter(ref__in=refs)
+        .prefetch_related("items")
+        .order_by("created_at")
+    )
+    by_ref = {order.ref: order for order in orders}
+    result: list[OrderRefProjection] = []
+    for ref in refs:
+        order = by_ref.get(ref)
+        if not order:
+            continue
+        result.append(
+            OrderRefProjection(
+                ref=order.ref,
+                status=order.status,
+                status_label=ORDER_STATUS_LABELS_PT.get(order.status, order.status),
+                qty_required=_qty(_qty_required_for_order(order, wo.output_sku)),
+            )
+        )
+    return tuple(result)
+
+
+def _qty_required_for_order(order, sku: str) -> Decimal:
+    total = Decimal("0")
+    for item in order.items.all():
+        if item.sku == sku:
+            total += item.qty
+    return total
+
+
+def _work_order_progress_pct(wo: WorkOrder) -> int:
+    base = wo.quantity or Decimal("0")
+    if base <= 0:
+        return 0
+    if wo.status == WorkOrder.Status.FINISHED and wo.finished is not None:
+        value = (wo.finished / base) * 100
+    elif wo.status == WorkOrder.Status.STARTED:
+        value = ((_wo_started_qty(wo) or Decimal("0")) / base) * 100
+    else:
+        value = Decimal("0")
+    return max(0, min(100, int(value)))
+
+
+def _production_step_state(wo: WorkOrder, elapsed_seconds: int) -> dict[str, int | str | None]:
+    steps = _recipe_steps(wo.recipe)
+    if not steps:
+        return {
+            "current_step_index": None,
+            "total_steps": 0,
+            "current_step_name": "",
+            "step_progress_pct": 0,
+            "next_step_name": "",
+            "time_remaining_min": None,
+        }
+
+    override_index = _manual_step_index(wo.meta, total=len(steps))
+    elapsed = max(0, elapsed_seconds)
+    elapsed_before = 0
+    current_index = 1
+    current_step = steps[0]
+
+    if override_index is not None:
+        current_index = override_index
+        current_step = steps[current_index - 1]
+        elapsed_before = sum(step["target_seconds"] for step in steps[: current_index - 1])
+    else:
+        for index, step in enumerate(steps, start=1):
+            target = step["target_seconds"]
+            if elapsed < elapsed_before + target or index == len(steps):
+                current_index = index
+                current_step = step
+                break
+            elapsed_before += target
+
+    target_seconds = max(1, current_step["target_seconds"])
+    elapsed_in_step = max(0, elapsed - elapsed_before)
+    progress = max(0, min(100, int((Decimal(elapsed_in_step) / Decimal(target_seconds)) * 100)))
+    next_step = steps[current_index] if current_index < len(steps) else None
+    remaining = max(0, elapsed_before + target_seconds - elapsed)
+
+    return {
+        "current_step_index": current_index,
+        "total_steps": len(steps),
+        "current_step_name": current_step["name"],
+        "step_progress_pct": progress,
+        "next_step_name": next_step["name"] if next_step else "",
+        "time_remaining_min": int((remaining + 59) // 60) if next_step else None,
+    }
+
+
+def _recipe_steps(recipe: Recipe) -> list[dict[str, int | str]]:
+    raw_steps = (recipe.meta or {}).get("steps") or recipe.steps or []
+    result: list[dict[str, int | str]] = []
+    for index, raw in enumerate(raw_steps, start=1):
+        if isinstance(raw, dict):
+            name = str(raw.get("name") or raw.get("label") or f"Passo {index}").strip()
+            target = raw.get("target_seconds") or raw.get("seconds") or raw.get("target")
+        else:
+            name = str(raw or f"Passo {index}").strip()
+            target = None
+        try:
+            target_seconds = int(target or 0)
+        except (TypeError, ValueError):
+            target_seconds = 0
+        result.append({
+            "name": name or f"Passo {index}",
+            "target_seconds": max(1, target_seconds or int(_target_minutes_for_recipe(recipe) * 60 / max(1, len(raw_steps)))),
+        })
+    return result
+
+
+def _manual_step_index(meta: dict | None, *, total: int) -> int | None:
+    raw = (meta or {}).get("steps_progress")
+    if raw in (None, ""):
+        return None
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return max(1, min(total, value))
+
+
+def _target_minutes_for_recipe(recipe: Recipe) -> int:
+    return int(_decimal_meta(recipe.meta, "max_started_minutes") or Decimal("240"))
+
+
+def _normalize_report_filters(filters: dict | ProductionReportFilters | None) -> ProductionReportFilters:
+    if isinstance(filters, ProductionReportFilters):
+        return filters
+    raw = filters or {}
+    today = date.today()
+    date_to = _parse_date(raw.get("date_to"), today)
+    date_from = _parse_date(raw.get("date_from"), date_to - timedelta(days=6))
+    if date_from > date_to:
+        date_from, date_to = date_to, date_from
+    report_kind = str(raw.get("report_kind") or raw.get("kind") or "history").strip()
+    if report_kind not in {"history", "operator_productivity", "recipe_waste"}:
+        report_kind = "history"
+    status = str(raw.get("status") or "").strip()
+    if status not in {"", *WorkOrder.Status.values}:
+        status = ""
+    return ProductionReportFilters(
+        date_from=date_from,
+        date_to=date_to,
+        report_kind=report_kind,
+        recipe_ref=str(raw.get("recipe_ref") or "").strip(),
+        position_ref=str(raw.get("position_ref") or "").strip(),
+        operator_ref=str(raw.get("operator_ref") or "").strip(),
+        status=status,
+    )
+
+
+def _parse_date(value, default: date) -> date:
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _report_queryset(filters: ProductionReportFilters):
+    qs = (
+        WorkOrder.objects
+        .filter(target_date__gte=filters.date_from, target_date__lte=filters.date_to)
+        .select_related("recipe")
+        .prefetch_related("events")
+        .order_by("target_date", "recipe__ref", "ref")
+    )
+    if filters.recipe_ref:
+        qs = qs.filter(recipe__ref=filters.recipe_ref)
+    if filters.position_ref:
+        qs = qs.filter(position_ref=filters.position_ref)
+    if filters.operator_ref:
+        qs = qs.filter(operator_ref=filters.operator_ref)
+    if filters.status:
+        qs = qs.filter(status=filters.status)
+    return qs
+
+
+def _work_order_report_row(wo: WorkOrder) -> WorkOrderReportRow:
+    started_qty = _wo_started_qty(wo) or Decimal("0")
+    finished_qty = wo.finished or Decimal("0")
+    loss_qty = max((started_qty or wo.quantity) - finished_qty, Decimal("0")) if wo.finished is not None else Decimal("0")
+    yield_rate = ""
+    if wo.finished is not None and (started_qty or wo.quantity):
+        yield_rate = f"{int((finished_qty / (started_qty or wo.quantity)) * 100)}%"
+    duration = _duration_minutes(wo.started_at, wo.finished_at)
+    return WorkOrderReportRow(
+        ref=wo.ref,
+        date=wo.target_date.isoformat() if wo.target_date else "",
+        recipe_ref=wo.recipe.ref,
+        recipe_name=wo.recipe.name or wo.recipe.ref,
+        position_ref=wo.position_ref or "",
+        qty_planned=_qty(wo.quantity),
+        qty_started=_qty(started_qty) if started_qty else "",
+        qty_finished=_qty(finished_qty) if wo.finished is not None else "",
+        qty_loss=_qty(loss_qty) if loss_qty else "0",
+        yield_rate=yield_rate,
+        operator_ref=wo.operator_ref or "",
+        started_at=_format_datetime(wo.started_at) if wo.started_at else "",
+        finished_at=_format_datetime(wo.finished_at) if wo.finished_at else "",
+        duration_minutes=str(duration) if duration is not None else "",
+    )
+
+
+def _operator_productivity_rows(work_orders: list[WorkOrder]) -> tuple[OperatorProductivityRow, ...]:
+    grouped: dict[str, dict[str, object]] = {}
+    for wo in work_orders:
+        if wo.status != WorkOrder.Status.FINISHED:
+            continue
+        operator = wo.operator_ref or "sem-operador"
+        bucket = grouped.setdefault(operator, {"count": 0, "qty": Decimal("0"), "yield": [], "duration": []})
+        bucket["count"] = int(bucket["count"]) + 1
+        bucket["qty"] = bucket["qty"] + (wo.finished or Decimal("0"))
+        base = _wo_started_qty(wo) or wo.quantity
+        if base:
+            bucket["yield"].append((wo.finished or Decimal("0")) / base)
+        duration = _duration_minutes(wo.started_at, wo.finished_at)
+        if duration is not None:
+            bucket["duration"].append(duration)
+    return tuple(
+        OperatorProductivityRow(
+            operator_ref=operator,
+            operator_name=operator.replace("chef:", "").replace("production:", "") or "Sem operador",
+            wo_count=int(data["count"]),
+            qty_total=_qty(data["qty"]),
+            yield_avg=_percent_avg(data["yield"]),
+            duration_avg_minutes=_int_avg_display(data["duration"]),
+        )
+        for operator, data in sorted(grouped.items(), key=lambda item: item[0])
+    )
+
+
+def _recipe_waste_rows(work_orders: list[WorkOrder]) -> tuple[RecipeWasteRow, ...]:
+    grouped: dict[str, dict[str, object]] = {}
+    for wo in work_orders:
+        if wo.status != WorkOrder.Status.FINISHED:
+            continue
+        bucket = grouped.setdefault(
+            wo.recipe.ref,
+            {"name": wo.recipe.name or wo.recipe.ref, "count": 0, "loss": Decimal("0"), "yield": [], "planned": Decimal("0")},
+        )
+        bucket["count"] = int(bucket["count"]) + 1
+        started = _wo_started_qty(wo) or wo.quantity
+        finished = wo.finished or Decimal("0")
+        bucket["planned"] = bucket["planned"] + wo.quantity
+        bucket["loss"] = bucket["loss"] + max(started - finished, Decimal("0"))
+        if started:
+            bucket["yield"].append(finished / started)
+    rows = [
+        RecipeWasteRow(
+            recipe_ref=recipe_ref,
+            recipe_name=str(data["name"]),
+            wo_count=int(data["count"]),
+            loss_total=_qty(data["loss"]),
+            yield_avg=_percent_avg(data["yield"]),
+            capacity_utilization="",
+        )
+        for recipe_ref, data in grouped.items()
+    ]
+    return tuple(sorted(rows, key=lambda row: Decimal(row.loss_total or "0"), reverse=True)[:10])
+
+
+def _duration_minutes(started_at, finished_at) -> int | None:
+    if not started_at or not finished_at:
+        return None
+    return max(0, int((finished_at - started_at).total_seconds() // 60))
+
+
+def _percent_avg(values: list[Decimal]) -> str:
+    if not values:
+        return ""
+    return f"{int((sum(values) / Decimal(len(values))) * 100)}%"
+
+
+def _int_avg_display(values: list[int]) -> str:
+    if not values:
+        return ""
+    return str(int(sum(values) / len(values)))
+
+
+def _is_late_started(wo: WorkOrder) -> bool:
+    if wo.status != WorkOrder.Status.STARTED:
+        return False
+    started_at = wo.started_at or wo.created_at
+    elapsed_minutes = int((timezone.now() - started_at).total_seconds() // 60)
+    return elapsed_minutes > _target_minutes(wo)
+
+
+def _late_projection(wo: WorkOrder) -> ProductionLateWorkOrderProjection:
+    started_at = wo.started_at or wo.created_at
+    elapsed_minutes = int((timezone.now() - started_at).total_seconds() // 60)
+    return ProductionLateWorkOrderProjection(
+        pk=wo.pk,
+        ref=wo.ref,
+        output_sku=wo.output_sku,
+        operator_ref=wo.operator_ref or "",
+        elapsed_minutes=elapsed_minutes,
+        target_minutes=_target_minutes(wo),
+    )
+
+
+def _target_minutes(wo: WorkOrder) -> int:
+    return int(_decimal_meta(wo.recipe.meta, "max_started_minutes") or Decimal("240"))
+
+
+def _decimal_meta(meta: dict, key: str) -> Decimal:
+    try:
+        value = (meta or {}).get(key)
+        if value in (None, ""):
+            return Decimal("0")
+        decimal = Decimal(str(value))
+        return decimal if decimal > 0 else Decimal("0")
+    except Exception:
+        logger.debug("decimal_meta_parse_failed key=%s", key, exc_info=True)
+        return Decimal("0")
 
 
 def _production_suggestions(selected_date: date) -> list:

@@ -88,7 +88,10 @@ def _emit_for_sku(sku: str, *, event_type: str, extra: dict | None = None) -> No
 
 def _connect() -> None:
     """Wire post_save / pre_save receivers. Called once from ``register_all``."""
+    from shopman.craftsman.signals import production_changed
     from shopman.offerman.models import ListingItem, Product
+    from shopman.shop.adapters import alert as alert_adapter
+    from shopman.shop.adapters import kds as kds_adapter
     from shopman.orderman.signals import order_changed
     from shopman.stockman.models import Hold, Move
 
@@ -98,9 +101,22 @@ def _connect() -> None:
     post_save.connect(_on_product_saved, sender=Product, weak=False)
     pre_save.connect(_track_listing_item_state, sender=ListingItem, weak=False)
     post_save.connect(_on_listing_item_saved, sender=ListingItem, weak=False)
+    kds_ticket_model = kds_adapter.get_ticket_model()
+    pre_save.connect(_track_kds_ticket_state, sender=kds_ticket_model, weak=False)
+    post_save.connect(_on_kds_ticket_saved, sender=kds_ticket_model, weak=False)
     order_changed.connect(
         _on_order_changed,
         dispatch_uid="shopman.shop.handlers._sse_emitters.on_order_changed",
+        weak=False,
+    )
+    production_changed.connect(
+        _on_production_changed,
+        dispatch_uid="shopman.shop.handlers._sse_emitters.on_production_changed",
+        weak=False,
+    )
+    alert_adapter.connect_saved(
+        _on_operator_alert_saved,
+        dispatch_uid="shopman.shop.handlers._sse_emitters.on_operator_alert_saved",
         weak=False,
     )
     logger.info("shopman.handlers: SSE emitters connected.")
@@ -138,6 +154,142 @@ def _on_order_changed(sender, order, event_type, actor, **kwargs):
         event_type="order-update",
         payload={"ref": order.ref, "status": order.status, "kind": event_type},
     )
+    _emit_backstage(
+        "orders",
+        "backstage-orders-update",
+        {"ref": order.ref, "status": order.status, "kind": event_type},
+        scope=_scope_for_order(order),
+    )
+
+
+def _on_production_changed(sender, product_ref, date, action, work_order, **kwargs):
+    _emit_backstage(
+        "production",
+        "backstage-production-update",
+        {
+            "ref": work_order.ref,
+            "status": work_order.status,
+            "action": action,
+            "output_sku": work_order.output_sku,
+        },
+        scope=_default_backstage_scope(),
+    )
+
+
+def _on_operator_alert_saved(sender, instance, created, **kwargs):
+    if not created:
+        return
+    _emit_backstage(
+        "alerts",
+        "backstage-alerts-update",
+        {
+            "id": instance.pk,
+            "type": instance.type,
+            "severity": instance.severity,
+        },
+        scope=_default_backstage_scope(),
+    )
+
+
+def emit_kds_change(ticket, *, event_type: str = "backstage-kds-update", scope: str | None = None) -> None:
+    """Publish a Backstage KDS event for ticket creation/status/item changes."""
+    station_ref = ticket.kds_instance.ref if ticket.kds_instance_id else ""
+    payload = {
+        "ticket_ref": f"KDS-{ticket.pk}",
+        "ticket_id": ticket.pk,
+        "kds_instance_ref": station_ref,
+        "status": ticket.status,
+        "station": station_ref,
+        "order_ref": ticket.order.ref if ticket.order_id else "",
+        "count_active": _active_kds_count(ticket.kds_instance_id),
+    }
+    _emit_backstage("kds", event_type, payload, scope=scope or station_ref)
+
+
+def _track_kds_ticket_state(sender, instance, **kwargs):
+    if not instance.pk:
+        instance._sse_old_status = None
+        instance._sse_old_instance_id = None
+        instance._sse_old_items = None
+        return
+    try:
+        old = sender.objects.only("status", "kds_instance_id", "items").get(pk=instance.pk)
+        instance._sse_old_status = old.status
+        instance._sse_old_instance_id = old.kds_instance_id
+        instance._sse_old_items = old.items
+    except sender.DoesNotExist:
+        instance._sse_old_status = None
+        instance._sse_old_instance_id = None
+        instance._sse_old_items = None
+
+
+def _on_kds_ticket_saved(sender, instance, created, **kwargs):
+    if created:
+        emit_kds_change(instance, event_type="backstage-kds-created")
+        emit_kds_change(instance, event_type="backstage-kds-update")
+        return
+    old_status = getattr(instance, "_sse_old_status", None)
+    old_instance_id = getattr(instance, "_sse_old_instance_id", None)
+    old_items = getattr(instance, "_sse_old_items", None)
+    if old_instance_id and old_instance_id != instance.kds_instance_id:
+        emit_kds_change(instance, event_type="backstage-kds-station-changed")
+    if old_status is not None and old_status != instance.status:
+        emit_kds_change(instance, event_type="backstage-kds-status-changed")
+    if old_items is not None and old_items != instance.items:
+        emit_kds_change(instance, event_type="backstage-kds-update")
+    elif old_status != instance.status or old_instance_id != instance.kds_instance_id:
+        emit_kds_change(instance, event_type="backstage-kds-update")
+
+
+def _active_kds_count(kds_instance_id) -> int:
+    if not kds_instance_id:
+        return 0
+    try:
+        from shopman.shop.adapters import kds as kds_adapter
+
+        return kds_adapter.active_ticket_count(kds_instance_id)
+    except Exception:
+        logger.debug("kds_active_count_failed", exc_info=True)
+        return 0
+
+
+def _emit_backstage(kind: str, event_type: str, payload: dict, *, scope: str | None = None) -> None:
+    try:
+        from django_eventstream import send_event
+    except ImportError:
+        logger.warning("django_eventstream not installed; backstage SSE emit skipped")
+        return
+    try:
+        send_event(f"backstage-{kind}-main", event_type, payload)
+        if scope and scope != "main":
+            send_event(f"backstage-{kind}-{scope}", event_type, payload)
+    except Exception:
+        logger.warning(
+            "Backstage SSE emit failed kind=%s type=%s", kind, event_type, exc_info=True,
+        )
+
+
+def _scope_for_order(order) -> str:
+    try:
+        from shopman.shop.models import Channel
+
+        channel = Channel.objects.select_related("shop").filter(ref=order.channel_ref).first()
+        if channel and channel.shop_id:
+            return f"shop-{channel.shop_id}"
+    except Exception:
+        logger.debug("backstage_sse.order_scope_failed order=%s", getattr(order, "ref", ""), exc_info=True)
+    return _default_backstage_scope()
+
+
+def _default_backstage_scope() -> str:
+    try:
+        from shopman.shop.models import Shop
+
+        shop = Shop.objects.only("pk").first()
+        return f"shop-{shop.pk}" if shop else "main"
+    except Exception:
+        logger.debug("backstage_sse.default_scope_failed", exc_info=True)
+        return "main"
 
 
 # Hold and Move always represent stock motion — emit unconditionally.

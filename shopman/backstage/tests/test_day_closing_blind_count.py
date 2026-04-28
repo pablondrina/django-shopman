@@ -66,7 +66,7 @@ class DayClosingBlindCountTests(TestCase):
 
         self.assertEqual(resp.status_code, 302)
         closing = DayClosing.objects.get()
-        row = closing.data[0]
+        row = closing.data["items"][0]
         self.assertEqual(row["sku"], self.product.sku)
         self.assertEqual(row["qty_reported"], 5)
         self.assertEqual(row["qty_applied"], 2)

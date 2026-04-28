@@ -79,6 +79,8 @@ def register_all() -> None:
     _register_pricing_modifiers()
     _register_validators()
     _register_stock_signals()
+    _register_production_alerts()
+    _register_production_order_sync()
     _register_sse_emitters()
     _register_catalog_projection_handler()
     _register_catalog_signals()
@@ -252,6 +254,19 @@ def _register_stock_signals() -> None:
         production_changed.connect(on_production_voided, weak=False)
     except ImportError:
         pass
+
+
+def _register_production_alerts() -> None:
+    from shopman.shop.handlers import production_alerts
+
+    production_alerts.connect()
+    logger.info("shopman.handlers: connected production alert receivers.")
+
+
+def _register_production_order_sync() -> None:
+    from shopman.shop.handlers import production_order_sync
+
+    production_order_sync.connect()
 
 
 def _register_catalog_projection_handler() -> None:

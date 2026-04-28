@@ -1,0 +1,30 @@
+{% if alerts %}
+<div class="divide-y divide-outline dark:divide-outline-dark">
+  {% for alert in alerts %}
+  <div class="p-3 flex items-start gap-2">
+    <span class="material-symbols-rounded icon-sm {% if alert.severity == 'critical' %}text-danger{% elif alert.severity == 'error' %}text-danger{% else %}text-warning{% endif %}" aria-hidden="true">
+      {% if alert.severity == 'critical' %}notification_important{% elif alert.severity == 'error' %}warning{% else %}info{% endif %}
+    </span>
+    <div class="min-w-0 flex-1">
+      <div class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ alert.get_type_display }}</div>
+      <p class="mt-0.5 text-sm text-on-surface/70 dark:text-on-surface-dark/70">{{ alert.message }}</p>
+      {% if alert.order_ref %}<div class="mt-1 text-xs tabular-nums text-on-surface/50 dark:text-on-surface-dark/50">{{ alert.order_ref }}</div>{% endif %}
+    </div>
+    <button type="button"
+            class="btn-quiet h-8 min-h-8 w-8 min-w-8 p-0"
+            title="Dispensar"
+            aria-label="Dispensar alerta"
+            hx-post="{% url 'backstage:alert_ack' pk=alert.pk %}"
+            hx-target="#operator-alerts-panel"
+            hx-swap="innerHTML">
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true">done</span>
+    </button>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state min-h-32 p-4">
+  <span class="material-symbols-rounded icon-lg mb-1" aria-hidden="true">notifications</span>
+  <p class="text-sm">Sem alertas ativos.</p>
+</div>
+{% endif %}

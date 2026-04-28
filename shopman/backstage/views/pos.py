@@ -12,6 +12,8 @@ from shopman.utils.monetary import format_money
 
 from shopman.backstage.constants import POS_CHANNEL_REF
 from shopman.backstage.projections.pos import build_pos, build_pos_shift_summary
+from shopman.backstage.services import pos as pos_cash_service
+from shopman.backstage.services.exceptions import POSError
 from shopman.shop.services import pos as pos_service
 
 logger = logging.getLogger(__name__)
@@ -309,23 +311,11 @@ def pos_cash_open(request: HttpRequest) -> HttpResponse:
     if denied:
         return HttpResponse("Unauthorized", status=403)
 
-    from shopman.backstage.models import CashRegisterSession
-
-    existing = CashRegisterSession.get_open_for_operator(request.user)
-    if existing:
-        return redirect("/gestor/pos/")
-
-    try:
-        opening_raw = request.POST.get("opening_amount", "0").strip().replace(",", ".")
-        opening_amount_q = round(float(opening_raw) * 100)
-    except (ValueError, TypeError):
-        opening_amount_q = 0
-
-    CashRegisterSession.objects.create(
+    session = pos_cash_service.open_cash_session(
         operator=request.user,
-        opening_amount_q=max(0, opening_amount_q),
+        opening_amount_raw=request.POST.get("opening_amount", "0"),
     )
-    logger.info("pos_cash_open operator=%s opening_q=%s", request.user.username, opening_amount_q)
+    logger.info("pos_cash_open operator=%s session=%s", request.user.username, session.pk)
     return redirect("/gestor/pos/")
 
 
@@ -336,49 +326,32 @@ def pos_cash_sangria(request: HttpRequest) -> HttpResponse:
     if denied:
         return HttpResponse("Unauthorized", status=403)
 
-    from shopman.backstage.models import CashMovement, CashRegisterSession
-
-    session = CashRegisterSession.get_open_for_operator(request.user)
-    if not session:
-        return HttpResponse(
-            '<div class="text-destructive text-sm font-semibold">Caixa não aberto.</div>',
-            status=422,
-        )
-
-    movement_type = request.POST.get("movement_type", "sangria")
-    if movement_type not in ("sangria", "suprimento", "ajuste"):
-        movement_type = "sangria"
-
     try:
-        amount_raw = request.POST.get("amount", "0").strip().replace(",", ".")
-        amount_q = round(float(amount_raw) * 100)
-    except (ValueError, TypeError):
-        amount_q = 0
-
-    if amount_q <= 0:
+        movement = pos_cash_service.register_cash_movement(
+            operator=request.user,
+            movement_type=request.POST.get("movement_type", "sangria"),
+            amount_raw=request.POST.get("amount", "0"),
+            reason=request.POST.get("reason", ""),
+        )
+    except POSError as exc:
         return HttpResponse(
-            '<div class="text-destructive text-sm font-semibold">Valor inválido.</div>',
+            f'<div class="text-destructive text-sm font-semibold">{exc}</div>',
             status=422,
         )
 
-    reason = request.POST.get("reason", "").strip()
-    CashMovement.objects.create(
-        session=session,
-        movement_type=movement_type,
-        amount_q=amount_q,
-        reason=reason,
-        created_by=request.user.username,
-    )
     logger.info(
         "pos_cash_movement type=%s amount_q=%s operator=%s",
-        movement_type, amount_q, request.user.username,
+        movement.movement_type, movement.amount_q, request.user.username,
     )
 
     from shopman.utils.monetary import format_money as _fm
-    label = {"sangria": "Sangria", "suprimento": "Suprimento", "ajuste": "Ajuste"}.get(movement_type, movement_type)
+    label = {"sangria": "Sangria", "suprimento": "Suprimento", "ajuste": "Ajuste"}.get(
+        movement.movement_type,
+        movement.movement_type,
+    )
     return HttpResponse(
         f'<div class="text-success-foreground text-sm font-semibold">'
-        f'{label} de R$ {_fm(amount_q)} registrada.</div>'
+        f'{label} de R$ {_fm(movement.amount_q)} registrada.</div>'
     )
 
 
@@ -389,23 +362,17 @@ def pos_cash_close(request: HttpRequest) -> HttpResponse:
     if denied:
         return HttpResponse("Unauthorized", status=403)
 
-    from shopman.backstage.models import CashRegisterSession
-
-    session = CashRegisterSession.get_open_for_operator(request.user)
-    if not session:
+    try:
+        session = pos_cash_service.close_cash_session(
+            operator=request.user,
+            closing_amount_raw=request.POST.get("closing_amount", "0"),
+            notes=request.POST.get("notes", ""),
+        )
+    except POSError as exc:
         return HttpResponse(
-            '<div class="text-destructive font-semibold">Caixa não aberto.</div>',
+            f'<div class="text-destructive font-semibold">{exc}</div>',
             status=422,
         )
-
-    try:
-        closing_raw = request.POST.get("closing_amount", "0").strip().replace(",", ".")
-        closing_amount_q = round(float(closing_raw) * 100)
-    except (ValueError, TypeError):
-        closing_amount_q = 0
-
-    notes = request.POST.get("notes", "").strip()
-    session.close(closing_amount_q=closing_amount_q, notes=notes)
-    logger.info("pos_cash_close operator=%s closing_q=%s diff_q=%s", request.user.username, closing_amount_q, session.difference_q)
+    logger.info("pos_cash_close operator=%s diff_q=%s", request.user.username, session.difference_q)
 
     return render(request, "pos/cash_close_report.html", {"session": session})

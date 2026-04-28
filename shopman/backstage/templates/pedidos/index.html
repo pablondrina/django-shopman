@@ -5,7 +5,7 @@
 {% block main_class %}overflow-hidden flex flex-col{% endblock %}
 
 {% block content %}
-<div id="gestor-pedidos-root" x-data="gestorPedidos()" x-init="init()" @sync-order-count.window="orderCount = $event.detail.count" class="flex flex-col h-full min-h-0 w-full">
+<div id="gestor-pedidos-root" x-data="gestorPedidos()" x-init="init()" @sync-order-count.window="orderCount = $event.detail.count" hx-ext="sse" sse-connect="{% if operator.event_scope %}{% url 'backstage:events_scoped' kind='orders' scope=operator.event_scope %}{% else %}{% url 'backstage:events' kind='orders' %}{% endif %}" class="flex flex-col h-full min-h-0 w-full">
 
   {% comment %}Offline banner{% endcomment %}
   <div x-show="offline" x-cloak x-transition.opacity
@@ -103,7 +103,7 @@
     <div id="order-grid" x-ref="orderGrid"
          class="h-full w-full min-w-0"
          hx-get="/gestor/pedidos/list/"
-         hx-trigger="every 5s"
+         hx-trigger="sse:backstage-orders-update, every 5s"
          hx-target="#order-grid"
          hx-swap="innerHTML"
          x-on:htmx:after-swap="$dispatch('ped-synced')"

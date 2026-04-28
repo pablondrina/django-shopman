@@ -54,6 +54,7 @@ from shopman.backstage.models import (
     CashRegisterSession,
     DayClosing,
     KDSInstance,
+    OperatorAlert,
 )
 from shopman.shop.models import Channel, OmotenashiCopy, RuleConfig, Shop
 from shopman.shop.services.nutrition_from_recipe import fill_nutrition_from_recipe
@@ -92,6 +93,7 @@ class Command(BaseCommand):
         self._seed_orders(products, customers, channels)
         self._seed_sessions(channels)
         self._seed_stock_alerts(products, positions)
+        self._seed_operator_alerts()
         self._seed_promotions()
         self._seed_payments()
         self._seed_fulfillments()
@@ -322,6 +324,7 @@ class Command(BaseCommand):
         # KDS
         from shopman.backstage.models import KDSTicket
 
+        OperatorAlert.objects.all().delete()
         KDSTicket.objects.all().delete()
         KDSInstance.objects.all().delete()
 
@@ -1719,12 +1722,22 @@ class Command(BaseCommand):
         }
 
         for rd in recipes_data:
+            product = Product.objects.filter(sku=rd["output_sku"]).first()
+            shelf_life_days = product.shelf_life_days if product else None
             recipe, _ = Recipe.objects.update_or_create(
                 ref=rd["ref"],
                 defaults={
                     "name": rd["name"],
                     "output_sku": rd["output_sku"],
                     "batch_size": rd["batch_size"],
+                    "steps": self._production_steps_for_recipe(rd["ref"]),
+                    "is_active": True,
+                    "meta": {
+                        "capacity_per_day": int(rd["batch_size"] * Decimal("3")),
+                        "max_started_minutes": self._max_started_minutes_for_recipe(rd["ref"]),
+                        "requires_batch_tracking": shelf_life_days is not None,
+                        "shelf_life_days": shelf_life_days,
+                    },
                 },
             )
             RecipeItem.objects.filter(recipe=recipe).delete()
@@ -1736,7 +1749,6 @@ class Command(BaseCommand):
                     quantity=qty,
                     meta=meta,
                 )
-            product = Product.objects.filter(sku=recipe.output_sku).first()
             if product:
                 fill_nutrition_from_recipe(product)
 
@@ -1786,6 +1798,34 @@ class Command(BaseCommand):
         def reset_ledger(work_order: WorkOrder) -> None:
             work_order.events.all().delete()
             work_order.items.all().delete()
+
+        def ensure_batch_traceability(work_order: WorkOrder, finished_qty: Decimal) -> None:
+            if not (work_order.recipe.meta or {}).get("requires_batch_tracking"):
+                return
+            from shopman.stockman.models import Batch
+
+            production_date = work_order.target_date or today
+            shelf_life_days = (work_order.recipe.meta or {}).get("shelf_life_days")
+            expiry_date = None
+            if shelf_life_days not in (None, ""):
+                expiry_date = production_date + timedelta(days=int(shelf_life_days))
+            batch_ref = f"{work_order.output_sku}-{production_date:%Y%m%d}-{work_order.pk}"
+            Batch.objects.update_or_create(
+                ref=batch_ref,
+                defaults={
+                    "sku": work_order.output_sku,
+                    "production_date": production_date,
+                    "expiry_date": expiry_date,
+                    "notes": f"Seed Nelson producao {work_order.ref}",
+                },
+            )
+            work_order.meta = {
+                **(work_order.meta or {}),
+                "batch_ref": batch_ref,
+                "batch_quantity": str(finished_qty),
+                "expiry_date": expiry_date.isoformat() if expiry_date else "",
+            }
+            work_order.save(update_fields=["meta", "updated_at"])
 
         def add_event(work_order: WorkOrder, seq: int, kind: str, payload: dict, actor: str, created_at: datetime) -> None:
             event = WorkOrderEvent.objects.create(
@@ -1925,9 +1965,10 @@ class Command(BaseCommand):
                     finish_at or at(target_date, (8, 0)),
                 )
                 add_finished_items(work_order, effective_started, finished_qty, finish_at or at(target_date, (8, 0)))
+                ensure_batch_traceability(work_order, finished_qty)
             return work_order
 
-        # Remove old seed rows outside the moving demo window. The active window
+        # Remove old seed rows outside the moving operational window. The active window
         # is overwritten below through stable source_ref values.
         stale_before = today - timedelta(days=45)
         WorkOrder.objects.filter(source_ref__startswith="seed:production:", target_date__lt=stale_before).delete()
@@ -1949,7 +1990,10 @@ class Command(BaseCommand):
             finished = None
             finish_at = None
             if status == WorkOrder.Status.FINISHED:
-                finished = max(started - Decimal(str((index % 4) + 1)), Decimal("1"))
+                if ref == "croissant":
+                    finished = max((started * Decimal("0.70")).quantize(Decimal("1")), Decimal("1"))
+                else:
+                    finished = max(started - Decimal(str((index % 4) + 1)), Decimal("1"))
                 finish_at = at(today, finish_hm)
             upsert_work_order(
                 scope="today",
@@ -2020,6 +2064,26 @@ class Command(BaseCommand):
             f"  ✅ {len(recipes_data)} receitas, {wo_count} ordens de hoje,"
             f" {future_count} futuras e {history_count} historico movel"
         )
+
+    def _production_steps_for_recipe(self, ref: str) -> list[str]:
+        if "croissant" in ref or "chocolat" in ref or "chausson" in ref:
+            return ["Massa", "Laminação", "Forno"]
+        if "focaccia" in ref:
+            return ["Mistura", "Fermentação", "Cobertura", "Forno"]
+        if "brioche" in ref:
+            return ["Mistura", "Descanso", "Forno"]
+        if ref.startswith("massa-"):
+            return ["Pesagem", "Mistura", "Fermentação"]
+        return ["Mistura", "Fermentação", "Modelagem", "Forno"]
+
+    def _max_started_minutes_for_recipe(self, ref: str) -> int:
+        if "croissant" in ref or "chocolat" in ref or "chausson" in ref:
+            return 150
+        if "campagne" in ref or "italiano" in ref:
+            return 240
+        if ref.startswith("massa-"):
+            return 180
+        return 120
 
     def _assert_catalog_remote_purchase_data(self):
         missing = []
@@ -2351,6 +2415,8 @@ class Command(BaseCommand):
 
         # ── Live orders — timestamps in minutes, not hours ────────────────
         # These represent what's happening RIGHT NOW in the kitchen/counter.
+        from shopman.shop.handlers.production_order_sync import link_order_to_work_orders
+
         live_specs = [
             ("preparing", random.randint(5, 15)),
             ("preparing", random.randint(5, 15)),
@@ -2456,9 +2522,61 @@ class Command(BaseCommand):
                         ticket.completed_at = order_time + timedelta(minutes=3)
                         ticket.save(update_fields=["status", "completed_at"])
 
+            if live_status in ("confirmed", "preparing", "ready"):
+                link_order_to_work_orders(order=order, event_type="status_changed", actor="seed")
+
             order_count += 1
 
-        # ── iFood demo orders ─────────────────────────────────────────────────
+        # Deterministic production-dependent order so Pedidos and Produção
+        # always demonstrate the visual sync from WP-BS-9.
+        produced_product = products.get("CROISSANT") or products.get("BAGUETE")
+        if produced_product:
+            customer = customer_list[0]
+            channel = channels["pdv"]
+            order_time = now - timedelta(minutes=6)
+            ref = f"NB-PROD-LINK-{uuid.uuid4().hex[:6].upper()}"
+            sync_order = Order.objects.create(
+                ref=ref,
+                channel_ref=channel.ref,
+                status=Order.Status.CONFIRMED,
+                total_q=produced_product.base_price_q * 3,
+                handle_type="phone",
+                handle_ref=customer.contact_points.filter(type="whatsapp").values_list("value_normalized", flat=True).first() or "",
+                created_at=order_time,
+                data={
+                    "customer": {"name": customer.name},
+                    "payment": {"method": "cash"},
+                    "fulfillment_type": "pickup",
+                    "availability_decision": {"approved": True, "source": "seed", "decisions": []},
+                },
+            )
+            OrderItem.objects.create(
+                order=sync_order,
+                line_id=f"L-{uuid.uuid4().hex[:8]}",
+                sku=produced_product.sku,
+                name=produced_product.name,
+                qty=Decimal("3"),
+                unit_price_q=produced_product.base_price_q,
+                line_total_q=produced_product.base_price_q * 3,
+            )
+            OrderEvent.objects.create(
+                order=sync_order,
+                type="status_change",
+                seq=0,
+                payload={"new_status": "new"},
+                created_at=order_time,
+            )
+            OrderEvent.objects.create(
+                order=sync_order,
+                type="status_change",
+                seq=1,
+                payload={"new_status": "confirmed"},
+                created_at=order_time + timedelta(minutes=1),
+            )
+            link_order_to_work_orders(order=sync_order, event_type="status_changed", actor="seed")
+            order_count += 1
+
+        # ── iFood operational orders ──────────────────────────────────────────
         if "ifood" in channels:
             ifood_ch = channels["ifood"]
             prod_a = product_list[0]
@@ -2538,11 +2656,81 @@ class Command(BaseCommand):
                 payload={"new_status": "confirmed"},
                 created_at=now - timedelta(minutes=7),
             )
+            link_order_to_work_orders(order=order_confirmed, event_type="status_changed", actor="seed")
 
             order_count += 2
-            self.stdout.write("  ✅ 2 pedidos iFood demo adicionados")
+            self.stdout.write("  ✅ 2 pedidos iFood operacionais adicionados")
 
-        self.stdout.write(f"  ✅ {order_count} pedidos (35 dias + live + iFood)")
+        production_history_count = self._seed_production_demand_history(products, channels, now)
+        order_count += production_history_count
+
+        self.stdout.write(
+            f"  ✅ {order_count} pedidos (35 dias + live + iFood + historico producao)"
+        )
+
+    def _seed_production_demand_history(self, products, channels, now) -> int:
+        """Stable same-weekday demand rows for Craftsman production suggestions."""
+        pdv = channels["pdv"]
+        history = {
+            "BAGUETE": [Decimal("34"), Decimal("38"), Decimal("31"), Decimal("36")],
+            "CROISSANT": [Decimal("44"), Decimal("48"), Decimal("41"), Decimal("46")],
+            "PAIN-CHOCOLAT": [Decimal("24"), Decimal("28"), Decimal("22"), Decimal("26")],
+            "CIABATTA": [Decimal("18"), Decimal("21"), Decimal("17"), Decimal("20")],
+        }
+        created_or_updated = 0
+        for sku, quantities in history.items():
+            product = products.get(sku)
+            if product is None:
+                continue
+            for index, qty in enumerate(quantities, start=1):
+                order_time = (now - timedelta(days=7 * index)).replace(
+                    hour=10,
+                    minute=15,
+                    second=0,
+                    microsecond=0,
+                )
+                ref = f"NB-PROD-HIST-{sku}-{index}"
+                total_q = int(qty * product.base_price_q)
+                order, created = Order.objects.get_or_create(
+                    ref=ref,
+                    defaults={
+                        "channel_ref": pdv.ref,
+                        "session_key": f"seed-{ref}",
+                        "status": Order.Status.COMPLETED,
+                        "snapshot": {"seed": "nelson", "source": "production_demand_history"},
+                        "data": {"availability_decision": {"approved": True, "source": "seed", "decisions": []}},
+                        "total_q": total_q,
+                        "completed_at": order_time,
+                    },
+                )
+                if created:
+                    OrderEvent.objects.create(
+                        order=order,
+                        type="status_change",
+                        seq=0,
+                        payload={"new_status": "completed", "source": "seed"},
+                        created_at=order_time,
+                    )
+                else:
+                    Order.objects.filter(pk=order.pk).update(
+                        status=Order.Status.COMPLETED,
+                        completed_at=order_time,
+                    )
+                Order.objects.filter(pk=order.pk).update(created_at=order_time, updated_at=order_time)
+                OrderItem.objects.update_or_create(
+                    order=order,
+                    line_id="production-history",
+                    defaults={
+                        "sku": sku,
+                        "name": product.name,
+                        "qty": qty,
+                        "unit_price_q": product.base_price_q,
+                        "line_total_q": total_q,
+                        "meta": {"seed": "nelson", "source": "production_demand_history"},
+                    },
+                )
+                created_or_updated += 1
+        return created_or_updated
 
     # ────────────────────────────────────────────────────────────────
     # Sessoes abertas (Orderman)
@@ -2612,6 +2800,46 @@ class Command(BaseCommand):
                 )
 
         self.stdout.write(f"  ✅ {len(alerts_data)} alertas configurados")
+
+    def _seed_operator_alerts(self):
+        self.stdout.write("  🚨 Alertas operacionais...")
+
+        from shopman.shop.handlers.production_alerts import (
+            check_late_started_orders,
+            create_stock_short_alert,
+            maybe_create_low_yield_alert,
+        )
+
+        today = date.today()
+        created_late = check_late_started_orders(selected_date=today)
+        created_yield = 0
+        for work_order in WorkOrder.objects.filter(
+            source_ref__startswith="seed:production:today:",
+            status=WorkOrder.Status.FINISHED,
+        ):
+            if maybe_create_low_yield_alert(work_order):
+                created_yield += 1
+
+        shortage_target = (
+            WorkOrder.objects.filter(
+                source_ref__startswith="seed:production:today:",
+                output_sku="CROISSANT",
+            )
+            .order_by("created_at")
+            .first()
+        )
+        if shortage_target:
+            create_stock_short_alert(
+                work_order_ref=shortage_target.ref,
+                output_sku=shortage_target.output_sku,
+                error="sementes de validação: manteiga francesa abaixo do ponto de reposição",
+            )
+
+        active_count = OperatorAlert.objects.filter(acknowledged=False).count()
+        self.stdout.write(
+            f"  ✅ Alertas operacionais ativos: {active_count}"
+            f" ({created_late} atraso, {created_yield} rendimento)"
+        )
 
     # ────────────────────────────────────────────────────────────────
     # Enderecos de clientes (Customers)
@@ -3213,19 +3441,41 @@ class Command(BaseCommand):
             self.stdout.write("  ⏭️  Sem superuser, pulando DayClosing")
             return
 
+        closing_items = [
+            {"sku": "BAGUETE", "qty_reported": 6, "qty_applied": 6, "qty_discrepancy": 0, "qty_remaining": 6, "qty_d1": 4, "qty_loss": 2},
+            {"sku": "BATARD", "qty_reported": 3, "qty_applied": 3, "qty_discrepancy": 0, "qty_remaining": 3, "qty_d1": 2, "qty_loss": 1},
+            {"sku": "FENDU", "qty_reported": 7, "qty_applied": 7, "qty_discrepancy": 0, "qty_remaining": 7, "qty_d1": 5, "qty_loss": 2},
+            {"sku": "TABATIERE", "qty_reported": 5, "qty_applied": 5, "qty_discrepancy": 0, "qty_remaining": 5, "qty_d1": 4, "qty_loss": 1},
+            {"sku": "CIABATTA", "qty_reported": 4, "qty_applied": 4, "qty_discrepancy": 0, "qty_remaining": 4, "qty_d1": 3, "qty_loss": 1},
+            {"sku": "PAO-HAMBURGER", "qty_reported": 8, "qty_applied": 8, "qty_discrepancy": 0, "qty_remaining": 8, "qty_d1": 6, "qty_loss": 2},
+        ]
+        production_summary = {}
+        for work_order in WorkOrder.objects.filter(target_date=yesterday).select_related("recipe"):
+            row = production_summary.setdefault(
+                work_order.recipe.ref,
+                {
+                    "recipe_ref": work_order.recipe.ref,
+                    "output_sku": work_order.output_sku,
+                    "planned": 0,
+                    "finished": 0,
+                    "loss": 0,
+                },
+            )
+            row["planned"] += int(work_order.quantity or 0)
+            if work_order.finished is not None:
+                row["finished"] += int(work_order.finished or 0)
+                row["loss"] += max(0, int((work_order.started_qty or work_order.quantity) - work_order.finished))
+
         _, created = DayClosing.objects.update_or_create(
             date=yesterday,
             defaults={
                 "closed_by": admin,
                 "notes": "Fechamento automatico (seed)",
-                "data": [
-                    {"sku": "BAGUETE", "qty_remaining": 6, "qty_d1": 4, "qty_loss": 2},
-                    {"sku": "BATARD", "qty_remaining": 3, "qty_d1": 2, "qty_loss": 1},
-                    {"sku": "FENDU", "qty_remaining": 7, "qty_d1": 5, "qty_loss": 2},
-                    {"sku": "TABATIERE", "qty_remaining": 5, "qty_d1": 4, "qty_loss": 1},
-                    {"sku": "CIABATTA", "qty_remaining": 4, "qty_d1": 3, "qty_loss": 1},
-                    {"sku": "PAO-HAMBURGER", "qty_remaining": 8, "qty_d1": 6, "qty_loss": 2},
-                ],
+                "data": {
+                    "items": closing_items,
+                    "production_summary": production_summary,
+                    "reconciliation_errors": [],
+                },
             },
         )
         self.stdout.write("  ✅ DayClosing criado" if created else "  ✅ DayClosing atualizado")

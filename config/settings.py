@@ -171,6 +171,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "shopman.backstage.context_processors.operator",
                 "shopman.storefront.context_processors.shop",
                 "shopman.storefront.context_processors.omotenashi",
                 "shopman.storefront.context_processors.cart_count",
@@ -451,8 +452,8 @@ UNFOLD = {
                 "separator": True,
                 "collapsible": True,
                 "items": [
-                    {"title": "Registro Rápido", "icon": "add_circle", "link": reverse_lazy("admin:shop_production")},
-                    {"title": "Fechamento", "icon": "point_of_sale", "link": reverse_lazy("admin:shop_closing")},
+                    {"title": "Registro Rápido", "icon": "add_circle", "link": reverse_lazy("backstage:production")},
+                    {"title": "Fechamento", "icon": "point_of_sale", "link": reverse_lazy("backstage:day_closing")},
                     {"title": "Receitas", "icon": "menu_book", "link": reverse_lazy("admin:craftsman_recipe_changelist")},
                     {"title": "Ordens de Producao", "icon": "manufacturing", "link": reverse_lazy("admin:craftsman_workorder_changelist")},
                     {"title": "Alertas", "icon": "warning", "link": reverse_lazy("admin:backstage_operatoralert_changelist")},

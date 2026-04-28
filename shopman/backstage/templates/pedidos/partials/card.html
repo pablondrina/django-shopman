@@ -40,6 +40,12 @@
           {% endif %}
           <span x-text="elapsed >= 3600 ? Math.floor(elapsed / 3600) + 'h ' + Math.floor((elapsed % 3600) / 60) + 'min' : Math.floor(elapsed / 60) + ':' + String(elapsed % 60).padStart(2, '0')"></span>
         </span>
+        {% if o.awaiting_work_orders %}
+        <span class="badge-warning" title="Aguardando produção">
+          <span class="material-symbols-rounded" aria-hidden="true">precision_manufacturing</span>
+          {{ o.awaiting_work_orders|length }}
+        </span>
+        {% endif %}
       </div>
     </div>
     <span class="material-symbols-rounded icon-sm absolute top-3 right-4 text-on-surface/40 dark:text-on-surface-dark/40 transition-transform"
@@ -68,6 +74,16 @@
         <span class="material-symbols-rounded" aria-hidden="true">hourglass_top</span>
         Aguardando pagamento
       </span>
+    </div>
+    {% endif %}
+    {% if o.awaiting_work_orders %}
+    <div class="mt-1.5 flex flex-wrap gap-1">
+      {% for wo in o.awaiting_work_orders %}
+      <span class="{% if wo.status == 'finished' %}badge-success{% elif wo.status == 'started' %}badge-warning{% else %}badge-danger{% endif %}" title="{{ wo.status_label }}">
+        <span class="material-symbols-rounded" aria-hidden="true">factory</span>
+        {{ wo.ref }} · {{ wo.progress_pct }}%
+      </span>
+      {% endfor %}
     </div>
     {% endif %}
   </div>

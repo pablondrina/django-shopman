@@ -1,0 +1,86 @@
+{% for card in kds.cards %}
+<article class="card p-0 overflow-hidden border-l-4 {% if card.timer_class == 'timer-late' %}border-l-danger{% elif card.timer_class == 'timer-warning' %}border-l-warning{% else %}border-l-success{% endif %}">
+  <div class="p-3 border-b border-outline dark:border-outline-dark flex items-start justify-between gap-3">
+    <div class="min-w-0">
+      <h2 class="text-base font-semibold leading-tight truncate text-on-surface-strong dark:text-on-surface-dark-strong">{{ card.output_sku }}</h2>
+      <p class="field-help truncate">{{ card.recipe_name }} · {{ card.ref }}</p>
+    </div>
+    <span class="order-timer {{ card.timer_class }} tabular-nums">
+      <span class="material-symbols-rounded icon-sm" aria-hidden="true">timer</span>
+      {{ card.elapsed_minutes }}m
+    </span>
+  </div>
+
+  <div class="p-3 space-y-3">
+    <div class="grid grid-cols-2 gap-2 text-sm">
+      <div>
+        <p class="field-label">Quantidade</p>
+        <p class="font-semibold tabular-nums">{{ card.started_qty }}</p>
+      </div>
+      <div>
+        <p class="field-label">Etapa</p>
+        <p class="font-semibold truncate">{{ card.current_step }}</p>
+      </div>
+      <div>
+        <p class="field-label">Posto</p>
+        <p class="font-semibold truncate">{{ card.position_ref|default:"-" }}</p>
+      </div>
+      <div>
+        <p class="field-label">Responsável</p>
+        <p class="font-semibold truncate">{{ card.operator_ref|default:"Livre" }}</p>
+      </div>
+    </div>
+
+    {% if card.current_step_name %}
+    <div class="rounded-lg border border-outline p-2 dark:border-outline-dark">
+      <div class="mb-1 flex items-center justify-between gap-2 text-sm">
+        <span class="font-semibold">Passo {{ card.current_step_index }}/{{ card.total_steps }}: {{ card.current_step_name }}</span>
+        <span class="tabular-nums text-on-surface/60 dark:text-on-surface-dark/60">{{ card.step_progress_pct }}%</span>
+      </div>
+      <div class="h-2 overflow-hidden rounded-full bg-outline dark:bg-outline-dark" role="progressbar" aria-valuenow="{{ card.step_progress_pct }}" aria-valuemin="0" aria-valuemax="100">
+        <div class="h-full bg-info" style="width: {{ card.step_progress_pct }}%"></div>
+      </div>
+      {% if card.next_step_name %}
+      <div class="mt-1 flex items-center justify-between gap-2">
+        <p class="text-xs text-on-surface/60 dark:text-on-surface-dark/60">
+          Próximo: {{ card.next_step_name }}{% if card.time_remaining_min is not None %} em ~{{ card.time_remaining_min }}min{% endif %}
+        </p>
+        <button type="button"
+                class="btn-secondary btn-sm whitespace-nowrap"
+                hx-post="{% url 'backstage:production_advance_step' card.pk %}"
+                hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                hx-target="#production-kds-grid"
+                hx-swap="innerHTML"
+                aria-label="Avançar para o próximo passo da receita">
+          <span class="material-symbols-rounded icon-xs" aria-hidden="true">skip_next</span>
+          Avançar passo
+        </button>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if card.can_finish %}
+    <form method="post" action="{% url 'backstage:production' %}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="finish" />
+      <input type="hidden" name="wo_id" value="{{ card.pk }}" />
+      <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}" />
+      <label class="field-label">Concluído</label>
+      <div class="mt-1 flex gap-2">
+        <input type="number" step="0.001" min="0.001" name="quantity" value="{{ card.started_qty }}" inputmode="decimal" class="input-field tabular-nums" required />
+        <button type="submit" class="btn-success shrink-0">
+          <span class="material-symbols-rounded icon-sm" aria-hidden="true">task_alt</span>
+          Concluir
+        </button>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+</article>
+{% empty %}
+<div class="empty-state py-16 col-span-full">
+  <span class="material-symbols-rounded icon-display block mb-4 opacity-80" aria-hidden="true">done_all</span>
+  <p class="text-base font-semibold">Nenhuma produção em andamento.</p>
+</div>
+{% endfor %}

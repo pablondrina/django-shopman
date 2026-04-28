@@ -136,6 +136,7 @@ for key in (
 | `session_key` | `string` | hooks._on_cancelled | hooks._on_cancelled | Chave de sessão original (referência para release holds) |
 | `hold_ids` | `list[dict]` | `StockService.hold(order)` | `StockService.fulfill(order)`, `StockService.release(order)` | Holds do Stockman adotados no commit. Cada entry: `{sku, hold_id, qty}` |
 | `loyalty` | `dict` | `LoyaltyRedeemModifier` | `services/loyalty.py` | Dados de resgate de pontos: `{redeem_points_q: int}` |
+| `awaiting_wo_refs` | `list[string]` | `shop.handlers.production_order_sync` | Backstage pedidos/producao projections | Refs de WorkOrders que cobrem itens produzidos do pedido. Contextual, derivável e limpável em void. |
 
 
 ### Chaves lidas por views (convenience — fallback para vazio)
@@ -682,3 +683,49 @@ Adapters aceitos por tipo:
 8. **Order.snapshot é imutável**. Nunca editar após o commit. Contém `items`, `data`, `pricing`, `rev`.
 9. **Directive.payload varia por topic**. Cada handler documenta as chaves que lê e escreve na sua seção acima.
 10. **Channel.config usa ChannelConfig dataclass**. Chaves fora do schema devem ser documentadas na seção "Chaves fora do ChannelConfig schema".
+
+---
+
+## WorkOrder.meta
+
+Contexto operacional de produção mantido fora do core Craftsman.
+
+| Chave | Tipo | Escrito por | Lido por | Descrição |
+|-------|------|-------------|----------|-----------|
+| `serves_order_refs` | `list[string]` | `shop.handlers.production_order_sync` | Backstage produção/pedidos projections | Pedidos atendidos por esta WorkOrder. Espelho de `Order.data.awaiting_wo_refs`. |
+| `steps_progress` | `int` | Backstage produção (futuro botão manual) | `build_production_kds` | Override manual do passo atual no KDS de produção, 1-based. |
+| `batch_ref` | `string` | `backstage.services.production` | auditoria/lotes | Lote criado para receita com rastreabilidade. |
+| `batch_quantity` | `string` | `backstage.services.production` | auditoria/lotes | Quantidade acabada associada ao lote. |
+| `expiry_date` | `string` | `backstage.services.production` | auditoria/lotes | ISO date de validade do lote, quando aplicável. |
+
+## Recipe.meta
+
+| Chave | Tipo | Escrito por | Lido por | Descrição |
+|-------|------|-------------|----------|-----------|
+| `steps` | `list[dict]` | seed/admin de receitas | KDS de produção | Passos do KDS: `[{name: string, target_seconds: int}]`. Fallback: campo legado `Recipe.steps`. |
+| `max_started_minutes` | `int` | seed/admin de receitas | alertas/KDS produção | Tempo alvo total para WO em produção antes de atraso. |
+| `capacity_per_day` | `int` | seed/admin de receitas | dashboard/relatórios | Capacidade diária nominal da receita. |
+
+## DayClosing.data
+
+Registros antigos podem ser uma lista simples de snapshots. Registros novos usam envelope:
+
+```json
+{
+  "items": [
+    {"sku": "SKU", "qty_reported": 1, "qty_applied": 1, "qty_discrepancy": 0, "qty_remaining": 0, "qty_d1": 0, "qty_loss": 0}
+  ],
+  "production_summary": {
+    "recipe-ref": {"recipe_ref": "recipe-ref", "output_sku": "SKU", "planned": 10, "finished": 9, "loss": 1}
+  },
+  "reconciliation_errors": [
+    {"sku": "SKU", "sold": 12, "available": 10, "deficit": 2}
+  ]
+}
+```
+
+| Chave | Tipo | Escrito por | Lido por | Descrição |
+|-------|------|-------------|----------|-----------|
+| `items` | `list[dict]` | `services/closing.py::perform_day_closing` | template fechamento | Snapshot por SKU com qty reportada, aplicada, D-1, perda. |
+| `production_summary` | `dict[str, dict]` | `services/closing.py::_production_summary` | template fechamento, projection | Agregado de WOs do dia por receita: `{recipe_ref: {recipe_ref, output_sku, planned, finished, loss}}`. |
+| `reconciliation_errors` | `list[dict]` | `services/closing.py::_reconciliation_errors` | projection (`ReconciliationError.from_dict`) | Discrepâncias detectadas: SKUs vendidos além do que estoque + produção poderiam suprir. Schema: `{sku, sold, available, deficit}` (a projection converte para `ReconciliationError(sku, sold_qty, available_qty, deficit_qty)` na leitura). |

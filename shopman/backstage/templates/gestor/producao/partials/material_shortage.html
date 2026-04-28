@@ -1,0 +1,40 @@
+<div class="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4">
+  <div class="surface-modal max-w-md"
+       role="dialog"
+       aria-modal="true"
+       aria-labelledby="production-shortage-title">
+    <div class="flex items-start gap-3">
+      <span class="material-symbols-rounded icon-lg text-danger" aria-hidden="true">warning</span>
+      <div class="min-w-0">
+        <h2 id="production-shortage-title" class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Insumos insuficientes</h2>
+        <p class="field-help">Revise o estoque antes de concluir ou registre uma conclusão forçada para auditoria.</p>
+      </div>
+    </div>
+
+    <div class="mt-4 divide-y divide-outline dark:divide-outline-dark rounded-lg border border-outline dark:border-outline-dark">
+      {% for item in missing %}
+      <div class="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+        <span class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ item.sku }}</span>
+        <span class="tabular-nums text-danger">Faltam {{ item.shortage }}</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    <form method="post" class="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="finish" />
+      <input type="hidden" name="force" value="1" />
+      <input type="hidden" name="wo_id" value="{{ post.wo_id }}" />
+      <input type="hidden" name="quantity" value="{{ post.quantity }}" />
+      <input type="hidden" name="target_date" value="{{ post.target_date }}" />
+      <input type="hidden" name="position_ref" value="{{ post.position_ref }}" />
+      <input type="hidden" name="operator_ref_filter" value="{{ post.operator_ref_filter }}" />
+      <input type="hidden" name="base_recipe" value="{{ post.base_recipe }}" />
+      <button type="button" class="btn-secondary" @click="$el.closest('#production-action-result').innerHTML = ''">Abortar</button>
+      <button type="submit" class="btn-danger">
+        <span class="material-symbols-rounded icon-sm" aria-hidden="true">priority_high</span>
+        Forçar conclusão
+      </button>
+    </form>
+  </div>
+</div>

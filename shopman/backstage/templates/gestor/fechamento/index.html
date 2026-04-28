@@ -18,6 +18,49 @@
   </div>
   {% endif %}
 
+  <div class="card">
+    <div class="mb-3 flex items-center justify-between gap-2">
+      <h2 class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Produção do dia</h2>
+      <a href="{% url 'backstage:production_reports' %}?date_from={{ closing.today }}&date_to={{ closing.today }}&report_kind=history&format=csv"
+         class="btn-quiet min-h-11">
+        <span class="material-symbols-rounded icon-sm" aria-hidden="true">download</span>
+        CSV
+      </a>
+    </div>
+    {% if closing.production_summary %}
+    <div class="grid gap-2 sm:grid-cols-2">
+      {% for recipe_ref, row in closing.production_summary.items %}
+      <div class="rounded-lg border border-outline p-2 text-sm dark:border-outline-dark">
+        <div class="font-semibold">{{ row.output_sku|default:recipe_ref }}</div>
+        <div class="mt-1 flex flex-wrap gap-1">
+          <span class="badge-neutral">Plan. {{ row.planned }}</span>
+          <span class="badge-success">Feito {{ row.finished }}</span>
+          <span class="badge-warning">Perda {{ row.loss }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-on-surface/60 dark:text-on-surface-dark/60">Nenhuma ordem de produção registrada para hoje.</p>
+    {% endif %}
+  </div>
+
+  {% if closing.reconciliation_errors %}
+  <div class="card border-danger/30 bg-danger/10">
+    <h2 class="text-base font-semibold text-danger">Discrepâncias detectadas</h2>
+    <div class="mt-2 space-y-1 text-sm">
+      {% for error in closing.reconciliation_errors %}
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="font-semibold">{{ error.sku }}</span>
+        <span>vendido {{ error.sold_qty }}</span>
+        <span>disponível {{ error.available_qty }}</span>
+        <span class="badge-danger">déficit {{ error.deficit_qty }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   {% if items %}
   <form hx-post="."
         hx-target="body"

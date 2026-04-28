@@ -7,6 +7,7 @@ This module only handles admin-specific table formatting (``format_html``).
 from __future__ import annotations
 
 import json
+import logging
 import re
 from pathlib import Path
 
@@ -14,6 +15,8 @@ from django.urls import reverse
 from django.utils.html import format_html
 
 from shopman.backstage.projections.dashboard import build_dashboard
+
+logger = logging.getLogger(__name__)
 
 _OMOTENASHI_TAG = re.compile(r"\{%[-\s]*omotenashi\b")
 _STOREFRONT_TEMPLATES = Path(__file__).parents[2] / "storefront" / "templates" / "storefront"
@@ -37,6 +40,7 @@ def _omotenashi_health() -> dict:
             .values("key", "history_type", "history_date", "history_user__username")[:5]
         )
     except Exception:
+        logger.debug("omotenashi_health_query_failed", exc_info=True)
         active_overrides = 0
         recent_changes = []
 

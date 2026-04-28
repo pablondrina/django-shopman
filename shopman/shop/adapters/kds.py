@@ -59,3 +59,19 @@ def shift_ticket_completed_at(pk: int, completed_at) -> None:
     from shopman.backstage.models import KDSTicket
 
     KDSTicket.objects.filter(pk=pk).update(completed_at=completed_at)
+
+
+def get_ticket_model():
+    """Return KDSTicket model for signal wiring without direct surface imports."""
+    from shopman.backstage.models import KDSTicket
+
+    return KDSTicket
+
+
+def active_ticket_count(kds_instance_id) -> int:
+    from shopman.backstage.models import KDSTicket
+
+    return KDSTicket.objects.filter(
+        kds_instance_id=kds_instance_id,
+        status__in=["pending", "in_progress"],
+    ).count()

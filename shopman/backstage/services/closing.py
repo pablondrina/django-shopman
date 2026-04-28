@@ -74,7 +74,14 @@ def perform_day_closing(
         DayClosing.objects.create(
             date=closing_date,
             closed_by=user,
-            data=snapshot,
+            data={
+                "items": snapshot,
+                "production_summary": _production_summary(closing_date),
+                "reconciliation_errors": _reconciliation_errors(
+                    closing_date=closing_date,
+                    items=snapshot,
+                ),
+            },
         )
 
     return closing_date
@@ -118,3 +125,61 @@ def _issue_from_saleable(sku, quantity, reason) -> None:
         take = min(remaining, quant._quantity)
         StockMovements.issue(quantity=take, quant=quant, reason=reason)
         remaining -= take
+
+
+def _production_summary(closing_date: date) -> dict:
+    from shopman.craftsman.models import WorkOrder
+
+    summary: dict[str, dict[str, int | str]] = {}
+    work_orders = WorkOrder.objects.filter(target_date=closing_date).select_related("recipe")
+    for wo in work_orders:
+        recipe_ref = wo.recipe.ref
+        row = summary.setdefault(
+            recipe_ref,
+            {
+                "recipe_ref": recipe_ref,
+                "output_sku": wo.output_sku,
+                "planned": 0,
+                "finished": 0,
+                "loss": 0,
+            },
+        )
+        row["planned"] = int(row["planned"]) + int(wo.quantity or 0)
+        if wo.finished is not None:
+            row["finished"] = int(row["finished"]) + int(wo.finished or 0)
+            started = wo.started_qty or wo.quantity
+            row["loss"] = int(row["loss"]) + max(0, int(started - wo.finished))
+    return summary
+
+
+def _reconciliation_errors(*, closing_date: date, items: list[dict]) -> list[dict]:
+    from shopman.orderman.models import Order
+
+    saleable_by_sku = {row["sku"]: int(row.get("qty_remaining", 0)) + int(row.get("qty_applied", 0)) for row in items}
+    produced_by_sku: dict[str, int] = {}
+    for row in _production_summary(closing_date).values():
+        produced_by_sku[str(row["output_sku"])] = produced_by_sku.get(str(row["output_sku"]), 0) + int(row["finished"])
+
+    sold_by_sku: dict[str, int] = {}
+    orders = (
+        Order.objects.filter(
+            created_at__date=closing_date,
+        )
+        .exclude(status__in=["cancelled", "returned"])
+        .prefetch_related("items")
+    )
+    for order in orders:
+        for item in order.items.all():
+            sold_by_sku[item.sku] = sold_by_sku.get(item.sku, 0) + int(item.qty)
+
+    errors: list[dict] = []
+    for sku, sold in sorted(sold_by_sku.items()):
+        available = saleable_by_sku.get(sku, 0) + produced_by_sku.get(sku, 0)
+        if sold > available:
+            errors.append({
+                "sku": sku,
+                "sold": sold,
+                "available": available,
+                "deficit": sold - available,
+            })
+    return errors

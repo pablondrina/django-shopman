@@ -165,7 +165,7 @@
         {% component "unfold/components/card.html" with title="Estoque D-1" icon="schedule" %}
             {% include "unfold/components/table.html" with table=table_d1 card_included=1 striped=1 height=220 %}
             <div class="px-4 pb-3">
-                <a href="{% url 'admin:shop_closing' %}"
+                <a href="{% url 'backstage:day_closing' %}"
                    class="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400">
                     Ir para Fechamento →
                 </a>

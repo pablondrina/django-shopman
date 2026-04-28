@@ -48,6 +48,30 @@ class ClosingSnapshotItemProjection:
 
 
 @dataclass(frozen=True)
+class ReconciliationError:
+    """A discrepancy between what was sold and what was available on closing.
+
+    Recorded in `DayClosing.data["reconciliation_errors"]` as a list of dicts
+    matching this shape. The deficit is the qty sold beyond what stock +
+    production could supply for that SKU.
+    """
+
+    sku: str
+    sold_qty: int
+    available_qty: int
+    deficit_qty: int
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> ReconciliationError:
+        return cls(
+            sku=str(raw.get("sku", "")),
+            sold_qty=int(raw.get("sold", 0)),
+            available_qty=int(raw.get("available", 0)),
+            deficit_qty=int(raw.get("deficit", 0)),
+        )
+
+
+@dataclass(frozen=True)
 class DayClosingProjection:
     """Top-level read model for the day closing page."""
 
@@ -59,6 +83,8 @@ class DayClosingProjection:
     existing_closing_display: str  # "" if not closed, "Fechado por X às HH:MM"
     has_old_d1: bool  # D-1 stock older than 1 day in "ontem" position
     total_available: int
+    production_summary: dict
+    reconciliation_errors: tuple[ReconciliationError, ...]
 
 
 # ── Builder ────────────────────────────────────────────────────────────
@@ -73,10 +99,18 @@ def build_day_closing() -> DayClosingProjection:
     total_available = sum(it.qty_available for it in items)
 
     closing_display = ""
+    production_summary = _today_production_summary(today)
+    reconciliation_errors: tuple[ReconciliationError, ...] = ()
     if existing:
         by = existing.closed_by.get_username() if existing.closed_by else "?"
         at = existing.closed_at.strftime("%H:%M") if existing.closed_at else ""
         closing_display = f"Fechado por {by} às {at}"
+        production_summary = _closing_data(existing).get("production_summary") or production_summary
+        raw_errors = _closing_data(existing).get("reconciliation_errors") or ()
+        reconciliation_errors = tuple(
+            ReconciliationError.from_dict(raw) if isinstance(raw, dict) else raw
+            for raw in raw_errors
+        )
 
     return DayClosingProjection(
         today=today.isoformat(),
@@ -87,6 +121,8 @@ def build_day_closing() -> DayClosingProjection:
         existing_closing_display=closing_display,
         has_old_d1=_has_old_d1_stock(),
         total_available=total_available,
+        production_summary=production_summary,
+        reconciliation_errors=reconciliation_errors,
     )
 
 
@@ -172,3 +208,36 @@ def _has_old_d1_stock() -> bool:
             return True
 
     return False
+
+
+def _closing_data(closing: DayClosing) -> dict:
+    if isinstance(closing.data, dict):
+        return closing.data
+    return {"items": closing.data or [], "production_summary": {}, "reconciliation_errors": []}
+
+
+def _today_production_summary(selected_date: date) -> dict:
+    try:
+        from shopman.craftsman.models import WorkOrder
+
+        summary: dict[str, dict[str, int | str]] = {}
+        for wo in WorkOrder.objects.filter(target_date=selected_date).select_related("recipe"):
+            row = summary.setdefault(
+                wo.recipe.ref,
+                {
+                    "recipe_ref": wo.recipe.ref,
+                    "output_sku": wo.output_sku,
+                    "planned": 0,
+                    "finished": 0,
+                    "loss": 0,
+                },
+            )
+            row["planned"] = int(row["planned"]) + int(wo.quantity or 0)
+            if wo.finished is not None:
+                row["finished"] = int(row["finished"]) + int(wo.finished or 0)
+                started = wo.started_qty or wo.quantity
+                row["loss"] = int(row["loss"]) + max(0, int(started - wo.finished))
+        return summary
+    except Exception:
+        logger.debug("closing.production_summary_failed", exc_info=True)
+        return {}

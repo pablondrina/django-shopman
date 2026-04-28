@@ -71,6 +71,19 @@ READY_DELIVERY_LABEL = "Saiu para entrega"
 
 
 @dataclass(frozen=True)
+class AwaitingWorkOrderProjection:
+    """A compact production dependency shown on order cards and detail."""
+
+    ref: str
+    status: str
+    status_label: str
+    output_sku: str
+    planned_qty: str
+    finished_qty: str
+    progress_pct: int
+
+
+@dataclass(frozen=True)
 class OrderCardProjection:
     """A single order card in the operator queue."""
 
@@ -98,6 +111,7 @@ class OrderCardProjection:
     payment_status: str
     payment_pending: bool
     has_notes: bool
+    awaiting_work_orders: tuple[AwaitingWorkOrderProjection, ...]
 
 
 @dataclass(frozen=True)
@@ -119,6 +133,7 @@ class OperatorOrderProjection:
     payment_method: str
     payment_method_label: str
     payment_status: str
+    awaiting_work_orders: tuple[AwaitingWorkOrderProjection, ...]
 
 
 @dataclass(frozen=True)
@@ -220,6 +235,7 @@ def build_operator_order(order: Order) -> OperatorOrderProjection:
         payment_method=method,
         payment_method_label=PAYMENT_METHOD_LABELS_PT.get(method, method),
         payment_status=payment_svc.get_payment_status(order) or "",
+        awaiting_work_orders=_awaiting_work_orders(order),
     )
 
 
@@ -322,7 +338,41 @@ def _build_card(order: Order) -> OrderCardProjection:
         payment_status=payment_svc.get_payment_status(order) or "",
         payment_pending=_is_payment_pending(order, method, payment_svc.get_payment_status(order) or ""),
         has_notes=bool(order.data.get("internal_notes")),
+        awaiting_work_orders=_awaiting_work_orders(order),
     )
+
+
+def _awaiting_work_orders(order: Order) -> tuple[AwaitingWorkOrderProjection, ...]:
+    refs = tuple(dict.fromkeys((order.data or {}).get("awaiting_wo_refs") or ()))
+    if not refs:
+        return ()
+
+    try:
+        from shopman.craftsman.models import WorkOrder
+        from shopman.backstage.projections.production import WO_STATUS_LABELS, _qty, _work_order_progress_pct
+    except Exception:
+        logger.debug("orders.awaiting_work_orders_import_failed order=%s", order.ref, exc_info=True)
+        return ()
+
+    work_orders = WorkOrder.objects.filter(ref__in=refs).select_related("recipe").prefetch_related("events")
+    by_ref = {wo.ref: wo for wo in work_orders}
+    result: list[AwaitingWorkOrderProjection] = []
+    for ref in refs:
+        wo = by_ref.get(ref)
+        if not wo:
+            continue
+        result.append(
+            AwaitingWorkOrderProjection(
+                ref=wo.ref,
+                status=wo.status,
+                status_label=WO_STATUS_LABELS.get(wo.status, wo.status),
+                output_sku=wo.output_sku,
+                planned_qty=_qty(wo.quantity),
+                finished_qty=_qty(wo.finished) if wo.finished is not None else "",
+                progress_pct=_work_order_progress_pct(wo),
+            )
+        )
+    return tuple(result)
 
 
 def _is_payment_pending(order: Order, method: str, payment_status: str) -> bool:

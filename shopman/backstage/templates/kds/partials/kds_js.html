@@ -3,8 +3,8 @@ function kdsDisplay() {
   var targetMinutes = {{ instance.target_time_minutes|default:10 }};
 
   return {
-    soundEnabled: sessionStorage.getItem('kds_sound_' + ref) !== 'false',
-    volumeLevel: sessionStorage.getItem('kds_volume_' + ref) || 'medium',
+    soundEnabled: localStorage.getItem('kds_sound_' + ref) !== 'false',
+    volumeLevel: localStorage.getItem('kds_volume_' + ref) || 'medium',
     previousCount: 0,
     ticketCount: 0,
     clock: '',
@@ -34,6 +34,12 @@ function kdsDisplay() {
       var self = this;
       document.addEventListener('fullscreenchange', function() {
         self.isFullscreen = !!document.fullscreenElement;
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.altKey && (e.key === 's' || e.key === 'S')) {
+          e.preventDefault();
+          this.toggleSound();
+        }
       });
 
       /* K1/K2: HTMX lifecycle events via Alpine dispatch */
@@ -145,7 +151,7 @@ function kdsDisplay() {
 
     toggleSound() {
       this.soundEnabled = !this.soundEnabled;
-      sessionStorage.setItem('kds_sound_' + ref, this.soundEnabled ? 'true' : 'false');
+      localStorage.setItem('kds_sound_' + ref, this.soundEnabled ? 'true' : 'false');
     },
 
     /* K9: Volume cycling */
@@ -153,7 +159,7 @@ function kdsDisplay() {
       var levels = ['low', 'medium', 'high'];
       var idx = levels.indexOf(this.volumeLevel);
       this.volumeLevel = levels[(idx + 1) % 3];
-      sessionStorage.setItem('kds_volume_' + ref, this.volumeLevel);
+      localStorage.setItem('kds_volume_' + ref, this.volumeLevel);
       this.playSound('new');
     },
 
