@@ -692,7 +692,7 @@ Contexto operacional de produção mantido fora do core Craftsman.
 
 | Chave | Tipo | Escrito por | Lido por | Descrição |
 |-------|------|-------------|----------|-----------|
-| `serves_order_refs` | `list[string]` | `shop.handlers.production_order_sync` | Backstage produção/pedidos projections | Pedidos atendidos por esta WorkOrder. Espelho de `Order.data.awaiting_wo_refs`. |
+| `committed_order_refs` | `list[string]` | `shop.handlers.production_order_sync` | Backstage produção/pedidos projections | Pedidos que comprometem quantidade do SKU produzido por esta WorkOrder. Espelho operacional de `Order.data.awaiting_wo_refs`; a métrica de produção é a soma de itens, não a contagem de pedidos. |
 | `steps_progress` | `int` | Backstage produção (futuro botão manual) | `build_production_kds` | Override manual do passo atual no KDS de produção, 1-based. |
 | `batch_ref` | `string` | `backstage.services.production` | auditoria/lotes | Lote criado para receita com rastreabilidade. |
 | `batch_quantity` | `string` | `backstage.services.production` | auditoria/lotes | Quantidade acabada associada ao lote. |

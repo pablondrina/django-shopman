@@ -198,13 +198,13 @@
                 {% for item in row.planned_orders %}
                 {% if production_access.can_edit_started %}
                 <div x-data="{ startOpen: false }">
-                  <button type="button" class="btn-primary h-7 min-h-7 w-7 min-w-7 p-0" @click="startOpen = true" title="Iniciar{% if item.serves_orders %} · supre {{ item.serves_orders|length }} pedido(s){% endif %}" aria-label="Iniciar {{ item.output_sku }}">
+                  <button type="button" class="btn-primary h-7 min-h-7 w-7 min-w-7 p-0" @click="startOpen = true" title="Iniciar{% if item.order_commitments %} · {{ item.committed_qty }} un. comprometidas{% endif %}" aria-label="Iniciar {{ item.output_sku }}">
                     <span class="material-symbols-rounded icon-sm" aria-hidden="true">play_arrow</span>
                   </button>
-                  {% if item.serves_orders %}
-                  <a href="{% url 'backstage:production_work_order_orders' item.ref %}" class="badge-info mt-1 inline-flex" title="Pedidos servidos">
+                  {% if item.order_commitments %}
+                  <a href="{% url 'backstage:production_work_order_commitments' item.ref %}" class="badge-info mt-1 inline-flex" title="Itens comprometidos">
                     <span class="material-symbols-rounded" aria-hidden="true">link</span>
-                    {{ item.serves_orders|length }}
+                    {{ item.committed_qty }}
                   </a>
                   {% endif %}
                   <div x-show="startOpen" x-cloak x-transition class="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4" @click.self="startOpen = false" @keydown.escape.window="startOpen = false" role="dialog" aria-modal="true">
@@ -266,10 +266,10 @@
                 {% for item in row.started_orders %}
                 <div class="flex items-center gap-1.5 text-xs" x-data="{ finishOpen: false }">
                   <span class="badge-warning tabular-nums">{{ item.started_qty }}</span>
-                  {% if item.serves_orders %}
-                  <a href="{% url 'backstage:production_work_order_orders' item.ref %}" class="badge-info" title="Pedidos servidos">
+                  {% if item.order_commitments %}
+                  <a href="{% url 'backstage:production_work_order_commitments' item.ref %}" class="badge-info" title="Itens comprometidos">
                     <span class="material-symbols-rounded" aria-hidden="true">link</span>
-                    {{ item.serves_orders|length }}
+                    {{ item.committed_qty }}
                   </a>
                   {% endif %}
                   {% if production_access.can_edit_finished %}
@@ -315,10 +315,10 @@
                 <div class="flex items-center gap-1.5 text-xs">
                   <span class="badge-success tabular-nums">{{ item.finished_qty }}</span>
                   <span class="badge-success">{{ item.yield_rate|default:"OK" }}</span>
-                  {% if item.serves_orders %}
-                  <a href="{% url 'backstage:production_work_order_orders' item.ref %}" class="badge-info" title="Pedidos servidos">
+                  {% if item.order_commitments %}
+                  <a href="{% url 'backstage:production_work_order_commitments' item.ref %}" class="badge-info" title="Itens comprometidos">
                     <span class="material-symbols-rounded" aria-hidden="true">link</span>
-                    {{ item.serves_orders|length }}
+                    {{ item.committed_qty }}
                   </a>
                   {% endif %}
                 </div>
@@ -380,9 +380,9 @@
                 <div>
                   <span class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Ordens</span>
                   <div class="flex flex-wrap gap-1">
-                    {% for item in row.planned_orders %}<span class="badge-neutral">{{ item.ref }} · {{ item.operator_ref|default:"Livre" }}{% if item.serves_orders %} · {{ item.serves_orders|length }} pedidos{% endif %}</span>{% endfor %}
-                    {% for item in row.started_orders %}<span class="badge-warning">{{ item.ref }} · {{ item.operator_ref|default:"Livre" }}{% if item.serves_orders %} · {{ item.serves_orders|length }} pedidos{% endif %}</span>{% endfor %}
-                    {% for item in row.finished_orders %}<span class="badge-success">{{ item.ref }} · perda {{ item.loss|default:"0" }}{% if item.serves_orders %} · {{ item.serves_orders|length }} pedidos{% endif %}</span>{% endfor %}
+                    {% for item in row.planned_orders %}<span class="badge-neutral">{{ item.ref }} · {{ item.operator_ref|default:"Livre" }}{% if item.order_commitments %} · {{ item.committed_qty }} un. comprometidas{% endif %}</span>{% endfor %}
+                    {% for item in row.started_orders %}<span class="badge-warning">{{ item.ref }} · {{ item.operator_ref|default:"Livre" }}{% if item.order_commitments %} · {{ item.committed_qty }} un. comprometidas{% endif %}</span>{% endfor %}
+                    {% for item in row.finished_orders %}<span class="badge-success">{{ item.ref }} · perda {{ item.loss|default:"0" }}{% if item.order_commitments %} · {{ item.committed_qty }} un. comprometidas{% endif %}</span>{% endfor %}
                   </div>
                 </div>
                 {% endif %}

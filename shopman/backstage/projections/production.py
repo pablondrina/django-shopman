@@ -43,8 +43,8 @@ WO_STATUS_COLORS: dict[str, str] = {
 
 
 @dataclass(frozen=True)
-class OrderRefProjection:
-    """A compact order reference served by a production work order."""
+class OrderCommitmentProjection:
+    """A compact order commitment for a production work order."""
 
     ref: str
     status: str
@@ -77,7 +77,8 @@ class WorkOrderCardProjection:
     started_at_display: str
     created_at_display: str
     progress_pct: int
-    serves_orders: tuple[OrderRefProjection, ...]
+    committed_qty: str
+    order_commitments: tuple[OrderCommitmentProjection, ...]
     can_void: bool
 
 
@@ -643,6 +644,8 @@ def _build_wo_card(wo: WorkOrder) -> WorkOrderCardProjection:
     loss = ""
     yield_rate = ""
     base_usages = _base_recipe_usages(wo.recipe)
+    order_commitments = _order_commitments_for_work_order(wo)
+    committed_qty = sum((Decimal(item.qty_required) for item in order_commitments), Decimal("0"))
 
     if finished_qty is not None:
         base = started_qty or wo.quantity
@@ -674,7 +677,8 @@ def _build_wo_card(wo: WorkOrder) -> WorkOrderCardProjection:
         started_at_display=_format_datetime(wo.started_at) if hasattr(wo, "started_at") and wo.started_at else "",
         created_at_display=_format_datetime(wo.created_at),
         progress_pct=_work_order_progress_pct(wo),
-        serves_orders=_order_refs_for_work_order(wo),
+        committed_qty=_qty(committed_qty),
+        order_commitments=order_commitments,
         can_void=wo.status in (WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED),
     )
 
@@ -729,8 +733,8 @@ def build_work_order_card(ref: str) -> WorkOrderCardProjection:
     return _build_wo_card(wo)
 
 
-def _order_refs_for_work_order(wo: WorkOrder) -> tuple[OrderRefProjection, ...]:
-    refs = tuple(dict.fromkeys((wo.meta or {}).get("serves_order_refs") or ()))
+def _order_commitments_for_work_order(wo: WorkOrder) -> tuple[OrderCommitmentProjection, ...]:
+    refs = _linked_order_refs(wo)
     if not refs:
         return ()
 
@@ -747,13 +751,13 @@ def _order_refs_for_work_order(wo: WorkOrder) -> tuple[OrderRefProjection, ...]:
         .order_by("created_at")
     )
     by_ref = {order.ref: order for order in orders}
-    result: list[OrderRefProjection] = []
+    result: list[OrderCommitmentProjection] = []
     for ref in refs:
         order = by_ref.get(ref)
         if not order:
             continue
         result.append(
-            OrderRefProjection(
+            OrderCommitmentProjection(
                 ref=order.ref,
                 status=order.status,
                 status_label=ORDER_STATUS_LABELS_PT.get(order.status, order.status),
@@ -761,6 +765,15 @@ def _order_refs_for_work_order(wo: WorkOrder) -> tuple[OrderRefProjection, ...]:
             )
         )
     return tuple(result)
+
+
+def _linked_order_refs(wo: WorkOrder) -> tuple[str, ...]:
+    try:
+        from shopman.shop.handlers.production_order_sync import linked_order_refs
+    except Exception:
+        logger.debug("production.order_ref_key_import_failed wo=%s", wo.ref, exc_info=True)
+        return ()
+    return linked_order_refs(wo)
 
 
 def _qty_required_for_order(order, sku: str) -> Decimal:
@@ -1320,7 +1333,7 @@ def _wo_started_qty(wo: WorkOrder) -> Decimal | None:
 def _qty(value: Decimal) -> str:
     if not value:
         return "0"
-    return str(int(value))
+    return format(value.quantize(Decimal("0.001")).normalize(), "f")
 
 
 def _format_datetime(dt) -> str:

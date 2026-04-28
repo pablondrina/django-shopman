@@ -1,6 +1,6 @@
 {% extends "gestor/base.html" %}
-{% block title %}Pedidos de {{ work_order.ref }} | Produção{% endblock %}
-{% block page_title %}Pedidos de {{ work_order.ref }}{% endblock %}
+{% block title %}Compromissos de {{ work_order.ref }} | Produção{% endblock %}
+{% block page_title %}Compromissos de {{ work_order.ref }}{% endblock %}
 {% block nav_active_producao %}active{% endblock %}
 
 {% block navbar_actions %}
@@ -15,15 +15,15 @@
     <div class="flex flex-wrap items-center gap-2">
       <span class="badge-neutral">{{ work_order.output_sku }}</span>
       <span class="badge {{ work_order.status }}">{{ work_order.status }}</span>
-      <span class="badge-info">{{ orders|length }} pedido(s)</span>
+      <span class="badge-info">{{ committed_qty }} un. comprometidas</span>
     </div>
   </section>
 
   <section class="card p-0 overflow-hidden">
     <div class="border-b border-outline p-3 dark:border-outline-dark">
-      <h2 class="text-base font-semibold">Pedidos servidos</h2>
+      <h2 class="text-base font-semibold">Itens comprometidos</h2>
     </div>
-    {% if orders %}
+    {% if commitments %}
     <div class="overflow-x-auto">
       <table class="min-w-full text-sm">
         <thead class="text-left text-on-surface/60 dark:text-on-surface-dark/60">
@@ -34,15 +34,11 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-outline dark:divide-outline-dark">
-          {% for order in orders %}
+          {% for item in commitments %}
           <tr>
-            <td class="px-3 py-2 font-semibold tabular-nums">#{{ order.ref }}</td>
-            <td class="px-3 py-2">{{ order.status }}</td>
-            <td class="px-3 py-2 text-right tabular-nums">
-              {% for item in order.items.all %}
-                {% if item.sku == work_order.output_sku %}{{ item.qty }}{% endif %}
-              {% endfor %}
-            </td>
+            <td class="px-3 py-2 font-semibold tabular-nums">#{{ item.ref }}</td>
+            <td class="px-3 py-2">{{ item.status }}</td>
+            <td class="px-3 py-2 text-right tabular-nums">{{ item.qty_required }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -51,7 +47,7 @@
     {% else %}
     <div class="empty-state min-h-40">
       <span class="material-symbols-rounded icon-xl mb-2" aria-hidden="true">link_off</span>
-      <p class="text-sm">Nenhum pedido vinculado a esta ordem.</p>
+      <p class="text-sm">Nenhum item comprometido com esta ordem.</p>
     </div>
     {% endif %}
   </section>

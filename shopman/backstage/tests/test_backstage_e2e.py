@@ -22,6 +22,7 @@ from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe, WorkOrder
 from shopman.orderman.models import Order, OrderItem
 from shopman.shop.handlers.production_alerts import check_late_started_orders
+from shopman.shop.handlers.production_order_sync import WORK_ORDER_COMMITTED_ORDER_REFS_KEY
 from shopman.shop.models import Shop
 from shopman.stockman import Position
 from shopman.stockman.services.movements import StockMovements
@@ -79,7 +80,7 @@ def test_e2e_order_confirmed_links_to_planned_work_order(setup):
     assert wo.ref in awaiting, "order should reference the planned WO it depends on"
 
     wo.refresh_from_db()
-    assert order.ref in (wo.meta.get("serves_order_refs") or [])
+    assert order.ref in (wo.meta.get(WORK_ORDER_COMMITTED_ORDER_REFS_KEY) or [])
 
 
 # ── Cenário 2 — WO start→finish updates stock and clears the link ────

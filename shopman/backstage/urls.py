@@ -55,7 +55,11 @@ urlpatterns = [
     path("gestor/producao/kds/", views.production_kds_view, name="production_kds"),
     path("gestor/producao/kds/cards/", views.production_kds_cards_view, name="production_kds_cards"),
     path("gestor/producao/relatorios/", views.production_reports_view, name="production_reports"),
-    path("gestor/producao/<slug:wo_ref>/pedidos/", views.production_work_order_orders_view, name="production_work_order_orders"),
+    path(
+        "gestor/producao/<slug:wo_ref>/compromissos/",
+        views.production_work_order_commitments_view,
+        name="production_work_order_commitments",
+    ),
     path("gestor/producao/void/", views.production_void_view, name="production_void"),
     path("gestor/producao/criar/", views.bulk_create_work_orders, name="bulk_create_work_orders"),
     path("gestor/producao/<int:wo_id>/avancar-passo/", views.production_advance_step_view, name="production_advance_step"),

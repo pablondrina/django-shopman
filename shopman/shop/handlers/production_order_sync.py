@@ -2,7 +2,7 @@
 
 The link is intentionally contextual and denormalized: orders keep
 ``data["awaiting_wo_refs"]`` and work orders keep
-``meta["serves_order_refs"]``. The production and order cores remain
+``meta["committed_order_refs"]``. The production and order cores remain
 unchanged; Backstage uses these refs to explain operational dependencies.
 """
 
@@ -17,6 +17,8 @@ from django.db import transaction
 logger = logging.getLogger(__name__)
 
 ACTIVE_ORDER_STATUSES = ("confirmed", "preparing", "ready")
+ORDER_AWAITING_WO_REFS_KEY = "awaiting_wo_refs"
+WORK_ORDER_COMMITTED_ORDER_REFS_KEY = "committed_order_refs"
 
 
 def connect() -> None:
@@ -100,7 +102,7 @@ def order_requirement_for_work_order(work_order) -> Decimal:
     """Return the total ordered quantity for refs linked to ``work_order``."""
     from shopman.orderman.models import Order
 
-    refs = tuple(dict.fromkeys((work_order.meta or {}).get("serves_order_refs") or ()))
+    refs = linked_order_refs(work_order)
     if not refs:
         return Decimal("0")
     total = Decimal("0")
@@ -112,19 +114,19 @@ def order_requirement_for_work_order(work_order) -> Decimal:
 
 
 def linked_order_refs(work_order) -> tuple[str, ...]:
-    return tuple(dict.fromkeys((work_order.meta or {}).get("serves_order_refs") or ()))
+    return tuple(dict.fromkeys((work_order.meta or {}).get(WORK_ORDER_COMMITTED_ORDER_REFS_KEY) or ()))
 
 
 def _append_order_work_order_link(order, work_order) -> bool:
-    order_refs = list((order.data or {}).get("awaiting_wo_refs") or [])
-    wo_refs = list((work_order.meta or {}).get("serves_order_refs") or [])
+    order_refs = list((order.data or {}).get(ORDER_AWAITING_WO_REFS_KEY) or [])
+    wo_refs = list((work_order.meta or {}).get(WORK_ORDER_COMMITTED_ORDER_REFS_KEY) or [])
     changed = False
 
     if work_order.ref not in order_refs:
-        order.data = {**(order.data or {}), "awaiting_wo_refs": [*order_refs, work_order.ref]}
+        order.data = {**(order.data or {}), ORDER_AWAITING_WO_REFS_KEY: [*order_refs, work_order.ref]}
         changed = True
     if order.ref not in wo_refs:
-        work_order.meta = {**(work_order.meta or {}), "serves_order_refs": [*wo_refs, order.ref]}
+        work_order.meta = {**(work_order.meta or {}), WORK_ORDER_COMMITTED_ORDER_REFS_KEY: [*wo_refs, order.ref]}
         work_order.save(update_fields=["meta", "updated_at"])
         changed = True
     return changed
@@ -138,18 +140,18 @@ def _unlink_voided_work_order(work_order) -> None:
         return
     with transaction.atomic():
         for order in Order.objects.select_for_update().filter(ref__in=refs):
-            existing = list((order.data or {}).get("awaiting_wo_refs") or [])
+            existing = list((order.data or {}).get(ORDER_AWAITING_WO_REFS_KEY) or [])
             updated = [ref for ref in existing if ref != work_order.ref]
             if updated != existing:
                 data = {**(order.data or {})}
                 if updated:
-                    data["awaiting_wo_refs"] = updated
+                    data[ORDER_AWAITING_WO_REFS_KEY] = updated
                 else:
-                    data.pop("awaiting_wo_refs", None)
+                    data.pop(ORDER_AWAITING_WO_REFS_KEY, None)
                 order.data = data
                 order.save(update_fields=["data", "updated_at"])
         meta = {**(work_order.meta or {})}
-        meta.pop("serves_order_refs", None)
+        meta.pop(WORK_ORDER_COMMITTED_ORDER_REFS_KEY, None)
         work_order.meta = meta
         work_order.save(update_fields=["meta", "updated_at"])
 

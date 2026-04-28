@@ -33,7 +33,7 @@ A camada deixou de ter dívidas arquiteturais. O que resta é **refinamento**: o
 | WP-BS-5 — Service layer + cobertura | ✅ done | 7 services tipados, 166 testes / 3.2k linhas em backstage |
 | WP-BS-7 — Relatórios CSV produção | ✅ done | `views/production.py:149` `StreamingHttpResponse`, `services/production.py:187` `export_reports_csv`, templates `producao/relatorios/`, migration 0004, `test_production_reports.py` (11 testes) |
 | WP-BS-8 — Cobertura + e2e | ⚠️ parcial | 166 testes incluindo projections. Falta e2e cross-area coordenado. **Resolvido em WP-BS-14**. |
-| WP-BS-9 — Sync produção↔pedidos | ✅ done | `Order.data["awaiting_wo_refs"]` + `WorkOrder.meta["serves_order_refs"]`, `test_production_order_sync.py`, templates `wo_orders.html` + `partials/order_shortage.html` |
+| WP-BS-9 — Sync produção↔pedidos | ✅ done | `Order.data["awaiting_wo_refs"]` + `WorkOrder.meta["committed_order_refs"]`, `test_production_order_sync.py`, templates `wo_commitments.html` + `partials/order_shortage.html` |
 | WP-BS-10 — SSE KDS + audio | ✅ done | `emit_kds_change` em `_sse_emitters.py:194-206`, `test_kds_sse.py` + `test_kds_audio.py`, Alt+S, polling fallback 30s, `docs/guides/backstage-realtime.md` |
 | WP-BS-11 — Reconciliação + Recipe.steps | ✅ done | `DayClosing.data["reconciliation_errors"]`/`production_summary`, `test_day_closing_reconciliation.py`. `current_step/step_progress_pct` em `projections/production.py`, `test_production_kds_steps.py` |
 | WP-BS-12 — A11y sistemática | ⚠️ parcial | `test_a11y_backstage_baseline.py` valida HTML estático (ARIA, role=dialog, min-h-11). Falta automação dinâmica (axe + keyboard e2e). **Resolvido em WP-BS-14**. |

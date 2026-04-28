@@ -32,7 +32,7 @@ O payload contém `ref`, `status`, `action` e `output_sku`; a UI refaz o partial
 O vínculo operacional é contextual:
 
 - `Order.data["awaiting_wo_refs"]`
-- `WorkOrder.meta["serves_order_refs"]`
+- `WorkOrder.meta["committed_order_refs"]`
 
 Essas refs são preenchidas pelos receivers em `shopman/shop/handlers/production_order_sync.py`.
 

@@ -56,8 +56,8 @@ class ProductionOrderShortError(ProductionError):
         self.order_refs = order_refs
         short = max(Decimal("0"), required - requested)
         super().__init__(
-            f"{work_order_ref} supre {len(order_refs)} pedido(s); "
-            f"precisa {_qty(required)} e a nova quantidade deixa {_qty(short)} descoberto."
+            f"{work_order_ref} tem {_qty(required)} un. comprometidas; "
+            f"a nova quantidade deixa {_qty(short)} un. descobertas."
         )
 
 
@@ -302,19 +302,52 @@ def export_reports_csv(report_kind: str, filters: dict | None = None) -> bytes:
     return ("\ufeff" + output.getvalue()).encode("utf-8")
 
 
-def served_orders_for_work_order(wo_ref: str):
-    """Return a work order and the orders referenced by its contextual sync metadata."""
+@dataclass(frozen=True)
+class OrderCommitmentDetail:
+    ref: str
+    status: str
+    qty_required: str
+
+
+def order_commitments_for_work_order(wo_ref: str):
+    """Return a work order and item quantities committed by linked orders."""
     from shopman.craftsman.models import WorkOrder
     from shopman.orderman.models import Order
+    from shopman.shop.handlers.production_order_sync import linked_order_refs
 
     work_order = WorkOrder.objects.select_related("recipe").get(ref=wo_ref)
-    refs = tuple(dict.fromkeys((work_order.meta or {}).get("serves_order_refs") or ()))
+    refs = linked_order_refs(work_order)
     orders = tuple(
         Order.objects.filter(ref__in=refs)
         .prefetch_related("items")
         .order_by("created_at")
     )
-    return work_order, refs, orders
+    by_ref = {order.ref: order for order in orders}
+    rows: list[OrderCommitmentDetail] = []
+    total = Decimal("0")
+    for ref in refs:
+        order = by_ref.get(ref)
+        if not order:
+            continue
+        qty_required = _qty_required_for_order(order, work_order.output_sku)
+        total += qty_required
+        rows.append(
+            OrderCommitmentDetail(
+                ref=order.ref,
+                status=order.status,
+                qty_required=_qty(qty_required),
+            )
+        )
+    commitments = tuple(rows)
+    return work_order, refs, commitments, _qty(total)
+
+
+def _qty_required_for_order(order, sku: str) -> Decimal:
+    total = Decimal("0")
+    for item in order.items.all():
+        if item.sku == sku:
+            total += item.qty
+    return total
 
 
 def _check_linked_order_coverage(
@@ -502,4 +535,4 @@ def _missing_summary(missing: list[MissingMaterial]) -> str:
 
 
 def _qty(value: Decimal) -> str:
-    return str(value.quantize(Decimal("0.001")).normalize())
+    return format(value.quantize(Decimal("0.001")).normalize(), "f")

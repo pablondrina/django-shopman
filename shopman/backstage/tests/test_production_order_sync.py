@@ -7,11 +7,12 @@ import pytest
 
 from shopman.backstage.projections.order_queue import build_operator_order
 from shopman.backstage.projections.production import build_work_order_card
-from shopman.backstage.services.production import ProductionOrderShortError, apply_planned
+from shopman.backstage.services.production import ProductionOrderShortError, apply_planned, order_commitments_for_work_order
 from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe, WorkOrder
 from shopman.orderman.models import Order, OrderItem
 from shopman.shop.handlers.production_order_sync import (
+    WORK_ORDER_COMMITTED_ORDER_REFS_KEY,
     link_order_to_work_orders,
     link_work_order_to_orders,
     order_requirement_for_work_order,
@@ -45,7 +46,7 @@ def test_confirmed_order_links_existing_planned_work_order(recipe):
     order.refresh_from_db()
     wo.refresh_from_db()
     assert order.data["awaiting_wo_refs"] == [wo.ref]
-    assert wo.meta["serves_order_refs"] == [order.ref]
+    assert wo.meta[WORK_ORDER_COMMITTED_ORDER_REFS_KEY] == [order.ref]
 
 
 @pytest.mark.django_db
@@ -74,16 +75,21 @@ def test_finished_work_order_progress_is_projected_for_order(recipe):
 
 
 @pytest.mark.django_db
-def test_work_order_card_lists_served_orders(recipe):
+def test_work_order_card_projects_committed_item_quantity(recipe):
     wo = craft.plan(recipe, 10, date=date.today())
-    order = _order("SYNC-ORD-4", qty=3)
-    wo.meta = {"serves_order_refs": [order.ref]}
+    first = _order("SYNC-ORD-4", qty=3)
+    second = _order("SYNC-ORD-4B", qty=10)
+    wo.meta = {WORK_ORDER_COMMITTED_ORDER_REFS_KEY: [first.ref, second.ref]}
     wo.save(update_fields=["meta", "updated_at"])
 
     card = build_work_order_card(wo.ref)
+    _, _, commitments, committed_qty = order_commitments_for_work_order(wo.ref)
 
-    assert card.serves_orders[0].ref == order.ref
-    assert card.serves_orders[0].qty_required == "3"
+    assert card.committed_qty == "13"
+    assert [item.ref for item in card.order_commitments] == [first.ref, second.ref]
+    assert [item.qty_required for item in card.order_commitments] == ["3", "10"]
+    assert committed_qty == "13"
+    assert [item.qty_required for item in commitments] == ["3", "10"]
 
 
 @pytest.mark.django_db
@@ -92,7 +98,7 @@ def test_work_order_void_removes_bidirectional_refs(recipe):
     order = _order("SYNC-ORD-5")
     order.data = {"awaiting_wo_refs": [wo.ref]}
     order.save(update_fields=["data", "updated_at"])
-    wo.meta = {"serves_order_refs": [order.ref]}
+    wo.meta = {WORK_ORDER_COMMITTED_ORDER_REFS_KEY: [order.ref]}
     wo.save(update_fields=["meta", "updated_at"])
 
     link_work_order_to_orders(action="voided", work_order=wo)
@@ -100,7 +106,7 @@ def test_work_order_void_removes_bidirectional_refs(recipe):
     order.refresh_from_db()
     wo.refresh_from_db()
     assert "awaiting_wo_refs" not in order.data
-    assert "serves_order_refs" not in wo.meta
+    assert WORK_ORDER_COMMITTED_ORDER_REFS_KEY not in wo.meta
 
 
 @pytest.mark.django_db
@@ -122,7 +128,7 @@ def test_order_requirement_sums_linked_order_items(recipe):
     wo = craft.plan(recipe, 10, date=date.today())
     first = _order("SYNC-ORD-7", qty=2)
     second = _order("SYNC-ORD-8", qty=4)
-    wo.meta = {"serves_order_refs": [first.ref, second.ref]}
+    wo.meta = {WORK_ORDER_COMMITTED_ORDER_REFS_KEY: [first.ref, second.ref]}
     wo.save(update_fields=["meta", "updated_at"])
 
     assert order_requirement_for_work_order(wo) == Decimal("6")
@@ -132,10 +138,10 @@ def test_order_requirement_sums_linked_order_items(recipe):
 def test_reducing_planned_below_linked_orders_requires_force(recipe):
     wo = craft.plan(recipe, 10, date=date.today(), position_ref="", operator_ref="")
     order = _order("SYNC-ORD-9", qty=8)
-    wo.meta = {"serves_order_refs": [order.ref]}
+    wo.meta = {WORK_ORDER_COMMITTED_ORDER_REFS_KEY: [order.ref]}
     wo.save(update_fields=["meta", "updated_at"])
 
-    with pytest.raises(ProductionOrderShortError):
+    with pytest.raises(ProductionOrderShortError) as exc_info:
         apply_planned(
             recipe_id=recipe.pk,
             quantity="5",
@@ -144,6 +150,8 @@ def test_reducing_planned_below_linked_orders_requires_force(recipe):
             operator_ref="",
             actor="test",
         )
+    assert "8 un. comprometidas" in str(exc_info.value)
+    assert "pedido(s)" not in str(exc_info.value)
 
     apply_planned(
         recipe_id=recipe.pk,

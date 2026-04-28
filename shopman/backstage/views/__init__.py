@@ -42,7 +42,7 @@ from .production import (
     production_kds_cards_view,
     production_kds_view,
     production_reports_view,
-    production_work_order_orders_view,
+    production_work_order_commitments_view,
     production_view,
     production_void_view,
 )
@@ -74,7 +74,7 @@ __all__ = [
     "production_kds_cards_view",
     "production_kds_view",
     "production_reports_view",
-    "production_work_order_orders_view",
+    "production_work_order_commitments_view",
     "production_view",
     "production_void_view",
     "pos_cancel_last",

@@ -39,7 +39,7 @@ KDS_PARTIAL_TEMPLATE = "gestor/producao/partials/kds_cards.html"
 REPORTS_TEMPLATE = "gestor/producao/relatorios/index.html"
 SHORTAGE_PARTIAL_TEMPLATE = "gestor/producao/partials/material_shortage.html"
 ORDER_SHORT_PARTIAL_TEMPLATE = "gestor/producao/partials/order_shortage.html"
-WO_ORDERS_TEMPLATE = "gestor/producao/wo_orders.html"
+WO_COMMITMENTS_TEMPLATE = "gestor/producao/wo_commitments.html"
 
 
 def production_view(request):
@@ -165,8 +165,8 @@ def production_reports_view(request):
     })
 
 
-def production_work_order_orders_view(request, wo_ref: str):
-    """GET: orders served by a specific production work order."""
+def production_work_order_commitments_view(request, wo_ref: str):
+    """GET: item quantities committed by linked orders for a work order."""
     denied = _staff_required(request)
     if denied:
         return denied
@@ -176,14 +176,15 @@ def production_work_order_orders_view(request, wo_ref: str):
         return HttpResponseForbidden("Sem permissão para acessar produção.")
 
     try:
-        work_order, refs, orders = production_service.served_orders_for_work_order(wo_ref)
+        work_order, refs, commitments, committed_qty = production_service.order_commitments_for_work_order(wo_ref)
     except ObjectDoesNotExist as exc:
         raise Http404("Ordem de produção não encontrada.") from exc
-    return TemplateResponse(request, WO_ORDERS_TEMPLATE, {
-        "title": f"Pedidos de {wo_ref}",
+    return TemplateResponse(request, WO_COMMITMENTS_TEMPLATE, {
+        "title": f"Compromissos de {wo_ref}",
         "work_order": work_order,
-        "orders": orders,
+        "commitments": commitments,
         "order_refs": refs,
+        "committed_qty": committed_qty,
     })
 
 
