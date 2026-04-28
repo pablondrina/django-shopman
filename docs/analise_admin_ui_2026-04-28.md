@@ -207,7 +207,7 @@ Done:
 
 ### Fase 2 - Remover ambiguidade e legado
 
-1. Revisar e provavelmente remover:
+1. Remover:
    - `shopman/shop/templates/admin/shop/production.html`
    - `shopman/shop/templates/admin/shop/closing.html`
 2. Atualizar docs antigas que ainda apontam para `/admin/shop/.../production/` ou `/admin/shop/.../closing/`.
@@ -215,7 +215,8 @@ Done:
 
 Done:
 
-- Busca por `admin/shop/production.html` e `admin/shop/closing.html` aparece apenas em histórico ou nao aparece.
+- Arquivos `shopman/shop/templates/admin/shop/production.html` e `shopman/shop/templates/admin/shop/closing.html` removidos.
+- Busca por `admin/shop/production.html` e `admin/shop/closing.html` aparece apenas em docs históricas/planos, nao em rotas vivas.
 - Rotas vivas de produção/fechamento apontam apenas para `/gestor/...`.
 
 ### Fase 3 - Centralizar ações Admin nos services corretos

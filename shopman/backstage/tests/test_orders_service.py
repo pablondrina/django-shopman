@@ -68,3 +68,12 @@ def test_mark_paid_save_notes_and_history_delegate(monkeypatch):
     mark_paid.assert_called_once_with("order", actor="operator:ana", operator_username="ana")
     save_notes.assert_called_once_with("order", notes="obs")
     recent.assert_called_once_with(limit=5)
+
+
+def test_cancel_order_delegates(monkeypatch):
+    cancel_order = Mock()
+    monkeypatch.setattr(orders.operator_orders, "cancel_order", cancel_order)
+
+    orders.cancel_order("order", reason="cliente pediu", actor="admin:ana")
+
+    cancel_order.assert_called_once_with("order", reason="cliente pediu", actor="admin:ana")

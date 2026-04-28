@@ -100,6 +100,11 @@ def advance_order(order: Order, *, actor: str) -> str:
     return next_status
 
 
+def cancel_order(order: Order, *, reason: str, actor: str) -> None:
+    """Cancel an order through the canonical cancellation service."""
+    cancel(order, reason=reason, actor=actor)
+
+
 def save_internal_notes(order: Order, *, notes: str) -> None:
     """Persist operator-only notes on the order data payload."""
     data = dict(order.data or {})

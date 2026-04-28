@@ -53,13 +53,19 @@
             <div class="flex flex-col gap-2">
                 <div class="flex items-baseline gap-2">
                     <span class="text-3xl font-bold text-font-important-light dark:text-font-important-dark">
-                        {{ production.open|default:"0" }}
+                        {{ production.finished_qty|default:"0" }}
                     </span>
                     <span class="text-sm text-base-500">
-                        abertas /
-                        <span class="font-semibold text-green-600 dark:text-green-400">{{ production.done|default:"0" }}</span>
-                        concluídas
+                        un. concluídas
                     </span>
+                </div>
+                <div class="text-xs text-base-500">
+                    <span class="font-semibold">{{ production.planned_qty|default:"0" }}</span> planejadas ·
+                    <span class="font-semibold">{{ production.started_qty|default:"0" }}</span> em produção ·
+                    perda <span class="font-semibold">{{ production.loss_qty|default:"0" }}</span>
+                </div>
+                <div class="text-xs text-base-400">
+                    {{ production.open|default:"0" }} OP abertas · {{ production.done|default:"0" }} OP finalizadas
                 </div>
                 {% if production.tracker %}
                     {% component "unfold/components/tracker.html" with data=production.tracker %}{% endcomponent %}

@@ -122,6 +122,10 @@ class ProductionKPIProjection:
     done: int
     total: int
     progress: int
+    planned_qty: str
+    started_qty: str
+    finished_qty: str
+    loss_qty: str
     wos: tuple[WorkOrderRowProjection, ...]
     tracker: tuple[WorkOrderTrackerProjection, ...]
 
@@ -311,14 +315,27 @@ def _production(today: date) -> ProductionKPIProjection:
         from shopman.craftsman.models import WorkOrder
     except ImportError:
         return ProductionKPIProjection(
-            open=0, done=0, total=0, progress=0, wos=(), tracker=(),
+            open=0,
+            done=0,
+            total=0,
+            progress=0,
+            planned_qty="0",
+            started_qty="0",
+            finished_qty="0",
+            loss_qty="0",
+            wos=(),
+            tracker=(),
         )
 
-    wo_today = WorkOrder.objects.filter(created_at__date=today)
+    wo_today = WorkOrder.objects.filter(target_date=today)
     total = wo_today.count()
     done = wo_today.filter(status="finished").count()
     open_count = wo_today.filter(status__in=["planned", "started"]).count()
     progress = int((done / total * 100) if total > 0 else 0)
+    planned_qty = sum((wo.quantity or Decimal("0")) for wo in wo_today)
+    started_qty = sum((wo.started_qty or Decimal("0")) for wo in wo_today.filter(status__in=["started", "finished"]))
+    finished_qty = sum((wo.finished or Decimal("0")) for wo in wo_today.filter(finished__isnull=False))
+    loss_qty = sum((wo.loss or Decimal("0")) for wo in wo_today.filter(finished__isnull=False))
 
     tracker: list[WorkOrderTrackerProjection] = []
     for wo in wo_today.order_by("ref"):
@@ -354,6 +371,10 @@ def _production(today: date) -> ProductionKPIProjection:
         done=done,
         total=total,
         progress=progress,
+        planned_qty=_format_qty(planned_qty),
+        started_qty=_format_qty(started_qty),
+        finished_qty=_format_qty(finished_qty),
+        loss_qty=_format_qty(loss_qty),
         wos=tuple(wos),
         tracker=tuple(tracker),
     )
@@ -605,3 +626,10 @@ def _format_brl(centavos: int | None) -> str:
     formatted = f"{value:,.2f}"
     formatted = formatted.replace(",", "X").replace(".", ",").replace("X", ".")
     return f"R$ {formatted}"
+
+
+def _format_qty(value: Decimal | int | None) -> str:
+    if value is None:
+        return "0"
+    quantized = Decimal(value).quantize(Decimal("0.001")).normalize()
+    return format(quantized, "f")

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+from importlib import import_module
+from decimal import Decimal
 
 from django.contrib import admin, messages
 from django.db import models
@@ -118,6 +120,15 @@ def history_action(modeladmin, request, object_id):
     return HttpResponseRedirect(url)
 
 
+def _format_admin_qty(value: Decimal) -> str:
+    quantized = Decimal(value).quantize(Decimal("0.001")).normalize()
+    return format(quantized, "f")
+
+
+def _operator_order_service():
+    return import_module("shopman.shop.services.operator_orders")
+
+
 class CanalVendaFilter(admin.SimpleListFilter):
     title = _("canal")
     parameter_name = "channel_ref"
@@ -207,6 +218,9 @@ class SessionAdmin(ModelAdmin):
     @action(description=_("Histórico"), url_path="history-action", icon="history")
     def history_detail_action(self, request, object_id):
         return history_action(self, request, object_id)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related("items")
 
     @action(description=_("Finalizar sessão"), url_path="commit-action", icon="check_circle")
     def action_commit(self, request: HttpRequest, obj: Session):
@@ -701,6 +715,7 @@ class PreorderFilter(admin.SimpleListFilter):
 
 @admin.register(Order)
 class OrderAdmin(ModelAdmin):
+    change_list_template = "orderman/admin/order_change_list.html"
     list_display = (
         "ref",
         "channel_ref",
@@ -708,7 +723,10 @@ class OrderAdmin(ModelAdmin):
         "status_badge",
         "delivery_date_display",
         "items_count_display",
+        "units_count_display",
+        "production_wait_display",
         "total_display",
+        "operation_link_display",
         "created_at",
     )
     list_filter = (
@@ -748,15 +766,13 @@ class OrderAdmin(ModelAdmin):
             messages.error(request, _("Pedido não encontrado."))
             return HttpResponseRedirect(reverse("admin:orderman_order_changelist"))
 
-        allowed = order.get_allowed_transitions()
-        if not allowed:
-            messages.warning(request, _("Nenhuma transição disponível para este pedido."))
-            return HttpResponseRedirect(reverse("admin:orderman_order_changelist"))
-
-        next_status = allowed[0]
         actor = getattr(request.user, "username", None) or "admin"
         try:
-            order.transition_status(next_status, actor=actor)
+            if order.status == Order.Status.NEW:
+                _operator_order_service().confirm_order(order, actor=actor)
+            else:
+                _operator_order_service().advance_order(order, actor=actor)
+            order.refresh_from_db()
             messages.success(
                 request,
                 _("Pedido %(ref)s avançado para %(status)s.") % {
@@ -787,7 +803,11 @@ class OrderAdmin(ModelAdmin):
 
         actor = getattr(request.user, "username", None) or "admin"
         try:
-            order.transition_status(Order.Status.CANCELLED, actor=actor)
+            _operator_order_service().cancel_order(
+                order,
+                reason="Cancelado via Admin",
+                actor=actor,
+            )
             messages.success(
                 request,
                 _("Pedido %(ref)s cancelado.") % {"ref": order.ref},
@@ -866,16 +886,51 @@ class OrderAdmin(ModelAdmin):
             return format_html('<span style="color:#E2A336;font-weight:600">{}</span>', label)
         return label
 
-    @display(description=_("itens"))
+    @display(description=_("linhas"))
     def items_count_display(self, obj: Order) -> str:
         count = obj.items.count()
         return str(count) if count else "-"
+
+    @display(description=_("un."))
+    def units_count_display(self, obj: Order) -> str:
+        total = sum((item.qty or Decimal("0")) for item in obj.items.all())
+        return _format_admin_qty(total) if total else "-"
+
+    @display(description=_("produção"))
+    def production_wait_display(self, obj: Order) -> str:
+        refs = tuple(dict.fromkeys((obj.data or {}).get("awaiting_wo_refs") or ()))
+        if not refs:
+            return "-"
+        label = f"{len(refs)} OP"
+        return format_html(
+            '<span class="font-medium text-amber-700 dark:text-amber-400" title="{}">{}</span>',
+            ", ".join(refs),
+            label,
+        )
 
     @display(description=_("total"))
     def total_display(self, obj: Order) -> str:
         if obj.total_q:
             return f"{obj.currency} {obj.total_q / 100:.2f}"
         return "-"
+
+    @display(description=_("ação"))
+    def operation_link_display(self, obj: Order) -> str:
+        active_statuses = {
+            Order.Status.NEW,
+            Order.Status.CONFIRMED,
+            Order.Status.PREPARING,
+            Order.Status.READY,
+            Order.Status.DISPATCHED,
+            Order.Status.DELIVERED,
+        }
+        if obj.status not in active_statuses:
+            return "-"
+        url = f'{reverse("backstage:gestor_pedidos")}#order-{obj.ref}'
+        return format_html(
+            '<a class="font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400" href="{}">Fila</a>',
+            url,
+        )
 
     actions = ["advance_selected_status", "cancel_selected"]
 
@@ -894,7 +949,10 @@ class OrderAdmin(ModelAdmin):
                 errors += 1
                 continue
             try:
-                order.transition_status(allowed[0], actor=actor)
+                if order.status == Order.Status.NEW:
+                    _operator_order_service().confirm_order(order, actor=actor)
+                else:
+                    _operator_order_service().advance_order(order, actor=actor)
                 advanced += 1
             except Exception:
                 errors += 1
@@ -921,7 +979,11 @@ class OrderAdmin(ModelAdmin):
                 skipped += 1
                 continue
             try:
-                order.transition_status(Order.Status.CANCELLED, actor=actor)
+                _operator_order_service().cancel_order(
+                    order,
+                    reason="Cancelado via Admin",
+                    actor=actor,
+                )
                 cancelled += 1
             except Exception:
                 skipped += 1

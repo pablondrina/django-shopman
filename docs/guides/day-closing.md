@@ -53,7 +53,7 @@ Permissão: `shop.add_dayclosing`.
 
 - **Liquidação explícita** do que sobrou em `ontem` após o dia de venda D-1 (descarte = issue com motivo padronizado, ou tela dedicada).
 - **Relatório** produzido vs vendido vs não vendido informado vs perda — base para auditoria sem substituir o informe às cegas.
-- **Template admin** `admin/shop/closing.html`: se ausente no deploy, criar formulário alinhado a `_build_items()` (campos `qty_{sku}`).
+- **Superfície operacional** `/gestor/fechamento/`: formulário alinhado a `build_day_closing()` (campos `qty_{sku}`). O Admin/Unfold mantém apenas auditoria read-only em `DayClosingAdmin`.
 
 ---
 

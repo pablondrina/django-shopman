@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from django.contrib import admin
+from unfold.admin import ModelAdmin
+
+from shopman.utils import unfold_badge, unfold_badge_numeric
 from shopman.utils.monetary import format_money
 
 from shopman.backstage.models import CashMovement, CashRegisterSession
@@ -23,8 +26,8 @@ class CashMovementInline(admin.TabularInline):
 
 
 @admin.register(CashRegisterSession)
-class CashRegisterSessionAdmin(admin.ModelAdmin):
-    list_display = ("operator", "opened_at", "status", "opening_display", "closing_display", "difference_display")
+class CashRegisterSessionAdmin(ModelAdmin):
+    list_display = ("operator", "opened_at", "status_display", "opening_display", "closing_display", "difference_display")
     list_filter = ("status", "opened_at")
     readonly_fields = (
         "operator", "opened_at", "closed_at", "status",
@@ -33,15 +36,23 @@ class CashRegisterSessionAdmin(admin.ModelAdmin):
     )
     inlines = [CashMovementInline]
     ordering = ["-opened_at"]
+    list_fullwidth = True
+    compressed_fields = True
+
+    def status_display(self, obj):
+        if obj.status == CashRegisterSession.Status.OPEN:
+            return unfold_badge("aberto", "yellow")
+        return unfold_badge("fechado", "green")
+    status_display.short_description = "Status"
 
     def opening_display(self, obj):
-        return f"R$ {format_money(obj.opening_amount_q)}"
+        return unfold_badge_numeric(f"R$ {format_money(obj.opening_amount_q)}", "base")
     opening_display.short_description = "Abertura"
 
     def closing_display(self, obj):
         if obj.closing_amount_q is None:
             return "—"
-        return f"R$ {format_money(obj.closing_amount_q)}"
+        return unfold_badge_numeric(f"R$ {format_money(obj.closing_amount_q)}", "base")
     closing_display.short_description = "Fechamento"
 
     def expected_display(self, obj):
@@ -54,7 +65,8 @@ class CashRegisterSessionAdmin(admin.ModelAdmin):
         if obj.difference_q is None:
             return "—"
         sign = "+" if obj.difference_q >= 0 else ""
-        return f"{sign}R$ {format_money(obj.difference_q)}"
+        color = "green" if obj.difference_q == 0 else "yellow"
+        return unfold_badge_numeric(f"{sign}R$ {format_money(obj.difference_q)}", color)
     difference_display.short_description = "Diferença"
 
     def has_add_permission(self, request):

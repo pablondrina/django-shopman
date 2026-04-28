@@ -9,11 +9,13 @@ To use, add 'shopman.craftsman.contrib.admin_unfold' to INSTALLED_APPS after 'cr
 """
 
 import logging
+from importlib import import_module
 
 from django.contrib import admin, messages
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils.html import format_html
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from shopman.craftsman.models import (
@@ -185,6 +187,7 @@ class WorkOrderAdmin(BaseModelAdmin):
 
     compressed_fields = True
     warn_unsaved_form = True
+    change_list_template = "craftsman/admin/workorder_change_list.html"
 
     list_display = [
         "ref",
@@ -194,13 +197,17 @@ class WorkOrderAdmin(BaseModelAdmin):
         "quantity",
         "produced_display",
         "loss_display",
+        "commitments_display",
         "status_badge",
+        "operation_link_display",
     ]
 
     list_filter = [
         "status",
         ("recipe", ChoicesDropdownFilter),
         ("target_date", RangeDateFilter),
+        "position_ref",
+        "operator_ref",
     ]
     list_filter_submit = True
     search_fields = ["ref", "recipe__name", "output_sku"]
@@ -211,6 +218,7 @@ class WorkOrderAdmin(BaseModelAdmin):
     inlines = [WorkOrderItemInline, WorkOrderEventInline]
     actions_row = ["close_wo_row", "void_wo_row"]
     actions_detail = ["close_wo_row", "void_wo_row"]
+    actions = ["finish_selected_work_orders", "void_selected_work_orders"]
     list_sections = [WorkOrderItemSection]
 
     fieldsets = (
@@ -304,6 +312,37 @@ class WorkOrderAdmin(BaseModelAdmin):
         else:
             return unfold_badge_numeric(loss_formatted, "base")
 
+    @display(description=_("Compromisso"))
+    def commitments_display(self, obj):
+        refs = _committed_order_refs(obj)
+        if not refs:
+            return "-"
+        qty = _committed_qty_for_work_order(obj)
+        return unfold_badge_numeric(
+            _("%(qty)s un. / %(orders)d ped.") % {"qty": format_quantity(qty), "orders": len(refs)},
+            "blue",
+        )
+
+    @display(description=_("Operação"))
+    def operation_link_display(self, obj):
+        if obj.target_date:
+            board_url = f'{reverse("backstage:production")}?date={obj.target_date.isoformat()}'
+        else:
+            board_url = reverse("backstage:production")
+        if _committed_order_refs(obj):
+            commitments_url = reverse("backstage:production_work_order_commitments", args=[obj.ref])
+            return format_html(
+                '<a class="font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400" href="{}">Mapa</a>'
+                '<span class="text-base-300 px-1">·</span>'
+                '<a class="font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400" href="{}">Pedidos</a>',
+                board_url,
+                commitments_url,
+            )
+        return format_html(
+            '<a class="font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400" href="{}">Mapa</a>',
+            board_url,
+        )
+
     @display(description=_("Status"))
     def status_badge(self, obj):
         """Display colored status badge."""
@@ -322,6 +361,14 @@ class WorkOrderAdmin(BaseModelAdmin):
         if obj and "ref" not in readonly:
             readonly.append("ref")
         return readonly
+
+    def get_queryset(self, request):
+        return (
+            super()
+            .get_queryset(request)
+            .select_related("recipe")
+            .prefetch_related("items", "events")
+        )
 
     def changelist_view(self, request, extra_context=None):
         """Auto-redirect to today if no date filter."""
@@ -370,13 +417,9 @@ class WorkOrderAdmin(BaseModelAdmin):
             messages.warning(request, _("Apenas ordens planned/started podem ser finalizadas."))
             return HttpResponseRedirect(reverse("admin:craftsman_workorder_changelist"))
 
-        from shopman.craftsman import craft
-
         actor = getattr(request.user, "username", None) or "admin"
         try:
-            if wo.status == WorkOrder.Status.PLANNED:
-                craft.start(wo, quantity=wo.quantity, actor=actor)
-            craft.finish(wo, finished=wo.started_qty or wo.quantity, actor=actor)
+            _finish_work_order_from_admin(wo, actor=actor)
             messages.success(
                 request,
                 _("Ordem %(code)s finalizada (resultado: %(qty)s).") % {
@@ -405,11 +448,9 @@ class WorkOrderAdmin(BaseModelAdmin):
             messages.warning(request, _("Apenas ordens planned/started podem ser anuladas."))
             return HttpResponseRedirect(reverse("admin:craftsman_workorder_changelist"))
 
-        from shopman.craftsman import craft
-
         actor = getattr(request.user, "username", None) or "admin"
         try:
-            craft.void(wo, reason="Anulado via admin", actor=actor)
+            _void_work_order_from_admin(wo, actor=actor)
             messages.success(
                 request,
                 _("Ordem %(code)s anulada.") % {"code": wo.ref},
@@ -418,3 +459,93 @@ class WorkOrderAdmin(BaseModelAdmin):
             messages.error(request, str(exc))
 
         return HttpResponseRedirect(reverse("admin:craftsman_workorder_changelist"))
+
+    @admin.action(description=_("Finalizar selecionadas"))
+    def finish_selected_work_orders(self, request, queryset):
+        actor = getattr(request.user, "username", None) or "admin"
+        finished = 0
+        skipped = 0
+        for wo in queryset.filter(status__in=(WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED)):
+            try:
+                _finish_work_order_from_admin(wo, actor=actor)
+                finished += 1
+            except Exception as exc:
+                skipped += 1
+                logger.warning("admin_finish_work_order_failed wo=%s: %s", wo.ref, exc, exc_info=True)
+        if finished:
+            self.message_user(request, _("%(count)d ordem(ns) finalizada(s).") % {"count": finished})
+        if skipped:
+            self.message_user(request, _("%(count)d ordem(ns) não puderam ser finalizadas.") % {"count": skipped}, level=messages.WARNING)
+
+    @admin.action(description=_("Cancelar selecionadas"))
+    def void_selected_work_orders(self, request, queryset):
+        actor = getattr(request.user, "username", None) or "admin"
+        voided = 0
+        skipped = 0
+        for wo in queryset.filter(status__in=(WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED)):
+            try:
+                _void_work_order_from_admin(wo, actor=actor)
+                voided += 1
+            except Exception as exc:
+                skipped += 1
+                logger.warning("admin_void_work_order_failed wo=%s: %s", wo.ref, exc, exc_info=True)
+        if voided:
+            self.message_user(request, _("%(count)d ordem(ns) cancelada(s).") % {"count": voided})
+        if skipped:
+            self.message_user(request, _("%(count)d ordem(ns) não puderam ser canceladas.") % {"count": skipped}, level=messages.WARNING)
+
+
+def _finish_work_order_from_admin(wo: WorkOrder, *, actor: str) -> None:
+    """Finish through the operator production facade so Admin matches Backstage."""
+    production_service = import_module("shopman.backstage.services.production")
+
+    quantity = wo.started_qty or wo.quantity
+    if wo.status == WorkOrder.Status.PLANNED:
+        production_service.apply_start(
+            work_order_id=wo.pk,
+            quantity=quantity,
+            position_id="",
+            operator_ref=wo.operator_ref or "",
+            actor=f"admin:{actor}",
+        )
+    production_service.apply_finish(
+        work_order_id=wo.pk,
+        quantity=quantity,
+        actor=f"admin:{actor}",
+    )
+
+
+def _void_work_order_from_admin(wo: WorkOrder, *, actor: str) -> str:
+    production_service = import_module("shopman.backstage.services.production")
+
+    return production_service.apply_void(
+        wo.pk,
+        actor=f"admin:{actor}",
+        reason="Cancelado via Admin",
+    )
+
+
+def _committed_order_refs(wo: WorkOrder) -> tuple[str, ...]:
+    refs = (wo.meta or {}).get("committed_order_refs") or ()
+    return tuple(str(ref) for ref in refs if ref)
+
+
+def _committed_qty_for_work_order(wo: WorkOrder):
+    from decimal import Decimal
+
+    refs = _committed_order_refs(wo)
+    if not refs:
+        return Decimal("0")
+    try:
+        from shopman.orderman.models import Order
+
+        orders = Order.objects.filter(ref__in=refs).prefetch_related("items")
+        total = Decimal("0")
+        for order in orders:
+            for item in order.items.all():
+                if item.sku == wo.output_sku:
+                    total += item.qty
+        return total
+    except Exception:
+        logger.debug("admin_work_order_commitments_failed wo=%s", wo.ref, exc_info=True)
+        return Decimal("0")

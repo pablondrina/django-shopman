@@ -70,13 +70,13 @@ Os builders ficam no mesmo módulo. Views chamam o builder, passam o resultado a
 
 | Tela | URL | Template Atual | Projection |
 |------|-----|----------------|------------|
-| Fila de Pedidos | `/pedidos/` | `pedidos/queue.html` | `OrderQueueProjection` |
-| Detalhe Pedido | `/pedidos/<ref>/` | `pedidos/detail.html` | `OperatorOrderProjection` |
-| KDS Picking | `/kds/` | `kds/board.html` | `KDSBoardProjection` |
-| KDS Expedição | `/kds/expedition/` | `kds/expedition.html` | `KDSExpeditionProjection` |
-| POS | `/pos/` | `pos/terminal.html` | `POSProjection` |
-| Produção | `/producao/` | `production/board.html` | `ProductionBoardProjection` |
-| Fechamento | `/admin/.../closing/` | `admin/shop/closing.html` | `DayClosingProjection` |
+| Fila de Pedidos | `/gestor/pedidos/` | `pedidos/index.html` | `OrderQueueProjection` |
+| Detalhe Pedido | `/gestor/pedidos/<ref>/detail/` | `pedidos/partials/detail.html` | `OperatorOrderProjection` |
+| KDS Picking | `/gestor/kds/` | `kds/display.html` | `KDSBoardProjection` |
+| KDS Expedição | `/gestor/kds/` | `kds/display.html` | `KDSExpeditionProjection` |
+| POS | `/gestor/pos/` | `pos/index.html` | `POSProjection` |
+| Produção | `/gestor/producao/` | `gestor/producao/index.html` | `ProductionBoardProjection` |
+| Fechamento | `/gestor/fechamento/` | `gestor/fechamento/index.html` | `DayClosingProjection` |
 
 ### 3.3. Admin / Dashboard
 

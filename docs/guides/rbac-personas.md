@@ -14,15 +14,15 @@ Superuser (`is_superuser=True`) passa em tudo — sem necessidade de grupo.
 
 | Permission | Modelo | Concede acesso a | Surface |
 |------------|--------|-----------------|---------|
-| `shop.manage_orders` | `Shop` | Confirmar, rejeitar, avançar, cancelar pedidos; adicionar notas; mark_paid | `/pedidos/*` |
-| `shop.operate_kds` | `KDSTicket` | Check item, marcar ticket done, ações de expedição | `/kds/*` |
-| `shop.operate_pos` | `CashRegisterSession` | Abrir/fechar caixa, sangria, lookup de cliente, fechar venda | `/gestor/pos/*` |
+| `shop.manage_orders` | `Shop` | Confirmar, rejeitar, avançar, cancelar pedidos; adicionar notas; mark_paid | `/gestor/pedidos/*` |
+| `backstage.operate_kds` | `KDSTicket` | Check item, marcar ticket done, ações de expedição | `/gestor/kds/*` |
+| `backstage.operate_pos` | `CashRegisterSession` | Abrir/fechar caixa, sangria, lookup de cliente, fechar venda | `/gestor/pos/*` |
 | `shop.manage_production` | `Shop` | Criar WorkOrders, avançar produção | `/gestor/producao/*` |
-| `shop.perform_closing` | `DayClosing` | Executar fechamento do dia, registrar perdas, mover D-1 | `/admin/shop/closing/` |
+| `backstage.perform_closing` | `DayClosing` | Executar fechamento do dia, registrar perdas, mover D-1 | `/gestor/fechamento/` |
 | `shop.manage_catalog` | `Shop` | Criar/editar Product, Listing, Collection | Admin |
 | `shop.manage_customers` | `Shop` | Criar/editar Customer, grupos, loyalty | Admin |
 | `shop.manage_rules` | `RuleConfig` | Criar/editar regras de pricing e validação | Admin |
-| `shop.view_reports` | `Shop` | Dashboard e relatórios analíticos | Admin + `/gestor/*` |
+| `backstage.view_production_reports` | `DayClosing` | Relatórios de produção | Admin + `/gestor/producao/relatorios/` |
 
 ---
 
@@ -32,9 +32,9 @@ Criados automaticamente por `make migrate`. Nenhum usuário é atribuído por de
 
 | Grupo | Permissões | Persona típica |
 |-------|-----------|----------------|
-| **Caixa** | `operate_pos`, `manage_orders` | Atendente de balcão / PDV |
-| **Cozinha** | `operate_kds`, `manage_production` | Cozinheiro / preparador |
-| **Gerente** | `manage_orders`, `operate_pos`, `perform_closing`, `view_reports`, `manage_customers` | Gerente de turno |
+| **Caixa** | `backstage.operate_pos`, `shop.manage_orders` | Atendente de balcão / PDV |
+| **Cozinha** | `backstage.operate_kds`, `shop.manage_production` | Cozinheiro / preparador |
+| **Gerente** | `shop.manage_orders`, `backstage.operate_pos`, `backstage.perform_closing`, `backstage.view_production_reports`, `shop.manage_customers` | Gerente de turno |
 | **Admin de Catálogo** | `manage_catalog`, `manage_rules` | Responsável por produtos e regras |
 | **Rules Managers** | `manage_rules` | Segurança (WP-GAP-06, sem membros por default) |
 

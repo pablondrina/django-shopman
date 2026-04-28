@@ -326,6 +326,10 @@ UNFOLD = {
     "SITE_HEADER": _unfold_site_title,
     "SITE_SYMBOL": "store",
     "DASHBOARD_CALLBACK": "shopman.backstage.admin.dashboard.dashboard_callback",
+    "COMMAND": {
+        "search_models": True,
+        "show_history": True,
+    },
     "SHOW_HISTORY": True,
     "SHOW_VIEW_ON_SITE": False,
     "SHOW_BACK_BUTTON": True,
@@ -388,99 +392,9 @@ UNFOLD = {
     ],
     "SIDEBAR": {
         "show_search": True,
-        "show_all_applications": True,
-        "navigation": [
-            {
-                "title": "Painel",
-                "separator": True,
-                "items": [
-                    {"title": "Dashboard", "icon": "dashboard", "link": reverse_lazy("admin:index")},
-                ],
-            },
-            {
-                "title": "Loja",
-                "separator": True,
-                "items": [
-                    {"title": "Configuração", "icon": "storefront", "link": reverse_lazy("admin:shop_shop_changelist")},
-                ],
-            },
-            {
-                "title": "Central Omnicanal",
-                "separator": True,
-                "collapsible": True,
-                "items": [
-                    {"title": "Canais", "icon": "network_node", "link": reverse_lazy("admin:shop_channel_changelist")},
-                    {"title": "Sessoes", "icon": "note_alt", "link": reverse_lazy("admin:orderman_session_changelist")},
-                    {"title": "Pedidos", "icon": "assignment", "link": reverse_lazy("admin:orderman_order_changelist")},
-                ],
-            },
-            {
-                "title": "Catalogo",
-                "separator": True,
-                "collapsible": True,
-                "items": [
-                    {"title": "Produtos", "icon": "inventory_2", "link": reverse_lazy("admin:offerman_product_changelist")},
-                    {"title": "Colecoes", "icon": "category", "link": reverse_lazy("admin:offerman_collection_changelist")},
-                    {"title": "Listagens", "icon": "shoppingmode", "link": reverse_lazy("admin:offerman_listing_changelist")},
-                ],
-            },
-            {
-                "title": "Estoque",
-                "separator": True,
-                "collapsible": True,
-                "items": [
-                    {"title": "Saldo", "icon": "point_scan", "link": reverse_lazy("admin:stockman_quant_changelist")},
-                    {"title": "Movimentos", "icon": "swap_horiz", "link": reverse_lazy("admin:stockman_move_changelist")},
-                    {"title": "Reservas", "icon": "keep", "link": reverse_lazy("admin:stockman_hold_changelist")},
-                    {"title": "Lotes", "icon": "science", "link": reverse_lazy("admin:stockman_batch_changelist")},
-                    {"title": "Posicoes", "icon": "domain", "link": reverse_lazy("admin:stockman_position_changelist")},
-                    {"title": "Alertas", "icon": "notification_important", "link": reverse_lazy("admin:stockman_stockalert_changelist")},
-                ],
-            },
-            {
-                "title": "Regras",
-                "separator": True,
-                "collapsible": True,
-                "items": [
-                    {"title": "Regras", "icon": "tune", "link": reverse_lazy("admin:shop_ruleconfig_changelist")},
-                    {"title": "Promoções", "icon": "sell", "link": reverse_lazy("admin:storefront_promotion_changelist")},
-                    {"title": "Cupons", "icon": "confirmation_number", "link": reverse_lazy("admin:storefront_coupon_changelist")},
-                ],
-            },
-            {
-                "title": "Operacao",
-                "separator": True,
-                "collapsible": True,
-                "items": [
-                    {"title": "Registro Rápido", "icon": "add_circle", "link": reverse_lazy("backstage:production")},
-                    {"title": "Fechamento", "icon": "point_of_sale", "link": reverse_lazy("backstage:day_closing")},
-                    {"title": "Receitas", "icon": "menu_book", "link": reverse_lazy("admin:craftsman_recipe_changelist")},
-                    {"title": "Ordens de Producao", "icon": "manufacturing", "link": reverse_lazy("admin:craftsman_workorder_changelist")},
-                    {"title": "Alertas", "icon": "warning", "link": reverse_lazy("admin:backstage_operatoralert_changelist")},
-                    {"title": "KDS", "icon": "kitchen", "link": reverse_lazy("admin:backstage_kdsinstance_changelist")},
-                    {"title": "Diretivas", "icon": "conversion_path", "link": reverse_lazy("admin:orderman_directive_changelist")},
-                    {"title": "Fechamento Diário", "icon": "event_available", "link": reverse_lazy("admin:backstage_dayclosing_changelist")},
-                ],
-            },
-            {
-                "title": "Clientes",
-                "separator": True,
-                "collapsible": True,
-                "items": [
-                    {"title": "Clientes", "icon": "people", "link": reverse_lazy("admin:guestman_customer_changelist")},
-                    {"title": "Grupos", "icon": "groups", "link": reverse_lazy("admin:guestman_customergroup_changelist")},
-                ],
-            },
-            {
-                "title": "Acesso",
-                "separator": True,
-                "collapsible": True,
-                "items": [
-                    {"title": "Usuarios", "icon": "person", "link": reverse_lazy("admin:auth_user_changelist")},
-                    {"title": "Grupos", "icon": "admin_panel_settings", "link": reverse_lazy("admin:auth_group_changelist")},
-                ],
-            },
-        ],
+        "show_all_applications": False,
+        "command_search": True,
+        "navigation": "shopman.backstage.admin.navigation.get_sidebar_navigation",
     },
 }
 

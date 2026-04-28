@@ -32,6 +32,10 @@ def advance_order(order, *, actor: str):
         raise OrderError("Ação inválida") from exc
 
 
+def cancel_order(order, *, reason: str, actor: str):
+    return operator_orders.cancel_order(order, reason=reason, actor=actor)
+
+
 def mark_paid(order, *, actor: str, operator_username: str):
     return operator_orders.mark_paid(
         order,
