@@ -70,7 +70,8 @@ class KDSExpeditionCardProjection:
     fulfillment_icon: str
     fulfillment_label: str
     is_delivery: bool
-    items_count: int
+    units_count: str
+    line_count: int
     total_display: str
 
 
@@ -246,6 +247,8 @@ def _build_expedition_card(order: Order) -> KDSExpeditionCardProjection:
         or ""
     )
     is_delivery = get_fulfillment_type(order) == "delivery"
+    items = tuple(order.items.all())
+    units_count = sum((Decimal(str(item.qty)) for item in items), Decimal("0"))
 
     return KDSExpeditionCardProjection(
         pk=order.pk,
@@ -255,7 +258,8 @@ def _build_expedition_card(order: Order) -> KDSExpeditionCardProjection:
         fulfillment_icon="local_shipping" if is_delivery else "storefront",
         fulfillment_label="Delivery" if is_delivery else "Retirada",
         is_delivery=is_delivery,
-        items_count=order.items.count(),
+        units_count=_qty(units_count),
+        line_count=len(items),
         total_display=_money(order.total_q),
     )
 
@@ -303,6 +307,12 @@ def _money(value_q: int | None) -> str:
     if not value_q:
         return "R$ 0,00"
     return f"R$ {format_money(int(value_q))}"
+
+
+def _qty(value: Decimal) -> str:
+    if not value:
+        return "0"
+    return format(value.quantize(Decimal("0.001")).normalize(), "f")
 
 
 def _format_datetime(dt) -> str:

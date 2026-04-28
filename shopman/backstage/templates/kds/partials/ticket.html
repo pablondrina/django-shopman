@@ -18,7 +18,7 @@
   {% endif %}
 
   <div class="text-sm text-on-surface/60 dark:text-on-surface-dark/60">
-    {{ t.items_count }} item{{ t.items_count|pluralize:"s" }} &middot; {{ t.total_display }}
+    {{ t.units_count }} un. &middot; {{ t.line_count }} linha{{ t.line_count|pluralize:"s" }} &middot; {{ t.total_display }}
   </div>
 
   {% if not is_readonly %}
@@ -30,7 +30,7 @@
             hx-vals='{"action": "dispatch"}'
             hx-target="closest [data-kds-ticket]"
             hx-swap="outerHTML"
-            hx-confirm="Despachar #{{ t.ref }}?&#10;{{ t.customer_name }} · {{ t.items_count }} item{{ t.items_count|pluralize:'s' }} · {{ t.total_display }}"
+            hx-confirm="Despachar #{{ t.ref }}?&#10;{{ t.customer_name }} · {{ t.units_count }} un. · {{ t.line_count }} linha{{ t.line_count|pluralize:'s' }} · {{ t.total_display }}"
             x-on:htmx:before-request="loading = true"
             x-on:htmx:after-request="loading = false">
       <span class="material-symbols-rounded icon-md" aria-hidden="true" x-show="!loading">local_shipping</span>
@@ -44,7 +44,7 @@
             hx-vals='{"action": "complete"}'
             hx-target="closest [data-kds-ticket]"
             hx-swap="outerHTML"
-            hx-confirm="Entregar #{{ t.ref }}?&#10;{{ t.customer_name }} · {{ t.items_count }} item{{ t.items_count|pluralize:'s' }} · {{ t.total_display }}"
+            hx-confirm="Entregar #{{ t.ref }}?&#10;{{ t.customer_name }} · {{ t.units_count }} un. · {{ t.line_count }} linha{{ t.line_count|pluralize:'s' }} · {{ t.total_display }}"
             x-on:htmx:before-request="loading = true"
             x-on:htmx:after-request="loading = false">
       <span class="material-symbols-rounded icon-md" aria-hidden="true" x-show="!loading">check_circle</span>

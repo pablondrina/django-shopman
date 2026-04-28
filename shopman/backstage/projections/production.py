@@ -651,7 +651,7 @@ def _build_wo_card(wo: WorkOrder) -> WorkOrderCardProjection:
         base = started_qty or wo.quantity
         if base:
             loss_val = max(base - finished_qty, Decimal("0"))
-            loss = str(int(loss_val))
+            loss = _qty(loss_val)
             rate = (finished_qty / base * 100) if base else Decimal("0")
             yield_rate = f"{int(rate)}%"
 
@@ -666,9 +666,9 @@ def _build_wo_card(wo: WorkOrder) -> WorkOrderCardProjection:
         status=wo.status,
         status_label=WO_STATUS_LABELS.get(wo.status, wo.status),
         status_color=WO_STATUS_COLORS.get(wo.status, "bg-muted text-muted-foreground"),
-        planned_qty=str(int(wo.quantity)),
-        started_qty=str(int(started_qty)) if started_qty is not None else "",
-        finished_qty=str(int(finished_qty)) if finished_qty is not None else "",
+        planned_qty=_qty(wo.quantity),
+        started_qty=_qty(started_qty) if started_qty is not None else "",
+        finished_qty=_qty(finished_qty) if finished_qty is not None else "",
         yield_rate=yield_rate,
         loss=loss,
         operator_ref=wo.operator_ref or "",

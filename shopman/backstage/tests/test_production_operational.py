@@ -15,6 +15,7 @@ from shopman.backstage.models import OperatorAlert
 from shopman.backstage.projections.production import (
     build_production_dashboard,
     build_production_kds,
+    build_work_order_card,
     resolve_production_access,
 )
 from shopman.backstage.services.production import MissingMaterial, ProductionStockShortError
@@ -90,6 +91,20 @@ def test_production_kds_projection_returns_started_cards_only(recipe, superuser)
     assert kds.cards[0].current_step == "Mistura"
     assert kds.cards[0].can_finish is True
     assert planned.ref not in [card.ref for card in kds.cards]
+
+
+@pytest.mark.django_db
+def test_work_order_card_preserves_decimal_quantities(recipe):
+    work_order = craft.plan(recipe, Decimal("1.5"), date=date.today(), position_ref="forno")
+    craft.start(work_order, quantity=Decimal("1.25"), position_ref="forno", expected_rev=0)
+    craft.finish(work_order, finished=Decimal("1.125"), actor="test")
+
+    card = build_work_order_card(work_order.ref)
+
+    assert card.planned_qty == "1.5"
+    assert card.started_qty == "1.25"
+    assert card.finished_qty == "1.125"
+    assert card.loss == "0.125"
 
 
 @pytest.mark.django_db

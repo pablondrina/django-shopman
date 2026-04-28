@@ -70,11 +70,13 @@ def test_build_expedition_board_uses_ready_orders(kds_setup):
     assert board.is_expedition is True
     assert board.tickets[0].ref == ready.ref
     assert board.tickets[0].is_delivery is True
+    assert board.tickets[0].units_count == "2"
+    assert board.tickets[0].line_count == 1
 
 
 @pytest.mark.django_db
 def test_kds_views_render_index_display_and_partial(client, kds_setup):
-    prep, _, _, _ = kds_setup
+    prep, expedition, _, _ = kds_setup
     user = User.objects.create_user("kds-view", password="pw", is_staff=True)
     permission = Permission.objects.get(
         content_type=ContentType.objects.get_for_model(KDSTicket),
@@ -85,6 +87,10 @@ def test_kds_views_render_index_display_and_partial(client, kds_setup):
 
     assert client.get(reverse("backstage:kds_index")).status_code == 200
     assert client.get(reverse("backstage:kds_display", args=[prep.ref])).status_code == 200
+    expedition_response = client.get(reverse("backstage:kds_display", args=[expedition.ref]))
+    assert expedition_response.status_code == 200
+    assert b"2 un." in expedition_response.content
+    assert b"1 item" not in expedition_response.content
     partial = client.get(reverse("backstage:kds_ticket_list", args=[prep.ref]))
     assert partial.status_code == 200
     assert b"KDS-PROJ-1" in partial.content
