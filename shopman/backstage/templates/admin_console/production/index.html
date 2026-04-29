@@ -44,7 +44,10 @@
     </div>
 
     {% component "unfold/components/card.html" with title="Filtros" %}
-      <form method="get" novalidate>
+      <form method="get" class="flex flex-col gap-4" novalidate>
+        {% if production_status %}
+          <input type="hidden" name="status__exact" value="{{ production_status }}">
+        {% endif %}
         <div class="grid gap-4 lg:gap-6 md:grid-cols-2 xl:grid-cols-4">
           {% for field in production_filter_form.visible_fields %}
             {% include "unfold/helpers/field.html" with field=field %}
@@ -89,7 +92,7 @@
 
     {% component "unfold/components/card.html" with title="Mapa de producao" %}
       {% component "unfold/components/text.html" with class="mb-4 text-sm text-base-500" %}
-        {{ selected_date|date:"d/m/Y" }} - {{ matrix_rows|length }} SKUs. Quantidades por produto/SKU. Pedidos aparecem como compromisso de itens.
+        {{ selected_date|date:"d/m/Y" }} - {{ production_matrix_table.rows|length }} SKUs filtrados. Quantidades por produto/SKU.
       {% endcomponent %}
 
       {% component "unfold/components/table.html" with table=production_matrix_table card_included=1 striped=1 height=680 %}{% endcomponent %}

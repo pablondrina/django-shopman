@@ -46,6 +46,8 @@ def main() -> int:
 
     components = _names(package_root / "templates/unfold/components")
     helpers = _names(package_root / "templates/unfold/helpers")
+    crispy_layouts = _names(package_root / "templates/unfold_crispy/layout")
+    crispy_templates = _names(package_root / "templates/unfold_crispy")
     widgets = _widget_names(package_root / "widgets.py")
     forms = _form_names(package_root / "forms.py")
 
@@ -75,6 +77,14 @@ def main() -> int:
                 "## Helpers",
                 "",
                 *_bullets(f"`unfold/helpers/{name}`" for name in helpers),
+                "",
+                "## Crispy Form Templates",
+                "",
+                *_bullets(f"`unfold_crispy/{name}`" for name in crispy_templates),
+                "",
+                "## Crispy Layout Templates",
+                "",
+                *_bullets(f"`unfold_crispy/layout/{name}`" for name in crispy_layouts),
                 "",
                 "## Widgets",
                 "",

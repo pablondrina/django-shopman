@@ -69,3 +69,11 @@ def test_unfold_maturity_gate_accepts_authorized_modal_wrapper() -> None:
     violations = check_unfold_canonical.scan_file(modal, strict=True)
 
     assert violations == []
+
+
+def test_unfold_gate_accepts_authorized_compact_row_action_wrapper() -> None:
+    row_action = Path("shopman/backstage/templates/admin_console/unfold/row_action_icon.html")
+
+    violations = check_unfold_canonical.scan_file(row_action, strict=True)
+
+    assert violations == []

@@ -15,6 +15,7 @@ from shopman.orderman.admin import OrderAdmin
 from shopman.orderman.models import Order, OrderItem
 
 from shopman.backstage.admin import navigation
+from shopman.backstage.admin_console.production import STATUS_FILTER_PARAM
 from shopman.backstage.projections.dashboard import build_dashboard
 from shopman.shop.models import Shop
 
@@ -117,6 +118,31 @@ class AdminProductionPilotTests(TestCase):
         self.assertIn("Planejado", table["headers"])
         self.assertEqual(table["rows"][0]["table"]["collapsible"], True)
         self.assertIn("CIABATTA", str(table["rows"][0]["cols"][0]))
+        self.assertContains(response, "status__exact=planned")
+        self.assertContains(response, "material-symbols-outlined md-18 -my-1 leading-7!")
+
+    def test_admin_production_status_tabs_filter_matrix_rows(self) -> None:
+        planned_recipe = self.recipe
+        started_recipe = Recipe.objects.create(
+            ref="pilot-baguette",
+            name="Baguette",
+            output_sku="BAGUETTE",
+            batch_size=10,
+        )
+        craft.plan(planned_recipe, 13, date=date.today())
+        started = craft.plan(started_recipe, 8, date=date.today())
+        craft.start(started, quantity=8, actor="test")
+
+        response = self.client.get(
+            reverse("admin_console_production"),
+            {STATUS_FILTER_PARAM: "started"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        table = response.context["production_matrix_table"]
+        self.assertEqual(len(table["rows"]), 1)
+        self.assertIn("BAGUETTE", str(table["rows"][0]["cols"][0]))
+        self.assertNotIn("CIABATTA", str(table["rows"][0]["cols"][0]))
 
     def test_admin_production_pilot_mutates_through_shared_production_handler(self) -> None:
         response = self.client.post(

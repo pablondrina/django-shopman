@@ -122,6 +122,36 @@ python scripts/snapshot_unfold_reference.py
 - `unfold/helpers/userlinks.html`
 - `unfold/helpers/welcomemsg.html`
 
+## Crispy Form Templates
+
+- `unfold_crispy/display_form.html`
+- `unfold_crispy/errors.html`
+- `unfold_crispy/errors_formset.html`
+- `unfold_crispy/field.html`
+- `unfold_crispy/inputs.html`
+- `unfold_crispy/uni_form.html`
+- `unfold_crispy/whole_uni_form.html`
+- `unfold_crispy/whole_uni_formset.html`
+
+## Crispy Layout Templates
+
+- `unfold_crispy/layout/attrs.html`
+- `unfold_crispy/layout/baseinput.html`
+- `unfold_crispy/layout/button.html`
+- `unfold_crispy/layout/buttonholder.html`
+- `unfold_crispy/layout/checkbox.html`
+- `unfold_crispy/layout/column.html`
+- `unfold_crispy/layout/div.html`
+- `unfold_crispy/layout/field_errors.html`
+- `unfold_crispy/layout/fieldset.html`
+- `unfold_crispy/layout/fieldset_subheader.html`
+- `unfold_crispy/layout/help_text.html`
+- `unfold_crispy/layout/help_text_and_errors.html`
+- `unfold_crispy/layout/hr.html`
+- `unfold_crispy/layout/radio_checkbox_select.html`
+- `unfold_crispy/layout/row.html`
+- `unfold_crispy/layout/table_inline_formset.html`
+
 ## Widgets
 
 - `unfold.widgets.UnfoldAdminAutocompleteModelChoiceFieldWidget`

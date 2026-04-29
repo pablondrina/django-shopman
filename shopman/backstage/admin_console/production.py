@@ -26,6 +26,13 @@ from shopman.backstage.views.production import (
 
 TEMPLATE = "admin_console/production/index.html"
 BULK_RESULT_TEMPLATE = "admin_console/production/partials/bulk_create_result.html"
+STATUS_FILTER_PARAM = "status__exact"
+STATUS_FILTERS = (
+    ("", "Todos"),
+    ("planned", "Planejadas"),
+    ("started", "Em producao"),
+    ("finished", "Concluidas"),
+)
 
 
 class ProductionFilterForm(forms.Form):
@@ -195,12 +202,20 @@ def production_console_view(request: HttpRequest) -> HttpResponse:
 
 def build_production_console_context(request: HttpRequest, board, context: dict) -> dict:
     """Build Unfold component data for the production pilot page."""
+    production_status = _selected_status(request)
+    production_matrix_table = _matrix_table(
+        request,
+        board,
+        context,
+        status=production_status,
+    )
     return {
         "production_filter_form": _filter_form(board),
         "production_quick_finish_form": _quick_finish_form(board),
-        "production_tabs": _tabs(context),
+        "production_tabs": _status_tabs(request),
+        "production_status": production_status,
         "production_kpis": _kpis(board),
-        "production_matrix_table": _matrix_table(request, board, context),
+        "production_matrix_table": production_matrix_table,
         "production_history_table": _history_table(board),
     }
 
@@ -269,30 +284,34 @@ def _bulk_result(
     )
 
 
-def _tabs(context: dict) -> list[dict]:
+def _selected_status(request: HttpRequest) -> str:
+    status = request.GET.get(STATUS_FILTER_PARAM, "")
+    valid_statuses = {value for value, _label in STATUS_FILTERS}
+    return status if status in valid_statuses else ""
+
+
+def _status_tabs(request: HttpRequest) -> list[dict]:
+    selected_status = _selected_status(request)
     return [
         {
-            "title": "Painel",
-            "link": reverse("admin_console_production"),
-            "active": True,
+            "title": title,
+            "link": _status_filter_link(request, status),
+            "active": selected_status == status,
             "has_permission": True,
-        },
-        {
-            "title": "Ordens",
-            "link": context["work_orders_url"],
-            "has_permission": True,
-        },
-        {
-            "title": "Dashboard atual",
-            "link": context["dashboard_url"],
-            "has_permission": True,
-        },
-        {
-            "title": "UI atual",
-            "link": context["legacy_production_url"],
-            "has_permission": True,
-        },
+        }
+        for status, title in STATUS_FILTERS
     ]
+
+
+def _status_filter_link(request: HttpRequest, status: str) -> str:
+    query = request.GET.copy()
+    if status:
+        query[STATUS_FILTER_PARAM] = status
+    else:
+        query.pop(STATUS_FILTER_PARAM, None)
+    encoded = query.urlencode()
+    base_url = reverse("admin_console_production")
+    return f"{base_url}?{encoded}" if encoded else base_url
 
 
 def _kpis(board) -> tuple[dict, ...]:
@@ -325,7 +344,7 @@ def _kpis(board) -> tuple[dict, ...]:
     )
 
 
-def _matrix_table(request: HttpRequest, board, context: dict) -> dict:
+def _matrix_table(request: HttpRequest, board, context: dict, *, status: str = "") -> dict:
     access = board.access
     headers = ["SKU"]
     rows = []
@@ -340,6 +359,8 @@ def _matrix_table(request: HttpRequest, board, context: dict) -> dict:
     for group in board.matrix_groups:
         for group_row in group.rows:
             row = group_row.row
+            if not _row_matches_status(row, status):
+                continue
             usage = group_row.usage
             cols = [
                 _cell(request, "sku", row=row, usage=usage, group=group, context=context),
@@ -380,6 +401,16 @@ def _matrix_table(request: HttpRequest, board, context: dict) -> dict:
         "headers": headers,
         "rows": rows,
     }
+
+
+def _row_matches_status(row, status: str) -> bool:
+    if status == "planned":
+        return bool(row.planned_orders)
+    if status == "started":
+        return bool(row.started_orders)
+    if status == "finished":
+        return bool(row.finished_orders)
+    return True
 
 
 def _details_table(row, *, access) -> dict:

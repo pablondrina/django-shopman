@@ -2,16 +2,14 @@
 
 {% if context.production_access.can_edit_planned and form %}
   <form method="post"
-        class="flex items-center gap-2"
+        class="group/action flex items-center gap-2 leading-none relative"
         @keydown.enter.prevent="$el.requestSubmit()">
     {% csrf_token %}
     {% for hidden in form.hidden_fields %}
       {{ hidden }}
     {% endfor %}
-    {{ form.quantity }}
-    {% component "unfold/components/button.html" with submit=1 title="Salvar planejado" %}
-      {% component "unfold/components/icon.html" with class="text-base" %}check{% endcomponent %}
-    {% endcomponent %}
+    {{ form.quantity.as_widget }}
+    {% include "admin_console/unfold/row_action_icon.html" with submit=1 icon="check" title="Salvar planejado" %}
   </form>
 {% elif row.planned_qty %}
   <span class="font-semibold text-font-important-light dark:text-font-important-dark">{{ row.planned_qty }}</span>
