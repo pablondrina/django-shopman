@@ -2,7 +2,8 @@
 
 {% if row.started_orders %}
   <div class="flex min-w-28 flex-wrap items-center gap-2">
-    {% for item in row.started_orders %}
+    {% for entry in entries %}
+      {% with item=entry.item %}
       {% if context.production_access.can_edit_finished %}
         <div x-data="{ open: false }">
           {% component "unfold/components/button.html" with class="h-8 min-w-8 px-2 py-1" title="Concluir OP" extra_attrs='type="button" x-on:click="open = true"' %}
@@ -19,39 +20,14 @@
                  x-on:keydown.escape.window="open = false"
                  role="dialog"
                  aria-modal="true">
-              <form method="post" class="max-h-[calc(100vh-2rem)] w-full max-w-sm overflow-y-auto rounded-default border border-base-200 bg-white p-6 shadow-lg dark:border-base-800 dark:bg-base-900">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="finish">
-                <input type="hidden" name="wo_id" value="{{ item.pk }}">
-                <input type="hidden" name="target_date" value="{{ context.selected_date|date:'Y-m-d' }}">
-                <input type="hidden" name="position_ref" value="{{ context.selected_position_ref }}">
-                <input type="hidden" name="operator_ref_filter" value="{{ context.selected_operator_ref }}">
-                <input type="hidden" name="base_recipe" value="{{ context.selected_base_recipe }}">
-                <div class="mb-4">
-                  {% component "unfold/components/title.html" with class="text-base" %}
-                    Concluir {{ item.output_sku }}
-                  {% endcomponent %}
-                  {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
-                    Informe o acabado real. A perda sai da diferenca para o iniciado.
-                  {% endcomponent %}
-                </div>
-                <label class="mb-2 block text-sm font-medium text-font-important-light dark:text-font-important-dark">Quantidade concluida</label>
-                <input type="number" step="0.001" min="0.001" name="quantity" value="{{ item.started_qty }}" inputmode="decimal" class="h-[38px] w-full rounded-default border border-base-200 bg-white px-3 tabular-nums dark:border-base-700 dark:bg-base-900" required>
-                <div class="mt-4 flex gap-2">
-                  {% component "unfold/components/button.html" with variant="default" class="flex-1" extra_attrs='type="button" x-on:click="open = false"' %}
-                    Cancelar
-                  {% endcomponent %}
-                  {% component "unfold/components/button.html" with submit=1 class="flex-1" %}
-                    Concluir
-                  {% endcomponent %}
-                </div>
-              </form>
+              {% include "admin_console/production/partials/modal_form.html" with form=entry.form modal_title=entry.modal_title modal_description=entry.modal_description submit_label=entry.submit_label %}
             </div>
           </template>
         </div>
       {% else %}
         <span class="font-semibold tabular-nums text-font-important-light dark:text-font-important-dark">{{ item.started_qty }}</span>
       {% endif %}
+      {% endwith %}
     {% endfor %}
   </div>
 {% else %}

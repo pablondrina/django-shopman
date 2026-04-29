@@ -3,6 +3,13 @@
 
 {% block title %}Producao | {{ site_title|default:_('Django site admin') }}{% endblock %}
 
+{% block extrahead %}
+  {{ block.super }}
+  <script src="{% url 'admin:jsi18n' %}"></script>
+  {{ production_filter_form.media }}
+  {{ production_quick_finish_form.media }}
+{% endblock %}
+
 {% block content %}
 {% component "unfold/components/container.html" %}
   <div class="flex flex-col gap-4">
@@ -38,41 +45,17 @@
     </div>
 
     {% component "unfold/components/card.html" with title="Filtros" %}
-      <form method="get" class="grid gap-4 lg:grid-cols-5">
-        <div>
-          <label class="block font-medium mb-2 text-font-important-light text-sm dark:text-font-important-dark">Data</label>
-          <input type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}"
-                 class="border border-base-200 bg-white h-[38px] px-3 rounded-default w-full dark:bg-base-900 dark:border-base-700">
-        </div>
-        <div>
-          <label class="block font-medium mb-2 text-font-important-light text-sm dark:text-font-important-dark">Posto</label>
-          <select name="position_ref" class="border border-base-200 bg-white h-[38px] px-3 rounded-default w-full dark:bg-base-900 dark:border-base-700">
-            <option value="">Todos</option>
-            {% for position in positions %}
-              <option value="{{ position.ref }}" {% if selected_position_ref == position.ref %}selected{% endif %}>{{ position.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div>
-          <label class="block font-medium mb-2 text-font-important-light text-sm dark:text-font-important-dark">Responsavel</label>
-          <input type="text" name="operator_ref" value="{{ selected_operator_ref }}"
-                 class="border border-base-200 bg-white h-[38px] px-3 rounded-default w-full dark:bg-base-900 dark:border-base-700"
-                 placeholder="Nome ou usuario">
-        </div>
-        <div>
-          <label class="block font-medium mb-2 text-font-important-light text-sm dark:text-font-important-dark">Receita-base</label>
-          <select name="base_recipe" class="border border-base-200 bg-white h-[38px] px-3 rounded-default w-full dark:bg-base-900 dark:border-base-700">
-            <option value="">Todas</option>
-            {% for group in base_recipes %}
-              <option value="{{ group.output_sku }}" {% if selected_base_recipe == group.output_sku %}selected{% endif %}>{{ group.name }} ({{ group.count }})</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="flex items-end">
-          {% component "unfold/components/button.html" with submit=1 class="w-full" %}
-            <span class="material-symbols-outlined text-base">tune</span>
-            Filtrar
-          {% endcomponent %}
+      <form method="get" novalidate>
+        <div class="grid gap-x-4 lg:grid-cols-5">
+          {% for field in production_filter_form.visible_fields %}
+            {% include "unfold/helpers/field.html" with field=field %}
+          {% endfor %}
+          <div class="flex items-end mb-5">
+            {% component "unfold/components/button.html" with submit=1 class="w-full" %}
+              <span class="material-symbols-outlined text-base">tune</span>
+              Filtrar
+            {% endcomponent %}
+          </div>
         </div>
       </form>
     {% endcomponent %}
@@ -119,53 +102,55 @@
     {% endcomponent %}
 
     {% if production_access.can_edit_finished %}
-      {% component "unfold/components/card.html" with title="Entrada direta" %}
-        <form method="post" class="grid gap-4 md:grid-cols-4">
+      <details class="border border-base-200 bg-white rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+        <summary class="cursor-pointer list-none px-6 py-4">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h2 class="font-semibold text-[15px] text-important">Entrada direta</h2>
+              {% component "unfold/components/text.html" with class="mt-1 text-sm text-base-500" %}
+                Atalho para registrar algo que ja terminou sem passar pelas etapas.
+              {% endcomponent %}
+            </div>
+            <span class="material-symbols-outlined text-base-400">expand_more</span>
+          </div>
+        </summary>
+        <form method="post" novalidate class="border-t border-base-200 px-6 pt-5 pb-6 dark:border-base-800">
           {% csrf_token %}
-          <input type="hidden" name="action" value="quick_finish">
-          <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}">
-          <input type="hidden" name="position_ref" value="{{ selected_position_ref }}">
-          <input type="hidden" name="operator_ref_filter" value="{{ selected_operator_ref }}">
-          <input type="hidden" name="base_recipe" value="{{ selected_base_recipe }}">
-          <div class="md:col-span-2">
-            <label class="block font-medium mb-2 text-font-important-light text-sm dark:text-font-important-dark">Receita</label>
-            <select name="recipe" class="border border-base-200 bg-white h-[38px] px-3 rounded-default w-full dark:bg-base-900 dark:border-base-700" required>
-              {% for recipe in recipes %}
-                <option value="{{ recipe.pk }}">{{ recipe.ref }} - {{ recipe.name }}</option>
-              {% empty %}
-                <option value="">Nenhuma receita ativa</option>
-              {% endfor %}
-            </select>
+          {% for hidden in production_quick_finish_form.hidden_fields %}
+            {{ hidden }}
+          {% endfor %}
+          <div class="grid gap-x-4 md:grid-cols-3">
+            {% for field in production_quick_finish_form.visible_fields %}
+              {% include "unfold/helpers/field.html" with field=field %}
+            {% endfor %}
           </div>
-          <div>
-            <label class="block font-medium mb-2 text-font-important-light text-sm dark:text-font-important-dark">Quantidade concluida</label>
-            <input type="number" step="0.001" min="0.001" name="quantity" inputmode="decimal"
-                   class="border border-base-200 bg-white h-[38px] px-3 rounded-default tabular-nums w-full dark:bg-base-900 dark:border-base-700"
-                   required>
-          </div>
-          <div>
-            <label class="block font-medium mb-2 text-font-important-light text-sm dark:text-font-important-dark">Destino</label>
-            <select name="position" class="border border-base-200 bg-white h-[38px] px-3 rounded-default w-full dark:bg-base-900 dark:border-base-700">
-              <option value="">Posicao padrao</option>
-              {% for position in positions %}
-                <option value="{{ position.pk }}" {% if default_position_id == position.pk %}selected{% endif %}>{{ position.name }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="md:col-span-4 flex justify-end">
+          <div class="flex justify-end">
             {% component "unfold/components/button.html" with submit=1 class="w-full sm:w-auto" %}
               <span class="material-symbols-outlined text-base">add_circle</span>
               Registrar entrada direta
             {% endcomponent %}
           </div>
         </form>
-      {% endcomponent %}
+      </details>
     {% endif %}
 
     {% if production_access.can_manage_all or today_wos %}
-      {% component "unfold/components/card.html" with title="Historico da data" %}
-        {% component "unfold/components/table.html" with table=production_history_table card_included=1 striped=1 height=360 %}{% endcomponent %}
-      {% endcomponent %}
+      <details class="border border-base-200 bg-white rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
+        <summary class="cursor-pointer list-none px-6 py-4">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h2 class="font-semibold text-[15px] text-important">Historico da data</h2>
+              {% component "unfold/components/text.html" with class="mt-1 text-sm text-base-500" %}
+                Consulte as OPs do dia quando precisar auditar a jornada.
+              {% endcomponent %}
+            </div>
+            <span class="material-symbols-outlined text-base-400">expand_more</span>
+          </div>
+        </summary>
+        <div class="border-t border-base-200 px-6 pt-6 pb-6 dark:border-base-800">
+          {% component "unfold/components/table.html" with table=production_history_table card_included=1 striped=1 height=360 %}{% endcomponent %}
+        </div>
+      </details>
     {% endif %}
   </div>
 {% endcomponent %}

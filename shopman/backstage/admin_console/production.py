@@ -4,12 +4,19 @@ from __future__ import annotations
 
 import json
 
+from django import forms
 from django.contrib import admin, messages
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden, HttpResponseRedirect
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from unfold.widgets import (
+    UnfoldAdminDecimalFieldWidget,
+    UnfoldAdminSelectWidget,
+    UnfoldAdminSingleDateWidget,
+    UnfoldAdminTextInputWidget,
+)
 
 from shopman.backstage.projections.production import resolve_production_access
 from shopman.backstage.services import production as production_service
@@ -20,6 +27,111 @@ from shopman.backstage.views.production import (
 
 TEMPLATE = "admin_console/production/index.html"
 BULK_RESULT_TEMPLATE = "admin_console/production/partials/bulk_create_result.html"
+
+
+class ProductionFilterForm(forms.Form):
+    date = forms.DateField(
+        label="Data",
+        required=False,
+        widget=UnfoldAdminSingleDateWidget(attrs={"class": "max-w-none"}),
+    )
+    position_ref = forms.ChoiceField(
+        label="Posto",
+        required=False,
+        widget=UnfoldAdminSelectWidget(attrs={"class": "max-w-none"}),
+    )
+    operator_ref = forms.CharField(
+        label="Responsavel",
+        required=False,
+        widget=UnfoldAdminTextInputWidget(
+            attrs={"class": "max-w-none", "placeholder": "Nome ou usuario"}
+        ),
+    )
+    base_recipe = forms.ChoiceField(
+        label="Receita-base",
+        required=False,
+        widget=UnfoldAdminSelectWidget(attrs={"class": "max-w-none"}),
+    )
+
+    def __init__(self, *args, position_choices=(), base_recipe_choices=(), **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["position_ref"].choices = position_choices
+        self.fields["base_recipe"].choices = base_recipe_choices
+
+
+class ProductionStartForm(forms.Form):
+    action = forms.CharField(widget=forms.HiddenInput(), initial="start")
+    wo_id = forms.CharField(widget=forms.HiddenInput())
+    target_date = forms.CharField(widget=forms.HiddenInput())
+    position_ref = forms.CharField(widget=forms.HiddenInput(), required=False)
+    operator_ref_filter = forms.CharField(widget=forms.HiddenInput(), required=False)
+    base_recipe = forms.CharField(widget=forms.HiddenInput(), required=False)
+    quantity = forms.DecimalField(
+        label="Quantidade iniciada",
+        min_value=0,
+        widget=UnfoldAdminDecimalFieldWidget(
+            attrs={"step": "0.001", "min": "0.001", "inputmode": "decimal"}
+        ),
+    )
+    position = forms.ChoiceField(
+        label="Destino",
+        required=False,
+        widget=UnfoldAdminSelectWidget(),
+    )
+    operator_ref = forms.CharField(
+        label="Responsavel",
+        required=False,
+        widget=UnfoldAdminTextInputWidget(attrs={"placeholder": "Opcional"}),
+    )
+
+    def __init__(self, *args, position_choices=(), **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["position"].choices = position_choices
+
+
+class ProductionFinishForm(forms.Form):
+    action = forms.CharField(widget=forms.HiddenInput(), initial="finish")
+    wo_id = forms.CharField(widget=forms.HiddenInput())
+    target_date = forms.CharField(widget=forms.HiddenInput())
+    position_ref = forms.CharField(widget=forms.HiddenInput(), required=False)
+    operator_ref_filter = forms.CharField(widget=forms.HiddenInput(), required=False)
+    base_recipe = forms.CharField(widget=forms.HiddenInput(), required=False)
+    quantity = forms.DecimalField(
+        label="Quantidade concluida",
+        min_value=0,
+        widget=UnfoldAdminDecimalFieldWidget(
+            attrs={"step": "0.001", "min": "0.001", "inputmode": "decimal"}
+        ),
+    )
+
+
+class ProductionQuickFinishForm(forms.Form):
+    action = forms.CharField(widget=forms.HiddenInput(), initial="quick_finish")
+    target_date = forms.CharField(widget=forms.HiddenInput())
+    position_ref = forms.CharField(widget=forms.HiddenInput(), required=False)
+    operator_ref_filter = forms.CharField(widget=forms.HiddenInput(), required=False)
+    base_recipe = forms.CharField(widget=forms.HiddenInput(), required=False)
+    recipe = forms.ChoiceField(
+        label="Receita",
+        widget=UnfoldAdminSelectWidget(attrs={"class": "max-w-none"}),
+    )
+    quantity = forms.DecimalField(
+        label="Quantidade concluida",
+        min_value=0,
+        widget=UnfoldAdminDecimalFieldWidget(
+            attrs={"class": "max-w-none", "step": "0.001", "min": "0.001", "inputmode": "decimal"}
+        ),
+    )
+    position = forms.ChoiceField(
+        label="Destino",
+        required=False,
+        widget=UnfoldAdminSelectWidget(attrs={"class": "max-w-none"}),
+    )
+
+    def __init__(self, *args, recipe_choices=(), position_choices=(), **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["recipe"].choices = recipe_choices
+        self.fields["position"].choices = position_choices
 
 
 def production_console_view(request: HttpRequest) -> HttpResponse:
@@ -61,6 +173,8 @@ def production_console_view(request: HttpRequest) -> HttpResponse:
 def build_production_console_context(request: HttpRequest, board, context: dict) -> dict:
     """Build Unfold component data for the production pilot page."""
     return {
+        "production_filter_form": _filter_form(board),
+        "production_quick_finish_form": _quick_finish_form(board),
         "production_navigation": _navigation(context),
         "production_kpis": _kpis(board),
         "production_matrix_table": _matrix_table(request, board, context),
@@ -211,12 +325,24 @@ def _matrix_table(request: HttpRequest, board, context: dict) -> dict:
                 cols.append(_cell(request, "planned", row=row, context=context))
             if access.can_view_started:
                 cols.extend([
-                    _cell(request, "start", row=row, context=context),
+                    _cell(
+                        request,
+                        "start",
+                        row=row,
+                        context=context,
+                        entries=_start_entries(row, board),
+                    ),
                     _cell(request, "started", row=row),
                 ])
             if access.can_view_finished:
                 cols.extend([
-                    _cell(request, "finish", row=row, context=context),
+                    _cell(
+                        request,
+                        "finish",
+                        row=row,
+                        context=context,
+                        entries=_finish_entries(row, board),
+                    ),
                     row.finished_qty or "0",
                     row.loss_qty or "0",
                 ])
@@ -333,6 +459,89 @@ def _history_table(board) -> dict:
         "headers": headers,
         "rows": rows,
     }
+
+
+def _filter_form(board) -> ProductionFilterForm:
+    return ProductionFilterForm(
+        initial={
+            "date": board.selected_date,
+            "position_ref": board.selected_position_ref,
+            "operator_ref": board.selected_operator_ref,
+            "base_recipe": board.selected_base_recipe,
+        },
+        position_choices=[("", "Todos"), *[(position.ref, position.name) for position in board.positions]],
+        base_recipe_choices=[
+            ("", "Todas"),
+            *[(recipe.output_sku, f"{recipe.name} ({recipe.count})") for recipe in board.base_recipes],
+        ],
+    )
+
+
+def _quick_finish_form(board) -> ProductionQuickFinishForm:
+    return ProductionQuickFinishForm(
+        initial={
+            "target_date": board.selected_date,
+            "position_ref": board.selected_position_ref,
+            "operator_ref_filter": board.selected_operator_ref,
+            "base_recipe": board.selected_base_recipe,
+            "position": board.default_position_pk or "",
+        },
+        recipe_choices=[(recipe.pk, f"{recipe.ref} - {recipe.name}") for recipe in board.recipes],
+        position_choices=_position_pk_choices(board),
+    )
+
+
+def _start_entries(row, board) -> list[dict]:
+    return [
+        {
+            "item": item,
+            "modal_title": f"Iniciar {item.output_sku}",
+            "modal_description": "Informe a quantidade que entrou fisicamente em producao.",
+            "submit_label": "Iniciar",
+            "form": ProductionStartForm(
+                initial={
+                    "action": "start",
+                    "wo_id": item.pk,
+                    "target_date": board.selected_date,
+                    "position_ref": board.selected_position_ref,
+                    "operator_ref_filter": board.selected_operator_ref,
+                    "base_recipe": board.selected_base_recipe,
+                    "quantity": item.planned_qty,
+                    "position": board.default_position_pk or "",
+                    "operator_ref": item.operator_ref or board.selected_operator_ref,
+                },
+                position_choices=_position_pk_choices(board),
+            ),
+        }
+        for item in row.planned_orders
+    ]
+
+
+def _finish_entries(row, board) -> list[dict]:
+    return [
+        {
+            "item": item,
+            "modal_title": f"Concluir {item.output_sku}",
+            "modal_description": "Informe o acabado real. A perda sai da diferenca para o iniciado.",
+            "submit_label": "Concluir",
+            "form": ProductionFinishForm(
+                initial={
+                    "action": "finish",
+                    "wo_id": item.pk,
+                    "target_date": board.selected_date,
+                    "position_ref": board.selected_position_ref,
+                    "operator_ref_filter": board.selected_operator_ref,
+                    "base_recipe": board.selected_base_recipe,
+                    "quantity": item.started_qty,
+                }
+            ),
+        }
+        for item in row.started_orders
+    ]
+
+
+def _position_pk_choices(board) -> list[tuple[str | int, str]]:
+    return [("", "Padrao"), *[(position.pk, position.name) for position in board.positions]]
 
 
 def _commitments(item):
