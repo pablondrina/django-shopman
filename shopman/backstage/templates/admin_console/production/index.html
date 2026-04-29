@@ -1,0 +1,360 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Producao | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+  <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+    <div>
+      <div class="flex flex-wrap items-center gap-2">
+        <h1 class="text-2xl font-semibold text-font-important-light dark:text-font-important-dark">Producao</h1>
+        <span class="border border-primary-200 bg-primary-50 px-2 py-1 rounded-default text-primary-700 text-xs font-semibold dark:bg-primary-900/20 dark:border-primary-700 dark:text-primary-300">
+          Piloto Admin/Unfold
+        </span>
+      </div>
+      <p class="mt-1 text-sm text-base-500">
+        Board operacional dentro do shell Admin. A tela antiga continua disponivel para comparacao.
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <a href="{{ legacy_production_url }}"
+         class="border border-base-200 flex flex-row font-medium gap-2 items-center h-[38px] justify-center px-3 py-2 rounded-default hover:text-primary-600 dark:border-base-700 dark:hover:text-primary-500">
+        <span class="material-symbols-outlined text-base">open_in_new</span>
+        UI atual
+      </a>
+      <a href="{{ work_orders_url }}"
+         class="border border-base-200 flex flex-row font-medium gap-2 items-center h-[38px] justify-center px-3 py-2 rounded-default hover:text-primary-600 dark:border-base-700 dark:hover:text-primary-500">
+        <span class="material-symbols-outlined text-base">assignment</span>
+        Ordens
+      </a>
+      <a href="{{ dashboard_url }}"
+         class="border border-base-200 flex flex-row font-medium gap-2 items-center h-[38px] justify-center px-3 py-2 rounded-default hover:text-primary-600 dark:border-base-700 dark:hover:text-primary-500">
+        <span class="material-symbols-outlined text-base">monitoring</span>
+        Dashboard atual
+      </a>
+    </div>
+  </div>
+
+  <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+    <div class="border border-base-200 bg-white p-4 rounded-default dark:bg-base-900 dark:border-base-800">
+      <div class="text-xs uppercase tracking-wide text-base-500">Planejado</div>
+      <div class="mt-1 flex items-end gap-2">
+        <span class="text-2xl font-semibold text-font-important-light dark:text-font-important-dark">{{ craft_summary.planned_qty }}</span>
+        <span class="pb-1 text-xs text-base-500">{{ craft_summary.planned }} OPs</span>
+      </div>
+    </div>
+    <div class="border border-base-200 bg-white p-4 rounded-default dark:bg-base-900 dark:border-base-800">
+      <div class="text-xs uppercase tracking-wide text-base-500">Em producao</div>
+      <div class="mt-1 flex items-end gap-2">
+        <span class="text-2xl font-semibold text-font-important-light dark:text-font-important-dark">{{ craft_summary.started_qty }}</span>
+        <span class="pb-1 text-xs text-base-500">{{ craft_summary.started }} OPs</span>
+      </div>
+    </div>
+    <div class="border border-base-200 bg-white p-4 rounded-default dark:bg-base-900 dark:border-base-800">
+      <div class="text-xs uppercase tracking-wide text-base-500">Concluido</div>
+      <div class="mt-1 flex items-end gap-2">
+        <span class="text-2xl font-semibold text-font-important-light dark:text-font-important-dark">{{ craft_summary.finished_qty }}</span>
+        <span class="pb-1 text-xs text-base-500">{{ craft_summary.finished }} OPs</span>
+      </div>
+    </div>
+    <div class="border border-base-200 bg-white p-4 rounded-default dark:bg-base-900 dark:border-base-800">
+      <div class="text-xs uppercase tracking-wide text-base-500">Perda</div>
+      <div class="mt-1 flex items-end gap-2">
+        <span class="text-2xl font-semibold text-font-important-light dark:text-font-important-dark">{{ craft_summary.loss_qty }}</span>
+        <span class="pb-1 text-xs text-base-500">{{ craft_summary.total }} OPs no dia</span>
+      </div>
+    </div>
+  </div>
+
+  <form method="get" class="border border-base-200 bg-white grid gap-3 p-4 rounded-default dark:bg-base-900 dark:border-base-800 lg:grid-cols-5">
+    <div>
+      <label class="block font-medium mb-2 text-font-important-light text-sm dark:text-font-important-dark">Data</label>
+      <input type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}"
+             class="border border-base-200 bg-white h-[38px] px-3 rounded-default w-full dark:bg-base-900 dark:border-base-700">
+    </div>
+    <div>
+      <label class="block font-medium mb-2 text-font-important-light text-sm dark:text-font-important-dark">Posto</label>
+      <select name="position_ref" class="border border-base-200 bg-white h-[38px] px-3 rounded-default w-full dark:bg-base-900 dark:border-base-700">
+        <option value="">Todos</option>
+        {% for position in positions %}
+          <option value="{{ position.ref }}" {% if selected_position_ref == position.ref %}selected{% endif %}>{{ position.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block font-medium mb-2 text-font-important-light text-sm dark:text-font-important-dark">Responsavel</label>
+      <input type="text" name="operator_ref" value="{{ selected_operator_ref }}"
+             class="border border-base-200 bg-white h-[38px] px-3 rounded-default w-full dark:bg-base-900 dark:border-base-700"
+             placeholder="Nome ou usuario">
+    </div>
+    <div>
+      <label class="block font-medium mb-2 text-font-important-light text-sm dark:text-font-important-dark">Receita-base</label>
+      <select name="base_recipe" class="border border-base-200 bg-white h-[38px] px-3 rounded-default w-full dark:bg-base-900 dark:border-base-700">
+        <option value="">Todas</option>
+        {% for group in base_recipes %}
+          <option value="{{ group.output_sku }}" {% if selected_base_recipe == group.output_sku %}selected{% endif %}>{{ group.name }} ({{ group.count }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="flex items-end">
+      <button type="submit"
+              class="bg-primary-600 border border-transparent flex font-medium gap-2 h-[38px] items-center justify-center px-3 py-2 rounded-default text-white w-full">
+        <span class="material-symbols-outlined text-base">tune</span>
+        Filtrar
+      </button>
+    </div>
+  </form>
+
+  <div id="production-action-result"></div>
+
+  {% if suggestions and production_access.can_edit_planned %}
+    <section class="border border-base-200 bg-white p-4 rounded-default dark:bg-base-900 dark:border-base-800">
+      <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 class="font-semibold text-font-important-light dark:text-font-important-dark">Sugestoes de producao</h2>
+          <p class="text-sm text-base-500">Gera OPs planejadas com a demanda calculada para o dia.</p>
+        </div>
+        <form hx-post="{{ bulk_create_url }}"
+              hx-target="#bulk-create-result"
+              hx-swap="innerHTML"
+              class="flex items-center">
+          {% csrf_token %}
+          <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+          {% for suggestion in suggestions %}
+            <input type="hidden" name="recipe_ref" value="{{ suggestion.recipe_ref }}">
+            <input type="hidden" name="quantity" value="{{ suggestion.quantity }}">
+          {% endfor %}
+          <button type="submit"
+                  class="bg-primary-600 border border-transparent flex font-medium gap-2 h-[38px] items-center justify-center px-3 py-2 rounded-default text-white">
+            <span class="material-symbols-outlined text-base">auto_awesome</span>
+            Gerar sugestoes
+          </button>
+        </form>
+      </div>
+      <div id="bulk-create-result" class="mt-3"></div>
+    </section>
+  {% endif %}
+
+  <section class="border border-base-200 bg-white rounded-default overflow-hidden dark:bg-base-900 dark:border-base-800" x-data="{ openRow: '' }">
+    <div class="border-b border-base-200 flex flex-col gap-2 p-4 dark:border-base-800 md:flex-row md:items-center md:justify-between">
+      <div>
+        <h2 class="font-semibold text-font-important-light dark:text-font-important-dark">Mapa de producao</h2>
+        <p class="text-sm text-base-500">{{ selected_date|date:"d/m/Y" }} - {{ matrix_rows|length }} SKUs</p>
+      </div>
+      <div class="text-sm text-base-500">
+        Quantidades por produto/SKU. Pedidos aparecem apenas como compromisso de itens.
+      </div>
+    </div>
+
+    {% if matrix_groups %}
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[980px] text-left text-sm">
+          <thead class="bg-base-50 text-xs uppercase text-base-500 dark:bg-base-800">
+            <tr>
+              <th class="px-3 py-2 w-64">SKU</th>
+              <th class="px-3 py-2">Planejado</th>
+              <th class="px-3 py-2">Iniciar</th>
+              <th class="px-3 py-2">Em producao</th>
+              <th class="px-3 py-2">Concluir</th>
+              <th class="px-3 py-2">Concluido</th>
+              <th class="px-3 py-2">Perda</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-base-200 dark:divide-base-800">
+            {% for group in matrix_groups %}
+              <tr class="bg-base-50 dark:bg-base-800">
+                <td colspan="7" class="px-3 py-2 text-xs font-semibold uppercase text-base-500">
+                  <span class="material-symbols-outlined text-sm align-[-2px]">grain</span>
+                  {{ group.name }}
+                  <span class="ml-2 rounded-default bg-white px-2 py-0.5 dark:bg-base-900">{{ group.rows|length }}</span>
+                </td>
+              </tr>
+              {% for group_row in group.rows %}
+                {% with row=group_row.row usage=group_row.usage %}
+                  <tr class="align-top hover:bg-base-50 dark:hover:bg-base-800/60">
+                    <th class="px-3 py-3">
+                      <div class="flex items-start gap-2">
+                        <button type="button"
+                                class="border border-base-200 flex h-7 items-center justify-center rounded-default w-7 dark:border-base-700"
+                                @click="openRow = openRow === '{{ row.recipe_pk }}-{{ usage.output_sku|default:'direct' }}' ? '' : '{{ row.recipe_pk }}-{{ usage.output_sku|default:'direct' }}'"
+                                title="Detalhes"
+                                aria-label="Detalhes de {{ row.output_sku }}">
+                          <span class="material-symbols-outlined text-base" x-text="openRow === '{{ row.recipe_pk }}-{{ usage.output_sku|default:'direct' }}' ? 'expand_less' : 'expand_more'">expand_more</span>
+                        </button>
+                        <span>
+                          <span class="block font-semibold text-font-important-light dark:text-font-important-dark">{{ row.output_sku }}</span>
+                          <span class="block font-normal text-xs text-base-500">{{ row.recipe_name }}</span>
+                          {% if usage %}
+                            <span class="mt-1 inline-flex rounded-default bg-base-100 px-2 py-0.5 text-xs font-normal text-base-600 dark:bg-base-800 dark:text-base-300">
+                              usa {{ usage.quantity_display }} de {{ usage.name }}
+                            </span>
+                          {% endif %}
+                        </span>
+                      </div>
+                    </th>
+                    <td class="px-3 py-3">
+                      {% if production_access.can_edit_planned and row.recipe_pk %}
+                        <form method="post" class="flex items-center gap-2">
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="set_planned">
+                          <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}">
+                          <input type="hidden" name="position_ref" value="{{ selected_position_ref }}">
+                          <input type="hidden" name="operator_ref_filter" value="{{ selected_operator_ref }}">
+                          <input type="hidden" name="base_recipe" value="{{ selected_base_recipe }}">
+                          <input type="hidden" name="recipe" value="{{ row.recipe_pk }}">
+                          <input type="number" step="0.001" min="0" max="9999" name="quantity" value="{{ row.planned_qty }}" inputmode="decimal"
+                                 class="border border-base-200 bg-white h-8 px-2 rounded-default tabular-nums text-right w-24 dark:bg-base-900 dark:border-base-700"
+                                 aria-label="Planejado {{ row.output_sku }}" required>
+                          <button type="submit" class="bg-primary-600 flex h-8 items-center justify-center rounded-default text-white w-8" title="Salvar planejado">
+                            <span class="material-symbols-outlined text-base">check</span>
+                          </button>
+                        </form>
+                      {% else %}
+                        <span class="font-semibold tabular-nums">{{ row.planned_qty|default:"0" }}</span>
+                      {% endif %}
+                    </td>
+                    <td class="px-3 py-3">
+                      <div class="space-y-2">
+                        {% for item in row.planned_orders %}
+                          {% if production_access.can_edit_started %}
+                            <details class="group">
+                              <summary class="cursor-pointer list-none">
+                                <span class="border border-base-200 inline-flex h-8 items-center gap-1 px-2 rounded-default text-xs dark:border-base-700">
+                                  <span class="material-symbols-outlined text-base">play_arrow</span>
+                                  {{ item.ref }}
+                                  {% if item.committed_qty %}
+                                    <span class="rounded-default bg-amber-50 px-1.5 py-0.5 text-amber-700 dark:bg-amber-900/20 dark:text-amber-200">{{ item.committed_qty }} comp.</span>
+                                  {% endif %}
+                                </span>
+                              </summary>
+                              <form method="post" class="mt-2 grid gap-2 rounded-default border border-base-200 p-2 dark:border-base-700">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="start">
+                                <input type="hidden" name="wo_id" value="{{ item.pk }}">
+                                <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}">
+                                <input type="hidden" name="position_ref" value="{{ selected_position_ref }}">
+                                <input type="hidden" name="operator_ref_filter" value="{{ selected_operator_ref }}">
+                                <input type="hidden" name="base_recipe" value="{{ selected_base_recipe }}">
+                                <input type="number" step="0.001" min="0.001" name="quantity" value="{{ item.planned_qty }}" inputmode="decimal"
+                                       class="border border-base-200 bg-white h-8 px-2 rounded-default tabular-nums text-right dark:bg-base-900 dark:border-base-700"
+                                       aria-label="Quantidade iniciada {{ item.ref }}" required>
+                                <select name="position" class="border border-base-200 bg-white h-8 px-2 rounded-default dark:bg-base-900 dark:border-base-700" aria-label="Destino">
+                                  <option value="">Destino padrao</option>
+                                  {% for position in positions %}
+                                    <option value="{{ position.pk }}" {% if default_position_id == position.pk %}selected{% endif %}>{{ position.name }}</option>
+                                  {% endfor %}
+                                </select>
+                                <input type="text" name="operator_ref" value="{{ item.operator_ref|default:selected_operator_ref }}"
+                                       class="border border-base-200 bg-white h-8 px-2 rounded-default dark:bg-base-900 dark:border-base-700"
+                                       placeholder="Responsavel">
+                                <button type="submit" class="bg-primary-600 h-8 rounded-default text-white">Iniciar</button>
+                              </form>
+                            </details>
+                          {% endif %}
+                        {% empty %}
+                          <span class="text-base-400">-</span>
+                        {% endfor %}
+                      </div>
+                    </td>
+                    <td class="px-3 py-3">
+                      <span class="font-semibold tabular-nums">{{ row.started_qty|default:"0" }}</span>
+                      {% if row.started_orders %}
+                        <div class="mt-1 space-y-1 text-xs text-base-500">
+                          {% for item in row.started_orders %}
+                            <div>{{ item.ref }}{% if item.operator_ref %} - {{ item.operator_ref }}{% endif %}</div>
+                          {% endfor %}
+                        </div>
+                      {% endif %}
+                    </td>
+                    <td class="px-3 py-3">
+                      <div class="space-y-2">
+                        {% for item in row.started_orders %}
+                          {% if production_access.can_edit_finished %}
+                            <form method="post" class="flex items-center gap-2">
+                              {% csrf_token %}
+                              <input type="hidden" name="action" value="finish">
+                              <input type="hidden" name="wo_id" value="{{ item.pk }}">
+                              <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}">
+                              <input type="hidden" name="position_ref" value="{{ selected_position_ref }}">
+                              <input type="hidden" name="operator_ref_filter" value="{{ selected_operator_ref }}">
+                              <input type="hidden" name="base_recipe" value="{{ selected_base_recipe }}">
+                              <input type="number" step="0.001" min="0" name="quantity" value="{{ item.started_qty }}" inputmode="decimal"
+                                     class="border border-base-200 bg-white h-8 px-2 rounded-default tabular-nums text-right w-20 dark:bg-base-900 dark:border-base-700"
+                                     aria-label="Quantidade concluida {{ item.ref }}" required>
+                              <button type="submit" class="bg-green-600 flex h-8 items-center justify-center rounded-default text-white w-8" title="Concluir {{ item.ref }}">
+                                <span class="material-symbols-outlined text-base">done</span>
+                              </button>
+                            </form>
+                          {% endif %}
+                        {% empty %}
+                          <span class="text-base-400">-</span>
+                        {% endfor %}
+                      </div>
+                    </td>
+                    <td class="px-3 py-3 font-semibold tabular-nums">{{ row.finished_qty|default:"0" }}</td>
+                    <td class="px-3 py-3 tabular-nums">{{ row.loss_qty|default:"0" }}</td>
+                  </tr>
+                  <tr x-show="openRow === '{{ row.recipe_pk }}-{{ usage.output_sku|default:'direct' }}'" x-cloak>
+                    <td colspan="7" class="bg-base-50 px-3 py-3 dark:bg-base-800/50">
+                      <div class="grid gap-3 lg:grid-cols-3">
+                        <div class="border border-base-200 bg-white p-3 rounded-default dark:bg-base-900 dark:border-base-700">
+                          <div class="font-semibold text-font-important-light dark:text-font-important-dark">Compromissos</div>
+                          <div class="mt-2 space-y-2 text-sm">
+                            {% for item in row.planned_orders %}
+                              {% if item.order_commitments %}
+                                <div>
+                                  <div class="font-medium">{{ item.ref }} - {{ item.committed_qty }} un.</div>
+                                  <div class="mt-1 flex flex-wrap gap-1">
+                                    {% for commitment in item.order_commitments %}
+                                      <span class="rounded-default bg-base-100 px-2 py-0.5 text-xs dark:bg-base-800">
+                                        #{{ commitment.ref }}: {{ commitment.qty_required }}
+                                      </span>
+                                    {% endfor %}
+                                  </div>
+                                </div>
+                              {% endif %}
+                            {% empty %}
+                              <span class="text-base-500">Sem OP planejada.</span>
+                            {% endfor %}
+                          </div>
+                        </div>
+                        <div class="border border-base-200 bg-white p-3 rounded-default dark:bg-base-900 dark:border-base-700">
+                          <div class="font-semibold text-font-important-light dark:text-font-important-dark">Ordens</div>
+                          <div class="mt-2 space-y-1 text-sm">
+                            {% for item in row.planned_orders %}
+                              <div>{{ item.ref }} - planejada {{ item.planned_qty }}</div>
+                            {% endfor %}
+                            {% for item in row.started_orders %}
+                              <div>{{ item.ref }} - iniciada {{ item.started_qty }}</div>
+                            {% endfor %}
+                            {% for item in row.finished_orders %}
+                              <div>{{ item.ref }} - concluida {{ item.finished_qty }}{% if item.loss %}, perda {{ item.loss }}{% endif %}</div>
+                            {% endfor %}
+                          </div>
+                        </div>
+                        <div class="border border-base-200 bg-white p-3 rounded-default dark:bg-base-900 dark:border-base-700">
+                          <div class="font-semibold text-font-important-light dark:text-font-important-dark">Receita-base</div>
+                          <div class="mt-2 space-y-1 text-sm">
+                            {% for base in row.base_usages %}
+                              <div>{{ base.name }} - {{ base.quantity_display }} total, {{ base.per_unit_display }} por un.</div>
+                            {% empty %}
+                              <span class="text-base-500">Sem dependencia de receita-base.</span>
+                            {% endfor %}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                {% endwith %}
+              {% endfor %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="p-6 text-center text-base-500">Nenhuma producao encontrada para os filtros selecionados.</div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

@@ -326,9 +326,9 @@ class WorkOrderAdmin(BaseModelAdmin):
     @display(description=_("Operação"))
     def operation_link_display(self, obj):
         if obj.target_date:
-            board_url = f'{reverse("backstage:production")}?date={obj.target_date.isoformat()}'
+            board_url = f'{reverse("admin_console_production")}?date={obj.target_date.isoformat()}'
         else:
-            board_url = reverse("backstage:production")
+            board_url = reverse("admin_console_production")
         if _committed_order_refs(obj):
             commitments_url = reverse("backstage:production_work_order_commitments", args=[obj.ref])
             return format_html(

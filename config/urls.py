@@ -8,6 +8,10 @@ from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from shopman.backstage.admin_console.production import (
+    production_console_bulk_create_view,
+    production_console_view,
+)
 from shopman.shop.views.health import HealthCheckView, ReadyCheckView
 
 logger = logging.getLogger(__name__)
@@ -28,6 +32,16 @@ urlpatterns = [
     # Health / readiness probes — público, sem auth, no topo para precedência.
     path("health/", HealthCheckView.as_view(), name="health"),
     path("ready/", ReadyCheckView.as_view(), name="ready"),
+    path(
+        "admin/operacao/producao/",
+        admin.site.admin_view(production_console_view),
+        name="admin_console_production",
+    ),
+    path(
+        "admin/operacao/producao/criar/",
+        admin.site.admin_view(production_console_bulk_create_view),
+        name="admin_console_production_bulk_create",
+    ),
     path("admin/", admin.site.urls),
     # OpenAPI
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),

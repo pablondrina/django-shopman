@@ -8,13 +8,15 @@ from pathlib import Path
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.test import RequestFactory, TestCase
+from django.urls import reverse
 
 from shopman.backstage.admin import navigation
 from shopman.backstage.projections.dashboard import build_dashboard
 from shopman.craftsman import craft
-from shopman.craftsman.models import Recipe
+from shopman.craftsman.models import Recipe, WorkOrder
 from shopman.orderman.admin import OrderAdmin
 from shopman.orderman.models import Order, OrderItem
+from shopman.shop.models import Shop
 
 
 class AdminNavigationTests(TestCase):
@@ -33,6 +35,10 @@ class AdminNavigationTests(TestCase):
 
         live_items = [item["title"] for item in groups[0]["items"] if item["has_permission"]]
         self.assertEqual(live_items[:3], ["Pedidos", "Produção", "Fechamento"])
+
+        production_group = next(group for group in groups if group["title"] == "Produção")
+        production_items = [item["title"] for item in production_group["items"] if item["has_permission"]]
+        self.assertEqual(production_items[0], "Painel Admin (piloto)")
 
     def test_sidebar_badges_count_operational_attention(self) -> None:
         Order.objects.create(
@@ -74,6 +80,49 @@ class AdminDashboardSemanticsTests(TestCase):
         self.assertEqual(production.finished_qty, "4")
         self.assertEqual(production.loss_qty, "1")
         self.assertIn(planned.ref, [row.ref for row in production.wos])
+
+
+class AdminProductionPilotTests(TestCase):
+    def setUp(self) -> None:
+        self.user = User.objects.create_superuser("pilot", "pilot@example.com", "pw")
+        Shop.objects.create(name="Loja Piloto")
+        self.client.defaults["HTTP_HOST"] = "localhost"
+        self.client.force_login(self.user)
+        self.recipe = Recipe.objects.create(
+            ref="pilot-ciabatta",
+            name="Ciabatta",
+            output_sku="CIABATTA",
+            batch_size=10,
+        )
+
+    def test_admin_production_pilot_renders_parallel_to_legacy_surface(self) -> None:
+        response = self.client.get(reverse("admin_console_production"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Piloto Admin/Unfold")
+        self.assertContains(response, reverse("backstage:production"))
+        self.assertContains(response, "Mapa de producao")
+
+    def test_admin_production_pilot_mutates_through_shared_production_handler(self) -> None:
+        response = self.client.post(
+            reverse("admin_console_production"),
+            {
+                "action": "set_planned",
+                "recipe": str(self.recipe.pk),
+                "quantity": "13",
+                "target_date": date.today().isoformat(),
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response["Location"].startswith(reverse("admin_console_production")))
+        self.assertTrue(
+            WorkOrder.objects.filter(
+                recipe=self.recipe,
+                output_sku="CIABATTA",
+                quantity=13,
+            ).exists()
+        )
 
 
 class OrderAdminSemanticsTests(TestCase):

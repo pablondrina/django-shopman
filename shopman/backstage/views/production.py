@@ -54,9 +54,9 @@ def production_view(request):
         return HttpResponseRedirect(reverse("admin:index"))
 
     if request.method == "POST":
-        return _handle_post(request, access)
+        return handle_production_post(request, access)
 
-    return _render(request, access)
+    return render_production_surface(request, access)
 
 
 def production_dashboard_view(request):
@@ -311,7 +311,7 @@ def _check_late_started_orders(*, selected_date: date) -> None:
         logger.exception("production_late_check_failed date=%s", selected_date)
 
 
-def _handle_post(request, access):
+def handle_production_post(request, access, *, redirect_url_name: str = "backstage:production"):
     """Mutate production through the canonical Craftsman lifecycle."""
     action = (request.POST.get("action") or "quick_finish").strip()
     actor = f"production:{request.user.username}"
@@ -413,10 +413,10 @@ def _handle_post(request, access):
         logger.exception("Production action failed action=%s", action)
         messages.error(request, f"Erro ao registrar produção: {exc}")
 
-    return HttpResponseRedirect(_production_redirect(request))
+    return HttpResponseRedirect(production_redirect(request, redirect_url_name=redirect_url_name))
 
 
-def _render(request, access):
+def render_production_surface(request, access, *, template_name: str = TEMPLATE, extra_context: dict | None = None):
     """Render the production page using projection."""
     selected_date = _selected_date(request)
     position_ref = (request.GET.get("position_ref") or "").strip()
@@ -452,10 +452,12 @@ def _render(request, access):
         "selected_base_recipe": board.selected_base_recipe,
         "selected_date": selected_date,
     }
-    return TemplateResponse(request, TEMPLATE, context)
+    if extra_context:
+        context.update(extra_context)
+    return TemplateResponse(request, template_name, context)
 
 
-def _production_redirect(request) -> str:
+def production_redirect(request, *, redirect_url_name: str = "backstage:production") -> str:
     params = {}
     date_value = (request.POST.get("target_date") or request.POST.get("date") or "").strip()
     if date_value:
@@ -469,7 +471,7 @@ def _production_redirect(request) -> str:
         params["operator_ref"] = operator_ref
     if base_recipe:
         params["base_recipe"] = base_recipe
-    base = reverse("backstage:production")
+    base = reverse(redirect_url_name)
     return f"{base}?{urlencode(params)}" if params else base
 
 

@@ -70,6 +70,7 @@ def get_sidebar_navigation(request):
             _item("Canais", "storefront", _url("admin:shop_channel_changelist"), permission=_is_staff),
         ]),
         _group("Produção", "factory", [
+            _item("Painel Admin (piloto)", "dashboard_customize", _url("admin_console_production"), permission=_can_access_production),
             _item("Ordens de Produção", "manufacturing", _url("admin:craftsman_workorder_changelist"), permission=_can_access_production),
             _item("Receitas", "menu_book", _url("admin:craftsman_recipe_changelist"), permission=_can_access_production),
             _item("Relatórios", "table_chart", _url("backstage:production_reports"), permission=_can_view_production_reports),
