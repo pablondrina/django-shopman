@@ -2,7 +2,7 @@
 
 {% if context.production_access.can_edit_planned and form %}
   <form method="post"
-        class="flex min-w-36 items-center gap-2"
+        class="flex items-center gap-2"
         @keydown.enter.prevent="$el.requestSubmit()">
     {% csrf_token %}
     {% for hidden in form.hidden_fields %}

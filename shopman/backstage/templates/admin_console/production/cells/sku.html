@@ -1,4 +1,4 @@
-<div class="flex min-w-36 items-center gap-2">
+<div class="flex items-center gap-2">
   <span class="truncate font-semibold text-font-important-light dark:text-font-important-dark">{{ row.output_sku }}</span>
   {% if row.suggestion and context.production_access.can_view_suggested or row.suggestion and context.production_access.can_edit_suggested %}
     {% include "unfold/helpers/label.html" with text=row.suggestion.quantity type="primary" %}

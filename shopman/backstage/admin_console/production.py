@@ -103,7 +103,7 @@ class ProductionPlanForm(forms.Form):
         max_value=9999,
         widget=UnfoldAdminDecimalFieldWidget(
             attrs={
-                "class": "max-w-24 text-right tabular-nums",
+                "class": "w-24 text-right tabular-nums",
                 "step": "0.001",
                 "min": "0",
                 "max": "9999",
@@ -199,7 +199,7 @@ def build_production_console_context(request: HttpRequest, board, context: dict)
     return {
         "production_filter_form": _filter_form(board),
         "production_quick_finish_form": _quick_finish_form(board),
-        "production_navigation": _navigation(context),
+        "production_tabs": _tabs(context),
         "production_kpis": _kpis(board),
         "production_matrix_table": _matrix_table(request, board, context),
         "production_history_table": _history_table(board),
@@ -270,28 +270,28 @@ def _bulk_result(
     )
 
 
-def _navigation(context: dict) -> list[dict]:
+def _tabs(context: dict) -> list[dict]:
     return [
         {
             "title": "Painel",
-            "icon": "manufacturing",
             "link": reverse("admin_console_production"),
             "active": True,
+            "has_permission": True,
         },
         {
             "title": "Ordens",
-            "icon": "assignment",
             "link": context["work_orders_url"],
+            "has_permission": True,
         },
         {
             "title": "Dashboard atual",
-            "icon": "monitoring",
             "link": context["dashboard_url"],
+            "has_permission": True,
         },
         {
             "title": "UI atual",
-            "icon": "open_in_new",
             "link": context["legacy_production_url"],
+            "has_permission": True,
         },
     ]
 

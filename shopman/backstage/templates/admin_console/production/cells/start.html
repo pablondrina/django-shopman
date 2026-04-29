@@ -1,7 +1,7 @@
 {% load unfold %}
 
 {% if row.planned_orders %}
-  <div class="flex min-w-28 flex-wrap items-center gap-2">
+  <div class="flex flex-wrap items-center gap-2">
     {% for entry in entries %}
       {% with item=entry.item %}
       {% if context.production_access.can_edit_started %}

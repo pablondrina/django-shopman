@@ -10,11 +10,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_TARGET = ROOT / "shopman/backstage/templates/admin_console"
+DEFAULT_TARGETS = [
+    ROOT / "shopman/backstage/templates/admin_console",
+    ROOT / "shopman/backstage/admin_console",
+]
 CLASS_ATTR_RE = re.compile(
     r"\bclass=(?P<quote>[\"'])(?P<classes>.*?)(?P=quote)",
     re.DOTALL,
 )
+PY_CLASS_ATTR_RE = re.compile(r"""["']class["']\s*:\s*["'](?P<classes>[^"']*)["']""")
 COLOR_TOKEN_RE = re.compile(
     r"^(?:"
     r"bg-(?:base|primary|red|green|blue|orange|amber|white|transparent)|"
@@ -23,6 +27,16 @@ COLOR_TOKEN_RE = re.compile(
     r"border-(?:base|primary|red|green|blue|orange|amber|white|transparent)|"
     r"text-(?:base|font|primary|red|green|blue|orange|amber|white|important|subtle)-"
     r")"
+)
+LAYOUT_TOKEN_RE = re.compile(
+    r"^(?:"
+    r"gap(?:-[xy])?-[\w\[\]/.-]+|"
+    r"grid-cols-[\w\[\]/.-]+|"
+    r"h-[\w\[\]/.-]+|"
+    r"w-[\w\[\]/.-]+|"
+    r"max-w-[\w\[\]/.-]+|"
+    r"min-w-[\w\[\]/.-]+"
+    r")$"
 )
 
 
@@ -39,7 +53,24 @@ def _load_unfold_class_tokens() -> set[str]:
     return tokens
 
 
+def _load_unfold_css() -> str:
+    spec = importlib.util.find_spec("unfold")
+    if spec is None or not spec.submodule_search_locations:
+        return ""
+
+    package_root = Path(next(iter(spec.submodule_search_locations)))
+    css_path = package_root / "static/unfold/css/styles.css"
+    if not css_path.exists():
+        return ""
+    return css_path.read_text(encoding="utf-8")
+
+
+def _css_selector(class_name: str) -> str:
+    return "." + class_name.replace(":", r"\:").replace("/", r"\/").replace("[", r"\[").replace("]", r"\]")
+
+
 CANONICAL_UNFOLD_CLASSES = _load_unfold_class_tokens()
+UNFOLD_CSS = _load_unfold_css()
 
 BLOCKING_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...] = (
     (
@@ -67,6 +98,28 @@ BLOCKING_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...] = (
         re.compile(r"<table\b", re.IGNORECASE),
         'Use {% component "unfold/components/table.html" %} instead of raw <table>.',
     ),
+    (
+        "direct-tab-items-helper",
+        re.compile(r"""include\s+["']unfold/helpers/tab_items\.html["']"""),
+        'Use the complete "unfold/helpers/tab_list.html" helper for page tabs.',
+    ),
+    (
+        "raw-material-icon",
+        re.compile(r"""<span\b[^>]*class=["'][^"']*\bmaterial-symbols-outlined\b"""),
+        'Use {% component "unfold/components/icon.html" %} instead of a raw Material Symbols span.',
+    ),
+    (
+        "raw-heading",
+        re.compile(r"<h[1-6]\b", re.IGNORECASE),
+        'Use {% component "unfold/components/title.html" %} instead of a raw heading tag.',
+    ),
+    (
+        "raw-label-badge",
+        re.compile(
+            r"""<span\b[^>]*class=["'][^"']*\brounded-default\b[^"']*\bbg-(?:base|primary|red|green|blue|orange|amber)-"""
+        ),
+        'Use {% include "unfold/helpers/label.html" %} instead of recreating a badge from classes.',
+    ),
 )
 
 NON_WAIVABLE_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...] = (
@@ -82,11 +135,6 @@ STRICT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...] = (
         "raw-collapsible",
         re.compile(r"</?(details|summary)\b", re.IGNORECASE),
         "Collapsible shells are not an official Unfold component; isolate and justify the gap.",
-    ),
-    (
-        "raw-heading",
-        re.compile(r"<h[1-6]\b", re.IGNORECASE),
-        'Use {% component "unfold/components/title.html" %} for headings.',
     ),
     (
         "raw-visual-shell",
@@ -180,11 +228,28 @@ def scan_file(path: Path, *, strict: bool) -> list[Violation]:
 
 def scan_design_token_classes(path: Path, index: int, line: str) -> list[Violation]:
     violations: list[Violation] = []
-    for match in CLASS_ATTR_RE.finditer(line):
-        for class_name in match.group("classes").split():
+    class_groups = [
+        *(match.group("classes") for match in CLASS_ATTR_RE.finditer(line)),
+        *(match.group("classes") for match in PY_CLASS_ATTR_RE.finditer(line)),
+    ]
+    for classes in class_groups:
+        for class_name in classes.split():
             class_base = class_name.split(":")[-1].rstrip("!")
             if "[" not in class_name:
                 if not COLOR_TOKEN_RE.match(class_base):
+                    if not LAYOUT_TOKEN_RE.match(class_base):
+                        continue
+                    if _css_selector(class_name) in UNFOLD_CSS or _css_selector(class_base) in UNFOLD_CSS:
+                        continue
+                    violations.append(
+                        Violation(
+                            path,
+                            index + 1,
+                            "noncanonical-layout-class",
+                            f"`{class_name}` is not present in compiled Unfold CSS.",
+                            line,
+                        )
+                    )
                     continue
                 if class_name in CANONICAL_UNFOLD_CLASSES or class_base in CANONICAL_UNFOLD_CLASSES:
                     continue
@@ -219,13 +284,13 @@ def iter_templates(targets: list[Path]) -> list[Path]:
         if target.is_file():
             files.append(target)
         else:
-            files.extend(sorted(target.rglob("*.html")))
+            files.extend(sorted(path for path in target.rglob("*") if path.suffix in {".html", ".py"}))
     return [path for path in files if "__pycache__" not in path.parts]
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("targets", nargs="*", type=Path, default=[DEFAULT_TARGET])
+    parser.add_argument("targets", nargs="*", type=Path, default=DEFAULT_TARGETS)
     parser.add_argument("--strict", action="store_true", help="also flag visual-shell drift")
     args = parser.parse_args(argv)
 

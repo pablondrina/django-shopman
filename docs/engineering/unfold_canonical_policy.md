@@ -2,6 +2,7 @@
 
 This project treats Django Unfold as the design system for Admin/backstage custom pages.
 Operational Admin templates must prefer official Unfold primitives before custom HTML or Tailwind classes.
+Copying the same classes is not enough. The canonical widget/helper/component entrypoint wins because it carries markup, JavaScript assumptions, accessibility, spacing, overflow behavior, and future Unfold upgrades.
 
 ## Canonical Sources
 
@@ -14,13 +15,17 @@ Operational Admin templates must prefer official Unfold primitives before custom
 
 ## Blocking Rules
 
-Templates under `shopman/backstage/templates/admin_console/` must not hand-roll visual controls:
+Templates under `shopman/backstage/templates/admin_console/` and form/widget definitions under `shopman/backstage/admin_console/` must not hand-roll visual controls:
 
 - No raw visible `<input>`, `<select>`, `<textarea>`, `<button>`, or `<table>`.
 - Hidden inputs are allowed only for non-visual request state.
 - Form fields must come from Django `forms.Form` or `forms.ModelForm` using Unfold widgets and must be rendered through `unfold/helpers/field.html`, or directly as a bound field when the table cell requires compact inline editing.
 - Buttons must use `unfold/components/button.html`.
 - Tables must use `unfold/components/table.html`.
+- Page tabs must use `unfold/helpers/tab_list.html`, not the internal `tab_items.html` partial.
+- Icons must use `unfold/components/icon.html`, not raw `material-symbols-outlined` spans.
+- Headings must use `unfold/components/title.html`, not raw `h1`-`h6` tags.
+- Badges/labels must use `unfold/helpers/label.html`, not reconstructed `rounded-default bg-* text-*` spans.
 
 ## Strict Review Rules
 
@@ -33,6 +38,7 @@ If an official Unfold primitive does not exist for a needed interaction, the cha
 Custom Admin UI is allowed only after explicit user authorization for the exact surface. The agent must not self-authorize, invent approval, or add broad future-facing approvals.
 
 Authorization can only approve the need for a custom structure. It never approves non-canonical styling. Even approved custom UI must use Unfold design tokens and established Unfold utility classes.
+If an official widget/helper/component exists, authorization is not enough to bypass it; use the widget/helper/component.
 
 Every waiver must use this exact shape in the template, on the same line or the preceding line:
 
@@ -49,6 +55,7 @@ Rules for a valid waiver:
 - Inline `style=` is always forbidden.
 - Arbitrary Tailwind classes such as `text-[15px]` or `max-h-[calc(...)]` are forbidden unless the exact class already exists in official Unfold templates. This allows reuse of proven Unfold internals such as `z-[1000]`, but blocks new one-off pixels.
 - Color, radius, and shadow utilities must match classes already present in official Unfold templates. For example, reuse `unfold/helpers/label.html` for badges instead of inventing a new `bg-*/text-*` combination.
+- Layout/spacing/size utilities used around Admin widgets must exist in the compiled Unfold CSS. A class that is valid Tailwind but absent from Unfold's shipped CSS is treated as broken.
 
 ## Enforcement
 

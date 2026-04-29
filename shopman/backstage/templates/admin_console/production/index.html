@@ -14,7 +14,9 @@
 {% block content %}
 {% component "unfold/components/container.html" %}
   <div class="flex flex-col gap-4">
-    <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+    {% include "unfold/helpers/tab_list.html" with tabs_list=production_tabs %}
+
+    <div>
       <div>
         <div class="flex flex-wrap items-center gap-2">
           {% component "unfold/components/title.html" with class="text-2xl" %}
@@ -26,8 +28,6 @@
           Board operacional dentro do shell Admin. A tela antiga continua disponivel para comparacao.
         {% endcomponent %}
       </div>
-
-      {% component "unfold/components/navigation.html" with items=production_navigation class="flex-wrap" %}{% endcomponent %}
     </div>
 
     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -45,16 +45,16 @@
 
     {% component "unfold/components/card.html" with title="Filtros" %}
       <form method="get" novalidate>
-        <div class="grid gap-x-4 lg:grid-cols-5">
+        <div class="grid gap-4 lg:gap-6 md:grid-cols-2 xl:grid-cols-4">
           {% for field in production_filter_form.visible_fields %}
             {% include "unfold/helpers/field.html" with field=field %}
           {% endfor %}
-          <div class="flex items-end mb-5">
-            {% component "unfold/components/button.html" with submit=1 class="w-full" %}
-              {% component "unfold/components/icon.html" with class="text-base" %}tune{% endcomponent %}
-              Filtrar
-            {% endcomponent %}
-          </div>
+        </div>
+        <div class="flex justify-end">
+          {% component "unfold/components/button.html" with submit=1 class="h-[38px]" %}
+            {% component "unfold/components/icon.html" with class="text-base" %}tune{% endcomponent %}
+            Filtrar
+          {% endcomponent %}
         </div>
       </form>
     {% endcomponent %}
@@ -88,14 +88,9 @@
     {% endif %}
 
     {% component "unfold/components/card.html" with title="Mapa de producao" %}
-      <div class="mb-4 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-        {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
-          {{ selected_date|date:"d/m/Y" }} - {{ matrix_rows|length }} SKUs
-        {% endcomponent %}
-        {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
-          Quantidades por produto/SKU. Pedidos aparecem como compromisso de itens.
-        {% endcomponent %}
-      </div>
+      {% component "unfold/components/text.html" with class="mb-4 text-sm text-base-500" %}
+        {{ selected_date|date:"d/m/Y" }} - {{ matrix_rows|length }} SKUs. Quantidades por produto/SKU. Pedidos aparecem como compromisso de itens.
+      {% endcomponent %}
 
       {% component "unfold/components/table.html" with table=production_matrix_table card_included=1 striped=1 height=680 %}{% endcomponent %}
     {% endcomponent %}
@@ -120,13 +115,13 @@
           {% for hidden in production_quick_finish_form.hidden_fields %}
             {{ hidden }}
           {% endfor %}
-          <div class="grid gap-x-4 md:grid-cols-3">
+          <div class="grid gap-4 md:grid-cols-3">
             {% for field in production_quick_finish_form.visible_fields %}
               {% include "unfold/helpers/field.html" with field=field %}
             {% endfor %}
           </div>
           <div class="flex justify-end">
-            {% component "unfold/components/button.html" with submit=1 class="w-full sm:w-auto" %}
+            {% component "unfold/components/button.html" with submit=1 %}
               {% component "unfold/components/icon.html" with class="text-base" %}add_circle{% endcomponent %}
               Registrar entrada direta
             {% endcomponent %}
