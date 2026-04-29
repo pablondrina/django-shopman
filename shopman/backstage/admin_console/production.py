@@ -190,7 +190,7 @@ def _kpis(board) -> tuple[dict, ...]:
 
 def _matrix_table(request: HttpRequest, board, context: dict) -> dict:
     access = board.access
-    headers = ["SKU", "Base"]
+    headers = ["SKU"]
     rows = []
 
     if access.can_view_planned:
@@ -206,7 +206,6 @@ def _matrix_table(request: HttpRequest, board, context: dict) -> dict:
             usage = group_row.usage
             cols = [
                 _cell(request, "sku", row=row, usage=usage, group=group, context=context),
-                group.name,
             ]
             if access.can_view_planned:
                 cols.append(_cell(request, "planned", row=row, context=context))
@@ -235,7 +234,15 @@ def _matrix_table(request: HttpRequest, board, context: dict) -> dict:
 
 
 def _details_table(row, *, access) -> dict:
-    detail_rows = []
+    detail_rows = [
+        [
+            "Receita",
+            row.output_sku,
+            "-",
+            "-",
+            row.recipe_name,
+        ]
+    ]
 
     if row.suggestion and (access.can_view_suggested or access.can_edit_suggested):
         detail_rows.append([
