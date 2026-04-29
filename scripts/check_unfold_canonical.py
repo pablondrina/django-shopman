@@ -22,10 +22,10 @@ APPROVED_MODAL_PANEL_CLASS = (
     "w-full dark:bg-base-800"
 )
 APPROVED_ROW_ACTION_CLASS = (
-    "cursor-pointer flex h-7 material-symbols-outlined md-18 -my-1 leading-7! justify-center shrink-0 "
-    "rounded-default text-center text-base-400 w-7 group-hover/action:bg-base-100 "
-    "group-hover/action:text-base-700 dark:text-font-default-dark "
-    "dark:group-hover/action:bg-base-800 dark:group-hover/action:text-white"
+    "bg-white border border-base-200 cursor-pointer flex items-center h-[38px] justify-center ml-2 "
+    "rounded-default shadow-xs shrink-0 text-base-400 text-sm w-[38px] hover:text-base-700 "
+    "dark:bg-base-900 dark:border-base-700 dark:text-base-500 dark:hover:text-base-200 "
+    "focus:outline-2 focus:-outline-offset-2 focus:outline-primary-600"
 )
 CLASS_ATTR_RE = re.compile(
     r"\bclass=(?P<quote>[\"'])(?P<classes>.*?)(?P=quote)",
@@ -283,6 +283,34 @@ def scan_file(path: Path, *, strict: bool) -> list[Violation]:
                 violations.append(Violation(path, index + 1, rule, message, line))
                 line_rules.add(rule)
         violations.extend(scan_design_token_classes(path, index, line))
+    violations.extend(scan_structural_unfold_usage(path, lines))
+    return violations
+
+
+def scan_structural_unfold_usage(path: Path, lines: list[str]) -> list[Violation]:
+    violations: list[Violation] = []
+    for index, line in enumerate(lines):
+        if 'component "unfold/components/table.html"' not in line or "card_included=1" not in line:
+            continue
+        card_start = max(
+            (
+                candidate
+                for candidate in range(index - 1, -1, -1)
+                if 'component "unfold/components/card.html"' in lines[candidate]
+            ),
+            default=max(0, index - 12),
+        )
+        card_prefix = "\n".join(lines[card_start:index])
+        if 'component "unfold/components/text.html"' in card_prefix:
+            violations.append(
+                Violation(
+                    path,
+                    index + 1,
+                    "card-included-table-body-prefix",
+                    "Unfold table with card_included=1 uses negative margins and must be the first card body content; put copy in the card action/title instead.",
+                    line,
+                )
+            )
     return violations
 
 
@@ -299,7 +327,7 @@ def _is_approved_modal_shell(path: Path, line: str, rule: str) -> bool:
 def _is_approved_row_action_shell(path: Path, line: str, rule: str) -> bool:
     if path.resolve() != APPROVED_ROW_ACTION_TEMPLATE:
         return False
-    if rule == "raw-button":
+    if rule in {"raw-button", "raw-visual-shell"}:
         return APPROVED_ROW_ACTION_CLASS in line
     return False
 
@@ -338,7 +366,7 @@ def scan_approved_custom_partials() -> list[Violation]:
             APPROVED_ROW_ACTION_CLASS,
             "type=\"{% if submit %}submit{% else %}button{% endif %}\"",
             "aria-label",
-            "material-symbols-outlined",
+            'component "unfold/components/icon.html"',
         ]
         for marker in required:
             if marker not in text:

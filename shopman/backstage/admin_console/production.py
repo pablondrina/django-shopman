@@ -346,7 +346,7 @@ def _kpis(board) -> tuple[dict, ...]:
 
 def _matrix_table(request: HttpRequest, board, context: dict, *, status: str = "") -> dict:
     access = board.access
-    headers = ["SKU"]
+    headers = ["", "SKU"]
     rows = []
 
     if access.can_view_planned:
@@ -363,6 +363,7 @@ def _matrix_table(request: HttpRequest, board, context: dict, *, status: str = "
                 continue
             usage = group_row.usage
             cols = [
+                "",
                 _cell(request, "sku", row=row, usage=usage, group=group, context=context),
             ]
             if access.can_view_planned:

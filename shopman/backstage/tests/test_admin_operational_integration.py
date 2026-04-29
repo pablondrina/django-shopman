@@ -117,9 +117,10 @@ class AdminProductionPilotTests(TestCase):
         self.assertTrue(table["collapsible"])
         self.assertIn("Planejado", table["headers"])
         self.assertEqual(table["rows"][0]["table"]["collapsible"], True)
-        self.assertIn("CIABATTA", str(table["rows"][0]["cols"][0]))
+        self.assertEqual(table["headers"][0], "")
+        self.assertIn("CIABATTA", str(table["rows"][0]["cols"][1]))
         self.assertContains(response, "status__exact=planned")
-        self.assertContains(response, "material-symbols-outlined md-18 -my-1 leading-7!")
+        self.assertContains(response, "h-[38px] justify-center ml-2")
 
     def test_admin_production_status_tabs_filter_matrix_rows(self) -> None:
         planned_recipe = self.recipe
@@ -141,8 +142,8 @@ class AdminProductionPilotTests(TestCase):
         self.assertEqual(response.status_code, 200)
         table = response.context["production_matrix_table"]
         self.assertEqual(len(table["rows"]), 1)
-        self.assertIn("BAGUETTE", str(table["rows"][0]["cols"][0]))
-        self.assertNotIn("CIABATTA", str(table["rows"][0]["cols"][0]))
+        self.assertIn("BAGUETTE", str(table["rows"][0]["cols"][1]))
+        self.assertNotIn("CIABATTA", str(table["rows"][0]["cols"][1]))
 
     def test_admin_production_pilot_mutates_through_shared_production_handler(self) -> None:
         response = self.client.post(

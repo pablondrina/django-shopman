@@ -35,6 +35,13 @@ def test_admin_console_templates_do_not_hand_roll_visual_controls_or_tokens() ->
         ('widget=forms.TextInput(attrs={"class": "tabular-nums"})', "unknown-unfold-css-class"),
         ('<div style="z-index: 1"></div>', "inline-style"),
         ('{% component "unfold/components/button.html" with class="h-8 px-2" %}{% endcomponent %}', "component-button-sizing"),
+        (
+            '{% component "unfold/components/card.html" with title="Mapa" %}\n'
+            '{% component "unfold/components/text.html" %}Copy{% endcomponent %}\n'
+            '{% component "unfold/components/table.html" with table=table card_included=1 %}{% endcomponent %}\n'
+            '{% endcomponent %}',
+            "card-included-table-body-prefix",
+        ),
     ],
 )
 def test_unfold_gate_rejects_noncanonical_patterns(tmp_path: Path, content: str, rule: str) -> None:

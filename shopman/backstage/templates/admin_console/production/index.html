@@ -44,20 +44,20 @@
     </div>
 
     {% component "unfold/components/card.html" with title="Filtros" %}
-      <form method="get" class="flex flex-col gap-4" novalidate>
+      <form method="get" novalidate>
         {% if production_status %}
           <input type="hidden" name="status__exact" value="{{ production_status }}">
         {% endif %}
-        <div class="grid gap-4 lg:gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <div class="grid gap-4 lg:gap-6 md:grid-cols-2 xl:grid-cols-5">
           {% for field in production_filter_form.visible_fields %}
             {% include "unfold/helpers/field.html" with field=field %}
           {% endfor %}
-        </div>
-        <div class="flex justify-end">
-          {% component "unfold/components/button.html" with submit=1 %}
-            {% component "unfold/components/icon.html" with class="text-base" %}tune{% endcomponent %}
-            Filtrar
-          {% endcomponent %}
+          <div class="flex flex-col items-start justify-end mb-5">
+            {% component "unfold/components/button.html" with submit=1 %}
+              {% component "unfold/components/icon.html" with class="text-base" %}tune{% endcomponent %}
+              Filtrar
+            {% endcomponent %}
+          </div>
         </div>
       </form>
     {% endcomponent %}
@@ -65,7 +65,7 @@
     <div id="production-action-result"></div>
 
     {% if suggestions and production_access.can_edit_planned %}
-      {% capture as suggestions_action %}
+      {% capture as suggestions_action silent %}
         <form hx-post="{{ bulk_create_url }}"
               hx-target="#bulk-create-result"
               hx-swap="innerHTML">
@@ -90,11 +90,13 @@
       {% endcomponent %}
     {% endif %}
 
-    {% component "unfold/components/card.html" with title="Mapa de producao" %}
-      {% component "unfold/components/text.html" with class="mb-4 text-sm text-base-500" %}
+    {% capture as production_map_action silent %}
+      {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
         {{ selected_date|date:"d/m/Y" }} - {{ production_matrix_table.rows|length }} SKUs filtrados. Quantidades por produto/SKU.
       {% endcomponent %}
+    {% endcapture %}
 
+    {% component "unfold/components/card.html" with title="Mapa de producao" action=production_map_action %}
       {% component "unfold/components/table.html" with table=production_matrix_table card_included=1 striped=1 height=680 %}{% endcomponent %}
     {% endcomponent %}
 
@@ -124,10 +126,13 @@
     {% endif %}
 
     {% if production_access.can_manage_all or today_wos %}
-      {% component "unfold/components/card.html" with title="Historico da data" %}
-        {% component "unfold/components/text.html" with class="mb-4 text-sm text-base-500" %}
+      {% capture as production_history_action silent %}
+        {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
           Consulte as OPs do dia quando precisar auditar a jornada.
         {% endcomponent %}
+      {% endcapture %}
+
+      {% component "unfold/components/card.html" with title="Historico da data" action=production_history_action %}
         {% component "unfold/components/table.html" with table=production_history_table card_included=1 striped=1 height=360 %}{% endcomponent %}
       {% endcomponent %}
     {% endif %}
