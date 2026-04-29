@@ -5,10 +5,12 @@
     {% for entry in entries %}
       {% with item=entry.item %}
       {% if context.production_access.can_edit_finished %}
-        <div>
-          {% component "unfold/components/button.html" with href=entry.action_url class="h-8 min-w-8 px-2 py-1" title="Concluir OP" %}
+        <div x-data="{ open: false }">
+          {% component "unfold/components/button.html" with title="Concluir OP" extra_attrs='type="button" x-on:click="open = true"' %}
             {% component "unfold/components/icon.html" with class="text-base" %}task_alt{% endcomponent %}
           {% endcomponent %}
+
+          {% include "admin_console/unfold/modal.html" with modal_title=entry.modal_title modal_description=entry.modal_description form=entry.form form_id=entry.form_id submit_label=entry.submit_label cancel_attrs='type="button" x-on:click="open = false"' %}
         </div>
       {% else %}
         <span class="font-semibold text-font-important-light dark:text-font-important-dark">{{ item.started_qty }}</span>

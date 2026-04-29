@@ -9,7 +9,6 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from shopman.backstage.admin_console.production import (
-    production_console_action_view,
     production_console_bulk_create_view,
     production_console_view,
 )
@@ -42,11 +41,6 @@ urlpatterns = [
         "admin/operacao/producao/criar/",
         admin.site.admin_view(production_console_bulk_create_view),
         name="admin_console_production_bulk_create",
-    ),
-    path(
-        "admin/operacao/producao/acao/",
-        admin.site.admin_view(production_console_action_view),
-        name="admin_console_production_action",
     ),
     path("admin/", admin.site.urls),
     # OpenAPI

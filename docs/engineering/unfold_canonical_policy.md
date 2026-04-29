@@ -7,8 +7,10 @@ Copying the same classes is not enough. The canonical widget/helper/component en
 ## Canonical Sources
 
 - Creation playbook: `docs/engineering/unfold_admin_page_playbook.md`
-- Official docs: <https://unfoldadmin.com/docs/components/button/> and <https://unfoldadmin.com/docs/components/table/>
-- Official custom pages docs: <https://unfoldadmin.com/docs/pages/>
+- Installed inventory: `docs/reference/unfold_canonical_inventory.md`
+- Official docs index: <https://unfoldadmin.com/docs/>
+- Official components docs: <https://unfoldadmin.com/docs/components/introduction/>
+- Official custom pages docs: <https://unfoldadmin.com/docs/configuration/custom-pages/>
 - Official ModelAdmin options docs: <https://unfoldadmin.com/docs/configuration/modeladmin/>
 - Official filters docs: <https://unfoldadmin.com/docs/filters/introduction/>
 - Official dialog actions docs: <https://unfoldadmin.com/docs/actions/dialog-actions/>
@@ -32,6 +34,7 @@ Templates under `shopman/backstage/templates/admin_console/` and form/widget def
 - Icons must use `unfold/components/icon.html`, not raw `material-symbols-outlined` spans.
 - Headings must use `unfold/components/title.html`, not raw `h1`-`h6` tags.
 - Badges/labels must use `unfold/helpers/label.html`, not reconstructed `rounded-default bg-* text-*` spans.
+- Button sizing belongs to the button component. Do not pass `h-*`, `w-*`, `min-w-*`, `max-w-*`, `p-*`, `px-*`, or `py-*` through `class=` on `unfold/components/button.html` unless the exact surface is explicitly authorized.
 
 ## Strict Review Rules
 
@@ -40,6 +43,8 @@ Strict review also flags hand-built visual shells such as raw collapsibles, moda
 If an official Unfold primitive does not exist for a needed interaction, the change must document the gap and keep the custom surface isolated in a small partial. Treat that as product/design debt until an official Unfold pattern or approved wrapper replaces it.
 
 For production-grade Admin UI, `--maturity`/`--strict` is the acceptance gate. A page can pass the default blocking gate while still being unfit for maturity if it contains custom shells that should become Unfold actions/dialogs, sections, components, or explicitly authorized wrappers.
+
+For modal UX, prefer official Unfold dialog actions when the flow is a `ModelAdmin` action. If the page is a custom operational surface and dialog actions cannot be attached cleanly, use only the approved wrapper at `shopman/backstage/templates/admin_console/unfold/modal.html`. That wrapper mirrors the installed Unfold command/dialog shell tokens and composes canonical Unfold `card`, `button`, `separator`, and form-field helpers. Do not create another overlay.
 
 ## Custom Exceptions
 

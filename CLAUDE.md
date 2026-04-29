@@ -107,10 +107,14 @@ Telas operacionais dentro do Admin usam o **Unfold Canonical Gate**. Antes de cr
 - `.codex/skills/unfold-admin-canonical/SKILL.md`
 - `docs/engineering/unfold_admin_page_playbook.md`
 - `docs/engineering/unfold_canonical_policy.md`
+- `docs/reference/unfold_canonical_inventory.md`
 
 Regra curta: **widget/helper/componente canônico > classes copiadas**. Se existe primitiva Unfold,
 use a primitiva. Copiar classes do Unfold nao basta, porque perde markup, JS, acessibilidade,
 overflow, espaçamento e comportamento futuro.
+
+Modal em pagina custom so pode usar o wrapper aprovado `admin_console/unfold/modal.html`, que espelha
+os tokens do shell modal/command do Unfold instalado. Nao crie overlay novo.
 
 Rode sempre:
 

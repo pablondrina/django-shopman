@@ -11,6 +11,7 @@ Ele tem quatro partes:
 
 - Skill local: `.codex/skills/unfold-admin-canonical/SKILL.md`
 - Politica: `docs/engineering/unfold_canonical_policy.md`
+- Inventario local: `docs/reference/unfold_canonical_inventory.md`
 - Checker: `python scripts/check_unfold_canonical.py`
 - Auditoria de maturidade: `python scripts/check_unfold_canonical.py --maturity`
 - Teste: `shopman/backstage/tests/test_unfold_canonical_templates.py`
@@ -22,8 +23,9 @@ Ele tem quatro partes:
 2. Use recursos Unfold de `ModelAdmin` antes de pagina custom: filtros, `list_filter_submit`, actions, row actions, dialog actions, `BaseDialogForm`, tabs, sections/expandable rows, datasets, inlines, display decorators e templates de changeform.
 3. Para pagina custom, siga a documentacao oficial de custom pages e tabs. Use o helper completo, nao partial interno.
 4. Para qualquer campo visual, crie um `forms.Form`/`ModelForm` com `UnfoldAdmin*Widget` e renderize via `unfold/helpers/field.html`.
-5. Para blocos visuais, use componentes/helpers Unfold: `card`, `table`, `button`, `icon`, `label`, `title`, `text`, `tab_list`.
-6. So depois disso considere HTML custom. Custom exige autorizacao explicita e continua obrigado a usar tokens/classes existentes no CSS compilado do Unfold.
+5. Para blocos visuais, consulte o inventario local e use componentes/helpers Unfold. Nao limite a lista mental a `card/table/button`; o pacote instalado expõe muitos helpers.
+6. Para modal, use `actions/dialog` quando o fluxo couber em `ModelAdmin`. Em pagina operacional custom, use somente `admin_console/unfold/modal.html`, que espelha os tokens do shell modal/command do Unfold instalado.
+7. So depois disso considere HTML custom. Custom exige autorizacao explicita e continua obrigado a usar tokens/classes existentes no CSS compilado do Unfold.
 
 ## Proibido Por Padrao
 
@@ -31,7 +33,9 @@ Ele tem quatro partes:
 - Usar partial interno quando existe helper publico completo, por exemplo `tab_items.html` no lugar de `tab_list.html`.
 - Criar inputs/selects/buttons/tables crus.
 - Criar modal overlay proprio quando `actions/dialog` + `BaseDialogForm` resolve o fluxo.
+- Criar modal overlay fora de `admin_console/unfold/modal.html`.
 - Criar collapsible proprio quando `list_sections`/sections ou tabela colapsavel Unfold resolve o fluxo.
+- Alterar tamanho/padding de `unfold/components/button.html` com classes manuais.
 - Usar classe Tailwind que nao existe no CSS compilado do Unfold.
 - Usar `style=`.
 - Reconstruir badges, icons ou headings com HTML cru.
@@ -41,6 +45,7 @@ Ele tem quatro partes:
 Antes de editar:
 
 - Consulte `python - <<'PY'`/introspecao local do pacote `unfold` para achar o componente/helper/widget correto.
+- Consulte `docs/reference/unfold_canonical_inventory.md`.
 - Confira docs oficiais se o padrao envolver pagina custom, actions, tabs, filters, widgets ou ModelAdmin.
 - Defina qual primitiva canônica sera usada para cada parte da tela.
 

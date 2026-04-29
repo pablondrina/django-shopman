@@ -34,6 +34,7 @@ def test_admin_console_templates_do_not_hand_roll_visual_controls_or_tokens() ->
         ('<div class="tabular-nums"></div>', "unknown-unfold-css-class"),
         ('widget=forms.TextInput(attrs={"class": "tabular-nums"})', "unknown-unfold-css-class"),
         ('<div style="z-index: 1"></div>', "inline-style"),
+        ('{% component "unfold/components/button.html" with class="h-8 px-2" %}{% endcomponent %}', "component-button-sizing"),
     ],
 )
 def test_unfold_gate_rejects_noncanonical_patterns(tmp_path: Path, content: str, rule: str) -> None:
@@ -48,7 +49,7 @@ def test_unfold_gate_rejects_noncanonical_patterns(tmp_path: Path, content: str,
 @pytest.mark.parametrize(
     ("content", "rule"),
     [
-        ('<div class="fixed inset-0 z-[1000]"></div>', "raw-modal-overlay"),
+        ('<div class="fixed inset-0 z-[1000]"></div>', "raw-modal-overlay-location"),
         ('<details><summary>Historico</summary></details>', "raw-collapsible"),
         ('<div class="border border-base-200 rounded-default"></div>', "raw-visual-shell"),
     ],
@@ -60,3 +61,11 @@ def test_unfold_maturity_gate_rejects_hand_built_shells(tmp_path: Path, content:
     violations = check_unfold_canonical.scan_file(template, strict=True)
 
     assert rule in {violation.rule for violation in violations}
+
+
+def test_unfold_maturity_gate_accepts_authorized_modal_wrapper() -> None:
+    modal = Path("shopman/backstage/templates/admin_console/unfold/modal.html")
+
+    violations = check_unfold_canonical.scan_file(modal, strict=True)
+
+    assert violations == []

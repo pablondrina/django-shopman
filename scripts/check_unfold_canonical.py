@@ -14,11 +14,21 @@ DEFAULT_TARGETS = [
     ROOT / "shopman/backstage/templates/admin_console",
     ROOT / "shopman/backstage/admin_console",
 ]
+APPROVED_MODAL_TEMPLATE = ROOT / "shopman/backstage/templates/admin_console/unfold/modal.html"
+APPROVED_MODAL_OVERLAY_CLASS = "backdrop-blur-xs bg-base-900/80 flex flex-col fixed inset-0 p-4 lg:p-32 z-[1000]"
+APPROVED_MODAL_PANEL_CLASS = (
+    "bg-white flex flex-col max-w-sm min-h-0 mx-auto overflow-hidden rounded-default shadow-lg "
+    "w-full dark:bg-base-800"
+)
 CLASS_ATTR_RE = re.compile(
     r"\bclass=(?P<quote>[\"'])(?P<classes>.*?)(?P=quote)",
     re.DOTALL,
 )
 PY_CLASS_ATTR_RE = re.compile(r"""["']class["']\s*:\s*["'](?P<classes>[^"']*)["']""")
+COMPONENT_BUTTON_CLASS_RE = re.compile(
+    r"""\{%\s*component\s+["']unfold/components/button\.html["'][^%]*\bclass=["'][^"']*\b(?:h-|w-|min-w-|max-w-|px-|py-|p-)""",
+    re.IGNORECASE,
+)
 COLOR_TOKEN_RE = re.compile(
     r"^(?:"
     r"bg-(?:base|primary|red|green|blue|orange|amber|white|transparent)|"
@@ -128,6 +138,11 @@ BLOCKING_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...] = (
         ),
         'Use {% include "unfold/helpers/label.html" %} instead of recreating a badge from classes.',
     ),
+    (
+        "component-button-sizing",
+        COMPONENT_BUTTON_CLASS_RE,
+        "Do not override Unfold button size/spacing classes; use the canonical button component size.",
+    ),
 )
 
 NON_WAIVABLE_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...] = (
@@ -236,10 +251,67 @@ def scan_file(path: Path, *, strict: bool) -> list[Violation]:
                 continue
             if rule == "raw-visual-shell" and {"raw-modal-overlay", "raw-collapsible"} & line_rules:
                 continue
-            if pattern.search(line) and not _is_allowed(lines, index, rule):
+            if pattern.search(line):
+                if _is_approved_modal_shell(path, line, rule):
+                    line_rules.add(rule)
+                    continue
+                if rule == "raw-modal-overlay" and path.resolve() != APPROVED_MODAL_TEMPLATE:
+                    violations.append(
+                        Violation(
+                            path,
+                            index + 1,
+                            "raw-modal-overlay-location",
+                            "Custom modal overlays must use admin_console/unfold/modal.html.",
+                            line,
+                        )
+                    )
+                    line_rules.add(rule)
+                    continue
+                if _is_allowed(lines, index, rule):
+                    line_rules.add(rule)
+                    continue
                 violations.append(Violation(path, index + 1, rule, message, line))
                 line_rules.add(rule)
         violations.extend(scan_design_token_classes(path, index, line))
+    return violations
+
+
+def _is_approved_modal_shell(path: Path, line: str, rule: str) -> bool:
+    if path.resolve() != APPROVED_MODAL_TEMPLATE:
+        return False
+    if rule == "raw-modal-overlay":
+        return APPROVED_MODAL_OVERLAY_CLASS in line
+    if rule == "raw-visual-shell":
+        return APPROVED_MODAL_PANEL_CLASS in line
+    return False
+
+
+def scan_approved_custom_partials() -> list[Violation]:
+    violations: list[Violation] = []
+    modal = APPROVED_MODAL_TEMPLATE
+    if modal.exists():
+        text = modal.read_text(encoding="utf-8")
+        required = [
+            "unfold-canonical: allow raw-modal-overlay",
+            APPROVED_MODAL_OVERLAY_CLASS,
+            APPROVED_MODAL_PANEL_CLASS,
+            'component "unfold/components/card.html"',
+            'component "unfold/components/button.html"',
+            'include "unfold/helpers/field.html"',
+            'role="dialog"',
+            'aria-modal="true"',
+        ]
+        for marker in required:
+            if marker not in text:
+                violations.append(
+                    Violation(
+                        modal,
+                        1,
+                        "invalid-approved-modal",
+                        f"Approved custom modal wrapper is missing `{marker}`.",
+                        "",
+                    )
+                )
     return violations
 
 
@@ -346,6 +418,7 @@ def main(argv: list[str] | None = None) -> int:
     violations: list[Violation] = []
     for template in iter_templates(args.targets):
         violations.extend(scan_file(template, strict=args.strict or args.maturity))
+    violations.extend(scan_approved_custom_partials())
 
     if violations:
         print("Non-canonical Unfold Admin template usage detected:\n")

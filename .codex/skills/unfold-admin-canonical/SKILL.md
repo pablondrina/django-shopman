@@ -11,15 +11,18 @@ Before editing Admin/backstage UI, read:
 
 - `docs/engineering/unfold_admin_page_playbook.md`
 - `docs/engineering/unfold_canonical_policy.md`
+- `docs/reference/unfold_canonical_inventory.md`
 
 ## Workflow
 
 1. Prefer native Django Admin/Unfold `ModelAdmin` surfaces: changelist, changeform, filters, row actions, actions, dialog actions, `BaseDialogForm`, tabs, sections/expandable rows, inlines, display decorators, datasets, and action forms.
 2. For custom pages, follow official Unfold page/tabs patterns and use the complete public helper/component entrypoint.
 3. Put visual fields in Django `forms.Form` or `forms.ModelForm` with `UnfoldAdmin*Widget`; render fields through `unfold/helpers/field.html`.
-4. Use Unfold components/helpers for buttons, tables, icons, labels, titles, cards, text, and tabs.
-5. Treat copying Unfold classes as non-canonical when a widget/helper/component exists.
-6. Custom structure requires explicit user authorization for that exact surface and still must use Unfold tokens/classes from the shipped CSS. Inline styles are forbidden.
+4. Use the local inventory to find the installed Unfold component/helper/widget/form. Do not rely on a short remembered component list.
+5. Use official dialog actions when the workflow is a `ModelAdmin` action. In custom operational pages, use only `admin_console/unfold/modal.html` for modal UX; it mirrors installed Unfold modal/command shell tokens.
+6. Treat copying Unfold classes as non-canonical when a widget/helper/component exists.
+7. Do not override Unfold button height, width, or padding through `class=`. Use the component's canonical size.
+8. Custom structure requires explicit user authorization for that exact surface and still must use Unfold tokens/classes from the shipped CSS. Inline styles are forbidden.
 
 ## Required Checks
 

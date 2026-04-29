@@ -3,18 +3,13 @@
 from __future__ import annotations
 
 import json
-from urllib.parse import urlencode
 
 from django import forms
 from django.contrib import admin, messages
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden, HttpResponseRedirect
-from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
-from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.safestring import mark_safe
-from shopman.craftsman.models import WorkOrder
-from shopman.stockman import Position
 from unfold.widgets import (
     UnfoldAdminDecimalFieldWidget,
     UnfoldAdminSelectWidget,
@@ -26,12 +21,10 @@ from shopman.backstage.projections.production import resolve_production_access
 from shopman.backstage.services import production as production_service
 from shopman.backstage.views.production import (
     handle_production_post,
-    production_redirect,
     render_production_surface,
 )
 
 TEMPLATE = "admin_console/production/index.html"
-ACTION_TEMPLATE = "admin_console/production/action_form.html"
 BULK_RESULT_TEMPLATE = "admin_console/production/partials/bulk_create_result.html"
 
 
@@ -249,59 +242,6 @@ def production_console_bulk_create_view(request: HttpRequest) -> HttpResponse:
         created=result.created,
         errors=result.errors,
         target_date=result.target_date,
-    )
-
-
-def production_console_action_view(request: HttpRequest) -> HttpResponse:
-    """Render start/finish forms as canonical Admin action pages."""
-    request.current_app = admin.site.name
-
-    access = resolve_production_access(request.user)
-    if not access.can_access_board:
-        messages.error(request, "Sem permissao para acessar producao.")
-        return HttpResponseRedirect(reverse("admin:index"))
-
-    if request.method == "POST":
-        return handle_production_post(
-            request,
-            access,
-            redirect_url_name="admin_console_production",
-        )
-
-    action = (request.GET.get("action") or "").strip()
-    work_order = get_object_or_404(WorkOrder, pk=request.GET.get("wo_id"))
-    if action == "start":
-        if not access.can_edit_started:
-            return HttpResponseForbidden("Voce nao tem permissao para iniciar producao.")
-        title = f"Iniciar {work_order.output_sku}"
-        description = "Informe a quantidade que entrou fisicamente em producao."
-        submit_label = "Iniciar"
-        form = ProductionStartForm(
-            initial=request.GET,
-            position_choices=_position_pk_choices_from_db(),
-        )
-    elif action == "finish":
-        if not access.can_edit_finished:
-            return HttpResponseForbidden("Voce nao tem permissao para concluir producao.")
-        title = f"Concluir {work_order.output_sku}"
-        description = "Informe o acabado real. A perda sai da diferenca para o iniciado."
-        submit_label = "Concluir"
-        form = ProductionFinishForm(initial=request.GET)
-    else:
-        messages.error(request, "Acao de producao invalida.")
-        return HttpResponseRedirect(reverse("admin_console_production"))
-
-    return TemplateResponse(
-        request,
-        ACTION_TEMPLATE,
-        {
-            **admin.site.each_context(request),
-            "title": title,
-            "form": form,
-            "description": description,
-            "submit_label": submit_label,
-            "back_url": _action_back_url(request.GET),
-        },
     )
 
 
@@ -588,63 +528,58 @@ def _plan_form(row, board) -> ProductionPlanForm | None:
 
 
 def _start_entries(row, board) -> list[dict]:
-    entries = []
-    for item in row.planned_orders:
-        initial = {
-            "action": "start",
-            "wo_id": item.pk,
-            "target_date": board.selected_date,
-            "position_ref": board.selected_position_ref,
-            "operator_ref_filter": board.selected_operator_ref,
-            "base_recipe": board.selected_base_recipe,
-            "quantity": item.planned_qty,
-            "position": board.default_position_pk or "",
-            "operator_ref": item.operator_ref or board.selected_operator_ref,
+    return [
+        {
+            "item": item,
+            "modal_title": f"Iniciar {item.output_sku}",
+            "modal_description": "Informe a quantidade que entrou fisicamente em producao.",
+            "submit_label": "Iniciar",
+            "form_id": f"production-start-{item.pk}",
+            "form": ProductionStartForm(
+                initial={
+                    "action": "start",
+                    "wo_id": item.pk,
+                    "target_date": board.selected_date,
+                    "position_ref": board.selected_position_ref,
+                    "operator_ref_filter": board.selected_operator_ref,
+                    "base_recipe": board.selected_base_recipe,
+                    "quantity": item.planned_qty,
+                    "position": board.default_position_pk or "",
+                    "operator_ref": item.operator_ref or board.selected_operator_ref,
+                },
+                position_choices=_position_pk_choices(board),
+            ),
         }
-        entries.append({"item": item, "action_url": _action_url(initial)})
-    return entries
+        for item in row.planned_orders
+    ]
 
 
 def _finish_entries(row, board) -> list[dict]:
-    entries = []
-    for item in row.started_orders:
-        initial = {
-            "action": "finish",
-            "wo_id": item.pk,
-            "target_date": board.selected_date,
-            "position_ref": board.selected_position_ref,
-            "operator_ref_filter": board.selected_operator_ref,
-            "base_recipe": board.selected_base_recipe,
-            "quantity": item.started_qty,
+    return [
+        {
+            "item": item,
+            "modal_title": f"Concluir {item.output_sku}",
+            "modal_description": "Informe o acabado real. A perda sai da diferenca para o iniciado.",
+            "submit_label": "Concluir",
+            "form_id": f"production-finish-{item.pk}",
+            "form": ProductionFinishForm(
+                initial={
+                    "action": "finish",
+                    "wo_id": item.pk,
+                    "target_date": board.selected_date,
+                    "position_ref": board.selected_position_ref,
+                    "operator_ref_filter": board.selected_operator_ref,
+                    "base_recipe": board.selected_base_recipe,
+                    "quantity": item.started_qty,
+                }
+            ),
         }
-        entries.append({"item": item, "action_url": _action_url(initial)})
-    return entries
+        for item in row.started_orders
+    ]
 
 
 def _position_pk_choices(board) -> list[tuple[str | int, str]]:
     return [("", "Padrao"), *[(position.pk, position.name) for position in board.positions]]
-
-
-def _position_pk_choices_from_db() -> list[tuple[str | int, str]]:
-    return [("", "Padrao"), *Position.objects.order_by("name").values_list("pk", "name")]
-
-
-def _action_url(initial: dict) -> str:
-    params = {key: value for key, value in initial.items() if value not in {None, ""}}
-    return f"{reverse('admin_console_production_action')}?{urlencode(params)}"
-
-
-def _action_back_url(data) -> str:
-    post_data = {
-        "target_date": (data.get("target_date") or "").strip(),
-        "position_ref": (data.get("position_ref") or "").strip(),
-        "operator_ref_filter": (data.get("operator_ref_filter") or "").strip(),
-        "base_recipe": (data.get("base_recipe") or "").strip(),
-    }
-    request = HttpRequest()
-    request.method = "POST"
-    request.POST = post_data
-    return production_redirect(request, redirect_url_name="admin_console_production")
 
 
 def _status_label(wo):

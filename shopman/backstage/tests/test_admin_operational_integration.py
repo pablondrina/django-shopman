@@ -139,23 +139,16 @@ class AdminProductionPilotTests(TestCase):
             ).exists()
         )
 
-    def test_admin_production_start_action_uses_canonical_action_page(self) -> None:
-        planned = craft.plan(self.recipe, 13, date=date.today())
+    def test_admin_production_start_action_uses_approved_modal_wrapper(self) -> None:
+        craft.plan(self.recipe, 13, date=date.today())
 
-        response = self.client.get(
-            reverse("admin_console_production_action"),
-            {
-                "action": "start",
-                "wo_id": planned.pk,
-                "target_date": date.today().isoformat(),
-                "quantity": "13",
-            },
-        )
+        response = self.client.get(reverse("admin_console_production"))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Iniciar CIABATTA")
         self.assertContains(response, 'name="quantity"')
-        self.assertNotContains(response, "x-teleport")
+        self.assertContains(response, 'role="dialog"')
+        self.assertContains(response, "x-teleport")
 
 
 class OrderAdminSemanticsTests(TestCase):
