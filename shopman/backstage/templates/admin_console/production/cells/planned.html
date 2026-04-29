@@ -1,0 +1,32 @@
+{% load unfold %}
+
+{% if context.production_access.can_edit_planned and row.recipe_pk %}
+  <form method="post"
+        class="flex min-w-36 items-center gap-2"
+        @keydown.enter.prevent="$el.requestSubmit()">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="set_planned">
+    <input type="hidden" name="target_date" value="{{ context.selected_date|date:'Y-m-d' }}">
+    <input type="hidden" name="position_ref" value="{{ context.selected_position_ref }}">
+    <input type="hidden" name="operator_ref" value="{{ context.selected_operator_ref }}">
+    <input type="hidden" name="operator_ref_filter" value="{{ context.selected_operator_ref }}">
+    <input type="hidden" name="base_recipe" value="{{ context.selected_base_recipe }}">
+    <input type="hidden" name="recipe" value="{{ row.recipe_pk }}">
+    <input type="number"
+           step="0.001"
+           min="0"
+           max="9999"
+           name="quantity"
+           value="{{ row.planned_qty }}"
+           inputmode="decimal"
+           class="h-8 w-20 rounded-default border border-base-200 bg-white px-2 py-1 text-right font-semibold tabular-nums dark:border-base-700 dark:bg-base-900"
+           required>
+    {% component "unfold/components/button.html" with submit=1 class="h-8 min-w-8 px-2 py-1" title="Salvar planejado" %}
+      <span class="material-symbols-outlined text-base">check</span>
+    {% endcomponent %}
+  </form>
+{% elif row.planned_qty %}
+  <span class="font-semibold tabular-nums text-font-important-light dark:text-font-important-dark">{{ row.planned_qty }}</span>
+{% else %}
+  <span class="text-xs text-base-400">Sem ordem</span>
+{% endif %}

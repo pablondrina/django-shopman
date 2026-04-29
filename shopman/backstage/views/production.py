@@ -13,16 +13,22 @@ from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.core.exceptions import ObjectDoesNotExist
-from django.http import Http404
-from django.http import HttpRequest, HttpResponse, HttpResponseForbidden, HttpResponseRedirect, StreamingHttpResponse
+from django.http import (
+    Http404,
+    HttpRequest,
+    HttpResponse,
+    HttpResponseForbidden,
+    HttpResponseRedirect,
+    StreamingHttpResponse,
+)
 from django.shortcuts import redirect
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
 from django.urls import reverse
 
 from shopman.backstage.projections.production import (
-    build_production_dashboard,
     build_production_board,
+    build_production_dashboard,
     build_production_kds,
     build_production_reports,
     resolve_production_access,
@@ -207,8 +213,8 @@ def production_advance_step_view(request, wo_id):
         )
     except production_service.ProductionError as exc:
         return HttpResponse(str(exc), status=422)
-    except ObjectDoesNotExist:
-        raise Http404("Ordem de produção não encontrada.")
+    except ObjectDoesNotExist as exc:
+        raise Http404("Ordem de produção não encontrada.") from exc
 
     if request.headers.get("HX-Request"):
         return production_kds_cards_view(request)
@@ -416,7 +422,14 @@ def handle_production_post(request, access, *, redirect_url_name: str = "backsta
     return HttpResponseRedirect(production_redirect(request, redirect_url_name=redirect_url_name))
 
 
-def render_production_surface(request, access, *, template_name: str = TEMPLATE, extra_context: dict | None = None):
+def render_production_surface(
+    request,
+    access,
+    *,
+    template_name: str = TEMPLATE,
+    extra_context: dict | None = None,
+    context_callback=None,
+):
     """Render the production page using projection."""
     selected_date = _selected_date(request)
     position_ref = (request.GET.get("position_ref") or "").strip()
@@ -454,6 +467,8 @@ def render_production_surface(request, access, *, template_name: str = TEMPLATE,
     }
     if extra_context:
         context.update(extra_context)
+    if context_callback:
+        context.update(context_callback(request, board, context))
     return TemplateResponse(request, template_name, context)
 
 

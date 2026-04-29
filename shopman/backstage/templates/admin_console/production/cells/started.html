@@ -1,0 +1,14 @@
+{% if row.started_orders %}
+  <div class="flex min-w-32 flex-col gap-1">
+    <span class="font-semibold tabular-nums text-font-important-light dark:text-font-important-dark">{{ row.started_qty }}</span>
+    <div class="flex flex-wrap gap-1">
+      {% for item in row.started_orders %}
+        <span class="rounded-default bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+          {{ item.ref }}{% if item.operator_ref %} - {{ item.operator_ref }}{% endif %}
+        </span>
+      {% endfor %}
+    </div>
+  </div>
+{% else %}
+  <span class="text-xs text-base-400">-</span>
+{% endif %}

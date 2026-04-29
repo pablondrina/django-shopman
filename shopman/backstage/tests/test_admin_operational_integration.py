@@ -9,13 +9,13 @@ from django.contrib import admin
 from django.contrib.auth.models import User
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
-
-from shopman.backstage.admin import navigation
-from shopman.backstage.projections.dashboard import build_dashboard
 from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe, WorkOrder
 from shopman.orderman.admin import OrderAdmin
 from shopman.orderman.models import Order, OrderItem
+
+from shopman.backstage.admin import navigation
+from shopman.backstage.projections.dashboard import build_dashboard
 from shopman.shop.models import Shop
 
 
@@ -102,6 +102,21 @@ class AdminProductionPilotTests(TestCase):
         self.assertContains(response, "Piloto Admin/Unfold")
         self.assertContains(response, reverse("backstage:production"))
         self.assertContains(response, "Mapa de producao")
+
+    def test_admin_production_pilot_uses_unfold_expandable_table_data(self) -> None:
+        craft.plan(self.recipe, 13, date=date.today())
+
+        response = self.client.get(reverse("admin_console_production"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'x-data="{ rowOpen: false }"')
+        self.assertContains(response, "expand_more")
+
+        table = response.context["production_matrix_table"]
+        self.assertTrue(table["collapsible"])
+        self.assertIn("Planejado", table["headers"])
+        self.assertEqual(table["rows"][0]["table"]["collapsible"], True)
+        self.assertIn("CIABATTA", str(table["rows"][0]["cols"][0]))
 
     def test_admin_production_pilot_mutates_through_shared_production_handler(self) -> None:
         response = self.client.post(

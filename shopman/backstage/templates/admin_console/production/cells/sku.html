@@ -1,0 +1,14 @@
+<div class="flex min-w-48 flex-col gap-1">
+  <div class="flex items-center gap-2">
+    <span class="font-semibold text-font-important-light dark:text-font-important-dark">{{ row.output_sku }}</span>
+    {% if row.suggestion and context.production_access.can_view_suggested or row.suggestion and context.production_access.can_edit_suggested %}
+      <span class="rounded-default bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/20 dark:text-primary-300">
+        sugerido {{ row.suggestion.quantity }}
+      </span>
+    {% endif %}
+  </div>
+  <span class="text-xs text-base-500">{{ row.recipe_name }}</span>
+  {% if usage %}
+    <span class="text-xs text-base-500">{{ usage.quantity_display }}/lote de {{ usage.name }}</span>
+  {% endif %}
+</div>
