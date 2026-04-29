@@ -1,4 +1,4 @@
-# Unfold Admin Canonical Policy
+# Unfold Canonical Gate Policy
 
 This project treats Django Unfold as the design system for Admin/backstage custom pages.
 Operational Admin templates must prefer official Unfold primitives before custom HTML or Tailwind classes.
@@ -6,7 +6,13 @@ Copying the same classes is not enough. The canonical widget/helper/component en
 
 ## Canonical Sources
 
+- Creation playbook: `docs/engineering/unfold_admin_page_playbook.md`
 - Official docs: <https://unfoldadmin.com/docs/components/button/> and <https://unfoldadmin.com/docs/components/table/>
+- Official custom pages docs: <https://unfoldadmin.com/docs/pages/>
+- Official ModelAdmin options docs: <https://unfoldadmin.com/docs/configuration/modeladmin/>
+- Official filters docs: <https://unfoldadmin.com/docs/filters/introduction/>
+- Official dialog actions docs: <https://unfoldadmin.com/docs/actions/dialog-actions/>
+- Official sections/expandable rows docs: <https://unfoldadmin.com/docs/configuration/sections/>
 - Components: `unfold/templates/unfold/components/*.html`
 - Field rendering: `unfold/helpers/field.html`
 - Form widgets: `unfold.widgets.UnfoldAdmin*Widget`
@@ -32,6 +38,8 @@ Templates under `shopman/backstage/templates/admin_console/` and form/widget def
 Strict review also flags hand-built visual shells such as raw collapsibles, modal overlays, badges, card-like borders, direct color tokens, and spacing that duplicates Unfold components.
 
 If an official Unfold primitive does not exist for a needed interaction, the change must document the gap and keep the custom surface isolated in a small partial. Treat that as product/design debt until an official Unfold pattern or approved wrapper replaces it.
+
+For production-grade Admin UI, `--maturity`/`--strict` is the acceptance gate. A page can pass the default blocking gate while still being unfit for maturity if it contains custom shells that should become Unfold actions/dialogs, sections, components, or explicitly authorized wrappers.
 
 ## Custom Exceptions
 
@@ -69,6 +77,12 @@ For deeper review:
 
 ```bash
 python scripts/check_unfold_canonical.py --strict
+```
+
+Equivalent maturity audit:
+
+```bash
+python scripts/check_unfold_canonical.py --maturity
 ```
 
 The test suite runs the blocking checker so new raw visual controls cannot enter Admin custom pages unnoticed.

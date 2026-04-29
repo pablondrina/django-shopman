@@ -99,6 +99,31 @@ storefront ──imports──→ shop ←──imports── backstage
   - **NUNCA**: `onclick="..."`, `onchange="..."`, `document.getElementById`, `classList.toggle/add/remove` em templates. Usar `@click`, `x-show`, `x-data`, `x-text`, `$store`.
   - **Exceção**: IntersectionObserver e APIs do browser que não têm equivalente Alpine (geolocation, clipboard, service worker).
 
+## Admin/Unfold — Regra de Canonicidade
+
+Telas operacionais dentro do Admin usam o **Unfold Canonical Gate**. Antes de criar ou alterar
+`shopman/backstage/templates/admin_console/` ou `shopman/backstage/admin_console/`, leia:
+
+- `.codex/skills/unfold-admin-canonical/SKILL.md`
+- `docs/engineering/unfold_admin_page_playbook.md`
+- `docs/engineering/unfold_canonical_policy.md`
+
+Regra curta: **widget/helper/componente canônico > classes copiadas**. Se existe primitiva Unfold,
+use a primitiva. Copiar classes do Unfold nao basta, porque perde markup, JS, acessibilidade,
+overflow, espaçamento e comportamento futuro.
+
+Rode sempre:
+
+```bash
+python scripts/check_unfold_canonical.py
+```
+
+Antes de declarar uma tela Admin/Unfold madura, rode tambem:
+
+```bash
+python scripts/check_unfold_canonical.py --maturity
+```
+
 ## Como Rodar
 
 ```bash

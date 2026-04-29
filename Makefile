@@ -11,7 +11,7 @@ PYTHON := $(shell [ -f .venv/bin/python ] && echo $(CURDIR)/.venv/bin/python || 
 # Python: usa venv se existir, senao o do PATH
 PYTHON := $(shell [ -f .venv/bin/python ] && echo $(CURDIR)/.venv/bin/python || echo python)
 
-.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework test-coverage lint clean migrate run dev seed coverage css css-watch fonts up down logs db-shell
+.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework test-coverage lint lint-unfold lint-unfold-maturity clean migrate run dev seed coverage css css-watch fonts up down logs db-shell
 
 help: ## Mostra este help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -177,6 +177,12 @@ coverage: ## Roda testes do framework com cobertura
 
 lint: ## Ruff check
 	ruff check packages/ shopman/shop/ config/
+
+lint-unfold: ## Gate de canonicidade para telas Admin/Unfold
+	$(PYTHON) scripts/check_unfold_canonical.py
+
+lint-unfold-maturity: ## Auditoria estrita antes de declarar tela Admin/Unfold madura
+	$(PYTHON) scripts/check_unfold_canonical.py --maturity
 
 clean: ## Remove caches
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true

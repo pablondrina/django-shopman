@@ -38,6 +38,14 @@ LAYOUT_TOKEN_RE = re.compile(
     r"min-w-[\w\[\]/.-]+"
     r")$"
 )
+UTILITY_CLASS_RE = re.compile(
+    r"^(?:"
+    r"absolute|appearance-|backdrop-|block|bottom-|cursor-|dark:|flex|flex-|fixed|gap-|gap-x-|gap-y-|"
+    r"grid|grid-|hidden|h-|inset-|items-|justify-|leading-|left-|list-|max-h-|max-w-|mb-|min-h-|"
+    r"min-w-|mt-|mx-|my-|overflow-|p-|pb-|pl-|pr-|pt-|px-|py-|relative|right-|rounded-|shadow-|"
+    r"space-x-|space-y-|sticky|text-|top-|truncate|w-|z-|tabular-nums$|aligned$"
+    r")"
+)
 
 
 def _load_unfold_class_tokens() -> set[str]:
@@ -132,14 +140,19 @@ NON_WAIVABLE_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...] = (
 
 STRICT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...] = (
     (
+        "raw-modal-overlay",
+        re.compile(r'class="[^"]*\bfixed\b[^"]*\binset-0\b[^"]*\bz-\[?1000\]?', re.IGNORECASE),
+        "Use Unfold dialog actions/BaseDialogForm where possible; custom modal overlays require authorization.",
+    ),
+    (
         "raw-collapsible",
         re.compile(r"</?(details|summary)\b", re.IGNORECASE),
-        "Collapsible shells are not an official Unfold component; isolate and justify the gap.",
+        "Use Unfold sections/changelist patterns where possible; custom collapsibles require authorization.",
     ),
     (
         "raw-visual-shell",
         re.compile(
-            r'class="[^"]*(?:\bborder\b|\bbg-[\w/-]+|\brounded-[\w/-]+|\bshadow-[\w/-]+|\btext-(?:font|base|primary|red|green|amber)[\w/-]*)',
+            r'class="[^"]*(?:\bfixed\b[^"]*\binset-0\b|\bborder\b[^"]*\brounded-[\w/-]+|\bbg-[\w/-]+[^"]*\brounded-[\w/-]+|\bshadow-[\w/-]+)',
             re.IGNORECASE,
         ),
         "Visual shell classes should come from Unfold components/helpers, not hand-built HTML.",
@@ -217,11 +230,15 @@ def scan_file(path: Path, *, strict: bool) -> list[Violation]:
         for rule, pattern, message in NON_WAIVABLE_PATTERNS:
             if pattern.search(line):
                 violations.append(Violation(path, index + 1, rule, message, line))
+        line_rules: set[str] = set()
         for rule, pattern, message in patterns:
             if rule == "raw-visual-shell" and "{% component " in line:
                 continue
+            if rule == "raw-visual-shell" and {"raw-modal-overlay", "raw-collapsible"} & line_rules:
+                continue
             if pattern.search(line) and not _is_allowed(lines, index, rule):
                 violations.append(Violation(path, index + 1, rule, message, line))
+                line_rules.add(rule)
         violations.extend(scan_design_token_classes(path, index, line))
     return violations
 
@@ -238,16 +255,28 @@ def scan_design_token_classes(path: Path, index: int, line: str) -> list[Violati
             if "[" not in class_name:
                 if not COLOR_TOKEN_RE.match(class_base):
                     if not LAYOUT_TOKEN_RE.match(class_base):
+                        if UTILITY_CLASS_RE.match(class_name) or UTILITY_CLASS_RE.match(class_base):
+                            violations.extend(
+                                _css_class_violation(
+                                    path,
+                                    index,
+                                    line,
+                                    class_name,
+                                    rule="unknown-unfold-css-class",
+                                    message=f"`{class_name}` is not present in compiled Unfold CSS.",
+                                )
+                            )
                         continue
-                    if _css_selector(class_name) in UNFOLD_CSS or _css_selector(class_base) in UNFOLD_CSS:
+                    if _class_exists_in_unfold_css(class_name, class_base):
                         continue
-                    violations.append(
-                        Violation(
+                    violations.extend(
+                        _css_class_violation(
                             path,
-                            index + 1,
-                            "noncanonical-layout-class",
-                            f"`{class_name}` is not present in compiled Unfold CSS.",
+                            index,
                             line,
+                            class_name,
+                            rule="noncanonical-layout-class",
+                            message=f"`{class_name}` is not present in compiled Unfold CSS.",
                         )
                     )
                     continue
@@ -277,6 +306,25 @@ def scan_design_token_classes(path: Path, index: int, line: str) -> list[Violati
     return violations
 
 
+def _class_exists_in_unfold_css(class_name: str, class_base: str) -> bool:
+    return _css_selector(class_name) in UNFOLD_CSS or _css_selector(class_base) in UNFOLD_CSS
+
+
+def _css_class_violation(
+    path: Path,
+    index: int,
+    line: str,
+    class_name: str,
+    *,
+    rule: str,
+    message: str,
+) -> list[Violation]:
+    class_base = class_name.split(":")[-1].rstrip("!")
+    if _class_exists_in_unfold_css(class_name, class_base):
+        return []
+    return [Violation(path, index + 1, rule, message, line)]
+
+
 def iter_templates(targets: list[Path]) -> list[Path]:
     files: list[Path] = []
     for target in targets:
@@ -292,11 +340,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("targets", nargs="*", type=Path, default=DEFAULT_TARGETS)
     parser.add_argument("--strict", action="store_true", help="also flag visual-shell drift")
+    parser.add_argument("--maturity", action="store_true", help="alias for --strict before declaring a page mature")
     args = parser.parse_args(argv)
 
     violations: list[Violation] = []
     for template in iter_templates(args.targets):
-        violations.extend(scan_file(template, strict=args.strict))
+        violations.extend(scan_file(template, strict=args.strict or args.maturity))
 
     if violations:
         print("Non-canonical Unfold Admin template usage detected:\n")

@@ -36,7 +36,7 @@
           {% component "unfold/components/text.html" with class="text-xs uppercase text-base-500" %}
             {{ kpi.title }}
           {% endcomponent %}
-          {% component "unfold/components/title.html" with class="mt-1 text-2xl tabular-nums" %}
+          {% component "unfold/components/title.html" with class="mt-1 text-2xl" %}
             {{ kpi.value }}
           {% endcomponent %}
         {% endcomponent %}
@@ -96,21 +96,11 @@
     {% endcomponent %}
 
     {% if production_access.can_edit_finished %}
-      <details class="border border-base-200 bg-white rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
-        <summary class="cursor-pointer list-none px-6 py-4">
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              {% component "unfold/components/title.html" with class="text-sm" %}
-                Entrada direta
-              {% endcomponent %}
-              {% component "unfold/components/text.html" with class="mt-1 text-sm text-base-500" %}
-                Atalho para registrar algo que ja terminou sem passar pelas etapas.
-              {% endcomponent %}
-            </div>
-            {% component "unfold/components/icon.html" with class="text-base-400" %}expand_more{% endcomponent %}
-          </div>
-        </summary>
-        <form method="post" novalidate class="border-t border-base-200 px-6 pt-5 pb-6 dark:border-base-800">
+      {% component "unfold/components/card.html" with title="Entrada direta" %}
+        {% component "unfold/components/text.html" with class="mb-4 text-sm text-base-500" %}
+          Atalho para registrar algo que ja terminou sem passar pelas etapas.
+        {% endcomponent %}
+        <form method="post" novalidate>
           {% csrf_token %}
           {% for hidden in production_quick_finish_form.hidden_fields %}
             {{ hidden }}
@@ -127,28 +117,16 @@
             {% endcomponent %}
           </div>
         </form>
-      </details>
+      {% endcomponent %}
     {% endif %}
 
     {% if production_access.can_manage_all or today_wos %}
-      <details class="border border-base-200 bg-white rounded-default shadow-xs dark:bg-base-900 dark:border-base-800">
-        <summary class="cursor-pointer list-none px-6 py-4">
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              {% component "unfold/components/title.html" with class="text-sm" %}
-                Historico da data
-              {% endcomponent %}
-              {% component "unfold/components/text.html" with class="mt-1 text-sm text-base-500" %}
-                Consulte as OPs do dia quando precisar auditar a jornada.
-              {% endcomponent %}
-            </div>
-            {% component "unfold/components/icon.html" with class="text-base-400" %}expand_more{% endcomponent %}
-          </div>
-        </summary>
-        <div class="border-t border-base-200 px-6 pt-6 pb-6 dark:border-base-800">
-          {% component "unfold/components/table.html" with table=production_history_table card_included=1 striped=1 height=360 %}{% endcomponent %}
-        </div>
-      </details>
+      {% component "unfold/components/card.html" with title="Historico da data" %}
+        {% component "unfold/components/text.html" with class="mb-4 text-sm text-base-500" %}
+          Consulte as OPs do dia quando precisar auditar a jornada.
+        {% endcomponent %}
+        {% component "unfold/components/table.html" with table=production_history_table card_included=1 striped=1 height=360 %}{% endcomponent %}
+      {% endcomponent %}
     {% endif %}
   </div>
 {% endcomponent %}
