@@ -7,15 +7,14 @@
       {% if context.production_access.can_edit_started %}
         <div x-data="{ open: false }">
           {% component "unfold/components/button.html" with variant="default" class="h-8 min-w-8 px-2 py-1" title="Iniciar OP" extra_attrs='type="button" x-on:click="open = true"' %}
-            <span class="material-symbols-outlined text-base">play_arrow</span>
+            {% component "unfold/components/icon.html" with class="text-base" %}play_arrow{% endcomponent %}
           {% endcomponent %}
 
           <template x-teleport="body">
             <div x-show="open"
                  x-cloak
                  x-transition.opacity
-                 class="fixed inset-0 flex items-center justify-center p-4"
-                 style="z-index: 2147483647; background: rgba(0, 0, 0, .45);"
+                 class="backdrop-blur-xs bg-base-900/80 fixed inset-0 flex items-center justify-center p-4 z-[1000]"
                  x-on:click.self="open = false"
                  x-on:keydown.escape.window="open = false"
                  role="dialog"

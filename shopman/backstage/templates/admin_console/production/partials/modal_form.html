@@ -1,6 +1,6 @@
 {% load i18n unfold %}
 
-<form method="post" novalidate class="max-h-[calc(100vh-2rem)] w-full max-w-sm overflow-y-auto rounded-default bg-white p-6 shadow-lg dark:bg-base-900">
+<form method="post" novalidate class="bg-white dark:bg-base-800 flex flex-col max-h-screen max-w-sm overflow-y-auto p-6 rounded-default shadow-lg w-full">
   {% csrf_token %}
   {% for hidden in form.hidden_fields %}
     {{ hidden }}

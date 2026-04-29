@@ -1,5 +1,7 @@
+{% load unfold %}
+
 {% if error %}
-<div class="border border-red-200 bg-red-50 px-3 py-2 rounded-default text-red-700 text-sm dark:bg-red-900/20 dark:border-red-800 dark:text-red-200">
+<div class="border border-base-200 bg-red-100 px-3 py-2 rounded-default text-red-700 text-sm dark:bg-red-500/20 dark:border-red-500/20 dark:text-red-400">
   {{ error }}
 </div>
 {% else %}
@@ -11,7 +13,7 @@
     <ul class="mt-2 space-y-1">
       {% for row in created %}
         <li class="flex items-center gap-2">
-          <span class="material-symbols-outlined text-green-600 text-base">check_circle</span>
+          {% component "unfold/components/icon.html" with class="text-green-700 text-base dark:text-green-400" %}check_circle{% endcomponent %}
           <span>{{ row.ref }} - {{ row.output_sku }} x {{ row.quantity }}</span>
         </li>
       {% endfor %}
@@ -21,10 +23,10 @@
   {% endif %}
 
   {% if errors %}
-    <div class="mt-3 font-semibold text-red-700 dark:text-red-300">Pendencias</div>
+    <div class="mt-3 font-semibold text-red-700 dark:text-red-400">Pendencias</div>
     <ul class="mt-1 space-y-1">
       {% for err in errors %}
-        <li class="text-red-700 dark:text-red-300">{{ err }}</li>
+        <li class="text-red-700 dark:text-red-400">{{ err }}</li>
       {% endfor %}
     </ul>
   {% endif %}

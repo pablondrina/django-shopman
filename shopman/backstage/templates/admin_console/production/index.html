@@ -1,11 +1,12 @@
 {% extends "admin/base_site.html" %}
-{% load i18n unfold %}
+{% load i18n static unfold %}
 
 {% block title %}Producao | {{ site_title|default:_('Django site admin') }}{% endblock %}
 
 {% block extrahead %}
   {{ block.super }}
   <script src="{% url 'admin:jsi18n' %}"></script>
+  <script src="{% static 'admin/js/core.js' %}"></script>
   {{ production_filter_form.media }}
   {{ production_quick_finish_form.media }}
 {% endblock %}
@@ -19,9 +20,7 @@
           {% component "unfold/components/title.html" with class="text-2xl" %}
             Producao
           {% endcomponent %}
-          <span class="border border-primary-200 bg-primary-50 px-2 py-1 rounded-default text-primary-700 text-xs font-semibold dark:bg-primary-900/20 dark:border-primary-700 dark:text-primary-300">
-            Piloto Admin/Unfold
-          </span>
+          {% include "unfold/helpers/label.html" with text="Piloto Admin/Unfold" type="primary" %}
         </div>
         {% component "unfold/components/text.html" with class="mt-1 text-sm text-base-500" %}
           Board operacional dentro do shell Admin. A tela antiga continua disponivel para comparacao.
@@ -52,7 +51,7 @@
           {% endfor %}
           <div class="flex items-end mb-5">
             {% component "unfold/components/button.html" with submit=1 class="w-full" %}
-              <span class="material-symbols-outlined text-base">tune</span>
+              {% component "unfold/components/icon.html" with class="text-base" %}tune{% endcomponent %}
               Filtrar
             {% endcomponent %}
           </div>
@@ -74,7 +73,7 @@
             <input type="hidden" name="quantity" value="{{ suggestion.quantity }}">
           {% endfor %}
           {% component "unfold/components/button.html" with submit=1 %}
-            <span class="material-symbols-outlined text-base">auto_awesome</span>
+            {% component "unfold/components/icon.html" with class="text-base" %}auto_awesome{% endcomponent %}
             Gerar sugestoes
           {% endcomponent %}
         </form>
@@ -106,12 +105,14 @@
         <summary class="cursor-pointer list-none px-6 py-4">
           <div class="flex items-center justify-between gap-3">
             <div>
-              <h2 class="font-semibold text-[15px] text-important">Entrada direta</h2>
+              {% component "unfold/components/title.html" with class="text-sm" %}
+                Entrada direta
+              {% endcomponent %}
               {% component "unfold/components/text.html" with class="mt-1 text-sm text-base-500" %}
                 Atalho para registrar algo que ja terminou sem passar pelas etapas.
               {% endcomponent %}
             </div>
-            <span class="material-symbols-outlined text-base-400">expand_more</span>
+            {% component "unfold/components/icon.html" with class="text-base-400" %}expand_more{% endcomponent %}
           </div>
         </summary>
         <form method="post" novalidate class="border-t border-base-200 px-6 pt-5 pb-6 dark:border-base-800">
@@ -126,7 +127,7 @@
           </div>
           <div class="flex justify-end">
             {% component "unfold/components/button.html" with submit=1 class="w-full sm:w-auto" %}
-              <span class="material-symbols-outlined text-base">add_circle</span>
+              {% component "unfold/components/icon.html" with class="text-base" %}add_circle{% endcomponent %}
               Registrar entrada direta
             {% endcomponent %}
           </div>
@@ -139,12 +140,14 @@
         <summary class="cursor-pointer list-none px-6 py-4">
           <div class="flex items-center justify-between gap-3">
             <div>
-              <h2 class="font-semibold text-[15px] text-important">Historico da data</h2>
+              {% component "unfold/components/title.html" with class="text-sm" %}
+                Historico da data
+              {% endcomponent %}
               {% component "unfold/components/text.html" with class="mt-1 text-sm text-base-500" %}
                 Consulte as OPs do dia quando precisar auditar a jornada.
               {% endcomponent %}
             </div>
-            <span class="material-symbols-outlined text-base-400">expand_more</span>
+            {% component "unfold/components/icon.html" with class="text-base-400" %}expand_more{% endcomponent %}
           </div>
         </summary>
         <div class="border-t border-base-200 px-6 pt-6 pb-6 dark:border-base-800">

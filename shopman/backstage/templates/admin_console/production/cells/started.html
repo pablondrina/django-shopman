@@ -1,9 +1,7 @@
 {% if row.started_orders %}
   <div class="flex min-w-24 items-center gap-2">
     <span class="font-semibold tabular-nums text-font-important-light dark:text-font-important-dark">{{ row.started_qty }}</span>
-    <span class="rounded-default bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
-      {{ row.started_orders|length }} OP
-    </span>
+    {% include "unfold/helpers/label.html" with text=row.started_orders|length type="warning" %}
   </div>
 {% else %}
   <span class="text-xs text-base-400">-</span>

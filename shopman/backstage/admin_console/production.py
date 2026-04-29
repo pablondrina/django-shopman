@@ -89,6 +89,30 @@ class ProductionStartForm(forms.Form):
         self.fields["position"].choices = position_choices
 
 
+class ProductionPlanForm(forms.Form):
+    action = forms.CharField(widget=forms.HiddenInput(), initial="set_planned")
+    target_date = forms.CharField(widget=forms.HiddenInput())
+    position_ref = forms.CharField(widget=forms.HiddenInput(), required=False)
+    operator_ref = forms.CharField(widget=forms.HiddenInput(), required=False)
+    operator_ref_filter = forms.CharField(widget=forms.HiddenInput(), required=False)
+    base_recipe = forms.CharField(widget=forms.HiddenInput(), required=False)
+    recipe = forms.CharField(widget=forms.HiddenInput())
+    quantity = forms.DecimalField(
+        label="Planejado",
+        min_value=0,
+        max_value=9999,
+        widget=UnfoldAdminDecimalFieldWidget(
+            attrs={
+                "class": "max-w-24 text-right tabular-nums",
+                "step": "0.001",
+                "min": "0",
+                "max": "9999",
+                "inputmode": "decimal",
+            }
+        ),
+    )
+
+
 class ProductionFinishForm(forms.Form):
     action = forms.CharField(widget=forms.HiddenInput(), initial="finish")
     wo_id = forms.CharField(widget=forms.HiddenInput())
@@ -322,7 +346,7 @@ def _matrix_table(request: HttpRequest, board, context: dict) -> dict:
                 _cell(request, "sku", row=row, usage=usage, group=group, context=context),
             ]
             if access.can_view_planned:
-                cols.append(_cell(request, "planned", row=row, context=context))
+                cols.append(_cell(request, "planned", row=row, context=context, form=_plan_form(row, board)))
             if access.can_view_started:
                 cols.extend([
                     _cell(
@@ -488,6 +512,23 @@ def _quick_finish_form(board) -> ProductionQuickFinishForm:
         },
         recipe_choices=[(recipe.pk, f"{recipe.ref} - {recipe.name}") for recipe in board.recipes],
         position_choices=_position_pk_choices(board),
+    )
+
+
+def _plan_form(row, board) -> ProductionPlanForm | None:
+    if not row.recipe_pk:
+        return None
+    return ProductionPlanForm(
+        initial={
+            "action": "set_planned",
+            "target_date": board.selected_date,
+            "position_ref": board.selected_position_ref,
+            "operator_ref": board.selected_operator_ref,
+            "operator_ref_filter": board.selected_operator_ref,
+            "base_recipe": board.selected_base_recipe,
+            "recipe": row.recipe_pk,
+            "quantity": row.planned_qty,
+        }
     )
 
 
