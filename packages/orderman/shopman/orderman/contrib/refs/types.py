@@ -31,9 +31,9 @@ ORDER_REF = RefType(
     scope_keys=("channel_ref", "business_date"),
     unique_scope="all",
     normalizer="upper_strip",
-    validator=r"^[A-Z0-9][A-Z0-9_-]{1,63}-\d{6}-[A-Z0-9]{8}$",
+    validator=r"^[A-Z0-9][A-Z0-9_-]{1,63}-\d{6}-[A-Z0-9]{4}$",
     generator="short_uuid",
-    generator_format="{channel_ref}-{date:%y%m%d}-{code:8}",
+    generator_format="{channel_ref}-{date:%y%m%d}-{code:4}",
 )
 
 EXTERNAL_ORDER = RefType(

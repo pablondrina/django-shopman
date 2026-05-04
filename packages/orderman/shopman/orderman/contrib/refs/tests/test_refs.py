@@ -44,8 +44,8 @@ class TypeDefinitionTests(TestCase):
         assert ORDER_REF.slug == "ORDER_REF"
         assert ORDER_REF.allowed_targets == ("orderman.Order",)
         assert ORDER_REF.unique_scope == "all"
-        assert ORDER_REF.validator == r"^[A-Z0-9][A-Z0-9_-]{1,63}-\d{6}-[A-Z0-9]{8}$"
-        assert ORDER_REF.generator_format == "{channel_ref}-{date:%y%m%d}-{code:8}"
+        assert ORDER_REF.validator == r"^[A-Z0-9][A-Z0-9_-]{1,63}-\d{6}-[A-Z0-9]{4}$"
+        assert ORDER_REF.generator_format == "{channel_ref}-{date:%y%m%d}-{code:4}"
 
     def test_external_order_attributes(self):
         assert EXTERNAL_ORDER.slug == "EXTERNAL_ORDER"

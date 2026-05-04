@@ -12,7 +12,7 @@ def test_generate_order_ref_uses_yymmdd_business_date():
 
     ref = generate_order_ref(channel_ref="pdv", business_date=date(2026, 5, 4))
 
-    assert re.fullmatch(r"PDV-260504-[A-Z0-9]{8}", ref)
+    assert re.fullmatch(r"PDV-260504-[A-Z0-9]{4}", ref)
 
 
 def test_generate_order_ref_accepts_real_channel_refs():
@@ -21,7 +21,7 @@ def test_generate_order_ref_accepts_real_channel_refs():
 
     ref = generate_order_ref(channel_ref="delivery", business_date=date(2026, 5, 4))
 
-    assert re.fullmatch(r"DELIVERY-260504-[A-Z0-9]{8}", ref)
+    assert re.fullmatch(r"DELIVERY-260504-[A-Z0-9]{4}", ref)
 
 
 def test_generate_order_ref_fallback_keeps_channel_and_yymmdd(monkeypatch):
@@ -31,4 +31,4 @@ def test_generate_order_ref_fallback_keeps_channel_and_yymmdd(monkeypatch):
     monkeypatch.setattr("shopman.refs.generators.generate_value", unavailable)
     ref = generate_order_ref(channel_ref="web", business_date=date(2026, 5, 4))
 
-    assert re.fullmatch(r"WEB-260504-[A-Z0-9]{8}", ref)
+    assert re.fullmatch(r"WEB-260504-[A-Z0-9]{4}", ref)
