@@ -11,6 +11,7 @@ Errors (block runserver/migrate --deploy in production):
   SHOPMAN_E005  Guestman (Manychat) webhook secret not configured
   SHOPMAN_E006  Shared Redis cache is not configured
   SHOPMAN_E007  Database backend is SQLite in production
+  SHOPMAN_E008  Doorman access-link API key is not configured
 
 Warnings (non-blocking, logged at startup):
   SHOPMAN_W001  Database backend is SQLite in local/debug mode
@@ -174,6 +175,28 @@ def check_guestman_webhook_secret(app_configs, **kwargs):
                     id="SHOPMAN_E005",
                 )
             )
+    return errors
+
+
+@register(deploy=True)
+def check_doorman_access_link_api_key(app_configs, **kwargs):
+    errors = []
+    if settings.DEBUG:
+        return errors
+
+    doorman = getattr(settings, "DOORMAN", {}) or {}
+    if not doorman.get("ACCESS_LINK_API_KEY"):
+        errors.append(
+            Error(
+                "DOORMAN['ACCESS_LINK_API_KEY'] não está configurado em produção.",
+                hint=(
+                    "Defina DOORMAN_ACCESS_LINK_API_KEY. O endpoint de criação "
+                    "de access links é CSRF-exempt por ser integração servidor-servidor "
+                    "e deve falhar fechado fora de DEBUG."
+                ),
+                id="SHOPMAN_E008",
+            )
+        )
     return errors
 
 

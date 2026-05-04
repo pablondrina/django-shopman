@@ -9,8 +9,10 @@ import pytest
 from django.core.management import call_command
 from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe, WorkOrder
+from shopman.guestman.models import Customer
 from shopman.offerman.models import Product
 from shopman.orderman.models import Order, OrderItem, Session
+from shopman.payman.models import PaymentIntent
 from shopman.stockman.models import Batch, Position
 
 from shopman.backstage.models import KDSInstance, OperatorAlert, POSTab
@@ -69,3 +71,21 @@ def test_nelson_seed_populates_production_history_alerts_and_batches():
     assert OperatorAlert.objects.filter(type="production_low_yield", acknowledged=False).exists()
     assert OperatorAlert.objects.filter(type="production_stock_short", acknowledged=False).exists()
     assert set(KDSInstance.objects.values_list("ref", flat=True)) >= {"cafes", "lanches", "encomendas", "expedicao"}
+
+    edge_orders = list(Order.objects.filter(snapshot__seed_namespace="security_reliability_edges"))
+    edge_keys = {order.snapshot["seed_key"] for order in edge_orders}
+    assert edge_keys >= {
+        "security:payment-pending-near-expiry",
+        "security:payment-expired-low-attention",
+        "security:payment-after-cancel",
+        "security:ifood-stale-confirmation",
+    }
+
+    edge_order_refs = {order.ref for order in edge_orders}
+    assert PaymentIntent.objects.filter(order_ref__in=edge_order_refs, status=PaymentIntent.Status.PENDING).count() >= 2
+    assert PaymentIntent.objects.filter(order_ref__in=edge_order_refs, status=PaymentIntent.Status.CAPTURED).exists()
+    assert OperatorAlert.objects.filter(type="payment_after_cancel", severity="critical", acknowledged=False).exists()
+    assert OperatorAlert.objects.filter(type="stale_new_order", severity="error", acknowledged=False).exists()
+
+    low_attention = Customer.objects.get(ref="CLI-001")
+    assert low_attention.metadata["seed_persona"] == "low_attention"

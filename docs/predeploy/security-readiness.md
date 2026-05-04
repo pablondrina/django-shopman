@@ -50,6 +50,7 @@ Pagamentos e webhooks:
 
 Mensageria e autenticação externa:
 
+- `DOORMAN_ACCESS_LINK_API_KEY`, se access links chat→web estiverem expostos.
 - `MANYCHAT_API_TOKEN`, se WhatsApp via ManyChat enviar mensagens.
 - `MANYCHAT_WEBHOOK_SECRET`, se webhooks ManyChat estiverem expostos.
 - `WHATSAPP_VERIFY_TOKEN`, se endpoint WhatsApp direto for ativado.
@@ -79,7 +80,8 @@ Antes do go-live, confirmar no ambiente:
 Storefront:
 
 - Login/OTP tem rate limiting via `django-ratelimit`.
-- Links de acesso usam tokens de Doorman com rate limit e expiração.
+- Links de acesso usam tokens de Doorman com uso único, expiração e criação
+  autenticada por `DOORMAN_ACCESS_LINK_API_KEY` fora de `DEBUG`.
 - Trusted device usa cookie assinado por token hash e pode ser revogado.
 - Checkout simulado de iFood é `DEBUG` only e retorna 404 fora de debug.
 

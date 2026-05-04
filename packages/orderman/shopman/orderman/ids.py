@@ -23,7 +23,7 @@ def _generate_id(prefix: str, length: int = 8) -> str:
 def generate_order_ref(channel_ref: str = "ORD", business_date: date | datetime | str | None = None) -> str:
     """Generate order ref via shopman.refs library.
 
-    Format: {CHANNEL_REF}-{YYMMDD}-{CODE} e.g. WEB-260421-AB09.
+    Format: {CHANNEL_REF}-{YYMMDD}-{CODE} e.g. WEB-260421-AB9C7D2E.
     Falls back to {CHANNEL_REF}-{YYMMDD}-XXXXXXXX if the refs library is unavailable
     (standalone orderman tests, fresh installs before ORDER_REF is registered).
     """

@@ -208,11 +208,17 @@ class TestAccessLinkCreateAuth:
         )
         assert response.status_code == 200
 
-    @override_settings(DOORMAN={"ACCESS_LINK_API_KEY": ""})
+    @override_settings(DEBUG=True, DOORMAN={"ACCESS_LINK_API_KEY": ""})
     def test_create_without_configured_key_allows_access(self, customer):
         """POST without configured API key must allow access (dev mode)."""
         response = self._post_create({"customer_id": str(customer.uuid)})
         assert response.status_code == 200
+
+    @override_settings(DEBUG=False, DOORMAN={"ACCESS_LINK_API_KEY": ""})
+    def test_create_without_configured_key_fails_closed_outside_debug(self, customer):
+        """POST without configured API key must fail closed outside DEBUG."""
+        response = self._post_create({"customer_id": str(customer.uuid)})
+        assert response.status_code == 503
 
 
 # ===================================================

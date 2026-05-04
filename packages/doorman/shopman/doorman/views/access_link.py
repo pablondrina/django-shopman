@@ -7,6 +7,7 @@ import logging
 import secrets as secrets_mod
 from urllib.parse import urlencode
 
+from django.conf import settings as django_settings
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
@@ -57,6 +58,9 @@ class AccessLinkCreateView(View):
         # Authenticate via API key (H05)
         settings = get_doorman_settings()
         api_key = settings.ACCESS_LINK_API_KEY
+        if not api_key and not django_settings.DEBUG:
+            logger.error("AccessLinkCreateView: ACCESS_LINK_API_KEY is not configured — rejecting request.")
+            return JsonResponse({"error": "Access link API not configured"}, status=503)
         if api_key:
             auth_header = request.META.get("HTTP_AUTHORIZATION", "")
             x_api_key = request.META.get("HTTP_X_API_KEY", "")

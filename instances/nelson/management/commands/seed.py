@@ -94,6 +94,7 @@ class Command(BaseCommand):
         self._seed_kds()
         self._seed_pos_tabs()
         self._seed_orders(products, customers, channels)
+        self._seed_security_reliability_edges(products, customers, channels)
         self._seed_sessions(channels)
         self._seed_stock_alerts(products, positions)
         self._seed_operator_alerts()
@@ -2683,6 +2684,269 @@ class Command(BaseCommand):
         self.stdout.write(
             f"  ✅ {order_count} pedidos (35 dias + live + iFood + historico producao)"
         )
+
+    def _seed_security_reliability_edges(self, products, customers, channels):
+        """Deterministic edge scenarios for adversarial QA and Omotenashi drills."""
+        self.stdout.write("  🧪 Cenários de segurança/confiabilidade...")
+
+        now = timezone.now()
+        web = channels.get("web")
+        ifood = channels.get("ifood")
+        product = products.get("CROISSANT") or next(iter(products.values()), None)
+        if web is None or product is None:
+            self.stdout.write("  ⏭️  Sem canal web/produto para cenários de borda")
+            return
+
+        low_attention = customers.get("CLI-001")
+        if low_attention:
+            low_attention.metadata = {
+                **(low_attention.metadata if isinstance(low_attention.metadata, dict) else {}),
+                "seed_persona": "low_attention",
+                "qa_notes": [
+                    "tende a clicar duas vezes em confirmar",
+                    "abandona pagamento PIX e volta pelo tracking",
+                    "precisa de mensagens curtas e recuperacao clara",
+                ],
+            }
+            low_attention.save(update_fields=["metadata"])
+
+        created = 0
+
+        pending = self._create_edge_order(
+            seed_key="security:payment-pending-near-expiry",
+            channel_ref=web.ref,
+            status=Order.Status.CONFIRMED,
+            product=product,
+            qty=Decimal("2"),
+            customer=low_attention,
+            created_at=now - timedelta(minutes=4),
+            data={
+                "customer": {"name": getattr(low_attention, "name", "Cliente distraido")},
+                "payment": {
+                    "method": "pix",
+                    "amount_q": product.base_price_q * 2,
+                    "expires_at": (now + timedelta(minutes=6)).replace(microsecond=0).isoformat(),
+                },
+                "fulfillment_type": "pickup",
+                "edge_case": "low_attention_payment_pending",
+                "availability_decision": {"approved": True, "source": "seed:edge", "decisions": []},
+            },
+        )
+        if pending:
+            self._attach_edge_payment_intent(
+                pending,
+                method=PaymentIntent.Method.PIX,
+                status=PaymentIntent.Status.PENDING,
+                gateway="efi",
+                gateway_id="seed-edge-pix-pending",
+                expires_at=now + timedelta(minutes=6),
+            )
+            created += 1
+
+        expired = self._create_edge_order(
+            seed_key="security:payment-expired-low-attention",
+            channel_ref=web.ref,
+            status=Order.Status.CONFIRMED,
+            product=product,
+            qty=Decimal("1"),
+            customer=low_attention,
+            created_at=now - timedelta(minutes=18),
+            data={
+                "customer": {"name": getattr(low_attention, "name", "Cliente distraido")},
+                "payment": {
+                    "method": "pix",
+                    "amount_q": product.base_price_q,
+                    "expires_at": (now - timedelta(minutes=3)).replace(microsecond=0).isoformat(),
+                },
+                "fulfillment_type": "pickup",
+                "edge_case": "low_attention_payment_expired",
+                "availability_decision": {"approved": True, "source": "seed:edge", "decisions": []},
+            },
+        )
+        if expired:
+            self._attach_edge_payment_intent(
+                expired,
+                method=PaymentIntent.Method.PIX,
+                status=PaymentIntent.Status.PENDING,
+                gateway="efi",
+                gateway_id="seed-edge-pix-expired",
+                expires_at=now - timedelta(minutes=3),
+            )
+            created += 1
+
+        late_paid = self._create_edge_order(
+            seed_key="security:payment-after-cancel",
+            channel_ref=web.ref,
+            status=Order.Status.CANCELLED,
+            product=product,
+            qty=Decimal("3"),
+            customer=low_attention,
+            created_at=now - timedelta(minutes=26),
+            data={
+                "customer": {"name": getattr(low_attention, "name", "Cliente distraido")},
+                "payment": {
+                    "method": "pix",
+                    "amount_q": product.base_price_q * 3,
+                    "expires_at": (now - timedelta(minutes=10)).replace(microsecond=0).isoformat(),
+                },
+                "fulfillment_type": "pickup",
+                "cancellation_reason": "customer_requested",
+                "edge_case": "late_payment_after_cancel",
+                "availability_decision": {"approved": True, "source": "seed:edge", "decisions": []},
+            },
+        )
+        if late_paid:
+            self._attach_edge_payment_intent(
+                late_paid,
+                method=PaymentIntent.Method.PIX,
+                status=PaymentIntent.Status.CAPTURED,
+                gateway="efi",
+                gateway_id="seed-edge-pix-after-cancel",
+                captured_at=now - timedelta(minutes=5),
+            )
+            OperatorAlert.objects.get_or_create(
+                type="payment_after_cancel",
+                order_ref=late_paid.ref,
+                defaults={
+                    "severity": "critical",
+                    "message": (
+                        f"Pagamento capturado depois do cancelamento do pedido {late_paid.ref}. "
+                        "Validar reembolso e comunicação com o cliente."
+                    ),
+                },
+            )
+            created += 1
+
+        if ifood is not None:
+            stale = self._create_edge_order(
+                seed_key="security:ifood-stale-confirmation",
+                channel_ref=ifood.ref,
+                status=Order.Status.NEW,
+                product=product,
+                qty=Decimal("1"),
+                customer=None,
+                created_at=now - timedelta(minutes=46),
+                external_ref="IFOOD-EDGE-STALE-001",
+                data={
+                    "customer": {"name": "Pedido iFood parado"},
+                    "payment": {"method": "external", "timing": "external"},
+                    "fulfillment_type": "delivery",
+                    "edge_case": "marketplace_stale_confirmation",
+                    "availability_decision": {"approved": True, "source": "seed:edge", "decisions": []},
+                },
+            )
+            if stale:
+                OperatorAlert.objects.get_or_create(
+                    type="stale_new_order",
+                    order_ref=stale.ref,
+                    defaults={
+                        "severity": "error",
+                        "message": f"Pedido marketplace {stale.ref} parado aguardando confirmação.",
+                    },
+                )
+                created += 1
+
+        self.stdout.write(f"  ✅ {created} cenários determinísticos de borda")
+
+    def _create_edge_order(
+        self,
+        *,
+        seed_key: str,
+        channel_ref: str,
+        status: str,
+        product,
+        qty: Decimal,
+        customer,
+        created_at: datetime,
+        data: dict,
+        external_ref: str | None = None,
+    ) -> Order | None:
+        existing = Order.objects.filter(snapshot__seed_key=seed_key).first()
+        if existing:
+            return None
+
+        total_q = int(qty * product.base_price_q)
+        ref = self._new_order_ref(channel_ref, created_at.date())
+        handle_ref = ""
+        if customer is not None:
+            handle_ref = (
+                customer.contact_points.filter(type="whatsapp")
+                .values_list("value_normalized", flat=True)
+                .first()
+                or customer.phone
+                or ""
+            )
+            data.setdefault("customer_ref", customer.ref)
+
+        order = Order.objects.create(
+            ref=ref,
+            channel_ref=channel_ref,
+            session_key=f"seed-edge-{ref}",
+            status=status,
+            total_q=total_q,
+            handle_type="phone" if handle_ref else "marketplace_order",
+            handle_ref=handle_ref,
+            external_ref=external_ref,
+            snapshot={
+                "seed": "nelson",
+                "seed_namespace": "security_reliability_edges",
+                "seed_key": seed_key,
+            },
+            data=data,
+        )
+        self._stamp_order(order, created_at)
+        OrderItem.objects.create(
+            order=order,
+            line_id=f"L-{uuid.uuid4().hex[:8]}",
+            sku=product.sku,
+            name=product.name,
+            qty=qty,
+            unit_price_q=product.base_price_q,
+            line_total_q=total_q,
+            meta={"seed": "nelson", "source": "security_reliability_edges"},
+        )
+        OrderEvent.objects.create(
+            order=order,
+            type="status_change",
+            seq=0,
+            payload={"new_status": status, "source": "seed:edge"},
+            created_at=created_at,
+        )
+        return order
+
+    def _attach_edge_payment_intent(
+        self,
+        order: Order,
+        *,
+        method: str,
+        status: str,
+        gateway: str,
+        gateway_id: str,
+        expires_at=None,
+        captured_at=None,
+    ) -> None:
+        intent = PaymentIntent.objects.create(
+            ref=f"PI-EDGE-{uuid.uuid4().hex[:10].upper()}",
+            order_ref=order.ref,
+            method=method,
+            status=status,
+            amount_q=order.total_q,
+            gateway=gateway,
+            gateway_id=f"{gateway_id}-{order.ref}",
+            expires_at=expires_at,
+            captured_at=captured_at,
+        )
+        payment = dict((order.data or {}).get("payment") or {})
+        payment["intent_ref"] = intent.ref
+        if status == PaymentIntent.Status.CAPTURED:
+            PaymentTransaction.objects.create(
+                intent=intent,
+                type=PaymentTransaction.Type.CAPTURE,
+                amount_q=order.total_q,
+                gateway_id=intent.gateway_id,
+            )
+        order.data = {**(order.data or {}), "payment": payment}
+        order.save(update_fields=["data", "updated_at"])
 
     def _seed_production_demand_history(self, products, channels, now) -> int:
         """Stable same-weekday demand rows for Craftsman production suggestions."""

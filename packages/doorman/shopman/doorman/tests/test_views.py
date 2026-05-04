@@ -317,6 +317,10 @@ TEST_API_KEY = "test-auth-api-key-2026"
 class TestAccessLinkCreateViewEdges:
     """Edge case tests for AccessLinkCreateView."""
 
+    @pytest.fixture(autouse=True)
+    def _debug_mode(self, settings):
+        settings.DEBUG = True
+
     def _post_create(self, data, headers=None):
         factory = RequestFactory()
         body = json.dumps(data)

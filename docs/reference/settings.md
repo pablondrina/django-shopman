@@ -213,7 +213,7 @@ O app **recusa iniciar** com `DEBUG=False` se:
 ```python
 # settings.py
 DOORMAN = {
-    "ACCESS_LINK_API_KEY": os.environ["AUTH_ACCESS_LINK_API_KEY"],
+    "ACCESS_LINK_API_KEY": os.environ["DOORMAN_ACCESS_LINK_API_KEY"],
     "DEFAULT_DOMAIN": os.environ.get("AUTH_DEFAULT_DOMAIN", "shop.example.com"),
     "USE_HTTPS": True,
     "PRESERVE_SESSION_KEYS": ["cart_session_key"],

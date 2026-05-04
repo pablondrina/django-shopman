@@ -141,6 +141,16 @@ for key in (
 | `loyalty` | `dict` | `LoyaltyRedeemModifier` | `services/loyalty.py` | Dados de resgate de pontos: `{redeem_points_q: int}` |
 | `awaiting_wo_refs` | `list[string]` | `shop.handlers.production_order_sync` | Backstage pedidos/producao projections | Refs de WorkOrders que cobrem itens produzidos do pedido. Contextual, derivável e limpável em void. |
 
+### Chaves seed-only para QA adversarial
+
+Estas chaves só devem ser escritas por seed/dados demo. Elas existem para
+exercitar jornadas de seguranca, confiabilidade e atendimento, sem virar
+contrato de negocio em producao.
+
+| Chave | Tipo | Escrito por | Lido por | Descrição |
+|-------|------|-------------|----------|-----------|
+| `edge_case` | `string` | Nelson seed | QA manual/automatizado, relatorios de auditoria | Marcador deterministico de cenario adversarial. Ex: `"low_attention_payment_pending"`, `"late_payment_after_cancel"`, `"marketplace_stale_confirmation"` |
+
 
 ### Chaves lidas por views (convenience — fallback para vazio)
 
@@ -264,6 +274,9 @@ Escrito uma única vez por `CommitService._do_commit()`.
 | `data` | `dict` | handlers/customer.py (fallback), hooks (stock.commit holds) | Cópia integral de `session.data` no momento do commit |
 | `pricing` | `dict` | customers.OrderingOrderHistoryBackend | Pricing da sessão: `{total_q, subtotal_q, discount_q, ...}` |
 | `rev` | `int` | hooks._build_directive_payload (stock.hold) | Revisão da sessão no commit |
+| `seed` | `string` | seed | QA/auditoria | Marcador de origem para dados demo. Não usado em lógica de negócio |
+| `seed_namespace` | `string` | seed | QA/auditoria | Grupo deterministico do seed, ex: `"security_reliability_edges"` |
+| `seed_key` | `string` | seed | seed idempotente, QA/auditoria | Chave unica do cenario seed para evitar duplicacao em reruns |
 
 ### Exemplo completo
 
@@ -673,6 +686,23 @@ Adapters aceitos por tipo:
 ### Prioridade de resolução
 
 `Shop.integrations` → `settings.SHOPMAN_*_ADAPTERS` → defaults de código.
+
+---
+
+## Customer.metadata
+
+Extensao do cadastro de cliente para contexto operacional e demos. Dados que
+alteram autorizacao, cobranca ou identidade devem viver em campos/modelos
+proprios, nao aqui.
+
+**Campo**: `Customer.metadata` (JSONField, `shopman/guestman/models/customer.py`).
+
+| Chave | Tipo | Escrito por | Lido por | Descrição |
+|-------|------|-------------|----------|-----------|
+| `preferences` | `string \| dict` | cadastro/importacao | atendimento, segmentacao | Preferencias gerais do cliente, ex: restricoes alimentares |
+| `birthday` | `string` | cadastro/importacao legado | atendimento, segmentacao | Data de aniversario em registros legados. Preferir campo `Customer.birthday` |
+| `seed_persona` | `string` | seed | QA/auditoria | Persona operacional deterministica. Ex: `"low_attention"` |
+| `qa_notes` | `list[string]` | seed | QA/auditoria | Observacoes de teste para simular baixa atencao, recuperacao e suporte |
 
 ---
 

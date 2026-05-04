@@ -57,3 +57,15 @@ def test_shared_cache_backend_rejects_legacy_redis_package_backend():
     errors = checks.check_shared_cache_backend(None)
 
     assert [error.id for error in errors] == ["SHOPMAN_E006"]
+
+
+@override_settings(DEBUG=False, DOORMAN={"ACCESS_LINK_API_KEY": ""})
+def test_access_link_api_key_required_outside_debug():
+    errors = checks.check_doorman_access_link_api_key(None)
+
+    assert [error.id for error in errors] == ["SHOPMAN_E008"]
+
+
+@override_settings(DEBUG=False, DOORMAN={"ACCESS_LINK_API_KEY": "test-secret"})
+def test_access_link_api_key_accepts_configured_secret_outside_debug():
+    assert checks.check_doorman_access_link_api_key(None) == []

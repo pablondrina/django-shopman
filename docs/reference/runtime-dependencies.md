@@ -78,6 +78,7 @@ REDIS_URL=redis://localhost:6379/0
 - `REDIS_URL` nao configura cache Redis;
 - adapters de pagamento reais nao estao configurados;
 - tokens/segredos de webhooks estao ausentes;
+- `DOORMAN_ACCESS_LINK_API_KEY` esta ausente fora de `DEBUG`;
 - `DJANGO_SECRET_KEY`, hosts ou dominios estao inseguros.
 
 SQLite em `DEBUG=true` segue como warning (`SHOPMAN_W001`) para manter ergonomia

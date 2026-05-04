@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 from datetime import date, time, timedelta
-from urllib.parse import urlsplit
 from unittest.mock import patch
+from urllib.parse import urlsplit
 
 import pytest
 from django.test import Client
@@ -89,10 +89,11 @@ class TestCheckoutGet:
         body = login_resp.content.decode("utf-8")
         assert 'name="phone"' in body
 
-    def test_checkout_prefills_phone_after_manychat_access_link(self, cart_session):
+    def test_checkout_prefills_phone_after_manychat_access_link(self, cart_session, settings):
         """ManyChat access-link identity must survive until checkout."""
         from shopman.guestman.models import Customer
 
+        settings.DOORMAN = {**DOORMAN_SETTINGS, "ACCESS_LINK_API_KEY": "test-access-key"}
         customer = Customer.objects.create(
             ref="WEB-ACCESS-MC",
             first_name="Pablo",
@@ -110,6 +111,7 @@ class TestCheckoutGet:
                 "next": "/checkout/",
             }),
             content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer test-access-key",
         )
         assert create_resp.status_code == 200
 

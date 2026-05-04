@@ -67,6 +67,28 @@ Nao foram executados nesta maquina:
 | `manage.py check --deploy` com env production-like dummy | Na auditoria inicial passava com aviso de SQLite. Apos alinhamento de runtime, SQLite fora de `DEBUG` e Redis ausente viram erros bloqueantes. |
 | Docker/PostgreSQL local | Nao executado: `docker: command not found`. |
 
+## Addendum - hardening seguranca/confiabilidade
+
+Rodada adicional em 2026-05-04, antes de avancar features maiores. A decisao
+foi tratar seguranca e confiabilidade como baseline de produto, nao como etapa
+posterior, porque comercio real nao tolera corrigir estes contratos so depois
+de expandir fluxo.
+
+| Item | Status | Resultado |
+|---|---|---|
+| Entropia de `ORDER_REF` publico | Corrigido | Sufixo aleatorio passou de 4 para 8 caracteres e o gerador usa `secrets.choice`, nao `random.choice`. Isso reduz o risco de enumeracao de paginas publicas de pedido/tracking/pagamento. |
+| Backend Redis legado | Corrigido em runtime/docs | Runtime canonico usa `django.core.cache.backends.redis.RedisCache`. `django-redis` fica apenas como anti-regression test para bloquear retorno do backend antigo. |
+| Access link servidor-servidor | Corrigido | Criacao de access link agora falha fechada fora de `DEBUG` quando `DOORMAN_ACCESS_LINK_API_KEY` esta ausente, e `manage.py check --deploy` emite `SHOPMAN_E008`. |
+| Seed adversarial | Implementado | Nelson seed cria cenarios determinísticos de baixa atencao, PIX pendente perto de expirar, PIX expirado, pagamento capturado apos cancelamento e pedido iFood parado. |
+| Governanca de JSONField | Atualizada | Chaves seed-only (`edge_case`, `seed_namespace`, `seed_key`, `seed_persona`, `qa_notes`) foram registradas em `docs/reference/data-schemas.md`. |
+
+Evidencias desta rodada:
+
+- `make test`: `1799 passed`, `13 skipped`, `3 warnings`, `14 subtests`;
+- refs/order ids: `57 passed`;
+- doorman access-link + deploy checks: `25 passed`;
+- seed operacional Nelson: `1 passed`.
+
 ## SWOT
 
 ### Strengths
