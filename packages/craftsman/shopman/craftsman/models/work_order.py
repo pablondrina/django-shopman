@@ -37,7 +37,7 @@ class WorkOrder(models.Model):
     class Status(models.TextChoices):
         PLANNED = "planned", _("Planejada")
         STARTED = "started", _("Iniciada")
-        FINISHED = "finished", _("Finalizada")
+        FINISHED = "finished", _("Concluída")
         VOID = "void", _("Cancelada")
 
     ref = models.CharField(
@@ -50,7 +50,7 @@ class WorkOrder(models.Model):
         "craftsman.Recipe",
         on_delete=models.PROTECT,
         related_name="work_orders",
-        verbose_name=_("Receita"),
+        verbose_name=_("Ficha técnica"),
     )
     output_sku = models.CharField(
         max_length=100,
@@ -70,7 +70,7 @@ class WorkOrder(models.Model):
         decimal_places=3,
         null=True,
         blank=True,
-        verbose_name=_("Quantidade Finalizada"),
+        verbose_name=_("Quantidade Concluída"),
         help_text=_("Set no finish, imutavel depois"),
     )
 
@@ -99,7 +99,7 @@ class WorkOrder(models.Model):
     finished_at = models.DateTimeField(
         null=True,
         blank=True,
-        verbose_name=_("Finalizada em"),
+        verbose_name=_("Concluída em"),
     )
 
     # String refs (agnostic — no FK to external models)
@@ -138,8 +138,8 @@ class WorkOrder(models.Model):
 
     class Meta:
         db_table = "crafting_work_order"
-        verbose_name = _("Ordem de Producao")
-        verbose_name_plural = _("Ordens de Producao")
+        verbose_name = _("Ordem de Produção")
+        verbose_name_plural = _("Produção")
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["status", "target_date"]),

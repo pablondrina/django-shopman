@@ -6,13 +6,13 @@ from decimal import Decimal
 import pytest
 from django.contrib.auth.models import User
 from django.urls import reverse
+from shopman.craftsman import craft
+from shopman.craftsman.models import Recipe, WorkOrder
+from shopman.stockman import Position
 
 from shopman.backstage.projections.production import build_production_reports
 from shopman.backstage.services.production import export_reports_csv
-from shopman.craftsman import craft
-from shopman.craftsman.models import Recipe, WorkOrder
 from shopman.shop.models import Shop
-from shopman.stockman import Position
 
 
 @pytest.fixture
@@ -157,7 +157,7 @@ def test_csv_export_operator_productivity_header(report_data):
         {"date_from": report_data["today"], "date_to": report_data["today"]},
     ).decode("utf-8-sig")
 
-    assert "Operador,Nome,Ordens finalizadas,Qtd total,Yield médio" in text
+    assert "Operador,Nome,Ordens concluídas,Qtd total,Rendimento médio" in text
 
 
 @pytest.mark.django_db
@@ -178,12 +178,13 @@ def test_reports_view_permission_and_csv_download(client, report_data):
     staff = User.objects.create_user("staff", password="pw", is_staff=True)
     client.force_login(staff)
 
-    response = client.get(reverse("backstage:production_reports"))
-    assert response.status_code == 403
+    response = client.get(reverse("admin_console_production_reports"))
+    assert response.status_code == 302
+    assert response["Location"] == reverse("admin:index")
 
     admin = User.objects.create_superuser("admin", "a@test.com", "pw")
     client.force_login(admin)
-    response = client.get(reverse("backstage:production_reports"), {
+    response = client.get(reverse("admin_console_production_reports"), {
         "date_from": report_data["today"].isoformat(),
         "date_to": report_data["today"].isoformat(),
         "format": "csv",
@@ -198,7 +199,7 @@ def test_csv_response_has_utf8_content_type_and_bom(client, report_data):
     admin = User.objects.create_superuser("admin", "a@test.com", "pw")
     client.force_login(admin)
 
-    response = client.get(reverse("backstage:production_reports"), {
+    response = client.get(reverse("admin_console_production_reports"), {
         "date_from": report_data["today"].isoformat(),
         "date_to": report_data["today"].isoformat(),
         "format": "csv",
@@ -218,14 +219,14 @@ def test_invalid_report_kind_falls_back_to_history(client, report_data):
     admin = User.objects.create_superuser("admin", "a@test.com", "pw")
     client.force_login(admin)
 
-    response = client.get(reverse("backstage:production_reports"), {
+    response = client.get(reverse("admin_console_production_reports"), {
         "date_from": report_data["today"].isoformat(),
         "date_to": report_data["today"].isoformat(),
         "report_kind": "; DROP TABLE",
     })
     assert response.status_code == 200
     # invalid kind silently coerced to history
-    assert response.context["report_kind"] == "history"
+    assert response.context["production_reports"].filters.report_kind == "history"
 
 
 @pytest.mark.django_db
@@ -234,12 +235,12 @@ def test_invalid_dates_fall_back_to_default_window(client, report_data):
     admin = User.objects.create_superuser("admin", "a@test.com", "pw")
     client.force_login(admin)
 
-    response = client.get(reverse("backstage:production_reports"), {
+    response = client.get(reverse("admin_console_production_reports"), {
         "date_from": "not-a-date",
         "date_to": "also-not-a-date",
     })
     assert response.status_code == 200
-    filters = response.context["filters"]
+    filters = response.context["production_reports"].filters
     today = date.today()
     assert filters.date_to == today
     assert filters.date_from == today - timedelta(days=6)

@@ -1,0 +1,22 @@
+function kdsSoundState(ref) {
+  return {
+    enabled: localStorage.getItem('kds_sound_' + ref) !== "off",
+    toggle: function() {
+      this.enabled = !this.enabled;
+      localStorage.setItem('kds_sound_' + ref, this.enabled ? "on" : "off");
+    },
+    toggleAndPlay: function() {
+      this.toggle();
+      this.playSound('new');
+    },
+    playSound: function(kind) {
+      if (!this.enabled || kind !== "new") return;
+    }
+  };
+}
+document.addEventListener("keydown", function(e) {
+  if (e.altKey && (e.key === 's' || e.key === 'S')) {
+    var state = kdsSoundState("main");
+    state.toggleAndPlay();
+  }
+});

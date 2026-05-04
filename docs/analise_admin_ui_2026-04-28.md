@@ -23,23 +23,25 @@ Em termos de ganho: a UI dedicada captura o ganho de ergonomia onde ele realment
 Há uma separação clara em:
 
 - `shopman/backstage/views/`
+- `shopman/backstage/admin_console/`
 - `shopman/backstage/projections/`
 - `shopman/backstage/services/`
 - `shopman/backstage/templates/gestor/`
-- `shopman/backstage/templates/pedidos/`
+- `shopman/backstage/templates/admin_console/orders/`
+- `shopman/backstage/templates/admin_console/production/`
 
 Produção, por exemplo, já tem:
 
-- `shopman/backstage/views/production.py`: views para board, dashboard, KDS de produção, relatórios CSV, compromissos por ordem e avanço de passo.
+- `shopman/backstage/admin_console/production.py`: paginas Admin/Unfold para board, dashboard, planejamento, pesagem, relatórios CSV, compromissos por ordem e ações operacionais.
 - `shopman/backstage/projections/production.py`: read models tipados como `ProductionBoardProjection`, `ProductionMatrixRowProjection`, `ProductionKDSProjection`, `ProductionReportsProjection`.
 - `shopman/backstage/services/production.py`: facade operacional que chama `shopman.shop.services.production` e Craftsman, com validação de falta de insumo, cobertura de pedidos vinculados e rastreabilidade de lote.
-- `shopman/backstage/templates/gestor/producao/index.html`: matriz operacional por SKU, grupos por receita-base, quantidades planejadas/iniciadas/concluídas, compromissos de pedidos, modais de start/finish e ações HTMX.
+- `shopman/backstage/templates/admin_console/production/index.html`: matriz operacional por SKU, grupos por receita-base, quantidades planejadas/iniciadas/concluídas, compromissos de pedidos, modais de start/finish e ações HTMX.
 
 Gestão de Pedidos também já é uma superfície operacional real:
 
-- `shopman/backstage/views/orders.py`: confirma, rejeita, avança, salva notas, marca pagamento, mostra histórico e dispensa alertas.
+- `shopman/backstage/admin_console/orders.py`: confirma, rejeita, avança, salva notas, mostra detalhe operacional e deixa histórico no `OrderAdmin`.
 - `shopman/backstage/projections/order_queue.py`: fila em zonas de ação física, temporizadores, pagamento pendente, dependências de produção.
-- `shopman/backstage/templates/pedidos/index.html`: SSE, polling HTMX, modo offline, som, tela cheia, alertas e live refresh.
+- `shopman/backstage/templates/admin_console/orders/index.html`: página Admin/Unfold com SSE/polling e tabelas operacionais.
 
 Isso nao e uma pagina administrativa bonita. E uma camada de execução.
 
@@ -76,7 +78,7 @@ Os arquivos abaixo existem:
 Mas a busca por rotas atuais aponta produção e fechamento para:
 
 - `/gestor/producao/` em `shopman/backstage/urls.py`
-- `/gestor/fechamento/` em `shopman/backstage/urls.py`
+- `/admin/operacao/fechamento/` em `config/urls.py`
 
 As referencias aos templates antigos aparecem basicamente em docs antigas e planos concluídos, nao em rotas vivas. Isso e risco de manutenção: quem lê o repo pode achar que existem duas superfícies válidas para a mesma operação.
 
@@ -281,7 +283,7 @@ Evitar:
 1. Criar links cruzados entre Admin e Backstage:
    - De `WorkOrderAdmin` para compromisso operacional da OP.
    - De `OrderAdmin` para fila/detalhe operacional quando o pedido estiver ativo.
-   - Do Dashboard Admin para `/gestor/producao/` e `/gestor/pedidos/`.
+   - Do Dashboard Admin para `/admin/operacao/producao/` e `/admin/operacao/pedidos/`.
 2. Melhorar Unfold para apoio:
    - Badges semânticos.
    - Ações row apenas para exceções seguras.

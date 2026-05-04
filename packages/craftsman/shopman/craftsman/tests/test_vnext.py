@@ -852,6 +852,34 @@ class TestModels:
                 ref="bad", name="Bad", output_sku="x", batch_size=Decimal("0"),
             )
 
+    def test_recipe_active_output_sku_is_unique(self, db):
+        active = Recipe.objects.create(
+            ref="active-ciabatta",
+            name="Ciabatta",
+            output_sku="ciabatta",
+            batch_size=Decimal("10"),
+        )
+        inactive = Recipe.objects.create(
+            ref="inactive-ciabatta",
+            name="Ciabatta antiga",
+            output_sku="ciabatta",
+            batch_size=Decimal("10"),
+            is_active=False,
+        )
+
+        with pytest.raises(DjangoValidationError):
+            Recipe.objects.create(
+                ref="another-active-ciabatta",
+                name="Outra Ciabatta",
+                output_sku="ciabatta",
+                batch_size=Decimal("10"),
+            )
+
+        from shopman.craftsman.services.recipes import get_active_recipe_for_output_sku
+
+        assert get_active_recipe_for_output_sku("ciabatta") == active
+        assert inactive.pk is not None
+
     def test_recipe_str(self, recipe):
         assert "Croissant" in str(recipe)
 
@@ -1508,6 +1536,41 @@ class TestAdjustValidations:
 
         wo.refresh_from_db()
         assert wo.quantity == Decimal("80")
+
+    def test_adjust_preserves_units_when_checking_shared_ingredients(self, recipe_with_items, tomorrow, settings):
+        """Ingredient availability checks do not add kg and g as if they were the same unit."""
+        from unittest.mock import MagicMock, patch
+
+        from shopman.craftsman.protocols.inventory import AvailabilityResult
+
+        other_recipe = Recipe.objects.create(
+            ref="pain-grammes",
+            name="Pain Grammes",
+            output_sku="pain-grammes",
+            batch_size=Decimal("10"),
+        )
+        RecipeItem.objects.create(
+            recipe=other_recipe,
+            input_sku="farinha",
+            quantity=Decimal("500"),
+            unit="g",
+        )
+        craft.plan(other_recipe, 10, date=tomorrow)
+
+        mock_inv = MagicMock()
+        mock_inv.available.return_value = AvailabilityResult(all_available=True, materials=[])
+        mock_inv_class = MagicMock(return_value=mock_inv)
+
+        settings.CRAFTSMAN = {"INVENTORY_BACKEND": "test.MockInvBackend"}
+
+        wo = craft.plan(recipe_with_items, 50, date=tomorrow)
+        with patch("django.utils.module_loading.import_string", return_value=mock_inv_class):
+            craft.adjust(wo, quantity=100)
+
+        needs = mock_inv.available.call_args.args[0]
+        by_key = {(need.sku, need.unit): need.quantity for need in needs}
+        assert by_key[("farinha", "kg")] == Decimal("50")
+        assert ("farinha", "g") not in by_key
 
     def test_adjust_to_zero_voids(self, recipe, tomorrow):
         """adjust(quantity=0) delegates to void()."""

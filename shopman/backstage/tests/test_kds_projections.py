@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
-from django.urls import reverse
+from django.urls import NoReverseMatch, reverse
 
 import pytest
 
@@ -85,12 +85,27 @@ def test_kds_views_render_index_display_and_partial(client, kds_setup):
     user.user_permissions.add(permission)
     client.force_login(user)
 
-    assert client.get(reverse("backstage:kds_index")).status_code == 200
-    assert client.get(reverse("backstage:kds_display", args=[prep.ref])).status_code == 200
-    expedition_response = client.get(reverse("backstage:kds_display", args=[expedition.ref]))
+    assert client.get(reverse("admin_console_kds")).status_code == 200
+    index_response = client.get(reverse("admin_console_kds"))
+    assert reverse("backstage:kds_station_runtime", args=[prep.ref]) in index_response.content.decode()
+    assert client.get(reverse("admin_console_kds_display", args=[prep.ref])).status_code == 200
+    expedition_response = client.get(reverse("admin_console_kds_display", args=[expedition.ref]))
     assert expedition_response.status_code == 200
     assert b"2 un." in expedition_response.content
     assert b"1 item" not in expedition_response.content
-    partial = client.get(reverse("backstage:kds_ticket_list", args=[prep.ref]))
+    partial = client.get(reverse("admin_console_kds_tickets", args=[prep.ref]))
     assert partial.status_code == 200
     assert b"KDS-PROJ-1" in partial.content
+
+
+def test_old_kds_route_names_are_not_registered():
+    for name in (
+        "backstage:kds_index",
+        "backstage:kds_display",
+        "backstage:kds_ticket_list",
+        "backstage:kds_ticket_check",
+        "backstage:kds_ticket_done",
+        "backstage:kds_expedition_action",
+    ):
+        with pytest.raises(NoReverseMatch):
+            reverse(name, args=["prep"] if name in {"backstage:kds_display", "backstage:kds_ticket_list"} else [1] if name != "backstage:kds_index" else [])

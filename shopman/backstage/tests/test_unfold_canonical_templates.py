@@ -22,6 +22,77 @@ def test_admin_console_templates_do_not_hand_roll_visual_controls_or_tokens() ->
     assert result.returncode == 0, result.stdout + result.stderr
 
 
+def test_unfold_gate_default_scope_covers_admin_package_surfaces() -> None:
+    files = {
+        path.relative_to(check_unfold_canonical.ROOT).as_posix()
+        for path in check_unfold_canonical.iter_templates(check_unfold_canonical.DEFAULT_TARGETS)
+    }
+
+    assert "shopman/backstage/templates/admin_console/production/index.html" in files
+    assert "shopman/shop/templates/admin/index.html" in files
+    assert "packages/refs/shopman/refs/templates/admin/refs/rename_confirm.html" in files
+    assert "packages/orderman/shopman/orderman/templates/orderman/admin/session_change_form.html" in files
+    assert "packages/offerman/shopman/offerman/contrib/admin_unfold/admin.py" in files
+
+
+def test_unfold_surface_contract_rejects_unregistered_backstage_templates() -> None:
+    new_template = check_unfold_canonical.ROOT / "shopman/backstage/templates/gestor/new_flow.html"
+
+    violations = check_unfold_canonical.scan_surface_registry(
+        extra_backstage_templates=(new_template,)
+    )
+
+    assert "unregistered-backstage-surface" in {violation.rule for violation in violations}
+
+
+def test_unfold_surface_contract_requires_pos_runtime_templates_to_be_registered() -> None:
+    new_template = check_unfold_canonical.ROOT / "shopman/backstage/templates/pos/new_flow.html"
+
+    violations = check_unfold_canonical.scan_surface_registry(
+        extra_backstage_templates=(new_template,)
+    )
+
+    assert "unregistered-backstage-surface" in {violation.rule for violation in violations}
+
+
+def test_unfold_gate_can_scope_registered_admin_url_to_surface() -> None:
+    surfaces = check_unfold_canonical.surfaces_for_url("/admin/operacao/producao/")
+
+    assert [surface.id for surface in surfaces] == ["admin-console-production"]
+
+
+def test_unfold_gate_rejects_unknown_admin_url_scope() -> None:
+    assert check_unfold_canonical.surfaces_for_url("/admin/unknown/surface/") == ()
+
+
+def test_unfold_gate_scoped_targets_are_limited_to_registered_surface() -> None:
+    surfaces = check_unfold_canonical.surfaces_for_url("/admin/operacao/producao/criar/")
+    files = {
+        path.relative_to(check_unfold_canonical.ROOT).as_posix()
+        for path in check_unfold_canonical.iter_templates(
+            check_unfold_canonical.targets_for_surfaces(surfaces)
+        )
+    }
+
+    assert "shopman/backstage/templates/admin_console/production/index.html" in files
+    assert "shopman/shop/templates/admin/index.html" not in files
+
+
+def test_unfold_installation_is_pinned_to_generated_official_inventory() -> None:
+    violations = check_unfold_canonical.scan_unfold_installation()
+
+    assert violations == []
+
+
+def test_production_admin_surface_uses_official_custom_page_contract() -> None:
+    violations = check_unfold_canonical.scan_surface_registry()
+    rules = {violation.rule for violation in violations}
+
+    assert "admin-page-missing-official-unfold-view-contract" not in rules
+    assert "admin-surface-missing-unfold-primitive" not in rules
+    assert "admin-surface-missing-unfold-controller-primitive" not in rules
+
+
 @pytest.mark.parametrize(
     ("content", "rule"),
     [
@@ -34,7 +105,16 @@ def test_admin_console_templates_do_not_hand_roll_visual_controls_or_tokens() ->
         ('<div class="tabular-nums"></div>', "unknown-unfold-css-class"),
         ('widget=forms.TextInput(attrs={"class": "tabular-nums"})', "unknown-unfold-css-class"),
         ('<div style="z-index: 1"></div>', "inline-style"),
+        ("Piloto Admin/Unfold", "canonical-admin-transitional-copy"),
         ('{% component "unfold/components/button.html" with class="h-8 px-2" %}{% endcomponent %}', "component-button-sizing"),
+        ('<label for="id_name">Nome</label>', "raw-form-label"),
+        ('<a class="btn btn-outline-primary">Resolver</a>', "legacy-button-class"),
+        ('<a href="/admin/">Admin</a>', "raw-anchor"),
+        ('<p>Copy</p>', "raw-paragraph"),
+        ('{% include "unfold/components/table.html" with table=table %}', "direct-component-include"),
+        ('<div class="module">Conteudo</div>', "legacy-admin-module"),
+        ('<div class="border border-base-200 rounded-default"></div>', "raw-visual-shell"),
+        ('@action(dialog={"title": "Confirmar"})\ndef run(self, request, object_id): ...', "dialog-action-without-basedialogform"),
         (
             '{% component "unfold/components/card.html" with title="Mapa" %}\n'
             '{% component "unfold/components/text.html" %}Copy{% endcomponent %}\n'

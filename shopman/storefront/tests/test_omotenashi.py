@@ -10,8 +10,8 @@ from django.template import Context, Template
 from django.utils import timezone
 
 from shopman.shop.models import OmotenashiCopy
-from shopman.storefront.omotenashi import OmotenashiContext, resolve_copy
-from shopman.storefront.omotenashi.context import (
+from shopman.shop.omotenashi import OmotenashiContext, resolve_copy
+from shopman.shop.omotenashi.context import (
     AUDIENCE_ANON,
     AUDIENCE_RETURNING,
     MOMENT_ALMOCO,
@@ -21,7 +21,7 @@ from shopman.storefront.omotenashi.context import (
     MOMENT_MANHA,
     MOMENT_TARDE,
 )
-from shopman.storefront.omotenashi.copy import (
+from shopman.shop.omotenashi.copy import (
     OMOTENASHI_DEFAULTS,
     invalidate_cache,
 )
@@ -209,7 +209,7 @@ def test_human_eta_tag_with_future_datetime_today():
 
 
 def test_is_birthday_matches_month_and_day():
-    from shopman.storefront.omotenashi.context import _is_birthday
+    from shopman.shop.omotenashi.context import _is_birthday
 
     assert _is_birthday(date(1990, 4, 17), date(2026, 4, 17)) is True
     assert _is_birthday(date(1990, 4, 18), date(2026, 4, 17)) is False

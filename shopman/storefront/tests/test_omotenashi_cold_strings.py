@@ -73,12 +73,12 @@ def test_payment_status_expired_has_omotenashi_copy_and_regenerate():
     assert "PAYMENT_PIX_EXPIRED" in content, (
         "payment_status.html expired state must use PAYMENT_PIX_EXPIRED omotenashi copy"
     )
-    assert "Gerar novo PIX" in content, (
-        "payment_status.html expired state must have a 'Gerar novo PIX' button"
+    assert "PAYMENT_PIX_REGENERATE_CTA" in content, (
+        "payment_status.html expired state must have an Omotenashi-driven regenerate button"
     )
     # Regenerate button must appear after the expired block (not elsewhere)
     idx_expired = content.index("is_expired")
-    idx_btn = content.index("Gerar novo PIX")
+    idx_btn = content.index("PAYMENT_PIX_REGENERATE_CTA")
     assert idx_btn > idx_expired, "Regenerate button must appear inside/after the expired block"
 
 
@@ -88,20 +88,77 @@ def test_payment_status_expired_has_omotenashi_copy_and_regenerate():
 def test_cancelled_order_has_navigation_recovery():
     """'Pedido cancelado' must be accompanied by a link to view order details."""
     content = _read("partials/payment_status.html")
-    lower = content.lower()
-    assert "cancelado" in lower, "Cancelled state expected in payment_status.html"
-    idx = lower.index("cancelado")
+    assert "PAYMENT_CANCELLED" in content, "Cancelled state expected in payment_status.html"
+    assert "PAYMENT_CANCELLED_DETAILS_CTA" in content, (
+        "Cancelled state details CTA must be Omotenashi-driven"
+    )
+    idx = content.index("PAYMENT_CANCELLED")
     # Within 400 chars after, there must be a recovery navigation
     window = content[idx : idx + 400]
-    has_recovery = (
-        "order_tracking" in window
-        or "Ver detalhes" in window
-        or "Ver pedido" in window
-    )
+    has_recovery = "order_tracking" in window and "PAYMENT_CANCELLED_DETAILS_CTA" in window
     assert has_recovery, (
-        "'Pedido cancelado' must be followed by a recovery link "
-        "(order_tracking, 'Ver detalhes', or 'Ver pedido') within 400 chars."
+        "Cancelled payment state must be followed by an Omotenashi-driven recovery link."
     )
+
+
+def test_payment_status_copy_is_omotenashi_driven():
+    """Payment polling copy must stay editable through Omotenashi Admin."""
+    content = _read("partials/payment_status.html")
+    for key in (
+        "PAYMENT_CONFIRMED",
+        "TRACKING_ETA_PREFIX",
+        "CONFIRMATION_TRACK_CTA",
+        "PAYMENT_REDIRECTING_PREFIX",
+        "PAYMENT_REDIRECTING_SUFFIX",
+        "PAYMENT_PIX_EXPIRED",
+        "PAYMENT_PIX_REGENERATE_CTA",
+        "PAYMENT_VIEW_ORDER_CTA",
+        "PAYMENT_CANCELLED",
+        "PAYMENT_CANCELLED_DETAILS_CTA",
+        "PAYMENT_WAITING",
+        "PAYMENT_WAITING_LONG",
+    ):
+        assert key in content
+
+    for literal in (
+        "Previsão:",
+        "Acompanhar pedido",
+        "Redirecionando em",
+        "Gerar novo PIX",
+        "Ver pedido",
+        "Pedido cancelado",
+        "Ver detalhes",
+    ):
+        assert literal not in content
+
+
+def test_payment_page_copy_is_omotenashi_driven():
+    """Visible payment-page copy must stay editable through Omotenashi Admin."""
+    content = _read("payment.html")
+    for key in (
+        "PAYMENT_PAGE_TITLE",
+        "PAYMENT_PAGE_META_DESCRIPTION",
+        "PAYMENT_ORDER_REF_LABEL",
+        "PAYMENT_TOTAL_LABEL",
+        "PAYMENT_DEV_CONFIRM_CTA",
+        "PAYMENT_ERROR_TITLE",
+        "PAYMENT_ERROR_MESSAGE",
+        "PAYMENT_RETRY_CTA",
+        "CONFIRMATION_TRACK_CTA",
+    ):
+        assert key in content
+
+    for literal in (
+        "Pagamento",
+        "Conclua o pagamento do seu pedido",
+        "Pedido {{ payment.order_ref }}",
+        "Total",
+        "[DEV] Simular pagamento confirmado",
+        "Não conseguimos gerar o pagamento agora.",
+        "Tentar novamente",
+        "Acompanhar pedido",
+    ):
+        assert literal not in content
 
 
 def test_cancel_refused_has_whatsapp_recovery():
@@ -127,3 +184,113 @@ def test_kintsugi_cancel_refused_copy_defined():
     assert "KINTSUGI_CANCEL_REFUSED" in OMOTENASHI_DEFAULTS, (
         "KINTSUGI_CANCEL_REFUSED copy key must be defined so cancelled orders get warm copy"
     )
+
+
+def test_order_live_payment_flow_copy_is_omotenashi_driven():
+    """Payment/tracking promise copy must be editable through Omotenashi Admin."""
+    content = _read("partials/order_live.html")
+    service_content = (
+        Path(__file__).resolve().parents[2] / "shop" / "services" / "order_tracking.py"
+    ).read_text(encoding="utf-8")
+    for key in (
+        "TRACKING_PAYMENT_PENDING",
+        "TRACKING_PAYMENT_REQUESTED",
+        "TRACKING_PAYMENT_CTA",
+        "TRACKING_PAYMENT_TIME_LEFT",
+        "TRACKING_PAYMENT_EXPIRED",
+        "TRACKING_STEP_PAYMENT_CONFIRMED",
+        "TRACKING_DELIVERY_WAITING_COURIER",
+        "TRACKING_AUTO_CONFIRM_PREFIX",
+    ):
+        assert key in content or key in service_content
+
+    for key in (
+        "TRACKING_PROMISE_STALE",
+        "TRACKING_PROMISE_UPDATED_NOW",
+    ):
+        assert key in content
+
+    assert "Recebemos seu pedido." not in content
+    assert "Aguardamos a confirmação do pagamento." not in content
+    assert "O prazo para pagamento expirou." not in content
+    assert "O pedido foi automaticamente cancelado." not in content
+    assert "Pagamento confirmado." not in content
+
+
+def test_order_tracking_payment_copy_defaults_defined():
+    """Tracking payment copy keys must exist so Admin can override them."""
+    from shopman.shop.omotenashi.copy import OMOTENASHI_DEFAULTS
+
+    for key in (
+        "TRACKING_STATUS_PAYMENT_PENDING",
+        "TRACKING_STATUS_PAYMENT_EXPIRED",
+        "TRACKING_STATUS_WAITING_STORE_CONFIRMATION",
+        "TRACKING_PAYMENT_PENDING",
+        "TRACKING_PAYMENT_REQUESTED",
+        "TRACKING_PAYMENT_CTA",
+        "TRACKING_PAYMENT_TIME_LEFT",
+        "TRACKING_PAYMENT_EXPIRED",
+        "TRACKING_PAYMENT_CONFIRMED",
+        "TRACKING_DELIVERY_WAITING_COURIER",
+        "TRACKING_ACTION_NONE",
+        "TRACKING_ACTION_WAITING_COURIER",
+        "TRACKING_ACTION_READY_PICKUP",
+        "TRACKING_CARD_AUTHORIZED",
+        "TRACKING_PROMISE_UPDATED_NOW",
+        "TRACKING_PROMISE_LABEL_ACTION",
+        "TRACKING_PROMISE_LABEL_NEXT",
+        "TRACKING_PROMISE_LABEL_RECOVERY",
+        "TRACKING_PROMISE_LABEL_ACTIVE_NOTIFICATION",
+        "TRACKING_PROMISE_STALE",
+        "TRACKING_PROMISE_PAYMENT_EXPIRED_NEXT",
+        "TRACKING_PROMISE_RECOVERY_HELP",
+        "TRACKING_PROMISE_CARD_AUTHORIZED_NEXT_NEW",
+        "TRACKING_PROMISE_CARD_AUTHORIZED_NEXT_CONFIRMED",
+        "TRACKING_PROMISE_PAYMENT_NEXT",
+        "TRACKING_PROMISE_PAYMENT_RECOVERY",
+        "TRACKING_PROMISE_PAYMENT_ACTIVE_NOTIFICATION",
+        "TRACKING_PROMISE_AVAILABILITY_MESSAGE",
+        "TRACKING_PROMISE_AVAILABILITY_NEXT",
+        "TRACKING_PROMISE_AVAILABILITY_RECOVERY",
+        "TRACKING_PROMISE_PAYMENT_CONFIRMED_MESSAGE",
+        "TRACKING_PROMISE_PAYMENT_CONFIRMED_NEXT_NEW",
+        "TRACKING_PROMISE_PAYMENT_CONFIRMED_NEXT_CONFIRMED",
+        "TRACKING_PROMISE_PREPARING_NEXT_PICKUP",
+        "TRACKING_PROMISE_PREPARING_NEXT_DELIVERY",
+        "TRACKING_PROMISE_READY_DELIVERY_NEXT",
+        "TRACKING_PROMISE_READY_PICKUP_NEXT",
+        "TRACKING_PROMISE_READY_PICKUP_ACTIVE_NOTIFICATION",
+        "TRACKING_PROMISE_READY_DELIVERY_ACTIVE_NOTIFICATION",
+        "TRACKING_PROMISE_DISPATCHED_MESSAGE",
+        "TRACKING_PROMISE_DISPATCHED_NEXT",
+        "TRACKING_PROMISE_DELIVERED_NEXT",
+        "TRACKING_PROMISE_CANCELLED_NEXT",
+        "TRACKING_PROMISE_ACTIVE_UPDATE_NOTIFICATION",
+        "TRACKING_PROMISE_RECEIVED_NEXT",
+        "TRACKING_STEP_RECEIVED",
+        "TRACKING_STEP_AVAILABILITY_CONFIRMED",
+        "TRACKING_STEP_PAYMENT_CONFIRMED",
+        "TRACKING_STEP_PREPARING",
+        "TRACKING_STEP_READY_PICKUP",
+        "TRACKING_STEP_READY_DELIVERY",
+        "TRACKING_STEP_DISPATCHED",
+        "TRACKING_STEP_DELIVERED",
+        "TRACKING_STEP_COMPLETED",
+        "TRACKING_STEP_CANCELLED",
+        "PAYMENT_PAGE_TITLE",
+        "PAYMENT_PAGE_META_DESCRIPTION",
+        "PAYMENT_ORDER_REF_LABEL",
+        "PAYMENT_TOTAL_LABEL",
+        "PAYMENT_DEV_CONFIRM_CTA",
+        "PAYMENT_ERROR_TITLE",
+        "PAYMENT_ERROR_MESSAGE",
+        "PAYMENT_RETRY_CTA",
+        "PAYMENT_PIX_INSTRUCTION",
+        "PAYMENT_REDIRECTING_PREFIX",
+        "PAYMENT_REDIRECTING_SUFFIX",
+        "PAYMENT_PIX_REGENERATE_CTA",
+        "PAYMENT_VIEW_ORDER_CTA",
+        "PAYMENT_CANCELLED",
+        "PAYMENT_CANCELLED_DETAILS_CTA",
+    ):
+        assert key in OMOTENASHI_DEFAULTS

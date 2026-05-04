@@ -1,7 +1,8 @@
 {% extends "storefront/base.html" %}
+{% load omotenashi_tags %}
 
 {% block title %}Como Funciona{% endblock %}
-{% block meta_description %}Saiba como fazer seu pedido na {{ storefront.brand_name }}. Pedido online ou visita na loja.{% endblock %}
+{% block meta_description %}{% omotenashi 'HOW_IT_WORKS_META_DESCRIPTION' as how_meta %}{{ how_meta.message }}{% endblock %}
 
 {% block breadcrumb %}
 <nav class="mb-6 flex" aria-label="Breadcrumb">
@@ -21,13 +22,24 @@
 {% endblock %}
 
 {% block content %}
+{% omotenashi 'HOW_IT_WORKS_INTRO' as how_intro %}
+{% omotenashi 'HOW_ONLINE_CHOOSE_MESSAGE' as how_choose_message %}
+{% omotenashi 'HOW_ONLINE_PAY_MESSAGE' as how_pay_message %}
+{% omotenashi 'HOW_ONLINE_TRACK_MESSAGE' as how_track_message %}
+{% omotenashi 'HOW_STORE_SELF_SERVICE_MESSAGE' as how_self_service_message %}
+{% omotenashi 'HOW_STORE_COUNTER_MESSAGE' as how_counter_message %}
+{% omotenashi 'HOW_PREORDER_MESSAGE' as how_preorder_message %}
+{% omotenashi 'HOW_TRACKING_MESSAGE' as how_tracking_message %}
+{% omotenashi 'HOW_DELIVERY_PREFIX' as how_delivery_prefix %}
+{% omotenashi 'HOW_DELIVERY_SUFFIX' as how_delivery_suffix %}
+{% omotenashi 'HOW_QUALITY_MESSAGE' as how_quality_message %}
 <div class="max-w-4xl mx-auto space-y-12">
 
   {% comment %}── Page header ──{% endcomment %}
   <div class="mx-auto max-w-2xl text-center">
     <h1 class="font-title text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong">Como Funciona</h1>
     <p class="mt-2 text-sm sm:text-base text-on-surface/85 dark:text-on-surface-dark/70">
-      Duas formas simples de aproveitar a {{ storefront.brand_name }}: peça pelo site ou venha escolher na loja.
+      {{ how_intro.message }}
     </p>
   </div>
 
@@ -46,21 +58,21 @@
           <span class="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt text-xs font-semibold tabular-nums text-on-surface dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark">1</span>
           <div>
             <h3 class="text-sm font-medium text-on-surface-strong dark:text-on-surface-dark-strong">Escolha</h3>
-            <p class="text-sm text-on-surface dark:text-on-surface-dark">Navegue pelo cardápio e adicione ao carrinho. A disponibilidade aparece em tempo real.</p>
+            <p class="text-sm text-on-surface dark:text-on-surface-dark">{{ how_choose_message.message }}</p>
           </div>
         </li>
         <li class="flex gap-3">
           <span class="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt text-xs font-semibold tabular-nums text-on-surface dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark">2</span>
           <div>
             <h3 class="text-sm font-medium text-on-surface-strong dark:text-on-surface-dark-strong">Pague</h3>
-            <p class="text-sm text-on-surface dark:text-on-surface-dark">PIX rápido e seguro, com confirmação automática assim que o pagamento chega.</p>
+            <p class="text-sm text-on-surface dark:text-on-surface-dark">{{ how_pay_message.message }}</p>
           </div>
         </li>
         <li class="flex gap-3">
           <span class="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt text-xs font-semibold tabular-nums text-on-surface dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark">3</span>
           <div>
             <h3 class="text-sm font-medium text-on-surface-strong dark:text-on-surface-dark-strong">Retire ou receba</h3>
-            <p class="text-sm text-on-surface dark:text-on-surface-dark">Acompanhe o preparo em tempo real. Retire na loja ou receba em casa.</p>
+            <p class="text-sm text-on-surface dark:text-on-surface-dark">{{ how_track_message.message }}</p>
           </div>
         </li>
       </ol>
@@ -81,7 +93,7 @@
           </span>
           <div>
             <h3 class="text-sm font-medium text-on-surface-strong dark:text-on-surface-dark-strong">Pães no autosserviço</h3>
-            <p class="text-sm text-on-surface dark:text-on-surface-dark">Escolha direto da prateleira. Pese, embale e leve ao caixa.</p>
+            <p class="text-sm text-on-surface dark:text-on-surface-dark">{{ how_self_service_message.message }}</p>
           </div>
         </div>
         <div class="flex gap-3">
@@ -90,7 +102,7 @@
           </span>
           <div>
             <h3 class="text-sm font-medium text-on-surface-strong dark:text-on-surface-dark-strong">Cafés e doces no balcão</h3>
-            <p class="text-sm text-on-surface dark:text-on-surface-dark">Peça ao atendente. Preparamos na hora.</p>
+            <p class="text-sm text-on-surface dark:text-on-surface-dark">{{ how_counter_message.message }}</p>
           </div>
         </div>
         <div class="flex gap-3">
@@ -115,28 +127,28 @@
         <span class="material-symbols-rounded icon-md text-on-surface dark:text-on-surface-dark" aria-hidden="true">event_available</span>
         Encomendas
       </h2>
-      <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/70 leading-relaxed">Pedidos para o dia seguinte até as 18h. Encomendas com até 7 dias de antecedência.</p>
+      <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/70 leading-relaxed">{{ how_preorder_message.message }}</p>
     </div>
     <div class="rounded-radius border border-outline bg-surface p-5 dark:border-outline-dark dark:bg-surface-dark">
       <h2 class="mb-1 flex items-center gap-2 font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">
         <span class="material-symbols-rounded icon-md text-on-surface dark:text-on-surface-dark" aria-hidden="true">receipt_long</span>
         Acompanhamento
       </h2>
-      <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/70 leading-relaxed">Use seu telefone para consultar o status dos pedidos a qualquer momento.</p>
+      <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/70 leading-relaxed">{{ how_tracking_message.message }}</p>
     </div>
     <div class="rounded-radius border border-outline bg-surface p-5 dark:border-outline-dark dark:bg-surface-dark">
       <h2 class="mb-1 flex items-center gap-2 font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">
         <span class="material-symbols-rounded icon-md text-on-surface dark:text-on-surface-dark" aria-hidden="true">local_shipping</span>
         Entrega
       </h2>
-      <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/70 leading-relaxed">Entregamos em {{ storefront.default_city }}. Retirada na loja no horário de funcionamento.</p>
+      <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/70 leading-relaxed">{{ how_delivery_prefix.message }} {{ storefront.default_city }}. {{ how_delivery_suffix.message }}</p>
     </div>
     <div class="rounded-radius border border-outline bg-surface p-5 dark:border-outline-dark dark:bg-surface-dark">
       <h2 class="mb-1 flex items-center gap-2 font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">
         <span class="material-symbols-rounded icon-md text-on-surface dark:text-on-surface-dark" aria-hidden="true">verified</span>
         Qualidade
       </h2>
-      <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/70 leading-relaxed">Produção artesanal com fermentação natural. Ingredientes selecionados.</p>
+      <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/70 leading-relaxed">{{ how_quality_message.message }}</p>
     </div>
   </section>
 

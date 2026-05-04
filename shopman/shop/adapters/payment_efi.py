@@ -120,8 +120,13 @@ def create_intent(
         raise ValueError("EFI adapter only supports PIX")
 
     metadata = metadata or {}
+    idempotency_key = config.get("idempotency_key") or metadata.get("idempotency_key", "")
     efi_config = _get_config()
-    pix_expiry_seconds = getattr(settings, "SHOPMAN_PIX_EXPIRY_SECONDS", 3600)
+    pix_timeout_minutes = config.get("pix_timeout_minutes")
+    if pix_timeout_minutes:
+        pix_expiry_seconds = int(pix_timeout_minutes) * 60
+    else:
+        pix_expiry_seconds = getattr(settings, "SHOPMAN_PIX_EXPIRY_SECONDS", 3600)
     expires_at = timezone.now() + timedelta(seconds=pix_expiry_seconds)
 
     db_intent = PaymentService.create_intent(
@@ -131,9 +136,12 @@ def create_intent(
         gateway="efi",
         gateway_data=metadata,
         expires_at=expires_at,
+        idempotency_key=idempotency_key,
     )
+    if db_intent.gateway_id and db_intent.gateway_data.get("client_secret"):
+        return _intent_from_db(db_intent, currency=currency)
 
-    txid = uuid.uuid4().hex[:35]
+    txid = uuid.uuid5(uuid.NAMESPACE_URL, f"shopman-efi:{idempotency_key}").hex if idempotency_key else uuid.uuid4().hex[:35]
     valor = f"{amount_q / 100:.2f}"
 
     payload = {
@@ -157,6 +165,7 @@ def create_intent(
 
         db_intent.gateway_id = txid
         db_intent.gateway_data = {
+            **metadata,
             "location": response.get("location", ""),
             "client_secret": client_secret,
         }
@@ -187,6 +196,28 @@ def create_intent(
             logger.warning("Efi create_intent: could not mark intent as failed for order %s", order_ref, exc_info=True)
         logger.exception("Efi create_intent error for order %s", order_ref)
         raise
+
+
+def _intent_from_db(intent, *, currency: str = "BRL") -> PaymentIntent:
+    client_secret = (intent.gateway_data or {}).get("client_secret")
+    metadata = dict(intent.gateway_data or {})
+    if client_secret:
+        try:
+            parsed = json.loads(client_secret)
+        except (TypeError, json.JSONDecodeError):
+            parsed = {}
+        if isinstance(parsed, dict):
+            metadata.update(parsed)
+    return PaymentIntent(
+        intent_ref=intent.ref,
+        status=intent.status,
+        amount_q=intent.amount_q,
+        currency=currency or intent.currency,
+        client_secret=client_secret,
+        expires_at=intent.expires_at,
+        gateway_id=intent.gateway_id,
+        metadata=metadata,
+    )
 
 
 def capture(

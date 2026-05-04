@@ -51,9 +51,9 @@ Sit outside #cart-page-content so they persist through HTMX cart updates.
 </div>
 {% endif %}
 {% if from_reorder %}
-<div class="mb-3 flex items-center justify-end">
+<div class="mb-3 flex items-center justify-start">
   <a href="{% url 'storefront:order_history' %}"
-     class="inline-flex items-center gap-1 text-sm text-on-surface/85 dark:text-on-surface-dark/60 hover:text-primary dark:hover:text-primary-dark">
+     class="inline-flex w-full items-center justify-center gap-2 rounded-radius border border-outline bg-transparent px-4 py-2.5 text-center text-sm font-medium text-on-surface transition hover:bg-surface-alt hover:text-on-surface-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:border-outline-dark dark:text-on-surface-dark dark:hover:bg-surface-dark-alt dark:hover:text-on-surface-dark-strong dark:focus-visible:outline-primary-dark sm:w-auto">
     <span class="material-symbols-rounded text-base" aria-hidden="true">receipt_long</span>
     Ver outros pedidos
   </a>

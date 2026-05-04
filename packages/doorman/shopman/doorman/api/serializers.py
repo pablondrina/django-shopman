@@ -45,3 +45,9 @@ class VerifyCodeResponseSerializer(serializers.Serializer):
     success = serializers.BooleanField()
     customer_id = serializers.UUIDField(allow_null=True)
     created_customer = serializers.BooleanField()
+
+
+class AuthErrorSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    error_code = serializers.CharField(required=False, allow_null=True)
+    attempts_remaining = serializers.IntegerField(required=False, allow_null=True)

@@ -106,7 +106,7 @@ Ao mesmo tempo, o repositório ainda mantém cópias duplicadas de templates e a
 Exemplos:
 
 - [shopman/shop/templates/storefront/checkout.html](../../shopman/shop/templates/storefront/checkout.html) e [shopman/storefront/templates/storefront/checkout.html](../../shopman/storefront/templates/storefront/checkout.html)
-- [shopman/shop/templates/pedidos/index.html](../../shopman/shop/templates/pedidos/index.html) e [shopman/backstage/templates/pedidos/index.html](../../shopman/backstage/templates/pedidos/index.html)
+- Pedidos standalone removido; a superficie atual vive em [shopman/backstage/templates/admin_console/orders/index.html](../../shopman/backstage/templates/admin_console/orders/index.html)
 - [shopman/shop/static/storefront/css/output-v2.css](../../shopman/shop/static/storefront/css/output-v2.css) e [shopman/storefront/static/storefront/css/output-v2.css](../../shopman/storefront/static/storefront/css/output-v2.css)
 
 Com `APP_DIRS=True`, isso cria um risco direto de shadowing silencioso: o app antigo pode continuar vencendo a resolução de template e static file, mesmo quando a intenção arquitetural já migrou para `storefront` ou `backstage`.
@@ -176,12 +176,12 @@ Impacto:
 Há vários sinais de transição incompleta:
 
 - docstrings e comentários ainda referenciam módulos antigos como `shopman.shop.web.views.*`
-- o app antigo continua contendo `templates/storefront`, `templates/pedidos`, `templates/kds`, `templates/gestao`
+- o app antigo continua contendo residuos de superficies que devem ser verificados contra o inventario atual
 - `shopman.shop` segue com `tests` e artefatos ligados às superfícies já movidas
 
 Exemplos:
 
-- [shopman/backstage/views/orders.py](../../shopman/backstage/views/orders.py#L1-L8)
+- [shopman/backstage/admin_console/orders.py](../../shopman/backstage/admin_console/orders.py#L1)
 - [shopman/backstage/projections/production.py](../../shopman/backstage/projections/production.py#L1-L7)
 - [shopman/backstage/projections/order_queue.py](../../shopman/backstage/projections/order_queue.py#L1-L7)
 

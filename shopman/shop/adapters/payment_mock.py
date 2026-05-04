@@ -9,6 +9,8 @@ Returns canonical DTOs from shopman.shop.adapters.payment_types.
 
 from __future__ import annotations
 
+import base64
+import io
 import json
 import logging
 from datetime import timedelta
@@ -32,16 +34,16 @@ def create_intent(
 ) -> PaymentIntent:
     """Create a mock payment intent with persistence via PaymentService.
 
-    For ``method="pix"`` this also schedules a ``mock_pix.confirm`` directive
-    with ``available_at = now + mock_pix_confirm_delay_seconds`` (default 10).
-    When it fires, ``MockPixConfirmHandler`` invokes the same ``confirm_pix``
-    service that the real EFI webhook uses, so the downstream flow is
-    identical in dev and prod.
+    For ``method="pix"`` this creates the QR/payment intent only. Manual dev
+    flows must confirm payment explicitly through the storefront dev action.
+    Tests that need to exercise the asynchronous webhook parity path can opt
+    in with ``mock_pix_auto_confirm=True``.
     """
     from shopman.orderman.models import Directive
     from shopman.payman import PaymentService
 
     metadata = metadata or {}
+    idempotency_key = config.get("idempotency_key") or metadata.get("idempotency_key", "")
     pix_timeout = config.get("pix_timeout_minutes", 30)
     expires_at = timezone.now() + timedelta(minutes=pix_timeout)
     # Mock backend is "authorized" at the payman level immediately; the PIX
@@ -55,7 +57,10 @@ def create_intent(
         gateway="mock",
         gateway_data=metadata,
         expires_at=expires_at,
+        idempotency_key=idempotency_key,
     )
+    if db_intent.gateway_id and db_intent.gateway_data.get("client_secret"):
+        return _intent_from_db(db_intent, currency=currency)
 
     gateway_id = f"mock_pi_{uuid4().hex[:12]}"
     mock_brcode = (
@@ -63,28 +68,19 @@ def create_intent(
         f"5204000053039865404{amount_q / 100:.2f}"
         f"5802BR5913MOCK6008SHOPMAN62070503***6304MOCK"
     )
-    mock_qr_svg = (
-        "data:image/svg+xml;base64,"
-        "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRo"
-        "PSIyMDAiIGhlaWdodD0iMjAwIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9"
-        "IjIwMCIgZmlsbD0iI2YwZjBmMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNDAlIiBm"
-        "b250LXNpemU9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMzMz"
-        "Ij5RUiBDb2RlIFBJWDwvdGV4dD48dGV4dCB4PSI1MCUiIHk9IjU1JSIgZm9u"
-        "dC1zaXplPSIxMiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiI+"
-        "KE1vY2spPC90ZXh0Pjwvc3ZnPg=="
-    )
-    client_secret = json.dumps({"qrcode": mock_qr_svg, "brcode": mock_brcode})
+    mock_qr_image = _qr_png_data_url(mock_brcode)
+    client_secret = json.dumps({"qrcode": mock_brcode, "brcode": mock_brcode, "imagemQrcode": mock_qr_image})
 
     db_intent.gateway_id = gateway_id
-    db_intent.gateway_data = {"client_secret": client_secret}
+    db_intent.gateway_data = {**metadata, "client_secret": client_secret}
     db_intent.save(update_fields=["gateway_id", "gateway_data"])
 
-    status = "pending"
-    if auto_authorize:
+    status = db_intent.status
+    if auto_authorize and db_intent.status == "pending":
         PaymentService.authorize(db_intent.ref, gateway_id=gateway_id)
         status = "authorized"
 
-    if method == "pix":
+    if method == "pix" and config.get("mock_pix_auto_confirm") is True:
         delay_seconds = int(config.get("mock_pix_confirm_delay_seconds", 10))
         available_at = timezone.now() + timedelta(seconds=delay_seconds)
         Directive.objects.create(
@@ -94,6 +90,7 @@ def create_intent(
                 "txid": gateway_id,
                 "e2e_id": f"E2E{uuid4().hex[:24].upper()}",
                 "valor": f"{amount_q / 100:.2f}",
+                "mock_pix_auto_confirm": True,
             },
             available_at=available_at,
         )
@@ -110,8 +107,50 @@ def create_intent(
         client_secret=client_secret,
         expires_at=expires_at,
         gateway_id=gateway_id,
-        metadata={"qrcode": mock_qr_svg, "brcode": mock_brcode},
+        metadata={"qrcode": mock_brcode, "brcode": mock_brcode, "imagemQrcode": mock_qr_image},
     )
+
+
+def _intent_from_db(intent, *, currency: str = "BRL") -> PaymentIntent:
+    client_secret = (intent.gateway_data or {}).get("client_secret")
+    metadata = dict(intent.gateway_data or {})
+    if client_secret:
+        try:
+            parsed = json.loads(client_secret)
+        except (TypeError, json.JSONDecodeError):
+            parsed = {}
+        if isinstance(parsed, dict):
+            metadata.update(parsed)
+    return PaymentIntent(
+        intent_ref=intent.ref,
+        status=intent.status,
+        amount_q=intent.amount_q,
+        currency=currency or intent.currency,
+        client_secret=client_secret,
+        expires_at=intent.expires_at,
+        gateway_id=intent.gateway_id,
+        metadata=metadata,
+    )
+
+
+def _qr_png_data_url(value: str) -> str:
+    """Return a real scannable QR image as a PNG data URL for local PIX testing."""
+    import qrcode
+    from qrcode.constants import ERROR_CORRECT_M
+
+    qr = qrcode.QRCode(
+        version=None,
+        error_correction=ERROR_CORRECT_M,
+        box_size=6,
+        border=4,
+    )
+    qr.add_data(value)
+    qr.make(fit=True)
+    image = qr.make_image(fill_color="black", back_color="white")
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
 
 
 def capture(

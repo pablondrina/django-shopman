@@ -65,6 +65,7 @@ _PATCHES = [
     "shopman.shop.services.payment.refund",
     "shopman.shop.services.payment.capture",
     "shopman.shop.services.payment.get_payment_status",
+    "shopman.shop.services.payment.has_sufficient_captured_payment",
     "shopman.shop.services.customer.ensure",
     "shopman.shop.services.loyalty.redeem",
     "shopman.shop.services.loyalty.earn",
@@ -79,6 +80,7 @@ _PATCHES = [
 _DEFAULT_RETURN = {
     "shopman.shop.services.availability.decide": _AVAIL_OK,
     "shopman.shop.services.payment.get_payment_status": None,
+    "shopman.shop.services.payment.has_sufficient_captured_payment": False,
 }
 
 
@@ -94,6 +96,14 @@ def _start_patches(extra=None, overrides=None):
             mocks[target.rsplit(".", 1)[-1]] = m
         except AttributeError:
             pass
+    if (
+        "has_sufficient_captured_payment" in mocks
+        and "get_payment_status" in mocks
+        and "shopman.shop.services.payment.has_sufficient_captured_payment" not in (overrides or {})
+    ):
+        mocks["has_sufficient_captured_payment"].side_effect = (
+            lambda order: mocks["get_payment_status"].return_value in {"captured", "paid"}
+        )
     return patchers, mocks
 
 
@@ -130,12 +140,12 @@ def _commit(session, channel):
 # ── C-01: Remote channel + PIX payment ───────────────────────────────
 
 class TestC01RemoteChannelPix(TransactionTestCase):
-    """C-01: Remote channel with PIX → payment.initiate called on confirmed."""
+    """C-01: Remote PIX → payment starts at commit; order awaits operator."""
 
     def setUp(self):
         self.channel = _channel("c01-remote-pix", {
-            "confirmation": {"mode": "immediate"},
-            "payment": {"method": "pix", "timing": "post_commit"},
+            "confirmation": {"mode": "manual"},
+            "payment": {"method": "pix", "timing": "at_commit"},
             "stock": {"check_on_commit": False},
         })
         self.patchers, self.mocks = _start_patches()
@@ -143,14 +153,12 @@ class TestC01RemoteChannelPix(TransactionTestCase):
     def tearDown(self):
         _stop(self.patchers)
 
-    def test_payment_initiate_on_confirmed(self):
+    def test_payment_initiate_on_commit_without_confirming(self):
         session = _session(self.channel)
         result = _commit(session, self.channel)
         order = Order.objects.get(ref=result.order_ref)
 
-        # immediate → confirmed
-        self.assertEqual(order.status, Order.Status.CONFIRMED)
-        # post_commit → payment.initiate called in on_confirmed
+        self.assertEqual(order.status, Order.Status.NEW)
         self.mocks["initiate"].assert_called_once_with(order)
 
     def test_stock_hold_called_on_commit(self):
@@ -163,12 +171,12 @@ class TestC01RemoteChannelPix(TransactionTestCase):
 # ── C-02: Remote channel + card payment ──────────────────────────────
 
 class TestC02RemoteChannelCard(TransactionTestCase):
-    """C-02: Remote channel with card → payment.initiate on confirmed, same as PIX."""
+    """C-02: Remote card → checkout starts at commit; order awaits operator."""
 
     def setUp(self):
         self.channel = _channel("c02-remote-card", {
-            "confirmation": {"mode": "immediate"},
-            "payment": {"method": "card", "timing": "post_commit"},
+            "confirmation": {"mode": "manual"},
+            "payment": {"method": "card", "timing": "at_commit"},
             "stock": {"check_on_commit": False},
         })
         self.patchers, self.mocks = _start_patches()
@@ -181,7 +189,7 @@ class TestC02RemoteChannelCard(TransactionTestCase):
         result = _commit(session, self.channel)
         order = Order.objects.get(ref=result.order_ref)
 
-        self.assertEqual(order.status, Order.Status.CONFIRMED)
+        self.assertEqual(order.status, Order.Status.NEW)
         self.mocks["initiate"].assert_called_once_with(order)
 
 
@@ -254,12 +262,12 @@ class TestC04MarketplaceExternal(TransactionTestCase):
 # ── C-05: Immediate confirmation ─────────────────────────────────────
 
 class TestC05ImmediateConfirmation(TransactionTestCase):
-    """C-05: immediate mode → order transitions to CONFIRMED on commit."""
+    """C-05: immediate mode is valid for offline/external payment."""
 
     def setUp(self):
         self.channel = _channel("c05-immediate", {
             "confirmation": {"mode": "immediate"},
-            "payment": {"method": "pix", "timing": "post_commit"},
+            "payment": {"method": "cash", "timing": "external"},
         })
         self.patchers, self.mocks = _start_patches()
 
@@ -284,12 +292,12 @@ class TestC05ImmediateConfirmation(TransactionTestCase):
 # ── C-06: auto_confirm confirmation ──────────────────────────────────
 
 class TestC06AutoConfirmConfirmation(TransactionTestCase):
-    """C-06: auto_confirm mode → confirmation.timeout directive created."""
+    """C-06: auto_confirm opens the establishment timer only after payment."""
 
     def setUp(self):
         self.channel = _channel("c06-auto-confirm", {
             "confirmation": {"mode": "auto_confirm", "timeout_minutes": 10},
-            "payment": {"method": "pix", "timing": "post_commit"},
+            "payment": {"method": "pix", "timing": "at_commit"},
         })
         self.patchers, self.mocks = _start_patches()
 
@@ -302,37 +310,81 @@ class TestC06AutoConfirmConfirmation(TransactionTestCase):
         order = Order.objects.get(ref=result.order_ref)
         self.assertEqual(order.status, Order.Status.NEW)
 
-    def test_confirmation_timeout_directive_created(self):
+    def test_no_confirmation_timeout_directive_before_payment(self):
         session = _session(self.channel)
-        _commit(session, self.channel)
-        directive = Directive.objects.filter(topic="confirmation.timeout").first()
+        result = _commit(session, self.channel)
+        order = Order.objects.get(ref=result.order_ref)
+
+        directive = Directive.objects.filter(
+            topic="confirmation.timeout", payload__order_ref=order.ref,
+        ).first()
+        self.assertIsNone(directive)
+
+    def test_paid_order_schedules_confirmation_timeout_directive(self):
+        session = _session(self.channel)
+        session.data = {"payment": {"method": "pix", "intent_ref": "PAY-C06"}}
+        session.save(update_fields=["data"])
+        result = _commit(session, self.channel)
+        order = Order.objects.get(ref=result.order_ref)
+
+        self.mocks["get_payment_status"].return_value = "captured"
+        dispatch(order, "on_paid")
+
+        directive = Directive.objects.filter(
+            topic="confirmation.timeout", payload__order_ref=order.ref,
+        ).first()
         self.assertIsNotNone(directive)
         self.assertIn("order_ref", directive.payload)
         self.assertIn("action", directive.payload)
         self.assertEqual(directive.payload["action"], "confirm")
+        self.assertEqual(directive.payload["source"], "payment_confirmed")
 
     def test_confirmation_timeout_handler_confirms_order(self):
-        """ConfirmationTimeoutHandler auto-confirms if order is still new."""
+        """ConfirmationTimeoutHandler auto-confirms only after payment capture."""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from shopman.shop.handlers.confirmation import ConfirmationTimeoutHandler
+
         session = _session(self.channel)
+        session.data = {"payment": {"method": "pix", "intent_ref": "PAY-C06"}}
+        session.save(update_fields=["data"])
         result = _commit(session, self.channel)
         order = Order.objects.get(ref=result.order_ref)
         self.assertEqual(order.status, Order.Status.NEW)
 
-        # Simulate timeout: auto-confirm
-        order.transition_status(Order.Status.CONFIRMED, actor="confirmation.timeout")
+        self.assertFalse(
+            Directive.objects.filter(
+                topic="confirmation.timeout", payload__order_ref=order.ref,
+            ).exists()
+        )
+        self.mocks["get_payment_status"].return_value = "captured"
+        dispatch(order, "on_paid")
+        directive = Directive.objects.filter(
+            topic="confirmation.timeout", payload__order_ref=order.ref,
+        ).first()
+        directive.available_at = timezone.now() - timedelta(minutes=1)
+        directive.payload["expires_at"] = (
+            timezone.now() - timedelta(minutes=1)
+        ).isoformat()
+        directive.save(update_fields=["available_at", "payload", "updated_at"])
+
+        ConfirmationTimeoutHandler().handle(message=directive, ctx={})
+
         order.refresh_from_db()
         self.assertEqual(order.status, Order.Status.CONFIRMED)
 
 
 # ── C-07: Manual confirmation ─────────────────────────────────────────
 
-class TestC07ManualConfirmation(TestCase):
+class TestC07ManualConfirmation(TransactionTestCase):
     """C-07: manual mode → order waits, no auto-confirm."""
 
     def setUp(self):
         self.channel = _channel("c07-manual", {
             "confirmation": {"mode": "manual"},
-            "payment": {"method": "pix", "timing": "post_commit"},
+            "payment": {"method": "pix", "timing": "at_commit"},
         })
         self.patchers, self.mocks = _start_patches()
 
@@ -354,25 +406,136 @@ class TestC07ManualConfirmation(TestCase):
 
     def test_operator_can_confirm_manually(self):
         session = _session(self.channel)
+        session.data = {"payment": {"method": "pix", "intent_ref": "PAY-C07"}}
+        session.save(update_fields=["data"])
+        self.mocks["get_payment_status"].return_value = "captured"
         result = _commit(session, self.channel)
         order = Order.objects.get(ref=result.order_ref)
 
-        order.transition_status(Order.Status.CONFIRMED, actor="operator")
+        from shopman.shop.services.operator_orders import confirm_order
+        confirm_order(order, actor="operator")
         order.refresh_from_db()
         self.assertEqual(order.status, Order.Status.CONFIRMED)
+
+    def test_operator_cannot_confirm_before_payment_capture(self):
+        from shopman.orderman.exceptions import InvalidTransition
+
+        from shopman.shop.services.operator_orders import confirm_order
+
+        session = _session(self.channel)
+        session.data = {"payment": {"method": "pix", "intent_ref": "PAY-C07-PENDING"}}
+        session.save(update_fields=["data"])
+        result = _commit(session, self.channel)
+        order = Order.objects.get(ref=result.order_ref)
+
+        with self.assertRaises(InvalidTransition):
+            confirm_order(order, actor="operator")
+
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.NEW)
+
+
+class TestC07PaymentTimeout(TransactionTestCase):
+    """Digital payment timeout cancels unpaid NEW orders even in manual mode."""
+
+    def setUp(self):
+        self.channel = _channel("c07-payment-timeout", {
+            "confirmation": {"mode": "manual"},
+            "payment": {"method": "pix", "timing": "at_commit", "timeout_minutes": 15},
+        })
+        self.patchers, self.mocks = _start_patches()
+
+    def tearDown(self):
+        _stop(self.patchers)
+
+    def test_payment_timeout_cancels_unpaid_order(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from shopman.shop.directives import PAYMENT_TIMEOUT
+        from shopman.shop.handlers.payment_timeout import PaymentTimeoutHandler
+
+        session = _session(self.channel)
+        expires_at = timezone.now() - timedelta(minutes=1)
+        session.data = {
+            "payment": {
+                "method": "pix",
+                "intent_ref": "PAY-C07-TIMEOUT",
+                "expires_at": expires_at.isoformat(),
+            }
+        }
+        session.save(update_fields=["data"])
+        result = _commit(session, self.channel)
+        order = Order.objects.get(ref=result.order_ref)
+
+        directive = Directive.objects.create(
+            topic=PAYMENT_TIMEOUT,
+            payload={
+                "order_ref": order.ref,
+                "intent_ref": "PAY-C07-TIMEOUT",
+                "expires_at": expires_at.isoformat(),
+            },
+            available_at=expires_at,
+        )
+
+        PaymentTimeoutHandler().handle(message=directive, ctx={})
+
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.CANCELLED)
+        self.assertEqual(order.data.get("cancellation_reason"), "payment_timeout")
+
+    def test_payment_timeout_does_not_cancel_when_payment_status_is_unknown(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from shopman.shop.directives import PAYMENT_TIMEOUT
+        from shopman.shop.handlers.payment_timeout import PaymentTimeoutHandler
+        from shopman.shop.services import payment as payment_service
+
+        session = _session(self.channel)
+        expires_at = timezone.now() - timedelta(minutes=1)
+        session.data = {
+            "payment": {
+                "method": "pix",
+                "intent_ref": "PAY-C07-UNKNOWN",
+                "expires_at": expires_at.isoformat(),
+            }
+        }
+        session.save(update_fields=["data"])
+        result = _commit(session, self.channel)
+        order = Order.objects.get(ref=result.order_ref)
+
+        with (
+            patch.object(payment_service, "get_payment_status", return_value="unknown"),
+            patch("shopman.shop.services.payment.cancel") as mock_payment_cancel,
+        ):
+            directive = Directive.objects.create(
+                topic=PAYMENT_TIMEOUT,
+                payload={
+                    "order_ref": order.ref,
+                    "intent_ref": "PAY-C07-UNKNOWN",
+                    "expires_at": expires_at.isoformat(),
+                },
+                available_at=expires_at,
+            )
+            PaymentTimeoutHandler().handle(message=directive, ctx={})
+
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.NEW)
+        mock_payment_cancel.assert_not_called()
 
 
 # ── C-07b: auto_cancel confirmation ──────────────────────────────────
 
 class TestC07bAutoCancelConfirmation(TransactionTestCase):
-    """C-07b: auto_cancel mode → auto-CANCEL after timeout if operator
-    does not explicitly confirm. Mirror of C-06 (auto_confirm) with the
-    terminal action flipped."""
+    """C-07b: auto_cancel opens the establishment timer only after payment."""
 
     def setUp(self):
         self.channel = _channel("c07b-auto-cancel", {
             "confirmation": {"mode": "auto_cancel", "timeout_minutes": 10},
-            "payment": {"method": "pix", "timing": "post_commit"},
+            "payment": {"method": "pix", "timing": "at_commit"},
         })
         self.patchers, self.mocks = _start_patches()
 
@@ -387,10 +550,25 @@ class TestC07bAutoCancelConfirmation(TransactionTestCase):
 
     def test_confirmation_timeout_directive_has_cancel_action(self):
         session = _session(self.channel)
-        _commit(session, self.channel)
-        directive = Directive.objects.filter(topic="confirmation.timeout").first()
+        session.data = {"payment": {"method": "pix", "intent_ref": "PAY-C07B"}}
+        session.save(update_fields=["data"])
+        result = _commit(session, self.channel)
+        order = Order.objects.get(ref=result.order_ref)
+
+        self.assertFalse(
+            Directive.objects.filter(
+                topic="confirmation.timeout", payload__order_ref=order.ref,
+            ).exists()
+        )
+        self.mocks["get_payment_status"].return_value = "captured"
+        dispatch(order, "on_paid")
+
+        directive = Directive.objects.filter(
+            topic="confirmation.timeout", payload__order_ref=order.ref,
+        ).first()
         self.assertIsNotNone(directive)
         self.assertEqual(directive.payload["action"], "cancel")
+        self.assertEqual(directive.payload["source"], "payment_confirmed")
 
     def test_timeout_handler_cancels_order_when_operator_silent(self):
         """When the operator does not confirm within the window, the
@@ -402,10 +580,14 @@ class TestC07bAutoCancelConfirmation(TransactionTestCase):
         from shopman.shop.handlers.confirmation import ConfirmationTimeoutHandler
 
         session = _session(self.channel)
+        session.data = {"payment": {"method": "pix", "intent_ref": "PAY-C07B-CANCEL"}}
+        session.save(update_fields=["data"])
         result = _commit(session, self.channel)
         order = Order.objects.get(ref=result.order_ref)
         self.assertEqual(order.status, Order.Status.NEW)
 
+        self.mocks["get_payment_status"].return_value = "captured"
+        dispatch(order, "on_paid")
         directive = Directive.objects.filter(
             topic="confirmation.timeout", payload__order_ref=order.ref,
         ).first()
@@ -425,22 +607,27 @@ class TestC07bAutoCancelConfirmation(TransactionTestCase):
         """If the operator confirms before the timeout fires, the handler
         finds status != NEW and noops — the explicit decision stands."""
         from shopman.shop.handlers.confirmation import ConfirmationTimeoutHandler
-        from shopman.shop.lifecycle import ensure_confirmable
+        from shopman.shop.services.operator_orders import confirm_order
 
         session = _session(self.channel)
+        session.data = {"payment": {"method": "pix", "intent_ref": "PAY-C07B"}}
+        session.save(update_fields=["data"])
         result = _commit(session, self.channel)
         order = Order.objects.get(ref=result.order_ref)
 
-        # Operator confirms within the window.
-        ensure_confirmable(order)
-        order.transition_status(Order.Status.CONFIRMED, actor="operator")
+        self.mocks["get_payment_status"].return_value = "captured"
+        dispatch(order, "on_paid")
+        directive = Directive.objects.filter(
+            topic="confirmation.timeout", payload__order_ref=order.ref,
+        ).first()
+        self.assertIsNotNone(directive)
+
+        # Operator confirms within the store-decision window.
+        confirm_order(order, actor="operator")
         order.refresh_from_db()
         self.assertEqual(order.status, Order.Status.CONFIRMED)
 
         # Now the directive fires.
-        directive = Directive.objects.filter(
-            topic="confirmation.timeout", payload__order_ref=order.ref,
-        ).first()
         from datetime import timedelta
 
         from django.utils import timezone
@@ -463,8 +650,8 @@ class TestC08LatePayment(TestCase):
 
     def setUp(self):
         self.channel = _channel("c08-late-pay", {
-            "confirmation": {"mode": "immediate"},
-            "payment": {"method": "pix", "timing": "post_commit"},
+            "confirmation": {"mode": "manual"},
+            "payment": {"method": "pix", "timing": "at_commit"},
         })
         self.patchers, self.mocks = _start_patches()
 
@@ -715,7 +902,7 @@ class TestC14ReturnWithRefund(TransactionTestCase):
     def setUp(self):
         self.channel = _channel("c14-return", {
             "confirmation": {"mode": "immediate"},
-            "payment": {"method": "pix", "timing": "post_commit"},
+            "payment": {"method": "cash", "timing": "external"},
         })
         self.patchers, self.mocks = _start_patches()
 

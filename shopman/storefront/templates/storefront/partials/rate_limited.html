@@ -1,5 +1,8 @@
 {% load omotenashi_tags %}
 {% omotenashi 'KINTSUGI_RATE_LIMITED' as rl %}
+{% omotenashi 'KINTSUGI_RATE_LIMITED_RETRY_PREFIX' as retry_prefix %}
+{% omotenashi 'KINTSUGI_RATE_LIMITED_RETRY_CTA' as retry_cta %}
+{% omotenashi 'KINTSUGI_RATE_LIMITED_CONTACT' as contact_prompt %}
 <div class="rounded-radius border border-warning/30 bg-warning/5 p-4 dark:border-warning-dark/30 dark:bg-warning-dark/5"
      x-data="{
        secondsLeft: {{ rate_limit_seconds|default:120 }},
@@ -17,18 +20,18 @@
     <div class="text-sm space-y-1">
       <p class="font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">{{ rl.title }}</p>
       <p class="text-on-surface dark:text-on-surface-dark" x-show="secondsLeft > 0">
-        Tente novamente em <strong class="font-mono tabular-nums" x-text="timeLabel">·</strong>.
+        {{ retry_prefix.message }} <strong class="font-mono tabular-nums" x-text="timeLabel">·</strong>.
       </p>
       <button x-show="secondsLeft <= 0" x-cloak
               type="button"
               @click="window.location.reload()"
               class="text-sm font-semibold text-primary dark:text-primary-dark underline underline-offset-2 hover:opacity-80 transition"
               style="min-height: 44px;">
-        Tentar novamente
+        {{ retry_cta.title }}
       </button>
       {% if storefront.whatsapp_url %}
       <p class="text-on-surface dark:text-on-surface-dark">
-        Prefere falar com a gente?
+        {{ contact_prompt.message }}
         <a href="{{ storefront.whatsapp_url }}" target="_blank" rel="noopener" class="underline underline-offset-2 hover:text-primary dark:hover:text-primary-dark">WhatsApp</a>.
       </p>
       {% endif %}

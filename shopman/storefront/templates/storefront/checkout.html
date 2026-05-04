@@ -3,8 +3,8 @@
 
 {% block bottom_bar %}{% endblock %}
 
-{% block title %}Finalizar Pedido{% endblock %}
-{% block meta_description %}Revise e finalize seu pedido · {{ storefront.brand_name }}.{% endblock %}
+{% block title %}{% omotenashi 'CHECKOUT_PAGE_TITLE' as checkout_page_title %}{{ checkout_page_title.title }}{% endblock %}
+{% block meta_description %}{% omotenashi 'CHECKOUT_PAGE_META_DESCRIPTION' as checkout_meta %}{{ checkout_meta.message }} · {{ storefront.brand_name }}.{% endblock %}
 
 {% block extra_head %}
   {% include "storefront/partials/address_picker_head.html" %}
@@ -32,16 +32,24 @@
 {% endblock %}
 
 {% block content %}
+{% omotenashi 'CHECKOUT_SWITCH_ACCOUNT_TITLE' as switch_account_title %}
+{% omotenashi 'CHECKOUT_SWITCH_ACCOUNT_MESSAGE' as switch_account_message %}
+{% omotenashi 'CHECKOUT_SWITCH_ACCOUNT_KEEP_CTA' as switch_account_keep_cta %}
+{% omotenashi 'CHECKOUT_SWITCH_ACCOUNT_CONFIRM_CTA' as switch_account_confirm_cta %}
+{% omotenashi 'CHECKOUT_WHEN_REQUIRED' as checkout_when_required %}
+{% omotenashi 'CHECKOUT_LOYALTY_PROMPT' as loyalty_prompt %}
+{% omotenashi 'CHECKOUT_LOYALTY_BALANCE_SUFFIX' as loyalty_balance_suffix %}
 <div x-data="{
   fulfillmentType: '{{ form_data.fulfillment_type|default:'pickup' }}',
   paymentMethod: '{{ checkout_defaults.payment_method|default:checkout.default_payment_method }}',
-  useLoyalty: {% if checkout.loyalty_balance_q %}true{% else %}false{% endif %},
+  useLoyalty: {% if form_data.use_loyalty %}true{% else %}false{% endif %},
   deliveryDate: '{{ form_data.delivery_date|default:'' }}',
   deliverySlot: '{{ form_data.delivery_time_slot|default:checkout.earliest_slot_ref|default:'' }}',
   showModal: false,
   submitting: false,
   closedDates: {{ checkout.closed_dates_json }},
   maxPreorderDays: {{ checkout.max_preorder_days }},
+  pickupSlots: [{% for slot in checkout.pickup_slots %}{ ref: '{{ slot.ref|escapejs }}', startsAt: '{{ slot.starts_at|escapejs }}' }{% if not forloop.last %},{% endif %}{% endfor %}],
   pickupSlotTimes: [{% for slot in checkout.pickup_slots %}'{{ slot.starts_at }}'{% if not forloop.last %},{% endif %}{% endfor %}],
   notes: '{{ form_data.notes|default:''|escapejs }}',
   slotLabels: { {% for slot in checkout.pickup_slots %}'{{ slot.ref }}': '{{ slot.label|escapejs }}'{% if not forloop.last %}, {% endif %}{% endfor %} },
@@ -74,6 +82,20 @@
     if (this.fulfillmentType !== 'pickup') return true;
     return this.pickupSlotTimes.some(t => this.isSlotAvailableForToday(null, t));
   },
+  availablePickupSlotRefs() {
+    return this.pickupSlots
+      .filter(slot => this.isSlotAvailableForToday(slot.ref, slot.startsAt))
+      .map(slot => slot.ref);
+  },
+  normalizeDeliverySlot() {
+    if (this.fulfillmentType !== 'pickup') return;
+    const refs = this.availablePickupSlotRefs();
+    if (!refs.length) {
+      this.deliverySlot = '';
+      return;
+    }
+    if (!refs.includes(this.deliverySlot)) this.deliverySlot = refs[0];
+  },
   isSlotAvailableForToday(ref, startsAt) {
     if (this.deliveryDate && this.deliveryDate !== new Date().toISOString().slice(0, 10)) return true;
     const [h, m] = startsAt.split(':').map(Number);
@@ -101,28 +123,52 @@
     return d.toISOString().slice(0, 10);
   },
   step: (() => {
-    const s = new URLSearchParams(window.location.search).get('step');
-    if (['fulfillment', 'address', 'when', 'payment'].includes(s)) return s;
-    return '{% if errors.payment_method %}payment{% elif errors.delivery_date or errors.delivery_time_slot %}when{% elif errors.delivery_address or errors.street_number %}address{% else %}fulfillment{% endif %}';
+    const requested = new URLSearchParams(window.location.search).get('step');
+    const fallback = '{% if errors.payment_method %}payment{% elif errors.delivery_date or errors.delivery_time_slot %}when{% elif errors.delivery_address or errors.street_number %}address{% else %}fulfillment{% endif %}';
+    const initialFulfillmentType = '{{ form_data.fulfillment_type|default:'pickup' }}';
+    const steps = initialFulfillmentType === 'delivery'
+      ? ['fulfillment', 'address', 'when', 'payment']
+      : ['fulfillment', 'when', 'payment'];
+    if (steps.includes(requested)) return requested;
+    if (steps.includes(fallback)) return fallback;
+    return 'fulfillment';
   })(),
   init() {
+    this.$nextTick(() => this.normalizeDeliverySlot());
     window.addEventListener('popstate', () => {
       const s = new URLSearchParams(window.location.search).get('step');
-      this.step = ['fulfillment', 'address', 'when', 'payment'].includes(s) ? s : 'fulfillment';
+      this.step = this.coerceStep(s);
     });
+    this.$watch('fulfillmentType', () => {
+      const normalized = this.coerceStep(this.step);
+      if (normalized !== this.step) {
+        this.step = normalized;
+        history.replaceState({step: this.step}, '', '?step=' + this.step);
+      }
+      this.$nextTick(() => this.normalizeDeliverySlot());
+    });
+    this.$watch('deliveryDate', () => this.$nextTick(() => this.normalizeDeliverySlot()));
   },
   effectiveSteps() {
     return this.fulfillmentType === 'delivery'
       ? ['fulfillment', 'address', 'when', 'payment']
       : ['fulfillment', 'when', 'payment'];
   },
+  coerceStep(s) {
+    const steps = this.effectiveSteps();
+    return steps.includes(s) ? s : 'fulfillment';
+  },
   isDone(s) {
     const steps = this.effectiveSteps();
-    return steps.indexOf(s) < steps.indexOf(this.step);
+    const stepIndex = steps.indexOf(s);
+    const currentIndex = steps.indexOf(this.step);
+    return stepIndex >= 0 && currentIndex >= 0 && stepIndex < currentIndex;
   },
   isUpcoming(s) {
     const steps = this.effectiveSteps();
-    return steps.indexOf(s) > steps.indexOf(this.step);
+    const stepIndex = steps.indexOf(s);
+    const currentIndex = steps.indexOf(this.step);
+    return stepIndex >= 0 && currentIndex >= 0 && stepIndex > currentIndex;
   },
   nextFrom(s) {
     const steps = this.effectiveSteps();
@@ -147,6 +193,7 @@
     if (next) this.goTo(next);
   },
   goTo(s) {
+    if (!this.effectiveSteps().includes(s)) return;
     this.step = s;
     history.pushState({step: s}, '', '?step=' + s);
   }
@@ -175,6 +222,7 @@
                  x-data="{
                    customerName: '{{ form_data.name|default:checkout.customer_name|escapejs }}',
                    showNameModal: false,
+                   showSwitchAccountModal: false,
                    nameDraft: '',
                    get initials() {
                      if (!this.customerName) return '';
@@ -188,32 +236,62 @@
             <span class="flex size-5 shrink-0 items-center justify-center rounded-full bg-success text-on-success" aria-hidden="true">
               <span class="material-symbols-rounded text-sm">check</span>
             </span>
-            <p class="text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Contato</p>
-            <div class="flex-1 min-w-0">
-              <span class="text-sm text-on-surface/85 dark:text-on-surface-dark/60 truncate">
-                <span x-show="customerName" x-cloak><span x-text="customerName.split(' ')[0]"></span> · </span>{{ checkout.customer_phone|format_phone }}
-              </span>
-            </div>
+            <p class="shrink-0 text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Contato</p>
+            <span class="min-w-0 flex-1 truncate text-sm text-on-surface/85 dark:text-on-surface-dark/60">
+              <span x-show="customerName" x-cloak><span x-text="customerName"></span> · </span>{{ checkout.customer_phone|format_phone }}
+            </span>
             <button type="button"
                     @click="nameDraft = customerName; showNameModal = true; $nextTick(() => $refs.nameInput && $refs.nameInput.focus())"
+                    aria-label="Editar nome"
                     class="shrink-0 text-xs text-primary hover:underline dark:text-primary-dark focus:outline-hidden focus-visible:underline">
-              Editar nome
+              Editar
             </button>
             <button type="button"
-                    @click="$dispatch('nav:logout', { next: '{% url 'storefront:login' %}?next={% url 'storefront:checkout' %}' })"
+                    @click="showSwitchAccountModal = true"
                     title="Trocar conta" aria-label="Trocar conta"
-                    class="shrink-0 flex h-8 w-8 items-center justify-center rounded-full text-on-surface/40 hover:bg-primary/10 hover:text-primary dark:text-on-surface-dark/40 dark:hover:bg-primary-dark/10 dark:hover:text-primary-dark focus:outline-hidden transition">
+                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-on-surface/40 hover:bg-primary/10 hover:text-primary dark:text-on-surface-dark/40 dark:hover:bg-primary-dark/10 dark:hover:text-primary-dark focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark transition">
               <span class="material-symbols-rounded text-base" aria-hidden="true">autorenew</span>
             </button>
           </div>
-          {% omotenashi 'CHECKOUT_PHONE_PURPOSE' as phone_purpose %}
-          {% if phone_purpose %}<p class="px-5 pb-3 -mt-1 text-xs text-on-surface/40 dark:text-on-surface-dark/40">{{ phone_purpose.message }}</p>{% endif %}
           <input type="hidden" name="phone" value="{{ checkout.customer_phone }}">
           <input type="hidden" name="name" :value="customerName">
           {% if errors.phone or errors.name %}
           <p class="px-5 pb-3 text-xs text-danger">{% if errors.phone %}{{ errors.phone }}{% else %}{{ errors.name }}{% endif %}</p>
           {% endif %}
           {% include "storefront/components/name_modal.html" %}
+          <div x-show="showSwitchAccountModal" x-cloak x-transition.opacity
+               @keydown.escape.window="showSwitchAccountModal = false"
+               class="fixed inset-0 z-[90] flex items-end justify-center p-0 sm:items-center sm:p-4">
+            <div @click="showSwitchAccountModal = false" class="absolute inset-0 bg-black/40"></div>
+            <div role="dialog" aria-modal="true" aria-labelledby="switch-account-modal-title"
+                 class="relative z-[1] w-full sm:max-w-sm rounded-t-2xl sm:rounded-radius border border-outline bg-surface-alt dark:border-outline-dark dark:bg-surface-dark-alt shadow-2xl p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:pb-6">
+              <div class="flex items-start gap-3">
+                <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary dark:bg-primary-dark/10 dark:text-primary-dark" aria-hidden="true">
+                  <span class="material-symbols-rounded text-xl">logout</span>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <h3 id="switch-account-modal-title" class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">
+                    {{ switch_account_title.title }}
+                  </h3>
+                  <p class="mt-1 text-sm text-on-surface/85 dark:text-on-surface-dark/60">
+                    {{ switch_account_message.message }}
+                  </p>
+                </div>
+              </div>
+              <div class="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button type="button"
+                        @click="showSwitchAccountModal = false"
+                        class="inline-flex items-center justify-center rounded-radius border border-outline bg-surface px-4 py-2.5 text-sm font-medium text-on-surface hover:bg-surface-alt dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark min-h-[44px] focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark">
+                  {{ switch_account_keep_cta.title }}
+                </button>
+                <button type="button"
+                        @click="$dispatch('nav:logout', { next: '{% url 'storefront:login' %}?next={% url 'storefront:checkout' %}' })"
+                        class="inline-flex items-center justify-center rounded-radius bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary hover:bg-primary/90 dark:bg-primary-dark dark:text-on-primary-dark min-h-[44px] focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark">
+                  {{ switch_account_confirm_cta.title }}
+                </button>
+              </div>
+            </div>
+          </div>
         </section>
 
         {% comment %}── 2. Como receber ──{% endcomment %}
@@ -273,7 +351,7 @@
         </section>
 
         {% comment %}── 3. Endereço (só para entrega) ──{% endcomment %}
-        <section x-show="fulfillmentType === 'delivery' || isDone('address')" x-cloak
+        <section x-show="fulfillmentType === 'delivery'" x-cloak
                  class="rounded-radius border bg-surface-alt dark:bg-surface-dark-alt overflow-hidden transition-colors"
                  :class="step === 'address' ? 'border-primary dark:border-primary-dark' : isDone('address') ? 'border-outline dark:border-outline-dark' : 'border-outline/50 dark:border-outline-dark/50 opacity-70'">
           <div x-show="isDone('address')" x-cloak class="flex items-center gap-3 px-5 py-4">
@@ -351,7 +429,7 @@
                 {% if errors.delivery_time_slot %}<p class="mt-1 text-xs text-danger">{{ errors.delivery_time_slot }}</p>{% endif %}
               </div>
               <p x-show="!canAdvance('when')" x-cloak class="text-xs text-warning dark:text-warning-dark" role="status">
-                Escolha data e horário para seguir.
+                {{ checkout_when_required.message }}
               </p>
               <button type="button" @click="continueFrom('when')"
                       :disabled="!canAdvance('when')"
@@ -420,14 +498,36 @@
 
               {% comment %}── Fidelidade ──{% endcomment %}
               {% if checkout.loyalty_balance_q > 0 %}
-              <label class="flex items-start gap-3 cursor-pointer rounded-radius border border-primary/30 bg-primary/5 dark:border-primary-dark/30 dark:bg-primary-dark/5 p-3">
-                <input type="checkbox" name="use_loyalty" value="true" x-model="useLoyalty"
-                       class="mt-0.5 rounded border-outline text-primary focus:ring-primary dark:border-outline-dark">
-                <span class="flex flex-col text-sm text-on-surface dark:text-on-surface-dark">
-                  <span>Usar pontos de fidelidade · <strong class="text-on-surface-strong dark:text-on-surface-dark-strong">{{ checkout.loyalty_value_display }}</strong></span>
-                  <span x-show="useLoyalty" x-cloak class="text-xs text-success mt-0.5">Você economiza {{ checkout.loyalty_value_display }} neste pedido.</span>
-                </span>
-              </label>
+              <div x-data="{ open: useLoyalty }" x-init="$watch('useLoyalty', value => { if (value) open = true })">
+                <button type="button" x-show="!open" @click="open = true"
+                        class="inline-flex max-w-full items-center gap-1.5 text-sm text-on-surface hover:text-primary focus:outline-hidden dark:text-on-surface-dark dark:hover:text-primary-dark">
+                  <span class="material-symbols-rounded text-base" aria-hidden="true">loyalty</span>
+                  <span>{{ loyalty_prompt.title }}</span>
+                  <span class="truncate text-xs text-on-surface/85 dark:text-on-surface-dark/60">{{ checkout.loyalty_value_display }} {{ loyalty_balance_suffix.message }}</span>
+                </button>
+                <div x-show="open" x-cloak class="space-y-1.5">
+                  <label for="use-loyalty"
+                         class="flex items-center justify-between gap-3 cursor-pointer">
+                    <span class="flex min-w-0 flex-col text-sm text-on-surface dark:text-on-surface-dark">
+                      <span class="font-medium text-on-surface-strong dark:text-on-surface-dark-strong">{{ loyalty_prompt.title }}</span>
+                      <span class="text-xs text-on-surface/85 dark:text-on-surface-dark/60">Você tem {{ checkout.loyalty_value_display }} {{ loyalty_balance_suffix.message }}</span>
+                    </span>
+                    <span class="inline-flex items-center gap-3 ml-4 shrink-0">
+                      <input id="use-loyalty"
+                             type="checkbox"
+                             name="use_loyalty"
+                             value="true"
+                             x-model="useLoyalty"
+                             class="peer sr-only"
+                             role="switch"
+                             :aria-checked="useLoyalty.toString()">
+                      <span class="relative h-6 w-11 after:h-5 after:w-5 peer-checked:after:translate-x-5 rounded-full border border-outline bg-surface-alt after:absolute after:bottom-0 after:left-[0.0625rem] after:top-0 after:my-auto after:rounded-full after:bg-on-surface after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:bg-on-primary peer-focus:outline-2 peer-focus:outline-offset-2 peer-focus:outline-outline-strong peer-focus:peer-checked:outline-primary peer-active:outline-offset-0 dark:border-outline-dark dark:bg-surface-dark-alt dark:after:bg-on-surface-dark dark:peer-checked:bg-primary-dark dark:peer-checked:after:bg-on-primary-dark dark:peer-focus:outline-outline-dark-strong dark:peer-focus:peer-checked:outline-primary-dark"
+                            aria-hidden="true"></span>
+                    </span>
+                  </label>
+                  <p x-show="useLoyalty" x-cloak class="text-xs text-success">Aplicaremos {{ checkout.loyalty_value_display }} neste pedido.</p>
+                </div>
+              </div>
               {% endif %}
 
               {% comment %}── Confirmar (sticky mobile) ──{% endcomment %}

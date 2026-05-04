@@ -5,11 +5,11 @@ from __future__ import annotations
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
+from shopman.utils import unfold_badge_numeric
 from unfold.admin import ModelAdmin
 from unfold.decorators import display
 
 from shopman.backstage.models import DayClosing
-from shopman.utils import unfold_badge_numeric
 
 
 @admin.register(DayClosing)
@@ -33,9 +33,9 @@ class DayClosingAdmin(ModelAdmin):
 
     @display(description="operação")
     def operation_link_display(self, obj):
-        url = f'{reverse("backstage:production_reports")}?date_from={obj.date.isoformat()}&date_to={obj.date.isoformat()}'
+        url = f'{reverse("admin_console_production_reports")}?date_from={obj.date.isoformat()}&date_to={obj.date.isoformat()}'
         return format_html(
-            '<a class="font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400" href="{}">Relatório</a>',
+            '<a class="font-medium text-link" href="{}">Relatório</a>',
             url,
         )
 

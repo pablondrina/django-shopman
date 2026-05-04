@@ -4,16 +4,16 @@ Tests for Manychat integration: service + webhook.
 Service tests (6 scenarios):
 1. New subscriber → creates Customer + identifiers
 2. Existing by Manychat ID → updates without duplicating
-3. Existing by phone → links Manychat ID
+3. Existing by whatsapp_id → links Manychat ID
 4. Existing by email → links Manychat ID
 5. Partial data (only Manychat ID)
-6. Phone normalization
+6. whatsapp_id normalization
 
 Webhook tests (4 scenarios):
 7. Valid POST with HMAC → 200 + customer created
 8. Invalid/missing HMAC → 401
 9. Duplicate event (replay) → 200 + "duplicate"
-10. Partial data → 200 + customer created
+10. Partial data → 400
 """
 
 import hashlib
@@ -26,7 +26,7 @@ from django.test import RequestFactory
 from shopman.guestman.contrib.identifiers.models import CustomerIdentifier, IdentifierType
 from shopman.guestman.contrib.manychat.service import ManychatService
 from shopman.guestman.contrib.manychat.views import ManychatWebhookView
-from shopman.guestman.models import Customer
+from shopman.guestman.models import ContactPoint, Customer
 
 # ═══════════════════════════════════════════════════════════════════
 # Fixtures
@@ -52,7 +52,7 @@ def subscriber_data():
         "id": "mc-subscriber-001",
         "first_name": "Maria",
         "last_name": "Silva",
-        "phone": "+5511999887766",
+        "whatsapp_id": "+5511999887766",
         "email": "maria@example.com",
     }
 
@@ -94,12 +94,25 @@ class TestManychatServiceSync:
         assert customer.first_name == "Maria"
         assert customer.last_name == "Silva"
         assert customer.ref.startswith("MC-")
+        assert customer.phone == "+5511999887766"
 
         # Verify Manychat identifier was created
         assert CustomerIdentifier.objects.filter(
             customer=customer,
             identifier_type=IdentifierType.MANYCHAT,
             identifier_value="mc-subscriber-001",
+        ).exists()
+        assert ContactPoint.objects.filter(
+            customer=customer,
+            type=ContactPoint.Type.PHONE,
+            value_normalized="+5511999887766",
+            is_verified=True,
+        ).exists()
+        assert ContactPoint.objects.filter(
+            customer=customer,
+            type=ContactPoint.Type.WHATSAPP,
+            value_normalized="+5511999887766",
+            is_verified=True,
         ).exists()
 
     def test_new_subscriber_rolls_back_when_identifier_link_fails(
@@ -140,9 +153,9 @@ class TestManychatServiceSync:
         # Only 1 customer total
         assert Customer.objects.filter(ref=customer1.ref).count() == 1
 
-    def test_existing_by_phone_links_manychat(self, existing_customer):
-        """Scenario 3: Existing by phone → links Manychat ID."""
-        # Add phone identifier to existing customer
+    def test_existing_by_whatsapp_id_links_manychat(self, existing_customer):
+        """Scenario 3: Existing by whatsapp_id → links Manychat ID."""
+        # Add the normalized WhatsApp identifier to the existing customer.
         CustomerIdentifier.objects.create(
             customer=existing_customer,
             identifier_type=IdentifierType.PHONE,
@@ -153,7 +166,7 @@ class TestManychatServiceSync:
         data = {
             "id": "mc-link-phone-001",
             "first_name": "João",
-            "phone": "5511988776655",
+            "whatsapp_id": "5511988776655",
         }
         customer, created = ManychatService.sync_subscriber(data)
 
@@ -165,6 +178,24 @@ class TestManychatServiceSync:
             customer=existing_customer,
             identifier_type=IdentifierType.MANYCHAT,
             identifier_value="mc-link-phone-001",
+        ).exists()
+
+    def test_existing_by_customer_phone_links_manychat_from_whatsapp_id(self, existing_customer):
+        """Existing Customer.phone is enough to deduplicate ManyChat sync."""
+        data = {
+            "id": "mc-link-phone-no-ident-001",
+            "first_name": "João",
+            "whatsapp_id": "5511988776655",
+        }
+
+        customer, created = ManychatService.sync_subscriber(data)
+
+        assert created is False
+        assert customer.pk == existing_customer.pk
+        assert CustomerIdentifier.objects.filter(
+            customer=existing_customer,
+            identifier_type=IdentifierType.MANYCHAT,
+            identifier_value="mc-link-phone-no-ident-001",
         ).exists()
 
     def test_existing_by_email_links_manychat(self, existing_customer):
@@ -180,6 +211,7 @@ class TestManychatServiceSync:
             "id": "mc-link-email-001",
             "first_name": "João",
             "email": "joao@example.com",
+            "whatsapp_id": "5511988776655",
         }
         customer, created = ManychatService.sync_subscriber(data)
 
@@ -187,19 +219,18 @@ class TestManychatServiceSync:
         assert customer.pk == existing_customer.pk
 
     def test_partial_data_only_manychat_id(self, subscriber_partial):
-        """Scenario 5: Minimal data (only ID) → still creates customer."""
-        customer, created = ManychatService.sync_subscriber(subscriber_partial)
+        """Scenario 5: Minimal data (only ID) is rejected to avoid garbage customers."""
+        with pytest.raises(ValueError, match="requires a valid whatsapp_id"):
+            ManychatService.sync_subscriber(subscriber_partial)
 
-        assert created is True
-        assert customer.pk is not None
-        assert customer.ref.startswith("MC-")
+        assert Customer.objects.count() == 0
 
-    def test_phone_normalization(self):
-        """Scenario 6: Phone is normalized before matching."""
+    def test_whatsapp_id_normalization(self):
+        """Scenario 6: whatsapp_id is normalized before matching."""
         data = {
             "id": "mc-phone-norm-001",
             "first_name": "Ana",
-            "phone": "(11) 99988-7766",
+            "whatsapp_id": "(11) 99988-7766",
         }
         customer, created = ManychatService.sync_subscriber(data)
         assert created is True
@@ -215,6 +246,22 @@ class TestManychatServiceSync:
         assert "(" not in stored_phone
         assert " " not in stored_phone
         assert "-" not in stored_phone
+
+    def test_invalid_whatsapp_id_is_not_persisted_as_empty_identifier(self):
+        """Invalid/blank ManyChat whatsapp_id must not poison identifier lookup."""
+        data = {
+            "id": "mc-invalid-phone-001",
+            "first_name": "Diofer",
+            "whatsapp_id": "not-a-phone",
+        }
+
+        with pytest.raises(ValueError, match="requires a valid whatsapp_id"):
+            ManychatService.sync_subscriber(data)
+
+        assert not CustomerIdentifier.objects.filter(
+            identifier_type=IdentifierType.PHONE,
+            identifier_value="",
+        ).exists()
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -254,7 +301,7 @@ class TestManychatWebhook:
                 "id": "mc-webhook-001",
                 "first_name": "Webhook",
                 "last_name": "Test",
-                "phone": "+5511999001122",
+                "whatsapp_id": "+5511999001122",
             },
         }
         body = json.dumps(payload).encode()
@@ -296,6 +343,7 @@ class TestManychatWebhook:
             "subscriber": {
                 "id": "mc-replay-001",
                 "first_name": "Replay",
+                "whatsapp_id": "+5511999003344",
             },
         }
         body = json.dumps(payload).encode()
@@ -316,7 +364,7 @@ class TestManychatWebhook:
         assert data2["status"] == "duplicate"
 
     def test_partial_subscriber_data(self, factory):
-        """Scenario 10: Minimal subscriber data → still creates customer."""
+        """Scenario 10: Minimal subscriber data is rejected."""
         payload = {
             "id": "evt-partial-001",
             "subscriber": {
@@ -329,6 +377,6 @@ class TestManychatWebhook:
 
         response = ManychatWebhookView.as_view()(request)
 
-        assert response.status_code == 200
+        assert response.status_code == 400
         data = json.loads(response.content)
-        assert data["status"] == "created"
+        assert "valid whatsapp_id" in data["error"]

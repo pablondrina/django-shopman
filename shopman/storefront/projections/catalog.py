@@ -1,4 +1,4 @@
-"""CatalogProjection — read model for the storefront menu/catalog.
+"""CatalogProjection — immutable UI projection for the storefront menu/catalog.
 
 Phase 1 pilot of the PROJECTION-UI-PLAN. The builder orchestrates shop
 services for catalog/price/availability plus ``services.storefront_context``
@@ -114,7 +114,7 @@ class CatalogSectionProjection:
 
 @dataclass(frozen=True)
 class CatalogProjection:
-    """Top-level read model for the storefront menu."""
+    """Top-level projection for the storefront menu."""
 
     items: tuple[CatalogItemProjection, ...]
     categories: tuple[CategoryProjection, ...]
@@ -152,7 +152,7 @@ def build_catalog(
       hints (fulfillment type + subtotal) so prices shown on the menu match
       what the checkout will apply.
     """
-    from shopman.storefront.omotenashi.context import OmotenashiContext
+    from shopman.shop.omotenashi.context import OmotenashiContext
 
     config = ChannelConfig.for_channel(channel_ref)
     low_stock_threshold = Decimal(str(config.stock.low_stock_threshold))

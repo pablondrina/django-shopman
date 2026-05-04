@@ -1,3 +1,5 @@
+{% load omotenashi_tags %}
+{% omotenashi 'NOTIFICATION_PREFS_EMPTY' as notification_prefs_empty %}
 {% for pref in notification_prefs %}
 <label for="notif-pref-{{ pref.key }}"
        class="flex items-center justify-between py-3 cursor-pointer
@@ -21,5 +23,5 @@
   </div>
 </label>
 {% empty %}
-<p class="text-sm text-on-surface/85 dark:text-on-surface-dark/60">Nenhuma preferência de notificação configurável no momento.</p>
+<p class="text-sm text-on-surface/85 dark:text-on-surface-dark/60">{{ notification_prefs_empty.message }}</p>
 {% endfor %}

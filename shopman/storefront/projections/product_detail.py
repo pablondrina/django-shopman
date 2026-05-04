@@ -1,4 +1,4 @@
-"""ProductDetailProjection — read model for the storefront PDP.
+"""ProductDetailProjection — immutable UI projection for the storefront PDP.
 
 Phase 1 / step 2 of the PROJECTION-UI-PLAN. Mirrors the discipline of
 ``build_catalog``: the builder orchestrates shop services for pricing, bundle
@@ -109,7 +109,7 @@ class ConservationInfoProjection:
 
 @dataclass(frozen=True)
 class ProductDetailProjection:
-    """Full read model for the storefront PDP."""
+    """Full projection for the storefront PDP."""
 
     sku: str
     slug: str

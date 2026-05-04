@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.utils.decorators import method_decorator
@@ -10,7 +12,9 @@ from django.views.decorators.clickjacking import xframe_options_sameorigin
 
 from ..services import orders as order_service
 
-REORDER_MIN_DAYS = 7  # show reorder card only after this many days since last order
+logger = logging.getLogger(__name__)
+
+REORDER_MIN_DAYS = 0  # show quick reorder whenever the customer has a previous order
 
 
 @method_decorator(xframe_options_sameorigin, name="dispatch")
@@ -32,9 +36,9 @@ class HomeView(View):
     def _reorder_context(request: HttpRequest) -> tuple[str | None, list[dict]]:
         """Return (last_order_ref, items) for the quick-reorder card.
 
-        Only non-empty when the customer is authenticated, has a previous order,
-        and their last order was more than REORDER_MIN_DAYS ago. Items come from
-        Order.snapshot["items"] — the sealed snapshot written at commit time.
+        Only non-empty when the customer is authenticated and has a previous
+        order. Items come from Order.snapshot["items"] — the sealed snapshot
+        written at commit time.
         """
         customer_info = getattr(request, "customer", None)
         if customer_info is None:
@@ -45,4 +49,5 @@ class HomeView(View):
                 min_days=REORDER_MIN_DAYS,
             )
         except Exception:
+            logger.warning("home_reorder_context_failed", exc_info=True)
             return None, []

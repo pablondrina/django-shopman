@@ -1,4 +1,4 @@
-"""CartProjection — read model for the storefront cart (drawer + page).
+"""CartProjection — immutable UI projection for the storefront cart (drawer + page).
 
 Phase 1 / step 3 of the PROJECTION-UI-PLAN. The builder leans on the
 existing ``CartService.get_cart`` dict (which already resolves the
@@ -112,7 +112,7 @@ class UpsellSuggestionProjection:
 
 @dataclass(frozen=True)
 class CartProjection:
-    """Full read model for the storefront cart."""
+    """Full projection for the storefront cart."""
 
     items: tuple[CartItemProjection, ...]
     items_count: int              # sum of units across lines

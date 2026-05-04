@@ -167,7 +167,7 @@ DATABASES = {
 - **Sem segredo hardcoded**: `.env.example` é template; `.env` em `.gitignore` (verificar se já está).
 - **`CONN_MAX_AGE`** configurado (60s) para reutilizar conexões — evita "too many connections" em teste + dev.
 - **Healthcheck** no docker-compose para `make up` esperar DB pronto antes de retornar.
-- **Redis também subido**: aproveita para destravar cache real (`django-redis`) e `django-ratelimit` requer backend compartilhado.
+- **Redis também subido**: aproveita para destravar cache real com o backend nativo `django.core.cache.backends.redis.RedisCache`; `django-ratelimit` requer backend compartilhado.
 
 ---
 

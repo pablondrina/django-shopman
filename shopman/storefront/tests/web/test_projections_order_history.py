@@ -81,6 +81,21 @@ class TestOrderHistoryOrders:
         assert len(proj.orders) == 1
         assert proj.total_count == 1
 
+    def test_order_linked_by_customer_ref_appears_in_history(self, customer):
+        from shopman.orderman.models import Order
+
+        order = Order.objects.create(
+            ref="ORD-HISTORY-REF",
+            channel_ref="web",
+            status="completed",
+            total_q=1800,
+            data={"customer_ref": customer.ref},
+        )
+
+        proj = build_order_history(customer)
+
+        assert [o.ref for o in proj.orders] == [order.ref]
+
     def test_order_summary_type(self, customer):
         self._make_order(customer)
         proj = build_order_history(customer)

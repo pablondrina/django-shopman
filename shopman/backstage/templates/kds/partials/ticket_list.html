@@ -1,8 +1,0 @@
-{% for t in tickets %}
-  {% include "kds/partials/ticket.html" %}
-{% empty %}
-<div class="empty-state py-16 col-span-full">
-  <span class="material-symbols-rounded icon-display block mb-4 opacity-80" aria-hidden="true">done_all</span>
-  <p class="text-base font-semibold">{% if is_expedition %}Nenhum pedido pronto.{% else %}Nenhum ticket pendente.{% endif %}</p>
-</div>
-{% endfor %}

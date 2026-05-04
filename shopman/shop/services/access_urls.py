@@ -78,6 +78,17 @@ def build_tracking_access_url(request_or_shop, customer, order_ref: str, source:
     )
 
 
+def build_payment_access_url(request_or_shop, customer, order_ref: str, source: str = "manychat") -> str | None:
+    """Shortcut for building an authenticated payment access URL."""
+    return build_access_url(
+        request_or_shop,
+        customer,
+        next_url=f"/pedido/{order_ref}/pagamento/",
+        source=source,
+        metadata={"order_ref": order_ref, "action": "payment"},
+    )
+
+
 def build_reorder_access_url(request_or_shop, customer, order_ref: str, source: str = "manychat") -> str | None:
     """Shortcut for building an authenticated reorder access URL."""
     return build_access_url(

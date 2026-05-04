@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
@@ -14,12 +15,19 @@ from ..services import orders as order_service
 
 logger = logging.getLogger(__name__)
 
+REORDER_MODE_ADD = "add"
+REORDER_MODE_REPLACE = "replace"
+REORDER_MODES = {REORDER_MODE_ADD, REORDER_MODE_REPLACE}
+
 
 class OrderTrackingView(View):
     """Full order tracking page with HTMX polling for status updates."""
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
         order = order_service.get_order(ref)
+        order_service.resolve_payment_timeout_if_due(order)
+        if order_service.requires_payment_gate(order):
+            return redirect("storefront:order_payment", ref=ref)
 
         from shopman.storefront.projections import build_order_tracking
 
@@ -35,29 +43,74 @@ class ReorderView(View):
 
     def post(self, request: HttpRequest, ref: str) -> HttpResponse:
         order = order_service.get_order(ref)
+        mode = (request.POST.get("reorder_mode") or "").strip()
+        cart_has_items = CartService.has_items(request)
+
+        if cart_has_items and mode not in REORDER_MODES:
+            return self._cart_choice_response(request, order)
+
+        if mode == REORDER_MODE_REPLACE:
+            CartService.clear(request)
+
         skipped = order_service.add_reorder_items(request, order, cart_service=CartService)
 
         request.session["reorder_source"] = True
         if skipped:
             request.session["reorder_skipped"] = skipped
 
+        cart_url = reverse("storefront:cart")
+        if request.headers.get("HX-Request"):
+            response = HttpResponse(status=204)
+            response["HX-Redirect"] = cart_url
+            response["HX-Trigger"] = json.dumps(
+                {"close-mobile-menu": {}, "close-cart-drawer": {}}
+            )
+            return response
+
         return redirect("storefront:cart")
+
+    def _cart_choice_response(self, request: HttpRequest, order) -> HttpResponse:
+        if not request.headers.get("HX-Request"):
+            response = render(
+                request,
+                "storefront/partials/reorder_conflict_modal.html",
+                {"order": order},
+                status=409,
+            )
+            return response
+
+        response = render(
+            request,
+            "storefront/partials/reorder_conflict_modal.html",
+            {"order": order},
+        )
+        response["HX-Retarget"] = "#reorder-conflict-modal"
+        response["HX-Reswap"] = "innerHTML"
+        response["HX-Trigger"] = json.dumps(
+            {"close-mobile-menu": {}, "close-cart-drawer": {}}
+        )
+        return response
 
 
 class OrderStatusPartialView(View):
-    """HTMX partial: returns status badge + timeline for polling."""
+    """HTMX partial: returns the live tracking block for polling/SSE refresh."""
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
         order = order_service.get_order(ref)
+        order_service.resolve_payment_timeout_if_due(order)
+        if order_service.requires_payment_gate(order):
+            response = HttpResponse("")
+            response["HX-Redirect"] = reverse("storefront:order_payment", kwargs={"ref": ref})
+            return response
 
-        from shopman.storefront.projections import build_order_tracking_status
+        from shopman.storefront.projections import build_order_tracking
 
-        proj = build_order_tracking_status(order)
+        proj = build_order_tracking(order)
         response = render(
-            request, "storefront/partials/order_status.html", {"tracking_status": proj}
+            request,
+            "storefront/partials/order_live.html",
+            {"tracking": proj, "oob_status_badge": True},
         )
-        if proj.is_terminal:
-            response.status_code = 286
         return response
 
 

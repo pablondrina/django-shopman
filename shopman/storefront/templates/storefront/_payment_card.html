@@ -2,22 +2,25 @@
 {% comment %}── Card via Stripe Checkout (hosted redirect) ──{% endcomment %}
 <div class="flex flex-col gap-4">
   {% omotenashi "PAYMENT_CARD_INTRO" as intro %}
+  {% omotenashi "PAYMENT_PROMISE_CARD_ACTION" as card_action %}
+  {% omotenashi "PAYMENT_PROMISE_CARD_PENDING_MESSAGE" as card_pending %}
+  {% omotenashi "PAYMENT_CARD_SECURITY_NOTE" as card_security %}
   <p class="text-base text-on-surface dark:text-on-surface-dark">
-    {% if intro.message %}{{ intro.message }}{% else %}Você será levado ao ambiente seguro do Stripe. Voltamos assim que confirmar.{% endif %}
+    {{ intro.message }}
   </p>
 
   {% if payment.checkout_url %}
   <a href="{{ payment.checkout_url }}"
      class="block w-full rounded-radius bg-primary px-6 py-4 text-center text-lg font-semibold text-on-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary min-h-[48px] transition-colors dark:bg-primary-dark dark:text-on-primary-dark">
-    Pagar com cartão
+    {{ card_action.title }}
   </a>
   {% else %}
   <p class="rounded-radius border border-outline bg-surface-alt px-4 py-3 text-sm text-on-surface/85 dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark/70">
-    Preparando ambiente seguro… atualize em instantes.
+    {{ card_pending.message }}
   </p>
   {% endif %}
 
   <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/60">
-    Pagamento processado pelo Stripe. Nós não recebemos os dados do seu cartão.
+    {{ card_security.message }}
   </p>
 </div>

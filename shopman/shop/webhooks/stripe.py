@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 
 from django.conf import settings
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
@@ -32,6 +33,7 @@ def _get_stripe_setting(key: str, default=None):
     )
 
 
+@extend_schema(exclude=True)
 class StripeWebhookView(APIView):
     """Endpoint para receber eventos do Stripe.
 
@@ -90,6 +92,7 @@ class StripeWebhookView(APIView):
         from shopman.payman import PaymentService
 
         from shopman.shop.lifecycle import dispatch
+        from shopman.shop.services import payment as payment_service
 
         try:
             intent = PaymentService.get(intent_ref)
@@ -108,6 +111,15 @@ class StripeWebhookView(APIView):
             except Order.DoesNotExist:
                 return
 
-        if order:
-            # Dispatch to flow for downstream effects
+        if order and intent.status == "authorized" and order.status == Order.Status.CONFIRMED:
+            method = ((order.data or {}).get("payment") or {}).get("method")
+            if method == "card":
+                payment_service.capture(order)
+                try:
+                    intent = PaymentService.get(intent_ref)
+                except Exception:
+                    return
+
+        if order and payment_service.has_sufficient_captured_payment(order) is True:
+            # Dispatch to flow for downstream effects.
             dispatch(order, "on_paid")

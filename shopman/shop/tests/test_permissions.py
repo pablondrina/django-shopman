@@ -52,24 +52,24 @@ class TestManageOrdersPerm(TestCase):
     def test_staff_without_perm_gets_403(self):
         u = _staff("staff_no_perm")
         self.client.force_login(u)
-        resp = self.client.get("/gestor/pedidos/")
+        resp = self.client.get("/admin/operacao/pedidos/")
         self.assertEqual(resp.status_code, 403)
 
     def test_staff_with_perm_gets_200(self):
         u = _staff("staff_with_perm", permissions=[self.perm])
         self.client.force_login(u)
-        resp = self.client.get("/gestor/pedidos/")
+        resp = self.client.get("/admin/operacao/pedidos/")
         self.assertEqual(resp.status_code, 200)
 
     def test_superuser_passes(self):
         u = User.objects.create_superuser("super", password="test")
         self.client.force_login(u)
-        resp = self.client.get("/gestor/pedidos/")
+        resp = self.client.get("/admin/operacao/pedidos/")
         self.assertEqual(resp.status_code, 200)
 
     def test_unauthenticated_redirects_to_login(self):
-        resp = self.client.get("/gestor/pedidos/")
-        self.assertRedirects(resp, "/admin/login/?next=/gestor/pedidos/", fetch_redirect_response=False)
+        resp = self.client.get("/admin/operacao/pedidos/")
+        self.assertRedirects(resp, "/admin/login/?next=/admin/operacao/pedidos/", fetch_redirect_response=False)
 
 
 class TestOperateKdsPerm(TestCase):
@@ -81,20 +81,20 @@ class TestOperateKdsPerm(TestCase):
     def test_staff_without_perm_can_view_readonly(self):
         u = _staff("kds_no_perm")
         self.client.force_login(u)
-        resp = self.client.get("/gestor/kds/")
+        resp = self.client.get("/admin/operacao/kds/")
         # KDS index allows staff to view (readonly); only actions require operate_kds perm.
         self.assertEqual(resp.status_code, 200)
 
     def test_staff_with_perm_passes_check(self):
         u = _staff("kds_op", permissions=[self.perm])
         self.client.force_login(u)
-        resp = self.client.get("/gestor/kds/")
+        resp = self.client.get("/admin/operacao/kds/")
         self.assertNotEqual(resp.status_code, 403)
 
     def test_superuser_passes(self):
         u = User.objects.create_superuser("super_kds", password="test")
         self.client.force_login(u)
-        resp = self.client.get("/gestor/kds/")
+        resp = self.client.get("/admin/operacao/kds/")
         self.assertNotEqual(resp.status_code, 403)
 
 
@@ -136,7 +136,7 @@ class TestCashierGroup(TestCase):
 
     def test_cashier_can_access_orders(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/gestor/pedidos/")
+        resp = self.client.get("/admin/operacao/pedidos/")
         self.assertEqual(resp.status_code, 200)
 
     def test_cashier_can_access_pos(self):
@@ -146,7 +146,7 @@ class TestCashierGroup(TestCase):
 
     def test_cashier_can_view_kds_readonly(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/gestor/kds/")
+        resp = self.client.get("/admin/operacao/kds/")
         # KDS index is viewable by any staff (readonly); actions require operate_kds perm.
         self.assertEqual(resp.status_code, 200)
 
@@ -164,7 +164,7 @@ class TestKitchenGroup(TestCase):
 
     def test_kitchen_can_access_kds(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/gestor/kds/")
+        resp = self.client.get("/admin/operacao/kds/")
         self.assertNotEqual(resp.status_code, 403)
 
     def test_kitchen_cannot_access_pos(self):
@@ -174,7 +174,7 @@ class TestKitchenGroup(TestCase):
 
     def test_kitchen_cannot_access_orders(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/gestor/pedidos/")
+        resp = self.client.get("/admin/operacao/pedidos/")
         self.assertEqual(resp.status_code, 403)
 
 
@@ -191,7 +191,7 @@ class TestManagerGroup(TestCase):
 
     def test_manager_can_access_orders(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/gestor/pedidos/")
+        resp = self.client.get("/admin/operacao/pedidos/")
         self.assertEqual(resp.status_code, 200)
 
     def test_manager_can_access_pos(self):
@@ -201,7 +201,7 @@ class TestManagerGroup(TestCase):
 
     def test_manager_can_view_kds_readonly(self):
         self.client.force_login(self.user)
-        resp = self.client.get("/gestor/kds/")
+        resp = self.client.get("/admin/operacao/kds/")
         # KDS index is viewable by any staff (readonly); actions require operate_kds perm.
         self.assertEqual(resp.status_code, 200)
 

@@ -635,8 +635,8 @@ class SessionToOrderLifecycleTests(TestCase):
         session = Session.objects.create(
             session_key="SESS-002",
             channel_ref=self.channel.ref,
-            handle_type="comanda",
-            handle_ref="42",
+            handle_type="pos_tab",
+            handle_ref="00000042",
         )
 
         order = Order.objects.create(
@@ -649,9 +649,9 @@ class SessionToOrderLifecycleTests(TestCase):
             total_q=1000,
         )
 
-        self.assertEqual(order.handle_type, "comanda")
-        self.assertEqual(order.handle_ref, "42")
-        self.assertIn("Comanda: 42", str(order))
+        self.assertEqual(order.handle_type, "pos_tab")
+        self.assertEqual(order.handle_ref, "00000042")
+        self.assertIn("Pos Tab: 00000042", str(order))
 
 
 class OrderSaveIntegrityTests(TestCase):
@@ -785,6 +785,27 @@ class DispatchedDeliveryGuardTests(TestCase):
         order.transition_status(Order.STATUS_DISPATCHED, actor="test")
 
         self.assertEqual(order.status, Order.STATUS_DISPATCHED)
+
+    def test_delivery_order_cannot_complete_directly_from_ready(self) -> None:
+        """Delivery ready→completed direto pula despacho e deve ser bloqueado."""
+        order = Order.objects.create(
+            ref="GUARD-READY-COMPLETE",
+            channel_ref=self.channel.ref,
+            status=Order.STATUS_NEW,
+            total_q=1000,
+            data={"fulfillment_type": "delivery"},
+        )
+        order.transition_status(Order.STATUS_CONFIRMED, actor="test")
+        order.transition_status(Order.STATUS_PREPARING, actor="test")
+        order.transition_status(Order.STATUS_READY, actor="test")
+
+        with self.assertRaises(InvalidTransition) as ctx:
+            order.transition_status(Order.STATUS_COMPLETED, actor="test")
+
+        self.assertEqual(ctx.exception.code, "delivery_requires_dispatch_before_completion")
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.STATUS_READY)
+        self.assertIsNone(order.completed_at)
 
     def test_order_without_fulfillment_type_can_reach_dispatched(self) -> None:
         """Order sem fulfillment_type (legado) não é bloqueado pelo guard."""

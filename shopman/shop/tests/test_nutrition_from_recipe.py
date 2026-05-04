@@ -103,6 +103,57 @@ class TestFillNutritionFromRecipe:
         assert product.nutrition_facts["energy_kcal"] == pytest.approx(91.0, abs=1.0)
         assert product.nutrition_facts["sodium_mg"] == pytest.approx(97.0, abs=1.0)
 
+    def test_gram_unit_is_not_treated_as_kilogram(self):
+        product = _make_product(sku="PAO-G")
+        recipe = Recipe.objects.create(
+            ref="pao-g-v1",
+            name="Pão em gramas",
+            output_sku="PAO-G",
+            batch_size=Decimal("10"),
+            is_active=True,
+        )
+        RecipeItem.objects.create(
+            recipe=recipe,
+            input_sku="FARINHA",
+            quantity=Decimal("1000"),
+            unit="g",
+            meta={
+                "label": "Farinha de trigo",
+                "nutrition": {"energy_kcal": 364},
+            },
+        )
+
+        fill_nutrition_from_recipe(product)
+        product.refresh_from_db()
+
+        assert product.nutrition_facts["energy_kcal"] == pytest.approx(364.0, abs=2.0)
+
+    def test_volume_unit_requires_density_for_nutrition_math(self):
+        product = _make_product(sku="BEBIDA")
+        recipe = Recipe.objects.create(
+            ref="bebida-v1",
+            name="Bebida",
+            output_sku="BEBIDA",
+            batch_size=Decimal("10"),
+            is_active=True,
+        )
+        RecipeItem.objects.create(
+            recipe=recipe,
+            input_sku="CALDO",
+            quantity=Decimal("1"),
+            unit="L",
+            meta={
+                "label": "Caldo",
+                "nutrition": {"energy_kcal": 50},
+            },
+        )
+
+        fill_nutrition_from_recipe(product)
+        product.refresh_from_db()
+
+        assert product.ingredients_text == "Caldo."
+        assert not product.nutrition_facts
+
     def test_ingredients_text_in_decreasing_weight_order(self):
         product = _make_product()
         _make_recipe_with_items()
@@ -134,7 +185,6 @@ class TestFillNutritionFromRecipe:
         child = _make_product(sku="PAO-SIMPLES")
         bundle = _make_product(sku="COMBO")
         ProductComponent.objects.create(parent=bundle, component=child, qty=Decimal("1"))
-        _make_recipe_with_items(sku="COMBO")
 
         changed = fill_nutrition_from_recipe(bundle)
         bundle.refresh_from_db()

@@ -1,10 +1,13 @@
 {% extends "admin/base_site.html" %}
-{% load i18n %}
+{% load i18n unfold %}
 
 {% block content %}
-<div class="module">
-  <h1>{% trans "Rename ref values" %}</h1>
-  <p>{% blocktrans with count=queryset.count %}Renomear o valor de {{ count }} referência(s) selecionada(s).{% endblocktrans %}</p>
+{% component "unfold/components/container.html" %}
+<div class="flex flex-col gap-4">
+  {% component "unfold/components/title.html" %}{% trans "Rename ref values" %}{% endcomponent %}
+  {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
+    {% blocktrans with count=queryset.count %}Renomear o valor de {{ count }} referência(s) selecionada(s).{% endblocktrans %}
+  {% endcomponent %}
 
   <form method="post">
     {% csrf_token %}
@@ -14,18 +17,23 @@
     <input type="hidden" name="action" value="rename_value_action">
     <input type="hidden" name="_rename_confirm" value="1">
 
-    <p>
-      <label for="id_new_value"><strong>{% trans "Novo valor:" %}</strong></label><br>
-      <input type="text" id="id_new_value" name="new_value" size="40" required
-             class="vTextField" placeholder="{% trans "Valor normalizado (ex: CROISSANT-FR)" %}">
-    </p>
-    <p class="help">{% trans "Atenção: todos os refs selecionados receberão o mesmo novo valor." %}</p>
+    {% component "unfold/components/card.html" with title="Novo valor" %}
+      {% include "unfold/helpers/field.html" with field=form.new_value %}
+      {% component "unfold/components/text.html" with class="mt-3 text-sm text-base-500" %}
+        {% trans "Atenção: todos os refs selecionados receberão o mesmo novo valor." %}
+      {% endcomponent %}
+    {% endcomponent %}
 
-    <p>
-      <input type="submit" class="default" value="{% trans "Confirmar rename" %}">
-      &nbsp;
-      <a href="{% url 'admin:refs_ref_changelist' %}" class="button cancel-link">{% trans "Cancelar" %}</a>
-    </p>
+    <div class="mt-4 flex flex-wrap justify-end gap-2">
+      {% url 'admin:refs_ref_changelist' as refs_changelist_url %}
+      {% component "unfold/components/button.html" with href=refs_changelist_url variant="default" %}
+        {% trans "Cancelar" %}
+      {% endcomponent %}
+      {% component "unfold/components/button.html" with submit=1 %}
+        {% trans "Confirmar rename" %}
+      {% endcomponent %}
+    </div>
   </form>
 </div>
+{% endcomponent %}
 {% endblock %}

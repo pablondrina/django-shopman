@@ -31,6 +31,7 @@ class CraftError(BaseError):
         "STALE_REVISION": "Work order was modified by another process",
         "BOM_CYCLE": "BOM expansion exceeded maximum depth",
         "RECIPE_NOT_FOUND": "Recipe not found",
+        "AMBIGUOUS_RECIPE": "More than one active recipe exists for this output SKU",
         "WORK_ORDER_NOT_FOUND": "Work order not found",
         "COMMITTED_HOLDS": "Quantity below committed orders for this date",
         "INSUFFICIENT_MATERIALS": "Insufficient shared ingredients for rescheduled quantity",

@@ -1,6 +1,6 @@
 # Status — Django Shopman
 
-> Última atualização: 2026-04-26
+> Última atualização: 2026-05-04
 
 Retrato factual do que está implementado e funcionando. Não é um plano — é o estado atual.
 Para gaps e roadmap, ver [ROADMAP.md](ROADMAP.md) e os planos ativos em `docs/plans/`.
@@ -35,7 +35,8 @@ Para gaps e roadmap, ver [ROADMAP.md](ROADMAP.md) e os planos ativos em `docs/pl
 | **Handlers** | Estável | 15 handlers de directives (stock, payment, notification, fulfillment, etc.) |
 | **Rules engine** | Estável | Promotions, coupons, modifiers — configurável via admin |
 | **Storefront (web/API)** | Beta | App próprio `shopman/storefront/`, views/projections/templates/API v1 |
-| **Admin (Unfold)** | Estável | Dashboard, shop config, orders, KDS, alertas, fechamento de caixa |
+| **Admin (Unfold)** | Estável | Dashboard, shop config, pedidos, KDS operacional, produção, fechamento e alertas |
+| **Runtime operacional** | Beta | POS e KDS de produção como superfícies próprias, fora do Admin por necessidade operacional |
 
 **Total geral coletado: 717 testes**
 
@@ -78,7 +79,10 @@ Ver [ROADMAP.md](ROADMAP.md) e `docs/plans/` para itens de UX/operação:
 
 | Requisito | Versão |
 |-----------|--------|
-| Python | ≥ 3.11 |
-| Django | ≥ 5.2, < 6.0 |
+| Python | ≥ 3.12 |
+| Django | ≥ 5.2, < 6.0 — upgrade coordenado para 6.0 planejado |
 | Node.js | ≥ 18 (build Tailwind CSS) |
-| Banco de dados | SQLite (dev) / PostgreSQL (prod recomendado) |
+| Banco de dados | PostgreSQL 16+ no dev canônico/staging/prod; SQLite só fallback local |
+| Cache/realtime | Redis 7+ no dev canônico/staging/prod; LocMem só fallback local |
+
+Ver contrato completo em [runtime-dependencies.md](reference/runtime-dependencies.md).

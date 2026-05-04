@@ -7,13 +7,13 @@ from io import StringIO
 
 import pytest
 from django.core.management import call_command
-
-from shopman.backstage.models import OperatorAlert
 from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe, WorkOrder
 from shopman.offerman.models import Product
-from shopman.orderman.models import OrderItem
-from shopman.stockman.models import Batch
+from shopman.orderman.models import Order, OrderItem, Session
+from shopman.stockman.models import Batch, Position
+
+from shopman.backstage.models import KDSInstance, OperatorAlert, POSTab
 
 
 @pytest.mark.django_db
@@ -21,10 +21,33 @@ def test_nelson_seed_populates_production_history_alerts_and_batches():
     call_command("seed", "--flush", stdout=StringIO())
 
     assert not Product.objects.filter(sku__startswith="DEMO-").exists()
-    assert OrderItem.objects.filter(
-        order__ref__startswith="NB-PROD-HIST-",
-        sku="CROISSANT",
-    ).count() >= 4
+    croissant_history = [
+        item
+        for item in OrderItem.objects.filter(sku="CROISSANT").select_related("order")
+        if (item.meta or {}).get("source") == "production_demand_history"
+    ]
+    assert len(croissant_history) >= 4
+    assert not Order.objects.filter(ref__startswith="NB-").exists()
+    assert all(
+        ref.split("-")[1] == created_at.strftime("%y%m%d")
+        for ref, created_at in Order.objects.values_list("ref", "created_at")
+        if len(ref.split("-")) >= 3
+    )
+    assert set(POSTab.objects.values_list("code", flat=True)) >= {
+        "00001007",
+        "00001008",
+        "00001009",
+        "00001010",
+        "00001011",
+        "00001012",
+    }
+    assert Session.objects.filter(
+        channel_ref="pdv",
+        state="open",
+        handle_type="pos_tab",
+        handle_ref="00001007",
+        data__tab_code="00001007",
+    ).exists()
 
     recipe = Recipe.objects.get(ref="croissant")
     assert recipe.meta["requires_batch_tracking"] is True
@@ -37,6 +60,12 @@ def test_nelson_seed_populates_production_history_alerts_and_batches():
 
     assert WorkOrder.objects.filter(source_ref__startswith="seed:production:today:").exists()
     assert Batch.objects.filter(sku="CROISSANT").exists()
+    assert set(Position.objects.filter(ref__in=["massa", "molde", "forno"]).values_list("ref", flat=True)) == {
+        "massa",
+        "molde",
+        "forno",
+    }
     assert OperatorAlert.objects.filter(type="production_late", acknowledged=False).exists()
     assert OperatorAlert.objects.filter(type="production_low_yield", acknowledged=False).exists()
     assert OperatorAlert.objects.filter(type="production_stock_short", acknowledged=False).exists()
+    assert set(KDSInstance.objects.values_list("ref", flat=True)) >= {"cafes", "lanches", "encomendas", "expedicao"}

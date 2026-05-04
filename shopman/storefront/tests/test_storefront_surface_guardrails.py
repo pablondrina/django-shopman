@@ -43,11 +43,83 @@ def test_menu_search_is_accent_insensitive_and_observable():
 
 def test_checkout_when_step_blocks_ambiguous_advance():
     checkout = _read_template("checkout.html")
+    omotenashi_copy = OMOTENASHI_COPY_SOURCE.read_text(encoding="utf-8")
 
     assert "canAdvance(s)" in checkout
     assert "continueFrom(s)" in checkout
-    assert "Escolha data e horário para seguir." in checkout
+    assert "CHECKOUT_WHEN_REQUIRED" in checkout
+    assert "Escolha data e horário para seguir." in omotenashi_copy
     assert ":disabled=\"!canAdvance('when')\"" in checkout
+
+
+def test_checkout_pickup_flow_cannot_enter_address_step():
+    checkout = _read_template("checkout.html")
+
+    assert "coerceStep(s)" in checkout
+    assert "stepIndex >= 0 && currentIndex >= 0" in checkout
+    assert "if (!this.effectiveSteps().includes(s)) return;" in checkout
+    assert 'x-show="fulfillmentType === \'delivery\'"' in checkout
+    assert 'fulfillmentType === \'delivery\' || isDone(\'address\')' not in checkout
+
+
+def test_checkout_loyalty_switch_uses_penguin_toggle_structure():
+    checkout = _read_template("checkout.html")
+    omotenashi_copy = OMOTENASHI_COPY_SOURCE.read_text(encoding="utf-8")
+
+    assert "CHECKOUT_LOYALTY_PROMPT" in checkout
+    assert "Usar pontos de fidelidade?" in omotenashi_copy
+    assert "Usar pontos de fidelidade ·" not in checkout
+    assert 'for="use-loyalty"' in checkout
+    assert 'id="use-loyalty"' in checkout
+    assert 'role="switch"' in checkout
+    assert "peer-checked:after:translate-x-5" in checkout
+    assert "after:left-[0.0625rem]" in checkout
+    assert "useLoyalty: {% if form_data.use_loyalty %}true{% else %}false{% endif %}" in checkout
+
+
+def test_checkout_contact_summary_is_collapsed_without_extra_microcopy():
+    checkout = _read_template("checkout.html")
+    omotenashi_copy = OMOTENASHI_COPY_SOURCE.read_text(encoding="utf-8")
+
+    assert "CHECKOUT_PHONE_PURPOSE" not in checkout
+    assert "Usamos só para avisar sobre seu pedido." not in checkout
+    assert "customerName.split(' ')[0]" not in checkout
+
+    contact_start = checkout.index(">Contato<")
+    contact_end = checkout.index('<input type="hidden" name="phone"', contact_start)
+    contact_block = checkout[contact_start:contact_end]
+
+    assert "break-words" not in contact_block
+    assert "truncate" in contact_block
+    assert "Editar" in contact_block
+    assert contact_block.index("truncate") < contact_block.index("Editar")
+
+
+def test_checkout_submit_copy_sends_order_instead_of_confirming_it():
+    copy_source = OMOTENASHI_COPY_SOURCE.read_text(encoding="utf-8")
+
+    assert 'CopyEntry(title="Enviar pedido")' in copy_source
+    assert 'CopyEntry(title="Confirmar pedido")' not in copy_source
+
+
+def test_checkout_switch_account_requires_confirmation_modal():
+    checkout = _read_template("checkout.html")
+    omotenashi_copy = OMOTENASHI_COPY_SOURCE.read_text(encoding="utf-8")
+
+    contact_start = checkout.index(">Contato<")
+    contact_end = checkout.index("</section>", contact_start)
+    contact_block = checkout[contact_start:contact_end]
+    contact_summary = checkout[contact_start:checkout.index('<input type="hidden" name="phone"', contact_start)]
+
+    assert "showSwitchAccountModal: false" in checkout
+    assert '@click="showSwitchAccountModal = true"' in contact_summary
+    assert "$dispatch('nav:logout'" not in contact_summary
+    assert "fixed inset-0 z-[90]" in contact_block
+    assert "CHECKOUT_SWITCH_ACCOUNT_TITLE" in checkout
+    assert "CHECKOUT_SWITCH_ACCOUNT_KEEP_CTA" in checkout
+    assert "Trocar conta?" in omotenashi_copy
+    assert "Manter conta" in omotenashi_copy
+    assert "$dispatch('nav:logout'" in contact_block
 
 
 def test_pdp_does_not_use_multiline_single_line_django_comments():
@@ -64,6 +136,17 @@ def test_cart_actions_reports_rich_stock_errors_and_network_errors():
     assert "mountStockErrorModal" in js
     assert "Sem conexão. Verifique sua internet." in js
     assert "Não foi possível atualizar o carrinho" in js
+
+
+def test_action_toasts_have_independent_dismiss_button():
+    base = _read_template("base.html")
+
+    assert "notification.actionLabel" in base
+    action_idx = base.index("notification.actionLabel")
+    dismiss_idx = base.index('aria-label="Dispensar aviso"', action_idx)
+
+    assert dismiss_idx > action_idx
+    assert "data-dismiss" in base[action_idx:dismiss_idx + 160]
 
 
 def test_cart_surface_keeps_mobile_totals_readable():
@@ -86,6 +169,80 @@ def test_mobile_menu_layers_above_menu_pill_bar():
     assert "z-[70]" in base
     assert "sticky top-0 z-50" in menu
     assert "fixed left-0 right-0 bottom-0 z-40" in menu
+
+
+def test_home_reorder_closes_open_shell_overlays_before_htmx_swap():
+    base = _read_template("base.html")
+    home = _read_template("home.html")
+    quick_reorder = _read_template("partials/quick_reorder.html")
+    reorder_modal = _read_template("partials/reorder_conflict_modal.html")
+    tracking = _read_template("order_tracking.html")
+    history = _read_template("order_history.html")
+
+    assert "x-on:close-mobile-menu.window=\"mobileMenuIsOpen = false\"" in base
+    assert 'id="reorder-conflict-modal"' in base
+    assert "days_since_last_order > 7" not in quick_reorder
+    assert "material-symbols-rounded" in quick_reorder
+    assert "autorenew" in quick_reorder
+    assert "item do pedido" not in quick_reorder
+    assert "bg-neutral-100" not in quick_reorder
+    assert "bg-white" in quick_reorder
+    assert "max-w-2xl" in quick_reorder
+    assert "max-w-4xl" not in quick_reorder
+    assert "flex flex-col items-center" in quick_reorder
+    assert "text-center" in quick_reorder
+    assert "size-16" not in quick_reorder
+    assert "rounded-full bg-primary/10" not in quick_reorder
+    assert "text-primary/70" not in quick_reorder
+    assert 'aria-label="Dispensar"' not in quick_reorder
+    assert "show = false" not in quick_reorder
+    assert "flex flex-wrap justify-center" in quick_reorder
+    assert "truncate" not in quick_reorder
+    assert "sm:grid-cols" not in quick_reorder
+    assert 'hx-target="#reorder-conflict-modal"' in quick_reorder
+    assert 'hx-target="#reorder-conflict-modal"' in home
+    assert 'hx-target="#reorder-conflict-modal"' in tracking
+    assert 'hx-target="#reorder-conflict-modal"' in history
+    assert 'name="reorder_mode" value="replace"' in reorder_modal
+    assert 'name="reorder_mode" value="add"' in reorder_modal
+    assert "Substituir carrinho" in reorder_modal
+    assert "Adicionar ao carrinho atual" in reorder_modal
+    assert "close-mobile-menu" in quick_reorder
+    assert "close-cart-drawer" in quick_reorder
+    assert quick_reorder.count("close-mobile-menu") >= 2
+    assert quick_reorder.count("close-cart-drawer") >= 2
+    assert "close-mobile-menu" in home
+    assert "close-cart-drawer" in home
+
+
+def test_cart_reorder_history_link_is_mobile_fullwidth_ghost_button():
+    cart = _read_template("cart.html")
+
+    start = cart.index("Ver outros pedidos")
+    wrapper_start = cart.rindex("<div ", 0, start)
+    wrapper_open = cart[wrapper_start:cart.index(">", wrapper_start)]
+    link_start = cart.rindex("<a ", 0, start)
+    link_open = cart[link_start:cart.index(">", link_start)]
+
+    assert "justify-start" in wrapper_open
+    assert "justify-end" not in wrapper_open
+    assert "w-full" in link_open
+    assert "sm:w-auto" in link_open
+    assert "justify-center" in link_open
+    assert "border border-outline" in link_open
+    assert "bg-transparent" in link_open
+    assert "text-center" in link_open
+
+
+def test_home_whatsapp_cta_is_fullwidth_on_mobile_only():
+    home = _read_template("home.html")
+
+    start = home.index('id="home-whatsapp-cta"')
+    section_open = home[start:home.index(">", start)]
+
+    assert "-mx-4" in section_open
+    assert "md:mx-auto" in section_open
+    assert "md:max-w-5xl" in section_open
 
 
 def test_menu_pills_keep_scroll_spy_centering():
@@ -146,13 +303,15 @@ def test_pdp_cta_price_updates_with_quantity_without_dash():
 def test_auth_inputs_stay_readable_on_mobile():
     login = _read_template("login.html")
     code = _read_template("partials/auth_verify_code.html")
+    omotenashi_copy = OMOTENASHI_COPY_SOURCE.read_text(encoding="utf-8")
 
     assert "text-lg tabular-nums" in login
     assert "font-mono" not in login
     assert "text-lg sm:text-xl tabular-nums tracking-[0.18em]" in code
     assert "tracking-[0.5em]" not in code
     assert "Vamos enviar um código pelo WhatsApp." not in login
-    assert "Código único. Não exige senha." in login
+    assert "LOGIN_NO_PASSWORD_NOTE" in login
+    assert "Código único. Não exige senha." in omotenashi_copy
     assert "novalidate" in login
     assert "Usamos só para avisar sobre seu pedido." not in login
     assert "CHECKOUT_PHONE_PURPOSE" not in login

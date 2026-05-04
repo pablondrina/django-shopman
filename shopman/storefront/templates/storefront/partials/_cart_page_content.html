@@ -5,7 +5,7 @@ Cart page inner content — body of the cart page that re-renders on
 returned standalone by ``CartPageContentView`` so the page swaps in place
 without a full reload after every stepper, coupon, or upsell action.
 
-Consumes ``CartProjection`` (typed read model). Stepper, delete and
+Consumes ``CartProjection`` (typed projection). Stepper, delete and
 upsell use Alpine + native ``fetch`` then dispatch ``cartUpdated`` —
 ``htmx.ajax`` is avoided here because the cascading reload of this
 wrapper destroys the source element mid-swap-pipeline, which trips

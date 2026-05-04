@@ -26,6 +26,7 @@ from shopman.storefront.services.pickup_slots import (
     get_earliest_slot_for_skus,
     get_slots,
     get_typical_ready_times,
+    is_slot_available_for_today,
 )
 
 
@@ -227,6 +228,43 @@ class GetEarliestSlotTests(TestCase):
         result = get_earliest_slot_for_skus(["UNKNOWN-SKU"])
         self.assertEqual(result["slot_ref"], "slot-09")  # fallback
         self.assertIsNone(result["bottleneck_sku"])
+
+    def test_unknown_sku_uses_current_slot_after_fallback_is_superseded(self):
+        with patch("shopman.storefront.services.pickup_slots._wall_clock", return_value=time(13, 0)):
+            result = get_earliest_slot_for_skus(["UNKNOWN-SKU"])
+
+        self.assertEqual(result["slot_ref"], "slot-12")
+        self.assertIsNone(result["bottleneck_sku"])
+
+    def test_unknown_sku_keeps_last_slot_after_it_starts(self):
+        with patch("shopman.storefront.services.pickup_slots._wall_clock", return_value=time(15, 1)):
+            result = get_earliest_slot_for_skus(["UNKNOWN-SKU"])
+
+        self.assertEqual(result["slot_ref"], "slot-15")
+        self.assertIsNone(result["bottleneck_sku"])
+
+    def test_ready_early_item_uses_current_slot_after_noon(self):
+        with patch("shopman.storefront.services.pickup_slots._wall_clock", return_value=time(13, 0)):
+            result = get_earliest_slot_for_skus(["BREAD"])
+
+        self.assertEqual(result["slot_ref"], "slot-12")
+
+    def test_ready_early_item_keeps_slot_15_at_and_after_15h(self):
+        for clock in (time(15, 0), time(16, 0)):
+            with patch("shopman.storefront.services.pickup_slots._wall_clock", return_value=clock):
+                result = get_earliest_slot_for_skus(["BREAD"])
+
+            self.assertEqual(result["slot_ref"], "slot-15")
+
+    def test_pickup_slots_are_available_from_start_until_next_slot(self):
+        slots = get_slots()
+
+        self.assertTrue(is_slot_available_for_today(slots, "slot-09", now=time(10, 0)))
+        self.assertFalse(is_slot_available_for_today(slots, "slot-09", now=time(12, 0)))
+        self.assertTrue(is_slot_available_for_today(slots, "slot-12", now=time(12, 0)))
+        self.assertFalse(is_slot_available_for_today(slots, "slot-12", now=time(15, 0)))
+        self.assertTrue(is_slot_available_for_today(slots, "slot-15", now=time(15, 0)))
+        self.assertTrue(is_slot_available_for_today(slots, "slot-15", now=time(16, 0)))
 
 
 class AnnotateSlotsTests(TestCase):

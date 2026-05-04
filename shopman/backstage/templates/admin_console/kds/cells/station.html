@@ -1,0 +1,10 @@
+{% load unfold %}
+
+<div class="flex flex-wrap items-center gap-3">
+  {% component "unfold/components/link.html" with href=runtime_url icon="touch_app" %}
+    {{ entry.name }}
+  {% endcomponent %}
+  {% component "unfold/components/link.html" with href=display_url icon="admin_panel_settings" %}
+    Supervisão
+  {% endcomponent %}
+</div>

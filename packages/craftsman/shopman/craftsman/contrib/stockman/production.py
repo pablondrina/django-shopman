@@ -90,15 +90,12 @@ class CraftsmanProductionBackend:
         metadata: dict | None,
     ) -> ProductionResult:
         """Internal: create WorkOrder via craft.plan()."""
-        from shopman.craftsman.models import Recipe
         from shopman.craftsman.service import craft
+        from shopman.craftsman.services.recipes import get_active_recipe_for_output_sku
         from shopman.stockman.protocols.production import ProductionResult, ProductionStatusEnum
 
         try:
-            recipe = Recipe.objects.filter(
-                output_sku=sku,
-                is_active=True,
-            ).first()
+            recipe = get_active_recipe_for_output_sku(sku)
 
             if not recipe:
                 return ProductionResult(

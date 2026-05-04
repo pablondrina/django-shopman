@@ -42,6 +42,7 @@ class CartService:
         qty: int,
         unit_price_q: int,
         *,
+        name: str = "",
         is_d1: bool = False,
     ) -> Session:
         """Add item to cart. Merges with existing line if same SKU.
@@ -63,6 +64,7 @@ class CartService:
             sku=sku,
             qty=qty,
             unit_price_q=unit_price_q,
+            name=name,
             is_d1=is_d1,
         )
         request.session["cart_session_key"] = session_key
@@ -114,6 +116,26 @@ class CartService:
             if item.get("line_id") == line_id:
                 return item
         return None
+
+    @staticmethod
+    def has_items(request: HttpRequest) -> bool:
+        """Return whether the visitor has an open cart with positive-qty lines."""
+        session_key = CartService._get_session_key(request)
+        if not session_key:
+            return False
+
+        session = cart_commands.get_open_session(session_key=session_key, channel_ref=CHANNEL_REF)
+        if session is None:
+            request.session.pop("cart_session_key", None)
+            return False
+
+        for item in session.items:
+            try:
+                if Decimal(str(item.get("qty", 0))) > 0:
+                    return True
+            except Exception:
+                continue
+        return False
 
     @staticmethod
     def get_cart(request: HttpRequest) -> dict:

@@ -67,7 +67,7 @@ padrão "Sidebar with top navbar" do Penguin UI.
 - POS (`/gestor/pos/`)
 - Produção (`/gestor/producao/`)
 - Dashboard (`/admin/`)
-- Fechamento (`/gestor/fechamento/`)
+- Fechamento (`/admin/operacao/fechamento/`)
 
 **Top navbar:**
 - Nome da loja + logo
@@ -200,7 +200,7 @@ Quando fullscreen, sidebar hidden + top navbar minimal (clock + exit).
 ### WP-5: Produção + Fechamento — Penguin UI
 
 **Migra:** superfícies operacionais de produção e fechamento
-→ `gestor/producao/` e `gestor/fechamento/` (estendem `gestor/base.html`)
+→ `admin_console/production/` e `admin_console/closing/` (estendem `admin/base.html`)
 
 **Desacopla do Unfold:** Não dependem mais de `admin/base_site.html`. O Admin/Unfold fica como backoffice/auditoria e entrada para links operacionais.
 

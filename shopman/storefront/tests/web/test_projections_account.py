@@ -210,6 +210,23 @@ class TestCustomerProfileRecentOrders:
         proj = build_account(customer)
         assert all(isinstance(o, OrderSummaryProjection) for o in proj.recent_orders)
 
+    def test_recent_orders_share_customer_identity_contract(self, customer):
+        from shopman.orderman.models import Order
+
+        order = Order.objects.create(
+            ref="ORD-ACCOUNT-PHONE",
+            channel_ref="web",
+            status="completed",
+            total_q=1900,
+            handle_type="phone",
+            handle_ref=customer.phone,
+            data={},
+        )
+
+        proj = build_account(customer)
+
+        assert [o.ref for o in proj.recent_orders] == [order.ref]
+
     def test_order_summary_fields(self, customer, order):
         from shopman.orderman.models import Order
 

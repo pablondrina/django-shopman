@@ -9,9 +9,11 @@ Errors (block runserver/migrate --deploy in production):
   SHOPMAN_E003  PIX or CARD payment adapter is payment_mock
   SHOPMAN_E004  A webhook integration has no token configured
   SHOPMAN_E005  Guestman (Manychat) webhook secret not configured
+  SHOPMAN_E006  Shared Redis cache is not configured
+  SHOPMAN_E007  Database backend is SQLite in production
 
 Warnings (non-blocking, logged at startup):
-  SHOPMAN_W001  Database backend is SQLite
+  SHOPMAN_W001  Database backend is SQLite in local/debug mode
   SHOPMAN_W002  Notification backend is console while DEBUG=False
   SHOPMAN_W003  No fiscal adapter configured while a fiscal-enabled channel exists
   SHOPMAN_W004  Listing.ref has no matching Channel.ref
@@ -117,18 +119,27 @@ def check_webhook_tokens(app_configs, **kwargs):
 
 @register()
 def check_database_backend(app_configs, **kwargs):
-    warnings = []
+    messages = []
     default_db = settings.DATABASES.get("default", {})
     engine = default_db.get("ENGINE", "")
     if "sqlite3" in engine:
-        warnings.append(
-            Warning(
-                "O banco de dados padrão é SQLite.",
-                hint="SQLite não suporta operações concorrentes adequadamente. Use PostgreSQL em produção.",
-                id="SHOPMAN_W001",
+        if settings.DEBUG:
+            messages.append(
+                Warning(
+                    "O banco de dados padrão é SQLite.",
+                    hint="SQLite não suporta operações concorrentes adequadamente. Use PostgreSQL em produção.",
+                    id="SHOPMAN_W001",
+                )
             )
-        )
-    return warnings
+        else:
+            messages.append(
+                Error(
+                    "O banco de dados padrão é SQLite fora do modo DEBUG.",
+                    hint="Defina DATABASE_URL com PostgreSQL antes de qualquer ambiente público.",
+                    id="SHOPMAN_E007",
+                )
+            )
+    return messages
 
 
 @register()
@@ -163,6 +174,28 @@ def check_guestman_webhook_secret(app_configs, **kwargs):
                     id="SHOPMAN_E005",
                 )
             )
+    return errors
+
+
+@register(deploy=True)
+def check_shared_cache_backend(app_configs, **kwargs):
+    errors = []
+    if settings.DEBUG:
+        return errors
+
+    backend = settings.CACHES.get("default", {}).get("BACKEND", "")
+    if backend != "django.core.cache.backends.redis.RedisCache":
+        errors.append(
+            Error(
+                "Cache compartilhado Redis não está configurado em produção.",
+                hint=(
+                    "Defina REDIS_URL. O Shopman usa cache compartilhado para "
+                    "django-ratelimit, caches operacionais curtos e fanout SSE "
+                    "multi-worker via django-eventstream."
+                ),
+                id="SHOPMAN_E006",
+            )
+        )
     return errors
 
 

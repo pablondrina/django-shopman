@@ -89,6 +89,7 @@ class AddToCartView(View):
                 sku=intent.sku,
                 qty=intent.qty,
                 unit_price_q=intent.unit_price_q,
+                name=intent.product.name,
                 is_d1=intent.is_d1,
             )
         except CartUnavailableError as exc:
@@ -165,7 +166,7 @@ class CartPageContentView(View):
 
 
 class CartDrawerContentProjView(View):
-    """HTMX: cart drawer driven by ``CartProjection`` (typed read model)."""
+    """HTMX: cart drawer driven by ``CartProjection`` (typed projection)."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
         from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
@@ -320,4 +321,3 @@ class RemoveCouponView(View):
         response = HttpResponse("")
         response["HX-Trigger"] = "cartUpdated"
         return response
-

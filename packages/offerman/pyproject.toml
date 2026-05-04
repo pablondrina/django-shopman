@@ -23,7 +23,7 @@ import_export = [
     "django-import-export>=3.3",
 ]
 unfold = [
-    "django-unfold>=0.20",
+    "django-unfold>=0.91,<0.92",
     "django-import-export>=3.3",
 ]
 dev = [

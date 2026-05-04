@@ -13,7 +13,7 @@ Backstage usa `django-eventstream` para atualizar superfícies operacionais sem 
 
 ## KDS
 
-`/gestor/kds/<ref>/` assina `/gestor/events/kds/<ref>/` e mantém fallback `every 30s`.
+`/admin/operacao/kds/<ref>/` assina `/gestor/events/kds/<ref>/` e mantém fallback `every 30s`.
 Eventos específicos (`created`, `status-changed`, `station-changed`) também disparam refresh.
 
 O som do KDS é local ao navegador:
@@ -38,12 +38,15 @@ Essas refs são preenchidas pelos receivers em `shopman/shop/handlers/production
 
 ## Produção em Multi-worker
 
-Em produção com mais de um worker, configure Redis para o channel manager do `django-eventstream`:
+Em produção com mais de um worker, defina `REDIS_URL`. O settings deriva
+`EVENTSTREAM_REDIS` automaticamente para o `django-eventstream`:
 
-```python
-EVENTSTREAM_CHANNELMANAGER_CLASS = "django_eventstream.channelmanager.RedisChannelManager"
-EVENTSTREAM_REDIS = {"host": "localhost", "port": 6379, "db": 0}
+```env
+REDIS_URL=redis://localhost:6379/0
 ```
+
+Sem Redis, SSE funciona apenas como fallback single-process; não é evidência
+para release.
 
 ## Debug
 

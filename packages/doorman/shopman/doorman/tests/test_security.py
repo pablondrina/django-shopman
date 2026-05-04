@@ -197,7 +197,7 @@ class TestAccessLinkCreateAuth:
         assert response.status_code == 200
         data = json.loads(response.content)
         assert "token" in data
-        assert "url" in data
+        assert "access_url" in data
 
     @override_settings(DOORMAN={"ACCESS_LINK_API_KEY": TEST_API_KEY})
     def test_create_with_x_api_key_returns_200(self, customer):

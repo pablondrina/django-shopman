@@ -5,10 +5,10 @@ Reconcilia pedidos com status pending_payment cujo webhook de pagamento
 pode ter sido perdido (timeout, reinicialização de servidor, falha de rede).
 
 Lógica:
-  1. Busca Orders com status=pending_payment criadas antes de `--since` atrás.
+  1. Busca Orders NEW/CONFIRMED criadas antes de `--since` atrás.
   2. Para cada uma, lê intent_ref em order.data["payment"].
   3. Consulta Payman: PaymentService.get(intent_ref).
-  4. Se intent.status == "captured" → chama flow.on_paid(order) via transição.
+  4. Se intent.status == "captured" → chama lifecycle.on_paid(order).
   5. Se intent.status == "expired"  → chama flow.on_payment_expired(order) via transição.
   6. Loga cada reconciliação com order.ref, intent_ref, action.
 
@@ -77,7 +77,7 @@ class Command(BaseCommand):
         cutoff = timezone.now() - since_delta
 
         pending = Order.objects.filter(
-            status=Order.Status.CONFIRMED,
+            status__in=(Order.Status.NEW, Order.Status.CONFIRMED),
             created_at__lt=cutoff,
         )
 

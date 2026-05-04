@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
+from shopman.orderman.models import Directive
 
 
 def _make_order(ref="FAIL-001", total_q=1000):
@@ -47,6 +48,7 @@ class PaymentInitiateFailureTests(TestCase):
 
         Status is NOT written — Payman (PaymentService) is the canonical status source.
         """
+        from shopman.backstage.models import OperatorAlert
         from shopman.shop.services import payment as payment_service
 
         order = _make_order(ref="FAIL-001")
@@ -62,6 +64,12 @@ class PaymentInitiateFailureTests(TestCase):
         self.assertNotIn("status", payment)
         self.assertIn("error", payment)
         self.assertIn("Gateway timeout", payment["error"])
+        alert = OperatorAlert.objects.get(type="payment_failed", order_ref=order.ref)
+        self.assertEqual(alert.severity, "error")
+        self.assertIn(order.ref, alert.message)
+        directive = Directive.objects.get(topic="notification.send", payload__order_ref=order.ref)
+        self.assertEqual(directive.payload["template"], "payment_failed")
+        self.assertTrue(directive.payload["requires_active_notification"])
 
     def test_adapter_exception_preserves_method(self) -> None:
         """Pending retry entry still stores the payment method."""
@@ -94,17 +102,47 @@ class PaymentInitiateFailureTests(TestCase):
         error = order.data.get("payment", {}).get("error", "")
         self.assertLessEqual(len(error), 200)
 
-    def test_no_adapter_is_silent_no_op(self) -> None:
-        """No adapter for method → silent no-op, order unchanged."""
+    def test_adapter_exception_debounces_operator_alert(self) -> None:
+        """Repeated gateway failures should not flood the operator alert surface."""
+        from shopman.backstage.models import OperatorAlert
         from shopman.shop.services import payment as payment_service
 
         order = _make_order(ref="FAIL-004")
+        mock_adapter = MagicMock()
+        mock_adapter.create_intent.side_effect = TimeoutError("Gateway timeout")
+
+        with patch("shopman.shop.services.payment.get_adapter", return_value=mock_adapter):
+            payment_service.initiate(order)
+            order.refresh_from_db()
+            payment_service.initiate(order)
+
+        self.assertEqual(
+            OperatorAlert.objects.filter(type="payment_failed", order_ref=order.ref).count(),
+            1,
+        )
+        self.assertEqual(
+            Directive.objects.filter(topic="notification.send", payload__order_ref=order.ref).count(),
+            1,
+        )
+
+    def test_no_adapter_records_operational_error(self) -> None:
+        """No adapter for a digital method is a visible operational error."""
+        from shopman.backstage.models import OperatorAlert
+        from shopman.shop.services import payment as payment_service
+
+        order = _make_order(ref="FAIL-006")
         with patch("shopman.shop.services.payment.get_adapter", return_value=None):
             payment_service.initiate(order)
 
         order.refresh_from_db()
-        # status not set to pending_retry — adapter was absent, not failed
-        self.assertNotEqual(order.data.get("payment", {}).get("status"), "pending_retry")
+        payment = order.data.get("payment", {})
+        self.assertNotIn("status", payment)
+        self.assertEqual(payment.get("method"), "pix")
+        self.assertEqual(payment.get("amount_q"), 1000)
+        self.assertIn("error", payment)
+        self.assertTrue(
+            OperatorAlert.objects.filter(type="payment_failed", order_ref=order.ref).exists()
+        )
 
     def test_successful_initiate_not_affected(self) -> None:
         """Happy path: successful create_intent is not changed."""
@@ -125,7 +163,153 @@ class PaymentInitiateFailureTests(TestCase):
         order.refresh_from_db()
         payment = order.data.get("payment", {})
         self.assertEqual(payment.get("intent_ref"), "pi_test_123")
+        self.assertTrue(payment.get("idempotency_key", "").startswith(f"order-payment:{order.ref}:pix:"))
         self.assertNotEqual(payment.get("status"), "pending_retry")
+        call_kwargs = mock_adapter.create_intent.call_args.kwargs
+        self.assertEqual(call_kwargs["metadata"]["idempotency_key"], payment["idempotency_key"])
+        self.assertEqual(call_kwargs["idempotency_key"], payment["idempotency_key"])
+
+    def test_successful_initiate_reuses_existing_attempt_idempotency_key(self) -> None:
+        """Retries for the same payment attempt keep the same key."""
+        from shopman.shop.adapters.payment_types import PaymentIntent
+        from shopman.shop.services import payment as payment_service
+
+        order = _make_order(ref="FAIL-010")
+        order.data["payment"]["idempotency_key"] = "order-payment:FAIL-010:pix:1000:stable"
+        order.save(update_fields=["data", "updated_at"])
+        mock_adapter = MagicMock()
+        mock_adapter.create_intent.return_value = PaymentIntent(
+            intent_ref="pi_stable_123",
+            status="pending",
+            amount_q=order.total_q,
+        )
+
+        with patch("shopman.shop.services.payment.get_adapter", return_value=mock_adapter):
+            payment_service.initiate(order)
+
+        order.refresh_from_db()
+        payment = order.data.get("payment", {})
+        self.assertEqual(payment["idempotency_key"], "order-payment:FAIL-010:pix:1000:stable")
+        self.assertEqual(
+            mock_adapter.create_intent.call_args.kwargs["idempotency_key"],
+            "order-payment:FAIL-010:pix:1000:stable",
+        )
+
+    def test_successful_initiate_acknowledges_stale_payment_alert(self) -> None:
+        """A recovered payment must not leave an active failed-payment alert."""
+        from shopman.backstage.models import OperatorAlert
+        from shopman.shop.adapters.payment_types import PaymentIntent
+        from shopman.shop.services import payment as payment_service
+
+        order = _make_order(ref="FAIL-007")
+        alert = OperatorAlert.objects.create(
+            type="payment_failed",
+            severity="error",
+            order_ref=order.ref,
+            message=f"Falha ao gerar pagamento PIX do pedido {order.ref}.",
+        )
+        mock_adapter = MagicMock()
+        mock_adapter.create_intent.return_value = PaymentIntent(
+            intent_ref="pi_recovered_123",
+            status="pending",
+            amount_q=order.total_q,
+        )
+
+        with patch("shopman.shop.services.payment.get_adapter", return_value=mock_adapter):
+            payment_service.initiate(order)
+
+        alert.refresh_from_db()
+        self.assertTrue(alert.acknowledged)
+
+    def test_initiate_reuses_active_payman_intent_when_order_ref_missing(self) -> None:
+        """Payman intent is idempotency source when order.data was not persisted."""
+        import json
+
+        from django.utils import timezone
+        from shopman.orderman.models import Directive
+        from shopman.payman import PaymentService
+
+        from shopman.shop.services import payment as payment_service
+
+        order = _make_order(ref="FAIL-008")
+        expires_at = timezone.now() + timezone.timedelta(minutes=10)
+        intent = PaymentService.create_intent(
+            order_ref=order.ref,
+            amount_q=order.total_q,
+            method="pix",
+            gateway="mock",
+            gateway_id="mock-existing",
+            gateway_data={
+                "client_secret": json.dumps({
+                    "qrcode": "PIX-CODE-EXISTING",
+                    "brcode": "PIX-CODE-EXISTING",
+                    "imagemQrcode": "data:image/png;base64,UElY",
+                })
+            },
+            expires_at=expires_at,
+        )
+        PaymentService.authorize(intent.ref, gateway_id="mock-existing")
+        adapter = MagicMock()
+        adapter.create_intent.side_effect = AssertionError("adapter should not be called")
+
+        with patch("shopman.shop.services.payment.get_adapter", return_value=adapter):
+            payment_service.initiate(order)
+            order.refresh_from_db()
+            payment_service.initiate(order)
+
+        order.refresh_from_db()
+        payment = order.data["payment"]
+        self.assertEqual(payment["intent_ref"], intent.ref)
+        self.assertEqual(payment["copy_paste"], "PIX-CODE-EXISTING")
+        self.assertEqual(PaymentService.get_by_order(order.ref).count(), 1)
+        self.assertEqual(
+            Directive.objects.filter(topic="payment.timeout", payload__intent_ref=intent.ref).count(),
+            1,
+        )
+
+    def test_initiate_recovers_intent_created_before_adapter_exception(self) -> None:
+        """A lock after Payman creation should recover instead of creating alert noise."""
+        import json
+
+        from django.db import OperationalError
+        from django.utils import timezone
+        from shopman.payman import PaymentService
+
+        from shopman.backstage.models import OperatorAlert
+        from shopman.shop.services import payment as payment_service
+
+        order = _make_order(ref="FAIL-009")
+        expires_at = timezone.now() + timezone.timedelta(minutes=10)
+
+        def create_then_fail(**kwargs):
+            intent = PaymentService.create_intent(
+                order_ref=order.ref,
+                amount_q=order.total_q,
+                method="pix",
+                gateway="mock",
+                gateway_id="mock-after-lock",
+                gateway_data={
+                    "client_secret": json.dumps({
+                        "qrcode": "PIX-CODE-RECOVERED",
+                        "brcode": "PIX-CODE-RECOVERED",
+                        "imagemQrcode": "data:image/png;base64,UElY",
+                    })
+                },
+                expires_at=expires_at,
+            )
+            PaymentService.authorize(intent.ref, gateway_id="mock-after-lock")
+            raise OperationalError("database is locked")
+
+        mock_adapter = MagicMock()
+        mock_adapter.create_intent.side_effect = create_then_fail
+
+        with patch("shopman.shop.services.payment.get_adapter", return_value=mock_adapter):
+            payment_service.initiate(order)
+
+        order.refresh_from_db()
+        self.assertEqual(order.data["payment"]["copy_paste"], "PIX-CODE-RECOVERED")
+        self.assertFalse(OperatorAlert.objects.filter(type="payment_failed", order_ref=order.ref).exists())
+        self.assertEqual(PaymentService.get_by_order(order.ref).count(), 1)
 
 
 class StockCheckDegradationTests(TestCase):

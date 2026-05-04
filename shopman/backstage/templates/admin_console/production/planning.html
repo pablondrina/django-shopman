@@ -1,0 +1,69 @@
+{% extends "admin/base.html" %}
+{% load i18n static unfold %}
+
+{% block title %}Planejamento | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <script src="{% url 'admin:jsi18n' %}"></script>
+  <script src="{% static 'admin/js/core.js' %}"></script>
+  {{ production_filter_form.media }}
+{% endblock %}
+
+{% block content %}
+{% include "unfold/helpers/messages.html" %}
+<main id="production-planning-main" role="main">
+{% component "unfold/components/container.html" %}
+  <div class="flex flex-col gap-6" x-data="{ filtersOpen: false }">
+    <div class="flex flex-col gap-4">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div class="flex flex-col gap-1">
+          {% component "unfold/components/title.html" %}
+            Planejamento
+          {% endcomponent %}
+          {% component "unfold/components/text.html" with class="text-base-500" %}
+            Planejamento do dia · {{ production_filter_summary }}
+          {% endcomponent %}
+        </div>
+        <div class="flex flex-wrap gap-2 lg:ml-auto lg:justify-end">
+          {% component "unfold/components/button.html" with href=production_weighing_url variant="default" size="sm" %}
+            {% component "unfold/components/icon.html" with class="text-base" %}receipt_long{% endcomponent %}
+            Filipetas
+          {% endcomponent %}
+          {% component "unfold/components/button.html" with href=production_orders_url variant="default" size="sm" %}
+            {% component "unfold/components/icon.html" with class="text-base" %}manufacturing{% endcomponent %}
+            Produção
+          {% endcomponent %}
+          {% component "unfold/components/button.html" with variant="default" size="sm" extra_attrs='type="button" x-on:click="filtersOpen = true"' %}
+            {% component "unfold/components/icon.html" with class="text-base" %}tune{% endcomponent %}
+            Filtros
+          {% endcomponent %}
+        </div>
+      </div>
+
+      {% include "unfold/helpers/tab_list.html" with tabs_list=production_flow_tabs %}
+    </div>
+
+    <div class="flex flex-col gap-4">
+      {% for section in production_planning_sections %}
+        <div class="flex flex-col gap-2">
+          <div class="flex flex-col gap-1">
+            {% component "unfold/components/title.html" with class="text-lg" %}
+              {{ section.title }}
+            {% endcomponent %}
+            {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
+              {{ section.subtitle }}
+            {% endcomponent %}
+          </div>
+          {% component "unfold/components/table.html" with table=section.table striped=1 %}{% endcomponent %}
+        </div>
+      {% empty %}
+        {% component "unfold/components/table.html" with table=production_matrix_table striped=1 %}{% endcomponent %}
+      {% endfor %}
+
+      {% include "admin_console/unfold/modal.html" with open_var="filtersOpen" close_action="filtersOpen = false" modal_title="Filtros de planejamento" modal_description="Ajuste data, posto, operador ou ficha-base." form=production_filter_form form_fields=production_filter_fields form_id="production-planning-filters" form_method="get" form_action=production_reset_url submit_label="Aplicar filtros" cancel_label="Fechar" clear_href=production_reset_url clear_label="Limpar filtros" cancel_attrs='type="button" x-on:click="filtersOpen = false"' %}
+    </div>
+  </div>
+{% endcomponent %}
+</main>
+{% endblock %}

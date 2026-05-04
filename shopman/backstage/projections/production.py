@@ -61,7 +61,7 @@ class WorkOrderCardProjection:
     recipe_pk: int
     recipe_ref: str
     recipe_name: str
-    base_usages: tuple["BaseRecipeUsageProjection", ...]
+    base_usages: tuple[BaseRecipeUsageProjection, ...]
     output_sku: str
     status: str
     status_label: str
@@ -186,6 +186,48 @@ class ProductionMatrixGroupProjection:
     output_sku: str
     name: str
     rows: tuple[ProductionMatrixGroupRowProjection, ...]
+
+
+@dataclass(frozen=True)
+class ProductionWeighingIngredientProjection:
+    """One ingredient line for a thermal weighing ticket."""
+
+    sku: str
+    name: str
+    quantity_display: str
+    is_subrecipe: bool
+
+
+@dataclass(frozen=True)
+class ProductionWeighingTicketProjection:
+    """A printable 80mm-oriented ticket for one recipe/base recipe."""
+
+    recipe_ref: str
+    output_sku: str
+    name: str
+    output_quantity_display: str
+    sources_display: str
+    ingredients: tuple[ProductionWeighingIngredientProjection, ...]
+    table: dict
+
+
+@dataclass(frozen=True)
+class ProductionWeighingProjection:
+    """Printable weighing tickets for saved production planning."""
+
+    selected_date: str
+    selected_date_display: str
+    selected_position_ref: str
+    selected_base_recipe: str
+    tickets: tuple[ProductionWeighingTicketProjection, ...]
+
+
+@dataclass(frozen=True)
+class _RecipeItemData:
+    input_sku: str
+    quantity: Decimal
+    unit: str
+    sort_order: int = 0
 
 
 @dataclass(frozen=True)
@@ -409,6 +451,7 @@ def build_production_board(
         .prefetch_related("recipe__items")
         .order_by("-created_at")
     )
+
     if position_ref:
         wos_qs = wos_qs.filter(position_ref=position_ref)
     if operator_ref:
@@ -520,6 +563,90 @@ def build_production_board(
         matrix_groups=matrix_groups,
         default_position_pk=default_pos.pk if default_pos else None,
         access=access,
+    )
+
+
+def build_production_weighing(
+    *,
+    selected_date: date | None = None,
+    position_ref: str = "",
+    base_recipe: str = "",
+) -> ProductionWeighingProjection:
+    """Build thermal weighing tickets from saved planned/started work orders."""
+    selected_date = selected_date or date.today()
+    open_statuses = (WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED)
+    work_orders = (
+        WorkOrder.objects.filter(target_date=selected_date, status__in=open_statuses)
+        .select_related("recipe")
+        .prefetch_related("recipe__items")
+        .order_by("recipe__ref", "output_sku")
+    )
+    if position_ref:
+        work_orders = work_orders.filter(position_ref=position_ref)
+
+    active_recipes = {
+        recipe.output_sku: recipe
+        for recipe in Recipe.objects.filter(is_active=True).prefetch_related("items").order_by("ref")
+    }
+    tickets: dict[tuple[int, str], dict] = {}
+
+    def add_ticket(recipe: Recipe, quantity: Decimal, unit: str, source: str) -> None:
+        if base_recipe and recipe.output_sku != base_recipe:
+            return
+        key = (recipe.pk, unit)
+        entry = tickets.setdefault(
+            key,
+            {
+                "recipe": recipe,
+                "quantity": Decimal("0"),
+                "unit": unit,
+                "sources": [],
+            },
+        )
+        entry["quantity"] += quantity
+        if source not in entry["sources"]:
+            entry["sources"].append(source)
+
+    for work_order in work_orders:
+        recipe = work_order.recipe
+        if not recipe.batch_size:
+            continue
+        items = _work_order_recipe_items(work_order)
+        coefficient = Decimal(str(work_order.quantity)) / recipe.batch_size
+        base_items = [
+            item for item in items
+            if item.input_sku in active_recipes and active_recipes[item.input_sku].pk != recipe.pk
+        ]
+        source = f"{work_order.output_sku} {_measure(Decimal(str(work_order.quantity)), 'un.')}"
+
+        if base_items:
+            for item in base_items:
+                add_ticket(
+                    active_recipes[item.input_sku],
+                    Decimal(str(item.quantity)) * coefficient,
+                    item.unit,
+                    source,
+                )
+            continue
+
+        add_ticket(recipe, Decimal(str(work_order.quantity)), "un.", source)
+
+    ingredient_skus = {
+        item.input_sku
+        for entry in tickets.values()
+        for item in _recipe_items(entry["recipe"])
+    }
+    product_names = _product_names(ingredient_skus)
+
+    return ProductionWeighingProjection(
+        selected_date=selected_date.isoformat(),
+        selected_date_display=selected_date.strftime("%d/%m/%Y"),
+        selected_position_ref=position_ref,
+        selected_base_recipe=base_recipe,
+        tickets=tuple(
+            _build_weighing_ticket(entry, active_recipes=active_recipes, product_names=product_names)
+            for entry in sorted(tickets.values(), key=lambda item: item["recipe"].name)
+        ),
     )
 
 
@@ -740,6 +867,7 @@ def _order_commitments_for_work_order(wo: WorkOrder) -> tuple[OrderCommitmentPro
 
     try:
         from shopman.orderman.models import Order
+
         from shopman.shop.projections.types import ORDER_STATUS_LABELS_PT
     except Exception:
         logger.debug("production.order_ref_import_failed wo=%s", wo.ref, exc_info=True)
@@ -1259,6 +1387,104 @@ def _base_recipe_usages(recipe: Recipe) -> tuple[BaseRecipeUsageProjection, ...]
         for item in items
         if item.input_sku in base_recipes
     )
+
+
+def _build_weighing_ticket(
+    entry: dict,
+    *,
+    active_recipes: dict[str, Recipe],
+    product_names: dict[str, str],
+) -> ProductionWeighingTicketProjection:
+    recipe = entry["recipe"]
+    output_quantity = Decimal(str(entry["quantity"]))
+    output_unit = str(entry["unit"])
+    coefficient = output_quantity / recipe.batch_size
+    ingredients = tuple(
+        ProductionWeighingIngredientProjection(
+            sku=item.input_sku,
+            name=_ingredient_name(item.input_sku, active_recipes=active_recipes, product_names=product_names),
+            quantity_display=_measure(Decimal(str(item.quantity)) * coefficient, item.unit),
+            is_subrecipe=item.input_sku in active_recipes,
+        )
+        for item in _recipe_items(recipe)
+    )
+    table = {
+        "headers": ["Insumo", "Quantidade"],
+        "rows": [
+            {"cols": [ingredient.name, ingredient.quantity_display]}
+            for ingredient in ingredients
+        ],
+    }
+    return ProductionWeighingTicketProjection(
+        recipe_ref=recipe.ref,
+        output_sku=recipe.output_sku,
+        name=recipe.name,
+        output_quantity_display=_measure(output_quantity, output_unit),
+        sources_display=", ".join(entry["sources"]),
+        ingredients=ingredients,
+        table=table,
+    )
+
+
+def _recipe_items(recipe: Recipe) -> tuple[_RecipeItemData, ...]:
+    prefetched = getattr(recipe, "_prefetched_objects_cache", {}).get("items")
+    if prefetched is not None:
+        return tuple(
+            _RecipeItemData(
+                input_sku=item.input_sku,
+                quantity=Decimal(str(item.quantity)),
+                unit=item.unit,
+                sort_order=item.sort_order,
+            )
+            for item in sorted((item for item in prefetched if not item.is_optional), key=lambda item: item.sort_order)
+        )
+    return tuple(
+        _RecipeItemData(
+            input_sku=item.input_sku,
+            quantity=Decimal(str(item.quantity)),
+            unit=item.unit,
+            sort_order=item.sort_order,
+        )
+        for item in recipe.items.filter(is_optional=False).order_by("sort_order")
+    )
+
+
+def _work_order_recipe_items(work_order: WorkOrder) -> tuple[_RecipeItemData, ...]:
+    snapshot = (work_order.meta or {}).get("_recipe_snapshot")
+    if not snapshot:
+        return _recipe_items(work_order.recipe)
+    return tuple(
+        _RecipeItemData(
+            input_sku=str(item["input_sku"]),
+            quantity=Decimal(str(item["quantity"])),
+            unit=str(item.get("unit") or "un"),
+            sort_order=index,
+        )
+        for index, item in enumerate(snapshot.get("items") or [])
+    )
+
+
+def _ingredient_name(
+    sku: str,
+    *,
+    active_recipes: dict[str, Recipe],
+    product_names: dict[str, str],
+) -> str:
+    if sku in active_recipes:
+        recipe = active_recipes[sku]
+        return f"{recipe.name} ({sku})"
+    return product_names.get(sku, sku)
+
+
+def _product_names(skus: set[str]) -> dict[str, str]:
+    if not skus:
+        return {}
+    try:
+        from shopman.offerman.models import Product
+    except Exception:
+        logger.debug("production.product_names_import_failed", exc_info=True)
+        return {}
+    return dict(Product.objects.filter(sku__in=skus).values_list("sku", "name"))
 
 
 def _measure(value: Decimal, unit: str) -> str:

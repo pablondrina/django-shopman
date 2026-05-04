@@ -37,12 +37,15 @@ from django.utils.safestring import mark_safe
 # ── Color palettes ────────────────────────────────────────────────────
 
 BADGE_COLORS = {
-    "blue": "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-    "green": "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-    "yellow": "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-    "red": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-    "gray": "bg-base-100 text-base-600 dark:bg-base-800 dark:text-base-400",
+    "base": "bg-base-100 text-base-700 dark:bg-base-500/20 dark:text-base-200",
+    "blue": "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400",
+    "green": "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400",
+    "orange": "bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400",
+    "red": "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400",
+    "yellow": "bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400",
+    "gray": "bg-base-100 text-base-700 dark:bg-base-500/20 dark:text-base-200",
 }
+BADGE_BASE_CLASSES = "inline-block font-semibold h-6 leading-6 px-2 rounded-default text-[11px] uppercase whitespace-nowrap"
 
 
 # ── Cell helpers (all return SafeText) ────────────────────────────────
@@ -101,8 +104,8 @@ def table_badge(text, color="gray"):
     """
     classes = BADGE_COLORS.get(color, BADGE_COLORS["gray"])
     return format_html(
-        '<span class="inline-flex items-center px-2 py-0.5 '
-        'rounded-md text-xs font-medium {}">{}</span>',
+        '<span class="{} {}">{}</span>',
+        BADGE_BASE_CLASSES,
         classes,
         text,
     )

@@ -61,6 +61,8 @@ make run
 > Postgres é o default de dev — casa com os testes de concorrência do Stockman
 > (`select_for_update`). Sem Docker? Deixe `DATABASE_URL` comentado no `.env` e o
 > settings cai no fallback SQLite (mas os testes de concorrência serão pulados).
+> Redis também faz parte do default: cache compartilhado, rate limit e SSE
+> multi-worker. Sem Docker, deixe `REDIS_URL` comentado para fallback local leve.
 > Detalhes em [`docs/getting-started/quickstart.md`](docs/getting-started/quickstart.md).
 
 ## Caminhos de Uso
@@ -177,6 +179,7 @@ make lint             # Ruff check
 
 - [Arquitetura](docs/architecture.md) — diagrama de camadas, Protocol/Adapter
 - [Quickstart](docs/getting-started/quickstart.md) — instalação passo a passo
+- [Runtime dependencies](docs/reference/runtime-dependencies.md) — contrato PostgreSQL/Redis/SQLite
 - [Um Dia na Padaria](docs/getting-started/dia-na-padaria.md) — tutorial narrativo
 - [Lifecycle](docs/guides/lifecycle.md) — guia de Lifecycles, Services, Adapters
 - [Auth](docs/guides/auth.md) — autenticação OTP e device trust
@@ -190,9 +193,10 @@ make lint             # Ruff check
 | Requisito | Versão |
 |-----------|--------|
 | Python | ≥ 3.12 |
-| Django | ≥ 5.2, < 6.0 |
+| Django | ≥ 5.2, < 6.0; bump coordenado para 6.0 planejado |
 | Node.js | ≥ 18 (build Tailwind CSS) |
-| Banco de dados | SQLite (dev) / PostgreSQL (prod recomendado) |
+| Banco de dados | PostgreSQL 16+ em dev canônico/staging/prod; SQLite só fallback local |
+| Cache/realtime | Redis 7+ em dev canônico/staging/prod; LocMem só fallback local |
 
 ## Licença
 

@@ -1,0 +1,36 @@
+{% load unfold %}
+
+<div class="flex flex-wrap gap-2">
+  {% if include_detail %}
+    {% component "unfold/components/button.html" with href=detail_url variant="default" size="xs" icon="visibility" %}
+      Detalhe
+    {% endcomponent %}
+  {% endif %}
+
+  {% if card.can_confirm %}
+    {% if card.payment_pending %}
+      {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
+        Aguardando pagamento
+      {% endcomponent %}
+    {% else %}
+      <form method="post" action="{{ confirm_url }}">
+        {% csrf_token %}
+        {% component "unfold/components/button.html" with submit=1 variant="primary" size="xs" icon="check" %}
+          Confirmar
+        {% endcomponent %}
+      </form>
+    {% endif %}
+    {% component "unfold/components/button.html" with href=reject_url variant="danger" size="xs" icon="block" %}
+      Rejeitar
+    {% endcomponent %}
+  {% endif %}
+
+  {% if card.can_advance %}
+    <form method="post" action="{{ advance_url }}">
+      {% csrf_token %}
+      {% component "unfold/components/button.html" with submit=1 variant="primary" size="xs" icon="arrow_forward" %}
+        {{ card.next_action_label }}
+      {% endcomponent %}
+    </form>
+  {% endif %}
+</div>

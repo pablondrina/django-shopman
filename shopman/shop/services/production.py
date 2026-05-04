@@ -19,8 +19,20 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
+class BulkPlanEntry:
+    output_sku: str
+    ref: str
+    quantity: Decimal
+    action: str
+
+    def __str__(self) -> str:
+        suffix = self.ref or self.action
+        return f"{self.output_sku} × {self.quantity} ({suffix}, {self.action})"
+
+
+@dataclass(frozen=True)
 class BulkPlanResult:
-    created: list[str]
+    created: list[BulkPlanEntry]
     errors: list[str]
     target_date: date
 
@@ -110,9 +122,10 @@ def set_planned_quantity(
     target_date_value,
     position_ref: str = "",
     operator_ref: str = "",
+    reason: str = "",
     actor: str,
 ) -> tuple[str, str, Decimal, str]:
-    """Create or adjust the single planned WorkOrder behind a matrix cell."""
+    """Create, adjust, or consolidate the planned WorkOrder behind a matrix cell."""
     from shopman.craftsman.models import WorkOrder
     from shopman.craftsman.services.execution import CraftExecution
     from shopman.craftsman.services.scheduling import CraftPlanning
@@ -153,22 +166,32 @@ def set_planned_quantity(
         )
         return recipe.output_sku, work_order.ref, qty, "created"
 
-    if len(planned_orders) > 1:
-        raise ValueError(
-            "Há mais de um planejamento aberto para este SKU. Ajuste a ordem específica antes de usar a matriz."
+    work_order = planned_orders[0]
+    duplicate_orders = planned_orders[1:]
+    if duplicate_orders:
+        _merge_committed_order_links(work_order, duplicate_orders)
+        work_order.save(update_fields=["meta", "updated_at"])
+
+    adjusted = False
+    if work_order.quantity != qty:
+        CraftPlanning.adjust(
+            work_order,
+            quantity=qty,
+            reason=reason or "Planejamento informado na matriz",
+            actor=actor,
+        )
+        adjusted = True
+
+    for duplicate in duplicate_orders:
+        CraftExecution.void(
+            order=duplicate,
+            reason=f"Planejamento consolidado em {work_order.ref}",
+            actor=actor,
         )
 
-    work_order = planned_orders[0]
-    if work_order.quantity == qty:
-        return recipe.output_sku, work_order.ref, qty, "unchanged"
-
-    CraftPlanning.adjust(
-        work_order,
-        quantity=qty,
-        reason="Planejamento informado na matriz",
-        actor=actor,
-    )
-    return recipe.output_sku, work_order.ref, qty, "adjusted"
+    if duplicate_orders:
+        return recipe.output_sku, work_order.ref, qty, "consolidated"
+    return recipe.output_sku, work_order.ref, qty, "adjusted" if adjusted else "unchanged"
 
 
 def start_work_order(
@@ -221,13 +244,12 @@ def bulk_plan(
     entries: list[dict],
     source_ref: str = "dashboard_suggestion",
 ) -> BulkPlanResult:
-    """Create planned work orders from suggestion entries."""
+    """Apply suggestion entries as absolute planned quantities."""
     from shopman.craftsman.models import Recipe
-    from shopman.craftsman.services.scheduling import CraftPlanning
 
     target_date = _target_date(target_date_value)
     position_ref = _default_position_ref()
-    created: list[str] = []
+    created: list[BulkPlanEntry] = []
     errors: list[str] = []
 
     for entry in entries:
@@ -245,19 +267,72 @@ def bulk_plan(
             continue
 
         try:
-            work_order = CraftPlanning.plan(
-                recipe,
-                qty,
-                date=target_date,
+            _, wo_ref, planned_qty, result = set_planned_quantity(
+                recipe_id=recipe.pk,
+                quantity=qty,
+                target_date_value=target_date.isoformat(),
                 position_ref=position_ref,
-                source_ref=source_ref,
+                reason=f"Sugestão aplicada: {source_ref}",
+                actor="production:suggestion",
             )
-            created.append(f"{recipe.output_sku} × {qty} ({work_order.ref})")
+            action = {
+                "created": "criado",
+                "adjusted": "ajustado",
+                "consolidated": "consolidado",
+                "unchanged": "mantido",
+            }.get(result, result)
+            created.append(
+                BulkPlanEntry(
+                    output_sku=recipe.output_sku,
+                    ref=wo_ref,
+                    quantity=planned_qty,
+                    action=action,
+                )
+            )
         except Exception as exc:
             errors.append(f"{recipe_ref}: {exc}")
             logger.exception("bulk_plan failed for %s", recipe_ref)
 
     return BulkPlanResult(created=created, errors=errors, target_date=target_date)
+
+
+def _merge_committed_order_links(primary, duplicates: list) -> None:
+    """Preserve order links when duplicate planned WOs are consolidated."""
+    try:
+        from shopman.orderman.models import Order
+
+        from shopman.shop.handlers.production_order_sync import (
+            ORDER_AWAITING_WO_REFS_KEY,
+            WORK_ORDER_COMMITTED_ORDER_REFS_KEY,
+        )
+    except Exception:
+        logger.debug("production.consolidate_links_unavailable", exc_info=True)
+        return
+
+    refs = list((primary.meta or {}).get(WORK_ORDER_COMMITTED_ORDER_REFS_KEY) or [])
+    for duplicate in duplicates:
+        refs.extend((duplicate.meta or {}).get(WORK_ORDER_COMMITTED_ORDER_REFS_KEY) or [])
+    refs = list(dict.fromkeys(ref for ref in refs if ref))
+    primary.meta = {
+        **(primary.meta or {}),
+        "consolidated_work_order_refs": list(
+            dict.fromkeys([
+                *list((primary.meta or {}).get("consolidated_work_order_refs") or []),
+                *[duplicate.ref for duplicate in duplicates],
+            ])
+        ),
+    }
+    if refs:
+        primary.meta[WORK_ORDER_COMMITTED_ORDER_REFS_KEY] = refs
+
+    for order in Order.objects.filter(ref__in=refs):
+        awaiting_refs = list((order.data or {}).get(ORDER_AWAITING_WO_REFS_KEY) or [])
+        if primary.ref not in awaiting_refs:
+            order.data = {
+                **(order.data or {}),
+                ORDER_AWAITING_WO_REFS_KEY: [*awaiting_refs, primary.ref],
+            }
+            order.save(update_fields=["data", "updated_at"])
 
 
 def _get_active_recipe(recipe_id):

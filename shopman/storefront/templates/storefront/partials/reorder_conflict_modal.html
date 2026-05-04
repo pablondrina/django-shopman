@@ -1,0 +1,68 @@
+{% load omotenashi_tags %}
+{% omotenashi 'REORDER_CONFLICT_TITLE' as reorder_conflict_title %}
+{% omotenashi 'REORDER_CONFLICT_MESSAGE' as reorder_conflict_message %}
+<div x-data="{ open: true, close() { this.open = false; setTimeout(() => this.$root.remove(), 150) } }"
+     x-show="open"
+     x-cloak
+     x-transition.opacity
+     @keydown.escape.window="close()"
+     class="fixed inset-0 z-[90] flex items-end justify-center p-4 sm:items-center"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="reorder-conflict-title">
+  <div class="absolute inset-0 bg-black/45" @click="close()" aria-hidden="true"></div>
+
+  <div class="relative w-full max-w-md overflow-hidden rounded-radius border border-outline bg-surface text-on-surface shadow-2xl dark:border-outline-dark dark:bg-surface-dark dark:text-on-surface-dark">
+    <div class="flex items-start gap-3 border-b border-outline px-5 py-4 dark:border-outline-dark">
+      <span class="material-symbols-rounded mt-0.5 text-xl text-primary dark:text-primary-dark" aria-hidden="true">shopping_cart</span>
+      <div class="min-w-0 flex-1">
+        <h2 id="reorder-conflict-title" class="text-base font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">
+          {{ reorder_conflict_title.title }}
+        </h2>
+        <p class="mt-1 text-sm text-on-surface/80 dark:text-on-surface-dark/70">
+          {{ reorder_conflict_message.message }}
+        </p>
+      </div>
+      <button type="button"
+              class="shrink-0 rounded-full p-1.5 text-on-surface/70 transition hover:bg-surface-alt hover:text-on-surface-strong focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40 dark:text-on-surface-dark/70 dark:hover:bg-surface-dark-alt dark:hover:text-on-surface-dark-strong"
+              aria-label="Fechar"
+              @click="close()">
+        <span class="material-symbols-rounded text-lg" aria-hidden="true">close</span>
+      </button>
+    </div>
+
+    <div class="space-y-3 px-5 py-4">
+      <form method="post"
+            action="{% url 'storefront:reorder' ref=order.ref %}"
+            hx-post="{% url 'storefront:reorder' ref=order.ref %}"
+            hx-target="#reorder-conflict-modal"
+            hx-swap="innerHTML">
+        {% csrf_token %}
+        <input type="hidden" name="reorder_mode" value="replace">
+        <button type="submit"
+                class="flex w-full items-center justify-center gap-2 rounded-radius bg-primary px-4 py-3 text-sm font-semibold text-on-primary transition hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:bg-primary-dark dark:text-on-primary-dark dark:focus-visible:outline-primary-dark">
+          Substituir carrinho
+        </button>
+      </form>
+
+      <form method="post"
+            action="{% url 'storefront:reorder' ref=order.ref %}"
+            hx-post="{% url 'storefront:reorder' ref=order.ref %}"
+            hx-target="#reorder-conflict-modal"
+            hx-swap="innerHTML">
+        {% csrf_token %}
+        <input type="hidden" name="reorder_mode" value="add">
+        <button type="submit"
+                class="flex w-full items-center justify-center gap-2 rounded-radius border border-outline bg-transparent px-4 py-3 text-sm font-medium text-on-surface transition hover:bg-surface-alt hover:text-on-surface-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:border-outline-dark dark:text-on-surface-dark dark:hover:bg-surface-dark-alt dark:hover:text-on-surface-dark-strong dark:focus-visible:outline-primary-dark">
+          Adicionar ao carrinho atual
+        </button>
+      </form>
+
+      <button type="button"
+              class="flex w-full items-center justify-center rounded-radius px-4 py-2.5 text-sm font-medium text-on-surface/80 transition hover:bg-surface-alt hover:text-on-surface-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:text-on-surface-dark/75 dark:hover:bg-surface-dark-alt dark:hover:text-on-surface-dark-strong"
+              @click="close()">
+        Cancelar
+      </button>
+    </div>
+  </div>
+</div>

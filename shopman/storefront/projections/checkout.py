@@ -1,10 +1,10 @@
-"""CheckoutProjection — read model for the checkout page (Fase 2).
+"""CheckoutProjection — immutable UI projection for the checkout page (Fase 2).
 
 The builder pulls together all static context the checkout form needs:
 cart summary (via CartProjection), customer pre-fills, saved addresses,
 payment methods, pickup slots, and shop config. It does NOT carry transient
 form state (errors, POST values) — those travel separately in the view
-context so the projection remains a stable read model.
+context so the projection remains a stable contract.
 
 Never imports from ``shopman.storefront.views.*``.
 """
@@ -43,7 +43,7 @@ _DEFAULT_CHANNEL_REF = "web"
 
 @dataclass(frozen=True)
 class CheckoutProjection:
-    """Full read model for the checkout page.
+    """Full projection for the checkout page.
 
     Templates consume this alongside a separate ``errors`` dict and
     ``form_data`` dict supplied by the view for error re-renders.

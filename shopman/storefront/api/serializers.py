@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from drf_spectacular.utils import extend_schema_serializer
 from rest_framework import serializers
 
 
@@ -45,6 +46,10 @@ class CheckoutResponseSerializer(serializers.Serializer):
     status = serializers.CharField()
 
 
+class DetailSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+
+
 # ── Catalog ──────────────────────────────────────────────────────────
 
 
@@ -68,6 +73,7 @@ class ProductListItemSerializer(serializers.Serializer):
     promo_badge = serializers.DictField(allow_null=True, required=False)
 
 
+@extend_schema_serializer(component_name="StorefrontCollection")
 class CollectionSerializer(serializers.Serializer):
     ref = serializers.CharField()
     name = serializers.CharField()
@@ -75,13 +81,42 @@ class CollectionSerializer(serializers.Serializer):
     product_count = serializers.IntegerField()
 
 
+class AvailabilityResponseSerializer(serializers.Serializer):
+    ok = serializers.BooleanField()
+    available_qty = serializers.CharField()
+    badge_text = serializers.CharField()
+    badge_class = serializers.CharField()
+    is_bundle = serializers.BooleanField()
+
+
+class ReverseGeocodeRequestSerializer(serializers.Serializer):
+    lat = serializers.FloatField()
+    lng = serializers.FloatField()
+
+
+class ReverseGeocodeResponseSerializer(serializers.Serializer):
+    formatted_address = serializers.CharField()
+    route = serializers.CharField()
+    street_number = serializers.CharField()
+    neighborhood = serializers.CharField()
+    city = serializers.CharField()
+    state = serializers.CharField()
+    state_code = serializers.CharField()
+    postal_code = serializers.CharField()
+    country = serializers.CharField()
+    country_code = serializers.CharField()
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
+    place_id = serializers.CharField()
+
+
 # ── Tracking ─────────────────────────────────────────────────────────
 
 
 class TimelineEventSerializer(serializers.Serializer):
     label = serializers.CharField()
-    type = serializers.CharField()
-    timestamp = serializers.DateTimeField()
+    event_type = serializers.CharField()
+    timestamp_display = serializers.CharField()
 
 
 class OrderItemSerializer(serializers.Serializer):
@@ -98,8 +133,8 @@ class FulfillmentSerializer(serializers.Serializer):
     tracking_code = serializers.CharField(allow_null=True, allow_blank=True)
     tracking_url = serializers.CharField(allow_null=True)
     carrier = serializers.CharField(allow_null=True, allow_blank=True)
-    dispatched_at = serializers.DateTimeField(allow_null=True)
-    delivered_at = serializers.DateTimeField(allow_null=True)
+    dispatched_at = serializers.CharField(allow_null=True, allow_blank=True)
+    delivered_at = serializers.CharField(allow_null=True, allow_blank=True)
 
 
 class OrderTrackingSerializer(serializers.Serializer):

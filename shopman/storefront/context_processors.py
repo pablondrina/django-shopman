@@ -84,7 +84,7 @@ def omotenashi(request: HttpRequest) -> dict:
     Consumed by the `{% omotenashi %}` tag and by storefront partials that
     currently duplicate time-of-day logic in Alpine.
     """
-    from shopman.storefront.omotenashi import OmotenashiContext
+    from shopman.shop.omotenashi import OmotenashiContext
 
     try:
         ctx = OmotenashiContext.from_request(request)

@@ -1,6 +1,6 @@
 # ROADMAP — Django Shopman
 
-> Atualizado em 2026-04-25.
+> Atualizado em 2026-05-04.
 
 ---
 
@@ -76,7 +76,7 @@ Ver [`docs/plans/BACKOFFICE-UI-PLAN.md`](plans/BACKOFFICE-UI-PLAN.md).
 
 Unificar telas operador (Pedidos, KDS, POS, Produção, Fechamento) sob Penguin UI com tema Industrial. Dark-first, sidebar compartilhado, navegação entre áreas.
 
-**Status:** WP-1 (Shell + CSS Foundation) pronto para iniciar. Plano completo com 6 Work Packages (WP-1 a WP-6).
+**Status:** Pedidos, KDS operacional, Produção e Fechamento migrados para Admin/Unfold sem rotas de compatibilidade. POS e KDS de produção seguem como runtime próprio por necessidade operacional. Próximo plano ativo: [`POS-KDS-RUNTIME-SURFACE-PLAN.md`](plans/POS-KDS-RUNTIME-SURFACE-PLAN.md).
 
 ---
 
@@ -108,11 +108,11 @@ A Suite está funcional como MVP: storefront completo (menu → cart → checkou
 | Loyalty: earn, redeem, tiers, stamps | Implementado | `guestman/contrib/loyalty/`, checkout |
 | Disponibilidade na UI | Parcial | catalog views + `_helpers.py` |
 | Storefront HTMX | Beta | `shopman/storefront/` |
-| KDS (kitchen display) | Implementado | `shopman/backstage/views/kds.py` |
+| KDS (kitchen display) | Implementado | `shopman/backstage/admin_console/kds.py` + KDS de produção runtime |
 | POS (point of sale) | Implementado | `shopman/backstage/views/pos.py` |
-| Admin (Unfold) + dashboard | Implementado | `shopman/shop/admin/` |
+| Admin (Unfold) + dashboard | Implementado | `shopman/shop/admin/` + `shopman/backstage/admin_console/` |
 | Rules engine (promotions, coupons) | Implementado | `shopman/shop/rules/` |
-| Fechamento do dia | Implementado | `shopman/shop/models/closing.py` |
+| Fechamento do dia | Implementado | `shopman/backstage/admin_console/closing.py` |
 
 ---
 
@@ -189,7 +189,10 @@ Ativação é configuração de instância — o framework suporta sem mudanças
 ### Deploy de Produção
 
 Configurações de instância (Nelson Boulangerie) em `instances/nelson/`.
-Pendente: PostgreSQL, static files (Whitenoise/S3), worker Celery (se async), reverse proxy.
+Pendente: PostgreSQL/Redis em ambiente real, static files (Whitenoise/S3),
+reverse proxy e worker externo apenas se os thresholds da ADR-003 forem
+atingidos. No caminho Django 6, avaliar Django Tasks antes de Celery, lembrando
+que o framework de Tasks nao entrega worker por si so.
 
 ---
 
@@ -200,7 +203,7 @@ que estão fora do escopo atual mas não devem ser esquecidos.
 
 | Item | Onde | Descrição | Prioridade |
 |------|------|-----------|------------|
-| KDS como contrib formal | `shopman/shop/models/kds.py`, `services/kds.py`, `web/views/kds.py` | KDS models e views estão no framework como built-in. Lifecycle agora é opt-in (lazy import), mas modelos e views ainda são parte do framework. Considerar extrair para `shopman/shop/contrib/kds/` como app contrib registrável. | Média |
+| KDS como contrib formal | `shopman/shop/services/kds.py`, modelos backstage KDS e telas runtime planejadas | KDS lifecycle/services seguem no framework como built-in operacional. Admin KDS foi movido para `admin_console`; falta decidir se KDS runtime vira contrib registrável ou permanece superfície runtime do backstage. | Média |
 | ~~_is_happy_hour_active no storefront~~ | `shopman/shop/web/views/_helpers.py:790` | **CONCLUÍDO** — Badge agora condicional: só aparece se um modifier com `code="shop.happy_hour"` estiver registrado no registry. Teste adicionado. | ✅ |
 | ~~Stockman testes importam offerman~~ | `packages/stockman/shopman/stockman/tests/` | **CONCLUÍDO** — 4 arquivos migrados para SimpleNamespace + NoopSkuValidator. Zero imports de offerman. | ✅ |
 | ~~10 settings ausentes~~ | `config/settings.py` | **CONCLUÍDO** — Todos os 10 settings declarados com defaults neutros: GUESTMAN, ORDERMAN, GUESTMAN_INSIGHTS, GUESTMAN_LOYALTY, SHOPMAN_OPERATOR_EMAIL, SHOPMAN_PIX_EXPIRY_SECONDS, SHOPMAN_POS_CHANNEL_REF, SHOPMAN_FISCAL_BACKENDS, SHOPMAN_SMS_ADAPTER, STOCKMAN_ALERT_COOLDOWN_MINUTES. Dicts vazios delegam a defaults internos dos conf.py. | ✅ |

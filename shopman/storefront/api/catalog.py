@@ -46,11 +46,13 @@ def _serialize_annotated(items: list[dict]) -> list[dict]:
     get=extend_schema(
         tags=["catalog"],
         summary="List products",
+        operation_id="v1_catalog_products_list",
         parameters=[
             OpenApiParameter("collection", str, description="Filter by collection ref"),
             OpenApiParameter("search", str, description="Search by product name"),
             OpenApiParameter("available", bool, description="Only available products"),
         ],
+        responses={200: ProductListItemSerializer(many=True)},
     ),
 )
 class ProductListView(APIView):
@@ -61,6 +63,7 @@ class ProductListView(APIView):
     """
 
     permission_classes = [AllowAny]
+    serializer_class = ProductListItemSerializer
 
     def get(self, request):
         listing_ref = get_channel_listing_ref()
@@ -98,7 +101,12 @@ class ProductListView(APIView):
 
 
 @extend_schema_view(
-    get=extend_schema(tags=["catalog"], summary="Product detail"),
+    get=extend_schema(
+        tags=["catalog"],
+        summary="Product detail",
+        operation_id="v1_catalog_products_retrieve_by_sku",
+        responses={200: ProductListItemSerializer},
+    ),
 )
 class ProductDetailView(APIView):
     """
@@ -111,6 +119,7 @@ class ProductDetailView(APIView):
     """
 
     permission_classes = [AllowAny]
+    serializer_class = ProductListItemSerializer
 
     def get(self, request, sku: str):
         product = catalog_service.get_published_product(sku)
@@ -124,7 +133,11 @@ class ProductDetailView(APIView):
 
 
 @extend_schema_view(
-    get=extend_schema(tags=["catalog"], summary="List collections"),
+    get=extend_schema(
+        tags=["catalog"],
+        summary="List collections",
+        responses={200: CollectionSerializer(many=True)},
+    ),
 )
 class CollectionListView(APIView):
     """
@@ -134,6 +147,7 @@ class CollectionListView(APIView):
     """
 
     permission_classes = [AllowAny]
+    serializer_class = CollectionSerializer
 
     def get(self, request):
         data = catalog_service.active_collections_with_counts()

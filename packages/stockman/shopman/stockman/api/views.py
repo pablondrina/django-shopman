@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.dateparse import parse_date
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
@@ -51,7 +52,22 @@ class AvailabilityView(APIView):
     """GET availability for a single SKU."""
 
     permission_classes = [IsAuthenticated]
+    serializer_class = AvailabilitySerializer
 
+    @extend_schema(
+        tags=["stockman"],
+        summary="Get SKU availability",
+        parameters=[
+            OpenApiParameter("sku", str, required=True),
+            OpenApiParameter("position_ref", str, required=False),
+            OpenApiParameter("channel_ref", str, required=False),
+        ],
+        responses={
+            200: AvailabilitySerializer,
+            400: OpenApiResponse(description="Missing sku query parameter."),
+            404: OpenApiResponse(description="Product not found."),
+        },
+    )
     def get(self, request):
         sku = request.query_params.get("sku")
         if not sku:
@@ -89,7 +105,20 @@ class BulkAvailabilityView(APIView):
     """GET bulk availability for multiple SKUs."""
 
     permission_classes = [IsAuthenticated]
+    serializer_class = BulkAvailabilitySerializer
 
+    @extend_schema(
+        tags=["stockman"],
+        summary="Get bulk SKU availability",
+        parameters=[
+            OpenApiParameter("skus", str, required=True, description="Comma-separated SKU list."),
+            OpenApiParameter("channel_ref", str, required=False),
+        ],
+        responses={
+            200: BulkAvailabilitySerializer(many=True),
+            400: OpenApiResponse(description="Missing skus query parameter."),
+        },
+    )
     def get(self, request):
         skus_param = request.query_params.get("skus", "")
         if not skus_param:
@@ -143,7 +172,23 @@ class PromiseView(APIView):
     """GET explicit promise decision for one SKU/quantity in scope."""
 
     permission_classes = [IsAuthenticated]
+    serializer_class = PromiseDecisionSerializer
 
+    @extend_schema(
+        tags=["stockman"],
+        summary="Get stock promise decision",
+        parameters=[
+            OpenApiParameter("sku", str, required=True),
+            OpenApiParameter("qty", str, required=True),
+            OpenApiParameter("target_date", str, required=False),
+            OpenApiParameter("channel_ref", str, required=False),
+        ],
+        responses={
+            200: PromiseDecisionSerializer,
+            400: OpenApiResponse(description="Invalid promise query."),
+            404: OpenApiResponse(description="Product not found."),
+        },
+    )
     def get(self, request):
         sku = request.query_params.get("sku")
         qty = request.query_params.get("qty")
@@ -210,7 +255,16 @@ class PositionQuantsView(APIView):
     """GET quants at a specific position."""
 
     permission_classes = [IsAuthenticated]
+    serializer_class = QuantSerializer
 
+    @extend_schema(
+        tags=["stockman"],
+        summary="List quants at position",
+        parameters=[
+            OpenApiParameter("min_qty", str, required=False),
+        ],
+        responses={200: QuantSerializer(many=True), 404: OpenApiResponse(description="Position not found.")},
+    )
     def get(self, request, ref):
         position = Position.objects.filter(ref=ref).first()
         if not position:
@@ -235,7 +289,16 @@ class BelowMinimumAlertView(APIView):
     """GET triggered stock alerts (below minimum)."""
 
     permission_classes = [IsAuthenticated]
+    serializer_class = BelowMinimumAlertSerializer
 
+    @extend_schema(
+        tags=["stockman"],
+        summary="List below-minimum stock alerts",
+        parameters=[
+            OpenApiParameter("position_ref", str, required=False),
+        ],
+        responses={200: BelowMinimumAlertSerializer(many=True)},
+    )
     def get(self, request):
         position_ref = request.query_params.get("position_ref")
 
@@ -264,7 +327,18 @@ class ReceiveView(APIView):
     """POST receive stock."""
 
     permission_classes = [IsAuthenticated]
+    serializer_class = ReceiveSerializer
 
+    @extend_schema(
+        tags=["stockman"],
+        summary="Receive stock",
+        request=ReceiveSerializer,
+        responses={
+            201: MoveResponseSerializer,
+            400: OpenApiResponse(description="Invalid stock receipt."),
+            404: OpenApiResponse(description="Product or position not found."),
+        },
+    )
     def post(self, request):
         serializer = ReceiveSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -313,7 +387,18 @@ class IssueView(APIView):
     """POST issue stock."""
 
     permission_classes = [IsAuthenticated]
+    serializer_class = IssueSerializer
 
+    @extend_schema(
+        tags=["stockman"],
+        summary="Issue stock",
+        request=IssueSerializer,
+        responses={
+            201: MoveResponseSerializer,
+            400: OpenApiResponse(description="Invalid stock issue."),
+            404: OpenApiResponse(description="Product or position not found."),
+        },
+    )
     def post(self, request):
         serializer = IssueSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -373,7 +458,22 @@ class MoveListView(APIView):
     """GET paginated move history."""
 
     permission_classes = [IsAuthenticated]
+    serializer_class = MoveSerializer
 
+    @extend_schema(
+        tags=["stockman"],
+        summary="List stock moves",
+        parameters=[
+            OpenApiParameter("sku", str, required=False),
+            OpenApiParameter("position_ref", str, required=False),
+            OpenApiParameter("type", str, required=False, enum=["receive", "issue"]),
+            OpenApiParameter("date_from", str, required=False),
+            OpenApiParameter("date_to", str, required=False),
+            OpenApiParameter("page", int, required=False),
+            OpenApiParameter("page_size", int, required=False),
+        ],
+        responses={200: MoveSerializer(many=True)},
+    )
     def get(self, request):
         qs = Move.objects.select_related("quant__position", "user").order_by("-timestamp")
 
@@ -409,7 +509,19 @@ class HoldListView(APIView):
     """GET paginated holds."""
 
     permission_classes = [IsAuthenticated]
+    serializer_class = HoldSerializer
 
+    @extend_schema(
+        tags=["stockman"],
+        summary="List stock holds",
+        parameters=[
+            OpenApiParameter("sku", str, required=False),
+            OpenApiParameter("is_active", bool, required=False),
+            OpenApiParameter("page", int, required=False),
+            OpenApiParameter("page_size", int, required=False),
+        ],
+        responses={200: HoldSerializer(many=True)},
+    )
     def get(self, request):
         qs = Hold.objects.select_related("quant__position").order_by("-created_at")
 

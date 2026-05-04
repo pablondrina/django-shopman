@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import secrets
 import string
+from datetime import date, datetime
 
 from django.utils import timezone
 
@@ -19,24 +20,33 @@ def _generate_id(prefix: str, length: int = 8) -> str:
     return f"{prefix}-{random_part}"
 
 
-def generate_order_ref(channel_ref: str = "ORD") -> str:
+def generate_order_ref(channel_ref: str = "ORD", business_date: date | datetime | str | None = None) -> str:
     """Generate order ref via shopman.refs library.
 
-    Format: {CHANNEL_REF}-{DDMMYY}-{CODE} e.g. WEB-210426-AB09.
-    Falls back to ORD-YYYYMMDD-XXXXXXXX if the refs library is unavailable
+    Format: {CHANNEL_REF}-{YYMMDD}-{CODE} e.g. WEB-260421-AB09.
+    Falls back to {CHANNEL_REF}-{YYMMDD}-XXXXXXXX if the refs library is unavailable
     (standalone orderman tests, fresh installs before ORDER_REF is registered).
     """
+    channel_ref = channel_ref.upper()
+    if business_date is None:
+        business_day = timezone.localdate()
+    elif isinstance(business_date, datetime):
+        business_day = business_date.date()
+    elif isinstance(business_date, str):
+        business_day = date.fromisoformat(business_date)
+    else:
+        business_day = business_date
     try:
         from shopman.refs.generators import generate_value
         scope = {
-            "channel_ref": channel_ref.upper(),
-            "business_date": timezone.localdate().isoformat(),
+            "channel_ref": channel_ref,
+            "business_date": business_day.isoformat(),
         }
         return generate_value("ORDER_REF", scope)
     except (ImportError, LookupError):
-        date_part = timezone.localdate().strftime("%Y%m%d")
+        date_part = business_day.strftime("%y%m%d")
         random_part = "".join(secrets.choice(_SAFE_CHARS) for _ in range(8))
-        return f"ORD-{date_part}-{random_part}"
+        return f"{channel_ref}-{date_part}-{random_part}"
 
 
 def generate_session_key() -> str:

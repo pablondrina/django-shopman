@@ -6,7 +6,6 @@ POST actions mutate state, then redirect (PRG pattern).
 
 from __future__ import annotations
 
-import json
 import logging
 from datetime import date, timedelta
 from urllib.parse import urlencode
@@ -15,11 +14,9 @@ from django.contrib import messages
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import (
     Http404,
-    HttpRequest,
     HttpResponse,
     HttpResponseForbidden,
     HttpResponseRedirect,
-    StreamingHttpResponse,
 )
 from django.shortcuts import redirect
 from django.template.loader import render_to_string
@@ -28,9 +25,7 @@ from django.urls import reverse
 
 from shopman.backstage.projections.production import (
     build_production_board,
-    build_production_dashboard,
     build_production_kds,
-    build_production_reports,
     resolve_production_access,
 )
 from shopman.backstage.services import production as production_service
@@ -38,56 +33,10 @@ from shopman.backstage.services.production import ProductionOrderShortError, Pro
 
 logger = logging.getLogger(__name__)
 
-TEMPLATE = "gestor/producao/index.html"
-DASHBOARD_TEMPLATE = "gestor/producao/dashboard.html"
 KDS_TEMPLATE = "gestor/producao/kds.html"
 KDS_PARTIAL_TEMPLATE = "gestor/producao/partials/kds_cards.html"
-REPORTS_TEMPLATE = "gestor/producao/relatorios/index.html"
 SHORTAGE_PARTIAL_TEMPLATE = "gestor/producao/partials/material_shortage.html"
 ORDER_SHORT_PARTIAL_TEMPLATE = "gestor/producao/partials/order_shortage.html"
-WO_COMMITMENTS_TEMPLATE = "gestor/producao/wo_commitments.html"
-
-
-def production_view(request):
-    """GET: form + today's WOs. POST: create + finish WO."""
-    denied = _staff_required(request)
-    if denied:
-        return denied
-
-    access = resolve_production_access(request.user)
-    if not access.can_access_board:
-        messages.error(request, "Sem permissão para acessar produção.")
-        return HttpResponseRedirect(reverse("admin:index"))
-
-    if request.method == "POST":
-        return handle_production_post(request, access)
-
-    return render_production_surface(request, access)
-
-
-def production_dashboard_view(request):
-    """GET: production dashboard for the selected day."""
-    denied = _staff_required(request)
-    if denied:
-        return denied
-
-    access = resolve_production_access(request.user)
-    if not access.can_access_board:
-        messages.error(request, "Sem permissão para acessar produção.")
-        return HttpResponseRedirect(reverse("admin:index"))
-
-    selected_date = _selected_date(request)
-    position_ref = (request.GET.get("position_ref") or "").strip()
-    dashboard = build_production_dashboard(
-        selected_date=selected_date,
-        position_ref=position_ref,
-    )
-    return TemplateResponse(request, DASHBOARD_TEMPLATE, {
-        "title": "Dashboard de Produção",
-        "dashboard": dashboard,
-        "selected_date": selected_date,
-        "selected_position_ref": position_ref,
-    })
 
 
 def production_kds_view(request):
@@ -142,56 +91,22 @@ def production_kds_cards_view(request):
     })
 
 
-def production_reports_view(request):
-    """GET: production reports surface and CSV export."""
+def production_kds_finish_view(request):
+    """POST-only finish endpoint used by the production KDS runtime."""
     denied = _staff_required(request)
     if denied:
         return denied
-    if not _can_view_reports(request.user):
-        return HttpResponseForbidden("Sem permissão para acessar relatórios de produção.")
 
-    filters = _report_filters(request)
-    report_kind = filters.get("report_kind", "history")
-    if request.GET.get("format") == "csv":
-        csv_bytes = production_service.export_reports_csv(report_kind, filters)
-        response = StreamingHttpResponse(
-            [csv_bytes],
-            content_type="text/csv; charset=utf-8",
-        )
-        filename = f"producao_{report_kind}_{filters['date_from']}_{filters['date_to']}.csv"
-        response["Content-Disposition"] = f'attachment; filename="{filename}"'
-        return response
-
-    reports = build_production_reports(filters)
-    return TemplateResponse(request, REPORTS_TEMPLATE, {
-        "title": "Relatórios de Produção",
-        "reports": reports,
-        "filters": reports.filters,
-        "report_kind": reports.filters.report_kind,
-    })
-
-
-def production_work_order_commitments_view(request, wo_ref: str):
-    """GET: item quantities committed by linked orders for a work order."""
-    denied = _staff_required(request)
-    if denied:
-        return denied
+    if request.method != "POST":
+        return HttpResponse("Method not allowed", status=405)
+    if (request.POST.get("action") or "").strip() != "finish":
+        return HttpResponse("Invalid KDS action", status=400)
 
     access = resolve_production_access(request.user)
-    if not access.can_access_board:
-        return HttpResponseForbidden("Sem permissão para acessar produção.")
+    if not (access.can_view_started or access.can_edit_started or access.can_edit_finished):
+        return HttpResponseForbidden("Sem permissão para acessar produção em andamento.")
 
-    try:
-        work_order, refs, commitments, committed_qty = production_service.order_commitments_for_work_order(wo_ref)
-    except ObjectDoesNotExist as exc:
-        raise Http404("Ordem de produção não encontrada.") from exc
-    return TemplateResponse(request, WO_COMMITMENTS_TEMPLATE, {
-        "title": f"Compromissos de {wo_ref}",
-        "work_order": work_order,
-        "commitments": commitments,
-        "order_refs": refs,
-        "committed_qty": committed_qty,
-    })
+    return handle_production_post(request, access, redirect_url_name="backstage:production_kds")
 
 
 def production_advance_step_view(request, wo_id):
@@ -219,38 +134,6 @@ def production_advance_step_view(request, wo_id):
     if request.headers.get("HX-Request"):
         return production_kds_cards_view(request)
     return HttpResponseRedirect(reverse("backstage:production_kds"))
-
-
-def production_void_view(request):
-    """POST: void a WorkOrder."""
-    denied = _staff_required(request)
-    if denied:
-        return denied
-
-    access = resolve_production_access(request.user)
-    if not (access.can_manage_all or access.can_edit_planned or access.can_edit_started):
-        messages.error(request, "Sem permissão.")
-        return HttpResponseRedirect(reverse("admin:index"))
-
-    if request.method != "POST":
-        return HttpResponseRedirect(reverse("backstage:production"))
-
-    wo_id = request.POST.get("wo_id")
-    if not wo_id:
-        messages.error(request, "Ordem não informada.")
-        return HttpResponseRedirect(reverse("backstage:production"))
-
-    try:
-        wo_ref = production_service.apply_void(
-            wo_id,
-            actor=f"production:{request.user.username}",
-        )
-        messages.success(request, f"Ordem {wo_ref} estornada.")
-    except Exception as exc:
-        logger.warning("production_void_failed wo_id=%s: %s", wo_id, exc, exc_info=True)
-        messages.error(request, f"Erro ao estornar: {exc}")
-
-    return HttpResponseRedirect(reverse("backstage:production"))
 
 
 def _staff_required(request):
@@ -317,7 +200,7 @@ def _check_late_started_orders(*, selected_date: date) -> None:
         logger.exception("production_late_check_failed date=%s", selected_date)
 
 
-def handle_production_post(request, access, *, redirect_url_name: str = "backstage:production"):
+def handle_production_post(request, access, *, redirect_url_name: str = "admin_console_production"):
     """Mutate production through the canonical Craftsman lifecycle."""
     action = (request.POST.get("action") or "quick_finish").strip()
     actor = f"production:{request.user.username}"
@@ -335,6 +218,7 @@ def handle_production_post(request, access, *, redirect_url_name: str = "backsta
                     target_date_value=request.POST.get("target_date", "").strip(),
                     position_ref=request.POST.get("position_ref", "").strip(),
                     operator_ref=request.POST.get("operator_ref", "").strip(),
+                    reason=request.POST.get("reason", "").strip(),
                     actor=actor,
                     force=request.POST.get("force") == "1",
                 )
@@ -342,6 +226,10 @@ def handle_production_post(request, access, *, redirect_url_name: str = "backsta
                     messages.success(request, f"Planejamento zerado: {output_sku}")
                 elif result == "unchanged":
                     messages.info(request, f"Planejamento mantido: {output_sku} × {quantity}")
+                elif result == "consolidated":
+                    messages.success(request, f"Planejamento consolidado: {output_sku} × {quantity} ({wo_ref})")
+                elif result == "adjusted":
+                    messages.success(request, f"Planejamento ajustado: {output_sku} × {quantity} ({wo_ref})")
                 else:
                     messages.success(request, f"Planejado: {output_sku} × {quantity} ({wo_ref})")
         elif action == "start":
@@ -426,7 +314,7 @@ def render_production_surface(
     request,
     access,
     *,
-    template_name: str = TEMPLATE,
+    template_name: str,
     extra_context: dict | None = None,
     context_callback=None,
 ):
@@ -472,7 +360,7 @@ def render_production_surface(
     return TemplateResponse(request, template_name, context)
 
 
-def production_redirect(request, *, redirect_url_name: str = "backstage:production") -> str:
+def production_redirect(request, *, redirect_url_name: str = "admin_console_production") -> str:
     params = {}
     date_value = (request.POST.get("target_date") or request.POST.get("date") or "").strip()
     if date_value:
@@ -488,64 +376,3 @@ def production_redirect(request, *, redirect_url_name: str = "backstage:producti
         params["base_recipe"] = base_recipe
     base = reverse(redirect_url_name)
     return f"{base}?{urlencode(params)}" if params else base
-
-
-# ── Bulk Create (from dashboard suggestions) ────────────────────────
-
-
-def bulk_create_work_orders(request: HttpRequest) -> HttpResponse:
-    """POST /gestor/producao/criar/ — bulk create WorkOrders from suggestions.
-
-    Expects JSON body: {"date": "YYYY-MM-DD", "orders": [{"recipe_ref": "...", "quantity": N}, ...]}
-    Returns HTMX partial with result summary.
-    """
-    access = resolve_production_access(request.user)
-    if not (access.can_manage_all or access.can_edit_planned):
-        return HttpResponse("Você não tem permissão para esta ação.", status=403)
-
-    if request.method != "POST":
-        return HttpResponse("Method not allowed", status=405)
-
-    _PARTIAL = "gestor/producao/partials/bulk_create_result.html"
-
-    if request.content_type == "application/json":
-        try:
-            body = json.loads(request.body)
-        except (json.JSONDecodeError, ValueError):
-            return HttpResponse(
-                render_to_string(_PARTIAL, {"error": "Dados inválidos"}, request=request),
-                status=400,
-            )
-        target_date_str = body.get("date")
-        orders_data = body.get("orders", [])
-    else:
-        target_date_str = request.POST.get("date")
-        recipe_refs = request.POST.getlist("recipe_ref")
-        quantities = request.POST.getlist("quantity")
-        orders_data = [
-            {"recipe_ref": recipe_ref, "quantity": quantity}
-            for recipe_ref, quantity in zip(recipe_refs, quantities, strict=False)
-        ]
-
-    if not orders_data:
-        return HttpResponse(
-            render_to_string(_PARTIAL, {"error": "Nenhuma ordem informada"}, request=request),
-            status=422,
-        )
-
-    result = production_service.apply_suggestions(
-        target_date_value=target_date_str,
-        entries=orders_data,
-    )
-
-    return HttpResponse(
-        render_to_string(
-            _PARTIAL,
-            {
-                "created": result.created,
-                "errors": result.errors,
-                "target_date": result.target_date,
-            },
-            request=request,
-        ),
-    )

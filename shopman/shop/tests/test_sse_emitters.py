@@ -24,6 +24,7 @@ import pytest
 from django.core.cache import cache
 from django.urls import reverse
 from shopman.offerman.models import Listing, ListingItem, Product
+from shopman.orderman.models import Order
 from shopman.stockman.models import Hold
 
 from shopman.shop.models import Channel, Shop
@@ -150,6 +151,37 @@ def test_emit_carries_extra_payload_keys(
 
     payload = mock_send.call_args_list[0].args[2]
     assert payload == {"sku": "BAGUETE", "is_sellable": False}
+
+
+@pytest.mark.django_db
+@patch("django_eventstream.send_event")
+def test_payment_change_emits_order_and_backstage_updates(mock_send, web_channel):
+    from shopman.shop.handlers._sse_emitters import _on_payment_changed
+
+    order = Order.objects.create(
+        ref="PAY-SSE-1",
+        channel_ref=web_channel.ref,
+        status=Order.Status.NEW,
+        total_q=1000,
+    )
+
+    class Intent:
+        status = "captured"
+
+    _on_payment_changed(sender=None, intent=Intent(), order_ref=order.ref)
+
+    assert any(
+        call.args[0] == "order-PAY-SSE-1"
+        and call.args[1] == "order-update"
+        and call.args[2]["payment_status"] == "captured"
+        for call in mock_send.call_args_list
+    )
+    assert any(
+        call.args[0] == "backstage-orders-main"
+        and call.args[1] == "backstage-orders-update"
+        and call.args[2]["kind"] == "payment_changed"
+        for call in mock_send.call_args_list
+    )
 
 
 # ── Signal-driven emits ─────────────────────────────────────────────

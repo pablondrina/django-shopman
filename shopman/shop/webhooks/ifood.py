@@ -35,6 +35,7 @@ import hmac
 import logging
 
 from django.conf import settings
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
@@ -52,6 +53,7 @@ def _get_ifood_setting(key: str, default=None):
     return cfg.get(key, default)
 
 
+@extend_schema(exclude=True)
 class IFoodWebhookView(APIView):
     """Endpoint para notificações reais de pedidos do marketplace iFood."""
 

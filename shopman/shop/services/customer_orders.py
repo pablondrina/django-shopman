@@ -8,10 +8,13 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from shopman.utils.monetary import format_money
 
 from shopman.shop.projections.types import ORDER_STATUS_COLORS, ORDER_STATUS_LABELS_PT
@@ -26,7 +29,7 @@ DEFAULT_CHANNEL_REF = "web"
 
 @dataclass(frozen=True)
 class OrderHistorySummary:
-    """Canonical compact order read model for customer history surfaces."""
+    """Canonical compact order summary consumed by customer projections."""
 
     ref: str
     created_at: Any
@@ -51,15 +54,57 @@ def find_order(ref: str):
     return Order.objects.filter(ref=ref).first()
 
 
-def active_order_count_for_phone(phone: str) -> int:
-    """Count active orders for the customer phone used by account badges."""
+def active_order_count_for_customer(
+    *,
+    customer_ref: str | None = None,
+    phone: str | None = None,
+) -> int:
+    """Count active orders for the authenticated customer identity."""
     from shopman.orderman.models import Order
 
-    return Order.objects.filter(
-        handle_type="phone",
-        handle_ref=phone,
-        status__in=ACTIVE_STATUSES,
-    ).count()
+    identity = _customer_identity_filter(customer_ref=customer_ref, phone=phone)
+    if identity is None:
+        return 0
+    return Order.objects.filter(identity, status__in=ACTIVE_STATUSES).distinct().count()
+
+
+def active_order_count_for_phone(phone: str) -> int:
+    """Count active orders for the customer phone used by account badges."""
+    return active_order_count_for_customer(phone=phone)
+
+
+def history_summaries_for_customer(
+    *,
+    customer_ref: str | None = None,
+    phone: str | None = None,
+    filter_param: str = "todos",
+    limit: int = 50,
+) -> tuple[OrderHistorySummary, ...]:
+    """Return order summaries for one authenticated customer identity.
+
+    ``customer_ref`` is the canonical sealed link. ``phone`` is accepted as the
+    external handle for orders that entered through phone-based surfaces, so
+    history, account, badges, loyalty and quick reorder do not contradict each
+    other when the same customer is resolved from different entry points.
+    """
+    try:
+        from shopman.orderman.models import Order
+
+        identity = _customer_identity_filter(customer_ref=customer_ref, phone=phone)
+        if identity is None:
+            return ()
+
+        qs = Order.objects.filter(identity).distinct().order_by("-created_at")
+        qs = _apply_history_filter(qs, filter_param)
+        return _summaries_from_orders(qs[:limit])
+    except Exception:
+        logger.warning(
+            "customer_order_history_failed customer_ref=%s phone=%s",
+            customer_ref,
+            phone,
+            exc_info=True,
+        )
+        return ()
 
 
 def history_summaries_for_phone(
@@ -69,37 +114,11 @@ def history_summaries_for_phone(
     limit: int = 50,
 ) -> tuple[OrderHistorySummary, ...]:
     """Return canonical order summaries for a phone, degrading to an empty tuple."""
-    try:
-        from shopman.orderman.models import Order
-
-        qs = Order.objects.filter(
-            handle_type="phone",
-            handle_ref=phone,
-        ).order_by("-created_at")
-
-        if filter_param == "ativos":
-            qs = qs.filter(status__in=ACTIVE_STATUSES)
-        elif filter_param == "anteriores":
-            qs = qs.exclude(status__in=ACTIVE_STATUSES)
-
-        return tuple(
-            OrderHistorySummary(
-                ref=order.ref,
-                created_at=order.created_at,
-                total_q=order.total_q,
-                status=order.status,
-                status_label=ORDER_STATUS_LABELS_PT.get(order.status, order.status),
-                status_color=ORDER_STATUS_COLORS.get(
-                    order.status,
-                    "bg-surface-alt text-on-surface/60 border border-outline",
-                ),
-                item_count=order.items.count(),
-            )
-            for order in qs[:limit]
-        )
-    except Exception:
-        logger.warning("customer_order_history_failed phone=%s", phone, exc_info=True)
-        return ()
+    return history_summaries_for_customer(
+        phone=phone,
+        filter_param=filter_param,
+        limit=limit,
+    )
 
 
 def history_summaries_for_customer_ref(
@@ -108,28 +127,7 @@ def history_summaries_for_customer_ref(
     limit: int = 10,
 ) -> tuple[OrderHistorySummary, ...]:
     """Return canonical order summaries for a customer ref."""
-    try:
-        from shopman.orderman.services import CustomerOrderHistoryService
-
-        records = CustomerOrderHistoryService.list_customer_orders(customer_ref, limit=limit)
-        return tuple(
-            OrderHistorySummary(
-                ref=r.order_ref,
-                created_at=r.ordered_at,
-                total_q=r.total_q,
-                status=r.status,
-                status_label=ORDER_STATUS_LABELS_PT.get(r.status, r.status),
-                status_color=ORDER_STATUS_COLORS.get(
-                    r.status,
-                    "bg-surface-alt text-on-surface/60 border border-outline",
-                ),
-                item_count=r.items_count,
-            )
-            for r in records
-        )
-    except Exception:
-        logger.debug("customer_order_history_by_ref_failed customer=%s", customer_ref, exc_info=True)
-        return ()
+    return history_summaries_for_customer(customer_ref=customer_ref, limit=limit)
 
 
 def order_history_for_phone(phone: str, *, limit: int = 20) -> list[dict]:
@@ -163,10 +161,15 @@ def last_reorder_context(*, customer_uuid, min_days: int) -> tuple[str | None, l
     try:
         from shopman.orderman.models import Order
 
+        identity = _customer_identity_filter(customer_ref=customer.ref, phone=customer.phone)
+        if identity is None:
+            return None, []
+
         last = (
-            Order.objects.filter(data__customer_ref=customer.ref)
+            Order.objects.filter(identity)
+            .distinct()
             .order_by("-created_at")
-            .values("ref", "snapshot", "created_at")
+            .prefetch_related("items")
             .first()
         )
     except Exception:
@@ -177,23 +180,171 @@ def last_reorder_context(*, customer_uuid, min_days: int) -> tuple[str | None, l
         logger.debug("reorder_no_previous_order customer_ref=%s", customer.ref)
         return None, []
 
-    days_since = (timezone.now() - last["created_at"]).days
-    if days_since <= min_days:
+    days_since = (timezone.now() - last.created_at).days
+    if min_days > 0 and days_since < min_days:
         logger.debug(
             "reorder_previous_order_too_recent order_ref=%s days_since=%s min_days=%s",
-            last["ref"],
+            last.ref,
             days_since,
             min_days,
         )
         return None, []
 
-    snapshot = last.get("snapshot") or {}
-    return last["ref"], snapshot.get("items") or []
+    return last.ref, _reorder_display_items(last)
+
+
+def _reorder_display_items(order) -> list[dict]:
+    """Return display-safe reorder item rows for the compact home CTA."""
+    order_items = list(order.items.all())
+    if not order_items:
+        return _named_snapshot_items((order.snapshot or {}).get("items") or [])
+
+    product_names: dict[str, str] = {}
+    skus = {item.sku for item in order_items if item.sku}
+    if skus:
+        try:
+            from shopman.offerman.models import Product
+
+            product_names = dict(
+                Product.objects.filter(sku__in=skus).values_list("sku", "name")
+            )
+        except Exception:
+            logger.warning("reorder_product_name_lookup_failed order=%s", order.ref, exc_info=True)
+
+    rows: list[dict] = []
+    for item in order_items:
+        name = (item.name or "").strip() or product_names.get(item.sku, "").strip()
+        if not name:
+            continue
+        rows.append(
+            {
+                "sku": item.sku,
+                "name": name,
+                "qty": item.qty,
+                "unit_price_q": item.unit_price_q,
+                "line_total_q": item.line_total_q,
+            }
+        )
+    return rows
+
+
+def _named_snapshot_items(items: list[dict]) -> list[dict]:
+    rows: list[dict] = []
+    for item in items:
+        name = str(item.get("name") or "").strip()
+        if not name:
+            continue
+        rows.append({**item, "name": name})
+    return rows
 
 
 def get_payment_status(order) -> str | None:
     """Return the canonical payment status for an order."""
     return payment_service.get_payment_status(order)
+
+
+def resolve_payment_timeout_if_due(order) -> bool:
+    """Cancel an unpaid digital order when its displayed payment deadline passed."""
+    from shopman.orderman.models import Order
+
+    payment = (order.data or {}).get("payment") or {}
+    method = str(payment.get("method") or "").lower()
+    if method not in {"pix", "card"}:
+        return False
+    if order.status not in {Order.Status.NEW, Order.Status.CONFIRMED}:
+        return False
+
+    expires_at = _parse_payment_deadline(payment.get("expires_at"))
+    if not expires_at or timezone.now() < expires_at:
+        return False
+
+    status = str(get_payment_status(order) or payment.get("status") or "").lower()
+    if status == "unknown" or payment_service.has_sufficient_captured_payment(order) is True:
+        return False
+
+    payment_service.cancel(order, reason="payment_timeout")
+
+    from shopman.shop.services import notification
+    from shopman.shop.services.cancellation import cancel
+
+    cancelled = cancel(
+        order,
+        reason="payment_timeout",
+        actor="payment.timeout",
+        extra_data={"payment_timeout_at": timezone.now().isoformat()},
+    )
+    if cancelled:
+        notification.send(order, "payment_expired")
+        order.refresh_from_db()
+    return cancelled
+
+
+def requires_payment_gate(order) -> bool:
+    """Return True when the customer must complete payment before tracking."""
+    payment = (order.data or {}).get("payment") or {}
+    method = str(payment.get("method") or "").lower()
+    if method not in {"pix", "card"}:
+        return False
+    if order.status != "confirmed":
+        return False
+    expires_at = _parse_payment_deadline(payment.get("expires_at"))
+    if expires_at and timezone.now() >= expires_at:
+        return False
+
+    status = str(get_payment_status(order) or payment.get("status") or "").lower()
+    if payment_service.has_sufficient_captured_payment(order) is True:
+        return False
+    if method == "card" and status == "authorized":
+        return False
+    return True
+
+
+def _parse_payment_deadline(value) -> datetime | None:
+    if not value:
+        return None
+    dt = parse_datetime(str(value))
+    if dt is None:
+        try:
+            dt = datetime.fromisoformat(str(value))
+        except ValueError:
+            return None
+    if not timezone.is_aware(dt):
+        return timezone.make_aware(dt)
+    return dt
+
+
+def ensure_payment_intent(order) -> bool:
+    """Ensure a digital payment order has a Payman intent before payment UI.
+
+    This is a recovery guard for stale/misconfigured data. The customer-facing
+    storefront routes PIX/card orders to the payment page immediately, so a
+    missing intent must be repaired before payment actions are shown.
+    ``payment_service.initiate`` is idempotent and remains the only writer.
+    """
+    payment = (order.data or {}).get("payment") or {}
+    method = str(payment.get("method") or "").lower()
+    if method not in {"pix", "card"}:
+        return False
+    if payment.get("intent_ref"):
+        return True
+    if method == "pix" and not _payment_can_start(order):
+        return False
+
+    payment_service.initiate(order)
+    return bool(((order.data or {}).get("payment") or {}).get("intent_ref"))
+
+
+def _payment_can_start(order) -> bool:
+    if order.status != "new":
+        return True
+    try:
+        from shopman.shop.config import ChannelConfig
+
+        cfg = ChannelConfig.for_channel(order.channel_ref)
+    except Exception:
+        logger.warning("payment_start_config_lookup_failed order=%s", order.ref, exc_info=True)
+        return False
+    return cfg.payment.timing != "post_commit"
 
 
 def mock_confirm_payment(order) -> bool:
@@ -206,7 +357,7 @@ def is_cancelled(order) -> bool:
 
 
 def can_cancel(order) -> bool:
-    return order.status in CANCELLABLE_STATUSES
+    return payment_service.can_cancel(order)
 
 
 def cancel(order) -> None:
@@ -259,6 +410,7 @@ def add_reorder_items(
                 sku=item.sku,
                 qty=int(item.qty),
                 unit_price_q=price_q,
+                name=product.name,
                 is_d1=False,
             )
         except CartUnavailableError:
@@ -277,6 +429,45 @@ def _sellable_product(sku: str):
     if product and product.is_sellable:
         return product
     return None
+
+
+def _customer_identity_filter(
+    *,
+    customer_ref: str | None = None,
+    phone: str | None = None,
+):
+    query = Q()
+    if customer_ref:
+        query |= Q(data__customer_ref=customer_ref)
+    if phone:
+        query |= Q(handle_type="phone", handle_ref=phone)
+    return query if query.children else None
+
+
+def _apply_history_filter(qs, filter_param: str):
+    if filter_param == "ativos":
+        return qs.filter(status__in=ACTIVE_STATUSES)
+    if filter_param == "anteriores":
+        return qs.exclude(status__in=ACTIVE_STATUSES)
+    return qs
+
+
+def _summaries_from_orders(orders) -> tuple[OrderHistorySummary, ...]:
+    return tuple(
+        OrderHistorySummary(
+            ref=order.ref,
+            created_at=order.created_at,
+            total_q=order.total_q,
+            status=order.status,
+            status_label=ORDER_STATUS_LABELS_PT.get(order.status, order.status),
+            status_color=ORDER_STATUS_COLORS.get(
+                order.status,
+                "bg-surface-alt text-on-surface/60 border border-outline",
+            ),
+            item_count=order.items.count(),
+        )
+        for order in orders
+    )
 
 
 def _price_q(product, *, channel_ref: str) -> int:
@@ -300,18 +491,23 @@ def _price_q(product, *, channel_ref: str) -> int:
 __all__ = [
     "ACTIVE_STATUSES",
     "OrderHistorySummary",
+    "active_order_count_for_customer",
     "active_order_count_for_phone",
     "add_reorder_items",
     "can_cancel",
     "cancel",
+    "ensure_payment_intent",
     "find_order",
     "get_order",
     "get_payment_status",
+    "history_summaries_for_customer",
     "history_summaries_for_phone",
     "history_summaries_for_customer_ref",
     "is_cancelled",
     "last_reorder_context",
     "mock_confirm_payment",
     "order_history_for_phone",
+    "resolve_payment_timeout_if_due",
+    "requires_payment_gate",
     "should_skip_confirmation",
 ]

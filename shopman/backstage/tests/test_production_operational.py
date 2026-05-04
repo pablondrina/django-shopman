@@ -18,9 +18,9 @@ from shopman.backstage.projections.production import (
     build_work_order_card,
     resolve_production_access,
 )
+from shopman.backstage.admin_console.production import production_console_bulk_create_view
 from shopman.backstage.services.production import MissingMaterial, ProductionStockShortError
-from shopman.backstage.views.production import production_dashboard_view, production_kds_view
-from shopman.backstage.views.production import bulk_create_work_orders
+from shopman.backstage.views.production import production_kds_view
 from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe, WorkOrder
 from shopman.shop.models import Shop
@@ -108,15 +108,9 @@ def test_work_order_card_preserves_decimal_quantities(recipe):
 
 
 @pytest.mark.django_db
-def test_production_dashboard_and_kds_views_render(recipe, rf, superuser):
+def test_production_kds_view_renders(recipe, rf, superuser):
     started = craft.plan(recipe, 12, date=date.today(), position_ref="forno")
     craft.start(started, quantity=12, position_ref="forno", expected_rev=0)
-
-    dashboard_request = rf.get("/gestor/producao/dashboard/")
-    dashboard_request.user = superuser
-    dashboard_response = production_dashboard_view(dashboard_request)
-    assert dashboard_response.status_code == 200
-    assert dashboard_response.context_data["dashboard"].started_orders == 1
 
     kds_request = rf.get("/gestor/producao/kds/")
     kds_request.user = superuser
@@ -170,9 +164,9 @@ def test_stock_short_alert_created_once(recipe):
 
 
 @pytest.mark.django_db
-def test_bulk_create_work_orders_accepts_htmx_form(recipe, rf, superuser):
+def test_admin_bulk_create_work_orders_accepts_htmx_form(recipe, rf, superuser):
     request = rf.post(
-        "/gestor/producao/criar/",
+        reverse("admin_console_production_bulk_create"),
         {
             "date": date.today().isoformat(),
             "recipe_ref": [recipe.ref],
@@ -182,7 +176,7 @@ def test_bulk_create_work_orders_accepts_htmx_form(recipe, rf, superuser):
     request.user = superuser
     request.session = {}
 
-    response = bulk_create_work_orders(request)
+    response = production_console_bulk_create_view(request)
 
     assert response.status_code == 200
     assert WorkOrder.objects.filter(recipe=recipe, quantity=Decimal("12")).exists()
@@ -207,7 +201,7 @@ def test_finish_action_returns_material_shortage_partial(client, recipe, superus
     )
 
     response = client.post(
-        reverse("backstage:production"),
+        reverse("backstage:production_kds_finish"),
         {"action": "finish", "wo_id": work_order.pk, "quantity": "10"},
         HTTP_HX_REQUEST="true",
     )

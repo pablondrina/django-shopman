@@ -1,67 +1,70 @@
 {% comment %}
   ── Timeline ──
 
-  Renders a vertical step timeline (dots + connectors + labels) from a
-  `steps` iterable. Each step is a dict with:
+  Renders a vertical Penguin UI stepper from a `steps` iterable. Each step
+  exposes:
 
     label      : str  (required)  — e.g. "Recebido"
-    time       : str  (optional)  — e.g. "14:32"
-    note       : str  (optional)  — short hint under the time
-    state      : str  (required)  — one of: completed, current, pending
+    timestamp_display : str | None
+    state      : str  (required)  — completed, current, pending, cancelled
 
   Usage:
-    {% include "storefront/components/timeline.html" with steps=order_tracking.timeline %}
+    {% include "storefront/components/timeline.html" with steps=tracking.progress_steps %}
 
-  Styling is driven by tokens + the `animate-pulse-gentle` utility from
-  style.css — safe under `prefers-reduced-motion` (suppressed globally).
-
-  The projection-side source of truth is expected to be
-  OrderTrackingProjection.timeline once PROJECTION-UI-PLAN Phase 2 lands.
-  Until then, instantiate with a plain list of dicts shaped as above.
+  The structure follows Penguin UI's vertical steps pattern: ordered list,
+  per-step aria labels, completed check icon, current aria-current="step",
+  and token-driven connectors. Connector height is content-driven so long
+  Portuguese labels do not break the vertical rhythm.
 {% endcomment %}
 
-<ol x-data x-auto-animate class="space-y-0" role="list">
+<ol x-data x-auto-animate class="space-y-0" aria-label="{{ aria_label|default:'Progresso do pedido' }}">
   {% for step in steps %}
-    <li class="{% if not forloop.last %}pb-6{% endif %}">
-      <div class="flex gap-3">
-        {# Dot + connector column #}
-        <div class="flex flex-col items-center flex-none">
-          <div class="w-3 h-3 rounded-full
-                      {% if step.state == 'completed' or step.state == 'current' %}
-                        bg-primary dark:bg-primary-dark
-                      {% else %}
-                        bg-outline dark:bg-outline-dark
-                      {% endif %}
-                      {% if step.state == 'current' %}animate-pulse-gentle{% endif %}"
-               aria-hidden="true"></div>
-          {% if not forloop.last %}
-            <div class="w-0.5 flex-1 mt-2
-                        {% if step.state == 'completed' %}
-                          bg-primary dark:bg-primary-dark
-                        {% else %}
-                          bg-outline dark:bg-outline-dark
-                        {% endif %}"
-                 aria-hidden="true"></div>
-          {% endif %}
-        </div>
-
-        {# Content column #}
-        <div class="pb-0">
-          <p class="text-sm font-medium text-on-surface-strong dark:text-on-surface-dark-strong">
-            {{ step.label }}
-          </p>
-          {% if step.time %}
-            <p class="text-[11px] text-on-surface dark:text-on-surface-dark opacity-60 mt-0.5">
-              {{ step.time }}
-            </p>
-          {% endif %}
-          {% if step.note %}
-            <p class="text-xs text-on-surface dark:text-on-surface-dark mt-1">
-              {{ step.note }}
-            </p>
-          {% endif %}
-        </div>
-      </div>
-    </li>
+  <li class="relative flex gap-3 text-sm {% if not forloop.last %}pb-5{% endif %}"
+      {% if step.state == 'current' or step.state == 'cancelled' %}aria-current="step"{% endif %}
+      aria-label="{{ step.label }}">
+    {% if not forloop.last %}
+    <div class="absolute left-3 top-6 bottom-0 w-0.5
+                {% if step.state == 'completed' %}bg-primary dark:bg-primary-dark
+                {% elif step.state == 'cancelled' %}bg-danger dark:bg-danger-dark
+                {% else %}bg-outline dark:bg-outline-dark{% endif %}"
+         aria-hidden="true"></div>
+    {% endif %}
+    <div class="relative z-10 shrink-0">
+        {% if step.state == 'completed' %}
+        <span class="flex size-6 items-center justify-center rounded-full border border-primary bg-primary text-on-primary dark:border-primary-dark dark:bg-primary-dark dark:text-on-primary-dark">
+          <svg class="size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+          </svg>
+          <span class="sr-only">concluído</span>
+        </span>
+        {% elif step.state == 'current' %}
+        <span class="flex size-6 shrink-0 items-center justify-center rounded-full border border-primary bg-primary text-xs font-bold text-on-primary outline outline-2 outline-offset-2 outline-primary dark:border-primary-dark dark:bg-primary-dark dark:text-on-primary-dark dark:outline-primary-dark">
+          {{ forloop.counter }}
+          <span class="sr-only">atual</span>
+        </span>
+        {% elif step.state == 'cancelled' %}
+        <span class="flex size-6 shrink-0 items-center justify-center rounded-full border border-danger bg-danger text-on-danger outline outline-2 outline-offset-2 outline-danger dark:border-danger-dark dark:bg-danger-dark dark:text-on-danger-dark dark:outline-danger-dark">
+          <svg class="size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+          </svg>
+          <span class="sr-only">cancelado</span>
+        </span>
+        {% else %}
+        <span class="flex size-6 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt text-xs font-medium text-on-surface/85 dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark/70">
+          {{ forloop.counter }}
+        </span>
+        {% endif %}
+    </div>
+    <div class="min-w-0 pt-0.5">
+      <p class="leading-snug {% if step.state == 'current' %}font-bold text-primary dark:text-primary-dark{% elif step.state == 'cancelled' %}font-bold text-danger dark:text-danger-dark{% elif step.state == 'completed' %}font-medium text-on-surface-strong dark:text-on-surface-dark-strong{% else %}font-medium text-on-surface/65 dark:text-on-surface-dark/55{% endif %}">
+        {{ step.label }}
+      </p>
+      {% if step.timestamp_display %}
+      <time class="mt-0.5 block text-xs leading-tight text-on-surface/85 dark:text-on-surface-dark/60">
+        {{ step.timestamp_display }}
+      </time>
+      {% endif %}
+    </div>
+  </li>
   {% endfor %}
 </ol>

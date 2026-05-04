@@ -2,7 +2,7 @@
 {% load static omotenashi_tags %}
 
 {% block title %}Cardápio{% endblock %}
-{% block meta_description %}Cardápio com disponibilidade em tempo real · {{ storefront.brand_name }}.{% endblock %}
+{% block meta_description %}{% omotenashi 'MENU_PAGE_META_DESCRIPTION' as menu_meta %}{{ menu_meta.message }} · {{ storefront.brand_name }}.{% endblock %}
 
 {% block breadcrumb %}
 <nav class="mb-6" aria-label="Breadcrumb">

@@ -28,7 +28,7 @@ dependencies = [
 
 [project.optional-dependencies]
 unfold = [
-    "django-unfold>=0.80,<1.0",
+    "django-unfold>=0.91,<0.92",
 ]
 dev = [
     "pytest",

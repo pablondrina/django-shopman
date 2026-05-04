@@ -79,7 +79,7 @@ def _make_order(customer, skus_qty: list[tuple[str, int]], days_ago: int = 1) ->
 
 class TestFavoriteCategoryFromOrders:
     def test_single_collection_wins(self, product_a1, product_b1, customer):
-        from shopman.storefront.omotenashi.context import _favorite_category_from_orders
+        from shopman.shop.omotenashi.context import _favorite_category_from_orders
 
         _make_order(customer, [("PAO-01", 2), ("PAO-01", 1)])  # 2 orders for pao
         _make_order(customer, [("DOCE-01", 1)])
@@ -95,7 +95,7 @@ class TestFavoriteCategoryFromOrders:
     def test_higher_qty_wins(self, product_a1, product_b1, customer):
         from shopman.orderman.models import Order
 
-        from shopman.storefront.omotenashi.context import _favorite_category_from_orders
+        from shopman.shop.omotenashi.context import _favorite_category_from_orders
 
         _make_order(customer, [("PAO-01", 1)])
         _make_order(customer, [("DOCE-01", 5)])  # higher qty → doce wins
@@ -110,7 +110,7 @@ class TestFavoriteCategoryFromOrders:
     def test_two_products_same_collection(self, product_a1, product_a2, product_b1, customer):
         from shopman.orderman.models import Order
 
-        from shopman.storefront.omotenashi.context import _favorite_category_from_orders
+        from shopman.shop.omotenashi.context import _favorite_category_from_orders
 
         # 1 pao-01 + 1 pao-02 = 2 pao total vs 1 doce
         _make_order(customer, [("PAO-01", 1), ("PAO-02", 1), ("DOCE-01", 1)])
@@ -123,17 +123,17 @@ class TestFavoriteCategoryFromOrders:
         assert result == "pao"
 
     def test_empty_orders_returns_none(self):
-        from shopman.storefront.omotenashi.context import _favorite_category_from_orders
+        from shopman.shop.omotenashi.context import _favorite_category_from_orders
         assert _favorite_category_from_orders([]) is None
 
     def test_orders_with_no_items_returns_none(self, customer):
-        from shopman.storefront.omotenashi.context import _favorite_category_from_orders
+        from shopman.shop.omotenashi.context import _favorite_category_from_orders
 
         orders = [{"created_at": timezone.now(), "snapshot": {"items": []}}]
         assert _favorite_category_from_orders(orders) is None
 
     def test_sku_with_no_collection_ignored(self, customer):
-        from shopman.storefront.omotenashi.context import _favorite_category_from_orders
+        from shopman.shop.omotenashi.context import _favorite_category_from_orders
 
         # SKU not linked to any collection
         orders = [{"created_at": timezone.now(), "snapshot": {"items": [{"sku": "GHOST-01", "qty": 5}]}}]
@@ -142,7 +142,7 @@ class TestFavoriteCategoryFromOrders:
 
     def test_orders_outside_90_days_excluded(self, product_a1, product_b1, customer):
         """_history_signals only passes orders from last 90 days."""
-        from shopman.storefront.omotenashi.context import _history_signals
+        from shopman.shop.omotenashi.context import _history_signals
 
         # Order 91 days ago — outside window
         _make_order(customer, [("PAO-01", 10)], days_ago=91)
@@ -153,7 +153,7 @@ class TestFavoriteCategoryFromOrders:
         assert fav == "doce"
 
     def test_no_orders_returns_none_none(self, customer):
-        from shopman.storefront.omotenashi.context import _history_signals
+        from shopman.shop.omotenashi.context import _history_signals
         days, fav = _history_signals(customer)
         assert days is None
         assert fav is None

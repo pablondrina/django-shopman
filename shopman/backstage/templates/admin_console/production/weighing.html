@@ -1,0 +1,117 @@
+{% extends "admin/base.html" %}
+{% load i18n static unfold %}
+
+{% block title %}Filipetas de pesagem | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <script src="{% url 'admin:jsi18n' %}"></script>
+  <script src="{% static 'admin/js/core.js' %}"></script>
+  {{ production_weighing_filter_form.media }}
+  <style>
+    @media print {
+      @page {
+        margin: 4mm;
+        size: 80mm auto;
+      }
+
+      #nav-sidebar,
+      #main > header,
+      #main > .px-4,
+      [data-print-hide] {
+        display: none !important;
+      }
+
+      #page,
+      #main,
+      #content {
+        display: block !important;
+        margin: 0 !important;
+        max-width: none !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+        width: auto !important;
+      }
+
+      [data-weighing-list] {
+        display: block !important;
+      }
+
+      [data-weighing-ticket] {
+        break-after: page;
+        page-break-after: always;
+        width: 72mm;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+{% include "unfold/helpers/messages.html" %}
+<main id="production-weighing-main" role="main">
+{% component "unfold/components/container.html" %}
+  <div class="flex flex-col gap-6" x-data="{ filtersOpen: false }">
+    <div class="flex flex-col gap-4" data-print-hide>
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div class="flex flex-col gap-1">
+          {% component "unfold/components/title.html" %}
+            Filipetas de pesagem
+          {% endcomponent %}
+          {% component "unfold/components/text.html" with class="text-base-500" %}
+            Derivadas do planejado salvo · {{ production_weighing_filter_summary }}
+          {% endcomponent %}
+        </div>
+        <div class="flex flex-wrap gap-2 lg:ml-auto lg:justify-end">
+          {% component "unfold/components/button.html" with href=production_weighing_planning_url variant="default" size="sm" %}
+            {% component "unfold/components/icon.html" with class="text-base" %}edit_calendar{% endcomponent %}
+            Planejamento
+          {% endcomponent %}
+          {% component "unfold/components/button.html" with variant="default" size="sm" extra_attrs='type="button" x-on:click="window.print()"' %}
+            {% component "unfold/components/icon.html" with class="text-base" %}print{% endcomponent %}
+            Imprimir
+          {% endcomponent %}
+          {% component "unfold/components/button.html" with variant="default" size="sm" extra_attrs='type="button" x-on:click="filtersOpen = true"' %}
+            {% component "unfold/components/icon.html" with class="text-base" %}tune{% endcomponent %}
+            Filtros
+          {% endcomponent %}
+        </div>
+      </div>
+
+      {% include "unfold/helpers/tab_list.html" with tabs_list=production_flow_tabs %}
+    </div>
+
+    <div class="flex flex-col gap-6" data-weighing-list>
+      {% for ticket in production_weighing.tickets %}
+        <div class="flex flex-col gap-3 production-weighing-ticket" data-weighing-ticket>
+          <div class="flex flex-col gap-1">
+            {% component "unfold/components/title.html" with class="text-xl" %}
+              {{ ticket.name }}
+            {% endcomponent %}
+            {% component "unfold/components/text.html" with class="text-base-500" %}
+              {{ ticket.output_quantity_display }} · {{ ticket.output_sku }}
+            {% endcomponent %}
+            {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
+              Destino: {{ ticket.sources_display }}
+            {% endcomponent %}
+          </div>
+          {% component "unfold/components/table.html" with table=ticket.table striped=1 %}{% endcomponent %}
+        </div>
+        {% if not forloop.last %}
+          {% component "unfold/components/separator.html" %}{% endcomponent %}
+        {% endif %}
+      {% empty %}
+        {% component "unfold/components/card.html" with icon="receipt_long" title="Sem filipetas para imprimir" %}
+          {% component "unfold/components/text.html" with class="text-base-500" %}
+            Salve o planejamento da data agendada para gerar a pesagem.
+          {% endcomponent %}
+        {% endcomponent %}
+      {% endfor %}
+    </div>
+
+    <div data-print-hide>
+      {% include "admin_console/unfold/modal.html" with open_var="filtersOpen" close_action="filtersOpen = false" modal_title="Filtros de pesagem" modal_description="Ajuste data agendada, posto ou ficha-base." form=production_weighing_filter_form form_fields=production_weighing_filter_fields form_id="production-weighing-filters" form_method="get" form_action=production_weighing_reset_url submit_label="Aplicar filtros" cancel_label="Fechar" clear_href=production_weighing_reset_url clear_label="Limpar filtros" cancel_attrs='type="button" x-on:click="filtersOpen = false"' %}
+    </div>
+  </div>
+{% endcomponent %}
+</main>
+{% endblock %}

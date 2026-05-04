@@ -182,6 +182,18 @@ class TimelineEventProjection:
     label: str
     event_type: str
     timestamp_display: str  # pre-formatted local datetime, e.g. "15/04 às 14:32"
+    actor: str = ""
+    detail: str = ""
+
+
+@dataclass(frozen=True)
+class OrderProgressStepProjection:
+    """A customer-facing step in the canonical order progress path."""
+
+    label: str
+    key: str
+    state: str  # completed | current | pending | cancelled
+    timestamp_display: str | None = None
 
 
 @dataclass(frozen=True)

@@ -98,6 +98,25 @@ class KDSBoardProjection:
     counts: dict[str, int]  # "pending", "in_progress", "total"
 
 
+@dataclass(frozen=True)
+class KDSCustomerOrderProjection:
+    """Privacy-safe order status for a customer-facing ready board."""
+
+    ref: str
+    status: str
+    status_label: str
+    updated_at_display: str
+
+
+@dataclass(frozen=True)
+class KDSCustomerStatusProjection:
+    """Customer-facing KDS status split by preparation and pickup readiness."""
+
+    preparing: tuple[KDSCustomerOrderProjection, ...]
+    ready: tuple[KDSCustomerOrderProjection, ...]
+    updated_at_display: str
+
+
 # ── Builders ───────────────────────────────────────────────────────────
 
 
@@ -168,6 +187,46 @@ def build_kds_ticket(ticket_pk: int) -> KDSTicketProjection:
 
     ticket = KDSTicket.objects.select_related("order", "kds_instance").get(pk=ticket_pk)
     return _build_ticket(ticket, ticket.kds_instance)
+
+
+def build_kds_customer_status(*, limit: int = 24) -> KDSCustomerStatusProjection:
+    """Build a public pickup board without customer names, phones, totals, or addresses."""
+    orders_qs = (
+        Order.objects.filter(
+            status__in=[
+                Order.Status.CONFIRMED,
+                Order.Status.PREPARING,
+                Order.Status.READY,
+            ]
+        )
+        .order_by("ready_at", "updated_at", "created_at")[: max(limit * 2, limit)]
+    )
+
+    preparing: list[KDSCustomerOrderProjection] = []
+    ready: list[KDSCustomerOrderProjection] = []
+
+    for order in orders_qs:
+        if get_fulfillment_type(order) == "delivery":
+            continue
+        projection = KDSCustomerOrderProjection(
+            ref=order.ref,
+            status=order.status,
+            status_label="Pronto para retirar" if order.status == Order.Status.READY else "Em preparo",
+            updated_at_display=_format_time(order.ready_at or order.updated_at or order.created_at),
+        )
+        if order.status == Order.Status.READY:
+            ready.append(projection)
+        else:
+            preparing.append(projection)
+
+        if len(preparing) + len(ready) >= limit:
+            break
+
+    return KDSCustomerStatusProjection(
+        preparing=tuple(preparing),
+        ready=tuple(ready),
+        updated_at_display=_format_time(timezone.now()),
+    )
 
 
 # ── Internals ──────────────────────────────────────────────────────────
@@ -320,3 +379,10 @@ def _format_datetime(dt) -> str:
         return ""
     local = timezone.localtime(dt)
     return local.strftime("%d/%m às %H:%M")
+
+
+def _format_time(dt) -> str:
+    if dt is None:
+        return ""
+    local = timezone.localtime(dt)
+    return local.strftime("%H:%M")

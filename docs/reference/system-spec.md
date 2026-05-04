@@ -152,7 +152,7 @@ Cada pacote abaixo é pip-instalável (`shopman-<nome>`), vive em `packages/<nom
 **Escopo**: produção em lote (NUNCA por-pedido). WorkOrder = batch antecipado (bake 50 croissants para amanhã).
 
 **Modelos**
-- `Recipe(ref[slug unique], output_ref, batch_size, steps[JSON list], is_active, meta)`.
+- `Recipe(ref[slug unique], output_ref, batch_size, steps[JSON list], is_active, meta)` — `batch_size` é o rendimento base da ficha técnica.
 - `RecipeItem(recipe, input_ref, quantity, unit, is_optional, sort_order)` — coeficiente francês: `qty_needed = item.qty × (wo.qty / recipe.batch_size)`.
 - `WorkOrder(ref[WO-YYYY-NNNNN], recipe FK, output_ref[copiado no plan, imutável], quantity, finished|null, status∈{PLANNED,STARTED,FINISHED,VOID}, rev[optimistic concurrency], target_date, source_ref, position_ref, operator_ref, meta{_recipe_snapshot})`.
 - `WorkOrderEvent(seq[monotônico por WO], kind∈{PLANNED,ADJUSTED,STARTED,FINISHED,VOIDED}, payload, idempotency_key[unique null], actor)` — append-only; PK composta (work_order, seq).
@@ -468,7 +468,7 @@ Endpoints `/api/v1/cart/`, `/api/v1/checkout/` (3/min), `/api/v1/availability/<s
 
 ### 3.2 Bootstrap
 
-`config/settings.py` wires: Daphne (primeiro), Unfold, Django core, terceiros, 8 cores + contribs, `shopman.shop`, instance apps via env. Middleware inclui `doorman.AuthCustomerMiddleware` + 3 middleware shopman. Auth backends: PhoneOTPBackend + ModelBackend. Templates com 3 context processors. Cache Redis via `REDIS_URL` (fallback LocMem).
+`config/settings.py` wires: Daphne (primeiro), Unfold, Django core, terceiros, 8 cores + contribs, `shopman.shop`, instance apps via env. Middleware inclui `doorman.AuthCustomerMiddleware` + 3 middleware shopman. Auth backends: PhoneOTPBackend + ModelBackend. Templates com 3 context processors. PostgreSQL via `DATABASE_URL` e Redis via `REDIS_URL` formam o runtime canonico; SQLite/LocMem sao apenas fallback local. `REDIS_URL` configura `django.core.cache.backends.redis.RedisCache` e `EVENTSTREAM_REDIS` para SSE multi-worker.
 
 ### 3.3 Seed
 

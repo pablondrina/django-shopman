@@ -64,12 +64,16 @@ readinessProbe:
 curl -fsS https://seu-host/health/ || alerta
 ```
 
-### Cache em dev
+### Cache em dev e produção
 
 `LocMemCache` não é production-grade (per-process, some a cada restart), então
-o check de cache retorna `skipped` — não é um sinal negativo. Em produção com
-`REDIS_URL` definido, o check faz roundtrip `set`/`get` e falha se o Redis
-estiver inacessível.
+o check de cache retorna `skipped` em fallback local — não é um sinal negativo
+nesse modo. Em staging/producao, `REDIS_URL` é obrigatório: o check faz
+roundtrip `set`/`get` e falha se o Redis estiver inacessível.
+
+Redis é usado para cache compartilhado, `django-ratelimit`, caches operacionais
+curtos e fanout SSE multi-worker. Ver o contrato em
+[`docs/reference/runtime-dependencies.md`](../reference/runtime-dependencies.md).
 
 ### Observabilidade
 

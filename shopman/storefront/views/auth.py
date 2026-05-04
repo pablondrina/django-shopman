@@ -83,8 +83,11 @@ class LoginView(View):
                 "next": next_url,
             })
 
-        # Already logged in → redirect
-        if getattr(request, "customer", None) is not None:
+        # Already logged in with an operational phone → redirect.
+        # Instagram-origin customers may be authenticated before phone capture;
+        # for checkout they must complete the normal phone verification gate.
+        customer_info = getattr(request, "customer", None)
+        if customer_info is not None and customer_info.phone:
             return redirect(next_url or "/")
 
         # Device trust pre-fill (F-03): if a trusted-device cookie exists, look up

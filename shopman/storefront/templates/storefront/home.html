@@ -16,7 +16,37 @@
 {% omotenashi 'MENU_SUBTITLE' as hero_subtitle %}
 {% omotenashi 'BIRTHDAY_HERO_HEADING' as bday_hero_heading %}
 {% omotenashi 'BIRTHDAY_HERO_SUB' as bday_hero_sub %}
-<section class="-mx-4 -mt-6 mb-8 md:mx-0 md:mt-0 md:pt-4">
+{% omotenashi 'HOME_HERO_ORDER_TITLE_PREFIX' as hero_order_title_prefix %}
+{% omotenashi 'HOME_HERO_ORDER_TITLE_SUFFIX' as hero_order_title_suffix %}
+{% omotenashi 'HOME_HERO_ORDER_SUBTITLE' as hero_order_subtitle %}
+{% omotenashi 'HOME_HERO_REORDER_TITLE_PREFIX' as hero_reorder_title_prefix %}
+{% omotenashi 'HOME_HERO_REORDER_TITLE_SUFFIX' as hero_reorder_title_suffix %}
+{% omotenashi 'HOME_HERO_REORDER_SUBTITLE' as hero_reorder_subtitle %}
+{% omotenashi 'HOME_HERO_HANDMADE_TITLE_PREFIX' as hero_handmade_title_prefix %}
+{% omotenashi 'HOME_HERO_HANDMADE_TITLE_SUFFIX' as hero_handmade_title_suffix %}
+{% omotenashi 'HOME_HERO_HANDMADE_SUBTITLE' as hero_handmade_subtitle %}
+{% omotenashi 'HOME_MENU_CTA' as home_menu_cta %}
+{% omotenashi 'HOME_BIRTHDAY_CTA' as home_birthday_cta %}
+{% omotenashi 'HOME_FULL_MENU_CTA' as home_full_menu_cta %}
+{% omotenashi 'HOME_HOW_IT_WORKS_HEADING' as home_how_heading %}
+{% omotenashi 'HOME_HOW_ONLINE_HEADING' as home_how_online_heading %}
+{% omotenashi 'HOME_HOW_STORE_HEADING' as home_how_store_heading %}
+{% omotenashi 'HOME_HOW_STEP_CHOOSE' as home_how_step_choose %}
+{% omotenashi 'HOME_HOW_STEP_PAY' as home_how_step_pay %}
+{% omotenashi 'HOME_HOW_STEP_FULFILL' as home_how_step_fulfill %}
+{% omotenashi 'HOME_HOW_SELF_SERVICE_LABEL' as home_how_self_service_label %}
+{% omotenashi 'HOME_HOW_COUNTER_LABEL' as home_how_counter_label %}
+{% omotenashi 'HOME_HOW_HOURS_LABEL' as home_how_hours_label %}
+{% omotenashi 'HOME_HOW_HOURS_EMPTY' as home_how_hours_empty %}
+{% omotenashi 'HOME_TOMORROW_LABEL' as home_tomorrow_label %}
+{% omotenashi 'HOME_WHATSAPP_CTA_LABEL' as home_whatsapp_cta_label %}
+{% omotenashi 'HOW_ONLINE_CHOOSE_MESSAGE' as how_choose_message %}
+{% omotenashi 'HOW_ONLINE_PAY_MESSAGE' as how_pay_message %}
+{% omotenashi 'HOW_ONLINE_TRACK_MESSAGE' as how_track_message %}
+{% omotenashi 'HOW_STORE_SELF_SERVICE_MESSAGE' as how_self_service_message %}
+{% omotenashi 'HOW_STORE_COUNTER_MESSAGE' as how_counter_message %}
+<h1 class="sr-only">{{ storefront.brand_name }}</h1>
+<section id="home-carousel" class="-mx-4 -mt-6 mb-5 md:mx-0 md:mt-0 md:pt-4">
   <div x-data="{
     autoplayIntervalTime: 5000,
     total: 4,
@@ -81,7 +111,7 @@
           <div class="flex gap-3">
             <a href="{{ menu_url }}"
                class="whitespace-nowrap rounded-radius bg-white px-5 py-2.5 text-center text-sm font-medium tracking-wide text-neutral-900 transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target">
-              {% if omotenashi_ctx.is_birthday %}Ver minha oferta de aniversário{% else %}Ver Cardápio{% endif %}
+              {% if omotenashi_ctx.is_birthday %}{{ home_birthday_cta.title }}{% else %}{{ home_menu_cta.title }}{% endif %}
             </a>
           </div>
         </div>
@@ -97,13 +127,13 @@
         <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/20"></div>
         <div class="relative z-10 flex flex-col items-center h-full px-6 pt-8 pb-14 text-center">
           <div class="flex-1 flex flex-col items-center justify-center">
-            <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg">Peça. Acompanhe.<br>Aproveite.</p>
-            <p class="text-sm md:text-base text-white/80 mt-4 tracking-wide drop-shadow">Retire na loja ou receba em casa.</p>
+            <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg">{{ hero_order_title_prefix.title }}<br>{{ hero_order_title_suffix.title }}</p>
+            <p class="text-sm md:text-base text-white/80 mt-4 tracking-wide drop-shadow">{{ hero_order_subtitle.message }}</p>
           </div>
           <div class="flex gap-3">
             <a href="{{ menu_url }}"
                class="whitespace-nowrap rounded-radius bg-white px-5 py-2.5 text-center text-sm font-medium tracking-wide text-neutral-900 transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target">
-              Ver Cardápio
+              {{ home_menu_cta.title }}
             </a>
           </div>
         </div>
@@ -120,8 +150,8 @@
         <div class="relative z-10 flex flex-col items-center h-full px-6 pt-8 pb-14 text-center">
           <div class="flex-1 flex flex-col items-center justify-center">
             {% if last_order_ref %}
-            <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg">Quer repetir seu<br>último pedido{% if customer_name %}, {{ customer_name }}{% endif %}?</p>
-            <p class="text-sm md:text-base text-white/80 mt-3 tracking-wide drop-shadow">Com um toque, seu favorito volta ao carrinho.</p>
+            <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg">{{ hero_reorder_title_prefix.title }}<br>{{ hero_reorder_title_suffix.title }}{% if customer_name %}, {{ customer_name }}{% endif %}?</p>
+            <p class="text-sm md:text-base text-white/80 mt-3 tracking-wide drop-shadow">{{ hero_reorder_subtitle.message }}</p>
             {% else %}
             <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg">{{ omotenashi_ctx.greeting_with_name }}.</p>
             {% if omotenashi_ctx.shop_hint %}
@@ -133,10 +163,10 @@
             {% if last_order_ref %}
             <button x-data="{ loading: false }"
                     hx-post="{% url 'storefront:reorder' ref=last_order_ref %}"
-                    hx-target="body"
-                    hx-push-url="true"
-                    @htmx:before-request="loading = true"
-                    @htmx:after-request="loading = false"
+                    hx-target="#reorder-conflict-modal"
+                    hx-swap="innerHTML"
+                    @htmx:before-request="loading = true; window.dispatchEvent(new CustomEvent('close-mobile-menu')); window.dispatchEvent(new CustomEvent('close-cart-drawer'))"
+                    @htmx:after-request="loading = false; window.dispatchEvent(new CustomEvent('close-mobile-menu')); window.dispatchEvent(new CustomEvent('close-cart-drawer'))"
                     :disabled="loading"
                     class="inline-flex items-center gap-2 whitespace-nowrap rounded-radius bg-white px-5 py-2.5 text-center text-sm font-medium tracking-wide text-neutral-900 transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target disabled:opacity-60 disabled:cursor-wait">
               <span x-show="!loading">Pedir de novo</span>
@@ -148,7 +178,7 @@
             {% else %}
             <a href="{{ menu_url }}"
                class="whitespace-nowrap rounded-radius bg-white px-5 py-2.5 text-center text-sm font-medium tracking-wide text-neutral-900 transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target">
-              Ver Cardápio
+              {{ home_menu_cta.title }}
             </a>
             {% endif %}
           </div>
@@ -165,13 +195,13 @@
         <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/20"></div>
         <div class="relative z-10 flex flex-col items-center h-full px-6 pt-8 pb-14 text-center">
           <div class="flex-1 flex flex-col items-center justify-center">
-            <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg">Feito à mão,<br>todo dia</p>
-            <p class="text-sm md:text-base text-white/80 mt-4 tracking-wide drop-shadow">Do forno para a sua mesa.</p>
+            <p class="font-title text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight drop-shadow-lg">{{ hero_handmade_title_prefix.title }}<br>{{ hero_handmade_title_suffix.title }}</p>
+            <p class="text-sm md:text-base text-white/80 mt-4 tracking-wide drop-shadow">{{ hero_handmade_subtitle.message }}</p>
           </div>
           <div class="flex gap-3">
             <a href="{{ menu_url }}"
                class="whitespace-nowrap rounded-radius bg-white px-5 py-2.5 text-center text-sm font-medium tracking-wide text-neutral-900 transition hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white touch-target">
-              Ver Cardápio
+              {{ home_menu_cta.title }}
             </a>
           </div>
         </div>
@@ -207,6 +237,11 @@
   </div>
 </section>
 
+{# ── Fixed Quick Reorder CTA (returning customers with a prior order) ── #}
+{% if customer_name and last_order_ref %}
+{% include "storefront/partials/quick_reorder.html" %}
+{% endif %}
+
 {# ── Birthday banner — only shown when hero is not displaying birthday slide ── #}
 {% if not omotenashi_ctx.is_birthday %}
 {% include "storefront/partials/birthday_banner.html" %}
@@ -214,11 +249,6 @@
 
 {# ── Closing awareness (Penguin UI banner) ── #}
 {% include "storefront/partials/closing_awareness.html" %}
-
-{# ── Quick Reorder (returning customers with a prior order) ── #}
-{% if customer_name and last_order_ref %}
-{% include "storefront/partials/quick_reorder.html" %}
-{% endif %}
 
 {# ── WhatsApp welcome banner (access link from notification) ── #}
 {% if request.session.origin_channel == 'whatsapp' %}
@@ -275,14 +305,14 @@
   <div class="text-center mt-6">
     <a href="{{ menu_url }}"
        class="font-medium text-primary underline-offset-2 hover:underline focus:underline focus:outline-hidden dark:text-primary-dark text-sm">
-      Ver cardápio completo &rarr;
+      {{ home_full_menu_cta.title }} &rarr;
     </a>
   </div>
 </section>
 
 {# ── Como Funciona (Penguin UI steps + cards) ── #}
 <section class="py-12 md:py-16 border-t border-outline dark:border-outline-dark">
-  <h2 class="font-title text-xl lg:text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong text-center mb-12 tracking-tight">Como Funciona</h2>
+  <h2 class="font-title text-xl lg:text-2xl font-bold text-on-surface-strong dark:text-on-surface-dark-strong text-center mb-12 tracking-tight">{{ home_how_heading.title }}</h2>
 
   <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
 
@@ -292,28 +322,28 @@
         <span class="flex size-8 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt text-on-surface-strong dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark-strong" aria-hidden="true">
           <span class="material-symbols-rounded text-[20px] leading-none">shopping_bag</span>
         </span>
-        Pedido Online
+        {{ home_how_online_heading.title }}
       </h3>
       <ol class="space-y-4" aria-label="passos do pedido online">
         <li class="flex gap-3">
           <span class="flex size-6 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt text-xs font-semibold tabular-nums text-on-surface dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark mt-0.5">1</span>
           <div>
-            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Escolha</p>
-            <p class="text-on-surface dark:text-on-surface-dark text-sm">Navegue pelo cardápio e adicione ao carrinho.</p>
+            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">{{ home_how_step_choose.title }}</p>
+            <p class="text-on-surface dark:text-on-surface-dark text-sm">{{ how_choose_message.message }}</p>
           </div>
         </li>
         <li class="flex gap-3">
           <span class="flex size-6 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt text-xs font-semibold tabular-nums text-on-surface dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark mt-0.5">2</span>
           <div>
-            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Pague</p>
-            <p class="text-on-surface dark:text-on-surface-dark text-sm">PIX rápido e seguro. Confirmação instantânea.</p>
+            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">{{ home_how_step_pay.title }}</p>
+            <p class="text-on-surface dark:text-on-surface-dark text-sm">{{ how_pay_message.message }}</p>
           </div>
         </li>
         <li class="flex gap-3">
           <span class="flex size-6 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt text-xs font-semibold tabular-nums text-on-surface dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark mt-0.5">3</span>
           <div>
-            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Retire ou Receba</p>
-            <p class="text-on-surface dark:text-on-surface-dark text-sm">Acompanhe em tempo real. Retire na loja ou receba em casa.</p>
+            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">{{ home_how_step_fulfill.title }}</p>
+            <p class="text-on-surface dark:text-on-surface-dark text-sm">{{ how_track_message.message }}</p>
           </div>
         </li>
       </ol>
@@ -325,7 +355,7 @@
         <span class="flex size-8 shrink-0 items-center justify-center rounded-full border border-outline bg-surface-alt text-on-surface-strong dark:border-outline-dark dark:bg-surface-dark-alt dark:text-on-surface-dark-strong" aria-hidden="true">
           <span class="material-symbols-rounded text-[20px] leading-none">storefront</span>
         </span>
-        Na Loja
+        {{ home_how_store_heading.title }}
       </h3>
       <div class="space-y-4">
         <div class="flex gap-3">
@@ -333,8 +363,8 @@
             <span class="material-symbols-rounded text-[16px] leading-none text-on-surface dark:text-on-surface-dark" aria-hidden="true">shelves</span>
           </div>
           <div>
-            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Pães no autosserviço</p>
-            <p class="text-on-surface dark:text-on-surface-dark text-sm">Escolha direto da prateleira. Pese, embale e leve ao caixa.</p>
+            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">{{ home_how_self_service_label.title }}</p>
+            <p class="text-on-surface dark:text-on-surface-dark text-sm">{{ how_self_service_message.message }}</p>
           </div>
         </div>
         <div class="flex gap-3">
@@ -342,8 +372,8 @@
             <span class="material-symbols-rounded text-[16px] leading-none text-on-surface dark:text-on-surface-dark" aria-hidden="true">coffee</span>
           </div>
           <div>
-            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Cafés e doces no balcão</p>
-            <p class="text-on-surface dark:text-on-surface-dark text-sm">Peça ao atendente. Preparamos na hora.</p>
+            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">{{ home_how_counter_label.title }}</p>
+            <p class="text-on-surface dark:text-on-surface-dark text-sm">{{ how_counter_message.message }}</p>
           </div>
         </div>
         <div class="flex gap-3">
@@ -351,9 +381,9 @@
             <span class="material-symbols-rounded text-[16px] leading-none text-on-surface dark:text-on-surface-dark" aria-hidden="true">schedule</span>
           </div>
           <div>
-            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">Horários</p>
+            <p class="text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-sm">{{ home_how_hours_label.title }}</p>
             <p class="text-on-surface dark:text-on-surface-dark text-sm">
-              {% for entry in opening_hours_display %}{{ entry.label }}: {{ entry.hours }}{% if not forloop.last %} &middot; {% endif %}{% empty %}Consulte nossos horários{% endfor %}
+              {% for entry in opening_hours_display %}{{ entry.label }}: {{ entry.hours }}{% if not forloop.last %} &middot; {% endif %}{% empty %}{{ home_how_hours_empty.message }}{% endfor %}
             </p>
           </div>
         </div>
@@ -369,7 +399,7 @@
 {% if tomorrow_hook %}
 <section class="py-10 md:py-12 border-t border-outline dark:border-outline-dark">
   <div class="max-w-2xl mx-auto text-center">
-    <p class="text-xs font-semibold text-on-surface/40 dark:text-on-surface-dark/40 uppercase tracking-[0.2em]">Amanhã</p>
+    <p class="text-xs font-semibold text-on-surface/40 dark:text-on-surface-dark/40 uppercase tracking-[0.2em]">{{ home_tomorrow_label.title }}</p>
     <p class="font-title text-on-surface-strong dark:text-on-surface-dark-strong font-medium text-lg mt-3">{{ tomorrow_hook.message }}</p>
   </div>
 </section>
@@ -379,7 +409,7 @@
 {# ── Fale com a gente — CTA WhatsApp (complemento ao rodapé institucional) ── #}
 {% if storefront.whatsapp_url %}
 {% omotenashi 'HOME_WHATSAPP_CTA' as whatsapp_cta %}
-<section class="relative overflow-hidden mt-6 md:mt-10 md:rounded-2xl md:mx-auto md:max-w-5xl">
+<section id="home-whatsapp-cta" class="relative -mx-4 mt-6 overflow-hidden md:mx-auto md:mt-10 md:max-w-5xl md:rounded-2xl">
   <img src="https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=1600&q=80"
        alt="" loading="lazy" class="absolute inset-0 w-full h-full object-cover">
   <div class="absolute inset-0 bg-gradient-to-br from-black/70 via-black/50 to-black/30"></div>
@@ -395,7 +425,7 @@
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5 shrink-0" aria-hidden="true">
         <path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.524 3.659 1.435 5.168L2 22l4.968-1.41A9.952 9.952 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.946 7.946 0 01-4.073-1.117l-.291-.174-3.027.86.875-2.944-.19-.302A7.951 7.951 0 014 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8zm4.406-5.918c-.242-.121-1.432-.706-1.655-.787-.222-.08-.384-.121-.545.121-.162.242-.625.787-.767.949-.14.162-.282.182-.524.061-.242-.121-1.022-.376-1.947-1.199-.72-.64-1.205-1.432-1.347-1.674-.14-.242-.015-.373.106-.494.108-.109.242-.282.363-.424.121-.141.162-.242.242-.404.081-.162.04-.303-.02-.424-.061-.121-.545-1.317-.747-1.803-.196-.471-.397-.406-.545-.414-.14-.007-.302-.009-.464-.009-.162 0-.424.06-.646.302-.222.242-.848.829-.848 2.02 0 1.192.868 2.344.988 2.506.121.162 1.708 2.607 4.138 3.654.578.249 1.03.398 1.382.51.58.184 1.108.158 1.525.096.465-.069 1.432-.586 1.634-1.151.2-.566.2-1.051.14-1.151-.06-.1-.222-.162-.464-.283z"/>
       </svg>
-      Falar pelo WhatsApp
+      {{ home_whatsapp_cta_label.title }}
     </a>
   </div>
 </section>

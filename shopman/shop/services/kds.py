@@ -1,8 +1,8 @@
 """
 KDS (Kitchen Display System) dispatch service.
 
-Bridge: KDS is reactive to Order.status (unidirecional Order→KDS):
-- dispatch()         — cria tickets quando Order entra em PREPARING
+Bridge: KDS is reactive to the order lifecycle (unidirecional Order→KDS):
+- dispatch()         — cria tickets quando o trabalho físico é liberado; o lifecycle grava PREPARING em seguida
 - cancel_tickets()   — cancela tickets abertos quando Order é CANCELLED
 - on_all_tickets_done() — transiciona Order para READY quando todos os tickets concluídos
 
@@ -22,6 +22,8 @@ from collections import defaultdict
 
 from django.utils import timezone
 from shopman.orderman.models import Order
+
+from shopman.shop.services.order_helpers import get_fulfillment_type
 
 logger = logging.getLogger(__name__)
 
@@ -248,6 +250,9 @@ def on_all_tickets_done(order, *, actor: str = "kds.all_done") -> bool:
 
     if order.status == Order.Status.READY:
         return False
+    if order.status == Order.Status.CONFIRMED:
+        if not _ensure_order_preparing_for_work(order, actor=actor):
+            return False
     if not order.can_transition_to(Order.Status.READY):
         return False
 
@@ -268,14 +273,13 @@ def toggle_ticket_item(ticket, *, index: int, actor: str) -> bool:
 
     ticket.save(update_fields=["items", "status"])
 
-    order = ticket.order
-    if order.status == Order.Status.CONFIRMED and order.can_transition_to(Order.Status.PREPARING):
-        order.transition_status(Order.Status.PREPARING, actor=actor)
+    _ensure_order_preparing_for_work(ticket.order, actor=actor)
     return True
 
 
 def complete_ticket(ticket, *, actor: str) -> bool:
     """Mark a KDS ticket done and move the order to ready when all tickets finish."""
+    _ensure_order_preparing_for_work(ticket.order, actor=actor)
     for item in ticket.items:
         item["checked"] = True
     ticket.status = "done"
@@ -288,6 +292,12 @@ def complete_ticket(ticket, *, actor: str) -> bool:
 
 def expedition_action(order, *, action: str, actor: str) -> str:
     """Apply an expedition action and return the new order status."""
+    is_delivery = get_fulfillment_type(order) == "delivery"
+    if action == "dispatch" and not is_delivery:
+        raise ValueError("Pedido de retirada não pode ser despachado")
+    if action == "complete" and order.status == Order.Status.READY and is_delivery:
+        raise ValueError("Pedido de delivery precisa ser despachado antes de concluir")
+
     transitions = {
         "dispatch": Order.Status.DISPATCHED,
         "complete": Order.Status.COMPLETED,
@@ -306,3 +316,26 @@ def expedition_action_by_order_id(order_id: int, *, action: str, actor: str) -> 
     if order is None:
         raise ValueError("Pedido não encontrado")
     return expedition_action(order, action=action, actor=actor)
+
+
+def _payment_allows_physical_work(order) -> bool:
+    payment = (order.data or {}).get("payment") or {}
+    method = str(payment.get("method") or "").lower()
+    if method not in {"pix", "card"}:
+        return True
+    from shopman.shop.services import payment as payment_service
+
+    return payment_service.has_sufficient_captured_payment(order) is True
+
+
+def _ensure_order_preparing_for_work(order, *, actor: str) -> bool:
+    if order.status == Order.Status.PREPARING:
+        return True
+    if order.status != Order.Status.CONFIRMED:
+        return False
+    if not order.can_transition_to(Order.Status.PREPARING):
+        return False
+    if not _payment_allows_physical_work(order):
+        return False
+    order.transition_status(Order.Status.PREPARING, actor=actor)
+    return True

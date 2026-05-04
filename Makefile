@@ -3,19 +3,19 @@
 # Uso rápido:
 #   make test        → roda todos os testes
 #   make test-utils  → roda testes do utils
+#   make admin       → valida tudo de Admin/Unfold
 #   make install     → instala deps + apps em modo editável
 
 # Python: usa venv se existir, senão o do PATH
 PYTHON := $(shell [ -f .venv/bin/python ] && echo $(CURDIR)/.venv/bin/python || echo python)
+ADMIN_URL := $(strip $(or $(url),$(URL)))
+ADMIN_SCOPE_ARGS := $(if $(ADMIN_URL),--url $(ADMIN_URL),)
 
-# Python: usa venv se existir, senao o do PATH
-PYTHON := $(shell [ -f .venv/bin/python ] && echo $(CURDIR)/.venv/bin/python || echo python)
-
-.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework test-coverage lint lint-unfold lint-unfold-maturity clean migrate run dev seed coverage css css-watch fonts up down logs db-shell
+.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework test-coverage lint omotenashi-lint omotenashi-audit admin admin-update admin-ui admin-ui-ci admin-ui-maturity admin-ui-strict admin-ui-surfaces admin-ui-test admin-ui-update unfold unfold-ci unfold-maturity unfold-strict unfold-surfaces unfold-update lint-unfold lint-unfold-maturity clean migrate run dev seed coverage css css-watch fonts up down logs db-shell
 
 help: ## Mostra este help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-18s\033[0m %s\n", $$1, $$2}'
+		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-22s\033[0m %s\n", $$1, $$2}'
 
 # ── Setup ─────────────────────────────────────────────────────────────
 
@@ -24,7 +24,7 @@ install: ## Instala deps + apps da suite em modo editável
 	$(PYTHON) -m pip install Django "djangorestframework>=3.15" "django-filter" \
 		"django-csp>=4.0,<5.0" \
 		"django-ratelimit>=4.1,<5.0" \
-		"django-redis>=5.4,<6.0" \
+		"redis>=5.0,<8.0" \
 		"psycopg[binary]>=3.2,<4.0" \
 		phonenumbers pytest pytest-django
 	# Instala cada app em modo editável
@@ -175,17 +175,63 @@ coverage: ## Roda testes do framework com cobertura
 	$(PYTHON) -m pytest --cov --cov-report=term-missing --cov-report=html:htmlcov -q
 	@echo "✓ Relatório HTML em htmlcov/index.html"
 
-lint: ## Ruff check
+lint: admin ## Ruff + Admin/Unfold
 	ruff check packages/ shopman/shop/ config/
 
-lint-unfold: ## Gate de canonicidade para telas Admin/Unfold
+omotenashi-lint: ## Gate CI: copy crítica do storefront precisa vir de Omotenashi
+	$(PYTHON) scripts/lint_omotenashi_copy.py --critical --error
+
+omotenashi-audit: ## Auditoria ampla: lista copy visível ainda não migrada
+	$(PYTHON) scripts/lint_omotenashi_copy.py
+
+admin: ## Admin: valida tudo de Admin/Unfold
+	$(PYTHON) scripts/check_unfold_canonical.py --maturity $(ADMIN_SCOPE_ARGS)
+ifneq ($(ADMIN_URL),)
+	@echo "✓ Admin canônico ($(ADMIN_URL))"
+else
+	$(PYTHON) -m pytest shopman/backstage/tests/test_unfold_canonical_templates.py shopman/backstage/tests/test_admin_operational_integration.py -q
+	@echo "✓ Admin canônico"
+endif
+
+admin-update:
+	$(PYTHON) scripts/snapshot_unfold_reference.py
 	$(PYTHON) scripts/check_unfold_canonical.py
 
-lint-unfold-maturity: ## Auditoria estrita antes de declarar tela Admin/Unfold madura
+admin-ui: admin
+
+admin-ui-surfaces:
+	$(PYTHON) scripts/check_unfold_canonical.py --surfaces
+
+admin-ui-maturity:
 	$(PYTHON) scripts/check_unfold_canonical.py --maturity
 
+admin-ui-strict: admin-ui-maturity
+
+admin-ui-test: admin
+
+admin-ui-ci: admin
+
+admin-ui-update: admin-update
+
+unfold: admin
+
+unfold-ci: admin
+
+unfold-maturity: admin-ui-maturity
+
+unfold-strict: admin-ui-strict
+
+unfold-surfaces: admin-ui-surfaces
+
+unfold-update: admin-update
+
+lint-unfold: admin
+
+lint-unfold-maturity: admin-ui-maturity
+
 clean: ## Remove caches
-	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-	find . -type f -name "*.pyc" -delete 2>/dev/null || true
-	find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
+	find . \( -path ./.git -o -path ./.venv -o -path ./node_modules \) -prune -o -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	find . \( -path ./.git -o -path ./.venv -o -path ./node_modules \) -prune -o -type f -name "*.pyc" -delete 2>/dev/null || true
+	find . \( -path ./.git -o -path ./.venv -o -path ./node_modules \) -prune -o -type d \( -name ".pytest_cache" -o -name ".ruff_cache" -o -name "*.egg-info" \) -exec rm -rf {} + 2>/dev/null || true
+	find . \( -path ./.git -o -path ./.venv -o -path ./node_modules \) -prune -o -type f -name ".DS_Store" -delete 2>/dev/null || true
 	@echo "✓ Caches limpos"

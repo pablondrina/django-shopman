@@ -105,6 +105,23 @@ def test_delivery_complete_lifecycle(delivery_order):
     assert o.status == Order.Status.COMPLETED
 
 
+@pytest.mark.django_db
+def test_delivery_cannot_complete_directly_from_ready(delivery_order):
+    """Delivery ready means awaiting collection, not completed/delivered."""
+    o = delivery_order
+    o.transition_status(Order.Status.CONFIRMED, actor="test")
+    o.transition_status(Order.Status.PREPARING, actor="test")
+    o.transition_status(Order.Status.READY, actor="test")
+
+    with pytest.raises(InvalidTransition) as exc_info:
+        o.transition_status(Order.Status.COMPLETED, actor="test")
+
+    assert exc_info.value.code == "delivery_requires_dispatch_before_completion"
+    o.refresh_from_db()
+    assert o.status == Order.Status.READY
+    assert o.completed_at is None
+
+
 # ── Cancellation with KDS cleanup ───────────────────────────────────────────
 
 

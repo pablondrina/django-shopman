@@ -150,6 +150,11 @@ DOORMAN = {
     "PRESERVE_SESSION_KEYS": ["cart_session_key"],
     "DEFAULT_DOMAIN": os.environ.get("AUTH_DEFAULT_DOMAIN", "localhost:8000"),
     "USE_HTTPS": not DEBUG,
+    "ACCESS_LINK_API_KEY": os.environ.get("DOORMAN_ACCESS_LINK_API_KEY", ""),
+    "MESSAGE_SENDER_CLASS": os.environ.get(
+        "DOORMAN_MESSAGE_SENDER_CLASS",
+        "shopman.doorman.senders.ConsoleSender",
+    ),
     "CUSTOMER_RESOLVER_CLASS": os.environ.get(
         "DOORMAN_CUSTOMER_RESOLVER_CLASS",
         "shopman.guestman.adapters.auth.CustomerResolver",
@@ -215,15 +220,36 @@ else:
 # Produção: defina REDIS_URL (ex.: redis://127.0.0.1:6379/1).
 _redis_url = os.environ.get("REDIS_URL", "").strip()
 if _redis_url:
+    _redis_parsed = _urlparse.urlparse(_redis_url)
+    _redis_db = int((_redis_parsed.path or "/0").lstrip("/") or "0")
+    _redis_kwargs = {
+        "host": _redis_parsed.hostname or "localhost",
+        "port": _redis_parsed.port or 6379,
+        "db": _redis_db,
+    }
+    if _redis_parsed.username:
+        _redis_kwargs["username"] = _urlparse.unquote(_redis_parsed.username)
+    if _redis_parsed.password:
+        _redis_kwargs["password"] = _urlparse.unquote(_redis_parsed.password)
+    if _redis_parsed.scheme == "rediss":
+        _redis_kwargs["ssl"] = True
+
     CACHES = {
         "default": {
-            "BACKEND": "django_redis.cache.RedisCache",
+            # Native Django Redis backend keeps the runtime aligned with
+            # Django 6. django-ratelimit 4.1 has a stale allowlist and emits
+            # W001 for this backend, silenced below after our own Redis check.
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
             "LOCATION": _redis_url,
-            "OPTIONS": {
-                "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            },
         }
     }
+    SILENCED_SYSTEM_CHECKS = [
+        *globals().get("SILENCED_SYSTEM_CHECKS", []),
+        "django_ratelimit.W001",
+    ]
+    # django-eventstream uses this setting for multiprocess fanout: send_event
+    # publishes to Redis and every Daphne/ASGI worker wakes its local listeners.
+    EVENTSTREAM_REDIS = _redis_kwargs
 else:
     CACHES = {
         "default": {
@@ -377,8 +403,11 @@ UNFOLD = {
         {
             "models": ["craftsman.recipe", "craftsman.workorder"],
             "items": [
-                {"title": "Receitas", "link": reverse_lazy("admin:craftsman_recipe_changelist")},
-                {"title": "Ordens de Producao", "link": reverse_lazy("admin:craftsman_workorder_changelist")},
+                {"title": "Painel", "link": reverse_lazy("admin_console_production_dashboard")},
+                {"title": "Planejamento", "link": reverse_lazy("admin_console_production_planning")},
+                {"title": "Produção", "link": reverse_lazy("admin_console_production")},
+                {"title": "Fichas técnicas", "link": reverse_lazy("admin:craftsman_recipe_changelist")},
+                {"title": "Relatórios", "link": reverse_lazy("admin_console_production_reports")},
             ],
         },
         {
@@ -430,6 +459,26 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "API do Django Shopman — commerce suite modular.",
     "VERSION": "0.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    "ENUM_NAME_OVERRIDES": {
+        "GuestmanCustomerTypeEnum": [
+            ("individual", "Pessoa Física"),
+            ("business", "Pessoa Jurídica"),
+        ],
+        "CraftsmanWorkOrderStatusEnum": [
+            ("planned", "Planejada"),
+            ("started", "Iniciada"),
+            ("finished", "Concluída"),
+            ("void", "Cancelada"),
+        ],
+        "PaymanPaymentIntentStatusEnum": [
+            ("pending", "Pendente"),
+            ("authorized", "Autorizado"),
+            ("captured", "Capturado"),
+            ("failed", "Falhou"),
+            ("cancelled", "Cancelado"),
+            ("refunded", "Reembolsado"),
+        ],
+    },
 }
 
 # ── Logging ────────────────────────────────────────────────────────────
@@ -504,8 +553,9 @@ SHOPMAN_PAYMENT_ADAPTERS = {
 SHOPMAN_NOTIFICATION_ADAPTERS = {
     "manychat": "shopman.shop.adapters.notification_manychat",
     "email": "shopman.shop.adapters.notification_email",
-    "console": "shopman.shop.adapters.notification_console",
 }
+if DEBUG or os.environ.get("SHOPMAN_ENABLE_CONSOLE_NOTIFICATION_ADAPTER", "").lower() in ("true", "1", "yes"):
+    SHOPMAN_NOTIFICATION_ADAPTERS["console"] = "shopman.shop.adapters.notification_console"
 
 SHOPMAN_STOCK_ADAPTER = "shopman.shop.adapters.stock"
 
@@ -560,10 +610,9 @@ SHOPMAN_EFI_WEBHOOK = {
 }
 
 # ── Server-Sent Events (django-eventstream) ──────────────────────────
-# Persistence backend for SSE events. The ORM backend is sufficient for a
-# single-process deployment (daphne running standalone). When scaling out to
-# multiple workers, additionally set ``EVENTSTREAM_REDIS = {"host": ..., ...}``
-# so ``send_event`` from any worker reaches every active SSE listener.
+# Persistence backend for SSE events. The ORM backend stores reliable event ids.
+# When REDIS_URL is set, EVENTSTREAM_REDIS is derived above so send_event from
+# any process reaches every active SSE listener across Daphne/ASGI workers.
 EVENTSTREAM_STORAGE_CLASS = "django_eventstream.storage.DjangoModelStorage"
 
 ASGI_APPLICATION = "config.asgi.application"
@@ -645,6 +694,10 @@ LOGGING = {
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+SECURE_SSL_REDIRECT = os.environ.get(
+    "DJANGO_SECURE_SSL_REDIRECT",
+    "true" if not DEBUG else "false",
+).lower() in ("true", "1", "yes")
 
 # Content Security Policy (django-csp v4 format)
 # CDN audit:

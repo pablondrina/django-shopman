@@ -13,15 +13,24 @@ class PaymentView(View):
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
         order = order_service.get_order(ref)
+        order_service.resolve_payment_timeout_if_due(order)
 
-        if order_service.payment_status(order) == "captured":
-            return redirect("storefront:order_tracking", ref=ref)
         if order_service.is_cancelled(order):
+            return redirect("storefront:order_tracking", ref=ref)
+        if order_service.payment_is_sufficient(order):
+            return redirect("storefront:order_tracking", ref=ref)
+
+        intent_ready = order_service.ensure_payment_intent(order)
+        if order_service.payment_is_sufficient(order):
             return redirect("storefront:order_tracking", ref=ref)
 
         from shopman.storefront.projections import build_payment
 
         proj = build_payment(order)
+        if not intent_ready and _is_digital_payment(order) and order.status == "confirmed":
+            return render(request, "storefront/payment.html", {"payment": proj})
+        if not intent_ready:
+            return redirect("storefront:order_tracking", ref=ref)
         return render(request, "storefront/payment.html", {"payment": proj})
 
 
@@ -30,6 +39,7 @@ class PaymentStatusView(View):
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
         order = order_service.get_order(ref)
+        order_service.resolve_payment_timeout_if_due(order)
 
         from shopman.storefront.projections import build_payment_status
 
@@ -54,7 +64,21 @@ class MockPaymentConfirmView(View):
             raise Http404
 
         order = order_service.get_order(ref)
+        order_service.resolve_payment_timeout_if_due(order)
 
-        order_service.mock_confirm_payment(order)
+        if order_service.payment_is_sufficient(order):
+            return redirect("storefront:order_tracking", ref=ref)
+
+        if not order_service.ensure_payment_intent(order):
+            if _is_digital_payment(order) and order.status == "confirmed":
+                return redirect("storefront:order_payment", ref=ref)
+            return redirect("storefront:order_tracking", ref=ref)
+        if not order_service.mock_confirm_payment(order):
+            return redirect("storefront:order_payment", ref=ref)
 
         return redirect("storefront:order_tracking", ref=ref)
+
+
+def _is_digital_payment(order) -> bool:
+    payment = (order.data or {}).get("payment") or {}
+    return str(payment.get("method") or "").lower() in {"pix", "card"}

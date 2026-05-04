@@ -16,9 +16,17 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 MESSAGE_TEMPLATES: dict[str, str] = {
+    "order_received": (
+        "Ola{customer_name_greeting}! Recebemos seu pedido {order_ref}. "
+        "O estabelecimento vai conferir a disponibilidade. Acompanhe: {tracking_url}"
+    ),
     "order_confirmed": (
         "Ola{customer_name_greeting}! Seu pedido {order_ref} foi confirmado."
         " Total: {total}. Obrigado pela preferencia! \U0001f950{tracking_suffix}"
+    ),
+    "order_preparing": (
+        "Ola{customer_name_greeting}! Seu pedido {order_ref} esta em preparo."
+        "{tracking_suffix}"
     ),
     "order_ready_pickup": (
         "Ola{customer_name_greeting}! Seu pedido {order_ref} esta pronto"
@@ -38,8 +46,17 @@ MESSAGE_TEMPLATES: dict[str, str] = {
     "order_cancelled": (
         "Seu pedido {order_ref} foi cancelado. Qualquer duvida, estamos aqui."
     ),
+    "order_rejected": (
+        "Seu pedido {order_ref} nao pode ser confirmado pelo estabelecimento. "
+        "Motivo: {reason}. Se precisar de ajuda, estamos aqui."
+    ),
     "payment_confirmed": (
-        "Ola{customer_name_greeting}! Pagamento do pedido {order_ref} confirmado! \u2705"
+        "Ola{customer_name_greeting}! Pagamento do pedido {order_ref} recebido. "
+        "Seu pedido seguira para preparo."
+    ),
+    "payment_requested": (
+        "Ola{customer_name_greeting}! Conferimos a disponibilidade do pedido {order_ref}. "
+        "Agora falta o pagamento. Acesse: {payment_url}{pix_suffix}"
     ),
     "payment_reminder": (
         "Ola{customer_name_greeting}! Seu pedido {order_ref} aguarda"
@@ -48,6 +65,10 @@ MESSAGE_TEMPLATES: dict[str, str] = {
     "payment_expired": (
         "Seu pedido {order_ref} foi cancelado pois o pagamento PIX"
         " nao foi confirmado a tempo."
+    ),
+    "payment_failed": (
+        "Nao conseguimos preparar o pagamento do pedido {order_ref}. "
+        "Abra o link do pedido para tentar novamente: {payment_url}"
     ),
 }
 

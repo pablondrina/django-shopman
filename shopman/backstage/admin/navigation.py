@@ -22,7 +22,7 @@ def get_sidebar_navigation(request):
             _item(
                 "Pedidos",
                 "receipt_long",
-                _url("backstage:gestor_pedidos"),
+                _url("admin_console_orders"),
                 permission=_can_manage_orders,
                 badge="shopman.backstage.admin.navigation.badge_new_orders",
                 badge_variant="warning",
@@ -30,7 +30,7 @@ def get_sidebar_navigation(request):
             _item(
                 "Produção",
                 "manufacturing",
-                _url("backstage:production"),
+                _url("admin_console_production"),
                 permission=_can_access_production,
                 badge="shopman.backstage.admin.navigation.badge_started_work_orders",
                 badge_variant="info",
@@ -38,7 +38,7 @@ def get_sidebar_navigation(request):
             _item(
                 "Fechamento",
                 "fact_check",
-                _url("backstage:day_closing"),
+                _url("admin_console_day_closing"),
                 permission=_can_close_day,
             ),
             _item(
@@ -50,7 +50,7 @@ def get_sidebar_navigation(request):
             _item(
                 "KDS",
                 "tv",
-                _url("backstage:kds_index"),
+                _url("admin_console_kds"),
                 permission=_can_operate_kds,
             ),
             _item(
@@ -64,17 +64,18 @@ def get_sidebar_navigation(request):
             ),
         ], collapsible=False),
         _group("Pedidos e canais", "hub", [
-            _item("Pedidos (Admin)", "assignment", _url("admin:orderman_order_changelist") + "?status__exact=new", permission=_can_manage_orders),
+            _item("Histórico de pedidos", "assignment", _url("admin:orderman_order_changelist"), permission=_can_manage_orders),
             _item("Sessões abertas", "shopping_bag", _url("admin:orderman_session_changelist") + "?state__exact=open", permission=_can_manage_orders),
             _item("Diretivas pendentes", "playlist_add_check", _url("admin:orderman_directive_changelist") + "?status__exact=queued", permission=_can_manage_orders),
+            _item("POS tabs", "confirmation_number", _url("admin:backstage_postab_changelist"), permission=_can_operate_pos),
             _item("Canais", "storefront", _url("admin:shop_channel_changelist"), permission=_is_staff),
         ]),
         _group("Produção", "factory", [
-            _item("Painel Admin (piloto)", "dashboard_customize", _url("admin_console_production"), permission=_can_access_production),
-            _item("Ordens de Produção", "manufacturing", _url("admin:craftsman_workorder_changelist"), permission=_can_access_production),
-            _item("Receitas", "menu_book", _url("admin:craftsman_recipe_changelist"), permission=_can_access_production),
-            _item("Relatórios", "table_chart", _url("backstage:production_reports"), permission=_can_view_production_reports),
-            _item("Dashboard", "monitoring", _url("backstage:production_dashboard"), permission=_can_access_production),
+            _item("Painel", "monitoring", _url("admin_console_production_dashboard"), permission=_can_access_production),
+            _item("Planejamento", "edit_calendar", _url("admin_console_production_planning"), permission=_can_access_production),
+            _item("Produção", "manufacturing", _url("admin_console_production"), permission=_can_access_production),
+            _item("Fichas técnicas", "menu_book", _url("admin:craftsman_recipe_changelist"), permission=_can_access_production),
+            _item("Relatórios", "table_chart", _url("admin_console_production_reports"), permission=_can_view_production_reports),
         ]),
         _group("Estoque", "inventory_2", [
             _item("Saldos", "point_scan", _url("admin:stockman_quant_changelist"), permission=_is_staff),

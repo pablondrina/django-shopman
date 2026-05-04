@@ -1,0 +1,68 @@
+{% extends "admin/base.html" %}
+{% load i18n unfold %}
+
+{% block title %}Pedido #{{ order_detail.ref }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block content %}
+{% include "unfold/helpers/messages.html" %}
+<main id="order-detail-main" role="main">
+{% component "unfold/components/container.html" %}
+  <div class="flex flex-col gap-6">
+    <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      <div class="flex flex-col gap-1">
+        {% component "unfold/components/title.html" %}
+          Pedido #{{ order_detail.ref }}
+        {% endcomponent %}
+        {% component "unfold/components/text.html" with class="text-base-500" %}
+          {{ order_detail.customer_name|default:"Cliente nao informado" }} · {{ order_detail.total_display }}
+        {% endcomponent %}
+      </div>
+      <div class="flex flex-wrap gap-2 lg:ml-auto lg:justify-end">
+        {% component "unfold/components/button.html" with href=order_console_url variant="default" size="sm" icon="arrow_back" %}
+          Pedidos
+        {% endcomponent %}
+        {% component "unfold/components/button.html" with href=order_admin_url variant="default" size="sm" icon="manage_search" %}
+          Admin
+        {% endcomponent %}
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-3">
+      {% component "unfold/components/title.html" with class="text-lg" %}
+        Acao operacional
+      {% endcomponent %}
+      {{ order_actions_cell }}
+    </div>
+
+    <div class="flex flex-col gap-2">
+      {% component "unfold/components/title.html" with class="text-lg" %}
+        Itens
+      {% endcomponent %}
+      {% component "unfold/components/table.html" with table=order_items_table striped=1 %}{% endcomponent %}
+    </div>
+
+    <form method="post" class="flex flex-col gap-4">
+      {% csrf_token %}
+      {% for field in order_notes_fields %}
+        {% include "unfold/helpers/field.html" with field=field %}
+      {% endfor %}
+      <div class="flex flex-wrap gap-2">
+        {% component "unfold/components/button.html" with submit=1 variant="primary" size="sm" icon="save" %}
+          Salvar notas
+        {% endcomponent %}
+        {% component "unfold/components/button.html" with href=order_reject_url variant="danger" size="sm" icon="block" %}
+          Rejeitar
+        {% endcomponent %}
+      </div>
+    </form>
+
+    <div class="flex flex-col gap-2">
+      {% component "unfold/components/title.html" with class="text-lg" %}
+        Linha do tempo
+      {% endcomponent %}
+      {% component "unfold/components/table.html" with table=order_timeline_table striped=1 %}{% endcomponent %}
+    </div>
+  </div>
+{% endcomponent %}
+</main>
+{% endblock %}

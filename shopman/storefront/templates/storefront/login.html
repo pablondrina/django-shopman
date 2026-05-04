@@ -12,6 +12,13 @@
 {% omotenashi 'LOGIN_NAME_HEADING' as login_name_heading %}
 {% omotenashi 'LOGIN_NAME_SUBTITLE' as login_name_subtitle %}
 {% omotenashi 'LOGIN_NAME_CTA' as login_name_cta %}
+{% omotenashi 'LOGIN_TRUSTED_DEVICE_MESSAGE' as trusted_device_message %}
+{% omotenashi 'LOGIN_TRUSTED_DEVICE_CTA' as trusted_device_cta %}
+{% omotenashi 'LOGIN_TRUSTED_OTHER_PHONE' as trusted_other_phone %}
+{% omotenashi 'LOGIN_NO_PASSWORD_NOTE' as login_no_password_note %}
+{% omotenashi 'LOGIN_CHANGE_PHONE_TITLE' as change_phone_title %}
+{% omotenashi 'LOGIN_CHANGE_PHONE_MESSAGE' as change_phone_message %}
+{% omotenashi 'LOGIN_CHANGE_PHONE_CTA' as change_phone_cta %}
 
 <div class="relative left-1/2 w-screen -translate-x-1/2 -my-6 overflow-hidden bg-black"
      x-data="{ showChangePhoneConfirm: false }">
@@ -84,7 +91,7 @@
     {% comment %}── Dispositivo confiável: botão de skip-OTP + resultado inline ──{% endcomment %}
     <div id="trusted-device-section" class="mb-6">
       <p class="mb-3 text-sm text-on-surface/85 dark:text-on-surface-dark/70">
-        Este aparelho já foi confirmado. Se quiser, entre direto.
+        {{ trusted_device_message.message }}
       </p>
       <button type="button"
               hx-post="{% url 'storefront:device_check_login' %}"
@@ -95,10 +102,10 @@
               style="min-height: 52px;"
               class="flex w-full items-center justify-center gap-2 rounded-radius border-2 border-primary bg-primary/5 px-4 py-3 text-sm font-medium text-primary transition hover:bg-primary/10 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:border-primary-dark dark:bg-primary-dark/10 dark:text-primary-dark dark:hover:bg-primary-dark/15 dark:focus-visible:outline-primary-dark">
         <span class="material-symbols-rounded icon-md" aria-hidden="true">verified_user</span>
-        Entrar sem código
+        {{ trusted_device_cta.title }}
       </button>
       <p class="mt-4 text-center text-xs text-on-surface/85 dark:text-on-surface-dark/60">
-        Ou confirme outro telefone abaixo.
+        {{ trusted_other_phone.message }}
       </p>
     </div>
     {% endif %}
@@ -189,7 +196,7 @@
 
       <p class="flex items-center justify-center gap-1.5 text-xs text-on-surface/85 dark:text-on-surface-dark/60">
         <span class="material-symbols-rounded icon-sm" aria-hidden="true">lock</span>
-        Código único. Não exige senha.
+        {{ login_no_password_note.message }}
       </p>
     </form>
 
@@ -383,10 +390,10 @@
         </div>
         <h3 id="change-phone-title"
             class="font-title text-xl font-semibold text-on-surface-strong dark:text-on-surface-dark-strong mb-2">
-          Trocar de telefone?
+          {{ change_phone_title.title }}
         </h3>
         <p class="text-base text-on-surface/85 dark:text-on-surface-dark/70 mb-6">
-          Ao trocar, o código enviado deixa de valer. Você recebe outro em seguida.
+          {{ change_phone_message.message }}
         </p>
         <div class="flex flex-col sm:flex-row-reverse gap-3">
           <a href="{% url 'storefront:login' %}{% if next %}?next={{ next|urlencode }}{% endif %}"
@@ -394,7 +401,7 @@
                     text-base font-semibold px-6 py-3 hover:opacity-90 transition"
              style="min-height: 48px;">
             <span class="material-symbols-rounded icon-sm" aria-hidden="true">autorenew</span>
-            Trocar telefone
+            {{ change_phone_cta.title }}
           </a>
           <button type="button" @click="showChangePhoneConfirm = false"
                   class="flex-1 rounded-radius border-2 border-outline dark:border-outline-dark

@@ -2,7 +2,7 @@
 
 Translates saleable stock, product classifications, and closing history into
 immutable projections. Replaces the inline ``_build_items`` / ``_has_old_d1_stock``
-logic from ``shopman.backstage.views.closing``.
+logic now consumed by ``shopman.backstage.admin_console.closing``.
 
 Never imports from ``shopman.backstage.views.*``.
 """

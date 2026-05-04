@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+import json
+from datetime import date, time, timedelta
+from urllib.parse import urlsplit
 from unittest.mock import patch
 
 import pytest
@@ -66,6 +68,63 @@ class TestCheckoutGet:
         resp = cart_session.get("/checkout/")
         assert resp.status_code == 200
 
+    def test_checkout_with_authenticated_customer_without_phone_requires_phone_gate(self, cart_session):
+        """Instagram-origin customers without phone must verify phone before checkout."""
+        from shopman.guestman.models import Customer
+
+        customer = Customer.objects.create(
+            ref="WEB-IG-NOPHONE",
+            first_name="Diofer",
+            last_name="Ilgo",
+        )
+        _login_as_customer(cart_session, customer)
+
+        resp = cart_session.get("/checkout/")
+
+        assert resp.status_code == 302
+        assert resp.url == "/login/?next=/checkout/"
+
+        login_resp = cart_session.get(resp.url)
+        assert login_resp.status_code == 200
+        body = login_resp.content.decode("utf-8")
+        assert 'name="phone"' in body
+
+    def test_checkout_prefills_phone_after_manychat_access_link(self, cart_session):
+        """ManyChat access-link identity must survive until checkout."""
+        from shopman.guestman.models import Customer
+
+        customer = Customer.objects.create(
+            ref="WEB-ACCESS-MC",
+            first_name="Pablo",
+            last_name="Valentini",
+        )
+        create_resp = cart_session.post(
+            "/api/auth/access/create/",
+            data=json.dumps({
+                "customer_id": str(customer.uuid),
+                "whatsapp_id": "43984049009",
+                "first_name": "Pablo",
+                "last_name": "Valentini",
+                "manychat_id": "4605528796186498",
+                "source": "manychat",
+                "next": "/checkout/",
+            }),
+            content_type="application/json",
+        )
+        assert create_resp.status_code == 200
+
+        access_url = create_resp.json()["access_url"]
+        entry = urlsplit(access_url)
+        entry_resp = cart_session.get(f"{entry.path}?{entry.query}")
+        assert entry_resp.status_code == 302
+        assert entry_resp.url == "/checkout/"
+
+        resp = cart_session.get("/checkout/")
+        assert resp.status_code == 200
+        body = resp.content.decode("utf-8")
+        assert 'name="phone" value="+5543984049009"' in body
+        assert "Telefone é obrigatório" not in body
+
     def test_checkout_renders_address_picker(self, cart_session, customer):
         """Checkout page must embed the new iFood-style address picker."""
         _login_as_customer(cart_session, customer)
@@ -76,6 +135,18 @@ class TestCheckoutGet:
         assert "addressPicker(" in body
         assert "reverseGeocodeUrl" in body
         assert "Usar minha localiza" in body
+
+    def test_pickup_slot_defaults_to_current_slot_after_15h(self, cart_session, customer):
+        _login_as_customer(cart_session, customer)
+
+        with patch("shopman.storefront.services.pickup_slots._wall_clock", return_value=time(15, 1)):
+            resp = cart_session.get("/checkout/?step=when")
+
+        assert resp.status_code == 200
+        body = resp.content.decode("utf-8")
+        assert "deliverySlot: 'slot-15'" in body
+        assert "normalizeDeliverySlot" in body
+        assert 'value="slot-15"' in body
 
 
 # ── CheckoutView POST ─────────────────────────────────────────────────

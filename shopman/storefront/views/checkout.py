@@ -35,6 +35,8 @@ class CheckoutView(View):
         customer_info = getattr(request, "customer", None)
         if customer_info is None:
             return redirect("/login/?next=/checkout/")
+        if not customer_info.phone:
+            return redirect("/login/?next=/checkout/")
 
         from shopman.storefront.projections import build_checkout
         checkout = build_checkout(request=request, channel_ref=CHANNEL_REF)
@@ -106,6 +108,8 @@ class CheckoutView(View):
                     return redirect("storefront:order_tracking", ref=order_ref)
             except Exception:
                 logger.exception("payment_check_failed for order %s", order_ref)
+            if intent.payment_method == "pix" and _starts_payment_after_store_confirmation(intent.channel_ref):
+                return redirect("storefront:order_tracking", ref=order_ref)
             return redirect("storefront:order_payment", ref=order_ref)
         return redirect("storefront:order_tracking", ref=order_ref)
 
@@ -157,6 +161,16 @@ class CheckoutView(View):
             )
         except Exception:
             logger.exception("save_checkout_defaults_failed order=%s", order_ref)
+
+
+def _starts_payment_after_store_confirmation(channel_ref: str) -> bool:
+    try:
+        from shopman.shop.config import ChannelConfig
+
+        return ChannelConfig.for_channel(channel_ref).payment.timing == "post_commit"
+    except Exception:
+        logger.warning("payment_timing_lookup_failed channel=%s", channel_ref, exc_info=True)
+        return False
 
 
 class CheckoutOrderSummaryView(View):

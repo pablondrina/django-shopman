@@ -27,6 +27,41 @@ class CustomerResolver:
         c = customer_service.get_by_uuid(str(uuid))
         return self._to_info(c) if c else None
 
+    def get_by_identifier(self, identifier_type: str, identifier_value: str) -> AuthCustomerInfo | None:
+        from shopman.guestman.contrib.identifiers.models import CustomerIdentifier
+
+        if not identifier_type or not identifier_value:
+            return None
+        ident = (
+            CustomerIdentifier.objects.select_related("customer")
+            .filter(identifier_type=identifier_type, identifier_value=str(identifier_value))
+            .first()
+        )
+        if not ident or not ident.customer.is_active:
+            return None
+        return self._to_info(ident.customer)
+
+    def upsert_access_link_customer(self, customer_id, payload: dict) -> AuthCustomerInfo | None:
+        c = customer_service.get_by_uuid(str(customer_id))
+        if not c:
+            return None
+
+        from shopman.guestman.contrib.manychat.service import ManychatService
+
+        source_system = "manychat" if payload.get("id") else "access_link"
+        c = ManychatService.sync_customer(c, payload, source_system=source_system)
+        if not c or not c.is_active:
+            return None
+        return self._to_info(c)
+
+    def upsert_manychat_subscriber(self, subscriber_data: dict) -> AuthCustomerInfo | None:
+        from shopman.guestman.contrib.manychat.service import ManychatService
+
+        customer, _created = ManychatService.sync_subscriber(subscriber_data)
+        if not customer or not customer.is_active:
+            return None
+        return self._to_info(customer)
+
     def create_for_phone(self, phone: str) -> AuthCustomerInfo:
         c = customer_service.create(
             ref=Customer.generate_ref(),

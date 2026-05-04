@@ -359,6 +359,185 @@ class TestAccessLinkCreateViewEdges:
         assert response.status_code == 404
 
     @override_settings(DOORMAN={"ACCESS_LINK_API_KEY": ""})
+    def test_create_returns_single_access_url(self, customer):
+        """API callers receive exactly the URL that should be sent to the customer."""
+        response = self._post_create({
+            "customer_id": str(customer.uuid),
+            "source": "manychat",
+            "next": "/pedido/ORD-123/",
+        })
+
+        assert response.status_code == 200
+        data = json.loads(response.content)
+        assert sorted(data) == ["access_url", "expires_at", "token"]
+        assert "/a/?t=" in data["access_url"]
+        assert "next=%2Fpedido%2FORD-123%2F" in data["access_url"]
+
+    @override_settings(DOORMAN={"ACCESS_LINK_API_KEY": ""})
+    def test_create_accepts_manychat_payload_with_next(self, customer):
+        """ManyChat callers identify customers by subscriber data, not internal UUID."""
+        captured = {}
+
+        class Resolver:
+            def upsert_manychat_subscriber(self, subscriber):
+                captured.update(subscriber)
+                return customer
+
+        with patch("shopman.doorman.views.access_link.get_customer_resolver", return_value=Resolver()):
+            response = self._post_create({
+                "whatsapp_id": "43984049009",
+                "first_name": "Pablo",
+                "last_name": "Valentini",
+                "manychat_id": "4605528796186498",
+                "next": "/menu/",
+            })
+
+        assert response.status_code == 200
+        data = json.loads(response.content)
+        assert captured == {
+            "id": "4605528796186498",
+            "whatsapp_id": "43984049009",
+            "first_name": "Pablo",
+            "last_name": "Valentini",
+        }
+        assert "/a/?t=" in data["access_url"]
+        assert "next=%2Fmenu%2F" in data["access_url"]
+
+    @override_settings(DOORMAN={"ACCESS_LINK_API_KEY": ""})
+    def test_create_with_customer_id_persists_manychat_contact_payload(self):
+        """Known access-link customers are enriched before the checkout session starts."""
+        from shopman.guestman.contrib.identifiers.models import CustomerIdentifier, IdentifierType
+        from shopman.guestman.models import ContactPoint, Customer
+
+        customer = Customer.objects.create(
+            ref="ACCESS-MC-001",
+            first_name="Pablo",
+            last_name="Valentini",
+        )
+
+        response = self._post_create({
+            "customer_id": str(customer.uuid),
+            "whatsapp_id": "43984049009",
+            "first_name": "Pablo",
+            "last_name": "Valentini",
+            "manychat_id": "4605528796186498",
+            "source": "manychat",
+            "next": "/checkout/",
+        })
+
+        assert response.status_code == 200
+        customer.refresh_from_db()
+        assert customer.phone == "+5543984049009"
+        assert ContactPoint.objects.filter(
+            customer=customer,
+            type=ContactPoint.Type.WHATSAPP,
+            value_normalized="+5543984049009",
+            is_verified=True,
+        ).exists()
+        assert CustomerIdentifier.objects.filter(
+            customer=customer,
+            identifier_type=IdentifierType.MANYCHAT,
+            identifier_value="4605528796186498",
+        ).exists()
+
+    @override_settings(DOORMAN={"ACCESS_LINK_API_KEY": ""})
+    def test_create_with_manychat_customer_id_rejects_missing_whatsapp_id(self):
+        """WhatsApp access links must not authenticate without whatsapp_id."""
+        from shopman.doorman.models import AccessLink
+        from shopman.guestman.models import Customer
+
+        customer = Customer.objects.create(
+            ref="ACCESS-MC-NOPHONE",
+            first_name="Diofer",
+            last_name="Ilgo",
+        )
+
+        response = self._post_create({
+            "customer_id": str(customer.uuid),
+            "first_name": "Diofer",
+            "last_name": "Ilgo",
+            "manychat_id": "1795248870",
+            "source": "manychat",
+            "next": "/checkout/",
+        })
+
+        assert response.status_code == 422
+        assert AccessLink.objects.count() == 0
+
+    @override_settings(DOORMAN={"ACCESS_LINK_API_KEY": ""})
+    def test_create_with_manychat_customer_id_rejects_phone_alias(self):
+        """ManyChat WhatsApp access links only accept the canonical whatsapp_id field."""
+        from shopman.doorman.models import AccessLink
+        from shopman.guestman.models import Customer
+
+        customer = Customer.objects.create(
+            ref="ACCESS-MC-PHONE-ALIAS",
+            first_name="Diofer",
+            last_name="Ilgo",
+        )
+
+        response = self._post_create({
+            "customer_id": str(customer.uuid),
+            "phone": "43984049009",
+            "first_name": "Diofer",
+            "manychat_id": "1795248870",
+            "source": "manychat",
+            "next": "/checkout/",
+        })
+
+        assert response.status_code == 422
+        assert AccessLink.objects.count() == 0
+
+    @override_settings(DOORMAN={"ACCESS_LINK_API_KEY": ""})
+    def test_create_with_instagram_manychat_customer_allows_missing_phone(self):
+        """Instagram-origin links may authenticate before phone capture."""
+        from shopman.guestman.models import Customer
+
+        customer = Customer.objects.create(
+            ref="ACCESS-IG-NOPHONE",
+            first_name="Diofer",
+            last_name="Ilgo",
+        )
+
+        response = self._post_create({
+            "customer_id": str(customer.uuid),
+            "first_name": "Diofer",
+            "last_name": "Ilgo",
+            "manychat_id": "ig-1795248870",
+            "source": "manychat",
+            "metadata": {"channel": "instagram"},
+            "next": "/menu/",
+        })
+
+        assert response.status_code == 200
+
+    @override_settings(DOORMAN={"ACCESS_LINK_API_KEY": ""})
+    def test_create_with_customer_id_rejects_phone_linked_to_other_customer(self):
+        """Access-link enrichment must not silently steal another customer's phone."""
+        from shopman.doorman.models import AccessLink
+        from shopman.guestman.models import Customer
+
+        target = Customer.objects.create(ref="ACCESS-MC-002", first_name="Pablo")
+        Customer.objects.create(
+            ref="ACCESS-MC-OTHER",
+            first_name="Outro",
+            phone="43984049009",
+        )
+
+        response = self._post_create({
+            "customer_id": str(target.uuid),
+            "whatsapp_id": "43984049009",
+            "manychat_id": "4605528796186498",
+            "source": "manychat",
+            "next": "/checkout/",
+        })
+
+        assert response.status_code == 409
+        target.refresh_from_db()
+        assert target.phone == ""
+        assert AccessLink.objects.count() == 0
+
+    @override_settings(DOORMAN={"ACCESS_LINK_API_KEY": ""})
     def test_create_customer_inactive(self, customer):
         """Inactive customer should return 400."""
         from shopman.doorman.protocols.customer import AuthCustomerInfo

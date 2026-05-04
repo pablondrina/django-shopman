@@ -101,8 +101,10 @@ storefront ──imports──→ shop ←──imports── backstage
 
 ## Admin/Unfold — Regra de Canonicidade
 
-Telas operacionais dentro do Admin usam o **Unfold Canonical Gate**. Antes de criar ou alterar
-`shopman/backstage/templates/admin_console/` ou `shopman/backstage/admin_console/`, leia:
+Telas operacionais dentro do Admin usam o **Unfold Canonical Gate**. Backstage novo deve nascer em
+Admin/Unfold por padrão; POS e Storefront são exceções explícitas. Antes de criar ou alterar
+`admin_console`, `shopman/backstage/admin/`, `contrib/admin_unfold` ou templates Admin de pacotes,
+leia:
 
 - `.codex/skills/unfold-admin-canonical/SKILL.md`
 - `docs/engineering/unfold_admin_page_playbook.md`
@@ -113,20 +115,36 @@ Regra curta: **widget/helper/componente canônico > classes copiadas**. Se exist
 use a primitiva. Copiar classes do Unfold nao basta, porque perde markup, JS, acessibilidade,
 overflow, espaçamento e comportamento futuro.
 
+Componentes Unfold devem ser chamados com `{% component "unfold/components/..." %}`; incluir
+`unfold/components/...` diretamente e bypass. Links/paragrafos visuais em templates Admin usam
+`unfold/components/link.html` e `unfold/components/text.html`.
+
 Modal em pagina custom so pode usar o wrapper aprovado `admin_console/unfold/modal.html`, que espelha
 os tokens do shell modal/command do Unfold instalado. Nao crie overlay novo.
 
-Rode sempre:
+Pagina Admin custom deve seguir o contrato oficial do Unfold (`UnfoldModelAdminViewMixin`,
+`TemplateView`, `title`, `permission_required`, `.as_view(model_admin=...)`), estender
+`admin/base.html`, e consumir uma projection registrada em `shopman/backstage/projections/`.
+O gate tambem conhece superficies legado: elas podem existir, mas nao podem crescer silenciosamente.
+
+No fluxo dev, rode sempre pelo Makefile:
 
 ```bash
-python scripts/check_unfold_canonical.py
+make admin
 ```
 
-Antes de declarar uma tela Admin/Unfold madura, rode tambem:
+Esse unico comando cobre gate canônico, auditoria estrita, contrato de superficies/projections,
+versao instalada do `django-unfold` e testes de integração Admin/Unfold. O gate falha se a versao
+instalada divergir do inventario oficial local.
+
+Para iterar em uma tela especifica sem bloquear por divida nao relacionada, use o mesmo comando com
+URL relativa:
 
 ```bash
-python scripts/check_unfold_canonical.py --maturity
+make admin url=/admin/operacao/producao/
 ```
+
+Esse escopo e para desenvolvimento local. Antes de PR, rode `make admin` sem `url`.
 
 ## Como Rodar
 
@@ -135,7 +153,9 @@ make test              # Todos os testes (~2.448: cores + orquestrador)
 make test-offerman     # Apenas offerman (offering)
 make test-stockman     # Apenas stockman (stocking)
 make test-framework    # Orquestrador + integration + e2e
-make lint              # Ruff
+make admin             # Tudo de Admin/Unfold
+make admin url=/admin/operacao/producao/  # Escopo local por URL Admin
+make lint              # Ruff + Admin/Unfold
 make run               # Dev server (localhost:8000)
 make seed              # Popular banco com dados Nelson Boulangerie
 make migrate           # Migrações

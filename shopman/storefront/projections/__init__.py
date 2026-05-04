@@ -1,4 +1,4 @@
-"""Storefront projections — typed read models for customer-facing surfaces."""
+"""Storefront projections for customer-facing surfaces."""
 
 from .account import (
     CustomerProfileProjection,
@@ -26,6 +26,7 @@ from .order_confirmation import OrderConfirmationProjection, build_order_confirm
 from .order_history import OrderHistoryProjection, build_order_history
 from .order_tracking import (
     OrderTrackingProjection,
+    OrderTrackingPromiseProjection,
     OrderTrackingStatusProjection,
     PickupInfoProjection,
     build_order_tracking,
@@ -62,6 +63,7 @@ __all__ = [
     "OrderConfirmationProjection",
     "OrderHistoryProjection",
     "OrderTrackingProjection",
+    "OrderTrackingPromiseProjection",
     "OrderTrackingStatusProjection",
     "PaymentProjection",
     "PaymentStatusProjection",

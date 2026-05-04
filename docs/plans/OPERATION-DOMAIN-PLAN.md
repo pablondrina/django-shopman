@@ -82,6 +82,16 @@ Campos centrais:
 
 ## Chão de fábrica
 
+Objetivo diário da superfície de produção:
+
+- definir o planejado do dia com base em histórico, sazonalidade, encomendas
+  comprometidas e leitura operacional de ruptura/sobra;
+- gerar um relatório de pesagem de ingredientes a partir do planejado salvo,
+  calculando dinamicamente a batelada pela relação entre quantidade planejada e
+  rendimento base da receita;
+- manter a ficha técnica como fonte do cálculo e o `WorkOrder`/snapshot como
+  trilha operacional do que foi planejado para aquele dia.
+
 Colunas conceituais, sem inventar status fora do kernel:
 
 - Sugerido: projeção do Craftsman a partir de histórico, sazonalidade,
@@ -102,6 +112,43 @@ Permissões granulares canônicas:
 
 `shop.manage_production` e superusuário mantêm visão total. Operadores sem
 visão total só recebem as colunas compatíveis com a rotina deles.
+
+### Relatório de pesagem
+
+O relatório de pesagem deve ser derivado do planejado do dia, não de um
+"tamanho de lote" fixo operacional.
+
+Regra conceitual:
+
+```text
+coeficiente = quantidade planejada / rendimento base da receita
+ingrediente necessário = quantidade base do ingrediente * coeficiente
+```
+
+Para OPs já criadas, preferir o snapshot da receita gravado no `WorkOrder`,
+evitando que uma edição posterior da receita altere silenciosamente a pesagem
+do dia. Para planejamento ainda não materializado, usar a receita ativa atual.
+
+O relatório deve agrupar quando fizer sentido para a operação:
+
+- por posto: massa, molde, forno;
+- por componente/base comum: massa brioche, massa ciabatta etc.;
+- por insumo consolidado, preservando unidade;
+- por SKU final quando o operador precisar conferir o destino.
+
+### Backlog Semântico
+
+- O rótulo operacional de `Recipe.batch_size` é **Rendimento base** no
+  Admin/superfícies. O campo interno pode continuar `batch_size` até uma
+  migração semântica maior; o ponto é não comunicar "lote fixo".
+- Diferenciar quantidade teórica da receita de quantidade física/estoque para
+  itens discretos ou sensíveis, como ovos. A receita pode representar bem a
+  proporção técnica, mas Stockman não deve permitir divergência operacional:
+  reservas, consumo e baixa precisam respeitar unidade, arredondamento físico
+  e política de conversão explícita.
+- Modelar, quando necessário, uma política por item/unidade para pesagem vs
+  estoque. Ex.: exibir "1,8 un. teórico" no relatório, mas reservar/baixar
+  "2 un." quando o insumo é indivisível.
 
 ## Perguntas abertas
 

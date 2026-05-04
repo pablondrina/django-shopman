@@ -43,26 +43,26 @@ class OrderItem(models.Model):
     sku = models.CharField(max_length=100)
 ```
 
-### 2. Craftsman usa `*_ref` porque o alvo é mais amplo que SKU
+### 2. Craftsman usa refs textuais para BOM
 
-Uma receita pode referenciar matérias-primas que não são produtos vendáveis:
-`FARINHA-T55`, `AGUA`, `FERMENTO-NATURAL`. Esses nunca estarão em
-`offerman.Product`. Por isso craftsman usa `input_ref` / `output_ref` /
-`item_ref`, não `sku`.
+Uma receita pode referenciar produto vendável, insumo catalogado ou subproduto:
+`CROISSANT`, `FARINHA-T55`, `AGUA`, `FERMENTO-NATURAL`. Esses ponteiros não
+viram FK para `offerman.Product`; Craftsman armazena refs textuais e resolve
+via adapter quando precisa de nome, unidade ou estado comercial.
 
 ```python
 # packages/craftsman/shopman/craftsman/models.py
 class Recipe(models.Model):
-    output_ref = CharField(max_length=100)   # "CROISSANT", "PAO-FRANCES"
+    output_sku = RefField(ref_type="SKU", max_length=100)   # "CROISSANT"
 
 class RecipeItem(models.Model):
-    input_ref = CharField(max_length=100)    # "FARINHA-T55", "MANTEIGA"
+    input_sku = RefField(ref_type="SKU", max_length=100)    # "FARINHA-T55"
 
 class WorkOrderItem(models.Model):
     item_ref = CharField(max_length=100)     # insumo, produto ou perda
 ```
 
-A resolução `output_ref → offerman.Product` é feita pelo framework via
+A resolução `output_sku → offerman.Product` é feita pelo framework via
 adapter (`PricingBackend` / catálogo), em runtime, não por FK.
 
 ### 3. Validação é responsabilidade do framework
@@ -106,8 +106,27 @@ dependência invisível para kernels que continuam semanticamente standalone.
 - Services do framework validam `sku` contra o catálogo na borda de entrada.
 - Testes cruzados (`shopman/shop/tests/test_invariants.py`) garantem que
   os SKUs usados em fluxos reais existem no offerman.
-- Craftsman tem `CatalogProtocol.resolve()` para mapear `output_ref → Product`
+- Craftsman tem `CatalogProtocol.resolve()` para mapear `output_sku → Product`
   quando o output **é** um vendável.
+
+## Atualização 2026-04-30: Receita ativa por SKU é determinística
+
+O Craftsman atual usa os nomes `output_sku` e `input_sku`, ainda como
+`RefField(ref_type="SKU")`, para deixar explícito que a integração com
+Offerman acontece por SKU textual e não por FK.
+
+A regra operacional agora é: um `output_sku` pode ter **no máximo uma**
+`Recipe` ativa. Alternativas, sazonalidade ou múltiplas rotas de produção não
+devem ser modeladas como várias receitas ativas concorrentes; quando isso for
+necessário, a suíte deve ganhar uma entidade explícita de rota/seletor.
+
+Consequências práticas:
+
+- serviços resolvem receita por `get_active_recipe_for_output_sku()`, não por
+  `.first()` implícito;
+- `Recipe` mantém uma constraint parcial de unicidade para `output_sku` ativo;
+- combos/bundles continuam pertencendo à composição comercial de Offerman
+  (`ProductComponent`) e não devem ser saída direta de `Recipe`.
 
 ## Histórico
 
@@ -116,6 +135,8 @@ dependência invisível para kernels que continuam semanticamente standalone.
 - 2026-03-18: Revisão reconhece inconsistência — stockman precisa migrar.
 - 2026-04-14: Migração de stockman concluída. Todos os cores usam string
   indexada (`sku` ou `*_ref`). Esta ADR consolida o estado final.
+- 2026-04-30: Craftsman endurece o contrato para uma receita ativa por
+  `output_sku` e resolução centralizada.
 
 ## Referências
 

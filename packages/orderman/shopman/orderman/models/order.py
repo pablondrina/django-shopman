@@ -216,6 +216,15 @@ class Order(models.Model):
                         context={"fulfillment_type": ft},
                     )
 
+            if self.status == self.Status.COMPLETED and old_status == self.Status.READY:
+                ft = self.data.get("fulfillment_type") or self.data.get("delivery_method", "")
+                if ft == "delivery":
+                    raise InvalidTransition(
+                        code="delivery_requires_dispatch_before_completion",
+                        message="Pedido de delivery não pode concluir antes de sair para entrega",
+                        context={"fulfillment_type": ft},
+                    )
+
             ts_field = self.STATUS_TIMESTAMP_FIELDS.get(self.status)
             if ts_field and getattr(self, ts_field) is None:
                 setattr(self, ts_field, timezone.now())

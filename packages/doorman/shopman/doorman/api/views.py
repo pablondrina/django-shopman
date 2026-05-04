@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -11,6 +12,7 @@ from ..models import VerificationCode
 from ..services.verification import AuthService
 from ..utils import get_client_ip
 from .serializers import (
+    AuthErrorSerializer,
     RequestCodeResponseSerializer,
     RequestCodeSerializer,
     VerifyCodeResponseSerializer,
@@ -28,7 +30,18 @@ class RequestCodeView(APIView):
     """
 
     permission_classes = [AllowAny]
+    serializer_class = RequestCodeSerializer
 
+    @extend_schema(
+        tags=["auth"],
+        summary="Request OTP code",
+        request=RequestCodeSerializer,
+        responses={
+            200: RequestCodeResponseSerializer,
+            400: AuthErrorSerializer,
+            429: AuthErrorSerializer,
+        },
+    )
     def post(self, request):
         serializer = RequestCodeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -73,7 +86,17 @@ class VerifyCodeView(APIView):
     """
 
     permission_classes = [AllowAny]
+    serializer_class = VerifyCodeSerializer
 
+    @extend_schema(
+        tags=["auth"],
+        summary="Verify OTP code",
+        request=VerifyCodeSerializer,
+        responses={
+            200: VerifyCodeResponseSerializer,
+            400: AuthErrorSerializer,
+        },
+    )
     def post(self, request):
         serializer = VerifyCodeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

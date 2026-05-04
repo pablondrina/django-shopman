@@ -40,6 +40,7 @@ import hmac
 import logging
 
 from django.conf import settings
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
@@ -56,6 +57,7 @@ def _get_efi_webhook_setting(key: str, default=None):
     return cfg.get(key, default)
 
 
+@extend_schema(exclude=True)
 class EfiPixWebhookView(APIView):
     """Endpoint para receber notificações de pagamento PIX da EFI."""
 

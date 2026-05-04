@@ -16,13 +16,13 @@ import pytest
 from django.template import Context, Template
 
 from shopman.shop.models import OmotenashiCopy
-from shopman.storefront.omotenashi import OmotenashiContext
-from shopman.storefront.omotenashi.context import (
+from shopman.shop.omotenashi import OmotenashiContext
+from shopman.shop.omotenashi.context import (
     AUDIENCE_ANON,
     MOMENT_MANHA,
     MOMENT_TARDE,
 )
-from shopman.storefront.omotenashi.copy import invalidate_cache
+from shopman.shop.omotenashi.copy import invalidate_cache
 
 
 def _render(tpl_src: str, **ctx) -> str:

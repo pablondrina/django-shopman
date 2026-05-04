@@ -20,10 +20,12 @@ pytest -q
 - `SHOPMAN_E003`: adapter de pagamento `pix` ou `card` apontando para mock em produção.
 - `SHOPMAN_E004`: webhook EFI ou iFood sem token.
 - `SHOPMAN_E005`: webhook ManyChat sem segredo HMAC.
+- `SHOPMAN_E006`: cache compartilhado Redis ausente em produção.
+- `SHOPMAN_E007`: SQLite fora de `DEBUG`.
 
 Warnings que precisam de decisão antes do go-live:
 
-- `SHOPMAN_W001`: SQLite. Produção deve usar PostgreSQL.
+- `SHOPMAN_W001`: SQLite em fallback local/debug. Produção falha como `SHOPMAN_E007`.
 - `SHOPMAN_W002`: notification adapter console fora de `DEBUG`.
 - `SHOPMAN_W003`: canal fiscal ativo sem adapter fiscal.
 - `SHOPMAN_W004`: `Listing.ref` sem `Channel.ref` correspondente.
@@ -38,6 +40,7 @@ Base Django:
 - `DJANGO_ALLOWED_HOSTS=<domínios separados por vírgula>`
 - `CSRF_TRUSTED_ORIGINS=https://<domínio>[,...]`
 - `DATABASE_URL=<postgresql>`
+- `REDIS_URL=<redis ou rediss>`
 
 Pagamentos e webhooks:
 
@@ -114,6 +117,7 @@ rg 'print\\(|logger\\.(debug|info|warning|error).*token|logger\\.(debug|info|war
 Ainda fora do escopo desta fase, mas precisa estar decidido antes de produção:
 
 - Backup e restore testado para PostgreSQL.
+- Redis provisionado e validado para cache, rate limit e SSE multi-worker.
 - Estratégia de coleta de logs.
 - Monitoramento de webhooks falhos.
 - Processo para rotacionar `DJANGO_SECRET_KEY` e tokens externos.

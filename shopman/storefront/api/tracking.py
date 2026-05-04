@@ -12,11 +12,15 @@ from rest_framework.views import APIView
 from shopman.storefront.projections.order_tracking import build_order_tracking
 from shopman.storefront.services import orders as order_service
 
-from .serializers import OrderTrackingSerializer
+from .serializers import DetailSerializer, OrderTrackingSerializer
 
 
 @extend_schema_view(
-    get=extend_schema(tags=["tracking"], summary="Get order tracking by ref"),
+    get=extend_schema(
+        tags=["tracking"],
+        summary="Get order tracking by ref",
+        responses={200: OrderTrackingSerializer, 404: DetailSerializer},
+    ),
 )
 class OrderTrackingView(APIView):
     """
@@ -27,6 +31,7 @@ class OrderTrackingView(APIView):
     """
 
     permission_classes = [AllowAny]
+    serializer_class = OrderTrackingSerializer
 
     def get(self, request, ref: str):
         order = order_service.find_order(ref)

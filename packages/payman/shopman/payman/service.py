@@ -47,7 +47,7 @@ import logging
 import uuid
 from typing import TYPE_CHECKING
 
-from django.db import models, transaction
+from django.db import IntegrityError, models, transaction
 from django.db.models import Q
 from django.utils import timezone
 from shopman.payman.exceptions import PaymentError
@@ -93,6 +93,7 @@ class PaymentService:
         gateway_data: dict | None = None,
         expires_at=None,
         ref: str | None = None,
+        idempotency_key: str = "",
     ) -> PaymentIntent:
         """
         Cria intenção de pagamento.
@@ -107,9 +108,11 @@ class PaymentService:
             gateway_data: Dados extras do gateway (JSON)
             expires_at: Datetime de expiração
             ref: Referência customizada (auto-gerada se None)
+            idempotency_key: Chave estável para retry seguro da mesma criação
 
         Returns:
-            PaymentIntent criado com status PENDING
+            PaymentIntent criado com status PENDING ou intent existente para a
+            mesma chave idempotente.
         """
         if amount_q <= 0:
             raise PaymentError(
@@ -118,17 +121,48 @@ class PaymentService:
                 context={"amount_q": amount_q},
             )
 
-        intent = PaymentIntent.objects.create(
-            ref=ref or cls._generate_ref(),
-            order_ref=order_ref,
-            method=method,
-            amount_q=amount_q,
-            currency=currency,
-            gateway=gateway,
-            gateway_id=gateway_id,
-            gateway_data=gateway_data or {},
-            expires_at=expires_at,
-        )
+        idempotency_key = (idempotency_key or "").strip()
+        if idempotency_key:
+            existing = PaymentIntent.objects.filter(idempotency_key=idempotency_key).first()
+            if existing:
+                cls._require_idempotent_match(
+                    existing,
+                    order_ref=order_ref,
+                    amount_q=amount_q,
+                    method=method,
+                    currency=currency,
+                    gateway=gateway,
+                )
+                return existing
+
+        try:
+            intent = PaymentIntent.objects.create(
+                ref=ref or cls._generate_ref(),
+                order_ref=order_ref,
+                method=method,
+                amount_q=amount_q,
+                currency=currency,
+                gateway=gateway,
+                gateway_id=gateway_id,
+                gateway_data=gateway_data or {},
+                expires_at=expires_at,
+                idempotency_key=idempotency_key,
+            )
+        except IntegrityError:
+            if not idempotency_key:
+                raise
+            existing = PaymentIntent.objects.filter(idempotency_key=idempotency_key).first()
+            if not existing:
+                raise
+            cls._require_idempotent_match(
+                existing,
+                order_ref=order_ref,
+                amount_q=amount_q,
+                method=method,
+                currency=currency,
+                gateway=gateway,
+            )
+            return existing
 
         logger.info(
             "Intent created",
@@ -586,6 +620,44 @@ class PaymentService:
                 code="intent_expired",
                 message=f"Intent '{intent.ref}' expirado em {intent.expires_at}",
                 context={"ref": intent.ref, "expires_at": str(intent.expires_at)},
+            )
+
+    @classmethod
+    def _require_idempotent_match(
+        cls,
+        intent: PaymentIntent,
+        *,
+        order_ref: str,
+        amount_q: int,
+        method: str,
+        currency: str,
+        gateway: str,
+    ) -> None:
+        """Raise if a repeated idempotency key is being reused for another payment."""
+        expected = {
+            "order_ref": order_ref,
+            "amount_q": amount_q,
+            "method": method,
+            "currency": currency,
+            "gateway": gateway,
+        }
+        actual = {
+            "order_ref": intent.order_ref,
+            "amount_q": intent.amount_q,
+            "method": intent.method,
+            "currency": intent.currency,
+            "gateway": intent.gateway,
+        }
+        mismatched = {
+            field: {"expected": value, "actual": actual[field]}
+            for field, value in expected.items()
+            if actual[field] != value
+        }
+        if mismatched:
+            raise PaymentError(
+                code="idempotency_key_conflict",
+                message="Chave de idempotência reutilizada com parâmetros diferentes",
+                context={"idempotency_key": intent.idempotency_key, "mismatched": mismatched},
             )
 
     @classmethod

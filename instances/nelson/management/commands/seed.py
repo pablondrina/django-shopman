@@ -35,6 +35,7 @@ from shopman.offerman.models import (
     Product,
     ProductComponent,
 )
+from shopman.orderman.ids import generate_order_ref, generate_session_key
 from shopman.orderman.models import (
     Directive,
     Fulfillment,
@@ -55,6 +56,7 @@ from shopman.backstage.models import (
     DayClosing,
     KDSInstance,
     OperatorAlert,
+    POSTab,
 )
 from shopman.shop.models import Channel, OmotenashiCopy, RuleConfig, Shop
 from shopman.shop.services.nutrition_from_recipe import fill_nutrition_from_recipe
@@ -90,6 +92,7 @@ class Command(BaseCommand):
         channels = self._seed_channels()
         self._assert_storefront_products_orderable()
         self._seed_kds()
+        self._seed_pos_tabs()
         self._seed_orders(products, customers, channels)
         self._seed_sessions(channels)
         self._seed_stock_alerts(products, positions)
@@ -327,6 +330,7 @@ class Command(BaseCommand):
         OperatorAlert.objects.all().delete()
         KDSTicket.objects.all().delete()
         KDSInstance.objects.all().delete()
+        POSTab.objects.all().delete()
 
         # Cash register
         CashMovement.objects.all().delete()
@@ -1350,11 +1354,14 @@ class Command(BaseCommand):
         # deve ficar aqui — canais remotos usam stock.allowed_positions sem "ontem", entao vitrine
         # API e reservas online ignoram esse saldo; PDV (allowed_positions omitido) ve tudo.
         positions = {}
-        for ref, name, kind, saleable in [
-            ("deposito", "Deposito", PositionKind.PHYSICAL, False),
-            ("vitrine", "Vitrine / Exposicao", PositionKind.PHYSICAL, True),
-            ("producao", "Área de Produção", PositionKind.PHYSICAL, False),
-            ("ontem", "Vitrine D-1 (ontem)", PositionKind.PHYSICAL, True),
+        for ref, name, kind, saleable, default in [
+            ("deposito", "Deposito", PositionKind.PHYSICAL, False, False),
+            ("vitrine", "Vitrine / Exposicao", PositionKind.PHYSICAL, True, False),
+            ("producao", "Área de Produção", PositionKind.PHYSICAL, False, False),
+            ("massa", "Massa", PositionKind.PROCESS, False, True),
+            ("molde", "Molde", PositionKind.PROCESS, False, False),
+            ("forno", "Forno", PositionKind.PROCESS, False, False),
+            ("ontem", "Vitrine D-1 (ontem)", PositionKind.PHYSICAL, True, False),
         ]:
             p, _ = Position.objects.update_or_create(
                 ref=ref,
@@ -1362,11 +1369,12 @@ class Command(BaseCommand):
                     "name": name,
                     "kind": kind,
                     "is_saleable": saleable,
+                    "is_default": default,
                 },
             )
             positions[ref] = p
 
-        self.stdout.write("  ✅ 4 posicoes")
+        self.stdout.write("  ✅ 7 posicoes")
         return positions
 
     def _seed_stock(self, products, positions):
@@ -1995,6 +2003,9 @@ class Command(BaseCommand):
                 else:
                     finished = max(started - Decimal(str((index % 4) + 1)), Decimal("1"))
                 finish_at = at(today, finish_hm)
+            start_at = at(today, start_hm) if status != WorkOrder.Status.PLANNED else None
+            if status == WorkOrder.Status.STARTED and index == 2:
+                start_at = timezone.now() - timedelta(minutes=self._max_started_minutes_for_recipe(ref) + 15)
             upsert_work_order(
                 scope="today",
                 recipe=recipe,
@@ -2003,7 +2014,7 @@ class Command(BaseCommand):
                 status=status,
                 started_qty=started if status != WorkOrder.Status.PLANNED else None,
                 finished_qty=finished,
-                start_at=at(today, start_hm) if status != WorkOrder.Status.PLANNED else None,
+                start_at=start_at,
                 finish_at=finish_at,
                 operator_ref=["chef:ana", "chef:joao", "chef:maria"][index % 3],
             )
@@ -2222,8 +2233,8 @@ class Command(BaseCommand):
             "hold_ttl_minutes": 30,
         }
         _remote_config = {
-            "confirmation": {"mode": "auto_confirm", "timeout_minutes": 5},
-            "payment": {"method": ["pix", "card"], "timing": "post_commit", "timeout_minutes": 15},
+            "confirmation": {"mode": "auto_confirm", "timeout_minutes": 5, "stale_new_alert_minutes": 10},
+            "payment": {"method": ["pix", "card"], "timing": "post_commit", "timeout_minutes": 10},
             "stock": _remote_stock,
         }
         _marketplace_config = {
@@ -2232,8 +2243,8 @@ class Command(BaseCommand):
             "stock": {**_remote_stock, "check_on_commit": True},
         }
         _whatsapp_config = {
-            "confirmation": {"mode": "auto_confirm", "timeout_minutes": 5},
-            "payment": {"method": ["pix", "card"], "timeout_minutes": 15},
+            "confirmation": {"mode": "auto_confirm", "timeout_minutes": 5, "stale_new_alert_minutes": 10},
+            "payment": {"method": ["pix", "card"], "timing": "post_commit", "timeout_minutes": 10},
             "notifications": {"backend": "manychat"},
             "stock": _remote_stock,
         }
@@ -2347,7 +2358,7 @@ class Command(BaseCommand):
                         "line_total_q": line_total_q,
                     })
 
-                ref = f"NB-{uuid.uuid4().hex[:8].upper()}"
+                ref = self._new_order_ref(channel.ref, order_time.date())
 
                 # Get customer phone from contact points
                 cp = customer.contact_points.filter(type="whatsapp").first()
@@ -2363,6 +2374,7 @@ class Command(BaseCommand):
                     created_at=order_time,
                     data={"availability_decision": {"approved": True, "source": "seed", "decisions": []}},
                 )
+                self._stamp_order(order, order_time)
 
                 for _idx, item in enumerate(items_data):
                     OrderItem.objects.create(
@@ -2453,7 +2465,7 @@ class Command(BaseCommand):
                     "line_total_q": line_total_q,
                 })
 
-            ref = f"NB-{uuid.uuid4().hex[:8].upper()}"
+            ref = self._new_order_ref(channel.ref, order_time.date())
             cp = customer.contact_points.filter(type="whatsapp").first()
             handle_ref = cp.value_normalized if cp else ""
 
@@ -2467,6 +2479,7 @@ class Command(BaseCommand):
                 created_at=order_time,
                 data={"availability_decision": {"approved": True, "source": "seed", "decisions": []}},
             )
+            self._stamp_order(order, order_time)
 
             for item in items_data:
                 OrderItem.objects.create(
@@ -2534,7 +2547,7 @@ class Command(BaseCommand):
             customer = customer_list[0]
             channel = channels["pdv"]
             order_time = now - timedelta(minutes=6)
-            ref = f"NB-PROD-LINK-{uuid.uuid4().hex[:6].upper()}"
+            ref = self._new_order_ref(channel.ref, order_time.date())
             sync_order = Order.objects.create(
                 ref=ref,
                 channel_ref=channel.ref,
@@ -2550,6 +2563,7 @@ class Command(BaseCommand):
                     "availability_decision": {"approved": True, "source": "seed", "decisions": []},
                 },
             )
+            self._stamp_order(sync_order, order_time)
             OrderItem.objects.create(
                 order=sync_order,
                 line_id=f"L-{uuid.uuid4().hex[:8]}",
@@ -2583,7 +2597,7 @@ class Command(BaseCommand):
             prod_b = product_list[1] if len(product_list) > 1 else product_list[0]
 
             # Order 1: new iFood order (just arrived, awaiting confirmation)
-            ref_new = f"NB-{uuid.uuid4().hex[:8].upper()}"
+            ref_new = self._new_order_ref(ifood_ch.ref, (now - timedelta(minutes=2)).date())
             order_new = Order.objects.create(
                 ref=ref_new,
                 channel_ref=ifood_ch.ref,
@@ -2599,6 +2613,7 @@ class Command(BaseCommand):
                     "availability_decision": {"approved": True, "source": "seed", "decisions": []},
                 },
             )
+            self._stamp_order(order_new, now - timedelta(minutes=2))
             OrderItem.objects.create(
                 order=order_new,
                 line_id=f"L-{uuid.uuid4().hex[:8]}",
@@ -2617,7 +2632,7 @@ class Command(BaseCommand):
             )
 
             # Order 2: confirmed iFood order (in queue, being handled)
-            ref_confirmed = f"NB-{uuid.uuid4().hex[:8].upper()}"
+            ref_confirmed = self._new_order_ref(ifood_ch.ref, (now - timedelta(minutes=9)).date())
             order_confirmed = Order.objects.create(
                 ref=ref_confirmed,
                 channel_ref=ifood_ch.ref,
@@ -2633,6 +2648,7 @@ class Command(BaseCommand):
                     "availability_decision": {"approved": True, "source": "seed", "decisions": []},
                 },
             )
+            self._stamp_order(order_confirmed, now - timedelta(minutes=9))
             OrderItem.objects.create(
                 order=order_confirmed,
                 line_id=f"L-{uuid.uuid4().hex[:8]}",
@@ -2689,21 +2705,26 @@ class Command(BaseCommand):
                     second=0,
                     microsecond=0,
                 )
-                ref = f"NB-PROD-HIST-{sku}-{index}"
+                seed_key = f"production-demand-history:{sku}:{index}"
+                ref = self._new_order_ref(pdv.ref, order_time.date())
                 total_q = int(qty * product.base_price_q)
-                order, created = Order.objects.get_or_create(
-                    ref=ref,
-                    defaults={
-                        "channel_ref": pdv.ref,
-                        "session_key": f"seed-{ref}",
-                        "status": Order.Status.COMPLETED,
-                        "snapshot": {"seed": "nelson", "source": "production_demand_history"},
-                        "data": {"availability_decision": {"approved": True, "source": "seed", "decisions": []}},
-                        "total_q": total_q,
-                        "completed_at": order_time,
-                    },
-                )
-                if created:
+                order = Order.objects.filter(snapshot__seed_key=seed_key).first()
+                if order is None:
+                    order = Order.objects.create(
+                        ref=ref,
+                        channel_ref=pdv.ref,
+                        session_key=f"seed-{ref}",
+                        status=Order.Status.COMPLETED,
+                        snapshot={
+                            "seed": "nelson",
+                            "source": "production_demand_history",
+                            "seed_key": seed_key,
+                        },
+                        data={"availability_decision": {"approved": True, "source": "seed", "decisions": []}},
+                        total_q=total_q,
+                        completed_at=order_time,
+                    )
+                    self._stamp_order(order, order_time)
                     OrderEvent.objects.create(
                         order=order,
                         type="status_change",
@@ -2732,14 +2753,43 @@ class Command(BaseCommand):
                 created_or_updated += 1
         return created_or_updated
 
+    def _stamp_order(self, order: Order, created_at: datetime):
+        Order.objects.filter(pk=order.pk).update(created_at=created_at, updated_at=created_at)
+        order.created_at = created_at
+        order.updated_at = created_at
+
+    def _new_order_ref(self, channel_ref: str, business_date: date) -> str:
+        for _attempt in range(20):
+            ref = generate_order_ref(channel_ref=channel_ref, business_date=business_date)
+            if not Order.objects.filter(ref=ref).exists():
+                return ref
+        raise CommandError(f"Nao foi possivel gerar ORDER_REF unico para canal {channel_ref!r}.")
+
+    def _seed_pos_tabs(self):
+        self.stdout.write("  🧾 POS tabs...")
+
+        tabs = [
+            ("00001007", "1007"),
+            ("00001008", "1008"),
+            ("00001009", "1009"),
+            ("00001010", "1010"),
+            ("00001011", "1011"),
+            ("00001012", "1012"),
+        ]
+        for code, label in tabs:
+            POSTab.objects.update_or_create(
+                code=code,
+                defaults={"label": label, "is_active": True},
+            )
+
+        self.stdout.write(f"  ✅ {len(tabs)} POS tabs cadastradas")
+
     # ────────────────────────────────────────────────────────────────
     # Sessoes abertas (Orderman)
     # ────────────────────────────────────────────────────────────────
 
     def _seed_sessions(self, channels):
         self.stdout.write("  📝 Sessoes abertas...")
-
-        from shopman.orderman.ids import generate_session_key
 
         for channel_ref, items in [
             ("pdv", [
@@ -2759,14 +2809,37 @@ class Command(BaseCommand):
             from shopman.shop.config import ChannelConfig
 
             cfg = ChannelConfig.for_channel(ch)
-            Session.objects.create(
-                session_key=generate_session_key(),
-                channel_ref=ch.ref,
-                state="open",
-                pricing_policy=cfg.pricing.policy,
-                edit_policy=cfg.editing.policy,
-                items=items,
-            )
+            defaults = {
+                "session_key": generate_session_key(),
+                "state": "open",
+                "pricing_policy": cfg.pricing.policy,
+                "edit_policy": cfg.editing.policy,
+            }
+            if channel_ref == "pdv":
+                tab_code = "00001007"
+                defaults["handle_type"] = "pos_tab"
+                defaults["handle_ref"] = tab_code
+                defaults["data"] = {
+                    "origin_channel": "pos",
+                    "fulfillment_type": "pickup",
+                    "tab_code": tab_code,
+                    "tab_display": tab_code.lstrip("0"),
+                    "pos_operator": "seed",
+                    "last_touched_at": timezone.now().isoformat(),
+                }
+                session, _ = Session.objects.update_or_create(
+                    channel_ref=ch.ref,
+                    state="open",
+                    handle_type="pos_tab",
+                    handle_ref=tab_code,
+                    defaults=defaults,
+                )
+            else:
+                session = Session.objects.create(
+                    channel_ref=ch.ref,
+                    **defaults,
+                )
+            session.update_items(items)
 
         self.stdout.write("  ✅ 3 sessoes abertas")
 
@@ -3308,7 +3381,7 @@ class Command(BaseCommand):
         if col_cafes:
             kds_cafes.collections.add(col_cafes)
 
-        # KDS Encomendas — Picking: pedidos agendados (future-dated)
+        # KDS Encomendas — Picking: separação de pedidos de balcão e agendados
         KDSInstance.objects.update_or_create(
             ref="encomendas",
             defaults={
@@ -3320,9 +3393,21 @@ class Command(BaseCommand):
             },
         )
 
-        KDSInstance.objects.filter(ref__in=["padaria", "expedicao"]).delete()
+        # KDS Expedição — pedidos prontos para balcão/despacho
+        KDSInstance.objects.update_or_create(
+            ref="expedicao",
+            defaults={
+                "name": "Expedição",
+                "type": "expedition",
+                "target_time_minutes": 2,
+                "sound_enabled": True,
+                "is_active": True,
+            },
+        )
 
-        self.stdout.write("  ✅ 3 estações KDS (Cafés, Lanches, Encomendas)")
+        KDSInstance.objects.filter(ref__in=["padaria"]).delete()
+
+        self.stdout.write("  ✅ 4 estações KDS (Cafés, Lanches, Encomendas, Expedição)")
 
     # ────────────────────────────────────────────────────────────────
     # Notification Templates
@@ -3334,16 +3419,20 @@ class Command(BaseCommand):
         from shopman.shop.models import NotificationTemplate
 
         FALLBACK_TEMPLATES = {
-            "order_received": {"subject": "Pedido {order_ref} recebido", "body": "Ola{customer_name_greeting}! Recebemos seu pedido *{order_ref}*. Ja estamos olhando com carinho e logo confirmamos. Total: *{total}*."},
+            "order_received": {"subject": "Pedido {order_ref} recebido", "body": "Ola{customer_name_greeting}! Recebemos seu pedido *{order_ref}*. O estabelecimento vai conferir a disponibilidade. Acompanhe por aqui: {tracking_url}"},
             "order_received_outside_hours": {"subject": "Pedido {order_ref} recebido", "body": "Ola{customer_name_greeting}! Recebemos seu pedido *{order_ref}* fora do nosso horario de atendimento. Vamos processar assim que abrirmos. Total: *{total}*."},
             "order_confirmed": {"subject": "Pedido {order_ref} confirmado", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* foi confirmado. Total: *{total}*.\n\nObrigado pela preferencia!"},
             "order_preparing": {"subject": "Pedido {order_ref} em preparo", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* esta sendo preparado.\n\nAvisaremos quando estiver pronto!"},
             "order_ready_pickup": {"subject": "Pedido {order_ref} pronto para retirada", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* esta pronto para retirada! \U0001f389\n\nVenha buscar. Obrigado!"},
-            "order_ready_delivery": {"subject": "Pedido {order_ref} pronto para envio", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* esta pronto e sera enviado em breve! \U0001f4e6"},
+            "order_ready_delivery": {"subject": "Pedido {order_ref} pronto para entrega", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* esta pronto e aguardando entregador. Assim que sair para entrega avisamos. \U0001f4e6"},
             "order_dispatched": {"subject": "Pedido {order_ref} saiu para entrega", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* saiu para entrega!\n\nEm breve estara com voce!"},
             "order_delivered": {"subject": "Pedido {order_ref} entregue", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* foi entregue.\n\nEsperamos que tenha gostado! Obrigado pela preferencia."},
             "order_cancelled": {"subject": "Pedido {order_ref} cancelado", "body": "Ola{customer_name_greeting}! Seu pedido *{order_ref}* foi cancelado.\n\nEm caso de duvidas, entre em contato."},
-            "payment_confirmed": {"subject": "Pagamento do pedido {order_ref} confirmado", "body": "Ola{customer_name_greeting}! O pagamento do pedido *{order_ref}* foi recebido.\n\nValor: *{total}*\n\nSeu pedido sera preparado em breve. Obrigado!"},
+            "order_rejected": {"subject": "Pedido {order_ref} nao confirmado", "body": "Ola{customer_name_greeting}! O estabelecimento nao conseguiu confirmar o pedido *{order_ref}*.\n\nMotivo: {reason}\n\nEm caso de duvidas, estamos aqui."},
+            "payment_requested": {"subject": "Pedido {order_ref}: pagamento liberado", "body": "Ola{customer_name_greeting}! Confirmamos a disponibilidade do pedido *{order_ref}*.\n\nPara continuar, conclua o pagamento dentro do prazo: {payment_url}"},
+            "payment_confirmed": {"subject": "Pagamento do pedido {order_ref} confirmado", "body": "Ola{customer_name_greeting}! O pagamento do pedido *{order_ref}* foi recebido.\n\nValor: *{total}*\n\nSeu pedido seguira para preparo. Obrigado!"},
+            "payment_expired": {"subject": "Pagamento do pedido {order_ref} expirado", "body": "Ola{customer_name_greeting}! O prazo de pagamento do pedido *{order_ref}* expirou.\n\nO pedido foi cancelado automaticamente."},
+            "payment_failed": {"subject": "Falha ao preparar pagamento do pedido {order_ref}", "body": "Ola{customer_name_greeting}! Nao conseguimos preparar o pagamento do pedido *{order_ref}*.\n\nAcesse {payment_url} para tentar novamente."},
             "payment_refunded": {"subject": "Reembolso do pedido {order_ref} processado", "body": "Ola{customer_name_greeting}! O reembolso do pedido *{order_ref}* foi processado.\n\nValor: *{total}*"},
             "loyalty_earned": {"subject": "Voce ganhou pontos de fidelidade!", "body": "Ola{customer_name_greeting}! Voce ganhou pontos de fidelidade com o pedido *{order_ref}*!"},
         }

@@ -1,9 +1,13 @@
+{% load omotenashi_tags %}
+{% omotenashi 'OFFLINE_TITLE' as offline_title %}
+{% omotenashi 'OFFLINE_MESSAGE' as offline_message %}
+{% omotenashi 'OFFLINE_RETRY_CTA' as offline_retry_cta %}
 <!DOCTYPE html>
 <html lang="pt-BR" dir="ltr">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sem conexão · {{ storefront.brand_name }}</title>
+  <title>{{ offline_title.title }} · {{ storefront.brand_name }}</title>
   <meta name="theme-color" content="{{ storefront.theme_color }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -60,9 +64,9 @@
   <div class="offline-container">
     <div class="offline-icon" aria-hidden="true">wifi_off</div>
     <div class="offline-brand">{{ storefront.brand_name }}</div>
-    <h1>Sem conexão</h1>
-    <p>Verifique sua internet e tente novamente.</p>
-    <button class="retry-btn" type="button" data-retry>Tentar novamente</button>
+    <h1>{{ offline_title.title }}</h1>
+    <p>{{ offline_message.message }}</p>
+    <button class="retry-btn" type="button" data-retry>{{ offline_retry_cta.title }}</button>
   </div>
   <script>
     document.querySelector('[data-retry]').addEventListener('click', function () {

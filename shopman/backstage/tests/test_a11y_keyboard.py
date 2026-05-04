@@ -16,7 +16,11 @@ from shopman.shop.models import Shop
 
 TABINDEX_RE = re.compile(r'tabindex\s*=\s*"(-?\d+)"', re.IGNORECASE)
 DIALOG_OPEN_RE = re.compile(r'<[^>]+role\s*=\s*"dialog"[^>]*>', re.IGNORECASE)
-FOCUSABLE_RE = re.compile(r"<(?:button|a|input|select|textarea)\b", re.IGNORECASE)
+FOCUSABLE_RE = re.compile(
+    r"<(?:button|a|input|select|textarea)\b"
+    r"|\{%\s*component\s+[\"']unfold/components/(?:button|link)\.html[\"']",
+    re.IGNORECASE,
+)
 
 
 @pytest.fixture
@@ -50,13 +54,13 @@ def test_skip_link_present_in_shell(client, superuser):
 def test_no_positive_tabindex_anywhere(client, superuser):
     surfaces = [
         ("backstage:pos", []),
-        ("backstage:kds_index", []),
-        ("backstage:gestor_pedidos", []),
-        ("backstage:production", []),
-        ("backstage:production_dashboard", []),
+        ("admin_console_kds", []),
+        ("admin_console_orders", []),
+        ("admin_console_production", []),
+        ("admin_console_production_dashboard", []),
         ("backstage:production_kds", []),
-        ("backstage:production_reports", []),
-        ("backstage:day_closing", []),
+        ("admin_console_production_reports", []),
+        ("admin_console_day_closing", []),
     ]
     client.force_login(superuser)
     for name, args in surfaces:
@@ -99,7 +103,7 @@ def test_csrf_form_buttons_have_accessible_names_in_pos(client, superuser):
 def test_modals_use_aria_modal_when_role_dialog(client, superuser):
     """Whenever role=dialog is rendered server-side, aria-modal must be set."""
     client.force_login(superuser)
-    response = client.get(reverse("backstage:production"))
+    response = client.get(reverse("admin_console_production"))
     html = response.content.decode("utf-8")
     for match in re.finditer(r"<[^>]+role=\"dialog\"[^>]*>", html):
         assert 'aria-modal="true"' in match.group(0), f"dialog without aria-modal: {match.group(0)[:120]}"

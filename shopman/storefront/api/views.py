@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from django.utils.decorators import method_decorator
 from django_ratelimit.decorators import ratelimit
+from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -19,10 +20,18 @@ from .serializers import (
     CartSerializer,
     CheckoutResponseSerializer,
     CheckoutSerializer,
+    DetailSerializer,
     UpdateItemSerializer,
 )
 
 
+@extend_schema_view(
+    get=extend_schema(
+        tags=["cart"],
+        summary="Get cart",
+        responses={200: CartSerializer},
+    ),
+)
 class CartView(APIView):
     """
     GET /api/v1/cart/
@@ -31,6 +40,7 @@ class CartView(APIView):
     """
 
     permission_classes = [AllowAny]
+    serializer_class = CartSerializer
 
     def get(self, request):
         cart = CartService.get_cart(request)
@@ -46,7 +56,19 @@ class CartAddItemView(APIView):
     """
 
     permission_classes = [AllowAny]
+    serializer_class = AddItemSerializer
 
+    @extend_schema(
+        tags=["cart"],
+        summary="Add cart item",
+        request=AddItemSerializer,
+        responses={
+            201: CartSerializer,
+            400: DetailSerializer,
+            404: DetailSerializer,
+            409: OpenApiResponse(description="Insufficient stock."),
+        },
+    )
     def post(self, request):
         serializer = AddItemSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -104,7 +126,14 @@ class CartItemView(APIView):
     """
 
     permission_classes = [AllowAny]
+    serializer_class = UpdateItemSerializer
 
+    @extend_schema(
+        tags=["cart"],
+        summary="Update cart item quantity",
+        request=UpdateItemSerializer,
+        responses={200: CartSerializer, 404: DetailSerializer},
+    )
     def patch(self, request, line_id):
         serializer = UpdateItemSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -123,6 +152,11 @@ class CartItemView(APIView):
         data = CartSerializer(cart).data
         return Response(data)
 
+    @extend_schema(
+        tags=["cart"],
+        summary="Remove cart item",
+        responses={200: CartSerializer, 404: DetailSerializer},
+    )
     def delete(self, request, line_id):
         try:
             CartService.remove_item(request, line_id)
@@ -146,7 +180,18 @@ class CheckoutView(APIView):
     """
 
     permission_classes = [AllowAny]
+    serializer_class = CheckoutSerializer
 
+    @extend_schema(
+        tags=["checkout"],
+        summary="Commit cart as order",
+        request=CheckoutSerializer,
+        responses={
+            201: CheckoutResponseSerializer,
+            400: DetailSerializer,
+            429: DetailSerializer,
+        },
+    )
     def post(self, request):
         if getattr(request, "limited", False):
             return Response(
