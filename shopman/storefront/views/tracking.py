@@ -8,7 +8,10 @@ import logging
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.utils.decorators import method_decorator
 from django.views import View
+from django.views.decorators.cache import never_cache
+from django_ratelimit.decorators import ratelimit
 
 from ..cart import CartService
 from ..services import orders as order_service
@@ -20,11 +23,13 @@ REORDER_MODE_REPLACE = "replace"
 REORDER_MODES = {REORDER_MODE_ADD, REORDER_MODE_REPLACE}
 
 
+@method_decorator(never_cache, name="dispatch")
+@method_decorator(ratelimit(key="user_or_ip", rate="120/m", method="GET", block=True), name="dispatch")
 class OrderTrackingView(View):
     """Full order tracking page with HTMX polling for status updates."""
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
-        order = order_service.get_order(ref)
+        order = order_service.get_accessible_order(request, ref)
         order_service.resolve_payment_timeout_if_due(order)
         if order_service.requires_payment_gate(order):
             return redirect("storefront:order_payment", ref=ref)
@@ -38,11 +43,13 @@ class OrderTrackingView(View):
         return render(request, "storefront/order_tracking.html", ctx)
 
 
+@method_decorator(never_cache, name="dispatch")
+@method_decorator(ratelimit(key="user_or_ip", rate="30/m", method="POST", block=True), name="dispatch")
 class ReorderView(View):
     """POST: re-add all items from a past order to the cart."""
 
     def post(self, request: HttpRequest, ref: str) -> HttpResponse:
-        order = order_service.get_order(ref)
+        order = order_service.get_accessible_order(request, ref)
         mode = (request.POST.get("reorder_mode") or "").strip()
         cart_has_items = CartService.has_items(request)
 
@@ -92,11 +99,13 @@ class ReorderView(View):
         return response
 
 
+@method_decorator(never_cache, name="dispatch")
+@method_decorator(ratelimit(key="user_or_ip", rate="120/m", method="GET", block=True), name="dispatch")
 class OrderStatusPartialView(View):
     """HTMX partial: returns the live tracking block for polling/SSE refresh."""
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
-        order = order_service.get_order(ref)
+        order = order_service.get_accessible_order(request, ref)
         order_service.resolve_payment_timeout_if_due(order)
         if order_service.requires_payment_gate(order):
             response = HttpResponse("")
@@ -114,11 +123,13 @@ class OrderStatusPartialView(View):
         return response
 
 
+@method_decorator(never_cache, name="dispatch")
+@method_decorator(ratelimit(key="user_or_ip", rate="20/m", method="POST", block=True), name="dispatch")
 class OrderCancelView(View):
     """Customer self-service cancellation from tracking page."""
 
     def post(self, request: HttpRequest, ref: str) -> HttpResponse:
-        order = order_service.get_order(ref)
+        order = order_service.get_accessible_order(request, ref)
 
         if not order_service.can_cancel(order):
             if request.headers.get("HX-Request"):
@@ -209,11 +220,13 @@ class CepLookupView(View):
             )
 
 
+@method_decorator(never_cache, name="dispatch")
+@method_decorator(ratelimit(key="user_or_ip", rate="60/m", method="GET", block=True), name="dispatch")
 class OrderConfirmationView(View):
     """Order confirmation page — shown after checkout for manual-confirm channels."""
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
-        order = order_service.get_order(ref)
+        order = order_service.get_accessible_order(request, ref)
 
         if order_service.should_skip_confirmation(order):
             return redirect("storefront:order_tracking", ref=ref)
@@ -221,7 +234,19 @@ class OrderConfirmationView(View):
         from shopman.storefront.projections import build_order_confirmation
 
         tracking_path = f"/pedido/{order.ref}/"
-        share_url = request.build_absolute_uri(tracking_path)
+        share_url = self._share_url(request, order, tracking_path)
         confirmation = build_order_confirmation(order, share_url=share_url)
 
         return render(request, "storefront/order_confirmation.html", {"confirmation": confirmation})
+
+    @staticmethod
+    def _share_url(request: HttpRequest, order, tracking_path: str) -> str:
+        try:
+            from shopman.shop.services.access_urls import build_tracking_access_url
+
+            access_url = build_tracking_access_url(request, getattr(request, "customer", None), order.ref)
+            if access_url:
+                return access_url
+        except Exception:
+            logger.warning("order_confirmation_access_url_failed order=%s", order.ref, exc_info=True)
+        return request.build_absolute_uri(tracking_path)

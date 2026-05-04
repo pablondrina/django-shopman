@@ -5,17 +5,18 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
-from django.test import override_settings
-from django.test import Client
+from django.test import Client, override_settings
+
+from shopman.storefront.tests.web.conftest import _grant_order_access
 
 pytestmark = pytest.mark.django_db
 
 
 @pytest.fixture
-def order_card(channel):
+def order_card(channel, client):
     from shopman.orderman.models import Order
 
-    return Order.objects.create(
+    order = Order.objects.create(
         ref="ORD-CARD-001",
         channel_ref=channel.ref,
         status="new",
@@ -30,14 +31,16 @@ def order_card(channel):
             },
         },
     )
+    _grant_order_access(client, order.ref)
+    return order
 
 
 @pytest.fixture
-def order_card_pending_url(channel):
+def order_card_pending_url(channel, client):
     """Card order whose checkout_url is not yet persisted (rare race)."""
     from shopman.orderman.models import Order
 
-    return Order.objects.create(
+    order = Order.objects.create(
         ref="ORD-CARD-002",
         channel_ref=channel.ref,
         status="new",
@@ -46,13 +49,15 @@ def order_card_pending_url(channel):
         handle_ref="5543999990001",
         data={"payment": {"method": "card", "amount_q": 1500}},
     )
+    _grant_order_access(client, order.ref)
+    return order
 
 
 @pytest.fixture
-def order_pix_without_intent(channel):
+def order_pix_without_intent(channel, client):
     from shopman.orderman.models import Order
 
-    return Order.objects.create(
+    order = Order.objects.create(
         ref="ORD-PIX-NO-INTENT",
         channel_ref=channel.ref,
         status="new",
@@ -61,6 +66,8 @@ def order_pix_without_intent(channel):
         handle_ref="5543999990001",
         data={"payment": {"method": "pix", "amount_q": 1500}},
     )
+    _grant_order_access(client, order.ref)
+    return order
 
 
 class TestPaymentCardPage:

@@ -614,6 +614,7 @@ SHOPMAN_EFI_WEBHOOK = {
 # When REDIS_URL is set, EVENTSTREAM_REDIS is derived above so send_event from
 # any process reaches every active SSE listener across Daphne/ASGI workers.
 EVENTSTREAM_STORAGE_CLASS = "django_eventstream.storage.DjangoModelStorage"
+EVENTSTREAM_CHANNELMANAGER_CLASS = "shopman.shop.eventstream.ShopmanChannelManager"
 
 ASGI_APPLICATION = "config.asgi.application"
 

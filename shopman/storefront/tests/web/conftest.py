@@ -124,6 +124,17 @@ def listing_item(listing, product):
 # ── Orderman ─────────────────────────────────────────────────────────
 
 
+def _grant_order_access(client, order_ref: str) -> None:
+    from shopman.shop.services.customer_orders import ORDER_ACCESS_SESSION_KEY
+
+    session = client.session
+    refs = list(session.get(ORDER_ACCESS_SESSION_KEY) or [])
+    if order_ref not in refs:
+        refs.append(order_ref)
+    session[ORDER_ACCESS_SESSION_KEY] = refs
+    session.save()
+
+
 @pytest.fixture
 def channel(db):
     return Channel.objects.create(
@@ -133,8 +144,8 @@ def channel(db):
 
 
 @pytest.fixture
-def order(channel):
-    return Order.objects.create(
+def order(channel, client):
+    order = Order.objects.create(
         ref="ORD-001",
         channel_ref=channel.ref,
         status="new",
@@ -143,11 +154,13 @@ def order(channel):
         handle_ref="5543999990001",
         data={},
     )
+    _grant_order_access(client, order.ref)
+    return order
 
 
 @pytest.fixture
-def order_with_payment(channel):
-    return Order.objects.create(
+def order_with_payment(channel, client):
+    order = Order.objects.create(
         ref="ORD-PAY-001",
         channel_ref=channel.ref,
         status="new",
@@ -163,11 +176,13 @@ def order_with_payment(channel):
             },
         },
     )
+    _grant_order_access(client, order.ref)
+    return order
 
 
 @pytest.fixture
-def order_paid(channel):
-    return Order.objects.create(
+def order_paid(channel, client):
+    order = Order.objects.create(
         ref="ORD-PAID-001",
         channel_ref=channel.ref,
         status="confirmed",
@@ -182,6 +197,8 @@ def order_paid(channel):
             },
         },
     )
+    _grant_order_access(client, order.ref)
+    return order
 
 
 @pytest.fixture

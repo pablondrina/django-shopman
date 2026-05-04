@@ -3,16 +3,21 @@ from __future__ import annotations
 from django.conf import settings
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
+from django.utils.decorators import method_decorator
 from django.views import View
+from django.views.decorators.cache import never_cache
+from django_ratelimit.decorators import ratelimit
 
 from ..services import orders as order_service
 
 
+@method_decorator(never_cache, name="dispatch")
+@method_decorator(ratelimit(key="user_or_ip", rate="90/m", method="GET", block=True), name="dispatch")
 class PaymentView(View):
     """Payment page — PIX (QR code) or Card (Stripe Elements)."""
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
-        order = order_service.get_order(ref)
+        order = order_service.get_accessible_order(request, ref)
         order_service.resolve_payment_timeout_if_due(order)
 
         if order_service.is_cancelled(order):
@@ -34,11 +39,13 @@ class PaymentView(View):
         return render(request, "storefront/payment.html", {"payment": proj})
 
 
+@method_decorator(never_cache, name="dispatch")
+@method_decorator(ratelimit(key="user_or_ip", rate="120/m", method="GET", block=True), name="dispatch")
 class PaymentStatusView(View):
     """HTMX partial: polls payment status, redirects when paid."""
 
     def get(self, request: HttpRequest, ref: str) -> HttpResponse:
-        order = order_service.get_order(ref)
+        order = order_service.get_accessible_order(request, ref)
         order_service.resolve_payment_timeout_if_due(order)
 
         from shopman.storefront.projections import build_payment_status
@@ -51,6 +58,8 @@ class PaymentStatusView(View):
         return render(request, "storefront/partials/payment_status.html", {"payment_status": proj})
 
 
+@method_decorator(never_cache, name="dispatch")
+@method_decorator(ratelimit(key="user_or_ip", rate="30/m", method="POST", block=True), name="dispatch")
 class MockPaymentConfirmView(View):
     """
     DEV ONLY: Simulate PIX payment confirmation.
@@ -63,7 +72,7 @@ class MockPaymentConfirmView(View):
         if not settings.DEBUG:
             raise Http404
 
-        order = order_service.get_order(ref)
+        order = order_service.get_accessible_order(request, ref)
         order_service.resolve_payment_timeout_if_due(order)
 
         if order_service.payment_is_sufficient(order):

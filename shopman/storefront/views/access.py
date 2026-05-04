@@ -16,6 +16,8 @@ from django.views import View
 
 from shopman.shop.services import access as access_service
 
+from ..services import orders as order_service
+
 logger = logging.getLogger("shopman.storefront.views.access")
 
 
@@ -36,6 +38,8 @@ class AccessLinkEntryView(View):
         if not token_str:
             return redirect("storefront:menu")
 
+        metadata = access_service.token_metadata(token_str)
+
         # Exchange token for session
         result = self._exchange_token(token_str, request)
 
@@ -51,6 +55,9 @@ class AccessLinkEntryView(View):
         # Determine origin_channel from token metadata + source
         origin = self._resolve_origin(result)
         request.session["origin_channel"] = origin
+        order_ref = metadata.get("order_ref") if isinstance(metadata, dict) else ""
+        if order_ref:
+            order_service.grant_order_access(request, str(order_ref))
 
         logger.info(
             "AccessLink exchanged: customer=%s origin=%s",

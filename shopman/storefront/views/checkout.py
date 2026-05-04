@@ -16,6 +16,7 @@ from shopman.shop.services.storefront_context import minimum_order_progress
 
 from ..cart import CHANNEL_REF, CartService
 from ..intents.checkout import interpret_checkout
+from ..services import orders as order_service
 from ..services.address_picker import address_picker_context
 from .tracking import CepLookupView, OrderConfirmationView  # noqa: F401
 
@@ -97,6 +98,7 @@ class CheckoutView(View):
         self._ensure_customer(intent, order_ref)
         self._persist_new_address(intent, order_ref)
         self._save_checkout_defaults(request, intent, order_ref)
+        order_service.grant_order_access(request, order_ref)
         request.session.pop("cart_session_key", None)
 
         # ── Present ───────────────────────────────────────────────────────
@@ -251,4 +253,5 @@ class SimulateIFoodView(View):
             request,
             f"Pedido iFood simulado criado: {order.ref} (external: {order.external_ref}).",
         )
+        order_service.grant_order_access(request, order.ref)
         return redirect("storefront:order_tracking", ref=order.ref)

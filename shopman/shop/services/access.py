@@ -24,6 +24,22 @@ def exchange_token(token_str: str, request):
     )
 
 
+def token_metadata(token_str: str) -> dict:
+    """Return AccessLink metadata for a raw token without exposing token data."""
+    if not token_str:
+        return {}
+    try:
+        from shopman.doorman.models import AccessLink
+
+        token = AccessLink.get_by_token(token_str)
+        if token is None:
+            return {}
+        return token.metadata if isinstance(token.metadata, dict) else {}
+    except Exception:
+        logger.exception("access_link_token_metadata_failed")
+        return {}
+
+
 def resolve_origin(result) -> str:
     """Determine origin_channel from exchange result metadata."""
     source = "web"

@@ -9,6 +9,14 @@ def get_order(ref: str):
     return customer_orders.get_order(ref)
 
 
+def get_accessible_order(request, ref: str):
+    return customer_orders.get_accessible_order(request, ref)
+
+
+def grant_order_access(request, order_ref: str) -> None:
+    customer_orders.grant_order_access(request, order_ref)
+
+
 def active_order_count_for_phone(phone: str) -> int:
     return customer_orders.active_order_count_for_phone(phone)
 

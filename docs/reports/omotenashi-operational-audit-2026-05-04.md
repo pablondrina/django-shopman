@@ -77,6 +77,8 @@ de expandir fluxo.
 | Item | Status | Resultado |
 |---|---|---|
 | Geração aleatória de refs | Parcialmente corrigido | `ORDER_REF` visível permanece no formato curto existente. O gerador passou a usar `secrets.choice`, nao `random.choice`. Hardening de URLs públicas deve ser feito com token opaco, autorização e rate limit, nao aumentando o ref exibido ao cliente/operador. |
+| URLs publicas de pedido | Corrigido | Tracking, pagamento, status parcial, cancelamento, confirmacao e reorder agora exigem sessao que criou/acessou o pedido, cliente autenticado correspondente ou staff. Ref chutado retorna 404. |
+| SSE de pedido/backstage | Corrigido | `order-*` exige usuario ligado ao pedido ou staff; `backstage-*` exige staff. `stock-*` continua publico porque nao carrega informacao de cliente/pedido. |
 | Backend Redis legado | Corrigido em runtime/docs | Runtime canonico usa `django.core.cache.backends.redis.RedisCache`. `django-redis` fica apenas como anti-regression test para bloquear retorno do backend antigo. |
 | Access link servidor-servidor | Corrigido | Criacao de access link agora falha fechada fora de `DEBUG` quando `DOORMAN_ACCESS_LINK_API_KEY` esta ausente, e `manage.py check --deploy` emite `SHOPMAN_E008`. |
 | Seed adversarial | Implementado | Nelson seed cria cenarios determinísticos de baixa atencao, PIX pendente perto de expirar, PIX expirado, pagamento capturado apos cancelamento e pedido iFood parado. |

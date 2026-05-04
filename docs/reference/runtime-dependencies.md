@@ -62,6 +62,12 @@ Quando `REDIS_URL` esta definido, `config/settings.py` configura:
 - `EVENTSTREAM_REDIS` derivado da mesma URL, para que `send_event` alcance
   listeners conectados a qualquer worker.
 
+`django-eventstream` usa `shopman.shop.eventstream.ShopmanChannelManager`:
+
+- `stock-*` e publico e contem apenas disponibilidade por canal;
+- `order-*` exige usuario ligado ao pedido ou staff;
+- `backstage-*` exige staff.
+
 Variavel:
 
 ```env

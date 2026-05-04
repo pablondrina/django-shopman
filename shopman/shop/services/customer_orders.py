@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any
 
 from django.db.models import Q
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -25,6 +26,8 @@ logger = logging.getLogger(__name__)
 ACTIVE_STATUSES = frozenset({"new", "confirmed", "preparing", "ready", "dispatched"})
 CANCELLABLE_STATUSES = frozenset({"new", "confirmed"})
 DEFAULT_CHANNEL_REF = "web"
+ORDER_ACCESS_SESSION_KEY = "shopman_order_access_refs"
+MAX_SESSION_ORDER_ACCESS_REFS = 20
 
 
 @dataclass(frozen=True)
@@ -47,11 +50,95 @@ def get_order(ref: str):
     return get_object_or_404(Order, ref=ref)
 
 
+def get_accessible_order(request, ref: str):
+    """Return an order only when the current customer/session may see it."""
+    order = get_order(ref)
+    if request_can_access_order(request, order):
+        return order
+    logger.warning(
+        "customer_order_access_denied order=%s user=%s",
+        order.ref,
+        getattr(getattr(request, "user", None), "pk", None),
+    )
+    raise Http404
+
+
 def find_order(ref: str):
     """Return an order by ref, or None when it does not exist."""
     from shopman.orderman.models import Order
 
     return Order.objects.filter(ref=ref).first()
+
+
+def grant_order_access(request, order_ref: str) -> None:
+    """Bind an order ref to the current browser session after checkout/access-link."""
+    if not order_ref or not hasattr(request, "session"):
+        return
+    refs = [
+        str(ref)
+        for ref in (request.session.get(ORDER_ACCESS_SESSION_KEY) or [])
+        if ref
+    ]
+    if order_ref in refs:
+        refs.remove(order_ref)
+    refs.append(str(order_ref))
+    request.session[ORDER_ACCESS_SESSION_KEY] = refs[-MAX_SESSION_ORDER_ACCESS_REFS:]
+    request.session.modified = True
+
+
+def request_can_access_order(request, order) -> bool:
+    """Return True for staff, same checkout session, or matching customer identity."""
+    user = getattr(request, "user", None)
+    if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
+        return True
+    if _session_can_access_order(request, order.ref):
+        return True
+    return customer_can_access_order(getattr(request, "customer", None), order)
+
+
+def user_can_access_order(user, order) -> bool:
+    """Return True when a Django user may subscribe/read an order channel."""
+    if user is None or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
+        return True
+    customer_ref, phone = _customer_identity_from_user(user)
+    return order_matches_customer_identity(order, customer_ref=customer_ref, phone=phone)
+
+
+def customer_can_access_order(customer_info, order) -> bool:
+    """Return True when request.customer matches the order's sealed identity."""
+    if customer_info is None:
+        return False
+    customer_ref, phone = _customer_identity_from_info(customer_info)
+    return order_matches_customer_identity(order, customer_ref=customer_ref, phone=phone)
+
+
+def order_matches_customer_identity(
+    order,
+    *,
+    customer_ref: str | None = None,
+    phone: str | None = None,
+) -> bool:
+    """Compare order identity without exposing whether the ref exists."""
+    data = order.data if isinstance(order.data, dict) else {}
+    customer = data.get("customer") if isinstance(data.get("customer"), dict) else {}
+
+    if customer_ref:
+        if str(data.get("customer_ref") or "") == customer_ref:
+            return True
+        if str(customer.get("ref") or "") == customer_ref:
+            return True
+
+    if phone:
+        candidates = [
+            order.handle_ref if order.handle_type in {"phone", "whatsapp"} else "",
+            str(customer.get("phone") or ""),
+            str(data.get("customer_phone") or ""),
+        ]
+        return any(_same_phone(phone, candidate) for candidate in candidates if candidate)
+
+    return False
 
 
 def active_order_count_for_customer(
@@ -431,6 +518,61 @@ def _sellable_product(sku: str):
     return None
 
 
+def _session_can_access_order(request, order_ref: str) -> bool:
+    if not hasattr(request, "session"):
+        return False
+    return str(order_ref) in {
+        str(ref)
+        for ref in (request.session.get(ORDER_ACCESS_SESSION_KEY) or [])
+        if ref
+    }
+
+
+def _customer_identity_from_info(customer_info) -> tuple[str | None, str | None]:
+    customer_ref = None
+    try:
+        from shopman.shop.services.customer_context import customer_ref_by_uuid
+
+        customer_ref = customer_ref_by_uuid(customer_info.uuid)
+    except Exception:
+        logger.warning(
+            "customer_order_access_customer_ref_lookup_failed customer_uuid=%s",
+            getattr(customer_info, "uuid", None),
+            exc_info=True,
+        )
+    return customer_ref, getattr(customer_info, "phone", None)
+
+
+def _customer_identity_from_user(user) -> tuple[str | None, str | None]:
+    try:
+        from shopman.doorman.models import CustomerUser
+        from shopman.guestman.models import Customer
+
+        link = CustomerUser.objects.filter(user=user).first()
+        if link is None:
+            return None, None
+        customer = Customer.objects.filter(uuid=link.customer_id, is_active=True).first()
+        if customer is None:
+            return None, None
+        return customer.ref, customer.phone
+    except Exception:
+        logger.warning(
+            "customer_order_access_user_lookup_failed user=%s",
+            getattr(user, "pk", None),
+            exc_info=True,
+        )
+        return None, None
+
+
+def _same_phone(left: str, right: str) -> bool:
+    try:
+        from shopman.utils.phone import normalize_phone
+
+        return normalize_phone(left) == normalize_phone(right)
+    except Exception:
+        return str(left).strip() == str(right).strip()
+
+
 def _customer_identity_filter(
     *,
     customer_ref: str | None = None,
@@ -490,24 +632,31 @@ def _price_q(product, *, channel_ref: str) -> int:
 
 __all__ = [
     "ACTIVE_STATUSES",
+    "ORDER_ACCESS_SESSION_KEY",
     "OrderHistorySummary",
     "active_order_count_for_customer",
     "active_order_count_for_phone",
     "add_reorder_items",
     "can_cancel",
     "cancel",
+    "customer_can_access_order",
     "ensure_payment_intent",
+    "get_accessible_order",
     "find_order",
     "get_order",
     "get_payment_status",
+    "grant_order_access",
     "history_summaries_for_customer",
     "history_summaries_for_phone",
     "history_summaries_for_customer_ref",
     "is_cancelled",
     "last_reorder_context",
     "mock_confirm_payment",
+    "order_matches_customer_identity",
     "order_history_for_phone",
     "resolve_payment_timeout_if_due",
     "requires_payment_gate",
+    "request_can_access_order",
     "should_skip_confirmation",
+    "user_can_access_order",
 ]
