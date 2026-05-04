@@ -70,7 +70,7 @@ class ProductListView(APIView):
         qs = catalog_service.published_products(listing_ref).order_by("name").distinct()
 
         # Filter by collection ref
-        collection_slug = request.query_params.get("collection")
+        collection_slug = (request.query_params.get("collection") or "").strip()[:80]
         if collection_slug:
             qs = qs.filter(
                 collection_items__collection__ref=collection_slug,
@@ -78,7 +78,7 @@ class ProductListView(APIView):
             )
 
         # Search by name
-        search = request.query_params.get("search")
+        search = (request.query_params.get("search") or "").strip()[:80]
         if search and len(search) >= 2:
             qs = qs.filter(name__icontains=search)
 

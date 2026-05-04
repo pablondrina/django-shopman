@@ -51,7 +51,7 @@ DATABASE_URL=postgres://shopman:shopman@localhost:5432/shopman
 
 Redis e o cache compartilhado do Shopman. Ele e usado para:
 
-- `django-ratelimit` em login, OTP, checkout e APIs publicas;
+- `django-ratelimit` em login, OTP, checkout, carrinho, CEP e APIs publicas;
 - caches operacionais curtos, como disponibilidade, geocode, shop singleton e
   rules engine;
 - token EFI em cache com TTL;

@@ -80,6 +80,10 @@ Antes do go-live, confirmar no ambiente:
 Storefront:
 
 - Login/OTP tem rate limiting via `django-ratelimit`.
+- POSTs públicos de carrinho e lookup de CEP tambem têm rate limiting.
+- Quantidades de carrinho sao normalizadas e limitadas na borda; payloads
+  absurdos da API sao rejeitados antes da regra de negocio.
+- Dados externos do ViaCEP sao escapados antes de entrar em HTML/Alpine.
 - Links de acesso usam tokens de Doorman com uso único, expiração e criação
   autenticada por `DOORMAN_ACCESS_LINK_API_KEY` fora de `DEBUG`.
 - URLs de pedido (`/pedido/<ref>/`, pagamento, status, cancelamento,

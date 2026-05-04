@@ -137,3 +137,25 @@ def test_api_checkout_normal_use_passes(client: Client):
         content_type="application/json",
     )
     assert resp.status_code != 429
+
+
+@override_settings(RATELIMIT_ENABLE=True)
+def test_cep_lookup_rate_limited(client: Client):
+    """31st CEP lookup in the same minute returns 429 before external IO."""
+    for _ in range(30):
+        resp = client.get("/checkout/cep-lookup/?cep=abc")
+        assert resp.status_code != 429
+
+    resp = client.get("/checkout/cep-lookup/?cep=abc")
+    assert resp.status_code == 429
+
+
+@override_settings(RATELIMIT_ENABLE=True)
+def test_cart_mutation_rate_limited(client: Client):
+    """121st public cart mutation in the same minute returns 429."""
+    for _ in range(120):
+        resp = client.post("/cart/add/", data={"sku": "DOES-NOT-EXIST", "qty": "1"})
+        assert resp.status_code != 429
+
+    resp = client.post("/cart/add/", data={"sku": "DOES-NOT-EXIST", "qty": "1"})
+    assert resp.status_code == 429

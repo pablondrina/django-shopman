@@ -9,6 +9,7 @@ from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.decorators import method_decorator
+from django.utils.html import escape
 from django.views import View
 from django.views.decorators.cache import never_cache
 from django_ratelimit.decorators import ratelimit
@@ -167,12 +168,19 @@ class OrderCancelView(View):
         return redirect("storefront:order_tracking", ref=ref)
 
 
+@method_decorator(ratelimit(key="user_or_ip", rate="30/m", method="GET", block=False), name="dispatch")
 class CepLookupView(View):
     """HTMX: lookup address by CEP via ViaCEP API."""
 
     def get(self, request: HttpRequest) -> HttpResponse:
         import json
         import urllib.request
+
+        if getattr(request, "limited", False):
+            return HttpResponse(
+                '<p class="text-warning text-xs mt-1">Muitas consultas de CEP. Aguarde um instante.</p>',
+                status=429,
+            )
 
         cep = (request.GET.get("cep") or request.GET.get("cep_sheet", "")).strip().replace("-", "").replace(".", "")
         if not cep or len(cep) != 8 or not cep.isdigit():
@@ -206,12 +214,14 @@ class CepLookupView(View):
                 "stateCode": uf,
                 "postalCode": f"{cep[:5]}-{cep[5:]}",
             }, ensure_ascii=False)
+            dispatch_attr = escape(dispatch_data)
+            address_html = escape(address_str)
 
             return HttpResponse(
                 f'<div class="text-success-foreground text-xs mt-1 flex items-center gap-1"'
-                f" x-data x-init=\"$dispatch('cep-found', {dispatch_data})\">"
+                f' x-data x-init=\'$dispatch("cep-found", {dispatch_attr})\'>'
                 f'<svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>'
-                f'{address_str}</div>',
+                f'{address_html}</div>',
             )
         except Exception:
             logger.exception("cep_lookup_failed cep=%s", cep)

@@ -21,24 +21,24 @@ class CartSerializer(serializers.Serializer):
 
 
 class AddItemSerializer(serializers.Serializer):
-    sku = serializers.CharField()
-    qty = serializers.IntegerField(min_value=1, default=1)
+    sku = serializers.CharField(max_length=64)
+    qty = serializers.IntegerField(min_value=1, max_value=99, default=1)
 
 
 class UpdateItemSerializer(serializers.Serializer):
-    qty = serializers.IntegerField(min_value=1)
+    qty = serializers.IntegerField(min_value=1, max_value=99)
 
 
 class CheckoutSerializer(serializers.Serializer):
-    name = serializers.CharField()
-    phone = serializers.CharField()
-    notes = serializers.CharField(required=False, default="", allow_blank=True)
+    name = serializers.CharField(max_length=120)
+    phone = serializers.CharField(max_length=32)
+    notes = serializers.CharField(required=False, default="", allow_blank=True, max_length=500)
     fulfillment_type = serializers.ChoiceField(
         choices=["pickup", "delivery"],
         default="pickup",
         required=False,
     )
-    delivery_address = serializers.CharField(required=False, default="", allow_blank=True)
+    delivery_address = serializers.CharField(required=False, default="", allow_blank=True, max_length=500)
 
 
 class CheckoutResponseSerializer(serializers.Serializer):

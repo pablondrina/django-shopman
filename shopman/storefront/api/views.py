@@ -48,6 +48,7 @@ class CartView(APIView):
         return Response(data)
 
 
+@method_decorator(ratelimit(key="user_or_ip", rate="120/m", method="POST", block=False), name="post")
 class CartAddItemView(APIView):
     """
     POST /api/v1/cart/items/
@@ -70,6 +71,11 @@ class CartAddItemView(APIView):
         },
     )
     def post(self, request):
+        if getattr(request, "limited", False):
+            return Response(
+                {"detail": "Muitas tentativas. Aguarde um instante."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
         serializer = AddItemSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -119,6 +125,8 @@ class CartAddItemView(APIView):
         return Response(data, status=status.HTTP_201_CREATED)
 
 
+@method_decorator(ratelimit(key="user_or_ip", rate="120/m", method="PATCH", block=False), name="patch")
+@method_decorator(ratelimit(key="user_or_ip", rate="120/m", method="DELETE", block=False), name="delete")
 class CartItemView(APIView):
     """
     PATCH /api/v1/cart/items/{line_id}/ — update quantity
@@ -135,6 +143,11 @@ class CartItemView(APIView):
         responses={200: CartSerializer, 404: DetailSerializer},
     )
     def patch(self, request, line_id):
+        if getattr(request, "limited", False):
+            return Response(
+                {"detail": "Muitas tentativas. Aguarde um instante."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
         serializer = UpdateItemSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -158,6 +171,11 @@ class CartItemView(APIView):
         responses={200: CartSerializer, 404: DetailSerializer},
     )
     def delete(self, request, line_id):
+        if getattr(request, "limited", False):
+            return Response(
+                {"detail": "Muitas tentativas. Aguarde um instante."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
         try:
             CartService.remove_item(request, line_id)
         except ValueError:

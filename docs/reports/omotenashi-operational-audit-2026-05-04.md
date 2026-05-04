@@ -80,6 +80,7 @@ de expandir fluxo.
 | URLs publicas de pedido | Corrigido | Tracking, pagamento, status parcial, cancelamento, confirmacao e reorder agora exigem sessao que criou/acessou o pedido, cliente autenticado correspondente ou staff. Ref chutado retorna 404. |
 | SSE de pedido/backstage | Corrigido | `order-*` exige usuario ligado ao pedido ou staff; `backstage-*` exige staff. `stock-*` continua publico porque nao carrega informacao de cliente/pedido. |
 | Webhooks duplicados/replay | Corrigido | Stripe, EFI PIX e iFood usam replay guard duravel via `IdempotencyKey`; iFood tambem ganhou unicidade `channel_ref + external_ref` no Orderman. Repeticao devolve resposta cacheada; evento simultaneo em processamento devolve `409` para retry. |
+| Entradas publicas de carrinho/CEP | Corrigido | POSTs de carrinho e lookup de CEP tem rate limit; quantidades invalidas nao geram 500 e sao limitadas; payload externo do ViaCEP e escapado antes de entrar em HTML/Alpine. |
 | Backend Redis legado | Corrigido em runtime/docs | Runtime canonico usa `django.core.cache.backends.redis.RedisCache`. `django-redis` fica apenas como anti-regression test para bloquear retorno do backend antigo. |
 | Access link servidor-servidor | Corrigido | Criacao de access link agora falha fechada fora de `DEBUG` quando `DOORMAN_ACCESS_LINK_API_KEY` esta ausente, e `manage.py check --deploy` emite `SHOPMAN_E008`. |
 | Seed adversarial | Implementado | Nelson seed cria cenarios determinísticos de baixa atencao, PIX pendente perto de expirar, PIX expirado, pagamento capturado apos cancelamento, pedido iFood parado e marcadores de replay de webhook. |
@@ -87,7 +88,8 @@ de expandir fluxo.
 
 Evidencias desta rodada:
 
-- `make test`: `1811 passed`, `13 skipped`, `3 warnings`, `14 subtests`;
+- `make test`: `1818 passed`, `13 skipped`, `3 warnings`, `14 subtests`;
+- carrinho/CEP/rate limit: `45 passed`;
 - webhooks/idempotencia/seed/order constraint: `84 passed`;
 - doorman access-link + deploy checks: `25 passed`;
 - seed operacional Nelson: `1 passed`.

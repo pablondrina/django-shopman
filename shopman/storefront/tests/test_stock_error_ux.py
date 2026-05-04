@@ -69,6 +69,24 @@ def test_cart_add_sends_rich_error_ui_marker(db, product):
     )
 
 
+def test_cart_add_non_numeric_qty_defaults_without_500(db, product):
+    client = Client()
+    with patch("shopman.storefront.cart.CartService.add_item") as mock_add:
+        resp = client.post("/cart/add/", {"sku": product.sku, "qty": "abc"})
+
+    assert resp.status_code == 200
+    assert mock_add.call_args.kwargs["qty"] == 1
+
+
+def test_quick_add_clamps_absurd_qty(db, product):
+    client = Client()
+    with patch("shopman.storefront.cart.CartService.add_item") as mock_add:
+        resp = client.post(f"/cart/quick-add/{product.sku}/", {"qty": "1000000"})
+
+    assert resp.status_code == 200
+    assert mock_add.call_args.kwargs["qty"] == 99
+
+
 def test_cart_set_qty_uses_same_contract_as_add(db, product):
     """The SKU-based stepper (menu/PDP) hits cart_set_qty and must get the same treatment."""
     client = Client()
@@ -354,5 +372,4 @@ def test_substitute_image_rendered_when_provided(db, product):
     assert "https://cdn.test/pao.jpg" in body, (
         "substitute with image_url must render an <img> with that URL"
     )
-
 

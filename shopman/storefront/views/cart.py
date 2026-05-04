@@ -4,12 +4,30 @@ from urllib.parse import quote, urlparse
 
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
+from django.utils.decorators import method_decorator
 from django.views import View
+from django_ratelimit.decorators import ratelimit
 
 from shopman.shop.services.cart import CartUnavailableError
 
 from ..cart import CartService
 from ..intents.cart import interpret_add_to_cart, interpret_set_qty
+
+MAX_CART_LINE_QTY = 99
+
+
+def _parse_cart_qty(raw, *, default: int, minimum: int) -> int:
+    try:
+        qty = int(raw)
+    except (TypeError, ValueError):
+        qty = default
+    if qty < minimum:
+        qty = minimum
+    return min(qty, MAX_CART_LINE_QTY)
+
+
+def _rate_limited_cart_response() -> HttpResponse:
+    return HttpResponse("", status=429)
 
 
 def _picker_origin(request: HttpRequest) -> str:
@@ -52,14 +70,15 @@ class CartView(View):
         })
 
 
+@method_decorator(ratelimit(key="user_or_ip", rate="120/m", method="POST", block=False), name="dispatch")
 class AddToCartView(View):
     """HTMX: add item to cart, return updated cart summary badge."""
 
     def post(self, request: HttpRequest) -> HttpResponse:
+        if getattr(request, "limited", False):
+            return _rate_limited_cart_response()
         sku = request.POST.get("sku", "").strip()
-        qty = int(request.POST.get("qty", 1))
-        if qty < 1:
-            qty = 1
+        qty = _parse_cart_qty(request.POST.get("qty", 1), default=1, minimum=1)
 
         result = interpret_add_to_cart(sku, qty, picker_origin=_picker_origin(request))
         if result.error_type == "not_found":
@@ -176,13 +195,14 @@ class CartDrawerContentProjView(View):
         return render(request, "storefront/partials/cart_drawer.html", {"cart": cart})
 
 
+@method_decorator(ratelimit(key="user_or_ip", rate="120/m", method="POST", block=False), name="dispatch")
 class QuickAddView(View):
     """HTMX: quick-add from product card with inline stepper. SKU in path."""
 
     def post(self, request: HttpRequest, sku: str) -> HttpResponse:
-        qty = int(request.POST.get("qty", 1))
-        if qty < 1:
-            qty = 1
+        if getattr(request, "limited", False):
+            return _rate_limited_cart_response()
+        qty = _parse_cart_qty(request.POST.get("qty", 1), default=1, minimum=1)
 
         result = interpret_add_to_cart(sku, qty)
         if result.error_type == "not_found":
@@ -209,6 +229,7 @@ class QuickAddView(View):
         return response
 
 
+@method_decorator(ratelimit(key="user_or_ip", rate="120/m", method="POST", block=False), name="dispatch")
 class CartSetQtyBySkuView(View):
     """HTMX: set absolute qty for a SKU, return cart summary badge.
 
@@ -226,13 +247,10 @@ class CartSetQtyBySkuView(View):
     """
 
     def post(self, request: HttpRequest) -> HttpResponse:
+        if getattr(request, "limited", False):
+            return _rate_limited_cart_response()
         sku = request.POST.get("sku", "").strip()
-        try:
-            qty = int(request.POST.get("qty", 0))
-        except (TypeError, ValueError):
-            qty = 0
-        if qty < 0:
-            qty = 0
+        qty = _parse_cart_qty(request.POST.get("qty", 0), default=0, minimum=0)
 
         cart = CartService.get_cart(request)
         result = interpret_set_qty(sku, qty, cart)
@@ -272,6 +290,7 @@ class CartSummaryView(View):
         return render(request, "storefront/partials/cart_summary.html", {"cart": cart})
 
 
+@method_decorator(ratelimit(key="user_or_ip", rate="60/m", method="POST", block=False), name="dispatch")
 class ApplyCouponView(View):
     """HTMX: apply a coupon code to the cart, return coupon section partial."""
 
@@ -284,6 +303,8 @@ class ApplyCouponView(View):
     }
 
     def post(self, request: HttpRequest) -> HttpResponse:
+        if getattr(request, "limited", False):
+            return _rate_limited_cart_response()
         code = request.POST.get("code", "").strip()
         if not code:
             return self._notify(self.ERROR_MESSAGES["empty_code"], "warning")
@@ -313,10 +334,13 @@ class ApplyCouponView(View):
         return response
 
 
+@method_decorator(ratelimit(key="user_or_ip", rate="60/m", method="POST", block=False), name="dispatch")
 class RemoveCouponView(View):
     """HTMX: remove coupon from the cart; drawer reloads via cartUpdated."""
 
     def post(self, request: HttpRequest) -> HttpResponse:
+        if getattr(request, "limited", False):
+            return _rate_limited_cart_response()
         CartService.remove_coupon(request)
         response = HttpResponse("")
         response["HX-Trigger"] = "cartUpdated"

@@ -273,6 +273,42 @@ class TestCheckoutPost:
         assert mock_availability.call_args.kwargs["target_date"] == future_date
 
 
+class _FakeViaCepResponse:
+    def __init__(self, payload: dict):
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def read(self) -> bytes:
+        return json.dumps(self.payload).encode()
+
+
+class TestCepLookupView:
+    def test_cep_lookup_escapes_external_address_payload(self, client: Client, monkeypatch):
+        def fake_urlopen(request, timeout=5):
+            return _FakeViaCepResponse({
+                "logradouro": 'Rua <img src=x onerror=alert(1)> "A"',
+                "bairro": "Centro",
+                "localidade": "Lon'drina",
+                "uf": "PR",
+            })
+
+        monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+        resp = client.get("/checkout/cep-lookup/?cep=01001000")
+
+        assert resp.status_code == 200
+        body = resp.content.decode()
+        assert "<img" not in body
+        assert "&lt;img src=x onerror=alert(1)&gt;" in body
+        assert 'x-init=\'$dispatch("cep-found",' in body
+        assert 'x-init="$dispatch' not in body
+
+
 # ── OrderConfirmationView ─────────────────────────────────────────────
 
 
