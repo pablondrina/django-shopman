@@ -8,6 +8,7 @@ import types
 from datetime import timedelta
 from decimal import Decimal
 
+from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.utils import timezone
 from shopman.orderman.exceptions import InvalidTransition
@@ -528,6 +529,35 @@ class EdgeCaseTests(TestCase):
         )
 
         self.assertEqual(len(order.external_ref), 128)
+
+    def test_external_ref_unique_within_channel(self) -> None:
+        """Marketplace/provider order id cannot create duplicates in one channel."""
+        Order.objects.create(
+            ref="EDGE-EXT-001",
+            channel_ref=self.channel.ref,
+            status=Order.STATUS_NEW,
+            total_q=1000,
+            external_ref="MARKETPLACE-123",
+        )
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Order.objects.create(
+                    ref="EDGE-EXT-002",
+                    channel_ref=self.channel.ref,
+                    status=Order.STATUS_NEW,
+                    total_q=1000,
+                    external_ref="MARKETPLACE-123",
+                )
+
+        other_channel = Order.objects.create(
+            ref="EDGE-EXT-003",
+            channel_ref="other",
+            status=Order.STATUS_NEW,
+            total_q=1000,
+            external_ref="MARKETPLACE-123",
+        )
+        self.assertEqual(other_channel.external_ref, "MARKETPLACE-123")
 
     def test_order_with_special_characters_in_handle(self) -> None:
         """Order com caracteres especiais no handle."""

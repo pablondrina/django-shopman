@@ -40,6 +40,7 @@ from shopman.orderman.models import (
     Directive,
     Fulfillment,
     FulfillmentItem,
+    IdempotencyKey,
     Order,
     OrderEvent,
     OrderItem,
@@ -2815,6 +2816,17 @@ class Command(BaseCommand):
                     ),
                 },
             )
+            self._mark_edge_webhook_replay(
+                scope="webhook:efi-pix",
+                source="e2e",
+                source_id="seed-edge-e2e-after-cancel",
+                response_body={
+                    "status": "processed",
+                    "txid": f"seed-edge-pix-after-cancel-{late_paid.ref}",
+                    "e2e_id": "seed-edge-e2e-after-cancel",
+                },
+                now=now,
+            )
             created += 1
 
         if ifood is not None:
@@ -2844,9 +2856,39 @@ class Command(BaseCommand):
                         "message": f"Pedido marketplace {stale.ref} parado aguardando confirmação.",
                     },
                 )
+                self._mark_edge_webhook_replay(
+                    scope="webhook:ifood",
+                    source="order",
+                    source_id="IFOOD-EDGE-STALE-001",
+                    response_body={"status": "already_processed", "order_ref": stale.ref},
+                    now=now,
+                )
                 created += 1
 
         self.stdout.write(f"  ✅ {created} cenários determinísticos de borda")
+
+    def _mark_edge_webhook_replay(
+        self,
+        *,
+        scope: str,
+        source: str,
+        source_id: str,
+        response_body: dict,
+        now,
+    ) -> None:
+        from shopman.shop.services.webhook_idempotency import stable_webhook_key
+
+        key = f"{source}:{stable_webhook_key(source_id)}"
+        IdempotencyKey.objects.update_or_create(
+            scope=scope,
+            key=key,
+            defaults={
+                "status": "done",
+                "response_code": 200,
+                "response_body": response_body,
+                "expires_at": now + timedelta(days=30),
+            },
+        )
 
     def _create_edge_order(
         self,

@@ -47,6 +47,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from shopman.shop.services import webhook_idempotency
 from shopman.shop.services.pix_confirmation import confirm_pix
 
 logger = logging.getLogger(__name__)
@@ -72,29 +73,61 @@ class EfiPixWebhookView(APIView):
             return Response({"error": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED)
 
         pix_list = request.data.get("pix", [])
-        if not pix_list:
+        if not pix_list or not isinstance(pix_list, list):
             return Response({"error": "No pix data in payload"}, status=status.HTTP_400_BAD_REQUEST)
 
         processed = 0
+        replays = 0
+        in_progress = 0
         errors = 0
 
         for pix_item in pix_list:
-            txid = pix_item.get("txid")
-            e2e_id = pix_item.get("endToEndId", "")
-            valor = pix_item.get("valor", "")
+            if not isinstance(pix_item, dict):
+                errors += 1
+                continue
+
+            txid = str(pix_item.get("txid") or "").strip()
+            e2e_id = str(pix_item.get("endToEndId") or "").strip()
+            valor = str(pix_item.get("valor") or "").strip()
 
             if not txid:
                 errors += 1
                 continue
 
+            claim = webhook_idempotency.claim(
+                "webhook:efi-pix",
+                _pix_idempotency_key(txid=txid, e2e_id=e2e_id),
+            )
+            if claim.replayed:
+                replays += 1
+                continue
+            if claim.in_progress:
+                in_progress += 1
+                continue
+
             try:
                 confirm_pix(txid=txid, e2e_id=e2e_id, valor=valor)
+                webhook_idempotency.mark_done(
+                    claim,
+                    response_body={"status": "processed", "txid": txid, "e2e_id": e2e_id},
+                )
                 processed += 1
             except Exception:
+                webhook_idempotency.mark_failed(claim)
                 logger.exception("EfiPixWebhook: error processing txid=%s", txid)
                 errors += 1
 
-        return Response(status=status.HTTP_200_OK)
+        response_status = status.HTTP_409_CONFLICT if in_progress else status.HTTP_200_OK
+        return Response(
+            {
+                "status": "ok",
+                "processed": processed,
+                "replays": replays,
+                "in_progress": in_progress,
+                "errors": errors,
+            },
+            status=response_status,
+        )
 
     def _check_auth(self, request: Request) -> bool:
         """Authenticate an inbound EFI webhook.
@@ -139,3 +172,9 @@ class EfiPixWebhookView(APIView):
             return False
 
         return True
+
+
+def _pix_idempotency_key(*, txid: str, e2e_id: str) -> str:
+    if e2e_id:
+        return f"e2e:{webhook_idempotency.stable_webhook_key(e2e_id)}"
+    return f"txid:{webhook_idempotency.stable_webhook_key(txid)}"

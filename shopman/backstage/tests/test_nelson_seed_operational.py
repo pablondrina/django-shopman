@@ -11,7 +11,7 @@ from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe, WorkOrder
 from shopman.guestman.models import Customer
 from shopman.offerman.models import Product
-from shopman.orderman.models import Order, OrderItem, Session
+from shopman.orderman.models import IdempotencyKey, Order, OrderItem, Session
 from shopman.payman.models import PaymentIntent
 from shopman.stockman.models import Batch, Position
 
@@ -86,6 +86,8 @@ def test_nelson_seed_populates_production_history_alerts_and_batches():
     assert PaymentIntent.objects.filter(order_ref__in=edge_order_refs, status=PaymentIntent.Status.CAPTURED).exists()
     assert OperatorAlert.objects.filter(type="payment_after_cancel", severity="critical", acknowledged=False).exists()
     assert OperatorAlert.objects.filter(type="stale_new_order", severity="error", acknowledged=False).exists()
+    assert IdempotencyKey.objects.filter(scope="webhook:efi-pix", status="done").exists()
+    assert IdempotencyKey.objects.filter(scope="webhook:ifood", status="done").exists()
 
     low_attention = Customer.objects.get(ref="CLI-001")
     assert low_attention.metadata["seed_persona"] == "low_attention"

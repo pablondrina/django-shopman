@@ -16,6 +16,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from shopman.orderman.models import Order
 
+from shopman.shop.services import webhook_idempotency
+
 logger = logging.getLogger(__name__)
 
 
@@ -62,10 +64,10 @@ class StripeWebhookView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        from shopman.shop.adapters.payment_stripe import handle_webhook
+        from shopman.shop.adapters import payment_stripe
 
         try:
-            result = handle_webhook(payload, sig_header)
+            event = payment_stripe.construct_webhook_event(payload, sig_header)
         except Exception as exc:
             logger.warning("StripeWebhook: signature verification failed: %s", exc)
             return Response(
@@ -73,11 +75,28 @@ class StripeWebhookView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        intent_ref = result.get("intent_ref")
-        event_type = result.get("event_type", "")
+        claim = webhook_idempotency.claim(
+            "webhook:stripe",
+            payment_stripe.webhook_event_key(event, payload),
+        )
+        if claim.replayed or claim.in_progress:
+            return Response(claim.response_body, status=claim.response_code)
 
-        if event_type in ("payment_intent.succeeded", "checkout.session.completed") and intent_ref:
-            self._trigger_order_hooks(intent_ref)
+        try:
+            result = payment_stripe.handle_webhook_event(event)
+
+            intent_ref = result.get("intent_ref")
+            event_type = result.get("event_type", "")
+
+            if event_type in ("payment_intent.succeeded", "checkout.session.completed") and intent_ref:
+                self._trigger_order_hooks(intent_ref)
+        except Exception:
+            webhook_idempotency.mark_failed(claim)
+            logger.exception("StripeWebhook: processing failed")
+            return Response(
+                {"error": "Webhook processing failed"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         logger.info(
             "StripeWebhook: processed event=%s intent_ref=%s",
@@ -85,7 +104,9 @@ class StripeWebhookView(APIView):
             intent_ref,
         )
 
-        return Response({"status": "ok"}, status=status.HTTP_200_OK)
+        response_body = {"status": "ok"}
+        webhook_idempotency.mark_done(claim, response_body=response_body)
+        return Response(response_body, status=status.HTTP_200_OK)
 
     def _trigger_order_hooks(self, intent_ref: str) -> None:
         """Find associated order and trigger flow dispatch."""

@@ -34,6 +34,8 @@ criticos dependem de locking transacional:
 - pagamento: capture/refund com `select_for_update`;
 - producao: work orders e compromissos;
 - checkout: idempotencia e concorrencia entre sessoes.
+- webhooks: replay guard duravel via `orderman.IdempotencyKey` e unicidade
+  `channel_ref + external_ref` para pedidos de marketplace.
 
 SQLite continua permitido para desenvolvimento leve, mas qualquer teste marcado
 como concorrente pode ser pulado nesse modo. Um release nao pode usar uma rodada
@@ -67,6 +69,13 @@ Quando `REDIS_URL` esta definido, `config/settings.py` configura:
 - `stock-*` e publico e contem apenas disponibilidade por canal;
 - `order-*` exige usuario ligado ao pedido ou staff;
 - `backstage-*` exige staff.
+
+Webhooks usam o banco, nao Redis, como camada canonica de idempotencia:
+
+- Stripe: id do evento assinado, com hash do payload como fallback;
+- EFI PIX: `endToEndId` como chave primaria de replay, com `txid` como fallback;
+- iFood: `order_id`/`order_code` como chave de replay e `Order.external_ref`
+  unico dentro do canal.
 
 Variavel:
 

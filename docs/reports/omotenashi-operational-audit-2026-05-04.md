@@ -79,15 +79,16 @@ de expandir fluxo.
 | Geração aleatória de refs | Parcialmente corrigido | `ORDER_REF` visível permanece no formato curto existente. O gerador passou a usar `secrets.choice`, nao `random.choice`. Hardening de URLs públicas deve ser feito com token opaco, autorização e rate limit, nao aumentando o ref exibido ao cliente/operador. |
 | URLs publicas de pedido | Corrigido | Tracking, pagamento, status parcial, cancelamento, confirmacao e reorder agora exigem sessao que criou/acessou o pedido, cliente autenticado correspondente ou staff. Ref chutado retorna 404. |
 | SSE de pedido/backstage | Corrigido | `order-*` exige usuario ligado ao pedido ou staff; `backstage-*` exige staff. `stock-*` continua publico porque nao carrega informacao de cliente/pedido. |
+| Webhooks duplicados/replay | Corrigido | Stripe, EFI PIX e iFood usam replay guard duravel via `IdempotencyKey`; iFood tambem ganhou unicidade `channel_ref + external_ref` no Orderman. Repeticao devolve resposta cacheada; evento simultaneo em processamento devolve `409` para retry. |
 | Backend Redis legado | Corrigido em runtime/docs | Runtime canonico usa `django.core.cache.backends.redis.RedisCache`. `django-redis` fica apenas como anti-regression test para bloquear retorno do backend antigo. |
 | Access link servidor-servidor | Corrigido | Criacao de access link agora falha fechada fora de `DEBUG` quando `DOORMAN_ACCESS_LINK_API_KEY` esta ausente, e `manage.py check --deploy` emite `SHOPMAN_E008`. |
-| Seed adversarial | Implementado | Nelson seed cria cenarios determinísticos de baixa atencao, PIX pendente perto de expirar, PIX expirado, pagamento capturado apos cancelamento e pedido iFood parado. |
+| Seed adversarial | Implementado | Nelson seed cria cenarios determinísticos de baixa atencao, PIX pendente perto de expirar, PIX expirado, pagamento capturado apos cancelamento, pedido iFood parado e marcadores de replay de webhook. |
 | Governanca de JSONField | Atualizada | Chaves seed-only (`edge_case`, `seed_namespace`, `seed_key`, `seed_persona`, `qa_notes`) foram registradas em `docs/reference/data-schemas.md`. |
 
 Evidencias desta rodada:
 
-- `make test`: `1799 passed`, `13 skipped`, `3 warnings`, `14 subtests`;
-- refs/order ids: `57 passed`;
+- `make test`: `1811 passed`, `13 skipped`, `3 warnings`, `14 subtests`;
+- webhooks/idempotencia/seed/order constraint: `84 passed`;
 - doorman access-link + deploy checks: `25 passed`;
 - seed operacional Nelson: `1 passed`.
 
@@ -137,7 +138,7 @@ Evidencias desta rodada:
 |---|---|
 | Corrida de estoque/pagamento em producao | Sem PostgreSQL/Redis testado, oversell, dupla captura ou producao indevida continuam sendo riscos a validar. |
 | Gateway divergente da abstracao | EFI/Stripe podem retornar estados parciais, expirar intents ou processar callbacks fora de ordem. |
-| Webhooks duplicados ou atrasados | Podem gerar notificacao duplicada, status fora de ordem ou experiencia confusa se idempotencia nao for mantida em todos os pontos. |
+| Webhooks duplicados ou atrasados | Replay imediato esta coberto nos gateways principais; ainda exige smoke real em sandbox para eventos fora de ordem e payloads divergentes de provedor. |
 | Operador usar Admin como atalho indevido | Mesmo com UI canonica, permissions e caminhos operacionais precisam continuar impedindo bypass. |
 | Copy Omotenashi virar verniz | Se contexto gerar frase mas nao mudar fluxo, o produto perde a diferenca real frente a players consolidados. |
 | Falta de smoke real em dispositivos | A experiencia mobile e WhatsApp-first pode parecer correta nos testes e falhar em toque, latencia, teclado ou acessibilidade real. |

@@ -119,6 +119,11 @@ class Order(models.Model):
                 condition=models.Q(total_q__gte=0),
                 name="ord_order_total_q_non_negative",
             ),
+            models.UniqueConstraint(
+                fields=["channel_ref", "external_ref"],
+                condition=models.Q(external_ref__isnull=False) & ~models.Q(external_ref=""),
+                name="ord_uniq_order_channel_external_ref",
+            ),
         ]
 
     def __init__(self, *args, **kwargs):

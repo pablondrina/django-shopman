@@ -103,6 +103,13 @@ Webhooks:
 - iFood rejeita token ausente/incorreto.
 - ManyChat exige HMAC quando `MANYCHAT_WEBHOOK_SECRET` está configurado.
 - Stripe depende de `STRIPE_WEBHOOK_SECRET` para validação de assinatura.
+- Replay/idempotencia e duravel em banco:
+  - Stripe deduplica por id de evento assinado ou hash do payload.
+  - EFI PIX deduplica por `endToEndId` ou `txid`.
+  - iFood deduplica por `order_id`/`order_code`; `channel_ref + external_ref`
+    tambem e unico em `Order`.
+- Evento duplicado retorna o corpo canonico ja salvo; evento simultaneo em
+  processamento retorna `409` para permitir retry do provedor.
 
 ## Dados Sensíveis
 

@@ -18,7 +18,7 @@ from unittest.mock import MagicMock, patch
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 from shopman.orderman.ids import generate_idempotency_key, generate_session_key
-from shopman.orderman.models import Order, Session
+from shopman.orderman.models import IdempotencyKey, Order, Session
 from shopman.orderman.services.commit import CommitService
 from shopman.orderman.services.modify import ModifyService
 from shopman.payman import PaymentService
@@ -217,7 +217,7 @@ class StripeWebhookTests(WebhookTestBase):
     # ── Idempotency ───────────────────────────────────────────
 
     def test_stripe_duplicate_webhook_idempotent(self) -> None:
-        """Same webhook twice → PaymentIntent captured once, no error on second."""
+        """Same webhook twice → PaymentIntent captured once, downstream hook once."""
         order = _create_order_with_payment("web", "card")
         intent = _create_card_intent(order)
         event_dict = self._make_event("payment_intent.succeeded", intent.gateway_id, intent.ref)
@@ -228,11 +228,16 @@ class StripeWebhookTests(WebhookTestBase):
             mock_stripe.Webhook.construct_event.return_value = mock_event
             mock_get_stripe.return_value = mock_stripe
 
-            resp1 = self._post_webhook(event_dict)
-            resp2 = self._post_webhook(event_dict)
+            with patch(
+                "shopman.shop.webhooks.stripe.StripeWebhookView._trigger_order_hooks"
+            ) as mock_hooks:
+                resp1 = self._post_webhook(event_dict)
+                resp2 = self._post_webhook(event_dict)
 
         self.assertEqual(resp1.status_code, 200)
         self.assertEqual(resp2.status_code, 200)
+        self.assertEqual(mock_hooks.call_count, 1)
+        self.assertEqual(IdempotencyKey.objects.filter(scope="webhook:stripe").count(), 1)
 
         # Status still captured (not double-captured)
         intent.refresh_from_db()
@@ -386,9 +391,71 @@ class EfiPixWebhookTests(WebhookTestBase):
 
         self.assertEqual(resp1.status_code, 200)
         self.assertEqual(resp2.status_code, 200)
+        self.assertEqual(resp1.data["processed"], 1)
+        self.assertEqual(resp2.data["replays"], 1)
+        self.assertEqual(IdempotencyKey.objects.filter(scope="webhook:efi-pix").count(), 1)
 
         intent.refresh_from_db()
         self.assertEqual(intent.status, "captured")
+
+    def test_efi_same_e2e_cannot_capture_another_txid(self) -> None:
+        """A replayed PIX e2e id is global, not scoped only to a txid."""
+        order_1 = _create_order_with_payment("web", "pix")
+        intent_1 = _create_pix_intent(order_1)
+        order_2 = _create_order_with_payment("web", "pix")
+        intent_2 = PaymentService.create_intent(
+            order_ref=order_2.ref,
+            amount_q=order_2.total_q,
+            method="pix",
+            gateway="efi",
+            gateway_data={},
+        )
+        intent_2.gateway_id = "txid_second_order"
+        intent_2.save(update_fields=["gateway_id"])
+        order_2.data.setdefault("payment", {})["intent_ref"] = intent_2.ref
+        order_2.save(update_fields=["data", "updated_at"])
+
+        e2e_id = "E_GLOBAL_REPLAY"
+        resp1 = self._post(
+            {"pix": [{"txid": intent_1.gateway_id, "endToEndId": e2e_id, "valor": "10.00"}]}
+        )
+        resp2 = self._post(
+            {"pix": [{"txid": intent_2.gateway_id, "endToEndId": e2e_id, "valor": "10.00"}]}
+        )
+
+        self.assertEqual(resp1.status_code, 200)
+        self.assertEqual(resp2.status_code, 200)
+        self.assertEqual(resp2.data["replays"], 1)
+        intent_2.refresh_from_db()
+        self.assertEqual(intent_2.status, "pending")
+
+    def test_efi_in_progress_replay_returns_409(self) -> None:
+        from shopman.shop.services.webhook_idempotency import stable_webhook_key
+
+        IdempotencyKey.objects.create(
+            scope="webhook:efi-pix",
+            key=f"txid:{stable_webhook_key('txid_busy')}",
+            status="in_progress",
+        )
+
+        resp = self._post(
+            {"pix": [{"txid": "txid_busy", "endToEndId": "", "valor": "10.00"}]}
+        )
+        self.assertEqual(resp.status_code, 409)
+        self.assertEqual(resp.data["in_progress"], 1)
+
+    def test_confirm_pix_without_e2e_is_still_order_idempotent(self) -> None:
+        """Legacy callers without e2e_id must not dispatch on_paid twice."""
+        from shopman.shop.services.pix_confirmation import confirm_pix
+
+        order = _create_order_with_payment("web", "pix")
+        intent = _create_pix_intent(order)
+
+        with patch("shopman.shop.lifecycle.dispatch") as mock_dispatch:
+            confirm_pix(txid=intent.gateway_id, valor="10.00")
+            confirm_pix(txid=intent.gateway_id, valor="10.00")
+
+        self.assertEqual(mock_dispatch.call_count, 1)
 
     # ── Race condition ────────────────────────────────────────
 

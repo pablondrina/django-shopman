@@ -20,7 +20,10 @@ explicit dev action, or an opt-in mock directive in tests.
 from __future__ import annotations
 
 import logging
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
+from django.db import transaction
+from django.utils import timezone
 from shopman.orderman.models import Order
 
 logger = logging.getLogger(__name__)
@@ -61,7 +64,7 @@ def confirm_pix(*, txid: str, e2e_id: str = "", valor: str = "") -> None:
         _apply_order_payment(order, e2e_id=e2e_id, valor=valor)
         return
 
-    amount_q = int(round(float(valor) * 100)) if valor else db_intent.amount_q
+    amount_q = _amount_to_q(valor, default=db_intent.amount_q)
 
     try:
         if db_intent.status == "pending":
@@ -106,27 +109,49 @@ def _apply_order_payment(order: Order, *, e2e_id: str, valor: str) -> None:
     """
     from shopman.shop.lifecycle import dispatch
 
-    payment_data = order.data.get("payment", {}) if order.data else {}
+    should_dispatch = False
+    with transaction.atomic():
+        order = Order.objects.select_for_update().get(pk=order.pk)
+        payment_data = dict(order.data.get("payment", {}) if order.data else {})
 
-    if e2e_id and payment_data.get("e2e_id") == e2e_id:
-        return
+        if e2e_id and payment_data.get("e2e_id") == e2e_id:
+            return
 
-    if e2e_id:
-        payment_data["e2e_id"] = e2e_id
-    if valor:
-        payment_data["paid_amount_q"] = int(round(float(valor) * 100))
-    captured_at = _captured_at_for_payment(order)
-    if captured_at:
-        payment_data["captured_at"] = captured_at.isoformat()
+        already_captured = bool(payment_data.get("captured_at"))
+        should_dispatch = not already_captured
 
-    if order.data is None:
-        order.data = {}
-    order.data["payment"] = payment_data
-    order.save(update_fields=["data", "updated_at"])
+        if e2e_id:
+            payment_data["e2e_id"] = e2e_id
+        if valor:
+            payment_data["paid_amount_q"] = _amount_to_q(valor, default=order.total_q)
+        captured_at = _captured_at_for_payment(order) or timezone.now()
+        if not payment_data.get("captured_at"):
+            payment_data["captured_at"] = captured_at.isoformat()
+
+        if order.data is None:
+            order.data = {}
+        order.data["payment"] = payment_data
+        order.save(update_fields=["data", "updated_at"])
+
     _ack_payment_failed_alerts(order)
     _cancel_stale_intents(order, keep_intent_ref=payment_data.get("intent_ref", ""))
 
-    dispatch(order, "on_paid")
+    if should_dispatch:
+        dispatch(order, "on_paid")
+
+
+def _amount_to_q(valor: str, *, default: int | None = None) -> int:
+    if valor in ("", None):
+        if default is None:
+            raise ValueError("PIX amount is required")
+        return int(default)
+    try:
+        amount = Decimal(str(valor))
+    except (InvalidOperation, ValueError) as exc:
+        raise ValueError("PIX amount must be decimal") from exc
+    if amount <= 0:
+        raise ValueError("PIX amount must be positive")
+    return int((amount * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
 def _cancel_stale_intents(order: Order, *, keep_intent_ref: str) -> None:
