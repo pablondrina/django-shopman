@@ -22,6 +22,23 @@ make omotenashi-qa json=1
 Se o comando falhar em modo `strict=1`, a rodada manual não está pronta. Corrija
 o seed ou a matriz; não ajuste o roteiro para caber no dado disponível.
 
+Para navegar a matriz em Chrome headless local, com screenshots e relatório
+JSON:
+
+```bash
+make run
+make omotenashi-browser-qa strict=1
+```
+
+O target espera um servidor Shopman já rodando em `http://127.0.0.1:8000`,
+gera uma sessão admin local automaticamente e grava:
+
+- screenshots em `/tmp/shopman-omotenashi-qa-screens`;
+- relatório JSON em `/tmp/shopman-omotenashi-qa-browser.json`.
+
+Use `base_url=...`, `screenshots=...`, `report=...` ou `matrix=...` quando
+precisar apontar para outro ambiente ou anexar artefatos específicos.
+
 ## Matriz Canônica
 
 | Cenário | Viewport | Superfície | O que abrir | Foco da validação |

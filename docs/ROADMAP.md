@@ -24,6 +24,7 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 - smoke local de gateways via `make smoke-gateways`, com rollback e matriz
   honesta de sandbox/staging.
 - matriz manual QA Omotenashi via `make omotenashi-qa`, ligada ao seed Nelson.
+- target `make omotenashi-browser-qa` para rodar Chrome headless na matriz;
 - rodada browser local da matriz Omotenashi registrada com `14 pass`, `0 review`
   em [`reports/omotenashi-browser-qa-2026-05-05.md`](reports/omotenashi-browser-qa-2026-05-05.md).
 
@@ -45,7 +46,7 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 | Dívida | Impacto | Próxima ação |
 |--------|---------|--------------|
 | Gateway sandbox e snapshot real pendentes | Smoke local existe; falta provar divergência contra provedores reais. | Executar `make smoke-gateways-sandbox` com credenciais/staging reais. |
-| QA visual/manual ainda não é gate | A matriz `make omotenashi-qa` e a rodada browser local existem, mas CI ainda não prova toque real, teclado virtual, rede degradada e latência percebida. | Rodar dispositivo físico/staging e decidir gate Playwright/Chrome. |
+| QA visual/manual ainda não é gate | A matriz `make omotenashi-qa` e o target browser local existem, mas CI ainda não prova toque real, teclado virtual, rede degradada e latência percebida. | Rodar dispositivo físico/staging e decidir gate Playwright/Chrome. |
 | ManyChat webhook ainda pulado | Fluxo completo ManyChat → session → confirmação não está reimplementado. | Retomar junto com canais externos. |
 | Shelf life perecível parcialmente ligado | Padaria real precisa de validade por produto/receita sem ambiguidade. | Registrar `OffermanSkuValidator` ou alias canônico de `shelf_life_days`. |
 | Playwright E2E opcional | A suite existe, mas só roda quando Playwright está instalado. | Decidir se vira gate antes de piloto público. |
@@ -63,7 +64,7 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 | Reconciliação financeira diária interna | `make reconcile-financial-day` cruza pedidos, Payman e `DayClosing`; alerta divergências. |
 | Smoke local de gateways | `make smoke-gateways` cobre EFI/Stripe/iFood localmente com rollback; sandbox real segue pendente. |
 | Matriz QA Omotenashi | `make omotenashi-qa` aponta URLs e evidências seed para mobile/tablet/desktop. |
-| Rodada browser local Omotenashi | `14 pass`, `0 review` em Chrome headless; evidência em [`reports/omotenashi-browser-qa-2026-05-05.md`](reports/omotenashi-browser-qa-2026-05-05.md). |
+| Rodada browser local Omotenashi | `make omotenashi-browser-qa strict=1` roda Chrome headless; evidência em [`reports/omotenashi-browser-qa-2026-05-05.md`](reports/omotenashi-browser-qa-2026-05-05.md). |
 | Backstage maturity | Arquivado em [`plans/completed/BACKSTAGE-MATURITY-PLAN.md`](plans/completed/BACKSTAGE-MATURITY-PLAN.md). |
 | POS/KDS runtime | Concluído no escopo atual. Plano arquivado em [`plans/completed/POS-KDS-RUNTIME-SURFACE-PLAN.md`](plans/completed/POS-KDS-RUNTIME-SURFACE-PLAN.md). |
 

@@ -160,11 +160,16 @@ Backstage:
 make seed
 make omotenashi-qa strict=1
 make omotenashi-qa json=1
+make run
+make omotenashi-browser-qa strict=1
 ```
 
-O comando não abre navegador nem substitui julgamento visual. Ele garante que a
-rodada manual parte do mesmo seed e aponta URLs/evidências para mobile,
-tablet/KDS e desktop gerente. O roteiro fica em
+`make omotenashi-qa` garante que a rodada manual parte do mesmo seed e aponta
+URLs/evidências para mobile, tablet/KDS e desktop gerente.
+`make omotenashi-browser-qa` navega essa matriz em Chrome headless, gera
+screenshots em `/tmp/shopman-omotenashi-qa-screens` e relatório JSON em
+`/tmp/shopman-omotenashi-qa-browser.json`. Ele não substitui dispositivo físico
+nem julgamento visual humano antes de release real. O roteiro fica em
 [`docs/guides/omotenashi-qa.md`](omotenashi-qa.md).
 
 ### Segurança

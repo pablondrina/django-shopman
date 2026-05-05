@@ -2,6 +2,7 @@
 
 Rodada visual/tatil local da matriz Omotenashi usando o seed Nelson, servidor
 Django local em `http://127.0.0.1:8000` e Chrome headless via DevTools Protocol.
+A execução agora é reproduzível por `make omotenashi-browser-qa strict=1`.
 
 ## Resultado
 
@@ -10,7 +11,7 @@ Django local em `http://127.0.0.1:8000` e Chrome headless via DevTools Protocol.
 | `make seed` | Passou; banco local foi limpo e recriado com os cenarios deterministicos. |
 | `manage.py migrate --noinput` | Passou; health local deixou de apontar migrations pendentes. |
 | `manage.py omotenashi_qa --json` | `14 ready`, `0 missing`, `14 total`. |
-| Browser headless mobile/tablet/desktop | `14 pass`, `0 review`, `0 fail`. |
+| `make omotenashi-browser-qa strict=1` | `14 pass`, `0 review`, `0 fail`. |
 
 Screenshots locais foram gerados em
 `/tmp/shopman-omotenashi-qa-screens/`. O relatorio JSON bruto ficou em
@@ -51,9 +52,10 @@ Screenshots locais foram gerados em
 
 ## Limites da Evidência
 
-Esta rodada e evidencia local forte, mas ainda nao e gate automatizado de CI.
-Ela tambem nao substitui teste em dispositivo fisico com toque real, teclado
-virtual, rede degradada e credenciais sandbox/staging dos gateways.
+Esta rodada e evidencia local forte e repetivel, mas ainda nao e gate
+automatizado de CI. Ela tambem nao substitui teste em dispositivo fisico com
+toque real, teclado virtual, rede degradada e credenciais sandbox/staging dos
+gateways.
 
 Para release com trafego real, mantenha como pendentes:
 

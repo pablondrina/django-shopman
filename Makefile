@@ -14,7 +14,7 @@ COMPOSE ?= docker compose
 APP_COMPOSE := $(COMPOSE) --profile app
 RELEASE_COMPOSE := $(COMPOSE) --profile release
 
-.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework test-runtime-preflight test-runtime load-test test-coverage lint omotenashi-lint omotenashi-audit omotenashi-qa admin admin-update admin-ui admin-ui-ci admin-ui-maturity admin-ui-strict admin-ui-surfaces admin-ui-test admin-ui-update unfold unfold-ci unfold-maturity unfold-strict unfold-surfaces unfold-update lint-unfold lint-unfold-maturity clean migrate run dev seed coverage css css-watch fonts up down logs db-shell diagnose-runtime diagnose-worker diagnose-payments diagnose-webhooks diagnose-health reconcile-financial-day smoke-gateways smoke-gateways-sandbox deploy-env-check deploy-check deploy-build deploy-release deploy-up deploy-down deploy-logs deploy-ps collectstatic
+.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework test-runtime-preflight test-runtime load-test test-coverage lint omotenashi-lint omotenashi-audit omotenashi-qa omotenashi-browser-qa admin admin-update admin-ui admin-ui-ci admin-ui-maturity admin-ui-strict admin-ui-surfaces admin-ui-test admin-ui-update unfold unfold-ci unfold-maturity unfold-strict unfold-surfaces unfold-update lint-unfold lint-unfold-maturity clean migrate run dev seed coverage css css-watch fonts up down logs db-shell diagnose-runtime diagnose-worker diagnose-payments diagnose-webhooks diagnose-health reconcile-financial-day smoke-gateways smoke-gateways-sandbox deploy-env-check deploy-check deploy-build deploy-release deploy-up deploy-down deploy-logs deploy-ps collectstatic
 
 help: ## Mostra este help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -192,6 +192,9 @@ smoke-gateways-sandbox: ## Exige credenciais sandbox/staging para smoke externo
 
 omotenashi-qa: ## Matriz manual QA mobile/tablet/desktop baseada no seed (strict=1 json=1)
 	$(PYTHON) manage.py omotenashi_qa $(if $(strict),--strict,) $(if $(json),--json,)
+
+omotenashi-browser-qa: ## Navega a matriz Omotenashi em Chrome headless (servidor local precisa estar rodando)
+	PYTHON="$(PYTHON)" node scripts/run_omotenashi_browser_qa.mjs $(if $(strict),--strict,) $(if $(base_url),--base-url=$(base_url),) $(if $(matrix),--matrix=$(matrix),) $(if $(screenshots),--screenshots-dir=$(screenshots),) $(if $(report),--report=$(report),)
 
 # ── Deploy wrappers (Docker fica encapsulado aqui) ───────────────────
 

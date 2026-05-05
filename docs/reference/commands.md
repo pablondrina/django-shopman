@@ -302,6 +302,36 @@ make omotenashi-qa json=1
 
 ---
 
+### omotenashi-browser-qa
+
+**Script:** `scripts/run_omotenashi_browser_qa.mjs`
+
+Navega a matriz Omotenashi em Chrome headless usando DevTools Protocol, captura
+screenshots por cenário e gera relatório JSON. O servidor Shopman precisa estar
+rodando. Em localhost, o script cria uma sessão admin local automaticamente; em
+staging/remoto, informe cookie autenticado via `SHOPMAN_SESSION_COOKIE` ou
+`--session-cookie`.
+
+| Variável/flag | Default | Descrição |
+|---------------|---------|-----------|
+| `strict=1` / `--strict` | — | Retorna erro se qualquer cenário ficar em `review` |
+| `base_url=...` / `--base-url=...` | `http://127.0.0.1:8000` | Servidor Shopman a navegar |
+| `matrix=...` / `--matrix=...` | saída de `omotenashi_qa --json` | Matriz JSON já gerada |
+| `screenshots=...` / `--screenshots-dir=...` | `/tmp/shopman-omotenashi-qa-screens` | Destino das screenshots |
+| `report=...` / `--report=...` | `/tmp/shopman-omotenashi-qa-browser.json` | Relatório JSON de saída |
+| `SHOPMAN_CHROME_PATH` / `--chrome-path=...` | autodetectado | Binário Chrome/Chromium |
+
+```bash
+make run
+make omotenashi-browser-qa strict=1
+```
+
+O target verifica login inesperado, overflow horizontal global e controles fora
+da viewport fora de containers roláveis. Rails horizontais intencionais, como os
+chips de categoria do cardápio mobile, são registrados sem virar falha.
+
+---
+
 ## Wrappers de diagnóstico
 
 Os diagnosticos operacionais vivem em `scripts/diagnose_operational.py` e sao
