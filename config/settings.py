@@ -657,6 +657,12 @@ SHOPMAN_RULES_ALLOWED_MODULE_PREFIXES = [
 
 # ── Logging ────────────────────────────────────────────────────────────
 
+SHOPMAN_JSON_LOGS = os.environ.get(
+    "SHOPMAN_JSON_LOGS",
+    "true" if not DEBUG else "false",
+).lower() in ("true", "1", "yes")
+_SHOPMAN_LOG_FORMATTER = "json" if SHOPMAN_JSON_LOGS else "verbose"
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -665,11 +671,14 @@ LOGGING = {
             "format": "{levelname} {asctime} {name} {message}",
             "style": "{",
         },
+        "json": {
+            "()": "shopman.shop.logging.JsonLogFormatter",
+        },
     },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "formatter": "verbose",
+            "formatter": _SHOPMAN_LOG_FORMATTER,
         },
     },
     "root": {

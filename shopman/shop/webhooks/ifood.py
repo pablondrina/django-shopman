@@ -135,6 +135,17 @@ class IFoodWebhookView(APIView):
         except ifood_ingest.IFoodIngestError as e:
             if e.code == "channel_missing":
                 webhook_idempotency.mark_failed(claim)
+                from shopman.shop.services import observability
+
+                observability.record_webhook_failure(
+                    provider="ifood",
+                    reason=e.code,
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    external_ref=external_ref,
+                    severity="critical",
+                    exc=e,
+                    context={"message": e.message},
+                )
                 logger.error(
                     "ifood_webhook: configuration error external_ref=%s code=%s message=%s",
                     external_ref,
@@ -158,8 +169,17 @@ class IFoodWebhookView(APIView):
                 response_code=status.HTTP_400_BAD_REQUEST,
             )
             return Response(response_body, status=status.HTTP_400_BAD_REQUEST)
-        except Exception:
+        except Exception as exc:
             webhook_idempotency.mark_failed(claim)
+            from shopman.shop.services import observability
+
+            observability.record_webhook_failure(
+                provider="ifood",
+                reason="processing_failed",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                external_ref=external_ref,
+                exc=exc,
+            )
             logger.exception("ifood_webhook: unexpected error external_ref=%s", external_ref)
             return Response(
                 {

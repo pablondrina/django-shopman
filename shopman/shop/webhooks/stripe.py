@@ -35,6 +35,16 @@ def _get_stripe_setting(key: str, default=None):
     )
 
 
+def _event_metadata_value(event, key: str) -> str:
+    data = getattr(event, "data", None)
+    obj = getattr(data, "object", None)
+    metadata = getattr(obj, "metadata", None) or {}
+    if not hasattr(metadata, "get"):
+        return ""
+    value = metadata.get(key)
+    return str(value or "")
+
+
 @extend_schema(exclude=True)
 class StripeWebhookView(APIView):
     """Endpoint para receber eventos do Stripe.
@@ -82,16 +92,30 @@ class StripeWebhookView(APIView):
         if claim.replayed or claim.in_progress:
             return Response(claim.response_body, status=claim.response_code)
 
+        event_type = str(getattr(event, "type", "") or "")
+        intent_ref = _event_metadata_value(event, "shopman_ref")
+        order_ref = _event_metadata_value(event, "order_ref")
         try:
             result = payment_stripe.handle_webhook_event(event)
 
-            intent_ref = result.get("intent_ref")
-            event_type = result.get("event_type", "")
+            intent_ref = result.get("intent_ref") or intent_ref
+            event_type = result.get("event_type", "") or event_type
 
             if event_type in ("payment_intent.succeeded", "checkout.session.completed") and intent_ref:
                 self._trigger_order_hooks(intent_ref)
-        except Exception:
+        except Exception as exc:
             webhook_idempotency.mark_failed(claim)
+            from shopman.shop.services import observability
+
+            observability.record_webhook_failure(
+                provider="stripe",
+                reason="processing_failed",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                external_ref=event_type,
+                order_ref=order_ref,
+                exc=exc,
+                context={"intent_ref": intent_ref},
+            )
             logger.exception("StripeWebhook: processing failed")
             return Response(
                 {"error": "Webhook processing failed"},

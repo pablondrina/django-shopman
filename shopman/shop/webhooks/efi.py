@@ -112,8 +112,18 @@ class EfiPixWebhookView(APIView):
                     response_body={"status": "processed", "txid": txid, "e2e_id": e2e_id},
                 )
                 processed += 1
-            except Exception:
+            except Exception as exc:
                 webhook_idempotency.mark_failed(claim)
+                from shopman.shop.services import observability
+
+                observability.record_webhook_failure(
+                    provider="efi-pix",
+                    reason="processing_failed",
+                    status_code=status.HTTP_200_OK,
+                    external_ref=txid,
+                    exc=exc,
+                    context={"txid": txid, "e2e_id": e2e_id},
+                )
                 logger.exception("EfiPixWebhook: error processing txid=%s", txid)
                 errors += 1
 

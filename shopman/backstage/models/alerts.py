@@ -11,6 +11,8 @@ class OperatorAlert(models.Model):
     TYPE_CHOICES = [
         ("notification_failed", "Notificação falhou"),
         ("payment_failed", "Pagamento falhou"),
+        ("payment_reconciliation_failed", "Reconciliação de pagamento falhou"),
+        ("webhook_failed", "Webhook falhou"),
         ("stock_discrepancy", "Discrepância de estoque"),
         ("payment_after_cancel", "Pagamento após cancelamento"),
         ("stock_low", "Estoque baixo"),

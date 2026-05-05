@@ -23,6 +23,7 @@ from shopman.orderman.services.commit import CommitService
 from shopman.orderman.services.modify import ModifyService
 from shopman.payman import PaymentService, PaymentTransaction
 
+from shopman.backstage.models import OperatorAlert
 from shopman.shop.models import Channel
 
 STRIPE_SETTINGS = {
@@ -355,6 +356,30 @@ class StripeWebhookTests(WebhookTestBase):
             resp = self._post_webhook({"type": "test"}, sig="bad-sig")
 
         self.assertEqual(resp.status_code, 400)
+
+    def test_stripe_processing_failure_creates_operator_alert(self) -> None:
+        """Verified webhook that crashes during processing creates an ops alert."""
+        event_dict = self._make_event("payment_intent.succeeded", "pi_alert", "PAY-ALERT")
+        mock_event = self._mock_stripe_construct(event_dict)
+
+        with (
+            patch("shopman.shop.adapters.payment_stripe._get_stripe") as mock_get_stripe,
+            patch(
+                "shopman.shop.adapters.payment_stripe.handle_webhook_event",
+                side_effect=RuntimeError("gateway drift"),
+            ),
+        ):
+            mock_stripe = MagicMock()
+            mock_stripe.Webhook.construct_event.return_value = mock_event
+            mock_get_stripe.return_value = mock_stripe
+            resp = self._post_webhook(event_dict)
+
+        self.assertEqual(resp.status_code, 500)
+        alert = OperatorAlert.objects.get(type="webhook_failed")
+        self.assertEqual(alert.severity, "error")
+        self.assertEqual(alert.order_ref, "ORD-TEST")
+        self.assertIn("Webhook stripe falhou", alert.message)
+        self.assertIn("payment_intent.succeeded", alert.message)
 
     # ── Unconfigured ──────────────────────────────────────────
 

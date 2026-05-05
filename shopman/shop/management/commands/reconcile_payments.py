@@ -87,6 +87,7 @@ class Command(BaseCommand):
 
         reconciled = 0
         skipped = 0
+        failures = 0
 
         for order in pending:
             payment_data = (order.data or {}).get("payment", {})
@@ -119,6 +120,17 @@ class Command(BaseCommand):
                             order.ref, intent_ref,
                         )
                     except Exception as exc:
+                        failures += 1
+                        from shopman.shop.services import observability
+
+                        observability.record_payment_reconciliation_failure(
+                            gateway=getattr(intent, "gateway", "") or "payman",
+                            intent_ref=intent_ref,
+                            order_ref=order.ref,
+                            code="on_paid_dispatch_failed",
+                            context={"action": "on_paid"},
+                            exc=exc,
+                        )
                         logger.error(
                             "reconcile_payments: falha ao despachar on_paid para order %s: %s",
                             order.ref, exc,
@@ -137,6 +149,17 @@ class Command(BaseCommand):
                             order.ref, intent_ref,
                         )
                     except Exception as exc:
+                        failures += 1
+                        from shopman.shop.services import observability
+
+                        observability.record_payment_reconciliation_failure(
+                            gateway=getattr(intent, "gateway", "") or "payman",
+                            intent_ref=intent_ref,
+                            order_ref=order.ref,
+                            code="expired_cancel_failed",
+                            context={"action": "cancel_expired_order"},
+                            exc=exc,
+                        )
                         logger.error(
                             "reconcile_payments: falha ao cancelar order %s: %s",
                             order.ref, exc,
@@ -154,7 +177,18 @@ class Command(BaseCommand):
                 f"{prefix}order={order.ref} intent={intent_ref} → {action}"
             )
 
-        summary = f"Reconciliados: {reconciled} | Ignorados: {skipped}"
+        from shopman.shop.services import observability
+
+        observability.operational_event(
+            "payment_reconciliation.completed",
+            reconciled=reconciled,
+            skipped=skipped,
+            failures=failures,
+            dry_run=dry_run,
+            since=since_str,
+        )
+
+        summary = f"Reconciliados: {reconciled} | Ignorados: {skipped} | Falhas: {failures}"
         if dry_run:
             self.stdout.write(self.style.WARNING(f"[dry-run] {summary}"))
         else:

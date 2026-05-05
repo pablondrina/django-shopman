@@ -401,6 +401,16 @@ def handle_webhook_event(event) -> dict:
                         exc.code,
                         exc.context,
                     )
+                    from shopman.shop.services import observability
+
+                    observability.record_payment_reconciliation_failure(
+                        gateway="stripe",
+                        intent_ref=db_intent.ref,
+                        order_ref=db_intent.order_ref,
+                        code=exc.code,
+                        context=exc.context,
+                        exc=exc,
+                    )
 
     return {"event_type": event.type, "intent_ref": intent_ref}
 

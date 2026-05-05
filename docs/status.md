@@ -38,6 +38,10 @@ Docker. No run `25375581090`, a job `Docker deploy image` passou em 1m28s.
 **Deploy encapsulado:** `Dockerfile`, compose profiles e targets `make deploy-*`
 existem para build/release/web/worker sem exigir comandos Docker manuais.
 
+**Observabilidade operacional:** logs JSON opcionais por `SHOPMAN_JSON_LOGS`,
+eventos estruturados para reconciliação/webhooks e alertas `webhook_failed` /
+`payment_reconciliation_failed` no Backstage.
+
 ---
 
 ## Framework (framework/)

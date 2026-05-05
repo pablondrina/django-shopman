@@ -731,7 +731,7 @@ class PaymentService:
 
         final_captured_q = cls._captured_total(intent)
         final_refunded_q = cls._refunded_total(intent)
-        return PaymentReconciliationResult(
+        result = PaymentReconciliationResult(
             intent_ref=ref,
             status=PaymentIntent.objects.only("status").get(pk=intent.pk).status,
             captured_q=final_captured_q,
@@ -740,6 +740,22 @@ class PaymentService:
             actions=tuple(actions),
             drift=tuple(drift),
         )
+        logger.info(
+            "payment.reconciled",
+            extra={
+                "event": "payment.reconciled",
+                "intent_ref": ref,
+                "order_ref": intent.order_ref,
+                "gateway": intent.gateway,
+                "gateway_status": status,
+                "local_status": result.status,
+                "captured_q": final_captured_q,
+                "refunded_q": final_refunded_q,
+                "changed": changed,
+                "actions": result.actions,
+            },
+        )
+        return result
 
     @classmethod
     def get(cls, ref: str) -> PaymentIntent:

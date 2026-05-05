@@ -81,6 +81,39 @@ Sucessos **não** geram log (evita poluição em ambientes com probes de alta
 frequência). Falhas emitem `WARNING` em `shopman.shop.views.health` com a lista
 de checks críticos que falharam.
 
+## Logs estruturados
+
+Em produção, `SHOPMAN_JSON_LOGS=true` por padrão quando `DJANGO_DEBUG=false`.
+Cada linha vai para stdout como JSON compacto, com `timestamp`, `level`,
+`logger`, `message` e campos extras como `event`, `order_ref`, `intent_ref`,
+`gateway` e `provider`.
+
+Para voltar ao formato humano em um ambiente específico:
+
+```env
+SHOPMAN_JSON_LOGS=false
+```
+
+Eventos operacionais críticos usam nomes estáveis:
+
+- `payment.reconciled`
+- `payment_reconciliation.failed`
+- `webhook.failed`
+- `operator_alert.created`
+- `operator_alert.debounced`
+
+## Alertas operacionais
+
+Falhas que exigem ação humana criam `OperatorAlert` com debounce local:
+
+- `webhook_failed`: webhook autenticado entrou, mas o processamento falhou.
+- `payment_reconciliation_failed`: divergência de gateway/Payman ou falha ao
+  aplicar reconciliação.
+
+Esses alertas aparecem no Backstage junto dos alertas de estoque, produção e
+pagamento já existentes. Replays ou erros de assinatura/token não criam alerta
+por padrão para evitar spam; continuam aparecendo em log.
+
 ### Segurança
 
 - Endpoints não expõem stacktrace, config, nem dados de negócio — apenas o
