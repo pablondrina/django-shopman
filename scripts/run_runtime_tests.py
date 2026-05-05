@@ -57,7 +57,23 @@ def main(argv: list[str] | None = None) -> int:
 
     collector = SkipCollector()
     extra_args = list(argv if argv is not None else sys.argv[1:])
-    pytest_args = [*_runtime_paths(), "-q", "--maxfail=1", "-r", "s", *extra_args]
+    runtime_paths = _runtime_paths()
+    print("Runtime test paths:", flush=True)
+    for path in runtime_paths:
+        print(f"- {path}", flush=True)
+
+    pytest_args = [
+        *runtime_paths,
+        "-vv",
+        "-s",
+        "--maxfail=1",
+        "-r",
+        "s",
+        "--durations=25",
+        "--timeout=180",
+        "--timeout-method=thread",
+        *extra_args,
+    ]
     result = pytest.main(pytest_args, plugins=[collector])
 
     if result == 0 and collector.skipped:

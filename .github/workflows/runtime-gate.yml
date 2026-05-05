@@ -13,9 +13,11 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   DJANGO_DEBUG: "true"
   DJANGO_SECRET_KEY: ci-runtime-gate-local-secret-key
   DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+  PYTHONUNBUFFERED: "1"
   SHOPMAN_INSTANCE_APPS: nelson
   SHOPMAN_CUSTOMER_STRATEGY_MODULES: nelson.customer_strategies
   SHOPMAN_INSTANCE_MODIFIERS: nelson.modifiers.D1DiscountModifier,nelson.modifiers.HappyHourModifier
@@ -121,5 +123,5 @@ jobs:
         run: make install
 
       - name: Runtime stress gate
-        timeout-minutes: 10
+        timeout-minutes: 25
         run: make test-runtime

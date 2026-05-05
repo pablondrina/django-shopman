@@ -34,6 +34,7 @@ install: ## Instala deps + apps da suite em modo editável
 		"python-dotenv>=1.0,<2.0" \
 		"qrcode[pil]>=7.4,<8.0" \
 		"locust>=2.24,<3.0" \
+		"pytest-timeout>=2.3,<3.0" \
 		"ruff>=0.15,<1.0" \
 		phonenumbers pytest pytest-django pytest-cov
 	# Instala cada app em modo editável
