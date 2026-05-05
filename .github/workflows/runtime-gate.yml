@@ -6,7 +6,6 @@ name: Runtime Gate
     branches:
       - main
       - master
-      - "codex/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
