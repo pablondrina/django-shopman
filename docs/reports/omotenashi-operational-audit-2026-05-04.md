@@ -67,6 +67,26 @@ Nao foram executados nesta maquina:
 | `manage.py check --deploy` com env production-like dummy | Na auditoria inicial passava com aviso de SQLite. Apos alinhamento de runtime, SQLite fora de `DEBUG` e Redis ausente viram erros bloqueantes. |
 | Docker/PostgreSQL local | Nao executado: `docker: command not found`. |
 
+## Addendum - evidencias remotas posteriores
+
+Atualizacao em 2026-05-05: a limitacao de Docker local foi mitigada por CI. O
+workflow `Runtime Gate` do PR #3 passou no run `25386566534` com:
+
+- `Quality + deploy contract`: lint, migrations, `check --deploy` e suite
+  completa verdes em ambiente limpo;
+- `Docker deploy image`: build real do `Dockerfile` verde;
+- `PostgreSQL + Redis runtime stress gate`: `make test-runtime` verde com
+  services reais de PostgreSQL e Redis.
+
+Na mesma rodada, Django 6 virou contrato canonico (`Django>=6.0,<6.1`) e o
+plano correspondente foi arquivado em
+`docs/plans/completed/DJANGO-6-UPGRADE-PLAN.md`.
+
+Isto fecha a lacuna de gate automatizado PostgreSQL/Redis em CI. Permanecem
+fora da evidencia automatizada: sandbox real EFI/Stripe/iFood, reconciliacao
+financeira diaria em staging, QA manual mobile/tablet/desktop e runbook de
+incidentes.
+
 ## Addendum - hardening seguranca/confiabilidade
 
 Rodada adicional em 2026-05-04, antes de avancar features maiores. A decisao
@@ -95,7 +115,8 @@ Evidencias desta rodada:
 - seed operacional Nelson: `1 passed`;
 - gate runtime PostgreSQL/Redis criado em 2026-05-05: `make test-runtime`
   falha fechado sem PostgreSQL/Redis e reprova qualquer skip no subconjunto
-  sensivel. Nao executado localmente porque `docker` nao esta instalado.
+  sensivel. Nao executado localmente porque `docker` nao esta instalado; executado
+  no CI no run `25386566534`.
 
 ## SWOT
 
@@ -120,7 +141,7 @@ Evidencias desta rodada:
 | Testes de concorrencia pulados em SQLite | O risco mais relevante de comercio real, disputa simultanea por estoque/pagamento/producao, ainda precisa de PostgreSQL real. |
 | Payman ainda classificado como beta | O nucleo financeiro melhorou, mas gateway real, reconciliacao, chargeback, expiracao e auditoria financeira ainda exigem disciplina extra. |
 | Ambiente local usa SQLite | Bom para fallback de desenvolvimento, insuficiente como evidência de producao; agora bloqueado fora de `DEBUG`. |
-| Documentacao de status parcialmente defasada | `docs/status.md` ainda fala em coleta de 717 testes, enquanto a suite atual executada e maior. Isso reduz confianca operacional se virar fonte decisoria. |
+| Governanca documental exige disciplina continua | `docs/status.md` foi reconciliado depois da auditoria, mas planos ativos e evidencias precisam continuar acompanhando o codigo para nao virarem fonte decisoria defasada. |
 | Dependencia de env vars criticas | Sem `DOORMAN_ACCESS_LINK_API_KEY`, sender OTP real, dominio padrao, tokens webhook e adapters reais, o deploy correto falha. |
 | Browser/manual QA nao executado nesta rodada | A suite e forte, mas nao substitui validacao visual/tatil de jornadas mobile reais. |
 | Worktree ja estava muito suja | Dificulta separar rapidamente baseline, alteracoes em progresso e delta auditado. |
@@ -234,22 +255,25 @@ Recomendacao:
 - validar tokens de webhook EFI/iFood/ManyChat;
 - rodar `check --deploy` no CI com configuracao de producao.
 
-### A-04 - Status docs e evidencias precisam ser reconciliados
+### A-04 - Status docs e evidencias precisavam ser reconciliados
 
-Severidade: P2.  
+Severidade: P2, mitigado em 2026-05-05.
 Area: documentacao operacional.
 
-Problema: `docs/status.md` declara coleta de 717 testes em 2026-04-26, mas a
-rodada atual executou uma suite mais ampla. A documentacao factual nao deve
-ficar atrasada em relacao ao estado auditado.
+Problema: a documentacao factual estava atrasada em relacao ao estado auditado.
+Depois da auditoria, `docs/status.md`, `docs/ROADMAP.md` e o indice de planos
+foram atualizados para refletir Django 6, Runtime Gate, Docker remoto e
+PostgreSQL/Redis em CI.
 
-Impacto: risco de decisao gerencial baseada em informacao antiga.
+Impacto residual: risco de decisao gerencial baseada em documento antigo caso a
+governanca documental nao acompanhe cada gate ou plano concluido.
 
 Recomendacao:
 
-- atualizar `docs/status.md` depois de fechar o delta desta auditoria;
-- separar "coleta de packages" de "make test completo";
-- registrar ultimo gate verde com data, ambiente e banco usado.
+- manter `docs/status.md` como retrato factual;
+- mover planos concluidos para `docs/plans/completed/`;
+- registrar ultimo gate verde com data, ambiente e banco usado;
+- revisar docs de entrada junto com cada mudanca de rota, dependencia ou deploy.
 
 ### A-05 - QA manual Omotenashi ainda nao foi feito nesta rodada
 

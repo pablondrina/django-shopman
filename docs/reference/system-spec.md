@@ -494,7 +494,7 @@ Templates (app precedence), static, Shop tokens, canais/presets, adapters (setti
 
 ### 4.2 POV: Operador de pedidos
 
-`/pedidos/` tabs por status (polling 3s). Card NEW com timer Alpine verde/amarelo/vermelho. Auto-confirm countdown visível. Reject → CANCELLED → dispatch on_cancelled → release+refund+notif. Passa timer → Directive confirmation.timeout → ConfirmationTimeoutHandler → CONFIRMED.
+`/admin/operacao/pedidos/` tabs por status (polling/HTMX). Card NEW com timer Alpine verde/amarelo/vermelho. Auto-confirm countdown visível. Reject → CANCELLED → dispatch on_cancelled → release+refund+notif. Passa timer → Directive confirmation.timeout → ConfirmationTimeoutHandler → CONFIRMED.
 
 ### 4.3 POV: Cozinha (KDS)
 
@@ -536,7 +536,7 @@ Core enxuto: Offerman sem noção de Channel (só `listing_ref` string); Stockma
 
 ### 5.5 Onboarding / Adoção
 
-Dia 1: `make install && migrate && seed && run` ⇒ rodando. `make dev` CSS watch + worker + server. ~2.448 testes. ADRs documentam decisões. CLAUDE.md contrato para agentes.
+Dia 1: `make install && migrate && seed && run` ⇒ rodando. `make dev` CSS watch + worker + server. O gate factual atual fica em [`../status.md`](../status.md): `make test` local e `Runtime Gate` remoto com PostgreSQL/Redis. ADRs documentam decisões. CLAUDE.md contrato para agentes.
 
 ### 5.6 Segurança
 
@@ -623,7 +623,7 @@ Cada Core viável standalone (Offerman = e-commerce catálogo, Stockman = estoqu
 - 9 pacotes pip-installable criados.
 - admin_unfold standalone por pacote.
 - shopman.utils zero-dep.
-- `pytest --collect-only -q` coleta 717 testes em 2026-04-26; suítes focadas devem passar antes de merge.
+- `make test` deve passar localmente; `Runtime Gate` deve passar no PR com PostgreSQL/Redis e build Docker. Ver [`../status.md`](../status.md).
 
 ### Gate 2 — Domínio vertical
 - Offerman: bundle recursivo + cycle detection; min_qty cascade; two-level AND.

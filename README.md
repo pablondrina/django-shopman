@@ -53,9 +53,10 @@ make seed
 # 3. Subir servidor
 make run
 # → http://localhost:8000/        (storefront)
-# → http://localhost:8000/admin/  (admin — admin/admin)
-# → http://localhost:8000/gestor/pedidos/ (gestor de pedidos)
-# → http://localhost:8000/gestor/kds/     (kitchen display)
+# → http://localhost:8000/admin/                 (admin — admin/admin)
+# → http://localhost:8000/admin/operacao/pedidos/ (gestor de pedidos)
+# → http://localhost:8000/admin/operacao/kds/     (KDS operacional)
+# → http://localhost:8000/gestor/pos/             (POS)
 ```
 
 > Postgres é o default de dev — casa com os testes de concorrência do Stockman

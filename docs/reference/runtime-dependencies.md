@@ -117,13 +117,13 @@ Craftsman, checkout concorrente, rate limit em Redis, acesso a pedidos,
 permissoes SSE, replay de webhooks, deploy checks e health/readiness.
 
 Evidencia registrada em 2026-05-05: o workflow `Runtime Gate` do PR #3 passou
-no run `25375581090` com:
+no run `25386566534` com:
 
 - `Quality + deploy contract`: `ruff`, migrations check, `check --deploy` e
-  suite completa em 4m37s;
-- `Docker deploy image`: build real do `Dockerfile` no GitHub Actions em 1m28s;
+  suite completa em 5m02s;
+- `Docker deploy image`: build real do `Dockerfile` no GitHub Actions em 1m36s;
 - `PostgreSQL + Redis runtime stress gate`: `make test-runtime` em services
-  reais do GitHub Actions em 1m29s.
+  reais do GitHub Actions em 1m26s.
 
 Para stress HTTP complementar, com o servidor ja rodando e seed aplicado:
 

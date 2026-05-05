@@ -67,8 +67,9 @@ make run
 
 - **Storefront:** http://localhost:8000/
 - **Admin:** http://localhost:8000/admin/ (`admin` / `admin`)
-- **Gestor de pedidos:** http://localhost:8000/pedidos/
-- **KDS:** http://localhost:8000/kds/
+- **Gestor de pedidos:** http://localhost:8000/admin/operacao/pedidos/
+- **KDS operacional:** http://localhost:8000/admin/operacao/kds/
+- **POS:** http://localhost:8000/gestor/pos/
 
 ## Parar a infra
 

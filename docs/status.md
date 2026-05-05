@@ -27,13 +27,13 @@ Para gaps e roadmap, ver [ROADMAP.md](ROADMAP.md) e os planos ativos em `docs/pl
 **Gate runtime real:** `make test-runtime` criado em 2026-05-05 para
 PostgreSQL + Redis. Ele falha se PostgreSQL/Redis não estiverem acessíveis ou
 se qualquer teste sensível for pulado. Evidência registrada no PR #3:
-`Runtime Gate` `25375581090` passou em 2026-05-05, com `PostgreSQL + Redis
-runtime stress gate` verde em 1m29s.
+`Runtime Gate` `25386566534` passou em 2026-05-05, com `PostgreSQL + Redis
+runtime stress gate` verde em 1m26s.
 
 **CI sem Docker local:** workflow `Runtime Gate` criado em 2026-05-05. Ele
 builda a imagem Docker no GitHub Actions, sobe PostgreSQL/Redis, roda a suite
 completa e executa `make test-runtime`; o operador local nao precisa rodar
-Docker. No run `25375581090`, a job `Docker deploy image` passou em 1m28s.
+Docker. No run `25386566534`, a job `Docker deploy image` passou em 1m36s.
 
 **Deploy encapsulado:** `Dockerfile`, compose profiles e targets `make deploy-*`
 existem para build/release/web/worker sem exigir comandos Docker manuais.
