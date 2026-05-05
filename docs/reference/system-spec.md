@@ -456,7 +456,7 @@ Sidebar dinâmica + dashboard com KPIs + Chart.js + tabelas. `ChannelForm` com J
 
 ### 2.13 API (DRF)
 
-Endpoints `/api/v1/cart/`, `/api/v1/checkout/` (3/min), `/api/v1/availability/<sku>/` (cache 10s), `/api/v1/catalog/products/` (cursor 20), `/api/v1/tracking/<ref>/`, `/api/v1/account/*`, `/api/v1/geocode/reverse` (30/min). Idempotency key no checkout. Error envelope consistente. Todas as responses carregam `X-API-Version: 1`. Path prefix `v1` é contrato: breaking changes vão em `v2` paralelo, nunca mutam `v1` in-place.
+Endpoints `/api/v1/cart/`, `/api/v1/checkout/` (3/min), `/api/v1/availability/<sku>/` (cache 10s), `/api/v1/catalog/products/` (cursor 20), `/api/v1/tracking/<ref>/` (mesmo gate de sessao/cliente/staff do tracking HTML), `/api/v1/account/*`, `/api/v1/geocode/reverse` (30/min). Idempotency key no checkout. Error envelope consistente. Todas as responses carregam `X-API-Version: 1`. Path prefix `v1` é contrato: breaking changes vão em `v2` paralelo, nunca mutam `v1` in-place.
 
 ---
 

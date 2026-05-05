@@ -38,6 +38,21 @@ def test_tracking_ref_guess_returns_404(order):
     assert response.status_code == 404
 
 
+def test_tracking_api_ref_guess_returns_404(order):
+    attacker = Client()
+
+    response = attacker.get(f"/api/v1/tracking/{order.ref}/")
+
+    assert response.status_code == 404
+
+
+def test_tracking_api_allows_session_order_access(client, order):
+    response = client.get(f"/api/v1/tracking/{order.ref}/")
+
+    assert response.status_code == 200
+    assert response.json()["ref"] == order.ref
+
+
 def test_payment_ref_guess_returns_404(order_with_payment):
     attacker = Client()
 

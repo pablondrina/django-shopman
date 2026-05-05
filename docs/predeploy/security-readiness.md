@@ -86,9 +86,10 @@ Storefront:
 - Dados externos do ViaCEP sao escapados antes de entrar em HTML/Alpine.
 - Links de acesso usam tokens de Doorman com uso único, expiração e criação
   autenticada por `DOORMAN_ACCESS_LINK_API_KEY` fora de `DEBUG`.
-- URLs de pedido (`/pedido/<ref>/`, pagamento, status, cancelamento,
-  confirmacao e reorder) nao devem ser publicas por `ref`: exigem sessao
-  autorizada, cliente autenticado correspondente ou staff.
+- URLs de pedido (`/pedido/<ref>/`, API `/api/v1/tracking/<ref>/`,
+  pagamento, status, cancelamento, confirmacao e reorder) nao devem ser
+  publicas por `ref`: exigem sessao autorizada, cliente autenticado
+  correspondente ou staff.
 - SSE `order-*` segue a mesma regra de acesso do pedido; `stock-*` permanece
   publico porque transmite disponibilidade por canal, sem dados pessoais.
 - Trusted device usa cookie assinado por token hash e pode ser revogado.

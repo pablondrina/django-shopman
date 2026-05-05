@@ -58,7 +58,7 @@ Nao foram executados nesta maquina:
 
 | Gate | Resultado |
 |---|---|
-| `make test` | Passou. Packages + framework verdes. Framework: `1791 passed`, `13 skipped`, `14 subtests`. |
+| `make test` | Passou. Packages + framework verdes. Framework: `1820 passed`, `13 skipped`, `3 warnings`, `14 subtests`. |
 | `make admin` | Passou. Check canonico Unfold + `63 passed`. |
 | `make omotenashi-lint` | Passou. Sem copy critica hardcoded detectada. |
 | `ruff check ...` | Passou apos ajustes mecanicos de import ordering. |
@@ -77,7 +77,7 @@ de expandir fluxo.
 | Item | Status | Resultado |
 |---|---|---|
 | Geração aleatória de refs | Parcialmente corrigido | `ORDER_REF` visível permanece no formato curto existente. O gerador passou a usar `secrets.choice`, nao `random.choice`. Hardening de URLs públicas deve ser feito com token opaco, autorização e rate limit, nao aumentando o ref exibido ao cliente/operador. |
-| URLs publicas de pedido | Corrigido | Tracking, pagamento, status parcial, cancelamento, confirmacao e reorder agora exigem sessao que criou/acessou o pedido, cliente autenticado correspondente ou staff. Ref chutado retorna 404. |
+| URLs publicas de pedido | Corrigido | Tracking HTML, API `/api/v1/tracking/<ref>/`, pagamento, status parcial, cancelamento, confirmacao e reorder agora exigem sessao que criou/acessou o pedido, cliente autenticado correspondente ou staff. Ref chutado retorna 404. |
 | SSE de pedido/backstage | Corrigido | `order-*` exige usuario ligado ao pedido ou staff; `backstage-*` exige staff. `stock-*` continua publico porque nao carrega informacao de cliente/pedido. |
 | Webhooks duplicados/replay | Corrigido | Stripe, EFI PIX e iFood usam replay guard duravel via `IdempotencyKey`; iFood tambem ganhou unicidade `channel_ref + external_ref` no Orderman. Repeticao devolve resposta cacheada; evento simultaneo em processamento devolve `409` para retry. |
 | Entradas publicas de carrinho/CEP | Corrigido | POSTs de carrinho e lookup de CEP tem rate limit; quantidades invalidas nao geram 500 e sao limitadas; payload externo do ViaCEP e escapado antes de entrar em HTML/Alpine. |
@@ -88,7 +88,7 @@ de expandir fluxo.
 
 Evidencias desta rodada:
 
-- `make test`: `1818 passed`, `13 skipped`, `3 warnings`, `14 subtests`;
+- `make test`: `1820 passed`, `13 skipped`, `3 warnings`, `14 subtests`;
 - carrinho/CEP/rate limit: `45 passed`;
 - webhooks/idempotencia/seed/order constraint: `84 passed`;
 - doorman access-link + deploy checks: `25 passed`;

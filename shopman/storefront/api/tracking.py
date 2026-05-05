@@ -1,9 +1,12 @@
-"""Storefront Tracking API — order status by ref.
+"""Storefront Tracking API — order status by authorized ref.
 
 Consumes ``OrderTrackingProjection`` from the projection layer.
 """
 from __future__ import annotations
 
+from django.http import Http404
+from django.utils.decorators import method_decorator
+from django_ratelimit.decorators import ratelimit
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -27,21 +30,24 @@ class OrderTrackingView(APIView):
     GET /api/v1/tracking/{ref}/
 
     Returns order status, timeline, items, fulfillments, and payment status.
-    Auth: AllowAny (ref is opaque).
+    Auth: same browser session/customer/staff gate as the HTML tracking page.
     """
 
     permission_classes = [AllowAny]
     serializer_class = OrderTrackingSerializer
 
+    @method_decorator(ratelimit(key="user_or_ip", rate="120/m", method="GET", block=True))
     def get(self, request, ref: str):
-        order = order_service.find_order(ref)
-        if order is None:
+        try:
+            order = order_service.get_accessible_order(request, ref)
+        except Http404:
             return Response({"detail": "Order not found."}, status=404)
 
         proj = build_order_tracking(order)
 
+        fulfillments = (*proj.delivery_fulfillments, *proj.pickup_fulfillments)
         data = {
-            "ref": proj.ref,
+            "ref": proj.order_ref,
             "status": proj.status,
             "status_label": proj.status_label,
             "total_display": proj.total_display,
@@ -73,9 +79,9 @@ class OrderTrackingView(APIView):
                     "dispatched_at": f.dispatched_at_display,
                     "delivered_at": f.delivered_at_display,
                 }
-                for f in proj.fulfillments
+                for f in fulfillments
             ],
-            "payment_status": proj.payment_status,
+            "payment_status": proj.payment_status_label,
         }
 
         serializer = OrderTrackingSerializer(data)
