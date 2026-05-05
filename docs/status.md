@@ -47,6 +47,12 @@ eventos estruturados para reconciliação/webhooks e alertas `webhook_failed` /
 `make diagnose-health` existem e nao exigem Docker manual. Runbooks P1/P2 ficam
 em [`docs/runbooks/`](runbooks/README.md).
 
+**Reconciliação financeira diária:** `make reconcile-financial-day` cruza
+pedidos, `PaymentIntent`, `PaymentTransaction` e `DayClosing`; persiste resumo e
+divergências no fechamento e cria alerta `payment_reconciliation_failed` para
+erro/crítico. Snapshot real de gateway ainda depende de credenciais sandbox ou
+staging.
+
 **Django 6:** o contrato canônico agora é `Django>=6.0,<6.1`. O canário local
 em ambiente isolado validou Django 6.0.5 com `django-unfold 0.92.0`, DRF
 3.17.1, `django-import-export 4.4.1`, `django-filter 25.2`, `redis 7.4.0` e
@@ -89,12 +95,8 @@ suite completa após atualizar o inventário Unfold canônico.
 
 Ver [ROADMAP.md](ROADMAP.md) para gaps conhecidos e plano de correção:
 
-- **Gateways sandbox** — validar EFI/Stripe/iFood com eventos duplicados,
-  atrasados e fora de ordem.
-- **Reconciliação financeira** — provar rotina diária para pedido, intent,
-  transações, gateway, refund e fechamento.
-- **Reconciliação diária profunda** — rotina auditável pedido ↔ intent ↔
-  transação ↔ gateway ↔ fechamento ainda pendente.
+- **Gateways sandbox** — validar EFI/Stripe/iFood com snapshot real, eventos
+  duplicados, atrasados e fora de ordem.
 - **QA manual Omotenashi** — mobile cliente, tablet KDS e desktop gerente.
 
 Ver [ROADMAP.md](ROADMAP.md) e `docs/plans/` para itens de UX/operação:

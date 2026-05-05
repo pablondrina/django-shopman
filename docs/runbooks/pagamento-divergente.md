@@ -15,12 +15,14 @@ Risco financeiro direto, atendimento confuso e fechamento diario incorreto.
 ```bash
 make diagnose-payments
 make diagnose-webhooks
+make reconcile-financial-day date=YYYY-MM-DD dry_run=1
 python manage.py reconcile_payments --since=1d --dry-run
 ```
 
 Leia primeiro `payment divergences`. A referencia canonica de pagamento e
 `PaymentIntent` + `PaymentTransaction`; `Order.data.payment.intent_ref` e apenas
-o elo operacional.
+o elo operacional. O comando `reconcile_financial_day` cruza o dia inteiro e
+mostra divergencias persistiveis no fechamento.
 
 ## Acao imediata segura
 
@@ -39,6 +41,9 @@ python manage.py reconcile_payments --since=1d
 - Pedido cancelado com saldo capturado: confirmar gateway e iniciar refund pelo
   fluxo canonico.
 - Refund parcial suspeito: comparar soma de transacoes, gateway e fechamento.
+- Dia fechado com divergencia: depois de validar o dry-run, executar
+  `make reconcile-financial-day date=YYYY-MM-DD require_closing=1` para gravar o
+  resumo em `DayClosing`.
 
 ## Escalar
 
@@ -49,4 +54,3 @@ pedido entregue ou gateway mostrando status diferente do Payman.
 
 `order_ref`, `intent_ref`, status do pedido, status do intent, capture/refund em
 `q`, gateway status, saida de `make diagnose-payments`.
-

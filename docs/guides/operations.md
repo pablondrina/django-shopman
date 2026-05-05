@@ -114,6 +114,24 @@ Esses alertas aparecem no Backstage junto dos alertas de estoque, produção e
 pagamento já existentes. Replays ou erros de assinatura/token não criam alerta
 por padrão para evitar spam; continuam aparecendo em log.
 
+## Reconciliação financeira diária
+
+Use após o fechamento do dia para cruzar pedido, `PaymentIntent`,
+`PaymentTransaction` e `DayClosing`:
+
+```bash
+make reconcile-financial-day date=YYYY-MM-DD dry_run=1
+make reconcile-financial-day date=YYYY-MM-DD require_closing=1
+```
+
+O comando grava o resumo em `DayClosing.data["financial_reconciliation"]` e as
+divergências em `DayClosing.data["financial_reconciliation_errors"]`. Em
+divergência `error` ou `critical`, cria `OperatorAlert` do tipo
+`payment_reconciliation_failed`.
+
+O escopo atual valida o contrato interno. Snapshot real de gateway depende de
+credenciais sandbox/staging e permanece no plano de smoke dos provedores.
+
 ### Segurança
 
 - Endpoints não expõem stacktrace, config, nem dados de negócio — apenas o

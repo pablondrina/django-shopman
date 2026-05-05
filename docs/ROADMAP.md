@@ -18,31 +18,30 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 - POS tab/workbench, KDS Station Runtime e Customer Ready Board implementados;
 - observabilidade inicial para webhooks, reconciliação e alertas operacionais;
 - runbooks P1/P2 e comandos `make diagnose-*` para runtime, worker, pagamentos,
-  webhooks e health.
+  webhooks e health;
+- reconciliação financeira diária interna via `make reconcile-financial-day`,
+  persistida no `DayClosing` e com alerta operacional para divergências.
 
 ## Próximos Passos
 
 | Prioridade | Frente | Entrega esperada | Plano |
 |------------|--------|------------------|-------|
 | P1 | Governança documental | Manter roadmap, status, planos ativos e evidências sempre alinhados ao código. | [`plans/README.md`](plans/README.md) |
-| P1 | Gateways sandbox | Validar EFI, Stripe e iFood com eventos duplicados, atrasados e fora de ordem. | ad hoc + docs de predeploy |
-| P1 | Reconciliação financeira | Provar rotina diária cruzando pedido, intent, transação, gateway, refund e fechamento. | [`plans/OMOTENASHI-FIRST-FULLNESS-PLAN.md`](plans/OMOTENASHI-FIRST-FULLNESS-PLAN.md) |
+| P1 | Gateways sandbox e snapshot real | Validar EFI, Stripe e iFood com snapshot, eventos duplicados, atrasados e fora de ordem. | [`plans/OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md) |
 | P1 | QA manual Omotenashi E2E | Rodada mobile cliente, tablet KDS e desktop gerente, com estados vazio/erro/timeout/parcial. | [`plans/OMOTENASHI-FIRST-FULLNESS-PLAN.md`](plans/OMOTENASHI-FIRST-FULLNESS-PLAN.md) |
 | P2 | Backstage maturity | Higiene de exceções, a11y dinâmica, E2E cross-area e polish final. | [`plans/BACKSTAGE-MATURITY-PLAN.md`](plans/BACKSTAGE-MATURITY-PLAN.md) |
 | P2 | Storefront projections | Checkout, pagamento, tracking, conta e histórico consumindo projections consistentes. | [`plans/PROJECTION-UI-PLAN.md`](plans/PROJECTION-UI-PLAN.md) |
 | P2 | Disponibilidade e substitutos | PDP/carrinho com feedback acionável, substitutos, holds e timeouts transparentes. | [`plans/AVAILABILITY-PLAN.md`](plans/AVAILABILITY-PLAN.md) |
 | P2 | Endereço canônico | Fluxo mobile de endereço com busca, geolocalização opt-in, ajuste no mapa e fallback manual. | [`plans/ADDRESS-UX-PLAN.md`](plans/ADDRESS-UX-PLAN.md) |
-| P2 | Diagnóstico operacional profundo | Baseline `make diagnose-*` e runbooks concluído; falta reconciliação diária e smoke sandbox rastreável. | [`plans/OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md) |
+| P2 | Diagnóstico operacional profundo | Baseline `make diagnose-*`, runbooks e reconciliação interna concluído; continuar smoke sandbox. | [`plans/OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md) |
 | P3 | Pre-prod real | Executar playbook quando houver provedor, domínio, secrets e dados de staging definidos. | [`plans/WP-GAP-07-pre-prod-migration-playbook.md`](plans/WP-GAP-07-pre-prod-migration-playbook.md) |
 
 ## Dívida Técnica Viva
 
 | Dívida | Impacto | Próxima ação |
 |--------|---------|--------------|
-| Gateway sandbox ainda não provado ponta a ponta | Risco de divergência entre mocks e provedores reais. | Criar smoke sandbox para EFI/Stripe/iFood, incluindo replay e eventos fora de ordem. |
-| Reconciliação financeira diária incompleta | Payman é forte, mas produção real exige fechamento financeiro auditável. | Implementar/validar relatório diário pedido ↔ gateway ↔ fechamento. |
+| Gateway sandbox e snapshot real pendentes | Relatório diário interno existe; falta provar divergência contra provedores reais. | Executar smoke sandbox EFI/Stripe/iFood com snapshots, replay e eventos fora de ordem. |
 | QA visual/manual ainda não é gate | Testes automatizados não pegam todo problema de toque, foco, layout e latência percebida. | Rodar e registrar checklist mobile/tablet/desktop. |
-| Reconciliação diária e smoke sandbox pendentes | Runbooks e `make diagnose-*` existem; ainda falta provar rotina diária e gateways reais. | Continuar [`OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md) nos WPs OR-4/OR-5. |
 | ManyChat webhook ainda pulado | Fluxo completo ManyChat → session → confirmação não está reimplementado. | Retomar junto com canais externos. |
 | Shelf life perecível parcialmente ligado | Padaria real precisa de validade por produto/receita sem ambiguidade. | Registrar `OffermanSkuValidator` ou alias canônico de `shelf_life_days`. |
 | Playwright E2E opcional | A suite existe, mas só roda quando Playwright está instalado. | Decidir se vira gate antes de piloto público. |
@@ -57,6 +56,7 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 | Docker manual para o operador | Encapsulado por Makefile e GitHub Actions. |
 | Runtime PostgreSQL/Redis no CI | Concluído no `Runtime Gate` do PR #3. |
 | Runbooks P1/P2 e `make diagnose-*` | Baseline concluído em [`runbooks/README.md`](runbooks/README.md) e `scripts/diagnose_operational.py`. |
+| Reconciliação financeira diária interna | `make reconcile-financial-day` cruza pedidos, Payman e `DayClosing`; alerta divergências. |
 | POS/KDS runtime | Concluído no escopo atual. Plano arquivado em [`plans/completed/POS-KDS-RUNTIME-SURFACE-PLAN.md`](plans/completed/POS-KDS-RUNTIME-SURFACE-PLAN.md). |
 
 ## Critério Para Produção Real
@@ -67,7 +67,7 @@ Antes de abrir tráfego real, o mínimo honesto é:
 2. `check --deploy` verde com secrets e hosts reais do ambiente.
 3. Gateway sandbox validado para pagamento, refund, webhook duplicado e evento
    fora de ordem.
-4. Reconciliação diária provada com dados de staging.
+4. Reconciliação diária interna provada e snapshot de gateway validado em staging.
 5. QA manual Omotenashi registrado para cliente, operador, cozinha e gerente.
 6. Runbook de incidente para gateway fora, webhook atrasado, estoque divergente,
    pedido pago sem confirmação e rollback.

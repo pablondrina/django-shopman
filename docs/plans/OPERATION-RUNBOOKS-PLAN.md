@@ -81,9 +81,13 @@ público.
 
 ### WP-OR-4 — Reconciliação financeira diária
 
-Status: pendente. Existe `reconcile_payments` para webhook perdido e Payman tem
-reconciliação cumulativa de gateway, mas ainda falta rotina diária auditável
-pedido ↔ intent ↔ transação ↔ gateway ↔ fechamento.
+Status: baseline interno implementado em `reconcile_financial_day` e no wrapper
+`make reconcile-financial-day`. O comando cruza pedido, `PaymentIntent`,
+`PaymentTransaction` e `DayClosing`, persiste resumo no fechamento e cria alerta
+`payment_reconciliation_failed` para divergência `error`/`critical`.
+
+Pendente neste WP: snapshot real de gateway quando houver credenciais sandbox ou
+staging; sem credenciais, o comando não finge validação externa.
 
 Amarrar a rotina diária de reconciliação:
 

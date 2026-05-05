@@ -15,6 +15,7 @@
 | [`customers_cleanup`](#customers_cleanup) | guestman | Manutenção | Remove eventos processados antigos |
 | [`auth_cleanup`](#auth_cleanup) | doorman | Manutenção | Remove tokens/códigos expirados |
 | [`reconcile_payments`](#reconcile_payments) | shop | Operação | Reconcilia pedidos cujo webhook de pagamento pode ter sido perdido |
+| [`reconcile_financial_day`](#reconcile_financial_day) | backstage | Operação | Reconcilia pedido, intent, transação e fechamento diário |
 | [`seed`](#seed) | shop | Seed | Popula banco com dados da Nelson Boulangerie |
 
 ---
@@ -204,6 +205,40 @@ python manage.py reconcile_payments --since=4h
 
 ---
 
+### reconcile_financial_day
+
+**App:** `shopman.backstage`
+**Arquivo:** `shopman/backstage/management/commands/reconcile_financial_day.py`
+
+Gera auditoria financeira diária cruzando pedidos, `PaymentIntent`,
+`PaymentTransaction` e `DayClosing`. Quando não está em `--dry-run`, persiste o
+resumo em `DayClosing.data["financial_reconciliation"]` e divergências em
+`DayClosing.data["financial_reconciliation_errors"]`. Divergência `error` ou
+`critical` cria alerta `payment_reconciliation_failed`.
+
+| Flag | Default | Descrição |
+|------|---------|-----------|
+| `--date` | ontem | Data local `YYYY-MM-DD` |
+| `--dry-run` | — | Gera relatório sem persistir e sem alertar |
+| `--require-closing` | — | Ausência de `DayClosing` vira erro |
+| `--no-alert` | — | Persiste sem criar `OperatorAlert` |
+| `--json` | — | Imprime JSON auditável |
+
+```bash
+# Preview seguro de uma data
+make reconcile-financial-day date=2026-05-05 dry_run=1
+
+# Rotina pós-fechamento, exigindo DayClosing
+make reconcile-financial-day date=2026-05-05 require_closing=1
+
+# JSON para anexar em incidente
+python manage.py reconcile_financial_day --date=2026-05-05 --dry-run --json
+```
+
+**Veja também:** [runbook de pagamento divergente](../runbooks/pagamento-divergente.md).
+
+---
+
 ## Wrappers de diagnóstico
 
 Os diagnosticos operacionais vivem em `scripts/diagnose_operational.py` e sao
@@ -264,6 +299,9 @@ python manage.py seed --flush
 
 # Reconciliação defensiva de pagamentos (diário, 4h30)
 30 4 * * * cd /app && python manage.py reconcile_payments --since=1d
+
+# Auditoria financeira diária (após fechamento)
+45 4 * * * cd /app && python manage.py reconcile_financial_day --require-closing
 
 # Worker de directives (systemd/supervisor, não cron)
 # python manage.py process_directives --watch

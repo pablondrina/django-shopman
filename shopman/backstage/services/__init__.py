@@ -3,6 +3,7 @@
 __all__ = [
     "alerts",
     "closing",
+    "financial_reconciliation",
     "kds",
     "orders",
     "pos",
