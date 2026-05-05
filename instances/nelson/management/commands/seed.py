@@ -3432,10 +3432,13 @@ class Command(BaseCommand):
 
         orders = Order.objects.filter(status__in=["completed", "delivered"])
         count = 0
+        linked = 0
 
         for i, order in enumerate(orders):
-            # Skip if already has payment
-            if PaymentIntent.objects.filter(order_ref=order.ref).exists():
+            existing_intent = PaymentIntent.objects.filter(order_ref=order.ref).order_by("-created_at").first()
+            if existing_intent:
+                if self._attach_order_payment_link(order, existing_intent):
+                    linked += 1
                 continue
 
             method = PaymentIntent.Method.PIX if i % 10 < 7 else PaymentIntent.Method.CARD
@@ -3460,9 +3463,25 @@ class Command(BaseCommand):
                 amount_q=order.total_q,
                 gateway_id=intent.gateway_id,
             )
+            if self._attach_order_payment_link(order, intent):
+                linked += 1
             count += 1
 
-        self.stdout.write(f"  ✅ {count} payment intents + transactions")
+        self.stdout.write(f"  ✅ {count} payment intents + transactions ({linked} order links)")
+
+    def _attach_order_payment_link(self, order: Order, intent: PaymentIntent) -> bool:
+        payment = dict((order.data or {}).get("payment") or {})
+        next_payment = {
+            **payment,
+            "method": intent.method,
+            "intent_ref": intent.ref,
+            "gateway": intent.gateway,
+        }
+        if payment == next_payment:
+            return False
+        order.data = {**(order.data or {}), "payment": next_payment}
+        order.save(update_fields=["data", "updated_at"])
+        return True
 
     # ────────────────────────────────────────────────────────────────
     # Fulfillments

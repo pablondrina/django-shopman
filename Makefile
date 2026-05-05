@@ -14,7 +14,7 @@ COMPOSE ?= docker compose
 APP_COMPOSE := $(COMPOSE) --profile app
 RELEASE_COMPOSE := $(COMPOSE) --profile release
 
-.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework test-runtime-preflight test-runtime load-test test-coverage lint omotenashi-lint omotenashi-audit admin admin-update admin-ui admin-ui-ci admin-ui-maturity admin-ui-strict admin-ui-surfaces admin-ui-test admin-ui-update unfold unfold-ci unfold-maturity unfold-strict unfold-surfaces unfold-update lint-unfold lint-unfold-maturity clean migrate run dev seed coverage css css-watch fonts up down logs db-shell deploy-env-check deploy-check deploy-build deploy-release deploy-up deploy-down deploy-logs deploy-ps collectstatic
+.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework test-runtime-preflight test-runtime load-test test-coverage lint omotenashi-lint omotenashi-audit admin admin-update admin-ui admin-ui-ci admin-ui-maturity admin-ui-strict admin-ui-surfaces admin-ui-test admin-ui-update unfold unfold-ci unfold-maturity unfold-strict unfold-surfaces unfold-update lint-unfold lint-unfold-maturity clean migrate run dev seed coverage css css-watch fonts up down logs db-shell diagnose-runtime diagnose-worker diagnose-payments diagnose-webhooks diagnose-health deploy-env-check deploy-check deploy-build deploy-release deploy-up deploy-down deploy-logs deploy-ps collectstatic
 
 help: ## Mostra este help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -163,6 +163,23 @@ logs: ## Stream dos logs dos services
 
 db-shell: ## psql no Postgres do docker
 	$(COMPOSE) exec postgres sh -c 'psql -U "$${POSTGRES_USER:-shopman}" -d "$${POSTGRES_DB:-shopman}"'
+
+# ── Diagnóstico operacional ─────────────────────────────────────────
+
+diagnose-runtime: ## Diagnostica DB, Redis/cache, migrations e SSE/eventstream
+	$(PYTHON) scripts/diagnose_operational.py runtime
+
+diagnose-worker: ## Diagnostica backlog, retries, stuck e failures de directives
+	$(PYTHON) scripts/diagnose_operational.py worker
+
+diagnose-payments: ## Diagnostica divergencias entre pedidos, intents e transacoes
+	$(PYTHON) scripts/diagnose_operational.py payments
+
+diagnose-webhooks: ## Diagnostica idempotencia, falhas e alertas de webhooks
+	$(PYTHON) scripts/diagnose_operational.py webhooks
+
+diagnose-health: ## Diagnostica health/readiness, checks Django e configuracao critica
+	$(PYTHON) scripts/diagnose_operational.py health
 
 # ── Deploy wrappers (Docker fica encapsulado aqui) ───────────────────
 

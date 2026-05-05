@@ -20,6 +20,8 @@ Este plano começa depois do bloco Django 6:
 
 ### WP-OR-1 — Runbooks de incidente
 
+Status: baseline implementado em [`docs/runbooks/`](../runbooks/).
+
 Criar runbooks curtos em `docs/runbooks/` para:
 
 - webhook falhando;
@@ -43,6 +45,10 @@ Cada runbook deve ter:
 
 ### WP-OR-2 — Comandos `make` de diagnóstico
 
+Status: baseline implementado via `scripts/diagnose_operational.py` e targets
+`make diagnose-runtime`, `make diagnose-worker`, `make diagnose-payments`,
+`make diagnose-webhooks` e `make diagnose-health`.
+
 Adicionar wrappers simples, sem exigir Docker manual:
 
 - `make diagnose-runtime`: DB, Redis, cache, SSE/eventstream, settings críticos;
@@ -55,6 +61,9 @@ Os comandos podem chamar scripts Python em `scripts/` ou management commands.
 Saída deve ser curta, textual e própria para suporte.
 
 ### WP-OR-3 — Healthcheck profundo
+
+Status: parcialmente implementado como diagnóstico CLI nao público em
+`make diagnose-health`. Endpoint público segue enxuto por segurança.
 
 Complementar `/health/` e `/ready/` com um diagnóstico operacional não público
 ou comando CLI que cubra:
@@ -72,6 +81,10 @@ público.
 
 ### WP-OR-4 — Reconciliação financeira diária
 
+Status: pendente. Existe `reconcile_payments` para webhook perdido e Payman tem
+reconciliação cumulativa de gateway, mas ainda falta rotina diária auditável
+pedido ↔ intent ↔ transação ↔ gateway ↔ fechamento.
+
 Amarrar a rotina diária de reconciliação:
 
 - pedido ↔ `PaymentIntent`;
@@ -85,6 +98,8 @@ Sem credenciais sandbox, validar localmente o contrato interno. Com credenciais
 sandbox, rodar smoke real em staging.
 
 ### WP-OR-5 — Gateway sandbox smoke
+
+Status: pendente por credenciais sandbox/staging.
 
 Quando houver credenciais:
 

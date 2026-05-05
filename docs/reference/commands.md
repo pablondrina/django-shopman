@@ -14,6 +14,7 @@
 | [`cleanup_idempotency_keys`](#cleanup_idempotency_keys) | orderman | Manutenção | Remove chaves de idempotência antigas |
 | [`customers_cleanup`](#customers_cleanup) | guestman | Manutenção | Remove eventos processados antigos |
 | [`auth_cleanup`](#auth_cleanup) | doorman | Manutenção | Remove tokens/códigos expirados |
+| [`reconcile_payments`](#reconcile_payments) | shop | Operação | Reconcilia pedidos cujo webhook de pagamento pode ter sido perdido |
 | [`seed`](#seed) | shop | Seed | Popula banco com dados da Nelson Boulangerie |
 
 ---
@@ -177,12 +178,58 @@ python manage.py auth_cleanup --days 30
 
 ---
 
+### reconcile_payments
+
+**App:** `shopman.shop`
+**Arquivo:** `shopman/shop/management/commands/reconcile_payments.py`
+
+Reconcilia pedidos `new`/`confirmed` antigos com `PaymentIntent` quando o
+webhook pode ter sido perdido. E idempotente e deve ser rodado primeiro em
+`--dry-run` durante incidente.
+
+| Flag | Default | Descrição |
+|------|---------|-----------|
+| `--since` | `2h` | Considera pedidos criados antes de N tempo (`30m`, `4h`, `1d`) |
+| `--dry-run` | — | Lista a acao sem executar transicao |
+
+```bash
+# Preview seguro
+python manage.py reconcile_payments --since=4h --dry-run
+
+# Executar reconciliacao apos validar gateway/dry-run
+python manage.py reconcile_payments --since=4h
+```
+
+**Veja também:** [runbook de pedido pago sem confirmacao](../runbooks/pedido-pago-sem-confirmacao.md).
+
+---
+
+## Wrappers de diagnóstico
+
+Os diagnosticos operacionais vivem em `scripts/diagnose_operational.py` e sao
+expostos por Makefile para nao exigir conhecimento de Docker:
+
+```bash
+make diagnose-runtime
+make diagnose-worker
+make diagnose-payments
+make diagnose-webhooks
+make diagnose-health
+```
+
+Saida `FAIL` significa acao operacional pendente. Ver
+[`docs/runbooks/`](../runbooks/README.md).
+
+---
+
 ### seed
 
 **App:** `shop`
-**Arquivo:** `shopman/shop/management/commands/seed.py`
+**Arquivo:** `instances/nelson/management/commands/seed.py`
 
-Popula o banco com dados completos da Nelson Boulangerie: catálogo (13 produtos + 1 bundle), estoque (3 posições), receitas (6 com BOM), clientes (7), canais (5), pedidos (105+), sessões abertas (3), alertas de estoque (7), e superuser admin.
+Popula o banco com dados completos da Nelson Boulangerie: catálogo, estoque,
+receitas, clientes, canais, pedidos, pagamentos com `Order.data.payment.intent_ref`,
+sessões abertas, alertas, POS/KDS e superuser admin.
 
 | Flag | Default | Descrição |
 |------|---------|-----------|
@@ -214,6 +261,9 @@ python manage.py seed --flush
 
 # Limpar eventos processados (semanal, domingo 4h)
 0 4 * * 0 cd /app && python manage.py customers_cleanup
+
+# Reconciliação defensiva de pagamentos (diário, 4h30)
+30 4 * * * cd /app && python manage.py reconcile_payments --since=1d
 
 # Worker de directives (systemd/supervisor, não cron)
 # python manage.py process_directives --watch

@@ -84,6 +84,9 @@ def test_nelson_seed_populates_production_history_alerts_and_batches():
     edge_order_refs = {order.ref for order in edge_orders}
     assert PaymentIntent.objects.filter(order_ref__in=edge_order_refs, status=PaymentIntent.Status.PENDING).count() >= 2
     assert PaymentIntent.objects.filter(order_ref__in=edge_order_refs, status=PaymentIntent.Status.CAPTURED).exists()
+    for intent in PaymentIntent.objects.filter(status=PaymentIntent.Status.CAPTURED):
+        order = Order.objects.get(ref=intent.order_ref)
+        assert ((order.data or {}).get("payment") or {}).get("intent_ref") == intent.ref
     assert OperatorAlert.objects.filter(type="payment_after_cancel", severity="critical", acknowledged=False).exists()
     assert OperatorAlert.objects.filter(type="stale_new_order", severity="error", acknowledged=False).exists()
     assert IdempotencyKey.objects.filter(scope="webhook:efi-pix", status="done").exists()

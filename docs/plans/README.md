@@ -15,7 +15,7 @@ fica em [`_quarantine/`](_quarantine/).
 | 3 | [`PROJECTION-UI-PLAN.md`](PROJECTION-UI-PLAN.md) | Continua a migração de telas para projections, começando por checkout, pagamento e tracking. |
 | 4 | [`AVAILABILITY-PLAN.md`](AVAILABILITY-PLAN.md) | Unifica disponibilidade, substitutos, holds, timeouts e feedback de estoque. |
 | 5 | [`ADDRESS-UX-PLAN.md`](ADDRESS-UX-PLAN.md) | Fecha endereço canônico para checkout real, baixa atenção e mobile. |
-| 6 | [`OPERATION-RUNBOOKS-PLAN.md`](OPERATION-RUNBOOKS-PLAN.md) | Formaliza runbooks, comandos `make diagnose-*`, healthcheck profundo e reconciliação diária. |
+| 6 | [`OPERATION-RUNBOOKS-PLAN.md`](OPERATION-RUNBOOKS-PLAN.md) | Baseline de runbooks/diagnose concluído; continuar reconciliação diária e smoke sandbox. |
 | 7 | [`WP-GAP-07-pre-prod-migration-playbook.md`](WP-GAP-07-pre-prod-migration-playbook.md) | Só dispara quando houver ambiente de pré-produção real agendado. |
 
 ## Backlog Planejado

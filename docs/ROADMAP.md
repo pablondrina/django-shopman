@@ -16,7 +16,9 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 - deploy local/staging encapsulado por `make deploy-*`, sem exigir comandos
   Docker manuais do operador;
 - POS tab/workbench, KDS Station Runtime e Customer Ready Board implementados;
-- observabilidade inicial para webhooks, reconciliação e alertas operacionais.
+- observabilidade inicial para webhooks, reconciliação e alertas operacionais;
+- runbooks P1/P2 e comandos `make diagnose-*` para runtime, worker, pagamentos,
+  webhooks e health.
 
 ## Próximos Passos
 
@@ -30,7 +32,7 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 | P2 | Storefront projections | Checkout, pagamento, tracking, conta e histórico consumindo projections consistentes. | [`plans/PROJECTION-UI-PLAN.md`](plans/PROJECTION-UI-PLAN.md) |
 | P2 | Disponibilidade e substitutos | PDP/carrinho com feedback acionável, substitutos, holds e timeouts transparentes. | [`plans/AVAILABILITY-PLAN.md`](plans/AVAILABILITY-PLAN.md) |
 | P2 | Endereço canônico | Fluxo mobile de endereço com busca, geolocalização opt-in, ajuste no mapa e fallback manual. | [`plans/ADDRESS-UX-PLAN.md`](plans/ADDRESS-UX-PLAN.md) |
-| P2 | Runbooks e diagnóstico operacional | Incidentes P1, comandos `make diagnose-*`, healthcheck profundo e smoke sandbox rastreável. | [`plans/OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md) |
+| P2 | Diagnóstico operacional profundo | Baseline `make diagnose-*` e runbooks concluído; falta reconciliação diária e smoke sandbox rastreável. | [`plans/OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md) |
 | P3 | Pre-prod real | Executar playbook quando houver provedor, domínio, secrets e dados de staging definidos. | [`plans/WP-GAP-07-pre-prod-migration-playbook.md`](plans/WP-GAP-07-pre-prod-migration-playbook.md) |
 
 ## Dívida Técnica Viva
@@ -40,7 +42,7 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 | Gateway sandbox ainda não provado ponta a ponta | Risco de divergência entre mocks e provedores reais. | Criar smoke sandbox para EFI/Stripe/iFood, incluindo replay e eventos fora de ordem. |
 | Reconciliação financeira diária incompleta | Payman é forte, mas produção real exige fechamento financeiro auditável. | Implementar/validar relatório diário pedido ↔ gateway ↔ fechamento. |
 | QA visual/manual ainda não é gate | Testes automatizados não pegam todo problema de toque, foco, layout e latência percebida. | Rodar e registrar checklist mobile/tablet/desktop. |
-| Runbooks e comandos de diagnóstico ainda incompletos | Incidente real fica mais lento e dependente de conhecimento interno. | Executar [`OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md). |
+| Reconciliação diária e smoke sandbox pendentes | Runbooks e `make diagnose-*` existem; ainda falta provar rotina diária e gateways reais. | Continuar [`OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md) nos WPs OR-4/OR-5. |
 | ManyChat webhook ainda pulado | Fluxo completo ManyChat → session → confirmação não está reimplementado. | Retomar junto com canais externos. |
 | Shelf life perecível parcialmente ligado | Padaria real precisa de validade por produto/receita sem ambiguidade. | Registrar `OffermanSkuValidator` ou alias canônico de `shelf_life_days`. |
 | Playwright E2E opcional | A suite existe, mas só roda quando Playwright está instalado. | Decidir se vira gate antes de piloto público. |
@@ -54,6 +56,7 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 | `django-redis` | Removido do contrato. Redis usa backend nativo do Django. |
 | Docker manual para o operador | Encapsulado por Makefile e GitHub Actions. |
 | Runtime PostgreSQL/Redis no CI | Concluído no `Runtime Gate` do PR #3. |
+| Runbooks P1/P2 e `make diagnose-*` | Baseline concluído em [`runbooks/README.md`](runbooks/README.md) e `scripts/diagnose_operational.py`. |
 | POS/KDS runtime | Concluído no escopo atual. Plano arquivado em [`plans/completed/POS-KDS-RUNTIME-SURFACE-PLAN.md`](plans/completed/POS-KDS-RUNTIME-SURFACE-PLAN.md). |
 
 ## Critério Para Produção Real

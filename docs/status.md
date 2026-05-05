@@ -27,13 +27,13 @@ Para gaps e roadmap, ver [ROADMAP.md](ROADMAP.md) e os planos ativos em `docs/pl
 **Gate runtime real:** `make test-runtime` criado em 2026-05-05 para
 PostgreSQL + Redis. Ele falha se PostgreSQL/Redis não estiverem acessíveis ou
 se qualquer teste sensível for pulado. Evidência registrada no PR #3:
-`Runtime Gate` `25386566534` passou em 2026-05-05, com `PostgreSQL + Redis
-runtime stress gate` verde em 1m26s.
+`Runtime Gate` `25388599444` passou em 2026-05-05, com `PostgreSQL + Redis
+runtime stress gate` verde em 1m33s.
 
 **CI sem Docker local:** workflow `Runtime Gate` criado em 2026-05-05. Ele
 builda a imagem Docker no GitHub Actions, sobe PostgreSQL/Redis, roda a suite
 completa e executa `make test-runtime`; o operador local nao precisa rodar
-Docker. No run `25386566534`, a job `Docker deploy image` passou em 1m36s.
+Docker. No run `25388599444`, a job `Docker deploy image` passou em 1m32s.
 
 **Deploy encapsulado:** `Dockerfile`, compose profiles e targets `make deploy-*`
 existem para build/release/web/worker sem exigir comandos Docker manuais.
@@ -41,6 +41,11 @@ existem para build/release/web/worker sem exigir comandos Docker manuais.
 **Observabilidade operacional:** logs JSON opcionais por `SHOPMAN_JSON_LOGS`,
 eventos estruturados para reconciliação/webhooks e alertas `webhook_failed` /
 `payment_reconciliation_failed` no Backstage.
+
+**Diagnóstico operacional:** targets `make diagnose-runtime`,
+`make diagnose-worker`, `make diagnose-payments`, `make diagnose-webhooks` e
+`make diagnose-health` existem e nao exigem Docker manual. Runbooks P1/P2 ficam
+em [`docs/runbooks/`](runbooks/README.md).
 
 **Django 6:** o contrato canônico agora é `Django>=6.0,<6.1`. O canário local
 em ambiente isolado validou Django 6.0.5 com `django-unfold 0.92.0`, DRF
@@ -88,8 +93,8 @@ Ver [ROADMAP.md](ROADMAP.md) para gaps conhecidos e plano de correção:
   atrasados e fora de ordem.
 - **Reconciliação financeira** — provar rotina diária para pedido, intent,
   transações, gateway, refund e fechamento.
-- **Observabilidade** — logs estruturados, health/readiness, monitoramento de
-  webhooks e alertas operacionais.
+- **Reconciliação diária profunda** — rotina auditável pedido ↔ intent ↔
+  transação ↔ gateway ↔ fechamento ainda pendente.
 - **QA manual Omotenashi** — mobile cliente, tablet KDS e desktop gerente.
 
 Ver [ROADMAP.md](ROADMAP.md) e `docs/plans/` para itens de UX/operação:
