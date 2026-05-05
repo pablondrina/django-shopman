@@ -7,11 +7,11 @@ from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
-
-from shopman.backstage.models import OperatorAlert
 from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe
 from shopman.orderman.models import Order
+
+from shopman.backstage.models import OperatorAlert
 from shopman.shop.models import Channel, Shop
 
 

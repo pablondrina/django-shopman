@@ -3,7 +3,6 @@
 import re
 from pathlib import Path
 
-
 ROOT = Path(__file__).parents[1]
 TEMPLATES = ROOT / "templates"
 CSS_SOURCE = ROOT.parents[1] / "static" / "src" / "style-gestor.css"

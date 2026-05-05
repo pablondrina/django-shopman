@@ -1,14 +1,13 @@
 from __future__ import annotations
 
+import pytest
 from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
 from django.urls import NoReverseMatch, reverse
-
-import pytest
+from shopman.orderman.models import Order, OrderItem
 
 from shopman.backstage.models import KDSInstance, KDSTicket
 from shopman.backstage.projections.kds import build_kds_board, build_kds_index, build_kds_ticket
-from shopman.orderman.models import Order, OrderItem
 from shopman.shop.models import Shop
 
 

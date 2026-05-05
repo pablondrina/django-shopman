@@ -14,18 +14,17 @@ from decimal import Decimal
 import pytest
 from django.contrib.auth.models import User
 from django.utils import timezone
-
-from shopman.backstage.models import OperatorAlert
-from shopman.backstage.services import production as production_service
-from shopman.backstage.services.exceptions import ProductionError
 from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe, WorkOrder
 from shopman.orderman.models import Order, OrderItem
+from shopman.stockman import Position
+from shopman.stockman.services.movements import StockMovements
+
+from shopman.backstage.models import OperatorAlert
+from shopman.backstage.services import production as production_service
 from shopman.shop.handlers.production_alerts import check_late_started_orders
 from shopman.shop.handlers.production_order_sync import WORK_ORDER_COMMITTED_ORDER_REFS_KEY
 from shopman.shop.models import Shop
-from shopman.stockman import Position
-from shopman.stockman.services.movements import StockMovements
 
 
 @pytest.fixture

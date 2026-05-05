@@ -7,14 +7,14 @@ from decimal import Decimal
 
 import pytest
 from django.contrib.auth.models import Permission, User
-
-from shopman.backstage.models import CashRegisterSession, OperatorAlert
-from shopman.backstage.operator.context import build_operator_context
 from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe
 from shopman.orderman.models import Order
-from shopman.shop.models import Shop
 from shopman.stockman.models import Position
+
+from shopman.backstage.models import CashRegisterSession, OperatorAlert
+from shopman.backstage.operator.context import build_operator_context
+from shopman.shop.models import Shop
 
 
 def _grant(user, app_label: str, codename: str) -> None:

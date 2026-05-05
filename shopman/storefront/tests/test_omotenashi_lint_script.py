@@ -3,7 +3,6 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
-
 SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "lint_omotenashi_copy.py"
 SPEC = importlib.util.spec_from_file_location("lint_omotenashi_copy", SCRIPT)
 lint_omotenashi_copy = importlib.util.module_from_spec(SPEC)

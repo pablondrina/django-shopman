@@ -6,7 +6,11 @@ from shopman.shop.services.payment_status import (
     PaymentProjection,
     PaymentPromiseProjection,
     PaymentStatusProjection,
+)
+from shopman.shop.services.payment_status import (
     build_payment as build_payment_projection,
+)
+from shopman.shop.services.payment_status import (
     build_payment_status as build_payment_status_projection,
 )
 

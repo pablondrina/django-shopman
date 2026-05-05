@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import pytest
+from shopman.orderman.models import Order
 
 from shopman.backstage.models import KDSInstance, KDSTicket
-from shopman.orderman.models import Order
 from shopman.shop.handlers import _sse_emitters
 
 

@@ -13,7 +13,7 @@ from django.views.decorators.http import require_POST
 from django.views.generic import TemplateView
 from unfold.views import UnfoldModelAdminViewMixin
 
-from shopman.backstage.models import KDSInstance, KDSTicket
+from shopman.backstage.models import KDSInstance
 from shopman.backstage.projections.kds import (
     KDSExpeditionCardProjection,
     KDSTicketProjection,

@@ -13,7 +13,6 @@ from django.urls import reverse
 
 from shopman.shop.models import Shop
 
-
 TABINDEX_RE = re.compile(r'tabindex\s*=\s*"(-?\d+)"', re.IGNORECASE)
 DIALOG_OPEN_RE = re.compile(r'<[^>]+role\s*=\s*"dialog"[^>]*>', re.IGNORECASE)
 FOCUSABLE_RE = re.compile(

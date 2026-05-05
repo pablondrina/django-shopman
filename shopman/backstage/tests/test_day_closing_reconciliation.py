@@ -6,16 +6,16 @@ from decimal import Decimal
 import pytest
 from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
-
-from shopman.backstage.models import DayClosing
-from shopman.backstage.projections.closing import ReconciliationError, build_day_closing
 from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe
 from shopman.offerman.models import Product
 from shopman.orderman.models import Order, OrderItem
-from shopman.shop.models import Shop
 from shopman.stockman import Position
 from shopman.stockman.services.movements import StockMovements
+
+from shopman.backstage.models import DayClosing
+from shopman.backstage.projections.closing import ReconciliationError, build_day_closing
+from shopman.shop.models import Shop
 
 
 @pytest.fixture

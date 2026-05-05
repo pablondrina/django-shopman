@@ -5,15 +5,14 @@ from decimal import Decimal
 
 import pytest
 from django.contrib.auth.models import User
-from django.utils import timezone
-
 from django.urls import reverse
+from django.utils import timezone
+from shopman.craftsman import craft
+from shopman.craftsman.models import Recipe, WorkOrder
 
 from shopman.backstage.projections.production import build_production_kds, resolve_production_access
 from shopman.backstage.services import production as production_service
 from shopman.backstage.services.exceptions import ProductionError
-from shopman.craftsman import craft
-from shopman.craftsman.models import Recipe, WorkOrder
 
 
 @pytest.fixture

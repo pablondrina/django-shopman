@@ -79,7 +79,6 @@ def test_checkout_loyalty_switch_uses_penguin_toggle_structure():
 
 def test_checkout_contact_summary_is_collapsed_without_extra_microcopy():
     checkout = _read_template("checkout.html")
-    omotenashi_copy = OMOTENASHI_COPY_SOURCE.read_text(encoding="utf-8")
 
     assert "CHECKOUT_PHONE_PURPOSE" not in checkout
     assert "Usamos só para avisar sobre seu pedido." not in checkout

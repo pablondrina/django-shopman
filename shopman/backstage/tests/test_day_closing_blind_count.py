@@ -5,11 +5,11 @@ from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
 from django.urls import NoReverseMatch, reverse
-
-from shopman.backstage.models import DayClosing
 from shopman.offerman.models import Product
 from shopman.stockman import Position, Quant
 from shopman.stockman.services.movements import StockMovements
+
+from shopman.backstage.models import DayClosing
 
 
 def _make_shop():

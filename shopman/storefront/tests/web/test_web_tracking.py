@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pytest
 from django.test import Client
 from shopman.orderman.models import Session
+
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
 from shopman.storefront.tests.web.conftest import (
     _ensure_listing_item,

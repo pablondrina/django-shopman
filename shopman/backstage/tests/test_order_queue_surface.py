@@ -5,12 +5,12 @@ from __future__ import annotations
 from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
 from django.template.loader import render_to_string
-from django.urls import reverse
 from django.test import TestCase
+from django.urls import reverse
 from django.utils.dateparse import parse_datetime
+from shopman.orderman.models import Directive, Order, OrderItem
 
 from shopman.backstage.projections.order_queue import build_order_card, build_two_zone_queue
-from shopman.orderman.models import Directive, Order, OrderItem
 from shopman.shop.models import Shop
 
 

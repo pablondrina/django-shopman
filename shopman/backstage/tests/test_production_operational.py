@@ -10,7 +10,10 @@ from django.contrib.auth.models import User
 from django.test import RequestFactory
 from django.urls import reverse
 from django.utils import timezone
+from shopman.craftsman import craft
+from shopman.craftsman.models import Recipe, WorkOrder
 
+from shopman.backstage.admin_console.production import production_console_bulk_create_view
 from shopman.backstage.models import OperatorAlert
 from shopman.backstage.projections.production import (
     build_production_dashboard,
@@ -18,17 +21,14 @@ from shopman.backstage.projections.production import (
     build_work_order_card,
     resolve_production_access,
 )
-from shopman.backstage.admin_console.production import production_console_bulk_create_view
 from shopman.backstage.services.production import MissingMaterial, ProductionStockShortError
 from shopman.backstage.views.production import production_kds_view
-from shopman.craftsman import craft
-from shopman.craftsman.models import Recipe, WorkOrder
-from shopman.shop.models import Shop
 from shopman.shop.handlers.production_alerts import (
     check_late_started_orders,
     create_stock_short_alert,
     maybe_create_low_yield_alert,
 )
+from shopman.shop.models import Shop
 
 
 @pytest.fixture
@@ -55,7 +55,7 @@ def recipe(db):
 
 @pytest.mark.django_db
 def test_production_dashboard_projection_summarizes_day_and_late_orders(recipe):
-    planned = craft.plan(recipe, 20, date=date.today(), position_ref="forno")
+    craft.plan(recipe, 20, date=date.today(), position_ref="forno")
     started = craft.plan(recipe, 30, date=date.today(), position_ref="forno")
     craft.start(started, quantity=30, position_ref="forno", expected_rev=0)
     WorkOrder.objects.filter(pk=started.pk).update(started_at=timezone.now() - timedelta(minutes=45))

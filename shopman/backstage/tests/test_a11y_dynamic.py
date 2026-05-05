@@ -12,11 +12,10 @@ import re
 import pytest
 from django.contrib.auth.models import User
 from django.urls import reverse
+from shopman.orderman.models import Order, OrderItem
 
 from shopman.backstage.models import KDSInstance
-from shopman.orderman.models import Order, OrderItem
 from shopman.shop.models import Shop
-
 
 HEADING_RE = re.compile(r"<h([1-6])\b[^>]*>", re.IGNORECASE)
 INPUT_RE = re.compile(r"<input\b[^>]*>", re.IGNORECASE)
@@ -62,7 +61,7 @@ def _assert_no_heading_level_jump(html: str, surface: str) -> None:
     if not levels:
         return
     seen = {levels[0]}
-    for prev, curr in zip(levels, levels[1:]):
+    for prev, curr in zip(levels, levels[1:], strict=False):
         seen.add(curr)
         if curr > prev + 1:
             raise AssertionError(
@@ -108,7 +107,7 @@ def _inputs_have_label(html: str, surface: str) -> None:
         # search/lookup widgets often have placeholder + visually-hidden label upstream
         # accept if surrounded by <label> via name lookup or there's an explicit role
         name_match = NAME_RE.search(tag)
-        if name_match and f'<label' in html and name_match.group(1) in html:
+        if name_match and '<label' in html and name_match.group(1) in html:
             # weak proxy — only if a <label> wraps something with the same name
             wrapped = re.search(rf"<label[^>]*>[^<]*<input[^>]*name=\"{re.escape(name_match.group(1))}\"", html)
             if wrapped:
