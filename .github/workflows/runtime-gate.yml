@@ -8,44 +8,23 @@ name: Runtime Gate
       - master
       - "codex/**"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  DJANGO_DEBUG: "true"
+  DJANGO_SECRET_KEY: ci-runtime-gate-local-secret-key
+  DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+  SHOPMAN_INSTANCE_APPS: nelson
+  SHOPMAN_CUSTOMER_STRATEGY_MODULES: nelson.customer_strategies
+  SHOPMAN_INSTANCE_MODIFIERS: nelson.modifiers.D1DiscountModifier,nelson.modifiers.HappyHourModifier
+
 jobs:
-  runtime-security-reliability:
-    name: PostgreSQL + Redis runtime gate
+  quality:
+    name: Quality + deploy contract
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: shopman
-          POSTGRES_USER: shopman
-          POSTGRES_PASSWORD: shopman
-        ports:
-          - "5432:5432"
-        options: >-
-          --health-cmd "pg_isready -U shopman -d shopman"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 12
-      redis:
-        image: redis:7-alpine
-        ports:
-          - "6379:6379"
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 12
-
-    env:
-      DJANGO_DEBUG: "true"
-      DJANGO_SECRET_KEY: ci-runtime-gate-local-secret-key
-      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
-      DATABASE_URL: postgres://shopman:shopman@localhost:5432/shopman
-      REDIS_URL: redis://localhost:6379/0
-      SHOPMAN_INSTANCE_APPS: nelson
-      SHOPMAN_CUSTOMER_STRATEGY_MODULES: nelson.customer_strategies
-      SHOPMAN_INSTANCE_MODIFIERS: nelson.modifiers.D1DiscountModifier,nelson.modifiers.HappyHourModifier
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -76,6 +55,8 @@ jobs:
           DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
           CSRF_TRUSTED_ORIGINS: http://localhost,http://127.0.0.1
           AUTH_DEFAULT_DOMAIN: shopman-ci.example
+          DATABASE_URL: postgres://shopman:shopman@localhost:5432/shopman
+          REDIS_URL: redis://localhost:6379/0
           DOORMAN_ACCESS_LINK_API_KEY: ci-doorman-access-link-key
           EFI_WEBHOOK_TOKEN: ci-efi-webhook-token
           IFOOD_WEBHOOK_TOKEN: ci-ifood-webhook-token
@@ -86,7 +67,59 @@ jobs:
         run: .venv/bin/python manage.py check --deploy
 
       - name: Full test suite
+        timeout-minutes: 15
         run: make test
 
+  runtime-security-reliability:
+    name: PostgreSQL + Redis runtime stress gate
+    runs-on: ubuntu-latest
+    needs: quality
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: shopman
+          POSTGRES_USER: shopman
+          POSTGRES_PASSWORD: shopman
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd "pg_isready -U shopman -d shopman"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      redis:
+        image: redis:7-alpine
+        ports:
+          - "6379:6379"
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      DATABASE_URL: postgres://shopman:shopman@localhost:5432/shopman
+      REDIS_URL: redis://localhost:6379/0
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Create virtualenv
+        run: python -m venv .venv
+
+      - name: Install dependencies
+        run: make install
+
       - name: Runtime stress gate
+        timeout-minutes: 10
         run: make test-runtime
