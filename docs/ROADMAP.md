@@ -24,6 +24,8 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 - smoke local de gateways via `make smoke-gateways`, com rollback e matriz
   honesta de sandbox/staging.
 - matriz manual QA Omotenashi via `make omotenashi-qa`, ligada ao seed Nelson.
+- rodada browser local da matriz Omotenashi registrada com `14 pass`, `0 review`
+  em [`reports/omotenashi-browser-qa-2026-05-05.md`](reports/omotenashi-browser-qa-2026-05-05.md).
 
 ## Próximos Passos
 
@@ -31,7 +33,7 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 |------------|--------|------------------|-------|
 | P1 | Governança documental | Manter roadmap, status, planos ativos e evidências sempre alinhados ao código. | [`plans/README.md`](plans/README.md) |
 | P1 | Gateways sandbox e snapshot real | Smoke local existe; validar EFI, Stripe e iFood contra sandbox/staging real. | [`plans/OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md) |
-| P1 | QA manual Omotenashi E2E | Matriz executável existe; rodar navegador/dispositivo e registrar evidência mobile cliente, tablet KDS e desktop gerente. | [`plans/OMOTENASHI-FIRST-FULLNESS-PLAN.md`](plans/OMOTENASHI-FIRST-FULLNESS-PLAN.md) |
+| P1 | QA manual Omotenashi E2E | Evidência browser local existe; completar dispositivo físico/staging e decidir se vira gate formal. | [`plans/OMOTENASHI-FIRST-FULLNESS-PLAN.md`](plans/OMOTENASHI-FIRST-FULLNESS-PLAN.md) |
 | P2 | Storefront projections | Checkout, pagamento, tracking, conta e histórico consumindo projections consistentes. | [`plans/PROJECTION-UI-PLAN.md`](plans/PROJECTION-UI-PLAN.md) |
 | P2 | Disponibilidade e substitutos | PDP/carrinho com feedback acionável, substitutos, holds e timeouts transparentes. | [`plans/AVAILABILITY-PLAN.md`](plans/AVAILABILITY-PLAN.md) |
 | P2 | Endereço canônico | Fluxo mobile de endereço com busca, geolocalização opt-in, ajuste no mapa e fallback manual. | [`plans/ADDRESS-UX-PLAN.md`](plans/ADDRESS-UX-PLAN.md) |
@@ -43,7 +45,7 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 | Dívida | Impacto | Próxima ação |
 |--------|---------|--------------|
 | Gateway sandbox e snapshot real pendentes | Smoke local existe; falta provar divergência contra provedores reais. | Executar `make smoke-gateways-sandbox` com credenciais/staging reais. |
-| QA visual/manual ainda não é gate | A matriz `make omotenashi-qa` existe, mas teste automatizado não pega todo problema de toque, foco, layout e latência percebida. | Rodar e registrar checklist mobile/tablet/desktop. |
+| QA visual/manual ainda não é gate | A matriz `make omotenashi-qa` e a rodada browser local existem, mas CI ainda não prova toque real, teclado virtual, rede degradada e latência percebida. | Rodar dispositivo físico/staging e decidir gate Playwright/Chrome. |
 | ManyChat webhook ainda pulado | Fluxo completo ManyChat → session → confirmação não está reimplementado. | Retomar junto com canais externos. |
 | Shelf life perecível parcialmente ligado | Padaria real precisa de validade por produto/receita sem ambiguidade. | Registrar `OffermanSkuValidator` ou alias canônico de `shelf_life_days`. |
 | Playwright E2E opcional | A suite existe, mas só roda quando Playwright está instalado. | Decidir se vira gate antes de piloto público. |
@@ -61,6 +63,7 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 | Reconciliação financeira diária interna | `make reconcile-financial-day` cruza pedidos, Payman e `DayClosing`; alerta divergências. |
 | Smoke local de gateways | `make smoke-gateways` cobre EFI/Stripe/iFood localmente com rollback; sandbox real segue pendente. |
 | Matriz QA Omotenashi | `make omotenashi-qa` aponta URLs e evidências seed para mobile/tablet/desktop. |
+| Rodada browser local Omotenashi | `14 pass`, `0 review` em Chrome headless; evidência em [`reports/omotenashi-browser-qa-2026-05-05.md`](reports/omotenashi-browser-qa-2026-05-05.md). |
 | Backstage maturity | Arquivado em [`plans/completed/BACKSTAGE-MATURITY-PLAN.md`](plans/completed/BACKSTAGE-MATURITY-PLAN.md). |
 | POS/KDS runtime | Concluído no escopo atual. Plano arquivado em [`plans/completed/POS-KDS-RUNTIME-SURFACE-PLAN.md`](plans/completed/POS-KDS-RUNTIME-SURFACE-PLAN.md). |
 

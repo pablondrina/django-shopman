@@ -54,3 +54,13 @@ o seed ou a matriz; não ajuste o roteiro para caber no dado disponível.
 
 Registre screenshots ou vídeo curto por cenário quando a rodada for usada como
 evidência de release.
+
+## Evidência Atual
+
+A primeira rodada browser local foi registrada em
+[`docs/reports/omotenashi-browser-qa-2026-05-05.md`](../reports/omotenashi-browser-qa-2026-05-05.md):
+`14 pass`, `0 review`, `0 fail` em Chrome headless, cobrindo mobile, tablet,
+display e desktop.
+
+Essa evidência valida navegação/renderização local da matriz seed, mas ainda
+não transforma QA visual em gate de CI nem substitui dispositivo físico.

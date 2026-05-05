@@ -61,7 +61,10 @@ quando elas não existem.
 
 **QA manual Omotenashi:** `make omotenashi-qa` lista a matriz mobile/tablet/
 desktop com URLs e evidências criadas pelo seed Nelson. `strict=1` falha se
-algum cenário canônico não tiver dado seed correspondente.
+algum cenário canônico não tiver dado seed correspondente. Rodada browser local
+em Chrome headless registrada em
+[`omotenashi-browser-qa-2026-05-05.md`](reports/omotenashi-browser-qa-2026-05-05.md):
+`14 pass`, `0 review`, `0 fail`.
 
 **Django 6:** o contrato canônico agora é `Django>=6.0,<6.1`. O canário local
 em ambiente isolado validou Django 6.0.5 com `django-unfold 0.92.0`, DRF
@@ -107,8 +110,8 @@ Ver [ROADMAP.md](ROADMAP.md) para gaps conhecidos e plano de correção:
 
 - **Gateways sandbox** — smoke local existe; falta validar EFI/Stripe/iFood com
   snapshot real, eventos duplicados, atrasados e fora de ordem.
-- **QA manual Omotenashi** — matriz executável existe; falta a rodada visual em
-  navegador/dispositivo e registro de evidência.
+- **QA manual Omotenashi** — matriz executável e rodada browser local existem;
+  ainda falta dispositivo físico/staging para evidência de release real.
 
 Ver [ROADMAP.md](ROADMAP.md) e `docs/plans/` para itens de UX/operação:
 
