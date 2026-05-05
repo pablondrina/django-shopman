@@ -154,7 +154,22 @@ class PaymentIntent(models.Model):
         Raises:
             PaymentError: Se a transição não for permitida
         """
+        from shopman.payman.exceptions import PaymentError
+
         locked = PaymentIntent.objects.select_for_update().get(pk=self.pk)
+        current_status = locked.status
+        allowed = self.TRANSITIONS.get(current_status, [])
+        if new_status not in allowed:
+            raise PaymentError(
+                code="invalid_transition",
+                message=f"Transição {current_status} → {new_status} não permitida",
+                context={
+                    "current_status": current_status,
+                    "requested_status": new_status,
+                    "allowed_transitions": [str(s) for s in allowed],
+                },
+            )
+
         locked.status = new_status
         locked.save()
 
