@@ -478,6 +478,7 @@ class TestCartReconcileIntegration:
         assert call_kwargs["sku"] == "X"
         assert call_kwargs["new_qty"] == Decimal("5")
         assert call_kwargs["session_key"] == "sess-test-1"
+        mock_availability.bump_session_hold_expiry.assert_called_once_with("sess-test-1")
 
     @patch("shopman.shop.services.cart.session_service")
     @patch("shopman.shop.services.cart.availability")
@@ -505,6 +506,7 @@ class TestCartReconcileIntegration:
 
         assert excinfo.value.sku == "X"
         mock_session_service.modify_session.assert_not_called()
+        mock_availability.bump_session_hold_expiry.assert_not_called()
 
     @patch("shopman.shop.services.cart.session_service")
     @patch("shopman.shop.services.cart.availability")
@@ -532,4 +534,34 @@ class TestCartReconcileIntegration:
         call_kwargs = mock_availability.reconcile.call_args.kwargs
         assert call_kwargs["sku"] == "X"
         assert call_kwargs["new_qty"] == Decimal("0")
+        mock_availability.bump_session_hold_expiry.assert_called_once_with("sess-test-1")
         mock_session_service.modify_session.assert_called_once()
+
+    @patch("shopman.shop.services.cart.session_service")
+    @patch("shopman.shop.services.cart.availability")
+    def test_add_item_bumps_session_hold_expiry_after_reserve(
+        self, mock_availability, mock_session_service,
+    ):
+        from shopman.shop.services import cart as cart_commands
+
+        _channel, session = self._setup_cart()
+        mock_availability.reserve.return_value = {
+            "ok": True,
+            "hold_id": "hold:new",
+            "available_qty": Decimal("10"),
+            "is_paused": False,
+            "error_code": None,
+            "substitutes": [],
+        }
+        mock_session_service.modify_session.return_value = session
+
+        cart_commands.add_item(
+            session_key="sess-test-1",
+            channel_ref="web",
+            origin_channel="web",
+            sku="Y",
+            qty=1,
+            unit_price_q=1000,
+        )
+
+        mock_availability.bump_session_hold_expiry.assert_called_once_with("sess-test-1")

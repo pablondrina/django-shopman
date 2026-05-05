@@ -1,6 +1,6 @@
 # AVAILABILITY-PLAN
 
-**Status:** em execução. Draft aprovado em 2026-04-18; WP-AV-08 foi corrigido e validado em 2026-05-05. Sucessor operativo do [STOCK-UX-PLAN.md](STOCK-UX-PLAN.md) para o sistema de verificação de disponibilidade e sugestão de substituição no storefront.
+**Status:** em execução. Draft aprovado em 2026-04-18; WP-AV-08 e WP-AV-09 foram corrigidos e validados em 2026-05-05. Sucessor operativo do [STOCK-UX-PLAN.md](STOCK-UX-PLAN.md) para o sistema de verificação de disponibilidade e sugestão de substituição no storefront.
 
 **Escopo:** unificar vocabulário, regras de derivação, fluxos canônicos (Ajuste × Substituição), stepper clamp, modal de erro de estoque, fermata (hold indefinido + materialização com notificação ativa), timeouts transparentes, correções dos 7 gaps mapeados, e rename global `alternatives → substitutes`.
 
@@ -352,12 +352,14 @@ Ordem respeitando dependências. Um por vez, com testes + verificação em previ
 
 ### WP-AV-09 — Gap C: renovação de `expires_at` em atividade do cart
 
+**Status 2026-05-05:** implementado e validado. `availability.bump_session_hold_expiry()` renova holds ativos da sessão sem encurtar holds com janela maior e sem tocar holds planejados/indefinidos (`expires_at IS NULL`). `add_item`, `update_qty` e `remove_item` chamam a renovação após mutações bem-sucedidas.
+
 **Escopo:** holds órfãos morrem naturalmente em TTL; holds ativos são renovados a cada atividade.
 
 - `CartService.add_item`, `update_qty`, `set_qty`: após mutação, bumpar `expires_at = now + 30min` em todos os holds da sessão com `metadata.reference == session_key`
 - Batch update em uma query
 
-**Testes:** verificar que após atividade, `expires_at` de todos holds da sessão foi atualizado.
+**Testes:** `shopman/shop/tests/test_hold_adoption.py`, `shopman/shop/tests/test_hold_adoption_integration.py`.
 
 **Dependências:** nenhuma.
 

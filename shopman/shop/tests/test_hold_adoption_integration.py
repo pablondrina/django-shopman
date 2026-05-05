@@ -18,10 +18,12 @@ the mock-heavy unit tests.
 
 from __future__ import annotations
 
+from datetime import timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
+from django.utils import timezone
 from shopman.offerman.models import Product
 from shopman.stockman import HoldStatus, PositionKind, StockHolds
 from shopman.stockman.models import Hold, Position, Quant
@@ -320,6 +322,53 @@ class TestReconcileDB:
         assert Hold.objects.get(pk=_hold_pk(h1)).status == HoldStatus.RELEASED
         assert Hold.objects.get(pk=_hold_pk(h2)).status == HoldStatus.RELEASED
         assert _active_session_holds() == []
+
+
+@pytest.mark.django_db
+class TestSessionHoldExpiryRenewalDB:
+    def test_bump_session_hold_expiry_extends_active_ready_holds(self):
+        _setup_world()
+        hold_id = _make_session_hold(2)
+        hold = Hold.objects.get(pk=_hold_pk(hold_id))
+        old_expiry = timezone.now() + timedelta(minutes=2)
+        hold.expires_at = old_expiry
+        hold.save(update_fields=["expires_at"])
+
+        bumped = availability.bump_session_hold_expiry(SESSION_KEY, ttl_minutes=30)
+
+        hold.refresh_from_db()
+        assert bumped == 1
+        assert hold.expires_at is not None
+        assert hold.expires_at > old_expiry
+        assert hold.expires_at > timezone.now() + timedelta(minutes=25)
+
+    def test_bump_session_hold_expiry_never_shortens_longer_holds(self):
+        _setup_world()
+        hold_id = _make_session_hold(2)
+        hold = Hold.objects.get(pk=_hold_pk(hold_id))
+        old_expiry = timezone.now() + timedelta(minutes=45)
+        hold.expires_at = old_expiry
+        hold.save(update_fields=["expires_at"])
+
+        bumped = availability.bump_session_hold_expiry(SESSION_KEY, ttl_minutes=30)
+
+        hold.refresh_from_db()
+        assert bumped == 0
+        assert abs(hold.expires_at - old_expiry) < timedelta(seconds=1)
+
+    def test_bump_session_hold_expiry_leaves_indefinite_planned_holds_alone(self):
+        _setup_world()
+        hold_id = _make_session_hold(2)
+        hold = Hold.objects.get(pk=_hold_pk(hold_id))
+        hold.expires_at = None
+        hold.metadata = {**(hold.metadata or {}), "planned": True}
+        hold.save(update_fields=["expires_at", "metadata"])
+
+        bumped = availability.bump_session_hold_expiry(SESSION_KEY, ttl_minutes=30)
+
+        hold.refresh_from_db()
+        assert bumped == 0
+        assert hold.expires_at is None
 
 
 # ── End-to-end: full cart → reconcile → commit lifecycle ──────────────────
