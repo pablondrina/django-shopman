@@ -191,8 +191,8 @@ Ativação é configuração de instância — o framework suporta sem mudanças
 Configurações de instância (Nelson Boulangerie) em `instances/nelson/`.
 Pendente: PostgreSQL/Redis em ambiente real, static files (Whitenoise/S3),
 reverse proxy e worker externo apenas se os thresholds da ADR-003 forem
-atingidos. No caminho Django 6, avaliar Django Tasks antes de Celery, lembrando
-que o framework de Tasks nao entrega worker por si so.
+atingidos. Em Django 6, avaliar Django Tasks antes de Celery, lembrando que o
+framework de Tasks nao entrega worker por si so.
 
 ---
 

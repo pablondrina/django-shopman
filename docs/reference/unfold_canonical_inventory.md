@@ -6,7 +6,7 @@ Generated from the installed `django-unfold` package. Do not hand-edit; run:
 python scripts/snapshot_unfold_reference.py
 ```
 
-- Version: `0.91.0`
+- Version: `0.92.0`
 - Package root: `/Users/pablovalentini/Dev/Claude/django-shopman/.venv/lib/python3.12/site-packages/unfold`
 
 ## Official References
@@ -180,6 +180,7 @@ python scripts/snapshot_unfold_reference.py
 - `unfold/helpers/messages/error.html`
 - `unfold/helpers/messages/errornote.html`
 - `unfold/helpers/messages/info.html`
+- `unfold/helpers/messages/primary.html`
 - `unfold/helpers/messages/success.html`
 - `unfold/helpers/messages/warning.html`
 - `unfold/helpers/modal.html`
@@ -291,7 +292,6 @@ python scripts/snapshot_unfold_reference.py
 - `unfold.widgets.UnfoldAdminMultipleAutocompleteModelChoiceFieldWidget`
 - `unfold.widgets.UnfoldAdminMultipleAutocompleteWidget`
 - `unfold.widgets.UnfoldAdminNullBooleanSelectWidget`
-- `unfold.widgets.UnfoldAdminPasswordInput`
 - `unfold.widgets.UnfoldAdminPasswordToggleWidget`
 - `unfold.widgets.UnfoldAdminPasswordWidget`
 - `unfold.widgets.UnfoldAdminRadioSelectWidget`

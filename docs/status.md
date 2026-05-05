@@ -21,8 +21,8 @@ Para gaps e roadmap, ver [ROADMAP.md](ROADMAP.md) e os planos ativos em `docs/pl
 | shopman-doorman | `shopman-doorman` | 0.1.0 | coleta global | Estável | Auth OTP, device trust, bridge tokens |
 | shopman-payman | `shopman-payman` | 0.2.0 | coleta global | Beta | Pagamentos, PIX, Stripe, reconciliação cumulativa — cobertura parcial |
 
-**Último gate local completo:** `make test` em SQLite/LocMem, 2026-05-04:
-`1820 passed`, `13 skipped`, `3 warnings`, `14 subtests`.
+**Último gate local completo:** `make test` em SQLite/LocMem, 2026-05-05:
+`1829 passed`, `13 skipped`, `3 warnings`, `14 subtests`.
 
 **Gate runtime real:** `make test-runtime` criado em 2026-05-05 para
 PostgreSQL + Redis. Ele falha se PostgreSQL/Redis não estiverem acessíveis ou
@@ -42,6 +42,11 @@ existem para build/release/web/worker sem exigir comandos Docker manuais.
 eventos estruturados para reconciliação/webhooks e alertas `webhook_failed` /
 `payment_reconciliation_failed` no Backstage.
 
+**Django 6:** o contrato canônico agora é `Django>=6.0,<6.1`. O canário local
+em ambiente isolado validou Django 6.0.5 com `django-unfold 0.92.0`, DRF
+3.17.1, `django-import-export 4.4.1`, `django-filter 25.2`, `redis 7.4.0` e
+suite completa após atualizar o inventário Unfold canônico.
+
 ---
 
 ## Framework (framework/)
@@ -57,7 +62,7 @@ eventos estruturados para reconciliação/webhooks e alertas `webhook_failed` /
 | **Admin (Unfold)** | Estável | Dashboard, shop config, pedidos, KDS operacional, produção, fechamento e alertas |
 | **Runtime operacional** | Beta | POS e KDS de produção como superfícies próprias, fora do Admin por necessidade operacional |
 
-**Total do último gate local completo:** `1820 passed`, `13 skipped`,
+**Total do último gate local completo:** `1829 passed`, `13 skipped`,
 `3 warnings`, `14 subtests`.
 
 ---
@@ -90,7 +95,8 @@ Ver [ROADMAP.md](ROADMAP.md) para gaps conhecidos e plano de correção:
 Ver [ROADMAP.md](ROADMAP.md) e `docs/plans/` para itens de UX/operação:
 
 - **R3-R8** — Storefront: empty states, feedback de erros, responsividade mobile
-- **Django 6** — matrix explícita, depreciações e libs terceiras.
+- **Django 6** — migrado para `Django>=6.0,<6.1`; manter matrix de dependências
+  atualizada a cada bump de Unfold/DRF/Django.
 
 ---
 
@@ -99,7 +105,7 @@ Ver [ROADMAP.md](ROADMAP.md) e `docs/plans/` para itens de UX/operação:
 | Requisito | Versão |
 |-----------|--------|
 | Python | ≥ 3.12 |
-| Django | ≥ 5.2, < 6.0 — upgrade coordenado para 6.0 planejado |
+| Django | ≥ 6.0, < 6.1 |
 | Node.js | ≥ 18 (build Tailwind CSS) |
 | Banco de dados | PostgreSQL 16+ no dev canônico/staging/prod; SQLite só fallback local |
 | Cache/realtime | Redis 7+ no dev canônico/staging/prod; LocMem só fallback local |

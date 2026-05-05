@@ -19,9 +19,9 @@ Contrato atual:
   uma decisao explicita. No bump para Django 6, avaliar o framework nativo de
   Tasks antes de escolher Celery, lembrando que Django Tasks nao fornece worker
   de execucao por si so.
-- **Django 6**: manter o runtime alinhado com APIs nativas do Django quando
-  existirem. Redis usa `django.core.cache.backends.redis.RedisCache`; nao ha
-  dependencia de pacote externo para cache Redis. `django-ratelimit 4.1` ainda emite um warning de
+- **Django 6**: runtime canônico em `Django>=6.0,<6.1`. Redis usa
+  `django.core.cache.backends.redis.RedisCache`; nao ha dependencia de pacote
+  externo para cache Redis. `django-ratelimit 4.1` ainda emite um warning de
   allowlist para esse backend, silenciado no settings depois do check proprio
   `SHOPMAN_E006`.
 

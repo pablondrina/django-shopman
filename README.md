@@ -1,14 +1,14 @@
 # Django Shopman
 
 ![Python](https://img.shields.io/badge/python-≥3.12-blue)
-![Django](https://img.shields.io/badge/django-≥5.2-green)
+![Django](https://img.shields.io/badge/django-6.0-green)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 ![Release](https://img.shields.io/github/v/release/pablondrina/django-shopman?include_prereleases&label=release)
 ![Tests](https://img.shields.io/badge/tests-~1.900-brightgreen)
 
 Django Shopman é um framework de commerce operations para pequenos negócios com operação física e remota — padarias, confeitarias, cafés, food service. Não é um e-commerce genérico; é uma base opinativa e modular para casos operacionais densos: catálogo com produção própria, estoque vivo, múltiplos canais (balcão, web, WhatsApp, marketplace), KDS, e gestão integrada.
 
-Construído com Django 5.2+, arquitetura Protocol/Adapter, e foco em simplicidade operacional.
+Construído com Django 6.0, arquitetura Protocol/Adapter, e foco em simplicidade operacional.
 
 ## Ecossistema
 
@@ -199,7 +199,7 @@ make deploy-down      # para containers do deploy local
 | Requisito | Versão |
 |-----------|--------|
 | Python | ≥ 3.12 |
-| Django | ≥ 5.2, < 6.0; bump coordenado para 6.0 planejado |
+| Django | ≥ 6.0, < 6.1 |
 | Node.js | ≥ 18 (build Tailwind CSS) |
 | Banco de dados | PostgreSQL 16+ em dev canônico/staging/prod; SQLite só fallback local |
 | Cache/realtime | Redis 7+ em dev canônico/staging/prod; LocMem só fallback local |

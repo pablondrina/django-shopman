@@ -30,7 +30,7 @@ make install
 ```
 
 O `make install` instala:
-- Django 5.2+, DRF, `psycopg[binary]`, django-filter, `redis`, phonenumbers, pytest
+- Django 6.0, DRF, `psycopg[binary]`, django-filter, `redis`, phonenumbers, pytest
 - Cada package core (`packages/*`) em modo editavel (`pip install -e`)
 - O framework orquestrador (`shopman/shop/`) em modo editavel
 
