@@ -1,6 +1,6 @@
 # AVAILABILITY-PLAN
 
-**Status:** draft aprovado em 2026-04-18. Sucessor operativo do [STOCK-UX-PLAN.md](STOCK-UX-PLAN.md) para o sistema de verificação de disponibilidade e sugestão de substituição no storefront.
+**Status:** em execução. Draft aprovado em 2026-04-18; WP-AV-08 foi corrigido e validado em 2026-05-05. Sucessor operativo do [STOCK-UX-PLAN.md](STOCK-UX-PLAN.md) para o sistema de verificação de disponibilidade e sugestão de substituição no storefront.
 
 **Escopo:** unificar vocabulário, regras de derivação, fluxos canônicos (Ajuste × Substituição), stepper clamp, modal de erro de estoque, fermata (hold indefinido + materialização com notificação ativa), timeouts transparentes, correções dos 7 gaps mapeados, e rename global `alternatives → substitutes`.
 
@@ -337,12 +337,14 @@ Ordem respeitando dependências. Um por vez, com testes + verificação em previ
 
 ### WP-AV-08 — Gap D: bundle libera holds de componentes em qty=0
 
+**Status 2026-05-05:** implementado e validado. Holds de carrinho agora carregam `metadata.cart_source_sku`; holds de componentes de bundle também carregam `metadata.cart_bundle_sku`. O reconcile de bundle opera só nos holds desse bundle, então remover um combo libera todos os componentes daquele combo sem tocar uma linha simples que compartilhe o mesmo SKU de componente.
+
 **Escopo:** `availability.reconcile()` para bundle SKU com `new_qty=0` libera holds de TODOS os componentes.
 
 - `shopman/shop/services/availability.py`: reconcile branch `new_qty == 0` para bundles chama release por componente
 - Manter invariante de grow-vs-shrink simétrico
 
-**Testes:** adicionar bundle ao cart, remover, verificar que holds de componentes foram liberados.
+**Testes:** `shopman/shop/tests/test_hold_adoption.py`, `shopman/shop/tests/test_hold_adoption_integration.py`, `shopman/shop/tests/test_services.py::TestAvailabilityReserveBundles`.
 
 **Dependências:** nenhuma (isolado).
 

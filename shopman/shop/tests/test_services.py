@@ -1681,6 +1681,8 @@ class TestAvailabilityReserveBundles:
         # Each hold uses session_key as reference
         for call in adapter.create_hold.call_args_list:
             assert call.kwargs["reference"] == "sess-abc"
+            assert call.kwargs["cart_source_sku"] == "BUNDLE-001"
+            assert call.kwargs["cart_bundle_sku"] == "BUNDLE-001"
 
     @patch("shopman.shop.services.availability.substitutes")
     @patch("shopman.shop.services.availability.get_adapter")

@@ -285,6 +285,7 @@ def find_holds_by_reference(
     reference: str,
     *,
     sku: str | None = None,
+    metadata_filters: dict[str, object] | None = None,
 ) -> list[tuple[str, str, Decimal]]:
     """Find active holds (PENDING/CONFIRMED) tagged with `reference`.
 
@@ -298,6 +299,8 @@ def find_holds_by_reference(
         sku=sku,
         status_in=[HoldStatus.PENDING, HoldStatus.CONFIRMED],
     )
+    for key, value in (metadata_filters or {}).items():
+        holds = holds.filter(**{f"metadata__{key}": value})
     return [(h.hold_id, h.sku, Decimal(str(h.quantity))) for h in holds]
 
 

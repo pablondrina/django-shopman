@@ -73,6 +73,7 @@ def _make_session_hold(qty: int) -> str:
         sku=SKU,
         qty=Decimal(str(qty)),
         reference=SESSION_KEY,
+        cart_source_sku=SKU,
     )
     assert result["success"], result
     return result["hold_id"]
