@@ -72,6 +72,19 @@ jobs:
         timeout-minutes: 15
         run: make test
 
+  docker-image:
+    name: Docker deploy image
+    runs-on: ubuntu-latest
+    needs: quality
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build deploy image
+        run: docker build --tag django-shopman:ci .
+
   runtime-security-reliability:
     name: PostgreSQL + Redis runtime stress gate
     runs-on: ubuntu-latest

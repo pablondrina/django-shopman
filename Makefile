@@ -10,8 +10,11 @@
 PYTHON := $(shell [ -f .venv/bin/python ] && echo $(CURDIR)/.venv/bin/python || echo python)
 ADMIN_URL := $(strip $(or $(url),$(URL)))
 ADMIN_SCOPE_ARGS := $(if $(ADMIN_URL),--url $(ADMIN_URL),)
+COMPOSE ?= docker compose
+APP_COMPOSE := $(COMPOSE) --profile app
+RELEASE_COMPOSE := $(COMPOSE) --profile release
 
-.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework test-runtime-preflight test-runtime load-test test-coverage lint omotenashi-lint omotenashi-audit admin admin-update admin-ui admin-ui-ci admin-ui-maturity admin-ui-strict admin-ui-surfaces admin-ui-test admin-ui-update unfold unfold-ci unfold-maturity unfold-strict unfold-surfaces unfold-update lint-unfold lint-unfold-maturity clean migrate run dev seed coverage css css-watch fonts up down logs db-shell
+.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework test-runtime-preflight test-runtime load-test test-coverage lint omotenashi-lint omotenashi-audit admin admin-update admin-ui admin-ui-ci admin-ui-maturity admin-ui-strict admin-ui-surfaces admin-ui-test admin-ui-update unfold unfold-ci unfold-maturity unfold-strict unfold-surfaces unfold-update lint-unfold lint-unfold-maturity clean migrate run dev seed coverage css css-watch fonts up down logs db-shell deploy-env-check deploy-check deploy-build deploy-release deploy-up deploy-down deploy-logs deploy-ps collectstatic
 
 help: ## Mostra este help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -147,25 +150,68 @@ fonts: ## Baixa fontes WOFF2 para self-hosting (Inter + Playfair Display)
 # ── Infra (Docker: Postgres + Redis) ──────────────────────────────────
 
 up: ## Sobe Postgres + Redis via docker compose (aguarda healthcheck)
-	docker compose up -d
+	$(COMPOSE) up -d postgres redis
 	@echo "Aguardando Postgres..."
-	@until docker compose exec -T postgres pg_isready -U shopman >/dev/null 2>&1; do sleep 1; done
+	@until $(COMPOSE) exec -T postgres sh -c 'pg_isready -U "$${POSTGRES_USER:-shopman}" -d "$${POSTGRES_DB:-shopman}"' >/dev/null 2>&1; do sleep 1; done
 	@echo "✓ Postgres + Redis prontos"
 
 down: ## Para Postgres + Redis
-	docker compose down
+	$(COMPOSE) down
 
 logs: ## Stream dos logs dos services
-	docker compose logs -f
+	$(COMPOSE) logs -f
 
 db-shell: ## psql no Postgres do docker
-	docker compose exec postgres psql -U shopman -d shopman
+	$(COMPOSE) exec postgres sh -c 'psql -U "$${POSTGRES_USER:-shopman}" -d "$${POSTGRES_DB:-shopman}"'
+
+# ── Deploy wrappers (Docker fica encapsulado aqui) ───────────────────
+
+deploy-env-check: ## Falha se .env ainda estiver em modo dev para deploy
+	@test -f .env || (echo "Crie .env a partir de .env.example antes do deploy." >&2; exit 1)
+	@! grep -Eiq '^DJANGO_DEBUG=(true|1|yes)$$' .env || (echo "DJANGO_DEBUG precisa ser false para deploy." >&2; exit 1)
+	@! grep -Eq '^DJANGO_SECRET_KEY=(change-me-in-production|dev-secret-key-not-for-production)$$' .env || (echo "DJANGO_SECRET_KEY precisa ser um segredo forte para deploy." >&2; exit 1)
+	@! grep -Eq '^DJANGO_ALLOWED_HOSTS=\*$$' .env || (echo "DJANGO_ALLOWED_HOSTS precisa ser explicito para deploy." >&2; exit 1)
+	@echo "✓ .env de deploy passou nos guardrails locais"
+
+deploy-check: deploy-env-check ## Preflight de deploy no ambiente atual
+	$(PYTHON) manage.py check --deploy
+	$(PYTHON) manage.py makemigrations --check --dry-run
+	$(PYTHON) manage.py collectstatic --noinput --dry-run -v 0
+	@echo "✓ Deploy preflight passou"
+
+deploy-build: deploy-env-check ## Builda a imagem app/worker via compose profile
+	$(APP_COMPOSE) build web directive-worker
+
+deploy-release: deploy-env-check ## Roda check --deploy, migrations e collectstatic em container one-shot
+	$(COMPOSE) up -d postgres redis
+	@echo "Aguardando Postgres..."
+	@until $(COMPOSE) exec -T postgres sh -c 'pg_isready -U "$${POSTGRES_USER:-shopman}" -d "$${POSTGRES_DB:-shopman}"' >/dev/null 2>&1; do sleep 1; done
+	$(RELEASE_COMPOSE) build release
+	$(RELEASE_COMPOSE) run --rm release
+	@echo "✓ Release checks/migrations/static concluídos"
+
+deploy-up: deploy-build deploy-release ## Sobe web + directive worker sem exigir comandos Docker manuais
+	$(APP_COMPOSE) up -d web directive-worker
+	@echo "✓ Shopman app rodando em http://localhost:$${PORT:-8000}"
+
+deploy-down: ## Para app, worker, Postgres e Redis
+	$(COMPOSE) down
+
+deploy-logs: ## Logs de app/worker
+	$(APP_COMPOSE) logs -f web directive-worker
+
+deploy-ps: ## Status dos containers
+	$(APP_COMPOSE) ps
 
 # ── Server ────────────────────────────────────────────────────────────
 
 migrate: ## Cria/atualiza banco de dados
 	$(PYTHON) manage.py migrate
 	@echo "✓ Migrações aplicadas"
+
+collectstatic: css ## Compila CSS e coleta estáticos para STATIC_ROOT
+	$(PYTHON) manage.py collectstatic --noinput
+	@echo "✓ Static coletado"
 
 run: css ## Sobe servidor + tunnel + directive worker (0.0.0.0:8000)
 	-$(PYTHON) manage.py refresh_oven

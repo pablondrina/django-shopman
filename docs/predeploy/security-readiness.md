@@ -1,7 +1,7 @@
 # Security Readiness Checklist
 
-Estado em 2026-04-26. Este documento prepara a fase posterior de deploy sem
-definir provedor, topologia, domínio ou processo operacional.
+Estado em 2026-05-05. Este documento prepara a fase posterior de deploy sem
+definir provedor final, domínio ou processo operacional externo.
 
 ## Bloqueadores Automatizados
 
@@ -15,8 +15,20 @@ make test-runtime
 ```
 
 Na pratica, `make test-runtime` deve rodar no CI para que ninguem precise
-operar Docker localmente. O workflow `Runtime Gate` sobe PostgreSQL/Redis como
-services e publica apenas o resultado do gate.
+operar Docker localmente. O workflow `Runtime Gate` builda a imagem Docker,
+sobe PostgreSQL/Redis como services e publica apenas o resultado do gate. O run
+final do PR #3 passou em 2026-05-05 com `Quality + deploy contract` e
+`PostgreSQL + Redis runtime stress gate` verdes.
+
+Para ensaio de app containerizado sem comandos Docker manuais:
+
+```bash
+make deploy-check
+make deploy-up
+```
+
+Esses targets usam `Dockerfile` e profiles do `docker-compose.yml` para build,
+release one-shot, web ASGI/Daphne e directive worker.
 
 `manage.py check --deploy` já bloqueia:
 
@@ -144,6 +156,7 @@ Ainda fora do escopo desta fase, mas precisa estar decidido antes de produção:
 - Backup e restore testado para PostgreSQL.
 - Redis provisionado e validado para cache, rate limit e SSE multi-worker.
 - `make test-runtime` executado em PostgreSQL + Redis, sem skips.
+- `make deploy-release` executado com `.env` real do ambiente.
 - Estratégia de coleta de logs.
 - Monitoramento de webhooks falhos.
 - Processo para rotacionar `DJANGO_SECRET_KEY` e tokens externos.

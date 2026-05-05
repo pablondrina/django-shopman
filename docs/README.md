@@ -12,6 +12,7 @@
 | [`docs/status.md`](status.md) | Estado factual — o que funciona, versões, contagem de testes real |
 | [`docs/architecture.md`](architecture.md) | Verdade arquitetural — camadas, Protocol/Adapter, dependências |
 | [`docs/reference/runtime-dependencies.md`](reference/runtime-dependencies.md) | Runtime canônico — PostgreSQL, Redis, fallback local e Django 6 |
+| [`docs/guides/deploy.md`](guides/deploy.md) | Deploy sem Docker manual — imagem app, release step e wrappers `make deploy-*` |
 | [`docs/ROADMAP.md`](ROADMAP.md) | Roadmap ativo de correções e próximos passos |
 | [`docs/plans/WP-GAP-07-pre-prod-migration-playbook.md`](plans/WP-GAP-07-pre-prod-migration-playbook.md) | Playbook ativo de migração/pré-prod |
 | [`docs/plans/completed/`](plans/completed/) | Arquivo de planos de execução concluídos |
@@ -71,6 +72,7 @@ Documentação de consulta rápida gerada a partir do código.
 |-----------|----------|
 | [Protocols e Adapters](reference/protocols.md) | Mapa de todos os protocols, dataclasses e adapters disponíveis |
 | [Runtime dependencies](reference/runtime-dependencies.md) | Contrato PostgreSQL/Redis/SQLite, SSE, deploy e Django 6 |
+| [Deploy](guides/deploy.md) | Docker/compose encapsulado por Makefile, release checks e app ASGI |
 | [Configurações](reference/settings.md) | Settings por app (STOCKMAN, CRAFTSMAN, DOORMAN, SHOPMAN_*, etc.) com defaults |
 | [Management Commands](reference/commands.md) | Comandos disponíveis com flags, exemplos e cron recomendado |
 | [Exceções e Erros](reference/errors.md) | Hierarquia de exceções, códigos de erro e quando ocorrem |

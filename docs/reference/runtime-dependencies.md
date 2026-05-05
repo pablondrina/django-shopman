@@ -94,10 +94,11 @@ make test-runtime
 ```
 
 Para quem nao quer tocar em Docker localmente, o caminho canonico e deixar o
-CI executar esse target. O workflow `.github/workflows/runtime-gate.yml` sobe
-PostgreSQL 16 e Redis 7 como services do GitHub Actions, roda a suite completa
-e entao executa `make test-runtime`. O desenvolvedor nao precisa rodar comandos
-Docker na maquina local.
+CI executar esse target e buildar a imagem de deploy. O workflow
+`.github/workflows/runtime-gate.yml` sobe PostgreSQL 16 e Redis 7 como services
+do GitHub Actions, roda a suite completa, builda `Dockerfile` e entao executa
+`make test-runtime`. O desenvolvedor nao precisa rodar comandos Docker na
+maquina local.
 
 Esse target roda `scripts/check_runtime_gate.py` antes dos testes. Ele falha
 fechado quando:
@@ -114,6 +115,14 @@ stress de seguranca/confiabilidade e falha se qualquer teste for pulado. O
 subconjunto cobre concorrencia de estoque, invariantes de quantidade, Payman,
 Craftsman, checkout concorrente, rate limit em Redis, acesso a pedidos,
 permissoes SSE, replay de webhooks, deploy checks e health/readiness.
+
+Em 2026-05-05, o workflow `Runtime Gate` do PR #3 passou com:
+
+- `Quality + deploy contract`: `ruff`, migrations check, `check --deploy` e
+  suite completa;
+- `Docker deploy image`: build real do `Dockerfile` no GitHub Actions;
+- `PostgreSQL + Redis runtime stress gate`: `make test-runtime` em services
+  reais do GitHub Actions.
 
 Para stress HTTP complementar, com o servidor ja rodando e seed aplicado:
 
@@ -149,3 +158,18 @@ reverse proxy/HTTPS
 
 Redis nao substitui o banco e nao e fila principal. Ele e infraestrutura
 compartilhada para limites, cache e realtime.
+
+## Deploy encapsulado
+
+O repositorio inclui `Dockerfile` e compose profiles para app/worker/release,
+mas o operador deve usar os wrappers:
+
+```bash
+make deploy-check
+make deploy-up
+make deploy-logs
+make deploy-down
+```
+
+`make up` continua subindo apenas PostgreSQL + Redis para desenvolvimento. O
+profile de app so entra pelos targets `deploy-*`.

@@ -71,6 +71,7 @@ make run
 |----------|---------|
 | Estudar a arquitetura | Ler [`docs/architecture.md`](docs/architecture.md) e [`docs/guides/lifecycle.md`](docs/guides/lifecycle.md) |
 | Rodar a demo | `make install && make migrate && make seed && make run` |
+| Ensaiar deploy sem tocar em Docker | copiar `.env.example`, ajustar segredos/hosts e rodar `make deploy-up` |
 | Ver o que funciona hoje | [`docs/status.md`](docs/status.md) — estado factual por módulo |
 | Usar como base do seu negócio | Fork, criar instância em `instances/`, configurar `Shop` no admin |
 | Adotar um core app isolado | `pip install shopman-stockman` (quando publicado no PyPI) |
@@ -150,6 +151,10 @@ make migrate          # Aplica migrações
 make seed             # Popula com dados demo (Nelson Boulangerie)
 make run              # Sobe servidor (localhost:8000)
 make lint             # Ruff check
+make deploy-check     # check --deploy + migrations check + collectstatic dry-run
+make deploy-up        # build/release/web/worker via compose, sem Docker manual
+make deploy-logs      # logs de web + directive worker
+make deploy-down      # para containers do deploy local
 ```
 
 ## Convenções
@@ -180,6 +185,7 @@ make lint             # Ruff check
 - [Arquitetura](docs/architecture.md) — diagrama de camadas, Protocol/Adapter
 - [Quickstart](docs/getting-started/quickstart.md) — instalação passo a passo
 - [Runtime dependencies](docs/reference/runtime-dependencies.md) — contrato PostgreSQL/Redis/SQLite
+- [Deploy](docs/guides/deploy.md) — imagem app, compose profiles e make deploy-*
 - [Um Dia na Padaria](docs/getting-started/dia-na-padaria.md) — tutorial narrativo
 - [Lifecycle](docs/guides/lifecycle.md) — guia de Lifecycles, Services, Adapters
 - [Auth](docs/guides/auth.md) — autenticação OTP e device trust

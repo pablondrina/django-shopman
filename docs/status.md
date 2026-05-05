@@ -26,12 +26,16 @@ Para gaps e roadmap, ver [ROADMAP.md](ROADMAP.md) e os planos ativos em `docs/pl
 
 **Gate runtime real:** `make test-runtime` criado em 2026-05-05 para
 PostgreSQL + Redis. Ele falha se PostgreSQL/Redis não estiverem acessíveis ou
-se qualquer teste sensível for pulado. Ainda precisa ser executado em ambiente
-com Docker/serviços reais.
+se qualquer teste sensível for pulado. Último run canônico no PR #3:
+`PostgreSQL + Redis runtime stress gate` passou em 1m22s em 2026-05-05.
 
-**CI sem Docker local:** workflow `Runtime Gate` criado em 2026-05-05. Ele sobe
-PostgreSQL/Redis no GitHub Actions, roda a suite completa e executa
-`make test-runtime`; o operador local nao precisa rodar Docker.
+**CI sem Docker local:** workflow `Runtime Gate` criado em 2026-05-05. Ele
+builda a imagem Docker no GitHub Actions, sobe PostgreSQL/Redis, roda a suite
+completa e executa `make test-runtime`; o operador local nao precisa rodar
+Docker.
+
+**Deploy encapsulado:** `Dockerfile`, compose profiles e targets `make deploy-*`
+existem para build/release/web/worker sem exigir comandos Docker manuais.
 
 ---
 
@@ -70,10 +74,6 @@ PostgreSQL/Redis no GitHub Actions, roda a suite completa e executa
 
 Ver [ROADMAP.md](ROADMAP.md) para gaps conhecidos e plano de correção:
 
-- **Runtime real** — executar `make test-runtime` em PostgreSQL + Redis, sem
-  skips de concorrência.
-- **CI production-like** — rodar `check --deploy`, migrations, `ruff`, testes e
-  `make test-runtime` com serviços reais.
 - **Gateways sandbox** — validar EFI/Stripe/iFood com eventos duplicados,
   atrasados e fora de ordem.
 - **Reconciliação financeira** — provar rotina diária para pedido, intent,

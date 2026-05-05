@@ -2,16 +2,17 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: shopman
-      POSTGRES_USER: shopman
-      POSTGRES_PASSWORD: shopman
+      POSTGRES_DB: ${POSTGRES_DB:-shopman}
+      POSTGRES_USER: ${POSTGRES_USER:-shopman}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shopman}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U shopman"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-shopman} -d $${POSTGRES_DB:-shopman}"]
       interval: 5s
+      timeout: 5s
       retries: 5
 
   redis:
@@ -21,7 +22,78 @@ services:
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
+      timeout: 5s
       retries: 5
+
+  release:
+    profiles: ["release"]
+    build:
+      context: .
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://shopman:shopman@postgres:5432/shopman}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - staticfiles:/app/staticfiles
+      - media:/app/media
+    command: >
+      sh -c "python manage.py check --deploy &&
+             python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput"
+
+  web:
+    profiles: ["app"]
+    build:
+      context: .
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://shopman:shopman@postgres:5432/shopman}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      PORT: ${PORT:-8000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${PORT:-8000}:8000"
+    volumes:
+      - staticfiles:/app/staticfiles
+      - media:/app/media
+    command: daphne -b 0.0.0.0 -p 8000 config.asgi:application
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/health/ >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  directive-worker:
+    profiles: ["app"]
+    build:
+      context: .
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://shopman:shopman@postgres:5432/shopman}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - media:/app/media
+    command: python manage.py process_directives --watch
 
 volumes:
   postgres_data:
+  staticfiles:
+  media:
