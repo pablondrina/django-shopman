@@ -17,6 +17,19 @@ from django.apps import AppConfig
 logger = logging.getLogger(__name__)
 
 
+def bootstrap_rules_on_connection(sender, connection, **kwargs):
+    """Run DB-backed rule bootstrap only on the app's default database."""
+    from django.db import DEFAULT_DB_ALIAS
+
+    if connection.alias != DEFAULT_DB_ALIAS:
+        logger.debug("ShopmanConfig: skipping rules bootstrap for database alias=%s.", connection.alias)
+        return
+
+    from shopman.shop.rules.engine import bootstrap_active_rules
+
+    bootstrap_active_rules()
+
+
 class ShopmanConfig(AppConfig):
     name = "shopman.shop"
     label = "shop"
@@ -80,10 +93,10 @@ class ShopmanConfig(AppConfig):
         from django.db.models.signals import post_save
 
         from shopman.shop.models import RuleConfig
-        from shopman.shop.rules.engine import bootstrap_active_rules, invalidate_rules_cache
+        from shopman.shop.rules.engine import invalidate_rules_cache
 
         connection_created.connect(
-            lambda sender, connection, **kwargs: bootstrap_active_rules(),
+            bootstrap_rules_on_connection,
             dispatch_uid="shopman.shop.rules.bootstrap_on_connection",
             weak=False,
         )
