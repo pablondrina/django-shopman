@@ -1,6 +1,6 @@
 # Status — Django Shopman
 
-> Última atualização: 2026-05-04
+> Última atualização: 2026-05-05
 
 Retrato factual do que está implementado e funcionando. Não é um plano — é o estado atual.
 Para gaps e roadmap, ver [ROADMAP.md](ROADMAP.md) e os planos ativos em `docs/plans/`.
@@ -21,7 +21,13 @@ Para gaps e roadmap, ver [ROADMAP.md](ROADMAP.md) e os planos ativos em `docs/pl
 | shopman-doorman | `shopman-doorman` | 0.1.0 | coleta global | Estável | Auth OTP, device trust, bridge tokens |
 | shopman-payman | `shopman-payman` | 0.2.0 | coleta global | Beta | Pagamentos, PIX, Stripe — cobertura parcial |
 
-**Coleta atual:** 717 testes (`pytest --collect-only -q`, 2026-04-26).
+**Último gate local completo:** `make test` em SQLite/LocMem, 2026-05-04:
+`1820 passed`, `13 skipped`, `3 warnings`, `14 subtests`.
+
+**Gate runtime real:** `make test-runtime` criado em 2026-05-05 para
+PostgreSQL + Redis. Ele falha se PostgreSQL/Redis não estiverem acessíveis ou
+se qualquer teste sensível for pulado. Ainda precisa ser executado em ambiente
+com Docker/serviços reais.
 
 ---
 
@@ -38,7 +44,8 @@ Para gaps e roadmap, ver [ROADMAP.md](ROADMAP.md) e os planos ativos em `docs/pl
 | **Admin (Unfold)** | Estável | Dashboard, shop config, pedidos, KDS operacional, produção, fechamento e alertas |
 | **Runtime operacional** | Beta | POS e KDS de produção como superfícies próprias, fora do Admin por necessidade operacional |
 
-**Total geral coletado: 717 testes**
+**Total do último gate local completo:** `1820 passed`, `13 skipped`,
+`3 warnings`, `14 subtests`.
 
 ---
 
@@ -59,19 +66,22 @@ Para gaps e roadmap, ver [ROADMAP.md](ROADMAP.md) e os planos ativos em `docs/pl
 
 Ver [ROADMAP.md](ROADMAP.md) para gaps conhecidos e plano de correção:
 
-- **C1** — blocos `except Exception` silenciosos remanescentes fora do escopo WP-02
-- **C2** — Thread safety no adapter EFI + cobertura de testes baseline
-- **C4** — Security headers (CSP, HSTS) ausentes
-- **C5** — Queries N+1 no storefront (catalog, cart, tracking)
-- **C6** — Testes de concorrência (stock, payment, work orders)
-- **C7** — Payman: cobertura de testes insuficiente
-- **C8** — Checkout dedup: lógica duplicada fora do CommitService
+- **Runtime real** — executar `make test-runtime` em PostgreSQL + Redis, sem
+  skips de concorrência.
+- **CI production-like** — rodar `check --deploy`, migrations, `ruff`, testes e
+  `make test-runtime` com serviços reais.
+- **Gateways sandbox** — validar EFI/Stripe/iFood com eventos duplicados,
+  atrasados e fora de ordem.
+- **Reconciliação financeira** — provar rotina diária para pedido, intent,
+  transações, gateway, refund e fechamento.
+- **Observabilidade** — logs estruturados, health/readiness, monitoramento de
+  webhooks e alertas operacionais.
+- **QA manual Omotenashi** — mobile cliente, tablet KDS e desktop gerente.
 
 Ver [ROADMAP.md](ROADMAP.md) e `docs/plans/` para itens de UX/operação:
 
 - **R3-R8** — Storefront: empty states, feedback de erros, responsividade mobile
-- **R14** — Rate limiting (OTP, login, checkout) — concluído em WP-C3
-- **R17** — Security headers
+- **Django 6** — matrix explícita, depreciações e libs terceiras.
 
 ---
 

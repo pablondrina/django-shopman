@@ -85,6 +85,36 @@ REDIS_URL=redis://localhost:6379/0
 
 `rediss://` e aceito para ambientes gerenciados com TLS.
 
+## Gate runtime
+
+O gate canônico de segurança/confiabilidade para ambiente real é:
+
+```bash
+make test-runtime
+```
+
+Esse target roda `scripts/check_runtime_gate.py` antes dos testes. Ele falha
+fechado quando:
+
+- `DATABASE_URL` nao esta definido ou nao aponta para PostgreSQL;
+- o banco nao responde a uma query real;
+- `REDIS_URL` nao esta definido;
+- o cache default nao usa `django.core.cache.backends.redis.RedisCache`;
+- o cache Redis nao completa set/get/delete;
+- `EVENTSTREAM_REDIS` nao esta configurado para fanout SSE multi-worker.
+
+Depois do preflight, `scripts/run_runtime_tests.py` executa o subconjunto de
+stress de seguranca/confiabilidade e falha se qualquer teste for pulado. O
+subconjunto cobre concorrencia de estoque, invariantes de quantidade, Payman,
+Craftsman, checkout concorrente, rate limit em Redis, acesso a pedidos,
+permissoes SSE, replay de webhooks, deploy checks e health/readiness.
+
+Para stress HTTP complementar, com o servidor ja rodando e seed aplicado:
+
+```bash
+make load-test HOST=http://localhost:8000 USERS=100 RATE=10 TIME=60s
+```
+
 ## Checks obrigatorios
 
 `python manage.py check --deploy` deve falhar em producao quando:

@@ -39,6 +39,7 @@ dev = [
     "pytest",
     "pytest-django",
     "pytest-cov",
+    "locust>=2.24,<3.0",
 ]
 
 [tool.setuptools.packages.find]

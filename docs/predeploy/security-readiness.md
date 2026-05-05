@@ -11,6 +11,7 @@ Antes de qualquer ambiente público, rodar:
 python manage.py check --deploy
 ruff check .
 pytest -q
+make test-runtime
 ```
 
 `manage.py check --deploy` já bloqueia:
@@ -138,6 +139,7 @@ Ainda fora do escopo desta fase, mas precisa estar decidido antes de produção:
 
 - Backup e restore testado para PostgreSQL.
 - Redis provisionado e validado para cache, rate limit e SSE multi-worker.
+- `make test-runtime` executado em PostgreSQL + Redis, sem skips.
 - Estratégia de coleta de logs.
 - Monitoramento de webhooks falhos.
 - Processo para rotacionar `DJANGO_SECRET_KEY` e tokens externos.
@@ -151,6 +153,7 @@ Um ambiente está pronto para teste público quando:
 - `python manage.py check --deploy` roda sem erros.
 - `ruff check .` passa.
 - `pytest -q` passa.
+- `make test-runtime` passa em PostgreSQL + Redis sem skips.
 - `DJANGO_DEBUG=false` no ambiente.
 - Webhooks expostos têm token/assinatura configurados.
 - Backstage exige autenticação em todas as rotas sensíveis.

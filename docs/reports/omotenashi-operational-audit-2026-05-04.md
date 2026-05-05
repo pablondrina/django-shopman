@@ -92,7 +92,10 @@ Evidencias desta rodada:
 - carrinho/CEP/rate limit: `45 passed`;
 - webhooks/idempotencia/seed/order constraint: `84 passed`;
 - doorman access-link + deploy checks: `25 passed`;
-- seed operacional Nelson: `1 passed`.
+- seed operacional Nelson: `1 passed`;
+- gate runtime PostgreSQL/Redis criado em 2026-05-05: `make test-runtime`
+  falha fechado sem PostgreSQL/Redis e reprova qualquer skip no subconjunto
+  sensivel. Nao executado localmente porque `docker` nao esta instalado.
 
 ## SWOT
 
@@ -309,7 +312,8 @@ Hoje o Shopman tem partes desse contrato. O proximo salto e torna-lo universal.
 
 ## Criterios minimos antes de producao real
 
-1. Rodar suite completa em PostgreSQL/Redis, sem skips de concorrencia.
+1. Rodar `make test-runtime` e a suite completa em PostgreSQL/Redis, sem skips
+   de concorrencia.
 2. Rodar `check --deploy` em CI com configuracao production-like real.
 3. Rodar smoke sandbox EFI/Stripe com webhook duplicado, atrasado e fora de
    ordem.

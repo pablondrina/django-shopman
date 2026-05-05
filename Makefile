@@ -11,7 +11,7 @@ PYTHON := $(shell [ -f .venv/bin/python ] && echo $(CURDIR)/.venv/bin/python || 
 ADMIN_URL := $(strip $(or $(url),$(URL)))
 ADMIN_SCOPE_ARGS := $(if $(ADMIN_URL),--url $(ADMIN_URL),)
 
-.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework test-coverage lint omotenashi-lint omotenashi-audit admin admin-update admin-ui admin-ui-ci admin-ui-maturity admin-ui-strict admin-ui-surfaces admin-ui-test admin-ui-update unfold unfold-ci unfold-maturity unfold-strict unfold-surfaces unfold-update lint-unfold lint-unfold-maturity clean migrate run dev seed coverage css css-watch fonts up down logs db-shell
+.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework test-runtime-preflight test-runtime load-test test-coverage lint omotenashi-lint omotenashi-audit admin admin-update admin-ui admin-ui-ci admin-ui-maturity admin-ui-strict admin-ui-surfaces admin-ui-test admin-ui-update unfold unfold-ci unfold-maturity unfold-strict unfold-surfaces unfold-update lint-unfold lint-unfold-maturity clean migrate run dev seed coverage css css-watch fonts up down logs db-shell
 
 help: ## Mostra este help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -26,6 +26,7 @@ install: ## Instala deps + apps da suite em modo editável
 		"django-ratelimit>=4.1,<5.0" \
 		"redis>=5.0,<8.0" \
 		"psycopg[binary]>=3.2,<4.0" \
+		"locust>=2.24,<3.0" \
 		phonenumbers pytest pytest-django
 	# Instala cada app em modo editável
 	$(PYTHON) -m pip install -e packages/refs
@@ -84,6 +85,18 @@ test-doorman: ## Testes do shopman.auth
 test-framework: ## Testes do framework (orquestração)
 	@echo "── Framework ──"
 	$(PYTHON) -m pytest shopman/shop/tests shopman/storefront/tests shopman/backstage/tests -x -q
+
+test-runtime-preflight: ## Falha se PostgreSQL/Redis reais não estiverem configurados
+	@echo "── Runtime preflight: PostgreSQL + Redis ──"
+	$(PYTHON) scripts/check_runtime_gate.py
+
+test-runtime: test-runtime-preflight ## Stress de segurança/confiabilidade em PostgreSQL + Redis, sem skips
+	@echo "── Runtime security/reliability tests ──"
+	$(PYTHON) scripts/run_runtime_tests.py
+	@echo "✓ Runtime security/reliability gate passou"
+
+load-test: ## Locust headless contra servidor rodando (HOST=http://localhost:8000 USERS=100 RATE=10 TIME=60s)
+	$(PYTHON) -m locust -f shopman/shop/tests/load/locustfile.py --host=$(or $(HOST),http://localhost:8000) --headless -u $(or $(USERS),100) -r $(or $(RATE),10) --run-time $(or $(TIME),60s)
 
 test-coverage: ## Cobertura do Backstage com gate de 75%
 	@echo "── Backstage coverage ──"
