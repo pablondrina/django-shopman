@@ -385,13 +385,22 @@ def handle_webhook_event(event) -> dict:
             if db_intent:
                 intent_ref = db_intent.ref
                 try:
-                    PaymentService.refund(
+                    PaymentService.reconcile_gateway_status(
                         db_intent.ref,
-                        amount_q=charge.amount_refunded,
-                        gateway_id=charge.id,
+                        gateway_status="refunded",
+                        amount_q=db_intent.amount_q,
+                        captured_q=getattr(charge, "amount_captured", getattr(charge, "amount", db_intent.amount_q)),
+                        refunded_q=charge.amount_refunded,
+                        gateway_id=stripe_intent_id,
+                        refund_gateway_id=charge.id,
                     )
-                except PaymentError:
-                    pass
+                except PaymentError as exc:
+                    logger.warning(
+                        "Stripe refund reconciliation drift intent=%s code=%s context=%s",
+                        db_intent.ref,
+                        exc.code,
+                        exc.context,
+                    )
 
     return {"event_type": event.type, "intent_ref": intent_ref}
 

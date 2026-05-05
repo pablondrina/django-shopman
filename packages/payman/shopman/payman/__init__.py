@@ -33,6 +33,10 @@ def __getattr__(name):
         from shopman.payman.models.transaction import PaymentTransaction
 
         return PaymentTransaction
+    if name == "PaymentReconciliationResult":
+        from shopman.payman.service import PaymentReconciliationResult
+
+        return PaymentReconciliationResult
     # Protocol DTOs (no DB dependency, safe to import eagerly)
     _protocol_names = {"GatewayIntent", "CaptureResult", "RefundResult", "PaymentStatus", "PaymentBackend"}
     if name in _protocol_names:
@@ -47,6 +51,7 @@ __all__ = [
     "PaymentError",
     "PaymentIntent",
     "PaymentTransaction",
+    "PaymentReconciliationResult",
     # Protocols (gateway DTOs)
     "GatewayIntent",
     "CaptureResult",

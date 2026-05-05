@@ -249,6 +249,17 @@ def capture(
         status = response.get("status", "")
 
         if status == "CONCLUIDA":
+            amount_q = int(float(response["valor"]["original"]) * 100)
+            PaymentService.reconcile_gateway_status(
+                intent_ref,
+                gateway_status="captured",
+                amount_q=amount_q,
+                captured_q=amount_q,
+                refunded_q=0,
+                gateway_id=txid,
+                capture_gateway_id=txid,
+                gateway_data={"efi_status": status},
+            )
             try:
                 PaymentService.authorize(intent_ref, gateway_id=txid)
             except PaymentError:
@@ -256,7 +267,7 @@ def capture(
             return PaymentResult(
                 success=True,
                 transaction_id=txid,
-                amount_q=int(float(response["valor"]["original"]) * 100),
+                amount_q=amount_q,
             )
         return PaymentResult(
             success=False,

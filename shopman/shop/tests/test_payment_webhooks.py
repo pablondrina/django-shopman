@@ -21,7 +21,7 @@ from shopman.orderman.ids import generate_idempotency_key, generate_session_key
 from shopman.orderman.models import IdempotencyKey, Order, Session
 from shopman.orderman.services.commit import CommitService
 from shopman.orderman.services.modify import ModifyService
-from shopman.payman import PaymentService
+from shopman.payman import PaymentService, PaymentTransaction
 
 from shopman.shop.models import Channel
 
@@ -170,6 +170,31 @@ class StripeWebhookTests(WebhookTestBase):
         mock_event.data.object = mock_pi
         return mock_event
 
+    def _mock_charge_refunded_event(
+        self,
+        *,
+        event_id: str,
+        stripe_pi_id: str,
+        amount_q: int,
+        amount_refunded_q: int,
+        charge_id: str = "ch_test_refund",
+    ):
+        """Return a Stripe charge.refunded event.
+
+        Stripe's amount_refunded is cumulative, not the delta for this event.
+        """
+        mock_event = MagicMock()
+        mock_event.id = event_id
+        mock_event.type = "charge.refunded"
+        charge = MagicMock()
+        charge.id = charge_id
+        charge.payment_intent = stripe_pi_id
+        charge.amount = amount_q
+        charge.amount_captured = amount_q
+        charge.amount_refunded = amount_refunded_q
+        mock_event.data.object = charge
+        return mock_event
+
     # ── Happy path ────────────────────────────────────────────
 
     def test_stripe_payment_succeeded_captures_intent(self) -> None:
@@ -242,6 +267,48 @@ class StripeWebhookTests(WebhookTestBase):
         # Status still captured (not double-captured)
         intent.refresh_from_db()
         self.assertEqual(intent.status, "captured")
+
+    def test_stripe_charge_refunded_reconciles_cumulative_amounts(self) -> None:
+        """Stripe refund events report cumulative totals; Payman records deltas."""
+        order = _create_order_with_payment("web", "card")
+        intent = _create_card_intent(order)
+        PaymentService.authorize(intent.ref, gateway_id=intent.gateway_id)
+        PaymentService.capture(intent.ref, gateway_id="ch_test_refund")
+
+        first_event = self._mock_charge_refunded_event(
+            event_id="evt_refund_1",
+            stripe_pi_id=intent.gateway_id,
+            amount_q=1000,
+            amount_refunded_q=400,
+        )
+        second_event = self._mock_charge_refunded_event(
+            event_id="evt_refund_2",
+            stripe_pi_id=intent.gateway_id,
+            amount_q=1000,
+            amount_refunded_q=1000,
+        )
+
+        with patch("shopman.shop.adapters.payment_stripe._get_stripe") as mock_get_stripe:
+            mock_stripe = MagicMock()
+            mock_stripe.Webhook.construct_event.side_effect = [first_event, second_event]
+            mock_get_stripe.return_value = mock_stripe
+
+            resp1 = self._post_webhook({"id": "evt_refund_1", "type": "charge.refunded"})
+            resp2 = self._post_webhook({"id": "evt_refund_2", "type": "charge.refunded"})
+
+        self.assertEqual(resp1.status_code, 200, resp1.data)
+        self.assertEqual(resp2.status_code, 200, resp2.data)
+        self.assertEqual(PaymentService.refunded_total(intent.ref), 1000)
+
+        refunds = list(
+            PaymentTransaction.objects.filter(
+                intent__ref=intent.ref,
+                type=PaymentTransaction.Type.REFUND,
+            )
+            .order_by("created_at")
+            .values_list("amount_q", flat=True)
+        )
+        self.assertEqual(refunds, [400, 600])
 
     # ── Race condition ────────────────────────────────────────
 

@@ -19,7 +19,7 @@ Para gaps e roadmap, ver [ROADMAP.md](ROADMAP.md) e os planos ativos em `docs/pl
 | shopman-orderman | `shopman-orderman` | 0.1.0 | coleta global | Estável | Pedidos, sessions, directives, channels |
 | shopman-guestman | `shopman-guestman` | 0.1.0 | coleta global | Estável | CRM, clientes, loyalty, RFM, consent |
 | shopman-doorman | `shopman-doorman` | 0.1.0 | coleta global | Estável | Auth OTP, device trust, bridge tokens |
-| shopman-payman | `shopman-payman` | 0.2.0 | coleta global | Beta | Pagamentos, PIX, Stripe — cobertura parcial |
+| shopman-payman | `shopman-payman` | 0.2.0 | coleta global | Beta | Pagamentos, PIX, Stripe, reconciliação cumulativa — cobertura parcial |
 
 **Último gate local completo:** `make test` em SQLite/LocMem, 2026-05-04:
 `1820 passed`, `13 skipped`, `3 warnings`, `14 subtests`.
