@@ -22,18 +22,20 @@ Para gaps e roadmap, ver [ROADMAP.md](ROADMAP.md) e os planos ativos em `docs/pl
 | shopman-payman | `shopman-payman` | 0.2.0 | coleta global | Beta | Pagamentos, PIX, Stripe, reconciliação cumulativa — cobertura parcial |
 
 **Último gate local completo:** `make test` em SQLite/LocMem, 2026-05-05:
-`1829 passed`, `13 skipped`, `3 warnings`, `14 subtests`.
+pacotes (`refs`, `utils`, `offerman`, `stockman`, `craftsman`, `orderman`,
+`payman`, `guestman`, `doorman`) e framework verdes. Segmento framework:
+`1860 passed`, `13 skipped`, `3 warnings`, `14 subtests`.
 
 **Gate runtime real:** `make test-runtime` criado em 2026-05-05 para
 PostgreSQL + Redis. Ele falha se PostgreSQL/Redis não estiverem acessíveis ou
 se qualquer teste sensível for pulado. Evidência registrada no PR #3:
-`Runtime Gate` `25404598547` passou em 2026-05-05, com `PostgreSQL + Redis
-runtime stress gate` verde em 1m31s.
+`Runtime Gate` `25406736404` passou em 2026-05-05, com `PostgreSQL + Redis
+runtime stress gate` verde em 1m29s.
 
 **CI sem Docker local:** workflow `Runtime Gate` criado em 2026-05-05. Ele
 builda a imagem Docker no GitHub Actions, sobe PostgreSQL/Redis, roda a suite
 completa e executa `make test-runtime`; o operador local nao precisa rodar
-Docker. No run `25404598547`, a job `Docker deploy image` passou em 1m40s.
+Docker. No run `25406736404`, a job `Docker deploy image` passou em 1m24s.
 
 **Deploy encapsulado:** `Dockerfile`, compose profiles e targets `make deploy-*`
 existem para build/release/web/worker sem exigir comandos Docker manuais.
@@ -66,7 +68,7 @@ algum cenário canônico não tiver dado seed correspondente.
 captura screenshots e falha em revisão visual objetiva.
 `make omotenashi-browser-ci` compila CSS, recria o seed, sobe servidor
 temporário e roda o gate estrito; o workflow `Runtime Gate` executa esse alvo.
-No run `25404598547`, o job `Omotenashi browser QA` passou com `14 pass`,
+No run `25406736404`, o job `Omotenashi browser QA` passou com `14 pass`,
 `0 review` e artifact de screenshots/JSON/log.
 Rodada browser local
 registrada em
@@ -100,7 +102,7 @@ suite completa após atualizar o inventário Unfold canônico.
 | **Admin (Unfold)** | Estável | Dashboard, shop config, pedidos, KDS operacional, produção, fechamento e alertas |
 | **Runtime operacional** | Beta | POS e KDS de produção como superfícies próprias, fora do Admin por necessidade operacional |
 
-**Total do último gate local completo:** `1842 passed`, `13 skipped`,
+**Total do último gate framework local:** `1860 passed`, `13 skipped`,
 `3 warnings`, `14 subtests`.
 
 ---

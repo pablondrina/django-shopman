@@ -1,6 +1,6 @@
 # AVAILABILITY-PLAN
 
-**Status:** em execução. Draft aprovado em 2026-04-18; WP-AV-08, WP-AV-09 e WP-AV-12 foram corrigidos e validados em 2026-05-05. Sucessor operativo do [STOCK-UX-PLAN.md](STOCK-UX-PLAN.md) para o sistema de verificação de disponibilidade e sugestão de substituição no storefront.
+**Status:** concluído e validado em 2026-05-05. Todos os WPs WP-AV-01..14 têm implementação e cobertura rastreável; WP-AV-08, WP-AV-09 e WP-AV-12 receberam correções adicionais de robustez na mesma data. Sucessor operativo do [STOCK-UX-PLAN.md](STOCK-UX-PLAN.md) para o sistema de verificação de disponibilidade e sugestão de substituição no storefront.
 
 **Escopo:** unificar vocabulário, regras de derivação, fluxos canônicos (Ajuste × Substituição), stepper clamp, modal de erro de estoque, fermata (hold indefinido + materialização com notificação ativa), timeouts transparentes, correções dos 7 gaps mapeados, e rename global `alternatives → substitutes`.
 
@@ -139,8 +139,8 @@ Modal **só** para erro real de submit que requer decisão (aceitar N / escolher
 Quando cliente adiciona produto em estado **Lista de espera** (`demand_ok` ou `planned_ok` sem ready):
 - Adapter detecta a condição (`ready_physical == 0 && (policy == demand_ok || planned > 0)`).
 - Cria Hold com `expires_at = None` (indefinido). O modelo [Hold.active()](packages/stockman/shopman/stockman/models/hold.py:16-23) já trata `NULL` como ativo.
-- Cart marca linha com flag `is_waiting_production = True`.
-- UI mostra "Aguardando produção — avisamos assim que chegar" na linha do cart.
+- Cart marca linha com flag `is_awaiting_confirmation = True`.
+- UI mostra `Aguardando confirmação` + `Avisamos quando chegar.` na linha do cart.
 - CTA é habilitado mas sem urgência. Checkout pode ou não ser bloqueado (decisão da seção 5).
 
 ### 8.2 Materialização
@@ -229,6 +229,8 @@ Ordem respeitando dependências. Um por vez, com testes + verificação em previ
 
 ### WP-AV-01 — Rename global `alternatives` → `substitutes`
 
+**Status 2026-05-05:** implementado e validado. O código ativo usa `substitutes` (`shopman/shop/services/substitutes.py`, `CartUnavailableError.substitutes`, templates/modal e testes). A varredura final não encontra `find_alternatives` nem `alternatives` no código ativo.
+
 **Escopo:** puro refactor mecânico, zero mudança de comportamento.
 
 - `packages/offerman/shopman/offerman/contrib/suggestions/` → `substitutes/`
@@ -245,6 +247,8 @@ Ordem respeitando dependências. Um por vez, com testes + verificação em previ
 ---
 
 ### WP-AV-02 — Vocabulário unificado
+
+**Status 2026-05-05:** implementado e validado. API, badges, modal, cart drawer/page e projeções usam os estados canônicos: `Disponível`, `Últimas unidades`, `Lista de espera`/planned e `Indisponível`; linhas planejadas usam `Aguardando confirmação` e `Tudo pronto!`.
 
 **Escopo:** aplicar os 4 estados canônicos em todos os copys.
 
@@ -264,6 +268,8 @@ Ordem respeitando dependências. Um por vez, com testes + verificação em previ
 
 ### WP-AV-03 — Remover seção "Outras opções" da PDP
 
+**Status 2026-05-05:** implementado e validado. PDP não renderiza seção de substitutos; substituição fica restrita ao modal acionável de shortage. Cobertura em `shopman/storefront/tests/web/test_web_catalog.py`.
+
 **Escopo:** correção do resíduo da rodada anterior. Substitutos são só no modal.
 
 - Remover `{% if product.substitutes %}` de `templates/storefront/product_detail.html`
@@ -279,6 +285,8 @@ Ordem respeitando dependências. Um por vez, com testes + verificação em previ
 
 ### WP-AV-04 — Gap B: PDP own-hold-aware
 
+**Status 2026-05-05:** implementado e validado. Superfícies de leitura levam em conta o hold da própria sessão; o carrinho não marca como indisponível a quantidade já reservada pelo cliente. Cobertura em `shopman/storefront/tests/web/test_projections_cart.py` e no E2E do WP-AV-14.
+
 **Escopo:** PDP usa o mesmo cálculo do cart. Coerência entre superfícies.
 
 - `projections/product_detail.py`: ler `own_hold` via `_own_holds_for_session` (mover helper para um módulo compartilhado)
@@ -292,6 +300,8 @@ Ordem respeitando dependências. Um por vez, com testes + verificação em previ
 ---
 
 ### WP-AV-05 — Gap E: extirpar `below_min_qty`
+
+**Status 2026-05-05:** implementado e validado. `ListingItem.min_qty` permanece como dado de catálogo/preço, mas não é gate operacional de disponibilidade; `below_min_qty` só aparece em comentários/testes que documentam sua remoção.
 
 **Escopo:** min_qty não é operacional; remover completamente.
 
@@ -308,6 +318,8 @@ Ordem respeitando dependências. Um por vez, com testes + verificação em previ
 
 ### WP-AV-06 — Gap F: 404 para fora do canal
 
+**Status 2026-05-05:** implementado e validado. Produto publicado fora do `ListingItem` do canal retorna 404 no PDP. Cobertura em `shopman/storefront/tests/web/test_availability_plan_e2e.py`.
+
 **Escopo:** produto não listado no canal retorna 404 em toda superfície.
 
 - `web/views/catalog.py::ProductDetailView`: checar `ListingItem` antes de renderizar; se ausente/unpublished → 404
@@ -321,6 +333,8 @@ Ordem respeitando dependências. Um por vez, com testes + verificação em previ
 ---
 
 ### WP-AV-07 — Gap G: stepper clamp transparente
+
+**Status 2026-05-05:** implementado e validado. Steppers do menu, PDP, cart drawer e cart page recebem `effectiveMax`, desabilitam incremento no limite e mostram hint `máx. N`; o backend mantém o fallback 422/modal. Cobertura E2E no cenário "Últimas unidades".
 
 **Escopo:** três camadas da seção 7, em todas as superfícies.
 
@@ -367,6 +381,8 @@ Ordem respeitando dependências. Um por vez, com testes + verificação em previ
 
 ### WP-AV-10 — Gap A: push ativo via HTMX SSE
 
+**Status 2026-05-05:** implementado e validado. `django-eventstream` está instalado; `storefront:stock_events` e `storefront:sku_state` existem; templates usam `hx-ext="sse"`/`sse-connect`; emissores em `shopman/shop/handlers/_sse_emitters.py` cobrem `stock-update`, `product-paused`, `listing-changed`, pedido e backstage. Redis fanout é canônico via `EVENTSTREAM_REDIS`.
+
 **Escopo:** mudanças operacionais (Stockman Move, Product pause) disparam atualização ativa de steppers e badges abertos.
 
 - Endpoint SSE `/storefront/stock/events/` em `web/views/`
@@ -382,11 +398,13 @@ Ordem respeitando dependências. Um por vez, com testes + verificação em previ
 
 ### WP-AV-11 — Fermata: hold indefinido para demand/planned
 
+**Status 2026-05-05:** implementado e validado. `create_hold` transforma holds de demanda/planned em `expires_at=None` e marca `metadata.planned=True`; `CartService.get_cart` classifica a linha com `is_awaiting_confirmation` / `is_ready_for_confirmation`. Cobertura em `shopman/shop/tests/test_planned_hold_classify.py` e no cenário Fermata do WP-AV-14.
+
 **Escopo:** criação do hold-fermata.
 
 - `shopman/shop/adapters/stock.py::create_hold`: detectar `demand_ok` ou `planned_ok + ready_physical == 0` → `expires_at = None`
 - Cart `add_item`: não barrar; criar hold indefinido
-- `CartProjection.items[].is_waiting_production` flag
+- `CartProjection.items[].is_awaiting_confirmation` flag
 
 **Testes:** adicionar produto `demand_ok` a cart vazio → hold criado com `expires_at IS NULL`; linha do cart marcada como aguardando.
 
@@ -411,12 +429,14 @@ Ordem respeitando dependências. Um por vez, com testes + verificação em previ
 
 ---
 
-### WP-AV-13 — Fermata UI: countdown + estado "aguardando produção"
+### WP-AV-13 — Fermata UI: countdown + estado "aguardando confirmação"
+
+**Status 2026-05-05:** implementado e validado. Cart drawer e cart page exibem `Aguardando confirmação` antes da materialização e `Tudo pronto! Confirme até HH:MM` + countdown Alpine após materialização. `confirmation.js` faz countdown, polling barato e toast sticky de chegada.
 
 **Escopo:** superfícies mostram o prazo explicitamente conforme princípio dos timeouts transparentes.
 
-- Cart drawer e cart page: linha com `is_waiting_production` mostra badge "Aguardando produção"
-- Após materialização: badge muda para "Chegou! Confirme até HH:MM" + countdown Alpine
+- Cart drawer e cart page: linha com `is_awaiting_confirmation` mostra badge `Aguardando confirmação`
+- Após materialização: badge muda para `Tudo pronto! Confirme até HH:MM` + countdown Alpine
 - Toast `cartUpdated` recebe notificação quando alguma linha materializa
 
 **Testes:** render com linha em fermata → badge presente; após materialização + countdown → novo badge.
@@ -426,6 +446,8 @@ Ordem respeitando dependências. Um por vez, com testes + verificação em previ
 ---
 
 ### WP-AV-14 — Testes E2E cross-surface
+
+**Status 2026-05-05:** implementado e validado. Cobertura coletada pelo `make test-framework` em `shopman/storefront/tests/web/test_availability_plan_e2e.py`, usando `Client`/projeções para não tornar Playwright obrigatório.
 
 **Escopo:** fechar o plano com cobertura ponta-a-ponta.
 
@@ -471,7 +493,7 @@ Execução serial recomendada; paralelismo possível apenas entre os ramos realm
 O plano é considerado completo quando:
 
 1. Todos os WPs verdes, cada um com seus testes.
-2. Preview manual cobre os 6 cenários do WP-AV-14.
+2. Teste E2E automatizado ou preview manual cobre os 6 cenários do WP-AV-14.
 3. Zero resíduo do vocabulário proibido.
 4. Nenhuma chamada a `find_alternatives` ou referência a `alternatives` no código (só `substitutes`).
 5. Fermata funcional em sandbox: cliente adiciona produto `demand_ok`, simula materialização, recebe notificação (log de `notify()` com context correto), countdown aparece no cart.

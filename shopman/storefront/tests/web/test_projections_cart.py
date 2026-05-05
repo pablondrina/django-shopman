@@ -120,7 +120,7 @@ class TestAvailabilityOwnHoldCorrection:
 
     Previously the cart compared ``total_promisable < line.qty`` without
     knowing that ``total_promisable`` excludes the session's own hold.
-    A customer who bought the entire physical stock saw "Acabou no momento"
+    A customer who bought the entire physical stock saw a sold-out warning
     next to their own N units — nonsensical.
     """
 
