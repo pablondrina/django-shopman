@@ -78,6 +78,24 @@ Verificacao desta rodada:
 
 - Suíte critica integrada: `241 passed, 9 subtests passed`.
 
+## Execucao em 2026-05-05
+
+Concluido nesta rodada:
+
+- Matriz manual QA Omotenashi virou comando executável: `make omotenashi-qa`.
+- O comando aponta URLs, viewport, persona, expectativa e evidência seed para
+  mobile cliente, tablet/KDS, produção, POS, fechamento e desktop gerente.
+- O seed Nelson passou a ser validado contra a matriz canônica por teste; se o
+  seed deixar de cobrir um cenário sensível, o teste falha.
+- Roteiro manual documentado em
+  [`docs/guides/omotenashi-qa.md`](../guides/omotenashi-qa.md).
+
+Pendente:
+
+- Executar a rodada visual/tátil em navegador/dispositivo e anexar evidências de
+  release. O comando garante prontidão do seed; não substitui inspeção humana de
+  toque, foco, layout e latência percebida.
+
 ## Nao objetivos
 
 - Nao criar uma entidade `OmotenashiDecision`.

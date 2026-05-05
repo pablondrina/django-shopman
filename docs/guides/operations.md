@@ -151,6 +151,22 @@ se a validação real de sandbox/staging está `ready` ou `blocked_by_credential
 sandbox/staging, falha com `blocked_by_credentials`. Não use o smoke local como
 prova de que o provedor externo foi validado.
 
+## QA manual Omotenashi
+
+Use antes de release com mudança visual, fluxo de pedido, pagamento, KDS, POS ou
+Backstage:
+
+```bash
+make seed
+make omotenashi-qa strict=1
+make omotenashi-qa json=1
+```
+
+O comando não abre navegador nem substitui julgamento visual. Ele garante que a
+rodada manual parte do mesmo seed e aponta URLs/evidências para mobile,
+tablet/KDS e desktop gerente. O roteiro fica em
+[`docs/guides/omotenashi-qa.md`](omotenashi-qa.md).
+
 ### Segurança
 
 - Endpoints não expõem stacktrace, config, nem dados de negócio — apenas o

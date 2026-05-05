@@ -16,6 +16,7 @@ from shopman.payman.models import PaymentIntent
 from shopman.stockman.models import Batch, Position
 
 from shopman.backstage.models import KDSInstance, OperatorAlert, POSTab
+from shopman.backstage.services.omotenashi_qa import build_omotenashi_qa_report
 
 
 @pytest.mark.django_db
@@ -94,3 +95,8 @@ def test_nelson_seed_populates_production_history_alerts_and_batches():
 
     low_attention = Customer.objects.get(ref="CLI-001")
     assert low_attention.metadata["seed_persona"] == "low_attention"
+
+    qa_report = build_omotenashi_qa_report()
+    missing = [check.id for check in qa_report.checks if check.status == "missing"]
+    assert qa_report.ready_count == len(qa_report.checks)
+    assert not missing

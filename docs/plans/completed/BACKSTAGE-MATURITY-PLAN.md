@@ -2,9 +2,11 @@
 
 Plano de ação para elevar a camada `shopman/backstage/` (POS, KDS, Pedidos, Produção, Fechamento) ao mesmo nível de maturidade do core (`packages/*`) e do `shopman/storefront/`.
 
-> Status: ativo — v3 em 2026-04-28
+> Status: concluído e arquivado em 2026-05-05.
 > v1 (manhã) propôs WP-BS-1..6. v2 (tarde) confirmou WP-BS-1..5 entregues e detalhou WP-BS-7..12.
 > v3 (noite) confirma WP-BS-7..11 entregues no código. Resta WP-BS-12 parcial + 3 WPs finais (13/14/15) de refinamento.
+> A própria seção de histórico registra WP-BS-13/14/15 entregues; o plano não
+> deve mais aparecer na fila ativa.
 > Escopo: somente `shopman/backstage/`. Core (`packages/`, `shopman/shop/`) não muda. Storefront não muda.
 
 ---

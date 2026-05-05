@@ -17,6 +17,7 @@
 | [`reconcile_payments`](#reconcile_payments) | shop | Operação | Reconcilia pedidos cujo webhook de pagamento pode ter sido perdido |
 | [`reconcile_financial_day`](#reconcile_financial_day) | backstage | Operação | Reconcilia pedido, intent, transação e fechamento diário |
 | [`smoke_gateways`](#smoke_gateways) | backstage | Operação | Estressa webhooks/gateways com fixtures locais e matriz sandbox |
+| [`omotenashi_qa`](#omotenashi_qa) | backstage | QA | Lista matriz manual QA Omotenashi com evidências do seed |
 | [`seed`](#seed) | shop | Seed | Popula banco com dados da Nelson Boulangerie |
 
 ---
@@ -272,6 +273,32 @@ make smoke-gateways-sandbox
 
 Sem credenciais reais, `smoke-gateways-sandbox` retorna
 `blocked_by_credentials`; isso é bloqueio honesto, não sucesso falso.
+
+---
+
+### omotenashi_qa
+
+**App:** `shopman.backstage`
+**Arquivo:** `shopman/backstage/management/commands/omotenashi_qa.py`
+
+Lista a matriz manual QA Omotenashi para mobile, tablet/KDS e desktop gerente,
+apontando a URL a abrir e a evidência concreta criada pelo seed Nelson. O modo
+estrito falha quando qualquer cenário não tem dado seed correspondente.
+
+| Flag | Default | Descrição |
+|------|---------|-----------|
+| `--json` | — | Imprime JSON auditável |
+| `--strict` | — | Falha se algum cenário estiver sem evidência |
+
+```bash
+# Depois do seed, verificar se a rodada manual está pronta
+make omotenashi-qa strict=1
+
+# JSON para anexar em release
+make omotenashi-qa json=1
+```
+
+**Veja também:** [QA Manual Omotenashi E2E](../guides/omotenashi-qa.md).
 
 ---
 

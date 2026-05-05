@@ -59,6 +59,10 @@ refund cumulativo fora de ordem e pedido marketplace duplicado. O target estrito
 `make smoke-gateways-sandbox` permanece bloqueado por credenciais/staging reais
 quando elas não existem.
 
+**QA manual Omotenashi:** `make omotenashi-qa` lista a matriz mobile/tablet/
+desktop com URLs e evidências criadas pelo seed Nelson. `strict=1` falha se
+algum cenário canônico não tiver dado seed correspondente.
+
 **Django 6:** o contrato canônico agora é `Django>=6.0,<6.1`. O canário local
 em ambiente isolado validou Django 6.0.5 com `django-unfold 0.92.0`, DRF
 3.17.1, `django-import-export 4.4.1`, `django-filter 25.2`, `redis 7.4.0` e
@@ -79,7 +83,7 @@ suite completa após atualizar o inventário Unfold canônico.
 | **Admin (Unfold)** | Estável | Dashboard, shop config, pedidos, KDS operacional, produção, fechamento e alertas |
 | **Runtime operacional** | Beta | POS e KDS de produção como superfícies próprias, fora do Admin por necessidade operacional |
 
-**Total do último gate local completo:** `1840 passed`, `13 skipped`,
+**Total do último gate local completo:** `1842 passed`, `13 skipped`,
 `3 warnings`, `14 subtests`.
 
 ---
@@ -103,7 +107,8 @@ Ver [ROADMAP.md](ROADMAP.md) para gaps conhecidos e plano de correção:
 
 - **Gateways sandbox** — smoke local existe; falta validar EFI/Stripe/iFood com
   snapshot real, eventos duplicados, atrasados e fora de ordem.
-- **QA manual Omotenashi** — mobile cliente, tablet KDS e desktop gerente.
+- **QA manual Omotenashi** — matriz executável existe; falta a rodada visual em
+  navegador/dispositivo e registro de evidência.
 
 Ver [ROADMAP.md](ROADMAP.md) e `docs/plans/` para itens de UX/operação:
 

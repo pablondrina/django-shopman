@@ -6,6 +6,7 @@ __all__ = [
     "financial_reconciliation",
     "gateway_smoke",
     "kds",
+    "omotenashi_qa",
     "orders",
     "pos",
     "production",

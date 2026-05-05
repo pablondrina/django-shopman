@@ -10,13 +10,12 @@ fica em [`_quarantine/`](_quarantine/).
 
 | Ordem | Plano | Por quê |
 |-------|-------|---------|
-| 1 | [`BACKSTAGE-MATURITY-PLAN.md`](BACKSTAGE-MATURITY-PLAN.md) | Fecha higiene de exceções, a11y dinâmica e E2E cross-area do operador. |
-| 2 | [`OMOTENASHI-FIRST-FULLNESS-PLAN.md`](OMOTENASHI-FIRST-FULLNESS-PLAN.md) | Torna promessa operacional consistente entre cliente, pagamento, tracking, KDS e backstage. |
-| 3 | [`PROJECTION-UI-PLAN.md`](PROJECTION-UI-PLAN.md) | Continua a migração de telas para projections, começando por checkout, pagamento e tracking. |
-| 4 | [`AVAILABILITY-PLAN.md`](AVAILABILITY-PLAN.md) | Unifica disponibilidade, substitutos, holds, timeouts e feedback de estoque. |
-| 5 | [`ADDRESS-UX-PLAN.md`](ADDRESS-UX-PLAN.md) | Fecha endereço canônico para checkout real, baixa atenção e mobile. |
-| 6 | [`OPERATION-RUNBOOKS-PLAN.md`](OPERATION-RUNBOOKS-PLAN.md) | Baseline de runbooks/diagnose/reconciliação/smoke local concluído; continuar sandbox real. |
-| 7 | [`WP-GAP-07-pre-prod-migration-playbook.md`](WP-GAP-07-pre-prod-migration-playbook.md) | Só dispara quando houver ambiente de pré-produção real agendado. |
+| 1 | [`OMOTENASHI-FIRST-FULLNESS-PLAN.md`](OMOTENASHI-FIRST-FULLNESS-PLAN.md) | Torna promessa operacional consistente entre cliente, pagamento, tracking, KDS e backstage. |
+| 2 | [`PROJECTION-UI-PLAN.md`](PROJECTION-UI-PLAN.md) | Continua a migração de telas para projections, começando por checkout, pagamento e tracking. |
+| 3 | [`AVAILABILITY-PLAN.md`](AVAILABILITY-PLAN.md) | Unifica disponibilidade, substitutos, holds, timeouts e feedback de estoque. |
+| 4 | [`ADDRESS-UX-PLAN.md`](ADDRESS-UX-PLAN.md) | Fecha endereço canônico para checkout real, baixa atenção e mobile. |
+| 5 | [`OPERATION-RUNBOOKS-PLAN.md`](OPERATION-RUNBOOKS-PLAN.md) | Baseline de runbooks/diagnose/reconciliação/smoke local e QA manual executável concluído; continuar sandbox real. |
+| 6 | [`WP-GAP-07-pre-prod-migration-playbook.md`](WP-GAP-07-pre-prod-migration-playbook.md) | Só dispara quando houver ambiente de pré-produção real agendado. |
 
 ## Backlog Planejado
 
@@ -34,5 +33,6 @@ fica em [`_quarantine/`](_quarantine/).
 
 | Plano | Evidência |
 |-------|-----------|
+| [`completed/BACKSTAGE-MATURITY-PLAN.md`](completed/BACKSTAGE-MATURITY-PLAN.md) | Higiene de exceções, a11y, E2E cross-area e polish final estavam concluídos no histórico do próprio plano; removido da fila ativa. |
 | [`completed/DJANGO-6-UPGRADE-PLAN.md`](completed/DJANGO-6-UPGRADE-PLAN.md) | Django 6 é o contrato canônico e o `Runtime Gate` passou no PR #3. |
 | [`completed/POS-KDS-RUNTIME-SURFACE-PLAN.md`](completed/POS-KDS-RUNTIME-SURFACE-PLAN.md) | POS tab/workbench, KDS Station Runtime e Customer Ready Board foram implementados. |
