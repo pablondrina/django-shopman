@@ -21,13 +21,19 @@ help: ## Mostra este help
 
 install: ## Instala deps + apps da suite em modo editável
 	$(PYTHON) -m pip install --upgrade pip
-	$(PYTHON) -m pip install Django "djangorestframework>=3.15" "django-filter" \
+	$(PYTHON) -m pip install "Django>=5.2,<6.0" "djangorestframework>=3.15" "django-filter" \
+		"drf-spectacular>=0.28,<1.0" \
 		"django-csp>=4.0,<5.0" \
 		"django-ratelimit>=4.1,<5.0" \
+		"django-eventstream>=5.3,<6.0" \
+		"django-unfold>=0.91,<0.92" \
+		"daphne>=4.1,<5.0" \
 		"redis>=5.0,<8.0" \
 		"psycopg[binary]>=3.2,<4.0" \
+		"qrcode[pil]>=7.4,<8.0" \
 		"locust>=2.24,<3.0" \
-		phonenumbers pytest pytest-django
+		"ruff>=0.15,<1.0" \
+		phonenumbers pytest pytest-django pytest-cov
 	# Instala cada app em modo editável
 	$(PYTHON) -m pip install -e packages/refs
 	$(PYTHON) -m pip install -e packages/utils

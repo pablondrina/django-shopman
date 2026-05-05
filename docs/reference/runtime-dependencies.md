@@ -93,6 +93,12 @@ O gate canônico de segurança/confiabilidade para ambiente real é:
 make test-runtime
 ```
 
+Para quem nao quer tocar em Docker localmente, o caminho canonico e deixar o
+CI executar esse target. O workflow `.github/workflows/runtime-gate.yml` sobe
+PostgreSQL 16 e Redis 7 como services do GitHub Actions, roda a suite completa
+e entao executa `make test-runtime`. O desenvolvedor nao precisa rodar comandos
+Docker na maquina local.
+
 Esse target roda `scripts/check_runtime_gate.py` antes dos testes. Ele falha
 fechado quando:
 

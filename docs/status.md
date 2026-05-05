@@ -29,6 +29,10 @@ PostgreSQL + Redis. Ele falha se PostgreSQL/Redis não estiverem acessíveis ou
 se qualquer teste sensível for pulado. Ainda precisa ser executado em ambiente
 com Docker/serviços reais.
 
+**CI sem Docker local:** workflow `Runtime Gate` criado em 2026-05-05. Ele sobe
+PostgreSQL/Redis no GitHub Actions, roda a suite completa e executa
+`make test-runtime`; o operador local nao precisa rodar Docker.
+
 ---
 
 ## Framework (framework/)

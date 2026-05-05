@@ -39,6 +39,7 @@ dev = [
     "pytest",
     "pytest-django",
     "pytest-cov",
+    "ruff>=0.15,<1.0",
     "locust>=2.24,<3.0",
 ]
 

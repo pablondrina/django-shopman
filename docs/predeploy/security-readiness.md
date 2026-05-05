@@ -14,6 +14,10 @@ pytest -q
 make test-runtime
 ```
 
+Na pratica, `make test-runtime` deve rodar no CI para que ninguem precise
+operar Docker localmente. O workflow `Runtime Gate` sobe PostgreSQL/Redis como
+services e publica apenas o resultado do gate.
+
 `manage.py check --deploy` já bloqueia:
 
 - `SHOPMAN_E001`: `DJANGO_SECRET_KEY` ausente ou igual ao segredo de desenvolvimento.
