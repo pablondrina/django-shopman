@@ -72,12 +72,14 @@ jobs:
       - name: Deploy checks
         env:
           DJANGO_DEBUG: "false"
-          DJANGO_SECRET_KEY: ci-runtime-gate-secret-key-not-for-production
+          DJANGO_SECRET_KEY: ci-runtime-gate-nonprod-aB3dE5gH7jK9mN2pQ4rS6tU8vW0xY1zC20260505
           DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
           CSRF_TRUSTED_ORIGINS: http://localhost,http://127.0.0.1
+          AUTH_DEFAULT_DOMAIN: shopman-ci.example
           DOORMAN_ACCESS_LINK_API_KEY: ci-doorman-access-link-key
           EFI_WEBHOOK_TOKEN: ci-efi-webhook-token
           IFOOD_WEBHOOK_TOKEN: ci-ifood-webhook-token
+          MANYCHAT_API_TOKEN: ci-manychat-api-token
           MANYCHAT_WEBHOOK_SECRET: ci-manychat-webhook-secret
           SHOPMAN_PIX_ADAPTER: shopman.shop.adapters.payment_efi
           SHOPMAN_CARD_ADAPTER: shopman.shop.adapters.payment_stripe
