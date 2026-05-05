@@ -26,7 +26,7 @@ Para gaps e roadmap, ver [ROADMAP.md](ROADMAP.md) e os planos ativos em `docs/pl
 
 **Gate runtime real:** `make test-runtime` criado em 2026-05-05 para
 PostgreSQL + Redis. Ele falha se PostgreSQL/Redis não estiverem acessíveis ou
-se qualquer teste sensível for pulado. Último run canônico no PR #3:
+se qualquer teste sensível for pulado. Evidência registrada no PR #3:
 `Runtime Gate` `25375581090` passou em 2026-05-05, com `PostgreSQL + Redis
 runtime stress gate` verde em 1m29s.
 

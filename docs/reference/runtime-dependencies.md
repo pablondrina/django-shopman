@@ -116,8 +116,8 @@ subconjunto cobre concorrencia de estoque, invariantes de quantidade, Payman,
 Craftsman, checkout concorrente, rate limit em Redis, acesso a pedidos,
 permissoes SSE, replay de webhooks, deploy checks e health/readiness.
 
-Em 2026-05-05, o workflow `Runtime Gate` do PR #3 passou no run
-`25375581090` com:
+Evidencia registrada em 2026-05-05: o workflow `Runtime Gate` do PR #3 passou
+no run `25375581090` com:
 
 - `Quality + deploy contract`: `ruff`, migrations check, `check --deploy` e
   suite completa em 4m37s;
