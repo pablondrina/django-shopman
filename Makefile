@@ -26,6 +26,7 @@ install: ## Instala deps + apps da suite em modo editável
 		"django-csp>=4.0,<5.0" \
 		"django-ratelimit>=4.1,<5.0" \
 		"django-eventstream>=5.3,<6.0" \
+		"django-import-export>=3.3,<5.0" \
 		"django-unfold>=0.91,<0.92" \
 		"daphne>=4.1,<5.0" \
 		"redis>=5.0,<8.0" \
