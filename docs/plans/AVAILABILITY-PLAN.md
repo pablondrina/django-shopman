@@ -1,6 +1,6 @@
 # AVAILABILITY-PLAN
 
-**Status:** em execução. Draft aprovado em 2026-04-18; WP-AV-08 e WP-AV-09 foram corrigidos e validados em 2026-05-05. Sucessor operativo do [STOCK-UX-PLAN.md](STOCK-UX-PLAN.md) para o sistema de verificação de disponibilidade e sugestão de substituição no storefront.
+**Status:** em execução. Draft aprovado em 2026-04-18; WP-AV-08, WP-AV-09 e WP-AV-12 foram corrigidos e validados em 2026-05-05. Sucessor operativo do [STOCK-UX-PLAN.md](STOCK-UX-PLAN.md) para o sistema de verificação de disponibilidade e sugestão de substituição no storefront.
 
 **Escopo:** unificar vocabulário, regras de derivação, fluxos canônicos (Ajuste × Substituição), stepper clamp, modal de erro de estoque, fermata (hold indefinido + materialização com notificação ativa), timeouts transparentes, correções dos 7 gaps mapeados, e rename global `alternatives → substitutes`.
 
@@ -156,8 +156,8 @@ Receiver `on_holds_materialized` em [shopman/shop/handlers/_stock_receivers.py](
 
 1. Resolve Session pelos `hold.metadata.reference` (já faz).
 2. Resolve Customer pela Session.
-3. Resolve canal preferido via `Customer.notification_preferences` (Guestman).
-4. Chama `notify(event="stock.arrived", recipient=customer, context={sku, product_name, deadline_at, cart_url}, backend="auto")`.
+3. Resolve canal preferido via consentimentos ativos de notificação (Guestman).
+4. Chama `notify(event="stock.arrived", recipient=<canal resolvido>, context={sku, product_name, deadline_at, cart_url}, backend=<consentimento ativo ou default>)`.
 5. Continua com o auto-commit já implementado ([ADR-007](../_archive/decisions/adr-007-crafting-ordering-integration.md)).
 
 A notificação viaja por WhatsApp (ManyChat), SMS, email, ou canal de origem da sessão — conforme preferência. Nunca apenas toast no storefront.
@@ -396,14 +396,16 @@ Ordem respeitando dependências. Um por vez, com testes + verificação em previ
 
 ### WP-AV-12 — Fermata: notificação ativa ao materializar
 
+**Status 2026-05-05:** implementado e validado. `on_holds_materialized` resolve cliente da sessão por `customer_id` UUID/pk, `customer_ref` ou telefone, dispara `stock.arrived` com `deadline_at` calculado dos holds materializados e `cart_url` do storefront. Sessões anônimas continuam em no-op silencioso.
+
 **Escopo:** wire `on_holds_materialized` com dispatch de notificação.
 
-- Estender `shopman/shop/handlers/_stock_receivers.py::on_holds_materialized`: chamar `notify(event="stock.arrived", recipient=customer, context=...)` para cada sessão afetada
+- Estender `shopman/shop/handlers/_stock_receivers.py::on_holds_materialized`: chamar `notify(event="stock.arrived", recipient=<canal resolvido>, context=...)` para cada sessão afetada
 - Context inclui `sku`, `product_name`, `deadline_at`, `cart_url`
-- Respeitar `Customer.notification_preferences` (ManyChat/SMS/email)
+- Respeitar consentimentos ativos do cliente (ManyChat/SMS/email)
 - `ChannelConfig.stock.materialized_ttl_minutes` passa a ser a fonte (default 60min, override por canal)
 
-**Testes:** mock signal → verificar `notify()` foi chamado com recipient correto e context esperado.
+**Testes:** `shopman/shop/tests/test_stock_receivers.py`.
 
 **Dependências:** WP-AV-11.
 
