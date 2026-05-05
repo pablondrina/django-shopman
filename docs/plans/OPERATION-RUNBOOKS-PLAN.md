@@ -60,6 +60,11 @@ Adicionar wrappers simples, sem exigir Docker manual:
 Os comandos podem chamar scripts Python em `scripts/` ou management commands.
 Saída deve ser curta, textual e própria para suporte.
 
+`make release-readiness` complementa os diagnósticos: consolida checks locais e
+separa bloqueios externos de piloto/release. Use
+`make release-readiness-strict` para release real, quando gateway sandbox,
+evidência física e pre-prod devem ser obrigatórios.
+
 ### WP-OR-3 — Healthcheck profundo
 
 Status: parcialmente implementado como diagnóstico CLI nao público em
@@ -126,5 +131,7 @@ interno; não substitui snapshot real do provedor.
 - `docs/runbooks/` tem runbook para cada incidente P1 listado.
 - `make diagnose-*` existe e roda localmente sem comandos Docker manuais.
 - `Runtime Gate` segue verde.
+- `make release-readiness` não tem falha local e explicita qualquer bloqueio
+  externo restante.
 - Divergência financeira cria alerta `payment_reconciliation_failed`.
 - `docs/status.md` aponta o último gate verde e o estado dos runbooks.

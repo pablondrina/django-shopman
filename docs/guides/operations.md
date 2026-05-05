@@ -151,6 +151,23 @@ se a validação real de sandbox/staging está `ready` ou `blocked_by_credential
 sandbox/staging, falha com `blocked_by_credentials`. Não use o smoke local como
 prova de que o provedor externo foi validado.
 
+## Prontidão de piloto/release
+
+Use quando quiser uma resposta única antes de avançar para piloto ou release:
+
+```bash
+make release-readiness
+make release-readiness json=1
+make release-readiness-strict manual_qa=docs/reports/manual-qa.md preprod_url=https://staging.example.com
+```
+
+`make release-readiness` consolida checks locais (`django check`, migrations,
+seed Omotenashi e smoke local de gateways) e separa bloqueios externos reais:
+credenciais sandbox/staging, evidência manual/física e pre-prod. O modo padrão
+retorna sucesso se o local está coerente e reporta `passed_with_external_blockers`.
+`make release-readiness-strict` deve ser usado para release real: nesse modo,
+qualquer bloqueio externo também falha.
+
 ## QA manual Omotenashi
 
 Use antes de release com mudança visual, fluxo de pedido, pagamento, KDS, POS ou

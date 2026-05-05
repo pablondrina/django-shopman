@@ -10,11 +10,11 @@ fica em [`_quarantine/`](_quarantine/).
 
 | Ordem | Plano | Por quê |
 |-------|-------|---------|
-| 1 | [`OMOTENASHI-FIRST-FULLNESS-PLAN.md`](OMOTENASHI-FIRST-FULLNESS-PLAN.md) | Torna promessa operacional consistente entre cliente, pagamento, tracking, KDS e backstage. |
-| 2 | [`PROJECTION-UI-PLAN.md`](PROJECTION-UI-PLAN.md) | Continua a migração de telas para projections, começando por checkout, pagamento e tracking. |
+| 1 | [`OPERATION-RUNBOOKS-PLAN.md`](OPERATION-RUNBOOKS-PLAN.md) | Baseline local concluído; continuar gateway sandbox/snapshot real quando houver credenciais. |
+| 2 | [`OMOTENASHI-FIRST-FULLNESS-PLAN.md`](OMOTENASHI-FIRST-FULLNESS-PLAN.md) | Gate browser CI existe; falta evidência física/staging antes de release real. |
 | 3 | [`AVAILABILITY-PLAN.md`](AVAILABILITY-PLAN.md) | Unifica disponibilidade, substitutos, holds, timeouts e feedback de estoque. |
 | 4 | [`ADDRESS-UX-PLAN.md`](ADDRESS-UX-PLAN.md) | Fecha endereço canônico para checkout real, baixa atenção e mobile. |
-| 5 | [`OPERATION-RUNBOOKS-PLAN.md`](OPERATION-RUNBOOKS-PLAN.md) | Baseline de runbooks/diagnose/reconciliação/smoke local e QA manual executável concluído; continuar sandbox real. |
+| 5 | [`PROJECTION-UI-PLAN.md`](PROJECTION-UI-PLAN.md) | Projections core estão implementadas; manter como spec de evolução e contratos de UI. |
 | 6 | [`WP-GAP-07-pre-prod-migration-playbook.md`](WP-GAP-07-pre-prod-migration-playbook.md) | Só dispara quando houver ambiente de pré-produção real agendado. |
 
 ## Backlog Planejado

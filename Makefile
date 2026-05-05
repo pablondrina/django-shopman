@@ -14,7 +14,7 @@ COMPOSE ?= docker compose
 APP_COMPOSE := $(COMPOSE) --profile app
 RELEASE_COMPOSE := $(COMPOSE) --profile release
 
-.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework test-runtime-preflight test-runtime load-test test-coverage lint omotenashi-lint omotenashi-audit omotenashi-qa omotenashi-browser-qa omotenashi-browser-ci admin admin-update admin-ui admin-ui-ci admin-ui-maturity admin-ui-strict admin-ui-surfaces admin-ui-test admin-ui-update unfold unfold-ci unfold-maturity unfold-strict unfold-surfaces unfold-update lint-unfold lint-unfold-maturity clean migrate run dev seed coverage css css-watch fonts up down logs db-shell diagnose-runtime diagnose-worker diagnose-payments diagnose-webhooks diagnose-health reconcile-financial-day smoke-gateways smoke-gateways-sandbox deploy-env-check deploy-check deploy-build deploy-release deploy-up deploy-down deploy-logs deploy-ps collectstatic
+.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-framework test-runtime-preflight test-runtime load-test test-coverage lint omotenashi-lint omotenashi-audit omotenashi-qa omotenashi-browser-qa omotenashi-browser-ci admin admin-update admin-ui admin-ui-ci admin-ui-maturity admin-ui-strict admin-ui-surfaces admin-ui-test admin-ui-update unfold unfold-ci unfold-maturity unfold-strict unfold-surfaces unfold-update lint-unfold lint-unfold-maturity clean migrate run dev seed coverage css css-watch fonts up down logs db-shell diagnose-runtime diagnose-worker diagnose-payments diagnose-webhooks diagnose-health release-readiness release-readiness-strict reconcile-financial-day smoke-gateways smoke-gateways-sandbox deploy-env-check deploy-check deploy-build deploy-release deploy-up deploy-down deploy-logs deploy-ps collectstatic
 
 help: ## Mostra este help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -180,6 +180,12 @@ diagnose-webhooks: ## Diagnostica idempotencia, falhas e alertas de webhooks
 
 diagnose-health: ## Diagnostica health/readiness, checks Django e configuracao critica
 	$(PYTHON) scripts/diagnose_operational.py health
+
+release-readiness: ## Consolida prontidao local e bloqueios externos de piloto/release
+	$(PYTHON) scripts/check_release_readiness.py $(if $(json),--json,) $(if $(manual_qa),--manual-qa-evidence=$(manual_qa),) $(if $(preprod_url),--preprod-url=$(preprod_url),)
+
+release-readiness-strict: ## Igual ao release-readiness, mas falha em bloqueios externos
+	$(PYTHON) scripts/check_release_readiness.py --strict-external $(if $(json),--json,) $(if $(manual_qa),--manual-qa-evidence=$(manual_qa),) $(if $(preprod_url),--preprod-url=$(preprod_url),)
 
 reconcile-financial-day: ## Reconcilia pedidos, intents, transacoes e fechamento (date=YYYY-MM-DD dry_run=1)
 	$(PYTHON) manage.py reconcile_financial_day $(if $(date),--date=$(date),) $(if $(dry_run),--dry-run,) $(if $(require_closing),--require-closing,)

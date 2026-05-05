@@ -18,6 +18,7 @@
 | [`reconcile_financial_day`](#reconcile_financial_day) | backstage | Operação | Reconcilia pedido, intent, transação e fechamento diário |
 | [`smoke_gateways`](#smoke_gateways) | backstage | Operação | Estressa webhooks/gateways com fixtures locais e matriz sandbox |
 | [`omotenashi_qa`](#omotenashi_qa) | backstage | QA | Lista matriz manual QA Omotenashi com evidências do seed |
+| [`release-readiness`](#release-readiness) | script | Release | Consolida checks locais e bloqueios externos |
 | [`seed`](#seed) | shop | Seed | Popula banco com dados da Nelson Boulangerie |
 
 ---
@@ -370,6 +371,46 @@ make diagnose-health
 
 Saida `FAIL` significa acao operacional pendente. Ver
 [`docs/runbooks/`](../runbooks/README.md).
+
+---
+
+### release-readiness
+
+**Script:** `scripts/check_release_readiness.py`
+
+Consolida a prontidão de piloto/release em uma saída única. O alvo roda checks
+locais leves e reporta bloqueios externos sem fingir validação real:
+
+- `django check`;
+- migrations pendentes;
+- matriz seed Omotenashi;
+- smoke local de gateways com rollback;
+- prontidão sandbox/staging de gateways;
+- evidência manual/física Omotenashi;
+- URL/ambiente de pre-prod.
+
+Por padrão, bloqueios externos são informativos e o comando retorna sucesso se
+os checks locais passaram. Em modo estrito, bloqueios externos também falham.
+
+| Variável/flag | Default | Descrição |
+|---------------|---------|-----------|
+| `json=1` / `--json` | — | Imprime JSON auditável |
+| `manual_qa=...` / `--manual-qa-evidence=...` | `SHOPMAN_MANUAL_QA_EVIDENCE` | Relatório manual/físico de QA |
+| `preprod_url=...` / `--preprod-url=...` | `SHOPMAN_PREPROD_URL` | URL de staging/pre-prod |
+| `--strict-external` | — | Falha também se gateway/manual/pre-prod estiver bloqueado |
+
+```bash
+# Local: mostra bloqueios externos sem falhar por eles
+make release-readiness
+make release-readiness json=1
+
+# Release real: exige credenciais/staging/evidência física
+make release-readiness-strict manual_qa=docs/reports/manual-qa.md preprod_url=https://staging.example.com
+```
+
+Use este alvo como contrato de honestidade: `passed_with_external_blockers`
+significa que a árvore local está coerente, mas ainda não há prova de gateway
+real, dispositivo físico ou staging.
 
 ---
 

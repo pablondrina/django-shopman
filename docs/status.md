@@ -27,13 +27,13 @@ Para gaps e roadmap, ver [ROADMAP.md](ROADMAP.md) e os planos ativos em `docs/pl
 **Gate runtime real:** `make test-runtime` criado em 2026-05-05 para
 PostgreSQL + Redis. Ele falha se PostgreSQL/Redis não estiverem acessíveis ou
 se qualquer teste sensível for pulado. Evidência registrada no PR #3:
-`Runtime Gate` `25388599444` passou em 2026-05-05, com `PostgreSQL + Redis
-runtime stress gate` verde em 1m33s.
+`Runtime Gate` `25404598547` passou em 2026-05-05, com `PostgreSQL + Redis
+runtime stress gate` verde em 1m31s.
 
 **CI sem Docker local:** workflow `Runtime Gate` criado em 2026-05-05. Ele
 builda a imagem Docker no GitHub Actions, sobe PostgreSQL/Redis, roda a suite
 completa e executa `make test-runtime`; o operador local nao precisa rodar
-Docker. No run `25388599444`, a job `Docker deploy image` passou em 1m32s.
+Docker. No run `25404598547`, a job `Docker deploy image` passou em 1m40s.
 
 **Deploy encapsulado:** `Dockerfile`, compose profiles e targets `make deploy-*`
 existem para build/release/web/worker sem exigir comandos Docker manuais.
@@ -66,10 +66,19 @@ algum cenário canônico não tiver dado seed correspondente.
 captura screenshots e falha em revisão visual objetiva.
 `make omotenashi-browser-ci` compila CSS, recria o seed, sobe servidor
 temporário e roda o gate estrito; o workflow `Runtime Gate` executa esse alvo.
+No run `25404598547`, o job `Omotenashi browser QA` passou com `14 pass`,
+`0 review` e artifact de screenshots/JSON/log.
 Rodada browser local
 registrada em
 [`omotenashi-browser-qa-2026-05-05.md`](reports/omotenashi-browser-qa-2026-05-05.md):
 `14 pass`, `0 review`, `0 fail`.
+
+**Prontidão de piloto/release:** `make release-readiness` consolida checks
+locais leves (`django check`, migrations, seed Omotenashi e smoke local de
+gateways) e separa bloqueios externos reais: gateway sandbox/staging, evidência
+manual/física e pre-prod. `make release-readiness-strict` falha também nesses
+bloqueios externos. Rodada local em 2026-05-05: `passed_with_external_blockers`
+com `4 passed`, `0 failed`, `3 blocked_external`.
 
 **Django 6:** o contrato canônico agora é `Django>=6.0,<6.1`. O canário local
 em ambiente isolado validou Django 6.0.5 com `django-unfold 0.92.0`, DRF
@@ -132,7 +141,7 @@ Ver [ROADMAP.md](ROADMAP.md) e `docs/plans/` para itens de UX/operação:
 |-----------|--------|
 | Python | ≥ 3.12 |
 | Django | ≥ 6.0, < 6.1 |
-| Node.js | ≥ 18 (build Tailwind CSS) |
+| Node.js | ≥ 22; CI usa Node 24 para browser QA |
 | Banco de dados | PostgreSQL 16+ no dev canônico/staging/prod; SQLite só fallback local |
 | Cache/realtime | Redis 7+ no dev canônico/staging/prod; LocMem só fallback local |
 

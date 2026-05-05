@@ -29,15 +29,16 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
   temporário e screenshots como artifact;
 - rodada browser local da matriz Omotenashi registrada com `14 pass`, `0 review`
   em [`reports/omotenashi-browser-qa-2026-05-05.md`](reports/omotenashi-browser-qa-2026-05-05.md).
+- `make release-readiness` consolida checks locais e bloqueios externos de
+  piloto/release; `make release-readiness-strict` falha também quando faltam
+  gateway sandbox, evidência manual/física ou pre-prod.
 
 ## Próximos Passos
 
 | Prioridade | Frente | Entrega esperada | Plano |
 |------------|--------|------------------|-------|
-| P1 | Governança documental | Manter roadmap, status, planos ativos e evidências sempre alinhados ao código. | [`plans/README.md`](plans/README.md) |
 | P1 | Gateways sandbox e snapshot real | Smoke local existe; validar EFI, Stripe e iFood contra sandbox/staging real. | [`plans/OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md) |
 | P1 | QA manual Omotenashi E2E | Gate browser CI existe; completar dispositivo físico/staging e evidência humana antes de release real. | [`plans/OMOTENASHI-FIRST-FULLNESS-PLAN.md`](plans/OMOTENASHI-FIRST-FULLNESS-PLAN.md) |
-| P2 | Storefront projections | Checkout, pagamento, tracking, conta e histórico consumindo projections consistentes. | [`plans/PROJECTION-UI-PLAN.md`](plans/PROJECTION-UI-PLAN.md) |
 | P2 | Disponibilidade e substitutos | PDP/carrinho com feedback acionável, substitutos, holds e timeouts transparentes. | [`plans/AVAILABILITY-PLAN.md`](plans/AVAILABILITY-PLAN.md) |
 | P2 | Endereço canônico | Fluxo mobile de endereço com busca, geolocalização opt-in, ajuste no mapa e fallback manual. | [`plans/ADDRESS-UX-PLAN.md`](plans/ADDRESS-UX-PLAN.md) |
 | P2 | Diagnóstico operacional profundo | Baseline `make diagnose-*`, runbooks e reconciliação interna concluído; continuar smoke sandbox. | [`plans/OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md) |
@@ -67,6 +68,8 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 | Smoke local de gateways | `make smoke-gateways` cobre EFI/Stripe/iFood localmente com rollback; sandbox real segue pendente. |
 | Matriz QA Omotenashi | `make omotenashi-qa` aponta URLs e evidências seed para mobile/tablet/desktop. |
 | Gate browser Omotenashi | `make omotenashi-browser-ci` roda no `Runtime Gate`; evidência manual em [`reports/omotenashi-browser-qa-2026-05-05.md`](reports/omotenashi-browser-qa-2026-05-05.md). |
+| Readiness local de release | `make release-readiness` separa checks locais de bloqueios externos; modo estrito existe para release real. |
+| Storefront projections core | Menu, PDP, carrinho, checkout, pagamento, tracking, confirmação, conta e histórico consomem projections. |
 | Backstage maturity | Arquivado em [`plans/completed/BACKSTAGE-MATURITY-PLAN.md`](plans/completed/BACKSTAGE-MATURITY-PLAN.md). |
 | POS/KDS runtime | Concluído no escopo atual. Plano arquivado em [`plans/completed/POS-KDS-RUNTIME-SURFACE-PLAN.md`](plans/completed/POS-KDS-RUNTIME-SURFACE-PLAN.md). |
 
@@ -75,10 +78,11 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 Antes de abrir tráfego real, o mínimo honesto é:
 
 1. `Runtime Gate` verde no commit de release.
-2. `check --deploy` verde com secrets e hosts reais do ambiente.
-3. Gateway sandbox validado para pagamento, refund, webhook duplicado e evento
+2. `make release-readiness-strict` verde com evidência manual e pre-prod reais.
+3. `check --deploy` verde com secrets e hosts reais do ambiente.
+4. Gateway sandbox validado para pagamento, refund, webhook duplicado e evento
    fora de ordem.
-4. Reconciliação diária interna provada e snapshot de gateway validado em staging.
-5. QA manual Omotenashi registrado para cliente, operador, cozinha e gerente.
-6. Runbook de incidente para gateway fora, webhook atrasado, estoque divergente,
+5. Reconciliação diária interna provada e snapshot de gateway validado em staging.
+6. QA manual Omotenashi registrado para cliente, operador, cozinha e gerente.
+7. Runbook de incidente para gateway fora, webhook atrasado, estoque divergente,
    pedido pago sem confirmação e rollback.

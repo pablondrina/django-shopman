@@ -24,6 +24,8 @@ Contrato atual:
   externo para cache Redis. `django-ratelimit 4.1` ainda emite um warning de
   allowlist para esse backend, silenciado no settings depois do check proprio
   `SHOPMAN_E006`.
+- **Node.js**: `>=22` para ferramentas frontend/QA. O CI fixa Node 24 no gate
+  de browser Omotenashi porque o runner usa WebSocket global.
 
 ## PostgreSQL
 
@@ -117,13 +119,15 @@ Craftsman, checkout concorrente, rate limit em Redis, acesso a pedidos,
 permissoes SSE, replay de webhooks, deploy checks e health/readiness.
 
 Evidencia registrada em 2026-05-05: o workflow `Runtime Gate` do PR #3 passou
-no run `25386566534` com:
+no run `25404598547` com:
 
 - `Quality + deploy contract`: `ruff`, migrations check, `check --deploy` e
-  suite completa em 5m02s;
-- `Docker deploy image`: build real do `Dockerfile` no GitHub Actions em 1m36s;
+  suite completa em 5m07s;
+- `Docker deploy image`: build real do `Dockerfile` no GitHub Actions em 1m40s;
 - `PostgreSQL + Redis runtime stress gate`: `make test-runtime` em services
-  reais do GitHub Actions em 1m26s.
+  reais do GitHub Actions em 1m31s;
+- `Omotenashi browser QA`: `make omotenashi-browser-ci` em Node 24/Chrome,
+  `14 pass`, `0 review`, com screenshots/JSON/log como artifact.
 
 Para stress HTTP complementar, com o servidor ja rodando e seed aplicado:
 
