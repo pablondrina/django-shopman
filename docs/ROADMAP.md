@@ -30,6 +30,7 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 | P2 | Storefront projections | Checkout, pagamento, tracking, conta e histórico consumindo projections consistentes. | [`plans/PROJECTION-UI-PLAN.md`](plans/PROJECTION-UI-PLAN.md) |
 | P2 | Disponibilidade e substitutos | PDP/carrinho com feedback acionável, substitutos, holds e timeouts transparentes. | [`plans/AVAILABILITY-PLAN.md`](plans/AVAILABILITY-PLAN.md) |
 | P2 | Endereço canônico | Fluxo mobile de endereço com busca, geolocalização opt-in, ajuste no mapa e fallback manual. | [`plans/ADDRESS-UX-PLAN.md`](plans/ADDRESS-UX-PLAN.md) |
+| P2 | Runbooks e diagnóstico operacional | Incidentes P1, comandos `make diagnose-*`, healthcheck profundo e smoke sandbox rastreável. | [`plans/OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md) |
 | P3 | Pre-prod real | Executar playbook quando houver provedor, domínio, secrets e dados de staging definidos. | [`plans/WP-GAP-07-pre-prod-migration-playbook.md`](plans/WP-GAP-07-pre-prod-migration-playbook.md) |
 
 ## Dívida Técnica Viva
@@ -39,6 +40,7 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 | Gateway sandbox ainda não provado ponta a ponta | Risco de divergência entre mocks e provedores reais. | Criar smoke sandbox para EFI/Stripe/iFood, incluindo replay e eventos fora de ordem. |
 | Reconciliação financeira diária incompleta | Payman é forte, mas produção real exige fechamento financeiro auditável. | Implementar/validar relatório diário pedido ↔ gateway ↔ fechamento. |
 | QA visual/manual ainda não é gate | Testes automatizados não pegam todo problema de toque, foco, layout e latência percebida. | Rodar e registrar checklist mobile/tablet/desktop. |
+| Runbooks e comandos de diagnóstico ainda incompletos | Incidente real fica mais lento e dependente de conhecimento interno. | Executar [`OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md). |
 | ManyChat webhook ainda pulado | Fluxo completo ManyChat → session → confirmação não está reimplementado. | Retomar junto com canais externos. |
 | Shelf life perecível parcialmente ligado | Padaria real precisa de validade por produto/receita sem ambiguidade. | Registrar `OffermanSkuValidator` ou alias canônico de `shelf_life_days`. |
 | Playwright E2E opcional | A suite existe, mas só roda quando Playwright está instalado. | Decidir se vira gate antes de piloto público. |

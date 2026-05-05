@@ -15,6 +15,7 @@
 | [`docs/guides/deploy.md`](guides/deploy.md) | Deploy sem Docker manual — imagem app, release step e wrappers `make deploy-*` |
 | [`docs/ROADMAP.md`](ROADMAP.md) | Roadmap ativo de correções e próximos passos |
 | [`docs/plans/README.md`](plans/README.md) | Índice de planos vivos, backlog planejado e planos concluídos recentemente |
+| [`docs/plans/OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md) | Runbooks, comandos de diagnóstico, healthcheck profundo e reconciliação diária |
 | [`docs/plans/WP-GAP-07-pre-prod-migration-playbook.md`](plans/WP-GAP-07-pre-prod-migration-playbook.md) | Playbook ativo de migração/pré-prod |
 | [`docs/plans/completed/`](plans/completed/) | Arquivo de planos de execução concluídos |
 
