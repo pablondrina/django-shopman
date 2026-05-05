@@ -4,6 +4,8 @@ WP-C3: Rate Limiting (OTP, login, checkout).
 """
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 from django.core.cache import cache
 from django.test import Client, override_settings
@@ -15,7 +17,8 @@ pytestmark = pytest.mark.django_db
 def _clear_cache():
     """Clear Django cache before/after each test to reset rate limit counters."""
     cache.clear()
-    yield
+    with patch("django_ratelimit.core._get_window", return_value=2_000_000_000):
+        yield
     cache.clear()
 
 
