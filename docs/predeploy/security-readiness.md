@@ -17,8 +17,8 @@ make test-runtime
 Na pratica, `make test-runtime` deve rodar no CI para que ninguem precise
 operar Docker localmente. O workflow `Runtime Gate` builda a imagem Docker,
 sobe PostgreSQL/Redis como services e publica apenas o resultado do gate. O run
-final do PR #3 passou em 2026-05-05 com `Quality + deploy contract` e
-`PostgreSQL + Redis runtime stress gate` verdes.
+`25375581090` do PR #3 passou em 2026-05-05 com `Quality + deploy contract`,
+`Docker deploy image` e `PostgreSQL + Redis runtime stress gate` verdes.
 
 Para ensaio de app containerizado sem comandos Docker manuais:
 
