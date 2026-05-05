@@ -162,6 +162,7 @@ make omotenashi-qa strict=1
 make omotenashi-qa json=1
 make run
 make omotenashi-browser-qa strict=1
+make omotenashi-browser-ci
 ```
 
 `make omotenashi-qa` garante que a rodada manual parte do mesmo seed e aponta
@@ -169,7 +170,9 @@ URLs/evidências para mobile, tablet/KDS e desktop gerente.
 `make omotenashi-browser-qa` navega essa matriz em Chrome headless, gera
 screenshots em `/tmp/shopman-omotenashi-qa-screens` e relatório JSON em
 `/tmp/shopman-omotenashi-qa-browser.json`. Ele não substitui dispositivo físico
-nem julgamento visual humano antes de release real. O roteiro fica em
+nem julgamento visual humano antes de release real. `make omotenashi-browser-ci`
+é o gate local/CI: compila CSS, aplica migrations, recria seed, sobe servidor
+temporário e executa a QA browser em modo estrito. O roteiro fica em
 [`docs/guides/omotenashi-qa.md`](omotenashi-qa.md).
 
 ### Segurança

@@ -59,11 +59,14 @@ refund cumulativo fora de ordem e pedido marketplace duplicado. O target estrito
 `make smoke-gateways-sandbox` permanece bloqueado por credenciais/staging reais
 quando elas não existem.
 
-**QA manual Omotenashi:** `make omotenashi-qa` lista a matriz mobile/tablet/
+**QA browser Omotenashi:** `make omotenashi-qa` lista a matriz mobile/tablet/
 desktop com URLs e evidências criadas pelo seed Nelson. `strict=1` falha se
 algum cenário canônico não tiver dado seed correspondente.
 `make omotenashi-browser-qa strict=1` navega a matriz em Chrome headless,
-captura screenshots e falha em revisão visual objetiva. Rodada browser local
+captura screenshots e falha em revisão visual objetiva.
+`make omotenashi-browser-ci` compila CSS, recria o seed, sobe servidor
+temporário e roda o gate estrito; o workflow `Runtime Gate` executa esse alvo.
+Rodada browser local
 registrada em
 [`omotenashi-browser-qa-2026-05-05.md`](reports/omotenashi-browser-qa-2026-05-05.md):
 `14 pass`, `0 review`, `0 fail`.
@@ -112,7 +115,7 @@ Ver [ROADMAP.md](ROADMAP.md) para gaps conhecidos e plano de correção:
 
 - **Gateways sandbox** — smoke local existe; falta validar EFI/Stripe/iFood com
   snapshot real, eventos duplicados, atrasados e fora de ordem.
-- **QA manual Omotenashi** — matriz executável e target browser local existem;
+- **QA manual Omotenashi** — matriz executável e gate browser CI existem;
   ainda falta dispositivo físico/staging para evidência de release real.
 
 Ver [ROADMAP.md](ROADMAP.md) e `docs/plans/` para itens de UX/operação:

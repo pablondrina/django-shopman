@@ -332,6 +332,29 @@ chips de categoria do cardápio mobile, são registrados sem virar falha.
 
 ---
 
+### omotenashi-browser-ci
+
+**Script:** `scripts/run_omotenashi_browser_ci.sh`
+
+Gate reprodutível para CI/local: compila CSS, aplica migrations, recria o seed,
+sobe servidor temporário, espera `/ready/` e roda `omotenashi-browser-qa` em modo
+estrito. Ele encerra apenas o processo de servidor que criou.
+
+| Variável/flag | Default | Descrição |
+|---------------|---------|-----------|
+| `port=...` / `SHOPMAN_QA_PORT` | `8001` | Porta local do servidor temporário |
+| `SHOPMAN_QA_SERVER_LOG` | `/tmp/shopman-omotenashi-browser-ci-server.log` | Log do `runserver` temporário |
+
+```bash
+make omotenashi-browser-ci
+make omotenashi-browser-ci port=8010
+```
+
+Esse alvo é destrutivo para o banco configurado no ambiente porque executa o
+seed com flush. Use-o em ambiente local descartável ou CI.
+
+---
+
 ## Wrappers de diagnóstico
 
 Os diagnosticos operacionais vivem em `scripts/diagnose_operational.py` e sao

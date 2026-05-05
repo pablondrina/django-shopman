@@ -137,3 +137,46 @@ jobs:
       - name: Runtime stress gate
         timeout-minutes: 25
         run: make test-runtime
+
+  omotenashi-browser:
+    name: Omotenashi browser QA
+    runs-on: ubuntu-latest
+    needs: quality
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Create virtualenv
+        run: python -m venv .venv
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Toolchain availability
+        run: |
+          node --version
+          npm --version
+          google-chrome --version || chromium --version || chromium-browser --version
+
+      - name: Browser QA gate
+        timeout-minutes: 12
+        run: make omotenashi-browser-ci port=8001
+
+      - name: Upload browser QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: omotenashi-browser-qa
+          if-no-files-found: ignore
+          path: |
+            /tmp/shopman-omotenashi-qa-browser.json
+            /tmp/shopman-omotenashi-qa-screens/
+            /tmp/shopman-omotenashi-browser-ci-server.log

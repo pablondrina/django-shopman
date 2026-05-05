@@ -39,6 +39,16 @@ gera uma sessão admin local automaticamente e grava:
 Use `base_url=...`, `screenshots=...`, `report=...` ou `matrix=...` quando
 precisar apontar para outro ambiente ou anexar artefatos específicos.
 
+Para o gate local/CI completo, sem depender de servidor já aberto:
+
+```bash
+make omotenashi-browser-ci
+```
+
+Esse alvo compila CSS, aplica migrations, recria o seed, sobe um `runserver`
+temporário em `127.0.0.1:8001`, executa a QA browser em modo estrito e encerra
+somente o processo que ele iniciou. Use `port=...` para mudar a porta.
+
 ## Matriz Canônica
 
 | Cenário | Viewport | Superfície | O que abrir | Foco da validação |
@@ -79,5 +89,6 @@ A primeira rodada browser local foi registrada em
 `14 pass`, `0 review`, `0 fail` em Chrome headless, cobrindo mobile, tablet,
 display e desktop.
 
-Essa evidência valida navegação/renderização local da matriz seed, mas ainda
-não transforma QA visual em gate de CI nem substitui dispositivo físico.
+Essa evidência valida navegação/renderização local da matriz seed. O workflow
+`Runtime Gate` também roda `make omotenashi-browser-ci`, mas isso ainda não
+substitui dispositivo físico.
