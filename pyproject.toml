@@ -30,6 +30,7 @@ dependencies = [
     "django-unfold>=0.91,<0.92",
     "daphne>=4.1,<5.0",
     "psycopg[binary]>=3.2,<4.0",
+    "python-dotenv>=1.0,<2.0",
     "redis>=5.0,<8.0",
     "qrcode[pil]>=7.4,<8.0",
 ]

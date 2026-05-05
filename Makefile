@@ -30,6 +30,7 @@ install: ## Instala deps + apps da suite em modo editável
 		"daphne>=4.1,<5.0" \
 		"redis>=5.0,<8.0" \
 		"psycopg[binary]>=3.2,<4.0" \
+		"python-dotenv>=1.0,<2.0" \
 		"qrcode[pil]>=7.4,<8.0" \
 		"locust>=2.24,<3.0" \
 		"ruff>=0.15,<1.0" \
