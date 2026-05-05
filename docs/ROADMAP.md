@@ -20,14 +20,16 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 - runbooks P1/P2 e comandos `make diagnose-*` para runtime, worker, pagamentos,
   webhooks e health;
 - reconciliação financeira diária interna via `make reconcile-financial-day`,
-  persistida no `DayClosing` e com alerta operacional para divergências.
+  persistida no `DayClosing` e com alerta operacional para divergências;
+- smoke local de gateways via `make smoke-gateways`, com rollback e matriz
+  honesta de sandbox/staging.
 
 ## Próximos Passos
 
 | Prioridade | Frente | Entrega esperada | Plano |
 |------------|--------|------------------|-------|
 | P1 | Governança documental | Manter roadmap, status, planos ativos e evidências sempre alinhados ao código. | [`plans/README.md`](plans/README.md) |
-| P1 | Gateways sandbox e snapshot real | Validar EFI, Stripe e iFood com snapshot, eventos duplicados, atrasados e fora de ordem. | [`plans/OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md) |
+| P1 | Gateways sandbox e snapshot real | Smoke local existe; validar EFI, Stripe e iFood contra sandbox/staging real. | [`plans/OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md) |
 | P1 | QA manual Omotenashi E2E | Rodada mobile cliente, tablet KDS e desktop gerente, com estados vazio/erro/timeout/parcial. | [`plans/OMOTENASHI-FIRST-FULLNESS-PLAN.md`](plans/OMOTENASHI-FIRST-FULLNESS-PLAN.md) |
 | P2 | Backstage maturity | Higiene de exceções, a11y dinâmica, E2E cross-area e polish final. | [`plans/BACKSTAGE-MATURITY-PLAN.md`](plans/BACKSTAGE-MATURITY-PLAN.md) |
 | P2 | Storefront projections | Checkout, pagamento, tracking, conta e histórico consumindo projections consistentes. | [`plans/PROJECTION-UI-PLAN.md`](plans/PROJECTION-UI-PLAN.md) |
@@ -40,7 +42,7 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 
 | Dívida | Impacto | Próxima ação |
 |--------|---------|--------------|
-| Gateway sandbox e snapshot real pendentes | Relatório diário interno existe; falta provar divergência contra provedores reais. | Executar smoke sandbox EFI/Stripe/iFood com snapshots, replay e eventos fora de ordem. |
+| Gateway sandbox e snapshot real pendentes | Smoke local existe; falta provar divergência contra provedores reais. | Executar `make smoke-gateways-sandbox` com credenciais/staging reais. |
 | QA visual/manual ainda não é gate | Testes automatizados não pegam todo problema de toque, foco, layout e latência percebida. | Rodar e registrar checklist mobile/tablet/desktop. |
 | ManyChat webhook ainda pulado | Fluxo completo ManyChat → session → confirmação não está reimplementado. | Retomar junto com canais externos. |
 | Shelf life perecível parcialmente ligado | Padaria real precisa de validade por produto/receita sem ambiguidade. | Registrar `OffermanSkuValidator` ou alias canônico de `shelf_life_days`. |
@@ -57,6 +59,7 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 | Runtime PostgreSQL/Redis no CI | Concluído no `Runtime Gate` do PR #3. |
 | Runbooks P1/P2 e `make diagnose-*` | Baseline concluído em [`runbooks/README.md`](runbooks/README.md) e `scripts/diagnose_operational.py`. |
 | Reconciliação financeira diária interna | `make reconcile-financial-day` cruza pedidos, Payman e `DayClosing`; alerta divergências. |
+| Smoke local de gateways | `make smoke-gateways` cobre EFI/Stripe/iFood localmente com rollback; sandbox real segue pendente. |
 | POS/KDS runtime | Concluído no escopo atual. Plano arquivado em [`plans/completed/POS-KDS-RUNTIME-SURFACE-PLAN.md`](plans/completed/POS-KDS-RUNTIME-SURFACE-PLAN.md). |
 
 ## Critério Para Produção Real

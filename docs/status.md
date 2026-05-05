@@ -53,6 +53,12 @@ divergências no fechamento e cria alerta `payment_reconciliation_failed` para
 erro/crítico. Snapshot real de gateway ainda depende de credenciais sandbox ou
 staging.
 
+**Smoke de gateways:** `make smoke-gateways` executa fixtures locais com rollback
+para EFI PIX, Stripe e iFood, cobrindo replay/idempotência, pagamento atrasado,
+refund cumulativo fora de ordem e pedido marketplace duplicado. O target estrito
+`make smoke-gateways-sandbox` permanece bloqueado por credenciais/staging reais
+quando elas não existem.
+
 **Django 6:** o contrato canônico agora é `Django>=6.0,<6.1`. O canário local
 em ambiente isolado validou Django 6.0.5 com `django-unfold 0.92.0`, DRF
 3.17.1, `django-import-export 4.4.1`, `django-filter 25.2`, `redis 7.4.0` e
@@ -73,7 +79,7 @@ suite completa após atualizar o inventário Unfold canônico.
 | **Admin (Unfold)** | Estável | Dashboard, shop config, pedidos, KDS operacional, produção, fechamento e alertas |
 | **Runtime operacional** | Beta | POS e KDS de produção como superfícies próprias, fora do Admin por necessidade operacional |
 
-**Total do último gate local completo:** `1829 passed`, `13 skipped`,
+**Total do último gate local completo:** `1840 passed`, `13 skipped`,
 `3 warnings`, `14 subtests`.
 
 ---
@@ -95,8 +101,8 @@ suite completa após atualizar o inventário Unfold canônico.
 
 Ver [ROADMAP.md](ROADMAP.md) para gaps conhecidos e plano de correção:
 
-- **Gateways sandbox** — validar EFI/Stripe/iFood com snapshot real, eventos
-  duplicados, atrasados e fora de ordem.
+- **Gateways sandbox** — smoke local existe; falta validar EFI/Stripe/iFood com
+  snapshot real, eventos duplicados, atrasados e fora de ordem.
 - **QA manual Omotenashi** — mobile cliente, tablet KDS e desktop gerente.
 
 Ver [ROADMAP.md](ROADMAP.md) e `docs/plans/` para itens de UX/operação:

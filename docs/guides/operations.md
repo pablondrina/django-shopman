@@ -132,6 +132,25 @@ divergência `error` ou `critical`, cria `OperatorAlert` do tipo
 O escopo atual valida o contrato interno. Snapshot real de gateway depende de
 credenciais sandbox/staging e permanece no plano de smoke dos provedores.
 
+## Smoke de gateways
+
+Use antes de release e depois de mexer em webhooks/pagamentos:
+
+```bash
+make smoke-gateways
+make smoke-gateways json=1
+make smoke-gateways-sandbox
+```
+
+`make smoke-gateways` roda fixtures locais com rollback e exercita os caminhos
+canônicos de EFI PIX, Stripe e iFood: replay, idempotência, pagamento atrasado,
+refund cumulativo fora de ordem e pedido externo duplicado. A saída também mostra
+se a validação real de sandbox/staging está `ready` ou `blocked_by_credentials`.
+
+`make smoke-gateways-sandbox` é propositalmente estrito: sem credenciais reais de
+sandbox/staging, falha com `blocked_by_credentials`. Não use o smoke local como
+prova de que o provedor externo foi validado.
+
 ### Segurança
 
 - Endpoints não expõem stacktrace, config, nem dados de negócio — apenas o

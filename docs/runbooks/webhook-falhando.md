@@ -15,12 +15,15 @@ eventos duplicados podem se acumular.
 ```bash
 make diagnose-webhooks
 make diagnose-runtime
+make smoke-gateways
 make deploy-logs
 ```
 
 Verifique `failed webhook keys`, `stale webhook keys` e alertas ativos. Nao use
 payload de cliente como evidencia principal; use `scope`, `id`, `order_ref`,
 provider e horario.
+`make smoke-gateways` ajuda a separar falha do contrato local de credencial ou
+sandbox externo ainda bloqueado.
 
 ## Acao imediata segura
 
@@ -49,4 +52,3 @@ provider, divergencia financeira ou evento pago sem pedido correspondente.
 
 Horario, provider, `scope`, id da chave idempotente, `order_ref`, status no
 gateway, saida de `make diagnose-webhooks` e decisao tomada.
-

@@ -103,7 +103,11 @@ sandbox, rodar smoke real em staging.
 
 ### WP-OR-5 — Gateway sandbox smoke
 
-Status: pendente por credenciais sandbox/staging.
+Status: baseline local implementado em `smoke_gateways` e nos wrappers
+`make smoke-gateways` / `make smoke-gateways-sandbox`. O smoke local roda com
+rollback e cobre EFI PIX duplicado/atrasado após cancelamento, Stripe
+capture/replay/refund cumulativo fora de ordem e iFood pedido externo duplicado.
+Sandbox/staging real continua bloqueado até existirem credenciais e ambiente.
 
 Quando houver credenciais:
 
@@ -113,8 +117,9 @@ Quando houver credenciais:
 - iFood: pedido externo duplicado, cancelamento, evento atrasado;
 - ManyChat: access link, session, confirmação e notificação.
 
-Sem credenciais, o gate deve reportar `blocked_by_credentials`, não passar
-falsamente.
+Sem credenciais, `make smoke-gateways-sandbox` reporta
+`blocked_by_credentials`, não passa falsamente. O smoke local prova contrato
+interno; não substitui snapshot real do provedor.
 
 ## Critério de Pronto
 

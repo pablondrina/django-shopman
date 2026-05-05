@@ -23,6 +23,7 @@ DEFAULT_RUNTIME_TEST_PATHS = (
     "shopman/shop/tests/test_eventstream_permissions.py",
     "shopman/shop/tests/test_payment_webhooks.py",
     "shopman/shop/tests/test_ifood_webhook.py",
+    "shopman/backstage/tests/test_gateway_smoke.py",
     "shopman/shop/tests/test_deploy_checks.py",
     "shopman/shop/tests/test_health.py",
 )

@@ -16,6 +16,7 @@
 | [`auth_cleanup`](#auth_cleanup) | doorman | Manutenção | Remove tokens/códigos expirados |
 | [`reconcile_payments`](#reconcile_payments) | shop | Operação | Reconcilia pedidos cujo webhook de pagamento pode ter sido perdido |
 | [`reconcile_financial_day`](#reconcile_financial_day) | backstage | Operação | Reconcilia pedido, intent, transação e fechamento diário |
+| [`smoke_gateways`](#smoke_gateways) | backstage | Operação | Estressa webhooks/gateways com fixtures locais e matriz sandbox |
 | [`seed`](#seed) | shop | Seed | Popula banco com dados da Nelson Boulangerie |
 
 ---
@@ -236,6 +237,41 @@ python manage.py reconcile_financial_day --date=2026-05-05 --dry-run --json
 ```
 
 **Veja também:** [runbook de pagamento divergente](../runbooks/pagamento-divergente.md).
+
+---
+
+### smoke_gateways
+
+**App:** `shopman.backstage`
+**Arquivo:** `shopman/backstage/management/commands/smoke_gateways.py`
+
+Executa um smoke operacional de gateways usando fixtures locais com rollback:
+EFI PIX duplicado e atrasado após cancelamento, Stripe capture/replay/refund
+cumulativo fora de ordem e iFood pedido externo duplicado. Também reporta matriz
+de prontidão sandbox/staging sem marcar provedor real como validado quando faltam
+credenciais.
+
+| Flag | Default | Descrição |
+|------|---------|-----------|
+| `--local-only` | — | Só executa fixtures locais |
+| `--sandbox-only` | — | Só avalia credenciais/prontidão sandbox |
+| `--require-sandbox` | — | Falha se sandbox estiver bloqueado |
+| `--keep-data` | — | Não faz rollback das fixtures locais |
+| `--json` | — | Imprime JSON auditável |
+
+```bash
+# Smoke local + matriz sandbox, com rollback
+make smoke-gateways
+
+# JSON para anexar em release/incidente
+make smoke-gateways json=1
+
+# Gate estrito de sandbox/staging real
+make smoke-gateways-sandbox
+```
+
+Sem credenciais reais, `smoke-gateways-sandbox` retorna
+`blocked_by_credentials`; isso é bloqueio honesto, não sucesso falso.
 
 ---
 
