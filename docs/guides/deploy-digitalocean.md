@@ -7,10 +7,10 @@ Valkey compatível com Redis.
 
 ## Decisão
 
-Use DigitalOcean App Platform para aplicação/worker/job e banco gerenciado pelo
-próprio App Platform no staging técnico. Para piloto público ou produção,
-converta/associe PostgreSQL e Valkey gerenciados com backup, janela de
-manutenção e alertas.
+Use DigitalOcean App Platform para aplicação/worker/job e DigitalOcean Managed
+Databases para PostgreSQL e Valkey. Valkey não deve ser tratado como banco
+`dev` implícito no App Platform; o blueprint referencia clusters gerenciados
+nomeados para manter staging alinhado ao contrato de produção.
 
 Fontes oficiais usadas para este contrato:
 
@@ -30,9 +30,15 @@ O arquivo `.do/app.yaml` define:
 - `web`: Daphne ASGI em `config.asgi:application`;
 - `directive-worker`: `python manage.py process_directives --watch`;
 - `release`: job `PRE_DEPLOY` com `check --deploy` e migrations;
-- `postgres`: PostgreSQL 16 para staging;
-- `cache`: Valkey, exposto ao Django via `REDIS_URL`;
+- `postgres`: PostgreSQL 16 gerenciado (`shopman-staging-postgres`);
+- `cache`: Valkey 8 gerenciado (`shopman-staging-cache`), exposto ao Django via `REDIS_URL`;
 - health checks em `/ready/` e liveness em `/health/`.
+
+O blueprint usa `git.repo_clone_url` público para dispensar autorização manual
+da GitHub App da DigitalOcean no primeiro staging. Enquanto isso estiver assim,
+redeploys devem ser acionados explicitamente com `doctl apps update --spec ...`
+ou pelo painel. Para deploy automático por push, autorize a GitHub App da
+DigitalOcean e troque os blocos `git` por `github`.
 
 O `Dockerfile` já compila CSS e agora roda `collectstatic` no build. O runtime
 serve `/static/` por WhiteNoise, então App Platform não precisa de volume
@@ -79,8 +85,13 @@ credenciais, como esperado.
 Quando houver token temporário da DigitalOcean, a execução operacional será:
 
 ```bash
-doctl auth init
-doctl apps create --spec .do/app.yaml
+doctl auth init --context shopman-staging
+doctl auth switch --context shopman-staging
+doctl projects create --name "Shopman Staging" --purpose "Web Application" --environment Staging
+doctl databases create shopman-staging-postgres --engine pg --version 16 --region nyc3 --size db-s-1vcpu-1gb --num-nodes 1 --wait
+doctl databases create shopman-staging-cache --engine valkey --version 8 --region nyc3 --size db-s-1vcpu-1gb --num-nodes 1 --wait
+doctl apps spec validate .do/app.yaml
+doctl apps create --spec .do/app.yaml --project-id <project-id> --wait
 ```
 
 Se o app já existir:

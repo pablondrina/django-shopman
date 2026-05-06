@@ -132,6 +132,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "shopman.shop.middleware.AppPlatformHealthCheckHostMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "csp.middleware.CSPMiddleware",

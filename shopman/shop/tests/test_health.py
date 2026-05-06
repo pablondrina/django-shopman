@@ -131,6 +131,20 @@ def test_ready_503_when_db_down(client, db):
     assert response.status_code == 503
 
 
+@override_settings(ALLOWED_HOSTS=["shopman-staging.ondigitalocean.app"])
+def test_app_platform_probe_host_reaches_ready(client, db):
+    response = client.get(reverse("ready"), HTTP_HOST="100.127.25.212:8000")
+
+    assert response.status_code == 200
+
+
+@override_settings(ALLOWED_HOSTS=["shopman-staging.ondigitalocean.app"])
+def test_app_platform_probe_host_does_not_bypass_business_routes(client, db):
+    response = client.get("/menu/", HTTP_HOST="100.127.25.212:8000")
+
+    assert response.status_code == 400
+
+
 # ── Invariants ─────────────────────────────────────────────────────
 
 

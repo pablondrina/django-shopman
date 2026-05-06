@@ -88,10 +88,9 @@ envs:
 
 services:
   - name: web
-    github:
-      repo: pablondrina/django-shopman
+    git:
+      repo_clone_url: https://github.com/pablondrina/django-shopman.git
       branch: codex/omotenashi-hardening-2026-05-04
-      deploy_on_push: true
     dockerfile_path: Dockerfile
     source_dir: /
     run_command: daphne -b 0.0.0.0 -p 8000 config.asgi:application
@@ -128,10 +127,9 @@ services:
 
 workers:
   - name: directive-worker
-    github:
-      repo: pablondrina/django-shopman
+    git:
+      repo_clone_url: https://github.com/pablondrina/django-shopman.git
       branch: codex/omotenashi-hardening-2026-05-04
-      deploy_on_push: true
     dockerfile_path: Dockerfile
     source_dir: /
     run_command: python manage.py process_directives --watch
@@ -146,10 +144,9 @@ workers:
 jobs:
   - name: release
     kind: PRE_DEPLOY
-    github:
-      repo: pablondrina/django-shopman
+    git:
+      repo_clone_url: https://github.com/pablondrina/django-shopman.git
       branch: codex/omotenashi-hardening-2026-05-04
-      deploy_on_push: true
     dockerfile_path: Dockerfile
     source_dir: /
     run_command: sh -c 'python manage.py check --deploy && python manage.py migrate --noinput'
@@ -160,5 +157,12 @@ databases:
   - name: postgres
     engine: PG
     version: "16"
+    production: true
+    cluster_name: shopman-staging-postgres
+    db_name: shopman
+    db_user: shopman
   - name: cache
     engine: VALKEY
+    version: "8"
+    production: true
+    cluster_name: shopman-staging-cache
