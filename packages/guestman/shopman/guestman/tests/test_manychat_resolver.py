@@ -13,7 +13,12 @@ Covers (SPEC-004 acceptance criteria):
 
 from __future__ import annotations
 
+import json
+from unittest.mock import patch
+from urllib.parse import parse_qs, urlparse
+
 import pytest
+from django.test import override_settings
 from shopman.guestman.contrib.identifiers.models import CustomerIdentifier, IdentifierType
 from shopman.guestman.contrib.manychat.resolver import ManychatSubscriberResolver
 from shopman.guestman.models import Customer
@@ -101,6 +106,20 @@ def inactive_customer():
     return customer
 
 
+class _FakeManychatResponse:
+    def __init__(self, payload: dict):
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def read(self):
+        return json.dumps(self.payload).encode("utf-8")
+
+
 # ═══════════════════════════════════════════════════════════════════
 # Tests — Numeric subscriber_id
 # ═══════════════════════════════════════════════════════════════════
@@ -147,6 +166,31 @@ class TestResolveByPhone:
         """Inactive customer should not be resolved."""
         result = ManychatSubscriberResolver.resolve("+5543900000000")
         assert result is None
+
+    @override_settings(MANYCHAT_API_TOKEN="test-token")
+    def test_phone_api_lookup_uses_official_phone_query_param(self):
+        """ManyChat findBySystemField expects ?phone=<E.164>, not field/value."""
+        captured = {}
+
+        def fake_urlopen(request, timeout):
+            captured["url"] = request.full_url
+            captured["timeout"] = timeout
+            return _FakeManychatResponse({
+                "status": "success",
+                "data": {"id": 123456789},
+            })
+
+        with patch(
+            "shopman.guestman.contrib.manychat.resolver.urlopen",
+            side_effect=fake_urlopen,
+        ):
+            result = ManychatSubscriberResolver.resolve("+5543999880000")
+
+        assert result == 123456789
+        query = parse_qs(urlparse(captured["url"]).query)
+        assert query == {"phone": ["+5543999880000"]}
+        assert "field" not in query
+        assert "value" not in query
 
 
 # ═══════════════════════════════════════════════════════════════════

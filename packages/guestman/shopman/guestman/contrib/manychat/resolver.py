@@ -17,6 +17,7 @@ import json
 import logging
 from typing import TYPE_CHECKING
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 if TYPE_CHECKING:
@@ -27,6 +28,13 @@ logger = logging.getLogger(__name__)
 # ManyChat API base URL
 _API_BASE = "https://api.manychat.com/fb"
 _API_TIMEOUT = 10
+
+
+def _read_http_error_body(error: HTTPError) -> str:
+    try:
+        return error.read().decode("utf-8", "replace")[:300]
+    except Exception:
+        return ""
 
 
 class ManychatSubscriberResolver:
@@ -135,7 +143,7 @@ class ManychatSubscriberResolver:
     def _lookup_by_phone_api(cls, phone: str) -> int | None:
         """Consulta ManyChat API para encontrar subscriber por telefone.
 
-        GET /fb/subscriber/findBySystemField?field=whatsapp_phone&value=<phone>
+        GET /fb/subscriber/findBySystemField?phone=<E.164>
         """
         from django.conf import settings
 
@@ -143,12 +151,9 @@ class ManychatSubscriberResolver:
         if not api_token:
             return None
 
-        # ManyChat expects phone without + prefix for WhatsApp lookup
-        phone_value = phone.lstrip("+")
-
         url = (
             f"{_API_BASE}/subscriber/findBySystemField"
-            f"?field=whatsapp_phone&value={phone_value}"
+            f"?{urlencode({'phone': phone})}"
         )
         request = Request(url, headers={
             "Authorization": f"Bearer {api_token}",
@@ -168,10 +173,16 @@ class ManychatSubscriberResolver:
                         )
                         return int(subscriber_id)
         except HTTPError as e:
+            error_body = _read_http_error_body(e)
             if e.code == 404:
                 logger.debug("Manychat resolver: subscriber not found for phone %s", phone[:8])
             else:
-                logger.warning("Manychat resolver: API error %d for phone %s", e.code, phone[:8])
+                logger.warning(
+                    "Manychat resolver: API error %d for phone %s: %s",
+                    e.code,
+                    phone[:8],
+                    error_body,
+                )
         except (URLError, ValueError, Exception):
             logger.debug("Manychat resolver: API call failed for phone %s", phone[:8], exc_info=True)
 
