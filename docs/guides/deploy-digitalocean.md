@@ -60,8 +60,10 @@ MANYCHAT_WEBHOOK_SECRET=<segredo HMAC webhook>
 ```
 
 O blueprint define `DOORMAN_MESSAGE_SENDER_CLASS=shopman.doorman.senders.EmailSender`
-para permitir staging técnico sem token ManyChat real. Para piloto público,
-troque para a cadeia WhatsApp-first com ManyChat real.
+para permitir staging técnico sem token ManyChat real e falhar fechado no OTP por
+telefone. Para piloto público, `MANYCHAT_API_TOKEN` é obrigatório: ele é diferente
+de `MANYCHAT_WEBHOOK_SECRET` e ativa a cadeia WhatsApp-first (`ManyChat -> SMS ->
+email`) usada pelo login do storefront.
 
 Em planos PostgreSQL pequenos, mantenha:
 
@@ -86,6 +88,7 @@ STRIPE_SECRET_KEY=<sandbox>
 STRIPE_WEBHOOK_SECRET=<sandbox>
 MANYCHAT_API_TOKEN=<sandbox/staging>
 MANYCHAT_OTP_FLOW_NS=<flow namespace>
+MANYCHAT_SUBSCRIBER_RESOLVER=shopman.guestman.contrib.manychat.resolver.ManychatSubscriberResolver.resolve
 IFOOD_MERCHANT_ID=<sandbox/staging>
 ```
 

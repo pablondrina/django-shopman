@@ -316,6 +316,21 @@ MANYCHAT_FLOW_MAP = {
     # "order_confirmed": "content20250401120000_123456",
     # "payment_confirmed": "content20250401120000_234567",
 }
+try:
+    MANYCHAT_API_TIMEOUT = int(os.environ.get("MANYCHAT_API_TIMEOUT", "15"))
+except ValueError:
+    MANYCHAT_API_TIMEOUT = 15
+SHOPMAN_MANYCHAT = {
+    "api_token": MANYCHAT_API_TOKEN,
+    "base_url": os.environ.get("MANYCHAT_API_BASE", "https://api.manychat.com/fb"),
+    "timeout": MANYCHAT_API_TIMEOUT,
+    "resolver": os.environ.get(
+        "MANYCHAT_SUBSCRIBER_RESOLVER",
+        "shopman.guestman.contrib.manychat.resolver.ManychatSubscriberResolver.resolve",
+    ),
+    "otp_flow_ns": MANYCHAT_OTP_FLOW_NS,
+    "flow_map": MANYCHAT_FLOW_MAP,
+}
 
 # ── WhatsApp (Meta Cloud API + Bot F15) ─────────────────────────────
 SHOPMAN_WHATSAPP = {

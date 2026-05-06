@@ -85,11 +85,9 @@ def _resolve_subscriber(recipient: str, config: dict) -> int | None:
 
     resolver_path = config.get("resolver")
     if resolver_path:
-        from importlib import import_module
+        from django.utils.module_loading import import_string
 
-        module_path, func_name = resolver_path.rsplit(".", 1)
-        module = import_module(module_path)
-        resolver = getattr(module, func_name)
+        resolver = import_string(resolver_path)
         return resolver(recipient)
 
     return None

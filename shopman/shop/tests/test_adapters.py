@@ -11,6 +11,8 @@ import inspect
 from importlib import import_module
 from unittest.mock import patch
 
+from django.test import override_settings
+
 # ── Contract definitions ──
 
 STOCK_CONTRACT = {
@@ -32,6 +34,11 @@ NOTIFICATION_CONTRACT = {
     "send": ["recipient", "template"],
     "is_available": [],
 }
+
+
+def _manychat_test_resolver(recipient: str) -> int:
+    assert recipient == "+5543999998888"
+    return 123456
 
 
 def _check_contract(module_path: str, contract: dict[str, list[str]]):
@@ -153,6 +160,30 @@ class TestNotificationEmailContract:
 class TestNotificationManychatContract:
     def test_exports_all_functions(self):
         _check_contract("shopman.shop.adapters.notification_manychat", NOTIFICATION_CONTRACT)
+
+    @override_settings(SHOPMAN_MANYCHAT={
+        "api_token": "token",
+        "resolver": "shopman.shop.tests.test_adapters._manychat_test_resolver",
+    })
+    def test_resolver_path_can_target_dotted_callable(self):
+        mod = import_module("shopman.shop.adapters.notification_manychat")
+
+        subscriber_id = mod._resolve_subscriber("+5543999998888", mod._get_config())
+
+        assert subscriber_id == 123456
+
+
+class TestOTPManychatSender:
+    def test_resolver_path_can_target_dotted_callable(self):
+        mod = import_module("shopman.shop.adapters.otp_manychat")
+        config = {
+            "api_token": "token",
+            "resolver": "shopman.shop.tests.test_adapters._manychat_test_resolver",
+        }
+
+        subscriber_id = mod._resolve_subscriber("+5543999998888", config)
+
+        assert subscriber_id == 123456
 
 
 # ── get_adapter() resolution tests ──

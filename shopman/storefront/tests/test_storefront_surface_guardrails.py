@@ -323,6 +323,8 @@ def test_auth_inputs_stay_readable_on_mobile():
     assert "function nationalDigits(value)" in login
     assert "Usar número de outro país" in login
     assert "name=\"phone_region\"" in login
+    assert "name=\"phone\"" in login
+    assert "name=\"phone_normalized\"" in login
     assert "submittedPhone()" in login
     assert "d.indexOf('0') === 0" in login
     assert "material-symbols-rounded icon-sm\" aria-hidden=\"true\">sms" in login

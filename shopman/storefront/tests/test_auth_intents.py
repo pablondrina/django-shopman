@@ -81,6 +81,16 @@ class TestInterpretLoginPhone:
         assert result.intent.phone.startswith("+")
         assert result.intent.delivery_method == "whatsapp"
 
+    def test_normalized_phone_hidden_value_takes_precedence(self):
+        req = _post({
+            "step": "phone",
+            "phone": "(43) 99999-8888",
+            "phone_normalized": "+5543999998888",
+        })
+        result = interpret_login(req)
+        assert result.intent is not None
+        assert result.intent.phone == "+5543999998888"
+
     def test_ios_autofill_zero_before_ddd_returns_intent(self):
         req = _post({"step": "phone", "phone": "(043) 98404-9009"})
         result = interpret_login(req)

@@ -128,7 +128,7 @@
         <p class="text-sm text-on-surface/85 dark:text-on-surface-dark/70">
           {{ login_phone_subtitle.message }}
         </p>
-        <input type="hidden" name="phone" :value="submittedPhone()">
+        <input type="hidden" name="phone_normalized" :value="submittedPhone()">
         <input type="hidden" name="phone_region" :value="international ? 'INTL' : 'BR'">
         <div class="relative min-w-0">
           <div x-show="!international"
@@ -137,7 +137,7 @@
             <span class="text-lg leading-none">🇧🇷</span>
             <span class="font-medium">+55</span>
           </div>
-          <input type="tel" id="phone"
+          <input type="tel" id="phone" name="phone"
                  x-ref="input" x-model="display" @input="onInput()" @paste="onPaste()"
                  required autofocus :inputmode="international ? 'tel' : 'numeric'"
                  :placeholder="international ? '+1 202 555 1234' : '(43) 99999-9999'"
