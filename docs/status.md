@@ -50,9 +50,15 @@ Valkey `shopman-staging-cache`. O deployment ativo
 `/ready/`, `/menu/` e CSS estático responderam 200 via URL pública.
 Estáticos são coletados no build e servidos por WhiteNoise; media persistente
 continua decisão obrigatória antes de piloto público com uploads reais.
-O blueprint local agora ativa a instância Nelson no staging e o bootstrap de
-dados/admin está protegido contra `admin/admin` fora de DEBUG; o redeploy e a
-execução do seed/admin nominal ainda dependem de autenticação `doctl` ativa.
+O bootstrap Nelson foi executado no staging em 2026-05-06. O deployment
+`4068a2b0-cb7f-48a2-99fd-25c85efcf03e` está ativo no commit `0910b2f`;
+`/health/`, `/ready/` e `/menu/` estão verdes; o superuser nominal `pablo`
+está ativo, o `admin` técnico foi desativado, e o seed populou catálogo,
+estoque, pedidos, POS/KDS e checklists. A senha de `pablo` foi guardada fora do
+repo em `~/.shopman/shopman-staging-admin-2026-05-06.txt`. O job temporário
+`bootstrap-staging` foi neutralizado para `python manage.py check --deploy`,
+sem envs secretas; a remoção completa do componente ficou bloqueada por `403`
+no token atual da DigitalOcean.
 
 **Observabilidade operacional:** logs JSON opcionais por `SHOPMAN_JSON_LOGS`,
 eventos estruturados para reconciliação/webhooks e alertas `webhook_failed` /

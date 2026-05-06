@@ -141,6 +141,18 @@ dataset passa a ser uma operação destrutiva deliberada. Para DigitalOcean App
 Platform, execute o bootstrap via console/job temporário e remova as senhas do
 ambiente do app depois da execução.
 
+Execução real de 2026-05-06:
+
+- `bootstrap-staging` rodou como job `POST_DEPLOY`, executando `seed --flush`
+  e `bootstrap_admin`;
+- usuário `pablo` ficou como superuser nominal e `admin` técnico foi desativado;
+- a senha de `pablo` foi guardada fora do repo em
+  `~/.shopman/shopman-staging-admin-2026-05-06.txt`;
+- a API recusou a remoção do componente temporário com `403`, então ele foi
+  neutralizado para `python manage.py check --deploy`, sem envs secretas.
+  Remova o componente no painel ou com um token que permita apagar componentes
+  da App Platform.
+
 ## Domínio
 
 Comece pela URL `.ondigitalocean.app`. Quando o staging estiver saudável,
