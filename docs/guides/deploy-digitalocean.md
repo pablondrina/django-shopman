@@ -87,10 +87,13 @@ STRIPE_PUBLISHABLE_KEY=<sandbox>
 STRIPE_SECRET_KEY=<sandbox>
 STRIPE_WEBHOOK_SECRET=<sandbox>
 MANYCHAT_API_TOKEN=<sandbox/staging>
-MANYCHAT_OTP_FLOW_NS=<flow namespace>
 MANYCHAT_SUBSCRIBER_RESOLVER=shopman.guestman.contrib.manychat.resolver.ManychatSubscriberResolver.resolve
 IFOOD_MERCHANT_ID=<sandbox/staging>
 ```
+
+`MANYCHAT_OTP_FLOW_NS` é opcional. Sem ele, o OTP usa
+`/fb/sending/sendContent` para mensagem direta; com ele, usa
+`/fb/sending/sendFlow` para disparar uma automação ManyChat.
 
 Sem os segredos obrigatórios, o release job falha fechado. Sem as credenciais
 dos gateways, o `make smoke-gateways-sandbox` permanece bloqueado por
