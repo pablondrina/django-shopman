@@ -30,9 +30,9 @@ def _resolve_subscriber(phone: str, config: dict) -> int | None:
     if not resolver_path:
         return None
 
-    from django.utils.module_loading import import_string
+    from ._dotted import import_dotted_attr
 
-    resolver = import_string(resolver_path)
+    resolver = import_dotted_attr(resolver_path)
     return resolver(phone)
 
 

@@ -85,9 +85,9 @@ def _resolve_subscriber(recipient: str, config: dict) -> int | None:
 
     resolver_path = config.get("resolver")
     if resolver_path:
-        from django.utils.module_loading import import_string
+        from ._dotted import import_dotted_attr
 
-        resolver = import_string(resolver_path)
+        resolver = import_dotted_attr(resolver_path)
         return resolver(recipient)
 
     return None

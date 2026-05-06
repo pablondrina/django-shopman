@@ -203,6 +203,17 @@ class TestOTPManychatSender:
         assert "flow_token" not in payload
 
 
+class TestDottedAdapterImport:
+    def test_imports_nested_class_method(self):
+        from shopman.shop.adapters._dotted import import_dotted_attr
+
+        resolver = import_dotted_attr(
+            "shopman.guestman.contrib.manychat.resolver.ManychatSubscriberResolver.resolve"
+        )
+
+        assert callable(resolver)
+
+
 # ── get_adapter() resolution tests ──
 
 
