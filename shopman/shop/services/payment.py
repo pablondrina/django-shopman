@@ -468,7 +468,12 @@ def _ensure_payment_idempotency_key(
 ) -> str:
     """Return a stable key for this payment attempt and persist it when possible."""
     existing = str(payment_data.get("idempotency_key") or "").strip()
-    if existing:
+    if existing and _payment_idempotency_key_reusable(
+        existing,
+        order=order,
+        method=method,
+        amount_q=amount_q,
+    ):
         return existing
 
     key = f"order-payment:{order.ref}:{method}:{amount_q}:{uuid.uuid4().hex[:16]}"
@@ -481,6 +486,43 @@ def _ensure_payment_idempotency_key(
     except Exception:
         logger.warning("payment.idempotency_key_persist_failed order=%s", order.ref, exc_info=True)
     return key
+
+
+def _payment_idempotency_key_reusable(
+    key: str,
+    *,
+    order,
+    method: str,
+    amount_q: int,
+) -> bool:
+    """Return False when a stored key points to a terminal failed attempt."""
+    try:
+        from shopman.payman.models.intent import PaymentIntent as PaymanIntent
+
+        intent = PaymanIntent.objects.filter(idempotency_key=key).first()
+    except Exception:
+        logger.debug("payment.idempotency_key_lookup_failed order=%s", order.ref, exc_info=True)
+        return True
+
+    if intent is None:
+        return True
+    if intent.order_ref != order.ref or intent.method != method or intent.amount_q != amount_q:
+        logger.warning(
+            "payment.idempotency_key_mismatch order=%s intent=%s key=%s",
+            order.ref,
+            intent.ref,
+            key,
+        )
+        return False
+    if intent.status in {"failed", "cancelled", "refunded"}:
+        logger.info(
+            "payment.idempotency_key_terminal_retry order=%s intent=%s status=%s",
+            order.ref,
+            intent.ref,
+            intent.status,
+        )
+        return False
+    return True
 
 
 def _existing_active_intent(order, *, method: str, amount_q: int) -> PaymentIntent | None:

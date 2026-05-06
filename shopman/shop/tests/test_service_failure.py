@@ -168,6 +168,46 @@ class PaymentInitiateFailureTests(TestCase):
         )
         self.assertTrue(directive.payload["mock_pix_auto_confirm"])
 
+    @override_settings(
+        SHOPMAN_PAYMENT_ADAPTERS={
+            "pix": "shopman.shop.adapters.payment_mock",
+            "card": "shopman.shop.adapters.payment_mock",
+            "cash": None,
+            "external": None,
+        },
+    )
+    def test_retry_after_failed_gateway_attempt_uses_new_idempotency_key(self) -> None:
+        """A failed EFI attempt must not pin the order to a dead gateway intent."""
+        from shopman.payman import PaymentService
+
+        from shopman.shop.services import payment as payment_service
+
+        order = _make_order(ref="FAIL-RETRY")
+        old_key = "order-payment:FAIL-RETRY:pix:1000:old"
+        order.data["payment"]["idempotency_key"] = old_key
+        order.save(update_fields=["data", "updated_at"])
+        failed = PaymentService.create_intent(
+            order_ref=order.ref,
+            amount_q=order.total_q,
+            method="pix",
+            gateway="efi",
+            idempotency_key=old_key,
+        )
+        PaymentService.fail(
+            failed.ref,
+            error_code="gateway_error",
+            message="Falha na criação da cobrança Efi",
+        )
+
+        payment_service.initiate(order)
+
+        order.refresh_from_db()
+        payment = order.data["payment"]
+        self.assertNotIn("error", payment)
+        self.assertNotEqual(payment["idempotency_key"], old_key)
+        self.assertNotEqual(payment["intent_ref"], failed.ref)
+        self.assertEqual(PaymentService.get(payment["intent_ref"]).gateway, "mock")
+
     def test_successful_initiate_not_affected(self) -> None:
         """Happy path: successful create_intent is not changed."""
         from shopman.shop.adapters.payment_types import PaymentIntent
