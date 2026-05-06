@@ -11,7 +11,7 @@ from unittest.mock import patch
 import pytest
 from django.contrib.auth.models import User
 from django.core.cache import cache
-from django.test import Client, override_settings
+from django.test import Client, RequestFactory, override_settings
 from django.utils import timezone
 from shopman.doorman import TrustedDevice
 from shopman.doorman.models import AccessLink
@@ -198,6 +198,26 @@ class TestAccessLinkLoginView:
 
 
 class TestLoginView:
+    def test_login_rate_key_uses_normalized_phone_fallback(self):
+        from shopman.storefront.views.auth import _auth_phone_rate_key
+
+        request = RequestFactory().post("/login/", {
+            "phone": "",
+            "phone_normalized": "+5543984049009",
+        })
+
+        assert _auth_phone_rate_key(None, request) == "+5543984049009"
+
+    def test_login_rate_key_normalizes_ios_zero_ddd(self):
+        from shopman.storefront.views.auth import _auth_phone_rate_key
+
+        request = RequestFactory().post("/login/", {
+            "phone": "(043) 98404-9009",
+            "phone_normalized": "",
+        })
+
+        assert _auth_phone_rate_key(None, request) == "+5543984049009"
+
     def test_logged_in_login_rejects_external_next(self, client: Client, customer):
         _login_as_customer(client, customer)
 

@@ -54,6 +54,14 @@ class TestNormalizePhoneBrazilian:
         """(021) 99988-7766 → +5521999887766"""
         assert normalize_phone("(021) 99988-7766") == "+5521999887766"
 
+    def test_plus_55_with_zero_before_ddd(self):
+        """+55 (043) 98404-9009 → +5543984049009"""
+        assert normalize_phone("+55 (043) 98404-9009") == "+5543984049009"
+
+    def test_compact_plus_55_with_zero_before_ddd(self):
+        """+55043984049009 → +5543984049009"""
+        assert normalize_phone("+55043984049009") == "+5543984049009"
+
 
 class TestNormalizePhoneNoBrazilianCC:
     """Brazilian phone without country code: +DDD9XXXXXXXX instead of +55DDD9XXXXXXXX."""

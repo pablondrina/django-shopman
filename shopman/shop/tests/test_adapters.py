@@ -185,6 +185,23 @@ class TestOTPManychatSender:
 
         assert subscriber_id == 123456
 
+    @override_settings(SHOPMAN_MANYCHAT={
+        "api_token": "token",
+        "resolver": "shopman.shop.tests.test_adapters._manychat_test_resolver",
+    })
+    def test_send_code_uses_direct_content(self):
+        mod = import_module("shopman.shop.adapters.otp_manychat")
+
+        with patch.object(mod.ManychatOTPSender, "_api_call", return_value=True) as api_call:
+            result = mod.ManychatOTPSender().send_code("+5543999998888", "123456", "whatsapp")
+
+        assert result is True
+        endpoint, payload, _config = api_call.call_args.args
+        assert endpoint == "/sending/sendContent"
+        assert payload["subscriber_id"] == 123456
+        assert "flow_ns" not in payload
+        assert "flow_token" not in payload
+
 
 # ── get_adapter() resolution tests ──
 

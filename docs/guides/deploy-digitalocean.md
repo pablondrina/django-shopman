@@ -91,11 +91,8 @@ MANYCHAT_SUBSCRIBER_RESOLVER=shopman.guestman.contrib.manychat.resolver.Manychat
 IFOOD_MERCHANT_ID=<sandbox/staging>
 ```
 
-`MANYCHAT_OTP_FLOW_NS` é opcional. Sem ele, o OTP usa
-`/fb/sending/sendContent` para mensagem direta; com ele, usa
-`/fb/sending/sendFlow` para disparar uma automação ManyChat. Para piloto real em
-WhatsApp, valide no ManyChat se o contato estará dentro da janela de 24 horas; se
-não estiver, use uma automação com template aprovado para mensagem fora da janela.
+O OTP via ManyChat usa `/fb/sending/sendContent` para mensagem direta. Não há
+flow namespace no OTP; templates e automações ficam no backend de notificações.
 
 Sem os segredos obrigatórios, o release job falha fechado. Sem as credenciais
 dos gateways, o `make smoke-gateways-sandbox` permanece bloqueado por

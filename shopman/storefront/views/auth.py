@@ -28,12 +28,15 @@ def _safe_next(request: HttpRequest, next_url: str | None) -> str:
 
 
 def _auth_phone_rate_key(group, request) -> str:
-    raw_phone = request.POST.get("phone", "")
+    raw_phone = (
+        request.POST.get("phone_normalized", "").strip()
+        or request.POST.get("phone", "").strip()
+    )
     try:
         normalized = normalize_phone(raw_phone)
     except Exception:
         normalized = ""
-    return normalized or raw_phone.strip() or request.META.get("REMOTE_ADDR", "")
+    return normalized or raw_phone or request.META.get("REMOTE_ADDR", "")
 
 
 def get_authenticated_customer(request: HttpRequest):
