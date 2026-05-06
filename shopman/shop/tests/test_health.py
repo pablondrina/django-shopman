@@ -131,7 +131,10 @@ def test_ready_503_when_db_down(client, db):
     assert response.status_code == 503
 
 
-@override_settings(ALLOWED_HOSTS=["shopman-staging.ondigitalocean.app"])
+@override_settings(
+    ALLOWED_HOSTS=["shopman-staging.ondigitalocean.app"],
+    SECURE_SSL_REDIRECT=True,
+)
 def test_app_platform_probe_host_reaches_ready(client, db):
     response = client.get(reverse("ready"), HTTP_HOST="100.127.25.212:8000")
 

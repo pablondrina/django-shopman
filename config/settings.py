@@ -750,6 +750,10 @@ SECURE_SSL_REDIRECT = os.environ.get(
     "DJANGO_SECURE_SSL_REDIRECT",
     "true" if not DEBUG else "false",
 ).lower() in ("true", "1", "yes")
+SECURE_REDIRECT_EXEMPT = [
+    r"^health/$",
+    r"^ready/$",
+]
 
 # Content Security Policy (django-csp v4 format)
 # CDN audit:
