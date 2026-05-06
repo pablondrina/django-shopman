@@ -57,6 +57,7 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 |--------|---------|--------------|
 | Gateway sandbox e snapshot real pendentes | Smoke local existe; falta provar divergência contra provedores reais. | Executar `make smoke-gateways-sandbox` com credenciais/staging reais. |
 | Job `bootstrap-staging` neutralizado na DO | O seed/admin já rodou; a tentativa de remover o componente pela API voltou `403`. O job não tem secrets e só executa `check --deploy`, mas ainda é ruído operacional. | Remover o componente no painel ou com token/permissão que permita apagar componentes de App Platform. |
+| PostgreSQL pequeno exige disciplina de conexões | Incidente 500 por `too many clients already` foi contido; staging agora usa `DATABASE_CONN_MAX_AGE=0`. | Manter esse env em planos pequenos ou migrar para pool/instância maior antes de carga real. |
 | QA visual/manual ainda não cobre mundo real | O gate browser CI cobre renderização headless, mas não prova toque real, teclado virtual, rede degradada e latência percebida. | Rodar dispositivo físico/staging antes de release real. |
 | ManyChat webhook ainda pulado | Fluxo completo ManyChat → session → confirmação não está reimplementado. | Retomar junto com canais externos. |
 | Shelf life perecível parcialmente ligado | Padaria real precisa de validade por produto/receita sem ambiguidade. | Registrar `OffermanSkuValidator` ou alias canônico de `shelf_life_days`. |

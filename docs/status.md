@@ -59,6 +59,13 @@ repo em `~/.shopman/shopman-staging-admin-2026-05-06.txt`. O job temporário
 `bootstrap-staging` foi neutralizado para `python manage.py check --deploy`,
 sem envs secretas; a remoção completa do componente ficou bloqueada por `403`
 no token atual da DigitalOcean.
+Incidente pós-bootstrap em 2026-05-06: `/menu/` na D.O. retornou 500 por
+exaustão de conexões PostgreSQL (`too many clients already`) após seed/redeploy.
+Contenção: restart de `web`/`directive-worker`. Correção: commit `4ab297c`
+deixou `DATABASE_CONN_MAX_AGE` configurável e o staging passou a usar
+`DATABASE_CONN_MAX_AGE=0`. Deployment `ff02290b-4552-4d9e-8e60-0d9ab3946c8f`
+validado com `/health/`, `/ready/`, `/menu/`, `/admin/login/`, SKU state,
+badge de pedidos e SSE de estoque em 200.
 
 **Observabilidade operacional:** logs JSON opcionais por `SHOPMAN_JSON_LOGS`,
 eventos estruturados para reconciliação/webhooks e alertas `webhook_failed` /

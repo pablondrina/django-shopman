@@ -63,6 +63,17 @@ O blueprint define `DOORMAN_MESSAGE_SENDER_CLASS=shopman.doorman.senders.EmailSe
 para permitir staging técnico sem token ManyChat real. Para piloto público,
 troque para a cadeia WhatsApp-first com ManyChat real.
 
+Em planos PostgreSQL pequenos, mantenha:
+
+```env
+DATABASE_CONN_MAX_AGE=0
+```
+
+Isso fecha conexões ao fim de cada request e evita saturar o limite de conexões
+do Managed PostgreSQL durante browser QA, SSE, health checks e jobs. Se o
+ambiente crescer, reavalie com pool de conexões ou plano maior antes de subir
+`CONN_MAX_AGE`.
+
 Para exercitar gateways sandbox reais, adicione também:
 
 ```env
