@@ -72,7 +72,14 @@ def create_intent(
     client_secret = json.dumps({"qrcode": mock_brcode, "brcode": mock_brcode, "imagemQrcode": mock_qr_image})
 
     db_intent.gateway_id = gateway_id
-    db_intent.gateway_data = {**metadata, "client_secret": client_secret}
+    gateway_data = {**metadata, "client_secret": client_secret}
+    intent_metadata = {"qrcode": mock_brcode, "brcode": mock_brcode, "imagemQrcode": mock_qr_image}
+    if method == "card":
+        checkout_url = config.get("mock_card_checkout_url") or f"/pedido/{order_ref}/"
+        gateway_data["checkout_url"] = checkout_url
+        intent_metadata = {"checkout_url": checkout_url}
+
+    db_intent.gateway_data = gateway_data
     db_intent.save(update_fields=["gateway_id", "gateway_data"])
 
     status = db_intent.status
@@ -107,7 +114,7 @@ def create_intent(
         client_secret=client_secret,
         expires_at=expires_at,
         gateway_id=gateway_id,
-        metadata={"qrcode": mock_brcode, "brcode": mock_brcode, "imagemQrcode": mock_qr_image},
+        metadata=intent_metadata,
     )
 
 

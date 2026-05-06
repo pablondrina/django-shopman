@@ -27,6 +27,7 @@ def order_card(channel, client):
             "payment": {
                 "method": "card",
                 "amount_q": 1500,
+                "intent_ref": "pi_card_existing",
                 "checkout_url": "https://checkout.stripe.com/c/pay/cs_test_demo",
             },
         },
@@ -99,12 +100,47 @@ class TestPaymentCardPage:
         self, client: Client, order_card_pending_url,
     ):
         """If checkout_url is missing, render a graceful pending message (no broken link)."""
-        resp = client.get(f"/pedido/{order_card_pending_url.ref}/pagamento/")
+        with patch(
+            "shopman.storefront.views.payment.order_service.ensure_payment_intent",
+            return_value=True,
+        ):
+            resp = client.get(f"/pedido/{order_card_pending_url.ref}/pagamento/")
         assert resp.status_code == 200
         body = resp.content.decode()
         assert "Preparando ambiente seguro" in body
         # Should NOT render a button with empty href
         assert 'href=""' not in body
+
+    @override_settings(
+        SHOPMAN_PAYMENT_ADAPTERS={
+            "pix": "shopman.shop.adapters.payment_mock",
+            "card": "shopman.shop.adapters.payment_mock",
+            "cash": None,
+            "external": None,
+        },
+    )
+    def test_card_payment_mock_renders_staging_tracking_link(self, client: Client, channel):
+        from shopman.orderman.models import Order
+
+        order = Order.objects.create(
+            ref="ORD-CARD-MOCK",
+            channel_ref=channel.ref,
+            status="confirmed",
+            total_q=1500,
+            handle_type="phone",
+            handle_ref="5543999990001",
+            data={"payment": {"method": "card", "amount_q": 1500}},
+        )
+        _grant_order_access(client, order.ref)
+
+        resp = client.get(f"/pedido/{order.ref}/pagamento/")
+
+        assert resp.status_code == 200
+        body = resp.content.decode()
+        assert "Pagar com cartão" in body
+        assert f'href="/pedido/{order.ref}/"' in body
+        order.refresh_from_db()
+        assert order.data["payment"]["checkout_url"] == f"/pedido/{order.ref}/"
 
 
 class TestPaymentIntentRecovery:
