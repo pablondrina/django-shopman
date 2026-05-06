@@ -192,6 +192,49 @@ class TestResolveByPhone:
         assert "field" not in query
         assert "value" not in query
 
+    @override_settings(MANYCHAT_API_TOKEN="test-token")
+    def test_unknown_phone_creates_whatsapp_subscriber(self):
+        """Unknown WhatsApp contacts are bootstrapped via createSubscriber."""
+        captured = []
+
+        def fake_urlopen(request, timeout):
+            captured.append({
+                "url": request.full_url,
+                "method": request.get_method(),
+                "body": (
+                    json.loads(request.data.decode("utf-8"))
+                    if getattr(request, "data", None)
+                    else None
+                ),
+                "timeout": timeout,
+            })
+            if request.get_method() == "GET":
+                return _FakeManychatResponse({
+                    "status": "success",
+                    "data": {},
+                })
+            return _FakeManychatResponse({
+                "status": "success",
+                "data": {"id": 987123},
+            })
+
+        with patch(
+            "shopman.guestman.contrib.manychat.resolver.urlopen",
+            side_effect=fake_urlopen,
+        ):
+            result = ManychatSubscriberResolver.resolve("+5543984049009")
+
+        assert result == 987123
+        lookup_query = parse_qs(urlparse(captured[0]["url"]).query)
+        assert lookup_query == {"phone": ["+5543984049009"]}
+        assert captured[1]["method"] == "POST"
+        assert captured[1]["url"].endswith("/fb/subscriber/createSubscriber")
+        assert captured[1]["body"] == {
+            "whatsapp_phone": "+5543984049009",
+            "phone": "+5543984049009",
+            "has_opt_in_sms": False,
+        }
+
 
 # ═══════════════════════════════════════════════════════════════════
 # Tests — Customer code resolution
