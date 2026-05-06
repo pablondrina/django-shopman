@@ -48,9 +48,12 @@ DJANGO_SECRET_KEY=<segredo forte>
 DOORMAN_ACCESS_LINK_API_KEY=<segredo forte>
 EFI_WEBHOOK_TOKEN=<token webhook sandbox/produção>
 IFOOD_WEBHOOK_TOKEN=<token webhook sandbox/produção>
-MANYCHAT_API_TOKEN=<sandbox/staging>
 MANYCHAT_WEBHOOK_SECRET=<segredo HMAC webhook>
 ```
+
+O blueprint define `DOORMAN_MESSAGE_SENDER_CLASS=shopman.doorman.senders.EmailSender`
+para permitir staging técnico sem token ManyChat real. Para piloto público,
+troque para a cadeia WhatsApp-first com ManyChat real.
 
 Para exercitar gateways sandbox reais, adicione também:
 
@@ -62,6 +65,7 @@ EFI_PIX_KEY=<sandbox>
 STRIPE_PUBLISHABLE_KEY=<sandbox>
 STRIPE_SECRET_KEY=<sandbox>
 STRIPE_WEBHOOK_SECRET=<sandbox>
+MANYCHAT_API_TOKEN=<sandbox/staging>
 MANYCHAT_OTP_FLOW_NS=<flow namespace>
 IFOOD_MERCHANT_ID=<sandbox/staging>
 ```

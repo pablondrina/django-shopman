@@ -53,6 +53,10 @@ envs:
     value: "${APP_URL}"
     scope: RUN_TIME
     type: GENERAL
+  - key: DOORMAN_MESSAGE_SENDER_CLASS
+    value: shopman.doorman.senders.EmailSender
+    scope: RUN_TIME
+    type: GENERAL
   - key: DATABASE_URL
     value: "${postgres.DATABASE_URL}"
     scope: RUN_TIME
