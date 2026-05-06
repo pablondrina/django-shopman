@@ -1,0 +1,160 @@
+# DigitalOcean App Platform blueprint for the first Shopman staging deploy.
+# Runtime secrets are intentionally not stored here. Add them as encrypted
+# app-level RUN_TIME variables before deploying; see docs/guides/deploy-digitalocean.md.
+name: shopman-staging
+region: nyc
+
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DOMAIN_FAILED
+
+ingress:
+  rules:
+    - match:
+        path:
+          prefix: /
+      component:
+        name: web
+
+envs:
+  - key: DJANGO_SETTINGS_MODULE
+    value: config.settings
+    scope: RUN_TIME
+    type: GENERAL
+  - key: DJANGO_DEBUG
+    value: "false"
+    scope: RUN_TIME
+    type: GENERAL
+  - key: DJANGO_ALLOWED_HOSTS
+    value: "${APP_DOMAIN}"
+    scope: RUN_TIME
+    type: GENERAL
+  - key: CSRF_TRUSTED_ORIGINS
+    value: "${APP_URL}"
+    scope: RUN_TIME
+    type: GENERAL
+  - key: DJANGO_TRUST_X_FORWARDED_PROTO
+    value: "true"
+    scope: RUN_TIME
+    type: GENERAL
+  - key: DJANGO_SECURE_SSL_REDIRECT
+    value: "true"
+    scope: RUN_TIME
+    type: GENERAL
+  - key: SHOPMAN_DOMAIN
+    value: "${APP_URL}"
+    scope: RUN_TIME
+    type: GENERAL
+  - key: AUTH_DEFAULT_DOMAIN
+    value: "${APP_DOMAIN}"
+    scope: RUN_TIME
+    type: GENERAL
+  - key: WHATSAPP_STOREFRONT_URL
+    value: "${APP_URL}"
+    scope: RUN_TIME
+    type: GENERAL
+  - key: DATABASE_URL
+    value: "${postgres.DATABASE_URL}"
+    scope: RUN_TIME
+    type: GENERAL
+  - key: REDIS_URL
+    value: "${cache.REDIS_URL}"
+    scope: RUN_TIME
+    type: GENERAL
+  - key: SHOPMAN_PIX_ADAPTER
+    value: shopman.shop.adapters.payment_efi
+    scope: RUN_TIME
+    type: GENERAL
+  - key: SHOPMAN_CARD_ADAPTER
+    value: shopman.shop.adapters.payment_stripe
+    scope: RUN_TIME
+    type: GENERAL
+  - key: EFI_SANDBOX
+    value: "true"
+    scope: RUN_TIME
+    type: GENERAL
+  - key: STRIPE_CAPTURE_METHOD
+    value: manual
+    scope: RUN_TIME
+    type: GENERAL
+  - key: SHOPMAN_JSON_LOGS
+    value: "true"
+    scope: RUN_TIME
+    type: GENERAL
+
+services:
+  - name: web
+    github:
+      repo: pablondrina/django-shopman
+      branch: codex/omotenashi-hardening-2026-05-04
+      deploy_on_push: true
+    dockerfile_path: Dockerfile
+    source_dir: /
+    run_command: daphne -b 0.0.0.0 -p 8000 config.asgi:application
+    http_port: 8000
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-1gb
+    health_check:
+      http_path: /ready/
+      initial_delay_seconds: 30
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 5
+    liveness_health_check:
+      http_path: /health/
+      initial_delay_seconds: 30
+      period_seconds: 30
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+    alerts:
+      - rule: CPU_UTILIZATION
+        operator: GREATER_THAN
+        value: 80
+        window: FIVE_MINUTES
+      - rule: MEM_UTILIZATION
+        operator: GREATER_THAN
+        value: 85
+        window: FIVE_MINUTES
+      - rule: RESTART_COUNT
+        operator: GREATER_THAN
+        value: 2
+        window: TEN_MINUTES
+
+workers:
+  - name: directive-worker
+    github:
+      repo: pablondrina/django-shopman
+      branch: codex/omotenashi-hardening-2026-05-04
+      deploy_on_push: true
+    dockerfile_path: Dockerfile
+    source_dir: /
+    run_command: python manage.py process_directives --watch
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    alerts:
+      - rule: RESTART_COUNT
+        operator: GREATER_THAN
+        value: 2
+        window: TEN_MINUTES
+
+jobs:
+  - name: release
+    kind: PRE_DEPLOY
+    github:
+      repo: pablondrina/django-shopman
+      branch: codex/omotenashi-hardening-2026-05-04
+      deploy_on_push: true
+    dockerfile_path: Dockerfile
+    source_dir: /
+    run_command: sh -c 'python manage.py check --deploy && python manage.py migrate --noinput'
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-0.5gb
+
+databases:
+  - name: postgres
+    engine: PG
+    version: "16"
+  - name: cache
+    engine: VALKEY

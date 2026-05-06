@@ -9,10 +9,12 @@ chamar comandos Docker diretamente.
 - Aplicacao: imagem `Dockerfile` com Python 3.12, assets Tailwind compilados e
   ASGI via Daphne.
 - Banco: PostgreSQL 16+.
-- Cache/realtime: Redis 7+ usando o backend nativo
+- Cache/realtime: Redis 7+ ou Valkey Redis-compatible usando o backend nativo
   `django.core.cache.backends.redis.RedisCache`.
 - Worker leve: `python manage.py process_directives --watch`.
 - Release step: `check --deploy`, `migrate` e `collectstatic`.
+- Estáticos: `collectstatic` roda no build da imagem; WhiteNoise serve
+  `/static/` no runtime.
 
 Nao ha `django-redis`, Celery ou broker adicional neste contrato.
 
@@ -23,6 +25,7 @@ Nao ha `django-redis`, Celery ou broker adicional neste contrato.
   profiles para nao alterar o fluxo de desenvolvimento.
 - `.env.example`: variaveis base. Copie para `.env` e substitua os segredos.
 - `Makefile`: wrappers `deploy-*`.
+- `.do/app.yaml`: blueprint DigitalOcean App Platform para staging sem segredos.
 
 ## Comandos
 
@@ -73,10 +76,13 @@ estao configurados para producao.
 
 ## Static e Media
 
-`collectstatic` grava em `STATIC_ROOT` (`/app/staticfiles` no container). Em
-staging/producao, um reverse proxy ou CDN deve servir esse diretorio em
-`/static/`. `MEDIA_ROOT` permanece em `/app/media` no container e deve ser
-volume persistente ou storage externo no provedor final.
+`collectstatic` grava em `STATIC_ROOT` (`/app/staticfiles` no container) durante
+o build da imagem. WhiteNoise serve `/static/` no runtime; CDN/reverse proxy
+pode ser adicionado depois, mas nao é requisito para App Platform.
+
+`MEDIA_ROOT` permanece em `/app/media` no container local. Em App Platform esse
+filesystem é efêmero; piloto publico com uploads reais precisa de storage
+externo persistente, como DigitalOcean Spaces/S3-compatible.
 
 ## Gates
 
@@ -96,3 +102,6 @@ na maquina local.
 Este compose e uma topologia minima para staging/piloto. Em producao final,
 manter os mesmos contratos, mas decidir provedor, TLS/reverse proxy,
 backup/restore, logs, monitoramento de webhooks e estrategia de rollbacks.
+
+Para DigitalOcean App Platform, use o guia dedicado:
+[`deploy-digitalocean.md`](deploy-digitalocean.md).

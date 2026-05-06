@@ -34,6 +34,8 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
   gateway sandbox, evidência manual/física ou pre-prod.
 - domínio operacional baseline com templates e execuções auditáveis de abertura,
   rotina e fechamento no Backstage/Admin, refletido no seed Nelson.
+- blueprint DigitalOcean App Platform em `.do/app.yaml`, com web, worker, release
+  job, PostgreSQL e Valkey para staging técnico.
 
 ## Próximos Passos
 
@@ -41,6 +43,7 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 |------------|--------|------------------|-------|
 | P1 | Gateways sandbox e snapshot real | Smoke local existe; validar EFI, Stripe e iFood contra sandbox/staging real. | [`plans/OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md) |
 | P1 | QA manual Omotenashi E2E | Gate browser CI existe; completar dispositivo físico/staging e evidência humana antes de release real. | [`plans/OMOTENASHI-FIRST-FULLNESS-PLAN.md`](plans/OMOTENASHI-FIRST-FULLNESS-PLAN.md) |
+| P1 | DigitalOcean staging | Blueprint existe; executar primeiro deploy quando houver token/credenciais e decidir storage persistente de media. | [`guides/deploy-digitalocean.md`](guides/deploy-digitalocean.md) |
 | P2 | Domínio operacional | Baseline de checklists auditáveis existe; continuar superfície operacional dedicada e relatórios/BI. | [`plans/OPERATION-DOMAIN-PLAN.md`](plans/OPERATION-DOMAIN-PLAN.md) |
 | P2 | Endereço canônico | Fluxo mobile de endereço com busca, geolocalização opt-in, ajuste no mapa e fallback manual. | [`plans/ADDRESS-UX-PLAN.md`](plans/ADDRESS-UX-PLAN.md) |
 | P2 | Diagnóstico operacional profundo | Baseline `make diagnose-*`, runbooks e reconciliação interna concluído; continuar smoke sandbox. | [`plans/OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md) |
@@ -56,6 +59,7 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 | Shelf life perecível parcialmente ligado | Padaria real precisa de validade por produto/receita sem ambiguidade. | Registrar `OffermanSkuValidator` ou alias canônico de `shelf_life_days`. |
 | Playwright E2E opcional | A suite existe, mas só roda quando Playwright está instalado. | Decidir se vira gate antes de piloto público. |
 | Migração futura para CSP nativo do Django 6 | `django-csp` funciona, mas Django 6 tem CSP nativo a avaliar. | Avaliar isoladamente, sem misturar com features. |
+| Media persistente na App Platform | Static está resolvido por WhiteNoise; uploads/admin media ainda não devem depender de filesystem efêmero. | Decidir DigitalOcean Spaces/S3-compatible antes de piloto público com uploads reais. |
 
 ## Não Dívida Agora
 
@@ -65,6 +69,7 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 | Django 6 | Concluído. Plano arquivado em [`plans/completed/DJANGO-6-UPGRADE-PLAN.md`](plans/completed/DJANGO-6-UPGRADE-PLAN.md). |
 | `django-redis` | Removido do contrato. Redis usa backend nativo do Django. |
 | Docker manual para o operador | Encapsulado por Makefile e GitHub Actions. |
+| Estáticos em PaaS sem volume compartilhado | `Dockerfile` roda `collectstatic` no build e WhiteNoise serve `/static/` no runtime. |
 | Runtime PostgreSQL/Redis no CI | Concluído no `Runtime Gate` do PR #3. |
 | Runbooks P1/P2 e `make diagnose-*` | Baseline concluído em [`runbooks/README.md`](runbooks/README.md) e `scripts/diagnose_operational.py`. |
 | Reconciliação financeira diária interna | `make reconcile-financial-day` cruza pedidos, Payman e `DayClosing`; alerta divergências. |

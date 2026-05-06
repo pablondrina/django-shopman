@@ -54,6 +54,13 @@ RUN python -m pip install --upgrade pip \
         .
 
 RUN mkdir -p /app/staticfiles /app/media \
+    && DJANGO_DEBUG=false \
+        DJANGO_SECRET_KEY=build-only-static-secret-not-used-at-runtime \
+        DJANGO_ALLOWED_HOSTS=build.local \
+        AUTH_DEFAULT_DOMAIN=build.local \
+        DOORMAN_ACCESS_LINK_API_KEY=build-only \
+        MANYCHAT_API_TOKEN=build-only \
+        python manage.py collectstatic --noinput -v 0 \
     && chown -R shopman:shopman /app /home/shopman
 
 USER shopman

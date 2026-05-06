@@ -39,6 +39,10 @@ Docker. No run `25407383805`, a job `Docker deploy image` passou em 1m37s.
 
 **Deploy encapsulado:** `Dockerfile`, compose profiles e targets `make deploy-*`
 existem para build/release/web/worker sem exigir comandos Docker manuais.
+Para DigitalOcean, `.do/app.yaml` define App Platform com web, directive worker,
+release job, PostgreSQL 16 e Valkey Redis-compatible para staging técnico.
+Estáticos são coletados no build e servidos por WhiteNoise; media persistente
+continua decisão obrigatória antes de piloto público com uploads reais.
 
 **Observabilidade operacional:** logs JSON opcionais por `SHOPMAN_JSON_LOGS`,
 eventos estruturados para reconciliação/webhooks e alertas `webhook_failed` /

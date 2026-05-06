@@ -39,6 +39,15 @@ CSRF_TRUSTED_ORIGINS = [
     for origin in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
     if origin.strip()
 ]
+
+_trust_forwarded_proto = os.environ.get(
+    "DJANGO_TRUST_X_FORWARDED_PROTO",
+    "true" if not DEBUG else "false",
+).lower() in ("true", "1", "yes")
+if _trust_forwarded_proto:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    USE_X_FORWARDED_HOST = True
+
 if DEBUG:
     # Permitir os domínios públicos do ngrok ao expor o dev server.
     # ALLOWED_HOSTS recebe os padrões explicitamente para funcionar mesmo quando
@@ -57,8 +66,6 @@ if DEBUG:
         "https://*.ngrok.app",
         "https://*.trycloudflare.com",
     ]
-    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-    USE_X_FORWARDED_HOST = True
 
 SHOPMAN_INSTANCE_APPS = _csv_env_list("SHOPMAN_INSTANCE_APPS")
 
@@ -126,6 +133,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "csp.middleware.CSPMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -266,6 +274,24 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 STATIC_URL = "/static/"
 STATIC_ROOT = os.environ.get("STATIC_ROOT", os.path.join(BASE_DIR, "staticfiles"))
+
+_staticfiles_storage_backend = os.environ.get("DJANGO_STATICFILES_STORAGE") or (
+    "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    if not DEBUG
+    else "django.contrib.staticfiles.storage.StaticFilesStorage"
+)
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": _staticfiles_storage_backend,
+    },
+}
+WHITENOISE_MANIFEST_STRICT = os.environ.get(
+    "WHITENOISE_MANIFEST_STRICT",
+    "true" if not DEBUG else "false",
+).lower() in ("true", "1", "yes")
 
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = "/media/"
