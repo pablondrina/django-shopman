@@ -412,6 +412,11 @@ Use este alvo como contrato de honestidade: `passed_with_external_blockers`
 significa que a árvore local está coerente, mas ainda não há prova de gateway
 real, dispositivo físico ou staging.
 
+O script serializa execuções concorrentes com lock de processo porque os smokes
+locais escrevem no banco durante transações com rollback. Isso evita falso
+negativo `database is locked` quando dois operadores ou automações disparam o
+readiness ao mesmo tempo em SQLite local.
+
 ---
 
 ### seed

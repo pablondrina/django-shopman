@@ -1,6 +1,6 @@
 # ROADMAP — Django Shopman
 
-> Atualizado em 2026-05-05. Este documento é o mapa executivo vivo. Estado
+> Atualizado em 2026-05-06. Este documento é o mapa executivo vivo. Estado
 > factual fica em [`status.md`](status.md); planos detalhados ficam em
 > [`plans/README.md`](plans/README.md).
 
@@ -28,10 +28,12 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 - gate `make omotenashi-browser-ci` no `Runtime Gate`, com CSS, seed, servidor
   temporário e screenshots como artifact;
 - rodada browser local da matriz Omotenashi registrada com `14 pass`, `0 review`
-  em [`reports/omotenashi-browser-qa-2026-05-05.md`](reports/omotenashi-browser-qa-2026-05-05.md).
+  em [`reports/omotenashi-browser-qa-2026-05-06.md`](reports/omotenashi-browser-qa-2026-05-06.md).
 - `make release-readiness` consolida checks locais e bloqueios externos de
   piloto/release; `make release-readiness-strict` falha também quando faltam
   gateway sandbox, evidência manual/física ou pre-prod.
+- domínio operacional baseline com templates e execuções auditáveis de abertura,
+  rotina e fechamento no Backstage/Admin, refletido no seed Nelson.
 
 ## Próximos Passos
 
@@ -39,7 +41,7 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 |------------|--------|------------------|-------|
 | P1 | Gateways sandbox e snapshot real | Smoke local existe; validar EFI, Stripe e iFood contra sandbox/staging real. | [`plans/OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md) |
 | P1 | QA manual Omotenashi E2E | Gate browser CI existe; completar dispositivo físico/staging e evidência humana antes de release real. | [`plans/OMOTENASHI-FIRST-FULLNESS-PLAN.md`](plans/OMOTENASHI-FIRST-FULLNESS-PLAN.md) |
-| P2 | Disponibilidade e substitutos | PDP/carrinho com feedback acionável, substitutos, holds e timeouts transparentes. | [`plans/AVAILABILITY-PLAN.md`](plans/AVAILABILITY-PLAN.md) |
+| P2 | Domínio operacional | Baseline de checklists auditáveis existe; continuar superfície operacional dedicada e relatórios/BI. | [`plans/OPERATION-DOMAIN-PLAN.md`](plans/OPERATION-DOMAIN-PLAN.md) |
 | P2 | Endereço canônico | Fluxo mobile de endereço com busca, geolocalização opt-in, ajuste no mapa e fallback manual. | [`plans/ADDRESS-UX-PLAN.md`](plans/ADDRESS-UX-PLAN.md) |
 | P2 | Diagnóstico operacional profundo | Baseline `make diagnose-*`, runbooks e reconciliação interna concluído; continuar smoke sandbox. | [`plans/OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md) |
 | P3 | Pre-prod real | Executar playbook quando houver provedor, domínio, secrets e dados de staging definidos. | [`plans/WP-GAP-07-pre-prod-migration-playbook.md`](plans/WP-GAP-07-pre-prod-migration-playbook.md) |
@@ -59,6 +61,7 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 
 | Item | Estado |
 |------|--------|
+| Disponibilidade e substitutos | Concluído. Plano arquivado em [`plans/completed/AVAILABILITY-PLAN.md`](plans/completed/AVAILABILITY-PLAN.md). |
 | Django 6 | Concluído. Plano arquivado em [`plans/completed/DJANGO-6-UPGRADE-PLAN.md`](plans/completed/DJANGO-6-UPGRADE-PLAN.md). |
 | `django-redis` | Removido do contrato. Redis usa backend nativo do Django. |
 | Docker manual para o operador | Encapsulado por Makefile e GitHub Actions. |
@@ -67,7 +70,7 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 | Reconciliação financeira diária interna | `make reconcile-financial-day` cruza pedidos, Payman e `DayClosing`; alerta divergências. |
 | Smoke local de gateways | `make smoke-gateways` cobre EFI/Stripe/iFood localmente com rollback; sandbox real segue pendente. |
 | Matriz QA Omotenashi | `make omotenashi-qa` aponta URLs e evidências seed para mobile/tablet/desktop. |
-| Gate browser Omotenashi | `make omotenashi-browser-ci` roda no `Runtime Gate`; evidência manual em [`reports/omotenashi-browser-qa-2026-05-05.md`](reports/omotenashi-browser-qa-2026-05-05.md). |
+| Gate browser Omotenashi | `make omotenashi-browser-ci` roda no `Runtime Gate`; evidência local em [`reports/omotenashi-browser-qa-2026-05-06.md`](reports/omotenashi-browser-qa-2026-05-06.md). |
 | Readiness local de release | `make release-readiness` separa checks locais de bloqueios externos; modo estrito existe para release real. |
 | Storefront projections core | Menu, PDP, carrinho, checkout, pagamento, tracking, confirmação, conta e histórico consomem projections. |
 | Backstage maturity | Arquivado em [`plans/completed/BACKSTAGE-MATURITY-PLAN.md`](plans/completed/BACKSTAGE-MATURITY-PLAN.md). |

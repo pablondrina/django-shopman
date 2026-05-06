@@ -1,6 +1,6 @@
 # Status — Django Shopman
 
-> Última atualização: 2026-05-05
+> Última atualização: 2026-05-06
 
 Retrato factual do que está implementado e funcionando. Não é um plano — é o estado atual.
 Para gaps e roadmap, ver [ROADMAP.md](ROADMAP.md) e os planos ativos em `docs/plans/`.
@@ -21,21 +21,21 @@ Para gaps e roadmap, ver [ROADMAP.md](ROADMAP.md) e os planos ativos em `docs/pl
 | shopman-doorman | `shopman-doorman` | 0.1.0 | coleta global | Estável | Auth OTP, device trust, bridge tokens |
 | shopman-payman | `shopman-payman` | 0.2.0 | coleta global | Beta | Pagamentos, PIX, Stripe, reconciliação cumulativa — cobertura parcial |
 
-**Último gate local completo:** `make test` em SQLite/LocMem, 2026-05-05:
+**Último gate local completo:** `make test` em SQLite/LocMem, 2026-05-06:
 pacotes (`refs`, `utils`, `offerman`, `stockman`, `craftsman`, `orderman`,
 `payman`, `guestman`, `doorman`) e framework verdes. Segmento framework:
-`1860 passed`, `13 skipped`, `3 warnings`, `14 subtests`.
+`1862 passed`, `13 skipped`, `3 warnings`, `14 subtests`.
 
 **Gate runtime real:** `make test-runtime` criado em 2026-05-05 para
 PostgreSQL + Redis. Ele falha se PostgreSQL/Redis não estiverem acessíveis ou
 se qualquer teste sensível for pulado. Evidência registrada no PR #3:
-`Runtime Gate` `25406736404` passou em 2026-05-05, com `PostgreSQL + Redis
-runtime stress gate` verde em 1m29s.
+`Runtime Gate` `25407383805` passou em 2026-05-05, com `PostgreSQL + Redis
+runtime stress gate` verde em 1m39s.
 
 **CI sem Docker local:** workflow `Runtime Gate` criado em 2026-05-05. Ele
 builda a imagem Docker no GitHub Actions, sobe PostgreSQL/Redis, roda a suite
 completa e executa `make test-runtime`; o operador local nao precisa rodar
-Docker. No run `25406736404`, a job `Docker deploy image` passou em 1m24s.
+Docker. No run `25407383805`, a job `Docker deploy image` passou em 1m37s.
 
 **Deploy encapsulado:** `Dockerfile`, compose profiles e targets `make deploy-*`
 existem para build/release/web/worker sem exigir comandos Docker manuais.
@@ -68,19 +68,23 @@ algum cenário canônico não tiver dado seed correspondente.
 captura screenshots e falha em revisão visual objetiva.
 `make omotenashi-browser-ci` compila CSS, recria o seed, sobe servidor
 temporário e roda o gate estrito; o workflow `Runtime Gate` executa esse alvo.
-No run `25406736404`, o job `Omotenashi browser QA` passou com `14 pass`,
+No run `25407383805`, o job `Omotenashi browser QA` passou com `14 pass`,
 `0 review` e artifact de screenshots/JSON/log.
 Rodada browser local
 registrada em
-[`omotenashi-browser-qa-2026-05-05.md`](reports/omotenashi-browser-qa-2026-05-05.md):
+[`omotenashi-browser-qa-2026-05-06.md`](reports/omotenashi-browser-qa-2026-05-06.md):
 `14 pass`, `0 review`, `0 fail`.
 
 **Prontidão de piloto/release:** `make release-readiness` consolida checks
 locais leves (`django check`, migrations, seed Omotenashi e smoke local de
 gateways) e separa bloqueios externos reais: gateway sandbox/staging, evidência
 manual/física e pre-prod. `make release-readiness-strict` falha também nesses
-bloqueios externos. Rodada local em 2026-05-05: `passed_with_external_blockers`
-com `4 passed`, `0 failed`, `3 blocked_external`.
+bloqueios externos. Rodada local em 2026-05-06:
+[`release-readiness-2026-05-06.md`](reports/release-readiness-2026-05-06.md)
+registrou `passed_with_external_blockers` com `4 passed`, `0 failed`,
+`3 blocked_external`; o modo estrito falhou apenas pelos bloqueios externos
+esperados. O script agora serializa execuções concorrentes para evitar falso
+negativo `database is locked` em SQLite local.
 
 **Django 6:** o contrato canônico agora é `Django>=6.0,<6.1`. O canário local
 em ambiente isolado validou Django 6.0.5 com `django-unfold 0.92.0`, DRF
@@ -101,8 +105,9 @@ suite completa após atualizar o inventário Unfold canônico.
 | **Storefront (web/API)** | Beta | App próprio `shopman/storefront/`, views/projections/templates/API v1 |
 | **Admin (Unfold)** | Estável | Dashboard, shop config, pedidos, KDS operacional, produção, fechamento e alertas |
 | **Runtime operacional** | Beta | POS e KDS de produção como superfícies próprias, fora do Admin por necessidade operacional |
+| **Domínio operacional** | Beta | Templates e execuções auditáveis de checklists de abertura, rotina e fechamento, com Admin Unfold e seed Nelson |
 
-**Total do último gate framework local:** `1860 passed`, `13 skipped`,
+**Total do último gate framework local:** `1862 passed`, `13 skipped`,
 `3 warnings`, `14 subtests`.
 
 ---
@@ -117,6 +122,7 @@ suite completa após atualizar o inventário Unfold canônico.
 - Loyalty: acúmulo de pontos na confirmação, resgate no checkout
 - Auth OTP: WhatsApp-first com fallback, device trust, magic links
 - Fechamento do dia: sobras, D-1, apuração de caixa
+- Checklists operacionais: template → execução diária/turno → tarefa → evidência → dupla conferência → conclusão
 
 ---
 

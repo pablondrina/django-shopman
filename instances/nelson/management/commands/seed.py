@@ -56,8 +56,22 @@ from shopman.backstage.models import (
     CashRegisterSession,
     DayClosing,
     KDSInstance,
+    OperationArea,
+    OperationChecklistRun,
+    OperationChecklistTemplate,
+    OperationChecklistTemplateTask,
+    OperationEvidence,
+    OperationMoment,
+    OperationTaskRun,
+    OperationTaskTemplate,
     OperatorAlert,
     POSTab,
+)
+from shopman.backstage.services.operations import (
+    complete_checklist_run,
+    complete_task_run,
+    start_checklist_run,
+    supervise_task_run,
 )
 from shopman.shop.models import Channel, OmotenashiCopy, RuleConfig, Shop
 from shopman.shop.services.nutrition_from_recipe import fill_nutrition_from_recipe
@@ -108,6 +122,7 @@ class Command(BaseCommand):
         self._seed_rule_configs()
         self._seed_day_closing()
         self._seed_cash_register()
+        self._seed_operation_checklists()
 
         self.stdout.write(self.style.SUCCESS("\n✅ Seed Nelson completo!\n"))
 
@@ -329,6 +344,11 @@ class Command(BaseCommand):
         # KDS
         from shopman.backstage.models import KDSTicket
 
+        OperationTaskRun.objects.all().delete()
+        OperationChecklistRun.objects.all().delete()
+        OperationChecklistTemplateTask.objects.all().delete()
+        OperationChecklistTemplate.objects.all().delete()
+        OperationTaskTemplate.objects.all().delete()
         OperatorAlert.objects.all().delete()
         KDSTicket.objects.all().delete()
         KDSInstance.objects.all().delete()
@@ -3948,3 +3968,241 @@ class Command(BaseCommand):
         )
 
         self.stdout.write("  ✅ 2 sessoes de caixa (ontem fechada + hoje aberta)")
+
+    # ────────────────────────────────────────────────────────────────
+    # Operation checklists (abertura, rotina, fechamento)
+    # ────────────────────────────────────────────────────────────────
+
+    def _seed_operation_checklists(self):
+        self.stdout.write("  ✅ Checklists operacionais...")
+
+        admin = User.objects.filter(is_superuser=True).first()
+        if not admin:
+            self.stdout.write("  ⏭️  Sem superuser, pulando checklists operacionais")
+            return
+
+        task_specs = [
+            {
+                "ref": "nelson-opening-cash-count",
+                "title": "Caixa aberto e conferido",
+                "description": "Registrar fundo de troco antes de iniciar atendimento.",
+                "moment": OperationMoment.OPENING,
+                "area": OperationArea.CASH,
+                "evidence_required": OperationEvidence.NUMBER,
+                "expected_role": "caixa",
+                "sort_order": 10,
+            },
+            {
+                "ref": "nelson-opening-showcase-ready",
+                "title": "Vitrine preparada",
+                "description": "Conferir exposição, etiquetas e itens críticos antes da abertura.",
+                "moment": OperationMoment.OPENING,
+                "area": OperationArea.ROOM,
+                "evidence_required": OperationEvidence.TEXT,
+                "expected_role": "atendimento",
+                "sort_order": 20,
+            },
+            {
+                "ref": "nelson-opening-equipment-safe",
+                "title": "Equipamentos ligados e seguros",
+                "description": "Forno, geladeiras, iluminação e PDV em condição segura.",
+                "moment": OperationMoment.OPENING,
+                "area": OperationArea.PRODUCTION,
+                "evidence_required": OperationEvidence.DOUBLE_CHECK,
+                "expected_role": "produção",
+                "sort_order": 30,
+            },
+            {
+                "ref": "nelson-routine-tables-clean",
+                "title": "Mesas limpas",
+                "description": "Conferência periódica do salão.",
+                "moment": OperationMoment.ROUTINE,
+                "area": OperationArea.CLEANING,
+                "evidence_required": OperationEvidence.TEXT,
+                "expected_role": "salão",
+                "sort_order": 10,
+            },
+            {
+                "ref": "nelson-routine-bathroom-clean",
+                "title": "Banheiro limpo",
+                "description": "Checagem de limpeza, papel, sabonete e lixeira.",
+                "moment": OperationMoment.ROUTINE,
+                "area": OperationArea.CLEANING,
+                "evidence_required": OperationEvidence.TEXT,
+                "expected_role": "salão",
+                "sort_order": 20,
+            },
+            {
+                "ref": "nelson-routine-showcase-restock",
+                "title": "Reposição de vitrine",
+                "description": "Registrar rupturas, reposições e itens de atenção.",
+                "moment": OperationMoment.ROUTINE,
+                "area": OperationArea.ROOM,
+                "evidence_required": OperationEvidence.TEXT,
+                "expected_role": "atendimento",
+                "sort_order": 30,
+            },
+            {
+                "ref": "nelson-routine-critical-stock",
+                "title": "Ruptura ou item crítico conferido",
+                "description": "Checar itens com alerta ou alta demanda no dia.",
+                "moment": OperationMoment.ROUTINE,
+                "area": OperationArea.STOCK,
+                "evidence_required": OperationEvidence.TEXT,
+                "expected_role": "gestão",
+                "sort_order": 40,
+            },
+            {
+                "ref": "nelson-closing-cash-closed",
+                "title": "Caixa fechado",
+                "description": "Conferir valor informado, esperado e diferença.",
+                "moment": OperationMoment.CLOSING,
+                "area": OperationArea.CASH,
+                "evidence_required": OperationEvidence.DOUBLE_CHECK,
+                "expected_role": "caixa",
+                "sort_order": 10,
+            },
+            {
+                "ref": "nelson-closing-unsold-blind",
+                "title": "Não vendidos informados às cegas",
+                "description": "Registrar quantidade apurada sem revelar saldo esperado.",
+                "moment": OperationMoment.CLOSING,
+                "area": OperationArea.STOCK,
+                "evidence_required": OperationEvidence.NUMBER,
+                "expected_role": "fechamento",
+                "sort_order": 20,
+            },
+            {
+                "ref": "nelson-closing-showcase-clean",
+                "title": "Vitrine limpa",
+                "description": "Limpeza final e retirada de itens sem condição de venda.",
+                "moment": OperationMoment.CLOSING,
+                "area": OperationArea.CLEANING,
+                "evidence_required": OperationEvidence.TEXT,
+                "expected_role": "salão",
+                "sort_order": 30,
+            },
+            {
+                "ref": "nelson-closing-equipment-safe",
+                "title": "Equipamentos desligados ou seguros",
+                "description": "Conferir equipamentos, refrigeração e segurança para a noite.",
+                "moment": OperationMoment.CLOSING,
+                "area": OperationArea.PRODUCTION,
+                "evidence_required": OperationEvidence.DOUBLE_CHECK,
+                "expected_role": "produção",
+                "sort_order": 40,
+            },
+        ]
+
+        tasks: dict[str, OperationTaskTemplate] = {}
+        for spec in task_specs:
+            ref = spec.pop("ref")
+            task, _ = OperationTaskTemplate.objects.update_or_create(
+                ref=ref,
+                defaults={**spec, "is_required": True, "is_active": True, "is_system": True, "config": {"seed": "nelson"}},
+            )
+            tasks[ref] = task
+
+        checklist_specs = [
+            (
+                "nelson-opening",
+                "Abertura da casa",
+                OperationMoment.OPENING,
+                [
+                    "nelson-opening-cash-count",
+                    "nelson-opening-showcase-ready",
+                    "nelson-opening-equipment-safe",
+                ],
+            ),
+            (
+                "nelson-routine",
+                "Rotina do dia",
+                OperationMoment.ROUTINE,
+                [
+                    "nelson-routine-tables-clean",
+                    "nelson-routine-bathroom-clean",
+                    "nelson-routine-showcase-restock",
+                    "nelson-routine-critical-stock",
+                ],
+            ),
+            (
+                "nelson-closing",
+                "Fechamento da casa",
+                OperationMoment.CLOSING,
+                [
+                    "nelson-closing-cash-closed",
+                    "nelson-closing-unsold-blind",
+                    "nelson-closing-showcase-clean",
+                    "nelson-closing-equipment-safe",
+                ],
+            ),
+        ]
+        checklists: dict[str, OperationChecklistTemplate] = {}
+        for index, (ref, title, moment, task_refs) in enumerate(checklist_specs, start=1):
+            checklist, _ = OperationChecklistTemplate.objects.update_or_create(
+                ref=ref,
+                defaults={
+                    "title": title,
+                    "description": "Checklist canônico Nelson para operação diária.",
+                    "moment": moment,
+                    "is_active": True,
+                    "sort_order": index * 10,
+                },
+            )
+            checklists[ref] = checklist
+            for sort_order, task_ref in enumerate(task_refs, start=1):
+                OperationChecklistTemplateTask.objects.update_or_create(
+                    checklist_template=checklist,
+                    task_template=tasks[task_ref],
+                    defaults={"sort_order": sort_order * 10, "is_required_override": None},
+                )
+
+        today = timezone.localdate()
+        yesterday = today - timedelta(days=1)
+        OperationChecklistRun.objects.filter(context__seed="nelson").delete()
+
+        opening_run = start_checklist_run(
+            template=checklists["nelson-opening"],
+            business_date=today,
+            shift_ref="manha",
+            user=admin,
+            context={"seed": "nelson", "state": "completed_opening"},
+        )
+        for task in opening_run.task_runs.select_related("template"):
+            if task.evidence_required == OperationEvidence.NUMBER:
+                complete_task_run(task, user=admin, evidence_number=200, notes="Fundo de troco conferido.")
+            elif task.evidence_required == OperationEvidence.DOUBLE_CHECK:
+                complete_task_run(task, user=admin, notes="Equipamentos verificados.")
+                supervise_task_run(task, user=admin, notes="Dupla conferência seed.")
+            else:
+                complete_task_run(task, user=admin, evidence_text="Conferido no seed operacional.")
+        complete_checklist_run(opening_run, user=admin)
+
+        routine_run = start_checklist_run(
+            template=checklists["nelson-routine"],
+            business_date=today,
+            shift_ref="tarde",
+            user=admin,
+            context={"seed": "nelson", "state": "routine_in_progress"},
+        )
+        for task in routine_run.task_runs.filter(template__ref__in=["nelson-routine-tables-clean", "nelson-routine-showcase-restock"]):
+            complete_task_run(task, user=admin, evidence_text="Conferido durante a rotina.")
+
+        closing_run = start_checklist_run(
+            template=checklists["nelson-closing"],
+            business_date=yesterday,
+            shift_ref="noite",
+            user=admin,
+            context={"seed": "nelson", "state": "completed_closing"},
+        )
+        for task in closing_run.task_runs.select_related("template"):
+            if task.evidence_required == OperationEvidence.NUMBER:
+                complete_task_run(task, user=admin, evidence_number=33, notes="Total agregado de não vendidos.")
+            elif task.evidence_required == OperationEvidence.DOUBLE_CHECK:
+                complete_task_run(task, user=admin, notes="Fechamento conferido.")
+                supervise_task_run(task, user=admin, notes="Dupla conferência seed.")
+            else:
+                complete_task_run(task, user=admin, evidence_text="Conferido no fechamento.")
+        complete_checklist_run(closing_run, user=admin)
+
+        self.stdout.write("  ✅ 3 templates e 3 execuções de checklist operacional")

@@ -1,5 +1,11 @@
 # Plano: Domínio de Operação
 
+**Status:** baseline local implementado em 2026-05-06. O domínio já tem modelos,
+serviço idempotente, Admin Unfold canônico, migration, testes e seed Nelson para
+abertura, rotina e fechamento. O plano permanece ativo para a próxima camada:
+superfície de execução focada no operador, relatórios/BI e vínculos mais ricos
+com fechamento, caixa, produção e estoque.
+
 Este plano registra o próximo passo para checklists de abertura, rotina e
 fechamento. Não é escopo imediato do fechamento cego nem da tela de produção.
 
@@ -27,6 +33,15 @@ domínio próprio.
 - `OperationChecklistTemplate`: grupo de tarefas por momento operacional.
 - `OperationTaskRun`: execução real de uma tarefa em uma data ou turno.
 - `OperationChecklistRun`: instância diária de abertura, rotina ou fechamento.
+
+Implementado em:
+
+- `shopman/backstage/models/operation.py`;
+- `shopman/backstage/services/operations.py`;
+- `shopman/backstage/admin/operation.py`;
+- `shopman/backstage/migrations/0007_operationchecklisttemplate_operationtasktemplate_and_more.py`;
+- `shopman/backstage/tests/test_operation_domain.py`;
+- `instances/nelson/management/commands/seed.py`.
 
 Campos centrais:
 
@@ -57,6 +72,12 @@ Campos centrais:
   correlação com sobra, ruptura, reclamações e divergências de caixa.
 
 ## Checklists canônicos
+
+Seed Nelson em 2026-05-06:
+
+- abertura de hoje concluída;
+- rotina de hoje aberta, parcialmente executada;
+- fechamento de ontem concluído com dupla conferência.
 
 ### Abertura
 
@@ -152,9 +173,10 @@ O relatório deve agrupar quando fizer sentido para a operação:
 
 ## Perguntas abertas
 
-- O checklist deve ser por loja, por turno ou por posto?
-- Quem pode marcar execução e quem pode supervisionar?
-- Quais tarefas devem exigir dupla conferência?
-- Quais evidências são realmente úteis sem criar burocracia?
-- O domínio deve nascer como `shopman.operation` e depois virar pacote, ou já
-  nascer como pacote kernel quando o contrato estabilizar?
+- O checklist deve continuar por loja/turno no Backstage ou ganhar dimensão de
+  posto quando houver mais de uma praça executando em paralelo?
+- A execução deve permanecer no Admin nativo para gerente ou ganhar superfície
+  operacional dedicada para operador de salão/caixa?
+- Quais evidências devem virar campo estruturado em vez de `evidence_data`?
+- Quando o contrato estabilizar, vale extrair para pacote kernel
+  `shopman-operation` ou manter no Backstage como domínio de aplicação?

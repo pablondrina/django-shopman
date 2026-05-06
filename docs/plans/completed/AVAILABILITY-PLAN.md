@@ -1,6 +1,6 @@
 # AVAILABILITY-PLAN
 
-**Status:** concluído e validado em 2026-05-05. Todos os WPs WP-AV-01..14 têm implementação e cobertura rastreável; WP-AV-08, WP-AV-09 e WP-AV-12 receberam correções adicionais de robustez na mesma data. Sucessor operativo do [STOCK-UX-PLAN.md](STOCK-UX-PLAN.md) para o sistema de verificação de disponibilidade e sugestão de substituição no storefront.
+**Status:** concluído e validado em 2026-05-05. Todos os WPs WP-AV-01..14 têm implementação e cobertura rastreável; WP-AV-08, WP-AV-09 e WP-AV-12 receberam correções adicionais de robustez na mesma data. Sucessor operativo do [STOCK-UX-PLAN.md](../STOCK-UX-PLAN.md) para o sistema de verificação de disponibilidade e sugestão de substituição no storefront.
 
 **Escopo:** unificar vocabulário, regras de derivação, fluxos canônicos (Ajuste × Substituição), stepper clamp, modal de erro de estoque, fermata (hold indefinido + materialização com notificação ativa), timeouts transparentes, correções dos 7 gaps mapeados, e rename global `alternatives → substitutes`.
 
@@ -138,7 +138,7 @@ Modal **só** para erro real de submit que requer decisão (aceitar N / escolher
 
 Quando cliente adiciona produto em estado **Lista de espera** (`demand_ok` ou `planned_ok` sem ready):
 - Adapter detecta a condição (`ready_physical == 0 && (policy == demand_ok || planned > 0)`).
-- Cria Hold com `expires_at = None` (indefinido). O modelo [Hold.active()](packages/stockman/shopman/stockman/models/hold.py:16-23) já trata `NULL` como ativo.
+- Cria Hold com `expires_at = None` (indefinido). O modelo [Hold.active()](../../../packages/stockman/shopman/stockman/models/hold.py) já trata `NULL` como ativo.
 - Cart marca linha com flag `is_awaiting_confirmation = True`.
 - UI mostra `Aguardando confirmação` + `Avisamos quando chegar.` na linha do cart.
 - CTA é habilitado mas sem urgência. Checkout pode ou não ser bloqueado (decisão da seção 5).
@@ -152,13 +152,13 @@ Quando produção realiza (Stockman `planning.realize()`):
 
 ### 8.3 Notificação ativa (Shopman, não Stockman)
 
-Receiver `on_holds_materialized` em [shopman/shop/handlers/_stock_receivers.py](shopman/shop/handlers/_stock_receivers.py) é estendido:
+Receiver `on_holds_materialized` em [shopman/shop/handlers/_stock_receivers.py](../../../shopman/shop/handlers/_stock_receivers.py) é estendido:
 
 1. Resolve Session pelos `hold.metadata.reference` (já faz).
 2. Resolve Customer pela Session.
 3. Resolve canal preferido via consentimentos ativos de notificação (Guestman).
 4. Chama `notify(event="stock.arrived", recipient=<canal resolvido>, context={sku, product_name, deadline_at, cart_url}, backend=<consentimento ativo ou default>)`.
-5. Continua com o auto-commit já implementado ([ADR-007](../_archive/decisions/adr-007-crafting-ordering-integration.md)).
+5. Continua com o auto-commit já implementado ([ADR-007](../../_archive/decisions/adr-007-crafting-ordering-integration.md)).
 
 A notificação viaja por WhatsApp (ManyChat), SMS, email, ou canal de origem da sessão — conforme preferência. Nunca apenas toast no storefront.
 
@@ -173,7 +173,7 @@ A notificação viaja por WhatsApp (ManyChat), SMS, email, ou canal de origem da
 
 ## 9. Timeouts transparentes — princípio permanente
 
-Registrado em memória persistente ([feedback_transparent_timeouts.md](../../.claude/memory/feedback_transparent_timeouts.md)).
+Registrado em memória persistente ([feedback_transparent_timeouts.md](../../../.claude/memory/feedback_transparent_timeouts.md)).
 
 Todo TTL/timeout que afeta o cliente é considerado **implementado** quando:
 
@@ -207,17 +207,17 @@ Após esta spec, apenas estes códigos são emitidos/consumidos:
 
 | Feature | Por quê não agora | Registro |
 |---|---|---|
-| "Me avise quando chegar" (subscrição avulsa) | Feature independente; cliente sem hold. | [project_notify_me_pending.md](../../.claude/memory/project_notify_me_pending.md) |
-| "Veja também" na PDP | Descoberta lateral por keywords. Reutiliza scorer existente. | [project_pdp_veja_tambem_pending.md](../../.claude/memory/project_pdp_veja_tambem_pending.md) |
+| "Me avise quando chegar" (subscrição avulsa) | Feature independente; cliente sem hold. | [project_notify_me_pending.md](../../../.claude/memory/project_notify_me_pending.md) |
+| "Veja também" na PDP | Descoberta lateral por keywords. Reutiliza scorer existente. | [project_pdp_veja_tambem_pending.md](../../../.claude/memory/project_pdp_veja_tambem_pending.md) |
 | Cross-sell ("vai bem com") | Outro sistema, outro dia. | — |
 
 ---
 
 ## 12. Arquitetura de sinalização
 
-**Stockman não é modificado.** Já faz o papel dele: emite `holds_materialized` como fato puro em [planning.py:184-196](../../packages/stockman/shopman/stockman/services/planning.py:184).
+**Stockman não é modificado.** Já faz o papel dele: emite `holds_materialized` como fato puro em [planning.py](../../../packages/stockman/shopman/stockman/services/planning.py).
 
-**Shopman orquestra.** O receiver `on_holds_materialized` em [handlers/_stock_receivers.py](../../shopman/shop/handlers/_stock_receivers.py) é o único ponto que precisa ser estendido. Usa o registry de `notifications.py` existente.
+**Shopman orquestra.** O receiver `on_holds_materialized` em [handlers/_stock_receivers.py](../../../shopman/shop/handlers/_stock_receivers.py) é o único ponto que precisa ser estendido. Usa o registry de `notifications.py` existente.
 
 **Zero sinal novo. Zero tópico de notificação novo na infraestrutura** — `stock.arrived` é apenas a chave semântica passada para o `notify()` registry; as backends (ManyChat/SMS/email) já existem.
 

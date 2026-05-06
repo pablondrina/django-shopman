@@ -24,6 +24,11 @@ from io import StringIO
 from pathlib import Path
 from typing import Literal
 
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - POSIX is the supported deploy target
+    fcntl = None
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -109,6 +114,28 @@ def setup_django() -> None:
         django.setup()
     finally:
         logging.disable(previous_disable_level)
+
+
+@contextmanager
+def _process_lock():
+    """Serialize readiness runs that mutate local smoke data.
+
+    The gateway smoke fixtures run inside rollback transactions, but two local
+    readiness processes sharing SQLite can still collide on write locks. The
+    lock is process-scoped and automatically released by the OS on exit.
+    """
+    if fcntl is None:
+        yield
+        return
+
+    lock_path = Path(os.environ.get("SHOPMAN_RELEASE_READINESS_LOCK", "/tmp/shopman-release-readiness.lock"))
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("w", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 def build_report(
@@ -363,11 +390,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--preprod-url", default="", help="Staging/pre-prod URL declared for release playbook.")
     args = parser.parse_args(argv)
 
-    report = build_report(
-        strict_external=bool(args.strict_external),
-        manual_qa_evidence=args.manual_qa_evidence,
-        preprod_url=args.preprod_url,
-    )
+    with _process_lock():
+        report = build_report(
+            strict_external=bool(args.strict_external),
+            manual_qa_evidence=args.manual_qa_evidence,
+            preprod_url=args.preprod_url,
+        )
     if args.json:
         print(json.dumps(report.as_dict(), ensure_ascii=False, sort_keys=True, indent=2))
     else:

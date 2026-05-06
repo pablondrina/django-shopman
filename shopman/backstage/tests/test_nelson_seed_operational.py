@@ -15,7 +15,13 @@ from shopman.orderman.models import IdempotencyKey, Order, OrderItem, Session
 from shopman.payman.models import PaymentIntent
 from shopman.stockman.models import Batch, Position
 
-from shopman.backstage.models import KDSInstance, OperatorAlert, POSTab
+from shopman.backstage.models import (
+    KDSInstance,
+    OperationChecklistRun,
+    OperationChecklistTemplate,
+    OperatorAlert,
+    POSTab,
+)
 from shopman.backstage.services.omotenashi_qa import build_omotenashi_qa_report
 
 
@@ -72,6 +78,14 @@ def test_nelson_seed_populates_production_history_alerts_and_batches():
     assert OperatorAlert.objects.filter(type="production_low_yield", acknowledged=False).exists()
     assert OperatorAlert.objects.filter(type="production_stock_short", acknowledged=False).exists()
     assert set(KDSInstance.objects.values_list("ref", flat=True)) >= {"cafes", "lanches", "encomendas", "expedicao"}
+    assert set(OperationChecklistTemplate.objects.values_list("ref", flat=True)) >= {
+        "nelson-opening",
+        "nelson-routine",
+        "nelson-closing",
+    }
+    assert OperationChecklistRun.objects.filter(template__ref="nelson-opening", status="completed").exists()
+    assert OperationChecklistRun.objects.filter(template__ref="nelson-routine", status="open").exists()
+    assert OperationChecklistRun.objects.filter(template__ref="nelson-closing", status="completed").exists()
 
     edge_orders = list(Order.objects.filter(snapshot__seed_namespace="security_reliability_edges"))
     edge_keys = {order.snapshot["seed_key"] for order in edge_orders}
