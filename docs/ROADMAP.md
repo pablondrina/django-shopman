@@ -37,12 +37,15 @@ O Shopman está em Django 6 e tem baseline operacional sólido:
 - DigitalOcean staging técnico ativo em
   <https://shopman-staging-cdjpy.ondigitalocean.app>, com App Platform,
   release job, worker, Managed PostgreSQL 16 e Managed Valkey 8.
+- blueprint de staging preparado para Nelson e bootstrap seguro de seed/admin;
+  falta redeploy + execução após autenticação `doctl`.
 
 ## Próximos Passos
 
 | Prioridade | Frente | Entrega esperada | Plano |
 |------------|--------|------------------|-------|
 | P1 | Gateways sandbox e snapshot real | Smoke local existe; validar EFI, Stripe e iFood contra sandbox/staging real. | [`plans/OPERATION-RUNBOOKS-PLAN.md`](plans/OPERATION-RUNBOOKS-PLAN.md) |
+| P1 | Bootstrap staging Nelson | Redeploy com instância Nelson, seed único e superuser nominal com `admin` técnico desativado. | [`guides/deploy-digitalocean.md`](guides/deploy-digitalocean.md) |
 | P1 | QA manual Omotenashi E2E | Gate browser CI existe; completar dispositivo físico/staging e evidência humana antes de release real. | [`plans/OMOTENASHI-FIRST-FULLNESS-PLAN.md`](plans/OMOTENASHI-FIRST-FULLNESS-PLAN.md) |
 | P2 | Domínio operacional | Baseline de checklists auditáveis existe; continuar superfície operacional dedicada e relatórios/BI. | [`plans/OPERATION-DOMAIN-PLAN.md`](plans/OPERATION-DOMAIN-PLAN.md) |
 | P2 | Endereço canônico | Fluxo mobile de endereço com busca, geolocalização opt-in, ajuste no mapa e fallback manual. | [`plans/ADDRESS-UX-PLAN.md`](plans/ADDRESS-UX-PLAN.md) |

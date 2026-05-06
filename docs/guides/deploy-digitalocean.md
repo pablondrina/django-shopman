@@ -32,6 +32,8 @@ O arquivo `.do/app.yaml` define:
 - `release`: job `PRE_DEPLOY` com `check --deploy` e migrations;
 - `postgres`: PostgreSQL 16 gerenciado (`shopman-staging-postgres`);
 - `cache`: Valkey 8 gerenciado (`shopman-staging-cache`), exposto ao Django via `REDIS_URL`;
+- instância Nelson ativa via `SHOPMAN_INSTANCE_APPS`, `SHOPMAN_CUSTOMER_STRATEGY_MODULES`
+  e `SHOPMAN_INSTANCE_MODIFIERS`;
 - health checks em `/ready/` e liveness em `/health/`.
 
 O blueprint usa `git.repo_clone_url` público para dispensar autorização manual
@@ -116,6 +118,28 @@ make smoke-gateways-sandbox json=1
 O primeiro comando ainda só fica verde para release real depois de anexarmos
 evidência manual/física de QA Omotenashi e pré-produção. O segundo só fica verde
 quando EFI, Stripe, iFood e ManyChat estiverem com sandbox/staging reais.
+
+## Bootstrap de Dados e Admin
+
+Para staging técnico inicial, rode o seed Nelson uma única vez antes de qualquer
+dado real existir. O seed cria um superuser técnico `admin`, mas fora de DEBUG
+ele exige `ADMIN_PASSWORD` forte e falha fechado se a senha estiver ausente ou
+óbvia.
+
+Fluxo canônico:
+
+```bash
+ADMIN_PASSWORD=<senha-forte-temporaria> python manage.py seed --flush
+SHOPMAN_ADMIN_PASSWORD=<senha-forte-do-dono> python manage.py bootstrap_admin \
+  --username pablo \
+  --email pablo@example.com \
+  --deactivate-seed-admin
+```
+
+Depois que staging tiver dados de piloto, não use `seed --flush`; recriar o
+dataset passa a ser uma operação destrutiva deliberada. Para DigitalOcean App
+Platform, execute o bootstrap via console/job temporário e remova as senhas do
+ambiente do app depois da execução.
 
 ## Domínio
 

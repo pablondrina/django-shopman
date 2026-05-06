@@ -50,6 +50,9 @@ Valkey `shopman-staging-cache`. O deployment ativo
 `/ready/`, `/menu/` e CSS estático responderam 200 via URL pública.
 Estáticos são coletados no build e servidos por WhiteNoise; media persistente
 continua decisão obrigatória antes de piloto público com uploads reais.
+O blueprint local agora ativa a instância Nelson no staging e o bootstrap de
+dados/admin está protegido contra `admin/admin` fora de DEBUG; o redeploy e a
+execução do seed/admin nominal ainda dependem de autenticação `doctl` ativa.
 
 **Observabilidade operacional:** logs JSON opcionais por `SHOPMAN_JSON_LOGS`,
 eventos estruturados para reconciliação/webhooks e alertas `webhook_failed` /

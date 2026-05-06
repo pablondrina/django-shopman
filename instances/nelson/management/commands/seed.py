@@ -21,6 +21,7 @@ import uuid
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
@@ -89,12 +90,14 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        admin_password = self._resolve_admin_password()
+
         if options["flush"]:
             self._flush()
 
         self.stdout.write(self.style.MIGRATE_HEADING("\n🥐 Populando Nelson Boulangerie...\n"))
 
-        self._create_superuser()
+        self._create_superuser(admin_password)
         self._seed_shop()
         self._seed_delivery_zones()
         products = self._seed_catalog()
@@ -271,8 +274,25 @@ class Command(BaseCommand):
     # Superuser
     # ────────────────────────────────────────────────────────────────
 
-    def _create_superuser(self):
-        password = os.environ.get("ADMIN_PASSWORD", "admin")
+    def _resolve_admin_password(self) -> str:
+        password = os.environ.get("ADMIN_PASSWORD")
+        if password:
+            normalized = password.strip().lower()
+            if not settings.DEBUG and (len(password) < 12 or normalized in {"admin", "password", "shopman", "changeme"}):
+                raise CommandError(
+                    "ADMIN_PASSWORD inseguro para seed fora de DEBUG; "
+                    "use uma senha forte e temporaria."
+                )
+            return password
+
+        if settings.DEBUG:
+            return "admin"
+
+        raise CommandError(
+            "ADMIN_PASSWORD precisa estar definido antes de rodar o seed fora de DEBUG."
+        )
+
+    def _create_superuser(self, password: str):
         if not User.objects.filter(username="admin").exists():
             User.objects.create_superuser(
                 username="admin",

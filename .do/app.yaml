@@ -53,6 +53,18 @@ envs:
     value: "${APP_URL}"
     scope: RUN_TIME
     type: GENERAL
+  - key: SHOPMAN_INSTANCE_APPS
+    value: nelson
+    scope: RUN_TIME
+    type: GENERAL
+  - key: SHOPMAN_CUSTOMER_STRATEGY_MODULES
+    value: nelson.customer_strategies
+    scope: RUN_TIME
+    type: GENERAL
+  - key: SHOPMAN_INSTANCE_MODIFIERS
+    value: nelson.modifiers.D1DiscountModifier,nelson.modifiers.HappyHourModifier
+    scope: RUN_TIME
+    type: GENERAL
   - key: DOORMAN_MESSAGE_SENDER_CLASS
     value: shopman.doorman.senders.EmailSender
     scope: RUN_TIME

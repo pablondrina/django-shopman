@@ -7,6 +7,8 @@ from io import StringIO
 
 import pytest
 from django.core.management import call_command
+from django.core.management.base import CommandError
+from django.test import override_settings
 from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe, WorkOrder
 from shopman.guestman.models import Customer
@@ -26,7 +28,8 @@ from shopman.backstage.services.omotenashi_qa import build_omotenashi_qa_report
 
 
 @pytest.mark.django_db
-def test_nelson_seed_populates_production_history_alerts_and_batches():
+def test_nelson_seed_populates_production_history_alerts_and_batches(monkeypatch):
+    monkeypatch.setenv("ADMIN_PASSWORD", "strong-seed-admin-password")
     call_command("seed", "--flush", stdout=StringIO())
 
     assert not Product.objects.filter(sku__startswith="DEMO-").exists()
@@ -114,3 +117,12 @@ def test_nelson_seed_populates_production_history_alerts_and_batches():
     missing = [check.id for check in qa_report.checks if check.status == "missing"]
     assert qa_report.ready_count == len(qa_report.checks)
     assert not missing
+
+
+@pytest.mark.django_db
+def test_nelson_seed_rejects_default_admin_password_when_not_debug(monkeypatch):
+    monkeypatch.delenv("ADMIN_PASSWORD", raising=False)
+
+    with override_settings(DEBUG=False):
+        with pytest.raises(CommandError):
+            call_command("seed", stdout=StringIO())

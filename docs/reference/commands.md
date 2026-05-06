@@ -426,7 +426,7 @@ readiness ao mesmo tempo em SQLite local.
 
 Popula o banco com dados completos da Nelson Boulangerie: catálogo, estoque,
 receitas, clientes, canais, pedidos, pagamentos com `Order.data.payment.intent_ref`,
-sessões abertas, alertas, POS/KDS e superuser admin.
+sessões abertas, alertas, POS/KDS e superuser técnico `admin`.
 
 | Flag | Default | Descrição |
 |------|---------|-----------|
@@ -440,7 +440,34 @@ python manage.py seed
 python manage.py seed --flush
 ```
 
-**Variável de ambiente:** `ADMIN_PASSWORD` — senha do superuser (default: `"admin"`).
+**Variável de ambiente:** `ADMIN_PASSWORD` — senha do superuser técnico `admin`.
+Em `DEBUG=true`, se ausente, cai para `"admin"` apenas para desenvolvimento local.
+Fora de DEBUG, o comando falha se `ADMIN_PASSWORD` estiver ausente ou obviamente
+fraca; isso evita staging/prod público com `admin/admin`.
+
+Depois do seed em staging, crie o dono nominal e desative o `admin` técnico:
+
+```bash
+SHOPMAN_ADMIN_PASSWORD=<senha forte> python manage.py bootstrap_admin \
+  --username pablo \
+  --email pablo@example.com \
+  --deactivate-seed-admin
+```
+
+### bootstrap_admin
+
+**App:** `shop`
+**Arquivo:** `shopman/shop/management/commands/bootstrap_admin.py`
+
+Cria ou atualiza um superuser nominal de forma idempotente, sem depender do
+`createsuperuser` interativo. Use para bootstrap de staging/pre-prod/prod.
+
+| Flag | Default | Descrição |
+|------|---------|-----------|
+| `--username` | `SHOPMAN_ADMIN_USERNAME` | Usuário administrativo nominal |
+| `--email` | `SHOPMAN_ADMIN_EMAIL` | Email do usuário administrativo |
+| `--password-env` | `SHOPMAN_ADMIN_PASSWORD` | Env var que contém a senha |
+| `--deactivate-seed-admin` | — | Desativa o usuário técnico `admin` criado pelo seed |
 
 ---
 
