@@ -82,11 +82,23 @@ envs:
     scope: RUN_TIME
     type: GENERAL
   - key: SHOPMAN_PIX_ADAPTER
-    value: shopman.shop.adapters.payment_efi
+    value: shopman.shop.adapters.payment_mock
     scope: RUN_TIME
     type: GENERAL
   - key: SHOPMAN_CARD_ADAPTER
-    value: shopman.shop.adapters.payment_stripe
+    value: shopman.shop.adapters.payment_mock
+    scope: RUN_TIME
+    type: GENERAL
+  - key: SHOPMAN_ALLOW_MOCK_PAYMENT_ADAPTERS
+    value: "true"
+    scope: RUN_TIME
+    type: GENERAL
+  - key: SHOPMAN_MOCK_PIX_AUTO_CONFIRM
+    value: "true"
+    scope: RUN_TIME
+    type: GENERAL
+  - key: SHOPMAN_MOCK_PIX_CONFIRM_DELAY_SECONDS
+    value: "8"
     scope: RUN_TIME
     type: GENERAL
   - key: EFI_SANDBOX

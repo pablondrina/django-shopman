@@ -68,11 +68,20 @@ IFOOD_WEBHOOK_TOKEN=<segredo>
 MANYCHAT_API_TOKEN=<segredo>
 MANYCHAT_WEBHOOK_SECRET=<segredo>
 SHOPMAN_PIX_ADAPTER=shopman.shop.adapters.payment_efi
+EFI_CLIENT_ID=<sandbox/producao>
+EFI_CLIENT_SECRET=<sandbox/producao>
+EFI_CERTIFICATE_PATH=<path existente no container>
+EFI_PIX_KEY=<chave pix>
 SHOPMAN_CARD_ADAPTER=shopman.shop.adapters.payment_stripe
+STRIPE_SECRET_KEY=<sandbox/producao>
+STRIPE_WEBHOOK_SECRET=<segredo webhook stripe>
 ```
 
 `manage.py check --deploy` falha fechado quando esses itens obrigatorios nao
-estao configurados para producao.
+estao configurados para producao. Para staging tecnico sem credenciais sandbox
+reais, use `payment_mock` apenas com `SHOPMAN_ALLOW_MOCK_PAYMENT_ADAPTERS=true`;
+o check registra `SHOPMAN_W006` e o ambiente nao deve ser promovido a go-live
+nesse modo.
 
 ## Static e Media
 

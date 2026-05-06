@@ -22,6 +22,7 @@ import logging
 import uuid
 from datetime import timedelta
 
+from django.conf import settings
 from django.utils import timezone
 
 from shopman.shop.adapters import get_adapter
@@ -645,6 +646,13 @@ def _adapter_config(order, *, method: str) -> dict:
     config: dict = {}
     if method == "pix":
         config["pix_timeout_minutes"] = cfg.payment.timeout_minutes
+        if getattr(settings, "SHOPMAN_MOCK_PIX_AUTO_CONFIRM", False):
+            config["mock_pix_auto_confirm"] = True
+            config["mock_pix_confirm_delay_seconds"] = getattr(
+                settings,
+                "SHOPMAN_MOCK_PIX_CONFIRM_DELAY_SECONDS",
+                10,
+            )
     if method == "card":
         config["capture_method"] = "manual"
     return config

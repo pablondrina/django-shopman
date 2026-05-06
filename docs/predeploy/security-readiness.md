@@ -40,6 +40,8 @@ release one-shot, web ASGI/Daphne e directive worker.
 - `SHOPMAN_E005`: webhook ManyChat sem segredo HMAC.
 - `SHOPMAN_E006`: cache compartilhado Redis ausente em produção.
 - `SHOPMAN_E007`: SQLite fora de `DEBUG`.
+- `SHOPMAN_E008`: access-link servidor-servidor sem `DOORMAN_ACCESS_LINK_API_KEY`.
+- `SHOPMAN_E009`: adapter real de pagamento sem credenciais/arquivos obrigatórios.
 
 Warnings que precisam de decisão antes do go-live:
 
@@ -48,6 +50,10 @@ Warnings que precisam de decisão antes do go-live:
 - `SHOPMAN_W003`: canal fiscal ativo sem adapter fiscal.
 - `SHOPMAN_W004`: `Listing.ref` sem `Channel.ref` correspondente.
 - `SHOPMAN_W005`: backend contextual de pricing do Offerman não configurado.
+- `SHOPMAN_W006`: adapter mock de pagamento explicitamente liberado fora de
+  `DEBUG`. Aceitável apenas em staging/teste operacional sem credenciais sandbox
+  reais; antes de go-live, remover `SHOPMAN_ALLOW_MOCK_PAYMENT_ADAPTERS` e usar
+  EFI/Stripe reais.
 
 ## Variáveis Obrigatórias
 
@@ -62,8 +68,9 @@ Base Django:
 
 Pagamentos e webhooks:
 
-- `STRIPE_SECRET_KEY` e `STRIPE_WEBHOOK_SECRET`, se cartão estiver ativo.
-- `EFI_CLIENT_ID`, `EFI_CLIENT_SECRET`, `EFI_WEBHOOK_TOKEN`, se Pix EFI estiver ativo.
+- `STRIPE_SECRET_KEY` e `STRIPE_WEBHOOK_SECRET`, se cartão Stripe estiver ativo.
+- `EFI_CLIENT_ID`, `EFI_CLIENT_SECRET`, `EFI_CERTIFICATE_PATH`,
+  `EFI_PIX_KEY` e `EFI_WEBHOOK_TOKEN`, se Pix EFI estiver ativo.
 - `IFOOD_WEBHOOK_TOKEN`, se iFood estiver ativo.
 
 Mensageria e autenticação externa:

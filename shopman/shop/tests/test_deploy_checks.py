@@ -69,3 +69,118 @@ def test_access_link_api_key_required_outside_debug():
 @override_settings(DEBUG=False, DOORMAN={"ACCESS_LINK_API_KEY": "test-secret"})
 def test_access_link_api_key_accepts_configured_secret_outside_debug():
     assert checks.check_doorman_access_link_api_key(None) == []
+
+
+@override_settings(
+    DEBUG=False,
+    SHOPMAN_PAYMENT_ADAPTERS={
+        "pix": "shopman.shop.adapters.payment_mock",
+        "card": "shopman.shop.adapters.payment_mock",
+    },
+    SHOPMAN_ALLOW_MOCK_PAYMENT_ADAPTERS=False,
+)
+def test_payment_mock_requires_explicit_staging_allowance_outside_debug():
+    messages = checks.check_payment_adapters(None)
+
+    assert [message.id for message in messages] == ["SHOPMAN_E003", "SHOPMAN_E003"]
+
+
+@override_settings(
+    DEBUG=False,
+    SHOPMAN_PAYMENT_ADAPTERS={
+        "pix": "shopman.shop.adapters.payment_mock",
+        "card": "shopman.shop.adapters.payment_mock",
+    },
+    SHOPMAN_ALLOW_MOCK_PAYMENT_ADAPTERS=True,
+)
+def test_payment_mock_is_warning_when_explicitly_allowed_for_staging():
+    messages = checks.check_payment_adapters(None)
+
+    assert [message.id for message in messages] == ["SHOPMAN_W006", "SHOPMAN_W006"]
+
+
+@override_settings(
+    DEBUG=False,
+    SHOPMAN_PAYMENT_ADAPTERS={
+        "pix": "shopman.shop.adapters.payment_efi",
+        "card": "shopman.shop.adapters.payment_stripe",
+    },
+    SHOPMAN_EFI={},
+    SHOPMAN_STRIPE={
+        "secret_key": "sk_test_123",
+        "webhook_secret": "whsec_test_123",
+    },
+)
+def test_payment_efi_adapter_requires_credentials_outside_debug():
+    messages = checks.check_payment_adapters(None)
+
+    assert [message.id for message in messages] == ["SHOPMAN_E009"]
+    assert "EFI_CLIENT_ID" in messages[0].hint
+    assert "EFI_CERTIFICATE_PATH" in messages[0].hint
+
+
+@override_settings(
+    DEBUG=False,
+    SHOPMAN_PAYMENT_ADAPTERS={
+        "pix": "shopman.shop.adapters.payment_efi",
+        "card": "shopman.shop.adapters.payment_stripe",
+    },
+    SHOPMAN_EFI={
+        "client_id": "client",
+        "client_secret": "secret",
+        "certificate_path": "/tmp/shopman-missing-efi-cert.pem",
+        "pix_key": "pix-key",
+    },
+    SHOPMAN_STRIPE={
+        "secret_key": "sk_test_123",
+        "webhook_secret": "whsec_test_123",
+    },
+)
+def test_payment_efi_adapter_requires_certificate_file_outside_debug():
+    messages = checks.check_payment_adapters(None)
+
+    assert [message.id for message in messages] == ["SHOPMAN_E009"]
+    assert "arquivo existente" in messages[0].hint
+
+
+@override_settings(
+    DEBUG=False,
+    SHOPMAN_PAYMENT_ADAPTERS={
+        "pix": "shopman.shop.adapters.payment_efi",
+        "card": "shopman.shop.adapters.payment_stripe",
+    },
+    SHOPMAN_EFI={
+        "client_id": "client",
+        "client_secret": "secret",
+        "certificate_path": __file__,
+        "pix_key": "pix-key",
+    },
+    SHOPMAN_STRIPE={},
+)
+def test_payment_stripe_adapter_requires_credentials_outside_debug():
+    messages = checks.check_payment_adapters(None)
+
+    assert [message.id for message in messages] == ["SHOPMAN_E009"]
+    assert "STRIPE_SECRET_KEY" in messages[0].hint
+    assert "STRIPE_WEBHOOK_SECRET" in messages[0].hint
+
+
+@override_settings(
+    DEBUG=False,
+    SHOPMAN_PAYMENT_ADAPTERS={
+        "pix": "shopman.shop.adapters.payment_efi",
+        "card": "shopman.shop.adapters.payment_stripe",
+    },
+    SHOPMAN_EFI={
+        "client_id": "client",
+        "client_secret": "secret",
+        "certificate_path": __file__,
+        "pix_key": "pix-key",
+    },
+    SHOPMAN_STRIPE={
+        "secret_key": "sk_test_123",
+        "webhook_secret": "whsec_test_123",
+    },
+)
+def test_real_payment_adapters_accept_complete_gateway_settings():
+    assert checks.check_payment_adapters(None) == []

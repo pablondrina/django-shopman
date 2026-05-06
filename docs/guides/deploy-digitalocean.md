@@ -32,6 +32,9 @@ O arquivo `.do/app.yaml` define:
 - `release`: job `PRE_DEPLOY` com `check --deploy` e migrations;
 - `postgres`: PostgreSQL 16 gerenciado (`shopman-staging-postgres`);
 - `cache`: Valkey 8 gerenciado (`shopman-staging-cache`), exposto ao Django via `REDIS_URL`;
+- pagamentos em staging técnico via `payment_mock` para Pix e cartão, com
+  `SHOPMAN_ALLOW_MOCK_PAYMENT_ADAPTERS=true` e auto-confirmação de Pix, até
+  existirem credenciais sandbox reais de EFI/Stripe;
 - instância Nelson ativa via `SHOPMAN_INSTANCE_APPS`, `SHOPMAN_CUSTOMER_STRATEGY_MODULES`
   e `SHOPMAN_INSTANCE_MODIFIERS`;
 - health checks em `/ready/` e liveness em `/health/`.
@@ -91,6 +94,24 @@ MANYCHAT_API_TOKEN=<sandbox/staging>
 MANYCHAT_SUBSCRIBER_RESOLVER=shopman.guestman.contrib.manychat.resolver.ManychatSubscriberResolver.resolve
 IFOOD_MERCHANT_ID=<sandbox/staging>
 ```
+
+Enquanto EFI/Stripe sandbox nao estiverem configurados, staging deve permanecer
+explicitamente em mock:
+
+```env
+SHOPMAN_PIX_ADAPTER=shopman.shop.adapters.payment_mock
+SHOPMAN_CARD_ADAPTER=shopman.shop.adapters.payment_mock
+SHOPMAN_ALLOW_MOCK_PAYMENT_ADAPTERS=true
+SHOPMAN_MOCK_PIX_AUTO_CONFIRM=true
+SHOPMAN_MOCK_PIX_CONFIRM_DELAY_SECONDS=8
+```
+
+Isso permite testar checkout, criacao de pedido, tela de pagamento, fila de
+diretivas e transicao para pedido pago sem bloquear por credenciais externas.
+O `manage.py check --deploy` emite `SHOPMAN_W006` nesse modo. Para habilitar
+gateway real, troque os adapters para `payment_efi`/`payment_stripe` somente
+depois de preencher as credenciais listadas acima; se faltar certificado EFI,
+segredo Stripe ou webhook secret, o release falha com `SHOPMAN_E009`.
 
 ### ManyChat inbound e AccessLink
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from shopman.orderman.models import Directive
 
 
@@ -143,6 +143,30 @@ class PaymentInitiateFailureTests(TestCase):
         self.assertTrue(
             OperatorAlert.objects.filter(type="payment_failed", order_ref=order.ref).exists()
         )
+
+    @override_settings(
+        SHOPMAN_PAYMENT_ADAPTERS={
+            "pix": "shopman.shop.adapters.payment_mock",
+            "card": "shopman.shop.adapters.payment_mock",
+            "cash": None,
+            "external": None,
+        },
+        SHOPMAN_MOCK_PIX_AUTO_CONFIRM=True,
+        SHOPMAN_MOCK_PIX_CONFIRM_DELAY_SECONDS=0,
+    )
+    def test_mock_pix_auto_confirm_setting_schedules_directive(self) -> None:
+        """Staging can exercise the paid-order path without gateway credentials."""
+        from shopman.shop.services import payment as payment_service
+
+        order = _make_order(ref="FAIL-AUTO-PIX")
+
+        payment_service.initiate(order)
+
+        directive = Directive.objects.get(
+            topic="mock_pix.confirm",
+            payload__order_ref=order.ref,
+        )
+        self.assertTrue(directive.payload["mock_pix_auto_confirm"])
 
     def test_successful_initiate_not_affected(self) -> None:
         """Happy path: successful create_intent is not changed."""
