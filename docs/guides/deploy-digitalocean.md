@@ -90,14 +90,20 @@ doctl auth switch --context shopman-staging
 doctl projects create --name "Shopman Staging" --purpose "Web Application" --environment Staging
 doctl databases create shopman-staging-postgres --engine pg --version 16 --region nyc3 --size db-s-1vcpu-1gb --num-nodes 1 --wait
 doctl databases create shopman-staging-cache --engine valkey --version 8 --region nyc3 --size db-s-1vcpu-1gb --num-nodes 1 --wait
+doctl databases db create <postgres-id> shopman
+doctl databases user create <postgres-id> shopman
 doctl apps spec validate .do/app.yaml
 doctl apps create --spec .do/app.yaml --project-id <project-id> --wait
 ```
 
+O usuário `shopman` precisa ter permissão de criação no schema `public` do banco
+`shopman`; sem isso o release job passa em `check --deploy`, mas falha em
+`migrate` com `permission denied for schema public`.
+
 Se o app já existir:
 
 ```bash
-doctl apps update <app-id> --spec .do/app.yaml
+doctl apps update <app-id> --spec .do/app.yaml --update-sources --wait
 ```
 
 Depois do deploy:
