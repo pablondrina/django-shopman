@@ -62,6 +62,13 @@ def _manychat_failure_message(data: dict) -> str:
     return json.dumps(data, ensure_ascii=True)[:300]
 
 
+def _lookup_phone_values(phone: str) -> tuple[str, ...]:
+    digits = phone.lstrip("+")
+    if digits and digits != phone:
+        return phone, digits
+    return (phone,)
+
+
 class ManychatSubscriberResolver:
     """
     Resolve recipient → Manychat subscriber_id.
@@ -179,49 +186,54 @@ class ManychatSubscriberResolver:
         if not api_token:
             return None
 
-        url = (
-            f"{_API_BASE}/subscriber/findBySystemField"
-            f"?{urlencode({'phone': phone})}"
-        )
-        request = Request(url, headers={
-            "Authorization": f"Bearer {api_token}",
-            "Accept": "application/json",
-        })
+        for lookup_phone in _lookup_phone_values(phone):
+            url = (
+                f"{_API_BASE}/subscriber/findBySystemField"
+                f"?{urlencode({'phone': lookup_phone})}"
+            )
+            request = Request(url, headers={
+                "Authorization": f"Bearer {api_token}",
+                "Accept": "application/json",
+            })
 
-        try:
-            with urlopen(request, timeout=_API_TIMEOUT) as response:
-                data = json.loads(response.read().decode("utf-8"))
-                if data.get("status") == "success":
-                    subscriber_id = _subscriber_id(data)
-                    if subscriber_id:
+            try:
+                with urlopen(request, timeout=_API_TIMEOUT) as response:
+                    data = json.loads(response.read().decode("utf-8"))
+                    if data.get("status") == "success":
+                        subscriber_id = _subscriber_id(data)
+                        if subscriber_id:
+                            logger.info(
+                                "Manychat resolver: found subscriber %s for phone %s via API",
+                                subscriber_id, phone[:8],
+                            )
+                            return subscriber_id
                         logger.info(
-                            "Manychat resolver: found subscriber %s for phone %s via API",
-                            subscriber_id, phone[:8],
+                            "Manychat resolver: no subscriber found for phone %s via system field",
+                            phone[:8],
                         )
-                        return subscriber_id
-                    logger.info(
-                        "Manychat resolver: no subscriber found for phone %s via system field",
-                        phone[:8],
-                    )
+                    else:
+                        logger.warning(
+                            "Manychat resolver: lookup failed for phone %s: %s",
+                            phone[:8],
+                            _manychat_failure_message(data),
+                        )
+            except HTTPError as e:
+                error_body = _read_http_error_body(e)
+                if e.code == 404:
+                    logger.debug("Manychat resolver: subscriber not found for phone %s", phone[:8])
                 else:
                     logger.warning(
-                        "Manychat resolver: lookup failed for phone %s: %s",
+                        "Manychat resolver: API error %d for phone %s: %s",
+                        e.code,
                         phone[:8],
-                        _manychat_failure_message(data),
+                        error_body,
                     )
-        except HTTPError as e:
-            error_body = _read_http_error_body(e)
-            if e.code == 404:
-                logger.debug("Manychat resolver: subscriber not found for phone %s", phone[:8])
-            else:
-                logger.warning(
-                    "Manychat resolver: API error %d for phone %s: %s",
-                    e.code,
+            except (URLError, ValueError, Exception):
+                logger.debug(
+                    "Manychat resolver: API call failed for phone %s",
                     phone[:8],
-                    error_body,
+                    exc_info=True,
                 )
-        except (URLError, ValueError, Exception):
-            logger.debug("Manychat resolver: API call failed for phone %s", phone[:8], exc_info=True)
 
         return None
 
@@ -237,11 +249,7 @@ class ManychatSubscriberResolver:
         if not api_token:
             return None
 
-        payload = {
-            "whatsapp_phone": phone,
-            "phone": phone,
-            "has_opt_in_sms": False,
-        }
+        payload = {"whatsapp_phone": phone}
         request = Request(
             f"{_API_BASE}/subscriber/createSubscriber",
             data=json.dumps(payload).encode("utf-8"),

@@ -112,8 +112,9 @@
 
     <form method="post"
           action="{% url 'storefront:login' %}{% if next %}?next={{ next|urlencode }}{% endif %}"
-          x-data="{ method: 'whatsapp', loading: false }"
-          @submit="loading = true"
+          x-data="{ method: 'whatsapp', loading: false, loadingReset: null }"
+          @pageshow.window="loading = false"
+          @submit="loading = true; clearTimeout(loadingReset); loadingReset = setTimeout(() => loading = false, 30000)"
           novalidate
           class="space-y-6">
       {% csrf_token %}

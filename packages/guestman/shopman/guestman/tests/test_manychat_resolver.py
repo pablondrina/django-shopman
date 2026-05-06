@@ -227,12 +227,12 @@ class TestResolveByPhone:
         assert result == 987123
         lookup_query = parse_qs(urlparse(captured[0]["url"]).query)
         assert lookup_query == {"phone": ["+5543984049009"]}
-        assert captured[1]["method"] == "POST"
-        assert captured[1]["url"].endswith("/fb/subscriber/createSubscriber")
-        assert captured[1]["body"] == {
+        fallback_lookup_query = parse_qs(urlparse(captured[1]["url"]).query)
+        assert fallback_lookup_query == {"phone": ["5543984049009"]}
+        assert captured[2]["method"] == "POST"
+        assert captured[2]["url"].endswith("/fb/subscriber/createSubscriber")
+        assert captured[2]["body"] == {
             "whatsapp_phone": "+5543984049009",
-            "phone": "+5543984049009",
-            "has_opt_in_sms": False,
         }
 
 
