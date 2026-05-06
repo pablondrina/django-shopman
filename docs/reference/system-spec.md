@@ -484,7 +484,7 @@ Templates (app precedence), static, Shop tokens, canais/presets, adapters (setti
 
 ### 4.1 POV: Cliente final
 
-**E2E cliente web pré-compra delivery**: home (OmotenashiContext) → menu (SSE stock-update) → PDP (add qty) → `availability.reserve` cria Hold → cart badge "Aguardando confirmação" → checkout (Google Places + slots) → OTP WhatsApp (manychat) → auto-create customer → CommitService → `on_commit` dispatch (adopt hold FIFO por qty, payment.initiate PIX, notif "order_received") → QR code → EFI webhook `on_paid` → stock.fulfill → tracking SSE → completed → loyalty.earn + fiscal.emit.
+**E2E cliente web pré-compra delivery**: home (OmotenashiContext) → menu (SSE stock-update) → PDP (add qty) → `availability.reserve` cria Hold → cart badge "Aguardando confirmação" → checkout (Google Places + slots) → autenticação WhatsApp-first por conversa/AccessLink ou template aprovado, com SMS fallback → auto-create customer → CommitService → `on_commit` dispatch (adopt hold FIFO por qty, payment.initiate PIX, notif "order_received") → QR code → EFI webhook `on_paid` → stock.fulfill → tracking SSE → completed → loyalty.earn + fiscal.emit.
 
 **E2E WhatsApp bot**: bot ManyChat cria AccessLink (audience=WEB_CHECKOUT, TTL 5min, source=MANYCHAT) → cliente clica → AccessLinkLoginView valida HMAC+single-use → Django login → redirect para checkout com cart pré-carregado.
 
@@ -524,7 +524,7 @@ Composição não herança; sinais como contratos fracos + directives como firme
 
 **3 portões**: Antecipar (Yosoku), Estar presente (Sonzai), Ressoar (Yoin). **5 testes**: invisível, antecipação, ma, calor, retorno. **5 lentes**: QUEM / QUANDO / ONDE / O QUÊ / COMO.
 
-Copy patterns: "Bom dia, João. Croissants acabaram de sair do forno." "Ainda não chegamos aí" não "Fora da área". Mobile-first: breakpoints sm/md/lg, thumb zones, 48px touch, 16px+ body, bottom-nav. WhatsApp-first: OTP manychat default, AccessLink chat→web, templates curtos, roteamento origin_channel.
+Copy patterns: "Bom dia, João. Croissants acabaram de sair do forno." "Ainda não chegamos aí" não "Fora da área". Mobile-first: breakpoints sm/md/lg, thumb zones, 48px touch, 16px+ body, bottom-nav. WhatsApp-first: AccessLink chat→web, conversa iniciada pelo cliente ou template aprovado para auth, templates curtos, roteamento origin_channel.
 
 ### 5.3 Simplicidade / Robustez / Elegância
 

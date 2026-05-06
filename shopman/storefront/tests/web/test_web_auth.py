@@ -198,6 +198,20 @@ class TestAccessLinkLoginView:
 
 
 class TestLoginView:
+    def test_login_get_exposes_same_number_whatsapp_entry(self, client: Client):
+        from shopman.shop.models import Shop
+
+        Shop.objects.all().delete()
+        Shop.objects.create(name="Test Shop", phone="43984049009")
+
+        response = client.get("/login/?next=/checkout/")
+
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "Entrar pelo WhatsApp" in content
+        assert "https://wa.me/5543984049009?text=Quero+finalizar+meu+pedido" in content
+        assert "Seu carrinho e endereços estão salvos." not in content
+
     def test_login_rate_key_uses_normalized_phone_fallback(self):
         from shopman.storefront.views.auth import _auth_phone_rate_key
 

@@ -267,13 +267,17 @@ Settings flat usados pela integração ManyChat:
 
 | Setting | Tipo | Default | Descrição |
 |---------|------|---------|-----------|
-| `MANYCHAT_API_TOKEN` | str | `""` | Token da API ManyChat. Se definido, ativa a cadeia OTP WhatsApp-first e o backend ManyChat de notificações |
+| `MANYCHAT_API_TOKEN` | str | `""` | Token da API ManyChat para chamadas outbound Shopman -> ManyChat. Não autentica chamadas inbound do ManyChat |
 | `MANYCHAT_WEBHOOK_SECRET` | str | `""` | Segredo HMAC para webhooks inbound do ManyChat. Não envia mensagens outbound |
 | `MANYCHAT_SUBSCRIBER_RESOLVER` | str | `shopman.guestman.contrib.manychat.resolver.ManychatSubscriberResolver.resolve` | Callable para resolver telefone/customer em subscriber_id ManyChat |
 | `MANYCHAT_API_BASE` | str | `https://api.manychat.com/fb` | Base URL da API ManyChat |
 | `MANYCHAT_API_TIMEOUT` | int | `15` | Timeout em segundos das chamadas ManyChat |
 | `SHOPMAN_MANYCHAT` | dict | derivado das envs acima | Configuração canônica consumida por `notification_manychat` e `otp_manychat` |
 | `MANYCHAT_FLOW_MAP` | dict | — | Mapa de evento → flow ID do ManyChat |
+
+Para `POST /api/auth/access/create/` originado do ManyChat, use
+`DOORMAN_ACCESS_LINK_API_KEY` via header `X-Api-Key` ou `Authorization: Bearer`.
+Esse segredo pertence ao Doorman, nao ao ManyChat API token.
 
 ---
 

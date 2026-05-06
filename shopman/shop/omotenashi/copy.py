@@ -309,8 +309,8 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "WELCOME_WHATSAPP": {
         WILDCARD: {
             WILDCARD: CopyEntry(
-                title="Bem-vindo de volta",
-                message="Seu carrinho e endereços estão salvos.",
+                title="Você entrou pelo WhatsApp",
+                message="Pode continuar por aqui quando quiser.",
             ),
         },
     },
@@ -815,10 +815,10 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(title="Entre com seu telefone")},
     },
     "LOGIN_PHONE_SUBTITLE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Vamos enviar um código pelo WhatsApp.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Entre pelo WhatsApp ou confirme seu telefone por SMS.")},
     },
     "LOGIN_PHONE_CTA_WA": {
-        WILDCARD: {WILDCARD: CopyEntry(title="Receber código no WhatsApp")},
+        WILDCARD: {WILDCARD: CopyEntry(title="Entrar pelo WhatsApp")},
     },
     "LOGIN_PHONE_CTA_SMS": {
         WILDCARD: {WILDCARD: CopyEntry(title="Receber por SMS")},
@@ -833,7 +833,7 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
         WILDCARD: {WILDCARD: CopyEntry(message="Ou confirme outro telefone abaixo.")},
     },
     "LOGIN_NO_PASSWORD_NOTE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Código único. Não exige senha.")},
+        WILDCARD: {WILDCARD: CopyEntry(message="Sem senha. A entrada é temporária e segura.")},
     },
     "LOGIN_CHANGE_PHONE_TITLE": {
         WILDCARD: {WILDCARD: CopyEntry(title="Trocar de telefone?")},

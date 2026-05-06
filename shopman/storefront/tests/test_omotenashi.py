@@ -167,6 +167,19 @@ def test_unknown_key_returns_empty_entry(db):
     assert not entry
 
 
+def test_whatsapp_welcome_copy_does_not_claim_unsaved_state(db):
+    entry = resolve_copy("WELCOME_WHATSAPP", moment=MOMENT_MANHA, audience=AUDIENCE_ANON)
+    text = f"{entry.title} {entry.message}".lower()
+
+    for false_claim in ("carrinho", "endereço", "endereços", "salvo", "salvos"):
+        assert false_claim not in text
+
+
+def test_whatsapp_login_cta_does_not_claim_otp_code(db):
+    entry = resolve_copy("LOGIN_PHONE_CTA_WA", moment=MOMENT_MANHA, audience=AUDIENCE_ANON)
+    assert "código" not in entry.title.lower()
+
+
 # ── Template tag ───────────────────────────────────────────────────────
 
 

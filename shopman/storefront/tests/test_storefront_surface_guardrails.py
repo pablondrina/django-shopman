@@ -310,7 +310,7 @@ def test_auth_inputs_stay_readable_on_mobile():
     assert "tracking-[0.5em]" not in code
     assert "Vamos enviar um código pelo WhatsApp." not in login
     assert "LOGIN_NO_PASSWORD_NOTE" in login
-    assert "Código único. Não exige senha." in omotenashi_copy
+    assert "Sem senha. A entrada é temporária e segura." in omotenashi_copy
     assert "novalidate" in login
     assert "Usamos só para avisar sobre seu pedido." not in login
     assert "CHECKOUT_PHONE_PURPOSE" not in login
@@ -327,7 +327,7 @@ def test_auth_inputs_stay_readable_on_mobile():
     assert "name=\"phone_normalized\"" in login
     assert "submittedPhone()" in login
     assert "d.indexOf('0') === 0" in login
-    assert "material-symbols-rounded icon-sm\" aria-hidden=\"true\">sms" in login
+    assert "material-symbols-rounded icon-md\" aria-hidden=\"true\">sms" in login
 
 
 def test_mobile_nav_labels_use_base_small_type():

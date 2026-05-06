@@ -147,7 +147,7 @@ suite completa após atualizar o inventário Unfold canônico.
 - Estoque: hold na criação → deduct na confirmação → release no cancelamento
 - Produção: receitas → work orders → BOM → dedução de insumos
 - Loyalty: acúmulo de pontos na confirmação, resgate no checkout
-- Auth OTP: WhatsApp-first com fallback, device trust, magic links
+- Auth: WhatsApp-first por AccessLink/conversa ou template aprovado, SMS fallback, device trust, magic links
 - Fechamento do dia: sobras, D-1, apuração de caixa
 - Checklists operacionais: template → execução diária/turno → tarefa → evidência → dupla conferência → conclusão
 

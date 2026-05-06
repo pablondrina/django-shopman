@@ -62,8 +62,9 @@ MANYCHAT_WEBHOOK_SECRET=<segredo HMAC webhook>
 O blueprint define `DOORMAN_MESSAGE_SENDER_CLASS=shopman.doorman.senders.EmailSender`
 para permitir staging técnico sem token ManyChat real e falhar fechado no OTP por
 telefone. Para piloto público, `MANYCHAT_API_TOKEN` é obrigatório: ele é diferente
-de `MANYCHAT_WEBHOOK_SECRET` e ativa a cadeia WhatsApp-first (`ManyChat -> SMS ->
-email`) usada pelo login do storefront.
+de `MANYCHAT_WEBHOOK_SECRET` e de `DOORMAN_ACCESS_LINK_API_KEY`. O primeiro
+autentica chamadas outbound Shopman -> ManyChat; o segundo valida webhooks HMAC
+inbound; o terceiro autentica a criação servidor-servidor de AccessLinks.
 
 Em planos PostgreSQL pequenos, mantenha:
 
@@ -91,8 +92,47 @@ MANYCHAT_SUBSCRIBER_RESOLVER=shopman.guestman.contrib.manychat.resolver.Manychat
 IFOOD_MERCHANT_ID=<sandbox/staging>
 ```
 
-O OTP via ManyChat usa `/fb/sending/sendContent` para mensagem direta. Não há
-flow namespace no OTP; templates e automações ficam no backend de notificações.
+### ManyChat inbound e AccessLink
+
+O fluxo ManyChat -> Shopman que cria link de acesso usa:
+
+- URL: `POST https://<app>/api/auth/access/create/`
+- Header recomendado: `X-Api-Key: <DOORMAN_ACCESS_LINK_API_KEY>`
+- Alternativa equivalente: `Authorization: Bearer <DOORMAN_ACCESS_LINK_API_KEY>`
+- Header de corpo: `Content-Type: application/json`
+
+`MANYCHAT_API_TOKEN` nunca deve ser usado nesse header: ele serve para o
+Shopman chamar a API ManyChat, nao para o ManyChat chamar o Shopman.
+
+Payload minimo para WhatsApp:
+
+```json
+{
+  "source": "manychat",
+  "manychat_id": "{{contact.id}}",
+  "whatsapp_id": "{{contact.whatsapp_id}}",
+  "first_name": "{{contact.first_name}}",
+  "last_name": "{{contact.last_name}}",
+  "next": "/checkout/"
+}
+```
+
+`whatsapp_id` e obrigatorio para AccessLink originado de WhatsApp. Alias como
+`phone` nao sao aceitos nesse contrato para evitar autenticar o cliente errado.
+
+### Login web via WhatsApp
+
+Para cliente que chega pela web, existem duas rotas canonicas:
+
+1. **Cliente inicia a conversa**: o storefront abre o mesmo WhatsApp com uma
+   mensagem pronta de login/checkout. A automacao ManyChat recebe a mensagem,
+   chama `POST /api/auth/access/create/`, e devolve o AccessLink.
+2. **Mensagem outbound sem conversa aberta**: exige template WhatsApp aprovado
+   pela Meta e suporte operacional do ManyChat para resolver/criar o contato.
+
+`/fb/sending/sendContent` nao e um OTP universal por telefone. Ele envia
+conteudo para um `subscriber_id` ManyChat ja resolvido; nao substitui template
+aprovado nem permissao de importacao/resolucao de contatos.
 
 Sem os segredos obrigatórios, o release job falha fechado. Sem as credenciais
 dos gateways, o `make smoke-gateways-sandbox` permanece bloqueado por
