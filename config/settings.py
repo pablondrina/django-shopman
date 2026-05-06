@@ -202,6 +202,7 @@ import urllib.parse as _urlparse
 _DB_URL = os.environ.get("DATABASE_URL", "").strip()
 if _DB_URL:
     _parsed = _urlparse.urlparse(_DB_URL)
+    _conn_max_age = int(os.environ.get("DATABASE_CONN_MAX_AGE", "60"))
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -210,7 +211,7 @@ if _DB_URL:
             "PASSWORD": _parsed.password or "",
             "HOST": _parsed.hostname or "",
             "PORT": _parsed.port or 5432,
-            "CONN_MAX_AGE": 60,
+            "CONN_MAX_AGE": _conn_max_age,
         }
     }
 else:
