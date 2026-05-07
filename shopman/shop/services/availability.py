@@ -954,6 +954,44 @@ def _reconcile_simple(
     # ── Grow ──
     if new_qty > current_total:
         delta = new_qty - current_total
+
+        listing_error = _reserve_listing_gate_error(
+            sku,
+            delta,
+            channel_ref=channel_ref,
+        )
+        if listing_error is not None:
+            return {
+                "ok": False,
+                "hold_ids": [],
+                "released_ids": [],
+                "available_qty": listing_error["available_qty"],
+                "is_paused": listing_error["is_paused"],
+                "is_planned": listing_error.get("is_planned", False),
+                "error_code": listing_error["error_code"],
+                "substitutes": listing_error["substitutes"],
+            }
+
+        result = adapter.create_hold(
+            sku=sku,
+            qty=delta,
+            ttl_minutes=ttl_minutes,
+            reference=session_key,
+            target_date=target_date,
+            channel_ref=channel_ref,
+            **(hold_metadata or {}),
+        )
+        if result.get("success"):
+            return {
+                "ok": True,
+                "hold_ids": [result["hold_id"]],
+                "released_ids": [],
+                "available_qty": delta,
+                "is_paused": False,
+                "error_code": None,
+                "substitutes": [],
+            }
+
         status = check(sku, delta, channel_ref=channel_ref, target_date=target_date)
 
         if status.get("untracked"):
@@ -979,67 +1017,49 @@ def _reconcile_simple(
                 "substitutes": substitutes.find(sku, qty=delta, channel=channel_ref),
             }
 
-        result = adapter.create_hold(
-            sku=sku,
-            qty=delta,
-            ttl_minutes=ttl_minutes,
-            reference=session_key,
-            target_date=target_date,
-            channel_ref=channel_ref,
-            **(hold_metadata or {}),
-        )
-        if not result.get("success"):
-            # Fragmented stock: fall back to multi-quant split reservation.
-            if result.get("error_code") == "INSUFFICIENT_AVAILABLE":
-                split = _reserve_across_quants(
-                    sku=sku, qty=delta,
-                    ttl_minutes=ttl_minutes,
-                    session_key=session_key,
-                    channel_ref=channel_ref,
-                    target_date=target_date,
-                    adapter=adapter,
-                    hold_metadata=hold_metadata,
-                )
-                if split["ok"]:
-                    return {
-                        "ok": True,
-                        "hold_ids": [split["hold_id"]],
-                        "released_ids": [],
-                        "available_qty": status["available_qty"],
-                        "is_paused": False,
-                        "error_code": None,
-                        "substitutes": [],
-                    }
-                return {
-                    "ok": False,
-                    "hold_ids": [],
-                    "released_ids": [],
-                    "available_qty": split["available_qty"],
-                    "is_paused": False,
-                    "error_code": "insufficient_stock",
-                    "substitutes": substitutes.find(sku, qty=delta, channel=channel_ref),
-                }
-            logger.info(
-                "availability.reconcile: grow hold failed sku=%s delta=%s code=%s",
-                sku, delta, result.get("error_code"),
+        # Fragmented stock: fall back to multi-quant split reservation.
+        if result.get("error_code") == "INSUFFICIENT_AVAILABLE":
+            split = _reserve_across_quants(
+                sku=sku, qty=delta,
+                ttl_minutes=ttl_minutes,
+                session_key=session_key,
+                channel_ref=channel_ref,
+                target_date=target_date,
+                adapter=adapter,
+                hold_metadata=hold_metadata,
             )
+            if split["ok"]:
+                return {
+                    "ok": True,
+                    "hold_ids": [split["hold_id"]],
+                    "released_ids": [],
+                    "available_qty": status["available_qty"],
+                    "is_paused": False,
+                    "error_code": None,
+                    "substitutes": [],
+                }
             return {
                 "ok": False,
                 "hold_ids": [],
                 "released_ids": [],
-                "available_qty": status["available_qty"],
+                "available_qty": split["available_qty"],
                 "is_paused": False,
-                "error_code": result.get("error_code", "hold_failed"),
+                "error_code": "insufficient_stock",
                 "substitutes": substitutes.find(sku, qty=delta, channel=channel_ref),
             }
+
+        logger.info(
+            "availability.reconcile: grow hold failed sku=%s delta=%s code=%s",
+            sku, delta, result.get("error_code"),
+        )
         return {
-            "ok": True,
-            "hold_ids": [result["hold_id"]],
+            "ok": False,
+            "hold_ids": [],
             "released_ids": [],
             "available_qty": status["available_qty"],
             "is_paused": False,
-            "error_code": None,
-            "substitutes": [],
+            "error_code": result.get("error_code", "hold_failed"),
+            "substitutes": substitutes.find(sku, qty=delta, channel=channel_ref),
         }
 
     # ── Shrink ──

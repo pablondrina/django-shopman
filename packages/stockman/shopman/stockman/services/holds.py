@@ -79,6 +79,31 @@ def _find_quant_for_hold(
     return None
 
 
+def _locked_quant_available(quant_pk: int) -> tuple[Quant, Decimal]:
+    """Lock one quant and return its current available qty."""
+    now = timezone.now()
+    quant = (
+        Quant.objects.select_for_update()
+        .filter(pk=quant_pk)
+        .annotate(
+            _held_qty=Coalesce(
+                Sum(
+                    'holds__quantity',
+                    filter=Q(
+                        holds__status__in=[HoldStatus.PENDING, HoldStatus.CONFIRMED],
+                    ) & (
+                        Q(holds__expires_at__isnull=True)
+                        | Q(holds__expires_at__gte=now)
+                    ),
+                ),
+                Decimal('0'),
+            )
+        )
+        .get()
+    )
+    return quant, quant._quantity - quant._held_qty
+
+
 class StockHolds:
     """Hold lifecycle methods."""
 
@@ -167,9 +192,9 @@ class StockHolds:
             )
 
             if quant:
-                quant = Quant.objects.select_for_update().get(pk=quant.pk)
+                quant, available = _locked_quant_available(quant.pk)
 
-                if quant.available >= quantity:
+                if available >= quantity:
                     hold = Hold.objects.create(
                         sku=sku,
                         quant=quant,
