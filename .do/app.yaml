@@ -15,6 +15,7 @@ ingress:
           prefix: /nuxt
       component:
         name: nuxt-storefront
+        preserve_path_prefix: true
     - match:
         path:
           prefix: /
