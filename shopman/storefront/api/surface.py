@@ -7,6 +7,8 @@ rules.
 
 from __future__ import annotations
 
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import ensure_csrf_cookie
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.permissions import AllowAny
@@ -56,6 +58,7 @@ def _stock_error_payload(exc) -> dict:
         responses={200: OpenApiResponse(description="Catalog projection plus cart projection.")},
     ),
 )
+@method_decorator(ensure_csrf_cookie, name="dispatch")
 class StorefrontMenuView(APIView):
     """GET /api/v1/storefront/menu/"""
 
@@ -85,6 +88,7 @@ class StorefrontMenuView(APIView):
         },
     ),
 )
+@method_decorator(ensure_csrf_cookie, name="dispatch")
 class StorefrontProductView(APIView):
     """GET /api/v1/storefront/products/{sku}/"""
 
@@ -111,6 +115,7 @@ class StorefrontProductView(APIView):
         responses={200: OpenApiResponse(description="Cart projection.")},
     ),
 )
+@method_decorator(ensure_csrf_cookie, name="dispatch")
 class StorefrontCartView(APIView):
     """GET /api/v1/storefront/cart/"""
 

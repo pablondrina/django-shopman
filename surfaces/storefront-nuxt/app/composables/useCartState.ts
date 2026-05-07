@@ -131,7 +131,7 @@ export function useCartState () {
     applyOptimisticQty(meta, qty)
 
     try {
-      const response = await $fetch<CartCommandResponse>(`/api/v1/cart/skus/${encodeURIComponent(meta.sku)}/`, {
+      const response = await $fetch<CartCommandResponse>(shopmanApiPath(`/api/v1/cart/skus/${encodeURIComponent(meta.sku)}/`), {
         method: 'PUT',
         body: { qty },
         credentials: 'include'

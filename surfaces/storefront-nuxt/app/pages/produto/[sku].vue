@@ -6,7 +6,7 @@ const sku = computed(() => String(route.params.sku || ''))
 const { setFromServer } = useCartState()
 
 const { data, pending, error } = await useFetch<ProductResponse>(
-  () => `/api/v1/storefront/products/${encodeURIComponent(sku.value)}/`,
+  () => shopmanApiPath(`/api/v1/storefront/products/${encodeURIComponent(sku.value)}/`),
   { credentials: 'include' }
 )
 

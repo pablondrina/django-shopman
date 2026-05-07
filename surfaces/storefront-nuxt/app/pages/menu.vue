@@ -2,7 +2,7 @@
 import type { MenuResponse } from '~/types/shopman'
 
 const { setFromServer } = useCartState()
-const { data, pending, error } = await useFetch<MenuResponse>('/api/v1/storefront/menu/', {
+const { data, pending, error } = await useFetch<MenuResponse>(shopmanApiPath('/api/v1/storefront/menu/'), {
   credentials: 'include'
 })
 

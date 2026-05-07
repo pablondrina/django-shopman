@@ -5,6 +5,8 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+from django.contrib.auth import get_user_model
+from django.test import Client as DjangoClient
 from shopman.offerman.models import Collection, CollectionItem, Listing, ListingItem, Product
 
 from shopman.shop.models import Channel, Shop
@@ -28,6 +30,34 @@ def test_api_storefront_menu_returns_projection_contract(client):
         "unavailable",
     }
     assert data["cart"]["is_empty"] is True
+
+
+def test_api_storefront_menu_sets_csrf_cookie(client):
+    _seed_surface()
+
+    resp = client.get("/api/v1/storefront/menu/")
+
+    assert resp.status_code == 200
+    assert "csrftoken" in resp.cookies
+
+
+def test_api_cart_sku_qty_accepts_authenticated_session_with_csrf_header():
+    product = _seed_surface(stock_qty=Decimal("10"))
+    user = get_user_model().objects.create_user(username="staff", password="secret")
+    client = DjangoClient(enforce_csrf_checks=True)
+    client.force_login(user)
+
+    menu = client.get("/api/v1/storefront/menu/")
+    token = menu.cookies["csrftoken"].value
+    add = client.put(
+        f"/api/v1/cart/skus/{product.sku}/",
+        data=json.dumps({"qty": 1}),
+        content_type="application/json",
+        HTTP_X_CSRFTOKEN=token,
+    )
+
+    assert add.status_code == 200
+    assert add.json()["cart"]["items_count"] == 1
 
 
 def test_api_cart_sku_qty_sets_absolute_qty_and_returns_cart_projection(client):
