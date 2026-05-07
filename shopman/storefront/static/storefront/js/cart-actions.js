@@ -173,6 +173,8 @@
       lineTotalDisplay: opts.lineTotalDisplay || "",
       visible: true,
       busy: false,
+      confirmedQty: Number(opts.qty || 0),
+      pendingTarget: null,
       get effectiveMax() {
         return Math.min(99, Number(this.max || 0));
       },
@@ -180,7 +182,6 @@
         return this.qty > 0 && this.qty >= this.effectiveMax - 2 && this.effectiveMax > 0;
       },
       async set(next) {
-        if (this.busy) return;
         var ceiling = this.effectiveMax;
         var target = Number(next || 0);
         if (target > ceiling) {
@@ -189,7 +190,15 @@
         }
         target = Math.max(0, target);
 
-        var prev = this.qty;
+        this.qty = target;
+        if (this.busy) {
+          this.pendingTarget = target;
+          return { ok: true, queued: true };
+        }
+
+        return this.commit(target, this.confirmedQty);
+      },
+      async commit(target, revertQty) {
         this.busy = true;
         this.qty = target;
         var result = await ns.setQty({
@@ -202,9 +211,13 @@
           ),
         });
         if (result.ok && result.payload && result.payload.line) {
-          this.qty = Number(result.payload.line.qty || target);
+          var serverQty = Number(result.payload.line.qty || 0);
+          var queued = this.pendingTarget;
+          var keepOptimisticQty = queued != null && queued !== serverQty;
+          this.confirmedQty = serverQty;
+          if (!keepOptimisticQty) this.qty = serverQty;
           this.lineTotalDisplay = result.payload.line.line_total_display || this.lineTotalDisplay;
-          if (this.qty === 0) {
+          if (serverQty === 0 && !keepOptimisticQty) {
             this.visible = false;
             if (opts.undoEvent) {
               window.dispatchEvent(new CustomEvent("notify", {
@@ -213,13 +226,20 @@
                   message: (opts.name || opts.sku || "Item") + " removido.",
                   actionLabel: "Desfazer",
                   actionEvent: opts.undoEvent,
-                  actionDetail: { sku: opts.sku, qty: prev },
+                  actionDetail: { sku: opts.sku, qty: revertQty },
                 },
               }));
             }
           }
+          if (queued != null) {
+            this.pendingTarget = null;
+            if (queued !== this.confirmedQty) {
+              return this.commit(queued, this.confirmedQty);
+            }
+          }
         } else if (!result.ok) {
-          this.qty = prev;
+          this.pendingTarget = null;
+          this.qty = revertQty;
         }
         this.busy = false;
         return result;

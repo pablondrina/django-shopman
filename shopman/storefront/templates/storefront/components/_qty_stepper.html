@@ -7,7 +7,7 @@ Shared qty stepper. Must be rendered inside an Alpine x-data component that expo
        role="group" aria-label="Quantidade no carrinho">
     <button type="button"
             class="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-on-surface dark:text-on-surface-dark hover:bg-surface-alt dark:hover:bg-surface-dark-alt rounded-l-radius disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
-            :disabled="busy"
+            :aria-busy="busy ? 'true' : 'false'"
             aria-label="Diminuir quantidade"
             @click="set(qty - 1)">
       <span class="material-symbols-rounded text-base sm:text-lg" aria-hidden="true">remove</span>
@@ -16,7 +16,8 @@ Shared qty stepper. Must be rendered inside an Alpine x-data component that expo
           x-text="qty" aria-live="polite"></span>
     <button type="button"
             class="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-on-surface dark:text-on-surface-dark hover:bg-surface-alt dark:hover:bg-surface-dark-alt rounded-r-radius disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
-            :disabled="busy || qty >= effectiveMax"
+            :disabled="qty >= effectiveMax"
+            :aria-busy="busy ? 'true' : 'false'"
             :aria-label="qty >= effectiveMax ? 'Estoque máximo atingido' : 'Aumentar quantidade'"
             @click="set(qty + 1)">
       <span class="material-symbols-rounded text-base sm:text-lg" aria-hidden="true">add</span>
