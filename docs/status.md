@@ -66,6 +66,10 @@ deixou `DATABASE_CONN_MAX_AGE` configurável e o staging passou a usar
 `DATABASE_CONN_MAX_AGE=0`. Deployment `ff02290b-4552-4d9e-8e60-0d9ab3946c8f`
 validado com `/health/`, `/ready/`, `/menu/`, `/admin/login/`, SKU state,
 badge de pedidos e SSE de estoque em 200.
+Revisão de latência em 2026-05-07: ações de carrinho em staging ficaram
+perceptivelmente lentas com `CONN_MAX_AGE=0`; o blueprint voltou para
+`DATABASE_CONN_MAX_AGE=60` e o storefront deixou de fazer refresh por card de
+estado de SKU no hot path.
 
 **Observabilidade operacional:** logs JSON opcionais por `SHOPMAN_JSON_LOGS`,
 eventos estruturados para reconciliação/webhooks e alertas `webhook_failed` /

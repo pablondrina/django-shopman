@@ -27,6 +27,49 @@
     if (window.htmx) window.htmx.trigger(document.body, "cartUpdated");
   }
 
+  function setBadgeCount(count) {
+    var badge = document.getElementById("cart-badge-header");
+    if (!badge || count == null || Number.isNaN(count)) return;
+
+    if (count > 0) {
+      badge.textContent = String(count);
+      badge.classList.remove("hidden");
+      badge.classList.add("inline-flex");
+    } else {
+      badge.textContent = "";
+      badge.classList.remove("inline-flex");
+      badge.classList.add("hidden");
+    }
+  }
+
+  function cartSummaryFromResponse(resp) {
+    var rawCount = resp.headers.get("X-Cart-Count");
+    if (rawCount == null) return null;
+
+    var subtotalDisplay = resp.headers.get("X-Cart-Subtotal-Display") || "";
+    try {
+      subtotalDisplay = decodeURIComponent(subtotalDisplay);
+    } catch (_err) {
+      subtotalDisplay = "";
+    }
+
+    return {
+      count: Number(rawCount),
+      subtotalQ: Number(resp.headers.get("X-Cart-Subtotal-Q") || 0),
+      subtotalDisplay: subtotalDisplay,
+    };
+  }
+
+  function applyCartSummary(resp) {
+    var summary = cartSummaryFromResponse(resp);
+    if (!summary) return;
+
+    setBadgeCount(summary.count);
+    window.dispatchEvent(
+      new CustomEvent("shopman-cart-summary", { detail: summary })
+    );
+  }
+
   function mountStockErrorModal(html) {
     var sink = document.getElementById("stock-error-modal");
     if (!sink) {
@@ -60,7 +103,8 @@
       });
 
       if (resp.ok) {
-        triggerCartUpdated();
+        applyCartSummary(resp);
+        if (opts.refreshProjection) triggerCartUpdated();
         if (window.triggerHaptic) window.triggerHaptic.light();
         return { ok: true, response: resp };
       }

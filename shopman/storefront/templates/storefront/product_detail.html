@@ -77,10 +77,10 @@
     </div>
     {% endif %}
 
-    {# Availability badge — SSE refresh target (WP-AV-10). #}
+    {# Availability badge: strategic listing/pause changes only. Cart stock is validated on POST. #}
     <div class="absolute top-3 right-3"
          hx-get="{% url 'storefront:sku_state' product.sku %}?channel_ref={{ storefront_channel_ref|default:'web' }}"
-         hx-trigger="sse:stock-update[shopmanSseSku(event)=='{{ product.sku }}'],sse:product-paused[shopmanSseSku(event)=='{{ product.sku }}'],sse:listing-changed[shopmanSseSku(event)=='{{ product.sku }}']"
+         hx-trigger="sse:product-paused[shopmanSseSku(event)=='{{ product.sku }}'],sse:listing-changed[shopmanSseSku(event)=='{{ product.sku }}']"
          hx-swap="innerHTML">
       {% if product.availability != "available" %}
         {% include "storefront/components/availability_badge.html" with state=product.availability.value %}
@@ -135,7 +135,7 @@
     <div class="mt-6 text-sm leading-relaxed text-on-surface dark:text-on-surface-dark whitespace-pre-line">{{ product.long_description }}</div>
     {% endif %}
 
-    {# Add to cart (Alpine state, HTMX transport) #}
+    {# Add to cart (Alpine state, fetch transport) #}
     {% if product.can_add_to_cart %}
     <div class="fixed inset-x-0 bottom-14 z-40 border-t border-outline bg-surface/95 px-4 py-3 backdrop-blur md:static md:mt-4 md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none dark:border-outline-dark dark:bg-surface-dark/95 md:dark:bg-transparent"
          data-sku="{{ product.sku }}"

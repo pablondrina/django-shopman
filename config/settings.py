@@ -220,6 +220,7 @@ if _DB_URL:
             "HOST": _parsed.hostname or "",
             "PORT": _parsed.port or 5432,
             "CONN_MAX_AGE": _conn_max_age,
+            "CONN_HEALTH_CHECKS": _env_bool("DATABASE_CONN_HEALTH_CHECKS", True),
         }
     }
 else:

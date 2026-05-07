@@ -74,7 +74,7 @@ envs:
     scope: RUN_TIME
     type: GENERAL
   - key: DATABASE_CONN_MAX_AGE
-    value: "0"
+    value: "60"
     scope: RUN_TIME
     type: GENERAL
   - key: REDIS_URL

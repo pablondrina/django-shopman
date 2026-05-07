@@ -69,16 +69,15 @@ de `MANYCHAT_WEBHOOK_SECRET` e de `DOORMAN_ACCESS_LINK_API_KEY`. O primeiro
 autentica chamadas outbound Shopman -> ManyChat; o segundo valida webhooks HMAC
 inbound; o terceiro autentica a criação servidor-servidor de AccessLinks.
 
-Em planos PostgreSQL pequenos, mantenha:
+Em planos PostgreSQL pequenos, evite conexões ilimitadas, mas não deixe as
+ações curtas de carrinho abrirem uma conexão nova a cada request. O staging usa:
 
 ```env
-DATABASE_CONN_MAX_AGE=0
+DATABASE_CONN_MAX_AGE=60
 ```
 
-Isso fecha conexões ao fim de cada request e evita saturar o limite de conexões
-do Managed PostgreSQL durante browser QA, SSE, health checks e jobs. Se o
-ambiente crescer, reavalie com pool de conexões ou plano maior antes de subir
-`CONN_MAX_AGE`.
+Se o ambiente voltar a mostrar `too many clients already`, a próxima correção
+não é voltar para `0` permanentemente; é usar pool de conexões ou plano maior.
 
 Para exercitar gateways sandbox reais, adicione também:
 

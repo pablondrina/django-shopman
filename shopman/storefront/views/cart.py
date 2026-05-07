@@ -30,6 +30,15 @@ def _rate_limited_cart_response() -> HttpResponse:
     return HttpResponse("", status=429)
 
 
+def _cart_summary_headers(response: HttpResponse, cart: dict) -> None:
+    response["X-Cart-Count"] = str(cart.get("count", 0) or 0)
+    response["X-Cart-Subtotal-Q"] = str(cart.get("subtotal_q", 0) or 0)
+    response["X-Cart-Subtotal-Display"] = quote(
+        str(cart.get("subtotal_display", "")),
+        safe="",
+    )
+
+
 def _picker_origin(request: HttpRequest) -> str:
     """Which page is the modal being opened from.
 
@@ -194,6 +203,7 @@ class CartSetQtyBySkuView(View):
 
         cart = CartService.get_cart_summary(request)
         response = render(request, "storefront/partials/cart_summary.html", {"cart": cart})
+        _cart_summary_headers(response, cart)
         response["HX-Trigger"] = "cartUpdated"
         response["X-Cart-Item-Name"] = quote(intent.product.name, safe="")
         return response

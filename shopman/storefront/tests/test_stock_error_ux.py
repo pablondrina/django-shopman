@@ -15,6 +15,7 @@ locks down the new contract.
 from __future__ import annotations
 
 from unittest.mock import patch
+from urllib.parse import unquote
 
 import pytest
 from django.test import Client
@@ -85,6 +86,30 @@ def test_cart_set_qty_clamps_absurd_qty(db, product):
 
     assert resp.status_code == 200
     assert mock_add.call_args.kwargs["qty"] == 99
+
+
+def test_cart_set_qty_success_exposes_lightweight_summary_headers(db, product):
+    from shopman.shop.models import Channel
+
+    Channel.objects.get_or_create(ref="web", defaults={"name": "Web", "is_active": True})
+    client = Client()
+    with patch(
+        "shopman.shop.services.availability.reserve",
+        return_value={
+            "ok": True,
+            "hold_id": "fake-hold",
+            "available_qty": 999,
+            "is_paused": False,
+            "error_code": None,
+            "substitutes": [],
+        },
+    ):
+        resp = client.post("/cart/set-qty/", {"sku": product.sku, "qty": "2"})
+
+    assert resp.status_code == 200
+    assert resp["X-Cart-Count"] == "2"
+    assert resp["X-Cart-Subtotal-Q"] == "1000"
+    assert unquote(resp["X-Cart-Subtotal-Display"]) == "R$ 10,00"
 
 
 def test_cart_set_qty_can_remove_unpublished_existing_line(db, product):
