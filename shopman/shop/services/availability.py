@@ -274,13 +274,11 @@ def decide(
             "untracked": True,
         }
 
-    decision = adapter.get_promise_decision(
+    decision = adapter.promise_decision_from_availability(
         sku,
         qty_d,
+        info,
         target_date=target_date,
-        safety_margin=scope["safety_margin"],
-        allowed_positions=scope["allowed_positions"],
-        excluded_positions=scope.get("excluded_positions"),
     )
     approved = decision.approved if isinstance(getattr(decision, "approved", None), bool) else qty_d <= info["total_promisable"]
     reason_code = getattr(decision, "reason_code", None)

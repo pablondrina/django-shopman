@@ -700,6 +700,10 @@ SHOPMAN_EMPLOYEE_DISCOUNT_PERCENT = int(
     os.environ.get("SHOPMAN_EMPLOYEE_DISCOUNT_PERCENT", "20")
 )
 
+SHOPMAN_CART_MUTATION_PERF_LOG_MS = float(
+    os.environ.get("SHOPMAN_CART_MUTATION_PERF_LOG_MS", "0")
+)
+
 # ── Rules security — allowed module prefixes for RuleConfig.rule_path ──
 # Any rule_path not starting with one of these prefixes is rejected at clean()
 # and at load time (defense-in-depth). Extend with care — adding a prefix

@@ -113,6 +113,10 @@ envs:
     value: "true"
     scope: RUN_TIME
     type: GENERAL
+  - key: SHOPMAN_CART_MUTATION_PERF_LOG_MS
+    value: "250"
+    scope: RUN_TIME
+    type: GENERAL
 
 services:
   - name: web

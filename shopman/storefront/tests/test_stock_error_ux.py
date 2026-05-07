@@ -17,7 +17,7 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
-from django.test import Client
+from django.test import Client, override_settings
 
 from shopman.shop.services.cart import CartUnavailableError
 
@@ -118,6 +118,38 @@ def test_cart_set_qty_success_returns_compact_json(db, product):
     assert payload["cart"]["subtotal_display"] == "R$ 10,00"
     assert "X-Cart-Count" not in resp.headers
     assert "HX-Trigger" not in resp.headers
+
+
+def test_cart_set_qty_perf_log_is_threshold_gated(db, product):
+    from shopman.shop.models import Channel
+
+    Channel.objects.get_or_create(ref="web", defaults={"name": "Web", "is_active": True})
+    client = Client()
+    with override_settings(SHOPMAN_CART_MUTATION_PERF_LOG_MS=0.001):
+        with (
+            patch(
+                "shopman.shop.services.availability.reserve",
+                return_value={
+                    "ok": True,
+                    "hold_id": "fake-hold",
+                    "available_qty": 999,
+                    "is_paused": False,
+                    "error_code": None,
+                    "substitutes": [],
+                },
+            ),
+            patch("shopman.storefront.perf.logger.info") as mock_info,
+        ):
+            resp = client.post("/cart/set-qty/", {"sku": product.sku, "qty": "1"})
+
+    assert resp.status_code == 200
+    mock_info.assert_called_once()
+    message, = mock_info.call_args.args
+    assert message == "storefront.cart.set_qty.perf"
+    extra = mock_info.call_args.kwargs["extra"]
+    assert extra["status_code"] == 200
+    assert extra["action"] == "add"
+    assert extra["sql_count"]
 
 
 def test_cart_set_qty_can_remove_unpublished_existing_line(db, product):

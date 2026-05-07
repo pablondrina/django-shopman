@@ -12,6 +12,7 @@ from shopman.utils.monetary import format_money
 from shopman.shop.services.cart import CartUnavailableError
 from shopman.shop.services.storefront_context import minimum_order_progress
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
+from shopman.storefront.perf import CartMutationPerf
 
 from ..cart import CartService
 from ..intents.cart import interpret_set_qty
@@ -227,52 +228,81 @@ class CartSetQtyBySkuView(View):
     """
 
     def post(self, request: HttpRequest) -> HttpResponse:
-        if getattr(request, "limited", False):
-            return _rate_limited_cart_response()
-        sku = request.POST.get("sku", "").strip()
-        qty = _parse_cart_qty(request.POST.get("qty", 0), minimum=0)
-        if qty is None:
-            return HttpResponse("", status=400)
-
-        cart = CartService.get_cart_summary(request, include_items=True)
-        result = interpret_set_qty(sku, qty, cart)
-        if result.error_type == "not_found":
-            return HttpResponse("", status=404)
-
-        intent = result.intent
-        mutated_session = None
+        perf = CartMutationPerf()
+        sku = ""
+        qty = 0
+        action = ""
+        status_code = 200
         try:
-            if intent.action == "remove":
-                if intent.line_id is not None:
-                    mutated_session = CartService.remove_item(
-                        request,
-                        line_id=intent.line_id,
-                        sku=intent.sku,
-                    )
-            elif intent.action == "update":
-                mutated_session = CartService.update_qty(
-                    request,
-                    line_id=intent.line_id,
-                    qty=intent.qty,
-                    sku=intent.sku,
-                )
-            else:
-                mutated_session = CartService.add_item(
-                    request,
-                    sku=intent.sku,
-                    qty=intent.qty,
-                    unit_price_q=intent.unit_price_q,
-                    is_d1=intent.is_d1,
-                )
-        except CartUnavailableError as exc:
-            return _stock_error_response(request, intent.product, exc)
+            with perf.capture():
+                if getattr(request, "limited", False):
+                    status_code = 429
+                    return _rate_limited_cart_response()
+                with perf.step("parse"):
+                    sku = request.POST.get("sku", "").strip()
+                    qty_parsed = _parse_cart_qty(request.POST.get("qty", 0), minimum=0)
+                if qty_parsed is None:
+                    status_code = 400
+                    return HttpResponse("", status=400)
+                qty = qty_parsed
 
-        if mutated_session is not None:
-            cart = CartService.summary_from_session(mutated_session, include_items=True)
-        else:
-            cart = CartService.get_cart_summary(request, include_items=True)
-        response = JsonResponse(_cart_command_payload(intent, cart))
-        return response
+                with perf.step("cart_read"):
+                    cart = CartService.get_cart_summary(request, include_items=True)
+                with perf.step("intent"):
+                    result = interpret_set_qty(sku, qty, cart)
+                if result.error_type == "not_found":
+                    status_code = 404
+                    return HttpResponse("", status=404)
+
+                intent = result.intent
+                action = intent.action
+                mutated_session = None
+                try:
+                    with perf.step(f"mutate_{action}"):
+                        if intent.action == "remove":
+                            if intent.line_id is not None:
+                                mutated_session = CartService.remove_item(
+                                    request,
+                                    line_id=intent.line_id,
+                                    sku=intent.sku,
+                                )
+                        elif intent.action == "update":
+                            mutated_session = CartService.update_qty(
+                                request,
+                                line_id=intent.line_id,
+                                qty=intent.qty,
+                                sku=intent.sku,
+                            )
+                        else:
+                            mutated_session = CartService.add_item(
+                                request,
+                                sku=intent.sku,
+                                qty=intent.qty,
+                                unit_price_q=intent.unit_price_q,
+                                is_d1=intent.is_d1,
+                            )
+                except CartUnavailableError as exc:
+                    status_code = 422
+                    with perf.step("stock_error_response"):
+                        return _stock_error_response(request, intent.product, exc)
+
+                with perf.step("payload"):
+                    if mutated_session is not None:
+                        cart = CartService.summary_from_session(
+                            mutated_session, include_items=True,
+                        )
+                    else:
+                        cart = CartService.get_cart_summary(request, include_items=True)
+                    response = JsonResponse(_cart_command_payload(intent, cart))
+                status_code = response.status_code
+                return response
+        finally:
+            perf.maybe_log(
+                status_code=status_code,
+                sku=sku,
+                qty=qty,
+                action=action,
+            )
 
 
 class CartSummaryView(View):

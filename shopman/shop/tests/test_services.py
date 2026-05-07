@@ -245,6 +245,52 @@ class TestAvailabilityListingMembership:
             excluded_positions=None,
         )
 
+    @patch("shopman.shop.services.availability.get_adapter")
+    def test_check_reuses_loaded_availability_for_default_stock_adapter(self, mock_get_adapter):
+        from shopman.shop.services import availability
+
+        stock_adapter = SimpleNamespace(
+            get_channel_scope=MagicMock(return_value={
+                "safety_margin": 0,
+                "allowed_positions": None,
+                "excluded_positions": None,
+            }),
+            get_availability=MagicMock(return_value={
+                "total_promisable": Decimal("5"),
+                "availability_policy": "stock_only",
+                "is_paused": False,
+                "is_planned": False,
+                "is_tracked": True,
+                "available": Decimal("5"),
+                "expected": Decimal("5"),
+                "planned": Decimal("0"),
+                "positions": [{"position_ref": "vitrine"}],
+            }),
+            promise_decision_from_availability=MagicMock(return_value=SimpleNamespace(
+                approved=True,
+                sku="PAO-001",
+                requested_qty=Decimal("1"),
+                available_qty=Decimal("5"),
+                reason_code=None,
+                is_paused=False,
+                is_planned=False,
+                target_date=None,
+            )),
+            get_promise_decision=MagicMock(),
+        )
+        catalog_adapter = MagicMock()
+        catalog_adapter.listing_exists.return_value = False
+        mock_get_adapter.side_effect = lambda name: (
+            stock_adapter if name == "stock" else catalog_adapter
+        )
+
+        with patch("shopman.shop.services.availability._expand_if_bundle", return_value=None):
+            result = availability.check("PAO-001", Decimal("1"), channel_ref="ifood")
+
+        assert result["ok"] is True
+        stock_adapter.promise_decision_from_availability.assert_called_once()
+        stock_adapter.get_promise_decision.assert_not_called()
+
 
 # ══════════════════════════════════════════════════════════════════════
 # services/stock.py
