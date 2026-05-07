@@ -70,11 +70,15 @@ envs:
     scope: RUN_TIME
     type: GENERAL
   - key: DATABASE_URL
-    value: "${postgres.DATABASE_URL}"
+    value: "${postgres.shopman-staging-pool.DATABASE_URL}"
     scope: RUN_TIME
     type: GENERAL
   - key: DATABASE_CONN_MAX_AGE
-    value: "0"
+    value: "60"
+    scope: RUN_TIME
+    type: GENERAL
+  - key: DATABASE_DISABLE_SERVER_SIDE_CURSORS
+    value: "true"
     scope: RUN_TIME
     type: GENERAL
   - key: REDIS_URL

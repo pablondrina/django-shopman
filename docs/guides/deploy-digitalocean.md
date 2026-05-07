@@ -69,17 +69,19 @@ de `MANYCHAT_WEBHOOK_SECRET` e de `DOORMAN_ACCESS_LINK_API_KEY`. O primeiro
 autentica chamadas outbound Shopman -> ManyChat; o segundo valida webhooks HMAC
 inbound; o terceiro autentica a criação servidor-servidor de AccessLinks.
 
-Em planos PostgreSQL pequenos, priorize estabilidade de conexões até existir
-pool de Postgres. O staging usa:
+Em planos PostgreSQL pequenos, use pool antes de manter conexões Django
+persistentes. O staging usa o pool `shopman-staging-pool`:
 
 ```env
-DATABASE_CONN_MAX_AGE=0
+DATABASE_URL=${postgres.shopman-staging-pool.DATABASE_URL}
+DATABASE_CONN_MAX_AGE=60
+DATABASE_DISABLE_SERVER_SIDE_CURSORS=true
 ```
 
 Não suba `DATABASE_CONN_MAX_AGE` para `60` no Postgres pequeno sem pool: em
 ASGI/Daphne ele pode acumular conexões ociosas e causar `remaining connection
-slots are reserved`. Para recuperar latência sem arriscar 500, use pool de
-conexões ou plano maior antes de aumentar esse valor.
+slots are reserved`. Sem pool, use `DATABASE_CONN_MAX_AGE=0`. Com pool em modo
+transaction, mantenha `DATABASE_DISABLE_SERVER_SIDE_CURSORS=true`.
 
 Para exercitar gateways sandbox reais, adicione também:
 

@@ -75,6 +75,10 @@ PostgreSQL pequeno da DigitalOcean (`remaining connection slots are reserved`)
 com muitas conexões ociosas. O blueprint retornou para
 `DATABASE_CONN_MAX_AGE=0`; recuperar latência por reuso de conexão agora exige
 pool de Postgres ou plano maior, não apenas aumentar esse env.
+Teste de pool em 2026-05-07: criado `shopman-staging-pool` no PostgreSQL
+staging (`transaction`, size 5, db/user `shopman`). O blueprint passou a usar
+`${postgres.shopman-staging-pool.DATABASE_URL}`, `DATABASE_CONN_MAX_AGE=60` e
+`DATABASE_DISABLE_SERVER_SIDE_CURSORS=true`.
 
 **Observabilidade operacional:** logs JSON opcionais por `SHOPMAN_JSON_LOGS`,
 eventos estruturados para reconciliação/webhooks e alertas `webhook_failed` /

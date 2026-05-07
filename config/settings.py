@@ -221,6 +221,9 @@ if _DB_URL:
             "PORT": _parsed.port or 5432,
             "CONN_MAX_AGE": _conn_max_age,
             "CONN_HEALTH_CHECKS": _env_bool("DATABASE_CONN_HEALTH_CHECKS", True),
+            "DISABLE_SERVER_SIDE_CURSORS": _env_bool(
+                "DATABASE_DISABLE_SERVER_SIDE_CURSORS", False
+            ),
         }
     }
 else:
