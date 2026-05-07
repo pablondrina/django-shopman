@@ -3,28 +3,25 @@
 Cart drawer — consumes CartProjection (typed projection).
 
 Opened via hx-get storefront:cart_drawer, replaces
-innerHTML of #cart-drawer-content on open-cart-drawer and cartUpdated.
+innerHTML of #cart-drawer-content on open-cart-drawer and cart-drawer-refresh.
 Uses Penguin UI tokens (surface / on-surface / primary / warning / danger)
 and Material Symbols Rounded.
 
-Stepper / delete / upsell use Alpine + native ``fetch`` then dispatch
-``cartUpdated`` — same pattern as ``_cart_page_content.html``. Avoids
-``htmx.ajax``/hidden-form patterns that crash htmx's settle phase when
-the cascading ``cartUpdated`` reload destroys the source element.
+Stepper / delete / upsell use the compact ``ShopmanCart.setQty`` command.
+Full projection refreshes are reserved for structural changes such as remove,
+undo, upsell and discount/freight totals.
 {% endcomment %}
 
 {# ── Undo listener (kintsugi K2) — re-adds item removed from cart ── #}
 <div x-data x-on:cart-undo.window="
   const d = $event.detail;
   if (!d || !d.sku) return;
-  const body = new FormData();
-  body.append('sku', d.sku);
-  body.append('qty', String(d.qty || 1));
-  fetch('{% url 'storefront:cart_set_qty' %}', {
-    method: 'POST',
-    headers: { 'X-CSRFToken': document.querySelector('meta[name=\'csrf-token\']').content, 'HX-Request': 'true' },
-    body,
-  }).finally(() => htmx.trigger(document.body, 'cartUpdated'));
+  window.ShopmanCart.setQty({
+    url: '{% url 'storefront:cart_set_qty' %}',
+    sku: d.sku,
+    qty: d.qty || 1,
+    refreshProjection: true,
+  });
 " hidden aria-hidden="true"></div>
 
 {% if cart.has_awaiting_confirmation_items %}
@@ -49,17 +46,17 @@ the cascading ``cartUpdated`` reload destroys the source element.
 
   {# ── Minimum order progress ── #}
   {% if cart.minimum_order_progress %}
-  <div class="px-4 py-3 border-b border-outline dark:border-outline-dark bg-warning/10">
+  <div class="px-4 py-3 border-b border-outline dark:border-outline-dark bg-warning/10" data-cart-minimum>
     <div class="flex justify-between items-center mb-1.5">
       <span class="text-xs text-on-surface-strong dark:text-on-surface-dark-strong font-medium">
-        Faltam {{ cart.minimum_order_progress.remaining_display }}
+        Faltam <span data-cart-minimum-remaining>{{ cart.minimum_order_progress.remaining_display }}</span>
       </span>
       <span class="text-xs text-on-surface dark:text-on-surface-dark">
-        Mín. {{ cart.minimum_order_progress.minimum_display }}
+        Mín. <span data-cart-minimum-total>{{ cart.minimum_order_progress.minimum_display }}</span>
       </span>
     </div>
     <div class="w-full h-1.5 rounded-full bg-surface dark:bg-surface-dark overflow-hidden">
-      <div class="h-full bg-warning transition-all duration-500" style="width: {{ cart.minimum_order_progress.percent }}%;"></div>
+      <div class="h-full bg-warning transition-all duration-500" style="width: {{ cart.minimum_order_progress.percent }}%;" data-cart-minimum-progress></div>
     </div>
   </div>
   {% endif %}
@@ -80,55 +77,18 @@ the cascading ``cartUpdated`` reload destroys the source element.
     <ul x-auto-animate class="rounded-radius border border-outline dark:border-outline-dark divide-y divide-outline dark:divide-outline-dark overflow-hidden">
       {% for item in cart.items %}
       <li id="drawer-item-{{ item.line_id }}" class="p-3 flex gap-3 bg-surface-alt dark:bg-surface-dark-alt"
-          x-data="{
+          x-show="visible"
+          x-data="window.ShopmanCart.line({
+            url: '{% url 'storefront:cart_set_qty' %}',
+            sku: '{{ item.sku|escapejs }}',
+            name: '{{ item.name|escapejs }}',
             qty: {{ item.qty }},
             max: {% if item.is_awaiting_confirmation %}{{ item.qty }}{% elif item.available_qty is not None %}{{ item.available_qty }}{% else %}99{% endif %},
-            busy: false,
-            prevQty: {{ item.qty }},
-            get effectiveMax() { return Math.min(99, this.max); },
-            set(next, opts) {
-              if (this.busy) return;
-              const ceiling = this.effectiveMax;
-              if (next > ceiling) {
-                const word = ceiling === 1 ? 'unidade disponível' : 'unidades disponíveis';
-                window.dispatchEvent(new CustomEvent('notify', {
-                  detail: { variant: 'warning', message: 'Apenas ' + ceiling + ' ' + word + '.' },
-                }));
-                next = ceiling;
-              }
-              const target = Math.max(0, next);
-              const wasRemoval = target === 0 && this.qty > 0;
-              this.busy = true;
-              this.prevQty = this.qty;
-              const prev = this.prevQty;
-              this.qty = target;
-              const body = new FormData();
-              body.append('sku', '{{ item.sku }}');
-              body.append('qty', String(target));
-              fetch('{% url 'storefront:cart_set_qty' %}', {
-                method: 'POST',
-                headers: {
-                  'X-CSRFToken': document.querySelector('meta[name=\'csrf-token\']').content,
-                  'HX-Request': 'true',
-                },
-                body,
-              }).finally(() => {
-                this.busy = false;
-                htmx.trigger(document.body, 'cartUpdated');
-                if (wasRemoval && !(opts && opts.silent)) {
-                  window.dispatchEvent(new CustomEvent('notify', {
-                    detail: {
-                      variant: 'info',
-                      message: '{{ item.name|escapejs }} removido.',
-                      actionLabel: 'Desfazer',
-                      actionEvent: 'cart-undo',
-                      actionDetail: { sku: '{{ item.sku|escapejs }}', qty: prev },
-                    },
-                  }));
-                }
-              });
-            }
-          }">
+            lineTotalDisplay: '{{ item.total_display|escapejs }}',
+            refreshProjection: {% if cart.has_discount or cart.delivery_fee_display %}true{% else %}false{% endif %},
+            refreshProjectionOnZero: true,
+            undoEvent: 'cart-undo'
+          })">
         {# Thumb #}
         <div class="shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-surface-alt dark:bg-surface-dark-alt border border-outline dark:border-outline-dark">
           {% if item.image_url %}
@@ -197,7 +157,7 @@ the cascading ``cartUpdated`` reload destroys the source element.
           {% endif %}
 
           <div class="flex flex-wrap items-center justify-between gap-2">
-            {# Stepper — Alpine ``set()`` posts absolute qty to cart_set_qty (idempotent). #}
+            {# Stepper — compact set-qty command (absolute, idempotent). #}
             <div class="inline-flex items-center rounded-radius border border-outline dark:border-outline-dark bg-surface-alt dark:bg-surface-dark-alt" role="group" aria-label="Quantidade">
               <button type="button"
                       class="w-9 h-9 flex items-center justify-center text-on-surface dark:text-on-surface-dark hover:bg-surface dark:hover:bg-surface-dark rounded-l-radius disabled:opacity-40 disabled:cursor-not-allowed focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-dark"
@@ -230,7 +190,7 @@ the cascading ``cartUpdated`` reload destroys the source element.
                 </div>
               </div>
             </div>
-            <p class="ml-auto shrink-0 text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums">{{ item.total_display }}</p>
+            <p class="ml-auto shrink-0 text-sm font-semibold text-on-surface-strong dark:text-on-surface-dark-strong tabular-nums" x-text="lineTotalDisplay">{{ item.total_display }}</p>
           </div>
         </div>
       </li>
@@ -301,7 +261,7 @@ the cascading ``cartUpdated`` reload destroys the source element.
     {% endif %}
     <div class="flex justify-between items-baseline pt-3 mt-3 border-t border-outline dark:border-outline-dark">
       <span class="text-lg font-semibold text-on-surface-strong dark:text-on-surface-dark-strong">Total</span>
-      <span class="text-lg font-semibold text-primary dark:text-primary-dark tabular-nums">{{ cart.grand_total_display }}</span>
+      <span class="text-lg font-semibold text-primary dark:text-primary-dark tabular-nums" data-cart-grand-total-display>{{ cart.grand_total_display }}</span>
     </div>
   </div>
 
@@ -328,20 +288,12 @@ the cascading ``cartUpdated`` reload destroys the source element.
               :disabled="busy"
               @click="
                 busy = true;
-                const body = new FormData();
-                body.append('sku', '{{ cart.upsell.sku }}');
-                body.append('qty', '1');
-                fetch('{% url 'storefront:cart_set_qty' %}', {
-                  method: 'POST',
-                  headers: {
-                    'X-CSRFToken': document.querySelector('meta[name=\'csrf-token\']').content,
-                    'HX-Request': 'true',
-                  },
-                  body,
-                }).finally(() => {
-                  busy = false;
-                  htmx.trigger(document.body, 'cartUpdated');
-                });
+                window.ShopmanCart.setQty({
+                  url: '{% url 'storefront:cart_set_qty' %}',
+                  sku: '{{ cart.upsell.sku|escapejs }}',
+                  qty: 1,
+                  refreshProjection: true,
+                }).finally(() => busy = false);
               "
               aria-label="Adicionar {{ cart.upsell.name }}">
         <span class="material-symbols-rounded icon-xs" aria-hidden="true">add</span>
@@ -354,9 +306,9 @@ the cascading ``cartUpdated`` reload destroys the source element.
   {# ── Actions ── #}
   <div class="border-t border-outline dark:border-outline-dark px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] space-y-2 bg-surface dark:bg-surface-dark">
     {% if cart.minimum_order_progress %}
-    <button type="button" class="btn-secondary w-full opacity-70 cursor-not-allowed" disabled>
+    <button type="button" class="btn-secondary w-full opacity-70 cursor-not-allowed" disabled data-cart-minimum>
       <span class="material-symbols-rounded icon-sm" aria-hidden="true">lock</span>
-      Faltam {{ cart.minimum_order_progress.remaining_display }} para o mínimo
+      Faltam <span data-cart-minimum-remaining>{{ cart.minimum_order_progress.remaining_display }}</span> para o mínimo
     </button>
     <a href="{% url 'storefront:menu' %}" class="flex items-center justify-center gap-1.5 w-full py-2 text-sm font-medium text-primary dark:text-primary-dark hover:underline">
       <span class="material-symbols-rounded icon-sm" aria-hidden="true">add_shopping_cart</span>

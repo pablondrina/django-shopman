@@ -15,7 +15,6 @@ locks down the new contract.
 from __future__ import annotations
 
 from unittest.mock import patch
-from urllib.parse import unquote
 
 import pytest
 from django.test import Client
@@ -88,7 +87,7 @@ def test_cart_set_qty_clamps_absurd_qty(db, product):
     assert mock_add.call_args.kwargs["qty"] == 99
 
 
-def test_cart_set_qty_success_exposes_lightweight_summary_headers(db, product):
+def test_cart_set_qty_success_returns_compact_json(db, product):
     from shopman.shop.models import Channel
 
     Channel.objects.get_or_create(ref="web", defaults={"name": "Web", "is_active": True})
@@ -107,9 +106,18 @@ def test_cart_set_qty_success_exposes_lightweight_summary_headers(db, product):
         resp = client.post("/cart/set-qty/", {"sku": product.sku, "qty": "2"})
 
     assert resp.status_code == 200
-    assert resp["X-Cart-Count"] == "2"
-    assert resp["X-Cart-Subtotal-Q"] == "1000"
-    assert unquote(resp["X-Cart-Subtotal-Display"]) == "R$ 10,00"
+    assert resp["Content-Type"].startswith("application/json")
+    payload = resp.json()
+    assert payload["ok"] is True
+    assert payload["line"]["sku"] == product.sku
+    assert payload["line"]["qty"] == 2
+    assert payload["line"]["line_total_q"] == 1000
+    assert payload["line"]["line_total_display"] == "R$ 10,00"
+    assert payload["cart"]["count"] == 2
+    assert payload["cart"]["subtotal_q"] == 1000
+    assert payload["cart"]["subtotal_display"] == "R$ 10,00"
+    assert "X-Cart-Count" not in resp.headers
+    assert "HX-Trigger" not in resp.headers
 
 
 def test_cart_set_qty_can_remove_unpublished_existing_line(db, product):

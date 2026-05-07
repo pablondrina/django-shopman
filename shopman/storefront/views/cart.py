@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-from urllib.parse import quote, urlparse
+from urllib.parse import urlparse
 
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from django.views import View
 from django_ratelimit.decorators import ratelimit
+from shopman.utils.monetary import format_money
 
 from shopman.shop.services.cart import CartUnavailableError
+from shopman.shop.services.storefront_context import minimum_order_progress
+from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
 
 from ..cart import CartService
 from ..intents.cart import interpret_set_qty
@@ -30,13 +33,66 @@ def _rate_limited_cart_response() -> HttpResponse:
     return HttpResponse("", status=429)
 
 
-def _cart_summary_headers(response: HttpResponse, cart: dict) -> None:
-    response["X-Cart-Count"] = str(cart.get("count", 0) or 0)
-    response["X-Cart-Subtotal-Q"] = str(cart.get("subtotal_q", 0) or 0)
-    response["X-Cart-Subtotal-Display"] = quote(
-        str(cart.get("subtotal_display", "")),
-        safe="",
+def _money(value_q: int | None) -> str:
+    return f"R$ {format_money(int(value_q or 0))}"
+
+
+def _cart_command_payload(intent, cart: dict) -> dict:
+    subtotal_q = int(cart.get("subtotal_q", 0) or 0)
+    min_order = minimum_order_progress(
+        subtotal_q,
+        channel_ref=STOREFRONT_CHANNEL_REF,
     )
+    line = _cart_line_payload(intent, cart)
+    return {
+        "ok": True,
+        "action": intent.action,
+        "sku": intent.sku,
+        "line": line,
+        "cart": {
+            "count": int(cart.get("count", 0) or 0),
+            "subtotal_q": subtotal_q,
+            "subtotal_display": str(cart.get("subtotal_display") or _money(subtotal_q)),
+            "grand_total_q": subtotal_q,
+            "grand_total_display": str(cart.get("subtotal_display") or _money(subtotal_q)),
+            "minimum_order_progress": min_order,
+            "checkout_enabled": bool(cart.get("count", 0) and min_order is None),
+        },
+    }
+
+
+def _cart_line_payload(intent, cart: dict) -> dict:
+    line = next(
+        (
+            item
+            for item in cart.get("items") or []
+            if item.get("sku") == intent.sku
+        ),
+        None,
+    )
+    if line is None:
+        return {
+            "sku": intent.sku,
+            "line_id": intent.line_id,
+            "qty": 0,
+            "unit_price_q": 0,
+            "line_total_q": 0,
+            "line_total_display": _money(0),
+            "name": getattr(intent.product, "name", intent.sku),
+        }
+
+    qty = int(line.get("qty", 0) or 0)
+    unit_price_q = int(line.get("unit_price_q", 0) or 0)
+    line_total_q = int(line.get("line_total_q", 0) or 0)
+    return {
+        "sku": str(line.get("sku") or intent.sku),
+        "line_id": line.get("line_id") or intent.line_id,
+        "qty": qty,
+        "unit_price_q": unit_price_q,
+        "line_total_q": line_total_q,
+        "line_total_display": _money(line_total_q),
+        "name": line.get("name") or getattr(intent.product, "name", intent.sku),
+    }
 
 
 def _picker_origin(request: HttpRequest) -> str:
@@ -46,8 +102,8 @@ def _picker_origin(request: HttpRequest) -> str:
     alternative from the PDP redirects to ``/cart/`` so the shopper sees
     the item they actually added; everywhere else stays in place.
 
-    Reads HTMX's ``HX-Current-URL`` (always sent for HTMX requests), with
-    ``Referer`` as fallback.
+    Reads HTMX's ``HX-Current-URL`` when present, with ``Referer`` as fallback
+    for the fetch-based cart command.
     """
     current_url = (
         request.headers.get("HX-Current-URL")
@@ -124,10 +180,9 @@ def _stock_error_response(request: HttpRequest, product, exc: CartUnavailableErr
 class CartPageContentView(View):
     """HTMX: cart page inner content driven by ``CartProjection``.
 
-    Companion to ``CartView`` — the page wraps the partial in a
-    ``#cart-page-content`` div that listens for ``cartUpdated from:body``
-    and refetches this URL, so stepper/delete/coupon/upsell actions
-    refresh the cart in place without a full page reload.
+    Companion to ``CartView``. Fetch-based item commands patch the visible
+    line/summary directly; structural changes such as coupon updates or empty
+    cart transitions still refetch this projection.
     """
 
     def get(self, request: HttpRequest) -> HttpResponse:
@@ -155,9 +210,9 @@ class CartDrawerContentProjView(View):
 
 @method_decorator(ratelimit(key="user_or_ip", rate="120/m", method="POST", block=False), name="dispatch")
 class CartSetQtyBySkuView(View):
-    """HTMX: set absolute qty for a SKU, return cart summary badge.
+    """Set absolute qty for a SKU and return a compact command response.
 
-    Powers the inline stepper on catalog cards: the card knows the SKU
+    Powers the inline stepper on catalog/PDP/cart controls: the client knows the SKU
     (not the Orderman ``line_id``) and pushes an absolute quantity each
     time the user taps ``+`` or ``−``. Resolves the open session line for
     the SKU and dispatches to ``CartService``:
@@ -166,8 +221,9 @@ class CartSetQtyBySkuView(View):
     - qty > 0, line exists → ``update_qty`` (reconciles holds)
     - qty > 0, no line → ``add_item`` (adds with the current listing price)
 
-    Returns the canonical ``cart_summary`` partial + ``HX-Trigger:
-    cartUpdated`` so the header badge and drawer stay in sync.
+    Success returns JSON only. Rich stock errors still return the existing
+    server-rendered modal fragment because they are exceptional and should not
+    duplicate kintsugi UX rules client-side.
     """
 
     def post(self, request: HttpRequest) -> HttpResponse:
@@ -201,11 +257,8 @@ class CartSetQtyBySkuView(View):
         except CartUnavailableError as exc:
             return _stock_error_response(request, intent.product, exc)
 
-        cart = CartService.get_cart_summary(request)
-        response = render(request, "storefront/partials/cart_summary.html", {"cart": cart})
-        _cart_summary_headers(response, cart)
-        response["HX-Trigger"] = "cartUpdated"
-        response["X-Cart-Item-Name"] = quote(intent.product.name, safe="")
+        cart = CartService.get_cart_summary(request, include_items=True)
+        response = JsonResponse(_cart_command_payload(intent, cart))
         return response
 
 

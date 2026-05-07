@@ -60,8 +60,8 @@ Sit outside #cart-page-content so they persist through HTMX cart updates.
 </div>
 {% endif %}
 {% comment %}
-The inner partial re-renders on cartUpdated so steppers, delete, coupon,
-and upsell stay in sync with the projection without page reloads.
+The inner partial re-renders on cartUpdated for structural cart changes. Plain
+item quantity changes patch the current line and summary through ShopmanCart.
 {% endcomment %}
 <div id="cart-page-content"
      hx-get="{% url 'storefront:cart_page_content' %}"
