@@ -69,15 +69,17 @@ de `MANYCHAT_WEBHOOK_SECRET` e de `DOORMAN_ACCESS_LINK_API_KEY`. O primeiro
 autentica chamadas outbound Shopman -> ManyChat; o segundo valida webhooks HMAC
 inbound; o terceiro autentica a criação servidor-servidor de AccessLinks.
 
-Em planos PostgreSQL pequenos, evite conexões ilimitadas, mas não deixe as
-ações curtas de carrinho abrirem uma conexão nova a cada request. O staging usa:
+Em planos PostgreSQL pequenos, priorize estabilidade de conexões até existir
+pool de Postgres. O staging usa:
 
 ```env
-DATABASE_CONN_MAX_AGE=60
+DATABASE_CONN_MAX_AGE=0
 ```
 
-Se o ambiente voltar a mostrar `too many clients already`, a próxima correção
-não é voltar para `0` permanentemente; é usar pool de conexões ou plano maior.
+Não suba `DATABASE_CONN_MAX_AGE` para `60` no Postgres pequeno sem pool: em
+ASGI/Daphne ele pode acumular conexões ociosas e causar `remaining connection
+slots are reserved`. Para recuperar latência sem arriscar 500, use pool de
+conexões ou plano maior antes de aumentar esse valor.
 
 Para exercitar gateways sandbox reais, adicione também:
 

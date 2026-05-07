@@ -70,6 +70,11 @@ Revisão de latência em 2026-05-07: ações de carrinho em staging ficaram
 perceptivelmente lentas com `CONN_MAX_AGE=0`; o blueprint voltou para
 `DATABASE_CONN_MAX_AGE=60` e o storefront deixou de fazer refresh por card de
 estado de SKU no hot path.
+Incidente mobile em 2026-05-07: o `CONN_MAX_AGE=60` voltou a saturar o
+PostgreSQL pequeno da DigitalOcean (`remaining connection slots are reserved`)
+com muitas conexões ociosas. O blueprint retornou para
+`DATABASE_CONN_MAX_AGE=0`; recuperar latência por reuso de conexão agora exige
+pool de Postgres ou plano maior, não apenas aumentar esse env.
 
 **Observabilidade operacional:** logs JSON opcionais por `SHOPMAN_JSON_LOGS`,
 eventos estruturados para reconciliação/webhooks e alertas `webhook_failed` /
