@@ -291,6 +291,40 @@ class TestAvailabilityListingMembership:
         stock_adapter.promise_decision_from_availability.assert_called_once()
         stock_adapter.get_promise_decision.assert_not_called()
 
+    @patch("shopman.shop.services.availability.get_adapter")
+    @patch("shopman.shop.services.availability._sku_in_channel_listing", return_value=True)
+    @patch("shopman.shop.services.availability._expand_if_bundle", return_value=None)
+    @patch("shopman.shop.services.availability.check")
+    def test_reserve_simple_success_uses_hold_as_authoritative_write(
+        self,
+        mock_check,
+        _mock_expand,
+        _mock_listing,
+        mock_get_adapter,
+    ):
+        from shopman.shop.services import availability
+
+        stock_adapter = SimpleNamespace(
+            create_hold=MagicMock(return_value={
+                "success": True,
+                "hold_id": "hold:cart-fast",
+                "error_code": None,
+            }),
+        )
+        mock_get_adapter.return_value = stock_adapter
+
+        result = availability.reserve(
+            "PAO-001",
+            Decimal("1"),
+            session_key="sess-fast",
+            channel_ref="web",
+        )
+
+        assert result["ok"] is True
+        assert result["hold_id"] == "hold:cart-fast"
+        mock_check.assert_not_called()
+        stock_adapter.create_hold.assert_called_once()
+
 
 # ══════════════════════════════════════════════════════════════════════
 # services/stock.py

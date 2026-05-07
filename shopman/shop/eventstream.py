@@ -12,6 +12,12 @@ logger = logging.getLogger(__name__)
 class ShopmanChannelManager(DefaultChannelManager):
     """Restrict sensitive SSE channels while keeping public stock updates."""
 
+    def is_channel_reliable(self, channel):
+        channel = str(channel or "")
+        if channel.startswith("stock-"):
+            return False
+        return super().is_channel_reliable(channel)
+
     def can_read_channel(self, user, channel):
         channel = str(channel or "")
         if channel.startswith("order-"):

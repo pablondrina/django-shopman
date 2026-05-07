@@ -500,7 +500,110 @@ def reserve(
         }
     """
     qty_d = Decimal(str(qty))
+
+    listing_error = _reserve_listing_gate_error(
+        sku,
+        qty_d,
+        channel_ref=channel_ref,
+    )
+    if listing_error is not None:
+        return listing_error
+
+    # Bundles need the existing component-aware path. Simple SKUs can let the
+    # Stockman hold be the authoritative success-path validation; if it fails,
+    # we run the richer read path below to explain the refusal to the customer.
+    components = _expand_if_bundle(sku, qty_d)
+    if components:
+        status = check(sku, qty_d, channel_ref=channel_ref, target_date=target_date)
+        return _reserve_checked_status(
+            sku,
+            qty_d,
+            status,
+            session_key=session_key,
+            channel_ref=channel_ref,
+            target_date=target_date,
+            ttl_minutes=ttl_minutes,
+        )
+
+    adapter = get_adapter("stock")
+    result = adapter.create_hold(
+        sku=sku,
+        qty=qty_d,
+        ttl_minutes=ttl_minutes,
+        reference=session_key,
+        target_date=target_date,
+        channel_ref=channel_ref,
+        **_cart_hold_metadata(sku),
+    )
+    if result.get("success"):
+        return {
+            "ok": True,
+            "hold_id": result["hold_id"],
+            "available_qty": qty_d,
+            "is_paused": False,
+            "error_code": None,
+            "substitutes": [],
+        }
+
     status = check(sku, qty_d, channel_ref=channel_ref, target_date=target_date)
+    return _reserve_checked_status(
+        sku,
+        qty_d,
+        status,
+        session_key=session_key,
+        channel_ref=channel_ref,
+        target_date=target_date,
+        ttl_minutes=ttl_minutes,
+        adapter=adapter,
+        initial_hold_result=result,
+        initial_hold_error_code=result.get("error_code"),
+    )
+
+
+def _reserve_listing_gate_error(
+    sku: str,
+    qty_d: Decimal,
+    *,
+    channel_ref: str | None,
+) -> dict | None:
+    listing_item = _sku_in_channel_listing(sku, channel_ref)
+    if listing_item is False:
+        return {
+            "ok": False,
+            "hold_id": None,
+            "available_qty": Decimal("0"),
+            "is_paused": True,
+            "is_planned": False,
+            "error_code": "not_in_listing",
+            "substitutes": substitutes.find(sku, qty=qty_d, channel=channel_ref),
+        }
+    if isinstance(listing_item, dict) and not listing_item.get("is_sellable", True):
+        return {
+            "ok": False,
+            "hold_id": None,
+            "available_qty": Decimal("0"),
+            "is_paused": True,
+            "is_planned": False,
+            "error_code": "paused",
+            "substitutes": substitutes.find(sku, qty=qty_d, channel=channel_ref),
+        }
+    return None
+
+
+def _reserve_checked_status(
+    sku: str,
+    qty_d: Decimal,
+    status: dict,
+    *,
+    session_key: str,
+    channel_ref: str | None,
+    target_date: date | None,
+    ttl_minutes: int,
+    adapter=None,
+    initial_hold_result: dict | None = None,
+    initial_hold_error_code: str | None = None,
+) -> dict:
+    adapter = adapter or get_adapter("stock")
 
     # SKUs that are not tracked by Stockman: skip the hold (the order will
     # commit without stock reservation, same as the legacy noop path).
@@ -527,8 +630,6 @@ def reserve(
             "substitutes": substitutes.find(sku, qty=qty_d, channel=channel_ref),
         }
 
-    adapter = get_adapter("stock")
-
     # For bundles: create one hold per component (not one hold for the bundle SKU).
     if status.get("is_bundle"):
         components = _expand_if_bundle(sku, qty_d)
@@ -543,7 +644,7 @@ def reserve(
                 adapter=adapter,
             )
 
-    result = adapter.create_hold(
+    result = initial_hold_result or adapter.create_hold(
         sku=sku,
         qty=qty_d,
         ttl_minutes=ttl_minutes,
@@ -563,7 +664,8 @@ def reserve(
         # the caller receives the qty it legitimately has access to. All
         # partial holds share the same session_key reference so CommitService
         # adopts them together.
-        if result.get("error_code") == "INSUFFICIENT_AVAILABLE":
+        error_code = initial_hold_error_code or result.get("error_code")
+        if error_code == "INSUFFICIENT_AVAILABLE":
             partial = _reserve_across_quants(
                 sku=sku, qty=qty_d,
                 ttl_minutes=ttl_minutes,
@@ -589,7 +691,7 @@ def reserve(
 
         logger.info(
             "availability.reserve: hold failed sku=%s qty=%s code=%s",
-            sku, qty_d, result.get("error_code"),
+            sku, qty_d, error_code,
         )
         return {
             "ok": False,
@@ -597,7 +699,7 @@ def reserve(
             "available_qty": status["available_qty"],
             "is_paused": False,
             "is_planned": False,
-            "error_code": result.get("error_code", "hold_failed"),
+            "error_code": error_code or "hold_failed",
             "substitutes": substitutes.find(sku, qty=qty_d, channel=channel_ref),
         }
 

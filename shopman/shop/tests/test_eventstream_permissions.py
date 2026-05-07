@@ -19,6 +19,14 @@ def test_stock_channels_remain_public():
     assert manager.can_read_channel(None, "stock-web") is True
 
 
+def test_stock_channels_are_ephemeral_invalidations():
+    manager = ShopmanChannelManager()
+
+    assert manager.is_channel_reliable("stock-web") is False
+    assert manager.is_channel_reliable("order-ORD-1") is True
+    assert manager.is_channel_reliable("backstage-orders-main") is True
+
+
 def test_backstage_channels_require_staff_user():
     manager = ShopmanChannelManager()
     customer_user = User.objects.create_user(username="customer")
