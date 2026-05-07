@@ -240,14 +240,24 @@ class CartSetQtyBySkuView(View):
             return HttpResponse("", status=404)
 
         intent = result.intent
+        mutated_session = None
         try:
             if intent.action == "remove":
                 if intent.line_id is not None:
-                    CartService.remove_item(request, line_id=intent.line_id)
+                    mutated_session = CartService.remove_item(
+                        request,
+                        line_id=intent.line_id,
+                        sku=intent.sku,
+                    )
             elif intent.action == "update":
-                CartService.update_qty(request, line_id=intent.line_id, qty=intent.qty)
+                mutated_session = CartService.update_qty(
+                    request,
+                    line_id=intent.line_id,
+                    qty=intent.qty,
+                    sku=intent.sku,
+                )
             else:
-                CartService.add_item(
+                mutated_session = CartService.add_item(
                     request,
                     sku=intent.sku,
                     qty=intent.qty,
@@ -257,7 +267,10 @@ class CartSetQtyBySkuView(View):
         except CartUnavailableError as exc:
             return _stock_error_response(request, intent.product, exc)
 
-        cart = CartService.get_cart_summary(request, include_items=True)
+        if mutated_session is not None:
+            cart = CartService.summary_from_session(mutated_session, include_items=True)
+        else:
+            cart = CartService.get_cart_summary(request, include_items=True)
         response = JsonResponse(_cart_command_payload(intent, cart))
         return response
 

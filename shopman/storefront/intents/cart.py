@@ -32,9 +32,8 @@ def interpret_set_qty(sku: str, qty: int, cart: dict) -> CartIntentResult:
         (item for item in cart.get("items") or [] if item.get("sku") == sku),
         None,
     )
-    product_ctx = cart_context.product_context(sku)
-
     if qty == 0 and line is not None:
+        product_ctx = cart_context.product_context(sku, for_add=False)
         product = (
             product_ctx.product
             if product_ctx
@@ -54,6 +53,10 @@ def interpret_set_qty(sku: str, qty: int, cart: dict) -> CartIntentResult:
             error_context={},
         )
 
+    product_ctx = cart_context.product_context(
+        sku,
+        for_add=qty > 0 and line is None,
+    )
     if not product_ctx:
         return CartIntentResult(intent=None, error_type="not_found", error_context={})
 

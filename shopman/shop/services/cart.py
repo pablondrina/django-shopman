@@ -120,19 +120,29 @@ def add_item(
     )
 
 
-def update_qty(*, session_key: str, channel_ref: str, line_id: str, qty: int) -> Session:
+def update_qty(
+    *,
+    session_key: str,
+    channel_ref: str,
+    line_id: str,
+    qty: int,
+    sku: str | None = None,
+) -> Session:
     """Reconcile holds and update a cart line quantity."""
-    line = get_line(session_key=session_key, channel_ref=channel_ref, line_id=line_id)
-    if line is not None:
+    line_sku = sku
+    if line_sku is None:
+        line = get_line(session_key=session_key, channel_ref=channel_ref, line_id=line_id)
+        line_sku = line["sku"] if line is not None else None
+    if line_sku is not None:
         result = availability.reconcile(
-            sku=line["sku"],
+            sku=line_sku,
             new_qty=Decimal(str(qty)),
             session_key=session_key,
             channel_ref=channel_ref,
         )
         if not result["ok"]:
             raise CartUnavailableError(
-                sku=line["sku"],
+                sku=line_sku,
                 requested_qty=qty,
                 available_qty=int(result["available_qty"]),
                 is_paused=result["is_paused"],
@@ -149,12 +159,21 @@ def update_qty(*, session_key: str, channel_ref: str, line_id: str, qty: int) ->
     )
 
 
-def remove_item(*, session_key: str, channel_ref: str, line_id: str) -> Session:
+def remove_item(
+    *,
+    session_key: str,
+    channel_ref: str,
+    line_id: str,
+    sku: str | None = None,
+) -> Session:
     """Reconcile holds and remove a cart line."""
-    line = get_line(session_key=session_key, channel_ref=channel_ref, line_id=line_id)
-    if line is not None:
+    line_sku = sku
+    if line_sku is None:
+        line = get_line(session_key=session_key, channel_ref=channel_ref, line_id=line_id)
+        line_sku = line["sku"] if line is not None else None
+    if line_sku is not None:
         availability.reconcile(
-            sku=line["sku"],
+            sku=line_sku,
             new_qty=Decimal("0"),
             session_key=session_key,
             channel_ref=channel_ref,

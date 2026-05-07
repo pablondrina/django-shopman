@@ -27,6 +27,20 @@ class CartService:
         }
 
     @staticmethod
+    def summary_from_session(session: Session, *, include_items: bool = False) -> dict:
+        """Return the lightweight cart summary from an already-loaded session."""
+        items = [dict(item) for item in (session.items or [])]
+        subtotal_q = sum(item.get("line_total_q", 0) for item in items)
+        count = sum(int(Decimal(str(item.get("qty", 0)))) for item in items)
+        return {
+            "items": items if include_items else [],
+            "subtotal_q": subtotal_q,
+            "subtotal_display": f"R$ {format_money(subtotal_q)}",
+            "count": count,
+            "discount_lines": [],
+        }
+
+    @staticmethod
     def _get_channel() -> Channel:
         return Channel.objects.get(ref=CHANNEL_REF)
 
@@ -81,7 +95,13 @@ class CartService:
         return session
 
     @staticmethod
-    def update_qty(request: HttpRequest, line_id: str, qty: int) -> Session:
+    def update_qty(
+        request: HttpRequest,
+        line_id: str,
+        qty: int,
+        *,
+        sku: str | None = None,
+    ) -> Session:
         """Update quantity of a cart item.
 
         Reconciles holds to the new absolute quantity through the shop cart
@@ -97,10 +117,16 @@ class CartService:
             channel_ref=CHANNEL_REF,
             line_id=line_id,
             qty=qty,
+            sku=sku,
         )
 
     @staticmethod
-    def remove_item(request: HttpRequest, line_id: str) -> Session:
+    def remove_item(
+        request: HttpRequest,
+        line_id: str,
+        *,
+        sku: str | None = None,
+    ) -> Session:
         """Remove item from cart.
 
         Reconciles holds to qty=0 through the shop cart command facade, so the
@@ -114,6 +140,7 @@ class CartService:
             session_key=session_key,
             channel_ref=CHANNEL_REF,
             line_id=line_id,
+            sku=sku,
         )
 
     @staticmethod
@@ -167,16 +194,7 @@ class CartService:
             request.session.pop("cart_session_key", None)
             return CartService._empty_cart(include_items=include_items)
 
-        items = [dict(item) for item in (session.items or [])]
-        subtotal_q = sum(item.get("line_total_q", 0) for item in items)
-        count = sum(int(Decimal(str(item.get("qty", 0)))) for item in items)
-        return {
-            "items": items if include_items else [],
-            "subtotal_q": subtotal_q,
-            "subtotal_display": f"R$ {format_money(subtotal_q)}",
-            "count": count,
-            "discount_lines": [],
-        }
+        return CartService.summary_from_session(session, include_items=include_items)
 
     @staticmethod
     def get_cart(request: HttpRequest) -> dict:
